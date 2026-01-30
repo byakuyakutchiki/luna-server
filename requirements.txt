@@ -1,0 +1,14 @@
+# YAWatch-Luna Development Dependencies
+# pip install -r requirements.txt
+
+# Twilio SMS
+twilio>=9.0.0,<10.0.0
+
+# Redis (Luna memory)
+redis>=5.0.0,<6.0.0
+
+# Async support
+aiohttp>=3.9.0,<4.0.0
+
+# Utils
+python-dateutil>=2.8.0

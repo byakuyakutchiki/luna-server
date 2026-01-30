@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Luna - YAWatch</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #0a0a1a; color: #e0e0e0; height: 100vh; display: flex; flex-direction: column; }
+.header { background: linear-gradient(135deg, #1a1a3e, #2d1b69); padding: 20px; text-align: center; border-bottom: 1px solid #333; }
+.header h1 { font-size: 1.5em; color: #a78bfa; display: inline-flex; align-items: center; gap: 8px; }
+.header p { font-size: 0.85em; color: #888; margin-top: 4px; }
+.status-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; }
+.status-dot.online { background: #4ade80; box-shadow: 0 0 6px #4ade80; }
+.status-dot.offline { background: #f87171; box-shadow: 0 0 6px #f87171; }
+.chat { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 12px; }
+.msg { max-width: 80%; padding: 12px 16px; border-radius: 16px; line-height: 1.5; font-size: 0.95em; animation: fadeIn 0.3s; white-space: pre-wrap; }
+.luna { background: #1e1e3f; align-self: flex-start; border-bottom-left-radius: 4px; }
+.luna::before { content: "Luna"; display: block; font-size: 0.75em; color: #a78bfa; margin-bottom: 4px; font-weight: 600; }
+.user { background: #4c1d95; align-self: flex-end; border-bottom-right-radius: 4px; }
+.msg-time { display: block; font-size: 0.7em; color: #666; margin-top: 4px; }
+.user .msg-time { text-align: right; }
+.luna .msg-time { text-align: left; }
+.typing { background: #1e1e3f; align-self: flex-start; padding: 12px 20px; border-radius: 16px; border-bottom-left-radius: 4px; }
+.typing::before { content: "Luna"; display: block; font-size: 0.75em; color: #a78bfa; margin-bottom: 4px; font-weight: 600; }
+.typing-dots span { display: inline-block; width: 8px; height: 8px; background: #a78bfa; border-radius: 50%; margin: 0 2px; animation: bounce 1.4s infinite ease-in-out; }
+.typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+.typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+@keyframes bounce { 0%,80%,100% { transform: translateY(0); } 40% { transform: translateY(-8px); } }
+.error-msg { border: 1px solid rgba(248,113,113,0.3); }
+.retry-btn { margin-left: 10px; padding: 4px 12px; border-radius: 12px; border: 1px solid #7c3aed; background: transparent; color: #a78bfa; cursor: pointer; font-size: 0.85em; }
+.retry-btn:hover { background: #7c3aed; color: white; }
+.input-area { padding: 16px; background: #111; border-top: 1px solid #333; display: flex; gap: 10px; align-items: center; position: relative; }
+.input-area input { flex: 1; padding: 12px 16px; border-radius: 24px; border: 1px solid #333; background: #1a1a2e; color: #fff; font-size: 1em; outline: none; }
+.input-area input:focus { border-color: #7c3aed; }
+.char-counter { font-size: 0.7em; color: #555; position: absolute; right: 290px; bottom: 4px; }
+.char-counter.near-limit { color: #f59e0b; }
+.char-counter.at-limit { color: #f87171; }
+.send-btn { padding: 12px 24px; border-radius: 24px; border: none; background: #7c3aed; color: white; font-size: 1em; cursor: pointer; }
+.send-btn:hover { background: #6d28d9; }
+.send-btn:disabled { background: #444; cursor: not-allowed; }
+.call-btn { padding: 12px 20px; border-radius: 24px; border: none; background: #16a34a; color: white; font-size: 1em; cursor: pointer; display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+.call-btn:hover { background: #15803d; }
+.call-btn:disabled { background: #444; cursor: not-allowed; }
+.call-btn svg { width: 20px; height: 20px; flex-shrink: 0; }
+.video-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 100; display: none; flex-direction: column; align-items: center; justify-content: center; }
+.video-overlay.active { display: flex; }
+.video-overlay iframe { width: 90vw; height: 80vh; border: none; border-radius: 16px; }
+.close-btn { position: absolute; top: 16px; right: 24px; background: #dc2626; color: white; border: none; padding: 10px 20px; border-radius: 12px; font-size: 1em; cursor: pointer; z-index: 101; }
+.close-btn:hover { background: #b91c1c; }
+.invite-btn { position: absolute; top: 16px; left: 24px; background: #2563eb; color: white; border: none; padding: 10px 20px; border-radius: 12px; font-size: 1em; cursor: pointer; z-index: 101; }
+.invite-btn:hover { background: #1d4ed8; }
+.invite-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 200; display: none; align-items: center; justify-content: center; }
+.invite-modal.active { display: flex; }
+.invite-box { background: #1a1a3e; padding: 30px; border-radius: 16px; width: 90%; max-width: 400px; display: flex; flex-direction: column; gap: 14px; }
+.invite-box h3 { color: #a78bfa; font-size: 1.1em; }
+.invite-box input { padding: 12px 16px; border-radius: 12px; border: 1px solid #333; background: #0a0a1a; color: #fff; font-size: 1em; outline: none; }
+.invite-box input:focus { border-color: #7c3aed; }
+.invite-actions { display: flex; gap: 10px; }
+.invite-actions button { flex: 1; padding: 12px; border-radius: 12px; border: none; font-size: 1em; cursor: pointer; }
+.invite-actions button:first-child { background: #16a34a; color: white; }
+.invite-actions button:first-child:hover { background: #15803d; }
+.invite-actions button.cancel { background: #333; color: #aaa; }
+.invite-actions button.cancel:hover { background: #444; }
+.invite-status { font-size: 0.85em; color: #888; min-height: 1.2em; }
+@keyframes fadeIn { from { opacity:0; transform: translateY(8px); } to { opacity:1; transform: translateY(0); } }
+
+/* Mobile responsive */
+@media (max-width: 600px) {
+  .msg { max-width: 92%; font-size: 0.9em; padding: 10px 14px; }
+  .input-area { padding: 10px; gap: 6px; }
+  .input-area input { padding: 10px 14px; font-size: 0.95em; }
+  .send-btn { padding: 10px 16px; font-size: 0.9em; }
+  .call-btn { padding: 10px 14px; font-size: 0.85em; }
+  .call-btn svg { width: 16px; height: 16px; }
+  .header { padding: 14px; }
+  .header h1 { font-size: 1.2em; }
+  .video-overlay iframe { width: 100vw; height: 85vh; border-radius: 0; }
+  .char-counter { display: none; }
+}
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>Luna <span class="status-dot online" id="statusDot"></span></h1>
+  <p>YAWatch-Luna &mdash; Serveur Ludo (Proprio)</p>
+</div>
+<div class="chat" id="chat"></div>
+<div class="input-area">
+  <input type="text" id="input" placeholder="Message pour Luna..." autocomplete="off" maxlength="2000">
+  <span class="char-counter" id="charCounter"></span>
+  <button class="send-btn" id="send">Envoyer</button>
+  <button class="call-btn" id="callBtn">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M15.05 5A5 5 0 0 1 19 8.95M15.05 1A9 9 0 0 1 23 8.94M22 16.92v3a2 2 0 0 1-2.18 2A19.79 19.79 0 0 1 3.07 5.18 2 2 0 0 1 5.11 3h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 11.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 18.92z"/>
+    </svg>
+    Appeler Luna
+  </button>
+</div>
+
+<div class="video-overlay" id="videoOverlay">
+  <button class="close-btn" id="hangupBtn">Raccrocher</button>
+  <button class="invite-btn" id="inviteBtn">+ Inviter un contact</button>
+  <iframe id="videoFrame" allow="camera;microphone;autoplay"></iframe>
+</div>
+
+<div class="invite-modal" id="inviteModal">
+  <div class="invite-box">
+    <h3>Inviter un contact de confiance</h3>
+    <input type="text" id="inviteName" placeholder="Nom (ex: Marie)">
+    <input type="tel" id="invitePhone" placeholder="Telephone (ex: 0612345678)">
+    <div class="invite-actions">
+      <button id="inviteSendBtn">Envoyer le SMS</button>
+      <button id="inviteCancelBtn" class="cancel">Annuler</button>
+    </div>
+    <p class="invite-status" id="inviteStatus"></p>
+  </div>
+</div>
+
+<script>
+var chat = document.getElementById("chat");
+var inputEl = document.getElementById("input");
+var sendBtn = document.getElementById("send");
+var callBtn = document.getElementById("callBtn");
+var videoOverlay = document.getElementById("videoOverlay");
+var videoFrame = document.getElementById("videoFrame");
+var hangupBtn = document.getElementById("hangupBtn");
+var statusDot = document.getElementById("statusDot");
+var charCounter = document.getElementById("charCounter");
+
+// --- localStorage persistence ---
+var STORAGE_KEY = "luna_chat_history";
+var MAX_STORED = 100;
+
+function saveHistory() {
+  var msgs = [];
+  var elements = chat.querySelectorAll(".msg");
+  elements.forEach(function(el) {
+    var textEl = el.querySelector(".msg-text");
+    var timeEl = el.querySelector(".msg-time");
+    if (textEl) {
+      msgs.push({
+        text: textEl.textContent,
+        cls: el.classList.contains("user") ? "user" : "luna",
+        ts: timeEl ? timeEl.textContent : ""
+      });
+    }
+  });
+  if (msgs.length > MAX_STORED) msgs = msgs.slice(-MAX_STORED);
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(msgs)); } catch(e) {}
+}
+
+function loadHistory() {
+  try {
+    var data = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+    if (data.length === 0) return false;
+    data.forEach(function(m) { addMsg(m.text, m.cls, m.ts, true); });
+    return true;
+  } catch(e) {
+    localStorage.removeItem(STORAGE_KEY);
+    return false;
+  }
+}
+
+// --- Smooth scroll ---
+function scrollToBottom() {
+  chat.scrollTo({ top: chat.scrollHeight, behavior: "smooth" });
+}
+
+// --- Notification sound (Web Audio API, no file needed) ---
+var playNotif = function() {};
+try {
+  var audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  playNotif = function() {
+    try {
+      var osc = audioCtx.createOscillator();
+      var gain = audioCtx.createGain();
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.frequency.value = 520;
+      gain.gain.value = 0.08;
+      osc.start();
+      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);
+      osc.stop(audioCtx.currentTime + 0.3);
+    } catch(e) {}
+  };
+} catch(e) {}
+
+// --- Message functions ---
+function formatTime(ts) {
+  if (ts) return ts;
+  return new Date().toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+}
+
+function addMsg(text, cls, ts, skipSave) {
+  var d = document.createElement("div");
+  d.className = "msg " + cls;
+
+  var textSpan = document.createElement("span");
+  textSpan.className = "msg-text";
+  textSpan.textContent = text;
+  d.appendChild(textSpan);
+
+  var timeSpan = document.createElement("span");
+  timeSpan.className = "msg-time";
+  timeSpan.textContent = formatTime(ts);
+  d.appendChild(timeSpan);
+
+  chat.appendChild(d);
+  scrollToBottom();
+
+  if (!skipSave) saveHistory();
+}
+
+// --- Typing indicator ---
+function showTyping() {
+  var d = document.createElement("div");
+  d.className = "typing";
+  d.id = "typingIndicator";
+  d.innerHTML = '<div class="typing-dots"><span></span><span></span><span></span></div>';
+  chat.appendChild(d);
+  scrollToBottom();
+}
+
+function hideTyping() {
+  var el = document.getElementById("typingIndicator");
+  if (el) el.remove();
+}
+
+// --- Online/offline detection ---
+function updateOnlineStatus() {
+  if (navigator.onLine) {
+    statusDot.className = "status-dot online";
+    statusDot.title = "Connecte";
+  } else {
+    statusDot.className = "status-dot offline";
+    statusDot.title = "Hors ligne";
+  }
+}
+
+window.addEventListener("online", function() {
+  updateOnlineStatus();
+  addMsg("Connexion retablie.", "luna");
+});
+window.addEventListener("offline", function() {
+  updateOnlineStatus();
+  addMsg("Connexion perdue. Tes messages seront envoyes au retour.", "luna");
+});
+updateOnlineStatus();
+
+// --- Character counter ---
+inputEl.addEventListener("input", function() {
+  var len = inputEl.value.length;
+  if (len > 0) {
+    charCounter.textContent = len + "/2000";
+    charCounter.className = "char-counter" + (len > 1800 ? " at-limit" : len > 1500 ? " near-limit" : "");
+  } else {
+    charCounter.textContent = "";
+  }
+});
+
+// --- Chat send ---
+var lastFailedMsg = "";
+
+function sendMsg(overrideMsg) {
+  var msg = overrideMsg || inputEl.value.trim();
+  if (!msg) return;
+  if (!overrideMsg) {
+    addMsg(msg, "user");
+    inputEl.value = "";
+    charCounter.textContent = "";
+  }
+  sendBtn.disabled = true;
+  showTyping();
+
+  fetch("/api/chat", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({message: msg})
+  })
+  .then(function(r) {
+    if (r.status === 422) throw new Error("Message invalide (trop long ?)");
+    if (r.status === 429) throw new Error("Trop de messages. Attends un peu.");
+    if (!r.ok) throw new Error("Erreur serveur (" + r.status + ")");
+    return r.json();
+  })
+  .then(function(data) {
+    hideTyping();
+    addMsg(data.response, "luna");
+    if (document.hidden) playNotif();
+  })
+  .catch(function(e) {
+    hideTyping();
+    lastFailedMsg = msg;
+    var errDiv = document.createElement("div");
+    errDiv.className = "msg luna error-msg";
+
+    var textSpan = document.createElement("span");
+    textSpan.className = "msg-text";
+    textSpan.textContent = "Erreur : " + (e.message || "connexion perdue");
+    errDiv.appendChild(textSpan);
+
+    var retryBtn = document.createElement("button");
+    retryBtn.className = "retry-btn";
+    retryBtn.textContent = "Reessayer";
+    retryBtn.addEventListener("click", function() {
+      errDiv.remove();
+      sendMsg(lastFailedMsg);
+    });
+    errDiv.appendChild(retryBtn);
+
+    var timeSpan = document.createElement("span");
+    timeSpan.className = "msg-time";
+    timeSpan.textContent = formatTime();
+    errDiv.appendChild(timeSpan);
+
+    chat.appendChild(errDiv);
+    scrollToBottom();
+  })
+  .finally(function() {
+    sendBtn.disabled = false;
+    inputEl.focus();
+  });
+}
+
+sendBtn.addEventListener("click", function() { sendMsg(); });
+inputEl.addEventListener("keydown", function(e) { if (e.key === "Enter") sendMsg(); });
+
+// --- Video call ---
+function startCall() {
+  callBtn.disabled = true;
+  callBtn.textContent = "Connexion...";
+  fetch("/api/call", { method: "POST" })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    if (data.error) {
+      addMsg("Erreur appel: " + data.error, "luna");
+      return;
+    }
+    currentConvId = data.conversation_id;
+    videoFrame.src = data.conversation_url;
+    videoOverlay.classList.add("active");
+    addMsg("Appel video avec Luna en cours...", "luna");
+  })
+  .catch(function() { addMsg("Erreur de connexion pour appel.", "luna"); })
+  .finally(function() {
+    callBtn.disabled = false;
+    callBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15.05 5A5 5 0 0 1 19 8.95M15.05 1A9 9 0 0 1 23 8.94M22 16.92v3a2 2 0 0 1-2.18 2A19.79 19.79 0 0 1 3.07 5.18 2 2 0 0 1 5.11 3h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 11.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 18.92z"/></svg> Appeler Luna';
+  });
+}
+
+callBtn.addEventListener("click", startCall);
+
+function endCall() {
+  videoFrame.src = "";
+  videoOverlay.classList.remove("active");
+  inviteModal.classList.remove("active");
+  currentConvId = "";
+  addMsg("Appel termine.", "luna");
+}
+
+hangupBtn.addEventListener("click", endCall);
+
+// --- Invitation contact dans la visio ---
+var currentConvId = "";
+var inviteBtn = document.getElementById("inviteBtn");
+var inviteModal = document.getElementById("inviteModal");
+var inviteName = document.getElementById("inviteName");
+var invitePhone = document.getElementById("invitePhone");
+var inviteSendBtn = document.getElementById("inviteSendBtn");
+var inviteCancelBtn = document.getElementById("inviteCancelBtn");
+var inviteStatus = document.getElementById("inviteStatus");
+
+inviteBtn.addEventListener("click", function() {
+  inviteModal.classList.add("active");
+  inviteName.value = "";
+  invitePhone.value = "";
+  inviteStatus.textContent = "";
+  inviteName.focus();
+});
+
+inviteCancelBtn.addEventListener("click", function() {
+  inviteModal.classList.remove("active");
+});
+
+inviteSendBtn.addEventListener("click", function() {
+  var name = inviteName.value.trim();
+  var phone = invitePhone.value.trim();
+  if (!name || !phone) {
+    inviteStatus.textContent = "Remplis le nom et le telephone.";
+    inviteStatus.style.color = "#f87171";
+    return;
+  }
+  if (!currentConvId) {
+    inviteStatus.textContent = "Aucun appel en cours.";
+    inviteStatus.style.color = "#f87171";
+    return;
+  }
+  inviteSendBtn.disabled = true;
+  inviteStatus.textContent = "Envoi du SMS...";
+  inviteStatus.style.color = "#888";
+
+  fetch("/api/invite-contact", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({conversation_id: currentConvId, contact_name: name, contact_phone: phone})
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    if (data.error) {
+      inviteStatus.textContent = "Erreur: " + data.error;
+      inviteStatus.style.color = "#f87171";
+    } else {
+      inviteStatus.textContent = "SMS envoye a " + name + " !";
+      inviteStatus.style.color = "#4ade80";
+      addMsg("Invitation visio envoyee a " + name + " par SMS.", "luna");
+    }
+  })
+  .catch(function() {
+    inviteStatus.textContent = "Erreur de connexion.";
+    inviteStatus.style.color = "#f87171";
+  })
+  .finally(function() { inviteSendBtn.disabled = false; });
+});
+
+// --- Init: load history or fetch greeting ---
+var hadHistory = loadHistory();
+if (!hadHistory) {
+  fetch("/api/greeting")
+  .then(function(r) { return r.json(); })
+  .then(function(data) { addMsg(data.response, "luna"); })
+  .catch(function() { addMsg("Luna est temporairement injoignable. Verifie que le serveur tourne.", "luna"); });
+}
+</script>
+</body>
+</html>
