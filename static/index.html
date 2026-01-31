@@ -7,12 +7,22 @@
 <style>
 * { margin:0; padding:0; box-sizing:border-box; }
 body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #0a0a1a; color: #e0e0e0; height: 100vh; display: flex; flex-direction: column; }
-.header { background: linear-gradient(135deg, #1a1a3e, #2d1b69); padding: 20px; text-align: center; border-bottom: 1px solid #333; }
-.header h1 { font-size: 1.5em; color: #a78bfa; display: inline-flex; align-items: center; gap: 8px; }
-.header p { font-size: 0.85em; color: #888; margin-top: 4px; }
+.header { background: linear-gradient(135deg, #1a1a3e, #2d1b69); padding: 16px 20px; text-align: center; border-bottom: 1px solid #333; }
+.header h1 { font-size: 1.4em; color: #a78bfa; display: inline-flex; align-items: center; gap: 8px; }
+.header p { font-size: 0.8em; color: #888; margin-top: 2px; }
 .status-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; }
 .status-dot.online { background: #4ade80; box-shadow: 0 0 6px #4ade80; }
 .status-dot.offline { background: #f87171; box-shadow: 0 0 6px #f87171; }
+
+/* Tabs */
+.tabs { display: flex; background: #111; border-bottom: 1px solid #333; overflow-x: auto; }
+.tab-btn { padding: 10px 16px; background: transparent; border: none; color: #888; font-size: 0.85em; cursor: pointer; white-space: nowrap; border-bottom: 2px solid transparent; transition: all 0.2s; }
+.tab-btn:hover { color: #a78bfa; }
+.tab-btn.active { color: #a78bfa; border-bottom-color: #7c3aed; }
+.tab-panel { display: none; flex: 1; overflow-y: auto; flex-direction: column; }
+.tab-panel.active { display: flex; }
+
+/* Chat */
 .chat { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 12px; }
 .msg { max-width: 80%; padding: 12px 16px; border-radius: 16px; line-height: 1.5; font-size: 0.95em; animation: fadeIn 0.3s; white-space: pre-wrap; }
 .luna { background: #1e1e3f; align-self: flex-start; border-bottom-left-radius: 4px; }
@@ -43,6 +53,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; b
 .call-btn:hover { background: #15803d; }
 .call-btn:disabled { background: #444; cursor: not-allowed; }
 .call-btn svg { width: 20px; height: 20px; flex-shrink: 0; }
+
+/* Overlay video */
 .video-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 100; display: none; flex-direction: column; align-items: center; justify-content: center; }
 .video-overlay.active { display: flex; }
 .video-overlay iframe { width: 90vw; height: 80vh; border: none; border-radius: 16px; }
@@ -63,9 +75,58 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; b
 .invite-actions button.cancel { background: #333; color: #aaa; }
 .invite-actions button.cancel:hover { background: #444; }
 .invite-status { font-size: 0.85em; color: #888; min-height: 1.2em; }
+
+/* Panel content */
+.panel-content { padding: 20px; max-width: 700px; margin: 0 auto; width: 100%; }
+.panel-content h2 { color: #a78bfa; margin-bottom: 16px; font-size: 1.2em; }
+.panel-content h3 { color: #c4b5fd; margin: 16px 0 8px; font-size: 1em; }
+
+/* Forms */
+.form-group { margin-bottom: 12px; }
+.form-group label { display: block; font-size: 0.8em; color: #888; margin-bottom: 4px; }
+.form-group input, .form-group select, .form-group textarea {
+  width: 100%; padding: 10px 14px; border-radius: 10px; border: 1px solid #333;
+  background: #1a1a2e; color: #fff; font-size: 0.9em; outline: none; font-family: inherit;
+}
+.form-group input:focus, .form-group select:focus, .form-group textarea:focus { border-color: #7c3aed; }
+.form-group textarea { resize: vertical; min-height: 60px; }
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.form-row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+.btn { padding: 10px 20px; border-radius: 12px; border: none; cursor: pointer; font-size: 0.9em; }
+.btn-primary { background: #7c3aed; color: white; }
+.btn-primary:hover { background: #6d28d9; }
+.btn-danger { background: #dc2626; color: white; }
+.btn-danger:hover { background: #b91c1c; }
+.btn-sm { padding: 6px 14px; font-size: 0.8em; }
+.btn:disabled { background: #444; cursor: not-allowed; }
+.form-status { margin-top: 10px; font-size: 0.85em; min-height: 1.2em; }
+.form-status.success { color: #4ade80; }
+.form-status.error { color: #f87171; }
+
+/* Cards */
+.card { background: #1e1e3f; border-radius: 12px; padding: 16px; margin-bottom: 12px; }
+.card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.card-title { font-weight: 600; color: #e0e0e0; }
+.card-subtitle { font-size: 0.8em; color: #888; }
+.card-body { font-size: 0.9em; color: #bbb; }
+.badge { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 0.75em; }
+.badge-green { background: #16a34a33; color: #4ade80; }
+.badge-blue { background: #2563eb33; color: #60a5fa; }
+.badge-yellow { background: #ca8a0433; color: #fbbf24; }
+.badge-red { background: #dc262633; color: #f87171; }
+.empty-state { text-align: center; padding: 40px; color: #666; font-size: 0.9em; }
+
+/* Quota bars */
+.quota-bar { margin-bottom: 14px; }
+.quota-label { display: flex; justify-content: space-between; font-size: 0.85em; margin-bottom: 4px; }
+.quota-track { height: 8px; background: #1a1a2e; border-radius: 4px; overflow: hidden; }
+.quota-fill { height: 100%; border-radius: 4px; transition: width 0.5s; }
+.quota-fill.ok { background: #4ade80; }
+.quota-fill.warn { background: #fbbf24; }
+.quota-fill.danger { background: #f87171; }
+
 @keyframes fadeIn { from { opacity:0; transform: translateY(8px); } to { opacity:1; transform: translateY(0); } }
 
-/* Mobile responsive */
 @media (max-width: 600px) {
   .msg { max-width: 92%; font-size: 0.9em; padding: 10px 14px; }
   .input-area { padding: 10px; gap: 6px; }
@@ -73,10 +134,12 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; b
   .send-btn { padding: 10px 16px; font-size: 0.9em; }
   .call-btn { padding: 10px 14px; font-size: 0.85em; }
   .call-btn svg { width: 16px; height: 16px; }
-  .header { padding: 14px; }
+  .header { padding: 12px; }
   .header h1 { font-size: 1.2em; }
   .video-overlay iframe { width: 100vw; height: 85vh; border-radius: 0; }
   .char-counter { display: none; }
+  .form-row, .form-row-3 { grid-template-columns: 1fr; }
+  .tab-btn { padding: 8px 12px; font-size: 0.8em; }
 }
 </style>
 </head>
@@ -85,19 +148,270 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; b
   <h1>Luna <span class="status-dot online" id="statusDot"></span></h1>
   <p>YAWatch-Luna &mdash; Serveur Ludo (Proprio)</p>
 </div>
-<div class="chat" id="chat"></div>
-<div class="input-area">
-  <input type="text" id="input" placeholder="Message pour Luna..." autocomplete="off" maxlength="2000">
-  <span class="char-counter" id="charCounter"></span>
-  <button class="send-btn" id="send">Envoyer</button>
-  <button class="call-btn" id="callBtn">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <path d="M15.05 5A5 5 0 0 1 19 8.95M15.05 1A9 9 0 0 1 23 8.94M22 16.92v3a2 2 0 0 1-2.18 2A19.79 19.79 0 0 1 3.07 5.18 2 2 0 0 1 5.11 3h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 11.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 18.92z"/>
-    </svg>
-    Appeler Luna
-  </button>
+
+<!-- Tabs -->
+<div class="tabs">
+  <button class="tab-btn active" data-tab="chat">Chat</button>
+  <button class="tab-btn" data-tab="profile">Profil</button>
+  <button class="tab-btn" data-tab="contacts">Contacts</button>
+  <button class="tab-btn" data-tab="instructions">Instructions</button>
+  <button class="tab-btn" data-tab="documents">Documents</button>
+  <button class="tab-btn" data-tab="perception">Perception</button>
+  <button class="tab-btn" data-tab="quotas">Quotas</button>
 </div>
 
+<!-- Chat Tab -->
+<div class="tab-panel active" id="tab-chat">
+  <div class="chat" id="chat"></div>
+  <div class="input-area">
+    <input type="text" id="input" placeholder="Message pour Luna..." autocomplete="off" maxlength="2000">
+    <span class="char-counter" id="charCounter"></span>
+    <button class="send-btn" id="send">Envoyer</button>
+    <button class="call-btn" id="callBtn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M15.05 5A5 5 0 0 1 19 8.95M15.05 1A9 9 0 0 1 23 8.94M22 16.92v3a2 2 0 0 1-2.18 2A19.79 19.79 0 0 1 3.07 5.18 2 2 0 0 1 5.11 3h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 11.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 18.92z"/>
+      </svg>
+      Appeler Luna
+    </button>
+  </div>
+</div>
+
+<!-- Profile Tab -->
+<div class="tab-panel" id="tab-profile">
+  <div class="panel-content">
+    <h2>Profil souscripteur</h2>
+
+    <h3>Identite</h3>
+    <div class="form-row">
+      <div class="form-group"><label>Prenom</label><input type="text" id="pf-first_name"></div>
+      <div class="form-group"><label>Nom</label><input type="text" id="pf-last_name"></div>
+    </div>
+    <div class="form-row-3">
+      <div class="form-group"><label>Date de naissance</label><input type="date" id="pf-date_of_birth"></div>
+      <div class="form-group"><label>Telephone</label><input type="tel" id="pf-phone"></div>
+      <div class="form-group"><label>Email</label><input type="email" id="pf-email"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Adresse</label><input type="text" id="pf-address"></div>
+      <div class="form-group"><label>Ville</label><input type="text" id="pf-city"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Departement</label><input type="text" id="pf-department"></div>
+      <div class="form-group">
+        <label>Tutoiement</label>
+        <select id="pf-tutoiement"><option value="true">Oui (tu)</option><option value="false">Non (vous)</option></select>
+      </div>
+    </div>
+
+    <h3>Situation personnelle</h3>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Situation familiale</label>
+        <select id="pf-family_status"><option value="">--</option><option value="celibataire">Celibataire</option><option value="marie">Marie(e)</option><option value="divorce">Divorce(e)</option><option value="veuf">Veuf/Veuve</option></select>
+      </div>
+      <div class="form-group"><label>Enfants</label><input type="text" id="pf-children" placeholder="Marie (28 ans, fille)"></div>
+    </div>
+    <div class="form-row-3">
+      <div class="form-group">
+        <label>Autonomie</label>
+        <select id="pf-autonomy"><option value="autonome">Autonome</option><option value="aide_ponctuelle">Aide ponctuelle</option><option value="aide_quotidienne">Aide quotidienne</option></select>
+      </div>
+      <div class="form-group">
+        <label>Mobilite</label>
+        <select id="pf-mobility"><option value="autonome">Autonome</option><option value="canne">Canne</option><option value="fauteuil">Fauteuil</option><option value="ne_sort_plus">Ne sort plus</option></select>
+      </div>
+      <div class="form-group"><label>Animaux</label><input type="text" id="pf-pets"></div>
+    </div>
+
+    <h3>Professionnel</h3>
+    <div class="form-row-3">
+      <div class="form-group">
+        <label>Statut</label>
+        <select id="pf-professional_status"><option value="">--</option><option value="actif">Actif</option><option value="retraite">Retraite</option><option value="recherche">En recherche</option><option value="auto_entrepreneur">Auto-entrepreneur</option><option value="invalidite">Invalidite</option></select>
+      </div>
+      <div class="form-group"><label>Metier</label><input type="text" id="pf-job_title"></div>
+      <div class="form-group"><label>SIRET</label><input type="text" id="pf-siret"></div>
+    </div>
+
+    <h3>Sante</h3>
+    <div class="form-row">
+      <div class="form-group"><label>Medecin traitant</label><input type="text" id="pf-doctor_name"></div>
+      <div class="form-group"><label>Tel medecin</label><input type="tel" id="pf-doctor_phone"></div>
+    </div>
+    <div class="form-group"><label>Pharmacie</label><input type="text" id="pf-pharmacy"></div>
+    <div class="form-group"><label>Allergies</label><input type="text" id="pf-allergies"></div>
+    <div class="form-group"><label>Traitements en cours</label><textarea id="pf-treatments" placeholder="Doliprane 1000 (8h, 20h), Metformine (midi)"></textarea></div>
+    <div class="form-group"><label>Pathologies</label><input type="text" id="pf-conditions" placeholder="diabete, hypertension..."></div>
+    <div class="form-row">
+      <div class="form-group"><label>Mutuelle</label><input type="text" id="pf-mutual_name"></div>
+      <div class="form-group"><label>N. adherent</label><input type="text" id="pf-mutual_number"></div>
+    </div>
+    <div class="form-group"><label>Carte vitale</label><input type="text" id="pf-carte_vitale"></div>
+
+    <h3>Logement</h3>
+    <div class="form-row-3">
+      <div class="form-group">
+        <label>Type</label>
+        <select id="pf-housing_type"><option value="">--</option><option value="appartement">Appartement</option><option value="maison">Maison</option><option value="ehpad">EHPAD</option><option value="residence_senior">Residence senior</option></select>
+      </div>
+      <div class="form-group">
+        <label>Statut</label>
+        <select id="pf-housing_status"><option value="">--</option><option value="proprietaire">Proprietaire</option><option value="locataire">Locataire</option></select>
+      </div>
+      <div class="form-group"><label>Etage</label><input type="text" id="pf-floor" placeholder="3eme, avec ascenseur"></div>
+    </div>
+
+    <h3>Preferences Luna</h3>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Ton souhaite</label>
+        <select id="pf-tone"><option value="chaleureux">Chaleureux</option><option value="formel">Formel</option><option value="direct">Direct</option><option value="humour">Humour</option></select>
+      </div>
+      <div class="form-group"><label>Presentation aux tiers</label><input type="text" id="pf-presentation" placeholder="l'assistante de Ludo"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Heure lever</label><input type="time" id="pf-wake_time" value="08:00"></div>
+      <div class="form-group"><label>Heure coucher</label><input type="time" id="pf-sleep_time" value="22:00"></div>
+    </div>
+    <div class="form-group"><label>Centres d'interet</label><input type="text" id="pf-interests" placeholder="jardinage, lecture, cinema..."></div>
+    <div class="form-group"><label>Habitudes</label><input type="text" id="pf-habits" placeholder="cafe le matin, promenade a 14h"></div>
+    <div class="form-group"><label>Sujets sensibles a eviter</label><input type="text" id="pf-sensitive_topics"></div>
+
+    <h3>Instructions permanentes</h3>
+    <div class="form-group"><label>Regles toujours actives</label><textarea id="pf-permanent_rules" placeholder="ne parle jamais de..., rappelle-moi toujours de..."></textarea></div>
+    <div class="form-group"><label>Personnes blacklistees</label><input type="text" id="pf-blacklist"></div>
+    <div class="form-group"><label>Priorites</label><input type="text" id="pf-priorities" placeholder="ma fille passe toujours en premier"></div>
+    <div class="form-group"><label>Budget max delegue</label><input type="text" id="pf-max_budget" placeholder="200 euros"></div>
+
+    <div style="margin-top: 16px; display: flex; gap: 10px;">
+      <button class="btn btn-primary" id="profileSaveBtn">Sauvegarder le profil</button>
+    </div>
+    <p class="form-status" id="profileStatus"></p>
+  </div>
+</div>
+
+<!-- Contacts Tab -->
+<div class="tab-panel" id="tab-contacts">
+  <div class="panel-content">
+    <h2>Contacts de confiance</h2>
+    <div id="contactsList"></div>
+    <h3>Ajouter un contact</h3>
+    <div class="form-row">
+      <div class="form-group"><label>Nom</label><input type="text" id="ct-name" placeholder="Marie"></div>
+      <div class="form-group"><label>Telephone</label><input type="tel" id="ct-phone" placeholder="+33612345678"></div>
+    </div>
+    <div class="form-row-3">
+      <div class="form-group"><label>Relation</label><input type="text" id="ct-relation" placeholder="fille, voisin..."></div>
+      <div class="form-group">
+        <label>Canal prefere</label>
+        <select id="ct-channel"><option value="sms">SMS</option><option value="call">Appel</option><option value="visio">Visio</option></select>
+      </div>
+      <div class="form-group">
+        <label>Urgence seulement</label>
+        <select id="ct-emergency"><option value="false">Non</option><option value="true">Oui</option></select>
+      </div>
+    </div>
+    <button class="btn btn-primary" id="contactAddBtn">Ajouter</button>
+    <p class="form-status" id="contactStatus"></p>
+  </div>
+</div>
+
+<!-- Instructions Tab -->
+<div class="tab-panel" id="tab-instructions">
+  <div class="panel-content">
+    <h2>Instructions</h2>
+    <div id="instructionsList"></div>
+    <h3>Nouvelle instruction (texte naturel)</h3>
+    <div class="form-group"><textarea id="instr-text" placeholder="Rappelle-moi de prendre mes cachets tous les jours a 8h&#10;Envoie un SMS a Marie tous les dimanches a 10h&#10;Si je ne reponds pas pendant 24h, alerte mes contacts" rows="3"></textarea></div>
+    <button class="btn btn-primary" id="instrAddBtn">Creer l'instruction</button>
+    <p class="form-status" id="instrStatus"></p>
+    <div id="instrConfirmation" style="display:none; margin-top: 12px;" class="card">
+      <div class="card-body" id="instrConfirmText"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Documents Tab -->
+<div class="tab-panel" id="tab-documents">
+  <div class="panel-content">
+    <h2>Documents</h2>
+    <div id="documentsList"></div>
+    <h3>Generer un nouveau document</h3>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Type de document</label>
+        <select id="doc-type">
+          <option value="courrier_admin">Courrier administratif</option>
+          <option value="courrier_resiliation">Lettre de resiliation</option>
+          <option value="resume_hebdo">Resume hebdomadaire</option>
+          <option value="fiche_sante">Fiche sante</option>
+          <option value="compte_rendu">Compte-rendu</option>
+          <option value="export_notes">Export des notes</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Destinataire (optionnel)</label><input type="text" id="doc-recipient" placeholder="CAF, bailleur, Dr Dupont..."></div>
+    </div>
+    <div class="form-group"><label>Sujet / Objet</label><input type="text" id="doc-subject" placeholder="Demande APL, resiliation contrat, fuite robinet..."></div>
+    <div class="form-group"><label>Details (optionnel)</label><textarea id="doc-details" placeholder="Informations complementaires a inclure dans le document..." rows="3"></textarea></div>
+    <button class="btn btn-primary" id="docGenerateBtn">Generer le document</button>
+    <p class="form-status" id="docStatus"></p>
+    <div id="docPreview" style="display:none; margin-top:12px;" class="card">
+      <div class="card-header"><span class="card-title">Apercu</span></div>
+      <div class="card-body" id="docPreviewText" style="white-space:pre-wrap;font-size:0.85em;"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Perception Tab -->
+<div class="tab-panel" id="tab-perception">
+  <div class="panel-content">
+    <h2>Perception contextuelle</h2>
+    <p style="font-size:0.85em;color:#888;margin-bottom:16px;">
+      Luna peut utiliser la camera de ton appareil pour mieux comprendre ton
+      environnement. Aucune image n'est enregistree &mdash; seules les informations
+      de presence et de contexte sont analysees.<br>
+      <strong>Aide contextuelle uniquement.</strong> Ne constitue pas un dispositif de surveillance ou de securite.
+    </p>
+
+    <div class="card" id="perceptionStatusCard">
+      <div class="card-header">
+        <span class="card-title">Statut</span>
+        <span class="badge" id="perceptionBadge">--</span>
+      </div>
+      <div class="card-body">
+        <div id="perceptionCameraInfo" style="font-size:0.85em;color:#888;margin-bottom:10px;"></div>
+        <div style="display:flex;gap:10px;">
+          <button class="btn btn-primary" id="perceptionStartBtn">Activer la camera</button>
+          <button class="btn btn-danger" id="perceptionStopBtn">Desactiver</button>
+        </div>
+        <p class="form-status" id="perceptionStatus"></p>
+      </div>
+    </div>
+
+    <div class="card" id="perceptionSceneCard" style="display:none;">
+      <div class="card-header"><span class="card-title">Scene actuelle</span></div>
+      <div class="card-body">
+        <div id="perceptionSceneText" style="font-size:0.95em;"></div>
+        <div id="perceptionDetails" style="margin-top:8px;font-size:0.8em;color:#888;"></div>
+      </div>
+    </div>
+
+    <div class="card" id="perceptionAbnCard" style="display:none;">
+      <div class="card-header"><span class="card-title">Evenements recents</span></div>
+      <div class="card-body" id="perceptionAbnList"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Quotas Tab -->
+<div class="tab-panel" id="tab-quotas">
+  <div class="panel-content">
+    <h2>Quotas & Usage</h2>
+    <div id="quotasContent"><p class="empty-state">Chargement...</p></div>
+  </div>
+</div>
+
+<!-- Video overlay -->
 <div class="video-overlay" id="videoOverlay">
   <button class="close-btn" id="hangupBtn">Raccrocher</button>
   <button class="invite-btn" id="inviteBtn">+ Inviter un contact</button>
@@ -118,6 +432,31 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; b
 </div>
 
 <script>
+// =========================================================================
+// TAB NAVIGATION
+// =========================================================================
+var tabBtns = document.querySelectorAll(".tab-btn");
+var tabPanels = document.querySelectorAll(".tab-panel");
+
+tabBtns.forEach(function(btn) {
+  btn.addEventListener("click", function() {
+    tabBtns.forEach(function(b) { b.classList.remove("active"); });
+    tabPanels.forEach(function(p) { p.classList.remove("active"); });
+    btn.classList.add("active");
+    document.getElementById("tab-" + btn.dataset.tab).classList.add("active");
+    // Load data on tab switch
+    if (btn.dataset.tab === "profile") loadProfile();
+    if (btn.dataset.tab === "contacts") loadContacts();
+    if (btn.dataset.tab === "instructions") loadInstructions();
+    if (btn.dataset.tab === "documents") loadDocuments();
+    if (btn.dataset.tab === "perception") loadPerception();
+    if (btn.dataset.tab === "quotas") loadQuotas();
+  });
+});
+
+// =========================================================================
+// CHAT (preserved from previous version)
+// =========================================================================
 var chat = document.getElementById("chat");
 var inputEl = document.getElementById("input");
 var sendBtn = document.getElementById("send");
@@ -128,23 +467,15 @@ var hangupBtn = document.getElementById("hangupBtn");
 var statusDot = document.getElementById("statusDot");
 var charCounter = document.getElementById("charCounter");
 
-// --- localStorage persistence ---
 var STORAGE_KEY = "luna_chat_history";
 var MAX_STORED = 100;
 
 function saveHistory() {
   var msgs = [];
-  var elements = chat.querySelectorAll(".msg");
-  elements.forEach(function(el) {
+  chat.querySelectorAll(".msg").forEach(function(el) {
     var textEl = el.querySelector(".msg-text");
     var timeEl = el.querySelector(".msg-time");
-    if (textEl) {
-      msgs.push({
-        text: textEl.textContent,
-        cls: el.classList.contains("user") ? "user" : "luna",
-        ts: timeEl ? timeEl.textContent : ""
-      });
-    }
+    if (textEl) msgs.push({ text: textEl.textContent, cls: el.classList.contains("user") ? "user" : "luna", ts: timeEl ? timeEl.textContent : "" });
   });
   if (msgs.length > MAX_STORED) msgs = msgs.slice(-MAX_STORED);
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(msgs)); } catch(e) {}
@@ -156,187 +487,93 @@ function loadHistory() {
     if (data.length === 0) return false;
     data.forEach(function(m) { addMsg(m.text, m.cls, m.ts, true); });
     return true;
-  } catch(e) {
-    localStorage.removeItem(STORAGE_KEY);
-    return false;
-  }
+  } catch(e) { localStorage.removeItem(STORAGE_KEY); return false; }
 }
 
-// --- Smooth scroll ---
-function scrollToBottom() {
-  chat.scrollTo({ top: chat.scrollHeight, behavior: "smooth" });
-}
+function scrollToBottom() { chat.scrollTo({ top: chat.scrollHeight, behavior: "smooth" }); }
 
-// --- Notification sound (Web Audio API, no file needed) ---
 var playNotif = function() {};
 try {
   var audioCtx = new (window.AudioContext || window.webkitAudioContext)();
   playNotif = function() {
     try {
-      var osc = audioCtx.createOscillator();
-      var gain = audioCtx.createGain();
-      osc.connect(gain);
-      gain.connect(audioCtx.destination);
-      osc.frequency.value = 520;
-      gain.gain.value = 0.08;
-      osc.start();
-      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);
+      var osc = audioCtx.createOscillator(), gain = audioCtx.createGain();
+      osc.connect(gain); gain.connect(audioCtx.destination);
+      osc.frequency.value = 520; gain.gain.value = 0.08;
+      osc.start(); gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);
       osc.stop(audioCtx.currentTime + 0.3);
     } catch(e) {}
   };
 } catch(e) {}
 
-// --- Message functions ---
-function formatTime(ts) {
-  if (ts) return ts;
-  return new Date().toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
-}
+function formatTime(ts) { return ts || new Date().toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }); }
 
 function addMsg(text, cls, ts, skipSave) {
-  var d = document.createElement("div");
-  d.className = "msg " + cls;
-
-  var textSpan = document.createElement("span");
-  textSpan.className = "msg-text";
-  textSpan.textContent = text;
-  d.appendChild(textSpan);
-
-  var timeSpan = document.createElement("span");
-  timeSpan.className = "msg-time";
-  timeSpan.textContent = formatTime(ts);
-  d.appendChild(timeSpan);
-
-  chat.appendChild(d);
-  scrollToBottom();
-
+  var d = document.createElement("div"); d.className = "msg " + cls;
+  var textSpan = document.createElement("span"); textSpan.className = "msg-text"; textSpan.textContent = text; d.appendChild(textSpan);
+  var timeSpan = document.createElement("span"); timeSpan.className = "msg-time"; timeSpan.textContent = formatTime(ts); d.appendChild(timeSpan);
+  chat.appendChild(d); scrollToBottom();
   if (!skipSave) saveHistory();
 }
 
-// --- Typing indicator ---
 function showTyping() {
-  var d = document.createElement("div");
-  d.className = "typing";
-  d.id = "typingIndicator";
+  var d = document.createElement("div"); d.className = "typing"; d.id = "typingIndicator";
   d.innerHTML = '<div class="typing-dots"><span></span><span></span><span></span></div>';
-  chat.appendChild(d);
-  scrollToBottom();
+  chat.appendChild(d); scrollToBottom();
 }
+function hideTyping() { var el = document.getElementById("typingIndicator"); if (el) el.remove(); }
 
-function hideTyping() {
-  var el = document.getElementById("typingIndicator");
-  if (el) el.remove();
-}
-
-// --- Online/offline detection ---
 function updateOnlineStatus() {
-  if (navigator.onLine) {
-    statusDot.className = "status-dot online";
-    statusDot.title = "Connecte";
-  } else {
-    statusDot.className = "status-dot offline";
-    statusDot.title = "Hors ligne";
-  }
+  statusDot.className = navigator.onLine ? "status-dot online" : "status-dot offline";
+  statusDot.title = navigator.onLine ? "Connecte" : "Hors ligne";
 }
-
-window.addEventListener("online", function() {
-  updateOnlineStatus();
-  addMsg("Connexion retablie.", "luna");
-});
-window.addEventListener("offline", function() {
-  updateOnlineStatus();
-  addMsg("Connexion perdue. Tes messages seront envoyes au retour.", "luna");
-});
+window.addEventListener("online", function() { updateOnlineStatus(); addMsg("Connexion retablie.", "luna"); });
+window.addEventListener("offline", function() { updateOnlineStatus(); addMsg("Connexion perdue. Tes messages seront envoyes au retour.", "luna"); });
 updateOnlineStatus();
 
-// --- Character counter ---
 inputEl.addEventListener("input", function() {
   var len = inputEl.value.length;
-  if (len > 0) {
-    charCounter.textContent = len + "/2000";
-    charCounter.className = "char-counter" + (len > 1800 ? " at-limit" : len > 1500 ? " near-limit" : "");
-  } else {
-    charCounter.textContent = "";
-  }
+  charCounter.textContent = len > 0 ? len + "/2000" : "";
+  charCounter.className = "char-counter" + (len > 1800 ? " at-limit" : len > 1500 ? " near-limit" : "");
 });
 
-// --- Chat send ---
 var lastFailedMsg = "";
-
 function sendMsg(overrideMsg) {
   var msg = overrideMsg || inputEl.value.trim();
   if (!msg) return;
-  if (!overrideMsg) {
-    addMsg(msg, "user");
-    inputEl.value = "";
-    charCounter.textContent = "";
-  }
+  if (!overrideMsg) { addMsg(msg, "user"); inputEl.value = ""; charCounter.textContent = ""; }
   sendBtn.disabled = true;
   showTyping();
-
-  fetch("/api/chat", {
-    method: "POST",
-    headers: {"Content-Type": "application/json"},
-    body: JSON.stringify({message: msg})
-  })
+  fetch("/api/chat", { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({message: msg}) })
   .then(function(r) {
-    if (r.status === 422) throw new Error("Message invalide (trop long ?)");
+    if (r.status === 422) throw new Error("Message invalide");
     if (r.status === 429) throw new Error("Trop de messages. Attends un peu.");
     if (!r.ok) throw new Error("Erreur serveur (" + r.status + ")");
     return r.json();
   })
-  .then(function(data) {
-    hideTyping();
-    addMsg(data.response, "luna");
-    if (document.hidden) playNotif();
-  })
+  .then(function(data) { hideTyping(); addMsg(data.response, "luna"); if (document.hidden) playNotif(); })
   .catch(function(e) {
-    hideTyping();
-    lastFailedMsg = msg;
-    var errDiv = document.createElement("div");
-    errDiv.className = "msg luna error-msg";
-
-    var textSpan = document.createElement("span");
-    textSpan.className = "msg-text";
-    textSpan.textContent = "Erreur : " + (e.message || "connexion perdue");
-    errDiv.appendChild(textSpan);
-
-    var retryBtn = document.createElement("button");
-    retryBtn.className = "retry-btn";
-    retryBtn.textContent = "Reessayer";
-    retryBtn.addEventListener("click", function() {
-      errDiv.remove();
-      sendMsg(lastFailedMsg);
-    });
-    errDiv.appendChild(retryBtn);
-
-    var timeSpan = document.createElement("span");
-    timeSpan.className = "msg-time";
-    timeSpan.textContent = formatTime();
-    errDiv.appendChild(timeSpan);
-
-    chat.appendChild(errDiv);
-    scrollToBottom();
+    hideTyping(); lastFailedMsg = msg;
+    var errDiv = document.createElement("div"); errDiv.className = "msg luna error-msg";
+    var ts = document.createElement("span"); ts.className = "msg-text"; ts.textContent = "Erreur : " + (e.message || "connexion perdue"); errDiv.appendChild(ts);
+    var rb = document.createElement("button"); rb.className = "retry-btn"; rb.textContent = "Reessayer";
+    rb.addEventListener("click", function() { errDiv.remove(); sendMsg(lastFailedMsg); }); errDiv.appendChild(rb);
+    var tt = document.createElement("span"); tt.className = "msg-time"; tt.textContent = formatTime(); errDiv.appendChild(tt);
+    chat.appendChild(errDiv); scrollToBottom();
   })
-  .finally(function() {
-    sendBtn.disabled = false;
-    inputEl.focus();
-  });
+  .finally(function() { sendBtn.disabled = false; inputEl.focus(); });
 }
 
 sendBtn.addEventListener("click", function() { sendMsg(); });
 inputEl.addEventListener("keydown", function(e) { if (e.key === "Enter") sendMsg(); });
 
 // --- Video call ---
+var currentConvId = "";
 function startCall() {
-  callBtn.disabled = true;
-  callBtn.textContent = "Connexion...";
-  fetch("/api/call", { method: "POST" })
-  .then(function(r) { return r.json(); })
+  callBtn.disabled = true; callBtn.textContent = "Connexion...";
+  fetch("/api/call", { method: "POST" }).then(function(r) { return r.json(); })
   .then(function(data) {
-    if (data.error) {
-      addMsg("Erreur appel: " + data.error, "luna");
-      return;
-    }
+    if (data.error) { addMsg("Erreur appel: " + data.error, "luna"); return; }
     currentConvId = data.conversation_id;
     videoFrame.src = data.conversation_url;
     videoOverlay.classList.add("active");
@@ -348,21 +585,13 @@ function startCall() {
     callBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15.05 5A5 5 0 0 1 19 8.95M15.05 1A9 9 0 0 1 23 8.94M22 16.92v3a2 2 0 0 1-2.18 2A19.79 19.79 0 0 1 3.07 5.18 2 2 0 0 1 5.11 3h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 11.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 18.92z"/></svg> Appeler Luna';
   });
 }
-
 callBtn.addEventListener("click", startCall);
+hangupBtn.addEventListener("click", function() {
+  videoFrame.src = ""; videoOverlay.classList.remove("active"); inviteModal.classList.remove("active");
+  currentConvId = ""; addMsg("Appel termine.", "luna");
+});
 
-function endCall() {
-  videoFrame.src = "";
-  videoOverlay.classList.remove("active");
-  inviteModal.classList.remove("active");
-  currentConvId = "";
-  addMsg("Appel termine.", "luna");
-}
-
-hangupBtn.addEventListener("click", endCall);
-
-// --- Invitation contact dans la visio ---
-var currentConvId = "";
+// --- Invite contact ---
 var inviteBtn = document.getElementById("inviteBtn");
 var inviteModal = document.getElementById("inviteModal");
 var inviteName = document.getElementById("inviteName");
@@ -371,63 +600,406 @@ var inviteSendBtn = document.getElementById("inviteSendBtn");
 var inviteCancelBtn = document.getElementById("inviteCancelBtn");
 var inviteStatus = document.getElementById("inviteStatus");
 
-inviteBtn.addEventListener("click", function() {
-  inviteModal.classList.add("active");
-  inviteName.value = "";
-  invitePhone.value = "";
-  inviteStatus.textContent = "";
-  inviteName.focus();
-});
-
-inviteCancelBtn.addEventListener("click", function() {
-  inviteModal.classList.remove("active");
-});
-
+inviteBtn.addEventListener("click", function() { inviteModal.classList.add("active"); inviteName.value = ""; invitePhone.value = ""; inviteStatus.textContent = ""; inviteName.focus(); });
+inviteCancelBtn.addEventListener("click", function() { inviteModal.classList.remove("active"); });
 inviteSendBtn.addEventListener("click", function() {
-  var name = inviteName.value.trim();
-  var phone = invitePhone.value.trim();
-  if (!name || !phone) {
-    inviteStatus.textContent = "Remplis le nom et le telephone.";
-    inviteStatus.style.color = "#f87171";
-    return;
-  }
-  if (!currentConvId) {
-    inviteStatus.textContent = "Aucun appel en cours.";
-    inviteStatus.style.color = "#f87171";
-    return;
-  }
-  inviteSendBtn.disabled = true;
-  inviteStatus.textContent = "Envoi du SMS...";
-  inviteStatus.style.color = "#888";
-
-  fetch("/api/invite-contact", {
-    method: "POST",
-    headers: {"Content-Type": "application/json"},
-    body: JSON.stringify({conversation_id: currentConvId, contact_name: name, contact_phone: phone})
-  })
+  var name = inviteName.value.trim(), phone = invitePhone.value.trim();
+  if (!name || !phone) { inviteStatus.textContent = "Remplis le nom et le telephone."; inviteStatus.style.color = "#f87171"; return; }
+  if (!currentConvId) { inviteStatus.textContent = "Aucun appel en cours."; inviteStatus.style.color = "#f87171"; return; }
+  inviteSendBtn.disabled = true; inviteStatus.textContent = "Envoi du SMS..."; inviteStatus.style.color = "#888";
+  fetch("/api/invite-contact", { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({conversation_id: currentConvId, contact_name: name, contact_phone: phone}) })
   .then(function(r) { return r.json(); })
   .then(function(data) {
-    if (data.error) {
-      inviteStatus.textContent = "Erreur: " + data.error;
-      inviteStatus.style.color = "#f87171";
-    } else {
-      inviteStatus.textContent = "SMS envoye a " + name + " !";
-      inviteStatus.style.color = "#4ade80";
-      addMsg("Invitation visio envoyee a " + name + " par SMS.", "luna");
-    }
+    if (data.error) { inviteStatus.textContent = "Erreur: " + data.error; inviteStatus.style.color = "#f87171"; }
+    else { inviteStatus.textContent = "SMS envoye a " + name + " !"; inviteStatus.style.color = "#4ade80"; addMsg("Invitation visio envoyee a " + name + " par SMS.", "luna"); }
   })
-  .catch(function() {
-    inviteStatus.textContent = "Erreur de connexion.";
-    inviteStatus.style.color = "#f87171";
-  })
+  .catch(function() { inviteStatus.textContent = "Erreur de connexion."; inviteStatus.style.color = "#f87171"; })
   .finally(function() { inviteSendBtn.disabled = false; });
 });
 
-// --- Init: load history or fetch greeting ---
+// =========================================================================
+// PROFILE
+// =========================================================================
+var profileFields = [
+  "first_name","last_name","date_of_birth","phone","email","address","city","department",
+  "tutoiement","family_status","children","autonomy","mobility","pets",
+  "professional_status","job_title","siret",
+  "doctor_name","doctor_phone","pharmacy","allergies","treatments","conditions",
+  "mutual_name","mutual_number","carte_vitale",
+  "housing_type","housing_status","floor",
+  "tone","presentation","wake_time","sleep_time","interests","habits","sensitive_topics",
+  "permanent_rules","blacklist","priorities","max_budget"
+];
+
+function loadProfile() {
+  fetch("/api/profile").then(function(r) { return r.json(); }).then(function(data) {
+    if (!data.profile) return;
+    var p = data.profile;
+    profileFields.forEach(function(f) {
+      var el = document.getElementById("pf-" + f);
+      if (!el) return;
+      var val = p[f];
+      if (val === null || val === undefined) val = "";
+      if (f === "tutoiement") val = val ? "true" : "false";
+      el.value = val;
+    });
+  }).catch(function() {});
+}
+
+document.getElementById("profileSaveBtn").addEventListener("click", function() {
+  var body = {};
+  profileFields.forEach(function(f) {
+    var el = document.getElementById("pf-" + f);
+    if (!el) return;
+    var val = el.value;
+    if (f === "tutoiement") val = val === "true";
+    body[f] = val;
+  });
+  var st = document.getElementById("profileStatus");
+  st.textContent = "Sauvegarde..."; st.className = "form-status";
+  fetch("/api/profile", { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body) })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    if (data.success) { st.textContent = "Profil sauvegarde."; st.className = "form-status success"; }
+    else { st.textContent = "Erreur: " + (data.error || "inconnue"); st.className = "form-status error"; }
+  })
+  .catch(function(e) { st.textContent = "Erreur: " + e.message; st.className = "form-status error"; });
+});
+
+// =========================================================================
+// CONTACTS
+// =========================================================================
+function loadContacts() {
+  var list = document.getElementById("contactsList");
+  list.innerHTML = '<p class="empty-state">Chargement...</p>';
+  fetch("/api/contacts").then(function(r) { return r.json(); }).then(function(data) {
+    if (!data.contacts || data.contacts.length === 0) {
+      list.innerHTML = '<p class="empty-state">Aucun contact de confiance. Ajoute-en ci-dessous (max 5).</p>';
+      return;
+    }
+    list.innerHTML = "";
+    data.contacts.forEach(function(c) {
+      var card = document.createElement("div"); card.className = "card";
+      card.innerHTML = '<div class="card-header"><span class="card-title">' + esc(c.name) + ' <span class="badge badge-blue">' + esc(c.relation) + '</span></span>' +
+        '<button class="btn btn-danger btn-sm" onclick="deleteContact(\'' + esc(c.phone) + '\')">Supprimer</button></div>' +
+        '<div class="card-body">' + esc(c.phone) + ' &mdash; ' + esc(c.preferred_channel) +
+        (c.emergency_only ? ' <span class="badge badge-red">Urgence seulement</span>' : '') + '</div>';
+      list.appendChild(card);
+    });
+    var countInfo = document.createElement("p");
+    countInfo.style.cssText = "font-size:0.8em;color:#666;margin-top:8px;";
+    countInfo.textContent = data.count + "/" + data.max + " contacts";
+    list.appendChild(countInfo);
+  }).catch(function() { list.innerHTML = '<p class="empty-state">Erreur de chargement.</p>'; });
+}
+
+function deleteContact(phone) {
+  fetch("/api/contacts/" + encodeURIComponent(phone), { method: "DELETE" })
+  .then(function() { loadContacts(); });
+}
+
+document.getElementById("contactAddBtn").addEventListener("click", function() {
+  var st = document.getElementById("contactStatus");
+  var body = {
+    name: document.getElementById("ct-name").value.trim(),
+    phone: document.getElementById("ct-phone").value.trim(),
+    relation: document.getElementById("ct-relation").value.trim(),
+    preferred_channel: document.getElementById("ct-channel").value,
+    emergency_only: document.getElementById("ct-emergency").value === "true"
+  };
+  if (!body.name || !body.phone || !body.relation) { st.textContent = "Remplis nom, telephone et relation."; st.className = "form-status error"; return; }
+  st.textContent = "Ajout..."; st.className = "form-status";
+  fetch("/api/contacts", { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body) })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    if (data.success) {
+      st.textContent = "Contact ajoute."; st.className = "form-status success";
+      document.getElementById("ct-name").value = "";
+      document.getElementById("ct-phone").value = "";
+      document.getElementById("ct-relation").value = "";
+      loadContacts();
+    } else { st.textContent = "Erreur: " + (data.error || "inconnue"); st.className = "form-status error"; }
+  })
+  .catch(function(e) { st.textContent = "Erreur: " + e.message; st.className = "form-status error"; });
+});
+
+// =========================================================================
+// INSTRUCTIONS
+// =========================================================================
+function loadInstructions() {
+  var list = document.getElementById("instructionsList");
+  list.innerHTML = '<p class="empty-state">Chargement...</p>';
+  fetch("/api/instructions").then(function(r) { return r.json(); }).then(function(data) {
+    if (!data.instructions || data.instructions.length === 0) {
+      list.innerHTML = '<p class="empty-state">Aucune instruction active. Cree-en ci-dessous en langage naturel.</p>';
+      return;
+    }
+    list.innerHTML = "";
+    data.instructions.forEach(function(instr) {
+      var card = document.createElement("div"); card.className = "card";
+      var typeBadge = instr.type === "daily" ? "badge-green" : instr.type === "recurring" ? "badge-blue" : "badge-yellow";
+      card.innerHTML = '<div class="card-header"><span class="card-title">' + esc(instr.description.substring(0, 80)) + '</span>' +
+        '<button class="btn btn-danger btn-sm" onclick="deleteInstruction(\'' + esc(instr.id) + '\')">Desactiver</button></div>' +
+        '<div class="card-body"><span class="badge ' + typeBadge + '">' + esc(instr.type) + '</span> ' +
+        '<span class="badge badge-blue">' + esc(instr.action) + '</span> ' +
+        (instr.schedule ? '<span class="badge badge-yellow">' + esc(instr.schedule) + '</span> ' : '') +
+        (instr.target && instr.target !== "self" ? 'Cible: ' + esc(instr.target) + ' ' : '') +
+        (instr.last_executed ? '<br><small style="color:#666">Derniere exec: ' + esc(instr.last_executed) + '</small>' : '') +
+        '</div>';
+      list.appendChild(card);
+    });
+  }).catch(function() { list.innerHTML = '<p class="empty-state">Erreur de chargement.</p>'; });
+}
+
+function deleteInstruction(id) {
+  fetch("/api/instructions/" + encodeURIComponent(id), { method: "DELETE" })
+  .then(function() { loadInstructions(); });
+}
+
+document.getElementById("instrAddBtn").addEventListener("click", function() {
+  var st = document.getElementById("instrStatus");
+  var conf = document.getElementById("instrConfirmation");
+  var text = document.getElementById("instr-text").value.trim();
+  if (!text) { st.textContent = "Ecris une instruction."; st.className = "form-status error"; return; }
+  st.textContent = "Analyse..."; st.className = "form-status"; conf.style.display = "none";
+  fetch("/api/instructions", { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({text: text}) })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    if (data.success) {
+      st.textContent = "Instruction creee."; st.className = "form-status success";
+      if (data.confirmation) {
+        document.getElementById("instrConfirmText").textContent = data.confirmation;
+        conf.style.display = "block";
+      }
+      document.getElementById("instr-text").value = "";
+      loadInstructions();
+    } else { st.textContent = "Erreur: " + (data.error || "inconnue"); st.className = "form-status error"; }
+  })
+  .catch(function(e) { st.textContent = "Erreur: " + e.message; st.className = "form-status error"; });
+});
+
+// =========================================================================
+// DOCUMENTS
+// =========================================================================
+function loadDocuments() {
+  var list = document.getElementById("documentsList");
+  list.innerHTML = '<p class="empty-state">Chargement...</p>';
+  fetch("/api/documents").then(function(r) { return r.json(); }).then(function(data) {
+    if (!data.documents || data.documents.length === 0) {
+      list.innerHTML = '<p class="empty-state">Aucun document genere. Utilise le formulaire ci-dessous.</p>';
+      return;
+    }
+    list.innerHTML = "";
+    data.documents.forEach(function(doc) {
+      var card = document.createElement("div"); card.className = "card";
+      var date = "";
+      try { date = new Date(doc.created_at).toLocaleString("fr-FR"); } catch(e) { date = doc.created_at || ""; }
+      card.innerHTML = '<div class="card-header"><span class="card-title">' + esc(doc.type) + '</span>' +
+        '<a href="' + esc(doc.download_url) + '" download class="btn btn-primary btn-sm" style="text-decoration:none;">Telecharger</a></div>' +
+        '<div class="card-body"><span style="color:#888;font-size:0.85em;">' + esc(doc.filename) + ' &mdash; ' + doc.size_kb + ' Ko &mdash; ' + esc(date) + '</span></div>';
+      list.appendChild(card);
+    });
+  }).catch(function() { list.innerHTML = '<p class="empty-state">Erreur de chargement.</p>'; });
+}
+
+document.getElementById("docGenerateBtn").addEventListener("click", function() {
+  var st = document.getElementById("docStatus");
+  var preview = document.getElementById("docPreview");
+  var body = {
+    doc_type: document.getElementById("doc-type").value,
+    subject: document.getElementById("doc-subject").value.trim(),
+    recipient: document.getElementById("doc-recipient").value.trim(),
+    details: document.getElementById("doc-details").value.trim()
+  };
+  if (!body.subject && body.doc_type !== "fiche_sante" && body.doc_type !== "export_notes") {
+    st.textContent = "Indique au moins un sujet."; st.className = "form-status error"; return;
+  }
+  st.textContent = "Generation en cours (Luna redige le document)..."; st.className = "form-status"; preview.style.display = "none";
+  document.getElementById("docGenerateBtn").disabled = true;
+  fetch("/api/documents/generate", { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body) })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    if (data.filename) {
+      st.textContent = "Document genere : " + data.filename; st.className = "form-status success";
+      if (data.download_url) {
+        st.innerHTML += ' &mdash; <a href="' + esc(data.download_url) + '" download style="color:#a78bfa;">Telecharger</a>';
+      }
+      if (data.preview) {
+        document.getElementById("docPreviewText").textContent = data.preview;
+        preview.style.display = "block";
+      }
+      document.getElementById("doc-subject").value = "";
+      document.getElementById("doc-details").value = "";
+      document.getElementById("doc-recipient").value = "";
+      loadDocuments();
+    } else { st.textContent = "Erreur: " + (data.error || "inconnue"); st.className = "form-status error"; }
+  })
+  .catch(function(e) { st.textContent = "Erreur: " + e.message; st.className = "form-status error"; })
+  .finally(function() { document.getElementById("docGenerateBtn").disabled = false; });
+});
+
+// =========================================================================
+// PERCEPTION
+// =========================================================================
+var perceptionRefreshTimer = null;
+
+function loadPerception() {
+  if (perceptionRefreshTimer) clearInterval(perceptionRefreshTimer);
+  _fetchPerceptionStatus();
+  perceptionRefreshTimer = setInterval(_fetchPerceptionStatus, 5000);
+}
+
+function _fetchPerceptionStatus() {
+  fetch("/api/perception/status").then(function(r) { return r.json(); }).then(function(data) {
+    var badge = document.getElementById("perceptionBadge");
+    var sceneCard = document.getElementById("perceptionSceneCard");
+    var sceneText = document.getElementById("perceptionSceneText");
+    var details = document.getElementById("perceptionDetails");
+    var camInfo = document.getElementById("perceptionCameraInfo");
+
+    if (!data.available) {
+      badge.textContent = "Non disponible";
+      badge.className = "badge badge-red";
+      camInfo.textContent = "Module perception non installe (ultralytics/opencv requis).";
+      sceneCard.style.display = "none";
+      return;
+    }
+
+    if (data.enabled && data.camera_connected) {
+      badge.textContent = "Active";
+      badge.className = "badge badge-green";
+      camInfo.textContent = "Camera connectee, analyse en cours...";
+    } else if (data.enabled) {
+      badge.textContent = "Pas de camera";
+      badge.className = "badge badge-red";
+      camInfo.textContent = "Perception activee mais camera non accessible.";
+    } else {
+      badge.textContent = "Desactivee";
+      badge.className = "badge badge-yellow";
+      camInfo.textContent = "Camera non active. Clique sur Activer pour demarrer.";
+    }
+
+    if (data.current_scene) {
+      sceneCard.style.display = "block";
+      sceneText.textContent = data.current_scene.scene_description || "Aucune analyse";
+      var d = data.current_scene;
+      var detailParts = [];
+      detailParts.push("Personnes: " + d.persons_present);
+      detailParts.push("Posture: " + d.primary_posture);
+      if (d.objects_visible && d.objects_visible.length > 0) detailParts.push("Objets: " + d.objects_visible.join(", "));
+      var ts = "";
+      try { ts = new Date(d.timestamp).toLocaleTimeString("fr-FR"); } catch(e) {}
+      if (ts) detailParts.push("Derniere analyse: " + ts);
+      details.textContent = detailParts.join(" | ");
+
+      // Show abnormalities
+      if (d.abnormalities && d.abnormalities.length > 0) {
+        var abnCard = document.getElementById("perceptionAbnCard");
+        var abnList = document.getElementById("perceptionAbnList");
+        abnCard.style.display = "block";
+        abnList.innerHTML = "";
+        d.abnormalities.forEach(function(abn) {
+          var cls = abn.severity === "concern" ? "badge-red" : abn.severity === "attention" ? "badge-yellow" : "badge-blue";
+          abnList.innerHTML += '<div style="margin-bottom:6px;"><span class="badge ' + cls + '">' + esc(abn.severity) + '</span> ' + esc(abn.description) + '</div>';
+        });
+      } else {
+        document.getElementById("perceptionAbnCard").style.display = "none";
+      }
+    } else {
+      sceneCard.style.display = "none";
+      document.getElementById("perceptionAbnCard").style.display = "none";
+    }
+  }).catch(function() {});
+}
+
+document.getElementById("perceptionStartBtn").addEventListener("click", function() {
+  var st = document.getElementById("perceptionStatus");
+  this.disabled = true;
+  st.textContent = "Activation de la camera..."; st.className = "form-status";
+  fetch("/api/perception/start", { method: "POST" })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    if (data.success) { st.textContent = "Perception activee."; st.className = "form-status success"; _fetchPerceptionStatus(); }
+    else { st.textContent = "Erreur: " + (data.error || "inconnue"); st.className = "form-status error"; }
+  })
+  .catch(function(e) { st.textContent = "Erreur: " + e.message; st.className = "form-status error"; })
+  .finally(function() { document.getElementById("perceptionStartBtn").disabled = false; });
+});
+
+document.getElementById("perceptionStopBtn").addEventListener("click", function() {
+  var st = document.getElementById("perceptionStatus");
+  this.disabled = true;
+  fetch("/api/perception/stop", { method: "POST" })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    st.textContent = "Perception desactivee."; st.className = "form-status success";
+    _fetchPerceptionStatus();
+  })
+  .catch(function(e) { st.textContent = "Erreur: " + e.message; st.className = "form-status error"; })
+  .finally(function() { document.getElementById("perceptionStopBtn").disabled = false; });
+});
+
+// Stop auto-refresh when leaving perception tab
+tabBtns.forEach(function(btn) {
+  btn.addEventListener("click", function() {
+    if (btn.dataset.tab !== "perception" && perceptionRefreshTimer) {
+      clearInterval(perceptionRefreshTimer);
+      perceptionRefreshTimer = null;
+    }
+  });
+});
+
+// =========================================================================
+// QUOTAS
+// =========================================================================
+function loadQuotas() {
+  var container = document.getElementById("quotasContent");
+  container.innerHTML = '<p class="empty-state">Chargement...</p>';
+  fetch("/api/quota").then(function(r) { return r.json(); }).then(function(data) {
+    if (data.error) { container.innerHTML = '<p class="empty-state">' + esc(data.error) + '</p>'; return; }
+    var q = data.quota;
+    var html = '<div class="card"><div class="card-header"><span class="card-title">Plan: ' + esc(q.plan || "essentiel") + '</span></div><div class="card-body">';
+    // Conversations
+    html += quotaBar("Conversations", q.conversations.used, q.conversations.limit, q.conversations.percentage);
+    // Instructions
+    html += quotaBar("Instructions", q.instructions.used, q.instructions.limit, q.instructions.percentage);
+    // Notes
+    html += quotaBar("Notes", q.notes.used, q.notes.limit, q.notes.percentage);
+    // Contacts
+    html += quotaBar("Contacts de confiance", q.trusted_contacts.used, q.trusted_contacts.limit, (q.trusted_contacts.used / q.trusted_contacts.limit * 100));
+    // Memory
+    html += quotaBar("Memoire", q.memory.used_mb + " MB", q.memory.limit_mb + " MB", q.memory.percentage);
+    html += '</div></div>';
+
+    // Daily stats
+    if (data.daily) {
+      html += '<div class="card"><div class="card-header"><span class="card-title">Stats du jour</span></div><div class="card-body">';
+      for (var key in data.daily) {
+        html += '<div style="display:flex;justify-content:space-between;margin-bottom:4px;font-size:0.85em;"><span>' + esc(key.replace(/_/g, " ")) + '</span><span style="color:#a78bfa">' + data.daily[key] + '</span></div>';
+      }
+      html += '</div></div>';
+    }
+    container.innerHTML = html;
+  }).catch(function() { container.innerHTML = '<p class="empty-state">Erreur de chargement des quotas.</p>'; });
+}
+
+function quotaBar(label, used, limit, pct) {
+  var cls = pct >= 90 ? "danger" : pct >= 70 ? "warn" : "ok";
+  return '<div class="quota-bar"><div class="quota-label"><span>' + label + '</span><span>' + used + ' / ' + limit + '</span></div>' +
+    '<div class="quota-track"><div class="quota-fill ' + cls + '" style="width:' + Math.min(pct, 100) + '%"></div></div></div>';
+}
+
+// =========================================================================
+// UTILS
+// =========================================================================
+function esc(s) { if (!s) return ""; var d = document.createElement("div"); d.textContent = s; return d.innerHTML; }
+
+// =========================================================================
+// INIT
+// =========================================================================
 var hadHistory = loadHistory();
 if (!hadHistory) {
-  fetch("/api/greeting")
-  .then(function(r) { return r.json(); })
+  fetch("/api/greeting").then(function(r) { return r.json(); })
   .then(function(data) { addMsg(data.response, "luna"); })
   .catch(function() { addMsg("Luna est temporairement injoignable. Verifie que le serveur tourne.", "luna"); });
 }

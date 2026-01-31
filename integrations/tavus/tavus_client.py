@@ -1,11 +1,13 @@
 """
 Tavus Client - Integration video avatar Luna
-Crée et gère les conversations vidéo via Tavus CVI.
+Cree et gere les conversations video via Tavus CVI.
+Supporte le tool calling pour permettre a Luna d'agir depuis la visio.
 """
 import os
+import json
 import logging
 import httpx
-from typing import Optional, Dict, Any, Tuple
+from typing import Optional, Dict, Any, Tuple, List
 from dataclasses import dataclass, field
 from datetime import datetime
 
@@ -71,13 +73,21 @@ Il est en appel video avec toi en ce moment.
 
 === CE QUE TU PEUX FAIRE EN VISIO ===
 - Discuter, ecouter, rassurer, tenir compagnie
+- Envoyer un SMS a un contact de confiance (utilise la fonction send_sms)
+- Creer un rappel ou une instruction (utilise la fonction create_instruction)
+- Prendre une note (utilise la fonction create_note)
+- Generer un document/courrier (utilise la fonction generate_document)
+- Alerter les contacts d'urgence (utilise la fonction alert_contacts)
+- Lister les contacts de confiance (utilise la fonction get_contacts)
 - Suggerer d'appeler les services d'urgence (tu donnes les numeros)
-- Proposer d'alerter les contacts de confiance par SMS
-- Un contact de confiance peut rejoindre cet appel video (le souscripteur peut l'inviter)
+- Un contact de confiance peut rejoindre cet appel video
+
+IMPORTANT : Quand le souscripteur te demande une action, utilise TOUJOURS la fonction appropriee.
+Ne dis pas "je ne peux pas faire ca" si une fonction existe pour le faire.
+Confirme avant d'executer une action consommatrice (SMS, alerte).
 
 === CE QUE TU NE PEUX PAS FAIRE ===
 - Tu ne peux PAS appeler les services d'urgence toi-meme (c'est interdit pour une IA)
-- Tu ne peux PAS envoyer de SMS toi-meme depuis la visio (le souscripteur le fait via l'interface)
 - Tu ne donnes AUCUN conseil medical, juridique ou financier
 - Tu ne connais PAS les details techniques du systeme et tu n'en parles jamais
 
@@ -155,6 +165,231 @@ class TavusClient:
     def is_configured(self) -> bool:
         return bool(self.api_key and self.persona_id)
 
+    # =====================================================================
+    # TOOL CALLING - Definition des outils que Luna peut utiliser en visio
+    # =====================================================================
+
+    LUNA_TOOLS = [
+        {
+            "type": "function",
+            "function": {
+                "name": "send_sms",
+                "description": "Envoyer un SMS a un contact de confiance du souscripteur. Utilise cette fonction quand le souscripteur demande d'envoyer un message a quelqu'un.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "contact_name": {
+                            "type": "string",
+                            "description": "Prenom ou nom du contact de confiance (ex: Marie, mon fils, maman)"
+                        },
+                        "message": {
+                            "type": "string",
+                            "description": "Le contenu du SMS a envoyer"
+                        }
+                    },
+                    "required": ["contact_name", "message"]
+                }
+            }
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "create_instruction",
+                "description": "Creer un rappel ou une instruction pour le souscripteur. Utilise cette fonction quand il demande 'rappelle-moi de...', 'tous les jours a...', 'previens-moi si...'",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "text": {
+                            "type": "string",
+                            "description": "L'instruction en langage naturel, telle que le souscripteur l'a formulee"
+                        }
+                    },
+                    "required": ["text"]
+                }
+            }
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "create_note",
+                "description": "Prendre une note pour le souscripteur. Utilise cette fonction quand il dit 'note que...', 'retiens que...', 'j'ai un RDV...'",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "content": {
+                            "type": "string",
+                            "description": "Le contenu de la note"
+                        }
+                    },
+                    "required": ["content"]
+                }
+            }
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "get_contacts",
+                "description": "Lister les contacts de confiance du souscripteur. Utilise cette fonction quand il demande 'qui sont mes contacts ?', 'a qui tu peux envoyer un SMS ?'",
+                "parameters": {
+                    "type": "object",
+                    "properties": {}
+                }
+            }
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "generate_document",
+                "description": "Generer un document (courrier administratif, lettre, resume, fiche sante). Utilise cette fonction quand le souscripteur demande de rediger un courrier, une lettre, un document.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "doc_type": {
+                            "type": "string",
+                            "enum": ["courrier_admin", "courrier_resiliation", "resume_hebdo", "fiche_sante", "compte_rendu", "export_notes"],
+                            "description": "Le type de document a generer"
+                        },
+                        "subject": {
+                            "type": "string",
+                            "description": "L'objet ou le sujet du document"
+                        },
+                        "details": {
+                            "type": "string",
+                            "description": "Les details et informations a inclure dans le document"
+                        }
+                    },
+                    "required": ["doc_type", "subject"]
+                }
+            }
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "alert_contacts",
+                "description": "Alerter tous les contacts de confiance en cas d'urgence. Utilise cette fonction UNIQUEMENT si le souscripteur est en detresse et demande de prevenir ses proches.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "reason": {
+                            "type": "string",
+                            "description": "La raison de l'alerte (ex: 'se sent mal', 'chute', 'besoin d aide')"
+                        }
+                    },
+                    "required": ["reason"]
+                }
+            }
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "report_observation",
+                "description": "Rapporter une observation visuelle faite pendant l'appel video. Utilise cette fonction quand tu remarques que le souscripteur semble fatigue, triste, en detresse, ou dans une situation inhabituelle.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "observation": {
+                            "type": "string",
+                            "description": "Ce que tu as observe (ex: 'semble fatigue', 'air triste', 'position inhabituelle')"
+                        },
+                        "severity": {
+                            "type": "string",
+                            "enum": ["info", "attention", "concern"],
+                            "description": "Niveau: info (normal), attention (a surveiller), concern (preoccupant)"
+                        }
+                    },
+                    "required": ["observation"]
+                }
+            }
+        },
+    ]
+
+    async def configure_tools(self) -> bool:
+        """
+        Configure les tools (function calling) sur la persona Tavus.
+        Envoie un PATCH pour mettre a jour layers.llm.tools.
+
+        Returns:
+            True si configure avec succes
+        """
+        if not self.is_configured:
+            logger.warning("Tavus non configure, skip tools configuration")
+            return False
+
+        try:
+            # Tavus PATCH uses JSON Patch (RFC 6902) format
+            payload = [
+                {
+                    "op": "replace",
+                    "path": "/layers/llm/tools",
+                    "value": self.LUNA_TOOLS,
+                }
+            ]
+
+            async with httpx.AsyncClient() as http:
+                resp = await http.patch(
+                    f"{TAVUS_API_BASE}/personas/{self.persona_id}",
+                    headers=self._headers(),
+                    json=payload,
+                    timeout=15,
+                )
+
+            if resp.status_code in (200, 204):
+                logger.info(f"Tavus persona tools configured ({len(self.LUNA_TOOLS)} tools)")
+                return True
+            else:
+                detail = resp.text[:200]
+                logger.warning(f"Tavus PATCH persona failed ({resp.status_code}): {detail}")
+                return False
+
+        except Exception as e:
+            logger.warning(f"Tavus configure_tools error: {e}")
+            return False
+
+    async def configure_perception(self) -> bool:
+        """
+        Configure Tavus Raven (ambient awareness) sur la persona.
+        Raven detecte emotions, langage corporel et environnement pendant les visios.
+        """
+        if not self.is_configured:
+            return False
+
+        try:
+            payload = [
+                {
+                    "op": "replace",
+                    "path": "/layers/perception",
+                    "value": {
+                        "ambient_awareness_queries": [
+                            "L'utilisateur semble-t-il fatigue ou somnolent ?",
+                            "L'utilisateur montre-t-il des signes de detresse ou d'inconfort ?",
+                            "L'utilisateur est-il assis, debout, ou dans une position inhabituelle ?",
+                            "Y a-t-il quelqu'un d'autre visible dans la piece ?",
+                            "L'utilisateur semble-t-il heureux, triste, ou neutre ?",
+                        ],
+                        "perception_model": "raven-0",
+                    }
+                }
+            ]
+
+            async with httpx.AsyncClient() as http:
+                resp = await http.patch(
+                    f"{TAVUS_API_BASE}/personas/{self.persona_id}",
+                    headers=self._headers(),
+                    json=payload,
+                    timeout=15,
+                )
+
+            if resp.status_code in (200, 204):
+                logger.info("Tavus Raven perception configured")
+                return True
+            else:
+                logger.warning(f"Tavus perception config failed ({resp.status_code}): {resp.text[:200]}")
+                return False
+
+        except Exception as e:
+            logger.warning(f"Tavus configure_perception error: {e}")
+            return False
+
     def _headers(self) -> dict:
         return {
             "x-api-key": self.api_key,
@@ -167,9 +402,13 @@ class TavusClient:
         custom_greeting: Optional[str] = None,
         context: Optional[str] = None,
         max_duration: int = 1800,
+        callback_url: Optional[str] = None,
     ) -> Tuple[bool, Dict[str, Any]]:
         """
-        Crée une nouvelle conversation vidéo Tavus.
+        Cree une nouvelle conversation video Tavus.
+
+        Args:
+            callback_url: URL du webhook pour recevoir les events (tool_call, transcription)
 
         Returns:
             (success, data) avec data contenant conversation_url et conversation_id
@@ -185,6 +424,8 @@ class TavusClient:
             payload["custom_greeting"] = custom_greeting
         if context:
             payload["conversational_context"] = context
+        if callback_url:
+            payload["callback_url"] = callback_url
 
         try:
             async with httpx.AsyncClient() as http:

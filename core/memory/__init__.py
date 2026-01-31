@@ -16,6 +16,7 @@ from .schemas import (
     Instruction,
     TaskState,
     MemoryQuota,
+    SubscriberProfile,
 )
 
 __all__ = [
@@ -27,4 +28,5 @@ __all__ = [
     "Instruction",
     "TaskState",
     "MemoryQuota",
+    "SubscriberProfile",
 ]

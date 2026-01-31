@@ -10,7 +10,7 @@ from .redis_client import RedisClient, get_redis_client
 from .schemas import (
     Conversation, Message, Instruction, TaskState, Note, TrustedContact,
     MemoryQuota, PlanType, MessageRole, Channel, ConversationStatus,
-    InstructionType, ActionType, TaskStatus,
+    InstructionType, ActionType, TaskStatus, SubscriberProfile,
 )
 
 logger = logging.getLogger(__name__)
@@ -465,6 +465,84 @@ class MemoryManager:
             if note:
                 notes.append(note)
         return notes
+
+    # ========================================================================
+    # SUBSCRIBER PROFILE
+    # ========================================================================
+
+    def set_subscriber_profile(self, profile: SubscriberProfile) -> None:
+        """Crée ou remplace le profil souscripteur complet"""
+        self.redis.set_profile(self.tenant_id, profile.to_redis())
+        logger.info(f"Set subscriber profile for tenant {self.tenant_id}")
+
+    def get_subscriber_profile(self) -> Optional[SubscriberProfile]:
+        """Récupère le profil souscripteur"""
+        data = self.redis.get_profile(self.tenant_id)
+        if not data:
+            return None
+        return SubscriberProfile.from_redis(data)
+
+    def update_subscriber_profile(self, fields: Dict[str, Any]) -> Optional[SubscriberProfile]:
+        """
+        Met à jour partiellement le profil souscripteur.
+        Seuls les champs fournis sont modifiés.
+        """
+        # Convertit les valeurs en strings pour Redis
+        redis_fields = {}
+        for k, v in fields.items():
+            if v is None:
+                redis_fields[k] = ""
+            elif isinstance(v, bool):
+                redis_fields[k] = "1" if v else "0"
+            elif isinstance(v, (list, dict)):
+                redis_fields[k] = json.dumps(v, ensure_ascii=False)
+            else:
+                redis_fields[k] = str(v)
+
+        self.redis.update_profile(self.tenant_id, redis_fields)
+        logger.info(f"Updated subscriber profile fields: {list(fields.keys())}")
+        return self.get_subscriber_profile()
+
+    def delete_subscriber_profile(self) -> None:
+        """Supprime le profil souscripteur (RGPD)"""
+        key = self.redis.get_profile_key(self.tenant_id)
+        self.redis.client.delete(key)
+        logger.info(f"Deleted subscriber profile for tenant {self.tenant_id} (RGPD)")
+
+    # ========================================================================
+    # PERCEPTION (aide contextuelle visuelle)
+    # ========================================================================
+
+    def set_perception_enabled(self, enabled: bool) -> None:
+        self.redis.set_perception_enabled(self.tenant_id, enabled)
+
+    def is_perception_enabled(self) -> bool:
+        return self.redis.is_perception_enabled(self.tenant_id)
+
+    def update_perception_state(self, scene_state) -> None:
+        """Stocke l'etat courant de la scene dans Redis."""
+        import json
+        self.redis.set_perception_state(self.tenant_id, scene_state.to_redis())
+        self.redis.add_perception_history(
+            self.tenant_id,
+            json.dumps(scene_state.to_redis()),
+        )
+
+    def get_perception_state(self):
+        """Recupere l'etat courant de la scene."""
+        from core.perception.analyzer import SceneState
+        data = self.redis.get_perception_state(self.tenant_id)
+        if not data:
+            return None
+        return SceneState.from_redis(data)
+
+    def log_perception_event(self, event_data: dict) -> None:
+        """Log un evenement de perception (anomalie)."""
+        import json
+        self.redis.add_perception_event(
+            self.tenant_id,
+            json.dumps(event_data),
+        )
 
     # ========================================================================
     # SESSION & CONTEXT

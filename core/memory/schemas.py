@@ -387,3 +387,120 @@ class MemoryQuota(BaseModel):
             ),
         }
         return quotas[plan]
+
+
+class SubscriberProfile(BaseModel):
+    """Profil complet du souscripteur - ce que Luna sait de son proprio"""
+    tenant_id: int
+
+    # --- Identite ---
+    first_name: str = ""
+    last_name: str = ""
+    date_of_birth: Optional[str] = None  # "1985-03-15"
+    address: str = ""
+    city: str = ""
+    department: str = ""
+    phone: str = ""
+    email: str = ""
+    language: str = "fr"
+    tutoiement: bool = True
+
+    # --- Situation personnelle ---
+    family_status: str = ""  # celibataire, marie, veuf, divorce
+    children: str = ""  # "Marie (28 ans, fille), Thomas (25 ans, fils)"
+    lives_alone: bool = True
+    pets: str = ""
+    autonomy: str = "autonome"  # autonome, aide_ponctuelle, aide_quotidienne
+    mobility: str = "autonome"  # autonome, canne, fauteuil, ne_sort_plus
+
+    # --- Situation professionnelle ---
+    professional_status: str = ""  # actif, retraite, recherche, auto_entrepreneur, invalidite
+    job_title: str = ""
+    income_range: str = ""  # tranche pour evaluation aides
+    siret: str = ""
+
+    # --- Sante (factuel, jamais de conseil) ---
+    doctor_name: str = ""
+    doctor_phone: str = ""
+    pharmacy: str = ""
+    allergies: str = ""  # texte libre
+    treatments: str = ""  # "Doliprane 1000 (8h, 20h), Metformine (midi)"
+    conditions: str = ""  # "diabete type 2, hypertension"
+    medical_contact_person: str = ""  # personne de confiance medicale
+    mutual_name: str = ""
+    mutual_number: str = ""
+    carte_vitale: str = ""
+
+    # --- Logement ---
+    housing_type: str = ""  # appartement, maison, ehpad, residence_senior
+    housing_status: str = ""  # proprietaire, locataire
+    floor: str = ""  # "3eme, avec ascenseur"
+    landlord_name: str = ""
+    landlord_phone: str = ""
+    home_insurance: str = ""  # numero contrat
+    concierge: str = ""
+
+    # --- Administratif ---
+    tax_number: str = ""
+    caf_number: str = ""
+    france_travail_id: str = ""
+    cpam_center: str = ""
+    bank_name: str = ""
+    bank_advisor: str = ""
+    documents_expiry: str = ""  # JSON: {"cni": "2028-05-01", "passeport": "2030-11-15"}
+
+    # --- Preferences ---
+    tone: str = "chaleureux"  # chaleureux, formel, direct, humour
+    wake_time: str = "08:00"
+    sleep_time: str = "22:00"
+    quiet_hours_start: str = "22:00"
+    quiet_hours_end: str = "07:00"
+    sensitive_topics: str = ""  # sujets a eviter
+    interests: str = ""  # centres d'interet
+    habits: str = ""  # "cafe le matin, promenade a 14h"
+    presentation: str = "l'assistante de {first_name}"  # comment Luna se presente aux tiers
+
+    # --- Instructions permanentes ---
+    permanent_rules: str = ""  # regles toujours actives
+    blacklist: str = ""  # personnes a eviter
+    priorities: str = ""  # "ma fille passe toujours en premier"
+    max_budget: str = ""  # "200 euros max pour un devis"
+
+    # --- Meta ---
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+    def to_redis(self) -> Dict[str, str]:
+        """Convertit en format Redis HASH"""
+        data = {}
+        for field_name, value in self.__dict__.items():
+            if field_name.startswith("_"):
+                continue
+            if isinstance(value, datetime):
+                data[field_name] = value.isoformat()
+            elif isinstance(value, bool):
+                data[field_name] = "1" if value else "0"
+            elif isinstance(value, int):
+                data[field_name] = str(value)
+            else:
+                data[field_name] = str(value) if value is not None else ""
+        return data
+
+    @classmethod
+    def from_redis(cls, data: Dict[str, str]) -> "SubscriberProfile":
+        """Cree depuis format Redis"""
+        bool_fields = {"tutoiement", "lives_alone"}
+        int_fields = {"tenant_id"}
+        datetime_fields = {"created_at", "updated_at"}
+
+        parsed = {}
+        for key, value in data.items():
+            if key in bool_fields:
+                parsed[key] = value == "1"
+            elif key in int_fields:
+                parsed[key] = int(value) if value else 0
+            elif key in datetime_fields:
+                parsed[key] = datetime.fromisoformat(value) if value else datetime.utcnow()
+            else:
+                parsed[key] = value if value else None
+        return cls(**{k: v for k, v in parsed.items() if v is not None})

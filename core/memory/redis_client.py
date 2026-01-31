@@ -386,6 +386,70 @@ class RedisClient:
         self.client.delete(self.get_session_key(tenant_id))
 
 
+    # ========================================================================
+    # SUBSCRIBER PROFILE
+    # ========================================================================
+
+    def get_profile_key(self, tenant_id: int) -> str:
+        """Cle pour le profil souscripteur"""
+        return self._key(tenant_id, "profile")
+
+    def set_profile(self, tenant_id: int, data: Dict[str, str]) -> None:
+        """Enregistre le profil souscripteur"""
+        key = self.get_profile_key(tenant_id)
+        self.client.hset(key, mapping=data)
+
+    def get_profile(self, tenant_id: int) -> Optional[Dict[str, str]]:
+        """Recupere le profil souscripteur"""
+        key = self.get_profile_key(tenant_id)
+        data = self.client.hgetall(key)
+        return data if data else None
+
+    def update_profile(self, tenant_id: int, fields: Dict[str, str]) -> None:
+        """Met a jour des champs specifiques du profil"""
+        key = self.get_profile_key(tenant_id)
+        self.client.hset(key, mapping=fields)
+
+
+    # ========================================================================
+    # PERCEPTION (aide contextuelle visuelle)
+    # ========================================================================
+
+    TTL_PERCEPTION_STATE = 60 * 60  # 1h (stale si camera off)
+    TTL_PERCEPTION_HISTORY = 24 * 60 * 60  # 24h
+    TTL_PERCEPTION_EVENTS = 7 * 24 * 60 * 60  # 7 jours
+
+    def set_perception_state(self, tenant_id: int, data: Dict[str, str]) -> None:
+        key = self._key(tenant_id, "perception", "state")
+        self.client.hset(key, mapping=data)
+        self.client.expire(key, self.TTL_PERCEPTION_STATE)
+
+    def get_perception_state(self, tenant_id: int) -> Optional[Dict[str, str]]:
+        key = self._key(tenant_id, "perception", "state")
+        data = self.client.hgetall(key)
+        return data if data else None
+
+    def set_perception_enabled(self, tenant_id: int, enabled: bool) -> None:
+        key = self._key(tenant_id, "perception", "enabled")
+        self.client.set(key, "1" if enabled else "0")
+
+    def is_perception_enabled(self, tenant_id: int) -> bool:
+        key = self._key(tenant_id, "perception", "enabled")
+        return self.client.get(key) == "1"
+
+    def add_perception_history(self, tenant_id: int, state_json: str) -> None:
+        key = self._key(tenant_id, "perception", "history")
+        self.client.lpush(key, state_json)
+        self.client.ltrim(key, 0, 99)
+        self.client.expire(key, self.TTL_PERCEPTION_HISTORY)
+
+    def add_perception_event(self, tenant_id: int, event_json: str) -> None:
+        import time as _time
+        key = self._key(tenant_id, "perception", "events")
+        self.client.zadd(key, {event_json: _time.time()})
+        self.client.expire(key, self.TTL_PERCEPTION_EVENTS)
+
+
 @lru_cache()
 def get_redis_client() -> RedisClient:
     """Factory pour obtenir le client Redis singleton"""
