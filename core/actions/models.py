@@ -58,6 +58,9 @@ class ActionRequest:
     confirmation_method: Optional[str] = None  # "voice", "text", "button"
     rejection_reason: Optional[str] = None
 
+    # Explicabilite
+    reasoning_explanation: str = ""  # Explication humaine de pourquoi cette action
+
     # Contexte
     instruction_id: Optional[str] = None  # Lien vers l'instruction source
     conversation_id: Optional[str] = None
@@ -88,6 +91,7 @@ class ActionResult:
     action_id: str
     success: bool
     message: str  # Message pour Luna à communiquer au souscripteur
+    reasoning_explanation: str = ""  # Explication humaine du resultat
     details: Dict[str, Any] = field(default_factory=dict)
     error: Optional[str] = None
     executed_at: datetime = field(default_factory=datetime.utcnow)
@@ -107,6 +111,7 @@ class ActionLog:
     action_type: ActionType = ActionType.SEND_SMS
     event: str = ""  # "proposed", "confirmed", "executed", "failed"
     description: str = ""
+    reasoning_explanation: str = ""  # Explication humaine
     details: Dict[str, Any] = field(default_factory=dict)
     timestamp: datetime = field(default_factory=datetime.utcnow)
     source: str = "luna"  # Qui a déclenché l'événement
@@ -120,6 +125,7 @@ class ActionLog:
             "action_type": self.action_type.value,
             "event": self.event,
             "description": self.description,
+            "reasoning_explanation": self.reasoning_explanation,
             "details": self.details,
             "timestamp": self.timestamp.isoformat(),
             "source": self.source,

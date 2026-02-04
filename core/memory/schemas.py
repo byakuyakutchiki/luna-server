@@ -459,6 +459,7 @@ class SubscriberProfile(BaseModel):
     interests: str = ""  # centres d'interet
     habits: str = ""  # "cafe le matin, promenade a 14h"
     presentation: str = "l'assistante de {first_name}"  # comment Luna se presente aux tiers
+    caution_mode: str = "assistif"  # passif | assistif | proactif | urgence_only
 
     # --- Instructions permanentes ---
     permanent_rules: str = ""  # regles toujours actives

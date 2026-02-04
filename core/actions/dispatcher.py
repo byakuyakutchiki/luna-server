@@ -34,12 +34,18 @@ class ActionDispatcher:
     5. Log le résultat
     """
 
+    # Disclaimer ajoute aux messages d'alerte en mode assistance_only
+    LEGAL_DISCLAIMER = (
+        " [Ce message est une aide contextuelle, pas une alerte de securite garantie.]"
+    )
+
     def __init__(
         self,
         confirmation_manager: ConfirmationManager,
         quota_guard: QuotaGuard,
         sms_service=None,
         memory_manager=None,
+        legal_mode: str = "assistance_only",
     ):
         """
         Args:
@@ -47,11 +53,13 @@ class ActionDispatcher:
             quota_guard: Garde-fou des quotas
             sms_service: Service SMS pour l'envoi
             memory_manager: Gestionnaire de mémoire
+            legal_mode: Mode legal (assistance_only par defaut)
         """
         self.confirmation = confirmation_manager
         self.quota = quota_guard
         self.sms = sms_service
         self.memory = memory_manager
+        self.legal_mode = legal_mode
 
     async def dispatch(
         self,
@@ -297,6 +305,10 @@ class ActionDispatcher:
             "Si vous êtes inquiet, nous vous recommandons fortement "
             "d'appeler les secours."
         )
+
+        # En mode assistance_only, ajouter le disclaimer legal
+        if self.legal_mode == "assistance_only":
+            alert_body += self.LEGAL_DISCLAIMER
 
         sent = 0
         failed = []

@@ -545,6 +545,64 @@ class MemoryManager:
         )
 
     # ========================================================================
+    # EVENT LOG (journal chronologique humain)
+    # ========================================================================
+
+    EVENT_CATEGORIES = {"action", "perception", "safety", "instruction", "system", "communication"}
+
+    def log_event(
+        self,
+        category: str,
+        description: str,
+        reasoning: str = "",
+        details: Optional[Dict[str, Any]] = None,
+        source: str = "luna",
+    ) -> None:
+        """Log un evenement dans le journal chronologique."""
+        import json
+        event = {
+            "timestamp": datetime.utcnow().isoformat(),
+            "category": category if category in self.EVENT_CATEGORIES else "system",
+            "description": description,
+            "reasoning": reasoning,
+            "source": source,
+        }
+        if details:
+            event["details"] = details
+        self.redis.add_event_log(self.tenant_id, json.dumps(event, ensure_ascii=False))
+
+    def get_event_log(self, limit: int = 50, offset: int = 0) -> List[Dict[str, Any]]:
+        """Recupere le journal d'evenements."""
+        import json
+        raw = self.redis.get_event_log(self.tenant_id, limit=limit, offset=offset)
+        events = []
+        for item in raw:
+            try:
+                events.append(json.loads(item))
+            except Exception:
+                pass
+        return events
+
+    # ========================================================================
+    # BEHAVIORAL MEMORY (locked identity + rules)
+    # ========================================================================
+
+    def set_behavioral_memory(self, key_name: str, value: str) -> None:
+        """Store a behavioral memory value (identity_core or behavior_rules)."""
+        self.redis.set_behavioral_memory(self.tenant_id, key_name, value)
+
+    def get_behavioral_memory(self, key_name: str) -> Optional[str]:
+        """Retrieve a behavioral memory value."""
+        return self.redis.get_behavioral_memory(self.tenant_id, key_name)
+
+    def get_behavioral_rules(self) -> Dict[str, str]:
+        """Retourne identity_core + behavior_rules depuis Redis."""
+        return {
+            "identity_core": self.get_behavioral_memory("identity_core") or "",
+            "behavior_rules": self.get_behavioral_memory("behavior_rules") or "",
+        }
+
+    # ========================================================================
     # SESSION & CONTEXT
     # ========================================================================
 

@@ -9,6 +9,7 @@ IMPORTANT LEGAL: Ce module fournit une aide contextuelle.
 Il ne constitue PAS un dispositif medical ou de securite.
 """
 import json
+import re
 import logging
 from typing import Optional, List, Dict, Any
 from dataclasses import dataclass, field
@@ -93,6 +94,22 @@ class SceneAnalyzer:
     ABSENCE_DURATION_ATTENTION = 3600  # 1h sans personne = attention
     HISTORY_SIZE = 60                # ~10 min a 10s d'intervalle
 
+    # Prudence verbale : mots interdits dans les descriptions de perception
+    BANNED_WORDS = [
+        "surveillance", "diagnostic", "chute", "urgence medicale",
+        "surveille", "diagnostique", "monitore", "alerte medicale",
+    ]
+    SOFT_REPLACEMENTS = {
+        "chute": "situation au sol",
+        "surveillance": "observation",
+        "urgence medicale": "situation preoccupante",
+        "diagnostic": "impression",
+        "surveille": "observe",
+        "diagnostique": "remarque",
+        "monitore": "observe",
+        "alerte medicale": "situation inhabituelle",
+    }
+
     POSTURE_LABELS = {
         PersonPosture.STANDING: "debout",
         PersonPosture.SITTING: "assis(e)",
@@ -130,14 +147,14 @@ class SceneAnalyzer:
                 abnormalities.append({
                     "type": AbnormalityType.PERSON_ON_FLOOR.value,
                     "severity": SceneSeverity.CONCERN.value,
-                    "description": f"Personne au sol depuis {int(floor_duration)}s",
+                    "description": f"Il semble qu'une personne soit au sol depuis {int(floor_duration)}s",
                     "duration_seconds": int(floor_duration),
                 })
             elif floor_duration >= self.FLOOR_DURATION_ATTENTION:
                 abnormalities.append({
                     "type": AbnormalityType.PERSON_ON_FLOOR.value,
                     "severity": SceneSeverity.ATTENTION.value,
-                    "description": f"Personne au sol depuis {int(floor_duration)}s",
+                    "description": f"Il semble qu'une personne soit au sol depuis {int(floor_duration)}s",
                     "duration_seconds": int(floor_duration),
                 })
         else:
@@ -170,7 +187,7 @@ class SceneAnalyzer:
                     abnormalities.append({
                         "type": AbnormalityType.EXTENDED_ABSENCE.value,
                         "severity": SceneSeverity.ATTENTION.value,
-                        "description": f"Personne absente depuis {int(absence / 60)} min",
+                        "description": f"Il semble que personne ne soit visible depuis {int(absence / 60)} min",
                         "duration_seconds": int(absence),
                     })
 
@@ -186,6 +203,13 @@ class SceneAnalyzer:
             abnormalities=abnormalities,
             scene_description=description,
         )
+
+    def _sanitize_description(self, text: str) -> str:
+        """Remplace les mots bannis par des formulations prudentes."""
+        result = text
+        for banned, replacement in self.SOFT_REPLACEMENTS.items():
+            result = re.sub(re.escape(banned), replacement, result, flags=re.IGNORECASE)
+        return result
 
     def _build_description(
         self,
@@ -212,10 +236,13 @@ class SceneAnalyzer:
             if abn["severity"] in ("attention", "concern"):
                 parts.append(f"[{abn['severity'].upper()}] {abn['description']}.")
 
-        return " ".join(parts)
+        return self._sanitize_description(" ".join(parts))
 
-    def get_context_for_luna(self) -> str:
-        """Contexte court a injecter dans la conversation Luna."""
+    def get_context_for_luna(self, caution_mode: str = "assistif") -> str:
+        """
+        Contexte court a injecter dans la conversation Luna.
+        Filtre selon le caution_mode du profil.
+        """
         if not self._history:
             return ""
 
@@ -223,6 +250,22 @@ class SceneAnalyzer:
         state = self.analyze(last)
         if not state.scene_description:
             return ""
+
+        # Filtrer les anomalies selon le mode prudence
+        if caution_mode == "passif":
+            # Seulement les CONCERN
+            if not any(a["severity"] == "concern" for a in state.abnormalities):
+                return ""
+        elif caution_mode == "urgence_only":
+            # Seulement les CONCERN
+            if not any(a["severity"] == "concern" for a in state.abnormalities):
+                return ""
+        elif caution_mode == "assistif":
+            # ATTENTION + CONCERN (defaut)
+            pass
+        elif caution_mode == "proactif":
+            # Tout remonter (INFO inclus)
+            pass
 
         return (
             f"\n[Perception contextuelle - camera du domicile] "

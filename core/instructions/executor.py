@@ -658,16 +658,22 @@ class InstructionExecutor:
         task: ScheduledTask,
         result: ExecutionResult,
     ) -> None:
-        """Log l'exécution dans la mémoire"""
+        """Log l'exécution dans la mémoire avec reasoning"""
         try:
+            reasoning = (
+                f"Instruction executee automatiquement: "
+                f"{task.instruction.action_type.value} - "
+                f"declenchee par le scheduler ({task.instruction.original_text[:80]})"
+            )
             self.memory.add_note(
-                content=f"Exécution instruction: {result.message}",
+                content=f"Exécution instruction: {result.message}\n[Raison: {reasoning}]",
                 context="instruction_execution",
                 source="instruction_executor",
                 tags=[
                     "execution",
                     result.status.value,
                     task.instruction.action_type.value,
+                    "reasoning",
                 ],
             )
         except Exception as e:

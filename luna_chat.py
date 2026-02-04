@@ -14,7 +14,7 @@ load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4-turbo")
-ADMIN_NUMBER = os.getenv("ADMIN_NUMBER", "+33658477952")
+ADMIN_NUMBER = os.getenv("ADMIN_NUMBER", "")
 
 if not OPENAI_API_KEY:
     print("ERREUR: OPENAI_API_KEY manquante dans .env")

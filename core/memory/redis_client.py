@@ -449,6 +449,46 @@ class RedisClient:
         self.client.zadd(key, {event_json: _time.time()})
         self.client.expire(key, self.TTL_PERCEPTION_EVENTS)
 
+    # =========================================================================
+    # BEHAVIORAL MEMORY (locked identity + rules)
+    # =========================================================================
+
+    # =========================================================================
+    # EVENT LOG (journal chronologique humain)
+    # =========================================================================
+
+    TTL_EVENT_LOG = 90 * 24 * 60 * 60  # 90 jours
+    EVENT_LOG_MAX = 500  # Max entries
+
+    def add_event_log(self, tenant_id: int, event_json: str) -> None:
+        """Add an event to the chronological event log."""
+        key = self._key(tenant_id, "event_log")
+        self.client.lpush(key, event_json)
+        self.client.ltrim(key, 0, self.EVENT_LOG_MAX - 1)
+        self.client.expire(key, self.TTL_EVENT_LOG)
+
+    def get_event_log(self, tenant_id: int, limit: int = 50, offset: int = 0) -> list:
+        """Retrieve events from the chronological log."""
+        key = self._key(tenant_id, "event_log")
+        return list(self.client.lrange(key, offset, offset + limit - 1))
+
+    # =========================================================================
+    # BEHAVIORAL MEMORY (locked identity + rules)
+    # =========================================================================
+
+    def set_behavioral_memory(self, tenant_id: int, key_name: str, value: str) -> None:
+        """Store a behavioral memory value (identity_core or behavior_rules)."""
+        key = self._key(tenant_id, "behavioral", key_name)
+        self.client.set(key, value)
+
+    def get_behavioral_memory(self, tenant_id: int, key_name: str) -> Optional[str]:
+        """Retrieve a behavioral memory value."""
+        key = self._key(tenant_id, "behavioral", key_name)
+        val = self.client.get(key)
+        if val is None:
+            return None
+        return val if isinstance(val, str) else val.decode("utf-8")
+
 
 @lru_cache()
 def get_redis_client() -> RedisClient:

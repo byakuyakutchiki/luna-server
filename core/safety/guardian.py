@@ -73,20 +73,31 @@ class SafetyGuardian:
         ContentCategory.DISTRESS: EmergencyType.DISTRESS,
     }
 
+    # Mots/expressions interdits dans les reponses Luna (legal compliance)
+    FORBIDDEN_PROMISES = [
+        "je surveille", "je garantis", "je protege", "sous surveillance",
+        "systeme de securite", "dispositif medical", "je diagnostique",
+        "diagnostic", "je vous assure que rien", "surveillance garantie",
+        "protection assuree", "detection certaine",
+    ]
+
     def __init__(
         self,
         tenant_id: int,
         memory_manager=None,
         sms_service=None,
+        legal_mode: str = "assistance_only",
     ):
         """
         Args:
             tenant_id: ID du tenant/souscripteur
             memory_manager: MemoryManager pour accéder aux données
             sms_service: Service SMS pour les alertes
+            legal_mode: Mode legal (assistance_only par defaut)
         """
         self.tenant_id = tenant_id
         self.memory = memory_manager
+        self.legal_mode = legal_mode
         self.emergency_handler = EmergencyHandler(memory_manager, sms_service)
 
     def check(self, text: str, context: Optional[Dict[str, Any]] = None) -> SafetyCheck:
@@ -249,6 +260,24 @@ class SafetyGuardian:
 
         return True, None
 
+    def check_legal_compliance(self, text: str) -> Tuple[bool, List[str]]:
+        """
+        Verifie qu'un texte (reponse Luna) ne contient pas de promesses interdites.
+
+        Returns:
+            Tuple (is_compliant, list of violations found)
+        """
+        text_lower = text.lower()
+        violations = [
+            phrase for phrase in self.FORBIDDEN_PROMISES
+            if phrase in text_lower
+        ]
+        if violations:
+            logger.warning(
+                f"Legal compliance violation for tenant {self.tenant_id}: {violations}"
+            )
+        return len(violations) == 0, violations
+
     def get_safety_context_for_luna(self) -> Dict[str, Any]:
         """
         Retourne un contexte de sécurité à inclure dans le prompt de Luna.
@@ -257,7 +286,11 @@ class SafetyGuardian:
         """
         return {
             "role": "safety_context",
-            "content": """
+            "content": f"""
+MODE LEGAL: {self.legal_mode}
+Luna est une aide contextuelle bienveillante, PAS un service de securite.
+Elle ne promet JAMAIS de resultat, de protection ou de surveillance garantie.
+
 RAPPEL DE SÉCURITÉ POUR LUNA:
 
 1. JE NE SUIS PAS un professionnel de santé, juridique ou financier.
