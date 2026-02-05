@@ -6,6 +6,7 @@ Endpoints: chat, greeting, call Tavus, invitation contact, webhook SMS
 import os
 import re
 import time
+import uuid
 import asyncio
 import logging
 import openai
@@ -14,9 +15,10 @@ from datetime import datetime
 from dotenv import load_dotenv
 from openai import OpenAI
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Request, Response
+from fastapi import FastAPI, Request, Response, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.websockets import WebSocketState
 from pydantic import BaseModel, Field, field_validator
 from typing import Optional, Dict
 
@@ -30,6 +32,8 @@ try:
     from core.memory.schemas import (
         PlanType, MessageRole, Channel, Conversation,
         SubscriberProfile, InstructionType, ActionType as SchemaActionType,
+        UnifiedSession, UnifiedMessage, ChannelHandoff,
+        SessionStatus, MoodIndicator,
     )
     from core.safety.guardian import SafetyGuardian, SafetyLevel
     from core.actions.quota_guard import QuotaGuard
@@ -1593,6 +1597,150 @@ async def setup_teen_protection():
     }
 
 
+# --- SOS Famille ---
+
+@app.post("/api/family/sos")
+async def family_sos(request: Request):
+    """
+    Bouton SOS famille - Alerte tous les membres de la famille.
+    N'appelle PAS les services d'urgence (interdit).
+    """
+    if not _redis_client:
+        return JSONResponse(status_code=503, content={"error": "Redis non disponible"})
+
+    data = await request.json()
+    from_phone = data.get("from_phone", "").strip()
+    message = data.get("message", "").strip() or "J'ai besoin d'aide!"
+    location = data.get("location")  # {lat, lng, address} optionnel
+    trigger_visio = data.get("trigger_visio", False)
+
+    if not from_phone:
+        return JSONResponse(status_code=400, content={"error": "from_phone requis"})
+
+    # Trouver le membre qui déclenche
+    sender = _redis_client.get_family_member(TENANT_ID, from_phone)
+    sender_name = sender.get("name", "Un membre") if sender else "Un membre"
+
+    # Récupérer tous les membres de la famille (sauf l'émetteur)
+    all_members = _redis_client.get_all_family_members(TENANT_ID)
+    recipients = [m for m in all_members if m.get("phone") != from_phone]
+
+    if not recipients:
+        return JSONResponse(status_code=400, content={"error": "Aucun autre membre dans la famille"})
+
+    # Construire le message SOS
+    timestamp = datetime.utcnow().strftime("%H:%M")
+    sos_message = f"🆘 ALERTE FAMILLE - {timestamp}\n\n"
+    sos_message += f"{sender_name} a besoin d'aide!\n"
+    if message != "J'ai besoin d'aide!":
+        sos_message += f"Message: {message}\n"
+    if location:
+        if location.get("address"):
+            sos_message += f"📍 {location['address']}\n"
+        elif location.get("lat") and location.get("lng"):
+            sos_message += f"📍 Position: {location['lat']}, {location['lng']}\n"
+
+    # Créer un message prioritaire dans la messagerie interne
+    from core.memory.schemas import FamilyMessage, FamilyMessageType
+    sos_msg = FamilyMessage(
+        tenant_id=TENANT_ID,
+        from_phone=from_phone,
+        from_name=sender_name,
+        to_phone="all",  # Broadcast
+        content=sos_message,
+        message_type=FamilyMessageType.ALERT,
+        requires_response=True,
+    )
+    _redis_client.add_family_message(TENANT_ID, sos_msg.id, sos_msg.to_redis())
+
+    # Notifier par SMS les membres qui peuvent recevoir des alertes
+    sms_sent = 0
+    sms_failed = 0
+    if sms_client and sms_client.is_configured:
+        for member in recipients:
+            if member.get("can_receive_alerts") in ["1", "true", True]:
+                phone = member.get("phone")
+                if phone:
+                    success, _ = sms_client.send(phone, sos_message)
+                    if success:
+                        sms_sent += 1
+                    else:
+                        sms_failed += 1
+
+    # Publier événement temps réel pour l'app
+    _redis_client.publish_event(TENANT_ID, "sos_alert", {
+        "from_phone": from_phone,
+        "from_name": sender_name,
+        "message": message,
+        "location": location,
+        "timestamp": datetime.utcnow().isoformat(),
+    })
+
+    # Log dans l'audit
+    _log_family_audit("sos_triggered", from_phone, sender_name,
+                      details={
+                          "message": message,
+                          "location": location,
+                          "recipients_count": len(recipients),
+                          "sms_sent": sms_sent,
+                      },
+                      severity="critical")
+
+    # Optionnel: déclencher une visio avec Luna
+    visio_url = None
+    if trigger_visio and tavus_client and tavus_client.is_configured:
+        context = f"ALERTE SOS de {sender_name}. Message: {message}"
+        success, conv_data = await tavus_client.create_conversation(
+            tenant_id=TENANT_ID,
+            custom_greeting=f"{sender_name}, je suis là. Dis-moi ce qui se passe.",
+            context=context,
+        )
+        if success:
+            visio_url = conv_data.get("conversation_url")
+
+    return {
+        "success": True,
+        "message_id": sos_msg.id,
+        "alerted_members": len(recipients),
+        "sms_sent": sms_sent,
+        "sms_failed": sms_failed,
+        "visio_url": visio_url,
+        "message": f"Alerte envoyee a {len(recipients)} membre(s) de la famille",
+    }
+
+
+@app.get("/api/family/sos/status")
+async def family_sos_status():
+    """Vérifie si le SOS est disponible et récupère les dernières alertes"""
+    if not _redis_client:
+        return JSONResponse(status_code=503, content={"error": "Redis non disponible"})
+
+    # Récupérer les alertes récentes depuis l'audit (les entrées sont des JSON strings)
+    import json
+    audit_entries_raw = _redis_client.get_family_audit(TENANT_ID, limit=20)
+    recent_sos = []
+    for entry_str in audit_entries_raw:
+        try:
+            entry = json.loads(entry_str)
+            if entry.get("action") == "sos_triggered":
+                recent_sos.append(entry)
+        except (json.JSONDecodeError, TypeError):
+            continue
+
+    # Compter les membres qui peuvent recevoir des alertes
+    all_members = _redis_client.get_all_family_members(TENANT_ID)
+    alert_receivers = len([m for m in all_members if m.get("can_receive_alerts") in ["1", "true", True]])
+
+    return {
+        "available": True,
+        "sms_enabled": sms_client.is_configured if sms_client else False,
+        "visio_enabled": tavus_client.is_configured if tavus_client else False,
+        "members_count": len(all_members),
+        "alert_receivers": alert_receivers,
+        "recent_alerts": recent_sos[:5],
+    }
+
+
 # =========================================================================
 # INSTRUCTIONS ENDPOINTS
 # =========================================================================
@@ -2618,6 +2766,485 @@ async def run_scenario(req: Request):
     except Exception as e:
         _test_mode = False
         return JSONResponse(status_code=500, content={"error": str(e)})
+
+
+# =============================================================================
+# UNIFIED API - Memoire temps reel multi-canal
+# =============================================================================
+
+def _get_or_create_session() -> Optional[Dict]:
+    """Recupere ou cree une session unifiee"""
+    if not _redis_client:
+        return None
+    session = _redis_client.get_session(TENANT_ID)
+    if not session:
+        new_session = UnifiedSession(tenant_id=TENANT_ID)
+        _redis_client.set_session(TENANT_ID, new_session.to_redis())
+        return new_session.to_redis()
+    return session
+
+
+def _update_session_activity(channel: str = None, topic: str = None, mood: str = None):
+    """Met a jour l'activite de la session"""
+    if not _redis_client:
+        return
+    updates = {"last_activity": datetime.utcnow().isoformat(), "status": "active"}
+    if channel:
+        updates["active_channel"] = channel
+    if topic:
+        updates["current_topic"] = topic
+    if mood:
+        updates["current_mood"] = mood
+    _redis_client.update_session(TENANT_ID, updates)
+
+
+def _add_unified_message(channel: str, role: str, content: str,
+                         audio_duration: float = None, mood: str = None,
+                         intent: str = None, tool_calls: list = None):
+    """Ajoute un message a l'historique unifie"""
+    if not _redis_client:
+        return None
+    msg = UnifiedMessage(
+        tenant_id=TENANT_ID,
+        channel=Channel(channel),
+        role=MessageRole(role),
+        content=content,
+        audio_duration_sec=audio_duration,
+        detected_mood=MoodIndicator(mood) if mood else None,
+        detected_intent=intent,
+        tool_calls=tool_calls,
+    )
+    _redis_client.add_unified_message(TENANT_ID, msg.id, msg.to_redis())
+    # Publier evenement temps reel
+    _redis_client.publish_event(TENANT_ID, "new_message", {
+        "id": msg.id, "channel": channel, "role": role, "content": content[:100]
+    })
+    return msg.id
+
+
+@app.get("/api/unified/session")
+async def get_unified_session():
+    """Recupere l'etat de la session active"""
+    if not _redis_client:
+        return JSONResponse(status_code=503, content={"error": "Redis non disponible"})
+
+    session = _get_or_create_session()
+    context = _redis_client.get_context(TENANT_ID) or {}
+
+    return {
+        "session": session,
+        "context": context,
+        "channels": {
+            "app": True,
+            "voice": True,
+            "sms": sms_client.is_configured if sms_client else False,
+            "visio": tavus_client.is_configured if tavus_client else False,
+        }
+    }
+
+
+@app.post("/api/unified/send")
+async def unified_send(request: Request):
+    """Envoie un message unifie (detecte le canal automatiquement ou specifie)"""
+    if not _redis_client:
+        return JSONResponse(status_code=503, content={"error": "Redis non disponible"})
+
+    data = await request.json()
+    content = data.get("content", "").strip()
+    channel = data.get("channel", "app")
+    role = data.get("role", "subscriber")
+
+    if not content:
+        return JSONResponse(status_code=400, content={"error": "content requis"})
+
+    # Valider le canal
+    valid_channels = ["app", "voice", "sms", "call", "visio"]
+    if channel not in valid_channels:
+        return JSONResponse(status_code=400, content={
+            "error": f"Canal invalide. Valides: {', '.join(valid_channels)}"
+        })
+
+    # Mettre a jour la session
+    _update_session_activity(channel=channel)
+
+    # Ajouter le message a l'historique unifie
+    msg_id = _add_unified_message(channel, role, content)
+
+    # Si c'est un message du subscriber, generer une reponse Luna
+    response_content = None
+    if role == "subscriber":
+        # Recuperer le contexte recent
+        recent_messages = _redis_client.get_recent_context_messages(TENANT_ID, count=15)
+
+        # Construire l'historique pour OpenAI
+        messages = [{"role": "system", "content": LUNA_SYSTEM_PROMPT}]
+        for msg in reversed(recent_messages):
+            msg_role = "assistant" if msg.get("role") == "luna" else "user"
+            messages.append({"role": msg_role, "content": msg.get("content", "")})
+
+        # Appel OpenAI
+        try:
+            response = openai_client.chat.completions.create(
+                model=OPENAI_MODEL,
+                messages=messages,
+                max_tokens=500,
+            )
+            response_content = response.choices[0].message.content
+
+            # Ajouter la reponse Luna
+            luna_msg_id = _add_unified_message(channel, "luna", response_content)
+
+            # Mettre a jour le contexte
+            _redis_client.update_context(TENANT_ID, {
+                "last_topic": content[:50],
+                "last_response": response_content[:100],
+                "last_channel": channel,
+                "updated_at": datetime.utcnow().isoformat(),
+            })
+
+        except Exception as e:
+            logger.error(f"Unified send error: {e}")
+            response_content = "Je suis desolee, j'ai eu un petit souci. Pouvez-vous repeter?"
+
+    return {
+        "success": True,
+        "message_id": msg_id,
+        "channel": channel,
+        "response": response_content,
+    }
+
+
+@app.get("/api/unified/history")
+async def get_unified_history(limit: int = 50, channel: str = None):
+    """Recupere l'historique unifie de tous les canaux"""
+    if not _redis_client:
+        return JSONResponse(status_code=503, content={"error": "Redis non disponible"})
+
+    messages = _redis_client.get_unified_messages(TENANT_ID, limit=limit, channel=channel)
+
+    return {
+        "messages": messages,
+        "count": len(messages),
+        "filter_channel": channel,
+    }
+
+
+@app.get("/api/unified/context")
+async def get_realtime_context():
+    """Recupere le contexte temps reel (pour affichage app)"""
+    if not _redis_client:
+        return JSONResponse(status_code=503, content={"error": "Redis non disponible"})
+
+    session = _redis_client.get_session(TENANT_ID)
+    context = _redis_client.get_context(TENANT_ID)
+    last_handoff = _redis_client.get_last_handoff(TENANT_ID)
+
+    # Dernier message par canal
+    last_by_channel = {}
+    for ch in ["app", "voice", "sms", "visio"]:
+        msgs = _redis_client.get_unified_messages(TENANT_ID, limit=1, channel=ch)
+        if msgs:
+            last_by_channel[ch] = msgs[0]
+
+    return {
+        "session": session,
+        "context": context,
+        "last_handoff": last_handoff,
+        "last_by_channel": last_by_channel,
+    }
+
+
+@app.post("/api/unified/handoff")
+async def channel_handoff(request: Request):
+    """Change de canal avec transfert de contexte"""
+    if not _redis_client:
+        return JSONResponse(status_code=503, content={"error": "Redis non disponible"})
+
+    data = await request.json()
+    from_channel = data.get("from_channel", "app")
+    to_channel = data.get("to_channel")
+    reason = data.get("reason", "user_request")
+
+    if not to_channel:
+        return JSONResponse(status_code=400, content={"error": "to_channel requis"})
+
+    # Recuperer le contexte actuel
+    context = _redis_client.get_context(TENANT_ID) or {}
+    recent_messages = _redis_client.get_recent_context_messages(TENANT_ID, count=5)
+
+    # Creer un resume du contexte
+    context_summary = f"Sujet: {context.get('last_topic', 'aucun')}. "
+    if recent_messages:
+        last_msg = recent_messages[0]
+        context_summary += f"Dernier message ({last_msg.get('channel', 'app')}): {last_msg.get('content', '')[:50]}..."
+
+    # Enregistrer le handoff
+    handoff = ChannelHandoff(
+        tenant_id=TENANT_ID,
+        from_channel=Channel(from_channel),
+        to_channel=Channel(to_channel),
+        reason=reason,
+        context_summary=context_summary,
+    )
+    _redis_client.add_handoff(TENANT_ID, handoff.id, handoff.to_redis())
+
+    # Mettre a jour la session
+    _redis_client.update_session(TENANT_ID, {
+        "active_channel": to_channel,
+        "last_activity": datetime.utcnow().isoformat(),
+    })
+
+    # Publier l'evenement
+    _redis_client.publish_event(TENANT_ID, "channel_handoff", {
+        "from": from_channel, "to": to_channel, "reason": reason
+    })
+
+    return {
+        "success": True,
+        "handoff_id": handoff.id,
+        "context_transferred": context_summary,
+    }
+
+
+# =============================================================================
+# VOICE MODE - WebSocket temps reel (sans video)
+# =============================================================================
+
+# Connexions WebSocket actives
+_voice_connections: Dict[int, WebSocket] = {}
+
+
+@app.websocket("/api/voice/stream")
+async def voice_stream(websocket: WebSocket):
+    """WebSocket pour le mode voix temps reel"""
+    await websocket.accept()
+
+    if not _redis_client:
+        await websocket.close(code=1011, reason="Redis non disponible")
+        return
+
+    tenant_id = TENANT_ID  # Dans un vrai multi-tenant, extraire du token
+    _voice_connections[tenant_id] = websocket
+
+    # Creer session voix
+    voice_session_id = str(uuid.uuid4())
+    _redis_client.set_voice_session(tenant_id, {
+        "id": voice_session_id,
+        "started_at": datetime.utcnow().isoformat(),
+        "status": "active",
+    })
+
+    # Mettre a jour la session unifiee
+    _redis_client.update_session(tenant_id, {
+        "active_channel": "voice",
+        "is_voice_active": "1",
+        "channel_session_id": voice_session_id,
+        "last_activity": datetime.utcnow().isoformat(),
+    })
+
+    logger.info(f"Voice session started: {voice_session_id}")
+
+    try:
+        # Message de bienvenue
+        greeting = f"Bonjour {_SUBSCRIBER_NAME}! Je suis Luna, votre assistante vocale. Comment puis-je vous aider?"
+        await websocket.send_json({
+            "type": "greeting",
+            "text": greeting,
+            "session_id": voice_session_id,
+        })
+
+        while True:
+            # Recevoir message du client
+            data = await websocket.receive_json()
+            msg_type = data.get("type", "text")
+
+            if msg_type == "text":
+                # Message texte (transcription cote client)
+                user_text = data.get("text", "")
+                if user_text:
+                    # Ajouter a l'historique unifie
+                    _add_unified_message("voice", "subscriber", user_text)
+                    _update_session_activity(channel="voice")
+
+                    # Generer reponse
+                    recent = _redis_client.get_recent_context_messages(tenant_id, count=10)
+                    messages = [{"role": "system", "content": LUNA_SYSTEM_PROMPT}]
+                    for msg in reversed(recent):
+                        msg_role = "assistant" if msg.get("role") == "luna" else "user"
+                        messages.append({"role": msg_role, "content": msg.get("content", "")})
+
+                    response = openai_client.chat.completions.create(
+                        model=OPENAI_MODEL,
+                        messages=messages,
+                        max_tokens=300,
+                    )
+                    luna_response = response.choices[0].message.content
+
+                    # Ajouter a l'historique
+                    _add_unified_message("voice", "luna", luna_response)
+
+                    # Envoyer au client
+                    await websocket.send_json({
+                        "type": "response",
+                        "text": luna_response,
+                    })
+
+            elif msg_type == "audio":
+                # Audio brut (base64) - transcription avec Whisper
+                audio_b64 = data.get("audio", "")
+                if audio_b64:
+                    import base64
+                    import tempfile
+
+                    # Decoder et sauvegarder temporairement
+                    audio_bytes = base64.b64decode(audio_b64)
+                    with tempfile.NamedTemporaryFile(suffix=".webm", delete=False) as f:
+                        f.write(audio_bytes)
+                        temp_path = f.name
+
+                    try:
+                        # Transcription Whisper
+                        with open(temp_path, "rb") as audio_file:
+                            transcription = openai_client.audio.transcriptions.create(
+                                model="whisper-1",
+                                file=audio_file,
+                                language="fr",
+                            )
+                        user_text = transcription.text
+
+                        if user_text.strip():
+                            # Meme logique que pour text
+                            _add_unified_message("voice", "subscriber", user_text)
+
+                            recent = _redis_client.get_recent_context_messages(tenant_id, count=10)
+                            messages = [{"role": "system", "content": LUNA_SYSTEM_PROMPT}]
+                            for msg in reversed(recent):
+                                msg_role = "assistant" if msg.get("role") == "luna" else "user"
+                                messages.append({"role": msg_role, "content": msg.get("content", "")})
+
+                            response = openai_client.chat.completions.create(
+                                model=OPENAI_MODEL,
+                                messages=messages,
+                                max_tokens=300,
+                            )
+                            luna_response = response.choices[0].message.content
+                            _add_unified_message("voice", "luna", luna_response)
+
+                            # Generer audio TTS
+                            tts_response = openai_client.audio.speech.create(
+                                model="tts-1",
+                                voice="nova",  # Voix feminine
+                                input=luna_response,
+                            )
+
+                            # Encoder en base64
+                            audio_response_b64 = base64.b64encode(tts_response.content).decode()
+
+                            await websocket.send_json({
+                                "type": "audio_response",
+                                "text": luna_response,
+                                "audio": audio_response_b64,
+                                "transcription": user_text,
+                            })
+                    finally:
+                        os.unlink(temp_path)
+
+            elif msg_type == "ping":
+                await websocket.send_json({"type": "pong"})
+
+            elif msg_type == "end":
+                break
+
+    except WebSocketDisconnect:
+        logger.info(f"Voice session disconnected: {voice_session_id}")
+    except Exception as e:
+        logger.error(f"Voice error: {e}")
+    finally:
+        # Nettoyer
+        _voice_connections.pop(tenant_id, None)
+        _redis_client.delete_voice_session(tenant_id)
+        _redis_client.update_session(tenant_id, {
+            "is_voice_active": "0",
+            "channel_session_id": "",
+        })
+        logger.info(f"Voice session ended: {voice_session_id}")
+
+
+@app.get("/api/voice/status")
+async def voice_status():
+    """Statut du mode voix"""
+    if not _redis_client:
+        return JSONResponse(status_code=503, content={"error": "Redis non disponible"})
+
+    voice_session = _redis_client.get_voice_session(TENANT_ID)
+
+    return {
+        "available": True,
+        "active": voice_session is not None,
+        "session": voice_session,
+        "websocket_url": "wss://localhost:8888/api/voice/stream",
+    }
+
+
+# =============================================================================
+# SYNC - Notifications des autres canaux
+# =============================================================================
+
+@app.post("/api/sync/tavus")
+async def sync_from_tavus(request: Request):
+    """Tavus notifie la fin d'un appel visio"""
+    if not _redis_client:
+        return JSONResponse(status_code=503, content={"error": "Redis non disponible"})
+
+    data = await request.json()
+    event = data.get("event", "")
+    conversation_id = data.get("conversation_id", "")
+    transcript = data.get("transcript", [])
+
+    if event == "conversation.ended":
+        # Ajouter les messages du transcript a l'historique unifie
+        for entry in transcript:
+            role = "luna" if entry.get("speaker") == "replica" else "subscriber"
+            content = entry.get("text", "")
+            if content:
+                _add_unified_message("visio", role, content)
+
+        # Mettre a jour la session
+        _redis_client.update_session(TENANT_ID, {
+            "is_video_active": "0",
+            "channel_session_id": "",
+            "last_activity": datetime.utcnow().isoformat(),
+        })
+
+        logger.info(f"Tavus conversation ended: {conversation_id}, {len(transcript)} messages synced")
+
+    return {"success": True}
+
+
+@app.post("/api/sync/twilio")
+async def sync_from_twilio(request: Request):
+    """Twilio notifie la fin d'un appel"""
+    if not _redis_client:
+        return JSONResponse(status_code=503, content={"error": "Redis non disponible"})
+
+    data = await request.json()
+    call_sid = data.get("CallSid", "")
+    call_status = data.get("CallStatus", "")
+    from_number = data.get("From", "")
+    transcript = data.get("transcript", "")
+
+    if call_status == "completed":
+        if transcript:
+            _add_unified_message("call", "subscriber", f"[Appel Twilio] {transcript}")
+
+        _redis_client.update_session(TENANT_ID, {
+            "active_channel": "app",
+            "last_activity": datetime.utcnow().isoformat(),
+        })
+
+        logger.info(f"Twilio call ended: {call_sid}")
+
+    return {"success": True}
 
 
 if __name__ == "__main__":

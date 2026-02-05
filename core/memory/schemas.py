@@ -22,11 +22,12 @@ class MessageRole(str, Enum):
 
 class Channel(str, Enum):
     """Canal de communication"""
-    APP = "app"
-    SMS = "sms"
-    CALL = "call"
-    VISIO = "visio"
-    WEBHOOK = "webhook"
+    APP = "app"           # Chat texte application
+    VOICE = "voice"       # Voix application (sans video)
+    SMS = "sms"           # SMS Twilio
+    CALL = "call"         # Appel vocal Twilio
+    VISIO = "visio"       # Video Tavus
+    WEBHOOK = "webhook"   # Webhook externe
 
 
 class ConversationStatus(str, Enum):
@@ -1126,3 +1127,146 @@ class FamilyQuota(BaseModel):
             ),
         }
         return quotas.get(plan)
+
+
+# ============================================================================
+# UNIFIED MEMORY - Session temps reel multi-canal
+# ============================================================================
+
+class SessionStatus(str, Enum):
+    """Statut de la session active"""
+    IDLE = "idle"              # Pas d'interaction en cours
+    ACTIVE = "active"          # Interaction en cours
+    WAITING = "waiting"        # Attend reponse utilisateur
+    PROCESSING = "processing"  # Luna traite une demande
+
+
+class MoodIndicator(str, Enum):
+    """Indicateur d'humeur detecte"""
+    NEUTRAL = "neutral"
+    HAPPY = "happy"
+    SAD = "sad"
+    ANXIOUS = "anxious"
+    CONFUSED = "confused"
+    URGENT = "urgent"
+
+
+class UnifiedSession(BaseModel):
+    """Session active multi-canal"""
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    tenant_id: int
+    active_channel: Channel = Channel.APP
+    status: SessionStatus = SessionStatus.IDLE
+    started_at: datetime = Field(default_factory=datetime.utcnow)
+    last_activity: datetime = Field(default_factory=datetime.utcnow)
+    # Contexte temps reel
+    current_topic: Optional[str] = None
+    current_mood: MoodIndicator = MoodIndicator.NEUTRAL
+    pending_action: Optional[str] = None  # Action en attente
+    # Infos canal
+    channel_session_id: Optional[str] = None  # ID session Tavus/Twilio
+    is_voice_active: bool = False
+    is_video_active: bool = False
+
+    def to_redis(self) -> Dict[str, str]:
+        return {
+            "id": self.id,
+            "tenant_id": str(self.tenant_id),
+            "active_channel": self.active_channel.value,
+            "status": self.status.value,
+            "started_at": self.started_at.isoformat(),
+            "last_activity": self.last_activity.isoformat(),
+            "current_topic": self.current_topic or "",
+            "current_mood": self.current_mood.value,
+            "pending_action": self.pending_action or "",
+            "channel_session_id": self.channel_session_id or "",
+            "is_voice_active": "1" if self.is_voice_active else "0",
+            "is_video_active": "1" if self.is_video_active else "0",
+        }
+
+    @classmethod
+    def from_redis(cls, data: Dict[str, str]) -> "UnifiedSession":
+        return cls(
+            id=data.get("id", ""),
+            tenant_id=int(data.get("tenant_id", 0)),
+            active_channel=Channel(data.get("active_channel", "app")),
+            status=SessionStatus(data.get("status", "idle")),
+            started_at=datetime.fromisoformat(data["started_at"]) if data.get("started_at") else datetime.utcnow(),
+            last_activity=datetime.fromisoformat(data["last_activity"]) if data.get("last_activity") else datetime.utcnow(),
+            current_topic=data.get("current_topic") or None,
+            current_mood=MoodIndicator(data.get("current_mood", "neutral")),
+            pending_action=data.get("pending_action") or None,
+            channel_session_id=data.get("channel_session_id") or None,
+            is_voice_active=data.get("is_voice_active") == "1",
+            is_video_active=data.get("is_video_active") == "1",
+        )
+
+
+class UnifiedMessage(BaseModel):
+    """Message unifie (tous canaux)"""
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    tenant_id: int
+    channel: Channel
+    role: MessageRole
+    content: str
+    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    # Metadata
+    audio_duration_sec: Optional[float] = None  # Si voix
+    detected_mood: Optional[MoodIndicator] = None
+    detected_intent: Optional[str] = None  # Intent NLU
+    tool_calls: Optional[List[str]] = None  # Outils appeles par Luna
+    # Lien avec session
+    session_id: Optional[str] = None
+
+    def to_redis(self) -> Dict[str, str]:
+        return {
+            "id": self.id,
+            "tenant_id": str(self.tenant_id),
+            "channel": self.channel.value,
+            "role": self.role.value,
+            "content": self.content,
+            "timestamp": self.timestamp.isoformat(),
+            "audio_duration_sec": str(self.audio_duration_sec) if self.audio_duration_sec else "",
+            "detected_mood": self.detected_mood.value if self.detected_mood else "",
+            "detected_intent": self.detected_intent or "",
+            "tool_calls": ",".join(self.tool_calls) if self.tool_calls else "",
+            "session_id": self.session_id or "",
+        }
+
+    @classmethod
+    def from_redis(cls, data: Dict[str, str]) -> "UnifiedMessage":
+        return cls(
+            id=data.get("id", ""),
+            tenant_id=int(data.get("tenant_id", 0)),
+            channel=Channel(data.get("channel", "app")),
+            role=MessageRole(data.get("role", "subscriber")),
+            content=data.get("content", ""),
+            timestamp=datetime.fromisoformat(data["timestamp"]) if data.get("timestamp") else datetime.utcnow(),
+            audio_duration_sec=float(data["audio_duration_sec"]) if data.get("audio_duration_sec") else None,
+            detected_mood=MoodIndicator(data["detected_mood"]) if data.get("detected_mood") else None,
+            detected_intent=data.get("detected_intent") or None,
+            tool_calls=data["tool_calls"].split(",") if data.get("tool_calls") else None,
+            session_id=data.get("session_id") or None,
+        )
+
+
+class ChannelHandoff(BaseModel):
+    """Transfert de canal (ex: chat -> voice)"""
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    tenant_id: int
+    from_channel: Channel
+    to_channel: Channel
+    reason: str  # "user_request", "escalation", "timeout"
+    context_summary: str  # Resume du contexte transfere
+    timestamp: datetime = Field(default_factory=datetime.utcnow)
+
+    def to_redis(self) -> Dict[str, str]:
+        return {
+            "id": self.id,
+            "tenant_id": str(self.tenant_id),
+            "from_channel": self.from_channel.value,
+            "to_channel": self.to_channel.value,
+            "reason": self.reason,
+            "context_summary": self.context_summary,
+            "timestamp": self.timestamp.isoformat(),
+        }

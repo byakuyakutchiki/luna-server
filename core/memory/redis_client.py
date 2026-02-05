@@ -547,6 +547,16 @@ class RedisClient:
         """Recupere les phones des membres famille"""
         return list(self.client.smembers(self.get_family_members_key(tenant_id)))
 
+    def get_all_family_members(self, tenant_id: int) -> List[Dict[str, str]]:
+        """Recupere tous les membres famille avec leurs donnees completes"""
+        phones = self.get_family_members(tenant_id)
+        members = []
+        for phone in phones:
+            data = self.get_family_member(tenant_id, phone)
+            if data:
+                members.append(data)
+        return members
+
     def get_family_member(self, tenant_id: int, phone: str) -> Optional[Dict[str, str]]:
         """Recupere un membre famille"""
         key = self.get_family_member_key(tenant_id, phone)
@@ -706,6 +716,184 @@ class RedisClient:
     def delete_active_escalation(self, tenant_id: int, event_id: str) -> None:
         """Supprime une escalade (resolue)"""
         self.client.delete(self.get_active_escalation_key(tenant_id, event_id))
+
+
+    # =========================================================================
+    # UNIFIED MEMORY - Session temps reel multi-canal
+    # =========================================================================
+
+    TTL_SESSION = 24 * 60 * 60  # 24 heures
+    TTL_UNIFIED_MESSAGES = 30 * 24 * 60 * 60  # 30 jours
+    TTL_CONTEXT = 60 * 60  # 1 heure (contexte temps reel)
+    MAX_UNIFIED_MESSAGES = 1000  # Max messages par tenant
+
+    # --- Session Active ---
+
+    def get_session_key(self, tenant_id: int) -> str:
+        """Cle pour la session active"""
+        return self._key(tenant_id, "session", "active")
+
+    def set_session(self, tenant_id: int, data: Dict[str, str]) -> None:
+        """Cree ou met a jour la session active"""
+        key = self.get_session_key(tenant_id)
+        self.client.hset(key, mapping=data)
+        self.client.expire(key, self.TTL_SESSION)
+
+    def get_session(self, tenant_id: int) -> Optional[Dict[str, str]]:
+        """Recupere la session active"""
+        key = self.get_session_key(tenant_id)
+        data = self.client.hgetall(key)
+        return data if data else None
+
+    def update_session(self, tenant_id: int, updates: Dict[str, str]) -> None:
+        """Met a jour des champs de la session"""
+        key = self.get_session_key(tenant_id)
+        if self.client.exists(key):
+            self.client.hset(key, mapping=updates)
+
+    def delete_session(self, tenant_id: int) -> None:
+        """Supprime la session active"""
+        self.client.delete(self.get_session_key(tenant_id))
+
+    # --- Contexte Temps Reel ---
+
+    def get_context_key(self, tenant_id: int) -> str:
+        """Cle pour le contexte temps reel"""
+        return self._key(tenant_id, "context", "realtime")
+
+    def set_context(self, tenant_id: int, data: Dict[str, str]) -> None:
+        """Definit le contexte temps reel"""
+        key = self.get_context_key(tenant_id)
+        self.client.hset(key, mapping=data)
+        self.client.expire(key, self.TTL_CONTEXT)
+
+    def get_context(self, tenant_id: int) -> Optional[Dict[str, str]]:
+        """Recupere le contexte temps reel"""
+        key = self.get_context_key(tenant_id)
+        data = self.client.hgetall(key)
+        return data if data else None
+
+    def update_context(self, tenant_id: int, updates: Dict[str, str]) -> None:
+        """Met a jour le contexte"""
+        key = self.get_context_key(tenant_id)
+        self.client.hset(key, mapping=updates)
+        self.client.expire(key, self.TTL_CONTEXT)
+
+    # --- Messages Unifies (tous canaux) ---
+
+    def get_unified_messages_key(self, tenant_id: int) -> str:
+        """Cle pour la liste des messages unifies"""
+        return self._key(tenant_id, "unified", "messages")
+
+    def add_unified_message(self, tenant_id: int, msg_id: str, data: Dict[str, str]) -> None:
+        """Ajoute un message unifie"""
+        list_key = self.get_unified_messages_key(tenant_id)
+        msg_key = self._key(tenant_id, "unified", "message", msg_id)
+
+        # Stocker le message
+        self.client.hset(msg_key, mapping=data)
+        self.client.expire(msg_key, self.TTL_UNIFIED_MESSAGES)
+
+        # Ajouter a la liste (score = timestamp)
+        import time
+        self.client.zadd(list_key, {msg_id: time.time()})
+
+        # Limiter la taille
+        count = self.client.zcard(list_key)
+        if count > self.MAX_UNIFIED_MESSAGES:
+            # Supprimer les plus anciens
+            to_remove = self.client.zrange(list_key, 0, count - self.MAX_UNIFIED_MESSAGES - 1)
+            for old_id in to_remove:
+                self.client.delete(self._key(tenant_id, "unified", "message", old_id))
+            self.client.zremrangebyrank(list_key, 0, count - self.MAX_UNIFIED_MESSAGES - 1)
+
+    def get_unified_message(self, tenant_id: int, msg_id: str) -> Optional[Dict[str, str]]:
+        """Recupere un message unifie"""
+        key = self._key(tenant_id, "unified", "message", msg_id)
+        data = self.client.hgetall(key)
+        return data if data else None
+
+    def get_unified_messages(self, tenant_id: int, limit: int = 50,
+                             channel: Optional[str] = None) -> List[Dict[str, str]]:
+        """Recupere les derniers messages unifies"""
+        list_key = self.get_unified_messages_key(tenant_id)
+        msg_ids = self.client.zrevrange(list_key, 0, limit * 2 - 1)  # Prendre plus pour filtrer
+
+        messages = []
+        for msg_id in msg_ids:
+            msg = self.get_unified_message(tenant_id, msg_id)
+            if msg:
+                if channel is None or msg.get("channel") == channel:
+                    messages.append(msg)
+                    if len(messages) >= limit:
+                        break
+        return messages
+
+    def get_recent_context_messages(self, tenant_id: int, count: int = 10) -> List[Dict[str, str]]:
+        """Recupere les N derniers messages pour le contexte OpenAI"""
+        return self.get_unified_messages(tenant_id, limit=count)
+
+    # --- Handoff de canal ---
+
+    def get_handoffs_key(self, tenant_id: int) -> str:
+        """Cle pour l'historique des handoffs"""
+        return self._key(tenant_id, "unified", "handoffs")
+
+    def add_handoff(self, tenant_id: int, handoff_id: str, data: Dict[str, str]) -> None:
+        """Enregistre un changement de canal"""
+        list_key = self.get_handoffs_key(tenant_id)
+        handoff_key = self._key(tenant_id, "unified", "handoff", handoff_id)
+
+        self.client.hset(handoff_key, mapping=data)
+        self.client.expire(handoff_key, self.TTL_UNIFIED_MESSAGES)
+
+        import time
+        self.client.zadd(list_key, {handoff_id: time.time()})
+        # Garder max 100 handoffs
+        self.client.zremrangebyrank(list_key, 0, -101)
+
+    def get_last_handoff(self, tenant_id: int) -> Optional[Dict[str, str]]:
+        """Recupere le dernier handoff"""
+        list_key = self.get_handoffs_key(tenant_id)
+        handoff_ids = self.client.zrevrange(list_key, 0, 0)
+        if handoff_ids:
+            return self.client.hgetall(self._key(tenant_id, "unified", "handoff", handoff_ids[0]))
+        return None
+
+    # --- Pub/Sub pour temps reel ---
+
+    def publish_event(self, tenant_id: int, event_type: str, data: Dict[str, Any]) -> None:
+        """Publie un evenement temps reel"""
+        import json
+        channel = f"{self.prefix}:events:{tenant_id}"
+        payload = json.dumps({"type": event_type, "data": data})
+        self.client.publish(channel, payload)
+
+    def get_events_channel(self, tenant_id: int) -> str:
+        """Retourne le nom du channel pour subscribe"""
+        return f"{self.prefix}:events:{tenant_id}"
+
+    # --- Voice Session (pour WebSocket) ---
+
+    def get_voice_session_key(self, tenant_id: int) -> str:
+        """Cle pour la session voix active"""
+        return self._key(tenant_id, "voice", "session")
+
+    def set_voice_session(self, tenant_id: int, data: Dict[str, str]) -> None:
+        """Cree une session voix"""
+        key = self.get_voice_session_key(tenant_id)
+        self.client.hset(key, mapping=data)
+        self.client.expire(key, 60 * 60)  # 1 heure max
+
+    def get_voice_session(self, tenant_id: int) -> Optional[Dict[str, str]]:
+        """Recupere la session voix"""
+        key = self.get_voice_session_key(tenant_id)
+        data = self.client.hgetall(key)
+        return data if data else None
+
+    def delete_voice_session(self, tenant_id: int) -> None:
+        """Termine la session voix"""
+        self.client.delete(self.get_voice_session_key(tenant_id))
 
 
 @lru_cache()
