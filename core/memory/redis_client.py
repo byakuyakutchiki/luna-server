@@ -896,6 +896,127 @@ class RedisClient:
         self.client.delete(self.get_voice_session_key(tenant_id))
 
 
+    # =========================================================================
+    # THEMES & PERSONNALISATION
+    # =========================================================================
+
+    TTL_THEME = 365 * 24 * 60 * 60  # 1 an
+
+    def get_user_theme_key(self, tenant_id: int, user_phone: str) -> str:
+        """Cle pour les preferences de theme d'un utilisateur"""
+        return self._key(tenant_id, "theme", "user", user_phone)
+
+    def set_user_theme(self, tenant_id: int, user_phone: str, data: Dict[str, str]) -> None:
+        """Definit les preferences de theme d'un utilisateur"""
+        key = self.get_user_theme_key(tenant_id, user_phone)
+        self.client.hset(key, mapping=data)
+        self.client.expire(key, self.TTL_THEME)
+
+    def get_user_theme(self, tenant_id: int, user_phone: str) -> Optional[Dict[str, str]]:
+        """Recupere les preferences de theme d'un utilisateur"""
+        key = self.get_user_theme_key(tenant_id, user_phone)
+        data = self.client.hgetall(key)
+        return data if data else None
+
+    def delete_user_theme(self, tenant_id: int, user_phone: str) -> None:
+        """Supprime les preferences de theme"""
+        self.client.delete(self.get_user_theme_key(tenant_id, user_phone))
+
+    def get_all_user_themes(self, tenant_id: int) -> List[Dict[str, str]]:
+        """Recupere tous les themes utilisateurs du tenant"""
+        pattern = self._key(tenant_id, "theme", "user", "*")
+        themes = []
+        for key in self.client.scan_iter(match=pattern):
+            data = self.client.hgetall(key)
+            if data:
+                themes.append(data)
+        return themes
+
+
+    # =========================================================================
+    # ASSISTANT PRO - Taches & Documents iteratifs
+    # =========================================================================
+
+    TTL_ASSISTANT_TASK = 30 * 24 * 60 * 60  # 30 jours
+    TTL_EMAIL_DRAFT = 7 * 24 * 60 * 60  # 7 jours
+
+    def get_assistant_task_key(self, tenant_id: int, task_id: str) -> str:
+        """Cle pour une tache assistant"""
+        return self._key(tenant_id, "assistant", "task", task_id)
+
+    def get_assistant_tasks_key(self, tenant_id: int) -> str:
+        """Cle pour la liste des taches"""
+        return self._key(tenant_id, "assistant", "tasks")
+
+    def add_assistant_task(self, tenant_id: int, task_id: str, data: Dict[str, str]) -> None:
+        """Ajoute une tache assistant"""
+        task_key = self.get_assistant_task_key(tenant_id, task_id)
+        list_key = self.get_assistant_tasks_key(tenant_id)
+
+        self.client.hset(task_key, mapping=data)
+        self.client.expire(task_key, self.TTL_ASSISTANT_TASK)
+
+        import time
+        self.client.zadd(list_key, {task_id: time.time()})
+
+    def get_assistant_task(self, tenant_id: int, task_id: str) -> Optional[Dict[str, str]]:
+        """Recupere une tache"""
+        key = self.get_assistant_task_key(tenant_id, task_id)
+        data = self.client.hgetall(key)
+        return data if data else None
+
+    def update_assistant_task(self, tenant_id: int, task_id: str, updates: Dict[str, str]) -> None:
+        """Met a jour une tache"""
+        key = self.get_assistant_task_key(tenant_id, task_id)
+        if self.client.exists(key):
+            self.client.hset(key, mapping=updates)
+
+    def get_assistant_tasks(self, tenant_id: int, limit: int = 50) -> List[Dict[str, str]]:
+        """Recupere les dernieres taches"""
+        list_key = self.get_assistant_tasks_key(tenant_id)
+        task_ids = self.client.zrevrange(list_key, 0, limit - 1)
+
+        tasks = []
+        for task_id in task_ids:
+            task = self.get_assistant_task(tenant_id, task_id)
+            if task:
+                tasks.append(task)
+        return tasks
+
+    def get_task_versions(self, tenant_id: int, original_task_id: str) -> List[Dict[str, str]]:
+        """Recupere toutes les versions d'une tache (parent + enfants)"""
+        all_tasks = self.get_assistant_tasks(tenant_id, limit=100)
+        versions = []
+        for task in all_tasks:
+            if task.get("id") == original_task_id or task.get("parent_task_id") == original_task_id:
+                versions.append(task)
+        # Trier par version
+        versions.sort(key=lambda t: int(t.get("version", 1)))
+        return versions
+
+    # --- Email Drafts ---
+
+    def get_email_draft_key(self, tenant_id: int, draft_id: str) -> str:
+        """Cle pour un brouillon email"""
+        return self._key(tenant_id, "email", "draft", draft_id)
+
+    def save_email_draft(self, tenant_id: int, draft_id: str, data: Dict[str, str]) -> None:
+        """Sauvegarde un brouillon email"""
+        key = self.get_email_draft_key(tenant_id, draft_id)
+        self.client.hset(key, mapping=data)
+        self.client.expire(key, self.TTL_EMAIL_DRAFT)
+
+    def get_email_draft(self, tenant_id: int, draft_id: str) -> Optional[Dict[str, str]]:
+        """Recupere un brouillon email"""
+        key = self.get_email_draft_key(tenant_id, draft_id)
+        data = self.client.hgetall(key)
+        return data if data else None
+
+    def delete_email_draft(self, tenant_id: int, draft_id: str) -> None:
+        """Supprime un brouillon"""
+        self.client.delete(self.get_email_draft_key(tenant_id, draft_id))
+
+
 @lru_cache()
 def get_redis_client() -> RedisClient:
     """Factory pour obtenir le client Redis singleton"""

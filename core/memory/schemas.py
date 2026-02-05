@@ -1270,3 +1270,503 @@ class ChannelHandoff(BaseModel):
             "context_summary": self.context_summary,
             "timestamp": self.timestamp.isoformat(),
         }
+
+
+# ============================================================================
+# THEMES & PERSONNALISATION UI
+# ============================================================================
+
+class ThemeStyle(str, Enum):
+    """Style general du theme"""
+    ELEGANT = "elegant"      # Classique, raffine
+    MODERN = "modern"        # Contemporain, epure
+    PLAYFUL = "playful"      # Ludique, colore
+    TECH = "tech"            # High-tech, neon
+    NATURE = "nature"        # Organique, apaisant
+    MINIMAL = "minimal"      # Ultra-simple
+
+
+class LunaAvatarStyle(str, Enum):
+    """Style de l'avatar Luna"""
+    REALISTIC_YOUNG = "realistic_young"      # Jeune femme realiste
+    REALISTIC_MATURE = "realistic_mature"    # Femme mature realiste
+    CARTOON_FRIENDLY = "cartoon_friendly"    # Cartoon sympathique
+    ABSTRACT_SOFT = "abstract_soft"          # Abstrait doux
+    ANIME_CUTE = "anime_cute"                # Style anime mignon
+    MINIMAL_ICON = "minimal_icon"            # Icone minimaliste
+
+
+class FontSize(str, Enum):
+    """Taille de police"""
+    SMALL = "small"          # 14px
+    NORMAL = "normal"        # 16px
+    LARGE = "large"          # 20px
+    EXTRA_LARGE = "xlarge"   # 24px
+
+
+class VoiceStyle(str, Enum):
+    """Style de voix Luna"""
+    WARM = "warm"            # Chaleureuse, douce
+    ENERGETIC = "energetic"  # Dynamique, enthousiaste
+    CALM = "calm"            # Apaisante, zen
+    NEUTRAL = "neutral"      # Neutre, professionnelle
+
+
+class ThemePreset(BaseModel):
+    """Theme predefini"""
+    id: str
+    name: str
+    description: str
+    # Cible demographique
+    target_age_min: Optional[int] = None
+    target_age_max: Optional[int] = None
+    target_gender: Optional[str] = None  # "M", "F", None (tous)
+    # Apparence
+    style: ThemeStyle
+    primary_color: str       # Hex color #RRGGBB
+    secondary_color: str
+    accent_color: str
+    background_type: str     # "solid", "gradient", "image", "pattern"
+    background_value: str    # Color, gradient def, image URL, pattern name
+    dark_mode: bool = False
+    # Luna
+    avatar_style: LunaAvatarStyle
+    voice_style: VoiceStyle
+    # Typographie
+    font_family: str = "system"
+    font_size: FontSize = FontSize.NORMAL
+    # Assets
+    icon_pack: str = "default"
+    sounds_pack: str = "default"
+
+    def to_redis(self) -> Dict[str, str]:
+        return {
+            "id": self.id,
+            "name": self.name,
+            "description": self.description,
+            "target_age_min": str(self.target_age_min) if self.target_age_min else "",
+            "target_age_max": str(self.target_age_max) if self.target_age_max else "",
+            "target_gender": self.target_gender or "",
+            "style": self.style.value,
+            "primary_color": self.primary_color,
+            "secondary_color": self.secondary_color,
+            "accent_color": self.accent_color,
+            "background_type": self.background_type,
+            "background_value": self.background_value,
+            "dark_mode": "1" if self.dark_mode else "0",
+            "avatar_style": self.avatar_style.value,
+            "voice_style": self.voice_style.value,
+            "font_family": self.font_family,
+            "font_size": self.font_size.value,
+            "icon_pack": self.icon_pack,
+            "sounds_pack": self.sounds_pack,
+        }
+
+    @classmethod
+    def from_redis(cls, data: Dict[str, str]) -> "ThemePreset":
+        return cls(
+            id=data["id"],
+            name=data["name"],
+            description=data.get("description", ""),
+            target_age_min=int(data["target_age_min"]) if data.get("target_age_min") else None,
+            target_age_max=int(data["target_age_max"]) if data.get("target_age_max") else None,
+            target_gender=data.get("target_gender") or None,
+            style=ThemeStyle(data.get("style", "modern")),
+            primary_color=data.get("primary_color", "#6366F1"),
+            secondary_color=data.get("secondary_color", "#A5B4FC"),
+            accent_color=data.get("accent_color", "#F472B6"),
+            background_type=data.get("background_type", "solid"),
+            background_value=data.get("background_value", "#FFFFFF"),
+            dark_mode=data.get("dark_mode") == "1",
+            avatar_style=LunaAvatarStyle(data.get("avatar_style", "cartoon_friendly")),
+            voice_style=VoiceStyle(data.get("voice_style", "warm")),
+            font_family=data.get("font_family", "system"),
+            font_size=FontSize(data.get("font_size", "normal")),
+            icon_pack=data.get("icon_pack", "default"),
+            sounds_pack=data.get("sounds_pack", "default"),
+        )
+
+
+class UserThemePreferences(BaseModel):
+    """Preferences de theme d'un utilisateur"""
+    user_phone: str
+    tenant_id: int
+    # Theme choisi
+    preset_id: Optional[str] = None  # ID du preset, ou None si custom
+    # Overrides custom (priorite sur preset)
+    custom_primary_color: Optional[str] = None
+    custom_secondary_color: Optional[str] = None
+    custom_accent_color: Optional[str] = None
+    custom_background_type: Optional[str] = None
+    custom_background_value: Optional[str] = None
+    custom_avatar_style: Optional[LunaAvatarStyle] = None
+    custom_voice_style: Optional[VoiceStyle] = None
+    custom_font_size: Optional[FontSize] = None
+    dark_mode: Optional[bool] = None
+    # Photos perso
+    family_photos: List[str] = Field(default_factory=list)  # URLs
+    # Metadata
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+    def to_redis(self) -> Dict[str, str]:
+        import json
+        return {
+            "user_phone": self.user_phone,
+            "tenant_id": str(self.tenant_id),
+            "preset_id": self.preset_id or "",
+            "custom_primary_color": self.custom_primary_color or "",
+            "custom_secondary_color": self.custom_secondary_color or "",
+            "custom_accent_color": self.custom_accent_color or "",
+            "custom_background_type": self.custom_background_type or "",
+            "custom_background_value": self.custom_background_value or "",
+            "custom_avatar_style": self.custom_avatar_style.value if self.custom_avatar_style else "",
+            "custom_voice_style": self.custom_voice_style.value if self.custom_voice_style else "",
+            "custom_font_size": self.custom_font_size.value if self.custom_font_size else "",
+            "dark_mode": "1" if self.dark_mode else ("0" if self.dark_mode is False else ""),
+            "family_photos": json.dumps(self.family_photos),
+            "updated_at": self.updated_at.isoformat(),
+        }
+
+    @classmethod
+    def from_redis(cls, data: Dict[str, str]) -> "UserThemePreferences":
+        import json
+        dark = data.get("dark_mode")
+        return cls(
+            user_phone=data["user_phone"],
+            tenant_id=int(data.get("tenant_id", 0)),
+            preset_id=data.get("preset_id") or None,
+            custom_primary_color=data.get("custom_primary_color") or None,
+            custom_secondary_color=data.get("custom_secondary_color") or None,
+            custom_accent_color=data.get("custom_accent_color") or None,
+            custom_background_type=data.get("custom_background_type") or None,
+            custom_background_value=data.get("custom_background_value") or None,
+            custom_avatar_style=LunaAvatarStyle(data["custom_avatar_style"]) if data.get("custom_avatar_style") else None,
+            custom_voice_style=VoiceStyle(data["custom_voice_style"]) if data.get("custom_voice_style") else None,
+            custom_font_size=FontSize(data["custom_font_size"]) if data.get("custom_font_size") else None,
+            dark_mode=True if dark == "1" else (False if dark == "0" else None),
+            family_photos=json.loads(data["family_photos"]) if data.get("family_photos") else [],
+            updated_at=datetime.fromisoformat(data["updated_at"]) if data.get("updated_at") else datetime.utcnow(),
+        )
+
+
+# Themes predefinis
+THEME_PRESETS: Dict[str, ThemePreset] = {
+    "jardin": ThemePreset(
+        id="jardin",
+        name="Jardin",
+        description="Doux et naturel, ideal pour les seniors",
+        target_age_min=60,
+        target_gender=None,
+        style=ThemeStyle.NATURE,
+        primary_color="#4ADE80",
+        secondary_color="#86EFAC",
+        accent_color="#F9A8D4",
+        background_type="gradient",
+        background_value="linear-gradient(135deg, #F0FDF4 0%, #DCFCE7 100%)",
+        avatar_style=LunaAvatarStyle.REALISTIC_MATURE,
+        voice_style=VoiceStyle.WARM,
+        font_size=FontSize.LARGE,
+    ),
+    "ocean": ThemePreset(
+        id="ocean",
+        name="Ocean",
+        description="Calme et apaisant, tons bleus",
+        target_age_min=None,
+        target_gender=None,
+        style=ThemeStyle.NATURE,
+        primary_color="#0EA5E9",
+        secondary_color="#7DD3FC",
+        accent_color="#F0ABFC",
+        background_type="gradient",
+        background_value="linear-gradient(180deg, #F0F9FF 0%, #E0F2FE 100%)",
+        avatar_style=LunaAvatarStyle.ABSTRACT_SOFT,
+        voice_style=VoiceStyle.CALM,
+    ),
+    "rose_poudre": ThemePreset(
+        id="rose_poudre",
+        name="Rose Poudre",
+        description="Elegant et feminin",
+        target_gender="F",
+        style=ThemeStyle.ELEGANT,
+        primary_color="#EC4899",
+        secondary_color="#F9A8D4",
+        accent_color="#A78BFA",
+        background_type="solid",
+        background_value="#FDF2F8",
+        avatar_style=LunaAvatarStyle.REALISTIC_YOUNG,
+        voice_style=VoiceStyle.WARM,
+    ),
+    "neon": ThemePreset(
+        id="neon",
+        name="Neon",
+        description="High-tech et gaming pour ados",
+        target_age_min=13,
+        target_age_max=25,
+        style=ThemeStyle.TECH,
+        primary_color="#8B5CF6",
+        secondary_color="#A78BFA",
+        accent_color="#22D3EE",
+        background_type="solid",
+        background_value="#18181B",
+        dark_mode=True,
+        avatar_style=LunaAvatarStyle.ANIME_CUTE,
+        voice_style=VoiceStyle.ENERGETIC,
+    ),
+    "magique": ThemePreset(
+        id="magique",
+        name="Magique",
+        description="Ludique et colore pour enfants",
+        target_age_min=6,
+        target_age_max=12,
+        style=ThemeStyle.PLAYFUL,
+        primary_color="#F472B6",
+        secondary_color="#C084FC",
+        accent_color="#FACC15",
+        background_type="gradient",
+        background_value="linear-gradient(135deg, #FDF4FF 0%, #FAE8FF 50%, #F5F3FF 100%)",
+        avatar_style=LunaAvatarStyle.CARTOON_FRIENDLY,
+        voice_style=VoiceStyle.ENERGETIC,
+        font_family="Comic Sans MS, cursive",
+    ),
+    "zen": ThemePreset(
+        id="zen",
+        name="Zen",
+        description="Minimaliste et apaisant",
+        style=ThemeStyle.MINIMAL,
+        primary_color="#64748B",
+        secondary_color="#94A3B8",
+        accent_color="#10B981",
+        background_type="solid",
+        background_value="#FAFAFA",
+        avatar_style=LunaAvatarStyle.MINIMAL_ICON,
+        voice_style=VoiceStyle.CALM,
+    ),
+    "classique_homme": ThemePreset(
+        id="classique_homme",
+        name="Classique",
+        description="Sobre et rassurant",
+        target_gender="M",
+        target_age_min=50,
+        style=ThemeStyle.ELEGANT,
+        primary_color="#1E3A5F",
+        secondary_color="#3B82F6",
+        accent_color="#F59E0B",
+        background_type="solid",
+        background_value="#F8FAFC",
+        avatar_style=LunaAvatarStyle.REALISTIC_MATURE,
+        voice_style=VoiceStyle.NEUTRAL,
+        font_size=FontSize.LARGE,
+    ),
+    "dark_mode": ThemePreset(
+        id="dark_mode",
+        name="Mode Sombre",
+        description="Theme sombre pour le soir",
+        style=ThemeStyle.MODERN,
+        primary_color="#6366F1",
+        secondary_color="#818CF8",
+        accent_color="#F472B6",
+        background_type="solid",
+        background_value="#1F2937",
+        dark_mode=True,
+        avatar_style=LunaAvatarStyle.ABSTRACT_SOFT,
+        voice_style=VoiceStyle.CALM,
+    ),
+}
+
+
+# ============================================================================
+# ASSISTANT PRO - Documents iteratifs & Analyse
+# ============================================================================
+
+class DocumentType(str, Enum):
+    """Types de documents professionnels"""
+    # Communication
+    EMAIL = "email"
+    LETTER = "letter"
+    COVER_LETTER = "cover_letter"
+    # Admin
+    CV = "cv"
+    INVOICE = "invoice"
+    QUOTE = "quote"
+    EXPENSE_REPORT = "expense_report"
+    # Administratif
+    CAF_REQUEST = "caf_request"
+    TAX_LETTER = "tax_letter"
+    COMPLAINT = "complaint"
+    RESIGNATION = "resignation"
+    LEAVE_REQUEST = "leave_request"
+    # Perso
+    SUMMARY = "summary"
+    NOTES_EXPORT = "notes_export"
+    HEALTH_SHEET = "health_sheet"
+    SHOPPING_LIST = "shopping_list"
+
+
+class DocumentStatus(str, Enum):
+    """Statut d'un document"""
+    DRAFT = "draft"           # Brouillon
+    REVIEW = "review"         # En revision
+    APPROVED = "approved"     # Approuve par l'utilisateur
+    SENT = "sent"             # Envoye (email)
+    ARCHIVED = "archived"     # Archive
+
+
+class AssistantTask(BaseModel):
+    """Tache de l'assistant (analyse, generation, amelioration)"""
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    tenant_id: int
+    task_type: str  # "analyze", "generate", "improve", "send"
+
+    # Input
+    input_text: Optional[str] = None
+    input_file_path: Optional[str] = None
+    document_type: Optional[DocumentType] = None
+
+    # Context
+    subject: Optional[str] = None
+    recipient: Optional[str] = None
+    tone: str = "professional"  # professional, friendly, formal, casual
+    language: str = "fr"
+    additional_instructions: Optional[str] = None
+
+    # Output
+    output_text: Optional[str] = None
+    output_file_path: Optional[str] = None
+    analysis_result: Optional[Dict[str, Any]] = None
+
+    # Iteration
+    version: int = 1
+    parent_task_id: Optional[str] = None  # Si c'est une revision
+    feedback: Optional[str] = None  # Feedback utilisateur
+
+    # Status
+    status: DocumentStatus = DocumentStatus.DRAFT
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+    def to_redis(self) -> Dict[str, str]:
+        import json
+        return {
+            "id": self.id,
+            "tenant_id": str(self.tenant_id),
+            "task_type": self.task_type,
+            "input_text": self.input_text or "",
+            "input_file_path": self.input_file_path or "",
+            "document_type": self.document_type.value if self.document_type else "",
+            "subject": self.subject or "",
+            "recipient": self.recipient or "",
+            "tone": self.tone,
+            "language": self.language,
+            "additional_instructions": self.additional_instructions or "",
+            "output_text": self.output_text or "",
+            "output_file_path": self.output_file_path or "",
+            "analysis_result": json.dumps(self.analysis_result) if self.analysis_result else "",
+            "version": str(self.version),
+            "parent_task_id": self.parent_task_id or "",
+            "feedback": self.feedback or "",
+            "status": self.status.value,
+            "created_at": self.created_at.isoformat(),
+            "updated_at": self.updated_at.isoformat(),
+        }
+
+    @classmethod
+    def from_redis(cls, data: Dict[str, str]) -> "AssistantTask":
+        import json
+        return cls(
+            id=data["id"],
+            tenant_id=int(data.get("tenant_id", 0)),
+            task_type=data.get("task_type", "generate"),
+            input_text=data.get("input_text") or None,
+            input_file_path=data.get("input_file_path") or None,
+            document_type=DocumentType(data["document_type"]) if data.get("document_type") else None,
+            subject=data.get("subject") or None,
+            recipient=data.get("recipient") or None,
+            tone=data.get("tone", "professional"),
+            language=data.get("language", "fr"),
+            additional_instructions=data.get("additional_instructions") or None,
+            output_text=data.get("output_text") or None,
+            output_file_path=data.get("output_file_path") or None,
+            analysis_result=json.loads(data["analysis_result"]) if data.get("analysis_result") else None,
+            version=int(data.get("version", 1)),
+            parent_task_id=data.get("parent_task_id") or None,
+            feedback=data.get("feedback") or None,
+            status=DocumentStatus(data.get("status", "draft")),
+            created_at=datetime.fromisoformat(data["created_at"]) if data.get("created_at") else datetime.utcnow(),
+            updated_at=datetime.fromisoformat(data["updated_at"]) if data.get("updated_at") else datetime.utcnow(),
+        )
+
+
+class EmailDraft(BaseModel):
+    """Email en preparation"""
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    tenant_id: int
+
+    # Email fields
+    to: List[str] = Field(default_factory=list)
+    cc: List[str] = Field(default_factory=list)
+    bcc: List[str] = Field(default_factory=list)
+    subject: str
+    body_html: str
+    body_text: str
+
+    # Attachments
+    attachments: List[str] = Field(default_factory=list)  # File paths
+
+    # Status
+    status: DocumentStatus = DocumentStatus.DRAFT
+    sent_at: Optional[datetime] = None
+
+    # Iteration
+    version: int = 1
+    task_id: Optional[str] = None  # Linked AssistantTask
+
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+    def to_redis(self) -> Dict[str, str]:
+        import json
+        return {
+            "id": self.id,
+            "tenant_id": str(self.tenant_id),
+            "to": json.dumps(self.to),
+            "cc": json.dumps(self.cc),
+            "bcc": json.dumps(self.bcc),
+            "subject": self.subject,
+            "body_html": self.body_html,
+            "body_text": self.body_text,
+            "attachments": json.dumps(self.attachments),
+            "status": self.status.value,
+            "sent_at": self.sent_at.isoformat() if self.sent_at else "",
+            "version": str(self.version),
+            "task_id": self.task_id or "",
+            "created_at": self.created_at.isoformat(),
+        }
+
+
+# Templates pour documents administratifs
+ADMIN_TEMPLATES = {
+    "caf_request": {
+        "name": "Demande CAF",
+        "fields": ["beneficiaire", "numero_allocataire", "objet", "situation"],
+        "recipient": "Caisse d'Allocations Familiales",
+    },
+    "tax_letter": {
+        "name": "Courrier Impots",
+        "fields": ["numero_fiscal", "objet", "annee_concernee"],
+        "recipient": "Service des Impots",
+    },
+    "complaint": {
+        "name": "Reclamation",
+        "fields": ["entreprise", "reference_commande", "probleme", "resolution_souhaitee"],
+        "recipient": "Service Client",
+    },
+    "leave_request": {
+        "name": "Demande de conges",
+        "fields": ["date_debut", "date_fin", "type_conge", "motif"],
+        "recipient": "Manager / RH",
+    },
+    "resignation": {
+        "name": "Lettre de demission",
+        "fields": ["poste", "date_effet", "preavis"],
+        "recipient": "Employeur",
+    },
+}

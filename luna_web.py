@@ -3247,6 +3247,724 @@ async def sync_from_twilio(request: Request):
     return {"success": True}
 
 
+# =============================================================================
+# THEMES & PERSONNALISATION
+# =============================================================================
+
+# Import des presets de themes
+try:
+    from core.memory.schemas import (
+        THEME_PRESETS, ThemePreset, UserThemePreferences,
+        ThemeStyle, LunaAvatarStyle, FontSize, VoiceStyle
+    )
+    _THEMES_AVAILABLE = True
+except ImportError:
+    _THEMES_AVAILABLE = False
+    THEME_PRESETS = {}
+
+
+@app.get("/api/themes")
+async def list_themes(age: int = None, gender: str = None):
+    """Liste tous les themes disponibles, filtres optionnellement par age/genre"""
+    themes = []
+    for preset_id, preset in THEME_PRESETS.items():
+        # Filtrage par age
+        if age is not None:
+            if preset.target_age_min and age < preset.target_age_min:
+                continue
+            if preset.target_age_max and age > preset.target_age_max:
+                continue
+        # Filtrage par genre
+        if gender and preset.target_gender and preset.target_gender != gender:
+            continue
+
+        themes.append({
+            "id": preset.id,
+            "name": preset.name,
+            "description": preset.description,
+            "style": preset.style.value,
+            "preview": {
+                "primary_color": preset.primary_color,
+                "secondary_color": preset.secondary_color,
+                "accent_color": preset.accent_color,
+                "background_type": preset.background_type,
+                "background_value": preset.background_value,
+                "dark_mode": preset.dark_mode,
+            },
+            "target": {
+                "age_min": preset.target_age_min,
+                "age_max": preset.target_age_max,
+                "gender": preset.target_gender,
+            }
+        })
+
+    return {
+        "themes": themes,
+        "count": len(themes),
+        "filters_applied": {"age": age, "gender": gender},
+    }
+
+
+@app.get("/api/themes/suggest")
+async def suggest_theme(age: int = None, gender: str = None):
+    """Suggere le meilleur theme selon le profil"""
+    best_match = None
+    best_score = -1
+
+    for preset_id, preset in THEME_PRESETS.items():
+        score = 0
+
+        # Score par age
+        if age is not None:
+            if preset.target_age_min and preset.target_age_max:
+                if preset.target_age_min <= age <= preset.target_age_max:
+                    score += 10
+            elif preset.target_age_min and age >= preset.target_age_min:
+                score += 5
+            elif not preset.target_age_min and not preset.target_age_max:
+                score += 2  # Theme universel
+
+        # Score par genre
+        if gender:
+            if preset.target_gender == gender:
+                score += 8
+            elif not preset.target_gender:
+                score += 3  # Theme unisexe
+
+        if score > best_score:
+            best_score = score
+            best_match = preset
+
+    if not best_match:
+        best_match = THEME_PRESETS.get("zen")  # Default
+
+    return {
+        "suggested_theme": best_match.id if best_match else "zen",
+        "theme_name": best_match.name if best_match else "Zen",
+        "match_score": best_score,
+        "profile": {"age": age, "gender": gender},
+    }
+
+
+@app.get("/api/themes/options")
+async def get_theme_options():
+    """Liste toutes les options de personnalisation disponibles"""
+    return {
+        "styles": [{"id": s.value, "name": s.value.title()} for s in ThemeStyle],
+        "avatar_styles": [{"id": a.value, "name": a.value.replace("_", " ").title()} for a in LunaAvatarStyle],
+        "voice_styles": [{"id": v.value, "name": v.value.title()} for v in VoiceStyle],
+        "font_sizes": [{"id": f.value, "name": f.value.title()} for f in FontSize],
+        "background_types": ["solid", "gradient", "image", "pattern"],
+        "suggested_colors": {
+            "primary": ["#6366F1", "#EC4899", "#0EA5E9", "#10B981", "#F59E0B", "#8B5CF6"],
+            "secondary": ["#A5B4FC", "#F9A8D4", "#7DD3FC", "#6EE7B7", "#FCD34D", "#C4B5FD"],
+            "accent": ["#F472B6", "#22D3EE", "#FACC15", "#A78BFA", "#FB923C", "#34D399"],
+        }
+    }
+
+
+@app.get("/api/themes/{theme_id}")
+async def get_theme_details(theme_id: str):
+    """Recupere les details complets d'un theme"""
+    preset = THEME_PRESETS.get(theme_id)
+    if not preset:
+        return JSONResponse(status_code=404, content={"error": "Theme non trouve"})
+
+    return {
+        "id": preset.id,
+        "name": preset.name,
+        "description": preset.description,
+        "style": preset.style.value,
+        "colors": {
+            "primary": preset.primary_color,
+            "secondary": preset.secondary_color,
+            "accent": preset.accent_color,
+        },
+        "background": {
+            "type": preset.background_type,
+            "value": preset.background_value,
+        },
+        "dark_mode": preset.dark_mode,
+        "avatar": {
+            "style": preset.avatar_style.value,
+        },
+        "voice": {
+            "style": preset.voice_style.value,
+        },
+        "typography": {
+            "font_family": preset.font_family,
+            "font_size": preset.font_size.value,
+        },
+        "assets": {
+            "icon_pack": preset.icon_pack,
+            "sounds_pack": preset.sounds_pack,
+        },
+        "target": {
+            "age_min": preset.target_age_min,
+            "age_max": preset.target_age_max,
+            "gender": preset.target_gender,
+        }
+    }
+
+
+@app.get("/api/profile/theme")
+async def get_user_theme(phone: str = None):
+    """Recupere le theme actuel d'un utilisateur"""
+    if not _redis_client:
+        return JSONResponse(status_code=503, content={"error": "Redis non disponible"})
+
+    user_phone = phone or ADMIN_NUMBER
+    theme_data = _redis_client.get_user_theme(TENANT_ID, user_phone)
+
+    if not theme_data:
+        # Retourner le theme par defaut
+        default_preset = THEME_PRESETS.get("zen")
+        return {
+            "user_phone": user_phone,
+            "preset_id": "zen",
+            "preset_name": "Zen",
+            "is_custom": False,
+            "theme": {
+                "primary_color": default_preset.primary_color,
+                "secondary_color": default_preset.secondary_color,
+                "accent_color": default_preset.accent_color,
+                "background_type": default_preset.background_type,
+                "background_value": default_preset.background_value,
+                "dark_mode": default_preset.dark_mode,
+                "avatar_style": default_preset.avatar_style.value,
+                "voice_style": default_preset.voice_style.value,
+                "font_size": default_preset.font_size.value,
+            }
+        }
+
+    # Construire le theme effectif (preset + overrides)
+    preset_id = theme_data.get("preset_id")
+    preset = THEME_PRESETS.get(preset_id) if preset_id else None
+
+    effective_theme = {}
+    if preset:
+        effective_theme = {
+            "primary_color": preset.primary_color,
+            "secondary_color": preset.secondary_color,
+            "accent_color": preset.accent_color,
+            "background_type": preset.background_type,
+            "background_value": preset.background_value,
+            "dark_mode": preset.dark_mode,
+            "avatar_style": preset.avatar_style.value,
+            "voice_style": preset.voice_style.value,
+            "font_size": preset.font_size.value,
+        }
+
+    # Appliquer les overrides custom
+    if theme_data.get("custom_primary_color"):
+        effective_theme["primary_color"] = theme_data["custom_primary_color"]
+    if theme_data.get("custom_secondary_color"):
+        effective_theme["secondary_color"] = theme_data["custom_secondary_color"]
+    if theme_data.get("custom_accent_color"):
+        effective_theme["accent_color"] = theme_data["custom_accent_color"]
+    if theme_data.get("custom_background_type"):
+        effective_theme["background_type"] = theme_data["custom_background_type"]
+    if theme_data.get("custom_background_value"):
+        effective_theme["background_value"] = theme_data["custom_background_value"]
+    if theme_data.get("custom_avatar_style"):
+        effective_theme["avatar_style"] = theme_data["custom_avatar_style"]
+    if theme_data.get("custom_voice_style"):
+        effective_theme["voice_style"] = theme_data["custom_voice_style"]
+    if theme_data.get("custom_font_size"):
+        effective_theme["font_size"] = theme_data["custom_font_size"]
+    if theme_data.get("dark_mode"):
+        effective_theme["dark_mode"] = theme_data["dark_mode"] == "1"
+
+    has_custom = any(theme_data.get(f"custom_{k}") for k in
+                     ["primary_color", "secondary_color", "accent_color",
+                      "background_type", "background_value", "avatar_style",
+                      "voice_style", "font_size"])
+
+    return {
+        "user_phone": user_phone,
+        "preset_id": preset_id,
+        "preset_name": preset.name if preset else None,
+        "is_custom": has_custom,
+        "theme": effective_theme,
+        "family_photos": theme_data.get("family_photos", "[]"),
+    }
+
+
+@app.post("/api/profile/theme")
+async def set_user_theme(request: Request):
+    """Definit le theme d'un utilisateur"""
+    if not _redis_client:
+        return JSONResponse(status_code=503, content={"error": "Redis non disponible"})
+
+    data = await request.json()
+    user_phone = data.get("phone", ADMIN_NUMBER)
+    preset_id = data.get("preset_id")
+
+    # Valider le preset si fourni
+    if preset_id and preset_id not in THEME_PRESETS:
+        return JSONResponse(status_code=400, content={
+            "error": f"Theme inconnu: {preset_id}",
+            "available_themes": list(THEME_PRESETS.keys())
+        })
+
+    # Construire les preferences
+    prefs = UserThemePreferences(
+        user_phone=user_phone,
+        tenant_id=TENANT_ID,
+        preset_id=preset_id,
+        custom_primary_color=data.get("primary_color"),
+        custom_secondary_color=data.get("secondary_color"),
+        custom_accent_color=data.get("accent_color"),
+        custom_background_type=data.get("background_type"),
+        custom_background_value=data.get("background_value"),
+        custom_avatar_style=LunaAvatarStyle(data["avatar_style"]) if data.get("avatar_style") else None,
+        custom_voice_style=VoiceStyle(data["voice_style"]) if data.get("voice_style") else None,
+        custom_font_size=FontSize(data["font_size"]) if data.get("font_size") else None,
+        dark_mode=data.get("dark_mode"),
+        family_photos=data.get("family_photos", []),
+    )
+
+    _redis_client.set_user_theme(TENANT_ID, user_phone, prefs.to_redis())
+
+    # Publier evenement pour mise a jour temps reel
+    _redis_client.publish_event(TENANT_ID, "theme_changed", {
+        "user_phone": user_phone,
+        "preset_id": preset_id,
+    })
+
+    return {
+        "success": True,
+        "user_phone": user_phone,
+        "preset_id": preset_id,
+        "message": f"Theme {'personnalise' if not preset_id else THEME_PRESETS[preset_id].name} applique",
+    }
+
+
+@app.delete("/api/profile/theme")
+async def reset_user_theme(phone: str = None):
+    """Remet le theme par defaut"""
+    if not _redis_client:
+        return JSONResponse(status_code=503, content={"error": "Redis non disponible"})
+
+    user_phone = phone or ADMIN_NUMBER
+    _redis_client.delete_user_theme(TENANT_ID, user_phone)
+
+    return {
+        "success": True,
+        "message": "Theme reinitialise (Zen par defaut)",
+    }
+
+
+# =============================================================================
+# ASSISTANT PRO - Analyse, Generation, Iteration
+# =============================================================================
+
+# Import des modeles assistant
+try:
+    from core.memory.schemas import (
+        AssistantTask, DocumentType, DocumentStatus, EmailDraft, ADMIN_TEMPLATES
+    )
+    _ASSISTANT_AVAILABLE = True
+except ImportError:
+    _ASSISTANT_AVAILABLE = False
+
+
+@app.post("/api/assistant/analyze")
+async def analyze_content(request: Request):
+    """Analyse un document ou texte et retourne des insights"""
+    if not _redis_client:
+        return JSONResponse(status_code=503, content={"error": "Redis non disponible"})
+
+    data = await request.json()
+    content = data.get("content", "").strip()
+    analysis_type = data.get("type", "general")  # general, contract, email, letter, cv
+
+    if not content:
+        return JSONResponse(status_code=400, content={"error": "content requis"})
+
+    # Construire le prompt d'analyse
+    prompts = {
+        "general": "Analyse ce texte et fournis: 1) Resume en 2-3 phrases, 2) Points cles, 3) Suggestions d'amelioration.",
+        "contract": "Analyse ce contrat et fournis: 1) Resume des obligations, 2) Points d'attention/risques, 3) Clauses importantes, 4) Recommandations.",
+        "email": "Analyse cet email et fournis: 1) Ton utilise, 2) Points cles, 3) Suggestions pour ameliorer la clarte et l'impact.",
+        "letter": "Analyse ce courrier et fournis: 1) Objectif du courrier, 2) Ton et formalite, 3) Points forts, 4) Ameliorations possibles.",
+        "cv": "Analyse ce CV et fournis: 1) Points forts, 2) Points faibles, 3) Competences mises en avant, 4) Suggestions d'amelioration.",
+    }
+
+    prompt = prompts.get(analysis_type, prompts["general"])
+    full_prompt = f"{prompt}\n\nTexte a analyser:\n\n{content}"
+
+    try:
+        response = openai_client.chat.completions.create(
+            model=OPENAI_MODEL,
+            messages=[
+                {"role": "system", "content": "Tu es un assistant d'analyse professionnelle. Reponds en francais de maniere structuree."},
+                {"role": "user", "content": full_prompt}
+            ],
+            max_tokens=1500,
+            temperature=0.3,
+        )
+        analysis = response.choices[0].message.content
+
+        # Sauvegarder la tache
+        task = AssistantTask(
+            tenant_id=TENANT_ID,
+            task_type="analyze",
+            input_text=content[:5000],
+            analysis_result={"type": analysis_type, "analysis": analysis},
+            status=DocumentStatus.APPROVED,
+        )
+        _redis_client.add_assistant_task(TENANT_ID, task.id, task.to_redis())
+
+        return {
+            "success": True,
+            "task_id": task.id,
+            "analysis_type": analysis_type,
+            "analysis": analysis,
+        }
+
+    except Exception as e:
+        logger.error(f"Analysis error: {e}")
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+
+@app.post("/api/assistant/generate")
+async def generate_document(request: Request):
+    """Genere un document professionnel"""
+    if not _redis_client:
+        return JSONResponse(status_code=503, content={"error": "Redis non disponible"})
+
+    data = await request.json()
+    doc_type = data.get("type", "email")
+    subject = data.get("subject", "")
+    recipient = data.get("recipient", "")
+    context = data.get("context", "")
+    tone = data.get("tone", "professional")
+    additional = data.get("additional_instructions", "")
+
+    # Recuperer le profil pour personnalisation
+    profile = {}
+    if _memory_manager:
+        p = _memory_manager.get_subscriber_profile()
+        if p:
+            profile = p.model_dump()
+
+    sender_name = f"{profile.get('first_name', '')} {profile.get('last_name', '')}".strip() or "L'expediteur"
+
+    # Construire le prompt selon le type
+    tone_map = {
+        "professional": "professionnel et courtois",
+        "formal": "tres formel et respectueux",
+        "friendly": "amical mais professionnel",
+        "casual": "decontracte",
+    }
+    tone_desc = tone_map.get(tone, "professionnel")
+
+    if doc_type == "email":
+        prompt = f"""Redige un email {tone_desc} en francais.
+Sujet: {subject}
+Destinataire: {recipient}
+Contexte: {context}
+{f'Instructions supplementaires: {additional}' if additional else ''}
+
+Fournis:
+1. L'objet de l'email (court)
+2. Le corps de l'email (avec salutation et signature de {sender_name})"""
+
+    elif doc_type == "cover_letter":
+        prompt = f"""Redige une lettre de motivation {tone_desc} en francais.
+Poste vise: {subject}
+Entreprise: {recipient}
+Contexte du candidat: {context}
+{f'Instructions: {additional}' if additional else ''}
+
+La lettre doit etre percutante et personnalisee."""
+
+    elif doc_type == "cv":
+        prompt = f"""Aide a rediger/ameliorer un CV en francais.
+Poste cible: {subject}
+Informations fournies: {context}
+{f'Instructions: {additional}' if additional else ''}
+
+Fournis un CV structure avec: Coordonnees, Profil, Experiences, Formation, Competences."""
+
+    elif doc_type in ADMIN_TEMPLATES:
+        template = ADMIN_TEMPLATES[doc_type]
+        prompt = f"""Redige un(e) {template['name']} {tone_desc} en francais.
+Destinataire: {template['recipient']}
+Objet: {subject}
+Details: {context}
+{f'Instructions: {additional}' if additional else ''}
+
+Utilise un format officiel et respectueux."""
+
+    else:
+        prompt = f"""Redige un document {tone_desc} en francais.
+Type: {doc_type}
+Sujet: {subject}
+Destinataire: {recipient}
+Contexte: {context}
+{f'Instructions: {additional}' if additional else ''}"""
+
+    try:
+        response = openai_client.chat.completions.create(
+            model=OPENAI_MODEL,
+            messages=[
+                {"role": "system", "content": "Tu es un assistant de redaction professionnelle. Tu rediges des documents clairs, bien structures et adaptes au contexte."},
+                {"role": "user", "content": prompt}
+            ],
+            max_tokens=2000,
+            temperature=0.7,
+        )
+        generated_text = response.choices[0].message.content
+
+        # Sauvegarder la tache
+        task = AssistantTask(
+            tenant_id=TENANT_ID,
+            task_type="generate",
+            document_type=DocumentType(doc_type) if doc_type in [e.value for e in DocumentType] else None,
+            subject=subject,
+            recipient=recipient,
+            tone=tone,
+            additional_instructions=additional,
+            output_text=generated_text,
+            status=DocumentStatus.DRAFT,
+        )
+        _redis_client.add_assistant_task(TENANT_ID, task.id, task.to_redis())
+
+        return {
+            "success": True,
+            "task_id": task.id,
+            "document_type": doc_type,
+            "version": 1,
+            "status": "draft",
+            "content": generated_text,
+            "message": "Document genere. Utilisez /api/assistant/improve pour l'ameliorer.",
+        }
+
+    except Exception as e:
+        logger.error(f"Generate error: {e}")
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+
+@app.post("/api/assistant/improve")
+async def improve_document(request: Request):
+    """Ameliore un document existant avec feedback"""
+    if not _redis_client:
+        return JSONResponse(status_code=503, content={"error": "Redis non disponible"})
+
+    data = await request.json()
+    task_id = data.get("task_id")
+    feedback = data.get("feedback", "").strip()
+    content = data.get("content")  # Optionnel: contenu modifie manuellement
+
+    if not task_id:
+        return JSONResponse(status_code=400, content={"error": "task_id requis"})
+
+    if not feedback and not content:
+        return JSONResponse(status_code=400, content={"error": "feedback ou content requis"})
+
+    # Recuperer la tache originale
+    original = _redis_client.get_assistant_task(TENANT_ID, task_id)
+    if not original:
+        return JSONResponse(status_code=404, content={"error": "Tache non trouvee"})
+
+    original_content = content or original.get("output_text", "")
+    original_version = int(original.get("version", 1))
+
+    prompt = f"""Voici un document a ameliorer:
+
+---
+{original_content}
+---
+
+Feedback de l'utilisateur: {feedback}
+
+Ameliore le document en tenant compte du feedback. Garde le meme format et le meme ton general, sauf si le feedback demande un changement de ton."""
+
+    try:
+        response = openai_client.chat.completions.create(
+            model=OPENAI_MODEL,
+            messages=[
+                {"role": "system", "content": "Tu es un assistant de redaction. Tu ameliores les documents selon le feedback sans changer leur essence."},
+                {"role": "user", "content": prompt}
+            ],
+            max_tokens=2000,
+            temperature=0.5,
+        )
+        improved_text = response.choices[0].message.content
+
+        # Creer une nouvelle version
+        new_task = AssistantTask(
+            tenant_id=TENANT_ID,
+            task_type="improve",
+            document_type=DocumentType(original["document_type"]) if original.get("document_type") else None,
+            subject=original.get("subject"),
+            recipient=original.get("recipient"),
+            tone=original.get("tone", "professional"),
+            input_text=original_content,
+            output_text=improved_text,
+            feedback=feedback,
+            version=original_version + 1,
+            parent_task_id=task_id,
+            status=DocumentStatus.DRAFT,
+        )
+        _redis_client.add_assistant_task(TENANT_ID, new_task.id, new_task.to_redis())
+
+        return {
+            "success": True,
+            "task_id": new_task.id,
+            "parent_task_id": task_id,
+            "version": new_task.version,
+            "status": "draft",
+            "content": improved_text,
+            "feedback_applied": feedback,
+            "message": f"Version {new_task.version} generee.",
+        }
+
+    except Exception as e:
+        logger.error(f"Improve error: {e}")
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+
+@app.get("/api/assistant/task/{task_id}")
+async def get_task(task_id: str):
+    """Recupere une tache et son contenu"""
+    if not _redis_client:
+        return JSONResponse(status_code=503, content={"error": "Redis non disponible"})
+
+    task = _redis_client.get_assistant_task(TENANT_ID, task_id)
+    if not task:
+        return JSONResponse(status_code=404, content={"error": "Tache non trouvee"})
+
+    return {
+        "task": task,
+        "content": task.get("output_text") or task.get("input_text"),
+    }
+
+
+@app.get("/api/assistant/task/{task_id}/versions")
+async def get_task_versions(task_id: str):
+    """Recupere toutes les versions d'un document"""
+    if not _redis_client:
+        return JSONResponse(status_code=503, content={"error": "Redis non disponible"})
+
+    versions = _redis_client.get_task_versions(TENANT_ID, task_id)
+
+    return {
+        "original_task_id": task_id,
+        "versions": versions,
+        "count": len(versions),
+    }
+
+
+@app.post("/api/assistant/task/{task_id}/approve")
+async def approve_task(task_id: str):
+    """Approuve un document (pret a envoyer/utiliser)"""
+    if not _redis_client:
+        return JSONResponse(status_code=503, content={"error": "Redis non disponible"})
+
+    task = _redis_client.get_assistant_task(TENANT_ID, task_id)
+    if not task:
+        return JSONResponse(status_code=404, content={"error": "Tache non trouvee"})
+
+    _redis_client.update_assistant_task(TENANT_ID, task_id, {
+        "status": DocumentStatus.APPROVED.value,
+        "updated_at": datetime.utcnow().isoformat(),
+    })
+
+    return {
+        "success": True,
+        "task_id": task_id,
+        "status": "approved",
+        "message": "Document approuve et pret a l'emploi.",
+    }
+
+
+@app.get("/api/assistant/tasks")
+async def list_tasks(limit: int = 20, doc_type: str = None):
+    """Liste les dernieres taches"""
+    if not _redis_client:
+        return JSONResponse(status_code=503, content={"error": "Redis non disponible"})
+
+    tasks = _redis_client.get_assistant_tasks(TENANT_ID, limit=limit)
+
+    if doc_type:
+        tasks = [t for t in tasks if t.get("document_type") == doc_type]
+
+    return {
+        "tasks": tasks,
+        "count": len(tasks),
+    }
+
+
+@app.get("/api/assistant/templates")
+async def list_templates():
+    """Liste les templates administratifs disponibles"""
+    return {
+        "templates": ADMIN_TEMPLATES,
+        "document_types": [{"id": t.value, "name": t.value.replace("_", " ").title()} for t in DocumentType],
+    }
+
+
+# --- Email sending (placeholder - needs SMTP config) ---
+
+@app.post("/api/email/draft")
+async def create_email_draft(request: Request):
+    """Cree un brouillon email a partir d'une tache"""
+    if not _redis_client:
+        return JSONResponse(status_code=503, content={"error": "Redis non disponible"})
+
+    data = await request.json()
+    task_id = data.get("task_id")
+    to = data.get("to", [])
+    cc = data.get("cc", [])
+    subject = data.get("subject", "")
+
+    if not task_id and not data.get("body"):
+        return JSONResponse(status_code=400, content={"error": "task_id ou body requis"})
+
+    body = data.get("body", "")
+    if task_id:
+        task = _redis_client.get_assistant_task(TENANT_ID, task_id)
+        if task:
+            body = task.get("output_text", "")
+            subject = subject or task.get("subject", "")
+
+    draft = EmailDraft(
+        tenant_id=TENANT_ID,
+        to=to if isinstance(to, list) else [to],
+        cc=cc if isinstance(cc, list) else [cc] if cc else [],
+        subject=subject,
+        body_html=body.replace("\n", "<br>"),
+        body_text=body,
+        task_id=task_id,
+    )
+    _redis_client.save_email_draft(TENANT_ID, draft.id, draft.to_redis())
+
+    return {
+        "success": True,
+        "draft_id": draft.id,
+        "subject": subject,
+        "to": draft.to,
+        "message": "Brouillon cree. Configurez SMTP pour envoyer.",
+    }
+
+
+@app.post("/api/email/send")
+async def send_email(request: Request):
+    """Envoie un email (necessite configuration SMTP)"""
+    # TODO: Implementer avec smtplib ou SendGrid
+    return JSONResponse(status_code=501, content={
+        "error": "Envoi email non configure",
+        "message": "Configurez SMTP_HOST, SMTP_USER, SMTP_PASS dans .env pour activer l'envoi.",
+        "alternatives": [
+            "Copiez le contenu du brouillon dans votre client email",
+            "Utilisez /api/documents/generate pour creer un fichier DOCX",
+        ]
+    })
+
+
 if __name__ == "__main__":
     import uvicorn
 
