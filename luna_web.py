@@ -41,6 +41,9 @@ try:
     _CORE_AVAILABLE = True
 except ImportError as _import_err:
     _CORE_AVAILABLE = False
+    import traceback
+    print(f"CORE IMPORT ERROR: {_import_err}")
+    traceback.print_exc()
 
 load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
 
@@ -928,6 +931,666 @@ async def delete_contact(phone: str):
         return JSONResponse(status_code=503, content={"error": "Memoire non disponible"})
     _memory_manager.remove_trusted_contact(phone)
     return {"success": True}
+
+
+# =========================================================================
+# FAMILY PACK ENDPOINTS
+# =========================================================================
+
+from core.memory.schemas import (
+    FamilyMember, FamilyGroup, FamilyRole, FamilyMemberType,
+    EscalationRule, EscalationStage, FamilyMessage, FamilyMessageType,
+    FamilyAuditLog, DistressLevel, DistressKeywords
+)
+import random
+import string
+
+
+def _generate_otp() -> str:
+    """Genere un code OTP a 6 chiffres"""
+    return ''.join(random.choices(string.digits, k=6))
+
+
+def _log_family_audit(action: str, actor_phone: str, actor_name: str,
+                      target_phone: str = None, target_name: str = None,
+                      details: dict = None, severity: str = "info"):
+    """Log une action dans l'audit famille"""
+    if not _redis_client:
+        return
+    import json
+    from datetime import datetime
+    audit = FamilyAuditLog(
+        tenant_id=TENANT_ID,
+        actor_phone=actor_phone,
+        actor_name=actor_name,
+        action=action,
+        target_phone=target_phone,
+        target_name=target_name,
+        details=details or {},
+        severity=severity,
+    )
+    _redis_client.add_family_audit(TENANT_ID, json.dumps(audit.to_redis()))
+
+
+# --- Family Group ---
+
+@app.get("/api/family")
+async def get_family():
+    """Recupere le groupe familial et ses membres"""
+    if not _redis_client:
+        return JSONResponse(status_code=503, content={"error": "Redis non disponible"})
+
+    group_data = _redis_client.get_family_group(TENANT_ID)
+    if not group_data:
+        return {"group": None, "members": [], "count": 0}
+
+    group = FamilyGroup.from_redis(group_data)
+    members = []
+    for phone in _redis_client.get_family_members(TENANT_ID):
+        member_data = _redis_client.get_family_member(TENANT_ID, phone)
+        if member_data:
+            member = FamilyMember.from_redis(member_data)
+            members.append({
+                "id": member.id,
+                "phone": member.phone,
+                "name": member.name,
+                "relation": member.relation,
+                "member_type": member.member_type.value,
+                "role": member.role.value,
+                "age": member.age,
+                "is_verified": member.is_verified,
+                "is_minor": member.is_minor(),
+                "can_see_history": member.can_see_history,
+                "can_send_messages": member.can_send_messages,
+                "can_receive_alerts": member.can_receive_alerts,
+                "is_active": member.is_active,
+                "created_at": member.created_at.isoformat(),
+            })
+
+    return {
+        "group": {
+            "id": group.id,
+            "name": group.name,
+            "description": group.description,
+            "allow_internal_messaging": group.allow_internal_messaging,
+            "share_activity_summary": group.share_activity_summary,
+            "auto_escalate": group.auto_escalate,
+        },
+        "members": members,
+        "count": len(members),
+    }
+
+
+@app.post("/api/family")
+async def create_family(request: Request):
+    """Cree ou met a jour le groupe familial"""
+    if not _redis_client:
+        return JSONResponse(status_code=503, content={"error": "Redis non disponible"})
+
+    data = await request.json()
+    from datetime import datetime
+
+    # Verifier si groupe existe deja
+    existing = _redis_client.get_family_group(TENANT_ID)
+    if existing:
+        # Mise a jour
+        group = FamilyGroup.from_redis(existing)
+        if "name" in data:
+            group.name = data["name"]
+        if "description" in data:
+            group.description = data["description"]
+        if "allow_internal_messaging" in data:
+            group.allow_internal_messaging = data["allow_internal_messaging"]
+        if "share_activity_summary" in data:
+            group.share_activity_summary = data["share_activity_summary"]
+        if "auto_escalate" in data:
+            group.auto_escalate = data["auto_escalate"]
+        group.updated_at = datetime.utcnow()
+    else:
+        # Creation
+        group = FamilyGroup(
+            tenant_id=TENANT_ID,
+            name=data.get("name", "Ma famille"),
+            description=data.get("description", ""),
+        )
+
+    _redis_client.set_family_group(TENANT_ID, group.to_redis())
+    _log_family_audit("family_group_created" if not existing else "family_group_updated",
+                      "system", "Luna", details={"name": group.name})
+
+    return {"success": True, "group_id": group.id}
+
+
+# --- Family Members ---
+
+@app.get("/api/family/members")
+async def list_family_members():
+    """Liste tous les membres de la famille"""
+    if not _redis_client:
+        return JSONResponse(status_code=503, content={"error": "Redis non disponible"})
+
+    members = []
+    for phone in _redis_client.get_family_members(TENANT_ID):
+        member_data = _redis_client.get_family_member(TENANT_ID, phone)
+        if member_data:
+            member = FamilyMember.from_redis(member_data)
+            members.append({
+                "id": member.id,
+                "phone": member.phone,
+                "name": member.name,
+                "relation": member.relation,
+                "role": member.role.value,
+                "member_type": member.member_type.value,
+                "age": member.age,
+                "is_verified": member.is_verified,
+                "is_minor": member.is_minor(),
+                "needs_parental_consent": member.needs_parental_consent(),
+            })
+
+    return {"members": members, "count": len(members)}
+
+
+@app.post("/api/family/members")
+async def add_family_member(request: Request):
+    """Ajoute un membre a la famille (envoie OTP de verification)"""
+    if not _redis_client:
+        return JSONResponse(status_code=503, content={"error": "Redis non disponible"})
+
+    data = await request.json()
+
+    # Validation
+    phone = data.get("phone", "").strip()
+    name = data.get("name", "").strip()
+    relation = data.get("relation", "").strip()
+
+    if not phone or not name:
+        return JSONResponse(status_code=400, content={"error": "phone et name requis"})
+
+    # Verifier si deja membre
+    if _redis_client.get_family_member(TENANT_ID, phone):
+        return JSONResponse(status_code=400, content={"error": "Ce membre existe deja"})
+
+    # Valider le role
+    role_str = data.get("role", "information_only")
+    valid_roles = [r.value for r in FamilyRole]
+    if role_str not in valid_roles:
+        return JSONResponse(status_code=400, content={
+            "error": f"Role invalide: {role_str}. Roles valides: {', '.join(valid_roles)}"
+        })
+
+    # Determiner le type de membre selon l'age
+    age = data.get("age")
+    member_type = FamilyMemberType.ADULT
+    if age:
+        age = int(age)
+        if age < 13:
+            member_type = FamilyMemberType.CHILD
+        elif age < 18:
+            member_type = FamilyMemberType.TEEN
+        elif age >= 65:
+            member_type = FamilyMemberType.SENIOR
+
+    # Creer le membre (non verifie)
+    member = FamilyMember(
+        tenant_id=TENANT_ID,
+        phone=phone,
+        name=name,
+        relation=relation,
+        member_type=member_type,
+        role=FamilyRole(role_str),
+        age=age,
+        is_verified=False,
+        can_see_history=data.get("can_see_history", False),
+        can_send_messages=data.get("can_send_messages", True),
+        can_receive_alerts=data.get("can_receive_alerts", True),
+    )
+
+    # Generer et stocker OTP
+    otp = _generate_otp()
+    member.verification_code = otp
+    _redis_client.set_otp(phone, otp)
+
+    # Ajouter le membre
+    success = _redis_client.add_family_member(TENANT_ID, phone, member.to_redis())
+    if not success:
+        return JSONResponse(status_code=400, content={"error": "Quota de membres atteint (max 15)"})
+
+    # Envoyer SMS avec OTP
+    sms_sent = False
+    if sms_client:
+        message = f"Luna Family: {name}, votre code de verification est {otp}. Valide 10 min."
+        sms_sent, _ = sms_client.send(phone, message)
+
+    _log_family_audit("member_invited", "system", "Luna",
+                      target_phone=phone, target_name=name,
+                      details={"role": member.role.value, "sms_sent": sms_sent})
+
+    return {
+        "success": True,
+        "member_id": member.id,
+        "verification_required": True,
+        "sms_sent": sms_sent,
+        "message": f"Code de verification envoye a {phone}" if sms_sent else "Echec envoi SMS"
+    }
+
+
+@app.post("/api/family/members/{phone}/verify")
+async def verify_family_member(phone: str, request: Request):
+    """Verifie un membre avec son code OTP"""
+    if not _redis_client:
+        return JSONResponse(status_code=503, content={"error": "Redis non disponible"})
+
+    data = await request.json()
+    otp = data.get("code", "").strip()
+
+    if not otp:
+        return JSONResponse(status_code=400, content={"error": "Code requis"})
+
+    # Verifier OTP
+    if not _redis_client.verify_otp(phone, otp):
+        return JSONResponse(status_code=400, content={"error": "Code invalide ou expire"})
+
+    # Marquer comme verifie
+    from datetime import datetime
+    _redis_client.update_family_member(TENANT_ID, phone, {
+        "is_verified": "1",
+        "verified_at": datetime.utcnow().isoformat(),
+        "verification_code": "",
+    })
+
+    member_data = _redis_client.get_family_member(TENANT_ID, phone)
+    name = member_data.get("name", "Membre") if member_data else "Membre"
+
+    _log_family_audit("member_verified", phone, name)
+
+    return {"success": True, "message": f"{name} verifie avec succes"}
+
+
+@app.patch("/api/family/members/{phone}")
+async def update_family_member(phone: str, request: Request):
+    """Met a jour un membre de la famille"""
+    if not _redis_client:
+        return JSONResponse(status_code=503, content={"error": "Redis non disponible"})
+
+    data = await request.json()
+
+    member_data = _redis_client.get_family_member(TENANT_ID, phone)
+    if not member_data:
+        return JSONResponse(status_code=404, content={"error": "Membre non trouve"})
+
+    # Champs modifiables
+    updates = {}
+    if "name" in data:
+        updates["name"] = data["name"]
+    if "role" in data:
+        updates["role"] = data["role"]
+    if "can_see_history" in data:
+        updates["can_see_history"] = "1" if data["can_see_history"] else "0"
+    if "can_send_messages" in data:
+        updates["can_send_messages"] = "1" if data["can_send_messages"] else "0"
+    if "can_receive_alerts" in data:
+        updates["can_receive_alerts"] = "1" if data["can_receive_alerts"] else "0"
+    if "is_active" in data:
+        updates["is_active"] = "1" if data["is_active"] else "0"
+
+    from datetime import datetime
+    updates["updated_at"] = datetime.utcnow().isoformat()
+
+    _redis_client.update_family_member(TENANT_ID, phone, updates)
+
+    _log_family_audit("member_updated", "system", "Luna",
+                      target_phone=phone, target_name=member_data.get("name"),
+                      details=updates)
+
+    return {"success": True}
+
+
+@app.delete("/api/family/members/{phone}")
+async def remove_family_member(phone: str):
+    """Supprime un membre de la famille"""
+    if not _redis_client:
+        return JSONResponse(status_code=503, content={"error": "Redis non disponible"})
+
+    member_data = _redis_client.get_family_member(TENANT_ID, phone)
+    if not member_data:
+        return JSONResponse(status_code=404, content={"error": "Membre non trouve"})
+
+    name = member_data.get("name", "Membre")
+    _redis_client.remove_family_member(TENANT_ID, phone)
+
+    _log_family_audit("member_removed", "system", "Luna",
+                      target_phone=phone, target_name=name)
+
+    return {"success": True}
+
+
+# --- Family Messages (Internal Messaging) ---
+
+@app.get("/api/family/messages")
+async def get_family_messages(limit: int = 50, phone: str = None):
+    """Recupere les messages famille (optionnel: filtre par destinataire)"""
+    if not _redis_client:
+        return JSONResponse(status_code=503, content={"error": "Redis non disponible"})
+
+    messages = []
+    for msg_id in _redis_client.get_family_messages(TENANT_ID, limit=limit):
+        msg_data = _redis_client.get_family_message(TENANT_ID, msg_id)
+        if msg_data:
+            msg = FamilyMessage.from_redis(msg_data)
+            # Filtrer par destinataire si specifie
+            if phone and msg.to_phone and msg.to_phone != phone:
+                continue
+            messages.append({
+                "id": msg.id,
+                "from_phone": msg.from_phone,
+                "from_name": msg.from_name,
+                "to_phone": msg.to_phone,
+                "to_name": msg.to_name,
+                "content": msg.content,
+                "message_type": msg.message_type.value,
+                "is_read": msg.is_read,
+                "read_by": msg.read_by,
+                "created_at": msg.created_at.isoformat(),
+                "requires_response": msg.requires_response,
+                "responses": msg.responses,
+            })
+
+    return {"messages": messages, "count": len(messages)}
+
+
+@app.post("/api/family/messages")
+async def send_family_message(request: Request):
+    """Envoie un message interne famille via Luna"""
+    if not _redis_client:
+        return JSONResponse(status_code=503, content={"error": "Redis non disponible"})
+
+    data = await request.json()
+
+    from_phone = data.get("from_phone", "luna")
+    from_name = data.get("from_name", "Luna")
+    to_phone = data.get("to_phone")  # None = groupe
+    content = data.get("content", "").strip()
+    message_type = data.get("message_type", "update")
+
+    if not content:
+        return JSONResponse(status_code=400, content={"error": "Contenu requis"})
+
+    # Creer le message
+    msg = FamilyMessage(
+        tenant_id=TENANT_ID,
+        from_phone=from_phone,
+        from_name=from_name,
+        to_phone=to_phone,
+        to_name=data.get("to_name"),
+        content=content,
+        message_type=FamilyMessageType(message_type),
+        requires_response=data.get("requires_response", False),
+    )
+
+    _redis_client.add_family_message(TENANT_ID, msg.id, msg.to_redis())
+
+    # Notifier les destinataires (push ou SMS selon config)
+    notified = []
+    if to_phone:
+        # Message direct
+        member_data = _redis_client.get_family_member(TENANT_ID, to_phone)
+        if member_data and member_data.get("can_receive_alerts") == "1":
+            notified.append(to_phone)
+    else:
+        # Message groupe - notifier tous les membres actifs
+        for phone in _redis_client.get_family_members(TENANT_ID):
+            if phone != from_phone:  # Ne pas notifier l'expediteur
+                member_data = _redis_client.get_family_member(TENANT_ID, phone)
+                if member_data and member_data.get("is_active") == "1":
+                    notified.append(phone)
+
+    _log_family_audit("message_sent", from_phone, from_name,
+                      target_phone=to_phone,
+                      details={"type": message_type, "notified": len(notified)})
+
+    return {
+        "success": True,
+        "message_id": msg.id,
+        "notified_count": len(notified),
+    }
+
+
+@app.post("/api/family/messages/{msg_id}/read")
+async def mark_message_read(msg_id: str, request: Request):
+    """Marque un message comme lu par un membre"""
+    if not _redis_client:
+        return JSONResponse(status_code=503, content={"error": "Redis non disponible"})
+
+    data = await request.json()
+    phone = data.get("phone", "") or data.get("reader_phone", "")
+    phone = phone.strip() if phone else ""
+
+    if not phone:
+        return JSONResponse(status_code=400, content={"error": "phone requis"})
+
+    msg_data = _redis_client.get_family_message(TENANT_ID, msg_id)
+    if not msg_data:
+        return JSONResponse(status_code=404, content={"error": "Message non trouve"})
+
+    import json
+    from datetime import datetime
+    read_by = json.loads(msg_data.get("read_by", "[]"))
+    if phone not in read_by:
+        read_by.append(phone)
+        _redis_client.update_family_message(TENANT_ID, msg_id, {
+            "read_by": json.dumps(read_by),
+            "is_read": "1" if len(read_by) > 0 else "0",
+            "read_at": datetime.utcnow().isoformat(),
+        })
+
+    return {"success": True}
+
+
+# --- Escalation Rules ---
+
+@app.get("/api/family/escalation")
+async def get_escalation_rules():
+    """Recupere les regles d'escalade"""
+    if not _redis_client:
+        return JSONResponse(status_code=503, content={"error": "Redis non disponible"})
+
+    rules = []
+    for rule_id in _redis_client.get_escalation_rules(TENANT_ID):
+        rule_data = _redis_client.get_escalation_rule(TENANT_ID, rule_id)
+        if rule_data:
+            rule = EscalationRule.from_redis(rule_data)
+            rules.append({
+                "id": rule.id,
+                "name": rule.name,
+                "description": rule.description,
+                "trigger_distress_level": rule.trigger_distress_level.value,
+                "trigger_member_types": [t.value for t in rule.trigger_member_types],
+                "stages": [s.to_dict() for s in rule.stages],
+                "enabled": rule.enabled,
+                "trigger_count": rule.trigger_count,
+            })
+
+    return {"rules": rules, "count": len(rules)}
+
+
+@app.post("/api/family/escalation")
+async def create_escalation_rule(request: Request):
+    """Cree une regle d'escalade"""
+    if not _redis_client:
+        return JSONResponse(status_code=503, content={"error": "Redis non disponible"})
+
+    data = await request.json()
+
+    # Creer les etapes
+    stages = []
+    for stage_data in data.get("stages", []):
+        stage = EscalationStage(
+            order=stage_data["order"],
+            delay_minutes=stage_data.get("delay_minutes", 0),
+            target_roles=[FamilyRole(r) for r in stage_data["target_roles"]],
+            message_template=stage_data.get("message_template", ""),
+            include_emergency_numbers=stage_data.get("include_emergency_numbers", False),
+        )
+        stages.append(stage)
+
+    rule = EscalationRule(
+        tenant_id=TENANT_ID,
+        name=data.get("name", "Regle d'escalade"),
+        description=data.get("description", ""),
+        trigger_distress_level=DistressLevel(data.get("trigger_distress_level", "high")),
+        trigger_member_types=[FamilyMemberType(t) for t in data.get("trigger_member_types", [])],
+        trigger_keywords=data.get("trigger_keywords", []),
+        stages=stages,
+        enabled=data.get("enabled", True),
+    )
+
+    _redis_client.add_escalation_rule(TENANT_ID, rule.id, rule.to_redis())
+
+    _log_family_audit("escalation_rule_created", "system", "Luna",
+                      details={"name": rule.name, "stages": len(stages)})
+
+    return {"success": True, "rule_id": rule.id}
+
+
+@app.delete("/api/family/escalation/{rule_id}")
+async def delete_escalation_rule(rule_id: str):
+    """Supprime une regle d'escalade"""
+    if not _redis_client:
+        return JSONResponse(status_code=503, content={"error": "Redis non disponible"})
+
+    _redis_client.delete_escalation_rule(TENANT_ID, rule_id)
+
+    _log_family_audit("escalation_rule_deleted", "system", "Luna",
+                      details={"rule_id": rule_id})
+
+    return {"success": True}
+
+
+# --- Distress Detection (for Family Pack) ---
+
+@app.post("/api/family/detect-distress")
+async def detect_distress(request: Request):
+    """Analyse un texte pour detecter la detresse (ados/enfants)"""
+    data = await request.json()
+    text = data.get("text", "")
+    from_phone = data.get("from_phone")
+
+    if not text:
+        return JSONResponse(status_code=400, content={"error": "text requis"})
+
+    # Detecter le niveau de detresse
+    level, keywords, category = DistressKeywords.detect_level(text)
+
+    result = {
+        "level": level.value,
+        "keywords_found": keywords,
+        "category": category,
+        "action_required": level in [DistressLevel.HIGH, DistressLevel.CRITICAL],
+    }
+
+    # Si niveau eleve, declencher l'escalade
+    if level in [DistressLevel.HIGH, DistressLevel.CRITICAL] and from_phone:
+        member_data = _redis_client.get_family_member(TENANT_ID, from_phone) if _redis else None
+        if member_data:
+            member_name = member_data.get("name", "Membre")
+            result["escalation_triggered"] = True
+            result["message"] = f"Alerte detresse detectee pour {member_name}"
+
+            # Log et notifier
+            _log_family_audit("distress_detected", from_phone, member_name,
+                              details={"level": level.value, "category": category},
+                              severity="critical" if level == DistressLevel.CRITICAL else "alert")
+
+    return result
+
+
+# --- Family Audit Log ---
+
+@app.get("/api/family/audit")
+async def get_family_audit(limit: int = 50):
+    """Recupere le journal d'audit famille"""
+    if not _redis_client:
+        return JSONResponse(status_code=503, content={"error": "Redis non disponible"})
+
+    import json
+    entries = []
+    for entry_json in _redis_client.get_family_audit(TENANT_ID, limit=limit):
+        try:
+            entry_data = json.loads(entry_json)
+            audit = FamilyAuditLog.from_redis(entry_data)
+            entries.append({
+                "id": audit.id,
+                "actor_name": audit.actor_name,
+                "action": audit.action,
+                "target_name": audit.target_name,
+                "details": audit.details,
+                "severity": audit.severity,
+                "timestamp": audit.timestamp.isoformat(),
+            })
+        except:
+            pass
+
+    return {"entries": entries, "count": len(entries)}
+
+
+# --- Default Escalation Rule for Teens (Bullying/Distress) ---
+
+@app.post("/api/family/setup-teen-protection")
+async def setup_teen_protection():
+    """Configure automatiquement la protection ados (harcelement, detresse)"""
+    if not _redis_client:
+        return JSONResponse(status_code=503, content={"error": "Redis non disponible"})
+
+    # Creer un groupe famille si pas existant
+    if not _redis_client.get_family_group(TENANT_ID):
+        group = FamilyGroup(tenant_id=TENANT_ID, name="Ma famille")
+        _redis_client.set_family_group(TENANT_ID, group.to_redis())
+
+    # Creer la regle d'escalade pour ados
+    stages = [
+        EscalationStage(
+            order=1,
+            delay_minutes=0,
+            target_roles=[FamilyRole.TEEN],  # D'abord dialogue avec l'ado
+            message_template="Luna a remarque que tu sembles preoccupe(e). Tu veux en parler?",
+            include_emergency_numbers=False,
+        ),
+        EscalationStage(
+            order=2,
+            delay_minutes=5,
+            target_roles=[FamilyRole.PRIMARY_CAREGIVER],
+            message_template="[Luna Family] Votre enfant {name} a exprime des signes de detresse. Details: {summary}. Nous vous conseillons d'en discuter avec lui/elle.",
+            include_emergency_numbers=False,
+        ),
+        EscalationStage(
+            order=3,
+            delay_minutes=15,
+            target_roles=[FamilyRole.PRIMARY_CAREGIVER, FamilyRole.SECONDARY_CAREGIVER],
+            message_template="[URGENT Luna Family] {name} necessite une attention immediate. Si vous ne pouvez pas le/la joindre, appelez le 3114 (prevention suicide) ou le 0 800 235 236 (Fil Sante Jeunes).",
+            include_emergency_numbers=True,
+        ),
+    ]
+
+    rule = EscalationRule(
+        tenant_id=TENANT_ID,
+        name="Protection ados - harcelement/detresse",
+        description="Detection automatique du harcelement et de la detresse chez les adolescents",
+        trigger_distress_level=DistressLevel.MEDIUM,
+        trigger_member_types=[FamilyMemberType.TEEN, FamilyMemberType.CHILD],
+        stages=stages,
+        enabled=True,
+    )
+
+    _redis_client.add_escalation_rule(TENANT_ID, rule.id, rule.to_redis())
+
+    _log_family_audit("teen_protection_enabled", "system", "Luna",
+                      details={"rule_id": rule.id})
+
+    return {
+        "success": True,
+        "rule_id": rule.id,
+        "message": "Protection ados configuree avec succes. Luna va maintenant detecter les signes de harcelement et de detresse.",
+    }
 
 
 # =========================================================================

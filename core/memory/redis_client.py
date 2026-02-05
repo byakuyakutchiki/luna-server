@@ -490,6 +490,224 @@ class RedisClient:
         return val if isinstance(val, str) else val.decode("utf-8")
 
 
+    # =========================================================================
+    # FAMILY PACK
+    # =========================================================================
+
+    TTL_FAMILY = 365 * 24 * 60 * 60  # 1 an
+    TTL_FAMILY_MESSAGES = 90 * 24 * 60 * 60  # 90 jours
+    TTL_FAMILY_AUDIT = 365 * 24 * 60 * 60  # 1 an
+    TTL_OTP = 10 * 60  # 10 minutes
+
+    # --- Family Group ---
+
+    def get_family_group_key(self, tenant_id: int) -> str:
+        """Cle pour le groupe familial"""
+        return self._key(tenant_id, "family", "group")
+
+    def set_family_group(self, tenant_id: int, data: Dict[str, str]) -> None:
+        """Cree ou met a jour le groupe familial"""
+        key = self.get_family_group_key(tenant_id)
+        self.client.hset(key, mapping=data)
+        self.client.expire(key, self.TTL_FAMILY)
+
+    def get_family_group(self, tenant_id: int) -> Optional[Dict[str, str]]:
+        """Recupere le groupe familial"""
+        key = self.get_family_group_key(tenant_id)
+        data = self.client.hgetall(key)
+        return data if data else None
+
+    def delete_family_group(self, tenant_id: int) -> None:
+        """Supprime le groupe familial"""
+        self.client.delete(self.get_family_group_key(tenant_id))
+
+    # --- Family Members ---
+
+    def get_family_members_key(self, tenant_id: int) -> str:
+        """Cle pour la liste des membres famille"""
+        return self._key(tenant_id, "family", "members")
+
+    def get_family_member_key(self, tenant_id: int, phone: str) -> str:
+        """Cle pour un membre famille"""
+        return self._key(tenant_id, "family", "member", phone)
+
+    def add_family_member(self, tenant_id: int, phone: str, data: Dict[str, str]) -> bool:
+        """Ajoute un membre famille. Retourne False si quota atteint."""
+        members_key = self.get_family_members_key(tenant_id)
+        # Verifier quota (max 15 pour premium)
+        if self.client.scard(members_key) >= 15:
+            return False
+        self.client.sadd(members_key, phone)
+        member_key = self.get_family_member_key(tenant_id, phone)
+        self.client.hset(member_key, mapping=data)
+        self.client.expire(member_key, self.TTL_FAMILY)
+        return True
+
+    def get_family_members(self, tenant_id: int) -> List[str]:
+        """Recupere les phones des membres famille"""
+        return list(self.client.smembers(self.get_family_members_key(tenant_id)))
+
+    def get_family_member(self, tenant_id: int, phone: str) -> Optional[Dict[str, str]]:
+        """Recupere un membre famille"""
+        key = self.get_family_member_key(tenant_id, phone)
+        data = self.client.hgetall(key)
+        return data if data else None
+
+    def update_family_member(self, tenant_id: int, phone: str, fields: Dict[str, str]) -> None:
+        """Met a jour des champs d'un membre"""
+        key = self.get_family_member_key(tenant_id, phone)
+        self.client.hset(key, mapping=fields)
+
+    def remove_family_member(self, tenant_id: int, phone: str) -> None:
+        """Supprime un membre famille"""
+        self.client.srem(self.get_family_members_key(tenant_id), phone)
+        self.client.delete(self.get_family_member_key(tenant_id, phone))
+
+    def get_family_members_by_role(self, tenant_id: int, role: str) -> List[str]:
+        """Recupere les phones des membres avec un role specifique"""
+        members = []
+        for phone in self.get_family_members(tenant_id):
+            data = self.get_family_member(tenant_id, phone)
+            if data and data.get("role") == role:
+                members.append(phone)
+        return members
+
+    # --- OTP Verification ---
+
+    def set_otp(self, phone: str, otp: str) -> None:
+        """Stocke un OTP temporaire pour verification"""
+        key = self._key("otp", phone)
+        self.client.setex(key, self.TTL_OTP, otp)
+
+    def verify_otp(self, phone: str, otp: str) -> bool:
+        """Verifie un OTP et le supprime si valide"""
+        key = self._key("otp", phone)
+        stored = self.client.get(key)
+        if stored == otp:
+            self.client.delete(key)
+            return True
+        return False
+
+    # --- Escalation Rules ---
+
+    def get_escalation_rules_key(self, tenant_id: int) -> str:
+        """Cle pour la liste des regles d'escalade"""
+        return self._key(tenant_id, "family", "escalation_rules")
+
+    def get_escalation_rule_key(self, tenant_id: int, rule_id: str) -> str:
+        """Cle pour une regle d'escalade"""
+        return self._key(tenant_id, "family", "escalation", rule_id)
+
+    def add_escalation_rule(self, tenant_id: int, rule_id: str, data: Dict[str, str]) -> None:
+        """Ajoute une regle d'escalade"""
+        self.client.sadd(self.get_escalation_rules_key(tenant_id), rule_id)
+        key = self.get_escalation_rule_key(tenant_id, rule_id)
+        self.client.hset(key, mapping=data)
+        self.client.expire(key, self.TTL_FAMILY)
+
+    def get_escalation_rules(self, tenant_id: int) -> List[str]:
+        """Recupere les IDs des regles d'escalade"""
+        return list(self.client.smembers(self.get_escalation_rules_key(tenant_id)))
+
+    def get_escalation_rule(self, tenant_id: int, rule_id: str) -> Optional[Dict[str, str]]:
+        """Recupere une regle d'escalade"""
+        key = self.get_escalation_rule_key(tenant_id, rule_id)
+        data = self.client.hgetall(key)
+        return data if data else None
+
+    def delete_escalation_rule(self, tenant_id: int, rule_id: str) -> None:
+        """Supprime une regle d'escalade"""
+        self.client.srem(self.get_escalation_rules_key(tenant_id), rule_id)
+        self.client.delete(self.get_escalation_rule_key(tenant_id, rule_id))
+
+    # --- Family Messages ---
+
+    def get_family_messages_key(self, tenant_id: int) -> str:
+        """Cle pour la liste des messages famille"""
+        return self._key(tenant_id, "family", "messages")
+
+    def get_family_message_key(self, tenant_id: int, msg_id: str) -> str:
+        """Cle pour un message famille"""
+        return self._key(tenant_id, "family", "message", msg_id)
+
+    def add_family_message(self, tenant_id: int, msg_id: str, data: Dict[str, str]) -> None:
+        """Ajoute un message famille"""
+        import time
+        self.client.zadd(self.get_family_messages_key(tenant_id), {msg_id: time.time()})
+        key = self.get_family_message_key(tenant_id, msg_id)
+        self.client.hset(key, mapping=data)
+        self.client.expire(key, self.TTL_FAMILY_MESSAGES)
+
+    def get_family_messages(self, tenant_id: int, limit: int = 50) -> List[str]:
+        """Recupere les IDs des messages recents"""
+        return self.client.zrevrange(self.get_family_messages_key(tenant_id), 0, limit - 1)
+
+    def get_family_message(self, tenant_id: int, msg_id: str) -> Optional[Dict[str, str]]:
+        """Recupere un message famille"""
+        key = self.get_family_message_key(tenant_id, msg_id)
+        data = self.client.hgetall(key)
+        return data if data else None
+
+    def update_family_message(self, tenant_id: int, msg_id: str, fields: Dict[str, str]) -> None:
+        """Met a jour un message famille"""
+        key = self.get_family_message_key(tenant_id, msg_id)
+        self.client.hset(key, mapping=fields)
+
+    def get_unread_messages_for_member(self, tenant_id: int, phone: str) -> List[str]:
+        """Recupere les messages non lus pour un membre"""
+        import json
+        unread = []
+        for msg_id in self.get_family_messages(tenant_id, limit=100):
+            data = self.get_family_message(tenant_id, msg_id)
+            if data:
+                read_by = json.loads(data.get("read_by", "[]"))
+                # Message groupe ou destine a ce membre
+                if not data.get("to_phone") or data.get("to_phone") == phone:
+                    if phone not in read_by:
+                        unread.append(msg_id)
+        return unread
+
+    # --- Family Audit Log ---
+
+    def get_family_audit_key(self, tenant_id: int) -> str:
+        """Cle pour le journal d'audit famille"""
+        return self._key(tenant_id, "family", "audit")
+
+    def add_family_audit(self, tenant_id: int, audit_json: str) -> None:
+        """Ajoute une entree au journal d'audit"""
+        key = self.get_family_audit_key(tenant_id)
+        self.client.lpush(key, audit_json)
+        self.client.ltrim(key, 0, 999)  # Max 1000 entries
+        self.client.expire(key, self.TTL_FAMILY_AUDIT)
+
+    def get_family_audit(self, tenant_id: int, limit: int = 50) -> List[str]:
+        """Recupere les entrees d'audit recentes"""
+        key = self.get_family_audit_key(tenant_id)
+        return list(self.client.lrange(key, 0, limit - 1))
+
+    # --- Active Escalations (in progress) ---
+
+    def get_active_escalation_key(self, tenant_id: int, event_id: str) -> str:
+        """Cle pour une escalade en cours"""
+        return self._key(tenant_id, "family", "active_escalation", event_id)
+
+    def set_active_escalation(self, tenant_id: int, event_id: str, data: Dict[str, str]) -> None:
+        """Enregistre une escalade en cours"""
+        key = self.get_active_escalation_key(tenant_id, event_id)
+        self.client.hset(key, mapping=data)
+        self.client.expire(key, 24 * 60 * 60)  # 24h max
+
+    def get_active_escalation(self, tenant_id: int, event_id: str) -> Optional[Dict[str, str]]:
+        """Recupere une escalade en cours"""
+        key = self.get_active_escalation_key(tenant_id, event_id)
+        data = self.client.hgetall(key)
+        return data if data else None
+
+    def delete_active_escalation(self, tenant_id: int, event_id: str) -> None:
+        """Supprime une escalade (resolue)"""
+        self.client.delete(self.get_active_escalation_key(tenant_id, event_id))
+
+
 @lru_cache()
 def get_redis_client() -> RedisClient:
     """Factory pour obtenir le client Redis singleton"""
