@@ -23,7 +23,15 @@ from pydantic import BaseModel, Field, field_validator
 from typing import Optional, Dict
 
 from integrations.twilio.sms_client import TwilioSMSClient
-from integrations.tavus.tavus_client import TavusClient, build_tavus_context
+
+# Tavus: optionnel (mode "lite" = sans visio avatar)
+try:
+    from integrations.tavus.tavus_client import TavusClient, build_tavus_context
+    _TAVUS_AVAILABLE = True
+except ImportError:
+    _TAVUS_AVAILABLE = False
+    TavusClient = None
+    def build_tavus_context(**kwargs): return ""
 
 # Core modules (optional - graceful fallback if Redis down)
 try:
@@ -65,6 +73,12 @@ if not ADMIN_NUMBER:
 TAVUS_CALLBACK_URL = os.getenv("TAVUS_CALLBACK_URL", "")  # URL publique pour webhooks Tavus
 TENANT_ID = 1  # Ludo = tenant 1 pour l'instant
 LEGAL_MODE = "assistance_only"  # Mode legal: aide contextuelle, pas de surveillance garantie
+LUNA_MODE = os.getenv("LUNA_MODE", "full").lower()  # "lite" (chat+voix+SMS) ou "full" (+visio Tavus)
+
+# --- PV de Recette (verrouillage serveur) ---
+PV_SIGNED = os.getenv("PV_SIGNED", "false").lower() == "true"
+PV_SIGNATURE_HASH = os.getenv("PV_SIGNATURE_HASH", "")
+_pv_locked = not PV_SIGNED  # True = serveur en mode SETUP uniquement
 
 # --- Behavioral Memory (locked identity + rules) ---
 DEFAULT_IDENTITY_CORE = (
@@ -106,7 +120,7 @@ CAUTION_MODE_PROMPTS = {
 # --- Clients ---
 openai_client = OpenAI(api_key=OPENAI_API_KEY)
 sms_client = TwilioSMSClient.from_env()
-tavus_client = TavusClient.from_env()
+tavus_client = TavusClient.from_env() if _TAVUS_AVAILABLE and LUNA_MODE == "full" else None
 
 # --- Core modules (Redis, Safety, Quota) ---
 _redis_client: Optional[object] = None
@@ -212,30 +226,30 @@ Luna agit AU NOM du souscripteur selon ses instructions.
 Composants :
 - Backend Python FastAPI/Uvicorn, HTTPS port 8888
 - LLM : OpenAI GPT-4 Turbo (conversations texte)
-- Video avatar : Tavus (persona Luna, appels video temps reel)
-- SMS/Appels : Twilio (SMS, appels vocaux, WhatsApp)
+- SMS/Appels : Twilio (SMS, appels vocaux)
 - Memoire : Redis (conversations, instructions, contacts, notes)
+{"- Video avatar : Tavus (persona Luna, appels video temps reel)" if LUNA_MODE == "full" else "- Mode Lite : pas de visio avatar (chat + voix + SMS uniquement)"}
 
 === OFFRES & ABONNEMENTS ===
-- Essentiel (139 EUR/mois) : 20 SMS, 15 min visio, 100 MB memoire
-- Confort (229 EUR/mois) : 50 SMS, 45 min visio, 500 MB memoire
-- Premium (399 EUR/mois) : 100 SMS, 90 min visio, 2 GB memoire
+- Essentiel (79 EUR/mois) : 50 SMS, 60 min voix, 20 min visio, 5 instructions, 3 contacts
+- Confort (149 EUR/mois) : 200 SMS, 180 min voix, 60 min visio, 15 instructions, 5 contacts
+- Premium (249 EUR/mois) : 200 SMS, 300 min voix, 180 min visio, instructions illimitees, 10 contacts
 Alertes quotas : 80% avertissement, 90% urgences seulement, 100% bloque
 
 === CAPACITES ===
 1. Chat texte (web)
-2. Appels video avec avatar Luna (Tavus)
-3. Envoi SMS aux contacts de confiance (max 5, verifies par OTP)
-4. Invitation de contacts dans la visio par SMS (lien Tavus dans le SMS)
+{"2. Appels video avec avatar Luna (Tavus)" if LUNA_MODE == "full" else "2. Conversations vocales (OpenAI TTS/STT)"}
+3. Envoi SMS aux contacts de confiance (max selon forfait, verifies par OTP)
+{"4. Invitation de contacts dans la visio par SMS (lien Tavus dans le SMS)" if LUNA_MODE == "full" else "4. Alertes SMS aux contacts de confiance"}
 5. Rappels et instructions (quotidiens, recurrents, conditionnels)
 6. Surveillance d'inactivite et alertes contacts
 7. Prise de notes automatique
-
+{"" if LUNA_MODE != "full" else """
 === INVITATION VISIO PAR SMS ===
 Quand le souscripteur est en appel video avec Luna, il peut demander :
-"Invite Marie dans l'appel" ou "Ajoute mon fils a la visio"
+'Invite Marie dans l appel' ou 'Ajoute mon fils a la visio'
 Luna envoie alors un SMS au contact de confiance avec le lien pour rejoindre.
-Le contact clique sur le lien et rejoint directement la conversation video.
+Le contact clique sur le lien et rejoint directement la conversation video."""}
 
 === CONTACTS DE CONFIANCE ===
 - Maximum 5 par souscripteur
@@ -342,8 +356,8 @@ async def lifespan(app):
     if _perception_detector:
         _perception_loop_task = asyncio.create_task(_perception_loop())
         logger.info("Perception loop ready (disabled by default)")
-    # Configure Tavus tool calling + perception
-    if tavus_client.is_configured:
+    # Configure Tavus tool calling + perception (mode full uniquement)
+    if tavus_client and tavus_client.is_configured:
         await tavus_client.configure_tools()
         await tavus_client.configure_perception()
     yield
@@ -379,16 +393,32 @@ app.add_middleware(
 )
 
 
-# --- Middleware: rate limit + logging + session cleanup ---
+# --- Middleware: PV lock + rate limit + logging + session cleanup ---
 @app.middleware("http")
 async def security_middleware(request: Request, call_next):
     global _request_count
     client_ip = request.client.host if request.client else "unknown"
     start_time = time.time()
+    path = request.url.path
+
+    # PV de recette lock: en mode setup, seuls certains endpoints sont accessibles
+    if _pv_locked:
+        pv_allowed = ("/api/status", "/api/setup/")
+        if path.startswith("/api/") and not any(path.startswith(a) for a in pv_allowed):
+            logger.warning(f"PV_LOCKED {client_ip} {request.method} {path}")
+            return JSONResponse(
+                status_code=503,
+                content={
+                    "error": "Installation en cours",
+                    "message": "PV de recette non signe. Completez la configuration via /api/setup/",
+                    "pv_signed": False,
+                    "setup_url": "/api/setup/status",
+                },
+            )
 
     # Rate limit (API endpoints only)
-    if request.url.path.startswith("/api/") and not _check_rate_limit(client_ip):
-        logger.warning(f"RATE_LIMITED {client_ip} {request.method} {request.url.path}")
+    if path.startswith("/api/") and not _check_rate_limit(client_ip):
+        logger.warning(f"RATE_LIMITED {client_ip} {request.method} {path}")
         return JSONResponse(
             status_code=429,
             content={"error": "Trop de requetes. Reessaie dans une minute."},
@@ -677,6 +707,12 @@ async def greeting():
 @app.post("/api/call")
 async def start_call():
     """Crée un appel vidéo Tavus et enregistre la conversation"""
+    if not tavus_client or not tavus_client.is_configured:
+        return JSONResponse(status_code=503, content={
+            "error": "Visio non disponible",
+            "mode": LUNA_MODE,
+            "message": "Luna Lite n'inclut pas la visio. Passez en mode Full pour activer Tavus.",
+        })
     context = build_tavus_context(
         subscriber_name=_SUBSCRIBER_NAME,
         memory_manager=tavus_client.memory,
@@ -817,7 +853,10 @@ async def status():
             pass
 
     return {
-        "luna": "online",
+        "luna": "online" if not _pv_locked else "setup",
+        "mode": LUNA_MODE,
+        "pv_signed": PV_SIGNED,
+        "pv_locked": _pv_locked,
         "legal_mode": LEGAL_MODE,
         "caution_mode": _cm,
         "openai": bool(OPENAI_API_KEY),
@@ -837,6 +876,113 @@ async def status():
             "camera": _perception_detector.is_camera_available() if _perception_detector else False,
         },
     }
+
+
+# =========================================================================
+# SETUP ENDPOINTS (accessibles meme si PV non signe)
+# =========================================================================
+
+@app.get("/api/setup/status")
+async def setup_status():
+    """Etat du processus de setup et du PV de recette."""
+    try:
+        import sys
+        sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "EXPLOITANTS"))
+        from pv_recette import PVRecette
+        pv = PVRecette()
+        return {
+            "pv_signed": PV_SIGNED,
+            "pv_locked": _pv_locked,
+            "luna_mode": LUNA_MODE,
+            "phases": {
+                "A": "Verifications techniques (automatisees)",
+                "B": "Verifications legales (declarations exploitant)",
+                "C": "Verifications operationnelles",
+            },
+        }
+    except ImportError:
+        return {"error": "Module pv_recette non disponible", "pv_locked": _pv_locked}
+
+
+@app.post("/api/setup/check-phase-a")
+async def setup_check_phase_a():
+    """Lance les verifications techniques automatiques (Phase A)."""
+    try:
+        import sys
+        sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "EXPLOITANTS"))
+        from pv_recette import PVRecette
+        pv = PVRecette()
+        results = pv.check_phase_a()
+        return {"phase": "A", "results": results}
+    except ImportError:
+        return JSONResponse(status_code=500, content={"error": "Module pv_recette non disponible"})
+
+
+@app.post("/api/setup/check-phase-b")
+async def setup_check_phase_b(request: Request):
+    """Soumettre les declarations legales (Phase B)."""
+    try:
+        import sys
+        sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "EXPLOITANTS"))
+        from pv_recette import PVRecette
+        pv = PVRecette()
+        data = await request.json()
+        declarations = data.get("declarations", {})
+        results = pv.validate_phase_b(declarations)
+        return {"phase": "B", "results": results}
+    except ImportError:
+        return JSONResponse(status_code=500, content={"error": "Module pv_recette non disponible"})
+
+
+@app.post("/api/setup/check-phase-c")
+async def setup_check_phase_c():
+    """Lance les verifications operationnelles (Phase C)."""
+    try:
+        import sys
+        sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "EXPLOITANTS"))
+        from pv_recette import PVRecette
+        pv = PVRecette()
+        results = pv.check_phase_c()
+        return {"phase": "C", "results": results}
+    except ImportError:
+        return JSONResponse(status_code=500, content={"error": "Module pv_recette non disponible"})
+
+
+@app.post("/api/setup/sign-pv")
+async def setup_sign_pv(request: Request):
+    """Signe le PV de recette et deverrouille le serveur."""
+    try:
+        import sys
+        sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "EXPLOITANTS"))
+        from pv_recette import PVRecette
+        pv = PVRecette()
+        data = await request.json()
+        result = pv.sign(
+            exploitant_name=data.get("exploitant_name", ""),
+            exploitant_siret=data.get("exploitant_siret", ""),
+            declarations_b=data.get("declarations", {}),
+        )
+        if "error" in result:
+            return JSONResponse(status_code=400, content=result)
+        # Mettre a jour le .env automatiquement
+        env_path = os.path.join(os.path.dirname(__file__), ".env")
+        pv.update_env_file(env_path, result["env_updates"])
+        return result
+    except ImportError:
+        return JSONResponse(status_code=500, content={"error": "Module pv_recette non disponible"})
+
+
+@app.get("/api/setup/phase-b-checklist")
+async def setup_phase_b_checklist():
+    """Retourne la checklist des declarations legales a remplir."""
+    try:
+        import sys
+        sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "EXPLOITANTS"))
+        from pv_recette import PVRecette
+        pv = PVRecette()
+        return {"checklist": pv.get_phase_b_checklist()}
+    except ImportError:
+        return JSONResponse(status_code=500, content={"error": "Module pv_recette non disponible"})
 
 
 # =========================================================================
@@ -1995,6 +2141,8 @@ async def webhook_tavus(request: Request):
     - conversation.tool_call : Luna a appele une fonction depuis la visio
     - application.transcription_ready : transcription complete de la conversation
     """
+    if not tavus_client or not tavus_client.is_configured:
+        return JSONResponse(status_code=503, content={"error": "Tavus non configure"})
     try:
         body = await request.json()
     except Exception:
@@ -3193,6 +3341,8 @@ async def voice_status():
 @app.post("/api/sync/tavus")
 async def sync_from_tavus(request: Request):
     """Tavus notifie la fin d'un appel visio"""
+    if not tavus_client or not tavus_client.is_configured:
+        return JSONResponse(status_code=503, content={"error": "Tavus non configure"})
     if not _redis_client:
         return JSONResponse(status_code=503, content={"error": "Redis non disponible"})
 
@@ -3970,9 +4120,11 @@ if __name__ == "__main__":
 
     ssl_dir = os.path.dirname(__file__)
     logger.info(f"Demarrage Luna Web - YAWatch-Luna (Souscripteur: {_SUBSCRIBER_NAME})")
+    logger.info(f"Mode: {LUNA_MODE.upper()}" + (" (chat + voix + SMS)" if LUNA_MODE == "lite" else " (chat + voix + SMS + visio)"))
+    logger.info(f"PV Recette: {'SIGNE' if PV_SIGNED else 'NON SIGNE - MODE SETUP'}")
     logger.info(f"OpenAI: {'OK' if OPENAI_API_KEY else 'MANQUANT'}")
     logger.info(f"Twilio: {'OK' if sms_client.is_configured else 'NON CONFIGURE'}")
-    logger.info(f"Tavus: {'OK' if tavus_client.is_configured else 'NON CONFIGURE'}")
+    logger.info(f"Tavus: {'OK' if (tavus_client and tavus_client.is_configured) else 'NON CONFIGURE'}" + (" (mode lite - skip)" if LUNA_MODE == "lite" else ""))
     logger.info(f"Redis/Memory: {'OK' if _memory_manager else 'OFFLINE'}")
     logger.info(f"Safety Guardian: {'OK' if _safety_guardian else 'OFFLINE'}")
     logger.info(f"Quota Guard: {'OK' if _quota_guard else 'OFFLINE'}")

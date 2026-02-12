@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Test End-to-End Luna SMS - Pour les tests avec Freddy
+Test End-to-End Luna SMS - Tests exploitant
 
 Ce script teste toute la chaîne:
 1. Configuration Twilio
@@ -20,7 +20,7 @@ Usage:
     # Envoyer un vrai SMS de test
     python test_luna_sms.py --send +33612345678 "Bonjour depuis Luna !"
 
-    # Test complet avec numéro Freddy
+    # Test complet avec numéro exploitant
     python test_luna_sms.py --full +33612345678
 """
 import os
@@ -346,9 +346,9 @@ async def test_7_full_flow(client: TwilioSMSClient, phone: str):
     request = cm.propose_action(
         tenant_id=1,
         action_type=ActionType.SEND_SMS,
-        target="Freddy",
+        target="Contact_Test",
         target_phone=phone,
-        description="envoyer un SMS de test à Freddy",
+        description="envoyer un SMS de test",
         message_body="[YAWatch Luna] Test reussi ! Luna peut envoyer des SMS. Les quotas et confirmations fonctionnent.",
     )
 
