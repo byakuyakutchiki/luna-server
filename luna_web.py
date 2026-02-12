@@ -63,22 +63,33 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("luna_web")
 
 # --- Config ---
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-if not OPENAI_API_KEY:
-    raise SystemExit("ERREUR FATALE: OPENAI_API_KEY manquante dans .env. Voir .env.example.")
-OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4-turbo")
-ADMIN_NUMBER = os.getenv("ADMIN_NUMBER", "")
-if not ADMIN_NUMBER:
-    raise SystemExit("ERREUR FATALE: ADMIN_NUMBER manquant dans .env. Voir .env.example.")
+LUNA_MODE = os.getenv("LUNA_MODE", "full").lower()  # "lite" (chat+voix+SMS) ou "full" (+visio Tavus)
 TAVUS_CALLBACK_URL = os.getenv("TAVUS_CALLBACK_URL", "")  # URL publique pour webhooks Tavus
 TENANT_ID = 1  # Ludo = tenant 1 pour l'instant
 LEGAL_MODE = "assistance_only"  # Mode legal: aide contextuelle, pas de surveillance garantie
-LUNA_MODE = os.getenv("LUNA_MODE", "full").lower()  # "lite" (chat+voix+SMS) ou "full" (+visio Tavus)
 
 # --- PV de Recette (verrouillage serveur) ---
 PV_SIGNED = os.getenv("PV_SIGNED", "false").lower() == "true"
 PV_SIGNATURE_HASH = os.getenv("PV_SIGNATURE_HASH", "")
 _pv_locked = not PV_SIGNED  # True = serveur en mode SETUP uniquement
+
+# --- Config: graceful en mode SETUP ---
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4-turbo")
+ADMIN_NUMBER = os.getenv("ADMIN_NUMBER", "")
+SETUP_OPENAI_API_KEY = os.getenv("SETUP_OPENAI_API_KEY", "")
+
+if _pv_locked:
+    # Mode SETUP: ne crashe pas sur cles manquantes
+    if not OPENAI_API_KEY:
+        logger.warning("OPENAI_API_KEY manquante - mode SETUP")
+    if not ADMIN_NUMBER:
+        logger.warning("ADMIN_NUMBER manquant - mode SETUP")
+else:
+    if not OPENAI_API_KEY:
+        raise SystemExit("ERREUR FATALE: OPENAI_API_KEY manquante dans .env. Voir .env.example.")
+    if not ADMIN_NUMBER:
+        raise SystemExit("ERREUR FATALE: ADMIN_NUMBER manquant dans .env. Voir .env.example.")
 
 # --- Behavioral Memory (locked identity + rules) ---
 DEFAULT_IDENTITY_CORE = (
@@ -118,9 +129,18 @@ CAUTION_MODE_PROMPTS = {
 }
 
 # --- Clients ---
-openai_client = OpenAI(api_key=OPENAI_API_KEY)
-sms_client = TwilioSMSClient.from_env()
-tavus_client = TavusClient.from_env() if _TAVUS_AVAILABLE and LUNA_MODE == "full" else None
+if _pv_locked:
+    # Mode SETUP: init graceful, ne crashe pas sur cles manquantes
+    openai_client = OpenAI(api_key=OPENAI_API_KEY) if OPENAI_API_KEY else None
+    try:
+        sms_client = TwilioSMSClient.from_env()
+    except Exception:
+        sms_client = None
+    tavus_client = None
+else:
+    openai_client = OpenAI(api_key=OPENAI_API_KEY)
+    sms_client = TwilioSMSClient.from_env()
+    tavus_client = TavusClient.from_env() if _TAVUS_AVAILABLE and LUNA_MODE == "full" else None
 
 # --- Core modules (Redis, Safety, Quota) ---
 _redis_client: Optional[object] = None
@@ -403,7 +423,7 @@ async def security_middleware(request: Request, call_next):
 
     # PV de recette lock: en mode setup, seuls certains endpoints sont accessibles
     if _pv_locked:
-        pv_allowed = ("/api/status", "/api/setup/")
+        pv_allowed = ("/api/status", "/api/setup/", "/api/admin/")
         if path.startswith("/api/") and not any(path.startswith(a) for a in pv_allowed):
             logger.warning(f"PV_LOCKED {client_ip} {request.method} {path}")
             return JSONResponse(
@@ -556,7 +576,26 @@ class NoteRequest(BaseModel):
 
 @app.get("/")
 async def index():
+    if _pv_locked:
+        setup_path = os.path.join(STATIC_DIR, "setup.html")
+        if os.path.exists(setup_path):
+            return FileResponse(setup_path)
     return FileResponse(os.path.join(STATIC_DIR, "index.html"))
+
+
+@app.get("/health")
+async def health():
+    """Healthcheck leger pour Docker/load balancers."""
+    return {"status": "ok"}
+
+
+@app.get("/admin")
+async def admin_page():
+    """Dashboard admin exploitant."""
+    admin_path = os.path.join(STATIC_DIR, "admin.html")
+    if os.path.exists(admin_path):
+        return FileResponse(admin_path)
+    return JSONResponse(status_code=404, content={"error": "Dashboard admin non disponible"})
 
 
 @app.post("/api/chat")
@@ -983,6 +1022,289 @@ async def setup_phase_b_checklist():
         return {"checklist": pv.get_phase_b_checklist()}
     except ImportError:
         return JSONResponse(status_code=500, content={"error": "Module pv_recette non disponible"})
+
+
+# =========================================================================
+# SETUP AI + WEB WIZARD ENDPOINTS
+# =========================================================================
+
+# Luna Setup AI state (in-memory, pas besoin de Redis en setup)
+_setup_chat_history: list = []
+_setup_message_count: int = 0
+_SETUP_MAX_MESSAGES = 50
+
+_SETUP_SYSTEM_PROMPT = """Tu es Luna Setup, l'assistante d'installation YAWatch Luna.
+Tu guides un exploitant (potentiellement non-technicien) a travers la configuration.
+Tu parles en francais, de maniere simple et encourageante.
+
+CONTEXTE:
+- L'exploitant configure une instance de Luna pour ses propres clients
+- Il doit creer des comptes: OpenAI, Twilio, Stripe, optionnellement Tavus
+- Chaque service a ses propres cles API a copier
+- Apres la config, il y a un PV de recette en 3 phases (technique, legal, operationnel)
+
+SERVICES:
+- OpenAI: intelligence de Luna, cle commence par 'sk-', https://platform.openai.com
+- Twilio: SMS, Account SID commence par 'AC', https://twilio.com
+- Stripe: paiements, cle commence par 'sk_test_' ou 'sk_live_', https://stripe.com
+- Tavus: visio avatar (mode Full seulement), https://tavus.io
+- Redis: memoire cache, redis://localhost:6379/0
+
+PLANS LUNA:
+- Essentiel (79 EUR/mois): Chat illimite + 60 min voix + 20 min visio + 50 SMS
+- Confort (149 EUR/mois): Chat illimite + 180 min voix + 60 min visio + 200 SMS
+- Premium (249 EUR/mois): Chat illimite + 300 min voix + 180 min visio + 200 SMS
+
+TROUBLESHOOTING COURANT:
+- "cle ne fonctionne pas" -> verifier copier-coller, espaces en trop, cle expiree
+- "Redis non connecte" -> sudo systemctl start redis-server ou docker run -d redis
+- "SSL erreur" -> certificats auto-signes OK pour dev, Let's Encrypt pour prod
+- "Stripe webhook" -> URL doit etre publique HTTPS, utiliser Stripe CLI en dev
+
+REGLES:
+- Sois patient et encourage
+- Explique en langage simple, evite le jargon technique
+- Si tu ne sais pas, dis-le et suggere de contacter le support YAWatch
+- Ne donne JAMAIS de cles API, tokens ou secrets
+- Ne modifie rien toi-meme, guide l'exploitant a le faire via l'interface
+"""
+
+
+@app.post("/api/setup/ai-chat")
+async def setup_ai_chat(request: Request):
+    """Chat avec Luna Setup AI pendant la configuration."""
+    global _setup_message_count
+
+    if not SETUP_OPENAI_API_KEY:
+        return JSONResponse(status_code=400, content={
+            "error": "SETUP_OPENAI_API_KEY non configuree",
+            "message": "Demandez une cle de setup a votre referent YAWatch.",
+        })
+
+    if _setup_message_count >= _SETUP_MAX_MESSAGES:
+        return JSONResponse(status_code=429, content={
+            "error": "Quota setup epuise",
+            "message": f"Vous avez utilise vos {_SETUP_MAX_MESSAGES} messages. Contactez support@yawatch.fr.",
+            "count": _setup_message_count,
+            "max": _SETUP_MAX_MESSAGES,
+        })
+
+    data = await request.json()
+    user_msg = data.get("message", "").strip()
+    if not user_msg:
+        return JSONResponse(status_code=400, content={"error": "Message vide"})
+
+    _setup_chat_history.append({"role": "user", "content": user_msg})
+
+    try:
+        setup_client = OpenAI(api_key=SETUP_OPENAI_API_KEY)
+        messages = [{"role": "system", "content": _SETUP_SYSTEM_PROMPT}] + _setup_chat_history[-20:]
+        resp = setup_client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=messages,
+            max_tokens=500,
+            temperature=0.7,
+        )
+        assistant_msg = resp.choices[0].message.content
+        _setup_chat_history.append({"role": "assistant", "content": assistant_msg})
+        _setup_message_count += 1
+
+        return {
+            "response": assistant_msg,
+            "count": _setup_message_count,
+            "max": _SETUP_MAX_MESSAGES,
+            "remaining": _SETUP_MAX_MESSAGES - _setup_message_count,
+        }
+    except Exception as e:
+        logger.error(f"Setup AI error: {e}")
+        return JSONResponse(status_code=500, content={
+            "error": "Erreur Luna Setup",
+            "message": str(e),
+        })
+
+
+@app.post("/api/setup/save-config")
+async def setup_save_config(request: Request):
+    """Sauvegarde une etape de configuration dans le .env."""
+    import json as _json
+
+    data = await request.json()
+    step = data.get("step", "")
+    config = data.get("config", {})
+
+    if not config:
+        return JSONResponse(status_code=400, content={"error": "Configuration vide"})
+
+    env_path = os.path.join(os.path.dirname(__file__), ".env")
+
+    # Bootstrap: creer .env minimal si inexistant
+    if not os.path.exists(env_path):
+        from pathlib import Path
+        Path(env_path).write_text("PV_SIGNED=false\nLUNA_MODE=lite\n", encoding="utf-8")
+
+    # Mettre a jour les cles dans .env
+    try:
+        import sys
+        sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "EXPLOITANTS"))
+        from pv_recette import PVRecette
+        pv = PVRecette()
+        pv.update_env_file(env_path, config)
+    except ImportError:
+        # Fallback: ecriture directe
+        from pathlib import Path
+        content = Path(env_path).read_text(encoding="utf-8")
+        for k, v in config.items():
+            if f"{k}=" in content:
+                lines = content.split("\n")
+                for i, line in enumerate(lines):
+                    if line.startswith(f"{k}="):
+                        lines[i] = f"{k}={v}"
+                        break
+                content = "\n".join(lines)
+            else:
+                content += f"\n{k}={v}"
+        Path(env_path).write_text(content, encoding="utf-8")
+
+    # Sauvegarder l'etat du wizard
+    state_path = os.path.join(os.path.dirname(__file__), ".wizard_state.json")
+    state = {}
+    if os.path.exists(state_path):
+        state = _json.loads(open(state_path, encoding="utf-8").read())
+    state.setdefault("completed_steps", [])
+    if step and step not in state["completed_steps"]:
+        state["completed_steps"].append(step)
+    state["config"] = {**state.get("config", {}), **config}
+    state["saved_at"] = datetime.now().isoformat()
+    with open(state_path, "w", encoding="utf-8") as f:
+        _json.dump(state, f, indent=2, ensure_ascii=False)
+
+    return {"success": True, "step": step, "saved_keys": list(config.keys())}
+
+
+@app.get("/api/setup/wizard-state")
+async def setup_wizard_state():
+    """Retourne l'etat du wizard pour reprendre."""
+    import json as _json
+
+    state_path = os.path.join(os.path.dirname(__file__), ".wizard_state.json")
+    if os.path.exists(state_path):
+        state = _json.loads(open(state_path, encoding="utf-8").read())
+        # Masquer les valeurs sensibles
+        safe_config = {}
+        for k, v in state.get("config", {}).items():
+            if isinstance(v, str) and any(s in k.upper() for s in ["KEY", "TOKEN", "SECRET", "PASSWORD"]):
+                safe_config[k] = ("***" + v[-4:]) if len(v) > 4 else "****"
+            else:
+                safe_config[k] = v
+        state["config"] = safe_config
+        return state
+    return {"completed_steps": [], "config": {}}
+
+
+@app.post("/api/setup/test-service")
+async def setup_test_service(request: Request):
+    """Teste un service specifique avec les credentials fournis."""
+    data = await request.json()
+    service = data.get("service", "")
+    creds = data.get("credentials", {})
+
+    try:
+        import sys
+        sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "EXPLOITANTS"))
+        from pv_recette import PVRecette
+        pv = PVRecette()
+
+        if hasattr(pv, "test_service"):
+            result = pv.test_service(service, creds)
+        else:
+            # Fallback: utiliser les checks existants (depuis env vars)
+            check_map = {
+                "openai": pv._check_openai,
+                "twilio": pv._check_twilio,
+                "stripe": pv._check_stripe,
+                "redis": pv._check_redis,
+                "tavus": pv._check_tavus,
+            }
+            if service not in check_map:
+                return JSONResponse(status_code=400, content={"error": f"Service inconnu: {service}"})
+            result = check_map[service]()
+
+        return {"service": service, "result": result}
+    except ImportError:
+        return JSONResponse(status_code=500, content={"error": "Module pv_recette non disponible"})
+
+
+@app.post("/api/setup/generate-security")
+async def setup_generate_security():
+    """Genere JWT secret et certificats SSL automatiquement."""
+    import secrets as _secrets
+    import subprocess
+
+    results = {}
+
+    # JWT
+    jwt_key = _secrets.token_hex(32)
+    results["jwt"] = {"status": "ok", "message": f"Cle JWT generee ({len(jwt_key)} chars)"}
+
+    # SSL
+    ssl_dir = os.path.dirname(__file__)
+    cert_path = os.path.join(ssl_dir, "cert.pem")
+    key_path = os.path.join(ssl_dir, "key.pem")
+
+    if os.path.exists(cert_path) and os.path.exists(key_path):
+        results["ssl"] = {"status": "ok", "message": "Certificats SSL deja presents"}
+    else:
+        try:
+            subprocess.run([
+                "openssl", "req", "-x509", "-newkey", "rsa:4096",
+                "-keyout", key_path, "-out", cert_path,
+                "-days", "365", "-nodes",
+                "-subj", "/CN=localhost/O=YAWatch-Luna",
+            ], check=True, capture_output=True)
+            results["ssl"] = {"status": "ok", "message": "Certificats SSL generes (1 an)"}
+        except Exception as e:
+            results["ssl"] = {"status": "fail", "message": f"Erreur SSL: {e}"}
+
+    # Sauvegarder dans .env
+    env_path = os.path.join(ssl_dir, ".env")
+    config_updates = {
+        "JWT_SECRET_KEY": jwt_key,
+        "JWT_ALGORITHM": "HS256",
+        "SSL_CERTFILE": "./cert.pem",
+        "SSL_KEYFILE": "./key.pem",
+    }
+    try:
+        import sys
+        sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "EXPLOITANTS"))
+        from pv_recette import PVRecette
+        pv = PVRecette()
+        pv.update_env_file(env_path, config_updates)
+    except ImportError:
+        pass
+
+    return {"success": True, "results": results, "saved_keys": list(config_updates.keys())}
+
+
+@app.post("/api/setup/stripe-auto")
+async def setup_stripe_auto(request: Request):
+    """Cree automatiquement les 3 produits Stripe."""
+    data = await request.json()
+    stripe_key = data.get("stripe_api_key", "")
+    if not stripe_key:
+        return JSONResponse(status_code=400, content={"error": "STRIPE_API_KEY requis"})
+
+    try:
+        import stripe
+        stripe.api_key = stripe_key
+        import sys
+        sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "EXPLOITANTS"))
+        from stripe_setup import create_products_and_prices
+        results = create_products_and_prices(stripe)
+        return {"success": True, "prices": results}
+    except ImportError as e:
+        return JSONResponse(status_code=500, content={"error": f"Module manquant: {e}"})
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": f"Erreur Stripe: {e}"})
 
 
 # =========================================================================
@@ -4115,26 +4437,300 @@ async def send_email(request: Request):
     })
 
 
+# =========================================================================
+# ADMIN DASHBOARD ENDPOINTS
+# =========================================================================
+
+_ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "")
+_server_start_time = time.time()
+
+
+def _create_admin_token() -> str:
+    """Cree un JWT admin valide 24h."""
+    import jwt as pyjwt
+    jwt_secret = os.getenv("JWT_SECRET_KEY", "luna-admin-fallback-key")
+    payload = {
+        "role": "admin",
+        "iat": int(time.time()),
+        "exp": int(time.time()) + 86400,
+    }
+    return pyjwt.encode(payload, jwt_secret, algorithm="HS256")
+
+
+def _verify_admin(request: Request) -> bool:
+    """Verifie le token admin dans le header Authorization."""
+    auth = request.headers.get("Authorization", "")
+    if not auth.startswith("Bearer "):
+        return False
+    token = auth[7:]
+    try:
+        import jwt as pyjwt
+        jwt_secret = os.getenv("JWT_SECRET_KEY", "luna-admin-fallback-key")
+        payload = pyjwt.decode(token, jwt_secret, algorithms=["HS256"])
+        return payload.get("role") == "admin"
+    except Exception:
+        return False
+
+
+@app.post("/api/admin/login")
+async def admin_login(request: Request):
+    """Login admin avec mot de passe."""
+    data = await request.json()
+    password = data.get("password", "")
+
+    if not _ADMIN_PASSWORD:
+        return JSONResponse(status_code=503, content={
+            "error": "ADMIN_PASSWORD non configure dans .env",
+        })
+
+    if password != _ADMIN_PASSWORD:
+        return JSONResponse(status_code=401, content={"error": "Mot de passe incorrect"})
+
+    token = _create_admin_token()
+    return {"token": token, "expires_in": 86400}
+
+
+@app.get("/api/admin/dashboard")
+async def admin_dashboard(request: Request):
+    """Vue d'ensemble du dashboard admin."""
+    if not _verify_admin(request):
+        return JSONResponse(status_code=401, content={"error": "Non autorise"})
+
+    uptime = time.time() - _server_start_time
+    hours = int(uptime // 3600)
+    minutes = int((uptime % 3600) // 60)
+
+    result = {
+        "server": {
+            "status": "running",
+            "uptime_seconds": int(uptime),
+            "uptime_human": f"{hours}h {minutes}m",
+            "luna_mode": LUNA_MODE,
+            "pv_signed": PV_SIGNED,
+        },
+        "services": {
+            "openai": bool(OPENAI_API_KEY),
+            "twilio": bool(sms_client and hasattr(sms_client, 'is_configured') and sms_client.is_configured),
+            "tavus": bool(tavus_client and tavus_client.is_configured) if tavus_client else False,
+            "redis": bool(_redis_client and _redis_client.ping()) if _redis_client else False,
+        },
+        "clients_count": 0,
+        "alerts_today": 0,
+    }
+
+    if _memory_manager:
+        try:
+            result["alerts_today"] = len(_memory_manager.get_alerts(limit=100, category="safety"))
+        except Exception:
+            pass
+    if _redis_client:
+        try:
+            result["clients_count"] = len(_redis_client.get_all_tenant_ids())
+        except Exception:
+            pass
+
+    return result
+
+
+@app.get("/api/admin/clients")
+async def admin_clients(request: Request):
+    """Liste des clients (tenants)."""
+    if not _verify_admin(request):
+        return JSONResponse(status_code=401, content={"error": "Non autorise"})
+
+    clients = []
+    if _redis_client and _CORE_AVAILABLE:
+        try:
+            tenant_ids = _redis_client.get_all_tenant_ids()
+            for tid in tenant_ids:
+                mm = MemoryManager(tenant_id=tid, redis_client=_redis_client)
+                profile = mm.get_subscriber_profile()
+                quota = mm.get_quota_status()
+                clients.append({
+                    "tenant_id": tid,
+                    "name": f"{profile.first_name} {profile.last_name}" if profile else f"Tenant {tid}",
+                    "plan": quota.get("plan", "essentiel") if quota else "essentiel",
+                    "quota_summary": quota,
+                })
+        except Exception as e:
+            logger.error(f"Admin clients error: {e}")
+
+    return {"clients": clients, "total": len(clients)}
+
+
+@app.get("/api/admin/clients/{tenant_id}")
+async def admin_client_detail(tenant_id: int, request: Request):
+    """Detail d'un client."""
+    if not _verify_admin(request):
+        return JSONResponse(status_code=401, content={"error": "Non autorise"})
+
+    if not _redis_client or not _CORE_AVAILABLE:
+        return JSONResponse(status_code=503, content={"error": "Redis non disponible"})
+
+    try:
+        mm = MemoryManager(tenant_id=tenant_id, redis_client=_redis_client)
+        profile = mm.get_subscriber_profile()
+        quota = mm.get_quota_status()
+        contacts = mm.list_trusted_contacts()
+        stats = mm.get_daily_stats_range(7)
+        return {
+            "profile": profile.dict() if profile else None,
+            "quota": quota,
+            "contacts": [c.dict() for c in contacts] if contacts else [],
+            "daily_stats": stats,
+        }
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+
+@app.get("/api/admin/quotas")
+async def admin_quotas(request: Request):
+    """Quotas de tous les clients."""
+    if not _verify_admin(request):
+        return JSONResponse(status_code=401, content={"error": "Non autorise"})
+
+    quotas = []
+    if _redis_client and _CORE_AVAILABLE:
+        try:
+            for tid in _redis_client.get_all_tenant_ids():
+                mm = MemoryManager(tenant_id=tid, redis_client=_redis_client)
+                profile = mm.get_subscriber_profile()
+                q = mm.get_quota_status()
+                quotas.append({
+                    "tenant_id": tid,
+                    "name": f"{profile.first_name}" if profile else f"Tenant {tid}",
+                    "plan": q.get("plan", "essentiel"),
+                    "quota": q,
+                })
+        except Exception as e:
+            logger.error(f"Admin quotas error: {e}")
+
+    return {"quotas": quotas}
+
+
+@app.get("/api/admin/alerts")
+async def admin_alerts(request: Request, limit: int = 50, category: str = None):
+    """Evenements et alertes."""
+    if not _verify_admin(request):
+        return JSONResponse(status_code=401, content={"error": "Non autorise"})
+
+    if not _memory_manager:
+        return {"alerts": [], "counts": {}}
+
+    alerts = _memory_manager.get_alerts(limit=limit, category=category)
+
+    # Compter par categorie
+    counts = {}
+    for a in alerts:
+        cat = a.get("category", "unknown")
+        counts[cat] = counts.get(cat, 0) + 1
+
+    return {"alerts": alerts, "counts": counts, "total": len(alerts)}
+
+
+@app.get("/api/admin/health")
+async def admin_health(request: Request):
+    """Sante detaillee du serveur."""
+    if not _verify_admin(request):
+        return JSONResponse(status_code=401, content={"error": "Non autorise"})
+
+    uptime = time.time() - _server_start_time
+    result = {
+        "uptime_seconds": int(uptime),
+        "luna_mode": LUNA_MODE,
+        "pv_signed": PV_SIGNED,
+        "services": {
+            "openai": {"status": "ok" if OPENAI_API_KEY else "missing", "model": OPENAI_MODEL},
+            "twilio": {"status": "ok" if (sms_client and hasattr(sms_client, 'is_configured') and sms_client.is_configured) else "not_configured"},
+            "tavus": {"status": "ok" if (tavus_client and tavus_client.is_configured) else "not_configured"} if LUNA_MODE == "full" else {"status": "skipped"},
+            "redis": {"status": "offline"},
+        },
+        "core_modules": {
+            "memory": bool(_memory_manager),
+            "safety": bool(_safety_guardian),
+            "quota": bool(_quota_guard),
+            "scheduler": bool(_scheduler),
+            "executor": bool(_executor),
+        },
+    }
+
+    if _redis_client:
+        try:
+            result["services"]["redis"] = _redis_client.get_info()
+        except Exception:
+            pass
+
+    return result
+
+
+@app.get("/api/admin/revenue")
+async def admin_revenue(request: Request):
+    """Estimation CA (Phase 1: calcul local)."""
+    if not _verify_admin(request):
+        return JSONResponse(status_code=401, content={"error": "Non autorise"})
+
+    plan_prices = {"essentiel": 79, "confort": 149, "premium": 249}
+    by_plan = {p: {"count": 0, "revenue": 0} for p in plan_prices}
+    total = 0
+
+    if _redis_client and _CORE_AVAILABLE:
+        try:
+            for tid in _redis_client.get_all_tenant_ids():
+                mm = MemoryManager(tenant_id=tid, redis_client=_redis_client)
+                q = mm.get_quota_status()
+                plan = q.get("plan", "essentiel")
+                if plan in by_plan:
+                    by_plan[plan]["count"] += 1
+                    by_plan[plan]["revenue"] += plan_prices.get(plan, 0)
+                    total += plan_prices.get(plan, 0)
+        except Exception as e:
+            logger.error(f"Admin revenue error: {e}")
+
+    return {"total_revenue": total, "by_plan": by_plan, "currency": "EUR"}
+
+
 if __name__ == "__main__":
     import uvicorn
+    import subprocess as _sp
 
     ssl_dir = os.path.dirname(__file__)
+    cert_file = os.getenv("SSL_CERTFILE", os.path.join(ssl_dir, "cert.pem"))
+    key_file = os.getenv("SSL_KEYFILE", os.path.join(ssl_dir, "key.pem"))
+    port = int(os.getenv("LUNA_PORT", "8888"))
+
+    # Auto-gen SSL si absents
+    if not os.path.exists(cert_file) or not os.path.exists(key_file):
+        logger.info("Certificats SSL absents - generation auto-signee...")
+        try:
+            _sp.run([
+                "openssl", "req", "-x509", "-newkey", "rsa:4096",
+                "-keyout", key_file, "-out", cert_file,
+                "-days", "365", "-nodes",
+                "-subj", "/CN=localhost/O=YAWatch-Luna",
+            ], check=True, capture_output=True)
+            logger.info("Certificats SSL generes (auto-signes, 1 an)")
+        except Exception as e:
+            logger.error(f"Impossible de generer les certificats SSL: {e}")
+
     logger.info(f"Demarrage Luna Web - YAWatch-Luna (Souscripteur: {_SUBSCRIBER_NAME})")
     logger.info(f"Mode: {LUNA_MODE.upper()}" + (" (chat + voix + SMS)" if LUNA_MODE == "lite" else " (chat + voix + SMS + visio)"))
     logger.info(f"PV Recette: {'SIGNE' if PV_SIGNED else 'NON SIGNE - MODE SETUP'}")
     logger.info(f"OpenAI: {'OK' if OPENAI_API_KEY else 'MANQUANT'}")
-    logger.info(f"Twilio: {'OK' if sms_client.is_configured else 'NON CONFIGURE'}")
+    _twilio_ok = sms_client and hasattr(sms_client, 'is_configured') and sms_client.is_configured
+    logger.info(f"Twilio: {'OK' if _twilio_ok else 'NON CONFIGURE'}")
     logger.info(f"Tavus: {'OK' if (tavus_client and tavus_client.is_configured) else 'NON CONFIGURE'}" + (" (mode lite - skip)" if LUNA_MODE == "lite" else ""))
     logger.info(f"Redis/Memory: {'OK' if _memory_manager else 'OFFLINE'}")
     logger.info(f"Safety Guardian: {'OK' if _safety_guardian else 'OFFLINE'}")
     logger.info(f"Quota Guard: {'OK' if _quota_guard else 'OFFLINE'}")
     logger.info(f"Scheduler: {'OK' if _scheduler else 'OFFLINE'}")
     logger.info(f"Executor: {'OK' if _executor else 'OFFLINE'}")
+    if _pv_locked:
+        logger.info(f"Setup AI: {'OK' if SETUP_OPENAI_API_KEY else 'MANQUANT (SETUP_OPENAI_API_KEY)'}")
 
     uvicorn.run(
         app,
         host="0.0.0.0",
-        port=8888,
-        ssl_keyfile=os.path.join(ssl_dir, "key.pem"),
-        ssl_certfile=os.path.join(ssl_dir, "cert.pem"),
+        port=port,
+        ssl_keyfile=key_file,
+        ssl_certfile=cert_file,
     )

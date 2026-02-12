@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Luna Admin — YAWatch</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #0a0a1a; color: #e0e0e0; height: 100vh; display: flex; flex-direction: column; }
+.header { background: linear-gradient(135deg, #1a1a3e, #2d1b69); padding: 14px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #333; }
+.header h1 { font-size: 1.2em; color: #a78bfa; }
+.header .right { display: flex; align-items: center; gap: 12px; }
+.header .user { font-size: 0.85em; color: #888; }
+.logout-btn { padding: 6px 14px; border-radius: 6px; border: 1px solid #555; background: transparent; color: #aaa; cursor: pointer; font-size: 0.8em; }
+.logout-btn:hover { border-color: #f87171; color: #f87171; }
+
+/* Login */
+.login-screen { display: flex; justify-content: center; align-items: center; flex: 1; }
+.login-box { background: #111; border: 1px solid #333; border-radius: 12px; padding: 40px; width: 360px; }
+.login-box h2 { color: #a78bfa; margin-bottom: 20px; text-align: center; }
+.login-box input { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #333; background: #1a1a2e; color: #fff; margin-bottom: 16px; font-size: 1em; outline: none; }
+.login-box input:focus { border-color: #7c3aed; }
+.login-box button { width: 100%; padding: 12px; border-radius: 8px; border: none; background: #7c3aed; color: white; font-size: 1em; cursor: pointer; }
+.login-box button:hover { background: #6d28d9; }
+.login-error { color: #f87171; font-size: 0.85em; margin-bottom: 12px; display: none; }
+
+/* Tabs */
+.tabs { display: flex; background: #111; border-bottom: 1px solid #333; }
+.tab-btn { padding: 10px 18px; background: transparent; border: none; color: #888; font-size: 0.85em; cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.2s; }
+.tab-btn:hover { color: #a78bfa; }
+.tab-btn.active { color: #a78bfa; border-bottom-color: #7c3aed; }
+.tab-panel { display: none; flex: 1; overflow-y: auto; padding: 24px; }
+.tab-panel.active { display: block; }
+
+/* App container */
+.app { display: none; flex: 1; flex-direction: column; overflow: hidden; }
+
+/* Cards */
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px; }
+.card { background: #111; border: 1px solid #333; border-radius: 12px; padding: 20px; }
+.card .label { font-size: 0.8em; color: #888; margin-bottom: 4px; }
+.card .value { font-size: 1.8em; font-weight: bold; color: #a78bfa; }
+.card .sub { font-size: 0.78em; color: #666; margin-top: 4px; }
+
+/* Table */
+table { width: 100%; border-collapse: collapse; }
+th { text-align: left; font-size: 0.8em; color: #888; padding: 8px 12px; border-bottom: 1px solid #333; }
+td { padding: 10px 12px; border-bottom: 1px solid #1a1a2e; font-size: 0.9em; }
+tr:hover { background: rgba(167,139,250,0.05); }
+
+/* Status dots */
+.dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; }
+.dot.ok { background: #4ade80; }
+.dot.fail { background: #f87171; }
+.dot.warn { background: #fbbf24; }
+.dot.off { background: #555; }
+
+/* Quota bar */
+.quota-bar { height: 8px; background: #1a1a2e; border-radius: 4px; overflow: hidden; margin-top: 4px; }
+.quota-fill { height: 100%; border-radius: 4px; transition: width 0.3s; }
+.quota-fill.green { background: #4ade80; }
+.quota-fill.yellow { background: #fbbf24; }
+.quota-fill.red { background: #f87171; }
+
+/* Alerts */
+.alert-row { display: flex; align-items: flex-start; gap: 12px; padding: 10px; border-bottom: 1px solid #1a1a2e; }
+.alert-badge { padding: 2px 8px; border-radius: 4px; font-size: 0.72em; font-weight: 600; text-transform: uppercase; }
+.badge-safety { background: rgba(248,113,113,0.2); color: #f87171; }
+.badge-system { background: rgba(96,165,250,0.2); color: #60a5fa; }
+.badge-communication { background: rgba(74,222,128,0.2); color: #4ade80; }
+.badge-action { background: rgba(251,191,36,0.2); color: #fbbf24; }
+.badge-instruction { background: rgba(167,139,250,0.2); color: #a78bfa; }
+.badge-perception { background: rgba(45,212,191,0.2); color: #2dd4bf; }
+.alert-time { font-size: 0.75em; color: #666; }
+.alert-desc { font-size: 0.9em; }
+
+/* Service status */
+.service-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 16px; }
+.service-card { background: #111; border: 1px solid #333; border-radius: 12px; padding: 16px; }
+.service-card h4 { color: #a78bfa; margin-bottom: 8px; font-size: 0.95em; }
+.service-card .detail { font-size: 0.82em; color: #888; line-height: 1.6; }
+
+/* Responsive */
+@media (max-width: 768px) {
+  .cards { grid-template-columns: 1fr 1fr; }
+  .service-grid { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<!-- LOGIN SCREEN -->
+<div class="login-screen" id="loginScreen">
+  <div class="login-box">
+    <h2>Luna Admin</h2>
+    <div class="login-error" id="loginError">Mot de passe incorrect</div>
+    <input type="password" id="loginPassword" placeholder="Mot de passe admin" onkeydown="if(event.key==='Enter')doLogin()">
+    <button onclick="doLogin()">Se connecter</button>
+  </div>
+</div>
+
+<!-- APP -->
+<div class="app" id="app">
+  <div class="header">
+    <h1>Luna Admin — YAWatch</h1>
+    <div class="right">
+      <span class="user" id="serverMode"></span>
+      <button class="logout-btn" onclick="doLogout()">Deconnexion</button>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="dashboard">Dashboard</button>
+    <button class="tab-btn" data-tab="clients">Clients</button>
+    <button class="tab-btn" data-tab="quotas">Quotas</button>
+    <button class="tab-btn" data-tab="alerts">Alertes</button>
+    <button class="tab-btn" data-tab="server">Serveur</button>
+  </div>
+
+  <!-- DASHBOARD TAB -->
+  <div class="tab-panel active" id="tab-dashboard">
+    <div class="cards" id="dashCards"></div>
+    <h3 style="margin-bottom:12px; font-size:1em;">Alertes recentes</h3>
+    <div id="dashAlerts"></div>
+  </div>
+
+  <!-- CLIENTS TAB -->
+  <div class="tab-panel" id="tab-clients">
+    <h3 style="margin-bottom:12px; font-size:1em;">Clients enregistres</h3>
+    <table>
+      <thead><tr><th>ID</th><th>Nom</th><th>Plan</th></tr></thead>
+      <tbody id="clientsTable"></tbody>
+    </table>
+  </div>
+
+  <!-- QUOTAS TAB -->
+  <div class="tab-panel" id="tab-quotas">
+    <h3 style="margin-bottom:12px; font-size:1em;">Usage des quotas</h3>
+    <div id="quotasContent"></div>
+  </div>
+
+  <!-- ALERTS TAB -->
+  <div class="tab-panel" id="tab-alerts">
+    <h3 style="margin-bottom:12px; font-size:1em;">Journal des evenements</h3>
+    <div id="alertsContent"></div>
+  </div>
+
+  <!-- SERVER TAB -->
+  <div class="tab-panel" id="tab-server">
+    <h3 style="margin-bottom:16px; font-size:1em;">Etat du serveur</h3>
+    <div class="service-grid" id="serverGrid"></div>
+  </div>
+</div>
+
+<script>
+var token = sessionStorage.getItem("admin_token");
+
+// =========================================================================
+// AUTH
+// =========================================================================
+function doLogin() {
+  var pw = document.getElementById("loginPassword").value;
+  fetch("/api/admin/login", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({password: pw})
+  })
+  .then(function(r) {
+    if (!r.ok) throw new Error("Login failed");
+    return r.json();
+  })
+  .then(function(data) {
+    token = data.token;
+    sessionStorage.setItem("admin_token", token);
+    showApp();
+  })
+  .catch(function() {
+    document.getElementById("loginError").style.display = "block";
+  });
+}
+
+function doLogout() {
+  sessionStorage.removeItem("admin_token");
+  token = null;
+  document.getElementById("app").style.display = "none";
+  document.getElementById("loginScreen").style.display = "flex";
+}
+
+function showApp() {
+  document.getElementById("loginScreen").style.display = "none";
+  document.getElementById("app").style.display = "flex";
+  loadDashboard();
+}
+
+function authFetch(url) {
+  return fetch(url, { headers: {"Authorization": "Bearer " + token} })
+    .then(function(r) {
+      if (r.status === 401) { doLogout(); throw new Error("Unauthorized"); }
+      return r.json();
+    });
+}
+
+// =========================================================================
+// TABS
+// =========================================================================
+document.querySelectorAll(".tab-btn").forEach(function(btn) {
+  btn.addEventListener("click", function() {
+    document.querySelectorAll(".tab-btn").forEach(function(b) { b.classList.remove("active"); });
+    document.querySelectorAll(".tab-panel").forEach(function(p) { p.classList.remove("active"); });
+    btn.classList.add("active");
+    document.getElementById("tab-" + btn.dataset.tab).classList.add("active");
+    var tab = btn.dataset.tab;
+    if (tab === "dashboard") loadDashboard();
+    if (tab === "clients") loadClients();
+    if (tab === "quotas") loadQuotas();
+    if (tab === "alerts") loadAlerts();
+    if (tab === "server") loadServer();
+  });
+});
+
+// =========================================================================
+// DASHBOARD
+// =========================================================================
+function loadDashboard() {
+  authFetch("/api/admin/dashboard").then(function(d) {
+    document.getElementById("serverMode").textContent = "Mode " + (d.server.luna_mode || "?").toUpperCase();
+    var html = '';
+    html += card("Clients", d.clients_count, "enregistres");
+    html += card("Alertes", d.alerts_today, "aujourd'hui");
+    html += card("Uptime", d.server.uptime_human, d.server.status);
+    var svcs = d.services;
+    var svcOk = [svcs.openai, svcs.twilio, svcs.redis].filter(Boolean).length;
+    html += card("Services", svcOk + "/3", "actifs");
+    document.getElementById("dashCards").innerHTML = html;
+  }).catch(function() {});
+
+  authFetch("/api/admin/alerts?limit=5").then(function(d) {
+    document.getElementById("dashAlerts").innerHTML = renderAlerts(d.alerts || []);
+  }).catch(function() {});
+
+  authFetch("/api/admin/revenue").then(function(d) {
+    var existing = document.getElementById("dashCards");
+    if (existing && d.total_revenue !== undefined) {
+      existing.innerHTML += card("CA mensuel", d.total_revenue + " EUR", "estimation");
+    }
+  }).catch(function() {});
+}
+
+function card(label, value, sub) {
+  return '<div class="card"><div class="label">' + label + '</div><div class="value">' + value + '</div><div class="sub">' + sub + '</div></div>';
+}
+
+// =========================================================================
+// CLIENTS
+// =========================================================================
+function loadClients() {
+  authFetch("/api/admin/clients").then(function(d) {
+    var html = "";
+    (d.clients || []).forEach(function(c) {
+      html += "<tr><td>" + c.tenant_id + "</td><td>" + (c.name || "?") + "</td><td>" + (c.plan || "essentiel") + "</td></tr>";
+    });
+    if (!html) html = '<tr><td colspan="3" style="color:#666;">Aucun client enregistre</td></tr>';
+    document.getElementById("clientsTable").innerHTML = html;
+  }).catch(function() {});
+}
+
+// =========================================================================
+// QUOTAS
+// =========================================================================
+function loadQuotas() {
+  authFetch("/api/admin/quotas").then(function(d) {
+    var html = "";
+    (d.quotas || []).forEach(function(q) {
+      html += '<div class="card" style="margin-bottom:12px;"><div class="label">' + q.name + ' (' + q.plan + ')</div>';
+      var quota = q.quota || {};
+      ["conversations", "instructions", "notes", "trusted_contacts"].forEach(function(key) {
+        var item = quota[key];
+        if (!item) return;
+        var pct = item.percentage || 0;
+        var cls = pct < 80 ? "green" : (pct < 95 ? "yellow" : "red");
+        html += '<div style="margin-top:8px;"><span style="font-size:0.82em;color:#aaa;">' + key + ': ' + item.used + '/' + item.limit + '</span>';
+        html += '<div class="quota-bar"><div class="quota-fill ' + cls + '" style="width:' + Math.min(pct, 100) + '%"></div></div></div>';
+      });
+      html += '</div>';
+    });
+    if (!html) html = '<p style="color:#666;">Aucun quota a afficher</p>';
+    document.getElementById("quotasContent").innerHTML = html;
+  }).catch(function() {});
+}
+
+// =========================================================================
+// ALERTS
+// =========================================================================
+function loadAlerts() {
+  authFetch("/api/admin/alerts?limit=50").then(function(d) {
+    document.getElementById("alertsContent").innerHTML = renderAlerts(d.alerts || []);
+  }).catch(function() {});
+}
+
+function renderAlerts(alerts) {
+  if (!alerts.length) return '<p style="color:#666;">Aucun evenement</p>';
+  var html = "";
+  alerts.forEach(function(a) {
+    var cat = a.category || "system";
+    var badgeClass = "badge-" + cat;
+    html += '<div class="alert-row">';
+    html += '<span class="alert-badge ' + badgeClass + '">' + cat + '</span>';
+    html += '<div><div class="alert-desc">' + (a.description || "") + '</div><div class="alert-time">' + (a.timestamp || "") + '</div></div>';
+    html += '</div>';
+  });
+  return html;
+}
+
+// =========================================================================
+// SERVER
+// =========================================================================
+function loadServer() {
+  authFetch("/api/admin/health").then(function(d) {
+    var html = "";
+
+    // Services
+    var svcs = d.services || {};
+    Object.keys(svcs).forEach(function(name) {
+      var s = svcs[name];
+      var status = s.status || (s.connected ? "ok" : "off");
+      var dotClass = (status === "ok" || status === "true" || s.connected) ? "ok" : (status === "skipped" ? "off" : "fail");
+      html += '<div class="service-card"><h4><span class="dot ' + dotClass + '"></span>' + name.toUpperCase() + '</h4>';
+      html += '<div class="detail">';
+      Object.keys(s).forEach(function(k) {
+        if (k === "status") return;
+        html += k + ': ' + s[k] + '<br>';
+      });
+      html += '</div></div>';
+    });
+
+    // Core modules
+    html += '<div class="service-card"><h4>Modules Core</h4><div class="detail">';
+    var mods = d.core_modules || {};
+    Object.keys(mods).forEach(function(m) {
+      var ok = mods[m];
+      html += '<span class="dot ' + (ok ? "ok" : "fail") + '"></span>' + m + '<br>';
+    });
+    html += '</div></div>';
+
+    // Server info
+    html += '<div class="service-card"><h4>Serveur</h4><div class="detail">';
+    html += 'Mode: ' + (d.luna_mode || "?") + '<br>';
+    html += 'PV: ' + (d.pv_signed ? "Signe" : "Non signe") + '<br>';
+    html += 'Uptime: ' + Math.round(d.uptime_seconds / 60) + ' min<br>';
+    html += '</div></div>';
+
+    document.getElementById("serverGrid").innerHTML = html;
+  }).catch(function() {});
+}
+
+// =========================================================================
+// INIT
+// =========================================================================
+if (token) {
+  // Verify token is still valid
+  authFetch("/api/admin/dashboard").then(function() { showApp(); }).catch(function() {});
+} else {
+  document.getElementById("loginScreen").style.display = "flex";
+}
+</script>
+</body>
+</html>

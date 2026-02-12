@@ -73,6 +73,22 @@ class RedisClient:
         except redis.RedisError as e:
             return {"connected": False, "error": str(e)}
 
+    def get_all_tenant_ids(self) -> List[int]:
+        """Scan Redis pour trouver tous les tenant IDs existants."""
+        tenant_ids = set()
+        pattern = f"{self.prefix}:*:profile"
+        try:
+            for key in self.client.scan_iter(match=pattern, count=100):
+                parts = key.split(":")
+                if len(parts) >= 3:
+                    try:
+                        tenant_ids.add(int(parts[1]))
+                    except (ValueError, IndexError):
+                        pass
+        except redis.RedisError as e:
+            logger.error(f"Redis scan error: {e}")
+        return sorted(tenant_ids)
+
     # ========================================================================
     # CONVERSATIONS
     # ========================================================================

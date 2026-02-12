@@ -682,3 +682,21 @@ class MemoryManager:
             },
             "memory": memory,
         }
+
+    def get_daily_stats_range(self, days: int = 30) -> List[Dict[str, Any]]:
+        """Retourne les statistiques quotidiennes des N derniers jours."""
+        from datetime import timedelta, date
+        results = []
+        today = date.today()
+        for i in range(days):
+            d = today - timedelta(days=i)
+            stats = self.redis.get_daily_usage(self.tenant_id, d.isoformat())
+            results.append({"date": d.isoformat(), "stats": stats})
+        return results
+
+    def get_alerts(self, limit: int = 50, category: Optional[str] = None) -> List[Dict[str, Any]]:
+        """Retourne les evenements filtres par categorie."""
+        events = self.get_event_log(limit=min(limit * 3, 500))
+        if category:
+            events = [e for e in events if e.get("category") == category]
+        return events[:limit]

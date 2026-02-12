@@ -1,0 +1,901 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Luna Setup - YAWatch</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #0a0a1a; color: #e0e0e0; height: 100vh; display: flex; flex-direction: column; }
+.header { background: linear-gradient(135deg, #1a1a3e, #2d1b69); padding: 16px 20px; text-align: center; border-bottom: 1px solid #333; }
+.header h1 { font-size: 1.4em; color: #a78bfa; display: inline-flex; align-items: center; gap: 8px; }
+.header p { font-size: 0.8em; color: #888; margin-top: 2px; }
+
+/* Layout */
+.main { flex: 1; display: flex; overflow: hidden; }
+.wizard-panel { flex: 6; display: flex; flex-direction: column; border-right: 1px solid #333; }
+.chat-panel { flex: 4; display: flex; flex-direction: column; }
+
+/* Progress bar */
+.progress { padding: 12px 20px; background: #111; border-bottom: 1px solid #333; }
+.progress-bar { height: 6px; background: #1a1a2e; border-radius: 3px; overflow: hidden; }
+.progress-fill { height: 100%; background: linear-gradient(90deg, #7c3aed, #a78bfa); border-radius: 3px; transition: width 0.5s ease; }
+.progress-label { font-size: 0.8em; color: #888; margin-top: 4px; }
+
+/* Steps sidebar */
+.steps-nav { display: flex; background: #111; border-bottom: 1px solid #333; overflow-x: auto; padding: 0 12px; }
+.step-btn { padding: 8px 12px; background: transparent; border: none; color: #666; font-size: 0.78em; cursor: pointer; white-space: nowrap; border-bottom: 2px solid transparent; transition: all 0.2s; display: flex; align-items: center; gap: 4px; }
+.step-btn:hover { color: #a78bfa; }
+.step-btn.active { color: #a78bfa; border-bottom-color: #7c3aed; }
+.step-btn.done { color: #4ade80; }
+.step-btn.done::before { content: "\2713"; }
+.step-btn.locked { color: #444; cursor: not-allowed; }
+
+/* Step content */
+.step-content { flex: 1; overflow-y: auto; padding: 24px; }
+.step-panel { display: none; }
+.step-panel.active { display: block; }
+.step-panel h2 { color: #a78bfa; margin-bottom: 8px; font-size: 1.2em; }
+.step-panel .subtitle { color: #888; font-size: 0.9em; margin-bottom: 20px; }
+.step-panel .instructions { background: #1a1a2e; border-radius: 12px; padding: 16px; margin-bottom: 20px; line-height: 1.7; font-size: 0.9em; }
+.step-panel .instructions a { color: #a78bfa; }
+.step-panel .instructions ol { padding-left: 20px; }
+
+/* Form */
+.field { margin-bottom: 16px; }
+.field label { display: block; font-size: 0.85em; color: #aaa; margin-bottom: 4px; }
+.field input, .field select { width: 100%; padding: 10px 14px; border-radius: 8px; border: 1px solid #333; background: #1a1a2e; color: #fff; font-size: 0.95em; outline: none; }
+.field input:focus, .field select:focus { border-color: #7c3aed; }
+.field .hint { font-size: 0.78em; color: #666; margin-top: 2px; }
+
+/* Buttons */
+.btn { padding: 10px 20px; border-radius: 8px; border: none; font-size: 0.95em; cursor: pointer; transition: all 0.2s; }
+.btn-primary { background: #7c3aed; color: white; }
+.btn-primary:hover { background: #6d28d9; }
+.btn-primary:disabled { background: #333; color: #666; cursor: not-allowed; }
+.btn-secondary { background: transparent; border: 1px solid #7c3aed; color: #a78bfa; }
+.btn-secondary:hover { background: rgba(124,58,237,0.1); }
+.btn-success { background: #059669; color: white; }
+.btn-success:hover { background: #047857; }
+.btn-row { display: flex; gap: 10px; margin-top: 16px; }
+
+/* Test result */
+.test-result { padding: 8px 12px; border-radius: 8px; font-size: 0.85em; margin-top: 8px; display: none; }
+.test-result.ok { display: block; background: rgba(74,222,128,0.1); border: 1px solid rgba(74,222,128,0.3); color: #4ade80; }
+.test-result.fail { display: block; background: rgba(248,113,113,0.1); border: 1px solid rgba(248,113,113,0.3); color: #f87171; }
+.test-result.warn { display: block; background: rgba(251,191,36,0.1); border: 1px solid rgba(251,191,36,0.3); color: #fbbf24; }
+.test-result.loading { display: block; background: rgba(167,139,250,0.1); border: 1px solid rgba(167,139,250,0.2); color: #a78bfa; }
+
+/* Phase checklist */
+.phase-check { margin: 8px 0; }
+.phase-check label { display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 0.9em; padding: 8px; border-radius: 8px; }
+.phase-check label:hover { background: rgba(167,139,250,0.05); }
+.phase-check input[type="checkbox"] { width: 18px; height: 18px; accent-color: #7c3aed; }
+
+/* Phase results */
+.phase-results { margin: 12px 0; }
+.phase-item { display: flex; align-items: center; gap: 8px; padding: 6px 0; font-size: 0.9em; }
+.phase-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.phase-dot.ok { background: #4ade80; }
+.phase-dot.fail { background: #f87171; }
+.phase-dot.warn { background: #fbbf24; }
+.phase-dot.skipped { background: #666; }
+
+/* Chat panel */
+.chat-header { padding: 12px 16px; background: #111; border-bottom: 1px solid #333; }
+.chat-header h3 { font-size: 0.95em; color: #a78bfa; }
+.chat-header .quota { font-size: 0.78em; color: #666; }
+.chat-messages { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+.chat-msg { max-width: 90%; padding: 10px 14px; border-radius: 14px; line-height: 1.5; font-size: 0.9em; white-space: pre-wrap; }
+.chat-msg.luna { background: #1e1e3f; align-self: flex-start; border-bottom-left-radius: 4px; }
+.chat-msg.luna::before { content: "Luna Setup"; display: block; font-size: 0.72em; color: #a78bfa; margin-bottom: 3px; font-weight: 600; }
+.chat-msg.user { background: #4c1d95; align-self: flex-end; border-bottom-right-radius: 4px; }
+.chat-input { padding: 12px; background: #111; border-top: 1px solid #333; display: flex; gap: 8px; }
+.chat-input input { flex: 1; padding: 10px 14px; border-radius: 20px; border: 1px solid #333; background: #1a1a2e; color: #fff; font-size: 0.9em; outline: none; }
+.chat-input input:focus { border-color: #7c3aed; }
+.chat-input button { padding: 10px 18px; border-radius: 20px; border: none; background: #7c3aed; color: white; cursor: pointer; font-size: 0.9em; }
+.chat-input button:disabled { background: #333; color: #666; cursor: not-allowed; }
+.chat-disabled { padding: 16px; text-align: center; color: #666; font-size: 0.85em; }
+
+/* Mode selector */
+.mode-cards { display: flex; gap: 16px; margin: 16px 0; }
+.mode-card { flex: 1; padding: 20px; border-radius: 12px; border: 2px solid #333; cursor: pointer; transition: all 0.2s; }
+.mode-card:hover { border-color: #7c3aed; }
+.mode-card.selected { border-color: #7c3aed; background: rgba(124,58,237,0.1); }
+.mode-card h3 { color: #a78bfa; margin-bottom: 8px; }
+.mode-card p { font-size: 0.85em; color: #aaa; line-height: 1.5; }
+.mode-card .price { font-size: 0.8em; color: #4ade80; margin-top: 8px; }
+
+/* Responsive */
+@media (max-width: 768px) {
+  .main { flex-direction: column; }
+  .wizard-panel { border-right: none; border-bottom: 1px solid #333; }
+  .chat-panel { max-height: 300px; }
+  .mode-cards { flex-direction: column; }
+}
+
+/* Spinner */
+.spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid #333; border-top-color: #a78bfa; border-radius: 50%; animation: spin 0.6s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Success banner */
+.success-banner { padding: 24px; background: rgba(74,222,128,0.1); border: 1px solid rgba(74,222,128,0.3); border-radius: 12px; text-align: center; margin: 20px 0; }
+.success-banner h2 { color: #4ade80; margin-bottom: 8px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Luna Setup — YAWatch</h1>
+  <p>Assistant d'installation pour exploitants</p>
+</div>
+
+<div class="main">
+  <!-- WIZARD PANEL -->
+  <div class="wizard-panel">
+    <div class="progress">
+      <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+      <div class="progress-label" id="progressLabel">Etape 0/10</div>
+    </div>
+
+    <div class="steps-nav" id="stepsNav">
+      <button class="step-btn active" data-step="0">Bienvenue</button>
+      <button class="step-btn locked" data-step="1">Identite</button>
+      <button class="step-btn locked" data-step="2">OpenAI</button>
+      <button class="step-btn locked" data-step="3">Twilio</button>
+      <button class="step-btn locked" data-step="4">Stripe</button>
+      <button class="step-btn locked" data-step="5">Tavus</button>
+      <button class="step-btn locked" data-step="6">Securite</button>
+      <button class="step-btn locked" data-step="7">Admin</button>
+      <button class="step-btn locked" data-step="8">Redis</button>
+      <button class="step-btn locked" data-step="9">PV Recette</button>
+    </div>
+
+    <div class="step-content">
+      <!-- STEP 0: Bienvenue -->
+      <div class="step-panel active" id="step-0">
+        <h2>Bienvenue dans l'installation Luna</h2>
+        <p class="subtitle">Choisissez votre mode de fonctionnement</p>
+        <div class="mode-cards">
+          <div class="mode-card selected" id="modeLite" onclick="selectMode('lite')">
+            <h3>Luna Lite</h3>
+            <p>Chat + Voix + SMS<br>Plus simple, moins cher.<br>Services : OpenAI + Twilio + Stripe</p>
+            <div class="price">~150 EUR/mois pour 50 clients</div>
+          </div>
+          <div class="mode-card" id="modeFull" onclick="selectMode('full')">
+            <h3>Luna Full</h3>
+            <p>Chat + Voix + SMS + Visio Avatar<br>Experience complete avec avatar video.<br>Services : OpenAI + Twilio + Stripe + Tavus</p>
+            <div class="price">~250 EUR/mois pour 50 clients</div>
+          </div>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-primary" onclick="startSetup()">Commencer l'installation</button>
+        </div>
+      </div>
+
+      <!-- STEP 1: Identite -->
+      <div class="step-panel" id="step-1">
+        <h2>Identite de l'exploitant</h2>
+        <p class="subtitle">Informations sur votre entreprise</p>
+        <div class="field">
+          <label>Nom de votre entreprise</label>
+          <input type="text" id="EXPLOITANT_NAME" placeholder="Ex: Ma Societe SARL">
+        </div>
+        <div class="field">
+          <label>Email professionnel</label>
+          <input type="email" id="EXPLOITANT_EMAIL" placeholder="contact@masociete.fr">
+        </div>
+        <div class="field">
+          <label>Numero SIRET (14 chiffres)</label>
+          <input type="text" id="EXPLOITANT_SIRET" placeholder="12345678901234" maxlength="14">
+        </div>
+        <div class="field">
+          <label>Licence YAWatch (fournie par le fondateur)</label>
+          <input type="text" id="EXPLOITANT_LICENCE" placeholder="Optionnel">
+          <div class="hint">Si vous avez recu un numero de licence, entrez-le ici.</div>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-secondary" onclick="goStep(0)">Retour</button>
+          <button class="btn btn-primary" onclick="saveStep(1)">Sauvegarder et continuer</button>
+        </div>
+      </div>
+
+      <!-- STEP 2: OpenAI -->
+      <div class="step-panel" id="step-2">
+        <h2>OpenAI — L'intelligence de Luna</h2>
+        <p class="subtitle">Luna utilise OpenAI pour comprendre et repondre a vos clients</p>
+        <div class="instructions">
+          <ol>
+            <li>Ouvrez <a href="https://platform.openai.com" target="_blank">platform.openai.com</a></li>
+            <li>Creez un compte (ou connectez-vous)</li>
+            <li>Allez dans <strong>Settings > Billing</strong> et ajoutez une carte bancaire</li>
+            <li>Allez dans <strong>API Keys > Create new secret key</strong></li>
+            <li>Copiez la cle (elle commence par <code>sk-</code>)</li>
+          </ol>
+        </div>
+        <div class="field">
+          <label>Cle API OpenAI</label>
+          <input type="password" id="OPENAI_API_KEY" placeholder="sk-...">
+          <div class="hint">Commence par 'sk-'. Ne la partagez jamais.</div>
+        </div>
+        <div id="test-openai" class="test-result"></div>
+        <div class="btn-row">
+          <button class="btn btn-secondary" onclick="goStep(1)">Retour</button>
+          <button class="btn btn-secondary" onclick="testService('openai')">Tester la connexion</button>
+          <button class="btn btn-primary" onclick="saveStep(2)">Sauvegarder et continuer</button>
+        </div>
+      </div>
+
+      <!-- STEP 3: Twilio -->
+      <div class="step-panel" id="step-3">
+        <h2>Twilio — L'envoi de SMS</h2>
+        <p class="subtitle">Twilio permet a Luna d'envoyer des SMS a vos clients et leurs proches</p>
+        <div class="instructions">
+          <ol>
+            <li>Ouvrez <a href="https://www.twilio.com/try-twilio" target="_blank">twilio.com</a></li>
+            <li>Creez un compte et passez en mode payant</li>
+            <li>Achetez un numero de telephone (~1 EUR/mois)</li>
+            <li>Sur le Dashboard, copiez : <strong>Account SID</strong>, <strong>Auth Token</strong>, et le <strong>numero achete</strong></li>
+          </ol>
+        </div>
+        <div class="field">
+          <label>Account SID (commence par 'AC')</label>
+          <input type="text" id="TWILIO_ACCOUNT_SID" placeholder="ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx">
+        </div>
+        <div class="field">
+          <label>Auth Token</label>
+          <input type="password" id="TWILIO_AUTH_TOKEN" placeholder="Votre auth token Twilio">
+        </div>
+        <div class="field">
+          <label>Numero Twilio (format international)</label>
+          <input type="text" id="TWILIO_SMS_FROM" placeholder="+33612345678">
+          <div class="hint">Le numero que vous avez achete, commence par '+'</div>
+        </div>
+        <div id="test-twilio" class="test-result"></div>
+        <div class="btn-row">
+          <button class="btn btn-secondary" onclick="goStep(2)">Retour</button>
+          <button class="btn btn-secondary" onclick="testService('twilio')">Tester la connexion</button>
+          <button class="btn btn-primary" onclick="saveStep(3)">Sauvegarder et continuer</button>
+        </div>
+      </div>
+
+      <!-- STEP 4: Stripe -->
+      <div class="step-panel" id="step-4">
+        <h2>Stripe — Les paiements</h2>
+        <p class="subtitle">Stripe gere les abonnements de vos clients</p>
+        <div class="instructions">
+          <ol>
+            <li>Ouvrez <a href="https://dashboard.stripe.com/register" target="_blank">stripe.com</a></li>
+            <li>Creez un compte professionnel</li>
+            <li>Allez dans <strong>Developers > API Keys</strong></li>
+            <li>Copiez la <strong>Secret Key</strong></li>
+          </ol>
+        </div>
+        <div class="field">
+          <label>Secret Key Stripe</label>
+          <input type="password" id="STRIPE_API_KEY" placeholder="sk_test_... ou sk_live_...">
+          <div class="hint">Commence par 'sk_test_' (test) ou 'sk_live_' (production)</div>
+        </div>
+        <div class="field">
+          <label>Webhook Secret (optionnel)</label>
+          <input type="text" id="STRIPE_WEBHOOK_SECRET" placeholder="whsec_...">
+          <div class="hint">Disponible dans Developers > Webhooks, apres creation de l'endpoint</div>
+        </div>
+        <div id="test-stripe" class="test-result"></div>
+        <div style="margin-top:16px; padding: 16px; background: #1a1a2e; border-radius: 12px;">
+          <p style="font-size:0.9em; margin-bottom:12px;"><strong>Creation des 3 formules</strong> — Luna va creer automatiquement vos produits Stripe :</p>
+          <ul style="font-size:0.85em; color:#aaa; padding-left:20px; line-height:1.8;">
+            <li>Essentiel — 79 EUR/mois</li>
+            <li>Confort — 149 EUR/mois</li>
+            <li>Premium — 249 EUR/mois</li>
+          </ul>
+          <div class="btn-row">
+            <button class="btn btn-secondary" onclick="stripeAutoCreate()">Creer les 3 produits automatiquement</button>
+          </div>
+          <div id="stripe-auto-result" class="test-result"></div>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-secondary" onclick="goStep(3)">Retour</button>
+          <button class="btn btn-secondary" onclick="testService('stripe')">Tester la connexion</button>
+          <button class="btn btn-primary" onclick="saveStep(4)">Sauvegarder et continuer</button>
+        </div>
+      </div>
+
+      <!-- STEP 5: Tavus (Full only) -->
+      <div class="step-panel" id="step-5">
+        <h2>Tavus — L'avatar video</h2>
+        <p class="subtitle">Tavus permet a Luna d'apparaitre en video (mode Full uniquement)</p>
+        <div id="tavus-skip" style="display:none; padding:20px; text-align:center; color:#4ade80;">
+          Mode Lite selectionne — Tavus n'est pas necessaire.
+          <div class="btn-row" style="justify-content:center;">
+            <button class="btn btn-primary" onclick="saveStep(5)">Continuer</button>
+          </div>
+        </div>
+        <div id="tavus-form">
+          <div class="instructions">
+            <ol>
+              <li>Ouvrez <a href="https://www.tavus.io" target="_blank">tavus.io</a></li>
+              <li>Creez un compte Business</li>
+              <li>Generez une <strong>API Key</strong></li>
+              <li>Creez une persona 'Luna' et copiez le <strong>Persona ID</strong></li>
+            </ol>
+          </div>
+          <div class="field">
+            <label>Cle API Tavus</label>
+            <input type="password" id="TAVUS_API_KEY" placeholder="Votre cle API Tavus">
+          </div>
+          <div class="field">
+            <label>Persona ID Luna (commence par 'p')</label>
+            <input type="text" id="TAVUS_LUNA_PERSONA_ID" placeholder="p...">
+          </div>
+          <div id="test-tavus" class="test-result"></div>
+          <div class="btn-row">
+            <button class="btn btn-secondary" onclick="goStep(4)">Retour</button>
+            <button class="btn btn-secondary" onclick="testService('tavus')">Tester</button>
+            <button class="btn btn-primary" onclick="saveStep(5)">Sauvegarder et continuer</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- STEP 6: Securite -->
+      <div class="step-panel" id="step-6">
+        <h2>Securite — Configuration automatique</h2>
+        <p class="subtitle">Luna genere automatiquement les cles de securite</p>
+        <div style="text-align:center; padding: 40px;">
+          <p style="font-size:1.1em; margin-bottom:20px;">Cette etape est entierement automatique.</p>
+          <p style="color:#888; margin-bottom:30px;">Luna va generer une cle JWT et des certificats SSL auto-signes.</p>
+          <button class="btn btn-primary" id="securityBtn" onclick="generateSecurity()">Generer la securite</button>
+          <div id="security-result" class="test-result" style="margin-top:16px;"></div>
+        </div>
+      </div>
+
+      <!-- STEP 7: Admin -->
+      <div class="step-panel" id="step-7">
+        <h2>Administrateur</h2>
+        <p class="subtitle">Votre numero de telephone pour les alertes systeme</p>
+        <div class="field">
+          <label>Numero de telephone (format international)</label>
+          <input type="text" id="ADMIN_NUMBER" placeholder="+33658477952">
+          <div class="hint">Ce numero recevra les alertes urgentes et les notifications systeme.</div>
+        </div>
+        <div class="field">
+          <label>Mot de passe admin (pour le dashboard)</label>
+          <input type="password" id="ADMIN_PASSWORD" placeholder="Minimum 8 caracteres">
+          <div class="hint">Sera utilise pour acceder au dashboard admin (/admin).</div>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-secondary" onclick="goStep(6)">Retour</button>
+          <button class="btn btn-primary" onclick="saveStep(7)">Sauvegarder et continuer</button>
+        </div>
+      </div>
+
+      <!-- STEP 8: Redis -->
+      <div class="step-panel" id="step-8">
+        <h2>Redis — Memoire de Luna</h2>
+        <p class="subtitle">Redis stocke les conversations et les donnees de Luna (optionnel)</p>
+        <div class="field">
+          <label>URL Redis</label>
+          <input type="text" id="REDIS_URL" value="redis://localhost:6379/0">
+          <div class="hint">Si Redis n'est pas installe, Luna fonctionnera en mode degrade.</div>
+        </div>
+        <div id="test-redis" class="test-result"></div>
+        <div class="btn-row">
+          <button class="btn btn-secondary" onclick="goStep(7)">Retour</button>
+          <button class="btn btn-secondary" onclick="testService('redis')">Tester Redis</button>
+          <button class="btn btn-primary" onclick="saveStep(8)">Sauvegarder et continuer</button>
+        </div>
+      </div>
+
+      <!-- STEP 9: PV de Recette -->
+      <div class="step-panel" id="step-9">
+        <h2>PV de Recette</h2>
+        <p class="subtitle">3 phases de verification avant de deverrouiller Luna</p>
+
+        <!-- Phase A -->
+        <div style="margin-bottom:24px;">
+          <h3 style="color:#a78bfa; font-size:1em; margin-bottom:8px;">Phase A — Verifications techniques</h3>
+          <p style="font-size:0.85em; color:#888; margin-bottom:12px;">Tests automatiques de tous vos services.</p>
+          <button class="btn btn-secondary" id="phaseABtn" onclick="runPhaseA()">Lancer les verifications</button>
+          <div id="phase-a-results" class="phase-results"></div>
+        </div>
+
+        <!-- Phase B -->
+        <div style="margin-bottom:24px;">
+          <h3 style="color:#a78bfa; font-size:1em; margin-bottom:8px;">Phase B — Declarations legales</h3>
+          <p style="font-size:0.85em; color:#888; margin-bottom:12px;">Cochez chaque point que vous avez mis en place.</p>
+          <div id="phase-b-checklist"></div>
+        </div>
+
+        <!-- Phase C -->
+        <div style="margin-bottom:24px;">
+          <h3 style="color:#a78bfa; font-size:1em; margin-bottom:8px;">Phase C — Verifications operationnelles</h3>
+          <button class="btn btn-secondary" id="phaseCBtn" onclick="runPhaseC()">Verifier</button>
+          <div id="phase-c-results" class="phase-results"></div>
+        </div>
+
+        <!-- Sign PV -->
+        <div style="border-top: 1px solid #333; padding-top: 20px; margin-top: 20px;">
+          <button class="btn btn-success" id="signPvBtn" onclick="signPV()" disabled>Signer le PV de Recette</button>
+          <div id="pv-sign-result" class="test-result" style="margin-top:12px;"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- CHAT PANEL -->
+  <div class="chat-panel">
+    <div class="chat-header">
+      <h3>Luna Setup — Assistante IA</h3>
+      <div class="quota" id="chatQuota">Posez vos questions sur l'installation</div>
+    </div>
+    <div class="chat-messages" id="chatMessages">
+      <div class="chat-msg luna">Bonjour ! Je suis Luna Setup, votre assistante d'installation. Je suis la pour repondre a toutes vos questions pendant la configuration. N'hesitez pas a me demander de l'aide !</div>
+    </div>
+    <div id="chatInputArea" class="chat-input">
+      <input type="text" id="chatInput" placeholder="Posez une question..." onkeydown="if(event.key==='Enter')sendChat()">
+      <button onclick="sendChat()" id="chatSendBtn">Envoyer</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// =========================================================================
+// STATE
+// =========================================================================
+var currentStep = 0;
+var lunaMode = "lite";
+var completedSteps = [];
+var phaseAOk = false;
+var phaseBOk = false;
+var phaseCOk = false;
+
+// =========================================================================
+// INIT
+// =========================================================================
+(function init() {
+  loadWizardState();
+  loadPhaseBChecklist();
+})();
+
+function loadWizardState() {
+  fetch("/api/setup/wizard-state")
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      completedSteps = data.completed_steps || [];
+      if (data.config && data.config.LUNA_MODE) {
+        lunaMode = data.config.LUNA_MODE;
+        selectMode(lunaMode);
+      }
+      // Restore field values (masked)
+      if (data.config) {
+        Object.keys(data.config).forEach(function(k) {
+          var el = document.getElementById(k);
+          if (el && data.config[k] && !data.config[k].startsWith("***")) {
+            el.value = data.config[k];
+          }
+        });
+      }
+      // Mark completed steps
+      completedSteps.forEach(function(s) {
+        var idx = parseInt(s);
+        if (!isNaN(idx)) markStepDone(idx);
+      });
+      updateProgress();
+    })
+    .catch(function() {});
+}
+
+function loadPhaseBChecklist() {
+  fetch("/api/setup/phase-b-checklist")
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      var container = document.getElementById("phase-b-checklist");
+      if (!data.checklist) return;
+      var html = "";
+      Object.keys(data.checklist).forEach(function(key) {
+        var item = data.checklist[key];
+        html += '<div class="phase-check"><label><input type="checkbox" id="pb_' + key + '" onchange="checkPhaseBComplete()"> ' + item.label + '</label></div>';
+      });
+      container.innerHTML = html;
+    })
+    .catch(function() {});
+}
+
+// =========================================================================
+// MODE
+// =========================================================================
+function selectMode(mode) {
+  lunaMode = mode;
+  document.getElementById("modeLite").classList.toggle("selected", mode === "lite");
+  document.getElementById("modeFull").classList.toggle("selected", mode === "full");
+  // Show/hide Tavus step
+  if (mode === "lite") {
+    document.getElementById("tavus-skip").style.display = "block";
+    document.getElementById("tavus-form").style.display = "none";
+  } else {
+    document.getElementById("tavus-skip").style.display = "none";
+    document.getElementById("tavus-form").style.display = "block";
+  }
+}
+
+// =========================================================================
+// NAVIGATION
+// =========================================================================
+function startSetup() {
+  saveStep(0);
+}
+
+function goStep(n) {
+  document.querySelectorAll(".step-panel").forEach(function(p) { p.classList.remove("active"); });
+  document.querySelectorAll(".step-btn").forEach(function(b) { b.classList.remove("active"); });
+  document.getElementById("step-" + n).classList.add("active");
+  document.querySelectorAll('.step-btn[data-step="' + n + '"]').forEach(function(b) { b.classList.add("active"); });
+  currentStep = n;
+  updateProgress();
+}
+
+function markStepDone(n) {
+  var btn = document.querySelector('.step-btn[data-step="' + n + '"]');
+  if (btn) { btn.classList.add("done"); btn.classList.remove("locked"); }
+  // Unlock next
+  var next = document.querySelector('.step-btn[data-step="' + (n + 1) + '"]');
+  if (next) next.classList.remove("locked");
+}
+
+function updateProgress() {
+  var total = lunaMode === "lite" ? 10 : 10;
+  var done = completedSteps.length;
+  var pct = Math.round((done / total) * 100);
+  document.getElementById("progressFill").style.width = pct + "%";
+  document.getElementById("progressLabel").textContent = "Etape " + done + "/" + total + " (" + pct + "%)";
+}
+
+// =========================================================================
+// SAVE STEP
+// =========================================================================
+function saveStep(stepNum) {
+  var config = {};
+
+  if (stepNum === 0) {
+    config.LUNA_MODE = lunaMode;
+  } else if (stepNum === 1) {
+    config.EXPLOITANT_NAME = val("EXPLOITANT_NAME");
+    config.EXPLOITANT_EMAIL = val("EXPLOITANT_EMAIL");
+    config.EXPLOITANT_SIRET = val("EXPLOITANT_SIRET");
+    config.EXPLOITANT_LICENCE = val("EXPLOITANT_LICENCE");
+  } else if (stepNum === 2) {
+    config.OPENAI_API_KEY = val("OPENAI_API_KEY");
+    config.OPENAI_MODEL = "gpt-4o-mini";
+    config.OPENAI_VOICE = "alloy";
+    config.OPENAI_LANGUAGE = "fr";
+  } else if (stepNum === 3) {
+    config.TWILIO_ACCOUNT_SID = val("TWILIO_ACCOUNT_SID");
+    config.TWILIO_AUTH_TOKEN = val("TWILIO_AUTH_TOKEN");
+    config.TWILIO_SMS_FROM = val("TWILIO_SMS_FROM");
+  } else if (stepNum === 4) {
+    config.STRIPE_API_KEY = val("STRIPE_API_KEY");
+    config.STRIPE_WEBHOOK_SECRET = val("STRIPE_WEBHOOK_SECRET");
+  } else if (stepNum === 5) {
+    if (lunaMode === "full") {
+      config.TAVUS_API_KEY = val("TAVUS_API_KEY");
+      config.TAVUS_LUNA_PERSONA_ID = val("TAVUS_LUNA_PERSONA_ID");
+    }
+  } else if (stepNum === 7) {
+    config.ADMIN_NUMBER = val("ADMIN_NUMBER");
+    config.ADMIN_PASSWORD = val("ADMIN_PASSWORD");
+  } else if (stepNum === 8) {
+    config.REDIS_URL = val("REDIS_URL");
+  }
+
+  fetch("/api/setup/save-config", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({step: String(stepNum), config: config})
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    if (data.success) {
+      if (completedSteps.indexOf(String(stepNum)) === -1) {
+        completedSteps.push(String(stepNum));
+      }
+      markStepDone(stepNum);
+      updateProgress();
+      goStep(stepNum + 1);
+    }
+  })
+  .catch(function(e) { console.error("Save error:", e); });
+}
+
+function val(id) {
+  var el = document.getElementById(id);
+  return el ? el.value.trim() : "";
+}
+
+// =========================================================================
+// TEST SERVICE
+// =========================================================================
+function testService(service) {
+  var resultEl = document.getElementById("test-" + service);
+  if (!resultEl) return;
+  resultEl.className = "test-result loading";
+  resultEl.textContent = "Test en cours...";
+
+  var creds = {};
+  if (service === "openai") {
+    creds.OPENAI_API_KEY = val("OPENAI_API_KEY");
+  } else if (service === "twilio") {
+    creds.TWILIO_ACCOUNT_SID = val("TWILIO_ACCOUNT_SID");
+    creds.TWILIO_AUTH_TOKEN = val("TWILIO_AUTH_TOKEN");
+    creds.TWILIO_SMS_FROM = val("TWILIO_SMS_FROM");
+  } else if (service === "stripe") {
+    creds.STRIPE_API_KEY = val("STRIPE_API_KEY");
+  } else if (service === "redis") {
+    creds.REDIS_URL = val("REDIS_URL");
+  } else if (service === "tavus") {
+    creds.TAVUS_API_KEY = val("TAVUS_API_KEY");
+  }
+
+  fetch("/api/setup/test-service", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({service: service, credentials: creds})
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    var result = data.result || {};
+    resultEl.className = "test-result " + (result.status || "fail");
+    resultEl.textContent = result.message || "Resultat inconnu";
+  })
+  .catch(function(e) {
+    resultEl.className = "test-result fail";
+    resultEl.textContent = "Erreur de connexion: " + e.message;
+  });
+}
+
+// =========================================================================
+// STRIPE AUTO-CREATE
+// =========================================================================
+function stripeAutoCreate() {
+  var resultEl = document.getElementById("stripe-auto-result");
+  resultEl.className = "test-result loading";
+  resultEl.textContent = "Creation des produits en cours...";
+
+  fetch("/api/setup/stripe-auto", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({stripe_api_key: val("STRIPE_API_KEY")})
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    if (data.success) {
+      var msg = "Produits crees avec succes :\n";
+      Object.keys(data.prices).forEach(function(k) { msg += k + " = " + data.prices[k] + "\n"; });
+      resultEl.className = "test-result ok";
+      resultEl.textContent = msg;
+      // Save prices to config
+      fetch("/api/setup/save-config", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({step: "stripe_auto", config: data.prices})
+      });
+    } else {
+      resultEl.className = "test-result fail";
+      resultEl.textContent = data.error || "Erreur inconnue";
+    }
+  })
+  .catch(function(e) {
+    resultEl.className = "test-result fail";
+    resultEl.textContent = "Erreur: " + e.message;
+  });
+}
+
+// =========================================================================
+// SECURITY
+// =========================================================================
+function generateSecurity() {
+  var btn = document.getElementById("securityBtn");
+  var resultEl = document.getElementById("security-result");
+  btn.disabled = true;
+  resultEl.className = "test-result loading";
+  resultEl.textContent = "Generation en cours...";
+
+  fetch("/api/setup/generate-security", { method: "POST" })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    if (data.success) {
+      var msg = "";
+      Object.keys(data.results).forEach(function(k) {
+        var r = data.results[k];
+        msg += k.toUpperCase() + ": " + r.message + "\n";
+      });
+      resultEl.className = "test-result ok";
+      resultEl.textContent = msg;
+      if (completedSteps.indexOf("6") === -1) completedSteps.push("6");
+      markStepDone(6);
+      updateProgress();
+      setTimeout(function() { goStep(7); }, 1500);
+    } else {
+      resultEl.className = "test-result fail";
+      resultEl.textContent = "Erreur generation";
+      btn.disabled = false;
+    }
+  })
+  .catch(function(e) {
+    resultEl.className = "test-result fail";
+    resultEl.textContent = "Erreur: " + e.message;
+    btn.disabled = false;
+  });
+}
+
+// =========================================================================
+// PV DE RECETTE
+// =========================================================================
+function runPhaseA() {
+  var btn = document.getElementById("phaseABtn");
+  var container = document.getElementById("phase-a-results");
+  btn.disabled = true;
+  btn.textContent = "Verification en cours...";
+  container.innerHTML = '<div class="spinner"></div>';
+
+  fetch("/api/setup/check-phase-a", { method: "POST" })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    var results = data.results || {};
+    var html = "";
+    Object.keys(results).forEach(function(key) {
+      if (key === "all_passed") return;
+      var r = results[key];
+      html += '<div class="phase-item"><div class="phase-dot ' + (r.status || "fail") + '"></div><span>' + key + ': ' + (r.message || r.status) + '</span></div>';
+    });
+    container.innerHTML = html;
+    phaseAOk = results.all_passed === true;
+    btn.textContent = phaseAOk ? "Verifications OK" : "Relancer";
+    btn.disabled = false;
+    checkCanSign();
+  })
+  .catch(function(e) {
+    container.innerHTML = '<div class="phase-item"><div class="phase-dot fail"></div><span>Erreur: ' + e.message + '</span></div>';
+    btn.textContent = "Relancer";
+    btn.disabled = false;
+  });
+}
+
+function checkPhaseBComplete() {
+  var checks = document.querySelectorAll('#phase-b-checklist input[type="checkbox"]');
+  var allChecked = true;
+  checks.forEach(function(c) { if (!c.checked) allChecked = false; });
+  phaseBOk = allChecked;
+  checkCanSign();
+}
+
+function runPhaseC() {
+  var btn = document.getElementById("phaseCBtn");
+  var container = document.getElementById("phase-c-results");
+  btn.disabled = true;
+  container.innerHTML = '<div class="spinner"></div>';
+
+  fetch("/api/setup/check-phase-c", { method: "POST" })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    var results = data.results || {};
+    var html = "";
+    Object.keys(results).forEach(function(key) {
+      if (key === "all_passed") return;
+      var r = results[key];
+      html += '<div class="phase-item"><div class="phase-dot ' + (r.status || "fail") + '"></div><span>' + (r.label || key) + ': ' + (r.value || r.status) + '</span></div>';
+    });
+    container.innerHTML = html;
+    phaseCOk = results.all_passed === true;
+    btn.textContent = phaseCOk ? "Verifications OK" : "Relancer";
+    btn.disabled = false;
+    checkCanSign();
+  })
+  .catch(function(e) {
+    container.innerHTML = '<div class="phase-item"><div class="phase-dot fail"></div><span>Erreur: ' + e.message + '</span></div>';
+    btn.textContent = "Relancer";
+    btn.disabled = false;
+  });
+}
+
+function checkCanSign() {
+  document.getElementById("signPvBtn").disabled = !(phaseAOk && phaseBOk && phaseCOk);
+}
+
+function signPV() {
+  var btn = document.getElementById("signPvBtn");
+  var resultEl = document.getElementById("pv-sign-result");
+  btn.disabled = true;
+
+  // Collect Phase B declarations
+  var declarations = {};
+  document.querySelectorAll('#phase-b-checklist input[type="checkbox"]').forEach(function(c) {
+    var key = c.id.replace("pb_", "");
+    declarations[key] = c.checked;
+  });
+
+  fetch("/api/setup/sign-pv", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({
+      exploitant_name: val("EXPLOITANT_NAME"),
+      exploitant_siret: val("EXPLOITANT_SIRET"),
+      declarations: declarations
+    })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    if (data.success) {
+      resultEl.className = "test-result ok";
+      resultEl.innerHTML = '<strong>PV signe avec succes !</strong><br><br>' +
+        'Redemarrez le serveur pour deverrouiller Luna :<br>' +
+        '<code style="color:#a78bfa;">python luna_web.py</code><br><br>' +
+        'Apres redemarrage, vos clients pourront acceder a Luna.';
+      if (completedSteps.indexOf("9") === -1) completedSteps.push("9");
+      markStepDone(9);
+      updateProgress();
+    } else {
+      resultEl.className = "test-result fail";
+      resultEl.textContent = data.error || "Erreur signature";
+      btn.disabled = false;
+    }
+  })
+  .catch(function(e) {
+    resultEl.className = "test-result fail";
+    resultEl.textContent = "Erreur: " + e.message;
+    btn.disabled = false;
+  });
+}
+
+// =========================================================================
+// CHAT AI
+// =========================================================================
+function sendChat() {
+  var input = document.getElementById("chatInput");
+  var msg = input.value.trim();
+  if (!msg) return;
+
+  appendChat("user", msg);
+  input.value = "";
+  document.getElementById("chatSendBtn").disabled = true;
+
+  fetch("/api/setup/ai-chat", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({message: msg})
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    document.getElementById("chatSendBtn").disabled = false;
+    if (data.response) {
+      appendChat("luna", data.response);
+      document.getElementById("chatQuota").textContent = data.remaining + "/" + data.max + " messages restants";
+    } else if (data.error) {
+      appendChat("luna", "Desole, " + (data.message || data.error));
+    }
+  })
+  .catch(function(e) {
+    document.getElementById("chatSendBtn").disabled = false;
+    appendChat("luna", "Erreur de connexion. Verifiez que le serveur est en marche.");
+  });
+}
+
+function appendChat(role, text) {
+  var container = document.getElementById("chatMessages");
+  var div = document.createElement("div");
+  div.className = "chat-msg " + role;
+  div.textContent = text;
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
+}
+
+// Step buttons click
+document.querySelectorAll(".step-btn").forEach(function(btn) {
+  btn.addEventListener("click", function() {
+    if (btn.classList.contains("locked")) return;
+    goStep(parseInt(btn.dataset.step));
+  });
+});
+</script>
+</body>
+</html>
