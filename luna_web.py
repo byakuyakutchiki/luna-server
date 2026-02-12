@@ -4,11 +4,19 @@ Luna Web - Serveur YAWatch-Luna (Proprio Ludo)
 Endpoints: chat, greeting, call Tavus, invitation contact, webhook SMS
 """
 import os
+import sys
 import re
 import time
 import uuid
 import asyncio
 import logging
+
+# Path d'import pour pv_recette.py (Docker: /app/utils/, local: ../../EXPLOITANTS/)
+_utils_dir = os.path.join(os.path.dirname(__file__), "utils")
+_exploitants_dir = os.path.join(os.path.dirname(__file__), "..", "..", "EXPLOITANTS")
+for _p in [_utils_dir, _exploitants_dir]:
+    if os.path.isdir(_p) and _p not in sys.path:
+        sys.path.insert(0, _p)
 import openai
 from collections import defaultdict
 from datetime import datetime
@@ -925,8 +933,6 @@ async def status():
 async def setup_status():
     """Etat du processus de setup et du PV de recette."""
     try:
-        import sys
-        sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "EXPLOITANTS"))
         from pv_recette import PVRecette
         pv = PVRecette()
         return {
@@ -947,8 +953,6 @@ async def setup_status():
 async def setup_check_phase_a():
     """Lance les verifications techniques automatiques (Phase A)."""
     try:
-        import sys
-        sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "EXPLOITANTS"))
         from pv_recette import PVRecette
         pv = PVRecette()
         results = pv.check_phase_a()
@@ -961,8 +965,6 @@ async def setup_check_phase_a():
 async def setup_check_phase_b(request: Request):
     """Soumettre les declarations legales (Phase B)."""
     try:
-        import sys
-        sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "EXPLOITANTS"))
         from pv_recette import PVRecette
         pv = PVRecette()
         data = await request.json()
@@ -977,8 +979,6 @@ async def setup_check_phase_b(request: Request):
 async def setup_check_phase_c():
     """Lance les verifications operationnelles (Phase C)."""
     try:
-        import sys
-        sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "EXPLOITANTS"))
         from pv_recette import PVRecette
         pv = PVRecette()
         results = pv.check_phase_c()
@@ -991,8 +991,6 @@ async def setup_check_phase_c():
 async def setup_sign_pv(request: Request):
     """Signe le PV de recette et deverrouille le serveur."""
     try:
-        import sys
-        sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "EXPLOITANTS"))
         from pv_recette import PVRecette
         pv = PVRecette()
         data = await request.json()
@@ -1015,8 +1013,6 @@ async def setup_sign_pv(request: Request):
 async def setup_phase_b_checklist():
     """Retourne la checklist des declarations legales a remplir."""
     try:
-        import sys
-        sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "EXPLOITANTS"))
         from pv_recette import PVRecette
         pv = PVRecette()
         return {"checklist": pv.get_phase_b_checklist()}
@@ -1144,8 +1140,6 @@ async def setup_save_config(request: Request):
 
     # Mettre a jour les cles dans .env
     try:
-        import sys
-        sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "EXPLOITANTS"))
         from pv_recette import PVRecette
         pv = PVRecette()
         pv.update_env_file(env_path, config)
@@ -1209,8 +1203,6 @@ async def setup_test_service(request: Request):
     creds = data.get("credentials", {})
 
     try:
-        import sys
-        sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "EXPLOITANTS"))
         from pv_recette import PVRecette
         pv = PVRecette()
 
@@ -1274,8 +1266,6 @@ async def setup_generate_security():
         "SSL_KEYFILE": "./key.pem",
     }
     try:
-        import sys
-        sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "EXPLOITANTS"))
         from pv_recette import PVRecette
         pv = PVRecette()
         pv.update_env_file(env_path, config_updates)
@@ -1296,8 +1286,6 @@ async def setup_stripe_auto(request: Request):
     try:
         import stripe
         stripe.api_key = stripe_key
-        import sys
-        sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "EXPLOITANTS"))
         from stripe_setup import create_products_and_prices
         results = create_products_and_prices(stripe)
         return {"success": True, "prices": results}
