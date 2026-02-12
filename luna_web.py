@@ -264,12 +264,12 @@ Alertes quotas : 80% avertissement, 90% urgences seulement, 100% bloque
 5. Rappels et instructions (quotidiens, recurrents, conditionnels)
 6. Surveillance d'inactivite et alertes contacts
 7. Prise de notes automatique
-{"" if LUNA_MODE != "full" else """
+{"" if LUNA_MODE != "full" else '''
 === INVITATION VISIO PAR SMS ===
 Quand le souscripteur est en appel video avec Luna, il peut demander :
-'Invite Marie dans l appel' ou 'Ajoute mon fils a la visio'
+Invite Marie dans l appel ou Ajoute mon fils a la visio
 Luna envoie alors un SMS au contact de confiance avec le lien pour rejoindre.
-Le contact clique sur le lien et rejoint directement la conversation video."""}
+Le contact clique sur le lien et rejoint directement la conversation video.'''}
 
 === CONTACTS DE CONFIANCE ===
 - Maximum 5 par souscripteur
