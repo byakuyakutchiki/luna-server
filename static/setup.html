@@ -561,6 +561,10 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; b
           <div style="font-size:1.2em;">&#128161;</div>
           <div><strong>Conseil de Luna</strong>Les certificats auto-signes conviennent pour demarrer. En production, utilisez Let's Encrypt (gratuit) avec Certbot.</div>
         </div>
+        <div class="btn-row" style="margin-top:16px;">
+            <button class="btn btn-secondary" onclick="goStep(5)">Retour</button>
+            <button class="btn btn-primary" onclick="goStep(7)">Continuer</button>
+        </div>
       </div>
 
       <!-- STEP 7: Admin -->
@@ -569,7 +573,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; b
         <p class="subtitle">Votre numero de telephone pour les alertes systeme</p>
         <div class="field">
           <label>Numero de telephone (format international)</label>
-          <input type="text" id="ADMIN_NUMBER" placeholder="+33658477952">
+          <input type="text" id="ADMIN_NUMBER" placeholder="+336XXXXXXXX">
           <div class="hint">Ce numero recevra les alertes urgentes et les notifications systeme.</div>
         </div>
         <div class="field">
@@ -655,7 +659,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; b
       <div class="quota" id="chatQuota">Posez vos questions sur l'installation</div>
     </div>
     <div class="chat-messages" id="chatMessages">
-      <div class="chat-msg luna">Bonjour ! Je suis Luna Setup, votre assistante d'installation. Je suis la pour repondre a toutes vos questions pendant la configuration. N'hesitez pas a me demander de l'aide !</div>
+      <div class="chat-msg luna">Bonjour ! Je suis Luna Setup, votre assistante d'installation. Si votre referent YAWatch vous a fourni une cle de setup, posez vos questions ici. Sinon, suivez simplement les etapes du wizard a gauche — tout est guide pas a pas !</div>
     </div>
     <div id="chatInputArea" class="chat-input">
       <input type="text" id="chatInput" placeholder="Posez une question..." onkeydown="if(event.key==='Enter')sendChat()">
@@ -775,7 +779,6 @@ function checkSiret() {
 // =========================================================================
 (function init() {
   loadWizardState();
-  loadPhaseBChecklist();
 
   // Luna welcome avatar
   var welcomeEl = document.getElementById('luna-welcome');
@@ -810,8 +813,13 @@ function loadWizardState() {
       if (data.config) {
         Object.keys(data.config).forEach(function(k) {
           var el = document.getElementById(k);
-          if (el && data.config[k] && !data.config[k].startsWith("***")) {
-            el.value = data.config[k];
+          if (el && data.config[k]) {
+            if (data.config[k].startsWith("***")) {
+              el.placeholder = "(cle deja configuree)";
+              el.dataset.configured = "true";
+            } else {
+              el.value = data.config[k];
+            }
           }
         });
       }
@@ -821,6 +829,8 @@ function loadWizardState() {
         if (!isNaN(idx)) markStepDone(idx);
       });
       updateProgress();
+      // Load Phase B after wizard state is available
+      loadPhaseBChecklist();
     })
     .catch(function() {});
 }
@@ -831,6 +841,20 @@ function loadPhaseBChecklist() {
     .then(function(data) {
       if (!data.checklist) return;
       renderPhaseB(data.checklist);
+      // Restore Phase B state if saved
+      if (window._wizardState && window._wizardState.phase_b_declarations) {
+          var saved = window._wizardState.phase_b_declarations;
+          Object.keys(saved).forEach(function(key) {
+              var cb = document.getElementById('pb_' + key);
+              if (cb && saved[key]) {
+                  cb.checked = true;
+                  var card = document.getElementById('card-' + key);
+                  if (card) card.classList.add('checked');
+              }
+          });
+          updatePhaseBStatus();
+          checkPhaseBComplete();
+      }
     })
     .catch(function() {});
 }
@@ -887,6 +911,16 @@ function onLegalCheck(cb, key) {
   }
   updatePhaseBStatus();
   checkPhaseBComplete();
+  // Save Phase B state
+  var declarations = {};
+  document.querySelectorAll('#phase-b-checklist input[type="checkbox"]').forEach(function(c) {
+      declarations[c.id.replace("pb_", "")] = c.checked;
+  });
+  fetch("/api/setup/save-config", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({step: "phase_b", config: {phase_b_declarations: declarations}})
+  }).catch(function() {});
 }
 
 function updatePhaseBStatus() {
@@ -987,8 +1021,13 @@ function saveStep(stepNum) {
       config.TAVUS_LUNA_PERSONA_ID = val("TAVUS_LUNA_PERSONA_ID");
     }
   } else if (stepNum === 7) {
+    var pwd = val("ADMIN_PASSWORD");
+    if (pwd && pwd.length < 8) {
+        alert("Le mot de passe admin doit faire au moins 8 caracteres.");
+        return;
+    }
     config.ADMIN_NUMBER = val("ADMIN_NUMBER");
-    config.ADMIN_PASSWORD = val("ADMIN_PASSWORD");
+    config.ADMIN_PASSWORD = pwd;
   } else if (stepNum === 8) {
     config.REDIS_URL = val("REDIS_URL");
   }
@@ -1321,12 +1360,17 @@ function signPV() {
     declarations[key] = c.checked;
   });
 
+  var ws = window._wizardState || {};
+  var wsConfig = ws.config || {};
+  var exploitantName = val("EXPLOITANT_NAME") || wsConfig.EXPLOITANT_NAME || '';
+  var exploitantSiret = val("EXPLOITANT_SIRET") || wsConfig.EXPLOITANT_SIRET || '';
+
   fetch("/api/setup/sign-pv", {
     method: "POST",
     headers: {"Content-Type": "application/json"},
     body: JSON.stringify({
-      exploitant_name: val("EXPLOITANT_NAME"),
-      exploitant_siret: val("EXPLOITANT_SIRET"),
+      exploitant_name: exploitantName,
+      exploitant_siret: exploitantSiret,
       declarations: declarations
     })
   })

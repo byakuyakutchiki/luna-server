@@ -115,6 +115,7 @@ tr:hover { background: rgba(167,139,250,0.05); }
     <button class="tab-btn" data-tab="quotas">Quotas</button>
     <button class="tab-btn" data-tab="alerts">Alertes</button>
     <button class="tab-btn" data-tab="server">Serveur</button>
+    <button class="tab-btn" data-tab="world" style="color:#a78bfa;">Monde</button>
   </div>
 
   <!-- DASHBOARD TAB -->
@@ -152,6 +153,20 @@ tr:hover { background: rgba(167,139,250,0.05); }
   <div class="tab-panel" id="tab-server">
     <h3 style="margin-bottom:16px; font-size:1em;">Etat du serveur</h3>
     <div class="service-grid" id="serverGrid"></div>
+  </div>
+
+  <!-- WORLD TAB -->
+  <div class="tab-panel" id="tab-world">
+    <div style="text-align:center; padding-top:40px;">
+      <div style="font-size:3em; margin-bottom:16px;">&#x1f30d;</div>
+      <h3 style="color:#a78bfa; margin-bottom:12px; font-size:1.3em;">IA Watch World - Operateur</h3>
+      <p style="color:#888; margin-bottom:24px; max-width:400px; margin-left:auto; margin-right:auto; line-height:1.6;">
+        Votre tableau de bord gamifie : suivez vos clients, vos badges et vos missions.
+      </p>
+      <a href="/admin/world" target="_blank" style="display:inline-block; padding:14px 32px; background:#7c3aed; color:white; border-radius:12px; text-decoration:none; font-size:1em; font-weight:600; transition: background 0.2s;" onmouseover="this.style.background='#6d28d9'" onmouseout="this.style.background='#7c3aed'">
+        Ouvrir le Monde
+      </a>
+    </div>
   </div>
 </div>
 

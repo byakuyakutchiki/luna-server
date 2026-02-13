@@ -26,6 +26,7 @@ from openai import OpenAI
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, Response, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.websockets import WebSocketState
 from pydantic import BaseModel, Field, field_validator
@@ -67,6 +68,15 @@ except ImportError as _import_err:
     print(f"CORE IMPORT ERROR: {_import_err}")
     traceback.print_exc()
 
+# Gamification IA Watch World (optional, non-blocking)
+try:
+    from core.gamification.routes import gamification_router
+    from core.gamification.engine import award_xp_safe, initialize_player_safe
+    from core.gamification.redis_ops import GamificationRedisOps
+    _GAMIFICATION_AVAILABLE = True
+except ImportError:
+    _GAMIFICATION_AVAILABLE = False
+
 load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
 
 logging.basicConfig(level=logging.INFO)
@@ -77,7 +87,24 @@ LUNA_MODE = os.getenv("LUNA_MODE", "full").lower()  # "lite" (chat+voix+SMS) ou 
 TAVUS_CALLBACK_URL = os.getenv("TAVUS_CALLBACK_URL", "")  # URL publique pour webhooks Tavus
 TENANT_ID = 1  # Fallback pour retro-compatibilite (REQUIRE_AUTH=false)
 LEGAL_MODE = "assistance_only"  # Mode legal: aide contextuelle, pas de surveillance garantie
-REQUIRE_AUTH = os.getenv("REQUIRE_AUTH", "false").lower() == "true"
+REQUIRE_AUTH = os.getenv("REQUIRE_AUTH", "true").lower() == "true"
+
+
+def _reload_env():
+    """Recharge le .env et met a jour les globals qui cachent des valeurs d'env."""
+    global LUNA_MODE, TAVUS_CALLBACK_URL, REQUIRE_AUTH
+    global OPENAI_API_KEY, OPENAI_MODEL, ADMIN_NUMBER, SETUP_OPENAI_API_KEY
+    global _JWT_SECRET, _JWT_ALGORITHM
+    load_dotenv(os.path.join(os.path.dirname(__file__), ".env"), override=True)
+    LUNA_MODE = os.getenv("LUNA_MODE", "full").lower()
+    TAVUS_CALLBACK_URL = os.getenv("TAVUS_CALLBACK_URL", "")
+    REQUIRE_AUTH = os.getenv("REQUIRE_AUTH", "true").lower() == "true"
+    OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+    OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4-turbo")
+    ADMIN_NUMBER = os.getenv("ADMIN_NUMBER", "")
+    SETUP_OPENAI_API_KEY = os.getenv("SETUP_OPENAI_API_KEY", "")
+    _JWT_SECRET = os.getenv("JWT_SECRET_KEY", "luna-admin-fallback-key")
+    _JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
 
 # --- PV de Recette (verrouillage serveur) ---
 # Priorite: pv_lock.json (HMAC) > .env PV_SIGNED
@@ -533,6 +560,20 @@ async def lifespan(app):
 app = FastAPI(title="Luna - YAWatch", lifespan=lifespan)
 STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
 
+# Mount gamification routes (optional)
+if _GAMIFICATION_AVAILABLE:
+    app.include_router(gamification_router)
+
+# Store redis_client in app.state for gamification routes
+app.state._redis_client = _redis_client if _CORE_AVAILABLE else None
+
+# Serve legal templates (/templates/*.md)
+_TEMPLATES_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "EXPLOITANTS", "templates")
+if not os.path.isdir(_TEMPLATES_DIR):
+    _TEMPLATES_DIR = os.path.join(os.path.dirname(__file__), "templates")
+if os.path.isdir(_TEMPLATES_DIR):
+    app.mount("/templates", StaticFiles(directory=_TEMPLATES_DIR), name="templates")
+
 # --- CORS ---
 CORS_ORIGINS = os.getenv("CORS_ORIGINS", "https://localhost:8888").split(",")
 app.add_middleware(
@@ -766,6 +807,35 @@ async def admin_page():
     return JSONResponse(status_code=404, content={"error": "Dashboard admin non disponible"})
 
 
+@app.get("/world")
+async def world_page():
+    """Page gamifiee client - IA Watch World."""
+    world_path = os.path.join(STATIC_DIR, "world.html")
+    if os.path.exists(world_path):
+        return FileResponse(world_path)
+    return JSONResponse(status_code=404, content={"error": "World non disponible"})
+
+
+@app.get("/admin/world")
+async def admin_world_page():
+    """Page gamifiee exploitant - IA Watch World."""
+    path = os.path.join(STATIC_DIR, "admin_world.html")
+    if os.path.exists(path):
+        return FileResponse(path)
+    return JSONResponse(status_code=404, content={"error": "World admin non disponible"})
+
+
+def _gamify(tenant_id, action: str, metadata: dict = None, is_admin: bool = False):
+    """Fire-and-forget gamification XP award. Never raises, never blocks."""
+    if not _GAMIFICATION_AVAILABLE or not _redis_client:
+        return
+    try:
+        gops = GamificationRedisOps(_redis_client)
+        asyncio.create_task(award_xp_safe(gops, tenant_id, action, metadata, is_admin=is_admin))
+    except Exception:
+        pass
+
+
 @app.post("/api/chat")
 async def chat(req: ChatRequest, request: Request):
     try:
@@ -885,6 +955,7 @@ async def chat(req: ChatRequest, request: Request):
             except Exception as e:
                 logger.warning(f"Redis store failed: {e}")
 
+        _gamify(tid, "chat_message")
         return {"response": luna_msg}
 
     except openai.AuthenticationError:
@@ -940,6 +1011,7 @@ async def start_call(request: Request):
     )
     if not success:
         return {"error": data.get("error", "Erreur Tavus inconnue")}
+    _gamify(tid, "voice_call")
     return {
         "conversation_url": data["conversation_url"],
         "conversation_id": data["conversation_id"],
@@ -1156,6 +1228,14 @@ async def auth_register(req: RegisterRequest):
         mgr.save_subscriber_profile(profile)
 
     token = _create_client_token(tenant_id, email, "essentiel")
+    # Initialize gamification player
+    if _GAMIFICATION_AVAILABLE and _redis_client:
+        try:
+            gops = GamificationRedisOps(_redis_client)
+            asyncio.create_task(initialize_player_safe(gops, tenant_id))
+        except Exception:
+            pass
+    _gamify("admin", "new_client", is_admin=True)
     logger.info(f"AUTH_REGISTER tenant_id={tenant_id} email={email}")
     return {"token": token, "tenant_id": tenant_id, "plan": "essentiel"}
 
@@ -1188,6 +1268,7 @@ async def auth_login(req: LoginRequest):
             first_name = profile.get("first_name", "")
 
     token = _create_client_token(tenant_id, email, plan)
+    _gamify(tenant_id, "daily_login")
     logger.info(f"AUTH_LOGIN tenant_id={tenant_id} email={email}")
     return {"token": token, "tenant_id": tenant_id, "plan": plan, "first_name": first_name}
 
@@ -1513,6 +1594,11 @@ async def setup_check_siret(request: Request):
     company = results[0]
     siege = company.get("siege", {})
 
+    # Verifier que le SIRET retourne correspond bien a celui demande
+    returned_siret = siege.get("siret", "")
+    if returned_siret != siret:
+        return JSONResponse(content={"status": "fail", "message": "SIRET introuvable dans le registre INSEE"})
+
     # Verifier que l'entreprise est active
     if company.get("etat_administratif") != "A":
         return JSONResponse(content={"status": "fail", "message": "Entreprise fermee ou radiee"})
@@ -1564,12 +1650,27 @@ async def setup_sign_pv(request: Request):
                 "message": "Le PV a deja ete signe. Impossible de re-signer.",
             })
         try:
+            import json as _json_pv
             from pv_recette import PVRecette
             pv = PVRecette()
             data = await request.json()
+
+            # Fallback: si exploitant_name/siret vides, lire depuis wizard_state.json
+            exploitant_name = data.get("exploitant_name", "").strip()
+            exploitant_siret = data.get("exploitant_siret", "").strip()
+            if not exploitant_name or not exploitant_siret:
+                ws_path = os.path.join(os.path.dirname(__file__), ".wizard_state.json")
+                if os.path.exists(ws_path):
+                    ws = _json_pv.loads(open(ws_path, encoding="utf-8").read())
+                    ws_config = ws.get("config", {})
+                    if not exploitant_name:
+                        exploitant_name = ws_config.get("EXPLOITANT_NAME", "")
+                    if not exploitant_siret:
+                        exploitant_siret = ws_config.get("EXPLOITANT_SIRET", "")
+
             result = pv.sign(
-                exploitant_name=data.get("exploitant_name", ""),
-                exploitant_siret=data.get("exploitant_siret", ""),
+                exploitant_name=exploitant_name,
+                exploitant_siret=exploitant_siret,
                 declarations_b=data.get("declarations", {}),
             )
             if "error" in result:
@@ -1785,6 +1886,9 @@ async def setup_save_config(request: Request):
                 content += f"\n{k}={v}"
         Path(env_path).write_text(content, encoding="utf-8")
 
+    # Recharger le .env dans le processus pour que os.getenv() retourne les nouvelles valeurs
+    _reload_env()
+
     # Sauvegarder l'etat du wizard
     state_path = os.path.join(os.path.dirname(__file__), ".wizard_state.json")
     state = {}
@@ -1795,6 +1899,12 @@ async def setup_save_config(request: Request):
         state["completed_steps"].append(step)
     state["config"] = {**state.get("config", {}), **config}
     state["saved_at"] = datetime.now().isoformat()
+
+    # Sauvegarder les declarations Phase B dans le wizard state
+    if step == "phase_b":
+        declarations = data.get("declarations", data.get("config", {}))
+        state["phase_b_declarations"] = declarations
+
     with open(state_path, "w", encoding="utf-8") as f:
         _json.dump(state, f, indent=2, ensure_ascii=False)
 
@@ -1817,8 +1927,11 @@ async def setup_wizard_state():
             else:
                 safe_config[k] = v
         state["config"] = safe_config
+        # Inclure les declarations Phase B si presentes
+        if "phase_b_declarations" not in state:
+            state["phase_b_declarations"] = {}
         return state
-    return {"completed_steps": [], "config": {}}
+    return {"completed_steps": [], "config": {}, "phase_b_declarations": {}}
 
 
 @app.post("/api/setup/test-service")
@@ -1947,6 +2060,7 @@ async def set_profile(req: ProfileRequest, request: Request):
         return JSONResponse(status_code=503, content={"error": "Memoire non disponible"})
     profile = SubscriberProfile(tenant_id=tid, **req.model_dump())
     mgr.set_subscriber_profile(profile)
+    _gamify(tid, "profile_update")
     return {"success": True, "profile": profile.model_dump()}
 
 
@@ -1963,6 +2077,7 @@ async def update_profile(request: Request):
     profile = mgr.update_subscriber_profile(body)
     if not profile:
         return JSONResponse(status_code=404, content={"error": "Profil non trouve"})
+    _gamify(tid, "profile_update")
     return {"success": True, "profile": profile.model_dump()}
 
 
@@ -2011,6 +2126,7 @@ async def add_contact(req: ContactRequest, request: Request):
             preferred_channel=channel,
             emergency_only=req.emergency_only,
         )
+        _gamify(tid, "add_contact")
         return {"success": True, "contact": {
             "phone": contact.phone,
             "name": contact.name,
@@ -2161,6 +2277,9 @@ async def create_family(request: Request):
     _log_family_audit("family_group_created" if not existing else "family_group_updated",
                       "system", "Luna", details={"name": group.name}, tenant_id=tid)
 
+    if not existing:
+        _gamify(tid, "family_setup")
+
     return {"success": True, "group_id": group.id}
 
 
@@ -2272,6 +2391,8 @@ async def add_family_member(request: Request):
                       details={"role": member.role.value, "sms_sent": sms_sent},
                       tenant_id=tid)
 
+    _gamify(tid, "family_member_added")
+
     return {
         "success": True,
         "member_id": member.id,
@@ -2310,6 +2431,8 @@ async def verify_family_member(phone: str, request: Request):
     name = member_data.get("name", "Membre") if member_data else "Membre"
 
     _log_family_audit("member_verified", phone, name, tenant_id=tid)
+
+    _gamify(tid, "family_member_verified")
 
     return {"success": True, "message": f"{name} verifie avec succes"}
 
@@ -2463,6 +2586,8 @@ async def send_family_message(request: Request):
                       details={"type": message_type, "notified": len(notified)},
                       tenant_id=tid)
 
+    _gamify(tid, "family_message_sent")
+
     return {
         "success": True,
         "message_id": msg.id,
@@ -2568,6 +2693,8 @@ async def create_escalation_rule(request: Request):
     _log_family_audit("escalation_rule_created", "system", "Luna",
                       details={"name": rule.name, "stages": len(stages)},
                       tenant_id=tid)
+
+    _gamify(tid, "escalation_rule_created")
 
     return {"success": True, "rule_id": rule.id}
 
@@ -2812,6 +2939,8 @@ async def family_sos(request: Request):
                       severity="critical",
                       tenant_id=tid)
 
+    _gamify(tid, "family_sos")
+
     # Optionnel: déclencher une visio avec Luna
     visio_url = None
     if trigger_visio and tavus_client and tavus_client.is_configured:
@@ -2968,6 +3097,7 @@ async def create_instruction(req: InstructionRequest, request: Request):
         # Confirmation text
         confirmation = InstructionParser.format_confirmation(parsed)
 
+        _gamify(tid, "create_instruction")
         return {
             "success": True,
             "instruction": {
@@ -3061,6 +3191,7 @@ async def add_note(req: NoteRequest, request: Request):
             context=req.context,
             tags=req.tags,
         )
+        _gamify(tid, "create_note")
         return {"success": True, "note": {"id": note.id, "content": note.content}}
     except Exception as e:
         return JSONResponse(status_code=400, content={"error": str(e)})
@@ -4387,6 +4518,7 @@ async def sync_from_tavus(request: Request):
         })
 
         logger.info(f"Tavus conversation ended: {conversation_id}, {len(transcript)} messages synced")
+        _gamify(tid, "visio_session")
 
     return {"success": True}
 
@@ -5478,6 +5610,8 @@ async def admin_create_client(request: Request):
         mgr.save_subscriber_profile(profile)
 
     logger.info(f"ADMIN_CREATE_CLIENT tenant_id={tenant_id} email={email} plan={plan}")
+    _gamify("admin", "new_client", is_admin=True)
+
     return {"success": True, "tenant_id": tenant_id, "email": email, "plan": plan}
 
 
