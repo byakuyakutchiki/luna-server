@@ -277,9 +277,22 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; b
           <div class="hint">Commence par 'sk_test_' (test) ou 'sk_live_' (production)</div>
         </div>
         <div class="field">
-          <label>Webhook Secret (optionnel)</label>
+          <label>Webhook Secret</label>
           <input type="text" id="STRIPE_WEBHOOK_SECRET" placeholder="whsec_...">
-          <div class="hint">Disponible dans Developers > Webhooks, apres creation de l'endpoint</div>
+          <div class="hint">
+            <strong>Configuration webhook :</strong>
+            <ol style="margin:8px 0;padding-left:20px;font-size:0.85em;line-height:1.6;">
+              <li>Stripe Dashboard → Developers → Webhooks</li>
+              <li>Cliquez "Add endpoint"</li>
+              <li>URL : <code>https://VOTRE_DOMAINE:8888/api/stripe/webhook</code></li>
+              <li>Events : <code>customer.subscription.*</code>, <code>invoice.*</code></li>
+              <li>Copiez le "Signing secret" (whsec_...)</li>
+            </ol>
+          </div>
+        </div>
+        <div style="margin-top:8px;">
+          <button class="btn btn-secondary" onclick="checkWebhook()" style="font-size:0.85em;">Verifier reception webhook</button>
+          <div id="webhook-status" class="test-result"></div>
         </div>
         <div id="test-stripe" class="test-result"></div>
         <div style="margin-top:16px; padding: 16px; background: #1a1a2e; border-radius: 12px;">
@@ -654,6 +667,30 @@ function testService(service) {
 }
 
 // =========================================================================
+// STRIPE WEBHOOK CHECK
+// =========================================================================
+function checkWebhook() {
+  var el = document.getElementById("webhook-status");
+  el.className = "test-result loading";
+  el.textContent = "Verification...";
+  fetch("/api/setup/stripe-webhook-status")
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.received && data.verified) {
+        el.className = "test-result ok";
+        el.textContent = "Webhook recu et verifie (" + data.event_type + ")";
+      } else {
+        el.className = "test-result warn";
+        el.textContent = data.message || "Webhook pas encore recu. Envoyez un test depuis Stripe Dashboard.";
+      }
+    })
+    .catch(function(e) {
+      el.className = "test-result fail";
+      el.textContent = "Erreur: " + e.message;
+    });
+}
+
+// =========================================================================
 // STRIPE AUTO-CREATE
 // =========================================================================
 function stripeAutoCreate() {
@@ -826,11 +863,24 @@ function signPV() {
   .then(function(r) { return r.json(); })
   .then(function(data) {
     if (data.success) {
+      var resetCode = data.reset_code || "";
+      var certUrl = data.certificate_url || "";
+      var html = '<strong>PV signe avec succes !</strong><br><br>';
+      if (resetCode) {
+        html += '<div style="border:3px solid #cc0000;padding:16px;margin:12px 0;border-radius:8px;background:#1a0000;">' +
+          '<strong style="color:#cc0000;">CODE DE REINITIALISATION</strong><br>' +
+          '<span style="color:#cc0000;font-family:Courier New,monospace;font-size:20px;font-weight:bold;letter-spacing:2px;">' +
+          resetCode + '</span><br><br>' +
+          '<small style="color:#ff6666;">CONSERVEZ CE CODE EN LIEU SUR — Il ne sera plus jamais affiche.</small>' +
+          '</div>';
+      }
+      if (certUrl) {
+        html += '<a href="' + certUrl + '" target="_blank" style="color:#a78bfa;text-decoration:underline;font-weight:bold;">' +
+          'Telecharger le Certificat d\'Autonomie (DOCX)</a><br><br>';
+      }
+      html += 'Luna est maintenant operationnelle. Vos clients peuvent y acceder.';
       resultEl.className = "test-result ok";
-      resultEl.innerHTML = '<strong>PV signe avec succes !</strong><br><br>' +
-        'Redemarrez le serveur pour deverrouiller Luna :<br>' +
-        '<code style="color:#a78bfa;">python luna_web.py</code><br><br>' +
-        'Apres redemarrage, vos clients pourront acceder a Luna.';
+      resultEl.innerHTML = html;
       if (completedSteps.indexOf("9") === -1) completedSteps.push("9");
       markStepDone(9);
       updateProgress();

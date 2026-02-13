@@ -77,7 +77,23 @@ TENANT_ID = 1  # Ludo = tenant 1 pour l'instant
 LEGAL_MODE = "assistance_only"  # Mode legal: aide contextuelle, pas de surveillance garantie
 
 # --- PV de Recette (verrouillage serveur) ---
-PV_SIGNED = os.getenv("PV_SIGNED", "false").lower() == "true"
+# Priorite: pv_lock.json (HMAC) > .env PV_SIGNED
+_setup_permanently_disabled = False
+_sign_pv_lock = asyncio.Lock()
+try:
+    from pv_recette import PVRecette
+    _pv_lock_result = PVRecette.verify_pv_lock()
+    if _pv_lock_result["valid"]:
+        PV_SIGNED = True
+        _setup_permanently_disabled = True
+        logger.info(f"pv_lock.json valide — setup DESACTIVE (exploitant: {_pv_lock_result['data'].get('tenant_name', '?')})")
+    else:
+        PV_SIGNED = os.getenv("PV_SIGNED", "false").lower() == "true"
+        if _pv_lock_result["reason"] != "pv_lock.json introuvable":
+            logger.warning(f"pv_lock invalide: {_pv_lock_result['reason']}")
+except ImportError:
+    PV_SIGNED = os.getenv("PV_SIGNED", "false").lower() == "true"
+    logger.warning("Module pv_recette non disponible — fallback .env")
 PV_SIGNATURE_HASH = os.getenv("PV_SIGNATURE_HASH", "")
 _pv_locked = not PV_SIGNED  # True = serveur en mode SETUP uniquement
 
@@ -86,6 +102,11 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4-turbo")
 ADMIN_NUMBER = os.getenv("ADMIN_NUMBER", "")
 SETUP_OPENAI_API_KEY = os.getenv("SETUP_OPENAI_API_KEY", "")
+
+# Feature 1: Destruction cle fondateur apres PV
+if _setup_permanently_disabled:
+    SETUP_OPENAI_API_KEY = None
+    logger.info("SETUP_OPENAI_API_KEY detruite (pv_lock actif)")
 
 if _pv_locked:
     # Mode SETUP: ne crashe pas sur cles manquantes
@@ -429,9 +450,20 @@ async def security_middleware(request: Request, call_next):
     start_time = time.time()
     path = request.url.path
 
+    # Setup permanently disabled: apres signature PV, les endpoints setup retournent 410
+    if _setup_permanently_disabled and path.startswith("/api/setup/"):
+        logger.info(f"SETUP_GONE {client_ip} {request.method} {path}")
+        return JSONResponse(
+            status_code=410,
+            content={
+                "error": "Installation terminee",
+                "message": "Le PV de recette a ete signe. L'installation est definitivement terminee.",
+            },
+        )
+
     # PV de recette lock: en mode setup, seuls certains endpoints sont accessibles
     if _pv_locked:
-        pv_allowed = ("/api/status", "/api/setup/", "/api/admin/")
+        pv_allowed = ("/api/status", "/api/setup/", "/api/admin/", "/api/stripe/webhook")
         if path.startswith("/api/") and not any(path.startswith(a) for a in pv_allowed):
             logger.warning(f"PV_LOCKED {client_ip} {request.method} {path}")
             return JSONResponse(
@@ -904,6 +936,7 @@ async def status():
         "mode": LUNA_MODE,
         "pv_signed": PV_SIGNED,
         "pv_locked": _pv_locked,
+        "setup_disabled": _setup_permanently_disabled,
         "legal_mode": LEGAL_MODE,
         "caution_mode": _cm,
         "openai": bool(OPENAI_API_KEY),
@@ -922,6 +955,61 @@ async def status():
             "enabled": _memory_manager.is_perception_enabled() if _memory_manager else False,
             "camera": _perception_detector.is_camera_available() if _perception_detector else False,
         },
+    }
+
+
+# =========================================================================
+# STRIPE WEBHOOK (accessible en setup ET en production)
+# =========================================================================
+
+_stripe_webhook_received: dict = {}  # {timestamp, event_type, verified}
+
+@app.post("/api/stripe/webhook")
+async def stripe_webhook(request: Request):
+    """Recoit les webhooks Stripe avec verification de signature."""
+    global _stripe_webhook_received
+    webhook_secret = os.getenv("STRIPE_WEBHOOK_SECRET", "")
+    if not webhook_secret:
+        return JSONResponse(status_code=500, content={"error": "STRIPE_WEBHOOK_SECRET non configure"})
+
+    payload = await request.body()
+    sig_header = request.headers.get("stripe-signature", "")
+
+    try:
+        import stripe
+        event = stripe.Webhook.construct_event(payload, sig_header, webhook_secret)
+        _stripe_webhook_received = {
+            "timestamp": time.time(),
+            "event_type": event["type"],
+            "verified": True,
+        }
+        logger.info(f"Stripe webhook recu: {event['type']} (verifie)")
+
+        # En production, log les events importants
+        if not _pv_locked:
+            event_type = event["type"]
+            if event_type in ("customer.subscription.created", "customer.subscription.deleted",
+                              "invoice.payment_succeeded", "invoice.payment_failed"):
+                logger.info(f"Stripe event production: {event_type}")
+
+        return {"received": True}
+    except ImportError:
+        return JSONResponse(status_code=500, content={"error": "Module stripe non installe"})
+    except Exception as e:
+        logger.warning(f"Stripe webhook invalide: {e}")
+        return JSONResponse(status_code=400, content={"error": f"Signature invalide: {e}"})
+
+
+@app.get("/api/setup/stripe-webhook-status")
+async def setup_stripe_webhook_status():
+    """Retourne si un webhook Stripe a ete recu et verifie."""
+    if not _stripe_webhook_received:
+        return {"received": False, "message": "Aucun webhook recu. Envoyez un test depuis Stripe Dashboard."}
+    return {
+        "received": True,
+        "verified": _stripe_webhook_received.get("verified", False),
+        "event_type": _stripe_webhook_received.get("event_type", ""),
+        "timestamp": _stripe_webhook_received.get("timestamp", 0),
     }
 
 
@@ -990,23 +1078,60 @@ async def setup_check_phase_c():
 @app.post("/api/setup/sign-pv")
 async def setup_sign_pv(request: Request):
     """Signe le PV de recette et deverrouille le serveur."""
-    try:
-        from pv_recette import PVRecette
-        pv = PVRecette()
-        data = await request.json()
-        result = pv.sign(
-            exploitant_name=data.get("exploitant_name", ""),
-            exploitant_siret=data.get("exploitant_siret", ""),
-            declarations_b=data.get("declarations", {}),
-        )
-        if "error" in result:
-            return JSONResponse(status_code=400, content=result)
-        # Mettre a jour le .env automatiquement
-        env_path = os.path.join(os.path.dirname(__file__), ".env")
-        pv.update_env_file(env_path, result["env_updates"])
-        return result
-    except ImportError:
-        return JSONResponse(status_code=500, content={"error": "Module pv_recette non disponible"})
+    global PV_SIGNED, _pv_locked, _setup_permanently_disabled, SETUP_OPENAI_API_KEY
+    global _setup_chat_history, _setup_message_count
+
+    async with _sign_pv_lock:
+        if _setup_permanently_disabled:
+            return JSONResponse(status_code=410, content={
+                "error": "Installation terminee",
+                "message": "Le PV a deja ete signe. Impossible de re-signer.",
+            })
+        try:
+            from pv_recette import PVRecette
+            pv = PVRecette()
+            data = await request.json()
+            result = pv.sign(
+                exploitant_name=data.get("exploitant_name", ""),
+                exploitant_siret=data.get("exploitant_siret", ""),
+                declarations_b=data.get("declarations", {}),
+            )
+            if "error" in result:
+                return JSONResponse(status_code=400, content=result)
+
+            # Mettre a jour le .env automatiquement
+            env_path = os.path.join(os.path.dirname(__file__), ".env")
+            pv.update_env_file(env_path, result["env_updates"])
+
+            # Mise a jour des globals runtime (pas besoin de restart)
+            PV_SIGNED = True
+            _pv_locked = False
+            _setup_permanently_disabled = True
+
+            # Feature 1: Destruction cle fondateur
+            SETUP_OPENAI_API_KEY = None
+            _setup_chat_history.clear()
+            _setup_message_count = _SETUP_MAX_MESSAGES
+
+            # Feature 2: Generer le certificat d'autonomie
+            cert_path = None
+            reset_code = result.get("reset_code", "")
+            try:
+                cert_path = _generate_autonomy_certificate(result["pv_data"], reset_code)
+            except Exception as e:
+                logger.error(f"Erreur generation certificat: {e}")
+
+            logger.info(f"PV signe — setup DESACTIVE, cle fondateur detruite")
+
+            return {
+                "success": True,
+                "reset_code": reset_code,
+                "certificate_url": "/api/admin/certificate" if cert_path else None,
+                "message": "PV signe. CONSERVEZ le reset code. Telechargez le certificat.",
+                "pv_data": result["pv_data"],
+            }
+        except ImportError:
+            return JSONResponse(status_code=500, content={"error": "Module pv_recette non disponible"})
 
 
 @app.get("/api/setup/phase-b-checklist")
@@ -4458,6 +4583,139 @@ def _verify_admin(request: Request) -> bool:
         return payload.get("role") == "admin"
     except Exception:
         return False
+
+
+# --- Certificat d'autonomie ---
+_certificate_timestamp: float = 0  # timestamp de generation du certificat
+
+def _generate_autonomy_certificate(pv_data: dict, reset_code: str) -> str:
+    """Genere un certificat d'autonomie DOCX apres signature PV."""
+    global _certificate_timestamp
+    try:
+        from docx import Document
+        from docx.shared import Pt, Inches, RGBColor
+        from docx.enum.text import WD_ALIGN_PARAGRAPH
+    except ImportError:
+        logger.error("python-docx non installe")
+        return None
+
+    doc = Document()
+    style = doc.styles["Normal"]
+    style.font.name = "Calibri"
+    style.font.size = Pt(11)
+
+    # Titre
+    title = doc.add_heading("CERTIFICAT D'AUTONOMIE", level=1)
+    title.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    subtitle = doc.add_paragraph("YAWatch Luna")
+    subtitle.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    subtitle.runs[0].bold = True
+    subtitle.runs[0].font.size = Pt(14)
+
+    doc.add_paragraph("")
+
+    # Identite exploitant
+    doc.add_heading("Identite Exploitant", level=2)
+    doc.add_paragraph(f"Nom / Raison sociale : {pv_data.get('exploitant_name', 'N/A')}")
+    doc.add_paragraph(f"SIRET : {pv_data.get('exploitant_siret', 'N/A')}")
+
+    try:
+        from datetime import timezone as _tz
+        sig_date = pv_data.get("date_signature", "")
+        doc.add_paragraph(f"Date de signature : {sig_date}")
+    except Exception:
+        doc.add_paragraph(f"Date de signature : {pv_data.get('date_signature', 'N/A')}")
+
+    doc.add_paragraph(f"Mode Luna : {pv_data.get('luna_mode', 'N/A')}")
+    doc.add_paragraph(f"Version PV : {pv_data.get('version', 'N/A')}")
+
+    # Resultats des phases
+    doc.add_heading("Resultats de Recette", level=2)
+    for phase_key, phase_label in [("phase_a", "Phase A - Technique"), ("phase_b", "Phase B - Legal"), ("phase_c", "Phase C - Operationnel")]:
+        phase = pv_data.get(phase_key, {})
+        passed = phase.get("all_passed", False)
+        doc.add_paragraph(f"{phase_label} : {'[OK]' if passed else '[ECHEC]'}")
+
+    # Hash PV
+    doc.add_heading("Signature Numerique", level=2)
+    doc.add_paragraph(f"SHA-256 : {pv_data.get('signature_hash', 'N/A')}")
+
+    # RESET CODE
+    doc.add_heading("CODE DE REINITIALISATION", level=2)
+    warning = doc.add_paragraph("CONSERVEZ CE CODE EN LIEU SUR — Il ne sera plus jamais affiche.")
+    warning.runs[0].bold = True
+    warning.runs[0].font.color.rgb = RGBColor(204, 0, 0)
+
+    code_para = doc.add_paragraph()
+    code_run = code_para.add_run(reset_code)
+    code_run.bold = True
+    code_run.font.size = Pt(16)
+    code_run.font.name = "Courier New"
+    code_run.font.color.rgb = RGBColor(204, 0, 0)
+    code_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+
+    doc.add_paragraph("")
+    doc.add_paragraph(
+        "Ce code permet de reinitialiser l'instance Luna en cas de besoin. "
+        "Sans ce code, la reinitialisation est impossible. "
+        "Commande : python tools/factory_reset.py --code <VOTRE_CODE>"
+    )
+
+    # Autonomie operationnelle
+    doc.add_heading("Autonomie Operationnelle", level=2)
+    doc.add_paragraph(
+        "Ce certificat atteste que l'instance Luna est desormais autonome. "
+        "Le fondateur n'a plus acces technique a cette instance. "
+        "L'exploitant gere seul ses comptes API, son serveur et ses clients."
+    )
+
+    # Mise a jour
+    doc.add_heading("Procedure de Mise a Jour", level=2)
+    doc.add_paragraph("docker compose pull && docker compose up -d")
+    doc.add_paragraph("Les mises a jour preservent toutes les donnees et la configuration.")
+
+    # Mentions legales
+    doc.add_heading("Mentions Legales", level=2)
+    doc.add_paragraph(
+        "Luna est un compagnon de lien social, PAS un dispositif medical. "
+        "La detection de detresse est best-effort uniquement. "
+        "L'exploitant doit recommander une teleassistance certifiee en complement."
+    )
+
+    # Sauvegarde
+    cert_dir = Path(os.path.dirname(__file__)) / "data" / "certificates"
+    cert_dir.mkdir(parents=True, exist_ok=True)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"certificat_autonomie_{timestamp}.docx"
+    cert_path = cert_dir / filename
+    doc.save(str(cert_path))
+    _certificate_timestamp = time.time()
+    logger.info(f"Certificat d'autonomie genere: {cert_path}")
+    return str(cert_path)
+
+
+@app.get("/api/admin/certificate")
+async def admin_certificate(request: Request):
+    """Telecharge le certificat d'autonomie DOCX."""
+    # Grace period: 10 minutes apres signature, accessible sans auth
+    grace_period = _certificate_timestamp > 0 and (time.time() - _certificate_timestamp) < 600
+    if not grace_period and not _verify_admin(request):
+        return JSONResponse(status_code=401, content={"error": "Non autorise"})
+
+    cert_dir = Path(os.path.dirname(__file__)) / "data" / "certificates"
+    if not cert_dir.exists():
+        return JSONResponse(status_code=404, content={"error": "Aucun certificat genere"})
+
+    # Trouver le plus recent
+    certs = sorted(cert_dir.glob("certificat_autonomie_*.docx"), reverse=True)
+    if not certs:
+        return JSONResponse(status_code=404, content={"error": "Aucun certificat genere"})
+
+    return FileResponse(
+        path=str(certs[0]),
+        filename=certs[0].name,
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    )
 
 
 @app.post("/api/admin/login")
