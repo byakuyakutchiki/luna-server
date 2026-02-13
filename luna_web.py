@@ -10,6 +10,7 @@ import time
 import uuid
 import asyncio
 import logging
+from pathlib import Path
 
 # Path d'import pour pv_recette.py (Docker: /app/utils/, local: ../../EXPLOITANTS/)
 _utils_dir = os.path.join(os.path.dirname(__file__), "utils")
