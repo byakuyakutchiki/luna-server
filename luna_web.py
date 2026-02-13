@@ -30,6 +30,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.websockets import WebSocketState
 from pydantic import BaseModel, Field, field_validator
 from typing import Optional, Dict
+import httpx
 
 from integrations.twilio.sms_client import TwilioSMSClient
 
@@ -1476,6 +1477,80 @@ async def setup_check_phase_c():
         return JSONResponse(status_code=500, content={"error": "Module pv_recette non disponible"})
 
 
+@app.post("/api/setup/check-siret")
+async def setup_check_siret(request: Request):
+    """Verifie un SIRET via l'API gouvernementale (gratuit, sans cle)."""
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse(status_code=400, content={"status": "fail", "message": "JSON invalide"})
+
+    siret = str(body.get("siret", "")).strip().replace(" ", "")
+
+    # Validation format
+    if len(siret) != 14 or not siret.isdigit():
+        return JSONResponse(content={"status": "fail", "message": "SIRET invalide (14 chiffres requis)"})
+
+    # Appel API gouv.fr (gratuit, pas de cle)
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(
+                f"https://recherche-entreprises.api.gouv.fr/search?q={siret}&per_page=1",
+                timeout=10.0,
+            )
+    except Exception as e:
+        logger.warning(f"API INSEE indisponible: {e}")
+        return JSONResponse(content={"status": "warn", "message": "Service INSEE indisponible, continuez manuellement"})
+
+    if resp.status_code != 200:
+        return JSONResponse(content={"status": "warn", "message": "Service INSEE indisponible, continuez manuellement"})
+
+    data = resp.json()
+    results = data.get("results", [])
+    if not results:
+        return JSONResponse(content={"status": "fail", "message": "SIRET introuvable dans le registre INSEE"})
+
+    company = results[0]
+    siege = company.get("siege", {})
+
+    # Verifier que l'entreprise est active
+    if company.get("etat_administratif") != "A":
+        return JSONResponse(content={"status": "fail", "message": "Entreprise fermee ou radiee"})
+
+    # Code APE — liste des codes compatibles avec l'exploitation Luna
+    ape = company.get("activite_principale", "")
+    ape_compatible_codes = [
+        "62.01Z", "62.02A", "62.02B", "62.03Z", "62.09Z",  # Informatique
+        "63.11Z", "63.12Z", "63.99Z",                       # Traitement donnees
+        "58.29C", "58.29A",                                   # Edition logiciels
+        "70.22Z", "74.90B",                                   # Conseil
+        "85.59B", "88.10C", "88.99B",                        # Aide a la personne
+        "47.41Z", "47.42Z",                                   # Commerce electronique
+    ]
+
+    return JSONResponse(content={
+        "status": "ok",
+        "company": {
+            "nom": company.get("nom_complet", ""),
+            "siren": company.get("siren", ""),
+            "siret": siege.get("siret", siret),
+            "adresse": siege.get("adresse", ""),
+            "code_postal": siege.get("code_postal", ""),
+            "commune": siege.get("libelle_commune", ""),
+            "ape": ape,
+            "ape_compatible": ape in ape_compatible_codes,
+            "nature_juridique": company.get("nature_juridique", ""),
+            "etat": company.get("etat_administratif", ""),
+            "dirigeants": [
+                {"nom": d.get("nom", ""), "prenoms": d.get("prenoms", ""), "qualite": d.get("qualite", "")}
+                for d in company.get("dirigeants", [])[:3]
+                if d.get("type_dirigeant") == "personne physique"
+            ],
+        },
+        "message": "Entreprise verifiee",
+    })
+
+
 @app.post("/api/setup/sign-pv")
 async def setup_sign_pv(request: Request):
     """Signe le PV de recette et deverrouille le serveur."""
@@ -1589,6 +1664,31 @@ REGLES:
 - Si tu ne sais pas, dis-le et suggere de contacter le support YAWatch
 - Ne donne JAMAIS de cles API, tokens ou secrets
 - Ne modifie rien toi-meme, guide l'exploitant a le faire via l'interface
+
+MODELE ECONOMIQUE 70/30:
+- Le fondateur recoit 70% du CA brut TTC encaisse par l'exploitant
+- L'exploitant conserve 30% brut
+- Sur ces 30%, l'exploitant reverse 6% du CA brut a Ambre (communication) + 300 EUR fixe/mois
+- Les couts API (OpenAI, Twilio, Tavus, Stripe) sont a la charge de l'exploitant sur ses 30%
+- Budget API estime pour 100 clients: ~1 200 EUR/mois
+
+CONSEILS ADMINISTRATIFS:
+- RC Professionnelle obligatoire (minimum recommande: 500 000 EUR). Assureurs: Hiscox, AXA Pro, MMA Pro
+- SIRET doit etre actif et le code APE compatible (informatique, conseil, aide a la personne)
+- Hebergement serveur obligatoirement en UE (RGPD). Recommandes: OVH, Scaleway, Hetzner
+- DPO necessaire si plus de 250 salaries ou traitement de donnees sensibles a grande echelle
+
+AVERTISSEMENTS JURIDIQUES CRITIQUES:
+- Luna n'est PAS un dispositif medical. Toute confusion = exercice illegal medecine (Art. L4161-1 CSP, 2 ans + 30K EUR)
+- Detection de detresse = best-effort UNIQUEMENT. Promettre une garantie = mise en danger d'autrui (Art. 223-1 Code penal)
+- Non-conformite RGPD = amende jusqu'a 20M EUR ou 4% du CA mondial (Art. 83 RGPD)
+- Toujours recommander d'appeler le 15/112 avant tout, Luna ne remplace PAS les secours
+
+HEBERGEMENT RECOMMANDE:
+- OVH VPS (France): a partir de 6 EUR/mois, Docker compatible
+- Scaleway (France): a partir de 8 EUR/mois, GPU optionnel
+- Hetzner (Allemagne): a partir de 5 EUR/mois, excellent rapport qualite/prix
+- AWS/GCP: OK si region eu-west-1 / europe-west1
 """
 
 

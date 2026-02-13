@@ -121,6 +121,142 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; b
 /* Success banner */
 .success-banner { padding: 24px; background: rgba(74,222,128,0.1); border: 1px solid rgba(74,222,128,0.3); border-radius: 12px; text-align: center; margin: 20px 0; }
 .success-banner h2 { color: #4ade80; margin-bottom: 8px; }
+
+/* Small button inline */
+.btn-sm { padding: 6px 14px; border-radius: 6px; border: 1px solid #7c3aed; background: rgba(124,58,237,0.15); color: #a78bfa; font-size: 0.82em; cursor: pointer; transition: all 0.2s; }
+.btn-sm:hover { background: rgba(124,58,237,0.3); }
+
+/* ===== LUNA MASCOTTE ===== */
+.luna-svg { display: inline-block; vertical-align: middle; }
+
+.luna-bubble {
+    display: flex; align-items: flex-start; gap: 12px;
+    background: linear-gradient(135deg, rgba(124,58,237,0.15), rgba(167,139,250,0.1));
+    border: 1px solid rgba(124,58,237,0.3); border-radius: 16px;
+    padding: 16px 20px; margin-bottom: 20px;
+    animation: lunaFadeIn 0.5s ease-out;
+}
+.luna-bubble .luna-avatar-wrap { flex-shrink: 0; }
+.luna-bubble .luna-message { flex: 1; color: #e2e8f0; font-size: 0.95em; line-height: 1.5; }
+.luna-bubble .luna-message strong { color: #a78bfa; }
+
+@keyframes lunaFadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+@keyframes lunaBreathe {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.03); }
+}
+.luna-breathing { animation: lunaBreathe 3s ease-in-out infinite; }
+
+/* Luna tip box (conseil) */
+.luna-tip {
+    display: flex; align-items: flex-start; gap: 10px;
+    background: rgba(124,58,237,0.08); border-left: 3px solid #7c3aed;
+    border-radius: 0 8px 8px 0; padding: 12px 16px; margin: 16px 0;
+    font-size: 0.88em; color: #cbd5e1;
+}
+.luna-tip strong { color: #a78bfa; display: block; margin-bottom: 4px; }
+
+/* Video guide accordeon */
+.step-video-guide { margin: 16px 0; border: 1px solid rgba(124,58,237,0.2); border-radius: 8px; overflow: hidden; }
+.step-video-guide .video-header {
+    display: flex; align-items: center; gap: 8px; padding: 10px 14px;
+    background: rgba(124,58,237,0.1); cursor: pointer; color: #a78bfa;
+    font-size: 0.9em; transition: background 0.2s;
+}
+.step-video-guide .video-header:hover { background: rgba(124,58,237,0.2); }
+.step-video-guide .video-header .video-toggle { margin-left: auto; transition: transform 0.3s; }
+.step-video-guide .video-header.open .video-toggle { transform: rotate(180deg); }
+.step-video-guide .video-body { padding: 14px; }
+.step-video-guide video { width: 100%; border-radius: 6px; margin-bottom: 10px; max-height: 300px; }
+.step-video-guide ol { padding-left: 20px; color: #94a3b8; font-size: 0.88em; line-height: 1.7; }
+.step-video-guide ol a { color: #7c3aed; text-decoration: underline; }
+
+/* SIRET company card */
+.siret-card {
+    background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.3);
+    border-radius: 12px; padding: 16px 20px; margin: 12px 0;
+}
+.siret-card.warn { background: rgba(234,179,8,0.1); border-color: rgba(234,179,8,0.3); }
+.siret-card.fail { background: rgba(239,68,68,0.1); border-color: rgba(239,68,68,0.3); }
+.siret-card h4 { color: #22c55e; margin: 0 0 8px 0; font-size: 0.95em; }
+.siret-card.warn h4 { color: #eab308; }
+.siret-card.fail h4 { color: #ef4444; }
+.siret-card p { margin: 4px 0; color: #cbd5e1; font-size: 0.88em; }
+.siret-card .ape-ok { color: #22c55e; }
+.siret-card .ape-warn { color: #eab308; }
+
+/* ===== PHASE B LEGAL CARDS ===== */
+.legal-cards { display: flex; flex-direction: column; gap: 8px; margin: 12px 0; }
+.legal-card {
+    background: rgba(30,27,75,0.5); border: 1px solid rgba(124,58,237,0.2);
+    border-radius: 10px; overflow: hidden; transition: all 0.3s;
+}
+.legal-card.checked { border-color: rgba(34,197,94,0.4); background: rgba(34,197,94,0.05); }
+.legal-card-header {
+    display: flex; align-items: center; gap: 10px; padding: 12px 16px; cursor: pointer;
+}
+.legal-card-header input[type="checkbox"] { accent-color: #22c55e; width: 18px; height: 18px; flex-shrink: 0; }
+.legal-card-header label { flex: 1; color: #e2e8f0; font-size: 0.9em; cursor: pointer; }
+.legal-card-header .severity-badge {
+    font-size: 0.7em; padding: 2px 8px; border-radius: 10px; font-weight: 600; flex-shrink: 0;
+}
+.severity-bloquant { background: rgba(234,179,8,0.2); color: #eab308; }
+.severity-critique { background: rgba(239,68,68,0.2); color: #ef4444; }
+.legal-card-body { display: none; padding: 0 16px 14px 48px; }
+.legal-card-body .legal-guidance { color: #94a3b8; font-size: 0.85em; line-height: 1.6; margin-bottom: 8px; }
+.legal-card-body .legal-template { display: inline-block; color: #7c3aed; font-size: 0.85em; text-decoration: underline; }
+.legal-card-body .legal-warning-critical {
+    display: flex; gap: 10px; align-items: flex-start;
+    background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3);
+    border-radius: 8px; padding: 10px 14px; margin-top: 8px;
+}
+.legal-card-body .legal-warning-critical .warning-icon { font-size: 1.3em; flex-shrink: 0; }
+.legal-card-body .legal-warning-critical strong { color: #ef4444; display: block; margin-bottom: 2px; font-size: 0.85em; }
+.legal-card-body .legal-warning-critical p { color: #fca5a5; font-size: 0.8em; margin: 0; line-height: 1.5; }
+
+/* ===== RECAP ===== */
+.recap-section { margin-bottom: 20px; }
+.recap-section h3 { color: #a78bfa; font-size: 1em; margin: 0 0 10px 0; display: flex; align-items: center; gap: 8px; }
+.recap-section .recap-items { display: flex; flex-direction: column; gap: 4px; }
+.recap-item { display: flex; align-items: center; gap: 8px; color: #cbd5e1; font-size: 0.88em; padding: 4px 0; }
+.recap-item .check { color: #22c55e; }
+.recap-tips { background: rgba(124,58,237,0.08); border-radius: 10px; padding: 14px 18px; margin: 16px 0; }
+.recap-tips h3 { color: #a78bfa; font-size: 0.95em; margin: 0 0 8px 0; }
+.recap-tips ul { list-style: none; padding: 0; margin: 0; }
+.recap-tips li { color: #94a3b8; font-size: 0.85em; padding: 3px 0; }
+.recap-critical { background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.2); border-radius: 10px; padding: 14px 18px; margin: 16px 0; }
+.recap-critical h3 { color: #ef4444; font-size: 0.95em; margin: 0 0 8px 0; }
+.recap-critical li { color: #fca5a5; font-size: 0.85em; padding: 3px 0; }
+
+/* ===== CELEBRATION ===== */
+.celebration { text-align: center; padding: 20px; animation: lunaFadeIn 0.8s ease-out; }
+.celebration h2 { color: #a78bfa; font-size: 1.3em; margin: 16px 0 8px; }
+.celebration .congrats-text { color: #cbd5e1; font-size: 0.95em; max-width: 500px; margin: 0 auto 20px; line-height: 1.6; }
+.celebration .reset-code-box {
+    background: linear-gradient(135deg, rgba(234,179,8,0.15), rgba(234,179,8,0.05));
+    border: 2px solid rgba(234,179,8,0.4); border-radius: 12px;
+    padding: 16px 24px; margin: 16px auto; max-width: 480px;
+}
+.celebration .reset-code-box h4 { color: #eab308; margin: 0 0 8px 0; font-size: 0.9em; }
+.celebration .reset-code-box code { font-size: 1.2em; color: #fde68a; letter-spacing: 2px; user-select: all; }
+.celebration .next-steps { text-align: left; max-width: 400px; margin: 20px auto 0; }
+.celebration .next-steps h4 { color: #a78bfa; font-size: 0.9em; margin-bottom: 8px; }
+.celebration .next-steps label { display: block; color: #94a3b8; font-size: 0.85em; padding: 3px 0; cursor: pointer; }
+.celebration .next-steps input[type="checkbox"] { accent-color: #22c55e; margin-right: 6px; }
+
+/* Confetti animation */
+@keyframes confettiFall {
+    0% { transform: translateY(-100vh) rotate(0deg); opacity: 1; }
+    100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+}
+.confetti-container { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 9999; overflow: hidden; }
+.confetti-piece {
+    position: absolute; width: 10px; height: 10px; top: -20px;
+    animation: confettiFall 3s linear forwards;
+}
 </style>
 </head>
 <body>
@@ -154,7 +290,17 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; b
     <div class="step-content">
       <!-- STEP 0: Bienvenue -->
       <div class="step-panel active" id="step-0">
-        <h2>Bienvenue dans l'installation Luna</h2>
+        <div style="text-align:center; margin-bottom: 24px;">
+          <div id="luna-welcome"></div>
+          <h2 style="color:#a78bfa; margin: 12px 0 6px;">Bienvenue dans YAWatch Luna</h2>
+          <p style="color:#94a3b8; font-size:0.95em;">Je vais vous aider a :</p>
+          <div style="display:flex; gap:16px; justify-content:center; margin:12px 0; flex-wrap:wrap;">
+            <span style="background:rgba(124,58,237,0.15); padding:6px 14px; border-radius:20px; color:#a78bfa; font-size:0.85em;">Verifier votre entreprise</span>
+            <span style="background:rgba(124,58,237,0.15); padding:6px 14px; border-radius:20px; color:#a78bfa; font-size:0.85em;">Connecter vos services</span>
+            <span style="background:rgba(124,58,237,0.15); padding:6px 14px; border-radius:20px; color:#a78bfa; font-size:0.85em;">Securiser votre installation</span>
+            <span style="background:rgba(124,58,237,0.15); padding:6px 14px; border-radius:20px; color:#a78bfa; font-size:0.85em;">Valider la conformite juridique</span>
+          </div>
+        </div>
         <p class="subtitle">Choisissez votre mode de fonctionnement</p>
         <div class="mode-cards">
           <div class="mode-card selected" id="modeLite" onclick="selectMode('lite')">
@@ -187,7 +333,11 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; b
         </div>
         <div class="field">
           <label>Numero SIRET (14 chiffres)</label>
-          <input type="text" id="EXPLOITANT_SIRET" placeholder="12345678901234" maxlength="14">
+          <div style="display:flex; align-items:center;">
+            <input type="text" id="EXPLOITANT_SIRET" placeholder="12345678901234" maxlength="14" style="flex:1;">
+            <button type="button" onclick="checkSiret()" class="btn-sm" style="margin-left:8px;">Verifier le SIRET</button>
+          </div>
+          <div id="siret-result"></div>
         </div>
         <div class="field">
           <label>Licence YAWatch (fournie par le fondateur)</label>
@@ -204,14 +354,21 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; b
       <div class="step-panel" id="step-2">
         <h2>OpenAI — L'intelligence de Luna</h2>
         <p class="subtitle">Luna utilise OpenAI pour comprendre et repondre a vos clients</p>
-        <div class="instructions">
-          <ol>
-            <li>Ouvrez <a href="https://platform.openai.com" target="_blank">platform.openai.com</a></li>
-            <li>Creez un compte (ou connectez-vous)</li>
-            <li>Allez dans <strong>Settings > Billing</strong> et ajoutez une carte bancaire</li>
-            <li>Allez dans <strong>API Keys > Create new secret key</strong></li>
-            <li>Copiez la cle (elle commence par <code>sk-</code>)</li>
-          </ol>
+        <div class="step-video-guide">
+          <div class="video-header" onclick="toggleVideo(this)">
+            <span>&#9654;</span><span>Comment obtenir votre cle API OpenAI</span><span class="video-toggle">&#9660;</span>
+          </div>
+          <div class="video-body" style="display:none">
+            <video controls preload="none"><source src="/static/videos/openai-api-key.mp4" type="video/mp4"></video>
+            <ol>
+              <li>Allez sur <a href="https://platform.openai.com" target="_blank">platform.openai.com</a></li>
+              <li>Connectez-vous ou creez un compte</li>
+              <li>En haut a droite : icone profil &rarr; <strong>API Keys</strong></li>
+              <li>Bouton <strong>Create new secret key</strong> &rarr; nommez-la "Luna" &rarr; <strong>Create</strong></li>
+              <li>&#9888; <strong>Copiez IMMEDIATEMENT</strong> la cle (elle ne sera plus jamais visible)</li>
+              <li>Si erreur "billing" : Settings &rarr; Billing &rarr; Add payment method</li>
+            </ol>
+          </div>
         </div>
         <div class="field">
           <label>Cle API OpenAI</label>
@@ -219,6 +376,10 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; b
           <div class="hint">Commence par 'sk-'. Ne la partagez jamais.</div>
         </div>
         <div id="test-openai" class="test-result"></div>
+        <div class="luna-tip">
+          <div style="font-size:1.2em;">&#128161;</div>
+          <div><strong>Conseil de Luna</strong>Choisissez gpt-4o-mini pour commencer : c'est 20x moins cher que gpt-4-turbo et suffisant pour 90% des conversations.</div>
+        </div>
         <div class="btn-row">
           <button class="btn btn-secondary" onclick="goStep(1)">Retour</button>
           <button class="btn btn-secondary" onclick="testService('openai')">Tester la connexion</button>
@@ -230,13 +391,21 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; b
       <div class="step-panel" id="step-3">
         <h2>Twilio — L'envoi de SMS</h2>
         <p class="subtitle">Twilio permet a Luna d'envoyer des SMS a vos clients et leurs proches</p>
-        <div class="instructions">
-          <ol>
-            <li>Ouvrez <a href="https://www.twilio.com/try-twilio" target="_blank">twilio.com</a></li>
-            <li>Creez un compte et passez en mode payant</li>
-            <li>Achetez un numero de telephone (~1 EUR/mois)</li>
-            <li>Sur le Dashboard, copiez : <strong>Account SID</strong>, <strong>Auth Token</strong>, et le <strong>numero achete</strong></li>
-          </ol>
+        <div class="step-video-guide">
+          <div class="video-header" onclick="toggleVideo(this)">
+            <span>&#9654;</span><span>Comment configurer Twilio (SID + Token + Numero)</span><span class="video-toggle">&#9660;</span>
+          </div>
+          <div class="video-body" style="display:none">
+            <video controls preload="none"><source src="/static/videos/twilio-setup.mp4" type="video/mp4"></video>
+            <ol>
+              <li>Allez sur <a href="https://www.twilio.com/console" target="_blank">console.twilio.com</a></li>
+              <li>Sur le dashboard : <strong>Account SID</strong> et <strong>Auth Token</strong> sont affiches directement</li>
+              <li>Copiez les deux valeurs</li>
+              <li>Menu gauche &rarr; <strong>Phone Numbers</strong> &rarr; <strong>Buy a Number</strong></li>
+              <li>Filtrer par pays : France (+33) &rarr; choisir un numero &rarr; <strong>Buy</strong></li>
+              <li>Le numero apparait dans TWILIO_SMS_FROM</li>
+            </ol>
+          </div>
         </div>
         <div class="field">
           <label>Account SID (commence par 'AC')</label>
@@ -252,6 +421,10 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; b
           <div class="hint">Le numero que vous avez achete, commence par '+'</div>
         </div>
         <div id="test-twilio" class="test-result"></div>
+        <div class="luna-tip">
+          <div style="font-size:1.2em;">&#128161;</div>
+          <div><strong>Conseil de Luna</strong>Achetez un numero francais (+33) pour que vos clients reconnaissent l'expediteur. Un numero US coute moins cher mais les SMS arrivent souvent en spam.</div>
+        </div>
         <div class="btn-row">
           <button class="btn btn-secondary" onclick="goStep(2)">Retour</button>
           <button class="btn btn-secondary" onclick="testService('twilio')">Tester la connexion</button>
@@ -263,13 +436,22 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; b
       <div class="step-panel" id="step-4">
         <h2>Stripe — Les paiements</h2>
         <p class="subtitle">Stripe gere les abonnements de vos clients</p>
-        <div class="instructions">
-          <ol>
-            <li>Ouvrez <a href="https://dashboard.stripe.com/register" target="_blank">stripe.com</a></li>
-            <li>Creez un compte professionnel</li>
-            <li>Allez dans <strong>Developers > API Keys</strong></li>
-            <li>Copiez la <strong>Secret Key</strong></li>
-          </ol>
+        <div class="step-video-guide">
+          <div class="video-header" onclick="toggleVideo(this)">
+            <span>&#9654;</span><span>Comment configurer Stripe (API + Webhook)</span><span class="video-toggle">&#9660;</span>
+          </div>
+          <div class="video-body" style="display:none">
+            <video controls preload="none"><source src="/static/videos/stripe-api-key.mp4" type="video/mp4"></video>
+            <ol>
+              <li>Allez sur <a href="https://dashboard.stripe.com" target="_blank">dashboard.stripe.com</a></li>
+              <li>Menu &rarr; <strong>Developers</strong> &rarr; <strong>API Keys</strong></li>
+              <li>Copiez la <strong>Secret key</strong> (sk_test_... ou sk_live_...)</li>
+              <li>Pour le webhook : Developers &rarr; <strong>Webhooks</strong> &rarr; <strong>Add endpoint</strong></li>
+              <li>URL : <code>https://votre-serveur:8888/api/stripe/webhook</code></li>
+              <li>Events : <code>checkout.session.completed</code>, <code>customer.subscription.*</code>, <code>invoice.payment_failed</code></li>
+              <li>Copiez le <strong>Signing secret</strong> (whsec_...)</li>
+            </ol>
+          </div>
         </div>
         <div class="field">
           <label>Secret Key Stripe</label>
@@ -307,6 +489,10 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; b
           </div>
           <div id="stripe-auto-result" class="test-result"></div>
         </div>
+        <div class="luna-tip">
+          <div style="font-size:1.2em;">&#128161;</div>
+          <div><strong>Conseil de Luna</strong>Commencez en mode TEST (sk_test_) pour tout configurer sans risque. Passez en LIVE (sk_live_) uniquement quand tout est pret.</div>
+        </div>
         <div class="btn-row">
           <button class="btn btn-secondary" onclick="goStep(3)">Retour</button>
           <button class="btn btn-secondary" onclick="testService('stripe')">Tester la connexion</button>
@@ -325,13 +511,20 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; b
           </div>
         </div>
         <div id="tavus-form">
-          <div class="instructions">
-            <ol>
-              <li>Ouvrez <a href="https://www.tavus.io" target="_blank">tavus.io</a></li>
-              <li>Creez un compte Business</li>
-              <li>Generez une <strong>API Key</strong></li>
-              <li>Creez une persona 'Luna' et copiez le <strong>Persona ID</strong></li>
-            </ol>
+          <div class="step-video-guide">
+            <div class="video-header" onclick="toggleVideo(this)">
+              <span>&#9654;</span><span>Comment configurer Tavus (API + Persona)</span><span class="video-toggle">&#9660;</span>
+            </div>
+            <div class="video-body" style="display:none">
+              <video controls preload="none"><source src="/static/videos/tavus-setup.mp4" type="video/mp4"></video>
+              <ol>
+                <li>Allez sur <a href="https://dashboard.tavus.io" target="_blank">dashboard.tavus.io</a></li>
+                <li>Menu &rarr; <strong>API Keys</strong> &rarr; <strong>Generate Key</strong></li>
+                <li>Copiez la cle API</li>
+                <li>Menu &rarr; <strong>Personas</strong> &rarr; votre persona Luna</li>
+                <li>Copiez le <strong>Persona ID</strong> (commence par p)</li>
+              </ol>
+            </div>
           </div>
           <div class="field">
             <label>Cle API Tavus</label>
@@ -342,6 +535,10 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; b
             <input type="text" id="TAVUS_LUNA_PERSONA_ID" placeholder="p...">
           </div>
           <div id="test-tavus" class="test-result"></div>
+          <div class="luna-tip">
+            <div style="font-size:1.2em;">&#128161;</div>
+            <div><strong>Conseil de Luna</strong>Le plan Starter Tavus ($59/mois, 100 min) suffit jusqu'a 30 clients. Prevoyez le Growth ($397/mois) au-dela.</div>
+          </div>
           <div class="btn-row">
             <button class="btn btn-secondary" onclick="goStep(4)">Retour</button>
             <button class="btn btn-secondary" onclick="testService('tavus')">Tester</button>
@@ -360,6 +557,10 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; b
           <button class="btn btn-primary" id="securityBtn" onclick="generateSecurity()">Generer la securite</button>
           <div id="security-result" class="test-result" style="margin-top:16px;"></div>
         </div>
+        <div class="luna-tip">
+          <div style="font-size:1.2em;">&#128161;</div>
+          <div><strong>Conseil de Luna</strong>Les certificats auto-signes conviennent pour demarrer. En production, utilisez Let's Encrypt (gratuit) avec Certbot.</div>
+        </div>
       </div>
 
       <!-- STEP 7: Admin -->
@@ -375,6 +576,10 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; b
           <label>Mot de passe admin (pour le dashboard)</label>
           <input type="password" id="ADMIN_PASSWORD" placeholder="Minimum 8 caracteres">
           <div class="hint">Sera utilise pour acceder au dashboard admin (/admin).</div>
+        </div>
+        <div class="luna-tip">
+          <div style="font-size:1.2em;">&#128161;</div>
+          <div><strong>Conseil de Luna</strong>Ce numero recevra les alertes critiques (detresse detectee, panne). Utilisez votre numero perso au debut.</div>
         </div>
         <div class="btn-row">
           <button class="btn btn-secondary" onclick="goStep(6)">Retour</button>
@@ -392,6 +597,10 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; b
           <div class="hint">Si Redis n'est pas installe, Luna fonctionnera en mode degrade.</div>
         </div>
         <div id="test-redis" class="test-result"></div>
+        <div class="luna-tip">
+          <div style="font-size:1.2em;">&#128161;</div>
+          <div><strong>Conseil de Luna</strong>Le Redis inclus dans Docker suffit. En production avec 100+ clients, envisagez Redis Cloud (gratuit jusqu'a 30MB).</div>
+        </div>
         <div class="btn-row">
           <button class="btn btn-secondary" onclick="goStep(7)">Retour</button>
           <button class="btn btn-secondary" onclick="testService('redis')">Tester Redis</button>
@@ -414,8 +623,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; b
 
         <!-- Phase B -->
         <div style="margin-bottom:24px;">
-          <h3 style="color:#a78bfa; font-size:1em; margin-bottom:8px;">Phase B — Declarations legales</h3>
-          <p style="font-size:0.85em; color:#888; margin-bottom:12px;">Cochez chaque point que vous avez mis en place.</p>
+          <h3 style="color:#a78bfa; font-size:1em; margin-bottom:8px;">Phase B — Declarations legales <span id="phase-b-status" style="font-size:0.8em; color:#888; font-weight:normal;"></span></h3>
+          <p style="font-size:0.85em; color:#888; margin-bottom:12px;">Cochez chaque point que vous avez mis en place. Cliquez sur une carte pour voir les details.</p>
           <div id="phase-b-checklist"></div>
         </div>
 
@@ -426,8 +635,11 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; b
           <div id="phase-c-results" class="phase-results"></div>
         </div>
 
+        <!-- Recap -->
+        <div id="recap-container" style="display:none;"></div>
+
         <!-- Sign PV -->
-        <div style="border-top: 1px solid #333; padding-top: 20px; margin-top: 20px;">
+        <div id="sign-pv-section" style="border-top: 1px solid #333; padding-top: 20px; margin-top: 20px;">
           <button class="btn btn-success" id="signPvBtn" onclick="signPV()" disabled>Signer le PV de Recette</button>
           <div id="pv-sign-result" class="test-result" style="margin-top:12px;"></div>
         </div>
@@ -464,17 +676,131 @@ var phaseBOk = false;
 var phaseCOk = false;
 
 // =========================================================================
+// LUNA SVG AVATAR
+// =========================================================================
+function lunaSVG(size) {
+    size = size || 48;
+    return '<svg class="luna-svg luna-breathing" width="'+size+'" height="'+size+'" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">'
+        + '<defs><radialGradient id="lunaGlow" cx="50%" cy="40%" r="50%">'
+        + '<stop offset="0%" stop-color="#c4b5fd"/><stop offset="100%" stop-color="#7c3aed"/></radialGradient></defs>'
+        + '<circle cx="50" cy="42" r="28" fill="url(#lunaGlow)" opacity="0.9"/>'
+        + '<circle cx="50" cy="42" r="24" fill="none" stroke="#a78bfa" stroke-width="1.5" opacity="0.5"/>'
+        + '<ellipse cx="40" cy="38" rx="3" ry="3.5" fill="#1e1b4b"/>'
+        + '<ellipse cx="60" cy="38" rx="3" ry="3.5" fill="#1e1b4b"/>'
+        + '<circle cx="41.5" cy="37" r="1" fill="#e9d5ff"/>'
+        + '<circle cx="61.5" cy="37" r="1" fill="#e9d5ff"/>'
+        + '<path d="M43 48 Q50 53 57 48" fill="none" stroke="#1e1b4b" stroke-width="2" stroke-linecap="round"/>'
+        + '<path d="M26 30 Q30 12 50 10 Q70 12 74 30" fill="none" stroke="#a78bfa" stroke-width="2" opacity="0.6"/>'
+        + '<circle cx="50" cy="80" r="0" fill="#a78bfa" opacity="0">'
+        + '<animate attributeName="r" values="0;18;0" dur="4s" repeatCount="indefinite"/>'
+        + '<animate attributeName="opacity" values="0;0.15;0" dur="4s" repeatCount="indefinite"/></circle>'
+        + '</svg>';
+}
+
+function lunaBubble(message, size) {
+    return '<div class="luna-bubble"><div class="luna-avatar-wrap">' + lunaSVG(size || 48) + '</div>'
+        + '<div class="luna-message">' + message + '</div></div>';
+}
+
+var lunaMessages = {
+    0: "Bonjour ! Je suis <strong>Luna</strong>, votre assistante. Je vais vous guider pas a pas pour configurer votre instance. Pas d'inquietude, je suis la a chaque etape !",
+    1: "Commencons par <strong>votre entreprise</strong>. Entrez votre SIRET et je verifierai automatiquement vos informations aupres du registre officiel.",
+    2: "L'intelligence artificielle, c'est <strong>mon cerveau</strong> ! Cette cle permet de me donner la parole.",
+    3: "Twilio me permet d'<strong>envoyer des SMS</strong> a vos clients et a leurs proches en cas de besoin.",
+    4: "Stripe gere les <strong>paiements</strong> de vos clients. C'est votre caisse enregistreuse numerique !",
+    5: "Tavus me donne un <strong>visage</strong> ! En visio, vos clients me voient, pas juste un chatbot.",
+    6: "La <strong>securite</strong>, c'est sacre. Je vais generer automatiquement vos cles de chiffrement.",
+    7: "Votre numero d'admin, c'est la <strong>ligne directe</strong> entre vous et moi pour les urgences.",
+    8: "Redis, c'est <strong>ma memoire</strong>. Sans elle, j'oublie tout a chaque redemarrage !",
+    9: "On y est presque ! Faisons le <strong>bilan ensemble</strong> avant de tout valider."
+};
+
+// =========================================================================
+// VIDEO GUIDE TOGGLE
+// =========================================================================
+function toggleVideo(header) {
+    var body = header.nextElementSibling;
+    var isOpen = body.style.display !== 'none';
+    body.style.display = isOpen ? 'none' : 'block';
+    header.classList.toggle('open', !isOpen);
+}
+
+// =========================================================================
+// SIRET VERIFICATION
+// =========================================================================
+function checkSiret() {
+    var siretInput = document.getElementById('EXPLOITANT_SIRET');
+    if (!siretInput) { alert('Champ SIRET introuvable'); return; }
+    var siret = siretInput.value.trim().replace(/\s/g, '');
+    var resultDiv = document.getElementById('siret-result');
+    resultDiv.innerHTML = '<p style="color:#94a3b8;">Verification en cours...</p>';
+
+    fetch('/api/setup/check-siret', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({siret: siret})
+    }).then(function(r) { return r.json(); }).then(function(data) {
+        if (data.status === 'ok') {
+            var c = data.company;
+            var apeClass = c.ape_compatible ? 'ape-ok' : 'ape-warn';
+            var apeMsg = c.ape_compatible
+                ? 'Code APE compatible avec Luna'
+                : 'Code APE inhabituel pour Luna — verifiez avec votre comptable';
+            resultDiv.innerHTML = '<div class="siret-card">'
+                + '<h4>Entreprise verifiee</h4>'
+                + '<p><strong>' + c.nom + '</strong></p>'
+                + '<p>' + c.adresse + '</p>'
+                + '<p>APE: ' + c.ape + ' — <span class="' + apeClass + '">' + apeMsg + '</span></p>'
+                + (c.dirigeants && c.dirigeants.length ? '<p>' + c.dirigeants[0].prenoms + ' ' + c.dirigeants[0].nom + ' (' + c.dirigeants[0].qualite + ')</p>' : '')
+                + '</div>'
+                + lunaBubble(c.ape_compatible
+                    ? '<strong>Parfait !</strong> Votre entreprise est active et votre code APE est compatible avec l\'exploitation de Luna.'
+                    : '<strong>Attention :</strong> Votre code APE (' + c.ape + ') n\'est pas dans la liste habituelle. Ca ne bloque pas, mais verifiez avec votre comptable que l\'exploitation d\'un service IA est compatible avec votre objet social.'
+                , 36);
+            // Auto-fill name field if empty
+            var nameInput = document.getElementById('EXPLOITANT_NAME');
+            if (nameInput && !nameInput.value) nameInput.value = c.nom;
+        } else if (data.status === 'warn') {
+            resultDiv.innerHTML = '<div class="siret-card warn"><h4>' + data.message + '</h4></div>';
+        } else {
+            resultDiv.innerHTML = '<div class="siret-card fail"><h4>' + data.message + '</h4></div>';
+        }
+    }).catch(function(e) {
+        resultDiv.innerHTML = '<div class="siret-card warn"><h4>Erreur reseau — continuez manuellement</h4></div>';
+    });
+}
+
+// =========================================================================
 // INIT
 // =========================================================================
 (function init() {
   loadWizardState();
   loadPhaseBChecklist();
+
+  // Luna welcome avatar
+  var welcomeEl = document.getElementById('luna-welcome');
+  if (welcomeEl) welcomeEl.innerHTML = lunaSVG(96);
+
+  // Inject Luna bubble on initial step (step 0)
+  var step0 = document.getElementById('step-0');
+  if (step0 && lunaMessages[0]) {
+    step0.insertAdjacentHTML('afterbegin', lunaBubble(lunaMessages[0]));
+  }
+
+  // Hide video elements that fail to load (video file doesn't exist)
+  document.querySelectorAll('.step-video-guide video').forEach(function(v) {
+    v.addEventListener('error', function() { this.style.display = 'none'; });
+    var src = v.querySelector('source');
+    if (src) src.addEventListener('error', function() { v.style.display = 'none'; });
+  });
 })();
 
 function loadWizardState() {
   fetch("/api/setup/wizard-state")
     .then(function(r) { return r.json(); })
     .then(function(data) {
+      // Store wizard state for recap
+      window._wizardState = data;
       completedSteps = data.completed_steps || [];
       if (data.config && data.config.LUNA_MODE) {
         lunaMode = data.config.LUNA_MODE;
@@ -503,16 +829,73 @@ function loadPhaseBChecklist() {
   fetch("/api/setup/phase-b-checklist")
     .then(function(r) { return r.json(); })
     .then(function(data) {
-      var container = document.getElementById("phase-b-checklist");
       if (!data.checklist) return;
-      var html = "";
-      Object.keys(data.checklist).forEach(function(key) {
-        var item = data.checklist[key];
-        html += '<div class="phase-check"><label><input type="checkbox" id="pb_' + key + '" onchange="checkPhaseBComplete()"> ' + item.label + '</label></div>';
-      });
-      container.innerHTML = html;
+      renderPhaseB(data.checklist);
     })
     .catch(function() {});
+}
+
+function renderPhaseB(checklist) {
+  var container = document.getElementById("phase-b-checklist");
+  var criticalWarnings = {
+    'mention_non_medical': {title: 'Risque penal', text: 'Promouvoir Luna comme dispositif medical sans autorisation ANSM constitue un exercice illegal de la medecine (Art. L4161-1 Code de la Sante Publique). Peine : 2 ans de prison + 30 000 EUR d\'amende.'},
+    'best_effort_compris': {title: 'Risque penal', text: 'Promettre la detection de detresse expose a une mise en danger d\'autrui (Art. 223-1 Code penal) en cas de defaillance. Peine : 1 an + 15 000 EUR.'},
+    'rgpd': {title: 'Risque financier majeur', text: 'Non-conformite RGPD : amende jusqu\'a 20M EUR ou 4% du CA mondial (Art. 83 RGPD).'},
+    'cgv': {title: 'Sanction DGCCRF', text: 'Defaut d\'information precontractuelle (Art. L111-1 Code de la consommation). Sanctions administratives et civiles.'}
+  };
+  var html = '<div class="legal-cards">';
+  Object.keys(checklist).forEach(function(key) {
+    var item = checklist[key];
+    var sev = item.severity || 'bloquant';
+    var warning = criticalWarnings[key];
+    html += '<div class="legal-card" id="card-' + key + '">';
+    html += '<div class="legal-card-header" onclick="toggleLegalCard(this)">';
+    html += '<input type="checkbox" id="pb_' + key + '" onchange="onLegalCheck(this, \'' + key + '\')">';
+    html += '<label for="pb_' + key + '">' + item.label + '</label>';
+    html += '<span class="severity-badge severity-' + sev + '">' + sev + '</span>';
+    html += '</div>';
+    html += '<div class="legal-card-body">';
+    html += '<p class="legal-guidance">' + (item.guidance || '') + '</p>';
+    if (item.template) {
+      html += '<a class="legal-template" href="/templates/' + item.template + '" target="_blank">&#128196; Voir le modele de document</a>';
+    }
+    if (warning) {
+      html += '<div class="legal-warning-critical">';
+      html += '<div class="warning-icon">&#9888;&#65039;</div>';
+      html += '<div><strong>' + warning.title + '</strong><p>' + warning.text + '</p></div>';
+      html += '</div>';
+    }
+    html += '</div></div>';
+  });
+  html += '</div>';
+  container.innerHTML = html;
+  updatePhaseBStatus();
+}
+
+function toggleLegalCard(header) {
+  var body = header.nextElementSibling;
+  var isOpen = body.style.display === 'block';
+  body.style.display = isOpen ? 'none' : 'block';
+}
+
+function onLegalCheck(cb, key) {
+  var card = document.getElementById('card-' + key);
+  if (cb.checked) {
+    card.classList.add('checked');
+  } else {
+    card.classList.remove('checked');
+  }
+  updatePhaseBStatus();
+  checkPhaseBComplete();
+}
+
+function updatePhaseBStatus() {
+  var cards = document.querySelectorAll('.legal-card input[type="checkbox"]');
+  var total = cards.length;
+  var checked = 0;
+  cards.forEach(function(cb) { if (cb.checked) checked++; });
+  var statusEl = document.getElementById('phase-b-status');
+  if (statusEl) statusEl.textContent = checked + '/' + total + ' declarations';
 }
 
 // =========================================================================
@@ -546,6 +929,15 @@ function goStep(n) {
   document.querySelectorAll('.step-btn[data-step="' + n + '"]').forEach(function(b) { b.classList.add("active"); });
   currentStep = n;
   updateProgress();
+
+  // Inject Luna bubble at top of step content
+  var stepEl = document.getElementById('step-' + n);
+  if (stepEl) {
+    var existingBubble = stepEl.querySelector('.luna-bubble');
+    if (!existingBubble && lunaMessages[n]) {
+      stepEl.insertAdjacentHTML('afterbegin', lunaBubble(lunaMessages[n]));
+    }
+  }
 }
 
 function markStepDone(n) {
@@ -779,6 +1171,8 @@ function runPhaseA() {
   .then(function(r) { return r.json(); })
   .then(function(data) {
     var results = data.results || {};
+    // Store Phase A results for recap
+    window._phaseAResults = results;
     var html = "";
     Object.keys(results).forEach(function(key) {
       if (key === "all_passed") return;
@@ -836,7 +1230,83 @@ function runPhaseC() {
 }
 
 function checkCanSign() {
-  document.getElementById("signPvBtn").disabled = !(phaseAOk && phaseBOk && phaseCOk);
+  var allOk = phaseAOk && phaseBOk && phaseCOk;
+  document.getElementById("signPvBtn").disabled = !allOk;
+  // Show recap when all phases pass
+  if (allOk) {
+    buildRecap();
+  }
+}
+
+function buildRecap() {
+  var container = document.getElementById('recap-container');
+  if (!container) return;
+  var ws = window._wizardState || {};
+  var config = ws.config || {};
+  var mode = config.LUNA_MODE || lunaMode || 'lite';
+
+  var html = '<div style="border:1px solid rgba(124,58,237,0.3); border-radius:12px; padding:20px; margin:20px 0;">';
+  html += '<h2 style="color:#a78bfa; text-align:center; margin:0 0 20px;">Recapitulatif complet</h2>';
+
+  // Company section
+  html += '<div class="recap-section"><h3>&#127970; Votre entreprise</h3><div class="recap-items">';
+  var companyName = val('EXPLOITANT_NAME') || config.EXPLOITANT_NAME || '';
+  var companySiret = val('EXPLOITANT_SIRET') || config.EXPLOITANT_SIRET || '';
+  var companyEmail = val('EXPLOITANT_EMAIL') || config.EXPLOITANT_EMAIL || '';
+  if (companyName) html += '<div class="recap-item"><span class="check">&#10003;</span> ' + companyName + '</div>';
+  if (companySiret) html += '<div class="recap-item"><span class="check">&#10003;</span> SIRET: ' + companySiret + '</div>';
+  if (companyEmail) html += '<div class="recap-item"><span class="check">&#10003;</span> ' + companyEmail + '</div>';
+  html += '</div></div>';
+
+  // Services section
+  html += '<div class="recap-section"><h3>&#9881; Services techniques</h3><div class="recap-items">';
+  var services = [
+    {name: 'OpenAI', key: 'openai'}, {name: 'Twilio', key: 'twilio'},
+    {name: 'Stripe', key: 'stripe'}, {name: 'Redis', key: 'redis'},
+    {name: 'SSL', key: 'ssl'}, {name: 'JWT', key: 'jwt'}
+  ];
+  if (mode === 'full') services.splice(3, 0, {name: 'Tavus', key: 'tavus'});
+  var phaseA = window._phaseAResults || {};
+  services.forEach(function(s) {
+    var r = phaseA[s.key];
+    var ok = r && (r.status === 'ok' || r.status === 'skipped');
+    html += '<div class="recap-item"><span class="check">' + (ok ? '&#10003;' : '&#10007;') + '</span> ' + s.name + ' — ' + (r ? r.message || r.status : 'non teste') + '</div>';
+  });
+  html += '</div></div>';
+
+  // Legal section
+  html += '<div class="recap-section"><h3>&#9878; Conformite juridique</h3><div class="recap-items">';
+  var legalCards = document.querySelectorAll('.legal-card');
+  legalCards.forEach(function(card) {
+    var cb = card.querySelector('input[type="checkbox"]');
+    var label = card.querySelector('label');
+    if (cb && label) {
+      html += '<div class="recap-item"><span class="check">' + (cb.checked ? '&#10003;' : '&#10007;') + '</span> ' + label.textContent + '</div>';
+    }
+  });
+  html += '</div></div>';
+
+  // Tips
+  html += '<div class="recap-tips"><h3>Conseils de Luna pour bien demarrer</h3><ul>';
+  html += '<li>Souscrivez une RC Pro d\'au moins 500 000 EUR</li>';
+  html += '<li>Configurez un backup Redis hebdomadaire</li>';
+  html += '<li>Renouvelez vos certificats SSL avant expiration</li>';
+  html += '<li>Commencez en mode TEST Stripe, passez en LIVE quand pret</li>';
+  html += '<li>Prevoyez un budget API de ~1 200 EUR/mois pour 100 clients</li>';
+  html += '<li>Gardez le RESET_CODE dans un coffre-fort numerique (1Password, etc.)</li>';
+  html += '</ul></div>';
+
+  // Critical reminders
+  html += '<div class="recap-critical"><h3>Rappels critiques</h3><ul style="list-style:none;padding:0;">';
+  html += '<li>Luna n\'est PAS un dispositif medical</li>';
+  html += '<li>Ne JAMAIS promettre la detection de detresse</li>';
+  html += '<li>Toujours recommander le 15/112 en priorite</li>';
+  html += '<li>Conserver le reset code en lieu sur</li>';
+  html += '</ul></div>';
+
+  html += '</div>';
+  container.innerHTML = html;
+  container.style.display = 'block';
 }
 
 function signPV() {
@@ -863,27 +1333,10 @@ function signPV() {
   .then(function(r) { return r.json(); })
   .then(function(data) {
     if (data.success) {
-      var resetCode = data.reset_code || "";
-      var certUrl = data.certificate_url || "";
-      var html = '<strong>PV signe avec succes !</strong><br><br>';
-      if (resetCode) {
-        html += '<div style="border:3px solid #cc0000;padding:16px;margin:12px 0;border-radius:8px;background:#1a0000;">' +
-          '<strong style="color:#cc0000;">CODE DE REINITIALISATION</strong><br>' +
-          '<span style="color:#cc0000;font-family:Courier New,monospace;font-size:20px;font-weight:bold;letter-spacing:2px;">' +
-          resetCode + '</span><br><br>' +
-          '<small style="color:#ff6666;">CONSERVEZ CE CODE EN LIEU SUR — Il ne sera plus jamais affiche.</small>' +
-          '</div>';
-      }
-      if (certUrl) {
-        html += '<a href="' + certUrl + '" target="_blank" style="color:#a78bfa;text-decoration:underline;font-weight:bold;">' +
-          'Telecharger le Certificat d\'Autonomie (DOCX)</a><br><br>';
-      }
-      html += 'Luna est maintenant operationnelle. Vos clients peuvent y acceder.';
-      resultEl.className = "test-result ok";
-      resultEl.innerHTML = html;
       if (completedSteps.indexOf("9") === -1) completedSteps.push("9");
       markStepDone(9);
       updateProgress();
+      showCelebration(data);
     } else {
       resultEl.className = "test-result fail";
       resultEl.textContent = data.error || "Erreur signature";
@@ -895,6 +1348,66 @@ function signPV() {
     resultEl.textContent = "Erreur: " + e.message;
     btn.disabled = false;
   });
+}
+
+function showCelebration(data) {
+  var step9 = document.getElementById('step-9');
+  if (!step9) return;
+
+  // Launch confetti
+  launchConfetti();
+
+  var html = '<div class="celebration">';
+  html += '<div id="luna-celebrate"></div>';
+  html += '<h2>Felicitations !</h2>';
+  html += '<p class="congrats-text">Votre instance Luna est officiellement operationnelle.<br>Bienvenue dans la famille YAWatch ! Je suis prete a prendre soin de vos clients.</p>';
+
+  if (data.reset_code) {
+    html += '<div class="reset-code-box">';
+    html += '<h4>&#128274; Reset Code — A CONSERVER PRECIEUSEMENT</h4>';
+    html += '<code>' + data.reset_code + '</code>';
+    html += '<p style="color:#94a3b8; font-size:0.8em; margin-top:8px;">Ce code ne sera plus jamais affiche. Notez-le dans un endroit sur.</p>';
+    html += '</div>';
+  }
+
+  if (data.certificate_url) {
+    html += '<a href="' + data.certificate_url + '" class="btn" style="display:inline-block; margin:12px 0; background:#7c3aed; color:white; padding:10px 24px; border-radius:8px; text-decoration:none;">Telecharger le certificat d\'autonomie</a>';
+  }
+
+  html += '<div class="next-steps">';
+  html += '<h4>Prochaines etapes</h4>';
+  html += '<label><input type="checkbox"> Conserver le reset code en lieu sur</label>';
+  html += '<label><input type="checkbox"> Configurer le dashboard admin (/admin)</label>';
+  html += '<label><input type="checkbox"> Creer votre premier client test</label>';
+  html += '<label><input type="checkbox"> Passer Stripe en mode LIVE quand pret</label>';
+  html += '<label><input type="checkbox"> Former votre equipe support</label>';
+  html += '</div>';
+  html += '</div>';
+
+  step9.innerHTML = html;
+  // Inject Luna SVG if function exists
+  var lunaEl = document.getElementById('luna-celebrate');
+  if (lunaEl && typeof lunaSVG === 'function') lunaEl.innerHTML = lunaSVG(96);
+}
+
+function launchConfetti() {
+  var container = document.createElement('div');
+  container.className = 'confetti-container';
+  document.body.appendChild(container);
+  var colors = ['#7c3aed', '#a78bfa', '#c4b5fd', '#eab308', '#fde68a', '#22c55e', '#f472b6'];
+  for (var i = 0; i < 50; i++) {
+    var piece = document.createElement('div');
+    piece.className = 'confetti-piece';
+    piece.style.left = Math.random() * 100 + '%';
+    piece.style.background = colors[Math.floor(Math.random() * colors.length)];
+    piece.style.animationDelay = Math.random() * 2 + 's';
+    piece.style.animationDuration = (2 + Math.random() * 2) + 's';
+    piece.style.borderRadius = Math.random() > 0.5 ? '50%' : '2px';
+    piece.style.width = (6 + Math.random() * 8) + 'px';
+    piece.style.height = (6 + Math.random() * 8) + 'px';
+    container.appendChild(piece);
+  }
+  setTimeout(function() { container.remove(); }, 5000);
 }
 
 // =========================================================================
