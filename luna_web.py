@@ -74,8 +74,9 @@ logger = logging.getLogger("luna_web")
 # --- Config ---
 LUNA_MODE = os.getenv("LUNA_MODE", "full").lower()  # "lite" (chat+voix+SMS) ou "full" (+visio Tavus)
 TAVUS_CALLBACK_URL = os.getenv("TAVUS_CALLBACK_URL", "")  # URL publique pour webhooks Tavus
-TENANT_ID = 1  # Ludo = tenant 1 pour l'instant
+TENANT_ID = 1  # Fallback pour retro-compatibilite (REQUIRE_AUTH=false)
 LEGAL_MODE = "assistance_only"  # Mode legal: aide contextuelle, pas de surveillance garantie
+REQUIRE_AUTH = os.getenv("REQUIRE_AUTH", "false").lower() == "true"
 
 # --- PV de Recette (verrouillage serveur) ---
 # Priorite: pv_lock.json (HMAC) > .env PV_SIGNED
@@ -158,6 +159,71 @@ CAUTION_MODE_PROMPTS = {
     ),
 }
 
+# --- Auth helpers (multi-tenant) ---
+_JWT_SECRET = os.getenv("JWT_SECRET_KEY", "luna-admin-fallback-key")
+_JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
+_CLIENT_TOKEN_EXPIRE_DAYS = 7
+
+def _hash_password(password: str) -> str:
+    """Hash un mot de passe avec bcrypt."""
+    from passlib.hash import bcrypt
+    return bcrypt.hash(password)
+
+def _verify_password(password: str, hashed: str) -> bool:
+    """Verifie un mot de passe contre son hash bcrypt."""
+    from passlib.hash import bcrypt
+    try:
+        return bcrypt.verify(password, hashed)
+    except Exception:
+        return False
+
+def _create_client_token(tenant_id: int, email: str, plan: str) -> str:
+    """Cree un JWT client valide 7 jours."""
+    import jwt as pyjwt
+    payload = {
+        "tenant_id": tenant_id,
+        "email": email,
+        "plan": plan,
+        "role": "client",
+        "iat": int(time.time()),
+        "exp": int(time.time()) + _CLIENT_TOKEN_EXPIRE_DAYS * 86400,
+    }
+    return pyjwt.encode(payload, _JWT_SECRET, algorithm=_JWT_ALGORITHM)
+
+def _decode_client_token(token: str) -> Optional[dict]:
+    """Decode un JWT client. Retourne le payload ou None."""
+    if not token:
+        return None
+    try:
+        import jwt as pyjwt
+        payload = pyjwt.decode(token, _JWT_SECRET, algorithms=[_JWT_ALGORITHM])
+        if payload.get("role") != "client":
+            return None
+        return payload
+    except Exception:
+        return None
+
+def _extract_bearer(request: Request) -> str:
+    """Extrait le token Bearer du header Authorization."""
+    auth = request.headers.get("Authorization", "")
+    if auth.startswith("Bearer "):
+        return auth[7:]
+    return ""
+
+_PUBLIC_PATHS = (
+    "/api/auth/",
+    "/api/status",
+    "/api/admin/",
+    "/api/setup/",
+    "/api/stripe/webhook",
+    "/api/webhook/sms",
+)
+
+def _is_public_path(path: str) -> bool:
+    """Verifie si un path est public (pas d'auth requise)."""
+    return any(path.startswith(p) for p in _PUBLIC_PATHS)
+
+
 # --- Clients ---
 if _pv_locked:
     # Mode SETUP: init graceful, ne crashe pas sur cles manquantes
@@ -239,6 +305,40 @@ def _init_core():
         logger.warning(f"Core init echoue: {e} - mode degrade")
 
 _init_core()
+
+# --- Pool MemoryManager per-tenant ---
+_tenant_managers: Dict[int, object] = {}
+
+def _get_tenant_manager(tenant_id: int):
+    """Retourne le MemoryManager pour un tenant (lazy init)."""
+    if tenant_id in _tenant_managers:
+        return _tenant_managers[tenant_id]
+    if not _CORE_AVAILABLE or not _redis_client:
+        return _memory_manager  # fallback global
+    # Chercher le plan du tenant
+    plan = PlanType.ESSENTIEL
+    auth = _redis_client.get_auth_by_tenant_id(tenant_id)
+    if auth:
+        try:
+            plan = PlanType(auth.get("plan", "essentiel"))
+        except ValueError:
+            pass
+    mgr = MemoryManager(
+        tenant_id=tenant_id,
+        plan=plan,
+        redis_client=_redis_client,
+    )
+    _tenant_managers[tenant_id] = mgr
+    # Init behavioral memory si pas deja fait
+    if not mgr.get_behavioral_memory("identity_core"):
+        mgr.set_behavioral_memory("identity_core", DEFAULT_IDENTITY_CORE)
+    if not mgr.get_behavioral_memory("behavior_rules"):
+        mgr.set_behavioral_memory("behavior_rules", DEFAULT_BEHAVIOR_RULES)
+    return mgr
+
+# Enregistrer le manager du tenant 1 (boot) dans le pool
+if _memory_manager:
+    _tenant_managers[TENANT_ID] = _memory_manager
 
 # Charge le nom du souscripteur depuis le profil Redis (pour ne pas hardcoder "Ludo")
 _SUBSCRIBER_NAME = "le souscripteur"
@@ -485,6 +585,32 @@ async def security_middleware(request: Request, call_next):
             content={"error": "Trop de requetes. Reessaie dans une minute."},
         )
 
+    # Auth client: injecte request.state.tenant_id
+    if REQUIRE_AUTH and path.startswith("/api/") and not _is_public_path(path):
+        token = _extract_bearer(request)
+        payload = _decode_client_token(token)
+        if not payload:
+            return JSONResponse(
+                status_code=401,
+                content={"error": "Token invalide ou manquant", "auth_required": True},
+            )
+        # Verifier que le compte est actif
+        if _redis_client:
+            auth_record = _redis_client.get_auth_by_email(payload["email"])
+            if auth_record and not auth_record.get("active", True):
+                return JSONResponse(
+                    status_code=403,
+                    content={"error": "Compte desactive"},
+                )
+        request.state.tenant_id = payload["tenant_id"]
+        request.state.email = payload["email"]
+        request.state.plan = payload["plan"]
+    else:
+        # Mode retro-compatible ou path public: tenant_id = 1
+        request.state.tenant_id = TENANT_ID
+        request.state.email = ""
+        request.state.plan = "essentiel"
+
     response = await call_next(request)
 
     duration_ms = (time.time() - start_time) * 1000
@@ -640,8 +766,12 @@ async def admin_page():
 
 
 @app.post("/api/chat")
-async def chat(req: ChatRequest):
+async def chat(req: ChatRequest, request: Request):
     try:
+        tid = getattr(request.state, "tenant_id", 1)
+        mgr = _get_tenant_manager(tid)
+        tenant_convs = conversations.setdefault(str(tid), {})
+
         # Safety check (if guardian available)
         if _safety_guardian:
             try:
@@ -651,18 +781,18 @@ async def chat(req: ChatRequest):
             except Exception as e:
                 logger.warning(f"Safety check failed: {e}")
 
-        if req.session_id not in conversations:
-            conversations[req.session_id] = [
+        if req.session_id not in tenant_convs:
+            tenant_convs[req.session_id] = [
                 {"role": "system", "content": LUNA_SYSTEM_PROMPT}
             ]
 
         _conversation_ts[req.session_id] = time.time()
-        messages = conversations[req.session_id]
+        messages = tenant_convs[req.session_id]
 
         # Inject behavioral memory (locked identity + rules) before user message
-        if _memory_manager:
+        if mgr:
             try:
-                rules = _memory_manager.get_behavioral_rules()
+                rules = mgr.get_behavioral_rules()
                 if rules["identity_core"] or rules["behavior_rules"]:
                     behavioral_prompt = (
                         f"[MEMOIRE COMPORTEMENTALE VERROUILLEE]\n"
@@ -675,9 +805,9 @@ async def chat(req: ChatRequest):
 
         # Inject caution mode from profile
         _caution_mode = "assistif"
-        if _memory_manager:
+        if mgr:
             try:
-                profile = _memory_manager.get_subscriber_profile()
+                profile = mgr.get_subscriber_profile()
                 if profile:
                     _caution_mode = getattr(profile, "caution_mode", "assistif") or "assistif"
             except Exception:
@@ -688,9 +818,9 @@ async def chat(req: ChatRequest):
         messages.append({"role": "user", "content": req.message})
 
         # Persist to Redis (if available)
-        if _memory_manager:
+        if mgr:
             try:
-                _memory_manager.add_message(
+                mgr.add_message(
                     conv_id=req.session_id,
                     role=MessageRole.SUBSCRIBER,
                     content=req.message,
@@ -700,9 +830,9 @@ async def chat(req: ChatRequest):
                 logger.warning(f"Redis store failed: {e}")
 
         # Inject perception context if available (filtered by caution_mode)
-        if _perception_analyzer and _memory_manager:
+        if _perception_analyzer and mgr:
             try:
-                if _memory_manager.is_perception_enabled():
+                if mgr.is_perception_enabled():
                     perception_ctx = _perception_analyzer.get_context_for_luna(
                         caution_mode=_caution_mode
                     )
@@ -730,9 +860,9 @@ async def chat(req: ChatRequest):
                 pass
 
         # Log event in chronological journal
-        if _memory_manager:
+        if mgr:
             try:
-                _memory_manager.log_event(
+                mgr.log_event(
                     category="communication",
                     description=f"Chat: {req.message[:80]}... → Luna repond",
                     source="chat",
@@ -743,9 +873,9 @@ async def chat(req: ChatRequest):
         messages.append({"role": "assistant", "content": luna_msg})
 
         # Persist Luna response to Redis
-        if _memory_manager:
+        if mgr:
             try:
-                _memory_manager.add_message(
+                mgr.add_message(
                     conv_id=req.session_id,
                     role=MessageRole.LUNA,
                     content=luna_msg,
@@ -763,14 +893,17 @@ async def chat(req: ChatRequest):
     except openai.APIConnectionError:
         return {"response": "[Erreur] Impossible de joindre OpenAI."}
     except Exception as e:
-        if req.session_id in conversations and len(conversations[req.session_id]) > 1:
-            conversations[req.session_id].pop()
+        tenant_convs = conversations.get(str(getattr(request.state, "tenant_id", 1)), {})
+        if req.session_id in tenant_convs and len(tenant_convs[req.session_id]) > 1:
+            tenant_convs[req.session_id].pop()
         return {"response": f"[Erreur] Luna indisponible : {type(e).__name__}"}
 
 
 @app.get("/api/greeting")
-async def greeting():
+async def greeting(request: Request):
     try:
+        tid = getattr(request.state, "tenant_id", 1)
+        mgr = _get_tenant_manager(tid)
         messages = [{"role": "system", "content": LUNA_SYSTEM_PROMPT}]
         response = openai_client.chat.completions.create(
             model=OPENAI_MODEL,
@@ -785,8 +918,9 @@ async def greeting():
 
 
 @app.post("/api/call")
-async def start_call():
+async def start_call(request: Request):
     """Crée un appel vidéo Tavus et enregistre la conversation"""
+    tid = getattr(request.state, "tenant_id", 1)
     if not tavus_client or not tavus_client.is_configured:
         return JSONResponse(status_code=503, content={
             "error": "Visio non disponible",
@@ -798,7 +932,7 @@ async def start_call():
         memory_manager=tavus_client.memory,
     )
     success, data = await tavus_client.create_conversation(
-        tenant_id=TENANT_ID,
+        tenant_id=tid,
         custom_greeting=f"Salut {_SUBSCRIBER_NAME} ! Ravie de te voir. Comment je peux t'aider ?",
         context=context,
         callback_url=TAVUS_CALLBACK_URL if TAVUS_CALLBACK_URL else None,
@@ -812,18 +946,19 @@ async def start_call():
 
 
 @app.post("/api/invite-contact")
-async def invite_contact(req: InviteRequest):
+async def invite_contact(req: InviteRequest, request: Request):
     """
     Invite un contact de confiance dans la visio en cours.
     Envoie un SMS avec le lien Tavus.
     """
+    tid = getattr(request.state, "tenant_id", 1)
     if not sms_client.is_configured:
         return {"error": "Service SMS non configure"}
 
     # Quota check (if available)
     if _quota_guard:
         try:
-            quota_status = _quota_guard.check(TENANT_ID, CoreActionType.SEND_SMS)
+            quota_status = _quota_guard.check(tid, CoreActionType.SEND_SMS)
             if not quota_status.allowed:
                 return {"error": quota_status.warning_message or "Quota SMS atteint"}
         except Exception as e:
@@ -838,7 +973,7 @@ async def invite_contact(req: InviteRequest):
         contact_name=req.contact_name,
         contact_phone=phone,
         sms_client=sms_client,
-        tenant_id=TENANT_ID,
+        tenant_id=tid,
     )
     if not success:
         return {"error": message}
@@ -880,12 +1015,14 @@ async def webhook_sms(request: Request):
 
 
 @app.get("/api/history")
-async def history(session_id: str = "default", limit: int = 50):
+async def history(request: Request, session_id: str = "default", limit: int = 50):
     """Historique des messages d'une session."""
+    tid = getattr(request.state, "tenant_id", 1)
+    mgr = _get_tenant_manager(tid)
     # Try Redis first
-    if _memory_manager:
+    if mgr:
         try:
-            messages = _memory_manager.get_messages(session_id, limit=limit)
+            messages = mgr.get_messages(session_id, limit=limit)
             return {
                 "messages": [
                     {
@@ -899,9 +1036,10 @@ async def history(session_id: str = "default", limit: int = 50):
         except Exception as e:
             logger.warning(f"Redis history fetch failed: {e}")
 
-    # Fallback to in-memory
-    if session_id in conversations:
-        msgs = conversations[session_id]
+    # Fallback to in-memory (tenant-namespaced)
+    tenant_convs = conversations.get(str(tid), {})
+    if session_id in tenant_convs:
+        msgs = tenant_convs[session_id]
         return {
             "messages": [
                 {"role": "luna" if m["role"] == "assistant" else "user", "content": m["content"], "timestamp": ""}
@@ -960,8 +1098,219 @@ async def status():
 
 
 # =========================================================================
+# AUTH ENDPOINTS (multi-tenant)
+# =========================================================================
+
+class RegisterRequest(BaseModel):
+    email: str
+    password: str
+    first_name: str = ""
+    last_name: str = ""
+
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+class ChangePasswordRequest(BaseModel):
+    old_password: str
+    new_password: str
+
+class CheckoutRequest(BaseModel):
+    plan: str  # "essentiel", "confort", "premium"
+
+@app.post("/api/auth/register")
+async def auth_register(req: RegisterRequest):
+    """Inscription d'un nouveau client."""
+    if not _redis_client:
+        return JSONResponse(status_code=503, content={"error": "Redis non disponible"})
+
+    email = req.email.strip().lower()
+    if not email or "@" not in email:
+        return JSONResponse(status_code=400, content={"error": "Email invalide"})
+    if len(req.password) < 6:
+        return JSONResponse(status_code=400, content={"error": "Mot de passe trop court (min 6 caracteres)"})
+
+    # Verifier si email deja pris
+    if _redis_client.get_auth_by_email(email):
+        return JSONResponse(status_code=409, content={"error": "Email deja utilise"})
+
+    # Attribuer un tenant_id
+    tenant_id = _redis_client.get_next_tenant_id()
+    password_hash = _hash_password(req.password)
+
+    # Creer l'enregistrement auth
+    created = _redis_client.create_auth_record(email, password_hash, tenant_id, "essentiel")
+    if not created:
+        return JSONResponse(status_code=409, content={"error": "Email deja utilise"})
+
+    # Creer le profil dans Redis
+    if _CORE_AVAILABLE:
+        profile = SubscriberProfile(
+            tenant_id=tenant_id,
+            first_name=req.first_name or email.split("@")[0],
+            last_name=req.last_name,
+            email=email,
+        )
+        mgr = _get_tenant_manager(tenant_id)
+        mgr.save_subscriber_profile(profile)
+
+    token = _create_client_token(tenant_id, email, "essentiel")
+    logger.info(f"AUTH_REGISTER tenant_id={tenant_id} email={email}")
+    return {"token": token, "tenant_id": tenant_id, "plan": "essentiel"}
+
+
+@app.post("/api/auth/login")
+async def auth_login(req: LoginRequest):
+    """Connexion d'un client existant."""
+    if not _redis_client:
+        return JSONResponse(status_code=503, content={"error": "Redis non disponible"})
+
+    email = req.email.strip().lower()
+    auth = _redis_client.get_auth_by_email(email)
+    if not auth:
+        return JSONResponse(status_code=401, content={"error": "Email ou mot de passe incorrect"})
+
+    if not _verify_password(req.password, auth["password_hash"]):
+        return JSONResponse(status_code=401, content={"error": "Email ou mot de passe incorrect"})
+
+    if not auth.get("active", True):
+        return JSONResponse(status_code=403, content={"error": "Compte desactive"})
+
+    tenant_id = auth["tenant_id"]
+    plan = auth.get("plan", "essentiel")
+
+    # Recuperer le prenom depuis le profil
+    first_name = ""
+    if _redis_client:
+        profile = _redis_client.get_profile(tenant_id)
+        if profile:
+            first_name = profile.get("first_name", "")
+
+    token = _create_client_token(tenant_id, email, plan)
+    logger.info(f"AUTH_LOGIN tenant_id={tenant_id} email={email}")
+    return {"token": token, "tenant_id": tenant_id, "plan": plan, "first_name": first_name}
+
+
+@app.get("/api/auth/me")
+async def auth_me(request: Request):
+    """Profil du client connecte."""
+    token = _extract_bearer(request)
+    payload = _decode_client_token(token)
+    if not payload:
+        return JSONResponse(status_code=401, content={"error": "Token invalide"})
+
+    tenant_id = payload["tenant_id"]
+    email = payload["email"]
+    plan = payload["plan"]
+
+    first_name = ""
+    last_name = ""
+    if _redis_client:
+        profile = _redis_client.get_profile(tenant_id)
+        if profile:
+            first_name = profile.get("first_name", "")
+            last_name = profile.get("last_name", "")
+
+    return {
+        "tenant_id": tenant_id,
+        "email": email,
+        "plan": plan,
+        "first_name": first_name,
+        "last_name": last_name,
+    }
+
+
+@app.post("/api/auth/change-password")
+async def auth_change_password(req: ChangePasswordRequest, request: Request):
+    """Changement de mot de passe."""
+    token = _extract_bearer(request)
+    payload = _decode_client_token(token)
+    if not payload:
+        return JSONResponse(status_code=401, content={"error": "Token invalide"})
+
+    if not _redis_client:
+        return JSONResponse(status_code=503, content={"error": "Redis non disponible"})
+
+    email = payload["email"]
+    auth = _redis_client.get_auth_by_email(email)
+    if not auth:
+        return JSONResponse(status_code=404, content={"error": "Compte introuvable"})
+
+    if not _verify_password(req.old_password, auth["password_hash"]):
+        return JSONResponse(status_code=401, content={"error": "Ancien mot de passe incorrect"})
+
+    if len(req.new_password) < 6:
+        return JSONResponse(status_code=400, content={"error": "Nouveau mot de passe trop court (min 6)"})
+
+    new_hash = _hash_password(req.new_password)
+    _redis_client.update_auth_record(email, {"password_hash": new_hash})
+    logger.info(f"AUTH_CHANGE_PASSWORD tenant_id={payload['tenant_id']} email={email}")
+    return {"ok": True}
+
+
+@app.post("/api/auth/checkout")
+async def auth_checkout(req: CheckoutRequest, request: Request):
+    """Cree une session Stripe Checkout pour upgrade/souscription."""
+    token = _extract_bearer(request)
+    payload = _decode_client_token(token)
+    if not payload:
+        return JSONResponse(status_code=401, content={"error": "Token invalide"})
+
+    plan = req.plan.lower()
+    price_map = {
+        "essentiel": os.getenv("STRIPE_PRICE_ESSENTIEL", ""),
+        "confort": os.getenv("STRIPE_PRICE_CONFORT", ""),
+        "premium": os.getenv("STRIPE_PRICE_PREMIUM", ""),
+    }
+    price_id = price_map.get(plan)
+    if not price_id:
+        return JSONResponse(status_code=400, content={"error": f"Plan invalide ou STRIPE_PRICE non configure: {plan}"})
+
+    stripe_key = os.getenv("STRIPE_API_KEY", "")
+    if not stripe_key:
+        return JSONResponse(status_code=500, content={"error": "STRIPE_API_KEY non configure"})
+
+    try:
+        import stripe
+        stripe.api_key = stripe_key
+        # Determine URLs
+        host = request.headers.get("host", "localhost:8888")
+        scheme = "https"
+        base_url = f"{scheme}://{host}"
+
+        session = stripe.checkout.Session.create(
+            payment_method_types=["card"],
+            mode="subscription",
+            line_items=[{"price": price_id, "quantity": 1}],
+            metadata={
+                "tenant_id": str(payload["tenant_id"]),
+                "email": payload["email"],
+                "plan": plan,
+            },
+            success_url=f"{base_url}/?checkout=success",
+            cancel_url=f"{base_url}/?checkout=cancel",
+        )
+        logger.info(f"STRIPE_CHECKOUT tenant_id={payload['tenant_id']} plan={plan}")
+        return {"checkout_url": session.url}
+    except ImportError:
+        return JSONResponse(status_code=500, content={"error": "Module stripe non installe"})
+    except Exception as e:
+        logger.error(f"Stripe checkout error: {e}")
+        return JSONResponse(status_code=500, content={"error": f"Erreur Stripe: {e}"})
+
+
+# =========================================================================
 # STRIPE WEBHOOK (accessible en setup ET en production)
 # =========================================================================
+
+def _price_id_to_plan(price_id: str) -> str:
+    """Mappe un Stripe price_id vers un nom de plan."""
+    mapping = {
+        os.getenv("STRIPE_PRICE_ESSENTIEL", ""): "essentiel",
+        os.getenv("STRIPE_PRICE_CONFORT", ""): "confort",
+        os.getenv("STRIPE_PRICE_PREMIUM", ""): "premium",
+    }
+    return mapping.get(price_id, "")
 
 _stripe_webhook_received: dict = {}  # {timestamp, event_type, verified}
 
@@ -986,12 +1335,63 @@ async def stripe_webhook(request: Request):
         }
         logger.info(f"Stripe webhook recu: {event['type']} (verifie)")
 
-        # En production, log les events importants
-        if not _pv_locked:
-            event_type = event["type"]
-            if event_type in ("customer.subscription.created", "customer.subscription.deleted",
-                              "invoice.payment_succeeded", "invoice.payment_failed"):
-                logger.info(f"Stripe event production: {event_type}")
+        event_type = event["type"]
+        data = event.get("data", {}).get("object", {})
+
+        # --- checkout.session.completed ---
+        if event_type == "checkout.session.completed":
+            metadata = data.get("metadata", {})
+            email = metadata.get("email", "")
+            plan = metadata.get("plan", "")
+            tenant_id_str = metadata.get("tenant_id", "")
+            if email and plan and _redis_client:
+                _redis_client.update_auth_record(email, {
+                    "plan": plan,
+                    "active": True,
+                    "stripe_customer_id": data.get("customer", ""),
+                    "stripe_subscription_id": data.get("subscription", ""),
+                })
+                # Evict from tenant manager cache to reload with new plan
+                tid = int(tenant_id_str) if tenant_id_str else 0
+                if tid and tid in _tenant_managers:
+                    del _tenant_managers[tid]
+                logger.info(f"STRIPE_CHECKOUT_COMPLETE email={email} plan={plan} tenant_id={tenant_id_str}")
+
+        # --- customer.subscription.updated ---
+        elif event_type == "customer.subscription.updated":
+            # Map price_id back to plan name
+            items = data.get("items", {}).get("data", [])
+            if items and _redis_client:
+                price_id = items[0].get("price", {}).get("id", "")
+                plan = _price_id_to_plan(price_id)
+                customer_id = data.get("customer", "")
+                if plan and customer_id:
+                    # Find auth record by stripe_customer_id
+                    records = _redis_client.get_all_auth_records()
+                    for rec in records:
+                        if rec.get("stripe_customer_id") == customer_id:
+                            _redis_client.update_auth_record(rec["email"], {"plan": plan})
+                            tid = rec.get("tenant_id", 0)
+                            if tid and tid in _tenant_managers:
+                                del _tenant_managers[tid]
+                            logger.info(f"STRIPE_SUB_UPDATED email={rec['email']} plan={plan}")
+                            break
+
+        # --- customer.subscription.deleted ---
+        elif event_type == "customer.subscription.deleted":
+            customer_id = data.get("customer", "")
+            if customer_id and _redis_client:
+                records = _redis_client.get_all_auth_records()
+                for rec in records:
+                    if rec.get("stripe_customer_id") == customer_id:
+                        _redis_client.update_auth_record(rec["email"], {"active": False})
+                        logger.info(f"STRIPE_SUB_DELETED email={rec['email']}")
+                        break
+
+        # --- invoice.payment_failed ---
+        elif event_type == "invoice.payment_failed":
+            customer_email = data.get("customer_email", "")
+            logger.warning(f"STRIPE_PAYMENT_FAILED email={customer_email}")
 
         return {"received": True}
     except ImportError:
@@ -1426,35 +1826,41 @@ async def setup_stripe_auto(request: Request):
 # =========================================================================
 
 @app.get("/api/profile")
-async def get_profile():
+async def get_profile(request: Request):
     """Retourne le profil souscripteur"""
-    if not _memory_manager:
+    tid = getattr(request.state, "tenant_id", 1)
+    mgr = _get_tenant_manager(tid)
+    if not mgr:
         return JSONResponse(status_code=503, content={"error": "Memoire non disponible"})
-    profile = _memory_manager.get_subscriber_profile()
+    profile = mgr.get_subscriber_profile()
     if not profile:
         return {"profile": None}
     return {"profile": profile.model_dump()}
 
 
 @app.post("/api/profile")
-async def set_profile(req: ProfileRequest):
+async def set_profile(req: ProfileRequest, request: Request):
     """Cree ou remplace le profil souscripteur"""
-    if not _memory_manager:
+    tid = getattr(request.state, "tenant_id", 1)
+    mgr = _get_tenant_manager(tid)
+    if not mgr:
         return JSONResponse(status_code=503, content={"error": "Memoire non disponible"})
-    profile = SubscriberProfile(tenant_id=TENANT_ID, **req.model_dump())
-    _memory_manager.set_subscriber_profile(profile)
+    profile = SubscriberProfile(tenant_id=tid, **req.model_dump())
+    mgr.set_subscriber_profile(profile)
     return {"success": True, "profile": profile.model_dump()}
 
 
 @app.patch("/api/profile")
 async def update_profile(request: Request):
     """Mise a jour partielle du profil"""
-    if not _memory_manager:
+    tid = getattr(request.state, "tenant_id", 1)
+    mgr = _get_tenant_manager(tid)
+    if not mgr:
         return JSONResponse(status_code=503, content={"error": "Memoire non disponible"})
     body = await request.json()
     if not body:
         return JSONResponse(status_code=400, content={"error": "Corps vide"})
-    profile = _memory_manager.update_subscriber_profile(body)
+    profile = mgr.update_subscriber_profile(body)
     if not profile:
         return JSONResponse(status_code=404, content={"error": "Profil non trouve"})
     return {"success": True, "profile": profile.model_dump()}
@@ -1465,11 +1871,13 @@ async def update_profile(request: Request):
 # =========================================================================
 
 @app.get("/api/contacts")
-async def list_contacts():
+async def list_contacts(request: Request):
     """Liste les contacts de confiance"""
-    if not _memory_manager:
+    tid = getattr(request.state, "tenant_id", 1)
+    mgr = _get_tenant_manager(tid)
+    if not mgr:
         return JSONResponse(status_code=503, content={"error": "Memoire non disponible"})
-    contacts = _memory_manager.list_trusted_contacts()
+    contacts = mgr.list_trusted_contacts()
     return {
         "contacts": [
             {
@@ -1488,13 +1896,15 @@ async def list_contacts():
 
 
 @app.post("/api/contacts")
-async def add_contact(req: ContactRequest):
+async def add_contact(req: ContactRequest, request: Request):
     """Ajoute un contact de confiance (max 5)"""
-    if not _memory_manager:
+    tid = getattr(request.state, "tenant_id", 1)
+    mgr = _get_tenant_manager(tid)
+    if not mgr:
         return JSONResponse(status_code=503, content={"error": "Memoire non disponible"})
     try:
         channel = Channel(req.preferred_channel) if req.preferred_channel in [c.value for c in Channel] else Channel.SMS
-        contact = _memory_manager.add_trusted_contact(
+        contact = mgr.add_trusted_contact(
             phone=req.phone,
             name=req.name,
             relation=req.relation,
@@ -1511,11 +1921,13 @@ async def add_contact(req: ContactRequest):
 
 
 @app.delete("/api/contacts/{phone}")
-async def delete_contact(phone: str):
+async def delete_contact(phone: str, request: Request):
     """Supprime un contact de confiance"""
-    if not _memory_manager:
+    tid = getattr(request.state, "tenant_id", 1)
+    mgr = _get_tenant_manager(tid)
+    if not mgr:
         return JSONResponse(status_code=503, content={"error": "Memoire non disponible"})
-    _memory_manager.remove_trusted_contact(phone)
+    mgr.remove_trusted_contact(phone)
     return {"success": True}
 
 
@@ -1539,14 +1951,16 @@ def _generate_otp() -> str:
 
 def _log_family_audit(action: str, actor_phone: str, actor_name: str,
                       target_phone: str = None, target_name: str = None,
-                      details: dict = None, severity: str = "info"):
+                      details: dict = None, severity: str = "info",
+                      tenant_id: int = None):
     """Log une action dans l'audit famille"""
     if not _redis_client:
         return
+    tid = tenant_id if tenant_id is not None else TENANT_ID
     import json
     from datetime import datetime
     audit = FamilyAuditLog(
-        tenant_id=TENANT_ID,
+        tenant_id=tid,
         actor_phone=actor_phone,
         actor_name=actor_name,
         action=action,
@@ -1555,25 +1969,27 @@ def _log_family_audit(action: str, actor_phone: str, actor_name: str,
         details=details or {},
         severity=severity,
     )
-    _redis_client.add_family_audit(TENANT_ID, json.dumps(audit.to_redis()))
+    _redis_client.add_family_audit(tid, json.dumps(audit.to_redis()))
 
 
 # --- Family Group ---
 
 @app.get("/api/family")
-async def get_family():
+async def get_family(request: Request):
     """Recupere le groupe familial et ses membres"""
     if not _redis_client:
         return JSONResponse(status_code=503, content={"error": "Redis non disponible"})
 
-    group_data = _redis_client.get_family_group(TENANT_ID)
+    tid = getattr(request.state, "tenant_id", 1)
+
+    group_data = _redis_client.get_family_group(tid)
     if not group_data:
         return {"group": None, "members": [], "count": 0}
 
     group = FamilyGroup.from_redis(group_data)
     members = []
-    for phone in _redis_client.get_family_members(TENANT_ID):
-        member_data = _redis_client.get_family_member(TENANT_ID, phone)
+    for phone in _redis_client.get_family_members(tid):
+        member_data = _redis_client.get_family_member(tid, phone)
         if member_data:
             member = FamilyMember.from_redis(member_data)
             members.append({
@@ -1613,11 +2029,12 @@ async def create_family(request: Request):
     if not _redis_client:
         return JSONResponse(status_code=503, content={"error": "Redis non disponible"})
 
+    tid = getattr(request.state, "tenant_id", 1)
     data = await request.json()
     from datetime import datetime
 
     # Verifier si groupe existe deja
-    existing = _redis_client.get_family_group(TENANT_ID)
+    existing = _redis_client.get_family_group(tid)
     if existing:
         # Mise a jour
         group = FamilyGroup.from_redis(existing)
@@ -1635,14 +2052,14 @@ async def create_family(request: Request):
     else:
         # Creation
         group = FamilyGroup(
-            tenant_id=TENANT_ID,
+            tenant_id=tid,
             name=data.get("name", "Ma famille"),
             description=data.get("description", ""),
         )
 
-    _redis_client.set_family_group(TENANT_ID, group.to_redis())
+    _redis_client.set_family_group(tid, group.to_redis())
     _log_family_audit("family_group_created" if not existing else "family_group_updated",
-                      "system", "Luna", details={"name": group.name})
+                      "system", "Luna", details={"name": group.name}, tenant_id=tid)
 
     return {"success": True, "group_id": group.id}
 
@@ -1650,14 +2067,16 @@ async def create_family(request: Request):
 # --- Family Members ---
 
 @app.get("/api/family/members")
-async def list_family_members():
+async def list_family_members(request: Request):
     """Liste tous les membres de la famille"""
     if not _redis_client:
         return JSONResponse(status_code=503, content={"error": "Redis non disponible"})
 
+    tid = getattr(request.state, "tenant_id", 1)
+
     members = []
-    for phone in _redis_client.get_family_members(TENANT_ID):
-        member_data = _redis_client.get_family_member(TENANT_ID, phone)
+    for phone in _redis_client.get_family_members(tid):
+        member_data = _redis_client.get_family_member(tid, phone)
         if member_data:
             member = FamilyMember.from_redis(member_data)
             members.append({
@@ -1682,6 +2101,7 @@ async def add_family_member(request: Request):
     if not _redis_client:
         return JSONResponse(status_code=503, content={"error": "Redis non disponible"})
 
+    tid = getattr(request.state, "tenant_id", 1)
     data = await request.json()
 
     # Validation
@@ -1693,7 +2113,7 @@ async def add_family_member(request: Request):
         return JSONResponse(status_code=400, content={"error": "phone et name requis"})
 
     # Verifier si deja membre
-    if _redis_client.get_family_member(TENANT_ID, phone):
+    if _redis_client.get_family_member(tid, phone):
         return JSONResponse(status_code=400, content={"error": "Ce membre existe deja"})
 
     # Valider le role
@@ -1718,7 +2138,7 @@ async def add_family_member(request: Request):
 
     # Creer le membre (non verifie)
     member = FamilyMember(
-        tenant_id=TENANT_ID,
+        tenant_id=tid,
         phone=phone,
         name=name,
         relation=relation,
@@ -1737,7 +2157,7 @@ async def add_family_member(request: Request):
     _redis_client.set_otp(phone, otp)
 
     # Ajouter le membre
-    success = _redis_client.add_family_member(TENANT_ID, phone, member.to_redis())
+    success = _redis_client.add_family_member(tid, phone, member.to_redis())
     if not success:
         return JSONResponse(status_code=400, content={"error": "Quota de membres atteint (max 15)"})
 
@@ -1749,7 +2169,8 @@ async def add_family_member(request: Request):
 
     _log_family_audit("member_invited", "system", "Luna",
                       target_phone=phone, target_name=name,
-                      details={"role": member.role.value, "sms_sent": sms_sent})
+                      details={"role": member.role.value, "sms_sent": sms_sent},
+                      tenant_id=tid)
 
     return {
         "success": True,
@@ -1766,6 +2187,7 @@ async def verify_family_member(phone: str, request: Request):
     if not _redis_client:
         return JSONResponse(status_code=503, content={"error": "Redis non disponible"})
 
+    tid = getattr(request.state, "tenant_id", 1)
     data = await request.json()
     otp = data.get("code", "").strip()
 
@@ -1778,16 +2200,16 @@ async def verify_family_member(phone: str, request: Request):
 
     # Marquer comme verifie
     from datetime import datetime
-    _redis_client.update_family_member(TENANT_ID, phone, {
+    _redis_client.update_family_member(tid, phone, {
         "is_verified": "1",
         "verified_at": datetime.utcnow().isoformat(),
         "verification_code": "",
     })
 
-    member_data = _redis_client.get_family_member(TENANT_ID, phone)
+    member_data = _redis_client.get_family_member(tid, phone)
     name = member_data.get("name", "Membre") if member_data else "Membre"
 
-    _log_family_audit("member_verified", phone, name)
+    _log_family_audit("member_verified", phone, name, tenant_id=tid)
 
     return {"success": True, "message": f"{name} verifie avec succes"}
 
@@ -1798,9 +2220,10 @@ async def update_family_member(phone: str, request: Request):
     if not _redis_client:
         return JSONResponse(status_code=503, content={"error": "Redis non disponible"})
 
+    tid = getattr(request.state, "tenant_id", 1)
     data = await request.json()
 
-    member_data = _redis_client.get_family_member(TENANT_ID, phone)
+    member_data = _redis_client.get_family_member(tid, phone)
     if not member_data:
         return JSONResponse(status_code=404, content={"error": "Membre non trouve"})
 
@@ -1822,30 +2245,32 @@ async def update_family_member(phone: str, request: Request):
     from datetime import datetime
     updates["updated_at"] = datetime.utcnow().isoformat()
 
-    _redis_client.update_family_member(TENANT_ID, phone, updates)
+    _redis_client.update_family_member(tid, phone, updates)
 
     _log_family_audit("member_updated", "system", "Luna",
                       target_phone=phone, target_name=member_data.get("name"),
-                      details=updates)
+                      details=updates, tenant_id=tid)
 
     return {"success": True}
 
 
 @app.delete("/api/family/members/{phone}")
-async def remove_family_member(phone: str):
+async def remove_family_member(phone: str, request: Request):
     """Supprime un membre de la famille"""
     if not _redis_client:
         return JSONResponse(status_code=503, content={"error": "Redis non disponible"})
 
-    member_data = _redis_client.get_family_member(TENANT_ID, phone)
+    tid = getattr(request.state, "tenant_id", 1)
+
+    member_data = _redis_client.get_family_member(tid, phone)
     if not member_data:
         return JSONResponse(status_code=404, content={"error": "Membre non trouve"})
 
     name = member_data.get("name", "Membre")
-    _redis_client.remove_family_member(TENANT_ID, phone)
+    _redis_client.remove_family_member(tid, phone)
 
     _log_family_audit("member_removed", "system", "Luna",
-                      target_phone=phone, target_name=name)
+                      target_phone=phone, target_name=name, tenant_id=tid)
 
     return {"success": True}
 
@@ -1853,14 +2278,16 @@ async def remove_family_member(phone: str):
 # --- Family Messages (Internal Messaging) ---
 
 @app.get("/api/family/messages")
-async def get_family_messages(limit: int = 50, phone: str = None):
+async def get_family_messages(request: Request, limit: int = 50, phone: str = None):
     """Recupere les messages famille (optionnel: filtre par destinataire)"""
     if not _redis_client:
         return JSONResponse(status_code=503, content={"error": "Redis non disponible"})
 
+    tid = getattr(request.state, "tenant_id", 1)
+
     messages = []
-    for msg_id in _redis_client.get_family_messages(TENANT_ID, limit=limit):
-        msg_data = _redis_client.get_family_message(TENANT_ID, msg_id)
+    for msg_id in _redis_client.get_family_messages(tid, limit=limit):
+        msg_data = _redis_client.get_family_message(tid, msg_id)
         if msg_data:
             msg = FamilyMessage.from_redis(msg_data)
             # Filtrer par destinataire si specifie
@@ -1890,6 +2317,7 @@ async def send_family_message(request: Request):
     if not _redis_client:
         return JSONResponse(status_code=503, content={"error": "Redis non disponible"})
 
+    tid = getattr(request.state, "tenant_id", 1)
     data = await request.json()
 
     from_phone = data.get("from_phone", "luna")
@@ -1903,7 +2331,7 @@ async def send_family_message(request: Request):
 
     # Creer le message
     msg = FamilyMessage(
-        tenant_id=TENANT_ID,
+        tenant_id=tid,
         from_phone=from_phone,
         from_name=from_name,
         to_phone=to_phone,
@@ -1913,26 +2341,27 @@ async def send_family_message(request: Request):
         requires_response=data.get("requires_response", False),
     )
 
-    _redis_client.add_family_message(TENANT_ID, msg.id, msg.to_redis())
+    _redis_client.add_family_message(tid, msg.id, msg.to_redis())
 
     # Notifier les destinataires (push ou SMS selon config)
     notified = []
     if to_phone:
         # Message direct
-        member_data = _redis_client.get_family_member(TENANT_ID, to_phone)
+        member_data = _redis_client.get_family_member(tid, to_phone)
         if member_data and member_data.get("can_receive_alerts") == "1":
             notified.append(to_phone)
     else:
         # Message groupe - notifier tous les membres actifs
-        for phone in _redis_client.get_family_members(TENANT_ID):
+        for phone in _redis_client.get_family_members(tid):
             if phone != from_phone:  # Ne pas notifier l'expediteur
-                member_data = _redis_client.get_family_member(TENANT_ID, phone)
+                member_data = _redis_client.get_family_member(tid, phone)
                 if member_data and member_data.get("is_active") == "1":
                     notified.append(phone)
 
     _log_family_audit("message_sent", from_phone, from_name,
                       target_phone=to_phone,
-                      details={"type": message_type, "notified": len(notified)})
+                      details={"type": message_type, "notified": len(notified)},
+                      tenant_id=tid)
 
     return {
         "success": True,
@@ -1947,6 +2376,7 @@ async def mark_message_read(msg_id: str, request: Request):
     if not _redis_client:
         return JSONResponse(status_code=503, content={"error": "Redis non disponible"})
 
+    tid = getattr(request.state, "tenant_id", 1)
     data = await request.json()
     phone = data.get("phone", "") or data.get("reader_phone", "")
     phone = phone.strip() if phone else ""
@@ -1954,7 +2384,7 @@ async def mark_message_read(msg_id: str, request: Request):
     if not phone:
         return JSONResponse(status_code=400, content={"error": "phone requis"})
 
-    msg_data = _redis_client.get_family_message(TENANT_ID, msg_id)
+    msg_data = _redis_client.get_family_message(tid, msg_id)
     if not msg_data:
         return JSONResponse(status_code=404, content={"error": "Message non trouve"})
 
@@ -1963,7 +2393,7 @@ async def mark_message_read(msg_id: str, request: Request):
     read_by = json.loads(msg_data.get("read_by", "[]"))
     if phone not in read_by:
         read_by.append(phone)
-        _redis_client.update_family_message(TENANT_ID, msg_id, {
+        _redis_client.update_family_message(tid, msg_id, {
             "read_by": json.dumps(read_by),
             "is_read": "1" if len(read_by) > 0 else "0",
             "read_at": datetime.utcnow().isoformat(),
@@ -1975,14 +2405,16 @@ async def mark_message_read(msg_id: str, request: Request):
 # --- Escalation Rules ---
 
 @app.get("/api/family/escalation")
-async def get_escalation_rules():
+async def get_escalation_rules(request: Request):
     """Recupere les regles d'escalade"""
     if not _redis_client:
         return JSONResponse(status_code=503, content={"error": "Redis non disponible"})
 
+    tid = getattr(request.state, "tenant_id", 1)
+
     rules = []
-    for rule_id in _redis_client.get_escalation_rules(TENANT_ID):
-        rule_data = _redis_client.get_escalation_rule(TENANT_ID, rule_id)
+    for rule_id in _redis_client.get_escalation_rules(tid):
+        rule_data = _redis_client.get_escalation_rule(tid, rule_id)
         if rule_data:
             rule = EscalationRule.from_redis(rule_data)
             rules.append({
@@ -2005,6 +2437,7 @@ async def create_escalation_rule(request: Request):
     if not _redis_client:
         return JSONResponse(status_code=503, content={"error": "Redis non disponible"})
 
+    tid = getattr(request.state, "tenant_id", 1)
     data = await request.json()
 
     # Creer les etapes
@@ -2020,7 +2453,7 @@ async def create_escalation_rule(request: Request):
         stages.append(stage)
 
     rule = EscalationRule(
-        tenant_id=TENANT_ID,
+        tenant_id=tid,
         name=data.get("name", "Regle d'escalade"),
         description=data.get("description", ""),
         trigger_distress_level=DistressLevel(data.get("trigger_distress_level", "high")),
@@ -2030,24 +2463,27 @@ async def create_escalation_rule(request: Request):
         enabled=data.get("enabled", True),
     )
 
-    _redis_client.add_escalation_rule(TENANT_ID, rule.id, rule.to_redis())
+    _redis_client.add_escalation_rule(tid, rule.id, rule.to_redis())
 
     _log_family_audit("escalation_rule_created", "system", "Luna",
-                      details={"name": rule.name, "stages": len(stages)})
+                      details={"name": rule.name, "stages": len(stages)},
+                      tenant_id=tid)
 
     return {"success": True, "rule_id": rule.id}
 
 
 @app.delete("/api/family/escalation/{rule_id}")
-async def delete_escalation_rule(rule_id: str):
+async def delete_escalation_rule(rule_id: str, request: Request):
     """Supprime une regle d'escalade"""
     if not _redis_client:
         return JSONResponse(status_code=503, content={"error": "Redis non disponible"})
 
-    _redis_client.delete_escalation_rule(TENANT_ID, rule_id)
+    tid = getattr(request.state, "tenant_id", 1)
+
+    _redis_client.delete_escalation_rule(tid, rule_id)
 
     _log_family_audit("escalation_rule_deleted", "system", "Luna",
-                      details={"rule_id": rule_id})
+                      details={"rule_id": rule_id}, tenant_id=tid)
 
     return {"success": True}
 
@@ -2057,6 +2493,7 @@ async def delete_escalation_rule(rule_id: str):
 @app.post("/api/family/detect-distress")
 async def detect_distress(request: Request):
     """Analyse un texte pour detecter la detresse (ados/enfants)"""
+    tid = getattr(request.state, "tenant_id", 1)
     data = await request.json()
     text = data.get("text", "")
     from_phone = data.get("from_phone")
@@ -2076,7 +2513,7 @@ async def detect_distress(request: Request):
 
     # Si niveau eleve, declencher l'escalade
     if level in [DistressLevel.HIGH, DistressLevel.CRITICAL] and from_phone:
-        member_data = _redis_client.get_family_member(TENANT_ID, from_phone) if _redis else None
+        member_data = _redis_client.get_family_member(tid, from_phone) if _redis else None
         if member_data:
             member_name = member_data.get("name", "Membre")
             result["escalation_triggered"] = True
@@ -2085,7 +2522,8 @@ async def detect_distress(request: Request):
             # Log et notifier
             _log_family_audit("distress_detected", from_phone, member_name,
                               details={"level": level.value, "category": category},
-                              severity="critical" if level == DistressLevel.CRITICAL else "alert")
+                              severity="critical" if level == DistressLevel.CRITICAL else "alert",
+                              tenant_id=tid)
 
     return result
 
@@ -2093,14 +2531,16 @@ async def detect_distress(request: Request):
 # --- Family Audit Log ---
 
 @app.get("/api/family/audit")
-async def get_family_audit(limit: int = 50):
+async def get_family_audit(request: Request, limit: int = 50):
     """Recupere le journal d'audit famille"""
     if not _redis_client:
         return JSONResponse(status_code=503, content={"error": "Redis non disponible"})
 
+    tid = getattr(request.state, "tenant_id", 1)
+
     import json
     entries = []
-    for entry_json in _redis_client.get_family_audit(TENANT_ID, limit=limit):
+    for entry_json in _redis_client.get_family_audit(tid, limit=limit):
         try:
             entry_data = json.loads(entry_json)
             audit = FamilyAuditLog.from_redis(entry_data)
@@ -2122,15 +2562,17 @@ async def get_family_audit(limit: int = 50):
 # --- Default Escalation Rule for Teens (Bullying/Distress) ---
 
 @app.post("/api/family/setup-teen-protection")
-async def setup_teen_protection():
+async def setup_teen_protection(request: Request):
     """Configure automatiquement la protection ados (harcelement, detresse)"""
     if not _redis_client:
         return JSONResponse(status_code=503, content={"error": "Redis non disponible"})
 
+    tid = getattr(request.state, "tenant_id", 1)
+
     # Creer un groupe famille si pas existant
-    if not _redis_client.get_family_group(TENANT_ID):
-        group = FamilyGroup(tenant_id=TENANT_ID, name="Ma famille")
-        _redis_client.set_family_group(TENANT_ID, group.to_redis())
+    if not _redis_client.get_family_group(tid):
+        group = FamilyGroup(tenant_id=tid, name="Ma famille")
+        _redis_client.set_family_group(tid, group.to_redis())
 
     # Creer la regle d'escalade pour ados
     stages = [
@@ -2158,7 +2600,7 @@ async def setup_teen_protection():
     ]
 
     rule = EscalationRule(
-        tenant_id=TENANT_ID,
+        tenant_id=tid,
         name="Protection ados - harcelement/detresse",
         description="Detection automatique du harcelement et de la detresse chez les adolescents",
         trigger_distress_level=DistressLevel.MEDIUM,
@@ -2167,10 +2609,10 @@ async def setup_teen_protection():
         enabled=True,
     )
 
-    _redis_client.add_escalation_rule(TENANT_ID, rule.id, rule.to_redis())
+    _redis_client.add_escalation_rule(tid, rule.id, rule.to_redis())
 
     _log_family_audit("teen_protection_enabled", "system", "Luna",
-                      details={"rule_id": rule.id})
+                      details={"rule_id": rule.id}, tenant_id=tid)
 
     return {
         "success": True,
@@ -2190,6 +2632,7 @@ async def family_sos(request: Request):
     if not _redis_client:
         return JSONResponse(status_code=503, content={"error": "Redis non disponible"})
 
+    tid = getattr(request.state, "tenant_id", 1)
     data = await request.json()
     from_phone = data.get("from_phone", "").strip()
     message = data.get("message", "").strip() or "J'ai besoin d'aide!"
@@ -2200,11 +2643,11 @@ async def family_sos(request: Request):
         return JSONResponse(status_code=400, content={"error": "from_phone requis"})
 
     # Trouver le membre qui déclenche
-    sender = _redis_client.get_family_member(TENANT_ID, from_phone)
+    sender = _redis_client.get_family_member(tid, from_phone)
     sender_name = sender.get("name", "Un membre") if sender else "Un membre"
 
     # Récupérer tous les membres de la famille (sauf l'émetteur)
-    all_members = _redis_client.get_all_family_members(TENANT_ID)
+    all_members = _redis_client.get_all_family_members(tid)
     recipients = [m for m in all_members if m.get("phone") != from_phone]
 
     if not recipients:
@@ -2225,7 +2668,7 @@ async def family_sos(request: Request):
     # Créer un message prioritaire dans la messagerie interne
     from core.memory.schemas import FamilyMessage, FamilyMessageType
     sos_msg = FamilyMessage(
-        tenant_id=TENANT_ID,
+        tenant_id=tid,
         from_phone=from_phone,
         from_name=sender_name,
         to_phone="all",  # Broadcast
@@ -2233,7 +2676,7 @@ async def family_sos(request: Request):
         message_type=FamilyMessageType.ALERT,
         requires_response=True,
     )
-    _redis_client.add_family_message(TENANT_ID, sos_msg.id, sos_msg.to_redis())
+    _redis_client.add_family_message(tid, sos_msg.id, sos_msg.to_redis())
 
     # Notifier par SMS les membres qui peuvent recevoir des alertes
     sms_sent = 0
@@ -2250,7 +2693,7 @@ async def family_sos(request: Request):
                         sms_failed += 1
 
     # Publier événement temps réel pour l'app
-    _redis_client.publish_event(TENANT_ID, "sos_alert", {
+    _redis_client.publish_event(tid, "sos_alert", {
         "from_phone": from_phone,
         "from_name": sender_name,
         "message": message,
@@ -2266,14 +2709,15 @@ async def family_sos(request: Request):
                           "recipients_count": len(recipients),
                           "sms_sent": sms_sent,
                       },
-                      severity="critical")
+                      severity="critical",
+                      tenant_id=tid)
 
     # Optionnel: déclencher une visio avec Luna
     visio_url = None
     if trigger_visio and tavus_client and tavus_client.is_configured:
         context = f"ALERTE SOS de {sender_name}. Message: {message}"
         success, conv_data = await tavus_client.create_conversation(
-            tenant_id=TENANT_ID,
+            tenant_id=tid,
             custom_greeting=f"{sender_name}, je suis là. Dis-moi ce qui se passe.",
             context=context,
         )
@@ -2292,14 +2736,16 @@ async def family_sos(request: Request):
 
 
 @app.get("/api/family/sos/status")
-async def family_sos_status():
+async def family_sos_status(request: Request):
     """Vérifie si le SOS est disponible et récupère les dernières alertes"""
     if not _redis_client:
         return JSONResponse(status_code=503, content={"error": "Redis non disponible"})
 
+    tid = getattr(request.state, "tenant_id", 1)
+
     # Récupérer les alertes récentes depuis l'audit (les entrées sont des JSON strings)
     import json
-    audit_entries_raw = _redis_client.get_family_audit(TENANT_ID, limit=20)
+    audit_entries_raw = _redis_client.get_family_audit(tid, limit=20)
     recent_sos = []
     for entry_str in audit_entries_raw:
         try:
@@ -2310,7 +2756,7 @@ async def family_sos_status():
             continue
 
     # Compter les membres qui peuvent recevoir des alertes
-    all_members = _redis_client.get_all_family_members(TENANT_ID)
+    all_members = _redis_client.get_all_family_members(tid)
     alert_receivers = len([m for m in all_members if m.get("can_receive_alerts") in ["1", "true", True]])
 
     return {
@@ -2328,11 +2774,13 @@ async def family_sos_status():
 # =========================================================================
 
 @app.get("/api/instructions")
-async def list_instructions():
+async def list_instructions(request: Request):
     """Liste les instructions actives"""
-    if not _memory_manager:
+    tid = getattr(request.state, "tenant_id", 1)
+    mgr = _get_tenant_manager(tid)
+    if not mgr:
         return JSONResponse(status_code=503, content={"error": "Memoire non disponible"})
-    instructions = _memory_manager.list_active_instructions()
+    instructions = mgr.list_active_instructions()
     return {
         "instructions": [
             {
@@ -2353,9 +2801,11 @@ async def list_instructions():
 
 
 @app.post("/api/instructions")
-async def create_instruction(req: InstructionRequest):
+async def create_instruction(req: InstructionRequest, request: Request):
     """Cree une instruction a partir de texte naturel (francais)"""
-    if not _memory_manager:
+    tid = getattr(request.state, "tenant_id", 1)
+    mgr = _get_tenant_manager(tid)
+    if not mgr:
         return JSONResponse(status_code=503, content={"error": "Memoire non disponible"})
     if not _CORE_AVAILABLE:
         return JSONResponse(status_code=503, content={"error": "Parser non disponible"})
@@ -2394,7 +2844,7 @@ async def create_instruction(req: InstructionRequest):
         if not schedule_str and parsed.scheduled_time:
             schedule_str = f"{parsed.scheduled_time.hour:02d}:{parsed.scheduled_time.minute:02d}"
 
-        instr = _memory_manager.add_instruction(
+        instr = mgr.add_instruction(
             description=req.text,
             action=action,
             instruction_type=instr_type,
@@ -2409,7 +2859,7 @@ async def create_instruction(req: InstructionRequest):
             try:
                 _scheduler.schedule(
                     instruction_id=instr.id,
-                    tenant_id=TENANT_ID,
+                    tenant_id=tid,
                     instruction=parsed,
                 )
             except Exception as e:
@@ -2446,23 +2896,27 @@ async def create_instruction(req: InstructionRequest):
 
 
 @app.delete("/api/instructions/{instr_id}")
-async def delete_instruction(instr_id: str):
+async def delete_instruction(instr_id: str, request: Request):
     """Desactive une instruction"""
-    if not _memory_manager:
+    tid = getattr(request.state, "tenant_id", 1)
+    mgr = _get_tenant_manager(tid)
+    if not mgr:
         return JSONResponse(status_code=503, content={"error": "Memoire non disponible"})
-    _memory_manager.disable_instruction(instr_id)
+    mgr.disable_instruction(instr_id)
     return {"success": True}
 
 
 @app.post("/api/instructions/{instr_id}/execute")
-async def execute_instruction(instr_id: str):
+async def execute_instruction(instr_id: str, request: Request):
     """Execute immediatement une instruction"""
-    if not _memory_manager:
+    tid = getattr(request.state, "tenant_id", 1)
+    mgr = _get_tenant_manager(tid)
+    if not mgr:
         return JSONResponse(status_code=503, content={"error": "Memoire non disponible"})
-    instr = _memory_manager.get_instruction(instr_id)
+    instr = mgr.get_instruction(instr_id)
     if not instr:
         return JSONResponse(status_code=404, content={"error": "Instruction non trouvee"})
-    _memory_manager.mark_instruction_executed(instr_id)
+    mgr.mark_instruction_executed(instr_id)
     return {"success": True, "message": f"Instruction '{instr.description[:50]}' marquee executee"}
 
 
@@ -2471,11 +2925,13 @@ async def execute_instruction(instr_id: str):
 # =========================================================================
 
 @app.get("/api/notes")
-async def list_notes(limit: int = 50):
+async def list_notes(request: Request, limit: int = 50):
     """Liste les notes recentes"""
-    if not _memory_manager:
+    tid = getattr(request.state, "tenant_id", 1)
+    mgr = _get_tenant_manager(tid)
+    if not mgr:
         return JSONResponse(status_code=503, content={"error": "Memoire non disponible"})
-    notes = _memory_manager.list_notes(limit=min(limit, 200))
+    notes = mgr.list_notes(limit=min(limit, 200))
     return {
         "notes": [
             {
@@ -2493,12 +2949,14 @@ async def list_notes(limit: int = 50):
 
 
 @app.post("/api/notes")
-async def add_note(req: NoteRequest):
+async def add_note(req: NoteRequest, request: Request):
     """Ajoute une note"""
-    if not _memory_manager:
+    tid = getattr(request.state, "tenant_id", 1)
+    mgr = _get_tenant_manager(tid)
+    if not mgr:
         return JSONResponse(status_code=503, content={"error": "Memoire non disponible"})
     try:
-        note = _memory_manager.add_note(
+        note = mgr.add_note(
             content=req.content,
             context=req.context,
             tags=req.tags,
@@ -2513,24 +2971,28 @@ async def add_note(req: NoteRequest):
 # =========================================================================
 
 @app.get("/api/events")
-async def get_events(limit: int = 50, offset: int = 0):
+async def get_events(request: Request, limit: int = 50, offset: int = 0):
     """Retourne le journal d'evenements chronologique."""
-    if not _memory_manager:
+    tid = getattr(request.state, "tenant_id", 1)
+    mgr = _get_tenant_manager(tid)
+    if not mgr:
         return JSONResponse(status_code=503, content={"error": "Memoire non disponible"})
     try:
-        events = _memory_manager.get_event_log(limit=min(limit, 200), offset=offset)
+        events = mgr.get_event_log(limit=min(limit, 200), offset=offset)
         return {"events": events, "count": len(events)}
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 
 @app.get("/api/events/export")
-async def export_events(limit: int = 200):
+async def export_events(request: Request, limit: int = 200):
     """Exporte le journal d'evenements en texte brut."""
-    if not _memory_manager:
+    tid = getattr(request.state, "tenant_id", 1)
+    mgr = _get_tenant_manager(tid)
+    if not mgr:
         return JSONResponse(status_code=503, content={"error": "Memoire non disponible"})
     try:
-        events = _memory_manager.get_event_log(limit=min(limit, 500))
+        events = mgr.get_event_log(limit=min(limit, 500))
         lines = []
         for ev in events:
             ts = ev.get("timestamp", "?")
@@ -2551,13 +3013,15 @@ async def export_events(limit: int = 200):
 # =========================================================================
 
 @app.get("/api/quota")
-async def get_quota():
+async def get_quota(request: Request):
     """Retourne quotas + usage courant"""
-    if not _memory_manager:
+    tid = getattr(request.state, "tenant_id", 1)
+    mgr = _get_tenant_manager(tid)
+    if not mgr:
         return JSONResponse(status_code=503, content={"error": "Memoire non disponible"})
     try:
-        quota_status = _memory_manager.get_quota_status()
-        daily_stats = _memory_manager.get_daily_stats()
+        quota_status = mgr.get_quota_status()
+        daily_stats = mgr.get_daily_stats()
         return {
             "quota": quota_status,
             "daily": daily_stats,
@@ -2946,14 +3410,17 @@ class DocumentRequest(BaseModel):
 
 
 @app.post("/api/documents/generate")
-async def generate_document(req: DocumentRequest):
+async def generate_document(req: DocumentRequest, request: Request):
     """Genere un document DOCX via GPT + python-docx"""
     if not _doc_generator:
         return JSONResponse(status_code=503, content={"error": "Generateur non disponible"})
 
+    tid = getattr(request.state, "tenant_id", 1)
+    mgr = _get_tenant_manager(tid)
+
     profile_dict = {}
-    if _memory_manager:
-        profile = _memory_manager.get_subscriber_profile()
+    if mgr:
+        profile = mgr.get_subscriber_profile()
         if profile:
             profile_dict = profile.model_dump()
 
@@ -2963,19 +3430,19 @@ async def generate_document(req: DocumentRequest):
         return {
             "success": True,
             "filename": filename,
-            "download_url": f"/static/documents/{TENANT_ID}/{filename}",
+            "download_url": f"/static/documents/{tid}/{filename}",
             "type": "fiche_sante",
         }
 
     # Special case: export notes
-    if req.doc_type == "export_notes" and _memory_manager:
-        notes = _memory_manager.list_notes(limit=200)
+    if req.doc_type == "export_notes" and mgr:
+        notes = mgr.list_notes(limit=200)
         note_dicts = [{"content": n.content, "context": n.context, "created_at": n.created_at.isoformat() if n.created_at else "", "tags": n.tags} for n in notes]
         filename = _doc_generator.generate_notes_export(note_dicts)
         return {
             "success": True,
             "filename": filename,
-            "download_url": f"/static/documents/{TENANT_ID}/{filename}",
+            "download_url": f"/static/documents/{tid}/{filename}",
             "type": "export_notes",
         }
 
@@ -3012,20 +3479,21 @@ async def generate_document(req: DocumentRequest):
     return {
         "success": True,
         "filename": filename,
-        "download_url": f"/static/documents/{TENANT_ID}/{filename}",
+        "download_url": f"/static/documents/{tid}/{filename}",
         "type": req.doc_type,
         "preview": body_text[:300],
     }
 
 
 @app.get("/api/documents")
-async def list_documents():
+async def list_documents(request: Request):
     """Liste les documents generes"""
     if not _doc_generator:
         return JSONResponse(status_code=503, content={"error": "Generateur non disponible"})
+    tid = getattr(request.state, "tenant_id", 1)
     docs = _doc_generator.list_documents()
     for d in docs:
-        d["download_url"] = f"/static/documents/{TENANT_ID}/{d['filename']}"
+        d["download_url"] = f"/static/documents/{tid}/{d['filename']}"
     return {"documents": docs, "count": len(docs)}
 
 
@@ -3356,22 +3824,25 @@ async def run_scenario(req: Request):
 # UNIFIED API - Memoire temps reel multi-canal
 # =============================================================================
 
-def _get_or_create_session() -> Optional[Dict]:
+def _get_or_create_session(tid: int = None) -> Optional[Dict]:
     """Recupere ou cree une session unifiee"""
     if not _redis_client:
         return None
-    session = _redis_client.get_session(TENANT_ID)
+    tid = tid if tid is not None else TENANT_ID
+    session = _redis_client.get_session(tid)
     if not session:
-        new_session = UnifiedSession(tenant_id=TENANT_ID)
-        _redis_client.set_session(TENANT_ID, new_session.to_redis())
+        new_session = UnifiedSession(tenant_id=tid)
+        _redis_client.set_session(tid, new_session.to_redis())
         return new_session.to_redis()
     return session
 
 
-def _update_session_activity(channel: str = None, topic: str = None, mood: str = None):
+def _update_session_activity(channel: str = None, topic: str = None, mood: str = None,
+                             tid: int = None):
     """Met a jour l'activite de la session"""
     if not _redis_client:
         return
+    tid = tid if tid is not None else TENANT_ID
     updates = {"last_activity": datetime.utcnow().isoformat(), "status": "active"}
     if channel:
         updates["active_channel"] = channel
@@ -3379,17 +3850,19 @@ def _update_session_activity(channel: str = None, topic: str = None, mood: str =
         updates["current_topic"] = topic
     if mood:
         updates["current_mood"] = mood
-    _redis_client.update_session(TENANT_ID, updates)
+    _redis_client.update_session(tid, updates)
 
 
 def _add_unified_message(channel: str, role: str, content: str,
                          audio_duration: float = None, mood: str = None,
-                         intent: str = None, tool_calls: list = None):
+                         intent: str = None, tool_calls: list = None,
+                         tid: int = None):
     """Ajoute un message a l'historique unifie"""
     if not _redis_client:
         return None
+    tid = tid if tid is not None else TENANT_ID
     msg = UnifiedMessage(
-        tenant_id=TENANT_ID,
+        tenant_id=tid,
         channel=Channel(channel),
         role=MessageRole(role),
         content=content,
@@ -3398,22 +3871,24 @@ def _add_unified_message(channel: str, role: str, content: str,
         detected_intent=intent,
         tool_calls=tool_calls,
     )
-    _redis_client.add_unified_message(TENANT_ID, msg.id, msg.to_redis())
+    _redis_client.add_unified_message(tid, msg.id, msg.to_redis())
     # Publier evenement temps reel
-    _redis_client.publish_event(TENANT_ID, "new_message", {
+    _redis_client.publish_event(tid, "new_message", {
         "id": msg.id, "channel": channel, "role": role, "content": content[:100]
     })
     return msg.id
 
 
 @app.get("/api/unified/session")
-async def get_unified_session():
+async def get_unified_session(request: Request):
     """Recupere l'etat de la session active"""
     if not _redis_client:
         return JSONResponse(status_code=503, content={"error": "Redis non disponible"})
 
-    session = _get_or_create_session()
-    context = _redis_client.get_context(TENANT_ID) or {}
+    tid = getattr(request.state, "tenant_id", 1)
+
+    session = _get_or_create_session(tid)
+    context = _redis_client.get_context(tid) or {}
 
     return {
         "session": session,
@@ -3433,6 +3908,7 @@ async def unified_send(request: Request):
     if not _redis_client:
         return JSONResponse(status_code=503, content={"error": "Redis non disponible"})
 
+    tid = getattr(request.state, "tenant_id", 1)
     data = await request.json()
     content = data.get("content", "").strip()
     channel = data.get("channel", "app")
@@ -3449,16 +3925,16 @@ async def unified_send(request: Request):
         })
 
     # Mettre a jour la session
-    _update_session_activity(channel=channel)
+    _update_session_activity(channel=channel, tid=tid)
 
     # Ajouter le message a l'historique unifie
-    msg_id = _add_unified_message(channel, role, content)
+    msg_id = _add_unified_message(channel, role, content, tid=tid)
 
     # Si c'est un message du subscriber, generer une reponse Luna
     response_content = None
     if role == "subscriber":
         # Recuperer le contexte recent
-        recent_messages = _redis_client.get_recent_context_messages(TENANT_ID, count=15)
+        recent_messages = _redis_client.get_recent_context_messages(tid, count=15)
 
         # Construire l'historique pour OpenAI
         messages = [{"role": "system", "content": LUNA_SYSTEM_PROMPT}]
@@ -3476,10 +3952,10 @@ async def unified_send(request: Request):
             response_content = response.choices[0].message.content
 
             # Ajouter la reponse Luna
-            luna_msg_id = _add_unified_message(channel, "luna", response_content)
+            luna_msg_id = _add_unified_message(channel, "luna", response_content, tid=tid)
 
             # Mettre a jour le contexte
-            _redis_client.update_context(TENANT_ID, {
+            _redis_client.update_context(tid, {
                 "last_topic": content[:50],
                 "last_response": response_content[:100],
                 "last_channel": channel,
@@ -3499,12 +3975,14 @@ async def unified_send(request: Request):
 
 
 @app.get("/api/unified/history")
-async def get_unified_history(limit: int = 50, channel: str = None):
+async def get_unified_history(request: Request, limit: int = 50, channel: str = None):
     """Recupere l'historique unifie de tous les canaux"""
     if not _redis_client:
         return JSONResponse(status_code=503, content={"error": "Redis non disponible"})
 
-    messages = _redis_client.get_unified_messages(TENANT_ID, limit=limit, channel=channel)
+    tid = getattr(request.state, "tenant_id", 1)
+
+    messages = _redis_client.get_unified_messages(tid, limit=limit, channel=channel)
 
     return {
         "messages": messages,
@@ -3514,19 +3992,21 @@ async def get_unified_history(limit: int = 50, channel: str = None):
 
 
 @app.get("/api/unified/context")
-async def get_realtime_context():
+async def get_realtime_context(request: Request):
     """Recupere le contexte temps reel (pour affichage app)"""
     if not _redis_client:
         return JSONResponse(status_code=503, content={"error": "Redis non disponible"})
 
-    session = _redis_client.get_session(TENANT_ID)
-    context = _redis_client.get_context(TENANT_ID)
-    last_handoff = _redis_client.get_last_handoff(TENANT_ID)
+    tid = getattr(request.state, "tenant_id", 1)
+
+    session = _redis_client.get_session(tid)
+    context = _redis_client.get_context(tid)
+    last_handoff = _redis_client.get_last_handoff(tid)
 
     # Dernier message par canal
     last_by_channel = {}
     for ch in ["app", "voice", "sms", "visio"]:
-        msgs = _redis_client.get_unified_messages(TENANT_ID, limit=1, channel=ch)
+        msgs = _redis_client.get_unified_messages(tid, limit=1, channel=ch)
         if msgs:
             last_by_channel[ch] = msgs[0]
 
@@ -3544,6 +4024,7 @@ async def channel_handoff(request: Request):
     if not _redis_client:
         return JSONResponse(status_code=503, content={"error": "Redis non disponible"})
 
+    tid = getattr(request.state, "tenant_id", 1)
     data = await request.json()
     from_channel = data.get("from_channel", "app")
     to_channel = data.get("to_channel")
@@ -3553,8 +4034,8 @@ async def channel_handoff(request: Request):
         return JSONResponse(status_code=400, content={"error": "to_channel requis"})
 
     # Recuperer le contexte actuel
-    context = _redis_client.get_context(TENANT_ID) or {}
-    recent_messages = _redis_client.get_recent_context_messages(TENANT_ID, count=5)
+    context = _redis_client.get_context(tid) or {}
+    recent_messages = _redis_client.get_recent_context_messages(tid, count=5)
 
     # Creer un resume du contexte
     context_summary = f"Sujet: {context.get('last_topic', 'aucun')}. "
@@ -3564,22 +4045,22 @@ async def channel_handoff(request: Request):
 
     # Enregistrer le handoff
     handoff = ChannelHandoff(
-        tenant_id=TENANT_ID,
+        tenant_id=tid,
         from_channel=Channel(from_channel),
         to_channel=Channel(to_channel),
         reason=reason,
         context_summary=context_summary,
     )
-    _redis_client.add_handoff(TENANT_ID, handoff.id, handoff.to_redis())
+    _redis_client.add_handoff(tid, handoff.id, handoff.to_redis())
 
     # Mettre a jour la session
-    _redis_client.update_session(TENANT_ID, {
+    _redis_client.update_session(tid, {
         "active_channel": to_channel,
         "last_activity": datetime.utcnow().isoformat(),
     })
 
     # Publier l'evenement
-    _redis_client.publish_event(TENANT_ID, "channel_handoff", {
+    _redis_client.publish_event(tid, "channel_handoff", {
         "from": from_channel, "to": to_channel, "reason": reason
     })
 
@@ -3607,7 +4088,7 @@ async def voice_stream(websocket: WebSocket):
         await websocket.close(code=1011, reason="Redis non disponible")
         return
 
-    tenant_id = TENANT_ID  # Dans un vrai multi-tenant, extraire du token
+    tenant_id = getattr(websocket.state, "tenant_id", TENANT_ID)
     _voice_connections[tenant_id] = websocket
 
     # Creer session voix
@@ -3755,12 +4236,14 @@ async def voice_stream(websocket: WebSocket):
 
 
 @app.get("/api/voice/status")
-async def voice_status():
+async def voice_status(request: Request):
     """Statut du mode voix"""
     if not _redis_client:
         return JSONResponse(status_code=503, content={"error": "Redis non disponible"})
 
-    voice_session = _redis_client.get_voice_session(TENANT_ID)
+    tid = getattr(request.state, "tenant_id", 1)
+
+    voice_session = _redis_client.get_voice_session(tid)
 
     return {
         "available": True,
@@ -3782,6 +4265,7 @@ async def sync_from_tavus(request: Request):
     if not _redis_client:
         return JSONResponse(status_code=503, content={"error": "Redis non disponible"})
 
+    tid = getattr(request.state, "tenant_id", 1)
     data = await request.json()
     event = data.get("event", "")
     conversation_id = data.get("conversation_id", "")
@@ -3796,7 +4280,7 @@ async def sync_from_tavus(request: Request):
                 _add_unified_message("visio", role, content)
 
         # Mettre a jour la session
-        _redis_client.update_session(TENANT_ID, {
+        _redis_client.update_session(tid, {
             "is_video_active": "0",
             "channel_session_id": "",
             "last_activity": datetime.utcnow().isoformat(),
@@ -3813,6 +4297,7 @@ async def sync_from_twilio(request: Request):
     if not _redis_client:
         return JSONResponse(status_code=503, content={"error": "Redis non disponible"})
 
+    tid = getattr(request.state, "tenant_id", 1)
     data = await request.json()
     call_sid = data.get("CallSid", "")
     call_status = data.get("CallStatus", "")
@@ -3823,7 +4308,7 @@ async def sync_from_twilio(request: Request):
         if transcript:
             _add_unified_message("call", "subscriber", f"[Appel Twilio] {transcript}")
 
-        _redis_client.update_session(TENANT_ID, {
+        _redis_client.update_session(tid, {
             "active_channel": "app",
             "last_activity": datetime.utcnow().isoformat(),
         })
@@ -3994,13 +4479,15 @@ async def get_theme_details(theme_id: str):
 
 
 @app.get("/api/profile/theme")
-async def get_user_theme(phone: str = None):
+async def get_user_theme(request: Request, phone: str = None):
     """Recupere le theme actuel d'un utilisateur"""
     if not _redis_client:
         return JSONResponse(status_code=503, content={"error": "Redis non disponible"})
 
+    tid = getattr(request.state, "tenant_id", 1)
+
     user_phone = phone or ADMIN_NUMBER
-    theme_data = _redis_client.get_user_theme(TENANT_ID, user_phone)
+    theme_data = _redis_client.get_user_theme(tid, user_phone)
 
     if not theme_data:
         # Retourner le theme par defaut
@@ -4082,6 +4569,7 @@ async def set_user_theme(request: Request):
     if not _redis_client:
         return JSONResponse(status_code=503, content={"error": "Redis non disponible"})
 
+    tid = getattr(request.state, "tenant_id", 1)
     data = await request.json()
     user_phone = data.get("phone", ADMIN_NUMBER)
     preset_id = data.get("preset_id")
@@ -4096,7 +4584,7 @@ async def set_user_theme(request: Request):
     # Construire les preferences
     prefs = UserThemePreferences(
         user_phone=user_phone,
-        tenant_id=TENANT_ID,
+        tenant_id=tid,
         preset_id=preset_id,
         custom_primary_color=data.get("primary_color"),
         custom_secondary_color=data.get("secondary_color"),
@@ -4110,10 +4598,10 @@ async def set_user_theme(request: Request):
         family_photos=data.get("family_photos", []),
     )
 
-    _redis_client.set_user_theme(TENANT_ID, user_phone, prefs.to_redis())
+    _redis_client.set_user_theme(tid, user_phone, prefs.to_redis())
 
     # Publier evenement pour mise a jour temps reel
-    _redis_client.publish_event(TENANT_ID, "theme_changed", {
+    _redis_client.publish_event(tid, "theme_changed", {
         "user_phone": user_phone,
         "preset_id": preset_id,
     })
@@ -4127,13 +4615,15 @@ async def set_user_theme(request: Request):
 
 
 @app.delete("/api/profile/theme")
-async def reset_user_theme(phone: str = None):
+async def reset_user_theme(request: Request, phone: str = None):
     """Remet le theme par defaut"""
     if not _redis_client:
         return JSONResponse(status_code=503, content={"error": "Redis non disponible"})
 
+    tid = getattr(request.state, "tenant_id", 1)
+
     user_phone = phone or ADMIN_NUMBER
-    _redis_client.delete_user_theme(TENANT_ID, user_phone)
+    _redis_client.delete_user_theme(tid, user_phone)
 
     return {
         "success": True,
@@ -4161,6 +4651,7 @@ async def analyze_content(request: Request):
     if not _redis_client:
         return JSONResponse(status_code=503, content={"error": "Redis non disponible"})
 
+    tid = getattr(request.state, "tenant_id", 1)
     data = await request.json()
     content = data.get("content", "").strip()
     analysis_type = data.get("type", "general")  # general, contract, email, letter, cv
@@ -4194,13 +4685,13 @@ async def analyze_content(request: Request):
 
         # Sauvegarder la tache
         task = AssistantTask(
-            tenant_id=TENANT_ID,
+            tenant_id=tid,
             task_type="analyze",
             input_text=content[:5000],
             analysis_result={"type": analysis_type, "analysis": analysis},
             status=DocumentStatus.APPROVED,
         )
-        _redis_client.add_assistant_task(TENANT_ID, task.id, task.to_redis())
+        _redis_client.add_assistant_task(tid, task.id, task.to_redis())
 
         return {
             "success": True,
@@ -4220,6 +4711,7 @@ async def generate_document(request: Request):
     if not _redis_client:
         return JSONResponse(status_code=503, content={"error": "Redis non disponible"})
 
+    tid = getattr(request.state, "tenant_id", 1)
     data = await request.json()
     doc_type = data.get("type", "email")
     subject = data.get("subject", "")
@@ -4229,9 +4721,10 @@ async def generate_document(request: Request):
     additional = data.get("additional_instructions", "")
 
     # Recuperer le profil pour personnalisation
+    mgr = _get_tenant_manager(tid)
     profile = {}
-    if _memory_manager:
-        p = _memory_manager.get_subscriber_profile()
+    if mgr:
+        p = mgr.get_subscriber_profile()
         if p:
             profile = p.model_dump()
 
@@ -4306,7 +4799,7 @@ Contexte: {context}
 
         # Sauvegarder la tache
         task = AssistantTask(
-            tenant_id=TENANT_ID,
+            tenant_id=tid,
             task_type="generate",
             document_type=DocumentType(doc_type) if doc_type in [e.value for e in DocumentType] else None,
             subject=subject,
@@ -4316,7 +4809,7 @@ Contexte: {context}
             output_text=generated_text,
             status=DocumentStatus.DRAFT,
         )
-        _redis_client.add_assistant_task(TENANT_ID, task.id, task.to_redis())
+        _redis_client.add_assistant_task(tid, task.id, task.to_redis())
 
         return {
             "success": True,
@@ -4339,6 +4832,7 @@ async def improve_document(request: Request):
     if not _redis_client:
         return JSONResponse(status_code=503, content={"error": "Redis non disponible"})
 
+    tid = getattr(request.state, "tenant_id", 1)
     data = await request.json()
     task_id = data.get("task_id")
     feedback = data.get("feedback", "").strip()
@@ -4351,7 +4845,7 @@ async def improve_document(request: Request):
         return JSONResponse(status_code=400, content={"error": "feedback ou content requis"})
 
     # Recuperer la tache originale
-    original = _redis_client.get_assistant_task(TENANT_ID, task_id)
+    original = _redis_client.get_assistant_task(tid, task_id)
     if not original:
         return JSONResponse(status_code=404, content={"error": "Tache non trouvee"})
 
@@ -4382,7 +4876,7 @@ Ameliore le document en tenant compte du feedback. Garde le meme format et le me
 
         # Creer une nouvelle version
         new_task = AssistantTask(
-            tenant_id=TENANT_ID,
+            tenant_id=tid,
             task_type="improve",
             document_type=DocumentType(original["document_type"]) if original.get("document_type") else None,
             subject=original.get("subject"),
@@ -4395,7 +4889,7 @@ Ameliore le document en tenant compte du feedback. Garde le meme format et le me
             parent_task_id=task_id,
             status=DocumentStatus.DRAFT,
         )
-        _redis_client.add_assistant_task(TENANT_ID, new_task.id, new_task.to_redis())
+        _redis_client.add_assistant_task(tid, new_task.id, new_task.to_redis())
 
         return {
             "success": True,
@@ -4414,12 +4908,14 @@ Ameliore le document en tenant compte du feedback. Garde le meme format et le me
 
 
 @app.get("/api/assistant/task/{task_id}")
-async def get_task(task_id: str):
+async def get_task(task_id: str, request: Request):
     """Recupere une tache et son contenu"""
     if not _redis_client:
         return JSONResponse(status_code=503, content={"error": "Redis non disponible"})
 
-    task = _redis_client.get_assistant_task(TENANT_ID, task_id)
+    tid = getattr(request.state, "tenant_id", 1)
+
+    task = _redis_client.get_assistant_task(tid, task_id)
     if not task:
         return JSONResponse(status_code=404, content={"error": "Tache non trouvee"})
 
@@ -4430,12 +4926,14 @@ async def get_task(task_id: str):
 
 
 @app.get("/api/assistant/task/{task_id}/versions")
-async def get_task_versions(task_id: str):
+async def get_task_versions(task_id: str, request: Request):
     """Recupere toutes les versions d'un document"""
     if not _redis_client:
         return JSONResponse(status_code=503, content={"error": "Redis non disponible"})
 
-    versions = _redis_client.get_task_versions(TENANT_ID, task_id)
+    tid = getattr(request.state, "tenant_id", 1)
+
+    versions = _redis_client.get_task_versions(tid, task_id)
 
     return {
         "original_task_id": task_id,
@@ -4445,16 +4943,18 @@ async def get_task_versions(task_id: str):
 
 
 @app.post("/api/assistant/task/{task_id}/approve")
-async def approve_task(task_id: str):
+async def approve_task(task_id: str, request: Request):
     """Approuve un document (pret a envoyer/utiliser)"""
     if not _redis_client:
         return JSONResponse(status_code=503, content={"error": "Redis non disponible"})
 
-    task = _redis_client.get_assistant_task(TENANT_ID, task_id)
+    tid = getattr(request.state, "tenant_id", 1)
+
+    task = _redis_client.get_assistant_task(tid, task_id)
     if not task:
         return JSONResponse(status_code=404, content={"error": "Tache non trouvee"})
 
-    _redis_client.update_assistant_task(TENANT_ID, task_id, {
+    _redis_client.update_assistant_task(tid, task_id, {
         "status": DocumentStatus.APPROVED.value,
         "updated_at": datetime.utcnow().isoformat(),
     })
@@ -4468,12 +4968,14 @@ async def approve_task(task_id: str):
 
 
 @app.get("/api/assistant/tasks")
-async def list_tasks(limit: int = 20, doc_type: str = None):
+async def list_tasks(request: Request, limit: int = 20, doc_type: str = None):
     """Liste les dernieres taches"""
     if not _redis_client:
         return JSONResponse(status_code=503, content={"error": "Redis non disponible"})
 
-    tasks = _redis_client.get_assistant_tasks(TENANT_ID, limit=limit)
+    tid = getattr(request.state, "tenant_id", 1)
+
+    tasks = _redis_client.get_assistant_tasks(tid, limit=limit)
 
     if doc_type:
         tasks = [t for t in tasks if t.get("document_type") == doc_type]
@@ -4501,6 +5003,7 @@ async def create_email_draft(request: Request):
     if not _redis_client:
         return JSONResponse(status_code=503, content={"error": "Redis non disponible"})
 
+    tid = getattr(request.state, "tenant_id", 1)
     data = await request.json()
     task_id = data.get("task_id")
     to = data.get("to", [])
@@ -4512,13 +5015,13 @@ async def create_email_draft(request: Request):
 
     body = data.get("body", "")
     if task_id:
-        task = _redis_client.get_assistant_task(TENANT_ID, task_id)
+        task = _redis_client.get_assistant_task(tid, task_id)
         if task:
             body = task.get("output_text", "")
             subject = subject or task.get("subject", "")
 
     draft = EmailDraft(
-        tenant_id=TENANT_ID,
+        tenant_id=tid,
         to=to if isinstance(to, list) else [to],
         cc=cc if isinstance(cc, list) else [cc] if cc else [],
         subject=subject,
@@ -4526,7 +5029,7 @@ async def create_email_draft(request: Request):
         body_text=body,
         task_id=task_id,
     )
-    _redis_client.save_email_draft(TENANT_ID, draft.id, draft.to_redis())
+    _redis_client.save_email_draft(tid, draft.id, draft.to_redis())
 
     return {
         "success": True,
@@ -4828,6 +5331,110 @@ async def admin_client_detail(tenant_id: int, request: Request):
         }
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
+
+
+@app.post("/api/admin/clients")
+async def admin_create_client(request: Request):
+    """Admin: cree un client manuellement."""
+    if not _verify_admin(request):
+        return JSONResponse(status_code=401, content={"error": "Non autorise"})
+
+    if not _redis_client:
+        return JSONResponse(status_code=503, content={"error": "Redis non disponible"})
+
+    data = await request.json()
+    email = data.get("email", "").strip().lower()
+    password = data.get("password", "")
+    first_name = data.get("first_name", "")
+    last_name = data.get("last_name", "")
+    plan = data.get("plan", "essentiel").lower()
+
+    if not email or "@" not in email:
+        return JSONResponse(status_code=400, content={"error": "Email invalide"})
+    if len(password) < 6:
+        return JSONResponse(status_code=400, content={"error": "Mot de passe trop court (min 6)"})
+    if plan not in ("essentiel", "confort", "premium"):
+        return JSONResponse(status_code=400, content={"error": "Plan invalide"})
+
+    if _redis_client.get_auth_by_email(email):
+        return JSONResponse(status_code=409, content={"error": "Email deja utilise"})
+
+    tenant_id = _redis_client.get_next_tenant_id()
+    password_hash = _hash_password(password)
+
+    created = _redis_client.create_auth_record(email, password_hash, tenant_id, plan)
+    if not created:
+        return JSONResponse(status_code=409, content={"error": "Email deja utilise"})
+
+    # Create profile
+    if _CORE_AVAILABLE:
+        profile = SubscriberProfile(
+            tenant_id=tenant_id,
+            first_name=first_name or email.split("@")[0],
+            last_name=last_name,
+            email=email,
+        )
+        mgr = _get_tenant_manager(tenant_id)
+        mgr.save_subscriber_profile(profile)
+
+    logger.info(f"ADMIN_CREATE_CLIENT tenant_id={tenant_id} email={email} plan={plan}")
+    return {"success": True, "tenant_id": tenant_id, "email": email, "plan": plan}
+
+
+@app.patch("/api/admin/clients/{tenant_id}")
+async def admin_update_client(tenant_id: int, request: Request):
+    """Admin: modifie le plan ou le statut d'un client."""
+    if not _verify_admin(request):
+        return JSONResponse(status_code=401, content={"error": "Non autorise"})
+
+    if not _redis_client:
+        return JSONResponse(status_code=503, content={"error": "Redis non disponible"})
+
+    auth = _redis_client.get_auth_by_tenant_id(tenant_id)
+    if not auth:
+        return JSONResponse(status_code=404, content={"error": "Client introuvable"})
+
+    data = await request.json()
+    updates = {}
+
+    if "plan" in data:
+        plan = data["plan"].lower()
+        if plan not in ("essentiel", "confort", "premium"):
+            return JSONResponse(status_code=400, content={"error": "Plan invalide"})
+        updates["plan"] = plan
+        # Evict from tenant manager cache
+        if tenant_id in _tenant_managers:
+            del _tenant_managers[tenant_id]
+
+    if "active" in data:
+        updates["active"] = bool(data["active"])
+
+    if not updates:
+        return JSONResponse(status_code=400, content={"error": "Aucune modification"})
+
+    email = auth.get("email", "")
+    _redis_client.update_auth_record(email, updates)
+    logger.info(f"ADMIN_UPDATE_CLIENT tenant_id={tenant_id} updates={updates}")
+    return {"success": True, "tenant_id": tenant_id, "updates": updates}
+
+
+@app.delete("/api/admin/clients/{tenant_id}")
+async def admin_deactivate_client(tenant_id: int, request: Request):
+    """Admin: desactive un client (soft delete)."""
+    if not _verify_admin(request):
+        return JSONResponse(status_code=401, content={"error": "Non autorise"})
+
+    if not _redis_client:
+        return JSONResponse(status_code=503, content={"error": "Redis non disponible"})
+
+    auth = _redis_client.get_auth_by_tenant_id(tenant_id)
+    if not auth:
+        return JSONResponse(status_code=404, content={"error": "Client introuvable"})
+
+    email = auth.get("email", "")
+    _redis_client.update_auth_record(email, {"active": False})
+    logger.info(f"ADMIN_DEACTIVATE_CLIENT tenant_id={tenant_id} email={email}")
+    return {"success": True, "tenant_id": tenant_id, "deactivated": True}
 
 
 @app.get("/api/admin/quotas")

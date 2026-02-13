@@ -2,6 +2,7 @@
 Luna Redis Client - Client Redis avec gestion des clés Luna
 """
 import os
+import json
 import logging
 from typing import Optional, List, Dict, Any
 from functools import lru_cache
@@ -1031,6 +1032,92 @@ class RedisClient:
     def delete_email_draft(self, tenant_id: int, draft_id: str) -> None:
         """Supprime un brouillon"""
         self.client.delete(self.get_email_draft_key(tenant_id, draft_id))
+
+    # =========================================================================
+    # AUTH STORE (multi-tenant client authentication)
+    # =========================================================================
+
+    def get_next_tenant_id(self) -> int:
+        """Attribue le prochain tenant_id (auto-increment, demarre a 2)."""
+        key = self._key("auth", "next_tenant_id")
+        # Si la cle n'existe pas, l'initialiser a 1 pour que INCR retourne 2
+        if not self.client.exists(key):
+            self.client.set(key, 1)
+        return self.client.incr(key)
+
+    def create_auth_record(self, email: str, password_hash: str,
+                           tenant_id: int, plan: str = "essentiel") -> bool:
+        """Cree un enregistrement auth. Retourne False si email deja pris."""
+        import time as _time
+        key = self._key("auth", email.lower())
+        record = json.dumps({
+            "tenant_id": tenant_id,
+            "password_hash": password_hash,
+            "plan": plan,
+            "active": True,
+            "created_at": _time.time(),
+            "email": email.lower(),
+        })
+        # SETNX = atomique, anti-doublon
+        created = self.client.setnx(key, record)
+        if created:
+            self.add_to_tenant_index(tenant_id, _time.time())
+        return bool(created)
+
+    def get_auth_by_email(self, email: str) -> Optional[Dict[str, Any]]:
+        """Recupere l'enregistrement auth par email."""
+        key = self._key("auth", email.lower())
+        data = self.client.get(key)
+        if data:
+            return json.loads(data)
+        return None
+
+    def update_auth_record(self, email: str, updates: Dict[str, Any]) -> bool:
+        """Met a jour des champs dans l'enregistrement auth."""
+        key = self._key("auth", email.lower())
+        data = self.client.get(key)
+        if not data:
+            return False
+        record = json.loads(data)
+        record.update(updates)
+        self.client.set(key, json.dumps(record))
+        return True
+
+    def get_auth_by_tenant_id(self, tenant_id: int) -> Optional[Dict[str, Any]]:
+        """Retrouve un enregistrement auth par tenant_id (scan)."""
+        pattern = self._key("auth", "*")
+        skip = {self._key("auth", "next_tenant_id"), self._key("auth", "tenant_index")}
+        for key in self.client.scan_iter(match=pattern, count=100):
+            if key in skip:
+                continue
+            data = self.client.get(key)
+            if data:
+                record = json.loads(data)
+                if record.get("tenant_id") == tenant_id:
+                    return record
+        return None
+
+    def add_to_tenant_index(self, tenant_id: int, timestamp: float) -> None:
+        """Ajoute un tenant au sorted set index."""
+        key = self._key("auth", "tenant_index")
+        self.client.zadd(key, {str(tenant_id): timestamp})
+
+    def get_all_auth_records(self) -> List[Dict[str, Any]]:
+        """Recupere tous les enregistrements auth."""
+        pattern = self._key("auth", "*")
+        skip = {self._key("auth", "next_tenant_id"), self._key("auth", "tenant_index")}
+        records = []
+        for key in self.client.scan_iter(match=pattern, count=100):
+            if key in skip:
+                continue
+            data = self.client.get(key)
+            if data:
+                try:
+                    records.append(json.loads(data))
+                except json.JSONDecodeError:
+                    pass
+        records.sort(key=lambda r: r.get("tenant_id", 0))
+        return records
 
 
 @lru_cache()

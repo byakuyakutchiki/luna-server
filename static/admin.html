@@ -126,9 +126,12 @@ tr:hover { background: rgba(167,139,250,0.05); }
 
   <!-- CLIENTS TAB -->
   <div class="tab-panel" id="tab-clients">
-    <h3 style="margin-bottom:12px; font-size:1em;">Clients enregistres</h3>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+      <h3 style="font-size:1em;">Clients enregistres</h3>
+      <button onclick="showClientModal('create')" style="padding:8px 16px;border-radius:8px;border:none;background:#7c3aed;color:white;cursor:pointer;font-size:0.85em;">+ Ajouter un client</button>
+    </div>
     <table>
-      <thead><tr><th>ID</th><th>Nom</th><th>Plan</th></tr></thead>
+      <thead><tr><th>ID</th><th>Nom</th><th>Plan</th><th>Actions</th></tr></thead>
       <tbody id="clientsTable"></tbody>
     </table>
   </div>
@@ -149,6 +152,27 @@ tr:hover { background: rgba(167,139,250,0.05); }
   <div class="tab-panel" id="tab-server">
     <h3 style="margin-bottom:16px; font-size:1em;">Etat du serveur</h3>
     <div class="service-grid" id="serverGrid"></div>
+  </div>
+</div>
+
+<!-- Modal ajout/modif client -->
+<div id="clientModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:200;justify-content:center;align-items:center;">
+  <div style="background:#111;border:1px solid #333;border-radius:12px;padding:30px;width:400px;">
+    <h3 id="clientModalTitle" style="color:#a78bfa;margin-bottom:16px;">Ajouter un client</h3>
+    <p id="clientModalError" style="color:#f87171;font-size:0.85em;display:none;margin-bottom:8px;"></p>
+    <input type="email" id="cmEmail" placeholder="Email" style="width:100%;padding:10px;border-radius:8px;border:1px solid #333;background:#1a1a2e;color:#fff;margin-bottom:10px;font-size:0.95em;">
+    <input type="password" id="cmPassword" placeholder="Mot de passe (min 6)" style="width:100%;padding:10px;border-radius:8px;border:1px solid #333;background:#1a1a2e;color:#fff;margin-bottom:10px;font-size:0.95em;">
+    <input type="text" id="cmFirstName" placeholder="Prenom" style="width:100%;padding:10px;border-radius:8px;border:1px solid #333;background:#1a1a2e;color:#fff;margin-bottom:10px;font-size:0.95em;">
+    <input type="text" id="cmLastName" placeholder="Nom" style="width:100%;padding:10px;border-radius:8px;border:1px solid #333;background:#1a1a2e;color:#fff;margin-bottom:10px;font-size:0.95em;">
+    <select id="cmPlan" style="width:100%;padding:10px;border-radius:8px;border:1px solid #333;background:#1a1a2e;color:#fff;margin-bottom:16px;font-size:0.95em;">
+      <option value="essentiel">Essentiel (79 EUR)</option>
+      <option value="confort">Confort (149 EUR)</option>
+      <option value="premium">Premium (249 EUR)</option>
+    </select>
+    <div style="display:flex;gap:10px;">
+      <button id="cmSaveBtn" style="flex:1;padding:10px;border-radius:8px;border:none;background:#7c3aed;color:white;cursor:pointer;">Sauvegarder</button>
+      <button id="cmCancelBtn" style="flex:1;padding:10px;border-radius:8px;border:none;background:#333;color:#aaa;cursor:pointer;">Annuler</button>
+    </div>
   </div>
 </div>
 
@@ -257,9 +281,14 @@ function loadClients() {
   authFetch("/api/admin/clients").then(function(d) {
     var html = "";
     (d.clients || []).forEach(function(c) {
-      html += "<tr><td>" + c.tenant_id + "</td><td>" + (c.name || "?") + "</td><td>" + (c.plan || "essentiel") + "</td></tr>";
+      var plan = c.plan || "essentiel";
+      html += "<tr><td>" + c.tenant_id + "</td><td>" + (c.name || "?") + "</td><td>" + plan + "</td>";
+      html += '<td>';
+      html += '<button onclick="showClientModal(\'edit\', {tenant_id:' + c.tenant_id + ',email:\'\',first_name:\'' + (c.name || "").replace(/'/g, "\\'") + '\',plan:\'' + plan + '\'})" style="padding:4px 10px;border-radius:6px;border:1px solid #7c3aed;background:transparent;color:#a78bfa;cursor:pointer;font-size:0.78em;margin-right:6px;">Modifier</button>';
+      html += '<button onclick="deactivateClient(' + c.tenant_id + ')" style="padding:4px 10px;border-radius:6px;border:1px solid #f87171;background:transparent;color:#f87171;cursor:pointer;font-size:0.78em;">Desactiver</button>';
+      html += '</td></tr>';
     });
-    if (!html) html = '<tr><td colspan="3" style="color:#666;">Aucun client enregistre</td></tr>';
+    if (!html) html = '<tr><td colspan="4" style="color:#666;">Aucun client enregistre</td></tr>';
     document.getElementById("clientsTable").innerHTML = html;
   }).catch(function() {});
 }
@@ -351,6 +380,99 @@ function loadServer() {
 
     document.getElementById("serverGrid").innerHTML = html;
   }).catch(function() {});
+}
+
+// =========================================================================
+// CLIENT MANAGEMENT (CRUD)
+// =========================================================================
+var cmMode = "create";
+var cmTenantId = null;
+
+function showClientModal(mode, tenant) {
+  cmMode = mode;
+  var modal = document.getElementById("clientModal");
+  var title = document.getElementById("clientModalTitle");
+  var err = document.getElementById("clientModalError");
+  err.style.display = "none";
+  if (mode === "create") {
+    title.textContent = "Ajouter un client";
+    document.getElementById("cmEmail").value = "";
+    document.getElementById("cmPassword").value = "";
+    document.getElementById("cmFirstName").value = "";
+    document.getElementById("cmLastName").value = "";
+    document.getElementById("cmPlan").value = "essentiel";
+    document.getElementById("cmEmail").disabled = false;
+    document.getElementById("cmPassword").style.display = "";
+    cmTenantId = null;
+  } else {
+    title.textContent = "Modifier client #" + (tenant ? tenant.tenant_id : "");
+    document.getElementById("cmEmail").value = (tenant ? tenant.email : "") || "";
+    document.getElementById("cmEmail").disabled = true;
+    document.getElementById("cmPassword").value = "";
+    document.getElementById("cmPassword").style.display = "none";
+    document.getElementById("cmFirstName").value = (tenant ? tenant.first_name : "") || "";
+    document.getElementById("cmLastName").value = "";
+    document.getElementById("cmPlan").value = (tenant ? tenant.plan : "essentiel") || "essentiel";
+    cmTenantId = tenant ? tenant.tenant_id : null;
+  }
+  modal.style.display = "flex";
+}
+
+document.getElementById("cmCancelBtn").addEventListener("click", function() {
+  document.getElementById("clientModal").style.display = "none";
+});
+
+document.getElementById("cmSaveBtn").addEventListener("click", function() {
+  var err = document.getElementById("clientModalError");
+  err.style.display = "none";
+  if (cmMode === "create") {
+    var body = {
+      email: document.getElementById("cmEmail").value.trim(),
+      password: document.getElementById("cmPassword").value,
+      first_name: document.getElementById("cmFirstName").value.trim(),
+      last_name: document.getElementById("cmLastName").value.trim(),
+      plan: document.getElementById("cmPlan").value
+    };
+    if (!body.email) { err.textContent = "Email requis"; err.style.display = "block"; return; }
+    if (!body.password || body.password.length < 6) { err.textContent = "Mot de passe min 6 car."; err.style.display = "block"; return; }
+    fetch("/api/admin/clients", {
+      method: "POST",
+      headers: {"Authorization": "Bearer " + token, "Content-Type": "application/json"},
+      body: JSON.stringify(body)
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.success) { document.getElementById("clientModal").style.display = "none"; loadClients(); }
+      else { err.textContent = data.error || "Erreur"; err.style.display = "block"; }
+    })
+    .catch(function() { err.textContent = "Erreur serveur"; err.style.display = "block"; });
+  } else {
+    var updates = { plan: document.getElementById("cmPlan").value };
+    fetch("/api/admin/clients/" + cmTenantId, {
+      method: "PATCH",
+      headers: {"Authorization": "Bearer " + token, "Content-Type": "application/json"},
+      body: JSON.stringify(updates)
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.success) { document.getElementById("clientModal").style.display = "none"; loadClients(); }
+      else { err.textContent = data.error || "Erreur"; err.style.display = "block"; }
+    })
+    .catch(function() { err.textContent = "Erreur serveur"; err.style.display = "block"; });
+  }
+});
+
+function deactivateClient(tenantId) {
+  if (!confirm("Desactiver le client #" + tenantId + " ?")) return;
+  fetch("/api/admin/clients/" + tenantId, {
+    method: "DELETE",
+    headers: {"Authorization": "Bearer " + token}
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    if (data.success) loadClients();
+    else alert(data.error || "Erreur");
+  });
 }
 
 // =========================================================================
