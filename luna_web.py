@@ -194,14 +194,14 @@ _CLIENT_TOKEN_EXPIRE_DAYS = 7
 
 def _hash_password(password: str) -> str:
     """Hash un mot de passe avec bcrypt."""
-    from passlib.hash import bcrypt
-    return bcrypt.hash(password)
+    import bcrypt
+    return bcrypt.hashpw(password[:72].encode("utf-8"), bcrypt.gensalt(rounds=12)).decode("utf-8")
 
 def _verify_password(password: str, hashed: str) -> bool:
     """Verifie un mot de passe contre son hash bcrypt."""
-    from passlib.hash import bcrypt
+    import bcrypt
     try:
-        return bcrypt.verify(password, hashed)
+        return bcrypt.checkpw(password[:72].encode("utf-8"), hashed.encode("utf-8"))
     except Exception:
         return False
 
@@ -1225,7 +1225,7 @@ async def auth_register(req: RegisterRequest):
             email=email,
         )
         mgr = _get_tenant_manager(tenant_id)
-        mgr.save_subscriber_profile(profile)
+        mgr.set_subscriber_profile(profile)
 
     token = _create_client_token(tenant_id, email, "essentiel")
     # Initialize gamification player
@@ -1855,7 +1855,8 @@ async def setup_save_config(request: Request):
     step = data.get("step", "")
     config = data.get("config", {})
 
-    if not config:
+    # Phase B envoie des declarations sans config — ne pas rejeter
+    if not config and step != "phase_b":
         return JSONResponse(status_code=400, content={"error": "Configuration vide"})
 
     env_path = os.path.join(os.path.dirname(__file__), ".env")
@@ -1902,7 +1903,7 @@ async def setup_save_config(request: Request):
 
     # Sauvegarder les declarations Phase B dans le wizard state
     if step == "phase_b":
-        declarations = data.get("declarations", data.get("config", {}))
+        declarations = data.get("phase_b_declarations", data.get("declarations", data.get("config", {})))
         state["phase_b_declarations"] = declarations
 
     with open(state_path, "w", encoding="utf-8") as f:
@@ -5607,7 +5608,7 @@ async def admin_create_client(request: Request):
             email=email,
         )
         mgr = _get_tenant_manager(tenant_id)
-        mgr.save_subscriber_profile(profile)
+        mgr.set_subscriber_profile(profile)
 
     logger.info(f"ADMIN_CREATE_CLIENT tenant_id={tenant_id} email={email} plan={plan}")
     _gamify("admin", "new_client", is_admin=True)
