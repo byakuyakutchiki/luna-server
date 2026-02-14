@@ -127,6 +127,23 @@ except ImportError:
 PV_SIGNATURE_HASH = os.getenv("PV_SIGNATURE_HASH", "")
 _pv_locked = not PV_SIGNED  # True = serveur en mode SETUP uniquement
 
+# --- License Heartbeat (protection anti-piratage) ---
+_license_heartbeat = None
+_LICENSE_KEY = os.getenv("YAWATCH_LICENSE_KEY", "")
+_LICENSE_SERVER = os.getenv("YAWATCH_LICENSE_SERVER",
+    "https://iawatch-backend-674304336025.europe-west1.run.app")
+
+if _LICENSE_KEY and not _pv_locked:
+    try:
+        from core.license.heartbeat import LicenseHeartbeat
+        _license_heartbeat = LicenseHeartbeat(
+            _LICENSE_KEY, _LICENSE_SERVER,
+            hmac_key=os.getenv("JWT_SECRET_KEY", "")
+        )
+        logger.info(f"License heartbeat active (server: {_LICENSE_SERVER})")
+    except ImportError:
+        logger.warning("Module license non disponible - heartbeat desactive")
+
 # --- Config: graceful en mode SETUP ---
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4-turbo")
@@ -526,6 +543,49 @@ def _cleanup_sessions():
 async def lifespan(app):
     """Startup: charge instructions, lance boucles, configure Tavus. Shutdown: stoppe tout."""
     global _instruction_loop_task, _perception_loop_task
+    # License heartbeat: premier check au demarrage
+    if _license_heartbeat:
+        try:
+            if _license_heartbeat.status == "unknown":
+                result = await _license_heartbeat.activate()
+                logger.info(f"License activation: {result.get('status', 'unknown')}")
+            else:
+                result = await _license_heartbeat.check()
+                logger.info(f"License heartbeat: {result.get('action', 'unknown')}")
+            if _license_heartbeat.is_blocked():
+                logger.critical("LICENSE BLOQUEE - service restreint")
+            elif _license_heartbeat.is_degraded():
+                logger.warning("LICENSE DEGRADEE - chat seul disponible")
+            elif _license_heartbeat.get_banner_message():
+                logger.warning(f"LICENSE WARNING: {_license_heartbeat.get_banner_message()}")
+        except Exception as e:
+            logger.error(f"License startup check failed: {e}")
+
+    # Anti-debug check au demarrage
+    if _license_heartbeat:
+        try:
+            from core.license.antidebug import AntiDebug
+            debug_check = AntiDebug.check()
+            if not debug_check["clean"]:
+                logger.critical(f"ANTI-DEBUG ALERT: {debug_check['threats']}")
+                await _license_heartbeat.report_tamper("debug_detected", debug_check)
+        except Exception:
+            pass
+
+    # Integrity check au demarrage
+    if _license_heartbeat:
+        try:
+            from core.license.integrity import IntegrityChecker
+            _integrity = IntegrityChecker(hmac_key=os.getenv("JWT_SECRET_KEY", ""))
+            integrity_result = _integrity.verify()
+            if not integrity_result["valid"]:
+                logger.critical(f"INTEGRITY ALERT: {integrity_result['reason']}")
+                await _license_heartbeat.report_tamper("integrity_fail", integrity_result)
+            else:
+                logger.info("Code integrity check passed")
+        except Exception as e:
+            logger.warning(f"Integrity check skipped: {e}")
+
     if _CORE_AVAILABLE and _scheduler:
         await _load_instructions_to_scheduler()
         _instruction_loop_task = asyncio.create_task(_instruction_loop())
@@ -574,6 +634,10 @@ if not os.path.isdir(_TEMPLATES_DIR):
 if os.path.isdir(_TEMPLATES_DIR):
     app.mount("/templates", StaticFiles(directory=_TEMPLATES_DIR), name="templates")
 
+_AUDIO_DIR = os.path.join(STATIC_DIR, "audio")
+if os.path.isdir(_AUDIO_DIR):
+    app.mount("/static/audio", StaticFiles(directory=_AUDIO_DIR), name="audio")
+
 # --- CORS ---
 CORS_ORIGINS = os.getenv("CORS_ORIGINS", "https://localhost:8888").split(",")
 app.add_middleware(
@@ -603,6 +667,33 @@ async def security_middleware(request: Request, call_next):
                 "message": "Le PV de recette a ete signe. L'installation est definitivement terminee.",
             },
         )
+
+    # License enforcement: bloque/degrade selon statut licence
+    if _license_heartbeat and path.startswith("/api/"):
+        _lic_exempt = ("/api/status", "/api/admin/", "/api/auth/")
+        if not any(path.startswith(p) for p in _lic_exempt):
+            if _license_heartbeat.is_blocked():
+                logger.warning(f"LICENSE_BLOCKED {client_ip} {request.method} {path}")
+                return JSONResponse(
+                    status_code=403,
+                    content={
+                        "error": "Service suspendu",
+                        "message": "Licence YAWatch suspendue. Contactez YAWatch pour reactiver.",
+                        "license_status": "blocked",
+                    },
+                )
+            elif _license_heartbeat.is_degraded():
+                _lic_degraded_allowed = ("/api/chat", "/api/auth/", "/api/admin/", "/api/status")
+                if not any(path.startswith(p) for p in _lic_degraded_allowed):
+                    logger.warning(f"LICENSE_DEGRADED {client_ip} {request.method} {path}")
+                    return JSONResponse(
+                        status_code=403,
+                        content={
+                            "error": "Service restreint",
+                            "message": "Licence en cours de suspension. Seul le chat est disponible.",
+                            "license_status": "degraded",
+                        },
+                    )
 
     # PV de recette lock: en mode setup, seuls certains endpoints sont accessibles
     if _pv_locked:
@@ -654,6 +745,11 @@ async def security_middleware(request: Request, call_next):
         request.state.plan = "essentiel"
 
     response = await call_next(request)
+
+    # License warning header (frontend affiche un bandeau)
+    if _license_heartbeat and _license_heartbeat.get_banner_message():
+        response.headers["X-License-Warning"] = "true"
+        response.headers["X-License-Status"] = _license_heartbeat.status
 
     duration_ms = (time.time() - start_time) * 1000
     logger.info(f"{request.method} {request.url.path} [{response.status_code}] {duration_ms:.0f}ms - {client_ip}")
@@ -792,6 +888,12 @@ async def index():
     return FileResponse(os.path.join(STATIC_DIR, "index.html"))
 
 
+@app.get("/client")
+async def client_page():
+    """Acces direct a l'espace client (meme si PV non signe)."""
+    return FileResponse(os.path.join(STATIC_DIR, "index.html"))
+
+
 @app.get("/health")
 async def health():
     """Healthcheck leger pour Docker/load balancers."""
@@ -838,6 +940,9 @@ def _gamify(tenant_id, action: str, metadata: dict = None, is_admin: bool = Fals
 
 @app.post("/api/chat")
 async def chat(req: ChatRequest, request: Request):
+    # Service validation (redundant safety layer)
+    if _license_heartbeat and _license_heartbeat.is_blocked():
+        return JSONResponse(status_code=403, content={"error": "Service suspendu"})
     try:
         tid = getattr(request.state, "tenant_id", 1)
         mgr = _get_tenant_manager(tid)
@@ -992,6 +1097,9 @@ async def greeting(request: Request):
 @app.post("/api/call")
 async def start_call(request: Request):
     """Crée un appel vidéo Tavus et enregistre la conversation"""
+    # Service validation (redundant safety layer)
+    if _license_heartbeat and (_license_heartbeat.is_blocked() or _license_heartbeat.is_degraded()):
+        return JSONResponse(status_code=403, content={"error": "Service non disponible"})
     tid = getattr(request.state, "tenant_id", 1)
     if not tavus_client or not tavus_client.is_configured:
         return JSONResponse(status_code=503, content={
@@ -1166,6 +1274,11 @@ async def status():
             "available": _perception_detector is not None,
             "enabled": _memory_manager.is_perception_enabled() if _memory_manager else False,
             "camera": _perception_detector.is_camera_available() if _perception_detector else False,
+        },
+        "license": {
+            "active": _license_heartbeat is not None,
+            "status": _license_heartbeat.status if _license_heartbeat else "none",
+            "banner": _license_heartbeat.get_banner_message() if _license_heartbeat else None,
         },
     }
 
@@ -3339,6 +3452,9 @@ async def _handle_tavus_tool_call(body: Dict) -> Dict:
 
 async def _tool_send_sms(args: Dict) -> Dict:
     """Envoie un SMS a un contact de confiance."""
+    # Service validation (redundant safety layer)
+    if _license_heartbeat and (_license_heartbeat.is_blocked() or _license_heartbeat.is_degraded()):
+        return {"status": "error", "message": "Service non disponible"}
     if not _memory_manager or not sms_client.is_configured:
         return {"status": "error", "message": "Service SMS non disponible"}
 
@@ -3902,12 +4018,32 @@ async def _load_instructions_to_scheduler():
         logger.warning(f"Failed to load instructions: {e}")
 
 
+_last_heartbeat_time = 0  # timestamp du dernier heartbeat
+
 async def _instruction_loop():
     """Boucle de fond : verifie les taches dues toutes les 30s et les execute"""
+    global _last_heartbeat_time
     logger.info("Instruction loop started (30s interval)")
     while True:
         try:
             await asyncio.sleep(30)
+
+            # License heartbeat toutes les 6 heures
+            if _license_heartbeat:
+                now = time.time()
+                if now - _last_heartbeat_time > 21600:  # 6h = 21600s
+                    try:
+                        result = await _license_heartbeat.check()
+                        _last_heartbeat_time = now
+                        action = result.get("action", "unknown")
+                        logger.info(f"License heartbeat: action={action}")
+                        if _license_heartbeat.is_blocked():
+                            logger.critical("LICENSE BLOQUEE par le backend")
+                        elif _license_heartbeat.is_degraded():
+                            logger.warning("LICENSE DEGRADEE - chat seul")
+                    except Exception as e:
+                        logger.error(f"License heartbeat error: {e}")
+
             if not _scheduler or not _executor:
                 continue
 
