@@ -6564,16 +6564,32 @@ var GENDER_FROM_RELATION = {
   "pere": "m", "mere": "f", "frere": "m", "soeur": "f",
   "grand-pere": "m", "grand-mere": "f", "oncle": "m", "tante": "f",
   "epoux": "m", "epouse": "f", "cousin": "m", "cousine": "f",
-  "neveu": "m", "niece": "f", "beau-pere": "m", "belle-mere": "f"
+  "neveu": "m", "niece": "f", "beau-pere": "m", "belle-mere": "f",
+  "ami": "m", "amie": "f", "voisin": "m", "voisine": "f",
+  "mari": "m", "femme": "f", "compagnon": "m", "compagne": "f",
+  "parrain": "m", "marraine": "f", "gendre": "m", "bru": "f"
 };
 
-function inferGender(relation) {
+var _FEMININE_ENDINGS = ["e", "a", "ie", "ine", "ette", "elle", "ane", "ene"];
+var _MASCULINE_NAMES = ["andre", "pierre", "claude", "dominique", "maxime", "alexandre", "jerome", "philippe", "patrice", "stephane"];
+
+function inferGender(relation, name) {
   var r = (relation || "").toLowerCase().trim();
-  return GENDER_FROM_RELATION[r] || "m";
+  if (GENDER_FROM_RELATION[r]) return GENDER_FROM_RELATION[r];
+  // Fallback: try name-based heuristic
+  if (name) {
+    var n = name.toLowerCase().trim();
+    if (_MASCULINE_NAMES.indexOf(n) >= 0) return "m";
+    for (var i = 0; i < _FEMININE_ENDINGS.length; i++) {
+      var end = _FEMININE_ENDINGS[i];
+      if (n.length > end.length && n.substring(n.length - end.length) === end) return "f";
+    }
+  }
+  return "m";
 }
 
-function getSpriteType(memberType, relation) {
-  var gender = inferGender(relation);
+function getSpriteType(memberType, relation, name) {
+  var gender = inferGender(relation, name);
   var isChild = (memberType === "child" || memberType === "teen");
   if (isChild) return gender === "f" ? "child_girl" : "child_boy";
   return gender === "f" ? "adult_woman" : "adult_man";
@@ -6716,7 +6732,7 @@ function renderFamilyCharacters() {
   var maxChars = Math.min(members.length, 6);
   for (var i = 0; i < maxChars; i++) {
     var m = members[i];
-    var spriteType = getSpriteType(m.member_type, m.relation);
+    var spriteType = getSpriteType(m.member_type, m.relation, m.name || m.first_name);
     var isChild = (m.member_type === "child" || m.member_type === "teen");
     var scale = isChild ? 0.9 : 1.1;
     var pos = CHAR_POSITIONS[i];
@@ -8853,7 +8869,7 @@ function renderPanelFamille(bodyEl, subtitleEl) {
     var isVerified = m.verified || m.is_verified;
     var mType = m.member_type || "adult";
     var relation = m.relation || "";
-    var spriteType = getSpriteType(mType, relation);
+    var spriteType = getSpriteType(mType, relation, name);
 
     html += '<div class="member-card" style="animation-delay:' + (i * 60) + 'ms">';
     html += '<div class="member-sprite-preview">' + buildCharSVG(spriteType, 0.75) + '</div>';
