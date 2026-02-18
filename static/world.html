@@ -6532,9 +6532,9 @@ html, body {
 <div class="audio-control" id="audioControl">
   <button class="audio-btn" id="audioBtn" aria-label="Musique ambiance" title="Musique ambiance">&#9654;</button>
   <input type="range" class="audio-volume" id="audioVolume" min="0" max="100" value="30" aria-label="Volume">
-  <span class="audio-label">432Hz</span>
+  <span class="audio-label" id="audioLabel">432Hz</span>
 </div>
-<audio id="ambientAudio" preload="auto" loop>
+<audio id="ambientAudio" preload="auto">
   <source src="/static/audio/ambient-432hz.mp3" type="audio/mpeg">
 </audio>
 
@@ -8299,16 +8299,46 @@ function initAudioPlayer() {
   var audio = document.getElementById("ambientAudio");
   var btn = document.getElementById("audioBtn");
   var vol = document.getElementById("audioVolume");
+  var label = document.getElementById("audioLabel");
   if (!audio || !btn || !vol) return;
 
-  // Ensure loop is always on
-  audio.loop = true;
+  // Playlist: 2 pistes qui s'enchainent en boucle
+  var playlist = [
+    { src: "/static/audio/ambient-432hz.mp3", name: "432Hz" },
+    { src: "/static/audio/relaxing-flute-432hz.mp3", name: "Flute" }
+  ];
+  var currentTrack = 0;
+
+  // Ne PAS mettre loop — on gere l'enchainement manuellement
+  audio.loop = false;
 
   var savedVol = localStorage.getItem("luna_audio_vol");
   var savedState = localStorage.getItem("luna_audio_playing");
+  var savedTrack = localStorage.getItem("luna_audio_track");
 
   audio.volume = savedVol ? parseFloat(savedVol) : 0.3;
   vol.value = Math.round(audio.volume * 100);
+
+  if (savedTrack && parseInt(savedTrack, 10) < playlist.length) {
+    currentTrack = parseInt(savedTrack, 10);
+  }
+
+  function loadTrack(index) {
+    currentTrack = index % playlist.length;
+    audio.src = playlist[currentTrack].src;
+    audio.load();
+    if (label) label.textContent = playlist[currentTrack].name;
+    localStorage.setItem("luna_audio_track", currentTrack);
+  }
+
+  // Quand une piste finit, passer a la suivante
+  audio.addEventListener("ended", function() {
+    loadTrack(currentTrack + 1);
+    audio.play().catch(function() {});
+  });
+
+  // Charger la piste sauvegardee
+  loadTrack(currentTrack);
 
   btn.addEventListener("click", function() {
     if (audio.paused) {
@@ -8335,7 +8365,6 @@ function initAudioPlayer() {
 
   // Auto-resume if was playing last time (needs user gesture first time)
   if (savedState === "1") {
-    // Try autoplay — browsers may block it, that's OK
     audio.play().then(function() {
       btn.textContent = "\u23F8";
       btn.classList.add("playing");
