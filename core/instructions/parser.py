@@ -109,11 +109,11 @@ class InstructionParser:
     - "Tous les matins à 7h, demande-moi comment je vais"
     """
 
-    # Patterns pour détecter les heures
+    # Patterns pour détecter les heures (avec et sans accent sur "a")
     TIME_PATTERNS = [
-        r"à (\d{1,2})h(\d{2})?",
-        r"à (\d{1,2}):(\d{2})",
-        r"à (\d{1,2}) heures?(?: (\d{2}))?",
+        r"[àa] (\d{1,2})h(\d{2})?",
+        r"[àa] (\d{1,2}):(\d{2})",
+        r"[àa] (\d{1,2}) heures?(?: (\d{2}))?",
         r"vers (\d{1,2})h(\d{2})?",
     ]
 

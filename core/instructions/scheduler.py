@@ -96,8 +96,19 @@ class InstructionScheduler:
 
         if not next_run:
             logger.warning(f"Could not calculate next run for instruction {instruction_id}")
-            # Pour les instructions sans timing, on les exécute maintenant
-            next_run = datetime.utcnow()
+            if instruction.recurrence != RecurrenceType.ONCE:
+                # Recurring sans heure : planifier demain à 08:00 au lieu de boucler
+                tomorrow_8am = datetime.combine(
+                    (start_from + timedelta(days=1)).date(), time(hour=8, minute=0)
+                )
+                logger.info(
+                    f"Recurring instruction {instruction_id} has no time, "
+                    f"defaulting to {tomorrow_8am.isoformat()}"
+                )
+                next_run = tomorrow_8am
+            else:
+                # One-shot sans timing : exécuter maintenant
+                next_run = datetime.utcnow()
 
         # Crée la tâche
         import uuid

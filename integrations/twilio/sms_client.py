@@ -164,12 +164,19 @@ class TwilioSMSClient:
         body: str,
     ) -> Tuple[bool, Dict[str, Any]]:
         """
-        Version async de send().
+        Version async de send() avec timeout 15s.
         Wraps l'appel synchrone Twilio.
         """
         import asyncio
         loop = asyncio.get_event_loop()
-        return await loop.run_in_executor(None, self.send, to, body)
+        try:
+            return await asyncio.wait_for(
+                loop.run_in_executor(None, self.send, to, body),
+                timeout=15.0,
+            )
+        except asyncio.TimeoutError:
+            logger.error(f"Timeout envoi SMS vers {to}")
+            return False, {"error": "Timeout connexion Twilio"}
 
     def validate_webhook(
         self,

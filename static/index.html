@@ -53,6 +53,10 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; b
 .call-btn:hover { background: #15803d; }
 .call-btn:disabled { background: #444; cursor: not-allowed; }
 .call-btn svg { width: 20px; height: 20px; flex-shrink: 0; }
+.voice-btn { padding: 12px 20px; border-radius: 24px; border: none; background: #2563eb; color: white; font-size: 1em; cursor: pointer; display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+.voice-btn:hover { background: #1d4ed8; }
+.voice-btn:disabled { background: #444; cursor: not-allowed; }
+.voice-btn svg { width: 20px; height: 20px; flex-shrink: 0; }
 
 /* Overlay video */
 .video-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 100; display: none; flex-direction: column; align-items: center; justify-content: center; }
@@ -150,6 +154,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; b
   .send-btn { padding: 10px 16px; font-size: 0.9em; }
   .call-btn { padding: 10px 14px; font-size: 0.85em; }
   .call-btn svg { width: 16px; height: 16px; }
+  .voice-btn { padding: 10px 14px; font-size: 0.85em; }
+  .voice-btn svg { width: 16px; height: 16px; }
   .header { padding: 12px; }
   .header h1 { font-size: 1.2em; }
   .video-overlay iframe { width: 100vw; height: 85vh; border-radius: 0; }
@@ -194,6 +200,16 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; b
   <button class="logout-btn" id="logoutBtn">Deconnexion</button>
 </div>
 
+<!-- XP Widget flottant -->
+<div id="xpWidget" style="position:fixed;bottom:16px;left:16px;z-index:1000;display:none;cursor:pointer;">
+  <div style="background:linear-gradient(135deg,#1a1848,#2d1b69);border-radius:16px;padding:10px 16px;color:white;font-size:13px;box-shadow:0 4px 20px rgba(0,0,0,0.3);">
+    <div><span id="xpLevel">Niv. 1</span> &middot; <span id="xpStars">0</span> etoiles</div>
+    <div style="background:rgba(255,255,255,0.2);border-radius:4px;height:6px;margin-top:4px;width:120px;">
+      <div id="xpBar" style="background:linear-gradient(90deg,#a78bfa,#7c3aed);height:100%;border-radius:4px;width:0%;transition:width 0.5s;"></div>
+    </div>
+  </div>
+</div>
+
 <!-- Tabs -->
 <div class="tabs">
   <button class="tab-btn active" data-tab="chat">Chat</button>
@@ -213,11 +229,17 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; b
     <input type="text" id="input" placeholder="Message pour Luna..." autocomplete="off" maxlength="2000">
     <span class="char-counter" id="charCounter"></span>
     <button class="send-btn" id="send">Envoyer</button>
+    <button class="voice-btn" id="voiceBtn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M22 16.92v3a2 2 0 0 1-2.18 2A19.79 19.79 0 0 1 3.07 5.18 2 2 0 0 1 5.11 3h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 11.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 18.92z"/>
+      </svg>
+      Appel Vocal
+    </button>
     <button class="call-btn" id="callBtn">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <path d="M15.05 5A5 5 0 0 1 19 8.95M15.05 1A9 9 0 0 1 23 8.94M22 16.92v3a2 2 0 0 1-2.18 2A19.79 19.79 0 0 1 3.07 5.18 2 2 0 0 1 5.11 3h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 11.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 18.92z"/>
       </svg>
-      Appeler Luna
+      Visio Luna
     </button>
   </div>
 </div>
@@ -458,16 +480,14 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; b
 </div>
 
 <!-- World Tab -->
-<div class="tab-panel" id="tab-world">
-  <div class="panel-content" style="text-align:center; padding-top:40px;">
-    <div style="font-size:3em; margin-bottom:16px;">&#x1f30d;</div>
-    <h2 style="color:#a78bfa; margin-bottom:12px; font-size:1.4em;">Le Monde de Luna</h2>
-    <p style="color:#888; margin-bottom:24px; max-width:400px; margin-left:auto; margin-right:auto; line-height:1.6;">
-      Decouvre ton univers, suis ta progression, debloque des badges et complete des missions !
-    </p>
-    <a href="/world" style="display:inline-block; padding:14px 32px; background:#7c3aed; color:white; border-radius:12px; text-decoration:none; font-size:1em; font-weight:600; transition: background 0.2s;" onmouseover="this.style.background='#6d28d9'" onmouseout="this.style.background='#7c3aed'">
-      Ouvrir mon Monde
-    </a>
+<div class="tab-panel" id="tab-world" style="padding:0; overflow:hidden;">
+  <iframe id="worldFrame"
+    style="width:100%; height:100%; border:none; display:none;"
+    allow="autoplay">
+  </iframe>
+  <div id="worldLoader" style="display:flex; align-items:center; justify-content:center; height:100%; color:#a78bfa; flex-direction:column; gap:12px;">
+    <div style="font-size:2em;">&#x1f319;</div>
+    <p>Chargement du Monde de Luna...</p>
   </div>
 </div>
 
@@ -635,8 +655,26 @@ tabBtns.forEach(function(btn) {
     if (btn.dataset.tab === "documents") loadDocuments();
     if (btn.dataset.tab === "perception") loadPerception();
     if (btn.dataset.tab === "quotas") loadQuotas();
+    if (btn.dataset.tab === "world") loadMonde();
   });
 });
+
+// =========================================================================
+// MONDE LUNA (embedded world)
+// =========================================================================
+var worldLoaded = false;
+function loadMonde() {
+  if (worldLoaded) return;
+  var frame = document.getElementById("worldFrame");
+  var loader = document.getElementById("worldLoader");
+  var token = localStorage.getItem("luna_token") || sessionStorage.getItem("luna_token");
+  frame.src = "/world?embed=1&token=" + encodeURIComponent(token || "");
+  frame.onload = function() {
+    frame.style.display = "block";
+    if (loader) loader.style.display = "none";
+    worldLoaded = true;
+  };
+}
 
 // =========================================================================
 // CHAT (preserved from previous version)
@@ -734,7 +772,7 @@ function sendMsg(overrideMsg) {
     if (!r.ok) throw new Error("Erreur serveur (" + r.status + ")");
     return r.json();
   })
-  .then(function(data) { hideTyping(); addMsg(data.response, "luna"); if (document.hidden) playNotif(); })
+  .then(function(data) { hideTyping(); addMsg(data.response, "luna"); if (document.hidden) playNotif(); showXpToast("+2 XP"); refreshXpWidget(); })
   .catch(function(e) {
     hideTyping(); lastFailedMsg = msg;
     var errDiv = document.createElement("div"); errDiv.className = "msg luna error-msg";
@@ -765,7 +803,7 @@ function startCall() {
   .catch(function() { addMsg("Erreur de connexion pour appel.", "luna"); })
   .finally(function() {
     callBtn.disabled = false;
-    callBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15.05 5A5 5 0 0 1 19 8.95M15.05 1A9 9 0 0 1 23 8.94M22 16.92v3a2 2 0 0 1-2.18 2A19.79 19.79 0 0 1 3.07 5.18 2 2 0 0 1 5.11 3h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 11.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 18.92z"/></svg> Appeler Luna';
+    callBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15.05 5A5 5 0 0 1 19 8.95M15.05 1A9 9 0 0 1 23 8.94M22 16.92v3a2 2 0 0 1-2.18 2A19.79 19.79 0 0 1 3.07 5.18 2 2 0 0 1 5.11 3h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 11.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 18.92z"/></svg> Visio Luna';
   });
 }
 callBtn.addEventListener("click", startCall);
@@ -773,6 +811,25 @@ hangupBtn.addEventListener("click", function() {
   videoFrame.src = ""; videoOverlay.classList.remove("active"); inviteModal.classList.remove("active");
   currentConvId = ""; addMsg("Appel termine.", "luna");
 });
+
+// --- Appel Vocal (Twilio + OpenAI Realtime) ---
+var voiceBtn = document.getElementById("voiceBtn");
+var voiceBtnOriginal = voiceBtn.innerHTML;
+function startVoiceCall() {
+  voiceBtn.disabled = true; voiceBtn.textContent = "Appel en cours...";
+  authFetch("/api/voice-call", { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({}) })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    if (data.error) { addMsg("Erreur appel vocal: " + data.error, "luna"); return; }
+    addMsg("Luna t'appelle sur ton telephone... Decroche !", "luna");
+  })
+  .catch(function() { addMsg("Erreur de connexion pour appel vocal.", "luna"); })
+  .finally(function() {
+    voiceBtn.disabled = false;
+    voiceBtn.innerHTML = voiceBtnOriginal;
+  });
+}
+voiceBtn.addEventListener("click", startVoiceCall);
 
 // --- Invite contact ---
 var inviteBtn = document.getElementById("inviteBtn");
@@ -1178,6 +1235,38 @@ function quotaBar(label, used, limit, pct) {
 function esc(s) { if (!s) return ""; var d = document.createElement("div"); d.textContent = s; return d.innerHTML; }
 
 // =========================================================================
+// XP WIDGET + TOAST
+// =========================================================================
+function refreshXpWidget() {
+  authFetch("/api/world/player").then(function(r) { return r.json(); })
+  .then(function(d) {
+    var p = d.player;
+    if (p && p.level !== undefined) {
+      document.getElementById("xpLevel").textContent = "Niv. " + p.level;
+      document.getElementById("xpStars").textContent = p.stars || 0;
+      var pct = p.progress_percent || 0;
+      document.getElementById("xpBar").style.width = Math.min(100, Math.round(pct)) + "%";
+      document.getElementById("xpWidget").style.display = "block";
+    }
+  }).catch(function() {});
+}
+
+document.getElementById("xpWidget").addEventListener("click", function() {
+  // Basculer vers onglet Monde
+  var worldBtn = document.querySelector('.tab-btn[data-tab="world"]');
+  if (worldBtn) worldBtn.click();
+});
+
+function showXpToast(text) {
+  var t = document.createElement("div");
+  t.textContent = text;
+  t.style.cssText = "position:fixed;bottom:70px;left:24px;background:#7c3aed;color:white;padding:6px 14px;border-radius:12px;font-size:12px;font-weight:bold;z-index:9999;opacity:0;transition:all 0.3s;";
+  document.body.appendChild(t);
+  requestAnimationFrame(function() { t.style.opacity = "1"; t.style.transform = "translateY(-8px)"; });
+  setTimeout(function() { t.style.opacity = "0"; setTimeout(function() { t.remove(); }, 300); }, 2000);
+}
+
+// =========================================================================
 // INIT
 // =========================================================================
 // Check auth on page load
@@ -1195,7 +1284,7 @@ function initApp() {
 
 // Override showApp to also init
 var _origShowApp = showApp;
-showApp = function() { _origShowApp(); initApp(); };
+showApp = function() { _origShowApp(); initApp(); refreshXpWidget(); };
 </script>
 </body>
 </html>

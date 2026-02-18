@@ -34,6 +34,7 @@ from typing import Optional, Dict
 import httpx
 
 from integrations.twilio.sms_client import TwilioSMSClient
+from integrations.twilio.voice_client import TwilioVoiceClient
 
 # Tavus: optionnel (mode "lite" = sans visio avatar)
 try:
@@ -85,6 +86,7 @@ logger = logging.getLogger("luna_web")
 # --- Config ---
 LUNA_MODE = os.getenv("LUNA_MODE", "full").lower()  # "lite" (chat+voix+SMS) ou "full" (+visio Tavus)
 TAVUS_CALLBACK_URL = os.getenv("TAVUS_CALLBACK_URL", "")  # URL publique pour webhooks Tavus
+VOICE_CALLBACK_URL = os.getenv("VOICE_CALLBACK_URL", "")  # URL publique pour appels vocaux (TwiML + WebSocket)
 TENANT_ID = 1  # Fallback pour retro-compatibilite (REQUIRE_AUTH=false)
 LEGAL_MODE = "assistance_only"  # Mode legal: aide contextuelle, pas de surveillance garantie
 REQUIRE_AUTH = os.getenv("REQUIRE_AUTH", "true").lower() == "true"
@@ -92,12 +94,13 @@ REQUIRE_AUTH = os.getenv("REQUIRE_AUTH", "true").lower() == "true"
 
 def _reload_env():
     """Recharge le .env et met a jour les globals qui cachent des valeurs d'env."""
-    global LUNA_MODE, TAVUS_CALLBACK_URL, REQUIRE_AUTH
+    global LUNA_MODE, TAVUS_CALLBACK_URL, VOICE_CALLBACK_URL, REQUIRE_AUTH
     global OPENAI_API_KEY, OPENAI_MODEL, ADMIN_NUMBER, SETUP_OPENAI_API_KEY
     global _JWT_SECRET, _JWT_ALGORITHM
     load_dotenv(os.path.join(os.path.dirname(__file__), ".env"), override=True)
     LUNA_MODE = os.getenv("LUNA_MODE", "full").lower()
     TAVUS_CALLBACK_URL = os.getenv("TAVUS_CALLBACK_URL", "")
+    VOICE_CALLBACK_URL = os.getenv("VOICE_CALLBACK_URL", "")
     REQUIRE_AUTH = os.getenv("REQUIRE_AUTH", "true").lower() == "true"
     OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
     OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4-turbo")
@@ -262,6 +265,9 @@ _PUBLIC_PATHS = (
     "/api/setup/",
     "/api/stripe/webhook",
     "/api/webhook/sms",
+    "/api/webhook/tavus",
+    "/api/voice-call/twiml",
+    "/api/webhook/voice-incoming",
 )
 
 def _is_public_path(path: str) -> bool:
@@ -277,10 +283,12 @@ if _pv_locked:
         sms_client = TwilioSMSClient.from_env()
     except Exception:
         sms_client = None
+    voice_client = None
     tavus_client = None
 else:
     openai_client = OpenAI(api_key=OPENAI_API_KEY)
     sms_client = TwilioSMSClient.from_env()
+    voice_client = TwilioVoiceClient.from_env()
     tavus_client = TavusClient.from_env() if _TAVUS_AVAILABLE and LUNA_MODE == "full" else None
 
 # --- Core modules (Redis, Safety, Quota) ---
@@ -539,6 +547,53 @@ def _cleanup_sessions():
         logger.info(f"Cleaned up {len(expired)} expired sessions")
 
 
+async def _configure_twilio_webhooks():
+    """
+    Configure automatiquement les webhooks du numero Twilio.
+    Appele au demarrage du serveur pour que les appels entrants et SMS
+    arrivent sur les bons endpoints sans configuration manuelle.
+    """
+    try:
+        phone = os.getenv("TWILIO_PHONE_NUMBER", "")
+        if not phone:
+            return
+
+        import asyncio
+        def _do_configure():
+            from twilio.rest import Client
+            client = Client(
+                os.getenv("TWILIO_ACCOUNT_SID"),
+                os.getenv("TWILIO_AUTH_TOKEN"),
+            )
+            numbers = client.incoming_phone_numbers.list(phone_number=phone)
+            if not numbers:
+                logger.warning(f"Twilio: numero {phone} non trouve sur ce compte")
+                return
+
+            num = numbers[0]
+            voice_url = f"{VOICE_CALLBACK_URL}/api/webhook/voice-incoming"
+            sms_url = f"{VOICE_CALLBACK_URL}/api/webhook/sms"
+
+            needs_update = (num.voice_url != voice_url) or (num.sms_url != sms_url)
+            if not needs_update:
+                logger.info(f"Twilio webhooks deja configures pour {phone}")
+                return
+
+            num.update(
+                voice_url=voice_url,
+                voice_method="POST",
+                sms_url=sms_url,
+                sms_method="POST",
+            )
+            logger.info(f"Twilio webhooks configures: voice={voice_url}, sms={sms_url}")
+
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(None, _do_configure)
+
+    except Exception as e:
+        logger.warning(f"Twilio webhook auto-config failed: {e} (configurer manuellement dans Twilio Dashboard)")
+
+
 @asynccontextmanager
 async def lifespan(app):
     """Startup: charge instructions, lance boucles, configure Tavus. Shutdown: stoppe tout."""
@@ -596,8 +651,20 @@ async def lifespan(app):
         logger.info("Perception loop ready (disabled by default)")
     # Configure Tavus tool calling + perception (mode full uniquement)
     if tavus_client and tavus_client.is_configured:
-        await tavus_client.configure_tools()
-        await tavus_client.configure_perception()
+        try:
+            await asyncio.wait_for(tavus_client.configure_tools(), timeout=10.0)
+        except Exception as e:
+            logger.warning(f"Tavus configure_tools error: {e}")
+        try:
+            await asyncio.wait_for(tavus_client.configure_perception(), timeout=10.0)
+        except Exception as e:
+            logger.warning(f"Tavus configure_perception error: {e}")
+    # Auto-configure Twilio phone number webhooks (voice + SMS)
+    if voice_client and voice_client.is_configured and VOICE_CALLBACK_URL:
+        try:
+            await asyncio.wait_for(_configure_twilio_webhooks(), timeout=15.0)
+        except Exception as e:
+            logger.warning(f"Twilio webhook config error: {e}")
     yield
     # Shutdown
     if _instruction_loop_task:
@@ -1126,6 +1193,263 @@ async def start_call(request: Request):
     }
 
 
+# =========================================================================
+# APPELS VOCAUX - Twilio Voice + OpenAI Realtime API
+# =========================================================================
+
+class VoiceCallRequest(BaseModel):
+    phone: Optional[str] = None  # Numero a appeler (defaut: ADMIN_NUMBER)
+    mission: Optional[str] = None  # Mission speciale pour Luna (ex: "prendre des nouvelles de Fred")
+    max_duration: Optional[int] = None  # Duree max en secondes (defaut: 900)
+    greeting: Optional[str] = None  # Greeting personnalise
+
+# Stockage temporaire des parametres d'appel (call_sid -> params)
+_voice_call_params: Dict[str, dict] = {}
+
+@app.post("/api/voice-call")
+async def start_voice_call(req: VoiceCallRequest, request: Request):
+    """Lance un appel vocal sortant. Luna appelle le telephone du souscripteur."""
+    if _license_heartbeat and (_license_heartbeat.is_blocked() or _license_heartbeat.is_degraded()):
+        return JSONResponse(status_code=403, content={"error": "Service non disponible"})
+    tid = getattr(request.state, "tenant_id", 1)
+    if not voice_client or not voice_client.is_configured:
+        return JSONResponse(status_code=503, content={
+            "error": "Appels vocaux non disponibles",
+            "message": "VOICE_CALLBACK_URL ou Twilio non configure.",
+        })
+    phone = req.phone or ADMIN_NUMBER
+    if not phone:
+        return JSONResponse(status_code=400, content={"error": "Numero de telephone requis"})
+    success, data = await voice_client.initiate_call_async(phone)
+    if not success:
+        return {"error": data.get("error", "Erreur appel vocal")}
+    # Stocker les parametres personnalises pour cet appel
+    if req.mission or req.max_duration or req.greeting:
+        _voice_call_params[data["call_sid"]] = {
+            "mission": req.mission,
+            "max_duration": req.max_duration,
+            "greeting": req.greeting,
+            "phone": phone,
+        }
+    _gamify(tid, "voice_call")
+    return {"call_sid": data["call_sid"], "status": data["status"]}
+
+
+@app.post("/api/voice-call/twiml")
+async def voice_call_twiml(request: Request):
+    """
+    Endpoint TwiML que Twilio fetche quand l'appel est decroche.
+    Retourne le XML qui dit a Twilio d'ouvrir un Media Stream.
+    """
+    if not voice_client:
+        return Response(
+            content="<Response><Say language='fr-FR'>Service non disponible.</Say><Hangup/></Response>",
+            media_type="application/xml",
+        )
+    twiml = voice_client.generate_twiml()
+    logger.info(f"TwiML genere pour appel vocal")
+    return Response(content=twiml, media_type="application/xml")
+
+
+@app.websocket("/api/voice-call/media-stream")
+async def voice_call_media_stream(websocket: WebSocket):
+    """
+    WebSocket endpoint pour Twilio Media Streams.
+    Relaie l'audio entre le telephone et OpenAI Realtime API.
+    """
+    await websocket.accept()
+    logger.info("Twilio Media Stream WebSocket accepted")
+
+    bridge = None
+    memory_mgr = None
+    try:
+        from integrations.openai.realtime_bridge import RealtimeBridge, build_voice_context
+
+        # Recuperer les parametres personnalises si disponibles
+        call_params = {}
+        call_sid_for_params = None
+        # On cherche le call_sid dans les parametres stockes (on prend le plus recent)
+        if _voice_call_params:
+            call_sid_for_params = list(_voice_call_params.keys())[-1]
+            call_params = _voice_call_params.pop(call_sid_for_params, {})
+
+        mission = call_params.get("mission")
+        max_dur = call_params.get("max_duration") or 900
+        custom_greeting = call_params.get("greeting")
+
+        # Contexte Luna pour l'appel vocal
+        memory_mgr = tavus_client.memory if tavus_client else _memory_manager
+
+        if mission:
+            # Mission speciale : contexte adapte
+            context = build_voice_context(
+                subscriber_name=_SUBSCRIBER_NAME,
+                memory_manager=memory_mgr,
+                max_duration_minutes=max(1, max_dur // 60),
+                mission=mission,
+            )
+            greeting_text = custom_greeting or f"La personne vient de decrocher. {mission}"
+        else:
+            context = build_voice_context(
+                subscriber_name=_SUBSCRIBER_NAME,
+                memory_manager=memory_mgr,
+            )
+            greeting_text = custom_greeting or f"L'utilisateur vient de decrocher le telephone. Salue {_SUBSCRIBER_NAME} chaleureusement et demande comment tu peux l'aider."
+
+        # Handler pour les tool calls (reutilise les memes fonctions que Tavus)
+        async def handle_voice_tool(name: str, args: dict) -> dict:
+            if name == "send_sms":
+                return await _tool_send_sms(args)
+            elif name == "create_instruction":
+                return await _tool_create_instruction(args)
+            elif name == "create_note":
+                return await _tool_create_note(args)
+            elif name == "get_contacts":
+                return await _tool_get_contacts()
+            elif name == "generate_document":
+                return await _tool_generate_document(args)
+            elif name == "alert_contacts":
+                return await _tool_alert_contacts(args)
+            else:
+                return {"status": "error", "message": f"Fonction inconnue: {name}"}
+
+        bridge = RealtimeBridge(
+            openai_api_key=OPENAI_API_KEY,
+            ws_twilio=websocket,
+            call_context=context,
+            tool_handler=handle_voice_tool,
+            max_duration_seconds=max_dur,
+            greeting=greeting_text,
+        )
+        await bridge.run()
+
+        # Sauvegarder la transcription dans Redis
+        try:
+            _save_voice_transcript(bridge, memory_mgr)
+        except Exception as e:
+            logger.warning(f"Failed to save voice transcript: {e}")
+
+    except WebSocketDisconnect:
+        logger.info("Twilio Media Stream disconnected")
+        # Sauvegarder la transcription meme si deconnexion
+        if bridge and bridge.transcript:
+            try:
+                _save_voice_transcript(bridge, memory_mgr)
+            except Exception:
+                pass
+    except asyncio.CancelledError:
+        logger.info("Voice media stream cancelled")
+    except OSError as e:
+        logger.error(f"Voice media stream network error: {e}")
+    except Exception as e:
+        logger.error(f"Voice media stream error: {e}")
+    finally:
+        try:
+            await websocket.close()
+        except Exception:
+            pass
+
+
+def _save_voice_transcript(bridge, memory_mgr):
+    """Sauvegarde la transcription d'un appel vocal dans Redis."""
+    if not bridge.transcript or not memory_mgr:
+        return
+    try:
+        conv_id = f"voice_{bridge.call_sid or 'unknown'}_{int(time.time())}"
+        transcript_text = bridge.get_transcript_text()
+        if not transcript_text.strip():
+            return
+
+        # Sauvegarder chaque message dans la conversation Redis
+        for entry in bridge.transcript:
+            role = MessageRole.SUBSCRIBER if entry["role"] == "user" else MessageRole.LUNA
+            try:
+                memory_mgr.add_message(
+                    conv_id=conv_id,
+                    role=role,
+                    content=entry["text"],
+                    channel=Channel.CALL,
+                )
+            except Exception:
+                pass  # quota atteint ou autre erreur, on continue
+
+        # Sauvegarder aussi comme note resume
+        summary = f"[Appel vocal] {len(bridge.transcript)} echanges\n{transcript_text[:500]}"
+        try:
+            memory_mgr.add_note(
+                content=summary,
+                context="voice_call",
+                tags=["appel_vocal", "transcription"],
+            )
+        except Exception:
+            pass
+
+        logger.info(f"Voice transcript saved: {conv_id} ({len(bridge.transcript)} entries)")
+    except Exception as e:
+        logger.error(f"Error saving voice transcript: {e}")
+
+
+# =========================================================================
+# APPELS VOCAUX ENTRANTS - Le souscripteur appelle Luna
+# =========================================================================
+
+@app.post("/api/webhook/voice-incoming")
+async def webhook_voice_incoming(request: Request):
+    """
+    Webhook Twilio pour appels entrants.
+    Verifie que l'appelant est le souscripteur (ADMIN_NUMBER).
+    Si oui: connecte a Luna via OpenAI Realtime.
+    Si non: refuse poliment.
+    """
+    from twilio.twiml.voice_response import VoiceResponse, Connect
+
+    # Twilio envoie les parametres en form-data
+    try:
+        form = await request.form()
+        caller = form.get("From", "")
+        called = form.get("To", "")
+        call_sid = form.get("CallSid", "")
+    except Exception:
+        caller = ""
+        called = ""
+        call_sid = ""
+
+    logger.info(f"Appel entrant: {caller} -> {called} (CallSid: {call_sid})")
+
+    # Verifier que l'appelant est autorise (souscripteur)
+    from integrations.twilio.sms_client import TwilioSMSClient
+    caller_normalized = TwilioSMSClient.normalize_phone(caller) if caller else ""
+    admin_normalized = TwilioSMSClient.normalize_phone(ADMIN_NUMBER) if ADMIN_NUMBER else ""
+
+    if not caller_normalized or caller_normalized != admin_normalized:
+        logger.warning(f"Appel entrant refuse: {caller} n'est pas le souscripteur ({ADMIN_NUMBER})")
+        response = VoiceResponse()
+        response.say(
+            "Desole, ce numero n'est pas autorise a contacter Luna. Au revoir.",
+            language="fr-FR",
+        )
+        response.hangup()
+        return Response(content=str(response), media_type="application/xml")
+
+    # Souscripteur verifie -> connecter a Luna
+    if not voice_client or not VOICE_CALLBACK_URL:
+        response = VoiceResponse()
+        response.say("Luna n'est pas disponible pour le moment. Reessayez plus tard.", language="fr-FR")
+        response.hangup()
+        return Response(content=str(response), media_type="application/xml")
+
+    response = VoiceResponse()
+    response.say("Bonjour ! Je te passe Luna.", language="fr-FR")
+    connect = Connect()
+    ws_url = VOICE_CALLBACK_URL.replace("https://", "wss://")
+    connect.stream(url=f"{ws_url}/api/voice-call/media-stream")
+    response.append(connect)
+
+    logger.info(f"Appel entrant accepte: {caller} -> connexion a Luna")
+    _gamify(TENANT_ID, "voice_call")
+    return Response(content=str(response), media_type="application/xml")
+
+
 @app.post("/api/invite-contact")
 async def invite_contact(req: InviteRequest, request: Request):
     """
@@ -1473,13 +1797,31 @@ async def auth_checkout(req: CheckoutRequest, request: Request):
         scheme = "https"
         base_url = f"{scheme}://{host}"
 
+        # Creer ou recuperer le customer Stripe avec metadata tenant_id
+        tid = payload["tenant_id"]
+        email = payload["email"]
+        customer_id = None
+        if _redis_client:
+            rec = _redis_client.get_auth_by_email(email)
+            if rec:
+                customer_id = rec.get("stripe_customer_id", "")
+        if not customer_id:
+            customer = stripe.Customer.create(
+                email=email,
+                metadata={"tenant_id": str(tid), "yawatch": "true"},
+            )
+            customer_id = customer.id
+            if _redis_client:
+                _redis_client.update_auth_record(email, {"stripe_customer_id": customer_id})
+
         session = stripe.checkout.Session.create(
+            customer=customer_id,
             payment_method_types=["card"],
             mode="subscription",
             line_items=[{"price": price_id, "quantity": 1}],
             metadata={
-                "tenant_id": str(payload["tenant_id"]),
-                "email": payload["email"],
+                "tenant_id": str(tid),
+                "email": email,
                 "plan": plan,
             },
             success_url=f"{base_url}/?checkout=success",
@@ -1552,6 +1894,28 @@ async def stripe_webhook(request: Request):
                     del _tenant_managers[tid]
                 logger.info(f"STRIPE_CHECKOUT_COMPLETE email={email} plan={plan} tenant_id={tenant_id_str}")
 
+            # --- World premium item purchase ---
+            if metadata.get("type") == "world_premium" and _redis_client:
+                world_item_id = metadata.get("world_item_id", "")
+                tenant_id_str = metadata.get("tenant_id", "")
+                if world_item_id and tenant_id_str:
+                    try:
+                        from core.gamification.redis_ops import GamificationRedisOps
+                        from core.gamification.constants import SHOP_ITEMS
+                        gops = GamificationRedisOps(_redis_client)
+                        tid = int(tenant_id_str)
+                        item = SHOP_ITEMS.get(world_item_id)
+                        if item:
+                            from datetime import datetime as dt_import
+                            gops.add_to_inventory(tid, world_item_id, {
+                                "purchased_at": dt_import.utcnow().isoformat(),
+                                "category": item["category"],
+                                "stripe_payment": data.get("payment_intent", ""),
+                            })
+                            logger.info(f"WORLD_PREMIUM_PURCHASED tenant_id={tid} item={world_item_id}")
+                    except Exception as e:
+                        logger.error(f"Error delivering premium item: {e}")
+
         # --- customer.subscription.updated ---
         elif event_type == "customer.subscription.updated":
             # Map price_id back to plan name
@@ -1587,6 +1951,27 @@ async def stripe_webhook(request: Request):
         elif event_type == "invoice.payment_failed":
             customer_email = data.get("customer_email", "")
             logger.warning(f"STRIPE_PAYMENT_FAILED email={customer_email}")
+
+        # --- invoice.payment_succeeded ---
+        elif event_type == "invoice.payment_succeeded":
+            customer_email = data.get("customer_email", "")
+            amount = data.get("amount_paid", 0) / 100
+            logger.info(f"STRIPE_PAYMENT_SUCCESS email={customer_email} amount={amount:.2f}EUR")
+
+        # --- charge.refunded ---
+        elif event_type == "charge.refunded":
+            customer_email = data.get("billing_details", {}).get("email", "")
+            amount = data.get("amount_refunded", 0) / 100
+            logger.warning(f"STRIPE_REFUND email={customer_email} amount={amount:.2f}EUR")
+
+        # --- customer.subscription.created ---
+        elif event_type == "customer.subscription.created":
+            customer_id = data.get("customer", "")
+            items = data.get("items", {}).get("data", [])
+            if items:
+                price_id = items[0].get("price", {}).get("id", "")
+                plan = _price_id_to_plan(price_id)
+                logger.info(f"STRIPE_SUB_CREATED customer={customer_id} plan={plan}")
 
         return {"received": True}
     except ImportError:
@@ -3920,6 +4305,7 @@ async def _perception_loop():
             break
         except Exception as e:
             logger.error(f"Perception loop error: {e}")
+            await asyncio.sleep(10)
 
 
 @app.post("/api/perception/start")
@@ -4102,6 +4488,8 @@ async def _instruction_loop():
             break
         except Exception as e:
             logger.error(f"Instruction loop error: {e}")
+            # Backoff progressif en cas d'erreurs repetees
+            await asyncio.sleep(30)
 
 
 # =========================================================================
@@ -4619,6 +5007,334 @@ async def voice_status(request: Request):
         "session": voice_session,
         "websocket_url": "wss://localhost:8888/api/voice/stream",
     }
+
+
+# =============================================================================
+# SALONS FAMILLE (Rooms) — Chat, Cinema, Karaoke, Jeux
+# =============================================================================
+
+from core.rooms.models import (
+    ROOM_TYPES, GAME_TYPES, QUIZ_SETS,
+    generate_member_token, verify_member_token,
+    new_room_data,
+)
+from core.rooms.redis_ops import RoomRedisOps
+from core.rooms.manager import room_manager
+
+_room_ops: Optional[RoomRedisOps] = None
+
+
+def _get_room_ops() -> Optional[RoomRedisOps]:
+    global _room_ops
+    if _room_ops is None and _redis_client:
+        _room_ops = RoomRedisOps(_redis_client)
+    return _room_ops
+
+
+def _get_member_name(tid: int, phone: str) -> str:
+    """Lookup member name from family data or profile (if email)."""
+    if not _redis_client:
+        return phone
+    # If phone looks like an email, lookup profile instead
+    if "@" in phone:
+        prof = _redis_client.get_profile(tid)
+        if prof and prof.get("first_name"):
+            return prof["first_name"]
+        return phone.split("@")[0]
+    m = _redis_client.get_family_member(tid, phone)
+    if m:
+        return m.get("name", phone)
+    return phone
+
+
+@app.get("/salon")
+async def salon_page():
+    """Page des salons famille."""
+    salon_path = os.path.join(STATIC_DIR, "salon.html")
+    if os.path.exists(salon_path):
+        return FileResponse(salon_path)
+    return JSONResponse(status_code=404, content={"error": "Salon non disponible"})
+
+
+@app.get("/api/rooms")
+async def list_rooms(request: Request):
+    """Lister les salons actifs."""
+    rops = _get_room_ops()
+    if not rops:
+        return JSONResponse(status_code=503, content={"error": "Redis non disponible"})
+    tid = getattr(request.state, "tenant_id", TENANT_ID)
+    rooms = rops.list_rooms(tid)
+    result = []
+    for r in rooms:
+        result.append({
+            "id": r.get("id"),
+            "name": r.get("name"),
+            "type": r.get("type"),
+            "host_name": r.get("host_name"),
+            "status": r.get("status", "open"),
+            "participants": rops.count_participants(tid, r["id"]),
+            "youtube_url": r.get("youtube_url", ""),
+            "game_type": r.get("game_type", ""),
+            "created_at": r.get("created_at"),
+        })
+    return result
+
+
+@app.post("/api/rooms")
+async def create_room(request: Request):
+    """Créer un salon (souscripteur uniquement)."""
+    rops = _get_room_ops()
+    if not rops:
+        return JSONResponse(status_code=503, content={"error": "Redis non disponible"})
+    tid = getattr(request.state, "tenant_id", TENANT_ID)
+    data = await request.json()
+    name = data.get("name", "Salon Famille").strip()[:50]
+    room_type = data.get("type", "chat")
+    if room_type not in ROOM_TYPES:
+        return JSONResponse(status_code=400, content={"error": f"Type invalide. Valides: {ROOM_TYPES}"})
+
+    # Get subscriber info
+    host_phone = data.get("phone", "subscriber")
+    host_name = data.get("host_name", "Hôte")
+
+    room = new_room_data(name, room_type, host_phone, host_name, tid)
+    room_id = rops.create_room(tid, room)
+    _gamify(tid, "room_created")
+
+    # Auto-join host
+    rops.join_room(tid, room_id, host_phone)
+
+    # Generate invite links for family members
+    invite_links = {}
+    if _redis_client:
+        members = _redis_client.get_all_family_members(tid)
+        secret = os.getenv("JWT_SECRET_KEY", "luna-admin-fallback-key")
+        for m in members:
+            phone = m.get("phone", "")
+            if phone and m.get("is_active") in ("1", "True", "true"):
+                token = generate_member_token(phone, tid, secret)
+                invite_links[m.get("name", phone)] = {
+                    "phone": phone,
+                    "token": token,
+                    "url": f"/salon?room={room_id}&phone={phone}&token={token}",
+                }
+
+    return {
+        "success": True,
+        "room_id": room_id,
+        "name": name,
+        "type": room_type,
+        "invite_links": invite_links,
+    }
+
+
+@app.get("/api/rooms/{room_id}")
+async def get_room(room_id: str, request: Request):
+    """Détails d'un salon."""
+    import json as _json
+    rops = _get_room_ops()
+    if not rops:
+        return JSONResponse(status_code=503, content={"error": "Redis non disponible"})
+    tid = getattr(request.state, "tenant_id", TENANT_ID)
+    room = rops.get_room(tid, room_id)
+    if not room:
+        return JSONResponse(status_code=404, content={"error": "Salon introuvable"})
+
+    participants = rops.get_participants(tid, room_id)
+    members_info = []
+    for p in participants:
+        name = _get_member_name(tid, p)
+        members_info.append({"phone": p, "name": name})
+
+    messages = rops.get_messages(tid, room_id, limit=50)
+    parsed_msgs = []
+    for m in reversed(messages):
+        try:
+            parsed_msgs.append(_json.loads(m))
+        except (_json.JSONDecodeError, TypeError):
+            pass
+
+    # Parse game_state JSON string to object
+    result = dict(room)
+    if result.get("game_state"):
+        try:
+            result["game_state"] = _json.loads(result["game_state"])
+        except (_json.JSONDecodeError, TypeError):
+            result["game_state"] = {}
+    # Convert playback_time to number
+    try:
+        result["playback_time"] = float(result.get("playback_time", 0))
+    except (ValueError, TypeError):
+        result["playback_time"] = 0
+
+    return {
+        **result,
+        "participants": members_info,
+        "participant_count": len(participants),
+        "messages": parsed_msgs,
+    }
+
+
+@app.post("/api/rooms/{room_id}/join")
+async def join_room(room_id: str, request: Request):
+    """Rejoindre un salon."""
+    rops = _get_room_ops()
+    if not rops:
+        return JSONResponse(status_code=503, content={"error": "Redis non disponible"})
+    tid = getattr(request.state, "tenant_id", TENANT_ID)
+    data = await request.json()
+    phone = data.get("phone", "")
+
+    room = rops.get_room(tid, room_id)
+    if not room:
+        return JSONResponse(status_code=404, content={"error": "Salon introuvable"})
+
+    if not rops.join_room(tid, room_id, phone):
+        return JSONResponse(status_code=400, content={"error": "Salon plein"})
+
+    return {"success": True, "room_id": room_id}
+
+
+@app.delete("/api/rooms/{room_id}")
+async def delete_room(room_id: str, request: Request):
+    """Fermer un salon (host uniquement)."""
+    rops = _get_room_ops()
+    if not rops:
+        return JSONResponse(status_code=503, content={"error": "Redis non disponible"})
+    tid = getattr(request.state, "tenant_id", TENANT_ID)
+    room = rops.get_room(tid, room_id)
+    if not room:
+        return JSONResponse(status_code=404, content={"error": "Salon introuvable"})
+
+    rops.delete_room(tid, room_id)
+
+    # Notify all connected
+    await room_manager.broadcast(room_id, {
+        "type": "system", "content": "Le salon a été fermé par l'hôte.",
+    })
+
+    return {"success": True}
+
+
+@app.get("/api/rooms/member-token")
+async def get_member_token(request: Request):
+    """Génère un token d'accès pour un membre famille (souscripteur only)."""
+    tid = getattr(request.state, "tenant_id", TENANT_ID)
+    phone = request.query_params.get("phone", "")
+    if not phone:
+        return JSONResponse(status_code=400, content={"error": "phone requis"})
+    secret = os.getenv("JWT_SECRET_KEY", "luna-admin-fallback-key")
+    token = generate_member_token(phone, tid, secret)
+    return {"phone": phone, "token": token}
+
+
+@app.websocket("/api/rooms/{room_id}/ws")
+async def room_websocket(websocket: WebSocket, room_id: str):
+    """WebSocket temps réel pour un salon famille."""
+    import json as _json
+    await websocket.accept()
+
+    rops = _get_room_ops()
+    if not rops:
+        await websocket.close(code=1011, reason="Redis non disponible")
+        return
+
+    tid = getattr(websocket.state, "tenant_id", TENANT_ID)
+
+    # Auth: get phone + token from query params
+    phone = websocket.query_params.get("phone", "")
+    token = websocket.query_params.get("token", "")
+
+    # Detect token type: JWT (contains dots) vs HMAC member token
+    jwt_payload = None
+    if token and "." in token:
+        # Try JWT client token first
+        jwt_payload = _decode_client_token(token)
+        if jwt_payload:
+            tid = jwt_payload.get("tenant_id", tid)
+            # Use phone from query param, or email from JWT
+            if not phone:
+                phone = jwt_payload.get("email", "subscriber")
+        else:
+            await websocket.close(code=4001, reason="Token JWT invalide")
+            return
+    elif token:
+        # HMAC member token
+        if not phone:
+            phone = "subscriber"
+        secret = os.getenv("JWT_SECRET_KEY", "luna-admin-fallback-key")
+        if not verify_member_token(phone, tid, token, secret):
+            await websocket.close(code=4001, reason="Token membre invalide")
+            return
+    else:
+        # No token at all
+        if not phone:
+            phone = "subscriber"
+
+    # Verify room exists
+    room = rops.get_room(tid, room_id)
+    if not room:
+        await websocket.close(code=4004, reason="Salon introuvable")
+        return
+
+    # Get member name
+    if jwt_payload:
+        # For JWT-authenticated users, get name from profile
+        _name = ""
+        if _redis_client:
+            _prof = _redis_client.get_profile(tid)
+            if _prof:
+                _name = _prof.get("first_name", "")
+        name = _name or jwt_payload.get("email", "").split("@")[0] or "Hôte"
+    else:
+        name = _get_member_name(tid, phone) if phone != "subscriber" else "Hôte"
+
+    # Join
+    rops.join_room(tid, room_id, phone)
+    await room_manager.connect(room_id, phone, websocket)
+
+    # Announce join
+    count = rops.count_participants(tid, room_id)
+    await room_manager.broadcast(room_id, {
+        "type": "join", "name": name, "phone": phone, "count": count,
+    }, exclude_phone=phone)
+    await room_manager.broadcast(room_id, {
+        "type": "system", "content": f"{name} a rejoint le salon",
+    }, exclude_phone=phone)
+
+    try:
+        while True:
+            raw = await websocket.receive_text()
+            try:
+                data = _json.loads(raw)
+            except (_json.JSONDecodeError, TypeError):
+                continue
+
+            # Refresh room data for each message
+            current_room = rops.get_room(tid, room_id)
+            if not current_room:
+                await websocket.close(code=4004, reason="Salon fermé")
+                break
+
+            events = await room_manager.handle_message(
+                room_id, phone, name, data, rops, tid, current_room
+            )
+            for ev in events:
+                _gamify(tid, ev)
+    except WebSocketDisconnect:
+        pass
+    except Exception as e:
+        logger.warning(f"Room WS error: {e}")
+    finally:
+        rops.leave_room(tid, room_id, phone)
+        await room_manager.disconnect(room_id, phone)
+        count = rops.count_participants(tid, room_id)
+        await room_manager.broadcast(room_id, {
+            "type": "leave", "name": name, "phone": phone, "count": count,
+        })
+        await room_manager.broadcast(room_id, {
+            "type": "system", "content": f"{name} a quitté le salon",
+        })
 
 
 # =============================================================================
