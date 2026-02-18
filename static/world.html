@@ -104,7 +104,7 @@ html, body {
   pointer-events: none;
 }
 
-/* Sun — real disk with animated rays */
+/* Sun — bright solid disk */
 .sun {
   position: absolute;
   top: 6%;
@@ -112,25 +112,50 @@ html, body {
   width: 70px;
   height: 70px;
   border-radius: 50%;
-  z-index: 3;
+  z-index: 5;
   opacity: 0;
   transition: opacity 2s ease, top 2s ease, left 2s ease, width 2s ease, height 2s ease, box-shadow 2s ease, background 2s ease;
   pointer-events: none;
 }
 .sun.visible { opacity: 1; }
 
-/* Sun rays — rotating */
+/* Sun rays — rotating triangular beams */
 .sun-rays {
   position: absolute;
   top: 50%; left: 50%;
-  width: 200%; height: 200%;
+  width: 280%; height: 280%;
   transform: translate(-50%, -50%);
   border-radius: 50%;
-  background: conic-gradient(from 0deg, transparent 0deg, rgba(255,220,100,0.12) 10deg, transparent 20deg, transparent 30deg, rgba(255,220,100,0.12) 40deg, transparent 50deg, transparent 60deg, rgba(255,220,100,0.12) 70deg, transparent 80deg, transparent 90deg, rgba(255,220,100,0.12) 100deg, transparent 110deg, transparent 120deg, rgba(255,220,100,0.12) 130deg, transparent 140deg, transparent 150deg, rgba(255,220,100,0.12) 160deg, transparent 170deg, transparent 180deg, rgba(255,220,100,0.12) 190deg, transparent 200deg, transparent 210deg, rgba(255,220,100,0.12) 220deg, transparent 230deg, transparent 240deg, rgba(255,220,100,0.12) 250deg, transparent 260deg, transparent 270deg, rgba(255,220,100,0.12) 280deg, transparent 290deg, transparent 300deg, rgba(255,220,100,0.12) 310deg, transparent 320deg, transparent 330deg, rgba(255,220,100,0.12) 340deg, transparent 350deg, transparent 360deg);
+  background: conic-gradient(
+    from 0deg,
+    transparent 0deg, rgba(255,230,120,0.25) 5deg, transparent 15deg,
+    transparent 30deg, rgba(255,230,120,0.25) 35deg, transparent 45deg,
+    transparent 60deg, rgba(255,230,120,0.25) 65deg, transparent 75deg,
+    transparent 90deg, rgba(255,230,120,0.25) 95deg, transparent 105deg,
+    transparent 120deg, rgba(255,230,120,0.25) 125deg, transparent 135deg,
+    transparent 150deg, rgba(255,230,120,0.25) 155deg, transparent 165deg,
+    transparent 180deg, rgba(255,230,120,0.25) 185deg, transparent 195deg,
+    transparent 210deg, rgba(255,230,120,0.25) 215deg, transparent 225deg,
+    transparent 240deg, rgba(255,230,120,0.25) 245deg, transparent 255deg,
+    transparent 270deg, rgba(255,230,120,0.25) 275deg, transparent 285deg,
+    transparent 300deg, rgba(255,230,120,0.25) 305deg, transparent 315deg,
+    transparent 330deg, rgba(255,230,120,0.25) 335deg, transparent 345deg,
+    transparent 360deg
+  );
   animation: rotateSunRays 60s linear infinite;
-  opacity: 0.8;
 }
 @keyframes rotateSunRays { from { transform: translate(-50%,-50%) rotate(0deg); } to { transform: translate(-50%,-50%) rotate(360deg); } }
+
+/* Daylight wash — warm ambient light over entire scene */
+.daylight-wash {
+  position: absolute;
+  top: 0; left: 0; width: 100%; height: 100%;
+  z-index: 1;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 2s ease, background 2s ease;
+}
+.daylight-wash.visible { opacity: 1; }
 
 /* Horizon glow for dawn/dusk */
 .horizon-glow {
@@ -2275,7 +2300,8 @@ html, body {
     <div class="star warm" style="left:25%;top:22%;--duration:4s;--delay:0.3s;"></div>
   </div>
 
-  <!-- Layer 3: Celestial bodies -->
+  <!-- Layer 3: Celestial bodies + lighting -->
+  <div class="daylight-wash" id="daylightWash"></div>
   <div class="moon" id="moonEl"></div>
   <div class="sun" id="sunEl"><div class="sun-rays"></div></div>
   <div class="horizon-glow" id="horizonGlow"></div>
@@ -7084,10 +7110,12 @@ function initScene() {
   var sunEl = document.getElementById("sunEl");
   var starsLayer = document.getElementById("starsLayer");
   var horizonGlow = document.getElementById("horizonGlow");
+  var daylightWash = document.getElementById("daylightWash");
   if (moonEl) moonEl.style.transition = "none";
   if (sunEl) sunEl.style.transition = "none";
   if (starsLayer) starsLayer.style.transition = "none";
   if (horizonGlow) horizonGlow.style.transition = "none";
+  if (daylightWash) daylightWash.style.transition = "none";
 
   updateDayNight();
 
@@ -7097,6 +7125,7 @@ function initScene() {
     if (sunEl) sunEl.style.transition = "";
     if (starsLayer) starsLayer.style.transition = "";
     if (horizonGlow) horizonGlow.style.transition = "";
+    if (daylightWash) daylightWash.style.transition = "";
   });
 
   generateRainDrops();
@@ -7136,21 +7165,23 @@ function generateRainDrops() {
 function updateDayNight() {
   var hour = new Date().getHours();
   var mins = new Date().getMinutes();
-  var hourF = hour + mins / 60;  // heure decimale pour transitions fluides
+  var hourF = hour + mins / 60;
 
   var skyLayer = document.getElementById("skyLayer");
   var starsLayer = document.getElementById("starsLayer");
   var moonEl = document.getElementById("moonEl");
   var sunEl = document.getElementById("sunEl");
   var horizonGlow = document.getElementById("horizonGlow");
+  var daylightWash = document.getElementById("daylightWash");
 
   var skyTop, skyMid, skyBottom;
   var starsOpacity, moonVisible, sunVisible;
   var sunTop, sunLeft, sunSize, sunBg, sunShadow;
   var horizonVisible = false, horizonBg = "";
+  var washVisible = false, washBg = "";
 
   if (hour >= 21 || hour < 4) {
-    // Deep night
+    // Nuit profonde
     skyTop = "#080820";
     skyMid = "#0e0e30";
     skyBottom = "#1c1c52";
@@ -7158,99 +7189,109 @@ function updateDayNight() {
     moonVisible = true;
     sunVisible = false;
     moonEl.style.top = "8%";
+    // Eclairage lunaire subtil
+    washVisible = true;
+    washBg = "radial-gradient(ellipse at 85% 15%, rgba(140,130,200,0.06) 0%, transparent 60%)";
   } else if (hour >= 4 && hour < 6) {
-    // Pre-dawn → dawn (aurore)
-    var t = (hourF - 4) / 2; // 0→1
-    skyTop = "#1a1040";
-    skyMid = "#352050";
-    skyBottom = "#c06040";
-    starsOpacity = 0.5 - t * 0.3;
-    moonVisible = t < 0.5;
-    moonEl.style.top = (8 - t * 6) + "%";
+    // Aurore (pre-dawn) — teintes roses et mauves
+    var t = (hourF - 4) / 2;
+    skyTop = "#1a0e38";
+    skyMid = lerpColor("#3d2058", "#5a3070", t);
+    skyBottom = lerpColor("#8a4060", "#d88090", t);
+    starsOpacity = 0.5 - t * 0.4;
+    moonVisible = t < 0.4;
+    moonEl.style.top = (8 - t * 8) + "%";
     sunVisible = true;
-    sunTop = 32 - t * 8;  // bas → monte
-    sunLeft = 15 + t * 10;
-    sunSize = 50 + t * 10;
-    sunBg = "radial-gradient(circle at 45% 45%, #ffcc66, #ff8844 50%, #cc4422)";
-    sunShadow = "0 0 40px 15px rgba(255,120,50,0.5), 0 0 80px 30px rgba(255,80,30,0.2)";
+    sunTop = 30 - t * 6;
+    sunLeft = 12 + t * 12;
+    sunSize = 60 + t * 10;
+    sunBg = "radial-gradient(circle at 50% 50%, #ffe0c0, #ffaa66 35%, #e06644 65%, #b83838)";
+    sunShadow = "0 0 50px 20px rgba(255,120,80,0.7), 0 0 100px 50px rgba(220,60,80,0.3)";
     horizonVisible = true;
-    horizonBg = "linear-gradient(0deg, rgba(255,120,60,0.4) 0%, rgba(255,80,40,0.15) 40%, transparent 100%)";
+    horizonBg = "linear-gradient(0deg, rgba(255,130,120,0.5) 0%, rgba(220,80,100,0.25) 40%, transparent 100%)";
+    washVisible = true;
+    washBg = "linear-gradient(180deg, rgba(255,160,140,0.08) 0%, rgba(255,120,130,0.12) 60%, rgba(220,80,100,0.15) 100%)";
   } else if (hour >= 6 && hour < 8) {
-    // Morning (aurore → jour)
-    var t = (hourF - 6) / 2; // 0→1
-    skyTop = lerpColor("#1a1040", "#1e4878", t);
-    skyMid = lerpColor("#402060", "#3a6a9a", t);
-    skyBottom = lerpColor("#e09060", "#6a92b8", t);
-    starsOpacity = 0.15 * (1 - t);
+    // Matin (aurore rose → jour bleu) — rose doux puis dore
+    var t = (hourF - 6) / 2;
+    skyTop = lerpColor("#2a1848", "#1e4878", t);
+    skyMid = lerpColor("#5a3070", "#3a6a9a", t);
+    skyBottom = lerpColor("#d88090", "#6a92b8", t);
+    starsOpacity = 0.1 * (1 - t);
     moonVisible = false;
     sunVisible = true;
-    sunTop = 24 - t * 16;  // monte vers le haut
-    sunLeft = 25 + t * 35;
-    sunSize = 60 + t * 10;
-    sunBg = "radial-gradient(circle at 45% 45%, #fff8e0, #ffd060 50%, #ffaa30)";
-    sunShadow = "0 0 30px 12px rgba(255,200,80,0.4), 0 0 60px 25px rgba(255,180,50,0.15)";
+    sunTop = 24 - t * 16;
+    sunLeft = 24 + t * 40;
+    sunSize = 65 + t * 10;
+    sunBg = "radial-gradient(circle at 50% 50%, #fffadd, " + lerpColor("#ffbb88", "#ffdd55", t) + " 35%, " + lerpColor("#e08844", "#ffbb22", t) + " 65%, " + lerpColor("#cc5533", "#ee9900", t) + ")";
+    sunShadow = "0 0 40px 18px rgba(255," + Math.round(170 + t * 40) + ",60,0.6), 0 0 90px 40px rgba(255," + Math.round(140 + t * 40) + ",30,0.25)";
     horizonVisible = t < 0.5;
-    horizonBg = "linear-gradient(0deg, rgba(255,150,80,0.2) 0%, transparent 100%)";
+    horizonBg = "linear-gradient(0deg, rgba(255," + Math.round(130 + t * 60) + "," + Math.round(110 - t * 30) + ",0.3) 0%, transparent 100%)";
+    washVisible = true;
+    washBg = "linear-gradient(180deg, rgba(255," + Math.round(190 + t * 40) + "," + Math.round(150 + t * 20) + "," + (0.06 + t * 0.06).toFixed(2) + ") 0%, rgba(255," + Math.round(170 + t * 30) + "," + Math.round(120 - t * 20) + "," + (0.08 + t * 0.06).toFixed(2) + ") 100%)";
   } else if (hour >= 8 && hour < 17) {
-    // Plein jour
+    // Plein jour — soleil eclatant
     skyTop = "#1e4878";
     skyMid = "#3a6a9a";
     skyBottom = "#6a92b8";
     starsOpacity = 0;
     moonVisible = false;
     sunVisible = true;
-    sunTop = 5 + Math.sin((hourF - 8) / 9 * Math.PI) * 3; // leger arc
-    sunLeft = 60 + Math.cos((hourF - 12.5) / 4.5 * Math.PI * 0.5) * 15;
-    sunSize = 70;
-    sunBg = "radial-gradient(circle at 45% 45%, #fffbe8, #ffe070 50%, #ffcc30)";
-    sunShadow = "0 0 35px 12px rgba(255,220,80,0.35), 0 0 70px 30px rgba(255,200,50,0.12)";
+    sunTop = 4 + Math.sin((hourF - 8) / 9 * Math.PI) * 3;
+    sunLeft = 58 + Math.cos((hourF - 12.5) / 4.5 * Math.PI * 0.5) * 18;
+    sunSize = 76;
+    sunBg = "radial-gradient(circle at 50% 50%, #ffffff, #fff8d0 25%, #ffdd44 50%, #ffbb00 75%, #ee9900)";
+    sunShadow = "0 0 50px 25px rgba(255,230,80,0.7), 0 0 120px 60px rgba(255,200,40,0.3), 0 0 200px 100px rgba(255,180,30,0.1)";
+    // Lumiere doree sur tout le village
+    washVisible = true;
+    washBg = "radial-gradient(ellipse at " + sunLeft + "% " + (sunTop + 5) + "%, rgba(255,240,180,0.12) 0%, rgba(255,220,130,0.06) 40%, transparent 70%)";
   } else if (hour >= 17 && hour < 19) {
-    // Crepuscule (dusk)
-    var t = (hourF - 17) / 2; // 0→1
+    // Crepuscule — orange vif et flamme
+    var t = (hourF - 17) / 2;
     skyTop = lerpColor("#1e4878", "#1a1248", t);
-    skyMid = lerpColor("#3a6a9a", "#402058", t);
-    skyBottom = lerpColor("#6a92b8", "#d06040", t);
+    skyMid = lerpColor("#3a6a9a", "#6a3030", t);
+    skyBottom = lerpColor("#6a92b8", "#ff8030", t);
     starsOpacity = t * 0.3;
     moonVisible = false;
     sunVisible = true;
-    sunTop = 8 + t * 22;  // descend vers l'horizon
-    sunLeft = 75 - t * 10;
-    sunSize = 70 - t * 15;
-    sunBg = "radial-gradient(circle at 45% 45%, #ffcc66, #ff8844 50%, #cc4422)";
-    sunShadow = "0 0 40px 15px rgba(255,120,50,0.5), 0 0 80px 30px rgba(255,80,30,0.2)";
-    horizonVisible = t > 0.3;
-    horizonBg = "linear-gradient(0deg, rgba(200,80,50,0.4) 0%, rgba(180,60,80,0.15) 40%, transparent 100%)";
+    sunTop = 8 + t * 24;
+    sunLeft = 78 - t * 12;
+    sunSize = 72 - t * 14;
+    sunBg = "radial-gradient(circle at 50% 50%, #ffdd88, #ff9922 35%, #ee6611 65%, #cc3300)";
+    sunShadow = "0 0 60px 25px rgba(255,150,30,0.8), 0 0 120px 60px rgba(255,100,20,0.35)";
+    horizonVisible = true;
+    horizonBg = "linear-gradient(0deg, rgba(255,130,30,0.55) 0%, rgba(255,90,20,0.3) 40%, transparent 100%)";
+    washVisible = true;
+    washBg = "linear-gradient(180deg, rgba(255,150,50," + (0.06 + t * 0.1).toFixed(2) + ") 0%, rgba(255,120,30," + (0.05 + t * 0.12).toFixed(2) + ") 100%)";
   } else if (hour >= 19 && hour < 21) {
-    // Post-dusk → nuit
-    var t = (hourF - 19) / 2; // 0→1
+    // Post-crepuscule → nuit (orange profond → violet)
+    var t = (hourF - 19) / 2;
     skyTop = lerpColor("#1a1248", "#080820", t);
-    skyMid = lerpColor("#402058", "#0e0e30", t);
-    skyBottom = lerpColor("#d06040", "#1c1c52", t);
+    skyMid = lerpColor("#6a3030", "#0e0e30", t);
+    skyBottom = lerpColor("#ff8030", "#1c1c52", t);
     starsOpacity = 0.3 + t * 0.7;
-    moonVisible = t > 0.3;
-    moonEl.style.top = (14 - t * 6) + "%";
+    moonVisible = t > 0.25;
+    moonEl.style.top = (15 - t * 7) + "%";
     sunVisible = t < 0.5;
-    sunTop = 30 + t * 8;
-    sunLeft = 65;
-    sunSize = 55 - t * 20;
-    sunBg = "radial-gradient(circle at 45% 45%, #ff8844, #cc4422 50%, #882222)";
-    sunShadow = "0 0 30px 10px rgba(255,80,30,0.3)";
+    sunTop = 32 + t * 6;
+    sunLeft = 66;
+    sunSize = 58 - t * 25;
+    sunBg = "radial-gradient(circle at 50% 50%, #ff8844, #dd4411 50%, #882222)";
+    sunShadow = "0 0 40px 15px rgba(255,100,20,0.5)";
     horizonVisible = t < 0.6;
-    horizonBg = "linear-gradient(0deg, rgba(150,50,60,0.3) 0%, transparent 100%)";
+    horizonBg = "linear-gradient(0deg, rgba(200,80,20," + (0.4 - t * 0.3).toFixed(2) + ") 0%, transparent 100%)";
+    washVisible = t < 0.4;
+    washBg = "linear-gradient(180deg, rgba(180,80,30,0.06) 0%, transparent 100%)";
   }
 
-  // Apply sky gradient
+  // Ciel
   skyLayer.style.background = "linear-gradient(180deg, " + skyTop + " 0%, " + skyMid + " 50%, " + skyBottom + " 100%)";
   starsLayer.style.opacity = starsOpacity;
 
-  // Moon
-  if (moonVisible) {
-    moonEl.classList.remove("hidden");
-  } else {
-    moonEl.classList.add("hidden");
-  }
+  // Lune
+  if (moonVisible) { moonEl.classList.remove("hidden"); } else { moonEl.classList.add("hidden"); }
 
-  // Sun position and appearance
+  // Soleil — position, taille, couleur, ombre
   if (sunVisible && sunTop !== undefined) {
     sunEl.classList.add("visible");
     sunEl.style.top = sunTop + "%";
@@ -7263,12 +7304,20 @@ function updateDayNight() {
     sunEl.classList.remove("visible");
   }
 
-  // Horizon glow (dawn/dusk)
+  // Lueur d'horizon (aurore/crepuscule)
   if (horizonVisible && horizonBg) {
     horizonGlow.style.background = horizonBg;
     horizonGlow.classList.add("visible");
   } else {
     horizonGlow.classList.remove("visible");
+  }
+
+  // Eclairage ambiant (lumiere doree jour, lunaire nuit)
+  if (washVisible && washBg) {
+    daylightWash.style.background = washBg;
+    daylightWash.classList.add("visible");
+  } else {
+    daylightWash.classList.remove("visible");
   }
 }
 
