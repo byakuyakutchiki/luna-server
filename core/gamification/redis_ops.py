@@ -257,3 +257,33 @@ class GamificationRedisOps:
             self.rc.client.set(key, outfit_id)
         else:
             self.rc.client.delete(key)
+
+    # =====================================================================
+    # ACTIVE FRAME (profile frame)
+    # =====================================================================
+
+    def get_active_frame(self, tenant_id) -> Optional[str]:
+        key = self.rc._key(tenant_id, "world", "active_frame")
+        return self.rc.client.get(key)
+
+    def set_active_frame(self, tenant_id, frame_id: str) -> None:
+        key = self.rc._key(tenant_id, "world", "active_frame")
+        if frame_id:
+            self.rc.client.set(key, frame_id)
+        else:
+            self.rc.client.delete(key)
+
+    # =====================================================================
+    # AVATAR TYPE (subscriber appearance choice)
+    # =====================================================================
+
+    def get_avatar_type(self, tenant_id) -> Optional[str]:
+        key = self.rc._key(tenant_id, "world", "avatar_type")
+        return self.rc.client.get(key)
+
+    def set_avatar_type(self, tenant_id, avatar_type: str) -> None:
+        key = self.rc._key(tenant_id, "world", "avatar_type")
+        if avatar_type:
+            self.rc.client.set(key, avatar_type)
+        else:
+            self.rc.client.delete(key)

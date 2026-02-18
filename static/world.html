@@ -1895,6 +1895,115 @@ html, body {
   50% { transform: translateY(-3px); }
 }
 
+/* Subscriber avatar */
+.subscriber-avatar-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 9;
+  pointer-events: none;
+}
+.subscriber-char {
+  position: absolute;
+  pointer-events: auto;
+  cursor: pointer;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.6));
+}
+.subscriber-char.walking {
+  animation: charWalk var(--walk-dur, 14s) ease-in-out infinite alternate;
+}
+.subscriber-char .sub-name {
+  position: absolute;
+  top: -18px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 0.6em;
+  color: #ffd700;
+  white-space: nowrap;
+  text-shadow: 0 1px 4px rgba(0,0,0,0.9);
+  background: rgba(0,0,0,0.55);
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-weight: 600;
+  border: 1px solid rgba(255,215,0,0.3);
+}
+.subscriber-char .sub-glow {
+  position: absolute;
+  bottom: -4px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 24px;
+  height: 8px;
+  background: radial-gradient(ellipse, rgba(167,139,250,0.3) 0%, transparent 70%);
+  border-radius: 50%;
+}
+
+/* Profile card in Maison panel */
+.profile-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  background: rgba(255,255,255,0.03);
+  border-radius: 12px;
+  margin-bottom: 16px;
+  border: 1px solid rgba(167,139,250,0.15);
+}
+.profile-avatar { flex-shrink: 0; }
+.profile-info { flex: 1; min-width: 0; }
+.profile-name { font-size: 1.1em; font-weight: 700; color: #fff; }
+.profile-level { font-size: 0.8em; color: #a78bfa; margin-top: 2px; }
+.profile-stars { font-size: 0.8em; color: #ffd700; margin-top: 4px; }
+
+.avatar-chooser {
+  margin-bottom: 16px;
+  padding: 12px;
+  background: rgba(255,255,255,0.02);
+  border-radius: 10px;
+}
+.avatar-chooser-label {
+  font-size: 0.75em;
+  color: #888;
+  margin-bottom: 8px;
+}
+.avatar-types {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+}
+.avatar-type-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: rgba(255,255,255,0.03);
+  border: 2px solid transparent;
+  cursor: pointer;
+  font-size: 0.7em;
+  color: #888;
+  transition: all 0.2s;
+}
+.avatar-type-btn:hover { background: rgba(255,255,255,0.06); }
+.avatar-type-btn.active {
+  border-color: #a78bfa;
+  background: rgba(167,139,250,0.1);
+  color: #e0e0e0;
+}
+.avatar-type-preview { width: 20px; height: 36px; }
+
+/* HUD avatar */
+.hud-avatar {
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  cursor: pointer;
+  border-radius: 50%;
+  overflow: visible;
+  transition: transform 0.2s;
+}
+.hud-avatar:hover { transform: scale(1.1); }
+
 /* Blason */
 .blason-container {
   display: flex;
@@ -4128,6 +4237,9 @@ html, body {
 
 </div>
 
+  <!-- Layer: Subscriber avatar -->
+  <div class="subscriber-avatar-layer" id="subscriberAvatarLayer"></div>
+
   <!-- Layer 9: Buildings -->
   <div class="buildings-layer" id="buildingsLayer">
     <!-- Maison de Luna (42%, bottom 28%) - Level 1 -->
@@ -6288,6 +6400,7 @@ html, body {
 
 <!-- HUD -->
 <div class="hud" id="hud">
+  <div class="hud-avatar" id="hudAvatar"></div>
   <a href="/" class="hud-back" aria-label="Retour a l'application">&#8592; Retour</a>
   <div class="hud-center">
     <span class="hud-level" id="hudLevel">Niv. 1</span>
@@ -6466,26 +6579,37 @@ function getSpriteType(memberType, relation) {
   return gender === "f" ? "adult_woman" : "adult_man";
 }
 
-function buildCharSVG(spriteType, scale) {
+var _charPalettes = {
+  adult_man:   { skin: "#e8b88a", hair: "#5a3a1a", shirt: "#4a7ac7", pants: "#3a3a5a", shoe: "#3a2a1a" },
+  adult_woman: { skin: "#f0c8a0", hair: "#6a3a2a", shirt: "#c75a8a", pants: "#6a4a8a", shoe: "#5a3a2a" },
+  child_boy:   { skin: "#f0c8a0", hair: "#7a5a2a", shirt: "#4aaa4a", pants: "#4a5a7a", shoe: "#5a4a3a" },
+  child_girl:  { skin: "#f5d0b0", hair: "#8a4a2a", shirt: "#e07acc", pants: "#7a4a9a", shoe: "#6a3a4a" }
+};
+
+function _resolveCharPalette(spriteType, paletteOverride) {
+  var p = _charPalettes[spriteType] || _charPalettes.adult_man;
+  if (paletteOverride) {
+    var merged = {};
+    var base = _charPalettes[spriteType] || _charPalettes.adult_man;
+    for (var k in base) { if (base.hasOwnProperty(k)) merged[k] = base[k]; }
+    for (var k2 in paletteOverride) { if (paletteOverride.hasOwnProperty(k2)) merged[k2] = paletteOverride[k2]; }
+    p = merged;
+  }
+  return p;
+}
+
+function buildCharSVGInner(spriteType, scale, paletteOverride) {
   var s = scale || 1;
-  var palettes = {
-    adult_man:   { skin: "#e8b88a", hair: "#5a3a1a", shirt: "#4a7ac7", pants: "#3a3a5a", shoe: "#3a2a1a" },
-    adult_woman: { skin: "#f0c8a0", hair: "#6a3a2a", shirt: "#c75a8a", pants: "#6a4a8a", shoe: "#5a3a2a" },
-    child_boy:   { skin: "#f0c8a0", hair: "#7a5a2a", shirt: "#4aaa4a", pants: "#4a5a7a", shoe: "#5a4a3a" },
-    child_girl:  { skin: "#f5d0b0", hair: "#8a4a2a", shirt: "#e07acc", pants: "#7a4a9a", shoe: "#6a3a4a" }
-  };
-  var p = palettes[spriteType] || palettes.adult_man;
+  var p = _resolveCharPalette(spriteType, paletteOverride);
   var isChild = (spriteType === "child_boy" || spriteType === "child_girl");
   var isFemale = (spriteType === "adult_woman" || spriteType === "child_girl");
   var svgH = isChild ? 30 : 36;
-  var w = Math.round(20 * s);
-  var h = Math.round(svgH * s);
   var headR = isChild ? 5.5 : 5;
   var headCY = headR + 1;
   var bodyTop = isChild ? 13 : 14;
   var bodyH = isChild ? 10 : 14;
   var legH = isChild ? 7 : 10;
-  var svg = '<svg viewBox="0 0 20 ' + svgH + '" width="' + w + '" height="' + h + '">';
+  var svg = '';
   // Head
   svg += '<circle cx="10" cy="' + headCY + '" r="' + headR + '" fill="' + p.skin + '"/>';
   // Hair
@@ -6517,6 +6641,17 @@ function buildCharSVG(spriteType, scale) {
   var shoeY = legTop + legH;
   svg += '<ellipse cx="8" cy="' + shoeY + '" rx="2.5" ry="1.2" fill="' + p.shoe + '"/>';
   svg += '<ellipse cx="12" cy="' + shoeY + '" rx="2.5" ry="1.2" fill="' + p.shoe + '"/>';
+  return svg;
+}
+
+function buildCharSVG(spriteType, scale, paletteOverride) {
+  var s = scale || 1;
+  var isChild = (spriteType === "child_boy" || spriteType === "child_girl");
+  var svgH = isChild ? 30 : 36;
+  var w = Math.round(20 * s);
+  var h = Math.round(svgH * s);
+  var svg = '<svg viewBox="0 0 20 ' + svgH + '" width="' + w + '" height="' + h + '">';
+  svg += buildCharSVGInner(spriteType, scale, paletteOverride);
   svg += '</svg>';
   return svg;
 }
@@ -6602,6 +6737,63 @@ function renderFamilyCharacters() {
     div.appendChild(spriteDiv);
     layer.appendChild(div);
   }
+}
+
+/* ═══════════════════════════════════════
+   SUBSCRIBER AVATAR
+   ═══════════════════════════════════════ */
+
+var SUBSCRIBER_POSITION = { left: "47%", bottom: "15%", walkDist: 35, walkDur: 16 };
+
+function renderSubscriberAvatar() {
+  var layer = document.getElementById("subscriberAvatarLayer");
+  if (!layer) return;
+  layer.innerHTML = "";
+
+  var inv = state.inventory;
+  var avatarType = (inv && inv.avatar_type) ? inv.avatar_type : "adult_man";
+  var outfitId = (inv && inv.active_outfit) ? inv.active_outfit : null;
+  var paletteOvr = null;
+  if (outfitId && SUB_OUTFIT_PALETTES[outfitId]) {
+    paletteOvr = SUB_OUTFIT_PALETTES[outfitId];
+  }
+
+  var pos = SUBSCRIBER_POSITION;
+  var div = document.createElement("div");
+  div.className = "subscriber-char walking";
+  div.id = "subscriberChar";
+  div.style.left = pos.left;
+  div.style.bottom = pos.bottom;
+  div.style.setProperty("--walk-dist", pos.walkDist + "px");
+  div.style.setProperty("--walk-dur", pos.walkDur + "s");
+  div.style.setProperty("--walk-start", "0px");
+
+  var firstName = "";
+  if (state.profile) {
+    firstName = state.profile.first_name || "";
+    if (!firstName && state.profile.name) firstName = state.profile.name.split(" ")[0];
+  }
+  if (!firstName) firstName = "Moi";
+
+  var nameTag = document.createElement("div");
+  nameTag.className = "sub-name";
+  nameTag.textContent = firstName;
+  div.appendChild(nameTag);
+
+  var glow = document.createElement("div");
+  glow.className = "sub-glow";
+  div.appendChild(glow);
+
+  var spriteDiv = document.createElement("div");
+  var isChild = (avatarType === "child_boy" || avatarType === "child_girl");
+  spriteDiv.innerHTML = buildCharSVG(avatarType, isChild ? 1.0 : 1.2, paletteOvr);
+  div.appendChild(spriteDiv);
+
+  div.addEventListener("click", function() {
+    openPanel("maison");
+  });
+
+  layer.appendChild(div);
 }
 
 /* ═══════════════════════════════════════
@@ -8297,7 +8489,39 @@ function renderPanelMaison(bodyEl, subtitleEl) {
 
   var gaugeColor = getStabilityColor(score);
 
-  var html = '<div class="gauge-center">';
+  // Profile card
+  var inv = state.inventory;
+  var avType = (inv && inv.avatar_type) ? inv.avatar_type : "adult_man";
+  var frId = (inv && inv.active_frame) ? inv.active_frame : null;
+  var playerData = state.player ? (state.player.player || state.player) : {};
+  var playerLevel = playerData.level || 1;
+  var playerTitle = playerData.title || "Nouveau Venu";
+  var playerStars = playerData.stars || 0;
+
+  var html = '<div class="profile-card">';
+  html += '<div class="profile-avatar">' + buildFramedAvatar(avType, frId, 80, "maison") + '</div>';
+  html += '<div class="profile-info">';
+  html += '<div class="profile-name">' + escapeHtml(firstName || "Aventurier") + '</div>';
+  html += '<div class="profile-level">Niv. ' + playerLevel + ' - ' + escapeHtml(playerTitle) + '</div>';
+  html += '<div class="profile-stars">' + playerStars + ' &#11088;</div>';
+  html += '</div></div>';
+
+  // Avatar type chooser
+  var avTypes = ["adult_man", "adult_woman", "child_boy", "child_girl"];
+  var avLabels = ["Homme", "Femme", "Garcon", "Fille"];
+  html += '<div class="avatar-chooser">';
+  html += '<div class="avatar-chooser-label">Choisir mon avatar</div>';
+  html += '<div class="avatar-types">';
+  for (var ai = 0; ai < avTypes.length; ai++) {
+    var atActive = (avType === avTypes[ai]) ? " active" : "";
+    html += '<div class="avatar-type-btn' + atActive + '" onclick="setAvatarType(\'' + avTypes[ai] + '\')">';
+    html += '<div class="avatar-type-preview">' + buildCharSVG(avTypes[ai], 1) + '</div>';
+    html += avLabels[ai];
+    html += '</div>';
+  }
+  html += '</div></div>';
+
+  html += '<div class="gauge-center">';
   html += '<svg viewBox="0 0 200 200" width="160" height="160">';
   html += '<defs><linearGradient id="stabilityGrad" x1="0%" y1="0%" x2="100%" y2="0%">';
   html += '<stop offset="0%" stop-color="#7c3aed"/>';
@@ -8741,6 +8965,15 @@ function renderPanelBoutique(bodyEl, subtitleEl) {
       } else {
         html += '<button class="buy-btn" onclick="equipOutfit(\'' + it.id + '\')">Porter</button>';
       }
+    } else if (owned && !isBonus && it.category === "cadre") {
+      // Owned frame: equip/unequip
+      var isFrameEquipped = inv && inv.active_frame === it.id;
+      html += '<div class="shop-item-price">Possédé</div>';
+      if (isFrameEquipped) {
+        html += '<button class="buy-btn active-btn" onclick="equipFrame(\'\')">Retirer</button>';
+      } else {
+        html += '<button class="buy-btn" onclick="equipFrame(\'' + it.id + '\')">Porter</button>';
+      }
     } else if (owned && !isBonus) {
       html += '<div class="shop-item-price">Possédé</div>';
       html += '<button class="buy-btn owned-btn" disabled>&#x2713; Possédé</button>';
@@ -9038,6 +9271,14 @@ function renderHUD(p) {
   }
   var stabColor = getStabilityColor(stabScore);
   stabEl.innerHTML = '<span style="color:' + stabColor + '">&#9679;</span> ' + Math.round(stabScore);
+
+  // HUD avatar
+  var hudAv = document.getElementById("hudAvatar");
+  if (hudAv && state.inventory) {
+    var avType = state.inventory.avatar_type || "adult_man";
+    var frId = state.inventory.active_frame || null;
+    hudAv.innerHTML = buildFramedAvatar(avType, frId, 36, "hud");
+  }
 }
 
 /* ═══════════════════════════════════════
@@ -9309,6 +9550,84 @@ var OUTFIT_DEFS = {
   }
 };
 
+var SUB_OUTFIT_PALETTES = {
+  outfit_winter:  { shirt: "#7ec8e3", pants: "#4a6a8a", shoe: "#5a4a3a" },
+  outfit_star:    { shirt: "#1a1848", pants: "#2a2050", shoe: "#3a2a4a" },
+  outfit_flower:  { shirt: "#e8a0b0", pants: "#7a5a6a", shoe: "#5a3a2a" },
+  outfit_festive: { shirt: "#d4a030", pants: "#3a2a5a", shoe: "#3a2a1a" }
+};
+
+var FRAME_DEFS = {
+  frame_simple: {
+    stroke: "#a78bfa",
+    strokeWidth: 3,
+    glow: "rgba(167,139,250,0.4)",
+    extra: ""
+  },
+  frame_golden: {
+    stroke: "#ffd700",
+    strokeWidth: 4,
+    glow: "rgba(255,215,0,0.5)",
+    extra: '<circle cx="50" cy="50" r="47" fill="none" stroke="#fff4a3" stroke-width="1" opacity="0.4"/>'
+  },
+  frame_floral: {
+    stroke: "#4ade80",
+    strokeWidth: 3,
+    glow: "rgba(74,222,128,0.4)",
+    extra: '<circle cx="50" cy="4" r="3" fill="#ff90a0" opacity="0.7"/><circle cx="50" cy="4" r="1" fill="#ffd04a" opacity="0.6"/><circle cx="96" cy="50" r="3" fill="#ff90a0" opacity="0.7"/><circle cx="96" cy="50" r="1" fill="#ffd04a" opacity="0.6"/><circle cx="50" cy="96" r="3" fill="#ff90a0" opacity="0.7"/><circle cx="50" cy="96" r="1" fill="#ffd04a" opacity="0.6"/><circle cx="4" cy="50" r="3" fill="#ff90a0" opacity="0.7"/><circle cx="4" cy="50" r="1" fill="#ffd04a" opacity="0.6"/>'
+  },
+  frame_stars: {
+    stroke: "#a78bfa",
+    strokeWidth: 3,
+    glow: "rgba(167,139,250,0.5)",
+    extra: '<circle cx="50" cy="3" r="2" fill="#ffd04a" opacity="0.8"><animate attributeName="opacity" values="0.8;0.3;0.8" dur="2s" repeatCount="indefinite"/></circle><circle cx="97" cy="50" r="1.5" fill="#c4a0ff" opacity="0.7"><animate attributeName="opacity" values="0.7;0.2;0.7" dur="2.5s" repeatCount="indefinite"/></circle><circle cx="50" cy="97" r="2" fill="#ffd04a" opacity="0.8"><animate attributeName="opacity" values="0.8;0.3;0.8" dur="1.8s" repeatCount="indefinite"/></circle><circle cx="3" cy="50" r="1.5" fill="#c4a0ff" opacity="0.7"><animate attributeName="opacity" values="0.7;0.2;0.7" dur="2.2s" repeatCount="indefinite"/></circle><circle cx="82" cy="14" r="1" fill="#fff" opacity="0.5"><animate attributeName="opacity" values="0.5;0.1;0.5" dur="3s" repeatCount="indefinite"/></circle><circle cx="18" cy="86" r="1" fill="#fff" opacity="0.5"><animate attributeName="opacity" values="0.5;0.1;0.5" dur="2.8s" repeatCount="indefinite"/></circle>'
+  },
+  frame_diamond: {
+    stroke: "#b9f2ff",
+    strokeWidth: 4,
+    glow: "rgba(185,242,255,0.6)",
+    extra: '<path d="M50 1 L52 5 L50 3 L48 5Z" fill="#b9f2ff" opacity="0.7"/><path d="M99 50 L95 52 L97 50 L95 48Z" fill="#b9f2ff" opacity="0.7"/><path d="M50 99 L52 95 L50 97 L48 95Z" fill="#b9f2ff" opacity="0.7"/><path d="M1 50 L5 52 L3 50 L5 48Z" fill="#b9f2ff" opacity="0.7"/><circle cx="50" cy="50" r="46" fill="none" stroke="#e0f7ff" stroke-width="1" stroke-dasharray="3,3" opacity="0.35"/>'
+  }
+};
+
+/* ── Framed Avatar Builder ── */
+
+function buildFramedAvatar(avatarType, frameId, size, idSuffix) {
+  var sz = size || 60;
+  var sfx = idSuffix || "default";
+  var inv = state.inventory;
+  var outfitId = (inv && inv.active_outfit) ? inv.active_outfit : null;
+  var paletteOvr = null;
+  if (outfitId && SUB_OUTFIT_PALETTES[outfitId]) {
+    paletteOvr = SUB_OUTFIT_PALETTES[outfitId];
+  }
+
+  var clipId = "avClip_" + sfx;
+  var isChild = (avatarType === "child_boy" || avatarType === "child_girl");
+  var charH = isChild ? 30 : 36;
+  var charScale = 70 / charH;
+  var offsetX = 50 - (20 * charScale / 2);
+  var offsetY = 50 - (charH * charScale / 2) - 2;
+
+  var svg = '<svg viewBox="0 0 100 100" width="' + sz + '" height="' + sz + '" xmlns="http://www.w3.org/2000/svg">';
+  svg += '<defs><clipPath id="' + clipId + '"><circle cx="50" cy="50" r="42"/></clipPath></defs>';
+  svg += '<circle cx="50" cy="50" r="44" fill="#1a1a2e"/>';
+  svg += '<g clip-path="url(#' + clipId + ')" transform="translate(' + offsetX.toFixed(1) + ',' + offsetY.toFixed(1) + ') scale(' + charScale.toFixed(2) + ')">';
+  svg += buildCharSVGInner(avatarType, 1, paletteOvr);
+  svg += '</g>';
+
+  if (frameId && FRAME_DEFS[frameId]) {
+    var f = FRAME_DEFS[frameId];
+    svg += '<circle cx="50" cy="50" r="46" fill="none" stroke="' + f.stroke + '" stroke-width="' + f.strokeWidth + '"/>';
+    if (f.extra) svg += f.extra;
+  } else {
+    svg += '<circle cx="50" cy="50" r="44" fill="none" stroke="#444" stroke-width="2"/>';
+  }
+
+  svg += '</svg>';
+  return svg;
+}
+
 function renderActiveOutfit(outfitId) {
   var lunaSvg = document.querySelector("#lunaCharacter svg");
   if (!lunaSvg) return;
@@ -9487,6 +9806,44 @@ function buyPremiumItem(itemId) {
     });
 }
 
+/* ── Frame Equip / Avatar Type ── */
+
+function equipFrame(frameId) {
+  apiPost("/api/world/frame/equip", { frame_id: frameId })
+    .then(function(data) {
+      if (data && data.success) {
+        showToast(frameId ? "Cadre equipe !" : "Cadre retire", "success");
+      }
+      return loadWorld();
+    })
+    .then(function() {
+      if (state.currentPanel === "boutique") {
+        var bodyEl = document.querySelector(".panel-body");
+        var subtitleEl = document.querySelector(".panel-subtitle");
+        if (bodyEl && subtitleEl) renderPanelBoutique(bodyEl, subtitleEl);
+      }
+    })
+    .catch(function() {});
+}
+
+function setAvatarType(avatarType) {
+  apiPost("/api/world/avatar/type", { avatar_type: avatarType })
+    .then(function(data) {
+      if (data && data.success) {
+        showToast("Avatar modifie !", "success");
+      }
+      return loadWorld();
+    })
+    .then(function() {
+      if (state.currentPanel === "maison") {
+        var bodyEl = document.querySelector(".panel-body");
+        var subtitleEl = document.querySelector(".panel-subtitle");
+        if (bodyEl && subtitleEl) renderPanelMaison(bodyEl, subtitleEl);
+      }
+    })
+    .catch(function() {});
+}
+
 /* ═══════════════════════════════════════
    DATA LOADING
    ═══════════════════════════════════════ */
@@ -9537,6 +9894,9 @@ function loadWorld() {
 
     // Render family characters in village
     renderFamilyCharacters();
+
+    // Render subscriber avatar
+    renderSubscriberAvatar();
 
     // Update weather
     var moodScore = 70;
@@ -9638,6 +9998,8 @@ window.closePanel = closePanel;
 window.filterShop = filterShop;
 window.buyItem = buyItem;
 window.equipOutfit = equipOutfit;
+window.equipFrame = equipFrame;
+window.setAvatarType = setAvatarType;
 window.buyPremiumItem = buyPremiumItem;
 
 })();

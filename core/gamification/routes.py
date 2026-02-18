@@ -449,7 +449,15 @@ async def get_inventory(request: Request):
                 active_bonuses.append(item_id)
 
     active_outfit = gops.get_active_outfit(tid)
-    return {"owned": owned, "active_bonuses": active_bonuses, "active_outfit": active_outfit or None}
+    active_frame = gops.get_active_frame(tid)
+    avatar_type = gops.get_avatar_type(tid) or "adult_man"
+    return {
+        "owned": owned,
+        "active_bonuses": active_bonuses,
+        "active_outfit": active_outfit or None,
+        "active_frame": active_frame or None,
+        "avatar_type": avatar_type,
+    }
 
 
 @gamification_router.post("/api/world/outfit/equip")
@@ -483,6 +491,61 @@ async def equip_outfit(request: Request):
 
     gops.set_active_outfit(tid, outfit_id)
     return {"success": True, "active_outfit": outfit_id}
+
+
+@gamification_router.post("/api/world/frame/equip")
+async def equip_frame(request: Request):
+    """Equip or unequip a profile frame."""
+    gops = _get_gops(request)
+    if not gops:
+        return _unavailable()
+    tid = _get_tenant_id(request)
+    if tid is None:
+        return _error("Non authentifie", 401)
+
+    try:
+        body = await request.json()
+        frame_id = body.get("frame_id", "")
+    except Exception:
+        return _error("Corps de requete invalide")
+
+    if not frame_id:
+        gops.set_active_frame(tid, "")
+        return {"success": True, "active_frame": None}
+
+    item = SHOP_ITEMS.get(frame_id)
+    if not item or item.get("category") != "cadre":
+        return _error("Article non valide")
+    owned = gops.get_inventory(tid)
+    if frame_id not in owned:
+        return _error("Article non possede")
+
+    gops.set_active_frame(tid, frame_id)
+    return {"success": True, "active_frame": frame_id}
+
+
+@gamification_router.post("/api/world/avatar/type")
+async def set_avatar_type_endpoint(request: Request):
+    """Set subscriber avatar sprite type."""
+    gops = _get_gops(request)
+    if not gops:
+        return _unavailable()
+    tid = _get_tenant_id(request)
+    if tid is None:
+        return _error("Non authentifie", 401)
+
+    try:
+        body = await request.json()
+        avatar_type = body.get("avatar_type", "adult_man")
+    except Exception:
+        return _error("Corps de requete invalide")
+
+    valid_types = ["adult_man", "adult_woman", "child_boy", "child_girl"]
+    if avatar_type not in valid_types:
+        return _error("Type d'avatar invalide")
+
+    gops.set_avatar_type(tid, avatar_type)
+    return {"success": True, "avatar_type": avatar_type}
 
 
 @gamification_router.post("/api/world/shop/checkout")

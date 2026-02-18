@@ -591,11 +591,18 @@ SHOP_ITEMS = {
     "premium_luna_wings":   {"name": "Ailes de Luna",        "category": "premium",    "price": 0, "icon": "\U0001fabd", "description": "Ailes scintillantes pour Luna",                    "stripe_price_env": "STRIPE_PRICE_WORLD_WINGS"},
     "premium_crystal_tree": {"name": "Arbre de Cristal",     "category": "premium",    "price": 0, "icon": "\U0001fab7", "description": "Arbre magique en cristal lumineux",                "stripe_price_env": "STRIPE_PRICE_WORLD_CRYSTAL"},
     "premium_golden_path":  {"name": "Chemin Dore",          "category": "premium",    "price": 0, "icon": "\u2728",     "description": "Chemin pave d'or scintillant dans le village",     "stripe_price_env": "STRIPE_PRICE_WORLD_PATH"},
+    # --- Cadres Profil ---
+    "frame_simple":  {"name": "Cadre Violet",    "category": "cadre", "price": 30,  "icon": "\U0001f5bc", "description": "Cadre violet elegant pour votre avatar"},
+    "frame_floral":  {"name": "Cadre Floral",    "category": "cadre", "price": 50,  "icon": "\U0001f33a", "description": "Couronne de fleurs autour du profil"},
+    "frame_golden":  {"name": "Cadre Dore",      "category": "cadre", "price": 70,  "icon": "\U0001f451", "description": "Cadre orne d'or etincelant"},
+    "frame_stars":   {"name": "Cadre Etoile",    "category": "cadre", "price": 90,  "icon": "\u2b50",     "description": "Cadre parseme d'etoiles scintillantes"},
+    "frame_diamond": {"name": "Cadre Diamant",   "category": "cadre", "price": 150, "icon": "\U0001f48e", "description": "Cadre prestige diamants et lumiere"},
 }
 
 SHOP_CATEGORIES = {
     "decoration": {"label": "Decorations",  "color": "#4ade80"},
     "tenue":      {"label": "Tenues Luna",  "color": "#a78bfa"},
+    "cadre":      {"label": "Cadres Profil","color": "#f472b6"},
     "bonus":      {"label": "Bonus",        "color": "#fbbf24"},
     "upgrade":    {"label": "Ameliorations","color": "#60a5fa"},
     "premium":    {"label": "Premium",      "color": "#fbbf24"},
