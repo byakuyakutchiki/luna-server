@@ -335,6 +335,7 @@ html, body {
   height: 55%;
   z-index: 6;
   pointer-events: none;
+  transition: filter 2s ease;
 }
 
 /* TERRAIN — the visible ground plane */
@@ -346,6 +347,7 @@ html, body {
   height: 62%;
   z-index: 7;
   pointer-events: none;
+  transition: filter 2s ease;
 }
 /* Ground extension under terrain to avoid dark gap */
 .scene::after {
@@ -355,7 +357,7 @@ html, body {
   left: 0;
   right: 0;
   height: 12%;
-  background: #1a4028;
+  background: #2a6040;
   z-index: 6;
   pointer-events: none;
 }
@@ -2558,14 +2560,14 @@ html, body {
       <defs>
         <!-- Base ground gradient for depth -->
         <linearGradient id="groundGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-          <stop offset="0%" stop-color="#1a4028" stop-opacity="1"/>
-          <stop offset="40%" stop-color="#225030" stop-opacity="1"/>
-          <stop offset="100%" stop-color="#2a6038" stop-opacity="1"/>
+          <stop offset="0%" stop-color="#2a6040" stop-opacity="1"/>
+          <stop offset="40%" stop-color="#3a7850" stop-opacity="1"/>
+          <stop offset="100%" stop-color="#4a9060" stop-opacity="1"/>
         </linearGradient>
         <!-- Brighter grass highlight gradient -->
         <radialGradient id="grassHighlight" cx="50%" cy="50%" r="50%">
-          <stop offset="0%" stop-color="#308040" stop-opacity="0.25"/>
-          <stop offset="100%" stop-color="#308040" stop-opacity="0"/>
+          <stop offset="0%" stop-color="#55b868" stop-opacity="0.35"/>
+          <stop offset="100%" stop-color="#55b868" stop-opacity="0"/>
         </radialGradient>
 
         <!-- Lamp light pool gradient -->
@@ -2586,23 +2588,23 @@ html, body {
       <ellipse cx="1200" cy="350" rx="220" ry="100" fill="url(#grassHighlight)"/>
 
       <!-- Grass variation patches (richer greens, higher opacity) -->
-      <ellipse cx="320" cy="180" rx="180" ry="85" fill="#286838" opacity="0.45"/>
-      <ellipse cx="890" cy="420" rx="200" ry="95" fill="#245830" opacity="0.4"/>
-      <ellipse cx="1150" cy="250" rx="160" ry="70" fill="#2a7040" opacity="0.4"/>
-      <ellipse cx="450" cy="350" rx="140" ry="60" fill="#225028" opacity="0.5"/>
-      <ellipse cx="720" cy="120" rx="190" ry="80" fill="#286838" opacity="0.42"/>
-      <ellipse cx="180" cy="480" rx="120" ry="55" fill="#245830" opacity="0.45"/>
-      <ellipse cx="1280" cy="380" rx="150" ry="65" fill="#2a7040" opacity="0.4"/>
-      <ellipse cx="620" cy="500" rx="170" ry="75" fill="#225028" opacity="0.45"/>
+      <ellipse cx="320" cy="180" rx="180" ry="85" fill="#3a8848" opacity="0.5"/>
+      <ellipse cx="890" cy="420" rx="200" ry="95" fill="#358040" opacity="0.45"/>
+      <ellipse cx="1150" cy="250" rx="160" ry="70" fill="#3a9050" opacity="0.45"/>
+      <ellipse cx="450" cy="350" rx="140" ry="60" fill="#307838" opacity="0.5"/>
+      <ellipse cx="720" cy="120" rx="190" ry="80" fill="#3a8848" opacity="0.48"/>
+      <ellipse cx="180" cy="480" rx="120" ry="55" fill="#358040" opacity="0.5"/>
+      <ellipse cx="1280" cy="380" rx="150" ry="65" fill="#3a9050" opacity="0.45"/>
+      <ellipse cx="620" cy="500" rx="170" ry="75" fill="#307838" opacity="0.5"/>
       <!-- Extra bright patches near buildings for "lawn" effect -->
-      <ellipse cx="650" cy="320" rx="120" ry="50" fill="#2a6a3a" opacity="0.35"/>
-      <ellipse cx="280" cy="430" rx="100" ry="45" fill="#2c7040" opacity="0.35"/>
-      <ellipse cx="1080" cy="300" rx="90" ry="40" fill="#286838" opacity="0.3"/>
-      <ellipse cx="500" cy="480" rx="110" ry="45" fill="#2a6a3a" opacity="0.3"/>
+      <ellipse cx="650" cy="320" rx="120" ry="50" fill="#45a05a" opacity="0.35"/>
+      <ellipse cx="280" cy="430" rx="100" ry="45" fill="#48a860" opacity="0.35"/>
+      <ellipse cx="1080" cy="300" rx="90" ry="40" fill="#3a8848" opacity="0.35"/>
+      <ellipse cx="500" cy="480" rx="110" ry="45" fill="#45a05a" opacity="0.35"/>
 
       <!-- Garden zone (around Jardin) — lush bright green -->
-      <ellipse cx="250" cy="420" rx="140" ry="65" fill="#2a6a3a" opacity="0.5"/>
-      <ellipse cx="260" cy="415" rx="100" ry="45" fill="#308040" opacity="0.3"/>
+      <ellipse cx="250" cy="420" rx="140" ry="65" fill="#45a05a" opacity="0.5"/>
+      <ellipse cx="260" cy="415" rx="100" ry="45" fill="#55b868" opacity="0.35"/>
 
       <!-- Cobblestone area (around Place du Village) -->
       <ellipse cx="560" cy="475" rx="90" ry="35" fill="#2a283a" opacity="0.45"/>
@@ -7111,11 +7113,15 @@ function initScene() {
   var starsLayer = document.getElementById("starsLayer");
   var horizonGlow = document.getElementById("horizonGlow");
   var daylightWash = document.getElementById("daylightWash");
+  var terrainLayer = document.querySelector(".terrain-layer");
+  var hillsLayer = document.querySelector(".hills-layer");
   if (moonEl) moonEl.style.transition = "none";
   if (sunEl) sunEl.style.transition = "none";
   if (starsLayer) starsLayer.style.transition = "none";
   if (horizonGlow) horizonGlow.style.transition = "none";
   if (daylightWash) daylightWash.style.transition = "none";
+  if (terrainLayer) terrainLayer.style.transition = "none";
+  if (hillsLayer) hillsLayer.style.transition = "none";
 
   updateDayNight();
 
@@ -7126,6 +7132,8 @@ function initScene() {
     if (starsLayer) starsLayer.style.transition = "";
     if (horizonGlow) horizonGlow.style.transition = "";
     if (daylightWash) daylightWash.style.transition = "";
+    if (terrainLayer) terrainLayer.style.transition = "";
+    if (hillsLayer) hillsLayer.style.transition = "";
   });
 
   generateRainDrops();
@@ -7173,12 +7181,15 @@ function updateDayNight() {
   var sunEl = document.getElementById("sunEl");
   var horizonGlow = document.getElementById("horizonGlow");
   var daylightWash = document.getElementById("daylightWash");
+  var terrainLayer = document.querySelector(".terrain-layer");
+  var hillsLayer = document.querySelector(".hills-layer");
 
   var skyTop, skyMid, skyBottom;
   var starsOpacity, moonVisible, sunVisible;
   var sunTop, sunLeft, sunSize, sunBg, sunShadow;
   var horizonVisible = false, horizonBg = "";
   var washVisible = false, washBg = "";
+  var terrainBright = 0.55, terrainSat = 0.6;
 
   if (hour >= 21 || hour < 4) {
     // Nuit profonde
@@ -7192,6 +7203,7 @@ function updateDayNight() {
     // Eclairage lunaire subtil
     washVisible = true;
     washBg = "radial-gradient(ellipse at 85% 15%, rgba(140,130,200,0.06) 0%, transparent 60%)";
+    terrainBright = 0.5; terrainSat = 0.5;
   } else if (hour >= 4 && hour < 6) {
     // Aurore (pre-dawn) — teintes roses et mauves
     var t = (hourF - 4) / 2;
@@ -7211,12 +7223,13 @@ function updateDayNight() {
     horizonBg = "linear-gradient(0deg, rgba(255,130,120,0.5) 0%, rgba(220,80,100,0.25) 40%, transparent 100%)";
     washVisible = true;
     washBg = "linear-gradient(180deg, rgba(255,160,140,0.08) 0%, rgba(255,120,130,0.12) 60%, rgba(220,80,100,0.15) 100%)";
+    terrainBright = 0.6 + t * 0.2; terrainSat = 0.6 + t * 0.15;
   } else if (hour >= 6 && hour < 8) {
     // Matin (aurore rose → jour bleu) — rose doux puis dore
     var t = (hourF - 6) / 2;
-    skyTop = lerpColor("#2a1848", "#1e4878", t);
-    skyMid = lerpColor("#5a3070", "#3a6a9a", t);
-    skyBottom = lerpColor("#d88090", "#6a92b8", t);
+    skyTop = lerpColor("#2a1848", "#0a5ca8", t);
+    skyMid = lerpColor("#5a3070", "#3898d0", t);
+    skyBottom = lerpColor("#d88090", "#78c0e8", t);
     starsOpacity = 0.1 * (1 - t);
     moonVisible = false;
     sunVisible = true;
@@ -7229,11 +7242,12 @@ function updateDayNight() {
     horizonBg = "linear-gradient(0deg, rgba(255," + Math.round(130 + t * 60) + "," + Math.round(110 - t * 30) + ",0.3) 0%, transparent 100%)";
     washVisible = true;
     washBg = "linear-gradient(180deg, rgba(255," + Math.round(190 + t * 40) + "," + Math.round(150 + t * 20) + "," + (0.06 + t * 0.06).toFixed(2) + ") 0%, rgba(255," + Math.round(170 + t * 30) + "," + Math.round(120 - t * 20) + "," + (0.08 + t * 0.06).toFixed(2) + ") 100%)";
+    terrainBright = 0.8 + t * 0.5; terrainSat = 0.75 + t * 0.45;
   } else if (hour >= 8 && hour < 17) {
-    // Plein jour — soleil eclatant
-    skyTop = "#1e4878";
-    skyMid = "#3a6a9a";
-    skyBottom = "#6a92b8";
+    // Plein jour — ciel bleu eclatant
+    skyTop = "#0a5ca8";
+    skyMid = "#3898d0";
+    skyBottom = "#78c0e8";
     starsOpacity = 0;
     moonVisible = false;
     sunVisible = true;
@@ -7245,12 +7259,13 @@ function updateDayNight() {
     // Lumiere doree sur tout le village
     washVisible = true;
     washBg = "radial-gradient(ellipse at " + sunLeft + "% " + (sunTop + 5) + "%, rgba(255,240,180,0.12) 0%, rgba(255,220,130,0.06) 40%, transparent 70%)";
+    terrainBright = 1.3; terrainSat = 1.2;
   } else if (hour >= 17 && hour < 19) {
     // Crepuscule — orange vif et flamme
     var t = (hourF - 17) / 2;
-    skyTop = lerpColor("#1e4878", "#1a1248", t);
-    skyMid = lerpColor("#3a6a9a", "#6a3030", t);
-    skyBottom = lerpColor("#6a92b8", "#ff8030", t);
+    skyTop = lerpColor("#0a5ca8", "#1a1248", t);
+    skyMid = lerpColor("#3898d0", "#6a3030", t);
+    skyBottom = lerpColor("#78c0e8", "#ff8030", t);
     starsOpacity = t * 0.3;
     moonVisible = false;
     sunVisible = true;
@@ -7263,6 +7278,7 @@ function updateDayNight() {
     horizonBg = "linear-gradient(0deg, rgba(255,130,30,0.55) 0%, rgba(255,90,20,0.3) 40%, transparent 100%)";
     washVisible = true;
     washBg = "linear-gradient(180deg, rgba(255,150,50," + (0.06 + t * 0.1).toFixed(2) + ") 0%, rgba(255,120,30," + (0.05 + t * 0.12).toFixed(2) + ") 100%)";
+    terrainBright = 1.3 - t * 0.6; terrainSat = 1.2 - t * 0.5;
   } else if (hour >= 19 && hour < 21) {
     // Post-crepuscule → nuit (orange profond → violet)
     var t = (hourF - 19) / 2;
@@ -7282,6 +7298,7 @@ function updateDayNight() {
     horizonBg = "linear-gradient(0deg, rgba(200,80,20," + (0.4 - t * 0.3).toFixed(2) + ") 0%, transparent 100%)";
     washVisible = t < 0.4;
     washBg = "linear-gradient(180deg, rgba(180,80,30,0.06) 0%, transparent 100%)";
+    terrainBright = 0.7 - t * 0.2; terrainSat = 0.7 - t * 0.2;
   }
 
   // Ciel
@@ -7319,6 +7336,11 @@ function updateDayNight() {
   } else {
     daylightWash.classList.remove("visible");
   }
+
+  // Filtre terrain + collines (vert vif le jour, sombre la nuit)
+  var tFilter = "brightness(" + terrainBright.toFixed(2) + ") saturate(" + terrainSat.toFixed(2) + ")";
+  if (terrainLayer) terrainLayer.style.filter = tFilter;
+  if (hillsLayer) hillsLayer.style.filter = "brightness(" + (terrainBright * 0.85).toFixed(2) + ") saturate(" + (terrainSat * 0.9).toFixed(2) + ")";
 }
 
 function lerpColor(a, b, t) {
@@ -7939,7 +7961,7 @@ function initSwayingGrass() {
   grassLayer.style.cssText = "position:absolute;inset:0;z-index:7;pointer-events:none;overflow:hidden;";
   scene.appendChild(grassLayer);
 
-  var grassColors = ["#2a5533", "#3a6a40", "#1a4028", "#2d5a35", "#3d7045"];
+  var grassColors = ["#3a8048", "#4a9858", "#2d6838", "#3d8a4a", "#55a860"];
   var count = 40;
 
   for (var i = 0; i < count; i++) {
