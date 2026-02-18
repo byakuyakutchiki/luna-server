@@ -17,6 +17,7 @@ from .constants import (
     ONBOARDING_MISSIONS, RECURRING_MISSIONS, ADMIN_MISSIONS,
     STAR_REWARDS, SHOP_ITEMS,
     FAMILY_XP_ACTIONS, FAMILY_LEVELS, FAMILY_BLASON_TIERS,
+    WORLD2_RECURRING_MISSIONS, WORLD2_UNLOCK_LEVEL,
 )
 from .redis_ops import GamificationRedisOps, MAX_ACTIVE_MISSIONS
 from .schemas import PlayerState, StabilityGauge
@@ -358,10 +359,18 @@ def _assign_new_mission(gops: GamificationRedisOps, tenant_id) -> Optional[str]:
     recent_types = gops.get_recently_completed_types(tenant_id, days=7)
     exclude = active_types | recent_types
 
-    candidates = [m for m in RECURRING_MISSIONS if m["type"] not in exclude]
+    # Build candidate pool: base missions + World 2 if level >= 6
+    pool = list(RECURRING_MISSIONS)
+    player = gops.get_player(tenant_id)
+    if player:
+        level = int(player.get("level", 1))
+        if level >= WORLD2_UNLOCK_LEVEL:
+            pool = pool + list(WORLD2_RECURRING_MISSIONS)
+
+    candidates = [m for m in pool if m["type"] not in exclude]
     if not candidates:
         # All missions done recently, allow repeats
-        candidates = [m for m in RECURRING_MISSIONS if m["type"] not in active_types]
+        candidates = [m for m in pool if m["type"] not in active_types]
     if not candidates:
         return None
 

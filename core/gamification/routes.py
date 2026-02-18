@@ -24,6 +24,7 @@ from .constants import (
     ALL_CLIENT_BADGES, ALL_ADMIN_BADGES, BADGE_CATEGORIES, RARITY_COLORS,
     SHOP_ITEMS, SHOP_CATEGORIES,
     FAMILY_LEVELS, FAMILY_BLASON_TIERS,
+    WORLD2_BUILDINGS, WORLD2_UNLOCK_LEVEL,
 )
 from .schemas import PlayerState, Mission, StabilityGauge, CollectRewardRequest
 
@@ -106,6 +107,9 @@ async def get_player(request: Request):
     player = PlayerState.from_redis(player_data or {})
     level_info = get_level_for_xp(player.xp, CLIENT_LEVELS)
 
+    active_world = gops.get_active_world(tid)
+    world2_unlocked = level_info["level"] >= WORLD2_UNLOCK_LEVEL
+
     return {
         "player": {
             "xp": player.xp,
@@ -125,6 +129,8 @@ async def get_player(request: Request):
             "badges_count": player.badges_count,
             "missions_completed": player.missions_completed,
             "stars": player.stars,
+            "active_world": active_world,
+            "world2_unlocked": world2_unlocked,
         }
     }
 
@@ -546,6 +552,39 @@ async def set_avatar_type_endpoint(request: Request):
 
     gops.set_avatar_type(tid, avatar_type)
     return {"success": True, "avatar_type": avatar_type}
+
+
+@gamification_router.post("/api/world/switch")
+async def switch_world(request: Request):
+    """Switch between world1 and world2."""
+    gops = _get_gops(request)
+    if not gops:
+        return _unavailable()
+    tid = _get_tenant_id(request)
+    if tid is None:
+        return _error("Non authentifie", 401)
+
+    try:
+        body = await request.json()
+        world = body.get("world", "world1")
+    except Exception:
+        return _error("Corps de requete invalide")
+
+    if world not in ("world1", "world2"):
+        return _error("Monde invalide (world1 ou world2)")
+
+    if world == "world2":
+        # Check level requirement
+        player_data = gops.get_player(tid)
+        if player_data:
+            level = int(player_data.get("level", 1))
+            if level < WORLD2_UNLOCK_LEVEL:
+                return _error(f"Niveau {WORLD2_UNLOCK_LEVEL} requis pour le World 2")
+        else:
+            return _error("Joueur non initialise")
+
+    gops.set_active_world(tid, world)
+    return {"success": True, "active_world": world}
 
 
 @gamification_router.post("/api/world/shop/checkout")

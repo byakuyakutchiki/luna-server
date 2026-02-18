@@ -57,6 +57,10 @@ XP_ACTIONS = {
     "room_message_sent":      {"xp": 1,  "daily_cap_count": 20},
     "game_played":            {"xp": 5,  "daily_cap_count": 5},
     "game_won":               {"xp": 10, "daily_cap_count": 3},
+    # Social
+    "friend_added":           {"xp": 15, "daily_cap_count": 3},
+    "dm_message_sent":        {"xp": 1,  "daily_cap_count": 15},
+    "profile_customized":     {"xp": 10, "daily_cap_count": 1},
 }
 
 ADMIN_XP_ACTIONS = {
@@ -284,6 +288,31 @@ ALL_CLIENT_BADGES = {
         "icon": "anchor",
         "rarity": "epic",
         "condition": lambda p: int(p.get("stability_score", 0)) >= 90,
+    },
+    # --- Social ---
+    "first_dm": {
+        "name": "Premier Message",
+        "description": "Envoie ton premier message prive a un ami",
+        "category": "social",
+        "icon": "mail",
+        "rarity": "common",
+        "condition": lambda p: int(p.get("total_dm_messages", 0)) >= 1,
+    },
+    "social_butterfly": {
+        "name": "Papillon Social",
+        "description": "Ajoute 5 amis a ton reseau",
+        "category": "social",
+        "icon": "smile",
+        "rarity": "rare",
+        "condition": lambda p: int(p.get("total_friends", 0)) >= 5,
+    },
+    "popular": {
+        "name": "Populaire",
+        "description": "Ajoute 10 amis a ton reseau",
+        "category": "social",
+        "icon": "star",
+        "rarity": "epic",
+        "condition": lambda p: int(p.get("total_friends", 0)) >= 10,
     },
 }
 
@@ -597,6 +626,14 @@ SHOP_ITEMS = {
     "frame_golden":  {"name": "Cadre Dore",      "category": "cadre", "price": 70,  "icon": "\U0001f451", "description": "Cadre orne d'or etincelant"},
     "frame_stars":   {"name": "Cadre Etoile",    "category": "cadre", "price": 90,  "icon": "\u2b50",     "description": "Cadre parseme d'etoiles scintillantes"},
     "frame_diamond": {"name": "Cadre Diamant",   "category": "cadre", "price": 150, "icon": "\U0001f48e", "description": "Cadre prestige diamants et lumiere"},
+    # --- World 2 Decorations ---
+    "w2_deco_waterfall":  {"name": "Cascade Cristal",    "category": "decoration", "price": 80,  "icon": "\U0001f4a7", "description": "Cascade scintillante sur la montagne"},
+    "w2_deco_crystal":    {"name": "Cristal Geant",      "category": "decoration", "price": 100, "icon": "\U0001f48e", "description": "Cristal lumineux plante dans le sol"},
+    "w2_deco_rainbow":    {"name": "Arc-en-Ciel",        "category": "decoration", "price": 120, "icon": "\U0001f308", "description": "Arc-en-ciel permanent au-dessus du village"},
+    "w2_deco_aurora":     {"name": "Voile Celeste",      "category": "decoration", "price": 90,  "icon": "\U0001f30c", "description": "Voile d'aurore dansante dans le ciel"},
+    # --- World 2 Tenues avancees ---
+    "outfit_celestial":   {"name": "Tenue Celeste",      "category": "tenue",      "price": 150, "icon": "\u2728",     "description": "Vetements tisses de lumiere stellaire"},
+    "outfit_royal":       {"name": "Tenue Royale",       "category": "tenue",      "price": 200, "icon": "\U0001f451", "description": "Parure royale digne du Palais de Luna"},
 }
 
 SHOP_CATEGORIES = {
@@ -641,3 +678,73 @@ FAMILY_BLASON_TIERS = {
     "gold":    {"label": "Dynastie Radieuse", "primary": "#ffd700", "accent": "#fff4a3", "symbol": "crown"},
     "diamond": {"label": "Legende Familiale", "primary": "#b9f2ff", "accent": "#e0f7ff", "symbol": "diamond"},
 }
+
+# =====================================================================
+# WORLD 2 — PROGRESSION POST-NIVEAU 5
+# =====================================================================
+
+# Batiments World 2 (debloquage niveaux 6-10)
+WORLD2_BUILDINGS = {
+    6:  {"id": "atelier",  "name": "Atelier Creatif",    "icon": "palette",      "description": "Personnalise ton monde avec des creations uniques"},
+    7:  {"id": "marche",   "name": "Marche aux Etoiles",  "icon": "shopping-bag", "description": "Marche d'echange avance entre souscripteurs"},
+    8:  {"id": "temple",   "name": "Temple de Sagesse",   "icon": "book",         "description": "Meditations guidees et reflexions profondes"},
+    9:  {"id": "phare",    "name": "Phare Celeste",       "icon": "sun",          "description": "Guide les autres souscripteurs depuis les hauteurs"},
+    10: {"id": "palais",   "name": "Palais de Luna",      "icon": "crown",        "description": "Le sommet de ton voyage — residence royale de Luna"},
+}
+
+# Seuil : World 2 accessible des le niveau 6
+WORLD2_UNLOCK_LEVEL = 6
+
+# Missions recurrentes World 2 (cibles plus elevees)
+WORLD2_RECURRING_MISSIONS = [
+    {
+        "type": "w2_chat_mastery",
+        "title": "Maitre du Dialogue",
+        "description": "Envoie 20 messages a Luna aujourd'hui",
+        "category": "maitrise",
+        "target": 20,
+        "xp_reward": 80,
+        "action_type": "chat_message",
+        "counter_field": "total_messages",
+    },
+    {
+        "type": "w2_social_reach",
+        "title": "Reseau Social",
+        "description": "Ajoute 5 amis a ton reseau",
+        "category": "social",
+        "target": 5,
+        "xp_reward": 100,
+        "action_type": "friend_added",
+        "counter_field": "total_friends",
+    },
+    {
+        "type": "w2_call_expert",
+        "title": "Expert Vocal",
+        "description": "Passe 5 appels vocaux avec Luna",
+        "category": "exploration",
+        "target": 5,
+        "xp_reward": 90,
+        "action_type": "voice_call",
+        "counter_field": "total_calls",
+    },
+    {
+        "type": "w2_streak_master",
+        "title": "Constance Absolue",
+        "description": "Connecte-toi 14 jours de suite",
+        "category": "fidelite",
+        "target": 14,
+        "xp_reward": 120,
+        "action_type": "daily_login",
+        "counter_field": "streak_days",
+    },
+    {
+        "type": "w2_dm_active",
+        "title": "Correspondant Assidu",
+        "description": "Envoie 20 messages prives a tes amis",
+        "category": "social",
+        "target": 20,
+        "xp_reward": 70,
+        "action_type": "dm_message_sent",
+        "counter_field": "total_dm_messages",
+    },
+]

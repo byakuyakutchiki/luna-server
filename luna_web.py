@@ -78,6 +78,13 @@ try:
 except ImportError:
     _GAMIFICATION_AVAILABLE = False
 
+# Social interactions (optional, non-blocking)
+try:
+    from core.social.routes import social_router
+    _SOCIAL_AVAILABLE = True
+except ImportError:
+    _SOCIAL_AVAILABLE = False
+
 load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
 
 logging.basicConfig(level=logging.INFO)
@@ -690,6 +697,10 @@ STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
 # Mount gamification routes (optional)
 if _GAMIFICATION_AVAILABLE:
     app.include_router(gamification_router)
+
+# Mount social routes (optional)
+if _SOCIAL_AVAILABLE:
+    app.include_router(social_router)
 
 # Store redis_client in app.state for gamification routes
 app.state._redis_client = _redis_client if _CORE_AVAILABLE else None

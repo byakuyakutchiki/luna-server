@@ -2383,7 +2383,71 @@ html, body {
   .badge-shield-wrap { width: 64px; height: 70px; }
   .badge-shield-wrap svg { width: 64px; height: 70px; }
   .family-characters-layer { display: none; }
+  .visitor-layer { display: none; }
 }
+
+/* === SOCIAL === */
+.hud-social-badge{background:#ef4444;color:#fff;border-radius:50%;width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;margin-left:6px;animation:pulse 2s infinite;}
+.social-tabs{display:flex;gap:4px;margin-bottom:12px;flex-wrap:wrap;}
+.social-tab{padding:6px 12px;border-radius:16px;border:1px solid rgba(255,255,255,0.2);background:rgba(255,255,255,0.05);color:#ccc;cursor:pointer;font-size:12px;transition:all .2s;}
+.social-tab.active{background:rgba(167,139,250,0.3);color:#fff;border-color:#a78bfa;}
+.social-user-card{display:flex;align-items:center;gap:10px;padding:10px;border-radius:10px;background:rgba(255,255,255,0.05);margin-bottom:6px;cursor:pointer;transition:background .2s;}
+.social-user-card:hover{background:rgba(167,139,250,0.15);}
+.social-user-avatar{width:40px;height:40px;border-radius:50%;flex-shrink:0;overflow:hidden;}
+.social-user-info{flex:1;min-width:0;}
+.social-user-name{font-weight:600;color:#e0e0e0;font-size:13px;}
+.social-user-level{font-size:11px;color:#888;}
+.social-user-online{width:8px;height:8px;border-radius:50%;background:#4ade80;display:inline-block;margin-left:4px;}
+.social-user-offline{width:8px;height:8px;border-radius:50%;background:#555;display:inline-block;margin-left:4px;}
+.social-user-actions{display:flex;gap:6px;}
+.social-btn{padding:5px 10px;border-radius:8px;border:none;font-size:11px;cursor:pointer;transition:all .2s;}
+.social-btn-primary{background:#a78bfa;color:#fff;}
+.social-btn-primary:hover{background:#8b5cf6;}
+.social-btn-danger{background:#ef4444;color:#fff;}
+.social-btn-danger:hover{background:#dc2626;}
+.social-btn-secondary{background:rgba(255,255,255,0.1);color:#ccc;}
+.social-btn-secondary:hover{background:rgba(255,255,255,0.2);}
+.friend-code-box{text-align:center;padding:16px;background:rgba(167,139,250,0.1);border-radius:12px;margin-bottom:12px;}
+.friend-code-value{font-size:28px;letter-spacing:6px;font-weight:700;color:#a78bfa;margin:8px 0;}
+.friend-code-input{display:flex;gap:6px;margin-top:10px;justify-content:center;}
+.friend-code-input input{width:120px;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.2);background:rgba(0,0,0,0.3);color:#fff;text-align:center;font-size:16px;letter-spacing:3px;text-transform:uppercase;}
+.dm-window{display:flex;flex-direction:column;height:400px;}
+.dm-header{display:flex;align-items:center;gap:10px;padding:10px;border-bottom:1px solid rgba(255,255,255,0.1);}
+.dm-messages{flex:1;overflow-y:auto;padding:10px;display:flex;flex-direction:column;gap:6px;}
+.dm-message{max-width:80%;padding:8px 12px;border-radius:12px;font-size:13px;line-height:1.4;word-break:break-word;}
+.dm-message-mine{align-self:flex-end;background:rgba(167,139,250,0.3);color:#e0e0e0;border-bottom-right-radius:4px;}
+.dm-message-theirs{align-self:flex-start;background:rgba(255,255,255,0.1);color:#ccc;border-bottom-left-radius:4px;}
+.dm-message-time{font-size:10px;color:#666;margin-top:2px;}
+.dm-input-bar{display:flex;gap:6px;padding:10px;border-top:1px solid rgba(255,255,255,0.1);}
+.dm-input-bar input{flex:1;padding:8px 12px;border-radius:20px;border:1px solid rgba(255,255,255,0.2);background:rgba(0,0,0,0.3);color:#fff;font-size:13px;}
+.dm-input-bar button{padding:8px 16px;border-radius:20px;border:none;background:#a78bfa;color:#fff;cursor:pointer;font-size:13px;}
+.dm-input-bar button:hover{background:#8b5cf6;}
+.visitor-layer{position:absolute;top:0;left:0;width:100%;height:100%;z-index:8;pointer-events:none;}
+.visitor-char{position:absolute;pointer-events:auto;cursor:pointer;transition:left 20s linear,bottom 15s ease-in-out;}
+.visitor-char .char-name{position:absolute;top:-18px;left:50%;transform:translateX(-50%);font-size:9px;color:#60a5fa;white-space:nowrap;text-shadow:0 0 4px rgba(96,165,250,0.6);}
+.place-main-tabs{display:flex;gap:6px;margin-bottom:14px;border-bottom:1px solid rgba(255,255,255,0.1);padding-bottom:8px;}
+.place-main-tab{padding:8px 16px;border-radius:8px 8px 0 0;border:none;background:transparent;color:#888;cursor:pointer;font-size:13px;font-weight:600;transition:all .2s;}
+.place-main-tab.active{background:rgba(167,139,250,0.15);color:#a78bfa;border-bottom:2px solid #a78bfa;}
+
+/* === WORLD 2 === */
+.world2-terrain{position:absolute;bottom:0;left:0;width:100%;height:100%;z-index:1;transition:opacity 1.5s ease;}
+.world2-terrain .terrain-svg{width:100%;height:100%;}
+.world-travel-btn{position:fixed;bottom:20px;right:20px;z-index:50;padding:10px 18px;border-radius:20px;border:2px solid rgba(167,139,250,0.5);background:rgba(26,26,46,0.9);color:#a78bfa;font-size:13px;cursor:pointer;display:none;transition:all .3s;backdrop-filter:blur(4px);}
+.world-travel-btn:hover{background:rgba(167,139,250,0.2);border-color:#a78bfa;transform:scale(1.05);}
+.world-travel-btn .portal-icon{margin-right:6px;}
+.world-transition{position:fixed;top:0;left:0;width:100%;height:100%;z-index:999;pointer-events:none;opacity:0;transition:opacity .8s ease;}
+.world-transition.active{opacity:1;pointer-events:all;}
+.world-transition-inner{width:100%;height:100%;background:radial-gradient(circle,rgba(167,139,250,0.8) 0%,rgba(26,26,46,0.95) 70%);display:flex;align-items:center;justify-content:center;}
+.world-transition-text{color:#fff;font-size:24px;font-weight:700;text-shadow:0 0 20px rgba(167,139,250,0.8);animation:fadeInUp 1s ease;}
+@keyframes fadeInUp{from{opacity:0;transform:translateY(20px);}to{opacity:1;transform:translateY(0);}}
+.w2-building{position:absolute;cursor:pointer;transition:transform .3s,filter .3s;filter:drop-shadow(0 4px 12px rgba(167,139,250,0.3));}
+.w2-building:hover{transform:scale(1.06);filter:drop-shadow(0 6px 16px rgba(167,139,250,0.5));}
+.w2-building.locked{opacity:.35;filter:grayscale(0.8);cursor:default;}
+.w2-building .bld-label{position:absolute;bottom:-18px;left:50%;transform:translateX(-50%);font-size:10px;color:#c0c0e0;white-space:nowrap;text-shadow:0 0 4px rgba(167,139,250,0.4);}
+.w2-particles{position:absolute;top:0;left:0;width:100%;height:60%;z-index:2;pointer-events:none;overflow:hidden;}
+.w2-particle{position:absolute;width:3px;height:3px;background:#ffd700;border-radius:50%;opacity:0;animation:w2float 8s ease-in-out infinite;}
+@keyframes w2float{0%{opacity:0;transform:translateY(0);}20%{opacity:.7;}80%{opacity:.4;}100%{opacity:0;transform:translateY(-200px) translateX(30px);}}
+.hud-world-indicator{font-size:11px;color:#a78bfa;margin-left:8px;opacity:0.8;}
 </style>
 </head>
 <body>
@@ -3159,6 +3223,11 @@ html, body {
   <circle cx="340" cy="365" r="1.5" fill="#ffe066"/>
 </g>
 </svg>
+  </div>
+
+  <!-- World 2 terrain (hidden by default, shown when player travels) -->
+  <div class="world2-terrain" id="world2Terrain" style="display:none;">
+    <!-- World 2 terrain SVG will be generated by JS -->
   </div>
 
   <!-- Layer 8: Decorations (trees, lamps, bushes) -->
@@ -4236,6 +4305,9 @@ html, body {
   </div>
 
 </div>
+
+  <!-- Layer: Visitor characters (online friends) -->
+  <div class="visitor-layer" id="visitorLayer"></div>
 
   <!-- Layer: Subscriber avatar -->
   <div class="subscriber-avatar-layer" id="subscriberAvatarLayer"></div>
@@ -6411,11 +6483,25 @@ html, body {
       </div>
     </div>
     <span class="hud-xp-text" id="hudXpText">0 / 50 XP</span>
+    <span class="hud-world-indicator" id="hudWorldIndicator"></span>
   </div>
   <div class="hud-right">
     <span class="hud-streak" id="hudStreak">0j</span>
     <span class="hud-stars" id="hudStars">0 &#11088;</span>
+    <span class="hud-social-badge" id="hudSocialBadge" style="display:none;cursor:pointer;" onclick="openPanel('place')">0</span>
     <span class="hud-stability" id="hudStability" style="color:#4ade80">&#9679; 0</span>
+  </div>
+</div>
+
+<!-- World Travel Button -->
+<button class="world-travel-btn" id="worldTravelBtn" onclick="travelToWorld()">
+  <span class="portal-icon">&#10024;</span> <span id="worldTravelLabel">Voyager</span>
+</button>
+
+<!-- World Transition Overlay -->
+<div class="world-transition" id="worldTransition">
+  <div class="world-transition-inner">
+    <div class="world-transition-text" id="worldTransitionText">Voyage en cours...</div>
   </div>
 </div>
 
@@ -6522,6 +6608,16 @@ var BUILDINGS = {
   observatoire: { label: "Observatoire",        unlock: 5,       panel: "observatoire" },
   famille:      { label: "Maison Familiale",    unlock: "family", panel: "famille" },
   ciel:         { label: "Ciel Etoile",         unlock: 1,       panel: "ciel" }
+};
+
+var WORLD2_BUILDINGS = {
+  atelier:      { label: "Atelier Creatif",     unlock: 6,  panel: "atelier" },
+  marche:       { label: "Marche aux Etoiles",   unlock: 7,  panel: "marche" },
+  temple:       { label: "Temple de Sagesse",    unlock: 8,  panel: "temple" },
+  phare:        { label: "Phare Celeste",        unlock: 9,  panel: "phare" },
+  palais:       { label: "Palais de Luna",       unlock: 10, panel: "palais" },
+  ciel:         { label: "Ciel Etoile",          unlock: 1,  panel: "ciel" },
+  boutique:     { label: "Boutique Celeste",     unlock: 6,  panel: "boutique" }
 };
 
 var categoryColors = {
@@ -7304,7 +7400,14 @@ var state = {
   currentShopFilter: "all",
   shop: null,
   inventory: null,
-  familyWorld: null
+  familyWorld: null,
+  social: null,
+  socialTab: "discover",
+  dmRooms: null,
+  dmMessages: null,
+  currentDmRoom: null,
+  activeWorld: "world1",
+  world2Unlocked: false
 };
 
 /* ═══════════════════════════════════════
@@ -8409,7 +8512,7 @@ function openPanel(key) {
 
   state.currentPanel = key;
 
-  var info = BUILDINGS[key];
+  var info = BUILDINGS[key] || WORLD2_BUILDINGS[key];
   if (key === "luna") {
     titleEl.textContent = "Luna";
   } else if (info) {
@@ -8430,6 +8533,11 @@ function openPanel(key) {
     case "boutique":     renderPanelBoutique(bodyEl, subtitleEl); break;
     case "luna":         renderPanelLuna(bodyEl, subtitleEl); break;
     case "ciel":         renderPanelCiel(bodyEl, subtitleEl); break;
+    case "atelier":      renderPanelAtelier(bodyEl, subtitleEl); break;
+    case "marche":       renderPanelMarche(bodyEl, subtitleEl); break;
+    case "temple":       renderPanelTemple(bodyEl, subtitleEl); break;
+    case "phare":        renderPanelPhare(bodyEl, subtitleEl); break;
+    case "palais":       renderPanelPalais(bodyEl, subtitleEl); break;
     default:
       bodyEl.innerHTML = '<div class="empty-state">Contenu indisponible</div>';
   }
@@ -8694,7 +8802,35 @@ function renderPanelBibliotheque(bodyEl, subtitleEl) {
   bodyEl.innerHTML = html;
 }
 
+var _placeMainTab = "missions";
+
 function renderPanelPlace(bodyEl, subtitleEl) {
+  subtitleEl.textContent = "";
+
+  var html = '<div class="place-main-tabs">';
+  html += '<button class="place-main-tab' + (_placeMainTab === "missions" ? ' active' : '') + '" onclick="switchPlaceTab(\'missions\')">Missions</button>';
+  html += '<button class="place-main-tab' + (_placeMainTab === "social" ? ' active' : '') + '" onclick="switchPlaceTab(\'social\')">Communaute</button>';
+  html += '</div>';
+  html += '<div id="placeTabContent"></div>';
+
+  bodyEl.innerHTML = html;
+
+  var contentEl = document.getElementById("placeTabContent");
+  if (_placeMainTab === "missions") {
+    renderPlaceMissions(contentEl, subtitleEl);
+  } else {
+    renderSocialContent(contentEl);
+  }
+}
+
+function switchPlaceTab(tab) {
+  _placeMainTab = tab;
+  var bodyEl = document.querySelector(".panel-body");
+  var subtitleEl = document.querySelector(".panel-subtitle");
+  if (bodyEl && subtitleEl) renderPanelPlace(bodyEl, subtitleEl);
+}
+
+function renderPlaceMissions(contentEl, subtitleEl) {
   var data = state.missions;
   var missions = [];
   var activeCount = 0;
@@ -8712,7 +8848,7 @@ function renderPanelPlace(bodyEl, subtitleEl) {
   subtitleEl.textContent = activeCount + " / " + maxActive + " missions actives";
 
   if (missions.length === 0) {
-    bodyEl.innerHTML = '<div class="empty-state">Aucune mission active pour le moment. Revenez bientot !</div>';
+    contentEl.innerHTML = '<div class="empty-state">Aucune mission active pour le moment. Revenez bientot !</div>';
     return;
   }
 
@@ -8741,10 +8877,10 @@ function renderPanelPlace(bodyEl, subtitleEl) {
     html += '</div>';
   }
 
-  bodyEl.innerHTML = html;
+  contentEl.innerHTML = html;
 
   // Bind collect buttons
-  var collectBtns = bodyEl.querySelectorAll(".collect-btn");
+  var collectBtns = contentEl.querySelectorAll(".collect-btn");
   for (var j = 0; j < collectBtns.length; j++) {
     (function(btn) {
       btn.addEventListener("click", function() {
@@ -9096,6 +9232,123 @@ function renderPanelCiel(bodyEl, subtitleEl) {
       });
     })(filterBtns[f]);
   }
+}
+
+/* ═══════════════════════════════════════
+   WORLD 2 PANEL RENDERERS
+   ═══════════════════════════════════════ */
+
+function renderPanelAtelier(bodyEl, subtitleEl) {
+  subtitleEl.textContent = "Personnalise ton monde";
+  var html = '';
+  html += '<div style="text-align:center;padding:20px 0;">';
+  html += '<svg width="60" height="60" viewBox="0 0 60 60"><rect x="10" y="20" width="40" height="30" rx="4" fill="#6d4c9e"/><rect x="15" y="10" width="6" height="15" rx="2" fill="#ff9f43"/><polygon points="15,10 18,2 21,10" fill="#ffd700"/><rect x="25" y="28" width="20" height="4" rx="2" fill="#a78bfa"/><circle cx="30" cy="40" r="4" fill="#4ade80"/><circle cx="40" cy="38" r="3" fill="#60a5fa"/></svg>';
+  html += '</div>';
+  html += '<p style="text-align:center;color:#ccc;margin-bottom:16px;">Cree et personnalise les decorations de ton village et de tes mondes.</p>';
+  html += '<div style="background:rgba(167,139,250,0.1);border-radius:12px;padding:14px;margin-bottom:10px;">';
+  html += '<div style="font-weight:600;color:#a78bfa;margin-bottom:6px;">Decorations possedees</div>';
+  var decoCount = (state.inventory && state.inventory.items) ? state.inventory.items.length : 0;
+  html += '<div style="color:#999;font-size:13px;">' + decoCount + ' element' + (decoCount !== 1 ? 's' : '') + ' dans ton inventaire</div>';
+  html += '</div>';
+  html += '<div style="background:rgba(255,215,0,0.08);border-radius:12px;padding:14px;margin-bottom:10px;">';
+  html += '<div style="font-weight:600;color:#ffd700;margin-bottom:6px;">Palette de couleurs</div>';
+  html += '<div style="color:#999;font-size:13px;">Bientot disponible</div>';
+  html += '</div>';
+  html += '<div style="background:rgba(74,222,128,0.08);border-radius:12px;padding:14px;">';
+  html += '<div style="font-weight:600;color:#4ade80;margin-bottom:6px;">Themes saisonniers</div>';
+  html += '<div style="color:#999;font-size:13px;">Bientot disponible</div>';
+  html += '</div>';
+  bodyEl.innerHTML = html;
+}
+
+function renderPanelMarche(bodyEl, subtitleEl) {
+  subtitleEl.textContent = "Echanges et raretees";
+  var html = '';
+  html += '<div style="text-align:center;padding:20px 0;">';
+  html += '<svg width="60" height="60" viewBox="0 0 60 60"><rect x="5" y="25" width="50" height="25" rx="3" fill="#2d2060"/><polygon points="5,25 30,8 55,25" fill="#4a2d8a"/><circle cx="15" cy="15" r="3" fill="#ffd700" opacity="0.8"/><circle cx="45" cy="12" r="2" fill="#ffd700" opacity="0.6"/><circle cx="30" cy="10" r="2.5" fill="#ffd700" opacity="0.7"/><rect x="12" y="32" width="10" height="12" rx="2" fill="#a78bfa" opacity="0.5"/><rect x="25" y="32" width="10" height="12" rx="2" fill="#60a5fa" opacity="0.5"/><rect x="38" y="32" width="10" height="12" rx="2" fill="#4ade80" opacity="0.5"/></svg>';
+  html += '</div>';
+  html += '<p style="text-align:center;color:#ccc;margin-bottom:16px;">Le marche cosmique ou les etoiles deviennent monnaie d\'echange.</p>';
+  html += '<div style="background:rgba(167,139,250,0.1);border-radius:12px;padding:14px;margin-bottom:10px;">';
+  html += '<div style="font-weight:600;color:#a78bfa;margin-bottom:6px;">Articles speciaux</div>';
+  html += '<div style="color:#999;font-size:13px;">Des items exclusifs apparaitront ici bientot</div>';
+  html += '</div>';
+  html += '<div style="background:rgba(96,165,250,0.08);border-radius:12px;padding:14px;margin-bottom:10px;">';
+  html += '<div style="font-weight:600;color:#60a5fa;margin-bottom:6px;">Echanges sociaux</div>';
+  html += '<div style="color:#999;font-size:13px;">Bientot disponible</div>';
+  html += '</div>';
+  html += '<div style="background:rgba(255,215,0,0.08);border-radius:12px;padding:14px;">';
+  html += '<div style="font-weight:600;color:#ffd700;margin-bottom:6px;">Ventes flash</div>';
+  html += '<div style="color:#999;font-size:13px;">Bientot disponible</div>';
+  html += '</div>';
+  bodyEl.innerHTML = html;
+}
+
+function renderPanelTemple(bodyEl, subtitleEl) {
+  subtitleEl.textContent = "Serenite et reflexion";
+  var html = '';
+  html += '<div style="text-align:center;padding:20px 0;">';
+  html += '<svg width="60" height="60" viewBox="0 0 60 60"><rect x="15" y="30" width="30" height="22" rx="2" fill="#2a3a5a"/><polygon points="10,30 30,12 50,30" fill="#3a5080"/><rect x="25" y="36" width="10" height="16" rx="1" fill="#1a2540"/><circle cx="30" cy="22" r="4" fill="#ffd700" opacity="0.6"/><line x1="20" y1="30" x2="20" y2="52" stroke="#4a6090" stroke-width="2"/><line x1="40" y1="30" x2="40" y2="52" stroke="#4a6090" stroke-width="2"/></svg>';
+  html += '</div>';
+  html += '<p style="text-align:center;color:#ccc;margin-bottom:16px;">Un lieu de sagesse et de meditation pour renforcer ton bien-etre.</p>';
+  html += '<div style="background:rgba(96,165,250,0.1);border-radius:12px;padding:14px;margin-bottom:10px;">';
+  html += '<div style="font-weight:600;color:#60a5fa;margin-bottom:6px;">Meditation guidee</div>';
+  html += '<div style="color:#999;font-size:13px;">Bientot disponible</div>';
+  html += '</div>';
+  html += '<div style="background:rgba(167,139,250,0.08);border-radius:12px;padding:14px;margin-bottom:10px;">';
+  html += '<div style="font-weight:600;color:#a78bfa;margin-bottom:6px;">Citations de sagesse</div>';
+  html += '<div style="color:#aaa;font-size:13px;font-style:italic;">"Le voyage de mille lieues commence par un simple pas."</div>';
+  html += '</div>';
+  html += '<div style="background:rgba(74,222,128,0.08);border-radius:12px;padding:14px;">';
+  html += '<div style="font-weight:600;color:#4ade80;margin-bottom:6px;">Journal de gratitude</div>';
+  html += '<div style="color:#999;font-size:13px;">Bientot disponible</div>';
+  html += '</div>';
+  bodyEl.innerHTML = html;
+}
+
+function renderPanelPhare(bodyEl, subtitleEl) {
+  subtitleEl.textContent = "Guide et eclaire les autres";
+  var html = '';
+  html += '<div style="text-align:center;padding:20px 0;">';
+  html += '<svg width="60" height="70" viewBox="0 0 60 70"><rect x="22" y="20" width="16" height="40" rx="2" fill="#4a4a6a"/><rect x="20" y="15" width="20" height="8" rx="3" fill="#5a5a8a"/><polygon points="25,15 30,5 35,15" fill="#ffd700"/><circle cx="30" cy="10" r="6" fill="#ffd700" opacity="0.3"/><circle cx="30" cy="10" r="3" fill="#ffd700" opacity="0.7"/><rect x="18" y="58" width="24" height="6" rx="2" fill="#3a3a5a"/><rect x="25" y="30" width="10" height="6" rx="1" fill="#60a5fa" opacity="0.4"/><rect x="25" y="42" width="10" height="6" rx="1" fill="#60a5fa" opacity="0.3"/></svg>';
+  html += '</div>';
+  html += '<p style="text-align:center;color:#ccc;margin-bottom:16px;">Ton phare brille pour guider tes proches. Plus tu aides, plus il brille.</p>';
+  html += '<div style="background:rgba(255,215,0,0.1);border-radius:12px;padding:14px;margin-bottom:10px;">';
+  html += '<div style="font-weight:600;color:#ffd700;margin-bottom:6px;">Personnes aidees</div>';
+  var helpCount = (state.contacts && state.contacts.contacts) ? state.contacts.contacts.length : 0;
+  html += '<div style="color:#999;font-size:13px;">' + helpCount + ' personne' + (helpCount !== 1 ? 's' : '') + ' dans ton cercle</div>';
+  html += '</div>';
+  html += '<div style="background:rgba(96,165,250,0.08);border-radius:12px;padding:14px;margin-bottom:10px;">';
+  html += '<div style="font-weight:600;color:#60a5fa;margin-bottom:6px;">Statistiques sociales</div>';
+  html += '<div style="color:#999;font-size:13px;">Bientot disponible</div>';
+  html += '</div>';
+  html += '<div style="background:rgba(167,139,250,0.08);border-radius:12px;padding:14px;">';
+  html += '<div style="font-weight:600;color:#a78bfa;margin-bottom:6px;">Portee du phare</div>';
+  html += '<div style="color:#999;font-size:13px;">Bientot disponible</div>';
+  html += '</div>';
+  bodyEl.innerHTML = html;
+}
+
+function renderPanelPalais(bodyEl, subtitleEl) {
+  subtitleEl.textContent = "Ton palais legendaire";
+  var html = '';
+  html += '<div style="text-align:center;padding:20px 0;">';
+  html += '<svg width="70" height="60" viewBox="0 0 70 60"><rect x="10" y="25" width="50" height="28" rx="3" fill="#3a2060"/><rect x="5" y="50" width="60" height="5" rx="2" fill="#2a1548"/><polygon points="10,25 35,5 60,25" fill="#5a3090"/><rect x="28" y="32" width="14" height="21" rx="2" fill="#1a1030"/><circle cx="35" cy="18" r="5" fill="#ffd700" opacity="0.7"/><rect x="14" y="30" width="8" height="10" rx="1" fill="#a78bfa" opacity="0.3"/><rect x="48" y="30" width="8" height="10" rx="1" fill="#a78bfa" opacity="0.3"/><rect x="18" y="15" width="4" height="12" rx="1" fill="#ffd700" opacity="0.5"/><rect x="48" y="15" width="4" height="12" rx="1" fill="#ffd700" opacity="0.5"/></svg>';
+  html += '</div>';
+  html += '<p style="text-align:center;color:#ccc;margin-bottom:16px;">Le sommet de ton parcours. Ici reposent tous tes accomplissements.</p>';
+  html += '<div style="background:rgba(255,215,0,0.1);border-radius:12px;padding:14px;margin-bottom:10px;">';
+  html += '<div style="font-weight:600;color:#ffd700;margin-bottom:6px;">Accomplissements</div>';
+  var badgeCount = (state.badges && state.badges.earned_count) ? state.badges.earned_count : 0;
+  html += '<div style="color:#999;font-size:13px;">' + badgeCount + ' badge' + (badgeCount !== 1 ? 's' : '') + ' obtenu' + (badgeCount !== 1 ? 's' : '') + '</div>';
+  html += '</div>';
+  html += '<div style="background:rgba(167,139,250,0.1);border-radius:12px;padding:14px;margin-bottom:10px;">';
+  html += '<div style="font-weight:600;color:#a78bfa;margin-bottom:6px;">Cadre avatar special</div>';
+  html += '<div style="color:#999;font-size:13px;">Bientot disponible</div>';
+  html += '</div>';
+  html += '<div style="background:rgba(248,113,113,0.08);border-radius:12px;padding:14px;">';
+  html += '<div style="font-weight:600;color:#f87171;margin-bottom:6px;">Salle du trone</div>';
+  html += '<div style="color:#999;font-size:13px;">Bientot disponible</div>';
+  html += '</div>';
+  bodyEl.innerHTML = html;
 }
 
 // ── Badge icon paths (simplified SVG path data for each icon) ──
@@ -9876,7 +10129,9 @@ function loadWorld() {
     apiFetch("/api/family").catch(function() { return null; }),
     apiFetch("/api/world/shop").catch(function() { return null; }),
     apiFetch("/api/world/inventory").catch(function() { return null; }),
-    apiFetch("/api/world/family").catch(function() { return null; })
+    apiFetch("/api/world/family").catch(function() { return null; }),
+    apiFetch("/api/social/profile").catch(function() { return null; }),
+    apiFetch("/api/social/friends").catch(function() { return null; })
   ]).then(function(results) {
     state.player = results[0];
     state.badges = results[1];
@@ -9889,6 +10144,18 @@ function loadWorld() {
     state.shop = results[8];
     state.inventory = results[9];
     state.familyWorld = results[10];
+
+    // Social data
+    var socialProfile = results[11];
+    var socialFriends = results[12];
+    if (!state.social) state.social = {};
+    if (socialProfile) {
+      state.social.friend_code = socialProfile.friend_code || state.social.friend_code;
+      state.social.display_name = socialProfile.display_name || state.social.display_name;
+    }
+    if (socialFriends && socialFriends.friends) {
+      state.social.friends = socialFriends.friends;
+    }
 
     // Hide loading overlay
     var loader = document.getElementById("loadingOverlay");
@@ -9903,16 +10170,31 @@ function loadWorld() {
       renderHUD(player);
     }
 
+    // World 2 state
+    if (player) {
+      state.world2Unlocked = player.world2_unlocked || (player.level >= 6);
+      state.activeWorld = player.active_world || "world1";
+    }
+    // Show travel button if world2 unlocked
+    var travelBtn = document.getElementById("worldTravelBtn");
+    if (travelBtn) travelBtn.style.display = state.world2Unlocked ? "block" : "none";
+
     // Update buildings
     var level = player ? (player.level || 1) : 1;
     var hasFamily = !!(state.family && (state.family.id || state.family.group_id));
-    updateBuildingStates(level, hasFamily);
 
-    // Render family characters in village
-    renderFamilyCharacters();
-
-    // Render subscriber avatar
-    renderSubscriberAvatar();
+    // Render scene based on active world
+    if (state.activeWorld === "world2") {
+      renderScene();
+    } else {
+      updateBuildingStates(level, hasFamily);
+      // Render family characters in village
+      renderFamilyCharacters();
+      // Render subscriber avatar
+      renderSubscriberAvatar();
+      // Render visitor characters (online friends)
+      renderVisitorCharacters();
+    }
 
     // Update weather
     var moodScore = 70;
@@ -9999,6 +10281,10 @@ if (!getToken()) {
   // Auto-refresh data every 60s
   setInterval(loadWorld, 60000);
 
+  // Social heartbeat every 60s
+  socialHeartbeat();
+  _socialHeartbeatInterval = setInterval(socialHeartbeat, 60000);
+
   // Update day/night every 5 min
   setInterval(function() {
     updateDayNight();
@@ -10006,6 +10292,931 @@ if (!getToken()) {
     // Restart birds if day returned
     if (!_birdInterval) initBirds();
   }, 300000);
+}
+
+/* ═══════════════════════════════════════
+   WORLD 2 — TERRAIN, BUILDINGS & TRAVEL
+   ═══════════════════════════════════════ */
+
+function generateWorld2Terrain() {
+  var container = document.getElementById("world2Terrain");
+  if (!container || container.querySelector(".terrain-svg")) return;
+
+  var svg = '<svg class="terrain-svg" viewBox="0 0 1440 550" width="100%" height="100%" preserveAspectRatio="xMidYMax slice" xmlns="http://www.w3.org/2000/svg">';
+  svg += '<defs>';
+  svg += '<linearGradient id="w2sky" x1="0%" y1="0%" x2="0%" y2="100%">';
+  svg += '<stop offset="0%" stop-color="#0a0a2e"/>';
+  svg += '<stop offset="50%" stop-color="#1a1050"/>';
+  svg += '<stop offset="100%" stop-color="#2a1868"/>';
+  svg += '</linearGradient>';
+  svg += '<linearGradient id="w2mountain1" x1="0%" y1="0%" x2="0%" y2="100%">';
+  svg += '<stop offset="0%" stop-color="#3a2080"/>';
+  svg += '<stop offset="60%" stop-color="#2a1860"/>';
+  svg += '<stop offset="100%" stop-color="#1a1040"/>';
+  svg += '</linearGradient>';
+  svg += '<linearGradient id="w2mountain2" x1="0%" y1="0%" x2="0%" y2="100%">';
+  svg += '<stop offset="0%" stop-color="#4a2890"/>';
+  svg += '<stop offset="100%" stop-color="#2a1858"/>';
+  svg += '</linearGradient>';
+  svg += '<linearGradient id="w2plateau" x1="0%" y1="0%" x2="0%" y2="100%">';
+  svg += '<stop offset="0%" stop-color="#352070"/>';
+  svg += '<stop offset="50%" stop-color="#2a1858"/>';
+  svg += '<stop offset="100%" stop-color="#201048"/>';
+  svg += '</linearGradient>';
+  svg += '<radialGradient id="w2glow" cx="50%" cy="30%" r="60%">';
+  svg += '<stop offset="0%" stop-color="rgba(167,139,250,0.15)"/>';
+  svg += '<stop offset="100%" stop-color="rgba(167,139,250,0)"/>';
+  svg += '</radialGradient>';
+  svg += '<linearGradient id="w2crystal" x1="0%" y1="0%" x2="0%" y2="100%">';
+  svg += '<stop offset="0%" stop-color="#c084fc"/>';
+  svg += '<stop offset="100%" stop-color="#7c3aed"/>';
+  svg += '</linearGradient>';
+  svg += '</defs>';
+
+  // Background sky fill
+  svg += '<rect width="1440" height="550" fill="url(#w2sky)"/>';
+
+  // Ambient glow
+  svg += '<rect width="1440" height="550" fill="url(#w2glow)"/>';
+
+  // Back mountains (far)
+  svg += '<path d="M0,300 L80,180 L180,250 L300,140 L420,220 L500,160 L600,200 L720,120 L840,180 L960,140 L1060,200 L1140,150 L1240,190 L1340,130 L1440,200 L1440,550 L0,550 Z" fill="url(#w2mountain1)" opacity="0.6"/>';
+
+  // Mid mountains
+  svg += '<path d="M0,350 L100,260 L200,310 L350,220 L480,290 L580,240 L700,280 L820,200 L940,270 L1060,230 L1180,280 L1300,210 L1440,280 L1440,550 L0,550 Z" fill="url(#w2mountain2)" opacity="0.8"/>';
+
+  // Rocky plateau (foreground ground)
+  svg += '<path d="M0,380 L100,360 L250,370 L400,350 L550,365 L700,345 L850,360 L1000,350 L1150,365 L1300,355 L1440,370 L1440,550 L0,550 Z" fill="url(#w2plateau)"/>';
+
+  // Rocky path details
+  svg += '<path d="M200,400 Q350,390 500,400 Q650,410 800,395 Q950,385 1100,400 Q1250,410 1400,395" fill="none" stroke="#4a3080" stroke-width="3" opacity="0.5"/>';
+  svg += '<path d="M100,430 Q300,420 500,435 Q700,445 900,425 Q1100,415 1300,430" fill="none" stroke="#3a2060" stroke-width="2" opacity="0.4"/>';
+
+  // Crystal formations
+  var crystalPositions = [
+    {x: 120, y: 370, h: 25}, {x: 380, y: 355, h: 20}, {x: 650, y: 350, h: 30},
+    {x: 900, y: 355, h: 22}, {x: 1150, y: 360, h: 28}, {x: 1350, y: 358, h: 18}
+  ];
+  for (var c = 0; c < crystalPositions.length; c++) {
+    var cp = crystalPositions[c];
+    svg += '<polygon points="' + cp.x + ',' + cp.y + ' ' + (cp.x - 5) + ',' + (cp.y + cp.h) + ' ' + (cp.x + 5) + ',' + (cp.y + cp.h) + '" fill="url(#w2crystal)" opacity="0.6"/>';
+    svg += '<polygon points="' + (cp.x + 8) + ',' + (cp.y + 5) + ' ' + (cp.x + 4) + ',' + (cp.y + cp.h) + ' ' + (cp.x + 12) + ',' + (cp.y + cp.h) + '" fill="url(#w2crystal)" opacity="0.4"/>';
+  }
+
+  // Stars in the sky
+  for (var s = 0; s < 40; s++) {
+    var sx = Math.round(Math.random() * 1440);
+    var sy = Math.round(Math.random() * 250);
+    var sr = (Math.random() > 0.8) ? 2 : 1;
+    var so = (0.3 + Math.random() * 0.7).toFixed(2);
+    svg += '<circle cx="' + sx + '" cy="' + sy + '" r="' + sr + '" fill="#fff" opacity="' + so + '"/>';
+  }
+
+  // Floating gold particles (visual hints)
+  for (var p = 0; p < 8; p++) {
+    var px = Math.round(100 + Math.random() * 1240);
+    var py = Math.round(100 + Math.random() * 200);
+    svg += '<circle cx="' + px + '" cy="' + py + '" r="2" fill="#ffd700" opacity="0.4"><animate attributeName="opacity" values="0.2;0.7;0.2" dur="' + (4 + Math.random() * 4).toFixed(1) + 's" repeatCount="indefinite"/></circle>';
+  }
+
+  svg += '</svg>';
+
+  // Add floating particles layer
+  var particlesHtml = '<div class="w2-particles">';
+  for (var i = 0; i < 12; i++) {
+    var left = Math.round(Math.random() * 100);
+    var top = Math.round(20 + Math.random() * 40);
+    var delay = (Math.random() * 8).toFixed(1);
+    particlesHtml += '<div class="w2-particle" style="left:' + left + '%;top:' + top + '%;animation-delay:' + delay + 's;"></div>';
+  }
+  particlesHtml += '</div>';
+
+  container.innerHTML = svg + particlesHtml;
+}
+
+function renderWorld2Buildings(playerLevel) {
+  var container = document.getElementById("world2Terrain");
+  if (!container) return;
+
+  // Remove existing buildings
+  var existing = container.querySelectorAll(".w2-building");
+  for (var e = 0; e < existing.length; e++) {
+    existing[e].parentNode.removeChild(existing[e]);
+  }
+
+  var defs = [
+    {
+      key: "atelier", label: "Atelier Creatif", unlock: 6,
+      left: "15%", bottom: "35%", width: 70, height: 60,
+      svg: '<svg width="70" height="60" viewBox="0 0 70 60">'
+        + '<rect x="10" y="20" width="50" height="32" rx="4" fill="#5a3a8a"/>'
+        + '<polygon points="10,20 35,4 60,20" fill="#7a4aaa"/>'
+        + '<rect x="28" y="30" width="14" height="22" rx="2" fill="#2a1848"/>'
+        + '<rect x="45" y="8" width="8" height="16" rx="2" fill="#888"/>'
+        + '<ellipse cx="49" cy="6" rx="6" ry="4" fill="#ff9f43" opacity="0.6"/>'
+        + '<rect x="15" y="28" width="8" height="8" rx="1" fill="#60a5fa" opacity="0.4"/>'
+        + '<circle cx="50" cy="36" r="3" fill="#4ade80" opacity="0.5"/>'
+        + '</svg>'
+    },
+    {
+      key: "marche", label: "Marche aux Etoiles", unlock: 7,
+      left: "38%", bottom: "30%", width: 80, height: 55,
+      svg: '<svg width="80" height="55" viewBox="0 0 80 55">'
+        + '<rect x="5" y="22" width="70" height="28" rx="3" fill="#2d2060"/>'
+        + '<polygon points="0,22 40,5 80,22" fill="#4a2d8a"/>'
+        + '<rect x="10" y="28" width="12" height="16" rx="2" fill="#a78bfa" opacity="0.4"/>'
+        + '<rect x="28" y="28" width="12" height="16" rx="2" fill="#60a5fa" opacity="0.4"/>'
+        + '<rect x="46" y="28" width="12" height="16" rx="2" fill="#4ade80" opacity="0.4"/>'
+        + '<circle cx="16" cy="15" r="2.5" fill="#ffd700" opacity="0.7"/>'
+        + '<circle cx="40" cy="9" r="2" fill="#ffd700" opacity="0.8"/>'
+        + '<circle cx="64" cy="15" r="2.5" fill="#ffd700" opacity="0.7"/>'
+        + '<rect x="62" y="30" width="10" height="12" rx="2" fill="#f87171" opacity="0.3"/>'
+        + '</svg>'
+    },
+    {
+      key: "temple", label: "Temple de Sagesse", unlock: 8,
+      left: "65%", bottom: "35%", width: 70, height: 65,
+      svg: '<svg width="70" height="65" viewBox="0 0 70 65">'
+        + '<rect x="12" y="28" width="46" height="30" rx="2" fill="#2a3a5a"/>'
+        + '<polygon points="8,28 35,8 62,28" fill="#3a5080"/>'
+        + '<polygon points="15,28 35,15 55,28" fill="#4a6090" opacity="0.6"/>'
+        + '<rect x="28" y="35" width="14" height="23" rx="1" fill="#1a2540"/>'
+        + '<circle cx="35" cy="22" r="4" fill="#ffd700" opacity="0.5"/>'
+        + '<line x1="16" y1="28" x2="16" y2="58" stroke="#4a6090" stroke-width="3"/>'
+        + '<line x1="54" y1="28" x2="54" y2="58" stroke="#4a6090" stroke-width="3"/>'
+        + '<line x1="28" y1="28" x2="28" y2="58" stroke="#4a6090" stroke-width="2" opacity="0.5"/>'
+        + '<line x1="42" y1="28" x2="42" y2="58" stroke="#4a6090" stroke-width="2" opacity="0.5"/>'
+        + '</svg>'
+    },
+    {
+      key: "phare", label: "Phare Celeste", unlock: 9,
+      left: "85%", bottom: "42%", width: 50, height: 80,
+      svg: '<svg width="50" height="80" viewBox="0 0 50 80">'
+        + '<rect x="16" y="25" width="18" height="45" rx="2" fill="#4a4a6a"/>'
+        + '<rect x="14" y="18" width="22" height="10" rx="3" fill="#5a5a8a"/>'
+        + '<polygon points="20,18 25,6 30,18" fill="#ffd700"/>'
+        + '<circle cx="25" cy="12" r="7" fill="#ffd700" opacity="0.2"/>'
+        + '<circle cx="25" cy="12" r="4" fill="#ffd700" opacity="0.5"/>'
+        + '<circle cx="25" cy="12" r="2" fill="#fff" opacity="0.8"/>'
+        + '<rect x="12" y="68" width="26" height="6" rx="2" fill="#3a3a5a"/>'
+        + '<rect x="20" y="34" width="10" height="7" rx="1" fill="#60a5fa" opacity="0.3"/>'
+        + '<rect x="20" y="48" width="10" height="7" rx="1" fill="#60a5fa" opacity="0.25"/>'
+        + '</svg>'
+    },
+    {
+      key: "palais", label: "Palais de Luna", unlock: 10,
+      left: "50%", bottom: "48%", width: 90, height: 70,
+      svg: '<svg width="90" height="70" viewBox="0 0 90 70">'
+        + '<rect x="10" y="28" width="70" height="35" rx="3" fill="#3a2060"/>'
+        + '<rect x="5" y="60" width="80" height="6" rx="2" fill="#2a1548"/>'
+        + '<polygon points="10,28 45,6 80,28" fill="#5a3090"/>'
+        + '<rect x="35" y="35" width="20" height="28" rx="2" fill="#1a1030"/>'
+        + '<circle cx="45" cy="20" r="6" fill="#ffd700" opacity="0.6"/>'
+        + '<circle cx="45" cy="20" r="3" fill="#ffd700" opacity="0.9"/>'
+        + '<rect x="15" y="34" width="12" height="14" rx="1" fill="#a78bfa" opacity="0.25"/>'
+        + '<rect x="63" y="34" width="12" height="14" rx="1" fill="#a78bfa" opacity="0.25"/>'
+        + '<rect x="20" y="14" width="5" height="16" rx="1" fill="#ffd700" opacity="0.4"/>'
+        + '<rect x="65" y="14" width="5" height="16" rx="1" fill="#ffd700" opacity="0.4"/>'
+        + '<polygon points="20,14 22.5,6 25,14" fill="#ffd700" opacity="0.5"/>'
+        + '<polygon points="65,14 67.5,6 70,14" fill="#ffd700" opacity="0.5"/>'
+        + '</svg>'
+    },
+    {
+      key: "ciel", label: "Ciel Etoile", unlock: 1,
+      left: "50%", bottom: "80%", width: 0, height: 0,
+      svg: ''
+    },
+    {
+      key: "boutique", label: "Boutique Celeste", unlock: 6,
+      left: "8%", bottom: "25%", width: 55, height: 50,
+      svg: '<svg width="55" height="50" viewBox="0 0 55 50">'
+        + '<rect x="5" y="18" width="45" height="26" rx="3" fill="#3a2868"/>'
+        + '<polygon points="5,18 27,5 50,18" fill="#5a3890"/>'
+        + '<rect x="18" y="24" width="18" height="20" rx="2" fill="#2a1848"/>'
+        + '<circle cx="27" cy="12" r="3" fill="#ffd700" opacity="0.6"/>'
+        + '<rect x="9" y="22" width="6" height="6" rx="1" fill="#a78bfa" opacity="0.4"/>'
+        + '<rect x="40" y="22" width="6" height="6" rx="1" fill="#4ade80" opacity="0.4"/>'
+        + '</svg>'
+    }
+  ];
+
+  for (var i = 0; i < defs.length; i++) {
+    var d = defs[i];
+
+    // Skip the "sky" building (ciel) — it uses the sky click zone
+    if (d.key === "ciel") continue;
+
+    var isLocked = playerLevel < d.unlock;
+
+    var div = document.createElement("div");
+    div.className = "w2-building" + (isLocked ? " locked" : "");
+    div.style.left = d.left;
+    div.style.bottom = d.bottom;
+    div.style.width = d.width + "px";
+    div.style.height = d.height + "px";
+    div.setAttribute("data-building", d.key);
+    div.setAttribute("data-unlock", d.unlock);
+
+    if (!isLocked) {
+      div.setAttribute("onclick", "openPanel('" + d.key + "')");
+    }
+
+    var inner = d.svg;
+
+    // Lock overlay for locked buildings
+    if (isLocked) {
+      inner += '<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:20px;opacity:0.7;">&#128274;</div>';
+    }
+
+    // Label
+    inner += '<div class="bld-label">' + d.label + (isLocked ? " (Niv." + d.unlock + ")" : "") + '</div>';
+
+    div.innerHTML = inner;
+    container.appendChild(div);
+  }
+}
+
+function travelToWorld() {
+  var targetWorld = (state.activeWorld === "world1") ? "world2" : "world1";
+  if (targetWorld === "world2" && !state.world2Unlocked) {
+    showToast("Atteins le niveau 6 pour debloquer le World 2", "info");
+    return;
+  }
+  // Show transition
+  var overlay = document.getElementById("worldTransition");
+  var text = document.getElementById("worldTransitionText");
+  text.textContent = targetWorld === "world2" ? "Voyage vers les Hauteurs..." : "Retour au Village...";
+  overlay.classList.add("active");
+
+  apiPost("/api/world/switch", { world: targetWorld }).then(function(res) {
+    if (res && res.success !== false) {
+      state.activeWorld = targetWorld;
+      setTimeout(function() {
+        renderScene();
+        overlay.classList.remove("active");
+      }, 1500);
+    } else {
+      overlay.classList.remove("active");
+      showToast("Erreur de voyage", "error");
+    }
+  }).catch(function() {
+    // Even if the API is not implemented yet, allow local switching
+    state.activeWorld = targetWorld;
+    setTimeout(function() {
+      renderScene();
+      overlay.classList.remove("active");
+    }, 1500);
+  });
+}
+
+function renderScene() {
+  var isW2 = (state.activeWorld === "world2");
+  var terrainLayer = document.querySelector(".terrain-layer");
+  var w2Terrain = document.getElementById("world2Terrain");
+  var decoLayer = document.querySelector(".decorations-layer");
+  var buildingsLayer = document.querySelector(".buildings-layer");
+
+  if (isW2) {
+    // Hide World 1 terrain, decorations, and buildings
+    if (terrainLayer) terrainLayer.style.display = "none";
+    if (decoLayer) decoLayer.style.display = "none";
+    if (buildingsLayer) buildingsLayer.style.display = "none";
+    // Show World 2
+    if (w2Terrain) {
+      w2Terrain.style.display = "block";
+      generateWorld2Terrain();
+    }
+    // Render W2 buildings
+    var lvl = (state.player && state.player.player) ? (state.player.player.level || 1) : ((state.player && state.player.level) ? state.player.level : 1);
+    renderWorld2Buildings(lvl);
+    // Update travel button label
+    var label = document.getElementById("worldTravelLabel");
+    if (label) label.textContent = "Retour Village";
+  } else {
+    // Show World 1, hide World 2
+    if (terrainLayer) terrainLayer.style.display = "block";
+    if (decoLayer) decoLayer.style.display = "block";
+    if (buildingsLayer) buildingsLayer.style.display = "block";
+    if (w2Terrain) w2Terrain.style.display = "none";
+    // Restore W1 buildings state
+    var player = state.player ? (state.player.player || state.player) : null;
+    var level = player ? (player.level || 1) : 1;
+    var hasFamily = !!(state.family && (state.family.id || state.family.group_id));
+    updateBuildingStates(level, hasFamily);
+    var label2 = document.getElementById("worldTravelLabel");
+    if (label2) label2.textContent = "Voyager";
+  }
+  // Update HUD world indicator
+  var ind = document.getElementById("hudWorldIndicator");
+  if (ind) ind.textContent = isW2 ? "World 2" : "";
+
+  // Characters stay in both worlds
+  renderSubscriberAvatar();
+  renderFamilyCharacters();
+}
+
+/* ═══════════════════════════════════════
+   SOCIAL FEATURES
+   ═══════════════════════════════════════ */
+
+var VISITOR_POSITIONS = [
+  { left: "25%", bottom: "18%", walkDist: 40, walkDur: 22 },
+  { left: "60%", bottom: "14%", walkDist: 30, walkDur: 18 },
+  { left: "15%", bottom: "10%", walkDist: 35, walkDur: 25 }
+];
+
+function renderSocialContent(bodyEl) {
+  var html = '<div class="social-tabs">';
+  var tabs = [
+    { key: "discover", label: "Decouverte" },
+    { key: "code", label: "Code Ami" },
+    { key: "requests", label: "Demandes" },
+    { key: "friends", label: "Mes Amis" },
+    { key: "messages", label: "Messages" }
+  ];
+  for (var i = 0; i < tabs.length; i++) {
+    var t = tabs[i];
+    html += '<button class="social-tab' + (state.socialTab === t.key ? ' active' : '') + '" onclick="switchSocialTab(\'' + t.key + '\')">' + t.label + '</button>';
+  }
+  html += '</div>';
+  html += '<div id="socialTabContent"></div>';
+  bodyEl.innerHTML = html;
+
+  var contentEl = document.getElementById("socialTabContent");
+  if (!contentEl) return;
+
+  switch (state.socialTab) {
+    case "discover": renderSocialDiscover(contentEl); break;
+    case "code": renderSocialCode(contentEl); break;
+    case "requests": renderSocialRequests(contentEl); break;
+    case "friends": renderSocialFriends(contentEl); break;
+    case "messages": renderSocialMessages(contentEl); break;
+    default: renderSocialDiscover(contentEl);
+  }
+}
+
+function switchSocialTab(tab) {
+  state.socialTab = tab;
+  state.currentDmRoom = null;
+  var bodyEl = document.getElementById("placeTabContent");
+  if (bodyEl) renderSocialContent(bodyEl);
+}
+
+function renderSocialDiscover(el) {
+  var social = state.social;
+  if (!social || !social.nearby) {
+    el.innerHTML = '<div class="empty-state">Chargement des explorateurs proches...</div>';
+    apiFetch("/api/social/discover").then(function(data) {
+      if (data && data.users) {
+        if (!state.social) state.social = {};
+        state.social.nearby = data.users;
+        renderSocialDiscover(el);
+      }
+    }).catch(function() {});
+    return;
+  }
+
+  var users = social.nearby;
+  if (users.length === 0) {
+    el.innerHTML = '<div class="empty-state">Aucun explorateur a proximite pour le moment.</div>';
+    return;
+  }
+
+  var html = '';
+  for (var i = 0; i < users.length; i++) {
+    var u = users[i];
+    var onlineClass = u.online ? "social-user-online" : "social-user-offline";
+    html += '<div class="social-user-card">';
+    html += '<div class="social-user-avatar">' + buildFramedAvatar(u.avatar_type || "adult_man", u.frame_id || null, 40, "disc_" + i) + '</div>';
+    html += '<div class="social-user-info">';
+    html += '<div class="social-user-name">' + escapeHtml(u.display_name || "Explorateur") + ' <span class="' + onlineClass + '"></span></div>';
+    html += '<div class="social-user-level">Niv. ' + (u.level || 1) + '</div>';
+    html += '</div>';
+    html += '<div class="social-user-actions">';
+    html += '<button class="social-btn social-btn-primary" onclick="sendFriendRequest(\'' + escapeHtml(u.tid || "") + '\')">Ajouter</button>';
+    html += '</div>';
+    html += '</div>';
+  }
+  el.innerHTML = html;
+}
+
+function renderSocialCode(el) {
+  var social = state.social;
+  var myCode = (social && social.friend_code) ? social.friend_code : "------";
+
+  var html = '<div class="friend-code-box">';
+  html += '<div style="font-size:12px;color:#888;margin-bottom:4px;">Votre code ami</div>';
+  html += '<div class="friend-code-value">' + escapeHtml(myCode) + '</div>';
+  html += '<div style="font-size:11px;color:#666;">Partagez ce code pour recevoir des demandes d\'ami</div>';
+  html += '<div class="friend-code-input">';
+  html += '<input type="text" id="friendCodeInput" placeholder="CODE" maxlength="8" />';
+  html += '<button class="social-btn social-btn-primary" onclick="useFriendCode()">Ajouter</button>';
+  html += '</div>';
+  html += '</div>';
+
+  if (!social || !social.friend_code) {
+    html += '<div style="text-align:center;margin-top:10px;">';
+    html += '<button class="social-btn social-btn-secondary" onclick="generateFriendCode()">Generer mon code ami</button>';
+    html += '</div>';
+  }
+
+  el.innerHTML = html;
+}
+
+function renderSocialRequests(el) {
+  var social = state.social;
+  if (!social || !social.pending_requests) {
+    el.innerHTML = '<div class="empty-state">Chargement des demandes...</div>';
+    apiFetch("/api/social/friends/requests").then(function(data) {
+      if (data) {
+        if (!state.social) state.social = {};
+        state.social.pending_requests = data.requests || [];
+        renderSocialRequests(el);
+      }
+    }).catch(function() {});
+    return;
+  }
+
+  var requests = social.pending_requests;
+  if (requests.length === 0) {
+    el.innerHTML = '<div class="empty-state">Aucune demande en attente.</div>';
+    return;
+  }
+
+  var html = '';
+  for (var i = 0; i < requests.length; i++) {
+    var r = requests[i];
+    html += '<div class="social-user-card">';
+    html += '<div class="social-user-avatar">' + buildFramedAvatar(r.avatar_type || "adult_man", r.frame_id || null, 40, "req_" + i) + '</div>';
+    html += '<div class="social-user-info">';
+    html += '<div class="social-user-name">' + escapeHtml(r.display_name || "Explorateur") + '</div>';
+    html += '<div class="social-user-level">Niv. ' + (r.level || 1) + '</div>';
+    html += '</div>';
+    html += '<div class="social-user-actions">';
+    html += '<button class="social-btn social-btn-primary" onclick="acceptFriend(\'' + escapeHtml(r.tid || "") + '\')">Accepter</button>';
+    html += '<button class="social-btn social-btn-danger" onclick="declineFriend(\'' + escapeHtml(r.tid || "") + '\')">Refuser</button>';
+    html += '</div>';
+    html += '</div>';
+  }
+  el.innerHTML = html;
+}
+
+function renderSocialFriends(el) {
+  var social = state.social;
+  if (!social || !social.friends) {
+    el.innerHTML = '<div class="empty-state">Chargement de la liste d\'amis...</div>';
+    apiFetch("/api/social/friends").then(function(data) {
+      if (data) {
+        if (!state.social) state.social = {};
+        state.social.friends = data.friends || [];
+        renderSocialFriends(el);
+      }
+    }).catch(function() {});
+    return;
+  }
+
+  var friends = social.friends;
+  if (friends.length === 0) {
+    el.innerHTML = '<div class="empty-state">Vous n\'avez pas encore d\'amis. Explorez ou partagez votre code ami !</div>';
+    return;
+  }
+
+  var html = '';
+  for (var i = 0; i < friends.length; i++) {
+    var f = friends[i];
+    var onlineClass = f.online ? "social-user-online" : "social-user-offline";
+    html += '<div class="social-user-card">';
+    html += '<div class="social-user-avatar">' + buildFramedAvatar(f.avatar_type || "adult_man", f.frame_id || null, 40, "fr_" + i) + '</div>';
+    html += '<div class="social-user-info">';
+    html += '<div class="social-user-name">' + escapeHtml(f.display_name || "Ami") + ' <span class="' + onlineClass + '"></span></div>';
+    html += '<div class="social-user-level">Niv. ' + (f.level || 1) + '</div>';
+    html += '</div>';
+    html += '<div class="social-user-actions">';
+    html += '<button class="social-btn social-btn-secondary" onclick="openDmRoom(\'' + escapeHtml(f.tid || "") + '\')">Message</button>';
+    html += '<button class="social-btn social-btn-danger" onclick="blockUser(\'' + escapeHtml(f.tid || "") + '\')" title="Bloquer">&#10005;</button>';
+    html += '</div>';
+    html += '</div>';
+  }
+  el.innerHTML = html;
+}
+
+function renderSocialMessages(el) {
+  // If a DM room is open, show conversation
+  if (state.currentDmRoom) {
+    renderDmConversation(el);
+    return;
+  }
+
+  // Otherwise show DM room list
+  if (!state.dmRooms) {
+    el.innerHTML = '<div class="empty-state">Chargement des conversations...</div>';
+    apiFetch("/api/social/dm/rooms").then(function(data) {
+      if (data) {
+        state.dmRooms = data.rooms || [];
+        renderSocialMessages(el);
+      }
+    }).catch(function() {});
+    return;
+  }
+
+  var rooms = state.dmRooms;
+  if (rooms.length === 0) {
+    el.innerHTML = '<div class="empty-state">Aucune conversation. Envoyez un message a un ami !</div>';
+    return;
+  }
+
+  var html = '';
+  for (var i = 0; i < rooms.length; i++) {
+    var rm = rooms[i];
+    var unread = rm.unread_count || 0;
+    html += '<div class="social-user-card" onclick="openDmRoom(\'' + escapeHtml(rm.friend_tid || "") + '\')">';
+    html += '<div class="social-user-avatar">' + buildFramedAvatar(rm.avatar_type || "adult_man", rm.frame_id || null, 40, "dm_" + i) + '</div>';
+    html += '<div class="social-user-info">';
+    html += '<div class="social-user-name">' + escapeHtml(rm.display_name || "Ami");
+    if (unread > 0) {
+      html += ' <span style="background:#ef4444;color:#fff;border-radius:8px;padding:1px 6px;font-size:10px;margin-left:4px;">' + unread + '</span>';
+    }
+    html += '</div>';
+    html += '<div class="social-user-level" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escapeHtml(rm.last_message || "") + '</div>';
+    html += '</div>';
+    html += '</div>';
+  }
+  el.innerHTML = html;
+}
+
+function renderDmConversation(el) {
+  var roomId = state.currentDmRoom;
+
+  var html = '<div class="dm-window">';
+  html += '<div class="dm-header">';
+  html += '<button class="social-btn social-btn-secondary" onclick="closeDmRoom()" style="padding:4px 10px;">&#8592;</button>';
+  html += '<span style="font-weight:600;color:#e0e0e0;" id="dmPartnerName">Conversation</span>';
+  html += '</div>';
+  html += '<div class="dm-messages" id="dmMessagesContainer">';
+  html += '<div class="empty-state">Chargement...</div>';
+  html += '</div>';
+  html += '<div class="dm-input-bar">';
+  html += '<input type="text" id="dmInput" placeholder="Votre message..." onkeydown="if(event.keyCode===13)sendDmMessage(\'' + escapeHtml(roomId) + '\')" />';
+  html += '<button onclick="sendDmMessage(\'' + escapeHtml(roomId) + '\')">Envoyer</button>';
+  html += '</div>';
+  html += '</div>';
+
+  el.innerHTML = html;
+
+  // Load messages
+  apiFetch("/api/social/dm/" + encodeURIComponent(roomId) + "/messages").then(function(data) {
+    if (!data) return;
+    state.dmMessages = data.messages || [];
+    var nameEl = document.getElementById("dmPartnerName");
+    if (nameEl && data.partner_name) nameEl.textContent = data.partner_name;
+    renderDmMessages();
+  }).catch(function() {});
+}
+
+function renderDmMessages() {
+  var container = document.getElementById("dmMessagesContainer");
+  if (!container || !state.dmMessages) return;
+
+  var msgs = state.dmMessages;
+  if (msgs.length === 0) {
+    container.innerHTML = '<div class="empty-state" style="margin:auto;">Aucun message. Dites bonjour !</div>';
+    return;
+  }
+
+  var html = '';
+  for (var i = 0; i < msgs.length; i++) {
+    var msg = msgs[i];
+    var cls = msg.is_mine ? "dm-message dm-message-mine" : "dm-message dm-message-theirs";
+    html += '<div class="' + cls + '">';
+    html += escapeHtml(msg.text || "");
+    if (msg.time) {
+      html += '<div class="dm-message-time">' + escapeHtml(msg.time) + '</div>';
+    }
+    html += '</div>';
+  }
+  container.innerHTML = html;
+  container.scrollTop = container.scrollHeight;
+}
+
+function closeDmRoom() {
+  state.currentDmRoom = null;
+  state.dmMessages = null;
+  var el = document.getElementById("socialTabContent");
+  if (el) renderSocialMessages(el);
+}
+
+function renderVisitorCharacters() {
+  var layer = document.getElementById("visitorLayer");
+  if (!layer) return;
+  layer.innerHTML = "";
+
+  var social = state.social;
+  if (!social || !social.friends) return;
+
+  var onlineFriends = [];
+  for (var i = 0; i < social.friends.length; i++) {
+    if (social.friends[i].online) {
+      onlineFriends.push(social.friends[i]);
+    }
+  }
+
+  var maxVisitors = Math.min(onlineFriends.length, 3);
+  for (var j = 0; j < maxVisitors; j++) {
+    var f = onlineFriends[j];
+    var pos = VISITOR_POSITIONS[j];
+    var div = document.createElement("div");
+    div.className = "visitor-char";
+    div.style.left = pos.left;
+    div.style.bottom = pos.bottom;
+    div.setAttribute("data-tid", f.tid || "");
+    div.onclick = (function(friend) {
+      return function() { showVisitorPopup(friend); };
+    })(f);
+
+    var nameTag = document.createElement("div");
+    nameTag.className = "char-name";
+    nameTag.textContent = (f.display_name || "?").split(" ")[0];
+    div.appendChild(nameTag);
+
+    var spriteType = f.avatar_type || "adult_man";
+    var isChild = (spriteType === "child_boy" || spriteType === "child_girl");
+    var scale = isChild ? 0.9 : 1.1;
+    var spriteDiv = document.createElement("div");
+    spriteDiv.innerHTML = buildCharSVG(spriteType, scale);
+    div.appendChild(spriteDiv);
+
+    layer.appendChild(div);
+
+    // Animate walking
+    (function(el, p) {
+      setTimeout(function() {
+        el.style.left = "calc(" + p.left + " + " + p.walkDist + "px)";
+      }, 100);
+      setInterval(function() {
+        var current = el.style.left;
+        if (current.indexOf("calc") !== -1) {
+          el.style.left = p.left;
+        } else {
+          el.style.left = "calc(" + p.left + " + " + p.walkDist + "px)";
+        }
+      }, p.walkDur * 1000);
+    })(div, pos);
+  }
+}
+
+function showVisitorPopup(friend) {
+  var existing = document.getElementById("visitorPopup");
+  if (existing) existing.remove();
+
+  var popup = document.createElement("div");
+  popup.id = "visitorPopup";
+  popup.style.cssText = "position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:9999;background:rgba(20,10,40,0.95);border:1px solid rgba(167,139,250,0.4);border-radius:16px;padding:20px;min-width:220px;text-align:center;backdrop-filter:blur(10px);";
+
+  var html = '<div style="margin-bottom:10px;">' + buildFramedAvatar(friend.avatar_type || "adult_man", friend.frame_id || null, 60, "vpop") + '</div>';
+  html += '<div style="font-weight:700;color:#e0e0e0;font-size:15px;margin-bottom:4px;">' + escapeHtml(friend.display_name || "Ami") + '</div>';
+  html += '<div style="font-size:12px;color:#888;margin-bottom:12px;">Niv. ' + (friend.level || 1) + ' <span class="social-user-online"></span> En ligne</div>';
+  html += '<div style="display:flex;gap:8px;justify-content:center;">';
+  html += '<button class="social-btn social-btn-primary" onclick="openDmFromVisitor(\'' + escapeHtml(friend.tid || "") + '\')">Message</button>';
+  html += '<button class="social-btn social-btn-secondary" onclick="document.getElementById(\'visitorPopup\').remove()">Fermer</button>';
+  html += '</div>';
+
+  popup.innerHTML = html;
+  document.body.appendChild(popup);
+
+  // Close when clicking outside
+  setTimeout(function() {
+    document.addEventListener("click", function handler(e) {
+      var p = document.getElementById("visitorPopup");
+      if (p && !p.contains(e.target)) {
+        p.remove();
+        document.removeEventListener("click", handler);
+      }
+    });
+  }, 100);
+}
+
+function openDmFromVisitor(friendTid) {
+  var existing = document.getElementById("visitorPopup");
+  if (existing) existing.remove();
+  openPanel("place");
+  _placeMainTab = "social";
+  state.socialTab = "messages";
+  state.currentDmRoom = friendTid;
+  setTimeout(function() {
+    var bodyEl = document.querySelector(".panel-body");
+    var subtitleEl = document.querySelector(".panel-subtitle");
+    if (bodyEl && subtitleEl) renderPanelPlace(bodyEl, subtitleEl);
+  }, 100);
+}
+
+var _socialHeartbeatInterval = null;
+
+function socialHeartbeat() {
+  apiPost("/api/social/heartbeat", {}).then(function(data) {
+    if (!data) return;
+
+    // Update badge
+    var badge = document.getElementById("hudSocialBadge");
+    if (badge) {
+      var count = data.pending_requests || 0;
+      if (count > 0) {
+        badge.textContent = count > 99 ? "99+" : String(count);
+        badge.style.display = "inline-flex";
+      } else {
+        badge.style.display = "none";
+      }
+    }
+
+    // Update online status of friends
+    if (data.online_friends && state.social) {
+      var onlineMap = {};
+      for (var i = 0; i < data.online_friends.length; i++) {
+        onlineMap[data.online_friends[i]] = true;
+      }
+      if (state.social.friends) {
+        for (var j = 0; j < state.social.friends.length; j++) {
+          state.social.friends[j].online = !!onlineMap[state.social.friends[j].tid];
+        }
+      }
+    }
+
+    // Refresh visitor characters
+    renderVisitorCharacters();
+  }).catch(function() {});
+}
+
+function sendFriendRequest(targetTid) {
+  if (!targetTid) return;
+  apiPost("/api/social/friends/request", { target_tid: targetTid }).then(function(data) {
+    if (data && data.success) {
+      showToast("Demande d'ami envoyee !", "success");
+      // Remove from discover list
+      if (state.social && state.social.nearby) {
+        state.social.nearby = state.social.nearby.filter(function(u) { return u.tid !== targetTid; });
+      }
+      var el = document.getElementById("socialTabContent");
+      if (el && state.socialTab === "discover") renderSocialDiscover(el);
+    } else {
+      showToast((data && data.error) || "Erreur lors de l'envoi", "error");
+    }
+  }).catch(function() {
+    showToast("Erreur reseau", "error");
+  });
+}
+
+function acceptFriendRequest(requesterTid) {
+  if (!requesterTid) return;
+  apiPost("/api/social/friends/accept", { requester_tid: requesterTid }).then(function(data) {
+    if (data && data.success) {
+      showToast("Ami accepte !", "success");
+      // Refresh lists
+      if (state.social) {
+        state.social.pending_requests = null;
+        state.social.friends = null;
+      }
+      state.dmRooms = null;
+      var el = document.getElementById("socialTabContent");
+      if (el) renderSocialRequests(el);
+    } else {
+      showToast((data && data.error) || "Erreur", "error");
+    }
+  }).catch(function() {
+    showToast("Erreur reseau", "error");
+  });
+}
+
+function declineFriendRequest(requesterTid) {
+  if (!requesterTid) return;
+  apiPost("/api/social/friends/decline", { requester_tid: requesterTid }).then(function(data) {
+    if (data && data.success) {
+      showToast("Demande refusee", "info");
+      if (state.social && state.social.pending_requests) {
+        state.social.pending_requests = state.social.pending_requests.filter(function(r) { return r.tid !== requesterTid; });
+      }
+      var el = document.getElementById("socialTabContent");
+      if (el) renderSocialRequests(el);
+    } else {
+      showToast((data && data.error) || "Erreur", "error");
+    }
+  }).catch(function() {
+    showToast("Erreur reseau", "error");
+  });
+}
+
+function useFriendCode() {
+  var input = document.getElementById("friendCodeInput");
+  if (!input) return;
+  var code = input.value.trim().toUpperCase();
+  if (!code || code.length < 4) {
+    showToast("Entrez un code ami valide", "error");
+    return;
+  }
+  apiPost("/api/social/friend-code/use", { code: code }).then(function(data) {
+    if (data && data.success) {
+      showToast("Demande envoyee via code ami !", "success");
+      input.value = "";
+    } else {
+      showToast((data && data.error) || "Code invalide ou deja utilise", "error");
+    }
+  }).catch(function() {
+    showToast("Erreur reseau", "error");
+  });
+}
+
+function generateFriendCode() {
+  apiFetch("/api/social/friend-code").then(function(data) {
+    if (data && data.friend_code) {
+      if (!state.social) state.social = {};
+      state.social.friend_code = data.friend_code;
+      var el = document.getElementById("socialTabContent");
+      if (el) renderSocialCode(el);
+      showToast("Code ami genere !", "success");
+    } else {
+      showToast((data && data.error) || "Erreur", "error");
+    }
+  }).catch(function() {
+    showToast("Erreur reseau", "error");
+  });
+}
+
+function openDmRoom(friendTid) {
+  if (!friendTid) return;
+  // Create or get the DM room first, then open it
+  apiPost("/api/social/dm/create", { friend_tid: friendTid }).then(function(data) {
+    if (data && data.room_id) {
+      state.currentDmRoom = data.room_id;
+      state.dmMessages = null;
+      state.socialTab = "messages";
+      _placeMainTab = "social";
+      var bodyEl = document.querySelector(".panel-body");
+      var subtitleEl = document.querySelector(".panel-subtitle");
+      if (bodyEl && subtitleEl) renderPanelPlace(bodyEl, subtitleEl);
+    } else {
+      showToast((data && data.error) || "Impossible d'ouvrir la conversation", "error");
+    }
+  }).catch(function() {
+    showToast("Erreur reseau", "error");
+  });
+}
+
+function sendDmMessage(roomId) {
+  var input = document.getElementById("dmInput");
+  if (!input) return;
+  var text = input.value.trim();
+  if (!text) return;
+  input.value = "";
+
+  apiPost("/api/social/dm/" + roomId + "/send", { text: text }).then(function(data) {
+    if (data && data.success) {
+      if (!state.dmMessages) state.dmMessages = [];
+      state.dmMessages.push({
+        text: text,
+        is_mine: true,
+        time: "maintenant"
+      });
+      renderDmMessages();
+    } else {
+      showToast((data && data.error) || "Erreur d'envoi", "error");
+    }
+  }).catch(function() {
+    showToast("Erreur reseau", "error");
+  });
+}
+
+function blockUser(targetTid) {
+  if (!targetTid) return;
+  if (!confirm("Voulez-vous vraiment bloquer cet utilisateur ?")) return;
+  apiPost("/api/social/block", { target_tid: targetTid }).then(function(data) {
+    if (data && data.success) {
+      showToast("Utilisateur bloque", "info");
+      // Remove from friends list
+      if (state.social && state.social.friends) {
+        state.social.friends = state.social.friends.filter(function(f) { return f.tid !== targetTid; });
+      }
+      state.dmRooms = null;
+      var el = document.getElementById("socialTabContent");
+      if (el && state.socialTab === "friends") renderSocialFriends(el);
+    } else {
+      showToast((data && data.error) || "Erreur", "error");
+    }
+  }).catch(function() {
+    showToast("Erreur reseau", "error");
+  });
+}
+
+function reportUser(targetTid) {
+  if (!targetTid) return;
+  var reason = prompt("Raison du signalement :");
+  if (!reason) return;
+  apiPost("/api/social/report", { target_tid: targetTid, reason: reason }).then(function(data) {
+    if (data && data.success) {
+      showToast("Signalement envoye. Merci.", "success");
+    } else {
+      showToast((data && data.error) || "Erreur", "error");
+    }
+  }).catch(function() {
+    showToast("Erreur reseau", "error");
+  });
 }
 
 /* Expose functions used in inline onclick handlers to global scope */
@@ -10017,6 +11228,20 @@ window.equipOutfit = equipOutfit;
 window.equipFrame = equipFrame;
 window.setAvatarType = setAvatarType;
 window.buyPremiumItem = buyPremiumItem;
+window.travelToWorld = travelToWorld;
+window.switchPlaceTab = switchPlaceTab;
+window.switchSocialTab = switchSocialTab;
+window.sendFriendRequest = sendFriendRequest;
+window.acceptFriend = acceptFriendRequest;
+window.declineFriend = declineFriendRequest;
+window.useFriendCode = useFriendCode;
+window.generateFriendCode = generateFriendCode;
+window.openDmRoom = openDmRoom;
+window.openDmFromVisitor = openDmFromVisitor;
+window.closeDmRoom = closeDmRoom;
+window.sendDmMessage = sendDmMessage;
+window.blockUser = blockUser;
+window.reportUser = reportUser;
 
 })();
 </script>

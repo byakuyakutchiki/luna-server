@@ -10,11 +10,13 @@ from datetime import datetime
 # TTLs
 TTL_ROOM = 2 * 60 * 60          # 2 heures
 TTL_ROOM_MESSAGES = 2 * 60 * 60  # suit la room
+TTL_DM_ROOM = 30 * 24 * 60 * 60  # 30 jours pour les DMs
 MAX_ROOM_MESSAGES = 200
 MAX_PARTICIPANTS = 10
+MAX_DM_PARTICIPANTS = 2
 
 # Types de salons
-ROOM_TYPES = ["chat", "cinema", "karaoke", "games"]
+ROOM_TYPES = ["chat", "cinema", "karaoke", "games", "dm"]
 
 # Types de jeux
 GAME_TYPES = ["quiz", "morpion", "memory"]

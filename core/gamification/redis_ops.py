@@ -287,3 +287,16 @@ class GamificationRedisOps:
             self.rc.client.set(key, avatar_type)
         else:
             self.rc.client.delete(key)
+
+    # =====================================================================
+    # ACTIVE WORLD (world1 / world2)
+    # =====================================================================
+
+    def get_active_world(self, tenant_id) -> str:
+        key = self.rc._key(tenant_id, "world", "active_world")
+        val = self.rc.client.get(key)
+        return val if val else "world1"
+
+    def set_active_world(self, tenant_id, world: str) -> None:
+        key = self.rc._key(tenant_id, "world", "active_world")
+        self.rc.client.set(key, world)
