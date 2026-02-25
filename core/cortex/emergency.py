@@ -1421,24 +1421,68 @@ class EmergencyMode:
 
     async def _get_client_quota(self, tenant_id: str) -> Optional[dict]:
         """Quota detaille d'un client."""
+        # Limites par plan
+        PLAN_LIMITS = {
+            "essentiel": {"sms": 25, "voice": 40, "visio": 12},
+            "confort": {"sms": 50, "voice": 100, "visio": 28},
+            "premium": {"sms": 100, "voice": 180, "visio": 55},
+        }
         try:
             if not self.brain or not self.brain.redis:
                 return None
             redis = self.brain.redis
-            quota_raw = await redis.get(f"luna:{tenant_id}:quota")
-            if not quota_raw:
+
+            # Vérifier que le profil existe
+            profile = await redis.hgetall(f"luna:{tenant_id}:profile")
+            if not profile:
                 return None
-            q = json.loads(quota_raw)
+
+            # Trouver le plan depuis luna:auth:*
+            plan = "?"
+            auth_keys = await redis.keys("luna:auth:*")
+            for ak in auth_keys:
+                ak_str = ak.decode() if isinstance(ak, bytes) else ak
+                if ak_str in ("luna:auth:next_tenant_id", "luna:auth:tenant_index"):
+                    continue
+                auth_data = await redis.get(ak)
+                if auth_data:
+                    auth_str = auth_data.decode() if isinstance(auth_data, bytes) else auth_data
+                    a = json.loads(auth_str)
+                    if str(a.get("tenant_id")) == str(tenant_id):
+                        plan = a.get("plan", "?")
+                        break
+
+            limits = PLAN_LIMITS.get(plan, {"sms": 0, "voice": 0, "visio": 0})
+
+            # Lire l'usage du mois courant
+            from datetime import datetime
+            today = datetime.now().strftime("%Y-%m-%d")
+            month_prefix = datetime.now().strftime("%Y-%m")
+            usage_keys = await redis.keys(f"luna:{tenant_id}:usage:{month_prefix}-*")
+
+            sms_used = 0
+            voice_used = 0
+            visio_used = 0
+            chat_count = 0
+            api_cost = 0.0
+            for uk in usage_keys:
+                usage = await redis.hgetall(uk)
+                if usage:
+                    sms_used += int(usage.get("sms_count", usage.get(b"sms_count", 0)) or 0)
+                    voice_used += int(usage.get("voice_minutes", usage.get(b"voice_minutes", 0)) or 0)
+                    visio_used += int(usage.get("visio_minutes", usage.get(b"visio_minutes", 0)) or 0)
+                    chat_count += int(usage.get("messages_count", usage.get(b"messages_count", 0)) or 0)
+
             return {
-                "plan": q.get("plan", "?"),
-                "sms_used": q.get("sms_used", 0),
-                "sms_limit": q.get("sms_limit", 0),
-                "voice_used": q.get("voice_used", 0),
-                "voice_limit": q.get("voice_limit", 0),
-                "visio_used": q.get("visio_used", 0),
-                "visio_limit": q.get("visio_limit", 0),
-                "chat_count": q.get("chat_count", 0),
-                "api_cost": q.get("api_cost", 0.0),
+                "plan": plan,
+                "sms_used": sms_used,
+                "sms_limit": limits["sms"],
+                "voice_used": voice_used,
+                "voice_limit": limits["voice"],
+                "visio_used": visio_used,
+                "visio_limit": limits["visio"],
+                "chat_count": chat_count,
+                "api_cost": api_cost,
             }
         except Exception:
             return None
