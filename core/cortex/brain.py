@@ -592,8 +592,10 @@ class LunaCortex:
         try:
             if hasattr(self.redis, 'keys'):
                 keys = await self.redis.keys("luna:*:profile")
-                business["total_clients"] = len(keys)
-                business["active_clients"] = len(keys)  # Approximation
+                # Filtrer les profils de contacts (luna:X:contact:+phone:profile)
+                client_keys = [k for k in keys if b":contact:" not in (k if isinstance(k, bytes) else k.encode())]
+                business["total_clients"] = len(client_keys)
+                business["active_clients"] = len(client_keys)  # Approximation
         except Exception:
             pass
 

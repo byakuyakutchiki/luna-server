@@ -1345,43 +1345,68 @@ class EmergencyMode:
             if not self.brain or not self.brain.redis:
                 return clients
             redis = self.brain.redis
-            # Scan les tenants
+            # Scan les tenants (profils principaux uniquement, pas les contacts)
             if hasattr(redis, 'keys'):
                 keys = await redis.keys("luna:*:profile")
                 for key in keys:
                     key_str = key.decode() if isinstance(key, bytes) else key
+                    # Ignorer les profils de contacts (luna:X:contact:+phone:profile)
+                    if ":contact:" in key_str:
+                        continue
                     parts = key_str.split(":")
                     if len(parts) >= 3:
                         tenant_id = parts[1]
-                        profile = await redis.get(key)
-                        if profile:
-                            try:
-                                p = json.loads(profile)
-                                name = (p.get("first_name", "") + " " +
-                                        p.get("last_name", "")).strip() or f"Client {tenant_id}"
-                            except (json.JSONDecodeError, TypeError):
+                        # Les profils sont des HASH Redis, pas des strings
+                        try:
+                            profile = await redis.hgetall(key)
+                            if profile:
+                                first = profile.get("first_name", "") or profile.get(b"first_name", b"").decode() if isinstance(profile.get(b"first_name", b""), bytes) else profile.get("first_name", "")
+                                last = profile.get("last_name", "") or profile.get(b"last_name", b"").decode() if isinstance(profile.get(b"last_name", b""), bytes) else profile.get("last_name", "")
+                                # Handle bytes keys from some redis clients
+                                if not first and b"first_name" in profile:
+                                    first = profile[b"first_name"].decode() if isinstance(profile[b"first_name"], bytes) else str(profile[b"first_name"])
+                                if not last and b"last_name" in profile:
+                                    last = profile[b"last_name"].decode() if isinstance(profile[b"last_name"], bytes) else str(profile[b"last_name"])
+                                name = (f"{first} {last}").strip() or f"Client {tenant_id}"
+                            else:
                                 name = f"Client {tenant_id}"
-                        else:
+                        except Exception:
                             name = f"Client {tenant_id}"
+
+                        # Plan: lire depuis luna:auth:* ou le profil
+                        plan = "?"
+                        try:
+                            auth_keys = await redis.keys(f"luna:auth:*")
+                            for ak in auth_keys:
+                                ak_str = ak.decode() if isinstance(ak, bytes) else ak
+                                if ak_str in ("luna:auth:next_tenant_id", "luna:auth:tenant_index"):
+                                    continue
+                                auth_data = await redis.get(ak)
+                                if auth_data:
+                                    auth_str = auth_data.decode() if isinstance(auth_data, bytes) else auth_data
+                                    a = json.loads(auth_str)
+                                    if str(a.get("tenant_id")) == str(tenant_id):
+                                        plan = a.get("plan", "?")
+                                        break
+                        except Exception:
+                            pass
 
                         # Quota check
                         quota_key = f"luna:{tenant_id}:quota"
-                        quota_raw = await redis.get(quota_key)
                         quota_pct = 0
-                        plan = "?"
-                        if quota_raw:
-                            try:
-                                q = json.loads(quota_raw)
-                                plan = q.get("plan", "?")
-                                # Calculer le % max utilise
+                        try:
+                            quota_raw = await redis.hgetall(quota_key)
+                            if quota_raw:
                                 for resource in ["sms", "voice", "visio"]:
-                                    used = q.get(f"{resource}_used", 0)
-                                    limit = q.get(f"{resource}_limit", 1)
+                                    used_key = f"{resource}_used"
+                                    limit_key = f"{resource}_limit"
+                                    used = int(quota_raw.get(used_key, quota_raw.get(used_key.encode(), 0)) or 0)
+                                    limit = int(quota_raw.get(limit_key, quota_raw.get(limit_key.encode(), 1)) or 1)
                                     if limit > 0:
                                         pct = int(used / limit * 100)
                                         quota_pct = max(quota_pct, pct)
-                            except (json.JSONDecodeError, TypeError):
-                                pass
+                        except Exception:
+                            pass
 
                         clients.append({
                             "id": tenant_id,
