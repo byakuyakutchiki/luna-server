@@ -131,6 +131,44 @@ VOICE_TOOLS = [
             "required": ["reason"]
         }
     },
+    {
+        "type": "function",
+        "name": "send_email",
+        "description": "Envoyer un email a un contact de confiance. Quand le souscripteur dit 'envoie un email a...', 'ecris un mail a...', 'envoie un message a... par email'.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "contact_name": {
+                    "type": "string",
+                    "description": "Prenom ou nom du contact destinataire (ex: maman, Marie, mon fils)"
+                },
+                "subject": {
+                    "type": "string",
+                    "description": "L'objet de l'email"
+                },
+                "body": {
+                    "type": "string",
+                    "description": "Le contenu de l'email"
+                }
+            },
+            "required": ["contact_name", "subject", "body"]
+        }
+    },
+    {
+        "type": "function",
+        "name": "invite_visio",
+        "description": "Inviter un contact de confiance en visioconference. Envoie un SMS avec un lien pour rejoindre la visio. Quand le souscripteur dit 'invite X en visio', 'fais une visio avec X', 'appelle X en video', 'envoie un lien visio a X'.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "contact_name": {
+                    "type": "string",
+                    "description": "Prenom ou nom du contact a inviter (ex: maman, Ludovic, ma soeur)"
+                }
+            },
+            "required": ["contact_name"]
+        }
+    },
 ]
 
 

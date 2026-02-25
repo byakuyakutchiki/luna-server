@@ -1,0 +1,1247 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Luna Salons — YAWatch</title>
+<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+html, body {
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: #0a0a1a; color: #e0e0e0;
+  min-height: 100vh; min-height: 100dvh;
+  overflow-x: hidden; font-size: 16px; line-height: 1.5;
+  -webkit-tap-highlight-color: transparent;
+}
+:root {
+  --purple: #8b4cf0; --purple-light: #a78bfa;
+  --purple-dim: rgba(139,76,240,0.2); --purple-glow: rgba(139,76,240,0.35);
+  --gold: #ffd700; --gold-dim: rgba(255,215,0,0.2);
+  --bg: #0a0a1a; --bg-card: rgba(255,255,255,0.04); --bg-card-hover: rgba(255,255,255,0.07);
+  --border: rgba(139,76,240,0.2); --border-active: rgba(139,76,240,0.5);
+  --text: #e0e0e0; --text-dim: #888; --text-bright: #fff;
+  --green: #4caf50; --red: #f44336; --blue: #2196f3;
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+a { color: var(--purple-light); text-decoration: none; }
+a:hover { text-decoration: underline; }
+button { font-family: inherit; font-size: inherit; cursor: pointer; border: none; outline: none; background: none; color: inherit; }
+input, select, textarea {
+  font-family: inherit; font-size: inherit; outline: none; color: var(--text);
+  background: rgba(255,255,255,0.06); border: 1px solid var(--border);
+  border-radius: 8px; padding: 10px 14px; transition: border-color 0.2s;
+}
+input:focus, select:focus { border-color: var(--border-active); }
+input::placeholder { color: var(--text-dim); }
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--purple-dim); border-radius: 4px; }
+
+/* ANIMATIONS */
+@keyframes fadeIn { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
+@keyframes slideUp { from { opacity:0; transform:translateY(30px); } to { opacity:1; transform:translateY(0); } }
+@keyframes reactionFloat { 0% { opacity:1; transform:translateY(0) scale(1); } 100% { opacity:0; transform:translateY(-80px) scale(1.5); } }
+@keyframes giftFloat { 0% { opacity:1; transform:translateY(0) scale(1) rotate(0deg); } 100% { opacity:0; transform:translateY(-120px) scale(1.8) rotate(15deg); } }
+@keyframes fullscreenGift {
+  0% { opacity:0; transform:scale(0.3) rotate(-10deg); }
+  20% { opacity:1; transform:scale(1.2) rotate(5deg); }
+  40% { transform:scale(1) rotate(0deg); }
+  70% { opacity:1; transform:scale(1.1) rotate(-3deg); }
+  100% { opacity:0; transform:scale(1.5) rotate(5deg); }
+}
+@keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.5; } }
+@keyframes dotBounce { 0%,80%,100% { transform:translateY(0); } 40% { transform:translateY(-4px); } }
+@keyframes glowPulse { 0%,100% { box-shadow:0 0 8px var(--glow-color,var(--purple-dim)); } 50% { box-shadow:0 0 20px var(--glow-color,var(--purple-glow)); } }
+@keyframes spin { to { transform:rotate(360deg); } }
+@keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-4px)} 75%{transform:translateX(4px)} }
+@keyframes starBurst {
+  0% { opacity:1; transform:scale(0); }
+  50% { opacity:1; transform:scale(1.5); }
+  100% { opacity:0; transform:scale(2); }
+}
+
+/* LOBBY */
+.app-container { max-width: 600px; margin: 0 auto; padding: 0 16px; min-height: 100vh; min-height: 100dvh; }
+.lobby-header { display:flex; align-items:center; justify-content:space-between; padding:20px 0 16px; border-bottom:1px solid var(--border); margin-bottom:20px; animation:fadeIn 0.4s ease; }
+.lobby-header h1 { font-size:1.4em; font-weight:700; color:var(--text-bright); }
+.back-link { display:inline-flex; align-items:center; gap:4px; padding:6px 14px; border-radius:8px; background:var(--bg-card); border:1px solid var(--border); color:var(--purple-light); font-size:0.85em; transition:background 0.2s; }
+.back-link:hover { background:var(--bg-card-hover); border-color:var(--border-active); text-decoration:none; }
+
+/* Create Section */
+.create-section { margin-bottom:24px; animation:fadeIn 0.5s ease 0.1s both; }
+.create-toggle-btn { display:flex; align-items:center; gap:8px; width:100%; padding:14px 18px; background:linear-gradient(135deg,rgba(139,76,240,0.15),rgba(139,76,240,0.05)); border:1px solid var(--border); border-radius:12px; color:var(--purple-light); font-size:1em; font-weight:600; transition:all 0.2s; }
+.create-toggle-btn:hover { background:linear-gradient(135deg,rgba(139,76,240,0.25),rgba(139,76,240,0.1)); border-color:var(--border-active); }
+.create-toggle-btn .plus-icon { font-size:1.3em; font-weight:300; }
+.create-form { overflow:hidden; max-height:0; opacity:0; transition:max-height 0.4s ease,opacity 0.3s ease,margin 0.3s ease; margin-top:0; }
+.create-form.open { max-height:500px; opacity:1; margin-top:12px; }
+.create-form-inner { padding:16px; background:var(--bg-card); border:1px solid var(--border); border-radius:12px; }
+.create-form-inner input { width:100%; margin-bottom:14px; }
+.type-selector { display:grid; grid-template-columns:repeat(2,1fr); gap:8px; margin-bottom:14px; }
+.type-card { display:flex; flex-direction:column; align-items:center; gap:4px; padding:14px 8px; border-radius:10px; background:rgba(255,255,255,0.03); border:2px solid transparent; cursor:pointer; transition:all 0.2s; font-size:0.85em; color:var(--text-dim); }
+.type-card:hover { background:rgba(255,255,255,0.06); }
+.type-card.selected { border-color:var(--purple); background:rgba(139,76,240,0.1); color:var(--text-bright); }
+.type-card .type-icon { font-size:1.8em; line-height:1; }
+.type-card .type-label { font-weight:600; }
+.confirm-create-btn { width:100%; padding:12px; border-radius:10px; background:var(--purple); color:#fff; font-weight:600; font-size:0.95em; transition:background 0.2s,transform 0.1s; }
+.confirm-create-btn:hover { background:#7a3de0; }
+.confirm-create-btn:active { transform:scale(0.98); }
+.confirm-create-btn:disabled { opacity:0.4; cursor:not-allowed; }
+
+/* Room List */
+.rooms-grid { display:flex; flex-direction:column; gap:10px; padding-bottom:40px; }
+.room-card { display:flex; align-items:center; gap:14px; padding:14px 16px; background:var(--bg-card); border:1px solid var(--border); border-radius:12px; backdrop-filter:blur(8px); transition:all 0.2s; animation:slideUp 0.4s ease both; cursor:pointer; }
+.room-card:hover { background:var(--bg-card-hover); border-color:var(--border-active); transform:translateY(-1px); box-shadow:0 0 16px var(--glow-color,var(--purple-dim)); }
+.room-card[data-type="chat"] { --glow-color:rgba(139,76,240,0.25); }
+.room-card[data-type="cinema"] { --glow-color:rgba(244,67,54,0.25); }
+.room-card[data-type="karaoke"] { --glow-color:rgba(255,215,0,0.25); }
+.room-card[data-type="games"] { --glow-color:rgba(76,175,80,0.25); }
+.room-icon { font-size:1.8em; line-height:1; width:48px; height:48px; display:flex; align-items:center; justify-content:center; border-radius:12px; background:rgba(255,255,255,0.04); flex-shrink:0; }
+.room-info { flex:1; min-width:0; }
+.room-name { font-weight:600; font-size:1em; color:var(--text-bright); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.room-meta { font-size:0.8em; color:var(--text-dim); margin-top:2px; }
+.join-btn { padding:8px 16px; border-radius:8px; background:var(--purple); color:#fff; font-size:0.82em; font-weight:600; white-space:nowrap; transition:background 0.2s,transform 0.1s; flex-shrink:0; }
+.join-btn:hover { background:#7a3de0; }
+.join-btn:active { transform:scale(0.96); }
+
+/* Empty & Loading */
+.empty-state { text-align:center; padding:60px 20px; color:var(--text-dim); font-size:0.95em; animation:fadeIn 0.5s ease 0.2s both; }
+.empty-state .empty-icon { font-size:3em; display:block; margin-bottom:12px; opacity:0.5; }
+.loading-spinner { text-align:center; padding:40px; color:var(--text-dim); }
+.loading-spinner::after { content:""; display:inline-block; width:24px; height:24px; border:2px solid var(--purple-dim); border-top-color:var(--purple); border-radius:50%; animation:spin 0.8s linear infinite; }
+
+/* Toast */
+.toast { position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(100px); padding:12px 24px; background:rgba(30,30,50,0.95); border:1px solid var(--border); border-radius:10px; color:var(--text); font-size:0.9em; z-index:1000; backdrop-filter:blur(12px); transition:transform 0.3s ease; pointer-events:none; max-width:90vw; text-align:center; }
+.toast.visible { transform:translateX(-50%) translateY(0); }
+.toast.toast-error { border-color:var(--red); }
+.toast.toast-success { border-color:var(--green); }
+
+/* ROOM VIEW */
+.room-view { display:none; flex-direction:column; height:100vh; height:100dvh; overflow:hidden; }
+.room-view.active { display:flex; }
+.room-header { display:flex; align-items:center; gap:10px; padding:12px 16px; background:rgba(10,10,26,0.95); border-bottom:1px solid var(--border); flex-shrink:0; z-index:10; backdrop-filter:blur(8px); }
+.room-header .back-btn { width:36px; height:36px; display:flex; align-items:center; justify-content:center; border-radius:8px; background:var(--bg-card); border:1px solid var(--border); font-size:1.1em; flex-shrink:0; transition:background 0.2s; }
+.room-header .back-btn:hover { background:var(--bg-card-hover); }
+.room-header-info { flex:1; min-width:0; }
+.room-title { font-weight:700; font-size:1em; color:var(--text-bright); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.room-type-badge { font-size:0.72em; color:var(--text-dim); margin-top:1px; }
+.participants-toggle { padding:6px 10px; border-radius:8px; background:var(--bg-card); border:1px solid var(--border); font-size:0.85em; transition:background 0.2s; flex-shrink:0; }
+.participants-toggle:hover { background:var(--bg-card-hover); }
+.close-room-btn { width:36px; height:36px; display:flex; align-items:center; justify-content:center; border-radius:8px; background:rgba(244,67,54,0.1); border:1px solid rgba(244,67,54,0.3); color:var(--red); font-size:1em; flex-shrink:0; transition:background 0.2s; }
+.close-room-btn:hover { background:rgba(244,67,54,0.2); }
+
+/* Participants Drawer */
+.participants-drawer { position:fixed; top:0; right:-280px; width:260px; height:100%; background:rgba(14,14,34,0.98); border-left:1px solid var(--border); z-index:50; transition:right 0.3s ease; backdrop-filter:blur(16px); display:flex; flex-direction:column; }
+.participants-drawer.open { right:0; }
+.participants-drawer-header { display:flex; align-items:center; justify-content:space-between; padding:16px; border-bottom:1px solid var(--border); }
+.participants-drawer-header h3 { font-size:0.95em; font-weight:600; }
+.drawer-close-btn { width:30px; height:30px; display:flex; align-items:center; justify-content:center; border-radius:6px; background:var(--bg-card); font-size:0.9em; transition:background 0.2s; }
+.drawer-close-btn:hover { background:var(--bg-card-hover); }
+.participants-list { flex:1; overflow-y:auto; padding:8px 0; }
+.participant { display:flex; align-items:center; gap:10px; padding:10px 16px; }
+.participant-dot { width:8px; height:8px; border-radius:50%; background:var(--green); flex-shrink:0; }
+.participant-name { flex:1; font-size:0.9em; color:var(--text); }
+.host-badge { font-size:0.7em; padding:2px 8px; border-radius:6px; background:var(--gold-dim); color:var(--gold); font-weight:600; }
+.participants-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.4); z-index:40; }
+.participants-overlay.open { display:block; }
+
+/* Room Content */
+.room-content { flex:1; display:flex; flex-direction:column; overflow:hidden; position:relative; }
+.ws-status-bar { display:none; align-items:center; justify-content:center; gap:8px; padding:8px; background:rgba(244,67,54,0.1); border-bottom:1px solid rgba(244,67,54,0.3); font-size:0.8em; color:var(--red); flex-shrink:0; }
+.ws-status-bar.visible { display:flex; }
+.ws-status-bar.reconnecting { background:rgba(255,152,0,0.1); border-color:rgba(255,152,0,0.3); color:#ff9800; }
+
+/* CINEMA */
+.cinema-section { display:none; flex-direction:column; flex-shrink:0; }
+.cinema-section.active { display:flex; }
+.video-container { position:relative; width:100%; padding-top:56.25%; background:#000; overflow:hidden; }
+.video-container iframe { position:absolute; inset:0; width:100%; height:100%; border:none; }
+.video-placeholder { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; color:var(--text-dim); font-size:0.9em; }
+.video-placeholder .placeholder-icon { font-size:2.5em; opacity:0.4; }
+.cinema-controls { display:none; gap:8px; padding:10px 16px; background:var(--bg-card); border-bottom:1px solid var(--border); }
+.cinema-controls.visible { display:flex; }
+.cinema-controls input { flex:1; min-width:0; }
+.cinema-controls button { padding:10px 16px; border-radius:8px; background:var(--purple); color:#fff; font-weight:600; font-size:0.85em; white-space:nowrap; transition:background 0.2s; }
+.cinema-controls button:hover { background:#7a3de0; }
+
+/* KARAOKE */
+.karaoke-section { display:none; flex-direction:column; flex-shrink:0; }
+.karaoke-section.active { display:flex; }
+.spotlight-bar { display:none; align-items:center; justify-content:center; gap:8px; padding:10px 16px; background:linear-gradient(135deg,rgba(255,215,0,0.1),rgba(139,76,240,0.1)); border-bottom:1px solid var(--gold-dim); font-size:0.9em; font-weight:600; color:var(--gold); animation:glowPulse 2s ease infinite; --glow-color:rgba(255,215,0,0.2); }
+.spotlight-bar.visible { display:flex; }
+.spotlight-controls { display:none; gap:8px; padding:10px 16px; background:var(--bg-card); border-bottom:1px solid var(--border); }
+.spotlight-controls.visible { display:flex; }
+.spotlight-controls select { flex:1; min-width:0; }
+.spotlight-controls button { padding:10px 16px; border-radius:8px; background:var(--gold); color:#1a1a2e; font-weight:600; font-size:0.85em; white-space:nowrap; transition:background 0.2s; }
+.spotlight-controls button:hover { background:#e6c200; }
+
+/* GAMES */
+.games-section { display:none; flex-direction:column; flex:1; overflow-y:auto; overflow-x:hidden; }
+.games-section.active { display:flex; }
+.game-selector { padding:20px 16px; animation:fadeIn 0.4s ease; }
+.game-selector h3 { font-size:1em; font-weight:600; margin-bottom:14px; color:var(--text-bright); text-align:center; }
+.game-cards { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; max-width:360px; margin:0 auto; }
+.game-card { display:flex; flex-direction:column; align-items:center; gap:8px; padding:20px 10px; background:var(--bg-card); border:1px solid var(--border); border-radius:12px; cursor:pointer; transition:all 0.2s; font-size:0.85em; font-weight:600; }
+.game-card:hover { background:var(--bg-card-hover); border-color:var(--border-active); transform:translateY(-2px); }
+.game-card .game-icon { font-size:2em; line-height:1; }
+
+/* Quiz */
+.quiz-view { display:none; flex-direction:column; padding:16px; animation:fadeIn 0.3s ease; }
+.quiz-view.active { display:flex; }
+.quiz-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; }
+.quiz-progress { font-size:0.8em; color:var(--text-dim); }
+.quiz-timer { font-size:0.9em; font-weight:600; color:var(--gold); font-family:monospace; }
+.quiz-timer.urgent { color:var(--red); animation:pulse 0.5s ease infinite; }
+.quiz-question { font-size:1.1em; font-weight:600; color:var(--text-bright); text-align:center; padding:16px; margin-bottom:16px; background:var(--bg-card); border-radius:12px; border:1px solid var(--border); line-height:1.4; }
+.quiz-choices { display:flex; flex-direction:column; gap:8px; margin-bottom:20px; }
+.quiz-choice { display:block; width:100%; padding:14px 16px; border-radius:10px; background:var(--bg-card); border:1px solid var(--border); color:var(--text); text-align:left; font-size:0.95em; cursor:pointer; transition:all 0.2s; }
+.quiz-choice:hover:not(.answered) { background:var(--bg-card-hover); border-color:var(--border-active); }
+.quiz-choice.selected { border-color:var(--purple); background:rgba(139,76,240,0.15); }
+.quiz-choice.correct { background:rgba(76,175,80,0.2)!important; border-color:var(--green)!important; color:#a5d6a7!important; }
+.quiz-choice.wrong { background:rgba(244,67,54,0.2)!important; border-color:var(--red)!important; color:#ef9a9a!important; }
+.quiz-choice.answered { cursor:default; }
+.quiz-scores { padding:12px; background:var(--bg-card); border:1px solid var(--border); border-radius:10px; }
+.quiz-scores h4 { font-size:0.85em; color:var(--text-dim); margin-bottom:8px; }
+.score-row { display:flex; align-items:center; justify-content:space-between; padding:6px 0; font-size:0.9em; }
+.score-row .score-name { color:var(--text); }
+.score-row .score-pts { font-weight:700; color:var(--gold); font-family:monospace; }
+.quiz-finished { text-align:center; padding:30px 16px; animation:fadeIn 0.5s ease; }
+.quiz-finished .trophy { font-size:3em; margin-bottom:12px; }
+.quiz-finished .winner-name { font-size:1.2em; font-weight:700; color:var(--gold); }
+
+/* Morpion */
+.morpion-view { display:none; flex-direction:column; align-items:center; padding:20px 16px; animation:fadeIn 0.3s ease; }
+.morpion-view.active { display:flex; }
+.morpion-status { font-size:1em; font-weight:600; margin-bottom:20px; color:var(--text-bright); text-align:center; }
+.morpion-status.winner { color:var(--gold); font-size:1.1em; }
+.morpion-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:4px; width:100%; max-width:250px; }
+.morpion-cell { aspect-ratio:1; background:rgba(255,255,255,0.06); border-radius:8px; font-size:2.2em; display:flex; align-items:center; justify-content:center; cursor:pointer; transition:background 0.2s; user-select:none; line-height:1; }
+.morpion-cell:hover:not(.taken) { background:rgba(255,255,255,0.1); }
+.morpion-cell.taken { cursor:default; }
+.morpion-cell.win-cell { background:rgba(255,215,0,0.15); animation:glowPulse 1.5s ease infinite; --glow-color:rgba(255,215,0,0.3); }
+.morpion-restart { margin-top:20px; padding:10px 24px; border-radius:8px; background:var(--purple); color:#fff; font-weight:600; font-size:0.9em; transition:background 0.2s; }
+.morpion-restart:hover { background:#7a3de0; }
+
+/* Memory */
+.memory-view { display:none; flex-direction:column; align-items:center; padding:16px; animation:fadeIn 0.3s ease; }
+.memory-view.active { display:flex; }
+.memory-status { font-size:0.95em; font-weight:600; margin-bottom:16px; color:var(--text-bright); text-align:center; }
+.memory-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:6px; width:100%; max-width:320px; margin-bottom:16px; }
+.memory-card { aspect-ratio:1; perspective:600px; cursor:pointer; position:relative; }
+.memory-card .card-face { position:absolute; inset:0; backface-visibility:hidden; -webkit-backface-visibility:hidden; border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:1.5em; transition:transform 0.5s ease; user-select:none; }
+.memory-card .card-front { background:rgba(139,76,240,0.3); border:1px solid var(--purple-dim); color:var(--purple-light); font-size:1.2em; font-weight:700; }
+.memory-card .card-back { background:rgba(255,215,0,0.15); border:1px solid var(--gold-dim); transform:rotateY(180deg); }
+.memory-card.flipped .card-front { transform:rotateY(180deg); }
+.memory-card.flipped .card-back { transform:rotateY(0deg); }
+.memory-card.matched { opacity:0.35; pointer-events:none; }
+.memory-card.matched .card-front { transform:rotateY(180deg); }
+.memory-card.matched .card-back { transform:rotateY(0deg); }
+.memory-scores { width:100%; max-width:320px; padding:12px; background:var(--bg-card); border:1px solid var(--border); border-radius:10px; }
+.memory-scores h4 { font-size:0.85em; color:var(--text-dim); margin-bottom:8px; }
+
+/* CHAT PANEL */
+.chat-panel { display:flex; flex-direction:column; flex:1; min-height:0; overflow:hidden; }
+.chat-panel.compact { max-height:45vh; border-top:1px solid var(--border); }
+.messages-container { flex:1; overflow-y:auto; overflow-x:hidden; padding:12px 16px; display:flex; flex-direction:column; gap:2px; scroll-behavior:smooth; }
+
+/* Chat messages with avatar */
+.msg { max-width:85%; animation:fadeIn 0.2s ease; display:flex; gap:8px; align-items:flex-end; }
+.msg-self { align-self:flex-end; flex-direction:row-reverse; }
+.msg-other { align-self:flex-start; }
+.msg-avatar { width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:0.65em; font-weight:700; flex-shrink:0; color:#fff; background:linear-gradient(135deg,var(--purple),#6d28d9); }
+.msg-avatar.hidden-avatar { visibility:hidden; }
+.msg-self .msg-avatar { background:linear-gradient(135deg,#6d28d9,var(--purple)); }
+.msg-body { min-width:0; }
+.msg-name { display:block; font-size:0.72em; font-weight:600; color:var(--purple-light); margin-bottom:2px; padding-left:4px; }
+.msg-name.hidden-name { display:none; }
+.msg-bubble { padding:8px 14px; border-radius:12px 12px 12px 2px; background:rgba(255,255,255,0.06); font-size:0.9em; line-height:1.4; word-break:break-word; position:relative; }
+.msg-self .msg-bubble { background:linear-gradient(135deg,rgba(139,76,240,0.3),rgba(109,40,217,0.25)); border-radius:12px 12px 2px 12px; }
+.msg-time { display:block; font-size:0.65em; color:var(--text-dim); margin-top:2px; text-align:right; padding-right:4px; }
+.msg-self .msg-time { text-align:right; }
+.msg-other .msg-time { text-align:left; padding-left:4px; }
+.msg-system { align-self:center; text-align:center; color:var(--text-dim); font-size:0.75em; padding:4px 12px; max-width:100%; display:block; }
+.msg-grouped .msg-bubble { border-radius:4px 12px 12px 4px; }
+.msg-self.msg-grouped .msg-bubble { border-radius:12px 4px 4px 12px; }
+
+/* Typing */
+.typing-indicator { display:none; padding:4px 16px 8px; font-size:0.78em; color:var(--text-dim); flex-shrink:0; }
+.typing-indicator.visible { display:flex; align-items:center; gap:4px; }
+.typing-dots { display:inline-flex; gap:3px; margin-left:4px; }
+.typing-dots span { width:4px; height:4px; border-radius:50%; background:var(--text-dim); animation:dotBounce 1.2s ease infinite; }
+.typing-dots span:nth-child(2) { animation-delay:0.15s; }
+.typing-dots span:nth-child(3) { animation-delay:0.3s; }
+
+/* Chat Input */
+.chat-input-bar { display:flex; flex-direction:column; padding:8px 12px; padding-bottom:calc(8px + var(--safe-bottom)); background:rgba(10,10,26,0.95); border-top:1px solid var(--border); flex-shrink:0; backdrop-filter:blur(8px); }
+.quick-reactions { display:flex; gap:4px; margin-bottom:6px; overflow-x:auto; scrollbar-width:none; -ms-overflow-style:none; }
+.quick-reactions::-webkit-scrollbar { display:none; }
+.reaction-btn { padding:4px 8px; border-radius:6px; font-size:1.1em; line-height:1; background:var(--bg-card); border:1px solid transparent; transition:all 0.15s; flex-shrink:0; }
+.reaction-btn:hover { background:var(--bg-card-hover); border-color:var(--border); transform:scale(1.15); }
+.reaction-btn:active { transform:scale(0.95); }
+
+/* Gift button & panel */
+.gift-toggle-btn { padding:4px 8px; border-radius:6px; font-size:1.1em; line-height:1; background:var(--bg-card); border:1px solid transparent; transition:all 0.15s; flex-shrink:0; }
+.gift-toggle-btn:hover { background:var(--bg-card-hover); border-color:var(--gold-dim); transform:scale(1.15); }
+.gift-panel { display:none; padding:8px; background:rgba(20,20,40,0.95); border:1px solid var(--gold-dim); border-radius:12px; margin-bottom:6px; animation:fadeIn 0.2s ease; }
+.gift-panel.open { display:block; }
+.gift-panel-title { font-size:0.75em; color:var(--gold); font-weight:600; margin-bottom:6px; text-align:center; }
+.gift-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:6px; }
+.gift-item { display:flex; flex-direction:column; align-items:center; gap:2px; padding:8px 4px; border-radius:8px; background:rgba(255,255,255,0.03); border:1px solid transparent; cursor:pointer; transition:all 0.2s; }
+.gift-item:hover { background:rgba(255,215,0,0.08); border-color:var(--gold-dim); transform:scale(1.05); }
+.gift-item:active { transform:scale(0.95); }
+.gift-item .gift-emoji { font-size:1.6em; line-height:1; }
+.gift-item .gift-name { font-size:0.65em; color:var(--text-dim); }
+.gift-item .gift-cost { font-size:0.6em; color:var(--gold); font-weight:600; }
+
+.chat-input-row { display:flex; gap:8px; align-items:center; }
+.chat-input { flex:1; padding:10px 14px; border-radius:20px; background:rgba(255,255,255,0.06); border:1px solid var(--border); color:var(--text); font-size:0.9em; min-width:0; transition:border-color 0.2s; }
+.chat-input:focus { border-color:var(--border-active); }
+.send-btn { width:40px; height:40px; display:flex; align-items:center; justify-content:center; border-radius:50%; background:var(--purple); color:#fff; font-size:1.1em; flex-shrink:0; transition:background 0.2s,transform 0.1s; }
+.send-btn:hover { background:#7a3de0; }
+.send-btn:active { transform:scale(0.92); }
+
+/* Floating reactions & gifts */
+.floating-reaction { position:fixed; font-size:1.6em; pointer-events:none; z-index:100; animation:reactionFloat 1.2s ease forwards; }
+.floating-gift { position:fixed; font-size:2.2em; pointer-events:none; z-index:100; animation:giftFloat 1.8s ease forwards; }
+.fullscreen-gift { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; z-index:200; pointer-events:none; background:rgba(0,0,0,0.3); }
+.fullscreen-gift .gift-content { font-size:6em; animation:fullscreenGift 2.5s ease forwards; }
+.fullscreen-gift .gift-label { position:absolute; bottom:30%; left:50%; transform:translateX(-50%); color:var(--gold); font-size:1.2em; font-weight:700; text-shadow:0 2px 8px rgba(0,0,0,0.5); animation:fadeIn 0.5s ease 0.3s both; }
+
+/* Scroll to bottom button */
+.scroll-bottom-btn { position:absolute; bottom:80px; right:16px; width:36px; height:36px; border-radius:50%; background:var(--purple); color:#fff; display:none; align-items:center; justify-content:center; font-size:1em; z-index:20; box-shadow:0 2px 12px rgba(139,76,240,0.4); transition:transform 0.2s; cursor:pointer; border:none; }
+.scroll-bottom-btn.visible { display:flex; }
+.scroll-bottom-btn:hover { transform:scale(1.1); }
+.scroll-bottom-btn .unread-badge { position:absolute; top:-4px; right:-4px; min-width:16px; height:16px; border-radius:8px; background:var(--red); color:#fff; font-size:0.6em; font-weight:700; display:flex; align-items:center; justify-content:center; padding:0 4px; }
+
+/* Responsive */
+@media (max-width:400px) {
+  .lobby-header h1 { font-size:1.15em; }
+  .type-selector { gap:6px; }
+  .type-card { padding:10px 6px; }
+  .type-card .type-icon { font-size:1.4em; }
+  .game-cards { gap:8px; }
+  .morpion-grid { max-width:220px; }
+  .morpion-cell { font-size:1.8em; }
+  .memory-grid { max-width:280px; gap:4px; }
+  .memory-card .card-face { font-size:1.2em; }
+}
+@media (min-width:768px) {
+  .type-selector { grid-template-columns:repeat(4,1fr); }
+  .chat-panel.compact { max-height:40vh; }
+}
+.hidden { display:none !important; }
+</style>
+</head>
+<body>
+
+<!-- LOBBY VIEW -->
+<div class="app-container" id="lobbyView">
+  <header class="lobby-header">
+    <h1>&#127968; Salons Famille</h1>
+    <a href="/world" class="back-link">&#8592; Village</a>
+  </header>
+  <div class="create-section">
+    <button class="create-toggle-btn" id="createToggleBtn" onclick="toggleCreateForm()">
+      <span class="plus-icon">+</span> Cr&eacute;er un salon
+    </button>
+    <div class="create-form" id="createForm">
+      <div class="create-form-inner">
+        <input type="text" id="roomNameInput" placeholder="Nom du salon" maxlength="50" autocomplete="off">
+        <div class="type-selector" id="typeSelector">
+          <div class="type-card" data-type="chat" onclick="selectType(this)"><span class="type-icon">&#128172;</span><span class="type-label">Chat</span></div>
+          <div class="type-card" data-type="cinema" onclick="selectType(this)"><span class="type-icon">&#127916;</span><span class="type-label">Cin&eacute;ma</span></div>
+          <div class="type-card" data-type="karaoke" onclick="selectType(this)"><span class="type-icon">&#127908;</span><span class="type-label">Karaok&eacute;</span></div>
+          <div class="type-card" data-type="games" onclick="selectType(this)"><span class="type-icon">&#127918;</span><span class="type-label">Jeux</span></div>
+        </div>
+        <button class="confirm-create-btn" id="confirmCreateBtn" onclick="createRoom()" disabled>Cr&eacute;er</button>
+      </div>
+    </div>
+  </div>
+  <div id="roomsContainer"><div class="loading-spinner" id="roomsLoading"></div></div>
+</div>
+
+<!-- ROOM VIEW -->
+<div class="room-view" id="roomView">
+  <header class="room-header">
+    <button class="back-btn" onclick="leaveRoom()" title="Quitter">&#8592;</button>
+    <div class="room-header-info">
+      <div class="room-title" id="roomTitle">Salon</div>
+      <div class="room-type-badge" id="roomTypeBadge"></div>
+    </div>
+    <button class="participants-toggle" id="participantsToggle" onclick="toggleParticipants()">&#128101; <span id="participantsCount">0</span></button>
+    <button class="close-room-btn hidden" id="closeRoomBtn" onclick="closeRoom()" title="Fermer le salon">&#10005;</button>
+  </header>
+  <div class="ws-status-bar" id="wsStatusBar"><span id="wsStatusText">Connexion perdue...</span></div>
+  <div class="room-content" id="roomContent">
+    <!-- Cinema -->
+    <div class="cinema-section" id="cinemaSection">
+      <div class="video-container" id="videoContainer">
+        <div class="video-placeholder" id="videoPlaceholder"><span class="placeholder-icon">&#127916;</span><span>En attente d'une vid&eacute;o...</span></div>
+        <iframe id="ytPlayer" src="" allow="autoplay; encrypted-media" allowfullscreen style="display:none"></iframe>
+      </div>
+      <div class="cinema-controls" id="cinemaControls">
+        <input type="text" id="ytUrlInput" placeholder="Coller un lien YouTube..." autocomplete="off">
+        <button onclick="setYoutubeUrl()">&#128250; Lancer</button>
+      </div>
+    </div>
+    <!-- Karaoke -->
+    <div class="karaoke-section" id="karaokeSection">
+      <div class="video-container" id="karaokeVideoContainer">
+        <div class="video-placeholder" id="karaokePlaceholder"><span class="placeholder-icon">&#127908;</span><span>En attente d'une vid&eacute;o karaok&eacute;...</span></div>
+        <iframe id="karaokePlayer" src="" allow="autoplay; encrypted-media" allowfullscreen style="display:none"></iframe>
+      </div>
+      <div class="spotlight-bar" id="spotlightBar">&#127908; <span id="spotlightName">-</span> chante !</div>
+      <div class="spotlight-controls" id="spotlightControls">
+        <select id="spotlightSelect"><option value="">Choisir le chanteur...</option></select>
+        <button onclick="setSpotlight()">&#127908; Passer le micro</button>
+      </div>
+      <div class="cinema-controls" id="karaokeUrlControls">
+        <input type="text" id="karaokeUrlInput" placeholder="Lien YouTube karaok&eacute;..." autocomplete="off">
+        <button onclick="setKaraokeUrl()">&#127908; Lancer</button>
+      </div>
+    </div>
+    <!-- Games -->
+    <div class="games-section" id="gamesSection">
+      <div class="game-selector" id="gameSelector">
+        <h3>Choisir un jeu</h3>
+        <div class="game-cards">
+          <div class="game-card" onclick="startGame('quiz')"><span class="game-icon">&#129504;</span><span>Quiz</span></div>
+          <div class="game-card" onclick="startGame('morpion')"><span class="game-icon">&#10060;&#11093;</span><span>Morpion</span></div>
+          <div class="game-card" onclick="startGame('memory')"><span class="game-icon">&#127183;</span><span>Memory</span></div>
+        </div>
+      </div>
+      <div class="quiz-view" id="quizView">
+        <div class="quiz-header"><span class="quiz-progress" id="quizProgress">Question 1/5</span><span class="quiz-timer" id="quizTimer"></span></div>
+        <div class="quiz-question" id="quizQuestion">Chargement...</div>
+        <div class="quiz-choices" id="quizChoices"></div>
+        <div class="quiz-scores" id="quizScores"><h4>&#127942; Scores</h4><div id="quizScoreRows"></div></div>
+      </div>
+      <div class="morpion-view" id="morpionView">
+        <div class="morpion-status" id="morpionStatus">En attente...</div>
+        <div class="morpion-grid" id="morpionGrid"></div>
+        <button class="morpion-restart hidden" id="morpionRestart" onclick="startGame('morpion')">&#128260; Rejouer</button>
+      </div>
+      <div class="memory-view" id="memoryView">
+        <div class="memory-status" id="memoryStatus">En attente...</div>
+        <div class="memory-grid" id="memoryGrid"></div>
+        <div class="memory-scores" id="memoryScores"><h4>&#127942; Scores</h4><div id="memoryScoreRows"></div></div>
+      </div>
+    </div>
+    <!-- Chat Panel -->
+    <div class="chat-panel" id="chatPanel">
+      <div class="messages-container" id="messagesContainer"></div>
+      <div class="typing-indicator" id="typingIndicator"><span id="typingName">...</span> &eacute;crit<span class="typing-dots"><span></span><span></span><span></span></span></div>
+      <button class="scroll-bottom-btn" id="scrollBottomBtn" onclick="scrollToBottom(true)">&#8595;<span class="unread-badge hidden" id="unreadBadge">0</span></button>
+      <div class="chat-input-bar">
+        <div class="gift-panel" id="giftPanel">
+          <div class="gift-panel-title">&#127873; Offrir un cadeau</div>
+          <div class="gift-grid" id="giftGrid"></div>
+        </div>
+        <div class="quick-reactions" id="reactionsBar"></div>
+        <div class="chat-input-row">
+          <button class="gift-toggle-btn" id="giftToggleBtn" onclick="toggleGiftPanel()" title="Cadeaux">&#127873;</button>
+          <input class="chat-input" id="chatInput" placeholder="Message..." maxlength="1000" autocomplete="off">
+          <button class="send-btn" id="sendBtn" onclick="sendChat()">&#10148;</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Participants Drawer -->
+<div class="participants-overlay" id="participantsOverlay" onclick="toggleParticipants()"></div>
+<div class="participants-drawer" id="participantsDrawer">
+  <div class="participants-drawer-header"><h3>&#128101; Participants</h3><button class="drawer-close-btn" onclick="toggleParticipants()">&#10005;</button></div>
+  <div class="participants-list" id="participantsList"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function() {
+"use strict";
+
+/* STATE */
+var S = {
+  view:"lobby", rooms:[], currentRoom:null, currentRoomData:null,
+  ws:null, myPhone:"", myName:"", isHost:false, participants:[],
+  selectedType:"", createFormOpen:false, participantsOpen:false,
+  wsReconnectAttempts:0, wsMaxReconnect:5, wsReconnectTimer:null, wsPingTimer:null,
+  typingTimer:null, lastTypingSent:0, userHasScrolled:false, unreadCount:0,
+  quizAnswered:false, memoryLocked:false, giftPanelOpen:false, lastMsgPhone:""
+};
+
+/* REACTIONS (12 emojis) */
+var REACTIONS = ["\u2764\uFE0F","\uD83D\uDE02","\uD83D\uDC4F","\uD83C\uDF89","\uD83D\uDE2E","\uD83D\uDD25","\uD83D\uDE0D","\uD83D\uDE22","\uD83D\uDE4F","\uD83D\uDC4D","\uD83C\uDF1F","\uD83E\uDD73"];
+
+/* GIFTS: name, emoji, stars, isFullscreen */
+var GIFTS = [
+  {id:"rose", name:"Rose", emoji:"\uD83C\uDF39", stars:1, full:false},
+  {id:"diamond", name:"Diamant", emoji:"\uD83D\uDC8E", stars:5, full:false},
+  {id:"fireworks", name:"Feux d'artifice", emoji:"\uD83C\uDF86", stars:10, full:true},
+  {id:"crown", name:"Couronne", emoji:"\uD83D\uDC51", stars:20, full:true},
+  {id:"moon", name:"Lune magique", emoji:"\uD83C\uDF19", stars:50, full:true},
+  {id:"stars", name:"Pluie d'\u00e9toiles", emoji:"\u2728", stars:100, full:true}
+];
+
+var MEMORY_EMOJIS = ["\uD83C\uDF19","\u2B50","\uD83C\uDFE0","\uD83C\uDF38","\uD83C\uDFB5","\uD83D\uDC9C","\uD83E\uDD8B","\uD83D\uDD2E"];
+
+/* URL PARAMS & AUTH */
+var urlParams = new URLSearchParams(window.location.search);
+var autoRoomId = urlParams.get("room");
+var memberPhone = urlParams.get("phone");
+var memberToken = urlParams.get("token");
+
+function getToken() { return memberToken || localStorage.getItem("luna_token"); }
+
+function getMyPhone() {
+  if (memberPhone) return memberPhone;
+  try { var t=localStorage.getItem("luna_token"); if(!t)return""; var p=JSON.parse(atob(t.split(".")[1])); return p.phone||p.sub||""; } catch(e) { return ""; }
+}
+
+function getMyName() {
+  try { var t=getToken(); if(!t)return""; var p=JSON.parse(atob(t.split(".")[1])); return p.name||p.prenom||""; } catch(e) { return ""; }
+}
+
+/* API */
+function apiFetch(url, opts) {
+  opts=opts||{}; opts.headers=opts.headers||{};
+  var t=getToken(); if(t) opts.headers["Authorization"]="Bearer "+t;
+  return fetch(url,opts).then(function(r){ if(r.status===401||r.status===403){window.location="/";throw new Error("Auth");} return r; });
+}
+function apiPost(url, body) { return apiFetch(url,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)}); }
+function apiDelete(url) { return apiFetch(url,{method:"DELETE"}); }
+
+/* TOAST */
+var toastTimer=null;
+function showToast(msg, type) {
+  var el=$("toast"); el.textContent=msg; el.className="toast toast-"+(type||"error");
+  clearTimeout(toastTimer);
+  requestAnimationFrame(function(){ el.classList.add("visible"); });
+  toastTimer=setTimeout(function(){ el.classList.remove("visible"); },3500);
+}
+
+/* DOM */
+function $(id) { return document.getElementById(id); }
+function show(el) { if(typeof el==="string")el=$(el); if(el)el.classList.remove("hidden"); }
+function hide(el) { if(typeof el==="string")el=$(el); if(el)el.classList.add("hidden"); }
+
+function escapeHtml(s) { var d=document.createElement("div"); d.textContent=s; return d.innerHTML; }
+
+function formatTime(iso) {
+  try { var d=new Date(iso); return d.getHours().toString().padStart(2,"0")+":"+d.getMinutes().toString().padStart(2,"0"); } catch(e) { return ""; }
+}
+
+function getInitials(name) {
+  if(!name) return "?";
+  var parts=name.trim().split(/\s+/);
+  if(parts.length>=2) return (parts[0][0]+parts[1][0]).toUpperCase();
+  return name.substring(0,2).toUpperCase();
+}
+
+var TYPE_ICONS = {chat:"\uD83D\uDCAC",cinema:"\uD83C\uDFAC",karaoke:"\uD83C\uDF99\uFE0F",games:"\uD83C\uDFAE"};
+var TYPE_LABELS = {chat:"Chat",cinema:"Cin\u00e9ma",karaoke:"Karaok\u00e9",games:"Jeux"};
+
+/* AVATAR COLOR from name */
+var AVATAR_COLORS = ["#8b4cf0","#e91e63","#009688","#ff9800","#3f51b5","#4caf50","#f44336","#00bcd4","#9c27b0","#ff5722"];
+function avatarColor(name) { var h=0; for(var i=0;i<(name||"").length;i++) h=((h<<5)-h)+name.charCodeAt(i); return AVATAR_COLORS[Math.abs(h)%AVATAR_COLORS.length]; }
+
+/* BUILD REACTIONS BAR */
+function buildReactionsBar() {
+  var bar=$("reactionsBar"); bar.innerHTML="";
+  REACTIONS.forEach(function(em){
+    var b=document.createElement("button");
+    b.className="reaction-btn"; b.textContent=em;
+    b.onclick=function(){ sendReaction(em); };
+    bar.appendChild(b);
+  });
+}
+
+/* BUILD GIFT GRID */
+function buildGiftGrid() {
+  var grid=$("giftGrid"); grid.innerHTML="";
+  GIFTS.forEach(function(g){
+    var d=document.createElement("div");
+    d.className="gift-item";
+    d.innerHTML='<span class="gift-emoji">'+g.emoji+'</span><span class="gift-name">'+escapeHtml(g.name)+'</span><span class="gift-cost">'+g.stars+'\u2605</span>';
+    d.onclick=function(){ sendGift(g); };
+    grid.appendChild(d);
+  });
+}
+
+/* VIEW MANAGEMENT */
+function showLobby() {
+  S.view="lobby"; document.title="Luna Salons \u2014 YAWatch";
+  $("lobbyView").style.display=""; $("roomView").classList.remove("active");
+  closeParticipants(); disconnectWS();
+  S.currentRoom=null; S.currentRoomData=null; S.isHost=false; S.participants=[]; S.lastMsgPhone="";
+  if(window.history.replaceState) window.history.replaceState({},"",window.location.pathname);
+  loadRooms();
+}
+
+function showRoom(roomId) {
+  S.view="room"; S.currentRoom=roomId; S.lastMsgPhone=""; S.unreadCount=0;
+  $("lobbyView").style.display="none"; $("roomView").classList.add("active");
+  resetGameViews(); $("messagesContainer").innerHTML="";
+  hideScrollBtn();
+  loadRoomData(roomId);
+}
+
+/* LOBBY - ROOMS */
+function loadRooms() {
+  var c=$("roomsContainer"); c.innerHTML='<div class="loading-spinner"></div>';
+  apiFetch("/api/rooms").then(function(r){return r.json();}).then(function(rooms){
+    S.rooms=rooms||[]; renderRooms();
+  }).catch(function(err){
+    c.innerHTML='<div class="empty-state"><span class="empty-icon">\u26A0\uFE0F</span>Erreur de chargement</div>';
+  });
+}
+
+function renderRooms() {
+  var c=$("roomsContainer");
+  if(!S.rooms.length){ c.innerHTML='<div class="empty-state"><span class="empty-icon">\uD83C\uDFE0</span>Aucun salon actif. Cr\u00e9ez-en un !</div>'; return; }
+  var h='<div class="rooms-grid">';
+  S.rooms.forEach(function(r,i){
+    var icon=TYPE_ICONS[r.type]||"\uD83D\uDCAC", label=TYPE_LABELS[r.type]||r.type;
+    var pc=r.participants||0, hn=r.host_name||"Inconnu";
+    h+='<div class="room-card" data-type="'+escapeHtml(r.type)+'" style="animation-delay:'+(i*0.05)+'s" onclick="joinRoom(\''+escapeHtml(r.id)+'\')">';
+    h+='<div class="room-icon">'+icon+'</div><div class="room-info">';
+    h+='<div class="room-name">'+escapeHtml(r.name)+'</div>';
+    h+='<div class="room-meta">Par '+escapeHtml(hn)+' \u00B7 '+pc+' participant'+(pc>1?'s':'')+'</div>';
+    h+='</div><button class="join-btn" onclick="event.stopPropagation();joinRoom(\''+escapeHtml(r.id)+'\')">Rejoindre</button></div>';
+  });
+  h+='</div>'; c.innerHTML=h;
+}
+
+/* CREATE ROOM */
+window.toggleCreateForm = function() {
+  S.createFormOpen=!S.createFormOpen;
+  var f=$("createForm");
+  if(S.createFormOpen){ f.classList.add("open"); setTimeout(function(){$("roomNameInput").focus();},300); }
+  else f.classList.remove("open");
+};
+
+window.selectType = function(el) {
+  document.querySelectorAll(".type-card").forEach(function(c){c.classList.remove("selected");});
+  el.classList.add("selected"); S.selectedType=el.getAttribute("data-type"); updateCreateBtn();
+};
+
+function updateCreateBtn() { $("confirmCreateBtn").disabled=!($("roomNameInput").value.trim()&&S.selectedType); }
+$("roomNameInput").addEventListener("input", updateCreateBtn);
+
+window.createRoom = function() {
+  var name=$("roomNameInput").value.trim(), type=S.selectedType;
+  if(!name||!type) return;
+  var btn=$("confirmCreateBtn"); btn.disabled=true; btn.textContent="Cr\u00e9ation...";
+  apiPost("/api/rooms",{name:name,type:type,phone:getMyPhone(),host_name:getMyName()||"H\u00f4te"}).then(function(r){
+    if(!r.ok) throw new Error("Err "+r.status); return r.json();
+  }).then(function(data){
+    btn.textContent="Cr\u00e9er"; $("roomNameInput").value=""; S.selectedType="";
+    document.querySelectorAll(".type-card").forEach(function(c){c.classList.remove("selected");});
+    S.createFormOpen=false; $("createForm").classList.remove("open"); updateCreateBtn();
+    showRoom(data.room_id);
+  }).catch(function(err){
+    btn.textContent="Cr\u00e9er"; btn.disabled=false;
+    showToast("Impossible de cr\u00e9er le salon","error");
+  });
+};
+
+/* JOIN */
+window.joinRoom = function(roomId) {
+  apiPost("/api/rooms/"+roomId+"/join",{phone:getMyPhone()}).then(function(r){
+    if(!r.ok&&r.status!==409) throw new Error("Err"); showRoom(roomId);
+  }).catch(function(err){ showToast("Impossible de rejoindre","error"); });
+};
+
+/* ROOM DATA */
+function loadRoomData(roomId) {
+  apiFetch("/api/rooms/"+roomId).then(function(r){
+    if(!r.ok) throw new Error("Err "+r.status); return r.json();
+  }).then(function(data){
+    S.currentRoomData=data; S.myPhone=getMyPhone(); S.myName=getMyName();
+    S.isHost=(data.host_phone===S.myPhone);
+    $("roomTitle").textContent=data.name||"Salon";
+    document.title="Luna Salon - "+(data.name||"Salon");
+    var tk=data.type||"chat";
+    $("roomTypeBadge").textContent=(TYPE_ICONS[tk]||"")+" "+(TYPE_LABELS[tk]||tk);
+    if(S.isHost) show("closeRoomBtn"); else hide("closeRoomBtn");
+    S.participants=data.participants||[]; renderParticipants();
+    setupRoomLayout(tk);
+    if(data.messages&&data.messages.length){
+      data.messages.forEach(function(m){ addChatMessage(m,true); });
+      scrollToBottom(true);
+    }
+    if(data.youtube_url){
+      var vid=extractYtId(data.youtube_url);
+      if(vid){
+        var ap=(data.playback_state==="playing")?1:0, st=Math.floor(data.playback_time||0);
+        if(tk==="cinema") showYtEmbed("ytPlayer","videoPlaceholder",vid,ap,st);
+        else if(tk==="karaoke") showYtEmbed("karaokePlayer","karaokePlaceholder",vid,ap,st);
+      }
+    }
+    if(data.game_type&&data.game_state) updateGame({game_type:data.game_type,state:data.game_state});
+    connectWS(roomId);
+  }).catch(function(err){ showToast("Impossible de charger le salon","error"); showLobby(); });
+}
+
+/* ROOM LAYOUT */
+function setupRoomLayout(type) {
+  $("cinemaSection").classList.remove("active");
+  $("karaokeSection").classList.remove("active");
+  $("gamesSection").classList.remove("active");
+  $("chatPanel").classList.remove("compact");
+  if(type==="cinema"){
+    $("cinemaSection").classList.add("active"); $("chatPanel").classList.add("compact");
+    if(S.isHost) $("cinemaControls").classList.add("visible"); else $("cinemaControls").classList.remove("visible");
+  } else if(type==="karaoke"){
+    $("karaokeSection").classList.add("active"); $("chatPanel").classList.add("compact");
+    if(S.isHost){ $("spotlightControls").classList.add("visible"); $("karaokeUrlControls").classList.add("visible"); }
+    else { $("spotlightControls").classList.remove("visible"); $("karaokeUrlControls").classList.remove("visible"); }
+  } else if(type==="games"){
+    $("gamesSection").classList.add("active"); $("chatPanel").classList.add("compact");
+    if(S.isHost&&!S.currentRoomData.game_type) show("gameSelector");
+    else if(!S.currentRoomData.game_type) $("gameSelector").innerHTML='<div class="empty-state" style="padding:20px">En attente du choix de jeu par l\'h\u00f4te...</div>';
+  }
+}
+
+/* PARTICIPANTS */
+function renderParticipants() {
+  $("participantsCount").textContent=S.participants.length;
+  var h="";
+  S.participants.forEach(function(p){
+    var isH=(S.currentRoomData&&p.phone===S.currentRoomData.host_phone);
+    h+='<div class="participant"><span class="participant-dot"></span><span class="participant-name">'+escapeHtml(p.name||p.phone||"Inconnu")+'</span>';
+    if(isH) h+='<span class="host-badge">H\u00f4te</span>';
+    h+='</div>';
+  });
+  $("participantsList").innerHTML=h;
+  updateSpotlightSel();
+}
+
+window.toggleParticipants = function() {
+  S.participantsOpen=!S.participantsOpen;
+  if(S.participantsOpen){ $("participantsDrawer").classList.add("open"); $("participantsOverlay").classList.add("open"); }
+  else closeParticipants();
+};
+
+function closeParticipants() {
+  S.participantsOpen=false;
+  $("participantsDrawer").classList.remove("open"); $("participantsOverlay").classList.remove("open");
+}
+
+/* WEBSOCKET */
+function connectWS(roomId) {
+  disconnectWS();
+  var proto=(location.protocol==="https:")?"wss:":"ws:";
+  var url=proto+"//"+location.host+"/api/rooms/"+roomId+"/ws";
+  var params=[]; if(S.myPhone) params.push("phone="+encodeURIComponent(S.myPhone));
+  var t=getToken(); if(t) params.push("token="+encodeURIComponent(t));
+  if(params.length) url+="?"+params.join("&");
+  S.ws=new WebSocket(url);
+  S.ws.onopen=function(){ S.wsReconnectAttempts=0; hideWsStatus(); startPing(); };
+  S.ws.onmessage=function(e){ try{handleWsMsg(JSON.parse(e.data));}catch(err){} };
+  S.ws.onclose=function(){ stopPing(); if(S.view==="room"&&S.currentRoom===roomId) attemptReconnect(roomId); };
+  S.ws.onerror=function(){};
+}
+
+function disconnectWS() {
+  stopPing(); clearTimeout(S.wsReconnectTimer);
+  if(S.ws){ S.ws.onclose=null; S.ws.onerror=null; S.ws.onmessage=null; try{S.ws.close();}catch(e){} S.ws=null; }
+}
+
+function attemptReconnect(roomId) {
+  if(S.wsReconnectAttempts>=S.wsMaxReconnect){ showWsStatus("Connexion perdue. Rafra\u00eechissez.",true); return; }
+  S.wsReconnectAttempts++;
+  showWsStatus("Reconnexion... ("+S.wsReconnectAttempts+"/"+S.wsMaxReconnect+")",false);
+  S.wsReconnectTimer=setTimeout(function(){ if(S.view==="room"&&S.currentRoom===roomId) connectWS(roomId); },3000);
+}
+
+function showWsStatus(txt,isErr) {
+  var b=$("wsStatusBar"); $("wsStatusText").textContent=txt;
+  b.classList.add("visible"); if(isErr) b.classList.remove("reconnecting"); else b.classList.add("reconnecting");
+}
+function hideWsStatus() { $("wsStatusBar").classList.remove("visible"); }
+
+function startPing() { stopPing(); S.wsPingTimer=setInterval(function(){ wsSend({type:"ping"}); },30000); }
+function stopPing() { clearInterval(S.wsPingTimer); S.wsPingTimer=null; }
+function wsSend(o) { if(S.ws&&S.ws.readyState===WebSocket.OPEN) S.ws.send(JSON.stringify(o)); }
+
+/* WS MESSAGE HANDLER */
+function handleWsMsg(msg) {
+  switch(msg.type) {
+    case "chat": addChatMessage(msg,false); break;
+    case "typing": showTypingInd(msg.from); break;
+    case "reaction": showFloatingReaction(msg.emoji,msg.from); break;
+    case "gift": showGiftAnimation(msg); break;
+    case "join": handleJoin(msg); break;
+    case "leave": handleLeave(msg); break;
+    case "youtube_sync": syncYoutube(msg); break;
+    case "karaoke_spotlight": updateSpotlightDisp(msg); break;
+    case "game_update": updateGame(msg); break;
+    case "system": addSystemMsg(msg.content); break;
+    case "pong": break;
+  }
+}
+
+/* CHAT MESSAGES with avatar, grouping */
+function addChatMessage(msg, isHist) {
+  var container=$("messagesContainer");
+  var isSelf=(msg.from_phone===S.myPhone)||(msg.from===S.myName&&!msg.from_phone);
+  var fromName=msg.from||"";
+  var fromPhone=msg.from_phone||"";
+
+  // Grouping: same sender as last message
+  var isGrouped=(S.lastMsgPhone===fromPhone&&fromPhone);
+  S.lastMsgPhone=fromPhone;
+
+  var div=document.createElement("div");
+  div.className="msg "+(isSelf?"msg-self":"msg-other")+(isGrouped?" msg-grouped":"");
+
+  var initials=getInitials(isSelf?S.myName:fromName);
+  var color=avatarColor(isSelf?S.myName:fromName);
+
+  var h='<div class="msg-avatar'+(isGrouped?" hidden-avatar":"")+'" style="background:'+color+'">'+escapeHtml(initials)+'</div>';
+  h+='<div class="msg-body">';
+  if(!isSelf&&fromName) h+='<span class="msg-name'+(isGrouped?" hidden-name":"")+'">'+escapeHtml(fromName)+'</span>';
+  h+='<span class="msg-bubble">'+escapeHtml(msg.content||"")+'</span>';
+  h+='<span class="msg-time">'+formatTime(msg.ts||new Date().toISOString())+'</span>';
+  h+='</div>';
+  div.innerHTML=h;
+
+  container.appendChild(div);
+  if(!isHist){
+    if(S.userHasScrolled){
+      S.unreadCount++;
+      showScrollBtn();
+    } else {
+      scrollToBottom(false);
+    }
+  }
+}
+
+function addSystemMsg(text) {
+  S.lastMsgPhone="";
+  var div=document.createElement("div"); div.className="msg msg-system"; div.textContent=text;
+  $("messagesContainer").appendChild(div);
+  if(!S.userHasScrolled) scrollToBottom(false);
+}
+
+/* SCROLL */
+function scrollToBottom(force) {
+  var c=$("messagesContainer"); c.scrollTop=c.scrollHeight;
+  if(force){ S.userHasScrolled=false; S.unreadCount=0; hideScrollBtn(); }
+}
+
+function showScrollBtn() {
+  var btn=$("scrollBottomBtn"); btn.classList.add("visible");
+  var badge=$("unreadBadge");
+  if(S.unreadCount>0){ badge.textContent=S.unreadCount; show(badge); } else hide(badge);
+}
+function hideScrollBtn() { $("scrollBottomBtn").classList.remove("visible"); hide("unreadBadge"); }
+
+$("messagesContainer").addEventListener("scroll",function(){
+  var c=$("messagesContainer");
+  var atBottom=(c.scrollHeight-c.scrollTop-c.clientHeight)<50;
+  S.userHasScrolled=!atBottom;
+  if(atBottom){ S.unreadCount=0; hideScrollBtn(); }
+});
+
+/* CHAT INPUT */
+window.sendChat = function() {
+  var inp=$("chatInput"), txt=inp.value.trim(); if(!txt) return;
+  wsSend({type:"chat",content:txt}); inp.value=""; inp.focus(); S.userHasScrolled=false;
+};
+
+$("chatInput").addEventListener("keydown",function(e){
+  if(e.key==="Enter"&&!e.shiftKey){ e.preventDefault(); sendChat(); }
+});
+
+$("chatInput").addEventListener("input",function(){
+  var now=Date.now();
+  if(now-S.lastTypingSent>1000){ S.lastTypingSent=now; wsSend({type:"typing"}); }
+});
+
+/* TYPING */
+function showTypingInd(name) {
+  if(name===S.myName) return;
+  $("typingName").textContent=name||"...";
+  $("typingIndicator").classList.add("visible");
+  clearTimeout(S.typingTimer);
+  S.typingTimer=setTimeout(function(){ $("typingIndicator").classList.remove("visible"); },3000);
+}
+
+/* REACTIONS */
+window.sendReaction = function(emoji) {
+  wsSend({type:"reaction",emoji:emoji});
+  showFloatingReaction(emoji,S.myName);
+};
+
+function showFloatingReaction(emoji) {
+  var el=document.createElement("div"); el.className="floating-reaction"; el.textContent=emoji;
+  var cp=$("chatPanel"); var rect=cp.getBoundingClientRect();
+  el.style.left=(rect.left+Math.random()*(rect.width-40)+20)+"px";
+  el.style.top=(rect.top+rect.height*0.3+Math.random()*60)+"px";
+  document.body.appendChild(el);
+  setTimeout(function(){ if(el.parentNode) el.parentNode.removeChild(el); },1200);
+}
+
+/* GIFTS */
+window.toggleGiftPanel = function() {
+  S.giftPanelOpen=!S.giftPanelOpen;
+  if(S.giftPanelOpen) $("giftPanel").classList.add("open"); else $("giftPanel").classList.remove("open");
+};
+
+function sendGift(gift) {
+  S.giftPanelOpen=false; $("giftPanel").classList.remove("open");
+  wsSend({type:"reaction",emoji:gift.emoji});
+  showGiftAnimation({emoji:gift.emoji,name:gift.name,stars:gift.stars,full:gift.full,from:S.myName});
+  addSystemMsg(S.myName+" a offert "+gift.emoji+" "+gift.name+" ("+gift.stars+"\u2605)");
+}
+
+function showGiftAnimation(msg) {
+  var emoji=msg.emoji||"\uD83C\uDF39";
+  var isFull=msg.full||(msg.stars&&msg.stars>=10);
+
+  if(isFull) {
+    var overlay=document.createElement("div"); overlay.className="fullscreen-gift";
+    overlay.innerHTML='<div class="gift-content">'+emoji+'</div><div class="gift-label">'+escapeHtml(msg.from||"")+" offre "+(msg.name||emoji)+'</div>';
+    document.body.appendChild(overlay);
+    setTimeout(function(){ if(overlay.parentNode) overlay.parentNode.removeChild(overlay); },2800);
+  } else {
+    for(var i=0;i<3;i++){
+      (function(delay){
+        setTimeout(function(){
+          var el=document.createElement("div"); el.className="floating-gift"; el.textContent=emoji;
+          var cp=$("chatPanel"); var rect=cp.getBoundingClientRect();
+          el.style.left=(rect.left+Math.random()*(rect.width-50)+25)+"px";
+          el.style.top=(rect.bottom-80-Math.random()*40)+"px";
+          document.body.appendChild(el);
+          setTimeout(function(){ if(el.parentNode) el.parentNode.removeChild(el); },1800);
+        },delay);
+      })(i*200);
+    }
+  }
+}
+
+/* JOIN/LEAVE */
+function handleJoin(msg) {
+  addSystemMsg((msg.name||"Quelqu'un")+" a rejoint le salon");
+  if(msg.count!==undefined) $("participantsCount").textContent=msg.count;
+  refreshParticipants();
+}
+
+function handleLeave(msg) {
+  addSystemMsg((msg.name||"Quelqu'un")+" a quitt\u00e9 le salon");
+  if(msg.count!==undefined) $("participantsCount").textContent=msg.count;
+  refreshParticipants();
+}
+
+function refreshParticipants() {
+  if(!S.currentRoom) return;
+  apiFetch("/api/rooms/"+S.currentRoom).then(function(r){if(!r.ok)return;return r.json();}).then(function(d){
+    if(!d) return; S.currentRoomData=d; S.participants=d.participants||[]; renderParticipants();
+  }).catch(function(){});
+}
+
+/* LEAVE/CLOSE */
+window.leaveRoom = function() { disconnectWS(); showLobby(); };
+window.closeRoom = function() {
+  if(!S.currentRoom) return;
+  if(!confirm("Fermer d\u00e9finitivement ce salon ?")) return;
+  apiDelete("/api/rooms/"+S.currentRoom).then(function(r){
+    if(!r.ok) throw new Error("Err"); showToast("Salon ferm\u00e9","success"); showLobby();
+  }).catch(function(){ showToast("Impossible de fermer le salon","error"); });
+};
+
+/* YOUTUBE */
+function extractYtId(url) {
+  if(!url) return null;
+  var m=url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|v\/|shorts\/))([a-zA-Z0-9_-]{11})/);
+  return m?m[1]:null;
+}
+
+function showYtEmbed(iframeId, placId, vid, autoplay, start) {
+  var iframe=$(iframeId), plac=$(placId); if(!iframe) return;
+  iframe.src="https://www.youtube.com/embed/"+vid+"?enablejsapi=1&autoplay="+(autoplay||0)+(start>0?"&start="+Math.floor(start):"");
+  iframe.style.display=""; if(plac) plac.style.display="none";
+}
+
+window.setYoutubeUrl = function() {
+  var inp=$("ytUrlInput"), url=inp.value.trim(); if(!url) return;
+  var vid=extractYtId(url); if(!vid){ showToast("Lien YouTube invalide","error"); return; }
+  wsSend({type:"youtube_set",url:url,title:"Video"}); inp.value="";
+};
+
+window.setKaraokeUrl = function() {
+  var inp=$("karaokeUrlInput"), url=inp.value.trim(); if(!url) return;
+  var vid=extractYtId(url); if(!vid){ showToast("Lien YouTube invalide","error"); return; }
+  wsSend({type:"youtube_set",url:url,title:"Karaok\u00e9"}); inp.value="";
+};
+
+function syncYoutube(msg) {
+  var vid=extractYtId(msg.url); if(!vid) return;
+  var ap=(msg.state==="playing")?1:0, t=msg.time||0;
+  var rtype=S.currentRoomData?S.currentRoomData.type:"cinema";
+  if(rtype==="karaoke") showYtEmbed("karaokePlayer","karaokePlaceholder",vid,ap,t);
+  else showYtEmbed("ytPlayer","videoPlaceholder",vid,ap,t);
+}
+
+/* KARAOKE SPOTLIGHT */
+function updateSpotlightSel() {
+  var sel=$("spotlightSelect"); if(!sel) return;
+  var v=sel.value; sel.innerHTML='<option value="">Choisir le chanteur...</option>';
+  S.participants.forEach(function(p){
+    var o=document.createElement("option"); o.value=p.phone||""; o.textContent=p.name||p.phone||"Inconnu";
+    o.setAttribute("data-name",p.name||""); sel.appendChild(o);
+  });
+  if(v) sel.value=v;
+}
+
+window.setSpotlight = function() {
+  var sel=$("spotlightSelect"), ph=sel.value; if(!ph) return;
+  var o=sel.options[sel.selectedIndex], nm=o.getAttribute("data-name")||o.textContent;
+  wsSend({type:"karaoke_spotlight",phone:ph,name:nm});
+};
+
+function updateSpotlightDisp(msg) {
+  $("spotlightName").textContent=msg.name||"???"; $("spotlightBar").classList.add("visible");
+}
+
+/* GAMES - GENERAL */
+function resetGameViews() {
+  $("quizView").classList.remove("active");
+  $("morpionView").classList.remove("active");
+  $("memoryView").classList.remove("active");
+  show("gameSelector"); S.quizAnswered=false; S.memoryLocked=false;
+}
+
+window.startGame = function(type) {
+  if(!S.isHost){ showToast("Seul l'h\u00f4te peut lancer un jeu","error"); return; }
+  wsSend({type:"game_start",game_type:type});
+};
+
+function updateGame(msg) {
+  var gt=msg.game_type, gs=msg.state; if(!gt||!gs) return;
+  hide("gameSelector");
+  $("quizView").classList.remove("active");
+  $("morpionView").classList.remove("active");
+  $("memoryView").classList.remove("active");
+  if(gt==="quiz"){ $("quizView").classList.add("active"); renderQuiz(gs); }
+  else if(gt==="morpion"){ $("morpionView").classList.add("active"); renderMorpion(gs); }
+  else if(gt==="memory"){ $("memoryView").classList.add("active"); renderMemory(gs); }
+}
+
+/* QUIZ */
+var quizTimerInt=null;
+
+function renderQuiz(gs) {
+  if(gs.status==="finished"){ renderQuizFinished(gs); return; }
+  var qIdx=gs.current_question||0;
+  var questions=gs.questions||[];
+  var total=gs.total_questions||questions.length||5;
+  $("quizProgress").textContent="Question "+(qIdx+1)+"/"+total;
+
+  var q=questions[qIdx]; if(!q) return;
+  $("quizQuestion").textContent=q.q||"";
+
+  renderQuizTimer(gs.timer);
+
+  var choicesEl=$("quizChoices"); choicesEl.innerHTML="";
+  var letters=["A","B","C","D"];
+  var choices=q.choices||[];
+  var answered=S.quizAnswered;
+  var myAnswered=(gs.answers&&gs.answers[S.myPhone]!==undefined);
+  if(myAnswered) answered=true;
+
+  choices.forEach(function(choice,idx){
+    var btn=document.createElement("button"); btn.className="quiz-choice";
+    btn.textContent=letters[idx]+". "+choice;
+    if(answered) btn.classList.add("answered");
+    if(!answered){
+      btn.addEventListener("click",function(){
+        S.quizAnswered=true;
+        wsSend({type:"game_action",action:{answer:idx}});
+        document.querySelectorAll(".quiz-choice").forEach(function(b){b.classList.add("answered");});
+        btn.classList.add("selected");
+      });
+    }
+    choicesEl.appendChild(btn);
+  });
+
+  // Reset quizAnswered for next question if question changed
+  if(!myAnswered) S.quizAnswered=false;
+
+  renderScoreRows($("quizScoreRows"),gs.scores,"pts");
+}
+
+function renderQuizTimer(seconds) {
+  clearInterval(quizTimerInt);
+  if(seconds===undefined||seconds===null){ $("quizTimer").textContent=""; return; }
+  var rem=seconds;
+  function upd(){
+    $("quizTimer").textContent="\u23F1 "+rem+"s";
+    if(rem<=5) $("quizTimer").classList.add("urgent"); else $("quizTimer").classList.remove("urgent");
+    rem--; if(rem<0) clearInterval(quizTimerInt);
+  }
+  upd(); quizTimerInt=setInterval(upd,1000);
+}
+
+function renderQuizFinished(gs) {
+  clearInterval(quizTimerInt);
+  $("quizChoices").innerHTML=""; $("quizProgress").textContent="Termin\u00e9 !"; $("quizTimer").textContent="";
+  // Find winner
+  var scores=gs.scores||{}, best="",bestPts=-1;
+  for(var k in scores){ if(scores.hasOwnProperty(k)&&scores[k]>bestPts){bestPts=scores[k];best=k;}}
+  $("quizQuestion").innerHTML='<div class="quiz-finished"><div class="trophy">\uD83C\uDFC6</div><div>Vainqueur :</div><div class="winner-name">'+escapeHtml(best||"Personne")+'</div></div>';
+  renderScoreRows($("quizScoreRows"),scores,"pts");
+  if(S.isHost) show("gameSelector");
+}
+
+/* MORPION */
+function renderMorpion(gs) {
+  var grid=$("morpionGrid");
+  var board=gs.board||[0,0,0,0,0,0,0,0,0];
+  var status=gs.status||"playing";
+  var winner=gs.winner;
+  var playerX=gs.player_x, playerO=gs.player_o, turn=gs.turn;
+  var statusEl=$("morpionStatus");
+
+  if(status==="won"&&winner){
+    var wName=(winner===S.myPhone)?"Vous":winner;
+    statusEl.textContent=wName+" a gagn\u00e9 !"; statusEl.classList.add("winner");
+    if(S.isHost) show("morpionRestart");
+  } else if(status==="draw"){
+    statusEl.textContent="\u00c9galit\u00e9 !"; statusEl.classList.add("winner");
+    if(S.isHost) show("morpionRestart");
+  } else {
+    statusEl.classList.remove("winner"); hide("morpionRestart");
+    var isMy=(turn===S.myPhone);
+    var sym=(turn===playerX)?"\u274C":"\u2B55";
+    statusEl.textContent=(isMy?"Votre tour":"Tour de "+turn)+" ("+sym+")";
+  }
+
+  grid.innerHTML="";
+  for(var i=0;i<9;i++){
+    var cell=document.createElement("div"); cell.className="morpion-cell"; cell.setAttribute("data-cell",i);
+    if(board[i]){
+      cell.textContent=(board[i]===1)?"\u274C":"\u2B55";
+      cell.classList.add("taken");
+    }
+    if(!board[i]&&!winner&&status==="playing"&&turn===S.myPhone){
+      (function(idx){cell.addEventListener("click",function(){ wsSend({type:"game_action",action:{cell:idx}}); });})(i);
+    } else if(!board[i]){
+      cell.style.cursor="default";
+    }
+    grid.appendChild(cell);
+  }
+}
+
+/* MEMORY */
+function renderMemory(gs) {
+  var grid=$("memoryGrid");
+  var cards=gs.cards||[];
+  var matched=gs.matched||[];
+  var selected=gs.selected||[];
+  var currentTurn=gs.current_turn;
+  var scores=gs.scores||{};
+  var turnOrder=gs.turn_order||[];
+  var status=gs.status||"playing";
+  var lastReveal=gs._last_reveal||[];
+  var lastMatched=gs._last_matched;
+  var statusEl=$("memoryStatus");
+
+  if(status==="finished"){
+    var best="",bestPts=-1;
+    for(var k in scores){ if(scores.hasOwnProperty(k)&&scores[k]>bestPts){bestPts=scores[k];best=k;}}
+    statusEl.textContent="\uD83C\uDFC6 "+(best||"Vainqueur")+" a gagn\u00e9 !";
+    if(S.isHost) show("gameSelector");
+  } else {
+    var isMy=(currentTurn===S.myPhone);
+    statusEl.textContent=isMy?"Votre tour \u2014 retournez 2 cartes":"Tour de "+(currentTurn||"???");
+  }
+
+  grid.innerHTML="";
+  for(var i=0;i<cards.length;i++){
+    var card=document.createElement("div"); card.className="memory-card"; card.setAttribute("data-idx",i);
+    var isMatched=matched[i];
+    var isSelected=selected.indexOf(i)>=0;
+    var isLastRev=lastReveal.indexOf(i)>=0;
+    var emoji=MEMORY_EMOJIS[cards[i]]||"?";
+
+    if(isMatched){ card.classList.add("matched","flipped"); }
+    else if(isSelected||isLastRev){ card.classList.add("flipped"); }
+
+    card.innerHTML='<div class="card-face card-front">?</div><div class="card-face card-back">'+emoji+'</div>';
+
+    if(!isMatched&&!isSelected&&!isLastRev&&currentTurn===S.myPhone&&status!=="finished"){
+      (function(idx){card.addEventListener("click",function(){
+        if(S.memoryLocked) return;
+        wsSend({type:"game_action",action:{card:idx}});
+      });})(i);
+    } else if(!isMatched&&!isSelected&&!isLastRev){
+      card.style.cursor="default";
+    }
+    grid.appendChild(card);
+  }
+
+  if(lastReveal.length){
+    S.memoryLocked=true;
+    setTimeout(function(){ S.memoryLocked=false; },1200);
+  } else {
+    S.memoryLocked=false;
+  }
+
+  renderScoreRows($("memoryScoreRows"),scores,"paires");
+}
+
+/* SHARED SCORE RENDERER */
+function renderScoreRows(container,scores,unit) {
+  if(!scores||typeof scores!=="object"){ container.innerHTML=""; return; }
+  var entries=[];
+  for(var k in scores){ if(scores.hasOwnProperty(k)) entries.push({name:k,pts:scores[k]}); }
+  entries.sort(function(a,b){return b.pts-a.pts;});
+  var h="";
+  entries.forEach(function(e){
+    h+='<div class="score-row"><span class="score-name">'+escapeHtml(e.name)+'</span><span class="score-pts">'+e.pts+" "+unit+'</span></div>';
+  });
+  container.innerHTML=h||'<div class="score-row"><span class="score-name" style="color:var(--text-dim)">Aucun score</span></div>';
+}
+
+/* INIT */
+function init() {
+  S.myPhone=getMyPhone(); S.myName=getMyName();
+  if(!getToken()){ window.location="/"; return; }
+
+  buildReactionsBar();
+  buildGiftGrid();
+
+  if(autoRoomId){
+    var ph=memberPhone||getMyPhone();
+    apiPost("/api/rooms/"+autoRoomId+"/join",{phone:ph}).then(function(){showRoom(autoRoomId);}).catch(function(){showRoom(autoRoomId);});
+  } else {
+    showLobby();
+  }
+}
+
+// Visibility change reconnect
+document.addEventListener("visibilitychange",function(){
+  if(!document.hidden&&S.view==="room"&&S.currentRoom){
+    if(!S.ws||S.ws.readyState!==WebSocket.OPEN){ S.wsReconnectAttempts=0; connectWS(S.currentRoom); }
+  }
+});
+
+// Back button
+window.addEventListener("popstate",function(){ if(S.view==="room") leaveRoom(); });
+
+// Push state on room enter
+var _showRoom=showRoom;
+showRoom=function(roomId){
+  if(window.history.pushState) window.history.pushState({room:roomId},"","?room="+roomId);
+  _showRoom(roomId);
+};
+
+init();
+
+})();
+</script>
+</body>
+</html>

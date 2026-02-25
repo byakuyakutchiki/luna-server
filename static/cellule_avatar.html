@@ -1,0 +1,1311 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AVATAR OPS — War Room</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+:root {
+  --bg-primary: #06060f;
+  --bg-secondary: #0c0c1d;
+  --bg-card: #111128;
+  --bg-card-hover: #16163a;
+  --border: #1e1e4a;
+  --border-active: #f97316;
+  --purple: #a78bfa;
+  --purple-dim: #7c5cbf;
+  --green: #22c55e;
+  --green-dim: #166534;
+  --red: #ef4444;
+  --yellow: #eab308;
+  --blue: #3b82f6;
+  --orange: #f97316;
+  --cyan: #06b6d4;
+  --pink: #ec4899;
+  --text: #e2e8f0;
+  --text-dim: #64748b;
+  --text-muted: #475569;
+}
+
+body {
+  background: var(--bg-primary);
+  color: var(--text);
+  font-family: 'Inter', system-ui, sans-serif;
+  overflow: hidden;
+  height: 100vh;
+}
+
+/* ===== TOP BAR ===== */
+.topbar {
+  height: 52px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
+  gap: 20px;
+  z-index: 100;
+}
+.topbar-logo {
+  display: flex; align-items: center; gap: 10px;
+  font-weight: 800; font-size: 0.95em; color: var(--orange);
+  letter-spacing: 2px;
+}
+.topbar-logo .dot {
+  width: 8px; height: 8px; background: var(--red);
+  border-radius: 50%; animation: pulse 1.5s infinite;
+}
+@keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.3; } }
+
+.topbar-center {
+  flex: 1; display: flex; align-items: center; justify-content: center; gap: 24px;
+}
+.topbar-session {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--bg-card);
+  padding: 6px 14px; border-radius: 6px;
+  font-size: 0.78em; color: var(--text-dim);
+  border: 1px solid var(--border);
+}
+.topbar-session .live { color: var(--red); font-weight: 600; }
+.topbar-right {
+  display: flex; align-items: center; gap: 16px;
+}
+.clock {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.82em; color: var(--text-dim);
+  letter-spacing: 1px;
+}
+.notif-badge {
+  position: relative; cursor: pointer;
+  width: 36px; height: 36px; border-radius: 8px;
+  background: var(--bg-card); border: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.9em; transition: all 0.3s;
+}
+.notif-badge:hover { border-color: var(--orange); background: var(--bg-card-hover); }
+.notif-badge .count {
+  position: absolute; top: -4px; right: -4px;
+  background: var(--red); color: white; font-size: 0.6em;
+  font-weight: 700; width: 16px; height: 16px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+}
+
+/* ===== MAIN GRID ===== */
+.main-grid {
+  display: grid;
+  grid-template-columns: 260px 1fr 320px;
+  height: calc(100vh - 52px);
+}
+
+/* ===== LEFT PANEL - AGENTS ===== */
+.left-panel {
+  background: var(--bg-secondary);
+  border-right: 1px solid var(--border);
+  display: flex; flex-direction: column;
+  overflow: hidden;
+}
+.panel-header {
+  padding: 16px 16px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.panel-header h2 {
+  font-size: 0.7em; text-transform: uppercase;
+  letter-spacing: 2px; color: var(--text-dim);
+  font-weight: 600;
+}
+.agents-list {
+  flex: 1; overflow-y: auto; padding: 8px;
+}
+
+/* Agent Card */
+.agent-card {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: 1px solid transparent;
+  margin-bottom: 4px;
+  position: relative;
+}
+.agent-card:hover { background: var(--bg-card); }
+.agent-card.active {
+  background: var(--bg-card);
+  border-color: var(--border-active);
+  box-shadow: 0 0 20px rgba(249,115,22,0.08);
+}
+
+/* Avatar */
+.avatar {
+  width: 40px; height: 40px; border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: 0.9em; color: white;
+  flex-shrink: 0; position: relative;
+}
+.avatar.lg { width: 48px; height: 48px; font-size: 1.1em; border-radius: 14px; }
+.avatar .status-dot {
+  position: absolute; bottom: -1px; right: -1px;
+  width: 12px; height: 12px; border-radius: 50%;
+  border: 2px solid var(--bg-secondary);
+}
+.status-online { background: var(--green); }
+
+.bg-vision { background: linear-gradient(135deg, #ec4899, #be185d); }
+.bg-model3d { background: linear-gradient(135deg, #f97316, #c2410c); }
+.bg-dev { background: linear-gradient(135deg, #3b82f6, #1d4ed8); }
+.bg-research { background: linear-gradient(135deg, #22c55e, #15803d); }
+.bg-streaming { background: linear-gradient(135deg, #a855f7, #7c3aed); }
+.bg-founder { background: linear-gradient(135deg, #f97316, #dc2626); }
+
+.agent-info { flex: 1; min-width: 0; }
+.agent-name { font-size: 0.82em; font-weight: 600; color: var(--text); }
+.agent-role { font-size: 0.7em; color: var(--text-dim); margin-top: 1px; }
+.agent-status-text {
+  font-size: 0.65em; color: var(--green); margin-top: 2px;
+  display: flex; align-items: center; gap: 4px;
+}
+
+/* Founder Section */
+.founder-section {
+  padding: 12px;
+  border-top: 1px solid var(--border);
+}
+.founder-card {
+  background: linear-gradient(135deg, #451a03, #7c2d12);
+  border: 1px solid rgba(249,115,22,0.2);
+  border-radius: 12px;
+  padding: 14px;
+  display: flex; align-items: center; gap: 12px;
+}
+.founder-meta { flex: 1; }
+.founder-meta h3 { font-size: 0.85em; color: var(--orange); }
+.founder-meta p { font-size: 0.7em; color: var(--text-dim); margin-top: 2px; }
+.founder-badge {
+  font-size: 0.6em; color: var(--red); font-weight: 600;
+  background: rgba(239,68,68,0.1); padding: 2px 8px; border-radius: 4px;
+  margin-top: 4px; display: inline-block;
+}
+
+/* ===== CENTER - MESSAGES ===== */
+.center-panel {
+  display: flex; flex-direction: column;
+  background: var(--bg-primary);
+  overflow: hidden;
+}
+
+/* Channel Header */
+.channel-header {
+  padding: 14px 24px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+  background: var(--bg-secondary);
+}
+.channel-info { display: flex; align-items: center; gap: 12px; }
+.channel-name { font-weight: 700; font-size: 0.95em; }
+.channel-topic { font-size: 0.75em; color: var(--text-dim); }
+.channel-tabs {
+  display: flex; gap: 0;
+}
+.ch-tab {
+  padding: 6px 16px; font-size: 0.75em; font-weight: 600;
+  color: var(--text-dim); cursor: pointer;
+  border: 1px solid var(--border); border-radius: 6px;
+  margin-left: -1px; transition: all 0.2s;
+  background: var(--bg-card);
+}
+.ch-tab:first-child { border-radius: 6px 0 0 6px; }
+.ch-tab:last-child { border-radius: 0 6px 6px 0; }
+.ch-tab:hover { color: var(--text); background: var(--bg-card-hover); }
+.ch-tab.active { color: var(--orange); border-color: var(--orange); background: rgba(249,115,22,0.08); z-index: 1; }
+
+/* Messages Area */
+.messages-area {
+  flex: 1; overflow-y: auto; padding: 20px 24px;
+}
+
+/* Message */
+.message {
+  display: flex; gap: 14px;
+  margin-bottom: 20px;
+  padding: 12px 16px;
+  border-radius: 12px;
+  transition: background 0.2s;
+  max-width: 100%;
+}
+.message:hover { background: rgba(255,255,255,0.02); }
+.message.pinned {
+  background: rgba(249,115,22,0.04);
+  border: 1px solid rgba(249,115,22,0.1);
+}
+.msg-avatar {
+  width: 36px; height: 36px; border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: 0.8em; color: white;
+  flex-shrink: 0;
+}
+.msg-body { flex: 1; min-width: 0; }
+.msg-header {
+  display: flex; align-items: baseline; gap: 8px; margin-bottom: 4px;
+}
+.msg-author { font-weight: 700; font-size: 0.85em; }
+.msg-badge {
+  font-size: 0.6em; font-weight: 600; padding: 1px 6px;
+  border-radius: 3px; text-transform: uppercase; letter-spacing: 0.5px;
+}
+.badge-vision { background: rgba(236,72,153,0.15); color: var(--pink); }
+.badge-model3d { background: rgba(249,115,22,0.15); color: var(--orange); }
+.badge-dev { background: rgba(59,130,246,0.15); color: var(--blue); }
+.badge-research { background: rgba(34,197,94,0.15); color: var(--green); }
+.badge-streaming { background: rgba(168,85,247,0.15); color: #a855f7; }
+.msg-time { font-size: 0.7em; color: var(--text-muted); }
+.msg-text {
+  font-size: 0.85em; line-height: 1.7; color: #c8d0dc;
+}
+.msg-text strong { color: var(--text); font-weight: 600; }
+.msg-text em { color: var(--yellow); font-style: normal; font-weight: 600; }
+.msg-text .stat { color: var(--green); font-weight: 700; }
+.msg-text ul { margin: 6px 0 6px 18px; }
+.msg-text li { margin-bottom: 3px; }
+
+/* Tables in messages */
+.msg-text table { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 0.92em; }
+.msg-text th {
+  text-align: left; padding: 8px 10px;
+  background: rgba(249,115,22,0.06);
+  color: var(--orange); font-weight: 600; font-size: 0.9em;
+  border-bottom: 1px solid var(--border);
+}
+.msg-text td { padding: 7px 10px; border-bottom: 1px solid rgba(30,30,74,0.5); }
+.msg-text tr:hover td { background: rgba(255,255,255,0.015); }
+
+/* Callouts */
+.callout {
+  padding: 10px 14px; margin: 10px 0;
+  border-radius: 8px; font-size: 0.92em;
+  border-left: 3px solid;
+}
+.callout-orange { border-color: var(--orange); background: rgba(249,115,22,0.06); }
+.callout-red { border-color: var(--red); background: rgba(239,68,68,0.06); }
+.callout-green { border-color: var(--green); background: rgba(34,197,94,0.06); }
+.callout-yellow { border-color: var(--yellow); background: rgba(234,179,8,0.06); }
+.callout-blue { border-color: var(--blue); background: rgba(59,130,246,0.06); }
+
+.quote-block {
+  border-left: 3px solid var(--orange);
+  padding: 10px 14px; margin: 10px 0;
+  background: rgba(249,115,22,0.04);
+  border-radius: 0 8px 8px 0;
+  font-style: italic; color: #94a3b8; font-size: 1.02em;
+}
+
+/* Thread divider */
+.thread-divider {
+  display: flex; align-items: center; gap: 12px;
+  margin: 24px 0 16px; padding: 0 16px;
+}
+.thread-divider span {
+  font-size: 0.7em; color: var(--text-muted);
+  font-weight: 600; text-transform: uppercase;
+  letter-spacing: 1px; white-space: nowrap;
+}
+.thread-divider::before, .thread-divider::after {
+  content: ''; flex: 1; height: 1px;
+  background: var(--border);
+}
+
+/* Tab content */
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+
+/* ===== RIGHT PANEL - INTEL ===== */
+.right-panel {
+  background: var(--bg-secondary);
+  border-left: 1px solid var(--border);
+  display: flex; flex-direction: column;
+  overflow: hidden;
+}
+.right-panel .panel-header {
+  display: flex; align-items: center; justify-content: space-between;
+}
+.right-tabs {
+  display: flex; gap: 0;
+}
+.r-tab {
+  padding: 4px 10px; font-size: 0.65em;
+  font-weight: 600; color: var(--text-dim);
+  cursor: pointer; border-radius: 4px;
+  transition: all 0.2s;
+}
+.r-tab:hover { color: var(--text); }
+.r-tab.active { color: var(--orange); background: rgba(249,115,22,0.1); }
+
+.right-content {
+  flex: 1; overflow-y: auto; padding: 0 12px 12px;
+}
+.right-tab-content { display: none; }
+.right-tab-content.active { display: block; }
+
+/* KPI Grid */
+.kpi-grid {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 8px; margin-bottom: 16px;
+}
+.kpi-card {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: 10px; padding: 12px; text-align: center;
+}
+.kpi-label { font-size: 0.65em; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px; }
+.kpi-val { font-size: 1.4em; font-weight: 800; margin: 4px 0; font-family: 'JetBrains Mono', monospace; }
+.kpi-sub { font-size: 0.6em; color: var(--text-muted); }
+.c-orange { color: var(--orange); }
+.c-green { color: var(--green); }
+.c-yellow { color: var(--yellow); }
+.c-blue { color: var(--blue); }
+.c-red { color: var(--red); }
+.c-cyan { color: var(--cyan); }
+.c-purple { color: var(--purple); }
+
+/* Section title */
+.section-title {
+  font-size: 0.65em; color: var(--text-dim); font-weight: 600;
+  text-transform: uppercase; letter-spacing: 1.5px;
+  margin: 16px 0 10px; padding: 0 4px;
+}
+
+/* Progress bars */
+.progress-section { margin-bottom: 16px; }
+.progress-item { margin-bottom: 10px; }
+.progress-label {
+  display: flex; justify-content: space-between;
+  font-size: 0.72em; color: var(--text-dim); margin-bottom: 4px;
+}
+.progress-bar {
+  height: 6px; background: var(--bg-card);
+  border-radius: 3px; overflow: hidden;
+}
+.progress-fill {
+  height: 100%; border-radius: 3px;
+  transition: width 1.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.fill-green { background: var(--green); }
+.fill-orange { background: var(--orange); }
+.fill-yellow { background: var(--yellow); }
+.fill-blue { background: var(--blue); }
+.fill-red { background: var(--red); }
+.fill-purple { background: var(--purple); }
+
+/* Priority items */
+.priority-item {
+  display: flex; gap: 10px; align-items: flex-start;
+  padding: 10px; background: var(--bg-card);
+  border: 1px solid var(--border); border-radius: 8px;
+  margin-bottom: 6px;
+}
+.priority-num {
+  width: 24px; height: 24px; border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.7em; font-weight: 800; flex-shrink: 0;
+}
+.p-critical { background: rgba(239,68,68,0.15); color: var(--red); }
+.p-high { background: rgba(249,115,22,0.15); color: var(--orange); }
+.p-medium { background: rgba(234,179,8,0.15); color: var(--yellow); }
+.priority-text { font-size: 0.75em; line-height: 1.5; }
+.priority-text strong { color: var(--text); }
+
+/* Threat/Opp cards */
+.threat-card, .opp-card {
+  padding: 12px; border-radius: 8px; margin-bottom: 8px;
+  font-size: 0.75em; line-height: 1.5;
+}
+.threat-card {
+  background: rgba(239,68,68,0.04);
+  border: 1px solid rgba(239,68,68,0.1);
+}
+.threat-card h4 { color: var(--red); font-size: 0.95em; margin-bottom: 4px; }
+.opp-card {
+  background: rgba(34,197,94,0.04);
+  border: 1px solid rgba(34,197,94,0.1);
+}
+.opp-card h4 { color: var(--green); font-size: 0.95em; margin-bottom: 4px; }
+
+.pin { font-size: 0.7em; color: var(--orange); }
+</style>
+</head>
+<body>
+
+<!-- ===== TOP BAR ===== -->
+<div class="topbar">
+  <div class="topbar-logo">
+    <div class="dot"></div>
+    AVATAR OPS
+  </div>
+  <div class="topbar-center">
+    <div class="topbar-session">
+      <span class="live">CELLULE DE CRISE</span>
+      <span>|</span>
+      <span>Objectif : Remplacer Tavus — Avatar proprietaire</span>
+    </div>
+  </div>
+  <div class="topbar-right">
+    <div class="clock" id="clock">00:00:00</div>
+    <div class="notif-badge">
+      &#128276;
+      <div class="count">5</div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== MAIN GRID ===== -->
+<div class="main-grid">
+
+  <!-- ===== LEFT PANEL ===== -->
+  <div class="left-panel">
+    <div class="panel-header">
+      <h2>Equipe Avatar</h2>
+    </div>
+
+    <div class="agents-list">
+      <div class="agent-card active" onclick="showAgent('vision')">
+        <div class="avatar bg-vision">N
+          <div class="status-dot status-online"></div>
+        </div>
+        <div class="agent-info">
+          <div class="agent-name">Nadia Moreau</div>
+          <div class="agent-role">Direction Artistique</div>
+          <div class="agent-status-text">Rapport soumis</div>
+        </div>
+      </div>
+
+      <div class="agent-card" onclick="showAgent('model3d')">
+        <div class="avatar bg-model3d">R
+          <div class="status-dot status-online"></div>
+        </div>
+        <div class="agent-info">
+          <div class="agent-name">Romain Vasquez</div>
+          <div class="agent-role">Modelisation 3D</div>
+          <div class="agent-status-text">Rapport soumis</div>
+        </div>
+      </div>
+
+      <div class="agent-card" onclick="showAgent('dev')">
+        <div class="avatar bg-dev">T
+          <div class="status-dot status-online"></div>
+        </div>
+        <div class="agent-info">
+          <div class="agent-name">Thomas Nguyen</div>
+          <div class="agent-role">Dev &amp; Integration</div>
+          <div class="agent-status-text">Rapport soumis</div>
+        </div>
+      </div>
+
+      <div class="agent-card" onclick="showAgent('research')">
+        <div class="avatar bg-research">C
+          <div class="status-dot status-online"></div>
+        </div>
+        <div class="agent-info">
+          <div class="agent-name">Clara Fischer</div>
+          <div class="agent-role">Recherche &amp; Benchmark</div>
+          <div class="agent-status-text">Rapport soumis</div>
+        </div>
+      </div>
+
+      <div class="agent-card" onclick="showAgent('streaming')">
+        <div class="avatar bg-streaming">Y
+          <div class="status-dot status-online"></div>
+        </div>
+        <div class="agent-info">
+          <div class="agent-name">Yann Delacroix</div>
+          <div class="agent-role">Streaming &amp; WebRTC</div>
+          <div class="agent-status-text">Rapport soumis</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Founder -->
+    <div class="founder-section">
+      <div class="founder-card">
+        <div class="avatar lg bg-founder">L
+          <div class="status-dot status-online"></div>
+        </div>
+        <div class="founder-meta">
+          <h3>Ludo</h3>
+          <p>Fondateur — Objectif Tavus</p>
+          <div class="founder-badge">Dirige la cellule</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== CENTER PANEL ===== -->
+  <div class="center-panel">
+
+    <!-- Channel Header -->
+    <div class="channel-header">
+      <div class="channel-info">
+        <div>
+          <div class="channel-name"># cellule-avatar</div>
+          <div class="channel-topic">Creer un avatar realiste auto-heberge — Qualite Tavus — Budget 25EUR — 21 fev 2026</div>
+        </div>
+      </div>
+      <div class="channel-tabs">
+        <div class="ch-tab active" onclick="showAgent('vision')">Vision</div>
+        <div class="ch-tab" onclick="showAgent('model3d')">3D</div>
+        <div class="ch-tab" onclick="showAgent('dev')">Dev</div>
+        <div class="ch-tab" onclick="showAgent('research')">Recherche</div>
+        <div class="ch-tab" onclick="showAgent('streaming')">Streaming</div>
+      </div>
+    </div>
+
+    <!-- Messages -->
+    <div class="messages-area">
+
+      <!-- ===== VISION / DIRECTION ARTISTIQUE (Nadia) ===== -->
+      <div class="tab-content active" id="tab-vision">
+
+        <div class="thread-divider"><span>Rapport Direction Artistique — Nadia Moreau — 09:00</span></div>
+
+        <div class="message pinned">
+          <div class="msg-avatar bg-vision">N</div>
+          <div class="msg-body">
+            <div class="msg-header">
+              <span class="msg-author" style="color:var(--pink)">Nadia Moreau</span>
+              <span class="msg-badge badge-vision">Vision</span>
+              <span class="pin">&#128204; epingle</span>
+              <span class="msg-time">09:00</span>
+            </div>
+            <div class="msg-text">
+              <strong>L'objectif est clair : une Luna proprietaire, brune aux yeux verts, qualite Tavus, auto-hebergee.</strong><br><br>
+              Tavus n'est pas juste un talking head. C'est un pipeline complet : visage photoreal + lip-sync audio-driven + expressions faciales + micro-mouvements + streaming WebRTC temps reel &lt;500ms de latence.
+              <div class="callout callout-red">
+                <strong>Constat brutal :</strong> On a deja essaye l'open source (VM locale, Google Cloud + 1 GPU). Resultat = avatar non realiste, mauvais lip-sync, qualite streaming mediocre. Le full self-hosted "from scratch" est un echec a ce stade.
+              </div>
+              On doit changer de strategie. Voici ce que je recommande.
+            </div>
+          </div>
+        </div>
+
+        <div class="message">
+          <div class="msg-avatar bg-vision">N</div>
+          <div class="msg-body">
+            <div class="msg-header">
+              <span class="msg-author" style="color:var(--pink)">Nadia Moreau</span>
+              <span class="msg-time">09:05</span>
+            </div>
+            <div class="msg-text">
+              <strong>Cahier des charges Luna Avatar :</strong>
+              <table>
+                <tr><th>Critere</th><th>Exigence</th><th>Tavus ref.</th></tr>
+                <tr><td>Apparence</td><td><em>Brune, yeux verts, ~30 ans, bienveillante</em></td><td>Persona Luna FR actuelle</td></tr>
+                <tr><td>Lip-sync</td><td>Audio-driven, francais natif, &lt;200ms</td><td>~150ms</td></tr>
+                <tr><td>Expressions</td><td>Clignements, sourires, micro-tilts tete</td><td>CVI naturel</td></tr>
+                <tr><td>Resolution</td><td>720p minimum, ideal 1080p</td><td>720p</td></tr>
+                <tr><td>Framerate</td><td>25+ fps fluide</td><td>~30fps</td></tr>
+                <tr><td>Latence E2E</td><td>&lt;500ms (audio in → video out)</td><td>~300-500ms</td></tr>
+                <tr><td>Voix</td><td>Francais, feminine, chaleureuse (OpenAI TTS)</td><td>Custom Tavus</td></tr>
+                <tr><td>Streaming</td><td>WebRTC compatible Twilio</td><td>Daily.co WebRTC</td></tr>
+                <tr><td>Proprietaire</td><td>100% sur notre serveur OU API pas cher</td><td>Cloud Tavus</td></tr>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div class="message">
+          <div class="msg-avatar bg-vision">N</div>
+          <div class="msg-body">
+            <div class="msg-header">
+              <span class="msg-author" style="color:var(--pink)">Nadia Moreau</span>
+              <span class="msg-time">09:12</span>
+            </div>
+            <div class="msg-text">
+              <strong>Strategie en 2 voies paralleles :</strong>
+              <div class="callout callout-orange">
+                <strong>VOIE A — Rapide (1 semaine) :</strong> Utiliser <em>Hedra Live Avatars</em> comme remplacement Tavus. 0,05EUR/min au lieu de 0,15EUR/min. Qualite comparable. WebRTC via LiveKit. On genere une photo de Luna avec Flux/Midjourney et on l'utilise comme source avatar.
+              </div>
+              <div class="callout callout-blue">
+                <strong>VOIE B — Ambitieuse (4-8 semaines) :</strong> Pipeline maison MetaHuman (Unreal) + Audio2Face + Pixel Streaming. Qualite SUPERIEURE a Tavus. Mais necessite GPU RTX 3080+ et beaucoup de dev.
+              </div>
+              <strong>Ma recommandation :</strong> Lancer la Voie A IMMEDIATEMENT pour ne pas bloquer Luna. En parallele, prototyper la Voie B pour le Q2 2026.
+            </div>
+          </div>
+        </div>
+
+        <div class="message">
+          <div class="msg-avatar bg-vision">N</div>
+          <div class="msg-body">
+            <div class="msg-header">
+              <span class="msg-author" style="color:var(--pink)">Nadia Moreau</span>
+              <span class="msg-time">09:18</span>
+            </div>
+            <div class="msg-text">
+              <strong>Creation du visage Luna :</strong><br><br>
+              Pour generer la photo source de Luna (brune, yeux verts, bienveillante), voici le pipeline :
+              <ul>
+                <li><strong>Option 1 :</strong> Flux 1.1 Pro (via Replicate) — ~0,03EUR/image, photoreal, pas de watermark. Prompt : <em>"portrait photo of a 30 year old french woman, brunette, green eyes, warm smile, soft lighting, face centered, white background"</em></li>
+                <li><strong>Option 2 :</strong> Midjourney v6 — 10EUR/mois, meilleures expressions</li>
+                <li><strong>Option 3 :</strong> Recuperer une photo libre de droits (Generated Photos, This Person Does Not Exist)</li>
+              </ul>
+              <div class="callout callout-green">
+                <strong>Important :</strong> La photo doit etre frontale, haute resolution, fond neutre, expression neutre-a-souriante. C'est ce que Hedra/Simli/D-ID utilisent pour animer le visage.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== MODELISATION 3D (Romain) ===== -->
+      <div class="tab-content" id="tab-model3d">
+
+        <div class="thread-divider"><span>Rapport Modelisation 3D — Romain Vasquez — 09:30</span></div>
+
+        <div class="message pinned">
+          <div class="msg-avatar bg-model3d">R</div>
+          <div class="msg-body">
+            <div class="msg-header">
+              <span class="msg-author" style="color:var(--orange)">Romain Vasquez</span>
+              <span class="msg-badge badge-model3d">3D</span>
+              <span class="pin">&#128204; epingle</span>
+              <span class="msg-time">09:30</span>
+            </div>
+            <div class="msg-text">
+              <strong>Audit des solutions 3D testees et disponibles :</strong>
+              <table>
+                <tr><th>Solution</th><th>Qualite</th><th>Self-hosted</th><th>Cout</th><th>Verdict</th></tr>
+                <tr><td><strong>MetaHuman (Unreal)</strong></td><td><span class="stat">CINEMA</span></td><td>Oui (GPU lourd)</td><td>Gratuit (soft)</td><td>Le meilleur mais complexe</td></tr>
+                <tr><td>Duix.ai (open source)</td><td>Moyen</td><td>Oui (8GB VRAM)</td><td>Gratuit</td><td>Qualite insuffisante</td></tr>
+                <tr><td>Character Studio (VRM)</td><td>Stylise</td><td>Oui</td><td>Gratuit</td><td>Pas photoreal</td></tr>
+                <tr><td>MakeHuman</td><td>Moyen</td><td>Oui</td><td>Gratuit</td><td>Bon pour base, pas anime</td></tr>
+                <tr><td>Reallusion iClone</td><td>Bon</td><td>Oui (local)</td><td>~229EUR</td><td>Hors budget</td></tr>
+                <tr><td>TurboSquid/CGTrader</td><td>Variable</td><td>Oui (asset)</td><td>15-50EUR</td><td>Juste le modele, pas le pipeline</td></tr>
+              </table>
+              <div class="callout callout-red">
+                <strong>Probleme fondamental :</strong> Avoir un modele 3D ne suffit PAS. Il faut le pipeline COMPLET : modele + rigging facial + lip-sync + animation temps reel + rendu GPU + streaming WebRTC. C'est 6 briques a assembler.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="message">
+          <div class="msg-avatar bg-model3d">R</div>
+          <div class="msg-body">
+            <div class="msg-header">
+              <span class="msg-author" style="color:var(--orange)">Romain Vasquez</span>
+              <span class="msg-time">09:40</span>
+            </div>
+            <div class="msg-text">
+              <strong>Pipeline MetaHuman complet (Voie B) :</strong>
+              <table>
+                <tr><th>Brique</th><th>Outil</th><th>Role</th><th>Cout</th></tr>
+                <tr><td>1. Visage 3D</td><td>MetaHuman Creator</td><td>Creer Luna brune yeux verts</td><td>Gratuit</td></tr>
+                <tr><td>2. Animation faciale</td><td>NVIDIA Audio2Face</td><td>Audio → blendshapes lip-sync</td><td>Gratuit</td></tr>
+                <tr><td>3. Moteur rendu</td><td>Unreal Engine 5</td><td>Render temps reel</td><td>Gratuit (&lt;1M$)</td></tr>
+                <tr><td>4. Streaming</td><td>Pixel Streaming</td><td>UE5 → WebRTC</td><td>Gratuit (plugin UE5)</td></tr>
+                <tr><td>5. Serveur GPU</td><td>RTX 3080+ / Cloud</td><td>Faire tourner UE5 24/7</td><td><strong style="color:var(--red)">150-400EUR/mois</strong></td></tr>
+                <tr><td>6. Integration</td><td>Custom Python</td><td>Bridge OpenAI TTS → Audio2Face</td><td>Dev time</td></tr>
+              </table>
+              <div class="callout callout-yellow">
+                <strong>Realite :</strong> Le soft est gratuit. Le serveur GPU est le vrai cout. Une RTX 3080 locale = ~700EUR one-shot mais doit tourner 24/7. Cloud GPU = 150-400EUR/mois. Largement au-dessus du budget de 25EUR.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="message">
+          <div class="msg-avatar bg-model3d">R</div>
+          <div class="msg-body">
+            <div class="msg-header">
+              <span class="msg-author" style="color:var(--orange)">Romain Vasquez</span>
+              <span class="msg-time">09:48</span>
+            </div>
+            <div class="msg-text">
+              <strong>Option realiste a 25EUR : acheter un asset 3D + l'utiliser PLUS TARD</strong><br><br>
+              Sur CGTrader ou TurboSquid, on peut trouver un modele feminin realiste (rigged, blendshapes faciales) pour 15-40EUR. Mais c'est un <strong>investissement futur</strong> — on ne pourra pas l'utiliser en production tant qu'on n'a pas le pipeline GPU.
+              <div class="callout callout-green">
+                <strong>Recommandation :</strong> Investir les 25EUR dans un abonnement <em>Hedra</em> (Voie A) pour debloquer Luna MAINTENANT. Garder MetaHuman (gratuit) pour prototyper la Voie B sans pression.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== DEV & INTEGRATION (Thomas) ===== -->
+      <div class="tab-content" id="tab-dev">
+
+        <div class="thread-divider"><span>Rapport Dev &amp; Integration — Thomas Nguyen — 10:00</span></div>
+
+        <div class="message pinned">
+          <div class="msg-avatar bg-dev">T</div>
+          <div class="msg-body">
+            <div class="msg-header">
+              <span class="msg-author" style="color:var(--blue)">Thomas Nguyen</span>
+              <span class="msg-badge badge-dev">Dev</span>
+              <span class="pin">&#128204; epingle</span>
+              <span class="msg-time">10:00</span>
+            </div>
+            <div class="msg-text">
+              <strong>Etat actuel de l'integration Tavus dans Luna :</strong>
+              <table>
+                <tr><th>Composant</th><th>Fichier</th><th>Lignes</th><th>Fonction</th></tr>
+                <tr><td>Client Tavus</td><td>integrations/tavus/tavus_client.py</td><td>595</td><td>CVI, conversations, tool calling</td></tr>
+                <tr><td>Webhook Tavus</td><td>luna_web.py (@app.post /api/webhook/tavus)</td><td>~200</td><td>Events, transcription, actions</td></tr>
+                <tr><td>Route /api/call</td><td>luna_web.py</td><td>~50</td><td>Cree une conversation Tavus</td></tr>
+                <tr><td>Sync Tavus</td><td>luna_web.py (@app.post /api/sync/tavus)</td><td>~30</td><td>Notification fin d'appel</td></tr>
+                <tr><td>Frontend iframe</td><td>static/index.html</td><td>~30</td><td>Affiche conversation_url dans iframe</td></tr>
+              </table>
+              <div class="callout callout-blue">
+                <strong>Architecture actuelle :</strong> Luna appelle Tavus API → recoit une <code>conversation_url</code> (Daily.co WebRTC) → l'affiche dans une iframe. Le webhook recoit les events (transcription, tool calls). C'est propre et decoupled.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="message">
+          <div class="msg-avatar bg-dev">T</div>
+          <div class="msg-body">
+            <div class="msg-header">
+              <span class="msg-author" style="color:var(--blue)">Thomas Nguyen</span>
+              <span class="msg-time">10:10</span>
+            </div>
+            <div class="msg-text">
+              <strong>Plan d'integration Hedra (Voie A) :</strong><br><br>
+              Hedra utilise LiveKit (pas Daily.co). L'integration necessite :
+              <table>
+                <tr><th>#</th><th>Tache</th><th>Effort</th><th>Detail</th></tr>
+                <tr><td>1</td><td>Creer <code>integrations/hedra/hedra_client.py</code></td><td>2-3h</td><td>API client : create avatar, start session, get stream URL</td></tr>
+                <tr><td>2</td><td>Adapter <code>/api/call</code></td><td>1h</td><td>Remplacer tavus_client par hedra_client (meme interface)</td></tr>
+                <tr><td>3</td><td>Adapter le frontend</td><td>1h</td><td>LiveKit JS SDK au lieu de Daily.co iframe</td></tr>
+                <tr><td>4</td><td>Bridge audio</td><td>2-3h</td><td>OpenAI TTS → Hedra audio input (WebSocket ou REST)</td></tr>
+                <tr><td>5</td><td>Webhook/events</td><td>2h</td><td>Adapter les events Hedra au format Luna</td></tr>
+                <tr><td>6</td><td>Tests E2E</td><td>2h</td><td>Scenario complet : chat → appel → lip-sync → raccrocher</td></tr>
+              </table>
+              <div class="callout callout-green">
+                <strong>Effort total : 1-2 jours de dev.</strong> L'architecture decouplee de Luna rend le swap Tavus→Hedra tres propre. On change juste le client d'integration, le reste (memory, safety, quotas) ne bouge pas.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="message">
+          <div class="msg-avatar bg-dev">T</div>
+          <div class="msg-body">
+            <div class="msg-header">
+              <span class="msg-author" style="color:var(--blue)">Thomas Nguyen</span>
+              <span class="msg-time">10:18</span>
+            </div>
+            <div class="msg-text">
+              <strong>Abstraction multi-provider :</strong><br><br>
+              Je propose de creer une interface <code>AvatarProvider</code> pour supporter Tavus ET Hedra (et d'autres dans le futur) :
+              <div class="callout callout-blue">
+<pre style="font-family:'JetBrains Mono',monospace;font-size:0.85em;color:#c8d0dc">
+class AvatarProvider:
+    async def create_session(self, context) -> dict
+    async def end_session(self, session_id) -> None
+    async def send_audio(self, session_id, audio) -> None
+    async def get_stream_url(self, session_id) -> str
+
+class TavusProvider(AvatarProvider): ...
+class HedraProvider(AvatarProvider): ...
+</pre>
+              </div>
+              Comme ca, dans <code>.env</code> on met <code>AVATAR_PROVIDER=hedra</code> ou <code>tavus</code> et Luna switch automatiquement. Meme principe que <code>LUNA_MODE=lite/full</code>.
+            </div>
+          </div>
+        </div>
+
+        <div class="message">
+          <div class="msg-avatar bg-dev">T</div>
+          <div class="msg-body">
+            <div class="msg-header">
+              <span class="msg-author" style="color:var(--blue)">Thomas Nguyen</span>
+              <span class="msg-time">10:25</span>
+            </div>
+            <div class="msg-text">
+              <strong>Variables d'environnement a ajouter :</strong>
+              <table>
+                <tr><th>Variable</th><th>Description</th><th>Exemple</th></tr>
+                <tr><td><code>AVATAR_PROVIDER</code></td><td>tavus, hedra, simli, ou none</td><td>hedra</td></tr>
+                <tr><td><code>HEDRA_API_KEY</code></td><td>Cle API Hedra</td><td>sk_hedra_...</td></tr>
+                <tr><td><code>HEDRA_AVATAR_ID</code></td><td>ID de l'avatar Luna cree</td><td>ava_xxx</td></tr>
+                <tr><td><code>LIVEKIT_URL</code></td><td>URL LiveKit (fourni par Hedra)</td><td>wss://...</td></tr>
+                <tr><td><code>LIVEKIT_API_KEY</code></td><td>Cle LiveKit</td><td>APIxxx</td></tr>
+                <tr><td><code>LIVEKIT_API_SECRET</code></td><td>Secret LiveKit</td><td>secret_...</td></tr>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== RECHERCHE & BENCHMARK (Clara) ===== -->
+      <div class="tab-content" id="tab-research">
+
+        <div class="thread-divider"><span>Rapport Recherche &amp; Benchmark — Clara Fischer — 10:30</span></div>
+
+        <div class="message pinned">
+          <div class="msg-avatar bg-research">C</div>
+          <div class="msg-body">
+            <div class="msg-header">
+              <span class="msg-author" style="color:var(--green)">Clara Fischer</span>
+              <span class="msg-badge badge-research">Recherche</span>
+              <span class="pin">&#128204; epingle</span>
+              <span class="msg-time">10:30</span>
+            </div>
+            <div class="msg-text">
+              <strong>Benchmark complet des alternatives a Tavus (fev 2026) :</strong>
+              <table>
+                <tr><th>Plateforme</th><th>Prix/mois</th><th>Qualite vs Tavus</th><th>WebRTC</th><th>Francais</th><th>Custom avatar</th></tr>
+                <tr><td><strong style="color:var(--green)">Hedra Live</strong></td><td><span class="stat">8-24EUR + 0,05EUR/min</span></td><td>Comparable+</td><td>Oui (LiveKit)</td><td>Oui (140 langues)</td><td>Oui (depuis photo)</td></tr>
+                <tr><td><strong>Simli</strong></td><td>Gratuit 50min puis 0,05EUR/min</td><td>Comparable</td><td>Oui (natif)</td><td>Probable</td><td>A verifier</td></tr>
+                <tr><td>D-ID Build</td><td>18EUR (32 min)</td><td>Inferieur</td><td>Oui (API)</td><td>Oui</td><td>Oui (depuis photo)</td></tr>
+                <tr><td>HeyGen</td><td>99EUR (API min)</td><td>Superieur</td><td>Oui (LiveAvatar)</td><td>Oui</td><td>Oui</td></tr>
+                <tr><td>Synthesia</td><td>18-29EUR</td><td>Superieur</td><td style="color:var(--red)">NON</td><td>Oui</td><td>Personne reelle</td></tr>
+                <tr><td>Tavus (actuel)</td><td>~39EUR + 0,15EUR/min</td><td>Reference</td><td>Oui (Daily)</td><td>Oui</td><td>Oui</td></tr>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div class="message">
+          <div class="msg-avatar bg-research">C</div>
+          <div class="msg-body">
+            <div class="msg-header">
+              <span class="msg-author" style="color:var(--green)">Clara Fischer</span>
+              <span class="msg-time">10:40</span>
+            </div>
+            <div class="msg-text">
+              <strong>Analyse des couts — Tavus vs Hedra vs Simli :</strong>
+              <table>
+                <tr><th>Scenario</th><th>Tavus</th><th>Hedra</th><th>Simli</th><th>Economie</th></tr>
+                <tr><td>10 clients x 12 min visio/mois</td><td>26EUR</td><td>14EUR</td><td>6EUR + 6EUR</td><td><span class="stat">-46% a -54%</span></td></tr>
+                <tr><td>50 clients (mix plans)</td><td>~145EUR</td><td>~77EUR</td><td>~72EUR</td><td><span class="stat">-47% a -50%</span></td></tr>
+                <tr><td>200 clients</td><td>~580EUR</td><td>~308EUR</td><td>~288EUR</td><td><span class="stat">~-50%</span></td></tr>
+                <tr><td>1000 clients</td><td>~2900EUR</td><td>~1540EUR</td><td>~1440EUR</td><td><span class="stat">~-50%</span></td></tr>
+              </table>
+              <div class="callout callout-green">
+                <strong>Conclusion :</strong> Hedra et Simli divisent par 2 les couts avatar. A 1000 clients, c'est ~1400EUR/mois d'economie. Hedra a l'avantage de la qualite documentee et du support LiveKit.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="message">
+          <div class="msg-avatar bg-research">C</div>
+          <div class="msg-body">
+            <div class="msg-header">
+              <span class="msg-author" style="color:var(--green)">Clara Fischer</span>
+              <span class="msg-time">10:50</span>
+            </div>
+            <div class="msg-text">
+              <strong>Hedra — Deep dive technique :</strong>
+              <ul>
+                <li><strong>Modele :</strong> Character-3 — traite image + audio simultanement, genere micro-expressions (clignements, mouvements yeux, tilts tete subtils)</li>
+                <li><strong>Latence :</strong> Sub-100ms via LiveKit (meilleur que Tavus ~300-500ms)</li>
+                <li><strong>Integration :</strong> SDK open source pour LiveKit Agents — plug-and-play</li>
+                <li><strong>Avatar custom :</strong> Une seule photo suffit. On genere avec Flux, on upload, c'est pret.</li>
+                <li><strong>Langues :</strong> 140+ langues avec ajustement automatique des mouvements de bouche par dialecte</li>
+                <li><strong>Free tier :</strong> Credits gratuits au signup pour tester</li>
+              </ul>
+              <div class="callout callout-yellow">
+                <strong>Point de vigilance :</strong> Hedra est plus jeune que Tavus. Verifier la stabilite en production (uptime SLA, support). Faire un POC de 48h avant de migrer.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="message">
+          <div class="msg-avatar bg-research">C</div>
+          <div class="msg-body">
+            <div class="msg-header">
+              <span class="msg-author" style="color:var(--green)">Clara Fischer</span>
+              <span class="msg-time">10:58</span>
+            </div>
+            <div class="msg-text">
+              <strong>Recherche open source — etat de l'art fev 2026 :</strong>
+              <table>
+                <tr><th>Projet</th><th>Stars</th><th>Qualite</th><th>Temps reel</th><th>GPU requis</th></tr>
+                <tr><td><strong>Linly-Talker</strong></td><td>4k+</td><td>Moyen</td><td>Oui (WebRTC)</td><td>V100 / RTX 3060 12GB</td></tr>
+                <tr><td>Wav2Lip</td><td>8k+</td><td>Lip-sync OK, visuel flou</td><td>Non (batch)</td><td>1GB VRAM</td></tr>
+                <tr><td>SadTalker</td><td>10k+</td><td>Moyen+</td><td>Non (batch)</td><td>4GB VRAM</td></tr>
+                <tr><td>MuseTalk</td><td>2k+</td><td>Bon lip-sync</td><td>Quasi (30fps V100)</td><td>V100+</td></tr>
+                <tr><td>Duix.ai</td><td>1k+</td><td>Moyen</td><td>Mobile oui, web DIY</td><td>8GB VRAM</td></tr>
+              </table>
+              <div class="callout callout-red">
+                <strong>Aucun projet open source n'atteint la qualite Tavus en temps reel.</strong> Les meilleurs (MuseTalk, Linly-Talker) necessitent un GPU serveur lourd (V100+) et le resultat reste en dessous. L'ecart se reduit mais on n'y est pas encore.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== STREAMING & WEBRTC (Yann) ===== -->
+      <div class="tab-content" id="tab-streaming">
+
+        <div class="thread-divider"><span>Rapport Streaming &amp; WebRTC — Yann Delacroix — 11:00</span></div>
+
+        <div class="message pinned">
+          <div class="msg-avatar bg-streaming">Y</div>
+          <div class="msg-body">
+            <div class="msg-header">
+              <span class="msg-author" style="color:#a855f7">Yann Delacroix</span>
+              <span class="msg-badge badge-streaming">Streaming</span>
+              <span class="pin">&#128204; epingle</span>
+              <span class="msg-time">11:00</span>
+            </div>
+            <div class="msg-text">
+              <strong>Architecture streaming actuelle vs cible :</strong>
+              <table>
+                <tr><th></th><th>Actuel (Tavus)</th><th>Cible (Hedra)</th><th>Cible (Self-hosted)</th></tr>
+                <tr><td><strong>Protocol</strong></td><td>WebRTC (Daily.co)</td><td>WebRTC (LiveKit)</td><td>WebRTC (Pixel Streaming)</td></tr>
+                <tr><td><strong>Frontend</strong></td><td>iframe simple</td><td>LiveKit JS SDK</td><td>UE5 Pixel Streaming JS</td></tr>
+                <tr><td><strong>Backend</strong></td><td>API REST Tavus</td><td>API REST Hedra + WS</td><td>UE5 + Audio2Face + custom</td></tr>
+                <tr><td><strong>Latence</strong></td><td>300-500ms</td><td>&lt;100ms</td><td>100-300ms</td></tr>
+                <tr><td><strong>Serveur</strong></td><td>Cloud Tavus</td><td>Cloud Hedra</td><td>Notre GPU 24/7</td></tr>
+                <tr><td><strong>Cout/min</strong></td><td>0,15EUR</td><td>0,05EUR</td><td>~0,02EUR (amorti)</td></tr>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div class="message">
+          <div class="msg-avatar bg-streaming">Y</div>
+          <div class="msg-body">
+            <div class="msg-header">
+              <span class="msg-author" style="color:#a855f7">Yann Delacroix</span>
+              <span class="msg-time">11:10</span>
+            </div>
+            <div class="msg-text">
+              <strong>Integration LiveKit dans Luna :</strong><br><br>
+              LiveKit est open source et bien documente. L'integration se fait cote serveur (Python SDK) et cote client (JS SDK).
+              <div class="callout callout-blue">
+<pre style="font-family:'JetBrains Mono',monospace;font-size:0.85em;color:#c8d0dc">
+Flux actuel (Tavus):
+  User click "Visio" → POST /api/call
+    → tavus_client.create_conversation()
+    → return { conversation_url: "https://daily.co/xxx" }
+    → Frontend: iframe.src = conversation_url
+
+Flux cible (Hedra):
+  User click "Visio" → POST /api/call
+    → hedra_client.create_session()
+    → return { livekit_url, token }
+    → Frontend: LiveKit SDK connect(url, token)
+    → Video + audio stream bidirectionnel
+</pre>
+              </div>
+              <strong>Avantage LiveKit :</strong> On a le controle sur l'audio bidirectionnel. On peut brancher directement le micro utilisateur → OpenAI Whisper → GPT → TTS → Hedra lip-sync. Pipeline plus propre que l'iframe Tavus.
+            </div>
+          </div>
+        </div>
+
+        <div class="message">
+          <div class="msg-avatar bg-streaming">Y</div>
+          <div class="msg-body">
+            <div class="msg-header">
+              <span class="msg-author" style="color:#a855f7">Yann Delacroix</span>
+              <span class="msg-time">11:18</span>
+            </div>
+            <div class="msg-text">
+              <strong>Compatibilite Twilio :</strong><br><br>
+              Luna utilise actuellement Twilio pour les appels voix (OpenAI Realtime Bridge via WebSocket). Pour la visio :
+              <ul>
+                <li><strong>Tavus/Hedra</strong> : Twilio n'est pas implique — la visio passe par Daily.co ou LiveKit directement</li>
+                <li><strong>Invitation SMS</strong> : Twilio envoie un SMS avec le lien de la room video (inchange)</li>
+                <li><strong>Fallback voix</strong> : Si la visio echoue, Luna bascule en appel vocal Twilio (architecture existante)</li>
+              </ul>
+              <div class="callout callout-green">
+                <strong>Bonne nouvelle :</strong> Le changement Tavus→Hedra n'affecte PAS l'integration Twilio. Les deux sont independants. L'architecture de Luna est deja pensee pour ca.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="message">
+          <div class="msg-avatar bg-streaming">Y</div>
+          <div class="msg-body">
+            <div class="msg-header">
+              <span class="msg-author" style="color:#a855f7">Yann Delacroix</span>
+              <span class="msg-time">11:25</span>
+            </div>
+            <div class="msg-text">
+              <strong>Roadmap self-hosted (Voie B — Q2/Q3 2026) :</strong>
+              <table>
+                <tr><th>Phase</th><th>Semaines</th><th>Objectif</th><th>Prerequis</th></tr>
+                <tr><td><em>Alpha</em></td><td>S1-4</td><td>MetaHuman Luna creee + Audio2Face lip-sync local</td><td>PC avec RTX 3080</td></tr>
+                <tr><td><em>Beta</em></td><td>S5-8</td><td>Pixel Streaming fonctionnel + bridge audio</td><td>Serveur GPU 24/7</td></tr>
+                <tr><td><em>RC</em></td><td>S9-12</td><td>Integration complete dans Luna + tests E2E</td><td>POC valide</td></tr>
+                <tr><td><em>Prod</em></td><td>S13+</td><td>Migration progressive des exploitants</td><td>SLA defini</td></tr>
+              </table>
+              <div class="callout callout-yellow">
+                <strong>Prerequis critique :</strong> Acquerir un GPU RTX 3080+ (occasion ~500EUR) ou louer un serveur GPU cloud. Sans ca, la Voie B reste theorique.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ===== RIGHT PANEL - INTEL ===== -->
+  <div class="right-panel">
+    <div class="panel-header">
+      <h2>Intelligence</h2>
+      <div class="right-tabs">
+        <div class="r-tab active" onclick="showRightTab('kpis')">KPIs</div>
+        <div class="r-tab" onclick="showRightTab('actions')">Actions</div>
+        <div class="r-tab" onclick="showRightTab('threats')">Risques</div>
+      </div>
+    </div>
+
+    <div class="right-content">
+
+      <!-- KPIs Tab -->
+      <div class="right-tab-content active" id="rtab-kpis">
+        <div class="kpi-grid">
+          <div class="kpi-card">
+            <div class="kpi-label">Budget</div>
+            <div class="kpi-val c-orange">25&euro;</div>
+            <div class="kpi-sub">disponible</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Cout Tavus</div>
+            <div class="kpi-val c-red">0,15&euro;</div>
+            <div class="kpi-sub">/minute</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Cout Hedra</div>
+            <div class="kpi-val c-green">0,05&euro;</div>
+            <div class="kpi-sub">/minute (-67%)</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Latence Hedra</div>
+            <div class="kpi-val c-green">&lt;100ms</div>
+            <div class="kpi-sub">vs 300-500ms Tavus</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Effort swap</div>
+            <div class="kpi-val c-blue">1-2j</div>
+            <div class="kpi-sub">de dev</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Langues</div>
+            <div class="kpi-val c-green">140+</div>
+            <div class="kpi-sub">dont francais</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Economies/an</div>
+            <div class="kpi-val c-green">~50%</div>
+            <div class="kpi-sub">vs Tavus</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Self-hosted</div>
+            <div class="kpi-val c-yellow">Q3</div>
+            <div class="kpi-sub">2026 (Voie B)</div>
+          </div>
+        </div>
+
+        <div class="section-title">Avancement Voie A (Hedra)</div>
+        <div class="progress-section">
+          <div class="progress-item">
+            <div class="progress-label"><span>Benchmark alternatives</span><span>100%</span></div>
+            <div class="progress-bar"><div class="progress-fill fill-green" style="width: 100%"></div></div>
+          </div>
+          <div class="progress-item">
+            <div class="progress-label"><span>Photo Luna generee</span><span>0%</span></div>
+            <div class="progress-bar"><div class="progress-fill fill-red" style="width: 0%"></div></div>
+          </div>
+          <div class="progress-item">
+            <div class="progress-label"><span>Compte Hedra cree</span><span>0%</span></div>
+            <div class="progress-bar"><div class="progress-fill fill-red" style="width: 0%"></div></div>
+          </div>
+          <div class="progress-item">
+            <div class="progress-label"><span>POC lip-sync FR</span><span>0%</span></div>
+            <div class="progress-bar"><div class="progress-fill fill-red" style="width: 0%"></div></div>
+          </div>
+          <div class="progress-item">
+            <div class="progress-label"><span>Integration Luna</span><span>0%</span></div>
+            <div class="progress-bar"><div class="progress-fill fill-red" style="width: 0%"></div></div>
+          </div>
+          <div class="progress-item">
+            <div class="progress-label"><span>Tests E2E</span><span>0%</span></div>
+            <div class="progress-bar"><div class="progress-fill fill-red" style="width: 0%"></div></div>
+          </div>
+        </div>
+
+        <div class="section-title">Avancement Voie B (Self-hosted)</div>
+        <div class="progress-section">
+          <div class="progress-item">
+            <div class="progress-label"><span>MetaHuman Luna cree</span><span>0%</span></div>
+            <div class="progress-bar"><div class="progress-fill fill-red" style="width: 0%"></div></div>
+          </div>
+          <div class="progress-item">
+            <div class="progress-label"><span>Audio2Face pipeline</span><span>0%</span></div>
+            <div class="progress-bar"><div class="progress-fill fill-red" style="width: 0%"></div></div>
+          </div>
+          <div class="progress-item">
+            <div class="progress-label"><span>Pixel Streaming</span><span>0%</span></div>
+            <div class="progress-bar"><div class="progress-fill fill-red" style="width: 0%"></div></div>
+          </div>
+          <div class="progress-item">
+            <div class="progress-label"><span>GPU serveur acquis</span><span>0%</span></div>
+            <div class="progress-bar"><div class="progress-fill fill-red" style="width: 0%"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Actions Tab -->
+      <div class="right-tab-content" id="rtab-actions">
+        <div class="section-title">Actions immediates</div>
+
+        <div class="priority-item">
+          <div class="priority-num p-critical">1</div>
+          <div class="priority-text"><strong>Generer la photo Luna</strong><br>Flux 1.1 Pro : brune, yeux verts, 30 ans, frontale, fond neutre.</div>
+        </div>
+        <div class="priority-item">
+          <div class="priority-num p-critical">2</div>
+          <div class="priority-text"><strong>Creer compte Hedra</strong><br>Signup gratuit, tester les credits offerts. Budget : 8EUR/mois (plan Basic).</div>
+        </div>
+        <div class="priority-item">
+          <div class="priority-num p-critical">3</div>
+          <div class="priority-text"><strong>POC 48h</strong><br>Upload photo Luna sur Hedra, tester lip-sync francais, mesurer latence et qualite.</div>
+        </div>
+        <div class="priority-item">
+          <div class="priority-num p-high">4</div>
+          <div class="priority-text"><strong>Creer hedra_client.py</strong><br>Interface AvatarProvider. Swap transparent Tavus &#8594; Hedra.</div>
+        </div>
+        <div class="priority-item">
+          <div class="priority-num p-high">5</div>
+          <div class="priority-text"><strong>Adapter le frontend</strong><br>LiveKit JS SDK remplace l'iframe Daily.co.</div>
+        </div>
+        <div class="priority-item">
+          <div class="priority-num p-high">6</div>
+          <div class="priority-text"><strong>Tests E2E complets</strong><br>Chat &#8594; Visio &#8594; Lip-sync FR &#8594; Raccrocher &#8594; Memory OK.</div>
+        </div>
+        <div class="priority-item">
+          <div class="priority-num p-medium">7</div>
+          <div class="priority-text"><strong>Tester Simli en parallele</strong><br>Free tier 50 min/mois. Comparer qualite avec Hedra.</div>
+        </div>
+        <div class="priority-item">
+          <div class="priority-num p-medium">8</div>
+          <div class="priority-text"><strong>MetaHuman prototype (Voie B)</strong><br>Creer le modele Luna dans MetaHuman Creator (gratuit, web). Pas de deadline.</div>
+        </div>
+
+        <div class="section-title">Calendrier</div>
+        <div class="priority-item">
+          <div class="priority-num p-critical" style="font-size:0.6em">S1</div>
+          <div class="priority-text"><strong>Semaine 1 : POC Hedra</strong><br>Photo + compte + test lip-sync + decision Go/NoGo.</div>
+        </div>
+        <div class="priority-item">
+          <div class="priority-num p-high" style="font-size:0.6em">S2</div>
+          <div class="priority-text"><strong>Semaine 2 : Integration</strong><br>hedra_client.py + frontend LiveKit + tests.</div>
+        </div>
+        <div class="priority-item">
+          <div class="priority-num p-medium" style="font-size:0.6em">S3+</div>
+          <div class="priority-text"><strong>Semaine 3+ : Production</strong><br>Migration exploitants + monitoring + Voie B en parallele.</div>
+        </div>
+      </div>
+
+      <!-- Threats Tab -->
+      <div class="right-tab-content" id="rtab-threats">
+        <div class="section-title">Risques identifies</div>
+
+        <div class="threat-card">
+          <h4>&#9888; Hedra trop jeune / instable</h4>
+          <p>Plateforme plus recente que Tavus. SLA non verifie. Mitigation : POC de 48h + plan de fallback sur Tavus.</p>
+        </div>
+        <div class="threat-card">
+          <h4>&#9888; Qualite lip-sync francais</h4>
+          <p>Le francais a des phonemes specifiques. Si le lip-sync est entraine principalement sur l'anglais, le resultat pourrait etre moyen. A tester IMPERATIVEMENT.</p>
+        </div>
+        <div class="threat-card">
+          <h4>&#9888; Dependance cloud persistante</h4>
+          <p>Hedra = cloud. Si Hedra ferme ou monte les prix, meme probleme qu'avec Tavus. La Voie B (self-hosted) est l'assurance long terme.</p>
+        </div>
+        <div class="threat-card">
+          <h4>&#9888; GPU self-hosted = cout eleve</h4>
+          <p>La Voie B necessite un investissement GPU (500EUR+ one-shot ou 150-400EUR/mois cloud). Pas viable a 25EUR/mois.</p>
+        </div>
+        <div class="threat-card">
+          <h4>&#9888; Migration exploitants</h4>
+          <p>Les exploitants existants ont des .env avec TAVUS_API_KEY. Le changement de provider doit etre transparent (AVATAR_PROVIDER env var).</p>
+        </div>
+
+        <div class="section-title">Opportunites</div>
+
+        <div class="opp-card">
+          <h4>&#10003; Division par 3 du cout avatar</h4>
+          <p>0,05EUR/min vs 0,15EUR/min. A 1000 clients, ca represente ~17 000EUR/an d'economies.</p>
+        </div>
+        <div class="opp-card">
+          <h4>&#10003; Latence sub-100ms</h4>
+          <p>Hedra via LiveKit est potentiellement MEILLEUR que Tavus en latence. Experience utilisateur amelioree.</p>
+        </div>
+        <div class="opp-card">
+          <h4>&#10003; Multi-provider = resilience</h4>
+          <p>L'abstraction AvatarProvider permet de switcher entre Tavus, Hedra, Simli ou self-hosted sans toucher au code metier.</p>
+        </div>
+        <div class="opp-card">
+          <h4>&#10003; MetaHuman = independance totale</h4>
+          <p>A terme (Q3 2026), un avatar MetaHuman self-hosted elimine TOUTE dependance cloud. Cout marginal = electricite.</p>
+        </div>
+        <div class="opp-card">
+          <h4>&#10003; Avantage concurrentiel</h4>
+          <p>Un avatar proprietaire renforce le moat technologique de Luna. Moins reproductible qu'un wrapper Tavus.</p>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<script>
+// Clock
+function updateClock() {
+  const now = new Date();
+  document.getElementById('clock').textContent =
+    now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// Agent tabs
+const agents = ['vision', 'model3d', 'dev', 'research', 'streaming'];
+
+function showAgent(name) {
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.ch-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.agent-card').forEach(t => t.classList.remove('active'));
+
+  document.getElementById('tab-' + name).classList.add('active');
+  const idx = agents.indexOf(name);
+  document.querySelectorAll('.ch-tab')[idx].classList.add('active');
+  document.querySelectorAll('.agent-card')[idx].classList.add('active');
+
+  document.querySelector('.messages-area').scrollTop = 0;
+}
+
+// Right panel tabs
+function showRightTab(name) {
+  document.querySelectorAll('.right-tab-content').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.r-tab').forEach(t => t.classList.remove('active'));
+
+  document.getElementById('rtab-' + name).classList.add('active');
+  const tabs = document.querySelectorAll('.r-tab');
+  const names = ['kpis', 'actions', 'threats'];
+  tabs[names.indexOf(name)].classList.add('active');
+}
+
+// Animate progress bars on load
+window.addEventListener('load', () => {
+  document.querySelectorAll('.progress-fill').forEach(bar => {
+    const width = bar.style.width;
+    bar.style.width = '0%';
+    setTimeout(() => { bar.style.width = width; }, 300);
+  });
+});
+</script>
+</body>
+</html>

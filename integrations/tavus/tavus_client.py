@@ -310,6 +310,48 @@ class TavusClient:
                 }
             }
         },
+        {
+            "type": "function",
+            "function": {
+                "name": "send_email",
+                "description": "Envoyer un email a un contact de confiance. Utilise cette fonction quand le souscripteur dit 'envoie un email a...', 'ecris un mail a...', 'envoie un message a... par email'.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "contact_name": {
+                            "type": "string",
+                            "description": "Prenom ou nom du contact destinataire (ex: maman, Marie, mon fils)"
+                        },
+                        "subject": {
+                            "type": "string",
+                            "description": "L'objet de l'email"
+                        },
+                        "body": {
+                            "type": "string",
+                            "description": "Le contenu de l'email"
+                        }
+                    },
+                    "required": ["contact_name", "subject", "body"]
+                }
+            }
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "invite_visio",
+                "description": "Inviter un contact de confiance en visioconference. Envoie un SMS au contact avec un lien pour rejoindre la visio. Quand le souscripteur dit 'invite X en visio', 'fais une visio avec X', 'appelle X en video'.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "contact_name": {
+                            "type": "string",
+                            "description": "Prenom ou nom du contact a inviter (ex: maman, Ludovic, ma soeur)"
+                        }
+                    },
+                    "required": ["contact_name"]
+                }
+            }
+        },
     ]
 
     async def configure_tools(self) -> bool:
@@ -410,7 +452,7 @@ class TavusClient:
         tenant_id: int,
         custom_greeting: Optional[str] = None,
         context: Optional[str] = None,
-        max_duration: int = 1800,
+        max_duration: int = 40,
         callback_url: Optional[str] = None,
     ) -> Tuple[bool, Dict[str, Any]]:
         """

@@ -6,3 +6,9 @@ venv/
 .claude/
 *.pt
 static/documents/
+
+# Secrets & credentials
+data/cortex_api.key
+data/cortex_totp.secret
+data/cortex_telegram.json
+android-app/luna.keystore

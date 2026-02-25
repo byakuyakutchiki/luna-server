@@ -1,0 +1,11 @@
+.env
+*.pem
+*.key
+pv_lock.json
+yawatch.db
+venv/
+__pycache__/
+.git/
+.claude/
+data/certificates/
+*.pyc

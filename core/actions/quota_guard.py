@@ -33,9 +33,9 @@ class PlanType(str, Enum):
     PREMIUM = "premium"
 
 
-# Quotas SMS par forfait (aligné sur tarifs 139/229/399€)
+# Quotas SMS par forfait
 PLAN_SMS_LIMITS = {
-    PlanType.ESSENTIEL: 20,
+    PlanType.ESSENTIEL: 50,
     PlanType.CONFORT: 50,
     PlanType.PREMIUM: 100,
 }

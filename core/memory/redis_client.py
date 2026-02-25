@@ -1034,6 +1034,26 @@ class RedisClient:
         self.client.delete(self.get_email_draft_key(tenant_id, draft_id))
 
     # =========================================================================
+    # EMAIL INTEGRATION (Gmail OAuth2 per-tenant)
+    # =========================================================================
+
+    def save_email_integration(self, tenant_id: int, data: Dict[str, str]) -> None:
+        """Sauvegarde ou met a jour l'integration email d'un tenant (merge)."""
+        key = self._key(str(tenant_id), "email_integration")
+        self.client.hset(key, mapping=data)
+
+    def get_email_integration(self, tenant_id: int) -> Optional[Dict[str, str]]:
+        """Recupere l'integration email d'un tenant."""
+        key = self._key(str(tenant_id), "email_integration")
+        data = self.client.hgetall(key)
+        return data if data else None
+
+    def delete_email_integration(self, tenant_id: int) -> None:
+        """Supprime l'integration email d'un tenant (deconnexion)."""
+        key = self._key(str(tenant_id), "email_integration")
+        self.client.delete(key)
+
+    # =========================================================================
     # AUTH STORE (multi-tenant client authentication)
     # =========================================================================
 

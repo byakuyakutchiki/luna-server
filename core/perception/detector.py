@@ -1,10 +1,13 @@
 """
-Luna Perception Detector - YOLOv8 wrapper + capture webcam
+Luna Perception Detector - Analyse de scene via OpenAI Vision
 
-Capture des images depuis la webcam du device et detection d'objets/personnes.
+Recoit des frames base64 depuis le navigateur du device (getUserMedia)
+et analyse la scene via GPT-4o-mini vision.
 Aucune image n'est stockee - seules les metadonnees de detection sont conservees.
 """
+import json
 import logging
+import os
 import time
 from typing import Optional, List, Tuple
 from dataclasses import dataclass, field
@@ -15,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 
 class PersonPosture(str, Enum):
-    """Posture estimee basee sur la geometrie du bounding box."""
+    """Posture estimee basee sur l'analyse visuelle."""
     STANDING = "standing"
     SITTING = "sitting"
     LYING_FLOOR = "lying_floor"
@@ -44,165 +47,180 @@ class FrameAnalysis:
     inference_time_ms: float
 
 
+# Prompt systeme pour l'analyse de scene
+_VISION_SYSTEM_PROMPT = """Tu es un module de perception contextuelle pour Luna, un compagnon de lien social.
+Analyse cette image de camera pour decrire la scene de facon factuelle.
+
+Reponds UNIQUEMENT en JSON avec cette structure exacte:
+{
+  "persons_count": <int>,
+  "persons": [
+    {"posture": "standing|sitting|lying_floor|lying_bed|unknown", "confidence": <0.0-1.0>}
+  ],
+  "objects": ["<nom objet en francais>", ...],
+  "scene_summary": "<description courte en francais de la scene>"
+}
+
+Regles:
+- Compte uniquement les personnes clairement visibles
+- Objets pertinents: meubles, animaux, electromenager, nourriture, medicaments
+- Ne mentionne JAMAIS les mots: surveillance, diagnostic, chute, urgence, alerte
+- Sois factuel et concis
+- Si l'image est floue/sombre, indique "persons_count": 0 et "scene_summary": "Image peu lisible"
+"""
+
+
 class PerceptionDetector:
     """
-    Detecteur YOLO pour Luna.
+    Detecteur de scene pour Luna via OpenAI Vision API.
 
-    Capture des frames depuis la webcam et execute YOLOv8n.
-    Ne stocke JAMAIS les images - seulement les metadonnees.
+    Recoit des frames base64 depuis le navigateur et les analyse
+    via GPT-4o-mini vision. Ne stocke JAMAIS les images.
     """
 
-    # Classes COCO pertinentes pour un environnement domestique
-    RELEVANT_CLASSES = {
-        0: "person",
-        15: "cat",
-        16: "dog",
-        39: "bottle",
-        41: "cup",
-        56: "chair",
-        57: "couch",
-        59: "bed",
-        60: "dining table",
-        62: "tv",
-        63: "laptop",
-        66: "keyboard",
-        67: "cell phone",
-        73: "book",
-    }
-
-    CONFIDENCE_THRESHOLD = 0.35
-
-    def __init__(self, camera_index: int = 0, model_name: str = "yolov8n.pt"):
-        self.camera_index = camera_index
-        self.model_name = model_name
-        self._model = None
-        self._cap = None
+    def __init__(self):
         self._initialized = False
+        self._openai_client = None
+        self._last_frame_time: Optional[float] = None
+        self._remote_camera_active = False
 
     def initialize(self) -> bool:
-        """
-        Charge le modele YOLO et ouvre la webcam.
-        Le modele est telecharge automatiquement au premier appel (~6 MB).
-        """
+        """Initialise le client OpenAI pour l'analyse vision."""
+        api_key = os.environ.get("OPENAI_API_KEY")
+        if not api_key:
+            logger.error("OPENAI_API_KEY non disponible pour perception vision")
+            return False
         try:
-            from ultralytics import YOLO
-            self._model = YOLO(self.model_name)
-            logger.info(f"YOLOv8 model loaded: {self.model_name}")
+            from openai import OpenAI
+            self._openai_client = OpenAI(api_key=api_key)
+            self._initialized = True
+            logger.info("Perception detector initialized (OpenAI Vision)")
+            return True
         except Exception as e:
-            logger.error(f"Failed to load YOLO model: {e}")
+            logger.error(f"Failed to init OpenAI client for perception: {e}")
             return False
 
-        try:
-            import cv2
-            self._cap = cv2.VideoCapture(self.camera_index)
-            if not self._cap.isOpened():
-                logger.error(f"Cannot open camera {self.camera_index}")
-                return False
-            self._cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-            self._cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
-            logger.info(f"Camera {self.camera_index} opened (640x480)")
-        except Exception as e:
-            logger.error(f"Failed to open camera: {e}")
-            return False
-
-        self._initialized = True
-        return True
-
-    def capture_and_detect(self) -> Optional[FrameAnalysis]:
+    def analyze_frame_b64(self, image_b64: str) -> Optional[FrameAnalysis]:
         """
-        Capture une frame et execute la detection.
-        La frame est supprimee immediatement apres l'inference.
+        Analyse une frame encodee en base64 via OpenAI Vision.
+        L'image n'est PAS stockee - seules les metadonnees sont conservees.
         """
-        if not self._initialized or not self._cap:
+        if not self._initialized or not self._openai_client:
             return None
 
-        # Capture
         t0 = time.time()
-        ret, frame = self._cap.read()
-        if not ret or frame is None:
-            logger.warning("Frame capture failed")
+
+        try:
+            response = self._openai_client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {"role": "system", "content": _VISION_SYSTEM_PROMPT},
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "image_url",
+                                "image_url": {
+                                    "url": f"data:image/jpeg;base64,{image_b64}",
+                                    "detail": "low",  # 85 tokens, rapide et pas cher
+                                },
+                            },
+                        ],
+                    },
+                ],
+                max_tokens=300,
+                temperature=0.1,
+            )
+        except Exception as e:
+            logger.error(f"OpenAI Vision API error: {e}")
             return None
-        capture_ms = (time.time() - t0) * 1000
 
-        # Inference
-        t1 = time.time()
-        results = self._model(frame, verbose=False, conf=self.CONFIDENCE_THRESHOLD)
-        inference_ms = (time.time() - t1) * 1000
-
-        # Parse
+        inference_ms = (time.time() - t0) * 1000
         now = datetime.utcnow()
+        self._last_frame_time = time.time()
+
+        # Parse la reponse JSON
+        raw = response.choices[0].message.content.strip()
+        # Enlever les balises markdown si presentes
+        if raw.startswith("```"):
+            raw = raw.split("\n", 1)[1] if "\n" in raw else raw[3:]
+            if raw.endswith("```"):
+                raw = raw[:-3]
+            raw = raw.strip()
+
+        try:
+            data = json.loads(raw)
+        except json.JSONDecodeError:
+            logger.warning(f"Vision API returned non-JSON: {raw[:200]}")
+            return FrameAnalysis(
+                timestamp=now,
+                persons_count=0,
+                person_postures=[],
+                objects=[],
+                detections=[],
+                capture_time_ms=0,
+                inference_time_ms=inference_ms,
+            )
+
+        # Construire les detections et postures
+        persons_count = data.get("persons_count", 0)
+        persons_data = data.get("persons", [])
+        objects = data.get("objects", [])
+
+        postures = []
         detections = []
-        h, w = frame.shape[:2]
+        for p in persons_data:
+            posture_str = p.get("posture", "unknown")
+            try:
+                posture = PersonPosture(posture_str)
+            except ValueError:
+                posture = PersonPosture.UNKNOWN
+            postures.append(posture)
+            conf = p.get("confidence", 0.5)
+            detections.append(Detection(
+                class_name="person",
+                confidence=conf,
+                bbox=(0.0, 0.0, 1.0, 1.0),  # pas de bbox precise en vision
+                timestamp=now,
+            ))
 
-        for result in results:
-            for box in result.boxes:
-                cls_id = int(box.cls[0])
-                if cls_id not in self.RELEVANT_CLASSES:
-                    continue
-                conf = float(box.conf[0])
-                x1, y1, x2, y2 = box.xyxy[0].tolist()
-                detections.append(Detection(
-                    class_name=self.RELEVANT_CLASSES[cls_id],
-                    confidence=conf,
-                    bbox=(x1 / w, y1 / h, x2 / w, y2 / h),
-                    timestamp=now,
-                ))
-
-        # Frame supprimee - jamais stockee
-        del frame
-
-        # Analyse personnes
-        persons = [d for d in detections if d.class_name == "person"]
-        bed_detected = any(d.class_name == "bed" for d in detections)
-        postures = [self._estimate_posture(d, bed_detected) for d in persons]
-        objects = list(set(d.class_name for d in detections if d.class_name != "person"))
+        # Ajouter les objets comme detections
+        for obj in objects:
+            detections.append(Detection(
+                class_name=obj,
+                confidence=0.7,
+                bbox=(0.0, 0.0, 1.0, 1.0),
+                timestamp=now,
+            ))
 
         return FrameAnalysis(
             timestamp=now,
-            persons_count=len(persons),
+            persons_count=persons_count,
             person_postures=postures,
             objects=objects,
             detections=detections,
-            capture_time_ms=capture_ms,
+            capture_time_ms=0,
             inference_time_ms=inference_ms,
         )
 
-    def _estimate_posture(self, detection: Detection, bed_nearby: bool) -> PersonPosture:
-        """
-        Estime la posture depuis la geometrie du bounding box.
-        Heuristique simple - aucune garantie de fiabilite.
-        """
-        x1, y1, x2, y2 = detection.bbox
-        width = x2 - x1
-        height = y2 - y1
-        center_y = (y1 + y2) / 2
-
-        if width == 0:
-            return PersonPosture.UNKNOWN
-
-        aspect_ratio = height / width
-
-        if aspect_ratio > 1.5:
-            return PersonPosture.STANDING
-        elif aspect_ratio > 0.9:
-            return PersonPosture.SITTING
-        else:
-            # Personne horizontale
-            if bed_nearby:
-                return PersonPosture.LYING_BED
-            elif center_y > 0.6:
-                return PersonPosture.LYING_FLOOR
-            return PersonPosture.UNKNOWN
+    def set_remote_camera_active(self, active: bool):
+        """Indique si un navigateur envoie activement des frames."""
+        self._remote_camera_active = active
+        if active:
+            self._last_frame_time = time.time()
 
     def is_camera_available(self) -> bool:
-        if not self._cap:
+        """La camera est disponible si un navigateur envoie des frames recemment."""
+        if not self._remote_camera_active:
             return False
-        return self._cap.isOpened()
+        if self._last_frame_time is None:
+            return False
+        # Considere la camera active si on a recu une frame dans les 30 dernieres secondes
+        return (time.time() - self._last_frame_time) < 30
 
     def release(self):
-        """Libere les ressources camera."""
-        if self._cap:
-            self._cap.release()
-            self._cap = None
+        """Libere les ressources."""
+        self._remote_camera_active = False
+        self._last_frame_time = None
         self._initialized = False
         logger.info("Perception detector released")

@@ -2,11 +2,16 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0a0a1a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="/static/manifest.json">
+<link rel="apple-touch-icon" href="/static/icon-192.png">
 <title>Luna - YAWatch</title>
 <style>
 * { margin:0; padding:0; box-sizing:border-box; }
-body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #0a0a1a; color: #e0e0e0; height: 100vh; display: flex; flex-direction: column; }
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #0a0a1a; color: #e0e0e0; height: 100vh; height: 100dvh; display: flex; flex-direction: column; padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
 .header { background: linear-gradient(135deg, #1a1a3e, #2d1b69); padding: 16px 20px; text-align: center; border-bottom: 1px solid #333; }
 .header h1 { font-size: 1.4em; color: #a78bfa; display: inline-flex; align-items: center; gap: 8px; }
 .header p { font-size: 0.8em; color: #888; margin-top: 2px; }
@@ -15,8 +20,9 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; b
 .status-dot.offline { background: #f87171; box-shadow: 0 0 6px #f87171; }
 
 /* Tabs */
-.tabs { display: flex; background: #111; border-bottom: 1px solid #333; overflow-x: auto; }
-.tab-btn { padding: 10px 16px; background: transparent; border: none; color: #888; font-size: 0.85em; cursor: pointer; white-space: nowrap; border-bottom: 2px solid transparent; transition: all 0.2s; }
+.tabs { display: flex; background: #111; border-bottom: 1px solid #333; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+.tabs::-webkit-scrollbar { display: none; }
+.tab-btn { padding: 10px 16px; background: transparent; border: none; color: #888; font-size: 0.85em; cursor: pointer; white-space: nowrap; border-bottom: 2px solid transparent; transition: all 0.2s; min-height: 44px; }
 .tab-btn:hover { color: #a78bfa; }
 .tab-btn.active { color: #a78bfa; border-bottom-color: #7c3aed; }
 .tab-panel { display: none; flex: 1; overflow-y: auto; flex-direction: column; }
@@ -61,7 +67,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; b
 /* Overlay video */
 .video-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 100; display: none; flex-direction: column; align-items: center; justify-content: center; }
 .video-overlay.active { display: flex; }
-.video-overlay iframe { width: 90vw; height: 80vh; border: none; border-radius: 16px; }
+.video-overlay iframe, .video-overlay #videoFrame { width: 90vw; height: 80vh; border: none; border-radius: 16px; }
 .close-btn { position: absolute; top: 16px; right: 24px; background: #dc2626; color: white; border: none; padding: 10px 20px; border-radius: 12px; font-size: 1em; cursor: pointer; z-index: 101; }
 .close-btn:hover { background: #b91c1c; }
 .invite-btn { position: absolute; top: 16px; left: 24px; background: #2563eb; color: white; border: none; padding: 10px 20px; border-radius: 12px; font-size: 1em; cursor: pointer; z-index: 101; }
@@ -133,7 +139,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; b
 
 /* Auth screens */
 .auth-screen { display: flex; justify-content: center; align-items: center; flex: 1; }
-.auth-box { background: #111; border: 1px solid #333; border-radius: 12px; padding: 40px; width: 360px; }
+.auth-box { background: #111; border: 1px solid #333; border-radius: 12px; padding: 40px; width: 90%; max-width: 360px; }
 .auth-box h2 { color: #a78bfa; margin-bottom: 20px; text-align: center; }
 .auth-box input { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #333; background: #1a1a2e; color: #fff; margin-bottom: 16px; font-size: 1em; outline: none; }
 .auth-box input:focus { border-color: #7c3aed; }
@@ -144,24 +150,61 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; b
 .auth-link a { color: #a78bfa; cursor: pointer; text-decoration: none; }
 .auth-link a:hover { text-decoration: underline; }
 .app-container { display: none; flex: 1; flex-direction: column; overflow: hidden; }
-.logout-btn { padding: 6px 14px; border-radius: 6px; border: 1px solid #555; background: transparent; color: #aaa; cursor: pointer; font-size: 0.8em; margin-left: 10px; }
+.logout-btn { padding: 6px 14px; border-radius: 6px; border: 1px solid #555; background: transparent; color: #aaa; cursor: pointer; font-size: 0.8em; }
 .logout-btn:hover { border-color: #f87171; color: #f87171; }
+.wakeword-btn { width: 40px; height: 40px; border-radius: 50%; border: 1px solid #555; background: transparent; color: #aaa; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.3s; }
+.wakeword-btn:hover { border-color: #a78bfa; color: #a78bfa; }
+.wakeword-btn.active { border-color: #4ade80; color: #4ade80; background: rgba(74,222,128,0.1); box-shadow: 0 0 8px rgba(74,222,128,0.3); }
+.wakeword-btn.listening { animation: pulse 2s infinite; }
+@keyframes pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(74,222,128,0.4); } 50% { box-shadow: 0 0 0 8px rgba(74,222,128,0); } }
 
+/* --- Mobile responsive --- */
 @media (max-width: 600px) {
   .msg { max-width: 92%; font-size: 0.9em; padding: 10px 14px; }
-  .input-area { padding: 10px; gap: 6px; }
-  .input-area input { padding: 10px 14px; font-size: 0.95em; }
-  .send-btn { padding: 10px 16px; font-size: 0.9em; }
-  .call-btn { padding: 10px 14px; font-size: 0.85em; }
-  .call-btn svg { width: 16px; height: 16px; }
-  .voice-btn { padding: 10px 14px; font-size: 0.85em; }
-  .voice-btn svg { width: 16px; height: 16px; }
-  .header { padding: 12px; }
-  .header h1 { font-size: 1.2em; }
-  .video-overlay iframe { width: 100vw; height: 85vh; border-radius: 0; }
+  .chat { padding: 12px; gap: 10px; }
+  .input-area { padding: 10px; gap: 6px; flex-wrap: wrap; }
+  .input-area input { padding: 10px 14px; font-size: 0.95em; min-width: 0; }
+  .send-btn { padding: 10px 16px; font-size: 0.9em; min-height: 44px; }
+  .call-btn, .voice-btn { flex: 1; justify-content: center; min-height: 44px; padding: 10px 14px; font-size: 0.85em; }
+  .call-btn svg, .voice-btn svg { width: 16px; height: 16px; }
+  .header { padding: 10px 12px; }
+  .header h1 { font-size: 1.1em; }
+  .header p { font-size: 0.7em; }
+  .logout-btn { padding: 8px 12px; min-height: 44px; }
+  .video-overlay iframe, .video-overlay #videoFrame { width: 100vw; height: 100vh; height: 100dvh; border-radius: 0; }
+  .close-btn { top: 8px; right: 8px; padding: 10px 16px; min-height: 44px; }
+  .invite-btn { top: 8px; left: 8px; padding: 10px 16px; min-height: 44px; font-size: 0.85em; }
   .char-counter { display: none; }
   .form-row, .form-row-3 { grid-template-columns: 1fr; }
   .tab-btn { padding: 8px 12px; font-size: 0.8em; }
+  .auth-box { padding: 24px 20px; }
+  .panel-content { padding: 14px; }
+  .panel-content h2 { font-size: 1.1em; }
+  .invite-box { padding: 20px; width: 95%; }
+}
+
+/* Tres petit ecran (iPhone SE, Galaxy S5) */
+@media (max-width: 380px) {
+  .header h1 { font-size: 1em; gap: 4px; }
+  .header p { display: none; }
+  .tab-btn { padding: 6px 8px; font-size: 0.75em; }
+  .msg { font-size: 0.85em; padding: 8px 12px; }
+  .input-area input { font-size: 0.9em; padding: 8px 12px; }
+  .send-btn { padding: 8px 12px; font-size: 0.85em; }
+  .auth-box { padding: 20px 16px; }
+  .auth-box h2 { font-size: 1.3em; }
+}
+
+/* Paysage telephone */
+@media (max-height: 500px) and (orientation: landscape) {
+  .header { padding: 4px 12px; }
+  .header h1 { font-size: 1em; }
+  .header p { display: none; }
+  .tabs { min-height: 32px; }
+  .tab-btn { padding: 4px 10px; font-size: 0.75em; min-height: 32px; }
+  .chat { padding: 8px; gap: 6px; }
+  .msg { padding: 6px 10px; font-size: 0.85em; }
+  .input-area { padding: 6px; gap: 4px; }
 }
 </style>
 </head>
@@ -197,18 +240,22 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; b
     <h1><span class="status-dot online" id="statusDot"></span> Luna</h1>
     <p id="greetingSubtitle">Ton compagnon bienveillant</p>
   </div>
-  <button class="logout-btn" id="logoutBtn">Deconnexion</button>
-</div>
-
-<!-- XP Widget flottant -->
-<div id="xpWidget" style="position:fixed;bottom:16px;left:16px;z-index:1000;display:none;cursor:pointer;">
-  <div style="background:linear-gradient(135deg,#1a1848,#2d1b69);border-radius:16px;padding:10px 16px;color:white;font-size:13px;box-shadow:0 4px 20px rgba(0,0,0,0.3);">
-    <div><span id="xpLevel">Niv. 1</span> &middot; <span id="xpStars">0</span> etoiles</div>
-    <div style="background:rgba(255,255,255,0.2);border-radius:4px;height:6px;margin-top:4px;width:120px;">
-      <div id="xpBar" style="background:linear-gradient(90deg,#a78bfa,#7c3aed);height:100%;border-radius:4px;width:0%;transition:width 0.5s;"></div>
-    </div>
+  <div style="display:flex;align-items:center;gap:6px;">
+    <button class="wakeword-btn" id="wakewordBtn" title="Activer Hey Luna">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+    </button>
+    <button class="logout-btn" id="logoutBtn">Deconnexion</button>
   </div>
 </div>
+
+<!-- Indicateur wake word -->
+<div id="wakewordIndicator" style="display:none;position:fixed;top:60px;right:16px;z-index:1001;background:#1a1a3e;border:1px solid #7c3aed;border-radius:12px;padding:8px 14px;font-size:0.8em;color:#a78bfa;box-shadow:0 4px 12px rgba(0,0,0,0.4);">
+  <span id="wakewordDot" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#4ade80;margin-right:6px;animation:pulse 2s infinite;"></span>
+  <span id="wakewordLabel">Ecoute...</span>
+</div>
+
+<!-- XP Widget (header only, not floating) -->
+<div id="xpWidget" style="display:none;"></div>
 
 <!-- Tabs -->
 <div class="tabs">
@@ -435,39 +482,52 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; b
   <div class="panel-content">
     <h2>Perception contextuelle</h2>
     <p style="font-size:0.85em;color:#888;margin-bottom:16px;">
-      Luna peut utiliser la camera de ton appareil pour mieux comprendre ton
-      environnement. Aucune image n'est enregistree &mdash; seules les informations
-      de presence et de contexte sont analysees.<br>
-      <strong>Aide contextuelle uniquement.</strong> Ne constitue pas un dispositif de surveillance ou de securite.
+      Luna observe ton environnement via la camera de ton telephone.
+      Aucune image n'est conservee &mdash; seul le contexte est analyse.<br>
+      <strong>Aide contextuelle uniquement.</strong>
     </p>
 
-    <div class="card" id="perceptionStatusCard">
+    <!-- Bouton principal gros et visible -->
+    <div style="text-align:center;margin-bottom:20px;">
+      <button class="btn btn-primary" id="perceptionStartBtn" style="padding:16px 40px;font-size:1.2em;border-radius:20px;min-height:56px;">
+        Ouvrir la camera
+      </button>
+      <button class="btn btn-danger" id="perceptionStopBtn" style="display:none;padding:16px 40px;font-size:1.2em;border-radius:20px;min-height:56px;">
+        Couper la camera
+      </button>
+      <p class="form-status" id="perceptionStatus" style="margin-top:10px;"></p>
+    </div>
+
+    <!-- Preview camera -->
+    <div class="card" id="perceptionCameraCard" style="display:none;">
       <div class="card-header">
-        <span class="card-title">Statut</span>
-        <span class="badge" id="perceptionBadge">--</span>
+        <span class="card-title">Camera en direct</span>
+        <span class="badge badge-green" id="perceptionCaptureBadge">En direct</span>
       </div>
-      <div class="card-body">
-        <div id="perceptionCameraInfo" style="font-size:0.85em;color:#888;margin-bottom:10px;"></div>
-        <div style="display:flex;gap:10px;">
-          <button class="btn btn-primary" id="perceptionStartBtn">Activer la camera</button>
-          <button class="btn btn-danger" id="perceptionStopBtn">Desactiver</button>
-        </div>
-        <p class="form-status" id="perceptionStatus"></p>
+      <div class="card-body" style="text-align:center;padding:8px;">
+        <video id="perceptionVideo" autoplay playsinline muted style="width:100%;max-width:400px;border-radius:12px;background:#000;aspect-ratio:4/3;object-fit:cover;"></video>
+        <canvas id="perceptionCanvas" style="display:none;"></canvas>
+        <div id="perceptionTimer" style="font-size:0.8em;color:#a78bfa;margin-top:8px;font-weight:bold;"></div>
       </div>
     </div>
 
+    <!-- Resultat analyse -->
     <div class="card" id="perceptionSceneCard" style="display:none;">
-      <div class="card-header"><span class="card-title">Scene actuelle</span></div>
+      <div class="card-header"><span class="card-title">Ce que Luna voit</span></div>
       <div class="card-body">
-        <div id="perceptionSceneText" style="font-size:0.95em;"></div>
-        <div id="perceptionDetails" style="margin-top:8px;font-size:0.8em;color:#888;"></div>
+        <div id="perceptionSceneText" style="font-size:1.05em;line-height:1.5;"></div>
+        <div id="perceptionDetails" style="margin-top:10px;font-size:0.8em;color:#888;"></div>
       </div>
     </div>
 
+    <!-- Evenements/anomalies -->
     <div class="card" id="perceptionAbnCard" style="display:none;">
-      <div class="card-header"><span class="card-title">Evenements recents</span></div>
+      <div class="card-header"><span class="card-title">Evenements detectes</span></div>
       <div class="card-body" id="perceptionAbnList"></div>
     </div>
+
+    <!-- Statut serveur discret -->
+    <div id="perceptionCameraInfo" style="font-size:0.75em;color:#666;text-align:center;margin-top:12px;"></div>
   </div>
 </div>
 
@@ -495,8 +555,9 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; b
 <div class="video-overlay" id="videoOverlay">
   <button class="close-btn" id="hangupBtn">Raccrocher</button>
   <button class="invite-btn" id="inviteBtn">+ Inviter un contact</button>
-  <iframe id="videoFrame" allow="camera;microphone;autoplay"></iframe>
+  <div id="videoFrame"></div>
 </div>
+<script crossorigin src="https://unpkg.com/@daily-co/daily-js"></script>
 
 <div class="invite-modal" id="inviteModal">
   <div class="invite-box">
@@ -788,15 +849,84 @@ function sendMsg(overrideMsg) {
 sendBtn.addEventListener("click", function() { sendMsg(); });
 inputEl.addEventListener("keydown", function(e) { if (e.key === "Enter") sendMsg(); });
 
-// --- Video call ---
+// --- Video call (Daily.js SDK pour tool calling) ---
 var currentConvId = "";
+var dailyCall = null;
+
 function startCall() {
   callBtn.disabled = true; callBtn.textContent = "Connexion...";
   authFetch("/api/call", { method: "POST" }).then(function(r) { return r.json(); })
   .then(function(data) {
     if (data.error) { addMsg("Erreur appel: " + data.error, "luna"); return; }
     currentConvId = data.conversation_id;
-    videoFrame.src = data.conversation_url;
+
+    // Daily.js SDK — permet d'intercepter les tool_call events de Tavus
+    if (dailyCall) { try { dailyCall.destroy(); } catch(e){} }
+    dailyCall = window.DailyIframe.createFrame(videoFrame, {
+      iframeStyle: { width: "100%", height: "100%", border: "none" },
+      showLeaveButton: false,
+      showFullscreenButton: true,
+    });
+
+    // Ecoute les tool_call events de Tavus via app-message
+    dailyCall.on("app-message", function(evt) {
+      var msg = evt && evt.data;
+      if (!msg) return;
+      var evtType = msg.event_type || "";
+      if (evtType === "conversation.tool_call") {
+        var toolName = (msg.properties && msg.properties.name) || "";
+        var toolArgs = (msg.properties && msg.properties.arguments) || "{}";
+        console.log("[Luna] Tool call recu:", toolName, toolArgs);
+        addMsg("[Visio] Luna execute: " + toolName + "...", "luna");
+
+        // Relaie au backend
+        authFetch("/api/webhook/tavus", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({
+            event_type: "conversation.tool_call",
+            tool_name: toolName,
+            tool_arguments: toolArgs,
+            conversation_id: currentConvId,
+          })
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(result) {
+          var resultText = result.message || JSON.stringify(result);
+          console.log("[Luna] Tool result:", resultText);
+          // Renvoie le resultat a la replica Tavus pour qu'elle le dise
+          try {
+            dailyCall.sendAppMessage({
+              message_type: "conversation",
+              event_type: "conversation.echo",
+              conversation_id: currentConvId,
+              properties: {
+                modality: "text",
+                text: resultText,
+              }
+            }, "*");
+          } catch(e) { console.error("[Luna] sendAppMessage error:", e); }
+        })
+        .catch(function(err) {
+          console.error("[Luna] Tool call relay error:", err);
+          try {
+            dailyCall.sendAppMessage({
+              message_type: "conversation",
+              event_type: "conversation.echo",
+              conversation_id: currentConvId,
+              properties: { modality: "text", text: "Desolee, une erreur est survenue." }
+            }, "*");
+          } catch(e2) {}
+        });
+      }
+    });
+
+    dailyCall.on("left-meeting", function() {
+      videoOverlay.classList.remove("active"); inviteModal.classList.remove("active");
+      currentConvId = ""; addMsg("Appel termine.", "luna");
+    });
+
+    dailyCall.join({ url: data.conversation_url });
     videoOverlay.classList.add("active");
     addMsg("Appel video avec Luna en cours...", "luna");
   })
@@ -808,7 +938,8 @@ function startCall() {
 }
 callBtn.addEventListener("click", startCall);
 hangupBtn.addEventListener("click", function() {
-  videoFrame.src = ""; videoOverlay.classList.remove("active"); inviteModal.classList.remove("active");
+  if (dailyCall) { try { dailyCall.leave(); dailyCall.destroy(); } catch(e){} dailyCall = null; }
+  videoOverlay.classList.remove("active"); inviteModal.classList.remove("active");
   currentConvId = ""; addMsg("Appel termine.", "luna");
 });
 
@@ -1079,107 +1210,276 @@ document.getElementById("docGenerateBtn").addEventListener("click", function() {
 });
 
 // =========================================================================
-// PERCEPTION
+// PERCEPTION — Camera navigateur + OpenAI Vision
 // =========================================================================
+var perceptionStream = null;
+var perceptionCaptureTimer = null;
+var perceptionCountdownTimer = null;
 var perceptionRefreshTimer = null;
+var perceptionAnalyzing = false;
+var perceptionAnalysisCount = 0;
+
+var PERCEPTION_CAPTURE_INTERVAL = 12; // secondes entre captures
 
 function loadPerception() {
-  if (perceptionRefreshTimer) clearInterval(perceptionRefreshTimer);
-  _fetchPerceptionStatus();
-  perceptionRefreshTimer = setInterval(_fetchPerceptionStatus, 5000);
+  var camInfo = document.getElementById("perceptionCameraInfo");
+  var startBtn = document.getElementById("perceptionStartBtn");
+  var stopBtn = document.getElementById("perceptionStopBtn");
+  if (perceptionStream) {
+    camInfo.textContent = "Camera active — analyses en cours.";
+    startBtn.style.display = "none";
+    stopBtn.style.display = "inline-block";
+  } else {
+    camInfo.textContent = "Appuie sur le bouton pour activer la camera.";
+    startBtn.style.display = "inline-block";
+    startBtn.disabled = false;
+    stopBtn.style.display = "none";
+    // Reset serveur si perception etait restee enabled sans camera
+    authFetch("/api/perception/stop", { method: "POST" }).catch(function() {});
+  }
 }
 
-function _fetchPerceptionStatus() {
-  authFetch("/api/perception/status").then(function(r) { return r.json(); }).then(function(data) {
-    var badge = document.getElementById("perceptionBadge");
-    var sceneCard = document.getElementById("perceptionSceneCard");
-    var sceneText = document.getElementById("perceptionSceneText");
-    var details = document.getElementById("perceptionDetails");
-    var camInfo = document.getElementById("perceptionCameraInfo");
+function _perceptionCaptureAndSend() {
+  if (perceptionAnalyzing || !perceptionStream) return;
+  var video = document.getElementById("perceptionVideo");
+  var canvas = document.getElementById("perceptionCanvas");
+  if (!video || video.videoWidth === 0) {
+    document.getElementById("perceptionTimer").textContent = "En attente du flux video...";
+    return;
+  }
 
-    if (!data.available) {
-      badge.textContent = "Non disponible";
-      badge.className = "badge badge-red";
-      camInfo.textContent = "Module perception non installe (ultralytics/opencv requis).";
-      sceneCard.style.display = "none";
-      return;
-    }
+  // Capturer une frame JPEG
+  canvas.width = Math.min(video.videoWidth, 640);
+  canvas.height = Math.round(canvas.width * video.videoHeight / video.videoWidth);
+  var ctx = canvas.getContext("2d");
+  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+  var dataUrl = canvas.toDataURL("image/jpeg", 0.5);
+  var b64 = dataUrl.split(",")[1];
 
-    if (data.enabled && data.camera_connected) {
-      badge.textContent = "Active";
-      badge.className = "badge badge-green";
-      camInfo.textContent = "Camera connectee, analyse en cours...";
-    } else if (data.enabled) {
-      badge.textContent = "Pas de camera";
-      badge.className = "badge badge-red";
-      camInfo.textContent = "Perception activee mais camera non accessible.";
-    } else {
-      badge.textContent = "Desactivee";
-      badge.className = "badge badge-yellow";
-      camInfo.textContent = "Camera non active. Clique sur Activer pour demarrer.";
-    }
+  perceptionAnalyzing = true;
+  var capBadge = document.getElementById("perceptionCaptureBadge");
+  var timerEl = document.getElementById("perceptionTimer");
+  capBadge.textContent = "Analyse..."; capBadge.className = "badge badge-yellow";
+  timerEl.textContent = "Luna regarde...";
+  timerEl.style.color = "#f59e0b";
 
-    if (data.current_scene) {
+  authFetch("/api/perception/frame", {
+    method: "POST",
+    body: JSON.stringify({ image: b64 }),
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    if (data.success && data.scene) {
+      perceptionAnalysisCount++;
+      // Afficher le resultat bien visible
+      var sceneCard = document.getElementById("perceptionSceneCard");
+      var sceneText = document.getElementById("perceptionSceneText");
+      var details = document.getElementById("perceptionDetails");
       sceneCard.style.display = "block";
-      sceneText.textContent = data.current_scene.scene_description || "Aucune analyse";
-      var d = data.current_scene;
-      var detailParts = [];
-      detailParts.push("Personnes: " + d.persons_present);
-      detailParts.push("Posture: " + d.primary_posture);
-      if (d.objects_visible && d.objects_visible.length > 0) detailParts.push("Objets: " + d.objects_visible.join(", "));
-      var ts = "";
-      try { ts = new Date(d.timestamp).toLocaleTimeString("fr-FR"); } catch(e) {}
-      if (ts) detailParts.push("Derniere analyse: " + ts);
-      details.textContent = detailParts.join(" | ");
+      sceneText.textContent = data.scene.scene_description || "Aucune description";
 
-      // Show abnormalities
-      if (d.abnormalities && d.abnormalities.length > 0) {
+      var dp = [];
+      if (data.scene.persons_present > 0) dp.push(data.scene.persons_present + " personne(s)");
+      if (data.scene.primary_posture && data.scene.primary_posture !== "absent") dp.push("Posture: " + data.scene.primary_posture);
+      if (data.scene.objects_visible && data.scene.objects_visible.length > 0) dp.push("Objets: " + data.scene.objects_visible.join(", "));
+      if (data.inference_ms) dp.push(data.inference_ms + "ms");
+      dp.push("Analyse #" + perceptionAnalysisCount);
+      details.textContent = dp.join(" | ");
+
+      // Anomalies
+      if (data.scene.abnormalities && data.scene.abnormalities.length > 0) {
         var abnCard = document.getElementById("perceptionAbnCard");
         var abnList = document.getElementById("perceptionAbnList");
         abnCard.style.display = "block";
         abnList.innerHTML = "";
-        d.abnormalities.forEach(function(abn) {
+        data.scene.abnormalities.forEach(function(abn) {
           var cls = abn.severity === "concern" ? "badge-red" : abn.severity === "attention" ? "badge-yellow" : "badge-blue";
           abnList.innerHTML += '<div style="margin-bottom:6px;"><span class="badge ' + cls + '">' + esc(abn.severity) + '</span> ' + esc(abn.description) + '</div>';
         });
       } else {
         document.getElementById("perceptionAbnCard").style.display = "none";
       }
+
+      capBadge.textContent = "OK"; capBadge.className = "badge badge-green";
+      timerEl.style.color = "#22c55e";
     } else {
-      sceneCard.style.display = "none";
-      document.getElementById("perceptionAbnCard").style.display = "none";
+      capBadge.textContent = "Erreur"; capBadge.className = "badge badge-red";
+      timerEl.textContent = "Erreur analyse: " + (data.error || "inconnue");
+      timerEl.style.color = "#ef4444";
     }
-  }).catch(function() {});
+    // Lancer le countdown pour la prochaine capture
+    _startPerceptionCountdown();
+  })
+  .catch(function(e) {
+    console.error("Perception frame error:", e);
+    capBadge.textContent = "Erreur"; capBadge.className = "badge badge-red";
+    timerEl.textContent = "Erreur reseau: " + e.message;
+    timerEl.style.color = "#ef4444";
+    _startPerceptionCountdown();
+  })
+  .finally(function() { perceptionAnalyzing = false; });
 }
 
-document.getElementById("perceptionStartBtn").addEventListener("click", function() {
+function _startPerceptionCountdown() {
+  if (perceptionCountdownTimer) clearInterval(perceptionCountdownTimer);
+  var remaining = PERCEPTION_CAPTURE_INTERVAL;
+  var timerEl = document.getElementById("perceptionTimer");
+  var capBadge = document.getElementById("perceptionCaptureBadge");
+
+  perceptionCountdownTimer = setInterval(function() {
+    remaining--;
+    if (remaining <= 0) {
+      clearInterval(perceptionCountdownTimer);
+      perceptionCountdownTimer = null;
+      timerEl.textContent = "Capture en cours...";
+      _perceptionCaptureAndSend();
+      return;
+    }
+    timerEl.textContent = "Prochaine analyse dans " + remaining + "s";
+    timerEl.style.color = "#a78bfa";
+    if (remaining <= 3) {
+      capBadge.textContent = remaining + "s"; capBadge.className = "badge badge-yellow";
+    } else {
+      capBadge.textContent = "En direct"; capBadge.className = "badge badge-green";
+    }
+  }, 1000);
+}
+
+function _startPerceptionCamera() {
   var st = document.getElementById("perceptionStatus");
-  this.disabled = true;
-  st.textContent = "Activation de la camera..."; st.className = "form-status";
+  var startBtn = document.getElementById("perceptionStartBtn");
+  var stopBtn = document.getElementById("perceptionStopBtn");
+
+  st.textContent = "1/4 — Verification navigateur..."; st.className = "form-status";
+  st.style.fontSize = "1em";
+  startBtn.disabled = true;
+
+  // Verifier que getUserMedia est disponible
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    st.textContent = "Camera non supportee. Ouvre cette page dans Chrome (pas dans l'app Luna APK).";
+    st.className = "form-status error";
+    startBtn.disabled = false;
+    return;
+  }
+
+  st.textContent = "2/4 — Activation serveur...";
+
+  // 1. Activer la perception cote serveur
   authFetch("/api/perception/start", { method: "POST" })
   .then(function(r) { return r.json(); })
   .then(function(data) {
-    if (data.success) { st.textContent = "Perception activee."; st.className = "form-status success"; _fetchPerceptionStatus(); }
-    else { st.textContent = "Erreur: " + (data.error || "inconnue"); st.className = "form-status error"; }
-  })
-  .catch(function(e) { st.textContent = "Erreur: " + e.message; st.className = "form-status error"; })
-  .finally(function() { document.getElementById("perceptionStartBtn").disabled = false; });
-});
+    if (!data.success) {
+      st.textContent = "Erreur serveur: " + (data.error || "indisponible"); st.className = "form-status error";
+      startBtn.disabled = false;
+      return Promise.reject("server_fail");
+    }
+    st.textContent = "3/4 — Ouverture camera... (autorise si demande)";
 
-document.getElementById("perceptionStopBtn").addEventListener("click", function() {
+    // 2. Ouvrir la camera — essai direct sans contrainte speciale
+    return navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+  })
+  .then(function(stream) {
+    if (!stream) {
+      st.textContent = "Erreur: aucun flux camera obtenu."; st.className = "form-status error";
+      startBtn.disabled = false;
+      return;
+    }
+
+    st.textContent = "4/4 — Camera ouverte !";
+
+    perceptionStream = stream;
+    perceptionAnalysisCount = 0;
+
+    var video = document.getElementById("perceptionVideo");
+    var camCard = document.getElementById("perceptionCameraCard");
+    video.srcObject = stream;
+    video.play().catch(function(e) {
+      st.textContent = "Erreur lecture video: " + e.message; st.className = "form-status error";
+    });
+
+    camCard.style.display = "block";
+    startBtn.style.display = "none";
+    stopBtn.style.display = "inline-block";
+    st.textContent = "Camera active ! Premiere analyse dans 3s...";
+    st.className = "form-status success";
+
+    var camInfo = document.getElementById("perceptionCameraInfo");
+    camInfo.textContent = "Luna observe ton environnement en temps reel.";
+
+    // Premiere capture apres 3s (stabilisation camera)
+    var timerEl = document.getElementById("perceptionTimer");
+    var countdown = 3;
+    timerEl.textContent = "Premiere analyse dans " + countdown + "s...";
+    timerEl.style.color = "#a78bfa";
+    var initCountdown = setInterval(function() {
+      countdown--;
+      if (countdown <= 0) {
+        clearInterval(initCountdown);
+        _perceptionCaptureAndSend();
+      } else {
+        timerEl.textContent = "Premiere analyse dans " + countdown + "s...";
+      }
+    }, 1000);
+  })
+  .catch(function(e) {
+    if (e === "server_fail") return; // Deja gere
+    var msg = e.message || String(e);
+    if (msg.indexOf("Permission") !== -1 || msg.indexOf("NotAllowed") !== -1 || msg.indexOf("denied") !== -1) {
+      st.textContent = "Camera refusee ! Va dans Parametres > Apps > Chrome > Permissions > Camera > Autoriser, puis reessaie.";
+    } else if (msg.indexOf("NotFound") !== -1 || msg.indexOf("Requested device not found") !== -1) {
+      st.textContent = "Aucune camera trouvee sur cet appareil.";
+    } else if (msg.indexOf("secure") !== -1 || msg.indexOf("https") !== -1) {
+      st.textContent = "La camera necessite HTTPS. Verifie l'URL.";
+    } else {
+      st.textContent = "Erreur camera: " + msg;
+    }
+    st.className = "form-status error";
+    startBtn.disabled = false;
+    startBtn.style.display = "inline-block";
+    // Desactiver aussi cote serveur
+    authFetch("/api/perception/stop", { method: "POST" }).catch(function() {});
+  });
+}
+
+function _stopPerceptionCamera() {
   var st = document.getElementById("perceptionStatus");
-  this.disabled = true;
-  authFetch("/api/perception/stop", { method: "POST" })
-  .then(function(r) { return r.json(); })
-  .then(function(data) {
-    st.textContent = "Perception desactivee."; st.className = "form-status success";
-    _fetchPerceptionStatus();
-  })
-  .catch(function(e) { st.textContent = "Erreur: " + e.message; st.className = "form-status error"; })
-  .finally(function() { document.getElementById("perceptionStopBtn").disabled = false; });
-});
+  var startBtn = document.getElementById("perceptionStartBtn");
+  var stopBtn = document.getElementById("perceptionStopBtn");
+  var video = document.getElementById("perceptionVideo");
+  var camCard = document.getElementById("perceptionCameraCard");
+  var camInfo = document.getElementById("perceptionCameraInfo");
 
-// Stop auto-refresh when leaving perception tab
+  // Arreter les timers
+  if (perceptionCaptureTimer) { clearInterval(perceptionCaptureTimer); perceptionCaptureTimer = null; }
+  if (perceptionCountdownTimer) { clearInterval(perceptionCountdownTimer); perceptionCountdownTimer = null; }
+
+  // Arreter le stream camera
+  if (perceptionStream) {
+    perceptionStream.getTracks().forEach(function(t) { t.stop(); });
+    perceptionStream = null;
+  }
+  video.srcObject = null;
+  camCard.style.display = "none";
+  startBtn.style.display = "inline-block";
+  startBtn.disabled = false;
+  stopBtn.style.display = "none";
+  camInfo.textContent = "";
+
+  // Desactiver cote serveur
+  authFetch("/api/perception/stop", { method: "POST" })
+  .then(function() {
+    st.textContent = "Perception desactivee. " + perceptionAnalysisCount + " analyses effectuees.";
+    st.className = "form-status success";
+    document.getElementById("perceptionSceneCard").style.display = "none";
+    document.getElementById("perceptionAbnCard").style.display = "none";
+  })
+  .catch(function(e) { st.textContent = "Erreur: " + e.message; st.className = "form-status error"; });
+}
+
+document.getElementById("perceptionStartBtn").addEventListener("click", _startPerceptionCamera);
+document.getElementById("perceptionStopBtn").addEventListener("click", _stopPerceptionCamera);
+
+// Cleanup auto-refresh quand on quitte le tab
 tabBtns.forEach(function(btn) {
   btn.addEventListener("click", function() {
     if (btn.dataset.tab !== "perception" && perceptionRefreshTimer) {
@@ -1285,6 +1585,285 @@ function initApp() {
 // Override showApp to also init
 var _origShowApp = showApp;
 showApp = function() { _origShowApp(); initApp(); refreshXpWidget(); };
+
+// Auto-start video call if ?video=1 in URL
+if (new URLSearchParams(window.location.search).get("video") === "1") {
+  setTimeout(function() { startCall(); }, 500);
+}
+
+// =========================================================================
+// Wake Word — "Hey Luna"
+// Utilise Web Speech API pour ecouter en continu le mot-cle "Luna"
+// =========================================================================
+var wakewordBtn = document.getElementById("wakewordBtn");
+var wakewordIndicator = document.getElementById("wakewordIndicator");
+var wakewordLabel = document.getElementById("wakewordLabel");
+var wakewordActive = false;
+var wakeRecognition = null;
+var wakewordCooldown = false;
+
+var SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+function startWakeWord() {
+  if (!SpeechRecognition) {
+    addMsg("Ton navigateur ne supporte pas la reconnaissance vocale. Utilise Chrome.", "luna");
+    return;
+  }
+  if (wakewordActive) return;
+
+  wakeRecognition = new SpeechRecognition();
+  wakeRecognition.lang = "fr-FR";
+  wakeRecognition.continuous = true;
+  wakeRecognition.interimResults = false;
+  wakeRecognition.maxAlternatives = 3;
+
+  wakeRecognition.onstart = function() {
+    wakewordActive = true;
+    wakewordBtn.classList.add("active", "listening");
+    wakewordIndicator.style.display = "block";
+    wakewordLabel.textContent = "Dis \"Hey Luna\"...";
+    console.log("[WakeWord] Ecoute active");
+  };
+
+  wakeRecognition.onresult = function(event) {
+    if (wakewordCooldown) return;
+    for (var i = event.resultIndex; i < event.results.length; i++) {
+      if (!event.results[i].isFinal) continue;
+      // Verifie toutes les alternatives
+      for (var j = 0; j < event.results[i].length; j++) {
+        var text = event.results[i][j].transcript.toLowerCase().trim();
+        console.log("[WakeWord] Entendu:", text);
+
+        // Detecte "luna" ou "hey luna" ou "hé luna" ou "ailuna" (reconnaissance imparfaite)
+        var lunaIdx = -1;
+        var patterns = ["hey luna", "hé luna", "eh luna", "et luna", "ai luna", "luna"];
+        for (var p = 0; p < patterns.length; p++) {
+          var idx = text.indexOf(patterns[p]);
+          if (idx >= 0) { lunaIdx = idx; break; }
+        }
+
+        if (lunaIdx >= 0) {
+          // Extrait la commande apres "luna"
+          var afterLuna = text.substring(text.indexOf("luna") + 4).trim();
+          // Nettoie les mots de liaison
+          afterLuna = afterLuna.replace(/^[,.\s]+/, "");
+
+          wakewordCooldown = true;
+          wakewordLabel.textContent = "Luna t'ecoute !";
+
+          // Son de confirmation
+          try { var beep = new AudioContext(); var osc = beep.createOscillator(); osc.connect(beep.destination); osc.frequency.value = 880; osc.start(); osc.stop(beep.currentTime + 0.15); } catch(e) {}
+
+          if (afterLuna.length > 2) {
+            // Commande directe : "Hey Luna envoie un SMS a maman"
+            addMsg(afterLuna, "user");
+            sendMsg(afterLuna);
+            console.log("[WakeWord] Commande directe:", afterLuna);
+          } else {
+            // Juste "Hey Luna" — active l'ecoute pour la commande suivante
+            console.log("[WakeWord] Attente commande...");
+            wakewordLabel.textContent = "Parle, Luna ecoute...";
+            listenForCommand();
+          }
+
+          // Cooldown pour eviter les doubles detections
+          setTimeout(function() { wakewordCooldown = false; wakewordLabel.textContent = "Dis \"Hey Luna\"..."; }, 3000);
+          return;
+        }
+      }
+    }
+  };
+
+  wakeRecognition.onerror = function(event) {
+    console.log("[WakeWord] Erreur:", event.error);
+    if (event.error === "not-allowed") {
+      addMsg("Autorise le micro dans les parametres du navigateur pour utiliser Hey Luna.", "luna");
+      stopWakeWord();
+      return;
+    }
+    // Relance apres erreur reseau ou aborted
+    if (wakewordActive && event.error !== "not-allowed") {
+      setTimeout(function() { if (wakewordActive) { try { wakeRecognition.start(); } catch(e) {} } }, 1000);
+    }
+  };
+
+  wakeRecognition.onend = function() {
+    // Web Speech API s'arrete automatiquement — on relance
+    if (wakewordActive) {
+      setTimeout(function() { if (wakewordActive) { try { wakeRecognition.start(); } catch(e) {} } }, 500);
+    }
+  };
+
+  try { wakeRecognition.start(); } catch(e) { console.error("[WakeWord] Start error:", e); }
+}
+
+function stopWakeWord() {
+  wakewordActive = false;
+  if (wakeRecognition) { try { wakeRecognition.stop(); } catch(e) {} }
+  wakewordBtn.classList.remove("active", "listening");
+  wakewordIndicator.style.display = "none";
+  console.log("[WakeWord] Arrete");
+}
+
+function listenForCommand() {
+  // Ecoute UNE phrase complete apres "Hey Luna"
+  if (!SpeechRecognition) return;
+  var cmdRecog = new SpeechRecognition();
+  cmdRecog.lang = "fr-FR";
+  cmdRecog.continuous = false;
+  cmdRecog.interimResults = false;
+
+  // Pause temporaire du wake word pour pas interferer
+  if (wakeRecognition) { try { wakeRecognition.stop(); } catch(e) {} }
+
+  cmdRecog.onresult = function(event) {
+    var cmd = event.results[0][0].transcript.trim();
+    if (cmd.length > 1) {
+      console.log("[WakeWord] Commande recue:", cmd);
+      addMsg(cmd, "user");
+      sendMsg(cmd);
+    }
+  };
+
+  cmdRecog.onend = function() {
+    // Relance le wake word apres la commande
+    if (wakewordActive) {
+      setTimeout(function() { if (wakewordActive) { try { wakeRecognition.start(); } catch(e) {} } }, 500);
+    }
+  };
+
+  cmdRecog.onerror = function() {
+    if (wakewordActive) {
+      setTimeout(function() { if (wakewordActive) { try { wakeRecognition.start(); } catch(e) {} } }, 500);
+    }
+  };
+
+  try { cmdRecog.start(); } catch(e) {
+    // Si echec, relance le wake word
+    if (wakewordActive) { setTimeout(function() { try { wakeRecognition.start(); } catch(e2) {} }, 500); }
+  }
+}
+
+wakewordBtn.addEventListener("click", function() {
+  if (wakewordActive) { stopWakeWord(); } else { startWakeWord(); }
+  // Sauvegarde la preference
+  setTimeout(function() { localStorage.setItem("luna_wakeword", wakewordActive ? "on" : "off"); }, 200);
+});
+
+// Restore la preference au chargement
+if (localStorage.getItem("luna_wakeword") === "on") {
+  setTimeout(function() { if (getToken()) startWakeWord(); }, 1500);
+}
+
+// =========================================================================
+// AUTO-UPDATE APK — verifie si une nouvelle version est dispo
+// =========================================================================
+(function() {
+  // Detecter si on est dans l'app Luna (WebView)
+  var ua = navigator.userAgent || "";
+  var match = ua.match(/LunaApp\/([\d.]+)/);
+  if (!match) return; // Pas dans l'app, rien a faire
+
+  var currentVersion = match[1]; // ex: "1.0"
+
+  // Verifier la version serveur
+  fetch("/api/app/version")
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    if (!data.version) return;
+
+    // Comparer les versions (simple: string compare marche pour X.Y)
+    if (data.version === currentVersion) return; // A jour
+
+    // Comparer numeriquement
+    var current = currentVersion.split(".").map(Number);
+    var server = data.version.split(".").map(Number);
+    var needsUpdate = false;
+    for (var i = 0; i < Math.max(current.length, server.length); i++) {
+      var c = current[i] || 0;
+      var s = server[i] || 0;
+      if (s > c) { needsUpdate = true; break; }
+      if (s < c) break;
+    }
+    if (!needsUpdate) return;
+
+    // Creer le bandeau de mise a jour
+    var banner = document.createElement("div");
+    banner.id = "updateBanner";
+    banner.style.cssText = "position:fixed;top:0;left:0;right:0;background:linear-gradient(135deg,#7c3aed,#a78bfa);color:white;padding:14px 16px;z-index:99999;display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:0.95em;box-shadow:0 4px 20px rgba(0,0,0,0.5);";
+    banner.innerHTML = '<div><strong>Mise a jour v' + esc(data.version) + ' disponible</strong><br><span style="font-size:0.8em;opacity:0.9;">' + esc(data.changelog || "") + '</span></div>'
+      + '<div style="display:flex;gap:8px;flex-shrink:0;">'
+      + '<button onclick="document.getElementById(\'updateBanner\').remove()" style="background:rgba(255,255,255,0.2);color:white;border:none;border-radius:8px;padding:8px 12px;cursor:pointer;font-size:0.85em;">Plus tard</button>'
+      + '<button onclick="_doAppUpdate()" style="background:white;color:#7c3aed;border:none;border-radius:8px;padding:8px 16px;cursor:pointer;font-weight:bold;font-size:0.9em;">Mettre a jour</button>'
+      + '</div>';
+    document.body.prepend(banner);
+  })
+  .catch(function() {}); // Silencieux si echec
+})();
+
+// Fonction globale pour le bouton de mise a jour
+function _doAppUpdate() {
+  var apkUrl = window.location.origin + "/download/luna.apk";
+  var downloadPageUrl = window.location.origin + "/download";
+  var ua = navigator.userAgent || "";
+  var match = ua.match(/LunaApp\/([\d.]+)/);
+  var appVer = match ? match[1] : "0";
+
+  // APK v1.1+ a un DownloadListener — telechargement direct
+  if (appVer !== "1.0") {
+    window.location.href = apkUrl;
+    var banner = document.getElementById("updateBanner");
+    if (banner) {
+      banner.innerHTML = '<div style="width:100%;text-align:center;padding:8px 0;">'
+        + '<strong>Telechargement en cours...</strong><br>'
+        + '<span style="font-size:0.8em;opacity:0.9;">Installe l\'APK une fois telecharge</span>'
+        + '</div>';
+    }
+    return;
+  }
+
+  // APK v1.0 — pas de DownloadListener, afficher instructions immediatement
+  var banner = document.getElementById("updateBanner");
+  if (banner) {
+    banner.style.cssText = "position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(10,10,26,0.97);color:white;padding:20px;z-index:99999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;font-size:1em;";
+    banner.innerHTML = '<div style="text-align:center;max-width:340px;">'
+      + '<div style="font-size:2em;margin-bottom:8px;">⬆️</div>'
+      + '<strong style="font-size:1.1em;">Premiere mise a jour</strong><br>'
+      + '<p style="font-size:0.85em;opacity:0.8;margin:10px 0;">Cette premiere mise a jour necessite Chrome.<br>Les prochaines se feront directement dans l\'app.</p>'
+      + '<div style="background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.3);border-radius:10px;padding:16px;margin:12px 0;text-align:left;">'
+      + '<div style="font-size:0.85em;margin-bottom:8px;"><strong>1.</strong> Copie ce lien :</div>'
+      + '<div id="updateUrlBox" style="background:rgba(0,0,0,0.3);padding:8px 10px;border-radius:6px;font-size:0.8em;word-break:break-all;font-family:monospace;margin-bottom:10px;">' + downloadPageUrl + '</div>'
+      + '<button onclick="_copyUpdateUrl()" id="copyBtn" style="background:#7c3aed;color:white;border:none;border-radius:8px;padding:8px 16px;cursor:pointer;font-size:0.85em;width:100%;margin-bottom:12px;">Copier le lien</button>'
+      + '<div style="font-size:0.85em;"><strong>2.</strong> Ouvre <strong>Chrome</strong></div>'
+      + '<div style="font-size:0.85em;margin-top:4px;"><strong>3.</strong> Colle le lien et telecharge l\'APK</div>'
+      + '<div style="font-size:0.85em;margin-top:4px;"><strong>4.</strong> Installe — les prochaines MAJ seront automatiques</div>'
+      + '</div>'
+      + '<button onclick="document.getElementById(\'updateBanner\').remove()" style="background:rgba(255,255,255,0.15);color:white;border:none;border-radius:8px;padding:10px 24px;cursor:pointer;font-size:0.9em;margin-top:4px;">Fermer</button>'
+      + '</div>';
+  }
+}
+
+// Copier l'URL de telechargement dans le presse-papiers
+function _copyUpdateUrl() {
+  var url = window.location.origin + "/download";
+  var btn = document.getElementById("copyBtn");
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(url).then(function() {
+      if (btn) { btn.textContent = "Lien copie !"; btn.style.background = "#10b981"; }
+    }).catch(function() { _copyFallback(url, btn); });
+  } else {
+    _copyFallback(url, btn);
+  }
+}
+function _copyFallback(text, btn) {
+  var ta = document.createElement("textarea");
+  ta.value = text; ta.style.cssText = "position:fixed;opacity:0;";
+  document.body.appendChild(ta); ta.select();
+  try { document.execCommand("copy"); if (btn) { btn.textContent = "Lien copie !"; btn.style.background = "#10b981"; } }
+  catch(e) { if (btn) { btn.textContent = "Selectionne et copie le lien ci-dessus"; btn.style.background = "#ef4444"; } }
+  document.body.removeChild(ta);
+}
+
 </script>
 </body>
 </html>

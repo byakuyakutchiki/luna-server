@@ -366,6 +366,7 @@ class TrustedContact(BaseModel):
     phone: str
     name: str
     relation: str  # fils, fille, voisin, aide-soignant...
+    email: Optional[str] = None  # Adresse email du contact
     verified_at: datetime
     last_contact: Optional[datetime] = None
     preferred_channel: Channel = Channel.SMS
@@ -379,6 +380,7 @@ class TrustedContact(BaseModel):
             "phone": self.phone,
             "name": self.name,
             "relation": self.relation,
+            "email": self.email or "",
             "verified_at": self.verified_at.isoformat(),
             "last_contact": self.last_contact.isoformat() if self.last_contact else "",
             "preferred_channel": self.preferred_channel.value,
@@ -394,6 +396,7 @@ class TrustedContact(BaseModel):
             phone=data["phone"],
             name=data["name"],
             relation=data["relation"],
+            email=data.get("email") or None,
             verified_at=datetime.fromisoformat(data["verified_at"]),
             last_contact=datetime.fromisoformat(data["last_contact"]) if data.get("last_contact") else None,
             preferred_channel=Channel(data.get("preferred_channel", "sms")),

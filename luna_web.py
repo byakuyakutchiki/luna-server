@@ -8,6 +8,7 @@ import sys
 import re
 import time
 import uuid
+import json
 import asyncio
 import logging
 from pathlib import Path
@@ -25,7 +26,7 @@ from dotenv import load_dotenv
 from openai import OpenAI
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, Response, WebSocket, WebSocketDisconnect
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.websockets import WebSocketState
@@ -35,6 +36,8 @@ import httpx
 
 from integrations.twilio.sms_client import TwilioSMSClient
 from integrations.twilio.voice_client import TwilioVoiceClient
+from integrations.email.email_client import EmailClient
+from integrations.email.gmail_client import GmailClient
 
 # Tavus: optionnel (mode "lite" = sans visio avatar)
 try:
@@ -85,6 +88,26 @@ try:
 except ImportError:
     _SOCIAL_AVAILABLE = False
 
+# Cortex: cerveau autonome (securite, monitoring, commandes SMS d'urgence)
+try:
+    from core.cortex.integration import (
+        init_cortex, start_cortex, stop_cortex,
+        cortex_middleware_check, cortex_analyze_request,
+        cortex_record_failed_auth, cortex_handle_sms,
+        get_cortex, cortex_routes,
+    )
+    _CORTEX_AVAILABLE = True
+except ImportError:
+    _CORTEX_AVAILABLE = False
+    def init_cortex(redis_client=None): return None
+    async def start_cortex(): pass
+    async def stop_cortex(): pass
+    def cortex_middleware_check(ip, path): return True, ""
+    def cortex_analyze_request(*a, **kw): pass
+    def cortex_record_failed_auth(*a, **kw): pass
+    async def cortex_handle_sms(f, b): return None
+    def get_cortex(): return None
+
 load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
 
 logging.basicConfig(level=logging.INFO)
@@ -113,7 +136,10 @@ def _reload_env():
     OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4-turbo")
     ADMIN_NUMBER = os.getenv("ADMIN_NUMBER", "")
     SETUP_OPENAI_API_KEY = os.getenv("SETUP_OPENAI_API_KEY", "")
-    _JWT_SECRET = os.getenv("JWT_SECRET_KEY", "luna-admin-fallback-key")
+    _jwt_raw = os.getenv("JWT_SECRET_KEY", "")
+    if not _jwt_raw:
+        raise SystemExit("ERREUR FATALE: JWT_SECRET_KEY manquante dans .env — securite compromise.")
+    _JWT_SECRET = _jwt_raw
     _JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
 
 # --- PV de Recette (verrouillage serveur) ---
@@ -215,7 +241,10 @@ CAUTION_MODE_PROMPTS = {
 }
 
 # --- Auth helpers (multi-tenant) ---
-_JWT_SECRET = os.getenv("JWT_SECRET_KEY", "luna-admin-fallback-key")
+_jwt_raw = os.getenv("JWT_SECRET_KEY", "")
+if not _jwt_raw:
+    raise SystemExit("ERREUR FATALE: JWT_SECRET_KEY manquante dans .env")
+_JWT_SECRET = _jwt_raw
 _JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
 _CLIENT_TOKEN_EXPIRE_DAYS = 7
 
@@ -258,6 +287,20 @@ def _decode_client_token(token: str) -> Optional[dict]:
     except Exception:
         return None
 
+
+def _decode_admin_token(token: str) -> Optional[dict]:
+    """Decode un JWT admin. Retourne le payload ou None."""
+    if not token:
+        return None
+    try:
+        import jwt as pyjwt
+        payload = pyjwt.decode(token, _JWT_SECRET, algorithms=[_JWT_ALGORITHM])
+        if payload.get("role") != "admin":
+            return None
+        return payload
+    except Exception:
+        return None
+
 def _extract_bearer(request: Request) -> str:
     """Extrait le token Bearer du header Authorization."""
     auth = request.headers.get("Authorization", "")
@@ -273,8 +316,17 @@ _PUBLIC_PATHS = (
     "/api/stripe/webhook",
     "/api/webhook/sms",
     "/api/webhook/tavus",
-    "/api/voice-call/twiml",
     "/api/webhook/voice-incoming",
+    "/api/voice-call/twiml",
+    "/api/voice-call/media-stream",
+    "/api/sync/tavus",
+    "/api/sync/twilio",
+    "/api/email/oauth/",
+    "/api/cortex/telegram/webhook",
+    "/api/app/version",
+    "/download",
+    "/download/",
+    "/static/",
 )
 
 def _is_public_path(path: str) -> bool:
@@ -292,11 +344,17 @@ if _pv_locked:
         sms_client = None
     voice_client = None
     tavus_client = None
+    email_client = EmailClient.from_env()
 else:
     openai_client = OpenAI(api_key=OPENAI_API_KEY)
     sms_client = TwilioSMSClient.from_env()
     voice_client = TwilioVoiceClient.from_env()
     tavus_client = TavusClient.from_env() if _TAVUS_AVAILABLE and LUNA_MODE == "full" else None
+    email_client = EmailClient.from_env()
+
+# Gmail OAuth2 (per-tenant email)
+_gmail_base_url = os.getenv("LUNA_BASE_URL", "https://luna-beta-674304336025.europe-west1.run.app")
+gmail_client = GmailClient.from_env(base_url=_gmail_base_url)
 
 # --- Core modules (Redis, Safety, Quota) ---
 _redis_client: Optional[object] = None
@@ -309,8 +367,10 @@ _instruction_loop_task: Optional[object] = None
 _doc_generator: Optional[object] = None
 _perception_detector: Optional[object] = None
 _perception_analyzer: Optional[object] = None
-_perception_loop_task: Optional[object] = None
 _test_mode: bool = False  # En mode test, les SMS ne sont PAS envoyes
+
+# Invitations visio en attente de reponse SMS (phone -> {tenant_id, subscriber_name, contact_name, timestamp})
+_pending_visio_invites: Dict[str, Dict] = {}
 
 def _init_core():
     """Initialize core modules. Graceful if Redis is down or imports failed."""
@@ -350,14 +410,17 @@ def _init_core():
                 _memory_manager.set_behavioral_memory("behavior_rules", DEFAULT_BEHAVIOR_RULES)
             logger.info("Behavioral memory loaded")
 
-            # Perception (ne demarre PAS la camera, juste les objets)
+            # Perception (camera navigateur -> OpenAI Vision)
             try:
                 from core.perception.detector import PerceptionDetector
                 from core.perception.analyzer import SceneAnalyzer
                 _perception_detector = PerceptionDetector()
                 _perception_analyzer = SceneAnalyzer()
+                # Init immediate si cle OpenAI dispo
+                if os.environ.get("OPENAI_API_KEY"):
+                    _perception_detector.initialize()
             except ImportError:
-                logger.info("Perception module non disponible (ultralytics/cv2 manquant)")
+                logger.info("Perception module non disponible")
             logger.info("Core modules initialises (Redis OK, Scheduler OK, DocGen OK)")
         else:
             logger.warning("Redis injoignable - mode degrade (memoire locale)")
@@ -604,7 +667,7 @@ async def _configure_twilio_webhooks():
 @asynccontextmanager
 async def lifespan(app):
     """Startup: charge instructions, lance boucles, configure Tavus. Shutdown: stoppe tout."""
-    global _instruction_loop_task, _perception_loop_task
+    global _instruction_loop_task
     # License heartbeat: premier check au demarrage
     if _license_heartbeat:
         try:
@@ -652,10 +715,9 @@ async def lifespan(app):
         await _load_instructions_to_scheduler()
         _instruction_loop_task = asyncio.create_task(_instruction_loop())
         logger.info("Instruction engine started")
-    # Perception loop (camera PAS ouverte, juste le loop pret)
+    # Perception prete (camera navigateur, pas de background loop)
     if _perception_detector:
-        _perception_loop_task = asyncio.create_task(_perception_loop())
-        logger.info("Perception loop ready (disabled by default)")
+        logger.info("Perception ready (browser camera mode)")
     # Configure Tavus tool calling + perception (mode full uniquement)
     if tavus_client and tavus_client.is_configured:
         try:
@@ -666,6 +728,12 @@ async def lifespan(app):
             await asyncio.wait_for(tavus_client.configure_perception(), timeout=10.0)
         except Exception as e:
             logger.warning(f"Tavus configure_perception error: {e}")
+    # Cortex: init + demarrage du cerveau autonome
+    _cortex_instance = init_cortex(redis_client=_redis_client)
+    if _cortex_instance:
+        await start_cortex()
+        logger.info("Luna Cortex ACTIF — securite + monitoring + commandes SMS d'urgence")
+
     # Auto-configure Twilio phone number webhooks (voice + SMS)
     if voice_client and voice_client.is_configured and VOICE_CALLBACK_URL:
         try:
@@ -681,14 +749,10 @@ async def lifespan(app):
         except asyncio.CancelledError:
             pass
         logger.info("Instruction engine stopped")
-    if _perception_loop_task:
-        _perception_loop_task.cancel()
-        try:
-            await _perception_loop_task
-        except asyncio.CancelledError:
-            pass
     if _perception_detector:
         _perception_detector.release()
+    # Cortex shutdown
+    await stop_cortex()
 
 # --- App ---
 app = FastAPI(title="Luna - YAWatch", lifespan=lifespan)
@@ -701,6 +765,13 @@ if _GAMIFICATION_AVAILABLE:
 # Mount social routes (optional)
 if _SOCIAL_AVAILABLE:
     app.include_router(social_router)
+
+# Mount Cortex routes (securite, monitoring, emergency)
+if _CORTEX_AVAILABLE:
+    try:
+        app.include_router(cortex_routes)
+    except Exception:
+        pass
 
 # Store redis_client in app.state for gamification routes
 app.state._redis_client = _redis_client if _CORE_AVAILABLE else None
@@ -715,6 +786,9 @@ if os.path.isdir(_TEMPLATES_DIR):
 _AUDIO_DIR = os.path.join(STATIC_DIR, "audio")
 if os.path.isdir(_AUDIO_DIR):
     app.mount("/static/audio", StaticFiles(directory=_AUDIO_DIR), name="audio")
+
+# Serve all static files (icons, manifest, etc.)
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 # --- CORS ---
 CORS_ORIGINS = os.getenv("CORS_ORIGINS", "https://localhost:8888").split(",")
@@ -788,6 +862,15 @@ async def security_middleware(request: Request, call_next):
                 },
             )
 
+    # Cortex: check mode serveur (lockdown, shield, ban IP)
+    cortex_allowed, cortex_reason = cortex_middleware_check(client_ip, path)
+    if not cortex_allowed:
+        logger.warning(f"CORTEX_BLOCKED {client_ip} {request.method} {path}: {cortex_reason}")
+        return JSONResponse(
+            status_code=403,
+            content={"error": cortex_reason, "cortex": True},
+        )
+
     # Rate limit (API endpoints only)
     if path.startswith("/api/") and not _check_rate_limit(client_ip):
         logger.warning(f"RATE_LIMITED {client_ip} {request.method} {path}")
@@ -796,26 +879,39 @@ async def security_middleware(request: Request, call_next):
             content={"error": "Trop de requetes. Reessaie dans une minute."},
         )
 
+    # Cortex: analyse de la requete (detection menaces, non-bloquant)
+    if path.startswith("/api/"):
+        query = str(request.url.query) if request.url.query else ""
+        cortex_analyze_request(client_ip, request.method, path, query=query)
+
     # Auth client: injecte request.state.tenant_id
     if REQUIRE_AUTH and path.startswith("/api/") and not _is_public_path(path):
         token = _extract_bearer(request)
         payload = _decode_client_token(token)
         if not payload:
-            return JSONResponse(
-                status_code=401,
-                content={"error": "Token invalide ou manquant", "auth_required": True},
-            )
-        # Verifier que le compte est actif
-        if _redis_client:
-            auth_record = _redis_client.get_auth_by_email(payload["email"])
-            if auth_record and not auth_record.get("active", True):
+            # Fallback: token admin donne acces avec tenant_id=1
+            admin_payload = _decode_admin_token(token)
+            if admin_payload:
+                request.state.tenant_id = 1
+                request.state.email = "admin"
+                request.state.plan = "premium"
+            else:
                 return JSONResponse(
-                    status_code=403,
-                    content={"error": "Compte desactive"},
+                    status_code=401,
+                    content={"error": "Token invalide ou manquant", "auth_required": True},
                 )
-        request.state.tenant_id = payload["tenant_id"]
-        request.state.email = payload["email"]
-        request.state.plan = payload["plan"]
+        else:
+            # Verifier que le compte est actif
+            if _redis_client:
+                auth_record = _redis_client.get_auth_by_email(payload["email"])
+                if auth_record and not auth_record.get("active", True):
+                    return JSONResponse(
+                        status_code=403,
+                        content={"error": "Compte desactive"},
+                    )
+            request.state.tenant_id = payload["tenant_id"]
+            request.state.email = payload["email"]
+            request.state.plan = payload["plan"]
     else:
         # Mode retro-compatible ou path public: tenant_id = 1
         request.state.tenant_id = TENANT_ID
@@ -1005,6 +1101,40 @@ async def admin_world_page():
     return JSONResponse(status_code=404, content={"error": "World admin non disponible"})
 
 
+@app.get("/download")
+async def download_page():
+    """Page de telechargement de l'app Android."""
+    return FileResponse(os.path.join(STATIC_DIR, "download.html"))
+
+
+@app.get("/download/luna.apk")
+async def download_apk():
+    """Telecharge l'APK Android avec le bon Content-Type."""
+    apk_path = os.path.join(STATIC_DIR, "luna-proprio.apk")
+    if not os.path.exists(apk_path):
+        return JSONResponse(status_code=404, content={"error": "APK non disponible"})
+    return FileResponse(
+        apk_path,
+        media_type="application/vnd.android.package-archive",
+        filename="Luna-Proprio.apk",
+    )
+
+
+# Version APK pour auto-update
+LUNA_APP_VERSION = "1.1"
+LUNA_APP_VERSION_CODE = 2
+
+@app.get("/api/app/version")
+async def app_version():
+    """Retourne la version courante de l'APK pour auto-update."""
+    return {
+        "version": LUNA_APP_VERSION,
+        "version_code": LUNA_APP_VERSION_CODE,
+        "apk_url": "/download/luna.apk",
+        "changelog": "Camera perception + permissions camera corrigees",
+    }
+
+
 def _gamify(tenant_id, action: str, metadata: dict = None, is_admin: bool = False):
     """Fire-and-forget gamification XP award. Never raises, never blocks."""
     if not _GAMIFICATION_AVAILABLE or not _redis_client:
@@ -1057,15 +1187,112 @@ async def chat(req: ChatRequest, request: Request):
             except Exception:
                 pass
 
-        # Inject caution mode from profile
+        # Inject FULL tenant context: profile + contacts + instructions + notes
         _caution_mode = "assistif"
+        tenant_name = ""
         if mgr:
+            context_parts = []
+            # --- Profil souscripteur ---
             try:
                 profile = mgr.get_subscriber_profile()
                 if profile:
                     _caution_mode = getattr(profile, "caution_mode", "assistif") or "assistif"
-            except Exception:
-                pass
+                    tenant_name = profile.first_name or ""
+                    pf_lines = [f"=== TON SOUSCRIPTEUR ==="]
+                    pf_lines.append(f"Prenom: {profile.first_name or '?'}")
+                    pf_lines.append(f"Nom: {profile.last_name or '?'}")
+                    if getattr(profile, "date_of_birth", None):
+                        pf_lines.append(f"Date de naissance: {profile.date_of_birth}")
+                    if getattr(profile, "phone", None):
+                        pf_lines.append(f"Telephone: {profile.phone}")
+                    if getattr(profile, "email", None):
+                        pf_lines.append(f"Email: {profile.email}")
+                    if getattr(profile, "address", None):
+                        pf_lines.append(f"Adresse: {profile.address}")
+                    if getattr(profile, "city", None):
+                        pf_lines.append(f"Ville: {profile.city}")
+                    if getattr(profile, "family_status", None):
+                        pf_lines.append(f"Situation: {profile.family_status}")
+                    if getattr(profile, "children", None):
+                        pf_lines.append(f"Enfants: {profile.children}")
+                    if getattr(profile, "autonomy", None):
+                        pf_lines.append(f"Autonomie: {profile.autonomy}")
+                    if getattr(profile, "conditions", None):
+                        pf_lines.append(f"Pathologies: {profile.conditions}")
+                    if getattr(profile, "treatments", None):
+                        pf_lines.append(f"Traitements: {profile.treatments}")
+                    if getattr(profile, "interests", None):
+                        pf_lines.append(f"Centres d'interet: {profile.interests}")
+                    if getattr(profile, "habits", None):
+                        pf_lines.append(f"Habitudes: {profile.habits}")
+                    if getattr(profile, "tone", None):
+                        pf_lines.append(f"Ton souhaite: {profile.tone}")
+                    if getattr(profile, "presentation", None):
+                        pf_lines.append(f"Presentation: {profile.presentation}")
+                    if getattr(profile, "permanent_rules", None):
+                        pf_lines.append(f"Regles permanentes: {profile.permanent_rules}")
+                    if getattr(profile, "sensitive_topics", None):
+                        pf_lines.append(f"Sujets sensibles a eviter: {profile.sensitive_topics}")
+                    context_parts.append("\n".join(pf_lines))
+            except Exception as e:
+                logger.warning(f"Profile context error: {e}")
+
+            # --- Contacts de confiance ---
+            try:
+                contacts = mgr.list_trusted_contacts()
+                if contacts:
+                    ct_lines = ["=== CONTACTS DE CONFIANCE (tu les connais deja, n'appelle PAS get_contacts) ==="]
+                    ct_lines.append(f"Voici les {len(contacts)} personnes de confiance de {tenant_name or 'ton souscripteur'}:")
+                    for c in contacts:
+                        first = c.name.split()[0] if c.name else "Contact"
+                        rel = c.relation or "proche"
+                        ct_lines.append(f"  - {c.name} (relation: {rel}) — telephone: {c.phone}")
+                    ct_lines.append("REGLE: Pour envoyer un SMS, utilise directement ces numeros avec le tool send_sms.")
+                    ct_lines.append("REGLE: Si on te demande 'qui sont mes contacts', reponds DIRECTEMENT avec cette liste.")
+                    ct_lines.append("REGLE: N'appelle JAMAIS le tool get_contacts car tu as deja toutes les infos ci-dessus.")
+                    context_parts.append("\n".join(ct_lines))
+                else:
+                    context_parts.append("=== CONTACTS ===\nAucun contact de confiance enregistre. Propose au souscripteur d'en ajouter dans l'onglet Contacts.")
+            except Exception as e:
+                logger.warning(f"Contacts context error: {e}")
+
+            # --- Instructions actives ---
+            try:
+                instructions = mgr.list_active_instructions()
+                if instructions:
+                    instr_lines = ["=== INSTRUCTIONS ACTIVES ==="]
+                    for instr in instructions[:10]:
+                        instr_lines.append(f"- {instr.description}")
+                    context_parts.append("\n".join(instr_lines))
+            except Exception as e:
+                logger.warning(f"Instructions context error: {e}")
+
+            # --- Notes recentes ---
+            try:
+                notes = mgr.list_notes(limit=5)
+                if notes:
+                    note_lines = ["=== NOTES RECENTES ==="]
+                    for n in notes[:5]:
+                        note_lines.append(f"- {n.content[:100]}")
+                    context_parts.append("\n".join(note_lines))
+            except Exception as e:
+                logger.warning(f"Notes context error: {e}")
+
+            # Injecte tout le contexte dans un seul message systeme
+            if context_parts:
+                full_context = "\n\n".join(context_parts)
+                full_context += f"\n\n=== REGLES CRITIQUES ==="
+                full_context += f"\nTu parles avec {tenant_name or 'le souscripteur'}. Tutoie-le et utilise son prenom."
+                full_context += "\n- Tu CONNAIS deja le profil, les contacts, les notes ci-dessus. Utilise-les directement."
+                full_context += "\n- Ne dis JAMAIS 'je n'ai pas acces a tes contacts' ou 'je ne peux pas voir ton profil'."
+                full_context += "\n- Ne dis JAMAIS 'en tant qu'IA je ne peux pas' quand tu as un tool pour le faire."
+                full_context += "\n- Quand on te demande d'envoyer un SMS, utilise le tool send_sms avec le numero du contact."
+                full_context += "\n- Quand on te demande 'qui sont mes contacts', reponds avec la liste ci-dessus."
+                full_context += "\n- Sois chaleureux, concis, et utile. Tu es Luna, un compagnon bienveillant."
+                messages.append({"role": "system", "content": full_context})
+            elif tenant_name:
+                messages.append({"role": "system", "content": f"Tu parles actuellement avec {tenant_name}. Utilise son prenom."})
+
         caution_prompt = CAUTION_MODE_PROMPTS.get(_caution_mode, CAUTION_MODE_PROMPTS["assistif"])
         messages.append({"role": "system", "content": caution_prompt})
 
@@ -1095,14 +1322,85 @@ async def chat(req: ChatRequest, request: Request):
             except Exception:
                 pass
 
+        # Tools disponibles en chat (meme que voix/visio)
+        from integrations.openai.realtime_bridge import VOICE_TOOLS as _CHAT_TOOLS
+        chat_tools = [
+            {"type": "function", "function": {"name": t["name"], "description": t["description"], "parameters": t["parameters"]}}
+            for t in _CHAT_TOOLS
+        ] if _CHAT_TOOLS else []
+
         response = openai_client.chat.completions.create(
             model=OPENAI_MODEL,
             messages=messages,
             max_tokens=500,
             temperature=0.8,
             timeout=30,
+            tools=chat_tools if chat_tools else None,
         )
-        luna_msg = response.choices[0].message.content
+
+        choice = response.choices[0]
+        tool_calls_made = []
+
+        # Boucle de tool calling (max 3 tours pour eviter boucle infinie)
+        for _round in range(3):
+            if choice.finish_reason != "tool_calls" or not choice.message.tool_calls:
+                break
+
+            # Ajoute le message assistant avec les tool_calls
+            messages.append(choice.message)
+
+            for tc in choice.message.tool_calls:
+                fn_name = tc.function.name
+                try:
+                    fn_args = json.loads(tc.function.arguments)
+                except Exception:
+                    fn_args = {}
+
+                logger.info(f"Chat tool_call: {fn_name}({fn_args}) [tenant={tid}]")
+
+                # Execute le tool (passe tenant_id pour multi-tenant)
+                if fn_name == "send_sms":
+                    result = await _tool_send_sms(fn_args, tenant_id=tid)
+                elif fn_name == "create_instruction":
+                    result = await _tool_create_instruction(fn_args, tenant_id=tid)
+                elif fn_name == "create_note":
+                    result = await _tool_create_note(fn_args, tenant_id=tid)
+                elif fn_name == "get_contacts":
+                    result = await _tool_get_contacts(tenant_id=tid)
+                elif fn_name == "generate_document":
+                    result = await _tool_generate_document(fn_args, tenant_id=tid)
+                elif fn_name == "alert_contacts":
+                    result = await _tool_alert_contacts(fn_args, tenant_id=tid)
+                elif fn_name == "send_email":
+                    result = await _tool_send_email(fn_args, tenant_id=tid)
+                elif fn_name == "invite_visio":
+                    result = await _tool_invite_visio(fn_args, tenant_id=tid)
+                else:
+                    result = {"status": "error", "message": f"Fonction inconnue: {fn_name}"}
+
+                tool_calls_made.append({"tool": fn_name, "result": result})
+                messages.append({
+                    "role": "tool",
+                    "tool_call_id": tc.id,
+                    "content": json.dumps(result, ensure_ascii=False),
+                })
+
+            # Re-appel OpenAI avec les resultats des tools
+            response = openai_client.chat.completions.create(
+                model=OPENAI_MODEL,
+                messages=messages,
+                max_tokens=500,
+                temperature=0.8,
+                timeout=30,
+                tools=chat_tools if chat_tools else None,
+            )
+            choice = response.choices[0]
+
+        luna_msg = choice.message.content or ""
+
+        # Log tools executes
+        if tool_calls_made:
+            logger.info(f"Chat tools executed: {[t['tool'] for t in tool_calls_made]}")
 
         # Legal compliance check on Luna's response
         if _safety_guardian:
@@ -1139,7 +1437,17 @@ async def chat(req: ChatRequest, request: Request):
                 logger.warning(f"Redis store failed: {e}")
 
         _gamify(tid, "chat_message")
-        return {"response": luna_msg}
+
+        # Inclut les actions executees dans la reponse
+        resp = {"response": luna_msg}
+        if tool_calls_made:
+            resp["actions"] = [{"tool": t["tool"], "status": t["result"].get("status", "unknown")} for t in tool_calls_made]
+            # Si une visio a ete creee, inclure l'URL pour le frontend
+            for t in tool_calls_made:
+                if t["result"].get("visio_url"):
+                    resp["visio_url"] = t["result"]["visio_url"]
+                    break
+        return resp
 
     except openai.AuthenticationError:
         return {"response": "[Erreur] Cle OpenAI invalide ou expiree."}
@@ -1160,6 +1468,16 @@ async def greeting(request: Request):
         tid = getattr(request.state, "tenant_id", 1)
         mgr = _get_tenant_manager(tid)
         messages = [{"role": "system", "content": LUNA_SYSTEM_PROMPT}]
+        # Inject subscriber name for personalized greeting
+        if mgr:
+            try:
+                profile = mgr.get_subscriber_profile()
+                if profile and profile.first_name:
+                    messages.append({"role": "system", "content":
+                        f"Tu salues {profile.first_name}. Utilise son prenom dans ton message d'accueil. Sois chaleureuse et personnelle."
+                    })
+            except Exception:
+                pass
         response = openai_client.chat.completions.create(
             model=OPENAI_MODEL,
             messages=messages,
@@ -1189,10 +1507,12 @@ async def start_call(request: Request):
         subscriber_name=_SUBSCRIBER_NAME,
         memory_manager=tavus_client.memory,
     )
+    visio_max = int(os.getenv("VISIO_MAX_DURATION", "15")) * 60  # minutes -> secondes
     success, data = await tavus_client.create_conversation(
         tenant_id=tid,
         custom_greeting=f"Salut {_SUBSCRIBER_NAME} ! Ravie de te voir. Comment je peux t'aider ?",
         context=context,
+        max_duration=visio_max,
         callback_url=TAVUS_CALLBACK_URL if TAVUS_CALLBACK_URL else None,
     )
     if not success:
@@ -1211,7 +1531,7 @@ async def start_call(request: Request):
 class VoiceCallRequest(BaseModel):
     phone: Optional[str] = None  # Numero a appeler (defaut: ADMIN_NUMBER)
     mission: Optional[str] = None  # Mission speciale pour Luna (ex: "prendre des nouvelles de Fred")
-    max_duration: Optional[int] = None  # Duree max en secondes (defaut: 900)
+    max_duration: Optional[int] = None  # Duree max en secondes (defaut: 180 beta)
     greeting: Optional[str] = None  # Greeting personnalise
 
 # Stockage temporaire des parametres d'appel (call_sid -> params)
@@ -1285,7 +1605,7 @@ async def voice_call_media_stream(websocket: WebSocket):
             call_params = _voice_call_params.pop(call_sid_for_params, {})
 
         mission = call_params.get("mission")
-        max_dur = call_params.get("max_duration") or 900
+        max_dur = call_params.get("max_duration") or int(os.getenv("VOICE_MAX_DURATION", "180"))
         custom_greeting = call_params.get("greeting")
 
         # Contexte Luna pour l'appel vocal
@@ -1321,6 +1641,10 @@ async def voice_call_media_stream(websocket: WebSocket):
                 return await _tool_generate_document(args)
             elif name == "alert_contacts":
                 return await _tool_alert_contacts(args)
+            elif name == "send_email":
+                return await _tool_send_email(args)
+            elif name == "invite_visio":
+                return await _tool_invite_visio(args)
             else:
                 return {"status": "error", "message": f"Fonction inconnue: {name}"}
 
@@ -1522,10 +1846,95 @@ async def webhook_sms(request: Request):
             logger.warning(f"Signature Twilio invalide pour SMS de {from_number}")
             return Response(status_code=403, content="Forbidden", media_type="text/plain")
 
+    # CORTEX: intercepte les commandes d'urgence (LUNA STATUS, LUNA BAN, etc.)
+    emergency_response = await cortex_handle_sms(from_number, body)
+    if emergency_response:
+        logger.info(f"CORTEX SMS command from {from_number[:8]}...: {body[:40]}")
+        # Repondre par TwiML avec le message de reponse
+        from xml.sax.saxutils import escape as xml_escape
+        escaped = xml_escape(emergency_response, {'"': "&quot;", "'": "&apos;"})
+        twiml = f"<Response><Message>{escaped}</Message></Response>"
+        return Response(content=twiml, media_type="application/xml")
+
+    # Normalise le numero entrant
+    from integrations.twilio.sms_client import TwilioSMSClient
+    normalized_from = TwilioSMSClient.normalize_phone(from_number) if from_number else ""
+
+    # Verifie si c'est une reponse a une invitation visio en attente
+    body_lower = body.strip().lower()
+    if normalized_from in _pending_visio_invites and body_lower in ("oui", "yes", "ok", "o", "1"):
+        invite = _pending_visio_invites.pop(normalized_from)
+        # Verifie que l'invitation n'est pas trop vieille (30 min max)
+        if time.time() - invite["timestamp"] < 1800:
+            logger.info(f"Visio invite accepted by {invite['contact_name']} ({normalized_from})")
+            # Cree la conversation Tavus
+            try:
+                visio_max = int(os.getenv("VISIO_MAX_DURATION", "15")) * 60  # minutes -> secondes
+                sub_name = invite["subscriber_name"]
+                contact = invite["contact_name"]
+
+                context = f"Tu es Luna. {sub_name} a invite {contact} en visioconference. Sois chaleureuse et accueillante."
+                if _TAVUS_AVAILABLE and tavus_client and tavus_client.is_configured:
+                    success, data = await tavus_client.create_conversation(
+                        tenant_id=invite["tenant_id"],
+                        custom_greeting=f"Bonjour {contact} ! {sub_name} t'a invite en visio avec Luna. Bienvenue !",
+                        context=context,
+                        max_duration=visio_max,
+                        callback_url=TAVUS_CALLBACK_URL if TAVUS_CALLBACK_URL else None,
+                    )
+                    if success:
+                        visio_url = data["conversation_url"]
+                        # Envoie le lien par SMS via TwiML reply
+                        from xml.sax.saxutils import escape as xml_escape
+                        reply_msg = (
+                            f"Super ! Voici le lien pour la visio avec {sub_name} :\n"
+                            f"{visio_url}\n"
+                            f"Clique dessus pour rejoindre."
+                        )
+                        escaped = xml_escape(reply_msg, {'"': "&quot;", "'": "&apos;"})
+                        twiml = f"<Response><Message>{escaped}</Message></Response>"
+
+                        # Previens aussi le souscripteur par SMS
+                        try:
+                            mgr = _get_tenant_manager(invite["tenant_id"])
+                            if mgr:
+                                # Cherche le tel du souscripteur
+                                profile = mgr.get_subscriber_profile()
+                                sub_phone = getattr(profile, "phone", "") or ADMIN_NUMBER
+                                if sub_phone:
+                                    sms_client.send(
+                                        sub_phone,
+                                        f"[Luna] {contact} a accepte ton invitation visio ! Lien : {visio_url}"
+                                    )
+                        except Exception as e:
+                            logger.warning(f"Failed to notify subscriber: {e}")
+
+                        logger.info(f"Visio link sent to {contact}: {visio_url}")
+                        return Response(content=twiml, media_type="application/xml")
+                    else:
+                        logger.error(f"Tavus create failed for invite: {data}")
+                        from xml.sax.saxutils import escape as xml_escape
+                        error_msg = xml_escape("Desole, la visio n'a pas pu etre creee. Reessaie plus tard.")
+                        twiml = f"<Response><Message>{error_msg}</Message></Response>"
+                        return Response(content=twiml, media_type="application/xml")
+            except Exception as e:
+                logger.error(f"Visio invite handler error: {e}")
+        else:
+            logger.info(f"Visio invite expired for {normalized_from}")
+            _pending_visio_invites.pop(normalized_from, None)
+
+    elif normalized_from in _pending_visio_invites and body_lower in ("non", "no", "n", "0"):
+        invite = _pending_visio_invites.pop(normalized_from)
+        logger.info(f"Visio invite declined by {invite['contact_name']}")
+        from xml.sax.saxutils import escape as xml_escape
+        reply = xml_escape(f"D'accord, pas de visio pour le moment. A bientot !")
+        twiml = f"<Response><Message>{reply}</Message></Response>"
+        return Response(content=twiml, media_type="application/xml")
+
     # Enregistre le message entrant dans la conversation
     logger.info(f"SMS entrant OK - De: {from_number}, Corps: {body[:100]}")
 
-    # Reponse TwiML vide (pas de reponse automatique par SMS pour l'instant)
+    # Reponse TwiML vide (pas de reponse automatique)
     twiml = "<Response></Response>"
     return Response(content=twiml, media_type="application/xml")
 
@@ -3290,8 +3699,8 @@ async def get_family_audit(request: Request, limit: int = 50):
                 "severity": audit.severity,
                 "timestamp": audit.timestamp.isoformat(),
             })
-        except:
-            pass
+        except Exception as e:
+            logger.warning(f"Audit entry parse error: {e}")
 
     return {"entries": entries, "count": len(entries)}
 
@@ -3818,40 +4227,68 @@ async def _handle_tavus_tool_call(body: Dict) -> Dict:
     except _json.JSONDecodeError:
         args = {}
 
-    logger.info(f"Tavus tool_call: {tool_name}({args}) [conv={conversation_id}]")
+    # Trouve le tenant_id depuis la conversation Tavus active
+    tid = TENANT_ID
+    if tavus_client and conversation_id:
+        conv = tavus_client._active_conversations.get(conversation_id)
+        if conv:
+            tid = conv.tenant_id
+
+    logger.info(f"Tavus tool_call: {tool_name}({args}) [conv={conversation_id}, tenant={tid}]")
 
     result = {"status": "error", "message": "Fonction inconnue"}
 
     try:
         if tool_name == "send_sms":
-            result = await _tool_send_sms(args)
+            result = await _tool_send_sms(args, tenant_id=tid)
         elif tool_name == "create_instruction":
-            result = await _tool_create_instruction(args)
+            result = await _tool_create_instruction(args, tenant_id=tid)
         elif tool_name == "create_note":
-            result = await _tool_create_note(args)
+            result = await _tool_create_note(args, tenant_id=tid)
         elif tool_name == "get_contacts":
-            result = await _tool_get_contacts()
+            result = await _tool_get_contacts(tenant_id=tid)
         elif tool_name == "generate_document":
-            result = await _tool_generate_document(args)
+            result = await _tool_generate_document(args, tenant_id=tid)
         elif tool_name == "alert_contacts":
-            result = await _tool_alert_contacts(args)
+            result = await _tool_alert_contacts(args, tenant_id=tid)
         elif tool_name == "report_observation":
             result = await _tool_report_observation(args)
+        elif tool_name == "send_email":
+            result = await _tool_send_email(args, tenant_id=tid)
+        elif tool_name == "invite_visio":
+            result = await _tool_invite_visio(args, tenant_id=tid)
         else:
             logger.warning(f"Tavus tool inconnu: {tool_name}")
     except Exception as e:
         logger.error(f"Tavus tool_call error ({tool_name}): {e}")
         result = {"status": "error", "message": str(e)}
 
+    # Poste le resultat dans le fil de discussion du tenant
+    if _redis_client and tid and tool_name not in ("get_contacts", "report_observation"):
+        try:
+            mgr = _get_tenant_manager(tid)
+            if mgr:
+                status_icon = "ok" if result.get("status") == "success" else "erreur"
+                action_msg = f"[Visio] {tool_name}: {result.get('message', '')}"
+                mgr.add_message(
+                    conv_id="visio",
+                    role=MessageRole.LUNA,
+                    content=action_msg,
+                    channel=Channel.APP,
+                )
+        except Exception as e:
+            logger.warning(f"Failed to post visio result to chat: {e}")
+
     return result
 
 
-async def _tool_send_sms(args: Dict) -> Dict:
+async def _tool_send_sms(args: Dict, tenant_id: int = 0) -> Dict:
     """Envoie un SMS a un contact de confiance."""
     # Service validation (redundant safety layer)
     if _license_heartbeat and (_license_heartbeat.is_blocked() or _license_heartbeat.is_degraded()):
         return {"status": "error", "message": "Service non disponible"}
-    if not _memory_manager or not sms_client.is_configured:
+    mgr = _get_tenant_manager(tenant_id) if tenant_id else _memory_manager
+    if not mgr or not sms_client.is_configured:
         return {"status": "error", "message": "Service SMS non disponible"}
 
     contact_name = args.get("contact_name", "")
@@ -3860,7 +4297,7 @@ async def _tool_send_sms(args: Dict) -> Dict:
         return {"status": "error", "message": "Nom du contact et message requis"}
 
     # Cherche le contact par nom
-    contacts = _memory_manager.list_trusted_contacts()
+    contacts = mgr.list_trusted_contacts()
     phone = None
     matched_name = ""
     for c in contacts:
@@ -3872,21 +4309,29 @@ async def _tool_send_sms(args: Dict) -> Dict:
     if not phone:
         return {"status": "error", "message": f"Contact '{contact_name}' non trouve parmi les contacts de confiance"}
 
-    success, details = sms_client.send(phone, f"[Luna pour {_SUBSCRIBER_NAME}] {message}")
-    reasoning = f"Luna envoie un SMS a {matched_name} car le souscripteur l'a demande pendant la visio"
-    if success:
-        if _memory_manager:
-            try:
-                _memory_manager.add_note(
-                    content=f"[Action SMS] {reasoning} | Contenu: {message[:100]}",
-                    context="visio_tool_call",
-                    tags=["sms", "visio", matched_name, "reasoning"],
-                )
-            except Exception:
-                pass
-        # Log event
+    # Recupere le prenom du souscripteur
+    sub_name = _SUBSCRIBER_NAME
+    if mgr and tenant_id:
         try:
-            _memory_manager.log_event(
+            profile = mgr.get_subscriber_profile()
+            if profile and profile.first_name:
+                sub_name = profile.first_name
+        except Exception:
+            pass
+
+    success, details = sms_client.send(phone, f"[Luna pour {sub_name}] {message}")
+    reasoning = f"Luna envoie un SMS a {matched_name} car le souscripteur l'a demande"
+    if success:
+        try:
+            mgr.add_note(
+                content=f"[Action SMS] {reasoning} | Contenu: {message[:100]}",
+                context="tool_call",
+                tags=["sms", matched_name, "reasoning"],
+            )
+        except Exception:
+            pass
+        try:
+            mgr.log_event(
                 category="action",
                 description=f"SMS envoye a {matched_name}: {message[:60]}",
                 reasoning=reasoning,
@@ -3898,9 +4343,184 @@ async def _tool_send_sms(args: Dict) -> Dict:
     return {"status": "error", "message": f"Echec envoi SMS: {details.get('error', 'inconnu')}"}
 
 
-async def _tool_create_instruction(args: Dict) -> Dict:
+async def _tool_send_email(args: Dict, tenant_id: int = 0) -> Dict:
+    """Envoie un email a un contact de confiance."""
+    if _license_heartbeat and (_license_heartbeat.is_blocked() or _license_heartbeat.is_degraded()):
+        return {"status": "error", "message": "Service non disponible"}
+    tid = tenant_id or TENANT_ID
+    mgr = _get_tenant_manager(tid) if tid else _memory_manager
+    if not mgr:
+        return {"status": "error", "message": "Service memoire non disponible"}
+
+    # Verifie qu'au moins un service email est dispo
+    has_gmail = gmail_client and gmail_client.is_configured and _redis_client and _redis_client.get_email_integration(tid)
+    if not has_gmail and not email_client.is_configured:
+        return {"status": "error", "message": "Aucun service email configure. Connectez Gmail ou configurez SendGrid."}
+
+    contact_name = args.get("contact_name", "")
+    subject = args.get("subject", "")
+    body = args.get("body", "")
+    if not contact_name or not body:
+        return {"status": "error", "message": "Nom du contact et contenu requis"}
+
+    # Recupere le prenom du souscripteur
+    sub_name = _SUBSCRIBER_NAME
+    if mgr and tenant_id:
+        try:
+            profile = mgr.get_subscriber_profile()
+            if profile and profile.first_name:
+                sub_name = profile.first_name
+        except Exception:
+            pass
+
+    if not subject:
+        subject = f"Message de {sub_name} via Luna"
+
+    # Cherche le contact par nom
+    contacts = mgr.list_trusted_contacts()
+    contact_email = None
+    matched_name = ""
+    for c in contacts:
+        if contact_name.lower() in c.name.lower() or contact_name.lower() in (c.relation or "").lower():
+            contact_email = getattr(c, "email", None)
+            matched_name = c.name
+            break
+
+    if not matched_name:
+        return {"status": "error", "message": f"Contact '{contact_name}' non trouve parmi les contacts de confiance"}
+    if not contact_email:
+        return {"status": "error", "message": f"{matched_name} n'a pas d'adresse email enregistree. Ajoutez-la via le dashboard admin."}
+
+    # Utilise send_for_tenant (Gmail OAuth d'abord, puis SendGrid fallback)
+    success, details = await email_client.send_for_tenant(
+        tenant_id=tid,
+        redis_client=_redis_client,
+        gmail_client=gmail_client,
+        to=contact_email,
+        subject=subject,
+        body_text=body,
+        subscriber_name=sub_name,
+    )
+    reasoning = f"Luna envoie un email a {matched_name} car le souscripteur l'a demande"
+    if success:
+        try:
+            mgr.add_note(
+                content=f"[Action Email] {reasoning} | Objet: {subject[:80]} | Dest: {matched_name}",
+                context="tool_call",
+                tags=["email", matched_name, "reasoning"],
+            )
+        except Exception:
+            pass
+        try:
+            mgr.log_event(
+                category="action",
+                description=f"Email envoye a {matched_name}: {subject[:60]}",
+                reasoning=reasoning,
+                source="tool_call",
+            )
+        except Exception:
+            pass
+        return {"status": "success", "message": f"Email envoye a {matched_name} ({contact_email})", "reasoning": reasoning}
+    return {"status": "error", "message": f"Echec envoi email: {details.get('error', 'inconnu')}"}
+
+
+async def _tool_invite_visio(args: Dict, tenant_id: int = 0) -> Dict:
+    """Invite un contact en visioconference : cree la visio + envoie le lien par SMS."""
+    if _license_heartbeat and (_license_heartbeat.is_blocked() or _license_heartbeat.is_degraded()):
+        return {"status": "error", "message": "Service non disponible"}
+    tid = tenant_id or TENANT_ID
+    mgr = _get_tenant_manager(tid) if tid else _memory_manager
+    if not mgr:
+        return {"status": "error", "message": "Memoire non disponible"}
+    if not tavus_client or not tavus_client.is_configured:
+        return {"status": "error", "message": "Visio non disponible (Tavus non configure)"}
+    if not sms_client or not sms_client.is_configured:
+        return {"status": "error", "message": "SMS non disponible (Twilio non configure)"}
+
+    contact_name = args.get("contact_name", "")
+    if not contact_name:
+        return {"status": "error", "message": "Nom du contact requis"}
+
+    # Cherche le contact
+    contacts = mgr.list_trusted_contacts()
+    phone = None
+    matched_name = ""
+    for c in contacts:
+        if contact_name.lower() in c.name.lower() or contact_name.lower() in (c.relation or "").lower():
+            phone = c.phone
+            matched_name = c.name
+            break
+
+    if not phone:
+        return {"status": "error", "message": f"Contact '{contact_name}' non trouve parmi les contacts de confiance"}
+
+    # Recupere le prenom du souscripteur
+    sub_name = _SUBSCRIBER_NAME
+    if mgr:
+        try:
+            profile = mgr.get_subscriber_profile()
+            if profile and profile.first_name:
+                sub_name = profile.first_name
+        except Exception:
+            pass
+
+    # Cree la conversation Tavus immediatement
+    visio_max = int(os.getenv("VISIO_MAX_DURATION", "15")) * 60  # minutes -> secondes
+    context = f"Tu es Luna. {sub_name} a invite {matched_name} en visioconference. Sois chaleureuse et accueillante."
+    success_tavus, data = await tavus_client.create_conversation(
+        tenant_id=tid,
+        custom_greeting=f"Bonjour {matched_name} ! {sub_name} t'a invite en visio. Bienvenue !",
+        context=context,
+        max_duration=visio_max,
+        callback_url=TAVUS_CALLBACK_URL if TAVUS_CALLBACK_URL else None,
+    )
+    if not success_tavus:
+        return {"status": "error", "message": f"Impossible de creer la visio: {data.get('error', 'inconnu')}"}
+
+    visio_url = data["conversation_url"]
+
+    # Envoie le lien par SMS directement (pas de OUI/NON — le contact clique s'il veut)
+    invite_msg = (
+        f"[Luna] {sub_name} t'invite en visioconference ! "
+        f"Clique ici pour rejoindre : {visio_url}"
+    )
+    from integrations.twilio.sms_client import TwilioSMSClient
+    normalized_phone = TwilioSMSClient.normalize_phone(phone)
+    success_sms, sms_details = sms_client.send(normalized_phone, invite_msg)
+
+    if not success_sms:
+        # La visio est creee mais le SMS a echoue — donne quand meme le lien
+        logger.error(f"SMS invite failed but visio created: {visio_url}")
+        return {
+            "status": "partial",
+            "message": f"Visio creee mais echec envoi SMS a {matched_name}. Voici le lien : {visio_url}",
+            "visio_url": visio_url,
+        }
+
+    logger.info(f"Visio invite sent: {matched_name} ({normalized_phone}) -> {visio_url}")
+
+    try:
+        mgr.log_event(
+            category="action",
+            description=f"Invitation visio envoyee a {matched_name} avec lien {visio_url}",
+            reasoning=f"Luna invite {matched_name} en visio a la demande de {sub_name}",
+            source="tool_call",
+        )
+    except Exception:
+        pass
+
+    return {
+        "status": "success",
+        "message": f"Lien visio envoye a {matched_name} par SMS ! Toi aussi tu peux rejoindre la visio avec ce lien : {visio_url}",
+        "visio_url": visio_url,
+    }
+
+
+async def _tool_create_instruction(args: Dict, tenant_id: int = 0) -> Dict:
     """Cree une instruction depuis la visio."""
-    if not _memory_manager or not _CORE_AVAILABLE:
+    tid = tenant_id or TENANT_ID
+    mgr = _get_tenant_manager(tid) if tid else _memory_manager
+    if not mgr or not _CORE_AVAILABLE:
         return {"status": "error", "message": "Memoire non disponible"}
 
     text = args.get("text", "")
@@ -3935,7 +4555,7 @@ async def _tool_create_instruction(args: Dict) -> Dict:
     if not schedule_str and parsed.scheduled_time:
         schedule_str = f"{parsed.scheduled_time.hour:02d}:{parsed.scheduled_time.minute:02d}"
 
-    instr = _memory_manager.add_instruction(
+    instr = mgr.add_instruction(
         description=text,
         action=action,
         instruction_type=instr_type,
@@ -3947,7 +4567,7 @@ async def _tool_create_instruction(args: Dict) -> Dict:
 
     if _scheduler:
         try:
-            _scheduler.schedule(instruction_id=instr.id, tenant_id=TENANT_ID, instruction=parsed)
+            _scheduler.schedule(instruction_id=instr.id, tenant_id=tid, instruction=parsed)
         except Exception:
             pass
 
@@ -3955,30 +4575,32 @@ async def _tool_create_instruction(args: Dict) -> Dict:
     return {"status": "success", "message": confirmation, "instruction_id": instr.id}
 
 
-async def _tool_create_note(args: Dict) -> Dict:
+async def _tool_create_note(args: Dict, tenant_id: int = 0) -> Dict:
     """Prend une note depuis la visio."""
-    if not _memory_manager:
+    mgr = _get_tenant_manager(tenant_id) if tenant_id else _memory_manager
+    if not mgr:
         return {"status": "error", "message": "Memoire non disponible"}
 
     content = args.get("content", "")
     if not content:
         return {"status": "error", "message": "Contenu de la note requis"}
 
-    reasoning = f"Luna prend une note a la demande du souscripteur pendant la visio"
-    note = _memory_manager.add_note(
+    reasoning = f"Luna prend une note a la demande du souscripteur"
+    mgr.add_note(
         content=f"{content}\n[Raison: {reasoning}]",
-        context="visio_tool_call",
-        tags=["visio", "note", "reasoning"],
+        context="tool_call",
+        tags=["note", "reasoning"],
     )
     return {"status": "success", "message": f"Note enregistree: {content[:50]}", "reasoning": reasoning}
 
 
-async def _tool_get_contacts() -> Dict:
+async def _tool_get_contacts(tenant_id: int = 0) -> Dict:
     """Liste les contacts de confiance."""
-    if not _memory_manager:
+    mgr = _get_tenant_manager(tenant_id) if tenant_id else _memory_manager
+    if not mgr:
         return {"status": "error", "message": "Memoire non disponible"}
 
-    contacts = _memory_manager.list_trusted_contacts()
+    contacts = mgr.list_trusted_contacts()
     if not contacts:
         return {"status": "success", "message": "Aucun contact de confiance enregistre.", "contacts": []}
 
@@ -3987,9 +4609,11 @@ async def _tool_get_contacts() -> Dict:
     return {"status": "success", "message": f"Contacts de confiance: {names}", "contacts": contact_list}
 
 
-async def _tool_generate_document(args: Dict) -> Dict:
+async def _tool_generate_document(args: Dict, tenant_id: int = 0) -> Dict:
     """Genere un document depuis la visio."""
-    if not _doc_generator or not _memory_manager:
+    tid = tenant_id or TENANT_ID
+    mgr = _get_tenant_manager(tid) if tid else _memory_manager
+    if not _doc_generator or not mgr:
         return {"status": "error", "message": "Generateur de documents non disponible"}
 
     doc_type = args.get("doc_type", "courrier_admin")
@@ -4000,7 +4624,7 @@ async def _tool_generate_document(args: Dict) -> Dict:
         return {"status": "error", "message": "Sujet du document requis"}
 
     # Genere le contenu avec GPT
-    profile = _memory_manager.get_subscriber_profile()
+    profile = mgr.get_subscriber_profile()
     profile_dict = profile.model_dump() if profile else {}
 
     prompt = f"Redige un {doc_type} professionnel en francais.\nObjet: {subject}\n"
@@ -4032,33 +4656,61 @@ async def _tool_generate_document(args: Dict) -> Dict:
             profile=profile_dict,
         )
 
-    url = f"/static/documents/{TENANT_ID}/{filename}"
+    url = f"/static/documents/{tid}/{filename}"
 
-    if _memory_manager:
+    try:
+        mgr.add_note(
+            content=f"Document genere: {subject} ({doc_type}) → {filename}",
+            context="document",
+            tags=["document", doc_type],
+        )
+    except Exception:
+        pass
+
+    # Envoie automatiquement le contenu par email au souscripteur si email dispo
+    email_sent = False
+    if profile_dict.get("email") and body_text:
         try:
-            _memory_manager.add_note(
-                content=f"Document genere: {subject} ({doc_type}) → {filename}",
-                context="document",
-                tags=["document", doc_type],
+            sub_email = profile_dict["email"]
+            sub_name = profile_dict.get("first_name", "")
+            email_subject = f"Document Luna : {subject}"
+            email_body = f"Bonjour {sub_name},\n\nVoici le document que tu m'as demande :\n\n---\n{body_text}\n---\n\nBien a toi,\nLuna"
+            ok, _ = await email_client.send_for_tenant(
+                tenant_id=tid,
+                redis_client=_redis_client,
+                gmail_client=gmail_client,
+                to=sub_email,
+                subject=email_subject,
+                body_text=email_body,
+                subscriber_name=sub_name,
             )
-        except Exception:
-            pass
+            if ok:
+                email_sent = True
+                logger.info(f"Document envoye par email a {sub_email}")
+        except Exception as e:
+            logger.warning(f"Failed to email document: {e}")
 
-    return {"status": "success", "message": f"Document genere: {subject}. Telechargeable dans l'onglet Documents.", "url": url, "filename": filename}
+    msg = f"Document genere : {subject}."
+    if email_sent:
+        msg += f" Je te l'ai aussi envoye par email a {profile_dict['email']}."
+    msg += f" Tu peux le retrouver dans l'onglet Documents."
+
+    return {"status": "success", "message": msg, "url": url, "filename": filename}
 
 
-async def _tool_alert_contacts(args: Dict) -> Dict:
+async def _tool_alert_contacts(args: Dict, tenant_id: int = 0) -> Dict:
     """Alerte tous les contacts de confiance."""
-    if not _memory_manager or not sms_client.is_configured:
+    mgr = _get_tenant_manager(tenant_id) if tenant_id else _memory_manager
+    if not mgr or not sms_client.is_configured:
         return {"status": "error", "message": "Service SMS non disponible"}
 
     reason = args.get("reason", "situation preoccupante")
-    contacts = _memory_manager.list_trusted_contacts()
+    contacts = mgr.list_trusted_contacts()
 
     if not contacts:
         return {"status": "error", "message": "Aucun contact de confiance enregistre"}
 
-    profile = _memory_manager.get_subscriber_profile()
+    profile = mgr.get_subscriber_profile()
     name = profile.first_name if profile else "votre proche"
 
     sent = 0
@@ -4069,27 +4721,23 @@ async def _tool_alert_contacts(args: Dict) -> Dict:
             sent += 1
 
     reasoning = f"Luna alerte les contacts car: {reason}"
-    if _memory_manager:
-        try:
-            _memory_manager.add_note(
-                content=f"[Action ALERTE] {reasoning} | {sent} contact(s) alertes",
-                context="alerte_urgence",
-                tags=["urgence", "alerte", "reasoning"],
-            )
-        except Exception:
-            pass
-
-    # Log event
-    if _memory_manager:
-        try:
-            _memory_manager.log_event(
-                category="safety",
-                description=f"ALERTE envoyee a {sent} contact(s): {reason}",
-                reasoning=reasoning,
-                source="tool_call",
-            )
-        except Exception:
-            pass
+    try:
+        mgr.add_note(
+            content=f"[Action ALERTE] {reasoning} | {sent} contact(s) alertes",
+            context="alerte_urgence",
+            tags=["urgence", "alerte", "reasoning"],
+        )
+    except Exception:
+        pass
+    try:
+        mgr.log_event(
+            category="safety",
+            description=f"ALERTE envoyee a {sent} contact(s): {reason}",
+            reasoning=reasoning,
+            source="tool_call",
+        )
+    except Exception:
+        pass
     return {"status": "success", "message": f"Alerte envoyee a {sent} contact(s) de confiance", "reasoning": reasoning}
 
 
@@ -4261,81 +4909,25 @@ async def serve_document(tenant_id: int, filename: str):
 # PERCEPTION - Aide contextuelle visuelle
 # =========================================================================
 
-PERCEPTION_INTERVAL = 10  # secondes entre captures
-
-
-async def _perception_loop():
-    """Background loop: capture + detect toutes les PERCEPTION_INTERVAL secondes."""
-    logger.info(f"Perception loop started ({PERCEPTION_INTERVAL}s interval)")
-    while True:
-        try:
-            await asyncio.sleep(PERCEPTION_INTERVAL)
-
-            if not _perception_detector or not _perception_analyzer:
-                continue
-            if not _memory_manager or not _memory_manager.is_perception_enabled():
-                continue
-            if not _perception_detector.is_camera_available():
-                continue
-
-            # YOLO + cv2 sont bloquants → executor
-            loop = asyncio.get_event_loop()
-            frame_analysis = await loop.run_in_executor(
-                None, _perception_detector.capture_and_detect
-            )
-
-            if not frame_analysis:
-                continue
-
-            scene_state = _perception_analyzer.analyze(frame_analysis)
-            _memory_manager.update_perception_state(scene_state)
-
-            # Log les anomalies significatives
-            for abn in scene_state.abnormalities:
-                if abn["severity"] in ("attention", "concern"):
-                    _memory_manager.log_perception_event(abn)
-                    reasoning = f"Detection automatique par la perception camera: {abn['type']}"
-                    try:
-                        _memory_manager.add_note(
-                            content=f"[Perception] {abn['description']}\n[Raison: {reasoning}]",
-                            context="perception",
-                            tags=["perception", abn["type"], abn["severity"], "reasoning"],
-                        )
-                        _memory_manager.log_event(
-                            category="perception",
-                            description=abn["description"],
-                            reasoning=reasoning,
-                            source="perception_loop",
-                            details={"severity": abn["severity"], "type": abn["type"]},
-                        )
-                    except Exception:
-                        pass
-
-        except asyncio.CancelledError:
-            logger.info("Perception loop stopped")
-            break
-        except Exception as e:
-            logger.error(f"Perception loop error: {e}")
-            await asyncio.sleep(10)
-
-
 @app.post("/api/perception/start")
 async def start_perception():
-    """Active la perception camera (opt-in)."""
-    if not _perception_detector or not _memory_manager:
-        return JSONResponse(status_code=503, content={"error": "Perception non disponible"})
+    """Active la perception (camera navigateur, analyse OpenAI Vision)."""
+    if not _memory_manager:
+        return JSONResponse(status_code=503, content={"error": "Memoire non disponible"})
 
-    if not _perception_detector._initialized:
-        loop = asyncio.get_event_loop()
-        success = await loop.run_in_executor(None, _perception_detector.initialize)
-        if not success:
-            return JSONResponse(status_code=500, content={
-                "error": "Camera non accessible. Verifie que la webcam est branchee."
-            })
+    # Init le detector si pas encore fait
+    if _perception_detector and not _perception_detector._initialized:
+        _perception_detector.initialize()
+
+    if not _perception_detector or not _perception_detector._initialized:
+        return JSONResponse(status_code=503, content={
+            "error": "Module perception non disponible (cle OpenAI requise)"
+        })
 
     _memory_manager.set_perception_enabled(True)
-    logger.info("Perception activated by user")
-    return {"success": True, "message": "Perception activee"}
+    _perception_detector.set_remote_camera_active(True)
+    logger.info("Perception activated (browser camera mode)")
+    return {"success": True, "message": "Perception activee - ouvre ta camera"}
 
 
 @app.post("/api/perception/stop")
@@ -4346,14 +4938,78 @@ async def stop_perception():
 
     _memory_manager.set_perception_enabled(False)
     if _perception_detector:
-        loop = asyncio.get_event_loop()
-        await loop.run_in_executor(None, _perception_detector.release)
-
+        _perception_detector.set_remote_camera_active(False)
     if _perception_analyzer:
         _perception_analyzer.reset()
 
     logger.info("Perception deactivated by user")
-    return {"success": True, "message": "Perception desactivee, camera liberee"}
+    return {"success": True, "message": "Perception desactivee"}
+
+
+@app.post("/api/perception/frame")
+async def receive_perception_frame(request: Request):
+    """
+    Recoit une frame JPEG base64 depuis le navigateur et l'analyse.
+    Le navigateur capture via getUserMedia et envoie toutes les ~10 secondes.
+    """
+    if not _perception_detector or not _perception_analyzer or not _memory_manager:
+        return JSONResponse(status_code=503, content={"error": "Perception non disponible"})
+
+    if not _memory_manager.is_perception_enabled():
+        return JSONResponse(status_code=400, content={"error": "Perception non activee"})
+
+    try:
+        body = await request.json()
+        image_b64 = body.get("image")
+        if not image_b64:
+            return JSONResponse(status_code=400, content={"error": "Image manquante"})
+
+        # Limiter la taille (max ~500KB base64 = ~375KB image)
+        if len(image_b64) > 700_000:
+            return JSONResponse(status_code=400, content={"error": "Image trop grande (max 500KB)"})
+
+    except Exception:
+        return JSONResponse(status_code=400, content={"error": "Body JSON invalide"})
+
+    # Analyse via OpenAI Vision (bloquant -> executor)
+    loop = asyncio.get_event_loop()
+    frame_analysis = await loop.run_in_executor(
+        None, _perception_detector.analyze_frame_b64, image_b64
+    )
+
+    if not frame_analysis:
+        return {"success": False, "error": "Analyse echouee"}
+
+    # Analyse temporelle (postures, anomalies)
+    scene_state = _perception_analyzer.analyze(frame_analysis)
+    _memory_manager.update_perception_state(scene_state)
+
+    # Log les anomalies significatives
+    for abn in scene_state.abnormalities:
+        if abn["severity"] in ("attention", "concern"):
+            _memory_manager.log_perception_event(abn)
+            reasoning = f"Detection automatique par la perception camera: {abn['type']}"
+            try:
+                _memory_manager.add_note(
+                    content=f"[Perception] {abn['description']}\n[Raison: {reasoning}]",
+                    context="perception",
+                    tags=["perception", abn["type"], abn["severity"], "reasoning"],
+                )
+                _memory_manager.log_event(
+                    category="perception",
+                    description=abn["description"],
+                    reasoning=reasoning,
+                    source="perception_frame",
+                    details={"severity": abn["severity"], "type": abn["type"]},
+                )
+            except Exception:
+                pass
+
+    return {
+        "success": True,
+        "scene": scene_state.to_dict(),
+        "inference_ms": round(frame_analysis.inference_time_ms),
+    }
 
 
 @app.get("/api/perception/status")
@@ -4369,7 +5025,9 @@ async def perception_status():
             state = scene.to_dict()
 
     return {
-        "available": _perception_detector is not None,
+        "available": _perception_detector is not None and (
+            _perception_detector._initialized if _perception_detector else False
+        ),
         "enabled": enabled,
         "camera_connected": camera_ok,
         "current_scene": state,
@@ -5119,7 +5777,7 @@ async def create_room(request: Request):
     invite_links = {}
     if _redis_client:
         members = _redis_client.get_all_family_members(tid)
-        secret = os.getenv("JWT_SECRET_KEY", "luna-admin-fallback-key")
+        secret = _JWT_SECRET
         for m in members:
             phone = m.get("phone", "")
             if phone and m.get("is_active") in ("1", "True", "true"):
@@ -5234,7 +5892,7 @@ async def get_member_token(request: Request):
     phone = request.query_params.get("phone", "")
     if not phone:
         return JSONResponse(status_code=400, content={"error": "phone requis"})
-    secret = os.getenv("JWT_SECRET_KEY", "luna-admin-fallback-key")
+    secret = _JWT_SECRET
     token = generate_member_token(phone, tid, secret)
     return {"phone": phone, "token": token}
 
@@ -5273,7 +5931,7 @@ async def room_websocket(websocket: WebSocket, room_id: str):
         # HMAC member token
         if not phone:
             phone = "subscriber"
-        secret = os.getenv("JWT_SECRET_KEY", "luna-admin-fallback-key")
+        secret = _JWT_SECRET
         if not verify_member_token(phone, tid, token, secret):
             await websocket.close(code=4001, reason="Token membre invalide")
             return
@@ -6137,17 +6795,147 @@ async def create_email_draft(request: Request):
 
 
 @app.post("/api/email/send")
-async def send_email(request: Request):
-    """Envoie un email (necessite configuration SMTP)"""
-    # TODO: Implementer avec smtplib ou SendGrid
-    return JSONResponse(status_code=501, content={
-        "error": "Envoi email non configure",
-        "message": "Configurez SMTP_HOST, SMTP_USER, SMTP_PASS dans .env pour activer l'envoi.",
-        "alternatives": [
-            "Copiez le contenu du brouillon dans votre client email",
-            "Utilisez /api/documents/generate pour creer un fichier DOCX",
-        ]
-    })
+async def send_email_endpoint(request: Request):
+    """Envoie un email via Gmail OAuth (prioritaire) ou SendGrid (fallback)"""
+    tid = getattr(request.state, "tenant_id", 1)
+
+    data = await request.json()
+    to = data.get("to", "")
+    subject = data.get("subject", "")
+    body = data.get("body", "")
+    draft_id = data.get("draft_id")
+
+    # Si draft_id fourni, charge le brouillon
+    if draft_id and _redis_client:
+        draft_data = _redis_client.get_email_draft(tid, draft_id)
+        if draft_data:
+            to = to or (draft_data.get("to", "") if isinstance(draft_data.get("to"), str) else ",".join(draft_data.get("to", [])))
+            subject = subject or draft_data.get("subject", "")
+            body = body or draft_data.get("body_text", "")
+
+    if not to or not body:
+        return JSONResponse(status_code=400, content={"error": "Destinataire (to) et contenu (body) requis"})
+
+    success, details = await email_client.send_for_tenant(
+        tenant_id=tid,
+        redis_client=_redis_client,
+        gmail_client=gmail_client,
+        to=to,
+        subject=subject or "Message via Luna",
+        body_text=body,
+        subscriber_name=_SUBSCRIBER_NAME,
+    )
+
+    if success:
+        return {"success": True, "to": to, "subject": subject, "message": "Email envoye", "via": details.get("from", "sendgrid")}
+    return JSONResponse(status_code=502, content={"error": "Echec envoi", "details": details})
+
+
+# =========================================================================
+# GMAIL OAUTH2 ENDPOINTS (per-tenant email)
+# =========================================================================
+
+@app.get("/api/email/oauth/start")
+async def gmail_oauth_start(request: Request):
+    """Demarre le flow OAuth2 Gmail pour un tenant. Admin only."""
+    if not _verify_admin(request):
+        return JSONResponse(status_code=401, content={"error": "Admin requis"})
+    if not gmail_client.is_configured:
+        return JSONResponse(status_code=501, content={
+            "error": "Gmail OAuth non configure",
+            "message": "Ajoutez GOOGLE_OAUTH_CLIENT_ID et GOOGLE_OAUTH_CLIENT_SECRET aux env vars.",
+        })
+
+    tenant_id = request.query_params.get("tenant_id")
+    if not tenant_id:
+        return JSONResponse(status_code=400, content={"error": "tenant_id requis en query param"})
+
+    auth_url = gmail_client.get_auth_url(int(tenant_id))
+    # Redirige directement vers Google
+    from starlette.responses import RedirectResponse
+    return RedirectResponse(url=auth_url)
+
+
+@app.get("/api/email/oauth/callback")
+async def gmail_oauth_callback(request: Request):
+    """Callback OAuth2 Google. Stocke les tokens dans Redis."""
+    code = request.query_params.get("code", "")
+    state = request.query_params.get("state", "")
+    error = request.query_params.get("error", "")
+
+    if error:
+        return JSONResponse(content={
+            "success": False,
+            "error": f"Google OAuth refuse: {error}",
+        })
+
+    if not code or not state:
+        return JSONResponse(status_code=400, content={"error": "code et state requis"})
+
+    if not _redis_client:
+        return JSONResponse(status_code=503, content={"error": "Redis non disponible"})
+
+    result = await gmail_client.handle_callback(code, state, _redis_client)
+
+    if result.get("success"):
+        # Affiche une page de succes simple
+        email = result.get("email", "")
+        tid = result.get("tenant_id", "?")
+        html = f"""<!DOCTYPE html><html><head><title>Luna - Gmail connecte</title>
+        <style>body{{font-family:sans-serif;display:flex;justify-content:center;align-items:center;height:100vh;background:#0a0a1a;color:#e0e0e0;}}
+        .card{{background:#1e1e3f;padding:40px;border-radius:16px;text-align:center;}}
+        .ok{{color:#4ade80;font-size:2em;}}h2{{color:#a78bfa;}}</style></head>
+        <body><div class="card"><div class="ok">&#10003;</div>
+        <h2>Gmail connecte !</h2><p>Compte: <strong>{email}</strong></p>
+        <p>Tenant ID: {tid}</p>
+        <p>Luna peut maintenant envoyer des emails depuis ce compte.</p>
+        <p><a href="/admin" style="color:#a78bfa;">Retour au dashboard</a></p>
+        </div></body></html>"""
+        return HTMLResponse(content=html)
+    else:
+        error_msg = result.get("error", "Erreur inconnue")
+        html = f"""<!DOCTYPE html><html><head><title>Luna - Erreur Gmail</title>
+        <style>body{{font-family:sans-serif;display:flex;justify-content:center;align-items:center;height:100vh;background:#0a0a1a;color:#e0e0e0;}}
+        .card{{background:#1e1e3f;padding:40px;border-radius:16px;text-align:center;}}
+        .err{{color:#f87171;font-size:2em;}}h2{{color:#f87171;}}</style></head>
+        <body><div class="card"><div class="err">&#10007;</div>
+        <h2>Erreur connexion Gmail</h2><p>{error_msg}</p>
+        <p><a href="/admin" style="color:#a78bfa;">Retour au dashboard</a></p>
+        </div></body></html>"""
+        return HTMLResponse(content=html)
+
+
+@app.get("/api/admin/clients/{tenant_id}/email")
+async def admin_get_email_integration(tenant_id: int, request: Request):
+    """Statut de l'integration email d'un tenant."""
+    if not _verify_admin(request):
+        return JSONResponse(status_code=401, content={"error": "Admin requis"})
+    if not _redis_client:
+        return JSONResponse(status_code=503, content={"error": "Redis non disponible"})
+
+    integration = _redis_client.get_email_integration(tenant_id)
+    if not integration:
+        return {"connected": False, "service": None}
+
+    return {
+        "connected": True,
+        "service": integration.get("service", "unknown"),
+        "email": integration.get("email", ""),
+        "connected_at": integration.get("connected_at", ""),
+    }
+
+
+@app.delete("/api/admin/clients/{tenant_id}/email")
+async def admin_delete_email_integration(tenant_id: int, request: Request):
+    """Deconnecte Gmail d'un tenant."""
+    if not _verify_admin(request):
+        return JSONResponse(status_code=401, content={"error": "Admin requis"})
+    if not _redis_client:
+        return JSONResponse(status_code=503, content={"error": "Redis non disponible"})
+
+    _redis_client.delete_email_integration(tenant_id)
+    logger.info(f"Email integration deleted: tenant={tenant_id}")
+    return {"success": True, "message": f"Integration email supprimee pour tenant {tenant_id}"}
 
 
 # =========================================================================
@@ -6161,13 +6949,12 @@ _server_start_time = time.time()
 def _create_admin_token() -> str:
     """Cree un JWT admin valide 24h."""
     import jwt as pyjwt
-    jwt_secret = os.getenv("JWT_SECRET_KEY", "luna-admin-fallback-key")
     payload = {
         "role": "admin",
         "iat": int(time.time()),
         "exp": int(time.time()) + 86400,
     }
-    return pyjwt.encode(payload, jwt_secret, algorithm="HS256")
+    return pyjwt.encode(payload, _JWT_SECRET, algorithm=_JWT_ALGORITHM)
 
 
 def _verify_admin(request: Request) -> bool:
@@ -6178,8 +6965,7 @@ def _verify_admin(request: Request) -> bool:
     token = auth[7:]
     try:
         import jwt as pyjwt
-        jwt_secret = os.getenv("JWT_SECRET_KEY", "luna-admin-fallback-key")
-        payload = pyjwt.decode(token, jwt_secret, algorithms=["HS256"])
+        payload = pyjwt.decode(token, _JWT_SECRET, algorithms=[_JWT_ALGORITHM])
         return payload.get("role") == "admin"
     except Exception:
         return False
@@ -6329,7 +7115,8 @@ async def admin_login(request: Request):
             "error": "ADMIN_PASSWORD non configure dans .env",
         })
 
-    if password != _ADMIN_PASSWORD:
+    import hmac
+    if not hmac.compare_digest(password, _ADMIN_PASSWORD):
         return JSONResponse(status_code=401, content={"error": "Mot de passe incorrect"})
 
     token = _create_admin_token()
@@ -6645,27 +7432,36 @@ if __name__ == "__main__":
     import uvicorn
     import subprocess as _sp
 
-    ssl_dir = os.path.dirname(__file__)
-    cert_file = os.getenv("SSL_CERTFILE", os.path.join(ssl_dir, "cert.pem"))
-    key_file = os.getenv("SSL_KEYFILE", os.path.join(ssl_dir, "key.pem"))
-    port = int(os.getenv("LUNA_PORT", "8888"))
+    _is_cloudrun = os.getenv("ENVIRONMENT", "").lower() == "cloudrun"
+    port = int(os.getenv("PORT", os.getenv("LUNA_PORT", "8080" if _is_cloudrun else "8888")))
 
-    # Auto-gen SSL si absents
-    if not os.path.exists(cert_file) or not os.path.exists(key_file):
-        logger.info("Certificats SSL absents - generation auto-signee...")
-        try:
-            _sp.run([
-                "openssl", "req", "-x509", "-newkey", "rsa:4096",
-                "-keyout", key_file, "-out", cert_file,
-                "-days", "365", "-nodes",
-                "-subj", "/CN=localhost/O=YAWatch-Luna",
-            ], check=True, capture_output=True)
-            logger.info("Certificats SSL generes (auto-signes, 1 an)")
-        except Exception as e:
-            logger.error(f"Impossible de generer les certificats SSL: {e}")
+    ssl_kwargs = {}
+    if not _is_cloudrun:
+        # Local/Docker: SSL auto-signe
+        ssl_dir = os.path.dirname(__file__)
+        cert_file = os.getenv("SSL_CERTFILE", os.path.join(ssl_dir, "cert.pem"))
+        key_file = os.getenv("SSL_KEYFILE", os.path.join(ssl_dir, "key.pem"))
+
+        if not os.path.exists(cert_file) or not os.path.exists(key_file):
+            logger.info("Certificats SSL absents - generation auto-signee...")
+            try:
+                _sp.run([
+                    "openssl", "req", "-x509", "-newkey", "rsa:4096",
+                    "-keyout", key_file, "-out", cert_file,
+                    "-days", "365", "-nodes",
+                    "-subj", "/CN=localhost/O=YAWatch-Luna",
+                ], check=True, capture_output=True)
+                logger.info("Certificats SSL generes (auto-signes, 1 an)")
+            except Exception as e:
+                logger.error(f"Impossible de generer les certificats SSL: {e}")
+
+        ssl_kwargs = {"ssl_keyfile": key_file, "ssl_certfile": cert_file}
+    else:
+        logger.info("Cloud Run detecte — SSL desactive (gere par Google)")
 
     logger.info(f"Demarrage Luna Web - YAWatch-Luna (Souscripteur: {_SUBSCRIBER_NAME})")
     logger.info(f"Mode: {LUNA_MODE.upper()}" + (" (chat + voix + SMS)" if LUNA_MODE == "lite" else " (chat + voix + SMS + visio)"))
+    logger.info(f"Environnement: {'CLOUD RUN' if _is_cloudrun else 'LOCAL/DOCKER'}")
     logger.info(f"PV Recette: {'SIGNE' if PV_SIGNED else 'NON SIGNE - MODE SETUP'}")
     logger.info(f"OpenAI: {'OK' if OPENAI_API_KEY else 'MANQUANT'}")
     _twilio_ok = sms_client and hasattr(sms_client, 'is_configured') and sms_client.is_configured
@@ -6683,6 +7479,5 @@ if __name__ == "__main__":
         app,
         host="0.0.0.0",
         port=port,
-        ssl_keyfile=key_file,
-        ssl_certfile=cert_file,
+        **ssl_kwargs,
     )
