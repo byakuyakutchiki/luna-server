@@ -108,6 +108,10 @@ class LunaCortex:
         if self._running:
             return
         self._running = True
+
+        # Charger les secrets auth depuis Redis (persistance Cloud Run)
+        await self.auth.async_init(self.redis)
+
         self._task = asyncio.create_task(self._main_loop())
         # Telegram: webhook sur Cloud Run, polling en local
         if self.config.telegram_bot_token:

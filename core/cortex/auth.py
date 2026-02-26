@@ -73,6 +73,7 @@ COMMAND_LEVELS = {
     "VERSION": LEVEL_READ,
     "AUDIT": LEVEL_READ,
     "COUTS": LEVEL_READ,
+    "CLIENT": LEVEL_READ,
     # WRITE — modifier quelque chose
     "EXPORT": LEVEL_WRITE,
     "BAN": LEVEL_WRITE,
@@ -89,6 +90,9 @@ COMMAND_LEVELS = {
     "MSG": LEVEL_WRITE,
     "PURGE": LEVEL_WRITE,
     "RATELIMIT": LEVEL_WRITE,
+    "REGISTER": LEVEL_WRITE,
+    "PLAN_SET": LEVEL_WRITE,
+    "BROADCAST": LEVEL_WRITE,
     # CRITICAL — danger, peut casser le serveur
     "LOCK": LEVEL_CRITICAL,
     "UNLOCK": LEVEL_CRITICAL,
@@ -103,11 +107,19 @@ COMMAND_LEVELS = {
 class CortexAuth:
     """Gestionnaire d'authentification multi-couche du Cortex."""
 
+    # Cles Redis pour persistance Cloud Run
+    REDIS_KEY_TOTP = "cortex:auth:totp_secret"
+    REDIS_KEY_API_HASH = "cortex:auth:api_key_hash"
+    REDIS_KEY_TELEGRAM = "cortex:auth:telegram_users"
+
     def __init__(self, data_dir: str = ""):
         if not data_dir:
             data_dir = str(Path(__file__).parent.parent.parent / "data")
         self._data_dir = Path(data_dir)
         self._data_dir.mkdir(parents=True, exist_ok=True)
+
+        # Redis client (injecte via async_init)
+        self._redis = None
 
         # Fichiers secrets
         self._totp_file = self._data_dir / "cortex_totp.secret"
@@ -127,10 +139,72 @@ class CortexAuth:
         # Sessions actives (pour SMS: phone -> {auth_time, totp_verified})
         self._sessions: dict[str, dict] = {}
 
-        # Init
+        # Init synchrone (fichiers + env vars)
         self._load_or_create_totp()
         self._load_or_create_api_key()
         self._load_telegram_users()
+
+    async def async_init(self, redis_client=None):
+        """
+        Init async: charge les secrets depuis Redis (prioritaire).
+        Appele par brain.py apres construction.
+        Permet de persister TOTP, API key et Telegram users
+        sur Cloud Run ou le filesystem est ephemere.
+        """
+        if not redis_client:
+            return
+        self._redis = redis_client
+        try:
+            # 1. TOTP secret depuis Redis
+            stored_totp = await redis_client.get(self.REDIS_KEY_TOTP)
+            if stored_totp:
+                secret = stored_totp if isinstance(stored_totp, str) else stored_totp.decode()
+                self._totp_secret = secret.strip()
+                self._totp = pyotp.TOTP(self._totp_secret)
+                logger.info("TOTP charge depuis Redis (persistant)")
+            elif self._totp_secret:
+                # Sauver le secret actuel dans Redis
+                await redis_client.set(self.REDIS_KEY_TOTP, self._totp_secret)
+                logger.info("TOTP sauvegarde dans Redis pour persistance")
+
+            # 2. API key hash depuis Redis
+            stored_hash = await redis_client.get(self.REDIS_KEY_API_HASH)
+            if stored_hash:
+                self._api_key_hash = stored_hash if isinstance(stored_hash, str) else stored_hash.decode()
+                logger.info("API key hash charge depuis Redis (persistant)")
+            elif self._api_key_hash:
+                await redis_client.set(self.REDIS_KEY_API_HASH, self._api_key_hash)
+                logger.info("API key hash sauvegarde dans Redis pour persistance")
+
+            # 3. Telegram users depuis Redis
+            stored_tg = await redis_client.get(self.REDIS_KEY_TELEGRAM)
+            if stored_tg:
+                tg_data = stored_tg if isinstance(stored_tg, str) else stored_tg.decode()
+                data = json.loads(tg_data)
+                self._telegram_users = {
+                    int(k): v for k, v in data.get("users", {}).items()
+                }
+                logger.info(f"Telegram users charges depuis Redis: "
+                            f"{len(self._telegram_users)} utilisateurs")
+            elif self._telegram_users:
+                await self._save_telegram_to_redis()
+                logger.info("Telegram users sauvegardes dans Redis")
+
+        except Exception as e:
+            logger.error(f"Erreur async_init Redis auth: {e}")
+
+    async def _save_telegram_to_redis(self):
+        """Sauvegarde les Telegram users dans Redis."""
+        if not self._redis:
+            return
+        try:
+            data = json.dumps({
+                "users": {str(k): v for k, v in self._telegram_users.items()},
+                "last_updated": time.time(),
+            })
+            await self._redis.set(self.REDIS_KEY_TELEGRAM, data)
+        except Exception as e:
+            logger.debug(f"Erreur sauvegarde Telegram Redis: {e}")
 
     # ──────────────────────────────────────────
     # TOTP (Google Authenticator)
@@ -281,12 +355,26 @@ class CortexAuth:
         """Regenere la cle API (invalide l'ancienne)."""
         raw_key = secrets.token_urlsafe(48)
         self._api_key_hash = hashlib.sha256(raw_key.encode()).hexdigest()
-        self._api_key_file.write_text(json.dumps({
-            "hash": self._api_key_hash,
-            "created": time.time(),
-            "note": "Cle API Cortex regeneree",
-        }))
-        os.chmod(self._api_key_file, 0o600)
+        try:
+            self._api_key_file.write_text(json.dumps({
+                "hash": self._api_key_hash,
+                "created": time.time(),
+                "note": "Cle API Cortex regeneree",
+            }))
+            os.chmod(self._api_key_file, 0o600)
+        except Exception:
+            pass
+        # Persister dans Redis
+        if self._redis:
+            try:
+                import asyncio
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    loop.create_task(
+                        self._redis.set(self.REDIS_KEY_API_HASH,
+                                        self._api_key_hash))
+            except Exception:
+                pass
         logger.warning("Cle API Cortex REGENEREE")
         return raw_key
 
@@ -319,17 +407,29 @@ class CortexAuth:
         """Enregistre un user ID Telegram (necessite TOTP pour confirmer)."""
         self._telegram_users[user_id] = role
         self._save_telegram_users(username)
+        # Async: sauver dans Redis aussi (fire-and-forget via event loop)
+        if self._redis:
+            try:
+                import asyncio
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    loop.create_task(self._save_telegram_to_redis())
+            except Exception:
+                pass
         return True
 
     def _save_telegram_users(self, last_username: str = ""):
-        """Sauvegarde les users Telegram."""
+        """Sauvegarde les users Telegram (fichier local)."""
         data = {
             "users": {str(k): v for k, v in self._telegram_users.items()},
             "last_updated": time.time(),
             "last_username": last_username,
         }
-        self._telegram_file.write_text(json.dumps(data, indent=2))
-        os.chmod(self._telegram_file, 0o600)
+        try:
+            self._telegram_file.write_text(json.dumps(data, indent=2))
+            os.chmod(self._telegram_file, 0o600)
+        except Exception:
+            pass  # Cloud Run: filesystem peut etre read-only
 
     def verify_telegram_user(self, user_id: int) -> Optional[str]:
         """

@@ -261,6 +261,11 @@ class CortexTelegramBot:
                 "/quota_reset": "QUOTA_RESET", "/raz_quota": "QUOTA_RESET",
                 "/purge": "PURGE", "/nettoyer": "PURGE",
                 "/ratelimit": "RATELIMIT", "/limite": "RATELIMIT",
+                # GESTION CLIENTS
+                "/client": "CLIENT", "/fiche": "CLIENT", "/detail": "CLIENT",
+                "/register": "REGISTER", "/inscrire": "REGISTER", "/creer": "REGISTER",
+                "/plan_set": "PLAN_SET", "/plan": "PLAN_SET", "/changer_plan": "PLAN_SET",
+                "/broadcast": "BROADCAST", "/diffuser_tous": "BROADCAST",
                 # AUDIT + PDF
                 "/audit": "AUDIT", "/historique": "AUDIT", "/piste": "AUDIT",
                 "/couts": "COUTS", "/costs": "COUTS", "/depenses": "COUTS",
@@ -458,20 +463,26 @@ class CortexTelegramBot:
             "  /audit [jours] — Journal actions\n"
             "  /couts — Couts du mois\n"
             "\n"
-            "ECRITURE (TOTP 10 min):\n"
-            "  /export audit|couts|complet — PDF\n"
-            "  /ban <ip> — Bannir IP\n"
-            "  /unban <ip> — Debannir\n"
-            "  /kill <id> — Suspendre client\n"
+            "GESTION CLIENTS (TOTP 10 min):\n"
+            "  /client <id> — Fiche complete\n"
+            "  /register <email> <plan> <prenom> [nom]\n"
+            "  /plan_set <id> <plan> — Changer plan\n"
+            "  /kill <id> — Suspendre\n"
             "  /revive <id> — Reactiver\n"
-            "  /backup — Backup Redis\n"
-            "  /maintenance <msg> — Maintenance\n"
-            "  /announce <msg> — Annonce\n"
-            "  /msg <id> <msg> — Message client\n"
-            "  /wladd <ip> — Whitelist +\n"
-            "  /wldel <ip> — Whitelist -\n"
             "  /quota_set <id> <r> <v> — Modif quota\n"
             "  /quota_reset <id> — RAZ quota\n"
+            "\n"
+            "MESSAGES:\n"
+            "  /msg <id> <texte> — A 1 client\n"
+            "  /broadcast <texte> — A TOUS\n"
+            "  /announce <texte> — Annonce systeme\n"
+            "\n"
+            "SECURITE (TOTP 10 min):\n"
+            "  /export audit|couts|complet — PDF\n"
+            "  /ban <ip> /unban <ip>\n"
+            "  /backup — Backup Redis\n"
+            "  /maintenance <msg>\n"
+            "  /wladd <ip> /wldel <ip>\n"
             "  /purge <cible> — Nettoyer\n"
             "  /ratelimit <n> — Limite req/min\n"
             "\n"

@@ -74,11 +74,13 @@ FOUNDER_COMMANDS = {
     # Commandes READ
     "ANNOUNCE", "UPTIME", "REDIS", "CONFIG", "WHITELIST",
     "SESSIONS", "PROCESSES", "NETWORK", "DISK", "VERSION", "PING",
+    "CLIENT",
     # Audit + couts
     "AUDIT", "COUTS", "EXPORT",
     # Commandes WRITE
     "MAINTENANCE", "WHITELIST_ADD", "WHITELIST_DEL",
     "QUOTA_SET", "QUOTA_RESET", "MSG", "PURGE", "RATELIMIT",
+    "REGISTER", "PLAN_SET", "BROADCAST",
     # Commandes CRITICAL
     "STOP", "REKEY", "WIPE",
 }
@@ -95,6 +97,7 @@ WRITE_COMMANDS = {
     "MAINTENANCE", "WHITELIST_ADD", "WHITELIST_DEL",
     "QUOTA_SET", "QUOTA_RESET", "MSG", "PURGE", "RATELIMIT",
     "ANNOUNCE", "EXPORT",
+    "REGISTER", "PLAN_SET", "BROADCAST",
 }
 CRITICAL_COMMANDS = {
     "LOCK", "UNLOCK", "SHIELD", "RESTART",
@@ -594,12 +597,23 @@ class EmergencyMode:
         return "\n".join(lines)
 
     async def _cmd_restart(self, phone: str, role: str, args: str) -> str:
-        """LUNA RESTART — Restart graceful."""
-        # On ne kill pas le process direct — on signale un restart
+        """LUNA RESTART — Restart graceful (Cloud Run relance le container)."""
+        if self.brain:
+            from .signals import Signal, SignalSource, Severity
+            await self.brain.briefing.dispatch(Signal(
+                source=SignalSource.SYSTEM,
+                severity=Severity.CRITICAL,
+                category="system",
+                title="RESTART DEMANDE",
+                message=f"Restart par {phone[:15]}. Le serveur va redemarrer.",
+            ))
+        # Envoyer la reponse AVANT de tuer le process
+        asyncio.get_event_loop().call_later(
+            2.0, lambda: os._exit(0))
         return (
-            "LUNA: Restart demande.\n"
-            "Le serveur va redemarrer dans 10s.\n"
-            "Vous recevrez un SMS quand il sera de retour."
+            "LUNA: RESTART EN COURS\n"
+            "Le process va s'arreter dans 2s.\n"
+            "Cloud Run relancera automatiquement."
         )
 
     async def _cmd_digest(self, phone: str, role: str, args: str) -> str:
@@ -1153,6 +1167,265 @@ class EmergencyMode:
         except Exception as e:
             return f"LUNA ERREUR: {str(e)[:100]}"
 
+    # ──────────────────────────────────────────
+    # COMMANDES GESTION CLIENTS (WRITE)
+    # ──────────────────────────────────────────
+
+    async def _cmd_client(self, phone: str, role: str, args: str) -> str:
+        """LUNA CLIENT <id> — Details complets d'un client."""
+        tenant_id = args.strip()
+        if not tenant_id:
+            return "LUNA: Precisez l'ID. Ex: /client 3"
+        if not self.brain or not self.brain.redis:
+            return "LUNA: Redis non disponible."
+        try:
+            redis = self.brain.redis
+            # Profil
+            profile = await redis.hgetall(f"luna:{tenant_id}:profile")
+            if not profile:
+                return f"LUNA: Client #{tenant_id} non trouve."
+            # Decode bytes si necessaire
+            def _d(val):
+                return val.decode() if isinstance(val, bytes) else val
+            p = {_d(k): _d(v) for k, v in profile.items()}
+            first = p.get("first_name", "?")
+            last = p.get("last_name", "")
+            email = p.get("email", "?")
+            tel = p.get("phone", "non renseigne")
+
+            # Plan depuis luna:auth:*
+            plan = "?"
+            auth_email = ""
+            created = "?"
+            auth_keys = await redis.keys("luna:auth:*")
+            for ak in auth_keys:
+                ak_str = _d(ak)
+                if ak_str in ("luna:auth:next_tenant_id",
+                               "luna:auth:tenant_index"):
+                    continue
+                auth_data = await redis.get(ak)
+                if auth_data:
+                    a = json.loads(_d(auth_data))
+                    if str(a.get("tenant_id")) == str(tenant_id):
+                        plan = a.get("plan", "?")
+                        auth_email = a.get("email", "")
+                        ts = a.get("created_at", 0)
+                        if ts:
+                            created = datetime.fromtimestamp(ts).strftime(
+                                "%d/%m/%Y %H:%M")
+                        break
+
+            # Suspendu ?
+            suspended = await redis.get(f"luna:{tenant_id}:suspended")
+            status = "SUSPENDU" if suspended else "ACTIF"
+
+            # Quota du mois
+            quota = await self._get_client_quota(tenant_id)
+            quota_lines = ""
+            if quota:
+                quota_lines = (
+                    f"\nQUOTAS (mois):\n"
+                    f"  SMS: {quota['sms_used']}/{quota['sms_limit']}\n"
+                    f"  Voix: {quota['voice_used']}/{quota['voice_limit']} min\n"
+                    f"  Visio: {quota['visio_used']}/{quota['visio_limit']} min\n"
+                    f"  Chat: {quota['chat_count']} msgs"
+                )
+
+            return (
+                f"LUNA CLIENT #{tenant_id}\n"
+                f"{'=' * 28}\n"
+                f"Nom: {first} {last}\n"
+                f"Email: {auth_email or email}\n"
+                f"Tel: {tel}\n"
+                f"Plan: {plan}\n"
+                f"Status: {status}\n"
+                f"Inscrit: {created}"
+                f"{quota_lines}"
+            )
+        except Exception as e:
+            return f"LUNA ERREUR: {str(e)[:150]}"
+
+    async def _cmd_register(self, phone: str, role: str, args: str) -> str:
+        """LUNA REGISTER <email> <plan> <prenom> [nom] — Inscrire un client."""
+        parts = args.strip().split()
+        if len(parts) < 3:
+            return (
+                "LUNA: Usage: /register <email> <plan> <prenom> [nom]\n"
+                "Plans: essentiel, confort, premium\n"
+                "Ex: /register marie@mail.fr essentiel Marie Dupont"
+            )
+        email = parts[0].lower()
+        plan = parts[1].lower()
+        prenom = parts[2]
+        nom = parts[3] if len(parts) > 3 else ""
+
+        if "@" not in email:
+            return "LUNA: Email invalide."
+        if plan not in ("essentiel", "confort", "premium"):
+            return "LUNA: Plan invalide. Valides: essentiel, confort, premium"
+
+        if not self.brain or not self.brain.redis:
+            return "LUNA: Redis non disponible."
+
+        try:
+            redis = self.brain.redis
+
+            # Verifier email deja pris
+            existing = await redis.get(f"luna:auth:{email}")
+            if existing:
+                return f"LUNA: Email {email} deja utilise."
+
+            # Generer tenant_id
+            exists = await redis.exists("luna:auth:next_tenant_id")
+            if not exists:
+                await redis.set("luna:auth:next_tenant_id", 1)
+            tenant_id = await redis.incr("luna:auth:next_tenant_id")
+
+            # Generer un mot de passe temporaire
+            import secrets as _secrets
+            temp_password = _secrets.token_urlsafe(8)  # 11 chars
+            try:
+                import bcrypt
+                pw_hash = bcrypt.hashpw(
+                    temp_password[:72].encode("utf-8"),
+                    bcrypt.gensalt(rounds=12)
+                ).decode("utf-8")
+            except ImportError:
+                import hashlib
+                pw_hash = hashlib.sha256(
+                    temp_password.encode()).hexdigest()
+
+            # Creer l'enregistrement auth
+            auth_record = json.dumps({
+                "tenant_id": tenant_id,
+                "password_hash": pw_hash,
+                "plan": plan,
+                "active": True,
+                "created_at": time.time(),
+                "email": email,
+            })
+            created = await redis.setnx(f"luna:auth:{email}", auth_record)
+            if not created:
+                return f"LUNA: Email {email} deja pris (race condition)."
+
+            # Index tenant
+            await redis.zadd("luna:auth:tenant_index",
+                             {str(tenant_id): time.time()})
+
+            # Profil
+            await redis.hset(f"luna:{tenant_id}:profile", mapping={
+                "tenant_id": str(tenant_id),
+                "first_name": prenom,
+                "last_name": nom,
+                "email": email,
+                "language": "fr",
+                "tutoiement": "1",
+            })
+
+            return (
+                f"LUNA: CLIENT CREE\n"
+                f"{'=' * 28}\n"
+                f"ID: #{tenant_id}\n"
+                f"Nom: {prenom} {nom}\n"
+                f"Email: {email}\n"
+                f"Plan: {plan}\n"
+                f"Mdp temporaire: {temp_password}\n"
+                f"\nCommuniquez le mdp au client.\n"
+                f"Il pourra se connecter a l'app Luna."
+            )
+        except Exception as e:
+            return f"LUNA ERREUR: {str(e)[:150]}"
+
+    async def _cmd_plan_set(self, phone: str, role: str, args: str) -> str:
+        """LUNA PLAN_SET <id> <plan> — Changer le plan d'un client."""
+        parts = args.strip().split()
+        if len(parts) < 2:
+            return (
+                "LUNA: Usage: /plan_set <id> <plan>\n"
+                "Plans: essentiel, confort, premium\n"
+                "Ex: /plan_set 3 premium"
+            )
+        tenant_id = parts[0]
+        new_plan = parts[1].lower()
+        if new_plan not in ("essentiel", "confort", "premium"):
+            return "LUNA: Plan invalide. Valides: essentiel, confort, premium"
+        if not self.brain or not self.brain.redis:
+            return "LUNA: Redis non disponible."
+        try:
+            redis = self.brain.redis
+            # Verifier que le client existe
+            profile = await redis.hgetall(f"luna:{tenant_id}:profile")
+            if not profile:
+                return f"LUNA: Client #{tenant_id} non trouve."
+
+            # Trouver et modifier le record auth
+            auth_keys = await redis.keys("luna:auth:*")
+            old_plan = "?"
+            for ak in auth_keys:
+                ak_str = ak.decode() if isinstance(ak, bytes) else ak
+                if ak_str in ("luna:auth:next_tenant_id",
+                               "luna:auth:tenant_index"):
+                    continue
+                auth_data = await redis.get(ak)
+                if auth_data:
+                    auth_str = auth_data.decode() if isinstance(
+                        auth_data, bytes) else auth_data
+                    a = json.loads(auth_str)
+                    if str(a.get("tenant_id")) == str(tenant_id):
+                        old_plan = a.get("plan", "?")
+                        a["plan"] = new_plan
+                        await redis.set(ak_str, json.dumps(a))
+                        return (
+                            f"LUNA: Plan modifie\n"
+                            f"Client #{tenant_id}: {old_plan} → {new_plan}\n"
+                            f"Effectif immediatement."
+                        )
+            return f"LUNA: Record auth non trouve pour #{tenant_id}."
+        except Exception as e:
+            return f"LUNA ERREUR: {str(e)[:150]}"
+
+    async def _cmd_broadcast(self, phone: str, role: str, args: str) -> str:
+        """LUNA BROADCAST <message> — Message a TOUS les clients."""
+        message = args.strip()
+        if not message:
+            return "LUNA: Usage: /broadcast <message>\nEx: /broadcast Maintenance prevue ce soir 22h"
+        if not self.brain or not self.brain.redis:
+            return "LUNA: Redis non disponible."
+        try:
+            redis = self.brain.redis
+            # Trouver tous les tenants
+            clients = await self._get_clients_summary()
+            if not clients:
+                return "LUNA: Aucun client a notifier."
+            count = 0
+            notif = json.dumps({
+                "message": message,
+                "timestamp": time.time(),
+                "from": "fondateur",
+                "type": "broadcast",
+            })
+            for c in clients:
+                tid = c["id"]
+                await redis.lpush(f"luna:{tid}:notifications", notif)
+                await redis.ltrim(f"luna:{tid}:notifications", 0, 49)
+                count += 1
+
+            # Aussi dans les annonces globales
+            await redis.lpush("luna:announcements", json.dumps({
+                "message": message,
+                "timestamp": time.time(),
+                "by": phone[:15],
+            }))
+            await redis.ltrim("luna:announcements", 0, 49)
+
+            return (
+                f"LUNA: MESSAGE DIFFUSE\n"
+                f"Envoye a {count} clients.\n"
+                f"Message: {message[:100]}"
+            )
+        except Exception as e:
+            return f"LUNA ERREUR: {str(e)[:150]}"
+
     async def _cmd_help(self, phone: str, role: str, args: str) -> str:
         """LUNA HELP — Liste des commandes."""
         if role == "founder":
@@ -1160,40 +1433,44 @@ class EmergencyMode:
                 "LUNA — Commandes fondateur\n"
                 "----------------------------\n"
                 "LECTURE (pas de TOTP):\n"
-                "  etat / sante / menaces\n"
-                "  clients / quota <id>\n"
-                "  journal / erreurs / rapport\n"
-                "  cerveau / redis / config\n"
-                "  version / uptime / ping\n"
-                "  processus / reseau / disque\n"
-                "  whitelist / sessions / bannis\n"
+                "  /status /health /threats\n"
+                "  /clients — liste tous les clients\n"
+                "  /client <id> — fiche complete\n"
+                "  /quota <id> — conso client\n"
+                "  /logs /errors /digest /cortex\n"
+                "  /redis /config /version /uptime\n"
+                "  /sessions /banned /whitelist\n"
+                "  /processes /network /disk\n"
+                "  /audit [jours] /couts\n"
                 "\n"
-                "ECRITURE (TOTP 10 min):\n"
-                "  bannir <ip> / debannir <ip>\n"
-                "  couper <id> / reactiver <id>\n"
-                "  sauvegarde / purge <cible>\n"
-                "  maintenance <message>\n"
-                "  annonce <message>\n"
-                "  msg <id> <message>\n"
-                "  whitelist_add <ip>\n"
-                "  whitelist_del <ip>\n"
-                "  quota_set <id> <res> <val>\n"
-                "  quota_reset <id>\n"
-                "  ratelimit <val>\n"
+                "GESTION CLIENTS (TOTP 10 min):\n"
+                "  /register <email> <plan> <prenom> [nom]\n"
+                "  /plan_set <id> <plan>\n"
+                "  /kill <id> — suspendre\n"
+                "  /revive <id> — reactiver\n"
+                "  /quota_set <id> <res> <val>\n"
+                "  /quota_reset <id>\n"
+                "\n"
+                "MESSAGES:\n"
+                "  /msg <id> <texte> — a 1 client\n"
+                "  /broadcast <texte> — a TOUS\n"
+                "  /announce <texte> — annonce systeme\n"
+                "\n"
+                "SECURITE (TOTP 10 min):\n"
+                "  /ban <ip> /unban <ip>\n"
+                "  /wladd <ip> /wldel <ip>\n"
+                "  /maintenance <msg>\n"
+                "  /backup /purge <cible>\n"
+                "  /ratelimit <val>\n"
+                "  /export audit|couts|complet\n"
                 "\n"
                 "CRITIQUE (TOTP 2 min):\n"
-                "  verrouiller / deverrouiller\n"
-                "  bouclier on/off\n"
-                "  redemarrer / stop\n"
-                "  rekey (nouvelle cle API)\n"
-                "  wipe <id> (supprimer client)\n"
-                "\n"
-                "En francais libre:\n"
-                "  comment va le serveur\n"
-                "  ya des attaques\n"
-                "  bloque l'ip 1.2.3.4\n"
-                "  mets en maintenance 2h\n"
-                "  annonce a tous: mise a jour ce soir"
+                "  /lock <raison> /unlock\n"
+                "  /shield on|off\n"
+                "  /restart — redemarre le serveur\n"
+                "  /stop — arret complet\n"
+                "  /rekey — nouvelle cle API\n"
+                "  /wipe <id> — supprime client\n"
             )
         return (
             "LUNA — Commandes exploitant\n"
