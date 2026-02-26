@@ -1043,7 +1043,14 @@ document.getElementById("profileSaveBtn").addEventListener("click", function() {
 function loadContacts() {
   var list = document.getElementById("contactsList");
   list.innerHTML = '<p class="empty-state">Chargement...</p>';
-  authFetch("/api/contacts").then(function(r) { return r.json(); }).then(function(data) {
+  authFetch("/api/contacts").then(function(r) {
+    if (!r.ok) throw new Error("Serveur indisponible (code " + r.status + ")");
+    return r.json();
+  }).then(function(data) {
+    if (data.error) {
+      list.innerHTML = '<p class="empty-state" style="color:#ef4444;">Erreur: ' + esc(data.error) + '</p>';
+      return;
+    }
     if (!data.contacts || data.contacts.length === 0) {
       list.innerHTML = '<p class="empty-state">Aucun contact de confiance. Ajoute-en ci-dessous (max 5).</p>';
       return;
@@ -1061,12 +1068,20 @@ function loadContacts() {
     countInfo.style.cssText = "font-size:0.8em;color:#666;margin-top:8px;";
     countInfo.textContent = data.count + "/" + data.max + " contacts";
     list.appendChild(countInfo);
-  }).catch(function() { list.innerHTML = '<p class="empty-state">Erreur de chargement.</p>'; });
+  }).catch(function(e) { list.innerHTML = '<p class="empty-state" style="color:#ef4444;">Erreur: ' + esc(e.message || "chargement impossible") + '</p>'; });
 }
 
 function deleteContact(phone) {
   authFetch("/api/contacts/" + encodeURIComponent(phone), { method: "DELETE" })
-  .then(function() { loadContacts(); });
+  .then(function(r) {
+    if (!r.ok) throw new Error("Suppression echouee");
+    return r.json();
+  })
+  .then(function() { loadContacts(); })
+  .catch(function(e) {
+    var st = document.getElementById("contactStatus");
+    if (st) { st.textContent = "Erreur: " + e.message; st.className = "form-status error"; }
+  });
 }
 
 document.getElementById("contactAddBtn").addEventListener("click", function() {
@@ -1124,7 +1139,15 @@ function loadInstructions() {
 
 function deleteInstruction(id) {
   authFetch("/api/instructions/" + encodeURIComponent(id), { method: "DELETE" })
-  .then(function() { loadInstructions(); });
+  .then(function(r) {
+    if (!r.ok) throw new Error("Suppression echouee");
+    return r.json();
+  })
+  .then(function() { loadInstructions(); })
+  .catch(function(e) {
+    var st = document.getElementById("instrStatus");
+    if (st) { st.textContent = "Erreur: " + e.message; st.className = "form-status error"; }
+  });
 }
 
 document.getElementById("instrAddBtn").addEventListener("click", function() {
@@ -1803,42 +1826,34 @@ if (localStorage.getItem("luna_wakeword") === "on") {
 
 // Fonction globale pour le bouton de mise a jour
 function _doAppUpdate() {
-  var apkUrl = window.location.origin + "/download/luna.apk";
   var downloadPageUrl = window.location.origin + "/download";
-  var ua = navigator.userAgent || "";
-  var match = ua.match(/LunaApp\/([\d.]+)/);
-  var appVer = match ? match[1] : "0";
 
-  // APK v1.1+ a un DownloadListener — telechargement direct
-  if (appVer !== "1.0") {
-    window.location.href = apkUrl;
-    var banner = document.getElementById("updateBanner");
-    if (banner) {
-      banner.innerHTML = '<div style="width:100%;text-align:center;padding:8px 0;">'
-        + '<strong>Telechargement en cours...</strong><br>'
-        + '<span style="font-size:0.8em;opacity:0.9;">Installe l\'APK une fois telecharge</span>'
-        + '</div>';
-    }
-    return;
+  // Pour TOUTES les versions d'APK, on ouvre la page /download dans Chrome.
+  // Le WebView ne peut pas telecharger un APK correctement (ancien DownloadListener buggue).
+  // On utilise un intent:// Android pour forcer Chrome.
+  var stripped = downloadPageUrl.replace(/^https?:\/\//, "");
+  var intentUrl = "intent://" + stripped + "#Intent;scheme=https;package=com.android.chrome;end";
+
+  try {
+    window.location.href = intentUrl;
+  } catch(e) {
+    // Fallback: ouvrir dans n'importe quel navigateur
+    try { window.open(downloadPageUrl, "_blank"); } catch(e2) {}
   }
 
-  // APK v1.0 — pas de DownloadListener, afficher instructions immediatement
   var banner = document.getElementById("updateBanner");
   if (banner) {
     banner.style.cssText = "position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(10,10,26,0.97);color:white;padding:20px;z-index:99999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;font-size:1em;";
     banner.innerHTML = '<div style="text-align:center;max-width:340px;">'
       + '<div style="font-size:2em;margin-bottom:8px;">⬆️</div>'
-      + '<strong style="font-size:1.1em;">Premiere mise a jour</strong><br>'
-      + '<p style="font-size:0.85em;opacity:0.8;margin:10px 0;">Cette premiere mise a jour necessite Chrome.<br>Les prochaines se feront directement dans l\'app.</p>'
-      + '<div style="background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.3);border-radius:10px;padding:16px;margin:12px 0;text-align:left;">'
-      + '<div style="font-size:0.85em;margin-bottom:8px;"><strong>1.</strong> Copie ce lien :</div>'
-      + '<div id="updateUrlBox" style="background:rgba(0,0,0,0.3);padding:8px 10px;border-radius:6px;font-size:0.8em;word-break:break-all;font-family:monospace;margin-bottom:10px;">' + downloadPageUrl + '</div>'
-      + '<button onclick="_copyUpdateUrl()" id="copyBtn" style="background:#7c3aed;color:white;border:none;border-radius:8px;padding:8px 16px;cursor:pointer;font-size:0.85em;width:100%;margin-bottom:12px;">Copier le lien</button>'
-      + '<div style="font-size:0.85em;"><strong>2.</strong> Ouvre <strong>Chrome</strong></div>'
-      + '<div style="font-size:0.85em;margin-top:4px;"><strong>3.</strong> Colle le lien et telecharge l\'APK</div>'
-      + '<div style="font-size:0.85em;margin-top:4px;"><strong>4.</strong> Installe — les prochaines MAJ seront automatiques</div>'
+      + '<strong style="font-size:1.1em;">Mise a jour Luna</strong><br>'
+      + '<p style="font-size:0.85em;opacity:0.8;margin:10px 0;">Chrome s\'ouvre pour telecharger la mise a jour.<br>Si rien ne se passe, appuie sur le bouton ci-dessous.</p>'
+      + '<div style="display:flex;flex-direction:column;gap:10px;margin:16px 0;">'
+      + '<button onclick="_openInChrome()" style="background:#4285F4;color:white;border:none;border-radius:12px;padding:14px 24px;cursor:pointer;font-size:1em;font-weight:bold;">Ouvrir dans Chrome</button>'
+      + '<button onclick="_copyUpdateUrl()" id="copyBtn" style="background:#7c3aed;color:white;border:none;border-radius:12px;padding:12px 24px;cursor:pointer;font-size:0.9em;">Copier le lien</button>'
       + '</div>'
-      + '<button onclick="document.getElementById(\'updateBanner\').remove()" style="background:rgba(255,255,255,0.15);color:white;border:none;border-radius:8px;padding:10px 24px;cursor:pointer;font-size:0.9em;margin-top:4px;">Fermer</button>'
+      + '<div id="updateUrlBox" onclick="_selectUpdateUrl()" style="background:rgba(255,255,255,0.1);padding:8px 10px;border-radius:6px;font-size:0.75em;word-break:break-all;font-family:monospace;opacity:0.7;cursor:pointer;user-select:all;-webkit-user-select:all;">' + downloadPageUrl + '</div>'
+      + '<button onclick="document.getElementById(\'updateBanner\').remove()" style="background:rgba(255,255,255,0.15);color:white;border:none;border-radius:8px;padding:10px 24px;cursor:pointer;font-size:0.9em;margin-top:12px;">Fermer</button>'
       + '</div>';
   }
 }
@@ -1862,6 +1877,25 @@ function _copyFallback(text, btn) {
   try { document.execCommand("copy"); if (btn) { btn.textContent = "Lien copie !"; btn.style.background = "#10b981"; } }
   catch(e) { if (btn) { btn.textContent = "Selectionne et copie le lien ci-dessus"; btn.style.background = "#ef4444"; } }
   document.body.removeChild(ta);
+}
+function _selectUpdateUrl() {
+  var el = document.getElementById("updateUrlBox");
+  if (el && window.getSelection) {
+    var range = document.createRange();
+    range.selectNodeContents(el);
+    var sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+  }
+}
+function _openInChrome() {
+  var url = window.location.origin + "/download";
+  try {
+    // intent:// scheme pour ouvrir dans Chrome specifiquement
+    window.location.href = "intent://" + url.replace(/^https?:\/\//, "") + "#Intent;scheme=https;package=com.android.chrome;end";
+  } catch(e) {
+    window.open(url, "_blank");
+  }
 }
 
 </script>

@@ -54,7 +54,7 @@ public class MainActivity extends Activity {
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
 
         // Version dans le User-Agent pour auto-update
-        String currentVersion = "1.1";
+        String currentVersion = "1.2";
         settings.setUserAgentString(settings.getUserAgentString() + " LunaApp/" + currentVersion);
 
         // Cookies (pour la session JWT)
@@ -100,10 +100,25 @@ public class MainActivity extends Activity {
         webView.setDownloadListener(new DownloadListener() {
             @Override
             public void onDownloadStart(String url, String userAgent, String contentDisposition, String mimetype, long contentLength) {
-                // Utiliser le navigateur externe pour telecharger l'APK
-                Intent intent = new Intent(Intent.ACTION_VIEW);
-                intent.setData(Uri.parse(url));
-                startActivity(intent);
+                try {
+                    DownloadManager.Request request = new DownloadManager.Request(Uri.parse(url));
+                    request.setTitle("Luna - Mise a jour");
+                    request.setDescription("Telechargement de la mise a jour Luna...");
+                    request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
+                    String filename = URLUtil.guessFileName(url, contentDisposition, mimetype);
+                    request.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, filename);
+                    request.setMimeType("application/vnd.android.package-archive");
+
+                    DownloadManager dm = (DownloadManager) getSystemService(DOWNLOAD_SERVICE);
+                    if (dm != null) {
+                        dm.enqueue(request);
+                        Toast.makeText(MainActivity.this, "Telechargement en cours... Ouvre la notification pour installer.", Toast.LENGTH_LONG).show();
+                    }
+                } catch (Exception e) {
+                    // Fallback: ouvrir dans le navigateur externe
+                    Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+                    startActivity(intent);
+                }
             }
         });
 
@@ -111,11 +126,9 @@ public class MainActivity extends Activity {
         webView.setWebViewClient(new WebViewClient() {
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, String url) {
+                // Laisser les URLs .apk passer au DownloadListener (ne pas intercepter)
                 if (url != null && url.endsWith(".apk")) {
-                    // Ouvrir dans le navigateur externe pour telecharger l'APK
-                    Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
-                    startActivity(intent);
-                    return true;
+                    return false;
                 }
                 return false;
             }
