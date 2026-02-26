@@ -1587,16 +1587,48 @@ class EmergencyMode:
         sms_c = costs.get("sms_count", 0)
         sms_cost = costs.get("sms_cost", 0)
         ai_cost = costs.get("openai_cost", 0)
+        tavus_min = costs.get("tavus_minutes", 0)
+        tavus_cost = costs.get("tavus_cost", 0)
         total = costs.get("total_cost", 0)
 
-        return (
-            f"LUNA COUTS (mois en cours)\n"
-            f"{'=' * 28}\n"
-            f"SMS: {sms_c} x 0.07EUR = {sms_cost:.2f} EUR\n"
-            f"OpenAI: {ai_cost:.2f} EUR\n"
-            f"TOTAL: {total:.2f} EUR\n"
-            f"\nPour le PDF: /export couts"
-        )
+        lines = [
+            f"LUNA COUTS (mois en cours)",
+            "=" * 28,
+            "GLOBAL:",
+            f"  SMS Twilio: {sms_c} x 0.07EUR = {sms_cost:.2f} EUR",
+            f"  Tavus visio: {tavus_min:.0f} min = {tavus_cost:.2f} EUR",
+            f"  OpenAI: {ai_cost:.2f} EUR",
+            f"  TOTAL: {total:.2f} EUR",
+        ]
+
+        # Detail par tenant
+        try:
+            per_tenant = await self._cost_tracker.get_month_costs_per_tenant()
+            if per_tenant:
+                # Chercher les noms des clients
+                clients = await self._get_clients_summary()
+                name_map = {c["id"]: c["name"] for c in clients}
+                lines.append("")
+                lines.append("PAR CLIENT:")
+                for tid, tc in sorted(per_tenant.items()):
+                    name = name_map.get(tid, f"#{tid}")[:12]
+                    t_sms = tc.get("sms_count", 0)
+                    t_sms_c = tc.get("sms_cost", 0)
+                    t_vis = tc.get("tavus_minutes", 0)
+                    t_vis_c = tc.get("tavus_cost", 0)
+                    t_total = t_sms_c + t_vis_c
+                    parts = []
+                    if t_sms > 0:
+                        parts.append(f"{t_sms} SMS={t_sms_c:.2f}EUR")
+                    if t_vis > 0:
+                        parts.append(f"{t_vis:.0f}min visio={t_vis_c:.2f}EUR")
+                    detail = " | ".join(parts) if parts else "0 EUR"
+                    lines.append(f"  {name}: {detail}")
+        except Exception:
+            pass
+
+        lines.append(f"\nPour le PDF: /export couts")
+        return "\n".join(lines)
 
     async def _cmd_export(self, phone: str, role: str, args: str) -> str:
         """LUNA EXPORT <type> [param] — Generer et envoyer un PDF."""

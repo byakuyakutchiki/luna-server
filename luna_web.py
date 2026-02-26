@@ -1121,8 +1121,8 @@ async def download_apk():
 
 
 # Version APK pour auto-update
-LUNA_APP_VERSION = "1.1"
-LUNA_APP_VERSION_CODE = 2
+LUNA_APP_VERSION = "1.2"
+LUNA_APP_VERSION_CODE = 3
 
 @app.get("/api/app/version")
 async def app_version():
@@ -1131,7 +1131,7 @@ async def app_version():
         "version": LUNA_APP_VERSION,
         "version_code": LUNA_APP_VERSION_CODE,
         "apk_url": "/download/luna.apk",
-        "changelog": "Camera perception + permissions camera corrigees",
+        "changelog": "Mise a jour automatique corrigee + meilleure gestion erreurs",
     }
 
 
@@ -4322,6 +4322,14 @@ async def _tool_send_sms(args: Dict, tenant_id: int = 0) -> Dict:
     success, details = sms_client.send(phone, f"[Luna pour {sub_name}] {message}")
     reasoning = f"Luna envoie un SMS a {matched_name} car le souscripteur l'a demande"
     if success:
+        # Track cout SMS par tenant via Cortex
+        try:
+            cortex = get_cortex() if _CORTEX_AVAILABLE else None
+            if cortex and hasattr(cortex, 'cost_tracker') and cortex.cost_tracker:
+                import asyncio
+                await cortex.cost_tracker.track_sms_tenant(tenant_id or 0)
+        except Exception:
+            pass
         try:
             mgr.add_note(
                 content=f"[Action SMS] {reasoning} | Contenu: {message[:100]}",
@@ -4487,6 +4495,15 @@ async def _tool_invite_visio(args: Dict, tenant_id: int = 0) -> Dict:
     from integrations.twilio.sms_client import TwilioSMSClient
     normalized_phone = TwilioSMSClient.normalize_phone(phone)
     success_sms, sms_details = sms_client.send(normalized_phone, invite_msg)
+
+    if success_sms:
+        # Track cout SMS par tenant via Cortex
+        try:
+            cortex = get_cortex() if _CORTEX_AVAILABLE else None
+            if cortex and hasattr(cortex, 'cost_tracker') and cortex.cost_tracker:
+                await cortex.cost_tracker.track_sms_tenant(tenant_id or 0)
+        except Exception:
+            pass
 
     if not success_sms:
         # La visio est creee mais le SMS a echoue — donne quand meme le lien
@@ -4719,6 +4736,13 @@ async def _tool_alert_contacts(args: Dict, tenant_id: int = 0) -> Dict:
         success, _ = sms_client.send(c.phone, msg)
         if success:
             sent += 1
+            # Track cout SMS par tenant via Cortex
+            try:
+                cortex = get_cortex() if _CORTEX_AVAILABLE else None
+                if cortex and hasattr(cortex, 'cost_tracker') and cortex.cost_tracker:
+                    await cortex.cost_tracker.track_sms_tenant(tenant_id or 0)
+            except Exception:
+                pass
 
     reasoning = f"Luna alerte les contacts car: {reason}"
     try:
@@ -6038,6 +6062,19 @@ async def sync_from_tavus(request: Request):
             "channel_session_id": "",
             "last_activity": datetime.utcnow().isoformat(),
         })
+
+        # Track cout visio Tavus par tenant
+        duration_sec = data.get("duration", 0)
+        if not duration_sec and transcript:
+            # Estimer la duree par le nombre de messages (~10s par message)
+            duration_sec = len(transcript) * 10
+        duration_min = max(1, duration_sec / 60)  # minimum 1 minute facturee
+        try:
+            cortex = get_cortex() if _CORTEX_AVAILABLE else None
+            if cortex and hasattr(cortex, 'cost_tracker') and cortex.cost_tracker:
+                await cortex.cost_tracker.track_tavus_tenant(tid, duration_min)
+        except Exception:
+            pass
 
         logger.info(f"Tavus conversation ended: {conversation_id}, {len(transcript)} messages synced")
         _gamify(tid, "visio_session")

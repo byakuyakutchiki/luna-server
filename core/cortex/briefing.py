@@ -312,13 +312,14 @@ class BriefingEngine:
         digest = await self.generate_digest(health, threats, business)
 
         # Telegram exploitant
+        tg_exploitant_ok = False
         if self.config.exploitant_telegram_chat_id:
-            await self.send_telegram(
+            tg_exploitant_ok = await self.send_telegram(
                 self.config.exploitant_telegram_chat_id,
                 f"<pre>{digest}</pre>")
 
-        # SMS exploitant (version courte)
-        if self.config.exploitant_phone:
+        # SMS exploitant SEULEMENT si Telegram a echoue ou n'est pas configure
+        if self.config.exploitant_phone and not tg_exploitant_ok:
             short = self._shorten_digest(digest)
             await self.send_sms(self.config.exploitant_phone, short)
 
