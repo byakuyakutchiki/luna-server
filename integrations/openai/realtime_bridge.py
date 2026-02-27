@@ -36,8 +36,27 @@ OPENAI_VOICE_NAME = os.getenv("OPENAI_VOICE_NAME", "alloy")
 VOICE_TOOLS = [
     {
         "type": "function",
+        "name": "call_contact",
+        "description": "Appeler un contact de confiance par TELEPHONE AUDIO maintenant. Luna passe un vrai appel telephonique vocal au contact et lui parle pour transmettre un message. UTILISE CE TOOL quand le souscripteur dit 'appelle maman', 'appelle Marie', 'telephone a mon fils', 'passe un coup de fil a...', 'appelle X pour lui dire...'. C'est un APPEL VOCAL, pas un SMS.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "contact_name": {
+                    "type": "string",
+                    "description": "Prenom ou nom du contact a appeler (ex: maman, Marie, mon fils)"
+                },
+                "message": {
+                    "type": "string",
+                    "description": "Le message que Luna doit transmettre au contact pendant l'appel vocal"
+                }
+            },
+            "required": ["contact_name", "message"]
+        }
+    },
+    {
+        "type": "function",
         "name": "send_sms",
-        "description": "Envoyer un SMS a un contact de confiance du souscripteur.",
+        "description": "Envoyer un SMS ECRIT (texto) a un contact de confiance. UNIQUEMENT quand le souscripteur demande explicitement un SMS ou un texto. Ex: 'envoie un SMS a maman', 'envoie un texto a Marie'. NE PAS utiliser si le souscripteur dit 'appelle' ou 'telephone' — dans ce cas utiliser call_contact.",
         "parameters": {
             "type": "object",
             "properties": {
@@ -167,25 +186,6 @@ VOICE_TOOLS = [
                 }
             },
             "required": ["contact_name"]
-        }
-    },
-    {
-        "type": "function",
-        "name": "call_contact",
-        "description": "Appeler un contact de confiance en audio MAINTENANT. Luna passe un appel telephonique vocal au contact et lui transmet un message. Quand le souscripteur dit 'appelle maman', 'passe un appel a Marie', 'telephone a mon fils', 'appelle Nathael pour lui dire...'. Luna appelle le contact, parle au contact et transmet le message.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "contact_name": {
-                    "type": "string",
-                    "description": "Prenom ou nom du contact a appeler (ex: maman, Marie, mon fils)"
-                },
-                "message": {
-                    "type": "string",
-                    "description": "Le message que Luna doit transmettre au contact pendant l'appel"
-                }
-            },
-            "required": ["contact_name", "message"]
         }
     },
 ]
@@ -374,17 +374,20 @@ class RealtimeBridge:
         self._running = True
         try:
             # Ouvre la connexion vers OpenAI Realtime (timeout 10s)
+            # websockets 13+ : extra_headers -> additional_headers
+            _ws_version = int(websockets.__version__.split(".")[0])
+            _headers_kwarg = "additional_headers" if _ws_version >= 13 else "extra_headers"
+            _ws_kwargs = {
+                _headers_kwarg: {
+                    "Authorization": f"Bearer {self.openai_api_key}",
+                    "OpenAI-Beta": "realtime=v1",
+                },
+                "close_timeout": 5,
+                "ping_interval": 20,
+                "ping_timeout": 10,
+            }
             self.ws_openai = await asyncio.wait_for(
-                websockets.connect(
-                    OPENAI_REALTIME_URL,
-                    extra_headers={
-                        "Authorization": f"Bearer {self.openai_api_key}",
-                        "OpenAI-Beta": "realtime=v1",
-                    },
-                    close_timeout=5,
-                    ping_interval=20,
-                    ping_timeout=10,
-                ),
+                websockets.connect(OPENAI_REALTIME_URL, **_ws_kwargs),
                 timeout=10.0,
             )
             logger.info("OpenAI Realtime WebSocket connected")

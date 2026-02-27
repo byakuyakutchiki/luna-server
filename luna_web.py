@@ -1473,8 +1473,11 @@ async def chat(req: ChatRequest, request: Request):
                 full_context += "\n- Tu CONNAIS deja le profil, les contacts, les notes ci-dessus. Utilise-les directement."
                 full_context += "\n- Ne dis JAMAIS 'je n'ai pas acces a tes contacts' ou 'je ne peux pas voir ton profil'."
                 full_context += "\n- Ne dis JAMAIS 'en tant qu'IA je ne peux pas' quand tu as un tool pour le faire."
-                full_context += "\n- Quand on te demande d'envoyer un SMS maintenant, utilise le tool send_sms avec le numero du contact."
-                full_context += "\n- Quand on te demande d'APPELER un contact MAINTENANT (ex: 'appelle maman', 'telephone a Marie'), utilise le tool call_contact. Tu PEUX appeler les contacts de confiance en audio."
+                full_context += "\n- DISTINCTION CRITIQUE entre appeler et envoyer un SMS :"
+                full_context += "\n  * 'appelle', 'telephone', 'passe un appel', 'coup de fil' → TOUJOURS utiliser call_contact (appel VOCAL)"
+                full_context += "\n  * 'envoie un SMS', 'envoie un texto', 'ecris un message' → utiliser send_sms (message ECRIT)"
+                full_context += "\n  * NE JAMAIS utiliser send_sms quand le souscripteur dit 'appelle' — c'est call_contact"
+                full_context += "\n- Tu PEUX passer des appels telephoniques audio aux contacts de confiance avec call_contact."
                 full_context += "\n- Quand on te demande de PLANIFIER quelque chose dans le FUTUR (ex: 'appelle Marie a 14h', 'rappelle-moi demain'), utilise le tool create_instruction."
                 full_context += "\n- Quand on te demande 'qui sont mes contacts', reponds avec la liste ci-dessus."
                 full_context += "\n- Sois chaleureux, concis, et utile. Tu es Luna, un compagnon bienveillant."
@@ -1588,6 +1591,18 @@ async def chat(req: ChatRequest, request: Request):
             choice = response.choices[0]
 
         luna_msg = choice.message.content or ""
+
+        # Fallback si reply vide apres tool call reussi
+        if not luna_msg.strip() and tool_calls_made:
+            last_tool = tool_calls_made[-1]
+            if last_tool.get("result", {}).get("status") == "success":
+                tool_name = last_tool["tool"]
+                if tool_name == "call_contact":
+                    luna_msg = last_tool["result"].get("message", "J'appelle ton contact maintenant !")
+                elif tool_name == "send_sms":
+                    luna_msg = last_tool["result"].get("message", "SMS envoye !")
+                else:
+                    luna_msg = last_tool["result"].get("message", "C'est fait !")
 
         # Log tools executes
         if tool_calls_made:
