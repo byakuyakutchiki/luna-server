@@ -169,6 +169,25 @@ VOICE_TOOLS = [
             "required": ["contact_name"]
         }
     },
+    {
+        "type": "function",
+        "name": "call_contact",
+        "description": "Appeler un contact de confiance en audio MAINTENANT. Luna passe un appel telephonique vocal au contact et lui transmet un message. Quand le souscripteur dit 'appelle maman', 'passe un appel a Marie', 'telephone a mon fils', 'appelle Nathael pour lui dire...'. Luna appelle le contact, parle au contact et transmet le message.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "contact_name": {
+                    "type": "string",
+                    "description": "Prenom ou nom du contact a appeler (ex: maman, Marie, mon fils)"
+                },
+                "message": {
+                    "type": "string",
+                    "description": "Le message que Luna doit transmettre au contact pendant l'appel"
+                }
+            },
+            "required": ["contact_name", "message"]
+        }
+    },
 ]
 
 

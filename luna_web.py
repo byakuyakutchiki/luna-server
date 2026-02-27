@@ -1474,8 +1474,8 @@ async def chat(req: ChatRequest, request: Request):
                 full_context += "\n- Ne dis JAMAIS 'je n'ai pas acces a tes contacts' ou 'je ne peux pas voir ton profil'."
                 full_context += "\n- Ne dis JAMAIS 'en tant qu'IA je ne peux pas' quand tu as un tool pour le faire."
                 full_context += "\n- Quand on te demande d'envoyer un SMS maintenant, utilise le tool send_sms avec le numero du contact."
-                full_context += "\n- Quand on te demande de PLANIFIER quelque chose (appel audio, SMS, visio, reveil, rappel), utilise le tool create_instruction. Ex: 'appelle Marie a 14h' → create_instruction('appelle Marie a 14h')."
-                full_context += "\n- Tu PEUX planifier des appels audio aux contacts de confiance. Utilise create_instruction pour ca."
+                full_context += "\n- Quand on te demande d'APPELER un contact MAINTENANT (ex: 'appelle maman', 'telephone a Marie'), utilise le tool call_contact. Tu PEUX appeler les contacts de confiance en audio."
+                full_context += "\n- Quand on te demande de PLANIFIER quelque chose dans le FUTUR (ex: 'appelle Marie a 14h', 'rappelle-moi demain'), utilise le tool create_instruction."
                 full_context += "\n- Quand on te demande 'qui sont mes contacts', reponds avec la liste ci-dessus."
                 full_context += "\n- Sois chaleureux, concis, et utile. Tu es Luna, un compagnon bienveillant."
                 messages.append({"role": "system", "content": full_context})
@@ -1564,6 +1564,8 @@ async def chat(req: ChatRequest, request: Request):
                     result = await _tool_send_email(fn_args, tenant_id=tid)
                 elif fn_name == "invite_visio":
                     result = await _tool_invite_visio(fn_args, tenant_id=tid)
+                elif fn_name == "call_contact":
+                    result = await _tool_call_contact(fn_args, tenant_id=tid)
                 else:
                     result = {"status": "error", "message": f"Fonction inconnue: {fn_name}"}
 
@@ -1836,6 +1838,8 @@ async def voice_call_media_stream(websocket: WebSocket):
                 return await _tool_send_email(args)
             elif name == "invite_visio":
                 return await _tool_invite_visio(args)
+            elif name == "call_contact":
+                return await _tool_call_contact(args)
             else:
                 return {"status": "error", "message": f"Fonction inconnue: {name}"}
 
@@ -4875,6 +4879,96 @@ async def _tool_invite_visio(args: Dict, tenant_id: int = 0) -> Dict:
         "status": "success",
         "message": f"Lien visio envoye a {matched_name} par SMS ! Toi aussi tu peux rejoindre la visio avec ce lien : {visio_url}",
         "visio_url": visio_url,
+    }
+
+
+async def _tool_call_contact(args: Dict, tenant_id: int = 0) -> Dict:
+    """Appelle un contact de confiance en audio via Twilio. Luna parle au contact et transmet un message."""
+    if _license_heartbeat and (_license_heartbeat.is_blocked() or _license_heartbeat.is_degraded()):
+        return {"status": "error", "message": "Service non disponible"}
+    tid = tenant_id or TENANT_ID
+    mgr = _get_tenant_manager(tid) if tid else _memory_manager
+    if not mgr:
+        return {"status": "error", "message": "Memoire non disponible"}
+    if not voice_client or not voice_client.is_configured:
+        return {"status": "error", "message": "Service d'appels vocaux non configure"}
+    if not VOICE_CALLBACK_URL:
+        return {"status": "error", "message": "URL de callback vocal non configuree"}
+
+    contact_name = args.get("contact_name", "")
+    message = args.get("message", "")
+    if not contact_name:
+        return {"status": "error", "message": "Nom du contact requis"}
+
+    # Cherche le contact
+    contacts = mgr.list_trusted_contacts()
+    phone = None
+    matched_name = ""
+    for c in contacts:
+        if contact_name.lower() in c.name.lower() or contact_name.lower() in (c.relation or "").lower():
+            phone = c.phone
+            matched_name = c.name
+            break
+
+    if not phone:
+        return {"status": "error", "message": f"Contact '{contact_name}' non trouve parmi les contacts de confiance"}
+
+    # Recupere le prenom du souscripteur
+    sub_name = _SUBSCRIBER_NAME
+    if mgr:
+        try:
+            profile = mgr.get_subscriber_profile()
+            if profile and profile.first_name:
+                sub_name = profile.first_name
+        except Exception:
+            pass
+
+    # Normaliser le numero
+    from integrations.twilio.sms_client import TwilioSMSClient
+    normalized_phone = TwilioSMSClient.normalize_phone(phone)
+
+    # Mission pour Luna pendant l'appel
+    mission = f"Tu appelles {matched_name} de la part de {sub_name}. "
+    if message:
+        mission += f"Voici ce que {sub_name} veut que tu transmettes : {message}"
+    else:
+        mission += f"{sub_name} voulait prendre des nouvelles."
+
+    greeting = f"Bonjour {matched_name} ! C'est Luna, l'assistante de {sub_name}. "
+    if message:
+        greeting += f"{sub_name} m'a demande de t'appeler pour te dire : {message}"
+    else:
+        greeting += f"{sub_name} m'a demande de t'appeler pour prendre de tes nouvelles."
+
+    # Lancer l'appel via Twilio
+    success, data = await voice_client.initiate_call_async(normalized_phone)
+    if not success:
+        return {"status": "error", "message": f"Impossible d'appeler {matched_name}: {data.get('error', 'erreur inconnue')}"}
+
+    call_sid = data.get("call_sid", "")
+    # Stocker les parametres pour le bridge
+    _voice_call_params[call_sid] = {
+        "mission": mission,
+        "max_duration": 180,
+        "greeting": greeting,
+    }
+
+    logger.info(f"Voice call initiated to {matched_name} ({normalized_phone}) call_sid={call_sid}")
+
+    try:
+        mgr.log_event(
+            category="action",
+            description=f"Appel audio lance vers {matched_name} ({normalized_phone})",
+            reasoning=f"Luna appelle {matched_name} a la demande de {sub_name}: {message[:80]}",
+            source="tool_call",
+        )
+    except Exception:
+        pass
+
+    return {
+        "status": "success",
+        "message": f"J'appelle {matched_name} maintenant ! L'appel est en cours. Je vais lui transmettre ton message.",
+        "call_sid": call_sid,
     }
 
 
