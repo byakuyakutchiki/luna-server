@@ -3,6 +3,10 @@ package fr.yawatch.luna;
 import android.Manifest;
 import android.app.Activity;
 import android.app.DownloadManager;
+import android.app.Notification;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.net.Uri;
@@ -14,6 +18,7 @@ import android.view.Window;
 import android.view.WindowManager;
 import android.webkit.CookieManager;
 import android.webkit.DownloadListener;
+import android.webkit.JavascriptInterface;
 import android.webkit.PermissionRequest;
 import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
@@ -33,10 +38,14 @@ public class MainActivity extends Activity {
 
     private static final String LUNA_URL = "https://luna-beta-674304336025.europe-west1.run.app";
     private static final int PERMISSION_REQUEST_CODE = 100;
-    private static final String CURRENT_VERSION = "1.3";
-    private static final int CURRENT_VERSION_CODE = 4;
+    private static final int NOTIFICATION_PERMISSION_CODE = 101;
+    private static final String CURRENT_VERSION = "1.4";
+    private static final int CURRENT_VERSION_CODE = 5;
+    private static final String CHANNEL_ID = "luna_messages";
     private WebView webView;
     private PermissionRequest pendingPermissionRequest;
+    private boolean isInForeground = true;
+    private int notificationId = 1000;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -49,9 +58,22 @@ public class MainActivity extends Activity {
             WindowManager.LayoutParams.FLAG_FULLSCREEN
         );
 
+        // Creer le canal de notification (Android 8+)
+        createNotificationChannel();
+
+        // Demander la permission de notification (Android 13+)
+        if (Build.VERSION.SDK_INT >= 33) {
+            if (checkSelfPermission("android.permission.POST_NOTIFICATIONS") != PackageManager.PERMISSION_GRANTED) {
+                requestPermissions(new String[]{"android.permission.POST_NOTIFICATIONS"}, NOTIFICATION_PERMISSION_CODE);
+            }
+        }
+
         // WebView
         webView = new WebView(this);
         setContentView(webView);
+
+        // Bridge JavaScript -> Android pour les notifications
+        webView.addJavascriptInterface(new LunaBridge(), "LunaBridge");
 
         // Configuration WebView
         WebSettings settings = webView.getSettings();
@@ -123,21 +145,16 @@ public class MainActivity extends Activity {
                         Toast.makeText(MainActivity.this, "Telechargement en cours... Ouvre la notification pour installer.", Toast.LENGTH_LONG).show();
                     }
                 } catch (Exception e) {
-                    // Fallback: ouvrir dans le navigateur externe
                     Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
                     startActivity(intent);
                 }
             }
         });
 
-        // Garde la navigation dans le WebView sauf pour les APK
+        // Garde la navigation dans le WebView
         webView.setWebViewClient(new WebViewClient() {
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, String url) {
-                // Laisser les URLs .apk passer au DownloadListener (ne pas intercepter)
-                if (url != null && url.endsWith(".apk")) {
-                    return false;
-                }
                 return false;
             }
         });
@@ -150,8 +167,79 @@ public class MainActivity extends Activity {
     }
 
     /**
+     * Cree le canal de notification pour Luna (Android 8+).
+     */
+    private void createNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= 26) {
+            NotificationChannel channel = new NotificationChannel(
+                CHANNEL_ID,
+                "Messages Luna",
+                NotificationManager.IMPORTANCE_DEFAULT
+            );
+            channel.setDescription("Notifications des messages de Luna");
+            channel.enableVibration(true);
+            NotificationManager mgr = getSystemService(NotificationManager.class);
+            if (mgr != null) {
+                mgr.createNotificationChannel(channel);
+            }
+        }
+    }
+
+    /**
+     * Affiche une notification Android native.
+     */
+    private void postNotification(String title, String body) {
+        try {
+            Intent intent = new Intent(this, MainActivity.class);
+            intent.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+            PendingIntent pi = PendingIntent.getActivity(
+                this, 0, intent,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+            );
+
+            Notification.Builder builder;
+            if (Build.VERSION.SDK_INT >= 26) {
+                builder = new Notification.Builder(this, CHANNEL_ID);
+            } else {
+                builder = new Notification.Builder(this);
+            }
+            builder.setSmallIcon(android.R.drawable.ic_dialog_info)
+                .setContentTitle(title)
+                .setContentText(body)
+                .setAutoCancel(true)
+                .setContentIntent(pi);
+
+            if (body.length() > 40) {
+                builder.setStyle(new Notification.BigTextStyle().bigText(body));
+            }
+
+            NotificationManager mgr = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+            if (mgr != null) {
+                mgr.notify(notificationId++, builder.build());
+            }
+        } catch (Exception e) {
+            // Silencieux
+        }
+    }
+
+    /**
+     * Bridge JavaScript -> Android pour les notifications.
+     * Appele depuis le JS: LunaBridge.showNotification("Luna", "Bonjour !")
+     */
+    public class LunaBridge {
+        @JavascriptInterface
+        public void showNotification(String title, String body) {
+            runOnUiThread(() -> postNotification(title, body));
+        }
+
+        @JavascriptInterface
+        public boolean isAppInForeground() {
+            return isInForeground;
+        }
+    }
+
+    /**
      * Verifie si une nouvelle version est disponible sur le serveur.
-     * Si oui, telecharge l'APK via DownloadManager.
      */
     private void checkForUpdate() {
         new Thread(() -> {
@@ -182,14 +270,11 @@ public class MainActivity extends Activity {
                 }
                 conn.disconnect();
             } catch (Exception e) {
-                // Silencieux: si pas de reseau ou erreur, on continue normalement
+                // Silencieux
             }
         }).start();
     }
 
-    /**
-     * Telecharge la nouvelle APK via DownloadManager et notifie l'utilisateur.
-     */
     private void triggerUpdate(String apkUrl) {
         try {
             DownloadManager.Request request = new DownloadManager.Request(Uri.parse(apkUrl));
@@ -245,6 +330,7 @@ public class MainActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
+        isInForeground = true;
         webView.onResume();
         getWindow().getDecorView().setSystemUiVisibility(
             View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
@@ -256,6 +342,7 @@ public class MainActivity extends Activity {
     @Override
     protected void onPause() {
         super.onPause();
+        isInForeground = false;
         webView.onPause();
     }
 }

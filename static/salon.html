@@ -1728,6 +1728,23 @@ input::placeholder { color: var(--text-dim); }
 (function() {
 "use strict";
 
+/* NOTIFICATIONS */
+function salonNotify(title, body) {
+  var short = (body||"").substring(0, 120);
+  if (body && body.length > 120) short += "...";
+  if (window.LunaBridge && typeof window.LunaBridge.showNotification === "function") {
+    try { window.LunaBridge.showNotification(title, short); } catch(e) {}
+    return;
+  }
+  if ("Notification" in window) {
+    if (Notification.permission === "granted") {
+      try { new Notification(title, { body: short }); } catch(e) {}
+    } else if (Notification.permission !== "denied") {
+      Notification.requestPermission();
+    }
+  }
+}
+
 /* STATE */
 var S = {
   view:"lobby", rooms:[], currentRoom:null, currentRoomData:null,
@@ -2099,14 +2116,14 @@ function wsSend(o) { if(S.ws&&S.ws.readyState===WebSocket.OPEN) S.ws.send(JSON.s
 /* WS MESSAGE HANDLER */
 function handleWsMsg(msg) {
   switch(msg.type) {
-    case "chat": addChatMessage(msg,false); if(S.currentRoomData&&S.currentRoomData.type==="karaoke") addKaraokeChatMsg(msg); break;
+    case "chat": addChatMessage(msg,false); if(S.currentRoomData&&S.currentRoomData.type==="karaoke") addKaraokeChatMsg(msg); if(msg.from_phone!==S.myPhone) salonNotify(msg.from||"Salon",msg.content||""); break;
     case "typing": showTypingInd(msg.from); break;
     case "reaction":
       if(S.currentRoomData&&S.currentRoomData.type==="karaoke"){ for(var _ri=0;_ri<3;_ri++) spawnCascadeHeart(_ri*60); }
       else showFloatingReaction(msg.emoji,msg.from);
       break;
     case "gift": showGiftAnimation(msg); break;
-    case "join": handleJoin(msg); break;
+    case "join": handleJoin(msg); salonNotify("Salon Luna",(msg.name||"Quelqu'un")+" a rejoint le salon"); break;
     case "leave": handleLeave(msg); break;
     case "youtube_sync": syncYoutube(msg); break;
     case "karaoke_spotlight": updateSpotlightDisp(msg); break;

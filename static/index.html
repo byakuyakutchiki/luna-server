@@ -738,6 +738,28 @@ function loadMonde() {
 }
 
 // =========================================================================
+// NOTIFICATIONS (bridge Android ou Web Notification API)
+// =========================================================================
+function lunaNotify(title, body) {
+  // Tronquer le body pour la notification
+  var short = (body||"").substring(0, 120);
+  if (body && body.length > 120) short += "...";
+  // Bridge Android natif (APK WebView)
+  if (window.LunaBridge && typeof window.LunaBridge.showNotification === "function") {
+    try { window.LunaBridge.showNotification(title, short); } catch(e) {}
+    return;
+  }
+  // Fallback: Web Notification API (navigateur)
+  if ("Notification" in window) {
+    if (Notification.permission === "granted") {
+      try { new Notification(title, { body: short, icon: "/static/icon-192.png" }); } catch(e) {}
+    } else if (Notification.permission !== "denied") {
+      Notification.requestPermission();
+    }
+  }
+}
+
+// =========================================================================
 // CHAT (preserved from previous version)
 // =========================================================================
 var chat = document.getElementById("chat");
@@ -833,7 +855,7 @@ function sendMsg(overrideMsg) {
     if (!r.ok) throw new Error("Erreur serveur (" + r.status + ")");
     return r.json();
   })
-  .then(function(data) { hideTyping(); addMsg(data.response, "luna"); if (document.hidden) playNotif(); showXpToast("+2 XP"); refreshXpWidget(); })
+  .then(function(data) { hideTyping(); addMsg(data.response, "luna"); lunaNotify("Luna", data.response); showXpToast("+2 XP"); refreshXpWidget(); })
   .catch(function(e) {
     hideTyping(); lastFailedMsg = msg;
     var errDiv = document.createElement("div"); errDiv.className = "msg luna error-msg";

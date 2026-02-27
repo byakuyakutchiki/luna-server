@@ -1235,8 +1235,8 @@ async def download_apk():
 
 
 # Version APK pour auto-update
-LUNA_APP_VERSION = "1.3"
-LUNA_APP_VERSION_CODE = 4
+LUNA_APP_VERSION = "1.4"
+LUNA_APP_VERSION_CODE = 5
 
 @app.get("/api/app/version")
 async def app_version():
