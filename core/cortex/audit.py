@@ -247,6 +247,37 @@ class CortexCostTracker:
         except Exception as e:
             logger.debug(f"Cost tracking SMS tenant erreur: {e}")
 
+    async def track_voice_tenant(self, tenant_id: int, minutes: float):
+        """Enregistre un appel vocal pour un tenant."""
+        if not self.redis:
+            return
+        cost = minutes * 0.02  # ~0.02 EUR/min Twilio voice
+        try:
+            day_key = self._day_key()
+            pipe = self.redis.pipeline()
+            pipe.hincrbyfloat(day_key, "voice_minutes", minutes)
+            pipe.hincrbyfloat(day_key, "voice_cost", cost)
+            pipe.hincrbyfloat(day_key, "total_cost", cost)
+            pipe.expire(day_key, 90 * 86400)
+            await pipe.execute()
+            month_key = self._month_key()
+            pipe2 = self.redis.pipeline()
+            pipe2.hincrbyfloat(month_key, "voice_minutes", minutes)
+            pipe2.hincrbyfloat(month_key, "voice_cost", cost)
+            pipe2.hincrbyfloat(month_key, "total_cost", cost)
+            pipe2.expire(month_key, 365 * 86400)
+            await pipe2.execute()
+            # Par tenant
+            month = datetime.now(timezone.utc).strftime("%Y-%m")
+            key = f"cortex:costs:tenant:{tenant_id}:{month}"
+            pipe3 = self.redis.pipeline()
+            pipe3.hincrbyfloat(key, "voice_minutes", minutes)
+            pipe3.hincrbyfloat(key, "voice_cost", cost)
+            pipe3.expire(key, 365 * 86400)
+            await pipe3.execute()
+        except Exception as e:
+            logger.debug(f"Cost tracking voice tenant erreur: {e}")
+
     async def track_tavus_tenant(self, tenant_id: int, minutes: float):
         """Enregistre une session Tavus visio pour un tenant."""
         if not self.redis:
@@ -279,6 +310,33 @@ class CortexCostTracker:
         except Exception as e:
             logger.debug(f"Cost tracking Tavus tenant erreur: {e}")
 
+    async def get_tenant_month_usage(self, tenant_id: int,
+                                       date: Optional[datetime] = None) -> dict:
+        """Usage reel du mois pour un tenant (SMS, voix, visio)."""
+        empty = {"sms_count": 0, "voice_minutes": 0.0, "tavus_minutes": 0.0}
+        if not self.redis:
+            return empty
+        d = date or datetime.now(timezone.utc)
+        month = d.strftime("%Y-%m")
+        key = f"cortex:costs:tenant:{tenant_id}:{month}"
+        try:
+            data = await self.redis.hgetall(key)
+            if not data:
+                return empty
+            d_clean = {}
+            for k, v in data.items():
+                k_str = k.decode() if isinstance(k, bytes) else k
+                v_str = v.decode() if isinstance(v, bytes) else v
+                d_clean[k_str] = v_str
+            return {
+                "sms_count": int(float(d_clean.get("sms_count", 0))),
+                "voice_minutes": round(float(d_clean.get("voice_minutes", 0)), 1),
+                "tavus_minutes": round(float(d_clean.get("tavus_minutes", 0)), 1),
+            }
+        except Exception as e:
+            logger.debug(f"Tenant month usage erreur: {e}")
+            return empty
+
     async def get_month_costs_per_tenant(self,
                                           date: Optional[datetime] = None
                                           ) -> dict[str, dict]:
@@ -308,6 +366,8 @@ class CortexCostTracker:
                         result[tid] = {
                             "sms_count": int(float(d_clean.get("sms_count", 0))),
                             "sms_cost": float(d_clean.get("sms_cost", 0)),
+                            "voice_minutes": float(d_clean.get("voice_minutes", 0)),
+                            "voice_cost": float(d_clean.get("voice_cost", 0)),
                             "tavus_minutes": float(d_clean.get("tavus_minutes", 0)),
                             "tavus_cost": float(d_clean.get("tavus_cost", 0)),
                         }

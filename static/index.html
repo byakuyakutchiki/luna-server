@@ -1543,16 +1543,30 @@ function loadQuotas() {
   authFetch("/api/quota").then(function(r) { return r.json(); }).then(function(data) {
     if (data.error) { container.innerHTML = '<p class="empty-state">' + esc(data.error) + '</p>'; return; }
     var q = data.quota;
-    var html = '<div class="card"><div class="card-header"><span class="card-title">Plan: ' + esc(q.plan || "essentiel") + '</span></div><div class="card-body">';
-    // Conversations
+    var planLabel = (q.plan || "essentiel").charAt(0).toUpperCase() + (q.plan || "essentiel").slice(1);
+    var html = '<div class="card"><div class="card-header"><span class="card-title">Plan: ' + esc(planLabel) + '</span></div><div class="card-body">';
+
+    // Usage reel ce mois
+    html += '<div style="font-size:0.9em;color:#a78bfa;margin-bottom:12px;font-weight:600;">Usage ce mois</div>';
+    // SMS
+    if (q.sms) {
+      html += quotaBar("SMS envoyes", q.sms.used, q.sms.limit, q.sms.percentage);
+    }
+    // Voix
+    if (q.voice) {
+      html += quotaBar("Appels vocaux", q.voice.used + " min", q.voice.limit + " min", q.voice.percentage);
+    }
+    // Visio
+    if (q.visio) {
+      html += quotaBar("Visio avatar", q.visio.used + " min", q.visio.limit + " min", q.visio.percentage);
+    }
+
+    // Stockage
+    html += '<div style="font-size:0.9em;color:#a78bfa;margin:16px 0 12px;font-weight:600;">Stockage</div>';
     html += quotaBar("Conversations", q.conversations.used, q.conversations.limit, q.conversations.percentage);
-    // Instructions
     html += quotaBar("Instructions", q.instructions.used, q.instructions.limit, q.instructions.percentage);
-    // Notes
     html += quotaBar("Notes", q.notes.used, q.notes.limit, q.notes.percentage);
-    // Contacts
     html += quotaBar("Contacts de confiance", q.trusted_contacts.used, q.trusted_contacts.limit, (q.trusted_contacts.used / q.trusted_contacts.limit * 100));
-    // Memory
     html += quotaBar("Memoire", q.memory.used_mb + " MB", q.memory.limit_mb + " MB", q.memory.percentage);
     html += '</div></div>';
 

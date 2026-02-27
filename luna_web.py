@@ -1805,13 +1805,25 @@ async def voice_call_media_stream(websocket: WebSocket):
             max_duration_seconds=max_dur,
             greeting=greeting_text,
         )
+        _voice_start = time.time()
         await bridge.run()
+        _voice_duration_min = round((time.time() - _voice_start) / 60, 2)
 
         # Sauvegarder la transcription dans Redis
         try:
             _save_voice_transcript(bridge, memory_mgr)
         except Exception as e:
             logger.warning(f"Failed to save voice transcript: {e}")
+
+        # Tracker les minutes vocales dans Cortex
+        if _voice_duration_min > 0:
+            try:
+                cortex = get_cortex() if _CORTEX_AVAILABLE else None
+                if cortex and hasattr(cortex, "cost_tracker") and cortex.cost_tracker:
+                    await cortex.cost_tracker.track_voice_tenant(TENANT_ID, _voice_duration_min)
+                    logger.info(f"Voice call tracked: {_voice_duration_min} min for tenant {TENANT_ID}")
+            except Exception as e:
+                logger.warning(f"Failed to track voice cost: {e}")
 
     except WebSocketDisconnect:
         logger.info("Twilio Media Stream disconnected")
@@ -4401,15 +4413,60 @@ async def export_events(request: Request, limit: int = 200):
 # QUOTA ENDPOINT
 # =========================================================================
 
+# Limites par plan (par mois)
+_PLAN_LIMITS = {
+    "essentiel": {"sms": 25, "voice_min": 40, "visio_min": 12},
+    "confort":   {"sms": 50, "voice_min": 100, "visio_min": 28},
+    "premium":   {"sms": 100, "voice_min": 180, "visio_min": 55},
+}
+
+
 @app.get("/api/quota")
 async def get_quota(request: Request):
-    """Retourne quotas + usage courant"""
+    """Retourne quotas reels (stockage + usage SMS/voix/visio depuis Redis)."""
     tid = getattr(request.state, "tenant_id", 1)
     mgr = _get_tenant_manager(tid)
     if not mgr:
         return JSONResponse(status_code=503, content={"error": "Memoire non disponible"})
     try:
+        # --- Quotas stockage (memoire, conversations, etc.) ---
         quota_status = mgr.get_quota_status()
+
+        # --- Usage reel depuis Cortex Redis ---
+        plan_name = (quota_status.get("plan") or "essentiel").lower()
+        limits = _PLAN_LIMITS.get(plan_name, _PLAN_LIMITS["essentiel"])
+
+        real_usage = {"sms_count": 0, "voice_minutes": 0.0, "tavus_minutes": 0.0}
+        cortex = get_cortex() if _CORTEX_AVAILABLE else None
+        if cortex and hasattr(cortex, "cost_tracker") and cortex.cost_tracker:
+            real_usage = await cortex.cost_tracker.get_tenant_month_usage(tid)
+
+        sms_used = real_usage["sms_count"]
+        sms_limit = limits["sms"]
+        voice_used = real_usage["voice_minutes"]
+        voice_limit = limits["voice_min"]
+        visio_used = real_usage["tavus_minutes"]
+        visio_limit = limits["visio_min"]
+
+        quota_status["sms"] = {
+            "used": sms_used,
+            "limit": sms_limit,
+            "percentage": round((sms_used / sms_limit) * 100, 1) if sms_limit else 0,
+        }
+        quota_status["voice"] = {
+            "used": round(voice_used, 1),
+            "limit": voice_limit,
+            "unit": "min",
+            "percentage": round((voice_used / voice_limit) * 100, 1) if voice_limit else 0,
+        }
+        quota_status["visio"] = {
+            "used": round(visio_used, 1),
+            "limit": visio_limit,
+            "unit": "min",
+            "percentage": round((visio_used / visio_limit) * 100, 1) if visio_limit else 0,
+        }
+        quota_status["plan_limits"] = limits
+
         daily_stats = mgr.get_daily_stats()
         return {
             "quota": quota_status,
