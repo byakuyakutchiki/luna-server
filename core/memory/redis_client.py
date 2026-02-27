@@ -303,10 +303,11 @@ class RedisClient:
         data = self.client.hgetall(key)
         return data if data else None
 
-    def remove_trusted_contact(self, tenant_id: int, phone: str) -> None:
-        """Supprime un contact de confiance"""
-        self.client.srem(self.get_trusted_contacts_key(tenant_id), phone)
+    def remove_trusted_contact(self, tenant_id: int, phone: str) -> bool:
+        """Supprime un contact de confiance. Retourne True si supprime, False si inexistant."""
+        removed = self.client.srem(self.get_trusted_contacts_key(tenant_id), phone)
         self.client.delete(self.get_contact_profile_key(tenant_id, phone))
+        return bool(removed)
 
     # ========================================================================
     # NOTES

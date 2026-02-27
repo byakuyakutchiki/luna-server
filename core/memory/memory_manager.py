@@ -412,10 +412,12 @@ class MemoryManager:
                 logger.warning(f"Contact corrompu ignore ({phone}): {e}")
         return contacts
 
-    def remove_trusted_contact(self, phone: str) -> None:
-        """Supprime un contact de confiance"""
-        self.redis.remove_trusted_contact(self.tenant_id, phone)
-        logger.info(f"Removed trusted contact {phone}")
+    def remove_trusted_contact(self, phone: str) -> bool:
+        """Supprime un contact de confiance. Retourne True si supprime."""
+        removed = self.redis.remove_trusted_contact(self.tenant_id, phone)
+        if removed:
+            logger.info(f"Removed trusted contact {phone}")
+        return removed
 
     def get_emergency_contacts(self) -> List[TrustedContact]:
         """Récupère les contacts à alerter en cas d'urgence"""

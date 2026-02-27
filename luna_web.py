@@ -118,6 +118,7 @@ LUNA_MODE = os.getenv("LUNA_MODE", "full").lower()  # "lite" (chat+voix+SMS) ou 
 TAVUS_CALLBACK_URL = os.getenv("TAVUS_CALLBACK_URL", "")  # URL publique pour webhooks Tavus
 VOICE_CALLBACK_URL = os.getenv("VOICE_CALLBACK_URL", "")  # URL publique pour appels vocaux (TwiML + WebSocket)
 TENANT_ID = 1  # Fallback pour retro-compatibilite (REQUIRE_AUTH=false)
+_PROPRIO_TENANT_ID = 1  # Tenant du fondateur (Ludo)
 LEGAL_MODE = "assistance_only"  # Mode legal: aide contextuelle, pas de surveillance garantie
 REQUIRE_AUTH = os.getenv("REQUIRE_AUTH", "true").lower() == "true"
 
@@ -260,6 +261,43 @@ def _verify_password(password: str, hashed: str) -> bool:
         return bcrypt.checkpw(password[:72].encode("utf-8"), hashed.encode("utf-8"))
     except Exception:
         return False
+
+def _bootstrap_proprio_auth():
+    """Cree l'enregistrement auth pour le proprio (tenant 1) si absent dans Redis."""
+    if not _redis_client:
+        return
+    proprio_email = os.getenv("PROPRIO_EMAIL", "").strip().lower()
+    proprio_password = os.getenv("PROPRIO_PASSWORD", "").strip()
+    if not proprio_email or not proprio_password:
+        return
+    existing = _redis_client.get_auth_by_email(proprio_email)
+    if existing:
+        # S'assurer que c'est bien le tenant 1
+        if existing.get("tenant_id") != _PROPRIO_TENANT_ID:
+            logger.warning(f"PROPRIO_EMAIL {proprio_email} est lie au tenant {existing.get('tenant_id')}, pas {_PROPRIO_TENANT_ID}")
+        else:
+            logger.info(f"Auth proprio OK: {proprio_email} (tenant {_PROPRIO_TENANT_ID})")
+        return
+    # Creer le record auth
+    password_hash = _hash_password(proprio_password)
+    created = _redis_client.create_auth_record(proprio_email, password_hash, _PROPRIO_TENANT_ID, "essentiel")
+    if created:
+        logger.info(f"AUTH BOOTSTRAP: cree {proprio_email} pour tenant {_PROPRIO_TENANT_ID}")
+    else:
+        # create_auth_record a echoue (race condition) — forcer via set direct
+        import json as _json
+        key = f"{_redis_client.prefix}:auth:{proprio_email}"
+        record = _json.dumps({
+            "tenant_id": _PROPRIO_TENANT_ID,
+            "password_hash": password_hash,
+            "plan": "essentiel",
+            "active": True,
+            "created_at": time.time(),
+            "email": proprio_email,
+        })
+        _redis_client.client.set(key, record)
+        logger.info(f"AUTH BOOTSTRAP (force): cree {proprio_email} pour tenant {_PROPRIO_TENANT_ID}")
+
 
 def _create_client_token(tenant_id: int, email: str, plan: str) -> str:
     """Cree un JWT client valide 7 jours."""
@@ -781,6 +819,10 @@ async def lifespan(app):
             await asyncio.wait_for(_configure_twilio_webhooks(), timeout=15.0)
         except Exception as e:
             logger.warning(f"Twilio webhook config error: {e}")
+
+    # Bootstrap auth pour le proprio (tenant 1) si absent
+    _bootstrap_proprio_auth()
+
     yield
     # Shutdown
     if _instruction_loop_task:
@@ -2212,8 +2254,15 @@ async def history(request: Request, session_id: str = "default", limit: int = 50
 
 
 @app.get("/api/status")
-async def status():
-    """Statut du serveur Luna"""
+async def status(request: Request):
+    """Statut du serveur Luna. Version allege si non authentifie."""
+    # Version minimale pour non-authentifies
+    token = _extract_bearer(request)
+    payload = _decode_client_token(token) if token else None
+    if not payload:
+        return {"luna": "online" if not _pv_locked else "setup", "mode": LUNA_MODE}
+
+    # Version complete pour utilisateurs authentifies
     redis_ok = False
     if _redis_client:
         try:
@@ -2221,7 +2270,6 @@ async def status():
         except Exception:
             pass
 
-    # Read caution_mode from profile
     _cm = "assistif"
     if _memory_manager:
         try:
@@ -3242,7 +3290,6 @@ async def update_profile(request: Request):
 # CONTACTS ENDPOINTS
 # =========================================================================
 
-_PROPRIO_TENANT_ID = 1
 _MAX_CONTACTS_PROPRIO = 30
 _MAX_CONTACTS_DEFAULT = 5
 
@@ -3307,7 +3354,9 @@ async def delete_contact(phone: str, request: Request):
     mgr = _get_tenant_manager(tid)
     if not mgr:
         return JSONResponse(status_code=503, content={"error": "Memoire non disponible"})
-    mgr.remove_trusted_contact(phone)
+    removed = mgr.remove_trusted_contact(phone)
+    if not removed:
+        return JSONResponse(status_code=404, content={"error": "Contact introuvable"})
     return {"success": True}
 
 
@@ -7549,23 +7598,28 @@ async def admin_dashboard(request: Request):
 
 @app.get("/api/admin/clients")
 async def admin_clients(request: Request):
-    """Liste des clients (tenants)."""
+    """Liste des clients (tenants) — lecture directe Redis, sans MemoryManager."""
     if not _verify_admin(request):
         return JSONResponse(status_code=401, content={"error": "Non autorise"})
 
     clients = []
-    if _redis_client and _CORE_AVAILABLE:
+    if _redis_client:
         try:
             tenant_ids = _redis_client.get_all_tenant_ids()
             for tid in tenant_ids:
-                mm = MemoryManager(tenant_id=tid, redis_client=_redis_client)
-                profile = mm.get_subscriber_profile()
-                quota = mm.get_quota_status()
+                profile = _redis_client.get_profile(tid) or {}
+                fn = profile.get("first_name", "")
+                ln = profile.get("last_name", "")
+                name = f"{fn} {ln}".strip() or f"Tenant {tid}"
+                plan = profile.get("plan", "essentiel")
+                # Lecture auth pour l'email
+                auth = _redis_client.get_auth_by_tenant_id(tid)
+                email = auth.get("email", "") if auth else ""
                 clients.append({
                     "tenant_id": tid,
-                    "name": f"{profile.first_name} {profile.last_name}" if profile else f"Tenant {tid}",
-                    "plan": quota.get("plan", "essentiel") if quota else "essentiel",
-                    "quota_summary": quota,
+                    "name": name,
+                    "email": email,
+                    "plan": plan,
                 })
         except Exception as e:
             logger.error(f"Admin clients error: {e}")
@@ -7706,22 +7760,32 @@ async def admin_deactivate_client(tenant_id: int, request: Request):
 
 @app.get("/api/admin/quotas")
 async def admin_quotas(request: Request):
-    """Quotas de tous les clients."""
+    """Quotas de tous les clients — lecture legere + usage reel Cortex."""
     if not _verify_admin(request):
         return JSONResponse(status_code=401, content={"error": "Non autorise"})
 
     quotas = []
-    if _redis_client and _CORE_AVAILABLE:
+    if _redis_client:
         try:
+            # Usage reel Cortex (un seul appel pour tous les tenants)
+            all_usage = {}
+            cortex = get_cortex() if _CORTEX_AVAILABLE else None
+            if cortex and hasattr(cortex, "cost_tracker") and cortex.cost_tracker:
+                all_usage = await cortex.cost_tracker.get_month_costs_per_tenant()
+
             for tid in _redis_client.get_all_tenant_ids():
-                mm = MemoryManager(tenant_id=tid, redis_client=_redis_client)
-                profile = mm.get_subscriber_profile()
-                q = mm.get_quota_status()
+                profile = _redis_client.get_profile(tid) or {}
+                name = profile.get("first_name", f"Tenant {tid}")
+                plan = profile.get("plan", "essentiel")
+                limits = _PLAN_LIMITS.get(plan, _PLAN_LIMITS["essentiel"])
+                usage = all_usage.get(str(tid), {"sms_count": 0, "voice_minutes": 0, "tavus_minutes": 0})
                 quotas.append({
                     "tenant_id": tid,
-                    "name": f"{profile.first_name}" if profile else f"Tenant {tid}",
-                    "plan": q.get("plan", "essentiel"),
-                    "quota": q,
+                    "name": name,
+                    "plan": plan,
+                    "sms": {"used": usage.get("sms_count", 0), "limit": limits["sms"]},
+                    "voice": {"used": round(usage.get("voice_minutes", 0), 1), "limit": limits["voice_min"]},
+                    "visio": {"used": round(usage.get("tavus_minutes", 0), 1), "limit": limits["visio_min"]},
                 })
         except Exception as e:
             logger.error(f"Admin quotas error: {e}")
@@ -7786,7 +7850,7 @@ async def admin_health(request: Request):
 
 @app.get("/api/admin/revenue")
 async def admin_revenue(request: Request):
-    """Estimation CA (Phase 1: calcul local)."""
+    """Estimation CA — lecture directe Redis."""
     if not _verify_admin(request):
         return JSONResponse(status_code=401, content={"error": "Non autorise"})
 
@@ -7794,12 +7858,11 @@ async def admin_revenue(request: Request):
     by_plan = {p: {"count": 0, "revenue": 0} for p in plan_prices}
     total = 0
 
-    if _redis_client and _CORE_AVAILABLE:
+    if _redis_client:
         try:
             for tid in _redis_client.get_all_tenant_ids():
-                mm = MemoryManager(tenant_id=tid, redis_client=_redis_client)
-                q = mm.get_quota_status()
-                plan = q.get("plan", "essentiel")
+                profile = _redis_client.get_profile(tid) or {}
+                plan = profile.get("plan", "essentiel")
                 if plan in by_plan:
                     by_plan[plan]["count"] += 1
                     by_plan[plan]["revenue"] += plan_prices.get(plan, 0)
