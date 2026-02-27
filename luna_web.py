@@ -7740,22 +7740,28 @@ async def admin_update_client(tenant_id: int, request: Request):
 
 
 @app.delete("/api/admin/clients/{tenant_id}")
-async def admin_deactivate_client(tenant_id: int, request: Request):
-    """Admin: desactive un client (soft delete)."""
+async def admin_delete_client(tenant_id: int, request: Request):
+    """Admin: supprime un client (purge complete de toutes ses donnees Redis)."""
     if not _verify_admin(request):
         return JSONResponse(status_code=401, content={"error": "Non autorise"})
 
     if not _redis_client:
         return JSONResponse(status_code=503, content={"error": "Service temporairement indisponible"})
 
-    auth = _redis_client.get_auth_by_tenant_id(tenant_id)
-    if not auth:
-        return JSONResponse(status_code=404, content={"error": "Client introuvable"})
+    if tenant_id == _PROPRIO_TENANT_ID:
+        return JSONResponse(status_code=403, content={"error": "Impossible de supprimer le compte fondateur"})
 
-    email = auth.get("email", "")
-    _redis_client.update_auth_record(email, {"active": False})
-    logger.info(f"ADMIN_DEACTIVATE_CLIENT tenant_id={tenant_id} email={email}")
-    return {"success": True, "tenant_id": tenant_id, "deactivated": True}
+    # Supprimer l'auth record
+    auth = _redis_client.get_auth_by_tenant_id(tenant_id)
+    if auth:
+        email = auth.get("email", "")
+        auth_key = f"{_redis_client.prefix}:auth:{email}"
+        _redis_client.client.delete(auth_key)
+
+    # Purger toutes les cles du tenant
+    keys_deleted = _redis_client.purge_tenant(tenant_id)
+    logger.info(f"ADMIN_DELETE_CLIENT tenant_id={tenant_id} keys_deleted={keys_deleted}")
+    return {"success": True, "tenant_id": tenant_id, "keys_deleted": keys_deleted}
 
 
 @app.get("/api/admin/quotas")

@@ -90,6 +90,20 @@ class RedisClient:
             logger.error(f"Redis scan error: {e}")
         return sorted(tenant_ids)
 
+    def purge_tenant(self, tenant_id: int) -> int:
+        """Supprime TOUTES les cles Redis d'un tenant. Retourne le nombre de cles supprimees."""
+        pattern = f"{self.prefix}:{tenant_id}:*"
+        count = 0
+        try:
+            for key in self.client.scan_iter(match=pattern, count=200):
+                self.client.delete(key)
+                count += 1
+            # Supprimer aussi l'index tenant
+            self.client.zrem(f"{self.prefix}:tenants:index", tenant_id)
+        except redis.RedisError as e:
+            logger.error(f"Purge tenant {tenant_id} error: {e}")
+        return count
+
     # ========================================================================
     # CONVERSATIONS
     # ========================================================================
