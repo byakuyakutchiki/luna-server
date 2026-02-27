@@ -315,6 +315,7 @@ _PUBLIC_PATHS = (
     "/api/setup/",
     "/api/stripe/webhook",
     "/api/webhook/sms",
+    "/api/webhook/sms-status",
     "/api/webhook/tavus",
     "/api/webhook/voice-incoming",
     "/api/voice-call/twiml",
@@ -351,6 +352,36 @@ else:
     voice_client = TwilioVoiceClient.from_env()
     tavus_client = TavusClient.from_env() if _TAVUS_AVAILABLE and LUNA_MODE == "full" else None
     email_client = EmailClient.from_env()
+
+# Auto-configure SMS status callback URL si pas defini
+if sms_client and sms_client.is_configured and VOICE_CALLBACK_URL and not sms_client.status_callback_url:
+    sms_client.status_callback_url = f"{VOICE_CALLBACK_URL}/api/webhook/sms-status"
+    logger.info(f"SMS status callback auto-configure: {sms_client.status_callback_url}")
+
+# Stockage des accusés de reception SMS {sid: {to, body_preview, status, ts, delivered_at}}
+_sms_tracking: Dict[str, Dict] = {}
+
+def _tracked_sms_send(to: str, body: str, label: str = ""):
+    """Envoie un SMS et track l'accuse de reception."""
+    success, details = sms_client.send(to, body)
+    if success and details.get("sid"):
+        sid = details["sid"]
+        _sms_tracking[sid] = {
+            "sid": sid,
+            "to": to,
+            "body_preview": body[:80] + ("..." if len(body) > 80 else ""),
+            "label": label,
+            "status": details.get("status", "queued"),
+            "sent_at": datetime.utcnow().isoformat(),
+            "delivered_at": None,
+            "error_code": None,
+        }
+        # Garder max 200 entrees
+        if len(_sms_tracking) > 200:
+            oldest = sorted(_sms_tracking.keys())[:50]
+            for k in oldest:
+                _sms_tracking.pop(k, None)
+    return success, details
 
 # Gmail OAuth2 (per-tenant email)
 _gmail_base_url = os.getenv("LUNA_BASE_URL", "https://luna-beta-674304336025.europe-west1.run.app")
@@ -2057,6 +2088,81 @@ async def webhook_sms(request: Request):
     return Response(content=twiml, media_type="application/xml")
 
 
+@app.post("/api/webhook/sms-status")
+async def webhook_sms_status(request: Request):
+    """
+    Webhook Twilio pour les accuses de reception SMS.
+    Twilio envoie un POST quand le statut d'un SMS change.
+    Statuts: queued → sent → delivered (ou failed/undelivered)
+    """
+    form = await request.form()
+    sms_sid = form.get("MessageSid", "")
+    status = form.get("MessageStatus", "")
+    to_number = form.get("To", "")
+    error_code = form.get("ErrorCode", "")
+
+    logger.info(f"SMS status update: {sms_sid} -> {status} (to: {to_number})")
+
+    # Mettre a jour le tracking en memoire
+    if sms_sid in _sms_tracking:
+        _sms_tracking[sms_sid]["status"] = status
+        _sms_tracking[sms_sid]["updated_at"] = datetime.utcnow().isoformat()
+        if status == "delivered":
+            _sms_tracking[sms_sid]["delivered_at"] = datetime.utcnow().isoformat()
+        if error_code:
+            _sms_tracking[sms_sid]["error_code"] = error_code
+    else:
+        # SMS envoye avant le redemarrage ou non tracke
+        _sms_tracking[sms_sid] = {
+            "to": to_number,
+            "status": status,
+            "updated_at": datetime.utcnow().isoformat(),
+            "delivered_at": datetime.utcnow().isoformat() if status == "delivered" else None,
+            "error_code": error_code or None,
+        }
+
+    # Si echec, logger un warning
+    if status in ("failed", "undelivered"):
+        logger.warning(f"SMS ECHEC: {sms_sid} -> {to_number} (status={status}, error={error_code})")
+
+    return Response(content="", status_code=204)
+
+
+@app.get("/api/sms/status")
+async def sms_status_list(request: Request):
+    """Liste les derniers SMS avec leur statut de livraison."""
+    tid = getattr(request.state, "tenant_id", 1)
+    # Retourne les 50 derniers SMS trackes (les plus recents d'abord)
+    items = sorted(_sms_tracking.values(), key=lambda x: x.get("sent_at", ""), reverse=True)[:50]
+    return {
+        "sms": items,
+        "count": len(items),
+        "total_tracked": len(_sms_tracking),
+    }
+
+
+@app.get("/api/sms/status/{sms_sid}")
+async def sms_status_detail(sms_sid: str, request: Request):
+    """Detail du statut d'un SMS specifique."""
+    if sms_sid in _sms_tracking:
+        return _sms_tracking[sms_sid]
+    # Fallback: interroger Twilio directement
+    if sms_client and sms_client.is_configured:
+        try:
+            msg = sms_client.client.messages(sms_sid).fetch()
+            return {
+                "sid": msg.sid,
+                "to": msg.to,
+                "status": msg.status,
+                "sent_at": msg.date_sent.isoformat() if msg.date_sent else None,
+                "error_code": msg.error_code,
+                "error_message": msg.error_message,
+            }
+        except Exception as e:
+            return JSONResponse(status_code=404, content={"error": f"SMS non trouve: {e}"})
+    return JSONResponse(status_code=404, content={"error": "SMS non trouve"})
+
+
 @app.get("/api/history")
 async def history(request: Request, session_id: str = "default", limit: int = 50):
     """Historique des messages d'une session."""
@@ -3430,7 +3536,7 @@ async def add_family_member(request: Request):
     sms_sent = False
     if sms_client:
         message = f"Luna Family: {name}, votre code de verification est {otp}. Valide 10 min."
-        sms_sent, _ = sms_client.send(phone, message)
+        sms_sent, _ = _tracked_sms_send(phone, message, label=f"OTP famille {name}")
 
     _log_family_audit("member_invited", "system", "Luna",
                       target_phone=phone, target_name=name,
@@ -3959,7 +4065,7 @@ async def family_sos(request: Request):
             if member.get("can_receive_alerts") in ["1", "true", True]:
                 phone = member.get("phone")
                 if phone:
-                    success, _ = sms_client.send(phone, sos_message)
+                    success, _ = _tracked_sms_send(phone, sos_message, label=f"Alerte SOS")
                     if success:
                         sms_sent += 1
                     else:
@@ -4452,7 +4558,7 @@ async def _tool_send_sms(args: Dict, tenant_id: int = 0) -> Dict:
         except Exception:
             pass
 
-    success, details = sms_client.send(phone, f"[Luna pour {sub_name}] {message}")
+    success, details = _tracked_sms_send(phone, f"[Luna pour {sub_name}] {message}", label=f"Chat SMS a {matched_name}")
     reasoning = f"Luna envoie un SMS a {matched_name} car le souscripteur l'a demande"
     if success:
         # Track cout SMS par tenant via Cortex
@@ -4627,7 +4733,7 @@ async def _tool_invite_visio(args: Dict, tenant_id: int = 0) -> Dict:
     )
     from integrations.twilio.sms_client import TwilioSMSClient
     normalized_phone = TwilioSMSClient.normalize_phone(phone)
-    success_sms, sms_details = sms_client.send(normalized_phone, invite_msg)
+    success_sms, sms_details = _tracked_sms_send(normalized_phone, invite_msg, label=f"Invitation visio a {matched_name}")
 
     if success_sms:
         # Track cout SMS par tenant via Cortex
@@ -6082,7 +6188,7 @@ async def invite_to_room(room_id: str, request: Request):
 
     from integrations.twilio.sms_client import TwilioSMSClient
     normalized = TwilioSMSClient.normalize_phone(phone)
-    success, details = sms_client.send(normalized, sms_msg)
+    success, details = _tracked_sms_send(normalized, sms_msg, label=f"Invitation salon a {member_name or phone}")
 
     if success:
         return {"success": True, "message": f"Invitation envoyee a {member_name or phone}"}
