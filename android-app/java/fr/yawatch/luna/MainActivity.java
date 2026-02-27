@@ -22,10 +22,19 @@ import android.webkit.WebViewClient;
 import android.webkit.URLUtil;
 import android.widget.Toast;
 
+import org.json.JSONObject;
+
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
+
 public class MainActivity extends Activity {
 
     private static final String LUNA_URL = "https://luna-beta-674304336025.europe-west1.run.app";
     private static final int PERMISSION_REQUEST_CODE = 100;
+    private static final String CURRENT_VERSION = "1.3";
+    private static final int CURRENT_VERSION_CODE = 4;
     private WebView webView;
     private PermissionRequest pendingPermissionRequest;
 
@@ -54,8 +63,7 @@ public class MainActivity extends Activity {
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
 
         // Version dans le User-Agent pour auto-update
-        String currentVersion = "1.3";
-        settings.setUserAgentString(settings.getUserAgentString() + " LunaApp/" + currentVersion);
+        settings.setUserAgentString(settings.getUserAgentString() + " LunaApp/" + CURRENT_VERSION);
 
         // Cookies (pour la session JWT)
         CookieManager.getInstance().setAcceptCookie(true);
@@ -136,6 +144,69 @@ public class MainActivity extends Activity {
 
         // Charge Luna
         webView.loadUrl(LUNA_URL);
+
+        // Verification auto-update en arriere-plan
+        checkForUpdate();
+    }
+
+    /**
+     * Verifie si une nouvelle version est disponible sur le serveur.
+     * Si oui, telecharge l'APK via DownloadManager.
+     */
+    private void checkForUpdate() {
+        new Thread(() -> {
+            try {
+                URL url = new URL(LUNA_URL + "/api/app/version");
+                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                conn.setRequestMethod("GET");
+                conn.setConnectTimeout(10000);
+                conn.setReadTimeout(10000);
+
+                if (conn.getResponseCode() == 200) {
+                    BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()));
+                    StringBuilder sb = new StringBuilder();
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        sb.append(line);
+                    }
+                    reader.close();
+
+                    JSONObject json = new JSONObject(sb.toString());
+                    int serverVersionCode = json.optInt("version_code", 0);
+                    String apkUrl = json.optString("apk_url", "");
+
+                    if (serverVersionCode > CURRENT_VERSION_CODE && !apkUrl.isEmpty()) {
+                        String fullApkUrl = LUNA_URL + apkUrl;
+                        runOnUiThread(() -> triggerUpdate(fullApkUrl));
+                    }
+                }
+                conn.disconnect();
+            } catch (Exception e) {
+                // Silencieux: si pas de reseau ou erreur, on continue normalement
+            }
+        }).start();
+    }
+
+    /**
+     * Telecharge la nouvelle APK via DownloadManager et notifie l'utilisateur.
+     */
+    private void triggerUpdate(String apkUrl) {
+        try {
+            DownloadManager.Request request = new DownloadManager.Request(Uri.parse(apkUrl));
+            request.setTitle("Luna - Mise a jour");
+            request.setDescription("Nouvelle version disponible !");
+            request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
+            request.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, "Luna-Proprio.apk");
+            request.setMimeType("application/vnd.android.package-archive");
+
+            DownloadManager dm = (DownloadManager) getSystemService(DOWNLOAD_SERVICE);
+            if (dm != null) {
+                dm.enqueue(request);
+                Toast.makeText(this, "Mise a jour Luna disponible ! Ouvre la notification pour installer.", Toast.LENGTH_LONG).show();
+            }
+        } catch (Exception e) {
+            // Silencieux
+        }
     }
 
     @Override

@@ -13,6 +13,10 @@ tu ecris comme tu parles:
   "fais un backup"                → BACKUP
   "montre les clients"            → CLIENTS
   "combien il reste au client 3"  → QUOTA 3
+  "fiche du client 3"            → CLIENT 3
+  "inscris marie@mail.fr premium Marie" → REGISTER
+  "passe le 3 en premium"        → PLAN_SET 3 premium
+  "dis a tous maintenance ce soir" → BROADCAST
 
 2 couches:
   1. Pattern matching (instantane, gratuit, 90% des cas)
@@ -150,6 +154,16 @@ FR_COMMAND_ALIASES = {
     # EXPORT
     "export": "EXPORT", "exporter": "EXPORT", "pdf": "EXPORT",
     "telecharger": "EXPORT", "télécharger": "EXPORT",
+    # CLIENT (fiche detaillee)
+    "fiche": "CLIENT", "detail": "CLIENT", "détail": "CLIENT",
+    "infos": "CLIENT", "profil": "CLIENT",
+    # REGISTER (inscrire un client)
+    "inscrire": "REGISTER", "inscrits": "REGISTER", "creer": "REGISTER",
+    "créer": "REGISTER", "enregistrer": "REGISTER", "nouveau": "REGISTER",
+    # PLAN_SET (changer plan)
+    "plan": "PLAN_SET",
+    # BROADCAST (message a tous)
+    "broadcast": "BROADCAST",
 }
 
 # ──────────────────────────────────────────
@@ -236,10 +250,9 @@ FR_PATTERNS = [
     (r"(mets?|passe|met)\s+(en\s+)?maintenance\s*(.*)", "MAINTENANCE", 3),
     (r"mode\s+maintenance\s*(.*)", "MAINTENANCE", 1),
 
-    # ANNOUNCE (avant DIGEST)
-    (r"(annonce|dis|previens?|communique)\s+(a\s+tous|aux?\s+clients?)\s*:?\s*(.*)", "ANNOUNCE", 3),
+    # ANNOUNCE (avant DIGEST — mais BROADCAST prend "a tous/tout le monde")
     (r"annonce\s*:?\s+(.+)", "ANNOUNCE", 1),
-    (r"(previens?|informe)\s+(tout\s+le\s+monde|les\s+clients?)\s*:?\s*(.*)", "ANNOUNCE", 3),
+    (r"(annonce|communique)\s+(aux?\s+clients?)\s*:?\s*(.*)", "ANNOUNCE", 3),
 
     # STOP (avant LOCK "arrete tout")
     (r"(eteins?|éteins?)\s+(le\s+)?serveur", "STOP", None),
@@ -251,6 +264,28 @@ FR_PATTERNS = [
 
     # REKEY
     (r"(regenere|régénère|change|nouvelle)\s+.*(cle|clé)\s*(api)?", "REKEY", None),
+
+    # QUOTA_SET — avant QUOTA (special: multi-args)
+    (r"(change|modifie|mets?)\s+.*quota\s+.*(client|#)\s*(\d+)\s+.*?(sms|voice|visio)\s+(\d+)", "_QUOTA_SET", None),
+
+    # CLIENT — fiche detaillee d'un client (avant CLIENTS/QUOTA)
+    (r"(fiche|detail|détail|profil|infos?)\s+(du\s+|de\s+)?(client\s+)?#?(\d+)", "CLIENT", 4),
+    (r"(montre|affiche|donne)\s+(moi\s+)?(la\s+)?fiche\s+(du\s+)?#?(\d+)", "CLIENT", 5),
+    (r"c.?est\s+qui\s+(le\s+)?(client\s+)?#?(\d+)", "CLIENT", 3),
+
+    # REGISTER — inscrire un nouveau client (special: multi-args)
+    (r"(inscris?|cree|crée|enregistre|nouveau)\s+(le\s+)?(client\s+)?(\S+@\S+)\s+(essentiel|confort|premium)\s+(\S+)\s*(.*)", "_REGISTER", None),
+    (r"(inscris?|cree|crée|enregistre)\s+(\S+@\S+)\s+(essentiel|confort|premium)\s+(\S+)\s*(.*)", "_REGISTER", None),
+
+    # PLAN_SET — changer le plan d'un client (special: multi-args)
+    (r"(change|passe|mets?|met)\s+(le\s+)?(plan|abonnement)\s+(du\s+)?(client\s+)?#?(\d+)\s+(en\s+|a\s+|à\s+)?(essentiel|confort|premium)", "_PLAN_SET", None),
+    (r"(passe|mets?|met)\s+(le\s+)?#?(\d+)\s+(en\s+)?(essentiel|confort|premium)", "_PLAN_SET", None),
+    (r"(change|modifie)\s+(le\s+)?plan\s+(du\s+)?#?(\d+)\s+(en\s+|a\s+|à\s+)?(essentiel|confort|premium)", "_PLAN_SET", None),
+
+    # BROADCAST — message a tous les clients (avant ANNOUNCE)
+    (r"(ecris?|dis|envoie|message|previens?)\s+(a\s+tous|à\s+tous)\s*:?\s*(.*)", "BROADCAST", 3),
+    (r"broadcast\s*:?\s*(.*)", "BROADCAST", 1),
+    (r"(dis|previens?)\s+(tout\s+le\s+monde)\s*:?\s*(.*)", "BROADCAST", 3),
 
     # ── PATTERNS CLASSIQUES ──
 
@@ -357,8 +392,8 @@ FR_PATTERNS = [
     (r"(tu\s+)?(sais|peux)\s+faire\s+quoi", "HELP", None),
     (r"comment\s+(ca|ça)\s+marche", "HELP", None),
 
-    # MSG — avec extraction id et message
-    (r"(ecris?|dis|envoie|message)\s+au?\s+client\s*#?(\d+)\s*:?\s*(.*)", "MSG", None),
+    # MSG — avec extraction id et message (special: multi-args)
+    (r"(ecris?|dis|envoie|message)\s+au?\s+client\s*#?(\d+)\s*:?\s*(.*)", "_MSG", None),
 
     # PURGE
     (r"(purge|nettoie|vide|supprime)\s+(les\s+)?(logs?|erreurs?|bans?|sessions?|annonces?)", "PURGE", 3),
@@ -373,9 +408,6 @@ FR_PATTERNS = [
 
     # WHITELIST_DEL — avec IP
     (r"(retire|enleve|enlève|supprime)\s+.*(whitelist|blanche)\s*:?\s*(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})", "WHITELIST_DEL", 3),
-
-    # QUOTA_SET — avec tenant_id, resource, value
-    (r"(change|modifie|mets?)\s+.*quota\s+.*(client|#)\s*(\d+)\s+.*(sms|voice|visio)\s+.?(\d+)", "QUOTA_SET", None),
 
     # QUOTA_RESET
     (r"(raz|reset|remise?\s+a\s+zero)\s+.*quota\s+.*(client|#)\s*(\d+)", "QUOTA_RESET", 3),
@@ -393,11 +425,17 @@ def parse_french(text: str) -> Tuple[Optional[str], str]:
         "quota du client 3" → ("QUOTA", "3")
         "ferme tout ya un problème" → ("LOCK", "ya un problème")
     """
-    text_clean = text.strip().lower()
+    text_original = text.strip()
+    text_clean = text_original.lower()
     # Enlever la ponctuation de fin
     text_clean = re.sub(r'[?!.;:]+$', '', text_clean).strip()
     # Normaliser les apostrophes
     text_clean = text_clean.replace("'", "'").replace("'", "'")
+
+    # Commandes qui attendent un ID numerique en premier arg
+    _ID_COMMANDS = {"CLIENT", "QUOTA", "KILL", "REVIVE", "WIPE"}
+    # Commandes qui attendent une IP en premier arg
+    _IP_COMMANDS = {"BAN", "UNBAN"}
 
     # ── ETAPE 1: Commande directe (si ca commence par un alias) ──
     words = text_clean.split()
@@ -417,12 +455,80 @@ def parse_french(text: str) -> Tuple[Optional[str], str]:
                     break
         if not skip_alias:
             cmd = FR_COMMAND_ALIASES[first_word]
+            # Extraire juste le nombre pour les commandes ID
+            if cmd in _ID_COMMANDS:
+                num = re.search(r'(\d+)', rest)
+                if num:
+                    return cmd, num.group(1)
+            # Extraire juste l'IP pour les commandes IP
+            if cmd in _IP_COMMANDS:
+                ip = re.search(r'(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})', rest)
+                if ip:
+                    return cmd, ip.group(1)
             return cmd, rest
 
     # ── ETAPE 2: Pattern matching sur la phrase complete ──
     for pattern, command, arg_group in FR_PATTERNS:
         match = re.search(pattern, text_clean, re.IGNORECASE)
         if match:
+            # Commandes speciales: reconstruire les args depuis les groupes
+            if command == "_REGISTER":
+                # Re-match sur le texte original pour preserver la casse des noms
+                match_orig = re.search(pattern, text_original.lower(), re.IGNORECASE)
+                # Utiliser le texte original pour extraire les valeurs
+                orig_lower = text_original.lower()
+                # Trouver email et plan dans le texte original
+                email_m = re.search(r'(\S+@\S+)', text_original)
+                plan_m = re.search(r'\b(essentiel|confort|premium)\b', orig_lower)
+                if email_m and plan_m:
+                    email = email_m.group(1).lower()
+                    plan = plan_m.group(1)
+                    # Tout ce qui vient apres le plan = prenom [nom]
+                    after_plan = text_original[plan_m.end():].strip()
+                    parts = after_plan.split(maxsplit=1)
+                    prenom = parts[0] if parts else ""
+                    nom = parts[1].strip() if len(parts) > 1 else ""
+                    if prenom:
+                        return "REGISTER", f"{email} {plan} {prenom} {nom}".strip()
+                continue
+
+            if command == "_PLAN_SET":
+                groups = match.groups()
+                # Trouver tenant_id (nombre) et plan dans les groupes
+                tid = plan = ""
+                for g in groups:
+                    if not g:
+                        continue
+                    g = g.strip()
+                    if g.isdigit():
+                        tid = g
+                    elif g.lower() in ("essentiel", "confort", "premium"):
+                        plan = g.lower()
+                if tid and plan:
+                    return "PLAN_SET", f"{tid} {plan}"
+                continue
+
+            if command == "_MSG":
+                # Extraire id et message: "ecris au client 3: salut"
+                tid = match.group(2) if match.lastindex >= 2 else ""
+                msg = match.group(3).strip() if match.lastindex >= 3 else ""
+                if tid:
+                    return "MSG", f"{tid} {msg}".strip()
+                continue
+
+            if command == "_QUOTA_SET":
+                # Pattern groups: (verb, "client"|"#", tid, resource, value)
+                # Index:           1      2              3    4          5
+                try:
+                    tid = match.group(3)
+                    resource = match.group(4).lower()
+                    value = match.group(5)
+                    if tid and resource and value:
+                        return "QUOTA_SET", f"{tid} {resource} {value}"
+                except (IndexError, AttributeError):
+                    pass
+                continue
+
             if arg_group is not None:
                 try:
                     arg = match.group(arg_group)
@@ -439,13 +545,18 @@ def parse_french(text: str) -> Tuple[Optional[str], str]:
                 return parts[0], parts[1]
             return command, ""
 
-    # ── ETAPE 3: Chercher un nombre isolé (possible QUOTA) ──
-    # "le 3" ou "client 3" sans autre contexte
+    # ── ETAPE 3: "client 3" → CLIENT (fiche), "quota 3" → QUOTA ──
     num_match = re.search(r'\b(\d+)\b', text_clean)
-    if num_match and any(w in text_clean for w in
-                          ["client", "abonné", "abonne", "quota",
-                           "combien", "reste"]):
-        return "QUOTA", num_match.group(1)
+    if num_match:
+        # "client 3" ou "#3" sans contexte quota → fiche client
+        if re.search(r'(client|#)\s*' + num_match.group(1), text_clean):
+            if not any(w in text_clean for w in
+                       ["quota", "conso", "combien", "reste"]):
+                return "CLIENT", num_match.group(1)
+        # Contexte quota explicite
+        if any(w in text_clean for w in
+               ["quota", "conso", "consommation", "combien", "reste"]):
+            return "QUOTA", num_match.group(1)
 
     # ── ETAPE 4: Chercher une IP isolée (possible BAN) ──
     ip_match = re.search(r'(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})', text_clean)
@@ -474,7 +585,8 @@ Tu dois extraire LA COMMANDE et LES ARGUMENTS.
 
 Commandes disponibles:
 STATUS (état du serveur), HEALTH (santé système), THREATS (sécurité),
-CLIENTS (liste clients), QUOTA <id> (quota d'un client),
+CLIENTS (liste clients), CLIENT <id> (fiche détaillée d'un client),
+QUOTA <id> (quota d'un client),
 BAN <ip> (bannir IP), UNBAN <ip> (débannir), BANNED (IPs bannies),
 LOCK <raison> (lockdown), UNLOCK (déverrouiller),
 SHIELD ON/OFF (mode bouclier),
@@ -489,6 +601,9 @@ PROCESSES (processus système), NETWORK (réseau/connexions),
 DISK (espace disque), VERSION (versions logicielles),
 MAINTENANCE <message> (mode maintenance), ANNOUNCE <message> (annonce à tous),
 MSG <id> <message> (message à un client),
+BROADCAST <message> (message à TOUS les clients),
+REGISTER <email> <plan> <prenom> [nom] (inscrire un client, plans: essentiel/confort/premium),
+PLAN_SET <id> <plan> (changer le plan d'un client: essentiel/confort/premium),
 WHITELIST_ADD <ip> (ajouter IP whitelist), WHITELIST_DEL <ip> (retirer),
 QUOTA_SET <id> <ressource> <valeur> (modifier quota),
 QUOTA_RESET <id> (RAZ quota), PURGE <cible> (nettoyer logs/bans/etc),
@@ -506,7 +621,12 @@ Exemples:
 "comment va le serveur" → STATUS|
 "bloque 185.1.2.3" → BAN|185.1.2.3
 "quota du client 7" → QUOTA|7
-"ferme tout maintenance nuit" → LOCK|maintenance nuit"""
+"ferme tout maintenance nuit" → LOCK|maintenance nuit
+"fiche du client 3" → CLIENT|3
+"c'est qui le 5" → CLIENT|5
+"inscris marie@mail.fr premium Marie Dupont" → REGISTER|marie@mail.fr premium Marie Dupont
+"passe le 3 en premium" → PLAN_SET|3 premium
+"dis a tous maintenance ce soir" → BROADCAST|maintenance ce soir"""
 
     try:
         async with httpx.AsyncClient(timeout=10.0) as http:
@@ -521,7 +641,7 @@ Exemples:
                     "messages": [
                         {"role": "user", "content": prompt},
                     ],
-                    "max_tokens": 30,
+                    "max_tokens": 60,
                     "temperature": 0,
                 },
             )

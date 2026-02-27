@@ -1059,12 +1059,116 @@ class NoteRequest(BaseModel):
     tags: Optional[list] = None
 
 
+def _build_update_page(old_version: str, new_version: str) -> str:
+    """Page HTML de mise a jour affichee dans le WebView quand l'APK est obsolete."""
+    return f"""<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Luna - Mise a jour</title>
+<style>
+* {{ margin: 0; padding: 0; box-sizing: border-box; }}
+body {{
+    background: linear-gradient(135deg, #0a0a1a 0%, #1a1a3e 50%, #2d1b69 100%);
+    color: #e8e0ff;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}}
+.container {{
+    text-align: center;
+    max-width: 380px;
+}}
+.luna-icon {{
+    font-size: 64px;
+    margin-bottom: 20px;
+    animation: pulse 2s infinite;
+}}
+@keyframes pulse {{
+    0%, 100% {{ transform: scale(1); }}
+    50% {{ transform: scale(1.1); }}
+}}
+h1 {{
+    font-size: 24px;
+    margin-bottom: 12px;
+    color: #a78bfa;
+}}
+p {{
+    font-size: 16px;
+    line-height: 1.5;
+    margin-bottom: 24px;
+    opacity: 0.85;
+}}
+.version-badge {{
+    display: inline-block;
+    background: rgba(167, 139, 250, 0.15);
+    border: 1px solid rgba(167, 139, 250, 0.3);
+    border-radius: 20px;
+    padding: 6px 16px;
+    font-size: 14px;
+    margin-bottom: 24px;
+}}
+.version-old {{ color: #f87171; text-decoration: line-through; }}
+.version-new {{ color: #34d399; font-weight: bold; }}
+.arrow {{ margin: 0 8px; }}
+.update-btn {{
+    display: inline-block;
+    background: linear-gradient(135deg, #a78bfa 0%, #7c3aed 100%);
+    color: white;
+    text-decoration: none;
+    padding: 16px 40px;
+    border-radius: 30px;
+    font-size: 18px;
+    font-weight: bold;
+    box-shadow: 0 4px 20px rgba(167, 139, 250, 0.4);
+    transition: transform 0.2s;
+}}
+.update-btn:active {{
+    transform: scale(0.96);
+}}
+.note {{
+    margin-top: 24px;
+    font-size: 13px;
+    opacity: 0.6;
+    line-height: 1.4;
+}}
+</style>
+</head>
+<body>
+<div class="container">
+    <div class="luna-icon">&#127769;</div>
+    <h1>Nouvelle version disponible !</h1>
+    <div class="version-badge">
+        <span class="version-old">v{old_version}</span>
+        <span class="arrow">&rarr;</span>
+        <span class="version-new">v{new_version}</span>
+    </div>
+    <p>Luna a ete amelioree avec de nouvelles fonctionnalites. Mets a jour pour en profiter !</p>
+    <a href="/download/luna.apk" class="update-btn">Mettre a jour</a>
+    <p class="note">Le telechargement demarre automatiquement.<br>Ouvre la notification pour installer.</p>
+</div>
+</body>
+</html>"""
+
+
 # =========================================================================
 # ENDPOINTS
 # =========================================================================
 
 @app.get("/")
-async def index():
+async def index(request: Request):
+    # Auto-update: detecter APK obsolete via User-Agent
+    ua = request.headers.get("user-agent", "")
+    luna_match = re.search(r"LunaApp/([\d.]+)", ua)
+    if luna_match:
+        app_version = luna_match.group(1)
+        if app_version != LUNA_APP_VERSION:
+            # Servir une page de mise a jour pour l'APK obsolete
+            return HTMLResponse(_build_update_page(app_version, LUNA_APP_VERSION))
     if _pv_locked:
         setup_path = os.path.join(STATIC_DIR, "setup.html")
         if os.path.exists(setup_path):
