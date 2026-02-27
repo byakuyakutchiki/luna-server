@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720">
+  <defs>
+    <linearGradient id="wall" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FFF8E8"/>
+      <stop offset="100%" stop-color="#F5E8D0"/>
+    </linearGradient>
+    <radialGradient id="noon" cx="0.8" cy="0.15" r="0.5">
+      <stop offset="0%" stop-color="#FFFDE8" stop-opacity="0.3"/>
+      <stop offset="100%" stop-color="#FFFDE8" stop-opacity="0"/>
+    </radialGradient>
+    <style>
+      @keyframes steam1 { 0%{opacity:0;transform:translateY(0)} 50%{opacity:0.5} 100%{opacity:0;transform:translateY(-45px)} }
+      @keyframes steam2 { 0%{opacity:0;transform:translateY(0)} 50%{opacity:0.4} 100%{opacity:0;transform:translateY(-55px)} }
+      @keyframes steam3 { 0%{opacity:0;transform:translateY(0)} 50%{opacity:0.35} 100%{opacity:0;transform:translateY(-40px)} }
+      .steam1 { animation: steam1 2.5s ease-in-out infinite; }
+      .steam2 { animation: steam2 3s ease-in-out infinite 0.5s; }
+      .steam3 { animation: steam3 2.8s ease-in-out infinite 1s; }
+    </style>
+  </defs>
+
+  <rect width="1280" height="720" fill="url(#wall)"/>
+  <!-- Sol -->
+  <rect y="550" width="1280" height="170" fill="#C4A882"/>
+  <!-- Plan de travail -->
+  <rect y="380" width="1280" height="30" fill="#8B7355"/>
+  <rect y="410" width="1280" height="140" fill="#A0896B"/>
+
+  <!-- Casserole sur le plan -->
+  <ellipse cx="350" cy="370" rx="50" ry="15" fill="#888"/>
+  <rect x="300" y="340" width="100" height="30" rx="6" fill="#777"/>
+  <line x1="400" y1="355" x2="460" y2="355" stroke="#666" stroke-width="6" stroke-linecap="round"/>
+
+  <!-- Vapeur casserole -->
+  <path class="steam1" d="M320 330 Q325 310 330 330" fill="none" stroke="#CCC" stroke-width="2"/>
+  <path class="steam2" d="M345 325 Q350 300 355 325" fill="none" stroke="#CCC" stroke-width="2"/>
+  <path class="steam3" d="M370 328 Q375 305 380 328" fill="none" stroke="#CCC" stroke-width="2"/>
+
+  <!-- Planche a decouper -->
+  <rect x="700" y="355" width="120" height="25" rx="4" fill="#D4B896"/>
+  <!-- Legumes -->
+  <circle cx="730" cy="355" r="8" fill="#FF6347" opacity="0.8"/>
+  <circle cx="750" cy="357" r="7" fill="#FF6347" opacity="0.7"/>
+  <rect x="770" y="348" width="30" height="10" rx="3" fill="#4CAF50" opacity="0.7"/>
+
+  <!-- Porte-fenetre avec soleil -->
+  <rect x="900" y="60" width="320" height="490" rx="6" fill="#87CEEB" opacity="0.5"/>
+  <rect x="910" y="70" width="300" height="470" rx="4" fill="#90EE90" opacity="0.3"/>
+  <rect x="896" y="56" width="328" height="498" rx="8" fill="none" stroke="#C4A882" stroke-width="6"/>
+
+  <!-- Soleil direct -->
+  <rect width="1280" height="720" fill="url(#noon)"/>
+</svg>

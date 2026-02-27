@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720">
+  <defs>
+    <linearGradient id="wall" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#3D2B1F"/>
+      <stop offset="100%" stop-color="#2C1F14"/>
+    </linearGradient>
+    <radialGradient id="firelight" cx="0.15" cy="0.7" r="0.5">
+      <stop offset="0%" stop-color="#FF8C42" stop-opacity="0.3"/>
+      <stop offset="100%" stop-color="#FF8C42" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="lampglow" cx="0.8" cy="0.3" r="0.3">
+      <stop offset="0%" stop-color="#FFE088" stop-opacity="0.25"/>
+      <stop offset="100%" stop-color="#FFE088" stop-opacity="0"/>
+    </radialGradient>
+    <style>
+      @keyframes fireFlicker { 0%{opacity:0.4;transform:scaleY(1)} 25%{opacity:0.6;transform:scaleY(1.1)} 50%{opacity:0.5;transform:scaleY(0.95)} 75%{opacity:0.7;transform:scaleY(1.05)} 100%{opacity:0.4;transform:scaleY(1)} }
+      @keyframes fireGlow { 0%{opacity:0.25} 50%{opacity:0.35} 100%{opacity:0.25} }
+      .fire1 { animation: fireFlicker 1.5s ease-in-out infinite; transform-origin: 150px 500px; }
+      .fire2 { animation: fireFlicker 1.8s ease-in-out infinite 0.3s; transform-origin: 150px 500px; }
+      .fire-glow { animation: fireGlow 2s ease-in-out infinite; }
+    </style>
+  </defs>
+
+  <rect width="1280" height="720" fill="url(#wall)"/>
+  <rect y="560" width="1280" height="160" fill="#1A120A"/>
+  <!-- Tapis -->
+  <ellipse cx="640" cy="620" rx="350" ry="80" fill="#8B4513" opacity="0.4"/>
+  <ellipse cx="640" cy="620" rx="300" ry="65" fill="#A0522D" opacity="0.3"/>
+
+  <!-- Cheminee -->
+  <rect x="50" y="350" width="200" height="210" rx="8" fill="#4A3728"/>
+  <rect x="60" y="360" width="180" height="150" rx="4" fill="#1A120A"/>
+  <ellipse cx="150" cy="500" rx="60" ry="15" fill="#FF4500" opacity="0.6"/>
+  <g class="fire1">
+    <path d="M120 500 Q130 460 150 470 Q160 440 170 465 Q190 450 180 500" fill="#FF6B00" opacity="0.5"/>
+  </g>
+  <g class="fire2">
+    <path d="M130 500 Q140 475 150 480 Q160 460 165 490 Q175 470 170 500" fill="#FFD700" opacity="0.4"/>
+  </g>
+
+  <!-- Canape -->
+  <rect x="430" y="420" width="480" height="140" rx="20" fill="#5C3A1E"/>
+  <rect x="440" y="430" width="210" height="120" rx="15" fill="#6B4423"/>
+  <rect x="670" y="430" width="230" height="120" rx="15" fill="#6B4423"/>
+  <ellipse cx="500" cy="442" rx="35" ry="25" fill="#C44E52" opacity="0.7"/>
+  <ellipse cx="850" cy="445" rx="30" ry="22" fill="#4E8BC4" opacity="0.6"/>
+
+  <!-- Lampe -->
+  <rect x="980" y="350" width="15" height="100" fill="#8B6F47"/>
+  <path d="M950 350 Q987 310 1025 350" fill="#FFFACD" opacity="0.6"/>
+
+  <!-- Table basse -->
+  <rect x="520" y="540" width="300" height="15" rx="4" fill="#5C3A1E"/>
+
+  <!-- Lumieres -->
+  <rect class="fire-glow" width="1280" height="720" fill="url(#firelight)"/>
+  <rect width="1280" height="720" fill="url(#lampglow)"/>
+</svg>

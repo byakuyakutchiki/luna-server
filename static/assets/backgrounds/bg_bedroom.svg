@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FFD4A8"/>
+      <stop offset="100%" stop-color="#FFF0DB"/>
+    </linearGradient>
+    <radialGradient id="sun" cx="0.8" cy="0.2" r="0.3">
+      <stop offset="0%" stop-color="#FFEE88" stop-opacity="0.8"/>
+      <stop offset="100%" stop-color="#FFD4A8" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="lamplight" cx="0.19" cy="0.48" r="0.25">
+      <stop offset="0%" stop-color="#FFE088" stop-opacity="0.3"/>
+      <stop offset="100%" stop-color="#FFE088" stop-opacity="0"/>
+    </radialGradient>
+    <style>
+      @keyframes lightPulse { 0%{opacity:0.25} 50%{opacity:0.35} 100%{opacity:0.25} }
+      .sun-glow { animation: lightPulse 5s ease-in-out infinite; }
+    </style>
+  </defs>
+
+  <!-- Ciel matin -->
+  <rect width="1280" height="720" fill="url(#sky)"/>
+  <rect class="sun-glow" width="1280" height="720" fill="url(#sun)"/>
+  <!-- Mur chambre -->
+  <rect y="200" width="1280" height="520" fill="#E8D5C4" opacity="0.7"/>
+
+  <!-- Fenetre -->
+  <rect x="800" y="100" width="300" height="350" rx="8" fill="#87CEEB" opacity="0.5"/>
+  <rect x="810" y="110" width="280" height="330" rx="4" fill="#FFE8B0" opacity="0.4"/>
+  <line x1="950" y1="100" x2="950" y2="450" stroke="#C4A882" stroke-width="4"/>
+  <line x1="800" y1="275" x2="1100" y2="275" stroke="#C4A882" stroke-width="4"/>
+  <rect x="796" y="96" width="308" height="358" rx="10" fill="none" stroke="#C4A882" stroke-width="6"/>
+  <!-- Rideaux -->
+  <path d="M796 96 Q820 200 796 450" fill="#D4C4A8" opacity="0.6"/>
+  <path d="M1104 96 Q1080 200 1104 450" fill="#D4C4A8" opacity="0.6"/>
+
+  <!-- Lit -->
+  <rect x="200" y="430" width="550" height="180" rx="12" fill="#8B7355"/>
+  <rect x="210" y="440" width="530" height="100" rx="8" fill="#C4A882"/>
+  <!-- Oreiller -->
+  <ellipse cx="300" cy="450" rx="60" ry="25" fill="#F5F0E8"/>
+  <ellipse cx="420" cy="452" rx="55" ry="23" fill="#F5F0E8"/>
+  <!-- Couette froissee -->
+  <path d="M210 480 Q350 460 500 475 Q650 490 740 480 L740 540 L210 540 Z" fill="#7FAACC" opacity="0.7"/>
+
+  <!-- Table de nuit -->
+  <rect x="100" y="430" width="80" height="120" rx="6" fill="#8B7355"/>
+  <!-- Lampe -->
+  <rect x="128" y="370" width="14" height="60" fill="#C4A882"/>
+  <path d="M108 370 Q135 340 162 370" fill="#FFFACD" opacity="0.8"/>
+
+  <!-- Lumiere douce -->
+  <rect width="1280" height="720" fill="url(#lamplight)"/>
+</svg>

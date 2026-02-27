@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720">
+  <defs>
+    <linearGradient id="wall" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FFF5E6"/>
+      <stop offset="100%" stop-color="#F5E6D3"/>
+    </linearGradient>
+    <radialGradient id="sunlight" cx="0.73" cy="0.15" r="0.4">
+      <stop offset="0%" stop-color="#FFE888" stop-opacity="0.25"/>
+      <stop offset="100%" stop-color="#FFE888" stop-opacity="0"/>
+    </radialGradient>
+    <style>
+      @keyframes steam1 { 0%{opacity:0;transform:translateY(0)} 50%{opacity:0.6} 100%{opacity:0;transform:translateY(-40px)} }
+      @keyframes steam2 { 0%{opacity:0;transform:translateY(0)} 50%{opacity:0.5} 100%{opacity:0;transform:translateY(-50px)} }
+      @keyframes steam3 { 0%{opacity:0;transform:translateY(0)} 50%{opacity:0.4} 100%{opacity:0;transform:translateY(-35px)} }
+      @keyframes lightPulse { 0%{opacity:0.2} 50%{opacity:0.3} 100%{opacity:0.2} }
+      .steam1 { animation: steam1 2.5s ease-in-out infinite; }
+      .steam2 { animation: steam2 3s ease-in-out infinite 0.5s; }
+      .steam3 { animation: steam3 2.8s ease-in-out infinite 1s; }
+      .sun { animation: lightPulse 5s ease-in-out infinite; }
+    </style>
+  </defs>
+
+  <!-- Mur cuisine -->
+  <rect width="1280" height="720" fill="url(#wall)"/>
+  <!-- Sol -->
+  <rect y="550" width="1280" height="170" fill="#D4C4A8"/>
+
+  <!-- Plan de travail -->
+  <rect y="380" width="1280" height="30" fill="#8B7355"/>
+  <rect y="410" width="1280" height="140" fill="#A0896B"/>
+
+  <!-- Placards -->
+  <rect x="50" y="50" width="250" height="200" rx="8" fill="#C4A882"/>
+  <rect x="55" y="55" width="115" height="190" rx="4" fill="#D4C4A8"/>
+  <rect x="180" y="55" width="115" height="190" rx="4" fill="#D4C4A8"/>
+  <rect x="400" y="50" width="200" height="200" rx="8" fill="#C4A882"/>
+  <rect x="405" y="55" width="190" height="190" rx="4" fill="#D4C4A8"/>
+
+  <!-- Fenetre -->
+  <rect x="850" y="60" width="350" height="280" rx="8" fill="#87CEEB" opacity="0.6"/>
+  <rect x="860" y="70" width="330" height="260" rx="4" fill="#FFE8B0" opacity="0.5"/>
+  <rect x="846" y="56" width="358" height="288" rx="10" fill="none" stroke="#C4A882" stroke-width="6"/>
+  <line x1="1025" y1="56" x2="1025" y2="344" stroke="#C4A882" stroke-width="4"/>
+
+  <!-- Tasse sur le plan de travail -->
+  <rect x="750" y="345" width="45" height="35" rx="6" fill="#F5F5F5"/>
+  <path d="M795 355 Q812 360 795 375" fill="none" stroke="#DDD" stroke-width="3"/>
+
+  <!-- Vapeur tasse -->
+  <path class="steam1" d="M758 340 Q762 320 766 340" fill="none" stroke="#CCC" stroke-width="2"/>
+  <path class="steam2" d="M770 337 Q774 315 778 337" fill="none" stroke="#CCC" stroke-width="2"/>
+  <path class="steam3" d="M783 340 Q786 322 790 340" fill="none" stroke="#CCC" stroke-width="2"/>
+
+  <!-- Soleil -->
+  <rect class="sun" width="1280" height="720" fill="url(#sunlight)"/>
+</svg>

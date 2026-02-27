@@ -43,3 +43,6 @@ pyotp>=2.9.0
 qrcode[pil]>=7.4.0
 psutil>=5.9.0
 fpdf2>=2.7.0
+
+# Simli TTS fallback (gratuit si OpenAI TTS echoue)
+edge-tts>=6.1.0

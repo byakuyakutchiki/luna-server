@@ -1,0 +1,1209 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Luna IA — Avatar Live</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, -apple-system, sans-serif; background: #0a0a1a; color: #e0e0e0; }
+
+    .header { background: linear-gradient(135deg, #1a1a3e, #0a0a2e); padding: 16px 24px; border-bottom: 1px solid #2a2a4e; }
+    .header h1 { font-size: 20px; color: #7c8cf8; }
+    .header p { font-size: 12px; color: #888; margin-top: 2px; }
+
+    .main { display: flex; gap: 16px; padding: 16px; max-width: 1600px; margin: 0 auto; flex-wrap: wrap; }
+
+    /* ===== AVATAR PANEL ===== */
+    .avatar-panel { flex: 1; min-width: 500px; background: #12122a; border-radius: 12px; border: 1px solid #2a2a4e; overflow: hidden; }
+    .avatar-video-wrap { position: relative; background: #000; aspect-ratio: 16/9; overflow: hidden; }
+    .avatar-video-wrap canvas#fallbackCanvas { width: 100%; height: 100%; object-fit: cover; display: none; position: absolute; inset: 0; z-index: 6; }
+    #userCam { position: absolute; bottom: 12px; right: 12px; width: 180px; height: 135px; border-radius: 10px; border: 2px solid rgba(124,140,248,0.6); object-fit: cover; z-index: 30; background: #000; transform: scaleX(-1); }
+    .avatar-status { position: absolute; top: 12px; left: 12px; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; z-index: 32; }
+
+    /* =========================================================================
+       CINEMATIQUE — COUCHES VISUELLES (du fond vers le premier plan)
+       ========================================================================= */
+
+    /* --- ZOOM CONTAINER : Ken Burns drift + contient decor + telephone --- */
+    .zoom-container {
+      position: absolute; inset: 0; z-index: 2;
+      /* Sera anime par JS pour le Ken Burns */
+      transition: transform 2.5s cubic-bezier(0.25, 0.1, 0.25, 1);
+      transform-origin: center center;
+    }
+    .zoom-container.cinematic {
+      /* Color grading cinema : chaud, leger desature, contraste */
+      filter: saturate(0.88) contrast(1.06) sepia(0.06) brightness(0.97);
+    }
+
+    /* Ken Burns : lent drift panoramique */
+    @keyframes kenBurnsDrift {
+      0%   { transform: scale(1.0)  translate(0, 0); }
+      25%  { transform: scale(1.03) translate(-0.5%, -0.3%); }
+      50%  { transform: scale(1.06) translate(-0.8%, 0.2%); }
+      75%  { transform: scale(1.04) translate(0.3%, -0.5%); }
+      100% { transform: scale(1.08) translate(-0.3%, -0.4%); }
+    }
+    .zoom-container.drifting {
+      animation: kenBurnsDrift 25s ease-in-out forwards;
+    }
+
+    /* --- DECOR SVG --- */
+    .scene-bg {
+      position: absolute; inset: -5%; width: 110%; height: 110%;
+      z-index: 1; opacity: 0; border: none;
+      transition: opacity 2.5s ease;
+    }
+    .scene-bg.fade-out {
+      transition: opacity 2s ease;
+      opacity: 0 !important;
+    }
+
+    /* --- LIGHT SWEEP (balayage lumineux lentille anamorphique) --- */
+    .light-sweep {
+      position: absolute; inset: 0; z-index: 2;
+      opacity: 0; pointer-events: none;
+      background: linear-gradient(105deg,
+        transparent 35%,
+        rgba(255,248,220,0.04) 42%,
+        rgba(255,248,220,0.12) 48%,
+        rgba(255,248,220,0.18) 50%,
+        rgba(255,248,220,0.12) 52%,
+        rgba(255,248,220,0.04) 58%,
+        transparent 65%
+      );
+      background-size: 250% 100%;
+      transition: opacity 0.5s ease;
+    }
+    .light-sweep.active {
+      opacity: 1;
+      animation: sweepAnamorphic 5s ease-in-out 1;
+    }
+    @keyframes sweepAnamorphic {
+      0%   { background-position: 250% 0; }
+      100% { background-position: -250% 0; }
+    }
+
+    /* --- TELEPHONE (dans la scene, zoome avec le decor) --- */
+    .phone-device {
+      position: absolute; z-index: 3;
+      opacity: 0; pointer-events: none;
+      transition: opacity 1.2s ease;
+      /* Position par defaut, ajustee par JS */
+      bottom: 22%; right: 18%;
+      width: 70px; height: 124px;
+      /* Perspective 3D subtile */
+      perspective: 600px;
+    }
+    .phone-device.visible { opacity: 1; }
+    .phone-device.vibrating { animation: phoneBuzz 0.08s linear infinite; }
+    @keyframes phoneBuzz {
+      0%   { transform: translate(0, 0) rotate(0deg); }
+      20%  { transform: translate(-1.5px, 0.5px) rotate(-0.8deg); }
+      40%  { transform: translate(1.5px, -0.5px) rotate(0.8deg); }
+      60%  { transform: translate(-1px, -0.5px) rotate(-0.4deg); }
+      80%  { transform: translate(1px, 0.5px) rotate(0.5deg); }
+      100% { transform: translate(0, 0) rotate(0deg); }
+    }
+
+    .phone-body {
+      width: 100%; height: 100%;
+      background: linear-gradient(145deg, #2a2a3e, #1a1a2e);
+      border-radius: 16px;
+      border: 1.5px solid #444;
+      box-shadow:
+        0 12px 40px rgba(0,0,0,0.7),
+        0 4px 12px rgba(0,0,0,0.5),
+        inset 0 1px 0 rgba(255,255,255,0.08);
+      overflow: hidden;
+      display: flex; flex-direction: column;
+      position: relative;
+      /* Subtil angle 3D */
+      transform: rotateY(-3deg) rotateX(1deg);
+      transform-style: preserve-3d;
+    }
+    .phone-notch {
+      width: 28%; height: 4px; margin: 5px auto 0;
+      background: #333; border-radius: 3px;
+    }
+    .phone-screen {
+      flex: 1; margin: 4px 5px 6px;
+      background: #080818;
+      border-radius: 10px;
+      overflow: hidden; position: relative;
+      display: flex; align-items: center; justify-content: center;
+    }
+    /* Reflet sur l'ecran du telephone */
+    .phone-screen::after {
+      content: '';
+      position: absolute; inset: 0;
+      background: linear-gradient(
+        135deg,
+        rgba(255,255,255,0.06) 0%,
+        transparent 40%,
+        transparent 60%,
+        rgba(255,255,255,0.03) 100%
+      );
+      pointer-events: none; z-index: 5;
+      border-radius: 10px;
+    }
+    .phone-screen.lit {
+      background: linear-gradient(135deg, #1a1a3e, #2a2a5e);
+      box-shadow: inset 0 0 30px rgba(124,140,248,0.2);
+    }
+    .phone-home-btn {
+      width: 14px; height: 14px; margin: 0 auto 5px;
+      border-radius: 50%; border: 1.5px solid #444;
+    }
+
+    /* Notification d'appel */
+    .phone-notification {
+      position: absolute; top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+      opacity: 0; transition: opacity 0.6s ease;
+      z-index: 3;
+    }
+    .phone-notification.visible { opacity: 1; }
+    .phone-notification .caller-icon {
+      width: 32px; height: 32px;
+      margin: 0 auto 5px;
+      background: linear-gradient(135deg, #7c8cf8, #a78bfa);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 15px; color: #fff; font-weight: 700;
+      animation: callerPulse 1.5s ease-in-out infinite;
+    }
+    @keyframes callerPulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(124,140,248,0.5); }
+      50% { box-shadow: 0 0 0 10px rgba(124,140,248,0); }
+    }
+    .phone-notification .caller-name {
+      font-size: 8px; color: #fff; font-weight: 700;
+      letter-spacing: 0.5px;
+    }
+    .phone-notification .caller-label {
+      font-size: 6.5px; color: #bbb; margin-top: 1px;
+    }
+
+    /* Halo lumineux autour du telephone quand il sonne */
+    .phone-glow {
+      position: absolute; inset: -25px; z-index: -1;
+      border-radius: 28px;
+      opacity: 0; transition: opacity 0.4s ease;
+      background: radial-gradient(ellipse, rgba(124,140,248,0.35), transparent 65%);
+    }
+    .phone-device.ringing .phone-glow {
+      opacity: 1;
+      animation: glowPulse 1.2s ease-in-out infinite;
+    }
+    @keyframes glowPulse {
+      0%, 100% { opacity: 0.4; transform: scale(1); }
+      50% { opacity: 1; transform: scale(1.1); }
+    }
+
+    /* --- VIDEO SIMLI : toujours dans avatarWrap --- */
+    /* Etat par defaut : invisible, plein ecran, pret a apparaitre */
+    #simliVideo {
+      position: absolute; inset: 0; z-index: 5;
+      width: 100%; height: 100%;
+      object-fit: cover; opacity: 0;
+      transition: opacity 2s ease;
+      background: transparent;
+    }
+    /* Luna visible en face-a-face */
+    #simliVideo.visible { opacity: 1; }
+
+    /* --- SOUS-TITRES CINEMATIQUES (style film, serif) --- */
+    .mise-en-scene {
+      position: absolute; bottom: 0; left: 0; right: 0;
+      z-index: 8; padding: 32px 50px 28px;
+      background: linear-gradient(transparent 0%, rgba(0,0,0,0.8) 100%);
+      transition: opacity 1.5s ease;
+    }
+    .mise-en-scene.hidden { opacity: 0; pointer-events: none; }
+    .scene-text {
+      font-family: Georgia, 'Times New Roman', 'Palatino Linotype', serif;
+      font-size: 19px; color: rgba(255,255,255,0.92);
+      font-style: italic; letter-spacing: 1.2px;
+      line-height: 1.6;
+      text-shadow: 0 2px 20px rgba(0,0,0,0.9), 0 0px 8px rgba(0,0,0,0.5);
+      animation: subtitleReveal 2s ease;
+    }
+    @keyframes subtitleReveal {
+      0% { opacity: 0; transform: translateY(12px); letter-spacing: 3px; }
+      100% { opacity: 1; transform: translateY(0); letter-spacing: 1.2px; }
+    }
+    .scene-dots {
+      margin-top: 5px; display: inline-block;
+    }
+    .scene-dots span {
+      font-size: 22px; color: rgba(255,255,255,0.7); opacity: 0;
+      animation: dotFade 1.6s infinite;
+    }
+    .scene-dots span:nth-child(2) { animation-delay: 0.3s; }
+    .scene-dots span:nth-child(3) { animation-delay: 0.6s; }
+    @keyframes dotFade { 0%,80%,100% { opacity:0; } 40% { opacity:1; } }
+
+    /* --- VIGNETTE (assombrissement des bords, effet camera) --- */
+    .vignette {
+      position: absolute; inset: 0; z-index: 9;
+      pointer-events: none; opacity: 0;
+      background: radial-gradient(
+        ellipse 70% 60% at 50% 50%,
+        transparent 0%,
+        transparent 55%,
+        rgba(0,0,0,0.25) 75%,
+        rgba(0,0,0,0.6) 100%
+      );
+      transition: opacity 1.5s ease;
+    }
+    .vignette.active { opacity: 1; }
+    .vignette.intense {
+      background: radial-gradient(
+        ellipse 60% 50% at 50% 50%,
+        transparent 0%,
+        transparent 40%,
+        rgba(0,0,0,0.35) 70%,
+        rgba(0,0,0,0.75) 100%
+      );
+    }
+
+    /* --- GRAIN CANVAS (vrai grain cinema dynamique) --- */
+    #grainCanvas {
+      position: absolute; inset: 0; z-index: 10;
+      width: 100%; height: 100%;
+      pointer-events: none; opacity: 0;
+      mix-blend-mode: overlay;
+      transition: opacity 0.8s ease;
+      image-rendering: pixelated;
+    }
+    #grainCanvas.active { opacity: 1; }
+
+    /* --- LETTERBOX BARS --- */
+    .letterbox-top, .letterbox-bottom {
+      position: absolute; left: 0; right: 0; z-index: 15;
+      background: #000; height: 0;
+      transition: height 1.5s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .letterbox-top { top: 0; }
+    .letterbox-bottom { bottom: 0; }
+    .letterbox-top.active, .letterbox-bottom.active { height: 11%; }
+    .letterbox-top.retract, .letterbox-bottom.retract {
+      height: 0; transition: height 1.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    /* ===== STATUS BADGES ===== */
+    .st-idle { background: #333; color: #999; }
+    .st-connected { background: #0a6; color: #fff; }
+    .st-listening { background: #e94560; color: #fff; animation: pulse 1s infinite; }
+    .st-thinking { background: #f0a030; color: #000; }
+    .st-speaking { background: #7c8cf8; color: #fff; }
+    @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.6; } }
+
+    /* ===== CONTROLS ===== */
+    .controls { padding: 16px; }
+    .btn-row { display: flex; gap: 8px; margin-bottom: 12px; align-items: center; }
+    button { padding: 10px 20px; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.15s; }
+    button:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn-start { background: #0a6; color: #fff; }
+    .btn-start:hover:not(:disabled) { background: #0b7; }
+    .btn-stop { background: #555; color: #fff; }
+    .mic-status { font-size: 12px; color: #888; margin-left: 8px; }
+    .mic-status.active { color: #e94560; }
+
+    /* ===== CHAT ===== */
+    .chat-area { padding: 0 16px 16px; }
+    .chat-input-row { display: flex; gap: 8px; }
+    .chat-input-row input { flex: 1; background: #1a1a3e; border: 1px solid #333; color: #e0e0e0; padding: 10px 14px; border-radius: 8px; font-size: 14px; }
+    .chat-input-row input:focus { outline: none; border-color: #7c8cf8; }
+    .btn-send { background: #7c8cf8; color: #fff; }
+
+    /* ===== SIDE PANEL ===== */
+    .side-panel { flex: 0 0 380px; display: flex; flex-direction: column; gap: 12px; }
+    .panel-box { background: #12122a; border-radius: 12px; border: 1px solid #2a2a4e; }
+    .panel-box h3 { padding: 10px 14px; font-size: 13px; color: #7c8cf8; border-bottom: 1px solid #2a2a4e; }
+    .conversation { padding: 12px; max-height: 400px; overflow-y: auto; }
+    .conv-msg { margin-bottom: 10px; }
+    .conv-msg .who { font-size: 11px; font-weight: 600; margin-bottom: 2px; }
+    .conv-msg .who.user { color: #0a6; }
+    .conv-msg .who.luna { color: #7c8cf8; }
+    .conv-msg .text { font-size: 13px; color: #ccc; line-height: 1.4; }
+    .log-box { padding: 10px; max-height: 200px; overflow-y: auto; font-family: monospace; font-size: 11px; color: #6a6; }
+
+    /* ===== VU METER ===== */
+    .vu-wrap { height: 6px; background: #222; border-radius: 3px; overflow: hidden; margin-top: 8px; }
+    .vu-bar { height: 100%; width: 0%; background: #0a6; transition: width 0.1s; }
+    .vu-bar.recording { background: #e94560; }
+
+    @media (max-width: 900px) {
+      .side-panel { flex: 1 1 100%; }
+      .avatar-panel { min-width: 100%; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <h1>Luna IA</h1>
+    <p>Parle naturellement. Luna detecte ta voix et repond en temps reel.</p>
+  </div>
+
+  <div class="main">
+    <div class="avatar-panel">
+      <div class="avatar-video-wrap" id="avatarWrap">
+
+        <!-- COUCHE 1-3 : Scene + telephone (zoome ensemble) -->
+        <div class="zoom-container" id="zoomContainer">
+          <object id="sceneBackground" class="scene-bg" type="image/svg+xml" data=""></object>
+          <div id="lightSweep" class="light-sweep"></div>
+          <div id="phoneDevice" class="phone-device">
+            <div class="phone-glow"></div>
+            <div class="phone-body">
+              <div class="phone-notch"></div>
+              <div class="phone-screen" id="phoneScreen">
+                <div id="phoneNotification" class="phone-notification">
+                  <div class="caller-icon">L</div>
+                  <div class="caller-name">Luna</div>
+                  <div class="caller-label">Appel entrant...</div>
+                </div>
+                <!-- Video Simli : apparait ICI sur l'ecran du telephone -->
+              </div>
+              <div class="phone-home-btn"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Video Simli : TOUJOURS dans avatarWrap (pas dans le phone) -->
+        <!-- SimliClient a besoin d'un element video accessible et visible -->
+        <video id="simliVideo" autoplay playsinline></video>
+
+        <!-- COUCHE 5 : Sous-titres cinema -->
+        <div id="miseEnScene" class="mise-en-scene hidden">
+          <p id="sceneText" class="scene-text"></p>
+          <div class="scene-dots"><span>.</span><span>.</span><span>.</span></div>
+        </div>
+
+        <!-- COUCHE 6 : Vignette (bords sombres) -->
+        <div id="vignette" class="vignette"></div>
+
+        <!-- COUCHE 7 : Grain cinema (canvas dynamique) -->
+        <canvas id="grainCanvas" width="320" height="180"></canvas>
+
+        <!-- COUCHE 8 : Letterbox bars -->
+        <div id="letterboxTop" class="letterbox-top"></div>
+        <div id="letterboxBottom" class="letterbox-bottom"></div>
+
+        <!-- Audio -->
+        <audio id="simliAudio" autoplay></audio>
+        <audio id="ambientAudio" loop></audio>
+        <audio id="phoneSfx"></audio>
+
+        <!-- Fallback + cam + status -->
+        <canvas id="fallbackCanvas" width="1280" height="720"></canvas>
+        <video id="userCam" autoplay playsinline muted></video>
+        <div id="statusBadge" class="avatar-status st-idle">Deconnecte</div>
+      </div>
+
+      <div class="controls">
+        <div class="btn-row">
+          <button id="btnStart" class="btn-start">Demarrer la visio</button>
+          <button id="btnStop" class="btn-stop" disabled>Deconnecter</button>
+          <button id="btnBack" class="btn-stop" onclick="window.location.href='/'">Retour</button>
+          <span id="micStatus" class="mic-status"></span>
+        </div>
+        <div class="vu-wrap"><div id="vuBar" class="vu-bar"></div></div>
+      </div>
+
+      <div class="chat-area">
+        <div class="chat-input-row">
+          <input id="chatInput" placeholder="Ou tape un message a Luna..." disabled />
+          <button id="btnSend" class="btn-send" disabled>Envoyer</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-panel">
+      <div class="panel-box">
+        <h3>Conversation</h3>
+        <div id="conversation" class="conversation"></div>
+      </div>
+      <div class="panel-box">
+        <h3>Logs</h3>
+        <div id="logBox" class="log-box"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/simli.min.js"></script>
+
+  <script>
+    // =====================================================================
+    // CONFIG
+    // =====================================================================
+    // Chargees dynamiquement depuis /api/config/simli au demarrage
+    let SIMLI_API_KEY = '';
+    let SIMLI_FACE_ID_BASE = '';
+    let simliEmotionId = null; // Sera defini par le backend (status.emotion_id)
+    const BACKEND_WS_URL = (() => {
+      const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const sid = 'simli-' + Math.random().toString(36).substring(2, 10);
+      return `${proto}//${location.host}/ws/simli/${sid}`;
+    })();
+
+    // =====================================================================
+    // PLANNING HORAIRE — decors vivants
+    // =====================================================================
+    const LUNA_SCHEDULE = [
+      { start: 6,  end: 8,  bg: 'bg_bedroom.svg',           ambient: 'ambient_morning.mp3',
+        text: 'Luna se reveille doucement\u2026',
+        phone: { bottom: '25%', right: '60%', width: '55px', height: '96px' },
+        zoomTarget: { x: '40%', y: '75%', scale: 7 } },
+      { start: 8,  end: 10, bg: 'bg_kitchen_morning.svg',    ambient: 'ambient_kitchen.mp3',
+        text: 'Luna prepare son the\u2026',
+        phone: { bottom: '16%', right: '32%', width: '60px', height: '106px' },
+        zoomTarget: { x: '68%', y: '84%', scale: 6 } },
+      { start: 10, end: 12, bg: 'bg_livingroom_day.svg',     ambient: 'ambient_calm.mp3',
+        text: 'Luna lit tranquillement\u2026',
+        phone: { bottom: '18%', right: '20%', width: '55px', height: '96px' },
+        zoomTarget: { x: '80%', y: '82%', scale: 7 } },
+      { start: 12, end: 14, bg: 'bg_kitchen_lunch.svg',      ambient: 'ambient_cooking.mp3',
+        text: 'Luna prepare le dejeuner\u2026',
+        phone: { bottom: '16%', right: '32%', width: '60px', height: '106px' },
+        zoomTarget: { x: '68%', y: '84%', scale: 6 } },
+      { start: 14, end: 16, bg: 'bg_park.svg',               ambient: 'ambient_nature.mp3',
+        text: 'Luna profite du soleil\u2026',
+        phone: { bottom: '22%', right: '40%', width: '52px', height: '92px' },
+        zoomTarget: { x: '60%', y: '78%', scale: 7 } },
+      { start: 16, end: 18, bg: 'bg_workshop.svg',           ambient: 'ambient_creative.mp3',
+        text: "Luna peint dans son atelier\u2026",
+        phone: { bottom: '16%', right: '40%', width: '50px', height: '88px' },
+        zoomTarget: { x: '60%', y: '84%', scale: 7.5 } },
+      { start: 18, end: 20, bg: 'bg_kitchen_dinner.svg',     ambient: 'ambient_cooking.mp3',
+        text: 'Luna cuisine le diner\u2026',
+        phone: { bottom: '16%', right: '32%', width: '60px', height: '106px' },
+        zoomTarget: { x: '68%', y: '84%', scale: 6 } },
+      { start: 20, end: 22, bg: 'bg_livingroom_evening.svg', ambient: 'ambient_cozy.mp3',
+        text: "Luna se detend pres du feu\u2026",
+        phone: { bottom: '20%', right: '22%', width: '55px', height: '96px' },
+        zoomTarget: { x: '78%', y: '80%', scale: 7 } },
+      { start: 22, end: 6,  bg: 'bg_night.svg',              ambient: 'ambient_night.mp3',
+        text: 'Luna se prepare a dormir\u2026',
+        phone: { bottom: '30%', right: '68%', width: '50px', height: '88px' },
+        zoomTarget: { x: '32%', y: '70%', scale: 7.5 } },
+    ];
+
+    function getCurrentScene() {
+      const h = new Date().getHours();
+      return LUNA_SCHEDULE.find(s => {
+        if (s.start < s.end) return h >= s.start && h < s.end;
+        return h >= s.start || h < s.end;
+      }) || LUNA_SCHEDULE[LUNA_SCHEDULE.length - 1];
+    }
+
+    // =====================================================================
+    // DOM
+    // =====================================================================
+    const $ = id => document.getElementById(id);
+    const simliVideo      = $('simliVideo');
+    const simliAudioEl    = $('simliAudio');
+    const fallbackCanvas  = $('fallbackCanvas');
+    const statusBadge     = $('statusBadge');
+    const vuBar           = $('vuBar');
+    const micStatusEl     = $('micStatus');
+    const convEl          = $('conversation');
+    const logBox          = $('logBox');
+    const chatInput       = $('chatInput');
+    const btnStart        = $('btnStart');
+    const btnStop         = $('btnStop');
+    const btnSend         = $('btnSend');
+
+    // Cinematique
+    const sceneBackgroundEl = $('sceneBackground');
+    const zoomContainer     = $('zoomContainer');
+    const miseEnSceneEl     = $('miseEnScene');
+    const sceneTextEl       = $('sceneText');
+    const ambientAudioEl    = $('ambientAudio');
+    const phoneSfxEl        = $('phoneSfx');
+    const phoneDevice       = $('phoneDevice');
+    const phoneScreen       = $('phoneScreen');
+    const phoneNotification = $('phoneNotification');
+    const vignetteEl        = $('vignette');
+    const grainCanvas       = $('grainCanvas');
+    const grainCtx          = grainCanvas.getContext('2d');
+    const lightSweep        = $('lightSweep');
+    const letterboxTop      = $('letterboxTop');
+    const letterboxBottom   = $('letterboxBottom');
+
+    let currentScene = null;
+    let ws = null;
+    let simliClient = null;
+    let simliReady = false;
+    let micStream = null;
+    let micProcessor = null;
+    let micAudioCtx = null;
+    let audioCtx = null;
+    let micChunkCount = 0;
+    let isFirstPipelineDone = true;
+    let grainAnimId = null;
+    let lastGrainTime = 0;
+    let videoHasFrames = false;
+
+    // Detecter quand Simli envoie de vraies frames video
+    function onVideoFrames() {
+      if (videoHasFrames) return; // deja detecte
+      if (simliVideo.videoWidth > 0) {
+        videoHasFrames = true;
+        fallbackCanvas.style.display = 'none';
+        log('SimliAI: FRAMES VIDEO DETECTEES (' + simliVideo.videoWidth + 'x' + simliVideo.videoHeight + ')');
+      }
+    }
+    simliVideo.addEventListener('playing', onVideoFrames);
+    simliVideo.addEventListener('loadeddata', onVideoFrames);
+    simliVideo.addEventListener('resize', onVideoFrames); // quand videoWidth change
+
+    // =====================================================================
+    // VAD
+    // =====================================================================
+    const SPEECH_THRESHOLD = -38;
+    const SILENCE_DELAY = 2000;
+    const SPEECH_START_DELAY = 300;
+    let isRecording = false, isSpeaking = false, vadEnabled = false;
+    let lastSpeechTime = 0, speechStartTime = 0, hasSpeech = false, vadTimer = null;
+
+    // =====================================================================
+    // HELPERS
+    // =====================================================================
+    function log(...a) {
+      const ts = new Date().toLocaleTimeString();
+      const msg = `[${ts}] ${a.join(' ')}`;
+      logBox.textContent += msg + '\n';
+      logBox.scrollTop = logBox.scrollHeight;
+      console.log(msg);
+    }
+    function setStatus(t, c) { statusBadge.textContent = t; statusBadge.className = 'avatar-status ' + c; }
+    function setMicStatus(t, a) { micStatusEl.textContent = t; micStatusEl.className = 'mic-status' + (a ? ' active' : ''); }
+    function addConvMsg(who, text) {
+      const d = document.createElement('div');
+      d.className = 'conv-msg';
+      d.innerHTML = `<div class="who ${who}">${who === 'user' ? 'Vous' : 'Luna'}</div><div class="text">${text}</div>`;
+      convEl.appendChild(d);
+      convEl.scrollTop = convEl.scrollHeight;
+    }
+    function b64ToUint8(b) { const s = atob(b), a = new Uint8Array(s.length); for(let i=0;i<s.length;i++) a[i]=s.charCodeAt(i); return a; }
+    function uint8ToBase64(u) { let b=''; const c=8192; for(let i=0;i<u.length;i+=c) b+=String.fromCharCode.apply(null,u.subarray(i,Math.min(i+c,u.length))); return btoa(b); }
+    function wait(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+    // =====================================================================
+    // FILM GRAIN — canvas dynamique (vrai grain pixel par pixel)
+    // =====================================================================
+    function startGrain() {
+      grainCanvas.classList.add('active');
+      lastGrainTime = 0;
+      function render(now) {
+        grainAnimId = requestAnimationFrame(render);
+        // ~14 fps pour un grain cinema authentique (film 24fps, grain change chaque 2eme frame)
+        if (now - lastGrainTime < 70) return;
+        lastGrainTime = now;
+        const w = 320, h = 180;
+        const img = grainCtx.createImageData(w, h);
+        const d = img.data;
+        for (let i = 0; i < d.length; i += 4) {
+          const v = (Math.random() * 40) | 0;
+          d[i] = d[i+1] = d[i+2] = v;
+          d[i+3] = 18; // tres transparent — subtil
+        }
+        grainCtx.putImageData(img, 0, 0);
+      }
+      render(0);
+    }
+    function stopGrain() {
+      if (grainAnimId) { cancelAnimationFrame(grainAnimId); grainAnimId = null; }
+      grainCtx.clearRect(0, 0, 320, 180);
+      grainCanvas.classList.remove('active');
+    }
+
+    // =====================================================================
+    // CINEMATIQUE — Sequence complete "Luna arrive"
+    // =====================================================================
+
+    // --- ACT 1 : ESTABLISHING SHOT ---
+    async function actEstablishingShot(scene) {
+      currentScene = scene;
+
+      // Reset total
+      zoomContainer.classList.remove('cinematic', 'drifting');
+      zoomContainer.style.transform = '';
+      zoomContainer.style.transformOrigin = '';
+      sceneBackgroundEl.classList.remove('fade-out');
+      simliVideo.classList.remove('visible');
+      simliVideo.style.opacity = '0';
+      phoneDevice.classList.remove('visible', 'vibrating', 'ringing');
+      phoneDevice.style.cssText = '';
+      phoneScreen.classList.remove('lit');
+      phoneNotification.classList.remove('visible');
+      vignetteEl.classList.remove('active', 'intense');
+      lightSweep.classList.remove('active');
+      letterboxTop.classList.remove('retract');
+      letterboxBottom.classList.remove('retract');
+
+      // Positionne le telephone
+      const p = scene.phone;
+      phoneDevice.style.bottom = p.bottom;
+      phoneDevice.style.right = p.right;
+      phoneDevice.style.width = p.width;
+      phoneDevice.style.height = p.height;
+
+      // 1. Grain demarre (sur fond noir = effet pellicule)
+      startGrain();
+
+      // 2. Letterbox glisse (on voit les barres sur le grain/noir)
+      letterboxTop.classList.add('active');
+      letterboxBottom.classList.add('active');
+      await wait(600);
+
+      // 3. Color grading + Ken Burns drift
+      zoomContainer.classList.add('cinematic');
+      zoomContainer.classList.add('drifting');
+
+      // 4. Scene fade in (lent, 2.5s transition CSS)
+      sceneBackgroundEl.data = '/static/assets/backgrounds/' + scene.bg;
+      sceneBackgroundEl.style.opacity = '1';
+
+      // 5. Son ambiant (volume tres bas, monte doucement)
+      ambientAudioEl.src = '/static/assets/sounds/' + scene.ambient;
+      ambientAudioEl.volume = 0;
+      ambientAudioEl.play().catch(() => {});
+      // Fade in ambient sur 3s
+      let ambStep = 0;
+      const ambFade = setInterval(() => {
+        ambStep++;
+        ambientAudioEl.volume = Math.min(0.14, ambStep * 0.007);
+        if (ambStep >= 20) clearInterval(ambFade);
+      }, 150);
+
+      log('CINE: Establishing shot...');
+      await wait(2000);
+
+      // 6. Vignette apparait
+      vignetteEl.classList.add('active');
+      await wait(500);
+
+      // 7. Light sweep (lentille anamorphique)
+      lightSweep.classList.add('active');
+      await wait(500);
+
+      // 8. Sous-titres cinema
+      sceneTextEl.textContent = scene.text;
+      miseEnSceneEl.classList.remove('hidden');
+
+      log('CINE: ' + scene.text);
+    }
+
+    // --- ACT 2 : LE TELEPHONE VIBRE ---
+    async function actPhoneVibrate() {
+      phoneDevice.classList.add('visible');
+      await wait(400);
+
+      // Buzz 1
+      phoneSfxEl.src = '/static/assets/sounds/phone_vibrate.mp3';
+      phoneSfxEl.volume = 0.2;
+      phoneSfxEl.play().catch(() => {});
+      phoneDevice.classList.add('vibrating');
+
+      log('CINE: Le telephone vibre...');
+      await wait(2500);
+
+      // Arret vibration
+      phoneDevice.classList.remove('vibrating');
+    }
+
+    // --- ACT 3 : LUNA APPELLE ---
+    async function actPhoneRing() {
+      phoneDevice.classList.add('ringing');
+      phoneNotification.classList.add('visible');
+
+      phoneSfxEl.src = '/static/assets/sounds/phone_ring.mp3';
+      phoneSfxEl.volume = 0.18;
+      phoneSfxEl.play().catch(() => {});
+
+      log('CINE: Luna appelle...');
+      await wait(3000);
+    }
+
+    // --- ACT 4 : LUNA DECROCHE ---
+    async function actPhoneAnswer() {
+      phoneDevice.classList.remove('ringing');
+      phoneNotification.classList.remove('visible');
+      phoneScreen.classList.add('lit');
+      phoneSfxEl.pause();
+
+      log('CINE: Luna decroche');
+      sceneTextEl.textContent = 'Luna arrive\u2026';
+      await wait(1500);
+    }
+
+    // --- ACT 5 : ZOOM CINEMATIQUE → SIMLI FULLSCREEN ---
+    async function actCinematicZoom() {
+      const zt = currentScene.zoomTarget;
+
+      // 1. Vignette s'intensifie (focus)
+      vignetteEl.classList.add('intense');
+
+      // 2. Sous-titres disparaissent
+      miseEnSceneEl.classList.add('hidden');
+      await wait(500);
+
+      // 3. Stoppe le Ken Burns drift, remplace par zoom vers le telephone
+      zoomContainer.classList.remove('drifting');
+      zoomContainer.style.transition = 'transform 3.5s cubic-bezier(0.25, 0.1, 0.25, 1)';
+      zoomContainer.style.transformOrigin = `${zt.x} ${zt.y}`;
+      zoomContainer.style.transform = `scale(${zt.scale})`;
+
+      log('CINE: Zoom camera vers le telephone...');
+      await wait(2500);
+
+      // 4. Reparenter la video en fullscreen OU afficher le fallback
+      const avatarWrap = $('avatarWrap');
+
+      // 4. Si la video a des frames → montrer Luna
+      if (videoHasFrames) {
+        simliVideo.style.opacity = '';  // CRITIQUE: virer le style inline qui bloquait tout
+        simliVideo.classList.add('visible');
+        sceneBackgroundEl.classList.add('fade-out');
+        log('CINE: Luna visible — video active');
+      } else {
+        // Pas encore de frames → garder le decor en fond + fallback
+        showFallbackAvatar();
+        log('CINE: Pas de video Simli — decor reste visible');
+      }
+
+      // 5. Letterbox se retractent
+      letterboxTop.classList.remove('active');
+      letterboxTop.classList.add('retract');
+      letterboxBottom.classList.remove('active');
+      letterboxBottom.classList.add('retract');
+
+      // 6. Vignette et grain s'eteignent
+      vignetteEl.classList.remove('active', 'intense');
+      stopGrain();
+      zoomContainer.classList.remove('cinematic');
+
+      // 7. Dezoom propre
+      zoomContainer.style.transition = 'transform 2s ease';
+      zoomContainer.style.transform = 'scale(1)';
+
+      log('CINE: Transition');
+      await wait(2500);
+
+      // 8. Nettoyage
+      zoomContainer.style.transform = '';
+      zoomContainer.style.transition = '';
+      zoomContainer.style.transformOrigin = '';
+      if (videoHasFrames) {
+        sceneBackgroundEl.data = '';
+      }
+      phoneDevice.classList.remove('visible');
+
+      // 9. Auto-switch quand les frames arrivent (si pas encore la)
+      if (!videoHasFrames) {
+        log('CINE: En attente de video Simli...');
+        const lateCheck = setInterval(() => {
+          if (videoHasFrames) {
+            clearInterval(lateCheck);
+            fallbackCanvas.style.display = 'none';
+            simliVideo.style.opacity = '';
+            simliVideo.classList.add('visible');
+            sceneBackgroundEl.classList.add('fade-out');
+            setTimeout(() => { sceneBackgroundEl.data = ''; }, 2500);
+            log('CINE: Video Simli arrivee — Luna visible!');
+          }
+        }, 500);
+        setTimeout(() => clearInterval(lateCheck), 60000);
+      }
+
+      log('CINE: Pret');
+    }
+
+    // --- AMBIENT FADE OUT ---
+    function fadeOutAmbient(durationMs) {
+      if (!ambientAudioEl || ambientAudioEl.paused) return;
+      const startVol = ambientAudioEl.volume;
+      const steps = 25;
+      const stepMs = durationMs / steps;
+      let step = 0;
+      const fade = setInterval(() => {
+        step++;
+        ambientAudioEl.volume = Math.max(0, startVol * (1 - step / steps));
+        if (step >= steps) { clearInterval(fade); ambientAudioEl.pause(); ambientAudioEl.volume = 0.14; }
+      }, stepMs);
+    }
+
+    // --- RESET TOTAL ---
+    function hideScene() {
+      // Decor
+      sceneBackgroundEl.classList.remove('fade-out');
+      sceneBackgroundEl.style.opacity = '0';
+      sceneBackgroundEl.data = '';
+      zoomContainer.classList.remove('cinematic', 'drifting');
+      zoomContainer.style.transform = '';
+      zoomContainer.style.transformOrigin = '';
+      zoomContainer.style.transition = '';
+      // Sous-titres
+      miseEnSceneEl.classList.add('hidden');
+      // Video
+      simliVideo.classList.remove('visible');
+      simliVideo.style.opacity = '0';
+      videoHasFrames = false;
+      fallbackCanvas.style.display = 'none';
+      // Telephone
+      phoneDevice.classList.remove('visible', 'vibrating', 'ringing');
+      phoneDevice.style.cssText = '';
+      phoneScreen.classList.remove('lit');
+      phoneNotification.classList.remove('visible');
+      // Effets
+      vignetteEl.classList.remove('active', 'intense');
+      stopGrain();
+      lightSweep.classList.remove('active');
+      letterboxTop.classList.remove('active', 'retract');
+      letterboxBottom.classList.remove('active', 'retract');
+      // Audio
+      ambientAudioEl.pause();
+      phoneSfxEl.pause();
+      currentScene = null;
+    }
+
+    // =====================================================================
+    // SIMLI AI
+    // =====================================================================
+    async function initSimli() {
+      if (typeof SimliClient === 'undefined') { log('ERREUR: SimliClient non charge'); showFallbackAvatar(); return; }
+      try {
+        log('SimliAI: initialisation...');
+        simliClient = new SimliClient();
+        simliClient.Initialize({
+          apiKey: SIMLI_API_KEY, faceID: SIMLI_FACE_ID_BASE,
+          handleSilence: true, maxSessionLength: 3600, maxIdleTime: 300,
+          videoRef: simliVideo, audioRef: simliAudioEl,
+          enableConsoleLogs: false,
+          maxRetryAttempts: 3, retryDelay_ms: 2000,
+        });
+        log('SimliAI: demarrage...');
+        simliClient.on('connected', () => { log('SimliAI EVENT: connected'); simliReady = true; });
+        simliClient.on('disconnected', () => { log('SimliAI EVENT: disconnected'); simliReady = false; });
+        simliClient.on('failed', (reason) => { log('SimliAI EVENT: FAILED — ' + reason); simliReady = false; showFallbackAvatar(); });
+        simliClient.on('speaking', () => { log('SimliAI EVENT: speaking'); });
+        simliClient.on('silent', () => { log('SimliAI EVENT: silent'); });
+
+        try {
+          await simliClient.start();
+          simliReady = true;
+          log('SimliAI: CONNECTE — video devrait arriver');
+        } catch (startErr) {
+          log('SimliAI: start() ECHEC: ' + (startErr.message || startErr));
+          simliReady = false;
+          showFallbackAvatar();
+          return;
+        }
+
+        // Detection premiere frame video (pour transition decor → avatar)
+        log('SimliAI: en attente de frames video...');
+      } catch (e) {
+        log('SimliAI erreur:', e.message || e);
+        simliReady = false; showFallbackAvatar();
+      }
+    }
+    function sendAudioToSimli(pcm16B64) {
+      if (!simliReady || !simliClient) return;
+      try { simliClient.sendAudioData(b64ToUint8(pcm16B64)); } catch (e) { log('SimliAI send err:', e.message); }
+    }
+    function showFallbackAvatar() {
+      // Le decor reste visible — on montre juste un badge discret
+      fallbackCanvas.style.display = 'none'; // pas de canvas opaque par-dessus le decor
+      setStatus('Luna parle (audio)', 'st-speaking');
+      log('Fallback: mode audio, decor reste visible');
+    }
+
+    // =====================================================================
+    // AUDIO FALLBACK
+    // =====================================================================
+    async function playMP3(audioB64) {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      try {
+        const buf = await audioCtx.decodeAudioData(b64ToUint8(audioB64).buffer.slice(0));
+        const src = audioCtx.createBufferSource(); src.buffer = buf;
+        src.connect(audioCtx.destination); src.start(0);
+      } catch (e) { log('Audio err:', e.message); }
+    }
+
+    // =====================================================================
+    // WEBSOCKET
+    // =====================================================================
+    function connectWS() {
+      log('Connexion WS:', BACKEND_WS_URL);
+      ws = new WebSocket(BACKEND_WS_URL);
+      ws.onopen = () => { log('WS connecte'); setStatus('Connecte', 'st-connected'); };
+      ws.onmessage = (ev) => { try { handleMsg(JSON.parse(ev.data)); } catch (e) { log('WS parse err:', e.message); } };
+      ws.onerror = () => log('WS erreur');
+      ws.onclose = () => { log('WS ferme'); setStatus('Deconnecte', 'st-idle'); vadEnabled = false; };
+      return new Promise((res, rej) => {
+        ws.addEventListener('open', res, { once: true });
+        ws.addEventListener('error', rej, { once: true });
+      });
+    }
+
+    function handleMsg(m) {
+      switch (m.type) {
+        case 'stt_final':
+          if (m.text) addConvMsg('user', m.text); break;
+        case 'llm_text':
+          addConvMsg('luna', m.text); setStatus('Luna parle...', 'st-speaking');
+          isSpeaking = true; if (isRecording) vadStopRecording(); break;
+        case 'tts_audio':
+          if (m.audio_b64 && !simliReady) playMP3(m.audio_b64); break;
+        case 'audio_fallback':
+          if (m.data && !simliReady) playMP3(m.data); break;
+        case 'simli_audio':
+          if (m.pcm16_b64) sendAudioToSimli(m.pcm16_b64); break;
+        case 'pipeline_done':
+          isSpeaking = false;
+          if (isFirstPipelineDone) { fadeOutAmbient(4000); isFirstPipelineDone = false; log('Greeting termine'); }
+          setStatus('Pret — parle quand tu veux', 'st-connected');
+          setMicStatus('Micro auto actif — parle...', false);
+          vadEnabled = true; break;
+        case 'ack':
+          if (m.mic === 'stopped') setStatus('Traitement...', 'st-thinking'); break;
+        case 'error':
+          log('ERREUR:', m.message); break;
+        case 'status':
+          if (m.emotion_id) {
+            simliEmotionId = m.emotion_id;
+            log('Emotion Simli: ' + m.emotion_id);
+          }
+          break;
+        default:
+          log('MSG:', m.type);
+      }
+    }
+
+    // =====================================================================
+    // MICROPHONE + VAD
+    // =====================================================================
+    const TARGET_RATE = 16000;
+    function downsample(f, fr, to) { if(fr===to)return f; const r=fr/to,l=Math.floor(f.length/r),o=new Float32Array(l); for(let i=0;i<l;i++)o[i]=f[Math.floor(i*r)]; return o; }
+    function float32ToPcm16(f) { const i=new Int16Array(f.length); for(let j=0;j<f.length;j++){const s=Math.max(-1,Math.min(1,f[j]));i[j]=s<0?s*0x8000:s*0x7FFF;} return new Uint8Array(i.buffer); }
+
+    async function setupMic() {
+      // Essayer audio+video, puis audio seul, puis continuer sans micro
+      try {
+        micStream = await navigator.mediaDevices.getUserMedia({
+          audio: { echoCancellation: true, noiseSuppression: true, channelCount: 1 },
+          video: { width: 320, height: 240, facingMode: 'user' }
+        });
+      } catch (e1) {
+        log('Camera indisponible (' + e1.message + '), essai audio seul...');
+        try {
+          micStream = await navigator.mediaDevices.getUserMedia({
+            audio: { echoCancellation: true, noiseSuppression: true, channelCount: 1 }
+          });
+        } catch (e2) {
+          log('Micro indisponible: ' + e2.message + ' — mode texte uniquement');
+          setMicStatus('Pas de micro — utilise le chat', false);
+          return; // Continue sans micro, le chat texte fonctionne toujours
+        }
+      }
+      if (micStream.getVideoTracks().length > 0) {
+        $('userCam').srcObject = micStream;
+        log('Camera:', micStream.getVideoTracks()[0].label);
+      }
+      const audioTrack = micStream.getAudioTracks()[0];
+      if (!audioTrack) { log('Aucune piste audio'); return; }
+      log('Micro:', audioTrack.label);
+
+      micAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const nativeRate = micAudioCtx.sampleRate;
+      const source = micAudioCtx.createMediaStreamSource(micStream);
+      micProcessor = micAudioCtx.createScriptProcessor(4096, 1, 1);
+
+      micProcessor.onaudioprocess = (e) => {
+        const f32 = e.inputBuffer.getChannelData(0);
+        let sum = 0; for (let i = 0; i < f32.length; i++) sum += f32[i] * f32[i];
+        const rms = Math.sqrt(sum / f32.length);
+        const db = 20 * Math.log10(Math.max(rms, 1e-10));
+        const pct = Math.min(100, Math.max(0, (db + 60) * 100 / 60));
+        vuBar.style.width = pct + '%';
+        vuBar.className = 'vu-bar' + (isRecording ? ' recording' : '');
+
+        const now = Date.now();
+        if (vadEnabled && !isSpeaking) {
+          if (db > SPEECH_THRESHOLD) {
+            lastSpeechTime = now;
+            if (!isRecording) { if (!speechStartTime) speechStartTime = now; if (now - speechStartTime > SPEECH_START_DELAY) vadStartRecording(); }
+          } else { if (!isRecording) speechStartTime = 0; }
+        }
+        if (isRecording && ws && ws.readyState === WebSocket.OPEN) {
+          const pcm16 = float32ToPcm16(downsample(f32, nativeRate, TARGET_RATE));
+          ws.send(JSON.stringify({ type: 'mic_chunk', pcm16_b64: uint8ToBase64(pcm16) }));
+          micChunkCount++;
+          if (micChunkCount === 1) log('MICRO: premier chunk');
+          if (micChunkCount % 100 === 0) log('MICRO: ' + micChunkCount + ' chunks');
+        }
+      };
+      source.connect(micProcessor);
+      micProcessor.connect(micAudioCtx.destination);
+      log('Micro pret');
+      vadTimer = setInterval(() => {
+        if (!vadEnabled || !isRecording || isSpeaking) return;
+        if (Date.now() - lastSpeechTime > SILENCE_DELAY) vadStopRecording();
+      }, 200);
+    }
+
+    function vadStartRecording() {
+      if (isRecording || isSpeaking || !ws || ws.readyState !== WebSocket.OPEN) return;
+      simliAudioEl.muted = true;
+      isRecording = true; micChunkCount = 0; hasSpeech = true;
+      lastSpeechTime = Date.now(); speechStartTime = 0;
+      ws.send(JSON.stringify({ type: 'mic_start', codec: 'pcm16', sample_rate: 16000 }));
+      setStatus('Ecoute...', 'st-listening');
+      setMicStatus('Parole detectee...', true);
+      log('VAD: parole detectee');
+    }
+
+    function vadStopRecording() {
+      if (!isRecording) return;
+      isRecording = false; speechStartTime = 0;
+      simliAudioEl.muted = false; vadEnabled = false;
+      log('VAD: silence — ' + micChunkCount + ' chunks');
+      if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'mic_stop' }));
+      setStatus('Traitement...', 'st-thinking');
+      setMicStatus('Traitement en cours...', false);
+    }
+
+    // =====================================================================
+    // CHAT TEXT
+    // =====================================================================
+    function sendChat() {
+      const text = chatInput.value.trim();
+      if (!text || !ws || ws.readyState !== WebSocket.OPEN) return;
+      vadEnabled = false; if (isRecording) vadStopRecording();
+      ws.send(JSON.stringify({ type: 'user_text_final', text }));
+      addConvMsg('user', text); chatInput.value = '';
+      setStatus('Traitement...', 'st-thinking');
+    }
+
+    // =====================================================================
+    // START / STOP — SEQUENCE CINEMATIQUE COMPLETE
+    // =====================================================================
+    btnStart.onclick = async () => {
+      try {
+        btnStart.disabled = true;
+        isFirstPipelineDone = true;
+
+        // Charger la config Simli depuis le backend
+        try {
+          const cfgResp = await fetch('/api/config/simli');
+          if (cfgResp.ok) {
+            const cfg = await cfgResp.json();
+            SIMLI_API_KEY = cfg.simli_api_key || '';
+            SIMLI_FACE_ID_BASE = cfg.simli_face_id || '';
+            log('Config chargee: face=' + SIMLI_FACE_ID_BASE.substring(0, 8) + '...');
+          }
+        } catch (e) { log('Config fetch echoue, fallback local'); }
+
+        const scene = getCurrentScene();
+
+        // ========================================
+        // ACT 1 : ESTABLISHING SHOT
+        // Noir → grain → letterbox → scene fade in → vignette → sous-titres
+        // ========================================
+        await actEstablishingShot(scene);
+        setStatus('Connexion...', 'st-thinking');
+
+        // ========================================
+        // COULISSES : Connexions en parallele
+        // (pendant que le spectateur admire la scene)
+        // PAS de greeting ici — Luna parlera apres avoir "decroche"
+        // ========================================
+        const t0 = Date.now();
+        await connectWS();
+        // Petit delai pour recevoir le message status (emotion_id)
+        await wait(200);
+        // Simli se connecte en ARRIERE-PLAN (ne bloque pas la cinematique)
+        // Si Simli echoue, on continue en mode audio uniquement
+        initSimli().catch(e => log('SimliAI: init echec, mode audio — ' + (e.message || e)));
+        await setupMic();
+
+        // Minimum 2s de scene apres connexions
+        const remaining = Math.max(0, 2000 - (Date.now() - t0));
+        if (remaining > 0) await wait(remaining);
+
+        // ========================================
+        // ACT 2 : LE TELEPHONE VIBRE
+        // Le spectateur entend/voit le telephone
+        // ========================================
+        await actPhoneVibrate();
+
+        // ========================================
+        // ACT 3 : LUNA APPELLE
+        // Sonnerie + notification + halo
+        // ========================================
+        await actPhoneRing();
+
+        // ========================================
+        // ACT 4 : LUNA DECROCHE
+        // Ecran s'active + sous-titre "Luna arrive..."
+        // ========================================
+        await actPhoneAnswer();
+
+        // MAINTENANT Luna parle — le telephone est decroche
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: 'request_greeting' }));
+          log('CINE: Greeting demande (telephone decroche)');
+        }
+
+        // ========================================
+        // ACT 5 : ZOOM CINEMATIQUE → FACE A FACE
+        // Camera zoome dans le telephone → Simli fullscreen
+        // ========================================
+        await actCinematicZoom();
+
+        // ========================================
+        // CONVERSATION : Luna est la
+        // ========================================
+        btnStop.disabled = false;
+        chatInput.disabled = false;
+        btnSend.disabled = false;
+        log('CINE: Sequence complete — Luna en face-a-face');
+
+      } catch (e) {
+        log('Erreur start:', e.message);
+        setStatus('Erreur', 'st-idle');
+        hideScene(); btnStart.disabled = false;
+      }
+    };
+
+    btnStop.onclick = () => {
+      vadEnabled = false;
+      if (vadTimer) { clearInterval(vadTimer); vadTimer = null; }
+      if (isRecording) vadStopRecording();
+      if (ws) { ws.close(); ws = null; }
+      if (simliClient) { try { simliClient.close(); } catch(e) {} simliClient = null; simliReady = false; }
+      if (micStream) { micStream.getTracks().forEach(t => t.stop()); micStream = null; $('userCam').srcObject = null; }
+      if (micAudioCtx) { micAudioCtx.close(); micAudioCtx = null; }
+      if (audioCtx) { audioCtx.close(); audioCtx = null; }
+      isRecording = false; isSpeaking = false; isFirstPipelineDone = true;
+      videoHasFrames = false;
+      hideScene();
+      chatInput.disabled = true; btnSend.disabled = true; btnStop.disabled = true; btnStart.disabled = false;
+      setStatus('Deconnecte', 'st-idle'); setMicStatus('', false);
+      log('Deconnecte');
+      // Retour a l'app principale apres 1s
+      setTimeout(function() { window.location.href = '/'; }, 1000);
+    };
+
+    btnSend.onclick = sendChat;
+    chatInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') sendChat(); });
+  </script>
+</body>
+</html>

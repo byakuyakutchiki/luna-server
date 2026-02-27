@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720">
+  <defs>
+    <linearGradient id="wall" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#E8E0D8"/>
+      <stop offset="100%" stop-color="#DDD5CC"/>
+    </linearGradient>
+    <radialGradient id="daylight" cx="0.78" cy="0.3" r="0.4">
+      <stop offset="0%" stop-color="#FFFDE8" stop-opacity="0.25"/>
+      <stop offset="100%" stop-color="#FFFDE8" stop-opacity="0"/>
+    </radialGradient>
+    <style>
+      @keyframes lightShift { 0%{opacity:0.2} 50%{opacity:0.28} 100%{opacity:0.2} }
+      .light { animation: lightShift 5s ease-in-out infinite; }
+    </style>
+  </defs>
+
+  <!-- Mur salon -->
+  <rect width="1280" height="720" fill="url(#wall)"/>
+  <!-- Sol parquet -->
+  <rect y="560" width="1280" height="160" fill="#B8956A"/>
+
+  <!-- Bibliotheque -->
+  <rect x="50" y="80" width="350" height="480" rx="6" fill="#8B6F47"/>
+  <rect x="60" y="90" width="330" height="90" fill="#6B4F37"/>
+  <rect x="60" y="190" width="330" height="90" fill="#6B4F37"/>
+  <rect x="60" y="290" width="330" height="90" fill="#6B4F37"/>
+  <rect x="60" y="390" width="330" height="90" fill="#6B4F37"/>
+  <!-- Livres -->
+  <rect x="70" y="100" width="20" height="75" fill="#C44E52"/>
+  <rect x="95" y="105" width="18" height="70" fill="#4E8BC4"/>
+  <rect x="118" y="98" width="22" height="77" fill="#52C44E"/>
+  <rect x="145" y="102" width="16" height="73" fill="#C4A84E"/>
+  <rect x="166" y="100" width="24" height="75" fill="#8B4EC4"/>
+  <rect x="195" y="106" width="18" height="69" fill="#C47A4E"/>
+  <rect x="70" y="200" width="22" height="75" fill="#4EC4A8"/>
+  <rect x="97" y="205" width="20" height="70" fill="#C44E8B"/>
+  <rect x="122" y="198" width="18" height="77" fill="#4E6BC4"/>
+  <rect x="145" y="203" width="24" height="72" fill="#A8C44E"/>
+
+  <!-- Fenetre grande -->
+  <rect x="800" y="80" width="400" height="400" rx="8" fill="#87CEEB" opacity="0.5"/>
+  <rect x="810" y="90" width="380" height="380" rx="4" fill="#B0E0FF" opacity="0.4"/>
+  <rect x="796" y="76" width="408" height="408" rx="10" fill="none" stroke="#C4A882" stroke-width="6"/>
+  <line x1="1000" y1="76" x2="1000" y2="484" stroke="#C4A882" stroke-width="4"/>
+  <line x1="796" y1="280" x2="1204" y2="280" stroke="#C4A882" stroke-width="4"/>
+
+  <!-- Fauteuil -->
+  <rect x="530" y="430" width="250" height="150" rx="25" fill="#8B6F47"/>
+  <rect x="540" y="440" width="230" height="80" rx="18" fill="#A08060"/>
+  <!-- Accoudoirs -->
+  <rect x="510" y="420" width="40" height="140" rx="15" fill="#8B6F47"/>
+  <rect x="760" y="420" width="40" height="140" rx="15" fill="#8B6F47"/>
+
+  <!-- Lumiere -->
+  <rect class="light" width="1280" height="720" fill="url(#daylight)"/>
+</svg>

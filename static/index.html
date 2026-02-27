@@ -967,12 +967,8 @@ function startCall() {
   // Verifier si Simli est disponible
   fetch("/api/config/simli").then(function(r) { return r.json(); }).then(function(cfg) {
     if (cfg.enabled) {
-      // Ouvrir la page cinematique Simli dans le videoOverlay
-      videoFrame.innerHTML = '<iframe src="/simli" style="width:100%;height:100%;border:none;" allow="microphone;camera;autoplay"></iframe>';
-      videoOverlay.classList.add("active");
-      addMsg("Appel video Simli en cours...", "luna");
-      callBtn.disabled = false;
-      callBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15.05 5A5 5 0 0 1 19 8.95M15.05 1A9 9 0 0 1 23 8.94M22 16.92v3a2 2 0 0 1-2.18 2A19.79 19.79 0 0 1 3.07 5.18 2 2 0 0 1 5.11 3h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 11.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 18.92z"/></svg> Visio Luna';
+      // Navigation directe vers Simli (iframe bloque getUserMedia dans WebView APK)
+      window.location.href = "/simli";
       return;
     }
     // Fallback Tavus

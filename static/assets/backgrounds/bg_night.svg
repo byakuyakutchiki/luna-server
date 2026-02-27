@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720">
+  <defs>
+    <linearGradient id="wall" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#1A1A2E"/>
+      <stop offset="100%" stop-color="#16162A"/>
+    </linearGradient>
+    <radialGradient id="veilleuse" cx="0.12" cy="0.55" r="0.25">
+      <stop offset="0%" stop-color="#FFE088" stop-opacity="0.2"/>
+      <stop offset="100%" stop-color="#FFE088" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="moonlight" cx="0.85" cy="0.15" r="0.3">
+      <stop offset="0%" stop-color="#C8D8FF" stop-opacity="0.15"/>
+      <stop offset="100%" stop-color="#C8D8FF" stop-opacity="0"/>
+    </radialGradient>
+    <style>
+      @keyframes starTwinkle { 0%{opacity:0.3} 50%{opacity:0.9} 100%{opacity:0.3} }
+      @keyframes starTwinkle2 { 0%{opacity:0.5} 50%{opacity:1} 100%{opacity:0.5} }
+      @keyframes starTwinkle3 { 0%{opacity:0.4} 50%{opacity:0.8} 100%{opacity:0.4} }
+      @keyframes veilleusePulse { 0%{opacity:0.4} 50%{opacity:0.7} 100%{opacity:0.4} }
+      .star1 { animation: starTwinkle 3s ease-in-out infinite; }
+      .star2 { animation: starTwinkle2 4s ease-in-out infinite 1s; }
+      .star3 { animation: starTwinkle3 3.5s ease-in-out infinite 0.5s; }
+      .veil { animation: veilleusePulse 3s ease-in-out infinite; }
+    </style>
+  </defs>
+
+  <rect width="1280" height="720" fill="url(#wall)"/>
+  <rect y="560" width="1280" height="160" fill="#0D0D1A"/>
+
+  <!-- Fenetre nuit etoilee -->
+  <rect x="800" y="80" width="350" height="350" rx="8" fill="#0A0A2E"/>
+  <rect x="796" y="76" width="358" height="358" rx="10" fill="none" stroke="#2A2A4E" stroke-width="6"/>
+  <line x1="975" y1="76" x2="975" y2="434" stroke="#2A2A4E" stroke-width="4"/>
+  <line x1="796" y1="255" x2="1154" y2="255" stroke="#2A2A4E" stroke-width="4"/>
+  <!-- Etoiles -->
+  <circle class="star1" cx="850" cy="120" r="2" fill="#FFF"/>
+  <circle class="star2" cx="920" cy="150" r="1.5" fill="#FFF"/>
+  <circle class="star3" cx="880" cy="200" r="2" fill="#FFF"/>
+  <circle class="star2" cx="1050" cy="130" r="2.5" fill="#FFF"/>
+  <circle class="star1" cx="1100" cy="180" r="1.5" fill="#FFF"/>
+  <circle class="star3" cx="1020" cy="100" r="2" fill="#FFF"/>
+  <circle class="star1" cx="860" cy="300" r="1.5" fill="#FFF"/>
+  <circle class="star2" cx="1080" cy="350" r="2" fill="#FFF"/>
+  <circle class="star3" cx="950" cy="380" r="1.5" fill="#FFF"/>
+  <!-- Lune -->
+  <circle cx="1080" cy="140" r="30" fill="#FFFDE8" opacity="0.7"/>
+  <circle cx="1090" cy="135" r="28" fill="#0A0A2E" opacity="0.6"/>
+
+  <!-- Lit -->
+  <rect x="300" y="400" width="600" height="160" rx="15" fill="#1A1A30"/>
+  <ellipse cx="420" cy="410" rx="65" ry="25" fill="#2A2A45"/>
+  <ellipse cx="550" cy="412" rx="60" ry="23" fill="#2A2A45"/>
+  <path d="M310 430 Q500 420 890 430 L890 550 L310 550 Z" fill="#22223A"/>
+  <path d="M310 430 Q500 420 890 430 L890 460 Q700 450 310 460 Z" fill="#2A2A48"/>
+
+  <!-- Veilleuse -->
+  <rect x="180" y="400" width="12" height="60" fill="#3A3A50"/>
+  <circle class="veil" cx="186" cy="395" r="15" fill="#FFE088" opacity="0.5"/>
+  <circle cx="186" cy="395" r="8" fill="#FFE088" opacity="0.8"/>
+
+  <!-- Table de nuit -->
+  <rect x="180" y="440" width="80" height="10" rx="3" fill="#1A1A30"/>
+
+  <!-- Lumieres -->
+  <rect width="1280" height="720" fill="url(#veilleuse)"/>
+  <rect width="1280" height="720" fill="url(#moonlight)"/>
+</svg>
