@@ -54,7 +54,7 @@ public class MainActivity extends Activity {
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
 
         // Version dans le User-Agent pour auto-update
-        String currentVersion = "1.2";
+        String currentVersion = "1.3";
         settings.setUserAgentString(settings.getUserAgentString() + " LunaApp/" + currentVersion);
 
         // Cookies (pour la session JWT)

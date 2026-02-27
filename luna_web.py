@@ -1131,8 +1131,8 @@ async def download_apk():
 
 
 # Version APK pour auto-update
-LUNA_APP_VERSION = "1.2"
-LUNA_APP_VERSION_CODE = 3
+LUNA_APP_VERSION = "1.3"
+LUNA_APP_VERSION_CODE = 4
 
 @app.get("/api/app/version")
 async def app_version():
@@ -1141,7 +1141,7 @@ async def app_version():
         "version": LUNA_APP_VERSION,
         "version_code": LUNA_APP_VERSION_CODE,
         "apk_url": "/download/luna.apk",
-        "changelog": "Mise a jour automatique corrigee + meilleure gestion erreurs",
+        "changelog": "Appels planifies, reveil, visio planifiee, jeux salon avec invitation, masquage technos",
     }
 
 
