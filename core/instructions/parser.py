@@ -19,11 +19,17 @@ class ActionType(str, Enum):
     REMINDER = "reminder"  # Rappel au souscripteur
     SMS_CONTACT = "sms_contact"  # SMS à un contact de confiance
     CALL_CONTACT = "call_contact"  # Appeler un contact
+    VISIO_CONTACT = "visio_contact"  # Visio avec un contact
+    WAKE_UP = "wake_up"  # Réveil (appel téléphonique)
     CHECK_IN = "check_in"  # Luna vérifie que tout va bien
     DAILY_ROUTINE = "daily_routine"  # Routine quotidienne
     SURVEILLANCE = "surveillance"  # Surveillance (inactivité, etc.)
     NOTE = "note"  # Prendre une note
     INFORMATION = "information"  # Donner une information
+    READING = "reading"  # Lecture d'un texte/histoire/poème
+    GAME = "game"  # Jeu (quiz, devinette, culture générale)
+    MUSIC = "music"  # Suggestion/ambiance musicale
+    GRATITUDE = "gratitude"  # Exercice de gratitude
 
 
 class RecurrenceType(str, Enum):
@@ -119,8 +125,14 @@ class InstructionParser:
 
     # Mots-clés pour les types d'actions
     ACTION_KEYWORDS = {
-        ActionType.REMINDER: [
-            "rappelle", "rappeler", "rappel", "n'oublie pas", "pense à", "souviens"
+        ActionType.WAKE_UP: [
+            "réveille-moi", "reveille-moi", "réveille moi", "reveille moi",
+            "réveil à", "reveil a", "sonne à", "fais sonner",
+            "réveiller", "comme un réveil", "alarm",
+        ],
+        ActionType.VISIO_CONTACT: [
+            "visio avec", "visioconférence avec", "visioconference avec",
+            "appel vidéo avec", "appel video avec", "visio à", "lance une visio",
         ],
         ActionType.SMS_CONTACT: [
             "envoie un sms", "envoyer un sms", "sms à", "texto à", "message à"
@@ -135,6 +147,24 @@ class InstructionParser:
         ActionType.SURVEILLANCE: [
             "si je ne réponds pas", "si pas de réponse", "si je ne donne pas",
             "surveille", "vérifie que"
+        ],
+        ActionType.READING: [
+            "lis-moi", "lis moi", "raconte-moi", "raconte moi",
+            "lecture de", "poème", "poeme", "histoire",
+        ],
+        ActionType.GAME: [
+            "quiz", "devinette", "jeu de", "culture générale",
+            "joue avec moi", "enigme", "énigme",
+        ],
+        ActionType.MUSIC: [
+            "musique", "chanson", "mélodie", "chante",
+        ],
+        ActionType.GRATITUDE: [
+            "gratitude", "reconnaissant", "remerci",
+            "3 choses positives", "moment positif",
+        ],
+        ActionType.REMINDER: [
+            "rappelle", "rappeler", "rappel", "n'oublie pas", "pense à", "souviens"
         ],
     }
 
@@ -342,6 +372,16 @@ class InstructionParser:
     @classmethod
     def _extract_message(cls, text: str, action_type: ActionType) -> Optional[str]:
         """Extrait le template de message"""
+        if action_type == ActionType.WAKE_UP:
+            return "C'est l'heure de se réveiller ! Bonjour, Luna est là pour bien démarrer votre journée."
+        if action_type == ActionType.READING:
+            return "Lecture du jour"
+        if action_type == ActionType.GAME:
+            return "C'est l'heure du jeu !"
+        if action_type == ActionType.MUSIC:
+            return "Un moment musical pour vous"
+        if action_type == ActionType.GRATITUDE:
+            return "Prenons un moment pour la gratitude. Quelles sont les 3 choses positives de votre journée ?"
         if action_type not in (ActionType.SMS_CONTACT, ActionType.REMINDER):
             return None
 
@@ -367,11 +407,17 @@ class InstructionParser:
         """Calcule la priorité de l'instruction"""
         base_priority = {
             ActionType.SURVEILLANCE: 9,
+            ActionType.WAKE_UP: 8,
             ActionType.CHECK_IN: 7,
             ActionType.SMS_CONTACT: 6,
             ActionType.CALL_CONTACT: 6,
+            ActionType.VISIO_CONTACT: 6,
             ActionType.REMINDER: 5,
             ActionType.DAILY_ROUTINE: 4,
+            ActionType.READING: 3,
+            ActionType.GAME: 3,
+            ActionType.GRATITUDE: 3,
+            ActionType.MUSIC: 3,
             ActionType.NOTE: 2,
             ActionType.INFORMATION: 1,
         }
@@ -415,9 +461,15 @@ class InstructionParser:
             ActionType.REMINDER: "vous rappeler",
             ActionType.SMS_CONTACT: f"envoyer un SMS à {parsed.target}",
             ActionType.CALL_CONTACT: f"appeler {parsed.target}",
+            ActionType.VISIO_CONTACT: f"lancer une visio avec {parsed.target}",
+            ActionType.WAKE_UP: "vous réveiller par un appel",
             ActionType.CHECK_IN: "vous demander comment vous allez",
             ActionType.DAILY_ROUTINE: "vous rappeler votre routine",
             ActionType.SURVEILLANCE: "surveiller votre activité",
+            ActionType.READING: "vous faire une lecture",
+            ActionType.GAME: "vous proposer un jeu",
+            ActionType.MUSIC: "vous proposer un moment musical",
+            ActionType.GRATITUDE: "faire un exercice de gratitude avec vous",
         }
         parts.append(f"Je vais {action_names.get(parsed.action_type, 'exécuter cette action')}")
 

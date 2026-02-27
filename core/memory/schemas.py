@@ -392,10 +392,12 @@ class TrustedContact(BaseModel):
     @classmethod
     def from_redis(cls, data: Dict[str, str]) -> "TrustedContact":
         """Crée depuis format Redis"""
+        if not data.get("phone") or not data.get("name"):
+            raise ValueError(f"Contact Redis corrompu: champs manquants (keys={list(data.keys())})")
         return cls(
             phone=data["phone"],
             name=data["name"],
-            relation=data["relation"],
+            relation=data.get("relation", ""),
             email=data.get("email") or None,
             verified_at=datetime.fromisoformat(data["verified_at"]),
             last_contact=datetime.fromisoformat(data["last_contact"]) if data.get("last_contact") else None,

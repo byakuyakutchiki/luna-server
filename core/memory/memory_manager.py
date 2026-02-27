@@ -394,9 +394,12 @@ class MemoryManager:
         phones = self.redis.get_trusted_contacts(self.tenant_id)
         contacts = []
         for phone in phones:
-            contact = self.get_trusted_contact(phone)
-            if contact:
-                contacts.append(contact)
+            try:
+                contact = self.get_trusted_contact(phone)
+                if contact:
+                    contacts.append(contact)
+            except (ValueError, KeyError) as e:
+                logger.warning(f"Contact corrompu ignore ({phone}): {e}")
         return contacts
 
     def remove_trusted_contact(self, phone: str) -> None:

@@ -64,6 +64,8 @@ class InstructionExecutor:
         sms_service=None,
         safety_guardian=None,
         action_service=None,
+        voice_service=None,
+        visio_service=None,
     ):
         """
         Args:
@@ -71,22 +73,32 @@ class InstructionExecutor:
             sms_service: Service d'envoi SMS
             safety_guardian: Gardien de sécurité
             action_service: Service de confirmation d'actions
+            voice_service: TwilioVoiceClient pour les appels sortants
+            visio_service: TavusClient pour les visioconférences
         """
         self.memory = memory_manager
         self.sms = sms_service
         self.safety = safety_guardian
         self.action_service = action_service
+        self.voice = voice_service
+        self.visio = visio_service
 
         # Handlers par type d'action (alignés avec parser.py ActionType)
         self._handlers: Dict[ActionType, ActionHandler] = {
             ActionType.REMINDER: self._handle_reminder,
             ActionType.SMS_CONTACT: self._handle_sms_contact,
             ActionType.CALL_CONTACT: self._handle_call_contact,
+            ActionType.VISIO_CONTACT: self._handle_visio_contact,
+            ActionType.WAKE_UP: self._handle_wake_up,
             ActionType.CHECK_IN: self._handle_check_in,
             ActionType.DAILY_ROUTINE: self._handle_daily_routine,
             ActionType.SURVEILLANCE: self._handle_surveillance,
             ActionType.NOTE: self._handle_note,
             ActionType.INFORMATION: self._handle_information,
+            ActionType.READING: self._handle_reading,
+            ActionType.GAME: self._handle_game,
+            ActionType.MUSIC: self._handle_music,
+            ActionType.GRATITUDE: self._handle_gratitude,
         }
 
     async def execute(
@@ -168,7 +180,9 @@ class InstructionExecutor:
         confirmation_required = {
             ActionType.SMS_CONTACT,
             ActionType.CALL_CONTACT,
+            ActionType.VISIO_CONTACT,
         }
+        # Le réveil ne demande PAS confirmation (sinon ça sert à rien)
         return instruction.action_type in confirmation_required
 
     async def _request_confirmation(
@@ -220,6 +234,8 @@ class InstructionExecutor:
             return f"envoyer un SMS à {target}"
         elif instruction.action_type == ActionType.CALL_CONTACT:
             return f"appeler {target}"
+        elif instruction.action_type == ActionType.VISIO_CONTACT:
+            return f"lancer une visio avec {target}"
         else:
             return instruction.original_text
 
@@ -388,24 +404,210 @@ class InstructionExecutor:
         context: Dict[str, Any],
     ) -> ExecutionResult:
         """
-        Gère les appels téléphoniques aux contacts.
+        Gère les appels téléphoniques aux contacts via Twilio Voice.
 
-        IMPORTANT: Nécessite confirmation préalable.
-        Note: Fonctionnalité future via Twilio Voice.
+        Luna appelle le contact, et quand il décroche, il parle avec Luna
+        via OpenAI Realtime (Media Stream).
         """
+        if not self.voice:
+            return ExecutionResult(
+                status=ExecutionStatus.FAILED,
+                instruction_id="",
+                action_type=ActionType.CALL_CONTACT,
+                message="Service d'appel vocal non disponible",
+                error="voice_service_unavailable",
+            )
+
         target = instruction.target
+        if not target or target in ("self", "contact_unknown"):
+            return ExecutionResult(
+                status=ExecutionStatus.FAILED,
+                instruction_id="",
+                action_type=ActionType.CALL_CONTACT,
+                message="Aucun destinataire spécifié pour l'appel",
+                error="no_recipient",
+            )
+
+        # Résoudre le numéro du contact
+        phone_number = await self._resolve_contact_phone(target, context)
+        if not phone_number:
+            return ExecutionResult(
+                status=ExecutionStatus.FAILED,
+                instruction_id="",
+                action_type=ActionType.CALL_CONTACT,
+                message=f"Numéro de téléphone non trouvé pour {target}",
+                error="contact_not_found",
+            )
+
+        # Lancer l'appel via Twilio
+        success, data = await self.voice.initiate_call_async(phone_number)
+
+        if success:
+            return ExecutionResult(
+                status=ExecutionStatus.SUCCESS,
+                instruction_id="",
+                action_type=ActionType.CALL_CONTACT,
+                message=f"Appel lancé vers {target}",
+                details={
+                    "recipient": target,
+                    "phone": phone_number,
+                    "call_sid": data.get("call_sid", ""),
+                },
+            )
+        else:
+            return ExecutionResult(
+                status=ExecutionStatus.FAILED,
+                instruction_id="",
+                action_type=ActionType.CALL_CONTACT,
+                message=f"Échec de l'appel vers {target}",
+                error=data.get("error", "unknown_error"),
+            )
+
+    async def _handle_visio_contact(
+        self,
+        instruction: ParsedInstruction,
+        context: Dict[str, Any],
+    ) -> ExecutionResult:
+        """
+        Gère les visioconférences planifiées avec un contact.
+
+        Crée la session Tavus et envoie le lien par SMS au contact.
+        """
+        if not self.visio:
+            return ExecutionResult(
+                status=ExecutionStatus.FAILED,
+                instruction_id="",
+                action_type=ActionType.VISIO_CONTACT,
+                message="Service visio non disponible",
+                error="visio_service_unavailable",
+            )
+        if not self.sms:
+            return ExecutionResult(
+                status=ExecutionStatus.FAILED,
+                instruction_id="",
+                action_type=ActionType.VISIO_CONTACT,
+                message="Service SMS non disponible pour envoyer le lien visio",
+                error="sms_service_unavailable",
+            )
+
+        target = instruction.target
+        if not target or target in ("self", "contact_unknown"):
+            return ExecutionResult(
+                status=ExecutionStatus.FAILED,
+                instruction_id="",
+                action_type=ActionType.VISIO_CONTACT,
+                message="Aucun contact spécifié pour la visio",
+                error="no_recipient",
+            )
+
+        phone_number = await self._resolve_contact_phone(target, context)
+        if not phone_number:
+            return ExecutionResult(
+                status=ExecutionStatus.FAILED,
+                instruction_id="",
+                action_type=ActionType.VISIO_CONTACT,
+                message=f"Numéro non trouvé pour {target}",
+                error="contact_not_found",
+            )
+
+        # Créer la visio Tavus
+        tenant_id = context.get("tenant_id", 0)
+        import os
+        visio_max = int(os.getenv("VISIO_MAX_DURATION", "15")) * 60
+        greeting = f"Bonjour {target} ! C'est Luna. Bienvenue en visio !"
+        visio_context = f"Tu es Luna. Visio planifiée avec {target}. Sois chaleureuse."
+
+        success_visio, data = await self.visio.create_conversation(
+            tenant_id=tenant_id,
+            custom_greeting=greeting,
+            context=visio_context,
+            max_duration=visio_max,
+        )
+        if not success_visio:
+            return ExecutionResult(
+                status=ExecutionStatus.FAILED,
+                instruction_id="",
+                action_type=ActionType.VISIO_CONTACT,
+                message=f"Impossible de créer la visio : {data.get('error', 'inconnu')}",
+                error="visio_creation_failed",
+            )
+
+        visio_url = data["conversation_url"]
+
+        # Envoyer le lien par SMS
+        from integrations.twilio.sms_client import TwilioSMSClient
+        normalized = TwilioSMSClient.normalize_phone(phone_number)
+        invite_msg = f"[Luna] Visio planifiée ! Rejoignez ici : {visio_url}"
+        success_sms, _ = self.sms.send(normalized, invite_msg)
 
         return ExecutionResult(
-            status=ExecutionStatus.BLOCKED,
+            status=ExecutionStatus.SUCCESS if success_sms else ExecutionStatus.PARTIAL,
             instruction_id="",
-            action_type=ActionType.CALL_CONTACT,
-            message=f"Les appels téléphoniques vers {target} seront disponibles prochainement",
+            action_type=ActionType.VISIO_CONTACT,
+            message=f"Visio créée avec {target}" + (" (SMS envoyé)" if success_sms else " (échec SMS, lien disponible)"),
             details={
-                "target": target,
-                "feature_status": "coming_soon",
+                "recipient": target,
+                "visio_url": visio_url,
+                "sms_sent": success_sms,
             },
-            error="feature_not_implemented",
         )
+
+    async def _handle_wake_up(
+        self,
+        instruction: ParsedInstruction,
+        context: Dict[str, Any],
+    ) -> ExecutionResult:
+        """
+        Gère le réveil : Luna appelle le souscripteur via Twilio.
+
+        Le téléphone sonne comme un réveil. Quand le souscripteur décroche,
+        Luna lui dit bonjour via OpenAI Realtime.
+        """
+        if not self.voice:
+            return ExecutionResult(
+                status=ExecutionStatus.FAILED,
+                instruction_id="",
+                action_type=ActionType.WAKE_UP,
+                message="Service d'appel vocal non disponible pour le réveil",
+                error="voice_service_unavailable",
+            )
+
+        # Le réveil appelle le souscripteur (pas un contact)
+        # On utilise le numéro admin/subscriber depuis le contexte ou l'env
+        import os
+        subscriber_phone = context.get("subscriber_phone") or os.getenv("ADMIN_PHONE", "")
+
+        if not subscriber_phone:
+            return ExecutionResult(
+                status=ExecutionStatus.FAILED,
+                instruction_id="",
+                action_type=ActionType.WAKE_UP,
+                message="Numéro du souscripteur non configuré pour le réveil",
+                error="no_subscriber_phone",
+            )
+
+        success, data = await self.voice.initiate_call_async(subscriber_phone)
+
+        if success:
+            return ExecutionResult(
+                status=ExecutionStatus.SUCCESS,
+                instruction_id="",
+                action_type=ActionType.WAKE_UP,
+                message="Réveil lancé ! Luna vous appelle.",
+                details={
+                    "phone": subscriber_phone,
+                    "call_sid": data.get("call_sid", ""),
+                    "delivery_method": "twilio_call",
+                },
+            )
+        else:
+            return ExecutionResult(
+                status=ExecutionStatus.FAILED,
+                instruction_id="",
+                action_type=ActionType.WAKE_UP,
+                message="Échec du réveil (appel impossible)",
+                error=data.get("error", "unknown_error"),
+            )
 
     async def _handle_check_in(
         self,
@@ -590,6 +792,74 @@ class InstructionExecutor:
             followup_action="speak_to_user",
         )
 
+    async def _handle_reading(
+        self,
+        instruction: ParsedInstruction,
+        context: Dict[str, Any],
+    ) -> ExecutionResult:
+        """Luna lit un texte, une histoire ou un poème au souscripteur."""
+        message = instruction.message_template or "C'est l'heure de votre moment lecture. Installez-vous confortablement."
+        return ExecutionResult(
+            status=ExecutionStatus.SUCCESS,
+            instruction_id="",
+            action_type=ActionType.READING,
+            message=message,
+            details={"delivery_method": "luna_voice", "reading_type": "story"},
+            requires_followup=True,
+            followup_action="speak_to_user",
+        )
+
+    async def _handle_game(
+        self,
+        instruction: ParsedInstruction,
+        context: Dict[str, Any],
+    ) -> ExecutionResult:
+        """Luna propose un jeu (quiz, devinette, culture générale)."""
+        message = instruction.message_template or "C'est l'heure du jeu ! Prêt pour un petit quiz ?"
+        return ExecutionResult(
+            status=ExecutionStatus.SUCCESS,
+            instruction_id="",
+            action_type=ActionType.GAME,
+            message=message,
+            details={"delivery_method": "luna_voice", "game_type": "quiz"},
+            requires_followup=True,
+            followup_action="initiate_game_conversation",
+        )
+
+    async def _handle_music(
+        self,
+        instruction: ParsedInstruction,
+        context: Dict[str, Any],
+    ) -> ExecutionResult:
+        """Luna propose un moment musical (chante, fredonne, suggère)."""
+        message = instruction.message_template or "C'est votre moment musical. Que souhaitez-vous écouter aujourd'hui ?"
+        return ExecutionResult(
+            status=ExecutionStatus.SUCCESS,
+            instruction_id="",
+            action_type=ActionType.MUSIC,
+            message=message,
+            details={"delivery_method": "luna_voice"},
+            requires_followup=True,
+            followup_action="speak_to_user",
+        )
+
+    async def _handle_gratitude(
+        self,
+        instruction: ParsedInstruction,
+        context: Dict[str, Any],
+    ) -> ExecutionResult:
+        """Luna guide un exercice de gratitude."""
+        message = instruction.message_template or "Prenons un moment pour la gratitude. Quelles sont les 3 choses positives de votre journée ?"
+        return ExecutionResult(
+            status=ExecutionStatus.SUCCESS,
+            instruction_id="",
+            action_type=ActionType.GRATITUDE,
+            message=message,
+            details={"delivery_method": "luna_voice"},
+            requires_followup=True,
+            followup_action="initiate_gratitude_conversation",
+        )
+
     async def _handle_generic(
         self,
         instruction: ParsedInstruction,
@@ -689,6 +959,8 @@ def create_instruction_executor(
     sms_service=None,
     safety_guardian=None,
     action_service=None,
+    voice_service=None,
+    visio_service=None,
 ) -> InstructionExecutor:
     """
     Factory pour créer un InstructionExecutor configuré.
@@ -698,6 +970,8 @@ def create_instruction_executor(
         sms_service: SMSService pour l'envoi de SMS
         safety_guardian: SafetyGuardian pour les vérifications
         action_service: ActionService pour les confirmations
+        voice_service: TwilioVoiceClient pour les appels sortants
+        visio_service: TavusClient pour les visioconférences
 
     Returns:
         InstructionExecutor configuré
@@ -707,4 +981,6 @@ def create_instruction_executor(
         sms_service=sms_service,
         safety_guardian=safety_guardian,
         action_service=action_service,
+        voice_service=voice_service,
+        visio_service=visio_service,
     )

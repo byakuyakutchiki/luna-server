@@ -94,6 +94,45 @@ class InstructionTemplate:
         elif self.action_type == ActionType.SURVEILLANCE:
             return f"Si je ne réponds pas, {message}"
 
+        elif self.action_type == ActionType.CALL_CONTACT:
+            if target_contact and time_str:
+                return f"Appelle {target_contact} à {time_str}"
+            elif target_contact:
+                return f"Appelle {target_contact}"
+            return f"Appelle mon contact à {time_str}" if time_str else "Appelle mon contact"
+
+        elif self.action_type == ActionType.VISIO_CONTACT:
+            if target_contact and time_str:
+                return f"Lance une visio avec {target_contact} à {time_str}"
+            elif target_contact:
+                return f"Lance une visio avec {target_contact}"
+            return f"Lance une visio à {time_str}" if time_str else "Lance une visio"
+
+        elif self.action_type == ActionType.WAKE_UP:
+            if time_str:
+                return f"Réveille-moi à {time_str}"
+            return "Réveille-moi"
+
+        elif self.action_type == ActionType.READING:
+            if time_str:
+                return f"Lis-moi quelque chose à {time_str}"
+            return "Lis-moi quelque chose"
+
+        elif self.action_type == ActionType.GAME:
+            if time_str:
+                return f"Propose-moi un jeu à {time_str}"
+            return "Propose-moi un jeu"
+
+        elif self.action_type == ActionType.MUSIC:
+            if time_str:
+                return f"Moment musical à {time_str}"
+            return "Propose-moi un moment musical"
+
+        elif self.action_type == ActionType.GRATITUDE:
+            if time_str:
+                return f"Exercice de gratitude à {time_str}"
+            return "Faisons un exercice de gratitude"
+
         elif self.action_type == ActionType.INFORMATION:
             if time_str:
                 return f"Informe-moi à {time_str}: {message}"
@@ -338,6 +377,141 @@ TEMPLATE_SLEEP_REMINDER = InstructionTemplate(
     icon="😴",
 )
 
+# --- Réveil & Appels ---
+
+TEMPLATE_WAKE_UP = InstructionTemplate(
+    id="wake_up",
+    name="Réveil Luna",
+    description="Luna vous appelle pour vous réveiller (le téléphone sonne)",
+    category=TemplateCategory.DAILY,
+    action_type=ActionType.WAKE_UP,
+    default_recurrence=RecurrenceType.DAILY,
+    default_time=time(7, 0),
+    default_message="C'est l'heure de se réveiller ! Bonjour, Luna est là.",
+    example_phrases=[
+        "Réveille-moi à 7h tous les matins",
+        "Fais sonner mon téléphone à 6h30 en semaine",
+        "Sers-moi de réveil à 8h",
+    ],
+    icon="⏰",
+)
+
+TEMPLATE_CALL_CONTACT = InstructionTemplate(
+    id="call_contact",
+    name="Appel planifié",
+    description="Luna appelle un contact de confiance à une heure donnée",
+    category=TemplateCategory.SOCIAL,
+    action_type=ActionType.CALL_CONTACT,
+    default_recurrence=RecurrenceType.WEEKLY,
+    default_time=time(15, 0),
+    default_message="Appel planifié avec Luna",
+    example_phrases=[
+        "Appelle ma fille tous les dimanches à 15h",
+        "Téléphone à Marie chaque mercredi à 14h",
+    ],
+    icon="📞",
+)
+
+TEMPLATE_VISIO_CONTACT = InstructionTemplate(
+    id="visio_contact",
+    name="Visio planifiée",
+    description="Luna lance une visio avec un contact (envoie le lien par SMS)",
+    category=TemplateCategory.SOCIAL,
+    action_type=ActionType.VISIO_CONTACT,
+    default_recurrence=RecurrenceType.WEEKLY,
+    default_time=time(14, 0),
+    default_message="Visio planifiée avec Luna",
+    example_phrases=[
+        "Lance une visio avec mon fils tous les samedis à 14h",
+        "Visio avec Marie chaque dimanche à 11h",
+    ],
+    icon="🎥",
+)
+
+# --- Divertissement & Bien-être mental ---
+
+TEMPLATE_READING = InstructionTemplate(
+    id="reading",
+    name="Moment lecture",
+    description="Luna vous lit une histoire, un poème ou un texte",
+    category=TemplateCategory.WELLBEING,
+    action_type=ActionType.READING,
+    default_recurrence=RecurrenceType.DAILY,
+    default_time=time(15, 0),
+    default_message="C'est l'heure de votre moment lecture. Installez-vous confortablement.",
+    example_phrases=[
+        "Lis-moi une histoire chaque après-midi",
+        "Raconte-moi un poème tous les soirs à 20h",
+        "Fais-moi la lecture à 15h",
+    ],
+    icon="📖",
+)
+
+TEMPLATE_GAME = InstructionTemplate(
+    id="game",
+    name="Jeu quotidien",
+    description="Luna vous propose un quiz ou une devinette",
+    category=TemplateCategory.WELLBEING,
+    action_type=ActionType.GAME,
+    default_recurrence=RecurrenceType.DAILY,
+    default_time=time(16, 0),
+    default_message="C'est l'heure du jeu ! Prêt pour un petit quiz ?",
+    example_phrases=[
+        "Propose-moi un quiz tous les jours à 16h",
+        "Fais-moi une devinette chaque matin",
+        "Joue avec moi à la culture générale",
+    ],
+    icon="🎯",
+)
+
+TEMPLATE_MUSIC = InstructionTemplate(
+    id="music",
+    name="Moment musical",
+    description="Luna vous propose un moment musical (chante, fredonne, suggère)",
+    category=TemplateCategory.WELLBEING,
+    action_type=ActionType.MUSIC,
+    default_recurrence=RecurrenceType.DAILY,
+    default_time=time(17, 0),
+    default_message="C'est votre moment musical !",
+    example_phrases=[
+        "Chante-moi une chanson tous les soirs",
+        "Propose-moi de la musique à 17h",
+    ],
+    icon="🎵",
+)
+
+TEMPLATE_GRATITUDE = InstructionTemplate(
+    id="gratitude",
+    name="Exercice de gratitude",
+    description="Luna guide un exercice de gratitude (3 choses positives)",
+    category=TemplateCategory.WELLBEING,
+    action_type=ActionType.GRATITUDE,
+    default_recurrence=RecurrenceType.DAILY,
+    default_time=time(20, 30),
+    default_message="Prenons un moment pour la gratitude. Quelles sont les 3 choses positives de votre journée ?",
+    example_phrases=[
+        "Fais un exercice de gratitude avec moi chaque soir",
+        "Demande-moi 3 choses positives tous les jours à 20h30",
+    ],
+    icon="🙏",
+)
+
+TEMPLATE_WAKE_UP_WEEKEND = InstructionTemplate(
+    id="wake_up_weekend",
+    name="Réveil week-end",
+    description="Réveil plus tardif le week-end",
+    category=TemplateCategory.DAILY,
+    action_type=ActionType.WAKE_UP,
+    default_recurrence=RecurrenceType.WEEKEND,
+    default_time=time(9, 0),
+    default_message="Bonjour ! Bon week-end ! Luna est là pour vous.",
+    example_phrases=[
+        "Réveille-moi à 9h le week-end",
+        "Le samedi et dimanche, réveil à 9h",
+    ],
+    icon="🌅",
+)
+
 
 # =============================================================================
 # CATALOGUE DES TEMPLATES
@@ -348,15 +522,23 @@ COMMON_TEMPLATES: Dict[str, InstructionTemplate] = {
     "hydration": TEMPLATE_HYDRATION,
     "walk_reminder": TEMPLATE_WALK_REMINDER,
     "stretching": TEMPLATE_STRETCHING,
+    "reading": TEMPLATE_READING,
+    "game": TEMPLATE_GAME,
+    "music": TEMPLATE_MUSIC,
+    "gratitude": TEMPLATE_GRATITUDE,
     # Sécurité
     "check_in_morning": TEMPLATE_CHECK_IN_MORNING,
     "check_in_evening": TEMPLATE_CHECK_IN_EVENING,
     "no_response_alert": TEMPLATE_NO_RESPONSE_ALERT,
     # Social
     "weekly_call_reminder": TEMPLATE_WEEKLY_CALL_REMINDER,
+    "call_contact": TEMPLATE_CALL_CONTACT,
+    "visio_contact": TEMPLATE_VISIO_CONTACT,
     "sms_to_family": TEMPLATE_SMS_TO_FAMILY,
     "birthday_reminder": TEMPLATE_BIRTHDAY_REMINDER,
     # Quotidien
+    "wake_up": TEMPLATE_WAKE_UP,
+    "wake_up_weekend": TEMPLATE_WAKE_UP_WEEKEND,
     "meal_reminder": TEMPLATE_MEAL_REMINDER,
     "activity_reminder": TEMPLATE_ACTIVITY_REMINDER,
     "tv_program": TEMPLATE_TV_PROGRAM,
@@ -414,9 +596,11 @@ def find_matching_template(text: str) -> Optional[InstructionTemplate]:
         ("boire", "eau", "hydrat"): "hydration",
         ("promenade", "marcher", "marche", "balade"): "walk_reminder",
         ("étirement", "étirer", "stretching"): "stretching",
+        ("réveil", "reveil", "réveille", "reveille", "sonne", "alarm"): "wake_up",
+        ("visio", "vidéo", "video", "visioconférence"): "visio_contact",
         ("vérifie", "vérifier", "comment vas", "bien-être"): "check_in_morning",
         ("alerte", "préviens", "alerter", "pas de réponse"): "no_response_alert",
-        ("appeler", "téléphone", "appel"): "weekly_call_reminder",
+        ("appeler", "téléphone", "appel"): "call_contact",
         ("sms", "message", "texto"): "sms_to_family",
         ("anniversaire", "fête"): "birthday_reminder",
         ("manger", "repas", "déjeuner", "dîner"): "meal_reminder",
@@ -424,6 +608,10 @@ def find_matching_template(text: str) -> Optional[InstructionTemplate]:
         ("émission", "programme", "télé", "journal"): "tv_program",
         ("météo", "temps", "température"): "weather_info",
         ("coucher", "dormir", "sommeil"): "sleep_reminder",
+        ("lis", "lire", "lecture", "histoire", "poème", "raconte"): "reading",
+        ("quiz", "devinette", "jeu", "joue", "énigme"): "game",
+        ("musique", "chanson", "chante", "mélodie"): "music",
+        ("gratitude", "reconnaissant", "positif", "remerci"): "gratitude",
     }
 
     for keywords, template_id in keyword_mapping.items():
