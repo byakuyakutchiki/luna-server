@@ -141,6 +141,7 @@ input::placeholder { color: var(--text-dim); }
 .participant-dot { width:8px; height:8px; border-radius:50%; background:var(--green); flex-shrink:0; }
 .participant-name { flex:1; font-size:0.9em; color:var(--text); }
 .host-badge { font-size:0.7em; padding:2px 8px; border-radius:6px; background:var(--gold-dim); color:var(--gold); font-weight:600; }
+.invite-header-btn { background:linear-gradient(135deg,#7c3aed,#a78bfa); color:#fff; border:none; border-radius:16px; padding:6px 14px; font-size:0.8em; font-weight:600; cursor:pointer; white-space:nowrap; }
 .invite-member-btn { display:flex; align-items:center; gap:8px; width:100%; padding:10px 16px; background:transparent; border:1px solid #7c3aed; border-radius:8px; color:#a78bfa; font-size:0.85em; cursor:pointer; transition:all 0.2s; margin-bottom:6px; }
 .invite-member-btn:hover { background:#7c3aed; color:#fff; }
 .invite-member-btn.sent { border-color:#4ade80; color:#4ade80; cursor:default; }
@@ -1427,6 +1428,7 @@ input::placeholder { color: var(--text-dim); }
       <div class="room-type-badge" id="roomTypeBadge"></div>
     </div>
     <button class="participants-toggle" id="participantsToggle" onclick="toggleParticipants()">&#128101; <span id="participantsCount">0</span></button>
+    <button class="invite-header-btn hidden" id="inviteHeaderBtn" onclick="toggleParticipants();loadInvitableMembers();" title="Inviter un proche">&#128233; Inviter</button>
     <button class="close-room-btn hidden" id="closeRoomBtn" onclick="closeRoom()" title="Fermer le salon">&#10005;</button>
   </header>
   <div class="ws-status-bar" id="wsStatusBar"><span id="wsStatusText">Connexion perdue...</span></div>
@@ -1952,7 +1954,7 @@ function loadRoomData(roomId) {
     document.title="Luna Salon - "+(data.name||"Salon");
     var tk=data.type||"chat";
     $("roomTypeBadge").textContent=(TYPE_ICONS[tk]||"")+" "+(TYPE_LABELS[tk]||tk);
-    if(S.isHost) show("closeRoomBtn"); else hide("closeRoomBtn");
+    if(S.isHost){ show("closeRoomBtn"); show("inviteHeaderBtn"); } else { hide("closeRoomBtn"); hide("inviteHeaderBtn"); }
     S.participants=data.participants||[]; renderParticipants();
     setupRoomLayout(tk);
     if(data.messages&&data.messages.length){
@@ -4228,25 +4230,40 @@ window.startGame = function(type) {
   wsSend({type:"game_start",game_type:type});
 };
 
-/* INVITE FAMILY MEMBERS */
+/* INVITE FAMILY MEMBERS + CONTACTS */
+window.loadInvitableMembers = loadInvitableMembers;
 function loadInvitableMembers() {
   var sec=$("inviteSection");
   if(!sec||!S.isHost) return;
-  authFetch("/api/family").then(function(r){ return r.json(); }).then(function(data){
-    var members=data.members||data||[];
-    if(!members.length){ sec.style.display="none"; return; }
+  // Charger famille ET contacts en parallele
+  Promise.all([
+    authFetch("/api/family").then(function(r){ return r.json(); }).catch(function(){ return {members:[]}; }),
+    authFetch("/api/contacts").then(function(r){ return r.json(); }).catch(function(){ return {contacts:[]}; })
+  ]).then(function(results){
+    var familyMembers=results[0].members||results[0]||[];
+    var contacts=results[1].contacts||[];
+    // Fusionner en evitant les doublons (par phone)
+    var seen={};
+    var allPeople=[];
+    familyMembers.forEach(function(m){
+      var phone=m.phone||"";
+      if(phone&&!seen[phone]){ seen[phone]=true; allPeople.push({phone:phone,name:m.name||m.first_name||phone}); }
+    });
+    contacts.forEach(function(c){
+      var phone=c.phone||"";
+      if(phone&&!seen[phone]){ seen[phone]=true; allPeople.push({phone:phone,name:c.name||phone}); }
+    });
+    if(!allPeople.length){ sec.style.display="none"; return; }
     sec.style.display="block";
     var connPhones=S.participants.map(function(p){ return p.phone; });
     var html="";
-    members.forEach(function(m){
-      var phone=m.phone||"";
-      var name=m.name||m.first_name||phone;
-      if(connPhones.indexOf(phone)>=0) return;
-      html+='<button class="invite-member-btn" id="inv-'+phone.replace(/[^a-zA-Z0-9]/g,"")+'" onclick="inviteMemberToRoom(\''+phone+'\',\''+escapeHtml(name)+'\',this)">&#128233; Inviter '+escapeHtml(name)+'</button>';
+    allPeople.forEach(function(p){
+      if(connPhones.indexOf(p.phone)>=0) return;
+      html+='<button class="invite-member-btn" id="inv-'+p.phone.replace(/[^a-zA-Z0-9]/g,"")+'" onclick="inviteMemberToRoom(\''+p.phone+'\',\''+escapeHtml(p.name)+'\',this)">&#128233; Inviter '+escapeHtml(p.name)+'</button>';
     });
     if(!html) html='<p style="color:#666;font-size:0.8em;padding:0 4px;">Tous tes proches sont d\u00e9j\u00e0 l\u00e0 !</p>';
     $("invitableMembersList").innerHTML=html;
-  }).catch(function(){ sec.style.display="none"; });
+  });
 }
 
 window.inviteMemberToRoom = function(phone, name, btn) {
