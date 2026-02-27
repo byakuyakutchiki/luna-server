@@ -768,12 +768,36 @@ async def heartbeat(request: Request):
 
     sops.set_online(tid)
 
+    # Auto-init social profile if missing (so friends can see us)
+    if not sops.get_social_profile(tid):
+        rc = sops.rc
+        luna_profile = rc.get_profile(tid)
+        nickname = ""
+        is_minor = "false"
+        age_verified = "false"
+        if luna_profile:
+            nickname = luna_profile.get("first_name", "") or f"User{tid}"
+            dob = luna_profile.get("date_of_birth", "")
+            if dob:
+                age = _compute_age(dob)
+                is_minor = "true" if age < 16 else "false"
+                age_verified = "true"
+        sops.set_social_profile(tid, {
+            "tid": str(tid), "nickname": nickname or f"User{tid}",
+            "bio": "", "avatar_type": "adult_man", "frame": "",
+            "level": "1", "age_verified": age_verified, "is_minor": is_minor,
+            "created_at": datetime.utcnow().isoformat(),
+            "last_seen": datetime.utcnow().isoformat(),
+        })
+
     # Return pending friend requests count for notification badge
     pending = sops.get_pending_request_count(tid)
-    online_friends = len(sops.get_online_friends(tid))
+    online_friends_set = sops.get_online_friends(tid)
+    online_friends_list = list(online_friends_set)
 
     return {
         "online": True,
         "pending_requests": pending,
-        "online_friends": online_friends,
+        "online_friends": online_friends_list,
+        "online_friends_count": len(online_friends_list),
     }

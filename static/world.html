@@ -1479,6 +1479,34 @@ html, body {
   font-size: 0.82em;
   white-space: nowrap;
 }
+.hud-friends-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 20px;
+  background: rgba(124,58,237,0.3);
+  border: 1px solid rgba(167,139,250,0.4);
+  color: #c4b5fd;
+  font-size: 0.85em;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+.hud-friends-btn:hover { background: rgba(124,58,237,0.5); }
+.hud-online-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 9px;
+  background: #4ade80;
+  color: #000;
+  font-size: 0.75em;
+  font-weight: 700;
+  padding: 0 4px;
+}
 
 /* ═══════════════════════════════════════
    DETAIL PANEL (Layer 11)
@@ -6488,6 +6516,7 @@ html, body {
   <div class="hud-right">
     <span class="hud-streak" id="hudStreak">0j</span>
     <span class="hud-stars" id="hudStars">0 &#11088;</span>
+    <span class="hud-friends-btn" id="hudFriendsBtn" onclick="openPanel('place');switchPlaceTab('social');" title="Mes Amis">&#128101;<span class="hud-online-count" id="hudOnlineCount">0</span></span>
     <span class="hud-social-badge" id="hudSocialBadge" style="display:none;cursor:pointer;" onclick="openPanel('place')">0</span>
     <span class="hud-stability" id="hudStability" style="color:#4ade80">&#9679; 0</span>
   </div>
@@ -7257,9 +7286,15 @@ function renderPanelLuna(bodyEl, subtitleEl) {
   html += 'background:linear-gradient(135deg,rgba(233,30,99,0.2),rgba(233,30,99,0.1));';
   html += 'border:1px solid rgba(233,30,99,0.3);border-radius:12px;color:#f48fb1;cursor:pointer;';
   html += 'transition:all 0.2s;font-size:0.85em;font-weight:600">';
+  var onlineFriendsN = 0;
+  if (state.social && state.social.friends) {
+    for (var fi = 0; fi < state.social.friends.length; fi++) {
+      if (state.social.friends[fi].online) onlineFriendsN++;
+    }
+  }
   html += '<span style="font-size:1.8em">🏠</span>';
   html += '<span>Salons</span>';
-  html += '<span style="font-size:0.7em;color:#888;font-weight:400">Famille</span>';
+  html += '<span style="font-size:0.7em;font-weight:400;color:' + (onlineFriendsN > 0 ? '#4ade80' : '#888') + '">' + (onlineFriendsN + 1) + ' joueur' + (onlineFriendsN > 0 ? 's' : '') + ' connecte' + (onlineFriendsN > 0 ? 's' : '') + '</span>';
   html += '</button>';
 
   html += '</div>';
@@ -11067,6 +11102,14 @@ function socialHeartbeat() {
           state.social.friends[j].online = !!onlineMap[state.social.friends[j].tid];
         }
       }
+    }
+
+    // Update online friends count in HUD
+    var onlineEl = document.getElementById("hudOnlineCount");
+    if (onlineEl) {
+      var onlineN = data.online_friends_count || (data.online_friends ? data.online_friends.length : 0);
+      onlineEl.textContent = onlineN;
+      onlineEl.style.background = onlineN > 0 ? "#4ade80" : "#555";
     }
 
     // Refresh visitor characters

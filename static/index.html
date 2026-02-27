@@ -206,6 +206,36 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; b
   .msg { padding: 6px 10px; font-size: 0.85em; }
   .input-area { padding: 6px; gap: 4px; }
 }
+/* Amis tab */
+.friend-card { display:flex; align-items:center; gap:12px; padding:14px; margin-bottom:8px; background:#1a1a3e; border-radius:12px; border:1px solid #333; }
+.friend-avatar { width:44px; height:44px; border-radius:50%; background:#2d1b69; display:flex; align-items:center; justify-content:center; font-size:1.3em; flex-shrink:0; }
+.friend-info { flex:1; min-width:0; }
+.friend-name { font-weight:600; font-size:0.95em; display:flex; align-items:center; gap:6px; }
+.friend-level { font-size:0.75em; color:#888; }
+.friend-online { display:inline-block; width:8px; height:8px; border-radius:50%; background:#4ade80; box-shadow:0 0 6px #4ade80; }
+.friend-offline { display:inline-block; width:8px; height:8px; border-radius:50%; background:#555; }
+.friend-actions { display:flex; gap:6px; flex-shrink:0; }
+.friend-code-display { text-align:center; padding:20px; }
+.friend-code-value { font-size:2em; font-weight:700; color:#a78bfa; letter-spacing:6px; font-family:monospace; }
+.friend-code-label { font-size:0.85em; color:#888; margin-top:4px; }
+.amis-section { margin-bottom:20px; }
+.amis-section h3 { color:#c4b5fd; margin-bottom:10px; font-size:1em; display:flex; align-items:center; gap:8px; }
+.salon-big-btn { display:block; width:100%; padding:18px; border-radius:16px; border:2px solid #7c3aed; background:linear-gradient(135deg,#1a1a3e,#2d1b69); color:#a78bfa; font-size:1.15em; font-weight:600; cursor:pointer; text-align:center; transition:all 0.2s; }
+.salon-big-btn:hover { background:linear-gradient(135deg,#2d1b69,#3d2b89); border-color:#a78bfa; }
+.tab-badge { display:inline-flex; align-items:center; justify-content:center; min-width:18px; height:18px; border-radius:9px; background:#dc2626; color:white; font-size:0.65em; font-weight:700; margin-left:4px; padding:0 4px; }
+.add-code-row { display:flex; gap:8px; align-items:center; }
+.add-code-row input { flex:1; text-transform:uppercase; letter-spacing:3px; font-family:monospace; font-size:1.1em; text-align:center; padding:10px; border-radius:10px; border:1px solid #333; background:#0a0a1a; color:#fff; }
+.dm-modal { position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:200; display:none; align-items:center; justify-content:center; padding:16px; }
+.dm-modal.active { display:flex; }
+.dm-box { background:#1a1a3e; padding:20px; border-radius:16px; width:100%; max-width:400px; }
+.dm-box h3 { color:#a78bfa; margin:0; }
+.dm-messages { max-height:300px; overflow-y:auto; margin:12px 0; display:flex; flex-direction:column; gap:8px; }
+.dm-msg { padding:8px 12px; border-radius:12px; font-size:0.9em; max-width:85%; word-break:break-word; }
+.dm-msg.mine { background:#4c1d95; align-self:flex-end; }
+.dm-msg.theirs { background:#1e1e3f; align-self:flex-start; }
+.dm-input-row { display:flex; gap:8px; }
+.dm-input-row input { flex:1; padding:10px 14px; border-radius:12px; border:1px solid #333; background:#0a0a1a; color:#fff; font-size:0.9em; }
+.dm-input-row button { padding:10px 16px; border-radius:12px; border:none; background:#7c3aed; color:white; cursor:pointer; font-weight:600; }
 </style>
 </head>
 <body>
@@ -262,6 +292,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; b
   <button class="tab-btn active" data-tab="chat">Chat</button>
   <button class="tab-btn" data-tab="profile">Profil</button>
   <button class="tab-btn" data-tab="contacts">Contacts</button>
+  <button class="tab-btn" data-tab="amis">Amis<span class="tab-badge" id="amisBadge" style="display:none">0</span></button>
   <button class="tab-btn" data-tab="instructions">Instructions</button>
   <button class="tab-btn" data-tab="documents">Documents</button>
   <button class="tab-btn" data-tab="perception">Perception</button>
@@ -428,6 +459,61 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; b
     </div>
     <button class="btn btn-primary" id="contactAddBtn">Ajouter</button>
     <p class="form-status" id="contactStatus"></p>
+  </div>
+</div>
+
+<!-- Amis Tab -->
+<div class="tab-panel" id="tab-amis">
+  <div class="panel-content">
+    <h2>Mes Amis</h2>
+
+    <div class="amis-section" id="amisRequestsSection" style="display:none">
+      <h3>Demandes en attente <span class="tab-badge" id="amisRequestCount" style="background:#e67e22">0</span></h3>
+      <div id="amisRequestsList"></div>
+    </div>
+
+    <div class="amis-section">
+      <div class="friend-code-display" style="background:#1a1a3e;border-radius:12px;border:1px solid #333;">
+        <div class="friend-code-label">Mon code ami</div>
+        <div class="friend-code-value" id="amisMyCode">------</div>
+        <p style="font-size:0.8em;color:#666;margin-top:8px;">Partage ce code pour que tes amis te trouvent</p>
+      </div>
+      <div style="margin-top:14px;">
+        <h3>Ajouter un ami par code</h3>
+        <div class="add-code-row">
+          <input type="text" id="amisCodeInput" placeholder="CODE" maxlength="6" autocomplete="off">
+          <button class="btn btn-primary" id="amisCodeBtn" style="white-space:nowrap;padding:10px 18px;">Ajouter</button>
+        </div>
+        <p class="form-status" id="amisCodeStatus"></p>
+      </div>
+    </div>
+
+    <div class="amis-section">
+      <button class="salon-big-btn" id="amisSalonBtn">
+        Salons &amp; Activites<br><span style="font-size:0.7em;font-weight:400;color:#888;">Cinema, Karaoke, Jeux, Chat en groupe...</span>
+      </button>
+    </div>
+
+    <div class="amis-section">
+      <h3>Mes amis <span style="background:#7c3aed;color:#fff;font-size:0.75em;padding:2px 8px;border-radius:8px;" id="amisFriendCount">0</span></h3>
+      <div id="amisFriendsList"><p class="empty-state">Chargement...</p></div>
+    </div>
+  </div>
+</div>
+
+<!-- DM Modal -->
+<div class="dm-modal" id="dmModal">
+  <div class="dm-box">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+      <h3 id="dmFriendName">Message</h3>
+      <button class="btn" id="dmCloseBtn" style="color:#888;font-size:1.2em;background:none;border:none;cursor:pointer;">✕</button>
+    </div>
+    <div class="dm-messages" id="dmMessages"></div>
+    <div class="dm-input-row">
+      <input type="text" id="dmInput" placeholder="Ton message..." maxlength="500" autocomplete="off">
+      <button id="dmSendBtn">Envoyer</button>
+    </div>
+    <p class="form-status" id="dmStatus" style="margin-top:6px;"></p>
   </div>
 </div>
 
@@ -712,6 +798,7 @@ tabBtns.forEach(function(btn) {
     // Load data on tab switch
     if (btn.dataset.tab === "profile") loadProfile();
     if (btn.dataset.tab === "contacts") loadContacts();
+    if (btn.dataset.tab === "amis") loadAmis();
     if (btn.dataset.tab === "instructions") loadInstructions();
     if (btn.dataset.tab === "documents") loadDocuments();
     if (btn.dataset.tab === "perception") loadPerception();
@@ -871,12 +958,29 @@ function sendMsg(overrideMsg) {
 sendBtn.addEventListener("click", function() { sendMsg(); });
 inputEl.addEventListener("keydown", function(e) { if (e.key === "Enter") sendMsg(); });
 
-// --- Video call (Daily.js SDK pour tool calling) ---
+// --- Video call (Simli prioritaire, Tavus fallback) ---
 var currentConvId = "";
 var dailyCall = null;
 
 function startCall() {
   callBtn.disabled = true; callBtn.textContent = "Connexion...";
+  // Verifier si Simli est disponible
+  fetch("/api/config/simli").then(function(r) { return r.json(); }).then(function(cfg) {
+    if (cfg.enabled) {
+      // Ouvrir la page cinematique Simli dans le videoOverlay
+      videoFrame.innerHTML = '<iframe src="/simli" style="width:100%;height:100%;border:none;" allow="microphone;camera;autoplay"></iframe>';
+      videoOverlay.classList.add("active");
+      addMsg("Appel video Simli en cours...", "luna");
+      callBtn.disabled = false;
+      callBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15.05 5A5 5 0 0 1 19 8.95M15.05 1A9 9 0 0 1 23 8.94M22 16.92v3a2 2 0 0 1-2.18 2A19.79 19.79 0 0 1 3.07 5.18 2 2 0 0 1 5.11 3h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 11.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 18.92z"/></svg> Visio Luna';
+      return;
+    }
+    // Fallback Tavus
+    startTavusCall();
+  }).catch(function() { startTavusCall(); });
+}
+
+function startTavusCall() {
   authFetch("/api/call", { method: "POST" }).then(function(r) { return r.json(); })
   .then(function(data) {
     if (data.error) { addMsg("Erreur appel: " + data.error, "luna"); return; }
@@ -1589,6 +1693,196 @@ function quotaBar(label, used, limit, pct) {
 }
 
 // =========================================================================
+// AMIS (Friends)
+// =========================================================================
+var amisHeartbeatTimer = null;
+var dmCurrentRoomId = null;
+var dmCurrentFriendTid = null;
+var dmPollTimer = null;
+
+function loadAmis() {
+  authFetch("/api/social/friend-code").then(function(r) { return r.json(); })
+  .then(function(data) {
+    if (data.friend_code) document.getElementById("amisMyCode").textContent = data.friend_code;
+  }).catch(function() {});
+  loadAmisList();
+  loadAmisRequests();
+  if (!amisHeartbeatTimer) {
+    _amisHeartbeat();
+    amisHeartbeatTimer = setInterval(_amisHeartbeat, 30000);
+  }
+}
+
+function _amisHeartbeat() {
+  authFetch("/api/social/heartbeat", { method: "POST" })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    var badge = document.getElementById("amisBadge");
+    var n = data.pending_requests || 0;
+    if (n > 0) { badge.textContent = n; badge.style.display = "inline-flex"; }
+    else { badge.style.display = "none"; }
+  }).catch(function() {});
+}
+
+function _amisAvatarEmoji(type) {
+  var m = { adult_man:"\uD83D\uDC68", adult_woman:"\uD83D\uDC69", elder_man:"\uD83D\uDC74", elder_woman:"\uD83D\uDC75", boy:"\uD83D\uDC66", girl:"\uD83D\uDC67" };
+  return m[type] || "\uD83D\uDC64";
+}
+
+function loadAmisList() {
+  var list = document.getElementById("amisFriendsList");
+  list.innerHTML = '<p class="empty-state">Chargement...</p>';
+  authFetch("/api/social/friends").then(function(r) { return r.json(); })
+  .then(function(data) {
+    var friends = data.friends || [];
+    document.getElementById("amisFriendCount").textContent = friends.length;
+    if (friends.length === 0) {
+      list.innerHTML = '<p class="empty-state">Pas encore d\'amis.<br>Partage ton code ou entre le code d\'un ami !</p>';
+      return;
+    }
+    list.innerHTML = "";
+    friends.forEach(function(f) {
+      var card = document.createElement("div");
+      card.className = "friend-card";
+      card.style.cursor = "pointer";
+      var dot = f.is_online ? '<span class="friend-online"></span>' : '<span class="friend-offline"></span>';
+      card.innerHTML = '<div class="friend-avatar">' + _amisAvatarEmoji(f.avatar_type) + '</div>' +
+        '<div class="friend-info"><div class="friend-name">' + dot + ' ' + esc(f.nickname || "Ami") + '</div>' +
+        '<div class="friend-level">Niveau ' + (f.level || 1) + '</div></div>' +
+        '<div class="friend-actions"><button class="btn btn-primary" style="padding:8px 14px;font-size:0.85em;">Message</button></div>';
+      card.addEventListener("click", function() { openDm(f.tid, f.nickname || "Ami"); });
+      list.appendChild(card);
+    });
+  })
+  .catch(function() { list.innerHTML = '<p class="empty-state">Erreur de chargement.</p>'; });
+}
+
+function loadAmisRequests() {
+  authFetch("/api/social/friends/requests").then(function(r) { return r.json(); })
+  .then(function(data) {
+    var reqs = data.requests || [];
+    var section = document.getElementById("amisRequestsSection");
+    var listEl = document.getElementById("amisRequestsList");
+    var badge = document.getElementById("amisBadge");
+    if (reqs.length === 0) { section.style.display = "none"; return; }
+    section.style.display = "block";
+    document.getElementById("amisRequestCount").textContent = reqs.length;
+    badge.textContent = reqs.length; badge.style.display = "inline-flex";
+    listEl.innerHTML = "";
+    reqs.forEach(function(req) {
+      var card = document.createElement("div");
+      card.className = "friend-card";
+      card.innerHTML = '<div class="friend-avatar">' + _amisAvatarEmoji(req.avatar_type) + '</div>' +
+        '<div class="friend-info"><div class="friend-name">' + esc(req.nickname || "Quelqu\'un") + '</div>' +
+        '<div class="friend-level">Niveau ' + (req.level || 1) + '</div></div>' +
+        '<div class="friend-actions">' +
+        '<button class="btn btn-primary" style="padding:6px 12px;font-size:0.85em;" onclick="_amisAccept(' + req.tid + ',this)">Accepter</button>' +
+        '<button class="btn" style="padding:6px 12px;font-size:0.85em;background:#dc2626;color:#fff;border:none;border-radius:8px;cursor:pointer;" onclick="_amisDecline(' + req.tid + ',this)">Refuser</button>' +
+        '</div>';
+      listEl.appendChild(card);
+    });
+  }).catch(function() {});
+}
+
+function _amisAccept(tid, btnEl) {
+  btnEl.disabled = true;
+  authFetch("/api/social/friends/accept", { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({ requester_tid: tid }) })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    if (data.success) { var card = btnEl.closest(".friend-card"); if (card) card.innerHTML = '<div style="padding:10px;text-align:center;color:#4ade80;width:100%">Ami ajoute !</div>'; setTimeout(loadAmis, 1000); }
+    else { btnEl.disabled = false; }
+  }).catch(function() { btnEl.disabled = false; });
+}
+
+function _amisDecline(tid, btnEl) {
+  btnEl.disabled = true;
+  authFetch("/api/social/friends/decline", { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({ requester_tid: tid }) })
+  .then(function(r) { return r.json(); })
+  .then(function(data) { if (data.success) { var card = btnEl.closest(".friend-card"); if (card) card.remove(); loadAmisRequests(); } })
+  .catch(function() { btnEl.disabled = false; });
+}
+
+function _myTid() {
+  try { var t = getToken(); if (!t) return 0; return JSON.parse(atob(t.split(".")[1])).tenant_id || 0; }
+  catch(e) { return 0; }
+}
+
+function openDm(friendTid, friendName) {
+  dmCurrentFriendTid = friendTid;
+  document.getElementById("dmFriendName").textContent = friendName;
+  document.getElementById("dmMessages").innerHTML = '<p class="empty-state">Chargement...</p>';
+  document.getElementById("dmInput").value = "";
+  document.getElementById("dmStatus").textContent = "";
+  document.getElementById("dmModal").classList.add("active");
+  authFetch("/api/social/dm/create", { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({ friend_tid: friendTid }) })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    if (data.room_id) { dmCurrentRoomId = data.room_id; _loadDmMessages(); if (dmPollTimer) clearInterval(dmPollTimer); dmPollTimer = setInterval(_loadDmMessages, 5000); }
+    else { document.getElementById("dmMessages").innerHTML = '<p class="empty-state">' + esc(data.error || "Impossible d\'ouvrir la conversation.") + '</p>'; }
+  }).catch(function() { document.getElementById("dmMessages").innerHTML = '<p class="empty-state">Erreur de connexion.</p>'; });
+}
+
+function _loadDmMessages() {
+  if (!dmCurrentRoomId) return;
+  authFetch("/api/social/dm/" + dmCurrentRoomId + "/messages")
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    var c = document.getElementById("dmMessages");
+    var msgs = data.messages || [];
+    if (msgs.length === 0) { c.innerHTML = '<p class="empty-state" style="font-size:0.85em;">Aucun message. Dis bonjour !</p>'; return; }
+    c.innerHTML = "";
+    var myTid = String(_myTid());
+    msgs.slice().reverse().forEach(function(m) {
+      var div = document.createElement("div");
+      div.className = "dm-msg " + (String(m.sender_tid || m.sender) === myTid ? "mine" : "theirs");
+      div.textContent = m.text || m.content || "";
+      c.appendChild(div);
+    });
+    c.scrollTop = c.scrollHeight;
+  }).catch(function() {});
+}
+
+document.getElementById("dmSendBtn").addEventListener("click", function() {
+  var input = document.getElementById("dmInput");
+  var text = input.value.trim();
+  if (!text || !dmCurrentRoomId) return;
+  input.value = "";
+  document.getElementById("dmSendBtn").disabled = true;
+  authFetch("/api/social/dm/" + dmCurrentRoomId + "/send", { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({ text: text }) })
+  .then(function(r) { return r.json(); })
+  .then(function(data) { if (data.success) _loadDmMessages(); else { document.getElementById("dmStatus").textContent = data.error || "Erreur"; } })
+  .catch(function() { document.getElementById("dmStatus").textContent = "Erreur de connexion."; })
+  .finally(function() { document.getElementById("dmSendBtn").disabled = false; });
+});
+document.getElementById("dmInput").addEventListener("keydown", function(e) { if (e.key === "Enter") document.getElementById("dmSendBtn").click(); });
+document.getElementById("dmCloseBtn").addEventListener("click", function() {
+  document.getElementById("dmModal").classList.remove("active");
+  dmCurrentRoomId = null; dmCurrentFriendTid = null;
+  if (dmPollTimer) { clearInterval(dmPollTimer); dmPollTimer = null; }
+});
+
+document.getElementById("amisCodeBtn").addEventListener("click", function() {
+  var st = document.getElementById("amisCodeStatus");
+  var code = document.getElementById("amisCodeInput").value.trim().toUpperCase();
+  if (!code || code.length < 4) { st.textContent = "Entre un code valide."; st.style.color = "#e74c3c"; return; }
+  st.textContent = "Envoi..."; st.style.color = "#888";
+  document.getElementById("amisCodeBtn").disabled = true;
+  authFetch("/api/social/friend-code/use", { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({ code: code }) })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    if (data.success || data.status === "sent" || data.friend_tid) { st.textContent = "Demande d'ami envoyee !"; st.style.color = "#4ade80"; document.getElementById("amisCodeInput").value = ""; }
+    else { st.textContent = data.error || "Code invalide."; st.style.color = "#e74c3c"; }
+  })
+  .catch(function() { st.textContent = "Erreur de connexion."; st.style.color = "#e74c3c"; })
+  .finally(function() { document.getElementById("amisCodeBtn").disabled = false; });
+});
+document.getElementById("amisCodeInput").addEventListener("keydown", function(e) { if (e.key === "Enter") document.getElementById("amisCodeBtn").click(); });
+
+document.getElementById("amisSalonBtn").addEventListener("click", function() {
+  window.open("/salon?token=" + encodeURIComponent(getToken()), "_blank");
+});
+
+// =========================================================================
 // UTILS
 // =========================================================================
 function esc(s) { if (!s) return ""; var d = document.createElement("div"); d.textContent = s; return d.innerHTML; }
@@ -1643,7 +1937,7 @@ function initApp() {
 
 // Override showApp to also init
 var _origShowApp = showApp;
-showApp = function() { _origShowApp(); initApp(); refreshXpWidget(); };
+showApp = function() { _origShowApp(); initApp(); refreshXpWidget(); _amisHeartbeat(); };
 
 // Auto-start video call if ?video=1 in URL
 if (new URLSearchParams(window.location.search).get("video") === "1") {

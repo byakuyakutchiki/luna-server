@@ -48,6 +48,15 @@ except ImportError:
     TavusClient = None
     def build_tavus_context(**kwargs): return ""
 
+# Simli: avatar cinematique avec lip-sync WebRTC (alternative a Tavus)
+try:
+    from integrations.simli.ws_handler import handle_simli_session
+    from integrations.simli.luna_schedule import get_current_scene as simli_get_scene
+    _SIMLI_AVAILABLE = True
+except ImportError:
+    _SIMLI_AVAILABLE = False
+    handle_simli_session = None
+
 # Core modules (optional - graceful fallback if Redis down)
 try:
     from core.memory.memory_manager import MemoryManager
@@ -363,6 +372,7 @@ _PUBLIC_PATHS = (
     "/api/email/oauth/",
     "/api/cortex/telegram/webhook",
     "/api/app/version",
+    "/api/config/simli",
     "/download",
     "/download/",
     "/static/",
@@ -1733,6 +1743,39 @@ async def start_call(request: Request):
 
 
 # =========================================================================
+# SIMLI — Avatar cinematique avec lip-sync WebRTC
+# =========================================================================
+
+@app.websocket("/ws/simli/{session_id}")
+async def ws_simli(websocket: WebSocket, session_id: str):
+    """WebSocket Simli : STT -> LLM -> TTS -> PCM16 lip-sync."""
+    if not _SIMLI_AVAILABLE or not handle_simli_session:
+        await websocket.accept()
+        await websocket.close(code=4003, reason="Simli not available")
+        return
+    await handle_simli_session(websocket, session_id)
+
+
+@app.get("/api/config/simli")
+async def config_simli():
+    """Config publique Simli pour le frontend."""
+    return {
+        "simli_api_key": os.getenv("SIMLI_API_KEY", ""),
+        "simli_face_id": os.getenv("SIMLI_FACE_ID", ""),
+        "enabled": _SIMLI_AVAILABLE and bool(os.getenv("SIMLI_API_KEY", "")),
+    }
+
+
+@app.get("/simli")
+async def simli_page():
+    """Page avatar Simli avec sequence cinematique."""
+    simli_path = os.path.join(STATIC_DIR, "simli.html")
+    if os.path.isfile(simli_path):
+        return FileResponse(simli_path)
+    return JSONResponse(status_code=404, content={"error": "Simli non disponible"})
+
+
+# =========================================================================
 # APPELS VOCAUX - Twilio Voice + OpenAI Realtime API
 # =========================================================================
 
@@ -2310,6 +2353,7 @@ async def status(request: Request):
         "twilio": sms_client.is_configured if sms_client else False,
         "tavus": tavus_client.is_configured if tavus_client else False,
         "tavus_details": tavus_client.get_status() if tavus_client else {},
+        "simli": _SIMLI_AVAILABLE and bool(os.getenv("SIMLI_API_KEY", "")),
         "redis": redis_ok,
         "active_sessions": len(conversations),
         "core_modules": {
@@ -8027,6 +8071,7 @@ if __name__ == "__main__":
     _twilio_ok = sms_client and hasattr(sms_client, 'is_configured') and sms_client.is_configured
     logger.info(f"Twilio: {'OK' if _twilio_ok else 'NON CONFIGURE'}")
     logger.info(f"Tavus: {'OK' if (tavus_client and tavus_client.is_configured) else 'NON CONFIGURE'}" + (" (mode lite - skip)" if LUNA_MODE == "lite" else ""))
+    logger.info(f"Simli: {'OK' if (_SIMLI_AVAILABLE and os.getenv('SIMLI_API_KEY')) else 'NON CONFIGURE'}")
     logger.info(f"Redis/Memory: {'OK' if _memory_manager else 'OFFLINE'}")
     logger.info(f"Safety Guardian: {'OK' if _safety_guardian else 'OFFLINE'}")
     logger.info(f"Quota Guard: {'OK' if _quota_guard else 'OFFLINE'}")
