@@ -251,7 +251,9 @@ class RoomManager:
         elif game_type == "morpion":
             if len(players) < 2:
                 await self.send_to(room_id, host_phone, {
-                    "type": "system", "content": "Il faut au moins 2 joueurs.",
+                    "type": "system",
+                    "content": "Il faut au moins 2 joueurs pour le Morpion. Invite un proche en cliquant sur le bouton Participants puis Inviter !",
+                    "action": "show_invite",
                 })
                 return
             random.shuffle(players)

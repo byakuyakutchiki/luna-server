@@ -141,6 +141,10 @@ input::placeholder { color: var(--text-dim); }
 .participant-dot { width:8px; height:8px; border-radius:50%; background:var(--green); flex-shrink:0; }
 .participant-name { flex:1; font-size:0.9em; color:var(--text); }
 .host-badge { font-size:0.7em; padding:2px 8px; border-radius:6px; background:var(--gold-dim); color:var(--gold); font-weight:600; }
+.invite-member-btn { display:flex; align-items:center; gap:8px; width:100%; padding:10px 16px; background:transparent; border:1px solid #7c3aed; border-radius:8px; color:#a78bfa; font-size:0.85em; cursor:pointer; transition:all 0.2s; margin-bottom:6px; }
+.invite-member-btn:hover { background:#7c3aed; color:#fff; }
+.invite-member-btn.sent { border-color:#4ade80; color:#4ade80; cursor:default; }
+.invite-member-btn.sent:hover { background:transparent; color:#4ade80; }
 .participants-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.4); z-index:40; }
 .participants-overlay.open { display:block; }
 
@@ -1706,6 +1710,11 @@ input::placeholder { color: var(--text-dim); }
 <div class="participants-drawer" id="participantsDrawer">
   <div class="participants-drawer-header"><h3>&#128101; Participants</h3><button class="drawer-close-btn" onclick="toggleParticipants()">&#10005;</button></div>
   <div class="participants-list" id="participantsList"></div>
+  <div id="inviteSection" style="display:none; padding:12px; border-top:1px solid #333;">
+    <h4 style="color:#a78bfa; margin:0 0 8px 0; font-size:0.9em;">Inviter un proche</h4>
+    <div id="invitableMembersList"></div>
+    <p style="color:#666; font-size:0.75em; margin:8px 0 0 0;">Un SMS avec le lien du salon sera envoy&#233;.</p>
+  </div>
 </div>
 
 <!-- Song Preview Tooltip (Feature 6) -->
@@ -2028,6 +2037,7 @@ function renderParticipants() {
     h+='</div>';
   });
   $("participantsList").innerHTML=h;
+  if(S.isHost) loadInvitableMembers();
   updateSpotlightSel();
   if(S.currentRoomData&&S.currentRoomData.type==="karaoke"){ renderAudienceRow(); updateLiveCount(); }
 }
@@ -2098,7 +2108,10 @@ function handleWsMsg(msg) {
     case "karaoke_perf_done": handlePerfDone(msg); break;
     case "karaoke_rating": handleIncomingRating(msg); break;
     case "game_update": updateGame(msg); break;
-    case "system": addSystemMsg(msg.content); break;
+    case "system":
+      addSystemMsg(msg.content);
+      if(msg.action==="show_invite"){ toggleParticipants(); loadInvitableMembers(); }
+      break;
     case "pong": break;
   }
 }
@@ -4213,6 +4226,52 @@ function resetGameViews() {
 window.startGame = function(type) {
   if(!S.isHost){ showToast("Seul l'h\u00f4te peut lancer un jeu","error"); return; }
   wsSend({type:"game_start",game_type:type});
+};
+
+/* INVITE FAMILY MEMBERS */
+function loadInvitableMembers() {
+  var sec=$("inviteSection");
+  if(!sec||!S.isHost) return;
+  authFetch("/api/family").then(function(r){ return r.json(); }).then(function(data){
+    var members=data.members||data||[];
+    if(!members.length){ sec.style.display="none"; return; }
+    sec.style.display="block";
+    var connPhones=S.participants.map(function(p){ return p.phone; });
+    var html="";
+    members.forEach(function(m){
+      var phone=m.phone||"";
+      var name=m.name||m.first_name||phone;
+      if(connPhones.indexOf(phone)>=0) return;
+      html+='<button class="invite-member-btn" id="inv-'+phone.replace(/[^a-zA-Z0-9]/g,"")+'" onclick="inviteMemberToRoom(\''+phone+'\',\''+escapeHtml(name)+'\',this)">&#128233; Inviter '+escapeHtml(name)+'</button>';
+    });
+    if(!html) html='<p style="color:#666;font-size:0.8em;padding:0 4px;">Tous tes proches sont d\u00e9j\u00e0 l\u00e0 !</p>';
+    $("invitableMembersList").innerHTML=html;
+  }).catch(function(){ sec.style.display="none"; });
+}
+
+window.inviteMemberToRoom = function(phone, name, btn) {
+  if(btn.classList.contains("sent")) return;
+  btn.disabled=true; btn.textContent="Envoi...";
+  var roomId=S.roomId;
+  authFetch("/api/rooms/"+roomId+"/invite",{
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({phone:phone,name:name})
+  }).then(function(r){ return r.json(); }).then(function(data){
+    if(data.success){
+      btn.classList.add("sent");
+      btn.innerHTML="&#10003; Invitation envoy\u00e9e \u00e0 "+escapeHtml(name);
+      showToast("Invitation envoy\u00e9e \u00e0 "+name,"success");
+    } else {
+      btn.disabled=false;
+      btn.innerHTML="&#128233; Inviter "+escapeHtml(name);
+      showToast(data.error||"Erreur d'envoi","error");
+    }
+  }).catch(function(){
+    btn.disabled=false;
+    btn.innerHTML="&#128233; Inviter "+escapeHtml(name);
+    showToast("Erreur r\u00e9seau","error");
+  });
 };
 
 function updateGame(msg) {

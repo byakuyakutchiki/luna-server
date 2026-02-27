@@ -5937,6 +5937,47 @@ async def delete_room(room_id: str, request: Request):
     return {"success": True}
 
 
+@app.post("/api/rooms/{room_id}/invite")
+async def invite_to_room(room_id: str, request: Request):
+    """Invite un membre famille dans le salon par SMS."""
+    rops = _get_room_ops()
+    if not rops:
+        return JSONResponse(status_code=503, content={"error": "Service temporairement indisponible"})
+    tid = getattr(request.state, "tenant_id", TENANT_ID)
+    room = rops.get_room(tid, room_id)
+    if not room:
+        return JSONResponse(status_code=404, content={"error": "Salon introuvable"})
+
+    data = await request.json()
+    phone = data.get("phone", "")
+    member_name = data.get("name", "")
+    if not phone:
+        return JSONResponse(status_code=400, content={"error": "Numero requis"})
+
+    if not sms_client or not sms_client.is_configured:
+        return JSONResponse(status_code=503, content={"error": "Service SMS non disponible"})
+
+    # Generate invite link
+    secret = _JWT_SECRET
+    token = generate_member_token(phone, tid, secret)
+    base_url = os.getenv("LUNA_BASE_URL", "https://luna-beta-674304336025.europe-west1.run.app")
+    invite_url = f"{base_url}/salon?room={room_id}&phone={phone}&token={token}"
+
+    room_name = room.get("name", "Salon")
+    host_name = room.get("host_name", "ton proche")
+    sms_msg = f"[Luna] {host_name} t'invite dans le salon \"{room_name}\" ! Rejoins ici : {invite_url}"
+
+    from integrations.twilio.sms_client import TwilioSMSClient
+    normalized = TwilioSMSClient.normalize_phone(phone)
+    success, details = sms_client.send(normalized, sms_msg)
+
+    if success:
+        return {"success": True, "message": f"Invitation envoyee a {member_name or phone}"}
+    else:
+        logger.error(f"Room invite SMS failed: {details}")
+        return JSONResponse(status_code=500, content={"error": "Echec de l'envoi du SMS"})
+
+
 @app.get("/api/rooms/member-token")
 async def get_member_token(request: Request):
     """Génère un token d'accès pour un membre famille (souscripteur only)."""
