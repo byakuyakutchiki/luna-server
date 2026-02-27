@@ -281,13 +281,13 @@ class RedisClient:
         """Clé pour le profil d'un contact"""
         return self._key(tenant_id, "contact", phone, "profile")
 
-    def add_trusted_contact(self, tenant_id: int, phone: str, data: Dict[str, str]) -> bool:
+    def add_trusted_contact(self, tenant_id: int, phone: str, data: Dict[str, str], max_contacts: int = 5) -> bool:
         """
         Ajoute un contact de confiance.
-        Retourne False si le maximum (5) est atteint.
+        Retourne False si le maximum est atteint.
         """
         key = self.get_trusted_contacts_key(tenant_id)
-        if self.client.scard(key) >= 5:
+        if self.client.scard(key) >= max_contacts:
             return False
         self.client.sadd(key, phone)
         self.client.hset(self.get_contact_profile_key(tenant_id, phone), mapping=data)

@@ -1052,7 +1052,7 @@ function loadContacts() {
       return;
     }
     if (!data.contacts || data.contacts.length === 0) {
-      list.innerHTML = '<p class="empty-state">Aucun contact de confiance. Ajoute-en ci-dessous (max 5).</p>';
+      list.innerHTML = '<p class="empty-state">Aucun contact de confiance. Ajoute-en ci-dessous (max ' + (data.max || 5) + ').</p>';
       return;
     }
     list.innerHTML = "";

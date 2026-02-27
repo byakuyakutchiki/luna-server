@@ -22,8 +22,17 @@ class QuotaExceededError(Exception):
 
 
 class MaxContactsReachedError(Exception):
-    """Erreur levée quand le max de contacts (5) est atteint"""
+    """Erreur levée quand le max de contacts est atteint"""
     pass
+
+# Limite contacts par tenant (proprio = 30, exploitants = 5)
+PROPRIO_TENANT_ID = 1
+MAX_CONTACTS_DEFAULT = 5
+MAX_CONTACTS_PROPRIO = 30
+
+def get_max_contacts(tenant_id: int) -> int:
+    """Retourne la limite de contacts pour un tenant."""
+    return MAX_CONTACTS_PROPRIO if tenant_id == PROPRIO_TENANT_ID else MAX_CONTACTS_DEFAULT
 
 
 class MemoryManager:
@@ -376,8 +385,9 @@ class MemoryManager:
             emergency_only=emergency_only,
         )
 
-        if not self.redis.add_trusted_contact(self.tenant_id, phone, contact.to_redis()):
-            raise MaxContactsReachedError("Maximum de 5 contacts de confiance atteint")
+        max_c = get_max_contacts(self.tenant_id)
+        if not self.redis.add_trusted_contact(self.tenant_id, phone, contact.to_redis(), max_contacts=max_c):
+            raise MaxContactsReachedError(f"Maximum de {max_c} contacts de confiance atteint")
 
         logger.info(f"Added trusted contact {phone} ({name}) for tenant {self.tenant_id}")
         return contact
@@ -681,7 +691,7 @@ class MemoryManager:
             },
             "trusted_contacts": {
                 "used": contacts,
-                "limit": 5,
+                "limit": get_max_contacts(self.tenant_id),
             },
             "memory": memory,
         }

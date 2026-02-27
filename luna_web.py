@@ -535,7 +535,7 @@ Luna envoie alors un SMS au contact de confiance avec le lien pour rejoindre.
 Le contact clique sur le lien et rejoint directement la conversation video.'''}
 
 === CONTACTS DE CONFIANCE ===
-- Maximum 5 par souscripteur
+- Nombre maximum selon le compte du souscripteur
 - Verifies par OTP SMS
 - Heures calmes : 22h-7h (sauf urgence critique)
 - Chaque contact : nom, relation, tel, canal prefere, flag urgence-seulement
@@ -3122,6 +3122,13 @@ async def update_profile(request: Request):
 # CONTACTS ENDPOINTS
 # =========================================================================
 
+_PROPRIO_TENANT_ID = 1
+_MAX_CONTACTS_PROPRIO = 30
+_MAX_CONTACTS_DEFAULT = 5
+
+def _get_max_contacts(tid: int) -> int:
+    return _MAX_CONTACTS_PROPRIO if tid == _PROPRIO_TENANT_ID else _MAX_CONTACTS_DEFAULT
+
 @app.get("/api/contacts")
 async def list_contacts(request: Request):
     """Liste les contacts de confiance"""
@@ -3143,7 +3150,7 @@ async def list_contacts(request: Request):
             for c in contacts
         ],
         "count": len(contacts),
-        "max": 5,
+        "max": _get_max_contacts(tid),
     }
 
 
