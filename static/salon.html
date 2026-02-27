@@ -1949,12 +1949,16 @@ function loadRoomData(roomId) {
     if(!r.ok) throw new Error("Err "+r.status); return r.json();
   }).then(function(data){
     S.currentRoomData=data; S.myPhone=getMyPhone(); S.myName=getMyName();
-    S.isHost=(data.host_phone===S.myPhone);
+    var hp=(data.host_phone||"").toLowerCase().trim();
+    var mp=(S.myPhone||"").toLowerCase().trim();
+    S.isHost=(hp!==""&&hp===mp);
+    console.log("[SALON] host_phone="+data.host_phone+" myPhone="+S.myPhone+" isHost="+S.isHost);
     $("roomTitle").textContent=data.name||"Salon";
     document.title="Luna Salon - "+(data.name||"Salon");
     var tk=data.type||"chat";
     $("roomTypeBadge").textContent=(TYPE_ICONS[tk]||"")+" "+(TYPE_LABELS[tk]||tk);
-    if(S.isHost){ show("closeRoomBtn"); show("inviteHeaderBtn"); } else { hide("closeRoomBtn"); hide("inviteHeaderBtn"); }
+    if(S.isHost){ show("closeRoomBtn"); } else { hide("closeRoomBtn"); }
+    show("inviteHeaderBtn");
     S.participants=data.participants||[]; renderParticipants();
     setupRoomLayout(tk);
     if(data.messages&&data.messages.length){
@@ -2039,7 +2043,7 @@ function renderParticipants() {
     h+='</div>';
   });
   $("participantsList").innerHTML=h;
-  if(S.isHost) loadInvitableMembers();
+  loadInvitableMembers();
   updateSpotlightSel();
   if(S.currentRoomData&&S.currentRoomData.type==="karaoke"){ renderAudienceRow(); updateLiveCount(); }
 }
@@ -4234,7 +4238,7 @@ window.startGame = function(type) {
 window.loadInvitableMembers = loadInvitableMembers;
 function loadInvitableMembers() {
   var sec=$("inviteSection");
-  if(!sec||!S.isHost) return;
+  if(!sec) return;
   // Charger famille ET contacts en parallele
   Promise.all([
     authFetch("/api/family").then(function(r){ return r.json(); }).catch(function(){ return {members:[]}; }),

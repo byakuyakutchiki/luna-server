@@ -56,7 +56,7 @@ VOICE_TOOLS = [
     {
         "type": "function",
         "name": "create_instruction",
-        "description": "Creer un rappel ou une instruction. Quand le souscripteur dit 'rappelle-moi de...', 'tous les jours a...'",
+        "description": "Creer un rappel, un appel audio planifie, un SMS planifie, ou une visio planifiee. Ex: 'rappelle-moi de...', 'tous les jours a 8h...', 'appelle Marie a 14h', 'envoie un SMS a Jean demain', 'lance une visio avec Papa vendredi'. Utilise ce tool pour TOUT ce qui doit etre programme dans le temps.",
         "parameters": {
             "type": "object",
             "properties": {
