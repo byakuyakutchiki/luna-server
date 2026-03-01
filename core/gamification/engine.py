@@ -12,7 +12,8 @@ from datetime import datetime, date, timedelta
 from typing import Dict, List, Optional, Tuple
 
 from .constants import (
-    CLIENT_LEVELS, ADMIN_LEVELS, XP_ACTIONS, ADMIN_XP_ACTIONS,
+    CLIENT_LEVELS, CLIENT_LEVELS_V1, ADMIN_LEVELS,
+    XP_ACTIONS, ADMIN_XP_ACTIONS,
     ALL_CLIENT_BADGES, ALL_ADMIN_BADGES,
     ONBOARDING_MISSIONS, RECURRING_MISSIONS, ADMIN_MISSIONS,
     STAR_REWARDS, SHOP_ITEMS,
@@ -537,6 +538,8 @@ def compute_stability(gops: GamificationRedisOps, tenant_id) -> dict:
         "updated_at": datetime.utcnow().isoformat(),
     }
     gops.set_stability(tenant_id, gauge)
+    # Copier le score dans le player hash pour que le badge stability_90 fonctionne
+    gops.set_player_field(tenant_id, "stability_score", str(score))
     return gauge
 
 
@@ -742,3 +745,54 @@ def buy_shop_item(gops: GamificationRedisOps, tenant_id, item_id: str) -> dict:
         "new_balance": new_balance,
         "item": item_id,
     }
+
+
+# =====================================================================
+# XP MIGRATION V1 -> V2
+# =====================================================================
+
+def migrate_xp_curve(gops: GamificationRedisOps, tenant_id) -> bool:
+    """Migre un joueur de la courbe XP V1 vers V2.
+
+    Regle : aucun joueur n'est retrograde. Si son ancien niveau est
+    superieur a celui que son XP donnerait avec la nouvelle courbe,
+    on booste son XP au seuil du niveau conserve.
+    Retourne True si une migration a eu lieu.
+    """
+    player = gops.get_player(tenant_id)
+    if not player:
+        return False
+    if player.get("xp_v2_migrated") == "true":
+        return False
+
+    old_level = int(player.get("level", 1))
+    current_xp = int(player.get("xp", 0))
+
+    # Niveau avec la nouvelle courbe
+    new_level_info = get_level_for_xp(current_xp, CLIENT_LEVELS)
+    new_level = new_level_info["level"]
+
+    if old_level > new_level:
+        # Booste l'XP au seuil du niveau conserve
+        target_xp = CLIENT_LEVELS[old_level - 1][0]
+        xp_boost = target_xp - current_xp
+        if xp_boost > 0:
+            gops.increment_player_field(tenant_id, "xp", xp_boost)
+            gops.add_activity(tenant_id, json.dumps({
+                "id": str(uuid.uuid4()),
+                "type": "migration",
+                "message": f"Migration XP : +{xp_boost} XP (maintien niveau {old_level})",
+                "icon": "refresh-cw",
+                "ts": datetime.utcnow().isoformat(),
+                "meta": {"xp_boost": xp_boost, "preserved_level": old_level},
+            }))
+        # Mettre a jour le titre (peut avoir change entre V1 et V2)
+        gops.set_player_field(tenant_id, "title", CLIENT_LEVELS[old_level - 1][1])
+    else:
+        # Le joueur est au bon niveau ou plus haut, juste mettre a jour le titre
+        gops.set_player_field(tenant_id, "level", str(new_level))
+        gops.set_player_field(tenant_id, "title", new_level_info["title"])
+
+    gops.set_player_field(tenant_id, "xp_v2_migrated", "true")
+    logger.info(f"Migration XP V2 tenant {tenant_id}: level {old_level} -> {max(old_level, new_level)}")
+    return True

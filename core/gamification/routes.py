@@ -6,6 +6,8 @@ Admin:  /api/admin/world/*  (auth JWT admin, verification dans chaque handler)
 
 import os
 import json
+import uuid
+import random
 import logging
 from typing import Optional
 from datetime import datetime, date, timedelta
@@ -17,14 +19,14 @@ from .redis_ops import GamificationRedisOps
 from .engine import (
     get_level_for_xp, award_xp, check_badges, update_missions,
     compute_stability, initialize_player, collect_mission_reward,
-    buy_shop_item,
+    buy_shop_item, migrate_xp_curve,
 )
 from .constants import (
     CLIENT_LEVELS, ADMIN_LEVELS,
     ALL_CLIENT_BADGES, ALL_ADMIN_BADGES, BADGE_CATEGORIES, RARITY_COLORS,
     SHOP_ITEMS, SHOP_CATEGORIES,
     FAMILY_LEVELS, FAMILY_BLASON_TIERS,
-    WORLD2_BUILDINGS, WORLD2_UNLOCK_LEVEL,
+    WORLD2_BUILDINGS, WORLD2_UNLOCK_LEVEL, WORLD2_STAR_COST,
 )
 from .schemas import PlayerState, Mission, StabilityGauge, CollectRewardRequest
 
@@ -104,11 +106,19 @@ async def get_player(request: Request):
         await initialize_player(gops, tid)
         player_data = gops.get_player(tid)
 
+    # Migration paresseuse V1 -> V2 (courbe XP)
+    if player_data and player_data.get("xp_v2_migrated") != "true":
+        migrate_xp_curve(gops, tid)
+        player_data = gops.get_player(tid)
+
     player = PlayerState.from_redis(player_data or {})
     level_info = get_level_for_xp(player.xp, CLIENT_LEVELS)
 
     active_world = gops.get_active_world(tid)
-    world2_unlocked = level_info["level"] >= WORLD2_UNLOCK_LEVEL
+    world2_purchased = gops.get_player_field(tid, "world2_purchased") == "true"
+    world2_unlocked = world2_purchased or (
+        level_info["level"] >= WORLD2_UNLOCK_LEVEL and player.stars >= WORLD2_STAR_COST
+    )
 
     return {
         "player": {
@@ -131,6 +141,8 @@ async def get_player(request: Request):
             "stars": player.stars,
             "active_world": active_world,
             "world2_unlocked": world2_unlocked,
+            "world2_purchased": world2_purchased,
+            "world2_star_cost": WORLD2_STAR_COST,
         }
     }
 
@@ -574,17 +586,279 @@ async def switch_world(request: Request):
         return _error("Monde invalide (world1 ou world2)")
 
     if world == "world2":
-        # Check level requirement
         player_data = gops.get_player(tid)
-        if player_data:
-            level = int(player_data.get("level", 1))
-            if level < WORLD2_UNLOCK_LEVEL:
-                return _error(f"Niveau {WORLD2_UNLOCK_LEVEL} requis pour le World 2")
-        else:
+        if not player_data:
             return _error("Joueur non initialise")
+
+        level = int(player_data.get("level", 1))
+        if level < WORLD2_UNLOCK_LEVEL:
+            return _error(f"Niveau {WORLD2_UNLOCK_LEVEL} requis pour les Hauteurs")
+
+        already_purchased = player_data.get("world2_purchased") == "true"
+        if not already_purchased:
+            stars = int(player_data.get("stars", 0))
+            if stars < WORLD2_STAR_COST:
+                return JSONResponse(status_code=400, content={
+                    "error": "Pas assez d'etoiles",
+                    "stars_needed": WORLD2_STAR_COST,
+                    "stars_current": stars,
+                    "requires_purchase": True,
+                })
+            # Deduire les etoiles et marquer comme achete
+            gops.increment_player_field(tid, "stars", -WORLD2_STAR_COST)
+            gops.set_player_field(tid, "world2_purchased", "true")
+            gops.add_activity(tid, json.dumps({
+                "id": str(uuid.uuid4()),
+                "type": "world2_unlocked",
+                "message": f"Les Hauteurs debloquees ! (-{WORLD2_STAR_COST} etoiles)",
+                "icon": "unlock",
+                "ts": datetime.utcnow().isoformat(),
+                "meta": {"stars_spent": WORLD2_STAR_COST},
+            }))
 
     gops.set_active_world(tid, world)
     return {"success": True, "active_world": world}
+
+
+@gamification_router.get("/api/world/world2-status")
+async def world2_status(request: Request):
+    """Statut du deblocage World 2 (niveau + etoiles)."""
+    gops = _get_gops(request)
+    if not gops:
+        return _unavailable()
+    tid = _get_tenant_id(request)
+    if tid is None:
+        return _error("Non authentifie", 401)
+
+    player_data = gops.get_player(tid)
+    level = int(player_data.get("level", 1)) if player_data else 1
+    stars = int(player_data.get("stars", 0)) if player_data else 0
+    purchased = (player_data or {}).get("world2_purchased") == "true"
+
+    return {
+        "level_required": WORLD2_UNLOCK_LEVEL,
+        "level_met": level >= WORLD2_UNLOCK_LEVEL,
+        "star_cost": WORLD2_STAR_COST,
+        "stars_current": stars,
+        "stars_sufficient": stars >= WORLD2_STAR_COST,
+        "purchased": purchased,
+        "can_enter": purchased or (level >= WORLD2_UNLOCK_LEVEL and stars >= WORLD2_STAR_COST),
+    }
+
+
+@gamification_router.post("/api/world/cinematic-seen")
+async def mark_cinematic_seen(request: Request):
+    """Marque une cinematique comme vue."""
+    gops = _get_gops(request)
+    if not gops:
+        return _unavailable()
+    tid = _get_tenant_id(request)
+    if tid is None:
+        return _error("Non authentifie", 401)
+
+    try:
+        body = await request.json()
+        cinematic = body.get("cinematic", "")
+    except Exception:
+        return _error("Corps de requete invalide")
+
+    if cinematic not in ("observatory",):
+        return _error("Cinematique inconnue")
+
+    gops.set_player_field(tid, f"cinematic_{cinematic}_seen", "true")
+    return {"success": True}
+
+
+@gamification_router.post("/api/world/theme")
+async def set_world_theme(request: Request):
+    """Definir le theme couleur du World 2."""
+    gops = _get_gops(request)
+    if not gops:
+        return _unavailable()
+    tid = _get_tenant_id(request)
+    if tid is None:
+        return _error("Non authentifie", 401)
+
+    try:
+        body = await request.json()
+        theme = body.get("theme", "")
+    except Exception:
+        return _error("Corps de requete invalide")
+
+    if theme not in ("dawn", "twilight", "midnight", "aurora"):
+        return _error("Theme inconnu")
+
+    gops.set_player_field(tid, "world2_theme", theme)
+    return {"success": True, "theme": theme}
+
+
+@gamification_router.get("/api/world/shop/daily-deals")
+async def daily_deals(request: Request):
+    """Retourne 3 items en promo du jour (-20%)."""
+    gops = _get_gops(request)
+    if not gops:
+        return _unavailable()
+    tid = _get_tenant_id(request)
+    if tid is None:
+        return _error("Non authentifie", 401)
+
+    import hashlib
+    today_seed = date.today().isoformat()
+    seed_hash = int(hashlib.md5(today_seed.encode()).hexdigest(), 16)
+
+    # Eligible items (non-premium, non-bonus, price > 0)
+    eligible = []
+    for item_id, item_def in SHOP_ITEMS.items():
+        if item_def.get("category") in ("premium",):
+            continue
+        price = item_def.get("price", 0)
+        if price > 0 and not item_def.get("reusable"):
+            eligible.append((item_id, item_def))
+
+    # Deterministic selection based on date
+    if len(eligible) < 3:
+        return {"deals": []}
+
+    random.seed(seed_hash)
+    selected = random.sample(eligible, min(3, len(eligible)))
+    random.seed()  # Reset to normal randomness
+
+    deals = []
+    for item_id, item_def in selected:
+        original = item_def["price"]
+        discounted = max(1, int(original * 0.8))
+        deals.append({
+            "id": item_id,
+            "name": item_def.get("name", item_id),
+            "original_price": original,
+            "price": discounted,
+            "category": item_def.get("category", ""),
+        })
+
+    return {"deals": deals}
+
+
+@gamification_router.post("/api/world/temple/journal")
+async def save_journal_entry(request: Request):
+    """Sauvegarder une entree de journal au Temple de Sagesse."""
+    gops = _get_gops(request)
+    if not gops:
+        return _unavailable()
+    tid = _get_tenant_id(request)
+    if tid is None:
+        return _error("Non authentifie", 401)
+
+    try:
+        body = await request.json()
+        text = body.get("text", "").strip()
+    except Exception:
+        return _error("Corps de requete invalide")
+
+    if not text or len(text) > 1000:
+        return _error("Texte vide ou trop long (max 1000 car.)")
+
+    entry = json.dumps({
+        "text": text,
+        "date": date.today().isoformat(),
+    })
+    key = gops.rc._key(tid, "world", "journal")
+    gops.rc.client.lpush(key, entry)
+    gops.rc.client.ltrim(key, 0, 49)  # Max 50 entries
+
+    return {"success": True}
+
+
+@gamification_router.get("/api/world/temple/journal")
+async def get_journal_entries(request: Request):
+    """Recuperer les entrees du journal."""
+    gops = _get_gops(request)
+    if not gops:
+        return _unavailable()
+    tid = _get_tenant_id(request)
+    if tid is None:
+        return _error("Non authentifie", 401)
+
+    key = gops.rc._key(tid, "world", "journal")
+    raw_entries = gops.rc.client.lrange(key, 0, 9)  # Last 10
+    entries = []
+    for raw in (raw_entries or []):
+        try:
+            entries.append(json.loads(raw))
+        except Exception:
+            pass
+
+    return {"entries": entries}
+
+
+@gamification_router.get("/api/world/phare/leaderboard")
+async def phare_leaderboard(request: Request):
+    """Classement top 5 joueurs par XP (scope exploitant)."""
+    gops = _get_gops(request)
+    if not gops:
+        return _unavailable()
+    tid = _get_tenant_id(request)
+    if tid is None:
+        return _error("Non authentifie", 401)
+
+    # Scan all player keys and rank by XP
+    # This is a lightweight operation for small-to-medium user bases
+    leaders = []
+    try:
+        cursor = 0
+        while True:
+            cursor, keys = gops.rc.client.scan(cursor=cursor, match="*:world:player", count=50)
+            for key in keys:
+                pdata = gops.rc.client.hgetall(key)
+                if pdata:
+                    xp = int(pdata.get("xp", 0))
+                    name = pdata.get("first_name", pdata.get("name", "Anonyme"))
+                    level = int(pdata.get("level", 1))
+                    leaders.append({"name": name, "level": level, "xp": xp})
+            if cursor == 0:
+                break
+        leaders.sort(key=lambda x: x["xp"], reverse=True)
+    except Exception as e:
+        logger.warning(f"Leaderboard scan error: {e}")
+
+    return {"leaders": leaders[:5]}
+
+
+@gamification_router.post("/api/world/phare/encourage")
+async def send_encouragement(request: Request):
+    """Envoyer un encouragement a un ami."""
+    gops = _get_gops(request)
+    if not gops:
+        return _unavailable()
+    tid = _get_tenant_id(request)
+    if tid is None:
+        return _error("Non authentifie", 401)
+
+    try:
+        body = await request.json()
+        friend_id = body.get("friend_id")
+    except Exception:
+        return _error("Corps de requete invalide")
+
+    if not friend_id:
+        return _error("Ami non specifie")
+
+    # Store encouragement as an activity event for the friend
+    try:
+        sender = gops.get_player(tid)
+        sender_name = (sender or {}).get("first_name", "Un ami")
+        gops.add_activity(int(friend_id), json.dumps({
+            "id": str(uuid.uuid4()),
+            "type": "encouragement",
+            "message": f"{sender_name} t'envoie ses encouragements !",
+            "icon": "heart",
+            "ts": datetime.utcnow().isoformat(),
+            "meta": {"from_tenant": tid},
+        }))
+    except Exception as e:
+        logger.warning(f"Encouragement error: {e}")
+        return _error("Erreur d'envoi")
+
+    return {"success": True}
 
 
 @gamification_router.post("/api/world/shop/checkout")

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Luna Salons — YAWatch</title>
+<title>Luna Activites — YAWatch</title>
 <style>
 *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 html, body {
@@ -1396,16 +1396,16 @@ input::placeholder { color: var(--text-dim); }
 <!-- LOBBY VIEW -->
 <div class="app-container" id="lobbyView">
   <header class="lobby-header">
-    <h1>&#127968; Salons Famille <span id="salonXpInfo" style="font-size:12px;color:#a78bfa;font-weight:normal;margin-left:6px;"></span></h1>
+    <h1>&#127917; Activites <span id="salonXpInfo" style="font-size:12px;color:#a78bfa;font-weight:normal;margin-left:6px;"></span></h1>
     <a href="/world" class="back-link">&#8592; Village</a>
   </header>
   <div class="create-section">
     <button class="create-toggle-btn" id="createToggleBtn" onclick="toggleCreateForm()">
-      <span class="plus-icon">+</span> Cr&eacute;er un salon
+      <span class="plus-icon">+</span> Cr&eacute;er une activite
     </button>
     <div class="create-form" id="createForm">
       <div class="create-form-inner">
-        <input type="text" id="roomNameInput" placeholder="Nom du salon" maxlength="50" autocomplete="off">
+        <input type="text" id="roomNameInput" placeholder="Nom de l'activite" maxlength="50" autocomplete="off">
         <div class="type-selector" id="typeSelector">
           <div class="type-card" data-type="chat" onclick="selectType(this)"><span class="type-icon">&#128172;</span><span class="type-label">Chat</span></div>
           <div class="type-card" data-type="cinema" onclick="selectType(this)"><span class="type-icon">&#127916;</span><span class="type-label">Cin&eacute;ma</span></div>
@@ -1424,12 +1424,12 @@ input::placeholder { color: var(--text-dim); }
   <header class="room-header">
     <button class="back-btn" onclick="leaveRoom()" title="Quitter">&#8592;</button>
     <div class="room-header-info">
-      <div class="room-title" id="roomTitle">Salon</div>
+      <div class="room-title" id="roomTitle">Activite</div>
       <div class="room-type-badge" id="roomTypeBadge"></div>
     </div>
     <button class="participants-toggle" id="participantsToggle" onclick="toggleParticipants()">&#128101; <span id="participantsCount">0</span></button>
     <button class="invite-header-btn hidden" id="inviteHeaderBtn" onclick="toggleParticipants();loadInvitableMembers();" title="Inviter un proche">&#128233; Inviter</button>
-    <button class="close-room-btn hidden" id="closeRoomBtn" onclick="closeRoom()" title="Fermer le salon">&#10005;</button>
+    <button class="close-room-btn hidden" id="closeRoomBtn" onclick="closeRoom()" title="Fermer l'activite">&#10005;</button>
   </header>
   <div class="ws-status-bar" id="wsStatusBar"><span id="wsStatusText">Connexion perdue...</span></div>
   <div class="room-content" id="roomContent">
@@ -1715,7 +1715,7 @@ input::placeholder { color: var(--text-dim); }
   <div id="inviteSection" style="display:none; padding:12px; border-top:1px solid #333;">
     <h4 style="color:#a78bfa; margin:0 0 8px 0; font-size:0.9em;">Inviter un proche</h4>
     <div id="invitableMembersList"></div>
-    <p style="color:#666; font-size:0.75em; margin:8px 0 0 0;">Un SMS avec le lien du salon sera envoy&#233;.</p>
+    <p style="color:#666; font-size:0.75em; margin:8px 0 0 0;">Un SMS avec le lien de l'activite sera envoy&#233;.</p>
   </div>
 </div>
 
@@ -1867,7 +1867,7 @@ function buildGiftGrid() {
 /* VIEW MANAGEMENT */
 function showLobby() {
   if(typeof stopMicrophone==="function") stopMicrophone();
-  S.view="lobby"; document.title="Luna Salons \u2014 YAWatch";
+  S.view="lobby"; document.title="Luna Activites \u2014 YAWatch";
   $("lobbyView").style.display=""; $("roomView").classList.remove("active");
   $("roomView").classList.remove("karaoke-immersive");
   $("chatPanel").style.display="";
@@ -1906,7 +1906,7 @@ function loadRooms() {
 
 function renderRooms() {
   var c=$("roomsContainer");
-  if(!S.rooms.length){ c.innerHTML='<div class="empty-state"><span class="empty-icon">\uD83C\uDFE0</span>Aucun salon actif. Cr\u00e9ez-en un !</div>'; return; }
+  if(!S.rooms.length){ c.innerHTML='<div class="empty-state"><span class="empty-icon">\uD83C\uDFAD</span>Aucune activite en cours. Creez-en une !</div>'; return; }
   var h='<div class="rooms-grid">';
   S.rooms.forEach(function(r,i){
     var icon=TYPE_ICONS[r.type]||"\uD83D\uDCAC", label=TYPE_LABELS[r.type]||r.type;
@@ -1949,7 +1949,7 @@ window.createRoom = function() {
     showRoom(data.room_id);
   }).catch(function(err){
     btn.textContent="Cr\u00e9er"; btn.disabled=false;
-    showToast("Impossible de cr\u00e9er le salon","error");
+    showToast("Impossible de creer l'activite","error");
   });
 };
 
@@ -1970,8 +1970,8 @@ function loadRoomData(roomId) {
     var mp=(S.myPhone||"").toLowerCase().trim();
     S.isHost=(hp!==""&&hp===mp);
     console.log("[SALON] host_phone="+data.host_phone+" myPhone="+S.myPhone+" isHost="+S.isHost);
-    $("roomTitle").textContent=data.name||"Salon";
-    document.title="Luna Salon - "+(data.name||"Salon");
+    $("roomTitle").textContent=data.name||"Activite";
+    document.title="Luna - "+(data.name||"Activite");
     var tk=data.type||"chat";
     $("roomTypeBadge").textContent=(TYPE_ICONS[tk]||"")+" "+(TYPE_LABELS[tk]||tk);
     if(S.isHost){ show("closeRoomBtn"); } else { hide("closeRoomBtn"); }
@@ -1992,7 +1992,7 @@ function loadRoomData(roomId) {
     }
     if(data.game_type&&data.game_state) updateGame({game_type:data.game_type,state:data.game_state});
     connectWS(roomId);
-  }).catch(function(err){ showToast("Impossible de charger le salon","error"); showLobby(); });
+  }).catch(function(err){ showToast("Impossible de charger l'activite","error"); showLobby(); });
 }
 
 /* ROOM LAYOUT */
@@ -2116,14 +2116,14 @@ function wsSend(o) { if(S.ws&&S.ws.readyState===WebSocket.OPEN) S.ws.send(JSON.s
 /* WS MESSAGE HANDLER */
 function handleWsMsg(msg) {
   switch(msg.type) {
-    case "chat": addChatMessage(msg,false); if(S.currentRoomData&&S.currentRoomData.type==="karaoke") addKaraokeChatMsg(msg); if(msg.from_phone!==S.myPhone) salonNotify(msg.from||"Salon",msg.content||""); break;
+    case "chat": addChatMessage(msg,false); if(S.currentRoomData&&S.currentRoomData.type==="karaoke") addKaraokeChatMsg(msg); if(msg.from_phone!==S.myPhone) salonNotify(msg.from||"Luna",msg.content||""); break;
     case "typing": showTypingInd(msg.from); break;
     case "reaction":
       if(S.currentRoomData&&S.currentRoomData.type==="karaoke"){ for(var _ri=0;_ri<3;_ri++) spawnCascadeHeart(_ri*60); }
       else showFloatingReaction(msg.emoji,msg.from);
       break;
     case "gift": showGiftAnimation(msg); break;
-    case "join": handleJoin(msg); salonNotify("Salon Luna",(msg.name||"Quelqu'un")+" a rejoint le salon"); break;
+    case "join": handleJoin(msg); salonNotify("Luna",(msg.name||"Quelqu'un")+" a rejoint l'activite"); break;
     case "leave": handleLeave(msg); break;
     case "youtube_sync": syncYoutube(msg); break;
     case "karaoke_spotlight": updateSpotlightDisp(msg); break;
@@ -2282,13 +2282,13 @@ function showGiftAnimation(msg) {
 
 /* JOIN/LEAVE */
 function handleJoin(msg) {
-  addSystemMsg((msg.name||"Quelqu'un")+" a rejoint le salon");
+  addSystemMsg((msg.name||"Quelqu'un")+" a rejoint l'activite");
   if(msg.count!==undefined) $("participantsCount").textContent=msg.count;
   refreshParticipants();
 }
 
 function handleLeave(msg) {
-  addSystemMsg((msg.name||"Quelqu'un")+" a quitt\u00e9 le salon");
+  addSystemMsg((msg.name||"Quelqu'un")+" a quitte l'activite");
   if(msg.count!==undefined) $("participantsCount").textContent=msg.count;
   refreshParticipants();
 }
@@ -2304,10 +2304,10 @@ function refreshParticipants() {
 window.leaveRoom = function() { disconnectWS(); showLobby(); };
 window.closeRoom = function() {
   if(!S.currentRoom) return;
-  if(!confirm("Fermer d\u00e9finitivement ce salon ?")) return;
+  if(!confirm("Fermer definitivement cette activite ?")) return;
   apiDelete("/api/rooms/"+S.currentRoom).then(function(r){
-    if(!r.ok) throw new Error("Err"); showToast("Salon ferm\u00e9","success"); showLobby();
-  }).catch(function(){ showToast("Impossible de fermer le salon","error"); });
+    if(!r.ok) throw new Error("Err"); showToast("Activite fermee","success"); showLobby();
+  }).catch(function(){ showToast("Impossible de fermer l'activite","error"); });
 };
 
 /* YOUTUBE */

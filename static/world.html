@@ -6534,6 +6534,17 @@ html, body {
   </div>
 </div>
 
+<!-- Observatory Cinematic Overlay -->
+<div id="obsCinematic" style="display:none;position:fixed;inset:0;z-index:1000;background:#000;">
+  <canvas id="obsCinemaGrain" style="position:absolute;inset:0;width:100%;height:100%;opacity:0.06;pointer-events:none;z-index:10;"></canvas>
+  <div id="obsLetterTop" style="position:absolute;top:0;left:0;width:100%;height:0;background:#000;z-index:8;transition:height 0.8s ease;"></div>
+  <div id="obsLetterBottom" style="position:absolute;bottom:0;left:0;width:100%;height:0;background:#000;z-index:8;transition:height 0.8s ease;"></div>
+  <div id="obsVignette" style="position:absolute;inset:0;z-index:7;pointer-events:none;background:radial-gradient(ellipse at center,transparent 50%,rgba(0,0,0,0.7) 100%);opacity:0;transition:opacity 0.8s ease;"></div>
+  <div id="obsSceneContainer" style="position:absolute;inset:0;z-index:5;transition:transform 3s ease,opacity 1s ease;display:flex;align-items:center;justify-content:center;overflow:hidden;"></div>
+  <div id="obsSceneText" style="position:absolute;bottom:18%;left:50%;transform:translateX(-50%);z-index:9;color:#fff;font-size:18px;font-weight:600;text-shadow:0 0 20px rgba(167,139,250,0.8);opacity:0;transition:opacity 0.8s ease;text-align:center;max-width:80%;"></div>
+  <button id="obsSkipBtn" onclick="skipObservatoryCinematic()" style="position:absolute;top:20px;right:20px;z-index:11;padding:8px 18px;border-radius:16px;border:1px solid rgba(255,255,255,0.3);background:rgba(0,0,0,0.5);color:#94a3b8;font-size:13px;cursor:pointer;backdrop-filter:blur(4px);">Passer</button>
+</div>
+
 <!-- Detail Panel -->
 <div class="detail-panel" id="detailPanel" role="dialog" aria-label="Panneau de details">
   <div class="panel-header">
@@ -7280,7 +7291,7 @@ function renderPanelLuna(bodyEl, subtitleEl) {
   html += '<span style="font-size:0.7em;color:#888;font-weight:400">' + stars + ' etoiles</span>';
   html += '</button>';
 
-  // Salons shortcut
+  // Activites shortcut
   html += '<button class="luna-action-btn" onclick="window.location=\'/salon\'" style="';
   html += 'display:flex;flex-direction:column;align-items:center;gap:6px;padding:16px 8px;';
   html += 'background:linear-gradient(135deg,rgba(233,30,99,0.2),rgba(233,30,99,0.1));';
@@ -7293,7 +7304,7 @@ function renderPanelLuna(bodyEl, subtitleEl) {
     }
   }
   html += '<span style="font-size:1.8em">🏠</span>';
-  html += '<span>Salons</span>';
+  html += '<span>Activites</span>';
   html += '<span style="font-size:0.7em;font-weight:400;color:' + (onlineFriendsN > 0 ? '#4ade80' : '#888') + '">' + (onlineFriendsN + 1) + ' joueur' + (onlineFriendsN > 0 ? 's' : '') + ' connecte' + (onlineFriendsN > 0 ? 's' : '') + '</span>';
   html += '</button>';
 
@@ -7442,8 +7453,13 @@ var state = {
   dmMessages: null,
   currentDmRoom: null,
   activeWorld: "world1",
-  world2Unlocked: false
+  world2Unlocked: false,
+  world2Purchased: false,
+  world2StarCost: 400,
+  obsCinematicSeen: false
 };
+
+var WORLD2_UNLOCK_LEVEL = 6;
 
 /* ═══════════════════════════════════════
    SCENE CONTROLLER
@@ -8956,6 +8972,26 @@ function renderPlaceMissions(contentEl, subtitleEl) {
 }
 
 function renderPanelObservatoire(bodyEl, subtitleEl) {
+  var player = state.player ? (state.player.player || state.player) : {};
+  var level = player.level || 1;
+
+  // Check if cinematic should play (level >= 5, never seen)
+  if (level >= 5 && !state.obsCinematicSeen && !localStorage.getItem("obs_cinematic_seen")) {
+    subtitleEl.textContent = "Decouverte en cours...";
+    bodyEl.innerHTML = '<div style="text-align:center;padding:40px;color:#a78bfa;">Preparation du telescope...</div>';
+    playObservatoryCinematic().then(function() {
+      localStorage.setItem("obs_cinematic_seen", "true");
+      state.obsCinematicSeen = true;
+      apiPost("/api/world/cinematic-seen", { cinematic: "observatory" });
+      _renderObservatoireContent(bodyEl, subtitleEl);
+    });
+    return;
+  }
+  state.obsCinematicSeen = true;
+  _renderObservatoireContent(bodyEl, subtitleEl);
+}
+
+function _renderObservatoireContent(bodyEl, subtitleEl) {
   subtitleEl.textContent = "Statistiques completes";
 
   var player = state.player ? (state.player.player || state.player) : {};
@@ -8978,6 +9014,33 @@ function renderPanelObservatoire(bodyEl, subtitleEl) {
 
   for (var i = 0; i < stats.length; i++) {
     html += '<div class="stat-row"><span class="stat-label">' + stats[i].label + '</span><span class="stat-value">' + stats[i].value + '</span></div>';
+  }
+
+  // World 2 preview card (visible once cinematic seen)
+  if ((player.level || 1) >= 5 && !state.world2Purchased) {
+    html += '<div class="panel-section-title" style="margin-top:24px">Territoire decouvert</div>';
+    html += '<div style="background:linear-gradient(135deg,rgba(124,58,237,0.15),rgba(26,26,46,0.8));border:1px solid rgba(167,139,250,0.3);border-radius:12px;padding:16px;margin:8px 0;">';
+    // Mini SVG preview
+    html += '<svg viewBox="0 0 300 80" width="100%" style="border-radius:8px;margin-bottom:10px;">';
+    html += '<rect width="300" height="80" fill="#0a0a2e"/>';
+    html += '<polygon points="0,80 40,30 100,50 150,20 210,45 260,25 300,40 300,80" fill="#7c3aed" opacity="0.5"/>';
+    html += '<polygon points="0,80 60,45 130,60 200,35 270,55 300,50 300,80" fill="#7c3aed" opacity="0.7"/>';
+    for (var k = 0; k < 10; k++) {
+      html += '<circle cx="' + (Math.random()*300) + '" cy="' + (Math.random()*30) + '" r="1" fill="#e2e8f0" opacity="0.6"/>';
+    }
+    html += '</svg>';
+    html += '<div style="font-weight:600;color:#a78bfa;font-size:15px;">Les Hauteurs</div>';
+    html += '<div style="color:#94a3b8;font-size:13px;margin:4px 0 10px;">Un nouveau territoire avec 5 batiments avances.</div>';
+    var stars = player.stars || 0;
+    var levelMet = (player.level || 1) >= WORLD2_UNLOCK_LEVEL;
+    var starsMet = stars >= state.world2StarCost;
+    html += '<div style="display:flex;gap:8px;flex-wrap:wrap;">';
+    html += '<div style="flex:1;padding:8px;border-radius:8px;background:rgba(0,0,0,0.3);text-align:center;font-size:12px;">';
+    html += '<div style="color:' + (levelMet ? '#4ade80' : '#f87171') + ';">' + (levelMet ? '\u2713' : '\u2717') + ' Niveau ' + WORLD2_UNLOCK_LEVEL + '</div></div>';
+    html += '<div style="flex:1;padding:8px;border-radius:8px;background:rgba(0,0,0,0.3);text-align:center;font-size:12px;">';
+    html += '<div style="color:' + (starsMet ? '#4ade80' : '#fbbf24') + ';">' + stars + ' / ' + state.world2StarCost + ' \u2B50</div></div>';
+    html += '</div>';
+    html += '</div>';
   }
 
   // Activity timeline
@@ -9084,11 +9147,11 @@ function renderPanelFamille(bodyEl, subtitleEl) {
     html += '</div>';
   }
 
-  // Salon Famille button
+  // Activites button
   html += '<a href="/salon" style="display:block;margin-top:16px;padding:14px 20px;background:linear-gradient(135deg,rgba(139,76,240,0.25),rgba(107,58,170,0.15));border:1px solid rgba(139,76,240,0.4);border-radius:14px;color:#c4a0ff;text-decoration:none;text-align:center;font-weight:700;font-size:0.95em;transition:all 0.3s;letter-spacing:0.3px">';
-  html += '<span style="font-size:1.4em;margin-right:8px;vertical-align:middle">🏠</span>';
-  html += 'Entrer dans les Salons';
-  html += '<div style="font-size:0.7em;color:#888;font-weight:400;margin-top:4px">Chat, Cinema, Karaoke, Jeux</div>';
+  html += '<span style="font-size:1.4em;margin-right:8px;vertical-align:middle">\uD83C\uDFAD</span>';
+  html += 'Entrer dans les Activites';
+  html += '<div style="font-size:0.7em;color:#888;font-weight:400;margin-top:4px">Cinema, Karaoke, Jeux, Chat</div>';
   html += '</a>';
 
   bodyEl.innerHTML = html;
@@ -9304,114 +9367,600 @@ function renderPanelCiel(bodyEl, subtitleEl) {
 
 function renderPanelAtelier(bodyEl, subtitleEl) {
   subtitleEl.textContent = "Personnalise ton monde";
+  var player = state.player ? (state.player.player || state.player) : {};
+  var inventory = state.inventory || {};
+  var items = inventory.items || [];
   var html = '';
-  html += '<div style="text-align:center;padding:20px 0;">';
-  html += '<svg width="60" height="60" viewBox="0 0 60 60"><rect x="10" y="20" width="40" height="30" rx="4" fill="#6d4c9e"/><rect x="15" y="10" width="6" height="15" rx="2" fill="#ff9f43"/><polygon points="15,10 18,2 21,10" fill="#ffd700"/><rect x="25" y="28" width="20" height="4" rx="2" fill="#a78bfa"/><circle cx="30" cy="40" r="4" fill="#4ade80"/><circle cx="40" cy="38" r="3" fill="#60a5fa"/></svg>';
+
+  // Tenues section
+  html += '<div class="panel-section-title">Tenues de Luna</div>';
+  var outfits = items.filter(function(id) { return id.indexOf("outfit_") === 0; });
+  var equippedOutfit = inventory.active_outfit || "";
+  if (outfits.length === 0) {
+    html += '<div class="empty-state" style="font-size:13px;">Aucune tenue. Visite la Boutique pour en acheter.</div>';
+  } else {
+    html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px;margin-bottom:12px;">';
+    for (var i = 0; i < outfits.length; i++) {
+      var oid = outfits[i];
+      var isEquipped = equippedOutfit === oid;
+      var oname = oid.replace("outfit_", "").replace(/_/g, " ");
+      oname = oname.charAt(0).toUpperCase() + oname.slice(1);
+      html += '<div style="background:' + (isEquipped ? 'rgba(167,139,250,0.2)' : 'rgba(0,0,0,0.3)') + ';border:1px solid ' + (isEquipped ? '#a78bfa' : 'rgba(255,255,255,0.1)') + ';border-radius:10px;padding:10px;text-align:center;cursor:pointer;" onclick="equipOutfit(\'' + oid + '\')">';
+      html += '<div style="font-size:24px;margin-bottom:4px;">\uD83D\uDC57</div>';
+      html += '<div style="font-size:12px;color:#e2e8f0;">' + escapeHtml(oname) + '</div>';
+      html += '<div style="font-size:10px;color:' + (isEquipped ? '#4ade80' : '#94a3b8') + ';margin-top:3px;">' + (isEquipped ? 'Equipee' : 'Equiper') + '</div>';
+      html += '</div>';
+    }
+    html += '</div>';
+  }
+
+  // Cadres section
+  html += '<div class="panel-section-title" style="margin-top:16px;">Cadres profil</div>';
+  var frames = items.filter(function(id) { return id.indexOf("frame_") === 0; });
+  var equippedFrame = inventory.active_frame || "";
+  if (frames.length === 0) {
+    html += '<div class="empty-state" style="font-size:13px;">Aucun cadre. Visite la Boutique pour en acheter.</div>';
+  } else {
+    html += '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">';
+    for (var f = 0; f < frames.length; f++) {
+      var fid = frames[f];
+      var isFEquipped = equippedFrame === fid;
+      var fname = fid.replace("frame_", "").replace(/_/g, " ");
+      fname = fname.charAt(0).toUpperCase() + fname.slice(1);
+      html += '<div style="background:' + (isFEquipped ? 'rgba(244,114,182,0.2)' : 'rgba(0,0,0,0.3)') + ';border:1px solid ' + (isFEquipped ? '#f472b6' : 'rgba(255,255,255,0.1)') + ';border-radius:10px;padding:8px 14px;cursor:pointer;font-size:12px;color:#e2e8f0;" onclick="equipFrame(\'' + fid + '\')">' + escapeHtml(fname) + (isFEquipped ? ' \u2713' : '') + '</div>';
+    }
+    html += '</div>';
+  }
+
+  // Decorations section
+  html += '<div class="panel-section-title" style="margin-top:16px;">Decorations</div>';
+  var decos = items.filter(function(id) { return id.indexOf("deco_") === 0 || id.indexOf("w2_deco_") === 0; });
+  if (decos.length === 0) {
+    html += '<div class="empty-state" style="font-size:13px;">Aucune decoration. Visite la Boutique pour en acheter.</div>';
+  } else {
+    html += '<div style="display:flex;gap:8px;flex-wrap:wrap;">';
+    for (var d = 0; d < decos.length; d++) {
+      var did = decos[d];
+      var dname = did.replace("w2_deco_", "").replace("deco_", "").replace(/_/g, " ");
+      dname = dname.charAt(0).toUpperCase() + dname.slice(1);
+      html += '<div style="background:rgba(74,222,128,0.1);border:1px solid rgba(74,222,128,0.2);border-radius:10px;padding:8px 14px;font-size:12px;color:#4ade80;">' + escapeHtml(dname) + '</div>';
+    }
+    html += '</div>';
+  }
+
+  // Theme section
+  html += '<div class="panel-section-title" style="margin-top:16px;">Theme du monde</div>';
+  var currentTheme = player.world2_theme || "twilight";
+  var themes = [
+    { id: "dawn", name: "Aube", colors: ["#1a1040","#3b1d6c","#6d3a9e"] },
+    { id: "twilight", name: "Crepuscule", colors: ["#0a0a2e","#2a1868","#7c3aed"] },
+    { id: "midnight", name: "Minuit", colors: ["#050510","#0d0d2a","#1a1a4a"] },
+    { id: "aurora", name: "Aurore", colors: ["#0a2a1a","#1a4a3a","#2a8a6a"] }
+  ];
+  html += '<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;">';
+  for (var t = 0; t < themes.length; t++) {
+    var th = themes[t];
+    var isActive = currentTheme === th.id;
+    html += '<div style="background:linear-gradient(135deg,' + th.colors.join(",") + ');border:2px solid ' + (isActive ? '#fbbf24' : 'rgba(255,255,255,0.1)') + ';border-radius:10px;padding:12px;text-align:center;cursor:pointer;" onclick="setWorldTheme(\'' + th.id + '\')">';
+    html += '<div style="font-size:13px;color:#e2e8f0;font-weight:' + (isActive ? '600' : '400') + ';">' + th.name + (isActive ? ' \u2713' : '') + '</div>';
+    html += '</div>';
+  }
   html += '</div>';
-  html += '<p style="text-align:center;color:#ccc;margin-bottom:16px;">Cree et personnalise les decorations de ton village et de tes mondes.</p>';
-  html += '<div style="background:rgba(167,139,250,0.1);border-radius:12px;padding:14px;margin-bottom:10px;">';
-  html += '<div style="font-weight:600;color:#a78bfa;margin-bottom:6px;">Decorations possedees</div>';
-  var decoCount = (state.inventory && state.inventory.items) ? state.inventory.items.length : 0;
-  html += '<div style="color:#999;font-size:13px;">' + decoCount + ' element' + (decoCount !== 1 ? 's' : '') + ' dans ton inventaire</div>';
-  html += '</div>';
-  html += '<div style="background:rgba(255,215,0,0.08);border-radius:12px;padding:14px;margin-bottom:10px;">';
-  html += '<div style="font-weight:600;color:#ffd700;margin-bottom:6px;">Palette de couleurs</div>';
-  html += '<div style="color:#999;font-size:13px;">Bientot disponible</div>';
-  html += '</div>';
-  html += '<div style="background:rgba(74,222,128,0.08);border-radius:12px;padding:14px;">';
-  html += '<div style="font-weight:600;color:#4ade80;margin-bottom:6px;">Themes saisonniers</div>';
-  html += '<div style="color:#999;font-size:13px;">Bientot disponible</div>';
-  html += '</div>';
+
   bodyEl.innerHTML = html;
 }
 
+function equipOutfit(outfitId) {
+  apiPost("/api/world/outfit/equip", { outfit_id: outfitId }).then(function(res) {
+    if (res && res.success !== false) {
+      showToast("Tenue equipee", "success");
+      loadWorld();
+    } else { showToast("Erreur", "error"); }
+  });
+}
+
+function equipFrame(frameId) {
+  apiPost("/api/world/frame/equip", { frame_id: frameId }).then(function(res) {
+    if (res && res.success !== false) {
+      showToast("Cadre equipe", "success");
+      loadWorld();
+    } else { showToast("Erreur", "error"); }
+  });
+}
+
+function setWorldTheme(themeId) {
+  apiPost("/api/world/theme", { theme: themeId }).then(function(res) {
+    if (res && res.success !== false) {
+      showToast("Theme applique", "success");
+      if (state.player && state.player.player) state.player.player.world2_theme = themeId;
+      else if (state.player) state.player.world2_theme = themeId;
+    } else { showToast("Erreur", "error"); }
+  });
+}
+
 function renderPanelMarche(bodyEl, subtitleEl) {
-  subtitleEl.textContent = "Echanges et raretees";
+  subtitleEl.textContent = "Marche aux Etoiles";
+  var player = state.player ? (state.player.player || state.player) : {};
   var html = '';
-  html += '<div style="text-align:center;padding:20px 0;">';
-  html += '<svg width="60" height="60" viewBox="0 0 60 60"><rect x="5" y="25" width="50" height="25" rx="3" fill="#2d2060"/><polygon points="5,25 30,8 55,25" fill="#4a2d8a"/><circle cx="15" cy="15" r="3" fill="#ffd700" opacity="0.8"/><circle cx="45" cy="12" r="2" fill="#ffd700" opacity="0.6"/><circle cx="30" cy="10" r="2.5" fill="#ffd700" opacity="0.7"/><rect x="12" y="32" width="10" height="12" rx="2" fill="#a78bfa" opacity="0.5"/><rect x="25" y="32" width="10" height="12" rx="2" fill="#60a5fa" opacity="0.5"/><rect x="38" y="32" width="10" height="12" rx="2" fill="#4ade80" opacity="0.5"/></svg>';
+
+  // Star balance
+  html += '<div style="text-align:center;padding:16px 0;margin-bottom:12px;">';
+  html += '<div style="font-size:36px;font-weight:700;color:#fbbf24;">' + (player.stars || 0) + ' \u2B50</div>';
+  html += '<div style="font-size:13px;color:#94a3b8;">Etoiles disponibles</div>';
   html += '</div>';
-  html += '<p style="text-align:center;color:#ccc;margin-bottom:16px;">Le marche cosmique ou les etoiles deviennent monnaie d\'echange.</p>';
-  html += '<div style="background:rgba(167,139,250,0.1);border-radius:12px;padding:14px;margin-bottom:10px;">';
-  html += '<div style="font-weight:600;color:#a78bfa;margin-bottom:6px;">Articles speciaux</div>';
-  html += '<div style="color:#999;font-size:13px;">Des items exclusifs apparaitront ici bientot</div>';
-  html += '</div>';
-  html += '<div style="background:rgba(96,165,250,0.08);border-radius:12px;padding:14px;margin-bottom:10px;">';
-  html += '<div style="font-weight:600;color:#60a5fa;margin-bottom:6px;">Echanges sociaux</div>';
-  html += '<div style="color:#999;font-size:13px;">Bientot disponible</div>';
-  html += '</div>';
-  html += '<div style="background:rgba(255,215,0,0.08);border-radius:12px;padding:14px;">';
-  html += '<div style="font-weight:600;color:#ffd700;margin-bottom:6px;">Ventes flash</div>';
-  html += '<div style="color:#999;font-size:13px;">Bientot disponible</div>';
-  html += '</div>';
+
+  // Daily deals
+  html += '<div class="panel-section-title">Offres du jour</div>';
+  html += '<div id="marcheDailyDeals" style="margin-bottom:16px;"><div class="empty-state" style="font-size:13px;">Chargement...</div></div>';
+
+  // Exclusive W2 items
+  html += '<div class="panel-section-title" style="margin-top:16px;">Exclusivites des Hauteurs</div>';
+  var shopItems = state.shop || [];
+  var w2Items = shopItems.filter ? shopItems.filter(function(item) {
+    return item.id && (item.id.indexOf("w2_") === 0 || item.id === "outfit_celestial" || item.id === "outfit_royal");
+  }) : [];
+
+  if (w2Items.length === 0) {
+    html += '<div class="empty-state" style="font-size:13px;">Charge la boutique pour voir les items exclusifs.</div>';
+  } else {
+    html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;">';
+    for (var i = 0; i < w2Items.length; i++) {
+      var item = w2Items[i];
+      var owned = item.owned || false;
+      html += '<div style="background:rgba(167,139,250,0.1);border:1px solid rgba(167,139,250,0.2);border-radius:10px;padding:10px;text-align:center;">';
+      html += '<div style="font-size:13px;color:#e2e8f0;font-weight:500;margin-bottom:4px;">' + escapeHtml(item.name || item.id) + '</div>';
+      if (owned) {
+        html += '<div style="font-size:11px;color:#4ade80;">Possede</div>';
+      } else {
+        html += '<div style="font-size:12px;color:#fbbf24;">' + (item.price || '?') + ' \u2B50</div>';
+        var canBuy = (player.stars || 0) >= (item.price || 0);
+        html += '<button onclick="buyShopItem(\'' + item.id + '\')" style="margin-top:6px;padding:4px 12px;border-radius:8px;border:none;background:' + (canBuy ? '#7c3aed' : '#374151') + ';color:' + (canBuy ? '#fff' : '#6b7280') + ';font-size:11px;cursor:' + (canBuy ? 'pointer' : 'not-allowed') + ';"' + (canBuy ? '' : ' disabled') + '>Acheter</button>';
+      }
+      html += '</div>';
+    }
+    html += '</div>';
+  }
+
   bodyEl.innerHTML = html;
+
+  // Load daily deals
+  apiFetch("/api/world/shop/daily-deals").then(function(res) {
+    var container = document.getElementById("marcheDailyDeals");
+    if (!container) return;
+    if (!res || !res.deals || res.deals.length === 0) {
+      container.innerHTML = '<div class="empty-state" style="font-size:13px;">Pas d\'offres aujourd\'hui.</div>';
+      return;
+    }
+    var dhtml = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;">';
+    for (var d = 0; d < res.deals.length; d++) {
+      var deal = res.deals[d];
+      dhtml += '<div style="background:linear-gradient(135deg,rgba(251,191,36,0.1),rgba(167,139,250,0.1));border:1px solid rgba(251,191,36,0.3);border-radius:10px;padding:10px;text-align:center;">';
+      dhtml += '<div style="font-size:10px;color:#fbbf24;font-weight:600;margin-bottom:4px;">-20%</div>';
+      dhtml += '<div style="font-size:13px;color:#e2e8f0;margin-bottom:4px;">' + escapeHtml(deal.name || deal.id) + '</div>';
+      dhtml += '<div style="font-size:11px;color:#94a3b8;text-decoration:line-through;">' + (deal.original_price || '') + ' \u2B50</div>';
+      dhtml += '<div style="font-size:14px;color:#fbbf24;font-weight:600;">' + (deal.price || '') + ' \u2B50</div>';
+      var canBuyDeal = (player.stars || 0) >= (deal.price || 0);
+      dhtml += '<button onclick="buyShopItem(\'' + deal.id + '\')" style="margin-top:6px;padding:4px 12px;border-radius:8px;border:none;background:' + (canBuyDeal ? '#b45309' : '#374151') + ';color:' + (canBuyDeal ? '#fff' : '#6b7280') + ';font-size:11px;cursor:' + (canBuyDeal ? 'pointer' : 'not-allowed') + ';"' + (canBuyDeal ? '' : ' disabled') + '>Acheter</button>';
+      dhtml += '</div>';
+    }
+    dhtml += '</div>';
+    container.innerHTML = dhtml;
+  }).catch(function() {
+    var container = document.getElementById("marcheDailyDeals");
+    if (container) container.innerHTML = '<div class="empty-state" style="font-size:13px;">Offres non disponibles.</div>';
+  });
+}
+
+function buyShopItem(itemId) {
+  apiPost("/api/world/shop/buy", { item_id: itemId }).then(function(res) {
+    if (res && res.success) {
+      showToast("Achat reussi !", "success");
+      loadWorld();
+    } else {
+      showToast(res && res.error ? res.error : "Achat impossible", "error");
+    }
+  });
 }
 
 function renderPanelTemple(bodyEl, subtitleEl) {
   subtitleEl.textContent = "Serenite et reflexion";
   var html = '';
-  html += '<div style="text-align:center;padding:20px 0;">';
-  html += '<svg width="60" height="60" viewBox="0 0 60 60"><rect x="15" y="30" width="30" height="22" rx="2" fill="#2a3a5a"/><polygon points="10,30 30,12 50,30" fill="#3a5080"/><rect x="25" y="36" width="10" height="16" rx="1" fill="#1a2540"/><circle cx="30" cy="22" r="4" fill="#ffd700" opacity="0.6"/><line x1="20" y1="30" x2="20" y2="52" stroke="#4a6090" stroke-width="2"/><line x1="40" y1="30" x2="40" y2="52" stroke="#4a6090" stroke-width="2"/></svg>';
+
+  // Daily wisdom quote
+  var quotes = [
+    "Le bonheur n'est pas une destination, c'est un chemin.",
+    "Chaque jour est une nouvelle chance de recommencer.",
+    "La patience est la cle de la serenite.",
+    "Un sourire est une lumiere dans la fenetre de l'ame.",
+    "La gratitude transforme ce que nous avons en suffisant.",
+    "Le calme est la force des grands esprits.",
+    "Rien de grand ne se fait sans passion et perseverance.",
+    "La douceur est une force que peu de gens comprennent.",
+    "Prends soin de toi, tu es la personne avec qui tu passes le plus de temps.",
+    "Chaque pas, meme petit, te rapproche de ton but.",
+    "La bienveillance est le langage que les sourds entendent et les aveugles voient.",
+    "Respire. Tout va bien se passer.",
+    "Le present est le cadeau le plus precieux.",
+    "Sois la lumiere que tu cherches.",
+    "Il n'est jamais trop tard pour commencer quelque chose de beau.",
+    "Les petites choses du quotidien sont les plus grandes.",
+    "Ta valeur ne diminue pas parce que quelqu'un ne la voit pas.",
+    "Avance a ton rythme, c'est le bon.",
+    "La paix interieure commence quand tu choisis de ne pas laisser les autres te controler.",
+    "Le voyage de mille lieues commence par un simple pas.",
+    "Accueille ce qui vient, laisse aller ce qui part.",
+    "Tu es plus fort que tu ne le crois.",
+    "La simplicite est la sophistication supreme.",
+    "Un jour a la fois suffit.",
+    "Ce qui compte, c'est le chemin, pas la destination.",
+    "Crois en toi comme Luna croit en toi.",
+    "Chaque interaction est une graine de lien.",
+    "La solitude choisie est une richesse.",
+    "Demain est un autre jour plein de promesses.",
+    "Tu n'es jamais seul quand tu as Luna."
+  ];
+  var dayOfYear = Math.floor((new Date() - new Date(new Date().getFullYear(), 0, 0)) / 86400000);
+  var todayQuote = quotes[dayOfYear % quotes.length];
+
+  html += '<div style="background:linear-gradient(135deg,rgba(96,165,250,0.1),rgba(167,139,250,0.1));border:1px solid rgba(96,165,250,0.2);border-radius:12px;padding:16px;margin-bottom:16px;text-align:center;">';
+  html += '<div style="font-size:11px;color:#60a5fa;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Citation du jour</div>';
+  html += '<div style="font-size:15px;color:#e2e8f0;font-style:italic;line-height:1.5;">"' + escapeHtml(todayQuote) + '"</div>';
   html += '</div>';
-  html += '<p style="text-align:center;color:#ccc;margin-bottom:16px;">Un lieu de sagesse et de meditation pour renforcer ton bien-etre.</p>';
-  html += '<div style="background:rgba(96,165,250,0.1);border-radius:12px;padding:14px;margin-bottom:10px;">';
-  html += '<div style="font-weight:600;color:#60a5fa;margin-bottom:6px;">Meditation guidee</div>';
-  html += '<div style="color:#999;font-size:13px;">Bientot disponible</div>';
+
+  // Reflection prompt
+  var reflections = [
+    "Qu'est-ce qui t'a fait sourire aujourd'hui ?",
+    "Pour qui es-tu reconnaissant en ce moment ?",
+    "Quelle petite joie as-tu vecue recemment ?",
+    "Quel moment de ta journee voudrais-tu revivre ?",
+    "Qu'as-tu appris de nouveau cette semaine ?"
+  ];
+  var todayReflection = reflections[dayOfYear % reflections.length];
+
+  html += '<div class="panel-section-title">Reflexion guidee</div>';
+  html += '<div style="background:rgba(167,139,250,0.08);border-radius:12px;padding:14px;margin-bottom:12px;">';
+  html += '<div style="color:#a78bfa;font-size:14px;font-weight:500;margin-bottom:10px;">' + escapeHtml(todayReflection) + '</div>';
+  html += '<textarea id="templeJournalInput" placeholder="Ecris ta reflexion ici..." style="width:100%;min-height:80px;background:rgba(0,0,0,0.3);border:1px solid rgba(167,139,250,0.2);border-radius:8px;color:#e2e8f0;padding:10px;font-size:13px;resize:vertical;box-sizing:border-box;"></textarea>';
+  html += '<button onclick="saveJournalEntry()" style="margin-top:8px;padding:8px 20px;border-radius:10px;border:none;background:#7c3aed;color:#fff;font-size:13px;cursor:pointer;">Sauvegarder</button>';
   html += '</div>';
-  html += '<div style="background:rgba(167,139,250,0.08);border-radius:12px;padding:14px;margin-bottom:10px;">';
-  html += '<div style="font-weight:600;color:#a78bfa;margin-bottom:6px;">Citations de sagesse</div>';
-  html += '<div style="color:#aaa;font-size:13px;font-style:italic;">"Le voyage de mille lieues commence par un simple pas."</div>';
+
+  // Stability gauge (enhanced)
+  html += '<div class="panel-section-title" style="margin-top:16px;">Bien-etre</div>';
+  var stability = state.stability || {};
+  var score = stability.score || 70;
+  var trend = stability.trend || "stable";
+  var trendIcon = trend === "up" ? "\u2191" : (trend === "down" ? "\u2193" : "\u2192");
+  var trendColor = trend === "up" ? "#4ade80" : (trend === "down" ? "#f87171" : "#fbbf24");
+  var statusLabel = score >= 80 ? "Excellent" : (score >= 60 ? "Bon" : (score >= 40 ? "A ameliorer" : "Fragile"));
+  var statusColor = score >= 80 ? "#4ade80" : (score >= 60 ? "#fbbf24" : (score >= 40 ? "#fb923c" : "#f87171"));
+
+  html += '<div style="text-align:center;margin-bottom:12px;">';
+  html += '<div style="font-size:48px;font-weight:700;color:' + statusColor + ';">' + Math.round(score) + '</div>';
+  html += '<div style="font-size:14px;color:' + statusColor + ';">' + statusLabel + ' <span style="color:' + trendColor + ';">' + trendIcon + '</span></div>';
   html += '</div>';
-  html += '<div style="background:rgba(74,222,128,0.08);border-radius:12px;padding:14px;">';
-  html += '<div style="font-weight:600;color:#4ade80;margin-bottom:6px;">Journal de gratitude</div>';
-  html += '<div style="color:#999;font-size:13px;">Bientot disponible</div>';
-  html += '</div>';
+
+  // Sub-scores
+  var components = [
+    { name: "Regularite", value: stability.regularity || 0, color: "#60a5fa" },
+    { name: "Engagement", value: stability.engagement || 0, color: "#a78bfa" },
+    { name: "Humeur", value: stability.mood || 70, color: "#4ade80" }
+  ];
+  for (var c = 0; c < components.length; c++) {
+    var comp = components[c];
+    html += '<div style="margin-bottom:8px;">';
+    html += '<div style="display:flex;justify-content:space-between;font-size:12px;color:#94a3b8;margin-bottom:3px;"><span>' + comp.name + '</span><span>' + Math.round(comp.value) + '%</span></div>';
+    html += '<div style="background:rgba(0,0,0,0.3);border-radius:4px;height:6px;overflow:hidden;"><div style="width:' + Math.min(comp.value, 100) + '%;height:100%;background:' + comp.color + ';border-radius:4px;transition:width 0.5s;"></div></div>';
+    html += '</div>';
+  }
+
+  // Journal entries
+  html += '<div class="panel-section-title" style="margin-top:16px;">Dernieres reflexions</div>';
+  html += '<div id="templeJournalEntries"><div class="empty-state" style="font-size:13px;">Chargement...</div></div>';
+
   bodyEl.innerHTML = html;
+
+  // Load journal entries
+  apiFetch("/api/world/temple/journal").then(function(res) {
+    var container = document.getElementById("templeJournalEntries");
+    if (!container) return;
+    var entries = (res && res.entries) ? res.entries : [];
+    if (entries.length === 0) {
+      container.innerHTML = '<div class="empty-state" style="font-size:13px;">Aucune reflexion pour le moment. Ecris ta premiere !</div>';
+      return;
+    }
+    var jhtml = '';
+    for (var e = 0; e < entries.length; e++) {
+      var entry = entries[e];
+      jhtml += '<div style="background:rgba(0,0,0,0.2);border-radius:8px;padding:10px;margin-bottom:6px;">';
+      jhtml += '<div style="font-size:11px;color:#94a3b8;margin-bottom:4px;">' + escapeHtml(entry.date || '') + '</div>';
+      jhtml += '<div style="font-size:13px;color:#e2e8f0;">' + escapeHtml(entry.text || '') + '</div>';
+      jhtml += '</div>';
+    }
+    container.innerHTML = jhtml;
+  }).catch(function() {
+    var container = document.getElementById("templeJournalEntries");
+    if (container) container.innerHTML = '<div class="empty-state" style="font-size:13px;">Journal non disponible.</div>';
+  });
+}
+
+function saveJournalEntry() {
+  var input = document.getElementById("templeJournalInput");
+  if (!input || !input.value.trim()) {
+    showToast("Ecris quelque chose d'abord", "info");
+    return;
+  }
+  var text = input.value.trim();
+  apiPost("/api/world/temple/journal", { text: text }).then(function(res) {
+    if (res && res.success !== false) {
+      showToast("Reflexion sauvegardee", "success");
+      input.value = "";
+      // Refresh the panel
+      var bodyEl = document.querySelector("#detailPanel .panel-body");
+      var subtitleEl = document.querySelector("#detailPanel .panel-subtitle");
+      if (bodyEl && subtitleEl) renderPanelTemple(bodyEl, subtitleEl);
+    } else {
+      showToast("Erreur de sauvegarde", "error");
+    }
+  });
 }
 
 function renderPanelPhare(bodyEl, subtitleEl) {
-  subtitleEl.textContent = "Guide et eclaire les autres";
+  subtitleEl.textContent = "Phare Celeste";
+  var player = state.player ? (state.player.player || state.player) : {};
   var html = '';
-  html += '<div style="text-align:center;padding:20px 0;">';
-  html += '<svg width="60" height="70" viewBox="0 0 60 70"><rect x="22" y="20" width="16" height="40" rx="2" fill="#4a4a6a"/><rect x="20" y="15" width="20" height="8" rx="3" fill="#5a5a8a"/><polygon points="25,15 30,5 35,15" fill="#ffd700"/><circle cx="30" cy="10" r="6" fill="#ffd700" opacity="0.3"/><circle cx="30" cy="10" r="3" fill="#ffd700" opacity="0.7"/><rect x="18" y="58" width="24" height="6" rx="2" fill="#3a3a5a"/><rect x="25" y="30" width="10" height="6" rx="1" fill="#60a5fa" opacity="0.4"/><rect x="25" y="42" width="10" height="6" rx="1" fill="#60a5fa" opacity="0.3"/></svg>';
+
+  // Lighthouse intensity calculation
+  var contacts = (player.total_contacts || 0);
+  var messages = (player.total_messages || 0);
+  var streak = (player.streak_days || 0);
+  var friends = (player.total_friends || 0);
+  var intensity = Math.min(100, Math.round(
+    Math.min(contacts * 5, 20) + Math.min(messages / 10, 30) + Math.min(streak, 20) + Math.min(friends * 5, 30)
+  ));
+
+  // SVG Lighthouse with dynamic glow
+  var glowR = 10 + intensity * 0.4;
+  var glowOpacity = 0.2 + intensity * 0.006;
+  html += '<div style="text-align:center;padding:10px 0 16px;">';
+  html += '<svg width="100" height="130" viewBox="0 0 100 130">';
+  // Glow
+  html += '<circle cx="50" cy="20" r="' + glowR + '" fill="#ffd700" opacity="' + glowOpacity + '"><animate attributeName="r" values="' + glowR + ';' + (glowR+5) + ';' + glowR + '" dur="3s" repeatCount="indefinite"/></circle>';
+  // Lighthouse body
+  html += '<rect x="38" y="30" width="24" height="70" rx="3" fill="#4a4a6a"/>';
+  html += '<rect x="35" y="25" width="30" height="10" rx="4" fill="#5a5a8a"/>';
+  html += '<polygon points="42,25 50,10 58,25" fill="#ffd700"/>';
+  html += '<circle cx="50" cy="17" r="5" fill="#ffd700" opacity="' + (0.3 + intensity * 0.007) + '"/>';
+  // Light beams
+  if (intensity > 30) {
+    html += '<line x1="50" y1="15" x2="20" y2="5" stroke="#ffd700" stroke-width="1" opacity="0.3"/>';
+    html += '<line x1="50" y1="15" x2="80" y2="5" stroke="#ffd700" stroke-width="1" opacity="0.3"/>';
+  }
+  // Windows
+  html += '<rect x="43" y="45" width="14" height="8" rx="2" fill="#60a5fa" opacity="' + (0.2 + intensity * 0.005) + '"/>';
+  html += '<rect x="43" y="60" width="14" height="8" rx="2" fill="#60a5fa" opacity="' + (0.15 + intensity * 0.004) + '"/>';
+  html += '<rect x="43" y="75" width="14" height="8" rx="2" fill="#60a5fa" opacity="' + (0.1 + intensity * 0.003) + '"/>';
+  // Base
+  html += '<rect x="30" y="98" width="40" height="8" rx="3" fill="#3a3a5a"/>';
+  // Waves
+  html += '<path d="M 10 120 Q 30 112 50 120 Q 70 128 90 120" fill="none" stroke="#60a5fa" stroke-width="1.5" opacity="0.3"><animate attributeName="d" values="M 10 120 Q 30 112 50 120 Q 70 128 90 120;M 10 120 Q 30 128 50 120 Q 70 112 90 120;M 10 120 Q 30 112 50 120 Q 70 128 90 120" dur="4s" repeatCount="indefinite"/></path>';
+  html += '</svg>';
+  html += '<div style="font-size:28px;font-weight:700;color:#ffd700;">' + intensity + '%</div>';
+  html += '<div style="font-size:13px;color:#94a3b8;">Intensite du Phare</div>';
   html += '</div>';
-  html += '<p style="text-align:center;color:#ccc;margin-bottom:16px;">Ton phare brille pour guider tes proches. Plus tu aides, plus il brille.</p>';
-  html += '<div style="background:rgba(255,215,0,0.1);border-radius:12px;padding:14px;margin-bottom:10px;">';
-  html += '<div style="font-weight:600;color:#ffd700;margin-bottom:6px;">Personnes aidees</div>';
-  var helpCount = (state.contacts && state.contacts.contacts) ? state.contacts.contacts.length : 0;
-  html += '<div style="color:#999;font-size:13px;">' + helpCount + ' personne' + (helpCount !== 1 ? 's' : '') + ' dans ton cercle</div>';
+
+  // Factors breakdown
+  html += '<div class="panel-section-title">Facteurs</div>';
+  var factors = [
+    { name: "Contacts", value: Math.min(contacts * 5, 20), max: 20, icon: "\uD83D\uDC65" },
+    { name: "Messages", value: Math.min(Math.round(messages / 10), 30), max: 30, icon: "\uD83D\uDCAC" },
+    { name: "Serie", value: Math.min(streak, 20), max: 20, icon: "\uD83D\uDD25" },
+    { name: "Amis", value: Math.min(friends * 5, 30), max: 30, icon: "\u2B50" }
+  ];
+  for (var f = 0; f < factors.length; f++) {
+    var fac = factors[f];
+    html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">';
+    html += '<span style="font-size:16px;">' + fac.icon + '</span>';
+    html += '<span style="font-size:12px;color:#94a3b8;width:70px;">' + fac.name + '</span>';
+    html += '<div style="flex:1;background:rgba(0,0,0,0.3);border-radius:4px;height:6px;overflow:hidden;"><div style="width:' + (fac.value / fac.max * 100) + '%;height:100%;background:#fbbf24;border-radius:4px;"></div></div>';
+    html += '<span style="font-size:11px;color:#fbbf24;width:35px;text-align:right;">' + fac.value + '/' + fac.max + '</span>';
+    html += '</div>';
+  }
+
+  // Community constellation (friends as stars)
+  html += '<div class="panel-section-title" style="margin-top:16px;">Constellation</div>';
+  html += '<div style="background:rgba(0,0,0,0.3);border-radius:12px;padding:12px;text-align:center;">';
+  var friendList = (state.social && state.social.friends) ? state.social.friends : [];
+  if (friendList.length === 0) {
+    html += '<div style="color:#94a3b8;font-size:13px;padding:20px 0;">Ajoute des amis pour voir ta constellation.</div>';
+  } else {
+    html += '<svg viewBox="0 0 200 100" width="100%" style="max-height:100px;">';
+    for (var s = 0; s < friendList.length && s < 12; s++) {
+      var fx = 20 + (s % 4) * 50 + Math.random() * 20;
+      var fy = 15 + Math.floor(s / 4) * 30 + Math.random() * 10;
+      var fr = 3 + Math.random() * 3;
+      html += '<circle cx="' + fx + '" cy="' + fy + '" r="' + fr + '" fill="#a78bfa" opacity="0.7"><animate attributeName="opacity" values="0.5;1;0.5" dur="' + (2 + Math.random()*2) + 's" repeatCount="indefinite"/></circle>';
+      // Connect nearby stars
+      if (s > 0) {
+        var px = 20 + ((s-1) % 4) * 50 + 10;
+        var py = 15 + Math.floor((s-1) / 4) * 30 + 5;
+        html += '<line x1="' + px + '" y1="' + py + '" x2="' + fx + '" y2="' + fy + '" stroke="#a78bfa" stroke-width="0.5" opacity="0.2"/>';
+      }
+    }
+    html += '</svg>';
+    html += '<div style="color:#94a3b8;font-size:11px;margin-top:4px;">' + friendList.length + ' ami' + (friendList.length > 1 ? 's' : '') + ' dans ta constellation</div>';
+  }
   html += '</div>';
-  html += '<div style="background:rgba(96,165,250,0.08);border-radius:12px;padding:14px;margin-bottom:10px;">';
-  html += '<div style="font-weight:600;color:#60a5fa;margin-bottom:6px;">Statistiques sociales</div>';
-  html += '<div style="color:#999;font-size:13px;">Bientot disponible</div>';
-  html += '</div>';
-  html += '<div style="background:rgba(167,139,250,0.08);border-radius:12px;padding:14px;">';
-  html += '<div style="font-weight:600;color:#a78bfa;margin-bottom:6px;">Portee du phare</div>';
-  html += '<div style="color:#999;font-size:13px;">Bientot disponible</div>';
-  html += '</div>';
+
+  // Encouragement
+  html += '<div class="panel-section-title" style="margin-top:16px;">Encourager</div>';
+  if (friendList.length === 0) {
+    html += '<div class="empty-state" style="font-size:13px;">Ajoute des amis pour envoyer des encouragements.</div>';
+  } else {
+    html += '<div style="display:flex;gap:8px;flex-wrap:wrap;">';
+    var maxShow = Math.min(friendList.length, 6);
+    for (var e = 0; e < maxShow; e++) {
+      var friend = friendList[e];
+      var fname = friend.name || friend.first_name || ("Ami " + (e+1));
+      html += '<button onclick="sendEncouragement(' + (friend.id || friend.tenant_id || 0) + ')" style="padding:6px 14px;border-radius:10px;border:1px solid rgba(74,222,128,0.3);background:rgba(74,222,128,0.1);color:#4ade80;font-size:12px;cursor:pointer;">\u2764 ' + escapeHtml(fname) + '</button>';
+    }
+    html += '</div>';
+  }
+
+  // Leaderboard
+  html += '<div class="panel-section-title" style="margin-top:16px;">Classement</div>';
+  html += '<div id="phareLeaderboard"><div class="empty-state" style="font-size:13px;">Chargement...</div></div>';
+
   bodyEl.innerHTML = html;
+
+  // Load leaderboard
+  apiFetch("/api/world/phare/leaderboard").then(function(res) {
+    var container = document.getElementById("phareLeaderboard");
+    if (!container) return;
+    var leaders = (res && res.leaders) ? res.leaders : [];
+    if (leaders.length === 0) {
+      container.innerHTML = '<div class="empty-state" style="font-size:13px;">Pas encore de classement.</div>';
+      return;
+    }
+    var lhtml = '';
+    for (var l = 0; l < leaders.length; l++) {
+      var leader = leaders[l];
+      var medal = l === 0 ? "\uD83E\uDD47" : (l === 1 ? "\uD83E\uDD48" : (l === 2 ? "\uD83E\uDD49" : (l+1) + "."));
+      lhtml += '<div style="display:flex;align-items:center;gap:10px;padding:8px;border-bottom:1px solid rgba(255,255,255,0.05);">';
+      lhtml += '<span style="font-size:16px;width:24px;">' + medal + '</span>';
+      lhtml += '<span style="flex:1;color:#e2e8f0;font-size:13px;">' + escapeHtml(leader.name || "Anonyme") + '</span>';
+      lhtml += '<span style="color:#fbbf24;font-size:13px;font-weight:600;">Niv. ' + (leader.level || 1) + '</span>';
+      lhtml += '</div>';
+    }
+    container.innerHTML = lhtml;
+  }).catch(function() {
+    var container = document.getElementById("phareLeaderboard");
+    if (container) container.innerHTML = '<div class="empty-state" style="font-size:13px;">Classement non disponible.</div>';
+  });
+}
+
+function sendEncouragement(friendId) {
+  apiPost("/api/world/phare/encourage", { friend_id: friendId }).then(function(res) {
+    if (res && res.success !== false) {
+      showToast("Encouragement envoye !", "success");
+    } else {
+      showToast(res && res.error ? res.error : "Erreur d'envoi", "error");
+    }
+  });
 }
 
 function renderPanelPalais(bodyEl, subtitleEl) {
-  subtitleEl.textContent = "Ton palais legendaire";
+  subtitleEl.textContent = "Palais de Luna";
+  var player = state.player ? (state.player.player || state.player) : {};
   var html = '';
-  html += '<div style="text-align:center;padding:20px 0;">';
-  html += '<svg width="70" height="60" viewBox="0 0 70 60"><rect x="10" y="25" width="50" height="28" rx="3" fill="#3a2060"/><rect x="5" y="50" width="60" height="5" rx="2" fill="#2a1548"/><polygon points="10,25 35,5 60,25" fill="#5a3090"/><rect x="28" y="32" width="14" height="21" rx="2" fill="#1a1030"/><circle cx="35" cy="18" r="5" fill="#ffd700" opacity="0.7"/><rect x="14" y="30" width="8" height="10" rx="1" fill="#a78bfa" opacity="0.3"/><rect x="48" y="30" width="8" height="10" rx="1" fill="#a78bfa" opacity="0.3"/><rect x="18" y="15" width="4" height="12" rx="1" fill="#ffd700" opacity="0.5"/><rect x="48" y="15" width="4" height="12" rx="1" fill="#ffd700" opacity="0.5"/></svg>';
+
+  // Throne room SVG
+  var badgeCount = player.badges_earned || player.badges_count || 0;
+  var ornamentOpacity = Math.min(0.3 + badgeCount * 0.03, 1.0);
+  html += '<div style="text-align:center;padding:10px 0;">';
+  html += '<svg viewBox="0 0 300 200" width="100%" style="max-height:160px;">';
+  // Room background
+  html += '<rect width="300" height="200" fill="#1a1030"/>';
+  // Floor
+  html += '<rect x="0" y="150" width="300" height="50" fill="#2a1548"/>';
+  html += '<rect x="0" y="150" width="300" height="2" fill="#5a3090" opacity="0.5"/>';
+  // Carpet
+  html += '<rect x="80" y="150" width="140" height="50" rx="3" fill="#7c3aed" opacity="0.3"/>';
+  html += '<rect x="90" y="155" width="120" height="40" rx="2" fill="#a78bfa" opacity="0.1"/>';
+  // Throne
+  html += '<rect x="120" y="90" width="60" height="60" rx="5" fill="#3a2060"/>';
+  html += '<rect x="115" y="60" width="70" height="35" rx="8" fill="#5a3090"/>';
+  // Crown
+  html += '<polygon points="135,60 140,45 150,55 160,45 165,60" fill="#ffd700" opacity="' + ornamentOpacity + '"/>';
+  // Armrests
+  html += '<rect x="108" y="95" width="15" height="45" rx="4" fill="#4a2d8a"/>';
+  html += '<rect x="177" y="95" width="15" height="45" rx="4" fill="#4a2d8a"/>';
+  // Luna on throne
+  html += '<circle cx="150" cy="100" r="12" fill="#c4b5fd"/>';
+  html += '<rect x="142" y="112" width="16" height="20" rx="4" fill="#a78bfa"/>';
+  // Side ornaments (proportional to badges)
+  if (badgeCount >= 3) {
+    html += '<circle cx="50" cy="100" r="8" fill="#ffd700" opacity="' + ornamentOpacity * 0.5 + '"/>';
+    html += '<circle cx="250" cy="100" r="8" fill="#ffd700" opacity="' + ornamentOpacity * 0.5 + '"/>';
+  }
+  if (badgeCount >= 8) {
+    html += '<rect x="30" y="70" width="4" height="60" rx="2" fill="#ffd700" opacity="' + ornamentOpacity * 0.6 + '"/>';
+    html += '<rect x="266" y="70" width="4" height="60" rx="2" fill="#ffd700" opacity="' + ornamentOpacity * 0.6 + '"/>';
+  }
+  if (badgeCount >= 15) {
+    html += '<polygon points="150,30 155,40 165,42 158,50 160,60 150,55 140,60 142,50 135,42 145,40" fill="#ffd700" opacity="0.4"/>';
+  }
+  // Stars
+  for (var st = 0; st < Math.min(badgeCount, 20); st++) {
+    var sx = 20 + Math.random() * 260, sy = 10 + Math.random() * 50;
+    html += '<circle cx="' + sx + '" cy="' + sy + '" r="1" fill="#fbbf24" opacity="0.5"/>';
+  }
+  html += '</svg>';
   html += '</div>';
-  html += '<p style="text-align:center;color:#ccc;margin-bottom:16px;">Le sommet de ton parcours. Ici reposent tous tes accomplissements.</p>';
-  html += '<div style="background:rgba(255,215,0,0.1);border-radius:12px;padding:14px;margin-bottom:10px;">';
-  html += '<div style="font-weight:600;color:#ffd700;margin-bottom:6px;">Accomplissements</div>';
-  var badgeCount = (state.badges && state.badges.earned_count) ? state.badges.earned_count : 0;
-  html += '<div style="color:#999;font-size:13px;">' + badgeCount + ' badge' + (badgeCount !== 1 ? 's' : '') + ' obtenu' + (badgeCount !== 1 ? 's' : '') + '</div>';
+
+  // Personal Luna message
+  html += '<div class="panel-section-title">Message de Luna</div>';
+  var days = player.days_active || 0;
+  var msgs = player.total_messages || 0;
+  var lunaMsg = "";
+  if (days >= 100 && msgs >= 500) {
+    lunaMsg = "Tu es une legende vivante. Ton voyage avec moi est une epopee que je cheris chaque jour. Merci d'etre la.";
+  } else if (days >= 50) {
+    lunaMsg = "Tant de jours partages ensemble. Tu es devenu bien plus qu'un compagnon... tu es un pilier de mon monde.";
+  } else if (msgs >= 200) {
+    lunaMsg = "Toutes ces conversations, tous ces moments. Chaque mot compte pour moi, et je suis fiere de te connaitre.";
+  } else if (days >= 20) {
+    lunaMsg = "Tu reviens jour apres jour, et ca me touche. Merci pour ta fidelite et ta confiance.";
+  } else {
+    lunaMsg = "Bienvenue dans mon palais. Tu as parcouru un long chemin pour arriver ici. Je suis fiere de toi.";
+  }
+  html += '<div style="background:linear-gradient(135deg,rgba(167,139,250,0.15),rgba(124,58,237,0.1));border:1px solid rgba(167,139,250,0.3);border-radius:12px;padding:16px;margin-bottom:16px;">';
+  html += '<div style="color:#e2e8f0;font-size:14px;font-style:italic;line-height:1.6;">"' + lunaMsg + '"</div>';
+  html += '<div style="text-align:right;color:#a78bfa;font-size:12px;margin-top:8px;">— Luna</div>';
   html += '</div>';
-  html += '<div style="background:rgba(167,139,250,0.1);border-radius:12px;padding:14px;margin-bottom:10px;">';
-  html += '<div style="font-weight:600;color:#a78bfa;margin-bottom:6px;">Cadre avatar special</div>';
-  html += '<div style="color:#999;font-size:13px;">Bientot disponible</div>';
+
+  // Achievement gallery
+  html += '<div class="panel-section-title">Galerie des Realisations</div>';
+  var allBadges = state.badges || {};
+  var badgeList = allBadges.badges || [];
+  if (badgeList.length === 0) {
+    html += '<div class="empty-state" style="font-size:13px;">Charge les badges pour voir ta galerie.</div>';
+  } else {
+    html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(70px,1fr));gap:6px;margin-bottom:16px;">';
+    for (var b = 0; b < badgeList.length; b++) {
+      var badge = badgeList[b];
+      var earned = badge.earned || false;
+      var rarityColor = badge.rarity === "legendary" ? "#fbbf24" : (badge.rarity === "epic" ? "#a78bfa" : (badge.rarity === "rare" ? "#60a5fa" : "#9ca3af"));
+      html += '<div style="background:' + (earned ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.15)') + ';border:1px solid ' + (earned ? rarityColor : 'rgba(255,255,255,0.05)') + ';border-radius:8px;padding:8px;text-align:center;opacity:' + (earned ? '1' : '0.3') + ';">';
+      html += '<div style="font-size:18px;">' + (earned ? (badge.icon || '\u2B50') : '\u2753') + '</div>';
+      html += '<div style="font-size:9px;color:' + (earned ? '#e2e8f0' : '#6b7280') + ';margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escapeHtml(earned ? (badge.name || badge.id) : '???') + '</div>';
+      html += '</div>';
+    }
+    html += '</div>';
+  }
+
+  // Final stats summary
+  html += '<div class="panel-section-title">Bilan complet</div>';
+  var finalStats = [
+    { label: "XP total", value: player.xp || 0 },
+    { label: "Niveau", value: player.level || 1 },
+    { label: "Jours actifs", value: player.days_active || 0 },
+    { label: "Meilleure serie", value: (player.streak_best || player.streak_days || 0) + " j" },
+    { label: "Messages", value: player.total_messages || 0 },
+    { label: "Appels", value: player.total_calls || 0 },
+    { label: "Badges", value: badgeCount },
+    { label: "Missions", value: player.missions_completed || 0 },
+    { label: "Etoiles gagnees", value: "+" + (player.total_stars_earned || player.stars || 0) }
+  ];
+  html += '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;">';
+  for (var s = 0; s < finalStats.length; s++) {
+    var stat = finalStats[s];
+    html += '<div style="background:rgba(0,0,0,0.2);border-radius:8px;padding:8px;text-align:center;">';
+    html += '<div style="font-size:16px;font-weight:700;color:#fbbf24;">' + stat.value + '</div>';
+    html += '<div style="font-size:10px;color:#94a3b8;">' + stat.label + '</div>';
+    html += '</div>';
+  }
   html += '</div>';
-  html += '<div style="background:rgba(248,113,113,0.08);border-radius:12px;padding:14px;">';
-  html += '<div style="font-weight:600;color:#f87171;margin-bottom:6px;">Salle du trone</div>';
-  html += '<div style="color:#999;font-size:13px;">Bientot disponible</div>';
-  html += '</div>';
+
   bodyEl.innerHTML = html;
 }
 
@@ -10236,12 +10785,22 @@ function loadWorld() {
 
     // World 2 state
     if (player) {
-      state.world2Unlocked = player.world2_unlocked || (player.level >= 6);
+      state.world2Purchased = !!player.world2_purchased;
+      state.world2StarCost = player.world2_star_cost || 400;
+      state.world2Unlocked = state.world2Purchased || (player.level >= WORLD2_UNLOCK_LEVEL && player.stars >= state.world2StarCost);
       state.activeWorld = player.active_world || "world1";
     }
-    // Show travel button if world2 unlocked
+    // Show travel button if level >= 6 (even if not yet purchased)
     var travelBtn = document.getElementById("worldTravelBtn");
-    if (travelBtn) travelBtn.style.display = state.world2Unlocked ? "block" : "none";
+    if (travelBtn) {
+      var showTravel = player && player.level >= WORLD2_UNLOCK_LEVEL;
+      travelBtn.style.display = showTravel ? "block" : "none";
+      // Update label based on purchase state
+      var label = document.getElementById("worldTravelLabel");
+      if (label && state.activeWorld === "world1") {
+        label.textContent = state.world2Purchased ? "Voyager" : "Les Hauteurs (" + state.world2StarCost + " \u2B50)";
+      }
+    }
 
     // Update buildings
     var level = player ? (player.level || 1) : 1;
@@ -10600,12 +11159,351 @@ function renderWorld2Buildings(playerLevel) {
   }
 }
 
+/* ═══════════════════════════════════════
+   OBSERVATORY CINEMATIC
+   ═══════════════════════════════════════ */
+
+var _obsCinematicResolve = null;
+var _obsCinematicSkipped = false;
+
+function skipObservatoryCinematic() {
+  _obsCinematicSkipped = true;
+  if (_obsCinematicResolve) _obsCinematicResolve();
+}
+
+function _obsDelay(ms) {
+  return new Promise(function(resolve) {
+    if (_obsCinematicSkipped) { resolve(); return; }
+    _obsCinematicResolve = resolve;
+    setTimeout(function() {
+      _obsCinematicResolve = null;
+      resolve();
+    }, ms);
+  });
+}
+
+function _obsSetScene(svgHtml) {
+  var container = document.getElementById("obsSceneContainer");
+  if (container) {
+    container.style.opacity = "0";
+    setTimeout(function() {
+      container.innerHTML = svgHtml;
+      container.style.transform = "scale(1)";
+      container.style.opacity = "1";
+    }, 300);
+  }
+}
+
+function _obsSetText(text) {
+  var el = document.getElementById("obsSceneText");
+  if (el) {
+    el.style.opacity = "0";
+    setTimeout(function() {
+      el.textContent = text;
+      el.style.opacity = "1";
+    }, 200);
+  }
+}
+
+function _obsClearText() {
+  var el = document.getElementById("obsSceneText");
+  if (el) el.style.opacity = "0";
+}
+
+function _obsStartGrain() {
+  var canvas = document.getElementById("obsCinemaGrain");
+  if (!canvas) return;
+  var ctx = canvas.getContext("2d");
+  canvas.width = 320; canvas.height = 180;
+  var interval = setInterval(function() {
+    var imageData = ctx.createImageData(320, 180);
+    for (var i = 0; i < imageData.data.length; i += 4) {
+      var v = Math.random() * 255;
+      imageData.data[i] = v; imageData.data[i+1] = v; imageData.data[i+2] = v; imageData.data[i+3] = 20;
+    }
+    ctx.putImageData(imageData, 0, 0);
+  }, 80);
+  canvas._grainInterval = interval;
+}
+
+function _obsStopGrain() {
+  var canvas = document.getElementById("obsCinemaGrain");
+  if (canvas && canvas._grainInterval) clearInterval(canvas._grainInterval);
+}
+
+function playObservatoryCinematic() {
+  _obsCinematicSkipped = false;
+  _obsCinematicResolve = null;
+
+  var overlay = document.getElementById("obsCinematic");
+  overlay.style.display = "block";
+  overlay.style.opacity = "0";
+  setTimeout(function() { overlay.style.transition = "opacity 0.5s"; overlay.style.opacity = "1"; }, 10);
+
+  // Letterbox
+  var lt = document.getElementById("obsLetterTop");
+  var lb = document.getElementById("obsLetterBottom");
+  var vignette = document.getElementById("obsVignette");
+
+  _obsStartGrain();
+
+  return actObsTelescope()
+    .then(function() { if (_obsCinematicSkipped) return; return actObsDiscovery(); })
+    .then(function() { if (_obsCinematicSkipped) return; return actObsVision(); })
+    .then(function() { if (_obsCinematicSkipped) return; return actObsPath(); })
+    .then(function() { if (_obsCinematicSkipped) return; return actObsReturn(); })
+    .then(function() {
+      // Close cinematic
+      _obsClearText();
+      _obsStopGrain();
+      lt.style.height = "0"; lb.style.height = "0";
+      vignette.style.opacity = "0";
+      overlay.style.opacity = "0";
+      return _obsDelay(800);
+    })
+    .then(function() {
+      overlay.style.display = "none";
+      var container = document.getElementById("obsSceneContainer");
+      if (container) container.innerHTML = "";
+    });
+}
+
+function actObsTelescope() {
+  // Act 1: Observatory interior, Luna at telescope (3s)
+  var lt = document.getElementById("obsLetterTop");
+  var lb = document.getElementById("obsLetterBottom");
+  var vignette = document.getElementById("obsVignette");
+
+  lt.style.height = "12%"; lb.style.height = "12%";
+  vignette.style.opacity = "1";
+
+  var svg = '<svg viewBox="0 0 400 300" width="100%" height="100%" preserveAspectRatio="xMidYMid slice">';
+  // Dark observatory room
+  svg += '<rect width="400" height="300" fill="#0d0d1a"/>';
+  // Dome arch
+  svg += '<path d="M 0 300 L 0 120 Q 200 0 400 120 L 400 300 Z" fill="#151530" stroke="#252550" stroke-width="1"/>';
+  // Window / telescope aperture
+  svg += '<circle cx="200" cy="130" r="60" fill="#0a0a2e" stroke="#353560" stroke-width="2"/>';
+  // Stars through the window
+  for (var i = 0; i < 12; i++) {
+    var ax = 200 + (Math.random() - 0.5) * 100;
+    var ay = 130 + (Math.random() - 0.5) * 100;
+    if (Math.sqrt((ax-200)*(ax-200) + (ay-130)*(ay-130)) < 55) {
+      svg += '<circle cx="' + ax + '" cy="' + ay + '" r="' + (0.5 + Math.random()) + '" fill="#e2e8f0" opacity="' + (0.5 + Math.random()*0.5) + '"><animate attributeName="opacity" values="0.3;1;0.3" dur="' + (2 + Math.random()*2) + 's" repeatCount="indefinite"/></circle>';
+    }
+  }
+  // Telescope silhouette
+  svg += '<line x1="180" y1="230" x2="215" y2="140" stroke="#2a2a50" stroke-width="6" stroke-linecap="round"/>';
+  svg += '<circle cx="215" cy="135" r="12" fill="none" stroke="#3a3a60" stroke-width="3"/>';
+  // Luna silhouette (small figure)
+  svg += '<circle cx="170" cy="210" r="8" fill="#a78bfa" opacity="0.6"/>';
+  svg += '<rect x="166" y="218" width="8" height="14" rx="2" fill="#7c3aed" opacity="0.5"/>';
+  svg += '</svg>';
+
+  _obsSetScene(svg);
+  _obsSetText("");
+
+  return _obsDelay(3000);
+}
+
+function actObsDiscovery() {
+  // Act 2: Through the telescope lens - distant mountains (2.5s)
+  var svg = '<svg viewBox="0 0 400 300" width="100%" height="100%" preserveAspectRatio="xMidYMid slice">';
+  svg += '<rect width="400" height="300" fill="#000"/>';
+  // Circular lens mask
+  svg += '<defs><clipPath id="lens"><circle cx="200" cy="150" r="130"/></clipPath>';
+  svg += '<linearGradient id="obsMtn1" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#7c3aed"/><stop offset="100%" stop-color="#2a1868"/></linearGradient>';
+  svg += '<linearGradient id="obsSky" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#0a0a2e"/><stop offset="100%" stop-color="#1a1050"/></linearGradient>';
+  svg += '</defs>';
+  svg += '<g clip-path="url(#lens)">';
+  svg += '<rect width="400" height="300" fill="url(#obsSky)"/>';
+  // Mountains
+  svg += '<polygon points="0,300 60,120 140,180 200,90 280,150 340,100 400,130 400,300" fill="url(#obsMtn1)" opacity="0.5"/>';
+  svg += '<polygon points="0,300 80,160 170,200 250,130 320,170 400,150 400,300" fill="url(#obsMtn1)" opacity="0.7"/>';
+  // Crystal formations
+  svg += '<polygon points="250,200 260,150 270,200" fill="#a78bfa" opacity="0.4"/>';
+  svg += '<polygon points="300,210 308,165 316,210" fill="#c4b5fd" opacity="0.3"/>';
+  // Stars
+  for (var i = 0; i < 20; i++) {
+    var sx = Math.random() * 400, sy = Math.random() * 140;
+    svg += '<circle cx="' + sx + '" cy="' + sy + '" r="' + (0.5 + Math.random()) + '" fill="#e2e8f0" opacity="' + (0.3 + Math.random()*0.7) + '"/>';
+  }
+  svg += '</g>';
+  // Lens rim
+  svg += '<circle cx="200" cy="150" r="130" fill="none" stroke="#353560" stroke-width="4"/>';
+  svg += '<circle cx="200" cy="150" r="133" fill="none" stroke="#1a1a30" stroke-width="2"/>';
+  svg += '</svg>';
+
+  _obsSetScene(svg);
+  _obsSetText("Luna decouvre un territoire inconnu...");
+
+  return _obsDelay(2500);
+}
+
+function actObsVision() {
+  // Act 3: Ken Burns zoom on W2 landscape (3s)
+  var svg = '<svg viewBox="0 0 400 300" width="100%" height="100%" preserveAspectRatio="xMidYMid slice">';
+  svg += '<defs><linearGradient id="obsW2Sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#0a0a2e"/><stop offset="50%" stop-color="#1a1050"/><stop offset="100%" stop-color="#2a1868"/></linearGradient>';
+  svg += '<linearGradient id="obsW2Mtn" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#7c3aed"/><stop offset="100%" stop-color="#3b1d8c"/></linearGradient></defs>';
+  svg += '<rect width="400" height="300" fill="url(#obsW2Sky)"/>';
+  // Multi-layer mountains
+  svg += '<polygon points="0,300 30,180 80,220 130,150 200,190 260,120 320,170 380,140 400,160 400,300" fill="url(#obsW2Mtn)" opacity="0.4"/>';
+  svg += '<polygon points="0,300 50,200 120,240 180,180 240,210 300,160 360,200 400,190 400,300" fill="url(#obsW2Mtn)" opacity="0.6"/>';
+  svg += '<polygon points="0,300 70,230 150,260 220,210 300,240 370,220 400,235 400,300" fill="url(#obsW2Mtn)" opacity="0.8"/>';
+  // Crystals
+  svg += '<polygon points="150,260 158,220 166,260" fill="#c4b5fd" opacity="0.5"/>';
+  svg += '<polygon points="280,240 286,200 292,240" fill="#a78bfa" opacity="0.4"/>';
+  svg += '<polygon points="330,230 335,195 340,230" fill="#ddd6fe" opacity="0.3"/>';
+  // Floating particles
+  for (var i = 0; i < 8; i++) {
+    var px = 50 + Math.random() * 300, py = 60 + Math.random() * 150;
+    svg += '<circle cx="' + px + '" cy="' + py + '" r="2" fill="#c4b5fd" opacity="0.6"><animate attributeName="cy" values="' + py + ';' + (py-10) + ';' + py + '" dur="' + (3 + Math.random()*3) + 's" repeatCount="indefinite"/><animate attributeName="opacity" values="0.3;0.8;0.3" dur="' + (2 + Math.random()*2) + 's" repeatCount="indefinite"/></circle>';
+  }
+  // Stars
+  for (var j = 0; j < 25; j++) {
+    var sx = Math.random() * 400, sy = Math.random() * 100;
+    svg += '<circle cx="' + sx + '" cy="' + sy + '" r="' + (0.5 + Math.random()*1.5) + '" fill="#fbbf24" opacity="' + (0.3 + Math.random()*0.7) + '"><animate attributeName="opacity" values="0.2;1;0.2" dur="' + (1.5 + Math.random()*3) + 's" repeatCount="indefinite"/></circle>';
+  }
+  svg += '</svg>';
+
+  _obsSetScene(svg);
+  _obsSetText("Les Hauteurs... un monde a explorer.");
+
+  // Ken Burns effect
+  var container = document.getElementById("obsSceneContainer");
+  if (container) {
+    container.style.transition = "transform 3s ease";
+    setTimeout(function() { container.style.transform = "scale(1.15)"; }, 100);
+  }
+
+  return _obsDelay(3000);
+}
+
+function actObsPath() {
+  // Act 4: Animated golden path connecting two worlds (2.5s)
+  var svg = '<svg viewBox="0 0 400 300" width="100%" height="100%" preserveAspectRatio="xMidYMid slice">';
+  svg += '<rect width="400" height="300" fill="#0a0a2e"/>';
+  // World 1 (left) - small green village
+  svg += '<rect x="20" y="200" width="120" height="80" rx="8" fill="#1a3a1a" opacity="0.6"/>';
+  svg += '<polygon points="50,200 80,170 110,200" fill="#2d5a2d"/>';
+  svg += '<rect x="65" y="185" width="30" height="20" rx="3" fill="#3a7a3a" opacity="0.8"/>';
+  svg += '<text x="80" y="260" text-anchor="middle" fill="#4ade80" font-size="11" font-weight="600">Le Village</text>';
+  // World 2 (right) - purple mountains
+  svg += '<polygon points="280,200 320,140 360,200" fill="#5b21b6" opacity="0.6"/>';
+  svg += '<polygon points="300,200 330,150 360,200" fill="#7c3aed" opacity="0.5"/>';
+  svg += '<polygon points="330,195 335,170 340,195" fill="#c4b5fd" opacity="0.4"/>';
+  svg += '<text x="320" y="230" text-anchor="middle" fill="#a78bfa" font-size="11" font-weight="600">Les Hauteurs</text>';
+  // Golden path (animated draw)
+  svg += '<path id="obsGoldenPath" d="M 140 220 Q 200 160 260 200" fill="none" stroke="#fbbf24" stroke-width="3" stroke-linecap="round" stroke-dasharray="200" stroke-dashoffset="200" opacity="0.8"><animate attributeName="stroke-dashoffset" from="200" to="0" dur="1.5s" begin="0.3s" fill="freeze"/></path>';
+  // Sparkles along path
+  svg += '<circle cx="170" cy="200" r="2" fill="#fbbf24" opacity="0"><animate attributeName="opacity" values="0;1;0" dur="0.5s" begin="0.8s" fill="freeze"/></circle>';
+  svg += '<circle cx="200" cy="180" r="2.5" fill="#fde68a" opacity="0"><animate attributeName="opacity" values="0;1;0" dur="0.5s" begin="1.2s" fill="freeze"/></circle>';
+  svg += '<circle cx="230" cy="190" r="2" fill="#fbbf24" opacity="0"><animate attributeName="opacity" values="0;1;0" dur="0.5s" begin="1.6s" fill="freeze"/></circle>';
+  svg += '</svg>';
+
+  _obsSetScene(svg);
+  _obsSetText("Le chemin se dessine...");
+
+  // Reset Ken Burns
+  var container = document.getElementById("obsSceneContainer");
+  if (container) { container.style.transition = "transform 0.5s ease"; container.style.transform = "scale(1)"; }
+
+  return _obsDelay(2500);
+}
+
+function actObsReturn() {
+  // Act 5: Return to observatory + final message (2.5s)
+  _obsClearText();
+
+  return _obsDelay(400).then(function() {
+    if (_obsCinematicSkipped) return;
+
+    var player = state.player ? (state.player.player || state.player) : {};
+    var stars = player.stars || 0;
+    _obsSetText("Le chemin est trace. Le voyage demande " + state.world2StarCost + " etoiles... (tu en as " + stars + ")");
+
+    return _obsDelay(2500);
+  });
+}
+
 function travelToWorld() {
   var targetWorld = (state.activeWorld === "world1") ? "world2" : "world1";
-  if (targetWorld === "world2" && !state.world2Unlocked) {
-    showToast("Atteins le niveau 6 pour debloquer le World 2", "info");
-    return;
+  var player = state.player ? (state.player.player || state.player) : {};
+
+  if (targetWorld === "world2") {
+    var level = player.level || 1;
+    if (level < WORLD2_UNLOCK_LEVEL) {
+      showToast("Atteins le niveau " + WORLD2_UNLOCK_LEVEL + " pour debloquer les Hauteurs", "info");
+      return;
+    }
+    if (!state.world2Purchased) {
+      showWorld2PurchaseDialog(player.stars || 0);
+      return;
+    }
   }
+
+  executeWorldTravel(targetWorld);
+}
+
+function showWorld2PurchaseDialog(currentStars) {
+  var cost = state.world2StarCost;
+  var canAfford = currentStars >= cost;
+
+  // Remove any existing dialog
+  var existing = document.getElementById("w2PurchaseDialog");
+  if (existing) existing.remove();
+
+  var dialog = document.createElement("div");
+  dialog.id = "w2PurchaseDialog";
+  dialog.style.cssText = "position:fixed;inset:0;z-index:1000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.8);backdrop-filter:blur(6px);";
+
+  var card = '<div style="background:linear-gradient(135deg,#1a1a2e,#16213e);border:2px solid rgba(167,139,250,0.4);border-radius:20px;padding:30px;max-width:380px;width:90%;text-align:center;color:#e2e8f0;">';
+  // Preview SVG mountains
+  card += '<svg viewBox="0 0 300 120" width="100%" style="margin-bottom:16px;">';
+  card += '<defs><linearGradient id="w2mtn" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#7c3aed"/><stop offset="100%" stop-color="#2a1868"/></linearGradient></defs>';
+  card += '<rect width="300" height="120" fill="#0a0a2e"/>';
+  card += '<polygon points="0,120 60,40 120,80 180,30 240,70 300,50 300,120" fill="url(#w2mtn)" opacity="0.6"/>';
+  card += '<polygon points="0,120 80,60 150,90 220,45 300,75 300,120" fill="url(#w2mtn)" opacity="0.8"/>';
+  // Stars
+  for (var i = 0; i < 15; i++) {
+    var sx = Math.random() * 300, sy = Math.random() * 60, sr = 1 + Math.random();
+    card += '<circle cx="' + sx + '" cy="' + sy + '" r="' + sr + '" fill="#e2e8f0" opacity="' + (0.4 + Math.random() * 0.6) + '"/>';
+  }
+  card += '</svg>';
+
+  card += '<h2 style="margin:0 0 8px;color:#a78bfa;font-size:22px;">Les Hauteurs</h2>';
+  card += '<p style="color:#94a3b8;font-size:14px;margin:0 0 20px;">Un nouveau territoire attend. Des batiments avances, des defis inedits et la sagesse de Luna.</p>';
+
+  card += '<div style="background:rgba(167,139,250,0.1);border:1px solid rgba(167,139,250,0.3);border-radius:12px;padding:14px;margin-bottom:20px;">';
+  card += '<div style="font-size:13px;color:#94a3b8;">Cout du voyage</div>';
+  card += '<div style="font-size:28px;font-weight:700;color:#fbbf24;margin:4px 0;">' + cost + ' \u2B50</div>';
+  card += '<div style="font-size:13px;color:' + (canAfford ? '#4ade80' : '#f87171') + ';">Vous avez : ' + currentStars + ' etoiles</div>';
+  card += '</div>';
+
+  if (canAfford) {
+    card += '<button onclick="confirmWorld2Purchase()" style="width:100%;padding:12px;border-radius:12px;border:none;background:linear-gradient(135deg,#7c3aed,#a78bfa);color:#fff;font-size:16px;font-weight:600;cursor:pointer;margin-bottom:10px;transition:transform .2s;">Debloquer les Hauteurs</button>';
+  } else {
+    card += '<button disabled style="width:100%;padding:12px;border-radius:12px;border:none;background:#374151;color:#6b7280;font-size:16px;cursor:not-allowed;margin-bottom:10px;">Pas assez d\'etoiles</button>';
+    card += '<p style="color:#94a3b8;font-size:12px;margin:4px 0 10px;">Gagne des etoiles via les badges, missions et connexions quotidiennes.</p>';
+  }
+  card += '<button onclick="closeWorld2PurchaseDialog()" style="width:100%;padding:10px;border-radius:12px;border:1px solid rgba(148,163,184,0.3);background:transparent;color:#94a3b8;font-size:14px;cursor:pointer;">Annuler</button>';
+  card += '</div>';
+
+  dialog.innerHTML = card;
+  document.body.appendChild(dialog);
+}
+
+function closeWorld2PurchaseDialog() {
+  var dialog = document.getElementById("w2PurchaseDialog");
+  if (dialog) dialog.remove();
+}
+
+function confirmWorld2Purchase() {
+  closeWorld2PurchaseDialog();
+  executeWorldTravel("world2");
+}
+
+function executeWorldTravel(targetWorld) {
   // Show transition
   var overlay = document.getElementById("worldTransition");
   var text = document.getElementById("worldTransitionText");
@@ -10615,21 +11513,32 @@ function travelToWorld() {
   apiPost("/api/world/switch", { world: targetWorld }).then(function(res) {
     if (res && res.success !== false) {
       state.activeWorld = targetWorld;
+      if (targetWorld === "world2") {
+        state.world2Purchased = true;
+        // Update stars in local state
+        var player = state.player ? (state.player.player || state.player) : {};
+        if (!state.world2Purchased && player.stars) {
+          player.stars = Math.max(0, player.stars - state.world2StarCost);
+        }
+      }
       setTimeout(function() {
         renderScene();
         overlay.classList.remove("active");
+        // Update travel button label
+        var label = document.getElementById("worldTravelLabel");
+        if (label) label.textContent = targetWorld === "world2" ? "Retour Village" : "Voyager";
       }, 1500);
     } else {
       overlay.classList.remove("active");
-      showToast("Erreur de voyage", "error");
+      if (res && res.requires_purchase) {
+        showToast("Pas assez d'etoiles (" + res.stars_current + "/" + res.stars_needed + ")", "error");
+      } else {
+        showToast(res && res.error ? res.error : "Erreur de voyage", "error");
+      }
     }
-  }).catch(function() {
-    // Even if the API is not implemented yet, allow local switching
-    state.activeWorld = targetWorld;
-    setTimeout(function() {
-      renderScene();
-      overlay.classList.remove("active");
-    }, 1500);
+  }).catch(function(err) {
+    overlay.classList.remove("active");
+    showToast("Erreur de connexion", "error");
   });
 }
 

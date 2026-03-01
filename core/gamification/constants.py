@@ -4,8 +4,22 @@
 # NIVEAUX
 # =====================================================================
 
-# (xp_threshold, titre)
+# (xp_threshold, titre) — V2 courbe exponentielle (fev 2026)
 CLIENT_LEVELS = [
+    (0, "Nouveau Venu"),
+    (80, "Curieux"),
+    (250, "Habitue"),
+    (600, "Compagnon"),
+    (1200, "Ami Fidele"),
+    (2500, "Confident"),
+    (5000, "Pilier"),
+    (8000, "Sage"),
+    (12000, "Legendaire"),
+    (18000, "Etoile de Luna"),
+]
+
+# Anciens seuils V1 — reference pour migration joueurs existants
+CLIENT_LEVELS_V1 = [
     (0, "Nouveau Venu"),
     (50, "Curieux"),
     (150, "Habitue"),
@@ -626,6 +640,7 @@ SHOP_ITEMS = {
     "frame_golden":  {"name": "Cadre Dore",      "category": "cadre", "price": 70,  "icon": "\U0001f451", "description": "Cadre orne d'or etincelant"},
     "frame_stars":   {"name": "Cadre Etoile",    "category": "cadre", "price": 90,  "icon": "\u2b50",     "description": "Cadre parseme d'etoiles scintillantes"},
     "frame_diamond": {"name": "Cadre Diamant",   "category": "cadre", "price": 150, "icon": "\U0001f48e", "description": "Cadre prestige diamants et lumiere"},
+    "frame_crown":   {"name": "Cadre Couronne", "category": "cadre", "price": 0,   "icon": "\U0001f451", "description": "Cadre exclusif des maitres du Palais de Luna"},
     # --- World 2 Decorations ---
     "w2_deco_waterfall":  {"name": "Cascade Cristal",    "category": "decoration", "price": 80,  "icon": "\U0001f4a7", "description": "Cascade scintillante sur la montagne"},
     "w2_deco_crystal":    {"name": "Cristal Geant",      "category": "decoration", "price": 100, "icon": "\U0001f48e", "description": "Cristal lumineux plante dans le sol"},
@@ -694,6 +709,12 @@ WORLD2_BUILDINGS = {
 
 # Seuil : World 2 accessible des le niveau 6
 WORLD2_UNLOCK_LEVEL = 6
+
+# Cout en etoiles pour debloquer le World 2 (paiement unique)
+WORLD2_STAR_COST = 400
+
+# Remise offres du jour au Marche aux Etoiles
+DAILY_DEAL_DISCOUNT = 0.20
 
 # Missions recurrentes World 2 (cibles plus elevees)
 WORLD2_RECURRING_MISSIONS = [

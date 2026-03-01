@@ -28,6 +28,58 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; b
 .tab-panel { display: none; flex: 1; overflow-y: auto; flex-direction: column; }
 .tab-panel.active { display: flex; }
 
+/* Chat layout with sidebar */
+.chat-layout { display: flex; flex: 1; overflow: hidden; }
+.chat-main { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+
+/* Conversation sidebar */
+.conv-sidebar {
+  width: 260px; background: #0d0d1f; border-right: 1px solid #1e1e3f;
+  display: flex; flex-direction: column; flex-shrink: 0; overflow: hidden;
+}
+.conv-sidebar-header { padding: 10px; border-bottom: 1px solid #1e1e3f; display: flex; flex-direction: column; gap: 8px; }
+.conv-sidebar-top { display: flex; justify-content: space-between; align-items: center; }
+.conv-sidebar-title { font-weight: 600; color: #a78bfa; font-size: 0.9em; }
+.conv-new-btn {
+  width: 100%; padding: 9px 12px; border-radius: 10px; border: 1px solid #333;
+  background: transparent; color: #a78bfa; font-size: 0.85em; cursor: pointer;
+  display: flex; align-items: center; gap: 6px; transition: background 0.2s;
+}
+.conv-new-btn:hover { background: #1e1e3f; }
+.conv-search {
+  width: 100%; padding: 7px 10px; border-radius: 8px; border: 1px solid #333;
+  background: #1a1a2e; color: #fff; font-size: 0.82em; outline: none;
+}
+.conv-search:focus { border-color: #7c3aed; }
+.conv-list { flex: 1; overflow-y: auto; padding: 2px 0; }
+.conv-item {
+  padding: 10px; cursor: pointer; border-left: 3px solid transparent;
+  transition: background 0.15s; position: relative;
+}
+.conv-item:hover { background: #1a1a2e; }
+.conv-item.active { background: #1e1e3f; border-left-color: #7c3aed; }
+.conv-item-title { font-size: 0.85em; font-weight: 500; color: #e0e0e0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.conv-item-preview { font-size: 0.72em; color: #666; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.conv-item-time { font-size: 0.68em; color: #555; margin-top: 2px; }
+.conv-item-actions { position: absolute; top: 6px; right: 6px; display: none; gap: 2px; }
+.conv-item:hover .conv-item-actions { display: flex; }
+.conv-item-btn { background: none; border: none; color: #666; cursor: pointer; padding: 2px 5px; font-size: 0.78em; border-radius: 4px; }
+.conv-item-btn:hover { background: #333; color: #e0e0e0; }
+.sidebar-toggle {
+  display: none; width: 34px; height: 34px; border-radius: 8px; border: 1px solid #555;
+  background: transparent; color: #aaa; cursor: pointer; align-items: center; justify-content: center; font-size: 1.1em;
+}
+.conv-sidebar-close { display: none; }
+@media (max-width: 768px) {
+  .conv-sidebar {
+    position: fixed; inset: 0; width: 100%; z-index: 150;
+    transform: translateX(-100%); transition: transform 0.25s ease;
+  }
+  .conv-sidebar.open { transform: translateX(0); }
+  .sidebar-toggle { display: flex; }
+  .conv-sidebar-close { display: block !important; }
+}
+
 /* Chat */
 .chat { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 12px; }
 .msg { max-width: 80%; padding: 12px 16px; border-radius: 16px; line-height: 1.5; font-size: 0.95em; animation: fadeIn 0.3s; white-space: pre-wrap; }
@@ -271,6 +323,9 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; b
     <p id="greetingSubtitle">Ton compagnon bienveillant</p>
   </div>
   <div style="display:flex;align-items:center;gap:6px;">
+    <button class="sidebar-toggle" id="sidebarToggle" title="Conversations">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="15" y2="12"/><line x1="3" y1="18" x2="18" y2="18"/></svg>
+    </button>
     <button class="wakeword-btn" id="wakewordBtn" title="Activer Hey Luna">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
     </button>
@@ -285,7 +340,13 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; b
 </div>
 
 <!-- XP Widget (header only, not floating) -->
-<div id="xpWidget" style="display:none;"></div>
+<div id="xpWidget" style="display:none;cursor:pointer;position:fixed;top:60px;left:16px;z-index:1001;background:#1a1a3e;border:1px solid #7c3aed;border-radius:12px;padding:8px 14px;font-size:0.8em;color:#e2e8f0;box-shadow:0 4px 12px rgba(0,0,0,0.4);">
+  <span id="xpLevel" style="font-weight:bold;color:#a78bfa;margin-right:8px;">Niv. 1</span>
+  <span style="color:#fbbf24;margin-right:4px;">&#9733;</span><span id="xpStars" style="color:#fbbf24;margin-right:10px;">0</span>
+  <span style="display:inline-block;width:60px;height:6px;background:#2d2d5e;border-radius:3px;vertical-align:middle;">
+    <span id="xpBar" style="display:block;height:100%;width:0%;background:linear-gradient(90deg,#7c3aed,#a78bfa);border-radius:3px;transition:width 0.3s;"></span>
+  </span>
+</div>
 
 <!-- Tabs -->
 <div class="tabs">
@@ -302,23 +363,38 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; b
 
 <!-- Chat Tab -->
 <div class="tab-panel active" id="tab-chat">
-  <div class="chat" id="chat"></div>
-  <div class="input-area">
-    <input type="text" id="input" placeholder="Message pour Luna..." autocomplete="off" maxlength="2000">
-    <span class="char-counter" id="charCounter"></span>
-    <button class="send-btn" id="send">Envoyer</button>
-    <button class="voice-btn" id="voiceBtn">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <path d="M22 16.92v3a2 2 0 0 1-2.18 2A19.79 19.79 0 0 1 3.07 5.18 2 2 0 0 1 5.11 3h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 11.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 18.92z"/>
-      </svg>
-      Appel Vocal
-    </button>
-    <button class="call-btn" id="callBtn">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <path d="M15.05 5A5 5 0 0 1 19 8.95M15.05 1A9 9 0 0 1 23 8.94M22 16.92v3a2 2 0 0 1-2.18 2A19.79 19.79 0 0 1 3.07 5.18 2 2 0 0 1 5.11 3h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 11.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 18.92z"/>
-      </svg>
-      Visio Luna
-    </button>
+  <div class="chat-layout">
+    <aside class="conv-sidebar" id="convSidebar">
+      <div class="conv-sidebar-header">
+        <div class="conv-sidebar-top">
+          <span class="conv-sidebar-title">Conversations</span>
+          <button class="conv-item-btn conv-sidebar-close" id="sidebarClose" style="font-size:1.2em;padding:4px 8px;">&#10005;</button>
+        </div>
+        <button class="conv-new-btn" id="newConvBtn">+ Nouvelle conversation</button>
+        <input type="text" class="conv-search" id="convSearch" placeholder="Rechercher..." autocomplete="off">
+      </div>
+      <div class="conv-list" id="convList"></div>
+    </aside>
+    <div class="chat-main">
+      <div class="chat" id="chat"></div>
+      <div class="input-area">
+        <input type="text" id="input" placeholder="Message pour Luna..." autocomplete="off" maxlength="2000">
+        <span class="char-counter" id="charCounter"></span>
+        <button class="send-btn" id="send">Envoyer</button>
+        <button class="voice-btn" id="voiceBtn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M22 16.92v3a2 2 0 0 1-2.18 2A19.79 19.79 0 0 1 3.07 5.18 2 2 0 0 1 5.11 3h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 11.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 18.92z"/>
+          </svg>
+          Appel Vocal
+        </button>
+        <button class="call-btn" id="callBtn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M15.05 5A5 5 0 0 1 19 8.95M15.05 1A9 9 0 0 1 23 8.94M22 16.92v3a2 2 0 0 1-2.18 2A19.79 19.79 0 0 1 3.07 5.18 2 2 0 0 1 5.11 3h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 11.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 18.92z"/>
+          </svg>
+          Visio Luna
+        </button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -490,7 +566,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; b
 
     <div class="amis-section">
       <button class="salon-big-btn" id="amisSalonBtn">
-        Salons &amp; Activites<br><span style="font-size:0.7em;font-weight:400;color:#888;">Cinema, Karaoke, Jeux, Chat en groupe...</span>
+        Activites<br><span style="font-size:0.7em;font-weight:400;color:#888;">Cinema, Karaoke, Jeux, Chat en groupe...</span>
       </button>
     </div>
 
@@ -637,30 +713,15 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; b
   </div>
 </div>
 
-<!-- Video overlay -->
-<div class="video-overlay" id="videoOverlay">
-  <button class="close-btn" id="hangupBtn">Raccrocher</button>
-  <button class="invite-btn" id="inviteBtn">+ Inviter un contact</button>
-  <div id="videoFrame"></div>
-</div>
-<script crossorigin src="https://unpkg.com/@daily-co/daily-js"></script>
-
-<div class="invite-modal" id="inviteModal">
-  <div class="invite-box">
-    <h3>Inviter un contact de confiance</h3>
-    <input type="text" id="inviteName" placeholder="Nom (ex: Marie)">
-    <input type="tel" id="invitePhone" placeholder="Telephone (ex: 0612345678)">
-    <div class="invite-actions">
-      <button id="inviteSendBtn">Envoyer le SMS</button>
-      <button id="inviteCancelBtn" class="cancel">Annuler</button>
-    </div>
-    <p class="invite-status" id="inviteStatus"></p>
-  </div>
-</div>
+<!-- Video : geree par /simli (Tavus cinematique) -->
 </div><!-- /app-container -->
 
 <script>
 var STORAGE_KEY = "luna_chat_history";
+var CONV_META_KEY = "luna_conversations_meta";
+var CURRENT_CONV_KEY = "luna_current_conv";
+var currentConvId = localStorage.getItem(CURRENT_CONV_KEY) || "default";
+var conversationsMeta = [];
 
 // =========================================================================
 // AUTH (multi-tenant)
@@ -853,13 +914,12 @@ var chat = document.getElementById("chat");
 var inputEl = document.getElementById("input");
 var sendBtn = document.getElementById("send");
 var callBtn = document.getElementById("callBtn");
-var videoOverlay = document.getElementById("videoOverlay");
-var videoFrame = document.getElementById("videoFrame");
-var hangupBtn = document.getElementById("hangupBtn");
 var statusDot = document.getElementById("statusDot");
 var charCounter = document.getElementById("charCounter");
 
 var MAX_STORED = 100;
+
+function convStorageKey(convId) { return "luna_conv_msgs_" + convId; }
 
 function saveHistory() {
   var msgs = [];
@@ -869,16 +929,26 @@ function saveHistory() {
     if (textEl) msgs.push({ text: textEl.textContent, cls: el.classList.contains("user") ? "user" : "luna", ts: timeEl ? timeEl.textContent : "" });
   });
   if (msgs.length > MAX_STORED) msgs = msgs.slice(-MAX_STORED);
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(msgs)); } catch(e) {}
+  try { localStorage.setItem(convStorageKey(currentConvId), JSON.stringify(msgs)); } catch(e) {}
+  // Update preview in sidebar
+  var last = msgs.length > 0 ? msgs[msgs.length - 1] : null;
+  if (last) {
+    var conv = conversationsMeta.find(function(c) { return c.id === currentConvId; });
+    if (conv) { conv.preview = last.text.substring(0, 60); conv.last_activity = new Date().toISOString(); saveConvMeta(); }
+  }
 }
 
 function loadHistory() {
   try {
-    var data = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+    var data = JSON.parse(localStorage.getItem(convStorageKey(currentConvId)) || "[]");
     if (data.length === 0) return false;
     data.forEach(function(m) { addMsg(m.text, m.cls, m.ts, true); });
     return true;
-  } catch(e) { localStorage.removeItem(STORAGE_KEY); return false; }
+  } catch(e) { return false; }
+}
+
+function saveConvMeta() {
+  try { localStorage.setItem(CONV_META_KEY, JSON.stringify(conversationsMeta)); } catch(e) {}
 }
 
 function scrollToBottom() { chat.scrollTo({ top: chat.scrollHeight, behavior: "smooth" }); }
@@ -935,14 +1005,22 @@ function sendMsg(overrideMsg) {
   if (!overrideMsg) { addMsg(msg, "user"); inputEl.value = ""; charCounter.textContent = ""; }
   sendBtn.disabled = true;
   showTyping();
-  authFetch("/api/chat", { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({message: msg}) })
+  authFetch("/api/chat", { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({message: msg, session_id: currentConvId}) })
   .then(function(r) {
     if (r.status === 422) throw new Error("Message invalide");
     if (r.status === 429) throw new Error("Trop de messages. Attends un peu.");
     if (!r.ok) throw new Error("Erreur serveur (" + r.status + ")");
     return r.json();
   })
-  .then(function(data) { hideTyping(); addMsg(data.response, "luna"); lunaNotify("Luna", data.response); showXpToast("+2 XP"); refreshXpWidget(); })
+  .then(function(data) {
+    hideTyping(); addMsg(data.response, "luna"); lunaNotify("Luna", data.response); showXpToast("+2 XP"); refreshXpWidget();
+    // Auto-title conversation from first user message
+    var conv = conversationsMeta.find(function(c) { return c.id === currentConvId; });
+    if (conv && !conv.title && msg) {
+      conv.title = msg.length > 40 ? msg.substring(0, 40) + "..." : msg;
+      saveConvMeta(); renderConvList();
+    }
+  })
   .catch(function(e) {
     hideTyping(); lastFailedMsg = msg;
     var errDiv = document.createElement("div"); errDiv.className = "msg luna error-msg";
@@ -958,112 +1036,11 @@ function sendMsg(overrideMsg) {
 sendBtn.addEventListener("click", function() { sendMsg(); });
 inputEl.addEventListener("keydown", function(e) { if (e.key === "Enter") sendMsg(); });
 
-// --- Video call (Simli prioritaire, Tavus fallback) ---
-var currentConvId = "";
-var dailyCall = null;
-
+// --- Video call (Tavus) ---
 function startCall() {
-  callBtn.disabled = true; callBtn.textContent = "Connexion...";
-  // Verifier si Simli est disponible
-  fetch("/api/config/simli").then(function(r) { return r.json(); }).then(function(cfg) {
-    if (cfg.enabled) {
-      // Navigation directe vers Simli (iframe bloque getUserMedia dans WebView APK)
-      window.location.href = "/simli";
-      return;
-    }
-    // Fallback Tavus
-    startTavusCall();
-  }).catch(function() { startTavusCall(); });
-}
-
-function startTavusCall() {
-  authFetch("/api/call", { method: "POST" }).then(function(r) { return r.json(); })
-  .then(function(data) {
-    if (data.error) { addMsg("Erreur appel: " + data.error, "luna"); return; }
-    currentConvId = data.conversation_id;
-
-    // Daily.js SDK — permet d'intercepter les tool_call events de Tavus
-    if (dailyCall) { try { dailyCall.destroy(); } catch(e){} }
-    dailyCall = window.DailyIframe.createFrame(videoFrame, {
-      iframeStyle: { width: "100%", height: "100%", border: "none" },
-      showLeaveButton: false,
-      showFullscreenButton: true,
-    });
-
-    // Ecoute les tool_call events de Tavus via app-message
-    dailyCall.on("app-message", function(evt) {
-      var msg = evt && evt.data;
-      if (!msg) return;
-      var evtType = msg.event_type || "";
-      if (evtType === "conversation.tool_call") {
-        var toolName = (msg.properties && msg.properties.name) || "";
-        var toolArgs = (msg.properties && msg.properties.arguments) || "{}";
-        console.log("[Luna] Tool call recu:", toolName, toolArgs);
-        addMsg("[Visio] Luna execute: " + toolName + "...", "luna");
-
-        // Relaie au backend
-        authFetch("/api/webhook/tavus", {
-          method: "POST",
-          headers: {"Content-Type": "application/json"},
-          body: JSON.stringify({
-            event_type: "conversation.tool_call",
-            tool_name: toolName,
-            tool_arguments: toolArgs,
-            conversation_id: currentConvId,
-          })
-        })
-        .then(function(r) { return r.json(); })
-        .then(function(result) {
-          var resultText = result.message || JSON.stringify(result);
-          console.log("[Luna] Tool result:", resultText);
-          // Renvoie le resultat a la replica Tavus pour qu'elle le dise
-          try {
-            dailyCall.sendAppMessage({
-              message_type: "conversation",
-              event_type: "conversation.echo",
-              conversation_id: currentConvId,
-              properties: {
-                modality: "text",
-                text: resultText,
-              }
-            }, "*");
-          } catch(e) { console.error("[Luna] sendAppMessage error:", e); }
-        })
-        .catch(function(err) {
-          console.error("[Luna] Tool call relay error:", err);
-          try {
-            dailyCall.sendAppMessage({
-              message_type: "conversation",
-              event_type: "conversation.echo",
-              conversation_id: currentConvId,
-              properties: { modality: "text", text: "Desolee, une erreur est survenue." }
-            }, "*");
-          } catch(e2) {}
-        });
-      }
-    });
-
-    dailyCall.on("left-meeting", function() {
-      videoOverlay.classList.remove("active"); inviteModal.classList.remove("active");
-      currentConvId = ""; addMsg("Appel termine.", "luna");
-    });
-
-    dailyCall.join({ url: data.conversation_url });
-    videoOverlay.classList.add("active");
-    addMsg("Appel video avec Luna en cours...", "luna");
-  })
-  .catch(function() { addMsg("Erreur de connexion pour appel.", "luna"); })
-  .finally(function() {
-    callBtn.disabled = false;
-    callBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15.05 5A5 5 0 0 1 19 8.95M15.05 1A9 9 0 0 1 23 8.94M22 16.92v3a2 2 0 0 1-2.18 2A19.79 19.79 0 0 1 3.07 5.18 2 2 0 0 1 5.11 3h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 11.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 18.92z"/></svg> Visio Luna';
-  });
+  window.location.href = "/simli";
 }
 callBtn.addEventListener("click", startCall);
-hangupBtn.addEventListener("click", function() {
-  if (dailyCall) { try { dailyCall.leave(); dailyCall.destroy(); } catch(e){} dailyCall = null; }
-  videoOverlay.classList.remove("active"); inviteModal.classList.remove("active");
-  currentConvId = ""; addMsg("Appel termine.", "luna");
-});
 
 // --- Appel Vocal (Twilio + OpenAI Realtime) ---
 var voiceBtn = document.getElementById("voiceBtn");
@@ -1084,31 +1061,7 @@ function startVoiceCall() {
 }
 voiceBtn.addEventListener("click", startVoiceCall);
 
-// --- Invite contact ---
-var inviteBtn = document.getElementById("inviteBtn");
-var inviteModal = document.getElementById("inviteModal");
-var inviteName = document.getElementById("inviteName");
-var invitePhone = document.getElementById("invitePhone");
-var inviteSendBtn = document.getElementById("inviteSendBtn");
-var inviteCancelBtn = document.getElementById("inviteCancelBtn");
-var inviteStatus = document.getElementById("inviteStatus");
-
-inviteBtn.addEventListener("click", function() { inviteModal.classList.add("active"); inviteName.value = ""; invitePhone.value = ""; inviteStatus.textContent = ""; inviteName.focus(); });
-inviteCancelBtn.addEventListener("click", function() { inviteModal.classList.remove("active"); });
-inviteSendBtn.addEventListener("click", function() {
-  var name = inviteName.value.trim(), phone = invitePhone.value.trim();
-  if (!name || !phone) { inviteStatus.textContent = "Remplis le nom et le telephone."; inviteStatus.style.color = "#f87171"; return; }
-  if (!currentConvId) { inviteStatus.textContent = "Aucun appel en cours."; inviteStatus.style.color = "#f87171"; return; }
-  inviteSendBtn.disabled = true; inviteStatus.textContent = "Envoi du SMS..."; inviteStatus.style.color = "#888";
-  authFetch("/api/invite-contact", { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({conversation_id: currentConvId, contact_name: name, contact_phone: phone}) })
-  .then(function(r) { return r.json(); })
-  .then(function(data) {
-    if (data.error) { inviteStatus.textContent = "Erreur: " + data.error; inviteStatus.style.color = "#f87171"; }
-    else { inviteStatus.textContent = "SMS envoye a " + name + " !"; inviteStatus.style.color = "#4ade80"; addMsg("Invitation visio envoyee a " + name + " par SMS.", "luna"); }
-  })
-  .catch(function() { inviteStatus.textContent = "Erreur de connexion."; inviteStatus.style.color = "#f87171"; })
-  .finally(function() { inviteSendBtn.disabled = false; });
-});
+// --- Invite contact (geree dans simli.html pendant la visio) ---
 
 // =========================================================================
 // PROFILE
@@ -1410,6 +1363,7 @@ function _perceptionCaptureAndSend() {
 
   authFetch("/api/perception/frame", {
     method: "POST",
+    headers: {"Content-Type": "application/json"},
     body: JSON.stringify({ image: b64 }),
   })
   .then(function(r) { return r.json(); })
@@ -1916,6 +1870,165 @@ function showXpToast(text) {
 }
 
 // =========================================================================
+// CONVERSATIONS SIDEBAR
+// =========================================================================
+
+function genConvId() { return "conv_" + Date.now() + "_" + Math.random().toString(36).substr(2, 4); }
+
+function formatConvDate(isoStr) {
+  if (!isoStr) return "";
+  try {
+    var d = new Date(isoStr);
+    var now = new Date();
+    if (d.toDateString() === now.toDateString()) return d.toLocaleTimeString("fr-FR", {hour: "2-digit", minute: "2-digit"});
+    return d.toLocaleDateString("fr-FR", {day: "numeric", month: "short"});
+  } catch(e) { return ""; }
+}
+
+function renderConvList(filter) {
+  var list = document.getElementById("convList");
+  if (!list) return;
+  list.innerHTML = "";
+  var filtered = conversationsMeta.slice();
+  if (filter) {
+    var lower = filter.toLowerCase();
+    filtered = filtered.filter(function(c) {
+      return (c.title || "").toLowerCase().indexOf(lower) >= 0 || (c.preview || "").toLowerCase().indexOf(lower) >= 0;
+    });
+  }
+  filtered.sort(function(a, b) { return (b.last_activity || "").localeCompare(a.last_activity || ""); });
+  filtered.forEach(function(conv) {
+    var item = document.createElement("div");
+    item.className = "conv-item" + (conv.id === currentConvId ? " active" : "");
+    var title = document.createElement("div");
+    title.className = "conv-item-title";
+    title.textContent = conv.title || "Nouvelle conversation";
+    item.appendChild(title);
+    if (conv.preview) {
+      var prev = document.createElement("div"); prev.className = "conv-item-preview";
+      prev.textContent = conv.preview; item.appendChild(prev);
+    }
+    var time = document.createElement("div"); time.className = "conv-item-time";
+    time.textContent = formatConvDate(conv.last_activity); item.appendChild(time);
+    var actions = document.createElement("div"); actions.className = "conv-item-actions";
+    var renBtn = document.createElement("button"); renBtn.className = "conv-item-btn"; renBtn.innerHTML = "&#9998;"; renBtn.title = "Renommer";
+    renBtn.addEventListener("click", function(e) { e.stopPropagation(); renameConversation(conv.id); });
+    actions.appendChild(renBtn);
+    if (conv.id !== "default") {
+      var delBtn = document.createElement("button"); delBtn.className = "conv-item-btn"; delBtn.innerHTML = "&#128465;"; delBtn.title = "Supprimer";
+      delBtn.addEventListener("click", function(e) { e.stopPropagation(); deleteConversation(conv.id); });
+      actions.appendChild(delBtn);
+    }
+    item.appendChild(actions);
+    item.addEventListener("click", function() { switchConversation(conv.id); });
+    list.appendChild(item);
+  });
+}
+
+function switchConversation(convId) {
+  if (convId === currentConvId) { closeSidebar(); return; }
+  saveHistory();
+  chat.innerHTML = "";
+  currentConvId = convId;
+  localStorage.setItem(CURRENT_CONV_KEY, convId);
+  var loaded = loadHistory();
+  if (!loaded) {
+    authFetch("/api/history?session_id=" + encodeURIComponent(convId) + "&limit=50")
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.messages && data.messages.length > 0) {
+        data.messages.forEach(function(m) { addMsg(m.content, m.role === "luna" ? "luna" : "user", m.timestamp || "", true); });
+      } else {
+        authFetch("/api/greeting").then(function(r) { return r.json(); }).then(function(d) { addMsg(d.response, "luna"); }).catch(function() {});
+      }
+    }).catch(function() {});
+  }
+  renderConvList();
+  closeSidebar();
+}
+
+function createNewConversation() {
+  saveHistory();
+  authFetch("/api/conversations", { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({title: ""}) })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    var convId = data.id;
+    conversationsMeta.unshift({ id: convId, title: "", last_activity: new Date().toISOString(), message_count: 0, preview: "" });
+    saveConvMeta();
+    chat.innerHTML = "";
+    currentConvId = convId;
+    localStorage.setItem(CURRENT_CONV_KEY, convId);
+    renderConvList();
+    authFetch("/api/greeting").then(function(r) { return r.json(); }).then(function(d) { addMsg(d.response, "luna"); }).catch(function() {});
+    closeSidebar();
+  })
+  .catch(function(e) { console.error("Create conv error:", e); });
+}
+
+function renameConversation(convId) {
+  var conv = conversationsMeta.find(function(c) { return c.id === convId; });
+  var current = conv ? (conv.title || "") : "";
+  var newTitle = prompt("Nom de la conversation :", current);
+  if (newTitle === null || newTitle.trim() === "") return;
+  newTitle = newTitle.trim().substring(0, 100);
+  authFetch("/api/conversations/" + encodeURIComponent(convId), { method: "PATCH", headers: {"Content-Type": "application/json"}, body: JSON.stringify({title: newTitle}) })
+  .then(function(r) { return r.json(); })
+  .then(function() { if (conv) { conv.title = newTitle; saveConvMeta(); renderConvList(); } })
+  .catch(function() {});
+}
+
+function deleteConversation(convId) {
+  if (!confirm("Supprimer cette conversation ?")) return;
+  authFetch("/api/conversations/" + encodeURIComponent(convId), { method: "DELETE" })
+  .then(function(r) { return r.json(); })
+  .then(function() {
+    conversationsMeta = conversationsMeta.filter(function(c) { return c.id !== convId; });
+    saveConvMeta();
+    try { localStorage.removeItem(convStorageKey(convId)); } catch(e) {}
+    if (currentConvId === convId) {
+      currentConvId = conversationsMeta.length > 0 ? conversationsMeta[0].id : "default";
+      localStorage.setItem(CURRENT_CONV_KEY, currentConvId);
+      chat.innerHTML = "";
+      loadHistory();
+    }
+    renderConvList();
+  })
+  .catch(function() {});
+}
+
+function loadConversationList() {
+  authFetch("/api/conversations")
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    if (data.conversations && data.conversations.length > 0) {
+      conversationsMeta = data.conversations.map(function(c) {
+        return { id: c.id, title: c.title || "", last_activity: c.last_activity || "", message_count: c.message_count || 0, preview: "" };
+      });
+    }
+    if (!conversationsMeta.find(function(c) { return c.id === currentConvId; })) {
+      conversationsMeta.push({ id: currentConvId, title: currentConvId === "default" ? "Conversation" : "", last_activity: new Date().toISOString(), message_count: 0, preview: "" });
+    }
+    saveConvMeta();
+    renderConvList();
+  })
+  .catch(function() {
+    try { conversationsMeta = JSON.parse(localStorage.getItem(CONV_META_KEY) || "[]"); } catch(e) { conversationsMeta = []; }
+    if (conversationsMeta.length === 0) {
+      conversationsMeta = [{ id: "default", title: "Conversation", last_activity: new Date().toISOString(), message_count: 0, preview: "" }];
+    }
+    renderConvList();
+  });
+}
+
+function openSidebar() { document.getElementById("convSidebar").classList.add("open"); }
+function closeSidebar() { document.getElementById("convSidebar").classList.remove("open"); }
+
+document.getElementById("sidebarToggle").addEventListener("click", openSidebar);
+document.getElementById("sidebarClose").addEventListener("click", closeSidebar);
+document.getElementById("newConvBtn").addEventListener("click", createNewConversation);
+document.getElementById("convSearch").addEventListener("input", function() { renderConvList(this.value); });
+
+// =========================================================================
 // INIT
 // =========================================================================
 // Check auth on page load
@@ -1923,6 +2036,18 @@ checkAuth();
 
 // Load data after auth check
 function initApp() {
+  // Migrate legacy localStorage
+  var legacyData = localStorage.getItem(STORAGE_KEY);
+  var hasMeta = localStorage.getItem(CONV_META_KEY);
+  if (legacyData && !hasMeta) {
+    localStorage.setItem(convStorageKey("default"), legacyData);
+    conversationsMeta = [{ id: "default", title: "Conversation", last_activity: new Date().toISOString(), message_count: 0, preview: "" }];
+    saveConvMeta();
+    currentConvId = "default";
+    localStorage.setItem(CURRENT_CONV_KEY, "default");
+    localStorage.removeItem(STORAGE_KEY);
+  }
+  loadConversationList();
   var hadHistory = loadHistory();
   if (!hadHistory) {
     authFetch("/api/greeting").then(function(r) { return r.json(); })
