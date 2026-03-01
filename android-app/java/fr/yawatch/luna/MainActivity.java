@@ -39,8 +39,8 @@ public class MainActivity extends Activity {
     private static final String LUNA_URL = "https://luna-beta-674304336025.europe-west1.run.app";
     private static final int PERMISSION_REQUEST_CODE = 100;
     private static final int NOTIFICATION_PERMISSION_CODE = 101;
-    private static final String CURRENT_VERSION = "1.4";
-    private static final int CURRENT_VERSION_CODE = 5;
+    private static final String CURRENT_VERSION = "1.9";
+    private static final int CURRENT_VERSION_CODE = 10;
     private static final String CHANNEL_ID = "luna_messages";
     private WebView webView;
     private PermissionRequest pendingPermissionRequest;
@@ -81,7 +81,7 @@ public class MainActivity extends Activity {
         settings.setDomStorageEnabled(true);
         settings.setMediaPlaybackRequiresUserGesture(false);
         settings.setAllowFileAccess(false);
-        settings.setCacheMode(WebSettings.LOAD_DEFAULT);
+        settings.setCacheMode(WebSettings.LOAD_NO_CACHE);
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
 
         // Version dans le User-Agent pour auto-update
@@ -158,6 +158,9 @@ public class MainActivity extends Activity {
                 return false;
             }
         });
+
+        // Vider le cache avant de charger (force la mise a jour)
+        webView.clearCache(true);
 
         // Charge Luna
         webView.loadUrl(LUNA_URL);

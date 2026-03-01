@@ -66,28 +66,23 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; b
 .conv-item-btn { background: none; border: none; color: #666; cursor: pointer; padding: 2px 5px; font-size: 0.78em; border-radius: 4px; }
 .conv-item-btn:hover { background: #333; color: #e0e0e0; }
 .sidebar-toggle {
-  display: none; width: 34px; height: 34px; border-radius: 8px; border: 1px solid #7c3aed;
-  background: rgba(124,58,237,0.15); color: #a78bfa; cursor: pointer; align-items: center; justify-content: center; font-size: 1.1em;
+  display: none; width: 36px; height: 36px; border-radius: 8px; border: 1px solid #7c3aed;
+  background: rgba(124,58,237,0.15); color: #a78bfa; cursor: pointer; align-items: center; justify-content: center;
 }
 .sidebar-toggle:active { background: rgba(124,58,237,0.3); }
-.conv-fab {
-  display: none; position: fixed; bottom: 90px; left: 16px; z-index: 100;
-  width: 48px; height: 48px; border-radius: 50%; border: none;
-  background: linear-gradient(135deg, #7c3aed, #a78bfa); color: #fff;
-  font-size: 1.5em; cursor: pointer; box-shadow: 0 4px 16px rgba(124,58,237,0.5);
-  align-items: center; justify-content: center;
-}
-.conv-fab:active { transform: scale(0.9); }
 .conv-sidebar-close { display: none; }
+.conv-overlay {
+  display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 149;
+}
+.conv-overlay.open { display: block; }
 @media (max-width: 768px) {
   .conv-sidebar {
-    position: fixed; inset: 0; width: 100%; z-index: 150;
+    position: fixed; top: 0; left: 0; bottom: 0; width: 280px; z-index: 150;
     transform: translateX(-100%); transition: transform 0.25s ease;
   }
   .conv-sidebar.open { transform: translateX(0); }
   .sidebar-toggle { display: flex; }
   .conv-sidebar-close { display: block !important; }
-  .conv-fab { display: flex; }
 }
 
 /* Chat */
@@ -342,13 +337,18 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; b
 
 <div class="app-container" id="appContainer">
 <div class="header" style="display:flex;justify-content:space-between;align-items:center;">
-  <div>
-    <h1><span class="status-dot online" id="statusDot"></span> Luna</h1>
-    <p id="greetingSubtitle">Ton compagnon bienveillant</p>
+  <div style="display:flex;align-items:center;gap:8px;">
+    <button class="sidebar-toggle" id="sidebarToggle" title="Historique">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="15" y2="12"/><line x1="3" y1="18" x2="18" y2="18"/></svg>
+    </button>
+    <div>
+      <h1><span class="status-dot online" id="statusDot"></span> Luna</h1>
+      <p id="greetingSubtitle">Ton compagnon bienveillant</p>
+    </div>
   </div>
   <div style="display:flex;align-items:center;gap:6px;">
-    <button class="sidebar-toggle" id="sidebarToggle" title="Conversations">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="15" y2="12"/><line x1="3" y1="18" x2="18" y2="18"/></svg>
+    <button class="sidebar-toggle" id="newChatBtn" title="Nouvelle conversation" style="font-size:1.4em;font-weight:300;line-height:1;">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
     </button>
     <button class="wakeword-btn" id="wakewordBtn" title="Activer Hey Luna">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
@@ -363,14 +363,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; b
   <span id="wakewordLabel">Ecoute...</span>
 </div>
 
-<!-- XP Widget (header only, not floating) -->
-<div id="xpWidget" style="display:none;cursor:pointer;position:fixed;top:60px;left:16px;z-index:1001;background:#1a1a3e;border:1px solid #7c3aed;border-radius:12px;padding:8px 14px;font-size:0.8em;color:#e2e8f0;box-shadow:0 4px 12px rgba(0,0,0,0.4);">
-  <span id="xpLevel" style="font-weight:bold;color:#a78bfa;margin-right:8px;">Niv. 1</span>
-  <span style="color:#fbbf24;margin-right:4px;">&#9733;</span><span id="xpStars" style="color:#fbbf24;margin-right:10px;">0</span>
-  <span style="display:inline-block;width:60px;height:6px;background:#2d2d5e;border-radius:3px;vertical-align:middle;">
-    <span id="xpBar" style="display:block;height:100%;width:0%;background:linear-gradient(90deg,#7c3aed,#a78bfa);border-radius:3px;transition:width 0.3s;"></span>
-  </span>
-</div>
+<!-- XP Widget supprime (info disponible dans onglet Monde) -->
 
 <!-- Tabs -->
 <div class="tabs">
@@ -400,6 +393,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; b
       </div>
       <div class="conv-list" id="convList"></div>
     </aside>
+    <div class="conv-overlay" id="convOverlay"></div>
     <div class="chat-main">
       <div class="chat" id="chat"></div>
       <div class="input-area">
@@ -421,8 +415,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; b
       </div>
     </div>
   </div>
-  <button class="conv-fab" id="convFab" title="Nouvelle conversation">+</button>
-</div>
+  </div>
 
 <!-- Profile Tab -->
 <div class="tab-panel" id="tab-profile">
@@ -1002,12 +995,21 @@ function loadMonde() {
   var frame = document.getElementById("worldFrame");
   var loader = document.getElementById("worldLoader");
   var token = localStorage.getItem("luna_token") || sessionStorage.getItem("luna_token");
-  frame.src = "/world?embed=1&token=" + encodeURIComponent(token || "");
+  frame.onerror = function() {
+    if (loader) loader.querySelector("p").textContent = "Erreur de chargement du Monde.";
+  };
   frame.onload = function() {
     frame.style.display = "block";
     if (loader) loader.style.display = "none";
     worldLoaded = true;
   };
+  frame.src = "/world?embed=1&token=" + encodeURIComponent(token || "");
+  // Timeout: si l'iframe ne charge pas en 15s, afficher un message
+  setTimeout(function() {
+    if (!worldLoaded && loader) {
+      loader.querySelector("p").textContent = "Le Monde met du temps a charger...";
+    }
+  }, 15000);
 }
 
 // =========================================================================
@@ -2110,24 +2112,8 @@ function esc(s) { if (!s) return ""; var d = document.createElement("div"); d.te
 // XP WIDGET + TOAST
 // =========================================================================
 function refreshXpWidget() {
-  authFetch("/api/world/player").then(function(r) { return r.json(); })
-  .then(function(d) {
-    var p = d.player;
-    if (p && p.level !== undefined) {
-      document.getElementById("xpLevel").textContent = "Niv. " + p.level;
-      document.getElementById("xpStars").textContent = p.stars || 0;
-      var pct = p.progress_percent || 0;
-      document.getElementById("xpBar").style.width = Math.min(100, Math.round(pct)) + "%";
-      document.getElementById("xpWidget").style.display = "block";
-    }
-  }).catch(function() {});
+  // Widget XP supprime — info disponible dans onglet Monde
 }
-
-document.getElementById("xpWidget").addEventListener("click", function() {
-  // Basculer vers onglet Monde
-  var worldBtn = document.querySelector('.tab-btn[data-tab="world"]');
-  if (worldBtn) worldBtn.click();
-});
 
 function showXpToast(text) {
   var t = document.createElement("div");
@@ -2154,6 +2140,23 @@ function formatConvDate(isoStr) {
   } catch(e) { return ""; }
 }
 
+function getDateGroup(isoStr) {
+  if (!isoStr) return "Plus ancien";
+  try {
+    var d = new Date(isoStr);
+    var now = new Date();
+    var today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    var yesterday = new Date(today); yesterday.setDate(yesterday.getDate() - 1);
+    var week = new Date(today); week.setDate(week.getDate() - 7);
+    var month = new Date(today); month.setDate(month.getDate() - 30);
+    if (d >= today) return "Aujourd'hui";
+    if (d >= yesterday) return "Hier";
+    if (d >= week) return "7 derniers jours";
+    if (d >= month) return "30 derniers jours";
+    return "Plus ancien";
+  } catch(e) { return "Plus ancien"; }
+}
+
 function renderConvList(filter) {
   var list = document.getElementById("convList");
   if (!list) return;
@@ -2166,19 +2169,22 @@ function renderConvList(filter) {
     });
   }
   filtered.sort(function(a, b) { return (b.last_activity || "").localeCompare(a.last_activity || ""); });
+  var lastGroup = "";
   filtered.forEach(function(conv) {
+    var group = getDateGroup(conv.last_activity);
+    if (group !== lastGroup) {
+      var hdr = document.createElement("div");
+      hdr.style.cssText = "padding:10px 10px 4px;font-size:0.72em;font-weight:600;color:#666;text-transform:uppercase;letter-spacing:0.5px;";
+      hdr.textContent = group;
+      list.appendChild(hdr);
+      lastGroup = group;
+    }
     var item = document.createElement("div");
     item.className = "conv-item" + (conv.id === currentConvId ? " active" : "");
     var title = document.createElement("div");
     title.className = "conv-item-title";
     title.textContent = conv.title || "Nouvelle conversation";
     item.appendChild(title);
-    if (conv.preview) {
-      var prev = document.createElement("div"); prev.className = "conv-item-preview";
-      prev.textContent = conv.preview; item.appendChild(prev);
-    }
-    var time = document.createElement("div"); time.className = "conv-item-time";
-    time.textContent = formatConvDate(conv.last_activity); item.appendChild(time);
     var actions = document.createElement("div"); actions.className = "conv-item-actions";
     var renBtn = document.createElement("button"); renBtn.className = "conv-item-btn"; renBtn.innerHTML = "&#9998;"; renBtn.title = "Renommer";
     renBtn.addEventListener("click", function(e) { e.stopPropagation(); renameConversation(conv.id); });
@@ -2290,14 +2296,21 @@ function loadConversationList() {
   });
 }
 
-function openSidebar() { document.getElementById("convSidebar").classList.add("open"); }
-function closeSidebar() { document.getElementById("convSidebar").classList.remove("open"); }
+function openSidebar() {
+  document.getElementById("convSidebar").classList.add("open");
+  document.getElementById("convOverlay").classList.add("open");
+}
+function closeSidebar() {
+  document.getElementById("convSidebar").classList.remove("open");
+  document.getElementById("convOverlay").classList.remove("open");
+}
 
 document.getElementById("sidebarToggle").addEventListener("click", openSidebar);
 document.getElementById("sidebarClose").addEventListener("click", closeSidebar);
 document.getElementById("newConvBtn").addEventListener("click", createNewConversation);
 document.getElementById("convSearch").addEventListener("input", function() { renderConvList(this.value); });
-document.getElementById("convFab").addEventListener("click", createNewConversation);
+document.getElementById("convOverlay").addEventListener("click", closeSidebar);
+document.getElementById("newChatBtn").addEventListener("click", createNewConversation);
 
 // =========================================================================
 // INIT
