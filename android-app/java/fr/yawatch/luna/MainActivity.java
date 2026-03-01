@@ -39,8 +39,8 @@ public class MainActivity extends Activity {
     private static final String LUNA_URL = "https://luna-beta-674304336025.europe-west1.run.app";
     private static final int PERMISSION_REQUEST_CODE = 100;
     private static final int NOTIFICATION_PERMISSION_CODE = 101;
-    private static final String CURRENT_VERSION = "1.9";
-    private static final int CURRENT_VERSION_CODE = 10;
+    private static final String CURRENT_VERSION = "2.0";
+    private static final int CURRENT_VERSION_CODE = 11;
     private static final String CHANNEL_ID = "luna_messages";
     private WebView webView;
     private PermissionRequest pendingPermissionRequest;
