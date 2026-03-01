@@ -37,17 +37,21 @@ VOICE_TOOLS = [
     {
         "type": "function",
         "name": "call_contact",
-        "description": "Appeler un contact de confiance par TELEPHONE AUDIO maintenant. Luna passe un vrai appel telephonique vocal au contact et lui parle pour transmettre un message. UTILISE CE TOOL quand le souscripteur dit 'appelle maman', 'appelle Marie', 'telephone a mon fils', 'passe un coup de fil a...', 'appelle X pour lui dire...'. C'est un APPEL VOCAL, pas un SMS.",
+        "description": "Appeler quelqu'un par TELEPHONE AUDIO maintenant. Luna passe un vrai appel telephonique vocal et parle pour transmettre un message. Deux usages : (A) Appeler un contact de confiance par son nom : 'appelle maman', 'appelle Marie'. (B) Appeler une administration/service avec un numero donne par le souscripteur : 'appelle la mairie au 01 44 56 78 90'. Pour (B), renseigner phone_number avec le numero fourni. C'est un APPEL VOCAL, pas un SMS.",
         "parameters": {
             "type": "object",
             "properties": {
                 "contact_name": {
                     "type": "string",
-                    "description": "Prenom ou nom du contact a appeler (ex: maman, Marie, mon fils)"
+                    "description": "Prenom ou nom du contact, ou nom du service/administration a appeler"
                 },
                 "message": {
                     "type": "string",
-                    "description": "Le message que Luna doit transmettre au contact pendant l'appel vocal"
+                    "description": "Le message que Luna doit transmettre pendant l'appel vocal"
+                },
+                "phone_number": {
+                    "type": "string",
+                    "description": "Numero de telephone a appeler directement (uniquement pour les administrations/services, quand le souscripteur donne le numero). Ne PAS renseigner pour les contacts de confiance."
                 }
             },
             "required": ["contact_name", "message"]

@@ -606,12 +606,23 @@ Alertes quotas : 80% avertissement, 90% urgences seulement, 100% bloque
 6. Surveillance d'inactivite et alertes contacts
 7. Prise de notes automatique
 8. Reveil par appel telephonique (Luna appelle a l'heure prevue, le tel sonne)
-9. Appels vocaux planifies aux contacts (Luna appelle le contact a l'heure prevue)
-{"10. Visio planifiee avec contacts (Luna cree la visio et envoie le lien par SMS)" if LUNA_MODE == "full" else ""}
-11. Moment lecture (histoires, poemes, textes)
-12. Jeux (quiz, devinettes, culture generale)
-13. Moment musical (suggestions, fredonnement)
-14. Exercice de gratitude quotidien
+9. Appels vocaux aux contacts de confiance (Luna appelle le contact et transmet un message)
+10. Appels vocaux aux administrations/services (sur demande explicite du souscripteur, avec numero fourni)
+{"11. Visio planifiee avec contacts (Luna cree la visio et envoie le lien par SMS)" if LUNA_MODE == "full" else ""}
+12. Moment lecture (histoires, poemes, textes)
+13. Jeux (quiz, devinettes, culture generale)
+14. Moment musical (suggestions, fredonnement)
+15. Exercice de gratitude quotidien
+
+=== APPELS TELEPHONIQUES ===
+Tu PEUX passer des appels vocaux de deux facons :
+A) Contacts de confiance : utilise call_contact avec le nom du contact (tu les connais deja).
+B) Administrations/services : quand le souscripteur te donne un NUMERO DE TELEPHONE a appeler
+   (ex: "appelle le 01 44 56 78 90", "telephone a la mairie au 04 xxx"), utilise call_contact
+   avec contact_name = nom du service et phone_number = le numero donne.
+   REGLE : tu ne peux appeler un numero hors contacts QUE si le souscripteur te le donne explicitement.
+   REGLE : tu ne peux PAS appeler les numeros d'urgence (15, 17, 18, 112) — suggere-les a la place.
+Tous les appels consomment du forfait voix.
 {"" if LUNA_MODE != "full" else '''
 === INVITATION VISIO PAR SMS ===
 Quand le souscripteur est en appel video avec Luna, il peut demander :
@@ -1330,8 +1341,8 @@ async def download_apk():
 
 
 # Version APK pour auto-update
-LUNA_APP_VERSION = "1.7"
-LUNA_APP_VERSION_CODE = 8
+LUNA_APP_VERSION = "1.8"
+LUNA_APP_VERSION_CODE = 9
 
 @app.get("/api/app/version")
 async def app_version():
@@ -1521,8 +1532,11 @@ async def chat(req: ChatRequest, request: Request):
                 full_context += "\n  * 'envoie un SMS', 'envoie un texto', 'ecris un message' → utiliser send_sms (message ECRIT)"
                 full_context += "\n  * NE JAMAIS utiliser send_sms quand le souscripteur dit 'appelle' — c'est call_contact"
                 full_context += "\n- Tu PEUX passer des appels telephoniques audio aux contacts de confiance avec call_contact."
+                full_context += "\n- Tu PEUX aussi appeler des administrations/services si le souscripteur te donne le numero (utilise call_contact avec phone_number)."
+                full_context += "\n- Tu ne peux PAS appeler les numeros d'urgence (15, 17, 18, 112) — suggere-les a la place."
                 full_context += "\n- Quand on te demande de PLANIFIER quelque chose dans le FUTUR (ex: 'appelle Marie a 14h', 'rappelle-moi demain'), utilise le tool create_instruction."
                 full_context += "\n- Quand on te demande 'qui sont mes contacts', reponds avec la liste ci-dessus."
+                full_context += "\n- Tu as acces a Twilio pour envoyer des SMS et passer des appels. Tu SAIS le faire. Ne dis JAMAIS que tu ne peux pas."
                 full_context += "\n- Sois chaleureux, concis, et utile. Tu es Luna, un compagnon bienveillant."
                 messages.append({"role": "system", "content": full_context})
             elif tenant_name:
@@ -5012,6 +5026,14 @@ async def _tool_send_sms(args: Dict, tenant_id: int = 0) -> Dict:
     mgr = _get_tenant_manager(tenant_id) if tenant_id else _memory_manager
     if not mgr or not sms_client.is_configured:
         return {"status": "error", "message": "Service SMS non disponible"}
+    # Quota pre-check
+    if _quota_guard:
+        try:
+            qs = _quota_guard.check(tenant_id or TENANT_ID, CoreActionType.SEND_SMS)
+            if not qs.allowed:
+                return {"status": "error", "message": qs.warning_message or "Quota SMS atteint pour ce mois"}
+        except Exception:
+            pass
 
     contact_name = args.get("contact_name", "")
     message = args.get("message", "")
@@ -5270,21 +5292,35 @@ async def _tool_call_contact(args: Dict, tenant_id: int = 0) -> Dict:
 
     contact_name = args.get("contact_name", "")
     message = args.get("message", "")
+    direct_phone = args.get("phone_number", "")
     if not contact_name:
         return {"status": "error", "message": "Nom du contact requis"}
 
-    # Cherche le contact
-    contacts = mgr.list_trusted_contacts()
+    # Numeros d'urgence interdits (Luna ne doit pas appeler le 15, 17, 18, 112)
+    _EMERGENCY_NUMBERS = {"15", "17", "18", "112", "114", "115", "119", "3114", "3977"}
+    if direct_phone and direct_phone.strip().replace(" ", "") in _EMERGENCY_NUMBERS:
+        return {"status": "error", "message": f"Luna ne peut pas appeler les numeros d'urgence. Suggere au souscripteur de composer le {direct_phone} lui-meme."}
+
     phone = None
-    matched_name = ""
-    for c in contacts:
-        if contact_name.lower() in c.name.lower() or contact_name.lower() in (c.relation or "").lower():
-            phone = c.phone
-            matched_name = c.name
-            break
+    matched_name = contact_name
+    is_admin_call = False
+
+    if direct_phone:
+        # Appel administration/service : numero fourni directement par le souscripteur
+        phone = direct_phone
+        matched_name = contact_name or "Administration"
+        is_admin_call = True
+    else:
+        # Cherche dans les contacts de confiance
+        contacts = mgr.list_trusted_contacts()
+        for c in contacts:
+            if contact_name.lower() in c.name.lower() or contact_name.lower() in (c.relation or "").lower():
+                phone = c.phone
+                matched_name = c.name
+                break
 
     if not phone:
-        return {"status": "error", "message": f"Contact '{contact_name}' non trouve parmi les contacts de confiance"}
+        return {"status": "error", "message": f"Contact '{contact_name}' non trouve parmi les contacts de confiance. Pour appeler un service/administration, demande le numero au souscripteur."}
 
     # Recupere le prenom du souscripteur
     sub_name = _SUBSCRIBER_NAME
@@ -5301,17 +5337,28 @@ async def _tool_call_contact(args: Dict, tenant_id: int = 0) -> Dict:
     normalized_phone = TwilioSMSClient.normalize_phone(phone)
 
     # Mission pour Luna pendant l'appel
-    mission = f"Tu appelles {matched_name} de la part de {sub_name}. "
-    if message:
-        mission += f"Voici ce que {sub_name} veut que tu transmettes : {message}"
+    if is_admin_call:
+        mission = f"Tu appelles {matched_name} pour {sub_name}. "
+        if message:
+            mission += f"Voici la demande de {sub_name} : {message}"
+        else:
+            mission += f"{sub_name} souhaite obtenir des informations."
+        greeting = f"Bonjour ! Je suis Luna, l'assistante de {sub_name}. "
+        if message:
+            greeting += f"J'appelle de la part de {sub_name}. {message}"
+        else:
+            greeting += f"J'appelle de la part de {sub_name} pour obtenir des renseignements."
     else:
-        mission += f"{sub_name} voulait prendre des nouvelles."
-
-    greeting = f"Bonjour {matched_name} ! C'est Luna, l'assistante de {sub_name}. "
-    if message:
-        greeting += f"{sub_name} m'a demande de t'appeler pour te dire : {message}"
-    else:
-        greeting += f"{sub_name} m'a demande de t'appeler pour prendre de tes nouvelles."
+        mission = f"Tu appelles {matched_name} de la part de {sub_name}. "
+        if message:
+            mission += f"Voici ce que {sub_name} veut que tu transmettes : {message}"
+        else:
+            mission += f"{sub_name} voulait prendre des nouvelles."
+        greeting = f"Bonjour {matched_name} ! C'est Luna, l'assistante de {sub_name}. "
+        if message:
+            greeting += f"{sub_name} m'a demande de t'appeler pour te dire : {message}"
+        else:
+            greeting += f"{sub_name} m'a demande de t'appeler pour prendre de tes nouvelles."
 
     # Lancer l'appel via Twilio
     success, data = await voice_client.initiate_call_async(normalized_phone)
