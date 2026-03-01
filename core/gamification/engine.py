@@ -146,6 +146,13 @@ async def award_xp(gops: GamificationRedisOps, tenant_id, action: str,
         # Award stars for level up
         if not is_admin:
             award_stars(gops, tenant_id, "level_up")
+        # Push notification for level-up
+        try:
+            from core.notifications.engine import NotificationEngine
+            _ne = NotificationEngine(gops.rc)
+            _ne.deliver_level_up(tenant_id, level_info["level"], level_info["title"])
+        except Exception:
+            pass
 
     # XP activity event (only for significant gains)
     if xp_amount >= 5:

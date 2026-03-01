@@ -22,6 +22,7 @@ for _p in [_utils_dir, _exploitants_dir]:
 import openai
 from collections import defaultdict
 from datetime import datetime
+from zoneinfo import ZoneInfo
 from dotenv import load_dotenv
 from openai import OpenAI
 from contextlib import asynccontextmanager
@@ -48,21 +49,16 @@ except ImportError:
     TavusClient = None
     def build_tavus_context(**kwargs): return ""
 
-# Simli: avatar cinematique avec lip-sync WebRTC (alternative a Tavus)
-try:
-    from integrations.simli.ws_handler import handle_simli_session
-    from integrations.simli.luna_schedule import get_current_scene as simli_get_scene
-    _SIMLI_AVAILABLE = True
-except ImportError:
-    _SIMLI_AVAILABLE = False
-    handle_simli_session = None
+# Simli: desactive (Tavus est le systeme visio principal)
+_SIMLI_AVAILABLE = False
+handle_simli_session = None
 
 # Core modules (optional - graceful fallback if Redis down)
 try:
     from core.memory.memory_manager import MemoryManager
     from core.memory.redis_client import RedisClient
     from core.memory.schemas import (
-        PlanType, MessageRole, Channel, Conversation,
+        PlanType, MessageRole, Channel, Conversation, ConversationStatus,
         SubscriberProfile, InstructionType, ActionType as SchemaActionType,
         UnifiedSession, UnifiedMessage, ChannelHandoff,
         SessionStatus, MoodIndicator,
@@ -372,7 +368,6 @@ _PUBLIC_PATHS = (
     "/api/email/oauth/",
     "/api/cortex/telegram/webhook",
     "/api/app/version",
-    "/api/config/simli",
     "/download",
     "/download/",
     "/static/",
@@ -411,6 +406,9 @@ _sms_tracking: Dict[str, Dict] = {}
 
 def _tracked_sms_send(to: str, body: str, label: str = ""):
     """Envoie un SMS et track l'accuse de reception."""
+    if _test_mode:
+        logger.info(f"[TEST MODE] SMS bloque vers {to}: {body[:60]}...")
+        return True, {"sid": f"TEST_{label}", "test_mode": True}
     success, details = sms_client.send(to, body)
     if success and details.get("sid"):
         sid = details["sid"]
@@ -447,13 +445,14 @@ _doc_generator: Optional[object] = None
 _perception_detector: Optional[object] = None
 _perception_analyzer: Optional[object] = None
 _test_mode: bool = False  # En mode test, les SMS ne sont PAS envoyes
+_notification_engine: Optional[object] = None
 
 # Invitations visio en attente de reponse SMS (phone -> {tenant_id, subscriber_name, contact_name, timestamp})
 _pending_visio_invites: Dict[str, Dict] = {}
 
 def _init_core():
     """Initialize core modules. Graceful if Redis is down or imports failed."""
-    global _redis_client, _memory_manager, _safety_guardian, _quota_guard, _scheduler, _executor, _doc_generator, _perception_detector, _perception_analyzer
+    global _redis_client, _memory_manager, _safety_guardian, _quota_guard, _scheduler, _executor, _doc_generator, _perception_detector, _perception_analyzer, _notification_engine
     if not _CORE_AVAILABLE:
         logger.warning("Core modules non disponibles (import failed) - mode degrade")
         return
@@ -502,6 +501,13 @@ def _init_core():
                     _perception_detector.initialize()
             except ImportError:
                 logger.info("Perception module non disponible")
+            # Notification engine (Luna gentle reminders)
+            try:
+                from core.notifications import NotificationEngine
+                _notification_engine = NotificationEngine(_redis_client)
+                logger.info("Notification engine initialise")
+            except ImportError:
+                logger.info("Notification module non disponible")
             logger.info("Core modules initialises (Redis OK, Scheduler OK, DocGen OK)")
         else:
             logger.warning("Redis injoignable - mode degrade (memoire locale)")
@@ -586,9 +592,9 @@ Pour le souscripteur, tout est simplement "Luna". Exemples :
 - Erreur technique ? -> "Desole, j'ai un petit souci technique. Reessaie dans un instant."
 
 === OFFRES & ABONNEMENTS ===
-- Essentiel (79 EUR/mois) : 50 SMS, 60 min voix, 20 min visio, 5 instructions, 3 contacts
-- Confort (149 EUR/mois) : 200 SMS, 180 min voix, 60 min visio, 15 instructions, 5 contacts
-- Premium (249 EUR/mois) : 200 SMS, 300 min voix, 180 min visio, instructions illimitees, 10 contacts
+- Essentiel (79 EUR/mois) : 25 SMS, 40 min voix, 12 min visio, 5 instructions, 3 contacts
+- Confort (149 EUR/mois) : 50 SMS, 100 min voix, 28 min visio, 15 instructions, 5 contacts
+- Premium (249 EUR/mois) : 100 SMS, 180 min voix, 55 min visio, instructions illimitees, 10 contacts
 Alertes quotas : 80% avertissement, 90% urgences seulement, 100% bloque
 
 === CAPACITES ===
@@ -1013,6 +1019,12 @@ async def security_middleware(request: Request, call_next):
 
     response = await call_next(request)
 
+    # No-cache sur assets cinematiques (SVGs, sons) pour eviter le cache WebView
+    if path.startswith("/static/assets/") or path == "/simli":
+        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+
     # License warning header (frontend affiche un bandeau)
     if _license_heartbeat and _license_heartbeat.get_banner_message():
         response.headers["X-License-Warning"] = "true"
@@ -1318,8 +1330,8 @@ async def download_apk():
 
 
 # Version APK pour auto-update
-LUNA_APP_VERSION = "1.4"
-LUNA_APP_VERSION_CODE = 5
+LUNA_APP_VERSION = "1.7"
+LUNA_APP_VERSION_CODE = 8
 
 @app.get("/api/app/version")
 async def app_version():
@@ -1327,8 +1339,8 @@ async def app_version():
     return {
         "version": LUNA_APP_VERSION,
         "version_code": LUNA_APP_VERSION_CODE,
-        "apk_url": "/download/luna.apk",
-        "changelog": "Appels planifies, reveil, visio planifiee, jeux salon avec invitation, masquage technos",
+        "apk_url": "/static/luna-proprio.apk",
+        "changelog": "Fix affichage cinematique mobile, correction cache WebView",
     }
 
 
@@ -1366,6 +1378,27 @@ async def chat(req: ChatRequest, request: Request):
             tenant_convs[req.session_id] = [
                 {"role": "system", "content": LUNA_SYSTEM_PROMPT}
             ]
+
+        # Auto-create conversation metadata in Redis if missing
+        if mgr:
+            try:
+                meta = mgr.redis.get_conversation_meta(tid, req.session_id)
+                if not meta:
+                    mgr.redis.add_conversation(tid, req.session_id)
+                    mgr.redis.set_conversation_meta(tid, req.session_id, {
+                        "id": req.session_id,
+                        "tenant_id": str(tid),
+                        "contact_phone": "app",
+                        "contact_name": "Chat",
+                        "status": "active",
+                        "channel": "app",
+                        "started_at": datetime.utcnow().isoformat(),
+                        "last_activity": datetime.utcnow().isoformat(),
+                        "message_count": "0",
+                        "summary": "",
+                    })
+            except Exception:
+                pass
 
         _conversation_ts[req.session_id] = time.time()
         messages = tenant_convs[req.session_id]
@@ -1652,6 +1685,20 @@ async def chat(req: ChatRequest, request: Request):
             except Exception as e:
                 logger.warning(f"Redis store failed: {e}")
 
+        # Auto-title conversation from first user message
+        if mgr:
+            try:
+                meta = mgr.redis.get_conversation_meta(tid, req.session_id)
+                if meta and not meta.get("summary") and int(meta.get("message_count", 0)) <= 2:
+                    auto_title = req.message[:40].strip()
+                    if len(req.message) > 40:
+                        auto_title += "..."
+                    meta["summary"] = auto_title
+                    meta["last_activity"] = datetime.utcnow().isoformat()
+                    mgr.redis.set_conversation_meta(tid, req.session_id, meta)
+            except Exception:
+                pass
+
         _gamify(tid, "chat_message")
 
         # Inclut les actions executees dans la reponse
@@ -1707,6 +1754,28 @@ async def greeting(request: Request):
         return {"response": f"Salut ! Luna a un souci technique ({type(e).__name__}). Reessaie."}
 
 
+# Replicas Tavus horaires — Luna change d'apparence selon le moment de la journee
+# Meme persona (voix, personnalite, outils), seule l'apparence visuelle change
+_LUNA_REPLICAS_SCHEDULE = [
+    {"start": 6,  "end": 12, "replica_id": "r5dc7c7d0bcb", "name": "Gloria - Bright"},   # Matin lumineux
+    {"start": 12, "end": 18, "replica_id": "r1e52660d3bf", "name": "Luna - Home"},        # Apres-midi naturel
+    {"start": 18, "end": 21, "replica_id": "r3f427f43c9d", "name": "Gloria - Warm"},      # Crepuscule cosy (cabin cheminee)
+    {"start": 21, "end": 6,  "replica_id": "r6fb41bf13b4", "name": "Katya"},               # Nuit (veilleuse, pas de fenetre)
+]
+
+def _get_luna_replica() -> str:
+    """Retourne la replica_id correspondant a l'heure actuelle (heure France)."""
+    hour = datetime.now(ZoneInfo("Europe/Paris")).hour
+    for slot in _LUNA_REPLICAS_SCHEDULE:
+        if slot["start"] < slot["end"]:
+            if slot["start"] <= hour < slot["end"]:
+                return slot["replica_id"]
+        else:  # Creneau nuit (ex: 21h -> 6h)
+            if hour >= slot["start"] or hour < slot["end"]:
+                return slot["replica_id"]
+    return _LUNA_REPLICAS_SCHEDULE[0]["replica_id"]
+
+
 @app.post("/api/call")
 async def start_call(request: Request):
     """Crée un appel vidéo Tavus et enregistre la conversation"""
@@ -1725,12 +1794,14 @@ async def start_call(request: Request):
         memory_manager=tavus_client.memory,
     )
     visio_max = int(os.getenv("VISIO_MAX_DURATION", "15")) * 60  # minutes -> secondes
+    replica_id = _get_luna_replica()
     success, data = await tavus_client.create_conversation(
         tenant_id=tid,
         custom_greeting=f"Salut {_SUBSCRIBER_NAME} ! Ravie de te voir. Comment je peux t'aider ?",
         context=context,
         max_duration=visio_max,
         callback_url=TAVUS_CALLBACK_URL if TAVUS_CALLBACK_URL else None,
+        replica_id=replica_id,
     )
     if not success:
         logger.error(f"Visio creation error: {data.get('error', 'unknown')}")
@@ -1758,11 +1829,9 @@ async def ws_simli(websocket: WebSocket, session_id: str):
 
 @app.get("/api/config/simli")
 async def config_simli():
-    """Config publique Simli pour le frontend."""
+    """Config Simli — desactive (Tavus est le systeme visio principal)."""
     return {
-        "simli_api_key": os.getenv("SIMLI_API_KEY", ""),
-        "simli_face_id": os.getenv("SIMLI_FACE_ID", ""),
-        "enabled": _SIMLI_AVAILABLE and bool(os.getenv("SIMLI_API_KEY", "")),
+        "enabled": False,
     }
 
 
@@ -1771,7 +1840,11 @@ async def simli_page():
     """Page avatar Simli avec sequence cinematique."""
     simli_path = os.path.join(STATIC_DIR, "simli.html")
     if os.path.isfile(simli_path):
-        return FileResponse(simli_path)
+        return FileResponse(simli_path, headers={
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "Pragma": "no-cache",
+            "Expires": "0",
+        })
     return JSONResponse(status_code=404, content={"error": "Simli non disponible"})
 
 
@@ -1806,13 +1879,15 @@ async def start_voice_call(req: VoiceCallRequest, request: Request):
     if not success:
         return {"error": data.get("error", "Erreur appel vocal")}
     # Stocker les parametres personnalises pour cet appel
-    if req.mission or req.max_duration or req.greeting:
-        _voice_call_params[data["call_sid"]] = {
-            "mission": req.mission,
-            "max_duration": req.max_duration,
-            "greeting": req.greeting,
-            "phone": phone,
-        }
+    import time as _time
+    _voice_call_params[data["call_sid"]] = {
+        "mission": req.mission,
+        "max_duration": req.max_duration,
+        "greeting": req.greeting,
+        "phone": phone,
+        "tenant_id": tid,
+        "_ts": _time.time(),
+    }
     _gamify(tid, "voice_call")
     return {"call_sid": data["call_sid"], "status": data["status"]}
 
@@ -1849,11 +1924,16 @@ async def voice_call_media_stream(websocket: WebSocket):
 
         # Recuperer les parametres personnalises si disponibles
         call_params = {}
-        call_sid_for_params = None
-        # On cherche le call_sid dans les parametres stockes (on prend le plus recent)
+        # Prend le plus recent et nettoie les anciens (>60s = orphelins)
         if _voice_call_params:
-            call_sid_for_params = list(_voice_call_params.keys())[-1]
-            call_params = _voice_call_params.pop(call_sid_for_params, {})
+            import time as _time
+            _now = _time.time()
+            _stale = [k for k, v in _voice_call_params.items() if _now - v.get("_ts", 0) > 60]
+            for k in _stale:
+                _voice_call_params.pop(k, None)
+            if _voice_call_params:
+                call_sid_for_params = list(_voice_call_params.keys())[-1]
+                call_params = _voice_call_params.pop(call_sid_for_params, {})
 
         mission = call_params.get("mission")
         max_dur = call_params.get("max_duration") or int(os.getenv("VOICE_MAX_DURATION", "180"))
@@ -1924,8 +2004,9 @@ async def voice_call_media_stream(websocket: WebSocket):
             try:
                 cortex = get_cortex() if _CORTEX_AVAILABLE else None
                 if cortex and hasattr(cortex, "cost_tracker") and cortex.cost_tracker:
-                    await cortex.cost_tracker.track_voice_tenant(TENANT_ID, _voice_duration_min)
-                    logger.info(f"Voice call tracked: {_voice_duration_min} min for tenant {TENANT_ID}")
+                    _voice_tid = call_params.get("tenant_id") or TENANT_ID
+                    await cortex.cost_tracker.track_voice_tenant(_voice_tid, _voice_duration_min)
+                    logger.info(f"Voice call tracked: {_voice_duration_min} min for tenant {_voice_tid}")
             except Exception as e:
                 logger.warning(f"Failed to track voice cost: {e}")
 
@@ -2167,9 +2248,10 @@ async def webhook_sms(request: Request):
                                 profile = mgr.get_subscriber_profile()
                                 sub_phone = getattr(profile, "phone", "") or ADMIN_NUMBER
                                 if sub_phone:
-                                    sms_client.send(
+                                    _tracked_sms_send(
                                         sub_phone,
-                                        f"[Luna] {contact} a accepte ton invitation visio ! Lien : {visio_url}"
+                                        f"[Luna] {contact} a accepte ton invitation visio ! Lien : {visio_url}",
+                                        label="notification visio acceptee"
                                     )
                         except Exception as e:
                             logger.warning(f"Failed to notify subscriber: {e}")
@@ -2211,7 +2293,18 @@ async def webhook_sms_status(request: Request):
     Twilio envoie un POST quand le statut d'un SMS change.
     Statuts: queued → sent → delivered (ou failed/undelivered)
     """
-    form = await request.form()
+    # Valider la signature Twilio
+    if sms_client and sms_client.is_configured:
+        signature = request.headers.get("X-Twilio-Signature", "")
+        form_data = await request.form()
+        url = str(request.url)
+        params = dict(form_data)
+        if signature and not sms_client.validate_webhook(signature, url, params):
+            logger.warning("Signature Twilio invalide pour SMS status webhook")
+            return Response(status_code=403, content="Forbidden", media_type="text/plain")
+    else:
+        form_data = await request.form()
+    form = form_data
     sms_sid = form.get("MessageSid", "")
     status = form.get("MessageStatus", "")
     to_number = form.get("To", "")
@@ -2277,6 +2370,99 @@ async def sms_status_detail(sms_sid: str, request: Request):
         except Exception as e:
             return JSONResponse(status_code=404, content={"error": f"SMS non trouve: {e}"})
     return JSONResponse(status_code=404, content={"error": "SMS non trouve"})
+
+
+# =========================================================================
+# CONVERSATIONS CRUD
+# =========================================================================
+
+class CreateConversationRequest(BaseModel):
+    title: str = Field(default="", max_length=100)
+
+class UpdateConversationRequest(BaseModel):
+    title: str = Field(..., min_length=1, max_length=100)
+
+
+@app.get("/api/conversations")
+async def list_conversations_endpoint(request: Request):
+    """Liste toutes les conversations du tenant."""
+    tid = getattr(request.state, "tenant_id", 1)
+    mgr = _get_tenant_manager(tid)
+    if not mgr:
+        return {"conversations": []}
+    try:
+        convs = mgr.list_conversations()
+        return {
+            "conversations": [
+                {
+                    "id": c.id,
+                    "title": c.summary or "",
+                    "last_activity": c.last_activity.isoformat(),
+                    "message_count": c.message_count,
+                    "started_at": c.started_at.isoformat(),
+                }
+                for c in convs
+                if c.status != ConversationStatus.CLOSED
+            ]
+        }
+    except Exception as e:
+        logger.warning(f"List conversations error: {e}")
+        return {"conversations": []}
+
+
+@app.post("/api/conversations")
+async def create_conversation_endpoint(req: CreateConversationRequest, request: Request):
+    """Cree une nouvelle conversation."""
+    tid = getattr(request.state, "tenant_id", 1)
+    mgr = _get_tenant_manager(tid)
+    if not mgr:
+        return JSONResponse(status_code=500, content={"error": "Service indisponible"})
+    try:
+        conv = mgr.create_conversation(
+            contact_phone="app",
+            contact_name="Chat",
+            channel=Channel.APP,
+        )
+        if req.title:
+            meta = mgr.redis.get_conversation_meta(tid, conv.id)
+            if meta:
+                meta["summary"] = req.title.strip()
+                mgr.redis.set_conversation_meta(tid, conv.id, meta)
+        return {"id": conv.id, "title": req.title, "started_at": conv.started_at.isoformat()}
+    except Exception as e:
+        logger.warning(f"Create conversation error: {e}")
+        return JSONResponse(status_code=429, content={"error": str(e)})
+
+
+@app.patch("/api/conversations/{conv_id}")
+async def update_conversation_endpoint(conv_id: str, req: UpdateConversationRequest, request: Request):
+    """Renomme une conversation."""
+    tid = getattr(request.state, "tenant_id", 1)
+    mgr = _get_tenant_manager(tid)
+    if not mgr:
+        return JSONResponse(status_code=500, content={"error": "Service indisponible"})
+    meta = mgr.redis.get_conversation_meta(tid, conv_id)
+    if not meta:
+        return JSONResponse(status_code=404, content={"error": "Conversation introuvable"})
+    meta["summary"] = req.title.strip()
+    mgr.redis.set_conversation_meta(tid, conv_id, meta)
+    return {"ok": True}
+
+
+@app.delete("/api/conversations/{conv_id}")
+async def delete_conversation_endpoint(conv_id: str, request: Request):
+    """Supprime une conversation et ses messages."""
+    tid = getattr(request.state, "tenant_id", 1)
+    mgr = _get_tenant_manager(tid)
+    if not mgr:
+        return JSONResponse(status_code=500, content={"error": "Service indisponible"})
+    if conv_id == "default":
+        return JSONResponse(status_code=400, content={"error": "Impossible de supprimer la conversation par defaut"})
+    mgr.delete_conversation(conv_id)
+    tenant_convs = conversations.get(str(tid), {})
+    tenant_convs.pop(conv_id, None)
+    _conversation_ts.pop(conv_id, None)
+    return {"ok": True}
 
 
 @app.get("/api/history")
@@ -3350,6 +3536,98 @@ async def update_profile(request: Request):
 
 
 # =========================================================================
+# NOTIFICATIONS & SETTINGS ENDPOINTS
+# =========================================================================
+
+@app.get("/api/notifications/prefs")
+async def get_notification_prefs(request: Request):
+    """Get notification preferences for the current user."""
+    tid = getattr(request.state, "tenant_id", 1)
+    if not _redis_client:
+        return JSONResponse(status_code=503, content={"error": "Service indisponible"})
+    from core.notifications.redis_ops import NotificationRedisOps
+    nops = NotificationRedisOps(_redis_client)
+    prefs = nops.get_prefs(tid)
+    return {"prefs": prefs}
+
+
+@app.post("/api/notifications/prefs")
+async def set_notification_prefs(request: Request):
+    """Update notification preferences."""
+    tid = getattr(request.state, "tenant_id", 1)
+    if not _redis_client:
+        return JSONResponse(status_code=503, content={"error": "Service indisponible"})
+    body = await request.json()
+    from core.notifications.redis_ops import NotificationRedisOps
+    nops = NotificationRedisOps(_redis_client)
+    allowed_fields = {
+        "enabled", "streak_risk", "comeback", "mission_reminder",
+        "level_up", "weekly_summary", "sound",
+        "quiet_hours_start", "quiet_hours_end",
+    }
+    for k, v in body.items():
+        if k in allowed_fields:
+            nops.update_pref(tid, k, str(v))
+    return {"success": True, "prefs": nops.get_prefs(tid)}
+
+
+@app.get("/api/notifications/pending")
+async def get_pending_notifications(request: Request):
+    """Poll for pending notifications. Returns up to 5 and removes them."""
+    tid = getattr(request.state, "tenant_id", 1)
+    if not _redis_client:
+        return {"notifications": []}
+    from core.notifications.redis_ops import NotificationRedisOps
+    nops = NotificationRedisOps(_redis_client)
+    pending = nops.pop_pending(tid, limit=5)
+    return {"notifications": pending}
+
+
+@app.get("/api/notifications/count")
+async def get_notification_count(request: Request):
+    """Returns count of pending notifications (for badge display)."""
+    tid = getattr(request.state, "tenant_id", 1)
+    if not _redis_client:
+        return {"count": 0}
+    from core.notifications.redis_ops import NotificationRedisOps
+    nops = NotificationRedisOps(_redis_client)
+    return {"count": nops.peek_pending(tid)}
+
+
+@app.get("/api/settings")
+async def get_settings(request: Request):
+    """Get all user settings (appearance, sound, etc.)."""
+    tid = getattr(request.state, "tenant_id", 1)
+    if not _redis_client:
+        return JSONResponse(status_code=503, content={"error": "Service indisponible"})
+    key = _redis_client._key(tid, "settings")
+    data = _redis_client.client.hgetall(key)
+    defaults = {
+        "dark_mode": "1",
+        "font_size": "normal",
+        "language": "fr",
+        "notification_sound": "1",
+    }
+    defaults.update(data)
+    return {"settings": defaults}
+
+
+@app.post("/api/settings")
+async def update_settings(request: Request):
+    """Update user settings."""
+    tid = getattr(request.state, "tenant_id", 1)
+    if not _redis_client:
+        return JSONResponse(status_code=503, content={"error": "Service indisponible"})
+    body = await request.json()
+    allowed = {"dark_mode", "font_size", "language", "notification_sound"}
+    updates = {k: str(v) for k, v in body.items() if k in allowed}
+    if updates:
+        key = _redis_client._key(tid, "settings")
+        _redis_client.client.hset(key, mapping=updates)
+    return {"success": True}
+
+
+# =========================================================================
 # CONTACTS ENDPOINTS
 # =========================================================================
 
@@ -4016,7 +4294,7 @@ async def detect_distress(request: Request):
 
     # Si niveau eleve, declencher l'escalade
     if level in [DistressLevel.HIGH, DistressLevel.CRITICAL] and from_phone:
-        member_data = _redis_client.get_family_member(tid, from_phone) if _redis else None
+        member_data = _redis_client.get_family_member(tid, from_phone) if _redis_client else None
         if member_data:
             member_name = member_data.get("name", "Membre")
             result["escalation_triggered"] = True
@@ -4428,8 +4706,30 @@ async def execute_instruction(instr_id: str, request: Request):
     instr = mgr.get_instruction(instr_id)
     if not instr:
         return JSONResponse(status_code=404, content={"error": "Instruction non trouvee"})
-    mgr.mark_instruction_executed(instr_id)
-    return {"success": True, "message": f"Instruction '{instr.description[:50]}' marquee executee"}
+
+    # Executer reellement l'instruction via l'executor
+    if _executor and _CORE_AVAILABLE:
+        try:
+            task = ScheduledTask(
+                scheduled_at=datetime.utcnow(),
+                instruction_id=instr_id,
+                tenant_id=tid,
+                instruction=instr,
+            )
+            result = await _executor.execute(task)
+            mgr.mark_instruction_executed(instr_id)
+            return {
+                "success": result.success if hasattr(result, "success") else True,
+                "message": f"Instruction '{instr.description[:50]}' executee",
+                "result": str(result) if result else None,
+            }
+        except Exception as e:
+            logger.error(f"Instruction execution error: {e}")
+            return JSONResponse(status_code=500, content={"error": f"Erreur execution: {str(e)}"})
+    else:
+        # Fallback: marquer comme executee sans executor
+        mgr.mark_instruction_executed(instr_id)
+        return {"success": True, "message": f"Instruction '{instr.description[:50]}' marquee executee (executor non disponible)"}
 
 
 # =========================================================================
@@ -4525,12 +4825,20 @@ async def export_events(request: Request, limit: int = 200):
 # QUOTA ENDPOINT
 # =========================================================================
 
-# Limites par plan (par mois)
-_PLAN_LIMITS = {
-    "essentiel": {"sms": 25, "voice_min": 40, "visio_min": 12},
-    "confort":   {"sms": 50, "voice_min": 100, "visio_min": 28},
-    "premium":   {"sms": 100, "voice_min": 180, "visio_min": 55},
-}
+# Limites par plan (par mois) — source unique depuis quota_guard
+try:
+    from core.actions.quota_guard import PLAN_SMS_LIMITS, PLAN_VOICE_LIMITS, PLAN_VISIO_LIMITS, PlanType
+    _PLAN_LIMITS = {
+        "essentiel": {"sms": PLAN_SMS_LIMITS[PlanType.ESSENTIEL], "voice_min": PLAN_VOICE_LIMITS[PlanType.ESSENTIEL], "visio_min": PLAN_VISIO_LIMITS[PlanType.ESSENTIEL]},
+        "confort":   {"sms": PLAN_SMS_LIMITS[PlanType.CONFORT],   "voice_min": PLAN_VOICE_LIMITS[PlanType.CONFORT],   "visio_min": PLAN_VISIO_LIMITS[PlanType.CONFORT]},
+        "premium":   {"sms": PLAN_SMS_LIMITS[PlanType.PREMIUM],   "voice_min": PLAN_VOICE_LIMITS[PlanType.PREMIUM],   "visio_min": PLAN_VISIO_LIMITS[PlanType.PREMIUM]},
+    }
+except ImportError:
+    _PLAN_LIMITS = {
+        "essentiel": {"sms": 25, "voice_min": 40, "visio_min": 12},
+        "confort":   {"sms": 50, "voice_min": 100, "visio_min": 28},
+        "premium":   {"sms": 100, "voice_min": 180, "visio_min": 55},
+    }
 
 
 @app.get("/api/quota")
@@ -4605,6 +4913,12 @@ async def webhook_tavus(request: Request):
         body = await request.json()
     except Exception:
         return JSONResponse(status_code=400, content={"error": "Invalid JSON"})
+
+    # Validation: verifier que la conversation_id est connue
+    conversation_id = body.get("conversation_id", "")
+    if conversation_id and hasattr(tavus_client, "_active_conversations"):
+        if conversation_id not in tavus_client._active_conversations:
+            logger.warning(f"Tavus webhook: conversation_id inconnue {conversation_id}")
 
     event_type = body.get("event_type", "") or body.get("type", "")
     logger.info(f"Tavus webhook: {event_type}")
@@ -5178,7 +5492,7 @@ async def _tool_generate_document(args: Dict, tenant_id: int = 0) -> Dict:
             profile=profile_dict,
         )
 
-    url = f"/static/documents/{tid}/{filename}"
+    url = f"/api/documents/download/{filename}"
 
     try:
         mgr.add_note(
@@ -5238,7 +5552,7 @@ async def _tool_alert_contacts(args: Dict, tenant_id: int = 0) -> Dict:
     sent = 0
     for c in contacts:
         msg = f"[ALERTE Luna] {name} a besoin d'aide. Raison: {reason}. Merci de verifier qu'il va bien. En cas d'urgence, appelez le 112."
-        success, _ = sms_client.send(c.phone, msg)
+        success, _ = _tracked_sms_send(c.phone, msg, label="Alerte contacts urgence")
         if success:
             sent += 1
             # Track cout SMS par tenant via Cortex
@@ -5351,7 +5665,7 @@ async def generate_document(req: DocumentRequest, request: Request):
         return {
             "success": True,
             "filename": filename,
-            "download_url": f"/static/documents/{tid}/{filename}",
+            "download_url": f"/api/documents/download/{filename}",
             "type": "fiche_sante",
         }
 
@@ -5363,7 +5677,7 @@ async def generate_document(req: DocumentRequest, request: Request):
         return {
             "success": True,
             "filename": filename,
-            "download_url": f"/static/documents/{tid}/{filename}",
+            "download_url": f"/api/documents/download/{filename}",
             "type": "export_notes",
         }
 
@@ -5401,7 +5715,7 @@ async def generate_document(req: DocumentRequest, request: Request):
     return {
         "success": True,
         "filename": filename,
-        "download_url": f"/static/documents/{tid}/{filename}",
+        "download_url": f"/api/documents/download/{filename}",
         "type": req.doc_type,
         "preview": body_text[:300],
     }
@@ -5415,17 +5729,18 @@ async def list_documents(request: Request):
     tid = getattr(request.state, "tenant_id", 1)
     docs = _doc_generator.list_documents()
     for d in docs:
-        d["download_url"] = f"/static/documents/{tid}/{d['filename']}"
+        d["download_url"] = f"/api/documents/download/{d['filename']}"
     return {"documents": docs, "count": len(docs)}
 
 
-@app.get("/static/documents/{tenant_id}/{filename}")
-async def serve_document(tenant_id: int, filename: str):
-    """Sert un document genere au telechargement"""
+@app.get("/api/documents/download/{filename}")
+async def serve_document(filename: str, request: Request):
+    """Sert un document genere au telechargement (auth requise, tenant verifie)"""
+    tid = getattr(request.state, "tenant_id", 1)
     # Securite : empeche path traversal
     if ".." in filename or "/" in filename:
         return JSONResponse(status_code=400, content={"error": "Nom de fichier invalide"})
-    filepath = os.path.join(os.path.dirname(__file__), "static", "documents", str(tenant_id), filename)
+    filepath = os.path.join(os.path.dirname(__file__), "static", "documents", str(tid), filename)
     if not os.path.exists(filepath):
         return JSONResponse(status_code=404, content={"error": "Document non trouve"})
     return FileResponse(
@@ -5628,6 +5943,14 @@ async def _instruction_loop():
                             logger.warning("LICENSE DEGRADEE - chat seul")
                     except Exception as e:
                         logger.error(f"License heartbeat error: {e}")
+
+            # Notification engine check (self rate-limited to every 5 min)
+            if _notification_engine:
+                try:
+                    from core.gamification.redis_ops import GamificationRedisOps
+                    await _notification_engine.check_all_tenants(GamificationRedisOps)
+                except Exception as e:
+                    logger.warning(f"Notification engine error: {e}")
 
             if not _scheduler or not _executor:
                 continue
@@ -6030,182 +6353,7 @@ async def channel_handoff(request: Request):
 # VOICE MODE - WebSocket temps reel (sans video)
 # =============================================================================
 
-# Connexions WebSocket actives
-_voice_connections: Dict[int, WebSocket] = {}
-
-
-@app.websocket("/api/voice/stream")
-async def voice_stream(websocket: WebSocket):
-    """WebSocket pour le mode voix temps reel"""
-    await websocket.accept()
-
-    if not _redis_client:
-        await websocket.close(code=1011, reason="Redis non disponible")
-        return
-
-    tenant_id = getattr(websocket.state, "tenant_id", TENANT_ID)
-    _voice_connections[tenant_id] = websocket
-
-    # Creer session voix
-    voice_session_id = str(uuid.uuid4())
-    _redis_client.set_voice_session(tenant_id, {
-        "id": voice_session_id,
-        "started_at": datetime.utcnow().isoformat(),
-        "status": "active",
-    })
-
-    # Mettre a jour la session unifiee
-    _redis_client.update_session(tenant_id, {
-        "active_channel": "voice",
-        "is_voice_active": "1",
-        "channel_session_id": voice_session_id,
-        "last_activity": datetime.utcnow().isoformat(),
-    })
-
-    logger.info(f"Voice session started: {voice_session_id}")
-
-    try:
-        # Message de bienvenue
-        greeting = f"Bonjour {_SUBSCRIBER_NAME}! Je suis Luna, votre assistante vocale. Comment puis-je vous aider?"
-        await websocket.send_json({
-            "type": "greeting",
-            "text": greeting,
-            "session_id": voice_session_id,
-        })
-
-        while True:
-            # Recevoir message du client
-            data = await websocket.receive_json()
-            msg_type = data.get("type", "text")
-
-            if msg_type == "text":
-                # Message texte (transcription cote client)
-                user_text = data.get("text", "")
-                if user_text:
-                    # Ajouter a l'historique unifie
-                    _add_unified_message("voice", "subscriber", user_text)
-                    _update_session_activity(channel="voice")
-
-                    # Generer reponse
-                    recent = _redis_client.get_recent_context_messages(tenant_id, count=10)
-                    messages = [{"role": "system", "content": LUNA_SYSTEM_PROMPT}]
-                    for msg in reversed(recent):
-                        msg_role = "assistant" if msg.get("role") == "luna" else "user"
-                        messages.append({"role": msg_role, "content": msg.get("content", "")})
-
-                    response = openai_client.chat.completions.create(
-                        model=OPENAI_MODEL,
-                        messages=messages,
-                        max_tokens=300,
-                    )
-                    luna_response = response.choices[0].message.content
-
-                    # Ajouter a l'historique
-                    _add_unified_message("voice", "luna", luna_response)
-
-                    # Envoyer au client
-                    await websocket.send_json({
-                        "type": "response",
-                        "text": luna_response,
-                    })
-
-            elif msg_type == "audio":
-                # Audio brut (base64) - transcription avec Whisper
-                audio_b64 = data.get("audio", "")
-                if audio_b64:
-                    import base64
-                    import tempfile
-
-                    # Decoder et sauvegarder temporairement
-                    audio_bytes = base64.b64decode(audio_b64)
-                    with tempfile.NamedTemporaryFile(suffix=".webm", delete=False) as f:
-                        f.write(audio_bytes)
-                        temp_path = f.name
-
-                    try:
-                        # Transcription Whisper
-                        with open(temp_path, "rb") as audio_file:
-                            transcription = openai_client.audio.transcriptions.create(
-                                model="whisper-1",
-                                file=audio_file,
-                                language="fr",
-                            )
-                        user_text = transcription.text
-
-                        if user_text.strip():
-                            # Meme logique que pour text
-                            _add_unified_message("voice", "subscriber", user_text)
-
-                            recent = _redis_client.get_recent_context_messages(tenant_id, count=10)
-                            messages = [{"role": "system", "content": LUNA_SYSTEM_PROMPT}]
-                            for msg in reversed(recent):
-                                msg_role = "assistant" if msg.get("role") == "luna" else "user"
-                                messages.append({"role": msg_role, "content": msg.get("content", "")})
-
-                            response = openai_client.chat.completions.create(
-                                model=OPENAI_MODEL,
-                                messages=messages,
-                                max_tokens=300,
-                            )
-                            luna_response = response.choices[0].message.content
-                            _add_unified_message("voice", "luna", luna_response)
-
-                            # Generer audio TTS
-                            tts_response = openai_client.audio.speech.create(
-                                model="tts-1",
-                                voice="nova",  # Voix feminine
-                                input=luna_response,
-                            )
-
-                            # Encoder en base64
-                            audio_response_b64 = base64.b64encode(tts_response.content).decode()
-
-                            await websocket.send_json({
-                                "type": "audio_response",
-                                "text": luna_response,
-                                "audio": audio_response_b64,
-                                "transcription": user_text,
-                            })
-                    finally:
-                        os.unlink(temp_path)
-
-            elif msg_type == "ping":
-                await websocket.send_json({"type": "pong"})
-
-            elif msg_type == "end":
-                break
-
-    except WebSocketDisconnect:
-        logger.info(f"Voice session disconnected: {voice_session_id}")
-    except Exception as e:
-        logger.error(f"Voice error: {e}")
-    finally:
-        # Nettoyer
-        _voice_connections.pop(tenant_id, None)
-        _redis_client.delete_voice_session(tenant_id)
-        _redis_client.update_session(tenant_id, {
-            "is_voice_active": "0",
-            "channel_session_id": "",
-        })
-        logger.info(f"Voice session ended: {voice_session_id}")
-
-
-@app.get("/api/voice/status")
-async def voice_status(request: Request):
-    """Statut du mode voix"""
-    if not _redis_client:
-        return JSONResponse(status_code=503, content={"error": "Service temporairement indisponible"})
-
-    tid = getattr(request.state, "tenant_id", 1)
-
-    voice_session = _redis_client.get_voice_session(tid)
-
-    return {
-        "available": True,
-        "active": voice_session is not None,
-        "session": voice_session,
-        "websocket_url": "wss://localhost:8888/api/voice/stream",
-    }
+# Pipeline voix legacy (/api/voice/stream) supprime — utiliser /api/voice-call (Twilio Realtime)
 
 
 # =============================================================================
@@ -6405,6 +6553,11 @@ async def delete_room(room_id: str, request: Request):
     if not room:
         return JSONResponse(status_code=404, content={"error": "Salon introuvable"})
 
+    # Verifier que le tenant est bien le proprietaire du salon
+    room_tenant = int(room.get("tenant_id", 0))
+    if room_tenant != tid:
+        return JSONResponse(status_code=403, content={"error": "Seul le createur du salon peut le fermer"})
+
     rops.delete_room(tid, room_id)
 
     # Notify all connected
@@ -6589,8 +6742,9 @@ async def sync_from_tavus(request: Request):
     if not _redis_client:
         return JSONResponse(status_code=503, content={"error": "Service temporairement indisponible"})
 
-    tid = getattr(request.state, "tenant_id", 1)
     data = await request.json()
+    # Le tenant_id peut venir du JWT (si appel client) ou du body (si callback serveur)
+    tid = getattr(request.state, "tenant_id", None) or data.get("tenant_id", TENANT_ID)
     event = data.get("event", "")
     conversation_id = data.get("conversation_id", "")
     transcript = data.get("transcript", [])
@@ -6635,8 +6789,8 @@ async def sync_from_twilio(request: Request):
     if not _redis_client:
         return JSONResponse(status_code=503, content={"error": "Service temporairement indisponible"})
 
-    tid = getattr(request.state, "tenant_id", 1)
     data = await request.json()
+    tid = getattr(request.state, "tenant_id", None) or data.get("tenant_id", TENANT_ID)
     call_sid = data.get("CallSid", "")
     call_status = data.get("CallStatus", "")
     from_number = data.get("From", "")
@@ -7044,7 +7198,7 @@ async def analyze_content(request: Request):
 
 
 @app.post("/api/assistant/generate")
-async def generate_document(request: Request):
+async def assistant_generate_document(request: Request):
     """Genere un document professionnel"""
     if not _redis_client:
         return JSONResponse(status_code=503, content={"error": "Service temporairement indisponible"})

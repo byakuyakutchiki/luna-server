@@ -66,9 +66,18 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; b
 .conv-item-btn { background: none; border: none; color: #666; cursor: pointer; padding: 2px 5px; font-size: 0.78em; border-radius: 4px; }
 .conv-item-btn:hover { background: #333; color: #e0e0e0; }
 .sidebar-toggle {
-  display: none; width: 34px; height: 34px; border-radius: 8px; border: 1px solid #555;
-  background: transparent; color: #aaa; cursor: pointer; align-items: center; justify-content: center; font-size: 1.1em;
+  display: none; width: 34px; height: 34px; border-radius: 8px; border: 1px solid #7c3aed;
+  background: rgba(124,58,237,0.15); color: #a78bfa; cursor: pointer; align-items: center; justify-content: center; font-size: 1.1em;
 }
+.sidebar-toggle:active { background: rgba(124,58,237,0.3); }
+.conv-fab {
+  display: none; position: fixed; bottom: 90px; left: 16px; z-index: 100;
+  width: 48px; height: 48px; border-radius: 50%; border: none;
+  background: linear-gradient(135deg, #7c3aed, #a78bfa); color: #fff;
+  font-size: 1.5em; cursor: pointer; box-shadow: 0 4px 16px rgba(124,58,237,0.5);
+  align-items: center; justify-content: center;
+}
+.conv-fab:active { transform: scale(0.9); }
 .conv-sidebar-close { display: none; }
 @media (max-width: 768px) {
   .conv-sidebar {
@@ -78,6 +87,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; b
   .conv-sidebar.open { transform: translateX(0); }
   .sidebar-toggle { display: flex; }
   .conv-sidebar-close { display: block !important; }
+  .conv-fab { display: flex; }
 }
 
 /* Chat */
@@ -288,6 +298,20 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; b
 .dm-input-row { display:flex; gap:8px; }
 .dm-input-row input { flex:1; padding:10px 14px; border-radius:12px; border:1px solid #333; background:#0a0a1a; color:#fff; font-size:0.9em; }
 .dm-input-row button { padding:10px 16px; border-radius:12px; border:none; background:#7c3aed; color:white; cursor:pointer; font-weight:600; }
+/* Settings toggle switch */
+.toggle { position:relative; display:inline-block; width:44px; height:24px; flex-shrink:0; }
+.toggle input { opacity:0; width:0; height:0; }
+.toggle-slider { position:absolute; cursor:pointer; top:0; left:0; right:0; bottom:0; background:#444; border-radius:24px; transition:0.3s; }
+.toggle-slider:before { content:""; position:absolute; height:18px; width:18px; left:3px; bottom:3px; background:white; border-radius:50%; transition:0.3s; }
+.toggle input:checked + .toggle-slider { background:#7c3aed; }
+.toggle input:checked + .toggle-slider:before { transform:translateX(20px); }
+.settings-group { background:#1a1a2e; border-radius:12px; padding:12px 16px; margin-bottom:16px; }
+.settings-row { display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px solid #2a2a4e; }
+.settings-row:last-child { border-bottom:none; }
+.settings-row.sub { padding-left:20px; }
+.settings-row label { font-size:0.9em; }
+.settings-select, .settings-input { background:#2a2a4e; color:#e0e0e0; border:1px solid #444; border-radius:8px; padding:6px 10px; font-size:0.85em; }
+.settings-text { background:#2a2a4e; color:#e0e0e0; border:1px solid #444; border-radius:8px; padding:8px 12px; font-size:0.9em; width:100%; }
 </style>
 </head>
 <body>
@@ -359,6 +383,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; b
   <button class="tab-btn" data-tab="perception">Perception</button>
   <button class="tab-btn" data-tab="quotas">Quotas</button>
   <button class="tab-btn" data-tab="world" style="color:#a78bfa;">Monde</button>
+  <button class="tab-btn" data-tab="settings">Parametres</button>
 </div>
 
 <!-- Chat Tab -->
@@ -396,6 +421,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; b
       </div>
     </div>
   </div>
+  <button class="conv-fab" id="convFab" title="Nouvelle conversation">+</button>
 </div>
 
 <!-- Profile Tab -->
@@ -484,20 +510,9 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; b
     </div>
 
     <h3>Preferences Luna</h3>
-    <div class="form-row">
-      <div class="form-group">
-        <label>Ton souhaite</label>
-        <select id="pf-tone"><option value="chaleureux">Chaleureux</option><option value="formel">Formel</option><option value="direct">Direct</option><option value="humour">Humour</option></select>
-      </div>
-      <div class="form-group"><label>Presentation aux tiers</label><input type="text" id="pf-presentation" placeholder="l'assistante de Ludo"></div>
-    </div>
-    <div class="form-row">
-      <div class="form-group"><label>Heure lever</label><input type="time" id="pf-wake_time" value="08:00"></div>
-      <div class="form-group"><label>Heure coucher</label><input type="time" id="pf-sleep_time" value="22:00"></div>
-    </div>
     <div class="form-group"><label>Centres d'interet</label><input type="text" id="pf-interests" placeholder="jardinage, lecture, cinema..."></div>
     <div class="form-group"><label>Habitudes</label><input type="text" id="pf-habits" placeholder="cafe le matin, promenade a 14h"></div>
-    <div class="form-group"><label>Sujets sensibles a eviter</label><input type="text" id="pf-sensitive_topics"></div>
+    <p style="font-size:0.8em;color:#666;margin-top:8px;">Ton, horaires et sujets sensibles sont dans l'onglet Parametres.</p>
 
     <h3>Instructions permanentes</h3>
     <div class="form-group"><label>Regles toujours actives</label><textarea id="pf-permanent_rules" placeholder="ne parle jamais de..., rappelle-moi toujours de..."></textarea></div>
@@ -713,6 +728,113 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; b
   </div>
 </div>
 
+<!-- Settings Tab -->
+<div class="tab-panel" id="tab-settings">
+  <div class="panel-content">
+    <h2>Parametres</h2>
+
+    <h3>Notifications</h3>
+    <div class="settings-group">
+      <div class="settings-row">
+        <label>Activer les notifications</label>
+        <label class="toggle"><input type="checkbox" id="set-notif-enabled" checked><span class="toggle-slider"></span></label>
+      </div>
+      <div id="notifDetails">
+        <div class="settings-row sub">
+          <label>Serie en danger</label>
+          <label class="toggle"><input type="checkbox" id="set-notif-streak" checked><span class="toggle-slider"></span></label>
+        </div>
+        <div class="settings-row sub">
+          <label>Luna te manque (retour)</label>
+          <label class="toggle"><input type="checkbox" id="set-notif-comeback" checked><span class="toggle-slider"></span></label>
+        </div>
+        <div class="settings-row sub">
+          <label>Rappel de mission</label>
+          <label class="toggle"><input type="checkbox" id="set-notif-mission" checked><span class="toggle-slider"></span></label>
+        </div>
+        <div class="settings-row sub">
+          <label>Montee de niveau</label>
+          <label class="toggle"><input type="checkbox" id="set-notif-levelup" checked><span class="toggle-slider"></span></label>
+        </div>
+        <div class="settings-row sub">
+          <label>Resume hebdomadaire</label>
+          <label class="toggle"><input type="checkbox" id="set-notif-weekly" checked><span class="toggle-slider"></span></label>
+        </div>
+      </div>
+      <div class="settings-row">
+        <label>Heures calmes debut</label>
+        <input type="time" id="set-quiet-start" value="22:00" class="settings-input">
+      </div>
+      <div class="settings-row">
+        <label>Heures calmes fin</label>
+        <input type="time" id="set-quiet-end" value="07:00" class="settings-input">
+      </div>
+    </div>
+
+    <h3>Apparence</h3>
+    <div class="settings-group">
+      <div class="settings-row">
+        <label>Taille du texte</label>
+        <select id="set-font-size" class="settings-select">
+          <option value="normal">Normal</option>
+          <option value="large">Grand</option>
+          <option value="xlarge">Tres grand</option>
+        </select>
+      </div>
+    </div>
+
+    <h3>Son</h3>
+    <div class="settings-group">
+      <div class="settings-row">
+        <label>Son des notifications</label>
+        <label class="toggle"><input type="checkbox" id="set-sound" checked><span class="toggle-slider"></span></label>
+      </div>
+    </div>
+
+    <h3>Preferences Luna</h3>
+    <div class="settings-group">
+      <div class="settings-row" style="flex-direction:column;align-items:stretch;gap:8px;">
+        <div style="display:flex;gap:12px;">
+          <div style="flex:1;"><label style="font-size:0.8em;color:#888;">Ton souhaite</label>
+            <select id="set-tone" class="settings-select" style="width:100%;margin-top:4px;">
+              <option value="chaleureux">Chaleureux</option><option value="formel">Formel</option><option value="direct">Direct</option><option value="humour">Humour</option>
+            </select>
+          </div>
+          <div style="flex:1;"><label style="font-size:0.8em;color:#888;">Langue</label>
+            <select id="set-language" class="settings-select" style="width:100%;margin-top:4px;">
+              <option value="fr">Francais</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <div class="settings-row" style="flex-direction:column;align-items:stretch;gap:8px;">
+        <div style="display:flex;gap:12px;">
+          <div style="flex:1;"><label style="font-size:0.8em;color:#888;">Heure lever</label><input type="time" id="set-wake-time" value="08:00" class="settings-input" style="width:100%;margin-top:4px;"></div>
+          <div style="flex:1;"><label style="font-size:0.8em;color:#888;">Heure coucher</label><input type="time" id="set-sleep-time" value="22:00" class="settings-input" style="width:100%;margin-top:4px;"></div>
+        </div>
+      </div>
+      <div class="settings-row" style="flex-direction:column;align-items:stretch;gap:6px;">
+        <label style="font-size:0.8em;color:#888;">Presentation aux tiers</label>
+        <input type="text" id="set-presentation" placeholder="l'assistante de..." class="settings-text">
+      </div>
+      <div class="settings-row" style="flex-direction:column;align-items:stretch;gap:6px;">
+        <label style="font-size:0.8em;color:#888;">Sujets sensibles a eviter</label>
+        <input type="text" id="set-sensitive-topics" placeholder="Sujets a eviter" class="settings-text">
+      </div>
+    </div>
+
+    <h3>Compte</h3>
+    <div class="settings-group">
+      <button class="btn" id="settingsLogoutBtn" style="background:#444;width:100%;padding:12px;border-radius:8px;color:#e0e0e0;border:none;cursor:pointer;">Se deconnecter</button>
+    </div>
+
+    <div style="margin-top:16px;">
+      <button class="btn btn-primary" id="settingsSaveBtn" style="width:100%;">Sauvegarder</button>
+    </div>
+    <p class="form-status" id="settingsStatus"></p>
+  </div>
+</div>
+
 <!-- Video : geree par /simli (Tavus cinematique) -->
 </div><!-- /app-container -->
 
@@ -745,6 +867,7 @@ function showApp() {
   document.getElementById("loginScreen").style.display = "none";
   document.getElementById("registerScreen").style.display = "none";
   document.getElementById("appContainer").style.display = "flex";
+  startNotificationPolling();
 }
 
 function showLogin() {
@@ -754,6 +877,7 @@ function showLogin() {
 }
 
 function doLogout() {
+  stopNotificationPolling();
   clearToken();
   showLogin();
 }
@@ -865,6 +989,7 @@ tabBtns.forEach(function(btn) {
     if (btn.dataset.tab === "perception") loadPerception();
     if (btn.dataset.tab === "quotas") loadQuotas();
     if (btn.dataset.tab === "world") loadMonde();
+    if (btn.dataset.tab === "settings") loadSettings();
   });
 });
 
@@ -908,6 +1033,149 @@ function lunaNotify(title, body) {
 }
 
 // =========================================================================
+// NOTIFICATION POLLING (Luna gentle reminders)
+// =========================================================================
+var _notifPollTimer = null;
+
+function startNotificationPolling() {
+  if (_notifPollTimer) return;
+  setTimeout(_pollNotifications, 5000); // first check after 5s
+  _notifPollTimer = setInterval(_pollNotifications, 60000); // then every 60s
+}
+
+function stopNotificationPolling() {
+  if (_notifPollTimer) { clearInterval(_notifPollTimer); _notifPollTimer = null; }
+}
+
+function _pollNotifications() {
+  authFetch("/api/notifications/pending")
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.notifications && data.notifications.length > 0) {
+        data.notifications.forEach(function(n) {
+          lunaNotify(n.title || "Luna", n.body || "");
+        });
+      }
+    })
+    .catch(function() {}); // silent fail
+}
+
+// Request notification permission on first load
+if ("Notification" in window && Notification.permission === "default") {
+  setTimeout(function() { Notification.requestPermission(); }, 3000);
+}
+
+// =========================================================================
+// SETTINGS (PARAMETRES)
+// =========================================================================
+function loadSettings() {
+  // Load notification prefs
+  authFetch("/api/notifications/prefs")
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      var p = data.prefs || {};
+      document.getElementById("set-notif-enabled").checked = p.enabled !== "0";
+      document.getElementById("set-notif-streak").checked = p.streak_risk !== "0";
+      document.getElementById("set-notif-comeback").checked = p.comeback !== "0";
+      document.getElementById("set-notif-mission").checked = p.mission_reminder !== "0";
+      document.getElementById("set-notif-levelup").checked = p.level_up !== "0";
+      document.getElementById("set-notif-weekly").checked = p.weekly_summary !== "0";
+      document.getElementById("set-sound").checked = p.sound !== "0";
+      if (p.quiet_hours_start) document.getElementById("set-quiet-start").value = p.quiet_hours_start;
+      if (p.quiet_hours_end) document.getElementById("set-quiet-end").value = p.quiet_hours_end;
+      // Toggle sub-options visibility
+      document.getElementById("notifDetails").style.display = p.enabled !== "0" ? "block" : "none";
+    }).catch(function() {});
+
+  // Load general settings
+  authFetch("/api/settings")
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      var s = data.settings || {};
+      document.getElementById("set-font-size").value = s.font_size || "normal";
+      if (s.language) document.getElementById("set-language").value = s.language;
+    }).catch(function() {});
+
+  // Load profile fields that moved here
+  authFetch("/api/profile")
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (!data.profile) return;
+      var p = data.profile;
+      if (p.tone) document.getElementById("set-tone").value = p.tone;
+      if (p.wake_time) document.getElementById("set-wake-time").value = p.wake_time;
+      if (p.sleep_time) document.getElementById("set-sleep-time").value = p.sleep_time;
+      if (p.presentation) document.getElementById("set-presentation").value = p.presentation;
+      if (p.sensitive_topics) document.getElementById("set-sensitive-topics").value = p.sensitive_topics;
+    }).catch(function() {});
+}
+
+// Toggle notification sub-options when global toggle changes
+document.getElementById("set-notif-enabled").addEventListener("change", function() {
+  document.getElementById("notifDetails").style.display = this.checked ? "block" : "none";
+});
+
+// Save settings
+document.getElementById("settingsSaveBtn").addEventListener("click", function() {
+  var st = document.getElementById("settingsStatus");
+  st.textContent = "Sauvegarde..."; st.className = "form-status";
+
+  var notifPrefs = {
+    enabled: document.getElementById("set-notif-enabled").checked ? "1" : "0",
+    streak_risk: document.getElementById("set-notif-streak").checked ? "1" : "0",
+    comeback: document.getElementById("set-notif-comeback").checked ? "1" : "0",
+    mission_reminder: document.getElementById("set-notif-mission").checked ? "1" : "0",
+    level_up: document.getElementById("set-notif-levelup").checked ? "1" : "0",
+    weekly_summary: document.getElementById("set-notif-weekly").checked ? "1" : "0",
+    sound: document.getElementById("set-sound").checked ? "1" : "0",
+    quiet_hours_start: document.getElementById("set-quiet-start").value,
+    quiet_hours_end: document.getElementById("set-quiet-end").value,
+  };
+
+  var genSettings = {
+    font_size: document.getElementById("set-font-size").value,
+    language: document.getElementById("set-language").value,
+  };
+
+  var profilePatch = {
+    tone: document.getElementById("set-tone").value,
+    wake_time: document.getElementById("set-wake-time").value,
+    sleep_time: document.getElementById("set-sleep-time").value,
+    presentation: document.getElementById("set-presentation").value,
+    sensitive_topics: document.getElementById("set-sensitive-topics").value,
+  };
+
+  Promise.all([
+    authFetch("/api/notifications/prefs", { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(notifPrefs) }),
+    authFetch("/api/settings", { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(genSettings) }),
+    authFetch("/api/profile", { method: "PATCH", headers: {"Content-Type": "application/json"}, body: JSON.stringify(profilePatch) }),
+  ]).then(function() {
+    st.textContent = "Parametres sauvegardes.";
+    st.className = "form-status success";
+    applyFontSize(genSettings.font_size);
+  }).catch(function(e) {
+    st.textContent = "Erreur: " + e.message;
+    st.className = "form-status error";
+  });
+});
+
+// Logout from settings
+document.getElementById("settingsLogoutBtn").addEventListener("click", doLogout);
+
+// Font size management
+function applyFontSize(size) {
+  var sizes = { "normal": "16px", "large": "18px", "xlarge": "20px" };
+  document.documentElement.style.fontSize = sizes[size] || "16px";
+  localStorage.setItem("luna_font_size", size);
+}
+
+// Apply saved font size on load
+(function() {
+  var saved = localStorage.getItem("luna_font_size");
+  if (saved) applyFontSize(saved);
+})();
+
+// =========================================================================
 // CHAT (preserved from previous version)
 // =========================================================================
 var chat = document.getElementById("chat");
@@ -943,6 +1211,7 @@ function loadHistory() {
     var data = JSON.parse(localStorage.getItem(convStorageKey(currentConvId)) || "[]");
     if (data.length === 0) return false;
     data.forEach(function(m) { addMsg(m.text, m.cls, m.ts, true); });
+    setTimeout(function() { chat.scrollTop = chat.scrollHeight; }, 50);
     return true;
   } catch(e) { return false; }
 }
@@ -1073,7 +1342,7 @@ var profileFields = [
   "doctor_name","doctor_phone","pharmacy","allergies","treatments","conditions",
   "mutual_name","mutual_number","carte_vitale",
   "housing_type","housing_status","floor",
-  "tone","presentation","wake_time","sleep_time","interests","habits","sensitive_topics",
+  "interests","habits",
   "permanent_rules","blacklist","priorities","max_budget"
 ];
 
@@ -1938,6 +2207,7 @@ function switchConversation(convId) {
     .then(function(data) {
       if (data.messages && data.messages.length > 0) {
         data.messages.forEach(function(m) { addMsg(m.content, m.role === "luna" ? "luna" : "user", m.timestamp || "", true); });
+        setTimeout(function() { chat.scrollTop = chat.scrollHeight; }, 50);
       } else {
         authFetch("/api/greeting").then(function(r) { return r.json(); }).then(function(d) { addMsg(d.response, "luna"); }).catch(function() {});
       }
@@ -2027,6 +2297,7 @@ document.getElementById("sidebarToggle").addEventListener("click", openSidebar);
 document.getElementById("sidebarClose").addEventListener("click", closeSidebar);
 document.getElementById("newConvBtn").addEventListener("click", createNewConversation);
 document.getElementById("convSearch").addEventListener("input", function() { renderConvList(this.value); });
+document.getElementById("convFab").addEventListener("click", createNewConversation);
 
 // =========================================================================
 // INIT
