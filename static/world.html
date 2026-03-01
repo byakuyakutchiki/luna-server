@@ -6604,7 +6604,7 @@ function apiFetch(url) {
   if (!t) { return Promise.reject(new Error("no_token")); }
   return fetch(url, { headers: { "Authorization": "Bearer " + t } })
     .then(function(r) {
-      if (r.status === 401) { window.location = "/"; return Promise.reject(new Error("unauthorized")); }
+      if (r.status === 401) { (window.top||window).location = "/"; return Promise.reject(new Error("unauthorized")); }
       return r.json();
     })
     .catch(function(err) {
@@ -6621,7 +6621,7 @@ function apiPost(url, body) {
     headers: { "Authorization": "Bearer " + t, "Content-Type": "application/json" },
     body: JSON.stringify(body)
   }).then(function(r) {
-    if (r.status === 401) { window.location = "/"; return Promise.reject(new Error("unauthorized")); }
+    if (r.status === 401) { (window.top||window).location = "/"; return Promise.reject(new Error("unauthorized")); }
     return r.json();
   }).catch(function(err) {
     if (err.message === "unauthorized" || err.message === "no_token") throw err;
@@ -7248,7 +7248,7 @@ function renderPanelLuna(bodyEl, subtitleEl) {
   html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:0 4px;margin-top:8px">';
 
   // Chat button
-  html += '<button class="luna-action-btn" onclick="window.location=\'/\'" style="';
+  html += '<button class="luna-action-btn" onclick="window.top.location=\'/\'" style="';
   html += 'display:flex;flex-direction:column;align-items:center;gap:6px;padding:16px 8px;';
   html += 'background:linear-gradient(135deg,rgba(139,76,240,0.2),rgba(139,76,240,0.1));';
   html += 'border:1px solid rgba(139,76,240,0.3);border-radius:12px;color:#c4a0ff;cursor:pointer;';
@@ -7259,7 +7259,7 @@ function renderPanelLuna(bodyEl, subtitleEl) {
   html += '</button>';
 
   // Voice call button
-  html += '<button class="luna-action-btn" onclick="window.location=\'/?mode=voice\'" style="';
+  html += '<button class="luna-action-btn" onclick="window.top.location=\'/?mode=voice\'" style="';
   html += 'display:flex;flex-direction:column;align-items:center;gap:6px;padding:16px 8px;';
   html += 'background:linear-gradient(135deg,rgba(76,175,80,0.2),rgba(76,175,80,0.1));';
   html += 'border:1px solid rgba(76,175,80,0.3);border-radius:12px;color:#81c784;cursor:pointer;';
@@ -7270,7 +7270,7 @@ function renderPanelLuna(bodyEl, subtitleEl) {
   html += '</button>';
 
   // Video call button
-  html += '<button class="luna-action-btn" onclick="window.location=\'/?mode=visio\'" style="';
+  html += '<button class="luna-action-btn" onclick="window.top.location=\'/?mode=visio\'" style="';
   html += 'display:flex;flex-direction:column;align-items:center;gap:6px;padding:16px 8px;';
   html += 'background:linear-gradient(135deg,rgba(33,150,243,0.2),rgba(33,150,243,0.1));';
   html += 'border:1px solid rgba(33,150,243,0.3);border-radius:12px;color:#64b5f6;cursor:pointer;';
@@ -7292,7 +7292,7 @@ function renderPanelLuna(bodyEl, subtitleEl) {
   html += '</button>';
 
   // Activites shortcut
-  html += '<button class="luna-action-btn" onclick="window.location=\'/salon\'" style="';
+  html += '<button class="luna-action-btn" onclick="window.top.location=\'/salon\'" style="';
   html += 'display:flex;flex-direction:column;align-items:center;gap:6px;padding:16px 8px;';
   html += 'background:linear-gradient(135deg,rgba(233,30,99,0.2),rgba(233,30,99,0.1));';
   html += 'border:1px solid rgba(233,30,99,0.3);border-radius:12px;color:#f48fb1;cursor:pointer;';
@@ -9148,7 +9148,7 @@ function renderPanelFamille(bodyEl, subtitleEl) {
   }
 
   // Activites button
-  html += '<a href="/salon" style="display:block;margin-top:16px;padding:14px 20px;background:linear-gradient(135deg,rgba(139,76,240,0.25),rgba(107,58,170,0.15));border:1px solid rgba(139,76,240,0.4);border-radius:14px;color:#c4a0ff;text-decoration:none;text-align:center;font-weight:700;font-size:0.95em;transition:all 0.3s;letter-spacing:0.3px">';
+  html += '<a href="/salon" target="_top" style="display:block;margin-top:16px;padding:14px 20px;background:linear-gradient(135deg,rgba(139,76,240,0.25),rgba(107,58,170,0.15));border:1px solid rgba(139,76,240,0.4);border-radius:14px;color:#c4a0ff;text-decoration:none;text-align:center;font-weight:700;font-size:0.95em;transition:all 0.3s;letter-spacing:0.3px">';
   html += '<span style="font-size:1.4em;margin-right:8px;vertical-align:middle">\uD83C\uDFAD</span>';
   html += 'Entrer dans les Activites';
   html += '<div style="font-size:0.7em;color:#888;font-weight:400;margin-top:4px">Cinema, Karaoke, Jeux, Chat</div>';
@@ -10678,7 +10678,7 @@ function buyPremiumItem(itemId) {
   apiPost("/api/world/shop/checkout", { item_id: itemId })
     .then(function(data) {
       if (data && data.checkout_url) {
-        window.location.href = data.checkout_url;
+        window.top.location.href = data.checkout_url;
       } else {
         showToast(data.detail || data.error || "Erreur", "error");
       }

@@ -1699,14 +1699,33 @@ async def chat(req: ChatRequest, request: Request):
             except Exception as e:
                 logger.warning(f"Redis store failed: {e}")
 
-        # Auto-title conversation from first user message
+        # Auto-title conversation via AI (like ChatGPT)
+        auto_title = None
         if mgr:
             try:
                 meta = mgr.redis.get_conversation_meta(tid, req.session_id)
                 if meta and not meta.get("summary") and int(meta.get("message_count", 0)) <= 2:
-                    auto_title = req.message[:40].strip()
-                    if len(req.message) > 40:
-                        auto_title += "..."
+                    try:
+                        title_resp = openai_client.chat.completions.create(
+                            model="gpt-4o-mini",
+                            messages=[{
+                                "role": "system",
+                                "content": "Tu generes un titre court (4-6 mots max) pour une conversation. Pas de guillemets, pas de ponctuation finale. Juste le theme principal."
+                            }, {
+                                "role": "user",
+                                "content": f"User: {req.message[:200]}\nLuna: {luna_msg[:200]}"
+                            }],
+                            max_tokens=20,
+                            temperature=0.3,
+                            timeout=5,
+                        )
+                        auto_title = title_resp.choices[0].message.content.strip().strip('"').strip("'")
+                        if len(auto_title) > 50:
+                            auto_title = auto_title[:50]
+                    except Exception:
+                        auto_title = req.message[:40].strip()
+                        if len(req.message) > 40:
+                            auto_title += "..."
                     meta["summary"] = auto_title
                     meta["last_activity"] = datetime.utcnow().isoformat()
                     mgr.redis.set_conversation_meta(tid, req.session_id, meta)
@@ -1717,6 +1736,8 @@ async def chat(req: ChatRequest, request: Request):
 
         # Inclut les actions executees dans la reponse
         resp = {"response": luna_msg}
+        if auto_title:
+            resp["auto_title"] = auto_title
         if tool_calls_made:
             resp["actions"] = [{"tool": t["tool"], "status": t["result"].get("status", "unknown")} for t in tool_calls_made]
             # Si une visio a ete creee, inclure l'URL pour le frontend

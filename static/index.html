@@ -1285,11 +1285,13 @@ function sendMsg(overrideMsg) {
   })
   .then(function(data) {
     hideTyping(); addMsg(data.response, "luna"); lunaNotify("Luna", data.response); showXpToast("+2 XP"); refreshXpWidget();
-    // Auto-title conversation from first user message
-    var conv = conversationsMeta.find(function(c) { return c.id === currentConvId; });
-    if (conv && !conv.title && msg) {
-      conv.title = msg.length > 40 ? msg.substring(0, 40) + "..." : msg;
-      saveConvMeta(); renderConvList();
+    // Auto-title conversation from AI-generated title
+    if (data.auto_title) {
+      var conv = conversationsMeta.find(function(c) { return c.id === currentConvId; });
+      if (conv) {
+        conv.title = data.auto_title;
+        saveConvMeta(); renderConvList();
+      }
     }
   })
   .catch(function(e) {
