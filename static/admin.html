@@ -114,6 +114,7 @@ tr:hover { background: rgba(167,139,250,0.05); }
     <button class="tab-btn" data-tab="clients">Clients</button>
     <button class="tab-btn" data-tab="quotas">Quotas</button>
     <button class="tab-btn" data-tab="alerts">Alertes</button>
+    <button class="tab-btn" data-tab="costs" style="color:#fbbf24;">Couts API</button>
     <button class="tab-btn" data-tab="server">Serveur</button>
     <button class="tab-btn" data-tab="world" style="color:#a78bfa;">Monde</button>
   </div>
@@ -147,6 +148,12 @@ tr:hover { background: rgba(167,139,250,0.05); }
   <div class="tab-panel" id="tab-alerts">
     <h3 style="margin-bottom:12px; font-size:1em;">Journal des evenements</h3>
     <div id="alertsContent"></div>
+  </div>
+
+  <!-- COSTS TAB -->
+  <div class="tab-panel" id="tab-costs">
+    <h3 style="margin-bottom:12px; font-size:1em;">Couts API reels (mois en cours)</h3>
+    <div id="costsContent"></div>
   </div>
 
   <!-- SERVER TAB -->
@@ -253,6 +260,7 @@ document.querySelectorAll(".tab-btn").forEach(function(btn) {
     if (tab === "clients") loadClients();
     if (tab === "quotas") loadQuotas();
     if (tab === "alerts") loadAlerts();
+    if (tab === "costs") loadCosts();
     if (tab === "server") loadServer();
   });
 });
@@ -315,7 +323,34 @@ function loadQuotas() {
   authFetch("/api/admin/quotas").then(function(d) {
     var html = "";
     (d.quotas || []).forEach(function(q) {
-      html += '<div class="card" style="margin-bottom:12px;"><div class="label">' + q.name + ' (' + q.plan + ')</div>';
+      html += '<div class="card" style="margin-bottom:12px;"><div class="label">' + q.name + ' <span style="color:#a78bfa;">(' + q.plan + ')</span></div>';
+
+      // Usage SMS/Voix/Visio avec couts
+      var items = [
+        {label: "SMS", used: q.sms.used, limit: q.sms.limit, cost: q.sms.cost_eur, unit: ""},
+        {label: "Voix", used: q.voice.used, limit: q.voice.limit, cost: q.voice.cost_eur, unit: " min"},
+        {label: "Visio", used: q.visio.used, limit: q.visio.limit, cost: q.visio.cost_eur, unit: " min"}
+      ];
+      items.forEach(function(item) {
+        var pct = item.limit > 0 ? Math.round(item.used / item.limit * 100) : 0;
+        var cls = pct < 80 ? "green" : (pct < 95 ? "yellow" : "red");
+        html += '<div style="margin-top:8px;display:flex;justify-content:space-between;align-items:center;">';
+        html += '<span style="font-size:0.82em;color:#aaa;">' + item.label + ': ' + item.used + '/' + item.limit + item.unit + '</span>';
+        html += '<span style="font-size:0.82em;color:#fbbf24;font-weight:600;">' + (item.cost || 0).toFixed(2) + ' EUR</span>';
+        html += '</div>';
+        html += '<div class="quota-bar"><div class="quota-fill ' + cls + '" style="width:' + Math.min(pct, 100) + '%"></div></div>';
+      });
+
+      // Total
+      var total = (q.total_cost_eur || 0).toFixed(2);
+      var budget = (q.budget_max_eur || 0).toFixed(2);
+      var overBudget = q.total_cost_eur > q.budget_max_eur;
+      html += '<div style="margin-top:10px;padding-top:8px;border-top:1px solid #333;display:flex;justify-content:space-between;">';
+      html += '<span style="font-size:0.85em;font-weight:600;">Cout total API</span>';
+      html += '<span style="font-size:0.85em;font-weight:700;color:' + (overBudget ? '#f87171' : '#4ade80') + ';">' + total + ' / ' + budget + ' EUR</span>';
+      html += '</div>';
+
+      // Stockage
       var quota = q.quota || {};
       ["conversations", "instructions", "notes", "trusted_contacts"].forEach(function(key) {
         var item = quota[key];
@@ -330,6 +365,65 @@ function loadQuotas() {
     if (!html) html = '<p style="color:#666;">Aucun quota a afficher</p>';
     document.getElementById("quotasContent").innerHTML = html;
   }).catch(function() {});
+}
+
+// =========================================================================
+// COSTS (Couts API reels)
+// =========================================================================
+function loadCosts() {
+  var el = document.getElementById("costsContent");
+  el.innerHTML = '<p style="color:#888;">Chargement...</p>';
+  authFetch("/api/admin/costs").then(function(d) {
+    var html = '';
+
+    // Totaux du mois
+    var t = d.totals || {};
+    html += '<div class="card" style="margin-bottom:16px;background:linear-gradient(135deg,#1a1a3e,#2d1b69);border:1px solid #7c3aed;">';
+    html += '<div class="label" style="color:#a78bfa;font-size:1.1em;">Total mois ' + (d.month || '') + '</div>';
+    html += '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:12px;">';
+    html += '<div><div style="color:#888;font-size:0.8em;">SMS (' + (t.sms_count||0) + ')</div><div style="font-size:1.3em;font-weight:700;color:#fbbf24;">' + (t.sms_cost_eur||0).toFixed(2) + ' EUR</div></div>';
+    html += '<div><div style="color:#888;font-size:0.8em;">Voix</div><div style="font-size:1.3em;font-weight:700;color:#fbbf24;">' + (t.voice_cost_eur||0).toFixed(2) + ' EUR</div></div>';
+    html += '<div><div style="color:#888;font-size:0.8em;">Visio</div><div style="font-size:1.3em;font-weight:700;color:#fbbf24;">' + (t.visio_cost_eur||0).toFixed(2) + ' EUR</div></div>';
+    html += '</div>';
+    html += '<div style="margin-top:12px;padding-top:8px;border-top:1px solid #444;text-align:right;">';
+    html += '<span style="font-size:1.4em;font-weight:700;color:#4ade80;">TOTAL: ' + (t.total_cost_eur||0).toFixed(2) + ' EUR</span>';
+    html += '</div></div>';
+
+    // Par tenant
+    var tenants = d.tenants || {};
+    var keys = Object.keys(tenants);
+    if (keys.length === 0) {
+      html += '<p style="color:#666;">Aucune consommation enregistree ce mois.</p>';
+    } else {
+      keys.forEach(function(tid) {
+        var c = tenants[tid];
+        var overBudget = c.total_cost_eur > c.budget_max_eur;
+        html += '<div class="card" style="margin-bottom:10px;">';
+        html += '<div class="label">' + c.name + ' <span style="color:#a78bfa;">(' + c.plan + ')</span>';
+        if (overBudget) html += ' <span style="color:#f87171;font-size:0.8em;">DEPASSEMENT</span>';
+        html += '</div>';
+        html += '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px;font-size:0.85em;">';
+        html += '<div>SMS: ' + c.sms.count + ' = <b>' + c.sms.cost_eur.toFixed(2) + ' EUR</b></div>';
+        html += '<div>Voix: ' + c.voice.minutes.toFixed(1) + 'min = <b>' + c.voice.cost_eur.toFixed(2) + ' EUR</b></div>';
+        html += '<div>Visio: ' + c.visio.minutes.toFixed(1) + 'min = <b>' + c.visio.cost_eur.toFixed(2) + ' EUR</b></div>';
+        html += '</div>';
+        html += '<div style="margin-top:6px;font-size:0.9em;text-align:right;color:' + (overBudget ? '#f87171' : '#4ade80') + ';">';
+        html += 'Total: <b>' + c.total_cost_eur.toFixed(2) + '</b> / ' + c.budget_max_eur.toFixed(2) + ' EUR budget';
+        html += '</div></div>';
+      });
+    }
+
+    // Tarifs de reference
+    var r = d.rates || {};
+    html += '<div style="margin-top:16px;padding:12px;background:#111;border-radius:8px;font-size:0.8em;color:#666;">';
+    html += '<b>Tarifs de reference:</b> SMS: ' + (r.sms_eur||0.07) + ' EUR | Voix: ' + (r.voice_eur_per_min||0.02) + ' EUR/min | Visio: ' + (r.visio_eur_per_min||0.05) + ' EUR/min';
+    if (r.note) html += '<br>' + r.note;
+    html += '</div>';
+
+    el.innerHTML = html;
+  }).catch(function(e) {
+    el.innerHTML = '<p style="color:#f87171;">Erreur de chargement des couts: ' + e.message + '</p>';
+  });
 }
 
 // =========================================================================

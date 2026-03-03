@@ -5231,15 +5231,15 @@ def _clean_latin1(text: str) -> str:
 try:
     from core.actions.quota_guard import PLAN_SMS_LIMITS, PLAN_VOICE_LIMITS, PLAN_VISIO_LIMITS, PlanType
     _PLAN_LIMITS = {
-        "essentiel": {"sms": PLAN_SMS_LIMITS[PlanType.ESSENTIEL], "voice_min": PLAN_VOICE_LIMITS[PlanType.ESSENTIEL], "visio_min": PLAN_VISIO_LIMITS[PlanType.ESSENTIEL]},
-        "confort":   {"sms": PLAN_SMS_LIMITS[PlanType.CONFORT],   "voice_min": PLAN_VOICE_LIMITS[PlanType.CONFORT],   "visio_min": PLAN_VISIO_LIMITS[PlanType.CONFORT]},
-        "premium":   {"sms": PLAN_SMS_LIMITS[PlanType.PREMIUM],   "voice_min": PLAN_VOICE_LIMITS[PlanType.PREMIUM],   "visio_min": PLAN_VISIO_LIMITS[PlanType.PREMIUM]},
+        "essentiel": {"sms": PLAN_SMS_LIMITS[PlanType.ESSENTIEL], "voice_min": PLAN_VOICE_LIMITS[PlanType.ESSENTIEL], "visio_min": PLAN_VISIO_LIMITS[PlanType.ESSENTIEL], "budget_api_max": 8.15},
+        "confort":   {"sms": PLAN_SMS_LIMITS[PlanType.CONFORT],   "voice_min": PLAN_VOICE_LIMITS[PlanType.CONFORT],   "visio_min": PLAN_VISIO_LIMITS[PlanType.CONFORT],   "budget_api_max": 17.40},
+        "premium":   {"sms": PLAN_SMS_LIMITS[PlanType.PREMIUM],   "voice_min": PLAN_VOICE_LIMITS[PlanType.PREMIUM],   "visio_min": PLAN_VISIO_LIMITS[PlanType.PREMIUM],   "budget_api_max": 32.10},
     }
 except ImportError:
     _PLAN_LIMITS = {
-        "essentiel": {"sms": 25, "voice_min": 40, "visio_min": 12},
-        "confort":   {"sms": 50, "voice_min": 100, "visio_min": 28},
-        "premium":   {"sms": 100, "voice_min": 180, "visio_min": 55},
+        "essentiel": {"sms": 25, "voice_min": 40, "visio_min": 12, "budget_api_max": 8.15},
+        "confort":   {"sms": 50, "voice_min": 100, "visio_min": 28, "budget_api_max": 17.40},
+        "premium":   {"sms": 100, "voice_min": 180, "visio_min": 55, "budget_api_max": 32.10},
     }
 
 
@@ -9016,19 +9016,107 @@ async def admin_quotas(request: Request):
                 name = profile.get("first_name", f"Tenant {tid}")
                 plan = profile.get("plan", "essentiel")
                 limits = _PLAN_LIMITS.get(plan, _PLAN_LIMITS["essentiel"])
-                usage = all_usage.get(str(tid), {"sms_count": 0, "voice_minutes": 0, "tavus_minutes": 0})
+                usage = all_usage.get(str(tid), {"sms_count": 0, "sms_cost": 0, "voice_minutes": 0, "voice_cost": 0, "tavus_minutes": 0, "tavus_cost": 0})
+                sms_cost = round(float(usage.get("sms_cost", 0)), 2)
+                voice_cost = round(float(usage.get("voice_cost", 0)), 2)
+                visio_cost = round(float(usage.get("tavus_cost", 0)), 2)
+                total_cost = round(sms_cost + voice_cost + visio_cost, 2)
                 quotas.append({
                     "tenant_id": tid,
                     "name": name,
                     "plan": plan,
-                    "sms": {"used": usage.get("sms_count", 0), "limit": limits["sms"]},
-                    "voice": {"used": round(usage.get("voice_minutes", 0), 1), "limit": limits["voice_min"]},
-                    "visio": {"used": round(usage.get("tavus_minutes", 0), 1), "limit": limits["visio_min"]},
+                    "sms": {"used": usage.get("sms_count", 0), "limit": limits["sms"], "cost_eur": sms_cost},
+                    "voice": {"used": round(usage.get("voice_minutes", 0), 1), "limit": limits["voice_min"], "cost_eur": voice_cost},
+                    "visio": {"used": round(usage.get("tavus_minutes", 0), 1), "limit": limits["visio_min"], "cost_eur": visio_cost},
+                    "total_cost_eur": total_cost,
+                    "budget_max_eur": limits.get("budget_api_max", 0),
                 })
         except Exception as e:
             logger.error(f"Admin quotas error: {e}")
 
     return {"quotas": quotas}
+
+
+@app.get("/api/admin/costs")
+async def admin_costs(request: Request, month: str = None):
+    """
+    Couts API reels par tenant pour un mois donne.
+    Utilise les donnees tracees par CortexCostTracker dans Redis.
+    ?month=2026-03 (defaut: mois courant)
+    """
+    if not _verify_admin(request):
+        return JSONResponse(status_code=401, content={"error": "Non autorise"})
+
+    from datetime import date as _date
+    target_date = None
+    if month:
+        try:
+            parts = month.split("-")
+            target_date = _date(int(parts[0]), int(parts[1]), 1)
+        except (ValueError, IndexError):
+            return JSONResponse(status_code=400, content={"error": "Format mois invalide (YYYY-MM)"})
+
+    result = {"month": month or _date.today().strftime("%Y-%m"), "tenants": {}, "totals": {}}
+
+    cortex = get_cortex() if _CORTEX_AVAILABLE else None
+    if cortex and hasattr(cortex, "cost_tracker") and cortex.cost_tracker:
+        try:
+            all_costs = await cortex.cost_tracker.get_month_costs_per_tenant(target_date)
+            total_sms_cost = 0
+            total_voice_cost = 0
+            total_visio_cost = 0
+            total_sms_count = 0
+
+            for tid_str, costs in all_costs.items():
+                tid = int(tid_str) if tid_str.isdigit() else tid_str
+                name = f"Tenant {tid}"
+                plan = "essentiel"
+                if _redis_client:
+                    profile = _redis_client.get_profile(int(tid_str)) if tid_str.isdigit() else {}
+                    if profile:
+                        name = profile.get("first_name", name)
+                        plan = profile.get("plan", plan)
+
+                sc = round(float(costs.get("sms_cost", 0)), 2)
+                vc = round(float(costs.get("voice_cost", 0)), 2)
+                tc = round(float(costs.get("tavus_cost", 0)), 2)
+                total = round(sc + vc + tc, 2)
+
+                result["tenants"][tid_str] = {
+                    "name": name,
+                    "plan": plan,
+                    "sms": {"count": int(costs.get("sms_count", 0)), "cost_eur": sc},
+                    "voice": {"minutes": round(float(costs.get("voice_minutes", 0)), 1), "cost_eur": vc},
+                    "visio": {"minutes": round(float(costs.get("tavus_minutes", 0)), 1), "cost_eur": tc},
+                    "total_cost_eur": total,
+                    "budget_max_eur": _PLAN_LIMITS.get(plan, {}).get("budget_api_max", 0),
+                }
+
+                total_sms_cost += sc
+                total_voice_cost += vc
+                total_visio_cost += tc
+                total_sms_count += int(costs.get("sms_count", 0))
+
+            result["totals"] = {
+                "sms_cost_eur": round(total_sms_cost, 2),
+                "voice_cost_eur": round(total_voice_cost, 2),
+                "visio_cost_eur": round(total_visio_cost, 2),
+                "total_cost_eur": round(total_sms_cost + total_voice_cost + total_visio_cost, 2),
+                "sms_count": total_sms_count,
+            }
+        except Exception as e:
+            logger.error(f"Admin costs error: {e}")
+            result["error"] = str(e)
+
+    # Tarifs de reference utilises
+    result["rates"] = {
+        "sms_eur": 0.07,
+        "voice_eur_per_min": 0.02,
+        "visio_eur_per_min": 0.05,
+        "note": "Tarifs estimes Twilio FR + Tavus. Verifier avec factures reelles.",
+    }
+
+    return result
 
 
 @app.get("/api/admin/alerts")
