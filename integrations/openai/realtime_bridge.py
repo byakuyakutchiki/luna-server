@@ -192,6 +192,48 @@ VOICE_TOOLS = [
             "required": ["contact_name"]
         }
     },
+    {
+        "type": "function",
+        "name": "search_web",
+        "description": "Rechercher des informations sur Internet. Utilise cette fonction quand le souscripteur demande de chercher un restaurant, un hotel, des horaires de train, un vol, un service, un numero de telephone, une adresse, ou toute information pratique. Ex: 'cherche un restaurant italien pres de chez moi', 'trouve-moi un train pour Paris demain', 'quel est le numero de la mairie de Lyon'. Renvoie les resultats les plus pertinents.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "La recherche a effectuer (en francais ou anglais)"
+                },
+                "location": {
+                    "type": "string",
+                    "description": "Ville ou adresse pour contextualiser la recherche (optionnel, utilise la localisation du souscripteur si disponible)"
+                }
+            },
+            "required": ["query"]
+        }
+    },
+    {
+        "type": "function",
+        "name": "request_payment",
+        "description": "Demander un paiement au souscripteur pour un achat de conciergerie (reservation, billet, etc.). TOUJOURS demander confirmation au souscripteur AVANT d'utiliser cette fonction. Precise le montant, la description et ce qui sera achete. Le souscripteur doit EXPLICITEMENT dire oui.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "amount_cents": {
+                    "type": "integer",
+                    "description": "Montant en centimes d'euros (ex: 2500 pour 25,00 EUR)"
+                },
+                "description": {
+                    "type": "string",
+                    "description": "Description de l'achat (ex: 'Reservation restaurant Le Bistrot, 2 personnes, 20h')"
+                },
+                "merchant_name": {
+                    "type": "string",
+                    "description": "Nom du commerce ou service (ex: 'Restaurant Le Bistrot', 'SNCF', 'Hotel Ibis')"
+                }
+            },
+            "required": ["amount_cents", "description"]
+        }
+    },
 ]
 
 
@@ -200,6 +242,7 @@ def build_voice_context(
     memory_manager=None,
     max_duration_minutes: int = 15,
     mission: str = "",
+    contact_name: str = "",
 ) -> str:
     """
     Construit le contexte Luna pour les appels vocaux.
@@ -268,9 +311,27 @@ def build_voice_context(
 {mission}
 Tu dois accomplir cette mission puis raccrocher poliment. Reste focalisee sur cette mission."""
 
+    # Determiner qui est au telephone
+    if contact_name:
+        interlocutor_section = (
+            f"Tu es en appel telephonique avec {contact_name}.\n"
+            f"C'est {subscriber_name} qui t'a demande de passer cet appel a {contact_name}.\n"
+            f"IMPORTANT : La personne au telephone est {contact_name}, PAS {subscriber_name}. "
+            f"Adresse-toi a {contact_name} par son prenom."
+        )
+    elif mission:
+        interlocutor_section = (
+            f"Tu es en appel telephonique avec un interlocuteur.\n"
+            f"C'est {subscriber_name} qui t'a demande de passer cet appel."
+        )
+    else:
+        interlocutor_section = (
+            f"Tu es en appel telephonique avec {subscriber_name}.\n"
+            f"Adresse-toi a {subscriber_name} par son prenom."
+        )
+
     return f"""Tu es Luna, l'assistante IA personnelle de YAWatch.
-Tu es en appel telephonique{'.' if not mission else ' avec un interlocuteur.'}
-Tu appartiens a {subscriber_name} qui t'a demande de passer cet appel.
+{interlocutor_section}
 Tu es une compagne bienveillante et chaleureuse, disponible 24h/24.
 Tu parles en francais avec un ton rassurant, moderne et empathique.
 Tes reponses sont concises et naturelles - c'est un appel vocal, pas un email.
@@ -346,6 +407,8 @@ class RealtimeBridge:
 
         # Transcription : collecte les messages pour sauvegarde
         self.transcript: List[Dict[str, str]] = []  # [{"role": "user/luna", "text": "..."}]
+        # Log des tool calls executes pendant l'appel (pour rapport PDF)
+        self._tool_calls_log: List[str] = []
 
     async def _ws_send_openai(self, data: dict):
         """Envoie un message JSON a OpenAI avec timeout et gestion d'erreur."""
@@ -646,6 +709,11 @@ class RealtimeBridge:
         }
         await self._ws_send_openai(tool_response)
         await self._ws_send_openai({"type": "response.create"})
+
+        # Log pour le rapport PDF
+        status = result.get("status", "unknown")
+        msg = result.get("message", "")[:100]
+        self._tool_calls_log.append(f"{function_name}: {status} — {msg}")
 
         logger.info(f"Tool call {function_name} result sent to OpenAI")
 

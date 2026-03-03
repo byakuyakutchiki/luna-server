@@ -83,6 +83,15 @@ public class MainActivity extends Activity {
         settings.setAllowFileAccess(false);
         settings.setCacheMode(WebSettings.LOAD_NO_CACHE);
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
+        settings.setUseWideViewPort(true);
+        settings.setLoadWithOverviewMode(true);
+        settings.setSupportZoom(false);
+        settings.setBuiltInZoomControls(false);
+        settings.setDisplayZoomControls(false);
+        settings.setDefaultFontSize(16);
+
+        // Geolocation support
+        settings.setGeolocationEnabled(true);
 
         // Version dans le User-Agent pour auto-update
         settings.setUserAgentString(settings.getUserAgentString() + " LunaApp/" + CURRENT_VERSION);

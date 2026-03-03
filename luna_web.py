@@ -209,6 +209,49 @@ else:
     if not ADMIN_NUMBER:
         raise SystemExit("ERREUR FATALE: ADMIN_NUMBER manquant dans .env. Voir .env.example.")
 
+# --- Health Monitor (auto-alert admin on critical failures) ---
+_health_last_alert = {}  # {alert_key: timestamp} — throttle 1 alerte / 30 min par type
+
+def _notify_admin_health(message: str, alert_key: str = "generic"):
+    """Alerte l'admin via Telegram (prioritaire) ou SMS (fallback).
+    Throttle: max 1 alerte par type toutes les 30 minutes."""
+    import time as _time
+    import httpx as _httpx
+    now = _time.time()
+    last = _health_last_alert.get(alert_key, 0)
+    if now - last < 1800:  # 30 min
+        return  # deja alerte recemment
+    _health_last_alert[alert_key] = now
+
+    full_msg = f"🚨 [LUNA ALERTE] {message}"
+    logger.error(f"HEALTH ALERT: {message}")
+
+    # 1. Telegram (gratuit, fiable)
+    bot_token = os.getenv("ALERT_TELEGRAM_BOT_TOKEN", "")
+    founder_chat_id = os.getenv("FOUNDER_TELEGRAM_CHAT_ID", "")
+    if bot_token and founder_chat_id:
+        try:
+            _httpx.post(
+                f"https://api.telegram.org/bot{bot_token}/sendMessage",
+                json={"chat_id": founder_chat_id, "text": full_msg},
+                timeout=10,
+            )
+            logger.info(f"HEALTH ALERT Telegram envoye: {message}")
+            return
+        except Exception as e:
+            logger.warning(f"HEALTH ALERT Telegram echoue: {e}")
+
+    # 2. Fallback SMS
+    admin = os.getenv("ADMIN_NUMBER", "")
+    if admin:
+        try:
+            from twilio.rest import Client as _TwClient
+            tw = _TwClient(os.getenv("TWILIO_ACCOUNT_SID"), os.getenv("TWILIO_AUTH_TOKEN"))
+            tw.messages.create(body=full_msg, from_=os.getenv("TWILIO_PHONE_NUMBER"), to=admin)
+            logger.info(f"HEALTH ALERT SMS envoye a {admin}")
+        except Exception as e:
+            logger.error(f"HEALTH ALERT SMS echoue: {e}")
+
 # --- Behavioral Memory (locked identity + rules) ---
 DEFAULT_IDENTITY_CORE = (
     "Tu es Luna, assistante IA de YAWatch. Tu n'es PAS un professionnel "
@@ -613,6 +656,18 @@ Alertes quotas : 80% avertissement, 90% urgences seulement, 100% bloque
 13. Jeux (quiz, devinettes, culture generale)
 14. Moment musical (suggestions, fredonnement)
 15. Exercice de gratitude quotidien
+16. Recherche web (restaurants, trains, vols, services, numeros de telephone, informations pratiques)
+17. Conciergerie : reserve un restaurant, trouve un train, cherche un hotel (recherche + appel + paiement)
+18. Paiement conciergerie (avec la carte du souscripteur, apres confirmation explicite)
+
+=== CONCIERGERIE ===
+Tu es une vraie concierge personnelle. Quand le souscripteur te demande :
+- "Reserve-moi un restaurant" → utilise search_web pour trouver, puis appelle le restaurant avec call_contact
+- "Trouve-moi un train pour Paris" → utilise search_web pour chercher les horaires
+- Si un paiement est necessaire, utilise request_payment APRES confirmation explicite du souscripteur
+- Tu as acces a sa localisation pour contextualiser les recherches
+- TOUJOURS confirmer avant d'agir (montant, lieu, horaire)
+- TOUJOURS donner le detail avant de payer (description, montant exact)
 
 === APPELS TELEPHONIQUES ===
 Tu PEUX passer des appels vocaux de deux facons :
@@ -1497,6 +1552,30 @@ async def chat(req: ChatRequest, request: Request):
             except Exception as e:
                 logger.warning(f"Contacts context error: {e}")
 
+            # --- Geolocalisation du souscripteur ---
+            if _redis_client:
+                try:
+                    import json as _json_geo
+                    geo_raw = _redis_client.client.get(f"luna:{tid}:geolocation")
+                    if geo_raw:
+                        geo_data = _json_geo.loads(geo_raw)
+                        geo_city = geo_data.get("city", "")
+                        geo_addr = geo_data.get("address", "")
+                        geo_parts = []
+                        if geo_city:
+                            geo_parts.append(f"Ville: {geo_city}")
+                        if geo_addr:
+                            geo_parts.append(f"Adresse approximative: {geo_addr}")
+                        if geo_parts:
+                            context_parts.append(
+                                "=== LOCALISATION ACTUELLE DU SOUSCRIPTEUR ===\n"
+                                + "\n".join(geo_parts)
+                                + "\nUtilise cette info pour contextualiser tes recherches (restaurants proches, services locaux, etc.)."
+                                + "\nTu peux mentionner naturellement cette localisation si pertinent."
+                            )
+                except Exception as e:
+                    logger.debug(f"Geo context error: {e}")
+
             # --- Instructions actives ---
             try:
                 instructions = mgr.list_active_instructions()
@@ -1626,6 +1705,10 @@ async def chat(req: ChatRequest, request: Request):
                     result = await _tool_invite_visio(fn_args, tenant_id=tid)
                 elif fn_name == "call_contact":
                     result = await _tool_call_contact(fn_args, tenant_id=tid)
+                elif fn_name == "search_web":
+                    result = await _tool_search_web(fn_args, tenant_id=tid)
+                elif fn_name == "request_payment":
+                    result = await _tool_request_payment(fn_args, tenant_id=tid)
                 else:
                     result = {"status": "error", "message": f"Fonction inconnue: {fn_name}"}
 
@@ -1748,17 +1831,27 @@ async def chat(req: ChatRequest, request: Request):
         return resp
 
     except openai.AuthenticationError:
-        return {"response": "Desole, Luna a un souci technique. Contacte ton operateur."}
-    except openai.RateLimitError:
-        return {"response": "Luna est un peu debordee. Reessaie dans quelques instants."}
+        logger.error("OPENAI AUTH ERROR - cle API invalide")
+        _notify_admin_health("Cle OpenAI invalide - Luna ne peut plus repondre")
+        return {"response": "Luna a un souci technique. L'equipe a ete prevenue."}
+    except openai.RateLimitError as e:
+        err_body = getattr(e, 'body', {}) or {}
+        err_type = err_body.get('error', {}).get('type', '') if isinstance(err_body, dict) else ''
+        if 'insufficient_quota' in str(e) or err_type == 'insufficient_quota':
+            logger.error("OPENAI QUOTA EPUISE - insufficient_quota")
+            _notify_admin_health("Credit OpenAI epuise ! Luna est en panne. Recharge le compte: https://platform.openai.com/account/billing")
+            return {"response": "Luna est temporairement en maintenance. L'equipe technique a ete alertee automatiquement."}
+        else:
+            logger.warning(f"OpenAI rate limit (temporaire): {e}")
+            return {"response": "Petit embouteillage ! Renvoie ton message dans quelques secondes."}
     except openai.APIConnectionError:
-        return {"response": "Luna est momentanement indisponible. Reessaie dans un instant."}
+        return {"response": "Connexion perdue une seconde ! Renvoie ton message."}
     except Exception as e:
         tenant_convs = conversations.get(str(getattr(request.state, "tenant_id", 1)), {})
         if req.session_id in tenant_convs and len(tenant_convs[req.session_id]) > 1:
             tenant_convs[req.session_id].pop()
         logger.error(f"Chat error: {type(e).__name__}: {e}")
-        return {"response": "Desole, Luna a rencontre un probleme. Reessaie."}
+        return {"response": "Luna a rencontre un petit probleme. Reessaie."}
 
 
 @app.get("/api/greeting")
@@ -1932,14 +2025,22 @@ async def voice_call_twiml(request: Request):
     """
     Endpoint TwiML que Twilio fetche quand l'appel est decroche.
     Retourne le XML qui dit a Twilio d'ouvrir un Media Stream.
+    Twilio envoie CallSid dans les params POST — on le passe au WebSocket URL
+    pour matcher les parametres d'appel de facon fiable.
     """
     if not voice_client:
         return Response(
             content="<Response><Say language='fr-FR'>Service non disponible.</Say><Hangup/></Response>",
             media_type="application/xml",
         )
-    twiml = voice_client.generate_twiml()
-    logger.info(f"TwiML genere pour appel vocal")
+    # Extraire le CallSid des parametres POST envoyes par Twilio
+    try:
+        form = await request.form()
+        call_sid = form.get("CallSid", "") or ""
+    except Exception:
+        call_sid = ""
+    twiml = voice_client.generate_twiml(call_sid=call_sid)
+    logger.info(f"TwiML genere pour appel vocal (CallSid={call_sid})")
     return Response(content=twiml, media_type="application/xml")
 
 
@@ -1957,35 +2058,48 @@ async def voice_call_media_stream(websocket: WebSocket):
     try:
         from integrations.openai.realtime_bridge import RealtimeBridge, build_voice_context
 
-        # Recuperer les parametres personnalises si disponibles
+        # Recuperer les parametres personnalises via le call_sid passe en query param
         call_params = {}
-        # Prend le plus recent et nettoie les anciens (>60s = orphelins)
-        if _voice_call_params:
-            import time as _time
-            _now = _time.time()
-            _stale = [k for k, v in _voice_call_params.items() if _now - v.get("_ts", 0) > 60]
-            for k in _stale:
-                _voice_call_params.pop(k, None)
-            if _voice_call_params:
-                call_sid_for_params = list(_voice_call_params.keys())[-1]
-                call_params = _voice_call_params.pop(call_sid_for_params, {})
+        call_sid_from_url = websocket.query_params.get("call_sid", "")
+
+        import time as _time
+        _now = _time.time()
+        # Nettoyer les params orphelins (>120s)
+        _stale = [k for k, v in _voice_call_params.items() if _now - v.get("_ts", 0) > 120]
+        for k in _stale:
+            _voice_call_params.pop(k, None)
+
+        if call_sid_from_url and call_sid_from_url in _voice_call_params:
+            # Match FIABLE par CallSid Twilio
+            call_params = _voice_call_params.pop(call_sid_from_url, {})
+            logger.info(f"Voice call params matched by CallSid: {call_sid_from_url}")
+        elif _voice_call_params:
+            # Fallback : prend le plus recent (compatibilite arriere)
+            call_sid_fallback = list(_voice_call_params.keys())[-1]
+            call_params = _voice_call_params.pop(call_sid_fallback, {})
+            logger.warning(f"Voice call params fallback (no CallSid match): using {call_sid_fallback}")
 
         mission = call_params.get("mission")
         max_dur = call_params.get("max_duration") or int(os.getenv("VOICE_MAX_DURATION", "180"))
         custom_greeting = call_params.get("greeting")
+        contact_name = call_params.get("contact_name", "")
 
         # Contexte Luna pour l'appel vocal
         memory_mgr = tavus_client.memory if tavus_client else _memory_manager
 
         if mission:
-            # Mission speciale : contexte adapte
+            # Mission speciale : contexte adapte (appel sortant vers un contact)
+            _sub_name_for_ctx = call_params.get("subscriber_name") or _SUBSCRIBER_NAME
             context = build_voice_context(
-                subscriber_name=_SUBSCRIBER_NAME,
+                subscriber_name=_sub_name_for_ctx,
                 memory_manager=memory_mgr,
                 max_duration_minutes=max(1, max_dur // 60),
                 mission=mission,
+                contact_name=contact_name,
             )
-            greeting_text = custom_greeting or f"La personne vient de decrocher. {mission}"
+            # Le greeting est une instruction pour que Luna parle en premier
+            # On formule comme un declencheur, pas comme un message du contact
+            greeting_text = custom_greeting or f"La personne vient de decrocher. Execute ta mission maintenant."
         else:
             context = build_voice_context(
                 subscriber_name=_SUBSCRIBER_NAME,
@@ -2013,6 +2127,10 @@ async def voice_call_media_stream(websocket: WebSocket):
                 return await _tool_invite_visio(args)
             elif name == "call_contact":
                 return await _tool_call_contact(args)
+            elif name == "search_web":
+                return await _tool_search_web(args)
+            elif name == "request_payment":
+                return await _tool_request_payment(args)
             else:
                 return {"status": "error", "message": f"Fonction inconnue: {name}"}
 
@@ -2034,12 +2152,44 @@ async def voice_call_media_stream(websocket: WebSocket):
         except Exception as e:
             logger.warning(f"Failed to save voice transcript: {e}")
 
+        # Generer le rapport PDF si c'est un appel sortant avec contact
+        _voice_tid = call_params.get("tenant_id") or TENANT_ID
+        _voice_contact = call_params.get("contact_name", "")
+        if _voice_contact and bridge.transcript and _doc_generator:
+            try:
+                _report_filename = _doc_generator.generate_call_report(
+                    call_type="vocal",
+                    subscriber_name=call_params.get("subscriber_name", _SUBSCRIBER_NAME),
+                    contact_name=_voice_contact,
+                    contact_phone=call_params.get("contact_phone", ""),
+                    duration_minutes=_voice_duration_min,
+                    transcript=bridge.transcript,
+                    actions=getattr(bridge, "_tool_calls_log", None),
+                    call_sid=bridge.call_sid or "",
+                    message_original=call_params.get("message", ""),
+                )
+                _report_url = f"/api/documents/download/{_report_filename}"
+                logger.info(f"Voice call report generated: {_report_filename}")
+
+                # Notifier le souscripteur via une note dans Redis
+                if memory_mgr:
+                    memory_mgr.add_note(
+                        content=(
+                            f"[Rapport appel] Appel avec {_voice_contact} — "
+                            f"Duree: {_voice_duration_min:.1f} min — "
+                            f"Rapport PDF: {_report_url}"
+                        ),
+                        context="call_report",
+                        tags=["rapport", "appel_vocal", _voice_contact],
+                    )
+            except Exception as e:
+                logger.warning(f"Failed to generate call report PDF: {e}")
+
         # Tracker les minutes vocales dans Cortex
         if _voice_duration_min > 0:
             try:
                 cortex = get_cortex() if _CORTEX_AVAILABLE else None
                 if cortex and hasattr(cortex, "cost_tracker") and cortex.cost_tracker:
-                    _voice_tid = call_params.get("tenant_id") or TENANT_ID
                     await cortex.cost_tracker.track_voice_tenant(_voice_tid, _voice_duration_min)
                     logger.info(f"Voice call tracked: {_voice_duration_min} min for tenant {_voice_tid}")
             except Exception as e:
@@ -2824,6 +2974,66 @@ async def auth_checkout(req: CheckoutRequest, request: Request):
         return JSONResponse(status_code=500, content={"error": "Erreur lors du paiement. Reessaie."})
 
 
+@app.post("/api/auth/setup-card")
+async def auth_setup_card(request: Request):
+    """
+    Cree un Stripe SetupIntent pour enregistrer une carte bancaire
+    SANS souscrire d'abonnement. Utile pour la conciergerie.
+    Retourne une URL Stripe Checkout en mode 'setup'.
+    """
+    token = _extract_bearer(request)
+    payload = _decode_client_token(token)
+    if not payload:
+        return JSONResponse(status_code=401, content={"error": "Token invalide"})
+
+    stripe_key = os.getenv("STRIPE_API_KEY", "") or os.getenv("STRIPE_SECRET_KEY", "")
+    if not stripe_key:
+        return JSONResponse(status_code=500, content={"error": "STRIPE_API_KEY non configure"})
+
+    try:
+        import stripe
+        stripe.api_key = stripe_key
+        host = request.headers.get("host", "localhost:8888")
+        base_url = f"https://{host}"
+
+        tid = payload["tenant_id"]
+        email = payload["email"]
+
+        # Creer ou recuperer le Customer Stripe
+        customer_id = None
+        if _redis_client:
+            rec = _redis_client.get_auth_by_email(email)
+            if rec:
+                customer_id = rec.get("stripe_customer_id", "")
+        if not customer_id:
+            customer = stripe.Customer.create(
+                email=email,
+                metadata={"tenant_id": str(tid), "yawatch": "true"},
+            )
+            customer_id = customer.id
+            if _redis_client:
+                _redis_client.update_auth_record(email, {"stripe_customer_id": customer_id})
+
+        # Creer un Checkout Session en mode 'setup' (enregistre la carte sans payer)
+        session = stripe.checkout.Session.create(
+            customer=customer_id,
+            payment_method_types=["card"],
+            mode="setup",
+            metadata={
+                "tenant_id": str(tid),
+                "email": email,
+                "purpose": "concierge_card",
+            },
+            success_url=f"{base_url}/?card_saved=success",
+            cancel_url=f"{base_url}/?card_saved=cancel",
+        )
+        logger.info(f"STRIPE_SETUP_CARD tenant_id={tid} email={email}")
+        return {"setup_url": session.url}
+    except Exception as e:
+        logger.error(f"Setup card error: {e}")
+        return JSONResponse(status_code=500, content={"error": "Erreur lors de l'enregistrement de la carte. Reessaie."})
+
+
 # =========================================================================
 # STRIPE WEBHOOK (accessible en setup ET en production)
 # =========================================================================
@@ -3568,6 +3778,63 @@ async def update_profile(request: Request):
         return JSONResponse(status_code=404, content={"error": "Profil non trouve"})
     _gamify(tid, "profile_update")
     return {"success": True, "profile": profile.model_dump()}
+
+
+# =========================================================================
+# GEOLOCATION ENDPOINTS
+# =========================================================================
+
+@app.post("/api/geolocation")
+async def update_geolocation(request: Request):
+    """
+    Stocke la position GPS du souscripteur (envoyee par le navigateur/APK).
+    Stocke dans Redis avec TTL 1h (position fraiche).
+    """
+    tid = getattr(request.state, "tenant_id", 1)
+    if not _redis_client:
+        return JSONResponse(status_code=503, content={"error": "Service indisponible"})
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse(status_code=400, content={"error": "JSON invalide"})
+
+    lat = body.get("latitude")
+    lng = body.get("longitude")
+    accuracy = body.get("accuracy")
+    city = body.get("city", "")
+    address = body.get("address", "")
+
+    if lat is None or lng is None:
+        return JSONResponse(status_code=400, content={"error": "latitude et longitude requis"})
+
+    import json as _json
+    geo_data = _json.dumps({
+        "latitude": lat,
+        "longitude": lng,
+        "accuracy": accuracy,
+        "city": city,
+        "address": address,
+        "updated_at": time.time(),
+    })
+    key = f"luna:{tid}:geolocation"
+    _redis_client.client.set(key, geo_data, ex=3600)  # TTL 1h
+    logger.info(f"Geolocation updated for tenant {tid}: {lat},{lng} ({city})")
+    return {"success": True}
+
+
+@app.get("/api/geolocation")
+async def get_geolocation(request: Request):
+    """Retourne la derniere position connue du souscripteur."""
+    tid = getattr(request.state, "tenant_id", 1)
+    if not _redis_client:
+        return JSONResponse(status_code=503, content={"error": "Service indisponible"})
+    import json as _json
+    key = f"luna:{tid}:geolocation"
+    raw = _redis_client.client.get(key)
+    if not raw:
+        return {"geolocation": None, "message": "Aucune position connue"}
+    geo = _json.loads(raw)
+    return {"geolocation": geo}
 
 
 # =========================================================================
@@ -4856,6 +5123,99 @@ async def export_events(request: Request, limit: int = 200):
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 
+@app.get("/api/events/pdf")
+async def export_events_pdf(request: Request, days: int = 7):
+    """Exporte le journal d'evenements en PDF pour le souscripteur."""
+    tid = getattr(request.state, "tenant_id", 1)
+    mgr = _get_tenant_manager(tid)
+    if not mgr:
+        return JSONResponse(status_code=503, content={"error": "Memoire non disponible"})
+    try:
+        from fpdf import FPDF
+        import io as _io
+        from datetime import datetime, timedelta
+
+        events = mgr.get_event_log(limit=500)
+
+        # Filtrer par nombre de jours
+        cutoff = (datetime.utcnow() - timedelta(days=days)).isoformat()
+        events = [e for e in events if e.get("timestamp", "") >= cutoff]
+
+        # Profil souscripteur
+        profile = mgr.get_subscriber_profile()
+        sub_name = "Souscripteur"
+        if profile:
+            sub_name = f"{profile.first_name or ''} {profile.last_name or ''}".strip() or "Souscripteur"
+
+        pdf = FPDF()
+        pdf.add_page()
+        pdf.set_auto_page_break(auto=True, margin=15)
+
+        # Titre
+        pdf.set_font("Helvetica", "B", 18)
+        pdf.cell(0, 12, "Luna - Compte Rendu d'Activite", ln=True, align="C")
+        pdf.set_font("Helvetica", "", 11)
+        pdf.cell(0, 8, f"Souscripteur : {_clean_latin1(sub_name)}", ln=True, align="C")
+        pdf.cell(0, 8, f"Periode : {days} derniers jours", ln=True, align="C")
+        pdf.cell(0, 8, f"Genere le : {datetime.utcnow().strftime('%d/%m/%Y a %H:%M UTC')}", ln=True, align="C")
+        pdf.ln(8)
+
+        # Stats
+        categories = {}
+        for ev in events:
+            cat = ev.get("category", "autre")
+            categories[cat] = categories.get(cat, 0) + 1
+
+        if categories:
+            pdf.set_font("Helvetica", "B", 13)
+            pdf.cell(0, 10, "Resume", ln=True)
+            pdf.set_font("Helvetica", "", 10)
+            for cat, count in sorted(categories.items(), key=lambda x: -x[1]):
+                pdf.cell(0, 6, f"  {cat.capitalize()} : {count} evenement(s)", ln=True)
+            pdf.ln(6)
+
+        # Tableau
+        pdf.set_font("Helvetica", "B", 13)
+        pdf.cell(0, 10, f"Journal detaille ({len(events)} evenements)", ln=True)
+        pdf.set_font("Helvetica", "B", 9)
+        pdf.cell(40, 7, "Date/Heure", border=1)
+        pdf.cell(25, 7, "Type", border=1)
+        pdf.cell(0, 7, "Description", border=1, ln=True)
+
+        pdf.set_font("Helvetica", "", 8)
+        for ev in events:
+            ts = ev.get("timestamp", "?")[:16].replace("T", " ")
+            cat = ev.get("category", "?")[:12]
+            desc = _clean_latin1(ev.get("description", ""))[:90]
+            pdf.cell(40, 6, ts, border=1)
+            pdf.cell(25, 6, cat, border=1)
+            pdf.cell(0, 6, desc, border=1, ln=True)
+
+        pdf.ln(10)
+        pdf.set_font("Helvetica", "I", 8)
+        pdf.cell(0, 5, "Ce document est genere automatiquement par Luna, l'assistante IA de YAWatch.", ln=True, align="C")
+
+        buf = _io.BytesIO()
+        pdf.output(buf)
+        buf.seek(0)
+        filename = f"luna_rapport_{sub_name.replace(' ', '_')}_{days}j.pdf"
+        return Response(
+            content=buf.read(),
+            media_type="application/pdf",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
+    except ImportError:
+        return JSONResponse(status_code=500, content={"error": "Module fpdf2 non installe"})
+    except Exception as e:
+        logger.error(f"PDF export error: {e}")
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+
+def _clean_latin1(text: str) -> str:
+    """Nettoie le texte pour fpdf2 (Latin-1 compatible)."""
+    return text.encode("latin-1", errors="replace").decode("latin-1")
+
+
 # =========================================================================
 # QUOTA ENDPOINT
 # =========================================================================
@@ -5014,6 +5374,10 @@ async def _handle_tavus_tool_call(body: Dict) -> Dict:
             result = await _tool_send_email(args, tenant_id=tid)
         elif tool_name == "invite_visio":
             result = await _tool_invite_visio(args, tenant_id=tid)
+        elif tool_name == "search_web":
+            result = await _tool_search_web(args, tenant_id=tid)
+        elif tool_name == "request_payment":
+            result = await _tool_request_payment(args, tenant_id=tid)
         else:
             logger.warning(f"Tavus tool inconnu: {tool_name}")
     except Exception as e:
@@ -5357,6 +5721,15 @@ async def _tool_call_contact(args: Dict, tenant_id: int = 0) -> Dict:
     from integrations.twilio.sms_client import TwilioSMSClient
     normalized_phone = TwilioSMSClient.normalize_phone(phone)
 
+    # Mention legale rapport PDF (l'interlocuteur doit etre informe)
+    _report_notice = (
+        "IMPORTANT : En debut d'appel, apres ta salutation, informe l'interlocuteur que "
+        "cet appel fait l'objet d'un compte-rendu qui sera transmis a {sub_name}. "
+        "Dis quelque chose comme : 'Je te previens que {sub_name} recevra un petit "
+        "resume de notre echange, c'est pour qu'il soit au courant de tout.' "
+        "Si l'interlocuteur refuse, note-le et termine l'appel poliment."
+    ).format(sub_name=sub_name)
+
     # Mission pour Luna pendant l'appel
     if is_admin_call:
         mission = f"Tu appelles {matched_name} pour {sub_name}. "
@@ -5364,6 +5737,7 @@ async def _tool_call_contact(args: Dict, tenant_id: int = 0) -> Dict:
             mission += f"Voici la demande de {sub_name} : {message}"
         else:
             mission += f"{sub_name} souhaite obtenir des informations."
+        mission += f"\n{_report_notice}"
         greeting = f"Bonjour ! Je suis Luna, l'assistante de {sub_name}. "
         if message:
             greeting += f"J'appelle de la part de {sub_name}. {message}"
@@ -5375,6 +5749,7 @@ async def _tool_call_contact(args: Dict, tenant_id: int = 0) -> Dict:
             mission += f"Voici ce que {sub_name} veut que tu transmettes : {message}"
         else:
             mission += f"{sub_name} voulait prendre des nouvelles."
+        mission += f"\n{_report_notice}"
         greeting = f"Bonjour {matched_name} ! C'est Luna, l'assistante de {sub_name}. "
         if message:
             greeting += f"{sub_name} m'a demande de t'appeler pour te dire : {message}"
@@ -5387,11 +5762,18 @@ async def _tool_call_contact(args: Dict, tenant_id: int = 0) -> Dict:
         return {"status": "error", "message": f"Impossible d'appeler {matched_name}: {data.get('error', 'erreur inconnue')}"}
 
     call_sid = data.get("call_sid", "")
-    # Stocker les parametres pour le bridge
+    # Stocker les parametres pour le bridge (incluant tenant_id pour isolation)
+    import time as _ts
     _voice_call_params[call_sid] = {
         "mission": mission,
         "max_duration": 180,
         "greeting": greeting,
+        "contact_name": matched_name,
+        "tenant_id": tid,
+        "subscriber_name": sub_name,
+        "contact_phone": normalized_phone,
+        "message": message,
+        "_ts": _ts.time(),
     }
 
     logger.info(f"Voice call initiated to {matched_name} ({normalized_phone}) call_sid={call_sid}")
@@ -5679,6 +6061,280 @@ async def _tool_report_observation(args: Dict) -> Dict:
     return {"status": "success", "message": "Observation notee", "reasoning": reasoning}
 
 
+# --- CONCIERGERIE: Recherche web + Paiement ---
+
+_SERPER_API_KEY = os.getenv("SERPER_API_KEY", "")
+
+
+async def _tool_search_web(args: Dict, tenant_id: int = 0) -> Dict:
+    """Recherche sur Internet via Serper API (Google Search)."""
+    if not _SERPER_API_KEY:
+        return {"status": "error", "message": "Service de recherche non configure"}
+    tid = tenant_id or TENANT_ID
+    mgr = _get_tenant_manager(tid) if tid else _memory_manager
+
+    query = args.get("query", "").strip()
+    location = args.get("location", "").strip()
+    if not query:
+        return {"status": "error", "message": "Requete de recherche requise"}
+
+    # Enrichir la recherche avec la localisation du souscripteur si disponible
+    if not location and mgr:
+        try:
+            profile = mgr.get_subscriber_profile()
+            if profile:
+                city = getattr(profile, "city", "")
+                if city:
+                    location = city
+            # Aussi check la geoloc recente
+            geo = _redis_client.client.get(f"luna:{tid}:geolocation") if _redis_client else None
+            if geo:
+                import json as _json
+                geo_data = _json.loads(geo)
+                if geo_data.get("city"):
+                    location = geo_data["city"]
+        except Exception:
+            pass
+
+    # Enrichir la requete avec la localisation
+    search_query = query
+    if location and location.lower() not in query.lower():
+        search_query = f"{query} {location}"
+
+    import httpx
+    try:
+        async with httpx.AsyncClient() as http:
+            resp = await http.post(
+                "https://google.serper.dev/search",
+                headers={
+                    "X-API-KEY": _SERPER_API_KEY,
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "q": search_query,
+                    "gl": "fr",
+                    "hl": "fr",
+                    "num": 5,
+                },
+                timeout=10,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+    except Exception as e:
+        logger.error(f"Serper search error: {e}")
+        return {"status": "error", "message": "Erreur lors de la recherche. Reessaie."}
+
+    # Formatter les resultats pour Luna
+    results = []
+
+    # Knowledge Graph (answer box)
+    kg = data.get("knowledgeGraph", {})
+    if kg:
+        kg_info = kg.get("title", "")
+        if kg.get("description"):
+            kg_info += f" — {kg['description']}"
+        if kg.get("attributes"):
+            for k, v in list(kg["attributes"].items())[:5]:
+                kg_info += f"\n  {k}: {v}"
+        if kg_info:
+            results.append(f"[Info directe] {kg_info}")
+
+    # Answer Box
+    answer = data.get("answerBox", {})
+    if answer:
+        ans_text = answer.get("answer") or answer.get("snippet") or answer.get("title", "")
+        if ans_text:
+            results.append(f"[Reponse] {ans_text}")
+
+    # Organic results
+    organic = data.get("organic", [])
+    for item in organic[:5]:
+        title = item.get("title", "")
+        snippet = item.get("snippet", "")
+        link = item.get("link", "")
+        phone = ""
+        # Extraire un numero de telephone s'il y en a un dans le snippet
+        import re
+        phone_match = re.search(r'(\+?\d[\d\s\-.]{8,15})', snippet)
+        if phone_match:
+            phone = f" | Tel: {phone_match.group(1).strip()}"
+        results.append(f"{title}: {snippet}{phone}")
+
+    # Places (local business results)
+    places = data.get("places", [])
+    for place in places[:3]:
+        name = place.get("title", "")
+        addr = place.get("address", "")
+        rating = place.get("rating", "")
+        phone_p = place.get("phoneNumber", "")
+        info = f"[Lieu] {name}"
+        if addr:
+            info += f" — {addr}"
+        if rating:
+            info += f" | Note: {rating}/5"
+        if phone_p:
+            info += f" | Tel: {phone_p}"
+        results.append(info)
+
+    if not results:
+        return {"status": "success", "message": f"Aucun resultat pour '{query}'.", "results": []}
+
+    formatted = "\n".join(results[:8])
+
+    # Log la recherche
+    if mgr:
+        try:
+            mgr.add_note(
+                content=f"[Recherche web] {query}\n{formatted[:300]}",
+                context="search_web",
+                tags=["recherche", "conciergerie"],
+            )
+        except Exception:
+            pass
+
+    return {
+        "status": "success",
+        "message": f"Resultats pour '{query}':\n{formatted}",
+        "results": results[:8],
+        "query": search_query,
+    }
+
+
+async def _tool_request_payment(args: Dict, tenant_id: int = 0) -> Dict:
+    """Cree un PaymentIntent Stripe pour un achat de conciergerie avec la carte sauvee du souscripteur."""
+    tid = tenant_id or TENANT_ID
+    mgr = _get_tenant_manager(tid) if tid else _memory_manager
+
+    amount_cents = args.get("amount_cents", 0)
+    description = args.get("description", "")
+    merchant_name = args.get("merchant_name", "Conciergerie Luna")
+
+    if not amount_cents or amount_cents <= 0:
+        return {"status": "error", "message": "Montant invalide"}
+    if not description:
+        return {"status": "error", "message": "Description de l'achat requise"}
+
+    # Verifier le plafond du souscripteur
+    max_budget = 0
+    sub_name = _SUBSCRIBER_NAME
+    if mgr:
+        try:
+            profile = mgr.get_subscriber_profile()
+            if profile:
+                max_budget = int(getattr(profile, "max_budget", 0) or 0)
+                if profile.first_name:
+                    sub_name = profile.first_name
+        except Exception:
+            pass
+
+    amount_eur = amount_cents / 100
+    if max_budget > 0 and amount_eur > max_budget:
+        return {
+            "status": "error",
+            "message": f"Le montant de {amount_eur:.2f} EUR depasse le plafond de {max_budget} EUR fixe par {sub_name}. Demande-lui s'il veut quand meme proceder."
+        }
+
+    # Recuperer le stripe_customer_id du souscripteur (par tenant_id, pas par PROPRIO_EMAIL)
+    import stripe as _stripe
+    _stripe_secret = os.getenv("STRIPE_SECRET_KEY", "") or os.getenv("STRIPE_API_KEY", "")
+    if not _stripe_secret:
+        return {"status": "error", "message": "Service de paiement non configure"}
+    _stripe.api_key = _stripe_secret
+
+    # Chercher le customer Stripe via Redis — pour le TENANT actuel
+    stripe_customer_id = None
+    if _redis_client:
+        try:
+            # Chercher tous les auth records pour trouver celui du bon tenant
+            import json as _json_stripe
+            for key in _redis_client.client.keys(f"{_redis_client.prefix}:auth:*"):
+                raw = _redis_client.client.get(key)
+                if raw:
+                    rec = _json_stripe.loads(raw)
+                    if rec.get("tenant_id") == tid or str(rec.get("tenant_id")) == str(tid):
+                        stripe_customer_id = rec.get("stripe_customer_id")
+                        if stripe_customer_id:
+                            break
+        except Exception as e:
+            logger.warning(f"Stripe customer lookup error: {e}")
+
+    if not stripe_customer_id:
+        return {
+            "status": "error",
+            "message": f"Aucune methode de paiement enregistree pour {sub_name}. Il doit d'abord ajouter une carte dans l'onglet Parametres."
+        }
+
+    try:
+        # Recuperer la methode de paiement par defaut
+        customer = _stripe.Customer.retrieve(stripe_customer_id)
+        default_pm = customer.get("invoice_settings", {}).get("default_payment_method")
+        if not default_pm:
+            # Chercher une carte attachee
+            pms = _stripe.PaymentMethod.list(customer=stripe_customer_id, type="card", limit=1)
+            if pms.data:
+                default_pm = pms.data[0].id
+            else:
+                return {
+                    "status": "error",
+                    "message": f"Aucune carte bancaire enregistree pour {sub_name}. Il doit d'abord ajouter une carte."
+                }
+
+        # Creer le PaymentIntent
+        intent = _stripe.PaymentIntent.create(
+            amount=amount_cents,
+            currency="eur",
+            customer=stripe_customer_id,
+            payment_method=default_pm,
+            description=f"[Luna Conciergerie] {description}",
+            metadata={
+                "tenant_id": str(tid),
+                "merchant": merchant_name,
+                "type": "concierge",
+            },
+            # Ne PAS confirmer automatiquement — le souscripteur doit valider
+            confirm=False,
+        )
+
+        # Log l'intent
+        if mgr:
+            try:
+                mgr.add_note(
+                    content=(
+                        f"[Paiement conciergerie] {amount_eur:.2f} EUR — {description}\n"
+                        f"Commercant: {merchant_name} | Statut: en attente de confirmation\n"
+                        f"Ref: {intent.id}"
+                    ),
+                    context="payment",
+                    tags=["paiement", "conciergerie", merchant_name],
+                )
+                mgr.log_event(
+                    category="action",
+                    description=f"Paiement conciergerie cree: {amount_eur:.2f} EUR pour {merchant_name}",
+                    reasoning=f"Luna prepare un paiement de {amount_eur:.2f} EUR: {description}",
+                    source="tool_call",
+                )
+            except Exception:
+                pass
+
+        return {
+            "status": "success",
+            "message": (
+                f"Paiement de {amount_eur:.2f} EUR prepare pour {merchant_name}. "
+                f"{sub_name} doit confirmer le paiement dans l'application pour finaliser. "
+                f"Reference: {intent.id[-8:]}"
+            ),
+            "payment_intent_id": intent.id,
+            "amount_eur": amount_eur,
+        }
+
+    except _stripe.error.StripeError as e:
+        logger.error(f"Stripe payment error: {e}")
+        return {"status": "error", "message": f"Erreur de paiement: {str(e)[:100]}"}
+    except Exception as e:
+        logger.error(f"Payment error: {e}")
+        return {"status": "error", "message": "Erreur lors de la creation du paiement. Reessaie."}
+
+
 async def _handle_tavus_transcription(body: Dict) -> Dict:
     """Sauvegarde la transcription d'un appel Tavus."""
     if not _memory_manager:
@@ -5811,9 +6467,14 @@ async def serve_document(filename: str, request: Request):
     filepath = os.path.join(os.path.dirname(__file__), "static", "documents", str(tid), filename)
     if not os.path.exists(filepath):
         return JSONResponse(status_code=404, content={"error": "Document non trouve"})
+    # Determiner le media_type selon l'extension
+    if filename.endswith(".pdf"):
+        media_type = "application/pdf"
+    else:
+        media_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
     return FileResponse(
         filepath,
-        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        media_type=media_type,
         filename=filename,
     )
 

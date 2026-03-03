@@ -192,7 +192,7 @@ async def update_my_profile(request: Request):
         from core.gamification.engine import award_xp
         from core.gamification.redis_ops import GamificationRedisOps
         gops = GamificationRedisOps(sops.rc)
-        award_xp(gops, tid, "profile_customized")
+        await award_xp(gops, tid, "profile_customized")
     except Exception:
         pass
 
@@ -456,8 +456,8 @@ async def accept_friend(request: Request):
         from core.gamification.engine import award_xp
         from core.gamification.redis_ops import GamificationRedisOps
         gops = GamificationRedisOps(sops.rc)
-        award_xp(gops, tid, "friend_added")
-        award_xp(gops, requester_tid, "friend_added")
+        await award_xp(gops, tid, "friend_added")
+        await award_xp(gops, requester_tid, "friend_added")
         # Update total_friends counter
         count_me = sops.get_friend_count(tid)
         count_them = sops.get_friend_count(requester_tid)
@@ -743,7 +743,7 @@ async def send_dm_message(request: Request, room_id: str):
         from core.gamification.engine import award_xp
         from core.gamification.redis_ops import GamificationRedisOps
         gops = GamificationRedisOps(sops.rc)
-        award_xp(gops, tid, "dm_message_sent")
+        await award_xp(gops, tid, "dm_message_sent")
         # Update total_dm_messages counter
         gops.increment_player_field(tid, "total_dm_messages", 1)
     except Exception:

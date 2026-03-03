@@ -454,12 +454,14 @@ class TavusClient:
         context: Optional[str] = None,
         max_duration: int = 40,
         callback_url: Optional[str] = None,
+        replica_id: Optional[str] = None,
     ) -> Tuple[bool, Dict[str, Any]]:
         """
         Cree une nouvelle conversation video Tavus.
 
         Args:
             callback_url: URL du webhook pour recevoir les events (tool_call, transcription)
+            replica_id: Override la replica visuelle de la persona (decor horaire)
 
         Returns:
             (success, data) avec data contenant conversation_url et conversation_id
@@ -471,6 +473,8 @@ class TavusClient:
             "persona_id": self.persona_id,
             "properties": {"max_call_duration": max_duration},
         }
+        if replica_id:
+            payload["replica_id"] = replica_id
         if custom_greeting:
             payload["custom_greeting"] = custom_greeting
         if context:

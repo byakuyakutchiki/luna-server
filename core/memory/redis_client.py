@@ -99,7 +99,7 @@ class RedisClient:
                 self.client.delete(key)
                 count += 1
             # Supprimer aussi l'index tenant
-            self.client.zrem(f"{self.prefix}:tenants:index", tenant_id)
+            self.client.zrem(f"{self.prefix}:auth:tenant_index", tenant_id)
         except redis.RedisError as e:
             logger.error(f"Purge tenant {tenant_id} error: {e}")
         return count
@@ -394,28 +394,8 @@ class RedisClient:
         return {k: int(v) for k, v in data.items()}
 
     # ========================================================================
-    # SESSION
+    # SESSION (defini dans la section Unified Memory ci-dessous)
     # ========================================================================
-
-    def get_session_key(self, tenant_id: int) -> str:
-        """Clé pour la session courante"""
-        return self._key(tenant_id, "session", "current")
-
-    def set_session(self, tenant_id: int, data: Dict[str, str]) -> None:
-        """Définit la session courante"""
-        key = self.get_session_key(tenant_id)
-        self.client.hset(key, mapping=data)
-        self.client.expire(key, TTL_SESSIONS)
-
-    def get_session(self, tenant_id: int) -> Optional[Dict[str, str]]:
-        """Récupère la session courante"""
-        key = self.get_session_key(tenant_id)
-        data = self.client.hgetall(key)
-        return data if data else None
-
-    def clear_session(self, tenant_id: int) -> None:
-        """Efface la session courante"""
-        self.client.delete(self.get_session_key(tenant_id))
 
 
     # ========================================================================

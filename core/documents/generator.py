@@ -1,7 +1,8 @@
 """
-Luna Document Generator - Generation de documents DOCX
+Luna Document Generator - Generation de documents DOCX et PDF
 
 Genere des courriers, resumes, fiches et exports au format Word (.docx).
+Genere des rapports d'appel au format PDF (fpdf2).
 Utilise python-docx pour la mise en page et GPT pour le contenu.
 """
 import os
@@ -350,13 +351,203 @@ class DocumentGenerator:
 
         return self._save(doc, "contacts")
 
+    def generate_call_report(
+        self,
+        call_type: str,
+        subscriber_name: str,
+        contact_name: str,
+        contact_phone: str,
+        duration_minutes: float,
+        transcript: List[Dict[str, str]],
+        actions: List[str] = None,
+        call_sid: str = "",
+        message_original: str = "",
+    ) -> str:
+        """
+        Genere un rapport PDF d'appel vocal/visio.
+
+        Args:
+            call_type: "vocal" ou "visio"
+            subscriber_name: Prenom du souscripteur
+            contact_name: Nom du contact appele
+            contact_phone: Numero du contact (masque partiellement)
+            duration_minutes: Duree de l'appel en minutes
+            transcript: Liste de {"role": "user|luna", "text": "..."}
+            actions: Actions executees pendant l'appel (SMS envoyes, notes, etc.)
+            call_sid: Identifiant Twilio de l'appel
+            message_original: Message initial demande par le souscripteur
+
+        Returns:
+            Nom du fichier PDF genere
+        """
+        from fpdf import FPDF
+
+        def _sanitize_text(text: str) -> str:
+            """Remplace les caracteres Unicode non supportes par latin-1."""
+            replacements = {
+                "\u2018": "'", "\u2019": "'",  # smart quotes
+                "\u201c": '"', "\u201d": '"',
+                "\u2013": "-", "\u2014": "-",  # dashes
+                "\u2026": "...",  # ellipsis
+                "\u2022": "-",  # bullet
+                "\u00a0": " ",  # nbsp
+            }
+            for old, new in replacements.items():
+                text = text.replace(old, new)
+            # Fallback: remplacer tout caractere non-latin1
+            try:
+                text.encode("latin-1")
+            except UnicodeEncodeError:
+                text = text.encode("latin-1", errors="replace").decode("latin-1")
+            return text
+
+        class CallReportPDF(FPDF):
+            """PDF personnalise avec header/footer Luna."""
+
+            def header(self):
+                self.set_font("Helvetica", "B", 10)
+                self.set_text_color(124, 58, 237)  # Violet Luna
+                self.cell(0, 8, "Luna - YAWatch", align="L")
+                self.set_font("Helvetica", "", 9)
+                self.set_text_color(136, 136, 136)
+                self.cell(0, 8, datetime.now().strftime("%d/%m/%Y %H:%M"), align="R", new_x="LMARGIN", new_y="NEXT")
+                self.set_draw_color(124, 58, 237)
+                self.line(10, self.get_y(), 200, self.get_y())
+                self.ln(4)
+
+            def footer(self):
+                self.set_y(-15)
+                self.set_font("Helvetica", "I", 8)
+                self.set_text_color(170, 170, 170)
+                ref = f"Ref: {call_sid[:12]}..." if call_sid and len(call_sid) > 12 else (call_sid or "N/A")
+                self.cell(0, 10, f"Rapport Luna | {ref} | Page {self.page_no()}/{{nb}}", align="C")
+
+        pdf = CallReportPDF()
+        pdf.alias_nb_pages()
+        pdf.set_auto_page_break(auto=True, margin=20)
+        pdf.add_page()
+
+        # --- Titre ---
+        pdf.set_font("Helvetica", "B", 18)
+        pdf.set_text_color(26, 26, 62)
+        title = f"Rapport d'appel {call_type}"
+        pdf.cell(0, 12, title, new_x="LMARGIN", new_y="NEXT")
+        pdf.ln(4)
+
+        # --- Informations de l'appel ---
+        pdf.set_font("Helvetica", "B", 11)
+        pdf.set_text_color(26, 26, 62)
+        pdf.cell(0, 8, "Informations", new_x="LMARGIN", new_y="NEXT")
+
+        pdf.set_font("Helvetica", "", 10)
+        pdf.set_text_color(51, 51, 51)
+
+        # Masquer partiellement le numero
+        masked_phone = contact_phone
+        if contact_phone and len(contact_phone) > 6:
+            masked_phone = contact_phone[:4] + "****" + contact_phone[-2:]
+
+        info_lines = [
+            ("Souscripteur", subscriber_name),
+            ("Contact appele", f"{contact_name} ({masked_phone})"),
+            ("Type", f"Appel {call_type}"),
+            ("Date", datetime.now().strftime("%d/%m/%Y a %H:%M")),
+            ("Duree", f"{duration_minutes:.1f} minute(s)"),
+        ]
+        if message_original:
+            info_lines.append(("Demande initiale", message_original[:200]))
+
+        for label, value in info_lines:
+            pdf.set_font("Helvetica", "B", 10)
+            pdf.cell(45, 7, f"{label} :", align="R")
+            pdf.set_font("Helvetica", "", 10)
+            pdf.cell(0, 7, f"  {_sanitize_text(value)}", new_x="LMARGIN", new_y="NEXT")
+
+        pdf.ln(6)
+
+        # --- Transcription ---
+        pdf.set_font("Helvetica", "B", 11)
+        pdf.set_text_color(26, 26, 62)
+        pdf.cell(0, 8, "Transcription de l'appel", new_x="LMARGIN", new_y="NEXT")
+        pdf.ln(2)
+
+        if transcript:
+            for entry in transcript:
+                role = entry.get("role", "")
+                text = entry.get("text", "").strip()
+                if not text:
+                    continue
+
+                if role == "luna":
+                    pdf.set_font("Helvetica", "B", 9)
+                    pdf.set_text_color(124, 58, 237)
+                    speaker = "Luna"
+                else:
+                    pdf.set_font("Helvetica", "B", 9)
+                    pdf.set_text_color(51, 51, 51)
+                    speaker = contact_name or "Interlocuteur"
+
+                pdf.cell(30, 6, f"{_sanitize_text(speaker)} :", align="R")
+                pdf.set_font("Helvetica", "", 9)
+                pdf.set_text_color(51, 51, 51)
+                # Multi-cell pour les textes longs
+                pdf.multi_cell(0, 6, f"  {_sanitize_text(text)}", new_x="LMARGIN", new_y="NEXT")
+                pdf.ln(1)
+        else:
+            pdf.set_font("Helvetica", "I", 10)
+            pdf.set_text_color(136, 136, 136)
+            pdf.cell(0, 8, "Aucune transcription disponible.", new_x="LMARGIN", new_y="NEXT")
+
+        pdf.ln(4)
+
+        # --- Actions executees ---
+        if actions:
+            pdf.set_font("Helvetica", "B", 11)
+            pdf.set_text_color(26, 26, 62)
+            pdf.cell(0, 8, "Actions executees pendant l'appel", new_x="LMARGIN", new_y="NEXT")
+            pdf.ln(2)
+
+            pdf.set_font("Helvetica", "", 10)
+            pdf.set_text_color(51, 51, 51)
+            for action in actions:
+                pdf.cell(6, 6, "-")
+                pdf.multi_cell(0, 6, f" {_sanitize_text(action)}", new_x="LMARGIN", new_y="NEXT")
+
+            pdf.ln(4)
+
+        # --- Mention legale ---
+        pdf.ln(6)
+        pdf.set_draw_color(200, 200, 200)
+        pdf.line(10, pdf.get_y(), 200, pdf.get_y())
+        pdf.ln(4)
+        pdf.set_font("Helvetica", "I", 8)
+        pdf.set_text_color(136, 136, 136)
+        pdf.multi_cell(0, 4,
+            _sanitize_text(
+                "Ce rapport a ete genere automatiquement par Luna, assistante IA YAWatch. "
+                "L'interlocuteur a ete informe en debut d'appel qu'un compte-rendu serait "
+                "transmis au souscripteur. Ce document est confidentiel et destine uniquement "
+                f"a {subscriber_name}."
+            ),
+            new_x="LMARGIN", new_y="NEXT",
+        )
+
+        # Sauvegarder
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        short_id = uuid.uuid4().hex[:6]
+        filename = f"rapport_appel_{timestamp}_{short_id}.pdf"
+        filepath = os.path.join(self.output_dir, filename)
+        pdf.output(filepath)
+        logger.info(f"Call report PDF generated: {filepath}")
+        return filename
+
     def list_documents(self) -> List[Dict[str, Any]]:
         """Liste les documents generes pour ce tenant."""
         docs = []
         if not os.path.exists(self.output_dir):
             return docs
         for f in sorted(os.listdir(self.output_dir), reverse=True):
-            if f.endswith(".docx"):
+            if f.endswith((".docx", ".pdf")):
                 filepath = os.path.join(self.output_dir, f)
                 stat = os.stat(filepath)
                 # Parse type from filename (e.g. courrier_admin_20260131_...)
@@ -364,11 +555,14 @@ class DocumentGenerator:
                 doc_type = parts[0] if parts else "unknown"
                 if len(parts) > 1:
                     combined = f"{parts[0]}_{parts[1]}"
-                    if combined in DOC_TYPES:
+                    if combined in DOC_TYPES or combined == "rapport_appel":
                         doc_type = combined
+                type_label = DOC_TYPES.get(doc_type, doc_type)
+                if doc_type == "rapport_appel":
+                    type_label = "Rapport d'appel"
                 docs.append({
                     "filename": f,
-                    "type": DOC_TYPES.get(doc_type, doc_type),
+                    "type": type_label,
                     "size_kb": round(stat.st_size / 1024, 1),
                     "created_at": datetime.fromtimestamp(stat.st_mtime).isoformat(),
                 })

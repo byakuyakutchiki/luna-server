@@ -422,9 +422,8 @@ class MemoryManager:
     def get_emergency_contacts(self) -> List[TrustedContact]:
         """Récupère les contacts à alerter en cas d'urgence"""
         contacts = self.list_trusted_contacts()
-        # En urgence, on contacte tout le monde sauf ceux marqués "emergency_only=False"
-        # qui ont explicitement demandé à ne pas être dérangés
-        return [c for c in contacts if not c.emergency_only or True]  # Tous en urgence
+        # En urgence, on contacte tout le monde
+        return contacts
 
     # ========================================================================
     # NOTES
@@ -645,7 +644,7 @@ class MemoryManager:
 
     def end_session(self) -> None:
         """Termine la session courante"""
-        self.redis.clear_session(self.tenant_id)
+        self.redis.delete_session(self.tenant_id)
 
     # ========================================================================
     # QUOTA & USAGE

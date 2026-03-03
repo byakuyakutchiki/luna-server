@@ -1,10 +1,10 @@
 """
 Luna Quota Guard - Protection des quotas et limites de conversation
 
-Vérifie et gère les quotas par forfait (tarifs à partir de 139€/mois):
-- Essentiel (139€): 20 SMS/mois, 15 min visio, 500 messages
-- Confort (229€): 50 SMS/mois, 45 min visio, 1500 messages
-- Premium (399€): 100 SMS/mois, 90 min visio, 3000 messages
+Vérifie et gère les quotas par forfait:
+- Essentiel (79€): 25 SMS/mois, 40 min voix, 12 min visio, chat illimité
+- Confort (149€): 50 SMS/mois, 100 min voix, 28 min visio, chat illimité
+- Premium (249€): 100 SMS/mois, 180 min voix, 55 min visio, chat illimité
 
 Alertes:
 - 80%: avertissement au propriétaire
@@ -13,7 +13,7 @@ Alertes:
 
 PRINCIPE: Le propriétaire ne reçoit JAMAIS de facture surprise.
 Luna doit toujours prévenir AVANT d'atteindre les limites.
-JAMAIS de "illimité" sur aucune ressource.
+JAMAIS de "illimité" sur aucune ressource facturée.
 """
 import logging
 from typing import Optional, Dict, Any
@@ -35,23 +35,30 @@ class PlanType(str, Enum):
 
 # Quotas SMS par forfait
 PLAN_SMS_LIMITS = {
-    PlanType.ESSENTIEL: 50,
+    PlanType.ESSENTIEL: 25,
     PlanType.CONFORT: 50,
     PlanType.PREMIUM: 100,
 }
 
-# Quotas visio Luna par forfait (minutes/mois)
-PLAN_VISIO_LIMITS = {
-    PlanType.ESSENTIEL: 15,
-    PlanType.CONFORT: 45,
-    PlanType.PREMIUM: 90,
+# Quotas voix par forfait (minutes/mois)
+PLAN_VOICE_LIMITS = {
+    PlanType.ESSENTIEL: 40,
+    PlanType.CONFORT: 100,
+    PlanType.PREMIUM: 180,
 }
 
-# Quotas messages chat par forfait
+# Quotas visio Luna par forfait (minutes/mois)
+PLAN_VISIO_LIMITS = {
+    PlanType.ESSENTIEL: 12,
+    PlanType.CONFORT: 28,
+    PlanType.PREMIUM: 55,
+}
+
+# Quotas messages chat par forfait (illimite en pratique)
 PLAN_MESSAGE_LIMITS = {
-    PlanType.ESSENTIEL: 500,
-    PlanType.CONFORT: 1500,
-    PlanType.PREMIUM: 3000,
+    PlanType.ESSENTIEL: 999999,
+    PlanType.CONFORT: 999999,
+    PlanType.PREMIUM: 999999,
 }
 
 # Tarifs depassement

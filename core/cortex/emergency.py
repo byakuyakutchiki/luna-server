@@ -1770,7 +1770,7 @@ class EmergencyMode:
             if not self.brain or not self.brain.redis:
                 return False
             redis = self.brain.redis
-            await redis.set(f"luna:{tenant_id}:suspended", "true")
+            await redis.set(f"luna:{tenant_id}:suspended", "true", ex=30*24*3600)  # TTL 30 jours
             logger.warning(f"Tenant {tenant_id} suspendu via SMS d'urgence")
             return True
         except Exception:

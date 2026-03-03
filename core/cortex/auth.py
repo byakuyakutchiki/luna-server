@@ -155,9 +155,14 @@ class CortexAuth:
             return
         self._redis = redis_client
         try:
-            # 1. TOTP secret depuis Redis
+            # 1. TOTP secret — env var est PRIORITAIRE (ne jamais override par Redis)
+            env_totp_set = bool(os.getenv("CORTEX_TOTP_SECRET", ""))
             stored_totp = await redis_client.get(self.REDIS_KEY_TOTP)
-            if stored_totp:
+            if env_totp_set:
+                # Env var fixe le secret — mettre a jour Redis pour coherence
+                await redis_client.set(self.REDIS_KEY_TOTP, self._totp_secret)
+                logger.info("TOTP fixe par env var CORTEX_TOTP_SECRET (prioritaire)")
+            elif stored_totp:
                 secret = stored_totp if isinstance(stored_totp, str) else stored_totp.decode()
                 self._totp_secret = secret.strip()
                 self._totp = pyotp.TOTP(self._totp_secret)

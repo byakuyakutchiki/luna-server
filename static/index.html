@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#0a0a1a">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -103,10 +103,10 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; b
 .error-msg { border: 1px solid rgba(248,113,113,0.3); }
 .retry-btn { margin-left: 10px; padding: 4px 12px; border-radius: 12px; border: 1px solid #7c3aed; background: transparent; color: #a78bfa; cursor: pointer; font-size: 0.85em; }
 .retry-btn:hover { background: #7c3aed; color: white; }
-.input-area { padding: 16px; background: #111; border-top: 1px solid #333; display: flex; gap: 10px; align-items: center; position: relative; }
-.input-area input { flex: 1; padding: 12px 16px; border-radius: 24px; border: 1px solid #333; background: #1a1a2e; color: #fff; font-size: 1em; outline: none; }
-.input-area input:focus { border-color: #7c3aed; }
-.char-counter { font-size: 0.7em; color: #555; position: absolute; right: 290px; bottom: 4px; }
+.input-area { padding: 12px 16px; padding-bottom: calc(12px + env(safe-area-inset-bottom)); background: #111; border-top: 1px solid #333; display: flex; gap: 10px; align-items: flex-end; position: relative; }
+.input-area textarea { flex: 1; padding: 14px 18px; border-radius: 20px; border: 1px solid #333; background: #1a1a2e; color: #fff; font-size: 16px; outline: none; resize: none; min-height: 48px; max-height: 150px; line-height: 1.4; font-family: inherit; overflow-y: auto; -webkit-appearance: none; -webkit-border-radius: 20px; }
+.input-area textarea:focus { border-color: #7c3aed; }
+.char-counter { font-size: 0.7em; color: #555; margin-left: -60px; margin-bottom: 4px; align-self: flex-end; }
 .char-counter.near-limit { color: #f59e0b; }
 .char-counter.at-limit { color: #f87171; }
 .send-btn { padding: 12px 24px; border-radius: 24px; border: none; background: #7c3aed; color: white; font-size: 1em; cursor: pointer; }
@@ -219,10 +219,10 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; b
 @media (max-width: 600px) {
   .msg { max-width: 92%; font-size: 0.9em; padding: 10px 14px; }
   .chat { padding: 12px; gap: 10px; }
-  .input-area { padding: 10px; gap: 6px; flex-wrap: wrap; }
-  .input-area input { padding: 10px 14px; font-size: 0.95em; min-width: 0; }
-  .send-btn { padding: 10px 16px; font-size: 0.9em; min-height: 44px; }
-  .call-btn, .voice-btn { flex: 1; justify-content: center; min-height: 44px; padding: 10px 14px; font-size: 0.85em; }
+  .input-area { padding: 10px; padding-bottom: calc(10px + env(safe-area-inset-bottom)); gap: 8px; flex-wrap: wrap; }
+  .input-area textarea { padding: 12px 14px; font-size: 16px; min-width: 0; min-height: 48px; width: 100%; }
+  .send-btn { padding: 10px 18px; font-size: 16px; min-height: 44px; }
+  .call-btn, .voice-btn { flex: 1; justify-content: center; min-height: 44px; padding: 10px 14px; font-size: 14px; }
   .call-btn svg, .voice-btn svg { width: 16px; height: 16px; }
   .header { padding: 10px 12px; }
   .header h1 { font-size: 1.1em; }
@@ -246,8 +246,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; b
   .header p { display: none; }
   .tab-btn { padding: 6px 8px; font-size: 0.75em; }
   .msg { font-size: 0.85em; padding: 8px 12px; }
-  .input-area input { font-size: 0.9em; padding: 8px 12px; }
-  .send-btn { padding: 8px 12px; font-size: 0.85em; }
+  .input-area textarea { font-size: 16px; padding: 10px 12px; min-height: 44px; }
+  .send-btn { padding: 10px 14px; font-size: 14px; min-height: 44px; }
   .auth-box { padding: 20px 16px; }
   .auth-box h2 { font-size: 1.3em; }
 }
@@ -397,7 +397,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; b
     <div class="chat-main">
       <div class="chat" id="chat"></div>
       <div class="input-area">
-        <input type="text" id="input" placeholder="Message pour Luna..." autocomplete="off" maxlength="2000">
+        <textarea id="input" placeholder="Message pour Luna..." autocomplete="off" maxlength="2000" rows="1"></textarea>
         <span class="char-counter" id="charCounter"></span>
         <button class="send-btn" id="send">Envoyer</button>
         <button class="voice-btn" id="voiceBtn">
@@ -1307,7 +1307,16 @@ function sendMsg(overrideMsg) {
 }
 
 sendBtn.addEventListener("click", function() { sendMsg(); });
-inputEl.addEventListener("keydown", function(e) { if (e.key === "Enter") sendMsg(); });
+inputEl.addEventListener("keydown", function(e) { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMsg(); } });
+inputEl.addEventListener("input", function() {
+  this.style.height = "auto";
+  var maxH = window.innerHeight < 500 ? 80 : 150;
+  this.style.height = Math.min(this.scrollHeight, maxH) + "px";
+});
+// iOS: scroll vers l'input quand le clavier s'ouvre
+inputEl.addEventListener("focus", function() {
+  setTimeout(function() { inputEl.scrollIntoView({ behavior: "smooth", block: "end" }); }, 300);
+});
 
 // --- Video call (Tavus) ---
 function startCall() {
@@ -2344,7 +2353,46 @@ function initApp() {
 
 // Override showApp to also init
 var _origShowApp = showApp;
-showApp = function() { _origShowApp(); initApp(); refreshXpWidget(); _amisHeartbeat(); };
+showApp = function() { _origShowApp(); initApp(); refreshXpWidget(); _amisHeartbeat(); _initGeolocation(); };
+
+// --- Geolocation ---
+function _initGeolocation() {
+  if (!navigator.geolocation) return;
+  // Envoyer la position au serveur toutes les 30 minutes
+  function _sendPosition(pos) {
+    var data = {
+      latitude: pos.coords.latitude,
+      longitude: pos.coords.longitude,
+      accuracy: pos.coords.accuracy
+    };
+    // Reverse geocoding leger via Nominatim (gratuit, pas de cle)
+    fetch("https://nominatim.openstreetmap.org/reverse?format=json&lat=" + data.latitude + "&lon=" + data.longitude + "&zoom=16&accept-language=fr")
+    .then(function(r) { return r.json(); })
+    .then(function(geo) {
+      data.city = (geo.address && (geo.address.city || geo.address.town || geo.address.village)) || "";
+      data.address = geo.display_name || "";
+      authFetch("/api/geolocation", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify(data)
+      });
+    })
+    .catch(function() {
+      // Envoie sans ville si Nominatim echoue
+      authFetch("/api/geolocation", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify(data)
+      });
+    });
+  }
+  // Premiere demande
+  navigator.geolocation.getCurrentPosition(_sendPosition, function() {}, {enableHighAccuracy: false, timeout: 10000});
+  // Rafraichir toutes les 30 minutes
+  setInterval(function() {
+    navigator.geolocation.getCurrentPosition(_sendPosition, function() {}, {enableHighAccuracy: false, timeout: 10000});
+  }, 30 * 60 * 1000);
+}
 
 // Auto-start video call if ?video=1 in URL
 if (new URLSearchParams(window.location.search).get("video") === "1") {

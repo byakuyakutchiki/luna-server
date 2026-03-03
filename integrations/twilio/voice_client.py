@@ -143,9 +143,12 @@ class TwilioVoiceClient:
             logger.error(f"Timeout appel vocal vers {to}")
             return False, {"error": "Timeout connexion Twilio"}
 
-    def generate_twiml(self) -> str:
+    def generate_twiml(self, call_sid: str = "") -> str:
         """
         Genere le TwiML qui dit a Twilio d'ouvrir un Media Stream.
+
+        Args:
+            call_sid: CallSid Twilio pour matcher les parametres d'appel.
 
         Returns:
             TwiML XML string
@@ -156,6 +159,10 @@ class TwilioVoiceClient:
         response.say("Un instant, Luna arrive.", language="fr-FR")
         connect = Connect()
         ws_url = self.voice_callback_url.replace("https://", "wss://")
-        connect.stream(url=f"{ws_url}/api/voice-call/media-stream")
+        stream_url = f"{ws_url}/api/voice-call/media-stream"
+        if call_sid:
+            from urllib.parse import quote
+            stream_url += f"?call_sid={quote(call_sid)}"
+        connect.stream(url=stream_url)
         response.append(connect)
         return str(response)
