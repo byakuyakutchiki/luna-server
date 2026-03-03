@@ -39,8 +39,8 @@ public class MainActivity extends Activity {
     private static final String LUNA_URL = "https://luna-beta-674304336025.europe-west1.run.app";
     private static final int PERMISSION_REQUEST_CODE = 100;
     private static final int NOTIFICATION_PERMISSION_CODE = 101;
-    private static final String CURRENT_VERSION = "2.0";
-    private static final int CURRENT_VERSION_CODE = 11;
+    private static final String CURRENT_VERSION = "2.1";
+    private static final int CURRENT_VERSION_CODE = 12;
     private static final String CHANNEL_ID = "luna_messages";
     private WebView webView;
     private PermissionRequest pendingPermissionRequest;
@@ -100,8 +100,18 @@ public class MainActivity extends Activity {
         CookieManager.getInstance().setAcceptCookie(true);
         CookieManager.getInstance().setAcceptThirdPartyCookies(webView, true);
 
-        // WebChromeClient: gere les permissions camera/micro pour getUserMedia
+        // WebChromeClient: gere les permissions camera/micro/geoloc
         webView.setWebChromeClient(new WebChromeClient() {
+            @Override
+            public void onGeolocationPermissionsShowPrompt(String origin, android.webkit.GeolocationPermissions.Callback callback) {
+                if (Build.VERSION.SDK_INT >= 23) {
+                    if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                        requestPermissions(new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, PERMISSION_REQUEST_CODE + 10);
+                    }
+                }
+                callback.invoke(origin, true, false);
+            }
+
             @Override
             public void onPermissionRequest(final PermissionRequest request) {
                 if (Build.VERSION.SDK_INT >= 23) {

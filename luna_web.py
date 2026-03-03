@@ -1396,8 +1396,8 @@ async def download_apk():
 
 
 # Version APK pour auto-update
-LUNA_APP_VERSION = "2.0"
-LUNA_APP_VERSION_CODE = 11
+LUNA_APP_VERSION = "2.1"
+LUNA_APP_VERSION_CODE = 12
 
 @app.get("/api/app/version")
 async def app_version():
@@ -1406,7 +1406,7 @@ async def app_version():
         "version": LUNA_APP_VERSION,
         "version_code": LUNA_APP_VERSION_CODE,
         "apk_url": "/static/luna-proprio.apk",
-        "changelog": "Notifications Luna, onglet Parametres, tools Twilio renforces, World 2 complet",
+        "changelog": "Conciergerie IA, geolocalisation, fix appels, rapports PDF, zone texte mobile amelioree",
     }
 
 
