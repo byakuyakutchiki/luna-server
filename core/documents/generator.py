@@ -382,6 +382,22 @@ class DocumentGenerator:
         """
         from fpdf import FPDF
 
+        def _rgpd_filter(text: str) -> str:
+            """Masque les donnees personnelles sensibles (RGPD) dans le texte."""
+            import re
+            # Numeros de telephone FR (06, 07, 01-05, +33)
+            text = re.sub(r'\+33\s?\d[\s.]?\d{2}[\s.]?\d{2}[\s.]?\d{2}[\s.]?\d{2}', '[TEL MASQUE]', text)
+            text = re.sub(r'\b0[1-9][\s.]?\d{2}[\s.]?\d{2}[\s.]?\d{2}[\s.]?\d{2}\b', '[TEL MASQUE]', text)
+            # Emails
+            text = re.sub(r'\b[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}\b', '[EMAIL MASQUE]', text)
+            # IBAN
+            text = re.sub(r'\b[A-Z]{2}\d{2}[\s]?[\dA-Z]{4}[\s]?[\dA-Z]{4}[\s]?[\dA-Z]{4}[\s]?[\dA-Z]{4}[\s]?[\dA-Z]{0,4}\b', '[IBAN MASQUE]', text)
+            # Numeros de carte bancaire (16 chiffres)
+            text = re.sub(r'\b\d{4}[\s\-]?\d{4}[\s\-]?\d{4}[\s\-]?\d{4}\b', '[CB MASQUEE]', text)
+            # Numeros de secu (13-15 chiffres)
+            text = re.sub(r'\b[12]\s?\d{2}\s?\d{2}\s?\d{2}\s?\d{3}\s?\d{3}\s?\d{0,2}\b', '[N.SECU MASQUE]', text)
+            return text
+
         def _sanitize_text(text: str) -> str:
             """Remplace les caracteres Unicode non supportes par latin-1."""
             replacements = {
@@ -490,8 +506,8 @@ class DocumentGenerator:
                 pdf.cell(30, 6, f"{_sanitize_text(speaker)} :", align="R")
                 pdf.set_font("Helvetica", "", 9)
                 pdf.set_text_color(51, 51, 51)
-                # Multi-cell pour les textes longs
-                pdf.multi_cell(0, 6, f"  {_sanitize_text(text)}", new_x="LMARGIN", new_y="NEXT")
+                # Filtrage RGPD + sanitize pour les textes longs
+                pdf.multi_cell(0, 6, f"  {_sanitize_text(_rgpd_filter(text))}", new_x="LMARGIN", new_y="NEXT")
                 pdf.ln(1)
         else:
             pdf.set_font("Helvetica", "I", 10)
@@ -526,8 +542,9 @@ class DocumentGenerator:
             _sanitize_text(
                 "Ce rapport a ete genere automatiquement par Luna, assistante IA YAWatch. "
                 "L'interlocuteur a ete informe en debut d'appel qu'un compte-rendu serait "
-                "transmis au souscripteur. Ce document est confidentiel et destine uniquement "
-                f"a {subscriber_name}."
+                "transmis au souscripteur. Les donnees personnelles de tiers (numeros de telephone, "
+                "emails, coordonnees bancaires) sont automatiquement masquees conformement au RGPD. "
+                f"Ce document est confidentiel et destine uniquement a {subscriber_name}."
             ),
             new_x="LMARGIN", new_y="NEXT",
         )

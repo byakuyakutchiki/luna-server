@@ -1799,10 +1799,17 @@ function fetchProfile() {
 }
 
 /* API */
+var isEmbed = new URLSearchParams(window.location.search).get("embed") === "1";
 function apiFetch(url, opts) {
   opts=opts||{}; opts.headers=opts.headers||{};
   var t=getToken(); if(t) opts.headers["Authorization"]="Bearer "+t;
-  return fetch(url,opts).then(function(r){ if(r.status===401||r.status===403){window.location="/";throw new Error("Auth");} return r; });
+  return fetch(url,opts).then(function(r){
+    if(r.status===401||r.status===403){
+      if(!isEmbed) window.location="/";
+      throw new Error("Auth");
+    }
+    return r;
+  });
 }
 function apiPost(url, body) { return apiFetch(url,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)}); }
 function apiDelete(url) { return apiFetch(url,{method:"DELETE"}); }
@@ -4512,7 +4519,7 @@ function loadSalonXp() {
 
 /* INIT */
 function init() {
-  if(!getToken()){ window.location="/"; return; }
+  if(!getToken()){ if(!isEmbed) window.location="/"; return; }
 
   buildReactionsBar();
   buildGiftGrid();

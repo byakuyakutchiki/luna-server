@@ -225,7 +225,7 @@ public class MainActivity extends Activity {
             } else {
                 builder = new Notification.Builder(this);
             }
-            builder.setSmallIcon(android.R.drawable.ic_dialog_info)
+            builder.setSmallIcon(R.drawable.ic_notif_luna)
                 .setContentTitle(title)
                 .setContentText(body)
                 .setAutoCancel(true)

@@ -375,6 +375,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; b
   <button class="tab-btn" data-tab="documents">Documents</button>
   <button class="tab-btn" data-tab="perception">Perception</button>
   <button class="tab-btn" data-tab="quotas">Quotas</button>
+  <button class="tab-btn" data-tab="activities">Activites</button>
+  <button class="tab-btn" data-tab="map">Carte</button>
   <button class="tab-btn" data-tab="world" style="color:#a78bfa;">Monde</button>
   <button class="tab-btn" data-tab="settings">Parametres</button>
 </div>
@@ -710,6 +712,29 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; b
 </div>
 
 <!-- World Tab -->
+<!-- Activities Tab (iframe salon) -->
+<div class="tab-panel" id="tab-activities" style="padding:0; overflow:hidden;">
+  <iframe id="activitiesFrame"
+    style="width:100%; height:100%; border:none; display:none;"
+    allow="autoplay; microphone">
+  </iframe>
+  <div id="activitiesLoader" style="display:flex; align-items:center; justify-content:center; height:100%; color:#a78bfa; flex-direction:column; gap:12px;">
+    <div style="font-size:2em;">&#x1F3AD;</div>
+    <p>Chargement des Activites...</p>
+  </div>
+</div>
+
+<!-- Map Tab -->
+<div class="tab-panel" id="tab-map" style="padding:0; overflow:hidden;">
+  <div id="mapContainer" style="width:100%; height:100%; position:relative;">
+    <div id="mapLoader" style="display:flex; align-items:center; justify-content:center; height:100%; color:#a78bfa; flex-direction:column; gap:12px;">
+      <div style="font-size:2em;">&#x1F5FA;</div>
+      <p>Chargement de la carte...</p>
+    </div>
+    <div id="mapFrame" style="width:100%; height:100%; display:none;"></div>
+  </div>
+</div>
+
 <div class="tab-panel" id="tab-world" style="padding:0; overflow:hidden;">
   <iframe id="worldFrame"
     style="width:100%; height:100%; border:none; display:none;"
@@ -986,10 +1011,76 @@ tabBtns.forEach(function(btn) {
     if (btn.dataset.tab === "documents") loadDocuments();
     if (btn.dataset.tab === "perception") loadPerception();
     if (btn.dataset.tab === "quotas") loadQuotas();
+    if (btn.dataset.tab === "activities") loadActivities();
+    if (btn.dataset.tab === "map") loadMap();
     if (btn.dataset.tab === "world") loadMonde();
     if (btn.dataset.tab === "settings") loadSettings();
   });
 });
+
+// =========================================================================
+// ACTIVITES (embedded salon)
+// =========================================================================
+var activitiesLoaded = false;
+function loadActivities() {
+  if (activitiesLoaded) return;
+  var frame = document.getElementById("activitiesFrame");
+  var loader = document.getElementById("activitiesLoader");
+  var token = localStorage.getItem("luna_token") || sessionStorage.getItem("luna_token");
+  frame.onerror = function() {
+    if (loader) loader.querySelector("p").textContent = "Erreur de chargement des Activites.";
+  };
+  frame.onload = function() {
+    frame.style.display = "block";
+    if (loader) loader.style.display = "none";
+    activitiesLoaded = true;
+  };
+  frame.src = "/salon?embed=1&token=" + encodeURIComponent(token || "");
+  setTimeout(function() {
+    if (!activitiesLoaded && loader) {
+      loader.querySelector("p").textContent = "Les Activites mettent du temps a charger...";
+    }
+  }, 15000);
+}
+
+// =========================================================================
+// CARTE (Google Maps)
+// =========================================================================
+var mapLoaded = false;
+function loadMap() {
+  if (mapLoaded) return;
+  var mapFrame = document.getElementById("mapFrame");
+  var loader = document.getElementById("mapLoader");
+
+  // Recuperer la geolocalisation du souscripteur
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(function(pos) {
+      var lat = pos.coords.latitude;
+      var lng = pos.coords.longitude;
+      _showMap(lat, lng, mapFrame, loader);
+    }, function() {
+      // Fallback: Paris
+      _showMap(48.8566, 2.3522, mapFrame, loader);
+    }, { enableHighAccuracy: true, timeout: 10000 });
+  } else {
+    _showMap(48.8566, 2.3522, mapFrame, loader);
+  }
+}
+
+function _showMap(lat, lng, container, loader) {
+  var iframe = document.createElement("iframe");
+  iframe.style.cssText = "width:100%;height:100%;border:none;";
+  iframe.setAttribute("loading", "lazy");
+  iframe.setAttribute("referrerpolicy", "no-referrer-when-downgrade");
+  iframe.src = "https://www.google.com/maps?q=" + lat + "," + lng + "&z=15&output=embed";
+  iframe.onload = function() {
+    if (loader) loader.style.display = "none";
+    mapLoaded = true;
+  };
+  container.innerHTML = "";
+  container.appendChild(iframe);
+  container.style.display = "block";
+}
 
 // =========================================================================
 // MONDE LUNA (embedded world)
@@ -2142,7 +2233,9 @@ document.getElementById("amisCodeBtn").addEventListener("click", function() {
 document.getElementById("amisCodeInput").addEventListener("keydown", function(e) { if (e.key === "Enter") document.getElementById("amisCodeBtn").click(); });
 
 document.getElementById("amisSalonBtn").addEventListener("click", function() {
-  window.open("/salon?token=" + encodeURIComponent(getToken()), "_blank");
+  // Switcher vers l'onglet Activites au lieu d'ouvrir un nouvel onglet
+  var tabBtn = document.querySelector('[data-tab="activities"]');
+  if (tabBtn) tabBtn.click();
 });
 
 // =========================================================================

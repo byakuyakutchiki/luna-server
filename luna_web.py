@@ -714,6 +714,13 @@ Luna est une AIDE CONTEXTUELLE, PAS un service de securite ni de surveillance.
 6. Luna refuse les demandes illegales.
 7. Luna detecte la detresse et propose de contacter quelqu'un.
 
+=== RGPD & CONFIDENTIALITE ===
+- Ne divulgue AUCUNE donnee personnelle du souscripteur a un tiers (adresse, email, telephone, coordonnees bancaires, numero de secu).
+- Ne revele jamais les numeros de telephone des contacts.
+- Ne partage pas le contenu des conversations precedentes avec des tiers.
+- Les rapports PDF d'appel masquent automatiquement les donnees sensibles.
+- Ne mentionne jamais les prix des abonnements ou les donnees internes.
+
 === PERCEPTION CONTEXTUELLE ===
 Si la perception camera est activee, tu recois des informations sur
 l'environnement du souscripteur (presence, posture, objets visibles).
@@ -6483,6 +6490,190 @@ async def serve_document(filename: str, request: Request):
 # PERCEPTION - Aide contextuelle visuelle
 # =========================================================================
 
+# Anti-spam: max 1 alerte perception par heure par tenant
+_perception_alert_cooldown: Dict[int, float] = {}
+
+def _perception_alert_contacts(tenant_id: int, abnormality: dict):
+    """
+    Alerte les contacts de confiance par SMS en cas de situation preoccupante.
+    Genere un PDF de compte-rendu d'incident (RGPD-compliant).
+    NE se substitue PAS aux services d'urgence (interdit).
+    """
+    import time as _time
+    now = _time.time()
+    last_alert = _perception_alert_cooldown.get(tenant_id, 0)
+    if now - last_alert < 3600:
+        logger.info(f"Perception alert cooldown active for tenant {tenant_id}")
+        return
+    _perception_alert_cooldown[tenant_id] = now
+
+    if not _memory_manager or not _twilio_client:
+        return
+
+    # Recuperer le profil du souscripteur
+    subscriber_name = "le souscripteur"
+    if _redis_client:
+        profile = _redis_client.get_profile(tenant_id)
+        if profile:
+            subscriber_name = profile.get("first_name", subscriber_name)
+
+    # Recuperer les contacts de confiance
+    contacts = _memory_manager.list_trusted_contacts()
+    if not contacts:
+        logger.warning(f"Perception alert: no trusted contacts for tenant {tenant_id}")
+        return
+
+    # Description de la situation (sans donnees sensibles)
+    situation = abnormality.get("description", "Situation preoccupante detectee")
+    abn_type = abnormality.get("type", "inconnu")
+
+    # SMS aux contacts de confiance
+    sms_text = (
+        f"[Luna - Alerte] Situation preoccupante detectee chez {subscriber_name}. "
+        f"Type: {abn_type}. {situation}. "
+        f"Merci de prendre des nouvelles. "
+        f"En cas d'urgence, appelez le 15 (SAMU) ou le 112."
+    )
+
+    sent_count = 0
+    for c in contacts[:3]:  # Max 3 contacts alertes
+        phone = c.get("phone", "")
+        if not phone:
+            continue
+        try:
+            _twilio_client.send_sms(
+                to=phone,
+                body=sms_text,
+            )
+            sent_count += 1
+            logger.info(f"Perception alert SMS sent to {phone[:6]}*** for tenant {tenant_id}")
+        except Exception as e:
+            logger.error(f"Perception alert SMS failed to {phone[:6]}***: {e}")
+
+    # Generer un PDF de compte-rendu d'incident
+    if _doc_generator and sent_count > 0:
+        try:
+            _generate_incident_report(tenant_id, subscriber_name, abnormality, sent_count)
+        except Exception as e:
+            logger.error(f"Incident report generation failed: {e}")
+
+    logger.info(f"Perception alert: {sent_count} SMS sent for tenant {tenant_id}, type={abn_type}")
+
+
+def _generate_incident_report(tenant_id: int, subscriber_name: str, abnormality: dict, sms_count: int):
+    """Genere un PDF RGPD-compliant de compte-rendu d'incident perception."""
+    from fpdf import FPDF
+    from datetime import datetime
+
+    class IncidentPDF(FPDF):
+        def header(self):
+            self.set_font("Helvetica", "B", 10)
+            self.set_text_color(124, 58, 237)
+            self.cell(0, 8, "Luna - YAWatch", align="L")
+            self.set_font("Helvetica", "", 9)
+            self.set_text_color(136, 136, 136)
+            self.cell(0, 8, datetime.now().strftime("%d/%m/%Y %H:%M"), align="R", new_x="LMARGIN", new_y="NEXT")
+            self.set_draw_color(124, 58, 237)
+            self.line(10, self.get_y(), 200, self.get_y())
+            self.ln(4)
+        def footer(self):
+            self.set_y(-15)
+            self.set_font("Helvetica", "I", 8)
+            self.set_text_color(170, 170, 170)
+            self.cell(0, 10, f"Rapport d'incident Luna | Page {self.page_no()}/{{nb}}", align="C")
+
+    pdf = IncidentPDF()
+    pdf.alias_nb_pages()
+    pdf.set_auto_page_break(auto=True, margin=20)
+    pdf.add_page()
+
+    # Titre
+    pdf.set_font("Helvetica", "B", 18)
+    pdf.set_text_color(244, 67, 54)
+    pdf.cell(0, 12, "Compte-rendu d'incident", new_x="LMARGIN", new_y="NEXT")
+    pdf.ln(4)
+
+    # Infos
+    pdf.set_font("Helvetica", "", 10)
+    pdf.set_text_color(51, 51, 51)
+    now = datetime.now()
+    info = [
+        ("Date et heure", now.strftime("%d/%m/%Y a %H:%M:%S")),
+        ("Souscripteur", subscriber_name),
+        ("Type d'incident", abnormality.get("type", "Non specifie")),
+        ("Niveau", abnormality.get("severity", "concern")),
+        ("Contacts alertes", f"{sms_count} personne(s) de confiance"),
+    ]
+    for label, value in info:
+        pdf.set_font("Helvetica", "B", 10)
+        pdf.cell(50, 7, f"{label} :", align="R")
+        pdf.set_font("Helvetica", "", 10)
+        pdf.cell(0, 7, f"  {value}", new_x="LMARGIN", new_y="NEXT")
+
+    pdf.ln(6)
+
+    # Description
+    pdf.set_font("Helvetica", "B", 11)
+    pdf.set_text_color(26, 26, 62)
+    pdf.cell(0, 8, "Description de la situation", new_x="LMARGIN", new_y="NEXT")
+    pdf.set_font("Helvetica", "", 10)
+    pdf.set_text_color(51, 51, 51)
+    desc = abnormality.get("description", "Situation preoccupante detectee par la perception contextuelle Luna.")
+    pdf.multi_cell(0, 6, desc, new_x="LMARGIN", new_y="NEXT")
+    pdf.ln(4)
+
+    # Actions
+    pdf.set_font("Helvetica", "B", 11)
+    pdf.set_text_color(26, 26, 62)
+    pdf.cell(0, 8, "Actions effectuees", new_x="LMARGIN", new_y="NEXT")
+    pdf.set_font("Helvetica", "", 10)
+    pdf.set_text_color(51, 51, 51)
+    actions = [
+        f"SMS d'alerte envoye a {sms_count} contact(s) de confiance",
+        "Suggestion des numeros d'urgence (15, 18, 112) dans le SMS",
+        "Incident enregistre dans les notes Luna du souscripteur",
+    ]
+    for a in actions:
+        pdf.cell(6, 6, "-")
+        pdf.cell(0, 6, f" {a}", new_x="LMARGIN", new_y="NEXT")
+
+    pdf.ln(8)
+
+    # Mention legale RGPD
+    pdf.set_draw_color(200, 200, 200)
+    pdf.line(10, pdf.get_y(), 200, pdf.get_y())
+    pdf.ln(4)
+    pdf.set_font("Helvetica", "I", 8)
+    pdf.set_text_color(136, 136, 136)
+    legal = (
+        "Ce rapport a ete genere automatiquement par Luna (YAWatch). "
+        "Luna est une aide contextuelle et NE se substitue PAS aux services d'urgence (SAMU 15, Pompiers 18, Urgences 112). "
+        "Les contacts de confiance ont ete alertes pour prendre des nouvelles. "
+        "Aucune donnee medicale n'est collectee ni transmise. "
+        "Ce document est confidentiel, conforme au RGPD, et destine uniquement au souscripteur."
+    )
+    pdf.multi_cell(0, 4, legal, new_x="LMARGIN", new_y="NEXT")
+
+    # Sauvegarder
+    import uuid
+    ts = now.strftime("%Y%m%d_%H%M%S")
+    sid = uuid.uuid4().hex[:6]
+    filename = f"incident_{ts}_{sid}.pdf"
+    filepath = os.path.join(STATIC_DIR, "documents", filename)
+    os.makedirs(os.path.dirname(filepath), exist_ok=True)
+    pdf.output(filepath)
+    logger.info(f"Incident report generated: {filepath}")
+
+    # Ajouter dans les notes pour le souscripteur
+    if _memory_manager:
+        _memory_manager.add_note(
+            content=f"[Alerte Perception] Rapport d'incident genere: {filename}. "
+                    f"Type: {abnormality.get('type', '?')}. {sms_count} contact(s) alerte(s).",
+            context="incident",
+            tags=["perception", "incident", "alerte"],
+        )
+
+
 @app.post("/api/perception/start")
 async def start_perception():
     """Active la perception (camera navigateur, analyse OpenAI Vision)."""
@@ -6559,6 +6750,7 @@ async def receive_perception_frame(request: Request):
     _memory_manager.update_perception_state(scene_state)
 
     # Log les anomalies significatives
+    tid = getattr(request.state, "tenant_id", TENANT_ID)
     for abn in scene_state.abnormalities:
         if abn["severity"] in ("attention", "concern"):
             _memory_manager.log_perception_event(abn)
@@ -6578,6 +6770,10 @@ async def receive_perception_frame(request: Request):
                 )
             except Exception:
                 pass
+
+            # ALERTE CONTACTS DE CONFIANCE en cas de severite "concern"
+            if abn["severity"] == "concern":
+                _perception_alert_contacts(tid, abn)
 
     return {
         "success": True,
