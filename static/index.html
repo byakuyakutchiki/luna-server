@@ -818,6 +818,11 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; b
 
     <h3>Compte</h3>
     <div class="settings-group">
+      <div class="settings-row" style="flex-direction:column;align-items:stretch;gap:8px;">
+        <label>Carte bancaire (conciergerie)</label>
+        <button class="btn" id="setupCardBtn" style="background:#6c5ce7;width:100%;padding:12px;border-radius:8px;color:#fff;border:none;cursor:pointer;">Enregistrer ma carte bancaire</button>
+        <p id="cardStatus" style="font-size:0.8em;color:#888;margin:0;">Necessaire pour les reservations et achats via Luna.</p>
+      </div>
       <button class="btn" id="settingsLogoutBtn" style="background:#444;width:100%;padding:12px;border-radius:8px;color:#e0e0e0;border:none;cursor:pointer;">Se deconnecter</button>
     </div>
 
@@ -1163,6 +1168,32 @@ document.getElementById("settingsSaveBtn").addEventListener("click", function() 
 
 // Logout from settings
 document.getElementById("settingsLogoutBtn").addEventListener("click", doLogout);
+
+// Setup card (Stripe)
+document.getElementById("setupCardBtn").addEventListener("click", function() {
+  var btn = this;
+  var st = document.getElementById("cardStatus");
+  btn.disabled = true;
+  btn.textContent = "Redirection...";
+  st.textContent = "";
+  authFetch("/api/auth/setup-card", { method: "POST" })
+  .then(function(data) {
+    if (data.setup_url) {
+      window.location.href = data.setup_url;
+    } else {
+      st.textContent = data.error || "Erreur inconnue";
+      st.style.color = "#e74c3c";
+      btn.disabled = false;
+      btn.textContent = "Enregistrer ma carte bancaire";
+    }
+  })
+  .catch(function(e) {
+    st.textContent = "Erreur: " + e.message;
+    st.style.color = "#e74c3c";
+    btn.disabled = false;
+    btn.textContent = "Enregistrer ma carte bancaire";
+  });
+});
 
 // Font size management
 function applyFontSize(size) {
@@ -2395,8 +2426,18 @@ function _initGeolocation() {
 }
 
 // Auto-start video call if ?video=1 in URL
-if (new URLSearchParams(window.location.search).get("video") === "1") {
+var _urlParams = new URLSearchParams(window.location.search);
+if (_urlParams.get("video") === "1") {
   setTimeout(function() { startCall(); }, 500);
+}
+
+// Feedback after Stripe card setup
+if (_urlParams.get("card_saved") === "success") {
+  setTimeout(function() { addMsg("Ta carte bancaire a ete enregistree. Tu peux maintenant utiliser la conciergerie Luna pour tes reservations.", "luna"); }, 1000);
+  history.replaceState(null, "", window.location.pathname);
+} else if (_urlParams.get("card_saved") === "cancel") {
+  setTimeout(function() { addMsg("L'enregistrement de la carte a ete annule. Tu peux reessayer dans Parametres.", "luna"); }, 1000);
+  history.replaceState(null, "", window.location.pathname);
 }
 
 // =========================================================================
