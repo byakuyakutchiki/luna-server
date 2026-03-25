@@ -103,8 +103,18 @@ async def api_analyze(request: Request):
         logger.error(f"Form filler analysis failed: {e}")
         return _error(f"Erreur d'analyse IA: {str(e)}", 500)
 
+    # Ajouter un warning si c'est une photo (pas un vrai PDF)
+    is_photo = media_type.startswith("image/")
+    if is_photo:
+        analysis.warnings.insert(0,
+            "Document uploadé en photo. Pour un résultat optimal, "
+            "téléchargez le formulaire PDF vierge depuis le site officiel "
+            "(service-public.fr, impots.gouv.fr, etc.) et uploadez-le ici."
+        )
+
     # Sauvegarder la session
     analysis_dict = analysis.model_dump()
+    analysis_dict["is_photo"] = is_photo
     sid = fops.create_session(analysis_dict, pdf_b64, filename)
 
     logger.info(f"FORM_FILLER: analyzed {filename}, {len(analysis.fields)} fields, session={sid}")
