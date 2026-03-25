@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0a0a1a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Luna - Formulaires</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+:root {
+    --bg: #0a0a1a; --bg2: #111127; --bg3: #1a1a3e;
+    --purple: #a78bfa; --purple-dark: #7c3aed; --purple-50: rgba(167,139,250,0.1);
+    --green: #4ade80; --green-50: rgba(74,222,128,0.1);
+    --red: #f87171; --orange: #f59e0b;
+    --text: #e0e0e0; --text2: #888; --text3: #555;
+    --border: #333; --radius: 12px;
+}
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: var(--bg); color: var(--text); min-height: 100dvh; }
+
+/* Header */
+.header { background: linear-gradient(135deg, #1a1a3e, #2d1b69); padding: 12px 20px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); }
+.header-left { display: flex; align-items: center; gap: 12px; }
+.header-left a { color: var(--text2); text-decoration: none; font-size: 1.2rem; }
+.header h1 { font-size: 1.1rem; color: var(--purple); }
+.header h1 span { color: var(--text2); font-weight: 400; font-size: 0.85rem; margin-left: 6px; }
+.btn-profile { background: var(--bg3); border: 1px solid var(--border); color: var(--text2); padding: 6px 12px; border-radius: 8px; cursor: pointer; font-size: 0.82rem; }
+.btn-profile:hover { border-color: var(--purple); color: var(--purple); }
+
+/* Steps */
+.steps { display: flex; align-items: center; justify-content: center; padding: 14px 16px; gap: 0; background: var(--bg2); border-bottom: 1px solid #222; overflow-x: auto; }
+.step { display: flex; align-items: center; gap: 5px; opacity: 0.35; transition: 0.2s; white-space: nowrap; }
+.step.active, .step.done { opacity: 1; }
+.step-dot { width: 26px; height: 26px; border-radius: 50%; background: var(--bg3); color: var(--text3); display: flex; align-items: center; justify-content: center; font-size: 0.72rem; font-weight: 700; border: 2px solid var(--border); }
+.step.active .step-dot { background: var(--purple-dark); color: #fff; border-color: var(--purple); }
+.step.done .step-dot { background: var(--green); color: #000; border-color: var(--green); }
+.step span { font-size: 0.78rem; color: var(--text2); }
+.step.active span { color: var(--purple); font-weight: 600; }
+.step.done span { color: var(--green); }
+.step-line { width: 20px; height: 2px; background: var(--border); margin: 0 4px; flex-shrink: 0; }
+@media(max-width:500px) { .step span { display: none; } }
+
+/* Content */
+.content { max-width: 1100px; margin: 0 auto; padding: 20px 16px 100px; }
+.section { display: none; animation: fadeIn 0.3s ease; }
+.section.active { display: block; }
+@keyframes fadeIn { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
+
+h2 { font-size: 1.3rem; color: var(--text); margin-bottom: 4px; }
+.sub { color: var(--text2); font-size: 0.9rem; margin-bottom: 20px; }
+
+/* Buttons */
+.btn { display: inline-flex; align-items: center; gap: 6px; padding: 10px 20px; border: none; border-radius: 8px; font-size: 0.88rem; font-weight: 600; cursor: pointer; transition: 0.2s; }
+.btn-primary { background: var(--purple-dark); color: #fff; }
+.btn-primary:hover { background: var(--purple); }
+.btn-secondary { background: var(--bg3); color: var(--text2); border: 1px solid var(--border); }
+.btn-secondary:hover { border-color: var(--purple); color: var(--purple); }
+.btn-ghost { background: transparent; color: var(--text2); }
+.btn-ghost:hover { color: var(--text); }
+.btn-lg { padding: 14px 28px; font-size: 1rem; }
+.btn-sm { padding: 6px 14px; font-size: 0.8rem; }
+
+/* ═══ STEP 1: Upload ═══ */
+.upload-center { text-align: center; max-width: 520px; margin: 0 auto; }
+.drop-zone { border: 2px dashed var(--border); border-radius: var(--radius); padding: 48px 20px; text-align: center; cursor: pointer; transition: 0.2s; background: var(--bg2); margin-top: 8px; }
+.drop-zone:hover, .drop-zone.dragover { border-color: var(--purple); background: var(--purple-50); }
+.drop-icon { color: var(--text3); margin-bottom: 12px; }
+.drop-zone:hover .drop-icon { color: var(--purple); }
+.drop-text { font-size: 1rem; font-weight: 500; margin-bottom: 6px; }
+.drop-or { color: var(--text3); font-size: 0.82rem; margin-bottom: 14px; }
+.upload-btns { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+.file-preview { max-width: 520px; margin: 0 auto; background: var(--bg2); border-radius: var(--radius); padding: 16px; text-align: center; border: 1px solid var(--border); }
+.file-preview img { max-height: 260px; max-width: 100%; border-radius: 8px; margin-bottom: 10px; background: var(--bg3); object-fit: contain; }
+.file-info { display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 12px; font-size: 0.82rem; color: var(--text2); }
+.file-info .x { background: none; border: none; color: var(--red); cursor: pointer; font-size: 1rem; }
+input[type="file"] { display: none; }
+
+/* ═══ STEP 2: Analyzing ═══ */
+.analyzing { text-align: center; max-width: 420px; margin: 0 auto; padding-top: 16px; }
+.scan-box { position: relative; width: 240px; height: 320px; margin: 0 auto 20px; border-radius: var(--radius); overflow: hidden; background: var(--bg3); border: 1px solid var(--border); }
+.scan-box img { width: 100%; height: 100%; object-fit: contain; }
+.scan-line { position: absolute; top: 0; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, transparent, var(--purple), transparent); box-shadow: 0 0 10px var(--purple); animation: scanAnim 2s ease-in-out infinite; z-index: 2; }
+@keyframes scanAnim { 0%{top:0} 50%{top:calc(100% - 3px)} 100%{top:0} }
+.progress { width: 100%; height: 4px; background: var(--bg3); border-radius: 2px; margin: 14px 0 20px; overflow: hidden; }
+.progress-fill { height: 100%; background: var(--purple); border-radius: 2px; width: 0%; transition: width 0.5s; }
+.a-steps { text-align: left; display: flex; flex-direction: column; gap: 6px; }
+.a-step { display: flex; align-items: center; gap: 8px; font-size: 0.85rem; color: var(--text3); padding: 5px 10px; border-radius: 8px; }
+.a-step.done { color: var(--green); }
+.a-step.active { color: var(--purple); background: var(--purple-50); }
+.spinner { width: 14px; height: 14px; border: 2px solid var(--bg3); border-top-color: var(--purple); border-radius: 50%; animation: spin 0.7s linear infinite; flex-shrink: 0; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ═══ STEP 3: Fill ═══ */
+.fill-head { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 14px; flex-wrap: wrap; gap: 10px; }
+.fill-layout { display: grid; grid-template-columns: 1fr 340px; gap: 20px; align-items: start; }
+@media(max-width:860px) { .fill-layout { grid-template-columns: 1fr; } .preview-panel { display: none; } }
+
+.warnings { background: rgba(245,158,11,0.1); border: 1px solid var(--orange); border-radius: 8px; padding: 10px 14px; margin-bottom: 14px; font-size: 0.82rem; }
+.warnings li { list-style: none; }
+.warnings li::before { content: "!  "; font-weight: bold; color: var(--orange); }
+
+/* Form fields */
+.form-group-hdr { display: flex; align-items: center; gap: 6px; padding: 10px 0 4px; margin-top: 6px; border-bottom: 2px solid rgba(124,58,237,0.3); }
+.form-group-hdr h3 { font-size: 0.82rem; font-weight: 700; color: var(--purple); text-transform: uppercase; letter-spacing: 0.03em; }
+
+.form-field { background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; margin-top: 6px; transition: 0.2s; }
+.form-field:focus-within { border-color: var(--purple); box-shadow: 0 0 0 2px var(--purple-50); }
+.form-field.filled { border-color: var(--green); background: var(--green-50); }
+.form-field label { display: block; font-size: 0.78rem; font-weight: 600; color: var(--text2); margin-bottom: 3px; }
+.form-field .req { color: var(--red); margin-left: 2px; }
+.form-field input, .form-field select, .form-field textarea { width: 100%; padding: 7px 0; border: none; outline: none; font-size: 0.95rem; color: var(--text); background: transparent; font-family: inherit; }
+.form-field textarea { resize: vertical; min-height: 50px; }
+.form-field select { appearance: none; }
+.form-field select option { background: var(--bg2); color: var(--text); }
+.form-field .desc { font-size: 0.72rem; color: var(--text3); margin-top: 2px; }
+
+.form-field.cb { display: flex; align-items: center; gap: 10px; }
+.form-field.cb label { margin: 0; display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 0.88rem; }
+.form-field.cb input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--purple); }
+
+.preview-sticky { position: sticky; top: 80px; }
+.preview-sticky h3 { font-size: 0.8rem; color: var(--text2); margin-bottom: 6px; }
+.preview-box { background: var(--bg2); border-radius: var(--radius); border: 1px solid var(--border); overflow: hidden; }
+.preview-box img { width: 100%; display: block; }
+.preview-pages { display: flex; gap: 4px; justify-content: center; margin-top: 6px; }
+.preview-pages button { width: 26px; height: 26px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg2); color: var(--text2); font-size: 0.72rem; cursor: pointer; }
+.preview-pages button.active { background: var(--purple-dark); color: #fff; border-color: var(--purple); }
+
+.fill-footer { display: flex; align-items: center; justify-content: space-between; padding: 14px 0; margin-top: 14px; border-top: 1px solid var(--border); gap: 10px; flex-wrap: wrap; }
+.fill-stats { font-size: 0.82rem; color: var(--text2); }
+
+/* ═══ STEP 4: Signature ═══ */
+.sign-center { max-width: 520px; margin: 0 auto; text-align: center; }
+.sig-area { position: relative; background: #fff; border: 2px solid var(--border); border-radius: var(--radius); margin: 20px 0 10px; overflow: hidden; touch-action: none; }
+#sigCanvas { display: block; width: 100%; height: 180px; cursor: crosshair; }
+.sig-ph { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); color: #ccc; font-size: 1.1rem; pointer-events: none; transition: 0.2s; }
+.sig-ph.hidden { opacity: 0; }
+.sign-actions { display: flex; gap: 10px; justify-content: center; margin-bottom: 28px; }
+.sign-footer { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+
+/* ═══ STEP 5: Done ═══ */
+.done-center { max-width: 600px; margin: 0 auto; text-align: center; }
+.done-check { margin-bottom: 14px; animation: pop 0.4s cubic-bezier(0.68,-0.55,0.265,1.55); }
+@keyframes pop { from{transform:scale(0);opacity:0} to{transform:scale(1);opacity:1} }
+.done-preview { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin: 20px 0; }
+.done-preview img { max-height: 380px; border-radius: var(--radius); border: 1px solid var(--border); }
+.done-btns { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+
+/* ═══ Profile Modal ═══ */
+.modal { position: fixed; inset: 0; z-index: 200; display: flex; align-items: center; justify-content: center; padding: 16px; }
+.modal.hidden { display: none; }
+.modal-bg { position: absolute; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); }
+.modal-box { position: relative; background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); width: 100%; max-width: 560px; max-height: 82vh; display: flex; flex-direction: column; animation: modalIn 0.2s ease; }
+@keyframes modalIn { from{transform:scale(0.95);opacity:0} to{transform:scale(1);opacity:1} }
+.modal-top { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; border-bottom: 1px solid var(--border); }
+.modal-top h2 { font-size: 1rem; }
+.modal-close { background: none; border: none; color: var(--text2); cursor: pointer; font-size: 1.3rem; }
+.modal-body { padding: 16px 18px; overflow-y: auto; flex: 1; }
+.modal-body p { font-size: 0.82rem; color: var(--text2); margin-bottom: 12px; }
+.modal-foot { padding: 10px 18px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; }
+
+details { border: 1px solid var(--border); border-radius: 8px; margin-bottom: 6px; overflow: hidden; }
+summary { padding: 8px 14px; font-weight: 600; font-size: 0.84rem; cursor: pointer; background: var(--bg3); color: var(--text2); }
+summary:hover { color: var(--purple); }
+.pf { padding: 10px 14px; display: flex; flex-direction: column; gap: 8px; }
+.pf label { display: flex; flex-direction: column; gap: 3px; font-size: 0.78rem; font-weight: 500; color: var(--text2); }
+.pf input, .pf select { padding: 7px 9px; border: 1px solid var(--border); border-radius: 6px; font-size: 0.88rem; background: var(--bg); color: var(--text); outline: none; }
+.pf input:focus, .pf select:focus { border-color: var(--purple); }
+.row2 { display: flex; gap: 10px; }
+@media(max-width:440px) { .row2 { flex-direction: column; } }
+.row2 > label { flex: 1; }
+
+/* Toast */
+.toasts { position: fixed; bottom: 20px; right: 20px; z-index: 300; display: flex; flex-direction: column; gap: 6px; }
+.toast { padding: 10px 18px; border-radius: 8px; font-size: 0.85rem; box-shadow: 0 4px 12px rgba(0,0,0,0.4); animation: tIn 0.3s ease, tOut 0.3s ease 3s forwards; max-width: 340px; }
+.toast.ok { background: var(--green); color: #000; }
+.toast.err { background: var(--red); color: #fff; }
+.toast.info { background: var(--bg3); color: var(--text); border: 1px solid var(--border); }
+@keyframes tIn { from{transform:translateX(100%);opacity:0} to{transform:translateX(0);opacity:1} }
+@keyframes tOut { from{opacity:1} to{opacity:0} }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+    <div class="header-left">
+        <a href="/" title="Retour">&#8592;</a>
+        <h1>Formulaires<span>by Luna</span></h1>
+    </div>
+    <button class="btn-profile" id="btnProfile">Mon profil</button>
+</div>
+
+<!-- STEPS BAR -->
+<div class="steps">
+    <div class="step active" data-s="1"><div class="step-dot">1</div><span>Upload</span></div>
+    <div class="step-line"></div>
+    <div class="step" data-s="2"><div class="step-dot">2</div><span>Analyse</span></div>
+    <div class="step-line"></div>
+    <div class="step" data-s="3"><div class="step-dot">3</div><span>Remplir</span></div>
+    <div class="step-line"></div>
+    <div class="step" data-s="4"><div class="step-dot">4</div><span>Signer</span></div>
+    <div class="step-line"></div>
+    <div class="step" data-s="5"><div class="step-dot">5</div><span>OK</span></div>
+</div>
+
+<div class="content">
+
+<!-- ═══ STEP 1 ═══ -->
+<div class="section active" id="s1">
+    <div class="upload-center">
+        <h2>Scannez ou importez votre formulaire</h2>
+        <p class="sub">PDF, photo, scan... Luna s'occupe du reste.</p>
+        <div class="drop-zone" id="dropZone">
+            <div class="drop-icon"><svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></div>
+            <p class="drop-text">Glissez votre fichier ici</p>
+            <p class="drop-or">ou</p>
+            <div class="upload-btns">
+                <button class="btn btn-primary" id="btnBrowse">Parcourir</button>
+                <button class="btn btn-secondary" id="btnCamera">Photo</button>
+            </div>
+        </div>
+        <div class="file-preview hidden" id="filePreview">
+            <img id="prevImg" src="" alt="">
+            <div class="file-info"><span id="fileName"></span><button class="x" id="btnRemove">&#10005;</button></div>
+            <button class="btn btn-primary btn-lg" id="btnAnalyze">Analyser le formulaire &#8594;</button>
+        </div>
+    </div>
+    <input type="file" id="fileInput" accept=".pdf,.png,.jpg,.jpeg,.webp,.bmp,.tiff,.tif">
+    <input type="file" id="camInput" accept="image/*" capture="environment">
+</div>
+
+<!-- ═══ STEP 2 ═══ -->
+<div class="section" id="s2">
+    <div class="analyzing">
+        <div class="scan-box"><div class="scan-line"></div><img id="scanImg" src="" alt=""></div>
+        <h2>Analyse en cours...</h2>
+        <p class="sub" id="scanStatus">Luna examine votre formulaire</p>
+        <div class="progress"><div class="progress-fill" id="progFill"></div></div>
+        <div class="a-steps">
+            <div class="a-step done" id="as1">&#10003; Document recu</div>
+            <div class="a-step active" id="as2"><div class="spinner"></div> Detection des champs...</div>
+            <div class="a-step" id="as3">&#9675; Preparation du formulaire</div>
+        </div>
+    </div>
+</div>
+
+<!-- ═══ STEP 3 ═══ -->
+<div class="section" id="s3">
+    <div class="fill-head">
+        <div><h2 id="formTitle">Formulaire</h2><p class="sub" id="formDesc"></p></div>
+        <button class="btn btn-secondary btn-sm" id="btnAutofill">Remplissage auto</button>
+    </div>
+    <div id="formWarnings" class="warnings hidden"></div>
+    <div class="fill-layout">
+        <div id="formContainer"></div>
+        <div class="preview-panel">
+            <div class="preview-sticky">
+                <h3>Apercu du document</h3>
+                <div class="preview-box"><img id="prevPdf" src="" alt=""></div>
+                <div class="preview-pages" id="prevPages"></div>
+            </div>
+        </div>
+    </div>
+    <div class="fill-footer">
+        <button class="btn btn-ghost" id="btnBackUpload">&#8592; Recommencer</button>
+        <div class="fill-stats"><span id="fillN">0</span>/<span id="fillT">0</span> remplis</div>
+        <button class="btn btn-primary" id="btnToSign">Suivant : Signature &#8594;</button>
+    </div>
+</div>
+
+<!-- ═══ STEP 4 ═══ -->
+<div class="section" id="s4">
+    <div class="sign-center">
+        <h2>Signez votre document</h2>
+        <p class="sub">Signez avec votre doigt ou souris</p>
+        <div class="sig-area"><canvas id="sigCanvas"></canvas><div class="sig-ph" id="sigPh">Signez ici</div></div>
+        <div class="sign-actions"><button class="btn btn-ghost btn-sm" id="btnClearSig">Effacer</button></div>
+        <div class="sign-footer">
+            <button class="btn btn-ghost" id="btnBackFill">&#8592; Retour</button>
+            <button class="btn btn-secondary" id="btnSkipSig">Passer</button>
+            <button class="btn btn-primary" id="btnGenerate">Generer le PDF &#10003;</button>
+        </div>
+    </div>
+</div>
+
+<!-- ═══ STEP 5 ═══ -->
+<div class="section" id="s5">
+    <div class="done-center">
+        <div class="done-check"><svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="#4ade80" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div>
+        <h2>Votre formulaire est pret !</h2>
+        <p class="sub">Verifiez l'apercu puis telechargez.</p>
+        <div class="done-preview" id="donePrev"></div>
+        <div class="done-btns">
+            <button class="btn btn-primary btn-lg" id="btnDownload">Telecharger le PDF</button>
+            <button class="btn btn-secondary" id="btnNewForm">Nouveau formulaire</button>
+        </div>
+    </div>
+</div>
+
+</div><!-- /content -->
+
+<!-- PROFILE MODAL -->
+<div class="modal hidden" id="modalProfile">
+    <div class="modal-bg"></div>
+    <div class="modal-box">
+        <div class="modal-top"><h2>Mon Profil</h2><button class="modal-close" id="modalClose">&#10005;</button></div>
+        <div class="modal-body">
+            <p>Remplissez une fois, vos formulaires se rempliront automatiquement.</p>
+            <details open><summary>Identite</summary><div class="pf">
+                <div class="row2"><label>Nom<input data-p="nom" placeholder="DUPONT"></label><label>Prenom<input data-p="prenom" placeholder="Jean"></label></div>
+                <div class="row2"><label>Nom naissance<input data-p="nom_naissance"></label><label>Sexe<select data-p="sexe"><option value="">-</option><option value="M">M</option><option value="F">F</option></select></label></div>
+                <div class="row2"><label>Date naissance<input type="date" data-p="date_naissance"></label><label>Lieu naissance<input data-p="lieu_naissance"></label></div>
+                <div class="row2"><label>Dept naissance<input data-p="departement_naissance" placeholder="75"></label><label>Nationalite<input data-p="nationalite" placeholder="Francaise"></label></div>
+            </div></details>
+            <details><summary>Contact</summary><div class="pf">
+                <div class="row2"><label>Email<input type="email" data-p="email"></label><label>Telephone<input type="tel" data-p="telephone"></label></div>
+            </div></details>
+            <details><summary>Adresse</summary><div class="pf">
+                <label>Adresse<input data-p="adresse"></label><label>Complement<input data-p="complement_adresse"></label>
+                <div class="row2"><label>Code postal<input data-p="code_postal"></label><label>Ville<input data-p="ville"></label></div>
+            </div></details>
+            <details><summary>Identifiants</summary><div class="pf">
+                <label>N Securite sociale<input data-p="numero_secu"></label>
+                <div class="row2"><label>N Carte identite<input data-p="numero_ci"></label><label>N Fiscal<input data-p="numero_fiscal"></label></div>
+            </div></details>
+            <details><summary>Professionnel</summary><div class="pf">
+                <div class="row2"><label>Profession<input data-p="profession"></label><label>Employeur<input data-p="employeur"></label></div>
+            </div></details>
+            <details><summary>Bancaire</summary><div class="pf">
+                <label>IBAN<input data-p="iban"></label>
+                <div class="row2"><label>BIC<input data-p="bic"></label><label>Banque<input data-p="banque"></label></div>
+            </div></details>
+            <details><summary>Famille</summary><div class="pf">
+                <div class="row2"><label>Situation<select data-p="situation_familiale"><option value="">-</option><option>celibataire</option><option>marie</option><option>pacse</option><option>divorce</option><option>veuf</option></select></label><label>Enfants<input type="number" data-p="nombre_enfants" min="0"></label></div>
+            </div></details>
+        </div>
+        <div class="modal-foot"><button class="btn btn-primary" id="btnSaveProfile">Sauvegarder</button></div>
+    </div>
+</div>
+
+<div class="toasts" id="toasts"></div>
+
+<script>
+(function(){
+'use strict';
+
+const TOKEN = localStorage.getItem('luna_token') || '';
+const HDR = TOKEN ? {'Authorization':'Bearer '+TOKEN} : {};
+const HJSON = {...HDR, 'Content-Type':'application/json'};
+
+let step=1, file=null, fileB64=null, mediaType='', sessionId=null, analysis=null, fields=[], sigPad=null;
+
+const $=s=>document.querySelector(s), $$=s=>document.querySelectorAll(s);
+
+// ── Navigation ──
+function goStep(n){
+    $$('.section').forEach(e=>e.classList.remove('active'));
+    $(`#s${n}`).classList.add('active');
+    $$('.steps .step').forEach(e=>{
+        const s=+e.dataset.s;
+        e.classList.toggle('active',s===n);
+        e.classList.toggle('done',s<n);
+    });
+    step=n;
+    if(n===4&&!sigPad) initSig();
+}
+
+// ── Toast ──
+function toast(msg,type='info'){
+    const d=document.createElement('div'); d.className='toast '+type; d.textContent=msg;
+    $('#toasts').appendChild(d); setTimeout(()=>d.remove(),3500);
+}
+
+// ── File handling ──
+function readFileAsB64(f){
+    return new Promise((ok,ko)=>{
+        const r=new FileReader();
+        r.onload=()=>ok(r.result.split(',')[1]);
+        r.onerror=ko;
+        r.readAsDataURL(f);
+    });
+}
+
+function handleFile(f){
+    if(f.size>20*1024*1024){toast('Fichier trop gros (max 20 Mo)','err');return;}
+    file=f;
+    const ext=f.name.split('.').pop().toLowerCase();
+    const types={pdf:'application/pdf',png:'image/png',jpg:'image/jpeg',jpeg:'image/jpeg',webp:'image/webp',bmp:'image/png',tiff:'image/png',tif:'image/png'};
+    mediaType=types[ext]||f.type||'image/jpeg';
+
+    $('#dropZone').classList.add('hidden');
+    $('#filePreview').classList.remove('hidden');
+    $('#fileName').textContent=f.name;
+
+    if(f.type.startsWith('image/')){
+        const r=new FileReader(); r.onload=e=>{$('#prevImg').src=e.target.result;}; r.readAsDataURL(f);
+    } else {
+        $('#prevImg').src='data:image/svg+xml,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="200" height="260"><rect width="200" height="260" fill="#1a1a3e" rx="8"/><text x="100" y="120" text-anchor="middle" fill="#888" font-size="42">PDF</text></svg>');
+    }
+}
+
+// ── Step 2: Analyze ──
+async function startAnalysis(){
+    if(!file)return;
+    goStep(2);
+    if(file.type.startsWith('image/')){
+        const r=new FileReader(); r.onload=e=>{$('#scanImg').src=e.target.result;}; r.readAsDataURL(file);
+    }
+
+    const pf=$('#progFill'); let prog=0;
+    const iv=setInterval(()=>{prog+=Math.random()*8;if(prog>85)prog=85;pf.style.width=prog+'%';},500);
+
+    try{
+        fileB64=await readFileAsB64(file);
+        const res=await fetch('/api/form-filler/analyze',{method:'POST',headers:HJSON,body:JSON.stringify({file:fileB64,filename:file.name,media_type:mediaType})});
+        clearInterval(iv); pf.style.width='100%';
+        if(!res.ok){const e=await res.json().catch(()=>({})); throw new Error(e.error||'Erreur '+res.status);}
+        const data=await res.json();
+        sessionId=data.session_id; analysis=data; fields=data.fields||[];
+        await new Promise(r=>setTimeout(r,400));
+        showFillStep();
+    }catch(e){
+        clearInterval(iv); toast(e.message,'err'); goStep(1);
+        file=null; $('#filePreview').classList.add('hidden'); $('#dropZone').classList.remove('hidden');
+    }
+}
+
+// ── Step 3: Fill ──
+const GROUP_LABELS={identite:'Identite',adresse:'Adresse',contact:'Contact',professionnel:'Professionnel',bancaire:'Bancaire',famille:'Famille',fiscal:'Fiscal',medical:'Medical',autre:'Autres'};
+const GROUP_ORDER=['identite','contact','adresse','professionnel','bancaire','famille','fiscal','medical','autre'];
+
+function showFillStep(){
+    $('#formTitle').textContent=(analysis.form_title||'Formulaire')+(analysis.form_type?' ('+analysis.form_type+')':'');
+    $('#formDesc').textContent=analysis.description||'';
+
+    const w=$('#formWarnings');
+    if(analysis.warnings&&analysis.warnings.length){
+        w.classList.remove('hidden');
+        w.innerHTML='<ul>'+analysis.warnings.map(x=>'<li>'+x+'</li>').join('')+'</ul>';
+    } else w.classList.add('hidden');
+
+    buildForm(); loadPreview(0); goStep(3);
+}
+
+function buildForm(){
+    const c=$('#formContainer'); c.innerHTML='';
+    const groups={};
+    for(const f of fields){const g=f.group||'autre';if(!groups[g])groups[g]=[];groups[g].push(f);}
+
+    for(const gk of GROUP_ORDER){
+        if(!groups[gk])continue;
+        const hdr=document.createElement('div'); hdr.className='form-group-hdr';
+        hdr.innerHTML='<h3>'+(GROUP_LABELS[gk]||gk)+'</h3>'; c.appendChild(hdr);
+
+        for(const f of groups[gk]){
+            const div=document.createElement('div');
+            div.className='form-field'+(f.field_type==='checkbox'?' cb':'');
+            div.dataset.fid=f.id;
+            if(f.value)div.classList.add('filled');
+
+            if(f.field_type==='checkbox'){
+                div.innerHTML='<label><input type="checkbox" '+(f.value==='true'?'checked':'')+' data-id="'+f.id+'"><span>'+f.label+(f.required?'<span class="req">*</span>':'')+'</span></label>';
+                div.querySelector('input').onchange=function(){f.value=this.checked?'true':'';div.classList.toggle('filled',this.checked);updateCounts();};
+            } else if(f.field_type==='signature'){
+                div.innerHTML='<label>'+f.label+'</label><div class="desc" style="color:var(--purple)">Signature a l\'etape suivante</div>';
+            } else {
+                const itype=f.field_type==='email'?'email':f.field_type==='phone'?'tel':'text';
+                div.innerHTML='<label>'+f.label+(f.required?'<span class="req">*</span>':'')+'</label>'+
+                    (f.field_type==='textarea'?
+                        '<textarea data-id="'+f.id+'" placeholder="'+(f.placeholder||'')+'" rows="3">'+(f.value||'')+'</textarea>':
+                        '<input type="'+itype+'" data-id="'+f.id+'" value="'+(f.value||'')+'" placeholder="'+(f.placeholder||'')+'">')+
+                    (f.description?'<div class="desc">'+f.description+'</div>':'');
+                const inp=div.querySelector('input,textarea');
+                if(inp) inp.oninput=function(){f.value=this.value;div.classList.toggle('filled',!!this.value);updateCounts();};
+            }
+            c.appendChild(div);
+        }
+    }
+    updateCounts();
+}
+
+function updateCounts(){
+    const filled=fields.filter(f=>f.value&&f.field_type!=='signature').length;
+    const total=fields.filter(f=>f.field_type!=='signature').length;
+    $('#fillN').textContent=filled; $('#fillT').textContent=total;
+}
+
+function setFieldValues(newFields){
+    for(const nf of newFields){
+        const f=fields.find(x=>x.id===nf.id);
+        if(!f||!nf.value)continue;
+        f.value=nf.value;
+        const div=$(`[data-fid="${nf.id}"]`);
+        if(!div)continue;
+        div.classList.toggle('filled',!!nf.value);
+        const inp=div.querySelector('input,textarea');
+        if(inp){if(inp.type==='checkbox')inp.checked=nf.value==='true';else inp.value=nf.value;}
+    }
+    updateCounts();
+}
+
+async function loadPreview(page){
+    try{
+        const r=await fetch('/api/form-filler/preview/'+sessionId+'?page='+page,{headers:HDR});
+        if(!r.ok)return;
+        const d=await r.json();
+        $('#prevPdf').src='data:image/png;base64,'+d.image;
+        const pp=$('#prevPages'); pp.innerHTML='';
+        for(let i=0;i<d.total_pages;i++){
+            const b=document.createElement('button'); b.textContent=i+1;
+            if(i===page)b.classList.add('active');
+            b.onclick=()=>loadPreview(i); pp.appendChild(b);
+        }
+    }catch(e){}
+}
+
+async function doAutofill(){
+    try{
+        const r=await fetch('/api/form-filler/autofill/'+sessionId,{method:'POST',headers:HDR});
+        if(!r.ok)throw new Error('Erreur');
+        const d=await r.json();
+        if(d.filled_count>0){setFieldValues(d.fields);toast(d.filled_count+' champs remplis','ok');}
+        else toast('Aucun champ correspondant. Completez votre profil.','err');
+    }catch(e){toast('Auto-fill echoue','err');}
+}
+
+// ── Step 4: Signature ──
+function initSig(){
+    const canvas=$('#sigCanvas'), ph=$('#sigPh');
+    const ctx=canvas.getContext('2d');
+    let drawing=false, lx=0, ly=0, empty=true;
+    const dpr=window.devicePixelRatio||1;
+    function resize(){
+        const w=canvas.parentElement.clientWidth;
+        canvas.width=w*dpr; canvas.height=180*dpr;
+        canvas.style.width=w+'px'; canvas.style.height='180px';
+        ctx.scale(dpr,dpr); ctx.lineCap='round'; ctx.lineJoin='round'; ctx.strokeStyle='#1a1a2e'; ctx.lineWidth=2.5;
+    }
+    function pos(e){const r=canvas.getBoundingClientRect();return{x:e.clientX-r.left,y:e.clientY-r.top};}
+    function start(e){drawing=true;const p=pos(e);lx=p.x;ly=p.y;if(empty){empty=false;ph.classList.add('hidden');}}
+    function move(e){if(!drawing)return;const p=pos(e);ctx.beginPath();ctx.moveTo(lx,ly);ctx.lineTo(p.x,p.y);ctx.stroke();lx=p.x;ly=p.y;}
+    function end(){drawing=false;}
+
+    canvas.onmousedown=start; canvas.onmousemove=move; canvas.onmouseup=end; canvas.onmouseleave=end;
+    canvas.ontouchstart=e=>{e.preventDefault();start(e.touches[0]);};
+    canvas.ontouchmove=e=>{e.preventDefault();move(e.touches[0]);};
+    canvas.ontouchend=end;
+    window.addEventListener('resize',resize);
+    resize();
+
+    sigPad={
+        clear(){ctx.clearRect(0,0,canvas.width/dpr,canvas.height/dpr);empty=true;ph.classList.remove('hidden');},
+        toDataURL(){return empty?null:canvas.toDataURL('image/png');},
+    };
+}
+
+// ── Step 5: Generate ──
+async function generate(withSig){
+    const sigData=withSig&&sigPad?sigPad.toDataURL():null;
+    try{
+        const r=await fetch('/api/form-filler/fill',{method:'POST',headers:HJSON,body:JSON.stringify({session_id:sessionId,fields,signature_data:sigData})});
+        if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.error||'Erreur');}
+        const d=await r.json();
+        goStep(5);
+        const c=$('#donePrev'); c.innerHTML='';
+        for(const p of d.preview_pages){const img=document.createElement('img');img.src='data:image/png;base64,'+p;c.appendChild(img);}
+    }catch(e){toast('Erreur: '+e.message,'err');}
+}
+
+// ── Profile ──
+async function openProfile(){
+    $('#modalProfile').classList.remove('hidden');
+    try{
+        const r=await fetch('/api/form-filler/profile',{headers:HDR});
+        if(r.ok){const p=await r.json();for(const[k,v]of Object.entries(p)){const i=$(`[data-p="${k}"]`);if(i&&v)i.value=v;}}
+    }catch(e){}
+}
+async function saveProfile(){
+    const p={};$$('[data-p]').forEach(i=>{p[i.dataset.p]=i.value||'';});
+    try{
+        await fetch('/api/form-filler/profile',{method:'POST',headers:HJSON,body:JSON.stringify(p)});
+        toast('Profil sauvegarde','ok'); $('#modalProfile').classList.add('hidden');
+    }catch(e){toast('Erreur','err');}
+}
+
+// ── Reset ──
+function reset(){
+    file=null;fileB64=null;sessionId=null;analysis=null;fields=[];
+    $('#filePreview').classList.add('hidden');$('#dropZone').classList.remove('hidden');
+    $('#formContainer').innerHTML='';$('#donePrev').innerHTML='';
+    if(sigPad)sigPad.clear();
+    goStep(1);
+}
+
+// ── Init ──
+function init(){
+    // Upload
+    const dz=$('#dropZone');
+    dz.ondragover=e=>{e.preventDefault();dz.classList.add('dragover');};
+    dz.ondragleave=()=>dz.classList.remove('dragover');
+    dz.ondrop=e=>{e.preventDefault();dz.classList.remove('dragover');if(e.dataTransfer.files.length)handleFile(e.dataTransfer.files[0]);};
+
+    $('#btnBrowse').onclick=e=>{e.stopPropagation();$('#fileInput').click();};
+    $('#btnCamera').onclick=e=>{e.stopPropagation();$('#camInput').click();};
+    $('#fileInput').onchange=function(){if(this.files.length)handleFile(this.files[0]);};
+    $('#camInput').onchange=function(){if(this.files.length)handleFile(this.files[0]);};
+    $('#btnRemove').onclick=()=>{file=null;$('#filePreview').classList.add('hidden');$('#dropZone').classList.remove('hidden');};
+    $('#btnAnalyze').onclick=startAnalysis;
+
+    // Nav
+    $('#btnAutofill').onclick=doAutofill;
+    $('#btnBackUpload').onclick=reset;
+    $('#btnToSign').onclick=()=>goStep(4);
+    $('#btnBackFill').onclick=()=>goStep(3);
+    $('#btnClearSig').onclick=()=>sigPad&&sigPad.clear();
+    $('#btnGenerate').onclick=()=>generate(true);
+    $('#btnSkipSig').onclick=()=>generate(false);
+    $('#btnDownload').onclick=()=>{if(sessionId)window.location.href='/api/form-filler/download/'+sessionId;};
+    $('#btnNewForm').onclick=reset;
+
+    // Profile
+    $('#btnProfile').onclick=openProfile;
+    $('#modalClose').onclick=()=>$('#modalProfile').classList.add('hidden');
+    $('#modalProfile').querySelector('.modal-bg').onclick=()=>$('#modalProfile').classList.add('hidden');
+    $('#btnSaveProfile').onclick=saveProfile;
+}
+
+document.readyState==='loading'?document.addEventListener('DOMContentLoaded',init):init();
+})();
+</script>
+</body>
+</html>

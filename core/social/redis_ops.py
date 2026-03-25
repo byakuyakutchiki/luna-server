@@ -130,8 +130,9 @@ class SocialRedisOps:
         # Add to receiver's incoming requests
         self.client.zadd(self._key("friend_requests", to_tid), {from_tid: now})
         self.client.expire(self._key("friend_requests", to_tid), TTL_FRIEND_REQUEST)
-        # Track sent
+        # Track sent (with same TTL as friend_requests)
         self.client.sadd(self._key("sent_requests", from_tid), to_tid)
+        self.client.expire(self._key("sent_requests", from_tid), TTL_FRIEND_REQUEST)
         return True
 
     def get_friend_requests(self, tid) -> List[str]:
@@ -198,13 +199,18 @@ class SocialRedisOps:
     # =================================================================
 
     def block_user(self, tid, target_tid) -> bool:
-        """Bloque un utilisateur. Retire aussi l'amitie mutuelle."""
+        """Bloque un utilisateur. Retire amitie + demandes d'ami en attente."""
         tid, target_tid = str(tid), str(target_tid)
         if self.client.scard(self._key("blocked", tid)) >= MAX_BLOCKED:
             return False
         self.client.sadd(self._key("blocked", tid), target_tid)
         # Remove friendship if exists
         self.remove_friend(tid, target_tid)
+        # Remove pending friend requests in both directions
+        self.client.zrem(self._key("friend_requests", tid), target_tid)
+        self.client.zrem(self._key("friend_requests", target_tid), tid)
+        self.client.srem(self._key("sent_requests", tid), target_tid)
+        self.client.srem(self._key("sent_requests", target_tid), tid)
         return True
 
     def unblock_user(self, tid, target_tid) -> bool:
@@ -296,14 +302,51 @@ class SocialRedisOps:
         self.client.hset(room_key, "last_message_at", msg["ts"])
         self.client.expire(room_key, TTL_DM_ROOM)
 
-        # Update index timestamps for both users
+        # Update index timestamps for both users + unread counter for receiver
         room_data = self.client.hgetall(room_key)
         if room_data:
             now_ts = datetime.utcnow().timestamp()
-            self.client.zadd(self._key("dm_index", room_data.get("tid1", "")), {room_id: now_ts})
-            self.client.zadd(self._key("dm_index", room_data.get("tid2", "")), {room_id: now_ts})
+            tid1 = room_data.get("tid1", "")
+            tid2 = room_data.get("tid2", "")
+            self.client.zadd(self._key("dm_index", tid1), {room_id: now_ts})
+            self.client.zadd(self._key("dm_index", tid2), {room_id: now_ts})
+            # Increment unread for the OTHER user
+            receiver = tid2 if str(sender_tid) == tid1 else tid1
+            self.client.hincrby(self._key("dm_unread", receiver), room_id, 1)
 
         return msg
+
+    def mark_dm_read(self, tid, room_id: str) -> None:
+        """Marque un DM comme lu (reset le compteur non-lu pour ce room)."""
+        self.client.hdel(self._key("dm_unread", str(tid)), room_id)
+
+    def get_unread_dm_count(self, tid) -> int:
+        """Nombre total de DM non-lus toutes rooms confondues."""
+        data = self.client.hgetall(self._key("dm_unread", str(tid)))
+        if not data:
+            return 0
+        total = 0
+        for v in data.values():
+            try:
+                total += int(v)
+            except (ValueError, TypeError):
+                pass
+        return total
+
+    def get_unread_dm_per_room(self, tid) -> Dict[str, int]:
+        """Compteur non-lu par room_id."""
+        data = self.client.hgetall(self._key("dm_unread", str(tid)))
+        if not data:
+            return {}
+        result = {}
+        for room_id, count in data.items():
+            try:
+                c = int(count)
+                if c > 0:
+                    result[room_id] = c
+            except (ValueError, TypeError):
+                pass
+        return result
 
     def get_dm_messages(self, room_id: str, limit: int = 50) -> List[Dict]:
         """Retourne les derniers messages d'un DM (recents en premier)."""
@@ -350,7 +393,12 @@ class SocialRedisOps:
 
     def set_online(self, tid) -> None:
         key = self._key("online")
-        self.client.zadd(key, {str(tid): datetime.utcnow().timestamp()})
+        now = datetime.utcnow().timestamp()
+        self.client.zadd(key, {str(tid): now})
+        # Periodically purge stale entries (every ~50 heartbeats via probabilistic cleanup)
+        if int(now) % 50 == 0:
+            cutoff = now - TTL_ONLINE * 2
+            self.client.zremrangebyscore(key, 0, cutoff)
 
     def set_offline(self, tid) -> None:
         key = self._key("online")

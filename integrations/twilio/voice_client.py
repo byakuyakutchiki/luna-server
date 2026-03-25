@@ -130,15 +130,28 @@ class TwilioVoiceClient:
             logger.error(f"Erreur appel vocal: [{error_code}] {error_msg}")
             return False, {"error": error_msg, "code": error_code}
 
+    # Semaphore: max appels Twilio simultanes (evite rate limit 429)
+    _call_semaphore = None
+
+    @classmethod
+    def _get_call_semaphore(cls):
+        if cls._call_semaphore is None:
+            import asyncio
+            max_calls = int(os.getenv("TWILIO_MAX_CONCURRENT_CALLS", "20"))
+            cls._call_semaphore = asyncio.Semaphore(max_calls)
+        return cls._call_semaphore
+
     async def initiate_call_async(self, to: str) -> Tuple[bool, Dict[str, Any]]:
-        """Version async de initiate_call() avec timeout 15s."""
+        """Version async de initiate_call() avec timeout 15s et backpressure."""
         import asyncio
-        loop = asyncio.get_event_loop()
+        sem = self._get_call_semaphore()
         try:
-            return await asyncio.wait_for(
-                loop.run_in_executor(None, self.initiate_call, to),
-                timeout=15.0,
-            )
+            async with sem:
+                loop = asyncio.get_event_loop()
+                return await asyncio.wait_for(
+                    loop.run_in_executor(None, self.initiate_call, to),
+                    timeout=15.0,
+                )
         except asyncio.TimeoutError:
             logger.error(f"Timeout appel vocal vers {to}")
             return False, {"error": "Timeout connexion Twilio"}

@@ -1397,7 +1397,7 @@ input::placeholder { color: var(--text-dim); }
 <div class="app-container" id="lobbyView">
   <header class="lobby-header">
     <h1>&#127917; Activites <span id="salonXpInfo" style="font-size:12px;color:#a78bfa;font-weight:normal;margin-left:6px;"></span></h1>
-    <a href="/world" class="back-link">&#8592; Village</a>
+    <a id="backLink" href="/world" class="back-link">&#8592; Village</a>
   </header>
   <div class="create-section">
     <button class="create-toggle-btn" id="createToggleBtn" onclick="toggleCreateForm()">
@@ -1789,7 +1789,20 @@ function getMyPhone() {
 
 function getMyName() {
   if (_profile && _profile.first_name) return _profile.first_name;
-  try { var t=getToken(); if(!t)return""; var p=JSON.parse(atob(t.split(".")[1])); return p.first_name||p.name||p.prenom||(p.email?p.email.split("@")[0]:"")||""; } catch(e) { return ""; }
+  try {
+    var t=getToken(); if(!t)return"";
+    var p=JSON.parse(atob(t.split(".")[1]));
+    if(p.first_name) return p.first_name;
+    if(p.name) return p.name;
+    if(p.prenom) return p.prenom;
+    // Dernier recours: extraire un prenom lisible de l'email (avant le point ou @)
+    if(p.email) {
+      var local=p.email.split("@")[0];
+      var part=local.split(/[._-]/)[0];
+      return part.charAt(0).toUpperCase()+part.slice(1);
+    }
+    return "";
+  } catch(e) { return ""; }
 }
 
 function fetchProfile() {
@@ -1907,7 +1920,11 @@ function loadRooms() {
   apiFetch("/api/rooms").then(function(r){return r.json();}).then(function(rooms){
     S.rooms=rooms||[]; renderRooms();
   }).catch(function(err){
-    c.innerHTML='<div class="empty-state"><span class="empty-icon">\u26A0\uFE0F</span>Erreur de chargement</div>';
+    if(err.message==="Auth"){
+      c.innerHTML='<div class="empty-state"><span class="empty-icon">&#x1F512;</span>Session expiree. Reconnecte-toi depuis Luna.</div>';
+    } else {
+      c.innerHTML='<div class="empty-state"><span class="empty-icon">\u26A0\uFE0F</span>Erreur de chargement<br><button onclick="loadRooms()" style="margin-top:12px;padding:10px 20px;border-radius:12px;border:1px solid #7c3aed;background:transparent;color:#a78bfa;cursor:pointer;">Reessayer</button></div>';
+    }
   });
 }
 
@@ -1976,7 +1993,6 @@ function loadRoomData(roomId) {
     var hp=(data.host_phone||"").toLowerCase().trim();
     var mp=(S.myPhone||"").toLowerCase().trim();
     S.isHost=(hp!==""&&hp===mp);
-    console.log("[SALON] host_phone="+data.host_phone+" myPhone="+S.myPhone+" isHost="+S.isHost);
     $("roomTitle").textContent=data.name||"Activite";
     document.title="Luna - "+(data.name||"Activite");
     var tk=data.type||"chat";
@@ -2292,6 +2308,8 @@ function handleJoin(msg) {
   addSystemMsg((msg.name||"Quelqu'un")+" a rejoint l'activite");
   if(msg.count!==undefined) $("participantsCount").textContent=msg.count;
   refreshParticipants();
+  hideWaitingFor();
+  showToast((msg.name||"Quelqu'un")+" est la !","success");
 }
 
 function handleLeave(msg) {
@@ -4265,8 +4283,8 @@ function loadInvitableMembers() {
   if(!sec) return;
   // Charger famille ET contacts en parallele
   Promise.all([
-    authFetch("/api/family").then(function(r){ return r.json(); }).catch(function(){ return {members:[]}; }),
-    authFetch("/api/contacts").then(function(r){ return r.json(); }).catch(function(){ return {contacts:[]}; })
+    apiFetch("/api/family").then(function(r){ return r.json(); }).catch(function(){ return {members:[]}; }),
+    apiFetch("/api/contacts").then(function(r){ return r.json(); }).catch(function(){ return {contacts:[]}; })
   ]).then(function(results){
     var familyMembers=results[0].members||results[0]||[];
     var contacts=results[1].contacts||[];
@@ -4297,8 +4315,8 @@ function loadInvitableMembers() {
 window.inviteMemberToRoom = function(phone, name, btn) {
   if(btn.classList.contains("sent")) return;
   btn.disabled=true; btn.textContent="Envoi...";
-  var roomId=S.roomId;
-  authFetch("/api/rooms/"+roomId+"/invite",{
+  var roomId=S.currentRoom;
+  apiFetch("/api/rooms/"+roomId+"/invite",{
     method:"POST",
     headers:{"Content-Type":"application/json"},
     body:JSON.stringify({phone:phone,name:name})
@@ -4307,17 +4325,46 @@ window.inviteMemberToRoom = function(phone, name, btn) {
       btn.classList.add("sent");
       btn.innerHTML="&#10003; Invitation envoy\u00e9e \u00e0 "+escapeHtml(name);
       showToast("Invitation envoy\u00e9e \u00e0 "+name,"success");
+      // Ferme le panneau participants et affiche un message d'attente
+      closeParticipants();
+      showWaitingFor(name);
     } else {
       btn.disabled=false;
       btn.innerHTML="&#128233; Inviter "+escapeHtml(name);
       showToast(data.error||"Erreur d'envoi","error");
     }
-  }).catch(function(){
+  }).catch(function(e){
     btn.disabled=false;
     btn.innerHTML="&#128233; Inviter "+escapeHtml(name);
     showToast("Erreur r\u00e9seau","error");
+    console.error("Invite error:", e);
   });
 };
+
+/* Affiche un overlay "En attente de {name}..." dans la zone d'activite */
+function showWaitingFor(name) {
+  // Retire un eventuel overlay precedent
+  var old = document.getElementById("waitingForOverlay");
+  if(old) old.remove();
+  var overlay = document.createElement("div");
+  overlay.id = "waitingForOverlay";
+  overlay.style.cssText = "position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:rgba(167,139,250,0.15);border:1px solid #a78bfa;color:#e0d0ff;padding:12px 24px;border-radius:16px;font-size:14px;z-index:900;display:flex;align-items:center;gap:10px;backdrop-filter:blur(8px);animation:fadeInUp 0.3s ease;";
+  overlay.innerHTML = '<span style="display:inline-block;width:12px;height:12px;border:2px solid #a78bfa;border-top-color:transparent;border-radius:50%;animation:spin 0.8s linear infinite;"></span> En attente de <b>' + escapeHtml(name) + '</b>...';
+  document.body.appendChild(overlay);
+  // Animation CSS (ajoutee une seule fois)
+  if(!document.getElementById("waitingAnimStyle")){
+    var st=document.createElement("style");
+    st.id="waitingAnimStyle";
+    st.textContent="@keyframes spin{to{transform:rotate(360deg)}} @keyframes fadeInUp{from{opacity:0;transform:translateX(-50%) translateY(10px);}to{opacity:1;transform:translateX(-50%) translateY(0);}}";
+    document.head.appendChild(st);
+  }
+}
+
+/* Cache l'overlay d'attente quand quelqu'un rejoint */
+function hideWaitingFor() {
+  var el = document.getElementById("waitingForOverlay");
+  if(el) { el.style.opacity="0"; setTimeout(function(){ el.remove(); }, 300); }
+}
 
 function updateGame(msg) {
   var gt=msg.game_type, gs=msg.state; if(!gt||!gs) return;
@@ -4519,16 +4566,42 @@ function loadSalonXp() {
 
 /* INIT */
 function init() {
-  if(!getToken()){ if(!isEmbed) window.location="/"; return; }
+  /* En mode embed (depuis APK/index), le back-link retourne a l'accueil */
+  if(isEmbed){
+    var bl=$("backLink");
+    if(bl){ bl.href="/"; bl.textContent="\u2190 Retour"; }
+  }
+
+  var tk = getToken();
+  if(!tk){
+    if(isEmbed){
+      /* En mode embed, afficher un message clair au lieu d'un ecran blanc */
+      var lobby = $("lobbyView");
+      if(lobby){
+        var rc = $("roomsContainer");
+        if(rc) rc.innerHTML='<div class="empty-state"><span class="empty-icon">&#x1F512;</span>Connecte-toi pour acceder aux activites</div>';
+      }
+      return;
+    }
+    window.location="/"; return;
+  }
+
+  /* En mode embed, stocker le token dans localStorage pour le WebSocket */
+  if(isEmbed && tk && !localStorage.getItem("luna_token")){
+    try { localStorage.setItem("luna_token", tk); } catch(e){}
+  }
 
   buildReactionsBar();
   buildGiftGrid();
   loadSalonXp();
 
-  /* Fetch profile first to get email + first_name, then proceed */
+  /* Fetch profile then proceed - si fetchProfile echoue, continuer quand meme */
   fetchProfile().then(function(){
     S.myPhone=getMyPhone(); S.myName=getMyName();
-
+  }).catch(function(){
+    /* Profile fetch failed but we still have a token - continue */
+    S.myPhone=getMyPhone(); S.myName=getMyName();
+  }).then(function(){
     if(autoRoomId){
       var ph=memberPhone||getMyPhone();
       apiPost("/api/rooms/"+autoRoomId+"/join",{phone:ph}).then(function(){showRoom(autoRoomId);}).catch(function(){showRoom(autoRoomId);});

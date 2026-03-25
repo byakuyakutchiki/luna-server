@@ -158,22 +158,35 @@ class TwilioSMSClient:
                 "code": error_code,
             }
 
+    # Semaphore: max SMS Twilio simultanes (evite rate limit)
+    _sms_semaphore = None
+
+    @classmethod
+    def _get_sms_semaphore(cls):
+        if cls._sms_semaphore is None:
+            import asyncio
+            max_sms = int(os.getenv("TWILIO_MAX_CONCURRENT_SMS", "50"))
+            cls._sms_semaphore = asyncio.Semaphore(max_sms)
+        return cls._sms_semaphore
+
     async def send_async(
         self,
         to: str,
         body: str,
     ) -> Tuple[bool, Dict[str, Any]]:
         """
-        Version async de send() avec timeout 15s.
+        Version async de send() avec timeout 15s et backpressure.
         Wraps l'appel synchrone Twilio.
         """
         import asyncio
-        loop = asyncio.get_event_loop()
+        sem = self._get_sms_semaphore()
         try:
-            return await asyncio.wait_for(
-                loop.run_in_executor(None, self.send, to, body),
-                timeout=15.0,
-            )
+            async with sem:
+                loop = asyncio.get_event_loop()
+                return await asyncio.wait_for(
+                    loop.run_in_executor(None, self.send, to, body),
+                    timeout=15.0,
+                )
         except asyncio.TimeoutError:
             logger.error(f"Timeout envoi SMS vers {to}")
             return False, {"error": "Timeout connexion Twilio"}

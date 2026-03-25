@@ -12,10 +12,17 @@ from datetime import datetime, timedelta, time
 from dataclasses import dataclass, field
 from enum import Enum
 import heapq
+from zoneinfo import ZoneInfo
 
 from .parser import ParsedInstruction, RecurrenceType, ConditionType
 
 logger = logging.getLogger(__name__)
+
+PARIS_TZ = ZoneInfo("Europe/Paris")
+
+def _now():
+    """Current time in Paris timezone (naive for comparison)."""
+    return datetime.now(PARIS_TZ).replace(tzinfo=None)
 
 
 class TaskStatus(str, Enum):
@@ -47,11 +54,11 @@ class ScheduledTask:
 
     def is_due(self) -> bool:
         """Vérifie si la tâche est prête à être exécutée"""
-        return datetime.utcnow() >= self.scheduled_at
+        return _now() >= self.scheduled_at
 
     def time_until_due(self) -> timedelta:
         """Temps restant avant exécution"""
-        return self.scheduled_at - datetime.utcnow()
+        return self.scheduled_at - _now()
 
 
 class InstructionScheduler:
@@ -89,7 +96,7 @@ class InstructionScheduler:
         Returns:
             La tâche planifiée
         """
-        start_from = start_from or datetime.utcnow()
+        start_from = start_from or _now()
 
         # Calcule la prochaine exécution
         next_run = self._calculate_next_run(instruction, start_from)
@@ -108,7 +115,7 @@ class InstructionScheduler:
                 next_run = tomorrow_8am
             else:
                 # One-shot sans timing : exécuter maintenant
-                next_run = datetime.utcnow()
+                next_run = _now()
 
         # Crée la tâche
         import uuid
@@ -210,7 +217,7 @@ class InstructionScheduler:
     def pop_due_tasks(self) -> List[ScheduledTask]:
         """Récupère toutes les tâches prêtes à être exécutées"""
         due_tasks = []
-        now = datetime.utcnow()
+        now = _now()
 
         while self._task_queue:
             task = self._task_queue[0]
@@ -243,7 +250,7 @@ class InstructionScheduler:
             La nouvelle tâche planifiée si replanifiée, None sinon
         """
         task.status = TaskStatus.COMPLETED
-        task.completed_at = datetime.utcnow()
+        task.completed_at = _now()
         task.result = result
 
         logger.info(f"Task completed for instruction {task.instruction_id}")
@@ -254,7 +261,7 @@ class InstructionScheduler:
                 instruction_id=task.instruction_id,
                 tenant_id=task.tenant_id,
                 instruction=task.instruction,
-                start_from=datetime.utcnow(),
+                start_from=_now(),
             )
 
         return None
@@ -282,7 +289,7 @@ class InstructionScheduler:
         if retry and task.attempt < task.max_attempts:
             # Replanifie avec délai exponentiel
             delay = timedelta(minutes=5 * (2 ** task.attempt))
-            task.scheduled_at = datetime.utcnow() + delay
+            task.scheduled_at = _now() + delay
             task.status = TaskStatus.SCHEDULED
             heapq.heappush(self._task_queue, task)
             logger.warning(
@@ -292,7 +299,7 @@ class InstructionScheduler:
             return task
         else:
             task.status = TaskStatus.FAILED
-            task.completed_at = datetime.utcnow()
+            task.completed_at = _now()
             logger.error(
                 f"Task failed permanently for instruction {task.instruction_id}: {error}"
             )

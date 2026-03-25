@@ -386,7 +386,7 @@ class ActionDispatcher:
             return []
 
         try:
-            contacts = await self.memory.get_trusted_contacts(tenant_id)
+            contacts = self.memory.list_trusted_contacts()
             return [
                 {"name": c.name, "phone": c.phone, "relation": c.relation}
                 for c in contacts

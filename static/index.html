@@ -28,6 +28,202 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; b
 .tab-panel { display: none; flex: 1; overflow-y: auto; flex-direction: column; }
 .tab-panel.active { display: flex; }
 
+/* Mode switcher */
+.mode-switcher {
+  display: flex; background: #0d0d1f; padding: 6px 12px; gap: 6px; border-bottom: 1px solid #1a1a3e;
+}
+.mode-btn {
+  flex: 1; padding: 8px 12px; border: 1px solid #333; border-radius: 10px;
+  background: transparent; color: #888; font-size: 0.85em; font-weight: 600;
+  cursor: pointer; transition: all 0.25s; text-align: center;
+}
+.mode-btn:hover { color: #e0e0e0; border-color: #555; }
+.mode-btn.active[data-mode="compagnon"] {
+  background: linear-gradient(135deg, #4c1d95, #7c3aed); color: #fff;
+  border-color: #a78bfa; box-shadow: 0 2px 12px rgba(124,58,237,0.3);
+}
+.mode-btn.active[data-mode="secretaire"] {
+  background: linear-gradient(135deg, #065f46, #10b981); color: #fff;
+  border-color: #34d399; box-shadow: 0 2px 12px rgba(16,185,129,0.3);
+}
+.tab-btn.mode-hidden { display: none !important; }
+
+/* === SECRETAIRE MODE THEME — vert emeraude partout === */
+body.mode-secretaire .header { background: linear-gradient(135deg, #0d2818, #064e3b); border-bottom-color: #1a3a2a; }
+body.mode-secretaire .header h1 { color: #34d399; }
+body.mode-secretaire .tabs { background: #0a1a12; border-bottom-color: #1a3a2a; }
+body.mode-secretaire .tab-btn:hover { color: #34d399; }
+body.mode-secretaire .tab-btn.active { color: #34d399; border-bottom-color: #10b981; }
+body.mode-secretaire .conv-sidebar { background: #0a1a12; border-right-color: #1a3a2a; }
+body.mode-secretaire .conv-sidebar-header { border-bottom-color: #1a3a2a; }
+body.mode-secretaire .conv-sidebar-title { color: #34d399; }
+body.mode-secretaire .conv-new-btn { color: #34d399; }
+body.mode-secretaire .conv-new-btn:hover { background: #0d2818; }
+body.mode-secretaire .conv-search:focus { border-color: #10b981; }
+body.mode-secretaire .conv-item.active { background: #0d2818; border-left-color: #10b981; }
+body.mode-secretaire .conv-item:hover { background: #0d2818; }
+body.mode-secretaire .sidebar-toggle { border-color: #10b981; background: rgba(16,185,129,0.15); color: #34d399; }
+/* Chat messages */
+body.mode-secretaire .luna { background: #0d2818; }
+body.mode-secretaire .luna::before { background: linear-gradient(135deg, #10b981, #047857); border-color: #34d399; box-shadow: 0 0 10px rgba(16,185,129,0.4); background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Ccircle cx='20' cy='16' r='9' fill='%23f0d0b0'/%3E%3Cpath d='M10 14 Q10 6 20 5 Q30 6 30 14 Q31 18 30 22 Q28 16 20 15 Q12 16 10 22 Q9 18 10 14Z' fill='%23065f46'/%3E%3Ccircle cx='16' cy='15' r='1.2' fill='%23064e3b'/%3E%3Ccircle cx='24' cy='15' r='1.2' fill='%23064e3b'/%3E%3Cpath d='M17 19 Q20 21 23 19' fill='none' stroke='%23c4788a' stroke-width='0.8' stroke-linecap='round'/%3E%3C/svg%3E"); background-size: 26px 26px; background-position: center; background-repeat: no-repeat; }
+body.mode-secretaire .luna-name { color: #34d399; }
+body.mode-secretaire .user { background: #065f46; }
+body.mode-secretaire .typing { background: #0d2818; }
+body.mode-secretaire .typing::before { background: linear-gradient(135deg, #10b981, #047857); border-color: #34d399; box-shadow: 0 0 10px rgba(16,185,129,0.4); background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Ccircle cx='20' cy='16' r='9' fill='%23f0d0b0'/%3E%3Cpath d='M10 14 Q10 6 20 5 Q30 6 30 14 Q31 18 30 22 Q28 16 20 15 Q12 16 10 22 Q9 18 10 14Z' fill='%23065f46'/%3E%3Ccircle cx='16' cy='15' r='1.2' fill='%23064e3b'/%3E%3Ccircle cx='24' cy='15' r='1.2' fill='%23064e3b'/%3E%3Cpath d='M17 19 Q20 21 23 19' fill='none' stroke='%23c4788a' stroke-width='0.8' stroke-linecap='round'/%3E%3C/svg%3E"); background-size: 26px 26px; background-position: center; background-repeat: no-repeat; }
+body.mode-secretaire .typing-dots span { background: #34d399; }
+body.mode-secretaire .msg a { color: #34d399; }
+body.mode-secretaire .msg a:hover { color: #6ee7b7; }
+body.mode-secretaire .msg .action-card { background: linear-gradient(135deg, #0d2818, #064e3b); }
+body.mode-secretaire .msg .action-card:hover { border-color: #10b981; }
+/* Rich cards */
+body.mode-secretaire .rich-card { background: linear-gradient(145deg, #0a1a12, #0d2818); border-color: #1a3a2a; }
+body.mode-secretaire .rich-card:hover { border-color: #10b981; box-shadow: 0 4px 16px rgba(16,185,129,0.15); }
+body.mode-secretaire .rc-detail a { color: #34d399; }
+body.mode-secretaire .rc-meta { color: #34d399; }
+body.mode-secretaire .rc-fdate { color: #34d399; }
+body.mode-secretaire .rc-btn { background: #064e3b; color: #a7f3d9; border-color: #065f46; }
+body.mode-secretaire .rc-btn:hover { background: #065f46; color: #fff; }
+body.mode-secretaire .rc-forecast { background: #0d2818; }
+/* Input area */
+body.mode-secretaire .input-area { background: #0a1a12; border-top-color: #1a3a2a; }
+body.mode-secretaire .input-row { background: #0d2818; border-color: #1a3a2a; }
+body.mode-secretaire .input-row:focus-within { border-color: #10b981; }
+body.mode-secretaire .send-btn { background: #10b981; }
+body.mode-secretaire .send-btn:hover { background: #059669; }
+body.mode-secretaire .action-toggle { background: #0d2818; color: #34d399; }
+body.mode-secretaire .action-toggle:hover { background: #0f3d2a; }
+body.mode-secretaire .action-toggle.open { background: #10b981; color: white; }
+body.mode-secretaire .emoji-picker { background: #0d2818; border-color: #1a3a2a; }
+body.mode-secretaire .emoji-picker button:hover { background: rgba(16,185,129,0.2); }
+body.mode-secretaire .action-menu { background: #0d2818; border-color: #1a3a2a; }
+body.mode-secretaire .action-menu-item:hover { background: #0f3d2a; }
+/* Toast */
+body.mode-secretaire .luna-toast { background: #0d2818; border-left-color: #34d399; }
+/* Retry, links */
+body.mode-secretaire .retry-btn { border-color: #10b981; color: #34d399; }
+body.mode-secretaire .retry-btn:hover { background: #10b981; color: white; }
+/* Mode switcher area */
+body.mode-secretaire .mode-switcher { background: #071510; border-bottom-color: #1a3a2a; }
+/* Panel content headers */
+body.mode-secretaire .panel-content h2 { color: #34d399; }
+body.mode-secretaire .panel-content h3 { color: #6ee7b7; }
+/* Forms */
+body.mode-secretaire .form-group input:focus, body.mode-secretaire .form-group select:focus, body.mode-secretaire .form-group textarea:focus { border-color: #10b981; }
+body.mode-secretaire .btn-primary { background: #10b981; }
+body.mode-secretaire .btn-primary:hover { background: #059669; }
+/* Cards */
+body.mode-secretaire .card { background: #0d2818; }
+/* Auth links */
+body.mode-secretaire .auth-link a { color: #34d399; }
+body.mode-secretaire .wakeword-btn:hover { border-color: #34d399; color: #34d399; }
+/* Invite modal */
+body.mode-secretaire .invite-box { background: #0d2818; }
+body.mode-secretaire .invite-box h3 { color: #34d399; }
+body.mode-secretaire .invite-box input:focus { border-color: #10b981; }
+
+/* Conciergerie dashboard */
+.conciergerie-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 12px; padding: 16px;
+}
+.conc-card {
+  background: linear-gradient(145deg, #1a1a3e, #1e1e50); border: 1px solid #333;
+  border-radius: 14px; padding: 16px 14px; cursor: pointer; transition: all 0.2s;
+  display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center;
+}
+.conc-card:hover { border-color: #10b981; transform: translateY(-2px); box-shadow: 0 4px 16px rgba(16,185,129,0.2); }
+.conc-card:active { transform: scale(0.97); }
+.conc-icon { font-size: 1.8em; }
+.conc-label { font-size: 0.82em; font-weight: 600; color: #e0e0e0; }
+.conc-desc { font-size: 0.7em; color: #888; line-height: 1.3; }
+.conc-section-title { padding: 16px 16px 4px; font-size: 0.85em; font-weight: 700; color: #10b981; text-transform: uppercase; letter-spacing: 0.5px; }
+@media (max-width: 600px) {
+  .conciergerie-grid { grid-template-columns: repeat(3, 1fr); gap: 8px; padding: 10px; }
+  .conc-card { padding: 12px 8px; }
+  .conc-icon { font-size: 1.5em; }
+  .conc-desc { display: none; }
+}
+@media (max-width: 380px) {
+  .conciergerie-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* Conciergerie results panel */
+.conc-results { display: none; padding: 0; }
+.conc-results.active { display: block; }
+.conc-results-header { display: flex; align-items: center; gap: 10px; padding: 14px 16px; border-bottom: 1px solid #333; }
+.conc-back-btn { background: none; border: 1px solid #555; color: #ccc; border-radius: 8px; padding: 6px 14px; cursor: pointer; font-size: 0.82em; }
+.conc-back-btn:hover { border-color: #10b981; color: #10b981; }
+.conc-results-title { font-size: 1em; font-weight: 600; color: #e0e0e0; margin: 0; }
+.conc-results-body { padding: 12px 16px; overflow-y: auto; max-height: calc(100vh - 200px); }
+.conc-loading { text-align: center; padding: 40px; color: #888; }
+.conc-loading .spinner { display: inline-block; width: 32px; height: 32px; border: 3px solid #333; border-top-color: #10b981; border-radius: 50%; animation: spin 0.8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Result cards */
+.conc-result-card { background: #1a1a3e; border: 1px solid #333; border-radius: 12px; padding: 14px; margin-bottom: 10px; }
+.conc-result-card:hover { border-color: #10b981; }
+.conc-result-card h4 { margin: 0 0 6px; font-size: 0.92em; color: #e0e0e0; }
+.conc-result-card p { margin: 0; font-size: 0.8em; color: #999; line-height: 1.4; }
+.conc-result-card .conc-meta { font-size: 0.75em; color: #10b981; margin-top: 6px; }
+.conc-result-card .conc-actions { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+.conc-result-btn { display: inline-block; padding: 7px 14px; border-radius: 8px; font-size: 0.78em; font-weight: 600; text-decoration: none; cursor: pointer; border: none; transition: all 0.2s; }
+.conc-result-btn.primary { background: #10b981; color: #fff; }
+.conc-result-btn.primary:hover { background: #059669; }
+.conc-result-btn.secondary { background: #1e1e50; color: #ccc; border: 1px solid #444; }
+.conc-result-btn.secondary:hover { border-color: #10b981; color: #10b981; }
+
+/* Weather inline */
+.conc-weather { text-align: center; padding: 20px 0; }
+.conc-weather .temp-big { font-size: 3em; font-weight: 700; color: #e0e0e0; }
+.conc-weather .desc { font-size: 1em; color: #10b981; margin: 4px 0 12px; }
+.conc-weather .details { display: flex; justify-content: center; gap: 20px; font-size: 0.82em; color: #999; }
+.conc-forecast { display: flex; gap: 10px; margin-top: 16px; justify-content: center; }
+.conc-forecast-day { background: #1a1a3e; border-radius: 10px; padding: 10px 14px; text-align: center; min-width: 90px; }
+.conc-forecast-day .day { font-size: 0.78em; color: #10b981; }
+.conc-forecast-day .temps { font-size: 0.85em; color: #e0e0e0; margin-top: 4px; }
+.conc-forecast-day .desc-sm { font-size: 0.72em; color: #888; margin-top: 2px; }
+
+/* News inline */
+.conc-news-item { border-left: 3px solid #10b981; padding-left: 12px; margin-bottom: 14px; }
+.conc-news-item h4 a { color: #e0e0e0; text-decoration: none; }
+.conc-news-item h4 a:hover { color: #10b981; }
+.conc-news-item .src { font-size: 0.72em; color: #10b981; }
+
+/* Stats inline */
+.conc-stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.conc-stat-box { background: #1a1a3e; border-radius: 10px; padding: 14px; text-align: center; }
+.conc-stat-box .val { font-size: 1.6em; font-weight: 700; color: #10b981; }
+.conc-stat-box .lbl { font-size: 0.72em; color: #999; margin-top: 4px; }
+
+/* Contact list */
+.conc-contact { display: flex; align-items: center; gap: 12px; padding: 10px; background: #1a1a3e; border-radius: 10px; margin-bottom: 8px; }
+.conc-contact-avatar { width: 40px; height: 40px; border-radius: 50%; background: #10b981; display: flex; align-items: center; justify-content: center; font-size: 1.1em; color: #fff; font-weight: 700; }
+.conc-contact-info { flex: 1; }
+.conc-contact-info .name { font-size: 0.88em; color: #e0e0e0; font-weight: 600; }
+.conc-contact-info .rel { font-size: 0.75em; color: #888; }
+
+/* Conciergerie modal forms */
+.conc-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 2000; align-items: center; justify-content: center; }
+.conc-modal.active { display: flex; }
+.conc-modal-box { background: #1a1a2e; border: 1px solid #333; border-radius: 16px; padding: 24px; width: 90%; max-width: 420px; max-height: 85vh; overflow-y: auto; }
+.conc-modal-box h3 { margin: 0 0 16px; color: #10b981; font-size: 1.1em; }
+.conc-modal-box .field { margin-bottom: 12px; }
+.conc-modal-box .field label { display: block; font-size: 0.8em; color: #999; margin-bottom: 4px; }
+.conc-modal-box .field input, .conc-modal-box .field select, .conc-modal-box .field textarea { width: 100%; background: #0d0d2b; border: 1px solid #444; border-radius: 8px; padding: 10px; color: #e0e0e0; font-size: 0.88em; box-sizing: border-box; }
+.conc-modal-box .field input:focus, .conc-modal-box .field select:focus, .conc-modal-box .field textarea:focus { border-color: #10b981; outline: none; }
+.conc-modal-btns { display: flex; gap: 10px; margin-top: 16px; }
+.conc-modal-btns button { flex: 1; padding: 10px; border-radius: 10px; border: none; font-weight: 600; font-size: 0.88em; cursor: pointer; }
+.conc-modal-btns .cancel { background: #333; color: #ccc; }
+.conc-modal-btns .submit { background: #10b981; color: #fff; }
+.conc-modal-btns .submit:hover { background: #059669; }
+
+body.mode-secretaire .conc-result-card { background: #0d2818; }
+body.mode-secretaire .conc-forecast-day { background: #0d2818; }
+body.mode-secretaire .conc-stat-box { background: #0d2818; }
+body.mode-secretaire .conc-contact { background: #0d2818; }
+body.mode-secretaire .conc-modal-box { background: #0a1a12; border-color: #1a3a2a; }
+body.mode-secretaire .conc-modal-box .field input, body.mode-secretaire .conc-modal-box .field select, body.mode-secretaire .conc-modal-box .field textarea { background: #071510; border-color: #1a3a2a; }
+
 /* Chat layout with sidebar */
 .chat-layout { display: flex; flex: 1; overflow: hidden; }
 .chat-main { display: flex; flex-direction: column; flex: 1; min-width: 0; }
@@ -87,19 +283,69 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; b
 
 /* Chat */
 .chat { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 12px; }
-.msg { max-width: 80%; padding: 12px 16px; border-radius: 16px; line-height: 1.5; font-size: 0.95em; animation: fadeIn 0.3s; white-space: pre-wrap; }
-.luna { background: #1e1e3f; align-self: flex-start; border-bottom-left-radius: 4px; }
-.luna::before { content: "Luna"; display: block; font-size: 0.75em; color: #a78bfa; margin-bottom: 4px; font-weight: 600; }
+.msg { max-width: 80%; padding: 12px 16px; border-radius: 16px; line-height: 1.5; font-size: 0.95em; animation: fadeIn 0.3s; white-space: pre-wrap; word-break: break-word; overflow-wrap: break-word; }
+.msg a { color: #a78bfa; word-break: break-all; text-decoration: underline; }
+.msg a:hover { color: #c4b5fd; }
+.msg strong { color: #e0e0e0; font-weight: 700; }
+.conc-result-icon { font-size: 1.1em; margin-right: 2px; }
+.msg .action-card {
+  display: inline-block; background: linear-gradient(135deg, #1a1a3e, #252560);
+  border: 1px solid #444; border-radius: 10px; padding: 8px 14px; margin: 4px 0;
+  font-size: 0.88em; cursor: pointer; transition: border-color 0.2s;
+}
+.msg .action-card:hover { border-color: #7c3aed; }
+.msg .action-card a { text-decoration: none; }
+/* Rich result cards */
+.rich-cards { display: flex; flex-wrap: wrap; gap: 10px; padding: 4px 20px 12px; animation: fadeIn 0.3s; }
+.rich-card {
+  background: linear-gradient(145deg, #141432, #1a1a48); border: 1px solid #2a2a5e;
+  border-radius: 14px; padding: 14px; min-width: 220px; max-width: 320px; flex: 1 1 260px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.rich-card:hover { border-color: #7c3aed; box-shadow: 0 4px 16px rgba(124,58,237,0.15); }
+.rc-name { font-weight: 700; font-size: 0.92em; color: #e0e0e0; margin-bottom: 4px; }
+.rc-rating { color: #fbbf24; font-size: 0.82em; font-weight: 600; margin-bottom: 4px; }
+.rc-detail { font-size: 0.8em; color: #999; line-height: 1.4; margin-bottom: 2px; }
+.rc-detail a { color: #a78bfa; }
+.rc-hours { font-style: italic; color: #777; }
+.rc-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.rc-btn {
+  display: inline-block; padding: 6px 12px; border-radius: 8px; font-size: 0.78em; font-weight: 600;
+  text-decoration: none; background: #2d1b69; color: #c4b5fd; border: 1px solid #4c3a8e; transition: all 0.2s;
+}
+.rc-btn:hover { background: #3d2b89; color: #fff; }
+.rc-btn-map { background: #0f4c3a; color: #6ee7b7; border-color: #166534; }
+.rc-btn-map:hover { background: #166534; color: #fff; }
+.rc-btn-call { background: #1e3a5f; color: #93c5fd; border-color: #2563eb; }
+.rc-btn-call:hover { background: #2563eb; color: #fff; }
+.rc-btn-book { background: linear-gradient(135deg, #059669, #10b981); color: #fff; border-color: #34d399; padding: 8px 16px; font-size: 0.85em; }
+.rc-btn-book:hover { filter: brightness(1.15); }
+.rc-forecasts { display: flex; gap: 8px; margin-top: 6px; }
+.rc-forecast { font-size: 0.75em; color: #888; text-align: center; padding: 4px 8px; background: #1a1a3e; border-radius: 8px; }
+.rc-fdate { display: block; font-weight: 600; color: #a78bfa; font-size: 0.9em; margin-bottom: 2px; }
+.rc-meta { font-size: 0.75em; color: #a78bfa; font-weight: 600; }
+.rc-price { font-weight: 600; color: #34d399; }
+.rich-card-flight { border-color: #2563eb; }
+.rich-card-hotel { border-color: #f59e0b; }
+@media (max-width: 600px) {
+  .rich-cards { padding: 4px 12px 8px; gap: 8px; }
+  .rich-card { min-width: 160px; padding: 10px; }
+}
+.luna { background: #1e1e3f; align-self: flex-start; border-bottom-left-radius: 4px; padding-top: 28px; position: relative; margin-top: 32px; }
+.luna::before { content: ""; position: absolute; left: 12px; top: -28px; width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(135deg, #8b4cf0, #6b3aaa); border: 2px solid #a78bfa; box-shadow: 0 0 10px rgba(139,76,240,0.4); background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Ccircle cx='20' cy='16' r='9' fill='%23f0d0b0'/%3E%3Cpath d='M10 14 Q10 6 20 5 Q30 6 30 14 Q31 18 30 22 Q28 16 20 15 Q12 16 10 22 Q9 18 10 14Z' fill='%233a2578'/%3E%3Ccircle cx='16' cy='15' r='1.2' fill='%232a1858'/%3E%3Ccircle cx='24' cy='15' r='1.2' fill='%232a1858'/%3E%3Cpath d='M17 19 Q20 21 23 19' fill='none' stroke='%23c4788a' stroke-width='0.8' stroke-linecap='round'/%3E%3C/svg%3E"); background-size: 26px 26px; background-position: center; background-repeat: no-repeat; }
+.luna-name { display: block; font-size: 0.7em; color: #a78bfa; margin-bottom: 4px; font-weight: 600; position: absolute; left: 48px; top: -22px; }
 .user { background: #4c1d95; align-self: flex-end; border-bottom-right-radius: 4px; }
 .msg-time { display: block; font-size: 0.7em; color: #666; margin-top: 4px; }
 .user .msg-time { text-align: right; }
 .luna .msg-time { text-align: left; }
-.typing { background: #1e1e3f; align-self: flex-start; padding: 12px 20px; border-radius: 16px; border-bottom-left-radius: 4px; }
-.typing::before { content: "Luna"; display: block; font-size: 0.75em; color: #a78bfa; margin-bottom: 4px; font-weight: 600; }
+.typing { background: #1e1e3f; align-self: flex-start; padding: 12px 20px; border-radius: 16px; border-bottom-left-radius: 4px; padding-top: 42px; position: relative; margin-top: 32px; }
+.typing::before { content: ""; position: absolute; left: 12px; top: -28px; width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(135deg, #8b4cf0, #6b3aaa); border: 2px solid #a78bfa; box-shadow: 0 0 10px rgba(139,76,240,0.4); background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Ccircle cx='20' cy='16' r='9' fill='%23f0d0b0'/%3E%3Cpath d='M10 14 Q10 6 20 5 Q30 6 30 14 Q31 18 30 22 Q28 16 20 15 Q12 16 10 22 Q9 18 10 14Z' fill='%233a2578'/%3E%3Ccircle cx='16' cy='15' r='1.2' fill='%232a1858'/%3E%3Ccircle cx='24' cy='15' r='1.2' fill='%232a1858'/%3E%3Cpath d='M17 19 Q20 21 23 19' fill='none' stroke='%23c4788a' stroke-width='0.8' stroke-linecap='round'/%3E%3C/svg%3E"); background-size: 26px 26px; background-position: center; background-repeat: no-repeat; }
 .typing-dots span { display: inline-block; width: 8px; height: 8px; background: #a78bfa; border-radius: 50%; margin: 0 2px; animation: bounce 1.4s infinite ease-in-out; }
 .typing-dots span:nth-child(2) { animation-delay: 0.2s; }
 .typing-dots span:nth-child(3) { animation-delay: 0.4s; }
 @keyframes bounce { 0%,80%,100% { transform: translateY(0); } 40% { transform: translateY(-8px); } }
+.luna-toast { position: fixed; top: 20px; right: 20px; background: #1e1e3f; border-left: 4px solid #a78bfa; padding: 12px 16px; border-radius: 8px; z-index: 9999; max-width: 300px; color: #fff; opacity: 0; transform: translateX(100px); transition: all 0.3s ease; font-size: 0.85em; box-shadow: 0 4px 20px rgba(0,0,0,0.4); }
+.luna-toast.show { opacity: 1; transform: translateX(0); }
 .error-msg { border: 1px solid rgba(248,113,113,0.3); }
 .retry-btn { margin-left: 10px; padding: 4px 12px; border-radius: 12px; border: 1px solid #7c3aed; background: transparent; color: #a78bfa; cursor: pointer; font-size: 0.85em; }
 .retry-btn:hover { background: #7c3aed; color: white; }
@@ -119,14 +365,19 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; b
 .emoji-picker.open { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
 .emoji-picker button { background: none; border: none; font-size: 1.4em; cursor: pointer; padding: 4px; border-radius: 6px; transition: background 0.15s; }
 .emoji-picker button:hover { background: rgba(124,58,237,0.2); }
-.call-btn { padding: 12px 20px; border-radius: 24px; border: none; background: #16a34a; color: white; font-size: 1em; cursor: pointer; display: flex; align-items: center; gap: 6px; white-space: nowrap; }
-.call-btn:hover { background: #15803d; }
-.call-btn:disabled { background: #444; cursor: not-allowed; }
-.call-btn svg { width: 20px; height: 20px; flex-shrink: 0; }
-.voice-btn { padding: 12px 20px; border-radius: 24px; border: none; background: #2563eb; color: white; font-size: 1em; cursor: pointer; display: flex; align-items: center; gap: 6px; white-space: nowrap; }
-.voice-btn:hover { background: #1d4ed8; }
-.voice-btn:disabled { background: #444; cursor: not-allowed; }
-.voice-btn svg { width: 20px; height: 20px; flex-shrink: 0; }
+/* Action menu (WhatsApp "+") */
+.action-toggle { width: 44px; height: 44px; border-radius: 50%; border: none; background: #1a1a2e; color: #a78bfa; font-size: 1.6em; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; padding: 0; transition: transform 0.3s, background 0.2s; }
+.action-toggle:hover { background: #2a2a4e; }
+.action-toggle.open { transform: rotate(45deg); background: #7c3aed; color: white; }
+.action-menu { display: none; position: absolute; bottom: calc(100% + 8px); right: 8px; background: #1a1a2e; border: 1px solid #333; border-radius: 16px; padding: 8px; z-index: 110; box-shadow: 0 -4px 24px rgba(0,0,0,0.6); min-width: 200px; }
+.action-menu.open { display: flex; flex-direction: column; gap: 4px; animation: fadeIn 0.2s; }
+.action-menu-item { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-radius: 12px; border: none; background: transparent; color: #e0e0e0; font-size: 0.95em; cursor: pointer; transition: background 0.15s; white-space: nowrap; text-align: left; width: 100%; }
+.action-menu-item:hover { background: #2a2a4e; }
+.action-menu-item .ami-icon { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.action-menu-item .ami-icon svg { width: 20px; height: 20px; }
+.action-menu-item:disabled { opacity: 0.4; cursor: not-allowed; }
+.action-overlay { display: none; position: fixed; inset: 0; z-index: 105; }
+.action-overlay.open { display: block; }
 
 /* Overlay video */
 .video-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 100; display: none; flex-direction: column; align-items: center; justify-content: center; }
@@ -200,6 +451,25 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; b
 .quota-fill.danger { background: #f87171; }
 
 @keyframes fadeIn { from { opacity:0; transform: translateY(8px); } to { opacity:1; transform: translateY(0); } }
+@keyframes slideUp { from { opacity:0; transform: translateY(20px); } to { opacity:1; transform: translateY(0); } }
+
+/* Stream tool indicator */
+.stream-tool-indicator { display: inline-flex; align-items: center; gap: 6px; margin-top: 8px; padding: 4px 12px; border-radius: 12px; background: rgba(124,58,237,0.12); color: #a78bfa; font-size: 0.82em; animation: pulse 1.5s infinite; }
+.stream-tool-indicator::before { content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #a78bfa; animation: pulse 1s infinite; }
+
+/* Stream message progressive */
+.stream-msg .msg-text { min-height: 1.2em; }
+
+/* Onboarding overlay */
+.onboard-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 9999; display: flex; justify-content: center; align-items: center; animation: fadeIn 0.4s; }
+.onboard-card { background: #1a1a2e; border: 1px solid #333; border-radius: 16px; padding: 32px 28px; max-width: 360px; width: 90%; text-align: center; animation: slideUp 0.5s; }
+.onboard-card h2 { color: #a78bfa; margin-bottom: 8px; font-size: 1.3em; }
+.onboard-card p { color: #999; font-size: 0.9em; margin-bottom: 20px; line-height: 1.5; }
+.onboard-features { text-align: left; margin-bottom: 24px; }
+.onboard-features div { display: flex; align-items: center; gap: 10px; padding: 8px 0; color: #ccc; font-size: 0.88em; border-bottom: 1px solid rgba(255,255,255,0.05); }
+.onboard-features div span:first-child { font-size: 1.3em; flex-shrink: 0; width: 28px; text-align: center; }
+.onboard-start-btn { width: 100%; padding: 14px; border-radius: 10px; border: none; background: #7c3aed; color: white; font-size: 1em; cursor: pointer; font-weight: 600; transition: background 0.2s; }
+.onboard-start-btn:hover { background: #6d28d9; }
 
 /* Auth screens */
 .auth-screen { display: flex; justify-content: center; align-items: center; flex: 1; }
@@ -222,6 +492,23 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; b
 .wakeword-btn.listening { animation: pulse 2s infinite; }
 @keyframes pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(74,222,128,0.4); } 50% { box-shadow: 0 0 0 8px rgba(74,222,128,0); } }
 
+/* Quick reply chips (Jarvis-style suggestions) */
+.luna-chips { display: flex; flex-wrap: wrap; gap: 6px; padding: 4px 0 8px; }
+.luna-chip { display: inline-flex; align-items: center; gap: 4px; padding: 6px 14px; border-radius: 20px; border: 1px solid #333; background: rgba(124,58,237,0.08); color: #c4b5fd; font-size: 0.82em; cursor: pointer; transition: all 0.2s; white-space: nowrap; }
+.luna-chip:hover { background: rgba(124,58,237,0.2); border-color: #7c3aed; color: #e0e0e0; }
+.luna-chip:active { transform: scale(0.95); }
+body.mode-secretaire .luna-chip { background: rgba(16,185,129,0.08); border-color: #1a3a2e; color: #6ee7b7; }
+body.mode-secretaire .luna-chip:hover { background: rgba(16,185,129,0.2); border-color: #10b981; }
+
+/* Proactive dashboard mini-cards */
+.luna-proactive { display: flex; gap: 8px; padding: 8px 0; overflow-x: auto; scrollbar-width: none; }
+.luna-proactive::-webkit-scrollbar { display: none; }
+.luna-proactive-card { flex: 0 0 auto; padding: 10px 14px; border-radius: 12px; background: rgba(124,58,237,0.1); border: 1px solid #2a2a4a; font-size: 0.82em; color: #c4b5fd; cursor: pointer; transition: all 0.2s; max-width: 180px; }
+.luna-proactive-card:hover { background: rgba(124,58,237,0.2); border-color: #7c3aed; }
+.luna-proactive-card .pc-icon { font-size: 1.3em; margin-bottom: 4px; }
+.luna-proactive-card .pc-title { font-weight: 600; color: #e0e0e0; margin-bottom: 2px; }
+.luna-proactive-card .pc-detail { color: #888; font-size: 0.9em; }
+
 /* --- Mobile responsive --- */
 @media (max-width: 600px) {
   .msg { max-width: 92%; font-size: 0.9em; padding: 10px 14px; }
@@ -230,10 +517,10 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; b
   .input-row { padding: 2px 6px; }
   .input-area textarea { padding: 8px 4px; font-size: 16px; min-width: 0; min-height: 40px; }
   .send-btn { width: 40px; height: 40px; font-size: 1.1em; }
+  .action-toggle { width: 40px; height: 40px; font-size: 1.4em; }
   .emoji-btn { font-size: 1.3em; padding: 4px; }
   .emoji-picker { width: 260px; left: 4px; }
-  .call-btn, .voice-btn { flex: 1; justify-content: center; min-height: 44px; padding: 10px 14px; font-size: 14px; }
-  .call-btn svg, .voice-btn svg { width: 16px; height: 16px; }
+  .action-menu { right: 4px; min-width: 180px; }
   .header { padding: 10px 12px; }
   .header h1 { font-size: 1.1em; }
   .header p { font-size: 0.7em; }
@@ -318,6 +605,55 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; b
 .settings-row label { font-size:0.9em; }
 .settings-select, .settings-input { background:#2a2a4e; color:#e0e0e0; border:1px solid #444; border-radius:8px; padding:6px 10px; font-size:0.85em; }
 .settings-text { background:#2a2a4e; color:#e0e0e0; border:1px solid #444; border-radius:8px; padding:8px 12px; font-size:0.9em; width:100%; }
+/* Payment modal */
+.payment-banner { position:fixed; bottom:80px; left:50%; transform:translateX(-50%); background:linear-gradient(135deg,#1e1e3f,#2a1e5e); border:1px solid #a78bfa; border-radius:16px; padding:16px 20px; z-index:200; max-width:400px; width:90vw; box-shadow:0 8px 32px rgba(0,0,0,0.5); animation:fadeIn 0.3s; }
+.payment-banner-title { font-weight:700; color:#a78bfa; margin-bottom:8px; font-size:0.95em; }
+.payment-banner-details { color:#ccc; font-size:0.85em; margin-bottom:12px; line-height:1.4; }
+.payment-banner-amount { color:#fbbf24; font-weight:700; font-size:1.1em; }
+.payment-banner-btns { display:flex; gap:8px; }
+.payment-banner-btns button { flex:1; padding:10px; border-radius:10px; border:none; font-size:0.9em; font-weight:600; cursor:pointer; min-height:44px; }
+.payment-confirm-btn { background:linear-gradient(135deg,#4ade80,#22c55e); color:#000; }
+.payment-confirm-btn:hover { filter:brightness(1.1); }
+.payment-confirm-btn:disabled { opacity:0.5; cursor:not-allowed; }
+.payment-cancel-btn { background:#333; color:#e0e0e0; }
+.payment-cancel-btn:hover { background:#444; }
+/* Luna Voice — floating mic (Jarvis mode) */
+#lunaVoiceBtn {
+  position:fixed; bottom:80px; right:16px; width:52px; height:52px; border-radius:50%;
+  background:linear-gradient(135deg,#7c3aed,#a78bfa); border:2px solid rgba(167,139,250,0.4); color:white;
+  cursor:pointer; z-index:120; box-shadow:0 4px 16px rgba(124,58,237,0.4);
+  display:flex; align-items:center; justify-content:center; transition:all 0.3s;
+}
+#lunaVoiceBtn:hover { transform:scale(1.06); box-shadow:0 4px 24px rgba(124,58,237,0.6); }
+#lunaVoiceBtn.active { background:linear-gradient(135deg,#dc2626,#ef4444); border-color:rgba(239,68,68,0.4); box-shadow:0 0 0 0 rgba(239,68,68,0.6); animation:voicePulse 1.5s infinite; }
+#lunaVoiceBtn svg { width:24px; height:24px; }
+@keyframes voicePulse { 0%{box-shadow:0 0 0 0 rgba(239,68,68,0.6)} 70%{box-shadow:0 0 0 16px rgba(239,68,68,0)} 100%{box-shadow:0 0 0 0 rgba(239,68,68,0)} }
+#lunaVoiceStatus {
+  position:fixed; bottom:140px; right:16px; background:rgba(26,26,62,0.95);
+  border:1px solid #7c3aed; border-radius:10px; padding:6px 12px; z-index:121;
+  font-size:0.75em; color:#a78bfa; display:none; max-width:180px; text-align:center;
+  backdrop-filter:blur(8px);
+}
+#lunaVoiceTranscript {
+  position:fixed; bottom:140px; left:16px; right:80px; background:rgba(26,26,62,0.92);
+  border:1px solid #333; border-radius:12px; padding:10px 14px; z-index:119;
+  font-size:0.8em; color:#ccc; display:none; max-height:110px; overflow-y:auto;
+  backdrop-filter:blur(8px);
+}
+#lunaVoiceTranscript .vt-user { color:#c084fc; }
+#lunaVoiceTranscript .vt-luna { color:#4ade80; }
+@media (max-width: 600px) {
+  #lunaVoiceBtn { bottom:72px; right:12px; width:48px; height:48px; }
+  #lunaVoiceBtn svg { width:22px; height:22px; }
+  #lunaVoiceStatus { bottom:128px; right:12px; font-size:0.72em; }
+  #lunaVoiceTranscript { bottom:128px; left:12px; right:68px; font-size:0.78em; max-height:90px; }
+}
+@media (max-width: 380px) {
+  #lunaVoiceBtn { bottom:66px; right:8px; width:44px; height:44px; }
+  #lunaVoiceBtn svg { width:20px; height:20px; }
+  #lunaVoiceStatus { bottom:118px; right:8px; }
+  #lunaVoiceTranscript { bottom:118px; left:8px; right:60px; max-height:80px; }
+}
 </style>
 </head>
 <body>
@@ -353,7 +689,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; b
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="15" y2="12"/><line x1="3" y1="18" x2="18" y2="18"/></svg>
     </button>
     <div>
-      <h1><span class="status-dot online" id="statusDot"></span> Luna</h1>
+      <h1><span class="status-dot online" id="statusDot"></span> Luna <span id="headerWeather" style="font-size:0.55em;color:#888;font-weight:400;margin-left:4px;"></span></h1>
       <p id="greetingSubtitle">Ton compagnon bienveillant</p>
     </div>
   </div>
@@ -361,7 +697,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; b
     <button class="sidebar-toggle" id="newChatBtn" title="Nouvelle conversation" style="font-size:1.4em;font-weight:300;line-height:1;">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
     </button>
-    <button class="wakeword-btn" id="wakewordBtn" title="Activer Hey Luna">
+    <button class="wakeword-btn" id="wakewordBtn" title="Hey Luna (mains libres)">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
     </button>
     <button class="logout-btn" id="logoutBtn">Deconnexion</button>
@@ -376,19 +712,25 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; b
 
 <!-- XP Widget supprime (info disponible dans onglet Monde) -->
 
+<!-- Mode Switcher -->
+<div class="mode-switcher" id="modeSwitcher">
+  <button class="mode-btn active" data-mode="compagnon" id="modeCompagnonBtn">Compagnon</button>
+  <button class="mode-btn" data-mode="secretaire" id="modeSecretaireBtn">Secretaire</button>
+</div>
 <!-- Tabs -->
 <div class="tabs">
   <button class="tab-btn active" data-tab="chat">Chat</button>
+  <button class="tab-btn" data-tab="conciergerie" data-modes="secretaire">Conciergerie</button>
+  <button class="tab-btn" data-tab="amis" data-modes="compagnon">Amis<span class="tab-badge" id="amisBadge" style="display:none">0</span></button>
+  <button class="tab-btn" data-tab="activities" data-modes="compagnon" style="color:#f59e0b;">Activites</button>
+  <button class="tab-btn" data-tab="world" data-modes="compagnon" style="color:#a78bfa;">Monde</button>
+  <button class="tab-btn" data-tab="contacts" data-modes="secretaire">Contacts</button>
+  <button class="tab-btn" data-tab="instructions" data-modes="secretaire">Instructions</button>
+  <button class="tab-btn" data-tab="documents" data-modes="secretaire">Documents</button>
+  <button class="tab-btn" data-tab="map" data-modes="secretaire">Carte</button>
   <button class="tab-btn" data-tab="profile">Profil</button>
-  <button class="tab-btn" data-tab="contacts">Contacts</button>
-  <button class="tab-btn" data-tab="amis">Amis<span class="tab-badge" id="amisBadge" style="display:none">0</span></button>
-  <button class="tab-btn" data-tab="instructions">Instructions</button>
-  <button class="tab-btn" data-tab="documents">Documents</button>
   <button class="tab-btn" data-tab="perception">Perception</button>
   <button class="tab-btn" data-tab="quotas">Quotas</button>
-  <button class="tab-btn" data-tab="activities">Activites</button>
-  <button class="tab-btn" data-tab="map">Carte</button>
-  <button class="tab-btn" data-tab="world" style="color:#a78bfa;">Monde</button>
   <button class="tab-btn" data-tab="settings">Parametres</button>
 </div>
 
@@ -417,22 +759,188 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; b
         </div>
         <span class="char-counter" id="charCounter"></span>
         <button class="send-btn" id="send">&#x27A4;</button>
-        <button class="voice-btn" id="voiceBtn">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M22 16.92v3a2 2 0 0 1-2.18 2A19.79 19.79 0 0 1 3.07 5.18 2 2 0 0 1 5.11 3h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 11.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 18.92z"/>
-          </svg>
-          Appel Vocal
-        </button>
-        <button class="call-btn" id="callBtn">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M15.05 5A5 5 0 0 1 19 8.95M15.05 1A9 9 0 0 1 23 8.94M22 16.92v3a2 2 0 0 1-2.18 2A19.79 19.79 0 0 1 3.07 5.18 2 2 0 0 1 5.11 3h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 11.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 18.92z"/>
-          </svg>
-          Visio Luna
-        </button>
+        <button class="action-toggle" id="actionToggle" type="button">+</button>
+        <div class="action-overlay" id="actionOverlay"></div>
+        <div class="action-menu" id="actionMenu">
+          <button class="action-menu-item" id="voiceBtn">
+            <span class="ami-icon" style="background:#2563eb;">
+              <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2A19.79 19.79 0 0 1 3.07 5.18 2 2 0 0 1 5.11 3h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 11.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 18.92z"/></svg>
+            </span>
+            Appel sur mon tel
+          </button>
+          <button class="action-menu-item" id="callBtn">
+            <span class="ami-icon" style="background:#16a34a;">
+              <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+            </span>
+            Visio Luna
+          </button>
+          <button class="action-menu-item" id="activitiesShortcut">
+            <span class="ami-icon" style="background:#f59e0b;">
+              <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
+            </span>
+            Activites
+          </button>
+        </div>
       </div>
     </div>
   </div>
   </div>
+
+<!-- Conciergerie Tab -->
+<div class="tab-panel" id="tab-conciergerie">
+  <div class="panel-content" style="padding:0;">
+    <div style="padding:16px 16px 8px;display:flex;align-items:center;gap:10px;">
+      <div style="font-size:1.4em;">&#x1F4BC;</div>
+      <div>
+        <h2 style="margin:0;font-size:1.1em;color:#10b981;">Conciergerie Luna</h2>
+        <p style="margin:0;font-size:0.78em;color:#888;">Dis-moi ce que tu veux, je m'en occupe.</p>
+      </div>
+    </div>
+
+    <div class="conc-section-title">Recherche & Voyage</div>
+    <div class="conciergerie-grid">
+      <div class="conc-card" data-conc-action="Cherche-moi un vol">
+        <div class="conc-icon">&#x2708;&#xFE0F;</div>
+        <div class="conc-label">Vols</div>
+        <div class="conc-desc">Trouver un vol avec prix</div>
+      </div>
+      <div class="conc-card" data-conc-action="Cherche-moi un hotel">
+        <div class="conc-icon">&#x1F3E8;</div>
+        <div class="conc-label">Hotels</div>
+        <div class="conc-desc">Trouver un hebergement</div>
+      </div>
+      <div class="conc-card" data-conc-action="Trouve-moi un restaurant">
+        <div class="conc-icon">&#x1F37D;&#xFE0F;</div>
+        <div class="conc-label">Restaurants</div>
+        <div class="conc-desc">Trouver ou manger</div>
+      </div>
+      <div class="conc-card" data-conc-action="Cherche-moi sur internet">
+        <div class="conc-icon">&#x1F50D;</div>
+        <div class="conc-label">Recherche web</div>
+        <div class="conc-desc">Trouver n'importe quoi</div>
+      </div>
+      <div class="conc-card" data-conc-action="Trouve-moi un service ou commerce pres de chez moi">
+        <div class="conc-icon">&#x1F4CD;</div>
+        <div class="conc-label">Autour de moi</div>
+        <div class="conc-desc">Commerces, services</div>
+      </div>
+    </div>
+
+    <div class="conc-section-title">Infos en temps reel</div>
+    <div class="conciergerie-grid">
+      <div class="conc-card" data-conc-action="Quel temps fait-il aujourd'hui ?">
+        <div class="conc-icon">&#x26C5;</div>
+        <div class="conc-label">Meteo</div>
+        <div class="conc-desc">Temps actuel et previsions</div>
+      </div>
+      <div class="conc-card" data-conc-action="Quelles sont les actualites du jour ?">
+        <div class="conc-icon">&#x1F4F0;</div>
+        <div class="conc-label">Actualites</div>
+        <div class="conc-desc">Infos du jour</div>
+      </div>
+    </div>
+
+    <div class="conc-section-title">Communication</div>
+    <div class="conciergerie-grid">
+      <div class="conc-card" data-conc-action="Envoie un SMS a">
+        <div class="conc-icon">&#x1F4AC;</div>
+        <div class="conc-label">Envoyer un SMS</div>
+        <div class="conc-desc">A un contact de confiance</div>
+      </div>
+      <div class="conc-card" data-conc-action="Envoie un email a">
+        <div class="conc-icon">&#x2709;&#xFE0F;</div>
+        <div class="conc-label">Envoyer un email</div>
+        <div class="conc-desc">A un contact</div>
+      </div>
+      <div class="conc-card" data-conc-action="Appelle">
+        <div class="conc-icon">&#x1F4DE;</div>
+        <div class="conc-label">Appeler</div>
+        <div class="conc-desc">Passer un appel vocal</div>
+      </div>
+      <div class="conc-card" data-conc-action="Invite en visio">
+        <div class="conc-icon">&#x1F4F9;</div>
+        <div class="conc-label">Visio</div>
+        <div class="conc-desc">Inviter en video</div>
+      </div>
+      <div class="conc-card" data-conc-action="Alerte mes contacts d'urgence">
+        <div class="conc-icon">&#x1F6A8;</div>
+        <div class="conc-label">Alerte urgence</div>
+        <div class="conc-desc">Prevenir tous les proches</div>
+      </div>
+    </div>
+
+    <div class="conc-section-title">Organisation</div>
+    <div class="conciergerie-grid">
+      <div class="conc-card" data-conc-action="Rappelle-moi de">
+        <div class="conc-icon">&#x23F0;</div>
+        <div class="conc-label">Rappel</div>
+        <div class="conc-desc">Creer un rappel</div>
+      </div>
+      <div class="conc-card" data-conc-action="Note que">
+        <div class="conc-icon">&#x1F4DD;</div>
+        <div class="conc-label">Prendre une note</div>
+        <div class="conc-desc">Retenir une information</div>
+      </div>
+      <div class="conc-card" data-conc-action="Genere un courrier pour">
+        <div class="conc-icon">&#x1F4C4;</div>
+        <div class="conc-label">Document</div>
+        <div class="conc-desc">Courrier, lettre, resume</div>
+      </div>
+      <div class="conc-card" data-conc-action="Quels sont mes contacts de confiance ?">
+        <div class="conc-icon">&#x1F465;</div>
+        <div class="conc-label">Mes contacts</div>
+        <div class="conc-desc">Lister mes proches</div>
+      </div>
+    </div>
+
+    <div class="conc-section-title">Mon Monde Luna</div>
+    <div class="conciergerie-grid">
+      <div class="conc-card" data-conc-action="Quel est mon niveau et mes stats ?">
+        <div class="conc-icon">&#x1F3AE;</div>
+        <div class="conc-label">Mes stats</div>
+        <div class="conc-desc">Niveau, XP, serie</div>
+      </div>
+      <div class="conc-card" data-conc-action="Quelles sont mes missions ?">
+        <div class="conc-icon">&#x1F3AF;</div>
+        <div class="conc-label">Missions</div>
+        <div class="conc-desc">Objectifs en cours</div>
+      </div>
+      <div class="conc-card" data-conc-action="Quels badges j'ai obtenus ?">
+        <div class="conc-icon">&#x1F3C6;</div>
+        <div class="conc-label">Badges</div>
+        <div class="conc-desc">Mes recompenses</div>
+      </div>
+      <div class="conc-card" data-conc-action="Qui est en ligne parmi mes amis ?">
+        <div class="conc-icon">&#x1F4E1;</div>
+        <div class="conc-label">Amis en ligne</div>
+        <div class="conc-desc">Voir qui est connecte</div>
+      </div>
+    </div>
+
+    <!-- Results panel (replaces grid when showing results) -->
+    <div class="conc-results" id="concResults">
+      <div class="conc-results-header">
+        <button class="conc-back-btn" onclick="_concBack()">&#x2190; Retour</button>
+        <h3 class="conc-results-title" id="concResultsTitle">Resultats</h3>
+      </div>
+      <div class="conc-results-body" id="concResultsBody">
+        <div class="conc-loading"><div class="spinner"></div><p>Recherche en cours...</p></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Conciergerie Modal (for forms that need input) -->
+<div class="conc-modal" id="concModal">
+  <div class="conc-modal-box">
+    <h3 id="concModalTitle">Rechercher</h3>
+    <div id="concModalFields"></div>
+    <div class="conc-modal-btns">
+      <button class="cancel" onclick="_concModalClose()">Annuler</button>
+      <button class="submit" id="concModalSubmit">Rechercher</button>
+    </div>
+  </div>
+</div>
 
 <!-- Profile Tab -->
 <div class="tab-panel" id="tab-profile">
@@ -445,8 +953,11 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; b
       <div class="form-group"><label>Nom</label><input type="text" id="pf-last_name"></div>
     </div>
     <div class="form-row-3">
+      <div class="form-group"><label>Sexe</label><select id="pf-gender"><option value="">--</option><option value="M">Homme</option><option value="F">Femme</option></select></div>
       <div class="form-group"><label>Date de naissance</label><input type="date" id="pf-date_of_birth"></div>
       <div class="form-group"><label>Telephone</label><input type="tel" id="pf-phone"></div>
+    </div>
+    <div class="form-row">
       <div class="form-group"><label>Email</label><input type="email" id="pf-email"></div>
     </div>
     <div class="form-row">
@@ -726,27 +1237,47 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; b
   </div>
 </div>
 
-<!-- World Tab -->
-<!-- Activities Tab (iframe salon) -->
-<div class="tab-panel" id="tab-activities" style="padding:0; overflow:hidden;">
-  <iframe id="activitiesFrame"
-    style="width:100%; height:100%; border:none; display:none;"
-    allow="autoplay; microphone">
-  </iframe>
-  <div id="activitiesLoader" style="display:flex; align-items:center; justify-content:center; height:100%; color:#a78bfa; flex-direction:column; gap:12px;">
-    <div style="font-size:2em;">&#x1F3AD;</div>
-    <p>Chargement des Activites...</p>
-  </div>
-</div>
-
 <!-- Map Tab -->
+<!-- Activities tab navigates directly to /salon (no iframe, fixes WebSocket on APK) -->
+
 <div class="tab-panel" id="tab-map" style="padding:0; overflow:hidden;">
-  <div id="mapContainer" style="width:100%; height:100%; position:relative;">
-    <div id="mapLoader" style="display:flex; align-items:center; justify-content:center; height:100%; color:#a78bfa; flex-direction:column; gap:12px;">
+  <div id="mapContainer" style="width:100%; height:100%; position:relative; display:flex; flex-direction:column;">
+    <div id="mapSearchBar" style="display:flex; gap:6px; padding:6px 8px; background:#111; border-bottom:1px solid #333; flex-shrink:0; flex-wrap:nowrap; align-items:center;">
+      <input type="text" id="mapSearchInput" placeholder="Rechercher un lieu..." autocomplete="off"
+        style="flex:1; min-width:0; padding:8px 12px; border-radius:20px; border:1px solid #333; background:#1a1a2e; color:#fff; font-size:0.9em; outline:none; font-family:inherit;">
+      <button id="mapSearchBtn" style="width:36px; height:36px; border-radius:50%; border:none; background:#7c3aed; color:white; cursor:pointer; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      </button>
+      <button id="mapLocateBtn" title="Ma position" style="width:36px; height:36px; border-radius:50%; border:none; background:#2563eb; color:white; cursor:pointer; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><circle cx="12" cy="12" r="3"/><path d="M12 2v4m0 12v4M2 12h4m12 0h4"/></svg>
+      </button>
+      <button id="mapToggleDirections" title="Itineraire" style="width:36px; height:36px; border-radius:50%; border:none; background:#4c1d95; color:white; cursor:pointer; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+      </button>
+    </div>
+    <div id="mapDirectionsBar" style="display:none; padding:6px 8px; background:#111; border-bottom:1px solid #333; flex-shrink:0;">
+      <div style="display:flex; gap:6px; margin-bottom:6px;">
+        <input type="text" id="mapOrigin" placeholder="Ma position (GPS)" autocomplete="off"
+          style="flex:1; min-width:0; padding:7px 10px; border-radius:16px; border:1px solid #333; background:#1a1a2e; color:#fff; font-size:0.8em; outline:none; font-family:inherit;">
+        <input type="text" id="mapDest" placeholder="Destination" autocomplete="off"
+          style="flex:1; min-width:0; padding:7px 10px; border-radius:16px; border:1px solid #333; background:#1a1a2e; color:#fff; font-size:0.8em; outline:none; font-family:inherit;">
+      </div>
+      <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
+        <select id="mapTravelMode" style="padding:6px; border-radius:8px; background:#1a1a2e; color:#fff; border:1px solid #333; font-size:0.8em; font-family:inherit;">
+          <option value="driving">Voiture</option>
+          <option value="walking">A pied</option>
+          <option value="transit">Transports</option>
+          <option value="bicycling">Velo</option>
+        </select>
+        <button id="mapDirectionsBtn" style="padding:7px 14px; border-radius:8px; background:#7c3aed; color:#fff; border:none; cursor:pointer; font-size:0.8em;">Go</button>
+        <a id="mapGMapsLink" href="#" target="_blank" rel="noopener" style="display:none; color:#a78bfa; font-size:0.75em; text-decoration:underline;">Maps</a>
+      </div>
+    </div>
+    <div id="mapLoader" style="display:flex; align-items:center; justify-content:center; flex:1; color:#a78bfa; flex-direction:column; gap:12px;">
       <div style="font-size:2em;">&#x1F5FA;</div>
       <p>Chargement de la carte...</p>
     </div>
-    <div id="mapFrame" style="width:100%; height:100%; display:none;"></div>
+    <div id="mapFrame" style="width:100%; flex:1; display:none;"></div>
   </div>
 </div>
 
@@ -836,6 +1367,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; b
           <div style="flex:1;"><label style="font-size:0.8em;color:#888;">Langue</label>
             <select id="set-language" class="settings-select" style="width:100%;margin-top:4px;">
               <option value="fr">Francais</option>
+              <option value="en">English</option>
+              <option value="es">Espanol</option>
             </select>
           </div>
         </div>
@@ -876,6 +1409,40 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; b
 <!-- Video : geree par /simli (Tavus cinematique) -->
 </div><!-- /app-container -->
 
+<!-- Luna Voice — floating mic (Jarvis mode) -->
+<button id="lunaVoiceBtn" title="Parler a Luna" style="display:none;">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+    <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+    <line x1="12" y1="19" x2="12" y2="23"/>
+    <line x1="8" y1="23" x2="16" y2="23"/>
+  </svg>
+</button>
+<div id="lunaVoiceStatus"></div>
+<div id="lunaVoiceTranscript"></div>
+
+<!-- Duration Picker Modal -->
+<div id="durationOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:200;align-items:center;justify-content:center;">
+  <div style="background:#1a1a3e;padding:30px;border-radius:16px;width:90%;max-width:360px;text-align:center;">
+    <h3 id="durationTitle" style="color:#a78bfa;margin-bottom:16px;">Duree de l'appel</h3>
+    <p style="color:#888;font-size:0.85em;margin-bottom:16px;">Choisis la duree prevue pour cette session</p>
+    <select id="durationSelect" style="width:100%;padding:12px;border-radius:10px;border:1px solid #333;background:#0a0a1a;color:#fff;font-size:1.1em;text-align:center;margin-bottom:16px;">
+      <option value="5">5 minutes</option>
+      <option value="10" selected>10 minutes</option>
+      <option value="15">15 minutes</option>
+      <option value="20">20 minutes</option>
+      <option value="30">30 minutes</option>
+    </select>
+    <div style="display:flex;gap:10px;">
+      <button onclick="_closeDurationPicker()" style="flex:1;padding:12px;border-radius:12px;border:none;background:#333;color:#aaa;cursor:pointer;font-size:1em;">Annuler</button>
+      <button onclick="_confirmDuration()" style="flex:1;padding:12px;border-radius:12px;border:none;background:#7c3aed;color:white;cursor:pointer;font-size:1em;">Lancer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Smart Input Suggestions -->
+<div id="inputSuggestions" style="display:none;position:absolute;bottom:100%;left:8px;right:60px;background:#1a1a2e;border:1px solid #333;border-radius:12px 12px 0 0;max-height:180px;overflow-y:auto;z-index:100;box-shadow:0 -4px 16px rgba(0,0,0,0.4);"></div>
+
 <script>
 var STORAGE_KEY = "luna_chat_history";
 var CONV_META_KEY = "luna_conversations_meta";
@@ -906,6 +1473,8 @@ function showApp() {
   document.getElementById("registerScreen").style.display = "none";
   document.getElementById("appContainer").style.display = "flex";
   startNotificationPolling();
+  // Apply saved mode
+  if (typeof applyMode === "function") applyMode(currentMode);
 }
 
 function showLogin() {
@@ -1007,6 +1576,38 @@ document.getElementById("loginPassword").addEventListener("keydown", function(e)
 document.getElementById("registerPassword").addEventListener("keydown", function(e) { if (e.key === "Enter") document.getElementById("registerBtn").click(); });
 
 // =========================================================================
+// MODE SWITCHER (Compagnon / Secretaire)
+// =========================================================================
+var currentMode = localStorage.getItem("luna_mode") || "compagnon";
+var modeBtns = document.querySelectorAll(".mode-btn");
+
+function applyMode(mode) {
+  currentMode = mode;
+  localStorage.setItem("luna_mode", mode);
+  // Toggle body theme class
+  document.body.classList.toggle("mode-secretaire", mode === "secretaire");
+  modeBtns.forEach(function(b) { b.classList.toggle("active", b.dataset.mode === mode); });
+  // Show/hide tabs based on mode
+  tabBtns.forEach(function(btn) {
+    var modes = btn.dataset.modes || "";
+    if (!modes) { btn.classList.remove("mode-hidden"); return; } // always visible
+    btn.classList.toggle("mode-hidden", modes !== mode);
+  });
+  // If current active tab is hidden, switch to Chat
+  var activeTab = document.querySelector(".tab-btn.active");
+  if (activeTab && activeTab.classList.contains("mode-hidden")) {
+    document.querySelector('.tab-btn[data-tab="chat"]').click();
+  }
+  // Update meta theme-color for mobile browsers
+  var metaTheme = document.querySelector('meta[name="theme-color"]');
+  if (metaTheme) metaTheme.setAttribute("content", mode === "secretaire" ? "#071510" : "#0a0a1a");
+}
+
+modeBtns.forEach(function(btn) {
+  btn.addEventListener("click", function() { applyMode(btn.dataset.mode); });
+});
+
+// =========================================================================
 // TAB NAVIGATION
 // =========================================================================
 var tabBtns = document.querySelectorAll(".tab-btn");
@@ -1014,10 +1615,13 @@ var tabPanels = document.querySelectorAll(".tab-panel");
 
 tabBtns.forEach(function(btn) {
   btn.addEventListener("click", function() {
+    // Activities = navigation directe vers /salon (pas un onglet)
+    if (btn.dataset.tab === "activities") { loadActivities(); return; }
     tabBtns.forEach(function(b) { b.classList.remove("active"); });
     tabPanels.forEach(function(p) { p.classList.remove("active"); });
     btn.classList.add("active");
-    document.getElementById("tab-" + btn.dataset.tab).classList.add("active");
+    var panel = document.getElementById("tab-" + btn.dataset.tab);
+    if (panel) panel.classList.add("active");
     // Load data on tab switch
     if (btn.dataset.tab === "profile") loadProfile();
     if (btn.dataset.tab === "contacts") loadContacts();
@@ -1026,75 +1630,718 @@ tabBtns.forEach(function(btn) {
     if (btn.dataset.tab === "documents") loadDocuments();
     if (btn.dataset.tab === "perception") loadPerception();
     if (btn.dataset.tab === "quotas") loadQuotas();
-    if (btn.dataset.tab === "activities") loadActivities();
     if (btn.dataset.tab === "map") loadMap();
     if (btn.dataset.tab === "world") loadMonde();
     if (btn.dataset.tab === "settings") loadSettings();
   });
 });
 
+// Apply mode on page load (after tabs are set up)
+applyMode(currentMode);
+
 // =========================================================================
-// ACTIVITES (embedded salon)
+// CONCIERGERIE — Direct action system (inline results, no chat redirect)
 // =========================================================================
-var activitiesLoaded = false;
-function loadActivities() {
-  if (activitiesLoaded) return;
-  var frame = document.getElementById("activitiesFrame");
-  var loader = document.getElementById("activitiesLoader");
-  var token = localStorage.getItem("luna_token") || sessionStorage.getItem("luna_token");
-  frame.onerror = function() {
-    if (loader) loader.querySelector("p").textContent = "Erreur de chargement des Activites.";
+var _concGrids, _concResultsPanel, _concResultsBody, _concResultsTitle;
+(function() {
+  _concResultsPanel = document.getElementById("concResults");
+  _concResultsBody = document.getElementById("concResultsBody");
+  _concResultsTitle = document.getElementById("concResultsTitle");
+  _concGrids = document.querySelectorAll("#tab-conciergerie .conciergerie-grid, #tab-conciergerie .conc-section-title, #tab-conciergerie .panel-content > div:first-child");
+
+  // Map card actions to handlers
+  var CARD_HANDLERS = {
+    "Cherche-moi un vol": function() { _concShowFlightForm(); },
+    "Cherche-moi un hotel": function() { _concShowHotelForm(); },
+    "Trouve-moi un restaurant": function() { _concShowRestaurantForm(); },
+    "Cherche-moi sur internet": function() { _concShowSearchForm(); },
+    "Trouve-moi un service ou commerce pres de chez moi": function() { _concDirect("search_places", {query: "services commerces", category: "commerce"}, "Autour de moi", _renderPlaces); },
+    "Quel temps fait-il aujourd'hui ?": function() { _concDirect("weather", {}, "Meteo", _renderWeather); },
+    "Quelles sont les actualites du jour ?": function() { _concDirect("news", {category: "general", count: 8}, "Actualites", _renderNews); },
+    "Envoie un SMS a": function() { _concShowSmsForm(); },
+    "Envoie un email a": function() { _concShowEmailForm(); },
+    "Appelle": function() { _concStartVoice(); },
+    "Invite en visio": function() { _concStartVisio(); },
+    "Alerte mes contacts d'urgence": function() { _concAlertUrgence(); },
+    "Rappelle-moi de": function() { _concShowReminderForm(); },
+    "Note que": function() { _concShowNoteForm(); },
+    "Genere un courrier pour": function() { _concShowDocForm(); },
+    "Quels sont mes contacts de confiance ?": function() { _concDirect("get_contacts", {}, "Mes contacts", _renderContacts); },
+    "Quel est mon niveau et mes stats ?": function() { _concDirect("get_player_stats", {}, "Mes statistiques", _renderStats); },
+    "Quelles sont mes missions ?": function() { _concDirect("get_active_missions", {}, "Missions actives", _renderMissions); },
+    "Quels badges j'ai obtenus ?": function() { _concDirect("get_badges", {}, "Mes badges", _renderBadges); },
+    "Qui est en ligne parmi mes amis ?": function() { _concDirect("get_friends_online", {}, "Amis en ligne", _renderFriends); },
   };
-  frame.onload = function() {
-    frame.style.display = "block";
-    if (loader) loader.style.display = "none";
-    activitiesLoaded = true;
-  };
-  frame.src = "/salon?embed=1&token=" + encodeURIComponent(token || "");
-  setTimeout(function() {
-    if (!activitiesLoaded && loader) {
-      loader.querySelector("p").textContent = "Les Activites mettent du temps a charger...";
+
+  document.querySelectorAll(".conc-card").forEach(function(card) {
+    card.addEventListener("click", function() {
+      var action = card.dataset.concAction;
+      if (!action) return;
+      var handler = CARD_HANDLERS[action];
+      if (handler) {
+        handler();
+      } else {
+        // Fallback: send to chat
+        document.querySelector('.tab-btn[data-tab="chat"]').click();
+        var ta = document.querySelector(".input-area textarea");
+        if (ta) { ta.value = action + " "; ta.focus(); }
+      }
+    });
+  });
+})();
+
+// --- Conciergerie Panel Navigation ---
+function _concShowResults(title) {
+  _concResultsTitle.textContent = title;
+  _concResultsBody.innerHTML = '<div class="conc-loading"><div class="spinner"></div><p>Recherche en cours...</p></div>';
+  _concResultsPanel.classList.add("active");
+  _concGrids.forEach(function(el) { el.style.display = "none"; });
+}
+function _concBack() {
+  _concResultsPanel.classList.remove("active");
+  _concGrids.forEach(function(el) { el.style.display = ""; });
+}
+
+// --- Direct API Call ---
+function _concDirect(action, params, title, renderer) {
+  _concShowResults(title);
+  authFetch("/api/concierge/action", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({action: action, params: params})
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    if (data.status === "error" || data.error) {
+      _concResultsBody.innerHTML = '<div style="text-align:center;padding:40px;color:#f87171;">' + esc(data.message || data.error || "Erreur") + '</div>';
+    } else {
+      renderer(data);
     }
-  }, 15000);
+  })
+  .catch(function(e) {
+    _concResultsBody.innerHTML = '<div style="text-align:center;padding:40px;color:#f87171;">Erreur de connexion</div>';
+  });
+}
+
+// --- Modal System ---
+var _concModalCallback = null;
+function _concModalShow(title, fields, btnText, callback) {
+  document.getElementById("concModalTitle").textContent = title;
+  document.getElementById("concModalSubmit").textContent = btnText || "Rechercher";
+  var container = document.getElementById("concModalFields");
+  container.innerHTML = "";
+  fields.forEach(function(f) {
+    var div = document.createElement("div");
+    div.className = "field";
+    var lbl = document.createElement("label");
+    lbl.textContent = f.label;
+    div.appendChild(lbl);
+    if (f.type === "select") {
+      var sel = document.createElement("select");
+      sel.id = "concF_" + f.name;
+      f.options.forEach(function(o) {
+        var opt = document.createElement("option");
+        opt.value = o.value; opt.textContent = o.label;
+        if (o.value === f.default) opt.selected = true;
+        sel.appendChild(opt);
+      });
+      div.appendChild(sel);
+    } else if (f.type === "textarea") {
+      var ta = document.createElement("textarea");
+      ta.id = "concF_" + f.name; ta.rows = 3; ta.placeholder = f.placeholder || "";
+      div.appendChild(ta);
+    } else {
+      var inp = document.createElement("input");
+      inp.id = "concF_" + f.name; inp.type = f.type || "text";
+      inp.placeholder = f.placeholder || ""; inp.value = f.default || "";
+      div.appendChild(inp);
+    }
+    container.appendChild(div);
+  });
+  _concModalCallback = callback;
+  document.getElementById("concModal").classList.add("active");
+}
+function _concModalClose() {
+  document.getElementById("concModal").classList.remove("active");
+  _concModalCallback = null;
+}
+document.getElementById("concModalSubmit").addEventListener("click", function() {
+  if (_concModalCallback) {
+    var vals = {};
+    document.querySelectorAll("#concModalFields input, #concModalFields select, #concModalFields textarea").forEach(function(el) {
+      vals[el.id.replace("concF_", "")] = el.value;
+    });
+    _concModalCallback(vals);
+  }
+  _concModalClose();
+});
+
+// --- Form Launchers ---
+function _concShowFlightForm() {
+  var today = new Date().toISOString().split("T")[0];
+  _concModalShow("Rechercher un vol", [
+    {name: "origin", label: "Ville de depart", placeholder: "ex: Paris"},
+    {name: "destination", label: "Destination", placeholder: "ex: New York"},
+    {name: "departure_date", label: "Date depart", type: "date", default: today},
+    {name: "return_date", label: "Date retour (optionnel)", type: "date"},
+    {name: "passengers", label: "Passagers", type: "number", default: "1"},
+  ], "Chercher des vols", function(v) {
+    _concDirect("search_flights", v, "Vols " + v.origin + " → " + v.destination, _renderFlights);
+  });
+}
+function _concShowHotelForm() {
+  var today = new Date().toISOString().split("T")[0];
+  var tom = new Date(Date.now() + 86400000).toISOString().split("T")[0];
+  _concModalShow("Rechercher un hotel", [
+    {name: "city", label: "Ville", placeholder: "ex: Paris"},
+    {name: "check_in", label: "Arrivee", type: "date", default: today},
+    {name: "check_out", label: "Depart", type: "date", default: tom},
+    {name: "guests", label: "Voyageurs", type: "number", default: "1"},
+  ], "Chercher des hotels", function(v) {
+    _concDirect("search_hotels", v, "Hotels a " + v.city, _renderHotels);
+  });
+}
+function _concShowRestaurantForm() {
+  var today = new Date().toISOString().split("T")[0];
+  _concModalShow("Reserver un restaurant", [
+    {name: "city", label: "Ville", placeholder: "ex: Paris"},
+    {name: "date", label: "Date", type: "date", default: today},
+    {name: "time", label: "Heure", type: "time", default: "20:00"},
+    {name: "party_size", label: "Nombre de convives", type: "number", default: "2"},
+    {name: "cuisine", label: "Type de cuisine", type: "select", options: [
+      {value: "", label: "Toutes"},
+      {value: "francais", label: "Francais"}, {value: "italiano", label: "Italien"},
+      {value: "japonais", label: "Japonais"}, {value: "chinois", label: "Chinois"},
+      {value: "indien", label: "Indien"}, {value: "mexicain", label: "Mexicain"},
+    ]},
+  ], "Trouver un restaurant", function(v) {
+    _concDirect("book_restaurant", v, "Restaurants a " + v.city, _renderRestaurants);
+  });
+}
+function _concShowSearchForm() {
+  _concModalShow("Recherche web", [
+    {name: "query", label: "Que cherches-tu ?", placeholder: "ex: meilleur dentiste Paris 15e"},
+  ], "Rechercher", function(v) {
+    if (v.query) _concDirect("search_web", {query: v.query}, "Resultats : " + v.query, _renderWebResults);
+  });
+}
+function _concShowSmsForm() {
+  _concModalShow("Envoyer un SMS", [
+    {name: "contact_name", label: "Contact", placeholder: "Nom du contact de confiance"},
+    {name: "message", label: "Message", type: "textarea", placeholder: "Ton message..."},
+  ], "Envoyer", function(v) {
+    if (v.contact_name && v.message) {
+      // SMS needs full chat context (contact lookup) — auto-send via chat
+      document.querySelector('.tab-btn[data-tab="chat"]').click();
+      setTimeout(function() {
+        var ta = document.querySelector(".input-area textarea");
+        ta.value = "Envoie un SMS a " + v.contact_name + " avec ce message : " + v.message;
+        document.querySelector(".send-btn").click();
+      }, 100);
+    }
+  });
+}
+function _concShowEmailForm() {
+  _concModalShow("Envoyer un email", [
+    {name: "contact_name", label: "Contact", placeholder: "Nom du destinataire"},
+    {name: "subject", label: "Objet", placeholder: "Objet du mail"},
+    {name: "body", label: "Message", type: "textarea", placeholder: "Contenu..."},
+  ], "Envoyer", function(v) {
+    if (v.contact_name && v.subject) {
+      document.querySelector('.tab-btn[data-tab="chat"]').click();
+      var ta = document.querySelector(".input-area textarea");
+      ta.value = "Envoie un email a " + v.contact_name + " avec objet '" + v.subject + "' : " + v.body;
+      ta.focus();
+      document.querySelector(".send-btn").click();
+    }
+  });
+}
+function _concShowReminderForm() {
+  var today = new Date().toISOString().split("T")[0];
+  _concModalShow("Creer un rappel", [
+    {name: "title", label: "Quoi ?", placeholder: "ex: Prendre medicament"},
+    {name: "due_date", label: "Pour quand ?", type: "date", default: today},
+    {name: "description", label: "Details (optionnel)", type: "textarea", placeholder: "Details..."},
+  ], "Creer le rappel", function(v) {
+    if (v.title) {
+      _concShowResults("Rappel");
+      authFetch("/api/concierge/action", {
+        method: "POST", headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({action: "add_reminder", params: v})
+      }).then(function(r) { return r.json(); }).then(function(d) {
+        _concResultsBody.innerHTML = '<div style="text-align:center;padding:40px;">' +
+          '<div style="font-size:3em;margin-bottom:12px;">&#x2705;</div>' +
+          '<p style="color:#10b981;font-size:1.1em;font-weight:600;">' + esc(d.message || "Rappel cree") + '</p></div>';
+      });
+    }
+  });
+}
+function _concShowNoteForm() {
+  _concModalShow("Prendre une note", [
+    {name: "content", label: "Note", type: "textarea", placeholder: "Ce que tu veux retenir..."},
+  ], "Enregistrer", function(v) {
+    if (v.content) {
+      _concShowResults("Note");
+      authFetch("/api/concierge/action", {
+        method: "POST", headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({action: "create_note", params: {content: v.content}})
+      }).then(function(r) { return r.json(); }).then(function(d) {
+        _concResultsBody.innerHTML = '<div style="text-align:center;padding:40px;">' +
+          '<div style="font-size:3em;margin-bottom:12px;">&#x1F4DD;</div>' +
+          '<p style="color:#10b981;font-size:1.1em;font-weight:600;">' + esc(d.message || "Note enregistree") + '</p></div>';
+      });
+    }
+  });
+}
+function _concShowDocForm() {
+  _concModalShow("Generer un document", [
+    {name: "doc_type", label: "Type de document", type: "select", options: [
+      {value: "courrier_admin", label: "Courrier administratif"},
+      {value: "courrier_resiliation", label: "Lettre de resiliation"},
+      {value: "resume_hebdo", label: "Resume hebdomadaire"},
+      {value: "compte_rendu", label: "Compte rendu"},
+      {value: "fiche_sante", label: "Fiche sante"},
+    ]},
+    {name: "subject", label: "Sujet", placeholder: "ex: Resiliation abonnement salle de sport"},
+    {name: "details", label: "Details", type: "textarea", placeholder: "Informations complementaires..."},
+  ], "Generer", function(v) {
+    if (v.subject) {
+      _concShowResults("Generation du document...");
+      authFetch("/api/concierge/action", {
+        method: "POST", headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({action: "generate_document", params: v})
+      }).then(function(r) { return r.json(); }).then(function(d) {
+        if (d.url) {
+          _concResultsBody.innerHTML = '<div style="text-align:center;padding:40px;">' +
+            '<div style="font-size:3em;margin-bottom:12px;">&#x1F4C4;</div>' +
+            '<p style="color:#10b981;font-size:1.1em;font-weight:600;">' + esc(d.message || "Document pret") + '</p>' +
+            '<a href="' + d.url + '" target="_blank" class="conc-result-btn primary" style="display:inline-block;margin-top:16px;">Telecharger le document</a></div>';
+        } else {
+          _concResultsBody.innerHTML = '<div style="text-align:center;padding:40px;color:#f87171;">' + esc(d.message || "Erreur") + '</div>';
+        }
+      });
+    }
+  });
+}
+
+// --- Direct Actions ---
+function _concStartVoice() {
+  document.querySelector('.tab-btn[data-tab="chat"]').click();
+  setTimeout(function() { if (typeof startVoiceCall === "function") startVoiceCall(); }, 200);
+}
+function _concStartVisio() {
+  document.querySelector('.tab-btn[data-tab="chat"]').click();
+  setTimeout(function() { if (typeof startCall === "function") startCall(); }, 200);
+}
+function _concAlertUrgence() {
+  if (!confirm("ALERTE URGENCE\n\nTous tes contacts de confiance vont recevoir un SMS d'alerte.\n\nConfirmer ?")) return;
+  _concShowResults("Alerte urgence");
+  authFetch("/api/concierge/action", {
+    method: "POST", headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({action: "alert_contacts", params: {reason: "Alerte declenchee par le souscripteur"}})
+  }).then(function(r) { return r.json(); }).then(function(d) {
+    _concResultsBody.innerHTML = '<div style="text-align:center;padding:40px;">' +
+      '<div style="font-size:3em;margin-bottom:12px;">&#x1F6A8;</div>' +
+      '<p style="color:#f87171;font-size:1.1em;font-weight:600;">' + esc(d.message || "Alerte envoyee") + '</p></div>';
+  });
+}
+
+// =========================================================================
+// CONCIERGERIE — Result Renderers
+// =========================================================================
+
+function _renderWeather(data) {
+  var a = data.actuel || {};
+  var html = '<div class="conc-weather">' +
+    '<div style="font-size:1em;color:#888;">' + esc(a.ville || "") + (a.pays ? ", " + esc(a.pays) : "") + '</div>' +
+    '<div class="temp-big">' + esc(a.temperature || "?") + '</div>' +
+    '<div class="desc">' + esc(a.description || "") + '</div>' +
+    '<div class="details">' +
+      '<span>Ressenti ' + esc(a.ressenti || "?") + '</span>' +
+      '<span>Humidite ' + esc(a.humidite || "?") + '</span>' +
+      '<span>Vent ' + esc(a.vent || "?") + '</span>' +
+    '</div>';
+  if (data.previsions && data.previsions.length) {
+    html += '<div class="conc-forecast">';
+    data.previsions.forEach(function(p) {
+      var dayName = p.date ? new Date(p.date + "T00:00").toLocaleDateString("fr-FR", {weekday: "short"}) : "?";
+      html += '<div class="conc-forecast-day"><div class="day">' + esc(dayName) + '</div>' +
+        '<div class="temps">' + esc(p.min || "") + ' / ' + esc(p.max || "") + '</div>' +
+        '<div class="desc-sm">' + esc(p.description || "") + '</div></div>';
+    });
+    html += '</div>';
+  }
+  html += '</div>';
+  _concResultsBody.innerHTML = html;
+}
+
+function _renderNews(data) {
+  var html = '';
+  (data.articles || []).forEach(function(a) {
+    html += '<div class="conc-news-item">' +
+      '<h4><a href="' + esc(a.lien || "#") + '" target="_blank">' + esc(a.titre || "") + '</a></h4>' +
+      '<p style="font-size:0.8em;color:#999;margin:4px 0;">' + esc(a.resume || "") + '</p>' +
+      '<span class="src">' + esc(a.source || "") + '</span></div>';
+  });
+  if (!html) html = '<p style="text-align:center;color:#888;padding:40px;">Aucune actualite disponible.</p>';
+  _concResultsBody.innerHTML = html;
+}
+
+function _renderPlaces(data) {
+  var places = data.places || data.results || [];
+  var html = '';
+  places.forEach(function(p) {
+    html += '<div class="conc-result-card">' +
+      '<h4>' + esc(p.name || p.title || "") + '</h4>' +
+      '<p>' + esc(p.address || p.snippet || "") + '</p>';
+    if (p.rating) html += '<div class="conc-meta">&#x2B50; ' + p.rating + (p.reviews ? ' (' + p.reviews + ' avis)' : '') + '</div>';
+    if (p.distance_km) html += '<div class="conc-meta">&#x1F4CD; ' + p.distance_km + ' km</div>';
+    html += '<div class="conc-actions">';
+    if (p.directions) {
+      html += '<a href="' + esc(p.directions.driving || "#") + '" target="_blank" class="conc-result-btn primary">&#x1F697; Y aller</a>';
+      html += '<a href="' + esc(p.directions.transit || "#") + '" target="_blank" class="conc-result-btn secondary">&#x1F68C; Transport</a>';
+    }
+    if (p.phone) html += '<a href="tel:' + esc(p.phone) + '" class="conc-result-btn secondary">&#x1F4DE; Appeler</a>';
+    if (p.website) html += '<a href="' + esc(p.website) + '" target="_blank" class="conc-result-btn secondary">&#x1F310; Site web</a>';
+    html += '</div></div>';
+  });
+  if (!html) html = '<p style="text-align:center;color:#888;padding:40px;">Aucun resultat trouve.</p>';
+  _concResultsBody.innerHTML = html;
+}
+
+function _renderFlights(data) {
+  var html = '';
+  var isDuffel = data.source === "duffel";
+  // Show booking links if web fallback
+  if (data.liens_reservation) {
+    html += '<div style="margin-bottom:16px;">';
+    data.liens_reservation.forEach(function(l) {
+      var parts = l.split(": ");
+      html += '<a href="' + esc(parts[1] || "#") + '" target="_blank" class="conc-result-btn primary" style="margin:4px 6px 4px 0;display:inline-block;">&#x2708; ' + esc(parts[0] || "Reserver") + '</a>';
+    });
+    html += '</div>';
+  }
+  // Duffel/Amadeus flight results
+  if (data.flights && data.flights.length) {
+    if (isDuffel) html += '<div style="margin-bottom:12px;padding:8px 12px;background:#064e3b;border-radius:8px;font-size:0.8em;color:#6ee7b7;">&#x2705; Reservation directe disponible — tes infos seront pre-remplies</div>';
+    data.flights.forEach(function(f) {
+      html += '<div class="conc-result-card">' +
+        '<h4>' + esc(f.summary || "") + '</h4>';
+      if (f.segments && f.segments.length) {
+        f.segments.forEach(function(s) {
+          html += '<p style="font-size:0.8em;color:#999;">&#x2708; ' + esc(s.carrier || s.carrier_code || "") + ' ' + esc(s.flight_number || "") +
+            ' &mdash; ' + esc(s.departure || "") + ' ' + esc(s.departure_time || "") + ' → ' + esc(s.arrival || "") + ' ' + esc(s.arrival_time || "") + '</p>';
+        });
+      }
+      html += '<div class="conc-meta" style="font-size:1.1em;font-weight:700;">' + esc(f.price || "") + '</div>';
+      html += '<div class="conc-actions">';
+      if (f.bookable && isDuffel && f.id) {
+        html += '<button class="conc-result-btn primary" onclick="_concBookFlight(\'' + esc(f.id) + '\',\'' + esc(f.price || "") + '\')">&#x2708; Reserver maintenant</button>';
+      }
+      if (f.booking_url) html += '<a href="' + esc(f.booking_url) + '" target="_blank" class="conc-result-btn secondary">Voir sur le site</a>';
+      html += '</div></div>';
+    });
+  }
+  // Web results
+  var results = data.results || data.organic || [];
+  results.forEach(function(r) {
+    html += '<div class="conc-result-card"><h4>' + esc(r.title || "") + '</h4>' +
+      '<p>' + esc(r.snippet || r.description || "") + '</p>' +
+      '<div class="conc-actions"><a href="' + esc(r.link || r.url || "#") + '" target="_blank" class="conc-result-btn secondary">Voir</a></div></div>';
+  });
+  if (!html) html = '<p style="text-align:center;color:#888;padding:40px;">Aucun vol trouve.</p>';
+  _concResultsBody.innerHTML = html;
+}
+
+function _concBookFlight(offerId, price) {
+  if (!confirm("Confirmer la reservation ?\n" + price + "\n\nTes infos de profil seront utilisees.")) return;
+  _concShowResults("Reservation en cours...");
+  authFetch("/api/concierge/action", {
+    method: "POST", headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({action: "book_flight", params: {offer_id: offerId}})
+  }).then(function(r) { return r.json(); }).then(function(d) {
+    if (d.status === "success") {
+      _concResultsBody.innerHTML = '<div style="text-align:center;padding:40px;">' +
+        '<div style="font-size:3em;margin-bottom:12px;">&#x2708;&#xFE0F;</div>' +
+        '<p style="color:#10b981;font-size:1.2em;font-weight:700;">Reservation confirmee !</p>' +
+        '<p style="color:#e0e0e0;margin-top:8px;">' + esc(d.message || "") + '</p>' +
+        (d.booking_reference ? '<p style="color:#10b981;font-size:1.3em;margin-top:12px;">Ref: ' + esc(d.booking_reference) + '</p>' : '') +
+        '</div>';
+    } else {
+      _concResultsBody.innerHTML = '<div style="text-align:center;padding:40px;color:#f87171;">' + esc(d.message || d.error || "Erreur de reservation") + '</div>';
+    }
+  });
+}
+
+function _renderHotels(data) {
+  var html = '';
+  var isDuffel = data.source === "duffel";
+  if (data.liens_reservation) {
+    html += '<div style="margin-bottom:16px;">';
+    data.liens_reservation.forEach(function(l) {
+      var parts = l.split(": ");
+      html += '<a href="' + esc(parts[1] || "#") + '" target="_blank" class="conc-result-btn primary" style="margin:4px 6px 4px 0;display:inline-block;">&#x1F3E8; ' + esc(parts[0] || "Reserver") + '</a>';
+    });
+    html += '</div>';
+  }
+  var results = data.hotels || data.results || data.organic || [];
+  if (isDuffel && results.length) html += '<div style="margin-bottom:12px;padding:8px 12px;background:#064e3b;border-radius:8px;font-size:0.8em;color:#6ee7b7;">&#x2705; Reservation directe disponible — tes infos seront pre-remplies</div>';
+  results.forEach(function(r) {
+    html += '<div class="conc-result-card">' +
+      '<h4>' + esc(r.name || r.title || "") + '</h4>' +
+      '<p>' + esc(r.address || r.snippet || r.description || "") + '</p>';
+    if (r.summary) html += '<div class="conc-meta" style="font-size:0.95em;">' + esc(r.summary) + '</div>';
+    else if (r.price_per_night) html += '<div class="conc-meta">&#x1F4B0; ' + esc(r.price_per_night) + '/nuit</div>';
+    if (r.stars) html += '<div class="conc-meta">&#x2B50; ' + esc(String(r.stars)) + ' etoiles</div>';
+    if (r.amenities && r.amenities.length) html += '<div style="font-size:0.72em;color:#888;margin-top:4px;">' + r.amenities.slice(0,5).map(esc).join(" · ") + '</div>';
+    html += '<div class="conc-actions">';
+    if (r.bookable && isDuffel && r.id) {
+      html += '<button class="conc-result-btn primary" onclick="_concBookHotel(\'' + esc(r.id) + '\',\'' + esc(r.name || "") + '\')">&#x1F3E8; Reserver maintenant</button>';
+    }
+    if (r.link || r.url || r.booking_url) html += '<a href="' + esc(r.link || r.url || r.booking_url) + '" target="_blank" class="conc-result-btn secondary">Voir sur le site</a>';
+    html += '</div></div>';
+  });
+  if (!html) html = '<p style="text-align:center;color:#888;padding:40px;">Aucun hotel trouve.</p>';
+  _concResultsBody.innerHTML = html;
+}
+
+function _concBookHotel(rateId, hotelName) {
+  if (!confirm("Confirmer la reservation ?\n" + hotelName + "\n\nTes infos de profil seront utilisees.")) return;
+  _concShowResults("Reservation en cours...");
+  authFetch("/api/concierge/action", {
+    method: "POST", headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({action: "book_hotel", params: {rate_id: rateId}})
+  }).then(function(r) { return r.json(); }).then(function(d) {
+    if (d.status === "success") {
+      _concResultsBody.innerHTML = '<div style="text-align:center;padding:40px;">' +
+        '<div style="font-size:3em;margin-bottom:12px;">&#x1F3E8;</div>' +
+        '<p style="color:#10b981;font-size:1.2em;font-weight:700;">Hotel reserve !</p>' +
+        '<p style="color:#e0e0e0;margin-top:8px;">' + esc(d.message || "") + '</p>' +
+        (d.confirmation_code ? '<p style="color:#10b981;font-size:1.3em;margin-top:12px;">Confirmation: ' + esc(d.confirmation_code) + '</p>' : '') +
+        '</div>';
+    } else {
+      _concResultsBody.innerHTML = '<div style="text-align:center;padding:40px;color:#f87171;">' + esc(d.message || d.error || "Erreur de reservation") + '</div>';
+    }
+  });
+}
+
+function _renderRestaurants(data) {
+  var html = '';
+  var places = data.places || data.results || data.restaurants || [];
+  places.forEach(function(p) {
+    html += '<div class="conc-result-card">' +
+      '<h4>' + esc(p.name || p.title || "") + '</h4>' +
+      '<p>' + esc(p.address || p.snippet || "") + '</p>';
+    if (p.rating) html += '<div class="conc-meta">&#x2B50; ' + p.rating + (p.reviews ? ' (' + p.reviews + ' avis)' : '') + '</div>';
+    if (p.cuisine_type) html += '<div class="conc-meta">' + esc(p.cuisine_type) + '</div>';
+    html += '<div class="conc-actions">';
+    if (p.booking_url) html += '<a href="' + esc(p.booking_url) + '" target="_blank" class="conc-result-btn primary">Reserver</a>';
+    if (p.phone) html += '<a href="tel:' + esc(p.phone) + '" class="conc-result-btn secondary">&#x1F4DE; Appeler</a>';
+    if (p.directions && p.directions.driving) html += '<a href="' + esc(p.directions.driving) + '" target="_blank" class="conc-result-btn secondary">&#x1F697; Y aller</a>';
+    if (p.website) html += '<a href="' + esc(p.website) + '" target="_blank" class="conc-result-btn secondary">&#x1F310; Site</a>';
+    html += '</div></div>';
+  });
+  if (data.message) html += '<p style="color:#10b981;font-size:0.85em;margin-top:12px;">' + esc(data.message) + '</p>';
+  if (!places.length && !html) html = '<p style="text-align:center;color:#888;padding:40px;">Aucun restaurant trouve.</p>';
+  _concResultsBody.innerHTML = html;
+}
+
+function _renderWebResults(data) {
+  var html = '';
+  var results = data.results || data.organic || [];
+  results.forEach(function(r) {
+    html += '<div class="conc-result-card">' +
+      '<h4><a href="' + esc(r.link || r.url || "#") + '" target="_blank" style="color:#e0e0e0;text-decoration:none;">' + esc(r.title || "") + '</a></h4>' +
+      '<p>' + esc(r.snippet || r.description || "") + '</p>' +
+      '<div class="conc-meta">' + esc(r.displayed_link || r.domain || "") + '</div></div>';
+  });
+  if (!html) html = '<p style="text-align:center;color:#888;padding:40px;">Aucun resultat.</p>';
+  _concResultsBody.innerHTML = html;
+}
+
+function _renderContacts(data) {
+  var html = '';
+  (data.contacts || []).forEach(function(c) {
+    var initial = (c.name || "?")[0].toUpperCase();
+    html += '<div class="conc-contact">' +
+      '<div class="conc-contact-avatar">' + initial + '</div>' +
+      '<div class="conc-contact-info"><div class="name">' + esc(c.name) + '</div><div class="rel">' + esc(c.relation || "") + '</div></div></div>';
+  });
+  if (!html) html = '<p style="text-align:center;color:#888;padding:40px;">Aucun contact de confiance enregistre.</p>';
+  _concResultsBody.innerHTML = html;
+}
+
+function _renderStats(data) {
+  var html = '<div class="conc-stats-grid">' +
+    '<div class="conc-stat-box"><div class="val">' + (data.niveau || 1) + '</div><div class="lbl">Niveau</div></div>' +
+    '<div class="conc-stat-box"><div class="val">' + (data.xp || 0) + '</div><div class="lbl">XP</div></div>' +
+    '<div class="conc-stat-box"><div class="val">' + (data.etoiles || 0) + '</div><div class="lbl">Etoiles</div></div>' +
+    '<div class="conc-stat-box"><div class="val">' + (data.serie_jours || 0) + '</div><div class="lbl">Serie jours</div></div>' +
+    '<div class="conc-stat-box"><div class="val">' + (data.messages_total || 0) + '</div><div class="lbl">Messages</div></div>' +
+    '<div class="conc-stat-box"><div class="val">' + (data.appels_total || 0) + '</div><div class="lbl">Appels</div></div>' +
+    '</div>';
+  if (data.titre) html += '<div style="text-align:center;margin-top:16px;color:#10b981;font-weight:600;">' + esc(data.titre) + '</div>';
+  if (data.progression) html += '<div style="text-align:center;margin-top:4px;color:#888;font-size:0.85em;">Progression: ' + esc(data.progression) + '</div>';
+  if (data.stabilite) {
+    var stabColor = data.stabilite >= 70 ? "#10b981" : data.stabilite >= 40 ? "#f59e0b" : "#ef4444";
+    html += '<div style="text-align:center;margin-top:12px;"><span style="color:' + stabColor + ';font-size:1.8em;font-weight:700;">' + data.stabilite + '%</span><br><span style="color:#888;font-size:0.8em;">Stabilite emotionnelle</span></div>';
+  }
+  _concResultsBody.innerHTML = html;
+}
+
+function _renderMissions(data) {
+  var html = '';
+  (data.missions || []).forEach(function(m) {
+    var pct = parseInt(m.pourcentage) || 0;
+    html += '<div class="conc-result-card">' +
+      '<h4>' + esc(m.titre || "") + '</h4>' +
+      '<p>' + esc(m.description || "") + '</p>' +
+      '<div style="background:#333;border-radius:6px;height:8px;margin:8px 0;overflow:hidden;">' +
+        '<div style="background:#10b981;height:100%;width:' + pct + '%;border-radius:6px;"></div></div>' +
+      '<div class="conc-meta">' + esc(m.progression || "") + ' (' + esc(m.pourcentage || "0%") + ') — ' + (m.recompense_xp || 0) + ' XP</div></div>';
+  });
+  if (!html) html = '<p style="text-align:center;color:#888;padding:40px;">Aucune mission active pour le moment.</p>';
+  _concResultsBody.innerHTML = html;
+}
+
+function _renderBadges(data) {
+  var html = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;">';
+  (data.badges || []).forEach(function(b) {
+    var rarityColor = b.rarete === "legendaire" ? "#fbbf24" : b.rarete === "epique" ? "#a78bfa" : b.rarete === "rare" ? "#60a5fa" : "#6ee7b7";
+    html += '<div class="conc-result-card" style="text-align:center;">' +
+      '<div style="font-size:2em;margin-bottom:6px;">&#x1F3C5;</div>' +
+      '<h4 style="font-size:0.85em;">' + esc(b.nom || "") + '</h4>' +
+      '<p style="font-size:0.72em;">' + esc(b.description || "") + '</p>' +
+      '<div style="font-size:0.7em;color:' + rarityColor + ';margin-top:4px;">' + esc(b.rarete || "") + '</div></div>';
+  });
+  html += '</div>';
+  if (!(data.badges || []).length) html = '<p style="text-align:center;color:#888;padding:40px;">Aucun badge obtenu pour le moment.</p>';
+  _concResultsBody.innerHTML = html;
+}
+
+function _renderFriends(data) {
+  var html = '';
+  if (data.message) html += '<p style="color:#10b981;margin-bottom:12px;font-size:0.88em;">' + esc(data.message) + '</p>';
+  (data.friends || []).forEach(function(f) {
+    var status = f.is_online ? '&#x1F7E2;' : '&#x26AA;';
+    html += '<div class="conc-contact">' +
+      '<div class="conc-contact-avatar">' + (f.nickname || "?")[0].toUpperCase() + '</div>' +
+      '<div class="conc-contact-info"><div class="name">' + status + ' ' + esc(f.nickname || "") + '</div><div class="rel">Niveau ' + esc(f.level || "1") + '</div></div></div>';
+  });
+  if (!(data.friends || []).length && !data.message) html = '<p style="text-align:center;color:#888;padding:40px;">Aucun ami pour le moment.</p>';
+  _concResultsBody.innerHTML = html;
+}
+
+// =========================================================================
+// ACTIVITES (Salon)
+// =========================================================================
+function loadActivities() {
+  var token = localStorage.getItem("luna_token") || sessionStorage.getItem("luna_token");
+  window.location.href = "/salon?embed=1&token=" + encodeURIComponent(token || "");
 }
 
 // =========================================================================
 // CARTE (Google Maps)
 // =========================================================================
 var mapLoaded = false;
+var _mapFrame, _mapLoader;
 function loadMap() {
-  if (mapLoaded) return;
-  var mapFrame = document.getElementById("mapFrame");
-  var loader = document.getElementById("mapLoader");
+  _mapFrame = document.getElementById("mapFrame");
+  _mapLoader = document.getElementById("mapLoader");
 
-  // Recuperer la geolocalisation du souscripteur
-  if (navigator.geolocation) {
-    navigator.geolocation.getCurrentPosition(function(pos) {
-      var lat = pos.coords.latitude;
-      var lng = pos.coords.longitude;
-      _showMap(lat, lng, mapFrame, loader);
-    }, function() {
-      // Fallback: Paris
-      _showMap(48.8566, 2.3522, mapFrame, loader);
-    }, { enableHighAccuracy: true, timeout: 10000 });
-  } else {
-    _showMap(48.8566, 2.3522, mapFrame, loader);
+  // Search bar
+  var searchInput = document.getElementById("mapSearchInput");
+  var searchBtn = document.getElementById("mapSearchBtn");
+  var locateBtn = document.getElementById("mapLocateBtn");
+
+  searchBtn.addEventListener("click", function() {
+    var q = searchInput.value.trim();
+    if (q) _showMapQuery(q);
+  });
+  searchInput.addEventListener("keydown", function(e) {
+    if (e.key === "Enter") { e.preventDefault(); var q = searchInput.value.trim(); if (q) _showMapQuery(q); }
+  });
+  locateBtn.addEventListener("click", function() {
+    if (navigator.geolocation) {
+      locateBtn.style.opacity = "0.5";
+      navigator.geolocation.getCurrentPosition(function(pos) {
+        _showMapCoords(pos.coords.latitude, pos.coords.longitude);
+        locateBtn.style.opacity = "1";
+      }, function() {
+        locateBtn.style.opacity = "1";
+      }, { enableHighAccuracy: true, timeout: 10000 });
+    }
+  });
+
+  // Initial load: geolocation or Paris
+  if (!mapLoaded) {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(function(pos) {
+        _showMapCoords(pos.coords.latitude, pos.coords.longitude);
+      }, function() {
+        _showMapCoords(48.8566, 2.3522);
+      }, { enableHighAccuracy: true, timeout: 10000 });
+    } else {
+      _showMapCoords(48.8566, 2.3522);
+    }
   }
 }
 
-function _showMap(lat, lng, container, loader) {
+function _showMapCoords(lat, lng) {
+  _showMapSrc("https://www.google.com/maps?q=" + lat + "," + lng + "&z=15&output=embed");
+}
+function _showMapQuery(query) {
+  _showMapSrc("https://www.google.com/maps?q=" + encodeURIComponent(query) + "&z=15&output=embed");
+}
+function _showMapSrc(src) {
   var iframe = document.createElement("iframe");
   iframe.style.cssText = "width:100%;height:100%;border:none;";
   iframe.setAttribute("loading", "lazy");
   iframe.setAttribute("referrerpolicy", "no-referrer-when-downgrade");
-  iframe.src = "https://www.google.com/maps?q=" + lat + "," + lng + "&z=15&output=embed";
+  iframe.src = src;
   iframe.onload = function() {
-    if (loader) loader.style.display = "none";
+    if (_mapLoader) _mapLoader.style.display = "none";
     mapLoaded = true;
   };
-  container.innerHTML = "";
-  container.appendChild(iframe);
-  container.style.display = "block";
+  _mapFrame.innerHTML = "";
+  _mapFrame.appendChild(iframe);
+  _mapFrame.style.display = "block";
+}
+
+// Itineraire
+document.getElementById("mapToggleDirections").addEventListener("click", function() {
+  var bar = document.getElementById("mapDirectionsBar");
+  bar.style.display = bar.style.display === "none" ? "block" : "none";
+});
+document.getElementById("mapDirectionsBtn").addEventListener("click", function() {
+  var origin = document.getElementById("mapOrigin").value.trim();
+  var dest = document.getElementById("mapDest").value.trim();
+  var mode = document.getElementById("mapTravelMode").value;
+  if (!dest) return;
+  if (!origin || origin.toLowerCase() === "ma position") {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(function(pos) {
+        _showDirections(pos.coords.latitude + "," + pos.coords.longitude, dest, mode);
+      }, function() { _showDirections("", dest, mode); }, { timeout: 8000 });
+    } else { _showDirections("", dest, mode); }
+  } else {
+    _showDirections(origin, dest, mode);
+  }
+});
+document.getElementById("mapDest").addEventListener("keydown", function(e) {
+  if (e.key === "Enter") { e.preventDefault(); document.getElementById("mapDirectionsBtn").click(); }
+});
+function _showDirections(origin, dest, mode) {
+  // Ouvre Google Maps dans un nouvel onglet/app mobile (pas besoin d'API key)
+  var gmapsUrl = "https://www.google.com/maps/dir/?api=1&destination=" + encodeURIComponent(dest) + "&travelmode=" + mode;
+  if (origin) gmapsUrl += "&origin=" + encodeURIComponent(origin);
+  var linkEl = document.getElementById("mapGMapsLink");
+  linkEl.href = gmapsUrl;
+  linkEl.style.display = "inline";
+  // Aussi afficher la destination sur la carte embedded
+  _showMapQuery(dest);
+  // Ouvrir automatiquement dans Google Maps
+  window.open(gmapsUrl, "_blank");
 }
 
 // =========================================================================
@@ -1152,8 +2399,8 @@ var _notifPollTimer = null;
 
 function startNotificationPolling() {
   if (_notifPollTimer) return;
-  setTimeout(_pollNotifications, 5000); // first check after 5s
-  _notifPollTimer = setInterval(_pollNotifications, 60000); // then every 60s
+  setTimeout(_pollNotifications, 3000); // first check after 3s
+  _notifPollTimer = setInterval(_pollNotifications, 15000); // then every 15s
 }
 
 function stopNotificationPolling() {
@@ -1167,10 +2414,23 @@ function _pollNotifications() {
       if (data.notifications && data.notifications.length > 0) {
         data.notifications.forEach(function(n) {
           lunaNotify(n.title || "Luna", n.body || "");
+          _showToast(n.title || "Luna", n.body || "");
+          // Inject reminders and summaries into chat
+          if (n.type === "secretary_reminder" || n.type === "voice_summary") {
+            addMsg((n.title ? n.title + " : " : "") + (n.body || ""), "luna");
+          }
         });
       }
     })
     .catch(function() {}); // silent fail
+}
+function _showToast(title, body) {
+  var toast = document.createElement("div");
+  toast.className = "luna-toast";
+  toast.innerHTML = '<strong>' + esc(title) + '</strong><br>' + esc((body||"").substring(0, 100));
+  document.body.appendChild(toast);
+  setTimeout(function() { toast.classList.add("show"); }, 50);
+  setTimeout(function() { toast.classList.remove("show"); setTimeout(function() { toast.remove(); }, 300); }, 5000);
 }
 
 // Request notification permission on first load
@@ -1206,7 +2466,13 @@ function loadSettings() {
     .then(function(data) {
       var s = data.settings || {};
       document.getElementById("set-font-size").value = s.font_size || "normal";
-      if (s.language) document.getElementById("set-language").value = s.language;
+      if (s.language) {
+        document.getElementById("set-language").value = s.language;
+      } else {
+        // Auto-detect browser language on first visit
+        var bl = (navigator.language || "fr").substring(0, 2);
+        if (["fr","en","es"].indexOf(bl) >= 0) document.getElementById("set-language").value = bl;
+      }
     }).catch(function() {});
 
   // Load profile fields that moved here
@@ -1377,14 +2643,169 @@ try {
 
 function formatTime(ts) { return ts || new Date().toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }); }
 
+function _linkify(text) {
+  var s = esc(text);
+  // URLs → clickable links
+  s = s.replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener">$1</a>');
+  // **bold** → <strong>
+  s = s.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  // Emoji bullet points for structured results
+  s = s.replace(/^([\u2708\u{1F3E8}\u{1F37D}\u{1F4CD}\u26C5\u{1F4F0}\u{1F50D}\u2B50\u{1F4B0}\u{1F4DE}\u2709\u{1F6A8}\u23F0\u{1F4DD}\u{1F4C4}\u{1F3AF}\u{1F3C6}\u{1F3AE}\u{1F4E1}])/gmu, '<span class="conc-result-icon">$1</span>');
+  return s;
+}
+
 function addMsg(text, cls, ts, skipSave) {
   var d = document.createElement("div"); d.className = "msg " + cls;
-  var textSpan = document.createElement("span"); textSpan.className = "msg-text"; textSpan.textContent = text; d.appendChild(textSpan);
+  if (cls === "luna") { var nameSpan = document.createElement("span"); nameSpan.className = "luna-name"; nameSpan.textContent = "Luna"; d.appendChild(nameSpan); }
+  var textSpan = document.createElement("span"); textSpan.className = "msg-text"; textSpan.innerHTML = _linkify(text); d.appendChild(textSpan);
   var timeSpan = document.createElement("span"); timeSpan.className = "msg-time"; timeSpan.textContent = formatTime(ts); d.appendChild(timeSpan);
   chat.appendChild(d); scrollToBottom();
   if (!skipSave) saveHistory();
 }
 
+// Quick reply chips — suggestions contextuelles apres chaque reponse Luna
+function _addChips(chips) {
+  // Supprime les anciens chips
+  var old = chat.querySelectorAll(".luna-chips");
+  old.forEach(function(el) { el.remove(); });
+  if (!chips || chips.length === 0) return;
+  var container = document.createElement("div");
+  container.className = "luna-chips";
+  chips.forEach(function(chip) {
+    var btn = document.createElement("button");
+    btn.className = "luna-chip";
+    btn.innerHTML = (chip.icon || "") + " " + chip.label;
+    btn.addEventListener("click", function() {
+      container.remove();
+      if (chip.action === "send") {
+        addMsg(chip.text, "user");
+        sendMsg(chip.text);
+      } else if (chip.action === "concierge") {
+        // Switch to concierge tab and trigger action
+        document.querySelector('[data-tab="conciergerie"]').click();
+        if (chip.handler && typeof window[chip.handler] === "function") {
+          setTimeout(function() { window[chip.handler](); }, 300);
+        }
+      } else if (chip.action === "voice") {
+        var jarvisBtn = document.getElementById("lunaVoiceBtn");
+        if (jarvisBtn) jarvisBtn.click();
+      }
+    });
+    container.appendChild(btn);
+  });
+  chat.appendChild(container);
+  scrollToBottom();
+}
+
+// Genere des suggestions contextuelles basees sur l'heure et le mode
+function _getSmartChips() {
+  var h = new Date().getHours();
+  var mode = currentMode || "compagnon";
+  var chips = [];
+
+  if (mode === "secretaire") {
+    chips.push({icon: "📊", label: "Mon budget", action: "send", text: "Analyse mon budget"});
+    chips.push({icon: "📋", label: "Mes rappels", action: "send", text: "Quels sont mes rappels en cours ?"});
+    chips.push({icon: "✈️", label: "Chercher un vol", action: "concierge", handler: "_concShowFlightForm"});
+    chips.push({icon: "📄", label: "Mes documents", action: "send", text: "Resume de mes documents"});
+  } else {
+    // Mode compagnon — adapte a l'heure
+    if (h >= 6 && h < 12) {
+      chips.push({icon: "🌤️", label: "Meteo", action: "send", text: "Quel temps fait-il aujourd'hui ?"});
+      chips.push({icon: "📰", label: "Actus du jour", action: "send", text: "Quelles sont les actualites du jour ?"});
+      chips.push({icon: "🎯", label: "Mes missions", action: "send", text: "Quelles sont mes missions du jour ?"});
+    } else if (h >= 12 && h < 18) {
+      chips.push({icon: "🍽️", label: "Restaurant", action: "concierge", handler: "_concShowRestaurantForm"});
+      chips.push({icon: "🔍", label: "Rechercher", action: "concierge", handler: "_concShowSearchForm"});
+      chips.push({icon: "📞", label: "Appeler un proche", action: "send", text: "Appelle ma famille"});
+    } else if (h >= 18 && h < 22) {
+      chips.push({icon: "🎮", label: "Jouer", action: "send", text: "Propose-moi un jeu ou un quiz"});
+      chips.push({icon: "📖", label: "Histoire", action: "send", text: "Raconte-moi une histoire"});
+      chips.push({icon: "🎵", label: "Musique", action: "send", text: "Propose-moi de la musique relaxante"});
+    } else {
+      chips.push({icon: "🌙", label: "Bonne nuit", action: "send", text: "Bonne nuit Luna"});
+      chips.push({icon: "😌", label: "Relaxation", action: "send", text: "Propose-moi un exercice de relaxation"});
+      chips.push({icon: "📝", label: "Gratitude", action: "send", text: "Faisons un exercice de gratitude"});
+    }
+  }
+  chips.push({icon: "🎤", label: "Parler", action: "voice"});
+  return chips;
+}
+
+function _renderCards(cards) {
+  var container = document.createElement("div");
+  container.className = "rich-cards";
+  cards.forEach(function(c) {
+    var card = document.createElement("div");
+    card.className = "rich-card rich-card-" + (c.type || "default");
+    if (c.type === "place") {
+      var h = '<div class="rc-name">' + esc(c.name) + '</div>';
+      if (c.rating) h += '<div class="rc-rating">' + esc(c.rating) + (c.reviews ? ' (' + c.reviews + ' avis)' : '') + '</div>';
+      if (c.distance_km) h += '<div class="rc-detail" style="color:#34d399;font-weight:600;">A ' + c.distance_km + ' km</div>';
+      if (c.price_level) h += '<div class="rc-detail rc-price">' + esc(c.price_level) + '</div>';
+      if (c.address) h += '<div class="rc-detail">' + esc(c.address) + '</div>';
+      if (c.phone) h += '<div class="rc-detail"><a href="tel:' + esc(c.phone) + '">' + esc(c.phone) + '</a></div>';
+      if (c.hours) h += '<div class="rc-detail rc-hours">' + esc(c.hours) + '</div>';
+      var links = '';
+      if (c.url) links += '<a href="' + esc(c.url) + '" target="_blank" rel="noopener" class="rc-btn">Site web</a>';
+      if (c.phone) links += '<a href="tel:' + esc(c.phone) + '" class="rc-btn rc-btn-call">Appeler</a>';
+      // Transport buttons
+      if (c.directions) {
+        links += '<a href="' + esc(c.directions.driving) + '" target="_blank" rel="noopener" class="rc-btn rc-btn-map" title="En voiture">&#128663; Voiture</a>';
+        links += '<a href="' + esc(c.directions.transit) + '" target="_blank" rel="noopener" class="rc-btn rc-btn-map" title="Transports en commun">&#128652; Transport</a>';
+        links += '<a href="' + esc(c.directions.walking) + '" target="_blank" rel="noopener" class="rc-btn rc-btn-map" title="A pied">&#128694; A pied</a>';
+      } else if (c.address) {
+        links += '<a href="https://www.google.com/maps/search/' + encodeURIComponent(c.name + ' ' + c.address) + '" target="_blank" rel="noopener" class="rc-btn rc-btn-map">Itineraire</a>';
+      }
+      if (links) h += '<div class="rc-actions">' + links + '</div>';
+      card.innerHTML = h;
+    } else if (c.type === "weather") {
+      var h = '<div class="rc-name">' + esc(c.city) + ' — ' + esc(c.temp) + '</div>';
+      h += '<div class="rc-detail">' + esc(c.description) + '</div>';
+      if (c.feels_like) h += '<div class="rc-detail">Ressenti ' + esc(c.feels_like) + '</div>';
+      if (c.humidity) h += '<div class="rc-detail">Humidite ' + esc(c.humidity) + '</div>';
+      if (c.wind) h += '<div class="rc-detail">Vent ' + esc(c.wind) + '</div>';
+      if (c.forecasts && c.forecasts.length) {
+        h += '<div class="rc-forecasts">';
+        c.forecasts.forEach(function(f) {
+          h += '<div class="rc-forecast"><span class="rc-fdate">' + esc(f.date || '') + '</span><span>' + esc(f.description || '') + '</span><span>' + esc((f.max || '') + '/' + (f.min || '')) + '</span></div>';
+        });
+        h += '</div>';
+      }
+      card.innerHTML = h;
+    } else if (c.type === "news") {
+      var h = '<div class="rc-name">' + esc(c.title) + '</div>';
+      var meta = [];
+      if (c.source) meta.push(esc(c.source));
+      if (c.date) meta.push(esc(c.date));
+      if (meta.length) h += '<div class="rc-detail rc-meta">' + meta.join(' — ') + '</div>';
+      if (c.snippet) h += '<div class="rc-detail">' + esc(c.snippet).substring(0, 150) + '</div>';
+      if (c.url) h += '<div class="rc-actions"><a href="' + esc(c.url) + '" target="_blank" rel="noopener" class="rc-btn">Lire</a></div>';
+      card.innerHTML = h;
+    } else if (c.type === "web") {
+      var h = '<div class="rc-name">' + esc(c.title) + '</div>';
+      if (c.snippet) h += '<div class="rc-detail">' + esc(c.snippet).substring(0, 150) + '</div>';
+      if (c.url) h += '<div class="rc-actions"><a href="' + esc(c.url) + '" target="_blank" rel="noopener" class="rc-btn">Voir</a></div>';
+      card.innerHTML = h;
+    } else if (c.type === "flight") {
+      var h = '<div class="rc-name">' + esc(c.airline) + ' — ' + esc(c.price) + '</div>';
+      if (c.summary) h += '<div class="rc-detail">' + esc(c.summary) + '</div>';
+      card.innerHTML = h;
+    } else if (c.type === "hotel") {
+      var h = '<div class="rc-name">' + esc(c.name) + '</div>';
+      if (c.stars) h += '<div class="rc-rating">' + esc(c.stars) + '</div>';
+      if (c.city) h += '<div class="rc-detail">' + esc(c.city) + '</div>';
+      if (c.price_per_night) h += '<div class="rc-detail rc-price">' + esc(c.price_per_night) + ' / nuit</div>';
+      if (c.room_type) h += '<div class="rc-detail">' + esc(c.room_type) + '</div>';
+      card.innerHTML = h;
+    } else if (c.type === "booking") {
+      card.innerHTML = '<div class="rc-actions"><a href="' + esc(c.url) + '" target="_blank" rel="noopener" class="rc-btn rc-btn-book">' + esc(c.label) + '</a></div>';
+    }
+    container.appendChild(card);
+  });
+  chat.appendChild(container);
+  scrollToBottom();
+}
 function showTyping() {
   var d = document.createElement("div"); d.className = "typing"; d.id = "typingIndicator";
   d.innerHTML = '<div class="typing-dots"><span></span><span></span><span></span></div>';
@@ -1413,23 +2834,30 @@ function sendMsg(overrideMsg) {
   if (!overrideMsg) { addMsg(msg, "user"); inputEl.value = ""; charCounter.textContent = ""; }
   sendBtn.disabled = true;
   showTyping();
-  authFetch("/api/chat", { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({message: msg, session_id: currentConvId}) })
+  var token = getToken();
+  fetch("/api/chat", {
+    method: "POST",
+    headers: {"Content-Type": "application/json", "Authorization": "Bearer " + token},
+    body: JSON.stringify({message: msg, session_id: currentConvId, mode: currentMode || "compagnon", stream: true})
+  })
   .then(function(r) {
     if (r.status === 422) throw new Error("Message invalide");
     if (r.status === 429) throw new Error("Trop de messages. Attends un peu.");
     if (!r.ok) throw new Error("Erreur serveur (" + r.status + ")");
-    return r.json();
-  })
-  .then(function(data) {
-    hideTyping(); addMsg(data.response, "luna"); lunaNotify("Luna", data.response); showXpToast("+2 XP"); refreshXpWidget();
-    // Auto-title conversation from AI-generated title
-    if (data.auto_title) {
-      var conv = conversationsMeta.find(function(c) { return c.id === currentConvId; });
-      if (conv) {
-        conv.title = data.auto_title;
-        saveConvMeta(); renderConvList();
-      }
+    // Check if streaming response
+    var ct = r.headers.get("content-type") || "";
+    if (ct.indexOf("text/event-stream") >= 0) {
+      return _handleStreamResponse(r, msg);
     }
+    // Fallback: non-streaming JSON
+    return r.json().then(function(data) {
+      hideTyping(); addMsg(data.response, "luna"); if (data.cards && data.cards.length) _renderCards(data.cards); _addChips(_getSmartChips()); lunaNotify("Luna", data.response); showXpToast("+2 XP"); refreshXpWidget();
+      if (_wakeWordResponseMode) { _wakeWordResponseMode = false; _lunaSpeak(data.response); }
+      if (data.auto_title) {
+        var conv = conversationsMeta.find(function(c) { return c.id === currentConvId; });
+        if (conv) { conv.title = data.auto_title; saveConvMeta(); renderConvList(); }
+      }
+    });
   })
   .catch(function(e) {
     hideTyping(); lastFailedMsg = msg;
@@ -1441,6 +2869,77 @@ function sendMsg(overrideMsg) {
     chat.appendChild(errDiv); scrollToBottom();
   })
   .finally(function() { sendBtn.disabled = false; inputEl.focus(); });
+}
+
+// SSE streaming handler
+function _handleStreamResponse(response, originalMsg) {
+  hideTyping();
+  // Create Luna message element for progressive fill
+  var msgEl = document.createElement("div"); msgEl.className = "msg luna stream-msg";
+  var avatarEl = document.createElement("div"); avatarEl.className = "luna-avatar";
+  msgEl.appendChild(avatarEl);
+  var nameEl = document.createElement("span"); nameEl.className = "luna-name"; nameEl.textContent = "Luna";
+  msgEl.appendChild(nameEl);
+  var textEl = document.createElement("span"); textEl.className = "msg-text"; textEl.innerHTML = "";
+  msgEl.appendChild(textEl);
+  var timeEl = document.createElement("span"); timeEl.className = "msg-time"; timeEl.textContent = formatTime();
+  msgEl.appendChild(timeEl);
+  chat.appendChild(msgEl);
+  scrollToBottom();
+
+  var fullText = "";
+  var reader = response.body.getReader();
+  var decoder = new TextDecoder();
+  var buffer = "";
+
+  function pump() {
+    return reader.read().then(function(result) {
+      if (result.done) {
+        // Stream ended — finalize
+        _addChips(_getSmartChips());
+        showXpToast("+2 XP"); refreshXpWidget();
+        if (fullText) lunaNotify("Luna", fullText.substring(0, 120));
+        if (_wakeWordResponseMode) { _wakeWordResponseMode = false; _lunaSpeak(fullText); }
+        return;
+      }
+      buffer += decoder.decode(result.value, {stream: true});
+      var parts = buffer.split("\n\n");
+      buffer = parts.pop();
+      for (var i = 0; i < parts.length; i++) {
+        var line = parts[i].trim();
+        if (!line.startsWith("data: ")) continue;
+        try {
+          var data = JSON.parse(line.substring(6));
+          if (data.type === "chunk") {
+            fullText += data.text;
+            textEl.innerHTML = _md(fullText);
+            scrollToBottom();
+          } else if (data.type === "tool") {
+            var _toolLabels = {search_web:"Recherche web",search_places:"Recherche lieux",get_weather:"Meteo",get_news:"Actualites",search_flights:"Recherche vols",search_hotels:"Recherche hotels",book_restaurant:"Restaurants",send_sms:"Envoi SMS",send_email:"Envoi email",call_contact:"Appel",create_instruction:"Rappel",get_contacts:"Contacts",generate_document:"Document"};
+            var tLabel = _toolLabels[data.name] || data.name;
+            if (data.status === "running") {
+              textEl.innerHTML = _md(fullText) + '<div class="stream-tool-indicator">' + tLabel + '...</div>';
+              scrollToBottom();
+            }
+          } else if (data.type === "done") {
+            // Final event — render rich cards, update title
+            if (data.response) { fullText = data.response; textEl.innerHTML = _md(fullText); }
+            if (data.cards && data.cards.length) _renderCards(data.cards);
+            if (data.auto_title) {
+              var conv = conversationsMeta.find(function(c) { return c.id === currentConvId; });
+              if (conv) { conv.title = data.auto_title; saveConvMeta(); renderConvList(); }
+            }
+            // Save to local storage
+            _saveCurrentHistory();
+          } else if (data.type === "error") {
+            textEl.innerHTML = '<span style="color:#f87171;">' + (data.message || "Erreur") + '</span>';
+          }
+        } catch(e) {}
+      }
+      return pump();
+    });
+  }
+  return pump();
 }
 
 sendBtn.addEventListener("click", function() { sendMsg(); });
@@ -1455,30 +2954,128 @@ inputEl.addEventListener("focus", function() {
   setTimeout(function() { inputEl.scrollIntoView({ behavior: "smooth", block: "end" }); }, 300);
 });
 
+// --- Smart Input Suggestions ---
+(function() {
+  var sugBox = document.getElementById("inputSuggestions");
+  if (!sugBox) return;
+  var _sugTimeout = null;
+  var _commonSugs = {
+    compagnon: [
+      "Comment tu vas Luna ?", "Quelle est la meteo ?", "Quelles sont les actualites ?",
+      "Envoie un SMS a", "Appelle", "Cherche un restaurant pres de moi",
+      "Quel temps fait-il demain ?", "Genere un document",
+      "Rappelle-moi de", "Qui est en ligne ?", "Montre-moi mes missions"
+    ],
+    secretaire: [
+      "Montre-moi mes documents", "Quel est mon budget ce mois ?",
+      "Est-ce que je peux me permettre", "Rappelle-moi de payer",
+      "Cherche ma facture", "Quels sont mes rappels ?",
+      "Ajoute une depense de", "Classe ce document",
+      "Cherche un restaurant pres de moi", "Quelle est la meteo ?",
+      "Envoie un email a"
+    ]
+  };
+  function _showSuggestions(query) {
+    var mode = currentMode || "compagnon";
+    var pool = _commonSugs[mode] || _commonSugs.compagnon;
+    var q = query.toLowerCase();
+    var matches = pool.filter(function(s) { return s.toLowerCase().indexOf(q) >= 0 || q.length < 2; });
+    if (matches.length === 0 || query.length > 40) { sugBox.style.display = "none"; return; }
+    sugBox.innerHTML = "";
+    matches.slice(0, 5).forEach(function(s) {
+      var btn = document.createElement("button");
+      btn.type = "button";
+      btn.textContent = s;
+      btn.style.cssText = "display:block;width:100%;text-align:left;padding:10px 14px;border:none;background:transparent;color:#e0e0e0;font-size:0.88em;cursor:pointer;border-bottom:1px solid #1e1e3f;";
+      btn.addEventListener("mousedown", function(e) {
+        e.preventDefault();
+        inputEl.value = s;
+        sugBox.style.display = "none";
+        inputEl.focus();
+      });
+      btn.addEventListener("mouseenter", function() { btn.style.background = "#2a2a4e"; });
+      btn.addEventListener("mouseleave", function() { btn.style.background = "transparent"; });
+      sugBox.appendChild(btn);
+    });
+    sugBox.style.display = "block";
+  }
+  inputEl.addEventListener("input", function() {
+    clearTimeout(_sugTimeout);
+    var v = inputEl.value.trim();
+    if (v.length === 0) { _showSuggestions(""); return; }
+    _sugTimeout = setTimeout(function() { _showSuggestions(v); }, 200);
+  });
+  inputEl.addEventListener("focus", function() {
+    if (inputEl.value.trim().length === 0) _showSuggestions("");
+  });
+  inputEl.addEventListener("blur", function() {
+    setTimeout(function() { sugBox.style.display = "none"; }, 200);
+  });
+})();
+
+// --- Duration picker modal (avant appel/visio) ---
+var _durationPickerCb = null;
+function _showDurationPicker(type, callback) {
+  _durationPickerCb = callback;
+  var overlay = document.getElementById("durationOverlay");
+  var title = document.getElementById("durationTitle");
+  title.textContent = type === "visio" ? "Duree de la visio" : "Duree de l'appel";
+  overlay.style.display = "flex";
+}
+function _closeDurationPicker() {
+  document.getElementById("durationOverlay").style.display = "none";
+  _durationPickerCb = null;
+}
+function _confirmDuration() {
+  var mins = parseInt(document.getElementById("durationSelect").value, 10);
+  _closeDurationPicker();
+  if (_durationPickerCb) _durationPickerCb(mins);
+}
+
 // --- Video call (Tavus) ---
 function startCall() {
-  window.location.href = "/simli";
+  _showDurationPicker("visio", function(minutes) {
+    addMsg("Visio lancee (" + minutes + " min prevues)", "luna");
+    window.location.href = "/simli?duration=" + minutes;
+  });
 }
-callBtn.addEventListener("click", startCall);
-
 // --- Appel Vocal (Twilio + OpenAI Realtime) ---
 var voiceBtn = document.getElementById("voiceBtn");
 var voiceBtnOriginal = voiceBtn.innerHTML;
 function startVoiceCall() {
-  voiceBtn.disabled = true; voiceBtn.textContent = "Appel en cours...";
-  authFetch("/api/voice-call", { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({}) })
-  .then(function(r) { return r.json(); })
-  .then(function(data) {
-    if (data.error) { addMsg("Erreur appel vocal: " + data.error, "luna"); return; }
-    addMsg("Luna t'appelle sur ton telephone... Decroche !", "luna");
-  })
-  .catch(function() { addMsg("Erreur de connexion pour appel vocal.", "luna"); })
-  .finally(function() {
-    voiceBtn.disabled = false;
-    voiceBtn.innerHTML = voiceBtnOriginal;
+  _showDurationPicker("vocal", function(minutes) {
+    voiceBtn.disabled = true; voiceBtn.textContent = "Appel en cours...";
+    authFetch("/api/voice-call", { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({duration: minutes}) })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.error) { addMsg("Erreur appel vocal: " + data.error, "luna"); return; }
+      addMsg("Luna t'appelle sur ton telephone (" + minutes + " min)... Decroche !", "luna");
+    })
+    .catch(function() { addMsg("Erreur de connexion pour appel vocal.", "luna"); })
+    .finally(function() {
+      voiceBtn.disabled = false;
+      voiceBtn.innerHTML = voiceBtnOriginal;
+    });
   });
 }
-voiceBtn.addEventListener("click", startVoiceCall);
+voiceBtn.addEventListener("click", function() { _closeActionMenu(); startVoiceCall(); });
+
+// --- Action Menu (+) ---
+var actionToggle = document.getElementById("actionToggle");
+var actionMenu = document.getElementById("actionMenu");
+var actionOverlay = document.getElementById("actionOverlay");
+function _openActionMenu() { actionMenu.classList.add("open"); actionOverlay.classList.add("open"); actionToggle.classList.add("open"); }
+function _closeActionMenu() { actionMenu.classList.remove("open"); actionOverlay.classList.remove("open"); actionToggle.classList.remove("open"); }
+actionToggle.addEventListener("click", function(e) {
+  e.stopPropagation();
+  if (actionMenu.classList.contains("open")) _closeActionMenu(); else _openActionMenu();
+});
+actionOverlay.addEventListener("click", _closeActionMenu);
+callBtn.addEventListener("click", function() { _closeActionMenu(); startCall(); });
+document.getElementById("activitiesShortcut").addEventListener("click", function() {
+  _closeActionMenu();
+  loadActivities();
+});
 
 // --- Invite contact (geree dans simli.html pendant la visio) ---
 
@@ -1486,7 +3083,7 @@ voiceBtn.addEventListener("click", startVoiceCall);
 // PROFILE
 // =========================================================================
 var profileFields = [
-  "first_name","last_name","date_of_birth","phone","email","address","city","department",
+  "first_name","last_name","gender","date_of_birth","phone","email","address","city","department",
   "tutoiement","family_status","children","autonomy","mobility","pets",
   "professional_status","job_title","siret",
   "doctor_name","doctor_phone","pharmacy","allergies","treatments","conditions",
@@ -2087,7 +3684,7 @@ function _amisHeartbeat() {
   .then(function(r) { return r.json(); })
   .then(function(data) {
     var badge = document.getElementById("amisBadge");
-    var n = data.pending_requests || 0;
+    var n = (data.pending_requests || 0) + (data.unread_dm_count || 0);
     if (n > 0) { badge.textContent = n; badge.style.display = "inline-flex"; }
     else { badge.style.display = "none"; }
   }).catch(function() {});
@@ -2101,9 +3698,14 @@ function _amisAvatarEmoji(type) {
 function loadAmisList() {
   var list = document.getElementById("amisFriendsList");
   list.innerHTML = '<p class="empty-state">Chargement...</p>';
-  authFetch("/api/social/friends").then(function(r) { return r.json(); })
-  .then(function(data) {
-    var friends = data.friends || [];
+  Promise.all([
+    authFetch("/api/social/friends").then(function(r) { return r.json(); }),
+    authFetch("/api/social/dm/rooms").then(function(r) { return r.json(); }).catch(function() { return { rooms: [] }; })
+  ]).then(function(results) {
+    var friends = results[0].friends || [];
+    var rooms = results[1].rooms || [];
+    var unreadMap = {};
+    rooms.forEach(function(rm) { if (rm.unread > 0) unreadMap[rm.other_tid] = rm.unread; });
     document.getElementById("amisFriendCount").textContent = friends.length;
     if (friends.length === 0) {
       list.innerHTML = '<p class="empty-state">Pas encore d\'amis.<br>Partage ton code ou entre le code d\'un ami !</p>';
@@ -2115,8 +3717,10 @@ function loadAmisList() {
       card.className = "friend-card";
       card.style.cursor = "pointer";
       var dot = f.is_online ? '<span class="friend-online"></span>' : '<span class="friend-offline"></span>';
+      var unread = unreadMap[f.tid] || 0;
+      var unreadBadge = unread > 0 ? '<span style="background:#ef4444;color:#fff;border-radius:50%;padding:2px 7px;font-size:0.75em;margin-left:6px;">' + unread + '</span>' : '';
       card.innerHTML = '<div class="friend-avatar">' + _amisAvatarEmoji(f.avatar_type) + '</div>' +
-        '<div class="friend-info"><div class="friend-name">' + dot + ' ' + esc(f.nickname || "Ami") + '</div>' +
+        '<div class="friend-info"><div class="friend-name">' + dot + ' ' + esc(f.nickname || "Ami") + unreadBadge + '</div>' +
         '<div class="friend-level">Niveau ' + (f.level || 1) + '</div></div>' +
         '<div class="friend-actions"><button class="btn btn-primary" style="padding:8px 14px;font-size:0.85em;">Message</button></div>';
       card.addEventListener("click", function() { openDm(f.tid, f.nickname || "Ami"); });
@@ -2176,6 +3780,7 @@ function _myTid() {
   catch(e) { return 0; }
 }
 
+var dmWs = null;
 function openDm(friendTid, friendName) {
   dmCurrentFriendTid = friendTid;
   document.getElementById("dmFriendName").textContent = friendName;
@@ -2186,9 +3791,57 @@ function openDm(friendTid, friendName) {
   authFetch("/api/social/dm/create", { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({ friend_tid: friendTid }) })
   .then(function(r) { return r.json(); })
   .then(function(data) {
-    if (data.room_id) { dmCurrentRoomId = data.room_id; _loadDmMessages(); if (dmPollTimer) clearInterval(dmPollTimer); dmPollTimer = setInterval(_loadDmMessages, 5000); }
+    if (data.room_id) {
+      dmCurrentRoomId = data.room_id;
+      _loadDmMessages();
+      // Connect DM WebSocket for real-time
+      _connectDmWs(data.room_id);
+    }
     else { document.getElementById("dmMessages").innerHTML = '<p class="empty-state">' + esc(data.error || "Impossible d\'ouvrir la conversation.") + '</p>'; }
   }).catch(function() { document.getElementById("dmMessages").innerHTML = '<p class="empty-state">Erreur de connexion.</p>'; });
+}
+function _connectDmWs(roomId) {
+  if (dmWs) { try { dmWs.close(); } catch(e) {} dmWs = null; }
+  if (dmPollTimer) { clearInterval(dmPollTimer); dmPollTimer = null; }
+  var proto = location.protocol === "https:" ? "wss:" : "ws:";
+  var url = proto + "//" + location.host + "/ws/dm/" + roomId + "?token=" + encodeURIComponent(getToken());
+  try {
+    dmWs = new WebSocket(url);
+    dmWs.onmessage = function(evt) {
+      try {
+        var data = JSON.parse(evt.data);
+        if (data.type === "message" && data.message) {
+          _appendDmMessage(data.message);
+        } else if (data.type === "typing") {
+          document.getElementById("dmStatus").textContent = "ecrit...";
+          setTimeout(function() { document.getElementById("dmStatus").textContent = ""; }, 2000);
+        }
+      } catch(e) {}
+    };
+    dmWs.onclose = function() {
+      // Fallback to polling if WS fails
+      if (dmCurrentRoomId && document.getElementById("dmModal").classList.contains("active")) {
+        dmPollTimer = setInterval(_loadDmMessages, 5000);
+      }
+    };
+    dmWs.onerror = function() {
+      // Fallback to polling
+      if (!dmPollTimer && dmCurrentRoomId) dmPollTimer = setInterval(_loadDmMessages, 5000);
+    };
+  } catch(e) {
+    dmPollTimer = setInterval(_loadDmMessages, 5000);
+  }
+}
+function _appendDmMessage(m) {
+  var c = document.getElementById("dmMessages");
+  var empty = c.querySelector(".empty-state");
+  if (empty) empty.remove();
+  var myTid = String(_myTid());
+  var div = document.createElement("div");
+  div.className = "dm-msg " + (String(m.sender_tid || m.sender) === myTid ? "mine" : "theirs");
+  div.textContent = m.text || m.content || "";
+  c.appendChild(div);
+  c.scrollTop = c.scrollHeight;
 }
 
 function _loadDmMessages() {
@@ -2216,6 +3869,12 @@ document.getElementById("dmSendBtn").addEventListener("click", function() {
   var text = input.value.trim();
   if (!text || !dmCurrentRoomId) return;
   input.value = "";
+  // Use WebSocket if connected
+  if (dmWs && dmWs.readyState === WebSocket.OPEN) {
+    dmWs.send(JSON.stringify({ type: "message", text: text }));
+    return;
+  }
+  // Fallback to REST
   document.getElementById("dmSendBtn").disabled = true;
   authFetch("/api/social/dm/" + dmCurrentRoomId + "/send", { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({ text: text }) })
   .then(function(r) { return r.json(); })
@@ -2223,11 +3882,21 @@ document.getElementById("dmSendBtn").addEventListener("click", function() {
   .catch(function() { document.getElementById("dmStatus").textContent = "Erreur de connexion."; })
   .finally(function() { document.getElementById("dmSendBtn").disabled = false; });
 });
-document.getElementById("dmInput").addEventListener("keydown", function(e) { if (e.key === "Enter") document.getElementById("dmSendBtn").click(); });
+var _dmTypingLast = 0;
+document.getElementById("dmInput").addEventListener("keydown", function(e) {
+  if (e.key === "Enter") { document.getElementById("dmSendBtn").click(); return; }
+  // Send typing indicator (throttled to 2s)
+  var now = Date.now();
+  if (dmWs && dmWs.readyState === WebSocket.OPEN && now - _dmTypingLast > 2000) {
+    _dmTypingLast = now;
+    dmWs.send(JSON.stringify({ type: "typing" }));
+  }
+});
 document.getElementById("dmCloseBtn").addEventListener("click", function() {
   document.getElementById("dmModal").classList.remove("active");
   dmCurrentRoomId = null; dmCurrentFriendTid = null;
   if (dmPollTimer) { clearInterval(dmPollTimer); dmPollTimer = null; }
+  if (dmWs) { try { dmWs.close(); } catch(e) {} dmWs = null; }
 });
 
 document.getElementById("amisCodeBtn").addEventListener("click", function() {
@@ -2248,9 +3917,7 @@ document.getElementById("amisCodeBtn").addEventListener("click", function() {
 document.getElementById("amisCodeInput").addEventListener("keydown", function(e) { if (e.key === "Enter") document.getElementById("amisCodeBtn").click(); });
 
 document.getElementById("amisSalonBtn").addEventListener("click", function() {
-  // Switcher vers l'onglet Activites au lieu d'ouvrir un nouvel onglet
-  var tabBtn = document.querySelector('[data-tab="activities"]');
-  if (tabBtn) tabBtn.click();
+  loadActivities();
 });
 
 // =========================================================================
@@ -2484,15 +4151,168 @@ function initApp() {
   loadConversationList();
   var hadHistory = loadHistory();
   if (!hadHistory) {
-    authFetch("/api/greeting").then(function(r) { return r.json(); })
-    .then(function(data) { addMsg(data.response, "luna"); })
+    // First visit: show onboarding then greeting
+    if (!localStorage.getItem("luna_onboarded")) {
+      _showOnboarding();
+    }
+    authFetch("/api/greeting?mode=" + (currentMode || "compagnon")).then(function(r) { return r.json(); })
+    .then(function(data) { addMsg(data.response, "luna"); _addOnboardingChips(); _loadProactiveContext(); })
     .catch(function() { addMsg("Luna est temporairement injoignable. Verifie que le serveur tourne.", "luna"); });
   }
 }
 
+// --- Onboarding (first visit) ---
+function _showOnboarding() {
+  var ov = document.createElement("div"); ov.className = "onboard-overlay"; ov.id = "onboardOverlay";
+  ov.innerHTML =
+    '<div class="onboard-card">' +
+      '<h2>Bienvenue chez Luna</h2>' +
+      '<p>Votre compagnon IA personnel, disponible 24h/24.</p>' +
+      '<div class="onboard-features">' +
+        '<div><span>💬</span><span>Discutez par chat — Luna repond instantanement</span></div>' +
+        '<div><span>🎙️</span><span>Parlez-lui a voix haute avec le micro</span></div>' +
+        '<div><span>📹</span><span>Lancez une visio face a face</span></div>' +
+        '<div><span>🔔</span><span>Rappels, meteo, actualites, conciergerie</span></div>' +
+        '<div><span>👨‍👩‍👧</span><span>Ajoutez vos proches dans l\'onglet Famille</span></div>' +
+      '</div>' +
+      '<button class="onboard-start-btn" id="onboardStartBtn">C\'est parti !</button>' +
+    '</div>';
+  document.body.appendChild(ov);
+  document.getElementById("onboardStartBtn").addEventListener("click", function() {
+    localStorage.setItem("luna_onboarded", "1");
+    ov.style.opacity = "0"; ov.style.transition = "opacity 0.3s";
+    setTimeout(function() { ov.remove(); }, 300);
+  });
+}
+
+function _addOnboardingChips() {
+  if (localStorage.getItem("luna_onboarded")) { _addChips(_getSmartChips()); return; }
+  var chips = [
+    {icon: "👋", label: "Qui es-tu Luna ?", action: "send", text: "Qui es-tu Luna ? Presente-toi."},
+    {icon: "🌤️", label: "Quel temps fait-il ?", action: "send", text: "Quel temps fait-il aujourd'hui ?"},
+    {icon: "📰", label: "Les actualites", action: "send", text: "Quelles sont les actualites du jour ?"},
+    {icon: "⏰", label: "Cree un rappel", action: "send", text: "Rappelle-moi de prendre mes medicaments a 20h."},
+  ];
+  _addChips(chips);
+}
+
+// --- Service Worker registration ---
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", function() {
+    navigator.serviceWorker.register("/sw.js", {scope: "/"}).then(function(reg) {
+      console.log("SW registered, scope:", reg.scope);
+    }).catch(function(err) { console.log("SW registration failed:", err); });
+  });
+}
+
+// --- Proactive context (Jarvis-style) ---
+// Charge meteo + rappels et affiche des mini-cards proactives
+function _loadProactiveContext() {
+  var proDiv = document.createElement("div");
+  proDiv.className = "luna-proactive";
+  var loaded = 0;
+
+  // 1) Meteo
+  authFetch("/api/concierge/action", {
+    method: "POST", headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({action: "weather", params: {}})
+  }).then(function(r) { return r.json(); }).then(function(d) {
+    if (d.actuel) {
+      var card = document.createElement("div");
+      card.className = "luna-proactive-card";
+      card.innerHTML = '<div class="pc-icon">' + _getWeatherEmoji(d.actuel.description) + '</div>' +
+        '<div class="pc-title">' + esc(d.actuel.temperature) + '</div>' +
+        '<div class="pc-detail">' + esc(d.actuel.description) + '</div>';
+      card.addEventListener("click", function() { addMsg("Donne-moi la meteo detaillee", "user"); sendMsg("Donne-moi la meteo detaillee"); });
+      proDiv.appendChild(card);
+      loaded++;
+    }
+  }).catch(function() {});
+
+  // 2) Rappels
+  authFetch("/api/concierge/action", {
+    method: "POST", headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({action: "get_reminders", params: {}})
+  }).then(function(r) { return r.json(); }).then(function(d) {
+    var reminders = d.reminders || d.rappels || [];
+    if (reminders.length > 0) {
+      var card = document.createElement("div");
+      card.className = "luna-proactive-card";
+      var count = reminders.length;
+      var firstTitle = reminders[0].title || reminders[0].text || "Rappel";
+      card.innerHTML = '<div class="pc-icon">⏰</div>' +
+        '<div class="pc-title">' + count + ' rappel' + (count > 1 ? 's' : '') + '</div>' +
+        '<div class="pc-detail">' + esc(firstTitle.substring(0, 30)) + '</div>';
+      card.addEventListener("click", function() { addMsg("Montre-moi mes rappels", "user"); sendMsg("Montre-moi mes rappels"); });
+      proDiv.appendChild(card);
+      loaded++;
+    }
+  }).catch(function() {});
+
+  // 3) Suggestion du moment
+  var h = new Date().getHours();
+  var sugCard = document.createElement("div");
+  sugCard.className = "luna-proactive-card";
+  if (h >= 6 && h < 12) {
+    sugCard.innerHTML = '<div class="pc-icon">📰</div><div class="pc-title">Actus</div><div class="pc-detail">Les dernieres infos</div>';
+    sugCard.addEventListener("click", function() { addMsg("Quelles sont les actus du jour ?", "user"); sendMsg("Quelles sont les actus du jour ?"); });
+  } else if (h >= 12 && h < 18) {
+    sugCard.innerHTML = '<div class="pc-icon">✈️</div><div class="pc-title">Voyager</div><div class="pc-detail">Chercher un vol</div>';
+    sugCard.addEventListener("click", function() { document.querySelector('[data-tab="conciergerie"]').click(); });
+  } else if (h >= 18 && h < 22) {
+    sugCard.innerHTML = '<div class="pc-icon">🎮</div><div class="pc-title">Detente</div><div class="pc-detail">Jeux & activites</div>';
+    sugCard.addEventListener("click", function() { addMsg("Propose-moi une activite fun", "user"); sendMsg("Propose-moi une activite fun"); });
+  } else {
+    sugCard.innerHTML = '<div class="pc-icon">🌙</div><div class="pc-title">Bonne nuit</div><div class="pc-detail">Relaxation</div>';
+    sugCard.addEventListener("click", function() { addMsg("Propose-moi un exercice de relaxation avant de dormir", "user"); sendMsg("Propose-moi un exercice de relaxation avant de dormir"); });
+  }
+  proDiv.appendChild(sugCard);
+
+  // Insert apres 1s (laisse le temps aux API)
+  setTimeout(function() {
+    if (proDiv.children.length > 0) {
+      chat.appendChild(proDiv);
+      scrollToBottom();
+    }
+  }, 1500);
+}
+
+// --- Weather header badge ---
+function loadHeaderWeather() {
+  var cached = localStorage.getItem("luna_weather_cache");
+  if (cached) {
+    try {
+      var c = JSON.parse(cached);
+      if (Date.now() - c.ts < 30 * 60 * 1000) { _applyHeaderWeather(c.data); return; }
+    } catch(e) {}
+  }
+  authFetch("/api/weather").then(function(r) { return r.json(); }).then(function(data) {
+    if (data && data.actuel) {
+      localStorage.setItem("luna_weather_cache", JSON.stringify({ ts: Date.now(), data: data }));
+      _applyHeaderWeather(data);
+    }
+  }).catch(function() {});
+}
+function _getWeatherEmoji(desc) {
+  var d = (desc || "").toLowerCase();
+  if (d.match(/orage|thunder|storm/)) return "\u26C8\uFE0F";
+  if (d.match(/pluie|rain|averse|bruine|drizzle/)) return "\uD83C\uDF27\uFE0F";
+  if (d.match(/neige|snow|gr[eê]le|hail/)) return "\u2744\uFE0F";
+  if (d.match(/brouillard|fog|brume|mist/)) return "\uD83C\uDF2B\uFE0F";
+  if (d.match(/nuageux|cloudy|couvert|overcast/)) return "\u2601\uFE0F";
+  if (d.match(/partiellement|partly|[eé]claircies/)) return "\u26C5";
+  if (d.match(/nuit|night|clair/)) return "\uD83C\uDF19";
+  return "\u2600\uFE0F";
+}
+function _applyHeaderWeather(data) {
+  var el = document.getElementById("headerWeather");
+  if (!el || !data || !data.actuel) return;
+  el.textContent = _getWeatherEmoji(data.actuel.description) + " " + data.actuel.temperature;
+}
+
 // Override showApp to also init
 var _origShowApp = showApp;
-showApp = function() { _origShowApp(); initApp(); refreshXpWidget(); _amisHeartbeat(); _initGeolocation(); };
+showApp = function() { _origShowApp(); initApp(); refreshXpWidget(); _amisHeartbeat(); _initGeolocation(); loadHeaderWeather(); };
 
 // --- Emoji Picker (style WhatsApp) ---
 (function() {
@@ -2585,8 +4405,16 @@ if (_urlParams.get("card_saved") === "success") {
 }
 
 // =========================================================================
-// Wake Word — "Hey Luna"
-// Utilise Web Speech API pour ecouter en continu le mot-cle "Luna"
+// =========================================================================
+// LUNA TTS — Desactive (remplace par OpenAI Realtime dans le mode Jarvis)
+// Les fonctions sont gardees en stub pour eviter les erreurs de reference
+var _wakeWordResponseMode = false;
+function _lunaSpeak() {}
+function _lunaStopSpeaking() {}
+
+// =========================================================================
+// Wake Word — "Hey Luna" → Active le mode Jarvis (OpenAI Realtime)
+// Comme Siri/Jarvis : dit "Hey Luna" → Luna ecoute et repond en voix
 // =========================================================================
 var wakewordBtn = document.getElementById("wakewordBtn");
 var wakewordIndicator = document.getElementById("wakewordIndicator");
@@ -2597,9 +4425,41 @@ var wakewordCooldown = false;
 
 var SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
+function _matchLuna(text) {
+  var patterns = [
+    "hey luna", "hé luna", "eh luna", "et luna", "ai luna",
+    "hey louna", "hé louna", "hey lune", "hé lune",
+    "hello luna", "dis luna", "ok luna", "bonjour luna",
+    "hey lina", "hé lina", "hey louna", "hey lu na",
+    "elle luna", "aluna", "héluna", "éluna", "ailuna",
+    "luna"
+  ];
+  var lower = text.toLowerCase().trim();
+  for (var p = 0; p < patterns.length; p++) {
+    if (lower.indexOf(patterns[p]) >= 0) return true;
+  }
+  return false;
+}
+
+function _playWakeBeep() {
+  try {
+    var ctx = new (window.AudioContext || window.webkitAudioContext)();
+    var osc = ctx.createOscillator();
+    var gain = ctx.createGain();
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.frequency.value = 880; gain.gain.value = 0.3;
+    osc.start(); osc.stop(ctx.currentTime + 0.12);
+    var osc2 = ctx.createOscillator();
+    var gain2 = ctx.createGain();
+    osc2.connect(gain2); gain2.connect(ctx.destination);
+    osc2.frequency.value = 1100; gain2.gain.value = 0.2;
+    osc2.start(ctx.currentTime + 0.15); osc2.stop(ctx.currentTime + 0.25);
+  } catch(e) {}
+}
+
 function startWakeWord() {
   if (!SpeechRecognition) {
-    addMsg("Ton navigateur ne supporte pas la reconnaissance vocale. Utilise Chrome.", "luna");
+    addMsg("Ton navigateur ne supporte pas la reconnaissance vocale. Utilise Chrome ou un navigateur compatible.", "luna");
     return;
   }
   if (wakewordActive) return;
@@ -2607,60 +4467,51 @@ function startWakeWord() {
   wakeRecognition = new SpeechRecognition();
   wakeRecognition.lang = "fr-FR";
   wakeRecognition.continuous = true;
-  wakeRecognition.interimResults = false;
-  wakeRecognition.maxAlternatives = 3;
+  wakeRecognition.interimResults = true;
+  wakeRecognition.maxAlternatives = 5;
 
   wakeRecognition.onstart = function() {
     wakewordActive = true;
     wakewordBtn.classList.add("active", "listening");
     wakewordIndicator.style.display = "block";
     wakewordLabel.textContent = "Dis \"Hey Luna\"...";
-    console.log("[WakeWord] Ecoute active");
   };
 
   wakeRecognition.onresult = function(event) {
     if (wakewordCooldown) return;
     for (var i = event.resultIndex; i < event.results.length; i++) {
-      if (!event.results[i].isFinal) continue;
-      // Verifie toutes les alternatives
       for (var j = 0; j < event.results[i].length; j++) {
-        var text = event.results[i][j].transcript.toLowerCase().trim();
-        console.log("[WakeWord] Entendu:", text);
-
-        // Detecte "luna" ou "hey luna" ou "hé luna" ou "ailuna" (reconnaissance imparfaite)
-        var lunaIdx = -1;
-        var patterns = ["hey luna", "hé luna", "eh luna", "et luna", "ai luna", "luna"];
-        for (var p = 0; p < patterns.length; p++) {
-          var idx = text.indexOf(patterns[p]);
-          if (idx >= 0) { lunaIdx = idx; break; }
-        }
-
-        if (lunaIdx >= 0) {
-          // Extrait la commande apres "luna"
-          var afterLuna = text.substring(text.indexOf("luna") + 4).trim();
-          // Nettoie les mots de liaison
-          afterLuna = afterLuna.replace(/^[,.\s]+/, "");
-
+        var text = event.results[i][j].transcript;
+        if (_matchLuna(text)) {
+          // Hey Luna detecte ! → Bip + lancer le mode Jarvis (voix OpenAI Realtime)
           wakewordCooldown = true;
-          wakewordLabel.textContent = "Luna t'ecoute !";
+          _playWakeBeep();
+          wakewordLabel.textContent = "Luna s'active...";
+          wakewordBtn.style.boxShadow = "0 0 16px rgba(74,222,128,0.6)";
 
-          // Son de confirmation
-          try { var beep = new AudioContext(); var osc = beep.createOscillator(); osc.connect(beep.destination); osc.frequency.value = 880; osc.start(); osc.stop(beep.currentTime + 0.15); } catch(e) {}
+          // Stop le wake word listener (le micro sera pris par Jarvis)
+          stopWakeWord();
 
-          if (afterLuna.length > 2) {
-            // Commande directe : "Hey Luna envoie un SMS a maman"
-            addMsg(afterLuna, "user");
-            sendMsg(afterLuna);
-            console.log("[WakeWord] Commande directe:", afterLuna);
-          } else {
-            // Juste "Hey Luna" — active l'ecoute pour la commande suivante
-            console.log("[WakeWord] Attente commande...");
-            wakewordLabel.textContent = "Parle, Luna ecoute...";
-            listenForCommand();
-          }
+          // Lancer le mode Jarvis (Luna Voice) apres un court delai
+          setTimeout(function() {
+            var jarvisBtn = document.getElementById("lunaVoiceBtn");
+            if (jarvisBtn) jarvisBtn.click();
+          }, 400);
 
-          // Cooldown pour eviter les doubles detections
-          setTimeout(function() { wakewordCooldown = false; wakewordLabel.textContent = "Dis \"Hey Luna\"..."; }, 3000);
+          // Relancer le wake word quand Jarvis se termine
+          var _checkJarvisEnded = setInterval(function() {
+            var jarvisBtn = document.getElementById("lunaVoiceBtn");
+            if (jarvisBtn && !jarvisBtn.classList.contains("active")) {
+              clearInterval(_checkJarvisEnded);
+              // Re-activer Hey Luna apres 2s (laisser le micro se liberer)
+              setTimeout(function() {
+                if (localStorage.getItem("luna_wakeword") === "on") {
+                  startWakeWord();
+                }
+              }, 2000);
+            }
+          }, 1000);
+
           return;
         }
       }
@@ -2668,22 +4519,20 @@ function startWakeWord() {
   };
 
   wakeRecognition.onerror = function(event) {
-    console.log("[WakeWord] Erreur:", event.error);
     if (event.error === "not-allowed") {
-      addMsg("Autorise le micro dans les parametres du navigateur pour utiliser Hey Luna.", "luna");
+      addMsg("Autorise le micro pour utiliser Hey Luna.", "luna");
       stopWakeWord();
       return;
     }
-    // Relance apres erreur reseau ou aborted
-    if (wakewordActive && event.error !== "not-allowed") {
-      setTimeout(function() { if (wakewordActive) { try { wakeRecognition.start(); } catch(e) {} } }, 1000);
+    if (wakewordActive) {
+      setTimeout(function() { if (wakewordActive) { try { wakeRecognition.start(); } catch(e) {} } }, 800);
     }
   };
 
   wakeRecognition.onend = function() {
-    // Web Speech API s'arrete automatiquement — on relance
+    wakewordBtn.style.boxShadow = "";
     if (wakewordActive) {
-      setTimeout(function() { if (wakewordActive) { try { wakeRecognition.start(); } catch(e) {} } }, 500);
+      setTimeout(function() { if (wakewordActive) { try { wakeRecognition.start(); } catch(e) {} } }, 300);
     }
   };
 
@@ -2692,58 +4541,19 @@ function startWakeWord() {
 
 function stopWakeWord() {
   wakewordActive = false;
+  wakewordCooldown = false;
   if (wakeRecognition) { try { wakeRecognition.stop(); } catch(e) {} }
   wakewordBtn.classList.remove("active", "listening");
+  wakewordBtn.style.boxShadow = "";
   wakewordIndicator.style.display = "none";
-  console.log("[WakeWord] Arrete");
-}
-
-function listenForCommand() {
-  // Ecoute UNE phrase complete apres "Hey Luna"
-  if (!SpeechRecognition) return;
-  var cmdRecog = new SpeechRecognition();
-  cmdRecog.lang = "fr-FR";
-  cmdRecog.continuous = false;
-  cmdRecog.interimResults = false;
-
-  // Pause temporaire du wake word pour pas interferer
-  if (wakeRecognition) { try { wakeRecognition.stop(); } catch(e) {} }
-
-  cmdRecog.onresult = function(event) {
-    var cmd = event.results[0][0].transcript.trim();
-    if (cmd.length > 1) {
-      console.log("[WakeWord] Commande recue:", cmd);
-      addMsg(cmd, "user");
-      sendMsg(cmd);
-    }
-  };
-
-  cmdRecog.onend = function() {
-    // Relance le wake word apres la commande
-    if (wakewordActive) {
-      setTimeout(function() { if (wakewordActive) { try { wakeRecognition.start(); } catch(e) {} } }, 500);
-    }
-  };
-
-  cmdRecog.onerror = function() {
-    if (wakewordActive) {
-      setTimeout(function() { if (wakewordActive) { try { wakeRecognition.start(); } catch(e) {} } }, 500);
-    }
-  };
-
-  try { cmdRecog.start(); } catch(e) {
-    // Si echec, relance le wake word
-    if (wakewordActive) { setTimeout(function() { try { wakeRecognition.start(); } catch(e2) {} }, 500); }
-  }
 }
 
 wakewordBtn.addEventListener("click", function() {
   if (wakewordActive) { stopWakeWord(); } else { startWakeWord(); }
-  // Sauvegarde la preference
   setTimeout(function() { localStorage.setItem("luna_wakeword", wakewordActive ? "on" : "off"); }, 200);
 });
 
-// Restore la preference au chargement
+// Restaurer la preference Hey Luna au chargement
 if (localStorage.getItem("luna_wakeword") === "on") {
   setTimeout(function() { if (getToken()) startWakeWord(); }, 1500);
 }
@@ -2867,6 +4677,562 @@ function _openInChrome() {
     window.open(url, "_blank");
   }
 }
+
+// =========================================================================
+// PAYMENT CONFIRMATION (Conciergerie)
+// =========================================================================
+var _paymentBanner = null;
+var _paymentCheckInterval = null;
+
+function _checkPendingPayments() {
+  authFetch("/api/payment/pending")
+    .then(function(r) { return r.ok ? r.json() : null; })
+    .then(function(data) {
+      if (!data || !data.pending_payments || data.pending_payments.length === 0) {
+        _dismissPaymentBanner();
+        return;
+      }
+      // Show the most recent pending payment
+      var p = data.pending_payments[0];
+      _showPaymentBanner(p);
+    })
+    .catch(function() {});
+}
+
+function _showPaymentBanner(payment) {
+  if (_paymentBanner && _paymentBanner.dataset.intentId === payment.id) return;
+  _dismissPaymentBanner();
+  var banner = document.createElement("div");
+  banner.className = "payment-banner";
+  banner.dataset.intentId = payment.id;
+  var desc = (payment.description || "").replace("[Luna Conciergerie] ", "");
+  banner.innerHTML =
+    '<div class="payment-banner-title">Paiement en attente</div>' +
+    '<div class="payment-banner-details">' + esc(payment.merchant || "Conciergerie") + '<br>' + esc(desc) + '</div>' +
+    '<div class="payment-banner-amount">' + payment.amount_eur.toFixed(2) + ' EUR</div>' +
+    '<div class="payment-banner-btns">' +
+      '<button class="payment-cancel-btn" onclick="_dismissPaymentBanner()">Plus tard</button>' +
+      '<button class="payment-confirm-btn" id="payConfirmBtn" onclick="_confirmPayment(\'' + payment.id + '\')">Confirmer</button>' +
+    '</div>';
+  document.body.appendChild(banner);
+  _paymentBanner = banner;
+}
+
+function _dismissPaymentBanner() {
+  if (_paymentBanner) { _paymentBanner.remove(); _paymentBanner = null; }
+}
+
+function _confirmPayment(intentId) {
+  var btn = document.getElementById("payConfirmBtn");
+  if (btn) { btn.disabled = true; btn.textContent = "Confirmation..."; }
+  authFetch("/api/payment/confirm/" + intentId, { method: "POST" })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      _dismissPaymentBanner();
+      if (data.status === "confirmed" || data.status === "already_confirmed") {
+        _showToast("Paiement confirme", data.message || "Le paiement a ete valide.");
+        addMsg(data.message || "Paiement confirme.", "luna");
+      } else {
+        _showToast("Erreur", data.error || "Echec du paiement.");
+        addMsg("Erreur de paiement : " + (data.error || "carte refusee"), "luna");
+      }
+    })
+    .catch(function(e) {
+      _dismissPaymentBanner();
+      _showToast("Erreur", "Impossible de confirmer le paiement.");
+    });
+}
+
+// Poll for pending payments every 10s
+_paymentCheckInterval = setInterval(_checkPendingPayments, 10000);
+// Initial check after 3s
+setTimeout(_checkPendingPayments, 3000);
+
+// =========================================================================
+// LUNA VOICE — Mode Jarvis (voix directe navigateur <-> OpenAI Realtime)
+// =========================================================================
+(function() {
+  var voiceBtn = document.getElementById("lunaVoiceBtn");
+  var voiceStatus = document.getElementById("lunaVoiceStatus");
+  var voiceTranscript = document.getElementById("lunaVoiceTranscript");
+  var voiceWs = null;
+  var voiceActive = false;
+  var _voiceStopping = false;
+  var _voiceReconnecting = false;
+  var _voiceReconnectAttempts = 0;
+  var _voiceKeepaliveInterval = null;
+  var audioCtx = null;
+  var micStream = null;
+  var micCtx = null;
+  var workletNode = null;
+  var playbackQueue = [];
+  var isPlaying = false;
+  var _voiceTranscriptEntries = [];
+
+  // --- Voice Pre-warm: reduce latency on first activation ---
+  var _prewarmed = false;
+  var _micPrewarmed = false;
+  var _workletBlobUrl = null;
+
+  function _prewarmAudio() {
+    if (_prewarmed) return;
+    _prewarmed = true;
+    // Pre-create playback AudioContext (needs user gesture on mobile)
+    if (!audioCtx) {
+      try { audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 24000 }); }
+      catch(e) { try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e2) {} }
+    }
+    if (audioCtx && audioCtx.state === "suspended") audioCtx.resume().catch(function() {});
+    // Pre-create worklet blob URL
+    if (!_workletBlobUrl) {
+      try {
+        var blob = new Blob([workletCode], { type: "application/javascript" });
+        _workletBlobUrl = URL.createObjectURL(blob);
+      } catch(e) {}
+    }
+  }
+
+  // Trigger pre-warm on any user interaction (touch/click)
+  function _onFirstInteraction() {
+    _prewarmAudio();
+    document.removeEventListener("touchstart", _onFirstInteraction, true);
+    document.removeEventListener("click", _onFirstInteraction, true);
+  }
+  document.addEventListener("touchstart", _onFirstInteraction, true);
+  document.addEventListener("click", _onFirstInteraction, true);
+
+  // Pre-request mic permission after login (5s delay to not be intrusive)
+  function _prewarmMic() {
+    if (_micPrewarmed) return;
+    _micPrewarmed = true;
+    navigator.mediaDevices.getUserMedia({ audio: true }).then(function(stream) {
+      // Got permission — stop immediately, we just wanted the permission grant
+      stream.getTracks().forEach(function(t) { t.stop(); });
+    }).catch(function() {
+      // Permission denied or unavailable — no problem, will ask again on voice start
+    });
+  }
+  // Check every 2s if logged in, then pre-warm mic once
+  var _micPrewarmCheck = setInterval(function() {
+    if (getToken() && document.getElementById("appContainer").style.display !== "none") {
+      clearInterval(_micPrewarmCheck);
+      setTimeout(_prewarmMic, 5000);
+    }
+  }, 2000);
+
+  // Show button once logged in
+  function _showVoiceBtn() {
+    var app = document.getElementById("appContainer");
+    if (app && app.style.display !== "none" && getToken()) voiceBtn.style.display = "flex";
+    else voiceBtn.style.display = "none";
+  }
+  setInterval(function() { _showVoiceBtn(); }, 1000);
+
+  function _setStatus(txt, icon) {
+    if (txt) {
+      var prefix = "";
+      if (icon === "listen") prefix = '<span style="color:#4ade80;margin-right:4px;">&#9679;</span>';
+      else if (icon === "speak") prefix = '<span style="color:#a78bfa;margin-right:4px;">&#9836;</span>';
+      else if (icon === "action") prefix = '<span style="color:#fbbf24;margin-right:4px;">&#9881;</span>';
+      voiceStatus.innerHTML = prefix + txt;
+      voiceStatus.style.display = "block";
+    } else {
+      voiceStatus.style.display = "none";
+    }
+  }
+
+  function _addTranscript(role, text) {
+    voiceTranscript.style.display = "block";
+    var cls = role === "user" ? "vt-user" : "vt-luna";
+    var label = role === "user" ? "Vous" : "Luna";
+    voiceTranscript.innerHTML += '<div class="' + cls + '"><b>' + label + ' :</b> ' + text + '</div>';
+    voiceTranscript.scrollTop = voiceTranscript.scrollHeight;
+    _voiceTranscriptEntries.push({ role: role, text: text });
+  }
+
+  // Inject voice transcript into the chat when session ends
+  function _injectTranscriptInChat() {
+    if (_voiceTranscriptEntries.length === 0) return;
+    var parts = [];
+    for (var i = 0; i < _voiceTranscriptEntries.length; i++) {
+      var e = _voiceTranscriptEntries[i];
+      var speaker = e.role === "user" ? "Vous" : "Luna";
+      parts.push(speaker + " : " + e.text);
+    }
+    var summary = "[Conversation vocale — " + _voiceTranscriptEntries.length + " echanges]\n\n" + parts.join("\n");
+    if (typeof addMsg === "function") addMsg(summary, "luna");
+    _voiceTranscriptEntries = [];
+  }
+
+  // PCM16 playback via AudioContext — compatible mobile/WebView
+  function _initAudioCtx() {
+    if (!audioCtx) {
+      try {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 24000 });
+      } catch(e) {
+        // Fallback sans sampleRate specifique (certains WebView ne supportent pas 24kHz)
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+    }
+    // Resume obligatoire sur mobile (policy autoplay)
+    if (audioCtx.state === "suspended") {
+      audioCtx.resume().catch(function() {});
+    }
+  }
+
+  function _playNextChunk() {
+    if (isPlaying || playbackQueue.length === 0) return;
+    // Re-check resume avant chaque lecture (mobile peut re-suspendre)
+    if (audioCtx && audioCtx.state === "suspended") {
+      audioCtx.resume().then(function() { _playNextChunk(); }).catch(function() {});
+      return;
+    }
+    isPlaying = true;
+    var pcm16 = playbackQueue.shift();
+    var float32 = new Float32Array(pcm16.length);
+    for (var i = 0; i < pcm16.length; i++) float32[i] = pcm16[i] / 32768;
+    // Resample si AudioContext n'est pas a 24kHz
+    var targetRate = audioCtx.sampleRate;
+    var outputData = float32;
+    if (targetRate !== 24000) {
+      var ratio = targetRate / 24000;
+      var newLen = Math.round(float32.length * ratio);
+      outputData = new Float32Array(newLen);
+      for (var i = 0; i < newLen; i++) {
+        var srcIdx = i / ratio;
+        var idx0 = Math.floor(srcIdx);
+        var idx1 = Math.min(idx0 + 1, float32.length - 1);
+        var frac = srcIdx - idx0;
+        outputData[i] = float32[idx0] * (1 - frac) + float32[idx1] * frac;
+      }
+    }
+    var buf = audioCtx.createBuffer(1, outputData.length, targetRate);
+    buf.getChannelData(0).set(outputData);
+    var src = audioCtx.createBufferSource();
+    src.buffer = buf;
+    src.connect(audioCtx.destination);
+    src.onended = function() { isPlaying = false; _playNextChunk(); };
+    try { src.start(); } catch(e) { isPlaying = false; _playNextChunk(); }
+  }
+
+  function _queueAudio(base64) {
+    var bin = atob(base64);
+    var pcm = new Int16Array(bin.length / 2);
+    for (var i = 0; i < pcm.length; i++) {
+      pcm[i] = bin.charCodeAt(i * 2) | (bin.charCodeAt(i * 2 + 1) << 8);
+    }
+    playbackQueue.push(pcm);
+    _playNextChunk();
+  }
+
+  function _clearPlayback() {
+    playbackQueue = [];
+    isPlaying = false;
+  }
+
+  // AudioWorklet processor code (PCM16 24kHz capture)
+  var workletCode = [
+    "class LunaMicProcessor extends AudioWorkletProcessor {",
+    "  process(inputs) {",
+    "    var input = inputs[0];",
+    "    if (!input || !input[0]) return true;",
+    "    var samples = input[0];",
+    "    var ratio = sampleRate / 24000;",
+    "    var outLen = Math.floor(samples.length / ratio);",
+    "    if (outLen < 1) return true;",
+    "    var pcm16 = new Int16Array(outLen);",
+    "    for (var i = 0; i < outLen; i++) {",
+    "      var idx = Math.floor(i * ratio);",
+    "      var s = Math.max(-1, Math.min(1, samples[idx]));",
+    "      pcm16[i] = s < 0 ? s * 32768 : s * 32767;",
+    "    }",
+    "    this.port.postMessage(pcm16.buffer, [pcm16.buffer]);",
+    "    return true;",
+    "  }",
+    "}",
+    "registerProcessor('luna-mic-processor', LunaMicProcessor);"
+  ].join("\n");
+
+  function _int16ToBase64(buffer) {
+    var bytes = new Uint8Array(buffer);
+    var binary = "";
+    for (var i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+    return btoa(binary);
+  }
+
+  async function startVoice() {
+    if (voiceActive) { stopVoice(); return; }
+    voiceActive = true;
+    _voiceStopping = false;
+    voiceBtn.classList.add("active");
+    voiceTranscript.innerHTML = "";
+    voiceTranscript.style.display = "none";
+    _voiceTranscriptEntries = [];
+    _setStatus("Connexion...");
+    _clearPlayback();
+
+    try {
+      // Use pre-warmed AudioContext if available, otherwise create fresh
+      _initAudioCtx();
+      if (audioCtx && audioCtx.state === "suspended") await audioCtx.resume();
+
+      // Get mic (permission may already be granted via pre-warm)
+      micStream = await navigator.mediaDevices.getUserMedia({
+        audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+      });
+
+      // Create mic context
+      try {
+        micCtx = new AudioContext({ sampleRate: 48000 });
+      } catch(e) {
+        micCtx = new AudioContext();
+      }
+      if (micCtx.state === "suspended") await micCtx.resume();
+
+      var source = micCtx.createMediaStreamSource(micStream);
+
+      // Try AudioWorklet first (use pre-warmed blob URL), fallback to ScriptProcessorNode
+      var _useWorklet = false;
+      if (micCtx.audioWorklet) {
+        try {
+          var wUrl = _workletBlobUrl;
+          if (!wUrl) {
+            var blob = new Blob([workletCode], { type: "application/javascript" });
+            wUrl = URL.createObjectURL(blob);
+          }
+          await micCtx.audioWorklet.addModule(wUrl);
+          // Don't revoke pre-warmed URL (may be reused on reconnect)
+          if (!_workletBlobUrl) URL.revokeObjectURL(wUrl);
+          workletNode = new AudioWorkletNode(micCtx, "luna-mic-processor");
+          source.connect(workletNode);
+          _useWorklet = true;
+        } catch(e) {
+          console.warn("[LunaVoice] AudioWorklet non supporte, fallback ScriptProcessor");
+        }
+      }
+
+      if (!_useWorklet) {
+        // Fallback ScriptProcessorNode (deprecated mais compatible partout)
+        var bufSize = 4096;
+        var scriptNode = micCtx.createScriptProcessor(bufSize, 1, 1);
+        var _micSampleRate = micCtx.sampleRate;
+        scriptNode.onaudioprocess = function(e) {
+          var input = e.inputBuffer.getChannelData(0);
+          var ratio = _micSampleRate / 24000;
+          var outLen = Math.floor(input.length / ratio);
+          if (outLen < 1) return;
+          var pcm16 = new Int16Array(outLen);
+          for (var i = 0; i < outLen; i++) {
+            var idx = Math.floor(i * ratio);
+            var s = Math.max(-1, Math.min(1, input[idx]));
+            pcm16[i] = s < 0 ? s * 32768 : s * 32767;
+          }
+          if (voiceWs && voiceWs.readyState === 1) {
+            voiceWs.send(JSON.stringify({ type: "audio", audio: _int16ToBase64(pcm16.buffer) }));
+          }
+        };
+        source.connect(scriptNode);
+        scriptNode.connect(micCtx.destination); // necessaire pour que onaudioprocess se declenche
+        workletNode = scriptNode; // pour cleanup dans stopVoice
+      }
+      // DO NOT connect workletNode to destination for AudioWorklet (causes echo feedback)
+
+      // Connect WebSocket
+      var proto = location.protocol === "https:" ? "wss:" : "ws:";
+      var wsUrl = proto + "//" + location.host + "/ws/luna-voice?token=" + encodeURIComponent(getToken());
+      voiceWs = new WebSocket(wsUrl);
+
+      voiceWs.onopen = function() {
+        _setStatus("Connexion a Luna...");
+        _voiceReconnectAttempts = 0;
+        // Keepalive ping toutes les 20s
+        if (_voiceKeepaliveInterval) clearInterval(_voiceKeepaliveInterval);
+        _voiceKeepaliveInterval = setInterval(function() {
+          if (voiceWs && voiceWs.readyState === 1) {
+            try { voiceWs.send(JSON.stringify({ type: "pong" })); } catch(e) {}
+          }
+        }, 20000);
+      };
+
+      voiceWs.onmessage = function(evt) {
+        try {
+          var data = JSON.parse(evt.data);
+          if (data.type === "ping") {
+            // Reponse au keepalive serveur
+            if (voiceWs && voiceWs.readyState === 1) {
+              try { voiceWs.send(JSON.stringify({ type: "pong" })); } catch(e) {}
+            }
+            return;
+          }
+          if (data.type === "ready") {
+            _setStatus("Luna ecoute...", "listen");
+            _voiceReconnecting = false;
+            // Start sending mic audio (AudioWorklet mode only — ScriptProcessor envoie deja)
+            if (workletNode && workletNode.port) {
+              workletNode.port.onmessage = function(e) {
+                if (voiceWs && voiceWs.readyState === 1) {
+                  voiceWs.send(JSON.stringify({ type: "audio", audio: _int16ToBase64(e.data) }));
+                }
+              };
+            }
+          } else if (data.type === "audio") {
+            _queueAudio(data.audio);
+            _setStatus("Luna parle...", "speak");
+          } else if (data.type === "audio_done") {
+            _setStatus("Luna ecoute...", "listen");
+          } else if (data.type === "interrupt") {
+            _clearPlayback();
+            _setStatus("Luna ecoute...", "listen");
+          } else if (data.type === "transcript") {
+            _addTranscript(data.role, data.text);
+          } else if (data.type === "tool_call") {
+            var _toolLabels = {
+              search_web: "Recherche web", search_places: "Recherche lieux",
+              get_weather: "Meteo", get_news: "Actualites",
+              search_flights: "Recherche vols", search_hotels: "Recherche hotels",
+              book_restaurant: "Recherche restaurants", get_page_info: "Consultation web",
+              send_sms: "Envoi SMS", send_email: "Envoi email",
+              call_contact: "Appel en cours", alert_contacts: "Alerte contacts",
+              invite_visio: "Invitation visio", create_instruction: "Creation rappel",
+              create_note: "Note enregistree", generate_document: "Generation document",
+              get_contacts: "Contacts", get_player_stats: "Statistiques",
+              get_active_missions: "Missions", get_badges: "Badges",
+              get_friends_online: "Amis en ligne", send_dm_voice: "Envoi message",
+              get_my_friend_code: "Code ami", look_around: "Observation camera",
+              get_documents_summary: "Resume documents", get_budget_analysis: "Analyse budget",
+              check_affordability: "Verification budget", add_expense: "Ajout depense",
+              get_reminders: "Rappels", add_reminder: "Nouveau rappel",
+              search_documents: "Recherche documents", list_folders: "Dossiers"
+            };
+            var _tLabel = _toolLabels[data.name] || data.name || "Action";
+            if (data.status === "running") _setStatus(_tLabel + "...", "action");
+            else if (data.status === "ok" || data.status === "success") _setStatus("Luna ecoute...", "listen");
+            else if (data.status === "error") {
+              _setStatus("Luna ecoute...", "listen");
+              _addTranscript("luna", "[" + _tLabel + " : echec]");
+            }
+          } else if (data.type === "warning") {
+            _setStatus(data.message || "Attention", "action");
+          } else if (data.type === "ended") {
+            _setStatus(data.reason || "Session terminee");
+            setTimeout(function() { stopVoice(); }, 2000);
+          } else if (data.type === "error") {
+            _setStatus(data.message || "Erreur");
+            _addTranscript("luna", "[" + (data.message || "Erreur") + "]");
+            setTimeout(function() { stopVoice(); }, 3000);
+          }
+        } catch(e) {}
+      };
+
+      voiceWs.onclose = function(evt) {
+        if (_voiceKeepaliveInterval) { clearInterval(_voiceKeepaliveInterval); _voiceKeepaliveInterval = null; }
+        if (!voiceActive || _voiceStopping) return;
+        // Codes fatals — pas de reconnexion
+        if (evt.code === 4001) {
+          _setStatus("Session expiree — reconnecte-toi");
+          stopVoice();
+        } else if (evt.code === 1011) {
+          _setStatus("Service vocal indisponible");
+          stopVoice();
+        } else if (evt.code === 1000 || evt.code === 1001) {
+          // Fermeture normale
+          stopVoice();
+        } else if (_voiceReconnectAttempts < 1 && !_voiceReconnecting) {
+          // Coupure inattendue — tente 1 reconnexion
+          _voiceReconnecting = true;
+          _voiceReconnectAttempts++;
+          _setStatus("Reconnexion...");
+          setTimeout(function() {
+            if (voiceActive && !_voiceStopping) {
+              _reconnectVoiceWs();
+            }
+          }, 1500);
+        } else {
+          _setStatus("Connexion perdue");
+          stopVoice();
+        }
+      };
+
+      voiceWs.onerror = function() {
+        // Ne pas stopper immediatement — onclose sera appele apres
+        if (!_voiceReconnecting) {
+          _setStatus("Probleme de connexion...");
+        }
+      };
+
+    } catch(err) {
+      console.error("Luna Voice error:", err);
+      var errMsg = "Micro non disponible";
+      if (err.name === "NotAllowedError") errMsg = "Autorise le micro pour parler a Luna";
+      else if (err.name === "NotFoundError") errMsg = "Aucun micro detecte";
+      else if (err.name === "NotReadableError") errMsg = "Micro deja utilise par une autre app";
+      _setStatus(errMsg);
+      setTimeout(function() { stopVoice(); }, 3000);
+    }
+  }
+
+  function _reconnectVoiceWs() {
+    // Reconnexion = clean restart complet (micro + WS + session OpenAI)
+    if (_voiceStopping) return;
+    _addTranscript("luna", "[Reconnexion en cours...]");
+    // Nettoyage sans injecter le transcript dans le chat
+    voiceActive = false;
+    _voiceStopping = false;
+    _clearPlayback();
+    if (_voiceKeepaliveInterval) { clearInterval(_voiceKeepaliveInterval); _voiceKeepaliveInterval = null; }
+    if (voiceWs) { try { voiceWs.close(); } catch(e) {} voiceWs = null; }
+    if (micStream) { micStream.getTracks().forEach(function(t) { t.stop(); }); micStream = null; }
+    if (workletNode) { try { workletNode.disconnect(); } catch(e) {} workletNode = null; }
+    if (micCtx) { try { micCtx.close(); } catch(e) {} micCtx = null; }
+    // Relance
+    startVoice();
+  }
+
+  function stopVoice() {
+    if (_voiceStopping) return;
+    _voiceStopping = true;
+    var wasActive = voiceActive;
+    voiceActive = false;
+    _voiceReconnecting = false;
+    voiceBtn.classList.remove("active");
+    _clearPlayback();
+
+    if (_voiceKeepaliveInterval) { clearInterval(_voiceKeepaliveInterval); _voiceKeepaliveInterval = null; }
+
+    if (voiceWs) {
+      try { voiceWs.send(JSON.stringify({ type: "stop" })); } catch(e) {}
+      try { voiceWs.close(); } catch(e) {}
+      voiceWs = null;
+    }
+
+    if (micStream) {
+      micStream.getTracks().forEach(function(t) { t.stop(); });
+      micStream = null;
+    }
+
+    if (workletNode) {
+      try { workletNode.disconnect(); } catch(e) {}
+      workletNode = null;
+    }
+
+    if (micCtx) {
+      try { micCtx.close(); } catch(e) {}
+      micCtx = null;
+    }
+
+    // Inject transcript into chat
+    if (wasActive) _injectTranscriptInChat();
+
+    setTimeout(function() {
+      _setStatus("");
+      _voiceStopping = false;
+      // Keep transcript visible 8s after stop so user can read
+      setTimeout(function() { voiceTranscript.style.display = "none"; }, 8000);
+    }, 1500);
+  }
+
+  voiceBtn.addEventListener("click", function() { startVoice(); });
+})();
 
 </script>
 </body>

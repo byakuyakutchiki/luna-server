@@ -603,6 +603,33 @@ class LunaCortex:
         except Exception:
             pass
 
+        # Recuperer les couts du mois en cours
+        if self.cost_tracker:
+            try:
+                month_costs = await self.cost_tracker.get_month_costs()
+                business["sms_count"] = month_costs.get("sms_count", 0)
+                business["sms_cost"] = month_costs.get("sms_cost", 0)
+                business["openai_cost"] = month_costs.get("openai_cost", 0)
+                business["voice_minutes"] = month_costs.get("voice_minutes", 0)
+                business["voice_cost"] = month_costs.get("voice_cost", 0)
+                business["tavus_minutes"] = month_costs.get("tavus_minutes", 0)
+                business["tavus_cost"] = month_costs.get("tavus_cost", 0)
+                # Couts infrastructure (env vars configures par l'admin)
+                import os
+                cloud_run_cost = float(os.getenv("CLOUD_RUN_MONTHLY_COST", "0"))
+                redis_cost = float(os.getenv("REDIS_MONTHLY_COST", "0"))
+                business["cloud_run_cost"] = cloud_run_cost
+                business["redis_cost"] = redis_cost
+
+                api_total = month_costs.get("total_cost", 0)
+                business["total_cost"] = api_total + cloud_run_cost + redis_cost
+
+                # Couts par tenant
+                tenant_costs = await self.cost_tracker.get_month_costs_per_tenant()
+                business["tenant_costs"] = tenant_costs
+            except Exception as e:
+                logger.debug(f"Cost collection: {e}")
+
         return business
 
     async def _collect_weekly_data(self) -> dict:

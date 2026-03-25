@@ -34,14 +34,19 @@ class RedisClient:
 
     @property
     def client(self) -> redis.Redis:
-        """Lazy initialization du client Redis"""
+        """Lazy initialization du client Redis avec connection pool dimensionne."""
         if self._client is None:
-            self._client = redis.from_url(
+            pool = redis.ConnectionPool.from_url(
                 self._url,
                 decode_responses=True,
-                socket_timeout=5,
+                max_connections=100,          # Scale: 1000+ users simultanes
+                socket_timeout=10,            # Tolerant sous charge
                 socket_connect_timeout=5,
+                socket_keepalive=True,
+                retry_on_timeout=True,
+                health_check_interval=30,
             )
+            self._client = redis.Redis(connection_pool=pool)
         return self._client
 
     def _key(self, *parts: str) -> str:

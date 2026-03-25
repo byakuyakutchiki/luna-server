@@ -48,17 +48,41 @@ def _build_contacts_section(memory_manager) -> str:
 def build_tavus_context(
     subscriber_name: str = "l'utilisateur",
     memory_manager=None,
+    guest_names: list = None,
 ) -> str:
     """
     Construit le contexte conversationnel SANITISE pour Tavus.
     Ce contexte est envoye a Tavus lors de la creation de conversation.
     Il NE CONTIENT PAS d'informations confidentielles.
+
+    Args:
+        guest_names: liste de prenoms des invites presents dans la visio
     """
     # Section contacts
     if memory_manager:
         contacts_section = _build_contacts_section(memory_manager)
     else:
         contacts_section = "Des contacts de confiance sont enregistres. Tu peux proposer de les alerter."
+
+    # Section invites (multi-participant)
+    guests_section = ""
+    if guest_names:
+        guests_list = ", ".join(guest_names)
+        guests_section = f"""
+=== INVITES DANS CETTE VISIO ===
+Des invites participent a cet appel : {guests_list}.
+Sois accueillante avec eux. Ils sont les bienvenus.
+
+REGLE ABSOLUE — IDENTITE DU SOUSCRIPTEUR :
+- Ton souscripteur est {subscriber_name}. Tu lui appartiens, tu le connais.
+- Les invites ({guests_list}) sont des INVITES. Ils ne sont PAS ton souscripteur.
+- Tu ne dois JAMAIS executer d'action engageante (paiement, reservation, achat,
+  envoi d'email, generation de document) a la demande d'un invite.
+- Si un invite te demande une action, reponds poliment :
+  "Je suis l'assistante de {subscriber_name}, je ne peux agir qu'a sa demande."
+- Tu PEUX discuter, repondre aux questions generales, et etre chaleureuse avec tout le monde.
+- Seul {subscriber_name} peut te donner des instructions d'action.
+"""
 
     try:
         return f"""=== QUI TU ES ===
@@ -70,7 +94,7 @@ Tu tutoies le souscripteur sauf s'il te demande de le vouvoyer.
 === TON SOUSCRIPTEUR ===
 Tu parles avec {subscriber_name}.
 Il est en appel video avec toi en ce moment.
-
+{guests_section}
 === CE QUE TU PEUX FAIRE EN VISIO ===
 - Discuter, ecouter, rassurer, tenir compagnie
 - Envoyer un SMS a un contact de confiance (utilise la fonction send_sms)
@@ -621,12 +645,28 @@ class TavusClient:
             logger.exception(f"Erreur invitation SMS a {contact_name}")
             return False, f"Erreur: {type(e).__name__}"
 
-    def end_conversation(self, conversation_id: str) -> bool:
-        """Marque une conversation comme terminée"""
-        conv = self._active_conversations.get(conversation_id)
+    async def end_conversation(self, conversation_id: str) -> bool:
+        """Termine une conversation Tavus cote API (stoppe la facturation) et nettoie le cache."""
+        # 1. Appel API Tavus pour terminer la conversation
+        try:
+            async with httpx.AsyncClient() as http:
+                resp = await http.delete(
+                    f"{TAVUS_API_BASE}/conversations/{conversation_id}",
+                    headers=self._headers(),
+                    timeout=10,
+                )
+            if resp.status_code in (200, 204, 404):
+                logger.info(f"Tavus conversation terminated via API: {conversation_id} (status={resp.status_code})")
+            else:
+                logger.warning(f"Tavus end_conversation API returned {resp.status_code}: {resp.text[:200]}")
+        except Exception as e:
+            logger.error(f"Tavus end_conversation API error: {e}")
+
+        # 2. Nettoyer le cache local
+        conv = self._active_conversations.pop(conversation_id, None)
         if conv:
             conv.status = "ended"
-            logger.info(f"Tavus conversation ended: {conversation_id}")
+            logger.info(f"Tavus conversation removed from cache: {conversation_id}")
             return True
         return False
 

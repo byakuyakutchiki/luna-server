@@ -46,3 +46,7 @@ fpdf2>=2.7.0
 
 # Simli TTS fallback (gratuit si OpenAI TTS echoue)
 edge-tts>=6.1.0
+
+# Form Filler (remplissage PDF)
+PyMuPDF>=1.25.0
+Pillow>=11.0.0

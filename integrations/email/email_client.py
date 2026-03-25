@@ -72,6 +72,7 @@ class EmailClient:
         body_text: str,
         body_html: Optional[str] = None,
         subscriber_name: Optional[str] = None,
+        attachments: Optional[list] = None,
     ) -> Tuple[bool, Dict[str, Any]]:
         """
         Envoie un email via SendGrid.
@@ -119,6 +120,25 @@ class EmailClient:
             ],
         }
 
+        # Attachments: [{"filename": "report.pdf", "filepath": "/path/to/file"}]
+        if attachments:
+            import base64
+            sg_attachments = []
+            for att in attachments:
+                try:
+                    with open(att["filepath"], "rb") as f:
+                        content_b64 = base64.b64encode(f.read()).decode()
+                    sg_attachments.append({
+                        "content": content_b64,
+                        "filename": att["filename"],
+                        "type": att.get("type", "application/pdf"),
+                        "disposition": "attachment",
+                    })
+                except Exception as e:
+                    logger.warning(f"Failed to attach {att.get('filename')}: {e}")
+            if sg_attachments:
+                payload["attachments"] = sg_attachments
+
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
@@ -156,6 +176,7 @@ class EmailClient:
         body_text: str,
         body_html: Optional[str] = None,
         subscriber_name: Optional[str] = None,
+        attachments: Optional[list] = None,
     ) -> Tuple[bool, Dict[str, Any]]:
         """
         Envoie un email pour un tenant specifique.
@@ -186,6 +207,7 @@ class EmailClient:
                 body_text=body_text,
                 body_html=body_html,
                 subscriber_name=subscriber_name,
+                attachments=attachments,
             )
 
         return False, {"error": "Aucun service email configure (ni Gmail OAuth ni SendGrid)"}

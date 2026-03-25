@@ -28,6 +28,7 @@ logger = logging.getLogger(__name__)
 
 class PlanType(str, Enum):
     """Types de forfait"""
+    FONDATEUR = "fondateur"
     ESSENTIEL = "essentiel"
     CONFORT = "confort"
     PREMIUM = "premium"
@@ -35,6 +36,7 @@ class PlanType(str, Enum):
 
 # Quotas SMS par forfait
 PLAN_SMS_LIMITS = {
+    PlanType.FONDATEUR: 999999,
     PlanType.ESSENTIEL: 25,
     PlanType.CONFORT: 50,
     PlanType.PREMIUM: 100,
@@ -42,6 +44,7 @@ PLAN_SMS_LIMITS = {
 
 # Quotas voix par forfait (minutes/mois)
 PLAN_VOICE_LIMITS = {
+    PlanType.FONDATEUR: 999999,
     PlanType.ESSENTIEL: 40,
     PlanType.CONFORT: 100,
     PlanType.PREMIUM: 180,
@@ -49,6 +52,7 @@ PLAN_VOICE_LIMITS = {
 
 # Quotas visio Luna par forfait (minutes/mois)
 PLAN_VISIO_LIMITS = {
+    PlanType.FONDATEUR: 999999,
     PlanType.ESSENTIEL: 12,
     PlanType.CONFORT: 28,
     PlanType.PREMIUM: 55,
@@ -56,6 +60,7 @@ PLAN_VISIO_LIMITS = {
 
 # Quotas messages chat par forfait (illimite en pratique)
 PLAN_MESSAGE_LIMITS = {
+    PlanType.FONDATEUR: 999999,
     PlanType.ESSENTIEL: 999999,
     PlanType.CONFORT: 999999,
     PlanType.PREMIUM: 999999,

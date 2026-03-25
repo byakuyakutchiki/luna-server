@@ -26,9 +26,10 @@ logger = logging.getLogger("cortex.audit")
 # ── Constantes ──
 DEFAULT_AUDIT_RETENTION = 10_000
 SMS_COST_EUR = 0.07  # Twilio France
-TAVUS_COST_PER_MIN = 0.05  # Tavus visio (estimé fev 2026)
+VOICE_COST_PER_MIN = 0.08  # OpenAI Realtime voix (mars 2026)
+TAVUS_COST_PER_MIN = 0.50  # Tavus visio Growth plan (mars 2026, inclut infra)
 
-# Cout par token gpt-4o-mini (fev 2026)
+# Cout par token gpt-4o-mini (mars 2026)
 OPENAI_COST_INPUT_PER_1K = 0.00015
 OPENAI_COST_OUTPUT_PER_1K = 0.0006
 
@@ -202,8 +203,9 @@ class CortexCostTracker:
         except Exception as e:
             logger.debug(f"Cost tracking SMS erreur: {e}")
 
-    async def track_openai(self, tokens_in: int = 0, tokens_out: int = 0):
-        """Enregistre un appel OpenAI."""
+    async def track_openai(self, tokens_in: int = 0, tokens_out: int = 0,
+                           tenant_id: int = None):
+        """Enregistre un appel OpenAI (global + par tenant si fourni)."""
         if not self.redis:
             return
         cost = (tokens_in / 1000 * OPENAI_COST_INPUT_PER_1K +
@@ -226,6 +228,16 @@ class CortexCostTracker:
             pipe2.hincrbyfloat(month_key, "total_cost", cost)
             pipe2.expire(month_key, 365 * 86400)
             await pipe2.execute()
+            # Par tenant si fourni
+            if tenant_id is not None:
+                month = datetime.now(timezone.utc).strftime("%Y-%m")
+                key = f"cortex:costs:tenant:{tenant_id}:{month}"
+                pipe3 = self.redis.pipeline()
+                pipe3.hincrby(key, "openai_tokens_in", tokens_in)
+                pipe3.hincrby(key, "openai_tokens_out", tokens_out)
+                pipe3.hincrbyfloat(key, "openai_cost", cost)
+                pipe3.expire(key, 365 * 86400)
+                await pipe3.execute()
         except Exception as e:
             logger.debug(f"Cost tracking OpenAI erreur: {e}")
 
@@ -251,7 +263,7 @@ class CortexCostTracker:
         """Enregistre un appel vocal pour un tenant."""
         if not self.redis:
             return
-        cost = minutes * 0.02  # ~0.02 EUR/min Twilio voice
+        cost = minutes * VOICE_COST_PER_MIN
         try:
             day_key = self._day_key()
             pipe = self.redis.pipeline()
@@ -312,8 +324,12 @@ class CortexCostTracker:
 
     async def get_tenant_month_usage(self, tenant_id: int,
                                        date: Optional[datetime] = None) -> dict:
-        """Usage reel du mois pour un tenant (SMS, voix, visio)."""
-        empty = {"sms_count": 0, "voice_minutes": 0.0, "tavus_minutes": 0.0}
+        """Usage reel du mois pour un tenant (SMS, voix, visio, OpenAI)."""
+        empty = {"sms_count": 0, "sms_cost": 0.0,
+                 "voice_minutes": 0.0, "voice_cost": 0.0,
+                 "tavus_minutes": 0.0, "tavus_cost": 0.0,
+                 "openai_cost": 0.0, "openai_tokens_in": 0, "openai_tokens_out": 0,
+                 "total_cost": 0.0}
         if not self.redis:
             return empty
         d = date or datetime.now(timezone.utc)
@@ -328,10 +344,23 @@ class CortexCostTracker:
                 k_str = k.decode() if isinstance(k, bytes) else k
                 v_str = v.decode() if isinstance(v, bytes) else v
                 d_clean[k_str] = v_str
+            sms_count = int(float(d_clean.get("sms_count", 0)))
+            sms_cost = float(d_clean.get("sms_cost", 0))
+            voice_min = round(float(d_clean.get("voice_minutes", 0)), 1)
+            voice_cost = float(d_clean.get("voice_cost", 0))
+            tavus_min = round(float(d_clean.get("tavus_minutes", 0)), 1)
+            tavus_cost = float(d_clean.get("tavus_cost", 0))
+            openai_cost = float(d_clean.get("openai_cost", 0))
+            openai_in = int(float(d_clean.get("openai_tokens_in", 0)))
+            openai_out = int(float(d_clean.get("openai_tokens_out", 0)))
+            total = sms_cost + voice_cost + tavus_cost + openai_cost
             return {
-                "sms_count": int(float(d_clean.get("sms_count", 0))),
-                "voice_minutes": round(float(d_clean.get("voice_minutes", 0)), 1),
-                "tavus_minutes": round(float(d_clean.get("tavus_minutes", 0)), 1),
+                "sms_count": sms_count, "sms_cost": round(sms_cost, 2),
+                "voice_minutes": voice_min, "voice_cost": round(voice_cost, 2),
+                "tavus_minutes": tavus_min, "tavus_cost": round(tavus_cost, 2),
+                "openai_cost": round(openai_cost, 2),
+                "openai_tokens_in": openai_in, "openai_tokens_out": openai_out,
+                "total_cost": round(total, 2),
             }
         except Exception as e:
             logger.debug(f"Tenant month usage erreur: {e}")
@@ -363,13 +392,19 @@ class CortexCostTracker:
                             k_str = k.decode() if isinstance(k, bytes) else k
                             v_str = v.decode() if isinstance(v, bytes) else v
                             d_clean[k_str] = v_str
+                        sms_c = float(d_clean.get("sms_cost", 0))
+                        voice_c = float(d_clean.get("voice_cost", 0))
+                        tavus_c = float(d_clean.get("tavus_cost", 0))
+                        openai_c = float(d_clean.get("openai_cost", 0))
                         result[tid] = {
                             "sms_count": int(float(d_clean.get("sms_count", 0))),
-                            "sms_cost": float(d_clean.get("sms_cost", 0)),
-                            "voice_minutes": float(d_clean.get("voice_minutes", 0)),
-                            "voice_cost": float(d_clean.get("voice_cost", 0)),
-                            "tavus_minutes": float(d_clean.get("tavus_minutes", 0)),
-                            "tavus_cost": float(d_clean.get("tavus_cost", 0)),
+                            "sms_cost": round(sms_c, 2),
+                            "voice_minutes": round(float(d_clean.get("voice_minutes", 0)), 1),
+                            "voice_cost": round(voice_c, 2),
+                            "tavus_minutes": round(float(d_clean.get("tavus_minutes", 0)), 1),
+                            "tavus_cost": round(tavus_c, 2),
+                            "openai_cost": round(openai_c, 2),
+                            "total_cost": round(sms_c + voice_c + tavus_c + openai_c, 2),
                         }
         except Exception as e:
             logger.debug(f"Cost per tenant erreur: {e}")
@@ -377,31 +412,37 @@ class CortexCostTracker:
 
     async def get_day_costs(self, date: Optional[datetime] = None) -> dict:
         """Couts d'un jour specifique."""
+        empty = {"sms_count": 0, "sms_cost": 0.0,
+                 "openai_cost": 0.0, "voice_minutes": 0.0,
+                 "voice_cost": 0.0, "tavus_minutes": 0.0,
+                 "tavus_cost": 0.0, "total_cost": 0.0}
         if not self.redis:
-            return {"sms_count": 0, "sms_cost": 0.0,
-                    "openai_cost": 0.0, "total_cost": 0.0}
+            return empty
         try:
             data = await self.redis.hgetall(self._day_key(date))
             if not data:
-                return {"sms_count": 0, "sms_cost": 0.0,
-                        "openai_cost": 0.0, "total_cost": 0.0}
+                return empty
             return {
-                "sms_count": int(data.get("sms_count", 0)),
+                "sms_count": int(float(data.get("sms_count", 0))),
                 "sms_cost": float(data.get("sms_cost", 0)),
-                "openai_tokens_in": int(data.get("openai_tokens_in", 0)),
-                "openai_tokens_out": int(data.get("openai_tokens_out", 0)),
+                "openai_tokens_in": int(float(data.get("openai_tokens_in", 0))),
+                "openai_tokens_out": int(float(data.get("openai_tokens_out", 0))),
                 "openai_cost": float(data.get("openai_cost", 0)),
+                "voice_minutes": float(data.get("voice_minutes", 0)),
+                "voice_cost": float(data.get("voice_cost", 0)),
+                "tavus_minutes": float(data.get("tavus_minutes", 0)),
+                "tavus_cost": float(data.get("tavus_cost", 0)),
                 "total_cost": float(data.get("total_cost", 0)),
             }
         except Exception as e:
             logger.debug(f"Cost read erreur: {e}")
-            return {"sms_count": 0, "sms_cost": 0.0,
-                    "openai_cost": 0.0, "total_cost": 0.0}
+            return empty
 
     async def get_month_costs(self, date: Optional[datetime] = None) -> dict:
         """Couts d'un mois."""
         empty = {"sms_count": 0, "sms_cost": 0.0,
-                 "openai_cost": 0.0, "tavus_minutes": 0.0,
+                 "openai_cost": 0.0, "voice_minutes": 0.0,
+                 "voice_cost": 0.0, "tavus_minutes": 0.0,
                  "tavus_cost": 0.0, "total_cost": 0.0}
         if not self.redis:
             return empty
@@ -419,6 +460,8 @@ class CortexCostTracker:
                 "sms_count": int(float(d.get("sms_count", 0))),
                 "sms_cost": float(d.get("sms_cost", 0)),
                 "openai_cost": float(d.get("openai_cost", 0)),
+                "voice_minutes": float(d.get("voice_minutes", 0)),
+                "voice_cost": float(d.get("voice_cost", 0)),
                 "tavus_minutes": float(d.get("tavus_minutes", 0)),
                 "tavus_cost": float(d.get("tavus_cost", 0)),
                 "total_cost": float(d.get("total_cost", 0)),

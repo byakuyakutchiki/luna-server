@@ -456,6 +456,7 @@ class SubscriberProfile(BaseModel):
     # --- Identite ---
     first_name: str = ""
     last_name: str = ""
+    gender: str = ""  # "M", "F", "" (non renseigne)
     date_of_birth: Optional[str] = None  # "1985-03-15"
     address: str = ""
     city: str = ""

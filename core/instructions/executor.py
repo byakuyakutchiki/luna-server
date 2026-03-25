@@ -305,9 +305,34 @@ class InstructionExecutor:
         """
         Gère les rappels généraux.
 
-        Un rappel est une notification vocale ou textuelle au souscripteur.
+        Envoie un SMS au souscripteur + notification in-app.
         """
         message = instruction.message_template or "C'est l'heure de votre rappel"
+
+        # Envoyer un SMS de rappel au souscripteur
+        sms_sent = False
+        subscriber_phone = context.get("subscriber_phone", "")
+        if self.sms and subscriber_phone:
+            try:
+                ok, details = self.sms.send(subscriber_phone, f"[Luna] Rappel : {message}")
+                sms_sent = ok
+                if ok:
+                    logger.info(f"Reminder SMS sent to {subscriber_phone}: {message[:50]}")
+                else:
+                    logger.warning(f"Reminder SMS failed: {details}")
+            except Exception as e:
+                logger.warning(f"Reminder SMS error: {e}")
+
+        # Sauvegarder en note pour traçabilité
+        if self.memory:
+            try:
+                self.memory.add_note(
+                    content=f"[Rappel execute] {message}" + (" (SMS envoye)" if sms_sent else " (in-app uniquement)"),
+                    context="reminder_executed",
+                    tags=["rappel", "instruction"],
+                )
+            except Exception:
+                pass
 
         return ExecutionResult(
             status=ExecutionStatus.SUCCESS,
@@ -316,7 +341,8 @@ class InstructionExecutor:
             message=message,
             details={
                 "reminder_text": message,
-                "delivery_method": "luna_voice",
+                "delivery_method": "sms" if sms_sent else "in_app",
+                "sms_sent": sms_sent,
             },
             requires_followup=True,
             followup_action="speak_to_user",
@@ -914,7 +940,8 @@ class InstructionExecutor:
             return []
 
         try:
-            contacts = await self.memory.get_trusted_contacts(tenant_id)
+            # list_trusted_contacts() is sync and uses self.tenant_id internally
+            contacts = self.memory.list_trusted_contacts()
             return [
                 {"name": c.name, "phone": c.phone, "relation": c.relation}
                 for c in contacts

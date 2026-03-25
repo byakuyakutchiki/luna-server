@@ -1395,6 +1395,7 @@ html, body {
   z-index: 50;
   display: flex;
   align-items: center;
+  flex-wrap: nowrap;
   gap: 16px;
   background: rgba(10, 10, 26, 0.85);
   backdrop-filter: blur(10px);
@@ -1403,6 +1404,7 @@ html, body {
   border-radius: 16px;
   padding: 8px 20px;
   max-width: 96vw;
+  overflow: hidden;
 }
 .hud-back {
   color: #888;
@@ -1420,6 +1422,7 @@ html, body {
   gap: 10px;
   flex: 1;
   min-width: 0;
+  overflow: hidden;
 }
 .hud-level {
   font-size: 0.82em;
@@ -1441,7 +1444,8 @@ html, body {
   border-radius: 4px;
   overflow: hidden;
   position: relative;
-  flex-shrink: 0;
+  flex-shrink: 1;
+  min-width: 40px;
 }
 .hud-xp-fill {
   height: 100%;
@@ -1468,7 +1472,8 @@ html, body {
 .hud-right {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
+  flex-shrink: 0;
 }
 .hud-streak {
   font-size: 0.82em;
@@ -1978,9 +1983,9 @@ html, body {
 }
 .profile-avatar { flex-shrink: 0; }
 .profile-info { flex: 1; min-width: 0; }
-.profile-name { font-size: 1.1em; font-weight: 700; color: #fff; }
-.profile-level { font-size: 0.8em; color: #a78bfa; margin-top: 2px; }
-.profile-stars { font-size: 0.8em; color: #ffd700; margin-top: 4px; }
+.profile-name { font-size: 1.1em; font-weight: 700; color: #fff; line-height: 1.2; }
+.profile-level { font-size: 0.75em; color: #a78bfa; margin-top: 4px; display: inline-block; padding: 2px 8px; background: rgba(124,58,237,0.15); border-radius: 6px; line-height: 1.3; }
+.profile-stars { font-size: 0.8em; color: #ffd700; margin-top: 6px; display: block; clear: both; }
 
 .avatar-chooser {
   margin-bottom: 16px;
@@ -2391,10 +2396,17 @@ html, body {
 }
 
 @media (max-width: 480px) {
-  .hud-back { font-size: 0.75em; }
+  .hud { gap: 6px; padding: 5px 10px; overflow: hidden; }
+  .hud-back { font-size: 0.72em; padding: 2px; }
   .hud-level { font-size: 0.72em; }
-  .hud-streak { font-size: 0.72em; }
+  .hud-title { display: none; }
+  .hud-xp-bar { width: 50px; min-width: 30px; }
+  .hud-xp-text { display: none; }
+  .hud-streak { font-size: 0.68em; }
+  .hud-stars { font-size: 0.68em; }
   .hud-stability { display: none; }
+  .hud-friends-btn { display: none; }
+  .hud-avatar { width: 28px; height: 28px; }
 
   /* Even smaller buildings on phone */
   .building svg { width: 65px !important; }
@@ -5161,8 +5173,8 @@ html, body {
       <div class="building-label">Bibliotheque</div>
     </div>
 
-    <!-- Place du Village (38%, bottom 12%) - Level 4 -->
-    <div class="building" data-building="place" data-unlock="4" style="left:38%;bottom:12%" tabindex="0" role="button" aria-label="Place du Village">
+    <!-- Place du Village (38%, bottom 12%) - Level 2 -->
+    <div class="building" data-building="place" data-unlock="2" style="left:38%;bottom:12%" tabindex="0" role="button" aria-label="Place du Village">
       <div class="building-tooltip">Place du Village</div>
       <div class="building-ground-glow" style="width:110px;height:18px;background:radial-gradient(ellipse,rgba(96,165,250,0.08) 0%,transparent 70%);"></div>
       <svg viewBox="0 0 160 120" width="160" height="120">
@@ -6519,6 +6531,7 @@ html, body {
     <span class="hud-friends-btn" id="hudFriendsBtn" onclick="openPanel('place');switchPlaceTab('social');" title="Mes Amis">&#128101;<span class="hud-online-count" id="hudOnlineCount">0</span></span>
     <span class="hud-social-badge" id="hudSocialBadge" style="display:none;cursor:pointer;" onclick="openPanel('place')">0</span>
     <span class="hud-stability" id="hudStability" style="color:#4ade80">&#9679; 0</span>
+    <span class="hud-weather" id="hudWeather" style="display:none;background:rgba(0,0,0,0.35);backdrop-filter:blur(6px);border-radius:10px;padding:2px 8px;font-size:0.85em;color:#e0e0e0;margin-left:4px;"></span>
   </div>
 </div>
 
@@ -6589,14 +6602,14 @@ html, body {
 var _urlParams = new URLSearchParams(window.location.search);
 var _isEmbed = _urlParams.get("embed") === "1";
 
-/* Accept token from URL param (iframe mode) */
+/* Accept token from URL param (iframe mode) — toujours mettre a jour */
 var _urlToken = _urlParams.get("token");
-if (_urlToken && !localStorage.getItem("luna_token")) {
-  localStorage.setItem("luna_token", _urlToken);
+if (_urlToken) {
+  try { localStorage.setItem("luna_token", _urlToken); } catch(e) {}
 }
 
 function getToken() {
-  return localStorage.getItem("luna_token");
+  return _urlToken || localStorage.getItem("luna_token");
 }
 
 function apiFetch(url) {
@@ -6644,7 +6657,7 @@ var BUILDINGS = {
   jardin:       { label: "Jardin des Liens",   unlock: 2,       panel: "jardin" },
   boutique:     { label: "Boutique",            unlock: 2,       panel: "boutique" },
   bibliotheque: { label: "Bibliotheque",        unlock: 3,       panel: "bibliotheque" },
-  place:        { label: "Place du Village",    unlock: 4,       panel: "place" },
+  place:        { label: "Place du Village",    unlock: 2,       panel: "place" },
   observatoire: { label: "Observatoire",        unlock: 5,       panel: "observatoire" },
   famille:      { label: "Maison Familiale",    unlock: "family", panel: "famille" },
   ciel:         { label: "Ciel Etoile",         unlock: 1,       panel: "ciel" }
@@ -7717,20 +7730,50 @@ function lerpColor(a, b, t) {
   return "#" + ((1 << 24) + (rr << 16) + (rg << 8) + rb).toString(16).slice(1);
 }
 
-function updateWeather(moodScore, trend) {
+function _getWeatherCondition(desc) {
+  var d = (desc || "").toLowerCase();
+  if (d.match(/orage|thunder|storm/)) return "storm";
+  if (d.match(/pluie|rain|averse|bruine|drizzle/)) return "rain";
+  if (d.match(/neige|snow|gr[eê]le|hail/)) return "snow";
+  if (d.match(/brouillard|fog|brume|mist/)) return "fog";
+  if (d.match(/nuageux|cloudy|couvert|overcast/)) return "cloudy";
+  if (d.match(/partiellement|partly|[eé]claircies/)) return "partly_cloudy";
+  return "sunny";
+}
+function _getWeatherEmoji(desc) {
+  var c = _getWeatherCondition(desc);
+  var map = { storm: "\u26C8\uFE0F", rain: "\uD83C\uDF27\uFE0F", snow: "\u2744\uFE0F", fog: "\uD83C\uDF2B\uFE0F", cloudy: "\u2601\uFE0F", partly_cloudy: "\u26C5", sunny: "\u2600\uFE0F" };
+  return map[c] || "\u2600\uFE0F";
+}
+
+function updateWeather(moodScore, trend, weatherData) {
   var clouds = document.querySelectorAll(".cloud");
   var rainLayer = document.getElementById("rainLayer");
   var cloudOpacity, showRain;
 
-  if (moodScore >= 70) {
-    cloudOpacity = 0.05;
-    showRain = false;
-  } else if (moodScore >= 40) {
-    cloudOpacity = 0.12;
-    showRain = false;
+  // Priorite a la meteo reelle si disponible
+  if (weatherData && weatherData.actuel && weatherData.actuel.description) {
+    var condition = _getWeatherCondition(weatherData.actuel.description);
+    switch (condition) {
+      case "storm": cloudOpacity = 0.35; showRain = true; break;
+      case "rain": cloudOpacity = 0.25; showRain = true; break;
+      case "snow": cloudOpacity = 0.2; showRain = false; break;
+      case "fog": cloudOpacity = 0.3; showRain = false; break;
+      case "cloudy": cloudOpacity = 0.2; showRain = false; break;
+      case "partly_cloudy": cloudOpacity = 0.12; showRain = false; break;
+      default: cloudOpacity = 0.05; showRain = false;
+    }
+    // Afficher temperature dans le HUD
+    var hudW = document.getElementById("hudWeather");
+    if (hudW) {
+      hudW.textContent = _getWeatherEmoji(weatherData.actuel.description) + " " + weatherData.actuel.temperature;
+      hudW.style.display = "inline-block";
+    }
   } else {
-    cloudOpacity = 0.25;
-    showRain = true;
+    // Fallback sur le mood
+    if (moodScore >= 70) { cloudOpacity = 0.05; showRain = false; }
+    else if (moodScore >= 40) { cloudOpacity = 0.12; showRain = false; }
+    else { cloudOpacity = 0.25; showRain = true; }
   }
 
   for (var i = 0; i < clouds.length; i++) {
@@ -7744,12 +7787,13 @@ function updateWeather(moodScore, trend) {
     rainLayer.classList.remove("active");
   }
 
-  // Rainbow when mood is high and it's daytime
+  // Rainbow = beau temps reel + mood >= 80
   var rainbow = document.getElementById("rainbowArc");
   if (rainbow) {
     var hour = new Date().getHours();
     var isDaytime = hour >= 7 && hour < 20;
-    if (moodScore >= 80 && isDaytime && !showRain) {
+    var isSunny = (!weatherData || !weatherData.actuel) ? (moodScore >= 80) : (_getWeatherCondition(weatherData.actuel.description) === "sunny" || _getWeatherCondition(weatherData.actuel.description) === "partly_cloudy");
+    if (moodScore >= 80 && isDaytime && isSunny && !showRain) {
       rainbow.classList.add("visible");
     } else {
       rainbow.classList.remove("visible");
@@ -8889,6 +8933,7 @@ function renderPanelPlace(bodyEl, subtitleEl) {
 
   var html = '<div class="place-main-tabs">';
   html += '<button class="place-main-tab' + (_placeMainTab === "missions" ? ' active' : '') + '" onclick="switchPlaceTab(\'missions\')">Missions</button>';
+  html += '<button class="place-main-tab' + (_placeMainTab === "activities" ? ' active' : '') + '" onclick="switchPlaceTab(\'activities\')">Activites</button>';
   html += '<button class="place-main-tab' + (_placeMainTab === "social" ? ' active' : '') + '" onclick="switchPlaceTab(\'social\')">Communaute</button>';
   html += '</div>';
   html += '<div id="placeTabContent"></div>';
@@ -8898,6 +8943,8 @@ function renderPanelPlace(bodyEl, subtitleEl) {
   var contentEl = document.getElementById("placeTabContent");
   if (_placeMainTab === "missions") {
     renderPlaceMissions(contentEl, subtitleEl);
+  } else if (_placeMainTab === "activities") {
+    renderPlaceActivities(contentEl);
   } else {
     renderSocialContent(contentEl);
   }
@@ -8908,6 +8955,16 @@ function switchPlaceTab(tab) {
   var bodyEl = document.querySelector(".panel-body");
   var subtitleEl = document.querySelector(".panel-subtitle");
   if (bodyEl && subtitleEl) renderPanelPlace(bodyEl, subtitleEl);
+}
+
+function renderPlaceActivities(contentEl) {
+  var token = getToken() || "";
+  if (!token) {
+    contentEl.innerHTML = '<div style="text-align:center; padding:40px 20px; color:#888;"><div style="font-size:2em; margin-bottom:12px;">&#x1F512;</div><p>Connecte-toi pour acceder aux activites</p></div>';
+    return;
+  }
+  /* Navigate directly to salon (no iframe - fixes WebSocket on APK WebView) */
+  window.top.location.href = "/salon?embed=1&token=" + encodeURIComponent(token);
 }
 
 function renderPlaceMissions(contentEl, subtitleEl) {
@@ -10744,7 +10801,8 @@ function loadWorld() {
     apiFetch("/api/world/inventory").catch(function() { return null; }),
     apiFetch("/api/world/family").catch(function() { return null; }),
     apiFetch("/api/social/profile").catch(function() { return null; }),
-    apiFetch("/api/social/friends").catch(function() { return null; })
+    apiFetch("/api/social/friends").catch(function() { return null; }),
+    apiFetch("/api/weather").catch(function() { return null; })
   ]).then(function(results) {
     state.player = results[0];
     state.badges = results[1];
@@ -10761,6 +10819,7 @@ function loadWorld() {
     // Social data
     var socialProfile = results[11];
     var socialFriends = results[12];
+    state.weather = results[13];
     if (!state.social) state.social = {};
     if (socialProfile) {
       state.social.friend_code = socialProfile.friend_code || state.social.friend_code;
@@ -10819,7 +10878,7 @@ function loadWorld() {
       renderVisitorCharacters();
     }
 
-    // Update weather
+    // Update weather (meteo reelle + mood fallback)
     var moodScore = 70;
     var trend = "stable";
     if (state.stability) {
@@ -10827,7 +10886,7 @@ function loadWorld() {
       moodScore = (s.mood != null && s.mood !== "") ? parseInt(s.mood, 10) : 70;
       trend = s.trend || "stable";
     }
-    updateWeather(moodScore, trend);
+    updateWeather(moodScore, trend, state.weather);
 
     // Render purchased items visuals
     renderPurchasedItems();

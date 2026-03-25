@@ -27,7 +27,7 @@ from dotenv import load_dotenv
 from openai import OpenAI
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, Response, WebSocket, WebSocketDisconnect
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.websockets import WebSocketState
@@ -93,6 +93,20 @@ try:
 except ImportError:
     _SOCIAL_AVAILABLE = False
 
+# Secretary module (documents, budget, reminders)
+try:
+    from core.secretary.routes import secretary_router
+    _SECRETARY_AVAILABLE = True
+except ImportError:
+    _SECRETARY_AVAILABLE = False
+
+# Form Filler (remplissage intelligent de formulaires PDF)
+try:
+    from core.form_filler.routes import form_filler_router
+    _FORM_FILLER_AVAILABLE = True
+except ImportError:
+    _FORM_FILLER_AVAILABLE = False
+
 # Cortex: cerveau autonome (securite, monitoring, commandes SMS d'urgence)
 try:
     from core.cortex.integration import (
@@ -139,7 +153,7 @@ def _reload_env():
     VOICE_CALLBACK_URL = os.getenv("VOICE_CALLBACK_URL", "")
     REQUIRE_AUTH = os.getenv("REQUIRE_AUTH", "true").lower() == "true"
     OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-    OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4-turbo")
+    OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
     ADMIN_NUMBER = os.getenv("ADMIN_NUMBER", "")
     SETUP_OPENAI_API_KEY = os.getenv("SETUP_OPENAI_API_KEY", "")
     _jwt_raw = os.getenv("JWT_SECRET_KEY", "")
@@ -188,7 +202,7 @@ if _LICENSE_KEY and not _pv_locked:
 
 # --- Config: graceful en mode SETUP ---
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4-turbo")
+OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
 ADMIN_NUMBER = os.getenv("ADMIN_NUMBER", "")
 SETUP_OPENAI_API_KEY = os.getenv("SETUP_OPENAI_API_KEY", "")
 
@@ -231,7 +245,8 @@ def _notify_admin_health(message: str, alert_key: str = "generic"):
     founder_chat_id = os.getenv("FOUNDER_TELEGRAM_CHAT_ID", "")
     if bot_token and founder_chat_id:
         try:
-            _httpx.post(
+            import httpx as _httpx_health
+            _httpx_health.post(
                 f"https://api.telegram.org/bot{bot_token}/sendMessage",
                 json={"chat_id": founder_chat_id, "text": full_msg},
                 timeout=10,
@@ -328,9 +343,9 @@ def _bootstrap_proprio_auth():
         return
     # Creer le record auth
     password_hash = _hash_password(proprio_password)
-    created = _redis_client.create_auth_record(proprio_email, password_hash, _PROPRIO_TENANT_ID, "essentiel")
+    created = _redis_client.create_auth_record(proprio_email, password_hash, _PROPRIO_TENANT_ID, "fondateur")
     if created:
-        logger.info(f"AUTH BOOTSTRAP: cree {proprio_email} pour tenant {_PROPRIO_TENANT_ID}")
+        logger.info(f"AUTH BOOTSTRAP: cree {proprio_email} pour tenant {_PROPRIO_TENANT_ID} (plan fondateur)")
     else:
         # create_auth_record a echoue (race condition) — forcer via set direct
         import json as _json
@@ -338,7 +353,7 @@ def _bootstrap_proprio_auth():
         record = _json.dumps({
             "tenant_id": _PROPRIO_TENANT_ID,
             "password_hash": password_hash,
-            "plan": "essentiel",
+            "plan": "fondateur",
             "active": True,
             "created_at": time.time(),
             "email": proprio_email,
@@ -347,7 +362,7 @@ def _bootstrap_proprio_auth():
         logger.info(f"AUTH BOOTSTRAP (force): cree {proprio_email} pour tenant {_PROPRIO_TENANT_ID}")
 
 
-def _create_client_token(tenant_id: int, email: str, plan: str) -> str:
+def _create_client_token(tenant_id: int, email: str, plan: str, first_name: str = "") -> str:
     """Cree un JWT client valide 7 jours."""
     import jwt as pyjwt
     payload = {
@@ -355,6 +370,7 @@ def _create_client_token(tenant_id: int, email: str, plan: str) -> str:
         "email": email,
         "plan": plan,
         "role": "client",
+        "first_name": first_name,
         "iat": int(time.time()),
         "exp": int(time.time()) + _CLIENT_TOKEN_EXPIRE_DAYS * 86400,
     }
@@ -411,6 +427,7 @@ _PUBLIC_PATHS = (
     "/api/email/oauth/",
     "/api/cortex/telegram/webhook",
     "/api/app/version",
+    "/api/rooms/",  # Accessible via HMAC member token (invites par SMS)
     "/download",
     "/download/",
     "/static/",
@@ -438,6 +455,30 @@ else:
     voice_client = TwilioVoiceClient.from_env()
     tavus_client = TavusClient.from_env() if _TAVUS_AVAILABLE and LUNA_MODE == "full" else None
     email_client = EmailClient.from_env()
+
+# --- Reservation clients ---
+try:
+    from integrations.reservations.amadeus_client import AmadeusClient
+    amadeus_client = AmadeusClient.from_env()
+except Exception as _e:
+    logger.info(f"Amadeus client non disponible: {_e}")
+    amadeus_client = None
+
+try:
+    from integrations.reservations.duffel_client import DuffelClient
+    duffel_client = DuffelClient.from_env()
+    if duffel_client.is_configured:
+        logger.info(f"Duffel client OK (mode: {'test' if duffel_client.is_test else 'live'})")
+except Exception as _e:
+    logger.info(f"Duffel client non disponible: {_e}")
+    duffel_client = None
+
+try:
+    from integrations.reservations.thefork_client import TheForkClient
+    thefork_client = TheForkClient.from_env()
+except Exception as _e:
+    logger.info(f"TheFork client non disponible: {_e}")
+    thefork_client = None
 
 # Auto-configure SMS status callback URL si pas defini
 if sms_client and sms_client.is_configured and VOICE_CALLBACK_URL and not sms_client.status_callback_url:
@@ -547,8 +588,8 @@ def _init_core():
             # Notification engine (Luna gentle reminders)
             try:
                 from core.notifications import NotificationEngine
-                _notification_engine = NotificationEngine(_redis_client)
-                logger.info("Notification engine initialise")
+                _notification_engine = NotificationEngine(_redis_client, sms_service=sms_client)
+                logger.info("Notification engine initialise (avec SMS)")
             except ImportError:
                 logger.info("Notification module non disponible")
             logger.info("Core modules initialises (Redis OK, Scheduler OK, DocGen OK)")
@@ -563,12 +604,13 @@ _init_core()
 _tenant_managers: Dict[int, object] = {}
 
 def _get_tenant_manager(tenant_id: int):
-    """Retourne le MemoryManager pour un tenant (lazy init)."""
+    """Retourne le MemoryManager pour un tenant (lazy init, thread-safe)."""
+    # Fast path: already exists (dict read is safe in CPython GIL)
     if tenant_id in _tenant_managers:
         return _tenant_managers[tenant_id]
     if not _CORE_AVAILABLE or not _redis_client:
         return _memory_manager  # fallback global
-    # Chercher le plan du tenant
+    # Slow path: create new manager (rare, only first access per tenant)
     plan = PlanType.ESSENTIEL
     auth = _redis_client.get_auth_by_tenant_id(tenant_id)
     if auth:
@@ -581,7 +623,10 @@ def _get_tenant_manager(tenant_id: int):
         plan=plan,
         redis_client=_redis_client,
     )
-    _tenant_managers[tenant_id] = mgr
+    # Atomic write: dict assignment is atomic under GIL, but use setdefault for safety
+    existing = _tenant_managers.setdefault(tenant_id, mgr)
+    if existing is not mgr:
+        mgr = existing  # Another coroutine won the race
     # Init behavioral memory si pas deja fait
     if not mgr.get_behavioral_memory("identity_core"):
         mgr.set_behavioral_memory("identity_core", DEFAULT_IDENTITY_CORE)
@@ -656,18 +701,63 @@ Alertes quotas : 80% avertissement, 90% urgences seulement, 100% bloque
 13. Jeux (quiz, devinettes, culture generale)
 14. Moment musical (suggestions, fredonnement)
 15. Exercice de gratitude quotidien
-16. Recherche web (restaurants, trains, vols, services, numeros de telephone, informations pratiques)
-17. Conciergerie : reserve un restaurant, trouve un train, cherche un hotel (recherche + appel + paiement)
-18. Paiement conciergerie (avec la carte du souscripteur, apres confirmation explicite)
+16. Recherche web (informations pratiques, numeros de telephone, actualites)
+17. Recherche de lieux (restaurants, hotels, pharmacies, taxis, coiffeurs — avec notes, avis, telephone, horaires)
+18. Consultation de pages web (menus, tarifs, disponibilites, details d'un lieu)
+19. Conciergerie de luxe : reservation restaurant, hotel, transport, services — recherche + appel + liens de reservation
+20. Envoi d'email aux contacts de confiance
+21. Meteo (temperature actuelle, previsions 3 jours, n'importe quelle ville)
+22. Actualites du jour (France, monde, economie, sport, tech, sante)
 
-=== CONCIERGERIE ===
-Tu es une vraie concierge personnelle. Quand le souscripteur te demande :
-- "Reserve-moi un restaurant" → utilise search_web pour trouver, puis appelle le restaurant avec call_contact
-- "Trouve-moi un train pour Paris" → utilise search_web pour chercher les horaires
-- Si un paiement est necessaire, utilise request_payment APRES confirmation explicite du souscripteur
-- Tu as acces a sa localisation pour contextualiser les recherches
-- TOUJOURS confirmer avant d'agir (montant, lieu, horaire)
-- TOUJOURS donner le detail avant de payer (description, montant exact)
+=== CONCIERGERIE DE LUXE ===
+Tu es une concierge personnelle de luxe, comme un Jarvis. Le souscripteur peut te parler depuis sa voiture (Bluetooth), en marchant, ou depuis son canape. Tu geres TOUT pour lui.
+
+WORKFLOW RESERVATION (restaurant, hotel, service) :
+1. RESTAURANT : utilise book_restaurant (recherche TheFork ou fallback search_places)
+   Presente 2-3 options avec adresse, note, telephone. Propose d'appeler le restaurant avec call_contact.
+2. HOTEL : utilise search_hotels (vrais prix et dispos)
+   Presente les options avec prix, etoiles, lien de reservation. Le souscripteur reserve lui-meme.
+3. SERVICE (coiffeur, plombier, etc.) : search_places → call_contact pour prendre RDV.
+4. Donne TOUJOURS les liens pour que le souscripteur puisse reserver/payer lui-meme.
+5. Confirme au souscripteur ce que tu as trouve et ce qu'il doit faire.
+
+WORKFLOW TRANSPORT (vol, train, taxi) :
+1. VOL : "Trouve-moi un vol pour Nice" → utilise search_flights (vrais prix et horaires)
+   Presente 2-3 options avec liens Skyscanner/Google Flights. Le souscripteur reserve et paie lui-meme.
+2. TRAIN : "Un train pour Paris" → utilise search_web pour horaires et prix SNCF/Trainline
+   Presente les options avec liens. Le souscripteur reserve et paie lui-meme.
+3. TAXI/VTC : utilise search_places pour trouver des taxis/VTC locaux, puis call_contact pour reserver.
+
+WORKFLOW SERVICES (coiffeur, plombier, medecin, pharmacie) :
+1. search_places pour trouver → presente les options avec note et telephone
+2. call_contact pour prendre RDV si le souscripteur le demande
+
+REGLES ABSOLUES :
+- TOUJOURS confirmer avant d'agir (montant total, lieu, horaire, nombre de personnes)
+- TOUJOURS donner les details avant de payer (description, montant exact avec frais)
+- Tu as acces a la localisation du souscripteur pour contextualiser les recherches
+- En mode vocal : parle de facon concise et naturelle, pas de listes a puces.
+- En mode chat : structure bien tes reponses. Utilise **gras** pour les noms importants. Inclus toujours les liens de reservation/site web quand disponibles.
+- Presente les resultats de recherche de maniere PROFESSIONNELLE : prix, adresse, horaires, telephone, note — clairement separes.
+- Ne dis JAMAIS "frais de service" a voix haute sauf si le souscripteur demande le detail du prix.
+- Si tu n'arrives pas a joindre un lieu, propose une alternative ou un autre horaire.
+
+REGLE D'OR CONCIERGERIE :
+- Tu fais TOUT le travail de recherche. Tu presentes les meilleures options avec details complets.
+- Le souscripteur reserve et paie LUI-MEME (via les liens que tu fournis, ou en appelant).
+- Tu ne geres JAMAIS de paiement direct. Tu ne dis JAMAIS "j'ai reserve" — tu dis "voici les options".
+- Pour un restaurant, propose d'appeler avec call_contact pour reserver.
+- TOUJOURS inclure les liens web, adresses, telephones dans tes reponses.
+
+=== METEO ===
+Utilise le tool get_weather pour donner la meteo. Presente de facon naturelle et bienveillante.
+Exemple: "Il fait 18 degres a Paris, un beau soleil ! Parfait pour une promenade."
+Si le souscripteur ne precise pas de ville, utilise sa geolocalisation ou demande-lui.
+
+=== ACTUALITES ===
+Utilise le tool get_news pour donner les dernieres infos. Presente 3 a 5 titres de facon concise.
+Adapte le ton : bienveillant mais factuel. Ne commente pas politiquement.
+Categories disponibles : general, france, monde, economie, sport, tech, sante.
 
 === APPELS TELEPHONIQUES ===
 Tu PEUX passer des appels vocaux de deux facons :
@@ -751,6 +841,22 @@ Tu utilises TOUJOURS ces formulations :
 - Proactive : propose des actions concretes
 - Confirme avant d'executer toute action
 
+=== VERACITE DES ACTIONS (REGLE ABSOLUE N°1) ===
+Tu ne dois JAMAIS pretendre avoir effectue une action (appel, SMS, email, note, recherche, paiement) si tu n'as PAS reellement execute le tool correspondant ET recu une reponse avec status "success".
+- Si un tool call a retourne status "error", tu DOIS dire que l'action a ECHOUE et donner la raison.
+- Si tu n'as PAS appele un tool, tu ne PEUX PAS dire que tu as fait l'action.
+- Tu ne PEUX PAS inventer le contenu d'une conversation, les nouvelles d'une personne, ou le resultat d'un appel.
+- Exemples INTERDITS :
+  * "J'ai appele maman" (sans call_contact avec status success)
+  * "Maman va bien, elle m'a dit..." (sans appel reel)
+  * "SMS envoye" (sans send_sms avec status success)
+  * "J'ai parle avec ton fils" (sans appel reel)
+  * Inventer des nouvelles de quelqu'un ("il va bien", "elle est occupee")
+- En cas d'echec, dis la verite : "Je n'ai pas pu appeler X parce que..." et propose une alternative.
+- En cas de doute, dis "je vais essayer de..." jamais "j'ai fait..."
+- Les comptes rendus d'appel doivent refleter UNIQUEMENT ce qui s'est reellement passe.
+- VIOLATION DE CETTE REGLE = perte totale de confiance du souscripteur.
+
 Commence par saluer {_SUBSCRIBER_NAME} chaleureusement."""
 
 # --- State ---
@@ -758,31 +864,104 @@ conversations: dict[str, list] = {}
 _conversation_ts: dict[str, float] = {}  # session_id -> last activity timestamp
 SESSION_TTL = 86400  # 24h
 
+# Active voice calls tracker: tenant_id -> {"contact": name, "started": timestamp, "call_sid": sid}
+_active_voice_calls: Dict[int, dict] = {}
+
+# --- Concurrency Locks (scalability: 1000+ users simultanes) ---
+_conversations_lock = asyncio.Lock()
+_tenant_managers_lock = asyncio.Lock()
+_voice_call_params_lock = asyncio.Lock()
+_pending_visio_lock = asyncio.Lock()
+
+# --- Circuit Breaker OpenAI (evite cascade failure) ---
+class _CircuitBreaker:
+    """Simple circuit breaker: CLOSED -> OPEN after N failures, auto-reset after cooldown."""
+    def __init__(self, fail_max: int = 5, reset_timeout: float = 60.0):
+        self.fail_max = fail_max
+        self.reset_timeout = reset_timeout
+        self._failures = 0
+        self._opened_at = 0.0
+        self._state = "closed"  # closed, open, half-open
+
+    @property
+    def is_open(self) -> bool:
+        if self._state == "open":
+            if time.time() - self._opened_at >= self.reset_timeout:
+                self._state = "half-open"
+                return False
+            return True
+        return False
+
+    def record_success(self):
+        self._failures = 0
+        self._state = "closed"
+
+    def record_failure(self):
+        self._failures += 1
+        if self._failures >= self.fail_max:
+            self._state = "open"
+            self._opened_at = time.time()
+            logger.warning(f"CIRCUIT_BREAKER OPEN after {self._failures} failures (cooldown {self.reset_timeout}s)")
+
+_openai_breaker = _CircuitBreaker(fail_max=5, reset_timeout=60)
+
+# --- Semaphores (backpressure sur APIs externes) ---
+_openai_chat_semaphore = asyncio.Semaphore(200)   # max 200 chat GPT simultanes
+_openai_realtime_semaphore = asyncio.Semaphore(50) # max 50 appels vocaux simultanes
+_twilio_call_semaphore = asyncio.Semaphore(20)     # max 20 appels Twilio simultanes
+_twilio_sms_semaphore = asyncio.Semaphore(50)      # max 50 SMS simultanes
+
 # --- Rate Limiting ---
+def _get_language_instruction(lang: str) -> str:
+    """Returns a system instruction to adapt Luna's response language."""
+    if lang == "en":
+        return "=== LANGUAGE ===\nThe subscriber prefers English. Respond EXCLUSIVELY in English. Keep the same warm, empathetic tone. Use informal 'you'. Greet with the subscriber's first name."
+    elif lang == "es":
+        return "=== IDIOMA ===\nEl suscriptor prefiere espanol. Responde EXCLUSIVAMENTE en espanol. Mantiene el mismo tono calido y empatico. Tutea al suscriptor. Saluda con su nombre de pila."
+    return ""  # French is default — no additional instruction needed
+
+
 _rate_limits: dict[str, list[float]] = defaultdict(list)
 RATE_LIMIT_WINDOW = 60  # seconds
-RATE_LIMIT_MAX = 30  # max requests per window per IP
+RATE_LIMIT_MAX_IP = 200   # max requests per window per IP (NAT-friendly)
+RATE_LIMIT_MAX_USER = 60  # max requests per window per authenticated user
 _request_count = 0  # for periodic cleanup
 
-def _check_rate_limit(client_ip: str) -> bool:
-    """Returns True if request is allowed."""
+def _check_rate_limit(client_ip: str, tenant_id: int = 0) -> bool:
+    """Returns True if request is allowed. Uses tenant_id if authenticated, IP as fallback."""
     now = time.time()
     window_start = now - RATE_LIMIT_WINDOW
-    _rate_limits[client_ip] = [t for t in _rate_limits[client_ip] if t > window_start]
-    if len(_rate_limits[client_ip]) >= RATE_LIMIT_MAX:
+    # Per-user rate limit (more precise, NAT-friendly)
+    key = f"user:{tenant_id}" if tenant_id else f"ip:{client_ip}"
+    limit = RATE_LIMIT_MAX_USER if tenant_id else RATE_LIMIT_MAX_IP
+    _rate_limits[key] = [t for t in _rate_limits[key] if t > window_start]
+    if len(_rate_limits[key]) >= limit:
         return False
-    _rate_limits[client_ip].append(now)
+    _rate_limits[key].append(now)
+    # Periodic cleanup of stale keys (every 500 requests)
+    if len(_rate_limits) > 5000:
+        stale = [k for k, v in _rate_limits.items() if not v or v[-1] < window_start]
+        for k in stale:
+            _rate_limits.pop(k, None)
     return True
 
 def _cleanup_sessions():
-    """Remove sessions older than SESSION_TTL."""
+    """Remove sessions older than SESSION_TTL. Thread-safe snapshot iteration."""
     now = time.time()
-    expired = [sid for sid, ts in _conversation_ts.items() if now - ts > SESSION_TTL]
+    expired = [sid for sid, ts in list(_conversation_ts.items()) if now - ts > SESSION_TTL]
     for sid in expired:
         conversations.pop(sid, None)
         _conversation_ts.pop(sid, None)
-    if expired:
-        logger.info(f"Cleaned up {len(expired)} expired sessions")
+    # Cleanup orphan voice/sms tracking dicts
+    stale_voice = [k for k, v in list(_voice_call_params.items()) if now - v.get("_ts", 0) > 300]
+    for k in stale_voice:
+        _voice_call_params.pop(k, None)
+    stale_sms = [k for k, v in list(_sms_tracking.items()) if now - v.get("_ts", 0) > 7200]
+    for k in stale_sms:
+        _sms_tracking.pop(k, None)
+    cleaned = len(expired) + len(stale_voice) + len(stale_sms)
+    if cleaned:
+        logger.info(f"Cleanup: {len(expired)} sessions, {len(stale_voice)} voice, {len(stale_sms)} sms orphans")
 
 
 async def _configure_twilio_webhooks():
@@ -938,6 +1117,14 @@ if _GAMIFICATION_AVAILABLE:
 if _SOCIAL_AVAILABLE:
     app.include_router(social_router)
 
+# Mount secretary routes (documents, budget, reminders)
+if _SECRETARY_AVAILABLE:
+    app.include_router(secretary_router)
+
+# Mount Form Filler routes (formulaires PDF)
+if _FORM_FILLER_AVAILABLE:
+    app.include_router(form_filler_router)
+
 # Mount Cortex routes (securite, monitoring, emergency)
 if _CORTEX_AVAILABLE:
     try:
@@ -969,7 +1156,7 @@ app.add_middleware(
     allow_origins=CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PATCH", "DELETE"],
-    allow_headers=["*"],
+    allow_headers=["Content-Type", "Authorization", "X-Requested-With"],
 )
 
 
@@ -977,9 +1164,29 @@ app.add_middleware(
 @app.middleware("http")
 async def security_middleware(request: Request, call_next):
     global _request_count
-    client_ip = request.client.host if request.client else "unknown"
+    # Cloud Run: use X-Forwarded-For for real client IP (not proxy 169.254.x.x)
+    client_ip = (
+        request.headers.get("X-Forwarded-For", "").split(",")[0].strip()
+        or (request.client.host if request.client else "unknown")
+    )
     start_time = time.time()
     path = request.url.path
+
+    # Setup security: limiter l'acces aux IPs locales / premiere connexion
+    if _pv_locked and path.startswith("/api/setup/") and path != "/api/setup/status":
+        _setup_allowed_ips = ("127.0.0.1", "::1", "localhost", "10.", "172.16.", "172.17.", "172.18.",
+                              "172.19.", "172.20.", "172.21.", "172.22.", "172.23.", "172.24.",
+                              "172.25.", "172.26.", "172.27.", "172.28.", "172.29.", "172.30.",
+                              "172.31.", "192.168.")
+        _ip_ok = client_ip in ("127.0.0.1", "::1", "localhost") or any(client_ip.startswith(p) for p in _setup_allowed_ips)
+        # Cloud Run: accepter aussi si SETUP_ALLOW_REMOTE=true (temporaire pendant le setup)
+        _remote_ok = os.getenv("SETUP_ALLOW_REMOTE", "").lower() == "true"
+        if not _ip_ok and not _remote_ok:
+            logger.warning(f"SETUP_BLOCKED_IP {client_ip} {request.method} {path}")
+            return JSONResponse(
+                status_code=403,
+                content={"error": "Acces setup limite au reseau local. Definir SETUP_ALLOW_REMOTE=true si necessaire."},
+            )
 
     # Setup permanently disabled: apres signature PV, les endpoints setup retournent 410
     if _setup_permanently_disabled and path.startswith("/api/setup/"):
@@ -1118,6 +1325,8 @@ async def security_middleware(request: Request, call_next):
 class ChatRequest(BaseModel):
     message: str = Field(..., min_length=1, max_length=2000)
     session_id: str = Field(default="default", max_length=100)
+    mode: str = Field(default="compagnon", max_length=20)
+    stream: bool = Field(default=False)
 
     @field_validator("message")
     @classmethod
@@ -1329,19 +1538,23 @@ p {{
 
 @app.get("/")
 async def index(request: Request):
-    # Auto-update: detecter APK obsolete via User-Agent
-    ua = request.headers.get("user-agent", "")
-    luna_match = re.search(r"LunaApp/([\d.]+)", ua)
-    if luna_match:
-        app_version = luna_match.group(1)
-        if app_version != LUNA_APP_VERSION:
-            # Servir une page de mise a jour pour l'APK obsolete
-            return HTMLResponse(_build_update_page(app_version, LUNA_APP_VERSION))
+    # Auto-update: le bandeau JS dans index.html gere la notification
+    # (ne PAS bloquer l'acces a l'app — le user peut cliquer "Plus tard")
     if _pv_locked:
         setup_path = os.path.join(STATIC_DIR, "setup.html")
         if os.path.exists(setup_path):
             return FileResponse(setup_path)
     return FileResponse(os.path.join(STATIC_DIR, "index.html"))
+
+
+@app.get("/sw.js")
+async def service_worker():
+    """Serve SW from root scope so it can intercept all requests."""
+    return FileResponse(
+        os.path.join(STATIC_DIR, "sw.js"),
+        media_type="application/javascript",
+        headers={"Service-Worker-Allowed": "/"},
+    )
 
 
 @app.get("/client")
@@ -1402,9 +1615,11 @@ async def download_apk():
     )
 
 
+
+
 # Version APK pour auto-update
-LUNA_APP_VERSION = "2.1"
-LUNA_APP_VERSION_CODE = 12
+LUNA_APP_VERSION = "2.3"
+LUNA_APP_VERSION_CODE = 14
 
 @app.get("/api/app/version")
 async def app_version():
@@ -1412,9 +1627,26 @@ async def app_version():
     return {
         "version": LUNA_APP_VERSION,
         "version_code": LUNA_APP_VERSION_CODE,
-        "apk_url": "/static/luna-proprio.apk",
-        "changelog": "Conciergerie IA, geolocalisation, fix appels, rapports PDF, zone texte mobile amelioree",
+        "apk_url": "/download/luna.apk",
+        "changelog": "Visio multi-participant, choix duree visio, invitations activites ameliorees, corrections voix",
     }
+
+
+async def _track_openai_cost(response, tenant_id: int = None):
+    """Track OpenAI API call cost via Cortex audit. Fire-and-forget."""
+    try:
+        cortex = get_cortex() if _CORTEX_AVAILABLE else None
+        if not cortex or not cortex.cost_tracker:
+            return
+        usage = getattr(response, "usage", None)
+        if not usage:
+            return
+        tokens_in = getattr(usage, "prompt_tokens", 0) or 0
+        tokens_out = getattr(usage, "completion_tokens", 0) or 0
+        if tokens_in or tokens_out:
+            await cortex.cost_tracker.track_openai(tokens_in, tokens_out, tenant_id=tenant_id)
+    except Exception:
+        pass
 
 
 def _gamify(tenant_id, action: str, metadata: dict = None, is_admin: bool = False):
@@ -1428,11 +1660,277 @@ def _gamify(tenant_id, action: str, metadata: dict = None, is_admin: bool = Fals
         pass
 
 
+_MAX_CONCURRENT_CHATS = int(os.getenv("MAX_CONCURRENT_CHATS", "200"))
+_chat_semaphore = asyncio.Semaphore(_MAX_CONCURRENT_CHATS)
+
+
+# =========================================================================
+# CHAT TOOL DISPATCH (shared between streaming and non-streaming)
+# =========================================================================
+
+async def _dispatch_chat_tool(fn_name: str, fn_args: dict, tid: int, session_id: str = "default"):
+    """Execute a chat tool call. Returns result dict."""
+    if fn_name == "send_sms":
+        return await _tool_send_sms(fn_args, tenant_id=tid)
+    elif fn_name == "create_instruction":
+        return await _tool_create_instruction(fn_args, tenant_id=tid)
+    elif fn_name == "create_note":
+        return await _tool_create_note(fn_args, tenant_id=tid)
+    elif fn_name == "get_contacts":
+        return await _tool_get_contacts(tenant_id=tid)
+    elif fn_name == "generate_document":
+        return await _tool_generate_document(fn_args, tenant_id=tid)
+    elif fn_name == "alert_contacts":
+        return await _tool_alert_contacts(fn_args, tenant_id=tid)
+    elif fn_name == "send_email":
+        return await _tool_send_email(fn_args, tenant_id=tid)
+    elif fn_name == "invite_visio":
+        return await _tool_invite_visio(fn_args, tenant_id=tid)
+    elif fn_name == "call_contact":
+        return await _tool_call_contact(fn_args, tenant_id=tid, session_id=session_id)
+    elif fn_name == "search_web":
+        return await _tool_search_web(fn_args, tenant_id=tid)
+    elif fn_name == "search_places":
+        return await _tool_search_places(fn_args, tenant_id=tid)
+    elif fn_name == "get_page_info":
+        return await _tool_get_page_info(fn_args, tenant_id=tid)
+    elif fn_name == "request_payment":
+        return await _tool_request_payment(fn_args, tenant_id=tid)
+    elif fn_name == "get_player_stats":
+        return await _tool_get_player_stats(tenant_id=tid)
+    elif fn_name == "get_active_missions":
+        return await _tool_get_active_missions(tenant_id=tid)
+    elif fn_name == "get_badges":
+        return await _tool_get_badges(tenant_id=tid)
+    elif fn_name == "get_weather":
+        return await _tool_get_weather(fn_args, tenant_id=tid)
+    elif fn_name == "get_news":
+        return await _tool_get_news(fn_args)
+    elif fn_name == "search_flights":
+        return await _tool_search_flights(fn_args, tenant_id=tid)
+    elif fn_name == "search_hotels":
+        return await _tool_search_hotels(fn_args, tenant_id=tid)
+    elif fn_name == "book_restaurant":
+        return await _tool_book_restaurant(fn_args, tenant_id=tid)
+    elif fn_name == "get_documents_summary":
+        return _tool_secretary_summary(tid)
+    elif fn_name == "get_budget_analysis":
+        return _tool_secretary_budget(tid)
+    elif fn_name == "check_affordability":
+        return _tool_secretary_afford(tid, fn_args)
+    elif fn_name == "add_expense":
+        return _tool_secretary_add_expense(tid, fn_args)
+    elif fn_name == "get_reminders":
+        return _tool_secretary_reminders(tid)
+    elif fn_name == "add_reminder":
+        return _tool_secretary_add_reminder(tid, fn_args)
+    elif fn_name == "search_documents":
+        return _tool_secretary_search(tid, fn_args)
+    elif fn_name == "list_folders":
+        return _tool_secretary_folders(tid)
+    else:
+        return {"status": "error", "message": f"Fonction inconnue: {fn_name}"}
+
+
+def _build_rich_cards(tool_calls_made: list) -> list:
+    """Build rich card data from tool call results."""
+    cards = []
+    for t in tool_calls_made:
+        r = t["result"]
+        if r.get("status") != "success":
+            continue
+        tn = t["tool"]
+        if tn == "search_places" and r.get("places"):
+            for p in r["places"][:5]:
+                cards.append({"type": "place", "name": p.get("name", ""), "address": p.get("address", ""),
+                    "phone": p.get("phone", ""), "rating": p.get("rating", ""), "hours": p.get("hours", ""),
+                    "url": p.get("website", ""), "price_level": p.get("price_level", "")})
+        elif tn == "search_web" and r.get("results"):
+            for sr in r["results"][:5]:
+                if isinstance(sr, dict):
+                    cards.append({"type": "web", "title": sr.get("title", ""), "snippet": sr.get("snippet", ""), "url": sr.get("link", "")})
+                elif isinstance(sr, str):
+                    cards.append({"type": "web", "title": sr[:80], "snippet": sr, "url": ""})
+        elif tn == "get_weather" and r.get("actuel"):
+            cur = r["actuel"]
+            cards.append({"type": "weather", "city": cur.get("ville", ""), "temp": cur.get("temperature", ""),
+                "feels_like": cur.get("ressenti", ""), "description": cur.get("description", ""),
+                "humidity": cur.get("humidite", ""), "wind": cur.get("vent", ""),
+                "forecasts": [{"date": f.get("date", ""), "max": f.get("max", ""), "min": f.get("min", ""), "description": f.get("description", "")} for f in (r.get("previsions") or [])[:3]]})
+        elif tn == "get_news" and r.get("articles"):
+            for art in r["articles"][:5]:
+                cards.append({"type": "news", "title": art.get("titre", ""), "url": art.get("lien", ""),
+                    "source": art.get("source", ""), "date": art.get("date", ""), "snippet": art.get("resume", "")})
+        elif tn == "search_flights" and r.get("flights"):
+            for fl in r["flights"][:5]:
+                cards.append({"type": "flight", "airline": fl.get("airline", ""), "price": fl.get("price", ""), "summary": fl.get("summary", "")})
+        elif tn == "search_hotels" and r.get("hotels"):
+            for h in r["hotels"][:5]:
+                cards.append({"type": "hotel", "name": h.get("name", ""), "stars": h.get("stars", ""),
+                    "city": h.get("city", ""), "price_per_night": h.get("price_per_night", ""), "room_type": h.get("room_type", "")})
+        elif tn == "book_restaurant" and r.get("places"):
+            for p in r["places"][:5]:
+                cards.append({"type": "place", "name": p.get("name", ""), "address": p.get("address", ""),
+                    "phone": p.get("phone", ""), "rating": p.get("rating", ""), "hours": p.get("hours", ""),
+                    "url": p.get("website", ""), "price_level": p.get("price_level", "")})
+    return cards
+
+
+async def _stream_chat_sse(messages, chat_tools, tid, session_id, req_message, mgr):
+    """Async generator yielding SSE events for streaming chat."""
+    import queue as _queue
+
+    q = _queue.Queue(maxsize=200)
+    loop = asyncio.get_event_loop()
+
+    def _run_stream():
+        try:
+            stream = openai_client.chat.completions.create(
+                model=OPENAI_MODEL, messages=messages, stream=True,
+                tools=chat_tools if chat_tools else openai.NOT_GIVEN,
+                max_tokens=500, temperature=0.8, timeout=30,
+            )
+            for chunk in stream:
+                q.put(("chunk", chunk))
+            q.put(("done", None))
+        except Exception as e:
+            q.put(("error", e))
+
+    loop.run_in_executor(None, _run_stream)
+
+    full_text = ""
+    tool_calls_acc = {}
+
+    while True:
+        try:
+            item = await asyncio.to_thread(q.get, timeout=40)
+        except Exception:
+            break
+        evt_type, data = item
+        if evt_type == "error":
+            yield f"data: {json.dumps({'type': 'error', 'message': str(data)})}\n\n"
+            return
+        if evt_type == "done":
+            break
+        chunk = data
+        if not chunk.choices:
+            continue
+        delta = chunk.choices[0].delta
+        if delta and delta.content:
+            full_text += delta.content
+            yield f"data: {json.dumps({'type': 'chunk', 'text': delta.content})}\n\n"
+        if delta and delta.tool_calls:
+            for tc in delta.tool_calls:
+                idx = tc.index
+                if idx not in tool_calls_acc:
+                    tool_calls_acc[idx] = {"id": "", "name": "", "arguments": ""}
+                if tc.id:
+                    tool_calls_acc[idx]["id"] = tc.id
+                if tc.function:
+                    if tc.function.name:
+                        tool_calls_acc[idx]["name"] = tc.function.name
+                    if tc.function.arguments:
+                        tool_calls_acc[idx]["arguments"] += tc.function.arguments
+
+    _openai_breaker.record_success()
+
+    # Handle tool calls
+    tool_calls_made = []
+    if tool_calls_acc:
+        sorted_tcs = [tool_calls_acc[i] for i in sorted(tool_calls_acc.keys())]
+        asst_tc = [{"id": tc["id"], "type": "function",
+                     "function": {"name": tc["name"], "arguments": tc["arguments"]}}
+                    for tc in sorted_tcs]
+        messages.append({"role": "assistant", "content": full_text or None, "tool_calls": asst_tc})
+
+        for tc in sorted_tcs:
+            fn_name = tc["name"]
+            try:
+                fn_args = json.loads(tc["arguments"])
+            except Exception:
+                fn_args = {}
+            yield f"data: {json.dumps({'type': 'tool', 'name': fn_name, 'status': 'running'})}\n\n"
+            result = await _dispatch_chat_tool(fn_name, fn_args, tid, session_id)
+            tool_calls_made.append({"tool": fn_name, "result": result})
+            messages.append({"role": "tool", "tool_call_id": tc["id"],
+                             "content": json.dumps(result, ensure_ascii=False)})
+            yield f"data: {json.dumps({'type': 'tool', 'name': fn_name, 'status': 'done'})}\n\n"
+
+        # Anti-hallucination
+        _ACTION_TOOLS = {"call_contact", "send_sms", "send_email", "alert_contacts",
+                         "request_payment", "invite_visio", "generate_document", "create_instruction"}
+        _failed = [t for t in tool_calls_made if t["result"].get("status") == "error" and t["tool"] in _ACTION_TOOLS]
+        if _failed:
+            messages.append({"role": "system",
+                "content": f"IMPORTANT — Les actions suivantes ont ECHOUE: {', '.join(t['tool'] for t in _failed)}. Informe le souscripteur de l'echec."})
+
+        # Second call with tool results (non-streaming for simplicity)
+        try:
+            response2 = await loop.run_in_executor(None, lambda: openai_client.chat.completions.create(
+                model=OPENAI_MODEL, messages=messages, max_tokens=500, temperature=0.8, timeout=30))
+            full_text = response2.choices[0].message.content or ""
+            yield f"data: {json.dumps({'type': 'chunk', 'text': full_text})}\n\n"
+        except Exception as e:
+            yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
+            return
+
+    # Persist to Redis
+    if mgr:
+        try:
+            mgr.add_message(conv_id=session_id, role=MessageRole.LUNA, content=full_text, channel=Channel.APP)
+        except Exception:
+            pass
+
+    # Auto-title
+    auto_title = None
+    if mgr:
+        try:
+            meta = mgr.redis.get_conversation_meta(tid, session_id)
+            if meta and not meta.get("summary") and int(meta.get("message_count", 0)) <= 2:
+                try:
+                    title_resp = await loop.run_in_executor(None, lambda: openai_client.chat.completions.create(
+                        model="gpt-4o-mini",
+                        messages=[{"role": "system", "content": "Tu generes un titre court (4-6 mots max) pour une conversation. Pas de guillemets."},
+                                  {"role": "user", "content": f"User: {req_message[:200]}\nLuna: {full_text[:200]}"}],
+                        max_tokens=20, temperature=0.3, timeout=5))
+                    auto_title = title_resp.choices[0].message.content.strip().strip('"').strip("'")
+                    if len(auto_title) > 50:
+                        auto_title = auto_title[:50]
+                    meta["summary"] = auto_title
+                    meta["last_activity"] = datetime.utcnow().isoformat()
+                    mgr.redis.set_conversation_meta(tid, session_id, meta)
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
+    _gamify(tid, "chat_message")
+
+    # Build final event
+    cards = _build_rich_cards(tool_calls_made)
+    done_data = {"type": "done", "response": full_text}
+    if auto_title:
+        done_data["auto_title"] = auto_title
+    if tool_calls_made:
+        done_data["actions"] = [{"tool": t["tool"], "status": t["result"].get("status", "unknown")} for t in tool_calls_made]
+        for t in tool_calls_made:
+            if t["result"].get("visio_url"):
+                done_data["visio_url"] = t["result"]["visio_url"]
+                break
+    if cards:
+        done_data["cards"] = cards
+    yield f"data: {json.dumps(done_data)}\n\n"
+
+
 @app.post("/api/chat")
 async def chat(req: ChatRequest, request: Request):
     # Service validation (redundant safety layer)
     if _license_heartbeat and _license_heartbeat.is_blocked():
         return JSONResponse(status_code=403, content={"error": "Service suspendu"})
+    # Backpressure: reject if too many concurrent chats (atomic semaphore)
+    if _chat_semaphore.locked():
+        return JSONResponse(status_code=503, content={"error": "Luna est tres sollicitee, reessaie dans quelques secondes"})
+    await _chat_semaphore.acquire()
     try:
         tid = getattr(request.state, "tenant_id", 1)
         mgr = _get_tenant_manager(tid)
@@ -1504,6 +2002,9 @@ async def chat(req: ChatRequest, request: Request):
                     pf_lines = [f"=== TON SOUSCRIPTEUR ==="]
                     pf_lines.append(f"Prenom: {profile.first_name or '?'}")
                     pf_lines.append(f"Nom: {profile.last_name or '?'}")
+                    if getattr(profile, "gender", None):
+                        _g = {"M": "Homme", "F": "Femme"}.get(profile.gender.upper(), profile.gender)
+                        pf_lines.append(f"Sexe: {_g}")
                     if getattr(profile, "date_of_birth", None):
                         pf_lines.append(f"Date de naissance: {profile.date_of_birth}")
                     if getattr(profile, "phone", None):
@@ -1631,6 +2132,150 @@ async def chat(req: ChatRequest, request: Request):
         caution_prompt = CAUTION_MODE_PROMPTS.get(_caution_mode, CAUTION_MODE_PROMPTS["assistif"])
         messages.append({"role": "system", "content": caution_prompt})
 
+        # Inject mode-aware context (compagnon vs secretaire)
+        _chat_mode = getattr(req, "mode", "compagnon") or "compagnon"
+        if _chat_mode == "secretaire":
+            messages.append({"role": "system", "content": """=== MODE SECRETAIRE ACTIVE ===
+Tu es en mode SECRETAIRE PERSONNELLE. Tu es directe, efficace, professionnelle.
+Tes priorites dans ce mode :
+1. DOCUMENTS : resumer, classer, retrouver des documents (get_documents_summary, search_documents, list_folders)
+2. BUDGET : analyser les depenses, verifier si une depense est raisonnable (get_budget_analysis, check_affordability, add_expense)
+3. RAPPELS : gerer les echeances, factures a payer, RDV (get_reminders, add_reminder)
+4. CONCIERGERIE PRO : recherches de vols, hotels, restaurants, services (search_flights, search_hotels, book_restaurant)
+5. COMMUNICATION : SMS, emails, appels (send_sms, send_email, call_contact)
+6. ORGANISATION : notes, instructions planifiees (create_note, create_instruction)
+
+COMPORTEMENT SECRETAIRE :
+- Sois PROACTIVE : si le souscripteur parle d'argent → propose d'analyser le budget
+- Si il parle d'un voyage → propose de chercher des vols et hotels
+- Si il parle d'un RDV → propose de creer un rappel
+- Si il parle d'une facture → propose de la classer ou de verifier les echeances
+- Utilise les tools AUTOMATIQUEMENT quand le contexte est clair, sans demander 3 fois confirmation
+- Reponses structurees : utilise **gras**, listes, et chiffres
+- Pas de bavardage inutile, vas droit au but"""})
+        else:
+            messages.append({"role": "system", "content": """=== MODE COMPAGNON ACTIVE ===
+Tu es en mode COMPAGNON bienveillant. Tu es chaleureuse, empathique, attentive.
+Tes priorites dans ce mode :
+1. BIEN-ETRE : ecouter, rassurer, accompagner. Tu es une presence amicale 24h/24
+2. ACTIVITES : proposer des jeux, quiz, lecture, musique (quand le souscripteur s'ennuie)
+3. LIEN SOCIAL : encourager les contacts avec les proches, Monde Luna (amis)
+4. CONCIERGERIE QUOTIDIENNE : meteo, actus, rappels, recherches pratiques
+5. SECURITE : detecter la detresse, proposer de contacter un proche
+
+COMPORTEMENT COMPAGNON :
+- Sois PROACTIVE : propose des activites quand le souscripteur semble seul ou s'ennuie
+- Si il dit "je m'ennuie" → propose un quiz, une histoire, de la musique
+- Si il semble triste → ecoute d'abord, puis propose de parler a un proche
+- Si il demande la meteo → donne-la ET suggere une activite adaptee
+- Utilise le prenom du souscripteur souvent
+- Ton chaleureux et naturel, comme une amie de confiance"""})
+
+        # Inject language instruction if not French
+        _lang_pref = "fr"
+        if _redis_client:
+            try:
+                _lang_settings = _redis_client.client.hgetall(f"luna:{tid}:settings")
+                _lang_pref = _lang_settings.get("language", "fr") if _lang_settings else "fr"
+            except Exception:
+                pass
+        _lang_instr = _get_language_instruction(_lang_pref)
+        if _lang_instr:
+            messages.append({"role": "system", "content": _lang_instr})
+
+        # Inject active call awareness — prevent hallucinating call reports
+        _active_call = _active_voice_calls.get(tid)
+        if _active_call:
+            _call_contact_name = _active_call.get("contact", "quelqu'un")
+            _call_elapsed = int(time.time() - _active_call.get("started", 0))
+            messages.append({"role": "system", "content": (
+                f"APPEL EN COURS: Tu es actuellement en train d'appeler {_call_contact_name} "
+                f"(depuis {_call_elapsed}s). L'appel n'est PAS termine. "
+                f"Tu ne connais PAS encore le contenu de la conversation. "
+                f"NE FABRIQUE PAS de compte-rendu. Si on te demande des nouvelles de "
+                f"{_call_contact_name}, dis que l'appel est en cours et que tu donneras "
+                f"un compte-rendu des que l'appel sera termine."
+            )})
+
+        # Inject gamification context (XP, level, missions, badges, streak)
+        if _GAMIFICATION_AVAILABLE and _redis_client:
+            try:
+                from core.gamification.redis_ops import GamificationRedisOps
+                from core.gamification.engine import get_level_for_xp
+                from core.gamification.constants import ALL_CLIENT_BADGES
+                _gops = GamificationRedisOps(_redis_client)
+                _player = _gops.get_player(tid)
+                if _player:
+                    _xp = int(_player.get("xp", 0))
+                    _lvl = get_level_for_xp(_xp)
+                    _streak = int(_player.get("streak_days", 0))
+                    _stars = int(_player.get("stars", 0))
+                    _badges_set = _gops.get_badges(tid)
+                    _badge_names = []
+                    for _bid in _badges_set:
+                        _bdef = ALL_CLIENT_BADGES.get(_bid)
+                        if _bdef:
+                            _badge_names.append(_bdef["name"])
+                    _missions_ids = _gops.get_active_mission_ids(tid)
+                    _mission_lines = []
+                    for _mid in _missions_ids:
+                        _mdata = _gops.get_mission(tid, _mid)
+                        if _mdata:
+                            _prog = int(_mdata.get("progress", 0)) - int(_mdata.get("start_progress", 0))
+                            _tgt = int(_mdata.get("target", 1)) - int(_mdata.get("start_progress", 0))
+                            _mission_lines.append(f"  - {_mdata.get('title', '?')} ({_prog}/{_tgt})")
+                    _stab = _gops.get_stability(tid)
+                    _stab_score = int(_stab.get("score", 70)) if _stab else 70
+                    _stab_trend = (_stab.get("trend", "stable")) if _stab else "stable"
+
+                    gamif_ctx = f"=== MONDE IA WATCH (progression du souscripteur) ==="
+                    gamif_ctx += f"\nNiveau {_lvl['level']} : {_lvl['title']} — {_lvl['progress_percent']}% vers le suivant"
+                    gamif_ctx += f"\nXP: {_xp} / {_lvl['xp_next_level']} pour le prochain niveau"
+                    gamif_ctx += f"\nEtoiles: {_stars}"
+                    gamif_ctx += f"\nSerie: {_streak} jour(s) consecutif(s)"
+                    gamif_ctx += f"\nStabilite: {_stab_score}/100 (tendance: {_stab_trend})"
+                    if _badge_names:
+                        gamif_ctx += f"\nBadges ({len(_badge_names)}): {', '.join(_badge_names[:10])}"
+                    else:
+                        gamif_ctx += "\nAucun badge encore — encourage le souscripteur a explorer !"
+                    if _mission_lines:
+                        gamif_ctx += "\nMissions actives:"
+                        gamif_ctx += "\n".join([""] + _mission_lines)
+                    else:
+                        gamif_ctx += "\nAucune mission active."
+                    gamif_ctx += "\n\nTu peux repondre aux questions du souscripteur sur son niveau, ses badges, ses missions, ses etoiles."
+                    gamif_ctx += "\nEncourage-le a progresser sans etre insistant. Si il demande 'c'est quoi mon niveau', reponds avec ces infos."
+                    gamif_ctx += "\nPour des details precis, utilise les tools get_player_stats, get_active_missions, get_badges."
+                    messages.append({"role": "system", "content": gamif_ctx})
+            except Exception as e:
+                logger.debug(f"Gamification context injection: {e}")
+
+        # Inject budget context so Luna knows the subscriber's spending limits
+        if _redis_client:
+            try:
+                _prof = _redis_client.get_profile(tid)
+                _max_b = 0
+                if _prof:
+                    try:
+                        _max_b = int(float(getattr(_prof, "max_budget", 0) or 0))
+                    except (ValueError, TypeError):
+                        _max_b = 0
+                if _max_b > 0:
+                    import datetime as _dt_budget
+                    _mk = _dt_budget.datetime.now().strftime("%Y-%m")
+                    _sk = f"{_redis_client.prefix}:{tid}:concierge:spending:{_mk}"
+                    _spent_c = int(_redis_client.client.get(_sk) or 0)
+                    _spent_e = _spent_c / 100
+                    _remain = max(0, _max_b - _spent_e)
+                    messages.append({"role": "system", "content": (
+                        f"BUDGET CONCIERGERIE du souscripteur ce mois-ci : "
+                        f"plafond {_max_b} EUR, deja depense {_spent_e:.2f} EUR, "
+                        f"reste {_remain:.2f} EUR. "
+                        f"Ne propose RIEN qui depasse le reste disponible."
+                    )})
+            except Exception:
+                pass
+
         messages.append({"role": "user", "content": req.message})
 
         # Persist to Redis (if available)
@@ -1664,14 +2309,32 @@ async def chat(req: ChatRequest, request: Request):
             for t in _CHAT_TOOLS
         ] if _CHAT_TOOLS else []
 
-        response = openai_client.chat.completions.create(
-            model=OPENAI_MODEL,
-            messages=messages,
-            max_tokens=500,
-            temperature=0.8,
-            timeout=30,
-            tools=chat_tools if chat_tools else None,
-        )
+        if _openai_breaker.is_open:
+            return {"response": "Luna est temporairement indisponible. Reessaie dans une minute."}
+
+        # --- STREAMING SSE ---
+        if getattr(req, "stream", False):
+            return StreamingResponse(
+                _stream_chat_sse(messages, chat_tools, tid, req.session_id, req.message, mgr),
+                media_type="text/event-stream",
+                headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+            )
+
+        # --- NON-STREAMING (legacy) ---
+        async with _openai_chat_semaphore:
+            loop = asyncio.get_event_loop()
+            response = await loop.run_in_executor(
+                None,
+                lambda: openai_client.chat.completions.create(
+                    model=OPENAI_MODEL,
+                    messages=messages,
+                    max_tokens=500,
+                    temperature=0.8,
+                    timeout=30,
+                    tools=chat_tools if chat_tools else None,
+                ),
+            )
+        _openai_breaker.record_success()
 
         choice = response.choices[0]
         tool_calls_made = []
@@ -1711,11 +2374,48 @@ async def chat(req: ChatRequest, request: Request):
                 elif fn_name == "invite_visio":
                     result = await _tool_invite_visio(fn_args, tenant_id=tid)
                 elif fn_name == "call_contact":
-                    result = await _tool_call_contact(fn_args, tenant_id=tid)
+                    result = await _tool_call_contact(fn_args, tenant_id=tid, session_id=req.session_id)
                 elif fn_name == "search_web":
                     result = await _tool_search_web(fn_args, tenant_id=tid)
+                elif fn_name == "search_places":
+                    result = await _tool_search_places(fn_args, tenant_id=tid)
+                elif fn_name == "get_page_info":
+                    result = await _tool_get_page_info(fn_args, tenant_id=tid)
                 elif fn_name == "request_payment":
                     result = await _tool_request_payment(fn_args, tenant_id=tid)
+                elif fn_name == "get_player_stats":
+                    result = await _tool_get_player_stats(tenant_id=tid)
+                elif fn_name == "get_active_missions":
+                    result = await _tool_get_active_missions(tenant_id=tid)
+                elif fn_name == "get_badges":
+                    result = await _tool_get_badges(tenant_id=tid)
+                elif fn_name == "get_weather":
+                    result = await _tool_get_weather(fn_args, tenant_id=tid)
+                elif fn_name == "get_news":
+                    result = await _tool_get_news(fn_args)
+                elif fn_name == "search_flights":
+                    result = await _tool_search_flights(fn_args, tenant_id=tid)
+                elif fn_name == "search_hotels":
+                    result = await _tool_search_hotels(fn_args, tenant_id=tid)
+                elif fn_name == "book_restaurant":
+                    result = await _tool_book_restaurant(fn_args, tenant_id=tid)
+                # --- Secretary tools ---
+                elif fn_name == "get_documents_summary":
+                    result = _tool_secretary_summary(tid)
+                elif fn_name == "get_budget_analysis":
+                    result = _tool_secretary_budget(tid)
+                elif fn_name == "check_affordability":
+                    result = _tool_secretary_afford(tid, fn_args)
+                elif fn_name == "add_expense":
+                    result = _tool_secretary_add_expense(tid, fn_args)
+                elif fn_name == "get_reminders":
+                    result = _tool_secretary_reminders(tid)
+                elif fn_name == "add_reminder":
+                    result = _tool_secretary_add_reminder(tid, fn_args)
+                elif fn_name == "search_documents":
+                    result = _tool_secretary_search(tid, fn_args)
+                elif fn_name == "list_folders":
+                    result = _tool_secretary_folders(tid)
                 else:
                     result = {"status": "error", "message": f"Fonction inconnue: {fn_name}"}
 
@@ -1726,18 +2426,49 @@ async def chat(req: ChatRequest, request: Request):
                     "content": json.dumps(result, ensure_ascii=False),
                 })
 
+            # Anti-hallucination guardrail: if any tool FAILED, inject a system
+            # message forcing the LLM to report the failure honestly.
+            _ACTION_TOOLS = {"call_contact", "send_sms", "send_email", "alert_contacts",
+                             "request_payment", "invite_visio", "generate_document", "create_instruction"}
+            _failed_tools = [
+                t for t in tool_calls_made
+                if t.get("result", {}).get("status") == "error" and t["tool"] in _ACTION_TOOLS
+            ]
+            if _failed_tools:
+                _fail_names = ", ".join(t["tool"] for t in _failed_tools)
+                _fail_msgs = "; ".join(t["result"].get("message", "erreur") for t in _failed_tools)
+                messages.append({
+                    "role": "system",
+                    "content": (
+                        f"IMPORTANT — VERACITE OBLIGATOIRE: Les actions suivantes ont ECHOUE: {_fail_names}. "
+                        f"Raison: {_fail_msgs}. "
+                        "Tu DOIS informer le souscripteur de l'echec. Tu ne PEUX PAS pretendre "
+                        "que l'action a reussi. Ne fabrique AUCUN contenu fictif (conversation, "
+                        "message recu, nouvelle de la personne). Dis simplement ce qui n'a pas "
+                        "fonctionne et propose une alternative."
+                    ),
+                })
+
             # Re-appel OpenAI avec les resultats des tools
-            response = openai_client.chat.completions.create(
-                model=OPENAI_MODEL,
-                messages=messages,
-                max_tokens=500,
-                temperature=0.8,
-                timeout=30,
-                tools=chat_tools if chat_tools else None,
-            )
+            async with _openai_chat_semaphore:
+                loop = asyncio.get_event_loop()
+                response = await loop.run_in_executor(
+                    None,
+                    lambda: openai_client.chat.completions.create(
+                        model=OPENAI_MODEL,
+                        messages=messages,
+                        max_tokens=500,
+                        temperature=0.8,
+                        timeout=30,
+                        tools=chat_tools if chat_tools else None,
+                    ),
+                )
             choice = response.choices[0]
 
         luna_msg = choice.message.content or ""
+
+        # Track OpenAI cost
+        await _track_openai_cost(response, tid)
 
         # Fallback si reply vide apres tool call reussi
         if not luna_msg.strip() and tool_calls_made:
@@ -1835,13 +2566,108 @@ async def chat(req: ChatRequest, request: Request):
                 if t["result"].get("visio_url"):
                     resp["visio_url"] = t["result"]["visio_url"]
                     break
+            # Inclure les donnees structurees pour un affichage riche dans le frontend
+            _rich_cards = []
+            for t in tool_calls_made:
+                r = t["result"]
+                if r.get("status") != "success":
+                    continue
+                tn = t["tool"]
+                if tn == "search_places" and r.get("places"):
+                    for p in r["places"][:5]:
+                        _rich_cards.append({
+                            "type": "place",
+                            "name": p.get("name", ""),
+                            "address": p.get("address", ""),
+                            "phone": p.get("phone", ""),
+                            "rating": p.get("rating", ""),
+                            "hours": p.get("hours", ""),
+                            "url": p.get("website", ""),
+                            "price_level": p.get("price_level", ""),
+                        })
+                elif tn == "search_web" and r.get("results"):
+                    for sr in r["results"][:5]:
+                        if isinstance(sr, dict):
+                            _rich_cards.append({
+                                "type": "web",
+                                "title": sr.get("title", ""),
+                                "snippet": sr.get("snippet", ""),
+                                "url": sr.get("link", ""),
+                            })
+                        elif isinstance(sr, str):
+                            # Results are plain strings — extract as single card
+                            _rich_cards.append({
+                                "type": "web",
+                                "title": sr[:80] + ("..." if len(sr) > 80 else ""),
+                                "snippet": sr,
+                                "url": "",
+                            })
+                elif tn == "get_weather" and r.get("actuel"):
+                    cur = r["actuel"]
+                    _rich_cards.append({
+                        "type": "weather",
+                        "city": cur.get("ville", ""),
+                        "temp": cur.get("temperature", ""),
+                        "feels_like": cur.get("ressenti", ""),
+                        "description": cur.get("description", ""),
+                        "humidity": cur.get("humidite", ""),
+                        "wind": cur.get("vent", ""),
+                        "forecasts": [
+                            {"date": f.get("date", ""), "max": f.get("max", ""), "min": f.get("min", ""), "description": f.get("description", "")}
+                            for f in (r.get("previsions") or [])[:3]
+                        ],
+                    })
+                elif tn == "get_news" and r.get("articles"):
+                    for art in r["articles"][:5]:
+                        _rich_cards.append({
+                            "type": "news",
+                            "title": art.get("titre", ""),
+                            "url": art.get("lien", ""),
+                            "source": art.get("source", ""),
+                            "date": art.get("date", ""),
+                            "snippet": art.get("resume", ""),
+                        })
+                elif tn == "search_flights" and r.get("flights"):
+                    for fl in r["flights"][:5]:
+                        _rich_cards.append({
+                            "type": "flight",
+                            "airline": fl.get("airline", ""),
+                            "price": fl.get("price", ""),
+                            "summary": fl.get("summary", ""),
+                        })
+                elif tn == "search_hotels" and r.get("hotels"):
+                    for h in r["hotels"][:5]:
+                        _rich_cards.append({
+                            "type": "hotel",
+                            "name": h.get("name", ""),
+                            "stars": h.get("stars", ""),
+                            "city": h.get("city", ""),
+                            "price_per_night": h.get("price_per_night", ""),
+                            "room_type": h.get("room_type", ""),
+                        })
+                elif tn == "book_restaurant" and r.get("places"):
+                    for p in r["places"][:5]:
+                        _rich_cards.append({
+                            "type": "place",
+                            "name": p.get("name", ""),
+                            "address": p.get("address", ""),
+                            "phone": p.get("phone", ""),
+                            "rating": p.get("rating", ""),
+                            "hours": p.get("hours", ""),
+                            "url": p.get("website", ""),
+                            "price_level": p.get("price_level", ""),
+                        })
+            if _rich_cards:
+                resp["cards"] = _rich_cards
         return resp
 
     except openai.AuthenticationError:
+        _openai_breaker.record_failure()
         logger.error("OPENAI AUTH ERROR - cle API invalide")
         _notify_admin_health("Cle OpenAI invalide - Luna ne peut plus repondre")
         return {"response": "Luna a un souci technique. L'equipe a ete prevenue."}
     except openai.RateLimitError as e:
+        _openai_breaker.record_failure()
         err_body = getattr(e, 'body', {}) or {}
         err_type = err_body.get('error', {}).get('type', '') if isinstance(err_body, dict) else ''
         if 'insufficient_quota' in str(e) or err_type == 'insufficient_quota':
@@ -1852,31 +2678,54 @@ async def chat(req: ChatRequest, request: Request):
             logger.warning(f"OpenAI rate limit (temporaire): {e}")
             return {"response": "Petit embouteillage ! Renvoie ton message dans quelques secondes."}
     except openai.APIConnectionError:
+        _openai_breaker.record_failure()
         return {"response": "Connexion perdue une seconde ! Renvoie ton message."}
     except Exception as e:
+        _openai_breaker.record_failure()
         tenant_convs = conversations.get(str(getattr(request.state, "tenant_id", 1)), {})
         if req.session_id in tenant_convs and len(tenant_convs[req.session_id]) > 1:
             tenant_convs[req.session_id].pop()
         logger.error(f"Chat error: {type(e).__name__}: {e}")
         return {"response": "Luna a rencontre un petit probleme. Reessaie."}
+    finally:
+        _chat_semaphore.release()
 
 
 @app.get("/api/greeting")
 async def greeting(request: Request):
     try:
         tid = getattr(request.state, "tenant_id", 1)
+        mode = request.query_params.get("mode", "compagnon")
         mgr = _get_tenant_manager(tid)
         messages = [{"role": "system", "content": LUNA_SYSTEM_PROMPT}]
         # Inject subscriber name for personalized greeting
+        _sub_name = ""
         if mgr:
             try:
                 profile = mgr.get_subscriber_profile()
                 if profile and profile.first_name:
+                    _sub_name = profile.first_name
                     messages.append({"role": "system", "content":
-                        f"Tu salues {profile.first_name}. Utilise son prenom dans ton message d'accueil. Sois chaleureuse et personnelle."
+                        f"Tu salues {_sub_name}. Utilise son prenom dans ton message d'accueil. Sois chaleureuse et personnelle."
                     })
             except Exception:
                 pass
+        # Mode-aware context
+        if mode == "secretaire":
+            _sec_context = "Tu es en mode SECRETAIRE. Tu geres les documents, le budget, les rappels et la conciergerie."
+            if _redis_client and tid:
+                try:
+                    from core.secretary.redis_ops import SecretaryRedisOps
+                    _sec = SecretaryRedisOps(_redis_client, int(tid))
+                    _overdue = _sec.get_overdue_reminders()
+                    _summary = _sec.get_documents_summary()
+                    if _overdue:
+                        _sec_context += f"\nATTENTION: {len(_overdue)} rappel(s) en retard ! Mentionne-le dans ton accueil."
+                    if _summary.get("pending_count", 0) > 0:
+                        _sec_context += f"\n{_summary['pending_count']} document(s) en attente."
+                except Exception:
+                    pass
+            messages.append({"role": "system", "content": _sec_context})
         response = openai_client.chat.completions.create(
             model=OPENAI_MODEL,
             messages=messages,
@@ -1884,6 +2733,7 @@ async def greeting(request: Request):
             temperature=0.8,
             timeout=30,
         )
+        await _track_openai_cost(response)
         return {"response": response.choices[0].message.content}
     except Exception as e:
         return {"response": f"Salut ! Luna a un souci technique ({type(e).__name__}). Reessaie."}
@@ -1918,17 +2768,33 @@ async def start_call(request: Request):
     if _license_heartbeat and (_license_heartbeat.is_blocked() or _license_heartbeat.is_degraded()):
         return JSONResponse(status_code=403, content={"error": "Service non disponible"})
     tid = getattr(request.state, "tenant_id", 1)
+    # Budget guard
+    _plan = getattr(request.state, "plan", "essentiel") or "essentiel"
+    budget_err = await _check_budget_guard(tid, _plan)
+    if budget_err:
+        return JSONResponse(status_code=429, content={"error": budget_err})
     if not tavus_client or not tavus_client.is_configured:
         return JSONResponse(status_code=503, content={
             "error": "Visio non disponible",
             "mode": LUNA_MODE,
             "message": "Luna Lite n'inclut pas la visio. Passez en mode Full pour l'activer.",
         })
+    # Duree choisie par le souscripteur (minutes) — fallback sur env var
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    duration_min = body.get("duration", 0)
+    if not duration_min or duration_min <= 0:
+        duration_min = int(os.getenv("VISIO_MAX_DURATION", "60"))
+    # Securite: max 4h (240 min) pour eviter les couts Tavus astronomiques
+    duration_min = min(int(duration_min), 240)
+    visio_max = duration_min * 60  # minutes -> secondes
+
     context = build_tavus_context(
         subscriber_name=_SUBSCRIBER_NAME,
         memory_manager=tavus_client.memory,
     )
-    visio_max = int(os.getenv("VISIO_MAX_DURATION", "15")) * 60  # minutes -> secondes
     replica_id = _get_luna_replica()
     success, data = await tavus_client.create_conversation(
         tenant_id=tid,
@@ -1946,6 +2812,26 @@ async def start_call(request: Request):
         "conversation_url": data["conversation_url"],
         "conversation_id": data["conversation_id"],
     }
+
+
+@app.post("/api/call/end")
+async def end_call(request: Request):
+    """Termine une conversation Tavus (stoppe la facturation)."""
+    if not tavus_client:
+        return JSONResponse(status_code=503, content={"error": "Visio non disponible"})
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse(status_code=400, content={"error": "Body JSON invalide"})
+    conv_id = body.get("conversation_id", "").strip()
+    if not conv_id:
+        return JSONResponse(status_code=400, content={"error": "conversation_id manquant"})
+    try:
+        ended = await tavus_client.end_conversation(conv_id)
+        return {"success": True, "ended": ended}
+    except Exception as e:
+        logger.error(f"Erreur end_call: {e}")
+        return {"success": False, "error": str(e)}
 
 
 # =========================================================================
@@ -1968,6 +2854,19 @@ async def config_simli():
     return {
         "enabled": False,
     }
+
+
+@app.get("/formulaires")
+async def formulaires_page():
+    """Page FormFiller — remplissage intelligent de formulaires PDF."""
+    fpath = os.path.join(STATIC_DIR, "formulaires.html")
+    if os.path.isfile(fpath):
+        return FileResponse(fpath, headers={
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "Pragma": "no-cache",
+            "Expires": "0",
+        })
+    return JSONResponse(status_code=404, content={"error": "Formulaires non disponible"})
 
 
 @app.get("/simli")
@@ -2013,16 +2912,17 @@ async def start_voice_call(req: VoiceCallRequest, request: Request):
     success, data = await voice_client.initiate_call_async(phone)
     if not success:
         return {"error": data.get("error", "Erreur appel vocal")}
-    # Stocker les parametres personnalises pour cet appel
+    # Stocker les parametres personnalises pour cet appel (lock pour thread-safety)
     import time as _time
-    _voice_call_params[data["call_sid"]] = {
-        "mission": req.mission,
-        "max_duration": req.max_duration,
-        "greeting": req.greeting,
-        "phone": phone,
-        "tenant_id": tid,
-        "_ts": _time.time(),
-    }
+    async with _voice_call_params_lock:
+        _voice_call_params[data["call_sid"]] = {
+            "mission": req.mission,
+            "max_duration": req.max_duration,
+            "greeting": req.greeting,
+            "phone": phone,
+            "tenant_id": tid,
+            "_ts": _time.time(),
+        }
     _gamify(tid, "voice_call")
     return {"call_sid": data["call_sid"], "status": data["status"]}
 
@@ -2080,11 +2980,13 @@ async def voice_call_media_stream(websocket: WebSocket):
             # Match FIABLE par CallSid Twilio
             call_params = _voice_call_params.pop(call_sid_from_url, {})
             logger.info(f"Voice call params matched by CallSid: {call_sid_from_url}")
-        elif _voice_call_params:
-            # Fallback : prend le plus recent (compatibilite arriere)
-            call_sid_fallback = list(_voice_call_params.keys())[-1]
+        elif _voice_call_params and len(_voice_call_params) == 1:
+            # Fallback UNIQUEMENT si un seul appel en attente (evite croisement sous appels concurrents)
+            call_sid_fallback = list(_voice_call_params.keys())[0]
             call_params = _voice_call_params.pop(call_sid_fallback, {})
-            logger.warning(f"Voice call params fallback (no CallSid match): using {call_sid_fallback}")
+            logger.warning(f"Voice call params single-fallback: using {call_sid_fallback}")
+        elif _voice_call_params:
+            logger.error(f"Voice call params: {len(_voice_call_params)} pending calls, no CallSid match — using defaults")
 
         mission = call_params.get("mission")
         max_dur = call_params.get("max_duration") or int(os.getenv("VOICE_MAX_DURATION", "180"))
@@ -2093,6 +2995,15 @@ async def voice_call_media_stream(websocket: WebSocket):
 
         # Contexte Luna pour l'appel vocal
         memory_mgr = tavus_client.memory if tavus_client else _memory_manager
+
+        # Detect subscriber language preference
+        _voice_lang = "fr"
+        if _redis_client:
+            try:
+                _vs = _redis_client.client.hgetall(f"luna:{TENANT_ID}:settings")
+                _voice_lang = _vs.get("language", "fr") if _vs else "fr"
+            except Exception:
+                pass
 
         if mission:
             # Mission speciale : contexte adapte (appel sortant vers un contact)
@@ -2103,6 +3014,9 @@ async def voice_call_media_stream(websocket: WebSocket):
                 max_duration_minutes=max(1, max_dur // 60),
                 mission=mission,
                 contact_name=contact_name,
+                redis_client=_redis_client,
+                tenant_id=TENANT_ID,
+                language=_voice_lang,
             )
             # Le greeting est une instruction pour que Luna parle en premier
             # On formule comme un declencheur, pas comme un message du contact
@@ -2111,6 +3025,9 @@ async def voice_call_media_stream(websocket: WebSocket):
             context = build_voice_context(
                 subscriber_name=_SUBSCRIBER_NAME,
                 memory_manager=memory_mgr,
+                redis_client=_redis_client,
+                tenant_id=TENANT_ID,
+                language=_voice_lang,
             )
             greeting_text = custom_greeting or f"L'utilisateur vient de decrocher le telephone. Salue {_SUBSCRIBER_NAME} chaleureusement et demande comment tu peux l'aider."
 
@@ -2136,8 +3053,26 @@ async def voice_call_media_stream(websocket: WebSocket):
                 return await _tool_call_contact(args)
             elif name == "search_web":
                 return await _tool_search_web(args)
-            elif name == "request_payment":
-                return await _tool_request_payment(args)
+            elif name == "search_places":
+                return await _tool_search_places(args)
+            elif name == "get_page_info":
+                return await _tool_get_page_info(args)
+            elif name == "get_player_stats":
+                return await _tool_get_player_stats()
+            elif name == "get_active_missions":
+                return await _tool_get_active_missions()
+            elif name == "get_badges":
+                return await _tool_get_badges()
+            elif name == "get_weather":
+                return await _tool_get_weather(args)
+            elif name == "get_news":
+                return await _tool_get_news(args)
+            elif name == "search_flights":
+                return await _tool_search_flights(args)
+            elif name == "search_hotels":
+                return await _tool_search_hotels(args)
+            elif name == "book_restaurant":
+                return await _tool_book_restaurant(args)
             else:
                 return {"status": "error", "message": f"Fonction inconnue: {name}"}
 
@@ -2153,11 +3088,74 @@ async def voice_call_media_stream(websocket: WebSocket):
         await bridge.run()
         _voice_duration_min = round((time.time() - _voice_start) / 60, 2)
 
+        # Clear active call tracker
+        _voice_tid_done = call_params.get("tenant_id") or TENANT_ID
+        _active_voice_calls.pop(_voice_tid_done, None)
+
         # Sauvegarder la transcription dans Redis
         try:
             _save_voice_transcript(bridge, memory_mgr)
         except Exception as e:
             logger.warning(f"Failed to save voice transcript: {e}")
+
+        # Sauvegarder un rapport structuré pour TOUS les appels vocaux
+        if bridge.transcript and memory_mgr:
+            try:
+                from datetime import timedelta
+                from zoneinfo import ZoneInfo as _ZI
+                _voice_end_time = datetime.now(_ZI("Europe/Paris"))
+                _voice_start_time = _voice_end_time - timedelta(minutes=_voice_duration_min)
+                _call_contact_name = call_params.get("contact_name", "")
+                _participants = [_SUBSCRIBER_NAME]
+                if _call_contact_name:
+                    _participants.append(_call_contact_name)
+
+                _call_summary_text = await _generate_call_summary(bridge.transcript)
+                _structured_report = {
+                    "type": "audio",
+                    "participants": _participants,
+                    "start_time": _voice_start_time.strftime("%H:%M"),
+                    "end_time": _voice_end_time.strftime("%H:%M"),
+                    "duration_minutes": _voice_duration_min,
+                    "message_count": len(bridge.transcript),
+                    "summary": _call_summary_text,
+                }
+                memory_mgr.add_note(
+                    content=f"[Compte rendu appel vocal]\nType: audio\nParticipants: {', '.join(_participants)}\nDebut: {_structured_report['start_time']}\nFin: {_structured_report['end_time']}\nDuree: {_voice_duration_min:.1f} min\nEchanges: {len(bridge.transcript)}\nResume: {_call_summary_text}",
+                    context="structured_call_report",
+                    tags=["rapport", "appel_vocal", "structure"],
+                )
+                logger.info(f"Structured call report saved ({_voice_duration_min:.1f} min)")
+                # Injecter le compte-rendu dans le fil de discussion chat
+                _report_session = call_params.get("session_id", "default")
+                _report_chat_msg = (
+                    f"Compte-rendu de mon appel avec {_call_contact_name} "
+                    f"({_voice_duration_min:.1f} min) :\n\n"
+                    f"{_call_summary_text}"
+                )
+                # Add to Redis conversation
+                if memory_mgr:
+                    try:
+                        memory_mgr.add_message(
+                            conv_id=_report_session,
+                            role=MessageRole.LUNA,
+                            content=_report_chat_msg,
+                            channel=Channel.APP,
+                        )
+                        logger.info(f"Call report injected into chat session {_report_session}")
+                    except Exception as _chat_err:
+                        logger.warning(f"Failed to inject call report into chat: {_chat_err}")
+                # Also add to in-memory conversations for immediate visibility
+                _tid_str = str(call_params.get("tenant_id") or TENANT_ID)
+                _tenant_convs = conversations.get(_tid_str, {})
+                if _report_session in _tenant_convs:
+                    _tenant_convs[_report_session].append({
+                        "role": "assistant",
+                        "content": _report_chat_msg,
+                    })
+
+            except Exception as e:
+                logger.warning(f"Failed to save structured call report: {e}")
 
         # Generer le rapport PDF si c'est un appel sortant avec contact
         _voice_tid = call_params.get("tenant_id") or TENANT_ID
@@ -2189,6 +3187,57 @@ async def voice_call_media_stream(websocket: WebSocket):
                         context="call_report",
                         tags=["rapport", "appel_vocal", _voice_contact],
                     )
+
+                # Envoyer le rapport PDF par email au souscripteur
+                _sub_email = ""
+                if _redis_client:
+                    try:
+                        _auth = _redis_client.get_auth_by_tenant_id(_voice_tid)
+                        _sub_email = _auth.get("email", "") if _auth else ""
+                    except Exception:
+                        pass
+                if not _sub_email and memory_mgr:
+                    try:
+                        _prof = memory_mgr.get_subscriber_profile()
+                        _sub_email = getattr(_prof, "email", "") if _prof else ""
+                    except Exception:
+                        pass
+
+                if _sub_email and email_client:
+                    _sub_name = call_params.get("subscriber_name", _SUBSCRIBER_NAME)
+                    _pdf_path = os.path.join(_doc_generator.output_dir, _report_filename)
+                    try:
+                        _summary_text = _call_summary_text
+                    except NameError:
+                        _summary_text = "Rapport disponible en piece jointe."
+                    try:
+                        _email_ok, _email_detail = await email_client.send_for_tenant(
+                            tenant_id=_voice_tid,
+                            redis_client=_redis_client,
+                            gmail_client=None,
+                            to=_sub_email,
+                            subject=f"Luna — Compte-rendu d'appel avec {_voice_contact}",
+                            body_text=(
+                                f"Bonjour {_sub_name},\n\n"
+                                f"Voici le compte-rendu de mon appel avec {_voice_contact} "
+                                f"(duree: {_voice_duration_min:.1f} min).\n\n"
+                                f"Resume: {_summary_text}\n\n"
+                                f"Le rapport complet est en piece jointe.\n\n"
+                                f"A bientot,\nLuna"
+                            ),
+                            subscriber_name=_sub_name,
+                            attachments=[{
+                                "filename": _report_filename,
+                                "filepath": _pdf_path,
+                                "type": "application/pdf",
+                            }],
+                        )
+                        if _email_ok:
+                            logger.info(f"Call report emailed to {_sub_email}")
+                        else:
+                            logger.warning(f"Failed to email call report: {_email_detail}")
+                    except Exception as _email_err:
+                        logger.warning(f"Failed to email call report: {_email_err}")
             except Exception as e:
                 logger.warning(f"Failed to generate call report PDF: {e}")
 
@@ -2221,6 +3270,362 @@ async def voice_call_media_stream(websocket: WebSocket):
             await websocket.close()
         except Exception:
             pass
+
+
+# =========================================================================
+# LUNA VOICE — Mode Jarvis (voix directe navigateur <-> OpenAI Realtime)
+# =========================================================================
+@app.websocket("/ws/luna-voice")
+async def ws_luna_voice(websocket: WebSocket):
+    """WebSocket voix directe : navigateur <-> OpenAI Realtime API (mode Jarvis)."""
+    await websocket.accept()
+
+    # Auth via query param token
+    token = websocket.query_params.get("token", "")
+    jwt_payload = _decode_client_token(token) if token else None
+    if not jwt_payload:
+        await websocket.close(code=4001, reason="Token invalide")
+        return
+
+    # Verifier que la cle API est disponible
+    if not OPENAI_API_KEY:
+        try:
+            await websocket.send_text(json.dumps({"type": "error", "message": "Service vocal non configure"}))
+        except Exception:
+            pass
+        await websocket.close(code=1011, reason="Service non configure")
+        return
+
+    tid = jwt_payload.get("tenant_id", TENANT_ID)
+    plan_name = jwt_payload.get("plan", "essentiel")
+    sub_name = jwt_payload.get("first_name", "") or _SUBSCRIBER_NAME
+
+    # Budget guard — bloquer si cout API mensuel depasse
+    budget_err = await _check_budget_guard(tid, plan_name)
+    if budget_err:
+        try:
+            await websocket.send_text(json.dumps({"type": "error", "message": budget_err}))
+        except Exception:
+            pass
+        await websocket.close(code=1011, reason="Budget depasse")
+        return
+
+    from integrations.openai.web_voice_bridge import WebVoiceBridge
+    from integrations.openai.realtime_bridge import build_voice_context
+
+    memory_mgr = tavus_client.memory if tavus_client else _memory_manager
+
+    # Detect language
+    _voice_lang = "fr"
+    if _redis_client:
+        try:
+            _vs = _redis_client.client.hgetall(f"luna:{tid}:settings")
+            _voice_lang = _vs.get("language", "fr") if _vs else "fr"
+        except Exception:
+            pass
+
+    context = build_voice_context(
+        subscriber_name=sub_name,
+        memory_manager=memory_mgr,
+        max_duration_minutes=30,
+        redis_client=_redis_client,
+        tenant_id=tid,
+        language=_voice_lang,
+    )
+    # Jarvis mode: enrichir le contexte pour une assistante toujours disponible
+    context = context.replace(
+        "Tu es en appel telephonique avec",
+        "Tu es en conversation vocale directe avec"
+    )
+    context += """
+
+=== MODE ASSISTANT VOCAL DIRECT ===
+Tu es l'assistante vocale personnelle de {sub}, accessible a tout moment.
+Comme un assistant intelligent, tu dois maitriser en permanence :
+- QUI : tu connais {sub}, ses contacts, sa situation, son profil
+- OU : si {sub} te le dit ou si la geolocalisation est disponible
+- QUOI : ce que {sub} fait, ses projets, ses rendez-vous, ses habitudes
+- COMMENT : comment l'aider au mieux (actions concretes, pas juste des conseils)
+- POURQUOI : comprendre le contexte et l'intention derriere chaque demande
+
+Tu es proactive mais respectueuse. Tu peux suggerer, rappeler, anticiper.
+Tes reponses sont courtes et percutantes — c'est une conversation orale.
+Tu es toujours disponible, toujours a l'ecoute.
+
+=== MONDE LUNA (Social) ===
+{sub} a peut-etre des amis dans le Monde Luna. Tu peux :
+- Voir qui est en ligne (get_friends_online)
+- Envoyer un message prive a un ami (send_dm_voice)
+- Donner le code ami de {sub} pour ajouter des amis (get_my_friend_code)
+Fais bien la difference entre CONTACTS DE CONFIANCE (famille/proches, SMS/appel/email)
+et AMIS LUNA (autres souscripteurs dans le Monde, DM dans l'app).
+
+=== PERCEPTION VISUELLE ===
+Si la camera est activee, tu peux regarder ce que {sub} voit (look_around).
+Tu peux commenter la scene, identifier des objets, ou observer les personnes presentes.
+Ne dis JAMAIS "je surveille" — dis "je vois que...", "j'ai l'impression que...".
+
+=== SECRETAIRE PERSONNELLE ===
+Tu es aussi la secretaire personnelle de {sub}. Tu geres ses documents, son budget et ses rappels :
+- Voir un resume des documents (get_documents_summary) — factures, courriers, relances
+- Analyser le budget (get_budget_analysis) — depenses, reste a vivre, previsions
+- Verifier si une depense est raisonnable (check_affordability) — "est-ce que je peux me permettre X ?"
+- Enregistrer une depense ou un revenu (add_expense)
+- Voir les rappels et echeances (get_reminders) — factures a payer, rendez-vous
+- Creer un rappel (add_reminder) — "rappelle-moi de payer EDF avant le 15"
+- Chercher un document (search_documents) — "retrouve ma facture Orange"
+- Voir les dossiers classes (list_folders) — Factures/, Contrats/, Fiches de paie/, etc.
+Sois proactive : si {sub} parle d'argent, propose de verifier le budget.
+Si il parle d'un courrier ou d'une facture, propose de chercher dans ses documents.
+Aide-le a y voir clair, simplement, sans jargon.
+""".format(sub=sub_name)
+
+    # Tool handler (meme que pour Twilio)
+    async def handle_voice_tool(name: str, args: dict) -> dict:
+        if name == "send_sms":
+            return await _tool_send_sms(args)
+        elif name == "create_instruction":
+            return await _tool_create_instruction(args)
+        elif name == "create_note":
+            return await _tool_create_note(args)
+        elif name == "get_contacts":
+            return await _tool_get_contacts()
+        elif name == "generate_document":
+            return await _tool_generate_document(args)
+        elif name == "alert_contacts":
+            return await _tool_alert_contacts(args)
+        elif name == "send_email":
+            return await _tool_send_email(args)
+        elif name == "invite_visio":
+            return await _tool_invite_visio(args)
+        elif name == "call_contact":
+            return await _tool_call_contact(args)
+        elif name == "search_web":
+            return await _tool_search_web(args)
+        elif name == "search_places":
+            return await _tool_search_places(args)
+        elif name == "get_page_info":
+            return await _tool_get_page_info(args)
+        elif name == "get_player_stats":
+            return await _tool_get_player_stats()
+        elif name == "get_active_missions":
+            return await _tool_get_active_missions()
+        elif name == "get_badges":
+            return await _tool_get_badges()
+        elif name == "get_weather":
+            return await _tool_get_weather(args)
+        elif name == "get_news":
+            return await _tool_get_news(args)
+        elif name == "search_flights":
+            return await _tool_search_flights(args)
+        elif name == "search_hotels":
+            return await _tool_search_hotels(args)
+        elif name == "book_restaurant":
+            return await _tool_book_restaurant(args)
+        elif name == "get_friends_online":
+            return await _voice_tool_get_friends_online(tid)
+        elif name == "send_dm_voice":
+            return await _voice_tool_send_dm(tid, args)
+        elif name == "get_my_friend_code":
+            return await _voice_tool_get_friend_code(tid)
+        elif name == "look_around":
+            return await _voice_tool_look_around(tid)
+        # Secretary tools
+        elif name == "get_documents_summary":
+            return _tool_secretary_summary(tid)
+        elif name == "get_budget_analysis":
+            return _tool_secretary_budget(tid)
+        elif name == "check_affordability":
+            return _tool_secretary_afford(tid, args)
+        elif name == "add_expense":
+            return _tool_secretary_add_expense(tid, args)
+        elif name == "get_reminders":
+            return _tool_secretary_reminders(tid)
+        elif name == "add_reminder":
+            return _tool_secretary_add_reminder(tid, args)
+        elif name == "search_documents":
+            return _tool_secretary_search(tid, args)
+        elif name == "list_folders":
+            return _tool_secretary_folders(tid)
+        else:
+            return {"status": "error", "message": f"Fonction inconnue: {name}"}
+
+    _greeting = f"{sub_name} vient d'activer le mode vocal. Salue-le brievement et demande ce que tu peux faire pour lui."
+
+    bridge = WebVoiceBridge(
+        openai_api_key=OPENAI_API_KEY,
+        ws_client=websocket,
+        context=context,
+        tool_handler=handle_voice_tool,
+        voice=os.getenv("OPENAI_VOICE_NAME", "alloy"),
+        max_duration_seconds=1800,
+        greeting=_greeting,
+    )
+
+    _voice_start = time.time()
+    try:
+        await bridge.run()
+    except WebSocketDisconnect:
+        logger.info("Luna Voice WS disconnected")
+    except asyncio.CancelledError:
+        logger.info("Luna Voice cancelled")
+    except Exception as e:
+        logger.error(f"Luna Voice error: {e}")
+    finally:
+        _voice_dur = round((time.time() - _voice_start) / 60, 2)
+
+        # Sauvegarder la transcription
+        if bridge.transcript and memory_mgr:
+            try:
+                conv_id = f"voice_web_{int(time.time())}"
+                for entry in bridge.transcript:
+                    role = MessageRole.SUBSCRIBER if entry["role"] == "user" else MessageRole.LUNA
+                    try:
+                        memory_mgr.add_message(
+                            conv_id=conv_id, role=role,
+                            content=entry["text"], channel=Channel.CALL,
+                        )
+                    except Exception:
+                        pass
+                logger.info(f"Luna Voice transcript saved: {conv_id} ({len(bridge.transcript)} entries, {_voice_dur:.1f}min)")
+
+                # Auto-generer un compte rendu structure si conversation > 2 echanges
+                if len(bridge.transcript) >= 4 and openai_client:
+                    try:
+                        _transcript_text = "\n".join(
+                            f"{'Utilisateur' if e['role'] == 'user' else 'Luna'}: {e['text']}"
+                            for e in bridge.transcript
+                        )
+                        _summary_resp = openai_client.chat.completions.create(
+                            model=OPENAI_MODEL,
+                            messages=[
+                                {"role": "system", "content": "Tu generes des comptes rendus concis de conversations vocales. Format: 1) Resume (2-3 phrases), 2) Points cles (liste), 3) Actions a suivre (si applicable). En francais."},
+                                {"role": "user", "content": f"Voici la transcription d'une conversation vocale de {_voice_dur:.1f} minutes:\n\n{_transcript_text[:3000]}\n\nGenere le compte rendu."},
+                            ],
+                            max_tokens=400,
+                            temperature=0.3,
+                        )
+                        _summary_text = _summary_resp.choices[0].message.content.strip()
+                        memory_mgr.add_note(
+                            content=f"[Compte rendu vocal — {_voice_dur:.1f}min, {len(bridge.transcript)} echanges]\n\n{_summary_text}",
+                            context="voice_summary",
+                            tags=["vocal", "compte_rendu", "auto"],
+                        )
+                        # Stocker aussi dans Redis pour le frontend
+                        if _redis_client:
+                            import json as _json_cr
+                            _cr_data = _json_cr.dumps({
+                                "type": "voice_summary",
+                                "summary": _summary_text,
+                                "duration_min": _voice_dur,
+                                "exchanges": len(bridge.transcript),
+                                "ts": time.time(),
+                            })
+                            _redis_client.client.rpush(f"luna:{tid}:notifications:pending", _cr_data)
+                            _redis_client.client.expire(f"luna:{tid}:notifications:pending", 86400)
+                        logger.info(f"Voice summary generated for tenant {tid}")
+                    except Exception as e:
+                        logger.warning(f"Voice summary generation failed: {e}")
+
+            except Exception as e:
+                logger.warning(f"Failed to save Luna Voice transcript: {e}")
+
+        # Tracker les minutes vocales
+        if _voice_dur > 0.1:
+            try:
+                cortex = get_cortex() if _CORTEX_AVAILABLE else None
+                if cortex and hasattr(cortex, "cost_tracker") and cortex.cost_tracker:
+                    await cortex.cost_tracker.track_voice_tenant(tid, _voice_dur)
+            except Exception:
+                pass
+
+        # Fermer le WebSocket client proprement
+        try:
+            await websocket.close()
+        except Exception:
+            pass
+
+
+# =========================================================================
+# DM WEBSOCKET — Temps reel pour les messages prives
+# =========================================================================
+_dm_subscribers: Dict[str, set] = {}  # room_id -> set of (tid, websocket)
+
+@app.websocket("/ws/dm/{room_id}")
+async def ws_dm(websocket: WebSocket, room_id: str):
+    """WebSocket temps reel pour les DMs. Remplace le polling 5s."""
+    await websocket.accept()
+    token = websocket.query_params.get("token", "")
+    jwt_payload = _decode_client_token(token) if token else None
+    if not jwt_payload:
+        await websocket.close(code=4001, reason="Token invalide")
+        return
+    tid = jwt_payload.get("tenant_id", TENANT_ID)
+
+    # Verify access to this room
+    if not _redis_client:
+        await websocket.close(code=1011)
+        return
+    from core.social.redis_ops import SocialRedisOps
+    sops = SocialRedisOps(_redis_client)
+    room = sops.get_dm_room(room_id)
+    if not room or str(tid) not in (room.get("tid1", ""), room.get("tid2", "")):
+        await websocket.close(code=4003, reason="Acces refuse")
+        return
+
+    # Mark as read on connect
+    sops.mark_dm_read(tid, room_id)
+
+    # Register subscriber
+    entry = (str(tid), websocket)
+    if room_id not in _dm_subscribers:
+        _dm_subscribers[room_id] = set()
+    _dm_subscribers[room_id].add(entry)
+
+    try:
+        async for message in websocket.iter_text():
+            try:
+                data = json.loads(message)
+            except json.JSONDecodeError:
+                continue
+            if data.get("type") == "message":
+                text = (data.get("text", "") or "").strip()
+                if not text or len(text) > 500:
+                    continue
+                # Check block
+                other_tid = room.get("tid2") if str(room.get("tid1")) == str(tid) else room.get("tid1")
+                if sops.is_blocked(tid, other_tid) or sops.is_blocked(other_tid, tid):
+                    continue
+                msg = sops.add_dm_message(room_id, tid, text)
+                # Broadcast to all subscribers in this room
+                payload = json.dumps({"type": "message", "message": msg})
+                dead = []
+                for sub_tid, sub_ws in _dm_subscribers.get(room_id, set()):
+                    try:
+                        await sub_ws.send_text(payload)
+                        # Mark as read for the person who has the DM open
+                        if sub_tid != str(tid):
+                            sops.mark_dm_read(sub_tid, room_id)
+                    except Exception:
+                        dead.append((sub_tid, sub_ws))
+                for d in dead:
+                    _dm_subscribers.get(room_id, set()).discard(d)
+            elif data.get("type") == "typing":
+                payload = json.dumps({"type": "typing", "tid": str(tid)})
+                for sub_tid, sub_ws in _dm_subscribers.get(room_id, set()):
+                    if sub_tid != str(tid):
+                        try:
+                            await sub_ws.send_text(payload)
+                        except Exception:
+                            pass
+    except WebSocketDisconnect:
+        pass
+    except Exception as e:
+        logger.debug(f"DM WS error: {e}")
+    finally:
+        _dm_subscribers.get(room_id, set()).discard(entry)
+        if room_id in _dm_subscribers and not _dm_subscribers[room_id]:
+            del _dm_subscribers[room_id]
 
 
 def _save_voice_transcript(bridge, memory_mgr):
@@ -2260,6 +3665,59 @@ def _save_voice_transcript(bridge, memory_mgr):
         logger.info(f"Voice transcript saved: {conv_id} ({len(bridge.transcript)} entries)")
     except Exception as e:
         logger.error(f"Error saving voice transcript: {e}")
+
+
+async def _generate_call_summary(transcript: list) -> str:
+    """Resume factuel d'un appel vocal via LLM (gpt-4o-mini)."""
+    if not transcript:
+        return "Aucun echange."
+    text_parts = []
+    for e in transcript[:50]:
+        speaker = "Souscripteur" if e.get("role") == "user" else "Luna"
+        text_parts.append(f"{speaker}: {e.get('text', '')}")
+    text = "\n".join(text_parts)
+    try:
+        resp = openai_client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": "Resume factuel d'un appel telephonique. Sois concis (3-5 phrases). Ne mentionne QUE ce qui a ete reellement dit. N'invente rien. N'ajoute pas de details techniques."},
+                {"role": "user", "content": f"Transcription:\n{text[:3000]}"},
+            ],
+            max_tokens=200,
+            temperature=0.3,
+        )
+        await _track_openai_cost(resp)
+        return resp.choices[0].message.content or "Resume non disponible."
+    except Exception as e:
+        logger.warning(f"Failed to generate call summary: {e}")
+        return f"Appel de {len(transcript)} echanges."
+
+
+async def _generate_visio_summary(transcript: list, conversation_id: str, duration_min: float) -> str:
+    """Resume factuel d'un appel visio via LLM (gpt-4o-mini)."""
+    if not transcript:
+        return f"[Resume visio | {duration_min:.0f} min] Aucun echange."
+    entries = []
+    for e in transcript[:60]:
+        speaker = "Luna" if e.get("speaker") == "replica" else "Souscripteur"
+        entries.append(f"{speaker}: {e.get('text', '')}")
+    text = "\n".join(entries)
+    try:
+        resp = openai_client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": "Tu resumes un appel video. Genere un resume structure avec: 1) Sujets abordes 2) Actions demandees 3) Humeur generale. Sois factuel et concis (5-8 phrases max). Ne mentionne aucune donnee technique."},
+                {"role": "user", "content": f"Transcription d'un appel visio de {duration_min:.0f} minutes:\n{text[:4000]}"},
+            ],
+            max_tokens=300,
+            temperature=0.3,
+        )
+        await _track_openai_cost(resp)
+        summary = resp.choices[0].message.content or ""
+        return f"[Compte rendu visio | {duration_min:.0f} min | {len(transcript)} echanges]\n{summary}"
+    except Exception as e:
+        logger.warning(f"Failed to generate visio summary: {e}")
+        return f"[Resume visio | {duration_min:.0f} min | {len(transcript)} echanges]\nResume automatique non disponible."
 
 
 # =========================================================================
@@ -2407,7 +3865,7 @@ async def webhook_sms(request: Request):
             logger.info(f"Visio invite accepted by {invite['contact_name']} ({normalized_from})")
             # Cree la conversation Tavus
             try:
-                visio_max = int(os.getenv("VISIO_MAX_DURATION", "15")) * 60  # minutes -> secondes
+                visio_max = int(os.getenv("VISIO_MAX_DURATION", "60")) * 60  # minutes -> secondes
                 sub_name = invite["subscriber_name"]
                 contact = invite["contact_name"]
 
@@ -2809,7 +4267,8 @@ async def auth_register(req: RegisterRequest):
         mgr = _get_tenant_manager(tenant_id)
         mgr.set_subscriber_profile(profile)
 
-    token = _create_client_token(tenant_id, email, "essentiel")
+    fname = req.first_name or email.split("@")[0]
+    token = _create_client_token(tenant_id, email, "essentiel", first_name=fname)
     # Initialize gamification player
     if _GAMIFICATION_AVAILABLE and _redis_client:
         try:
@@ -2819,7 +4278,7 @@ async def auth_register(req: RegisterRequest):
             pass
     _gamify("admin", "new_client", is_admin=True)
     logger.info(f"AUTH_REGISTER tenant_id={tenant_id} email={email}")
-    return {"token": token, "tenant_id": tenant_id, "plan": "essentiel"}
+    return {"token": token, "tenant_id": tenant_id, "plan": "essentiel", "first_name": fname}
 
 
 @app.post("/api/auth/login")
@@ -2849,7 +4308,7 @@ async def auth_login(req: LoginRequest):
         if profile:
             first_name = profile.get("first_name", "")
 
-    token = _create_client_token(tenant_id, email, plan)
+    token = _create_client_token(tenant_id, email, plan, first_name=first_name)
     _gamify(tenant_id, "daily_login")
     logger.info(f"AUTH_LOGIN tenant_id={tenant_id} email={email}")
     return {"token": token, "tenant_id": tenant_id, "plan": plan, "first_name": first_name}
@@ -3178,12 +4637,213 @@ async def stripe_webhook(request: Request):
                 plan = _price_id_to_plan(price_id)
                 logger.info(f"STRIPE_SUB_CREATED customer={customer_id} plan={plan}")
 
+        # --- payment_intent.succeeded (conciergerie) ---
+        elif event_type == "payment_intent.succeeded":
+            metadata = data.get("metadata", {})
+            if metadata.get("type") == "concierge":
+                tenant_id_str = metadata.get("tenant_id", "")
+                merchant = metadata.get("merchant", "")
+                base_cents = int(metadata.get("base_amount_cents", 0))
+                comm_cents = int(metadata.get("commission_cents", 0))
+                total_cents = data.get("amount", 0)
+                intent_id = data.get("id", "")
+                logger.info(
+                    f"CONCIERGE_PAYMENT_SUCCESS tenant={tenant_id_str} "
+                    f"merchant={merchant} total={total_cents/100:.2f}EUR "
+                    f"commission={comm_cents/100:.2f}EUR ref={intent_id}"
+                )
+                # Enregistrer la commission en Redis pour le dashboard admin
+                if _redis_client and tenant_id_str:
+                    try:
+                        import json as _json_comm
+                        commission_record = {
+                            "intent_id": intent_id,
+                            "tenant_id": tenant_id_str,
+                            "merchant": merchant,
+                            "base_amount_cents": base_cents,
+                            "commission_cents": comm_cents,
+                            "total_cents": total_cents,
+                            "timestamp": time.time(),
+                        }
+                        _redis_client.client.rpush(
+                            f"{_redis_client.prefix}:concierge:commissions",
+                            _json_comm.dumps(commission_record),
+                        )
+                        # Incrementer le total des commissions
+                        _redis_client.client.incrbyfloat(
+                            f"{_redis_client.prefix}:concierge:total_commission_cents",
+                            comm_cents,
+                        )
+                    except Exception as e:
+                        logger.error(f"Error recording commission: {e}")
+                # Log dans le memory manager du tenant
+                tid = int(tenant_id_str) if tenant_id_str else 0
+                if tid:
+                    try:
+                        t_mgr = _get_tenant_manager(tid)
+                        if t_mgr:
+                            t_mgr.log_event(
+                                category="action",
+                                description=f"Paiement conciergerie confirme: {total_cents/100:.2f} EUR pour {merchant}",
+                                reasoning="Paiement valide par le souscripteur",
+                                source="stripe_webhook",
+                            )
+                    except Exception:
+                        pass
+
         return {"received": True}
     except ImportError:
         return JSONResponse(status_code=500, content={"error": "Service de paiement non disponible"})
     except Exception as e:
         logger.warning(f"Stripe webhook invalide: {e}")
         return JSONResponse(status_code=400, content={"error": f"Signature invalide: {e}"})
+
+
+@app.post("/api/payment/confirm/{intent_id}")
+async def confirm_concierge_payment(intent_id: str, request: Request):
+    """
+    Le souscripteur confirme un paiement conciergerie.
+    Appele depuis l'interface quand il appuie sur "Confirmer le paiement".
+    """
+    import stripe as _stripe
+    _stripe_secret = os.getenv("STRIPE_SECRET_KEY", "") or os.getenv("STRIPE_API_KEY", "")
+    if not _stripe_secret:
+        return JSONResponse(status_code=500, content={"error": "Stripe non configure"})
+    _stripe.api_key = _stripe_secret
+
+    # Recuperer le tenant_id du souscripteur connecte
+    current_tid = str(getattr(request.state, "tenant_id", 0))
+    if not current_tid or current_tid == "0":
+        return JSONResponse(status_code=401, content={"error": "Authentification requise"})
+
+    try:
+        # Recuperer le PaymentIntent
+        intent = _stripe.PaymentIntent.retrieve(intent_id)
+
+        # Verifier que c'est bien un paiement conciergerie
+        if intent.metadata.get("type") != "concierge":
+            return JSONResponse(status_code=403, content={"error": "Ce paiement n'est pas un paiement conciergerie"})
+
+        # Verifier que le paiement appartient au bon tenant
+        if intent.metadata.get("tenant_id") != current_tid:
+            return JSONResponse(status_code=403, content={"error": "Non autorise"})
+
+        # Verifier qu'il n'est pas deja confirme
+        if intent.status in ("succeeded", "processing"):
+            return {"status": "already_confirmed", "message": "Ce paiement a deja ete confirme."}
+
+        if intent.status == "canceled":
+            return JSONResponse(status_code=410, content={"error": "Ce paiement a ete annule."})
+
+        # Confirmer le paiement
+        confirmed = _stripe.PaymentIntent.confirm(intent_id)
+
+        total_eur = confirmed.amount / 100
+        merchant = confirmed.metadata.get("merchant", "")
+        commission_eur = int(confirmed.metadata.get("commission_cents", 0)) / 100
+
+        logger.info(
+            f"CONCIERGE_PAYMENT_CONFIRMED intent={intent_id} "
+            f"amount={total_eur:.2f}EUR merchant={merchant}"
+        )
+
+        return {
+            "status": "confirmed",
+            "message": f"Paiement de {total_eur:.2f} EUR confirme pour {merchant}.",
+            "amount_eur": total_eur,
+            "commission_eur": commission_eur,
+        }
+
+    except _stripe.error.CardError as e:
+        logger.warning(f"Card error on confirm: {e}")
+        return JSONResponse(status_code=402, content={
+            "error": f"Carte refusee: {str(e)[:100]}",
+            "status": "card_error",
+        })
+    except _stripe.error.StripeError as e:
+        logger.error(f"Stripe confirm error: {e}")
+        return JSONResponse(status_code=500, content={"error": f"Erreur Stripe: {str(e)[:100]}"})
+    except Exception as e:
+        logger.error(f"Payment confirm error: {e}")
+        return JSONResponse(status_code=500, content={"error": "Erreur lors de la confirmation"})
+
+
+@app.get("/api/payment/pending")
+async def get_pending_payments(request: Request):
+    """Liste les paiements conciergerie en attente de confirmation pour le souscripteur."""
+    import stripe as _stripe
+    _stripe_secret = os.getenv("STRIPE_SECRET_KEY", "") or os.getenv("STRIPE_API_KEY", "")
+    if not _stripe_secret:
+        return {"pending_payments": [], "count": 0}
+    _stripe.api_key = _stripe_secret
+
+    # Utiliser le tenant_id injecte par le middleware (pas de scan Redis)
+    tid = getattr(request.state, "tenant_id", 0)
+    if not tid:
+        return JSONResponse(status_code=401, content={"error": "Authentification requise"})
+
+    try:
+        # Chercher les PaymentIntents de type concierge en attente
+        intents = _stripe.PaymentIntent.list(
+            limit=20,
+            created={"gte": int(time.time()) - 86400 * 7},  # 7 derniers jours
+        )
+        pending = []
+        for pi in intents.auto_paging_iter():
+            meta = pi.metadata or {}
+            if meta.get("type") != "concierge":
+                continue
+            if meta.get("tenant_id") != str(tid):
+                continue
+            if pi.status not in ("requires_confirmation", "requires_payment_method"):
+                continue
+            pending.append({
+                "id": pi.id,
+                "amount_eur": pi.amount / 100,
+                "base_amount_eur": int(meta.get("base_amount_cents", 0)) / 100,
+                "commission_eur": int(meta.get("commission_cents", 0)) / 100,
+                "merchant": meta.get("merchant", ""),
+                "description": pi.description or "",
+                "created": pi.created,
+            })
+            if len(pending) >= 10:
+                break
+
+        return {"pending_payments": pending, "count": len(pending)}
+
+    except Exception as e:
+        logger.error(f"Error listing pending payments: {e}")
+        return JSONResponse(status_code=500, content={"error": "Erreur lors de la recuperation des paiements"})
+
+
+@app.get("/api/admin/commissions")
+async def get_admin_commissions(request: Request):
+    """Dashboard admin: total des commissions conciergerie du fondateur."""
+    if not _redis_client:
+        return {"total_commission_eur": 0, "transactions": []}
+
+    try:
+        import json as _json_adm
+        total_cents = float(_redis_client.client.get(
+            f"{_redis_client.prefix}:concierge:total_commission_cents"
+        ) or 0)
+        raw_list = _redis_client.client.lrange(
+            f"{_redis_client.prefix}:concierge:commissions", -50, -1
+        )
+        transactions = [_json_adm.loads(r) for r in raw_list] if raw_list else []
+        # Enrichir avec montant en EUR
+        for t in transactions:
+            t["commission_eur"] = t.get("commission_cents", 0) / 100
+            t["total_eur"] = t.get("total_cents", 0) / 100
+
+        return {
+            "total_commission_eur": total_cents / 100,
+            "transaction_count": len(transactions),
+            "transactions": list(reversed(transactions)),
+        }
+    except Exception as e:
+        logger.error(f"Error fetching commissions: {e}")
+        return {"total_commission_eur": 0, "transactions": [], "error": str(e)}
 
 
 @app.get("/api/setup/stripe-webhook-status")
@@ -3784,6 +5444,21 @@ async def update_profile(request: Request):
     if not profile:
         return JSONResponse(status_code=404, content={"error": "Profil non trouve"})
     _gamify(tid, "profile_update")
+    # Auto-sync avatar type when gender is updated
+    if "gender" in body and _GAMIFICATION_AVAILABLE and _redis_client:
+        try:
+            from core.gamification.redis_ops import GamificationRedisOps
+            gops = GamificationRedisOps(_redis_client)
+            current_avatar = gops.get_avatar_type(tid) or "adult_man"
+            new_gender = body["gender"].upper().strip()
+            if new_gender == "F" and current_avatar in ("adult_man", ""):
+                gops.set_avatar_type(tid, "adult_woman")
+                logger.info(f"Avatar auto-updated to adult_woman for tenant {tid}")
+            elif new_gender == "M" and current_avatar in ("adult_woman", ""):
+                gops.set_avatar_type(tid, "adult_man")
+                logger.info(f"Avatar auto-updated to adult_man for tenant {tid}")
+        except Exception as e:
+            logger.debug(f"Avatar gender sync: {e}")
     return {"success": True, "profile": profile.model_dump()}
 
 
@@ -3826,6 +5501,36 @@ async def update_geolocation(request: Request):
     key = f"luna:{tid}:geolocation"
     _redis_client.client.set(key, geo_data, ex=3600)  # TTL 1h
     logger.info(f"Geolocation updated for tenant {tid}: {lat},{lng} ({city})")
+
+    # Auto-detect language from country in address
+    if address and _redis_client:
+        _COUNTRY_LANG = {
+            "france": "fr", "belgique": "fr", "suisse": "fr", "canada": "fr",
+            "luxembourg": "fr", "monaco": "fr", "sénégal": "fr", "cameroun": "fr",
+            "côte d'ivoire": "fr", "mali": "fr", "maroc": "fr", "tunisie": "fr",
+            "guadeloupe": "fr", "martinique": "fr", "guyane": "fr", "réunion": "fr",
+            "united states": "en", "united kingdom": "en", "australia": "en",
+            "ireland": "en", "new zealand": "en",
+            "españa": "es", "spain": "es", "méxico": "es", "colombia": "es",
+            "deutschland": "de", "germany": "de", "österreich": "de",
+            "italia": "it", "italy": "it",
+            "portugal": "pt", "brasil": "pt", "brazil": "pt",
+            "nederland": "nl", "netherlands": "nl",
+        }
+        _addr_lower = address.lower()
+        for _country, _lang in _COUNTRY_LANG.items():
+            if _country in _addr_lower:
+                try:
+                    _settings_key = f"luna:{tid}:settings"
+                    _cur_lang = _redis_client.client.hget(_settings_key, "language")
+                    if not _cur_lang:
+                        _redis_client.client.hset(_settings_key, "language", _lang)
+                        _redis_client.client.hset(_settings_key, "country", _country)
+                        logger.info(f"Auto-detected language '{_lang}' for tenant {tid} from country '{_country}'")
+                except Exception:
+                    pass
+                break
+
     return {"success": True}
 
 
@@ -5224,6 +6929,30 @@ def _clean_latin1(text: str) -> str:
 
 
 # =========================================================================
+# BUDGET GUARD — Bloque les actions si le cout API du mois depasse le plafond
+# =========================================================================
+
+async def _get_tenant_month_cost(tenant_id: int) -> float:
+    """Retourne le cout API total du mois pour un tenant (en EUR) depuis Redis."""
+    try:
+        cortex = get_cortex() if _CORTEX_AVAILABLE else None
+        if cortex and hasattr(cortex, "cost_tracker") and cortex.cost_tracker:
+            usage = await cortex.cost_tracker.get_tenant_month_usage(tenant_id)
+            return usage.get("total_cost", 0.0)
+    except Exception:
+        pass
+    return 0.0
+
+async def _check_budget_guard(tenant_id: int, plan_name: str = "essentiel") -> Optional[str]:
+    """Verifie si le budget API mensuel est depasse. Retourne un message d'erreur ou None."""
+    limits = _PLAN_LIMITS.get(plan_name, _PLAN_LIMITS.get("essentiel", {}))
+    budget_max = limits.get("budget_api_max", 50.0)
+    cost = await _get_tenant_month_cost(tenant_id)
+    if cost >= budget_max:
+        return f"Budget API mensuel atteint ({cost:.2f}€/{budget_max:.2f}€). Actions couteuses bloquees jusqu'au mois prochain."
+    return None
+
+# =========================================================================
 # QUOTA ENDPOINT
 # =========================================================================
 
@@ -5231,12 +6960,14 @@ def _clean_latin1(text: str) -> str:
 try:
     from core.actions.quota_guard import PLAN_SMS_LIMITS, PLAN_VOICE_LIMITS, PLAN_VISIO_LIMITS, PlanType
     _PLAN_LIMITS = {
+        "fondateur": {"sms": 999999, "voice_min": 999999, "visio_min": 999999, "budget_api_max": 50.00},
         "essentiel": {"sms": PLAN_SMS_LIMITS[PlanType.ESSENTIEL], "voice_min": PLAN_VOICE_LIMITS[PlanType.ESSENTIEL], "visio_min": PLAN_VISIO_LIMITS[PlanType.ESSENTIEL], "budget_api_max": 8.15},
         "confort":   {"sms": PLAN_SMS_LIMITS[PlanType.CONFORT],   "voice_min": PLAN_VOICE_LIMITS[PlanType.CONFORT],   "visio_min": PLAN_VISIO_LIMITS[PlanType.CONFORT],   "budget_api_max": 17.40},
         "premium":   {"sms": PLAN_SMS_LIMITS[PlanType.PREMIUM],   "voice_min": PLAN_VOICE_LIMITS[PlanType.PREMIUM],   "visio_min": PLAN_VISIO_LIMITS[PlanType.PREMIUM],   "budget_api_max": 32.10},
     }
 except ImportError:
     _PLAN_LIMITS = {
+        "fondateur": {"sms": 999999, "voice_min": 999999, "visio_min": 999999, "budget_api_max": 50.00},
         "essentiel": {"sms": 25, "voice_min": 40, "visio_min": 12, "budget_api_max": 8.15},
         "confort":   {"sms": 50, "voice_min": 100, "visio_min": 28, "budget_api_max": 17.40},
         "premium":   {"sms": 100, "voice_min": 180, "visio_min": 55, "budget_api_max": 32.10},
@@ -5255,7 +6986,14 @@ async def get_quota(request: Request):
         quota_status = mgr.get_quota_status()
 
         # --- Usage reel depuis Cortex Redis ---
+        # Plan depuis le profil, mais verifier aussi auth record (fondateur)
         plan_name = (quota_status.get("plan") or "essentiel").lower()
+        if plan_name not in _PLAN_LIMITS and _redis_client:
+            auth = _redis_client.get_auth_by_tenant_id(tid)
+            if auth:
+                plan_name = (auth.get("plan") or "essentiel").lower()
+        if tid == _PROPRIO_TENANT_ID:
+            plan_name = "fondateur"
         limits = _PLAN_LIMITS.get(plan_name, _PLAN_LIMITS["essentiel"])
 
         real_usage = {"sms_count": 0, "voice_minutes": 0.0, "tavus_minutes": 0.0}
@@ -5265,29 +7003,47 @@ async def get_quota(request: Request):
 
         sms_used = real_usage["sms_count"]
         sms_limit = limits["sms"]
-        voice_used = real_usage["voice_minutes"]
+        voice_used = real_usage.get("voice_minutes", 0)
         voice_limit = limits["voice_min"]
-        visio_used = real_usage["tavus_minutes"]
+        visio_used = real_usage.get("tavus_minutes", 0)
         visio_limit = limits["visio_min"]
 
         quota_status["sms"] = {
             "used": sms_used,
             "limit": sms_limit,
+            "cost_eur": real_usage.get("sms_cost", 0),
             "percentage": round((sms_used / sms_limit) * 100, 1) if sms_limit else 0,
         }
         quota_status["voice"] = {
             "used": round(voice_used, 1),
             "limit": voice_limit,
             "unit": "min",
+            "cost_eur": real_usage.get("voice_cost", 0),
             "percentage": round((voice_used / voice_limit) * 100, 1) if voice_limit else 0,
         }
         quota_status["visio"] = {
             "used": round(visio_used, 1),
             "limit": visio_limit,
             "unit": "min",
+            "cost_eur": real_usage.get("tavus_cost", 0),
             "percentage": round((visio_used / visio_limit) * 100, 1) if visio_limit else 0,
         }
+        quota_status["openai"] = {
+            "cost_eur": real_usage.get("openai_cost", 0),
+            "tokens_in": real_usage.get("openai_tokens_in", 0),
+            "tokens_out": real_usage.get("openai_tokens_out", 0),
+        }
         quota_status["plan_limits"] = limits
+
+        # Budget API mensuel (total reel depuis Redis)
+        budget_max = limits.get("budget_api_max", 50.0)
+        budget_used = real_usage.get("total_cost", 0.0)
+        quota_status["budget"] = {
+            "used_eur": round(budget_used, 2),
+            "max_eur": budget_max,
+            "percentage": round((budget_used / budget_max) * 100, 1) if budget_max else 0,
+            "blocked": budget_used >= budget_max,
+        }
 
         daily_stats = mgr.get_daily_stats()
         return {
@@ -5296,6 +7052,154 @@ async def get_quota(request: Request):
         }
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
+
+
+@app.get("/api/weather")
+async def api_weather(request: Request):
+    """Retourne la meteo actuelle et previsions 3 jours (wttr.in gratuit)."""
+    tid = getattr(request.state, "tenant_id", 1)
+    city = request.query_params.get("city", "")
+    try:
+        result = await _tool_get_weather({"city": city}, tenant_id=tid)
+        return result
+    except Exception as e:
+        logger.warning(f"Weather API error: {type(e).__name__}: {e}")
+        return {"status": "error", "message": f"Erreur meteo: {type(e).__name__}"}
+
+
+# =========================================================================
+# CONCIERGERIE — API directe (resultats inline, pas via chat)
+# =========================================================================
+
+@app.post("/api/concierge/action")
+async def api_concierge_action(request: Request):
+    """Endpoint unique conciergerie: appelle la bonne fonction et retourne du JSON."""
+    tid = getattr(request.state, "tenant_id", 1)
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse(status_code=400, content={"error": "JSON invalide"})
+
+    action = body.get("action", "")
+    params = body.get("params", {})
+
+    DISPATCHERS = {
+        "weather": lambda: _tool_get_weather(params, tenant_id=tid),
+        "news": lambda: _tool_get_news(params),
+        "search_places": lambda: _tool_search_places(params, tenant_id=tid),
+        "search_web": lambda: _tool_search_web(params, tenant_id=tid),
+        "search_flights": lambda: _tool_search_flights(params, tenant_id=tid),
+        "search_hotels": lambda: _tool_search_hotels(params, tenant_id=tid),
+        "book_restaurant": lambda: _tool_book_restaurant(params, tenant_id=tid),
+        "get_contacts": lambda: _tool_get_contacts(tenant_id=tid),
+        "get_player_stats": lambda: _tool_get_player_stats(tenant_id=tid),
+        "get_active_missions": lambda: _tool_get_active_missions(tenant_id=tid),
+        "get_badges": lambda: _tool_get_badges(tenant_id=tid),
+        "get_friends_online": lambda: _voice_tool_get_friends_online(tid),
+        "get_reminders": lambda: _sync_wrap(_tool_secretary_reminders, tid),
+        "get_budget": lambda: _sync_wrap(_tool_secretary_budget, tid),
+        "add_reminder": lambda: _sync_wrap(_tool_secretary_add_reminder, tid, params),
+        "create_note": lambda: _tool_create_note(params, tenant_id=tid),
+        "generate_document": lambda: _tool_generate_document(params, tenant_id=tid),
+        "alert_contacts": lambda: _tool_alert_contacts(params, tenant_id=tid),
+        "book_flight": lambda: _conc_book_flight(params, tenant_id=tid),
+        "book_hotel": lambda: _conc_book_hotel(params, tenant_id=tid),
+    }
+
+    handler = DISPATCHERS.get(action)
+    if not handler:
+        return JSONResponse(status_code=400, content={"error": f"Action inconnue: {action}"})
+
+    try:
+        import asyncio
+        result = handler()
+        if asyncio.iscoroutine(result) or asyncio.isfuture(result):
+            result = await result
+        return result
+    except Exception as e:
+        logger.error(f"Concierge action '{action}' error: {type(e).__name__}: {e}")
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+
+def _sync_wrap(fn, tid, params=None):
+    """Wrap synchronous secretary functions."""
+    if params is not None:
+        return fn(tid, params) if callable(fn) else {"status": "error"}
+    return fn(tid) if callable(fn) else {"status": "error"}
+
+
+async def _conc_book_flight(params: Dict, tenant_id: int = 0) -> Dict:
+    """Reserve un vol via Duffel avec infos profil pre-remplies."""
+    if not duffel_client or not duffel_client.is_configured:
+        return {"status": "error", "message": "Reservation directe non disponible."}
+
+    offer_id = params.get("offer_id", "")
+    if not offer_id:
+        return {"status": "error", "message": "ID de l'offre manquant."}
+
+    # Recuperer le profil pour pre-remplir
+    tid = tenant_id or TENANT_ID
+    mgr = _get_tenant_manager(tid) if tid else _memory_manager
+    profile = mgr.get_subscriber_profile() if mgr else None
+    pf = profile.model_dump() if profile else {}
+
+    # Construire les infos passager depuis le profil
+    given_name = params.get("given_name", "") or pf.get("first_name", "")
+    family_name = params.get("family_name", "") or pf.get("last_name", "")
+    email = params.get("email", "") or pf.get("email", "")
+    phone = params.get("phone_number", "") or pf.get("phone", "")
+    born_on = params.get("born_on", "") or pf.get("birth_date", "")
+    gender = params.get("gender", "") or ("m" if pf.get("gender", "").lower().startswith("m") else "f")
+
+    if not given_name or not family_name:
+        return {"status": "error", "message": "Nom et prenom requis. Complete ton profil d'abord."}
+    if not email:
+        return {"status": "error", "message": "Email requis pour la confirmation de reservation."}
+
+    passengers = [{
+        "given_name": given_name,
+        "family_name": family_name,
+        "email": email,
+        "phone_number": phone or "+33600000000",
+        "born_on": born_on or "1990-01-01",
+        "gender": gender,
+        "type": "adult",
+    }]
+
+    success, data = await duffel_client.book_flight(offer_id, passengers)
+    if success:
+        logger.info(f"FLIGHT_BOOKED [Duffel] tenant={tid} ref={data.get('booking_reference')}")
+    return {"status": "success" if success else "error", **data}
+
+
+async def _conc_book_hotel(params: Dict, tenant_id: int = 0) -> Dict:
+    """Reserve un hotel via Duffel avec infos profil pre-remplies."""
+    if not duffel_client or not duffel_client.is_configured:
+        return {"status": "error", "message": "Reservation directe non disponible."}
+
+    rate_id = params.get("rate_id", "")
+    if not rate_id:
+        return {"status": "error", "message": "ID du tarif manquant."}
+
+    tid = tenant_id or TENANT_ID
+    mgr = _get_tenant_manager(tid) if tid else _memory_manager
+    profile = mgr.get_subscriber_profile() if mgr else None
+    pf = profile.model_dump() if profile else {}
+
+    guest_info = {
+        "given_name": params.get("given_name", "") or pf.get("first_name", ""),
+        "family_name": params.get("family_name", "") or pf.get("last_name", ""),
+        "email": params.get("email", "") or pf.get("email", ""),
+        "phone_number": params.get("phone_number", "") or pf.get("phone", ""),
+    }
+
+    if not guest_info["given_name"] or not guest_info["family_name"]:
+        return {"status": "error", "message": "Nom et prenom requis. Complete ton profil."}
+
+    success, data = await duffel_client.book_hotel(rate_id, guest_info)
+    if success:
+        logger.info(f"HOTEL_BOOKED [Duffel] tenant={tid} ref={data.get('confirmation_code')}")
+    return {"status": "success" if success else "error", **data}
 
 
 # =========================================================================
@@ -5358,7 +7262,37 @@ async def _handle_tavus_tool_call(body: Dict) -> Dict:
         if conv:
             tid = conv.tenant_id
 
-    logger.info(f"Tavus tool_call: {tool_name}({args}) [conv={conversation_id}, tenant={tid}]")
+    # Detecte si des invites (guests) sont presents dans cette conversation
+    _has_guests = False
+    if tavus_client and conversation_id:
+        _conv = tavus_client._active_conversations.get(conversation_id)
+        if _conv and _conv.participants:
+            _has_guests = any(p.get("role") == "guest" for p in _conv.participants)
+
+    logger.info(f"Tavus tool_call: {tool_name}({args}) [conv={conversation_id}, tenant={tid}, guests={_has_guests}]")
+
+    # --- Protection souscripteur: bloquer les actions sensibles si des invites sont presents ---
+    # Tavus ne peut pas distinguer qui parle, donc en presence d'invites,
+    # on bloque les actions qui engagent le souscripteur financierement ou legalement.
+    _SUBSCRIBER_ONLY_TOOLS = {
+        "request_payment", "search_flights", "search_hotels", "book_restaurant",
+        "send_email", "generate_document", "alert_contacts",
+    }
+    if _has_guests and tool_name in _SUBSCRIBER_ONLY_TOOLS:
+        logger.warning(f"Tavus tool BLOCKED (guests present): {tool_name} [conv={conversation_id}]")
+        result = {
+            "status": "error",
+            "message": (
+                f"Action '{tool_name}' bloquee : des invites sont presents dans la visio. "
+                f"Pour ta securite, cette action n'est disponible qu'en conversation privee avec ton souscripteur."
+            ),
+            "IMPORTANT": (
+                "Explique au souscripteur que cette action est bloquee par securite "
+                "car des invites sont dans la visio. Il doit d'abord mettre fin a l'appel "
+                "avec les invites, puis relancer une visio privee pour cette demande."
+            ),
+        }
+        return result
 
     result = {"status": "error", "message": "Fonction inconnue"}
 
@@ -5380,19 +7314,65 @@ async def _handle_tavus_tool_call(body: Dict) -> Dict:
         elif tool_name == "send_email":
             result = await _tool_send_email(args, tenant_id=tid)
         elif tool_name == "invite_visio":
-            result = await _tool_invite_visio(args, tenant_id=tid)
+            result = await _tool_invite_visio(args, tenant_id=tid, conversation_id=conversation_id)
         elif tool_name == "search_web":
             result = await _tool_search_web(args, tenant_id=tid)
+        elif tool_name == "search_places":
+            result = await _tool_search_places(args, tenant_id=tid)
+        elif tool_name == "get_page_info":
+            result = await _tool_get_page_info(args, tenant_id=tid)
         elif tool_name == "request_payment":
             result = await _tool_request_payment(args, tenant_id=tid)
+        elif tool_name == "get_player_stats":
+            result = await _tool_get_player_stats(tenant_id=tid)
+        elif tool_name == "get_active_missions":
+            result = await _tool_get_active_missions(tenant_id=tid)
+        elif tool_name == "get_badges":
+            result = await _tool_get_badges(tenant_id=tid)
+        elif tool_name == "get_weather":
+            result = await _tool_get_weather(args, tenant_id=tid)
+        elif tool_name == "get_news":
+            result = await _tool_get_news(args)
+        elif tool_name == "search_flights":
+            result = await _tool_search_flights(args, tenant_id=tid)
+        elif tool_name == "search_hotels":
+            result = await _tool_search_hotels(args, tenant_id=tid)
+        elif tool_name == "book_restaurant":
+            result = await _tool_book_restaurant(args, tenant_id=tid)
+        # --- Secretary tools ---
+        elif tool_name == "get_documents_summary":
+            result = _tool_secretary_summary(tid)
+        elif tool_name == "get_budget_analysis":
+            result = _tool_secretary_budget(tid)
+        elif tool_name == "check_affordability":
+            result = _tool_secretary_afford(tid, args)
+        elif tool_name == "add_expense":
+            result = _tool_secretary_add_expense(tid, args)
+        elif tool_name == "get_reminders":
+            result = _tool_secretary_reminders(tid)
+        elif tool_name == "add_reminder":
+            result = _tool_secretary_add_reminder(tid, args)
+        elif tool_name == "search_documents":
+            result = _tool_secretary_search(tid, args)
+        elif tool_name == "list_folders":
+            result = _tool_secretary_folders(tid)
         else:
             logger.warning(f"Tavus tool inconnu: {tool_name}")
     except Exception as e:
         logger.error(f"Tavus tool_call error ({tool_name}): {e}")
         result = {"status": "error", "message": str(e)}
 
+    # Anti-hallucination: if action tool failed, make error explicit in result
+    _TAVUS_ACTION_TOOLS = {"call_contact", "send_sms", "send_email", "alert_contacts",
+                           "request_payment", "invite_visio", "generate_document"}
+    if result.get("status") == "error" and tool_name in _TAVUS_ACTION_TOOLS:
+        result["IMPORTANT"] = (
+            f"L'action {tool_name} a ECHOUE. Tu DOIS informer le souscripteur "
+            f"de l'echec. N'invente RIEN. Ne pretends PAS que l'action a reussi."
+        )
+
     # Poste le resultat dans le fil de discussion du tenant
-    if _redis_client and tid and tool_name not in ("get_contacts", "report_observation"):
+    if _redis_client and tid and tool_name not in ("get_contacts", "report_observation", "get_player_stats", "get_active_missions", "get_badges", "get_weather", "get_news"):
         try:
             mgr = _get_tenant_manager(tid)
             if mgr:
@@ -5568,8 +7548,13 @@ async def _tool_send_email(args: Dict, tenant_id: int = 0) -> Dict:
     return {"status": "error", "message": f"Echec envoi email: {details.get('error', 'inconnu')}"}
 
 
-async def _tool_invite_visio(args: Dict, tenant_id: int = 0) -> Dict:
-    """Invite un contact en visioconference : cree la visio + envoie le lien par SMS."""
+async def _tool_invite_visio(args: Dict, tenant_id: int = 0, conversation_id: str = "") -> Dict:
+    """Invite un contact en visioconference.
+
+    Si le souscripteur a deja une visio active (conversation_id ou tenant actif),
+    partage le MEME lien Daily.js pour que tout le monde soit dans la meme room.
+    Sinon, cree une nouvelle conversation.
+    """
     if _license_heartbeat and (_license_heartbeat.is_blocked() or _license_heartbeat.is_degraded()):
         return {"status": "error", "message": "Service non disponible"}
     tid = tenant_id or TENANT_ID
@@ -5608,20 +7593,59 @@ async def _tool_invite_visio(args: Dict, tenant_id: int = 0) -> Dict:
         except Exception:
             pass
 
-    # Cree la conversation Tavus immediatement
-    visio_max = int(os.getenv("VISIO_MAX_DURATION", "15")) * 60  # minutes -> secondes
-    context = f"Tu es Luna. {sub_name} a invite {matched_name} en visioconference. Sois chaleureuse et accueillante."
-    success_tavus, data = await tavus_client.create_conversation(
-        tenant_id=tid,
-        custom_greeting=f"Bonjour {matched_name} ! {sub_name} t'a invite en visio. Bienvenue !",
-        context=context,
-        max_duration=visio_max,
-        callback_url=TAVUS_CALLBACK_URL if TAVUS_CALLBACK_URL else None,
-    )
-    if not success_tavus:
-        return {"status": "error", "message": f"Impossible de creer la visio: {data.get('error', 'inconnu')}"}
+    # --- Cherche une conversation active existante ---
+    visio_url = None
+    existing_conv_id = None
 
-    visio_url = data["conversation_url"]
+    # 1) conversation_id fourni (appel depuis le webhook Tavus = souscripteur deja en visio)
+    if conversation_id and tavus_client:
+        url = tavus_client.get_conversation_url(conversation_id)
+        if url:
+            visio_url = url
+            existing_conv_id = conversation_id
+            logger.info(f"Invite visio: reutilise conversation existante {conversation_id}")
+
+    # 2) Sinon cherche la conversation active du tenant
+    if not visio_url and tavus_client:
+        active_conv = tavus_client.get_active_conversation(tid)
+        if active_conv:
+            visio_url = active_conv.conversation_url
+            existing_conv_id = active_conv.conversation_id
+            logger.info(f"Invite visio: reutilise conversation active du tenant {tid}: {existing_conv_id}")
+
+    # 3) Si aucune conversation active, cree une nouvelle
+    if not visio_url:
+        visio_max = int(os.getenv("VISIO_MAX_DURATION", "60")) * 60  # minutes -> secondes
+        context = build_tavus_context(
+            subscriber_name=sub_name,
+            memory_manager=tavus_client.memory,
+            guest_names=[matched_name],
+        )
+        replica_id = _get_luna_replica()
+        success_tavus, data = await tavus_client.create_conversation(
+            tenant_id=tid,
+            custom_greeting=f"Salut {sub_name} ! {matched_name} va bientot nous rejoindre.",
+            context=context,
+            max_duration=visio_max,
+            callback_url=TAVUS_CALLBACK_URL if TAVUS_CALLBACK_URL else None,
+            replica_id=replica_id,
+        )
+        if not success_tavus:
+            return {"status": "error", "message": f"Impossible de creer la visio: {data.get('error', 'inconnu')}"}
+        visio_url = data["conversation_url"]
+        existing_conv_id = data["conversation_id"]
+        logger.info(f"Invite visio: nouvelle conversation creee {existing_conv_id}")
+
+    # Track le participant invite dans la conversation Tavus
+    if existing_conv_id and tavus_client:
+        conv = tavus_client._active_conversations.get(existing_conv_id)
+        if conv:
+            conv.participants.append({
+                "name": matched_name,
+                "phone": phone,
+                "role": "guest",
+                "invited_at": datetime.utcnow().isoformat(),
+            })
 
     # Envoie le lien par SMS directement (pas de OUI/NON — le contact clique s'il veut)
     invite_msg = (
@@ -5664,12 +7688,12 @@ async def _tool_invite_visio(args: Dict, tenant_id: int = 0) -> Dict:
 
     return {
         "status": "success",
-        "message": f"Lien visio envoye a {matched_name} par SMS ! Toi aussi tu peux rejoindre la visio avec ce lien : {visio_url}",
+        "message": f"Lien visio envoye a {matched_name} par SMS ! Vous serez dans la meme conversation video.",
         "visio_url": visio_url,
     }
 
 
-async def _tool_call_contact(args: Dict, tenant_id: int = 0) -> Dict:
+async def _tool_call_contact(args: Dict, tenant_id: int = 0, session_id: str = "default") -> Dict:
     """Appelle un contact de confiance en audio via Twilio. Luna parle au contact et transmet un message."""
     if _license_heartbeat and (_license_heartbeat.is_blocked() or _license_heartbeat.is_degraded()):
         return {"status": "error", "message": "Service non disponible"}
@@ -5769,21 +7793,32 @@ async def _tool_call_contact(args: Dict, tenant_id: int = 0) -> Dict:
         return {"status": "error", "message": f"Impossible d'appeler {matched_name}: {data.get('error', 'erreur inconnue')}"}
 
     call_sid = data.get("call_sid", "")
-    # Stocker les parametres pour le bridge (incluant tenant_id pour isolation)
+    # Stocker les parametres pour le bridge (lock pour thread-safety)
     import time as _ts
-    _voice_call_params[call_sid] = {
-        "mission": mission,
-        "max_duration": 180,
-        "greeting": greeting,
-        "contact_name": matched_name,
-        "tenant_id": tid,
-        "subscriber_name": sub_name,
-        "contact_phone": normalized_phone,
-        "message": message,
-        "_ts": _ts.time(),
-    }
+    async with _voice_call_params_lock:
+        _voice_call_params[call_sid] = {
+            "mission": mission,
+            "max_duration": 180,
+            "greeting": greeting,
+            "contact_name": matched_name,
+            "tenant_id": tid,
+            "subscriber_name": sub_name,
+            "contact_phone": normalized_phone,
+            "message": message,
+            "session_id": session_id,
+            "_ts": _ts.time(),
+        }
 
     logger.info(f"Voice call initiated to {matched_name} ({normalized_phone}) call_sid={call_sid}")
+
+    # Track active call so chat knows an outgoing call is in progress
+    _active_voice_calls[tid] = {
+        "contact": matched_name,
+        "started": time.time(),
+        "call_sid": call_sid,
+        "phone": normalized_phone,
+        "session_id": session_id,
+    }
 
     try:
         mgr.log_event(
@@ -5797,7 +7832,7 @@ async def _tool_call_contact(args: Dict, tenant_id: int = 0) -> Dict:
 
     return {
         "status": "success",
-        "message": f"J'appelle {matched_name} maintenant ! L'appel est en cours. Je vais lui transmettre ton message.",
+        "message": f"J'appelle {matched_name} maintenant ! L'appel est en cours. Tu recevras un compte-rendu par email quand l'appel sera termine.",
         "call_sid": call_sid,
     }
 
@@ -5878,11 +7913,17 @@ async def _tool_create_note(args: Dict, tenant_id: int = 0) -> Dict:
         return {"status": "error", "message": "Contenu de la note requis"}
 
     reasoning = f"Luna prend une note a la demande du souscripteur"
-    mgr.add_note(
-        content=f"{content}\n[Raison: {reasoning}]",
-        context="tool_call",
-        tags=["note", "reasoning"],
-    )
+    try:
+        mgr.add_note(
+            content=f"{content}\n[Raison: {reasoning}]",
+            context="tool_call",
+            tags=["note", "reasoning"],
+        )
+    except Exception as e:
+        logger.warning(f"Note creation failed: {type(e).__name__}: {e}")
+        if "quota" in str(e).lower() or "Quota" in type(e).__name__:
+            return {"status": "error", "message": "Tu as atteint le nombre maximum de notes pour ton abonnement. Supprime des anciennes notes pour en creer de nouvelles."}
+        return {"status": "error", "message": f"Impossible de sauvegarder la note: {e}"}
     return {"status": "success", "message": f"Note enregistree: {content[:50]}", "reasoning": reasoning}
 
 
@@ -5934,6 +7975,7 @@ async def _tool_generate_document(args: Dict, tenant_id: int = 0) -> Dict:
             temperature=0.7,
             timeout=30,
         )
+        await _track_openai_cost(gpt_resp)
         body_text = gpt_resp.choices[0].message.content
     except Exception as e:
         logger.error(f"Document generation LLM error: {e}")
@@ -6068,7 +8110,330 @@ async def _tool_report_observation(args: Dict) -> Dict:
     return {"status": "success", "message": "Observation notee", "reasoning": reasoning}
 
 
-# --- CONCIERGERIE: Recherche web + Paiement ---
+# --- GAMIFICATION TOOLS (chat + voix) ---
+
+async def _tool_get_player_stats(tenant_id: int = 0) -> Dict:
+    """Retourne les stats du joueur dans le Monde IA Watch."""
+    tid = tenant_id or TENANT_ID
+    if not _GAMIFICATION_AVAILABLE or not _redis_client:
+        return {"status": "error", "message": "Monde IA Watch non disponible"}
+    try:
+        from core.gamification.redis_ops import GamificationRedisOps
+        from core.gamification.engine import get_level_for_xp
+        gops = GamificationRedisOps(_redis_client)
+        player = gops.get_player(tid)
+        if not player:
+            return {"status": "info", "message": "Aucune progression trouvee. Le souscripteur n'a pas encore commence."}
+        xp = int(player.get("xp", 0))
+        lvl = get_level_for_xp(xp)
+        stab = gops.get_stability(tid)
+        return {
+            "status": "success",
+            "niveau": lvl["level"],
+            "titre": lvl["title"],
+            "xp": xp,
+            "xp_prochain_niveau": lvl["xp_next_level"],
+            "progression": f"{lvl['progress_percent']}%",
+            "etoiles": int(player.get("stars", 0)),
+            "serie_jours": int(player.get("streak_days", 0)),
+            "meilleure_serie": int(player.get("streak_best", 0)),
+            "jours_actifs": int(player.get("days_active", 0)),
+            "messages_total": int(player.get("total_messages", 0)),
+            "appels_total": int(player.get("total_calls", 0)),
+            "stabilite": int(stab.get("score", 70)) if stab else 70,
+            "tendance_stabilite": stab.get("trend", "stable") if stab else "stable",
+        }
+    except Exception as e:
+        logger.warning(f"get_player_stats error: {e}")
+        return {"status": "error", "message": "Erreur lors de la recuperation des stats"}
+
+
+async def _tool_get_active_missions(tenant_id: int = 0) -> Dict:
+    """Retourne les missions actives du joueur."""
+    tid = tenant_id or TENANT_ID
+    if not _GAMIFICATION_AVAILABLE or not _redis_client:
+        return {"status": "error", "message": "Monde IA Watch non disponible"}
+    try:
+        from core.gamification.redis_ops import GamificationRedisOps
+        gops = GamificationRedisOps(_redis_client)
+        mission_ids = gops.get_active_mission_ids(tid)
+        if not mission_ids:
+            return {"status": "info", "missions": [], "message": "Aucune mission active pour le moment."}
+        missions = []
+        for mid in mission_ids:
+            m = gops.get_mission(tid, mid)
+            if m:
+                prog = int(m.get("progress", 0)) - int(m.get("start_progress", 0))
+                tgt = int(m.get("target", 1)) - int(m.get("start_progress", 0))
+                missions.append({
+                    "titre": m.get("title", "Mission"),
+                    "description": m.get("description", ""),
+                    "progression": f"{prog}/{tgt}",
+                    "pourcentage": f"{min(round(prog / max(tgt, 1) * 100), 100)}%",
+                    "recompense_xp": int(m.get("xp_reward", 0)),
+                    "statut": m.get("status", "active"),
+                })
+        return {"status": "success", "missions": missions}
+    except Exception as e:
+        logger.warning(f"get_active_missions error: {e}")
+        return {"status": "error", "message": "Erreur lors de la recuperation des missions"}
+
+
+async def _tool_get_badges(tenant_id: int = 0) -> Dict:
+    """Retourne les badges gagnes par le joueur."""
+    tid = tenant_id or TENANT_ID
+    if not _GAMIFICATION_AVAILABLE or not _redis_client:
+        return {"status": "error", "message": "Monde IA Watch non disponible"}
+    try:
+        from core.gamification.redis_ops import GamificationRedisOps
+        from core.gamification.constants import ALL_CLIENT_BADGES
+        gops = GamificationRedisOps(_redis_client)
+        badge_ids = gops.get_badges(tid)
+        if not badge_ids:
+            return {"status": "info", "badges": [], "message": "Aucun badge obtenu pour le moment. Encourage le souscripteur a explorer !"}
+        badges = []
+        for bid in badge_ids:
+            bdef = ALL_CLIENT_BADGES.get(bid)
+            if bdef:
+                detail = gops.get_badge_detail(tid, bid)
+                badges.append({
+                    "nom": bdef["name"],
+                    "description": bdef["description"],
+                    "categorie": bdef["category"],
+                    "rarete": bdef["rarity"],
+                    "obtenu_le": detail.get("earned_at", "") if detail else "",
+                })
+        return {"status": "success", "badges": badges, "total": len(badges)}
+    except Exception as e:
+        logger.warning(f"get_badges error: {e}")
+        return {"status": "error", "message": "Erreur lors de la recuperation des badges"}
+
+
+# --- CONCIERGERIE: Meteo + Actualites + Recherche web + Paiement ---
+
+async def _tool_get_weather(args: Dict, tenant_id: int = 0) -> Dict:
+    """Meteo via wttr.in + fallback Open-Meteo (gratuits, pas de cle API)."""
+    import httpx
+    city = args.get("city", "")
+    if isinstance(city, dict):
+        city = ""
+
+    # Si pas de ville, essayer la geolocalisation du souscripteur
+    if not city and _redis_client and tenant_id:
+        try:
+            import json as _jgeo
+            geo_raw = _redis_client.client.get(f"luna:{tenant_id}:geolocation")
+            if geo_raw:
+                geo_str = geo_raw.decode() if isinstance(geo_raw, bytes) else geo_raw
+                geo = _jgeo.loads(geo_str)
+                city = geo.get("city", "") or ""
+        except Exception:
+            pass
+    if not city:
+        city = "Paris"
+
+    # Essayer wttr.in d'abord
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            resp = await client.get(
+                f"https://wttr.in/{city}?format=j1&lang=fr",
+                headers={"User-Agent": "Luna/2.2 (concierge assistant)"}
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                current = data.get("current_condition", [{}])[0]
+                forecasts = data.get("weather", [])
+                area = data.get("nearest_area", [{}])[0]
+                area_name = area.get("areaName", [{}])[0].get("value", city)
+                country = area.get("country", [{}])[0].get("value", "")
+                weather_now = {
+                    "ville": area_name, "pays": country,
+                    "temperature": f"{current.get('temp_C', '?')}°C",
+                    "ressenti": f"{current.get('FeelsLikeC', '?')}°C",
+                    "description": current.get("lang_fr", [{}])[0].get("value", current.get("weatherDesc", [{}])[0].get("value", "")),
+                    "humidite": f"{current.get('humidity', '?')}%",
+                    "vent": f"{current.get('windspeedKmph', '?')} km/h",
+                    "visibilite": f"{current.get('visibility', '?')} km",
+                }
+                previsions = []
+                for day in forecasts[:3]:
+                    hourly = day.get("hourly", [])
+                    idx = min(4, len(hourly) - 1) if hourly else 0
+                    desc = hourly[idx].get("lang_fr", [{}])[0].get("value", "") if hourly else ""
+                    previsions.append({
+                        "date": day.get("date", ""),
+                        "max": f"{day.get('maxtempC', '?')}°C",
+                        "min": f"{day.get('mintempC', '?')}°C",
+                        "description": desc,
+                    })
+                return {"status": "success", "actuel": weather_now, "previsions": previsions}
+    except Exception as e:
+        logger.info(f"wttr.in failed ({type(e).__name__}), trying Open-Meteo fallback")
+
+    # Fallback: Open-Meteo (gratuit, fiable, pas de cle API)
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            # Geocoding pour obtenir lat/lon
+            geo_resp = await client.get(
+                f"https://geocoding-api.open-meteo.com/v1/search?name={city}&count=1&language=fr"
+            )
+            if geo_resp.status_code != 200:
+                return {"status": "error", "message": f"Ville introuvable: {city}"}
+            geo_data = geo_resp.json()
+            results = geo_data.get("results", [])
+            if not results:
+                return {"status": "error", "message": f"Ville introuvable: {city}"}
+            lat = results[0]["latitude"]
+            lon = results[0]["longitude"]
+            geo_city = results[0].get("name", city)
+            geo_country = results[0].get("country", "")
+
+            # Meteo actuelle + previsions
+            meteo_resp = await client.get(
+                f"https://api.open-meteo.com/v1/forecast?"
+                f"latitude={lat}&longitude={lon}"
+                f"&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m"
+                f"&daily=weather_code,temperature_2m_max,temperature_2m_min"
+                f"&timezone=auto&forecast_days=3"
+            )
+            if meteo_resp.status_code != 200:
+                return {"status": "error", "message": "Erreur API meteo"}
+            m = meteo_resp.json()
+
+        cur = m.get("current", {})
+        # WMO weather codes -> description francaise
+        wmo_code = cur.get("weather_code", 0)
+        wmo_desc = _wmo_to_french(wmo_code)
+
+        weather_now = {
+            "ville": geo_city, "pays": geo_country,
+            "temperature": f"{round(cur.get('temperature_2m', 0))}°C",
+            "ressenti": f"{round(cur.get('apparent_temperature', 0))}°C",
+            "description": wmo_desc,
+            "humidite": f"{cur.get('relative_humidity_2m', '?')}%",
+            "vent": f"{round(cur.get('wind_speed_10m', 0))} km/h",
+        }
+
+        previsions = []
+        daily = m.get("daily", {})
+        dates = daily.get("time", [])
+        maxs = daily.get("temperature_2m_max", [])
+        mins = daily.get("temperature_2m_min", [])
+        codes = daily.get("weather_code", [])
+        for i in range(min(3, len(dates))):
+            previsions.append({
+                "date": dates[i] if i < len(dates) else "",
+                "max": f"{round(maxs[i])}°C" if i < len(maxs) else "?°C",
+                "min": f"{round(mins[i])}°C" if i < len(mins) else "?°C",
+                "description": _wmo_to_french(codes[i]) if i < len(codes) else "",
+            })
+
+        return {"status": "success", "actuel": weather_now, "previsions": previsions}
+    except Exception as e:
+        logger.warning(f"Weather fallback error: {type(e).__name__}: {e}")
+        return {"status": "error", "message": f"Erreur meteo: {type(e).__name__}"}
+
+
+def _wmo_to_french(code: int) -> str:
+    """Convertit un WMO weather code en description francaise."""
+    wmo = {
+        0: "Ensoleille", 1: "Principalement degage", 2: "Partiellement nuageux",
+        3: "Couvert", 45: "Brouillard", 48: "Brouillard givrant",
+        51: "Bruine legere", 53: "Bruine moderee", 55: "Bruine dense",
+        56: "Bruine verglacante", 57: "Bruine verglacante forte",
+        61: "Pluie legere", 63: "Pluie moderee", 65: "Pluie forte",
+        66: "Pluie verglacante", 67: "Pluie verglacante forte",
+        71: "Neige legere", 73: "Neige moderee", 75: "Neige forte",
+        77: "Grains de neige", 80: "Averses legeres", 81: "Averses moderees",
+        82: "Averses violentes", 85: "Averses de neige", 86: "Fortes averses de neige",
+        95: "Orage", 96: "Orage avec grele legere", 99: "Orage avec forte grele",
+    }
+    return wmo.get(code, f"Code {code}")
+
+
+async def _tool_get_news(args: Dict) -> Dict:
+    """Actualites via flux RSS francais (gratuit, pas de cle API)."""
+    import httpx
+    import xml.etree.ElementTree as ET
+
+    category = args.get("category", "general")
+    count = min(max(args.get("count", 5), 3), 10)
+
+    # Sources RSS par categorie
+    RSS_FEEDS = {
+        "general": [
+            ("France Info", "https://www.francetvinfo.fr/titres.rss"),
+            ("Le Monde", "https://www.lemonde.fr/rss/une.xml"),
+        ],
+        "france": [
+            ("France Info France", "https://www.francetvinfo.fr/france.rss"),
+        ],
+        "monde": [
+            ("France Info Monde", "https://www.francetvinfo.fr/monde.rss"),
+        ],
+        "economie": [
+            ("France Info Eco", "https://www.francetvinfo.fr/economie.rss"),
+        ],
+        "sport": [
+            ("France Info Sport", "https://www.francetvinfo.fr/sports.rss"),
+        ],
+        "tech": [
+            ("France Info Tech", "https://www.francetvinfo.fr/internet.rss"),
+        ],
+        "sante": [
+            ("France Info Sante", "https://www.francetvinfo.fr/sante.rss"),
+        ],
+    }
+
+    feeds = RSS_FEEDS.get(category, RSS_FEEDS["general"])
+    articles = []
+
+    try:
+        async with httpx.AsyncClient(timeout=10, follow_redirects=True) as client:
+            for source_name, url in feeds:
+                try:
+                    resp = await client.get(url, headers={"User-Agent": "Luna/2.2"})
+                    if resp.status_code != 200:
+                        continue
+                    root = ET.fromstring(resp.text)
+                    # RSS 2.0 format
+                    for item in root.findall(".//item")[:count]:
+                        title = item.findtext("title", "")
+                        desc = item.findtext("description", "")
+                        link = item.findtext("link", "")
+                        pub_date = item.findtext("pubDate", "")
+                        if title:
+                            # Nettoyer le HTML dans la description
+                            import re
+                            desc_clean = re.sub(r'<[^>]+>', '', desc)[:200]
+                            articles.append({
+                                "source": source_name,
+                                "titre": title.strip(),
+                                "resume": desc_clean.strip(),
+                                "lien": link.strip(),
+                                "date": pub_date,
+                            })
+                except Exception:
+                    continue
+
+        if not articles:
+            return {"status": "error", "message": "Aucune actualite disponible pour le moment."}
+
+        # Trier par date et limiter
+        articles = articles[:count]
+
+        return {
+            "status": "success",
+            "categorie": category,
+            "articles": articles,
+            "total": len(articles),
+        }
+    except Exception as e:
+        logger.warning(f"News tool error: {e}")
+        return {"status": "error", "message": f"Erreur actualites: {e}"}
+
+
+
 
 _SERPER_API_KEY = os.getenv("SERPER_API_KEY", "")
 
@@ -6165,7 +8530,8 @@ async def _tool_search_web(args: Dict, tenant_id: int = 0) -> Dict:
         phone_match = re.search(r'(\+?\d[\d\s\-.]{8,15})', snippet)
         if phone_match:
             phone = f" | Tel: {phone_match.group(1).strip()}"
-        results.append(f"{title}: {snippet}{phone}")
+        link_info = f" | {link}" if link else ""
+        results.append(f"{title}: {snippet}{phone}{link_info}")
 
     # Places (local business results)
     places = data.get("places", [])
@@ -6177,6 +8543,9 @@ async def _tool_search_web(args: Dict, tenant_id: int = 0) -> Dict:
         info = f"[Lieu] {name}"
         if addr:
             info += f" — {addr}"
+            import urllib.parse
+            maps_link = "https://www.google.com/maps/dir/?api=1&destination=" + urllib.parse.quote(f"{name} {addr}")
+            info += f" | Itineraire: {maps_link}"
         if rating:
             info += f" | Note: {rating}/5"
         if phone_p:
@@ -6207,38 +8576,337 @@ async def _tool_search_web(args: Dict, tenant_id: int = 0) -> Dict:
     }
 
 
-async def _tool_request_payment(args: Dict, tenant_id: int = 0) -> Dict:
-    """Cree un PaymentIntent Stripe pour un achat de conciergerie avec la carte sauvee du souscripteur."""
+async def _tool_search_places(args: Dict, tenant_id: int = 0) -> Dict:
+    """Recherche de lieux/commerces locaux via Serper Places API."""
+    if not _SERPER_API_KEY:
+        return {"status": "error", "message": "Service de recherche non configure"}
     tid = tenant_id or TENANT_ID
     mgr = _get_tenant_manager(tid) if tid else _memory_manager
 
-    amount_cents = args.get("amount_cents", 0)
+    query = args.get("query", "").strip()
+    location = args.get("location", "").strip()
+    category = args.get("category", "").strip()  # restaurant, hotel, taxi, pharmacie...
+
+    if not query:
+        return {"status": "error", "message": "Requete de recherche requise"}
+
+    # Enrichir avec la localisation du souscripteur
+    if not location and mgr:
+        try:
+            profile = mgr.get_subscriber_profile()
+            if profile:
+                city = getattr(profile, "city", "")
+                if city:
+                    location = city
+            geo = _redis_client.client.get(f"luna:{tid}:geolocation") if _redis_client else None
+            if geo:
+                import json as _json_geo
+                geo_data = _json_geo.loads(geo)
+                if geo_data.get("city"):
+                    location = geo_data["city"]
+        except Exception:
+            pass
+
+    search_query = query
+    if location and location.lower() not in query.lower():
+        search_query = f"{query} {location}"
+
+    import httpx
+    try:
+        async with httpx.AsyncClient() as http:
+            resp = await http.post(
+                "https://google.serper.dev/places",
+                headers={
+                    "X-API-KEY": _SERPER_API_KEY,
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "q": search_query,
+                    "gl": "fr",
+                    "hl": "fr",
+                },
+                timeout=10,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+    except Exception as e:
+        logger.error(f"Serper places error: {e}")
+        return {"status": "error", "message": "Erreur lors de la recherche de lieux."}
+
+    places = data.get("places", [])
+    if not places:
+        return {"status": "success", "message": f"Aucun lieu trouve pour '{query}'.", "places": []}
+
+    # Recuperer la geolocation du souscripteur pour les liens transport
+    _user_lat, _user_lng = None, None
+    if _redis_client and tid:
+        try:
+            import json as _json_geo2
+            _geo_raw = _redis_client.client.get(f"luna:{tid}:geolocation")
+            if _geo_raw:
+                _geo_d = _json_geo2.loads(_geo_raw)
+                _user_lat = _geo_d.get("latitude")
+                _user_lng = _geo_d.get("longitude")
+        except Exception:
+            pass
+
+    results = []
+    for p in places[:6]:
+        place_info = {
+            "name": p.get("title", ""),
+            "address": p.get("address", ""),
+            "phone": p.get("phoneNumber", ""),
+            "rating": p.get("rating", ""),
+            "reviews": p.get("ratingCount", 0),
+            "type": p.get("type", ""),
+            "hours": p.get("openingHours", ""),
+            "website": p.get("website", ""),
+            "price_level": p.get("priceLevel", ""),
+            "latitude": p.get("latitude"),
+            "longitude": p.get("longitude"),
+        }
+
+        # Calculer la distance a vol d'oiseau si on a les deux positions
+        _dist_km = None
+        if _user_lat and _user_lng and place_info["latitude"] and place_info["longitude"]:
+            import math
+            _lat1, _lon1 = math.radians(float(_user_lat)), math.radians(float(_user_lng))
+            _lat2, _lon2 = math.radians(float(place_info["latitude"])), math.radians(float(place_info["longitude"]))
+            _dlat, _dlon = _lat2 - _lat1, _lon2 - _lon1
+            _a = math.sin(_dlat / 2) ** 2 + math.cos(_lat1) * math.cos(_lat2) * math.sin(_dlon / 2) ** 2
+            _dist_km = round(6371 * 2 * math.asin(math.sqrt(_a)), 1)
+            place_info["distance_km"] = _dist_km
+
+        # Liens Google Maps pour chaque mode de transport
+        _dest = place_info["address"] or place_info["name"]
+        _origin = f"{_user_lat},{_user_lng}" if _user_lat else ""
+        if _origin:
+            place_info["directions"] = {
+                "driving": f"https://www.google.com/maps/dir/?api=1&origin={_origin}&destination={_dest}&travelmode=driving",
+                "transit": f"https://www.google.com/maps/dir/?api=1&origin={_origin}&destination={_dest}&travelmode=transit",
+                "walking": f"https://www.google.com/maps/dir/?api=1&origin={_origin}&destination={_dest}&travelmode=walking",
+                "bicycling": f"https://www.google.com/maps/dir/?api=1&origin={_origin}&destination={_dest}&travelmode=bicycling",
+            }
+
+        # Texte lisible pour Luna (voix)
+        desc = f"{place_info['name']}"
+        if place_info["rating"]:
+            desc += f", note {place_info['rating']} sur 5"
+            if place_info["reviews"]:
+                desc += f" ({place_info['reviews']} avis)"
+        if _dist_km is not None:
+            desc += f", a {_dist_km} km"
+        if place_info["price_level"]:
+            desc += f", {place_info['price_level']}"
+        if place_info["address"]:
+            desc += f", {place_info['address']}"
+        if place_info["phone"]:
+            desc += f", tel: {place_info['phone']}"
+        if place_info["hours"]:
+            desc += f", horaires: {place_info['hours']}"
+        place_info["description"] = desc
+        results.append(place_info)
+
+    # Formater pour la reponse vocale
+    voice_summary = f"J'ai trouve {len(results)} resultats pour '{query}':\n"
+    for i, r in enumerate(results, 1):
+        voice_summary += f"\n{i}. {r['description']}"
+
+    if mgr:
+        try:
+            mgr.add_note(
+                content=f"[Recherche lieux] {query} — {len(results)} resultats\n{voice_summary[:400]}",
+                context="search_places",
+                tags=["recherche", "conciergerie", category or "lieu"],
+            )
+        except Exception:
+            pass
+
+    return {
+        "status": "success",
+        "message": voice_summary,
+        "places": results,
+        "count": len(results),
+    }
+
+
+async def _tool_get_page_info(args: Dict, tenant_id: int = 0) -> Dict:
+    """Extrait les informations cles d'une page web (menu, prix, horaires, disponibilites)."""
+    url = args.get("url", "").strip()
+    focus = args.get("focus", "").strip()  # ce que Luna cherche: "menu", "prix", "horaires"...
+
+    if not url:
+        return {"status": "error", "message": "URL requise"}
+
+    import httpx
+    try:
+        async with httpx.AsyncClient(follow_redirects=True) as http:
+            resp = await http.get(
+                url,
+                headers={
+                    "User-Agent": "Mozilla/5.0 (compatible; Luna/2.2; concierge assistant)",
+                    "Accept": "text/html,application/xhtml+xml",
+                    "Accept-Language": "fr-FR,fr;q=0.9",
+                },
+                timeout=12,
+            )
+            resp.raise_for_status()
+            html = resp.text
+    except Exception as e:
+        logger.error(f"Page fetch error: {e}")
+        return {"status": "error", "message": f"Impossible d'acceder a la page: {str(e)[:80]}"}
+
+    # Extraire le texte utile du HTML (sans scripts/styles)
+    import re
+    # Supprimer scripts, styles, nav, footer
+    html_clean = re.sub(r'<(script|style|nav|footer|header|noscript)[^>]*>.*?</\1>', '', html, flags=re.DOTALL | re.IGNORECASE)
+    # Supprimer les balises HTML
+    text = re.sub(r'<[^>]+>', ' ', html_clean)
+    # Supprimer les espaces multiples
+    text = re.sub(r'\s+', ' ', text).strip()
+
+    # Tronquer a un max raisonnable pour le contexte
+    max_chars = 3000
+    if len(text) > max_chars:
+        text = text[:max_chars] + "..."
+
+    if not text or len(text) < 20:
+        return {"status": "error", "message": "Page vide ou inaccessible."}
+
+    # Extraire les numeros de telephone
+    phones = re.findall(r'(?:\+33|0)\s*[1-9](?:[\s.\-]?\d{2}){4}', text)
+    phones = list(set(phones))[:3]
+
+    # Extraire les prix (EUR)
+    prices = re.findall(r'(\d{1,4}(?:[.,]\d{2})?\s*(?:€|EUR|euros?))', text, re.IGNORECASE)
+    prices = list(set(prices))[:10]
+
+    # Extraire les emails
+    emails = re.findall(r'[\w.+-]+@[\w-]+\.[\w.-]+', text)
+    emails = list(set(emails))[:3]
+
+    # Extraire les horaires
+    hours = re.findall(r'(?:lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche|lun|mar|mer|jeu|ven|sam|dim)[^.;\n]{5,80}', text, re.IGNORECASE)
+    hours = list(set(hours))[:5]
+
+    # Extraire les adresses (patterns francais)
+    addresses = re.findall(r'\d{1,4}\s+(?:rue|avenue|boulevard|place|chemin|impasse|allee|passage|cours)\s+[A-Za-zÀ-ÿ\s\-]{3,50}', text, re.IGNORECASE)
+    addresses = list(set(addresses))[:3]
+
+    result = {
+        "status": "success",
+        "content": text[:2000],
+        "phones": phones,
+        "prices": prices,
+        "emails": emails,
+        "hours": hours,
+        "addresses": addresses,
+        "url": url,
+    }
+
+    # Si un focus est specifie et que OpenAI est dispo, resumer le contenu
+    if focus and openai_client:
+        try:
+            _summary_resp = openai_client.chat.completions.create(
+                model=OPENAI_MODEL,
+                messages=[
+                    {"role": "system", "content": "Tu es un assistant qui extrait des informations precises d'un texte de page web. Reponds en francais, de facon concise et structuree."},
+                    {"role": "user", "content": f"Voici le contenu de la page {url}.\nJe cherche : {focus}\n\nTexte:\n{text[:2500]}\n\nExtrais uniquement les informations pertinentes pour '{focus}'. Sois precis et concis."},
+                ],
+                max_tokens=500,
+                temperature=0.1,
+            )
+            _summary = _summary_resp.choices[0].message.content.strip()
+            result["summary"] = _summary
+            result["message"] = f"Informations sur '{focus}' extraites de {url}."
+        except Exception as e:
+            logger.warning(f"Page summary error: {e}")
+            result["message"] = f"Informations extraites de {url} (focus: {focus}). {len(phones)} telephone(s), {len(prices)} prix trouves."
+    elif focus:
+        result["focus"] = focus
+        result["message"] = f"Informations extraites de {url} (focus: {focus}). {len(phones)} telephone(s), {len(prices)} prix trouves."
+    else:
+        result["message"] = f"Contenu extrait de {url}. {len(phones)} telephone(s), {len(prices)} prix trouves."
+
+    return result
+
+
+_CONCIERGE_COMMISSION_RATE = float(os.getenv("CONCIERGE_COMMISSION_RATE", "0.10"))  # 10% par defaut
+
+
+async def _tool_request_payment(args: Dict, tenant_id: int = 0) -> Dict:
+    """Cree un PaymentIntent Stripe pour un achat de conciergerie avec commission fondateur."""
+    tid = tenant_id or TENANT_ID
+    mgr = _get_tenant_manager(tid) if tid else _memory_manager
+
+    base_amount_cents = args.get("amount_cents", 0)
     description = args.get("description", "")
     merchant_name = args.get("merchant_name", "Conciergerie Luna")
 
-    if not amount_cents or amount_cents <= 0:
+    if not base_amount_cents or base_amount_cents <= 0:
         return {"status": "error", "message": "Montant invalide"}
     if not description:
         return {"status": "error", "message": "Description de l'achat requise"}
 
-    # Verifier le plafond du souscripteur
+    # Calcul commission fondateur
+    commission_cents = int(round(base_amount_cents * _CONCIERGE_COMMISSION_RATE))
+    total_amount_cents = base_amount_cents + commission_cents
+
+    # Verifier le plafond du souscripteur (sur le total TTC)
     max_budget = 0
     sub_name = _SUBSCRIBER_NAME
     if mgr:
         try:
             profile = mgr.get_subscriber_profile()
             if profile:
-                max_budget = int(getattr(profile, "max_budget", 0) or 0)
+                try:
+                    max_budget = int(float(getattr(profile, "max_budget", 0) or 0))
+                except (ValueError, TypeError):
+                    max_budget = 0
                 if profile.first_name:
                     sub_name = profile.first_name
         except Exception:
             pass
 
-    amount_eur = amount_cents / 100
-    if max_budget > 0 and amount_eur > max_budget:
+    total_eur = total_amount_cents / 100
+    base_eur = base_amount_cents / 100
+    commission_eur = commission_cents / 100
+
+    # Suivi cumule des depenses du mois (Redis)
+    already_spent_cents = 0
+    spending_key = ""
+    if _redis_client and tid:
+        import datetime as _dt
+        _month_key = _dt.datetime.now().strftime("%Y-%m")
+        spending_key = f"{_redis_client.prefix}:{tid}:concierge:spending:{_month_key}"
+        try:
+            already_spent_cents = int(_redis_client.client.get(spending_key) or 0)
+        except Exception:
+            already_spent_cents = 0
+
+    already_spent_eur = already_spent_cents / 100
+    projected_total_eur = already_spent_eur + total_eur
+
+    # BLOCAGE STRICT si le budget mensuel est depasse (pas de "demande-lui")
+    if max_budget > 0 and total_eur > max_budget:
         return {
             "status": "error",
-            "message": f"Le montant de {amount_eur:.2f} EUR depasse le plafond de {max_budget} EUR fixe par {sub_name}. Demande-lui s'il veut quand meme proceder."
+            "message": (
+                f"REFUSE : ce paiement de {total_eur:.2f} EUR depasse le plafond "
+                f"de {max_budget} EUR par transaction fixe par {sub_name}. "
+                f"Je ne peux pas proceder."
+            )
+        }
+    if max_budget > 0 and projected_total_eur > max_budget:
+        remaining = max(0, max_budget - already_spent_eur)
+        return {
+            "status": "error",
+            "message": (
+                f"REFUSE : {sub_name} a deja depense {already_spent_eur:.2f} EUR ce mois-ci "
+                f"(plafond: {max_budget} EUR). Ce paiement de {total_eur:.2f} EUR "
+                f"porterait le total a {projected_total_eur:.2f} EUR. "
+                f"Budget restant: {remaining:.2f} EUR."
+            )
         }
 
     # Recuperer le stripe_customer_id du souscripteur (par tenant_id, pas par PROPRIO_EMAIL)
@@ -6248,20 +8916,13 @@ async def _tool_request_payment(args: Dict, tenant_id: int = 0) -> Dict:
         return {"status": "error", "message": "Service de paiement non configure"}
     _stripe.api_key = _stripe_secret
 
-    # Chercher le customer Stripe via Redis — pour le TENANT actuel
+    # Chercher le customer Stripe via Redis (scan_iter, pas KEYS *)
     stripe_customer_id = None
     if _redis_client:
         try:
-            # Chercher tous les auth records pour trouver celui du bon tenant
-            import json as _json_stripe
-            for key in _redis_client.client.keys(f"{_redis_client.prefix}:auth:*"):
-                raw = _redis_client.client.get(key)
-                if raw:
-                    rec = _json_stripe.loads(raw)
-                    if rec.get("tenant_id") == tid or str(rec.get("tenant_id")) == str(tid):
-                        stripe_customer_id = rec.get("stripe_customer_id")
-                        if stripe_customer_id:
-                            break
+            auth = _redis_client.get_auth_by_tenant_id(tid)
+            if auth:
+                stripe_customer_id = auth.get("stripe_customer_id")
         except Exception as e:
             logger.warning(f"Stripe customer lookup error: {e}")
 
@@ -6276,7 +8937,6 @@ async def _tool_request_payment(args: Dict, tenant_id: int = 0) -> Dict:
         customer = _stripe.Customer.retrieve(stripe_customer_id)
         default_pm = customer.get("invoice_settings", {}).get("default_payment_method")
         if not default_pm:
-            # Chercher une carte attachee
             pms = _stripe.PaymentMethod.list(customer=stripe_customer_id, type="card", limit=1)
             if pms.data:
                 default_pm = pms.data[0].id
@@ -6286,9 +8946,9 @@ async def _tool_request_payment(args: Dict, tenant_id: int = 0) -> Dict:
                     "message": f"Aucune carte bancaire enregistree pour {sub_name}. Il doit d'abord ajouter une carte."
                 }
 
-        # Creer le PaymentIntent
+        # Creer le PaymentIntent avec commission dans les metadata
         intent = _stripe.PaymentIntent.create(
-            amount=amount_cents,
+            amount=total_amount_cents,
             currency="eur",
             customer=stripe_customer_id,
             payment_method=default_pm,
@@ -6297,41 +8957,73 @@ async def _tool_request_payment(args: Dict, tenant_id: int = 0) -> Dict:
                 "tenant_id": str(tid),
                 "merchant": merchant_name,
                 "type": "concierge",
+                "base_amount_cents": str(base_amount_cents),
+                "commission_cents": str(commission_cents),
+                "commission_rate": str(_CONCIERGE_COMMISSION_RATE),
             },
             # Ne PAS confirmer automatiquement — le souscripteur doit valider
             confirm=False,
         )
 
+        # Incrementer le compteur de depenses mensuelles dans Redis
+        if _redis_client and spending_key:
+            try:
+                _redis_client.client.incrby(spending_key, total_amount_cents)
+                # Expire apres 35 jours (nettoyage auto)
+                _redis_client.client.expire(spending_key, 35 * 86400)
+            except Exception as _e:
+                logger.warning(f"Failed to track spending: {_e}")
+
         # Log l'intent
         if mgr:
             try:
+                _budget_info = ""
+                if max_budget > 0:
+                    _new_spent = (already_spent_cents + total_amount_cents) / 100
+                    _remaining = max(0, max_budget - _new_spent)
+                    _budget_info = f"\nBudget: {_new_spent:.2f}/{max_budget} EUR utilises, reste {_remaining:.2f} EUR"
                 mgr.add_note(
                     content=(
-                        f"[Paiement conciergerie] {amount_eur:.2f} EUR — {description}\n"
-                        f"Commercant: {merchant_name} | Statut: en attente de confirmation\n"
-                        f"Ref: {intent.id}"
+                        f"[Paiement conciergerie] {total_eur:.2f} EUR TTC — {description}\n"
+                        f"Commercant: {merchant_name} | Service: {base_eur:.2f} EUR + {commission_eur:.2f} EUR frais\n"
+                        f"Statut: en attente de confirmation | Ref: {intent.id}"
+                        f"{_budget_info}"
                     ),
                     context="payment",
                     tags=["paiement", "conciergerie", merchant_name],
                 )
                 mgr.log_event(
                     category="action",
-                    description=f"Paiement conciergerie cree: {amount_eur:.2f} EUR pour {merchant_name}",
-                    reasoning=f"Luna prepare un paiement de {amount_eur:.2f} EUR: {description}",
+                    description=f"Paiement conciergerie cree: {total_eur:.2f} EUR pour {merchant_name} (commission: {commission_eur:.2f} EUR)",
+                    reasoning=f"Luna prepare un paiement de {total_eur:.2f} EUR: {description}",
                     source="tool_call",
                 )
             except Exception:
                 pass
 
+        # Ajouter le budget restant dans la reponse pour que Luna informe le souscripteur
+        budget_info = {}
+        if max_budget > 0:
+            _new_total = (already_spent_cents + total_amount_cents) / 100
+            budget_info = {
+                "budget_max": max_budget,
+                "spent_this_month": _new_total,
+                "remaining": max(0, max_budget - _new_total),
+            }
+
         return {
             "status": "success",
             "message": (
-                f"Paiement de {amount_eur:.2f} EUR prepare pour {merchant_name}. "
+                f"Paiement de {total_eur:.2f} EUR prepare pour {merchant_name} "
+                f"(dont {commission_eur:.2f} EUR de frais de service). "
                 f"{sub_name} doit confirmer le paiement dans l'application pour finaliser. "
                 f"Reference: {intent.id[-8:]}"
             ),
             "payment_intent_id": intent.id,
-            "amount_eur": amount_eur,
+            "amount_eur": total_eur,
+            "base_amount_eur": base_eur,
+            "commission_eur": commission_eur,
+            **({"budget": budget_info} if budget_info else {}),
         }
 
     except _stripe.error.StripeError as e:
@@ -6340,6 +9032,438 @@ async def _tool_request_payment(args: Dict, tenant_id: int = 0) -> Dict:
     except Exception as e:
         logger.error(f"Payment error: {e}")
         return {"status": "error", "message": "Erreur lors de la creation du paiement. Reessaie."}
+
+
+# =============================================================================
+# TOOLS RESERVATION (Vols, Hotels, Restaurants)
+# =============================================================================
+
+async def _tool_search_flights(args: Dict, tenant_id: int = 0) -> Dict:
+    """Recherche de vols via Duffel (prioritaire) → Amadeus → fallback web."""
+    origin = args.get("origin", "")
+    destination = args.get("destination", "")
+    departure_date = args.get("departure_date", "")
+    return_date = args.get("return_date", "")
+    passengers = int(args.get("passengers", 1))
+    travel_class = args.get("travel_class", "ECONOMY")
+
+    if not origin or not destination or not departure_date:
+        return {"status": "error", "message": "Il me faut la ville de depart, la destination et la date."}
+
+    # 1) Duffel (reservation directe possible)
+    if duffel_client and duffel_client.is_configured:
+        cabin = {"ECONOMY": "economy", "PREMIUM_ECONOMY": "premium_economy",
+                 "BUSINESS": "business", "FIRST": "first"}.get(travel_class, "economy")
+        success, data = await duffel_client.search_flights(
+            origin=origin, destination=destination,
+            departure_date=departure_date, return_date=return_date or None,
+            passengers=passengers, cabin_class=cabin,
+        )
+        if success and data.get("flights"):
+            logger.info(f"FLIGHT_SEARCH [Duffel] {origin}→{destination} {departure_date}: {data['count']} resultats")
+            return {"status": "success", **data}
+
+    # 2) Amadeus
+    if amadeus_client and amadeus_client.is_configured:
+        success, data = await amadeus_client.search_flights(
+            origin=origin, destination=destination,
+            departure_date=departure_date, return_date=return_date or None,
+            adults=passengers, travel_class=travel_class,
+        )
+        if success and data.get("flights"):
+            logger.info(f"FLIGHT_SEARCH [Amadeus] {origin}→{destination} {departure_date}: {data['count']} resultats")
+            return {"status": "success", **data}
+
+    # 3) Fallback: recherche web + liens comparateurs
+    import urllib.parse
+    web_result = await _tool_search_web(
+        {"query": f"vol {origin} {destination} {departure_date} prix horaires billet"},
+        tenant_id=tenant_id,
+    )
+    _skyscanner_q = urllib.parse.quote(f"{origin} {destination}")
+    booking_links = [
+        f"Skyscanner: https://www.skyscanner.fr/transport/vols/{origin.lower()}/{destination.lower()}/{departure_date.replace('-', '')}/",
+        f"Google Flights: https://www.google.com/travel/flights?q=vol+{_skyscanner_q}+{departure_date}",
+    ]
+    if web_result.get("status") == "success":
+        web_result["liens_reservation"] = booking_links
+        web_result["conseil"] = "Voici les resultats. Pour reserver, le souscripteur peut cliquer sur les liens ci-dessus."
+    return web_result
+
+
+async def _tool_search_hotels(args: Dict, tenant_id: int = 0) -> Dict:
+    """Recherche d'hotels via Duffel (prioritaire) → Amadeus → fallback web."""
+    city = args.get("city", "")
+    check_in = args.get("check_in", "")
+    check_out = args.get("check_out", "")
+    guests = int(args.get("guests", 1))
+
+    if not city or not check_in or not check_out:
+        return {"status": "error", "message": "Il me faut la ville, la date d'arrivee et la date de depart."}
+
+    # 1) Duffel Stays (reservation directe possible)
+    if duffel_client and duffel_client.is_configured:
+        success, data = await duffel_client.search_hotels(
+            city=city, check_in=check_in, check_out=check_out, guests=guests,
+        )
+        if success and data.get("hotels"):
+            logger.info(f"HOTEL_SEARCH [Duffel] {city} {check_in}-{check_out}: {data['count']} resultats")
+            return {"status": "success", **data}
+
+    # 2) Amadeus
+    if amadeus_client and amadeus_client.is_configured:
+        stars = args.get("stars")
+        price_range = args.get("price_range")
+        success, data = await amadeus_client.search_hotels(
+            city=city, check_in=check_in, check_out=check_out,
+            adults=guests, stars=stars, price_range=price_range,
+        )
+        if success and data.get("hotels"):
+            logger.info(f"HOTEL_SEARCH [Amadeus] {city} {check_in}-{check_out}: {data['count']} resultats")
+            return {"status": "success", **data}
+
+    # 3) Fallback: recherche web + liens comparateurs
+    import urllib.parse
+    _city_q = urllib.parse.quote(city)
+    web_result = await _tool_search_web(
+        {"query": f"hotel {city} {check_in} {check_out} prix chambre disponibilite"},
+        tenant_id=tenant_id,
+    )
+    booking_links = [
+        f"Booking.com: https://www.booking.com/searchresults.fr.html?ss={_city_q}&checkin={check_in}&checkout={check_out}",
+        f"Hotels.com: https://fr.hotels.com/search.do?q-destination={_city_q}&q-check-in={check_in}&q-check-out={check_out}",
+    ]
+    if web_result.get("status") == "success":
+        web_result["liens_reservation"] = booking_links
+        web_result["conseil"] = "Voici les hotels trouves. Pour reserver, le souscripteur peut utiliser les liens ci-dessus."
+    return web_result
+
+
+async def _tool_book_restaurant(args: Dict, tenant_id: int = 0) -> Dict:
+    """Recherche et reservation de restaurant via TheFork ou fallback search_places."""
+    city = args.get("city", "")
+    date = args.get("date", "")
+    time_str = args.get("time", "20:00")
+    party_size = args.get("party_size", 2)
+    cuisine = args.get("cuisine")
+
+    if not city or not date:
+        return {"status": "error", "message": "Il me faut la ville et la date pour chercher un restaurant."}
+
+    # Tente TheFork d'abord
+    if thefork_client and thefork_client.is_configured:
+        success, data = await thefork_client.search_restaurants(
+            city=city,
+            date=date,
+            time=time_str,
+            party_size=party_size,
+            cuisine=cuisine,
+        )
+        if success:
+            logger.info(f"RESTAURANT_SEARCH {city} {date} {time_str}: {data.get('count', 0)} resultats (TheFork)")
+            return {"status": "success", "source": "thefork", **data}
+
+    # Fallback: search_places
+    query = f"restaurant {cuisine + ' ' if cuisine else ''}{city}"
+    result = await _tool_search_places(
+        {"query": query, "location": city, "category": "restaurant"},
+        tenant_id=tenant_id,
+    )
+    if result.get("status") == "success":
+        result["booking_method"] = "call_contact"
+        result["message"] = (
+            f"Voici les restaurants trouves. Pour reserver, je peux appeler le restaurant "
+            f"de ton choix avec call_contact pour reserver une table pour {party_size} "
+            f"personne{'s' if party_size > 1 else ''} le {date} a {time_str}."
+        )
+    return result
+
+
+# =========================================================================
+# SECRETARY TOOLS — Documents, Budget, Rappels
+# =========================================================================
+
+def _get_secretary_ops(tid: int):
+    """Retourne SecretaryRedisOps pour un tenant."""
+    if not _redis_client:
+        return None
+    try:
+        from core.secretary.redis_ops import SecretaryRedisOps
+        return SecretaryRedisOps(_redis_client, tid)
+    except ImportError:
+        return None
+
+
+def _tool_secretary_summary(tid: int) -> Dict:
+    sops = _get_secretary_ops(tid)
+    if not sops:
+        return {"status": "error", "message": "Module secretaire non disponible"}
+    summary = sops.get_documents_summary()
+    summary["status"] = "success"
+    return summary
+
+
+def _tool_secretary_budget(tid: int) -> Dict:
+    sops = _get_secretary_ops(tid)
+    if not sops:
+        return {"status": "error", "message": "Module secretaire non disponible"}
+    from core.secretary.scanner import generate_budget_suggestions
+    analysis = sops.get_budget_analysis()
+    suggestions = generate_budget_suggestions(analysis)
+    return {"status": "success", "analysis": analysis, "suggestions": suggestions}
+
+
+def _tool_secretary_afford(tid: int, args: Dict) -> Dict:
+    sops = _get_secretary_ops(tid)
+    if not sops:
+        return {"status": "error", "message": "Module secretaire non disponible"}
+    try:
+        amount = float(args.get("amount", 0))
+    except (ValueError, TypeError):
+        return {"status": "error", "message": "Montant invalide"}
+    label = args.get("label", "cette depense")
+
+    analysis = sops.get_budget_analysis()
+    reste = analysis.get("reste_a_vivre", 0)
+    prevu_fin = analysis.get("solde_prevu_fin_mois", 0)
+
+    can_afford = (reste - amount) > 0
+    safe = (prevu_fin - amount) > 50
+
+    if can_afford and safe:
+        verdict = "oui"
+        message = f"Oui, tu peux te permettre {label} ({amount:.0f}€). Il te restera environ {prevu_fin - amount:.0f}€ en fin de mois."
+    elif can_afford and not safe:
+        verdict = "risque"
+        message = f"C'est possible mais risque. Apres {label} ({amount:.0f}€), ta fin de mois sera serree ({prevu_fin - amount:.0f}€)."
+    else:
+        deficit = amount - reste
+        verdict = "non"
+        message = f"Ce n'est pas raisonnable. {label} ({amount:.0f}€) depasse ton budget de {deficit:.0f}€."
+
+    return {"status": "success", "verdict": verdict, "message": message, "reste_apres": round(reste - amount, 2)}
+
+
+def _tool_secretary_add_expense(tid: int, args: Dict) -> Dict:
+    sops = _get_secretary_ops(tid)
+    if not sops:
+        return {"status": "error", "message": "Module secretaire non disponible"}
+    try:
+        montant = float(args.get("montant", 0))
+    except (ValueError, TypeError):
+        return {"status": "error", "message": "Montant invalide"}
+
+    import html as _html
+    entry = {
+        "montant": montant,
+        "direction": args.get("direction", "depense"),
+        "categorie": _html.escape(args.get("categorie", "autre")),
+        "label": _html.escape(args.get("label", "")[:100]),
+    }
+    entry_id = sops.add_budget_entry(entry)
+    direction_label = "revenu" if entry["direction"] == "revenu" else "depense"
+    return {"status": "success", "message": f"{direction_label.capitalize()} de {montant:.0f}€ enregistre(e) ({entry['label']})."}
+
+
+def _tool_secretary_reminders(tid: int) -> Dict:
+    sops = _get_secretary_ops(tid)
+    if not sops:
+        return {"status": "error", "message": "Module secretaire non disponible"}
+    upcoming = sops.get_upcoming_reminders()
+    overdue = sops.get_overdue_reminders()
+    return {
+        "status": "success",
+        "upcoming": upcoming,
+        "overdue": overdue,
+        "message": f"{len(overdue)} en retard, {len(upcoming)} a venir.",
+    }
+
+
+def _tool_secretary_add_reminder(tid: int, args: Dict) -> Dict:
+    sops = _get_secretary_ops(tid)
+    if not sops:
+        return {"status": "error", "message": "Module secretaire non disponible"}
+    import html as _html
+    title = _html.escape(args.get("title", "").strip()[:100])
+    if not title:
+        return {"status": "error", "message": "Titre requis"}
+    reminder = {
+        "title": title,
+        "description": _html.escape(args.get("description", "")[:300]),
+        "due_date": args.get("due_date", ""),
+        "type": "luna",
+    }
+    sops.add_reminder(reminder)
+    due = f" pour le {reminder['due_date']}" if reminder["due_date"] else ""
+    return {"status": "success", "message": f"Rappel cree : {title}{due}"}
+
+
+def _tool_secretary_search(tid: int, args: Dict) -> Dict:
+    sops = _get_secretary_ops(tid)
+    if not sops:
+        return {"status": "error", "message": "Module secretaire non disponible"}
+    query = args.get("query", "")
+    if not query:
+        return {"status": "error", "message": "Mot-cle requis"}
+    docs = sops.search_documents(query)
+    if not docs:
+        return {"status": "success", "message": f"Aucun document trouve pour '{query}'.", "documents": []}
+    return {"status": "success", "documents": docs, "message": f"{len(docs)} document(s) trouve(s) pour '{query}'."}
+
+
+def _tool_secretary_folders(tid: int) -> Dict:
+    sops = _get_secretary_ops(tid)
+    if not sops:
+        return {"status": "error", "message": "Module secretaire non disponible"}
+    folders = sops.get_folders()
+    if not folders:
+        return {"status": "success", "message": "Aucun dossier pour l'instant. Scanne un document pour commencer.", "folders": []}
+    lines = []
+    for f in folders:
+        indent = "  " if f.get("parent") else ""
+        lines.append(f"{indent}{f['path']} ({f['count']} doc{'s' if f['count'] > 1 else ''})")
+    return {"status": "success", "folders": folders, "message": "Tes dossiers :\n" + "\n".join(lines)}
+
+
+# =========================================================================
+# VOICE TOOLS — Social & Perception (Mode Jarvis)
+# =========================================================================
+
+async def _voice_tool_get_friends_online(tid: int) -> Dict:
+    """Liste les amis Luna et indique lesquels sont en ligne."""
+    if not _redis_client:
+        return {"status": "error", "message": "Service social non disponible"}
+    try:
+        from core.social.redis_ops import SocialRedisOps
+        sops = SocialRedisOps(_redis_client)
+        friend_tids = sops.get_friends(tid)
+        if not friend_tids:
+            return {
+                "status": "success",
+                "friends": [],
+                "count": 0,
+                "message": "Tu n'as pas encore d'amis dans le Monde Luna. Partage ton code ami pour en ajouter !",
+            }
+        online_set = sops.get_online_tids()
+        friends = []
+        for f_tid in friend_tids:
+            profile = sops.get_social_profile(f_tid)
+            if profile:
+                friends.append({
+                    "nickname": profile.get("nickname", f"User{f_tid}"),
+                    "is_online": f_tid in online_set,
+                    "level": profile.get("level", "1"),
+                })
+        friends.sort(key=lambda f: (not f["is_online"], f["nickname"]))
+        online_count = sum(1 for f in friends if f["is_online"])
+        return {
+            "status": "success",
+            "friends": friends,
+            "count": len(friends),
+            "online_count": online_count,
+            "message": f"{online_count} ami(s) en ligne sur {len(friends)} au total.",
+        }
+    except Exception as e:
+        logger.error(f"Voice tool get_friends_online error: {e}")
+        return {"status": "error", "message": "Impossible de charger les amis"}
+
+
+async def _voice_tool_send_dm(tid: int, args: Dict) -> Dict:
+    """Envoie un DM a un ami Luna par son pseudo."""
+    friend_name = args.get("friend_name", "").strip()
+    message = args.get("message", "").strip()
+    if not friend_name or not message:
+        return {"status": "error", "message": "Il me faut le nom de l'ami et le message."}
+    if len(message) > 500:
+        return {"status": "error", "message": "Message trop long (max 500 caracteres)."}
+    if not _redis_client:
+        return {"status": "error", "message": "Service social non disponible"}
+    try:
+        from core.social.redis_ops import SocialRedisOps
+        sops = SocialRedisOps(_redis_client)
+        friend_tids = sops.get_friends(tid)
+        # Find matching friend by nickname
+        target_tid = None
+        target_nickname = None
+        for f_tid in friend_tids:
+            profile = sops.get_social_profile(f_tid)
+            if profile:
+                nickname = profile.get("nickname", "")
+                if nickname.lower() == friend_name.lower() or friend_name.lower() in nickname.lower():
+                    target_tid = f_tid
+                    target_nickname = nickname
+                    break
+        if not target_tid:
+            return {
+                "status": "error",
+                "message": f"Aucun ami trouve avec le nom '{friend_name}'. Verifie le pseudo exact.",
+            }
+        # Create or get DM room
+        room_id = sops.create_dm_room(tid, target_tid)
+        if not room_id:
+            return {"status": "error", "message": "Impossible de creer la conversation."}
+        sops.add_dm_message(room_id, tid, message)
+        logger.info(f"Voice DM sent: {tid} -> {target_tid} ({target_nickname})")
+        return {
+            "status": "success",
+            "message": f"Message envoye a {target_nickname} dans le Monde Luna.",
+            "recipient": target_nickname,
+        }
+    except Exception as e:
+        logger.error(f"Voice tool send_dm error: {e}")
+        return {"status": "error", "message": "Erreur lors de l'envoi du message"}
+
+
+async def _voice_tool_get_friend_code(tid: int) -> Dict:
+    """Retourne le code ami du souscripteur."""
+    if not _redis_client:
+        return {"status": "error", "message": "Service social non disponible"}
+    try:
+        from core.social.redis_ops import SocialRedisOps
+        sops = SocialRedisOps(_redis_client)
+        code = sops.get_friend_code(tid)
+        return {
+            "status": "success",
+            "friend_code": code,
+            "message": f"Ton code ami est {code}. Epelle-le lettre par lettre pour que la personne puisse l'entrer.",
+        }
+    except Exception as e:
+        logger.error(f"Voice tool get_friend_code error: {e}")
+        return {"status": "error", "message": "Impossible de recuperer le code ami"}
+
+
+async def _voice_tool_look_around(tid: int) -> Dict:
+    """Regarde ce que la camera du souscripteur voit actuellement."""
+    if not _memory_manager:
+        return {"status": "error", "message": "Perception non disponible."}
+    try:
+        if not _memory_manager.is_perception_enabled():
+            return {
+                "status": "error",
+                "message": "La camera n'est pas activee. Demande au souscripteur d'activer la camera dans les reglages.",
+            }
+        scene = _memory_manager.get_perception_state()
+        if not scene:
+            return {
+                "status": "success",
+                "message": "La camera est activee mais je n'ai pas encore d'image recente. Attends quelques secondes.",
+            }
+        result = {
+            "status": "success",
+            "scene_description": scene.scene_description,
+            "persons_present": scene.persons_present,
+            "primary_posture": scene.primary_posture,
+            "objects_visible": scene.objects_visible,
+        }
+        if scene.abnormalities:
+            result["observations"] = [
+                {"severity": a["severity"], "description": a["description"]}
+                for a in scene.abnormalities
+            ]
+        return result
+    except Exception as e:
+        logger.error(f"Voice tool look_around error: {e}")
+        return {"status": "error", "message": "Impossible d'analyser la scene."}
 
 
 async def _handle_tavus_transcription(body: Dict) -> Dict:
@@ -6430,6 +9554,7 @@ async def generate_document(req: DocumentRequest, request: Request):
             temperature=0.7,
             timeout=30,
         )
+        await _track_openai_cost(gpt_resp)
         body_text = gpt_resp.choices[0].message.content
     except Exception as e:
         logger.error(f"Document generation error: {e}")
@@ -6468,17 +9593,20 @@ async def list_documents(request: Request):
 async def serve_document(filename: str, request: Request):
     """Sert un document genere au telechargement (auth requise, tenant verifie)"""
     tid = getattr(request.state, "tenant_id", 1)
-    # Securite : empeche path traversal
-    if ".." in filename or "/" in filename:
+    # Securite: whitelist extensions + anti path traversal
+    _ALLOWED_EXTENSIONS = (".pdf", ".docx")
+    if not filename.endswith(_ALLOWED_EXTENSIONS):
+        return JSONResponse(status_code=400, content={"error": "Type de fichier non autorise"})
+    if ".." in filename or "/" in filename or "\\" in filename or "\x00" in filename:
         return JSONResponse(status_code=400, content={"error": "Nom de fichier invalide"})
-    filepath = os.path.join(os.path.dirname(__file__), "static", "documents", str(tid), filename)
+    base_dir = os.path.normpath(os.path.join(os.path.dirname(__file__), "static", "documents", str(tid)))
+    filepath = os.path.normpath(os.path.join(base_dir, filename))
+    # Verifier que le fichier est bien dans le repertoire du tenant
+    if not filepath.startswith(base_dir + os.sep) and filepath != base_dir:
+        return JSONResponse(status_code=403, content={"error": "Acces refuse"})
     if not os.path.exists(filepath):
         return JSONResponse(status_code=404, content={"error": "Document non trouve"})
-    # Determiner le media_type selon l'extension
-    if filename.endswith(".pdf"):
-        media_type = "application/pdf"
-    else:
-        media_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    media_type = "application/pdf" if filename.endswith(".pdf") else "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
     return FileResponse(
         filepath,
         media_type=media_type,
@@ -6711,6 +9839,8 @@ async def stop_perception():
     return {"success": True, "message": "Perception desactivee"}
 
 
+_perception_last_frame: dict = {}  # tid -> timestamp
+
 @app.post("/api/perception/frame")
 async def receive_perception_frame(request: Request):
     """
@@ -6722,6 +9852,14 @@ async def receive_perception_frame(request: Request):
 
     if not _memory_manager.is_perception_enabled():
         return JSONResponse(status_code=400, content={"error": "Perception non activee"})
+
+    # Rate limit: max 1 frame / 5 secondes par tenant (protege la facture OpenAI Vision)
+    tid = getattr(request.state, "tenant_id", 1)
+    now = time.time()
+    last = _perception_last_frame.get(tid, 0)
+    if now - last < 5.0:
+        return JSONResponse(status_code=429, content={"error": "Trop rapide. 1 frame / 5 secondes max."})
+    _perception_last_frame[tid] = now
 
     try:
         body = await request.json()
@@ -6877,6 +10015,34 @@ async def _instruction_loop():
                 except Exception as e:
                     logger.warning(f"Notification engine error: {e}")
 
+            # Secretary reminders check — envoie des notifications pour les rappels echus
+            if _redis_client:
+                try:
+                    from core.secretary.redis_ops import SecretaryRedisOps
+                    _sec_ops = SecretaryRedisOps(_redis_client, int(TENANT_ID))
+                    _overdue = _sec_ops.get_overdue_reminders()
+                    for _rem in _overdue:
+                        if _rem.get("notified"):
+                            continue
+                        import json as _json_rem
+                        _notif = {
+                            "id": _rem.get("id", ""),
+                            "type": "secretary_reminder",
+                            "title": "Rappel secretaire",
+                            "body": _rem.get("title", "Rappel") + (" — " + _rem.get("description", "") if _rem.get("description") else ""),
+                            "ts": datetime.utcnow().isoformat(),
+                        }
+                        _redis_client.client.rpush(
+                            f"luna:{TENANT_ID}:notifications:pending",
+                            _json_rem.dumps(_notif)
+                        )
+                        _redis_client.client.expire(f"luna:{TENANT_ID}:notifications:pending", 86400)
+                        # Marquer comme notifie
+                        _rem_key = f"luna:{TENANT_ID}:secretary:reminder:{_rem['id']}"
+                        _redis_client.client.hset(_rem_key, "notified", "1")
+                except Exception as e:
+                    logger.debug(f"Secretary reminders check: {e}")
+
             if not _scheduler or not _executor:
                 continue
 
@@ -6887,14 +10053,48 @@ async def _instruction_loop():
             logger.info(f"Instruction loop: {len(due_tasks)} task(s) due")
             for task in due_tasks:
                 try:
+                    # Get subscriber phone for SMS delivery
+                    _exec_phone = ""
+                    _exec_mgr = _get_tenant_manager(task.tenant_id) if task.tenant_id else _memory_manager
+                    if _exec_mgr:
+                        try:
+                            _exec_profile = _exec_mgr.get_subscriber_profile()
+                            if _exec_profile:
+                                _exec_phone = getattr(_exec_profile, "phone", "") or ""
+                        except Exception:
+                            pass
+                    if not _exec_phone:
+                        _exec_phone = os.getenv("ADMIN_PHONE", "")
+
                     result = await _executor.execute(
                         task,
-                        context={"tenant_id": task.tenant_id},
+                        context={
+                            "tenant_id": task.tenant_id,
+                            "subscriber_phone": _exec_phone,
+                        },
                     )
                     logger.info(
                         f"Instruction {task.instruction_id} executed: "
                         f"{result.status.value} - {result.message}"
                     )
+
+                    # Deliver in-app notification for followup actions
+                    if result.requires_followup and _redis_client:
+                        try:
+                            import uuid as _uuid
+                            _notif_key = f"luna:{task.tenant_id}:notifications:pending"
+                            import json as _json
+                            _notif = {
+                                "id": str(_uuid.uuid4()),
+                                "type": "reminder",
+                                "title": "Rappel Luna",
+                                "body": result.message[:200],
+                                "ts": datetime.utcnow().isoformat(),
+                            }
+                            _redis_client.client.rpush(_notif_key, _json.dumps(_notif))
+                            _redis_client.client.expire(_notif_key, 86400)
+                        except Exception as e:
+                            logger.debug(f"Notification queuing: {e}")
 
                     # Marque l'instruction comme executee dans Redis
                     if _memory_manager:
@@ -7002,6 +10202,7 @@ async def run_scenario(req: Request):
                     temperature=0.8,
                     timeout=30,
                 )
+                await _track_openai_cost(response)
                 luna_msg = response.choices[0].message.content
                 messages.append({"role": "assistant", "content": luna_msg})
                 return luna_msg
@@ -7152,6 +10353,7 @@ async def unified_send(request: Request):
                 messages=messages,
                 max_tokens=500,
             )
+            await _track_openai_cost(response, tid)
             response_content = response.choices[0].message.content
 
             # Ajouter la reponse Luna
@@ -7702,6 +10904,46 @@ async def sync_from_tavus(request: Request):
         except Exception:
             pass
 
+        # Generate LLM summary of visio call
+        _visio_mgr = _get_tenant_manager(tid) if tid else _memory_manager
+        if transcript and _visio_mgr:
+            try:
+                _visio_summary = await _generate_visio_summary(transcript, conversation_id, duration_min)
+                _visio_mgr.add_note(
+                    content=_visio_summary,
+                    context="visio_summary",
+                    tags=["visio", "rapport", "resume", conversation_id],
+                )
+                logger.info(f"Visio summary saved for {conversation_id}")
+            except Exception as e:
+                logger.warning(f"Failed to generate visio summary: {e}")
+
+            # Generate PDF report
+            if _doc_generator:
+                try:
+                    _pdf_transcript = []
+                    for entry in transcript:
+                        role = "luna" if entry.get("speaker") == "replica" else "user"
+                        _pdf_transcript.append({"role": role, "text": entry.get("text", "")})
+                    _report_fn = _doc_generator.generate_call_report(
+                        call_type="visio",
+                        subscriber_name=_SUBSCRIBER_NAME,
+                        contact_name="Luna (visio)",
+                        contact_phone="",
+                        duration_minutes=duration_min,
+                        transcript=_pdf_transcript,
+                        call_sid=conversation_id,
+                    )
+                    _report_url = f"/api/documents/download/{_report_fn}"
+                    _visio_mgr.add_note(
+                        content=f"[Rapport visio] Duree: {duration_min:.1f} min — PDF: {_report_url}",
+                        context="visio_report",
+                        tags=["rapport", "visio", conversation_id],
+                    )
+                    logger.info(f"Visio PDF report: {_report_fn}")
+                except Exception as e:
+                    logger.warning(f"Failed to generate visio PDF: {e}")
+
         logger.info(f"Tavus conversation ended: {conversation_id}, {len(transcript)} messages synced")
         _gamify(tid, "visio_session")
 
@@ -8098,6 +11340,7 @@ async def analyze_content(request: Request):
             max_tokens=1500,
             temperature=0.3,
         )
+        await _track_openai_cost(response, tid)
         analysis = response.choices[0].message.content
 
         # Sauvegarder la tache
@@ -8212,6 +11455,7 @@ Contexte: {context}
             max_tokens=2000,
             temperature=0.7,
         )
+        await _track_openai_cost(response, tid)
         generated_text = response.choices[0].message.content
 
         # Sauvegarder la tache
@@ -8289,6 +11533,7 @@ Ameliore le document en tenant compte du feedback. Garde le meme format et le me
             max_tokens=2000,
             temperature=0.5,
         )
+        await _track_openai_cost(response, tid)
         improved_text = response.choices[0].message.content
 
         # Creer une nouvelle version
@@ -8540,10 +11785,11 @@ async def gmail_oauth_callback(request: Request):
 
     result = await gmail_client.handle_callback(code, state, _redis_client)
 
+    from html import escape as _html_escape
     if result.get("success"):
         # Affiche une page de succes simple
-        email = result.get("email", "")
-        tid = result.get("tenant_id", "?")
+        email = _html_escape(str(result.get("email", "")))
+        tid = _html_escape(str(result.get("tenant_id", "?")))
         html = f"""<!DOCTYPE html><html><head><title>Luna - Gmail connecte</title>
         <style>body{{font-family:sans-serif;display:flex;justify-content:center;align-items:center;height:100vh;background:#0a0a1a;color:#e0e0e0;}}
         .card{{background:#1e1e3f;padding:40px;border-radius:16px;text-align:center;}}
@@ -8556,7 +11802,7 @@ async def gmail_oauth_callback(request: Request):
         </div></body></html>"""
         return HTMLResponse(content=html)
     else:
-        error_msg = result.get("error", "Erreur inconnue")
+        error_msg = _html_escape(str(result.get("error", "Erreur inconnue")))
         html = f"""<!DOCTYPE html><html><head><title>Luna - Erreur Gmail</title>
         <style>body{{font-family:sans-serif;display:flex;justify-content:center;align-items:center;height:100vh;background:#0a0a1a;color:#e0e0e0;}}
         .card{{background:#1e1e3f;padding:40px;border-radius:16px;text-align:center;}}
@@ -8952,7 +12198,7 @@ async def admin_update_client(tenant_id: int, request: Request):
 
     if "plan" in data:
         plan = data["plan"].lower()
-        if plan not in ("essentiel", "confort", "premium"):
+        if plan not in ("essentiel", "confort", "premium", "fondateur"):
             return JSONResponse(status_code=400, content={"error": "Plan invalide"})
         updates["plan"] = plan
         # Evict from tenant manager cache
@@ -8994,6 +12240,30 @@ async def admin_delete_client(tenant_id: int, request: Request):
     keys_deleted = _redis_client.purge_tenant(tenant_id)
     logger.info(f"ADMIN_DELETE_CLIENT tenant_id={tenant_id} keys_deleted={keys_deleted}")
     return {"success": True, "tenant_id": tenant_id, "keys_deleted": keys_deleted}
+
+
+@app.post("/api/admin/reset-password/{tenant_id}")
+async def admin_reset_password(tenant_id: int, request: Request):
+    """Admin: reset le mot de passe d'un client."""
+    if not _verify_admin(request):
+        return JSONResponse(status_code=401, content={"error": "Non autorise"})
+    if not _redis_client:
+        return JSONResponse(status_code=503, content={"error": "Service temporairement indisponible"})
+
+    body = await request.json()
+    new_password = body.get("password", "").strip()
+    if len(new_password) < 6:
+        return JSONResponse(status_code=400, content={"error": "Mot de passe trop court (min 6 caracteres)"})
+
+    auth = _redis_client.get_auth_by_tenant_id(tenant_id)
+    if not auth:
+        return JSONResponse(status_code=404, content={"error": f"Tenant {tenant_id} introuvable"})
+
+    email = auth.get("email", "")
+    new_hash = _hash_password(new_password)
+    _redis_client.update_auth_record(email, {"password_hash": new_hash})
+    logger.info(f"ADMIN_RESET_PASSWORD tenant_id={tenant_id} email={email}")
+    return {"success": True, "tenant_id": tenant_id, "email": email}
 
 
 @app.get("/api/admin/quotas")

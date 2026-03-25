@@ -283,7 +283,36 @@ class BriefingEngine:
             f"  Quotas critiques: {business.get('quota_critical', 0)} clients",
             f"  Inactifs >14j: {business.get('inactive_clients', 0)}",
             "",
+            "COUTS DU MOIS:",
+            f"  SMS: {business.get('sms_count', 0)} envoyes = {business.get('sms_cost', 0):.2f}EUR",
+            f"  OpenAI (chat+docs): {business.get('openai_cost', 0):.2f}EUR",
+            f"  Voix (Twilio): {business.get('voice_minutes', 0):.0f} min = {business.get('voice_cost', 0):.2f}EUR",
+            f"  Visio (Tavus): {business.get('tavus_minutes', 0):.0f} min = {business.get('tavus_cost', 0):.2f}EUR",
+            f"  Serveur (Cloud Run): {business.get('cloud_run_cost', 0):.2f}EUR",
+            f"  Redis (RedisLabs): {business.get('redis_cost', 0):.2f}EUR",
+            f"  TOTAL MOIS: {business.get('total_cost', 0):.2f}EUR",
+            "",
         ]
+
+        # Detail par tenant si disponible
+        tenant_costs = business.get("tenant_costs", {})
+        if tenant_costs:
+            lines.append("DETAIL PAR CLIENT:")
+            for tid, tc in sorted(tenant_costs.items()):
+                t_total = tc.get("total_cost", 0)
+                if t_total > 0 or tc.get("sms_count", 0) > 0:
+                    parts = []
+                    if tc.get("sms_count", 0):
+                        parts.append(f"{tc['sms_count']}SMS={tc.get('sms_cost',0):.2f}EUR")
+                    if tc.get("voice_minutes", 0):
+                        parts.append(f"{tc['voice_minutes']:.0f}min voix={tc.get('voice_cost',0):.2f}EUR")
+                    if tc.get("tavus_minutes", 0):
+                        parts.append(f"{tc['tavus_minutes']:.0f}min visio={tc.get('tavus_cost',0):.2f}EUR")
+                    if tc.get("openai_cost", 0):
+                        parts.append(f"IA={tc['openai_cost']:.2f}EUR")
+                    detail = " | ".join(parts) if parts else "0"
+                    lines.append(f"  #{tid}: {t_total:.2f}EUR ({detail})")
+            lines.append("")
 
         # Ajouter les actions prises
         actions = threats.get("auto_actions_taken", [])

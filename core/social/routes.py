@@ -4,8 +4,12 @@
 """
 
 import os
+import re
 import json
+import html
 import logging
+import time
+from collections import defaultdict
 from datetime import datetime, date
 
 from fastapi import APIRouter, Request, Query
@@ -16,6 +20,54 @@ from .redis_ops import SocialRedisOps
 logger = logging.getLogger(__name__)
 
 social_router = APIRouter()
+
+# =====================================================================
+# RATE LIMITER (per-tenant, in-memory)
+# =====================================================================
+_rate_buckets: dict = defaultdict(lambda: defaultdict(list))  # {action: {tid: [timestamps]}}
+
+_RATE_LIMITS = {
+    "heartbeat": (30, 60),       # 30 req / 60s
+    "friend_request": (10, 60),  # 10 req / 60s
+    "dm_send": (20, 60),         # 20 msg / 60s
+    "report": (3, 300),          # 3 reports / 5 min
+    "discover": (10, 60),        # 10 req / 60s
+    "profile_update": (5, 60),   # 5 req / 60s
+}
+
+
+def _rate_check(action: str, tid: int) -> bool:
+    """Retourne True si autorise, False si rate-limited."""
+    if action not in _RATE_LIMITS:
+        return True
+    max_req, window = _RATE_LIMITS[action]
+    now = time.time()
+    bucket = _rate_buckets[action][tid]
+    # Purge old entries
+    cutoff = now - window
+    while bucket and bucket[0] < cutoff:
+        bucket.pop(0)
+    if len(bucket) >= max_req:
+        return False
+    bucket.append(now)
+    return True
+
+
+def _rate_limited():
+    return JSONResponse(status_code=429, content={"error": "Trop de requetes. Reessaie dans un instant."})
+
+
+# =====================================================================
+# INPUT SANITIZATION (anti-XSS)
+# =====================================================================
+_HTML_TAG_RE = re.compile(r"<[^>]+>")
+
+
+def _sanitize(text: str) -> str:
+    """Echappe les balises HTML pour eviter le XSS stocke."""
+    if not text:
+        return text
+    return _HTML_TAG_RE.sub("", html.escape(text, quote=True))
 
 
 # =====================================================================
@@ -107,11 +159,18 @@ async def get_my_profile(request: Request):
                 is_minor = "true" if age < 16 else "false"
                 age_verified = "true"
 
+        # Default avatar based on subscriber gender
+        _default_avatar = "adult_man"
+        if luna_profile:
+            _gender = (luna_profile.get("gender", "") or "").upper()
+            if _gender == "F":
+                _default_avatar = "adult_woman"
+
         profile = {
             "tid": str(tid),
             "nickname": nickname,
             "bio": "",
-            "avatar_type": "adult_man",
+            "avatar_type": _default_avatar,
             "frame": "",
             "level": "1",
             "age_verified": age_verified,
@@ -157,14 +216,16 @@ async def update_my_profile(request: Request):
     tid = _get_tenant_id(request)
     if tid is None:
         return _error("Non authentifie", 401)
+    if not _rate_check("profile_update", tid):
+        return _rate_limited()
 
     try:
         body = await request.json()
     except Exception:
         return _error("Corps invalide")
 
-    nickname = body.get("nickname", "").strip()
-    bio = body.get("bio", "").strip()
+    nickname = _sanitize(body.get("nickname", "").strip())
+    bio = _sanitize(body.get("bio", "").strip())
     date_of_birth = body.get("date_of_birth", "").strip()
 
     if nickname:
@@ -244,13 +305,15 @@ async def get_public_profile(request: Request, target_tid: int):
 
 @social_router.get("/api/social/discover")
 async def discover(request: Request):
-    """Liste des souscripteurs visibles (hors bloques et mineurs)."""
+    """Liste des souscripteurs visibles (hors bloques et mineurs). Max 50 resultats."""
     sops = _get_sops(request)
     if not sops:
         return _unavailable()
     tid = _get_tenant_id(request)
     if tid is None:
         return _error("Non authentifie", 401)
+    if not _rate_check("discover", tid):
+        return _rate_limited()
 
     if _check_minor(sops, tid):
         return _error("Fonctionnalite sociale non disponible pour les mineurs", 403)
@@ -282,8 +345,9 @@ async def discover(request: Request):
             "is_online": p_tid in online_set,
         })
 
-    # Sort: online first, then by level desc
+    # Sort: online first, then by level desc — cap at 50 results
     users.sort(key=lambda u: (not u["is_online"], -int(u.get("level", "1"))))
+    users = users[:50]
     return {"users": users, "count": len(users)}
 
 
@@ -384,6 +448,8 @@ async def send_friend_request(request: Request):
     tid = _get_tenant_id(request)
     if tid is None:
         return _error("Non authentifie", 401)
+    if not _rate_check("friend_request", tid):
+        return _rate_limited()
 
     if _check_minor(sops, tid):
         return _error("Fonctionnalite sociale non disponible pour les mineurs", 403)
@@ -587,11 +653,13 @@ async def report_user(request: Request):
     tid = _get_tenant_id(request)
     if tid is None:
         return _error("Non authentifie", 401)
+    if not _rate_check("report", tid):
+        return _rate_limited()
 
     try:
         body = await request.json()
         target_tid = body.get("target_tid")
-        reason = body.get("reason", "").strip()
+        reason = _sanitize(body.get("reason", "").strip())
     except Exception:
         return _error("Corps invalide")
 
@@ -625,6 +693,7 @@ async def get_dm_rooms(request: Request):
         return _error("Messages prives non disponibles pour les mineurs", 403)
 
     rooms = sops.get_dm_rooms(tid)
+    unread_per_room = sops.get_unread_dm_per_room(tid)
     enriched = []
     for room in rooms:
         # Find the other participant
@@ -637,14 +706,16 @@ async def get_dm_rooms(request: Request):
         if sops.is_blocked(tid, other_tid) or sops.is_blocked(other_tid, tid):
             continue
 
+        _rid = room.get("room_id", "")
         enriched.append({
-            "room_id": room.get("room_id", ""),
+            "room_id": _rid,
             "other_tid": other_tid,
             "other_nickname": other_profile.get("nickname", "") if other_profile else f"User{other_tid}",
             "other_avatar_type": other_profile.get("avatar_type", "adult_man") if other_profile else "adult_man",
             "other_frame": other_profile.get("frame", "") if other_profile else "",
             "other_online": sops.is_online(other_tid),
             "last_message_at": room.get("last_message_at", ""),
+            "unread": unread_per_room.get(_rid, 0),
         })
 
     return {"rooms": enriched, "count": len(enriched)}
@@ -697,6 +768,8 @@ async def get_dm_messages(request: Request, room_id: str):
         return _error("Acces refuse", 403)
 
     messages = sops.get_dm_messages(room_id)
+    # Mark as read when user views the messages
+    sops.mark_dm_read(tid, room_id)
     return {"messages": messages, "count": len(messages)}
 
 
@@ -709,6 +782,8 @@ async def send_dm_message(request: Request, room_id: str):
     tid = _get_tenant_id(request)
     if tid is None:
         return _error("Non authentifie", 401)
+    if not _rate_check("dm_send", tid):
+        return _rate_limited()
 
     if _check_minor(sops, tid):
         return _error("Messages prives non disponibles pour les mineurs", 403)
@@ -727,7 +802,7 @@ async def send_dm_message(request: Request, room_id: str):
 
     try:
         body = await request.json()
-        text = body.get("text", "").strip()
+        text = _sanitize(body.get("text", "").strip())
     except Exception:
         return _error("Corps invalide")
 
@@ -765,6 +840,8 @@ async def heartbeat(request: Request):
     tid = _get_tenant_id(request)
     if tid is None:
         return _error("Non authentifie", 401)
+    if not _rate_check("heartbeat", tid):
+        return _rate_limited()
 
     sops.set_online(tid)
 
@@ -790,14 +867,16 @@ async def heartbeat(request: Request):
             "last_seen": datetime.utcnow().isoformat(),
         })
 
-    # Return pending friend requests count for notification badge
+    # Return pending friend requests count + unread DMs for notification badge
     pending = sops.get_pending_request_count(tid)
     online_friends_set = sops.get_online_friends(tid)
     online_friends_list = list(online_friends_set)
+    unread_dms = sops.get_unread_dm_count(tid)
 
     return {
         "online": True,
         "pending_requests": pending,
+        "unread_dm_count": unread_dms,
         "online_friends": online_friends_list,
         "online_friends_count": len(online_friends_list),
     }
