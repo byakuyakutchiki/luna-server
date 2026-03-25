@@ -471,6 +471,44 @@ body.mode-secretaire .conc-modal-box .field input, body.mode-secretaire .conc-mo
 .onboard-start-btn { width: 100%; padding: 14px; border-radius: 10px; border: none; background: #7c3aed; color: white; font-size: 1em; cursor: pointer; font-weight: 600; transition: background 0.2s; }
 .onboard-start-btn:hover { background: #6d28d9; }
 
+/* Theocratie tab */
+.theo-section { margin-bottom: 24px; }
+.theo-section h3 { color: #f5c542; font-size: 1em; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+.theo-progress-bar { height: 20px; background: #1a1a2e; border-radius: 10px; overflow: hidden; margin-bottom: 6px; position: relative; }
+.theo-progress-fill { height: 100%; border-radius: 10px; transition: width 0.5s; background: linear-gradient(90deg, #f5c542, #f59e0b); }
+.theo-progress-fill.behind { background: linear-gradient(90deg, #f87171, #ef4444); }
+.theo-progress-fill.completed { background: linear-gradient(90deg, #4ade80, #22c55e); }
+.theo-progress-label { position: absolute; right: 8px; top: 1px; font-size: 0.75em; color: #fff; font-weight: 600; line-height: 20px; }
+.theo-stats { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+.theo-stat { background: #1a1a2e; border-radius: 10px; padding: 10px; text-align: center; }
+.theo-stat .val { font-size: 1.4em; font-weight: 700; color: #f5c542; }
+.theo-stat .lbl { font-size: 0.72em; color: #888; margin-top: 2px; }
+.theo-alert { background: rgba(248,113,113,0.12); border: 1px solid #f87171; border-radius: 10px; padding: 12px; margin-bottom: 12px; font-size: 0.85em; color: #fca5a5; }
+.theo-alert strong { color: #f87171; }
+.theo-alt-list { list-style: none; padding: 0; margin: 8px 0 0 0; }
+.theo-alt-list li { padding: 4px 0; color: #ccc; font-size: 0.82em; }
+.theo-alt-list li::before { content: "→ "; color: #f5c542; }
+.theo-add-row { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+.theo-add-row input, .theo-add-row select { padding: 8px 10px; border-radius: 8px; border: 1px solid #333; background: #1a1a2e; color: #fff; font-size: 0.85em; }
+.theo-add-row input[type="number"] { width: 70px; }
+.theo-add-row input[type="date"] { width: 140px; }
+.theo-add-row select { min-width: 120px; }
+.theo-add-btn { padding: 8px 16px; border-radius: 8px; border: none; background: #f5c542; color: #000; font-weight: 600; font-size: 0.85em; cursor: pointer; }
+.theo-add-btn:hover { background: #f59e0b; }
+.theo-entries { max-height: 200px; overflow-y: auto; }
+.theo-entry { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 0.82em; }
+.theo-entry .e-date { color: #888; width: 80px; }
+.theo-entry .e-hours { color: #f5c542; font-weight: 600; width: 50px; }
+.theo-entry .e-act { color: #ccc; flex: 1; }
+.theo-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+.theo-card { background: #1a1a2e; border: 1px solid #333; border-radius: 12px; padding: 14px; cursor: pointer; transition: all 0.2s; text-align: center; }
+.theo-card:hover { border-color: #f5c542; background: rgba(245,197,66,0.08); }
+.theo-card .tc-icon { font-size: 1.5em; margin-bottom: 4px; }
+.theo-card .tc-label { font-size: 0.82em; color: #ccc; }
+.theo-result { background: #1a1a2e; border-radius: 12px; padding: 16px; margin-top: 12px; max-height: 400px; overflow-y: auto; font-size: 0.88em; line-height: 1.6; color: #ddd; white-space: pre-wrap; }
+.theo-letter-form { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+.theo-letter-form input, .theo-letter-form select { padding: 8px 12px; border-radius: 8px; border: 1px solid #333; background: #1a1a2e; color: #fff; font-size: 0.85em; }
+
 /* Auth screens */
 .auth-screen { display: flex; justify-content: center; align-items: center; flex: 1; }
 .auth-box { background: #111; border: 1px solid #333; border-radius: 12px; padding: 40px; width: 90%; max-width: 360px; }
@@ -642,11 +680,93 @@ body.mode-secretaire .luna-chip:hover { background: rgba(16,185,129,0.2); border
 }
 #lunaVoiceTranscript .vt-user { color:#c084fc; }
 #lunaVoiceTranscript .vt-luna { color:#4ade80; }
+/* Voice overlay — fullscreen immersive mode */
+#voiceOverlay {
+  position:fixed; inset:0; z-index:200;
+  background:radial-gradient(ellipse at center, #1a1040 0%, #0a0a1a 70%, #000 100%);
+  display:none; flex-direction:column; align-items:center; justify-content:center;
+  transition:opacity 0.4s;
+}
+#voiceOverlay.visible { display:flex; }
+.voice-ov-timer {
+  position:absolute; top:20px; left:50%; transform:translateX(-50%);
+  color:rgba(167,139,250,0.7); font-size:0.85em; font-family:monospace;
+  letter-spacing:2px;
+}
+.voice-ov-orb {
+  width:120px; height:120px; border-radius:50%; position:relative;
+  background:radial-gradient(circle, rgba(124,58,237,0.3), transparent 70%);
+  display:flex; align-items:center; justify-content:center; margin-bottom:30px;
+}
+.voice-ov-orb-core {
+  width:60px; height:60px; border-radius:50%;
+  background:linear-gradient(135deg,#7c3aed,#a78bfa);
+  box-shadow:0 0 40px rgba(124,58,237,0.5);
+  transition:all 0.3s;
+}
+.voice-ov-orb.speaking .voice-ov-orb-core {
+  width:80px; height:80px;
+  background:linear-gradient(135deg,#a78bfa,#c4b5fd);
+  box-shadow:0 0 60px rgba(167,139,250,0.7);
+}
+.voice-ov-orb.listening .voice-ov-orb-core {
+  animation:orbPulse 2s ease-in-out infinite;
+}
+@keyframes orbPulse {
+  0%,100% { transform:scale(1); box-shadow:0 0 40px rgba(124,58,237,0.5); }
+  50% { transform:scale(1.08); box-shadow:0 0 60px rgba(124,58,237,0.7); }
+}
+.voice-ov-bars {
+  display:flex; gap:3px; align-items:center; height:40px; margin-bottom:24px;
+}
+.voice-ov-bar {
+  width:4px; background:#7c3aed; border-radius:2px; transition:height 0.1s;
+  height:8px; opacity:0.5;
+}
+.voice-ov-bars.active .voice-ov-bar { animation:barBounce 0.6s ease-in-out infinite; opacity:1; }
+.voice-ov-bars.active .voice-ov-bar:nth-child(1) { animation-delay:0s; }
+.voice-ov-bars.active .voice-ov-bar:nth-child(2) { animation-delay:0.1s; }
+.voice-ov-bars.active .voice-ov-bar:nth-child(3) { animation-delay:0.2s; }
+.voice-ov-bars.active .voice-ov-bar:nth-child(4) { animation-delay:0.15s; }
+.voice-ov-bars.active .voice-ov-bar:nth-child(5) { animation-delay:0.05s; }
+.voice-ov-bars.active .voice-ov-bar:nth-child(6) { animation-delay:0.25s; }
+.voice-ov-bars.active .voice-ov-bar:nth-child(7) { animation-delay:0.12s; }
+@keyframes barBounce {
+  0%,100% { height:8px; }
+  50% { height:32px; }
+}
+.voice-ov-status {
+  color:#a78bfa; font-size:0.9em; margin-bottom:16px; min-height:1.2em; text-align:center;
+}
+.voice-ov-transcript {
+  width:90%; max-width:500px; max-height:180px; overflow-y:auto;
+  background:rgba(0,0,0,0.3); border-radius:12px; padding:12px 16px;
+  font-size:0.82em; color:#ccc; margin-bottom:30px;
+}
+.voice-ov-transcript .vt-user { color:#c084fc; margin-bottom:4px; }
+.voice-ov-transcript .vt-luna { color:#4ade80; margin-bottom:4px; }
+.voice-ov-hangup {
+  width:64px; height:64px; border-radius:50%; border:none; cursor:pointer;
+  background:linear-gradient(135deg,#dc2626,#ef4444); color:white;
+  display:flex; align-items:center; justify-content:center;
+  box-shadow:0 4px 20px rgba(220,38,38,0.5); transition:transform 0.2s;
+}
+.voice-ov-hangup:hover { transform:scale(1.08); }
+.voice-ov-hangup svg { width:28px; height:28px; }
+.voice-ov-tool {
+  position:absolute; bottom:100px; left:50%; transform:translateX(-50%);
+  background:rgba(251,191,36,0.15); border:1px solid rgba(251,191,36,0.4);
+  border-radius:8px; padding:4px 12px; color:#fbbf24; font-size:0.75em;
+  display:none; white-space:nowrap;
+}
 @media (max-width: 600px) {
   #lunaVoiceBtn { bottom:72px; right:12px; width:48px; height:48px; }
   #lunaVoiceBtn svg { width:22px; height:22px; }
   #lunaVoiceStatus { bottom:128px; right:12px; font-size:0.72em; }
   #lunaVoiceTranscript { bottom:128px; left:12px; right:68px; font-size:0.78em; max-height:90px; }
+  .voice-ov-orb { width:100px; height:100px; }
+  .voice-ov-orb-core { width:50px; height:50px; }
+  .voice-ov-transcript { max-height:140px; font-size:0.78em; }
 }
 @media (max-width: 380px) {
   #lunaVoiceBtn { bottom:66px; right:8px; width:44px; height:44px; }
@@ -727,10 +847,12 @@ body.mode-secretaire .luna-chip:hover { background: rgba(16,185,129,0.2); border
   <button class="tab-btn" data-tab="contacts" data-modes="secretaire">Contacts</button>
   <button class="tab-btn" data-tab="instructions" data-modes="secretaire">Instructions</button>
   <button class="tab-btn" data-tab="documents" data-modes="secretaire">Documents</button>
+  <button class="tab-btn" onclick="window.location.href='/formulaires'" style="color:#4ade80;">Formulaires</button>
   <button class="tab-btn" data-tab="map" data-modes="secretaire">Carte</button>
   <button class="tab-btn" data-tab="profile">Profil</button>
   <button class="tab-btn" data-tab="perception">Perception</button>
   <button class="tab-btn" data-tab="quotas">Quotas</button>
+  <button class="tab-btn" data-tab="theo" id="theoTabBtn" style="display:none; color:#f5c542;">Theocratie</button>
   <button class="tab-btn" data-tab="settings">Parametres</button>
 </div>
 
@@ -1237,6 +1359,130 @@ body.mode-secretaire .luna-chip:hover { background: rgba(16,185,129,0.2); border
   </div>
 </div>
 
+<!-- Theocratie Tab (proprio only) -->
+<div class="tab-panel" id="tab-theo">
+  <div class="panel-content">
+    <h2 style="color:#f5c542;">Theocratie</h2>
+    <p style="color:#888; font-size:0.82em; margin-bottom:16px;">Pionnier permanent — 50h/mois</p>
+
+    <!-- Heures de predication -->
+    <div class="theo-section" id="theoHoursSection">
+      <h3>📊 Predication ce mois</h3>
+      <div class="theo-progress-bar">
+        <div class="theo-progress-fill" id="theoProgressFill" style="width:0%"></div>
+        <span class="theo-progress-label" id="theoProgressLabel">0/50h</span>
+      </div>
+      <div class="theo-stats">
+        <div class="theo-stat"><div class="val" id="theoMonthH">0</div><div class="lbl">heures ce mois</div></div>
+        <div class="theo-stat"><div class="val" id="theoWeekH">0</div><div class="lbl">cette semaine</div></div>
+        <div class="theo-stat"><div class="val" id="theoDailyNeed">0</div><div class="lbl">h/jour restant</div></div>
+      </div>
+      <div id="theoAlert" style="display:none" class="theo-alert"></div>
+
+      <!-- Ajout rapide -->
+      <div class="theo-add-row">
+        <input type="number" id="theoAddH" placeholder="Heures" min="0.5" max="24" step="0.5" value="1">
+        <select id="theoAddAct">
+          <option value="porte_a_porte">Porte-a-porte</option>
+          <option value="temoignage_public">Temoignage public</option>
+          <option value="lettres">Lettres</option>
+          <option value="telephone">Telephone</option>
+          <option value="revisites">Revisites</option>
+          <option value="etude_biblique">Etude biblique</option>
+          <option value="informel">Informel</option>
+          <option value="chariot">Chariot/Presentoir</option>
+        </select>
+        <input type="date" id="theoAddDate">
+        <button class="theo-add-btn" onclick="_theoAddHours()">+ Ajouter</button>
+      </div>
+      <div class="theo-entries" id="theoEntries"></div>
+    </div>
+
+    <!-- Preparation reunion -->
+    <div class="theo-section">
+      <h3>📖 Preparation reunion</h3>
+      <div class="theo-cards">
+        <div class="theo-card" onclick="_theoPrepare('midweek')">
+          <div class="tc-icon">📋</div>
+          <div class="tc-label">Reunion semaine</div>
+        </div>
+        <div class="theo-card" onclick="_theoPrepare('watchtower')">
+          <div class="tc-icon">📰</div>
+          <div class="tc-label">Tour de Garde</div>
+        </div>
+        <div class="theo-card" onclick="_theoPrepare('bible_reading')">
+          <div class="tc-icon">📖</div>
+          <div class="tc-label">Lecture biblique</div>
+        </div>
+        <div class="theo-card" onclick="_theoAskLuna()">
+          <div class="tc-icon">🗣️</div>
+          <div class="tc-label">Demander a Luna</div>
+        </div>
+      </div>
+      <div id="theoPrepResult" style="display:none" class="theo-result"></div>
+      <div id="theoPrepLoading" style="display:none; text-align:center; padding:20px; color:#f5c542;"><div class="spinner"></div><p>Luna prepare ta reunion...</p></div>
+    </div>
+
+    <!-- Lettres de temoignage -->
+    <div class="theo-section">
+      <h3>✉️ Generateur de lettres</h3>
+      <div class="theo-letter-form">
+        <input type="text" id="theoLetterName" placeholder="Nom du destinataire (optionnel)">
+        <input type="text" id="theoLetterAddr" placeholder="Adresse (optionnel)">
+        <select id="theoLetterTopic">
+          <option value="esperance biblique">Esperance biblique</option>
+          <option value="pourquoi Dieu permet la souffrance">Pourquoi la souffrance ?</option>
+          <option value="le Royaume de Dieu">Le Royaume de Dieu</option>
+          <option value="la resurrection">La resurrection</option>
+          <option value="la paix mondiale">La paix mondiale</option>
+          <option value="la vie de famille heureuse">Vie de famille</option>
+          <option value="le Memorial de la mort de Jesus">Le Memorial</option>
+          <option value="invitation assemblée">Invitation assemblée</option>
+        </select>
+        <button class="theo-add-btn" onclick="_theoGenLetter()" style="align-self:flex-start;">Generer la lettre</button>
+      </div>
+      <div id="theoLetterResult" style="display:none" class="theo-result"></div>
+      <div id="theoLetterLoading" style="display:none; text-align:center; padding:20px; color:#f5c542;"><div class="spinner"></div><p>Luna redige ta lettre...</p></div>
+    </div>
+
+    <!-- Meditation / introspection -->
+    <div class="theo-section">
+      <h3>🙏 Meditation & Introspection</h3>
+      <div class="theo-cards">
+        <div class="theo-card" onclick="_theoMeditation('personnage')">
+          <div class="tc-icon">👤</div>
+          <div class="tc-label">Personnage biblique</div>
+        </div>
+        <div class="theo-card" onclick="_theoMeditation('verset')">
+          <div class="tc-icon">✨</div>
+          <div class="tc-label">Verset du jour</div>
+        </div>
+        <div class="theo-card" onclick="_theoMeditation('introspection')">
+          <div class="tc-icon">🪞</div>
+          <div class="tc-label">Introspection</div>
+        </div>
+        <div class="theo-card" onclick="_theoMeditation('priere')">
+          <div class="tc-icon">🕊️</div>
+          <div class="tc-label">Guide de priere</div>
+        </div>
+      </div>
+      <div id="theoMedResult" style="display:none" class="theo-result"></div>
+    </div>
+
+    <!-- Calendrier theocratique -->
+    <div class="theo-section">
+      <h3>📅 Calendrier</h3>
+      <div style="background:#1a1a2e; border-radius:10px; padding:12px; font-size:0.85em; color:#ccc; line-height:1.8;">
+        <div><strong style="color:#f5c542;">Memorial 2026</strong> — Jeudi 2 avril (apres le coucher du soleil)</div>
+        <div><strong style="color:#f5c542;">Lecture Memorial</strong> — 27 mars → 5 avril</div>
+        <div><strong style="color:#f5c542;">Annee de service</strong> — 1er sept 2025 → 31 aout 2026</div>
+        <div><strong style="color:#f5c542;">Objectif annuel</strong> — 600 heures (50h x 12 mois)</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
 <!-- Map Tab -->
 <!-- Activities tab navigates directly to /salon (no iframe, fixes WebSocket on APK) -->
 
@@ -1421,6 +1667,28 @@ body.mode-secretaire .luna-chip:hover { background: rgba(16,185,129,0.2); border
 <div id="lunaVoiceStatus"></div>
 <div id="lunaVoiceTranscript"></div>
 
+<!-- Voice Overlay — fullscreen conversational mode -->
+<div id="voiceOverlay">
+  <div class="voice-ov-timer" id="voiceOvTimer">00:00</div>
+  <div class="voice-ov-orb listening" id="voiceOvOrb">
+    <div class="voice-ov-orb-core"></div>
+  </div>
+  <div class="voice-ov-bars" id="voiceOvBars">
+    <div class="voice-ov-bar"></div><div class="voice-ov-bar"></div><div class="voice-ov-bar"></div>
+    <div class="voice-ov-bar"></div><div class="voice-ov-bar"></div><div class="voice-ov-bar"></div>
+    <div class="voice-ov-bar"></div>
+  </div>
+  <div class="voice-ov-status" id="voiceOvStatus">Connexion...</div>
+  <div class="voice-ov-transcript" id="voiceOvTranscript"></div>
+  <div class="voice-ov-tool" id="voiceOvTool"></div>
+  <button class="voice-ov-hangup" id="voiceOvHangup" title="Raccrocher">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M10.68 13.31a16 16 0 0 0 3.41 2.6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7 2 2 0 0 1 1.72 2v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91"/>
+      <line x1="23" y1="1" x2="1" y2="23"/>
+    </svg>
+  </button>
+</div>
+
 <!-- Duration Picker Modal -->
 <div id="durationOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:200;align-items:center;justify-content:center;">
   <div style="background:#1a1a3e;padding:30px;border-radius:16px;width:90%;max-width:360px;text-align:center;">
@@ -1503,6 +1771,11 @@ function checkAuth() {
       if (data.first_name) {
         document.getElementById("greetingSubtitle").textContent = "Bonjour " + data.first_name;
       }
+      // Theo tab visible uniquement pour le proprio (tenant 1)
+      if (data.tenant_id === 1) {
+        var tb = document.getElementById("theoTabBtn");
+        if (tb) tb.style.display = "";
+      }
     } else { showLogin(); }
   })
   .catch(function() { showLogin(); });
@@ -1523,6 +1796,7 @@ document.getElementById("loginBtn").addEventListener("click", function() {
       setToken(res.data.token);
       showApp();
       if (res.data.first_name) document.getElementById("greetingSubtitle").textContent = "Bonjour " + res.data.first_name;
+      if (res.data.tenant_id === 1) { var tb = document.getElementById("theoTabBtn"); if (tb) tb.style.display = ""; }
     } else {
       err.textContent = res.data.error || "Erreur de connexion";
       err.style.display = "block";
@@ -1632,6 +1906,7 @@ tabBtns.forEach(function(btn) {
     if (btn.dataset.tab === "quotas") loadQuotas();
     if (btn.dataset.tab === "map") loadMap();
     if (btn.dataset.tab === "world") loadMonde();
+    if (btn.dataset.tab === "theo") _theoLoad();
     if (btn.dataset.tab === "settings") loadSettings();
   });
 });
@@ -4749,18 +5024,32 @@ _paymentCheckInterval = setInterval(_checkPendingPayments, 10000);
 setTimeout(_checkPendingPayments, 3000);
 
 // =========================================================================
-// LUNA VOICE — Mode Jarvis (voix directe navigateur <-> OpenAI Realtime)
+// LUNA VOICE — Mode conversationnel immersif (voix directe <-> OpenAI Realtime)
 // =========================================================================
 (function() {
   var voiceBtn = document.getElementById("lunaVoiceBtn");
   var voiceStatus = document.getElementById("lunaVoiceStatus");
   var voiceTranscript = document.getElementById("lunaVoiceTranscript");
+  // Overlay elements
+  var voiceOverlay = document.getElementById("voiceOverlay");
+  var voiceOvTimer = document.getElementById("voiceOvTimer");
+  var voiceOvOrb = document.getElementById("voiceOvOrb");
+  var voiceOvBars = document.getElementById("voiceOvBars");
+  var voiceOvStatus = document.getElementById("voiceOvStatus");
+  var voiceOvTranscript = document.getElementById("voiceOvTranscript");
+  var voiceOvTool = document.getElementById("voiceOvTool");
+  var voiceOvHangup = document.getElementById("voiceOvHangup");
+
   var voiceWs = null;
   var voiceActive = false;
   var _voiceStopping = false;
   var _voiceReconnecting = false;
   var _voiceReconnectAttempts = 0;
+  var _voiceMaxReconnects = 3;
   var _voiceKeepaliveInterval = null;
+  var _voiceElapsedInterval = null;
+  var _voiceStartTime = 0;
+  var _voiceMaxDuration = 1800;
   var audioCtx = null;
   var micStream = null;
   var micCtx = null;
@@ -4768,8 +5057,9 @@ setTimeout(_checkPendingPayments, 3000);
   var playbackQueue = [];
   var isPlaying = false;
   var _voiceTranscriptEntries = [];
+  var _voiceState = "idle"; // idle, connecting, listening, speaking, action
 
-  // --- Voice Pre-warm: reduce latency on first activation ---
+  // --- Voice Pre-warm ---
   var _prewarmed = false;
   var _micPrewarmed = false;
   var _workletBlobUrl = null;
@@ -4777,13 +5067,11 @@ setTimeout(_checkPendingPayments, 3000);
   function _prewarmAudio() {
     if (_prewarmed) return;
     _prewarmed = true;
-    // Pre-create playback AudioContext (needs user gesture on mobile)
     if (!audioCtx) {
       try { audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 24000 }); }
       catch(e) { try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e2) {} }
     }
     if (audioCtx && audioCtx.state === "suspended") audioCtx.resume().catch(function() {});
-    // Pre-create worklet blob URL
     if (!_workletBlobUrl) {
       try {
         var blob = new Blob([workletCode], { type: "application/javascript" });
@@ -4791,8 +5079,6 @@ setTimeout(_checkPendingPayments, 3000);
       } catch(e) {}
     }
   }
-
-  // Trigger pre-warm on any user interaction (touch/click)
   function _onFirstInteraction() {
     _prewarmAudio();
     document.removeEventListener("touchstart", _onFirstInteraction, true);
@@ -4801,18 +5087,13 @@ setTimeout(_checkPendingPayments, 3000);
   document.addEventListener("touchstart", _onFirstInteraction, true);
   document.addEventListener("click", _onFirstInteraction, true);
 
-  // Pre-request mic permission after login (5s delay to not be intrusive)
   function _prewarmMic() {
     if (_micPrewarmed) return;
     _micPrewarmed = true;
     navigator.mediaDevices.getUserMedia({ audio: true }).then(function(stream) {
-      // Got permission — stop immediately, we just wanted the permission grant
       stream.getTracks().forEach(function(t) { t.stop(); });
-    }).catch(function() {
-      // Permission denied or unavailable — no problem, will ask again on voice start
-    });
+    }).catch(function() {});
   }
-  // Check every 2s if logged in, then pre-warm mic once
   var _micPrewarmCheck = setInterval(function() {
     if (getToken() && document.getElementById("appContainer").style.display !== "none") {
       clearInterval(_micPrewarmCheck);
@@ -4820,7 +5101,6 @@ setTimeout(_checkPendingPayments, 3000);
     }
   }, 2000);
 
-  // Show button once logged in
   function _showVoiceBtn() {
     var app = document.getElementById("appContainer");
     if (app && app.style.display !== "none" && getToken()) voiceBtn.style.display = "flex";
@@ -4828,16 +5108,46 @@ setTimeout(_checkPendingPayments, 3000);
   }
   setInterval(function() { _showVoiceBtn(); }, 1000);
 
+  // --- Timer formatting ---
+  function _formatTime(seconds) {
+    var m = Math.floor(seconds / 60);
+    var s = seconds % 60;
+    return (m < 10 ? "0" : "") + m + ":" + (s < 10 ? "0" : "") + s;
+  }
+
+  function _updateLocalTimer() {
+    if (!_voiceStartTime) return;
+    var elapsed = Math.floor((Date.now() - _voiceStartTime) / 1000);
+    var remaining = Math.max(0, _voiceMaxDuration - elapsed);
+    voiceOvTimer.textContent = _formatTime(elapsed) + " / " + _formatTime(_voiceMaxDuration);
+    if (remaining < 120) voiceOvTimer.style.color = "#ef4444";
+    else voiceOvTimer.style.color = "rgba(167,139,250,0.7)";
+  }
+
+  // --- Visual state ---
+  function _setVoiceState(state) {
+    _voiceState = state;
+    voiceOvOrb.className = "voice-ov-orb " + (state === "speaking" ? "speaking" : state === "listening" ? "listening" : "");
+    voiceOvBars.className = "voice-ov-bars" + (state === "speaking" ? " active" : "");
+  }
+
+  function _setOvStatus(txt) {
+    voiceOvStatus.textContent = txt;
+  }
+
   function _setStatus(txt, icon) {
+    // Update both mini status and overlay status
     if (txt) {
       var prefix = "";
-      if (icon === "listen") prefix = '<span style="color:#4ade80;margin-right:4px;">&#9679;</span>';
-      else if (icon === "speak") prefix = '<span style="color:#a78bfa;margin-right:4px;">&#9836;</span>';
-      else if (icon === "action") prefix = '<span style="color:#fbbf24;margin-right:4px;">&#9881;</span>';
+      if (icon === "listen") { prefix = '<span style="color:#4ade80;margin-right:4px;">&#9679;</span>'; _setVoiceState("listening"); _setOvStatus("Luna ecoute..."); }
+      else if (icon === "speak") { prefix = '<span style="color:#a78bfa;margin-right:4px;">&#9836;</span>'; _setVoiceState("speaking"); _setOvStatus("Luna parle..."); }
+      else if (icon === "action") { prefix = '<span style="color:#fbbf24;margin-right:4px;">&#9881;</span>'; _setVoiceState("action"); }
+      else { _setOvStatus(txt); }
       voiceStatus.innerHTML = prefix + txt;
       voiceStatus.style.display = "block";
     } else {
       voiceStatus.style.display = "none";
+      _setVoiceState("idle");
     }
   }
 
@@ -4845,12 +5155,14 @@ setTimeout(_checkPendingPayments, 3000);
     voiceTranscript.style.display = "block";
     var cls = role === "user" ? "vt-user" : "vt-luna";
     var label = role === "user" ? "Vous" : "Luna";
-    voiceTranscript.innerHTML += '<div class="' + cls + '"><b>' + label + ' :</b> ' + text + '</div>';
+    var html = '<div class="' + cls + '"><b>' + label + ' :</b> ' + text + '</div>';
+    voiceTranscript.innerHTML += html;
     voiceTranscript.scrollTop = voiceTranscript.scrollHeight;
+    voiceOvTranscript.innerHTML += html;
+    voiceOvTranscript.scrollTop = voiceOvTranscript.scrollHeight;
     _voiceTranscriptEntries.push({ role: role, text: text });
   }
 
-  // Inject voice transcript into the chat when session ends
   function _injectTranscriptInChat() {
     if (_voiceTranscriptEntries.length === 0) return;
     var parts = [];
@@ -4864,25 +5176,16 @@ setTimeout(_checkPendingPayments, 3000);
     _voiceTranscriptEntries = [];
   }
 
-  // PCM16 playback via AudioContext — compatible mobile/WebView
+  // --- PCM16 playback ---
   function _initAudioCtx() {
     if (!audioCtx) {
-      try {
-        audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 24000 });
-      } catch(e) {
-        // Fallback sans sampleRate specifique (certains WebView ne supportent pas 24kHz)
-        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      }
+      try { audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 24000 }); }
+      catch(e) { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
     }
-    // Resume obligatoire sur mobile (policy autoplay)
-    if (audioCtx.state === "suspended") {
-      audioCtx.resume().catch(function() {});
-    }
+    if (audioCtx.state === "suspended") audioCtx.resume().catch(function() {});
   }
-
   function _playNextChunk() {
     if (isPlaying || playbackQueue.length === 0) return;
-    // Re-check resume avant chaque lecture (mobile peut re-suspendre)
     if (audioCtx && audioCtx.state === "suspended") {
       audioCtx.resume().then(function() { _playNextChunk(); }).catch(function() {});
       return;
@@ -4891,7 +5194,6 @@ setTimeout(_checkPendingPayments, 3000);
     var pcm16 = playbackQueue.shift();
     var float32 = new Float32Array(pcm16.length);
     for (var i = 0; i < pcm16.length; i++) float32[i] = pcm16[i] / 32768;
-    // Resample si AudioContext n'est pas a 24kHz
     var targetRate = audioCtx.sampleRate;
     var outputData = float32;
     if (targetRate !== 24000) {
@@ -4914,7 +5216,6 @@ setTimeout(_checkPendingPayments, 3000);
     src.onended = function() { isPlaying = false; _playNextChunk(); };
     try { src.start(); } catch(e) { isPlaying = false; _playNextChunk(); }
   }
-
   function _queueAudio(base64) {
     var bin = atob(base64);
     var pcm = new Int16Array(bin.length / 2);
@@ -4924,13 +5225,9 @@ setTimeout(_checkPendingPayments, 3000);
     playbackQueue.push(pcm);
     _playNextChunk();
   }
+  function _clearPlayback() { playbackQueue = []; isPlaying = false; }
 
-  function _clearPlayback() {
-    playbackQueue = [];
-    isPlaying = false;
-  }
-
-  // AudioWorklet processor code (PCM16 24kHz capture)
+  // AudioWorklet processor
   var workletCode = [
     "class LunaMicProcessor extends AudioWorkletProcessor {",
     "  process(inputs) {",
@@ -4960,38 +5257,71 @@ setTimeout(_checkPendingPayments, 3000);
     return btoa(binary);
   }
 
-  async function startVoice() {
-    if (voiceActive) { stopVoice(); return; }
+  // --- Show/hide overlay ---
+  function _showOverlay() {
+    voiceOverlay.classList.add("visible");
+    voiceOvTranscript.innerHTML = "";
+    voiceOvTimer.textContent = "00:00";
+    voiceOvTimer.style.color = "rgba(167,139,250,0.7)";
+    voiceOvTool.style.display = "none";
+    _setOvStatus("Connexion...");
+    _setVoiceState("idle");
+  }
+  function _hideOverlay() {
+    voiceOverlay.classList.remove("visible");
+  }
+
+  // --- Tool labels ---
+  var _toolLabels = {
+    search_web: "Recherche web", search_places: "Recherche lieux",
+    get_weather: "Meteo", get_news: "Actualites",
+    search_flights: "Recherche vols", search_hotels: "Recherche hotels",
+    book_restaurant: "Recherche restaurants", get_page_info: "Consultation web",
+    send_sms: "Envoi SMS", send_email: "Envoi email",
+    call_contact: "Appel en cours", alert_contacts: "Alerte contacts",
+    invite_visio: "Invitation visio", create_instruction: "Creation rappel",
+    create_note: "Note enregistree", generate_document: "Generation document",
+    get_contacts: "Contacts", get_player_stats: "Statistiques",
+    get_active_missions: "Missions", get_badges: "Badges",
+    get_friends_online: "Amis en ligne", send_dm_voice: "Envoi message",
+    get_my_friend_code: "Code ami", look_around: "Observation camera",
+    get_documents_summary: "Resume documents", get_budget_analysis: "Analyse budget",
+    check_affordability: "Verification budget", add_expense: "Ajout depense",
+    get_reminders: "Rappels", add_reminder: "Nouveau rappel",
+    search_documents: "Recherche documents", list_folders: "Dossiers"
+  };
+
+  // --- Main start/stop ---
+  async function startVoice(isReconnect) {
+    if (voiceActive && !isReconnect) { stopVoice(); return; }
     voiceActive = true;
     _voiceStopping = false;
     voiceBtn.classList.add("active");
-    voiceTranscript.innerHTML = "";
-    voiceTranscript.style.display = "none";
-    _voiceTranscriptEntries = [];
+
+    if (!isReconnect) {
+      voiceTranscript.innerHTML = "";
+      voiceTranscript.style.display = "none";
+      _voiceTranscriptEntries = [];
+      _voiceReconnectAttempts = 0;
+      _voiceStartTime = Date.now();
+      _showOverlay();
+    }
     _setStatus("Connexion...");
     _clearPlayback();
 
     try {
-      // Use pre-warmed AudioContext if available, otherwise create fresh
       _initAudioCtx();
       if (audioCtx && audioCtx.state === "suspended") await audioCtx.resume();
 
-      // Get mic (permission may already be granted via pre-warm)
       micStream = await navigator.mediaDevices.getUserMedia({
         audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true, autoGainControl: true }
       });
 
-      // Create mic context
-      try {
-        micCtx = new AudioContext({ sampleRate: 48000 });
-      } catch(e) {
-        micCtx = new AudioContext();
-      }
+      try { micCtx = new AudioContext({ sampleRate: 48000 }); }
+      catch(e) { micCtx = new AudioContext(); }
       if (micCtx.state === "suspended") await micCtx.resume();
 
       var source = micCtx.createMediaStreamSource(micStream);
-
-      // Try AudioWorklet first (use pre-warmed blob URL), fallback to ScriptProcessorNode
       var _useWorklet = false;
       if (micCtx.audioWorklet) {
         try {
@@ -5001,18 +5331,15 @@ setTimeout(_checkPendingPayments, 3000);
             wUrl = URL.createObjectURL(blob);
           }
           await micCtx.audioWorklet.addModule(wUrl);
-          // Don't revoke pre-warmed URL (may be reused on reconnect)
           if (!_workletBlobUrl) URL.revokeObjectURL(wUrl);
           workletNode = new AudioWorkletNode(micCtx, "luna-mic-processor");
           source.connect(workletNode);
           _useWorklet = true;
         } catch(e) {
-          console.warn("[LunaVoice] AudioWorklet non supporte, fallback ScriptProcessor");
+          console.warn("[LunaVoice] AudioWorklet fallback ScriptProcessor");
         }
       }
-
       if (!_useWorklet) {
-        // Fallback ScriptProcessorNode (deprecated mais compatible partout)
         var bufSize = 4096;
         var scriptNode = micCtx.createScriptProcessor(bufSize, 1, 1);
         var _micSampleRate = micCtx.sampleRate;
@@ -5032,33 +5359,38 @@ setTimeout(_checkPendingPayments, 3000);
           }
         };
         source.connect(scriptNode);
-        scriptNode.connect(micCtx.destination); // necessaire pour que onaudioprocess se declenche
-        workletNode = scriptNode; // pour cleanup dans stopVoice
+        scriptNode.connect(micCtx.destination);
+        workletNode = scriptNode;
       }
-      // DO NOT connect workletNode to destination for AudioWorklet (causes echo feedback)
 
-      // Connect WebSocket
+      // Build WS URL — pass history for reconnect
       var proto = location.protocol === "https:" ? "wss:" : "ws:";
       var wsUrl = proto + "//" + location.host + "/ws/luna-voice?token=" + encodeURIComponent(getToken());
+      if (isReconnect && _voiceTranscriptEntries.length > 0) {
+        // Send last entries as history for context continuity
+        var historyData = _voiceTranscriptEntries.slice(-10);
+        wsUrl += "&history=" + encodeURIComponent(JSON.stringify(historyData));
+      }
       voiceWs = new WebSocket(wsUrl);
 
       voiceWs.onopen = function() {
         _setStatus("Connexion a Luna...");
-        _voiceReconnectAttempts = 0;
-        // Keepalive ping toutes les 20s
+        if (!isReconnect) _voiceReconnectAttempts = 0;
         if (_voiceKeepaliveInterval) clearInterval(_voiceKeepaliveInterval);
         _voiceKeepaliveInterval = setInterval(function() {
           if (voiceWs && voiceWs.readyState === 1) {
             try { voiceWs.send(JSON.stringify({ type: "pong" })); } catch(e) {}
           }
         }, 20000);
+        // Start local timer update
+        if (_voiceElapsedInterval) clearInterval(_voiceElapsedInterval);
+        _voiceElapsedInterval = setInterval(_updateLocalTimer, 1000);
       };
 
       voiceWs.onmessage = function(evt) {
         try {
           var data = JSON.parse(evt.data);
           if (data.type === "ping") {
-            // Reponse au keepalive serveur
             if (voiceWs && voiceWs.readyState === 1) {
               try { voiceWs.send(JSON.stringify({ type: "pong" })); } catch(e) {}
             }
@@ -5067,7 +5399,7 @@ setTimeout(_checkPendingPayments, 3000);
           if (data.type === "ready") {
             _setStatus("Luna ecoute...", "listen");
             _voiceReconnecting = false;
-            // Start sending mic audio (AudioWorklet mode only — ScriptProcessor envoie deja)
+            if (data.max_duration) _voiceMaxDuration = data.max_duration;
             if (workletNode && workletNode.port) {
               workletNode.port.onmessage = function(e) {
                 if (voiceWs && voiceWs.readyState === 1) {
@@ -5085,39 +5417,34 @@ setTimeout(_checkPendingPayments, 3000);
             _setStatus("Luna ecoute...", "listen");
           } else if (data.type === "transcript") {
             _addTranscript(data.role, data.text);
+          } else if (data.type === "elapsed") {
+            // Server-side timer sync (backup)
+            if (data.max_duration) _voiceMaxDuration = data.max_duration;
           } else if (data.type === "tool_call") {
-            var _toolLabels = {
-              search_web: "Recherche web", search_places: "Recherche lieux",
-              get_weather: "Meteo", get_news: "Actualites",
-              search_flights: "Recherche vols", search_hotels: "Recherche hotels",
-              book_restaurant: "Recherche restaurants", get_page_info: "Consultation web",
-              send_sms: "Envoi SMS", send_email: "Envoi email",
-              call_contact: "Appel en cours", alert_contacts: "Alerte contacts",
-              invite_visio: "Invitation visio", create_instruction: "Creation rappel",
-              create_note: "Note enregistree", generate_document: "Generation document",
-              get_contacts: "Contacts", get_player_stats: "Statistiques",
-              get_active_missions: "Missions", get_badges: "Badges",
-              get_friends_online: "Amis en ligne", send_dm_voice: "Envoi message",
-              get_my_friend_code: "Code ami", look_around: "Observation camera",
-              get_documents_summary: "Resume documents", get_budget_analysis: "Analyse budget",
-              check_affordability: "Verification budget", add_expense: "Ajout depense",
-              get_reminders: "Rappels", add_reminder: "Nouveau rappel",
-              search_documents: "Recherche documents", list_folders: "Dossiers"
-            };
             var _tLabel = _toolLabels[data.name] || data.name || "Action";
-            if (data.status === "running") _setStatus(_tLabel + "...", "action");
-            else if (data.status === "ok" || data.status === "success") _setStatus("Luna ecoute...", "listen");
-            else if (data.status === "error") {
-              _setStatus("Luna ecoute...", "listen");
-              _addTranscript("luna", "[" + _tLabel + " : echec]");
+            if (data.status === "running") {
+              _setStatus(_tLabel + "...", "action");
+              voiceOvTool.textContent = _tLabel + "...";
+              voiceOvTool.style.display = "block";
+            } else {
+              voiceOvTool.style.display = "none";
+              if (data.status === "ok" || data.status === "success") {
+                _setStatus("Luna ecoute...", "listen");
+              } else if (data.status === "error") {
+                _setStatus("Luna ecoute...", "listen");
+                _addTranscript("luna", "[" + _tLabel + " : echec]");
+              }
             }
           } else if (data.type === "warning") {
             _setStatus(data.message || "Attention", "action");
+            _setOvStatus(data.message || "Attention");
           } else if (data.type === "ended") {
+            _setOvStatus(data.reason || "Session terminee");
             _setStatus(data.reason || "Session terminee");
             setTimeout(function() { stopVoice(); }, 2000);
           } else if (data.type === "error") {
             _setStatus(data.message || "Erreur");
+            _setOvStatus(data.message || "Erreur");
             _addTranscript("luna", "[" + (data.message || "Erreur") + "]");
             setTimeout(function() { stopVoice(); }, 3000);
           }
@@ -5127,37 +5454,34 @@ setTimeout(_checkPendingPayments, 3000);
       voiceWs.onclose = function(evt) {
         if (_voiceKeepaliveInterval) { clearInterval(_voiceKeepaliveInterval); _voiceKeepaliveInterval = null; }
         if (!voiceActive || _voiceStopping) return;
-        // Codes fatals — pas de reconnexion
         if (evt.code === 4001) {
-          _setStatus("Session expiree — reconnecte-toi");
+          _setOvStatus("Session expiree");
           stopVoice();
         } else if (evt.code === 1011) {
-          _setStatus("Service vocal indisponible");
+          _setOvStatus("Service indisponible");
           stopVoice();
         } else if (evt.code === 1000 || evt.code === 1001) {
-          // Fermeture normale
           stopVoice();
-        } else if (_voiceReconnectAttempts < 1 && !_voiceReconnecting) {
-          // Coupure inattendue — tente 1 reconnexion
+        } else if (_voiceReconnectAttempts < _voiceMaxReconnects && !_voiceReconnecting) {
+          // Auto-reconnexion avec contexte preserve (jusqu'a 3 tentatives)
           _voiceReconnecting = true;
           _voiceReconnectAttempts++;
+          _setOvStatus("Reconnexion... (" + _voiceReconnectAttempts + "/" + _voiceMaxReconnects + ")");
           _setStatus("Reconnexion...");
+          var delay = Math.min(2000 * _voiceReconnectAttempts, 5000);
           setTimeout(function() {
             if (voiceActive && !_voiceStopping) {
               _reconnectVoiceWs();
             }
-          }, 1500);
+          }, delay);
         } else {
-          _setStatus("Connexion perdue");
+          _setOvStatus("Connexion perdue");
           stopVoice();
         }
       };
 
       voiceWs.onerror = function() {
-        // Ne pas stopper immediatement — onclose sera appele apres
-        if (!_voiceReconnecting) {
-          _setStatus("Probleme de connexion...");
-        }
+        if (!_voiceReconnecting) _setOvStatus("Probleme de connexion...");
       };
 
     } catch(err) {
@@ -5166,16 +5490,16 @@ setTimeout(_checkPendingPayments, 3000);
       if (err.name === "NotAllowedError") errMsg = "Autorise le micro pour parler a Luna";
       else if (err.name === "NotFoundError") errMsg = "Aucun micro detecte";
       else if (err.name === "NotReadableError") errMsg = "Micro deja utilise par une autre app";
+      _setOvStatus(errMsg);
       _setStatus(errMsg);
       setTimeout(function() { stopVoice(); }, 3000);
     }
   }
 
   function _reconnectVoiceWs() {
-    // Reconnexion = clean restart complet (micro + WS + session OpenAI)
     if (_voiceStopping) return;
-    _addTranscript("luna", "[Reconnexion en cours...]");
-    // Nettoyage sans injecter le transcript dans le chat
+    _addTranscript("luna", "[Reconnexion...]");
+    // Clean audio/WS resources but preserve transcript
     voiceActive = false;
     _voiceStopping = false;
     _clearPlayback();
@@ -5184,8 +5508,7 @@ setTimeout(_checkPendingPayments, 3000);
     if (micStream) { micStream.getTracks().forEach(function(t) { t.stop(); }); micStream = null; }
     if (workletNode) { try { workletNode.disconnect(); } catch(e) {} workletNode = null; }
     if (micCtx) { try { micCtx.close(); } catch(e) {} micCtx = null; }
-    // Relance
-    startVoice();
+    startVoice(true); // reconnect=true preserves transcript + overlay
   }
 
   function stopVoice() {
@@ -5194,44 +5517,196 @@ setTimeout(_checkPendingPayments, 3000);
     var wasActive = voiceActive;
     voiceActive = false;
     _voiceReconnecting = false;
+    _voiceStartTime = 0;
     voiceBtn.classList.remove("active");
     _clearPlayback();
 
     if (_voiceKeepaliveInterval) { clearInterval(_voiceKeepaliveInterval); _voiceKeepaliveInterval = null; }
+    if (_voiceElapsedInterval) { clearInterval(_voiceElapsedInterval); _voiceElapsedInterval = null; }
 
     if (voiceWs) {
       try { voiceWs.send(JSON.stringify({ type: "stop" })); } catch(e) {}
       try { voiceWs.close(); } catch(e) {}
       voiceWs = null;
     }
+    if (micStream) { micStream.getTracks().forEach(function(t) { t.stop(); }); micStream = null; }
+    if (workletNode) { try { workletNode.disconnect(); } catch(e) {} workletNode = null; }
+    if (micCtx) { try { micCtx.close(); } catch(e) {} micCtx = null; }
 
-    if (micStream) {
-      micStream.getTracks().forEach(function(t) { t.stop(); });
-      micStream = null;
-    }
-
-    if (workletNode) {
-      try { workletNode.disconnect(); } catch(e) {}
-      workletNode = null;
-    }
-
-    if (micCtx) {
-      try { micCtx.close(); } catch(e) {}
-      micCtx = null;
-    }
-
-    // Inject transcript into chat
     if (wasActive) _injectTranscriptInChat();
+
+    // Fade out overlay
+    _hideOverlay();
 
     setTimeout(function() {
       _setStatus("");
       _voiceStopping = false;
-      // Keep transcript visible 8s after stop so user can read
       setTimeout(function() { voiceTranscript.style.display = "none"; }, 8000);
     }, 1500);
   }
 
-  voiceBtn.addEventListener("click", function() { startVoice(); });
+  voiceBtn.addEventListener("click", function() { startVoice(false); });
+  voiceOvHangup.addEventListener("click", function() { stopVoice(); });
+})();
+
+// =========================================================================
+// THEOCRATIE (Pionnier permanent — proprio uniquement)
+// =========================================================================
+var _theoLoaded = false;
+
+function _theoLoad() {
+  document.getElementById("theoAddDate").value = new Date().toISOString().split("T")[0];
+  authFetch("/api/theo/hours").then(function(r) { return r.json(); }).then(function(data) {
+    _theoLoaded = true;
+    // Progress bar
+    var pct = Math.min(100, data.percentage || 0);
+    var fill = document.getElementById("theoProgressFill");
+    fill.style.width = pct + "%";
+    fill.className = "theo-progress-fill" + (data.status === "behind" ? " behind" : data.status === "completed" ? " completed" : "");
+    document.getElementById("theoProgressLabel").textContent = data.hours + "/" + data.goal + "h";
+
+    // Stats
+    document.getElementById("theoMonthH").textContent = data.hours;
+    document.getElementById("theoWeekH").textContent = data.week_hours;
+    document.getElementById("theoDailyNeed").textContent = data.daily_needed;
+
+    // Alert if behind
+    var alertEl = document.getElementById("theoAlert");
+    if (data.advice) {
+      alertEl.style.display = "block";
+      var html = "<strong>Attention !</strong> " + data.advice.message;
+      if (data.advice.alternatives && data.advice.alternatives.length) {
+        html += "<ul class='theo-alt-list'>";
+        data.advice.alternatives.forEach(function(a) { html += "<li>" + a + "</li>"; });
+        html += "</ul>";
+      }
+      alertEl.innerHTML = html;
+    } else {
+      alertEl.style.display = "none";
+    }
+
+    // Entries
+    var el = document.getElementById("theoEntries");
+    var actLabels = {porte_a_porte:"Porte-a-porte", temoignage_public:"Temoignage public", lettres:"Lettres", telephone:"Telephone", revisites:"Revisites", etude_biblique:"Etude biblique", informel:"Informel", chariot:"Chariot"};
+    if (data.entries && data.entries.length) {
+      el.innerHTML = data.entries.map(function(e) {
+        return '<div class="theo-entry"><span class="e-date">' + (e.date || "").substring(5) + '</span><span class="e-hours">' + e.hours + 'h</span><span class="e-act">' + (actLabels[e.activity] || e.activity) + (e.note ? " — " + e.note : "") + '</span></div>';
+      }).join("");
+    } else {
+      el.innerHTML = '<p style="color:#666; font-size:0.82em;">Aucune heure enregistree ce mois.</p>';
+    }
+  }).catch(function(e) { console.error("Theo load error:", e); });
+}
+
+function _theoAddHours() {
+  var hours = parseFloat(document.getElementById("theoAddH").value);
+  var activity = document.getElementById("theoAddAct").value;
+  var date = document.getElementById("theoAddDate").value;
+  if (!hours || hours <= 0) return;
+  authFetch("/api/theo/hours", {
+    method: "POST", headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({hours: hours, activity: activity, date: date})
+  }).then(function(r) { return r.json(); }).then(function(d) {
+    if (d.ok) { _theoLoad(); _showToast("Predication", hours + "h ajoutees !"); }
+  }).catch(function() {});
+}
+
+function _theoPrepare(type) {
+  var resultEl = document.getElementById("theoPrepResult");
+  var loadEl = document.getElementById("theoPrepLoading");
+  resultEl.style.display = "none";
+  loadEl.style.display = "block";
+  var now = new Date();
+  var weekStr = now.getFullYear() + "-" + String(now.getMonth()+1).padStart(2,"0") + "-" + String(now.getDate()).padStart(2,"0");
+  authFetch("/api/theo/prepare", {
+    method: "POST", headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({type: type, week: weekStr, question: "Prepare ma reunion de cette semaine avec les reponses."})
+  }).then(function(r) { return r.json(); }).then(function(d) {
+    loadEl.style.display = "none";
+    resultEl.style.display = "block";
+    resultEl.innerHTML = _md(d.response || d.error || "Erreur");
+  }).catch(function(e) { loadEl.style.display = "none"; resultEl.style.display = "block"; resultEl.textContent = "Erreur: " + e; });
+}
+
+function _theoAskLuna() {
+  var q = prompt("Que veux-tu demander a Luna pour ta preparation ?");
+  if (!q) return;
+  var resultEl = document.getElementById("theoPrepResult");
+  var loadEl = document.getElementById("theoPrepLoading");
+  resultEl.style.display = "none";
+  loadEl.style.display = "block";
+  authFetch("/api/theo/prepare", {
+    method: "POST", headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({type: "midweek", week: "", question: q})
+  }).then(function(r) { return r.json(); }).then(function(d) {
+    loadEl.style.display = "none";
+    resultEl.style.display = "block";
+    resultEl.innerHTML = _md(d.response || d.error || "Erreur");
+  }).catch(function(e) { loadEl.style.display = "none"; resultEl.style.display = "block"; resultEl.textContent = "Erreur: " + e; });
+}
+
+function _theoGenLetter() {
+  var name = document.getElementById("theoLetterName").value.trim();
+  var addr = document.getElementById("theoLetterAddr").value.trim();
+  var topic = document.getElementById("theoLetterTopic").value;
+  var resultEl = document.getElementById("theoLetterResult");
+  var loadEl = document.getElementById("theoLetterLoading");
+  resultEl.style.display = "none";
+  loadEl.style.display = "block";
+  authFetch("/api/theo/letter", {
+    method: "POST", headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({name: name, address: addr, topic: topic})
+  }).then(function(r) { return r.json(); }).then(function(d) {
+    loadEl.style.display = "none";
+    resultEl.style.display = "block";
+    resultEl.innerHTML = _md(d.letter || d.error || "Erreur");
+  }).catch(function(e) { loadEl.style.display = "none"; resultEl.style.display = "block"; resultEl.textContent = "Erreur: " + e; });
+}
+
+function _theoMeditation(type) {
+  var prompts = {
+    personnage: "Choisis un personnage biblique remarquable et fais une meditation guidee: qui etait-il, ses qualites, ses epreuves, ce qu'on peut apprendre de lui pour notre service aujourd'hui. Cite les versets cles.",
+    verset: "Donne le verset biblique du jour, explique son contexte, sa signification profonde et comment l'appliquer aujourd'hui dans notre vie de Temoin de Jehovah.",
+    introspection: "Guide-moi dans une introspection spirituelle: comment puis-je ameliorer mon service pour Jehovah cette semaine ? Quels domaines de ma personnalite chretienne puis-je renforcer ? Base-toi sur des principes bibliques.",
+    priere: "Guide-moi pour structurer une priere sincere et profonde a Jehovah. Rappelle-moi les elements d'une bonne priere: louange, remerciement, demandes, au nom de Jesus. Suggere des sujets specifiques a mentionner cette semaine."
+  };
+  var resultEl = document.getElementById("theoMedResult");
+  resultEl.style.display = "block";
+  resultEl.innerHTML = '<div style="text-align:center; color:#f5c542;"><div class="spinner"></div><p>Luna medite...</p></div>';
+  authFetch("/api/theo/prepare", {
+    method: "POST", headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({type: "bible_reading", week: "", question: prompts[type] || prompts.verset})
+  }).then(function(r) { return r.json(); }).then(function(d) {
+    resultEl.innerHTML = _md(d.response || d.error || "Erreur");
+  }).catch(function(e) { resultEl.textContent = "Erreur: " + e; });
+}
+
+// Reminder: check pioneer hours proactively when loading chat
+(function() {
+  var origInitApp = window.initApp || function(){};
+  var _theoChecked = false;
+  function _theoProactiveCheck() {
+    if (_theoChecked) return;
+    _theoChecked = true;
+    authFetch("/api/theo/hours").then(function(r) { if (!r.ok) return null; return r.json(); }).then(function(d) {
+      if (!d || !d.advice) return;
+      // Show a gentle reminder in chat
+      setTimeout(function() {
+        var msg = "🙏 Rappel predication: " + d.advice.message;
+        if (d.advice.alternatives && d.advice.alternatives.length) {
+          msg += "\n\nAlternatives possibles:\n" + d.advice.alternatives.map(function(a) { return "→ " + a; }).join("\n");
+        }
+        addMsg(msg, "luna");
+      }, 5000);
+    }).catch(function() {});
+  }
+  // Hook into initApp
+  var _origInit = initApp;
+  initApp = function() {
+    _origInit();
+    // Check after 3s if behind on hours
+    setTimeout(_theoProactiveCheck, 3000);
+  };
 })();
 
 </script>
