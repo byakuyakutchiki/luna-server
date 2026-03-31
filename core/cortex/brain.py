@@ -122,6 +122,9 @@ class LunaCortex:
             except Exception as e:
                 logger.warning(f"CORTEX whitelist restore failed: {e}")
 
+        # Restaurer bans + avertissements depuis Redis (persistance Cloud Run)
+        await self.vigil.restore_from_redis()
+
         self._task = asyncio.create_task(self._main_loop())
         # Telegram: webhook sur Cloud Run, polling en local
         if self.config.telegram_bot_token:

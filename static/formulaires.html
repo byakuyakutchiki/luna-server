@@ -356,8 +356,22 @@ const HDR = TOKEN ? {'Authorization':'Bearer '+TOKEN} : {};
 const HJSON = {...HDR, 'Content-Type':'application/json'};
 
 let step=1, file=null, fileB64=null, mediaType='', sessionId=null, analysis=null, fields=[], sigPad=null;
+let _cortexWarnShown=false;
 
 const $=s=>document.querySelector(s), $$=s=>document.querySelectorAll(s);
+
+// ── Check Cortex warnings dans les reponses ──
+function _checkCortexHeaders(r){
+    const wc=r.headers.get('X-Cortex-Warnings');
+    const wm=r.headers.get('X-Cortex-Warnings-Max');
+    if(wc && !_cortexWarnShown){
+        _cortexWarnShown=true;
+        const remain=(parseInt(wm)||3)-(parseInt(wc)||0);
+        if(remain>0) toast('Avertissement securite '+wc+'/'+wm+' — Encore '+remain+' avant blocage temporaire','err');
+        setTimeout(()=>{_cortexWarnShown=false;},300000);
+    }
+    return r;
+}
 
 // ── Navigation ──
 function goStep(n){
@@ -419,7 +433,7 @@ async function startAnalysis(){
 
     try{
         fileB64=await readFileAsB64(file);
-        const res=await fetch('/api/form-filler/analyze',{method:'POST',headers:HJSON,body:JSON.stringify({file:fileB64,filename:file.name,media_type:mediaType})});
+        const res=await fetch('/api/form-filler/analyze',{method:'POST',headers:HJSON,body:JSON.stringify({file:fileB64,filename:file.name,media_type:mediaType})}).then(_checkCortexHeaders);
         clearInterval(iv); pf.style.width='100%';
         if(!res.ok){
             const e=await res.json().catch(()=>({}));

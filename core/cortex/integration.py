@@ -220,6 +220,8 @@ async def cortex_signals(request: Request, limit: int = 50):
 @cortex_routes.post("/ban/{ip}")
 async def cortex_ban_ip(ip: str, request: Request, duration: int = 86400):
     """Ban manuelle d'une IP (admin only)."""
+    if not _verify_cortex_auth(request):
+        return JSONResponse(status_code=401, content={"error": "Authentification requise"})
     if not _cortex:
         return {"error": "Cortex desactive"}
     _cortex.vigil.manual_ban(ip, duration=duration,
@@ -230,6 +232,8 @@ async def cortex_ban_ip(ip: str, request: Request, duration: int = 86400):
 @cortex_routes.delete("/ban/{ip}")
 async def cortex_unban_ip(ip: str, request: Request):
     """Deban d'une IP (admin only)."""
+    if not _verify_cortex_auth(request):
+        return JSONResponse(status_code=401, content={"error": "Authentification requise"})
     if not _cortex:
         return {"error": "Cortex desactive"}
     if _cortex.vigil.manual_unban(ip, by="admin_api"):
@@ -237,9 +241,91 @@ async def cortex_unban_ip(ip: str, request: Request):
     return {"error": f"IP {ip} n'etait pas bannie"}
 
 
+@cortex_routes.post("/whitelist/{ip}")
+async def cortex_whitelist_add(ip: str, request: Request):
+    """Ajoute une IP a la whitelist (admin only)."""
+    if not _verify_cortex_auth(request):
+        return JSONResponse(status_code=401, content={"error": "Authentification requise"})
+    if not _cortex:
+        return {"error": "Cortex desactive"}
+    _cortex.state.whitelist_ips.add(ip)
+    if _cortex.redis:
+        try:
+            await _cortex.redis.sadd("cortex:whitelist", ip)
+        except Exception:
+            pass
+    # Also unban if currently banned
+    _cortex.vigil.manual_unban(ip, by="admin_api")
+    return {"success": True, "message": f"IP {ip} ajoutee a la whitelist"}
+
+
+@cortex_routes.delete("/whitelist/{ip}")
+async def cortex_whitelist_remove(ip: str, request: Request):
+    """Retire une IP de la whitelist (admin only)."""
+    if not _verify_cortex_auth(request):
+        return JSONResponse(status_code=401, content={"error": "Authentification requise"})
+    if not _cortex:
+        return {"error": "Cortex desactive"}
+    _cortex.state.whitelist_ips.discard(ip)
+    if _cortex.redis:
+        try:
+            await _cortex.redis.srem("cortex:whitelist", ip)
+        except Exception:
+            pass
+    return {"success": True, "message": f"IP {ip} retiree de la whitelist"}
+
+
+@cortex_routes.get("/warnings")
+async def cortex_warnings(request: Request, ip: str = None, limit: int = 50):
+    """Liste des avertissements (admin only). ?ip=x.x.x.x pour filtrer."""
+    if not _verify_cortex_auth(request):
+        return JSONResponse(status_code=401,
+                           content={"error": "Authentification requise"})
+    if not _cortex:
+        return {"error": "Cortex desactive"}
+    warnings = _cortex.vigil.get_warnings(ip=ip)
+    return {
+        "warnings": warnings[-limit:],
+        "total": len(warnings),
+        "warnings_before_ban": _cortex.vigil.WARNINGS_BEFORE_BAN,
+    }
+
+
+@cortex_routes.get("/ip/{ip}")
+async def cortex_ip_status(ip: str, request: Request):
+    """Status complet d'une IP: score, avertissements, ban (admin only)."""
+    if not _verify_cortex_auth(request):
+        return JSONResponse(status_code=401,
+                           content={"error": "Authentification requise"})
+    if not _cortex:
+        return {"error": "Cortex desactive"}
+    return _cortex.vigil.get_ip_status(ip)
+
+
+@cortex_routes.delete("/warnings/{ip}")
+async def cortex_clear_warnings(ip: str, request: Request):
+    """Efface les avertissements d'une IP (admin only)."""
+    if not _verify_cortex_auth(request):
+        return JSONResponse(status_code=401,
+                           content={"error": "Authentification requise"})
+    if not _cortex:
+        return {"error": "Cortex desactive"}
+    count = len(_cortex.vigil._warnings.get(ip, []))
+    _cortex.vigil._warnings.pop(ip, None)
+    # Nettoyer aussi dans Redis
+    if _cortex.redis:
+        try:
+            await _cortex.redis.delete(f"cortex:warnings:{ip}")
+        except Exception:
+            pass
+    return {"success": True, "message": f"{count} avertissement(s) effaces pour {ip}"}
+
+
 @cortex_routes.post("/mode/{mode}")
 async def cortex_set_mode(mode: str, request: Request):
     """Change le mode du serveur (admin only)."""
+    if not _verify_cortex_auth(request):
+        return JSONResponse(status_code=401, content={"error": "Authentification requise"})
     if not _cortex:
         return {"error": "Cortex desactive"}
     valid_modes = ("normal", "lockdown", "shield", "maintenance")
@@ -258,6 +344,8 @@ async def cortex_set_mode(mode: str, request: Request):
 @cortex_routes.post("/digest")
 async def cortex_force_digest(request: Request):
     """Force l'envoi d'un digest (admin only)."""
+    if not _verify_cortex_auth(request):
+        return JSONResponse(status_code=401, content={"error": "Authentification requise"})
     if not _cortex:
         return {"error": "Cortex desactive"}
     await _cortex.force_digest()

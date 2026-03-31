@@ -21,7 +21,7 @@ for _p in [_utils_dir, _exploitants_dir]:
         sys.path.insert(0, _p)
 import openai
 from collections import defaultdict
-from datetime import datetime
+from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 from dotenv import load_dotenv
 from openai import OpenAI
@@ -427,6 +427,7 @@ _PUBLIC_PATHS = (
     "/api/email/oauth/",
     "/api/cortex/telegram/webhook",
     "/api/app/version",
+    "/api/debug/log",
     "/api/rooms/",  # Accessible via HMAC member token (invites par SMS)
     "/download",
     "/download/",
@@ -563,6 +564,10 @@ def _init_core():
                 voice_service=voice_client,
                 visio_service=tavus_client,
             )
+            # Callback pour que l'executor puisse stocker les params d'appel planifié
+            def _on_scheduled_call(call_sid, params):
+                _voice_call_params[call_sid] = params
+            _executor.on_call_initiated = _on_scheduled_call
             _doc_generator = DocumentGenerator(
                 output_dir=os.path.join(os.path.dirname(__file__), "static", "documents"),
                 tenant_id=TENANT_ID,
@@ -655,7 +660,7 @@ if _memory_manager:
     except Exception:
         _SUBSCRIBER_FULL = _SUBSCRIBER_NAME
 
-NOW = datetime.now().strftime("%A %d %B %Y, %Hh%M")
+NOW = datetime.now().strftime("%A %d %B %Y, %Hh%M")  # boot-time snapshot (used as template marker)
 
 LUNA_SYSTEM_PROMPT = f"""Tu es Luna, l'assistante IA personnelle de YAWatch-Luna.
 
@@ -859,6 +864,15 @@ Tu ne dois JAMAIS pretendre avoir effectue une action (appel, SMS, email, note, 
 
 Commence par saluer {_SUBSCRIBER_NAME} chaleureusement."""
 
+
+def _system_prompt_now():
+    """Return LUNA_SYSTEM_PROMPT with live date/time instead of boot-time value."""
+    _current = datetime.now(ZoneInfo("Europe/Paris")).strftime("%A %d %B %Y, %Hh%M")
+    return LUNA_SYSTEM_PROMPT.replace(
+        f"Date du jour : {NOW}", f"Date du jour : {_current}"
+    )
+
+
 # --- State ---
 conversations: dict[str, list] = {}
 _conversation_ts: dict[str, float] = {}  # session_id -> last activity timestamp
@@ -950,7 +964,10 @@ def _cleanup_sessions():
     now = time.time()
     expired = [sid for sid, ts in list(_conversation_ts.items()) if now - ts > SESSION_TTL]
     for sid in expired:
-        conversations.pop(sid, None)
+        # conversations is nested: {tenant_id: {session_id: [messages]}}
+        for tid_convs in conversations.values():
+            if isinstance(tid_convs, dict):
+                tid_convs.pop(sid, None)
         _conversation_ts.pop(sid, None)
     # Cleanup orphan voice/sms tracking dicts
     stale_voice = [k for k, v in list(_voice_call_params.items()) if now - v.get("_ts", 0) > 300]
@@ -1309,6 +1326,16 @@ async def security_middleware(request: Request, call_next):
     if _license_heartbeat and _license_heartbeat.get_banner_message():
         response.headers["X-License-Warning"] = "true"
         response.headers["X-License-Status"] = _license_heartbeat.status
+
+    # Cortex warning header — informe le frontend si l'IP a des avertissements actifs
+    if _CORTEX_AVAILABLE and path.startswith("/api/"):
+        cortex = get_cortex()
+        if cortex:
+            ip_warnings = cortex.vigil._warnings.get(client_ip, [])
+            active = [w for w in ip_warnings if time.time() - w.get("time", 0) < 86400]
+            if active:
+                response.headers["X-Cortex-Warnings"] = str(len(active))
+                response.headers["X-Cortex-Warnings-Max"] = str(cortex.vigil.WARNINGS_BEFORE_BAN)
 
     duration_ms = (time.time() - start_time) * 1000
     logger.info(f"{request.method} {request.url.path} [{response.status_code}] {duration_ms:.0f}ms - {client_ip}")
@@ -1776,7 +1803,7 @@ def _build_rich_cards(tool_calls_made: list) -> list:
     return cards
 
 
-async def _stream_chat_sse(messages, chat_tools, tid, session_id, req_message, mgr):
+async def _stream_chat_sse(messages, chat_tools, tid, session_id, req_message, mgr, semaphore=None):
     """Async generator yielding SSE events for streaming chat."""
     import queue as _queue
 
@@ -1801,125 +1828,131 @@ async def _stream_chat_sse(messages, chat_tools, tid, session_id, req_message, m
     full_text = ""
     tool_calls_acc = {}
 
-    while True:
-        try:
-            item = await asyncio.to_thread(q.get, timeout=40)
-        except Exception:
-            break
-        evt_type, data = item
-        if evt_type == "error":
-            yield f"data: {json.dumps({'type': 'error', 'message': str(data)})}\n\n"
-            return
-        if evt_type == "done":
-            break
-        chunk = data
-        if not chunk.choices:
-            continue
-        delta = chunk.choices[0].delta
-        if delta and delta.content:
-            full_text += delta.content
-            yield f"data: {json.dumps({'type': 'chunk', 'text': delta.content})}\n\n"
-        if delta and delta.tool_calls:
-            for tc in delta.tool_calls:
-                idx = tc.index
-                if idx not in tool_calls_acc:
-                    tool_calls_acc[idx] = {"id": "", "name": "", "arguments": ""}
-                if tc.id:
-                    tool_calls_acc[idx]["id"] = tc.id
-                if tc.function:
-                    if tc.function.name:
-                        tool_calls_acc[idx]["name"] = tc.function.name
-                    if tc.function.arguments:
-                        tool_calls_acc[idx]["arguments"] += tc.function.arguments
-
-    _openai_breaker.record_success()
-
-    # Handle tool calls
-    tool_calls_made = []
-    if tool_calls_acc:
-        sorted_tcs = [tool_calls_acc[i] for i in sorted(tool_calls_acc.keys())]
-        asst_tc = [{"id": tc["id"], "type": "function",
-                     "function": {"name": tc["name"], "arguments": tc["arguments"]}}
-                    for tc in sorted_tcs]
-        messages.append({"role": "assistant", "content": full_text or None, "tool_calls": asst_tc})
-
-        for tc in sorted_tcs:
-            fn_name = tc["name"]
+    try:
+        while True:
             try:
-                fn_args = json.loads(tc["arguments"])
+                item = await asyncio.to_thread(q.get, timeout=40)
             except Exception:
-                fn_args = {}
-            yield f"data: {json.dumps({'type': 'tool', 'name': fn_name, 'status': 'running'})}\n\n"
-            result = await _dispatch_chat_tool(fn_name, fn_args, tid, session_id)
-            tool_calls_made.append({"tool": fn_name, "result": result})
-            messages.append({"role": "tool", "tool_call_id": tc["id"],
-                             "content": json.dumps(result, ensure_ascii=False)})
-            yield f"data: {json.dumps({'type': 'tool', 'name': fn_name, 'status': 'done'})}\n\n"
-
-        # Anti-hallucination
-        _ACTION_TOOLS = {"call_contact", "send_sms", "send_email", "alert_contacts",
-                         "request_payment", "invite_visio", "generate_document", "create_instruction"}
-        _failed = [t for t in tool_calls_made if t["result"].get("status") == "error" and t["tool"] in _ACTION_TOOLS]
-        if _failed:
-            messages.append({"role": "system",
-                "content": f"IMPORTANT — Les actions suivantes ont ECHOUE: {', '.join(t['tool'] for t in _failed)}. Informe le souscripteur de l'echec."})
-
-        # Second call with tool results (non-streaming for simplicity)
-        try:
-            response2 = await loop.run_in_executor(None, lambda: openai_client.chat.completions.create(
-                model=OPENAI_MODEL, messages=messages, max_tokens=500, temperature=0.8, timeout=30))
-            full_text = response2.choices[0].message.content or ""
-            yield f"data: {json.dumps({'type': 'chunk', 'text': full_text})}\n\n"
-        except Exception as e:
-            yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
-            return
-
-    # Persist to Redis
-    if mgr:
-        try:
-            mgr.add_message(conv_id=session_id, role=MessageRole.LUNA, content=full_text, channel=Channel.APP)
-        except Exception:
-            pass
-
-    # Auto-title
-    auto_title = None
-    if mgr:
-        try:
-            meta = mgr.redis.get_conversation_meta(tid, session_id)
-            if meta and not meta.get("summary") and int(meta.get("message_count", 0)) <= 2:
-                try:
-                    title_resp = await loop.run_in_executor(None, lambda: openai_client.chat.completions.create(
-                        model="gpt-4o-mini",
-                        messages=[{"role": "system", "content": "Tu generes un titre court (4-6 mots max) pour une conversation. Pas de guillemets."},
-                                  {"role": "user", "content": f"User: {req_message[:200]}\nLuna: {full_text[:200]}"}],
-                        max_tokens=20, temperature=0.3, timeout=5))
-                    auto_title = title_resp.choices[0].message.content.strip().strip('"').strip("'")
-                    if len(auto_title) > 50:
-                        auto_title = auto_title[:50]
-                    meta["summary"] = auto_title
-                    meta["last_activity"] = datetime.utcnow().isoformat()
-                    mgr.redis.set_conversation_meta(tid, session_id, meta)
-                except Exception:
-                    pass
-        except Exception:
-            pass
-
-    _gamify(tid, "chat_message")
-
-    # Build final event
-    cards = _build_rich_cards(tool_calls_made)
-    done_data = {"type": "done", "response": full_text}
-    if auto_title:
-        done_data["auto_title"] = auto_title
-    if tool_calls_made:
-        done_data["actions"] = [{"tool": t["tool"], "status": t["result"].get("status", "unknown")} for t in tool_calls_made]
-        for t in tool_calls_made:
-            if t["result"].get("visio_url"):
-                done_data["visio_url"] = t["result"]["visio_url"]
+                logger.warning(f"Stream timeout for session {session_id}")
+                yield f"data: {json.dumps({'type': 'error', 'message': 'Timeout du flux'})}\n\n"
+                return
+            evt_type, data = item
+            if evt_type == "error":
+                yield f"data: {json.dumps({'type': 'error', 'message': str(data)})}\n\n"
+                return
+            if evt_type == "done":
                 break
-    if cards:
-        done_data["cards"] = cards
-    yield f"data: {json.dumps(done_data)}\n\n"
+            chunk = data
+            if not chunk.choices:
+                continue
+            delta = chunk.choices[0].delta
+            if delta and delta.content:
+                full_text += delta.content
+                yield f"data: {json.dumps({'type': 'chunk', 'text': delta.content})}\n\n"
+            if delta and delta.tool_calls:
+                for tc in delta.tool_calls:
+                    idx = tc.index
+                    if idx not in tool_calls_acc:
+                        tool_calls_acc[idx] = {"id": "", "name": "", "arguments": ""}
+                    if tc.id:
+                        tool_calls_acc[idx]["id"] = tc.id
+                    if tc.function:
+                        if tc.function.name:
+                            tool_calls_acc[idx]["name"] = tc.function.name
+                        if tc.function.arguments:
+                            tool_calls_acc[idx]["arguments"] += tc.function.arguments
+
+        _openai_breaker.record_success()
+
+        # Handle tool calls
+        tool_calls_made = []
+        if tool_calls_acc:
+            sorted_tcs = [tool_calls_acc[i] for i in sorted(tool_calls_acc.keys())]
+            asst_tc = [{"id": tc["id"], "type": "function",
+                         "function": {"name": tc["name"], "arguments": tc["arguments"]}}
+                        for tc in sorted_tcs]
+            messages.append({"role": "assistant", "content": full_text or None, "tool_calls": asst_tc})
+
+            for tc in sorted_tcs:
+                fn_name = tc["name"]
+                try:
+                    fn_args = json.loads(tc["arguments"])
+                except Exception:
+                    fn_args = {}
+                yield f"data: {json.dumps({'type': 'tool', 'name': fn_name, 'status': 'running'})}\n\n"
+                result = await _dispatch_chat_tool(fn_name, fn_args, tid, session_id)
+                tool_calls_made.append({"tool": fn_name, "result": result})
+                messages.append({"role": "tool", "tool_call_id": tc["id"],
+                                 "content": json.dumps(result, ensure_ascii=False)})
+                yield f"data: {json.dumps({'type': 'tool', 'name': fn_name, 'status': 'done'})}\n\n"
+
+            # Anti-hallucination
+            _ACTION_TOOLS = {"call_contact", "send_sms", "send_email", "alert_contacts",
+                             "request_payment", "invite_visio", "generate_document", "create_instruction"}
+            _failed = [t for t in tool_calls_made if t["result"].get("status") == "error" and t["tool"] in _ACTION_TOOLS]
+            if _failed:
+                messages.append({"role": "system",
+                    "content": f"IMPORTANT — Les actions suivantes ont ECHOUE: {', '.join(t['tool'] for t in _failed)}. Informe le souscripteur de l'echec."})
+
+            # Second call with tool results (non-streaming for simplicity)
+            try:
+                response2 = await loop.run_in_executor(None, lambda: openai_client.chat.completions.create(
+                    model=OPENAI_MODEL, messages=messages, max_tokens=500, temperature=0.8, timeout=30))
+                full_text = response2.choices[0].message.content or ""
+                yield f"data: {json.dumps({'type': 'chunk', 'text': full_text})}\n\n"
+            except Exception as e:
+                yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
+                return
+
+        # Persist to Redis
+        if mgr:
+            try:
+                mgr.add_message(conv_id=session_id, role=MessageRole.LUNA, content=full_text, channel=Channel.APP)
+            except Exception as e:
+                logger.warning(f"Redis message persist failed: {e}")
+
+        # Auto-title
+        auto_title = None
+        if mgr:
+            try:
+                meta = mgr.redis.get_conversation_meta(tid, session_id)
+                if meta and not meta.get("summary") and int(meta.get("message_count", 0)) <= 2:
+                    try:
+                        title_resp = await loop.run_in_executor(None, lambda: openai_client.chat.completions.create(
+                            model="gpt-4o-mini",
+                            messages=[{"role": "system", "content": "Tu generes un titre court (4-6 mots max) pour une conversation. Pas de guillemets."},
+                                      {"role": "user", "content": f"User: {req_message[:200]}\nLuna: {full_text[:200]}"}],
+                            max_tokens=20, temperature=0.3, timeout=5))
+                        auto_title = title_resp.choices[0].message.content.strip().strip('"').strip("'")
+                        if len(auto_title) > 50:
+                            auto_title = auto_title[:50]
+                        meta["summary"] = auto_title
+                        meta["last_activity"] = datetime.utcnow().isoformat()
+                        mgr.redis.set_conversation_meta(tid, session_id, meta)
+                    except Exception:
+                        pass
+            except Exception:
+                pass
+
+        _gamify(tid, "chat_message")
+
+        # Build final event
+        cards = _build_rich_cards(tool_calls_made)
+        done_data = {"type": "done", "response": full_text}
+        if auto_title:
+            done_data["auto_title"] = auto_title
+        if tool_calls_made:
+            done_data["actions"] = [{"tool": t["tool"], "status": t["result"].get("status", "unknown")} for t in tool_calls_made]
+            for t in tool_calls_made:
+                if t["result"].get("visio_url"):
+                    done_data["visio_url"] = t["result"]["visio_url"]
+                    break
+        if cards:
+            done_data["cards"] = cards
+        yield f"data: {json.dumps(done_data)}\n\n"
+    finally:
+        if semaphore:
+            semaphore.release()
 
 
 @app.post("/api/chat")
@@ -1947,7 +1980,7 @@ async def chat(req: ChatRequest, request: Request):
 
         if req.session_id not in tenant_convs:
             tenant_convs[req.session_id] = [
-                {"role": "system", "content": LUNA_SYSTEM_PROMPT}
+                {"role": "system", "content": _system_prompt_now()}
             ]
 
         # Auto-create conversation metadata in Redis if missing
@@ -1973,6 +2006,17 @@ async def chat(req: ChatRequest, request: Request):
 
         _conversation_ts[req.session_id] = time.time()
         messages = tenant_convs[req.session_id]
+
+        # --- FIX: strip stale injected context from previous turns ---
+        # Keep only the initial system prompt (index 0) + user/assistant/tool messages.
+        # Context (profile, contacts, gamification, etc.) is re-injected fresh each turn.
+        messages[:] = [messages[0]] + [
+            m for m in messages[1:]
+            if (m.get("role") if isinstance(m, dict) else getattr(m, "role", None)) != "system"
+        ]
+
+        # --- FIX: update system prompt with current date/time ---
+        messages[0] = {"role": "system", "content": _system_prompt_now()}
 
         # Inject behavioral memory (locked identity + rules) before user message
         if mgr:
@@ -2122,6 +2166,8 @@ async def chat(req: ChatRequest, request: Request):
                 full_context += "\n- Tu PEUX aussi appeler des administrations/services si le souscripteur te donne le numero (utilise call_contact avec phone_number)."
                 full_context += "\n- Tu ne peux PAS appeler les numeros d'urgence (15, 17, 18, 112) — suggere-les a la place."
                 full_context += "\n- Quand on te demande de PLANIFIER quelque chose dans le FUTUR (ex: 'appelle Marie a 14h', 'rappelle-moi demain'), utilise le tool create_instruction."
+                full_context += "\n- Pour les appels planifies, demande la duree souhaitee (1-10 min) et passe max_duration_minutes. Ex: 'appelle Jess a 14h pendant 5 minutes'."
+                full_context += "\n- Apres chaque appel (meme si le souscripteur n'est pas present), Luna envoie un SMS avec le compte-rendu de ce que l'interlocuteur a dit."
                 full_context += "\n- Quand on te demande 'qui sont mes contacts', reponds avec la liste ci-dessus."
                 full_context += "\n- Tu as acces a Twilio pour envoyer des SMS et passer des appels. Tu SAIS le faire. Ne dis JAMAIS que tu ne peux pas."
                 full_context += "\n- Sois chaleureux, concis, et utile. Tu es Luna, un compagnon bienveillant."
@@ -2314,8 +2360,10 @@ COMPORTEMENT COMPAGNON :
 
         # --- STREAMING SSE ---
         if getattr(req, "stream", False):
+            # Pass semaphore to generator — it will release when stream ends
+            _stream_sem = _chat_semaphore
             return StreamingResponse(
-                _stream_chat_sse(messages, chat_tools, tid, req.session_id, req.message, mgr),
+                _stream_chat_sse(messages, chat_tools, tid, req.session_id, req.message, mgr, semaphore=_stream_sem),
                 media_type="text/event-stream",
                 headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
             )
@@ -2688,7 +2736,9 @@ COMPORTEMENT COMPAGNON :
         logger.error(f"Chat error: {type(e).__name__}: {e}")
         return {"response": "Luna a rencontre un petit probleme. Reessaie."}
     finally:
-        _chat_semaphore.release()
+        # Only release if NOT streaming (streaming generator releases its own semaphore)
+        if not getattr(req, "stream", False):
+            _chat_semaphore.release()
 
 
 @app.get("/api/greeting")
@@ -2697,7 +2747,7 @@ async def greeting(request: Request):
         tid = getattr(request.state, "tenant_id", 1)
         mode = request.query_params.get("mode", "compagnon")
         mgr = _get_tenant_manager(tid)
-        messages = [{"role": "system", "content": LUNA_SYSTEM_PROMPT}]
+        messages = [{"role": "system", "content": _system_prompt_now()}]
         # Inject subscriber name for personalized greeting
         _sub_name = ""
         if mgr:
@@ -2806,7 +2856,7 @@ async def start_call(request: Request):
     )
     if not success:
         logger.error(f"Visio creation error: {data.get('error', 'unknown')}")
-        return {"error": "Impossible de lancer la visio. Reessaie."}
+        return JSONResponse(status_code=503, content={"error": "Impossible de lancer la visio. Reessaie."})
     _gamify(tid, "voice_call")
     return {
         "conversation_url": data["conversation_url"],
@@ -2889,8 +2939,15 @@ async def simli_page():
 class VoiceCallRequest(BaseModel):
     phone: Optional[str] = None  # Numero a appeler (defaut: ADMIN_NUMBER)
     mission: Optional[str] = None  # Mission speciale pour Luna (ex: "prendre des nouvelles de Fred")
-    max_duration: Optional[int] = None  # Duree max en secondes (defaut: 180 beta)
+    max_duration: Optional[int] = None  # Duree max en secondes (min 60, max 600, defaut 180)
     greeting: Optional[str] = None  # Greeting personnalise
+
+    @field_validator("max_duration")
+    @classmethod
+    def validate_duration(cls, v):
+        if v is not None:
+            v = max(60, min(600, v))  # clamp 1-10 min
+        return v
 
 # Stockage temporaire des parametres d'appel (call_sid -> params)
 _voice_call_params: Dict[str, dict] = {}
@@ -3083,6 +3140,7 @@ async def voice_call_media_stream(websocket: WebSocket):
             tool_handler=handle_voice_tool,
             max_duration_seconds=max_dur,
             greeting=greeting_text,
+            voice_client=voice_client,
         )
         _voice_start = time.time()
         await bridge.run()
@@ -3099,6 +3157,7 @@ async def voice_call_media_stream(websocket: WebSocket):
             logger.warning(f"Failed to save voice transcript: {e}")
 
         # Sauvegarder un rapport structuré pour TOUS les appels vocaux
+        _call_summary_text = "Rapport disponible en piece jointe."
         if bridge.transcript and memory_mgr:
             try:
                 from datetime import timedelta
@@ -3110,7 +3169,14 @@ async def voice_call_media_stream(websocket: WebSocket):
                 if _call_contact_name:
                     _participants.append(_call_contact_name)
 
-                _call_summary_text = await _generate_call_summary(bridge.transcript)
+                try:
+                    _call_summary_text = await asyncio.wait_for(
+                        _generate_call_summary(bridge.transcript, contact_name=_call_contact_name),
+                        timeout=30.0,
+                    )
+                except asyncio.TimeoutError:
+                    logger.warning("Call summary generation timed out (30s)")
+                    _call_summary_text = f"Appel de {len(bridge.transcript)} echanges."
                 _structured_report = {
                     "type": "audio",
                     "participants": _participants,
@@ -3206,10 +3272,7 @@ async def voice_call_media_stream(websocket: WebSocket):
                 if _sub_email and email_client:
                     _sub_name = call_params.get("subscriber_name", _SUBSCRIBER_NAME)
                     _pdf_path = os.path.join(_doc_generator.output_dir, _report_filename)
-                    try:
-                        _summary_text = _call_summary_text
-                    except NameError:
-                        _summary_text = "Rapport disponible en piece jointe."
+                    _summary_text = _call_summary_text
                     try:
                         _email_ok, _email_detail = await email_client.send_for_tenant(
                             tenant_id=_voice_tid,
@@ -3240,6 +3303,39 @@ async def voice_call_media_stream(websocket: WebSocket):
                         logger.warning(f"Failed to email call report: {_email_err}")
             except Exception as e:
                 logger.warning(f"Failed to generate call report PDF: {e}")
+
+        # Envoyer un SMS au souscripteur avec le resume de l'appel
+        if _voice_contact and bridge.transcript:
+            try:
+                _sub_phone = call_params.get("subscriber_phone") or ADMIN_NUMBER
+                # Recuperer le telephone du profil si disponible
+                if not _sub_phone and memory_mgr:
+                    try:
+                        _prof = memory_mgr.get_subscriber_profile()
+                        _sub_phone = getattr(_prof, "phone", "") if _prof else ""
+                    except Exception:
+                        pass
+                if _sub_phone and sms_client:
+                    try:
+                        _sms_summary = _call_summary_text[:400]
+                    except (NameError, UnboundLocalError):
+                        _sms_summary = f"Appel avec {_voice_contact} termine ({_voice_duration_min:.0f} min)."
+                    _sms_body = (
+                        f"Luna - Compte-rendu d'appel avec {_voice_contact} "
+                        f"({_voice_duration_min:.0f} min) :\n\n"
+                        f"{_sms_summary}\n\n"
+                        f"Ouvre l'app pour le detail complet."
+                    )
+                    # Limiter a 1600 chars (limite SMS longue)
+                    if len(_sms_body) > 1500:
+                        _sms_body = _sms_body[:1497] + "..."
+                    _sms_ok, _sms_detail = sms_client.send(_sub_phone, _sms_body)
+                    if _sms_ok:
+                        logger.info(f"Call report SMS sent to {_sub_phone}")
+                    else:
+                        logger.warning(f"Failed to send call report SMS: {_sms_detail}")
+            except Exception as e:
+                logger.warning(f"Failed to send call report SMS: {e}")
 
         # Tracker les minutes vocales dans Cortex
         if _voice_duration_min > 0:
@@ -3380,6 +3476,68 @@ Si il parle d'un courrier ou d'une facture, propose de chercher dans ses documen
 Aide-le a y voir clair, simplement, sans jargon.
 """.format(sub=sub_name)
 
+    # Contexte theocratie pour le proprio (tenant 1)
+    if tid == _PROPRIO_TENANT_ID and _redis_client:
+        try:
+            _now = datetime.now(ZoneInfo("Europe/Paris"))
+            _theo_month = _now.strftime("%Y-%m")
+            _theo_hours = _redis_client.client.get(f"luna:{tid}:theo:hours:{_theo_month}")
+            _theo_hours = float(_theo_hours) if _theo_hours else 0.0
+            _theo_goal = 50.0
+            _theo_remaining = max(0, _theo_goal - _theo_hours)
+            _next_y = _now.year + (1 if _now.month == 12 else 0)
+            _next_m = 1 if _now.month == 12 else _now.month + 1
+            _theo_days_left = (datetime(_next_y, _next_m, 1, tzinfo=ZoneInfo("Europe/Paris")) - _now).days
+            _theo_daily = round(_theo_remaining / max(1, _theo_days_left), 1)
+            context += f"""
+=== THEOCRATIE — PIONNIER PERMANENT ===
+{sub_name} est Temoin de Jehovah, pionnier permanent (objectif 50h/mois de predication).
+Ce mois-ci : {_theo_hours:.1f}h effectuees sur 50h, il reste {_theo_remaining:.1f}h en {_theo_days_left} jours ({_theo_daily}h/jour necessaires).
+{"Il est en retard — encourage-le et propose des alternatives (lettres, appels telephoniques, temoignage informel)." if _theo_remaining > _theo_daily * _theo_days_left * 0.8 else "Il est dans les temps — felicite-le !"}
+
+Tu peux l'aider a :
+- Preparer ses reunions (Tour de Garde, reunion de semaine, lecture biblique)
+- Compter ses heures de predication (il te le dira oralement)
+- Chercher des references bibliques et des publications JW
+- Rediger des lettres de temoignage pour son territoire
+- Mediter sur des versets et des recits bibliques
+- Se motiver quand il est fatigue ou decourage
+
+Quand il parle de ses heures, propose de les enregistrer. Quand il parle d'une reunion, propose de l'aider a preparer.
+"""
+        except Exception as e:
+            logger.warning(f"Voice theo context error: {e}")
+
+    # Historique de conversation pour reconnexion
+    _voice_history = []
+    _history_param = websocket.query_params.get("history", "")
+    if _history_param:
+        try:
+            _voice_history = json.loads(_history_param)
+            if not isinstance(_voice_history, list):
+                _voice_history = []
+            # Limiter taille
+            _voice_history = _voice_history[-20:]
+        except (json.JSONDecodeError, Exception):
+            _voice_history = []
+
+    # Charger les derniers messages chat pour continuite cross-canal
+    if _redis_client and not _voice_history:
+        try:
+            _recent_chat = _redis_client.client.lrange(f"luna:{tid}:chat:recent", -6, -1)
+            if _recent_chat:
+                for _rc in _recent_chat:
+                    try:
+                        _rc_data = json.loads(_rc) if isinstance(_rc, str) else _rc
+                        _voice_history.append({
+                            "role": _rc_data.get("role", "user"),
+                            "text": _rc_data.get("content", "")[:200],
+                        })
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+
     # Tool handler (meme que pour Twilio)
     async def handle_voice_tool(name: str, args: dict) -> dict:
         if name == "send_sms":
@@ -3450,7 +3608,11 @@ Aide-le a y voir clair, simplement, sans jargon.
         else:
             return {"status": "error", "message": f"Fonction inconnue: {name}"}
 
-    _greeting = f"{sub_name} vient d'activer le mode vocal. Salue-le brievement et demande ce que tu peux faire pour lui."
+    _is_reconnect = len(_voice_history) > 0 and _history_param
+    if _is_reconnect:
+        _greeting = f"{sub_name} revient apres une coupure. Dis-lui brievement que tu es de retour et continue la conversation la ou elle en etait."
+    else:
+        _greeting = f"{sub_name} vient d'activer le mode vocal. Salue-le brievement et demande ce que tu peux faire pour lui."
 
     bridge = WebVoiceBridge(
         openai_api_key=OPENAI_API_KEY,
@@ -3460,6 +3622,8 @@ Aide-le a y voir clair, simplement, sans jargon.
         voice=os.getenv("OPENAI_VOICE_NAME", "alloy"),
         max_duration_seconds=1800,
         greeting=_greeting,
+        conversation_history=_voice_history,
+        vad_eagerness="low",
     )
 
     _voice_start = time.time()
@@ -3667,30 +3831,43 @@ def _save_voice_transcript(bridge, memory_mgr):
         logger.error(f"Error saving voice transcript: {e}")
 
 
-async def _generate_call_summary(transcript: list) -> str:
-    """Resume factuel d'un appel vocal via LLM (gpt-4o-mini)."""
+async def _generate_call_summary(transcript: list, contact_name: str = "") -> str:
+    """Resume factuel d'un appel vocal via LLM (gpt-4o-mini).
+
+    Le transcript contient role=user pour l'interlocuteur et role=assistant pour Luna.
+    contact_name permet de nommer l'interlocuteur dans le resume.
+    """
     if not transcript:
         return "Aucun echange."
+    interlocutor = contact_name or "Interlocuteur"
     text_parts = []
     for e in transcript[:50]:
-        speaker = "Souscripteur" if e.get("role") == "user" else "Luna"
+        speaker = interlocutor if e.get("role") == "user" else "Luna"
         text_parts.append(f"{speaker}: {e.get('text', '')}")
     text = "\n".join(text_parts)
     try:
         resp = openai_client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
-                {"role": "system", "content": "Resume factuel d'un appel telephonique. Sois concis (3-5 phrases). Ne mentionne QUE ce qui a ete reellement dit. N'invente rien. N'ajoute pas de details techniques."},
-                {"role": "user", "content": f"Transcription:\n{text[:3000]}"},
+                {"role": "system", "content": (
+                    f"Tu generes un compte-rendu factuel d'un appel telephonique entre Luna (assistante IA) et {interlocutor}. "
+                    "Structure ton resume ainsi :\n"
+                    f"1. Ce que {interlocutor} a dit/repondu (l'essentiel de ses propos)\n"
+                    "2. Ce que Luna a transmis ou demande\n"
+                    "3. Actions ou informations a retenir\n"
+                    "Sois precis et factuel (5-8 phrases). Ne mentionne QUE ce qui a ete reellement dit. "
+                    "N'invente rien. N'ajoute pas de details techniques."
+                )},
+                {"role": "user", "content": f"Transcription de l'appel:\n{text[:4000]}"},
             ],
-            max_tokens=200,
+            max_tokens=400,
             temperature=0.3,
         )
         await _track_openai_cost(resp)
         return resp.choices[0].message.content or "Resume non disponible."
     except Exception as e:
         logger.warning(f"Failed to generate call summary: {e}")
-        return f"Appel de {len(transcript)} echanges."
+        return f"Appel de {len(transcript)} echanges avec {interlocutor}."
 
 
 async def _generate_visio_summary(transcript: list, conversation_id: str, duration_min: float) -> str:
@@ -4696,7 +4873,7 @@ async def stripe_webhook(request: Request):
         return JSONResponse(status_code=500, content={"error": "Service de paiement non disponible"})
     except Exception as e:
         logger.warning(f"Stripe webhook invalide: {e}")
-        return JSONResponse(status_code=400, content={"error": f"Signature invalide: {e}"})
+        return JSONResponse(status_code=400, content={"error": "Signature invalide"})
 
 
 @app.post("/api/payment/confirm/{intent_id}")
@@ -5437,7 +5614,10 @@ async def update_profile(request: Request):
     mgr = _get_tenant_manager(tid)
     if not mgr:
         return JSONResponse(status_code=503, content={"error": "Memoire non disponible"})
-    body = await request.json()
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse(status_code=400, content={"error": "JSON invalide"})
     if not body:
         return JSONResponse(status_code=400, content={"error": "Corps vide"})
     profile = mgr.update_subscriber_profile(body)
@@ -5632,7 +5812,12 @@ async def update_settings(request: Request):
     tid = getattr(request.state, "tenant_id", 1)
     if not _redis_client:
         return JSONResponse(status_code=503, content={"error": "Service indisponible"})
-    body = await request.json()
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse(status_code=400, content={"error": "JSON invalide"})
+    if not isinstance(body, dict):
+        return JSONResponse(status_code=400, content={"error": "JSON invalide"})
     allowed = {"dark_mode", "font_size", "language", "notification_sound"}
     updates = {k: str(v) for k, v in body.items() if k in allowed}
     if updates:
@@ -6774,6 +6959,27 @@ async def list_notes(request: Request, limit: int = 50):
     }
 
 
+@app.get("/api/call-reports")
+async def list_call_reports(request: Request, limit: int = 20):
+    """Liste les comptes-rendus d'appels (vocaux + visio)."""
+    tid = getattr(request.state, "tenant_id", 1)
+    mgr = _get_tenant_manager(tid)
+    if not mgr:
+        return JSONResponse(status_code=503, content={"error": "Memoire non disponible"})
+    notes = mgr.list_notes(limit=min(limit, 100))
+    reports = []
+    for n in notes:
+        if n.tags and ("rapport" in n.tags or "appel_vocal" in n.tags):
+            reports.append({
+                "id": n.id,
+                "content": n.content,
+                "context": n.context,
+                "tags": n.tags,
+                "created_at": n.created_at.isoformat() if n.created_at else None,
+            })
+    return {"reports": reports, "count": len(reports)}
+
+
 @app.post("/api/notes")
 async def add_note(req: NoteRequest, request: Request):
     """Ajoute une note"""
@@ -7795,10 +8001,16 @@ async def _tool_call_contact(args: Dict, tenant_id: int = 0, session_id: str = "
     call_sid = data.get("call_sid", "")
     # Stocker les parametres pour le bridge (lock pour thread-safety)
     import time as _ts
+    _req_duration = args.get("max_duration", 180)
+    if isinstance(_req_duration, str):
+        try: _req_duration = int(_req_duration)
+        except: _req_duration = 180
+    _req_duration = max(60, min(600, _req_duration))  # clamp 1-10 min
+
     async with _voice_call_params_lock:
         _voice_call_params[call_sid] = {
             "mission": mission,
-            "max_duration": 180,
+            "max_duration": _req_duration,
             "greeting": greeting,
             "contact_name": matched_name,
             "tenant_id": tid,
@@ -7882,6 +8094,19 @@ async def _tool_create_instruction(args: Dict, tenant_id: int = 0) -> Dict:
     if not schedule_str and parsed.scheduled_time:
         schedule_str = f"{parsed.scheduled_time.hour:02d}:{parsed.scheduled_time.minute:02d}"
 
+    # Metadata pour les appels planifiés (durée max)
+    _instr_meta = None
+    _max_dur_min = args.get("max_duration_minutes")
+    if _max_dur_min is not None:
+        try:
+            _max_dur_min = max(1, min(10, int(_max_dur_min)))
+        except (ValueError, TypeError):
+            _max_dur_min = 3
+        _instr_meta = {"max_duration": _max_dur_min * 60}
+    elif parsed.action_type.value in ("call_contact", "wake_up"):
+        # Défaut 3 min pour les appels planifiés
+        _instr_meta = {"max_duration": 180}
+
     instr = mgr.add_instruction(
         description=text,
         action=action,
@@ -7890,6 +8115,7 @@ async def _tool_create_instruction(args: Dict, tenant_id: int = 0) -> Dict:
         target=parsed.target or "self",
         message_template=parsed.message_template or "",
         priority=parsed.priority,
+        metadata=_instr_meta,
     )
 
     if _scheduler:
@@ -7899,6 +8125,8 @@ async def _tool_create_instruction(args: Dict, tenant_id: int = 0) -> Dict:
             pass
 
     confirmation = InstructionParser.format_confirmation(parsed)
+    if _max_dur_min:
+        confirmation += f" (duree max: {_max_dur_min} min)"
     return {"status": "success", "message": confirmation, "instruction_id": instr.id}
 
 
@@ -10066,12 +10294,22 @@ async def _instruction_loop():
                     if not _exec_phone:
                         _exec_phone = os.getenv("ADMIN_PHONE", "")
 
+                    # Load instruction metadata (max_duration etc.) from Redis
+                    _exec_ctx = {
+                        "tenant_id": task.tenant_id,
+                        "subscriber_phone": _exec_phone,
+                    }
+                    if _exec_mgr:
+                        try:
+                            _instr_obj = _exec_mgr.get_instruction(task.instruction_id)
+                            if _instr_obj and _instr_obj.metadata:
+                                _exec_ctx.update(_instr_obj.metadata)
+                        except Exception:
+                            pass
+
                     result = await _executor.execute(
                         task,
-                        context={
-                            "tenant_id": task.tenant_id,
-                            "subscriber_phone": _exec_phone,
-                        },
+                        context=_exec_ctx,
                     )
                     logger.info(
                         f"Instruction {task.instruction_id} executed: "
@@ -10191,7 +10429,7 @@ async def run_scenario(req: Request):
                 test_session = f"test_{datetime.now().strftime('%H%M%S')}"
                 if test_session not in conversations:
                     conversations[test_session] = [
-                        {"role": "system", "content": LUNA_SYSTEM_PROMPT}
+                        {"role": "system", "content": _system_prompt_now()}
                     ]
                 messages = conversations[test_session]
                 messages.append({"role": "user", "content": message})
@@ -10341,7 +10579,7 @@ async def unified_send(request: Request):
         recent_messages = _redis_client.get_recent_context_messages(tid, count=15)
 
         # Construire l'historique pour OpenAI
-        messages = [{"role": "system", "content": LUNA_SYSTEM_PROMPT}]
+        messages = [{"role": "system", "content": _system_prompt_now()}]
         for msg in reversed(recent_messages):
             msg_role = "assistant" if msg.get("role") == "luna" else "user"
             messages.append({"role": msg_role, "content": msg.get("content", "")})
@@ -12467,6 +12705,407 @@ async def admin_revenue(request: Request):
             logger.error(f"Admin revenue error: {e}")
 
     return {"total_revenue": total, "by_plan": by_plan, "currency": "EUR"}
+
+
+# =========================================================================
+# CLIENT DEBUG LOGS — Remote APK monitoring
+# =========================================================================
+_DEBUG_LOG_KEY = "luna:debug:client_logs"
+_DEBUG_LOG_MAX = 500  # max entries kept
+
+
+@app.post("/api/debug/log")
+async def client_debug_log(request: Request):
+    """Receive debug logs from client (APK/browser). No auth required for reliability."""
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse(status_code=400, content={"ok": False})
+    if not isinstance(body, dict):
+        return JSONResponse(status_code=400, content={"ok": False})
+
+    entry = {
+        "ts": datetime.now(ZoneInfo("Europe/Paris")).strftime("%Y-%m-%d %H:%M:%S"),
+        "level": body.get("level", "info"),
+        "tag": body.get("tag", ""),
+        "msg": str(body.get("msg", ""))[:500],
+        "data": str(body.get("data", ""))[:1000],
+        "ua": str(request.headers.get("user-agent", ""))[:200],
+        "tid": getattr(request.state, "tenant_id", None),
+    }
+    if _redis_client:
+        try:
+            _redis_client.client.lpush(_DEBUG_LOG_KEY, json.dumps(entry, ensure_ascii=False))
+            _redis_client.client.ltrim(_DEBUG_LOG_KEY, 0, _DEBUG_LOG_MAX - 1)
+            _redis_client.client.expire(_DEBUG_LOG_KEY, 7 * 86400)  # 7 days
+        except Exception:
+            pass
+    else:
+        logger.info(f"[CLIENT-DEBUG] {entry['level']} [{entry['tag']}] {entry['msg']} | {entry['data']}")
+    return {"ok": True}
+
+
+@app.get("/api/admin/debug-logs")
+async def admin_debug_logs(request: Request):
+    """View client debug logs. Admin only."""
+    if not _verify_admin(request):
+        return JSONResponse(status_code=401, content={"error": "Non autorise"})
+    limit = int(request.query_params.get("limit", "100"))
+    level_filter = request.query_params.get("level", "")  # error, warn, info, chat
+    tag_filter = request.query_params.get("tag", "")
+
+    logs = []
+    if _redis_client:
+        try:
+            raw = _redis_client.client.lrange(_DEBUG_LOG_KEY, 0, min(limit, _DEBUG_LOG_MAX) - 1)
+            for r in raw:
+                try:
+                    entry = json.loads(r)
+                    if level_filter and entry.get("level") != level_filter:
+                        continue
+                    if tag_filter and tag_filter not in entry.get("tag", ""):
+                        continue
+                    logs.append(entry)
+                except Exception:
+                    pass
+        except Exception as e:
+            logger.error(f"Debug logs read error: {e}")
+    return {"logs": logs, "count": len(logs)}
+
+
+@app.delete("/api/admin/debug-logs")
+async def admin_clear_debug_logs(request: Request):
+    """Clear debug logs. Admin only."""
+    if not _verify_admin(request):
+        return JSONResponse(status_code=401, content={"error": "Non autorise"})
+    if _redis_client:
+        _redis_client.client.delete(_DEBUG_LOG_KEY)
+    return {"ok": True}
+
+
+# =========================================================================
+# THEOCRATIE — Espace spirituel (pionnier permanent, tenant 1 uniquement)
+# =========================================================================
+
+_THEO_PIONEER_GOAL = 50  # heures/mois
+_THEO_PIONEER_WEEKLY = 13  # ~50/4 heures/semaine
+
+
+def _theo_month_key(tenant_id: int, month: str = None) -> str:
+    if not month:
+        month = datetime.now().strftime("%Y-%m")
+    return f"luna:{tenant_id}:theo:hours:{month}"
+
+
+def _theo_entries_key(tenant_id: int, month: str = None) -> str:
+    if not month:
+        month = datetime.now().strftime("%Y-%m")
+    return f"luna:{tenant_id}:theo:entries:{month}"
+
+
+@app.get("/api/theo/hours")
+async def theo_hours(request: Request, month: str = None):
+    """Heures de predication du mois (pionnier permanent)."""
+    payload = _decode_client_token(_extract_bearer(request))
+    tid = payload.get("tenant_id") if payload else None
+    if tid != _PROPRIO_TENANT_ID:
+        return JSONResponse(status_code=403, content={"error": "Acces reserve"})
+    if not _redis_client:
+        return {"hours": 0, "goal": _THEO_PIONEER_GOAL, "entries": []}
+
+    if not month:
+        month = datetime.now().strftime("%Y-%m")
+
+    total = 0.0
+    try:
+        val = _redis_client.client.get(_theo_month_key(tid, month))
+        if val:
+            total = float(val)
+    except Exception:
+        pass
+
+    entries = []
+    try:
+        raw = _redis_client.client.lrange(_theo_entries_key(tid, month), 0, -1)
+        for r in raw:
+            try:
+                entries.append(json.loads(r))
+            except Exception:
+                pass
+    except Exception:
+        pass
+
+    now = datetime.now()
+    day_of_month = now.day
+    days_in_month = 30
+    try:
+        import calendar
+        days_in_month = calendar.monthrange(now.year, now.month)[1]
+    except Exception:
+        pass
+    days_left = max(1, days_in_month - day_of_month)
+    remaining = max(0, _THEO_PIONEER_GOAL - total)
+    daily_needed = round(remaining / days_left, 1) if remaining > 0 else 0
+
+    # Semaine courante
+    week_start = now - timedelta(days=now.weekday())
+    week_hours = 0.0
+    for e in entries:
+        try:
+            edate = datetime.strptime(e.get("date", ""), "%Y-%m-%d")
+            if edate >= week_start:
+                week_hours += float(e.get("hours", 0))
+        except Exception:
+            pass
+
+    status = "on_track"
+    if total >= _THEO_PIONEER_GOAL:
+        status = "completed"
+    elif day_of_month > 20 and total < _THEO_PIONEER_GOAL * 0.5:
+        status = "behind"
+    elif day_of_month > 10 and total < _THEO_PIONEER_GOAL * 0.25:
+        status = "behind"
+
+    advice = None
+    if status == "behind":
+        alternatives = []
+        if remaining > 10:
+            alternatives.append("Ecrire des lettres de temoignage (compte dans les heures)")
+            alternatives.append("Temoignage par telephone le soir")
+            alternatives.append("Temoignage informel au travail, transports")
+            alternatives.append("Temoignage public avec presentoir/chariot")
+        advice = {
+            "message": f"Il te reste {remaining:.0f}h a faire en {days_left} jours. "
+                       f"Objectif: {daily_needed}h/jour.",
+            "alternatives": alternatives,
+        }
+
+    return {
+        "hours": round(total, 1),
+        "goal": _THEO_PIONEER_GOAL,
+        "percentage": round((total / _THEO_PIONEER_GOAL) * 100, 1),
+        "remaining": round(remaining, 1),
+        "daily_needed": daily_needed,
+        "week_hours": round(week_hours, 1),
+        "week_goal": _THEO_PIONEER_WEEKLY,
+        "status": status,
+        "advice": advice,
+        "entries": entries[-15:],  # 15 derniers
+        "month": month,
+    }
+
+
+@app.post("/api/theo/hours")
+async def theo_add_hours(request: Request):
+    """Ajoute des heures de predication."""
+    payload = _decode_client_token(_extract_bearer(request))
+    tid = payload.get("tenant_id") if payload else None
+    if tid != _PROPRIO_TENANT_ID:
+        return JSONResponse(status_code=403, content={"error": "Acces reserve"})
+    if not _redis_client:
+        return JSONResponse(status_code=503, content={"error": "Redis non disponible"})
+
+    body = await request.json()
+    hours = float(body.get("hours", 0))
+    activity = body.get("activity", "predication")
+    date_str = body.get("date", datetime.now().strftime("%Y-%m-%d"))
+    note = body.get("note", "")
+
+    if hours <= 0 or hours > 24:
+        return JSONResponse(status_code=400, content={"error": "Heures invalides (0-24)"})
+
+    month = date_str[:7]  # YYYY-MM
+    entry = {
+        "date": date_str,
+        "hours": hours,
+        "activity": activity,
+        "note": note,
+        "ts": time.time(),
+    }
+
+    try:
+        _redis_client.client.incrbyfloat(_theo_month_key(tid, month), hours)
+        _redis_client.client.lpush(_theo_entries_key(tid, month), json.dumps(entry))
+        _redis_client.client.expire(_theo_month_key(tid, month), 365 * 86400)
+        _redis_client.client.expire(_theo_entries_key(tid, month), 365 * 86400)
+    except Exception as e:
+        logger.error(f"Theo hours add error: {e}")
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+    return {"ok": True, "added": hours, "activity": activity}
+
+
+@app.post("/api/theo/prepare")
+async def theo_prepare_meeting(request: Request):
+    """Luna prepare la reunion. Scrape jw.org pour le contenu reel puis OpenAI pour preparer."""
+    payload = _decode_client_token(_extract_bearer(request))
+    tid = payload.get("tenant_id") if payload else None
+    if tid != _PROPRIO_TENANT_ID:
+        return JSONResponse(status_code=403, content={"error": "Acces reserve"})
+    if not openai_client:
+        return JSONResponse(status_code=503, content={"error": "Service IA non disponible"})
+
+    body = await request.json()
+    week = body.get("week", "")
+    request_type = body.get("type", "midweek")  # midweek, watchtower, bible_reading
+    question = body.get("question", "")
+
+    # --- Etape 1: Scraper le contenu reel de jw.org ---
+    jw_content = ""
+    jw_urls = {
+        "midweek": "https://www.jw.org/fr/biblioth%C3%A8que/programme-des-r%C3%A9unions/",
+        "watchtower": "https://www.jw.org/fr/biblioth%C3%A8que/la-tour-de-garde-%C3%A9tude/",
+        "bible_reading": "https://www.jw.org/fr/biblioth%C3%A8que/programme-de-lecture-de-la-bible/",
+    }
+    try:
+        import httpx
+        target_url = jw_urls.get(request_type, jw_urls["midweek"])
+        async with httpx.AsyncClient(follow_redirects=True) as http:
+            resp = await http.get(
+                target_url,
+                headers={
+                    "User-Agent": "Mozilla/5.0 (Linux; Android 12) AppleWebKit/537.36 Chrome/120.0.0.0 Mobile Safari/537.36",
+                    "Accept": "text/html,application/xhtml+xml",
+                    "Accept-Language": "fr-FR,fr;q=0.9",
+                },
+                timeout=15,
+            )
+            if resp.status_code == 200:
+                import re as _re
+                _html = resp.text
+                _html = _re.sub(r'<(script|style|nav|footer|header|noscript)[^>]*>.*?</\1>', '', _html, flags=_re.DOTALL | _re.IGNORECASE)
+                _text = _re.sub(r'<[^>]+>', ' ', _html)
+                _text = _re.sub(r'\s+', ' ', _text).strip()
+                jw_content = _text[:4000]
+                logger.info(f"Theo: scraped jw.org ({len(jw_content)} chars) for {request_type}")
+    except Exception as e:
+        logger.warning(f"Theo: jw.org scrape failed: {e}")
+
+    # --- Etape 2: Construire le prompt avec le contenu reel ---
+    now = datetime.now(ZoneInfo("Europe/Paris"))
+    week_str = week or now.strftime("%d %B %Y")
+
+    base_context = (
+        "Tu es Luna, assistante spirituelle d'un Temoin de Jehovah pionnier permanent. "
+        f"Date: {week_str}. "
+        "Tu dois preparer du contenu CONCRET et UTILE pour la participation aux reunions. "
+        "Formate avec des titres markdown clairs. Cite les versets bibliques entre parentheses."
+    )
+
+    if jw_content:
+        base_context += f"\n\nVoici le contenu que j'ai recupere depuis jw.org:\n---\n{jw_content}\n---\nUtilise ce contenu pour preparer des reponses precises."
+
+    prompt_map = {
+        "midweek": (
+            base_context + "\n\n"
+            "Prepare la reunion Vie chretienne et ministere de cette semaine:\n"
+            "## JOYAUX DE LA PAROLE DE DIEU\n"
+            "- Theme principal et points cles\n"
+            "- 2-3 reponses preparees pour participer\n\n"
+            "## PERLES SPIRITUELLES\n"
+            "- Reponses aux questions\n\n"
+            "## APPLIQUE-TOI AU MINISTERE\n"
+            "- Aide pour les presentations et demonstrations\n\n"
+            "## VIE CHRETIENNE\n"
+            "- Points cles + reponses\n\n"
+            "## ETUDE BIBLIQUE DE CONGREGATION\n"
+            "- Resume des paragraphes + reponses preparees\n"
+        ),
+        "watchtower": (
+            base_context + "\n\n"
+            "Prepare l'etude de La Tour de Garde de cette semaine:\n"
+            "## THEME ET TEXTE CLE\n"
+            "## RESUME DE L'ARTICLE\n"
+            "## REPONSES PREPAREES (par paragraphe cle)\n"
+            "## POINTS D'APPLICATION PRATIQUE\n"
+            "## VERSETS CLES A RETENIR\n"
+            "Prepare des reponses courtes et naturelles pour lever la main."
+        ),
+        "bible_reading": (
+            base_context + "\n\n"
+            "Prepare la lecture biblique de cette semaine:\n"
+            "## CHAPITRES ASSIGNES\n"
+            "## CONTEXTE HISTORIQUE\n"
+            "## PERLES SPIRITUELLES\n"
+            "## LECONS PRATIQUES POUR AUJOURD'HUI\n"
+            "## VERSETS MARQUANTS\n"
+            "Extrais les points les plus interessants pour la meditation personnelle."
+        ),
+    }
+
+    system_prompt = prompt_map.get(request_type, prompt_map["midweek"])
+
+    try:
+        response = openai_client.chat.completions.create(
+            model=OPENAI_MODEL,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": question or f"Prepare ma reunion pour la semaine du {week_str}"},
+            ],
+            max_tokens=2500,
+            temperature=0.5,
+        )
+        text = response.choices[0].message.content
+        await _track_openai_cost(response, tid)
+        return {"response": text, "type": request_type}
+    except Exception as e:
+        logger.error(f"Theo prepare error: {e}")
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+
+@app.post("/api/theo/letter")
+async def theo_generate_letter(request: Request):
+    """Genere une lettre de predication personnalisee."""
+    payload = _decode_client_token(_extract_bearer(request))
+    tid = payload.get("tenant_id") if payload else None
+    if tid != _PROPRIO_TENANT_ID:
+        return JSONResponse(status_code=403, content={"error": "Acces reserve"})
+
+    body = await request.json()
+    recipient_name = body.get("name", "")
+    address = body.get("address", "")
+    topic = body.get("topic", "esperance biblique")
+    tone = body.get("tone", "chaleureux")
+
+    system_prompt = (
+        "Tu es Luna, assistante d'un Temoin de Jehovah pionnier permanent. "
+        "Genere une lettre de temoignage a envoyer par courrier postal. "
+        "REGLES STRICTES:\n"
+        "- Lettre COURTE (150-200 mots max) — les lettres courtes sont lues\n"
+        "- Ton chaleureux et respectueux, PAS commercial\n"
+        "- Commence par une question engageante sur un sujet d'actualite ou biblique\n"
+        "- Mentionne 1-2 versets bibliques pertinents\n"
+        "- Propose de decouvrir la reponse de la Bible\n"
+        "- Invite a visiter jw.org ou a accepter un cours biblique gratuit\n"
+        "- NE PAS copier mot a mot un modele — chaque lettre doit etre unique\n"
+        "- Inclus le nom du destinataire si fourni\n"
+        "- Termine par une formule polie et ton prenom (Ludovic)\n"
+        "- Format: texte pret a imprimer, avec mise en page lettre classique\n"
+    )
+
+    user_msg = f"Destinataire: {recipient_name or 'Cher voisin'}\n"
+    if address:
+        user_msg += f"Adresse: {address}\n"
+    user_msg += f"Theme souhaite: {topic}\nTon: {tone}"
+
+    try:
+        if not openai_client:
+            return JSONResponse(status_code=503, content={"error": "Service IA non disponible"})
+        response = openai_client.chat.completions.create(
+            model=OPENAI_MODEL,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_msg},
+            ],
+            max_tokens=800,
+            temperature=0.8,
+        )
+        text = response.choices[0].message.content
+        await _track_openai_cost(response, tid)
+        return {"letter": text, "recipient": recipient_name, "topic": topic}
+    except Exception as e:
+        logger.error(f"Theo letter error: {e}")
+        return JSONResponse(status_code=500, content={"error": str(e)})
 
 
 if __name__ == "__main__":

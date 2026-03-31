@@ -132,6 +132,9 @@ HONEYPOT_PATHS = [
 class VigilAgent:
     """Agent de securite autonome."""
 
+    # Nombre d'avertissements avant ban automatique
+    WARNINGS_BEFORE_BAN = 3
+
     def __init__(self, config: CortexConfig, redis_client=None):
         self.config = config
         self.redis = redis_client
@@ -148,6 +151,13 @@ class VigilAgent:
         self._global_request_count: list[float] = []
         self._last_integrity_check: float = 0
         self._actions_taken: list[str] = []
+
+        # Systeme d'avertissements progressifs (avant ban)
+        # ip -> [{"time": t, "reason": str, "score": float, "threat_types": [...]}]
+        self._warnings: dict[str, list[dict]] = defaultdict(list)
+        # Historique complet des avertissements (pour consultation admin)
+        # [{"ip": str, "time": t, "reason": str, "warning_number": int, ...}]
+        self._warnings_history: list[dict] = []
 
         # Init file hashes
         self._compute_file_hashes()
@@ -398,12 +408,13 @@ class VigilAgent:
             ))
             self._boost_threat(ip, ThreatType.PV_BYPASS, 60)
 
-        # 7. Auto-decision de ban basee sur le threat score
+        # 7. Avertissement progressif basee sur le threat score
+        # (avant c'etait un ban direct — maintenant on avertit d'abord)
         score = self._threat_scores.get(ip, 0)
         if score >= self.config.threat_score_ban:
-            ban_signal = self._auto_ban(ip, score)
-            if ban_signal:
-                signals.append(ban_signal)
+            warning_signal = self._issue_warning(ip, score)
+            if warning_signal:
+                signals.append(warning_signal)
 
         return signals
 
@@ -437,11 +448,13 @@ class VigilAgent:
             ))
             self._boost_threat(ip, ThreatType.BRUTE_FORCE, 30)
 
-            # Auto-ban si > 2x le seuil
+            # Avertissement progressif si > 2x le seuil
             if count >= self.config.brute_force_threshold * 2:
-                ban_signal = self._auto_ban(ip, self._threat_scores[ip])
-                if ban_signal:
-                    signals.append(ban_signal)
+                reason = f"Brute force: {count} echecs login"
+                warn_signal = self._issue_warning(
+                    ip, self._threat_scores[ip], reason)
+                if warn_signal:
+                    signals.append(warn_signal)
 
         return signals
 
@@ -460,12 +473,89 @@ class VigilAgent:
         # Garder les 50 derniers signaux par IP
         self._threat_signals[ip] = self._threat_signals[ip][-50:]
 
-    def _auto_ban(self, ip: str, score: float) -> Optional[Signal]:
-        """Ban automatique d'une IP basee sur son score."""
-        if ip in self._banned_ips:
-            return None  # Deja bannie
+    def _issue_warning(self, ip: str, score: float, reason: str = "") -> Signal:
+        """
+        Emettre un avertissement pour une IP.
+        Apres WARNINGS_BEFORE_BAN avertissements, on passe au ban.
+        Chaque avertissement est enregistre et historise.
+        """
+        now = time.time()
 
-        # Escalade progressive
+        # Nettoyer les vieux avertissements (plus de 24h) pour cette IP
+        self._warnings[ip] = [
+            w for w in self._warnings[ip]
+            if now - w["time"] < 86400
+        ]
+
+        # Compter les avertissements actifs (dernières 24h)
+        warning_count = len(self._warnings[ip]) + 1  # +1 pour celui-ci
+        threat_types = list(set(
+            s["type"] for s in self._threat_signals.get(ip, [])
+        ))
+
+        if not reason:
+            reason = f"Score menace {score:.0f}/100 ({self._threat_summary(ip)})"
+
+        # Enregistrer l'avertissement
+        warning_entry = {
+            "time": now,
+            "reason": reason,
+            "score": score,
+            "threat_types": threat_types,
+            "warning_number": warning_count,
+        }
+        self._warnings[ip].append(warning_entry)
+
+        # Historique global (garder les 200 derniers)
+        history_entry = {
+            "ip": ip,
+            **warning_entry,
+            "time_str": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC"),
+        }
+        self._warnings_history.append(history_entry)
+        if len(self._warnings_history) > 200:
+            self._warnings_history = self._warnings_history[-200:]
+
+        # Persister dans Redis (async best-effort)
+        self._persist_warning_to_redis(ip, history_entry)
+
+        # Si on a atteint le seuil → ban
+        if warning_count >= self.WARNINGS_BEFORE_BAN:
+            return self._escalate_to_ban(ip, score, warning_count)
+
+        # Sinon → avertissement simple
+        remaining = self.WARNINGS_BEFORE_BAN - warning_count
+        action_desc = (f"Avertissement {warning_count}/{self.WARNINGS_BEFORE_BAN} "
+                       f"pour {ip} — score {score:.0f}")
+        self._actions_taken.append(action_desc)
+
+        return Signal(
+            source=SignalSource.VIGIL,
+            severity=Severity.WARNING,
+            category="security",
+            title=f"Avertissement {warning_count}/{self.WARNINGS_BEFORE_BAN} — IP {ip}",
+            message=(
+                f"IP {ip} — Avertissement {warning_count}/{self.WARNINGS_BEFORE_BAN}. "
+                f"Score: {score:.0f}/100. Raison: {reason}. "
+                f"Encore {remaining} avertissement(s) avant blocage."
+            ),
+            threat_type=ThreatType.UNKNOWN,
+            ip=ip,
+            metadata={
+                "warning_number": warning_count,
+                "warnings_before_ban": self.WARNINGS_BEFORE_BAN,
+                "remaining": remaining,
+                "threat_types": threat_types,
+            },
+        )
+
+    def _escalate_to_ban(self, ip: str, score: float,
+                         warning_count: int) -> Signal:
+        """Ban apres epuisement des avertissements."""
+        if ip in self._banned_ips:
+            return None
+
+        # Escalade progressive basee sur le nombre de signaux
         signals_count = len(self._threat_signals.get(ip, []))
         if signals_count > 20:
             duration = self.config.ban_duration_permanent
@@ -479,30 +569,166 @@ class VigilAgent:
 
         self._banned_ips[ip] = {
             "until": time.time() + duration,
-            "reason": f"Score menace {score:.0f}/100 ({signals_count} signaux)",
+            "reason": (f"Score {score:.0f}/100 apres "
+                       f"{warning_count} avertissements ignores"),
             "level": level,
             "score": score,
+            "warnings_count": warning_count,
         }
 
+        # Persister le ban dans Redis
+        self._persist_ban_to_redis(ip, self._banned_ips[ip])
+
         duration_str = self._format_duration(duration)
-        action_desc = f"Ban {ip} ({level}, {duration_str}) — score {score:.0f}"
+        action_desc = (f"Ban {ip} ({level}, {duration_str}) — "
+                       f"apres {warning_count} avertissements")
         self._actions_taken.append(action_desc)
 
         return Signal(
             source=SignalSource.VIGIL,
             severity=Severity.CRITICAL,
             category="security",
-            title=f"IP {ip} bannie ({level})",
+            title=f"IP {ip} bannie apres {warning_count} avertissements",
             message=(
-                f"IP {ip} auto-bannie pour {duration_str}. "
-                f"Score menace: {score:.0f}/100. "
-                f"Signaux: {signals_count}. "
+                f"IP {ip} bannie pour {duration_str} ({level}). "
+                f"Score: {score:.0f}/100. "
+                f"{warning_count} avertissements ignores. "
                 f"Types: {self._threat_summary(ip)}"
             ),
             threat_type=ThreatType.UNKNOWN,
             ip=ip,
-            metadata={"ban_level": level, "ban_duration": duration},
+            metadata={
+                "ban_level": level,
+                "ban_duration": duration,
+                "warnings_count": warning_count,
+            },
         )
+
+    def _persist_warning_to_redis(self, ip: str, entry: dict):
+        """Persiste un avertissement dans Redis (best-effort, non-bloquant)."""
+        if not self.redis:
+            return
+        try:
+            import asyncio
+            data = json.dumps(entry, default=str)
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                asyncio.create_task(self._async_persist_warning(ip, data))
+        except Exception:
+            pass
+
+    async def _async_persist_warning(self, ip: str, data: str):
+        """Sauvegarde async dans Redis."""
+        try:
+            # Liste des avertissements par IP (max 20 par IP)
+            key = f"cortex:warnings:{ip}"
+            await self.redis.rpush(key, data)
+            await self.redis.ltrim(key, -20, -1)
+            await self.redis.expire(key, 86400 * 7)  # TTL 7 jours
+            # Historique global (max 500)
+            await self.redis.rpush("cortex:warnings:history", data)
+            await self.redis.ltrim("cortex:warnings:history", -500, -1)
+        except Exception:
+            pass
+
+    def _persist_ban_to_redis(self, ip: str, ban_data: dict):
+        """Persiste un ban dans Redis (best-effort)."""
+        if not self.redis:
+            return
+        try:
+            import asyncio
+            data = json.dumps(ban_data, default=str)
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                asyncio.create_task(self._async_persist_ban(ip, data))
+        except Exception:
+            pass
+
+    async def _async_persist_ban(self, ip: str, data: str):
+        """Sauvegarde async du ban dans Redis."""
+        try:
+            ttl = int(json.loads(data).get("until", 0) - time.time())
+            if ttl > 0:
+                await self.redis.setex(f"cortex:ban:{ip}", ttl, data)
+        except Exception:
+            pass
+
+    async def restore_from_redis(self):
+        """Restaure les bans et avertissements depuis Redis au demarrage."""
+        if not self.redis:
+            return
+        try:
+            # Restaurer les bans actifs
+            cursor = b"0"
+            while True:
+                cursor, keys = await self.redis.scan(
+                    cursor, match="cortex:ban:*", count=100)
+                for key in keys:
+                    try:
+                        data = await self.redis.get(key)
+                        if data:
+                            ban = json.loads(data)
+                            ip = key.decode().replace("cortex:ban:", "") if isinstance(key, bytes) else key.replace("cortex:ban:", "")
+                            if ban.get("until", 0) > time.time():
+                                self._banned_ips[ip] = ban
+                    except Exception:
+                        pass
+                if cursor == b"0" or cursor == 0:
+                    break
+
+            # Restaurer l'historique des avertissements
+            raw_history = await self.redis.lrange(
+                "cortex:warnings:history", 0, -1)
+            if raw_history:
+                for r in raw_history:
+                    try:
+                        entry = json.loads(r)
+                        self._warnings_history.append(entry)
+                        # Reconstituer _warnings par IP (dernières 24h)
+                        ip = entry.get("ip", "")
+                        if ip and time.time() - entry.get("time", 0) < 86400:
+                            self._warnings[ip].append(entry)
+                    except Exception:
+                        pass
+
+            if self._banned_ips:
+                logger.info(f"VIGIL restaure {len(self._banned_ips)} ban(s) depuis Redis")
+            if self._warnings_history:
+                logger.info(f"VIGIL restaure {len(self._warnings_history)} avertissement(s) depuis Redis")
+        except Exception as e:
+            logger.warning(f"VIGIL restore from Redis failed: {e}")
+
+    def get_warnings(self, ip: str = None) -> list[dict]:
+        """Retourne les avertissements. Si ip fourni, filtre par IP."""
+        if ip:
+            return list(self._warnings.get(ip, []))
+        return list(self._warnings_history)
+
+    def get_ip_status(self, ip: str) -> dict:
+        """Status complet d'une IP : score, avertissements, ban."""
+        warnings = self._warnings.get(ip, [])
+        active_warnings = [
+            w for w in warnings
+            if time.time() - w["time"] < 86400
+        ]
+        banned = self.is_banned(ip)
+        ban_info = self._banned_ips.get(ip, {}) if banned else {}
+
+        return {
+            "ip": ip,
+            "threat_score": self._threat_scores.get(ip, 0),
+            "warnings_active": len(active_warnings),
+            "warnings_before_ban": self.WARNINGS_BEFORE_BAN,
+            "warnings_remaining": max(0, self.WARNINGS_BEFORE_BAN - len(active_warnings)),
+            "warnings_detail": active_warnings,
+            "banned": banned,
+            "ban_info": {
+                "until": ban_info.get("until"),
+                "reason": ban_info.get("reason"),
+                "level": ban_info.get("level"),
+            } if banned else None,
+            "signals_count": len(self._threat_signals.get(ip, [])),
+        }
 
     def is_banned(self, ip: str) -> bool:
         """Verifie si une IP est bannie."""
