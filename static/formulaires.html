@@ -73,7 +73,7 @@ h2 { font-size: 1.3rem; color: var(--text); margin-bottom: 4px; }
 .file-preview img { max-height: 260px; max-width: 100%; border-radius: 8px; margin-bottom: 10px; background: var(--bg3); object-fit: contain; }
 .file-info { display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 12px; font-size: 0.82rem; color: var(--text2); }
 .file-info .x { background: none; border: none; color: var(--red); cursor: pointer; font-size: 1rem; }
-input[type="file"] { display: none; }
+input[type="file"] { position: absolute; width: 1px; height: 1px; opacity: 0; overflow: hidden; clip: rect(0,0,0,0); }
 
 /* ═══ STEP 2: Analyzing ═══ */
 .analyzing { text-align: center; max-width: 420px; margin: 0 auto; padding-top: 16px; }
@@ -216,12 +216,14 @@ summary:hover { color: var(--purple); }
             <br>La photo marche aussi, mais le rendu sera celui de votre scan.
         </div>
         <div class="drop-zone" id="dropZone">
+            <label for="fileInput" style="cursor:pointer;display:block;">
             <div class="drop-icon"><svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></div>
             <p class="drop-text">Glissez votre fichier ici</p>
             <p class="drop-or">ou</p>
+            </label>
             <div class="upload-btns">
-                <button class="btn btn-primary" id="btnBrowse">Parcourir</button>
-                <button class="btn btn-secondary" id="btnCamera">Photo</button>
+                <label for="fileInput" class="btn btn-primary" style="cursor:pointer;">Parcourir</label>
+                <label for="camInput" class="btn btn-secondary" id="btnCamera" style="cursor:pointer;">Photo</label>
             </div>
         </div>
         <div class="file-preview hidden" id="filePreview">
@@ -419,7 +421,12 @@ async function startAnalysis(){
         fileB64=await readFileAsB64(file);
         const res=await fetch('/api/form-filler/analyze',{method:'POST',headers:HJSON,body:JSON.stringify({file:fileB64,filename:file.name,media_type:mediaType})});
         clearInterval(iv); pf.style.width='100%';
-        if(!res.ok){const e=await res.json().catch(()=>({})); throw new Error(e.error||'Erreur '+res.status);}
+        if(!res.ok){
+            const e=await res.json().catch(()=>({}));
+            if(res.status===403 && e.cortex) throw new Error('Acces temporairement bloque. Reessayez dans quelques minutes ou contactez le support.');
+            if(res.status===401) throw new Error('Session expiree. Reconnectez-vous.');
+            throw new Error(e.error||'Erreur '+res.status);
+        }
         const data=await res.json();
         sessionId=data.session_id; analysis=data; fields=data.fields||[];
         await new Promise(r=>setTimeout(r,400));
@@ -599,16 +606,28 @@ function reset(){
 
 // ── Init ──
 function init(){
-    // Upload
+    // Upload — labels + fallback .click() pour compatibilite mobile
     const dz=$('#dropZone');
     dz.ondragover=e=>{e.preventDefault();dz.classList.add('dragover');};
     dz.ondragleave=()=>dz.classList.remove('dragover');
     dz.ondrop=e=>{e.preventDefault();dz.classList.remove('dragover');if(e.dataTransfer.files.length)handleFile(e.dataTransfer.files[0]);};
 
-    $('#btnBrowse').onclick=e=>{e.stopPropagation();$('#fileInput').click();};
-    $('#btnCamera').onclick=e=>{e.stopPropagation();$('#camInput').click();};
-    $('#fileInput').onchange=function(){if(this.files.length)handleFile(this.files[0]);};
-    $('#camInput').onchange=function(){if(this.files.length)handleFile(this.files[0]);};
+    const fi=$('#fileInput'), ci=$('#camInput');
+    fi.onchange=function(){if(this.files.length)handleFile(this.files[0]);};
+    ci.onchange=function(){if(this.files.length)handleFile(this.files[0]);};
+
+    // Fallback: si le label natif ne declenche pas le file input (certains WebView),
+    // on ajoute un click handler explicite sur les boutons
+    $$('.upload-btns label').forEach(lbl=>{
+        lbl.addEventListener('click',function(e){
+            const targetId=this.getAttribute('for');
+            const inp=document.getElementById(targetId);
+            if(inp){
+                // Petit delai pour laisser le comportement natif agir d'abord
+                setTimeout(()=>{if(!inp.files||!inp.files.length)inp.click();},100);
+            }
+        });
+    });
     $('#btnRemove').onclick=()=>{file=null;$('#filePreview').classList.add('hidden');$('#dropZone').classList.remove('hidden');};
     $('#btnAnalyze').onclick=startAnalysis;
 

@@ -47,6 +47,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; b
   border-color: #34d399; box-shadow: 0 2px 12px rgba(16,185,129,0.3);
 }
 .tab-btn.mode-hidden { display: none !important; }
+@keyframes pulseUpdate { 0%,100%{opacity:1;} 50%{opacity:0.5;} }
 
 /* === SECRETAIRE MODE THEME — vert emeraude partout === */
 body.mode-secretaire .header { background: linear-gradient(135deg, #0d2818, #064e3b); border-bottom-color: #1a3a2a; }
@@ -439,6 +440,13 @@ body.mode-secretaire .conc-modal-box .field input, body.mode-secretaire .conc-mo
 .badge-blue { background: #2563eb33; color: #60a5fa; }
 .badge-yellow { background: #ca8a0433; color: #fbbf24; }
 .badge-red { background: #dc262633; color: #f87171; }
+.badge-purple { background: #7c3aed33; color: #a78bfa; }
+.badge-gray { background: #37415133; color: #9ca3af; }
+.doc-folder-btn { background: #1a1a2e; color: #888; border: 1px solid #333; transition: all 0.2s; }
+.doc-folder-btn.active { background: #7c3aed33; color: #a78bfa; border-color: #7c3aed; }
+.doc-folder-btn:hover { color: #a78bfa; }
+.doc-status-btn { padding: 4px 8px; border-radius: 8px; border: 1px solid #333; background: #1a1a2e; color: #888; font-size: 0.7em; cursor: pointer; }
+.doc-status-btn:hover { border-color: #7c3aed; color: #a78bfa; }
 .empty-state { text-align: center; padding: 40px; color: #666; font-size: 0.9em; }
 
 /* Quota bars */
@@ -820,6 +828,7 @@ body.mode-secretaire .luna-chip:hover { background: rgba(16,185,129,0.2); border
     <button class="wakeword-btn" id="wakewordBtn" title="Hey Luna (mains libres)">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
     </button>
+    <button id="updateAppBtn" title="Mettre a jour" style="background:none;border:1px solid #f59e0b;border-radius:8px;color:#f59e0b;padding:4px 8px;font-size:0.7em;cursor:pointer;display:none;animation:pulseUpdate 2s infinite;">MAJ</button>
     <button class="logout-btn" id="logoutBtn">Deconnexion</button>
   </div>
 </div>
@@ -847,7 +856,8 @@ body.mode-secretaire .luna-chip:hover { background: rgba(16,185,129,0.2); border
   <button class="tab-btn" data-tab="contacts" data-modes="secretaire">Contacts</button>
   <button class="tab-btn" data-tab="instructions" data-modes="secretaire">Instructions</button>
   <button class="tab-btn" data-tab="documents" data-modes="secretaire">Documents</button>
-  <button class="tab-btn" onclick="window.location.href='/formulaires'" style="color:#4ade80;">Formulaires</button>
+  <button class="tab-btn" data-tab="callreports">Rapports</button>
+  <button class="tab-btn" data-tab="formulaires" data-modes="secretaire" style="color:#4ade80;">Formulaires</button>
   <button class="tab-btn" data-tab="map" data-modes="secretaire">Carte</button>
   <button class="tab-btn" data-tab="profile">Profil</button>
   <button class="tab-btn" data-tab="perception">Perception</button>
@@ -1012,6 +1022,11 @@ body.mode-secretaire .luna-chip:hover { background: rgba(16,185,129,0.2); border
         <div class="conc-icon">&#x1F465;</div>
         <div class="conc-label">Mes contacts</div>
         <div class="conc-desc">Lister mes proches</div>
+      </div>
+      <div class="conc-card" onclick="window.location.href='/formulaires'" style="border-color:rgba(74,222,128,0.3);">
+        <div class="conc-icon">&#x1F4CB;</div>
+        <div class="conc-label" style="color:#4ade80;">Formulaires</div>
+        <div class="conc-desc">Remplir un PDF</div>
       </div>
     </div>
 
@@ -1269,31 +1284,83 @@ body.mode-secretaire .luna-chip:hover { background: rgba(16,185,129,0.2); border
 <!-- Documents Tab -->
 <div class="tab-panel" id="tab-documents">
   <div class="panel-content">
-    <h2>Documents</h2>
-    <div id="documentsList"></div>
-    <h3>Generer un nouveau document</h3>
-    <div class="form-row">
-      <div class="form-group">
-        <label>Type de document</label>
-        <select id="doc-type">
-          <option value="courrier_admin">Courrier administratif</option>
-          <option value="courrier_resiliation">Lettre de resiliation</option>
-          <option value="resume_hebdo">Resume hebdomadaire</option>
-          <option value="fiche_sante">Fiche sante</option>
-          <option value="compte_rendu">Compte-rendu</option>
-          <option value="export_notes">Export des notes</option>
-        </select>
+    <h2>Mes Documents</h2>
+
+    <!-- Summary dashboard -->
+    <div id="docSummary" style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
+      <div class="card" style="flex:1;min-width:80px;padding:10px;text-align:center;">
+        <div style="font-size:1.4em;font-weight:700;color:#a78bfa;" id="docSumTotal">-</div>
+        <div style="font-size:0.75em;color:#888;">Total</div>
       </div>
-      <div class="form-group"><label>Destinataire (optionnel)</label><input type="text" id="doc-recipient" placeholder="CAF, bailleur, Dr Dupont..."></div>
+      <div class="card" style="flex:1;min-width:80px;padding:10px;text-align:center;">
+        <div style="font-size:1.4em;font-weight:700;color:#fbbf24;" id="docSumPending">-</div>
+        <div style="font-size:0.75em;color:#888;">En attente</div>
+      </div>
+      <div class="card" style="flex:1;min-width:80px;padding:10px;text-align:center;">
+        <div style="font-size:1.4em;font-weight:700;color:#f87171;" id="docSumOverdue">-</div>
+        <div style="font-size:0.75em;color:#888;">En retard</div>
+      </div>
+      <div class="card" style="flex:1;min-width:80px;padding:10px;text-align:center;">
+        <div style="font-size:1.4em;font-weight:700;color:#4ade80;" id="docSumPaid">-</div>
+        <div style="font-size:0.75em;color:#888;">Regle</div>
+      </div>
     </div>
-    <div class="form-group"><label>Sujet / Objet</label><input type="text" id="doc-subject" placeholder="Demande APL, resiliation contrat, fuite robinet..."></div>
-    <div class="form-group"><label>Details (optionnel)</label><textarea id="doc-details" placeholder="Informations complementaires a inclure dans le document..." rows="3"></textarea></div>
-    <button class="btn btn-primary" id="docGenerateBtn">Generer le document</button>
-    <p class="form-status" id="docStatus"></p>
-    <div id="docPreview" style="display:none; margin-top:12px;" class="card">
-      <div class="card-header"><span class="card-title">Apercu</span></div>
-      <div class="card-body" id="docPreviewText" style="white-space:pre-wrap;font-size:0.85em;"></div>
+
+    <!-- Actions bar: search + scan -->
+    <div style="display:flex;gap:8px;margin-bottom:12px;align-items:center;">
+      <input type="text" id="docSearchInput" placeholder="Rechercher (EDF, facture, CAF...)" style="flex:1;padding:10px 14px;border-radius:10px;border:1px solid #333;background:#1a1a2e;color:#fff;font-size:0.9em;outline:none;">
+      <button class="btn btn-primary btn-sm" id="docScanBtn" style="white-space:nowrap;padding:10px 14px;">Scanner</button>
     </div>
+    <input type="file" id="docFileInput" accept="image/*,application/pdf" style="display:none;">
+
+    <!-- Folder filter -->
+    <div id="docFolderBar" style="display:flex;gap:6px;overflow-x:auto;margin-bottom:12px;padding-bottom:4px;">
+      <button class="btn btn-sm doc-folder-btn active" data-folder="" style="font-size:0.8em;">Tous</button>
+    </div>
+
+    <!-- Scan status -->
+    <p class="form-status" id="docScanStatus" style="min-height:0;"></p>
+
+    <!-- Document list (secretary) -->
+    <div id="secDocList"></div>
+
+    <!-- Generated documents -->
+    <details style="margin-top:20px;">
+      <summary style="cursor:pointer;color:#a78bfa;font-weight:600;font-size:0.95em;margin-bottom:12px;">Documents generes par Luna</summary>
+      <div id="documentsList" style="margin-top:8px;"></div>
+      <h3 style="margin-top:16px;">Generer un nouveau document</h3>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Type de document</label>
+          <select id="doc-type">
+            <option value="courrier_admin">Courrier administratif</option>
+            <option value="courrier_resiliation">Lettre de resiliation</option>
+            <option value="resume_hebdo">Resume hebdomadaire</option>
+            <option value="fiche_sante">Fiche sante</option>
+            <option value="compte_rendu">Compte-rendu</option>
+            <option value="export_notes">Export des notes</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Destinataire (optionnel)</label><input type="text" id="doc-recipient" placeholder="CAF, bailleur, Dr Dupont..."></div>
+      </div>
+      <div class="form-group"><label>Sujet / Objet</label><input type="text" id="doc-subject" placeholder="Demande APL, resiliation contrat, fuite robinet..."></div>
+      <div class="form-group"><label>Details (optionnel)</label><textarea id="doc-details" placeholder="Informations complementaires a inclure dans le document..." rows="3"></textarea></div>
+      <button class="btn btn-primary" id="docGenerateBtn">Generer le document</button>
+      <p class="form-status" id="docStatus"></p>
+      <div id="docPreview" style="display:none; margin-top:12px;" class="card">
+        <div class="card-header"><span class="card-title">Apercu</span></div>
+        <div class="card-body" id="docPreviewText" style="white-space:pre-wrap;font-size:0.85em;"></div>
+      </div>
+    </details>
+  </div>
+</div>
+
+<!-- Call Reports Tab -->
+<div class="tab-panel" id="tab-callreports">
+  <div class="panel-content">
+    <h2>Comptes-rendus d'appels</h2>
+    <p style="font-size:0.85em;color:#888;margin-bottom:16px;">Retrouve ici tous les rapports d'appels de Luna (vocaux et visio).</p>
+    <div id="callReportsList"><p class="empty-state">Chargement...</p></div>
   </div>
 </div>
 
@@ -1695,11 +1762,12 @@ body.mode-secretaire .luna-chip:hover { background: rgba(16,185,129,0.2); border
     <h3 id="durationTitle" style="color:#a78bfa;margin-bottom:16px;">Duree de l'appel</h3>
     <p style="color:#888;font-size:0.85em;margin-bottom:16px;">Choisis la duree prevue pour cette session</p>
     <select id="durationSelect" style="width:100%;padding:12px;border-radius:10px;border:1px solid #333;background:#0a0a1a;color:#fff;font-size:1.1em;text-align:center;margin-bottom:16px;">
+      <option value="1">1 minute</option>
+      <option value="2">2 minutes</option>
+      <option value="3" selected>3 minutes</option>
       <option value="5">5 minutes</option>
-      <option value="10" selected>10 minutes</option>
-      <option value="15">15 minutes</option>
-      <option value="20">20 minutes</option>
-      <option value="30">30 minutes</option>
+      <option value="7">7 minutes</option>
+      <option value="10">10 minutes</option>
     </select>
     <div style="display:flex;gap:10px;">
       <button onclick="_closeDurationPicker()" style="flex:1;padding:12px;border-radius:12px;border:none;background:#333;color:#aaa;cursor:pointer;font-size:1em;">Annuler</button>
@@ -1719,6 +1787,39 @@ var currentConvId = localStorage.getItem(CURRENT_CONV_KEY) || "default";
 var conversationsMeta = [];
 
 // =========================================================================
+// REMOTE DEBUG LOGGER — envoie les erreurs/events au serveur
+// =========================================================================
+var _debugQueue = [];
+var _debugFlushTimer = null;
+function _remoteLog(level, tag, msg, data) {
+  _debugQueue.push({level: level, tag: tag, msg: String(msg).substring(0, 500), data: data ? String(data).substring(0, 1000) : ""});
+  if (!_debugFlushTimer) {
+    _debugFlushTimer = setTimeout(_flushDebugLogs, 2000);
+  }
+}
+function _flushDebugLogs() {
+  _debugFlushTimer = null;
+  var batch = _debugQueue.splice(0, 20);
+  batch.forEach(function(entry) {
+    try {
+      fetch("/api/debug/log", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify(entry)
+      }).catch(function() {});
+    } catch(e) {}
+  });
+}
+
+// Capture ALL JS errors
+window.onerror = function(msg, src, line, col, err) {
+  _remoteLog("error", "js", msg, (src || "") + ":" + (line || 0) + ":" + (col || 0));
+};
+window.addEventListener("unhandledrejection", function(e) {
+  _remoteLog("error", "promise", String(e.reason || "unhandled rejection"));
+});
+
+// =========================================================================
 // AUTH (multi-tenant)
 // =========================================================================
 function getToken() { return localStorage.getItem("luna_token") || ""; }
@@ -1730,8 +1831,9 @@ function authFetch(url, options) {
   opts.headers = opts.headers || {};
   var t = getToken();
   if (t) opts.headers["Authorization"] = "Bearer " + t;
+  var silent = opts._silent; delete opts._silent;
   return fetch(url, opts).then(function(r) {
-    if (r.status === 401) { doLogout(); throw new Error("Session expiree"); }
+    if (r.status === 401 && !silent) { doLogout(); throw new Error("Session expiree"); }
     return r;
   });
 }
@@ -1753,6 +1855,9 @@ function showLogin() {
 
 function doLogout() {
   stopNotificationPolling();
+  if (typeof _paymentCheckInterval !== "undefined" && _paymentCheckInterval) { clearInterval(_paymentCheckInterval); _paymentCheckInterval = null; }
+  if (typeof amisHeartbeatTimer !== "undefined" && amisHeartbeatTimer) { clearInterval(amisHeartbeatTimer); amisHeartbeatTimer = null; }
+  if (typeof dmPollTimer !== "undefined" && dmPollTimer) { clearInterval(dmPollTimer); dmPollTimer = null; }
   clearToken();
   showLogin();
 }
@@ -1891,6 +1996,8 @@ tabBtns.forEach(function(btn) {
   btn.addEventListener("click", function() {
     // Activities = navigation directe vers /salon (pas un onglet)
     if (btn.dataset.tab === "activities") { loadActivities(); return; }
+    // Formulaires = page dediee (5 etapes: upload, analyse, remplir, signer, telecharger)
+    if (btn.dataset.tab === "formulaires") { window.location.href = "/formulaires"; return; }
     tabBtns.forEach(function(b) { b.classList.remove("active"); });
     tabPanels.forEach(function(p) { p.classList.remove("active"); });
     btn.classList.add("active");
@@ -1902,6 +2009,7 @@ tabBtns.forEach(function(btn) {
     if (btn.dataset.tab === "amis") loadAmis();
     if (btn.dataset.tab === "instructions") loadInstructions();
     if (btn.dataset.tab === "documents") loadDocuments();
+    if (btn.dataset.tab === "callreports") loadCallReports();
     if (btn.dataset.tab === "perception") loadPerception();
     if (btn.dataset.tab === "quotas") loadQuotas();
     if (btn.dataset.tab === "map") loadMap();
@@ -2683,7 +2791,7 @@ function stopNotificationPolling() {
 }
 
 function _pollNotifications() {
-  authFetch("/api/notifications/pending")
+  authFetch("/api/notifications/pending", {_silent: true})
     .then(function(r) { return r.json(); })
     .then(function(data) {
       if (data.notifications && data.notifications.length > 0) {
@@ -3109,6 +3217,7 @@ function sendMsg(overrideMsg) {
   if (!overrideMsg) { addMsg(msg, "user"); inputEl.value = ""; charCounter.textContent = ""; }
   sendBtn.disabled = true;
   showTyping();
+  _remoteLog("info", "chat", "send", msg.substring(0, 100));
   var token = getToken();
   fetch("/api/chat", {
     method: "POST",
@@ -3116,6 +3225,7 @@ function sendMsg(overrideMsg) {
     body: JSON.stringify({message: msg, session_id: currentConvId, mode: currentMode || "compagnon", stream: true})
   })
   .then(function(r) {
+    _remoteLog("info", "chat", "response", "status=" + r.status + " ct=" + (r.headers.get("content-type") || "none"));
     if (r.status === 422) throw new Error("Message invalide");
     if (r.status === 429) throw new Error("Trop de messages. Attends un peu.");
     if (!r.ok) throw new Error("Erreur serveur (" + r.status + ")");
@@ -3135,6 +3245,7 @@ function sendMsg(overrideMsg) {
     });
   })
   .catch(function(e) {
+    _remoteLog("error", "chat", "catch", e.message || String(e));
     hideTyping(); lastFailedMsg = msg;
     var errDiv = document.createElement("div"); errDiv.className = "msg luna error-msg";
     var ts = document.createElement("span"); ts.className = "msg-text"; ts.textContent = "Erreur : " + (e.message || "connexion perdue"); errDiv.appendChild(ts);
@@ -3148,6 +3259,7 @@ function sendMsg(overrideMsg) {
 
 // SSE streaming handler
 function _handleStreamResponse(response, originalMsg) {
+  _remoteLog("info", "sse", "stream_start", originalMsg ? originalMsg.substring(0, 80) : "");
   hideTyping();
   // Create Luna message element for progressive fill
   var msgEl = document.createElement("div"); msgEl.className = "msg luna stream-msg";
@@ -3171,6 +3283,7 @@ function _handleStreamResponse(response, originalMsg) {
     return reader.read().then(function(result) {
       if (result.done) {
         // Stream ended — finalize
+        _remoteLog("info", "sse", "stream_done", "len=" + fullText.length);
         _addChips(_getSmartChips());
         showXpToast("+2 XP"); refreshXpWidget();
         if (fullText) lunaNotify("Luna", fullText.substring(0, 120));
@@ -3187,18 +3300,18 @@ function _handleStreamResponse(response, originalMsg) {
           var data = JSON.parse(line.substring(6));
           if (data.type === "chunk") {
             fullText += data.text;
-            textEl.innerHTML = _md(fullText);
+            textEl.innerHTML = _linkify(fullText);
             scrollToBottom();
           } else if (data.type === "tool") {
             var _toolLabels = {search_web:"Recherche web",search_places:"Recherche lieux",get_weather:"Meteo",get_news:"Actualites",search_flights:"Recherche vols",search_hotels:"Recherche hotels",book_restaurant:"Restaurants",send_sms:"Envoi SMS",send_email:"Envoi email",call_contact:"Appel",create_instruction:"Rappel",get_contacts:"Contacts",generate_document:"Document"};
             var tLabel = _toolLabels[data.name] || data.name;
             if (data.status === "running") {
-              textEl.innerHTML = _md(fullText) + '<div class="stream-tool-indicator">' + tLabel + '...</div>';
+              textEl.innerHTML = _linkify(fullText) + '<div class="stream-tool-indicator">' + tLabel + '...</div>';
               scrollToBottom();
             }
           } else if (data.type === "done") {
             // Final event — render rich cards, update title
-            if (data.response) { fullText = data.response; textEl.innerHTML = _md(fullText); }
+            if (data.response) { fullText = data.response; textEl.innerHTML = _linkify(fullText); }
             if (data.cards && data.cards.length) _renderCards(data.cards);
             if (data.auto_title) {
               var conv = conversationsMeta.find(function(c) { return c.id === currentConvId; });
@@ -3207,14 +3320,15 @@ function _handleStreamResponse(response, originalMsg) {
             // Save to local storage
             _saveCurrentHistory();
           } else if (data.type === "error") {
+            _remoteLog("error", "sse", "stream_error_event", data.message || "unknown");
             textEl.innerHTML = '<span style="color:#f87171;">' + (data.message || "Erreur") + '</span>';
           }
-        } catch(e) {}
+        } catch(e) { _remoteLog("error", "sse", "parse_error", String(e)); }
       }
       return pump();
     });
   }
-  return pump();
+  return pump().catch(function(e) { _remoteLog("error", "sse", "pump_fail", String(e)); });
 }
 
 sendBtn.addEventListener("click", function() { sendMsg(); });
@@ -3317,16 +3431,21 @@ function startCall() {
 // --- Appel Vocal (Twilio + OpenAI Realtime) ---
 var voiceBtn = document.getElementById("voiceBtn");
 var voiceBtnOriginal = voiceBtn.innerHTML;
-function startVoiceCall() {
+function startVoiceCall(contactPhone, contactName, mission) {
   _showDurationPicker("vocal", function(minutes) {
     voiceBtn.disabled = true; voiceBtn.textContent = "Appel en cours...";
-    authFetch("/api/voice-call", { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({duration: minutes}) })
+    var payload = { max_duration: minutes * 60 };
+    if (contactPhone) payload.phone = contactPhone;
+    if (mission) payload.mission = mission;
+    var displayName = contactName || "ton telephone";
+    authFetch("/api/voice-call", { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(payload) })
     .then(function(r) { return r.json(); })
     .then(function(data) {
-      if (data.error) { addMsg("Erreur appel vocal: " + data.error, "luna"); return; }
-      addMsg("Luna t'appelle sur ton telephone (" + minutes + " min)... Decroche !", "luna");
+      if (data.error) { addMsg("Erreur appel vocal: " + data.error, "luna"); _remoteLog("error", "voice", "call_error", data.error); return; }
+      addMsg("Luna appelle " + esc(displayName) + " (" + minutes + " min)... ", "luna");
+      _remoteLog("info", "voice", "call_started", "phone=" + (contactPhone || "self") + " dur=" + minutes);
     })
-    .catch(function() { addMsg("Erreur de connexion pour appel vocal.", "luna"); })
+    .catch(function(e) { addMsg("Erreur de connexion pour appel vocal.", "luna"); _remoteLog("error", "voice", "call_fail", String(e)); })
     .finally(function() {
       voiceBtn.disabled = false;
       voiceBtn.innerHTML = voiceBtnOriginal;
@@ -3541,7 +3660,207 @@ document.getElementById("instrAddBtn").addEventListener("click", function() {
 // =========================================================================
 // DOCUMENTS
 // =========================================================================
+// =========================================================================
+// DRIVE LUNA — Documents scanner + classeur + generation
+// =========================================================================
+var _docCurrentFolder = "";
+var _docAllSecDocs = [];
+
 function loadDocuments() {
+  _loadDocSummary();
+  _loadDocFolders();
+  _loadSecDocs();
+  _loadGenDocs();
+}
+
+function _loadDocSummary() {
+  authFetch("/api/secretary/summary", {_silent: true}).then(function(r) { return r.json(); }).then(function(d) {
+    document.getElementById("docSumTotal").textContent = d.total || 0;
+    document.getElementById("docSumPending").textContent = d.pending || 0;
+    document.getElementById("docSumOverdue").textContent = d.overdue || 0;
+    document.getElementById("docSumPaid").textContent = d.paid || 0;
+  }).catch(function() {});
+}
+
+function _loadDocFolders() {
+  authFetch("/api/secretary/folders", {_silent: true}).then(function(r) { return r.json(); }).then(function(d) {
+    var bar = document.getElementById("docFolderBar");
+    bar.innerHTML = '<button class="btn btn-sm doc-folder-btn' + (_docCurrentFolder === "" ? " active" : "") + '" data-folder="" style="font-size:0.8em;">Tous</button>';
+    if (d.folders && d.folders.length) {
+      d.folders.forEach(function(f) {
+        if (f.parent) return;
+        var btn = document.createElement("button");
+        btn.className = "btn btn-sm doc-folder-btn" + (_docCurrentFolder === f.path ? " active" : "");
+        btn.dataset.folder = f.path;
+        btn.style.fontSize = "0.8em";
+        btn.textContent = f.name + " (" + f.count + ")";
+        bar.appendChild(btn);
+      });
+    }
+    bar.querySelectorAll(".doc-folder-btn").forEach(function(btn) {
+      btn.addEventListener("click", function() {
+        _docCurrentFolder = btn.dataset.folder;
+        bar.querySelectorAll(".doc-folder-btn").forEach(function(b) { b.classList.remove("active"); });
+        btn.classList.add("active");
+        _renderSecDocs();
+      });
+    });
+  }).catch(function() {});
+}
+
+function _loadSecDocs() {
+  var list = document.getElementById("secDocList");
+  list.innerHTML = '<p class="empty-state">Chargement...</p>';
+  authFetch("/api/secretary/documents?limit=100", {_silent: true}).then(function(r) { return r.json(); }).then(function(d) {
+    _docAllSecDocs = d.documents || [];
+    _renderSecDocs();
+  }).catch(function() { list.innerHTML = '<p class="empty-state">Scanne un document pour commencer.</p>'; });
+}
+
+function _renderSecDocs() {
+  var list = document.getElementById("secDocList");
+  var docs = _docAllSecDocs;
+  if (_docCurrentFolder) {
+    docs = docs.filter(function(d) { return d.folder && d.folder.indexOf(_docCurrentFolder) === 0; });
+  }
+  if (!docs.length) {
+    list.innerHTML = '<p class="empty-state">' + (_docCurrentFolder ? "Aucun document dans ce dossier." : "Aucun document scanne. Appuie sur Scanner pour commencer.") + '</p>';
+    return;
+  }
+  list.innerHTML = "";
+  docs.forEach(function(doc) {
+    var card = document.createElement("div"); card.className = "card";
+    var date = "";
+    try { date = doc.date_document || new Date(doc.created_at).toLocaleDateString("fr-FR"); } catch(e) { date = ""; }
+    var statusBadge = _docStatusBadge(doc.status);
+    var urgBadge = doc.urgence === "haute" ? ' <span class="badge badge-red">Urgent</span>' : "";
+    var amount = doc.montant ? ' <span style="color:#4ade80;font-weight:600;">' + parseFloat(doc.montant).toFixed(2) + ' ' + esc(doc.devise || "EUR") + '</span>' : "";
+    var typeLabel = _docTypeLabel(doc.type_doc);
+    card.innerHTML = '<div class="card-header" style="flex-wrap:wrap;gap:4px;">' +
+      '<span class="card-title" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">' +
+        '<span class="badge badge-purple">' + esc(typeLabel) + '</span>' +
+        statusBadge + urgBadge +
+      '</span>' +
+      '<span style="display:flex;gap:4px;">' +
+        '<button class="doc-status-btn" onclick="_docCycleStatus(\'' + esc(doc.id) + '\',\'' + esc(doc.status) + '\')" title="Changer le statut">&#x21bb;</button>' +
+      '</span>' +
+    '</div>' +
+    '<div class="card-body">' +
+      '<div style="font-weight:600;color:#e0e0e0;margin-bottom:4px;">' + esc(doc.emetteur || "Inconnu") + (doc.reference ? ' <span style="color:#666;font-size:0.85em;">ref: ' + esc(doc.reference) + '</span>' : '') + '</div>' +
+      '<div style="font-size:0.85em;color:#bbb;">' + esc(doc.objet || "") + '</div>' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;">' +
+        '<span style="color:#888;font-size:0.8em;">' + esc(date) + (doc.echeance ? ' &mdash; Echeance: ' + esc(doc.echeance) : '') + '</span>' +
+        amount +
+      '</div>' +
+      (doc.action_requise ? '<div style="font-size:0.8em;color:#fbbf24;margin-top:4px;">&#x26A0; ' + esc(doc.action_requise) + '</div>' : '') +
+    '</div>';
+    list.appendChild(card);
+  });
+}
+
+function _docStatusBadge(status) {
+  var map = {
+    pending: '<span class="badge badge-yellow">En attente</span>',
+    paid: '<span class="badge badge-green">Regle</span>',
+    overdue: '<span class="badge badge-red">En retard</span>',
+    archived: '<span class="badge badge-gray">Archive</span>'
+  };
+  return map[status] || '<span class="badge badge-yellow">En attente</span>';
+}
+
+function _docTypeLabel(t) {
+  var map = {facture:"Facture",relance:"Relance",courrier:"Courrier",contrat:"Contrat",fiche_de_paie:"Fiche de paie",impot:"Impot",assurance:"Assurance",abonnement:"Abonnement",devis:"Devis",recu:"Recu",autre:"Autre"};
+  return map[t] || t || "Document";
+}
+
+function _docCycleStatus(docId, current) {
+  var cycle = ["pending", "paid", "archived"];
+  var idx = cycle.indexOf(current);
+  var next = cycle[(idx + 1) % cycle.length];
+  authFetch("/api/secretary/documents/" + docId + "/status", {
+    method: "POST", headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({status: next})
+  }).then(function(r) { return r.json(); }).then(function(d) {
+    if (d.success) {
+      _loadSecDocs();
+      _loadDocSummary();
+    }
+  }).catch(function() {});
+}
+
+// Search
+(function() {
+  var searchTimer = null;
+  var searchInput = document.getElementById("docSearchInput");
+  if (searchInput) {
+    searchInput.addEventListener("input", function() {
+      clearTimeout(searchTimer);
+      var q = searchInput.value.trim();
+      if (!q) { _renderSecDocs(); return; }
+      searchTimer = setTimeout(function() {
+        authFetch("/api/secretary/documents/search/" + encodeURIComponent(q), {_silent: true})
+          .then(function(r) { return r.json(); })
+          .then(function(d) {
+            _docAllSecDocs = d.documents || [];
+            _docCurrentFolder = "";
+            document.querySelectorAll(".doc-folder-btn").forEach(function(b) { b.classList.remove("active"); });
+            var allBtn = document.querySelector('.doc-folder-btn[data-folder=""]');
+            if (allBtn) allBtn.classList.add("active");
+            _renderSecDocs();
+          }).catch(function() {});
+      }, 400);
+    });
+  }
+})();
+
+// Scanner (photo/file upload)
+(function() {
+  var scanBtn = document.getElementById("docScanBtn");
+  var fileInput = document.getElementById("docFileInput");
+  if (!scanBtn || !fileInput) return;
+
+  scanBtn.addEventListener("click", function() { fileInput.click(); });
+
+  fileInput.addEventListener("change", function() {
+    var file = fileInput.files[0];
+    if (!file) return;
+    var status = document.getElementById("docScanStatus");
+    status.textContent = "Analyse en cours..."; status.className = "form-status";
+    scanBtn.disabled = true;
+
+    var reader = new FileReader();
+    reader.onload = function(e) {
+      var base64 = e.target.result.split(",")[1];
+      authFetch("/api/secretary/scan", {
+        method: "POST", headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({image: base64, source: "upload"})
+      }).then(function(r) {
+        if (r.status === 403) {
+          return r.json().then(function(e) {
+            throw new Error(e.cortex ? "Acces temporairement bloque. Reessayez dans quelques minutes." : (e.error || "Acces refuse"));
+          });
+        }
+        if (r.status === 401) throw new Error("Session expiree. Reconnectez-vous.");
+        return r.json();
+      }).then(function(d) {
+        if (d.success) {
+          var msg = d.duplicate ? "Document deja classe" : "Document classe dans " + (d.document.folder || "Documents");
+          status.textContent = msg + " (" + _docTypeLabel(d.document.type_doc) + (d.document.emetteur ? " - " + d.document.emetteur : "") + ")";
+          status.className = "form-status success";
+          loadDocuments();
+        } else {
+          status.textContent = "Erreur: " + (d.error || "analyse impossible"); status.className = "form-status error";
+        }
+      }).catch(function(err) {
+        status.textContent = "Erreur: " + err.message; status.className = "form-status error";
+      }).finally(function() { scanBtn.disabled = false; fileInput.value = ""; });
+    };
+    reader.readAsDataURL(file);
+  });
+})();
+
+// Generated documents list (existing feature, moved to collapsible)
+function _loadGenDocs() {
   var list = document.getElementById("documentsList");
   list.innerHTML = '<p class="empty-state">Chargement...</p>';
   authFetch("/api/documents").then(function(r) { return r.json(); }).then(function(data) {
@@ -3557,6 +3876,32 @@ function loadDocuments() {
       card.innerHTML = '<div class="card-header"><span class="card-title">' + esc(doc.type) + '</span>' +
         '<a href="' + esc(doc.download_url) + '" download class="btn btn-primary btn-sm" style="text-decoration:none;">Telecharger</a></div>' +
         '<div class="card-body"><span style="color:#888;font-size:0.85em;">' + esc(doc.filename) + ' &mdash; ' + doc.size_kb + ' Ko &mdash; ' + esc(date) + '</span></div>';
+      list.appendChild(card);
+    });
+  }).catch(function() { list.innerHTML = '<p class="empty-state">Erreur de chargement.</p>'; });
+}
+
+function loadCallReports() {
+  var list = document.getElementById("callReportsList");
+  list.innerHTML = '<p class="empty-state">Chargement...</p>';
+  authFetch("/api/call-reports").then(function(r) { return r.json(); }).then(function(data) {
+    if (!data.reports || data.reports.length === 0) {
+      list.innerHTML = '<p class="empty-state">Aucun compte-rendu d\'appel pour le moment. Demande a Luna d\'appeler un contact !</p>';
+      return;
+    }
+    list.innerHTML = "";
+    data.reports.forEach(function(report) {
+      var card = document.createElement("div"); card.className = "card";
+      var date = "";
+      try { date = new Date(report.created_at).toLocaleString("fr-FR"); } catch(e) { date = report.created_at || ""; }
+      var tagHtml = "";
+      if (report.tags && report.tags.length) {
+        report.tags.forEach(function(t) {
+          if (t !== "rapport" && t !== "structure") tagHtml += '<span style="background:#7c3aed;color:white;padding:2px 8px;border-radius:8px;font-size:0.75em;margin-right:4px;">' + esc(t) + '</span>';
+        });
+      }
+      card.innerHTML = '<div class="card-header"><span class="card-title">' + tagHtml + '</span><span style="color:#888;font-size:0.8em;">' + esc(date) + '</span></div>' +
+        '<div class="card-body" style="white-space:pre-wrap;font-size:0.9em;line-height:1.5;">' + _linkify(report.content || "") + '</div>';
       list.appendChild(card);
     });
   }).catch(function() { list.innerHTML = '<p class="empty-state">Erreur de chargement.</p>'; });
@@ -3955,7 +4300,7 @@ function loadAmis() {
 }
 
 function _amisHeartbeat() {
-  authFetch("/api/social/heartbeat", { method: "POST" })
+  authFetch("/api/social/heartbeat", { method: "POST", _silent: true })
   .then(function(r) { return r.json(); })
   .then(function(data) {
     var badge = document.getElementById("amisBadge");
@@ -4121,7 +4466,7 @@ function _appendDmMessage(m) {
 
 function _loadDmMessages() {
   if (!dmCurrentRoomId) return;
-  authFetch("/api/social/dm/" + dmCurrentRoomId + "/messages")
+  authFetch("/api/social/dm/" + dmCurrentRoomId + "/messages", {_silent: true})
   .then(function(r) { return r.json(); })
   .then(function(data) {
     var c = document.getElementById("dmMessages");
@@ -4471,14 +4816,64 @@ function _addOnboardingChips() {
   _addChips(chips);
 }
 
-// --- Service Worker registration ---
+// --- Service Worker registration + Update detection ---
+var _swRegistration = null;
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", function() {
     navigator.serviceWorker.register("/sw.js", {scope: "/"}).then(function(reg) {
+      _swRegistration = reg;
       console.log("SW registered, scope:", reg.scope);
+      // Check for updates every 5 minutes
+      setInterval(function() { reg.update(); }, 5 * 60 * 1000);
+      // Detect new SW waiting
+      reg.addEventListener("updatefound", function() {
+        var newSW = reg.installing;
+        if (newSW) {
+          newSW.addEventListener("statechange", function() {
+            if (newSW.state === "installed" && navigator.serviceWorker.controller) {
+              // New version available — show update button
+              var btn = document.getElementById("updateAppBtn");
+              if (btn) btn.style.display = "inline-block";
+            }
+          });
+        }
+      });
     }).catch(function(err) { console.log("SW registration failed:", err); });
   });
 }
+
+// Force update: clear all caches, unregister SW, reload
+function _forceAppUpdate() {
+  var btn = document.getElementById("updateAppBtn");
+  if (btn) { btn.textContent = "MAJ..."; btn.disabled = true; }
+  // 1. Clear all caches
+  if ("caches" in window) {
+    caches.keys().then(function(names) {
+      return Promise.all(names.map(function(n) { return caches.delete(n); }));
+    }).then(function() {
+      console.log("All caches cleared");
+    });
+  }
+  // 2. Tell waiting SW to activate immediately
+  if (_swRegistration && _swRegistration.waiting) {
+    _swRegistration.waiting.postMessage({type: "SKIP_WAITING"});
+  }
+  // 3. Unregister SW and hard reload
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.getRegistrations().then(function(regs) {
+      return Promise.all(regs.map(function(r) { return r.unregister(); }));
+    }).then(function() {
+      window.location.reload(true);
+    });
+  } else {
+    window.location.reload(true);
+  }
+}
+
+// Bind update button
+document.getElementById("updateAppBtn").addEventListener("click", _forceAppUpdate);
+
+// Update button only shown when SW detects a new version (see updatefound listener above)
 
 // --- Proactive context (Jarvis-style) ---
 // Charge meteo + rappels et affiche des mini-cards proactives
@@ -4960,7 +5355,7 @@ var _paymentBanner = null;
 var _paymentCheckInterval = null;
 
 function _checkPendingPayments() {
-  authFetch("/api/payment/pending")
+  authFetch("/api/payment/pending", {_silent: true})
     .then(function(r) { return r.ok ? r.json() : null; })
     .then(function(data) {
       if (!data || !data.pending_payments || data.pending_payments.length === 0) {
@@ -5106,7 +5501,7 @@ setTimeout(_checkPendingPayments, 3000);
     if (app && app.style.display !== "none" && getToken()) voiceBtn.style.display = "flex";
     else voiceBtn.style.display = "none";
   }
-  setInterval(function() { _showVoiceBtn(); }, 1000);
+  var _voiceBtnInterval = setInterval(function() { _showVoiceBtn(); }, 1000);
 
   // --- Timer formatting ---
   function _formatTime(seconds) {
@@ -5486,12 +5881,15 @@ setTimeout(_checkPendingPayments, 3000);
 
     } catch(err) {
       console.error("Luna Voice error:", err);
+      voiceActive = false;
       var errMsg = "Micro non disponible";
       if (err.name === "NotAllowedError") errMsg = "Autorise le micro pour parler a Luna";
       else if (err.name === "NotFoundError") errMsg = "Aucun micro detecte";
       else if (err.name === "NotReadableError") errMsg = "Micro deja utilise par une autre app";
       _setOvStatus(errMsg);
       _setStatus(errMsg);
+      if (_voiceKeepaliveInterval) { clearInterval(_voiceKeepaliveInterval); _voiceKeepaliveInterval = null; }
+      if (_voiceElapsedInterval) { clearInterval(_voiceElapsedInterval); _voiceElapsedInterval = null; }
       setTimeout(function() { stopVoice(); }, 3000);
     }
   }
@@ -5508,6 +5906,7 @@ setTimeout(_checkPendingPayments, 3000);
     if (micStream) { micStream.getTracks().forEach(function(t) { t.stop(); }); micStream = null; }
     if (workletNode) { try { workletNode.disconnect(); } catch(e) {} workletNode = null; }
     if (micCtx) { try { micCtx.close(); } catch(e) {} micCtx = null; }
+    if (audioCtx) { try { audioCtx.close(); } catch(e) {} audioCtx = null; }
     startVoice(true); // reconnect=true preserves transcript + overlay
   }
 
@@ -5532,6 +5931,8 @@ setTimeout(_checkPendingPayments, 3000);
     if (micStream) { micStream.getTracks().forEach(function(t) { t.stop(); }); micStream = null; }
     if (workletNode) { try { workletNode.disconnect(); } catch(e) {} workletNode = null; }
     if (micCtx) { try { micCtx.close(); } catch(e) {} micCtx = null; }
+    if (audioCtx) { try { audioCtx.close(); } catch(e) {} audioCtx = null; }
+    if (_workletBlobUrl) { try { URL.revokeObjectURL(_workletBlobUrl); } catch(e) {} _workletBlobUrl = null; }
 
     if (wasActive) _injectTranscriptInChat();
 
@@ -5616,15 +6017,22 @@ function _theoPrepare(type) {
   var loadEl = document.getElementById("theoPrepLoading");
   resultEl.style.display = "none";
   loadEl.style.display = "block";
+  var labels = {midweek: "reunion de semaine", watchtower: "Tour de Garde", bible_reading: "lecture biblique"};
+  loadEl.querySelector("p").textContent = "Luna prepare ta " + (labels[type] || "reunion") + "...";
   var now = new Date();
   var weekStr = now.getFullYear() + "-" + String(now.getMonth()+1).padStart(2,"0") + "-" + String(now.getDate()).padStart(2,"0");
+  var questions = {
+    midweek: "Prepare ma reunion Vie chretienne et ministere de cette semaine avec des reponses concretes pour participer.",
+    watchtower: "Prepare l'etude de La Tour de Garde de cette semaine avec des reponses par paragraphe.",
+    bible_reading: "Prepare la lecture biblique de cette semaine avec les perles spirituelles et lecons."
+  };
   authFetch("/api/theo/prepare", {
     method: "POST", headers: {"Content-Type": "application/json"},
-    body: JSON.stringify({type: type, week: weekStr, question: "Prepare ma reunion de cette semaine avec les reponses."})
+    body: JSON.stringify({type: type, week: weekStr, question: questions[type] || questions.midweek})
   }).then(function(r) { return r.json(); }).then(function(d) {
     loadEl.style.display = "none";
     resultEl.style.display = "block";
-    resultEl.innerHTML = _md(d.response || d.error || "Erreur");
+    resultEl.innerHTML = _linkify(d.response || d.error || "Erreur");
   }).catch(function(e) { loadEl.style.display = "none"; resultEl.style.display = "block"; resultEl.textContent = "Erreur: " + e; });
 }
 
@@ -5641,7 +6049,7 @@ function _theoAskLuna() {
   }).then(function(r) { return r.json(); }).then(function(d) {
     loadEl.style.display = "none";
     resultEl.style.display = "block";
-    resultEl.innerHTML = _md(d.response || d.error || "Erreur");
+    resultEl.innerHTML = _linkify(d.response || d.error || "Erreur");
   }).catch(function(e) { loadEl.style.display = "none"; resultEl.style.display = "block"; resultEl.textContent = "Erreur: " + e; });
 }
 
@@ -5659,7 +6067,7 @@ function _theoGenLetter() {
   }).then(function(r) { return r.json(); }).then(function(d) {
     loadEl.style.display = "none";
     resultEl.style.display = "block";
-    resultEl.innerHTML = _md(d.letter || d.error || "Erreur");
+    resultEl.innerHTML = _linkify(d.letter || d.error || "Erreur");
   }).catch(function(e) { loadEl.style.display = "none"; resultEl.style.display = "block"; resultEl.textContent = "Erreur: " + e; });
 }
 
@@ -5677,7 +6085,7 @@ function _theoMeditation(type) {
     method: "POST", headers: {"Content-Type": "application/json"},
     body: JSON.stringify({type: "bible_reading", week: "", question: prompts[type] || prompts.verset})
   }).then(function(r) { return r.json(); }).then(function(d) {
-    resultEl.innerHTML = _md(d.response || d.error || "Erreur");
+    resultEl.innerHTML = _linkify(d.response || d.error || "Erreur");
   }).catch(function(e) { resultEl.textContent = "Erreur: " + e; });
 }
 

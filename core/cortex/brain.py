@@ -112,6 +112,16 @@ class LunaCortex:
         # Charger les secrets auth depuis Redis (persistance Cloud Run)
         await self.auth.async_init(self.redis)
 
+        # Restaurer la whitelist depuis Redis
+        if self.redis:
+            try:
+                wl = await self.redis.smembers("cortex:whitelist")
+                if wl:
+                    self.state.whitelist_ips = {ip.decode() if isinstance(ip, bytes) else ip for ip in wl}
+                    logger.info(f"CORTEX whitelist restored: {self.state.whitelist_ips}")
+            except Exception as e:
+                logger.warning(f"CORTEX whitelist restore failed: {e}")
+
         self._task = asyncio.create_task(self._main_loop())
         # Telegram: webhook sur Cloud Run, polling en local
         if self.config.telegram_bot_token:
@@ -411,8 +421,14 @@ class LunaCortex:
                 return True, ""
             return False, "Mode bouclier actif. IP non autorisee."
 
-        # Mode normal → check ban IP
+        # Mode normal → whitelist bypass, then check ban IP
+        if ip in self.state.whitelist_ips:
+            return True, ""
         if self.vigil.is_banned(ip):
+            # Laisser passer les pages HTML et assets statiques
+            # pour que l'utilisateur voie une page (meme si les API sont bloquees)
+            if not path.startswith("/api/"):
+                return True, ""
             return False, "IP bannie."
 
         return True, ""
@@ -679,6 +695,7 @@ class LunaCortex:
             "accountant_active": self.accountant is not None,
             "last_ai": last_ai,
             "banned_ips": len(self.vigil._banned_ips),
+            "whitelist_ips": list(self.state.whitelist_ips),
             "threats_24h": self.vigil.get_threat_report().total_threats_24h,
         }
 
@@ -694,7 +711,8 @@ class LunaCortex:
         Analyse une requete et retourne les signaux.
         """
         return self.vigil.analyze_request(
-            ip, method, path, query, body, headers)
+            ip, method, path, query, body, headers,
+            whitelist_ips=self.state.whitelist_ips)
 
     async def process_signals(self, signals: list[Signal]):
         """Traite une liste de signaux (appele par le middleware)."""

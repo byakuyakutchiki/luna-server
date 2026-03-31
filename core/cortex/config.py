@@ -35,7 +35,7 @@ class CortexConfig:
     brute_force_window: int = 60  # Fenetre en secondes
     scan_threshold: int = 10  # Hits honeypot avant ban
     ddos_threshold: int = 500  # Req/s avant mode bouclier
-    threat_score_ban: int = 70  # Score menace pour auto-ban
+    threat_score_ban: int = 85  # Score menace pour auto-ban (releve pour eviter faux positifs)
     threat_score_alert: int = 50  # Score menace pour alerte
     ban_duration_soft: int = 3600  # 1h
     ban_duration_hard: int = 86400  # 24h

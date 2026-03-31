@@ -49,11 +49,11 @@ logger = logging.getLogger("cortex.vigil")
 SQL_INJECTION_PATTERNS = [
     r"(\b(union|select|insert|update|delete|drop|alter|create)\b.*\b(from|into|table|where)\b)",
     r"('|\")?\s*(or|and)\s+\d+\s*=\s*\d+",
-    r"(--|#|/\*)\s*$",
+    r"(--|/\*)\s*;\s*$",  # SQL comment avant fin, pas # seul (fragment URL)
     r"\bexec\s*\(",
     r"\bchar\s*\(\d+\)",
     r";\s*(drop|delete|update|insert)\b",
-    r"0x[0-9a-fA-F]+",
+    r"\b0x[0-9a-fA-F]{8,}",  # Hex long seulement (>=8 chars), pas les courts
     r"\bwaitfor\s+delay\b",
     r"\bbenchmark\s*\(",
     r"\bsleep\s*\(\d+\)",
@@ -61,7 +61,7 @@ SQL_INJECTION_PATTERNS = [
 
 XSS_PATTERNS = [
     r"<\s*script\b",
-    r"\bon\w+\s*=",
+    r"\bon(load|error|click|mouseover|mouseout|focus|blur|submit|change|input|keydown|keyup|keypress|mousedown|mouseup|contextmenu|dblclick|drag|drop|paste|cut|copy|unload|beforeunload|abort|resize|scroll)\s*=",
     r"javascript\s*:",
     r"<\s*img\b[^>]+onerror",
     r"<\s*svg\b[^>]+onload",
@@ -69,7 +69,7 @@ XSS_PATTERNS = [
     r"document\.cookie",
     r"document\.location",
     r"eval\s*\(",
-    r"alert\s*\(",
+    r"alert\s*\(\s*['\"]",  # alert('...') ou alert("..."), pas alert() seul
 ]
 
 PATH_TRAVERSAL_PATTERNS = [
@@ -219,11 +219,16 @@ class VigilAgent:
 
     def analyze_request(self, ip: str, method: str, path: str,
                         query: str = "", body: str = "",
-                        headers: Optional[dict] = None) -> list[Signal]:
+                        headers: Optional[dict] = None,
+                        whitelist_ips: Optional[set] = None) -> list[Signal]:
         """
         Analyse une requete entrante et retourne les signaux de menace.
         Appele par le middleware FastAPI a chaque requete.
         """
+        # Skip analysis for whitelisted IPs
+        if whitelist_ips and ip in whitelist_ips:
+            return []
+
         signals = []
         now = time.time()
         headers = headers or {}
@@ -293,6 +298,14 @@ class VigilAgent:
                 break
 
         # 4. Injection checks (query + body + path)
+        # Skip pattern checks for upload endpoints (documents legits contiennent
+        # du texte qui peut matcher des patterns de securite)
+        _UPLOAD_PATHS = ("/api/form-filler/analyze", "/api/form-filler/fill",
+                         "/api/secretary/scan", "/api/chat",
+                         "/api/perception/analyze")
+        if any(path.startswith(p) for p in _UPLOAD_PATHS):
+            return signals
+
         payload = f"{path} {query} {body}"
 
         for pattern in SQL_INJECTION_PATTERNS:
