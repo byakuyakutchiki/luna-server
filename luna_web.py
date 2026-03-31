@@ -935,6 +935,31 @@ def _get_language_instruction(lang: str) -> str:
     return ""  # French is default — no additional instruction needed
 
 
+def _cortex_reason_to_human(reason: str) -> str:
+    """Traduit une raison technique Cortex en message humain comprehensible."""
+    r = reason.lower()
+    if "brute force" in r or "echecs login" in r:
+        return "Trop de tentatives de connexion echouees"
+    if "sql_injection" in r or "injection sql" in r:
+        return "Requete suspecte detectee (contenu inhabituel)"
+    if "xss" in r:
+        return "Requete suspecte detectee (contenu inhabituel)"
+    if "path_traversal" in r:
+        return "Tentative d'acces a des fichiers non autorises"
+    if "command_injection" in r:
+        return "Requete dangereuse detectee"
+    if "ddos" in r or "flood" in r:
+        return "Trop de requetes envoyees en peu de temps"
+    if "honeypot" in r:
+        return "Acces a une page inexistante ou reservee"
+    if "pv_bypass" in r:
+        return "Tentative d'acces a une zone protegee"
+    if "score menace" in r:
+        return "Comportement inhabituel detecte sur votre connexion"
+    # Fallback generique
+    return "Activite inhabituelle detectee sur votre connexion"
+
+
 _rate_limits: dict[str, list[float]] = defaultdict(list)
 RATE_LIMIT_WINDOW = 60  # seconds
 RATE_LIMIT_MAX_IP = 200   # max requests per window per IP (NAT-friendly)
@@ -1262,9 +1287,28 @@ async def security_middleware(request: Request, call_next):
     cortex_allowed, cortex_reason = cortex_middleware_check(client_ip, path)
     if not cortex_allowed:
         logger.warning(f"CORTEX_BLOCKED {client_ip} {request.method} {path}: {cortex_reason}")
+        # Enrichir la raison avec une explication humaine
+        human_reason = _cortex_reason_to_human(cortex_reason)
+        # Recuperer le detail des avertissements pour cette IP
+        ban_detail = {}
+        if _CORTEX_AVAILABLE:
+            cortex = get_cortex()
+            if cortex:
+                status = cortex.vigil.get_ip_status(client_ip)
+                ban_detail = {
+                    "warnings_received": status.get("warnings_active", 0),
+                    "warnings_max": cortex.vigil.WARNINGS_BEFORE_BAN,
+                    "ban_info": status.get("ban_info"),
+                }
         return JSONResponse(
             status_code=403,
-            content={"error": cortex_reason, "cortex": True},
+            content={
+                "error": cortex_reason,
+                "explanation": human_reason,
+                "detail": ban_detail,
+                "cortex": True,
+                "message": f"{human_reason}. Votre acces a ete bloque apres {ban_detail.get('warnings_received', 0)} avertissement(s). Contactez le support si vous pensez que c'est une erreur.",
+            },
         )
 
     # Rate limit (API endpoints only)
@@ -1336,6 +1380,12 @@ async def security_middleware(request: Request, call_next):
             if active:
                 response.headers["X-Cortex-Warnings"] = str(len(active))
                 response.headers["X-Cortex-Warnings-Max"] = str(cortex.vigil.WARNINGS_BEFORE_BAN)
+                # Raison du dernier avertissement (pour affichage utilisateur)
+                last = active[-1]
+                reason = last.get("reason", "")
+                # Traduire les raisons techniques en langage humain
+                reason_human = _cortex_reason_to_human(reason)
+                response.headers["X-Cortex-Warning-Reason"] = reason_human
 
     duration_ms = (time.time() - start_time) * 1000
     logger.info(f"{request.method} {request.url.path} [{response.status_code}] {duration_ms:.0f}ms - {client_ip}")
