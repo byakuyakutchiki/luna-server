@@ -5490,6 +5490,9 @@ setTimeout(_checkPendingPayments, 3000);
   var workletNode = null;
   var playbackQueue = [];
   var isPlaying = false;
+  var _nextPlayTime = 0;     // Timestamp Web Audio pour enchainer sans gap
+  var _playbackStarted = false;
+  var _JITTER_BUFFER = 2;    // Attendre N chunks avant de commencer (absorbe le reseau)
   var _voiceTranscriptEntries = [];
   var _voiceState = "idle"; // idle, connecting, listening, speaking, action
 
@@ -5610,7 +5613,7 @@ setTimeout(_checkPendingPayments, 3000);
     _voiceTranscriptEntries = [];
   }
 
-  // --- PCM16 playback ---
+  // --- PCM16 playback (scheduled, sans gap entre chunks) ---
   function _initAudioCtx() {
     if (!audioCtx) {
       try { audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 24000 }); }
@@ -5618,14 +5621,9 @@ setTimeout(_checkPendingPayments, 3000);
     }
     if (audioCtx.state === "suspended") audioCtx.resume().catch(function() {});
   }
-  function _playNextChunk() {
-    if (isPlaying || playbackQueue.length === 0) return;
-    if (audioCtx && audioCtx.state === "suspended") {
-      audioCtx.resume().then(function() { _playNextChunk(); }).catch(function() {});
-      return;
-    }
-    isPlaying = true;
-    var pcm16 = playbackQueue.shift();
+
+  function _pcm16ToBuffer(pcm16) {
+    // Convertit PCM16 Int16Array en AudioBuffer a la bonne sampleRate
     var float32 = new Float32Array(pcm16.length);
     for (var i = 0; i < pcm16.length; i++) float32[i] = pcm16[i] / 32768;
     var targetRate = audioCtx.sampleRate;
@@ -5644,12 +5642,41 @@ setTimeout(_checkPendingPayments, 3000);
     }
     var buf = audioCtx.createBuffer(1, outputData.length, targetRate);
     buf.getChannelData(0).set(outputData);
-    var src = audioCtx.createBufferSource();
-    src.buffer = buf;
-    src.connect(audioCtx.destination);
-    src.onended = function() { isPlaying = false; _playNextChunk(); };
-    try { src.start(); } catch(e) { isPlaying = false; _playNextChunk(); }
+    return buf;
   }
+
+  var _activeSources = []; // AudioBufferSourceNodes en cours (pour interrupt)
+
+  function _scheduleChunks() {
+    // Schedule tous les chunks en attente sans gap via audioCtx.currentTime
+    if (!audioCtx || playbackQueue.length === 0) return;
+    if (audioCtx.state === "suspended") {
+      audioCtx.resume().then(function() { _scheduleChunks(); }).catch(function() {});
+      return;
+    }
+    var now = audioCtx.currentTime;
+    // Si on est en retard ou premier chunk, on commence maintenant (+petit buffer)
+    if (_nextPlayTime < now) _nextPlayTime = now + 0.015;
+
+    while (playbackQueue.length > 0) {
+      var pcm16 = playbackQueue.shift();
+      var buf = _pcm16ToBuffer(pcm16);
+      var src = audioCtx.createBufferSource();
+      src.buffer = buf;
+      src.connect(audioCtx.destination);
+      try { src.start(_nextPlayTime); } catch(e) { break; }
+      _nextPlayTime += buf.duration;
+      // Garder une ref pour pouvoir stopper en cas d'interrupt
+      _activeSources.push(src);
+      src.onended = function() {
+        var idx = _activeSources.indexOf(this);
+        if (idx !== -1) _activeSources.splice(idx, 1);
+        if (_activeSources.length === 0 && playbackQueue.length === 0) isPlaying = false;
+      };
+    }
+    isPlaying = true;
+  }
+
   function _queueAudio(base64) {
     var bin = atob(base64);
     var pcm = new Int16Array(bin.length / 2);
@@ -5657,9 +5684,30 @@ setTimeout(_checkPendingPayments, 3000);
       pcm[i] = bin.charCodeAt(i * 2) | (bin.charCodeAt(i * 2 + 1) << 8);
     }
     playbackQueue.push(pcm);
-    _playNextChunk();
+
+    // Jitter buffer: attendre N chunks avant de commencer la lecture
+    // pour absorber les variations reseau et eviter les saccades
+    if (!_playbackStarted) {
+      if (playbackQueue.length >= _JITTER_BUFFER) {
+        _playbackStarted = true;
+        _scheduleChunks();
+      }
+    } else {
+      _scheduleChunks();
+    }
   }
-  function _clearPlayback() { playbackQueue = []; isPlaying = false; }
+
+  function _clearPlayback() {
+    playbackQueue = [];
+    isPlaying = false;
+    _playbackStarted = false;
+    _nextPlayTime = 0;
+    // Stopper tous les chunks audio deja schedules (interrupt instantane)
+    for (var i = 0; i < _activeSources.length; i++) {
+      try { _activeSources[i].stop(); } catch(e) {}
+    }
+    _activeSources = [];
+  }
 
   // AudioWorklet processor
   var workletCode = [
