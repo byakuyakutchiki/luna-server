@@ -1,5 +1,5 @@
 // Luna Service Worker — Offline cache + push notifications
-var CACHE_NAME = "luna-v1";
+var CACHE_NAME = "luna-v17";
 var PRECACHE_URLS = [
   "/",
   "/static/index.html",
@@ -15,7 +15,7 @@ self.addEventListener("install", function(event) {
   );
 });
 
-// Activate: clean old caches
+// Activate: clean old caches + claim clients immediately
 self.addEventListener("activate", function(event) {
   event.waitUntil(
     caches.keys().then(function(names) {
@@ -27,7 +27,17 @@ self.addEventListener("activate", function(event) {
   );
 });
 
-// Fetch: network-first for API, cache-first for static
+// Listen for SKIP_WAITING from the app
+self.addEventListener("message", function(event) {
+  if (event.data && event.data.type === "SKIP_WAITING") {
+    self.skipWaiting();
+  }
+});
+
+// Fetch strategy:
+// - API/WS/SSE: never cache (passthrough)
+// - HTML pages (navigate): network-first (always get latest)
+// - Other static assets: cache-first with network fallback
 self.addEventListener("fetch", function(event) {
   var url = new URL(event.request.url);
 
@@ -37,21 +47,39 @@ self.addEventListener("fetch", function(event) {
     return;
   }
 
-  // Static assets: cache-first with network fallback
+  // HTML pages (navigation): NETWORK-FIRST — always serve fresh
+  if (event.request.mode === "navigate" ||
+      url.pathname === "/" ||
+      url.pathname.endsWith(".html")) {
+    event.respondWith(
+      fetch(event.request).then(function(response) {
+        if (response.ok) {
+          var clone = response.clone();
+          caches.open(CACHE_NAME).then(function(cache) { cache.put(event.request, clone); });
+        }
+        return response;
+      }).catch(function() {
+        return caches.match(event.request).then(function(cached) {
+          return cached || caches.match("/static/index.html");
+        });
+      })
+    );
+    return;
+  }
+
+  // Other static assets: cache-first with network fallback
   event.respondWith(
     caches.match(event.request).then(function(cached) {
       if (cached) return cached;
       return fetch(event.request).then(function(response) {
-        // Cache successful GET responses for static files
         if (response.ok && event.request.method === "GET" &&
-            (url.pathname.startsWith("/static/") || url.pathname === "/")) {
+            url.pathname.startsWith("/static/")) {
           var clone = response.clone();
           caches.open(CACHE_NAME).then(function(cache) { cache.put(event.request, clone); });
         }
         return response;
       });
     }).catch(function() {
-      // Offline fallback: serve cached index
       if (event.request.mode === "navigate") {
         return caches.match("/static/index.html");
       }
