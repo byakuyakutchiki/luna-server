@@ -73,7 +73,8 @@ h2 { font-size: 1.3rem; color: var(--text); margin-bottom: 4px; }
 .file-preview img { max-height: 260px; max-width: 100%; border-radius: 8px; margin-bottom: 10px; background: var(--bg3); object-fit: contain; }
 .file-info { display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 12px; font-size: 0.82rem; color: var(--text2); }
 .file-info .x { background: none; border: none; color: var(--red); cursor: pointer; font-size: 1rem; }
-input[type="file"] { position: fixed; left: -9999px; opacity: 0; pointer-events: none; }
+/* file inputs caches mais accessibles — overlay transparent sur le bouton */
+.upload-btns .file-over { position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; z-index: 2; }
 
 /* ═══ STEP 2: Analyzing ═══ */
 .analyzing { text-align: center; max-width: 420px; margin: 0 auto; padding-top: 16px; }
@@ -222,8 +223,14 @@ summary:hover { color: var(--purple); }
             <p class="drop-or">ou</p>
             </div>
             <div class="upload-btns">
-                <button type="button" class="btn btn-primary" id="btnBrowse">Parcourir</button>
-                <button type="button" class="btn btn-secondary" id="btnCamera">Photo</button>
+                <div style="position:relative;display:inline-flex;">
+                    <span class="btn btn-primary">Parcourir</span>
+                    <input type="file" id="fileInput" class="file-over" accept=".pdf,.png,.jpg,.jpeg,.webp,.bmp,.tiff,.tif">
+                </div>
+                <div style="position:relative;display:inline-flex;">
+                    <span class="btn btn-secondary">Photo</span>
+                    <input type="file" id="camInput" class="file-over" accept="image/*" capture="environment">
+                </div>
             </div>
         </div>
         <div class="file-preview hidden" id="filePreview">
@@ -232,8 +239,6 @@ summary:hover { color: var(--purple); }
             <button class="btn btn-primary btn-lg" id="btnAnalyze">Analyser le formulaire &#8594;</button>
         </div>
     </div>
-    <input type="file" id="fileInput" accept=".pdf,.png,.jpg,.jpeg,.webp,.bmp,.tiff,.tif">
-    <input type="file" id="camInput" accept="image/*" capture="environment">
 </div>
 
 <!-- ═══ STEP 2 ═══ -->
@@ -624,7 +629,8 @@ function reset(){
 
 // ── Init ──
 function init(){
-    // Upload — click handlers directs (plus fiable que <label for> sur mobile/WebView)
+    // Upload — file inputs en overlay transparent sur les boutons
+    // L'utilisateur clique DIRECTEMENT sur l'input file (zero JS intermediaire)
     const dz=$('#dropZone');
     dz.ondragover=e=>{e.preventDefault();dz.classList.add('dragover');};
     dz.ondragleave=()=>dz.classList.remove('dragover');
@@ -634,9 +640,7 @@ function init(){
     fi.onchange=function(){if(this.files.length)handleFile(this.files[0]);};
     ci.onchange=function(){if(this.files.length)handleFile(this.files[0]);};
 
-    // Boutons: click direct sur les file inputs (compatible tous navigateurs + WebView)
-    $('#btnBrowse').onclick=function(e){e.stopPropagation();fi.click();};
-    $('#btnCamera').onclick=function(e){e.stopPropagation();ci.click();};
+    // Zone drop cliquable → ouvre le selecteur de fichiers
     $('#dropZoneClickArea').onclick=function(){fi.click();};
     $('#btnRemove').onclick=()=>{file=null;$('#filePreview').classList.add('hidden');$('#dropZone').classList.remove('hidden');};
     $('#btnAnalyze').onclick=startAnalysis;
