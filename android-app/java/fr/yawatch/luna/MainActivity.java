@@ -13,6 +13,8 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
+import android.provider.MediaStore;
+import android.webkit.ValueCallback;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
@@ -39,11 +41,14 @@ public class MainActivity extends Activity {
     private static final String LUNA_URL = "https://luna-beta-674304336025.europe-west1.run.app";
     private static final int PERMISSION_REQUEST_CODE = 100;
     private static final int NOTIFICATION_PERMISSION_CODE = 101;
-    private static final String CURRENT_VERSION = "2.3";
-    private static final int CURRENT_VERSION_CODE = 14;
+    private static final int FILE_CHOOSER_REQUEST_CODE = 102;
+    private static final String CURRENT_VERSION = "2.5";
+    private static final int CURRENT_VERSION_CODE = 16;
+    private static final int CAMERA_PERMISSION_FOR_FILE = 103;
     private static final String CHANNEL_ID = "luna_messages";
     private WebView webView;
     private PermissionRequest pendingPermissionRequest;
+    private ValueCallback<Uri[]> fileUploadCallback;
     private boolean isInForeground = true;
     private int notificationId = 1000;
 
@@ -80,7 +85,7 @@ public class MainActivity extends Activity {
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
         settings.setMediaPlaybackRequiresUserGesture(false);
-        settings.setAllowFileAccess(false);
+        settings.setAllowFileAccess(true);
         settings.setCacheMode(WebSettings.LOAD_NO_CACHE);
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
         settings.setUseWideViewPort(true);
@@ -110,6 +115,74 @@ public class MainActivity extends Activity {
                     }
                 }
                 callback.invoke(origin, true, false);
+            }
+
+            @Override
+            public boolean onShowFileChooser(WebView view, ValueCallback<Uri[]> callback,
+                                             FileChooserParams params) {
+                // Annuler un callback precedent en attente
+                if (fileUploadCallback != null) {
+                    fileUploadCallback.onReceiveValue(null);
+                }
+                fileUploadCallback = callback;
+
+                try {
+                    // Verifier si la camera est demandee (capture="environment")
+                    boolean wantCamera = false;
+                    if (Build.VERSION.SDK_INT >= 21) {
+                        wantCamera = params.isCaptureEnabled();
+                    }
+                    String[] acceptTypes = params.getAcceptTypes();
+                    boolean isImage = false;
+                    if (acceptTypes != null) {
+                        for (String t : acceptTypes) {
+                            if (t != null && t.startsWith("image/")) { isImage = true; break; }
+                        }
+                    }
+
+                    // Si camera demandee, verifier la permission CAMERA
+                    if (wantCamera && Build.VERSION.SDK_INT >= 23) {
+                        if (checkSelfPermission(Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+                            requestPermissions(new String[]{Manifest.permission.CAMERA}, CAMERA_PERMISSION_FOR_FILE);
+                            return true; // On attend la permission, l'intent sera lance apres
+                        }
+                    }
+
+                    // Construire un chooser avec camera + fichiers
+                    Intent chooser;
+                    if (wantCamera || isImage) {
+                        // Intent camera
+                        Intent cameraIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+                        // Intent fichier
+                        Intent fileIntent = new Intent(Intent.ACTION_GET_CONTENT);
+                        fileIntent.setType(isImage ? "image/*" : "*/*");
+                        fileIntent.addCategory(Intent.CATEGORY_OPENABLE);
+                        if (acceptTypes != null && acceptTypes.length > 0) {
+                            fileIntent.putExtra(Intent.EXTRA_MIME_TYPES, acceptTypes);
+                        }
+                        // Chooser: fichiers en principal, camera en extra
+                        chooser = Intent.createChooser(fileIntent, "Choisir un fichier");
+                        if (cameraIntent.resolveActivity(getPackageManager()) != null) {
+                            chooser.putExtra(Intent.EXTRA_INITIAL_INTENTS, new Intent[]{cameraIntent});
+                        }
+                    } else {
+                        // Pas d'image → juste un selecteur de fichiers
+                        Intent fileIntent = new Intent(Intent.ACTION_GET_CONTENT);
+                        fileIntent.setType("*/*");
+                        fileIntent.addCategory(Intent.CATEGORY_OPENABLE);
+                        if (acceptTypes != null && acceptTypes.length > 0) {
+                            fileIntent.putExtra(Intent.EXTRA_MIME_TYPES, acceptTypes);
+                        }
+                        chooser = Intent.createChooser(fileIntent, "Choisir un fichier");
+                    }
+
+                    startActivityForResult(chooser, FILE_CHOOSER_REQUEST_CODE);
+                } catch (Exception e) {
+                    fileUploadCallback.onReceiveValue(null);
+                    fileUploadCallback = null;
+                    return false;
+                }
+                return true;
             }
 
             @Override
@@ -317,6 +390,24 @@ public class MainActivity extends Activity {
     }
 
     @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == FILE_CHOOSER_REQUEST_CODE) {
+            if (fileUploadCallback != null) {
+                Uri[] results = null;
+                if (resultCode == Activity.RESULT_OK && data != null) {
+                    String dataString = data.getDataString();
+                    if (dataString != null) {
+                        results = new Uri[]{Uri.parse(dataString)};
+                    }
+                }
+                fileUploadCallback.onReceiveValue(results);
+                fileUploadCallback = null;
+            }
+        }
+    }
+
+    @Override
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
 
@@ -337,6 +428,29 @@ public class MainActivity extends Activity {
                 runOnUiThread(() -> req.deny());
             }
             pendingPermissionRequest = null;
+        }
+
+        // Permission camera pour file input (capture="environment")
+        if (requestCode == CAMERA_PERMISSION_FOR_FILE) {
+            if (fileUploadCallback != null) {
+                // Relancer le chooser maintenant que la permission est accordee (ou refusee)
+                try {
+                    Intent cameraIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+                    Intent fileIntent = new Intent(Intent.ACTION_GET_CONTENT);
+                    fileIntent.setType("image/*");
+                    fileIntent.addCategory(Intent.CATEGORY_OPENABLE);
+                    Intent chooser = Intent.createChooser(fileIntent, "Choisir un fichier");
+                    if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                        if (cameraIntent.resolveActivity(getPackageManager()) != null) {
+                            chooser.putExtra(Intent.EXTRA_INITIAL_INTENTS, new Intent[]{cameraIntent});
+                        }
+                    }
+                    startActivityForResult(chooser, FILE_CHOOSER_REQUEST_CODE);
+                } catch (Exception e) {
+                    fileUploadCallback.onReceiveValue(null);
+                    fileUploadCallback = null;
+                }
+            }
         }
     }
 
