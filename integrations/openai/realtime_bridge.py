@@ -84,13 +84,17 @@ VOICE_TOOLS = [
     {
         "type": "function",
         "name": "create_instruction",
-        "description": "Creer un rappel, un appel audio planifie, un SMS planifie, ou une visio planifiee. Ex: 'rappelle-moi de...', 'tous les jours a 8h...', 'appelle Marie a 14h', 'envoie un SMS a Jean demain', 'lance une visio avec Papa vendredi'. Utilise ce tool pour TOUT ce qui doit etre programme dans le temps.",
+        "description": "Creer un rappel, un appel audio planifie, un SMS planifie, ou une visio planifiee. Ex: 'rappelle-moi de...', 'tous les jours a 8h...', 'appelle Marie a 14h pendant 5 min', 'envoie un SMS a Jean demain'. Pour les appels planifies, precise la duree max en minutes (1-10).",
         "parameters": {
             "type": "object",
             "properties": {
                 "text": {
                     "type": "string",
                     "description": "L'instruction en langage naturel"
+                },
+                "max_duration_minutes": {
+                    "type": "integer",
+                    "description": "Duree max de l'appel en minutes (1-10, defaut 3). Uniquement pour les appels planifies."
                 }
             },
             "required": ["text"]
@@ -551,6 +555,21 @@ VOICE_TOOLS = [
         "description": "Affiche l'arborescence des dossiers de documents du souscripteur. Utilise quand il demande 'mes dossiers', 'montre mes classeurs', 'comment c'est range'.",
         "parameters": {"type": "object", "properties": {}}
     },
+    # === CALL CONTROL ===
+    {
+        "type": "function",
+        "name": "hang_up",
+        "description": "Raccrocher et terminer l'appel telephonique. OBLIGATOIRE : utilise cette fonction CHAQUE FOIS que tu dis au revoir, que tu raccroches, ou que la conversation est terminee. Ne dis JAMAIS 'je raccroche' sans appeler cette fonction immediatement apres.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "reason": {
+                    "type": "string",
+                    "description": "Raison de la fin d'appel (ex: 'mission accomplie', 'au revoir', 'fin de conversation')"
+                }
+            }
+        }
+    },
 ]
 
 
@@ -738,7 +757,15 @@ Tu es une compagne bienveillante et chaleureuse, disponible 24h/24.
 Tu parles en francais avec un ton rassurant, moderne et empathique.
 Tes reponses sont concises et naturelles - c'est un appel vocal, pas un email.
 
-IMPORTANT : Cet appel est limite a {max_duration_minutes} minute(s). Quand tu as fini ta mission ou que le temps est presque ecoule, dis au revoir chaleureusement.
+IMPORTANT : Cet appel est limite a {max_duration_minutes} minute(s). Quand tu as fini ta mission ou que le temps est presque ecoule, dis au revoir chaleureusement puis appelle la fonction hang_up pour raccrocher REELLEMENT.
+
+=== REGLE ABSOLUE : ACTIONS REELLES ===
+Quand tu dis que tu fais quelque chose, tu DOIS le faire pour de vrai en appelant la fonction correspondante.
+- "je raccroche" → tu DOIS appeler hang_up() immediatement
+- "je t'envoie un SMS" → tu DOIS appeler send_sms()
+- "je vais noter ca" → tu DOIS appeler create_note()
+- "je vais l'appeler" → tu DOIS appeler call_contact()
+Ne dis JAMAIS que tu fais une action sans appeler la fonction. Tes paroles DOIVENT correspondre a tes actes.
 {mission_section}
 
 === CE QUE TU PEUX FAIRE ===
@@ -816,6 +843,7 @@ class RealtimeBridge:
         voice: str = "",
         max_duration_seconds: int = 900,  # 15 minutes par defaut
         greeting: str = "",
+        voice_client=None,  # TwilioVoiceClient pour raccrocher via API
     ):
         self.openai_api_key = openai_api_key
         self.ws_twilio = ws_twilio
@@ -824,6 +852,7 @@ class RealtimeBridge:
         self.voice = voice or OPENAI_VOICE_NAME
         self.max_duration_seconds = max_duration_seconds
         self.greeting = greeting
+        self.voice_client = voice_client
 
         self.ws_openai = None
         self.stream_sid: Optional[str] = None
@@ -948,6 +977,12 @@ class RealtimeBridge:
             await asyncio.sleep(self.max_duration_seconds)
             logger.info(f"Voice call max duration reached ({self.max_duration_seconds}s)")
             self._running = False
+            # Raccrocher reellement via l'API Twilio
+            if self.voice_client and self.call_sid:
+                try:
+                    await self.voice_client.terminate_call_async(self.call_sid)
+                except Exception as e:
+                    logger.warning(f"Could not terminate call via Twilio API: {e}")
         except asyncio.CancelledError:
             pass
 
@@ -1144,6 +1179,32 @@ class RealtimeBridge:
             args = {}
 
         logger.info(f"Voice tool_call: {function_name}({args})")
+
+        # --- hang_up: handled directly by the bridge ---
+        if function_name == "hang_up":
+            reason = args.get("reason", "fin de conversation")
+            logger.info(f"[{self.call_sid}] HANG_UP called: {reason}")
+            self._tool_calls_log.append(f"hang_up: ok — {reason}")
+            # Send success back to OpenAI so it doesn't generate more speech
+            tool_response = {
+                "type": "conversation.item.create",
+                "item": {
+                    "type": "function_call_output",
+                    "call_id": call_id,
+                    "output": json.dumps({"status": "ok", "message": "Appel termine."}, ensure_ascii=False),
+                },
+            }
+            await self._ws_send_openai(tool_response)
+            # Brief delay so farewell audio finishes playing
+            await asyncio.sleep(3)
+            self._running = False
+            # Raccrocher reellement via l'API Twilio
+            if self.voice_client and self.call_sid:
+                try:
+                    await self.voice_client.terminate_call_async(self.call_sid)
+                except Exception as e:
+                    logger.warning(f"hang_up: could not terminate via Twilio API: {e}")
+            return
 
         # Executer via le callback (avec timeout 45s pour les tools lents)
         import time as _time

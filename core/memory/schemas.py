@@ -228,10 +228,12 @@ class Instruction(BaseModel):
     created_at: datetime = Field(default_factory=datetime.utcnow)
     last_executed: Optional[datetime] = None
     execution_count: int = 0
+    metadata: Optional[Dict[str, Any]] = None  # Extra params (max_duration, etc.)
 
     def to_redis(self) -> Dict[str, str]:
         """Convertit en format Redis HASH"""
-        return {
+        import json as _json
+        d = {
             "id": self.id,
             "tenant_id": str(self.tenant_id),
             "type": self.type.value,
@@ -246,10 +248,20 @@ class Instruction(BaseModel):
             "last_executed": self.last_executed.isoformat() if self.last_executed else "",
             "execution_count": str(self.execution_count),
         }
+        if self.metadata:
+            d["metadata"] = _json.dumps(self.metadata)
+        return d
 
     @classmethod
     def from_redis(cls, data: Dict[str, str]) -> "Instruction":
         """Crée depuis format Redis"""
+        import json as _json
+        _meta = None
+        if data.get("metadata"):
+            try:
+                _meta = _json.loads(data["metadata"])
+            except Exception:
+                pass
         return cls(
             id=data["id"],
             tenant_id=int(data["tenant_id"]),
@@ -264,6 +276,7 @@ class Instruction(BaseModel):
             created_at=datetime.fromisoformat(data["created_at"]),
             last_executed=datetime.fromisoformat(data["last_executed"]) if data.get("last_executed") else None,
             execution_count=int(data.get("execution_count", 0)),
+            metadata=_meta,
         )
 
 

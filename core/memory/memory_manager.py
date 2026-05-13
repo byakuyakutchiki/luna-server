@@ -226,6 +226,7 @@ class MemoryManager:
         target: str = "self",
         message_template: Optional[str] = None,
         priority: int = 5,
+        metadata: Optional[dict] = None,
     ) -> Instruction:
         """
         Ajoute une instruction du souscripteur.
@@ -249,6 +250,7 @@ class MemoryManager:
             target=target,
             message_template=message_template,
             priority=priority,
+            metadata=metadata,
         )
 
         self.redis.add_instruction(

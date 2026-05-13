@@ -179,3 +179,28 @@ class TwilioVoiceClient:
         connect.stream(url=stream_url)
         response.append(connect)
         return str(response)
+
+    def terminate_call(self, call_sid: str) -> bool:
+        """Raccroche un appel en cours via l'API Twilio REST."""
+        if not self.is_configured or not call_sid:
+            return False
+        try:
+            self.client.calls(call_sid).update(status="completed")
+            logger.info(f"Appel {call_sid} termine via API Twilio")
+            return True
+        except Exception as e:
+            logger.warning(f"Erreur terminaison appel {call_sid}: {e}")
+            return False
+
+    async def terminate_call_async(self, call_sid: str) -> bool:
+        """Version async de terminate_call()."""
+        import asyncio
+        try:
+            loop = asyncio.get_event_loop()
+            return await asyncio.wait_for(
+                loop.run_in_executor(None, self.terminate_call, call_sid),
+                timeout=10.0,
+            )
+        except asyncio.TimeoutError:
+            logger.warning(f"Timeout terminaison appel {call_sid}")
+            return False

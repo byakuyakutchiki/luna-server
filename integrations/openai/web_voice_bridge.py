@@ -54,6 +54,8 @@ class WebVoiceBridge:
         voice: str = OPENAI_VOICE_NAME,
         max_duration_seconds: int = 300,
         greeting: str = "",
+        conversation_history: Optional[List[Dict[str, str]]] = None,
+        vad_eagerness: str = "low",
     ):
         self.openai_api_key = openai_api_key
         self.ws_client = ws_client
@@ -62,15 +64,19 @@ class WebVoiceBridge:
         self.voice = voice
         self.max_duration_seconds = max_duration_seconds
         self.greeting = greeting
+        self.conversation_history = conversation_history or []
+        self.vad_eagerness = vad_eagerness
         self.ws_openai = None
         self._running = False
         self._timer_task: Optional[asyncio.Task] = None
         self._keepalive_task: Optional[asyncio.Task] = None
+        self._elapsed_task: Optional[asyncio.Task] = None
         self.transcript: List[Dict[str, str]] = []
         self._tool_calls_log: List[str] = []
         self._client_errors = 0
         self._openai_errors = 0
         self._last_client_activity = 0.0
+        self._start_time = 0.0
 
     def _client_connected(self) -> bool:
         """Verifie si le WebSocket client est toujours connecte."""
@@ -173,12 +179,21 @@ class WebVoiceBridge:
 
                 await self._configure_session()
 
+                self._start_time = _time.time()
                 self._timer_task = asyncio.create_task(self._duration_timer())
                 self._keepalive_task = asyncio.create_task(self._client_keepalive())
+                self._elapsed_task = asyncio.create_task(self._elapsed_broadcaster())
                 self._last_client_activity = _time.time()
 
+                # Injecter l'historique de conversation precedent (reconnexion)
+                if self.conversation_history:
+                    await self._inject_conversation_history()
+
                 # Notifie le client que la connexion est prete
-                await self._ws_send_client({"type": "ready"})
+                await self._ws_send_client({
+                    "type": "ready",
+                    "max_duration": self.max_duration_seconds,
+                })
 
                 # Greeting: Luna parle en premier
                 if self.greeting:
@@ -220,7 +235,7 @@ class WebVoiceBridge:
                 self._running = False
                 _active_bridges = max(0, _active_bridges - 1)
                 logger.info(f"WebVoiceBridge ended (active: {_active_bridges})")
-                for task in (self._timer_task, self._keepalive_task):
+                for task in (self._timer_task, self._keepalive_task, self._elapsed_task):
                     if task:
                         task.cancel()
                         try:
@@ -236,11 +251,15 @@ class WebVoiceBridge:
                 await asyncio.sleep(25)
                 if not self._running:
                     break
-                # Verifie l'inactivite client (pas de message recu depuis longtemps)
+                # Verifie l'inactivite client — 5 min en mode conversationnel
                 idle = _time.time() - self._last_client_activity
-                if idle > 120:
+                if idle > 300:
                     logger.info(f"WebVoice: client idle {idle:.0f}s — stopping")
                     self._running = False
+                    await self._ws_send_client({
+                        "type": "ended",
+                        "reason": "Inactivite detectee — la session se ferme",
+                    })
                     break
                 # Envoie un ping applicatif
                 await self._ws_send_client({"type": "ping"})
@@ -272,6 +291,48 @@ class WebVoiceBridge:
         except asyncio.CancelledError:
             pass
 
+    async def _elapsed_broadcaster(self):
+        """Envoie le temps ecoule au client toutes les 10s pour affichage du timer."""
+        try:
+            while self._running:
+                await asyncio.sleep(10)
+                if not self._running:
+                    break
+                elapsed = int(_time.time() - self._start_time)
+                remaining = max(0, self.max_duration_seconds - elapsed)
+                await self._ws_send_client({
+                    "type": "elapsed",
+                    "elapsed": elapsed,
+                    "remaining": remaining,
+                    "max_duration": self.max_duration_seconds,
+                })
+        except asyncio.CancelledError:
+            pass
+
+    async def _inject_conversation_history(self):
+        """Injecte l'historique de conversation precedent pour continuite apres reconnexion."""
+        if not self.conversation_history:
+            return
+        # Limiter a 20 derniers echanges pour ne pas surcharger le contexte
+        history = self.conversation_history[-20:]
+        summary = "=== HISTORIQUE DE CONVERSATION PRECEDENT ===\n"
+        summary += "Voici ce qui a ete dit juste avant dans cette conversation :\n"
+        for entry in history:
+            role = "Utilisateur" if entry.get("role") == "user" else "Luna"
+            summary += f"{role}: {entry.get('text', '')}\n"
+        summary += "=== FIN HISTORIQUE — Continue la conversation naturellement ===\n"
+
+        # Injecter comme message systeme dans la conversation OpenAI
+        await self._ws_send_openai({
+            "type": "conversation.item.create",
+            "item": {
+                "type": "message",
+                "role": "user",
+                "content": [{"type": "input_text", "text": summary}],
+            },
+        })
+        logger.info(f"WebVoice: injected {len(history)} history entries for continuity")
+
     async def _configure_session(self):
         session_config = {
             "type": "session.update",
@@ -285,13 +346,13 @@ class WebVoiceBridge:
                 },
                 "turn_detection": {
                     "type": "semantic_vad",
-                    "eagerness": "medium",
+                    "eagerness": self.vad_eagerness,
                 },
                 "tools": VOICE_TOOLS,
             },
         }
         await self._ws_send_openai(session_config)
-        logger.info("WebVoice: session configured (pcm16 24kHz)")
+        logger.info(f"WebVoice: session configured (pcm16 24kHz, vad={self.vad_eagerness})")
 
     async def _send_greeting(self):
         """Envoie un message initial pour que Luna salue le souscripteur."""

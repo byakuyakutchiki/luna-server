@@ -82,6 +82,7 @@ class InstructionExecutor:
         self.action_service = action_service
         self.voice = voice_service
         self.visio = visio_service
+        self.on_call_initiated = None  # callback(call_sid, params_dict) for voice call params
 
         # Handlers par type d'action (alignés avec parser.py ActionType)
         self._handlers: Dict[ActionType, ActionHandler] = {
@@ -465,19 +466,75 @@ class InstructionExecutor:
                 error="contact_not_found",
             )
 
+        # Construire la mission et le greeting pour le bridge
+        sub_name = ""
+        if self.memory:
+            try:
+                profile = self.memory.get_subscriber_profile()
+                if profile and profile.first_name:
+                    sub_name = profile.first_name
+            except Exception:
+                pass
+        sub_name = sub_name or "le souscripteur"
+
+        message_text = instruction.message_template or instruction.original_text or ""
+        mission = (
+            f"Tu appelles {target} de la part de {sub_name}. "
+            f"{sub_name} a planifie cet appel. "
+        )
+        if message_text:
+            mission += f"Voici ce que {sub_name} veut que tu transmettes : {message_text}"
+        else:
+            mission += f"{sub_name} voulait prendre des nouvelles."
+
+        greeting = f"Bonjour {target} ! C'est Luna, l'assistante de {sub_name}. "
+        if message_text:
+            greeting += f"{sub_name} m'a demande de t'appeler pour te dire : {message_text}"
+        else:
+            greeting += f"{sub_name} m'a demande de t'appeler pour prendre de tes nouvelles."
+
+        # Durée max depuis le context (chargé depuis Redis metadata) ou défaut 3 min
+        max_duration = 180
+        try:
+            if context and context.get("max_duration"):
+                max_duration = int(context["max_duration"])
+            elif hasattr(instruction, 'metadata') and instruction.metadata:
+                max_duration = int(instruction.metadata.get("max_duration", 180))
+        except (ValueError, TypeError):
+            max_duration = 180
+        max_duration = max(60, min(600, max_duration))
+
         # Lancer l'appel via Twilio
         success, data = await self.voice.initiate_call_async(phone_number)
 
         if success:
+            call_sid = data.get("call_sid", "")
+            # Stocker les params pour le bridge via callback
+            if self.on_call_initiated and call_sid:
+                import time as _t
+                self.on_call_initiated(call_sid, {
+                    "mission": mission,
+                    "max_duration": max_duration,
+                    "greeting": greeting,
+                    "contact_name": target,
+                    "tenant_id": context.get("tenant_id") if context else 0,
+                    "subscriber_name": sub_name,
+                    "contact_phone": phone_number,
+                    "message": message_text,
+                    "session_id": context.get("session_id", "scheduled") if context else "scheduled",
+                    "_ts": _t.time(),
+                })
+
             return ExecutionResult(
                 status=ExecutionStatus.SUCCESS,
                 instruction_id="",
                 action_type=ActionType.CALL_CONTACT,
-                message=f"Appel lancé vers {target}",
+                message=f"Appel lancé vers {target} ({max_duration // 60} min max)",
                 details={
                     "recipient": target,
                     "phone": phone_number,
-                    "call_sid": data.get("call_sid", ""),
+                    "call_sid": call_sid,
+                    "max_duration": max_duration,
                 },
             )
         else:
@@ -774,7 +831,7 @@ class InstructionExecutor:
         # Stocke la note en mémoire
         if self.memory:
             try:
-                await self.memory.add_note(
+                self.memory.add_note(
                     content=content,
                     context="user_note",
                     source="instruction_executor",
