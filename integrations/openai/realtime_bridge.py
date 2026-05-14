@@ -555,6 +555,39 @@ VOICE_TOOLS = [
         "description": "Affiche l'arborescence des dossiers de documents du souscripteur. Utilise quand il demande 'mes dossiers', 'montre mes classeurs', 'comment c'est range'.",
         "parameters": {"type": "object", "properties": {}}
     },
+    # === CONFERENCE ===
+    {
+        "type": "function",
+        "name": "join_conference",
+        "description": (
+            "Rejoindre une conference telephonique en composant un numero et en entrant un code PIN. "
+            "Luna ecoute et prend des notes de reunion. "
+            "Utilise quand le souscripteur dit 'rejoins ma reunion', 'appelle le bridge de conf', "
+            "'prends des notes a la reunion', 'rejoins le call'."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "phone_number": {
+                    "type": "string",
+                    "description": "Numero de telephone du bridge de conference (format E.164 ou national)"
+                },
+                "pin": {
+                    "type": "string",
+                    "description": "Code PIN ou identifiant de reunion (chiffres uniquement, sans espaces)"
+                },
+                "context": {
+                    "type": "string",
+                    "description": "Nom ou sujet de la reunion pour les notes (ex: 'Reunion equipe projet X')"
+                },
+                "max_duration_minutes": {
+                    "type": "integer",
+                    "description": "Duree max de la conference en minutes (defaut 60)"
+                }
+            },
+            "required": ["phone_number"]
+        }
+    },
     # === CALL CONTROL ===
     {
         "type": "function",
@@ -653,6 +686,33 @@ def _build_perception_voice_section(memory_manager) -> str:
         return section
     except Exception:
         return ""
+
+
+def build_conference_context(
+    conference_name: str,
+    max_duration_minutes: int = 60,
+) -> str:
+    """Prompt pour le mode conférence — Luna écoute et prend des notes, ne parle pas."""
+    return f"""Tu es Luna, l'IA YAWatch. Tu es en mode OBSERVATION lors d'une reunion.
+
+Reunion : {conference_name}
+Duree maximale : {max_duration_minutes} minute(s).
+
+=== TON ROLE ===
+Tu ecoutes la reunion en silence et tu prends des notes en temps reel via create_note().
+Tu uses create_note() pour chaque point cle : decision prise, action a faire, chiffre important.
+
+=== REGLES ABSOLUES ===
+- NE PARLE PAS dans la conference. Reste silencieuse.
+- NE REPONDS PAS aux questions de la reunion (tu n'es pas participante).
+- Appelle UNIQUEMENT create_note() — jamais send_sms, call_contact ou invite_visio.
+- Une note toutes les 3-5 minutes maximum. Ne surcharge pas.
+
+=== FORMAT DES NOTES ===
+- Titre court : contexte ou decision
+- Contenu : fait factuel, concis, sans interpretation
+
+Quand la reunion se termine ou que tu atteins la duree max, appelle hang_up()."""
 
 
 def build_voice_context(

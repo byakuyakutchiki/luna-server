@@ -472,15 +472,23 @@ class MemoryManager:
             return None
         return Note.from_redis(data)
 
-    def list_notes(self, limit: int = 50) -> List[Note]:
-        """Liste les notes récentes"""
-        note_ids = self.redis.get_notes(self.tenant_id, limit=limit)
+    def list_notes(self, limit: int = 50, context: str = "") -> List[Note]:
+        """Liste les notes récentes, avec filtre optionnel par context."""
+        note_ids = self.redis.get_notes(self.tenant_id, limit=min(limit, 200))
         notes = []
         for note_id in note_ids:
             note = self.get_note(note_id)
             if note:
+                if context and note.context != context:
+                    continue
                 notes.append(note)
+            if len(notes) >= limit:
+                break
         return notes
+
+    def delete_note(self, note_id: str) -> bool:
+        """Supprime une note par son ID. Retourne True si supprimée."""
+        return self.redis.delete_note(self.tenant_id, note_id)
 
     # ========================================================================
     # SUBSCRIBER PROFILE

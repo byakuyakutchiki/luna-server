@@ -358,6 +358,13 @@ class RedisClient:
         """Récupère les IDs des notes récentes"""
         return self.client.zrevrange(self.get_notes_key(tenant_id), 0, limit - 1)
 
+    def delete_note(self, tenant_id: int, note_id: str) -> bool:
+        """Supprime une note. Retourne True si supprimée."""
+        key = self.get_note_key(tenant_id, note_id)
+        deleted = self.client.delete(key)
+        self.client.zrem(self.get_notes_key(tenant_id), note_id)
+        return bool(deleted)
+
     # ========================================================================
     # QUOTA & USAGE
     # ========================================================================

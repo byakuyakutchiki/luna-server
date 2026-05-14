@@ -180,6 +180,60 @@ class TwilioVoiceClient:
         response.append(connect)
         return str(response)
 
+    def make_call_to(self, to: str, twiml_url: str) -> Tuple[bool, Dict[str, Any]]:
+        """Lance un appel vers n'importe quel numero avec un TwiML URL personnalisé.
+
+        Utilisé pour les appels de conférence (TwiML spécifique avec DTMF PIN).
+        """
+        if not self.is_configured:
+            return False, {"error": "Twilio Voice non configure"}
+        from integrations.twilio.sms_client import TwilioSMSClient
+        to_normalized = TwilioSMSClient.normalize_phone(to)
+        try:
+            call = self.client.calls.create(
+                to=to_normalized,
+                from_=self.from_number,
+                url=twiml_url,
+            )
+            logger.info(f"Appel vers conference: {call.sid} -> {to_normalized}")
+            return True, {"call_sid": call.sid, "status": call.status}
+        except Exception as e:
+            error_msg = str(e)
+            logger.error(f"Erreur appel conference: {error_msg}")
+            return False, {"error": error_msg}
+
+    async def make_call_to_async(self, to: str, twiml_url: str) -> Tuple[bool, Dict[str, Any]]:
+        """Version async de make_call_to()."""
+        import asyncio
+        sem = self._get_call_semaphore()
+        try:
+            async with sem:
+                loop = asyncio.get_event_loop()
+                return await asyncio.wait_for(
+                    loop.run_in_executor(None, self.make_call_to, to, twiml_url),
+                    timeout=15.0,
+                )
+        except asyncio.TimeoutError:
+            return False, {"error": "Timeout connexion Twilio"}
+
+    def generate_conference_twiml(self, call_sid: str, pin: str = "") -> str:
+        """TwiML pour conference : pause + DTMF PIN + Media Stream."""
+        from twilio.twiml.voice_response import VoiceResponse, Connect
+        from urllib.parse import quote
+        response = VoiceResponse()
+        if pin:
+            response.pause(length=3)
+            response.play(digits=f"{pin}#")
+            response.pause(length=2)
+        connect = Connect()
+        ws_url = self.voice_callback_url.replace("https://", "wss://")
+        stream_url = f"{ws_url}/api/voice-call/media-stream"
+        if call_sid:
+            stream_url += f"?call_sid={quote(call_sid)}&mode=conference"
+        connect.stream(url=stream_url)
+        response.append(connect)
+        return str(response)
+
     def terminate_call(self, call_sid: str) -> bool:
         """Raccroche un appel en cours via l'API Twilio REST."""
         if not self.is_configured or not call_sid:

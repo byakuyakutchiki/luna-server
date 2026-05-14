@@ -435,6 +435,32 @@ body.mode-secretaire .conc-modal-box .field input, body.mode-secretaire .conc-mo
 .card-title { font-weight: 600; color: #e0e0e0; }
 .card-subtitle { font-size: 0.8em; color: #888; }
 .card-body { font-size: 0.9em; color: #bbb; }
+/* === Notes & Rapports === */
+.notes-subtabs{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;}
+.notes-subtab{padding:5px 16px;border-radius:20px;border:1px solid #7c3aed;background:none;color:#a78bfa;cursor:pointer;font-size:.84em;transition:background .2s,color .2s;}
+.notes-subtab.active{background:#7c3aed;color:#fff;}
+.notes-date-sep{font-size:.74em;color:#6b7280;text-transform:uppercase;letter-spacing:1px;margin:14px 0 6px;padding-bottom:4px;border-bottom:1px solid #2d2640;}
+.note-card{background:#1e1b2e;border-radius:12px;margin-bottom:10px;overflow:hidden;border:1px solid #2d2640;}
+.note-card-hdr{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;gap:8px;}
+.note-card-title{font-weight:600;font-size:.88em;color:#e2e8f0;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.note-card-meta{display:flex;align-items:center;gap:6px;flex-shrink:0;}
+.note-ctx{padding:2px 8px;border-radius:8px;font-size:.68em;font-weight:700;text-transform:uppercase;}
+.note-ctx-conference,.note-ctx-conference_call{background:#7c3aed22;color:#a78bfa;}
+.note-ctx-voice,.note-ctx-call,.note-ctx-appel_vocal,.note-ctx-structured_call_report,.note-ctx-voice_call{background:#10b98122;color:#10b981;}
+.note-ctx-manual,.note-ctx-tool_call,.note-ctx-default{background:#37415122;color:#9ca3af;}
+.note-ctx-visio{background:#0ea5e922;color:#38bdf8;}
+.note-ctx-sos{background:#ef444422;color:#f87171;}
+.note-card-date{font-size:.7em;color:#6b7280;white-space:nowrap;}
+.note-body{padding:10px 14px;font-size:.86em;line-height:1.65;color:#cbd5e1;max-height:130px;overflow:hidden;transition:max-height .3s ease;word-break:break-word;}
+.note-body.expanded{max-height:5000px;}
+.note-foot{display:flex;justify-content:space-between;align-items:center;padding:5px 14px 8px;border-top:1px solid #2d2640;}
+.note-foot-btn{background:none;border:none;cursor:pointer;font-size:.78em;padding:0;line-height:1.4;}
+.note-expand-btn{color:#a78bfa;}
+.note-del-btn{color:#f87171;}
+.nr-section{margin-bottom:10px;}
+.nr-title{font-size:.73em;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:#7c3aed;margin-bottom:5px;}
+.nr-list{list-style:none;padding:0;margin:0;}
+.nr-list li{padding:2px 0 2px 10px;border-left:2px solid #7c3aed44;margin-bottom:2px;font-size:.86em;color:#cbd5e1;}
 .badge { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 0.75em; }
 .badge-green { background: #16a34a33; color: #4ade80; }
 .badge-blue { background: #2563eb33; color: #60a5fa; }
@@ -1358,9 +1384,14 @@ body.mode-secretaire .luna-chip:hover { background: rgba(16,185,129,0.2); border
 <!-- Call Reports Tab -->
 <div class="tab-panel" id="tab-callreports">
   <div class="panel-content">
-    <h2>Comptes-rendus d'appels</h2>
-    <p style="font-size:0.85em;color:#888;margin-bottom:16px;">Retrouve ici tous les rapports d'appels de Luna (vocaux et visio).</p>
-    <div id="callReportsList"><p class="empty-state">Chargement...</p></div>
+    <h2>Notes &amp; Rapports</h2>
+    <p style="font-size:.84em;color:#888;margin-bottom:12px;">Comptes-rendus d'appels et notes prises par Luna.</p>
+    <div class="notes-subtabs">
+      <button class="notes-subtab active" onclick="switchNotesTab('reports',this)">&#128203; Comptes Rendus</button>
+      <button class="notes-subtab" onclick="switchNotesTab('notes',this)">&#9998; Mes Notes</button>
+    </div>
+    <div id="notesReports"><p class="empty-state">Chargement...</p></div>
+    <div id="notesNotes" style="display:none"></div>
   </div>
 </div>
 
@@ -3920,30 +3951,102 @@ function _loadGenDocs() {
   }).catch(function() { list.innerHTML = '<p class="empty-state">Erreur de chargement.</p>'; });
 }
 
-function loadCallReports() {
-  var list = document.getElementById("callReportsList");
+function switchNotesTab(tab, btn) {
+  document.querySelectorAll('.notes-subtab').forEach(function(b){b.classList.remove('active');});
+  btn.classList.add('active');
+  document.getElementById('notesReports').style.display = tab === 'reports' ? '' : 'none';
+  document.getElementById('notesNotes').style.display = tab === 'notes' ? '' : 'none';
+  if (tab === 'reports') _loadNotesData('notesReports','/api/call-reports?limit=30','reports');
+  else _loadNotesData('notesNotes','/api/notes?limit=50','notes');
+}
+function loadCallReports() { _loadNotesData('notesReports','/api/call-reports?limit=30','reports'); }
+function _loadNotesData(containerId, url, dataKey) {
+  var list = document.getElementById(containerId);
   list.innerHTML = '<p class="empty-state">Chargement...</p>';
-  authFetch("/api/call-reports").then(function(r) { return r.json(); }).then(function(data) {
-    if (!data.reports || data.reports.length === 0) {
-      list.innerHTML = '<p class="empty-state">Aucun compte-rendu d\'appel pour le moment. Demande a Luna d\'appeler un contact !</p>';
+  authFetch(url).then(function(r){return r.json();}).then(function(data){
+    var items = data[dataKey] || data.notes || data.reports || [];
+    if (!items.length) {
+      list.innerHTML = '<p class="empty-state">' + (dataKey==='reports'?'Aucun compte-rendu. Lance un appel ou une conference !':'Aucune note enregistree.') + '</p>';
       return;
     }
-    list.innerHTML = "";
-    data.reports.forEach(function(report) {
-      var card = document.createElement("div"); card.className = "card";
-      var date = "";
-      try { date = new Date(report.created_at).toLocaleString("fr-FR"); } catch(e) { date = report.created_at || ""; }
-      var tagHtml = "";
-      if (report.tags && report.tags.length) {
-        report.tags.forEach(function(t) {
-          if (t !== "rapport" && t !== "structure") tagHtml += '<span style="background:#7c3aed;color:white;padding:2px 8px;border-radius:8px;font-size:0.75em;margin-right:4px;">' + esc(t) + '</span>';
-        });
-      }
-      card.innerHTML = '<div class="card-header"><span class="card-title">' + tagHtml + '</span><span style="color:#888;font-size:0.8em;">' + esc(date) + '</span></div>' +
-        '<div class="card-body" style="white-space:pre-wrap;font-size:0.9em;line-height:1.5;">' + _linkify(report.content || "") + '</div>';
-      list.appendChild(card);
+    var groups = _groupByDate(items);
+    list.innerHTML = '';
+    Object.keys(groups).forEach(function(d){
+      var sep = document.createElement('div'); sep.className='notes-date-sep'; sep.textContent=d; list.appendChild(sep);
+      groups[d].forEach(function(item){ list.appendChild(_buildNoteCard(item)); });
     });
-  }).catch(function() { list.innerHTML = '<p class="empty-state">Erreur de chargement.</p>'; });
+  }).catch(function(){list.innerHTML='<p class="empty-state">Erreur de chargement.</p>';});
+}
+function _groupByDate(items) {
+  var g={}, now=new Date();
+  items.forEach(function(item){
+    var dkey='Date inconnue';
+    try {
+      var d=new Date(item.created_at), diff=Math.floor((now-d)/86400000);
+      if(diff===0) dkey="Aujourd'hui";
+      else if(diff===1) dkey="Hier";
+      else if(diff<7) dkey=d.toLocaleDateString('fr-FR',{weekday:'long'});
+      else dkey=d.toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'});
+    } catch(e){}
+    if(!g[dkey]) g[dkey]=[];
+    g[dkey].push(item);
+  });
+  return g;
+}
+function _buildNoteCard(item) {
+  var card=document.createElement('div'); card.className='note-card';
+  var ctx=item.context||item.source||'manual';
+  var ctxMap={conference:'Conférence',conference_call:'Conférence',voice:'Appel vocal',call:'Appel vocal',voice_call:'Appel vocal',appel_vocal:'Appel vocal',structured_call_report:'Compte rendu',manual:'Note',tool_call:'Note',visio:'Visio',sos:'SOS'};
+  var iconMap={conference:'📋',conference_call:'📋',voice:'🎙️',call:'🎙️',voice_call:'🎙️',appel_vocal:'🎙️',structured_call_report:'📊',manual:'✏️',tool_call:'✏️',visio:'🎥',sos:'🆘'};
+  var ctxLabel=ctxMap[ctx]||ctx; var icon=iconMap[ctx]||'📌';
+  var skipTags=['rapport','structure','appel_vocal','conference','note','reasoning'];
+  var tagStr=(item.tags||[]).filter(function(t){return skipTags.indexOf(t)<0;}).join(' · ');
+  var title=item.title||(tagStr||ctxLabel);
+  var dateStr='';
+  try{ var d=new Date(item.created_at); dateStr=d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}); }catch(e){}
+  if(item.duration) dateStr+=' · '+Math.round(item.duration/60)+' min';
+  var raw=item.content||''; var isLong=raw.length>220;
+  var uid='nc-'+(item.id||Math.random().toString(36).slice(2));
+  var ctxClass='note-ctx note-ctx-'+ctx.replace(/[^a-zA-Z0-9]/g,'_');
+  card.innerHTML=
+    '<div class="note-card-hdr">'+
+      '<span class="note-card-title">'+icon+' '+esc(title)+'</span>'+
+      '<div class="note-card-meta">'+
+        '<span class="'+ctxClass+'">'+esc(ctxLabel)+'</span>'+
+        '<span class="note-card-date">'+esc(dateStr)+'</span>'+
+      '</div>'+
+    '</div>'+
+    '<div class="note-body" id="'+uid+'">'+_formatNoteBody(raw)+'</div>'+
+    '<div class="note-foot">'+
+      (isLong?'<button class="note-foot-btn note-expand-btn" onclick="_toggleNote(\''+uid+'\',this)">Lire la suite ▼</button>':'<span></span>')+
+      (item.id?'<button class="note-foot-btn note-del-btn" onclick="_deleteNote(\''+esc(item.id)+'\',this)">Supprimer</button>':'<span></span>')+
+    '</div>';
+  return card;
+}
+function _formatNoteBody(content) {
+  if(!content) return '';
+  var sec=content.match(/\d+[)\.]\s*\*\*([^*\n]+)\*\*/g);
+  if(sec&&sec.length>=2){
+    var parts=content.split(/(?=\d+[)\.]\s*\*\*)/);
+    return parts.filter(Boolean).map(function(p){
+      var m=p.match(/\d+[)\.]\s*\*\*([^*\n]+)\*\*([\s\S]*)/);
+      if(!m) return '<p style="white-space:pre-wrap">'+esc(p.trim())+'</p>';
+      var lines=m[2].trim().split('\n').filter(function(l){return l.trim();});
+      return '<div class="nr-section"><div class="nr-title">'+esc(m[1].trim())+'</div>'+
+        '<ul class="nr-list">'+lines.map(function(l){return '<li>'+_linkify(esc(l.replace(/^[-•*]\s*/,'').trim()))+'</li>';}).join('')+'</ul></div>';
+    }).join('');
+  }
+  return '<span style="white-space:pre-wrap">'+_linkify(esc(content))+'</span>';
+}
+function _toggleNote(uid,btn){
+  var b=document.getElementById(uid); if(!b) return;
+  var e=b.classList.toggle('expanded'); btn.textContent=e?'Réduire ▲':'Lire la suite ▼';
+}
+function _deleteNote(noteId,btn){
+  if(!confirm('Supprimer cette note ?')) return;
+  authFetch('/api/notes/'+noteId,{method:'DELETE'}).then(function(r){
+    if(r.status===204||r.ok){ var c=btn.closest('.note-card'); if(c){c.style.opacity='0';c.style.transition='opacity .25s';setTimeout(function(){c.remove();},260);} }
+  });
 }
 
 document.getElementById("docGenerateBtn").addEventListener("click", function() {

@@ -3058,6 +3058,61 @@ async def voice_call_twiml(request: Request):
     return Response(content=twiml, media_type="application/xml")
 
 
+@app.post("/api/voice-call/conference")
+async def start_conference_call(request: Request):
+    """Luna rejoint directement une conférence pour prendre des notes."""
+    tid = getattr(request.state, "tenant_id", 1)
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse(status_code=400, content={"error": "JSON invalide"})
+
+    phone_number = (body.get("phone_number") or "").strip()
+    pin = (body.get("pin") or "").strip()
+    conference_name = (body.get("context") or "Conference").strip()
+    max_dur_min = int(body.get("max_duration_minutes", 60))
+
+    result = await _tool_join_conference(
+        {"phone_number": phone_number, "pin": pin, "context": conference_name, "max_duration_minutes": max_dur_min},
+        tenant_id=tid,
+    )
+    if result.get("status") == "error":
+        return JSONResponse(status_code=503, content=result)
+    return result
+
+
+@app.post("/api/voice-call/conference-twiml")
+async def conference_twiml_webhook(request: Request):
+    """Webhook Twilio — TwiML pour appel de conférence (DTMF PIN + Media Stream)."""
+    if not voice_client:
+        return Response(content="<Response><Hangup/></Response>", media_type="application/xml")
+    try:
+        form = await request.form()
+        call_sid = form.get("CallSid", "") or ""
+    except Exception:
+        call_sid = ""
+
+    pin = request.query_params.get("pin", "")
+    conf_name = request.query_params.get("conf_name", "Conference")
+    max_min = int(request.query_params.get("max_min", "60"))
+
+    # Si le call_sid n'est pas encore dans _voice_call_params, on l'enregistre maintenant
+    if call_sid:
+        import time as _time
+        async with _voice_call_params_lock:
+            if call_sid not in _voice_call_params:
+                _voice_call_params[call_sid] = {
+                    "source": "conference",
+                    "conference_context": conf_name,
+                    "max_duration_minutes": max_min,
+                    "_ts": _time.time(),
+                }
+
+    twiml = voice_client.generate_conference_twiml(call_sid=call_sid, pin=pin)
+    logger.info(f"Conference TwiML genere (CallSid={call_sid} conf={conf_name} pin={'***' if pin else '(none)'})")
+    return Response(content=twiml, media_type="application/xml")
+
+
 @app.websocket("/api/voice-call/media-stream")
 async def voice_call_media_stream(websocket: WebSocket):
     """
@@ -3070,11 +3125,12 @@ async def voice_call_media_stream(websocket: WebSocket):
     bridge = None
     memory_mgr = None
     try:
-        from integrations.openai.realtime_bridge import RealtimeBridge, build_voice_context
+        from integrations.openai.realtime_bridge import RealtimeBridge, build_conference_context, build_voice_context
 
         # Recuperer les parametres personnalises via le call_sid passe en query param
         call_params = {}
         call_sid_from_url = websocket.query_params.get("call_sid", "")
+        ws_mode = websocket.query_params.get("mode", "")
 
         import time as _time
         _now = _time.time()
@@ -3112,7 +3168,19 @@ async def voice_call_media_stream(websocket: WebSocket):
             except Exception:
                 pass
 
-        if mission:
+        is_conference = (call_params.get("source") == "conference" or ws_mode == "conference")
+        conference_name = call_params.get("conference_context", "Conference")
+
+        if is_conference:
+            context = build_conference_context(
+                conference_name=conference_name,
+                max_duration_minutes=call_params.get("max_duration_minutes", max(1, max_dur // 60)),
+            )
+            greeting_text = (
+                f"Tu viens de rejoindre la conference '{conference_name}'. "
+                "Mode observation : transcris et prends des notes via create_note(). Ne dis rien."
+            )
+        elif mission:
             # Mission speciale : contexte adapte (appel sortant vers un contact)
             _sub_name_for_ctx = call_params.get("subscriber_name") or _SUBSCRIBER_NAME
             context = build_voice_context(
@@ -3125,8 +3193,6 @@ async def voice_call_media_stream(websocket: WebSocket):
                 tenant_id=TENANT_ID,
                 language=_voice_lang,
             )
-            # Le greeting est une instruction pour que Luna parle en premier
-            # On formule comme un declencheur, pas comme un message du contact
             greeting_text = custom_greeting or f"La personne vient de decrocher. Execute ta mission maintenant."
         else:
             context = build_voice_context(
@@ -3180,6 +3246,8 @@ async def voice_call_media_stream(websocket: WebSocket):
                 return await _tool_search_hotels(args)
             elif name == "book_restaurant":
                 return await _tool_book_restaurant(args)
+            elif name == "join_conference":
+                return await _tool_join_conference(args, tid)
             else:
                 return {"status": "error", "message": f"Fonction inconnue: {name}"}
 
@@ -7010,16 +7078,25 @@ async def list_notes(request: Request, limit: int = 50):
 
 
 @app.get("/api/call-reports")
-async def list_call_reports(request: Request, limit: int = 20):
-    """Liste les comptes-rendus d'appels (vocaux + visio)."""
+async def list_call_reports(request: Request, limit: int = 30):
+    """Liste les comptes-rendus d'appels et de conférences (vocaux + visio + conf)."""
     tid = getattr(request.state, "tenant_id", 1)
     mgr = _get_tenant_manager(tid)
     if not mgr:
         return JSONResponse(status_code=503, content={"error": "Memoire non disponible"})
-    notes = mgr.list_notes(limit=min(limit, 100))
+    notes = mgr.list_notes(limit=min(limit * 3, 200))  # large fetch pour filtrer
+    _REPORT_CONTEXTS = {
+        "structured_call_report", "conference", "conference_call",
+        "call", "voice_call", "appel_vocal", "visio",
+    }
+    _REPORT_TAGS = {"rapport", "appel_vocal", "conference", "visio"}
     reports = []
     for n in notes:
-        if n.tags and ("rapport" in n.tags or "appel_vocal" in n.tags):
+        is_report = (
+            n.context in _REPORT_CONTEXTS
+            or bool(n.tags and _REPORT_TAGS.intersection(set(n.tags)))
+        )
+        if is_report:
             reports.append({
                 "id": n.id,
                 "content": n.content,
@@ -7027,6 +7104,8 @@ async def list_call_reports(request: Request, limit: int = 20):
                 "tags": n.tags,
                 "created_at": n.created_at.isoformat() if n.created_at else None,
             })
+        if len(reports) >= limit:
+            break
     return {"reports": reports, "count": len(reports)}
 
 
@@ -7047,6 +7126,19 @@ async def add_note(req: NoteRequest, request: Request):
         return {"success": True, "note": {"id": note.id, "content": note.content}}
     except Exception as e:
         return JSONResponse(status_code=400, content={"error": str(e)})
+
+
+@app.delete("/api/notes/{note_id}", status_code=204)
+async def delete_note(note_id: str, request: Request):
+    """Supprime une note de l'utilisateur."""
+    tid = getattr(request.state, "tenant_id", 1)
+    mgr = _get_tenant_manager(tid)
+    if not mgr:
+        return JSONResponse(status_code=503, content={"error": "Memoire non disponible"})
+    found = mgr.delete_note(note_id)
+    if not found:
+        return JSONResponse(status_code=404, content={"error": "Note introuvable"})
+    return Response(status_code=204)
 
 
 # =========================================================================
@@ -8178,6 +8270,55 @@ async def _tool_create_instruction(args: Dict, tenant_id: int = 0) -> Dict:
     if _max_dur_min:
         confirmation += f" (duree max: {_max_dur_min} min)"
     return {"status": "success", "message": confirmation, "instruction_id": instr.id}
+
+
+async def _tool_join_conference(args: Dict, tenant_id: int = 0) -> Dict:
+    """Lance un appel vers un bridge de conférence avec DTMF PIN + Media Stream."""
+    phone_number = args.get("phone_number", "").strip()
+    pin = args.get("pin", "").strip()
+    conference_name = args.get("context", "Conference").strip()
+    max_dur_min = int(args.get("max_duration_minutes", 60))
+
+    if not phone_number:
+        return {"status": "error", "message": "Numero de conference manquant."}
+    if not voice_client or not voice_client.is_configured:
+        return {"status": "error", "message": "Service d'appel non configure."}
+    if not VOICE_CALLBACK_URL:
+        return {"status": "error", "message": "VOICE_CALLBACK_URL manquant."}
+
+    from urllib.parse import urlencode
+    import time as _time
+
+    qs = urlencode({"pin": pin, "conf_name": conference_name, "max_min": max_dur_min})
+    twiml_url = f"{VOICE_CALLBACK_URL.rstrip('/')}/api/voice-call/conference-twiml?{qs}"
+
+    success, data = await voice_client.make_call_to_async(phone_number, twiml_url)
+    if not success:
+        return {"status": "error", "message": f"Impossible de rejoindre la conference : {data.get('error')}"}
+
+    call_sid = data.get("call_sid", "")
+    async with _voice_call_params_lock:
+        _voice_call_params[call_sid] = {
+            "source": "conference",
+            "conference_context": conference_name,
+            "max_duration_minutes": max_dur_min,
+            "tenant_id": tenant_id,
+            "_ts": _time.time(),
+        }
+
+    mgr = _get_tenant_manager(tenant_id) if tenant_id else _memory_manager
+    if mgr:
+        mgr.add_note(
+            content=f"[Conference lancee] Luna rejoint '{conference_name}' ({phone_number})",
+            context="conference",
+            tags=["conference", "rapport"],
+        )
+
+    return {
+        "status": "ok",
+        "call_sid": call_sid,
+        "message": f"Luna rejoint la conference '{conference_name}'. Les notes seront disponibles dans l'onglet Rapports.",
+    }
 
 
 async def _tool_create_note(args: Dict, tenant_id: int = 0) -> Dict:
