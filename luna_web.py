@@ -3001,6 +3001,8 @@ class VoiceCallRequest(BaseModel):
 
 # Stockage temporaire des parametres d'appel (call_sid -> params)
 _voice_call_params: Dict[str, dict] = {}
+# Bridges actifs (call_sid -> RealtimeBridge) pour mute forcé
+_active_realtime_bridges: Dict[str, Any] = {}
 
 @app.post("/api/voice-call")
 async def start_voice_call(req: VoiceCallRequest, request: Request):
@@ -3113,6 +3115,27 @@ async def conference_twiml_webhook(request: Request):
     return Response(content=twiml, media_type="application/xml")
 
 
+@app.post("/api/voice-call/mute")
+async def voice_call_mute(request: Request):
+    """Fix 4 — Coupe immédiatement la parole de Luna sur tous les appels actifs (ou un CallSid précis)."""
+    body = {}
+    try:
+        body = await request.json()
+    except Exception:
+        pass
+    call_sid = body.get("call_sid", "")
+    muted = []
+    targets = (
+        {call_sid: _active_realtime_bridges[call_sid]}
+        if call_sid and call_sid in _active_realtime_bridges
+        else dict(_active_realtime_bridges)
+    )
+    for key, br in targets.items():
+        await br.force_mute()
+        muted.append(key)
+    return JSONResponse({"muted": muted, "count": len(muted)})
+
+
 @app.websocket("/api/voice-call/media-stream")
 async def voice_call_media_stream(websocket: WebSocket):
     """
@@ -3176,10 +3199,7 @@ async def voice_call_media_stream(websocket: WebSocket):
                 conference_name=conference_name,
                 max_duration_minutes=call_params.get("max_duration_minutes", max(1, max_dur // 60)),
             )
-            greeting_text = (
-                f"Tu viens de rejoindre la conference '{conference_name}'. "
-                "Mode observation : transcris et prends des notes via create_note(). Ne dis rien."
-            )
+            greeting_text = ""  # Fix 2: silence absolu dès la connexion
         elif mission:
             # Mission speciale : contexte adapte (appel sortant vers un contact)
             _sub_name_for_ctx = call_params.get("subscriber_name") or _SUBSCRIBER_NAME
@@ -3259,9 +3279,16 @@ async def voice_call_media_stream(websocket: WebSocket):
             max_duration_seconds=max_dur,
             greeting=greeting_text,
             voice_client=voice_client,
+            conference_mode=is_conference,  # Fix 1+2+3
         )
+        # Fix 4: enregistrer le bridge pour mute forcé
+        _bridge_key = call_sid_from_url or f"bridge_{id(bridge)}"
+        _active_realtime_bridges[_bridge_key] = bridge
         _voice_start = time.time()
-        await bridge.run()
+        try:
+            await bridge.run()
+        finally:
+            _active_realtime_bridges.pop(_bridge_key, None)
         _voice_duration_min = round((time.time() - _voice_start) / 60, 2)
 
         # Clear active call tracker

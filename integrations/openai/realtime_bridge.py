@@ -904,6 +904,7 @@ class RealtimeBridge:
         max_duration_seconds: int = 900,  # 15 minutes par defaut
         greeting: str = "",
         voice_client=None,  # TwilioVoiceClient pour raccrocher via API
+        conference_mode: bool = False,
     ):
         self.openai_api_key = openai_api_key
         self.ws_twilio = ws_twilio
@@ -913,11 +914,13 @@ class RealtimeBridge:
         self.max_duration_seconds = max_duration_seconds
         self.greeting = greeting
         self.voice_client = voice_client
+        self.conference_mode = conference_mode
 
         self.ws_openai = None
         self.stream_sid: Optional[str] = None
         self.call_sid: Optional[str] = None
         self._running = False
+        self._muted = False
         self._timer_task: Optional[asyncio.Task] = None
 
         # Transcription : collecte les messages pour sauvegarde
@@ -1048,25 +1051,51 @@ class RealtimeBridge:
 
     async def _configure_session(self):
         """Envoie session.update pour configurer la voix, les instructions et les tools."""
-        session_config = {
-            "type": "session.update",
-            "session": {
-                "voice": self.voice,
-                "instructions": self.call_context,
-                "input_audio_format": "g711_ulaw",
-                "output_audio_format": "g711_ulaw",
-                "input_audio_transcription": {
-                    "model": "whisper-1",
+        if self.conference_mode:
+            # Fix 1+3: texte uniquement (zéro audio sortant), VAD haute sensibilité
+            session_config = {
+                "type": "session.update",
+                "session": {
+                    "modalities": ["text"],
+                    "instructions": self.call_context,
+                    "input_audio_format": "g711_ulaw",
+                    "input_audio_transcription": {"model": "whisper-1"},
+                    "turn_detection": {
+                        "type": "server_vad",
+                        "threshold": 0.9,
+                        "silence_duration_ms": 2000,
+                    },
+                    "tools": VOICE_TOOLS,
                 },
-                "turn_detection": {
-                    "type": "semantic_vad",
-                    "eagerness": "medium",
+            }
+            logger.info("OpenAI Realtime session configured (conference/text-only mode)")
+        else:
+            session_config = {
+                "type": "session.update",
+                "session": {
+                    "voice": self.voice,
+                    "instructions": self.call_context,
+                    "input_audio_format": "g711_ulaw",
+                    "output_audio_format": "g711_ulaw",
+                    "input_audio_transcription": {"model": "whisper-1"},
+                    "turn_detection": {
+                        "type": "semantic_vad",
+                        "eagerness": "medium",
+                    },
+                    "tools": VOICE_TOOLS,
                 },
-                "tools": VOICE_TOOLS,
-            },
-        }
+            }
+            logger.info("OpenAI Realtime session configured")
         await self._ws_send_openai(session_config)
-        logger.info("OpenAI Realtime session configured")
+
+    async def force_mute(self):
+        """Coupe immédiatement la parole de Luna et bloque toute future sortie audio."""
+        self._muted = True
+        if self._running and self.ws_openai:
+            await self._ws_send_openai({"type": "response.cancel"})
+            if self.stream_sid:
+                await self._ws_send_twilio({"event": "clear", "streamSid": self.stream_sid})
+        logger.info(f"[{self.call_sid}] Bridge force-muted")
 
     async def _send_greeting(self):
         """Envoie un message initial pour que Luna salue le souscripteur."""
@@ -1153,8 +1182,19 @@ class RealtimeBridge:
                 elif event_type == "session.updated":
                     logger.info("OpenAI Realtime session updated")
 
+                elif event_type == "response.created":
+                    # Fix 4: annuler immédiatement toute réponse si muted
+                    if self._muted:
+                        await self._ws_send_openai({"type": "response.cancel"})
+
                 elif event_type == "response.audio.delta":
                     # Audio de Luna -> Twilio
+                    if self._muted:
+                        # Fix 4: audio bloqué — vider le buffer Twilio et annuler
+                        if self.stream_sid:
+                            await self._ws_send_twilio({"event": "clear", "streamSid": self.stream_sid})
+                        await self._ws_send_openai({"type": "response.cancel"})
+                        continue
                     audio_delta = data.get("delta", "")
                     if audio_delta and self.stream_sid:
                         twilio_msg = {

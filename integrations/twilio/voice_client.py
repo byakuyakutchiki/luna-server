@@ -222,7 +222,7 @@ class TwilioVoiceClient:
         from urllib.parse import quote
         response = VoiceResponse()
         if pin:
-            response.pause(length=3)
+            response.pause(length=5)  # Fix 5: 5s pour les bridges lents (Zoom, Teams)
             response.play(digits=f"{pin}#")
             response.pause(length=2)
         connect = Connect()
