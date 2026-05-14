@@ -7380,12 +7380,12 @@ async def meetingbaas_webhook(request: Request):
         if session:
             session["status"] = status_code
 
-        if status_code in ("done", "completed", "call_ended", "left_call", "failed") and bot_id in _recall_transcripts:
+        if status_code in ("done", "completed", "call_ended", "left_call", "failed"):
             import datetime as _dt
             if session:
                 session["ended_at"] = _dt.datetime.utcnow().isoformat()
-            # Récupérer la transcription complète depuis l'API MeetingBaas
-            if recall_client:
+            # Toujours tenter de récupérer la transcription (Whisper via FLAC)
+            if recall_client and session:
                 try:
                     full_segments = await recall_client.get_transcript_async(bot_id)
                     if full_segments:
