@@ -7494,8 +7494,8 @@ Sois factuel et concis. Ne fabrique rien qui n'est pas dans la transcription."""
     mgr = _get_tenant_manager(tid)
     if mgr:
         note = mgr.add_note(
-            content=content,
-            title=f"Compte rendu — {meeting_name}",
+            content=f"# Compte rendu — {meeting_name}\n\n{content}",
+            source=f"Compte rendu — {meeting_name}",
             context="conference",
             tags=["conference", "rapport", "recall"],
         )
