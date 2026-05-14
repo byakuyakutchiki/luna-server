@@ -499,9 +499,90 @@ except Exception as _e:
     PLATFORM_NAMES = {}
     STATUS_LABELS = {}
 
-# État des réunions Recall.ai en cours et terminées
-_recall_sessions: Dict[str, dict] = {}       # bot_id → metadata
-_recall_transcripts: Dict[str, list] = {}    # bot_id → segments temps réel
+# État des réunions — persisté dans Redis (survit aux redéploiements Cloud Run)
+_recall_sessions: Dict[str, dict] = {}       # cache local fallback
+_recall_transcripts: Dict[str, list] = {}    # cache local fallback
+
+_MTG_SESSION_TTL = 86400  # 24h
+
+
+def _mtg_session_key(bot_id: str) -> str:
+    return f"mtg:session:{bot_id}"
+
+
+def _mtg_transcripts_key(bot_id: str) -> str:
+    return f"mtg:transcripts:{bot_id}"
+
+
+def _mtg_session_get(bot_id: str) -> Optional[dict]:
+    try:
+        if _redis_client and _redis_client.ping():
+            raw = _redis_client.client.get(_mtg_session_key(bot_id))
+            if raw:
+                import json as _json
+                return _json.loads(raw)
+    except Exception:
+        pass
+    return _recall_sessions.get(bot_id)
+
+
+def _mtg_session_set(bot_id: str, data: dict) -> None:
+    import json as _json
+    _recall_sessions[bot_id] = data
+    try:
+        if _redis_client and _redis_client.ping():
+            _redis_client.client.setex(_mtg_session_key(bot_id), _MTG_SESSION_TTL, _json.dumps(data))
+    except Exception:
+        pass
+
+
+def _mtg_transcripts_get(bot_id: str) -> list:
+    try:
+        if _redis_client and _redis_client.ping():
+            raw = _redis_client.client.get(_mtg_transcripts_key(bot_id))
+            if raw:
+                import json as _json
+                return _json.loads(raw)
+    except Exception:
+        pass
+    return _recall_transcripts.get(bot_id, [])
+
+
+def _mtg_transcripts_set(bot_id: str, segments: list) -> None:
+    import json as _json
+    _recall_transcripts[bot_id] = segments
+    try:
+        if _redis_client and _redis_client.ping():
+            _redis_client.client.setex(_mtg_transcripts_key(bot_id), _MTG_SESSION_TTL, _json.dumps(segments))
+    except Exception:
+        pass
+
+
+def _mtg_transcripts_append(bot_id: str, seg: dict) -> None:
+    segments = _mtg_transcripts_get(bot_id)
+    segments.append(seg)
+    _mtg_transcripts_set(bot_id, segments)
+
+
+def _mtg_list_sessions(tenant_id: int) -> list:
+    sessions = []
+    try:
+        if _redis_client and _redis_client.ping():
+            import json as _json
+            keys = _redis_client.client.keys("mtg:session:*")
+            for key in keys:
+                raw = _redis_client.client.get(key)
+                if raw:
+                    try:
+                        s = _json.loads(raw)
+                        if s.get("tenant_id") == tenant_id:
+                            sessions.append(s)
+                    except Exception:
+                        pass
+            return sessions
+    except Exception:
+        pass
+    return [s for s in _recall_sessions.values() if s.get("tenant_id") == tenant_id]
 
 # Auto-configure SMS status callback URL si pas defini
 if sms_client and sms_client.is_configured and VOICE_CALLBACK_URL and not sms_client.status_callback_url:
@@ -7222,7 +7303,7 @@ async def meeting_join(req: MeetingJoinRequest, request: Request):
         return JSONResponse(status_code=502, content={"error": data.get("error", "Erreur Recall.ai"), "detail": data.get("detail")})
     bot_id = data.get("id", "")
     import datetime as _dt
-    _recall_sessions[bot_id] = {
+    _mtg_session_set(bot_id, {
         "bot_id": bot_id,
         "meeting_url": req.meeting_url,
         "platform": platform,
@@ -7233,8 +7314,8 @@ async def meeting_join(req: MeetingJoinRequest, request: Request):
         "started_at": _dt.datetime.utcnow().isoformat(),
         "ended_at": None,
         "note_id": None,
-    }
-    _recall_transcripts[bot_id] = []
+    })
+    _mtg_transcripts_set(bot_id, [])
     logger.info(f"Recall meeting started: {bot_id} ({platform}) tenant={tid}")
     return {"bot_id": bot_id, "platform": platform, "meeting_name": meeting_name, "status": "ready"}
 
@@ -7246,8 +7327,8 @@ async def meeting_active(request: Request):
     import datetime as _dt
     cutoff = (_dt.datetime.utcnow() - _dt.timedelta(hours=24)).isoformat()
     sessions = [
-        s for s in _recall_sessions.values()
-        if s.get("tenant_id") == tid and (s.get("status") not in ("done", "fatal") or (s.get("ended_at") or "") >= cutoff)
+        s for s in _mtg_list_sessions(tid)
+        if s.get("status") not in ("done", "fatal") or (s.get("ended_at") or "") >= cutoff
     ]
     return {"meetings": sorted(sessions, key=lambda x: x.get("started_at", ""), reverse=True)}
 
@@ -7255,30 +7336,31 @@ async def meeting_active(request: Request):
 @app.get("/api/meeting/{bot_id}/status")
 async def meeting_status(bot_id: str, request: Request):
     """Retourne le statut en temps réel d'un bot (polling frontend)."""
-    session = _recall_sessions.get(bot_id)
+    session = _mtg_session_get(bot_id)
     if not session:
         return JSONResponse(status_code=404, content={"error": "Réunion introuvable"})
     # Rafraîchir le statut depuis l'API Recall.ai si toujours actif
     if recall_client and session.get("status") not in ("done", "completed", "fatal", "call_ended", "failed"):
         bot_data = await recall_client.get_bot_async(bot_id)
         if bot_data:
-            # v2: status est une string directe (pas un objet nested)
             raw = bot_data.get("status", session["status"])
             code = raw if isinstance(raw, str) else (raw or {}).get("code", session["status"])
             session["status"] = code
+            _mtg_session_set(bot_id, session)
     label = STATUS_LABELS.get(session["status"], session["status"])
-    return {**session, "status_label": label, "transcript_count": len(_recall_transcripts.get(bot_id, []))}
+    return {**session, "status_label": label, "transcript_count": len(_mtg_transcripts_get(bot_id))}
 
 
 @app.post("/api/meeting/{bot_id}/stop")
 async def meeting_stop(bot_id: str, request: Request):
     """Demande au bot de quitter la réunion."""
-    session = _recall_sessions.get(bot_id)
+    session = _mtg_session_get(bot_id)
     if not session:
         return JSONResponse(status_code=404, content={"error": "Réunion introuvable"})
     if recall_client:
         await recall_client.stop_bot_async(bot_id)
     session["status"] = "call_ended"
+    _mtg_session_set(bot_id, session)
     return {"bot_id": bot_id, "status": "call_ended"}
 
 
@@ -7343,6 +7425,7 @@ Sois factuel et concis. Ne fabrique rien qui n'est pas dans la transcription."""
         )
         if note:
             session["note_id"] = note.id
+            _mtg_session_set(bot_id, session)
             logger.info(f"Meeting report saved: {note.id} (bot={bot_id})")
 
 
@@ -7378,23 +7461,25 @@ async def meetingbaas_webhook(request: Request):
 
     if bot_id and status_code:
         logger.info(f"MeetingBaas status: {bot_id} → {status_code}")
-        session = _recall_sessions.get(bot_id)
+        session = _mtg_session_get(bot_id)
         if session:
             session["status"] = status_code
+            _mtg_session_set(bot_id, session)
 
         if status_code in ("done", "completed", "call_ended", "left_call", "failed"):
             import datetime as _dt
             if session:
                 session["ended_at"] = _dt.datetime.utcnow().isoformat()
+                _mtg_session_set(bot_id, session)
             # Toujours tenter de récupérer la transcription (Whisper via FLAC)
             if recall_client and session:
                 try:
                     full_segments = await recall_client.get_transcript_async(bot_id)
                     if full_segments:
-                        _recall_transcripts[bot_id] = full_segments
+                        _mtg_transcripts_set(bot_id, full_segments)
                 except Exception as e:
                     logger.warning(f"Could not fetch full transcript: {e}")
-            segments = _recall_transcripts.get(bot_id, [])
+            segments = _mtg_transcripts_get(bot_id)
             if segments and session:
                 asyncio.create_task(_generate_meeting_report(bot_id, segments, session))
 
@@ -7409,10 +7494,8 @@ async def meetingbaas_webhook(request: Request):
         else:
             segments = [transcript_data] if transcript_data.get("text") or transcript_data.get("words") else []
         for seg in segments:
-            if seg.get("is_final", True):  # MeetingBaas envoie souvent is_final absent = True
-                if bot_id not in _recall_transcripts:
-                    _recall_transcripts[bot_id] = []
-                _recall_transcripts[bot_id].append(seg)
+            if seg.get("is_final", True):
+                _mtg_transcripts_append(bot_id, seg)
                 logger.debug(f"MeetingBaas transcript [{bot_id}] {seg.get('speaker','?')}: {str(seg)[:60]}")
 
     return Response(status_code=200)
