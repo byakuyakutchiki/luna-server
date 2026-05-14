@@ -345,8 +345,9 @@ body.mode-secretaire .conc-modal-box .field input, body.mode-secretaire .conc-mo
 .typing-dots span:nth-child(2) { animation-delay: 0.2s; }
 .typing-dots span:nth-child(3) { animation-delay: 0.4s; }
 @keyframes bounce { 0%,80%,100% { transform: translateY(0); } 40% { transform: translateY(-8px); } }
-.luna-toast { position: fixed; top: 20px; right: 20px; background: #1e1e3f; border-left: 4px solid #a78bfa; padding: 12px 16px; border-radius: 8px; z-index: 9999; max-width: 300px; color: #fff; opacity: 0; transform: translateX(100px); transition: all 0.3s ease; font-size: 0.85em; box-shadow: 0 4px 20px rgba(0,0,0,0.4); }
-.luna-toast.show { opacity: 1; transform: translateX(0); }
+.luna-toast { position: fixed; top: 20px; right: 12px; left: 12px; max-width: 360px; margin: 0 auto; background: #1e1e3f; border-left: 4px solid #a78bfa; padding: 12px 16px; border-radius: 10px; z-index: 10000; color: #fff; opacity: 0; transform: translateY(-12px); transition: opacity 0.25s ease, transform 0.25s ease; font-size: 0.85em; box-shadow: 0 4px 24px rgba(0,0,0,0.5); pointer-events: none; }
+.luna-toast.show { opacity: 1; transform: translateY(0); }
+@media (min-width: 480px) { .luna-toast { left: auto; right: 20px; max-width: 320px; } }
 .error-msg { border: 1px solid rgba(248,113,113,0.3); }
 .retry-btn { margin-left: 10px; padding: 4px 12px; border-radius: 12px; border: 1px solid #7c3aed; background: transparent; color: #a78bfa; cursor: pointer; font-size: 0.85em; }
 .retry-btn:hover { background: #7c3aed; color: white; }
@@ -1017,8 +1018,8 @@ body.mode-secretaire .luna-chip:hover { background: rgba(16,185,129,0.2); border
       </div>
       <div class="conc-card" data-conc-action="Invite en visio">
         <div class="conc-icon">&#x1F4F9;</div>
-        <div class="conc-label">Visio</div>
-        <div class="conc-desc">Inviter en video</div>
+        <div class="conc-label">Visio Luna</div>
+        <div class="conc-desc">Appel video avec Luna</div>
       </div>
       <div class="conc-card" data-conc-action="Alerte mes contacts d'urgence">
         <div class="conc-icon">&#x1F6A8;</div>
@@ -1394,23 +1395,26 @@ body.mode-secretaire .luna-chip:hover { background: rgba(16,185,129,0.2); border
     <div id="notesReports"><p class="empty-state">Chargement...</p></div>
     <div id="notesNotes" style="display:none"></div>
     <div id="notesMeetings" style="display:none">
+      <!-- Explication -->
+      <div style="background:#1a1a3e;border:1px solid #7c3aed44;border-radius:10px;padding:12px 14px;margin-bottom:12px;font-size:.82em;color:#aaa;line-height:1.5;">
+        <strong style="color:#a78bfa;">Comment ça marche ?</strong><br>
+        Luna rejoint ta réunion en tant que participante silencieuse. Elle transcrit tout en temps réel et génère un compte rendu automatiquement à la fin.<br>
+        <span style="color:#6b7280;">Compatible : Zoom, Google Meet, Microsoft Teams, Webex</span>
+      </div>
       <!-- Rejoindre une réunion -->
       <div class="card" style="margin-bottom:14px;">
         <div class="card-header"><span class="card-title">&#128640; Envoyer Luna dans une réunion</span></div>
         <div style="padding:0 0 8px 0;">
           <div class="form-group" style="margin-bottom:8px;">
             <label style="font-size:.82em;color:#aaa;">Lien de la réunion</label>
-            <input type="url" id="meetingUrl" placeholder="https://zoom.us/j/123… ou meet.google.com/abc…" style="background:#0d0d1a;border:1px solid #333;color:#e0e0e0;border-radius:8px;padding:8px 12px;width:100%;font-size:.9em;box-sizing:border-box;">
+            <input type="url" id="meetingUrl" placeholder="https://zoom.us/j/123… ou meet.google.com/abc…" style="background:#0d0d1a;border:1px solid #333;color:#e0e0e0;border-radius:8px;padding:8px 12px;width:100%;font-size:.9em;box-sizing:border-box;" oninput="_detectMeetingPlatform(this.value)">
+            <div id="meetingPlatformBadge" style="margin-top:6px;min-height:20px;font-size:.78em;"></div>
           </div>
-          <div class="form-row" style="gap:8px;">
-            <div class="form-group" style="flex:1;margin:0;">
-              <label style="font-size:.82em;color:#aaa;">Nom de la réunion</label>
-              <input type="text" id="meetingName" placeholder="Réunion budget Q3…" style="background:#0d0d1a;border:1px solid #333;color:#e0e0e0;border-radius:8px;padding:8px 12px;width:100%;font-size:.9em;box-sizing:border-box;">
-            </div>
-            <div class="form-group" style="flex:0 0 auto;margin:0;display:flex;align-items:flex-end;">
-              <button class="btn btn-primary" onclick="joinMeeting()" style="white-space:nowrap;">Envoyer Luna</button>
-            </div>
+          <div class="form-group" style="margin-bottom:10px;">
+            <label style="font-size:.82em;color:#aaa;">Nom de la réunion <span style="color:#6b7280;">(facultatif)</span></label>
+            <input type="text" id="meetingName" placeholder="ex : Réunion budget Q3" style="background:#0d0d1a;border:1px solid #333;color:#e0e0e0;border-radius:8px;padding:8px 12px;width:100%;font-size:.9em;box-sizing:border-box;">
           </div>
+          <button class="btn btn-primary" onclick="joinMeeting()" style="width:100%;padding:12px;">&#128640; Envoyer Luna dans cette réunion</button>
           <p id="meetingJoinStatus" style="font-size:.82em;margin-top:8px;min-height:1em;color:#a78bfa;"></p>
         </div>
       </div>
@@ -1824,7 +1828,7 @@ body.mode-secretaire .luna-chip:hover { background: rgba(16,185,129,0.2); border
 </div>
 
 <!-- Duration Picker Modal -->
-<div id="durationOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:200;align-items:center;justify-content:center;">
+<div id="durationOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:9000;align-items:center;justify-content:center;">
   <div style="background:#1a1a3e;padding:30px;border-radius:16px;width:90%;max-width:360px;text-align:center;">
     <h3 id="durationTitle" style="color:#a78bfa;margin-bottom:16px;">Duree de l'appel</h3>
     <p style="color:#888;font-size:0.85em;margin-bottom:16px;">Choisis la duree prevue pour cette session</p>
@@ -2913,13 +2917,20 @@ function _pollNotifications() {
     })
     .catch(function() {}); // silent fail
 }
+var _toastOffset = 0;
 function _showToast(title, body) {
   var toast = document.createElement("div");
   toast.className = "luna-toast";
   toast.innerHTML = '<strong>' + esc(title) + '</strong><br>' + esc((body||"").substring(0, 100));
+  var idx = _toastOffset;
+  toast.style.top = (20 + idx * 72) + "px";
+  _toastOffset++;
   document.body.appendChild(toast);
   setTimeout(function() { toast.classList.add("show"); }, 50);
-  setTimeout(function() { toast.classList.remove("show"); setTimeout(function() { toast.remove(); }, 300); }, 5000);
+  setTimeout(function() {
+    toast.classList.remove("show");
+    setTimeout(function() { toast.remove(); _toastOffset = Math.max(0, _toastOffset - 1); }, 300);
+  }, 5000);
 }
 
 // Request notification permission on first load
@@ -4098,11 +4109,38 @@ var _statusColors = {
   in_call_recording:'badge-green', call_ended:'badge-blue', done:'badge-purple', fatal:'badge-red'
 };
 
+var _platformLabels = {zoom:'Zoom',google_meet:'Google Meet',teams:'Microsoft Teams',webex:'Webex',gotomeeting:'GoToMeeting',ringcentral:'RingCentral'};
+var _platformColors = {zoom:'#2D8CFF',google_meet:'#34a853',teams:'#6264A7',webex:'#00B140',gotomeeting:'#f97316',ringcentral:'#f43f5e'};
+function _detectMeetingPlatform(url) {
+  var badge = document.getElementById('meetingPlatformBadge');
+  if (!badge) return;
+  var u = (url||'').toLowerCase();
+  var platform = '';
+  if (u.indexOf('zoom.us') !== -1) platform = 'zoom';
+  else if (u.indexOf('meet.google.com') !== -1) platform = 'google_meet';
+  else if (u.indexOf('teams.microsoft.com') !== -1 || u.indexOf('teams.live.com') !== -1) platform = 'teams';
+  else if (u.indexOf('webex.com') !== -1) platform = 'webex';
+  else if (u.indexOf('gotomeeting.com') !== -1) platform = 'gotomeeting';
+  else if (u.indexOf('ringcentral.com') !== -1) platform = 'ringcentral';
+  if (platform) {
+    var color = _platformColors[platform] || '#a78bfa';
+    badge.innerHTML = '<span style="display:inline-flex;align-items:center;gap:5px;background:' + color + '22;color:' + color + ';border:1px solid ' + color + '55;border-radius:6px;padding:3px 8px;font-weight:600;">✓ ' + (_platformLabels[platform]||platform) + ' détecté</span>';
+  } else if (url.length > 8) {
+    badge.innerHTML = '<span style="color:#f87171;font-size:.78em;">⚠️ Plateforme non reconnue (Zoom, Google Meet, Teams, Webex uniquement)</span>';
+  } else {
+    badge.innerHTML = '';
+  }
+}
+
 function joinMeeting() {
   var url = document.getElementById('meetingUrl').value.trim();
   var name = document.getElementById('meetingName').value.trim();
   var st = document.getElementById('meetingJoinStatus');
   if (!url) { st.textContent = 'Collez un lien de réunion.'; return; }
+  var u = url.toLowerCase();
+  var supported = u.indexOf('zoom.us')!==-1 || u.indexOf('meet.google.com')!==-1 || u.indexOf('teams.microsoft.com')!==-1 || u.indexOf('teams.live.com')!==-1 || u.indexOf('webex.com')!==-1 || u.indexOf('gotomeeting.com')!==-1 || u.indexOf('ringcentral.com')!==-1;
+  if (!supported) { st.textContent = '⚠️ Plateforme non supportée. Utilisez Zoom, Google Meet, Teams ou Webex.'; st.style.color='#f87171'; return; }
+  st.style.color = '#a78bfa';
   st.textContent = 'Envoi de Luna dans la réunion...';
   authFetch('/api/meeting/join', {
     method:'POST', headers:{'Content-Type':'application/json'},
