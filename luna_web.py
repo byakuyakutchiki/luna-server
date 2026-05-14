@@ -420,6 +420,8 @@ _PUBLIC_PATHS = (
     "/api/webhook/sms-status",
     "/api/webhook/tavus",
     "/api/webhook/voice-incoming",
+    "/api/webhooks/meetingbaas",
+    "/api/meeting/webhook",
     "/api/voice-call/twiml",
     "/api/voice-call/media-stream",
     "/api/sync/tavus",
