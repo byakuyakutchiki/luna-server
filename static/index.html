@@ -25,7 +25,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; b
 .tab-btn { padding: 10px 16px; background: transparent; border: none; color: #888; font-size: 0.85em; cursor: pointer; white-space: nowrap; border-bottom: 2px solid transparent; transition: all 0.2s; min-height: 44px; }
 .tab-btn:hover { color: #a78bfa; }
 .tab-btn.active { color: #a78bfa; border-bottom-color: #7c3aed; }
-.tab-panel { display: none; flex: 1; overflow-y: auto; flex-direction: column; }
+.tab-panel { display: none; flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; flex-direction: column; }
 .tab-panel.active { display: flex; }
 
 /* Mode switcher */
@@ -35,7 +35,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; b
 .mode-btn {
   flex: 1; padding: 8px 12px; border: 1px solid #333; border-radius: 10px;
   background: transparent; color: #888; font-size: 0.85em; font-weight: 600;
-  cursor: pointer; transition: all 0.25s; text-align: center;
+  cursor: pointer; transition: all 0.25s; text-align: center; min-height: 40px;
 }
 .mode-btn:hover { color: #e0e0e0; border-color: #555; }
 .mode-btn.active[data-mode="compagnon"] {
@@ -152,7 +152,7 @@ body.mode-secretaire .invite-box input:focus { border-color: #10b981; }
 .conc-results { display: none; padding: 0; }
 .conc-results.active { display: block; }
 .conc-results-header { display: flex; align-items: center; gap: 10px; padding: 14px 16px; border-bottom: 1px solid #333; }
-.conc-back-btn { background: none; border: 1px solid #555; color: #ccc; border-radius: 8px; padding: 6px 14px; cursor: pointer; font-size: 0.82em; }
+.conc-back-btn { background: none; border: 1px solid #555; color: #ccc; border-radius: 8px; padding: 8px 14px; cursor: pointer; font-size: 0.82em; min-height: 40px; }
 .conc-back-btn:hover { border-color: #10b981; color: #10b981; }
 .conc-results-title { font-size: 1em; font-weight: 600; color: #e0e0e0; margin: 0; }
 .conc-results-body { padding: 12px 16px; overflow-y: auto; max-height: calc(100vh - 200px); }
@@ -167,7 +167,7 @@ body.mode-secretaire .invite-box input:focus { border-color: #10b981; }
 .conc-result-card p { margin: 0; font-size: 0.8em; color: #999; line-height: 1.4; }
 .conc-result-card .conc-meta { font-size: 0.75em; color: #10b981; margin-top: 6px; }
 .conc-result-card .conc-actions { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
-.conc-result-btn { display: inline-block; padding: 7px 14px; border-radius: 8px; font-size: 0.78em; font-weight: 600; text-decoration: none; cursor: pointer; border: none; transition: all 0.2s; }
+.conc-result-btn { display: inline-flex; align-items: center; justify-content: center; padding: 9px 16px; border-radius: 8px; font-size: 0.82em; font-weight: 600; text-decoration: none; cursor: pointer; border: none; transition: all 0.2s; min-height: 40px; }
 .conc-result-btn.primary { background: #10b981; color: #fff; }
 .conc-result-btn.primary:hover { background: #059669; }
 .conc-result-btn.secondary { background: #1e1e50; color: #ccc; border: 1px solid #444; }
@@ -248,7 +248,7 @@ body.mode-secretaire .conc-modal-box .field input, body.mode-secretaire .conc-mo
   background: #1a1a2e; color: #fff; font-size: 0.82em; outline: none;
 }
 .conv-search:focus { border-color: #7c3aed; }
-.conv-list { flex: 1; overflow-y: auto; padding: 2px 0; }
+.conv-list { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 2px 0; }
 .conv-item {
   padding: 10px; cursor: pointer; border-left: 3px solid transparent;
   transition: background 0.15s; position: relative;
@@ -260,7 +260,7 @@ body.mode-secretaire .conc-modal-box .field input, body.mode-secretaire .conc-mo
 .conv-item-time { font-size: 0.68em; color: #555; margin-top: 2px; }
 .conv-item-actions { position: absolute; top: 6px; right: 6px; display: none; gap: 2px; }
 .conv-item:hover .conv-item-actions { display: flex; }
-.conv-item-btn { background: none; border: none; color: #666; cursor: pointer; padding: 2px 5px; font-size: 0.78em; border-radius: 4px; }
+.conv-item-btn { background: none; border: none; color: #666; cursor: pointer; padding: 6px 10px; font-size: 0.78em; border-radius: 4px; min-height: 36px; min-width: 36px; }
 .conv-item-btn:hover { background: #333; color: #e0e0e0; }
 .sidebar-toggle {
   display: none; width: 36px; height: 36px; border-radius: 8px; border: 1px solid #7c3aed;
@@ -283,7 +283,7 @@ body.mode-secretaire .conc-modal-box .field input, body.mode-secretaire .conc-mo
 }
 
 /* Chat */
-.chat { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 12px; }
+.chat { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 20px; display: flex; flex-direction: column; gap: 12px; }
 .msg { max-width: 80%; padding: 12px 16px; border-radius: 16px; line-height: 1.5; font-size: 0.95em; animation: fadeIn 0.3s; white-space: pre-wrap; word-break: break-word; overflow-wrap: break-word; }
 .msg a { color: #a78bfa; word-break: break-all; text-decoration: underline; }
 .msg a:hover { color: #c4b5fd; }
@@ -345,16 +345,16 @@ body.mode-secretaire .conc-modal-box .field input, body.mode-secretaire .conc-mo
 .typing-dots span:nth-child(2) { animation-delay: 0.2s; }
 .typing-dots span:nth-child(3) { animation-delay: 0.4s; }
 @keyframes bounce { 0%,80%,100% { transform: translateY(0); } 40% { transform: translateY(-8px); } }
-.luna-toast { position: fixed; top: 20px; right: 12px; left: 12px; max-width: 360px; margin: 0 auto; background: #1e1e3f; border-left: 4px solid #a78bfa; padding: 12px 16px; border-radius: 10px; z-index: 10000; color: #fff; opacity: 0; transform: translateY(-12px); transition: opacity 0.25s ease, transform 0.25s ease; font-size: 0.85em; box-shadow: 0 4px 24px rgba(0,0,0,0.5); pointer-events: none; }
+.luna-toast { position: fixed; top: calc(env(safe-area-inset-top, 0px) + 16px); right: 12px; left: 12px; max-width: 380px; margin: 0 auto; background: #1e1e3f; border-left: 4px solid #a78bfa; padding: 12px 16px; border-radius: 10px; z-index: 10000; color: #fff; opacity: 0; transform: translateY(-8px); transition: opacity 0.25s ease, transform 0.25s ease; font-size: 0.88em; box-shadow: 0 4px 24px rgba(0,0,0,0.5); pointer-events: none; }
 .luna-toast.show { opacity: 1; transform: translateY(0); }
 @media (min-width: 480px) { .luna-toast { left: auto; right: 20px; max-width: 320px; } }
 .error-msg { border: 1px solid rgba(248,113,113,0.3); }
-.retry-btn { margin-left: 10px; padding: 4px 12px; border-radius: 12px; border: 1px solid #7c3aed; background: transparent; color: #a78bfa; cursor: pointer; font-size: 0.85em; }
+.retry-btn { margin-left: 10px; padding: 8px 14px; border-radius: 12px; border: 1px solid #7c3aed; background: transparent; color: #a78bfa; cursor: pointer; font-size: 0.85em; min-height: 36px; }
 .retry-btn:hover { background: #7c3aed; color: white; }
 .input-area { padding: 8px 10px; padding-bottom: calc(8px + env(safe-area-inset-bottom)); background: #111; border-top: 1px solid #333; display: flex; gap: 6px; align-items: flex-end; position: relative; }
 .input-row { display: flex; align-items: flex-end; flex: 1; background: #1a1a2e; border-radius: 24px; border: 1px solid #333; padding: 4px 8px; gap: 4px; transition: border-color 0.2s; }
 .input-row:focus-within { border-color: #7c3aed; }
-.emoji-btn { background: none; border: none; cursor: pointer; font-size: 1.5em; padding: 6px; line-height: 1; opacity: 0.6; transition: opacity 0.2s; flex-shrink: 0; }
+.emoji-btn { background: none; border: none; cursor: pointer; font-size: 1.5em; padding: 6px; line-height: 1; opacity: 0.6; transition: opacity 0.2s; flex-shrink: 0; min-height: 40px; min-width: 40px; display: inline-flex; align-items: center; justify-content: center; }
 .emoji-btn:hover { opacity: 1; }
 .input-area textarea { flex: 1; padding: 10px 6px; border-radius: 0; border: none; background: transparent; color: #fff; font-size: 16px; outline: none; resize: none; min-height: 40px; max-height: 150px; line-height: 1.4; font-family: inherit; overflow-y: auto; -webkit-appearance: none; }
 .char-counter { font-size: 0.65em; color: #555; position: absolute; right: 80px; bottom: calc(14px + env(safe-area-inset-bottom)); pointer-events: none; }
@@ -413,7 +413,7 @@ body.mode-secretaire .conc-modal-box .field input, body.mode-secretaire .conc-mo
 .form-group label { display: block; font-size: 0.8em; color: #888; margin-bottom: 4px; }
 .form-group input, .form-group select, .form-group textarea {
   width: 100%; padding: 10px 14px; border-radius: 10px; border: 1px solid #333;
-  background: #1a1a2e; color: #fff; font-size: 0.9em; outline: none; font-family: inherit;
+  background: #1a1a2e; color: #fff; font-size: 16px; outline: none; font-family: inherit;
 }
 .form-group input:focus, .form-group select:focus, .form-group textarea:focus { border-color: #7c3aed; }
 .form-group textarea { resize: vertical; min-height: 60px; }
@@ -530,7 +530,7 @@ body.mode-secretaire .conc-modal-box .field input, body.mode-secretaire .conc-mo
 .theo-add-row select { min-width: 120px; }
 .theo-add-btn { padding: 8px 16px; border-radius: 8px; border: none; background: #f5c542; color: #000; font-weight: 600; font-size: 0.85em; cursor: pointer; }
 .theo-add-btn:hover { background: #f59e0b; }
-.theo-entries { max-height: 200px; overflow-y: auto; }
+.theo-entries { max-height: 200px; overflow-y: auto; -webkit-overflow-scrolling: touch; }
 .theo-entry { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 0.82em; }
 .theo-entry .e-date { color: #888; width: 80px; }
 .theo-entry .e-hours { color: #f5c542; font-weight: 600; width: 50px; }
@@ -548,7 +548,7 @@ body.mode-secretaire .conc-modal-box .field input, body.mode-secretaire .conc-mo
 .auth-screen { display: flex; justify-content: center; align-items: center; flex: 1; }
 .auth-box { background: #111; border: 1px solid #333; border-radius: 12px; padding: 40px; width: 90%; max-width: 360px; }
 .auth-box h2 { color: #a78bfa; margin-bottom: 20px; text-align: center; }
-.auth-box input { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #333; background: #1a1a2e; color: #fff; margin-bottom: 16px; font-size: 1em; outline: none; }
+.auth-box input { width: 100%; padding: 14px 12px; border-radius: 8px; border: 1px solid #333; background: #1a1a2e; color: #fff; margin-bottom: 16px; font-size: 16px; outline: none; }
 .auth-box input:focus { border-color: #7c3aed; }
 .auth-box button { width: 100%; padding: 12px; border-radius: 8px; border: none; background: #7c3aed; color: white; font-size: 1em; cursor: pointer; margin-bottom: 10px; }
 .auth-box button:hover { background: #6d28d9; }
@@ -574,7 +574,7 @@ body.mode-secretaire .luna-chip { background: rgba(16,185,129,0.08); border-colo
 body.mode-secretaire .luna-chip:hover { background: rgba(16,185,129,0.2); border-color: #10b981; }
 
 /* Proactive dashboard mini-cards */
-.luna-proactive { display: flex; gap: 8px; padding: 8px 0; overflow-x: auto; scrollbar-width: none; }
+.luna-proactive { display: flex; gap: 8px; padding: 8px 0; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
 .luna-proactive::-webkit-scrollbar { display: none; }
 .luna-proactive-card { flex: 0 0 auto; padding: 10px 14px; border-radius: 12px; background: rgba(124,58,237,0.1); border: 1px solid #2a2a4a; font-size: 0.82em; color: #c4b5fd; cursor: pointer; transition: all 0.2s; max-width: 180px; }
 .luna-proactive-card:hover { background: rgba(124,58,237,0.2); border-color: #7c3aed; }
@@ -653,7 +653,7 @@ body.mode-secretaire .luna-chip:hover { background: rgba(16,185,129,0.2); border
 .tab-badge { display:inline-flex; align-items:center; justify-content:center; min-width:18px; height:18px; border-radius:9px; background:#dc2626; color:white; font-size:0.65em; font-weight:700; margin-left:4px; padding:0 4px; }
 .add-code-row { display:flex; gap:8px; align-items:center; }
 .add-code-row input { flex:1; text-transform:uppercase; letter-spacing:3px; font-family:monospace; font-size:1.1em; text-align:center; padding:10px; border-radius:10px; border:1px solid #333; background:#0a0a1a; color:#fff; }
-.dm-modal { position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:200; display:none; align-items:center; justify-content:center; padding:16px; }
+.dm-modal { position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:500; display:none; align-items:center; justify-content:center; padding:16px; }
 .dm-modal.active { display:flex; }
 .dm-box { background:#1a1a3e; padding:20px; border-radius:16px; width:100%; max-width:400px; }
 .dm-box h3 { color:#a78bfa; margin:0; }
@@ -708,10 +708,10 @@ body.mode-secretaire .luna-chip:hover { background: rgba(16,185,129,0.2); border
   backdrop-filter:blur(8px);
 }
 #lunaVoiceTranscript {
-  position:fixed; bottom:140px; left:16px; right:80px; background:rgba(26,26,62,0.92);
+  position:fixed; bottom:140px; left:16px; right:76px; background:rgba(26,26,62,0.92);
   border:1px solid #333; border-radius:12px; padding:10px 14px; z-index:119;
   font-size:0.8em; color:#ccc; display:none; max-height:110px; overflow-y:auto;
-  backdrop-filter:blur(8px);
+  -webkit-overflow-scrolling:touch; backdrop-filter:blur(8px);
 }
 #lunaVoiceTranscript .vt-user { color:#c084fc; }
 #lunaVoiceTranscript .vt-luna { color:#4ade80; }
@@ -817,8 +817,8 @@ body.mode-secretaire .luna-chip:hover { background: rgba(16,185,129,0.2); border
   <div class="auth-box">
     <h2>Luna</h2>
     <p class="auth-error" id="loginError"></p>
-    <input type="email" id="loginEmail" placeholder="Email">
-    <input type="password" id="loginPassword" placeholder="Mot de passe">
+    <input type="email" id="loginEmail" placeholder="Email" autocomplete="email" inputmode="email">
+    <input type="password" id="loginPassword" placeholder="Mot de passe" autocomplete="current-password">
     <button id="loginBtn">Se connecter</button>
     <p class="auth-link">Pas encore de compte ? <a id="showRegister">Creer un compte</a></p>
   </div>
@@ -830,8 +830,8 @@ body.mode-secretaire .luna-chip:hover { background: rgba(16,185,129,0.2); border
     <p class="auth-error" id="registerError"></p>
     <input type="text" id="registerFirstName" placeholder="Prenom">
     <input type="text" id="registerLastName" placeholder="Nom">
-    <input type="email" id="registerEmail" placeholder="Email">
-    <input type="password" id="registerPassword" placeholder="Mot de passe (min 6 caracteres)">
+    <input type="email" id="registerEmail" placeholder="Email" autocomplete="email" inputmode="email">
+    <input type="password" id="registerPassword" placeholder="Mot de passe (min 6 caracteres)" autocomplete="new-password">
     <button id="registerBtn">S'inscrire</button>
     <p class="auth-link">Deja un compte ? <a id="showLogin">Se connecter</a></p>
   </div>
@@ -1628,7 +1628,7 @@ body.mode-secretaire .luna-chip:hover { background: rgba(16,185,129,0.2); border
   <div id="mapContainer" style="width:100%; height:100%; position:relative; display:flex; flex-direction:column;">
     <div id="mapSearchBar" style="display:flex; gap:6px; padding:6px 8px; background:#111; border-bottom:1px solid #333; flex-shrink:0; flex-wrap:nowrap; align-items:center;">
       <input type="text" id="mapSearchInput" placeholder="Rechercher un lieu..." autocomplete="off"
-        style="flex:1; min-width:0; padding:8px 12px; border-radius:20px; border:1px solid #333; background:#1a1a2e; color:#fff; font-size:0.9em; outline:none; font-family:inherit;">
+        style="flex:1; min-width:0; padding:8px 12px; border-radius:20px; border:1px solid #333; background:#1a1a2e; color:#fff; font-size:16px; outline:none; font-family:inherit;">
       <button id="mapSearchBtn" style="width:36px; height:36px; border-radius:50%; border:none; background:#7c3aed; color:white; cursor:pointer; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
       </button>
