@@ -32,7 +32,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.websockets import WebSocketState
 from pydantic import BaseModel, Field, field_validator
-from typing import Optional, Dict
+from typing import Optional, Dict, Any
 import httpx
 
 from integrations.twilio.sms_client import TwilioSMSClient
