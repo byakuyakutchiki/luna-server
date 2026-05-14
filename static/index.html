@@ -4158,8 +4158,36 @@ function joinMeeting() {
 
 function stopMeeting() {
   if (!_activeMeetingBotId) return;
-  authFetch('/api/meeting/'+_activeMeetingBotId+'/stop', {method:'POST'})
-    .then(function(){ _stopMeetingPoll(); loadMeetings(); });
+  var botId = _activeMeetingBotId;
+  var st = document.getElementById('meetingJoinStatus');
+  if (st) st.textContent = '⏳ Arrêt en cours...';
+  authFetch('/api/meeting/' + botId + '/stop', {method: 'POST'})
+    .then(function() {
+      _stopMeetingPoll();
+      _generateMeetingReport(botId);
+    });
+}
+
+function _generateMeetingReport(botId) {
+  var st = document.getElementById('meetingJoinStatus');
+  if (st) st.textContent = '⏳ Transcription en cours (30-60s)...';
+  authFetch('/api/meeting/' + botId + '/report', {method: 'POST'})
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      if (d.note_id) {
+        if (st) st.textContent = '✅ Compte rendu prêt !';
+        _showToast('✅ Compte rendu généré avec succès', 'success');
+        loadMeetings();
+        loadNotes();
+      } else {
+        if (st) st.textContent = '⚠️ ' + (d.error || 'Erreur lors de la transcription');
+        loadMeetings();
+      }
+    })
+    .catch(function() {
+      if (st) st.textContent = '⚠️ Erreur réseau lors de la génération';
+      loadMeetings();
+    });
 }
 
 function _startMeetingPoll(botId, name) {
@@ -4177,9 +4205,14 @@ function _startMeetingPoll(botId, name) {
       var isEnded = ['done','completed','call_ended','fatal','failed'].indexOf(d.status) !== -1;
       if (isEnded) {
         _stopMeetingPoll();
-        var ok = d.status === 'done' || d.status === 'completed';
-        document.getElementById('meetingJoinStatus').textContent = ok ? '✅ Compte rendu généré — voir Comptes Rendus.' : '⚠️ Réunion terminée.';
-        loadMeetings();
+        // Si la réunion s'est terminée sans qu'on ait cliqué Arrêter
+        if (!d.note_id) {
+          _generateMeetingReport(botId);
+        } else {
+          document.getElementById('meetingJoinStatus').textContent = '✅ Compte rendu prêt !';
+          loadMeetings();
+          loadNotes();
+        }
       }
     }).catch(function(){});
   }, 8000);
