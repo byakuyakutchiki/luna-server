@@ -481,16 +481,16 @@ except Exception as _e:
     logger.info(f"TheFork client non disponible: {_e}")
     thefork_client = None
 
-# Recall.ai — bot de réunion (Zoom, Meet, Teams, Webex)
+# MeetingBaas — bot de réunion (Zoom, Meet, Teams, Webex)
 try:
-    from integrations.recall.recall_client import RecallClient, detect_platform, format_transcript, PLATFORM_NAMES, STATUS_LABELS
-    recall_client = RecallClient.from_env()
+    from integrations.recall.meetingbaas_client import MeetingBaasClient, detect_platform, format_transcript, PLATFORM_NAMES, STATUS_LABELS
+    recall_client = MeetingBaasClient.from_env()
     if recall_client.is_configured:
-        logger.info("Recall.ai client OK")
+        logger.info("MeetingBaas client OK")
     else:
-        logger.info("Recall.ai non configuré (RECALL_API_KEY manquant)")
+        logger.info("MeetingBaas non configuré (MEETINGBAAS_API_KEY manquant)")
 except Exception as _e:
-    logger.info(f"Recall.ai non disponible: {_e}")
+    logger.info(f"MeetingBaas non disponible: {_e}")
     recall_client = None
     def detect_platform(url): return "unknown"
     def format_transcript(segs): return ""
@@ -7338,32 +7338,47 @@ Sois factuel et concis. Ne fabrique rien qui n'est pas dans la transcription."""
             logger.info(f"Meeting report saved: {note.id} (bot={bot_id})")
 
 
-@app.post("/api/webhooks/recall")
-async def recall_webhook(request: Request):
+@app.post("/api/webhooks/meetingbaas")
+async def meetingbaas_webhook(request: Request):
     """
-    Webhook PUBLIC — Recall.ai envoie ici les événements du bot.
-    Deux types : bot.status_change et bot.transcription (temps réel).
+    Webhook PUBLIC — MeetingBaas envoie ici les événements du bot.
+    Gère : changements de statut + transcription temps réel.
     """
     try:
         payload = await request.json()
     except Exception:
         return Response(status_code=400)
-    event = payload.get("event", "")
-    data = payload.get("data", {})
 
-    if event == "bot.status_change":
-        bot = data.get("bot", {})
-        bot_id = bot.get("id", "")
-        status_code = (bot.get("status") or {}).get("code", "")
-        logger.info(f"Recall status_change: {bot_id} → {status_code}")
+    logger.debug(f"MeetingBaas webhook: {str(payload)[:200]}")
+
+    # --- Extraction du bot_id (plusieurs formats possibles) ---
+    bot_id = (
+        payload.get("bot_id")
+        or payload.get("id")
+        or (payload.get("data") or {}).get("bot_id")
+        or (payload.get("data") or {}).get("id")
+        or ""
+    )
+
+    # --- Statut du bot ---
+    status_code = (
+        payload.get("status")
+        or payload.get("event")
+        or (payload.get("data") or {}).get("status")
+        or ""
+    )
+
+    if bot_id and status_code:
+        logger.info(f"MeetingBaas status: {bot_id} → {status_code}")
         session = _recall_sessions.get(bot_id)
         if session:
             session["status"] = status_code
-        if status_code in ("done", "call_ended") and bot_id in _recall_transcripts:
+
+        if status_code in ("done", "completed", "call_ended", "left_call") and bot_id in _recall_transcripts:
             import datetime as _dt
             if session:
                 session["ended_at"] = _dt.datetime.utcnow().isoformat()
-            # Récupérer la transcription complète depuis l'API
+            # Récupérer la transcription complète depuis l'API MeetingBaas
             if recall_client:
                 try:
                     full_segments = await recall_client.get_transcript_async(bot_id)
@@ -7375,15 +7390,22 @@ async def recall_webhook(request: Request):
             if segments and session:
                 asyncio.create_task(_generate_meeting_report(bot_id, segments, session))
 
-    elif event == "bot.transcription":
-        # Transcription temps réel
-        bot_id = data.get("bot_id", "")
-        segment = data.get("transcript", {})
-        if bot_id and segment.get("is_final"):
-            if bot_id not in _recall_transcripts:
-                _recall_transcripts[bot_id] = []
-            _recall_transcripts[bot_id].append(segment)
-            logger.debug(f"Recall transcript [{bot_id}] {segment.get('speaker')}: {str(segment)[:60]}")
+    # --- Transcription temps réel ---
+    transcript_data = (
+        payload.get("transcript")
+        or (payload.get("data") or {}).get("transcript")
+    )
+    if transcript_data and bot_id:
+        if isinstance(transcript_data, list):
+            segments = transcript_data
+        else:
+            segments = [transcript_data] if transcript_data.get("text") or transcript_data.get("words") else []
+        for seg in segments:
+            if seg.get("is_final", True):  # MeetingBaas envoie souvent is_final absent = True
+                if bot_id not in _recall_transcripts:
+                    _recall_transcripts[bot_id] = []
+                _recall_transcripts[bot_id].append(seg)
+                logger.debug(f"MeetingBaas transcript [{bot_id}] {seg.get('speaker','?')}: {str(seg)[:60]}")
 
     return Response(status_code=200)
 
