@@ -136,9 +136,6 @@ class MeetingBaasClient:
             "bot_name": bot_name or self.default_bot_name,
             "recording_mode": "audio_only",
             "webhook_url": f"{self.webhook_url}/api/webhooks/meetingbaas",
-            "speech_to_text": {
-                "provider": "Default",
-            },
         }
         try:
             r = httpx.post(
@@ -198,14 +195,41 @@ class MeetingBaasClient:
             return {}
 
     def get_transcript(self, bot_id: str) -> List[Dict]:
-        """Récupère la transcription via get_bot (v2: pas d'endpoint /transcript séparé)."""
+        """Transcrit l'audio via Whisper (OpenAI). Fallback: transcription MeetingBaas si dispo."""
         try:
             bot_data = self.get_bot(bot_id)
-            # v2: transcription est dans data.transcription (liste de segments ou null)
-            transcript = bot_data.get("transcription") or bot_data.get("raw_transcription") or []
-            if isinstance(transcript, list):
-                return transcript
-            return []
+            # Essai 1 : transcription native MeetingBaas
+            native = bot_data.get("transcription") or bot_data.get("raw_transcription") or []
+            if native and isinstance(native, list):
+                return native
+            # Essai 2 : audio → Whisper
+            audio_url = bot_data.get("audio")
+            if not audio_url:
+                return []
+            openai_key = os.getenv("OPENAI_API_KEY", "")
+            if not openai_key:
+                logger.warning("OPENAI_API_KEY manquant — transcription Whisper impossible")
+                return []
+            audio_resp = httpx.get(audio_url, timeout=120.0)
+            audio_resp.raise_for_status()
+            import openai as _openai
+            client = _openai.OpenAI(api_key=openai_key)
+            result = client.audio.transcriptions.create(
+                model="whisper-1",
+                file=("meeting.flac", audio_resp.content, "audio/flac"),
+                language="fr",
+                response_format="verbose_json",
+            )
+            # Normalise en segments compatibles format_transcript
+            segments = []
+            for seg in (result.segments or []):
+                segments.append({
+                    "speaker": "Participant",
+                    "start_time": seg.start,
+                    "text": seg.text.strip(),
+                })
+            logger.info(f"Whisper transcription: {len(segments)} segments pour bot {bot_id}")
+            return segments
         except Exception as e:
             logger.error(f"MeetingBaas get_transcript {bot_id}: {e}")
             return []
