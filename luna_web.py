@@ -7253,7 +7253,7 @@ async def meeting_status(bot_id: str, request: Request):
     if not session:
         return JSONResponse(status_code=404, content={"error": "Réunion introuvable"})
     # Rafraîchir le statut depuis l'API Recall.ai si toujours actif
-    if recall_client and session.get("status") not in ("done", "fatal", "call_ended"):
+    if recall_client and session.get("status") not in ("done", "completed", "fatal", "call_ended", "failed"):
         bot_data = await recall_client.get_bot_async(bot_id)
         if bot_data:
             # v2: status est une string directe (pas un objet nested)
@@ -7376,7 +7376,7 @@ async def meetingbaas_webhook(request: Request):
         if session:
             session["status"] = status_code
 
-        if status_code in ("done", "completed", "call_ended", "left_call") and bot_id in _recall_transcripts:
+        if status_code in ("done", "completed", "call_ended", "left_call", "failed") and bot_id in _recall_transcripts:
             import datetime as _dt
             if session:
                 session["ended_at"] = _dt.datetime.utcnow().isoformat()

@@ -21,19 +21,22 @@ logger = logging.getLogger(__name__)
 MEETINGBAAS_API_URL = "https://api.meetingbaas.com/v2"
 
 STATUS_LABELS = {
-    "waiting":          "En attente",
-    "joining":          "Connexion...",
-    "joined":           "Connecté — transcription active",
-    "recording":        "En réunion — enregistrement actif",
-    "leaving":          "Déconnexion...",
-    "done":             "Réunion terminée",
-    "failed":           "Erreur",
-    # Recall-compat aliases (au cas où)
-    "ready":                        "En attente",
-    "joining_call":                 "Connexion...",
-    "in_waiting_room":              "Salle d'attente",
+    # MeetingBaas v2
+    "queued":                       "En attente",
+    "joining":                      "Connexion...",
+    "joined":                       "Connecté",
     "in_call_not_recording":        "Connecté",
     "in_call_recording":            "En réunion — transcription active",
+    "in_waiting_room":              "Salle d'attente",
+    "leaving":                      "Déconnexion...",
+    "completed":                    "Réunion terminée",
+    "failed":                       "Erreur",
+    # Compat v1 / autres
+    "waiting":                      "En attente",
+    "ready":                        "En attente",
+    "joining_call":                 "Connexion...",
+    "recording":                    "En réunion — enregistrement actif",
+    "done":                         "Réunion terminée",
     "call_ended":                   "Réunion terminée",
     "fatal":                        "Erreur fatale",
 }

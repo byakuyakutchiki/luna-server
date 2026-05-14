@@ -4174,9 +4174,11 @@ function _startMeetingPoll(botId, name) {
       statusEl.className = 'badge ' + statusClass;
       statusEl.textContent = d.status_label || d.status;
       document.getElementById('meetingTranscriptCount').textContent = d.transcript_count ? d.transcript_count + ' segments transcrits' : '';
-      if (d.status === 'done' || d.status === 'fatal' || d.status === 'call_ended') {
+      var isEnded = ['done','completed','call_ended','fatal','failed'].indexOf(d.status) !== -1;
+      if (isEnded) {
         _stopMeetingPoll();
-        document.getElementById('meetingJoinStatus').textContent = d.status === 'done' ? '✅ Compte rendu généré — voir Comptes Rendus.' : '⚠️ Réunion terminée.';
+        var ok = d.status === 'done' || d.status === 'completed';
+        document.getElementById('meetingJoinStatus').textContent = ok ? '✅ Compte rendu généré — voir Comptes Rendus.' : '⚠️ Réunion terminée.';
         loadMeetings();
       }
     }).catch(function(){});
