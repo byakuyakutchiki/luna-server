@@ -4210,13 +4210,13 @@ function loadMeetings() {
         '<div class="note-card-hdr">'+
           '<span class="note-card-title">' + icon + ' ' + esc(m.meeting_name||'Réunion') + '</span>'+
           '<div class="note-card-meta">'+
-            '<span class="badge '+sc+'" style="font-size:.68em;">'+esc(m.status)+'</span>'+
+            '<span class="badge '+sc+'" style="font-size:.68em;">'+esc(m.status_label||m.status)+'</span>'+
             '<span class="note-card-date">'+esc(dateStr)+'</span>'+
           '</div>'+
         '</div>'+
         '<div style="padding:4px 14px 10px;font-size:.78em;color:#6b7280;">'+
-          esc(m.bot_name||'Luna') + ' · ' + esc(m.meeting_url||'') +
-          (m.note_id ? ' · <a href="#" onclick="switchNotesTab(\'reports\',document.querySelector(\'.notes-subtab\'));return false;" style="color:#a78bfa;">Voir le compte rendu</a>' : '') +
+          esc(m.status_label || m.status || '') +
+          (m.note_id ? ' · <a href="#" onclick="switchNotesTab(\'reports\',document.querySelector(\'.notes-subtab\'));return false;" style="color:#a78bfa;">📋 Voir le compte rendu</a>' : '') +
         '</div>';
       list.appendChild(card);
     });

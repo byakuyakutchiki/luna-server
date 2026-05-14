@@ -159,6 +159,11 @@ class CortexTelegramBot:
                     "allowed_updates": '["message"]',
                 },
             )
+            if resp.status_code == 409:
+                # Une autre instance poll — on attend plus longtemps
+                logger.debug("Telegram 409: autre instance active, pause 15s")
+                await asyncio.sleep(15)
+                return
             if resp.status_code != 200:
                 await asyncio.sleep(2)
                 return

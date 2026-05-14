@@ -1633,15 +1633,19 @@ p {{
 # ENDPOINTS
 # =========================================================================
 
+_NO_CACHE_HEADERS = {
+    "Cache-Control": "no-cache, no-store, must-revalidate",
+    "Pragma": "no-cache",
+    "Expires": "0",
+}
+
 @app.get("/")
 async def index(request: Request):
-    # Auto-update: le bandeau JS dans index.html gere la notification
-    # (ne PAS bloquer l'acces a l'app — le user peut cliquer "Plus tard")
     if _pv_locked:
         setup_path = os.path.join(STATIC_DIR, "setup.html")
         if os.path.exists(setup_path):
-            return FileResponse(setup_path)
-    return FileResponse(os.path.join(STATIC_DIR, "index.html"))
+            return FileResponse(setup_path, headers=_NO_CACHE_HEADERS)
+    return FileResponse(os.path.join(STATIC_DIR, "index.html"), headers=_NO_CACHE_HEADERS)
 
 
 @app.get("/sw.js")
@@ -1657,7 +1661,7 @@ async def service_worker():
 @app.get("/client")
 async def client_page():
     """Acces direct a l'espace client (meme si PV non signe)."""
-    return FileResponse(os.path.join(STATIC_DIR, "index.html"))
+    return FileResponse(os.path.join(STATIC_DIR, "index.html"), headers=_NO_CACHE_HEADERS)
 
 
 @app.get("/health")
