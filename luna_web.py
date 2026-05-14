@@ -7333,6 +7333,26 @@ async def meeting_active(request: Request):
     return {"meetings": sorted(sessions, key=lambda x: x.get("started_at", ""), reverse=True)}
 
 
+async def _auto_generate_report(bot_id: str, session: dict) -> None:
+    """Déclenché par le poll de statut quand completed — évite d'attendre le webhook."""
+    # Garde-fou : ne pas relancer si déjà en cours ou terminé
+    if session.get("note_id") or session.get("_report_pending"):
+        return
+    session["_report_pending"] = True
+    _mtg_session_set(bot_id, session)
+    try:
+        full_segments = await recall_client.get_transcript_async(bot_id)
+        if full_segments:
+            _mtg_transcripts_set(bot_id, full_segments)
+            await _generate_meeting_report(bot_id, full_segments, session)
+    except Exception as e:
+        logger.warning(f"_auto_generate_report {bot_id}: {e}")
+    finally:
+        session = _mtg_session_get(bot_id) or session
+        session.pop("_report_pending", None)
+        _mtg_session_set(bot_id, session)
+
+
 @app.get("/api/meeting/{bot_id}/status")
 async def meeting_status(bot_id: str, request: Request):
     """Retourne le statut en temps réel d'un bot (polling frontend)."""
@@ -7347,6 +7367,10 @@ async def meeting_status(bot_id: str, request: Request):
             code = raw if isinstance(raw, str) else (raw or {}).get("code", session["status"])
             session["status"] = code
             _mtg_session_set(bot_id, session)
+    # Si MeetingBaas a terminé et pas encore de compte rendu → déclenche Whisper+GPT
+    if (session.get("status") in ("completed", "done") and
+            not session.get("note_id") and recall_client):
+        asyncio.create_task(_auto_generate_report(bot_id, session))
     label = STATUS_LABELS.get(session["status"], session["status"])
     return {**session, "status_label": label, "transcript_count": len(_mtg_transcripts_get(bot_id))}
 
@@ -7362,6 +7386,58 @@ async def meeting_stop(bot_id: str, request: Request):
     session["status"] = "call_ended"
     _mtg_session_set(bot_id, session)
     return {"bot_id": bot_id, "status": "call_ended"}
+
+
+@app.post("/api/meeting/{bot_id}/report")
+async def meeting_report(bot_id: str, request: Request):
+    """Génère (ou régénère) le compte rendu d'une réunion terminée.
+    Fonctionne même si le webhook MeetingBaas n'est jamais arrivé :
+    récupère l'audio depuis l'API, transcrit via Whisper, génère via GPT."""
+    if not recall_client:
+        return JSONResponse(status_code=503, content={"error": "MeetingBaas non configuré"})
+    tid = getattr(request.state, "tenant_id", 1)
+
+    # Récupère ou reconstruit la session
+    session = _mtg_session_get(bot_id)
+    if not session:
+        # Reconstruit depuis MeetingBaas si session perdue (redéploiement)
+        bot_data = await recall_client.get_bot_async(bot_id)
+        if not bot_data:
+            return JSONResponse(status_code=404, content={"error": "Bot introuvable sur MeetingBaas"})
+        import datetime as _dt
+        session = {
+            "bot_id": bot_id,
+            "meeting_url": bot_data.get("meeting_url", ""),
+            "platform": detect_platform(bot_data.get("meeting_url", "")),
+            "meeting_name": bot_data.get("meeting_name") or "Réunion",
+            "bot_name": bot_data.get("bot_name", "Luna (YAWatch)"),
+            "tenant_id": tid,
+            "status": bot_data.get("status", "completed"),
+            "started_at": bot_data.get("created_at", _dt.datetime.utcnow().isoformat()),
+            "ended_at": _dt.datetime.utcnow().isoformat(),
+            "note_id": None,
+        }
+        _mtg_session_set(bot_id, session)
+
+    # Si déjà un compte rendu, le retourner directement
+    if session.get("note_id"):
+        return {"bot_id": bot_id, "note_id": session["note_id"], "status": "already_generated"}
+
+    # Transcription Whisper
+    try:
+        segments = await recall_client.get_transcript_async(bot_id)
+    except Exception as e:
+        return JSONResponse(status_code=502, content={"error": f"Transcription échouée : {e}"})
+    if not segments:
+        return JSONResponse(status_code=422, content={"error": "Aucun segment audio disponible (réunion trop courte ?)"})
+
+    _mtg_transcripts_set(bot_id, segments)
+    await _generate_meeting_report(bot_id, segments, session)
+    session = _mtg_session_get(bot_id)
+    note_id = (session or {}).get("note_id")
+    if not note_id:
+        return JSONResponse(status_code=500, content={"error": "Génération du rapport échouée"})
+    return {"bot_id": bot_id, "note_id": note_id, "transcript_count": len(segments), "status": "generated"}
 
 
 async def _generate_meeting_report(bot_id: str, segments: list, session: dict):
