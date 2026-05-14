@@ -5627,19 +5627,9 @@ if (localStorage.getItem("luna_wakeword") === "on") {
 function _doAppUpdate() {
   var downloadPageUrl = window.location.origin + "/download";
 
-  // Pour TOUTES les versions d'APK, on ouvre la page /download dans Chrome.
-  // Le WebView ne peut pas telecharger un APK correctement (ancien DownloadListener buggue).
-  // On utilise un intent:// Android pour forcer Chrome.
-  var stripped = downloadPageUrl.replace(/^https?:\/\//, "");
-  var intentUrl = "intent://" + stripped + "#Intent;scheme=https;package=com.android.chrome;end";
-
-  try {
-    window.location.href = intentUrl;
-  } catch(e) {
-    // Fallback: ouvrir dans n'importe quel navigateur
-    try { window.open(downloadPageUrl, "_blank"); } catch(e2) {}
-  }
-
+  // Ne pas naviguer via intent:// — le WebView ne gère pas ce scheme
+  // et affiche "impossible d'afficher la page web". On montre directement
+  // le dialogue avec le lien à copier/ouvrir dans Chrome.
   var banner = document.getElementById("updateBanner");
   if (banner) {
     banner.style.cssText = "position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(10,10,26,0.97);color:white;padding:20px;z-index:99999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;font-size:1em;";
@@ -5689,11 +5679,24 @@ function _selectUpdateUrl() {
 }
 function _openInChrome() {
   var url = window.location.origin + "/download";
+  // Copie l'URL dans le presse-papiers puis guide l'utilisateur
+  var btn = document.querySelector('[onclick="_openInChrome()"]');
+  var copied = false;
   try {
-    // intent:// scheme pour ouvrir dans Chrome specifiquement
-    window.location.href = "intent://" + url.replace(/^https?:\/\//, "") + "#Intent;scheme=https;package=com.android.chrome;end";
-  } catch(e) {
-    window.open(url, "_blank");
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(url).then(function() {
+        if (btn) btn.textContent = "Lien copié — collez dans Chrome";
+      });
+      copied = true;
+    }
+  } catch(e) {}
+  if (!copied) {
+    var ta = document.createElement("textarea");
+    ta.value = url; ta.style.cssText = "position:fixed;opacity:0;";
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand("copy"); copied = true; } catch(e2) {}
+    document.body.removeChild(ta);
+    if (btn && copied) btn.textContent = "Lien copié — collez dans Chrome";
   }
 }
 
