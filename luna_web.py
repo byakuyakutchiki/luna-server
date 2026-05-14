@@ -7256,7 +7256,9 @@ async def meeting_status(bot_id: str, request: Request):
     if recall_client and session.get("status") not in ("done", "fatal", "call_ended"):
         bot_data = await recall_client.get_bot_async(bot_id)
         if bot_data:
-            code = (bot_data.get("status") or {}).get("code", session["status"])
+            # v2: status est une string directe (pas un objet nested)
+            raw = bot_data.get("status", session["status"])
+            code = raw if isinstance(raw, str) else (raw or {}).get("code", session["status"])
             session["status"] = code
     label = STATUS_LABELS.get(session["status"], session["status"])
     return {**session, "status_label": label, "transcript_count": len(_recall_transcripts.get(bot_id, []))}

@@ -18,7 +18,7 @@ import httpx
 
 logger = logging.getLogger(__name__)
 
-MEETINGBAAS_API_URL = "https://api.meetingbaas.com"
+MEETINGBAAS_API_URL = "https://api.meetingbaas.com/v2"
 
 STATUS_LABELS = {
     "waiting":          "En attente",
@@ -145,10 +145,12 @@ class MeetingBaasClient:
                 timeout=30.0,
             )
             r.raise_for_status()
-            data = r.json()
-            bot_id = data.get("bot_id") or data.get("id", "")
+            envelope = r.json()
+            # v2: {"success": true, "data": {"bot_id": "..."}}
+            inner = envelope.get("data", envelope)
+            bot_id = inner.get("bot_id") or inner.get("id", "")
             logger.info(f"MeetingBaas bot créé : {bot_id} → {meeting_url}")
-            return True, data
+            return True, {**inner, "id": bot_id, "bot_id": bot_id}
         except httpx.HTTPStatusError as e:
             detail = {}
             try:
@@ -162,10 +164,10 @@ class MeetingBaasClient:
             return False, {"error": str(e)}
 
     def stop_bot(self, bot_id: str) -> bool:
-        """Fait quitter la réunion au bot."""
+        """Fait quitter la réunion au bot (v2: POST /bots/{id}/leave)."""
         try:
-            r = httpx.delete(
-                f"{MEETINGBAAS_API_URL}/bots/{bot_id}",
+            r = httpx.post(
+                f"{MEETINGBAAS_API_URL}/bots/{bot_id}/leave",
                 headers=self._headers(),
                 timeout=15.0,
             )
@@ -177,7 +179,7 @@ class MeetingBaasClient:
             return False
 
     def get_bot(self, bot_id: str) -> Dict[str, Any]:
-        """Retourne l'état actuel du bot."""
+        """Retourne l'état actuel du bot (v2: status à plat dans data)."""
         try:
             r = httpx.get(
                 f"{MEETINGBAAS_API_URL}/bots/{bot_id}",
@@ -185,24 +187,22 @@ class MeetingBaasClient:
                 timeout=10.0,
             )
             r.raise_for_status()
-            return r.json()
+            envelope = r.json()
+            # v2: {"success": true, "data": {...}}
+            return envelope.get("data", envelope)
         except Exception as e:
             logger.error(f"MeetingBaas get_bot {bot_id}: {e}")
             return {}
 
     def get_transcript(self, bot_id: str) -> List[Dict]:
-        """Récupère la transcription complète après la réunion."""
+        """Récupère la transcription via get_bot (v2: pas d'endpoint /transcript séparé)."""
         try:
-            # MeetingBaas renvoie la transcription dans get_bot ou endpoint dédié
-            r = httpx.get(
-                f"{MEETINGBAAS_API_URL}/bots/{bot_id}/transcript",
-                headers=self._headers(),
-                timeout=60.0,
-            )
-            r.raise_for_status()
-            data = r.json()
-            # Format: {"transcript": [...]} ou directement [...]
-            return data.get("transcript", data) if isinstance(data, dict) else data
+            bot_data = self.get_bot(bot_id)
+            # v2: transcription est dans data.transcription (liste de segments ou null)
+            transcript = bot_data.get("transcription") or bot_data.get("raw_transcription") or []
+            if isinstance(transcript, list):
+                return transcript
+            return []
         except Exception as e:
             logger.error(f"MeetingBaas get_transcript {bot_id}: {e}")
             return []
