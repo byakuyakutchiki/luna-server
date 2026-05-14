@@ -1389,9 +1389,45 @@ body.mode-secretaire .luna-chip:hover { background: rgba(16,185,129,0.2); border
     <div class="notes-subtabs">
       <button class="notes-subtab active" onclick="switchNotesTab('reports',this)">&#128203; Comptes Rendus</button>
       <button class="notes-subtab" onclick="switchNotesTab('notes',this)">&#9998; Mes Notes</button>
+      <button class="notes-subtab" onclick="switchNotesTab('meetings',this)">&#128187; Réunions</button>
     </div>
     <div id="notesReports"><p class="empty-state">Chargement...</p></div>
     <div id="notesNotes" style="display:none"></div>
+    <div id="notesMeetings" style="display:none">
+      <!-- Rejoindre une réunion -->
+      <div class="card" style="margin-bottom:14px;">
+        <div class="card-header"><span class="card-title">&#128640; Envoyer Luna dans une réunion</span></div>
+        <div style="padding:0 0 8px 0;">
+          <div class="form-group" style="margin-bottom:8px;">
+            <label style="font-size:.82em;color:#aaa;">Lien de la réunion</label>
+            <input type="url" id="meetingUrl" placeholder="https://zoom.us/j/123… ou meet.google.com/abc…" style="background:#0d0d1a;border:1px solid #333;color:#e0e0e0;border-radius:8px;padding:8px 12px;width:100%;font-size:.9em;box-sizing:border-box;">
+          </div>
+          <div class="form-row" style="gap:8px;">
+            <div class="form-group" style="flex:1;margin:0;">
+              <label style="font-size:.82em;color:#aaa;">Nom de la réunion</label>
+              <input type="text" id="meetingName" placeholder="Réunion budget Q3…" style="background:#0d0d1a;border:1px solid #333;color:#e0e0e0;border-radius:8px;padding:8px 12px;width:100%;font-size:.9em;box-sizing:border-box;">
+            </div>
+            <div class="form-group" style="flex:0 0 auto;margin:0;display:flex;align-items:flex-end;">
+              <button class="btn btn-primary" onclick="joinMeeting()" style="white-space:nowrap;">Envoyer Luna</button>
+            </div>
+          </div>
+          <p id="meetingJoinStatus" style="font-size:.82em;margin-top:8px;min-height:1em;color:#a78bfa;"></p>
+        </div>
+      </div>
+      <!-- Réunion active -->
+      <div id="meetingActiveBox" style="display:none;" class="card" style="margin-bottom:14px;border:1px solid #7c3aed44;">
+        <div class="card-header">
+          <span class="card-title" id="meetingActiveName">Réunion en cours</span>
+          <span id="meetingActiveStatus" class="badge badge-purple">Connexion...</span>
+        </div>
+        <div style="display:flex;gap:8px;padding-top:4px;flex-wrap:wrap;">
+          <button class="btn btn-sm" style="background:#ef444422;color:#f87171;border:1px solid #ef4444;" onclick="stopMeeting()">Quitter la réunion</button>
+          <span id="meetingTranscriptCount" style="font-size:.78em;color:#6b7280;align-self:center;"></span>
+        </div>
+      </div>
+      <!-- Liste des réunions passées -->
+      <div id="meetingsList"><p class="empty-state">Aucune réunion. Collez un lien Zoom, Google Meet ou Teams ci-dessus.</p></div>
+    </div>
   </div>
 </div>
 
@@ -3956,8 +3992,10 @@ function switchNotesTab(tab, btn) {
   btn.classList.add('active');
   document.getElementById('notesReports').style.display = tab === 'reports' ? '' : 'none';
   document.getElementById('notesNotes').style.display = tab === 'notes' ? '' : 'none';
+  document.getElementById('notesMeetings').style.display = tab === 'meetings' ? '' : 'none';
   if (tab === 'reports') _loadNotesData('notesReports','/api/call-reports?limit=30','reports');
-  else _loadNotesData('notesNotes','/api/notes?limit=50','notes');
+  else if (tab === 'notes') _loadNotesData('notesNotes','/api/notes?limit=50','notes');
+  else if (tab === 'meetings') loadMeetings();
 }
 function loadCallReports() { _loadNotesData('notesReports','/api/call-reports?limit=30','reports'); }
 function _loadNotesData(containerId, url, dataKey) {
@@ -4047,6 +4085,102 @@ function _deleteNote(noteId,btn){
   authFetch('/api/notes/'+noteId,{method:'DELETE'}).then(function(r){
     if(r.status===204||r.ok){ var c=btn.closest('.note-card'); if(c){c.style.opacity='0';c.style.transition='opacity .25s';setTimeout(function(){c.remove();},260);} }
   });
+}
+
+// === Meetings (Recall.ai) ===
+var _activeMeetingBotId = null;
+var _meetingPollInterval = null;
+
+var _platformIcons = {zoom:'🔵',google_meet:'🟢',teams:'🟣',webex:'🔷',gotomeeting:'🟠',unknown:'🖥️'};
+var _statusColors = {
+  ready:'badge-gray', joining_call:'badge-yellow', in_waiting_room:'badge-yellow',
+  in_call_not_recording:'badge-yellow', recording_permission_allowed:'badge-yellow',
+  in_call_recording:'badge-green', call_ended:'badge-blue', done:'badge-purple', fatal:'badge-red'
+};
+
+function joinMeeting() {
+  var url = document.getElementById('meetingUrl').value.trim();
+  var name = document.getElementById('meetingName').value.trim();
+  var st = document.getElementById('meetingJoinStatus');
+  if (!url) { st.textContent = 'Collez un lien de réunion.'; return; }
+  st.textContent = 'Envoi de Luna dans la réunion...';
+  authFetch('/api/meeting/join', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({meeting_url: url, meeting_name: name})
+  }).then(function(r){return r.json();}).then(function(d){
+    if (d.error) { st.textContent = 'Erreur : ' + d.error; return; }
+    st.textContent = 'Luna rejoint la réunion (' + (d.platform||'') + ')…';
+    document.getElementById('meetingUrl').value = '';
+    document.getElementById('meetingName').value = '';
+    _activeMeetingBotId = d.bot_id;
+    _startMeetingPoll(d.bot_id, d.meeting_name);
+    loadMeetings();
+  }).catch(function(){ st.textContent = 'Erreur réseau.'; });
+}
+
+function stopMeeting() {
+  if (!_activeMeetingBotId) return;
+  authFetch('/api/meeting/'+_activeMeetingBotId+'/stop', {method:'POST'})
+    .then(function(){ _stopMeetingPoll(); loadMeetings(); });
+}
+
+function _startMeetingPoll(botId, name) {
+  _stopMeetingPoll();
+  var box = document.getElementById('meetingActiveBox');
+  document.getElementById('meetingActiveName').textContent = name || 'Réunion en cours';
+  box.style.display = '';
+  _meetingPollInterval = setInterval(function(){
+    authFetch('/api/meeting/'+botId+'/status').then(function(r){return r.json();}).then(function(d){
+      var statusEl = document.getElementById('meetingActiveStatus');
+      var statusClass = _statusColors[d.status] || 'badge-gray';
+      statusEl.className = 'badge ' + statusClass;
+      statusEl.textContent = d.status_label || d.status;
+      document.getElementById('meetingTranscriptCount').textContent = d.transcript_count ? d.transcript_count + ' segments transcrits' : '';
+      if (d.status === 'done' || d.status === 'fatal' || d.status === 'call_ended') {
+        _stopMeetingPoll();
+        document.getElementById('meetingJoinStatus').textContent = d.status === 'done' ? '✅ Compte rendu généré — voir Comptes Rendus.' : '⚠️ Réunion terminée.';
+        loadMeetings();
+      }
+    }).catch(function(){});
+  }, 8000);
+}
+
+function _stopMeetingPoll() {
+  if (_meetingPollInterval) { clearInterval(_meetingPollInterval); _meetingPollInterval = null; }
+  document.getElementById('meetingActiveBox').style.display = 'none';
+}
+
+function loadMeetings() {
+  var list = document.getElementById('meetingsList');
+  list.innerHTML = '<p class="empty-state">Chargement...</p>';
+  authFetch('/api/meeting/active').then(function(r){return r.json();}).then(function(data){
+    var meetings = data.meetings || [];
+    if (!meetings.length) {
+      list.innerHTML = '<p class="empty-state">Aucune réunion enregistrée. Collez un lien ci-dessus.</p>';
+      return;
+    }
+    list.innerHTML = '';
+    meetings.forEach(function(m){
+      var card = document.createElement('div'); card.className = 'note-card';
+      var icon = _platformIcons[m.platform] || '🖥️';
+      var sc = _statusColors[m.status] || 'badge-gray';
+      var dateStr = '';
+      try { dateStr = new Date(m.started_at).toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}); } catch(e){}
+      card.innerHTML =
+        '<div class="note-card-hdr">'+
+          '<span class="note-card-title">' + icon + ' ' + esc(m.meeting_name||'Réunion') + '</span>'+
+          '<div class="note-card-meta">'+
+            '<span class="badge '+sc+'" style="font-size:.68em;">'+esc(m.status)+'</span>'+
+            '<span class="note-card-date">'+esc(dateStr)+'</span>'+
+          '</div>'+
+        '</div>'+
+        '<div style="padding:4px 14px 10px;font-size:.78em;color:#6b7280;">'+
+          esc(m.bot_name||'Luna') + ' · ' + esc(m.meeting_url||'') +
+          (m.note_id ? ' · <a href="#" onclick="switchNotesTab(\'reports\',document.querySelector(\'.notes-subtab\'));return false;" style="color:#a78bfa;">Voir le compte rendu</a>' : '') +
+        '</div>';
+      list.appendChild(card);
+    });
+  }).catch(function(){ list.innerHTML = '<p class="empty-state">Erreur de chargement.</p>'; });
 }
 
 document.getElementById("docGenerateBtn").addEventListener("click", function() {

@@ -481,6 +481,26 @@ except Exception as _e:
     logger.info(f"TheFork client non disponible: {_e}")
     thefork_client = None
 
+# Recall.ai — bot de réunion (Zoom, Meet, Teams, Webex)
+try:
+    from integrations.recall.recall_client import RecallClient, detect_platform, format_transcript, PLATFORM_NAMES, STATUS_LABELS
+    recall_client = RecallClient.from_env()
+    if recall_client.is_configured:
+        logger.info("Recall.ai client OK")
+    else:
+        logger.info("Recall.ai non configuré (RECALL_API_KEY manquant)")
+except Exception as _e:
+    logger.info(f"Recall.ai non disponible: {_e}")
+    recall_client = None
+    def detect_platform(url): return "unknown"
+    def format_transcript(segs): return ""
+    PLATFORM_NAMES = {}
+    STATUS_LABELS = {}
+
+# État des réunions Recall.ai en cours et terminées
+_recall_sessions: Dict[str, dict] = {}       # bot_id → metadata
+_recall_transcripts: Dict[str, list] = {}    # bot_id → segments temps réel
+
 # Auto-configure SMS status callback URL si pas defini
 if sms_client and sms_client.is_configured and VOICE_CALLBACK_URL and not sms_client.status_callback_url:
     sms_client.status_callback_url = f"{VOICE_CALLBACK_URL}/api/webhook/sms-status"
@@ -7166,6 +7186,206 @@ async def delete_note(note_id: str, request: Request):
     if not found:
         return JSONResponse(status_code=404, content={"error": "Note introuvable"})
     return Response(status_code=204)
+
+
+# =========================================================================
+# RECALL.AI — RÉUNIONS (Zoom / Meet / Teams / Webex)
+# =========================================================================
+
+class MeetingJoinRequest(BaseModel):
+    meeting_url: str
+    meeting_name: str = ""
+    bot_name: str = "Luna (YAWatch)"
+
+@app.post("/api/meeting/join")
+async def meeting_join(req: MeetingJoinRequest, request: Request):
+    """Envoie Luna dans une réunion en tant que secrétaire silencieuse."""
+    if not recall_client or not recall_client.is_configured:
+        return JSONResponse(status_code=503, content={"error": "Recall.ai non configuré (RECALL_API_KEY manquant)"})
+    tid = getattr(request.state, "tenant_id", 1)
+    platform = detect_platform(req.meeting_url)
+    meeting_name = req.meeting_name or PLATFORM_NAMES.get(platform, "Réunion")
+    try:
+        ok, data = await recall_client.create_bot_async(
+            meeting_url=req.meeting_url,
+            bot_name=req.bot_name,
+        )
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+    if not ok:
+        return JSONResponse(status_code=502, content={"error": data.get("error", "Erreur Recall.ai"), "detail": data.get("detail")})
+    bot_id = data.get("id", "")
+    import datetime as _dt
+    _recall_sessions[bot_id] = {
+        "bot_id": bot_id,
+        "meeting_url": req.meeting_url,
+        "platform": platform,
+        "meeting_name": meeting_name,
+        "bot_name": req.bot_name,
+        "tenant_id": tid,
+        "status": "ready",
+        "started_at": _dt.datetime.utcnow().isoformat(),
+        "ended_at": None,
+        "note_id": None,
+    }
+    _recall_transcripts[bot_id] = []
+    logger.info(f"Recall meeting started: {bot_id} ({platform}) tenant={tid}")
+    return {"bot_id": bot_id, "platform": platform, "meeting_name": meeting_name, "status": "ready"}
+
+
+@app.get("/api/meeting/active")
+async def meeting_active(request: Request):
+    """Liste les réunions actives et terminées (dernières 24h)."""
+    tid = getattr(request.state, "tenant_id", 1)
+    import datetime as _dt
+    cutoff = (_dt.datetime.utcnow() - _dt.timedelta(hours=24)).isoformat()
+    sessions = [
+        s for s in _recall_sessions.values()
+        if s.get("tenant_id") == tid and (s.get("status") not in ("done", "fatal") or (s.get("ended_at") or "") >= cutoff)
+    ]
+    return {"meetings": sorted(sessions, key=lambda x: x.get("started_at", ""), reverse=True)}
+
+
+@app.get("/api/meeting/{bot_id}/status")
+async def meeting_status(bot_id: str, request: Request):
+    """Retourne le statut en temps réel d'un bot (polling frontend)."""
+    session = _recall_sessions.get(bot_id)
+    if not session:
+        return JSONResponse(status_code=404, content={"error": "Réunion introuvable"})
+    # Rafraîchir le statut depuis l'API Recall.ai si toujours actif
+    if recall_client and session.get("status") not in ("done", "fatal", "call_ended"):
+        bot_data = await recall_client.get_bot_async(bot_id)
+        if bot_data:
+            code = (bot_data.get("status") or {}).get("code", session["status"])
+            session["status"] = code
+    label = STATUS_LABELS.get(session["status"], session["status"])
+    return {**session, "status_label": label, "transcript_count": len(_recall_transcripts.get(bot_id, []))}
+
+
+@app.post("/api/meeting/{bot_id}/stop")
+async def meeting_stop(bot_id: str, request: Request):
+    """Demande au bot de quitter la réunion."""
+    session = _recall_sessions.get(bot_id)
+    if not session:
+        return JSONResponse(status_code=404, content={"error": "Réunion introuvable"})
+    if recall_client:
+        await recall_client.stop_bot_async(bot_id)
+    session["status"] = "call_ended"
+    return {"bot_id": bot_id, "status": "call_ended"}
+
+
+async def _generate_meeting_report(bot_id: str, segments: list, session: dict):
+    """Génère le compte rendu final via GPT et le sauvegarde en Redis."""
+    if not openai_client or not segments:
+        return
+    transcript_text = format_transcript(segments)
+    if not transcript_text.strip():
+        return
+    meeting_name = session.get("meeting_name", "Réunion")
+    platform = PLATFORM_NAMES.get(session.get("platform", ""), "Visioconférence")
+    prompt = f"""Tu es Luna, secrétaire IA de YAWatch.
+Voici la transcription d'une réunion "{meeting_name}" sur {platform}.
+
+TRANSCRIPTION :
+{transcript_text[:12000]}
+
+Génère un compte rendu structuré dans ce format exact (ne modifie pas les numéros ni le format **Titre**) :
+
+1) **Résumé**
+[2-3 phrases résumant l'essentiel]
+
+2) **Participants**
+[liste des noms détectés, un par ligne]
+
+3) **Sujets abordés**
+[liste à puces]
+
+4) **Décisions prises**
+[liste à puces, "Aucune décision formelle" si vide]
+
+5) **Actions à faire**
+[liste avec responsable et échéance si mentionnés, "Aucune" si vide]
+
+6) **Points bloquants**
+[liste à puces, "Aucun" si vide]
+
+7) **Citations importantes**
+[2-3 citations entre guillemets avec le nom, ou "Aucune" si vide]
+
+Sois factuel et concis. Ne fabrique rien qui n'est pas dans la transcription."""
+    try:
+        resp = openai_client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=1200,
+            temperature=0.3,
+        )
+        content = resp.choices[0].message.content.strip()
+    except Exception as e:
+        logger.error(f"Meeting report GPT error: {e}")
+        content = transcript_text  # fallback: transcription brute
+    tid = session.get("tenant_id", 1)
+    mgr = _get_tenant_manager(tid)
+    if mgr:
+        note = mgr.add_note(
+            content=content,
+            title=f"Compte rendu — {meeting_name}",
+            context="conference",
+            tags=["conference", "rapport", "recall"],
+        )
+        if note:
+            session["note_id"] = note.id
+            logger.info(f"Meeting report saved: {note.id} (bot={bot_id})")
+
+
+@app.post("/api/webhooks/recall")
+async def recall_webhook(request: Request):
+    """
+    Webhook PUBLIC — Recall.ai envoie ici les événements du bot.
+    Deux types : bot.status_change et bot.transcription (temps réel).
+    """
+    try:
+        payload = await request.json()
+    except Exception:
+        return Response(status_code=400)
+    event = payload.get("event", "")
+    data = payload.get("data", {})
+
+    if event == "bot.status_change":
+        bot = data.get("bot", {})
+        bot_id = bot.get("id", "")
+        status_code = (bot.get("status") or {}).get("code", "")
+        logger.info(f"Recall status_change: {bot_id} → {status_code}")
+        session = _recall_sessions.get(bot_id)
+        if session:
+            session["status"] = status_code
+        if status_code in ("done", "call_ended") and bot_id in _recall_transcripts:
+            import datetime as _dt
+            if session:
+                session["ended_at"] = _dt.datetime.utcnow().isoformat()
+            # Récupérer la transcription complète depuis l'API
+            if recall_client:
+                try:
+                    full_segments = await recall_client.get_transcript_async(bot_id)
+                    if full_segments:
+                        _recall_transcripts[bot_id] = full_segments
+                except Exception as e:
+                    logger.warning(f"Could not fetch full transcript: {e}")
+            segments = _recall_transcripts.get(bot_id, [])
+            if segments and session:
+                asyncio.create_task(_generate_meeting_report(bot_id, segments, session))
+
+    elif event == "bot.transcription":
+        # Transcription temps réel
+        bot_id = data.get("bot_id", "")
+        segment = data.get("transcript", {})
+        if bot_id and segment.get("is_final"):
+            if bot_id not in _recall_transcripts:
+                _recall_transcripts[bot_id] = []
+            _recall_transcripts[bot_id].append(segment)
+            logger.debug(f"Recall transcript [{bot_id}] {segment.get('speaker')}: {str(segment)[:60]}")
+
+    return Response(status_code=200)
 
 
 # =========================================================================
