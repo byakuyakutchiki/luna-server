@@ -3030,7 +3030,7 @@ async def _start_simli_visio(tenant_id: int, subscriber_name: str) -> tuple:
                 },
                 headers={
                     "Content-Type": "application/json",
-                    "Authorization": f"Bearer {api_key}",
+                    "x-simli-api-key": api_key,
                 },
             )
         data = resp.json()
