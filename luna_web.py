@@ -3020,10 +3020,10 @@ async def _start_simli_visio(tenant_id: int, subscriber_name: str) -> tuple:
                     ),
                     "firstMessage": f"Bonjour {subscriber_name} ! Ravie de te voir. Comment je peux t'aider ?",
                     "language": "fr",
-                    "llmConfig": {
+                    "customLLMConfig": {
                         "model": "gpt-4o-mini",
-                        "provider": "OpenAI",
-                        "apiKey": openai_key,
+                        "baseURL": "https://api.openai.com/v1",
+                        "llmAPIKey": openai_key,
                     },
                     "maxSessionLength": 3600,
                     "maxIdleTime": 300,
