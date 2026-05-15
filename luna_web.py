@@ -2998,18 +2998,20 @@ def _tenant_subscriber_first_name(tenant_id: int) -> str:
 
 
 async def _start_simli_visio(tenant_id: int, subscriber_name: str) -> tuple:
-    """Demarre une session Simli E2E. Retourne (ok, payload_ou_erreur)."""
+    """Demarre une session Simli. Retourne (ok, payload_ou_erreur).
+    Utilise /auto/start/configurable (API Simli v2).
+    """
     api_key = os.getenv("SIMLI_API_KEY", "")
     face_id = os.getenv("SIMLI_FACE_ID", "")
+    openai_key = os.getenv("OPENAI_API_KEY", "")
     if not api_key or not face_id:
         return False, {"error": "Simli non configure (SIMLI_API_KEY / SIMLI_FACE_ID manquants)"}
 
     try:
-        async with httpx.AsyncClient(timeout=20) as client:
+        async with httpx.AsyncClient(timeout=30) as client:
             resp = await client.post(
-                "https://api.simli.ai/startE2ESession",
+                "https://api.simli.ai/auto/start/configurable",
                 json={
-                    "apiKey": api_key,
                     "faceId": face_id,
                     "systemPrompt": (
                         "Tu es Luna, compagnon IA YAWatch, chaleureuse, attentionnee et bienveillante. "
@@ -3018,23 +3020,28 @@ async def _start_simli_visio(tenant_id: int, subscriber_name: str) -> tuple:
                     ),
                     "firstMessage": f"Bonjour {subscriber_name} ! Ravie de te voir. Comment je peux t'aider ?",
                     "language": "fr",
+                    "llmConfig": {
+                        "model": "gpt-4o-mini",
+                        "provider": "OpenAI",
+                        "apiKey": openai_key,
+                    },
+                    "maxSessionLength": 3600,
+                    "maxIdleTime": 300,
                 },
-                headers={"Content-Type": "application/json"},
+                headers={
+                    "Content-Type": "application/json",
+                    "Authorization": f"Bearer {api_key}",
+                },
             )
         data = resp.json()
         if resp.status_code != 200:
-            logger.error(f"Simli E2E error {resp.status_code}: {data}")
-            return False, {"error": data.get("message", "Simli indisponible")}
+            logger.error(f"Simli auto/start error {resp.status_code}: {data}")
+            return False, {"error": data.get("message", data.get("detail", "Simli indisponible"))}
 
-        conv_url = (
-            data.get("roomUrl") or data.get("room_url")
-            or data.get("conversationUrl") or data.get("url") or ""
-        )
-        session_id = (
-            data.get("session_token") or data.get("sessionToken")
-            or data.get("session_id") or data.get("id") or ""
-        )
+        conv_url = data.get("roomUrl") or data.get("room_url") or ""
+        session_id = data.get("sessionId") or data.get("session_id") or ""
         if not conv_url:
+            logger.error(f"Simli: no roomUrl in response: {data}")
             return False, {"error": "Simli: URL de session manquante"}
         return True, {
             "conversation_url": conv_url,
