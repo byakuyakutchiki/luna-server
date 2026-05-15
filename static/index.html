@@ -3539,7 +3539,7 @@ function _confirmDuration() {
 function startCall() {
   _showDurationPicker("visio", function(minutes) {
     try { if (typeof addMsg === "function") addMsg("Visio lancee (" + minutes + " min prevues)", "luna"); } catch(e) {}
-    window.location.href = "/simli?duration=" + minutes;
+    window.location.href = "/simli?duration=" + minutes + "&_v=26";
   });
 }
 // --- Appel Vocal (Twilio + OpenAI Realtime) ---

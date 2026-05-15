@@ -43,8 +43,8 @@ public class MainActivity extends Activity {
     private static final int PERMISSION_REQUEST_CODE = 100;
     private static final int NOTIFICATION_PERMISSION_CODE = 101;
     private static final int FILE_CHOOSER_REQUEST_CODE = 102;
-    private static final String CURRENT_VERSION = "2.6";
-    private static final int CURRENT_VERSION_CODE = 17;
+    private static final String CURRENT_VERSION = "2.7";
+    private static final int CURRENT_VERSION_CODE = 18;
     private static final int CAMERA_PERMISSION_FOR_FILE = 103;
     private static final int CAMERA_CAPTURE_REQUEST_CODE = 104;
     private static final String CHANNEL_ID = "luna_messages";
