@@ -1953,6 +1953,7 @@ function showApp() {
   document.getElementById("registerScreen").style.display = "none";
   document.getElementById("appContainer").style.display = "flex";
   startNotificationPolling();
+  if (typeof startPaymentPolling === "function") startPaymentPolling();
   // Apply saved mode
   if (typeof applyMode === "function") applyMode(currentMode);
 }
@@ -1965,7 +1966,7 @@ function showLogin() {
 
 function doLogout() {
   stopNotificationPolling();
-  if (typeof _paymentCheckInterval !== "undefined" && _paymentCheckInterval) { clearInterval(_paymentCheckInterval); _paymentCheckInterval = null; }
+  if (typeof stopPaymentPolling === "function") stopPaymentPolling();
   if (typeof amisHeartbeatTimer !== "undefined" && amisHeartbeatTimer) { clearInterval(amisHeartbeatTimer); amisHeartbeatTimer = null; }
   if (typeof dmPollTimer !== "undefined" && dmPollTimer) { clearInterval(dmPollTimer); dmPollTimer = null; }
   clearToken();
@@ -2325,15 +2326,10 @@ function _concShowSmsForm() {
     {name: "contact_name", label: "Contact", placeholder: "Nom du contact de confiance"},
     {name: "message", label: "Message", type: "textarea", placeholder: "Ton message..."},
   ], "Envoyer", function(v) {
-    if (v.contact_name && v.message) {
-      // SMS needs full chat context (contact lookup) — auto-send via chat
-      document.querySelector('.tab-btn[data-tab="chat"]').click();
-      setTimeout(function() {
-        var ta = document.querySelector(".input-area textarea");
-        ta.value = "Envoie un SMS a " + v.contact_name + " avec ce message : " + v.message;
-        document.querySelector(".send-btn").click();
-      }, 100);
-    }
+    if (!v.contact_name || !v.message) return;
+    _concDirect("send_sms", {contact_name: v.contact_name, message: v.message}, "SMS", function(d) {
+      _concResultsBody.innerHTML = '<div style="text-align:center;padding:40px;"><div style="font-size:3em;">&#x1F4AC;</div><p style="color:#10b981;font-weight:600;">' + esc(d.message || "SMS envoye") + '</p></div>';
+    });
   });
 }
 function _concShowEmailForm() {
@@ -2342,13 +2338,10 @@ function _concShowEmailForm() {
     {name: "subject", label: "Objet", placeholder: "Objet du mail"},
     {name: "body", label: "Message", type: "textarea", placeholder: "Contenu..."},
   ], "Envoyer", function(v) {
-    if (v.contact_name && v.subject) {
-      document.querySelector('.tab-btn[data-tab="chat"]').click();
-      var ta = document.querySelector(".input-area textarea");
-      ta.value = "Envoie un email a " + v.contact_name + " avec objet '" + v.subject + "' : " + v.body;
-      ta.focus();
-      document.querySelector(".send-btn").click();
-    }
+    if (!v.contact_name || !v.subject) return;
+    _concDirect("send_email", {contact_name: v.contact_name, subject: v.subject, body: v.body || ""}, "Email", function(d) {
+      _concResultsBody.innerHTML = '<div style="text-align:center;padding:40px;"><div style="font-size:3em;">&#x2709;</div><p style="color:#10b981;font-weight:600;">' + esc(d.message || "Email envoye") + '</p></div>';
+    });
   });
 }
 function _concShowReminderForm() {
@@ -2421,12 +2414,10 @@ function _concShowDocForm() {
 
 // --- Direct Actions ---
 function _concStartVoice() {
-  document.querySelector('.tab-btn[data-tab="chat"]').click();
-  setTimeout(function() { if (typeof startVoiceCall === "function") startVoiceCall(); }, 200);
+  if (typeof startVoiceCall === "function") startVoiceCall();
 }
 function _concStartVisio() {
-  document.querySelector('.tab-btn[data-tab="chat"]').click();
-  setTimeout(function() { if (typeof startCall === "function") startCall(); }, 200);
+  if (typeof startCall === "function") startCall();
 }
 function _concAlertUrgence() {
   if (!confirm("ALERTE URGENCE\n\nTous tes contacts de confiance vont recevoir un SMS d'alerte.\n\nConfirmer ?")) return;
@@ -2739,34 +2730,38 @@ function loadActivities() {
 // CARTE (Google Maps)
 // =========================================================================
 var mapLoaded = false;
+var _mapListenersReady = false;
 var _mapFrame, _mapLoader;
 function loadMap() {
   _mapFrame = document.getElementById("mapFrame");
   _mapLoader = document.getElementById("mapLoader");
 
-  // Search bar
-  var searchInput = document.getElementById("mapSearchInput");
-  var searchBtn = document.getElementById("mapSearchBtn");
-  var locateBtn = document.getElementById("mapLocateBtn");
+  // Search bar (listeners une seule fois — evite doublons si onglet Carte rouvert)
+  if (!_mapListenersReady) {
+    _mapListenersReady = true;
+    var searchInput = document.getElementById("mapSearchInput");
+    var searchBtn = document.getElementById("mapSearchBtn");
+    var locateBtn = document.getElementById("mapLocateBtn");
 
-  searchBtn.addEventListener("click", function() {
-    var q = searchInput.value.trim();
-    if (q) _showMapQuery(q);
-  });
-  searchInput.addEventListener("keydown", function(e) {
-    if (e.key === "Enter") { e.preventDefault(); var q = searchInput.value.trim(); if (q) _showMapQuery(q); }
-  });
-  locateBtn.addEventListener("click", function() {
-    if (navigator.geolocation) {
-      locateBtn.style.opacity = "0.5";
-      navigator.geolocation.getCurrentPosition(function(pos) {
-        _showMapCoords(pos.coords.latitude, pos.coords.longitude);
-        locateBtn.style.opacity = "1";
-      }, function() {
-        locateBtn.style.opacity = "1";
-      }, { enableHighAccuracy: true, timeout: 10000 });
-    }
-  });
+    searchBtn.addEventListener("click", function() {
+      var q = searchInput.value.trim();
+      if (q) _showMapQuery(q);
+    });
+    searchInput.addEventListener("keydown", function(e) {
+      if (e.key === "Enter") { e.preventDefault(); var q = searchInput.value.trim(); if (q) _showMapQuery(q); }
+    });
+    locateBtn.addEventListener("click", function() {
+      if (navigator.geolocation) {
+        locateBtn.style.opacity = "0.5";
+        navigator.geolocation.getCurrentPosition(function(pos) {
+          _showMapCoords(pos.coords.latitude, pos.coords.longitude);
+          locateBtn.style.opacity = "1";
+        }, function() {
+          locateBtn.style.opacity = "1";
+        }, { enableHighAccuracy: true, timeout: 10000 });
+      }
+    });
+  }
 
   // Initial load: geolocation or Paris
   if (!mapLoaded) {
@@ -3543,7 +3538,7 @@ function _confirmDuration() {
 // --- Video call (Tavus) ---
 function startCall() {
   _showDurationPicker("visio", function(minutes) {
-    addMsg("Visio lancee (" + minutes + " min prevues)", "luna");
+    try { if (typeof addMsg === "function") addMsg("Visio lancee (" + minutes + " min prevues)", "luna"); } catch(e) {}
     window.location.href = "/simli?duration=" + minutes;
   });
 }
@@ -5767,10 +5762,15 @@ function _confirmPayment(intentId) {
     });
 }
 
-// Poll for pending payments every 10s
-_paymentCheckInterval = setInterval(_checkPendingPayments, 10000);
-// Initial check after 3s
-setTimeout(_checkPendingPayments, 3000);
+function startPaymentPolling() {
+  if (!getToken()) return;
+  if (_paymentCheckInterval) return;
+  _paymentCheckInterval = setInterval(_checkPendingPayments, 10000);
+  setTimeout(_checkPendingPayments, 3000);
+}
+function stopPaymentPolling() {
+  if (_paymentCheckInterval) { clearInterval(_paymentCheckInterval); _paymentCheckInterval = null; }
+}
 
 // =========================================================================
 // LUNA VOICE — Mode conversationnel immersif (voix directe <-> OpenAI Realtime)

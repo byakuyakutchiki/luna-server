@@ -13,11 +13,26 @@ import asyncio
 import logging
 from pathlib import Path
 
-# Path d'import pour pv_recette.py (Docker: /app/utils/, local: ../../EXPLOITANTS/)
+# Path d'import pour pv_recette.py (Docker: /app/utils/, local: ../luna-exploitants/scripts/)
+def _resolve_exploitants_root() -> str:
+    """Repère le repo luna-exploitants (sibling ou legacy EXPLOITANTS)."""
+    base = Path(__file__).resolve().parent
+    for candidate in (
+        base / ".." / "luna-exploitants",
+        base / ".." / "EXPLOITANTS",
+        base / ".." / ".." / "luna-exploitants",
+        base / ".." / ".." / "EXPLOITANTS",
+    ):
+        root = candidate.resolve()
+        if (root / "scripts" / "pv_recette.py").is_file():
+            return str(root)
+    return ""
+
+
+_exploitants_root = _resolve_exploitants_root()
 _utils_dir = os.path.join(os.path.dirname(__file__), "utils")
-_exploitants_dir = os.path.join(os.path.dirname(__file__), "..", "..", "EXPLOITANTS")
-for _p in [_utils_dir, _exploitants_dir]:
-    if os.path.isdir(_p) and _p not in sys.path:
+for _p in [_utils_dir, os.path.join(_exploitants_root, "scripts") if _exploitants_root else ""]:
+    if _p and os.path.isdir(_p) and _p not in sys.path:
         sys.path.insert(0, _p)
 import openai
 from collections import defaultdict
@@ -1280,9 +1295,11 @@ if _CORTEX_AVAILABLE:
 # Store redis_client in app.state for gamification routes
 app.state._redis_client = _redis_client if _CORE_AVAILABLE else None
 
-# Serve legal templates (/templates/*.md)
-_TEMPLATES_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "EXPLOITANTS", "templates")
-if not os.path.isdir(_TEMPLATES_DIR):
+# Serve legal templates (/templates/*.md) — repo exploitant, jamais proprio
+_TEMPLATES_DIR = ""
+if _exploitants_root:
+    _TEMPLATES_DIR = os.path.join(_exploitants_root, "templates")
+if not _TEMPLATES_DIR or not os.path.isdir(_TEMPLATES_DIR):
     _TEMPLATES_DIR = os.path.join(os.path.dirname(__file__), "templates")
 if os.path.isdir(_TEMPLATES_DIR):
     app.mount("/templates", StaticFiles(directory=_TEMPLATES_DIR), name="templates")
@@ -1387,10 +1404,8 @@ async def security_middleware(request: Request, call_next):
             )
 
     # Cortex: check mode serveur (lockdown, shield, ban IP)
-    # Login/register toujours autorisé (bloquer le login = UX catastrophique)
-    _cortex_login_paths = ("/api/auth/login", "/api/auth/register", "/api/auth/me")
     cortex_allowed, cortex_reason = cortex_middleware_check(client_ip, path)
-    if not cortex_allowed and not any(path.startswith(p) for p in _cortex_login_paths):
+    if not cortex_allowed:
         logger.warning(f"CORTEX_BLOCKED {client_ip} {request.method} {path}: {cortex_reason}")
         # Enrichir la raison avec une explication humaine
         human_reason = _cortex_reason_to_human(cortex_reason)
@@ -2970,25 +2985,78 @@ def _get_luna_replica() -> str:
     return _LUNA_REPLICAS_SCHEDULE[0]["replica_id"]
 
 
+def _tenant_subscriber_first_name(tenant_id: int) -> str:
+    mgr = _get_tenant_manager(tenant_id) if tenant_id else _memory_manager
+    if mgr:
+        try:
+            profile = mgr.get_subscriber_profile()
+            if profile and getattr(profile, "first_name", None):
+                return profile.first_name
+        except Exception:
+            pass
+    return _SUBSCRIBER_NAME if tenant_id == TENANT_ID else "toi"
+
+
+async def _start_simli_visio(tenant_id: int, subscriber_name: str) -> tuple:
+    """Demarre une session Simli E2E. Retourne (ok, payload_ou_erreur)."""
+    api_key = os.getenv("SIMLI_API_KEY", "")
+    face_id = os.getenv("SIMLI_FACE_ID", "")
+    if not api_key or not face_id:
+        return False, {"error": "Simli non configure (SIMLI_API_KEY / SIMLI_FACE_ID manquants)"}
+
+    try:
+        async with httpx.AsyncClient(timeout=20) as client:
+            resp = await client.post(
+                "https://api.simli.ai/startE2ESession",
+                json={
+                    "apiKey": api_key,
+                    "faceId": face_id,
+                    "systemPrompt": (
+                        "Tu es Luna, compagnon IA YAWatch, chaleureuse, attentionnee et bienveillante. "
+                        "Tu t'exprimes uniquement en francais, avec un ton naturel et proche. "
+                        f"Tu t'adresses a {subscriber_name}."
+                    ),
+                    "firstMessage": f"Bonjour {subscriber_name} ! Ravie de te voir. Comment je peux t'aider ?",
+                    "language": "fr",
+                },
+                headers={"Content-Type": "application/json"},
+            )
+        data = resp.json()
+        if resp.status_code != 200:
+            logger.error(f"Simli E2E error {resp.status_code}: {data}")
+            return False, {"error": data.get("message", "Simli indisponible")}
+
+        conv_url = (
+            data.get("roomUrl") or data.get("room_url")
+            or data.get("conversationUrl") or data.get("url") or ""
+        )
+        session_id = (
+            data.get("session_token") or data.get("sessionToken")
+            or data.get("session_id") or data.get("id") or ""
+        )
+        if not conv_url:
+            return False, {"error": "Simli: URL de session manquante"}
+        return True, {
+            "conversation_url": conv_url,
+            "conversation_id": session_id or f"simli_{tenant_id}_{int(time.time())}",
+            "provider": "simli",
+        }
+    except Exception as e:
+        logger.error(f"Simli start error: {e}")
+        return False, {"error": f"Simli erreur: {str(e)}"}
+
+
 @app.post("/api/call")
 async def start_call(request: Request):
-    """Crée un appel vidéo Tavus et enregistre la conversation"""
-    # Service validation (redundant safety layer)
+    """Cree un appel video — Tavus en priorite, Simli en repli."""
     if _license_heartbeat and (_license_heartbeat.is_blocked() or _license_heartbeat.is_degraded()):
         return JSONResponse(status_code=403, content={"error": "Service non disponible"})
     tid = getattr(request.state, "tenant_id", 1)
-    # Budget guard
     _plan = getattr(request.state, "plan", "essentiel") or "essentiel"
     budget_err = await _check_budget_guard(tid, _plan)
     if budget_err:
         return JSONResponse(status_code=429, content={"error": budget_err})
-    if not tavus_client or not tavus_client.is_configured:
-        return JSONResponse(status_code=503, content={
-            "error": "Visio non disponible",
-            "mode": LUNA_MODE,
-            "message": "Luna Lite n'inclut pas la visio. Passez en mode Full pour l'activer.",
-        })
-    # Duree choisie par le souscripteur (minutes) — fallback sur env var
+
     try:
         body = await request.json()
     except Exception:
@@ -2996,31 +3064,47 @@ async def start_call(request: Request):
     duration_min = body.get("duration", 0)
     if not duration_min or duration_min <= 0:
         duration_min = int(os.getenv("VISIO_MAX_DURATION", "60"))
-    # Securite: max 4h (240 min) pour eviter les couts Tavus astronomiques
     duration_min = min(int(duration_min), 240)
-    visio_max = duration_min * 60  # minutes -> secondes
+    visio_max = duration_min * 60
 
-    context = build_tavus_context(
-        subscriber_name=_SUBSCRIBER_NAME,
-        memory_manager=tavus_client.memory,
-    )
-    replica_id = _get_luna_replica()
-    success, data = await tavus_client.create_conversation(
-        tenant_id=tid,
-        custom_greeting=f"Salut {_SUBSCRIBER_NAME} ! Ravie de te voir. Comment je peux t'aider ?",
-        context=context,
-        max_duration=visio_max,
-        callback_url=TAVUS_CALLBACK_URL if TAVUS_CALLBACK_URL else None,
-        replica_id=replica_id,
-    )
-    if not success:
-        logger.error(f"Visio creation error: {data.get('error', 'unknown')}")
-        return JSONResponse(status_code=503, content={"error": "Impossible de lancer la visio. Reessaie."})
-    _gamify(tid, "voice_call")
-    return {
-        "conversation_url": data["conversation_url"],
-        "conversation_id": data["conversation_id"],
-    }
+    sub_name = _tenant_subscriber_first_name(tid)
+
+    if tavus_client and tavus_client.is_configured:
+        context = build_tavus_context(
+            subscriber_name=sub_name,
+            memory_manager=tavus_client.memory,
+        )
+        replica_id = _get_luna_replica()
+        success, data = await tavus_client.create_conversation(
+            tenant_id=tid,
+            custom_greeting=f"Salut {sub_name} ! Ravie de te voir. Comment je peux t'aider ?",
+            context=context,
+            max_duration=visio_max,
+            callback_url=TAVUS_CALLBACK_URL if TAVUS_CALLBACK_URL else None,
+            replica_id=replica_id,
+        )
+        if success:
+            _gamify(tid, "voice_call")
+            return {
+                "conversation_url": data["conversation_url"],
+                "conversation_id": data["conversation_id"],
+                "provider": "tavus",
+            }
+        logger.warning(f"Tavus indisponible, repli Simli: {data.get('error', 'unknown')}")
+
+    ok, payload = await _start_simli_visio(tid, sub_name)
+    if ok:
+        _gamify(tid, "voice_call")
+        return payload
+
+    err = payload.get("error", "Visio non disponible")
+    if LUNA_MODE != "full":
+        return JSONResponse(status_code=503, content={
+            "error": err,
+            "mode": LUNA_MODE,
+            "message": "Visio indisponible. Configurez Tavus ou Simli en mode Full.",
+        })
+    return JSONResponse(status_code=503, content={"error": err, "fallback": "simli_failed"})
 
 
 @app.post("/api/call/end")
@@ -3065,51 +3149,17 @@ async def config_simli():
 
 @app.post("/api/simli/start")
 async def simli_start(request: Request):
-    """Démarre une session Simli E2E — fallback visio quand Tavus indisponible."""
-    api_key  = os.getenv("SIMLI_API_KEY", "")
-    face_id  = os.getenv("SIMLI_FACE_ID", "")
-    if not api_key or not face_id:
-        return JSONResponse(status_code=503, content={"error": "Simli non configuré (SIMLI_API_KEY / SIMLI_FACE_ID manquants)"})
-
+    """Demarre une session Simli E2E — repli visio quand Tavus indisponible."""
     tenant_id = getattr(request.state, "tenant_id", 1)
-    subscriber = await _get_subscriber_name(tenant_id) if callable(getattr(sys.modules[__name__], "_get_subscriber_name", None)) else "toi"
-
-    try:
-        async with httpx.AsyncClient(timeout=20) as client:
-            resp = await client.post(
-                "https://api.simli.ai/startE2ESession",
-                json={
-                    "apiKey": api_key,
-                    "faceId": face_id,
-                    "systemPrompt": (
-                        "Tu es Luna, compagnon IA YAWatch, chaleureuse, attentionnée et bienveillante. "
-                        "Tu t'exprimes uniquement en français, avec un ton naturel et proche. "
-                        f"Tu t'adresses à {subscriber}."
-                    ),
-                    "firstMessage": f"Bonjour {subscriber} ! Ravie de te voir. Comment je peux t'aider ?",
-                    "language": "fr",
-                },
-                headers={"Content-Type": "application/json"},
-            )
-        data = resp.json()
-        if resp.status_code != 200:
-            logger.error(f"Simli E2E error {resp.status_code}: {data}")
-            return JSONResponse(status_code=503, content={"error": data.get("message", "Simli indisponible")})
-
-        # Normalise les différents noms de champ possibles selon la version API
-        conv_url = (data.get("roomUrl") or data.get("room_url") or
-                    data.get("conversationUrl") or data.get("url") or "")
-        session_id = (data.get("session_token") or data.get("sessionToken") or
-                      data.get("session_id") or data.get("id") or "")
+    sub_name = _tenant_subscriber_first_name(tenant_id)
+    ok, payload = await _start_simli_visio(tenant_id, sub_name)
+    if ok:
         return {
-            "conversation_url": conv_url,
-            "session_id": session_id,
+            "conversation_url": payload["conversation_url"],
+            "session_id": payload["conversation_id"],
             "provider": "simli",
-            "raw": data,
         }
-    except Exception as e:
-        logger.error(f"Simli start error: {e}")
-        return JSONResponse(status_code=503, content={"error": f"Simli erreur: {str(e)}"})
+    return JSONResponse(status_code=503, content=payload)
 
 
 @app.get("/formulaires")
@@ -4667,7 +4717,7 @@ async def status(request: Request):
         "twilio": sms_client.is_configured if sms_client else False,
         "tavus": tavus_client.is_configured if tavus_client else False,
         "tavus_details": tavus_client.get_status() if tavus_client else {},
-        "simli": _SIMLI_AVAILABLE and bool(os.getenv("SIMLI_API_KEY", "")),
+        "simli": bool(os.getenv("SIMLI_API_KEY", "") and os.getenv("SIMLI_FACE_ID", "")),
         "redis": redis_ok,
         "active_sessions": len(conversations),
         "core_modules": {
@@ -6995,26 +7045,45 @@ async def family_sos(request: Request):
 
     _gamify(tid, "family_sos")
 
-    # Optionnel: déclencher une visio avec Luna
+    # Optionnel: declencher une visio (Tavus puis Simli)
     visio_url = None
-    if trigger_visio and tavus_client and tavus_client.is_configured:
-        context = f"ALERTE SOS de {sender_name}. Message: {message}"
-        success, conv_data = await tavus_client.create_conversation(
-            tenant_id=tid,
-            custom_greeting=f"{sender_name}, je suis là. Dis-moi ce qui se passe.",
-            context=context,
-        )
-        if success:
-            visio_url = conv_data.get("conversation_url")
+    visio_provider = None
+    if trigger_visio:
+        if tavus_client and tavus_client.is_configured:
+            context = f"ALERTE SOS de {sender_name}. Message: {message}"
+            success, conv_data = await tavus_client.create_conversation(
+                tenant_id=tid,
+                custom_greeting=f"{sender_name}, je suis la. Dis-moi ce qui se passe.",
+                context=context,
+            )
+            if success:
+                visio_url = conv_data.get("conversation_url")
+                visio_provider = "tavus"
+        if not visio_url:
+            ok_visio, visio_payload = await _start_simli_visio(tid, sender_name)
+            if ok_visio:
+                visio_url = visio_payload.get("conversation_url")
+                visio_provider = "simli"
+
+    sms_expected = bool(
+        sms_client and sms_client.is_configured
+        and any(m.get("can_receive_alerts") in ("1", "true", True) for m in recipients)
+    )
+    sms_ok = (not sms_expected) or sms_sent > 0
 
     return {
-        "success": True,
+        "success": sms_ok,
         "message_id": sos_msg.id,
         "alerted_members": len(recipients),
         "sms_sent": sms_sent,
         "sms_failed": sms_failed,
+        "sms_expected": sms_expected,
         "visio_url": visio_url,
-        "message": f"Alerte envoyee a {len(recipients)} membre(s) de la famille",
+        "visio_provider": visio_provider,
+        "message": (
+            f"Alerte envoyee a {len(recipients)} membre(s) de la famille"
+            + ("" if sms_ok else " — aucun SMS delivre")
+        ),
     }
 
 
@@ -7935,6 +8004,9 @@ async def api_concierge_action(request: Request):
         "create_note": lambda: _tool_create_note(params, tenant_id=tid),
         "generate_document": lambda: _tool_generate_document(params, tenant_id=tid),
         "alert_contacts": lambda: _tool_alert_contacts(params, tenant_id=tid),
+        "send_sms": lambda: _tool_send_sms(params, tenant_id=tid),
+        "send_email": lambda: _tool_send_email(params, tenant_id=tid),
+        "call_contact": lambda: _tool_call_contact(params, tenant_id=tid, session_id="concierge"),
         "book_flight": lambda: _conc_book_flight(params, tenant_id=tid),
         "book_hotel": lambda: _conc_book_hotel(params, tenant_id=tid),
     }

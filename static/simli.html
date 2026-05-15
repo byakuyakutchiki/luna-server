@@ -230,6 +230,7 @@
     </div>
     <button class="btn-start-big" id="btnStartBig">Demarrer</button>
     <div class="start-loading" id="startLoading">Connexion en cours...</div>
+    <p id="visioErrMsg" style="display:none;color:#ff6b6b;font-size:13px;margin-top:8px;max-width:280px;text-align:center;"></p>
     <a href="/" class="start-back-link">&larr; Retour au chat</a>
   </div>
 
@@ -372,6 +373,7 @@
     var currentScene = null;
     var dailyCall = null;
     var currentConvId = '';
+    var currentProvider = 'tavus';
     var grainAnimId = null;
     var lastGrainTime = 0;
 
@@ -565,7 +567,25 @@
         vignetteEl.classList.remove('active', 'intense');
         stopGrain();
 
-        // Creer le Daily iframe fullscreen
+        // Simli = iframe direct ; Tavus = Daily.co
+        if (conversationUrl && currentProvider === 'simli') {
+          tavusFrameEl.innerHTML = '';
+          var simliFrame = document.createElement('iframe');
+          simliFrame.src = conversationUrl;
+          simliFrame.allow = 'camera; microphone; autoplay; fullscreen';
+          simliFrame.setAttribute('playsinline', '');
+          simliFrame.style.cssText = 'width:100%;height:100%;border:none';
+          tavusFrameEl.appendChild(simliFrame);
+          return wait(800).then(function() {
+            tavusFrameEl.classList.add('visible');
+            btnHangup.classList.add('visible');
+            return wait(1500);
+          }).then(function() {
+            zoomContainer.style.display = 'none';
+            phoneAvatarFrame.innerHTML = '';
+          });
+        }
+
         if (conversationUrl && window.DailyIframe) {
           dailyCall = window.DailyIframe.createFrame(tavusFrameEl, {
             iframeStyle: { width: '100%', height: '100%', border: 'none' },
@@ -657,30 +677,38 @@
         .then(function(r) { return r.json(); })
         .then(function(data) {
           if (data.error) throw new Error(data.error);
-          currentConvId = data.session_id || ('simli_' + Date.now());
+          currentProvider = 'simli';
+          currentConvId = data.session_id || data.conversation_id || ('simli_' + Date.now());
           return data.conversation_url;
         });
     }
 
-    function createTavusCall() {
+    function createVisioCall() {
       var sel = document.getElementById('durationSelect');
       var durMin = sel ? parseInt(sel.value) : 60;
       if (durMin === 0) durMin = 240;
+      var lastErr = '';
+      function parseCall(r) {
+        return r.json().then(function(data) {
+          if (!r.ok || data.error) {
+            lastErr = data.error || data.message || ('Erreur ' + r.status);
+            throw new Error(lastErr);
+          }
+          currentProvider = data.provider || 'tavus';
+          currentConvId = data.conversation_id || data.session_id || '';
+          if (!data.conversation_url) throw new Error('URL visio manquante');
+          return data.conversation_url;
+        });
+      }
       return authFetch('/api/call', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ duration: durMin })
-      })
-        .then(function(r) { return r.json(); })
-        .then(function(data) {
-          if (data.error) throw new Error(data.error);
-          currentConvId = data.conversation_id;
-          return data.conversation_url;
-        })
-        .catch(function() {
-          // Tavus indisponible (crédits épuisés ou non configuré) → Simli
-          return createSimliCall();
+      }).then(parseCall).catch(function() {
+        return createSimliCall().catch(function(e2) {
+          throw new Error(lastErr || (e2 && e2.message) || 'Visio indisponible (Tavus et Simli)');
         });
+      });
     }
 
     // =====================================================================
@@ -771,11 +799,22 @@
       var conversationUrl = null;
       var scene = getCurrentScene();
 
+      var visioError = null;
+
+      function _showVisioError(msg) {
+        startScreen.classList.remove('hidden');
+        startLoading.classList.remove('visible');
+        btnStartBig.disabled = false;
+        var el = document.getElementById('visioErrMsg');
+        if (el) { el.textContent = msg || 'Visio indisponible. Reessaie.'; el.style.display = 'block'; }
+      }
+
       // Lancer l'appel Tavus en parallele de la cinematique
-      var tavusPromise = createTavusCall().then(function(url) {
+      var tavusPromise = createVisioCall().then(function(url) {
         conversationUrl = url;
       }).catch(function(err) {
         conversationUrl = null;
+        visioError = (err && err.message) || 'Visio indisponible';
       });
 
       // Masquer ecran de demarrage
@@ -783,12 +822,11 @@
 
       // ACT 1 : ESTABLISHING SHOT
       actEstablishingShot(scene).then(function() {
-        // Attendre que Tavus soit pret
+        // Attendre que la connexion soit prete
         return tavusPromise;
       }).then(function() {
         if (!conversationUrl) {
-          // Tavus non dispo, retour
-          window.location.href = '/';
+          _showVisioError(visioError);
           return;
         }
         // ACT 2 : PHONE VIBRATE
@@ -808,7 +846,7 @@
         // ACT 5 : ZOOM + TAVUS FULLSCREEN
         return actCinematicZoom(conversationUrl);
       }).catch(function(err) {
-        window.location.href = '/';
+        _showVisioError((err && err.message) || 'Erreur inattendue. Reessaie.');
       });
     };
 
