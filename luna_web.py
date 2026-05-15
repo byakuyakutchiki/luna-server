@@ -1387,8 +1387,10 @@ async def security_middleware(request: Request, call_next):
             )
 
     # Cortex: check mode serveur (lockdown, shield, ban IP)
+    # Login/register toujours autorisé (bloquer le login = UX catastrophique)
+    _cortex_login_paths = ("/api/auth/login", "/api/auth/register", "/api/auth/me")
     cortex_allowed, cortex_reason = cortex_middleware_check(client_ip, path)
-    if not cortex_allowed:
+    if not cortex_allowed and not any(path.startswith(p) for p in _cortex_login_paths):
         logger.warning(f"CORTEX_BLOCKED {client_ip} {request.method} {path}: {cortex_reason}")
         # Enrichir la raison avec une explication humaine
         human_reason = _cortex_reason_to_human(cortex_reason)
