@@ -1,0 +1,46 @@
+# YAWatch Luna — Serveur Backend (luna-server)
+# ================================================
+# Audit / analyse Cursor — contexte architecture
+
+## Rôle de ce repo
+Serveur Python/FastAPI unique pour le produit Luna (compagnon IA).
+Déployé sur Google Cloud Run (europe-west1). Un seul fichier principal : luna_web.py (~14 000 lignes).
+
+## Stack technique
+- Python 3.11 + FastAPI + Uvicorn
+- Redis (RedisLabs, cloud) pour la mémoire persistante et les sessions
+- OpenAI GPT-4o-mini (chat, TTS voix openai/coral)
+- Twilio (SMS + appels vocaux)
+- Tavus (visio avatar IA) + Daily.js (WebRTC)
+- Stripe (paiements abonnements)
+- MeetingBaas (bot réunion Zoom/Meet)
+- Service Worker PWA + APK Android WebView
+
+## Architecture
+- `luna_web.py` : point d'entrée unique, toutes les routes FastAPI
+- `core/` : modules internes (memory, quotas, safety, cortex, gamification, perception, etc.)
+- `static/` : frontend SPA (index.html, simli.html, sw.js)
+- `android-app/` : code source APK Android (WebView)
+- `integrations/` : connecteurs tiers (Twilio, Tavus, Simli, MeetingBaas)
+
+## Multi-tenant
+- `tenant_id` injecté par middleware JWT dans `request.state`
+- `_get_tenant_manager(tid)` retourne le MemoryManager Redis du tenant
+- `REQUIRE_AUTH=true` en prod, tokens JWT signés avec JWT_SECRET_KEY
+
+## Sécurité
+- Tous les secrets sont dans `.env` (NON tracké git)
+- `.env.example` contient des placeholders XXXX
+- Cortex = système anti-abus interne (rate limit, ban IP, lockdown)
+- PV de recette = verrouillage serveur après signature exploitant
+
+## Points d'attention pour l'audit
+- luna_web.py est monolithique — architecture à refactoriser
+- Latence Redis cross-region (Cloud Run EU → Redis US)
+- Les outils conciergerie (_tool_*) sont définis après la ligne 8000
+- SSE streaming pour le chat (text/event-stream)
+- Service Worker luna-v25 — stratégie cache-first sauf navigation
+
+## Variables d'environnement requises (voir .env.example)
+OPENAI_API_KEY, TWILIO_*, TAVUS_*, REDIS_URL, JWT_SECRET_KEY, ADMIN_PASSWORD,
+STRIPE_*, MEETINGBAAS_API_KEY, SIMLI_API_KEY, SERPER_API_KEY
