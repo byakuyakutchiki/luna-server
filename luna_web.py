@@ -3057,10 +3057,57 @@ async def ws_simli(websocket: WebSocket, session_id: str):
 
 @app.get("/api/config/simli")
 async def config_simli():
-    """Config Simli — desactive (Tavus est le systeme visio principal)."""
-    return {
-        "enabled": False,
-    }
+    """Config Simli."""
+    return {"enabled": bool(os.getenv("SIMLI_API_KEY", ""))}
+
+
+@app.post("/api/simli/start")
+async def simli_start(request: Request):
+    """Démarre une session Simli E2E — fallback visio quand Tavus indisponible."""
+    api_key  = os.getenv("SIMLI_API_KEY", "")
+    face_id  = os.getenv("SIMLI_FACE_ID", "")
+    if not api_key or not face_id:
+        return JSONResponse(status_code=503, content={"error": "Simli non configuré (SIMLI_API_KEY / SIMLI_FACE_ID manquants)"})
+
+    tenant_id = getattr(request.state, "tenant_id", 1)
+    subscriber = await _get_subscriber_name(tenant_id) if callable(getattr(sys.modules[__name__], "_get_subscriber_name", None)) else "toi"
+
+    try:
+        async with httpx.AsyncClient(timeout=20) as client:
+            resp = await client.post(
+                "https://api.simli.ai/startE2ESession",
+                json={
+                    "apiKey": api_key,
+                    "faceId": face_id,
+                    "systemPrompt": (
+                        "Tu es Luna, compagnon IA YAWatch, chaleureuse, attentionnée et bienveillante. "
+                        "Tu t'exprimes uniquement en français, avec un ton naturel et proche. "
+                        f"Tu t'adresses à {subscriber}."
+                    ),
+                    "firstMessage": f"Bonjour {subscriber} ! Ravie de te voir. Comment je peux t'aider ?",
+                    "language": "fr",
+                },
+                headers={"Content-Type": "application/json"},
+            )
+        data = resp.json()
+        if resp.status_code != 200:
+            logger.error(f"Simli E2E error {resp.status_code}: {data}")
+            return JSONResponse(status_code=503, content={"error": data.get("message", "Simli indisponible")})
+
+        # Normalise les différents noms de champ possibles selon la version API
+        conv_url = (data.get("roomUrl") or data.get("room_url") or
+                    data.get("conversationUrl") or data.get("url") or "")
+        session_id = (data.get("session_token") or data.get("sessionToken") or
+                      data.get("session_id") or data.get("id") or "")
+        return {
+            "conversation_url": conv_url,
+            "session_id": session_id,
+            "provider": "simli",
+            "raw": data,
+        }
+    except Exception as e:
+        logger.error(f"Simli start error: {e}")
+        return JSONResponse(status_code=503, content={"error": f"Simli erreur: {str(e)}"})
 
 
 @app.get("/formulaires")
