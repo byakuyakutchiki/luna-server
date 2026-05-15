@@ -1,5 +1,5 @@
 // Luna Service Worker — Offline cache + push notifications
-var CACHE_NAME = "luna-v24";
+var CACHE_NAME = "luna-v25";
 var PRECACHE_URLS = [
   "/",
   "/static/index.html",

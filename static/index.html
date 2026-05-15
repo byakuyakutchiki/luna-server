@@ -876,7 +876,7 @@ body.mode-secretaire .luna-chip:hover { background: rgba(16,185,129,0.2); border
 <!-- Tabs -->
 <div class="tabs">
   <button class="tab-btn active" data-tab="chat">Chat</button>
-  <button class="tab-btn" data-tab="conciergerie" data-modes="secretaire">Conciergerie</button>
+  <button class="tab-btn" data-tab="conciergerie">Conciergerie</button>
   <button class="tab-btn" data-tab="amis" data-modes="compagnon">Amis<span class="tab-badge" id="amisBadge" style="display:none">0</span></button>
   <button class="tab-btn" data-tab="activities" data-modes="compagnon" style="color:#f59e0b;">Activites</button>
   <button class="tab-btn" data-tab="world" data-modes="compagnon" style="color:#a78bfa;">Monde</button>
@@ -2141,6 +2141,7 @@ var _concGrids, _concResultsPanel, _concResultsBody, _concResultsTitle;
   _concResultsBody = document.getElementById("concResultsBody");
   _concResultsTitle = document.getElementById("concResultsTitle");
   _concGrids = document.querySelectorAll("#tab-conciergerie .conciergerie-grid, #tab-conciergerie .conc-section-title, #tab-conciergerie .panel-content > div:first-child");
+  _remoteLog("info", "conc", "init", "panel=" + !!_concResultsPanel + " cards=" + document.querySelectorAll(".conc-card").length);
 
   // Map card actions to handlers
   var CARD_HANDLERS = {
@@ -2170,6 +2171,7 @@ var _concGrids, _concResultsPanel, _concResultsBody, _concResultsTitle;
     card.addEventListener("click", function() {
       var action = card.dataset.concAction;
       if (!action) return;
+      _remoteLog("info", "conc", "click", action);
       var handler = CARD_HANDLERS[action];
       if (handler) {
         handler();
@@ -3435,7 +3437,7 @@ function _handleStreamResponse(response, originalMsg) {
               if (conv) { conv.title = data.auto_title; saveConvMeta(); renderConvList(); }
             }
             // Save to local storage
-            _saveCurrentHistory();
+            saveHistory();
           } else if (data.type === "error") {
             _remoteLog("error", "sse", "stream_error_event", data.message || "unknown");
             textEl.innerHTML = '<span style="color:#f87171;">' + (data.message || "Erreur") + '</span>';
