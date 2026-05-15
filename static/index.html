@@ -5437,6 +5437,18 @@ if (_urlParams.get("video") === "1") {
   setTimeout(function() { startCall(); }, 500);
 }
 
+// Session expirée — vient de /simli ou d'une page protégée
+if (_urlParams.get("session") === "expired") {
+  localStorage.removeItem("luna_token");
+  setTimeout(function() {
+    addMsg("Ta session a expire. Reconnecte-toi pour utiliser la visio.", "luna");
+    // Ouvrir le panneau de connexion si disponible
+    var loginBtn = document.getElementById("loginBtn") || document.querySelector("[data-action='login']");
+    if (loginBtn) loginBtn.click();
+  }, 500);
+  history.replaceState(null, "", window.location.pathname);
+}
+
 // Feedback after Stripe card setup
 if (_urlParams.get("card_saved") === "success") {
   setTimeout(function() { addMsg("Ta carte bancaire a ete enregistree. Tu peux maintenant utiliser la conciergerie Luna pour tes reservations.", "luna"); }, 1000);

@@ -1748,7 +1748,7 @@ async def index(request: Request):
     return FileResponse(os.path.join(STATIC_DIR, "index.html"), headers=_NO_CACHE_HEADERS)
 
 
-@app.get("/sw.js")
+@app.api_route("/sw.js", methods=["GET", "HEAD"])
 async def service_worker():
     """Serve SW from root scope so it can intercept all requests."""
     return FileResponse(

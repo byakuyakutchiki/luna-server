@@ -391,7 +391,9 @@
       return fetch(url, opts).then(function(r) {
         if (r.status === 401) {
           localStorage.removeItem('luna_token');
-          throw new Error('Session expiree — reconnecte-toi');
+          // Rediriger vers login avec message
+          window.location.href = '/?session=expired';
+          throw new Error('Session expiree');
         }
         return r;
       });
