@@ -7,6 +7,7 @@ import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
+import android.content.ContentValues;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.net.Uri;
@@ -42,13 +43,15 @@ public class MainActivity extends Activity {
     private static final int PERMISSION_REQUEST_CODE = 100;
     private static final int NOTIFICATION_PERMISSION_CODE = 101;
     private static final int FILE_CHOOSER_REQUEST_CODE = 102;
-    private static final String CURRENT_VERSION = "2.5";
-    private static final int CURRENT_VERSION_CODE = 16;
+    private static final String CURRENT_VERSION = "2.6";
+    private static final int CURRENT_VERSION_CODE = 17;
     private static final int CAMERA_PERMISSION_FOR_FILE = 103;
+    private static final int CAMERA_CAPTURE_REQUEST_CODE = 104;
     private static final String CHANNEL_ID = "luna_messages";
     private WebView webView;
     private PermissionRequest pendingPermissionRequest;
     private ValueCallback<Uri[]> fileUploadCallback;
+    private Uri cameraOutputUri;
     private boolean isInForeground = true;
     private int notificationId = 1000;
 
@@ -120,14 +123,12 @@ public class MainActivity extends Activity {
             @Override
             public boolean onShowFileChooser(WebView view, ValueCallback<Uri[]> callback,
                                              FileChooserParams params) {
-                // Annuler un callback precedent en attente
                 if (fileUploadCallback != null) {
                     fileUploadCallback.onReceiveValue(null);
                 }
                 fileUploadCallback = callback;
 
                 try {
-                    // Verifier si la camera est demandee (capture="environment")
                     boolean wantCamera = false;
                     if (Build.VERSION.SDK_INT >= 21) {
                         wantCamera = params.isCaptureEnabled();
@@ -136,50 +137,38 @@ public class MainActivity extends Activity {
                     boolean isImage = false;
                     if (acceptTypes != null) {
                         for (String t : acceptTypes) {
-                            if (t != null && t.startsWith("image/")) { isImage = true; break; }
+                            if (t != null && (t.startsWith("image/") || t.equals("image/*"))) {
+                                isImage = true;
+                                break;
+                            }
                         }
                     }
 
-                    // Si camera demandee, verifier la permission CAMERA
-                    if (wantCamera && Build.VERSION.SDK_INT >= 23) {
-                        if (checkSelfPermission(Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+                    if (wantCamera) {
+                        launchCameraCapture();
+                        return true;
+                    }
+
+                    if (Build.VERSION.SDK_INT >= 23) {
+                        if (isImage && checkSelfPermission(Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
                             requestPermissions(new String[]{Manifest.permission.CAMERA}, CAMERA_PERMISSION_FOR_FILE);
-                            return true; // On attend la permission, l'intent sera lance apres
+                            return true;
                         }
                     }
 
-                    // Construire un chooser avec camera + fichiers
-                    Intent chooser;
-                    if (wantCamera || isImage) {
-                        // Intent camera
-                        Intent cameraIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
-                        // Intent fichier
-                        Intent fileIntent = new Intent(Intent.ACTION_GET_CONTENT);
-                        fileIntent.setType(isImage ? "image/*" : "*/*");
-                        fileIntent.addCategory(Intent.CATEGORY_OPENABLE);
-                        if (acceptTypes != null && acceptTypes.length > 0) {
-                            fileIntent.putExtra(Intent.EXTRA_MIME_TYPES, acceptTypes);
-                        }
-                        // Chooser: fichiers en principal, camera en extra
-                        chooser = Intent.createChooser(fileIntent, "Choisir un fichier");
-                        if (cameraIntent.resolveActivity(getPackageManager()) != null) {
-                            chooser.putExtra(Intent.EXTRA_INITIAL_INTENTS, new Intent[]{cameraIntent});
-                        }
-                    } else {
-                        // Pas d'image → juste un selecteur de fichiers
-                        Intent fileIntent = new Intent(Intent.ACTION_GET_CONTENT);
-                        fileIntent.setType("*/*");
-                        fileIntent.addCategory(Intent.CATEGORY_OPENABLE);
-                        if (acceptTypes != null && acceptTypes.length > 0) {
-                            fileIntent.putExtra(Intent.EXTRA_MIME_TYPES, acceptTypes);
-                        }
-                        chooser = Intent.createChooser(fileIntent, "Choisir un fichier");
+                    Intent fileIntent = new Intent(Intent.ACTION_GET_CONTENT);
+                    fileIntent.setType(isImage ? "image/*" : "*/*");
+                    fileIntent.addCategory(Intent.CATEGORY_OPENABLE);
+                    if (acceptTypes != null && acceptTypes.length > 0) {
+                        fileIntent.putExtra(Intent.EXTRA_MIME_TYPES, acceptTypes);
                     }
-
+                    Intent chooser = Intent.createChooser(fileIntent, "Choisir un fichier");
                     startActivityForResult(chooser, FILE_CHOOSER_REQUEST_CODE);
                 } catch (Exception e) {
-                    fileUploadCallback.onReceiveValue(null);
-                    fileUploadCallback = null;
+                    if (fileUploadCallback != null) {
+                        fileUploadCallback.onReceiveValue(null);
+                        fileUploadCallback = null;
+                    }
                     return false;
                 }
                 return true;
@@ -389,21 +378,93 @@ public class MainActivity extends Activity {
         }
     }
 
+    /** Ouvre l'appareil photo natif et renvoie l'URI au WebView (Formulaires / scan). */
+    private void launchCameraCapture() {
+        if (Build.VERSION.SDK_INT >= 23) {
+            if (checkSelfPermission(Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+                requestPermissions(new String[]{Manifest.permission.CAMERA}, CAMERA_PERMISSION_FOR_FILE);
+                return;
+            }
+        }
+        try {
+            ContentValues values = new ContentValues();
+            values.put(MediaStore.Images.Media.TITLE, "Luna_scan_" + System.currentTimeMillis());
+            values.put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg");
+            if (Build.VERSION.SDK_INT >= 29) {
+                values.put(MediaStore.Images.Media.RELATIVE_PATH, Environment.DIRECTORY_PICTURES + "/Luna");
+                values.put(MediaStore.Images.Media.IS_PENDING, 1);
+            }
+            cameraOutputUri = getContentResolver().insert(
+                    MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values);
+            if (cameraOutputUri == null) {
+                Toast.makeText(this, "Impossible d'ouvrir la camera.", Toast.LENGTH_SHORT).show();
+                if (fileUploadCallback != null) {
+                    fileUploadCallback.onReceiveValue(null);
+                    fileUploadCallback = null;
+                }
+                return;
+            }
+            Intent cameraIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+            cameraIntent.putExtra(MediaStore.EXTRA_OUTPUT, cameraOutputUri);
+            cameraIntent.addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION | Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            startActivityForResult(cameraIntent, CAMERA_CAPTURE_REQUEST_CODE);
+        } catch (Exception e) {
+            Toast.makeText(this, "Erreur camera: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+            if (fileUploadCallback != null) {
+                fileUploadCallback.onReceiveValue(null);
+                fileUploadCallback = null;
+            }
+            cameraOutputUri = null;
+        }
+    }
+
+    private void finishFileUpload(Uri[] results) {
+        if (fileUploadCallback != null) {
+            fileUploadCallback.onReceiveValue(results);
+            fileUploadCallback = null;
+        }
+        cameraOutputUri = null;
+    }
+
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == CAMERA_CAPTURE_REQUEST_CODE) {
+            Uri[] results = null;
+            if (resultCode == Activity.RESULT_OK && cameraOutputUri != null) {
+                if (Build.VERSION.SDK_INT >= 29) {
+                    ContentValues done = new ContentValues();
+                    done.put(MediaStore.Images.Media.IS_PENDING, 0);
+                    try {
+                        getContentResolver().update(cameraOutputUri, done, null, null);
+                    } catch (Exception ignored) { }
+                }
+                results = new Uri[]{cameraOutputUri};
+            }
+            finishFileUpload(results);
+            return;
+        }
         if (requestCode == FILE_CHOOSER_REQUEST_CODE) {
-            if (fileUploadCallback != null) {
-                Uri[] results = null;
-                if (resultCode == Activity.RESULT_OK && data != null) {
-                    String dataString = data.getDataString();
-                    if (dataString != null) {
-                        results = new Uri[]{Uri.parse(dataString)};
+            Uri[] results = null;
+            if (resultCode == Activity.RESULT_OK) {
+                if (data != null) {
+                    if (data.getClipData() != null) {
+                        int count = data.getClipData().getItemCount();
+                        results = new Uri[count];
+                        for (int i = 0; i < count; i++) {
+                            results[i] = data.getClipData().getItemAt(i).getUri();
+                        }
+                    } else if (data.getData() != null) {
+                        results = new Uri[]{data.getData()};
+                    } else if (data.getDataString() != null) {
+                        results = new Uri[]{Uri.parse(data.getDataString())};
                     }
                 }
-                fileUploadCallback.onReceiveValue(results);
-                fileUploadCallback = null;
+                if (results == null && cameraOutputUri != null) {
+                    results = new Uri[]{cameraOutputUri};
+                }
             }
+            finishFileUpload(results);
         }
     }
 
@@ -430,26 +491,13 @@ public class MainActivity extends Activity {
             pendingPermissionRequest = null;
         }
 
-        // Permission camera pour file input (capture="environment")
         if (requestCode == CAMERA_PERMISSION_FOR_FILE) {
-            if (fileUploadCallback != null) {
-                // Relancer le chooser maintenant que la permission est accordee (ou refusee)
-                try {
-                    Intent cameraIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
-                    Intent fileIntent = new Intent(Intent.ACTION_GET_CONTENT);
-                    fileIntent.setType("image/*");
-                    fileIntent.addCategory(Intent.CATEGORY_OPENABLE);
-                    Intent chooser = Intent.createChooser(fileIntent, "Choisir un fichier");
-                    if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                        if (cameraIntent.resolveActivity(getPackageManager()) != null) {
-                            chooser.putExtra(Intent.EXTRA_INITIAL_INTENTS, new Intent[]{cameraIntent});
-                        }
-                    }
-                    startActivityForResult(chooser, FILE_CHOOSER_REQUEST_CODE);
-                } catch (Exception e) {
-                    fileUploadCallback.onReceiveValue(null);
-                    fileUploadCallback = null;
-                }
+            if (fileUploadCallback == null) return;
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                launchCameraCapture();
+            } else {
+                Toast.makeText(this, "Autorisez la camera dans Parametres > Luna > Autorisations.", Toast.LENGTH_LONG).show();
+                finishFileUpload(null);
             }
         }
     }

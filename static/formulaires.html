@@ -223,14 +223,10 @@ summary:hover { color: var(--purple); }
             <p class="drop-or">ou</p>
             </div>
             <div class="upload-btns">
-                <div style="position:relative;display:inline-flex;">
-                    <span class="btn btn-primary">Parcourir</span>
-                    <input type="file" id="fileInput" class="file-over" accept="application/pdf,image/png,image/jpeg,image/webp,image/bmp,image/tiff">
-                </div>
-                <div style="position:relative;display:inline-flex;">
-                    <span class="btn btn-secondary">Photo</span>
-                    <input type="file" id="camInput" class="file-over" accept="image/*" capture="environment">
-                </div>
+                <button type="button" class="btn btn-primary" id="btnBrowse">Parcourir (PDF)</button>
+                <button type="button" class="btn btn-secondary" id="btnPhoto">Photo / Scanner</button>
+                <input type="file" id="fileInput" accept="application/pdf,image/png,image/jpeg,image/webp,image/bmp,image/tiff" style="display:none">
+                <input type="file" id="camInput" accept="image/*" capture="environment" style="display:none">
             </div>
         </div>
         <div class="file-preview hidden" id="filePreview">
@@ -637,10 +633,15 @@ function init(){
     dz.ondrop=e=>{e.preventDefault();dz.classList.remove('dragover');if(e.dataTransfer.files.length)handleFile(e.dataTransfer.files[0]);};
 
     const fi=$('#fileInput'), ci=$('#camInput');
-    fi.onchange=function(){if(this.files.length)handleFile(this.files[0]);};
-    ci.onchange=function(){if(this.files.length)handleFile(this.files[0]);};
+    fi.onchange=function(){if(this.files.length)handleFile(this.files[0]);this.value='';};
+    ci.onchange=function(){if(this.files.length)handleFile(this.files[0]);this.value='';};
 
-    // Zone drop cliquable → ouvre le selecteur de fichiers
+    $('#btnBrowse').onclick=function(){fi.click();};
+    $('#btnPhoto').onclick=function(){
+        try{ ci.click(); }catch(e){
+            toast('Impossible d\'ouvrir la camera. Mettez a jour l\'APK Luna.','err');
+        }
+    };
     $('#dropZoneClickArea').onclick=function(){fi.click();};
     $('#btnRemove').onclick=()=>{file=null;$('#filePreview').classList.add('hidden');$('#dropZone').classList.remove('hidden');};
     $('#btnAnalyze').onclick=startAnalysis;
