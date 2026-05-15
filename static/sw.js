@@ -27,10 +27,22 @@ self.addEventListener("activate", function(event) {
   );
 });
 
-// Listen for SKIP_WAITING from the app
+// Listen for messages from the app
 self.addEventListener("message", function(event) {
-  if (event.data && event.data.type === "SKIP_WAITING") {
+  if (!event.data) return;
+  if (event.data.type === "SKIP_WAITING") {
     self.skipWaiting();
+  }
+  // PURGE_CACHE: vide tout le cache SW immediatement
+  if (event.data.type === "PURGE_CACHE") {
+    caches.keys().then(function(names) {
+      return Promise.all(names.map(function(n) { return caches.delete(n); }));
+    }).then(function() {
+      // Notifie tous les clients que le cache est purgé
+      self.clients.matchAll().then(function(clients) {
+        clients.forEach(function(c) { c.postMessage({ type: "CACHE_PURGED" }); });
+      });
+    });
   }
 });
 

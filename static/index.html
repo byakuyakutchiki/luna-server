@@ -5192,29 +5192,55 @@ if ("serviceWorker" in navigator) {
 function _forceAppUpdate() {
   var btn = document.getElementById("updateAppBtn");
   if (btn) { btn.textContent = "MAJ..."; btn.disabled = true; }
-  // 1. Clear all caches
+  _purgeCacheAndReload();
+}
+
+// Purge SW cache + HTTP cache + reload
+function _purgeCacheAndReload() {
+  localStorage.setItem("luna_last_cache_purge", Date.now().toString());
+  // 1. Demander au SW de purger son cache
+  if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+    navigator.serviceWorker.controller.postMessage({ type: "PURGE_CACHE" });
+  }
+  // 2. Purger caches directement depuis la page
   if ("caches" in window) {
     caches.keys().then(function(names) {
       return Promise.all(names.map(function(n) { return caches.delete(n); }));
-    }).then(function() {
-      console.log("All caches cleared");
     });
   }
-  // 2. Tell waiting SW to activate immediately
-  if (_swRegistration && _swRegistration.waiting) {
-    _swRegistration.waiting.postMessage({type: "SKIP_WAITING"});
-  }
-  // 3. Unregister SW and hard reload
+  // 3. Desinscrire SW et recharger sans cache
   if ("serviceWorker" in navigator) {
     navigator.serviceWorker.getRegistrations().then(function(regs) {
       return Promise.all(regs.map(function(r) { return r.unregister(); }));
-    }).then(function() {
-      window.location.reload(true);
-    });
+    }).then(function() { window.location.reload(true); });
   } else {
     window.location.reload(true);
   }
 }
+
+// Vide-cache automatique toutes les 24h (evite l'accumulation de vieux assets)
+(function _autoCachePurge() {
+  var KEY = "luna_last_cache_purge";
+  var INTERVAL_MS = 24 * 60 * 60 * 1000; // 24h
+  var last = parseInt(localStorage.getItem(KEY) || "0", 10);
+  if (Date.now() - last > INTERVAL_MS) {
+    console.log("[Luna] Auto cache purge (>24h)");
+    // Purge silencieuse : on vide le SW cache sans reload (SW se re-remplit au prochain acces)
+    if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+      navigator.serviceWorker.controller.postMessage({ type: "PURGE_CACHE" });
+    }
+    if ("caches" in window) {
+      caches.keys().then(function(names) {
+        return Promise.all(names.map(function(n) { return caches.delete(n); }));
+      }).then(function() {
+        localStorage.setItem(KEY, Date.now().toString());
+        console.log("[Luna] SW cache purge ok");
+      });
+    } else {
+      localStorage.setItem(KEY, Date.now().toString());
+    }
+  }
+}());
 
 // Bind update button
 document.getElementById("updateAppBtn").addEventListener("click", _forceAppUpdate);
