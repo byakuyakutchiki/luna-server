@@ -325,7 +325,7 @@ if not _jwt_raw:
     raise SystemExit("ERREUR FATALE: JWT_SECRET_KEY manquante dans .env")
 _JWT_SECRET = _jwt_raw
 _JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
-_CLIENT_TOKEN_EXPIRE_DAYS = 7
+_CLIENT_TOKEN_EXPIRE_DAYS = 90
 
 def _hash_password(password: str) -> str:
     """Hash un mot de passe avec bcrypt."""
