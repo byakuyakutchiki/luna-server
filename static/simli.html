@@ -389,7 +389,10 @@
       var t = getToken();
       if (t) opts.headers['Authorization'] = 'Bearer ' + t;
       return fetch(url, opts).then(function(r) {
-        if (r.status === 401) { window.location.href = '/'; throw new Error('Session expiree'); }
+        if (r.status === 401) {
+          localStorage.removeItem('luna_token');
+          throw new Error('Session expiree — reconnecte-toi');
+        }
         return r;
       });
     }
@@ -652,8 +655,8 @@
             phoneAvatarFrame.innerHTML = '';
           });
         } else {
-          // Pas de conversation — retour
-          return wait(1000).then(function() { window.location.href = '/'; });
+          // Pas de conversation — retour apres delai
+          return wait(500).then(function() { _showVisioError('Connexion visio impossible. Reessaie.'); });
         }
       });
     }
@@ -793,6 +796,14 @@
     // START — Cinematique + Tavus
     // =====================================================================
     btnStartBig.onclick = function() {
+      // Verifier token avant tout
+      if (!getToken()) {
+        var el = document.getElementById('visioErrMsg');
+        if (el) { el.textContent = 'Non connecte — retourne sur Luna pour te connecter.'; el.style.display = 'block'; }
+        setTimeout(function() { window.location.href = '/'; }, 2000);
+        return;
+      }
+
       btnStartBig.disabled = true;
       startLoading.classList.add('visible');
 
