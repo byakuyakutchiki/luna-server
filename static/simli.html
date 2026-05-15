@@ -810,8 +810,6 @@
       var conversationUrl = null;
       var scene = getCurrentScene();
 
-      var visioError = null;
-
       function _showVisioError(msg) {
         startScreen.classList.remove('hidden');
         startLoading.classList.remove('visible');
@@ -820,38 +818,30 @@
         if (el) { el.textContent = msg || 'Visio indisponible. Reessaie.'; el.style.display = 'block'; }
       }
 
-      // Lancer l'appel Tavus en parallele de la cinematique
-      var tavusPromise = createVisioCall().then(function(url) {
+      // Attendre que l'appel soit pret AVANT de lancer la cinematique
+      createVisioCall().then(function(url) {
         conversationUrl = url;
-      }).catch(function(err) {
-        conversationUrl = null;
-        visioError = (err && err.message) || 'Visio indisponible';
-      });
 
-      // Masquer ecran de demarrage
-      startScreen.classList.add('hidden');
+        // Masquer ecran de demarrage seulement si la visio est OK
+        startScreen.classList.add('hidden');
+        startLoading.classList.remove('visible');
 
-      // ACT 1 : ESTABLISHING SHOT
-      actEstablishingShot(scene).then(function() {
-        // Attendre que la connexion soit prete
-        return tavusPromise;
+        // ACT 1 : ESTABLISHING SHOT
+        return actEstablishingShot(scene);
       }).then(function() {
-        if (!conversationUrl) {
-          _showVisioError(visioError);
-          return;
-        }
+        if (!conversationUrl) return;
         // ACT 2 : PHONE VIBRATE
         return actPhoneVibrate();
       }).then(function() {
-        if (!conversationUrl) return;
+        // ACT 2 : PHONE VIBRATE
+        return actPhoneVibrate();
+      }).then(function() {
         // ACT 3 : PHONE RING
         return actPhoneRing();
       }).then(function() {
-        if (!conversationUrl) return;
         // ACT 4 : PHONE ANSWER — affiche Luna dans le tel
         return actPhoneAnswer(conversationUrl);
       }).then(function() {
-        if (!conversationUrl) return;
         // Fade out ambient
         fadeOutAmbient(3000);
         // ACT 5 : ZOOM + TAVUS FULLSCREEN
