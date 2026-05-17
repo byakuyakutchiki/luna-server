@@ -491,6 +491,15 @@ class TavusClient:
             "Content-Type": "application/json",
         }
 
+    def _cleanup_stale_conversations(self) -> None:
+        """Purge les conversations inactives depuis plus de 2h du cache mémoire."""
+        from datetime import timedelta
+        cutoff = datetime.utcnow() - timedelta(hours=2)
+        stale = [cid for cid, c in self._active_conversations.items() if c.created_at < cutoff]
+        for cid in stale:
+            self._active_conversations.pop(cid, None)
+            logger.info("Conversation Tavus expirée purgée du cache: %s", cid)
+
     async def create_conversation(
         self,
         tenant_id: int,
@@ -510,6 +519,8 @@ class TavusClient:
         Returns:
             (success, data) avec data contenant conversation_url et conversation_id
         """
+        self._cleanup_stale_conversations()
+
         if not self.is_configured:
             return False, {"error": "Tavus non configure (cle API ou persona manquante)"}
 

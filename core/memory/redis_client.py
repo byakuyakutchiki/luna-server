@@ -2,11 +2,14 @@
 Luna Redis Client - Client Redis avec gestion des clés Luna
 """
 import os
+import re
 import json
 import logging
 from typing import Optional, List, Dict, Any
 from functools import lru_cache
 import redis
+
+_PHONE_E164 = re.compile(r'^\+[1-9]\d{6,14}$')
 
 logger = logging.getLogger(__name__)
 
@@ -303,8 +306,11 @@ class RedisClient:
     def add_trusted_contact(self, tenant_id: int, phone: str, data: Dict[str, str], max_contacts: int = 5) -> bool:
         """
         Ajoute un contact de confiance.
-        Retourne False si le maximum est atteint.
+        Retourne False si le maximum est atteint ou si le numéro est invalide.
         """
+        if not _PHONE_E164.match(phone):
+            logger.warning("Numéro de téléphone invalide ignoré: %r", phone[:30])
+            return False
         key = self.get_trusted_contacts_key(tenant_id)
         if self.client.scard(key) >= max_contacts:
             return False
@@ -556,7 +562,10 @@ class RedisClient:
         return self._key(tenant_id, "family", "member", phone)
 
     def add_family_member(self, tenant_id: int, phone: str, data: Dict[str, str]) -> bool:
-        """Ajoute un membre famille. Retourne False si quota atteint."""
+        """Ajoute un membre famille. Retourne False si quota atteint ou numéro invalide."""
+        if not _PHONE_E164.match(phone):
+            logger.warning("Numéro famille invalide ignoré: %r", phone[:30])
+            return False
         members_key = self.get_family_members_key(tenant_id)
         # Verifier quota (max 15 pour premium)
         if self.client.scard(members_key) >= 15:

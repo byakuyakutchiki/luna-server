@@ -416,12 +416,14 @@ public class MainActivity extends Activity {
     }
 
     /**
-     * Télécharge l'APK, vérifie son SHA-256, et le dépose dans Téléchargements
-     * uniquement si l'intégrité est confirmée.
+     * Télécharge l'APK, vérifie SHA-256 ET signature Android, dépose dans
+     * Téléchargements uniquement si les deux contrôles passent.
      */
     private void downloadAndVerifyUpdate(String apkUrl, String expectedSha256) {
         new Thread(() -> {
-            java.io.File tmpFile = new java.io.File(getCacheDir(), "luna_update_tmp.apk");
+            // Nom unique par timestamp — évite la race condition si deux threads tournent
+            java.io.File tmpFile = new java.io.File(getCacheDir(),
+                "luna_update_" + System.currentTimeMillis() + ".apk");
             try {
                 URL url = new URL(apkUrl);
                 HttpURLConnection conn = (HttpURLConnection) url.openConnection();
@@ -441,16 +443,23 @@ public class MainActivity extends Activity {
                 }
                 conn.disconnect();
 
-                // Vérification SHA-256
+                // Contrôle 1 : SHA-256
                 byte[] hashBytes = digest.digest();
                 StringBuilder hex = new StringBuilder(64);
                 for (byte b : hashBytes) hex.append(String.format("%02x", b));
                 if (!hex.toString().equalsIgnoreCase(expectedSha256)) {
-                    tmpFile.delete();
-                    return; // APK corrompu ou falsifié — abandon silencieux
+                    return; // APK corrompu ou falsifié
                 }
 
-                // Intégrité confirmée : copier vers Téléchargements publics
+                // Contrôle 2 : signature Android (même clé que l'app installée)
+                if (!verifyApkSignature(tmpFile)) {
+                    runOnUiThread(() -> Toast.makeText(MainActivity.this,
+                        "Mise à jour rejetée : signature non reconnue.",
+                        Toast.LENGTH_LONG).show());
+                    return;
+                }
+
+                // Les deux contrôles OK → copier vers Téléchargements
                 java.io.File destFile = new java.io.File(
                     Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
                     "Luna-Proprio.apk");
@@ -460,15 +469,42 @@ public class MainActivity extends Activity {
                     int n;
                     while ((n = fis.read(buf)) != -1) fos.write(buf, 0, n);
                 }
-                tmpFile.delete();
 
                 runOnUiThread(() -> Toast.makeText(MainActivity.this,
                     "Mise à jour Luna vérifiée ! Ouvre Téléchargements pour installer.",
                     Toast.LENGTH_LONG).show());
             } catch (Exception e) {
-                tmpFile.delete();
+                // Silencieux
+            } finally {
+                tmpFile.delete(); // nettoyage garanti quelle que soit l'issue
             }
         }).start();
+    }
+
+    /**
+     * Vérifie que l'APK téléchargé est signé avec la même clé que l'app installée.
+     * Empêche l'installation d'un APK signé par une autre clé (même si SHA-256 OK).
+     */
+    @SuppressWarnings("deprecation")
+    private boolean verifyApkSignature(java.io.File apkFile) {
+        try {
+            android.content.pm.PackageManager pm = getPackageManager();
+            android.content.pm.PackageInfo newPkg = pm.getPackageArchiveInfo(
+                apkFile.getAbsolutePath(),
+                android.content.pm.PackageManager.GET_SIGNATURES);
+            if (newPkg == null || newPkg.signatures == null || newPkg.signatures.length == 0) {
+                return false;
+            }
+            android.content.pm.PackageInfo currentPkg = pm.getPackageInfo(
+                getPackageName(),
+                android.content.pm.PackageManager.GET_SIGNATURES);
+            if (currentPkg.signatures == null || currentPkg.signatures.length == 0) {
+                return false;
+            }
+            return currentPkg.signatures[0].equals(newPkg.signatures[0]);
+        } catch (Exception e) {
+            return false; // En cas de doute, refuser
+        }
     }
 
     /** Ouvre l'appareil photo natif et renvoie l'URI au WebView (Formulaires / scan). */

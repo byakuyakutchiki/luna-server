@@ -623,12 +623,18 @@ class LunaCortex:
             return business
 
         try:
-            if hasattr(self.redis, 'keys'):
-                keys = await self.redis.keys("luna:*:profile")
-                # Filtrer les profils de contacts (luna:X:contact:+phone:profile)
+            if hasattr(self.redis, 'scan'):
+                # SCAN non-bloquant au lieu de KEYS (évite de bloquer Redis sur grande base)
+                keys = []
+                cursor = b"0"
+                while True:
+                    cursor, batch = await self.redis.scan(cursor, match="luna:*:profile", count=100)
+                    keys.extend(batch)
+                    if cursor == b"0" or cursor == 0:
+                        break
                 client_keys = [k for k in keys if b":contact:" not in (k if isinstance(k, bytes) else k.encode())]
                 business["total_clients"] = len(client_keys)
-                business["active_clients"] = len(client_keys)  # Approximation
+                business["active_clients"] = len(client_keys)
         except Exception:
             pass
 

@@ -17,12 +17,15 @@ Usage:
     )
 """
 import os
+import re
 import logging
 from typing import Dict, Any, Tuple, Optional
 
 import httpx
 
 logger = logging.getLogger(__name__)
+
+_EMAIL_RE = re.compile(r'^[^@\s\n\r]+@[^@\s\n\r]+\.[^@\s\n\r]{2,}$')
 
 SENDGRID_API_URL = "https://api.sendgrid.com/v3/mail/send"
 
@@ -92,6 +95,10 @@ class EmailClient:
         """
         if not self.is_configured:
             return False, {"error": "Email non configure (SENDGRID_API_KEY ou LUNA_EMAIL_FROM manquant)"}
+
+        if not _EMAIL_RE.match(to):
+            logger.warning("Adresse email invalide refusée: %r", to[:80])
+            return False, {"error": "Adresse email invalide"}
 
         # Sender name = "Luna de Gwladys" si subscriber_name fourni
         if subscriber_name:
