@@ -1787,6 +1787,18 @@ body.mode-secretaire .luna-chip:hover { background: rgba(16,185,129,0.2); border
       <button class="btn" id="settingsLogoutBtn" style="background:#444;width:100%;padding:12px;border-radius:8px;color:#e0e0e0;border:none;cursor:pointer;">Se deconnecter</button>
     </div>
 
+    <!-- Toggle auto-note visio -->
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 0;border-top:1px solid rgba(255,255,255,0.08);margin-top:12px;">
+      <div>
+        <div style="font-size:14px;font-weight:500;">📝 Prise de notes automatique</div>
+        <div style="font-size:12px;color:#888;margin-top:2px;">Enregistrer les échanges en visio dans les notes</div>
+      </div>
+      <label style="position:relative;display:inline-block;width:44px;height:24px;">
+        <input type="checkbox" id="toggle-auto-note" style="opacity:0;width:0;height:0;">
+        <span id="auto-note-slider" style="position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background:#555;transition:.3s;border-radius:24px;"></span>
+      </label>
+    </div>
+
     <div style="margin-top:16px;">
       <button class="btn btn-primary" id="settingsSaveBtn" style="width:100%;">Sauvegarder</button>
     </div>
@@ -3041,6 +3053,41 @@ document.getElementById("settingsSaveBtn").addEventListener("click", function() 
 
 // Logout from settings
 document.getElementById("settingsLogoutBtn").addEventListener("click", doLogout);
+
+// --- Toggle auto-note visio ---
+(function() {
+  var toggle = document.getElementById("toggle-auto-note");
+  var slider = document.getElementById("auto-note-slider");
+  function applySliderStyle(checked) {
+    slider.style.background = checked ? "#4F46E5" : "#555";
+    slider.style.paddingLeft = checked ? "20px" : "0";
+  }
+  // Pseudo-before via JS (inline)
+  var knob = document.createElement("span");
+  knob.style.cssText = "position:absolute;content:'';height:18px;width:18px;left:3px;bottom:3px;background:#fff;transition:.3s;border-radius:50%;pointer-events:none;";
+  slider.appendChild(knob);
+  function updateKnob(checked) {
+    knob.style.transform = checked ? "translateX(20px)" : "translateX(0)";
+  }
+  // Charger l'état initial
+  authFetch("/api/settings/auto-note").then(function(d) {
+    toggle.checked = d.enabled !== false;
+    applySliderStyle(toggle.checked);
+    updateKnob(toggle.checked);
+  }).catch(function() {});
+  // Sauvegarder au changement
+  toggle.addEventListener("change", function() {
+    applySliderStyle(toggle.checked);
+    updateKnob(toggle.checked);
+    authFetch("/api/settings/auto-note", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({enabled: toggle.checked})
+    }).then(function(d) {
+      if (d.status === "success" && typeof showToast === "function") showToast(d.message);
+    }).catch(function() {});
+  });
+})();
 
 // Setup card (Stripe)
 document.getElementById("setupCardBtn").addEventListener("click", function() {

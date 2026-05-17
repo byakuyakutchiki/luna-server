@@ -467,6 +467,15 @@ class RedisClient:
         key = self._key(tenant_id, "perception", "enabled")
         return self.client.get(key) == "1"
 
+    def set_auto_note_enabled(self, tenant_id: int, enabled: bool) -> None:
+        key = self._key(tenant_id, "auto_note", "enabled")
+        self.client.set(key, "1" if enabled else "0")
+
+    def is_auto_note_enabled(self, tenant_id: int) -> bool:
+        key = self._key(tenant_id, "auto_note", "enabled")
+        val = self.client.get(key)
+        return val != "0" if val is not None else True
+
     def add_perception_history(self, tenant_id: int, state_json: str) -> None:
         key = self._key(tenant_id, "perception", "history")
         self.client.lpush(key, state_json)

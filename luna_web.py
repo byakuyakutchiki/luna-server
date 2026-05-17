@@ -9054,6 +9054,10 @@ async def webhook_tavus(request: Request):
     if "transcription" in event_type:
         return await _handle_tavus_transcription(body)
 
+    # --- Utterance en temps réel ---
+    if "utterance" in event_type:
+        return await _handle_tavus_utterance(body)
+
     # Acknowledge unknown events
     logger.info(f"Tavus webhook event non gere: {event_type}")
     return {"status": "ok"}
@@ -9127,7 +9131,7 @@ async def _handle_tavus_tool_call(body: Dict) -> Dict:
         elif tool_name == "alert_contacts":
             result = await _tool_alert_contacts(args, tenant_id=tid)
         elif tool_name == "report_observation":
-            result = await _tool_report_observation(args)
+            result = await _tool_report_observation(args, tenant_id=tid, conversation_id=conversation_id)
         elif tool_name == "send_email":
             result = await _tool_send_email(args, tenant_id=tid)
         elif tool_name == "invite_visio":
@@ -10132,9 +10136,11 @@ async def _tool_alert_contacts(args: Dict, tenant_id: int = 0) -> Dict:
     return {"status": "success", "message": f"Alerte envoyee a {sent} contact(s) de confiance", "reasoning": reasoning}
 
 
-async def _tool_report_observation(args: Dict) -> Dict:
-    """Log une observation visuelle de Tavus Raven pendant un appel video."""
-    if not _memory_manager:
+async def _tool_report_observation(args: Dict, tenant_id: int = 0, conversation_id: str = "") -> Dict:
+    """Log une observation visuelle Raven. Si severity==concern, déclenche la chaîne de vérification."""
+    tid = tenant_id or TENANT_ID
+    mgr = _get_tenant_manager(tid) if tid else _memory_manager
+    if not mgr:
         return {"status": "error", "message": "Memoire non disponible"}
 
     observation = args.get("observation", "")
@@ -10142,21 +10148,83 @@ async def _tool_report_observation(args: Dict) -> Dict:
 
     reasoning = f"Luna note une observation visuelle Raven pendant la visio: {severity}"
     if observation:
-        _memory_manager.add_note(
-            content=f"[Observation visio] {observation}\n[Raison: {reasoning}]",
+        mgr.add_note(
+            content=f"[Observation visio] {observation}",
             context="visio_perception",
             tags=["perception", "visio", "raven", severity, "reasoning"],
         )
-        _memory_manager.log_perception_event({
-            "type": "visio_observation",
-            "severity": severity,
-            "description": observation,
-            "reasoning": reasoning,
-            "source": "tavus_raven",
-            "timestamp": datetime.utcnow().isoformat(),
-        })
+        try:
+            mgr.log_perception_event({
+                "type": "visio_observation",
+                "severity": severity,
+                "description": observation,
+                "reasoning": reasoning,
+                "source": "tavus_raven",
+                "timestamp": datetime.utcnow().isoformat(),
+            })
+        except Exception:
+            pass
+
+        # CHAÎNE INCIDENT — severity concern uniquement
+        if severity == "concern" and _redis_client:
+            checkin_data = {
+                "observation": observation,
+                "severity": severity,
+                "timestamp": datetime.utcnow().isoformat(),
+                "conversation_id": conversation_id,
+                "tenant_id": tid,
+                "status": "pending",
+            }
+            redis_key = f"luna:{tid}:checkin_pending:{conversation_id or 'default'}"
+            _redis_client.client.setex(redis_key, 45, json.dumps(checkin_data))
+            asyncio.create_task(_schedule_auto_alert(tid, conversation_id or "default", observation))
+
+            return {
+                "status": "success",
+                "URGENT_INSTRUCTION": (
+                    f"ALERTE VISUELLE DETECTEE : {observation}. "
+                    f"Demande IMMEDIATEMENT au souscripteur : 'Tu vas bien ? Reponds-moi.' "
+                    f"Si pas de reponse positive dans 30 secondes, utilise la fonction alert_contacts "
+                    f"avec la raison : '{observation}'"
+                ),
+                "reasoning": reasoning,
+                "checkin_initiated": True,
+            }
 
     return {"status": "success", "message": "Observation notee", "reasoning": reasoning}
+
+
+async def _schedule_auto_alert(tenant_id: int, conversation_id: str, reason: str) -> None:
+    """Attend 35s, déclenche l'alerte si le checkin n'a pas été confirmé."""
+    await asyncio.sleep(35)
+    if not _redis_client:
+        return
+    redis_key = f"luna:{tenant_id}:checkin_pending:{conversation_id}"
+    checkin_raw = _redis_client.client.get(redis_key)
+    if not checkin_raw:
+        return
+    try:
+        checkin = json.loads(checkin_raw)
+    except Exception:
+        return
+    if checkin.get("status") != "pending":
+        return
+    checkin["status"] = "alerted"
+    checkin["alerted_at"] = datetime.utcnow().isoformat()
+    _redis_client.client.setex(redis_key, 300, json.dumps(checkin))
+    try:
+        mgr = _get_tenant_manager(tenant_id) if tenant_id else _memory_manager
+        result = await _tool_alert_contacts({"reason": reason}, tenant_id)
+        logger.warning(f"ALERTE AUTO declenche apres non-reponse [tenant={tenant_id}]: {result}")
+        if mgr:
+            mgr.log_event(
+                category="safety",
+                description="Alerte automatique declenchee apres non-reponse Raven (35s)",
+                reasoning=f"Observation: {reason}",
+                source="checkin_auto",
+            )
+    except Exception as e:
+        logger.exception(f"Echec alerte auto [tenant={tenant_id}]: {e}")
 
 
 # --- GAMIFICATION TOOLS (chat + voix) ---
@@ -11517,15 +11585,22 @@ async def _voice_tool_look_around(tid: int) -> Dict:
 
 async def _handle_tavus_transcription(body: Dict) -> Dict:
     """Sauvegarde la transcription d'un appel Tavus."""
-    if not _memory_manager:
-        return {"status": "ok"}
-
-    transcript = body.get("transcript", "") or body.get("data", {}).get("transcript", "")
     conversation_id = body.get("conversation_id", "")
+    transcript = body.get("transcript", "") or body.get("data", {}).get("transcript", "")
+
+    # Résoudre le tenant depuis la conversation active
+    tid = TENANT_ID
+    if tavus_client and conversation_id:
+        conv = tavus_client._active_conversations.get(conversation_id)
+        if conv:
+            tid = conv.tenant_id
+    mgr = _get_tenant_manager(tid) if tid else _memory_manager
+    if not mgr:
+        return {"status": "ok"}
 
     if transcript:
         try:
-            _memory_manager.add_note(
+            mgr.add_note(
                 content=f"Transcription visio: {transcript[:2000]}",
                 context="visio_transcription",
                 tags=["visio", "transcription", conversation_id],
@@ -11535,6 +11610,87 @@ async def _handle_tavus_transcription(body: Dict) -> Dict:
             logger.warning(f"Failed to save transcription: {e}")
 
     return {"status": "ok"}
+
+
+async def _handle_tavus_utterance(body: Dict) -> Dict:
+    """Gère les utterances en temps réel : note auto + vérification checkin."""
+    data = body.get("data", {})
+    speaker = data.get("speaker", "")
+    text = data.get("text", "")
+    conversation_id = body.get("conversation_id", "")
+    if not text:
+        return {"status": "ok"}
+
+    # Résoudre le tenant
+    tid = TENANT_ID
+    if tavus_client and conversation_id:
+        conv = tavus_client._active_conversations.get(conversation_id)
+        if conv:
+            tid = conv.tenant_id
+    mgr = _get_tenant_manager(tid) if tid else _memory_manager
+
+    # Note auto si activée
+    if mgr and mgr.is_auto_note_enabled():
+        try:
+            mgr.add_note(
+                content=f"[Visio live] {speaker}: {text[:500]}",
+                context="visio_utterance",
+                tags=["visio", "utterance", speaker, conversation_id],
+            )
+        except Exception:
+            pass
+
+    # Vérification checkin si le souscripteur parle
+    if speaker == "user":
+        await _process_checkin_response(tid, conversation_id, text)
+
+    return {"status": "ok"}
+
+
+async def _process_checkin_response(tenant_id: int, conversation_id: str, text: str) -> None:
+    """Évalue la réponse du souscripteur à un checkin de sécurité Raven."""
+    if not _redis_client:
+        return
+    redis_key = f"luna:{tenant_id}:checkin_pending:{conversation_id or 'default'}"
+    checkin_raw = _redis_client.client.get(redis_key)
+    if not checkin_raw:
+        return
+    try:
+        checkin = json.loads(checkin_raw)
+    except Exception:
+        return
+    if checkin.get("status") != "pending":
+        return
+
+    text_lower = text.lower().strip()
+    POSITIVE = {"oui", "ça va", "ca va", "tout va bien", "bien", "ok", "super",
+                "merci", "tranquille", "pas de souci", "ras", "nickel",
+                "je vais bien", "pas de problème", "np"}
+    NEGATIVE = {"non", "pas bien", "mal", "aide", "au secours", "urgence",
+                "chute", "tombe", "douleur", "souffre", "peux pas",
+                "impossible", "bloqué", "panique"}
+
+    is_positive = any(kw in text_lower for kw in POSITIVE)
+    is_negative = any(kw in text_lower for kw in NEGATIVE)
+
+    if is_positive and not is_negative:
+        checkin["status"] = "confirmed"
+        checkin["response"] = text[:200]
+        checkin["confirmed_at"] = datetime.utcnow().isoformat()
+        _redis_client.client.setex(redis_key, 300, json.dumps(checkin))
+        logger.info(f"Checkin CONFIRME tenant={tenant_id} conv={conversation_id}")
+
+    elif is_negative:
+        checkin["status"] = "alerted"
+        checkin["response"] = text[:200]
+        checkin["alerted_at"] = datetime.utcnow().isoformat()
+        _redis_client.client.setex(redis_key, 300, json.dumps(checkin))
+        reason = checkin.get("observation", "detresse confirmee par le souscripteur")
+        try:
+            await _tool_alert_contacts({"reason": reason}, tenant_id)
+            logger.warning(f"ALERTE IMMEDIATE (reponse negative) tenant={tenant_id}")
+        except Exception as e:
+            logger.exception(f"Echec alerte immediate checkin tenant={tenant_id}: {e}")
 
 
 # =========================================================================
@@ -14466,6 +14622,106 @@ async def admin_alerts(request: Request, limit: int = 50, category: str = None):
         counts[cat] = counts.get(cat, 0) + 1
 
     return {"alerts": alerts, "counts": counts, "total": len(alerts)}
+
+
+@app.get("/api/admin/checkin-pending")
+async def admin_checkin_pending(request: Request):
+    """Checkins Raven en attente de confirmation (admin)."""
+    if not _verify_admin(request):
+        return JSONResponse(status_code=401, content={"error": "Non autorise"})
+    if not _redis_client:
+        return {"pending_count": 0, "pending": []}
+    pattern = f"luna:*:checkin_pending:*"
+    pending = []
+    cursor = 0
+    while True:
+        cursor, keys = _redis_client.client.scan(cursor, match=pattern, count=100)
+        for key in keys:
+            raw = _redis_client.client.get(key)
+            if not raw:
+                continue
+            try:
+                data = json.loads(raw)
+                if data.get("status") == "pending":
+                    created = datetime.fromisoformat(data["timestamp"])
+                    elapsed = (datetime.utcnow() - created).total_seconds()
+                    pending.append({
+                        "conversation_id": data.get("conversation_id"),
+                        "observation": data.get("observation"),
+                        "severity": data.get("severity"),
+                        "tenant_id": data.get("tenant_id"),
+                        "elapsed_seconds": int(elapsed),
+                        "remaining_seconds": max(0, int(45 - elapsed)),
+                        "timestamp": data.get("timestamp"),
+                    })
+            except Exception:
+                pass
+        if cursor == 0:
+            break
+    return {"pending_count": len(pending), "pending": pending}
+
+
+@app.get("/api/admin/subscriber-location")
+async def admin_subscriber_location(request: Request):
+    """Dernière position GPS connue du souscripteur (admin)."""
+    if not _verify_admin(request):
+        return JSONResponse(status_code=401, content={"error": "Non autorise"})
+    if not _redis_client:
+        return {"available": False, "message": "Redis non disponible"}
+    raw = _redis_client.client.get(f"luna:{TENANT_ID}:geolocation")
+    if not raw:
+        return {"available": False, "message": "Position non disponible"}
+    try:
+        data = json.loads(raw)
+        ts_str = data.get("timestamp", "")
+        try:
+            ts = datetime.fromisoformat(ts_str)
+            age = int((datetime.utcnow() - ts).total_seconds())
+        except Exception:
+            age = -1
+        return {
+            "available": True,
+            "latitude": data.get("latitude"),
+            "longitude": data.get("longitude"),
+            "accuracy": data.get("accuracy"),
+            "city": data.get("city", ""),
+            "address": data.get("address", ""),
+            "timestamp": ts_str,
+            "age_seconds": age,
+            "is_fresh": age >= 0 and age < 300,
+        }
+    except Exception as e:
+        return {"available": False, "message": f"Erreur lecture: {e}"}
+
+
+@app.get("/api/settings/auto-note")
+async def get_auto_note(request: Request):
+    """Retourne l'état de la prise de note automatique en visio."""
+    tid = getattr(request.state, "tenant_id", TENANT_ID)
+    mgr = _get_tenant_manager(tid) if tid else _memory_manager
+    if not mgr:
+        return {"enabled": True}
+    return {"enabled": mgr.is_auto_note_enabled()}
+
+
+@app.post("/api/settings/auto-note")
+async def set_auto_note(request: Request):
+    """Active ou désactive la prise de note automatique en visio."""
+    tid = getattr(request.state, "tenant_id", TENANT_ID)
+    mgr = _get_tenant_manager(tid) if tid else _memory_manager
+    if not mgr:
+        return JSONResponse(status_code=503, content={"error": "Service non disponible"})
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    enabled = bool(body.get("enabled", True))
+    mgr.set_auto_note_enabled(enabled)
+    return {
+        "status": "success",
+        "enabled": enabled,
+        "message": f"Prise de notes automatique {'activee' if enabled else 'desactivee'}",
+    }
 
 
 @app.get("/api/admin/health")

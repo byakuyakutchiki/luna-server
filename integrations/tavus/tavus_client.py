@@ -523,6 +523,11 @@ class TavusClient:
                             "L'utilisateur est-il assis, debout, ou dans une position inhabituelle ?",
                             "Y a-t-il quelqu'un d'autre visible dans la piece ?",
                             "L'utilisateur semble-t-il heureux, triste, ou neutre ?",
+                            "L'utilisateur semble-t-il avoir chute ou etre tombe ?",
+                            "L'utilisateur semble-t-il en danger physique (agression, blessure visible) ?",
+                            "L'utilisateur semble-t-il inconscient ou sans reaction ?",
+                            "L'utilisateur tient-il une partie de son corps (douleur, blessure) ?",
+                            "L'environnement semble-t-il dangereux (feu, fumee, eau, objet casse) ?",
                         ],
                         "perception_model": "raven-0",
                     }

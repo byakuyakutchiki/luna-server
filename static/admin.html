@@ -114,6 +114,7 @@ tr:hover { background: rgba(167,139,250,0.05); }
     <button class="tab-btn" data-tab="clients">Clients</button>
     <button class="tab-btn" data-tab="quotas">Quotas</button>
     <button class="tab-btn" data-tab="alerts">Alertes</button>
+    <button class="tab-btn" data-tab="location" style="color:#34d399;">📍 Localisation</button>
     <button class="tab-btn" data-tab="costs" style="color:#fbbf24;">Couts API</button>
     <button class="tab-btn" data-tab="server">Serveur</button>
     <button class="tab-btn" data-tab="world" style="color:#a78bfa;">Monde</button>
@@ -148,6 +149,19 @@ tr:hover { background: rgba(167,139,250,0.05); }
   <div class="tab-panel" id="tab-alerts">
     <h3 style="margin-bottom:12px; font-size:1em;">Journal des evenements</h3>
     <div id="alertsContent"></div>
+  </div>
+
+  <!-- LOCATION TAB -->
+  <div class="tab-panel" id="tab-location">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+      <h3 style="font-size:1em;">📍 Localisation du souscripteur</h3>
+      <button onclick="refreshLocation()" style="padding:8px 16px;border-radius:8px;border:none;background:#7c3aed;color:white;cursor:pointer;font-size:0.85em;">🔄 Rafraîchir</button>
+    </div>
+    <div id="location-status" style="padding:14px;background:#1a1a2e;border-radius:8px;margin-bottom:14px;color:#aaa;font-size:0.9em;">
+      Chargement de la position...
+    </div>
+    <div id="subscriber-map" style="height:380px;width:100%;border-radius:12px;display:none;overflow:hidden;"></div>
+    <div id="location-last-update" style="margin-top:8px;font-size:0.78em;color:#666;"></div>
   </div>
 
   <!-- COSTS TAB -->
@@ -262,6 +276,8 @@ document.querySelectorAll(".tab-btn").forEach(function(btn) {
     if (tab === "alerts") loadAlerts();
     if (tab === "costs") loadCosts();
     if (tab === "server") loadServer();
+    if (tab === "location") startLocationRefresh();
+    else stopLocationRefresh();
   });
 });
 
@@ -582,6 +598,83 @@ function deactivateClient(tenantId) {
     if (data.success) loadClients();
     else alert(data.error || "Erreur");
   });
+}
+
+// =========================================================================
+// LOCALISATION
+// =========================================================================
+var _locationMap = null;
+var _locationMarker = null;
+var _locationInterval = null;
+var _leafletLoaded = false;
+
+function _loadLeaflet(cb) {
+  if (_leafletLoaded) { cb(); return; }
+  var link = document.createElement("link");
+  link.rel = "stylesheet";
+  link.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
+  document.head.appendChild(link);
+  var script = document.createElement("script");
+  script.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
+  script.onload = function() { _leafletLoaded = true; cb(); };
+  document.head.appendChild(script);
+}
+
+function refreshLocation() { loadSubscriberLocation(); }
+
+function loadSubscriberLocation() {
+  _loadLeaflet(function() {
+    authFetch("/api/admin/subscriber-location").then(function(data) {
+      var st = document.getElementById("location-status");
+      var mapEl = document.getElementById("subscriber-map");
+      var upd = document.getElementById("location-last-update");
+
+      if (!data.available) {
+        st.innerHTML = "⚠️ " + (data.message || "Position non disponible");
+        mapEl.style.display = "none";
+        return;
+      }
+
+      var ageMin = Math.floor((data.age_seconds || 0) / 60);
+      var fresh = data.is_fresh
+        ? '<span style="color:#34d399;">● En direct</span>'
+        : '<span style="color:#fbbf24;">● il y a ' + ageMin + ' min</span>';
+      st.innerHTML = '<strong>' + (data.city || 'Position connue') + '</strong> ' + fresh +
+        (data.address ? '<br><span style="font-size:0.85em;color:#888;">' + data.address + '</span>' : '') +
+        '<br><span style="font-size:0.78em;color:#666;">Précision : ±' + Math.round(data.accuracy || 0) + 'm</span>';
+
+      mapEl.style.display = "block";
+      if (!_locationMap) {
+        _locationMap = L.map("subscriber-map").setView([data.latitude, data.longitude], 15);
+        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+          attribution: "© OpenStreetMap"
+        }).addTo(_locationMap);
+      } else {
+        _locationMap.setView([data.latitude, data.longitude], 15);
+      }
+      var popupHtml = "<b>" + (data.city || "Souscripteur") + "</b><br>" +
+        (data.address || "") + "<br><small>Il y a " + ageMin + " min</small>";
+      if (!_locationMarker) {
+        _locationMarker = L.marker([data.latitude, data.longitude]).addTo(_locationMap).bindPopup(popupHtml);
+      } else {
+        _locationMarker.setLatLng([data.latitude, data.longitude]).setPopupContent(popupHtml);
+      }
+      if (data.timestamp) {
+        upd.textContent = "Mise à jour : " + new Date(data.timestamp).toLocaleTimeString("fr-FR");
+      }
+    }).catch(function(e) {
+      document.getElementById("location-status").textContent = "Erreur de chargement";
+    });
+  });
+}
+
+function startLocationRefresh() {
+  loadSubscriberLocation();
+  if (!_locationInterval) _locationInterval = setInterval(loadSubscriberLocation, 30000);
+}
+
+function stopLocationRefresh() {
+  if (_locationInterval) { clearInterval(_locationInterval); _locationInterval = null; }
 }
 
 // =========================================================================

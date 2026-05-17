@@ -582,6 +582,12 @@ class MemoryManager:
     def is_perception_enabled(self) -> bool:
         return self.redis.is_perception_enabled(self.tenant_id)
 
+    def set_auto_note_enabled(self, enabled: bool) -> None:
+        self.redis.set_auto_note_enabled(self.tenant_id, enabled)
+
+    def is_auto_note_enabled(self) -> bool:
+        return self.redis.is_auto_note_enabled(self.tenant_id)
+
     def update_perception_state(self, scene_state) -> None:
         """Stocke l'etat courant de la scene dans Redis."""
         import json
