@@ -479,6 +479,9 @@ class VigilAgent:
         Apres WARNINGS_BEFORE_BAN avertissements, on passe au ban.
         Chaque avertissement est enregistre et historise.
         """
+        # IP fondateur : jamais d'avertissement, jamais de ban
+        if self._is_founder_ip(ip):
+            return None
         now = time.time()
 
         # Nettoyer les vieux avertissements (plus de 24h) pour cette IP

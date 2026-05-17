@@ -371,6 +371,7 @@ class MemoryManager:
         relation: str,
         preferred_channel: Channel = Channel.SMS,
         emergency_only: bool = False,
+        email: str = "",
     ) -> TrustedContact:
         """
         Ajoute un contact de confiance.
@@ -382,6 +383,7 @@ class MemoryManager:
             phone=phone,
             name=name,
             relation=relation,
+            email=email or None,
             verified_at=datetime.utcnow(),
             preferred_channel=preferred_channel,
             emergency_only=emergency_only,

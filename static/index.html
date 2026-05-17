@@ -1220,13 +1220,16 @@ body.mode-secretaire .luna-chip:hover { background: rgba(16,185,129,0.2); border
     <h3>Ajouter un contact</h3>
     <div class="form-row">
       <div class="form-group"><label>Nom</label><input type="text" id="ct-name" placeholder="Marie"></div>
-      <div class="form-group"><label>Telephone</label><input type="tel" id="ct-phone" placeholder="+33612345678"></div>
+      <div class="form-group"><label>Téléphone</label><input type="tel" id="ct-phone" placeholder="+33612345678"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Relation</label><input type="text" id="ct-relation" placeholder="fille, voisin..."></div>
+      <div class="form-group"><label>Email (pour envoi email)</label><input type="email" id="ct-email" placeholder="marie@gmail.com"></div>
     </div>
     <div class="form-row-3">
-      <div class="form-group"><label>Relation</label><input type="text" id="ct-relation" placeholder="fille, voisin..."></div>
       <div class="form-group">
-        <label>Canal prefere</label>
-        <select id="ct-channel"><option value="sms">SMS</option><option value="call">Appel</option><option value="visio">Visio</option></select>
+        <label>Canal préféré</label>
+        <select id="ct-channel"><option value="sms">SMS</option><option value="email">Email</option><option value="call">Appel</option><option value="visio">Visio</option></select>
       </div>
       <div class="form-group">
         <label>Urgence seulement</label>
@@ -3665,9 +3668,10 @@ function loadContacts() {
     list.innerHTML = "";
     data.contacts.forEach(function(c) {
       var card = document.createElement("div"); card.className = "card";
+      var emailLine = c.email ? ' &bull; <span style="color:#10b981;">&#9993; ' + esc(c.email) + '</span>' : ' <span style="color:#888;font-size:0.8em;">(pas d\'email)</span>';
       card.innerHTML = '<div class="card-header"><span class="card-title">' + esc(c.name) + ' <span class="badge badge-blue">' + esc(c.relation) + '</span></span>' +
-        '<button class="btn btn-danger btn-sm" onclick="deleteContact(\'' + esc(c.phone) + '\')">Supprimer</button></div>' +
-        '<div class="card-body">' + esc(c.phone) + ' &mdash; ' + esc(c.preferred_channel) +
+        '<button class="btn btn-danger btn-sm" onclick="deleteContact(\'' + c.phone.replace(/'/g, "\\'") + '\')">Supprimer</button></div>' +
+        '<div class="card-body">&#128222; ' + esc(c.phone) + ' &mdash; ' + esc(c.preferred_channel) + emailLine +
         (c.emergency_only ? ' <span class="badge badge-red">Urgence seulement</span>' : '') + '</div>';
       list.appendChild(card);
     });
@@ -3697,19 +3701,21 @@ document.getElementById("contactAddBtn").addEventListener("click", function() {
     name: document.getElementById("ct-name").value.trim(),
     phone: document.getElementById("ct-phone").value.trim(),
     relation: document.getElementById("ct-relation").value.trim(),
+    email: document.getElementById("ct-email").value.trim(),
     preferred_channel: document.getElementById("ct-channel").value,
     emergency_only: document.getElementById("ct-emergency").value === "true"
   };
-  if (!body.name || !body.phone || !body.relation) { st.textContent = "Remplis nom, telephone et relation."; st.className = "form-status error"; return; }
+  if (!body.name || !body.phone || !body.relation) { st.textContent = "Remplis nom, téléphone et relation."; st.className = "form-status error"; return; }
   st.textContent = "Ajout..."; st.className = "form-status";
   authFetch("/api/contacts", { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body) })
   .then(function(r) { return r.json(); })
   .then(function(data) {
     if (data.success) {
-      st.textContent = "Contact ajoute."; st.className = "form-status success";
+      st.textContent = "Contact ajouté."; st.className = "form-status success";
       document.getElementById("ct-name").value = "";
       document.getElementById("ct-phone").value = "";
       document.getElementById("ct-relation").value = "";
+      document.getElementById("ct-email").value = "";
       loadContacts();
     } else { st.textContent = "Erreur: " + (data.error || "inconnue"); st.className = "form-status error"; }
   })
