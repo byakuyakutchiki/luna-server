@@ -1,0 +1,45 @@
+<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="bg-five-clients" cx="50%" cy="35%" r="65%">
+      <stop offset="0%" stop-color="#1e3a6e"/>
+      <stop offset="100%" stop-color="#0a1628"/>
+    </radialGradient>
+    <linearGradient id="sym-five-clients" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#bae6fd"/>
+      <stop offset="100%" stop-color="#fbbf24"/>
+    </linearGradient>
+    <filter id="glow-five-clients">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="2.5" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <circle cx="60" cy="60" r="57" fill="#3b82f6" opacity="0.25"/>
+  <circle cx="60" cy="60" r="55" fill="none" stroke="#60a5fa" stroke-width="2" opacity="0.8"/>
+  <circle cx="60" cy="60" r="53" fill="url(#bg-five-clients)"/>
+  <circle cx="60" cy="60" r="44" fill="none" stroke="#3b82f6" stroke-width="0.8" stroke-dasharray="3 2" opacity="0.35"/>
+  <!-- Pentagonal connection lines -->
+  <polygon points="60,38 79,52 72,74 48,74 41,52" fill="none" stroke="url(#sym-five-clients)" stroke-width="1.2" opacity="0.4"/>
+  <!-- 5 nodes in pentagonal layout -->
+  <circle cx="60" cy="38" r="7" fill="url(#sym-five-clients)" filter="url(#glow-five-clients)"/>
+  <circle cx="79" cy="52" r="7" fill="url(#sym-five-clients)" filter="url(#glow-five-clients)"/>
+  <circle cx="72" cy="74" r="7" fill="url(#sym-five-clients)" filter="url(#glow-five-clients)"/>
+  <circle cx="48" cy="74" r="7" fill="url(#sym-five-clients)" filter="url(#glow-five-clients)"/>
+  <circle cx="41" cy="52" r="7" fill="url(#sym-five-clients)" filter="url(#glow-five-clients)"/>
+  <!-- Center small node -->
+  <circle cx="60" cy="60" r="5" fill="url(#sym-five-clients)" opacity="0.6"/>
+  <circle cx="60" cy="60" r="2.5" fill="white" opacity="0.5"/>
+  <!-- Connection from center -->
+  <line x1="60" y1="60" x2="60" y2="38" stroke="url(#sym-five-clients)" stroke-width="1" opacity="0.3"/>
+  <line x1="60" y1="60" x2="79" y2="52" stroke="url(#sym-five-clients)" stroke-width="1" opacity="0.3"/>
+  <line x1="60" y1="60" x2="72" y2="74" stroke="url(#sym-five-clients)" stroke-width="1" opacity="0.3"/>
+  <line x1="60" y1="60" x2="48" y2="74" stroke="url(#sym-five-clients)" stroke-width="1" opacity="0.3"/>
+  <line x1="60" y1="60" x2="41" y2="52" stroke="url(#sym-five-clients)" stroke-width="1" opacity="0.3"/>
+  <!-- Inner dots in nodes -->
+  <circle cx="60" cy="38" r="3" fill="white" opacity="0.5"/>
+  <circle cx="79" cy="52" r="3" fill="white" opacity="0.5"/>
+  <circle cx="72" cy="74" r="3" fill="white" opacity="0.5"/>
+  <circle cx="48" cy="74" r="3" fill="white" opacity="0.5"/>
+  <circle cx="41" cy="52" r="3" fill="white" opacity="0.5"/>
+  <!-- Bottom bar -->
+  <rect x="32" y="95" width="56" height="2.5" rx="1.25" fill="#fbbf24" opacity="0.55"/>
+</svg>

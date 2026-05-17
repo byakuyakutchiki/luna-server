@@ -1,0 +1,45 @@
+<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="bg-first-chat" cx="50%" cy="35%" r="65%">
+      <stop offset="0%" stop-color="#3d1060"/>
+      <stop offset="100%" stop-color="#110020"/>
+    </radialGradient>
+    <linearGradient id="sym-first-chat" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#e9d5ff"/>
+      <stop offset="100%" stop-color="#fbbf24"/>
+    </linearGradient>
+    <filter id="glow-first-chat">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="2.5" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="shadow-first-chat">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="4" result="blur"/>
+      <feOffset dx="0" dy="2" result="offset"/>
+      <feComposite in="SourceGraphic" in2="offset"/>
+    </filter>
+  </defs>
+  <!-- Glow ring -->
+  <circle cx="60" cy="60" r="57" fill="#9b59b6" opacity="0.25"/>
+  <!-- Outer border -->
+  <circle cx="60" cy="60" r="55" fill="none" stroke="#c084fc" stroke-width="2" opacity="0.8"/>
+  <!-- Background -->
+  <circle cx="60" cy="60" r="53" fill="url(#bg-first-chat)"/>
+  <!-- Inner deco ring -->
+  <circle cx="60" cy="60" r="44" fill="none" stroke="#9b59b6" stroke-width="0.8" stroke-dasharray="3 2" opacity="0.35"/>
+  <!-- Chat bubble main -->
+  <rect x="40" y="38" width="40" height="28" rx="14" fill="url(#sym-first-chat)" opacity="0.9" filter="url(#glow-first-chat)"/>
+  <!-- Bubble tail -->
+  <polygon points="44,65 38,75 52,65" fill="url(#sym-first-chat)" opacity="0.9"/>
+  <!-- Text lines in bubble -->
+  <line x1="50" y1="46" x2="70" y2="46" stroke="white" stroke-width="2" stroke-linecap="round" opacity="0.6"/>
+  <line x1="50" y1="52" x2="68" y2="52" stroke="white" stroke-width="2" stroke-linecap="round" opacity="0.6"/>
+  <line x1="50" y1="58" x2="64" y2="58" stroke="white" stroke-width="2" stroke-linecap="round" opacity="0.6"/>
+  <!-- Star top-right 4-branch -->
+  <line x1="78" y1="34" x2="78" y2="42" stroke="#fbbf24" stroke-width="1.5" stroke-linecap="round" opacity="0.9"/>
+  <line x1="74" y1="38" x2="82" y2="38" stroke="#fbbf24" stroke-width="1.5" stroke-linecap="round" opacity="0.9"/>
+  <!-- Star top-left 4-branch -->
+  <line x1="42" y1="34" x2="42" y2="42" stroke="#fbbf24" stroke-width="1.5" stroke-linecap="round" opacity="0.9"/>
+  <line x1="38" y1="38" x2="46" y2="38" stroke="#fbbf24" stroke-width="1.5" stroke-linecap="round" opacity="0.9"/>
+  <!-- Bottom bar -->
+  <rect x="32" y="95" width="56" height="2.5" rx="1.25" fill="#fbbf24" opacity="0.55"/>
+</svg>

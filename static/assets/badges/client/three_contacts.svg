@@ -1,0 +1,39 @@
+<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="bg-three-contacts" cx="50%" cy="35%" r="65%">
+      <stop offset="0%" stop-color="#5c2d00"/>
+      <stop offset="100%" stop-color="#1a0c00"/>
+    </radialGradient>
+    <linearGradient id="sym-three-contacts" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fde68a"/>
+      <stop offset="100%" stop-color="#fff7ed"/>
+    </linearGradient>
+    <filter id="glow-three-contacts">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="2.5" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <circle cx="60" cy="60" r="57" fill="#f59e0b" opacity="0.25"/>
+  <circle cx="60" cy="60" r="55" fill="none" stroke="#f59e0b" stroke-width="2" opacity="0.8"/>
+  <circle cx="60" cy="60" r="53" fill="url(#bg-three-contacts)"/>
+  <circle cx="60" cy="60" r="44" fill="none" stroke="#d97706" stroke-width="0.8" stroke-dasharray="3 2" opacity="0.35"/>
+  <!-- Constellation lines -->
+  <line x1="60" y1="40" x2="46" y2="67" stroke="url(#sym-three-contacts)" stroke-width="1.5" opacity="0.5"/>
+  <line x1="60" y1="40" x2="74" y2="67" stroke="url(#sym-three-contacts)" stroke-width="1.5" opacity="0.5"/>
+  <line x1="46" y1="67" x2="74" y2="67" stroke="url(#sym-three-contacts)" stroke-width="1.5" opacity="0.5"/>
+  <!-- Node top -->
+  <circle cx="60" cy="40" r="8" fill="url(#sym-three-contacts)" filter="url(#glow-three-contacts)"/>
+  <!-- 4-branch star in top node -->
+  <line x1="60" y1="36" x2="60" y2="44" stroke="white" stroke-width="1" stroke-linecap="round" opacity="0.8"/>
+  <line x1="56" y1="40" x2="64" y2="40" stroke="white" stroke-width="1" stroke-linecap="round" opacity="0.8"/>
+  <!-- Node bottom-left -->
+  <circle cx="46" cy="67" r="8" fill="url(#sym-three-contacts)" filter="url(#glow-three-contacts)"/>
+  <line x1="46" y1="63" x2="46" y2="71" stroke="white" stroke-width="1" stroke-linecap="round" opacity="0.8"/>
+  <line x1="42" y1="67" x2="50" y2="67" stroke="white" stroke-width="1" stroke-linecap="round" opacity="0.8"/>
+  <!-- Node bottom-right -->
+  <circle cx="74" cy="67" r="8" fill="url(#sym-three-contacts)" filter="url(#glow-three-contacts)"/>
+  <line x1="74" y1="63" x2="74" y2="71" stroke="white" stroke-width="1" stroke-linecap="round" opacity="0.8"/>
+  <line x1="70" y1="67" x2="78" y2="67" stroke="white" stroke-width="1" stroke-linecap="round" opacity="0.8"/>
+  <!-- Bottom bar -->
+  <rect x="32" y="95" width="56" height="2.5" rx="1.25" fill="#f59e0b" opacity="0.55"/>
+</svg>

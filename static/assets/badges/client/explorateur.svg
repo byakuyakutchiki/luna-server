@@ -1,0 +1,42 @@
+<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="bg-explorateur" cx="50%" cy="35%" r="65%">
+      <stop offset="0%" stop-color="#3d1060"/>
+      <stop offset="100%" stop-color="#110020"/>
+    </radialGradient>
+    <linearGradient id="sym-explorateur" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#e9d5ff"/>
+      <stop offset="100%" stop-color="#fbbf24"/>
+    </linearGradient>
+    <filter id="glow-explorateur">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="2" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <circle cx="60" cy="60" r="57" fill="#9b59b6" opacity="0.25"/>
+  <circle cx="60" cy="60" r="55" fill="none" stroke="#c084fc" stroke-width="2" opacity="0.8"/>
+  <circle cx="60" cy="60" r="53" fill="url(#bg-explorateur)"/>
+  <circle cx="60" cy="60" r="44" fill="none" stroke="#9b59b6" stroke-width="0.8" stroke-dasharray="3 2" opacity="0.35"/>
+  <!-- Compass outer ring -->
+  <circle cx="60" cy="60" r="24" fill="none" stroke="url(#sym-explorateur)" stroke-width="2" opacity="0.85" filter="url(#glow-explorateur)"/>
+  <!-- Compass inner ring (dashed) -->
+  <circle cx="60" cy="60" r="18" fill="none" stroke="url(#sym-explorateur)" stroke-width="0.8" stroke-dasharray="4 2" opacity="0.4"/>
+  <!-- North needle (pointing up) -->
+  <polygon points="60,38 56,60 64,60" fill="url(#sym-explorateur)" opacity="0.95"/>
+  <!-- South needle (pointing down) - warm tint -->
+  <polygon points="60,82 64,60 56,60" fill="#f43f5e" opacity="0.75"/>
+  <!-- Center circle -->
+  <circle cx="60" cy="60" r="3.5" fill="white" opacity="0.8"/>
+  <!-- Cardinal marks -->
+  <line x1="60" y1="36" x2="60" y2="39" stroke="white" stroke-width="2" stroke-linecap="round" opacity="0.7"/>
+  <line x1="60" y1="81" x2="60" y2="84" stroke="white" stroke-width="2" stroke-linecap="round" opacity="0.7"/>
+  <line x1="36" y1="60" x2="39" y2="60" stroke="white" stroke-width="2" stroke-linecap="round" opacity="0.7"/>
+  <line x1="81" y1="60" x2="84" y2="60" stroke="white" stroke-width="2" stroke-linecap="round" opacity="0.7"/>
+  <!-- Intercardinal tick marks -->
+  <line x1="43" y1="43" x2="45" y2="45" stroke="white" stroke-width="1" stroke-linecap="round" opacity="0.4"/>
+  <line x1="75" y1="43" x2="77" y2="45" stroke="white" stroke-width="1" stroke-linecap="round" opacity="0.4"/>
+  <line x1="43" y1="77" x2="45" y2="75" stroke="white" stroke-width="1" stroke-linecap="round" opacity="0.4"/>
+  <line x1="75" y1="77" x2="77" y2="75" stroke="white" stroke-width="1" stroke-linecap="round" opacity="0.4"/>
+  <!-- Bottom bar -->
+  <rect x="32" y="95" width="56" height="2.5" rx="1.25" fill="#fbbf24" opacity="0.55"/>
+</svg>

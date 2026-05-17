@@ -1,0 +1,45 @@
+<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="bg-social-butterfly" cx="50%" cy="35%" r="65%">
+      <stop offset="0%" stop-color="#4c1d95"/>
+      <stop offset="100%" stop-color="#1a0030"/>
+    </radialGradient>
+    <linearGradient id="sym-social-butterfly" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f5d0fe"/>
+      <stop offset="100%" stop-color="#a855f7"/>
+    </linearGradient>
+    <filter id="glow-social-butterfly">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="2.5" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <circle cx="60" cy="60" r="57" fill="#a855f7" opacity="0.25"/>
+  <circle cx="60" cy="60" r="55" fill="none" stroke="#a855f7" stroke-width="2" opacity="0.8"/>
+  <circle cx="60" cy="60" r="53" fill="url(#bg-social-butterfly)"/>
+  <circle cx="60" cy="60" r="44" fill="none" stroke="#7c3aed" stroke-width="0.8" stroke-dasharray="3 2" opacity="0.35"/>
+  <!-- Left wing upper -->
+  <path d="M60,58 Q46,40 34,44 Q24,50 30,62 Q36,72 50,70 Q58,68 60,62" fill="url(#sym-social-butterfly)" opacity="0.8" filter="url(#glow-social-butterfly)"/>
+  <!-- Left wing lower -->
+  <path d="M60,62 Q48,72 40,78 Q30,82 32,74 Q36,66 48,68 Q56,68 60,64" fill="url(#sym-social-butterfly)" opacity="0.6"/>
+  <!-- Right wing upper -->
+  <path d="M60,58 Q74,40 86,44 Q96,50 90,62 Q84,72 70,70 Q62,68 60,62" fill="url(#sym-social-butterfly)" opacity="0.8" filter="url(#glow-social-butterfly)"/>
+  <!-- Right wing lower -->
+  <path d="M60,62 Q72,72 80,78 Q90,82 88,74 Q84,66 72,68 Q64,68 60,64" fill="url(#sym-social-butterfly)" opacity="0.6"/>
+  <!-- Wing vein details left -->
+  <path d="M60,60 Q50,52 38,48" fill="none" stroke="white" stroke-width="0.8" opacity="0.3"/>
+  <path d="M60,60 Q52,64 44,72" fill="none" stroke="white" stroke-width="0.8" opacity="0.25"/>
+  <!-- Wing vein details right -->
+  <path d="M60,60 Q70,52 82,48" fill="none" stroke="white" stroke-width="0.8" opacity="0.3"/>
+  <path d="M60,60 Q68,64 76,72" fill="none" stroke="white" stroke-width="0.8" opacity="0.25"/>
+  <!-- Body -->
+  <ellipse cx="60" cy="62" rx="4" ry="12" fill="#4c1d95" stroke="url(#sym-social-butterfly)" stroke-width="1.2"/>
+  <!-- Head -->
+  <circle cx="60" cy="50" r="4" fill="url(#sym-social-butterfly)" opacity="0.9"/>
+  <!-- Antennae -->
+  <line x1="60" y1="47" x2="52" y2="38" stroke="url(#sym-social-butterfly)" stroke-width="1" stroke-linecap="round" opacity="0.7"/>
+  <line x1="60" y1="47" x2="68" y2="38" stroke="url(#sym-social-butterfly)" stroke-width="1" stroke-linecap="round" opacity="0.7"/>
+  <circle cx="52" cy="38" r="2" fill="url(#sym-social-butterfly)" opacity="0.9"/>
+  <circle cx="68" cy="38" r="2" fill="url(#sym-social-butterfly)" opacity="0.9"/>
+  <!-- Bottom bar -->
+  <rect x="32" y="95" width="56" height="2.5" rx="1.25" fill="#c084fc" opacity="0.55"/>
+</svg>

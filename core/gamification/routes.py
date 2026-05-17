@@ -27,7 +27,7 @@ from .constants import (
     SHOP_ITEMS, SHOP_CATEGORIES,
     FAMILY_LEVELS, FAMILY_BLASON_TIERS,
     WORLD2_BUILDINGS, WORLD2_UNLOCK_LEVEL, WORLD2_STAR_COST,
-    PRESTIGE_TIERS,
+    PRESTIGE_TIERS, BADGE_VISUALS, BADGE_RARITY_VISUALS,
 )
 from .schemas import PlayerState, Mission, StabilityGauge, CollectRewardRequest
 
@@ -175,17 +175,20 @@ async def get_badges(request: Request):
             detail = gops.get_badge_detail(tid, badge_id)
             if detail:
                 earned_at = detail.get("earned_at")
+        rarity = badge_def["rarity"]
         badges.append({
             "id": badge_id,
             "name": badge_def["name"],
             "description": badge_def["description"],
             "category": badge_def["category"],
-            "icon": badge_def["icon"],
-            "rarity": badge_def["rarity"],
+            "icon": badge_def.get("icon", ""),
+            "rarity": rarity,
             "animated": badge_def.get("animated", False),
             "badge_type": badge_def.get("badge_type", "standard"),
             "earned": earned,
             "earned_at": earned_at,
+            "visual": BADGE_VISUALS.get(badge_id),
+            "rarity_visual": BADGE_RARITY_VISUALS.get(rarity),
         })
 
     return {
@@ -194,6 +197,7 @@ async def get_badges(request: Request):
         "total_count": len(ALL_CLIENT_BADGES),
         "categories": BADGE_CATEGORIES,
         "rarity_colors": RARITY_COLORS,
+        "rarity_visuals": BADGE_RARITY_VISUALS,
     }
 
 
@@ -1042,21 +1046,25 @@ async def admin_get_badges(request: Request):
             detail = gops.get_badge_detail("admin", badge_id)
             if detail:
                 earned_at = detail.get("earned_at")
+        rarity = badge_def["rarity"]
         badges.append({
             "id": badge_id,
             "name": badge_def["name"],
             "description": badge_def["description"],
             "category": badge_def["category"],
-            "icon": badge_def["icon"],
-            "rarity": badge_def["rarity"],
+            "icon": badge_def.get("icon", ""),
+            "rarity": rarity,
             "earned": earned,
             "earned_at": earned_at,
+            "visual": BADGE_VISUALS.get(badge_id),
+            "rarity_visual": BADGE_RARITY_VISUALS.get(rarity),
         })
 
     return {
         "badges": badges,
         "earned_count": len(earned_set),
         "total_count": len(ALL_ADMIN_BADGES),
+        "rarity_visuals": BADGE_RARITY_VISUALS,
     }
 
 

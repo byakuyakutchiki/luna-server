@@ -1,0 +1,42 @@
+<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="bg-revenue-500" cx="50%" cy="35%" r="65%">
+      <stop offset="0%" stop-color="#713f12"/>
+      <stop offset="100%" stop-color="#1a0800"/>
+    </radialGradient>
+    <linearGradient id="sym-revenue-500" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fbbf24"/>
+      <stop offset="100%" stop-color="#c084fc"/>
+    </linearGradient>
+    <filter id="glow-revenue-500">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <circle cx="60" cy="60" r="57" fill="#f59e0b" opacity="0.25"/>
+  <circle cx="60" cy="60" r="55" fill="none" stroke="#f59e0b" stroke-width="2" opacity="0.8"/>
+  <circle cx="60" cy="60" r="53" fill="url(#bg-revenue-500)"/>
+  <circle cx="60" cy="60" r="44" fill="none" stroke="#d97706" stroke-width="0.8" stroke-dasharray="3 2" opacity="0.35"/>
+  <!-- Gem/Diamond hexagonal shape -->
+  <polygon points="60,33 78,46 78,74 60,87 42,74 42,46" fill="url(#sym-revenue-500)" opacity="0.85" filter="url(#glow-revenue-500)"/>
+  <!-- Upper facet highlight -->
+  <polygon points="60,33 78,46 60,52 42,46" fill="white" opacity="0.15"/>
+  <!-- Left facet -->
+  <polygon points="42,46 60,52 42,74" fill="white" opacity="0.08"/>
+  <!-- Right facet -->
+  <polygon points="78,46 60,52 78,74" fill="white" opacity="0.05"/>
+  <!-- Center facet line -->
+  <line x1="42" y1="46" x2="78" y2="46" stroke="white" stroke-width="0.8" opacity="0.3"/>
+  <!-- Vertical center line -->
+  <line x1="60" y1="33" x2="60" y2="87" stroke="white" stroke-width="0.5" opacity="0.2"/>
+  <!-- Internal star/glow -->
+  <circle cx="60" cy="56" r="8" fill="#fbbf24" opacity="0.3"/>
+  <circle cx="60" cy="56" r="4" fill="white" opacity="0.25"/>
+  <!-- Bottom tip glow -->
+  <circle cx="60" cy="87" r="3" fill="#c084fc" opacity="0.6"/>
+  <!-- Outer corner sparkles -->
+  <line x1="78" y1="43" x2="82" y2="39" stroke="#fbbf24" stroke-width="1.5" stroke-linecap="round" opacity="0.7"/>
+  <line x1="42" y1="43" x2="38" y2="39" stroke="#fbbf24" stroke-width="1.5" stroke-linecap="round" opacity="0.7"/>
+  <!-- Bottom bar -->
+  <rect x="32" y="95" width="56" height="2.5" rx="1.25" fill="#fbbf24" opacity="0.55"/>
+</svg>

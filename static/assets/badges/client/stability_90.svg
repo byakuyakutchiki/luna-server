@@ -1,0 +1,38 @@
+<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="bg-stability" cx="50%" cy="35%" r="65%">
+      <stop offset="0%" stop-color="#1e3a6e"/>
+      <stop offset="100%" stop-color="#0a1628"/>
+    </radialGradient>
+    <linearGradient id="sym-stability" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#bae6fd"/>
+      <stop offset="100%" stop-color="#fbbf24"/>
+    </linearGradient>
+    <filter id="glow-stability">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="2.5" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <circle cx="60" cy="60" r="57" fill="#3b82f6" opacity="0.25"/>
+  <circle cx="60" cy="60" r="55" fill="none" stroke="#60a5fa" stroke-width="2" opacity="0.8"/>
+  <circle cx="60" cy="60" r="53" fill="url(#bg-stability)"/>
+  <circle cx="60" cy="60" r="44" fill="none" stroke="#3b82f6" stroke-width="0.8" stroke-dasharray="3 2" opacity="0.35"/>
+  <!-- Anchor ring top -->
+  <circle cx="60" cy="40" r="9" fill="url(#sym-stability)" opacity="0.3" stroke="url(#sym-stability)" stroke-width="2.5" filter="url(#glow-stability)"/>
+  <!-- Ring opening at bottom -->
+  <circle cx="60" cy="40" r="4" fill="#0a1628" opacity="0.8"/>
+  <!-- Horizontal bar -->
+  <line x1="47" y1="50" x2="73" y2="50" stroke="url(#sym-stability)" stroke-width="2.5" stroke-linecap="round" filter="url(#glow-stability)"/>
+  <!-- Vertical shaft -->
+  <line x1="60" y1="50" x2="60" y2="76" stroke="url(#sym-stability)" stroke-width="2.5" stroke-linecap="round" filter="url(#glow-stability)"/>
+  <!-- Bottom U curve -->
+  <path d="M47,70 Q47,82 60,82 Q73,82 73,70" fill="none" stroke="url(#sym-stability)" stroke-width="2.5" stroke-linecap="round" filter="url(#glow-stability)"/>
+  <!-- Chain left -->
+  <path d="M45,52 Q40,56 44,60 Q40,64 44,68" fill="none" stroke="url(#sym-stability)" stroke-width="1.5" stroke-linecap="round" opacity="0.5"/>
+  <!-- Chain right -->
+  <path d="M75,52 Q80,56 76,60 Q80,64 76,68" fill="none" stroke="url(#sym-stability)" stroke-width="1.5" stroke-linecap="round" opacity="0.5"/>
+  <!-- Glow core -->
+  <circle cx="60" cy="60" r="4" fill="#fbbf24" opacity="0.3"/>
+  <!-- Bottom bar -->
+  <rect x="32" y="95" width="56" height="2.5" rx="1.25" fill="#fbbf24" opacity="0.55"/>
+</svg>

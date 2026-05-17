@@ -1,0 +1,39 @@
+<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="bg-profile" cx="50%" cy="35%" r="65%">
+      <stop offset="0%" stop-color="#3d1060"/>
+      <stop offset="100%" stop-color="#110020"/>
+    </radialGradient>
+    <linearGradient id="sym-profile" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#e9d5ff"/>
+      <stop offset="100%" stop-color="#fbbf24"/>
+    </linearGradient>
+    <filter id="glow-profile">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="2.5" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <circle cx="60" cy="60" r="57" fill="#9b59b6" opacity="0.25"/>
+  <circle cx="60" cy="60" r="55" fill="none" stroke="#c084fc" stroke-width="2" opacity="0.8"/>
+  <circle cx="60" cy="60" r="53" fill="url(#bg-profile)"/>
+  <circle cx="60" cy="60" r="44" fill="none" stroke="#9b59b6" stroke-width="0.8" stroke-dasharray="3 2" opacity="0.35"/>
+  <!-- ID card body -->
+  <rect x="42" y="36" width="36" height="34" rx="4" fill="url(#sym-profile)" opacity="0.85" filter="url(#glow-profile)"/>
+  <!-- Card inner border -->
+  <rect x="44" y="38" width="32" height="30" rx="3" fill="none" stroke="white" stroke-width="0.5" opacity="0.3"/>
+  <!-- Avatar circle on card -->
+  <circle cx="52" cy="47" r="7" fill="none" stroke="white" stroke-width="1.2" opacity="0.7"/>
+  <circle cx="52" cy="47" r="3" fill="white" opacity="0.5"/>
+  <!-- Data lines on card -->
+  <line x1="62" y1="43" x2="74" y2="43" stroke="white" stroke-width="1.5" stroke-linecap="round" opacity="0.7"/>
+  <line x1="62" y1="48" x2="72" y2="48" stroke="white" stroke-width="1.5" stroke-linecap="round" opacity="0.5"/>
+  <line x1="62" y1="53" x2="70" y2="53" stroke="white" stroke-width="1.5" stroke-linecap="round" opacity="0.5"/>
+  <!-- Bottom data line -->
+  <line x1="46" y1="60" x2="74" y2="60" stroke="white" stroke-width="1" stroke-linecap="round" opacity="0.35"/>
+  <!-- Seal circle bottom-right -->
+  <circle cx="72" cy="70" r="8" fill="#110020" stroke="#fbbf24" stroke-width="1.5" opacity="0.9" filter="url(#glow-profile)"/>
+  <!-- Checkmark in seal -->
+  <polyline points="68,70 71,73 76,67" fill="none" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Bottom bar -->
+  <rect x="32" y="95" width="56" height="2.5" rx="1.25" fill="#fbbf24" opacity="0.55"/>
+</svg>

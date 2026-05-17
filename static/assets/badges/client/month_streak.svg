@@ -1,0 +1,40 @@
+<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="bg-month-streak" cx="50%" cy="35%" r="65%">
+      <stop offset="0%" stop-color="#78350f"/>
+      <stop offset="100%" stop-color="#1a0800"/>
+    </radialGradient>
+    <linearGradient id="sym-month-streak" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fef3c7"/>
+      <stop offset="100%" stop-color="#fbbf24"/>
+    </linearGradient>
+    <filter id="glow-month-streak">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <circle cx="60" cy="60" r="57" fill="#fbbf24" opacity="0.25"/>
+  <circle cx="60" cy="60" r="55" fill="none" stroke="#fbbf24" stroke-width="2" opacity="0.8"/>
+  <circle cx="60" cy="60" r="53" fill="url(#bg-month-streak)"/>
+  <circle cx="60" cy="60" r="44" fill="none" stroke="#f59e0b" stroke-width="0.8" stroke-dasharray="3 2" opacity="0.35"/>
+  <!-- Crown main shape -->
+  <path d="M38,72 L42,52 L52,62 L60,42 L68,62 L78,52 L82,72 Z" fill="url(#sym-month-streak)" opacity="0.9" filter="url(#glow-month-streak)"/>
+  <!-- Crown base -->
+  <rect x="38" y="72" width="44" height="7" rx="3" fill="url(#sym-month-streak)" opacity="0.9"/>
+  <!-- Crown top points - circles -->
+  <circle cx="42" cy="52" r="3.5" fill="#fbbf24" stroke="white" stroke-width="1" opacity="0.9"/>
+  <circle cx="60" cy="42" r="4" fill="#fef3c7" stroke="white" stroke-width="1" opacity="0.9"/>
+  <circle cx="78" cy="52" r="3.5" fill="#fbbf24" stroke="white" stroke-width="1" opacity="0.9"/>
+  <!-- Star at center top point -->
+  <line x1="60" y1="38" x2="60" y2="46" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+  <line x1="56" y1="42" x2="64" y2="42" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+  <!-- Small stars at side points -->
+  <line x1="42" y1="49" x2="42" y2="55" stroke="white" stroke-width="1" stroke-linecap="round"/>
+  <line x1="39" y1="52" x2="45" y2="52" stroke="white" stroke-width="1" stroke-linecap="round"/>
+  <line x1="78" y1="49" x2="78" y2="55" stroke="white" stroke-width="1" stroke-linecap="round"/>
+  <line x1="75" y1="52" x2="81" y2="52" stroke="white" stroke-width="1" stroke-linecap="round"/>
+  <!-- Gem on base -->
+  <polygon points="60,72 63,78 57,78" fill="#fbbf24" opacity="0.6"/>
+  <!-- Bottom bar -->
+  <rect x="32" y="95" width="56" height="2.5" rx="1.25" fill="#fbbf24" opacity="0.55"/>
+</svg>

@@ -1,0 +1,39 @@
+<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="bg-first-note" cx="50%" cy="35%" r="65%">
+      <stop offset="0%" stop-color="#2d1b69"/>
+      <stop offset="100%" stop-color="#100828"/>
+    </radialGradient>
+    <linearGradient id="sym-first-note" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ddd6fe"/>
+      <stop offset="100%" stop-color="#c4b5fd"/>
+    </linearGradient>
+    <filter id="glow-first-note">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="2.5" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <circle cx="60" cy="60" r="57" fill="#a78bfa" opacity="0.25"/>
+  <circle cx="60" cy="60" r="55" fill="none" stroke="#a78bfa" stroke-width="2" opacity="0.8"/>
+  <circle cx="60" cy="60" r="53" fill="url(#bg-first-note)"/>
+  <circle cx="60" cy="60" r="44" fill="none" stroke="#7c3aed" stroke-width="0.8" stroke-dasharray="3 2" opacity="0.35"/>
+  <!-- Memory capsule (pill shape) -->
+  <ellipse cx="60" cy="60" rx="24" ry="15" fill="url(#sym-first-note)" opacity="0.85" filter="url(#glow-first-note)"/>
+  <!-- Separator line -->
+  <line x1="60" y1="45" x2="60" y2="75" stroke="#2d1b69" stroke-width="1.5" opacity="0.5"/>
+  <!-- 4-branch star left -->
+  <line x1="48" y1="57" x2="48" y2="63" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+  <line x1="45" y1="60" x2="51" y2="60" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+  <!-- Glow dot right -->
+  <circle cx="72" cy="60" r="4" fill="white" opacity="0.5"/>
+  <circle cx="72" cy="60" r="2" fill="white" opacity="0.8"/>
+  <!-- Reflet top arc -->
+  <path d="M44,52 Q60,46 76,52" fill="none" stroke="white" stroke-width="1.2" stroke-linecap="round" opacity="0.25"/>
+  <!-- Outer glow dots -->
+  <circle cx="38" cy="42" r="2" fill="#a78bfa" opacity="0.5"/>
+  <circle cx="82" cy="42" r="2" fill="#a78bfa" opacity="0.5"/>
+  <circle cx="38" cy="78" r="2" fill="#a78bfa" opacity="0.3"/>
+  <circle cx="82" cy="78" r="2" fill="#a78bfa" opacity="0.3"/>
+  <!-- Bottom bar -->
+  <rect x="32" y="95" width="56" height="2.5" rx="1.25" fill="#a78bfa" opacity="0.55"/>
+</svg>

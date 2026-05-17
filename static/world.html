@@ -1719,57 +1719,91 @@ html, body {
   gap: 14px;
   padding: 4px;
 }
+/* ══════════════════════════════════════
+   BADGE PREMIUM SYSTEM
+   ══════════════════════════════════════ */
 .badge-item {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 8px;
-  padding: 12px 4px 10px;
-  border-radius: 16px;
+  padding: 14px 6px 12px;
+  border-radius: 18px;
   cursor: default;
-  transition: transform 0.3s cubic-bezier(.2,.8,.3,1.2), box-shadow 0.3s;
+  transition: transform 0.3s cubic-bezier(.2,.8,.3,1.2), box-shadow 0.3s, border-color 0.3s;
   position: relative;
+  border: 1px solid rgba(255,255,255,0.07);
 }
-.badge-item:hover { transform: scale(1.1) translateY(-2px); }
+.badge-item:hover { transform: scale(1.08) translateY(-3px); }
 .badge-item:active { transform: scale(0.97); }
-/* Earned badge — subtle card background */
-.badge-item.earned {
-  background: linear-gradient(135deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01));
-}
+
+/* Earned badge — rarity-tinted card */
+.badge-item.earned { background: linear-gradient(160deg, rgba(255,255,255,0.06), rgba(10,5,25,0.7)); }
+.badge-item.earned[data-rarity="common"]    { border-color: rgba(156,163,175,0.28); background: linear-gradient(160deg, rgba(156,163,175,0.09), rgba(10,5,25,0.7)); }
+.badge-item.earned[data-rarity="rare"]      { border-color: rgba(96,165,250,0.32);  background: linear-gradient(160deg, rgba(56,189,248,0.10), rgba(10,5,25,0.7)); }
+.badge-item.earned[data-rarity="epic"]      { border-color: rgba(192,132,252,0.38); background: linear-gradient(160deg, rgba(168,85,247,0.13), rgba(10,5,25,0.7)); }
+.badge-item.earned[data-rarity="legendary"] { border-color: rgba(251,191,36,0.45);  background: linear-gradient(160deg, rgba(251,191,36,0.15), rgba(10,5,25,0.7)); }
+.badge-item.earned[data-rarity="prestige"]  { border-color: rgba(244,63,94,0.50);   background: linear-gradient(160deg, rgba(244,63,94,0.15), rgba(10,5,25,0.7)); }
+
 /* Locked badge */
-.badge-item.locked { opacity: 0.45; filter: grayscale(0.7); }
-.badge-item.locked:hover { opacity: 0.6; filter: grayscale(0.4); }
-.badge-item.locked .badge-shield-wrap { filter: brightness(0.4) saturate(0.3); }
+.badge-item.locked { opacity: 0.42; filter: grayscale(0.75); }
+.badge-item.locked:hover { opacity: 0.58; filter: grayscale(0.45); transform: scale(1.04) translateY(-1px); }
+
 /* Badge shield container */
 .badge-shield-wrap {
   position: relative;
-  width: 76px;
-  height: 82px;
+  width: 90px;
+  height: 90px;
   display: flex;
   align-items: center;
   justify-content: center;
   transition: filter 0.3s;
+  border-radius: 50%;
 }
+
+/* Premium SVG asset image */
+.badge-premium-img {
+  width: 90px;
+  height: 90px;
+  object-fit: contain;
+  display: block;
+  border-radius: 50%;
+}
+
+/* Lock overlay for locked badges */
+.badge-locked-overlay {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: rgba(5,3,18,0.58);
+  backdrop-filter: blur(1px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
 /* Glow behind earned badges */
 .badge-item.earned .badge-shield-wrap::before {
   content: "";
   position: absolute;
-  inset: -6px;
+  inset: -8px;
   border-radius: 50%;
-  background: radial-gradient(circle, var(--badge-glow, rgba(139,76,240,0.3)) 0%, transparent 70%);
+  background: radial-gradient(circle, var(--badge-glow, rgba(139,76,240,0.32)) 0%, transparent 70%);
   animation: badgeGlow 3s ease-in-out infinite;
   pointer-events: none;
 }
 @keyframes badgeGlow {
-  0%, 100% { opacity: 0.4; transform: scale(1); }
-  50% { opacity: 0.8; transform: scale(1.08); }
+  0%, 100% { opacity: 0.45; transform: scale(1); }
+  50% { opacity: 0.9; transform: scale(1.10); }
 }
-/* Sparkle on legendary earned */
+
+/* Legendary sparkle */
 .badge-item.earned[data-rarity="legendary"] .badge-shield-wrap::after {
   content: "";
   position: absolute;
-  top: -2px; right: 2px;
-  width: 16px; height: 16px;
+  top: -3px; right: 1px;
+  width: 18px; height: 18px;
   background: radial-gradient(circle, #ffd700 0%, transparent 70%);
   border-radius: 50%;
   animation: badgeSparkle 2s ease-in-out infinite;
@@ -1777,17 +1811,33 @@ html, body {
 }
 @keyframes badgeSparkle {
   0%, 100% { opacity: 0.3; transform: scale(0.8); }
-  50% { opacity: 1; transform: scale(1.3); }
+  50% { opacity: 1; transform: scale(1.4); }
 }
+
+/* Prestige extra ring */
+.badge-item.earned[data-rarity="prestige"] .badge-shield-wrap::after {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(244,63,94,0.5);
+  animation: prestigeRing 2.5s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes prestigeRing {
+  0%, 100% { transform: scale(1); opacity: 0.6; }
+  50% { transform: scale(1.12); opacity: 0.2; }
+}
+
 .badge-name {
   font-size: 0.68em;
   color: #ddd;
   text-align: center;
   line-height: 1.2;
-  max-width: 90px;
+  max-width: 96px;
   font-weight: 600;
 }
-.badge-item.locked .badge-name { color: #666; }
+.badge-item.locked .badge-name { color: #555; }
 .badge-rarity {
   font-size: 0.52em;
   font-weight: 800;
@@ -2420,8 +2470,9 @@ html, body {
   .decoration svg { transform: scale(0.5); transform-origin: bottom center; }
 
   .badges-grid { grid-template-columns: repeat(3, 1fr); gap: 10px; }
-  .badge-shield-wrap { width: 64px; height: 70px; }
-  .badge-shield-wrap svg { width: 64px; height: 70px; }
+  .badge-shield-wrap { width: 72px; height: 72px; }
+  .badge-shield-wrap svg { width: 72px; height: 72px; }
+  .badge-premium-img { width: 72px; height: 72px; }
   .family-characters-layer { display: none; }
   .visitor-layer { display: none; }
 }
@@ -10172,11 +10223,15 @@ function renderBadgeItems(badges, filter) {
   var count = 0;
   var rarityOrder = { prestige: 0, legendary: 1, epic: 2, rare: 3, common: 4 };
 
-  // Trier : gagnés d'abord, puis par rareté décroissante
   var sorted = badges.slice().sort(function(a, b) {
     if (a.earned !== b.earned) return a.earned ? -1 : 1;
     return (rarityOrder[a.rarity] || 4) - (rarityOrder[b.rarity] || 4);
   });
+
+  var lockSvg = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">'
+    + '<rect x="5" y="11" width="14" height="10" rx="2.5" stroke="rgba(255,255,255,0.55)" stroke-width="1.6"/>'
+    + '<path d="M8 11V7.5a4 4 0 0 1 8 0V11" stroke="rgba(255,255,255,0.55)" stroke-width="1.6" stroke-linecap="round"/>'
+    + '</svg>';
 
   for (var i = 0; i < sorted.length; i++) {
     var b = sorted[i];
@@ -10188,23 +10243,30 @@ function renderBadgeItems(badges, filter) {
     var badgeType = b.badge_type || "standard";
     var animated = b.animated || false;
     var cls = "badge-item" + (isEarned ? " earned" : " locked");
-    var rarityLabel = rarityLabels[rarity] || rarity;
+    var rarityLabel = (b.rarity_visual && b.rarity_visual.label) || rarityLabels[rarity] || rarity;
     var rarityCls = "badge-rarity badge-rarity-" + rarity;
     var rStyle = RARITY_STYLES[rarity] || RARITY_STYLES.common;
+    var glowColor = (b.rarity_visual && b.rarity_visual.glow) || rStyle.glow;
 
-    // Icône : emoji si disponible (nouveaux badges), sinon SVG
+    // ── Priorité 1 : asset SVG premium ──
     var iconHtml;
-    var icon = b.icon || "";
-    // Détecter si c'est un emoji (longueur courte, pas un nom de fichier icon)
-    if (icon && !icon.includes("-") && !icon.includes("_") && icon.length <= 4) {
-      iconHtml = '<div class="badge-icon-wrap" style="font-size:2em;display:flex;align-items:center;justify-content:center;width:100%;height:100%;">' + icon + '</div>';
+    if (b.visual && b.visual.asset) {
+      var lockOverlay = isEarned ? "" : '<div class="badge-locked-overlay">' + lockSvg + '</div>';
+      iconHtml = '<div class="badge-icon-wrap" style="position:relative;width:90px;height:90px;">'
+        + '<img src="' + b.visual.asset + '" class="badge-premium-img" alt="" loading="lazy" '
+        + 'onerror="this.style.opacity=\'0.15\'">'
+        + lockOverlay + '</div>';
     } else {
-      var badgeSvg = buildBadgeSVG(icon || "star", rarity, isEarned);
-      iconHtml = '<div class="badge-icon-wrap">' + badgeSvg + '</div>';
+      // ── Priorité 2 : SVG Feather généré (fallback) ──
+      var badgeSvg = buildBadgeSVG(b.icon || "star", rarity, isEarned);
+      iconHtml = '<div class="badge-icon-wrap" style="position:relative;">'
+        + badgeSvg
+        + (isEarned ? "" : '<div class="badge-locked-overlay">' + lockSvg + '</div>')
+        + '</div>';
     }
 
     html += '<div class="' + cls + '" '
-      + 'style="--badge-glow:' + rStyle.glow + '" '
+      + 'style="--badge-glow:' + glowColor + '" '
       + 'data-rarity="' + rarity + '" '
       + 'data-badge-type="' + badgeType + '" '
       + 'data-animated="' + (animated ? "true" : "false") + '" '
