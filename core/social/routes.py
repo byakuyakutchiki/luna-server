@@ -592,6 +592,69 @@ async def remove_friend(request: Request):
 
 
 # =====================================================================
+# AMIS EXTERNES (non-inscrits sur la plateforme)
+# =====================================================================
+
+_PHONE_RE = re.compile(r"^\+?[\d\s\-().]{6,20}$")
+
+@social_router.get("/api/social/friends-extern")
+async def get_extern_friends(request: Request):
+    sops = _get_sops(request)
+    if not sops:
+        return _unavailable()
+    tid = _get_tenant_id(request)
+    if tid is None:
+        return _error("Non authentifie", 401)
+    return {"friends": sops.get_extern_friends(tid)}
+
+
+@social_router.post("/api/social/friend-extern")
+async def add_extern_friend(request: Request):
+    sops = _get_sops(request)
+    if not sops:
+        return _unavailable()
+    tid = _get_tenant_id(request)
+    if tid is None:
+        return _error("Non authentifie", 401)
+
+    try:
+        body = await request.json()
+    except Exception:
+        return _error("Corps invalide")
+
+    name = _sanitize(body.get("name", "")).strip()
+    phone = (body.get("phone", "") or "").strip().replace(" ", "")
+    email = _sanitize(body.get("email", "")).strip()
+
+    if not name:
+        return _error("Le nom est requis")
+    if not phone or not _PHONE_RE.match(phone):
+        return _error("Numero de telephone invalide")
+
+    existing = sops.get_extern_friends(tid)
+    if len(existing) >= 50:
+        return _error("Limite de 50 amis externes atteinte")
+    if any(f.get("phone") == phone for f in existing):
+        return _error("Cet ami est deja dans ta liste")
+
+    entry = sops.add_extern_friend(tid, name, phone, email)
+    return {"success": True, "friend": entry}
+
+
+@social_router.delete("/api/social/friend-extern/{phone}")
+async def remove_extern_friend(request: Request, phone: str):
+    sops = _get_sops(request)
+    if not sops:
+        return _unavailable()
+    tid = _get_tenant_id(request)
+    if tid is None:
+        return _error("Non authentifie", 401)
+    phone_dec = phone.replace("%2B", "+")
+    sops.remove_extern_friend(tid, phone_dec)
+    return {"success": True}
+
+
+# =====================================================================
 # BLOCK / REPORT
 # =====================================================================
 

@@ -195,6 +195,33 @@ class SocialRedisOps:
         return self.client.scard(self._key("friends", tid)) or 0
 
     # =================================================================
+    # AMIS EXTERNES (non-inscrits sur la plateforme)
+    # Stockes dans un hash Redis: social:extern:{tid}  {phone -> JSON}
+    # =================================================================
+
+    def add_extern_friend(self, tid, name: str, phone: str, email: str = "") -> dict:
+        import time as _time
+        key = self._key("extern", str(tid))
+        entry = {"name": name, "phone": phone, "email": email, "added_at": _time.time()}
+        self.client.hset(key, phone, json.dumps(entry, ensure_ascii=False))
+        return entry
+
+    def get_extern_friends(self, tid) -> List[Dict]:
+        key = self._key("extern", str(tid))
+        raw = self.client.hgetall(key) or {}
+        friends = []
+        for _, data in raw.items():
+            try:
+                friends.append(json.loads(data))
+            except Exception:
+                pass
+        return sorted(friends, key=lambda x: x.get("name", "").lower())
+
+    def remove_extern_friend(self, tid, phone: str) -> bool:
+        key = self._key("extern", str(tid))
+        return bool(self.client.hdel(key, phone))
+
+    # =================================================================
     # BLOCK / UNBLOCK
     # =================================================================
 

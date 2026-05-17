@@ -1278,6 +1278,40 @@ body.mode-secretaire .luna-chip:hover { background: rgba(16,185,129,0.2); border
       <h3>Mes amis <span style="background:#7c3aed;color:#fff;font-size:0.75em;padding:2px 8px;border-radius:8px;" id="amisFriendCount">0</span></h3>
       <div id="amisFriendsList"><p class="empty-state">Chargement...</p></div>
     </div>
+
+    <!-- Amis externes -->
+    <div class="amis-section">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+        <h3 style="margin:0;">Amis non inscrits <span style="background:#0e7490;color:#fff;font-size:0.75em;padding:2px 8px;border-radius:8px;" id="amisExternCount">0</span></h3>
+        <button onclick="_openAddExternModal()" style="background:#0e7490;color:#fff;border:none;border-radius:8px;padding:7px 14px;font-size:0.85em;cursor:pointer;">+ Ajouter</button>
+      </div>
+      <p style="font-size:0.78em;color:#555;margin:0 0 10px;">Proches qui n'ont pas encore l'application</p>
+      <div id="amisExternList"><p class="empty-state">Aucun ami externe.</p></div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal ajout ami externe -->
+<div id="addExternOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.88);z-index:9200;align-items:center;justify-content:center;">
+  <div style="background:#1a1a3e;padding:24px;border-radius:18px;width:92%;max-width:360px;">
+    <h3 style="color:#22d3ee;margin:0 0 18px;font-size:1.05em;">👤 Ajouter un ami</h3>
+    <div style="margin-bottom:12px;">
+      <label style="color:#a78bfa;font-size:0.82em;display:block;margin-bottom:5px;">Prénom / Nom *</label>
+      <input id="externName" type="text" maxlength="60" placeholder="Marie Dupont" style="width:100%;box-sizing:border-box;padding:10px;border-radius:10px;border:1px solid #333;background:#0a0a1a;color:#fff;font-size:0.9em;">
+    </div>
+    <div style="margin-bottom:12px;">
+      <label style="color:#a78bfa;font-size:0.82em;display:block;margin-bottom:5px;">Téléphone *</label>
+      <input id="externPhone" type="tel" maxlength="20" placeholder="+33612345678" style="width:100%;box-sizing:border-box;padding:10px;border-radius:10px;border:1px solid #333;background:#0a0a1a;color:#fff;font-size:0.9em;">
+    </div>
+    <div style="margin-bottom:18px;">
+      <label style="color:#a78bfa;font-size:0.82em;display:block;margin-bottom:5px;">Email (facultatif)</label>
+      <input id="externEmail" type="email" maxlength="100" placeholder="marie@exemple.fr" style="width:100%;box-sizing:border-box;padding:10px;border-radius:10px;border:1px solid #333;background:#0a0a1a;color:#fff;font-size:0.9em;">
+    </div>
+    <p id="externStatus" style="color:#f87171;font-size:0.82em;min-height:18px;margin:0 0 12px;"></p>
+    <div style="display:flex;gap:10px;">
+      <button onclick="_closeAddExternModal()" style="flex:1;padding:12px;border-radius:12px;border:none;background:#2a2a4a;color:#aaa;cursor:pointer;">Annuler</button>
+      <button id="externSaveBtn" onclick="_saveExternFriend()" style="flex:1;padding:12px;border-radius:12px;border:none;background:#0e7490;color:#fff;cursor:pointer;font-weight:600;">Ajouter</button>
+    </div>
   </div>
 </div>
 
@@ -4802,6 +4836,7 @@ function loadAmis() {
   }).catch(function() {});
   loadAmisList();
   loadAmisRequests();
+  loadExternFriends();
   if (!amisHeartbeatTimer) {
     _amisHeartbeat();
     amisHeartbeatTimer = setInterval(_amisHeartbeat, 30000);
@@ -4907,6 +4942,88 @@ function _amisDecline(tid, btnEl) {
 function _myTid() {
   try { var t = getToken(); if (!t) return 0; return JSON.parse(atob(t.split(".")[1])).tenant_id || 0; }
   catch(e) { return 0; }
+}
+
+// --- Amis externes ---
+function loadExternFriends() {
+  authFetch("/api/social/friends-extern")
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      var friends = data.friends || [];
+      document.getElementById("amisExternCount").textContent = friends.length;
+      var list = document.getElementById("amisExternList");
+      if (!friends.length) {
+        list.innerHTML = '<p class="empty-state">Aucun ami externe.</p>';
+        return;
+      }
+      list.innerHTML = friends.map(function(f) {
+        var ph = encodeURIComponent(f.phone || "");
+        return '<div class="friend-card" style="align-items:center;">'
+          + '<div class="friend-avatar">👤</div>'
+          + '<div class="friend-info">'
+          +   '<div class="friend-name">' + esc(f.name) + '</div>'
+          +   '<div class="friend-level" style="color:#22d3ee;">' + esc(f.phone) + (f.email ? ' · ' + esc(f.email) : '') + '</div>'
+          + '</div>'
+          + '<div class="friend-actions">'
+          +   '<button onclick="_removeExternFriend(\'' + ph + '\',this)" style="padding:6px 12px;border-radius:8px;border:none;background:#7f1d1d;color:#fca5a5;cursor:pointer;font-size:0.82em;">Retirer</button>'
+          + '</div>'
+          + '</div>';
+      }).join('');
+    })
+    .catch(function() {});
+}
+
+function _removeExternFriend(encodedPhone, btn) {
+  if (!confirm("Retirer cet ami de ta liste ?")) return;
+  btn.disabled = true;
+  authFetch("/api/social/friend-extern/" + encodedPhone, { method: "DELETE" })
+    .then(function(r) { return r.json(); })
+    .then(function(d) { if (d.success) loadExternFriends(); else btn.disabled = false; })
+    .catch(function() { btn.disabled = false; });
+}
+
+function _openAddExternModal() {
+  document.getElementById("externName").value = "";
+  document.getElementById("externPhone").value = "";
+  document.getElementById("externEmail").value = "";
+  document.getElementById("externStatus").textContent = "";
+  document.getElementById("externSaveBtn").disabled = false;
+  document.getElementById("addExternOverlay").style.display = "flex";
+  setTimeout(function() { document.getElementById("externName").focus(); }, 100);
+}
+
+function _closeAddExternModal() {
+  document.getElementById("addExternOverlay").style.display = "none";
+}
+
+function _saveExternFriend() {
+  var name  = document.getElementById("externName").value.trim();
+  var phone = document.getElementById("externPhone").value.trim();
+  var email = document.getElementById("externEmail").value.trim();
+  var status = document.getElementById("externStatus");
+  if (!name) { status.textContent = "Le nom est requis."; return; }
+  if (!phone) { status.textContent = "Le numéro de téléphone est requis."; return; }
+  status.textContent = "";
+  document.getElementById("externSaveBtn").disabled = true;
+  authFetch("/api/social/friend-extern", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({name: name, phone: phone, email: email})
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(d) {
+    if (d.success) {
+      _closeAddExternModal();
+      loadExternFriends();
+    } else {
+      status.textContent = d.detail || d.error || "Erreur";
+      document.getElementById("externSaveBtn").disabled = false;
+    }
+  })
+  .catch(function() {
+    status.textContent = "Erreur de connexion.";
+    document.getElementById("externSaveBtn").disabled = false;
+  });
 }
 
 var dmWs = null;
