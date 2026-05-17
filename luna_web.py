@@ -10058,7 +10058,7 @@ async def _tool_generate_document(args: Dict, tenant_id: int = 0) -> Dict:
 
 
 async def _tool_alert_contacts(args: Dict, tenant_id: int = 0) -> Dict:
-    """Alerte tous les contacts de confiance."""
+    """Alerte tous les contacts de confiance avec position GPS si disponible."""
     mgr = _get_tenant_manager(tenant_id) if tenant_id else _memory_manager
     if not mgr or not sms_client.is_configured:
         return {"status": "error", "message": "Service SMS non disponible"}
@@ -10072,9 +10072,30 @@ async def _tool_alert_contacts(args: Dict, tenant_id: int = 0) -> Dict:
     profile = mgr.get_subscriber_profile()
     name = profile.first_name if profile else "votre proche"
 
+    # Récupérer la dernière position GPS connue (TTL 1h)
+    location_line = ""
+    try:
+        import json as _json
+        geo_raw = _redis_client.client.get(f"luna:{tenant_id}:geolocation") if _redis_client else None
+        if geo_raw:
+            geo = _json.loads(geo_raw)
+            address = geo.get("address") or geo.get("city", "")
+            lat = geo.get("latitude")
+            lng = geo.get("longitude")
+            if address:
+                location_line = f"\n📍 Dernière position connue : {address}"
+            elif lat and lng:
+                location_line = f"\n📍 Dernière position connue : https://maps.google.com/?q={lat},{lng}"
+    except Exception:
+        pass
+
     sent = 0
     for c in contacts:
-        msg = f"[ALERTE Luna] {name} a besoin d'aide. Raison: {reason}. Merci de verifier qu'il va bien. En cas d'urgence, appelez le 112."
+        msg = (
+            f"[ALERTE Luna] {name} a besoin d'aide. Raison : {reason}."
+            f"{location_line}"
+            f"\nMerci de vérifier qu'il va bien. Urgence : appelez le 112."
+        )
         success, _ = _tracked_sms_send(c.phone, msg, label="Alerte contacts urgence")
         if success:
             sent += 1
