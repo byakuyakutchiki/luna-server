@@ -2468,7 +2468,7 @@ function _concShowDocForm() {
 
 // --- Direct Actions ---
 function _concStartVoice() {
-  if (typeof startVoiceCall === "function") startVoiceCall();
+  if (typeof _showCallContactModal === "function") _showCallContactModal();
 }
 function _concStartVisio() {
   if (typeof startCall === "function") startCall();
