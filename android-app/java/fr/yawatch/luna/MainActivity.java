@@ -100,6 +100,7 @@ public class MainActivity extends Activity {
         settings.setBuiltInZoomControls(false);
         settings.setDisplayZoomControls(false);
         settings.setDefaultFontSize(16);
+        settings.setSupportMultipleWindows(true); // nécessaire pour window.open() / target="_blank"
 
         // Geolocation support
         settings.setGeolocationEnabled(true);
@@ -111,8 +112,31 @@ public class MainActivity extends Activity {
         CookieManager.getInstance().setAcceptCookie(true);
         CookieManager.getInstance().setAcceptThirdPartyCookies(webView, true);
 
-        // WebChromeClient: gere les permissions camera/micro/geoloc
+        // WebChromeClient: gere les permissions camera/micro/geoloc + window.open
         webView.setWebChromeClient(new WebChromeClient() {
+            @Override
+            public boolean onCreateWindow(WebView view, boolean isDialog, boolean isUserGesture, android.os.Message resultMsg) {
+                // window.open() et target="_blank" → extraire l'URL et l'ouvrir nativement
+                WebView tempView = new WebView(MainActivity.this);
+                tempView.setWebViewClient(new WebViewClient() {
+                    @Override
+                    public boolean shouldOverrideUrlLoading(WebView v, String url) {
+                        if (url != null && !url.startsWith(LUNA_URL)) {
+                            try {
+                                Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+                                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                                startActivity(intent);
+                            } catch (Exception ignored) { }
+                        }
+                        return true;
+                    }
+                });
+                WebView.WebViewTransport transport = (WebView.WebViewTransport) resultMsg.obj;
+                transport.setWebView(tempView);
+                resultMsg.sendToTarget();
+                return true;
+            }
+
             @Override
             public void onGeolocationPermissionsShowPrompt(String origin, android.webkit.GeolocationPermissions.Callback callback) {
                 if (Build.VERSION.SDK_INT >= 23) {
@@ -253,7 +277,13 @@ public class MainActivity extends Activity {
                         || url.startsWith("data:")) {
                     return false;
                 }
-                return true; // bloquer toute navigation vers un domaine externe
+                // Liens externes (Google Maps, etc.) → ouvrir dans l'appli/navigateur natif
+                try {
+                    Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                    startActivity(intent);
+                } catch (Exception ignored) { }
+                return true; // le WebView ne navigue pas
             }
 
             @Override
