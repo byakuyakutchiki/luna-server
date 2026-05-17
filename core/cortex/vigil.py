@@ -29,7 +29,7 @@ import logging
 import os
 import re
 import time
-from collections import defaultdict
+from collections import defaultdict, deque
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
@@ -148,7 +148,7 @@ class VigilAgent:
         self._threat_signals: dict[str, list[dict]] = defaultdict(list)
         self._banned_ips: dict[str, dict] = {}  # ip -> {until, reason, level}
         self._file_hashes: dict[str, str] = {}  # path -> sha256
-        self._global_request_count: list[float] = []
+        self._global_request_count: deque = deque(maxlen=10000)
         self._last_integrity_check: float = 0
         self._actions_taken: list[str] = []
 
@@ -256,16 +256,16 @@ class VigilAgent:
 
         # 1. Rate tracking global (DDoS detection)
         self._global_request_count.append(now)
-        self._global_request_count = [
-            t for t in self._global_request_count if t > now - 1]
-        if len(self._global_request_count) > self.config.ddos_threshold:
+        # Compter uniquement les requêtes dans la dernière seconde (deque évite la réallocation)
+        recent = sum(1 for t in self._global_request_count if t > now - 1)
+        if recent > self.config.ddos_threshold:
             signals.append(Signal(
                 source=SignalSource.VIGIL,
                 severity=Severity.EMERGENCY,
                 category="security",
                 title="DDoS detecte!",
                 message=(
-                    f"{len(self._global_request_count)} req/s "
+                    f"{recent} req/s "
                     f"(seuil: {self.config.ddos_threshold}). "
                     f"Activation mode bouclier."
                 ),
@@ -308,90 +308,95 @@ class VigilAgent:
                 break
 
         # 4. Injection checks (query + body + path)
-        # Skip pattern checks for upload endpoints (documents legits contiennent
-        # du texte qui peut matcher des patterns de securite)
+        # Skip pattern checks for upload/chat endpoints uniquement
+        # (les documents légitimes peuvent matcher des patterns de sécurité)
+        # Note: on ne skip PAS le rate limiting ni le honeypot (déjà fait au-dessus)
         _UPLOAD_PATHS = ("/api/form-filler/analyze", "/api/form-filler/fill",
                          "/api/secretary/scan", "/api/chat",
                          "/api/perception/analyze")
         if any(path.startswith(p) for p in _UPLOAD_PATHS):
-            return signals
+            # Continuer pour PV bypass et score check, mais pas les injections SQL/XSS/cmd
+            skip_injection = True
+        else:
+            skip_injection = False
 
-        payload = f"{path} {query} {body}"
+        if not skip_injection:
+            payload = f"{path} {query} {body}"
 
-        for pattern in SQL_INJECTION_PATTERNS:
-            if re.search(pattern, payload, re.IGNORECASE):
-                signals.append(Signal(
-                    source=SignalSource.VIGIL,
-                    severity=Severity.CRITICAL,
-                    category="security",
-                    title="Injection SQL detectee",
-                    message=(f"IP {ip} tente une injection SQL. "
-                             f"Path: {path}"),
-                    threat_type=ThreatType.SQL_INJECTION,
-                    ip=ip,
-                    metadata={"pattern": pattern, "path": path},
-                ))
-                self._boost_threat(ip, ThreatType.SQL_INJECTION, 40)
-                break
+            for pattern in SQL_INJECTION_PATTERNS:
+                if re.search(pattern, payload, re.IGNORECASE):
+                    signals.append(Signal(
+                        source=SignalSource.VIGIL,
+                        severity=Severity.CRITICAL,
+                        category="security",
+                        title="Injection SQL detectee",
+                        message=(f"IP {ip} tente une injection SQL. "
+                                 f"Path: {path}"),
+                        threat_type=ThreatType.SQL_INJECTION,
+                        ip=ip,
+                        metadata={"pattern": pattern, "path": path},
+                    ))
+                    self._boost_threat(ip, ThreatType.SQL_INJECTION, 40)
+                    break
 
-        for pattern in XSS_PATTERNS:
-            if re.search(pattern, payload, re.IGNORECASE):
-                signals.append(Signal(
-                    source=SignalSource.VIGIL,
-                    severity=Severity.CRITICAL,
-                    category="security",
-                    title="Tentative XSS detectee",
-                    message=f"IP {ip} tente du XSS. Path: {path}",
-                    threat_type=ThreatType.XSS,
-                    ip=ip,
-                    metadata={"path": path},
-                ))
-                self._boost_threat(ip, ThreatType.XSS, 35)
-                break
+            for pattern in XSS_PATTERNS:
+                if re.search(pattern, payload, re.IGNORECASE):
+                    signals.append(Signal(
+                        source=SignalSource.VIGIL,
+                        severity=Severity.CRITICAL,
+                        category="security",
+                        title="Tentative XSS detectee",
+                        message=f"IP {ip} tente du XSS. Path: {path}",
+                        threat_type=ThreatType.XSS,
+                        ip=ip,
+                        metadata={"path": path},
+                    ))
+                    self._boost_threat(ip, ThreatType.XSS, 35)
+                    break
 
-        for pattern in PATH_TRAVERSAL_PATTERNS:
-            if re.search(pattern, payload, re.IGNORECASE):
-                signals.append(Signal(
-                    source=SignalSource.VIGIL,
-                    severity=Severity.CRITICAL,
-                    category="security",
-                    title="Path traversal detecte",
-                    message=f"IP {ip} tente un path traversal. Path: {path}",
-                    threat_type=ThreatType.PATH_TRAVERSAL,
-                    ip=ip,
-                ))
-                self._boost_threat(ip, ThreatType.PATH_TRAVERSAL, 40)
-                break
+            for pattern in PATH_TRAVERSAL_PATTERNS:
+                if re.search(pattern, payload, re.IGNORECASE):
+                    signals.append(Signal(
+                        source=SignalSource.VIGIL,
+                        severity=Severity.CRITICAL,
+                        category="security",
+                        title="Path traversal detecte",
+                        message=f"IP {ip} tente un path traversal. Path: {path}",
+                        threat_type=ThreatType.PATH_TRAVERSAL,
+                        ip=ip,
+                    ))
+                    self._boost_threat(ip, ThreatType.PATH_TRAVERSAL, 40)
+                    break
 
-        for pattern in COMMAND_INJECTION_PATTERNS:
-            if re.search(pattern, payload, re.IGNORECASE):
-                signals.append(Signal(
-                    source=SignalSource.VIGIL,
-                    severity=Severity.EMERGENCY,
-                    category="security",
-                    title="Injection de commande detectee!",
-                    message=(f"IP {ip} tente une injection de commande. "
-                             f"Path: {path}. TRES DANGEREUX."),
-                    threat_type=ThreatType.COMMAND_INJECTION,
-                    ip=ip,
-                ))
-                self._boost_threat(ip, ThreatType.COMMAND_INJECTION, 50)
-                break
+            for pattern in COMMAND_INJECTION_PATTERNS:
+                if re.search(pattern, payload, re.IGNORECASE):
+                    signals.append(Signal(
+                        source=SignalSource.VIGIL,
+                        severity=Severity.EMERGENCY,
+                        category="security",
+                        title="Injection de commande detectee!",
+                        message=(f"IP {ip} tente une injection de commande. "
+                                 f"Path: {path}. TRES DANGEREUX."),
+                        threat_type=ThreatType.COMMAND_INJECTION,
+                        ip=ip,
+                    ))
+                    self._boost_threat(ip, ThreatType.COMMAND_INJECTION, 50)
+                    break
 
-        # 5. API key leak detection (dans les logs/requetes)
-        for pattern in API_KEY_PATTERNS:
-            if re.search(pattern, payload):
-                signals.append(Signal(
-                    source=SignalSource.VIGIL,
-                    severity=Severity.EMERGENCY,
-                    category="security",
-                    title="Cle API detectee dans requete!",
-                    message=(f"Une cle API a ete detectee dans une requete "
-                             f"de {ip}. Possible fuite de credentials."),
-                    threat_type=ThreatType.API_KEY_LEAK,
-                    ip=ip,
-                ))
-                break
+            # 5. API key leak detection (dans les logs/requetes)
+            for pattern in API_KEY_PATTERNS:
+                if re.search(pattern, payload):
+                    signals.append(Signal(
+                        source=SignalSource.VIGIL,
+                        severity=Severity.EMERGENCY,
+                        category="security",
+                        title="Cle API detectee dans requete!",
+                        message=(f"Une cle API a ete detectee dans une requete "
+                                 f"de {ip}. Possible fuite de credentials."),
+                        threat_type=ThreatType.API_KEY_LEAK,
+                        ip=ip,
+                    ))
+                    break
 
         # 6. PV bypass attempt
         if any(p in path for p in ["/pv_lock", "/data/pv_lock",
@@ -552,22 +557,10 @@ class VigilAgent:
             },
         )
 
-    # Préfixes et IPs fondateur — immunisés contre tout ban
-    _FOUNDER_IP_PREFIXES: tuple = (
-        "2a02:8429:a9e4:f101:",  # plage /64 box fondateur
-    )
-    _FOUNDER_IPS: frozenset = frozenset({
-        "92.92.129.172",
-    })
-
     @classmethod
     def _is_founder_ip(cls, ip: str) -> bool:
-        if ip in cls._FOUNDER_IPS:
-            return True
-        for prefix in cls._FOUNDER_IP_PREFIXES:
-            if ip.startswith(prefix):
-                return True
-        return False
+        from core.cortex.founder_config import is_founder_ip
+        return is_founder_ip(ip)
 
     def _escalate_to_ban(self, ip: str, score: float,
                          warning_count: int) -> Signal:
@@ -637,7 +630,7 @@ class VigilAgent:
             if loop.is_running():
                 asyncio.create_task(self._async_persist_warning(ip, data))
         except Exception:
-            pass
+            logger.exception("Echec persistance avertissement Redis pour %s", ip)
 
     async def _async_persist_warning(self, ip: str, data: str):
         """Sauvegarde async dans Redis."""
@@ -664,7 +657,7 @@ class VigilAgent:
             if loop.is_running():
                 asyncio.create_task(self._async_persist_ban(ip, data))
         except Exception:
-            pass
+            logger.exception("Echec persistance ban Redis pour %s", ip)
 
     async def _async_persist_ban(self, ip: str, data: str):
         """Sauvegarde async du ban dans Redis."""
@@ -673,7 +666,7 @@ class VigilAgent:
             if ttl > 0:
                 await self.redis.setex(f"cortex:ban:{ip}", ttl, data)
         except Exception:
-            pass
+            logger.exception("Echec ecriture ban Redis pour %s", ip)
 
     async def restore_from_redis(self):
         """Restaure les bans et avertissements depuis Redis au demarrage."""

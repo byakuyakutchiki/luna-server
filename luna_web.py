@@ -3501,7 +3501,8 @@ h2{color:#ff6b6b;} p{color:#aaa;font-size:14px;margin-top:12px;}</style>
     import json as _json
     data = _json.loads(raw)
     room_url = data.get("room_url", "")
-    subscriber = data.get("subscriber_name", "votre contact")
+    import html as _html_mod
+    subscriber = _html_mod.escape(data.get("subscriber_name", "votre contact"))
     if not room_url:
         return HTMLResponse("<h2>Lien invalide.</h2>", status_code=410)
 

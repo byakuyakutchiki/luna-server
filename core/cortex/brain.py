@@ -94,8 +94,9 @@ class LunaCortex:
         # Afficher les infos de setup si nouveau
         new_key = self.auth.get_new_api_key()
         if new_key:
-            logger.warning(f"NOUVELLE CLE API CORTEX: {new_key}")
-            logger.warning("Sauvegardez-la! Elle ne sera plus affichee.")
+            masked = new_key[:4] + "****" + new_key[-4:] if len(new_key) > 8 else "****"
+            logger.warning(f"NOUVELLE CLE API CORTEX generee: {masked}")
+            logger.warning("Sauvegardez-la via le dashboard admin. Elle ne sera plus affichee.")
 
         logger.info("Luna Cortex initialise (TOTP + Telegram + CLI)")
 
@@ -392,23 +393,10 @@ class LunaCortex:
             message=f"Mode {old_mode} → {mode}. Raison: {reason}. Par: {by}.",
         ))
 
-    # Préfixes et IPs fondateur — tout ce bloc est immunisé contre tout ban
-    # Le préfixe /64 couvre les rotations IPv6 automatiques de la box du fondateur
-    _FOUNDER_IP_PREFIXES: tuple = (
-        "2a02:8429:a9e4:f101:",  # plage /64 box fondateur (IPv6 rotates)
-    )
-    _FOUNDER_IPS: frozenset = frozenset({
-        "92.92.129.172",  # IPv4 fixe fondateur
-    })
-
     @classmethod
     def _is_founder_ip(cls, ip: str) -> bool:
-        if ip in cls._FOUNDER_IPS:
-            return True
-        for prefix in cls._FOUNDER_IP_PREFIXES:
-            if ip.startswith(prefix):
-                return True
-        return False
+        from core.cortex.founder_config import is_founder_ip
+        return is_founder_ip(ip)
 
     def is_request_allowed(self, ip: str, path: str) -> tuple[bool, str]:
         """
