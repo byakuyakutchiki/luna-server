@@ -1,5 +1,5 @@
 // Luna Service Worker — Offline cache + push notifications
-var CACHE_NAME = "luna-v26";
+var CACHE_NAME = "luna-v46";
 var PRECACHE_URLS = [
   "/",
   "/static/index.html",
@@ -53,8 +53,9 @@ self.addEventListener("message", function(event) {
 self.addEventListener("fetch", function(event) {
   var url = new URL(event.request.url);
 
-  // Never cache API calls, WebSocket, or SSE streams
+  // Never cache API calls, WebSocket, SSE, or clear-cache page
   if (url.pathname.startsWith("/api/") || url.pathname.startsWith("/ws/") ||
+      url.pathname === "/clear-cache" || url.pathname === "/simli" ||
       event.request.headers.get("accept") === "text/event-stream") {
     return;
   }

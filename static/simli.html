@@ -165,6 +165,185 @@
     #tavusFrame.visible { opacity: 1; pointer-events: auto; }
     #tavusFrame iframe { width: 100%; height: 100%; border: none; }
 
+    /* ===== INVITE MODAL ===== */
+    #inviteModal {
+      position: fixed; inset: 0; z-index: 200; background: rgba(0,0,0,0.7);
+      backdrop-filter: blur(6px); display: none; align-items: center; justify-content: center; padding: 16px;
+    }
+    #inviteModal.open { display: flex; }
+    .invite-card {
+      background: #0f0f2a; border: 1px solid #2a2a5a; border-radius: 20px;
+      width: 100%; max-width: 360px; padding: 24px 20px;
+    }
+    .invite-card h3 { font-size: 17px; color: #fff; margin-bottom: 6px; }
+    .invite-card .sub { font-size: 13px; color: #888; margin-bottom: 18px; }
+    .invite-contact-list { max-height: 220px; overflow-y: auto; margin-bottom: 14px; }
+    .invite-contact-item {
+      display: flex; align-items: center; gap: 10px; padding: 10px 12px;
+      border-radius: 12px; cursor: pointer; transition: background 0.12s;
+    }
+    .invite-contact-item:hover { background: rgba(124,140,248,0.12); }
+    .invite-contact-item.selected { background: rgba(124,140,248,0.2); border: 1px solid rgba(124,140,248,0.4); }
+    .invite-avatar { width: 36px; height: 36px; border-radius: 50%; background: linear-gradient(135deg,#7c8cf8,#a78bfa);
+      display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 700; color: #fff; flex-shrink: 0; }
+    .invite-contact-name { font-size: 14px; color: #ddd; font-weight: 500; }
+    .invite-contact-rel { font-size: 12px; color: #666; }
+    .invite-actions { display: flex; gap: 10px; }
+    .btn-invite-send {
+      flex: 1; background: linear-gradient(135deg,#7c8cf8,#a78bfa); color: #fff;
+      border: none; border-radius: 50px; padding: 13px; font-size: 15px; font-weight: 700;
+      cursor: pointer; transition: all 0.12s; opacity: 0.4; pointer-events: none;
+    }
+    .btn-invite-send.active { opacity: 1; pointer-events: auto; }
+    .btn-invite-send.active:hover { transform: scale(1.02); }
+    .btn-invite-cancel { background: rgba(255,255,255,0.06); color: #888; border: none;
+      border-radius: 50px; padding: 13px 18px; font-size: 14px; cursor: pointer; }
+    .btn-invite-cancel:hover { color: #aaa; }
+    .invite-loading { text-align: center; padding: 8px 0; font-size: 13px; color: #888; display: none; }
+
+    /* ===== BARRE D'ACTIONS VISIO (haut de l'écran, aucun chevauchement) ===== */
+    #visioActionsBar {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 60;
+      display: none; align-items: center; justify-content: center;
+      gap: 8px; padding: 12px 16px;
+      padding-top: calc(12px + env(safe-area-inset-top));
+      background: linear-gradient(to bottom, rgba(0,0,0,0.55) 0%, transparent 100%);
+      pointer-events: none;
+    }
+    #visioActionsBar.visible { display: flex; }
+    .vab-btn {
+      background: rgba(12,12,30,0.82); backdrop-filter: blur(10px);
+      border-radius: 50px; padding: 9px 16px; font-size: 13px; font-weight: 600;
+      cursor: pointer; display: flex; align-items: center; gap: 5px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.5); transition: all 0.12s;
+      pointer-events: auto; border: 1px solid transparent;
+    }
+    .vab-btn:active { transform: scale(0.96); }
+    #btnMuteLuna { color: #7cf8c8; border-color: rgba(100,220,180,0.35); }
+    #btnMuteLuna:hover { background: rgba(100,220,180,0.14); border-color: rgba(100,220,180,0.7); }
+    #btnMuteLuna.muted { color: #f87c7c; border-color: rgba(248,100,100,0.45); background: rgba(248,100,100,0.12); }
+    #btnInvite  { color: #a78bfa; border-color: rgba(124,140,248,0.35); }
+    #btnInvite:hover  { background: rgba(124,140,248,0.14); border-color: rgba(124,140,248,0.7); }
+    #btnShare   { color: #7cf8c8; border-color: rgba(100,220,180,0.35); }
+    #btnShare:hover   { background: rgba(100,220,180,0.14); border-color: rgba(100,220,180,0.7); }
+    #btnNotes   { color: #f8d07c; border-color: rgba(248,208,124,0.35); }
+    #btnNotes:hover   { background: rgba(248,208,124,0.12); border-color: rgba(248,208,124,0.7); }
+    #micDot {
+      width: 7px; height: 7px; border-radius: 50%; background: #f8d07c;
+      opacity: 0.4; display: inline-block; margin-left: 4px; flex-shrink: 0;
+      transition: opacity 0.3s ease;
+    }
+    #btnUpload  { color: #f8b07c; border-color: rgba(248,160,100,0.35); }
+    #btnUpload:hover  { background: rgba(248,160,100,0.12); border-color: rgba(248,160,100,0.7); }
+    #btnUpload.uploading { opacity: 0.6; pointer-events: none; }
+
+    /* ===== SHARE MODAL ===== */
+    #shareModal {
+      position: fixed; inset: 0; z-index: 200; background: rgba(0,0,0,0.7);
+      backdrop-filter: blur(6px); display: none; align-items: center; justify-content: center; padding: 16px;
+    }
+    #shareModal.open { display: flex; }
+    .share-card {
+      background: #0f0f2a; border: 1px solid #2a2a5a; border-radius: 20px;
+      width: 100%; max-width: 380px; padding: 24px 20px;
+    }
+    .share-card h3 { font-size: 17px; color: #fff; margin-bottom: 6px; }
+    .share-card .sub { font-size: 13px; color: #888; margin-bottom: 18px; }
+    .share-link-box {
+      display: flex; gap: 8px; margin-bottom: 14px; align-items: center;
+    }
+    .share-link-input {
+      flex: 1; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 10px; padding: 10px 12px; color: #ccc; font-size: 12px;
+      font-family: monospace; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+    }
+    .btn-copy-link {
+      background: linear-gradient(135deg,#7cf8c8,#5be0a8); color: #0a0a1a;
+      border: none; border-radius: 10px; padding: 10px 14px; font-size: 13px;
+      font-weight: 700; cursor: pointer; white-space: nowrap; transition: all 0.12s;
+    }
+    .btn-copy-link:hover { transform: scale(1.04); }
+    .btn-web-share {
+      width: 100%; background: rgba(100,220,180,0.1); border: 1px solid rgba(100,220,180,0.3);
+      color: #7cf8c8; border-radius: 50px; padding: 12px; font-size: 14px; font-weight: 600;
+      cursor: pointer; margin-bottom: 10px; transition: all 0.12s; display: none;
+    }
+    .btn-web-share.visible { display: block; }
+    .btn-web-share:hover { background: rgba(100,220,180,0.18); }
+    .share-warning { font-size: 11px; color: #555; line-height: 1.5; margin-bottom: 16px; }
+    .btn-share-close { background: rgba(255,255,255,0.06); color: #888; border: none;
+      border-radius: 50px; padding: 11px 20px; font-size: 14px; cursor: pointer; width: 100%; }
+    .btn-share-close:hover { color: #aaa; }
+    .share-loading { text-align: center; padding: 8px 0; font-size: 13px; color: #888; display: none; }
+
+    /* ===== TOAST NOTIFICATION ===== */
+    #lunaToast {
+      position: fixed; bottom: 96px; left: 50%; transform: translateX(-50%);
+      z-index: 100; background: rgba(20,20,40,0.92); backdrop-filter: blur(12px);
+      border: 1px solid rgba(124,140,248,0.35); border-radius: 16px;
+      padding: 12px 22px; color: #e0e0ff; font-size: 14px; font-weight: 500;
+      max-width: 320px; text-align: center; pointer-events: none;
+      opacity: 0; transition: opacity 0.35s ease;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.5);
+    }
+    #lunaToast.visible { opacity: 1; }
+    #lunaToast .toast-icon { margin-right: 6px; }
+
+    /* ===== VISION STATUS ===== */
+    #visionStatus {
+      position: fixed; bottom: 96px; left: 16px; z-index: 60;
+      background: rgba(20,20,50,0.82); backdrop-filter: blur(8px);
+      border: 1px solid rgba(100,220,180,0.3); border-radius: 20px;
+      padding: 6px 12px; font-size: 12px; color: #7cf8c8;
+      display: none; align-items: center; gap: 5px;
+      pointer-events: auto; cursor: pointer;
+      transition: border-color 0.2s, color 0.2s, opacity 0.3s;
+    }
+    #visionStatus.visible { display: flex; }
+    #visionStatus.silent { border-color: rgba(255,160,0,0.4); color: #ffa020; }
+    #visionStatus.silent .v-dot { background: #ffa020; }
+    #visionStatus .v-dot {
+      width: 6px; height: 6px; border-radius: 50%; background: #7cf8c8;
+      animation: visionPulse 2s ease-in-out infinite;
+    }
+    @keyframes visionPulse {
+      0%, 100% { opacity: 1; } 50% { opacity: 0.3; }
+    }
+
+    /* ===== NOTES MODAL ===== */
+
+    /* ===== NOTES MODAL ===== */
+    #notesModal {
+      position: fixed; inset: 0; z-index: 200; background: rgba(0,0,0,0.75);
+      backdrop-filter: blur(6px); display: none; align-items: flex-end; justify-content: center;
+      padding: 0;
+    }
+    #notesModal.open { display: flex; }
+    .notes-card {
+      background: #0f0f2a; border: 1px solid #2a2a5a; border-radius: 20px 20px 0 0;
+      width: 100%; max-width: 520px; padding: 24px 20px 32px;
+      max-height: 70vh; display: flex; flex-direction: column;
+    }
+    .notes-card h3 { font-size: 17px; color: #fff; margin-bottom: 4px; }
+    .notes-card .sub { font-size: 12px; color: #666; margin-bottom: 16px; }
+    .notes-summary {
+      flex: 1; overflow-y: auto; font-size: 13px; color: #ccc; line-height: 1.7;
+      background: rgba(255,255,255,0.04); border-radius: 12px; padding: 14px;
+      margin-bottom: 14px; white-space: pre-wrap; min-height: 80px;
+    }
+    .notes-actions { display: flex; gap: 10px; }
+    .btn-notes-save {
+      flex: 1; background: linear-gradient(135deg,#f8d07c,#f8a820); color: #0a0a1a;
+      border: none; border-radius: 50px; padding: 13px; font-size: 15px; font-weight: 700;
+      cursor: pointer; transition: all 0.12s;
+    }
+    .btn-notes-save:hover { transform: scale(1.02); }
+    .btn-notes-save:disabled { opacity: 0.5; cursor: default; transform: none; }
+    .btn-notes-close { background: rgba(255,255,255,0.06); color: #888; border: none;
+      border-radius: 50px; padding: 13px 18px; font-size: 14px; cursor: pointer; }
+    .btn-notes-close:hover { color: #aaa; }
+    .notes-loading { font-size: 13px; color: #888; text-align: center; padding: 8px 0; display: none; }
+
     /* ===== HANGUP BUTTON ===== */
     .btn-hangup {
       position: fixed; bottom: 32px; left: 50%; transform: translateX(-50%); z-index: 60;
@@ -283,6 +462,72 @@
   <!-- TAVUS VIDEO FULLSCREEN (Daily.js injecte ici) -->
   <div id="tavusFrame"></div>
 
+  <!-- TOAST NOTIFICATION -->
+  <div id="lunaToast"></div>
+
+  <!-- VISION STATUS (cliquer = mode silencieux) -->
+  <div id="visionStatus" title="Cliquer : activer/désactiver mode observation silencieux"><div class="v-dot"></div><span id="visionLabel">Luna voit</span></div>
+
+  <!-- BARRE D'ACTIONS (haut, visible seulement pendant la visio) -->
+  <div id="visioActionsBar">
+    <button class="vab-btn" id="btnMuteLuna" title="Couper/rétablir le micro de Luna">🎙 Luna active</button>
+    <button class="vab-btn" id="btnUpload" title="Partager un document ou une image à Luna">📎 Analyser</button>
+    <button class="vab-btn" id="btnInvite">👥 Inviter</button>
+    <button class="vab-btn" id="btnShare">🔗 Partager</button>
+    <button class="vab-btn" id="btnNotes">📝 Notes <span id="micDot" title="Micro actif — capture les échanges pour les notes" style="display:none"></span></button>
+  </div>
+  <!-- File input caché pour upload visio -->
+  <input type="file" id="uploadInput" accept="image/*,.pdf,.txt,.md,.csv,.docx" style="display:none"
+         capture="environment" />
+
+  <!-- SHARE MODAL -->
+  <div id="shareModal">
+    <div class="share-card">
+      <h3>🔗 Partager ce lien</h3>
+      <p class="sub">Partagez ce lien via WhatsApp, email ou SMS. Valable 4h.</p>
+      <div class="share-loading" id="shareLoading">Génération du lien…</div>
+      <div id="shareLinkArea" style="display:none">
+        <div class="share-link-box">
+          <div class="share-link-input" id="shareLinkText">—</div>
+          <button class="btn-copy-link" id="btnCopyLink">Copier</button>
+        </div>
+        <button class="btn-web-share" id="btnWebShare">📤 Partager via…</button>
+        <p class="share-warning">⚠️ Luna est une IA — toute demande illégale ou abusive engage la responsabilité de l'invité. Les abus sont tracés.</p>
+      </div>
+      <button class="btn-share-close" id="btnShareClose">Fermer</button>
+    </div>
+  </div>
+
+  <!-- NOTES MODAL -->
+  <div id="notesModal">
+    <div class="notes-card">
+      <h3>📝 Notes de la conversation</h3>
+      <p class="sub" id="notesSub">Génération du résumé…</p>
+      <div class="notes-loading" id="notesLoading">Analyse de la conversation…</div>
+      <div class="notes-summary" id="notesSummary"></div>
+      <div class="notes-actions">
+        <button class="btn-notes-close" id="btnNotesClose">Fermer</button>
+        <button class="btn-notes-save" id="btnNotesSave" disabled>💾 Sauvegarder</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- INVITE MODAL -->
+  <div id="inviteModal">
+    <div class="invite-card">
+      <h3>👥 Inviter quelqu'un</h3>
+      <p class="sub">Un SMS avec le lien et les conditions d'utilisation sera envoyé.</p>
+      <div class="invite-contact-list" id="inviteContactList">
+        <p style="color:#666;font-size:13px;text-align:center;padding:16px;">Chargement des contacts…</p>
+      </div>
+      <div class="invite-loading" id="inviteLoading">Envoi en cours…</div>
+      <div class="invite-actions">
+        <button class="btn-invite-cancel" id="btnInviteCancel">Annuler</button>
+        <button class="btn-invite-send" id="btnInviteSend">Envoyer l'invitation</button>
+      </div>
+    </div>
+  </div>
+
   <!-- HANGUP -->
   <button class="btn-hangup" id="btnHangup">Raccrocher</button>
 
@@ -290,6 +535,22 @@
   <script crossorigin src="https://unpkg.com/@daily-co/daily-js"></script>
 
   <script>
+    // =====================================================================
+    // REMOTE LOGGING (simli.html)
+    // =====================================================================
+    function rLog(level, tag, msg, data) {
+      try {
+        var tok = localStorage.getItem('luna_token') || '';
+        var hdrs = {'Content-Type': 'application/json'};
+        if (tok) hdrs['Authorization'] = 'Bearer ' + tok;
+        fetch('/api/debug/log', {
+          method: 'POST',
+          headers: hdrs,
+          body: JSON.stringify({ level: level, tag: tag, msg: msg, data: String(data || '') })
+        }).catch(function(){});
+      } catch(e) {}
+    }
+
     // =====================================================================
     // PLANNING HORAIRE
     // =====================================================================
@@ -374,10 +635,65 @@
     var dailyCall = null;
     var currentConvId = '';
     var currentProvider = 'tavus';
+    var _activeRoomUrl = '';
+
+    // Vision caméra
+    var _visionCanvas = document.createElement('canvas');
+    var _visionCtx = _visionCanvas.getContext('2d');
+    var _visionVideoEl = document.createElement('video');
+    _visionVideoEl.muted = true;
+    _visionVideoEl.playsInline = true;
+    var _visionLoopId = null;
+    var _lastVisionDesc = '';
+    var _visionActive = false;
+    var _visionSilent = false; // mode enregistrement : observe sans parler
+    var _visionNotified = false; // Luna a déjà été informée de la caméra (1x par appel)
+    var _visioTranscript = []; // événements conversation pour prise de notes
+    var _visioStartTs = Date.now(); // heure de début pour durée
     var grainAnimId = null;
     var lastGrainTime = 0;
 
     function wait(ms) { return new Promise(function(r) { setTimeout(r, ms); }); }
+
+    // =====================================================================
+    // TOAST NOTIFICATION
+    // =====================================================================
+    var _toastTimer = null;
+    function showToast(msg, durationMs) {
+      var el = document.getElementById('lunaToast');
+      if (!el) return;
+      el.textContent = msg;
+      el.classList.add('visible');
+      if (_toastTimer) clearTimeout(_toastTimer);
+      _toastTimer = setTimeout(function() {
+        el.classList.remove('visible');
+        _toastTimer = null;
+      }, durationMs || 4000);
+    }
+
+    // Map tool names → icône + label lisible
+    var _TOOL_LABELS = {
+      send_sms: '💬 SMS en cours…',
+      call_contact: '📞 Appel en cours…',
+      send_email: '📧 Email en cours…',
+      create_note: '📝 Note créée',
+      get_weather: '🌤 Météo',
+      get_contacts: '👥 Contacts',
+      alert_contacts: '🚨 Alerte envoyée',
+      get_news: '📰 Actualités',
+      search_web: '🔍 Recherche web…',
+      generate_document: '📄 Document généré',
+      search_places: '📍 Recherche lieux…',
+      search_flights: '✈️ Vols en cours…',
+      search_hotels: '🏨 Hôtels en cours…',
+      book_restaurant: '🍽 Restaurants…',
+      get_player_stats: '🎮 Stats joueur',
+      report_observation: '👁 Observation notée',
+      create_instruction: '⚙️ Instruction créée',
+      invite_visio: '📹 Invitation envoyée',
+      send_conclusions: '📋 Envoi du compte-rendu…',
+      get_vision_context: '👁 Luna regarde…',
+    };
 
     // =====================================================================
     // AUTH (meme token que index.html, meme origin)
@@ -534,18 +850,8 @@
       return wait(300).then(function() {
         phoneScreen.style.background = '';
         phoneNotification.classList.remove('visible');
-
-        // Montrer le visage de Luna dans le telephone via Daily prebuilt
-        if (conversationUrl) {
-          var miniIframe = document.createElement('iframe');
-          miniIframe.src = conversationUrl;
-          miniIframe.allow = 'camera; microphone; autoplay';
-          miniIframe.setAttribute('playsinline', '');
-          phoneAvatarFrame.innerHTML = '';
-          phoneAvatarFrame.appendChild(miniIframe);
-          phoneAvatarFrame.classList.add('visible');
-        }
-
+        // NB: on n'ouvre PAS la conversation URL dans le mini-iframe
+        // (creer 2 connexions Daily.co dans la meme page cause des conflits WebRTC)
         return wait(2500);
       });
     }
@@ -572,40 +878,108 @@
         vignetteEl.classList.remove('active', 'intense');
         stopGrain();
 
-        // Simli = iframe direct ; Tavus = Daily.co
-        if (conversationUrl && currentProvider === 'simli') {
-          tavusFrameEl.innerHTML = '';
-          var simliFrame = document.createElement('iframe');
-          simliFrame.src = conversationUrl;
-          simliFrame.allow = 'camera; microphone; autoplay; fullscreen';
-          simliFrame.setAttribute('playsinline', '');
-          simliFrame.style.cssText = 'width:100%;height:100%;border:none';
-          tavusFrameEl.appendChild(simliFrame);
-          return wait(800).then(function() {
-            tavusFrameEl.classList.add('visible');
-            btnHangup.classList.add('visible');
-            return wait(1500);
-          }).then(function() {
-            zoomContainer.style.display = 'none';
-            phoneAvatarFrame.innerHTML = '';
-          });
-        }
-
+        // Simli et Tavus utilisent tous les deux Daily.co — meme chemin Daily.js
+        // (iframe brut bloque getUserMedia dans Android WebView)
         if (conversationUrl && window.DailyIframe) {
+          rLog('info', 'simli', 'daily_createFrame', 'url=' + conversationUrl.substring(0, 60));
           dailyCall = window.DailyIframe.createFrame(tavusFrameEl, {
             iframeStyle: { width: '100%', height: '100%', border: 'none' },
             showLeaveButton: false,
             showFullscreenButton: false,
           });
 
-          // Tool call handling (relay vers le backend)
+          _activeRoomUrl = conversationUrl;
+          dailyCall.on('joined-meeting', function() {
+            rLog('info', 'simli', 'daily_joined', currentProvider);
+            var bar = document.getElementById('visioActionsBar');
+            if (bar) bar.classList.add('visible');
+            _visioTranscript = [];
+            _visioStartTs = Date.now();
+            _startSpeechCapture();
+            // Démarrer la vision caméra avec délai (laisser la session stabiliser)
+            setTimeout(_startVisionLoop, 4000);
+          });
+          dailyCall.on('error', function(e) { rLog('error', 'simli', 'daily_error', JSON.stringify(e)); });
+          dailyCall.on('camera-error', function(e) { rLog('error', 'simli', 'daily_cam_error', JSON.stringify(e)); });
+
+          // Multi-participants : Luna s'efface quand d'autres personnes rejoignent
+          var _guestCount = 0;
+          function _isHumanParticipant(p) {
+            if (!p || p.local) return false;
+            var uname = (p.user_name || p.userName || '').toLowerCase();
+            // Filtrer les bots IA (Tavus, Simli, Luna)
+            return !uname.match(/luna|tavus|simli|bot|ai|agent/i);
+          }
+          dailyCall.on('participant-joined', function(e) {
+            if (!e || !e.participant || !_isHumanParticipant(e.participant)) return;
+            _guestCount++;
+            rLog('info', 'simli', 'guest_joined', 'count=' + _guestCount);
+            showToast('👥 ' + (e.participant.user_name || 'Invité') + ' a rejoint la visio', 4000);
+            _visioTranscript.push({ ts: Date.now(), type: 'participant.joined', text: (e.participant.user_name || 'Invité') + ' a rejoint' });
+            if (_guestCount === 1) {
+              try {
+                dailyCall.sendAppMessage({
+                  message_type: 'conversation', event_type: 'conversation.echo',
+                  conversation_id: currentConvId,
+                  properties: { modality: 'text', text: '[Contexte] Un invité vient de rejoindre la visio. Tu es maintenant en présence de plusieurs personnes. Reste disponible mais ne prends la parole que si on te le demande directement. Tu peux prendre des notes de la réunion en silence.' }
+                }, '*');
+              } catch(e2) {}
+            }
+          });
+          dailyCall.on('participant-left', function(e) {
+            if (!e || !e.participant || !_isHumanParticipant(e.participant)) return;
+            _guestCount = Math.max(0, _guestCount - 1);
+            rLog('info', 'simli', 'guest_left', 'count=' + _guestCount);
+            _visioTranscript.push({ ts: Date.now(), type: 'participant.left', text: (e.participant.user_name || 'Invité') + ' est parti' });
+            if (_guestCount === 0) {
+              try {
+                dailyCall.sendAppMessage({
+                  message_type: 'conversation', event_type: 'conversation.echo',
+                  conversation_id: currentConvId,
+                  properties: { modality: 'text', text: '[Contexte] Tous les invités sont partis. Tu es à nouveau seule avec ton souscripteur. Tu peux reprendre la conversation normalement.' }
+                }, '*');
+              } catch(e2) {}
+            }
+          });
+
+          // App-message handler : tool calls + capture transcript pour notes
           dailyCall.on('app-message', function(evt) {
             var msg = evt && evt.data;
             if (!msg) return;
             var evtType = msg.event_type || '';
+
+            // --- Capture transcript toutes les sources ---
+            var entry = { ts: Date.now(), type: evtType };
+            var props = msg.properties || {};
+            if (props.text) entry.text = props.text;
+            if (props.name) entry.tool = props.name;
+            if (props.arguments) entry.args = props.arguments;
+            if (props.role) entry.role = props.role;
+            // Catégoriser les utterances Tavus
+            if (evtType === 'conversation.utterance') {
+              entry.type = (props.role === 'assistant') ? 'luna.speech' : 'user.speech';
+            }
+            // Filtrer les injections système — elles ne doivent pas figurer dans les notes
+            var _sysPrefix = entry.text && (
+              entry.text.indexOf('[Vision caméra]') === 0 ||
+              entry.text.indexOf('[Instruction système]') === 0 ||
+              entry.text.indexOf('[Système vision]') === 0 ||
+              entry.text.indexOf('[Contexte]') === 0
+            );
+            if (!_sysPrefix) {
+              _visioTranscript.push(entry);
+            }
+            // Log les types inconnus pour debugger
+            if (evtType !== 'conversation.tool_call' && evtType !== 'conversation.echo') {
+              rLog('info', 'simli', 'app_msg_' + evtType.replace(/\./g,'_'), JSON.stringify(entry).substring(0, 100));
+            }
+
             if (evtType === 'conversation.tool_call') {
-              var toolName = (msg.properties && msg.properties.name) || '';
-              var toolArgs = (msg.properties && msg.properties.arguments) || '{}';
+              var toolName = props.name || '';
+              var toolArgs = props.arguments || '{}';
+              rLog('info', 'simli', 'tool_call', toolName);
+              var label = _TOOL_LABELS[toolName] || ('⚡ ' + toolName);
+              showToast(label + '…', 8000);
               authFetch('/api/webhook/tavus', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -619,6 +993,9 @@
               .then(function(r) { return r.json(); })
               .then(function(result) {
                 var resultText = result.message || JSON.stringify(result);
+                showToast(label.replace('…','') + ' ✓', 3500);
+                rLog('info', 'simli', 'tool_result', resultText.substring(0,80));
+                _visioTranscript.push({ ts: Date.now(), type: 'tool_result', tool: toolName, text: resultText });
                 try {
                   dailyCall.sendAppMessage({
                     message_type: 'conversation',
@@ -629,6 +1006,7 @@
                 } catch(e) {}
               })
               .catch(function() {
+                showToast('❌ Erreur lors de la tâche', 3000);
                 try {
                   dailyCall.sendAppMessage({
                     message_type: 'conversation',
@@ -643,7 +1021,12 @@
 
           dailyCall.on('left-meeting', function() { doHangup(); });
 
-          dailyCall.join({ url: conversationUrl });
+          rLog('info', 'simli', 'daily_join', 'joining...');
+          dailyCall.join({
+            url: conversationUrl,
+            startVideoOff: false,
+            startAudioOff: false,
+          });
 
           // Fade in le fullscreen Tavus
           return wait(800).then(function() {
@@ -658,6 +1041,7 @@
           });
         } else {
           // Pas de conversation — retour apres delai
+          rLog('error', 'simli', 'daily_unavailable', 'url=' + !!conversationUrl + ' DailyIframe=' + !!window.DailyIframe);
           return wait(500).then(function() { _showVisioError('Connexion visio impossible. Reessaie.'); });
         }
       });
@@ -821,37 +1205,631 @@
       }
 
       // Attendre que l'appel soit pret AVANT de lancer la cinematique
+      rLog('info', 'simli', 'createVisioCall_start', '');
       createVisioCall().then(function(url) {
         conversationUrl = url;
+        rLog('info', 'simli', 'createVisioCall_ok', 'provider=' + currentProvider);
 
         // Masquer ecran de demarrage seulement si la visio est OK
         startScreen.classList.add('hidden');
         startLoading.classList.remove('visible');
 
         // ACT 1 : ESTABLISHING SHOT
+        rLog('info', 'simli', 'act1_establishing', scene.bg);
         return actEstablishingShot(scene);
       }).then(function() {
         if (!conversationUrl) return;
         // ACT 2 : PHONE VIBRATE
-        return actPhoneVibrate();
-      }).then(function() {
-        // ACT 2 : PHONE VIBRATE
+        rLog('info', 'simli', 'act2_vibrate', '');
         return actPhoneVibrate();
       }).then(function() {
         // ACT 3 : PHONE RING
+        rLog('info', 'simli', 'act3_ring', '');
         return actPhoneRing();
       }).then(function() {
-        // ACT 4 : PHONE ANSWER — affiche Luna dans le tel
+        // ACT 4 : PHONE ANSWER
+        rLog('info', 'simli', 'act4_answer', '');
         return actPhoneAnswer(conversationUrl);
       }).then(function() {
         // Fade out ambient
         fadeOutAmbient(3000);
         // ACT 5 : ZOOM + TAVUS FULLSCREEN
+        rLog('info', 'simli', 'act5_zoom', '');
         return actCinematicZoom(conversationUrl);
       }).catch(function(err) {
+        rLog('error', 'simli', 'flow_error', (err && err.message) || 'unknown');
         _showVisioError((err && err.message) || 'Erreur inattendue. Reessaie.');
       });
     };
+
+    // =====================================================================
+    // UPLOAD DOCUMENT / IMAGE — Luna analyse et donne son avis
+    // =====================================================================
+    var btnUpload = document.getElementById('btnUpload');
+    var uploadInput = document.getElementById('uploadInput');
+
+    function _readFileAsBase64(file) {
+      return new Promise(function(resolve, reject) {
+        var reader = new FileReader();
+        reader.onload = function(e) { resolve(e.target.result); };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+
+    function _handleUpload(file) {
+      if (!file || !dailyCall) return;
+      var btn = document.getElementById('btnUpload');
+      if (btn) { btn.textContent = '⏳ Analyse…'; btn.classList.add('uploading'); }
+      showToast('📎 Luna prend connaissance de "' + file.name + '"…', 10000);
+      rLog('info', 'simli', 'upload_start', file.name + ' ' + file.type + ' ' + file.size);
+
+      _readFileAsBase64(file).then(function(b64) {
+        return authFetch('/api/visio/upload', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            filename: file.name,
+            mime_type: file.type,
+            data: b64,
+            conversation_id: currentConvId,
+          })
+        });
+      })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (btn) { btn.textContent = '📎 Analyser'; btn.classList.remove('uploading'); }
+        if (!data.ok) {
+          showToast('❌ ' + (data.error || 'Impossible d\'analyser le fichier'), 4000);
+          return;
+        }
+        var analysis = data.analysis || '';
+        var fname = file.name;
+        showToast('✓ Luna a analysé "' + fname + '"', 3000);
+        _visioTranscript.push({ ts: Date.now(), type: 'upload.analysis', text: '[Document: ' + fname + '] ' + analysis });
+        rLog('info', 'simli', 'upload_ok', analysis.substring(0, 80));
+        // Injecter l'analyse dans la conversation Luna
+        try {
+          dailyCall.sendAppMessage({
+            message_type: 'conversation',
+            event_type: 'conversation.echo',
+            conversation_id: currentConvId,
+            properties: {
+              modality: 'text',
+              text: '[Document partagé : "' + fname + '"]\n' + analysis +
+                    '\n\nDis à ton souscripteur ce que tu penses de ce document. Donne ton avis, souligne les points importants et pose-lui des questions si nécessaire.'
+            }
+          }, '*');
+        } catch(e2) { rLog('warn', 'simli', 'upload_echo_fail', String(e2).substring(0,60)); }
+      })
+      .catch(function(err) {
+        if (btn) { btn.textContent = '📎 Analyser'; btn.classList.remove('uploading'); }
+        showToast('❌ Erreur upload : ' + String(err).substring(0, 60), 4000);
+        rLog('warn', 'simli', 'upload_err', String(err).substring(0, 80));
+      });
+    }
+
+    if (btnUpload) {
+      btnUpload.onclick = function() {
+        if (!dailyCall) return;
+        uploadInput.value = '';
+        uploadInput.click();
+      };
+    }
+    if (uploadInput) {
+      uploadInput.onchange = function() {
+        if (uploadInput.files && uploadInput.files[0]) {
+          _handleUpload(uploadInput.files[0]);
+        }
+      };
+    }
+
+    // =====================================================================
+    // MUTE LUNA (couper le micro sortant de Daily.co = Luna ne parle plus)
+    // =====================================================================
+    var _lunaMuted = false;
+    var btnMuteLuna = document.getElementById('btnMuteLuna');
+    if (btnMuteLuna) {
+      btnMuteLuna.onclick = function() {
+        if (!dailyCall) return;
+        _lunaMuted = !_lunaMuted;
+        // Soft-mute : on dit à Luna via la conversation de se taire / reprendre
+        // updateParticipant ne contrôle pas l'audio ENTRANT dans Daily.co
+        try {
+          var silentMsg = _lunaMuted
+            ? '[Instruction système] Tu es maintenant en mode SILENCIEUX. N\'émets AUCUNE réponse vocale. Écoute uniquement. Attends qu\'on te demande explicitement de reprendre la parole.'
+            : '[Instruction système] Tu peux à nouveau parler normalement. Reprends la conversation.';
+          dailyCall.sendAppMessage({
+            message_type: 'conversation',
+            event_type: 'conversation.echo',
+            conversation_id: currentConvId,
+            properties: { modality: 'text', text: silentMsg }
+          }, '*');
+        } catch(e) { rLog('warn', 'simli', 'mute_err', String(e).substring(0,60)); }
+        btnMuteLuna.textContent = _lunaMuted ? '🔇 Luna muette' : '🎙 Luna active';
+        btnMuteLuna.classList.toggle('muted', _lunaMuted);
+        showToast(_lunaMuted
+          ? '🔇 Luna écoute sans parler'
+          : '🎙 Luna peut à nouveau parler', 3000);
+        rLog('info', 'simli', 'luna_mute', _lunaMuted ? 'on' : 'off');
+      };
+    }
+
+    // =====================================================================
+    // INVITE
+    // =====================================================================
+    var _inviteContacts = [];
+    var _inviteSelected = null;
+    var btnInvite = document.getElementById('btnInvite');
+    var inviteModal = document.getElementById('inviteModal');
+    var inviteContactList = document.getElementById('inviteContactList');
+    var btnInviteCancel = document.getElementById('btnInviteCancel');
+    var btnInviteSend = document.getElementById('btnInviteSend');
+    var inviteLoading = document.getElementById('inviteLoading');
+
+    function _openInviteModal() {
+      _inviteSelected = null;
+      btnInviteSend.classList.remove('active');
+      inviteModal.classList.add('open');
+      inviteLoading.style.display = 'none';
+      // Charger les contacts
+      if (_inviteContacts.length > 0) { _renderInviteContacts(); return; }
+      authFetch('/api/contacts').then(function(r) { return r.json(); }).then(function(data) {
+        _inviteContacts = (data.contacts || []).filter(function(c) { return c.phone && c.name && c.name !== 'LUDOVIC SAINT-LOUIS'; });
+        _renderInviteContacts();
+      }).catch(function() {
+        inviteContactList.innerHTML = '<p style="color:#666;font-size:13px;text-align:center;padding:16px;">Impossible de charger les contacts.</p>';
+      });
+    }
+
+    function _renderInviteContacts() {
+      if (_inviteContacts.length === 0) {
+        inviteContactList.innerHTML = '<p style="color:#666;font-size:13px;text-align:center;padding:16px;">Aucun contact disponible.</p>';
+        return;
+      }
+      inviteContactList.innerHTML = '';
+      _inviteContacts.forEach(function(c) {
+        var div = document.createElement('div');
+        div.className = 'invite-contact-item';
+        div.innerHTML = '<div class="invite-avatar">' + (c.name[0] || '?').toUpperCase() + '</div>' +
+          '<div><div class="invite-contact-name">' + c.name + '</div>' +
+          '<div class="invite-contact-rel">' + (c.relation || c.phone) + '</div></div>';
+        div.onclick = function() {
+          document.querySelectorAll('.invite-contact-item').forEach(function(el) { el.classList.remove('selected'); });
+          div.classList.add('selected');
+          _inviteSelected = c;
+          btnInviteSend.classList.add('active');
+        };
+        inviteContactList.appendChild(div);
+      });
+    }
+
+    function _sendInvite() {
+      if (!_inviteSelected || !currentConvId) return;
+      btnInviteSend.classList.remove('active');
+      inviteLoading.style.display = 'block';
+      var conversationUrl = typeof _activeRoomUrl !== 'undefined' ? _activeRoomUrl : '';
+      authFetch('/api/call/invite-guest', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          room_url: conversationUrl,
+          phone: _inviteSelected.phone,
+          contact_name: _inviteSelected.name,
+          conversation_id: currentConvId,
+        })
+      }).then(function(r) { return r.json(); }).then(function(data) {
+        inviteLoading.style.display = 'none';
+        inviteModal.classList.remove('open');
+        if (data.ok) {
+          showToast('📨 Invitation envoyée à ' + (_inviteSelected ? _inviteSelected.name : ''), 4000);
+          rLog('info', 'simli', 'invite_sent', _inviteSelected ? _inviteSelected.name : '');
+        } else {
+          showToast('❌ Échec envoi : ' + (data.error || 'inconnu'), 4000);
+        }
+      }).catch(function() {
+        inviteLoading.style.display = 'none';
+        inviteModal.classList.remove('open');
+        showToast('❌ Erreur envoi invitation', 3000);
+      });
+    }
+
+    if (btnInvite) btnInvite.onclick = _openInviteModal;
+    if (btnInviteCancel) btnInviteCancel.onclick = function() { inviteModal.classList.remove('open'); };
+    if (btnInviteSend) btnInviteSend.onclick = _sendInvite;
+
+    // =====================================================================
+    // SHARE LINK
+    // =====================================================================
+    var _shareUrl = '';
+    var shareModal = document.getElementById('shareModal');
+    var shareLoading = document.getElementById('shareLoading');
+    var shareLinkArea = document.getElementById('shareLinkArea');
+    var shareLinkText = document.getElementById('shareLinkText');
+    var btnCopyLink = document.getElementById('btnCopyLink');
+    var btnWebShare = document.getElementById('btnWebShare');
+    var btnShareClose = document.getElementById('btnShareClose');
+
+    function _openShareModal() {
+      shareModal.classList.add('open');
+      shareLoading.style.display = 'block';
+      shareLinkArea.style.display = 'none';
+      _shareUrl = '';
+      // Générer le lien via le backend
+      authFetch('/api/call/create-join-link', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ room_url: _activeRoomUrl, conversation_id: currentConvId })
+      }).then(function(r) { return r.json(); }).then(function(data) {
+        shareLoading.style.display = 'none';
+        if (data.ok && data.join_url) {
+          _shareUrl = data.join_url;
+          shareLinkText.textContent = _shareUrl;
+          shareLinkArea.style.display = 'block';
+          if (navigator.share) btnWebShare.classList.add('visible');
+        } else {
+          shareLoading.textContent = '❌ Impossible de générer le lien.';
+          shareLoading.style.display = 'block';
+        }
+      }).catch(function() {
+        shareLoading.textContent = '❌ Erreur réseau.';
+        shareLoading.style.display = 'block';
+      });
+    }
+
+    if (btnCopyLink) btnCopyLink.onclick = function() {
+      if (!_shareUrl) return;
+      navigator.clipboard.writeText(_shareUrl).then(function() {
+        btnCopyLink.textContent = '✓ Copié !';
+        setTimeout(function() { btnCopyLink.textContent = 'Copier'; }, 2000);
+      }).catch(function() {
+        // Fallback pour anciens navigateurs
+        var tmp = document.createElement('textarea');
+        tmp.value = _shareUrl;
+        document.body.appendChild(tmp);
+        tmp.select();
+        document.execCommand('copy');
+        document.body.removeChild(tmp);
+        btnCopyLink.textContent = '✓ Copié !';
+        setTimeout(function() { btnCopyLink.textContent = 'Copier'; }, 2000);
+      });
+    };
+
+    if (btnWebShare) btnWebShare.onclick = function() {
+      if (!_shareUrl || !navigator.share) return;
+      navigator.share({
+        title: 'Rejoindre la visio Luna',
+        text: 'Rejoins-moi en visio avec Luna IA',
+        url: _shareUrl
+      }).catch(function() {});
+    };
+
+    var btnShare = document.getElementById('btnShare');
+    if (btnShare) btnShare.onclick = _openShareModal;
+    if (btnShareClose) btnShareClose.onclick = function() { shareModal.classList.remove('open'); };
+
+    // =====================================================================
+    // VISION CAMÉRA (PerceptionDetector + SceneAnalyzer côté serveur)
+    // =====================================================================
+    var _visionStatusEl = document.getElementById('visionStatus');
+    var _visionLabelEl = document.getElementById('visionLabel');
+
+    // Toggle mode silencieux (observer sans parler) au clic sur l'indicateur
+    if (_visionStatusEl) {
+      _visionStatusEl.onclick = function() {
+        _visionSilent = !_visionSilent;
+        _updateVisionUI();
+        showToast(_visionSilent
+          ? '🔇 Observation silencieuse — Luna note sans en parler'
+          : '👁 Luna voit et peut en parler', 3000);
+        rLog('info', 'simli', 'vision_mode', _visionSilent ? 'silent' : 'active');
+      };
+    }
+
+    function _updateVisionUI() {
+      if (!_visionStatusEl) return;
+      if (_visionSilent) {
+        _visionStatusEl.classList.add('silent');
+        if (_visionLabelEl) _visionLabelEl.textContent = 'Observation';
+      } else {
+        _visionStatusEl.classList.remove('silent');
+        if (_visionLabelEl) _visionLabelEl.textContent = 'Luna voit';
+      }
+    }
+
+    function _startVisionLoop() {
+      if (_visionActive) return;
+      _visionActive = true;
+      rLog('info', 'simli', 'vision_start', 'loop démarré');
+      _visionTick();
+    }
+
+    function _stopVisionLoop() {
+      _visionActive = false;
+      _visionNotified = false;
+      if (_visionLoopId) { clearTimeout(_visionLoopId); _visionLoopId = null; }
+      try { _visionVideoEl.pause(); _visionVideoEl.srcObject = null; } catch(e) {}
+      _lastVisionDesc = '';
+      if (_visionStatusEl) { _visionStatusEl.classList.remove('visible', 'silent'); }
+    }
+
+    function _visionTick() {
+      if (!_visionActive || !dailyCall) return;
+      _captureAndSend()
+        .then(function() {
+          if (_visionActive) _visionLoopId = setTimeout(_visionTick, 12000);
+        })
+        .catch(function(err) {
+          rLog('warn', 'simli', 'vision_tick_error', String(err).substring(0, 100));
+          if (_visionActive) _visionLoopId = setTimeout(_visionTick, 20000);
+        });
+    }
+
+    function _getLocalVideoTrack() {
+      try {
+        var parts = dailyCall.participants();
+        var local = parts && parts.local;
+        var vt = local && local.tracks && local.tracks.video;
+        if (vt && vt.state === 'playable' && vt.track && vt.track.readyState === 'live') {
+          return vt.track;
+        }
+      } catch(e) {}
+      return null;
+    }
+
+    function _captureAndSend() {
+      return new Promise(function(resolve, reject) {
+        var track = _getLocalVideoTrack();
+        if (!track) {
+          rLog('info', 'simli', 'vision_no_track', 'caméra non disponible');
+          return resolve();
+        }
+
+        function doCapture() {
+          try {
+            _visionCanvas.width = 320;
+            _visionCanvas.height = 240;
+            _visionCtx.drawImage(_visionVideoEl, 0, 0, 320, 240);
+            var imageData = _visionCanvas.toDataURL('image/jpeg', 0.55);
+            if (imageData.length < 1000) { return resolve(); }
+
+            authFetch('/api/visio/perception', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ image: imageData })
+            })
+            .then(function(r) {
+              if (!r.ok) {
+                return r.json().then(function(e) {
+                  if (r.status !== 429) rLog('warn', 'simli', 'vision_api_err', (e && e.error) || r.status);
+                  resolve();
+                }).catch(function() { resolve(); });
+              }
+              return r.json();
+            })
+            .then(function(data) {
+              if (!data || !data.ok || !data.description) return resolve();
+
+              // Afficher l'indicateur dès le premier résultat
+              if (_visionStatusEl) { _visionStatusEl.classList.add('visible'); _updateVisionUI(); }
+
+              // Notifier Luna une seule fois que sa caméra est active
+              if (!_visionNotified && dailyCall && currentConvId) {
+                _visionNotified = true;
+                try {
+                  dailyCall.sendAppMessage({
+                    message_type: 'conversation',
+                    event_type: 'conversation.echo',
+                    conversation_id: currentConvId,
+                    properties: { modality: 'text', text: '[Système vision] Ta caméra est maintenant active. Tu peux voir ton interlocuteur. Description initiale : ' + data.description + '. Utilise get_vision_context si on te demande ce que tu vois.' }
+                  }, '*');
+                  rLog('info', 'simli', 'vision_notify', 'ok');
+                } catch(e2) {}
+              }
+
+              // Mettre à jour la description locale (pour les notes et le tool get_vision_context)
+              if (data.description) _lastVisionDesc = data.description;
+              if (data.changed) {
+                rLog('info', 'simli', 'vision_change', (data.description || '').substring(0, 80));
+                _visioTranscript.push({ ts: Date.now(), type: 'vision.change', text: data.description });
+              }
+
+              // Injection UNIQUEMENT sur anomalie concern (personne au sol, etc.)
+              // En mode normal Luna ne commente pas le décor — elle répond si on lui demande
+              var hasConcern = data.objects && data.objects.some(function(o) {
+                return o && (o.indexOf('sol') >= 0 || o.indexOf('chute') >= 0);
+              });
+              var concernText = data.description && (
+                data.description.indexOf('[CONCERN]') >= 0 ||
+                data.description.indexOf('CONCERN') >= 0 ||
+                (data.posture === 'lying_floor' && data.persons > 0)
+              );
+              if ((hasConcern || concernText) && !_visionSilent && data.description) {
+                try {
+                  dailyCall.sendAppMessage({
+                    message_type: 'conversation',
+                    event_type: 'conversation.echo',
+                    conversation_id: currentConvId,
+                    properties: { modality: 'text', text: '[Alerte vision] ' + data.description }
+                  }, '*');
+                  rLog('warn', 'simli', 'vision_concern', data.description.substring(0, 70));
+                } catch(e2) {}
+              }
+              resolve();
+            })
+            .catch(function(err) {
+              rLog('warn', 'simli', 'vision_fetch_err', String(err).substring(0, 80));
+              resolve();
+            });
+          } catch(e) { reject(e); }
+        }
+
+        // Réutiliser la vidéo si même track déjà actif
+        var curTrack = _visionVideoEl.srcObject &&
+          _visionVideoEl.srcObject.getVideoTracks &&
+          _visionVideoEl.srcObject.getVideoTracks()[0];
+        if (curTrack === track && !_visionVideoEl.paused && _visionVideoEl.readyState >= 2) {
+          doCapture();
+          return;
+        }
+        _visionVideoEl.srcObject = new MediaStream([track]);
+        _visionVideoEl.onloadedmetadata = function() {
+          _visionVideoEl.play().then(function() { setTimeout(doCapture, 200); }).catch(reject);
+        };
+        _visionVideoEl.onerror = function() { reject(new Error('vision video load error')); };
+      });
+    }
+
+    // =====================================================================
+    // CAPTURE PAROLE UTILISATEUR (SpeechRecognition) — pour les notes
+    // =====================================================================
+    var _speechReco = null;
+    var _speechActive = false;
+
+    function _startSpeechCapture() {
+      var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SR) { rLog('info', 'simli', 'speech_reco', 'non disponible'); return; }
+      try {
+        _speechReco = new SR();
+        _speechReco.lang = 'fr-FR';
+        _speechReco.continuous = true;
+        _speechReco.interimResults = false;
+        _speechReco.maxAlternatives = 1;
+        _speechActive = true;
+        _speechReco.onresult = function(e) {
+          for (var i = e.resultIndex; i < e.results.length; i++) {
+            if (e.results[i].isFinal) {
+              var txt = e.results[i][0].transcript.trim();
+              // confidence peut être 0 sur Firefox/Safari — ne pas filtrer sur ce critère
+              if (txt.length > 4) {
+                _visioTranscript.push({ ts: Date.now(), type: 'user.speech', text: txt });
+                rLog('info', 'simli', 'speech_captured', txt.substring(0, 60));
+                // Mettre à jour l'indicateur micro
+                var micDot = document.getElementById('micDot');
+                if (micDot) { micDot.style.opacity = '1'; setTimeout(function() { micDot.style.opacity = '0.4'; }, 800); }
+              }
+            }
+          }
+        };
+        _speechReco.onerror = function(e) {
+          rLog('warn', 'simli', 'speech_err', e.error);
+          if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
+            _speechActive = false;
+            var micDot = document.getElementById('micDot');
+            if (micDot) { micDot.style.display = 'none'; }
+            rLog('warn', 'simli', 'speech_blocked', 'micro refusé — notes limitées aux actions Luna');
+          }
+        };
+        _speechReco.onend = function() {
+          if (_speechActive) { try { _speechReco.start(); } catch(e2) {} }
+        };
+        _speechReco.start();
+        var micDot = document.getElementById('micDot');
+        if (micDot) micDot.style.display = 'inline-block';
+        rLog('info', 'simli', 'speech_reco', 'démarré fr-FR');
+      } catch(e) { rLog('warn', 'simli', 'speech_reco_fail', String(e).substring(0,60)); }
+    }
+
+    function _stopSpeechCapture() {
+      _speechActive = false;
+      if (_speechReco) { try { _speechReco.stop(); } catch(e) {} _speechReco = null; }
+      var micDot = document.getElementById('micDot');
+      if (micDot) micDot.style.display = 'none';
+    }
+
+    // =====================================================================
+    // PRISE DE NOTES VISIO
+    // =====================================================================
+    var _notesSaved = false;
+    var _currentNotesSummary = '';
+    var btnNotes = document.getElementById('btnNotes');
+    var notesModal = document.getElementById('notesModal');
+    var notesSummaryEl = document.getElementById('notesSummary');
+    var notesLoadingEl = document.getElementById('notesLoading');
+    var notesSubEl = document.getElementById('notesSub');
+    var btnNotesSave = document.getElementById('btnNotesSave');
+    var btnNotesClose = document.getElementById('btnNotesClose');
+
+    function _openNotesModal() {
+      notesModal.classList.add('open');
+      _notesSaved = false;
+      _currentNotesSummary = '';
+      btnNotesSave.disabled = true;
+      notesLoadingEl.style.display = 'block';
+      notesSummaryEl.textContent = '';
+      var durationMin = Math.round((Date.now() - _visioStartTs) / 60000);
+      notesSubEl.textContent = 'Durée : ' + durationMin + ' min — Analyse en cours…';
+
+      authFetch('/api/visio/notes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          events: _visioTranscript,
+          vision_context: _lastVisionDesc,
+          duration_min: durationMin,
+          conversation_id: currentConvId,
+        })
+      })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        notesLoadingEl.style.display = 'none';
+        if (data.ok && data.summary) {
+          _currentNotesSummary = data.summary;
+          notesSummaryEl.textContent = data.summary;
+          notesSubEl.textContent = 'Durée : ' + durationMin + ' min';
+          btnNotesSave.disabled = false;
+          if (data.already_saved) {
+            btnNotesSave.textContent = '✓ Sauvegardé';
+            btnNotesSave.disabled = true;
+            _notesSaved = true;
+          }
+        } else {
+          notesSummaryEl.textContent = '⚠️ ' + (data.error || 'Impossible de générer les notes.');
+          notesSubEl.textContent = '';
+        }
+      })
+      .catch(function() {
+        notesLoadingEl.style.display = 'none';
+        notesSummaryEl.textContent = '❌ Erreur réseau. Réessayez.';
+      });
+    }
+
+    function _saveNotes() {
+      if (!_currentNotesSummary || _notesSaved) return;
+      btnNotesSave.disabled = true;
+      btnNotesSave.textContent = 'Sauvegarde…';
+      authFetch('/api/visio/notes/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          summary: _currentNotesSummary,
+          conversation_id: currentConvId,
+          duration_min: Math.round((Date.now() - _visioStartTs) / 60000),
+        })
+      })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (data.ok) {
+          btnNotesSave.textContent = '✓ Sauvegardé';
+          _notesSaved = true;
+          showToast('📝 Notes sauvegardées en mémoire', 3000);
+          rLog('info', 'simli', 'notes_saved', 'ok');
+        } else {
+          btnNotesSave.disabled = false;
+          btnNotesSave.textContent = '💾 Sauvegarder';
+          showToast('❌ Erreur sauvegarde : ' + (data.error || ''), 3000);
+        }
+      })
+      .catch(function() {
+        btnNotesSave.disabled = false;
+        btnNotesSave.textContent = '💾 Sauvegarder';
+        showToast('❌ Erreur réseau', 3000);
+      });
+    }
+
+    if (btnNotes) btnNotes.onclick = _openNotesModal;
+    if (btnNotesClose) btnNotesClose.onclick = function() { notesModal.classList.remove('open'); };
+    if (btnNotesSave) btnNotesSave.onclick = _saveNotes;
 
     // =====================================================================
     // HANGUP
@@ -872,7 +1850,28 @@
         try { dailyCall.destroy(); } catch(e) {}
         dailyCall = null;
       }
+      var convIdAtHangup = currentConvId;
+      var transcriptAtHangup = _visioTranscript.slice();
+      var durationAtHangup = Math.round((Date.now() - _visioStartTs) / 60000);
+      var visionAtHangup = _lastVisionDesc;
       currentConvId = '';
+      _activeRoomUrl = '';
+      _stopVisionLoop();
+      // Auto-save notes à la fin (silencieux, sans bloquer le retour)
+      if (transcriptAtHangup.length > 0 && durationAtHangup >= 1) {
+        authFetch('/api/visio/notes', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            events: transcriptAtHangup, vision_context: visionAtHangup,
+            duration_min: durationAtHangup, conversation_id: convIdAtHangup,
+            auto_save: true,
+          })
+        }).catch(function() {});
+      }
+      var bar = document.getElementById('visioActionsBar');
+      if (bar) bar.classList.remove('visible');
+      _stopSpeechCapture();
       ambientAudioEl.pause();
       phoneSfxEl.pause();
       window.location.href = '/';

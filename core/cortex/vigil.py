@@ -549,9 +549,28 @@ class VigilAgent:
             },
         )
 
+    # Préfixes et IPs fondateur — immunisés contre tout ban
+    _FOUNDER_IP_PREFIXES: tuple = (
+        "2a02:8429:a9e4:f101:",  # plage /64 box fondateur
+    )
+    _FOUNDER_IPS: frozenset = frozenset({
+        "92.92.129.172",
+    })
+
+    @classmethod
+    def _is_founder_ip(cls, ip: str) -> bool:
+        if ip in cls._FOUNDER_IPS:
+            return True
+        for prefix in cls._FOUNDER_IP_PREFIXES:
+            if ip.startswith(prefix):
+                return True
+        return False
+
     def _escalate_to_ban(self, ip: str, score: float,
                          warning_count: int) -> Signal:
         """Ban apres epuisement des avertissements."""
+        if self._is_founder_ip(ip):
+            return None  # jamais bannir le fondateur
         if ip in self._banned_ips:
             return None
 
@@ -732,6 +751,8 @@ class VigilAgent:
 
     def is_banned(self, ip: str) -> bool:
         """Verifie si une IP est bannie."""
+        if self._is_founder_ip(ip):
+            return False  # fondateur jamais banni
         if ip not in self._banned_ips:
             return False
         ban = self._banned_ips[ip]
@@ -743,6 +764,8 @@ class VigilAgent:
     def manual_ban(self, ip: str, duration: int = 86400,
                    reason: str = "Manual", by: str = "admin") -> Signal:
         """Ban manuelle (depuis commande SMS ou admin)."""
+        if self._is_founder_ip(ip):
+            return None  # jamais bannir le fondateur
         self._banned_ips[ip] = {
             "until": time.time() + duration,
             "reason": reason,

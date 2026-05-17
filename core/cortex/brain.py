@@ -392,12 +392,34 @@ class LunaCortex:
             message=f"Mode {old_mode} → {mode}. Raison: {reason}. Par: {by}.",
         ))
 
+    # Préfixes et IPs fondateur — tout ce bloc est immunisé contre tout ban
+    # Le préfixe /64 couvre les rotations IPv6 automatiques de la box du fondateur
+    _FOUNDER_IP_PREFIXES: tuple = (
+        "2a02:8429:a9e4:f101:",  # plage /64 box fondateur (IPv6 rotates)
+    )
+    _FOUNDER_IPS: frozenset = frozenset({
+        "92.92.129.172",  # IPv4 fixe fondateur
+    })
+
+    @classmethod
+    def _is_founder_ip(cls, ip: str) -> bool:
+        if ip in cls._FOUNDER_IPS:
+            return True
+        for prefix in cls._FOUNDER_IP_PREFIXES:
+            if ip.startswith(prefix):
+                return True
+        return False
+
     def is_request_allowed(self, ip: str, path: str) -> tuple[bool, str]:
         """
         Verifie si une requete est autorisee.
         Appele par le middleware FastAPI.
         Retourne (autorisee, raison).
         """
+        # Fondateur : bypass absolu — jamais banni, peu importe le mode
+        if self._is_founder_ip(ip):
+            return True, ""
+
         # Paths toujours autorises (health, SMS, cortex API, telegram webhook)
         always_allowed = ("/health", "/api/webhook/sms", "/api/cortex/status",
                           "/api/cortex/telegram/webhook")

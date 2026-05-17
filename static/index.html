@@ -3522,24 +3522,32 @@ function _showDurationPicker(type, callback) {
   _durationPickerCb = callback;
   var overlay = document.getElementById("durationOverlay");
   var title = document.getElementById("durationTitle");
+  if (!overlay || !title) { _remoteLog("error", "visio", "picker_null", "overlay=" + !!overlay + " title=" + !!title); return; }
   title.textContent = type === "visio" ? "Duree de la visio" : "Duree de l'appel";
   overlay.style.display = "flex";
+  _remoteLog("info", "visio", "picker_shown", type);
 }
 function _closeDurationPicker() {
-  document.getElementById("durationOverlay").style.display = "none";
+  var overlay = document.getElementById("durationOverlay");
+  if (overlay) overlay.style.display = "none";
   _durationPickerCb = null;
 }
 function _confirmDuration() {
-  var mins = parseInt(document.getElementById("durationSelect").value, 10);
+  var sel = document.getElementById("durationSelect");
+  var mins = sel ? parseInt(sel.value, 10) : 3;
+  var cb = _durationPickerCb; // sauvegarder avant _closeDurationPicker() qui le null
+  _remoteLog("info", "visio", "confirm_click", "mins=" + mins);
   _closeDurationPicker();
-  if (_durationPickerCb) _durationPickerCb(mins);
+  if (cb) cb(mins);
 }
 
-// --- Video call (Tavus) ---
+// --- Video call (Tavus/Simli) ---
 function startCall() {
   _showDurationPicker("visio", function(minutes) {
+    _remoteLog("info", "visio", "navigating", "duration=" + minutes);
     try { if (typeof addMsg === "function") addMsg("Visio lancee (" + minutes + " min prevues)", "luna"); } catch(e) {}
-    window.location.href = "/simli?duration=" + minutes + "&_v=26";
+    // window.location.replace est plus fiable dans certains WebViews Android
+    window.location.replace("/simli?duration=" + minutes + "&_v=31");
   });
 }
 // --- Appel Vocal (Twilio + OpenAI Realtime) ---
@@ -5165,19 +5173,26 @@ function _addOnboardingChips() {
 // --- Service Worker registration + Update detection ---
 var _swRegistration = null;
 if ("serviceWorker" in navigator) {
+  // Quand un nouveau SW prend le controle, recharger la page
+  // Cooldown 10s pour eviter les boucles (controllerchange ne se dedouble pas normalement)
+  navigator.serviceWorker.addEventListener("controllerchange", function() {
+    var last = parseInt(sessionStorage.getItem("_sw_reload_ts") || "0");
+    if (Date.now() - last > 10000) {
+      sessionStorage.setItem("_sw_reload_ts", String(Date.now()));
+      window.location.reload(true);
+    }
+  });
   window.addEventListener("load", function() {
     navigator.serviceWorker.register("/sw.js", {scope: "/"}).then(function(reg) {
       _swRegistration = reg;
-      console.log("SW registered, scope:", reg.scope);
-      // Check for updates every 5 minutes
+      // Forcer la verification immediatement + toutes les 5 min
+      reg.update();
       setInterval(function() { reg.update(); }, 5 * 60 * 1000);
-      // Detect new SW waiting
       reg.addEventListener("updatefound", function() {
         var newSW = reg.installing;
         if (newSW) {
           newSW.addEventListener("statechange", function() {
             if (newSW.state === "installed" && navigator.serviceWorker.controller) {
-              // New version available — show update button
               var btn = document.getElementById("updateAppBtn");
               if (btn) btn.style.display = "inline-block";
             }
@@ -5431,8 +5446,14 @@ function _initGeolocation() {
   }, 30 * 60 * 1000);
 }
 
-// Auto-start video call if ?video=1 in URL
+// Force purge cache + rechargement via ?_purge=1
 var _urlParams = new URLSearchParams(window.location.search);
+if (_urlParams.get("_purge") === "1") {
+  history.replaceState(null, "", window.location.pathname);
+  _purgeCacheAndReload();
+}
+
+// Auto-start video call if ?video=1 in URL
 if (_urlParams.get("video") === "1") {
   setTimeout(function() { startCall(); }, 500);
 }

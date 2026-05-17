@@ -653,6 +653,10 @@ _notification_engine: Optional[object] = None
 # Invitations visio en attente de reponse SMS (phone -> {tenant_id, subscriber_name, contact_name, timestamp})
 _pending_visio_invites: Dict[str, Dict] = {}
 
+# Rate limiting vision caméra (ip -> timestamp dernier appel)
+_vision_last_call: Dict[str, float] = {}
+_visio_scene_cache: Dict[str, str] = {}  # ip -> dernière description (détection de changement)
+
 def _init_core():
     """Initialize core modules. Graceful if Redis is down or imports failed."""
     global _redis_client, _memory_manager, _safety_guardian, _quota_guard, _scheduler, _executor, _doc_generator, _perception_detector, _perception_analyzer, _notification_engine
@@ -3001,6 +3005,245 @@ def _tenant_subscriber_first_name(tenant_id: int) -> str:
     return _SUBSCRIBER_NAME if tenant_id == TENANT_ID else "toi"
 
 
+_SIMLI_TOOLS = [
+    {"type": "function", "function": {
+        "name": "get_weather",
+        "description": "Obtenir la meteo actuelle et les previsions pour le souscripteur",
+        "parameters": {"type": "object", "properties": {
+            "city": {"type": "string", "description": "Ville (optionnel, defaut: ville du profil)"}
+        }, "required": []}
+    }},
+    {"type": "function", "function": {
+        "name": "send_sms",
+        "description": "Envoyer un SMS a un contact de confiance du souscripteur",
+        "parameters": {"type": "object", "properties": {
+            "contact_name": {"type": "string", "description": "Prenom du contact"},
+            "message": {"type": "string", "description": "Texte du SMS"}
+        }, "required": ["contact_name", "message"]}
+    }},
+    {"type": "function", "function": {
+        "name": "create_note",
+        "description": "Creer une note ou un memo pour le souscripteur",
+        "parameters": {"type": "object", "properties": {
+            "content": {"type": "string", "description": "Contenu de la note"},
+            "tags": {"type": "array", "items": {"type": "string"}, "description": "Tags optionnels"}
+        }, "required": ["content"]}
+    }},
+    {"type": "function", "function": {
+        "name": "create_instruction",
+        "description": "Creer un rappel, une instruction planifiee ou une tache recurrente",
+        "parameters": {"type": "object", "properties": {
+            "instruction": {"type": "string", "description": "Instruction a executer"},
+            "trigger": {"type": "string", "description": "Quand executer (ex: 'demain 9h', 'tous les lundis')"}
+        }, "required": ["instruction"]}
+    }},
+    {"type": "function", "function": {
+        "name": "get_contacts",
+        "description": "Lister les contacts de confiance du souscripteur",
+        "parameters": {"type": "object", "properties": {}, "required": []}
+    }},
+    {"type": "function", "function": {
+        "name": "alert_contacts",
+        "description": "Alerter les contacts de confiance en cas d'urgence",
+        "parameters": {"type": "object", "properties": {
+            "reason": {"type": "string", "description": "Raison de l'alerte"}
+        }, "required": ["reason"]}
+    }},
+    {"type": "function", "function": {
+        "name": "get_news",
+        "description": "Obtenir les actualites du jour",
+        "parameters": {"type": "object", "properties": {
+            "topic": {"type": "string", "description": "Sujet (optionnel)"}
+        }, "required": []}
+    }},
+    {"type": "function", "function": {
+        "name": "search_web",
+        "description": "Rechercher des informations sur internet",
+        "parameters": {"type": "object", "properties": {
+            "query": {"type": "string", "description": "Requete de recherche"}
+        }, "required": ["query"]}
+    }},
+    {"type": "function", "function": {
+        "name": "generate_document",
+        "description": "Generer un document ou courrier pour le souscripteur",
+        "parameters": {"type": "object", "properties": {
+            "type": {"type": "string", "description": "Type de document"},
+            "content": {"type": "string", "description": "Contenu ou instructions"}
+        }, "required": ["type", "content"]}
+    }},
+    {"type": "function", "function": {
+        "name": "get_player_stats",
+        "description": "Obtenir les statistiques et le niveau de gamification du souscripteur",
+        "parameters": {"type": "object", "properties": {}, "required": []}
+    }},
+    {"type": "function", "function": {
+        "name": "search_places",
+        "description": "Rechercher des restaurants, pharmacies, hopitaux ou autres lieux proches",
+        "parameters": {"type": "object", "properties": {
+            "query": {"type": "string", "description": "Type de lieu recherche"},
+            "location": {"type": "string", "description": "Localisation (optionnel)"}
+        }, "required": ["query"]}
+    }},
+    {"type": "function", "function": {
+        "name": "report_observation",
+        "description": "Signaler une observation sur l'etat ou l'environnement du souscripteur",
+        "parameters": {"type": "object", "properties": {
+            "observation": {"type": "string"},
+            "severity": {"type": "string", "enum": ["low", "medium", "high"]}
+        }, "required": ["observation", "severity"]}
+    }},
+    {"type": "function", "function": {
+        "name": "call_contact",
+        "description": (
+            "Appeler un contact de confiance ou un numero de telephone par la voix via Twilio. "
+            "Utilise quand le souscripteur dit 'appelle', 'telephone a', 'passe un coup de fil'. "
+            "Ne jamais utiliser pour les numeros d'urgence (17, 18, 112). "
+            "Demander confirmation avant d'appeler."
+        ),
+        "parameters": {"type": "object", "properties": {
+            "contact_name": {"type": "string", "description": "Prenom du contact de confiance"},
+            "message": {"type": "string", "description": "Message a transmettre lors de l'appel"},
+            "phone_number": {"type": "string", "description": "Numero direct si ce n'est pas un contact enregistre"}
+        }, "required": ["contact_name", "message"]}
+    }},
+    {"type": "function", "function": {
+        "name": "send_email",
+        "description": "Envoyer un email a un contact du souscripteur",
+        "parameters": {"type": "object", "properties": {
+            "contact_name": {"type": "string", "description": "Prenom ou nom du destinataire"},
+            "subject": {"type": "string", "description": "Sujet de l'email"},
+            "body": {"type": "string", "description": "Corps du message"}
+        }, "required": ["contact_name", "subject", "body"]}
+    }},
+    {"type": "function", "function": {
+        "name": "search_flights",
+        "description": "Rechercher des vols disponibles entre deux villes",
+        "parameters": {"type": "object", "properties": {
+            "origin": {"type": "string", "description": "Ville de depart"},
+            "destination": {"type": "string", "description": "Ville d'arrivee"},
+            "date": {"type": "string", "description": "Date du vol (YYYY-MM-DD)"}
+        }, "required": ["origin", "destination", "date"]}
+    }},
+    {"type": "function", "function": {
+        "name": "search_hotels",
+        "description": "Rechercher des hotels disponibles dans une ville",
+        "parameters": {"type": "object", "properties": {
+            "city": {"type": "string", "description": "Ville"},
+            "checkin": {"type": "string", "description": "Date d'arrivee (YYYY-MM-DD)"},
+            "checkout": {"type": "string", "description": "Date de depart (YYYY-MM-DD)"}
+        }, "required": ["city", "checkin", "checkout"]}
+    }},
+    {"type": "function", "function": {
+        "name": "book_restaurant",
+        "description": "Rechercher et proposer des restaurants a reserver",
+        "parameters": {"type": "object", "properties": {
+            "query": {"type": "string", "description": "Type de cuisine ou nom du restaurant"},
+            "location": {"type": "string", "description": "Ville ou adresse"}
+        }, "required": ["query"]}
+    }},
+    {"type": "function", "function": {
+        "name": "invite_visio",
+        "description": "Inviter un contact a rejoindre cette visio par SMS",
+        "parameters": {"type": "object", "properties": {
+            "contact_name": {"type": "string", "description": "Prenom du contact a inviter"}
+        }, "required": ["contact_name"]}
+    }},
+    {"type": "function", "function": {
+        "name": "send_conclusions",
+        "description": (
+            "Rédiger et envoyer un compte-rendu professionnel ou des conclusions "
+            "a tous les participants de la visio (par SMS ou email). "
+            "A utiliser quand le souscripteur demande d'envoyer le résumé, les conclusions, "
+            "le compte-rendu, les points clés, ou les décisions prises pendant la réunion. "
+            "Génère un document structuré (titre, points discutés, décisions, actions) et l'envoie a chaque participant."
+        ),
+        "parameters": {"type": "object", "properties": {
+            "subject": {"type": "string", "description": "Sujet / titre du compte-rendu"},
+            "conclusions": {"type": "string", "description": "Contenu complet des conclusions, points discutés, décisions et actions a suivre"},
+            "recipients": {"type": "array", "items": {"type": "string"}, "description": "Prénoms des destinataires (optionnel — tous les participants si vide)"}
+        }, "required": ["subject", "conclusions"]}
+    }},
+    {"type": "function", "function": {
+        "name": "get_vision_context",
+        "description": (
+            "Obtenir ce que la camera du souscripteur capture en ce moment. "
+            "A appeler uniquement si le souscripteur demande ce que tu vois, "
+            "ce qu'il y a dans la piece, ou une description de son environnement."
+        ),
+        "parameters": {"type": "object", "properties": {}, "required": []}
+    }},
+]
+
+
+async def _build_realtime_context(tenant_id: int = 0) -> str:
+    """Construit un bloc de données temps réel (météo + heure + news) à injecter
+    dans le system prompt. Luna peut répondre sans appel outil."""
+    import httpx as _httpx_rt
+    lines = []
+
+    # Heure / date actuelle
+    try:
+        tz = ZoneInfo("Europe/Paris")
+        now = datetime.now(tz)
+        jours = ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"]
+        mois = ["janvier", "février", "mars", "avril", "mai", "juin",
+                "juillet", "août", "septembre", "octobre", "novembre", "décembre"]
+        date_str = f"{jours[now.weekday()]} {now.day} {mois[now.month - 1]} {now.year}"
+        lines.append(f"Date et heure actuelles : {date_str}, {now.strftime('%H:%M')} (heure de Paris)")
+    except Exception:
+        pass
+
+    # Météo (wttr.in, gratuit)
+    city = "Paris"
+    if _redis_client and tenant_id:
+        try:
+            geo_raw = _redis_client.client.get(f"luna:{tenant_id}:geolocation")
+            if geo_raw:
+                geo = json.loads(geo_raw.decode() if isinstance(geo_raw, bytes) else geo_raw)
+                city = geo.get("city", "Paris") or "Paris"
+        except Exception:
+            pass
+    try:
+        async with _httpx_rt.AsyncClient(timeout=8) as _cli:
+            r = await _cli.get(
+                f"https://wttr.in/{city}?format=j1&lang=fr",
+                headers={"User-Agent": "Luna/2.2"},
+            )
+            if r.status_code == 200:
+                wd = r.json()
+                cur = wd.get("current_condition", [{}])[0]
+                desc = cur.get("lang_fr", [{}])[0].get("value", "") or cur.get("weatherDesc", [{}])[0].get("value", "")
+                temp = cur.get("temp_C", "?")
+                ressenti = cur.get("FeelsLikeC", "?")
+                vent = cur.get("windspeedKmph", "?")
+                lines.append(
+                    f"Météo actuelle à {city} : {temp}°C (ressenti {ressenti}°C), {desc}, vent {vent} km/h."
+                )
+    except Exception:
+        pass
+
+    # Actualités (RSS Le Monde, gratuit)
+    try:
+        async with _httpx_rt.AsyncClient(timeout=8) as _cli:
+            r = await _cli.get(
+                "https://www.lemonde.fr/rss/une.xml",
+                headers={"User-Agent": "Luna/2.2"},
+            )
+            if r.status_code == 200:
+                import re as _re_rt
+                titles = _re_rt.findall(r"<title><!\[CDATA\[(.+?)\]\]></title>", r.text)
+                titles = [t for t in titles if t not in ("Le Monde", "lemonde.fr")][:5]
+                if titles:
+                    lines.append("Titres d'actualité du moment (Le Monde) :\n" +
+                                 "\n".join(f"  • {t}" for t in titles))
+    except Exception:
+        pass
+
+    if not lines:
+        return ""
+    return "\n\n=== DONNÉES EN TEMPS RÉEL (déjà disponibles, pas besoin d'appel outil) ===\n" + "\n".join(lines)
+
+
 async def _start_simli_visio(tenant_id: int, subscriber_name: str) -> tuple:
     """Demarre une session Simli. Retourne (ok, payload_ou_erreur).
     Utilise /auto/start/configurable (API Simli v2).
@@ -3008,30 +3251,77 @@ async def _start_simli_visio(tenant_id: int, subscriber_name: str) -> tuple:
     api_key = os.getenv("SIMLI_API_KEY", "")
     face_id = os.getenv("SIMLI_FACE_ID", "")
     openai_key = os.getenv("OPENAI_API_KEY", "")
+    elevenlabs_key = os.getenv("ELEVENLABS_API_KEY", "")
+    # voiceId: ElevenLabs Charlotte FR si cle dispo, sinon Cartesia voix FR feminine
+    tts_provider = "ElevenLabs" if elevenlabs_key else "Cartesia"
+    # Charlotte FR (ElevenLabs) si cle dispo, sinon voix Cartesia par defaut (multilingual)
+    # La voix par defaut Simli/Cartesia fonctionne avec language:"fr"
+    # (voix custom Cartesia FR requiert plan payant Cartesia)
+    # f9836c6e = "Helpful Woman" Cartesia, voix feminine multilingue (supporte fr)
+    voice_id = os.getenv("SIMLI_VOICE_ID",
+        "XB0fDUnXU5powFXDhCwa" if elevenlabs_key else "f9836c6e-a0bd-460e-9d3c-f7299fa60f94")
+    tts_api_key = elevenlabs_key if elevenlabs_key else None
+
     if not api_key or not face_id:
         return False, {"error": "Simli non configure (SIMLI_API_KEY / SIMLI_FACE_ID manquants)"}
+
+    # Contexte riche : profil, contacts, meteo, capacites
+    try:
+        ctx = build_tavus_context(
+            subscriber_name=subscriber_name,
+            memory_manager=_memory_manager,
+        )
+    except Exception:
+        ctx = f"Tu es Luna, compagnon IA feminin YAWatch. Tu parles avec {subscriber_name}."
+
+    # Pré-fetcher météo + actualités + date pour éviter les hallucinations
+    try:
+        realtime_ctx = await _build_realtime_context(tenant_id)
+    except Exception:
+        realtime_ctx = ""
+
+    # Forcer le français en tete du prompt (avant le contexte riche)
+    french_prefix = (
+        "INSTRUCTIONS ABSOLUES : Tu t'appelles Luna. "
+        "Tu parles EXCLUSIVEMENT en français de France (pas québécois, pas anglais). "
+        "Chaque réponse doit être en français, quelle que soit la langue utilisée par l'utilisateur. "
+        "Tu es une femme, ton ton est chaleureux et bienveillant.\n"
+        "Quand tu reçois un message '[Vision caméra] ...', c'est une description automatique "
+        "de l'environnement visuel de l'utilisateur. Utilise-la naturellement dans la conversation "
+        "si pertinent, sans mentionner la mécanique technique.\n\n"
+        "RÈGLE ANTI-HALLUCINATION ABSOLUE : Tu ne dois JAMAIS inventer, supposer ou fabriquer "
+        "des informations sur la météo, l'actualité, les prix, les horaires ou tout fait vérifiable. "
+        "Si une information n'est pas dans ton contexte, dis-le honnêtement : "
+        "'Je n'ai pas cette information en ce moment.' "
+        "Pour la météo et les actualités, utilise les données de la section DONNÉES EN TEMPS RÉEL "
+        "ci-dessous — elles sont fraîches et fiables.\n\n"
+    )
+    ctx = french_prefix + ctx + realtime_ctx
+
+    payload = {
+        "faceId": face_id,
+        "ttsProvider": tts_provider,
+        "voiceId": voice_id,
+        "language": "fr",
+        "systemPrompt": ctx,
+        "firstMessage": f"Bonjour {subscriber_name} ! Je suis ravie de te voir. Comment je peux t'aider aujourd'hui ?",
+        "customLLMConfig": {
+            "model": "gpt-4o-mini",
+            "baseURL": "https://api.openai.com/v1",
+            "llmAPIKey": openai_key,
+        },
+        "tools": _SIMLI_TOOLS,
+        "maxSessionLength": 3600,
+        "maxIdleTime": 300,
+    }
+    if tts_api_key:
+        payload["ttsAPIKey"] = tts_api_key
 
     try:
         async with httpx.AsyncClient(timeout=30) as client:
             resp = await client.post(
                 "https://api.simli.ai/auto/start/configurable",
-                json={
-                    "faceId": face_id,
-                    "systemPrompt": (
-                        "Tu es Luna, compagnon IA YAWatch, chaleureuse, attentionnee et bienveillante. "
-                        "Tu t'exprimes uniquement en francais, avec un ton naturel et proche. "
-                        f"Tu t'adresses a {subscriber_name}."
-                    ),
-                    "firstMessage": f"Bonjour {subscriber_name} ! Ravie de te voir. Comment je peux t'aider ?",
-                    "language": "fr",
-                    "customLLMConfig": {
-                        "model": "gpt-4o-mini",
-                        "baseURL": "https://api.openai.com/v1",
-                        "llmAPIKey": openai_key,
-                    },
-                    "maxSessionLength": 3600,
-                    "maxIdleTime": 300,
-                },
+                json=payload,
                 headers={
                     "Content-Type": "application/json",
                     "x-simli-api-key": api_key,
@@ -3081,10 +3371,14 @@ async def start_call(request: Request):
     sub_name = _tenant_subscriber_first_name(tid)
 
     if tavus_client and tavus_client.is_configured:
+        try:
+            realtime_ctx_tavus = await _build_realtime_context(tid)
+        except Exception:
+            realtime_ctx_tavus = ""
         context = build_tavus_context(
             subscriber_name=sub_name,
             memory_manager=tavus_client.memory,
-        )
+        ) + realtime_ctx_tavus
         replica_id = _get_luna_replica()
         success, data = await tavus_client.create_conversation(
             tenant_id=tid,
@@ -3184,6 +3478,586 @@ async def formulaires_page():
             "Expires": "0",
         })
     return JSONResponse(status_code=404, content={"error": "Formulaires non disponible"})
+
+
+@app.get("/join/{token}")
+async def join_visio_page(token: str):
+    """Page d'avertissement legal avant de rejoindre une visio partagee."""
+    if not _redis_client:
+        return HTMLResponse("<h2>Lien invalide ou expire.</h2>", status_code=410)
+    raw = _redis_client.client.get(f"luna:join:{token}")
+    if not raw:
+        return HTMLResponse("""<!doctype html><html><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Lien expire</title>
+<style>body{background:#0a0a1a;color:#fff;font-family:system-ui,sans-serif;
+display:flex;align-items:center;justify-content:center;height:100vh;margin:0;text-align:center;padding:24px;}
+h2{color:#ff6b6b;} p{color:#aaa;font-size:14px;margin-top:12px;}</style>
+</head><body><div><h2>Lien expire ou invalide</h2>
+<p>Ce lien de visio n'est plus valide.<br>Demandez a votre contact de vous renvoyer une invitation.</p>
+</div></body></html>""", status_code=410)
+
+    import json as _json
+    data = _json.loads(raw)
+    room_url = data.get("room_url", "")
+    subscriber = data.get("subscriber_name", "votre contact")
+    if not room_url:
+        return HTMLResponse("<h2>Lien invalide.</h2>", status_code=410)
+
+    html = f"""<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Rejoindre la visio Luna</title>
+  <style>
+    * {{ box-sizing: border-box; margin: 0; padding: 0; }}
+    body {{ background: #0a0a1a; color: #e0e0e0; font-family: system-ui, -apple-system, sans-serif;
+      min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; }}
+    .card {{ background: #0f0f2a; border: 1px solid #2a2a5a; border-radius: 20px;
+      max-width: 420px; width: 100%; padding: 32px 28px; text-align: center; }}
+    .logo {{ width: 64px; height: 64px; border-radius: 50%; background: linear-gradient(135deg, #7c8cf8, #a78bfa);
+      display: flex; align-items: center; justify-content: center; font-size: 28px; color: #fff;
+      font-weight: 700; margin: 0 auto 20px; box-shadow: 0 0 30px rgba(124,140,248,0.3); }}
+    h1 {{ font-size: 22px; color: #fff; margin-bottom: 6px; }}
+    .invite-msg {{ font-size: 14px; color: #888; margin-bottom: 24px; }}
+    .warning-box {{ background: rgba(255,160,0,0.08); border: 1px solid rgba(255,160,0,0.3);
+      border-radius: 14px; padding: 18px 16px; margin-bottom: 24px; text-align: left; }}
+    .warning-box h3 {{ font-size: 13px; color: #ffb020; text-transform: uppercase;
+      letter-spacing: 1px; margin-bottom: 12px; display: flex; align-items: center; gap: 6px; }}
+    .warning-box ul {{ list-style: none; padding: 0; }}
+    .warning-box li {{ font-size: 13px; color: #ccc; padding: 5px 0;
+      padding-left: 20px; position: relative; line-height: 1.5; }}
+    .warning-box li::before {{ content: "•"; position: absolute; left: 4px; color: #ffb020; }}
+    .legal-note {{ font-size: 12px; color: #666; line-height: 1.6; margin-bottom: 24px; }}
+    .legal-note strong {{ color: #e94560; }}
+    .btn-join {{ width: 100%; background: linear-gradient(135deg, #7c8cf8, #a78bfa);
+      color: #fff; border: none; border-radius: 50px; padding: 16px 24px;
+      font-size: 17px; font-weight: 700; cursor: pointer; transition: all 0.15s;
+      box-shadow: 0 4px 20px rgba(124,140,248,0.35); }}
+    .btn-join:hover {{ transform: scale(1.02); box-shadow: 0 6px 28px rgba(124,140,248,0.5); }}
+    .btn-decline {{ display: block; margin-top: 14px; color: #555; font-size: 13px;
+      text-decoration: none; cursor: pointer; background: none; border: none; width: 100%; }}
+    .btn-decline:hover {{ color: #888; }}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">L</div>
+    <h1>Rejoindre la visio</h1>
+    <p class="invite-msg"><strong style="color:#a78bfa">{subscriber}</strong> vous invite à une session vidéo avec Luna IA.</p>
+
+    <div class="warning-box">
+      <h3>⚠️ Avertissement important</h3>
+      <ul>
+        <li>Luna est une <strong style="color:#fff">intelligence artificielle</strong>, pas un professionnel de santé, conseiller juridique ou financier.</li>
+        <li>Toute demande de contenu <strong style="color:#fff">illégal, offensant ou abusif</strong> est interdite.</li>
+        <li>Les abus sont <strong style="color:#fff">tracés et conservés</strong>.</li>
+        <li>En cas d'infraction, des <strong style="color:#fff">poursuites judiciaires</strong> pourront être engagées.</li>
+      </ul>
+    </div>
+
+    <p class="legal-note">
+      En cliquant sur "Rejoindre", vous reconnaissez avoir lu et accepté ces conditions.
+      <strong>Toute utilisation abusive engage votre responsabilité pénale et civile</strong> conformément au droit français.
+    </p>
+
+    <button class="btn-join" onclick="joinNow()">Rejoindre la visio →</button>
+    <button class="btn-decline" onclick="window.close()">Refuser et fermer</button>
+  </div>
+  <script>
+    function joinNow() {{
+      var btn = document.querySelector('.btn-join');
+      btn.textContent = 'Connexion...';
+      btn.disabled = true;
+      window.location.href = {repr(room_url)};
+    }}
+  </script>
+</body>
+</html>"""
+    return HTMLResponse(content=html, headers={
+        "Cache-Control": "no-cache, no-store, must-revalidate",
+        "Pragma": "no-cache",
+    })
+
+
+@app.post("/api/call/invite-guest")
+async def invite_guest_to_visio(request: Request):
+    """Invite un contact à rejoindre la visio en cours via SMS + page disclaimer."""
+    tid = getattr(request.state, "tenant_id", 1)
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse(status_code=400, content={"error": "Corps JSON invalide"})
+
+    room_url = body.get("room_url", "")
+    phone = body.get("phone", "")
+    contact_name = body.get("contact_name", "")
+    conv_id = body.get("conversation_id", "")
+
+    if not room_url or not phone:
+        return JSONResponse(status_code=400, content={"error": "room_url et phone requis"})
+
+    if not sms_client or not sms_client.is_configured:
+        return JSONResponse(status_code=503, content={"error": "SMS non disponible"})
+
+    # Créer un token court (TTL 4h) pointant vers la room
+    import secrets as _sec, json as _json
+    token = _sec.token_hex(16)
+    sub_name = _tenant_subscriber_first_name(tid)
+    payload = {"room_url": room_url, "subscriber_name": sub_name, "conv_id": conv_id}
+    if _redis_client:
+        _redis_client.client.setex(f"luna:join:{token}", 4 * 3600, _json.dumps(payload))
+
+    base_url = os.getenv("BASE_URL", "https://luna-beta-674304336025.europe-west1.run.app")
+    join_url = f"{base_url}/join/{token}"
+
+    msg = (
+        f"[Luna] {sub_name} t'invite en visio avec Luna 🎥\n"
+        f"Rejoins ici : {join_url}\n"
+        f"(Lien valide 4h — utilisation responsable requise)"
+    )
+    from integrations.twilio.sms_client import TwilioSMSClient
+    normalized = TwilioSMSClient.normalize_phone(phone)
+    ok, details = _tracked_sms_send(normalized, msg, label=f"Invitation visio a {contact_name or phone}")
+
+    if ok:
+        # Mémoriser le participant pour send_conclusions
+        if _redis_client and conv_id:
+            try:
+                import json as _jpart
+                pkey = f"luna:conv:{conv_id}:participants"
+                raw = _redis_client.client.get(pkey)
+                parts = _jpart.loads(raw.decode() if isinstance(raw, bytes) else raw) if raw else []
+                entry = {"name": contact_name or phone, "phone": normalized}
+                if not any(p.get("phone") == normalized for p in parts):
+                    parts.append(entry)
+                _redis_client.client.setex(pkey, 6 * 3600, _jpart.dumps(parts))
+            except Exception as _pe:
+                logger.warning(f"Participant store error: {_pe}")
+        return {"ok": True, "join_url": join_url, "contact": contact_name or phone}
+    return JSONResponse(status_code=500, content={"error": "Echec envoi SMS", "detail": str(details)})
+
+
+@app.post("/api/call/create-join-link")
+async def create_join_link(request: Request):
+    """Crée un lien d'invitation visio (sans SMS) — à partager manuellement."""
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse(status_code=400, content={"error": "Corps JSON invalide"})
+
+    room_url = body.get("room_url", "")
+    conv_id = body.get("conversation_id", "")
+    tid = getattr(request.state, "tenant_id", 1)
+
+    if not room_url:
+        return JSONResponse(status_code=400, content={"error": "room_url requis"})
+
+    import secrets as _sec, json as _json
+    token = _sec.token_hex(16)
+    sub_name = _tenant_subscriber_first_name(tid)
+    payload = {"room_url": room_url, "subscriber_name": sub_name, "conv_id": conv_id}
+    if _redis_client:
+        _redis_client.client.setex(f"luna:join:{token}", 4 * 3600, _json.dumps(payload))
+
+    base_url = os.getenv("BASE_URL", "https://luna-beta-674304336025.europe-west1.run.app")
+    join_url = f"{base_url}/join/{token}"
+    return {"ok": True, "join_url": join_url}
+
+
+@app.post("/api/visio/perception")
+async def visio_perception_frame(request: Request):
+    """Analyse une frame caméra pendant une session visio.
+
+    Utilise PerceptionDetector + SceneAnalyzer (structuré : personnes, postures, objets).
+    Pas de vérification is_perception_enabled — la visio est un consentement explicite.
+    Retourne changed:true uniquement si la scène a changé depuis la dernière analyse.
+    """
+    client_ip = (request.client.host if request.client else None) or "unknown"
+    now = time.time()
+    last = _vision_last_call.get(client_ip, 0)
+    if now - last < 8.0:
+        return JSONResponse(status_code=429, content={
+            "ok": False, "error": "Trop rapide", "retry_after": round(8.0 - (now - last), 1)
+        })
+    _vision_last_call[client_ip] = now
+
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse(status_code=400, content={"ok": False, "error": "Corps JSON invalide"})
+
+    image_data = body.get("image", "")
+    if not image_data:
+        return JSONResponse(status_code=400, content={"ok": False, "error": "image base64 requise"})
+
+    # Extraire le base64 pur (sans préfixe data:image/...)
+    image_b64 = image_data.split(",", 1)[1] if "," in image_data else image_data
+
+    loop = asyncio.get_event_loop()
+
+    # --- Chemin principal : PerceptionDetector (structuré) ---
+    if _perception_detector and getattr(_perception_detector, '_initialized', False):
+        frame_analysis = await loop.run_in_executor(
+            None, _perception_detector.analyze_frame_b64, image_b64
+        )
+        if not frame_analysis:
+            return JSONResponse(status_code=500, content={"ok": False, "error": "Analyse échouée"})
+
+        scene_state = _perception_analyzer.analyze(frame_analysis) if _perception_analyzer else None
+        description = scene_state.scene_description if scene_state else (
+            f"{frame_analysis.persons_count} personne(s)." +
+            (f" Objets: {', '.join(frame_analysis.objects[:4])}." if frame_analysis.objects else "")
+        )
+        persons = frame_analysis.persons_count
+        objects = frame_analysis.objects[:6]
+        posture = frame_analysis.person_postures[0].value if frame_analysis.person_postures else "unknown"
+        inference_ms = round(frame_analysis.inference_time_ms)
+
+        # Log anomalies concern → note mémoire
+        if scene_state and _memory_manager:
+            for abn in scene_state.abnormalities:
+                if abn.get("severity") == "concern":
+                    logger.warning(f"Visio perception concern: {abn['description']}")
+                    try:
+                        _memory_manager.add_note(
+                            content=f"[Visio perception] {abn['description']}",
+                            context="visio_perception",
+                            tags=["perception", "visio", abn.get("type", ""), "concern"],
+                        )
+                    except Exception:
+                        pass
+
+    # --- Fallback : appel OpenAI Vision direct si module non initialisé ---
+    elif openai_client:
+        try:
+            resp = await loop.run_in_executor(None, lambda: openai_client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[{"role": "user", "content": [
+                    {"type": "text", "text": (
+                        "Décris en 1-2 phrases ce que tu vois. Personnes, postures, objets. "
+                        "Bref, factuel, sans identités. En français."
+                    )},
+                    {"type": "image_url", "image_url": {"url": image_data, "detail": "low"}}
+                ]}],
+                max_tokens=80
+            ))
+            description = resp.choices[0].message.content.strip()
+        except Exception as e:
+            logger.error(f"Visio perception fallback error: {e}")
+            return JSONResponse(status_code=500, content={"ok": False, "error": f"Analyse échouée: {str(e)[:80]}"})
+        persons, objects, posture, inference_ms = 0, [], "unknown", 0
+    else:
+        return JSONResponse(status_code=503, content={"ok": False, "error": "Module perception et OpenAI non disponibles"})
+
+    # Détection de changement
+    last_desc = _visio_scene_cache.get(client_ip, "")
+    changed = (description != last_desc)
+    _visio_scene_cache[client_ip] = description
+    logger.info(f"Visio perception: {description[:80]} (changed={changed})")
+
+    return {
+        "ok": True,
+        "description": description,
+        "persons": persons,
+        "objects": objects,
+        "posture": posture,
+        "changed": changed,
+        "inference_ms": inference_ms,
+    }
+
+
+@app.post("/api/visio/notes")
+async def visio_notes_generate(request: Request):
+    """Génère un résumé structuré de la session visio pour prise de notes.
+
+    Utilise les événements app-message capturés côté JS (tool calls, échos, types Simli)
+    + le contexte vision + la durée pour produire des notes lisibles via GPT-4o-mini.
+    Si auto_save=true, sauvegarde automatiquement en mémoire.
+    """
+    if not openai_client:
+        return JSONResponse(status_code=503, content={"ok": False, "error": "OpenAI non configuré"})
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse(status_code=400, content={"ok": False, "error": "JSON invalide"})
+
+    events = body.get("events", [])
+    vision_ctx = body.get("vision_context", "")
+    duration_min = body.get("duration_min", 0)
+    conv_id = body.get("conversation_id", "")
+    auto_save = body.get("auto_save", False)
+    tid = getattr(request.state, "tenant_id", 1)
+
+    # Construire le contexte pour GPT
+    lines = []
+    for ev in events[:80]:  # limiter à 80 événements
+        t = ev.get("type", "")
+        if t == "conversation.tool_call" and ev.get("tool"):
+            args_str = ""
+            try:
+                args_str = str(json.loads(ev.get("args", "{}")))[:120]
+            except Exception:
+                pass
+            lines.append(f"[Action Luna] {ev['tool']}: {args_str}")
+        elif t == "tool_result" and ev.get("tool"):
+            lines.append(f"[Résultat {ev['tool']}] {ev.get('text','')[:100]}")
+        elif t in ("participant.joined", "participant.left"):
+            lines.append(f"[Participant] {ev.get('text','')}")
+        elif t == "vision.change" and ev.get("text"):
+            lines.append(f"[Contexte visuel changé] {ev['text'][:120]}")
+        elif t == "upload.analysis" and ev.get("text"):
+            lines.append(f"[Document] {ev['text'][:160]}")
+        elif ev.get("text"):
+            # Paroles utilisateur et Luna, échecs système filtrés côté JS
+            txt = ev["text"]
+            if t == "user.speech":
+                lines.append(f"[Utilisateur] {txt[:160]}")
+            elif t == "luna.speech":
+                lines.append(f"[Luna] {txt[:160]}")
+            elif not any(txt.startswith(p) for p in ("[Vision caméra]", "[Alerte vision]", "[Instruction")):
+                lines.append(f"[{t or 'échange'}] {txt[:160]}")
+
+    context_str = "\n".join(lines) if lines else "(aucun événement capturé)"
+    vision_str = f"\n[Contexte visuel] {vision_ctx}" if vision_ctx else ""
+
+    prompt = (
+        f"Voici les données d'une session visio avec Luna IA (durée : {duration_min} min).\n"
+        f"Événements :\n{context_str}{vision_str}\n\n"
+        "Génère des notes de réunion structurées en français, concises et utiles. "
+        "Format : titre, points clés de la conversation (ce que l'utilisateur a dit et demandé), "
+        "actions effectuées par Luna, observations (si contexte visuel disponible). "
+        "[Utilisateur] = paroles transcrites de l'utilisateur (contenu principal). "
+        "[Luna] = réponses de Luna. [Action Luna] = outils utilisés. [Participant] = entrées/sorties. "
+        "Si peu de données, résume la durée et indique qu'il n'y a pas eu d'échanges détectés. "
+        "Maximum 250 mots."
+    )
+
+    try:
+        loop = asyncio.get_event_loop()
+        resp = await loop.run_in_executor(None, lambda: openai_client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=300,
+            temperature=0.3,
+        ))
+        summary = resp.choices[0].message.content.strip()
+    except Exception as e:
+        logger.error(f"Visio notes generate error: {e}")
+        return JSONResponse(status_code=500, content={"ok": False, "error": str(e)[:100]})
+
+    already_saved = False
+    if auto_save and _memory_manager and summary:
+        try:
+            _memory_manager.add_note(
+                content=f"[Visio {duration_min}min] {summary}",
+                context="visio_notes",
+                tags=["visio", "notes", "auto"],
+            )
+            already_saved = True
+            logger.info(f"Visio notes auto-saved ({duration_min}min)")
+        except Exception as e:
+            logger.warning(f"Visio notes auto-save error: {e}")
+
+    return {"ok": True, "summary": summary, "already_saved": already_saved}
+
+
+@app.post("/api/visio/notes/save")
+async def visio_notes_save(request: Request):
+    """Sauvegarde un résumé visio en mémoire (action manuelle utilisateur)."""
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse(status_code=400, content={"ok": False, "error": "JSON invalide"})
+
+    summary = body.get("summary", "").strip()
+    duration_min = body.get("duration_min", 0)
+    if not summary:
+        return JSONResponse(status_code=400, content={"ok": False, "error": "Résumé vide"})
+
+    if not _memory_manager:
+        return JSONResponse(status_code=503, content={"ok": False, "error": "Mémoire non disponible"})
+
+    try:
+        _memory_manager.add_note(
+            content=f"[Visio {duration_min}min] {summary}",
+            context="visio_notes",
+            tags=["visio", "notes", "manuel"],
+        )
+        return {"ok": True}
+    except Exception as e:
+        logger.error(f"Visio notes save error: {e}")
+        return JSONResponse(status_code=500, content={"ok": False, "error": str(e)[:100]})
+
+
+@app.post("/api/visio/upload")
+async def visio_upload(request: Request):
+    """Analyse un document ou une image partagée pendant la visio.
+
+    Supporte : images (JPEG/PNG/WebP/GIF), PDF, texte brut, CSV, Markdown.
+    Retourne une analyse structurée que le JS injecte dans la conversation Luna.
+    """
+    if not openai_client:
+        return JSONResponse(status_code=503, content={"ok": False, "error": "OpenAI non configuré"})
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse(status_code=400, content={"ok": False, "error": "JSON invalide"})
+
+    import base64 as _b64
+    import re as _re_up
+
+    filename = (body.get("filename") or "document").strip()
+    mime_type = (body.get("mime_type") or "").lower()
+    data_url = body.get("data", "")
+    if not data_url:
+        return JSONResponse(status_code=400, content={"ok": False, "error": "Données manquantes"})
+
+    # Extraire le contenu brut (supprimer le préfixe data:...)
+    if "," in data_url:
+        raw_b64 = data_url.split(",", 1)[1]
+    else:
+        raw_b64 = data_url
+    try:
+        raw_bytes = _b64.b64decode(raw_b64)
+    except Exception:
+        return JSONResponse(status_code=400, content={"ok": False, "error": "Base64 invalide"})
+
+    # Limite de taille : 10 Mo
+    if len(raw_bytes) > 10 * 1024 * 1024:
+        return JSONResponse(status_code=413, content={"ok": False, "error": "Fichier trop volumineux (max 10 Mo)"})
+
+    is_image = mime_type.startswith("image/") or _re_up.search(r"\.(jpg|jpeg|png|gif|webp)$", filename, _re_up.I)
+    is_pdf = mime_type == "application/pdf" or filename.lower().endswith(".pdf")
+
+    analysis = ""
+
+    if is_image:
+        # GPT-4o vision : analyse de l'image
+        try:
+            loop = asyncio.get_event_loop()
+            resp = await loop.run_in_executor(None, lambda: openai_client.chat.completions.create(
+                model="gpt-4o",
+                messages=[{
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": (
+                            "Analyse cette image partagée par l'utilisateur pendant une visio avec Luna (son assistante IA). "
+                            "Décris ce que tu vois, identifie les éléments importants (texte lisible, graphiques, personnes, objets, documents). "
+                            "Sois précis et utile. Réponds en français."
+                        )},
+                        {"type": "image_url", "image_url": {"url": data_url, "detail": "high"}},
+                    ]
+                }],
+                max_tokens=600,
+            ))
+            analysis = resp.choices[0].message.content.strip()
+        except Exception as e:
+            logger.error(f"Visio upload image analysis error: {e}")
+            return JSONResponse(status_code=500, content={"ok": False, "error": f"Analyse image impossible: {str(e)[:80]}"})
+
+    elif is_pdf:
+        # PyMuPDF : extraction texte PDF
+        try:
+            import fitz as _fitz
+            doc = _fitz.open(stream=raw_bytes, filetype="pdf")
+            text_pages = []
+            for i, page in enumerate(doc):
+                if i >= 10:  # limiter à 10 pages
+                    text_pages.append(f"[... {doc.page_count - 10} pages supplémentaires non incluses]")
+                    break
+                text_pages.append(page.get_text("text"))
+            doc.close()
+            full_text = "\n\n".join(text_pages).strip()
+            if not full_text:
+                return JSONResponse(status_code=422, content={"ok": False, "error": "PDF sans texte lisible (peut-être scanné)"})
+            # Limiter à ~6000 tokens
+            full_text = full_text[:12000]
+        except ImportError:
+            return JSONResponse(status_code=500, content={"ok": False, "error": "PDF non supporté sur ce serveur"})
+        except Exception as e:
+            return JSONResponse(status_code=500, content={"ok": False, "error": f"Erreur lecture PDF: {str(e)[:80]}"})
+
+        try:
+            loop = asyncio.get_event_loop()
+            resp = await loop.run_in_executor(None, lambda: openai_client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[{
+                    "role": "user",
+                    "content": (
+                        f"Voici le contenu d'un PDF nommé '{filename}' partagé par l'utilisateur pendant une visio.\n\n"
+                        f"{full_text}\n\n"
+                        "Résume les points clés de ce document de façon claire et structurée en français. "
+                        "Identifie le type de document, son objet principal, les informations importantes. "
+                        "Maximum 300 mots."
+                    )
+                }],
+                max_tokens=500,
+                temperature=0.3,
+            ))
+            analysis = resp.choices[0].message.content.strip()
+        except Exception as e:
+            logger.error(f"Visio upload pdf analysis error: {e}")
+            return JSONResponse(status_code=500, content={"ok": False, "error": f"Analyse PDF impossible: {str(e)[:80]}"})
+
+    else:
+        # Fichier texte (txt, md, csv, docx text brut...)
+        try:
+            text_content = raw_bytes.decode("utf-8", errors="replace")[:12000]
+        except Exception:
+            text_content = raw_bytes[:12000].decode("latin-1", errors="replace")
+
+        if not text_content.strip():
+            return JSONResponse(status_code=422, content={"ok": False, "error": "Fichier vide ou illisible"})
+
+        try:
+            loop = asyncio.get_event_loop()
+            resp = await loop.run_in_executor(None, lambda: openai_client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[{
+                    "role": "user",
+                    "content": (
+                        f"Voici le contenu d'un fichier nommé '{filename}' partagé pendant une visio.\n\n"
+                        f"{text_content}\n\n"
+                        "Analyse ce contenu et résume les informations importantes en français. Maximum 300 mots."
+                    )
+                }],
+                max_tokens=500,
+                temperature=0.3,
+            ))
+            analysis = resp.choices[0].message.content.strip()
+        except Exception as e:
+            logger.error(f"Visio upload text analysis error: {e}")
+            return JSONResponse(status_code=500, content={"ok": False, "error": f"Analyse impossible: {str(e)[:80]}"})
+
+    logger.info(f"Visio upload analyzed: {filename} ({mime_type}) → {len(analysis)} chars")
+    return {"ok": True, "analysis": analysis, "filename": filename}
+
+
+@app.get("/clear-cache")
+async def clear_cache_page():
+    """Page standalone qui purge tout le cache SW + recharge. Jamais interceptee par le SW."""
+    html = """<!doctype html><html><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mise a jour Luna...</title>
+<style>body{background:#0a0a1a;color:#fff;font-family:system-ui,sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;text-align:center;}
+.msg{font-size:18px;opacity:0.9;} .sub{font-size:13px;color:#888;margin-top:12px;}</style>
+</head><body>
+<div><div class="msg">Mise a jour en cours…</div><div class="sub" id="s">Vidage du cache SW</div></div>
+<script>
+var s=document.getElementById('s');
+function done(){s.textContent='Rechargement…';setTimeout(function(){window.location.replace('/');},800);}
+var steps=[];
+if('caches' in window){steps.push(caches.keys().then(function(ns){return Promise.all(ns.map(function(n){return caches.delete(n);}));}).catch(function(){}));}
+if('serviceWorker' in navigator){steps.push(navigator.serviceWorker.getRegistrations().then(function(regs){return Promise.all(regs.map(function(r){return r.unregister();}));}).catch(function(){}));}
+Promise.all(steps).then(done).catch(done);
+</script></body></html>"""
+    return HTMLResponse(content=html, headers={
+        "Cache-Control": "no-cache, no-store, must-revalidate",
+        "Pragma": "no-cache",
+        "Expires": "0",
+    })
 
 
 @app.get("/simli")
@@ -8231,6 +9105,10 @@ async def _handle_tavus_tool_call(body: Dict) -> Dict:
             result = await _tool_send_email(args, tenant_id=tid)
         elif tool_name == "invite_visio":
             result = await _tool_invite_visio(args, tenant_id=tid, conversation_id=conversation_id)
+        elif tool_name == "call_contact":
+            result = await _tool_call_contact(args, tenant_id=tid, session_id=conversation_id or "visio")
+        elif tool_name == "send_conclusions":
+            result = await _tool_send_conclusions(args, tenant_id=tid, conversation_id=conversation_id)
         elif tool_name == "search_web":
             result = await _tool_search_web(args, tenant_id=tid)
         elif tool_name == "search_places":
@@ -8272,6 +9150,18 @@ async def _handle_tavus_tool_call(body: Dict) -> Dict:
             result = _tool_secretary_search(tid, args)
         elif tool_name == "list_folders":
             result = _tool_secretary_folders(tid)
+        elif tool_name == "get_vision_context":
+            # Retourne la derniere description vision capturee par le navigateur
+            from fastapi import Request as _Req
+            client_ip = (request.client.host if request.client else None) or "unknown"
+            desc = _visio_scene_cache.get(client_ip, "")
+            if not desc:
+                # Fallback: chercher dans tous les IPs recents
+                desc = next(iter(_visio_scene_cache.values()), "") if _visio_scene_cache else ""
+            if desc:
+                result = {"status": "ok", "message": desc}
+            else:
+                result = {"status": "ok", "message": "Aucune image caméra disponible pour le moment. La vision est peut-être en cours d'initialisation."}
         else:
             logger.warning(f"Tavus tool inconnu: {tool_name}")
     except Exception as e:
@@ -8606,6 +9496,130 @@ async def _tool_invite_visio(args: Dict, tenant_id: int = 0, conversation_id: st
         "status": "success",
         "message": f"Lien visio envoye a {matched_name} par SMS ! Vous serez dans la meme conversation video.",
         "visio_url": visio_url,
+    }
+
+
+async def _tool_send_conclusions(args: Dict, tenant_id: int = 0, conversation_id: str = "") -> Dict:
+    """Rédige un compte-rendu professionnel et l'envoie aux participants de la visio."""
+    import json as _jsc
+    from datetime import datetime as _dt
+
+    tid = tenant_id or TENANT_ID
+    mgr = _get_tenant_manager(tid) if tid else _memory_manager
+    if not mgr:
+        return {"status": "error", "message": "Service mémoire non disponible"}
+
+    subject = args.get("subject", "Compte-rendu de réunion")
+    conclusions = args.get("conclusions", "")
+    recipients_filter = [r.lower() for r in (args.get("recipients") or [])]
+    if not conclusions:
+        return {"status": "error", "message": "Contenu des conclusions requis"}
+
+    sub_name = _tenant_subscriber_first_name(tid)
+    profile = None
+    try:
+        profile = mgr.get_subscriber_profile()
+        if profile and profile.first_name:
+            sub_name = profile.first_name
+    except Exception:
+        pass
+
+    now_str = _dt.now(ZoneInfo("Europe/Paris")).strftime("%d/%m/%Y à %H:%M")
+
+    # Récupère les participants depuis Redis
+    participants = []
+    if _redis_client and conversation_id:
+        try:
+            raw = _redis_client.client.get(f"luna:conv:{conversation_id}:participants")
+            if raw:
+                participants = _jsc.loads(raw.decode() if isinstance(raw, bytes) else raw)
+        except Exception:
+            pass
+
+    if recipients_filter and participants:
+        participants = [p for p in participants
+                       if any(f in p.get("name", "").lower() for f in recipients_filter)]
+
+    # Document formaté
+    doc_text = (
+        f"COMPTE-RENDU DE RÉUNION\n"
+        f"Rédigé par Luna IA — {now_str}\n"
+        f"Animateur : {sub_name}\n"
+        f"Objet : {subject}\n\n"
+        f"{'─' * 40}\n\n"
+        f"{conclusions}\n\n"
+        f"{'─' * 40}\n"
+        f"Document généré automatiquement par Luna IA (YAWatch)"
+    )
+
+    # Sauvegarder en mémoire
+    try:
+        mgr.add_note(
+            content=f"[CR visio] {subject} ({now_str})\n{conclusions[:500]}",
+            context="visio_conclusions",
+            tags=["visio", "compte-rendu"],
+        )
+    except Exception:
+        pass
+
+    # Générer DOCX
+    download_url = ""
+    if _doc_generator:
+        try:
+            fname = _doc_generator.generate_letter(
+                doc_type="compte_rendu",
+                subject=subject,
+                body_text=conclusions,
+                profile=profile.model_dump() if profile else {},
+            )
+            download_url = f"/api/documents/download/{fname}"
+        except Exception as _de:
+            logger.warning(f"send_conclusions docx: {_de}")
+
+    # Envoyer aux participants
+    sent_to, errors = [], []
+    base_url = os.getenv("BASE_URL", "")
+    for p in participants:
+        pname = p.get("name", "l'invité")
+        phone = p.get("phone", "")
+        sms_preview = conclusions[:200].replace("\n", " ")
+        sms_msg = (
+            f"[Luna] CR '{subject}' ({now_str}) :\n{sms_preview}…"
+            + (f"\nDoc : {base_url}{download_url}" if download_url else "")
+        )
+        if phone:
+            try:
+                from integrations.twilio.sms_client import TwilioSMSClient
+                norm = TwilioSMSClient.normalize_phone(phone)
+                ok_sms, _ = _tracked_sms_send(norm, sms_msg[:320], label=f"CR visio {pname}")
+                if ok_sms:
+                    sent_to.append(pname)
+                else:
+                    errors.append(f"{pname}: SMS échoué")
+            except Exception as _se:
+                errors.append(f"{pname}: {str(_se)[:60]}")
+
+    if not participants:
+        return {
+            "status": "partial",
+            "message": (
+                "Compte-rendu rédigé et sauvegardé en mémoire"
+                + (f". Disponible : {download_url}" if download_url else "")
+                + ". Aucun participant enregistré — partage le lien manuellement si besoin."
+            ),
+            "download_url": download_url,
+        }
+
+    logger.info(f"send_conclusions sent to {sent_to}")
+    return {
+        "status": "success",
+        "message": (
+            f"Compte-rendu envoyé à : {', '.join(sent_to) if sent_to else 'personne'}."
+            + (f" Erreurs : {'; '.join(errors)}" if errors else "")
+            + (f" Document : {download_url}" if download_url else "")
+        ),
+        "sent_to": sent_to,
+        "download_url": download_url,
     }
 
 
