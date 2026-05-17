@@ -2422,12 +2422,13 @@ function _concShowSmsForm() {
 }
 function _concShowEmailForm() {
   _concModalShow("Envoyer un email", [
-    {name: "contact_name", label: "Contact", placeholder: "Nom du destinataire"},
+    {name: "contact_name", label: "Contact (nom)", placeholder: "Nom du destinataire"},
+    {name: "email", label: "Email du destinataire", type: "email", placeholder: "exemple@mail.fr"},
     {name: "subject", label: "Objet", placeholder: "Objet du mail"},
     {name: "body", label: "Message", type: "textarea", placeholder: "Contenu..."},
   ], "Envoyer", function(v) {
-    if (!v.contact_name || !v.subject) return;
-    _concDirect("send_email", {contact_name: v.contact_name, subject: v.subject, body: v.body || ""}, "Email", function(d) {
+    if (!v.contact_name || !v.subject || !v.email) return;
+    _concDirect("send_email", {contact_name: v.contact_name, email: v.email, subject: v.subject, body: v.body || ""}, "Email", function(d) {
       _concResultsBody.innerHTML = '<div style="text-align:center;padding:40px;"><div style="font-size:3em;">&#x2709;</div><p style="color:#10b981;font-weight:600;">' + esc(d.message || "Email envoye") + '</p></div>';
     });
   });

@@ -9321,6 +9321,7 @@ async def _tool_send_email(args: Dict, tenant_id: int = 0) -> Dict:
     contact_name = args.get("contact_name", "")
     subject = args.get("subject", "")
     body = args.get("body", "")
+    direct_email = (args.get("email") or "").strip()
     if not contact_name or not body:
         return {"status": "error", "message": "Nom du contact et contenu requis"}
 
@@ -9337,15 +9338,20 @@ async def _tool_send_email(args: Dict, tenant_id: int = 0) -> Dict:
     if not subject:
         subject = f"Message de {sub_name} via Luna"
 
-    # Cherche le contact par nom avec correspondance floue
-    matched_contact_email, all_contacts_email = mgr.find_contact_by_name(contact_name)
-    if not matched_contact_email:
-        available = ", ".join(c.name for c in all_contacts_email) if all_contacts_email else "aucun"
-        return {"status": "error", "message": f"Contact '{contact_name}' introuvable. Contacts disponibles : {available}"}
-    matched_name = matched_contact_email.name
-    contact_email = getattr(matched_contact_email, "email", None)
-    if not contact_email:
-        return {"status": "error", "message": f"{matched_name} n'a pas d'adresse email enregistree. Ajoutez-la via le dashboard admin."}
+    if direct_email:
+        # Email fourni directement (formulaire conciergerie) — pas besoin de chercher dans les contacts
+        matched_name = contact_name
+        contact_email = direct_email
+    else:
+        # Cherche le contact par nom avec correspondance floue
+        matched_contact_email, all_contacts_email = mgr.find_contact_by_name(contact_name)
+        if not matched_contact_email:
+            available = ", ".join(c.name for c in all_contacts_email) if all_contacts_email else "aucun"
+            return {"status": "error", "message": f"Contact '{contact_name}' introuvable. Contacts disponibles : {available}"}
+        matched_name = matched_contact_email.name
+        contact_email = getattr(matched_contact_email, "email", None)
+        if not contact_email:
+            return {"status": "error", "message": f"{matched_name} n'a pas d'adresse email enregistree. Renseignez-la dans le formulaire."}
 
     # Utilise send_for_tenant (Gmail OAuth d'abord, puis SendGrid fallback)
     success, details = await email_client.send_for_tenant(
