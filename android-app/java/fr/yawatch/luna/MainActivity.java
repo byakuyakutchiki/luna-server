@@ -245,8 +245,13 @@ public class MainActivity extends Activity {
         webView.setWebViewClient(new WebViewClient() {
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, String url) {
-                if (url != null && (url.startsWith(LUNA_URL) || url.startsWith("about:"))) {
-                    return false; // navigation interne autorisée
+                if (url == null) return true;
+                // Autoriser : Luna, navigation WebView interne, fichiers/données WebRTC
+                if (url.startsWith(LUNA_URL)
+                        || url.startsWith("about:")
+                        || url.startsWith("blob:")
+                        || url.startsWith("data:")) {
+                    return false;
                 }
                 return true; // bloquer toute navigation vers un domaine externe
             }

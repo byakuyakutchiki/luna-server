@@ -1828,8 +1828,25 @@ async def download_apk():
 
 
 # Version APK pour auto-update
-LUNA_APP_VERSION = "2.5"
-LUNA_APP_VERSION_CODE = 16
+LUNA_APP_VERSION = "2.7"
+LUNA_APP_VERSION_CODE = 18
+
+
+def _compute_apk_sha256() -> str:
+    """Calcule le SHA-256 de l'APK au démarrage, mis en cache."""
+    import hashlib
+    apk_path = os.path.join(STATIC_DIR, "luna-proprio.apk")
+    if not os.path.exists(apk_path):
+        return ""
+    h = hashlib.sha256()
+    with open(apk_path, "rb") as f:
+        for chunk in iter(lambda: f.read(65536), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+_APK_SHA256: str = _compute_apk_sha256()
+
 
 @app.get("/api/app/version")
 async def app_version():
@@ -1838,7 +1855,8 @@ async def app_version():
         "version": LUNA_APP_VERSION,
         "version_code": LUNA_APP_VERSION_CODE,
         "apk_url": "/download/luna.apk",
-        "changelog": "Visio multi-participant, choix duree visio, invitations activites ameliorees, corrections voix",
+        "apk_sha256": _APK_SHA256,
+        "changelog": "Sécurité APK renforcée, vérification intégrité mise à jour",
     }
 
 
