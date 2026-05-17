@@ -226,8 +226,25 @@ class TavusClient:
         {
             "type": "function",
             "function": {
+                "name": "call_contact",
+                "description": "Passer un appel telephone VOCAL a un contact de confiance. Utilise UNIQUEMENT quand le souscripteur dit 'appelle...', 'telephone a...', 'passe un coup de fil a...'. NE PAS utiliser pour envoyer un message texte (→ send_sms) ni pour une visio (→ invite_visio).",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "contact_name": {
+                            "type": "string",
+                            "description": "Prenom ou nom du contact a appeler (ex: maman, Marie, mon fils)"
+                        }
+                    },
+                    "required": ["contact_name"]
+                }
+            }
+        },
+        {
+            "type": "function",
+            "function": {
                 "name": "send_sms",
-                "description": "Envoyer un SMS a un contact de confiance du souscripteur. Utilise cette fonction quand le souscripteur demande d'envoyer un message a quelqu'un.",
+                "description": "Envoyer un SMS ECRIT a UN SEUL contact de confiance. Utilise quand le souscripteur dit 'envoie un SMS a...', 'ecris un message a...', 'previens X'. Pour un appel vocal → call_contact. Pour alerter TOUS les contacts en urgence → alert_contacts.",
                 "parameters": {
                     "type": "object",
                     "properties": {
@@ -319,7 +336,7 @@ class TavusClient:
             "type": "function",
             "function": {
                 "name": "alert_contacts",
-                "description": "Alerter tous les contacts de confiance en cas d'urgence. Utilise cette fonction UNIQUEMENT si le souscripteur est en detresse et demande de prevenir ses proches.",
+                "description": "Alerter EN URGENCE TOUS les contacts de confiance simultanement par SMS. Utilise UNIQUEMENT si le souscripteur est en danger (chute, malaise, detresse grave). Pour un message a un seul contact → send_sms. Inclut automatiquement la position GPS du souscripteur.",
                 "parameters": {
                     "type": "object",
                     "properties": {

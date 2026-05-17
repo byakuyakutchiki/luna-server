@@ -1614,6 +1614,7 @@ class ContactRequest(BaseModel):
     name: str = Field(..., min_length=1, max_length=100)
     relation: str = Field(..., min_length=1, max_length=50)
     email: str = Field(default="", max_length=254)
+    address: str = Field(default="", max_length=300)
     preferred_channel: str = Field(default="sms", max_length=10)
     emergency_only: bool = False
     availability: str = Field(default="24/7", max_length=100)
@@ -7107,6 +7108,7 @@ async def list_contacts(request: Request):
                 "name": c.name,
                 "relation": c.relation,
                 "email": c.email or "",
+                "address": c.address or "",
                 "preferred_channel": c.preferred_channel.value if hasattr(c.preferred_channel, "value") else str(c.preferred_channel),
                 "emergency_only": c.emergency_only,
                 "verified_at": c.verified_at.isoformat() if c.verified_at else None,
@@ -7134,6 +7136,7 @@ async def add_contact(req: ContactRequest, request: Request):
             preferred_channel=channel,
             emergency_only=req.emergency_only,
             email=req.email or "",
+            address=req.address or "",
         )
         _gamify(tid, "add_contact")
         return {"success": True, "contact": {
@@ -7141,6 +7144,7 @@ async def add_contact(req: ContactRequest, request: Request):
             "name": contact.name,
             "relation": contact.relation,
             "email": contact.email or "",
+            "address": contact.address or "",
         }}
     except Exception as e:
         return JSONResponse(status_code=400, content={"error": str(e)})

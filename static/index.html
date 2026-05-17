@@ -1225,6 +1225,7 @@ body.mode-secretaire .luna-chip:hover { background: rgba(16,185,129,0.2); border
     <div class="form-row">
       <div class="form-group"><label>Relation</label><input type="text" id="ct-relation" placeholder="fille, voisin..."></div>
       <div class="form-group"><label>Email (pour envoi email)</label><input type="email" id="ct-email" placeholder="marie@gmail.com"></div>
+      <div class="form-group"><label>Adresse (pour itinéraire urgence)</label><input type="text" id="ct-address" placeholder="12 rue de la Paix, Paris"></div>
     </div>
     <div class="form-row-3">
       <div class="form-group">
@@ -3668,11 +3669,14 @@ function loadContacts() {
     list.innerHTML = "";
     data.contacts.forEach(function(c) {
       var card = document.createElement("div"); card.className = "card";
-      var emailLine = c.email ? ' &bull; <span style="color:#10b981;">&#9993; ' + esc(c.email) + '</span>' : ' <span style="color:#888;font-size:0.8em;">(pas d\'email)</span>';
+      var emailLine = c.email ? ' &bull; <span style="color:#10b981;">&#9993; ' + esc(c.email) + '</span>' : '';
+      var addressLine = c.address
+        ? '<br>&#128205; <a href="https://www.google.com/maps/search/' + encodeURIComponent(c.address) + '" target="_blank" rel="noopener" style="color:#60a5fa;">' + esc(c.address) + '</a>'
+        : '';
       card.innerHTML = '<div class="card-header"><span class="card-title">' + esc(c.name) + ' <span class="badge badge-blue">' + esc(c.relation) + '</span></span>' +
         '<button class="btn btn-danger btn-sm" onclick="deleteContact(\'' + c.phone.replace(/'/g, "\\'") + '\')">Supprimer</button></div>' +
         '<div class="card-body">&#128222; ' + esc(c.phone) + ' &mdash; ' + esc(c.preferred_channel) + emailLine +
-        (c.emergency_only ? ' <span class="badge badge-red">Urgence seulement</span>' : '') + '</div>';
+        addressLine + (c.emergency_only ? ' <span class="badge badge-red">Urgence seulement</span>' : '') + '</div>';
       list.appendChild(card);
     });
     var countInfo = document.createElement("p");
@@ -3702,6 +3706,7 @@ document.getElementById("contactAddBtn").addEventListener("click", function() {
     phone: document.getElementById("ct-phone").value.trim(),
     relation: document.getElementById("ct-relation").value.trim(),
     email: document.getElementById("ct-email").value.trim(),
+    address: document.getElementById("ct-address").value.trim(),
     preferred_channel: document.getElementById("ct-channel").value,
     emergency_only: document.getElementById("ct-emergency").value === "true"
   };
@@ -3716,6 +3721,7 @@ document.getElementById("contactAddBtn").addEventListener("click", function() {
       document.getElementById("ct-phone").value = "";
       document.getElementById("ct-relation").value = "";
       document.getElementById("ct-email").value = "";
+      document.getElementById("ct-address").value = "";
       loadContacts();
     } else { st.textContent = "Erreur: " + (data.error || "inconnue"); st.className = "form-status error"; }
   })
