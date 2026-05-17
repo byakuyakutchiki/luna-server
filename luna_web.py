@@ -9245,18 +9245,13 @@ async def _tool_send_sms(args: Dict, tenant_id: int = 0) -> Dict:
     if not contact_name or not message:
         return {"status": "error", "message": "Nom du contact et message requis"}
 
-    # Cherche le contact par nom
-    contacts = mgr.list_trusted_contacts()
-    phone = None
-    matched_name = ""
-    for c in contacts:
-        if contact_name.lower() in c.name.lower() or contact_name.lower() in (c.relation or "").lower():
-            phone = c.phone
-            matched_name = c.name
-            break
-
-    if not phone:
-        return {"status": "error", "message": f"Contact '{contact_name}' non trouve parmi les contacts de confiance"}
+    # Cherche le contact par nom avec correspondance floue
+    matched_contact, all_contacts = mgr.find_contact_by_name(contact_name)
+    if not matched_contact:
+        available = ", ".join(c.name for c in all_contacts) if all_contacts else "aucun"
+        return {"status": "error", "message": f"Contact '{contact_name}' introuvable. Contacts disponibles : {available}"}
+    phone = matched_contact.phone
+    matched_name = matched_contact.name
 
     # Recupere le prenom du souscripteur
     sub_name = _SUBSCRIBER_NAME
@@ -9333,18 +9328,13 @@ async def _tool_send_email(args: Dict, tenant_id: int = 0) -> Dict:
     if not subject:
         subject = f"Message de {sub_name} via Luna"
 
-    # Cherche le contact par nom
-    contacts = mgr.list_trusted_contacts()
-    contact_email = None
-    matched_name = ""
-    for c in contacts:
-        if contact_name.lower() in c.name.lower() or contact_name.lower() in (c.relation or "").lower():
-            contact_email = getattr(c, "email", None)
-            matched_name = c.name
-            break
-
-    if not matched_name:
-        return {"status": "error", "message": f"Contact '{contact_name}' non trouve parmi les contacts de confiance"}
+    # Cherche le contact par nom avec correspondance floue
+    matched_contact_email, all_contacts_email = mgr.find_contact_by_name(contact_name)
+    if not matched_contact_email:
+        available = ", ".join(c.name for c in all_contacts_email) if all_contacts_email else "aucun"
+        return {"status": "error", "message": f"Contact '{contact_name}' introuvable. Contacts disponibles : {available}"}
+    matched_name = matched_contact_email.name
+    contact_email = getattr(matched_contact_email, "email", None)
     if not contact_email:
         return {"status": "error", "message": f"{matched_name} n'a pas d'adresse email enregistree. Ajoutez-la via le dashboard admin."}
 
@@ -9403,18 +9393,13 @@ async def _tool_invite_visio(args: Dict, tenant_id: int = 0, conversation_id: st
     if not contact_name:
         return {"status": "error", "message": "Nom du contact requis"}
 
-    # Cherche le contact
-    contacts = mgr.list_trusted_contacts()
-    phone = None
-    matched_name = ""
-    for c in contacts:
-        if contact_name.lower() in c.name.lower() or contact_name.lower() in (c.relation or "").lower():
-            phone = c.phone
-            matched_name = c.name
-            break
-
-    if not phone:
-        return {"status": "error", "message": f"Contact '{contact_name}' non trouve parmi les contacts de confiance"}
+    # Cherche le contact avec correspondance floue
+    matched_cv, all_cv = mgr.find_contact_by_name(contact_name)
+    if not matched_cv:
+        available = ", ".join(c.name for c in all_cv) if all_cv else "aucun"
+        return {"status": "error", "message": f"Contact '{contact_name}' introuvable. Contacts disponibles : {available}"}
+    phone = matched_cv.phone
+    matched_name = matched_cv.name
 
     # Recupere le prenom du souscripteur
     sub_name = _SUBSCRIBER_NAME
@@ -9684,16 +9669,17 @@ async def _tool_call_contact(args: Dict, tenant_id: int = 0, session_id: str = "
         matched_name = contact_name or "Administration"
         is_admin_call = True
     else:
-        # Cherche dans les contacts de confiance
-        contacts = mgr.list_trusted_contacts()
-        for c in contacts:
-            if contact_name.lower() in c.name.lower() or contact_name.lower() in (c.relation or "").lower():
-                phone = c.phone
-                matched_name = c.name
-                break
+        # Cherche dans les contacts de confiance avec correspondance floue
+        matched_c, all_c = mgr.find_contact_by_name(contact_name)
+        if matched_c:
+            phone = matched_c.phone
+            matched_name = matched_c.name
+        else:
+            available = ", ".join(c.name for c in all_c) if all_c else "aucun"
+            return {"status": "error", "message": f"Contact '{contact_name}' introuvable. Contacts disponibles : {available}. Pour appeler un service, fournis le numero directement."}
 
     if not phone:
-        return {"status": "error", "message": f"Contact '{contact_name}' non trouve parmi les contacts de confiance. Pour appeler un service/administration, demande le numero au souscripteur."}
+        return {"status": "error", "message": f"Contact '{contact_name}' non trouve parmi les contacts de confiance."}
 
     # Recupere le prenom du souscripteur
     sub_name = _SUBSCRIBER_NAME
@@ -10093,12 +10079,26 @@ async def _tool_alert_contacts(args: Dict, tenant_id: int = 0) -> Dict:
     except Exception:
         pass
 
+    # Heure locale Paris
+    try:
+        import pytz as _pytz
+        _paris = _pytz.timezone("Europe/Paris")
+        _now_paris = datetime.utcnow().replace(tzinfo=_pytz.utc).astimezone(_paris)
+        time_line = f"\n🕐 Heure : {_now_paris.strftime('%H:%M')} (heure de Paris)"
+    except Exception:
+        time_line = ""
+
     sent = 0
     for c in contacts:
+        # Ajoute l'adresse du contact si disponible
+        addr_line = f"\n🏠 Votre adresse : {c.address}" if getattr(c, "address", None) else ""
         msg = (
             f"[ALERTE Luna] {name} a besoin d'aide. Raison : {reason}."
             f"{location_line}"
-            f"\nMerci de vérifier qu'il va bien. Urgence : appelez le 112."
+            f"{time_line}"
+            f"{addr_line}"
+            f"\nUrgence médicale : 15 (SAMU) • Pompiers : 18 • Urgences : 112"
+            f"\nMerci de vérifier qu'il va bien."
         )
         success, _ = _tracked_sms_send(c.phone, msg, label="Alerte contacts urgence")
         if success:

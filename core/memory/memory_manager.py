@@ -418,6 +418,41 @@ class MemoryManager:
                 logger.warning(f"Contact corrompu ignore ({phone}): {e}")
         return contacts
 
+    def find_contact_by_name(self, name_query: str) -> tuple:
+        """Cherche un contact par nom avec correspondance floue.
+
+        Returns:
+            (contact_ou_None, tous_les_contacts)
+        """
+        import difflib
+        query = name_query.strip().lower()
+        contacts = self.list_trusted_contacts()
+        if not contacts:
+            return None, []
+        # Correspondance exacte prioritaire (nom complet, prénom, relation)
+        for c in contacts:
+            if query == c.name.lower():
+                return c, contacts
+        for c in contacts:
+            parts = c.name.lower().split()
+            if parts and query == parts[0]:
+                return c, contacts
+        for c in contacts:
+            if query == (c.relation or "").lower():
+                return c, contacts
+        # Sous-chaîne
+        for c in contacts:
+            if query in c.name.lower() or query in (c.relation or "").lower():
+                return c, contacts
+        # Fuzzy matching via difflib
+        names = [c.name.lower() for c in contacts]
+        matches = difflib.get_close_matches(query, names, n=1, cutoff=0.6)
+        if matches:
+            for c in contacts:
+                if c.name.lower() == matches[0]:
+                    return c, contacts
+        return None, contacts
+
     def remove_trusted_contact(self, phone: str) -> bool:
         """Supprime un contact de confiance. Retourne True si supprime."""
         removed = self.redis.remove_trusted_contact(self.tenant_id, phone)

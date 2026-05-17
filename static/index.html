@@ -5422,14 +5422,39 @@ showApp = function() { _origShowApp(); initApp(); refreshXpWidget(); _amisHeartb
 // --- Geolocation ---
 function _initGeolocation() {
   if (!navigator.geolocation) return;
-  // Envoyer la position au serveur toutes les 30 minutes
+  var _lastSentPos = null;
+  var _lastSentTime = 0;
+  var _MIN_INTERVAL_MS = 30 * 1000;   // 30 secondes minimum entre envois
+  var _MIN_DISTANCE_M = 50;           // 50 metres de deplacement minimum
+
+  function _haversineMeters(lat1, lon1, lat2, lon2) {
+    var R = 6371000;
+    var dLat = (lat2 - lat1) * Math.PI / 180;
+    var dLon = (lon2 - lon1) * Math.PI / 180;
+    var a = Math.sin(dLat/2)*Math.sin(dLat/2) +
+            Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)*Math.sin(dLon/2);
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  }
+
+  function _shouldSend(pos) {
+    var now = Date.now();
+    if (now - _lastSentTime < _MIN_INTERVAL_MS) return false;
+    if (_lastSentPos) {
+      var dist = _haversineMeters(_lastSentPos.lat, _lastSentPos.lng, pos.coords.latitude, pos.coords.longitude);
+      if (dist < _MIN_DISTANCE_M) return false;
+    }
+    return true;
+  }
+
   function _sendPosition(pos) {
+    if (!_shouldSend(pos)) return;
+    _lastSentTime = Date.now();
+    _lastSentPos = {lat: pos.coords.latitude, lng: pos.coords.longitude};
     var data = {
       latitude: pos.coords.latitude,
       longitude: pos.coords.longitude,
       accuracy: pos.coords.accuracy
     };
-    // Reverse geocoding leger via Nominatim (gratuit, pas de cle)
     fetch("https://nominatim.openstreetmap.org/reverse?format=json&lat=" + data.latitude + "&lon=" + data.longitude + "&zoom=16&accept-language=fr")
     .then(function(r) { return r.json(); })
     .then(function(geo) {
@@ -5442,7 +5467,6 @@ function _initGeolocation() {
       });
     })
     .catch(function() {
-      // Envoie sans ville si Nominatim echoue
       authFetch("/api/geolocation", {
         method: "POST",
         headers: {"Content-Type": "application/json"},
@@ -5450,12 +5474,15 @@ function _initGeolocation() {
       });
     });
   }
-  // Premiere demande
+
+  // Premiere demande immédiate
   navigator.geolocation.getCurrentPosition(_sendPosition, function() {}, {enableHighAccuracy: false, timeout: 10000});
-  // Rafraichir toutes les 30 minutes
-  setInterval(function() {
-    navigator.geolocation.getCurrentPosition(_sendPosition, function() {}, {enableHighAccuracy: false, timeout: 10000});
-  }, 30 * 60 * 1000);
+  // Suivi continu (remplace setInterval) : se declenche sur deplacement ou toutes les 30s max
+  navigator.geolocation.watchPosition(
+    _sendPosition,
+    function() {},
+    {enableHighAccuracy: true, timeout: 10000, maximumAge: 30000}
+  );
 }
 
 // Force purge cache + rechargement via ?_purge=1

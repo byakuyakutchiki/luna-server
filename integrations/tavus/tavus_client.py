@@ -415,6 +415,52 @@ class TavusClient:
         },
     ]
 
+    @classmethod
+    def _build_dynamic_tools(cls, contacts: list) -> list:
+        """Retourne LUNA_TOOLS avec contact_name contraint aux prénoms connus."""
+        import copy
+        if not contacts:
+            return cls.LUNA_TOOLS
+        names = [c.name.split()[0] for c in contacts if c.name]
+        if not names:
+            return cls.LUNA_TOOLS
+        contact_tools = {"send_sms", "call_contact", "send_email", "invite_visio"}
+        tools = copy.deepcopy(cls.LUNA_TOOLS)
+        for tool in tools:
+            fn = tool.get("function", {})
+            if fn.get("name") in contact_tools:
+                props = fn.get("parameters", {}).get("properties", {})
+                if "contact_name" in props:
+                    props["contact_name"]["enum"] = names
+                    props["contact_name"]["description"] = (
+                        f"Prenom exact du contact (doit etre l'un de : {', '.join(names)})"
+                    )
+        return tools
+
+    async def configure_tools_for_tenant(self, contacts: list) -> bool:
+        """Patch la persona Tavus avec les noms de contacts actuels du tenant."""
+        dynamic_tools = self._build_dynamic_tools(contacts)
+        if not self.is_configured:
+            return False
+        try:
+            payload = [{"op": "replace", "path": "/layers/llm/tools", "value": dynamic_tools}]
+            async with httpx.AsyncClient() as http:
+                resp = await http.patch(
+                    f"{TAVUS_API_BASE}/personas/{self.persona_id}",
+                    headers=self._headers(),
+                    json=payload,
+                    timeout=15,
+                )
+            ok = resp.status_code in (200, 204)
+            if ok:
+                logger.info(f"Tavus tools dynamiques configures ({len(dynamic_tools)} tools, {len(contacts)} contacts)")
+            else:
+                logger.warning(f"Tavus dynamic tools PATCH failed ({resp.status_code}): {resp.text[:200]}")
+            return ok
+        except Exception as e:
+            logger.warning(f"configure_tools_for_tenant error: {e}")
+            return False
+
     async def configure_tools(self) -> bool:
         """
         Configure les tools (function calling) sur la persona Tavus.
@@ -540,6 +586,15 @@ class TavusClient:
 
         if not self.is_configured:
             return False, {"error": "Tavus non configure (cle API ou persona manquante)"}
+
+        # Injecte les contacts actuels du tenant dans les outils Tavus (enum dynamique)
+        if self.memory:
+            try:
+                contacts = self.memory.list_trusted_contacts()
+                if contacts:
+                    await self.configure_tools_for_tenant(contacts)
+            except Exception as _e:
+                logger.warning(f"Dynamic tools injection failed (non-bloquant): {_e}")
 
         payload = {
             "persona_id": self.persona_id,
