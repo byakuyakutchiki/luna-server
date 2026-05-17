@@ -2488,7 +2488,35 @@ html, body {
 .w2-particle{position:absolute;width:3px;height:3px;background:#ffd700;border-radius:50%;opacity:0;animation:w2float 8s ease-in-out infinite;}
 @keyframes w2float{0%{opacity:0;transform:translateY(0);}20%{opacity:.7;}80%{opacity:.4;}100%{opacity:0;transform:translateY(-200px) translateX(30px);}}
 .hud-world-indicator{font-size:11px;color:#a78bfa;margin-left:8px;opacity:0.8;}
+
+/* ── PRESTIGE HUD ── */
+:root { --prestige-color:#9ca3af; --prestige-glow:rgba(156,163,175,0.3); }
+.hud-prestige-badge{display:inline-block;padding:2px 9px;border-radius:10px;font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;border:1px solid var(--prestige-color);color:var(--prestige-color);margin-top:2px;transition:all .5s ease;}
+.hud-xp-fill-prestige{background:linear-gradient(90deg,var(--prestige-color),#fff4) !important;}
+
+/* ── BADGES ANIMÉS ── */
+@keyframes badge-pulse{0%,100%{filter:drop-shadow(0 0 4px currentColor);}50%{filter:drop-shadow(0 0 14px currentColor) drop-shadow(0 0 28px currentColor);}}
+@keyframes badge-founder{0%,100%{filter:drop-shadow(0 0 6px #fbbf24);}50%{filter:drop-shadow(0 0 20px #fbbf24) drop-shadow(0 0 40px #f59e0b);}}
+@keyframes badge-prestige-anim{0%,100%{filter:drop-shadow(0 0 8px #f43f5e);transform:rotate(-1deg) scale(1);}50%{filter:drop-shadow(0 0 22px #f43f5e) drop-shadow(0 0 44px #be185d);transform:rotate(1deg) scale(1.06);}}
+@keyframes badge-float{0%,100%{transform:translateY(0);}50%{transform:translateY(-3px);}}
+.badge-item.earned[data-badge-type="founder"] .badge-icon-wrap{animation:badge-founder 2s ease-in-out infinite;}
+.badge-item.earned[data-badge-type="prestige"] .badge-icon-wrap{animation:badge-prestige-anim 3s ease-in-out infinite;}
+.badge-item.earned[data-animated="true"]:not([data-badge-type="founder"]):not([data-badge-type="prestige"]) .badge-icon-wrap{animation:badge-pulse 2.5s ease-in-out infinite;}
+.badge-rarity-prestige{color:#f43f5e;background:rgba(244,63,94,0.12);text-shadow:0 0 8px rgba(244,63,94,0.5);}
+.badge-item.earned[data-rarity="prestige"] .badge-shield-wrap{box-shadow:0 0 16px rgba(244,63,94,0.6),0 0 32px rgba(244,63,94,0.3);}
+
+/* ── CARTE MONDIALE ── */
+#world-map-container{position:fixed;inset:0;background:#0a0a1a;z-index:9500;display:none;flex-direction:column;}
+#world-map-container.active{display:flex;}
+#world-map{flex:1;width:100%;}
+.map-close-btn{position:absolute;top:16px;right:16px;z-index:9600;background:rgba(0,0,0,0.7);color:#fff;border:1px solid rgba(255,255,255,0.2);border-radius:50%;width:40px;height:40px;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+.map-legend{position:absolute;bottom:20px;left:16px;z-index:9600;background:rgba(10,10,26,0.85);border-radius:12px;padding:10px 14px;border:1px solid rgba(255,255,255,0.1);}
+.map-legend-item{display:flex;align-items:center;gap:6px;font-size:11px;color:#ccc;margin-bottom:4px;}
+.map-legend-dot{width:10px;height:10px;border-radius:50%;}
+.map-privacy-row{position:absolute;top:16px;left:16px;z-index:9600;background:rgba(10,10,26,0.85);border-radius:10px;padding:8px 12px;border:1px solid rgba(255,255,255,0.1);display:flex;align-items:center;gap:8px;font-size:12px;color:#ccc;}
+@keyframes marker-ring-pulse{0%,100%{transform:scale(1);opacity:.5;}50%{transform:scale(1.5);opacity:0;}}
 </style>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
 </head>
 <body>
 <!-- Loading overlay -->
@@ -6540,6 +6568,31 @@ html, body {
   <span class="portal-icon">&#10024;</span> <span id="worldTravelLabel">Voyager</span>
 </button>
 
+<!-- Bouton carte mondiale -->
+<button onclick="openWorldMap()" style="position:fixed;bottom:70px;right:20px;z-index:50;padding:9px 16px;border-radius:18px;border:2px solid rgba(96,165,250,0.4);background:rgba(26,26,46,0.9);color:#60a5fa;font-size:12px;cursor:pointer;backdrop-filter:blur(4px);display:flex;align-items:center;gap:6px;" id="worldMapBtn">
+  🌍 <span>Carte</span>
+</button>
+
+<!-- Carte mondiale overlay -->
+<div id="world-map-container">
+  <button class="map-close-btn" onclick="closeWorldMap()">✕</button>
+  <div class="map-privacy-row">
+    <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+      <input type="checkbox" id="mapPrivacyToggle" checked onchange="_setMapPrivacy(this.checked)">
+      Visible sur la carte
+    </label>
+  </div>
+  <div id="world-map"></div>
+  <div class="map-legend">
+    <div style="font-size:11px;font-weight:600;color:#888;margin-bottom:6px;">Palier prestige</div>
+    <div class="map-legend-item"><div class="map-legend-dot" style="background:#9ca3af"></div>Decouverte</div>
+    <div class="map-legend-item"><div class="map-legend-dot" style="background:#60a5fa"></div>Gardien</div>
+    <div class="map-legend-item"><div class="map-legend-dot" style="background:#c084fc"></div>Astral</div>
+    <div class="map-legend-item"><div class="map-legend-dot" style="background:#fbbf24"></div>Mythique</div>
+    <div class="map-legend-item"><div class="map-legend-dot" style="background:#f43f5e"></div>Architecte</div>
+  </div>
+</div>
+
 <!-- World Transition Overlay -->
 <div class="world-transition" id="worldTransition">
   <div class="world-transition-inner">
@@ -10117,21 +10170,46 @@ function buildBadgeSVG(icon, rarity, isEarned) {
 function renderBadgeItems(badges, filter) {
   var html = "";
   var count = 0;
+  var rarityOrder = { prestige: 0, legendary: 1, epic: 2, rare: 3, common: 4 };
 
-  for (var i = 0; i < badges.length; i++) {
-    var b = badges[i];
+  // Trier : gagnés d'abord, puis par rareté décroissante
+  var sorted = badges.slice().sort(function(a, b) {
+    if (a.earned !== b.earned) return a.earned ? -1 : 1;
+    return (rarityOrder[a.rarity] || 4) - (rarityOrder[b.rarity] || 4);
+  });
+
+  for (var i = 0; i < sorted.length; i++) {
+    var b = sorted[i];
     if (filter !== "all" && b.category !== filter) continue;
     count++;
 
     var isEarned = b.earned;
-    var cls = isEarned ? "badge-item earned" : "badge-item locked";
-    var rarityLabel = rarityLabels[b.rarity] || b.rarity || "";
-    var rarityCls = "badge-rarity badge-rarity-" + (b.rarity || "common");
-    var rStyle = RARITY_STYLES[b.rarity] || RARITY_STYLES.common;
-    var badgeSvg = buildBadgeSVG(b.icon || "star", b.rarity || "common", isEarned);
+    var rarity = b.rarity || "common";
+    var badgeType = b.badge_type || "standard";
+    var animated = b.animated || false;
+    var cls = "badge-item" + (isEarned ? " earned" : " locked");
+    var rarityLabel = rarityLabels[rarity] || rarity;
+    var rarityCls = "badge-rarity badge-rarity-" + rarity;
+    var rStyle = RARITY_STYLES[rarity] || RARITY_STYLES.common;
 
-    html += '<div class="' + cls + '" style="--badge-glow:' + rStyle.glow + '" data-rarity="' + (b.rarity || "common") + '" title="' + escapeHtml(b.description || "") + '">';
-    html += '<div class="badge-shield-wrap">' + badgeSvg + '</div>';
+    // Icône : emoji si disponible (nouveaux badges), sinon SVG
+    var iconHtml;
+    var icon = b.icon || "";
+    // Détecter si c'est un emoji (longueur courte, pas un nom de fichier icon)
+    if (icon && !icon.includes("-") && !icon.includes("_") && icon.length <= 4) {
+      iconHtml = '<div class="badge-icon-wrap" style="font-size:2em;display:flex;align-items:center;justify-content:center;width:100%;height:100%;">' + icon + '</div>';
+    } else {
+      var badgeSvg = buildBadgeSVG(icon || "star", rarity, isEarned);
+      iconHtml = '<div class="badge-icon-wrap">' + badgeSvg + '</div>';
+    }
+
+    html += '<div class="' + cls + '" '
+      + 'style="--badge-glow:' + rStyle.glow + '" '
+      + 'data-rarity="' + rarity + '" '
+      + 'data-badge-type="' + badgeType + '" '
+      + 'data-animated="' + (animated ? "true" : "false") + '" '
+      + 'title="' + escapeHtml(b.description || "") + '">';
+    html += '<div class="badge-shield-wrap">' + iconHtml + '</div>';
     html += '<div class="badge-name">' + escapeHtml(b.name || "") + '</div>';
     html += '<div class="' + rarityCls + '">' + escapeHtml(rarityLabel) + '</div>';
     html += '</div>';
@@ -10186,7 +10264,27 @@ function renderHUD(p) {
   if (!p) return;
 
   document.getElementById("hudLevel").textContent = "Niv. " + (p.level || 1);
-  document.getElementById("hudTitle").textContent = p.title || "Nouveau Venu";
+  document.getElementById("hudTitle").textContent = p.title || "Eveil Luna";
+
+  // Prestige couleur dynamique
+  if (p.prestige_color) {
+    document.documentElement.style.setProperty("--prestige-color", p.prestige_color);
+    document.documentElement.style.setProperty("--prestige-glow", p.prestige_glow || "rgba(156,163,175,0.3)");
+    // Barre XP couleur prestige
+    var xpFill = document.getElementById("hudXpFill");
+    if (xpFill) xpFill.classList.add("hud-xp-fill-prestige");
+  }
+  // Badge prestige sous le titre
+  var existingBadge = document.getElementById("hudPrestigeBadge");
+  if (!existingBadge) {
+    var badge = document.createElement("span");
+    badge.id = "hudPrestigeBadge";
+    badge.className = "hud-prestige-badge";
+    var hudCenter = document.querySelector(".hud-center");
+    if (hudCenter) hudCenter.appendChild(badge);
+  }
+  var pb = document.getElementById("hudPrestigeBadge");
+  if (pb && p.prestige_label) { pb.textContent = "✦ " + p.prestige_label; pb.style.borderColor = p.prestige_color || "#9ca3af"; pb.style.color = p.prestige_color || "#9ca3af"; }
 
   var xpCurrent = (p.xp || 0) - (p.xp_for_current_level || 0);
   var xpNeeded = (p.xp_for_next_level || 50) - (p.xp_for_current_level || 0);
@@ -12283,6 +12381,78 @@ window.sendDmMessage = sendDmMessage;
 window.blockUser = blockUser;
 window.reportUser = reportUser;
 
+})();
+</script>
+
+<!-- Leaflet + Carte mondiale -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+<script>
+(function() {
+var _worldMap = null;
+var _worldMapMarkers = [];
+
+function openWorldMap() {
+  document.getElementById("world-map-container").classList.add("active");
+  if (!_worldMap) {
+    setTimeout(function() {
+      _worldMap = L.map("world-map", { zoomControl: false, attributionControl: false })
+        .setView([46.6, 2.3], 5);
+      L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
+        subdomains: "abcd", maxZoom: 18
+      }).addTo(_worldMap);
+      L.control.zoom({ position: "bottomright" }).addTo(_worldMap);
+      _loadMapPlayers();
+    }, 100);
+  }
+}
+window.openWorldMap = openWorldMap;
+
+function closeWorldMap() {
+  document.getElementById("world-map-container").classList.remove("active");
+}
+window.closeWorldMap = closeWorldMap;
+
+function _loadMapPlayers() {
+  var tok = localStorage.getItem("jwt") || localStorage.getItem("luna_token") || "";
+  fetch("/api/world/map/players", { headers: { "Authorization": "Bearer " + tok } })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      _worldMapMarkers.forEach(function(m) { _worldMap.removeLayer(m); });
+      _worldMapMarkers = [];
+      (data.players || []).forEach(function(player) {
+        var color = player.prestige_color || "#667eea";
+        var size = Math.min(48, Math.max(26, 26 + Math.round((player.level / 20) * 22)));
+        var init = (player.name || "?").charAt(0).toUpperCase();
+        var icon = L.divIcon({
+          className: "",
+          html: '<div style="width:' + size + 'px;height:' + size + 'px;border-radius:50%;border:2px solid ' + color + ';box-shadow:0 0 10px ' + color + ';background:radial-gradient(circle,#12122a,' + color + '22);display:flex;align-items:center;justify-content:center;font-size:' + Math.round(size * 0.4) + 'px;font-weight:700;color:#fff;position:relative;">'
+            + init
+            + '<div style="position:absolute;width:' + (size + 14) + 'px;height:' + (size + 14) + 'px;border-radius:50%;border:1.5px solid ' + color + ';top:-8px;left:-8px;animation:marker-ring-pulse 2s ease-in-out infinite;"></div>'
+            + '</div>',
+          iconSize: [size + 16, size + 16],
+          iconAnchor: [(size + 16) / 2, (size + 16) / 2]
+        });
+        var m = L.marker([player.lat_approx, player.lng_approx], { icon: icon }).addTo(_worldMap);
+        m.bindPopup('<div style="text-align:center;padding:8px;min-width:130px;background:#12122a;border-radius:10px;">'
+          + '<div style="font-weight:700;color:#fff;font-size:14px;">' + (player.name || "Anonyme") + '</div>'
+          + '<div style="color:' + color + ';font-size:12px;margin-top:2px;">✦ ' + (player.prestige_tier || "") + ' · Niv.' + player.level + '</div>'
+          + '<div style="color:#666;font-size:11px;margin-top:2px;">' + (player.city || "") + '</div>'
+          + '</div>', { className: "leaflet-popup-dark" });
+        _worldMapMarkers.push(m);
+      });
+    })
+    .catch(function() {});
+}
+
+function _setMapPrivacy(visible) {
+  var tok = localStorage.getItem("jwt") || localStorage.getItem("luna_token") || "";
+  fetch("/api/world/map/privacy", {
+    method: "POST",
+    headers: { "Authorization": "Bearer " + tok, "Content-Type": "application/json" },
+    body: JSON.stringify({ visible: visible })
+  }).catch(function() {});
+}
+window._setMapPrivacy = _setMapPrivacy;
 })();
 </script>
 </body>

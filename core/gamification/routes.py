@@ -19,7 +19,7 @@ from .redis_ops import GamificationRedisOps
 from .engine import (
     get_level_for_xp, award_xp, check_badges, update_missions,
     compute_stability, initialize_player, collect_mission_reward,
-    buy_shop_item, migrate_xp_curve,
+    buy_shop_item, migrate_xp_curve, get_prestige_tier,
 )
 from .constants import (
     CLIENT_LEVELS, ADMIN_LEVELS,
@@ -27,6 +27,7 @@ from .constants import (
     SHOP_ITEMS, SHOP_CATEGORIES,
     FAMILY_LEVELS, FAMILY_BLASON_TIERS,
     WORLD2_BUILDINGS, WORLD2_UNLOCK_LEVEL, WORLD2_STAR_COST,
+    PRESTIGE_TIERS,
 )
 from .schemas import PlayerState, Mission, StabilityGauge, CollectRewardRequest
 
@@ -113,6 +114,7 @@ async def get_player(request: Request):
 
     player = PlayerState.from_redis(player_data or {})
     level_info = get_level_for_xp(player.xp, CLIENT_LEVELS)
+    prestige = get_prestige_tier(level_info["level"])
 
     active_world = gops.get_active_world(tid)
     world2_purchased = gops.get_player_field(tid, "world2_purchased") == "true"
@@ -128,6 +130,13 @@ async def get_player(request: Request):
             "xp_for_current_level": level_info["xp_current_level"],
             "xp_for_next_level": level_info["xp_next_level"],
             "progress_percent": level_info["progress_percent"],
+            # Prestige
+            "prestige_tier": prestige["tier"],
+            "prestige_label": prestige["label"],
+            "prestige_color": prestige["color"],
+            "prestige_glow": prestige["glow"],
+            "prestige_gradient": prestige["gradient"],
+            # Stats
             "streak_days": player.streak_days,
             "streak_best": player.streak_best,
             "last_active_date": player.last_active_date,
@@ -173,6 +182,8 @@ async def get_badges(request: Request):
             "category": badge_def["category"],
             "icon": badge_def["icon"],
             "rarity": badge_def["rarity"],
+            "animated": badge_def.get("animated", False),
+            "badge_type": badge_def.get("badge_type", "standard"),
             "earned": earned,
             "earned_at": earned_at,
         })
@@ -1283,3 +1294,126 @@ def _auto_cast(value: str):
         return int(value)
     except (ValueError, TypeError):
         return value
+
+
+# =====================================================================
+# CARTE MONDIALE — positions approx des joueurs actifs
+# =====================================================================
+
+import hashlib as _hashlib
+
+@gamification_router.get("/api/world/map/players")
+async def world_map_players(request: Request):
+    """Positions approximatives des joueurs actifs (floutage ±0.05°, opt-out respecte)."""
+    gops = _get_gops(request)
+    if not gops:
+        return _unavailable()
+    tid = _get_tenant_id(request)
+    if tid is None:
+        return _error("Non authentifie", 401)
+
+    players = []
+    try:
+        cursor = 0
+        scanned = 0
+        while scanned < 200:
+            cursor, keys = gops.rc.client.scan(cursor=cursor, match="*:world:player", count=20)
+            for key in keys:
+                parts = key.decode().split(":")
+                if len(parts) < 3:
+                    continue
+                other_tid = parts[1]
+                try:
+                    other_tid_int = int(other_tid)
+                except ValueError:
+                    continue
+
+                # Opt-out carte
+                map_visible = gops.rc.client.hget(key, "map_visible")
+                if map_visible == b"false":
+                    continue
+
+                # Lire geolocalisation
+                geo_key = f"luna:{other_tid}:geolocation"
+                geo_raw = gops.rc.client.get(geo_key)
+                if not geo_raw:
+                    continue
+                try:
+                    geo = json.loads(geo_raw)
+                except Exception:
+                    continue
+
+                # Fraicheur < 2h
+                geo_ts = geo.get("timestamp", "")
+                if geo_ts:
+                    try:
+                        from datetime import datetime as _dt
+                        geo_dt = _dt.fromisoformat(geo_ts)
+                        if (_dt.utcnow() - geo_dt).total_seconds() > 7200:
+                            continue
+                    except Exception:
+                        continue
+
+                lat = geo.get("latitude", 0)
+                lng = geo.get("longitude", 0)
+                if not lat or not lng:
+                    continue
+
+                # Floutage deterministe ±0.05° (~5km)
+                from datetime import datetime as _dt2
+                hash_seed = f"{other_tid}:{_dt2.utcnow().strftime('%Y%m%d')}"
+                hv = int(_hashlib.md5(hash_seed.encode()).hexdigest(), 16)
+                lat_approx = round(lat + ((hv % 100) - 50) / 1000, 4)
+                lng_approx = round(lng + (((hv // 100) % 100) - 50) / 1000, 4)
+
+                player_data = gops.rc.client.hgetall(key)
+                if not player_data:
+                    continue
+
+                xp = int(player_data.get(b"xp", 0) or 0)
+                name = (player_data.get(b"first_name") or b"Anonyme").decode()
+                level_info = get_level_for_xp(xp, CLIENT_LEVELS)
+                prestige = get_prestige_tier(level_info["level"])
+
+                players.append({
+                    "name": name,
+                    "level": level_info["level"],
+                    "prestige_tier": prestige["tier"],
+                    "prestige_color": prestige["color"],
+                    "city": geo.get("city", "Inconnu"),
+                    "lat_approx": lat_approx,
+                    "lng_approx": lng_approx,
+                    "xp": xp,
+                })
+
+                if len(players) >= 50:
+                    break
+
+            scanned += len(keys)
+            if cursor == 0 or len(players) >= 50:
+                break
+
+    except Exception as e:
+        logger.warning(f"Map players error: {e}")
+
+    return {"players": players, "count": len(players)}
+
+
+@gamification_router.post("/api/world/map/privacy")
+async def set_map_privacy(request: Request):
+    """Active/desactive la visibilite sur la carte mondiale."""
+    gops = _get_gops(request)
+    if not gops:
+        return _unavailable()
+    tid = _get_tenant_id(request)
+    if tid is None:
+        return _error("Non authentifie", 401)
+
+    try:
+        body = await request.json()
+        visible = bool(body.get("visible", True))
+    except Exception:
+        return _error("Corps invalide")
+
+    gops.set_player_field(tid, "map_visible", "true" if visible else "false")
+    return {"success": True, "map_visible": visible}

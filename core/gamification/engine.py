@@ -19,6 +19,7 @@ from .constants import (
     STAR_REWARDS, SHOP_ITEMS,
     FAMILY_XP_ACTIONS, FAMILY_LEVELS, FAMILY_BLASON_TIERS,
     WORLD2_RECURRING_MISSIONS, WORLD2_UNLOCK_LEVEL,
+    PRESTIGE_TIERS,
 )
 from .redis_ops import GamificationRedisOps, MAX_ACTIVE_MISSIONS
 from .schemas import PlayerState, StabilityGauge
@@ -56,6 +57,26 @@ def get_level_for_xp(xp: int, levels: list = None) -> dict:
         "xp_current_level": current_threshold,
         "xp_next_level": next_threshold,
         "progress_percent": round(min(progress, 100.0), 1),
+    }
+
+
+def get_prestige_tier(level: int) -> dict:
+    """Retourne le palier de prestige pour un niveau donne."""
+    for tier_name, tier_data in PRESTIGE_TIERS.items():
+        if level in tier_data["levels"]:
+            return {
+                "tier": tier_name,
+                "label": tier_data["label"],
+                "color": tier_data["color"],
+                "glow": tier_data["glow"],
+                "gradient": tier_data["gradient"],
+            }
+    return {
+        "tier": "decouverte",
+        "label": "Decouverte",
+        "color": "#9ca3af",
+        "glow": "rgba(156,163,175,0.3)",
+        "gradient": "linear-gradient(135deg, #9ca3af, #d1d5db)",
     }
 
 
@@ -134,14 +155,23 @@ async def award_xp(gops: GamificationRedisOps, tenant_id, action: str,
     if leveled_up:
         gops.set_player_field(tenant_id, "level", str(level_info["level"]))
         gops.set_player_field(tenant_id, "title", level_info["title"])
-        # Activity event
+        prestige = get_prestige_tier(level_info["level"])
+        gops.set_player_field(tenant_id, "prestige_tier", prestige["tier"])
+        gops.set_player_field(tenant_id, "prestige_color", prestige["color"])
+        # Activity event enrichi avec prestige
         gops.add_activity(tenant_id, json.dumps({
             "id": str(uuid.uuid4()),
             "type": "level_up",
             "message": f"Niveau {level_info['level']} atteint : {level_info['title']} !",
             "icon": "arrow-up",
             "ts": datetime.utcnow().isoformat(),
-            "meta": {"level": level_info["level"], "title": level_info["title"]},
+            "meta": {
+                "level": level_info["level"],
+                "title": level_info["title"],
+                "prestige_tier": prestige["tier"],
+                "prestige_label": prestige["label"],
+                "prestige_color": prestige["color"],
+            },
         }))
         # Award stars for level up
         if not is_admin:

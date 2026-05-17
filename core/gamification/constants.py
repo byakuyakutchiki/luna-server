@@ -4,19 +4,73 @@
 # NIVEAUX
 # =====================================================================
 
-# (xp_threshold, titre) — V2 courbe exponentielle (fev 2026)
+# (xp_threshold, titre) — V3 20 niveaux avec 5 paliers de prestige
 CLIENT_LEVELS = [
-    (0, "Nouveau Venu"),
-    (80, "Curieux"),
-    (250, "Habitue"),
-    (600, "Compagnon"),
-    (1200, "Ami Fidele"),
-    (2500, "Confident"),
-    (5000, "Pilier"),
-    (8000, "Sage"),
-    (12000, "Legendaire"),
-    (18000, "Etoile de Luna"),
+    # --- Palier Decouverte (niv 1-4) ---
+    (0,      "Eveil Luna"),
+    (80,     "Curieux"),
+    (250,    "Habitue"),
+    (600,    "Compagnon"),
+    # --- Palier Gardien (niv 5-8) ---
+    (1200,   "Gardien Luna"),
+    (2500,   "Veilleur"),
+    (5000,   "Sentinelle"),
+    (8000,   "Protecteur"),
+    # --- Palier Astral (niv 9-12) ---
+    (12000,  "Eclaireur Astral"),
+    (18000,  "Voyageur Astral"),
+    (26000,  "Maitre Astral"),
+    (36000,  "Sage des Etoiles"),
+    # --- Palier Mythique (niv 13-16) ---
+    (48000,  "Mythique"),
+    (65000,  "Ombre Mythique"),
+    (85000,  "Gardien Mythique"),
+    (110000, "Seigneur Mythique"),
+    # --- Palier Architecte (niv 17-20) ---
+    (140000, "Architecte Luna"),
+    (175000, "Architecte Supreme"),
+    (220000, "Fondateur de l'Aube"),
+    (280000, "Eternel"),
 ]
+
+# Paliers de prestige (couleur, glow, gradient par tier)
+PRESTIGE_TIERS = {
+    "decouverte": {
+        "levels": list(range(1, 5)),
+        "color": "#9ca3af",
+        "glow": "rgba(156,163,175,0.3)",
+        "label": "Decouverte",
+        "gradient": "linear-gradient(135deg, #9ca3af, #d1d5db)",
+    },
+    "gardien": {
+        "levels": list(range(5, 9)),
+        "color": "#60a5fa",
+        "glow": "rgba(96,165,250,0.4)",
+        "label": "Gardien",
+        "gradient": "linear-gradient(135deg, #60a5fa, #93c5fd)",
+    },
+    "astral": {
+        "levels": list(range(9, 13)),
+        "color": "#c084fc",
+        "glow": "rgba(192,132,252,0.5)",
+        "label": "Astral",
+        "gradient": "linear-gradient(135deg, #c084fc, #e9d5ff)",
+    },
+    "mythique": {
+        "levels": list(range(13, 17)),
+        "color": "#fbbf24",
+        "glow": "rgba(251,191,36,0.6)",
+        "label": "Mythique",
+        "gradient": "linear-gradient(135deg, #fbbf24, #fde68a)",
+    },
+    "architecte": {
+        "levels": list(range(17, 21)),
+        "color": "#f43f5e",
+        "glow": "rgba(244,63,94,0.7)",
+        "label": "Architecte",
+        "gradient": "linear-gradient(135deg, #f43f5e, #fda4af)",
+    },
+}
 
 # Anciens seuils V1 — reference pour migration joueurs existants
 CLIENT_LEVELS_V1 = [
@@ -326,7 +380,80 @@ ALL_CLIENT_BADGES = {
         "category": "social",
         "icon": "star",
         "rarity": "epic",
+        "animated": False,
+        "badge_type": "standard",
         "condition": lambda p: int(p.get("total_friends", 0)) >= 10,
+    },
+    # --- Prestige / Speciaux ---
+    "founder_alpha": {
+        "name": "Fondateur Alpha",
+        "description": "Parmi les 100 premiers utilisateurs de Luna",
+        "category": "prestige",
+        "icon": "⭐",
+        "rarity": "legendary",
+        "animated": True,
+        "badge_type": "founder",
+        "condition": lambda p: False,  # Attribue manuellement par admin
+    },
+    "pioneer_ia": {
+        "name": "Pionnier IA",
+        "description": "Adopte Luna avant le grand public",
+        "category": "prestige",
+        "icon": "🚀",
+        "rarity": "legendary",
+        "animated": True,
+        "badge_type": "founder",
+        "condition": lambda p: int(p.get("days_active", 0)) >= 30,
+    },
+    "protector_luna": {
+        "name": "Protecteur Luna",
+        "description": "A utilise l'alerte d'urgence pour proteger un proche",
+        "category": "securite",
+        "icon": "🛡️",
+        "rarity": "prestige",
+        "animated": True,
+        "badge_type": "prestige",
+        "condition": lambda p: int(p.get("total_sos", 0)) >= 1,
+    },
+    "mythic_soul": {
+        "name": "Ame Mythique",
+        "description": "A atteint le palier Mythique (niveau 13+)",
+        "category": "progression",
+        "icon": "⚡",
+        "rarity": "prestige",
+        "animated": True,
+        "badge_type": "prestige",
+        "condition": lambda p: int(p.get("level", 1)) >= 13,
+    },
+    "eternal_flame": {
+        "name": "Flamme Eternelle",
+        "description": "Streak de 100 jours consecutifs",
+        "category": "fidelite",
+        "icon": "🔥",
+        "rarity": "prestige",
+        "animated": True,
+        "badge_type": "prestige",
+        "condition": lambda p: int(p.get("streak_best", 0)) >= 100,
+    },
+    "top_helper": {
+        "name": "Top Helper",
+        "description": "A partage Luna avec 5 amis",
+        "category": "social",
+        "icon": "💫",
+        "rarity": "epic",
+        "animated": True,
+        "badge_type": "standard",
+        "condition": lambda p: int(p.get("total_family_members", 0)) >= 5,
+    },
+    "architecte_badge": {
+        "name": "Architecte",
+        "description": "A atteint le palier Architecte (niveau 17+)",
+        "category": "progression",
+        "icon": "👑",
+        "rarity": "prestige",
+        "animated": True,
+        "badge_type": "prestige",
+        "condition": lambda p: int(p.get("level", 1)) >= 17,
     },
 }
 
@@ -585,6 +712,13 @@ RARITY_COLORS = {
     "rare":      "#60a5fa",
     "epic":      "#a78bfa",
     "legendary": "#fbbf24",
+    "prestige":  "#f43f5e",
+}
+
+BADGE_CATEGORIES_EXTRA = {
+    "prestige":  {"label": "Prestige",  "color": "#f43f5e"},
+    "securite":  {"label": "Securite",  "color": "#f97316"},
+    "progression":{"label": "Progression","color": "#a78bfa"},
 }
 
 # =====================================================================
