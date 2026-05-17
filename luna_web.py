@@ -1496,20 +1496,25 @@ async def security_middleware(request: Request, call_next):
         response.headers["X-License-Status"] = _license_heartbeat.status
 
     # Cortex warning header — informe le frontend si l'IP a des avertissements actifs
+    # Ne jamais avertir les IPs fondateur (elles sont whitelistées, jamais bannies)
     if _CORTEX_AVAILABLE and path.startswith("/api/"):
-        cortex = get_cortex()
-        if cortex:
-            ip_warnings = cortex.vigil._warnings.get(client_ip, [])
-            active = [w for w in ip_warnings if time.time() - w.get("time", 0) < 86400]
-            if active:
-                response.headers["X-Cortex-Warnings"] = str(len(active))
-                response.headers["X-Cortex-Warnings-Max"] = str(cortex.vigil.WARNINGS_BEFORE_BAN)
-                # Raison du dernier avertissement (pour affichage utilisateur)
-                last = active[-1]
-                reason = last.get("reason", "")
-                # Traduire les raisons techniques en langage humain
-                reason_human = _cortex_reason_to_human(reason)
-                response.headers["X-Cortex-Warning-Reason"] = reason_human
+        try:
+            from core.cortex.founder_config import is_founder_ip as _is_founder_ip
+            _skip_cortex_warn = _is_founder_ip(client_ip)
+        except Exception:
+            _skip_cortex_warn = False
+        if not _skip_cortex_warn:
+            cortex = get_cortex()
+            if cortex:
+                ip_warnings = cortex.vigil._warnings.get(client_ip, [])
+                active = [w for w in ip_warnings if time.time() - w.get("time", 0) < 86400]
+                if active:
+                    response.headers["X-Cortex-Warnings"] = str(len(active))
+                    response.headers["X-Cortex-Warnings-Max"] = str(cortex.vigil.WARNINGS_BEFORE_BAN)
+                    last = active[-1]
+                    reason = last.get("reason", "")
+                    reason_human = _cortex_reason_to_human(reason)
+                    response.headers["X-Cortex-Warning-Reason"] = reason_human
 
     duration_ms = (time.time() - start_time) * 1000
     logger.info(f"{request.method} {request.url.path} [{response.status_code}] {duration_ms:.0f}ms - {client_ip}")
