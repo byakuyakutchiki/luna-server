@@ -33,9 +33,12 @@ import android.widget.Toast;
 import org.json.JSONObject;
 
 import java.io.BufferedReader;
+import java.io.FileOutputStream;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.security.MessageDigest;
 
 public class MainActivity extends Activity {
 
@@ -176,6 +179,12 @@ public class MainActivity extends Activity {
 
             @Override
             public void onPermissionRequest(final PermissionRequest request) {
+                // Sécurité : refuser caméra/micro à toute origine autre que Luna
+                String origin = request.getOrigin().toString();
+                if (!origin.startsWith(LUNA_URL)) {
+                    request.deny();
+                    return;
+                }
                 if (Build.VERSION.SDK_INT >= 23) {
                     boolean needCamera = false;
                     boolean needAudio = false;
@@ -232,11 +241,19 @@ public class MainActivity extends Activity {
             }
         });
 
-        // Garde la navigation dans le WebView
+        // Garde la navigation dans le WebView (bloque les sorties externes)
         webView.setWebViewClient(new WebViewClient() {
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, String url) {
-                return false;
+                if (url != null && (url.startsWith(LUNA_URL) || url.startsWith("about:"))) {
+                    return false; // navigation interne autorisée
+                }
+                return true; // bloquer toute navigation vers un domaine externe
+            }
+
+            @Override
+            public void onReceivedSslError(WebView view, android.webkit.SslErrorHandler handler, android.net.http.SslError error) {
+                handler.cancel(); // Rejeter les certificats invalides
             }
         });
 
@@ -324,6 +341,7 @@ public class MainActivity extends Activity {
 
     /**
      * Verifie si une nouvelle version est disponible sur le serveur.
+     * Exige un champ apk_sha256 valide (64 hex) pour démarrer la mise à jour.
      */
     private void checkForUpdate() {
         new Thread(() -> {
@@ -346,10 +364,13 @@ public class MainActivity extends Activity {
                     JSONObject json = new JSONObject(sb.toString());
                     int serverVersionCode = json.optInt("version_code", 0);
                     String apkUrl = json.optString("apk_url", "");
+                    String apkSha256 = json.optString("apk_sha256", "");
 
-                    if (serverVersionCode > CURRENT_VERSION_CODE && !apkUrl.isEmpty()) {
-                        String fullApkUrl = LUNA_URL + apkUrl;
-                        runOnUiThread(() -> triggerUpdate(fullApkUrl));
+                    // Refuser toute mise à jour sans SHA-256 valide (64 hex)
+                    if (serverVersionCode > CURRENT_VERSION_CODE
+                            && !apkUrl.isEmpty()
+                            && apkSha256.matches("[0-9a-fA-F]{64}")) {
+                        downloadAndVerifyUpdate(LUNA_URL + apkUrl, apkSha256);
                     }
                 }
                 conn.disconnect();
@@ -359,23 +380,60 @@ public class MainActivity extends Activity {
         }).start();
     }
 
-    private void triggerUpdate(String apkUrl) {
-        try {
-            DownloadManager.Request request = new DownloadManager.Request(Uri.parse(apkUrl));
-            request.setTitle("Luna - Mise a jour");
-            request.setDescription("Nouvelle version disponible !");
-            request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
-            request.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, "Luna-Proprio.apk");
-            request.setMimeType("application/vnd.android.package-archive");
+    /**
+     * Télécharge l'APK, vérifie son SHA-256, et le dépose dans Téléchargements
+     * uniquement si l'intégrité est confirmée.
+     */
+    private void downloadAndVerifyUpdate(String apkUrl, String expectedSha256) {
+        new Thread(() -> {
+            java.io.File tmpFile = new java.io.File(getCacheDir(), "luna_update_tmp.apk");
+            try {
+                URL url = new URL(apkUrl);
+                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                conn.setConnectTimeout(30000);
+                conn.setReadTimeout(60000);
+                if (conn.getResponseCode() != 200) { conn.disconnect(); return; }
 
-            DownloadManager dm = (DownloadManager) getSystemService(DOWNLOAD_SERVICE);
-            if (dm != null) {
-                dm.enqueue(request);
-                Toast.makeText(this, "Mise a jour Luna disponible ! Ouvre la notification pour installer.", Toast.LENGTH_LONG).show();
+                MessageDigest digest = MessageDigest.getInstance("SHA-256");
+                try (InputStream in = conn.getInputStream();
+                     FileOutputStream out = new FileOutputStream(tmpFile)) {
+                    byte[] buf = new byte[8192];
+                    int n;
+                    while ((n = in.read(buf)) != -1) {
+                        digest.update(buf, 0, n);
+                        out.write(buf, 0, n);
+                    }
+                }
+                conn.disconnect();
+
+                // Vérification SHA-256
+                byte[] hashBytes = digest.digest();
+                StringBuilder hex = new StringBuilder(64);
+                for (byte b : hashBytes) hex.append(String.format("%02x", b));
+                if (!hex.toString().equalsIgnoreCase(expectedSha256)) {
+                    tmpFile.delete();
+                    return; // APK corrompu ou falsifié — abandon silencieux
+                }
+
+                // Intégrité confirmée : copier vers Téléchargements publics
+                java.io.File destFile = new java.io.File(
+                    Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
+                    "Luna-Proprio.apk");
+                try (java.io.FileInputStream fis = new java.io.FileInputStream(tmpFile);
+                     FileOutputStream fos = new FileOutputStream(destFile)) {
+                    byte[] buf = new byte[8192];
+                    int n;
+                    while ((n = fis.read(buf)) != -1) fos.write(buf, 0, n);
+                }
+                tmpFile.delete();
+
+                runOnUiThread(() -> Toast.makeText(MainActivity.this,
+                    "Mise à jour Luna vérifiée ! Ouvre Téléchargements pour installer.",
+                    Toast.LENGTH_LONG).show());
+            } catch (Exception e) {
+                tmpFile.delete();
             }
-        } catch (Exception e) {
-            // Silencieux
-        }
+        }).start();
     }
 
     /** Ouvre l'appareil photo natif et renvoie l'URI au WebView (Formulaires / scan). */

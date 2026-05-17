@@ -58,22 +58,24 @@ zipalign -f 4 luna-unsigned.apk luna-aligned.apk
 # 6. Sign
 echo "[6/6] Sign APK..."
 KEYSTORE="$APP_DIR/luna.keystore"
+KEYSTORE_PASS="${KEYSTORE_PASS:?KEYSTORE_PASS non defini — lancez: export KEYSTORE_PASS=<motdepasse>}"
+
 if [ ! -f "$KEYSTORE" ]; then
     keytool -genkeypair \
         -keystore "$KEYSTORE" \
         -alias luna \
         -keyalg RSA -keysize 2048 \
         -validity 10000 \
-        -storepass luna2026 \
-        -keypass luna2026 \
+        -storepass "$KEYSTORE_PASS" \
+        -keypass "$KEYSTORE_PASS" \
         -dname "CN=Luna YAWatch, OU=Proprio, O=YAWatch, L=Paris, ST=IDF, C=FR"
 fi
 
 apksigner sign \
     --ks "$KEYSTORE" \
     --ks-key-alias luna \
-    --ks-pass pass:luna2026 \
-    --key-pass pass:luna2026 \
+    --ks-pass "pass:$KEYSTORE_PASS" \
+    --key-pass "pass:$KEYSTORE_PASS" \
     --out luna-proprio.apk \
     luna-aligned.apk
 
