@@ -1959,6 +1959,15 @@ async def exploitant_page():
     return JSONResponse(status_code=404, content={"error": "Dashboard exploitant non disponible"})
 
 
+@app.get("/vault")
+async def vault_page():
+    """Coffre-fort documentaire — scan, classement, rappels."""
+    path = os.path.join(STATIC_DIR, "vault.html")
+    if os.path.exists(path):
+        return FileResponse(path)
+    return JSONResponse(status_code=404, content={"error": "Vault non disponible"})
+
+
 @app.get("/world")
 async def world_page():
     """Page gamifiee client - IA Watch World."""

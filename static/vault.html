@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Luna — Coffre-fort</title>
+<style>
+:root {
+  --bg: #0f0f1a; --bg2: #1a1a2e; --bg3: #242440;
+  --text: #e8e8f0; --text2: #9090b0;
+  --purple: #a78bfa; --purple-dark: #7c3aed; --purple-50: rgba(167,139,250,0.1);
+  --green: #4ade80; --green-50: rgba(74,222,128,0.1);
+  --red: #f87171; --red-50: rgba(248,113,113,0.1);
+  --orange: #f59e0b; --orange-50: rgba(245,158,11,0.1);
+  --yellow: #fbbf24;
+  --border: rgba(255,255,255,0.08);
+  --radius: 12px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: var(--bg); color: var(--text); min-height: 100dvh; }
+
+/* Header */
+.header { display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; border-bottom: 1px solid var(--border); background: var(--bg2); position: sticky; top: 0; z-index: 50; }
+.header h1 { font-size: 1.05rem; color: var(--purple); display: flex; align-items: center; gap: 8px; }
+.header-actions { display: flex; gap: 8px; }
+.btn-icon { background: none; border: 1px solid var(--border); border-radius: 8px; color: var(--text2); padding: 6px 10px; cursor: pointer; font-size: 0.85rem; transition: all 0.2s; }
+.btn-icon:hover { border-color: var(--purple); color: var(--purple); }
+
+/* Main layout */
+.main { max-width: 680px; margin: 0 auto; padding: 20px 16px 80px; }
+
+/* Bouton scan central */
+.scan-zone { text-align: center; margin-bottom: 24px; }
+.btn-scan { display: inline-flex; align-items: center; gap: 10px; background: var(--purple-dark); color: #fff; border: none; border-radius: 14px; padding: 14px 28px; font-size: 1rem; font-weight: 600; cursor: pointer; transition: all 0.2s; box-shadow: 0 4px 20px rgba(124,58,237,0.3); }
+.btn-scan:hover { background: var(--purple); box-shadow: 0 4px 24px rgba(167,139,250,0.4); transform: translateY(-1px); }
+.btn-scan:active { transform: translateY(0); }
+.btn-scan svg { width: 22px; height: 22px; }
+.scan-sub { color: var(--text2); font-size: 0.8rem; margin-top: 8px; }
+
+/* Filtres */
+.filters { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+.filter-btn { background: var(--bg2); border: 1px solid var(--border); border-radius: 20px; color: var(--text2); padding: 5px 14px; font-size: 0.8rem; cursor: pointer; transition: all 0.2s; }
+.filter-btn.active, .filter-btn:hover { border-color: var(--purple); color: var(--purple); background: var(--purple-50); }
+
+/* Stats bar */
+.stats-bar { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+.stat-chip { display: flex; align-items: center; gap: 6px; background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; padding: 6px 12px; font-size: 0.8rem; }
+.stat-chip .dot { width: 8px; height: 8px; border-radius: 50%; }
+.dot-red { background: var(--red); }
+.dot-orange { background: var(--orange); }
+.dot-yellow { background: var(--yellow); }
+.dot-green { background: var(--green); }
+
+/* Section title */
+.section-title { font-size: 0.75rem; font-weight: 700; color: var(--text2); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+.section-title span { background: var(--bg3); border-radius: 10px; padding: 1px 8px; font-size: 0.7rem; }
+
+/* Document cards */
+.docs-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 28px; }
+.doc-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; display: flex; align-items: center; gap: 14px; cursor: pointer; transition: all 0.2s; position: relative; }
+.doc-card:hover { border-color: var(--purple); background: var(--bg3); }
+.doc-card.expired { border-left: 3px solid var(--red); }
+.doc-card.urgent { border-left: 3px solid var(--orange); }
+.doc-card.warning { border-left: 3px solid var(--yellow); }
+.doc-card.ok { border-left: 3px solid var(--green); }
+.doc-emoji { font-size: 1.8rem; flex-shrink: 0; width: 40px; text-align: center; }
+.doc-info { flex: 1; min-width: 0; }
+.doc-titre { font-weight: 600; font-size: 0.92rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.doc-sub { color: var(--text2); font-size: 0.78rem; margin-top: 3px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.badge { display: inline-flex; align-items: center; gap: 4px; border-radius: 6px; padding: 2px 8px; font-size: 0.72rem; font-weight: 600; }
+.badge-expired { background: var(--red-50); color: var(--red); border: 1px solid rgba(248,113,113,0.3); }
+.badge-urgent { background: var(--orange-50); color: var(--orange); border: 1px solid rgba(245,158,11,0.3); }
+.badge-warning { background: rgba(251,191,36,0.1); color: var(--yellow); border: 1px solid rgba(251,191,36,0.3); }
+.badge-ok { background: var(--green-50); color: var(--green); border: 1px solid rgba(74,222,128,0.3); }
+.badge-none { background: var(--bg3); color: var(--text2); border: 1px solid var(--border); }
+.doc-delete { background: none; border: none; color: var(--text2); cursor: pointer; padding: 6px; border-radius: 6px; font-size: 0.85rem; transition: all 0.2s; flex-shrink: 0; }
+.doc-delete:hover { color: var(--red); background: var(--red-50); }
+
+/* Reminders section */
+.reminders-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 24px; }
+.reminder-card { background: rgba(245,158,11,0.07); border: 1px solid rgba(245,158,11,0.2); border-radius: 10px; padding: 10px 14px; display: flex; align-items: flex-start; gap: 10px; font-size: 0.85rem; }
+.reminder-card.urgent-rem { background: var(--red-50); border-color: rgba(248,113,113,0.3); }
+.reminder-icon { font-size: 1.1rem; flex-shrink: 0; margin-top: 1px; }
+
+/* Empty state */
+.empty { text-align: center; padding: 48px 20px; color: var(--text2); }
+.empty-icon { font-size: 3rem; margin-bottom: 12px; }
+.empty h3 { color: var(--text); margin-bottom: 6px; font-size: 1rem; }
+.empty p { font-size: 0.85rem; line-height: 1.5; }
+
+/* Loader */
+.loader { display: flex; align-items: center; justify-content: center; padding: 48px; }
+.spinner { width: 28px; height: 28px; border: 3px solid var(--bg3); border-top-color: var(--purple); border-radius: 50%; animation: spin 0.7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Toast */
+.toasts { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; gap: 8px; z-index: 1000; pointer-events: none; min-width: 260px; max-width: 90vw; }
+.toast { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 10px 16px; font-size: 0.85rem; animation: toastIn 0.2s ease; text-align: center; }
+.toast.ok { border-color: var(--green); color: var(--green); }
+.toast.err { border-color: var(--red); color: var(--red); }
+.toast.info { border-color: var(--purple); color: var(--purple); }
+@keyframes toastIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+/* Modals */
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 200; display: flex; align-items: flex-end; justify-content: center; }
+.modal-overlay.hidden { display: none; }
+.modal { background: var(--bg2); border-radius: 20px 20px 0 0; width: 100%; max-width: 640px; max-height: 90dvh; overflow-y: auto; padding: 24px 20px 32px; }
+.modal-handle { width: 36px; height: 4px; background: var(--bg3); border-radius: 2px; margin: 0 auto 20px; }
+.modal h2 { font-size: 1.1rem; margin-bottom: 6px; }
+.modal-sub { color: var(--text2); font-size: 0.85rem; margin-bottom: 20px; line-height: 1.5; }
+.modal-actions { display: flex; gap: 10px; margin-top: 20px; }
+.modal-actions button { flex: 1; }
+
+/* Consent */
+.consent-box { background: var(--purple-50); border: 1px solid rgba(167,139,250,0.3); border-radius: 10px; padding: 14px; margin: 16px 0; font-size: 0.83rem; line-height: 1.6; color: var(--text2); }
+.consent-box strong { color: var(--purple); display: block; margin-bottom: 6px; }
+
+/* Doc detail modal */
+.detail-row { display: flex; align-items: flex-start; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+.detail-row:last-child { border-bottom: none; }
+.detail-label { color: var(--text2); font-size: 0.78rem; width: 110px; flex-shrink: 0; padding-top: 1px; }
+.detail-value { font-size: 0.88rem; flex: 1; }
+
+/* Buttons */
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; border-radius: 10px; padding: 10px 18px; font-size: 0.88rem; font-weight: 600; cursor: pointer; transition: all 0.2s; border: 1px solid transparent; }
+.btn-primary { background: var(--purple-dark); color: #fff; border-color: var(--purple-dark); }
+.btn-primary:hover { background: var(--purple); }
+.btn-secondary { background: transparent; color: var(--text2); border-color: var(--border); }
+.btn-secondary:hover { border-color: var(--purple); color: var(--purple); }
+.btn-danger { background: var(--red-50); color: var(--red); border-color: rgba(248,113,113,0.3); }
+.btn-danger:hover { background: rgba(248,113,113,0.2); }
+.btn-lg { padding: 13px 24px; font-size: 0.95rem; }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Scanning overlay */
+.scan-progress { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; text-align: center; margin-bottom: 20px; display: none; }
+.scan-progress.visible { display: block; }
+.scan-progress p { color: var(--text2); font-size: 0.85rem; margin-top: 10px; }
+
+/* Upload inputs hidden */
+#fileInput, #camInput { display: none; }
+
+/* Nav back */
+.nav-back { display: inline-flex; align-items: center; gap: 6px; color: var(--text2); font-size: 0.85rem; text-decoration: none; margin-bottom: 20px; }
+.nav-back:hover { color: var(--purple); }
+
+/* Sensitive badge */
+.badge-sensitive { background: rgba(248,113,113,0.1); color: var(--red); border: 1px solid rgba(248,113,113,0.25); font-size: 0.68rem; padding: 1px 6px; border-radius: 4px; }
+
+@media (max-width: 480px) {
+  .main { padding: 16px 12px 80px; }
+  .btn-scan { padding: 13px 22px; font-size: 0.92rem; }
+  .stats-bar { gap: 6px; }
+  .stat-chip { padding: 5px 9px; }
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>🔒 Coffre-fort</h1>
+  <div class="header-actions">
+    <button class="btn-icon" id="btnRgpd" title="Données & RGPD">🛡️ RGPD</button>
+    <a href="/" class="btn-icon" style="text-decoration:none;">← Luna</a>
+  </div>
+</div>
+
+<div class="main" id="mainContent">
+  <div class="loader"><div class="spinner"></div></div>
+</div>
+
+<!-- Input fichiers cachés -->
+<input type="file" id="fileInput" accept="image/*,application/pdf">
+<input type="file" id="camInput" accept="image/*">
+
+<!-- Toast -->
+<div class="toasts" id="toasts"></div>
+
+<!-- Modal consentement -->
+<div class="modal-overlay hidden" id="modalConsent">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div style="font-size:2rem;margin-bottom:12px">🔒</div>
+    <h2>Coffre-fort documentaire</h2>
+    <p class="modal-sub">Luna analyse et classe vos documents pour vous aider à ne plus rien oublier.</p>
+    <div class="consent-box">
+      <strong>Vos données, votre contrôle</strong>
+      ✔ Luna lit votre document pour extraire les informations importantes (dates, références)<br>
+      ✔ Seules les métadonnées sont conservées — pas l'image<br>
+      ✔ Vos données restent sur votre compte, jamais partagées<br>
+      ✔ Vous pouvez supprimer tout à tout moment<br>
+      ✔ Rappels automatiques par SMS et chat Luna
+    </div>
+    <p style="font-size:0.78rem;color:var(--text2)">Traitement fondé sur votre consentement (RGPD Art. 6-1-a). Responsable : YAWatch Luna.</p>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="document.getElementById('modalConsent').classList.add('hidden')">Annuler</button>
+      <button class="btn btn-primary btn-lg" id="btnAcceptConsent">✓ Accepter et continuer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal RGPD / gestion données -->
+<div class="modal-overlay hidden" id="modalRgpd">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <h2>🛡️ Vos données</h2>
+    <p class="modal-sub">Gestion de votre consentement et de vos données personnelles.</p>
+    <div style="font-size:0.85rem;color:var(--text2);line-height:1.7;margin-bottom:20px">
+      <p>Vous avez le droit d'accéder, rectifier ou supprimer vos données à tout moment.</p>
+      <p style="margin-top:8px">Vos documents sont stockés uniquement sous forme de métadonnées (type, date, référence). Les images ne sont jamais conservées.</p>
+    </div>
+    <button class="btn btn-danger btn-lg" id="btnRevokeConsent" style="width:100%">🗑️ Supprimer toutes mes données et révoquer mon consentement</button>
+    <button class="btn btn-secondary" style="width:100%;margin-top:8px" onclick="document.getElementById('modalRgpd').classList.add('hidden')">Fermer</button>
+  </div>
+</div>
+
+<!-- Modal détail document -->
+<div class="modal-overlay hidden" id="modalDetail">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div id="detailContent"></div>
+    <div class="modal-actions" style="margin-top:16px">
+      <button class="btn btn-danger" id="btnDeleteDoc">🗑️ Supprimer</button>
+      <button class="btn btn-secondary" onclick="document.getElementById('modalDetail').classList.add('hidden')">Fermer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal scan en cours -->
+<div class="modal-overlay hidden" id="modalScanning">
+  <div class="modal" style="text-align:center;padding:32px 24px">
+    <div class="modal-handle"></div>
+    <div style="font-size:2.5rem;margin-bottom:16px">🔍</div>
+    <h2 style="margin-bottom:8px">Analyse en cours...</h2>
+    <p style="color:var(--text2);font-size:0.85rem;margin-bottom:20px">Luna identifie votre document et extrait les informations importantes.</p>
+    <div class="spinner" style="margin:0 auto"></div>
+  </div>
+</div>
+
+<script>
+(function(){
+'use strict';
+
+const TOKEN = localStorage.getItem('luna_token') || '';
+const HDR = TOKEN ? {'Authorization':'Bearer '+TOKEN} : {};
+const HJSON = {...HDR, 'Content-Type':'application/json'};
+const $ = s => document.querySelector(s);
+
+let docs = [];
+let activeFilter = 'all';
+let currentDocId = null;
+let hasConsent = false;
+
+// ── Toast ─────────────────────────────────────────────────────────────
+
+function toast(msg, type='info', dur=3000){
+  const t = document.createElement('div');
+  t.className = 'toast ' + type;
+  t.textContent = msg;
+  $('#toasts').appendChild(t);
+  setTimeout(() => t.remove(), dur);
+}
+
+// ── Auth check ────────────────────────────────────────────────────────
+
+if(!TOKEN){
+  document.getElementById('mainContent').innerHTML = `
+    <div class="empty">
+      <div class="empty-icon">🔐</div>
+      <h3>Connexion requise</h3>
+      <p>Connectez-vous à Luna pour accéder à votre coffre-fort.</p>
+      <a href="/" class="btn btn-primary" style="display:inline-flex;margin-top:16px;text-decoration:none">← Retour à Luna</a>
+    </div>`;
+}else{
+  init();
+}
+
+// ── Init ─────────────────────────────────────────────────────────────
+
+async function init(){
+  try{
+    // Vérifier consentement
+    const r = await fetch('/api/vault/consent', {headers: HDR});
+    const d = await r.json();
+    hasConsent = d.consent;
+    if(!hasConsent){
+      showConsentModal();
+      renderEmpty();
+      return;
+    }
+    await loadDocs();
+  }catch(e){
+    renderError('Impossible de charger le coffre-fort.');
+  }
+}
+
+// ── Consentement ──────────────────────────────────────────────────────
+
+function showConsentModal(){
+  $('#modalConsent').classList.remove('hidden');
+}
+
+$('#btnAcceptConsent').onclick = async function(){
+  try{
+    await fetch('/api/vault/consent', {method:'POST', headers:HJSON});
+    hasConsent = true;
+    $('#modalConsent').classList.add('hidden');
+    toast('Consentement enregistré ✓', 'ok');
+    await loadDocs();
+  }catch(e){
+    toast('Erreur', 'err');
+  }
+};
+
+$('#btnRgpd').onclick = () => $('#modalRgpd').classList.remove('hidden');
+
+$('#btnRevokeConsent').onclick = async function(){
+  if(!confirm('Supprimer TOUS vos documents et révoquer votre consentement ?')) return;
+  try{
+    await fetch('/api/vault/consent', {method:'DELETE', headers:HDR});
+    hasConsent = false;
+    docs = [];
+    toast('Toutes vos données ont été supprimées.', 'ok');
+    $('#modalRgpd').classList.add('hidden');
+    renderEmpty();
+  }catch(e){
+    toast('Erreur', 'err');
+  }
+};
+
+// ── Chargement ────────────────────────────────────────────────────────
+
+async function loadDocs(){
+  renderLoader();
+  try{
+    const r = await fetch('/api/vault/docs', {headers: HDR});
+    const d = await r.json();
+    if(d.consent_required){
+      showConsentModal();
+      renderEmpty();
+      return;
+    }
+    docs = d.docs || [];
+    renderAll(d);
+  }catch(e){
+    renderError('Erreur de chargement.');
+  }
+}
+
+// ── Render ────────────────────────────────────────────────────────────
+
+function renderLoader(){
+  $('#mainContent').innerHTML = '<div class="loader"><div class="spinner"></div></div>';
+}
+
+function renderError(msg){
+  $('#mainContent').innerHTML = `<div class="empty"><div class="empty-icon">⚠️</div><h3>Erreur</h3><p>${msg}</p></div>`;
+}
+
+function renderEmpty(){
+  $('#mainContent').innerHTML = buildScanZone() + `
+    <div class="empty">
+      <div class="empty-icon">📂</div>
+      <h3>Coffre-fort vide</h3>
+      <p>Scannez votre première pièce d'identité, facture ou ordonnance.<br>Luna s'occupe du classement et des rappels automatiques.</p>
+    </div>`;
+  bindScanButtons();
+}
+
+function renderAll(data){
+  const reminders = (data.upcoming_reminders || []).filter(r => {
+    const d = new Date(r.date);
+    return (d - Date.now()) < 7 * 86400000;
+  });
+  const summary = data.summary || {};
+  const filtered = filterDocs(docs, activeFilter);
+
+  let html = buildScanZone();
+
+  // Stats
+  if(docs.length > 0){
+    html += `<div class="stats-bar">
+      <div class="stat-chip"><span class="dot dot-red"></span>${summary.expired||0} expirés</div>
+      <div class="stat-chip"><span class="dot dot-orange"></span>${summary.urgent||0} urgents</div>
+      <div class="stat-chip"><span class="dot dot-yellow"></span>${summary.warning||0} bientôt</div>
+      <div class="stat-chip"><span class="dot dot-green"></span>${summary.ok||0} valides</div>
+    </div>`;
+  }
+
+  // Rappels urgents
+  if(reminders.length > 0){
+    html += `<div class="section-title">⏰ Rappels urgents <span>${reminders.length}</span></div>
+    <div class="reminders-list">`;
+    for(const rem of reminders){
+      const isUrgent = rem.days_before <= 1;
+      html += `<div class="reminder-card${isUrgent?' urgent-rem':''}">
+        <span class="reminder-icon">${isUrgent?'🚨':'⚠️'}</span>
+        <div>${escHtml(rem.message)}</div>
+      </div>`;
+    }
+    html += '</div>';
+  }
+
+  // Filtres
+  if(docs.length > 0){
+    html += `<div class="filters">
+      <button class="filter-btn${activeFilter==='all'?' active':''}" data-f="all">Tous (${docs.length})</button>
+      <button class="filter-btn${activeFilter==='expired'?' active':''}" data-f="expired">Expirés</button>
+      <button class="filter-btn${activeFilter==='urgent'?' active':''}" data-f="urgent">Urgents</button>
+      <button class="filter-btn${activeFilter==='warning'?' active':''}" data-f="warning">Bientôt</button>
+    </div>`;
+  }
+
+  // Liste documents
+  if(filtered.length === 0 && docs.length > 0){
+    html += `<div class="empty" style="padding:24px"><p>Aucun document dans cette catégorie.</p></div>`;
+  } else if(docs.length === 0){
+    html += `<div class="empty"><div class="empty-icon">📂</div><h3>Coffre-fort vide</h3><p>Commencez par scanner un document.</p></div>`;
+  } else {
+    if(docs.length > 0) html += `<div class="section-title">📁 Documents <span>${filtered.length}</span></div>`;
+    html += '<div class="docs-list">';
+    for(const doc of filtered){
+      html += buildDocCard(doc);
+    }
+    html += '</div>';
+  }
+
+  $('#mainContent').innerHTML = html;
+  bindScanButtons();
+
+  // Filtres click
+  document.querySelectorAll('.filter-btn').forEach(btn => {
+    btn.onclick = () => {
+      activeFilter = btn.dataset.f;
+      renderAll(data);
+    };
+  });
+
+  // Doc cards click
+  document.querySelectorAll('.doc-card').forEach(card => {
+    card.onclick = e => {
+      if(e.target.closest('.doc-delete')) return;
+      openDetail(card.dataset.id);
+    };
+    card.querySelector('.doc-delete')?.addEventListener('click', e => {
+      e.stopPropagation();
+      deleteDoc(card.dataset.id, card.querySelector('.doc-titre')?.textContent);
+    });
+  });
+}
+
+function buildScanZone(){
+  return `<div class="scan-zone">
+    <button class="btn-scan" id="btnScanMenu">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><rect x="7" y="7" width="10" height="10" rx="1"/></svg>
+      Scanner un document
+    </button>
+    <p class="scan-sub">CNI · Facture · Ordonnance · Passeport · et plus</p>
+  </div>`;
+}
+
+function buildDocCard(doc){
+  const status = doc.expiry_status || 'none';
+  const badge = buildBadge(doc);
+  const sensitive = doc.is_sensitive ? '<span class="badge-sensitive">Sensible</span>' : '';
+  return `<div class="doc-card ${status}" data-id="${escHtml(doc.id)}">
+    <div class="doc-emoji">${escHtml(doc.doc_emoji||'📎')}</div>
+    <div class="doc-info">
+      <div class="doc-titre">${escHtml(doc.titre||doc.doc_label||'Document')}</div>
+      <div class="doc-sub">
+        ${badge}
+        ${doc.emetteur?`<span>${escHtml(doc.emetteur)}</span>`:''}
+        ${doc.montant?`<span style="color:var(--yellow)">${escHtml(doc.montant)}</span>`:''}
+        ${sensitive}
+      </div>
+    </div>
+    <button class="doc-delete" title="Supprimer">🗑️</button>
+  </div>`;
+}
+
+function buildBadge(doc){
+  const s = doc.expiry_status || 'none';
+  const exp = doc.date_expiration;
+  if(s === 'expired') return `<span class="badge badge-expired">Expiré</span>`;
+  if(s === 'urgent') return `<span class="badge badge-urgent">⚠ ${doc.expires_in_days}j</span>`;
+  if(s === 'warning') return `<span class="badge badge-warning">${doc.expires_in_days}j</span>`;
+  if(s === 'ok' && exp) return `<span class="badge badge-ok">✓ ${fmtDate(exp)}</span>`;
+  if(exp) return `<span class="badge badge-none">${fmtDate(exp)}</span>`;
+  return `<span class="badge badge-none">${escHtml(doc.doc_label||'')}</span>`;
+}
+
+function filterDocs(list, f){
+  if(f === 'all') return list;
+  return list.filter(d => d.expiry_status === f);
+}
+
+// ── Scan ─────────────────────────────────────────────────────────────
+
+function bindScanButtons(){
+  const btn = document.getElementById('btnScanMenu');
+  if(!btn) return;
+  btn.onclick = () => {
+    if(!hasConsent){ showConsentModal(); return; }
+    // Sur mobile : préférer caméra, sinon fichier
+    const isMobile = /iPhone|iPad|Android/i.test(navigator.userAgent);
+    if(isMobile) $('#camInput').click();
+    else $('#fileInput').click();
+  };
+}
+
+$('#fileInput').onchange = function(){ if(this.files[0]) handleScan(this.files[0]); this.value=''; };
+$('#camInput').onchange = function(){ if(this.files[0]) handleScan(this.files[0]); this.value=''; };
+
+async function handleScan(file){
+  if(!hasConsent){ showConsentModal(); return; }
+  $('#modalScanning').classList.remove('hidden');
+  try{
+    const b64 = await fileToB64(file);
+    const r = await fetch('/api/vault/scan', {
+      method: 'POST',
+      headers: HJSON,
+      body: JSON.stringify({image: b64, media_type: file.type || 'image/jpeg'}),
+    });
+    const d = await r.json();
+    $('#modalScanning').classList.add('hidden');
+    if(!r.ok) throw new Error(d.error || 'Erreur');
+    if(d.consent_required){ showConsentModal(); return; }
+    toast(`${d.doc_emoji} ${d.titre} — ajouté au coffre-fort`, 'ok', 4000);
+    await loadDocs();
+  }catch(e){
+    $('#modalScanning').classList.add('hidden');
+    toast(e.message || 'Erreur lors de l\'analyse', 'err');
+  }
+}
+
+function fileToB64(file){
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = e => res(e.target.result.split(',')[1]);
+    r.onerror = rej;
+    r.readAsDataURL(file);
+  });
+}
+
+// ── Détail ────────────────────────────────────────────────────────────
+
+async function openDetail(docId){
+  currentDocId = docId;
+  try{
+    const r = await fetch(`/api/vault/doc/${docId}`, {headers: HDR});
+    const doc = await r.json();
+    if(!r.ok) throw new Error(doc.error || 'Erreur');
+
+    let rows = '';
+    if(doc.doc_emoji || doc.doc_label) rows += detailRow('Type', `${doc.doc_emoji||''} ${doc.doc_label||''}`);
+    if(doc.emetteur) rows += detailRow('Émetteur', doc.emetteur);
+    if(doc.date_document) rows += detailRow('Date doc.', fmtDate(doc.date_document));
+    if(doc.date_expiration){
+      const s = doc.expiry_status;
+      const badge = s === 'expired' ? ' <span class="badge badge-expired">Expiré</span>' :
+                    s === 'urgent'  ? ' <span class="badge badge-urgent">Urgent</span>' :
+                    s === 'warning' ? ' <span class="badge badge-warning">Bientôt</span>' : '';
+      rows += detailRow('Expiration', fmtDate(doc.date_expiration) + badge);
+    }
+    if(doc.montant) rows += detailRow('Montant', doc.montant);
+    if(doc.reference) rows += detailRow('Référence', doc.reference);
+    if(doc.notes) rows += detailRow('Notes', doc.notes);
+    if(doc.created_at) rows += detailRow('Ajouté le', fmtDate(doc.created_at.split('T')[0]));
+    if(doc.is_sensitive) rows += detailRow('', '<span class="badge-sensitive">Données sensibles (RGPD)</span>');
+
+    const remList = Array.isArray(doc.reminders) ? doc.reminders : [];
+    let remHtml = '';
+    if(remList.length > 0){
+      remHtml = `<div class="section-title" style="margin-top:16px">Rappels programmés</div>`;
+      for(const rem of remList){
+        remHtml += `<div class="reminder-card" style="margin-bottom:6px"><span class="reminder-icon">🔔</span><div>${escHtml(rem.message)}</div></div>`;
+      }
+    }
+
+    $('#detailContent').innerHTML = `
+      <div style="font-size:2.2rem;margin-bottom:8px">${escHtml(doc.doc_emoji||'📎')}</div>
+      <h2 style="margin-bottom:4px">${escHtml(doc.titre||'Document')}</h2>
+      <p class="modal-sub" style="margin-bottom:16px">${escHtml(doc.doc_label||'')}</p>
+      ${rows}${remHtml}`;
+
+    $('#btnDeleteDoc').onclick = () => {
+      $('#modalDetail').classList.add('hidden');
+      deleteDoc(docId, doc.titre);
+    };
+    $('#modalDetail').classList.remove('hidden');
+  }catch(e){
+    toast('Erreur chargement', 'err');
+  }
+}
+
+function detailRow(label, value){
+  return `<div class="detail-row">
+    <div class="detail-label">${escHtml(label)}</div>
+    <div class="detail-value">${value}</div>
+  </div>`;
+}
+
+// ── Suppression ───────────────────────────────────────────────────────
+
+async function deleteDoc(docId, titre){
+  if(!confirm(`Supprimer "${titre||'ce document'}" du coffre-fort ?`)) return;
+  try{
+    const r = await fetch(`/api/vault/doc/${docId}`, {method:'DELETE', headers:HDR});
+    if(!r.ok) throw new Error('Erreur');
+    docs = docs.filter(d => d.id !== docId);
+    toast('Document supprimé', 'ok');
+    await loadDocs();
+  }catch(e){
+    toast('Erreur suppression', 'err');
+  }
+}
+
+// ── Fermer modals sur overlay ─────────────────────────────────────────
+
+['modalConsent','modalRgpd','modalDetail','modalScanning'].forEach(id => {
+  const el = document.getElementById(id);
+  if(el) el.addEventListener('click', e => {
+    if(e.target === el && id !== 'modalScanning') el.classList.add('hidden');
+  });
+});
+
+// ── Utils ─────────────────────────────────────────────────────────────
+
+function escHtml(s){
+  if(s == null) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function fmtDate(s){
+  if(!s) return '';
+  try{
+    const [y,m,d] = s.split('-');
+    return `${d}/${m}/${y}`;
+  }catch{ return s; }
+}
+
+})();
+</script>
+</body>
+</html>
