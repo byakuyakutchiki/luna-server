@@ -130,6 +130,13 @@ try:
 except ImportError:
     _SECRETARY_AVAILABLE = False
 
+# Vault module (coffre-fort documentaire)
+try:
+    from core.vault import vault_router
+    _VAULT_AVAILABLE = True
+except ImportError:
+    _VAULT_AVAILABLE = False
+
 # Form Filler (remplissage intelligent de formulaires PDF)
 try:
     from core.form_filler.routes import form_filler_router
@@ -1199,6 +1206,51 @@ async def _configure_twilio_webhooks():
         logger.warning(f"Twilio webhook auto-config failed: {e} (configurer manuellement dans Twilio Dashboard)")
 
 
+async def _vault_reminder_loop():
+    """Vérifie toutes les heures les rappels documentaires dus — SMS + notification chat."""
+    while True:
+        try:
+            await asyncio.sleep(3600)
+            if not _VAULT_AVAILABLE or not _redis_client:
+                continue
+            from core.vault.redis_ops import VaultRedisOps
+            cursor = 0
+            processed = 0
+            while True:
+                cursor, keys = _redis_client.client.scan(cursor, match="luna:*:vault:consent", count=100)
+                for key in keys:
+                    try:
+                        tid = int(key.split(":")[1])
+                        vops = VaultRedisOps(_redis_client, tid)
+                        for rem in vops.get_due_reminders():
+                            msg = rem.get("message", "Rappel document Luna")
+                            # SMS
+                            if sms_client and sms_client.is_configured:
+                                profile = _redis_client.get_profile(tid) or {}
+                                auth = _redis_client.get_auth_by_email(profile.get("email", "")) or {}
+                                phone = auth.get("telephone") or auth.get("phone", "")
+                                if phone:
+                                    try:
+                                        sms_client.send_sms(phone, f"Luna 📄 {msg}")
+                                        processed += 1
+                                    except Exception as sms_err:
+                                        logger.warning(f"Vault SMS tid={tid}: {sms_err}")
+                            # Notification chat (lue au prochain login)
+                            _redis_client.client.lpush(f"luna:{tid}:vault:pending_notifications", msg)
+                            _redis_client.client.expire(f"luna:{tid}:vault:pending_notifications", 86400 * 7)
+                            vops.mark_reminder_sent(rem.get("_raw", ""))
+                    except Exception as e:
+                        logger.warning(f"Vault reminder key={key}: {e}")
+                if cursor == 0:
+                    break
+            if processed:
+                logger.info(f"Vault reminders sent: {processed}")
+        except asyncio.CancelledError:
+            break
+        except Exception as e:
+            logger.exception(f"Vault reminder loop: {e}")
+
+
 @asynccontextmanager
 async def lifespan(app):
     """Startup: charge instructions, lance boucles, configure Tavus. Shutdown: stoppe tout."""
@@ -1263,6 +1315,11 @@ async def lifespan(app):
             await asyncio.wait_for(tavus_client.configure_perception(), timeout=10.0)
         except Exception as e:
             logger.warning(f"Tavus configure_perception error: {e}")
+    # Vault: boucle de rappels documentaires (SMS + chat)
+    if _VAULT_AVAILABLE and _redis_client:
+        asyncio.create_task(_vault_reminder_loop())
+        logger.info("Vault reminder loop started")
+
     # Cortex: init + demarrage du cerveau autonome
     _cortex_instance = init_cortex(redis_client=_redis_client)
     if _cortex_instance:
@@ -1316,6 +1373,10 @@ if _EXPLOITANT_AVAILABLE:
 # Mount secretary routes (documents, budget, reminders)
 if _SECRETARY_AVAILABLE:
     app.include_router(secretary_router)
+
+# Mount vault routes (coffre-fort documentaire)
+if _VAULT_AVAILABLE:
+    app.include_router(vault_router)
 
 # Mount Form Filler routes (formulaires PDF)
 if _FORM_FILLER_AVAILABLE:
