@@ -191,6 +191,34 @@ class SocialRedisOps:
         r2 = self.client.srem(self._key("friends", friend_tid), tid)
         return bool(r1 or r2)
 
+    def delete_friend_and_data(self, tid, friend_tid) -> dict:
+        """Supprime l'amitié ET toutes les données associées (DM, messages, unread)."""
+        tid, friend_tid = str(tid), str(friend_tid)
+
+        # 1. Amitié mutuelle
+        self.client.srem(self._key("friends", tid), friend_tid)
+        self.client.srem(self._key("friends", friend_tid), tid)
+
+        # 2. Demandes d'amitié en attente (dans les deux sens)
+        self.client.srem(self._key("requests", tid), friend_tid)
+        self.client.srem(self._key("requests", friend_tid), tid)
+
+        # 3. DM room + messages
+        room_id = self._dm_room_id(tid, friend_tid)
+        room_key = self._key("dm", room_id)
+        msg_key  = self._key("dm", room_id, "messages")
+        self.client.delete(room_key, msg_key)
+
+        # 4. Index DM des deux côtés
+        self.client.zrem(self._key("dm_index", tid), room_id)
+        self.client.zrem(self._key("dm_index", friend_tid), room_id)
+
+        # 5. Compteurs unread
+        self.client.hdel(self._key("dm_unread", tid), room_id)
+        self.client.hdel(self._key("dm_unread", friend_tid), room_id)
+
+        return {"friend_removed": True, "dm_deleted": True, "room_id": room_id}
+
     def get_friend_count(self, tid) -> int:
         return self.client.scard(self._key("friends", tid)) or 0
 

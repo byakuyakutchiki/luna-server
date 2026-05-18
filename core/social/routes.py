@@ -591,6 +591,30 @@ async def remove_friend(request: Request):
     return {"success": True}
 
 
+@social_router.delete("/api/social/friends/{friend_tid}")
+async def delete_friend_full(request: Request, friend_tid: int):
+    """Supprime un ami et TOUTES ses données (amitié + messages DM + unread)."""
+    sops = _get_sops(request)
+    if not sops:
+        return _unavailable()
+    tid = _get_tenant_id(request)
+    if tid is None:
+        return _error("Non authentifie", 401)
+
+    result = sops.delete_friend_and_data(tid, friend_tid)
+
+    try:
+        from core.gamification.redis_ops import GamificationRedisOps
+        gops = GamificationRedisOps(sops.rc)
+        gops.set_player_field(tid, "total_friends", str(sops.get_friend_count(tid)))
+        gops.set_player_field(friend_tid, "total_friends", str(sops.get_friend_count(friend_tid)))
+    except Exception:
+        pass
+
+    logger.info(f"delete_friend_full: tid={tid} supprime ami={friend_tid} — {result}")
+    return {"success": True, "deleted": result}
+
+
 # =====================================================================
 # AMIS EXTERNES (non-inscrits sur la plateforme)
 # =====================================================================

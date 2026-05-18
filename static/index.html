@@ -643,6 +643,21 @@ body.mode-secretaire .luna-chip:hover { background: rgba(16,185,129,0.2); border
 .friend-online { display:inline-block; width:8px; height:8px; border-radius:50%; background:#4ade80; box-shadow:0 0 6px #4ade80; }
 .friend-offline { display:inline-block; width:8px; height:8px; border-radius:50%; background:#555; }
 .friend-actions { display:flex; gap:6px; flex-shrink:0; }
+.btn-remove-friend { padding:7px 11px; border-radius:8px; border:none; background:rgba(220,38,38,0.15); color:#fca5a5; cursor:pointer; font-size:0.82em; transition:background .2s; }
+.btn-remove-friend:hover { background:rgba(220,38,38,0.35); }
+/* Modal suppression ami */
+#deleteFriendModal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:9500; align-items:center; justify-content:center; }
+#deleteFriendModal.open { display:flex; }
+#deleteFriendModal .dfm-box { background:#1a1a3e; border:1px solid #4b2020; border-radius:18px; padding:28px 24px; width:92%; max-width:360px; text-align:center; }
+#deleteFriendModal .dfm-icon { font-size:2.8em; margin-bottom:10px; }
+#deleteFriendModal .dfm-title { font-size:1.1em; font-weight:700; color:#fca5a5; margin-bottom:8px; }
+#deleteFriendModal .dfm-name { font-size:1em; color:#a78bfa; font-weight:600; margin-bottom:14px; }
+#deleteFriendModal .dfm-warn { font-size:0.82em; color:#888; margin-bottom:20px; line-height:1.5; background:rgba(220,38,38,0.08); border-radius:8px; padding:10px 12px; text-align:left; }
+#deleteFriendModal .dfm-warn li { margin-bottom:4px; }
+#deleteFriendModal .dfm-btns { display:flex; gap:10px; }
+#deleteFriendModal .dfm-btns button { flex:1; padding:12px; border-radius:10px; border:none; font-size:0.95em; font-weight:600; cursor:pointer; }
+#deleteFriendModal .dfm-cancel { background:#2d2d5e; color:#a0aec0; }
+#deleteFriendModal .dfm-confirm { background:#dc2626; color:#fff; }
 .friend-code-display { text-align:center; padding:20px; }
 .friend-code-value { font-size:2em; font-weight:700; color:#a78bfa; letter-spacing:6px; font-family:monospace; }
 .friend-code-label { font-size:0.85em; color:#888; margin-top:4px; }
@@ -1311,6 +1326,24 @@ body.mode-secretaire .luna-chip:hover { background: rgba(16,185,129,0.2); border
     <div style="display:flex;gap:10px;">
       <button onclick="_closeAddExternModal()" style="flex:1;padding:12px;border-radius:12px;border:none;background:#2a2a4a;color:#aaa;cursor:pointer;">Annuler</button>
       <button id="externSaveBtn" onclick="_saveExternFriend()" style="flex:1;padding:12px;border-radius:12px;border:none;background:#0e7490;color:#fff;cursor:pointer;font-weight:600;">Ajouter</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal suppression ami -->
+<div id="deleteFriendModal" onclick="if(event.target===this)_closeDfm()">
+  <div class="dfm-box">
+    <div class="dfm-icon">⚠️</div>
+    <div class="dfm-title">Supprimer cet ami ?</div>
+    <div class="dfm-name" id="dfmFriendName"></div>
+    <ul class="dfm-warn">
+      <li>Votre amitié sera définitivement supprimée</li>
+      <li>Tous vos messages privés seront effacés</li>
+      <li>Cette action est <strong>irréversible</strong></li>
+    </ul>
+    <div class="dfm-btns">
+      <button class="dfm-cancel" onclick="_closeDfm()">Annuler</button>
+      <button class="dfm-confirm" id="dfmConfirmBtn" onclick="_confirmDeleteFriend()">Supprimer</button>
     </div>
   </div>
 </div>
@@ -4888,8 +4921,12 @@ function loadAmisList() {
       card.innerHTML = '<div class="friend-avatar">' + _amisAvatarEmoji(f.avatar_type) + '</div>' +
         '<div class="friend-info"><div class="friend-name">' + dot + ' ' + esc(f.nickname || "Ami") + unreadBadge + '</div>' +
         '<div class="friend-level">Niveau ' + (f.level || 1) + '</div></div>' +
-        '<div class="friend-actions"><button class="btn btn-primary" style="padding:8px 14px;font-size:0.85em;">Message</button></div>';
-      card.addEventListener("click", function() { openDm(f.tid, f.nickname || "Ami"); });
+        '<div class="friend-actions">' +
+        '<button class="btn btn-primary" style="padding:8px 14px;font-size:0.85em;" data-dm-tid="' + f.tid + '" data-dm-name="' + esc(f.nickname || "Ami") + '">Message</button>' +
+        '<button class="btn-remove-friend" title="Supprimer cet ami" data-del-tid="' + f.tid + '" data-del-name="' + esc(f.nickname || "Ami") + '">🗑</button>' +
+        '</div>';
+      card.querySelector('[data-dm-tid]').addEventListener("click", function(e) { e.stopPropagation(); openDm(f.tid, f.nickname || "Ami"); });
+      card.querySelector('[data-del-tid]').addEventListener("click", function(e) { e.stopPropagation(); _openDfm(f.tid, f.nickname || "Ami"); });
       list.appendChild(card);
     });
   })
@@ -4939,6 +4976,43 @@ function _amisDecline(tid, btnEl) {
   .then(function(r) { return r.json(); })
   .then(function(data) { if (data.success) { var card = btnEl.closest(".friend-card"); if (card) card.remove(); loadAmisRequests(); } })
   .catch(function() { btnEl.disabled = false; });
+}
+
+// ── Suppression ami ──
+var _dfmTid = null;
+var _dfmName = "";
+
+function _openDfm(friendTid, friendName) {
+  _dfmTid = friendTid;
+  _dfmName = friendName;
+  document.getElementById("dfmFriendName").textContent = friendName;
+  document.getElementById("dfmConfirmBtn").disabled = false;
+  document.getElementById("deleteFriendModal").classList.add("open");
+}
+function _closeDfm() {
+  document.getElementById("deleteFriendModal").classList.remove("open");
+  _dfmTid = null;
+}
+function _confirmDeleteFriend() {
+  if (!_dfmTid) return;
+  var btn = document.getElementById("dfmConfirmBtn");
+  btn.disabled = true;
+  btn.textContent = "Suppression...";
+  authFetch("/api/social/friends/" + _dfmTid, { method: "DELETE" })
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      _closeDfm();
+      if (d.success) {
+        loadAmisList();
+      } else {
+        alert("Erreur : " + (d.error || "impossible de supprimer"));
+      }
+    })
+    .catch(function() {
+      btn.disabled = false;
+      btn.textContent = "Supprimer";
+      alert("Erreur réseau, réessaie.");
+    });
 }
 
 function _myTid() {
