@@ -120,7 +120,7 @@ async def analyze_form(openai_client, image_b64: str, media_type: str = "image/j
             description=f.get("description", ""),
             required=f.get("required", False),
             group=f.get("group", "autre"),
-            options=f.get("options", []),
+            options=f.get("options") or [],
             placeholder=f.get("placeholder", ""),
             profile_key=f.get("profile_key"),
         )
