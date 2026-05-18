@@ -40,6 +40,7 @@ from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 from dotenv import load_dotenv
 from openai import OpenAI
+from integrations.llm.provider import build_llm_client, get_llm_model, get_provider_label
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, Response, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, StreamingResponse
@@ -174,8 +175,8 @@ def _reload_env():
     TAVUS_CALLBACK_URL = os.getenv("TAVUS_CALLBACK_URL", "")
     VOICE_CALLBACK_URL = os.getenv("VOICE_CALLBACK_URL", "")
     REQUIRE_AUTH = os.getenv("REQUIRE_AUTH", "true").lower() == "true"
-    OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-    OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+    OPENAI_API_KEY = os.getenv("LLM_API_KEY") or os.getenv("OPENAI_API_KEY")
+    OPENAI_MODEL = get_llm_model()
     ADMIN_NUMBER = os.getenv("ADMIN_NUMBER", "")
     SETUP_OPENAI_API_KEY = os.getenv("SETUP_OPENAI_API_KEY", "")
     _jwt_raw = os.getenv("JWT_SECRET_KEY", "")
@@ -223,8 +224,9 @@ if _LICENSE_KEY and not _pv_locked:
         logger.warning("Module license non disponible - heartbeat desactive")
 
 # --- Config: graceful en mode SETUP ---
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+# Rétrocompat: LLM_API_KEY prioritaire, OPENAI_API_KEY accepté si provider=openai
+OPENAI_API_KEY = os.getenv("LLM_API_KEY") or os.getenv("OPENAI_API_KEY")
+OPENAI_MODEL = get_llm_model()
 ADMIN_NUMBER = os.getenv("ADMIN_NUMBER", "")
 SETUP_OPENAI_API_KEY = os.getenv("SETUP_OPENAI_API_KEY", "")
 
@@ -236,12 +238,15 @@ if _setup_permanently_disabled:
 if _pv_locked:
     # Mode SETUP: ne crashe pas sur cles manquantes
     if not OPENAI_API_KEY:
-        logger.warning("OPENAI_API_KEY manquante - mode SETUP")
+        logger.warning("LLM_API_KEY manquante - mode SETUP")
     if not ADMIN_NUMBER:
         logger.warning("ADMIN_NUMBER manquant - mode SETUP")
 else:
     if not OPENAI_API_KEY:
-        raise SystemExit("ERREUR FATALE: OPENAI_API_KEY manquante dans .env. Voir .env.example.")
+        raise SystemExit(
+            f"ERREUR FATALE: LLM_API_KEY manquante pour provider '{os.getenv('LLM_PROVIDER','openai')}'. "
+            "Voir .env.template et CONFIG.md"
+        )
     if not ADMIN_NUMBER:
         raise SystemExit("ERREUR FATALE: ADMIN_NUMBER manquant dans .env. Voir .env.example.")
 
@@ -466,7 +471,7 @@ def _is_public_path(path: str) -> bool:
 # --- Clients ---
 if _pv_locked:
     # Mode SETUP: init graceful, ne crashe pas sur cles manquantes
-    openai_client = OpenAI(api_key=OPENAI_API_KEY) if OPENAI_API_KEY else None
+    openai_client = build_llm_client(OPENAI_API_KEY) if OPENAI_API_KEY else None
     try:
         sms_client = TwilioSMSClient.from_env()
     except Exception:
@@ -475,7 +480,7 @@ if _pv_locked:
     tavus_client = None
     email_client = EmailClient.from_env()
 else:
-    openai_client = OpenAI(api_key=OPENAI_API_KEY)
+    openai_client = build_llm_client(OPENAI_API_KEY)
     sms_client = TwilioSMSClient.from_env()
     voice_client = TwilioVoiceClient.from_env()
     tavus_client = TavusClient.from_env() if _TAVUS_AVAILABLE and LUNA_MODE == "full" else None
