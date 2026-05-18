@@ -108,6 +108,13 @@ try:
 except ImportError:
     _SOCIAL_AVAILABLE = False
 
+# World social layer (privacy, avatar, invitations, chat, visitors)
+try:
+    from core.world import world_router
+    _WORLD_SOCIAL_AVAILABLE = True
+except ImportError:
+    _WORLD_SOCIAL_AVAILABLE = False
+
 # Secretary module (documents, budget, reminders)
 try:
     from core.secretary.routes import secretary_router
@@ -1280,6 +1287,10 @@ if _GAMIFICATION_AVAILABLE:
 # Mount social routes (optional)
 if _SOCIAL_AVAILABLE:
     app.include_router(social_router)
+
+# Mount world social layer
+if _WORLD_SOCIAL_AVAILABLE:
+    app.include_router(world_router)
 
 # Mount secretary routes (documents, budget, reminders)
 if _SECRETARY_AVAILABLE:

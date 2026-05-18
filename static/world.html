@@ -2566,6 +2566,116 @@ html, body {
 .map-legend-dot{width:10px;height:10px;border-radius:50%;}
 .map-privacy-row{position:absolute;top:16px;left:16px;z-index:9600;background:rgba(10,10,26,0.85);border-radius:10px;padding:8px 12px;border:1px solid rgba(255,255,255,0.1);display:flex;align-items:center;gap:8px;font-size:12px;color:#ccc;}
 @keyframes marker-ring-pulse{0%,100%{transform:scale(1);opacity:.5;}50%{transform:scale(1.5);opacity:0;}}
+
+/* ══════════════════════════════════════
+   COUCHE SOCIALE — KIMI v1.0
+   ══════════════════════════════════════ */
+/* Social panel overlays */
+.social-panel-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.7);backdrop-filter:blur(4px);z-index:8000;display:none;align-items:flex-end;justify-content:center;}
+.social-panel-overlay.active{display:flex;}
+.social-panel{background:linear-gradient(180deg,#1a0f2e 0%,#0f0a1e 100%);border-radius:24px 24px 0 0;width:100%;max-width:480px;max-height:85vh;overflow:hidden;display:flex;flex-direction:column;border:1px solid rgba(167,139,250,0.25);border-bottom:none;animation:socialSlideUp .3s ease;}
+@keyframes socialSlideUp{from{transform:translateY(100%);opacity:0;}to{transform:translateY(0);opacity:1;}}
+.social-panel-header{display:flex;align-items:center;justify-content:space-between;padding:16px 20px 12px;border-bottom:1px solid rgba(167,139,250,0.15);}
+.social-panel-header h2{font-size:16px;font-weight:700;color:#e9d5ff;margin:0;}
+.social-panel-close{background:none;border:none;color:#a78bfa;font-size:22px;cursor:pointer;padding:4px 8px;border-radius:50%;transition:background .2s;}
+.social-panel-close:hover{background:rgba(255,255,255,0.1);}
+.social-panel-body{flex:1;overflow-y:auto;padding:16px 20px;-webkit-overflow-scrolling:touch;}
+.social-panel-body::-webkit-scrollbar{width:4px;}
+.social-panel-body::-webkit-scrollbar-thumb{background:rgba(167,139,250,0.3);border-radius:2px;}
+
+/* FAB social group */
+.social-fab-group{position:fixed;bottom:80px;right:16px;z-index:7500;display:flex;flex-direction:column;gap:10px;align-items:flex-end;}
+.social-fab-btn{width:46px;height:46px;border-radius:50%;border:2px solid rgba(167,139,250,0.4);background:rgba(15,10,30,0.92);color:#a78bfa;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(8px);transition:all .25s;position:relative;box-shadow:0 4px 16px rgba(107,33,168,0.4);}
+.social-fab-btn:hover{transform:scale(1.12);border-color:#a78bfa;color:#fbbf24;box-shadow:0 0 20px rgba(167,139,250,0.5);}
+.social-fab-badge{position:absolute;top:-4px;right:-4px;background:#f43f5e;color:#fff;font-size:10px;font-weight:700;border-radius:50%;width:18px;height:18px;display:none;align-items:center;justify-content:center;}
+
+/* Visitors bar */
+#social-visitors-bar{position:fixed;top:0;left:0;right:0;z-index:7000;padding:6px 12px;background:rgba(15,10,30,0.95);border-bottom:1px solid rgba(167,139,250,0.2);display:none;gap:8px;overflow-x:auto;flex-wrap:nowrap;-webkit-overflow-scrolling:touch;}
+#social-visitors-bar::-webkit-scrollbar{display:none;}
+.social-visitor-chip{display:flex;align-items:center;gap:6px;padding:4px 10px;background:rgba(107,33,168,0.25);border:1px solid rgba(167,139,250,0.3);border-radius:20px;font-size:12px;color:#e9d5ff;white-space:nowrap;flex-shrink:0;}
+.social-chip-avatar{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;}
+
+/* Toggle switch */
+.social-toggle-row{display:flex;align-items:center;justify-content:space-between;padding:14px 0;border-bottom:1px solid rgba(167,139,250,0.1);}
+.social-toggle-label{font-size:14px;font-weight:600;color:#e9d5ff;}
+.social-toggle-desc{font-size:11px;color:#a78bfa;margin-top:2px;}
+.social-toggle-switch{width:44px;height:24px;border-radius:12px;background:#2d1f4e;border:2px solid rgba(167,139,250,0.3);cursor:pointer;position:relative;transition:all .3s;flex-shrink:0;}
+.social-toggle-switch::after{content:"";position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#6b7280;transition:all .3s;}
+.social-toggle-switch.active{background:rgba(167,139,250,0.3);border-color:#a78bfa;}
+.social-toggle-switch.active::after{left:22px;background:#a78bfa;}
+
+/* Friends tab nav */
+.social-friends-tabs{display:flex;gap:0;border-bottom:1px solid rgba(167,139,250,0.2);margin-bottom:16px;}
+.social-friends-tab{flex:1;padding:10px;text-align:center;font-size:12px;font-weight:600;color:#a78bfa;cursor:pointer;border-bottom:2px solid transparent;transition:all .2s;}
+.social-friends-tab.active{color:#fbbf24;border-bottom-color:#fbbf24;}
+
+/* Friend / invite cards */
+.social-friend-card{display:flex;align-items:center;gap:12px;padding:12px;background:rgba(107,33,168,0.1);border-radius:12px;margin-bottom:8px;border:1px solid rgba(167,139,250,0.15);}
+.social-friend-avatar{width:42px;height:42px;border-radius:50%;border:2px solid rgba(167,139,250,0.4);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;background:rgba(107,33,168,0.3);}
+.social-friend-avatar.online{border-color:#34d399;box-shadow:0 0 8px rgba(52,211,153,0.4);}
+.social-friend-info{flex:1;min-width:0;}
+.social-friend-name{font-size:14px;font-weight:600;color:#e9d5ff;truncate:ellipsis;}
+.social-friend-meta{font-size:11px;color:#a78bfa;margin-top:2px;display:flex;gap:8px;}
+.social-friend-actions{display:flex;gap:6px;}
+.social-btn-invite{background:rgba(167,139,250,0.2);border:1px solid rgba(167,139,250,0.4);color:#a78bfa;border-radius:8px;padding:6px 10px;font-size:13px;cursor:pointer;transition:all .2s;}
+.social-btn-invite:hover{background:rgba(167,139,250,0.4);color:#fff;}
+.social-btn-remove{background:rgba(248,113,113,0.1);border:1px solid rgba(248,113,113,0.3);color:#f87171;border-radius:8px;padding:6px 10px;font-size:13px;cursor:pointer;transition:all .2s;}
+.social-invite-card{display:flex;align-items:center;gap:12px;padding:12px;background:rgba(251,191,36,0.08);border-radius:12px;margin-bottom:8px;border:1px solid rgba(251,191,36,0.2);}
+.social-invite-icon{font-size:28px;flex-shrink:0;}
+.social-invite-info{flex:1;min-width:0;}
+.social-invite-name{font-size:14px;font-weight:700;color:#fbbf24;}
+.social-invite-msg{font-size:11px;color:#a78bfa;margin-top:2px;}
+.social-invite-actions{display:flex;gap:6px;}
+.social-btn-accept{background:rgba(52,211,153,0.2);border:1px solid rgba(52,211,153,0.4);color:#34d399;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;transition:all .2s;}
+.social-btn-decline{background:rgba(248,113,113,0.1);border:1px solid rgba(248,113,113,0.3);color:#f87171;border-radius:8px;padding:6px 12px;font-size:12px;cursor:pointer;transition:all .2s;}
+.social-level-badge{background:rgba(167,139,250,0.2);border:1px solid rgba(167,139,250,0.3);color:#a78bfa;padding:2px 8px;border-radius:8px;font-size:10px;font-weight:700;}
+
+/* Chat */
+.social-chat-messages{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:8px;min-height:200px;max-height:45vh;}
+.social-chat-bubble{max-width:80%;padding:10px 14px;border-radius:18px;font-size:13px;line-height:1.4;word-break:break-word;}
+.social-chat-bubble.own{align-self:flex-end;background:rgba(107,33,168,0.5);border-bottom-right-radius:4px;color:#e9d5ff;}
+.social-chat-bubble.other{align-self:flex-start;background:rgba(30,27,75,0.8);border-bottom-left-radius:4px;border:1px solid rgba(167,139,250,0.2);color:#e9d5ff;}
+.social-bubble-sender{font-size:10px;color:#a78bfa;margin-bottom:3px;font-weight:600;}
+.social-bubble-time{font-size:10px;color:rgba(167,139,250,0.5);margin-top:4px;text-align:right;}
+.social-chat-input-area{display:flex;gap:8px;padding:12px 16px;border-top:1px solid rgba(167,139,250,0.15);background:rgba(15,10,30,0.8);}
+.social-chat-input{flex:1;padding:10px 14px;background:rgba(30,27,75,0.6);border:1px solid rgba(167,139,250,0.3);border-radius:20px;color:#e9d5ff;font-size:13px;outline:none;}
+.social-chat-input:focus{border-color:#a78bfa;}
+.social-chat-send{background:linear-gradient(135deg,#6b21a8,#4c1d95);border:none;color:#fff;border-radius:50%;width:38px;height:38px;font-size:16px;cursor:pointer;transition:all .2s;flex-shrink:0;}
+.social-chat-send:hover{transform:scale(1.1);}
+
+/* Avatar panel */
+.social-form-group{margin-bottom:16px;}
+.social-form-group label{display:block;font-size:12px;font-weight:600;color:#a78bfa;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;}
+.social-form-select{width:100%;padding:10px 12px;background:rgba(30,27,75,0.6);border:1px solid rgba(167,139,250,0.3);border-radius:10px;color:#e9d5ff;font-size:13px;}
+.social-avatar-preview{width:80px;height:80px;border-radius:50%;border:3px solid rgba(167,139,250,0.5);display:flex;align-items:center;justify-content:center;font-size:36px;margin:0 auto 16px;background:linear-gradient(135deg,#4c1d95,#1e1b4b);}
+.social-color-row{display:flex;gap:8px;flex-wrap:wrap;}
+.social-color-swatch{width:28px;height:28px;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:all .2s;}
+.social-color-swatch.active{border-color:#fff;transform:scale(1.2);}
+.social-btn-save{width:100%;padding:12px;background:linear-gradient(135deg,#6b21a8,#4c1d95);border:none;border-radius:12px;color:#fff;font-size:14px;font-weight:700;cursor:pointer;margin-top:16px;transition:all .2s;}
+.social-btn-save:hover{transform:translateY(-1px);box-shadow:0 4px 16px rgba(107,33,168,0.5);}
+
+/* Map popup */
+.social-map-popup{padding:4px;min-width:160px;text-align:center;font-family:'Segoe UI',sans-serif;}
+.social-map-popup .popup-avatar{width:40px;height:40px;border-radius:50%;margin:0 auto 6px;display:flex;align-items:center;justify-content:center;font-size:20px;}
+.social-map-popup .popup-name{font-weight:700;font-size:13px;color:#e9d5ff;margin-bottom:2px;}
+.social-map-popup .popup-level{font-size:11px;color:#a78bfa;margin-bottom:8px;}
+.social-map-popup .popup-add-btn{background:rgba(107,33,168,0.4);border:1px solid rgba(167,139,250,0.4);color:#a78bfa;padding:5px 12px;border-radius:8px;font-size:12px;cursor:pointer;}
+
+/* Social toasts */
+#social-toast-container{position:fixed;top:20px;right:16px;z-index:9999;display:flex;flex-direction:column;gap:8px;pointer-events:none;}
+.social-toast{background:rgba(20,10,40,0.95);border:1px solid rgba(167,139,250,0.3);border-radius:12px;padding:12px 16px;display:flex;align-items:flex-start;gap:10px;min-width:260px;max-width:320px;box-shadow:0 8px 32px rgba(107,33,168,0.4);pointer-events:auto;animation:socialToastSlide .3s ease;}
+@keyframes socialToastSlide{from{transform:translateX(120%);opacity:0;}to{transform:translateX(0);opacity:1;}}
+.social-toast-icon{font-size:18px;flex-shrink:0;}
+.social-toast-title{font-size:13px;font-weight:700;color:#e9d5ff;}
+.social-toast-msg{font-size:11px;color:#a78bfa;margin-top:2px;}
+.social-toast.success .social-toast-icon::before{content:"✅";}
+.social-toast.error .social-toast-icon::before{content:"❌";}
+.social-toast.info .social-toast-icon::before{content:"ℹ️";}
+
+/* Empty states */
+.social-empty{text-align:center;padding:32px 16px;color:#a78bfa;}
+.social-empty-icon{font-size:40px;margin-bottom:8px;opacity:.5;}
+.social-empty-text{font-size:13px;line-height:1.5;}
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
 </head>
@@ -6620,9 +6730,7 @@ html, body {
 </button>
 
 <!-- Bouton carte mondiale -->
-<button onclick="openWorldMap()" style="position:fixed;bottom:70px;right:20px;z-index:50;padding:9px 16px;border-radius:18px;border:2px solid rgba(96,165,250,0.4);background:rgba(26,26,46,0.9);color:#60a5fa;font-size:12px;cursor:pointer;backdrop-filter:blur(4px);display:flex;align-items:center;gap:6px;" id="worldMapBtn">
-  🌍 <span>Carte</span>
-</button>
+<!-- worldMapBtn intégré dans social-fab-group ci-dessous -->
 
 <!-- Carte mondiale overlay -->
 <div id="world-map-container">
@@ -12517,5 +12625,802 @@ function _setMapPrivacy(visible) {
 window._setMapPrivacy = _setMapPrivacy;
 })();
 </script>
+
+<!-- ================================================================ -->
+<!-- COUCHE SOCIALE INTERACTIVE — HTML -->
+<!-- ================================================================ -->
+
+<!-- Barre visiteurs -->
+<div id="social-visitors-bar" style="display:none;"></div>
+
+<!-- Toast container social -->
+<div id="social-toast-container"></div>
+
+<!-- FAB social group -->
+<div class="social-fab-group" id="social-fab-group">
+  <button class="social-fab-btn social-fab-friends" id="social-btn-friends" title="Amis &amp; Invitations">
+    &#128101;
+    <span class="social-fab-badge" id="social-badge-friends" style="display:none;">0</span>
+  </button>
+  <button class="social-fab-btn social-fab-chat" id="social-btn-chat" title="Chat du monde">
+    &#128172;
+    <span class="social-fab-badge" id="social-badge-chat" style="display:none;">0</span>
+  </button>
+  <button class="social-fab-btn social-fab-map" id="social-btn-map" title="Carte mondiale" onclick="openWorldMap()">
+    &#128506;
+  </button>
+  <button class="social-fab-btn social-fab-secondary" id="social-btn-avatar" title="Mon avatar">
+    &#127917;
+  </button>
+  <button class="social-fab-btn social-fab-secondary" id="social-btn-privacy" title="Confidentialit&#233;">
+    &#128274;
+  </button>
+</div>
+
+<!-- PANEL: AMIS -->
+<div class="social-panel-overlay" id="social-panel-friends">
+  <div class="social-panel">
+    <div class="social-panel-header">
+      <h2>Mes Amis</h2>
+      <button class="social-panel-close" onclick="socialClosePanel('social-panel-friends')">&#215;</button>
+    </div>
+    <div class="social-panel-body">
+      <div class="social-friends-tabs">
+        <button class="social-friends-tab active" data-tab="social-tab-friends-list">Amis</button>
+        <button class="social-friends-tab" data-tab="social-tab-friends-requests">Demandes</button>
+        <button class="social-friends-tab" data-tab="social-tab-friends-invites">Invitations monde</button>
+      </div>
+      <div id="social-tab-friends-list"></div>
+      <div id="social-tab-friends-requests" style="display:none;"></div>
+      <div id="social-tab-friends-invites" style="display:none;"></div>
+    </div>
+  </div>
+</div>
+
+<!-- PANEL: CHAT MONDE -->
+<div class="social-panel-overlay" id="social-panel-chat">
+  <div class="social-panel">
+    <div class="social-panel-header">
+      <h2>Chat du Monde</h2>
+      <button class="social-panel-close" onclick="socialClosePanel('social-panel-chat')">&#215;</button>
+    </div>
+    <div class="social-chat-messages" id="social-chat-messages">
+      <div class="social-empty-state">
+        <div class="social-empty-text">Les messages apparaîtront ici quand des amis rejoindront votre monde.</div>
+      </div>
+    </div>
+    <div class="social-chat-input-area">
+      <input type="text" id="social-chat-input" placeholder="&#201;crivez un message..." maxlength="300" autocomplete="off">
+      <button id="social-btn-send-chat" onclick="socialSendChatMessage()">&#10148;</button>
+    </div>
+  </div>
+</div>
+
+<!-- PANEL: AVATAR -->
+<div class="social-panel-overlay" id="social-panel-avatar">
+  <div class="social-panel">
+    <div class="social-panel-header">
+      <h2>Mon Avatar</h2>
+      <button class="social-panel-close" onclick="socialClosePanel('social-panel-avatar')">&#215;</button>
+    </div>
+    <div class="social-panel-body">
+      <div class="social-avatar-preview" id="social-avatar-preview">
+        <div class="social-aura" id="social-avatar-aura"></div>
+        <span id="social-avatar-emoji">&#127769;</span>
+      </div>
+      <div class="social-form-group">
+        <label>Genre</label>
+        <select id="social-avatar-gender">
+          <option value="neutral">Neutre</option>
+          <option value="male">Garçon</option>
+          <option value="female">Fille</option>
+        </select>
+      </div>
+      <div class="social-form-group">
+        <label>Style de corps</label>
+        <select id="social-avatar-body">
+          <option value="standard">Standard</option>
+          <option value="slim">Svelte</option>
+          <option value="chibi">Chibi</option>
+          <option value="heroic">H&#233;ro&#239;que</option>
+        </select>
+      </div>
+      <div class="social-form-group">
+        <label>Cheveux</label>
+        <select id="social-avatar-hair">
+          <option value="default">Classique</option>
+          <option value="long">Longs</option>
+          <option value="short">Courts</option>
+          <option value="spiky">H&#233;riss&#233;s</option>
+          <option value="braided">Tress&#233;s</option>
+        </select>
+      </div>
+      <div class="social-form-group">
+        <label>Tenue</label>
+        <select id="social-avatar-outfit">
+          <option value="default">Basique</option>
+          <option value="adventurer">Aventurier</option>
+          <option value="mage">Mage</option>
+          <option value="royal">Royal</option>
+          <option value="casual">D&#233;contract&#233;</option>
+        </select>
+      </div>
+      <div class="social-form-group">
+        <label>Aura</label>
+        <select id="social-avatar-aura-sel">
+          <option value="none">Aucune</option>
+          <option value="golden">Dor&#233;e</option>
+          <option value="violet">Violette</option>
+          <option value="blue">Bleue</option>
+          <option value="fire">Flammes</option>
+          <option value="starlight">Lumi&#232;re stellaire</option>
+        </select>
+      </div>
+      <div class="social-form-group">
+        <label>Cadre</label>
+        <select id="social-avatar-frame">
+          <option value="none">Aucun</option>
+          <option value="simple">Violet</option>
+          <option value="floral">Floral</option>
+          <option value="golden">Dor&#233;</option>
+          <option value="stars">&#201;toil&#233;</option>
+          <option value="diamond">Diamant</option>
+        </select>
+      </div>
+      <div class="social-form-group">
+        <label>Couleur principale</label>
+        <div class="social-color-picker-row" id="social-color-picker">
+          <div class="social-color-swatch" style="background:#a78bfa" data-color="#a78bfa"></div>
+          <div class="social-color-swatch" style="background:#60a5fa" data-color="#60a5fa"></div>
+          <div class="social-color-swatch" style="background:#34d399" data-color="#34d399"></div>
+          <div class="social-color-swatch" style="background:#fbbf24" data-color="#fbbf24"></div>
+          <div class="social-color-swatch" style="background:#f472b6" data-color="#f472b6"></div>
+          <div class="social-color-swatch" style="background:#f87171" data-color="#f87171"></div>
+          <div class="social-color-swatch" style="background:#9ca3af" data-color="#9ca3af"></div>
+          <div class="social-color-swatch" style="background:#c084fc" data-color="#c084fc"></div>
+        </div>
+      </div>
+      <div class="social-form-group">
+        <label>Expression</label>
+        <select id="social-avatar-face">
+          <option value="smile">Sourire</option>
+          <option value="happy">Heureux</option>
+          <option value="cool">Cool</option>
+          <option value="surprised">Surpris</option>
+          <option value="sleepy">Endormi</option>
+        </select>
+      </div>
+      <button class="social-btn-save" onclick="socialSaveAvatar()">Enregistrer mon avatar</button>
+    </div>
+  </div>
+</div>
+
+<!-- PANEL: CONFIDENTIALITE -->
+<div class="social-panel-overlay" id="social-panel-privacy">
+  <div class="social-panel">
+    <div class="social-panel-header">
+      <h2>Confidentialit&#233;</h2>
+      <button class="social-panel-close" onclick="socialClosePanel('social-panel-privacy')">&#215;</button>
+    </div>
+    <div class="social-panel-body">
+      <div class="social-toggle-row">
+        <div>
+          <div class="social-toggle-label">Visible sur la carte</div>
+          <div class="social-toggle-desc">Appara&#238;tre sur la carte mondiale</div>
+        </div>
+        <div class="social-toggle-switch active" id="social-toggle-map" onclick="socialTogglePrivacy('map')"></div>
+      </div>
+      <div class="social-toggle-row">
+        <div>
+          <div class="social-toggle-label">Visible dans le monde</div>
+          <div class="social-toggle-desc">Les amis peuvent me voir dans leur monde</div>
+        </div>
+        <div class="social-toggle-switch active" id="social-toggle-world" onclick="socialTogglePrivacy('world')"></div>
+      </div>
+      <div class="social-toggle-row">
+        <div>
+          <div class="social-toggle-label">Accepter les demandes d'amis</div>
+          <div class="social-toggle-desc">Recevoir des demandes d'ajout</div>
+        </div>
+        <div class="social-toggle-switch active" id="social-toggle-friends" onclick="socialTogglePrivacy('friends')"></div>
+      </div>
+      <div class="social-toggle-row">
+        <div>
+          <div class="social-toggle-label">Accepter les invitations monde</div>
+          <div class="social-toggle-desc">Recevoir des invitations dans le Monde de Luna</div>
+        </div>
+        <div class="social-toggle-switch active" id="social-toggle-invites" onclick="socialTogglePrivacy('invites')"></div>
+      </div>
+      <div class="social-toggle-row">
+        <div>
+          <div class="social-toggle-label">Localisation approximative</div>
+          <div class="social-toggle-desc">Masquer ma position exacte (&#177;5km)</div>
+        </div>
+        <div class="social-toggle-switch active" id="social-toggle-approx" onclick="socialTogglePrivacy('approx')"></div>
+      </div>
+      <div class="social-toggle-row" style="border:1px solid #f87171;border-radius:12px;padding:14px;margin-top:16px;">
+        <div>
+          <div class="social-toggle-label" style="color:#f87171;">Mode invisible total</div>
+          <div class="social-toggle-desc">Personne ne peut me voir ni m'inviter</div>
+        </div>
+        <div class="social-toggle-switch" id="social-toggle-invisible" onclick="socialTogglePrivacy('invisible')"></div>
+      </div>
+      <button class="social-btn-save" onclick="socialSavePrivacy()" style="margin-top:20px;">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================================================================ -->
+<!-- COUCHE SOCIALE INTERACTIVE — JAVASCRIPT -->
+<!-- ================================================================ -->
+<script>
+(function() {
+'use strict';
+
+// ================================================================
+// STATE
+// ================================================================
+var _socialAvatarConfig = {};
+var _socialPrivacySettings = {};
+var _socialFriendsList = [];
+var _socialPendingRequests = [];
+var _socialWorldInvitations = [];
+var _socialChatMessages = [];
+var _socialVisitors = [];
+var _socialChatInterval = null;
+var _socialVisitorsInterval = null;
+var _socialPresenceInterval = null;
+
+var SOCIAL_AVATAR_EMOJIS = {
+  neutral: { smile: '\u{1F319}', happy: '✨', cool: '\u{1F60E}', surprised: '\u{1F632}', sleepy: '\u{1F634}' },
+  male:    { smile: '\u{1F466}', happy: '\u{1F604}', cool: '\u{1F60E}', surprised: '\u{1F632}', sleepy: '\u{1F634}' },
+  female:  { smile: '\u{1F467}', happy: '\u{1F60A}', cool: '\u{1F60E}', surprised: '\u{1F632}', sleepy: '\u{1F634}' }
+};
+var SOCIAL_AURA_COLORS = {
+  none:'transparent', golden:'#fbbf24', violet:'#a78bfa', blue:'#60a5fa', fire:'#f87171', starlight:'#fde68a'
+};
+
+// ================================================================
+// API HELPERS
+// ================================================================
+function socialApiGet(path) {
+  var tok = localStorage.getItem('luna_token') || '';
+  return fetch(path, { headers: { 'Authorization': 'Bearer ' + tok } }).then(function(r) {
+    if (!r.ok) return r.json().catch(function() { return {}; }).then(function(e) { throw new Error(e.error || 'HTTP ' + r.status); });
+    return r.json();
+  });
+}
+function socialApiPost(path, body) {
+  var tok = localStorage.getItem('luna_token') || '';
+  return fetch(path, {
+    method: 'POST',
+    headers: { 'Authorization': 'Bearer ' + tok, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  }).then(function(r) {
+    if (!r.ok) return r.json().catch(function() { return {}; }).then(function(e) { throw new Error(e.error || 'HTTP ' + r.status); });
+    return r.json();
+  });
+}
+function socialApiDelete(path) {
+  var tok = localStorage.getItem('luna_token') || '';
+  return fetch(path, { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + tok } }).then(function(r) {
+    if (!r.ok) return r.json().catch(function() { return {}; }).then(function(e) { throw new Error(e.error || 'HTTP ' + r.status); });
+    return r.json();
+  });
+}
+
+// ================================================================
+// TOASTS
+// ================================================================
+function socialShowToast(type, title, message) {
+  var container = document.getElementById('social-toast-container');
+  if (!container) return;
+  var toast = document.createElement('div');
+  toast.className = 'social-toast social-toast-' + type;
+  var icons = { success: '&#10003;', error: '&#215;', info: '&#8505;', warning: '&#9888;' };
+  toast.innerHTML = '<div class="social-toast-icon">' + (icons[type] || icons.info) + '</div>'
+    + '<div class="social-toast-content">'
+    + '<div class="social-toast-title">' + socialEscapeHtml(title) + '</div>'
+    + '<div class="social-toast-msg">' + socialEscapeHtml(message) + '</div>'
+    + '</div>';
+  container.appendChild(toast);
+  setTimeout(function() { toast.remove(); }, 5000);
+}
+
+// ================================================================
+// PANELS
+// ================================================================
+function socialOpenPanel(id) {
+  document.querySelectorAll('.social-panel-overlay').forEach(function(p) { p.classList.remove('active'); });
+  var el = document.getElementById(id);
+  if (el) el.classList.add('active');
+  if (id === 'social-panel-chat') {
+    socialLoadChat();
+    setTimeout(function() {
+      var inp = document.getElementById('social-chat-input');
+      if (inp) inp.focus();
+    }, 100);
+  }
+}
+function socialClosePanel(id) {
+  var el = document.getElementById(id);
+  if (el) el.classList.remove('active');
+}
+
+// Close on backdrop click
+document.addEventListener('click', function(e) {
+  if (e.target && e.target.classList && e.target.classList.contains('social-panel-overlay')) {
+    e.target.classList.remove('active');
+  }
+});
+
+// ================================================================
+// AVATAR
+// ================================================================
+function socialLoadAvatar() {
+  socialApiGet('/api/world/avatar').then(function(data) {
+    _socialAvatarConfig = data.avatar || {};
+    socialApplyAvatarToUI();
+  }).catch(function() {});
+}
+function socialApplyAvatarToUI() {
+  var a = _socialAvatarConfig;
+  var set = function(id, val) { var el = document.getElementById(id); if (el) el.value = val || ''; };
+  set('social-avatar-gender', a.gender || 'neutral');
+  set('social-avatar-body', a.body_style || 'standard');
+  set('social-avatar-hair', a.hair || 'default');
+  set('social-avatar-outfit', a.outfit || 'default');
+  set('social-avatar-aura-sel', a.aura || 'none');
+  set('social-avatar-frame', a.frame || 'none');
+  set('social-avatar-face', a.face_expression || 'smile');
+  var color = a.primary_color || '#a78bfa';
+  document.querySelectorAll('.social-color-swatch').forEach(function(sw) {
+    sw.classList.toggle('active', sw.dataset.color === color);
+  });
+  socialUpdateAvatarPreview();
+}
+function socialUpdateAvatarPreview() {
+  var gender = (document.getElementById('social-avatar-gender') || {}).value || 'neutral';
+  var face   = (document.getElementById('social-avatar-face')   || {}).value || 'smile';
+  var emoji  = (SOCIAL_AVATAR_EMOJIS[gender] || SOCIAL_AVATAR_EMOJIS.neutral)[face] || '\u{1F319}';
+  var el = document.getElementById('social-avatar-emoji');
+  if (el) el.textContent = emoji;
+  var activeSwatch = document.querySelector('.social-color-swatch.active');
+  var color = activeSwatch ? activeSwatch.dataset.color : '#a78bfa';
+  var prev = document.getElementById('social-avatar-preview');
+  if (prev) prev.style.background = 'linear-gradient(135deg,' + color + ',' + socialAdjustColor(color, -40) + ')';
+  var aura = (document.getElementById('social-avatar-aura-sel') || {}).value || 'none';
+  var auraEl = document.getElementById('social-avatar-aura');
+  if (auraEl) {
+    auraEl.style.borderColor = SOCIAL_AURA_COLORS[aura] || 'transparent';
+    auraEl.style.opacity = aura !== 'none' ? '0.3' : '0';
+  }
+}
+function socialSaveAvatar() {
+  var activeSwatch = document.querySelector('.social-color-swatch.active');
+  var config = {
+    gender:           (document.getElementById('social-avatar-gender')    || {}).value || 'neutral',
+    body_style:       (document.getElementById('social-avatar-body')      || {}).value || 'standard',
+    hair:             (document.getElementById('social-avatar-hair')      || {}).value || 'default',
+    outfit:           (document.getElementById('social-avatar-outfit')    || {}).value || 'default',
+    aura:             (document.getElementById('social-avatar-aura-sel')  || {}).value || 'none',
+    frame:            (document.getElementById('social-avatar-frame')     || {}).value || 'none',
+    primary_color:    activeSwatch ? activeSwatch.dataset.color : '#a78bfa',
+    face_expression:  (document.getElementById('social-avatar-face')      || {}).value || 'smile',
+  };
+  var btn = document.getElementById('social-btn-avatar');
+  if (btn) btn.disabled = true;
+  socialApiPost('/api/world/avatar', config).then(function() {
+    _socialAvatarConfig = config;
+    socialShowToast('success', 'Avatar enregistré !', 'Votre apparence a été mise à jour.');
+    socialClosePanel('social-panel-avatar');
+  }).catch(function(err) {
+    socialShowToast('error', 'Erreur', err.message);
+  }).finally(function() {
+    if (btn) btn.disabled = false;
+  });
+}
+
+// ================================================================
+// PRIVACY
+// ================================================================
+function socialLoadPrivacy() {
+  socialApiGet('/api/world/privacy').then(function(data) {
+    _socialPrivacySettings = data;
+    socialApplyPrivacyToUI();
+  }).catch(function() {});
+}
+function socialApplyPrivacyToUI() {
+  var s = _socialPrivacySettings;
+  socialSetToggle('social-toggle-map',       s.visible_on_map);
+  socialSetToggle('social-toggle-world',     s.visible_in_world);
+  socialSetToggle('social-toggle-friends',   s.accept_friend_requests);
+  socialSetToggle('social-toggle-invites',   s.accept_world_invites);
+  socialSetToggle('social-toggle-approx',    s.approximate_location_only);
+  socialSetToggle('social-toggle-invisible', s.total_invisible);
+}
+function socialSetToggle(id, active) {
+  var el = document.getElementById(id);
+  if (el) el.classList.toggle('active', !!active);
+}
+function socialTogglePrivacy(key) {
+  var map = { map:'social-toggle-map', world:'social-toggle-world', friends:'social-toggle-friends', invites:'social-toggle-invites', approx:'social-toggle-approx', invisible:'social-toggle-invisible' };
+  var el = document.getElementById(map[key]);
+  if (!el) return;
+  el.classList.toggle('active');
+  if (key === 'invisible' && el.classList.contains('active')) {
+    ['social-toggle-map','social-toggle-world','social-toggle-friends','social-toggle-invites'].forEach(function(id) {
+      var t = document.getElementById(id); if (t) t.classList.remove('active');
+    });
+  }
+}
+function socialSavePrivacy() {
+  var g = function(id) { var el = document.getElementById(id); return el && el.classList.contains('active'); };
+  var settings = {
+    visible_on_map:              g('social-toggle-map'),
+    visible_in_world:            g('social-toggle-world'),
+    accept_friend_requests:      g('social-toggle-friends'),
+    accept_world_invites:        g('social-toggle-invites'),
+    approximate_location_only:   g('social-toggle-approx'),
+    total_invisible:             g('social-toggle-invisible'),
+  };
+  socialApiPost('/api/world/privacy', settings).then(function() {
+    _socialPrivacySettings = settings;
+    socialShowToast('success', 'Paramètres enregistrés', 'Vos préférences de confidentialité ont été mises à jour.');
+    socialClosePanel('social-panel-privacy');
+    // Sync carte
+    if (typeof _setMapPrivacy === 'function') _setMapPrivacy(settings.visible_on_map);
+    var tog = document.getElementById('mapPrivacyToggle');
+    if (tog) tog.checked = settings.visible_on_map;
+  }).catch(function(err) {
+    socialShowToast('error', 'Erreur', err.message);
+  });
+}
+
+// ================================================================
+// FRIENDS
+// ================================================================
+function socialLoadFriends() {
+  socialApiGet('/api/social/friends').then(function(data) {
+    _socialFriendsList = data.friends || [];
+    socialRenderFriendsList();
+    socialUpdateBadge('social-badge-friends', _socialPendingRequests.length + _socialWorldInvitations.length);
+  }).catch(function() {});
+  socialApiGet('/api/social/friends/requests').then(function(data) {
+    _socialPendingRequests = data.requests || [];
+    socialRenderFriendRequests();
+    socialUpdateBadge('social-badge-friends', _socialPendingRequests.length + _socialWorldInvitations.length);
+  }).catch(function() {});
+}
+function socialRenderFriendsList() {
+  var container = document.getElementById('social-tab-friends-list');
+  if (!container) return;
+  if (!_socialFriendsList.length) {
+    container.innerHTML = '<div class="social-empty-state"><div class="social-empty-text">Vous n\'avez pas encore d\'amis.<br>Ajoutez-en depuis la carte mondiale !</div></div>';
+    return;
+  }
+  container.innerHTML = _socialFriendsList.map(function(f) {
+    return '<div class="social-friend-card">'
+      + '<div class="social-friend-avatar' + (f.is_online ? ' online' : '') + '">' + socialGetAvatarEmoji(f.avatar_type) + '</div>'
+      + '<div class="social-friend-info">'
+      + '<div class="social-friend-name">' + socialEscapeHtml(f.nickname) + '</div>'
+      + '<div class="social-friend-meta"><span class="social-level-badge">Niv. ' + (f.level || 1) + '</span>'
+      + '<span>' + (f.is_online ? '&#9679; En ligne' : '&#9711; Hors ligne') + '</span></div>'
+      + '</div>'
+      + '<div class="social-friend-actions">'
+      + '<button class="social-btn-invite" onclick="socialInviteFriendToWorld(' + f.tid + ',\'' + socialEscapeHtml(f.nickname) + '\')" title="Inviter dans mon monde">&#127968;</button>'
+      + '<button class="social-btn-remove" onclick="socialRemoveFriend(' + f.tid + ')" title="Retirer">&#215;</button>'
+      + '</div>'
+      + '</div>';
+  }).join('');
+}
+function socialRenderFriendRequests() {
+  var container = document.getElementById('social-tab-friends-requests');
+  if (!container) return;
+  if (!_socialPendingRequests.length) {
+    container.innerHTML = '<div class="social-empty-state"><div class="social-empty-text">Aucune demande d\'ami en attente.</div></div>';
+    return;
+  }
+  container.innerHTML = _socialPendingRequests.map(function(r) {
+    return '<div class="social-invite-card">'
+      + '<div class="social-invite-info">'
+      + '<div class="social-invite-name">' + socialEscapeHtml(r.nickname) + '</div>'
+      + '<div class="social-invite-msg">Niveau ' + (r.level || 1) + ' • Vous demande en ami</div>'
+      + '</div>'
+      + '<div class="social-invite-actions">'
+      + '<button class="social-btn-accept" onclick="socialAcceptFriendRequest(' + r.tid + ')">Accepter</button>'
+      + '<button class="social-btn-decline" onclick="socialDeclineFriendRequest(' + r.tid + ')">Refuser</button>'
+      + '</div>'
+      + '</div>';
+  }).join('');
+}
+function socialAcceptFriendRequest(tid) {
+  socialApiPost('/api/social/friends/accept', { requester_tid: tid }).then(function() {
+    socialShowToast('success', 'Ami ajouté !', 'Vous êtes maintenant amis.');
+    socialLoadFriends();
+  }).catch(function(err) { socialShowToast('error', 'Erreur', err.message); });
+}
+function socialDeclineFriendRequest(tid) {
+  socialApiPost('/api/social/friends/decline', { requester_tid: tid }).then(function() {
+    socialLoadFriends();
+  }).catch(function(err) { socialShowToast('error', 'Erreur', err.message); });
+}
+function socialRemoveFriend(tid) {
+  if (!confirm('Retirer cet ami ?')) return;
+  socialApiPost('/api/social/friends/remove', { friend_tid: tid }).then(function() {
+    socialShowToast('info', 'Ami retiré', 'Cet utilisateur a été retiré de votre liste.');
+    socialLoadFriends();
+  }).catch(function(err) { socialShowToast('error', 'Erreur', err.message); });
+}
+function socialInviteFriendToWorld(tid, name) {
+  socialApiPost('/api/world/invitations/send', { target_tid: tid, message: 'Rejoins mon Monde de Luna !' }).then(function() {
+    socialShowToast('success', 'Invitation envoyée !', socialEscapeHtml(name) + ' a été invité(e).');
+    socialLoadWorldInvitations();
+  }).catch(function(err) { socialShowToast('error', 'Erreur', err.message); });
+}
+
+// ================================================================
+// WORLD INVITATIONS
+// ================================================================
+function socialLoadWorldInvitations() {
+  socialApiGet('/api/world/invitations').then(function(data) {
+    _socialWorldInvitations = data.received || [];
+    socialRenderWorldInvitations();
+    socialUpdateBadge('social-badge-friends', _socialPendingRequests.length + _socialWorldInvitations.length);
+  }).catch(function() {});
+}
+function socialRenderWorldInvitations() {
+  var container = document.getElementById('social-tab-friends-invites');
+  if (!container) return;
+  if (!_socialWorldInvitations.length) {
+    container.innerHTML = '<div class="social-empty-state"><div class="social-empty-text">Aucune invitation en attente.</div></div>';
+    return;
+  }
+  container.innerHTML = _socialWorldInvitations.map(function(inv) {
+    return '<div class="social-invite-card">'
+      + '<div class="social-invite-info">'
+      + '<div class="social-invite-name">' + socialEscapeHtml(inv.other_nickname) + '</div>'
+      + '<div class="social-invite-msg">' + socialEscapeHtml(inv.message || 'Vous invite dans son Monde de Luna') + '</div>'
+      + '</div>'
+      + '<div class="social-invite-actions">'
+      + '<button class="social-btn-accept" onclick="socialRespondWorldInvite(\'' + inv.id + '\',\'accept\')">Rejoindre</button>'
+      + '<button class="social-btn-decline" onclick="socialRespondWorldInvite(\'' + inv.id + '\',\'decline\')">Refuser</button>'
+      + '</div>'
+      + '</div>';
+  }).join('');
+}
+function socialRespondWorldInvite(inviteId, action) {
+  socialApiPost('/api/world/invitations/respond', { invitation_id: inviteId, action: action }).then(function() {
+    if (action === 'accept') {
+      socialShowToast('success', 'Vous avez rejoint le monde !', 'Bonne visite dans le Monde de Luna.');
+      socialLoadVisitors();
+      socialLoadChat();
+    } else {
+      socialShowToast('info', 'Invitation refusée', 'Vous pouvez toujours être invité plus tard.');
+    }
+    socialLoadWorldInvitations();
+  }).catch(function(err) { socialShowToast('error', 'Erreur', err.message); });
+}
+
+// ================================================================
+// VISITORS
+// ================================================================
+function socialLoadVisitors() {
+  socialApiGet('/api/world/visitors').then(function(data) {
+    _socialVisitors = data.visitors || [];
+    socialRenderVisitorsBar();
+  }).catch(function() {});
+}
+function socialRenderVisitorsBar() {
+  var bar = document.getElementById('social-visitors-bar');
+  if (!bar) return;
+  if (!_socialVisitors.length) { bar.style.display = 'none'; return; }
+  bar.style.display = 'flex';
+  bar.innerHTML = _socialVisitors.map(function(v) {
+    return '<div class="social-visitor-chip">'
+      + '<div class="social-chip-avatar" style="background:' + (v.primary_color || '#a78bfa') + '">'
+      + socialGetAvatarEmoji(v.avatar_type) + '</div>'
+      + '<span>' + socialEscapeHtml(v.nickname) + '</span>'
+      + '</div>';
+  }).join('');
+}
+
+// ================================================================
+// CHAT
+// ================================================================
+function socialLoadChat() {
+  socialApiGet('/api/world/chat').then(function(data) {
+    _socialChatMessages = data.messages || [];
+    socialRenderChat();
+  }).catch(function() {});
+}
+function socialRenderChat() {
+  var container = document.getElementById('social-chat-messages');
+  if (!container) return;
+  var myTid = null;
+  try {
+    var tok = localStorage.getItem('luna_token');
+    if (tok) myTid = JSON.parse(atob(tok.split('.')[1])).tenant_id;
+  } catch(e) {}
+  if (!_socialChatMessages.length) {
+    container.innerHTML = '<div class="social-empty-state"><div class="social-empty-text">Les messages apparaîtront ici quand des amis rejoindront votre monde.</div></div>';
+    return;
+  }
+  container.innerHTML = _socialChatMessages.slice().reverse().map(function(m) {
+    var isOwn = String(m.sender_tid) === String(myTid);
+    var time = new Date(m.ts).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+    return '<div class="social-chat-bubble ' + (isOwn ? 'own' : 'other') + '">'
+      + (!isOwn ? '<div class="social-bubble-sender">' + socialEscapeHtml(m.sender_name) + '</div>' : '')
+      + '<div>' + socialEscapeHtml(m.text) + '</div>'
+      + '<div class="social-bubble-time">' + time + '</div>'
+      + '</div>';
+  }).join('');
+  container.scrollTop = container.scrollHeight;
+}
+function socialSendChatMessage() {
+  var input = document.getElementById('social-chat-input');
+  if (!input) return;
+  var text = input.value.trim();
+  if (!text) return;
+  socialApiPost('/api/world/chat', { text: text }).then(function() {
+    input.value = '';
+    socialLoadChat();
+  }).catch(function(err) { socialShowToast('error', 'Erreur', err.message); });
+}
+
+// ================================================================
+// PRESENCE & POLLING
+// ================================================================
+function socialUpdatePresence() {
+  socialApiPost('/api/world/presence', { world_id: 'world1', status: 'online' }).catch(function() {});
+}
+function socialLeaveWorld() {
+  socialApiDelete('/api/world/presence').catch(function() {});
+}
+function socialStartPolling() {
+  _socialChatInterval     = setInterval(socialLoadChat,     3000);
+  _socialVisitorsInterval = setInterval(socialLoadVisitors, 10000);
+  _socialPresenceInterval = setInterval(socialUpdatePresence, 30000);
+}
+function socialStopPolling() {
+  clearInterval(_socialChatInterval);
+  clearInterval(_socialVisitorsInterval);
+  clearInterval(_socialPresenceInterval);
+}
+
+// ================================================================
+// BADGES
+// ================================================================
+function socialUpdateBadge(id, count) {
+  var badge = document.getElementById(id);
+  if (!badge) return;
+  if (count > 0) {
+    badge.textContent = count > 99 ? '99+' : count;
+    badge.style.display = 'flex';
+  } else {
+    badge.style.display = 'none';
+  }
+}
+
+// ================================================================
+// UTILS
+// ================================================================
+function socialEscapeHtml(text) {
+  if (!text) return '';
+  var div = document.createElement('div');
+  div.textContent = String(text);
+  return div.innerHTML;
+}
+function socialGetAvatarEmoji(type) {
+  var map = { adult_man:'\u{1F468}', adult_woman:'\u{1F469}', child_boy:'\u{1F466}', child_girl:'\u{1F467}', neutral:'\u{1F319}', male:'\u{1F466}', female:'\u{1F467}' };
+  return map[type] || '\u{1F319}';
+}
+function socialAdjustColor(hex, amount) {
+  var num = parseInt((hex || '#a78bfa').replace('#',''), 16);
+  var r = Math.min(255, Math.max(0, (num >> 16) + amount));
+  var g = Math.min(255, Math.max(0, ((num >> 8) & 0xFF) + amount));
+  var b = Math.min(255, Math.max(0, (num & 0xFF) + amount));
+  return '#' + (0x1000000 + r*0x10000 + g*0x100 + b).toString(16).slice(1);
+}
+
+// ================================================================
+// FRIENDS TABS
+// ================================================================
+function socialInitFriendsTabs() {
+  document.querySelectorAll('.social-friends-tab').forEach(function(tab) {
+    tab.addEventListener('click', function() {
+      document.querySelectorAll('.social-friends-tab').forEach(function(t) { t.classList.remove('active'); });
+      tab.classList.add('active');
+      var target = tab.dataset.tab;
+      ['social-tab-friends-list','social-tab-friends-requests','social-tab-friends-invites'].forEach(function(id) {
+        var el = document.getElementById(id);
+        if (el) el.style.display = id === target ? 'block' : 'none';
+      });
+    });
+  });
+}
+
+// ================================================================
+// AVATAR INPUTS WIRING
+// ================================================================
+function socialInitAvatarInputs() {
+  ['social-avatar-gender','social-avatar-body','social-avatar-hair','social-avatar-outfit','social-avatar-aura-sel','social-avatar-frame','social-avatar-face'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) el.addEventListener('change', socialUpdateAvatarPreview);
+  });
+  document.querySelectorAll('.social-color-swatch').forEach(function(sw) {
+    sw.addEventListener('click', function() {
+      document.querySelectorAll('.social-color-swatch').forEach(function(s) { s.classList.remove('active'); });
+      sw.classList.add('active');
+      socialUpdateAvatarPreview();
+    });
+  });
+}
+
+// ================================================================
+// CHAT ENTER KEY
+// ================================================================
+function socialInitChatInput() {
+  var inp = document.getElementById('social-chat-input');
+  if (inp) inp.addEventListener('keypress', function(e) { if (e.key === 'Enter') socialSendChatMessage(); });
+}
+
+// ================================================================
+// FAB WIRING
+// ================================================================
+function socialInitFab() {
+  var wire = function(btnId, panelId) {
+    var btn = document.getElementById(btnId);
+    if (btn) btn.addEventListener('click', function() { socialOpenPanel(panelId); });
+  };
+  wire('social-btn-friends', 'social-panel-friends');
+  wire('social-btn-chat',    'social-panel-chat');
+  wire('social-btn-avatar',  'social-panel-avatar');
+  wire('social-btn-privacy', 'social-panel-privacy');
+}
+
+// ================================================================
+// INIT
+// ================================================================
+function socialInit() {
+  socialLoadAvatar();
+  socialLoadPrivacy();
+  socialLoadFriends();
+  socialLoadWorldInvitations();
+  socialLoadVisitors();
+  socialLoadChat();
+  socialUpdatePresence();
+  socialStartPolling();
+  socialInitFriendsTabs();
+  socialInitAvatarInputs();
+  socialInitChatInput();
+  socialInitFab();
+  window.addEventListener('beforeunload', socialLeaveWorld);
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', socialInit);
+} else {
+  socialInit();
+}
+
+// Expose pour appels externes
+window.socialShowToast = socialShowToast;
+window.socialOpenPanel = socialOpenPanel;
+window.socialClosePanel = socialClosePanel;
+window.socialLoadFriends = socialLoadFriends;
+window.socialInviteFriendToWorld = socialInviteFriendToWorld;
+window.socialRespondWorldInvite = socialRespondWorldInvite;
+window.socialAcceptFriendRequest = socialAcceptFriendRequest;
+window.socialDeclineFriendRequest = socialDeclineFriendRequest;
+window.socialRemoveFriend = socialRemoveFriend;
+window.socialSaveAvatar = socialSaveAvatar;
+window.socialSavePrivacy = socialSavePrivacy;
+window.socialTogglePrivacy = socialTogglePrivacy;
+window.socialSendChatMessage = socialSendChatMessage;
+
+})();
+</script>
+
 </body>
 </html>
