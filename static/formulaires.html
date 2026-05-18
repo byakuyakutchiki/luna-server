@@ -192,6 +192,12 @@ summary:hover { color: var(--purple); }
 [data-p].field-ok{border-color:var(--green)!important;background:rgba(74,222,128,.06)!important;}
 [data-p].field-missing{border-color:var(--orange)!important;background:rgba(245,158,11,.07)!important;}
 .badge-req{display:inline-block;padding:1px 6px;background:var(--orange);color:#000;font-size:0.68rem;font-weight:700;border-radius:4px;margin-left:4px;vertical-align:middle;}
+/* Champs requis vides après autofill */
+.form-field.field-empty-req{border-left:3px solid var(--orange);padding-left:9px;}
+.req-badge{display:inline-block;padding:1px 7px;background:var(--orange);color:#000;font-size:0.68rem;font-weight:700;border-radius:4px;margin-left:6px;}
+/* Bannière profil vide */
+.profile-empty-banner{background:rgba(124,58,237,.10);border:1px solid rgba(124,58,237,.35);border-radius:10px;padding:12px 16px;margin-bottom:14px;font-size:0.84rem;display:flex;align-items:flex-start;gap:10px;}
+.profile-empty-banner button{margin-top:6px;padding:5px 13px;background:var(--purple);color:#fff;border:none;border-radius:6px;font-size:0.8rem;cursor:pointer;font-weight:600;}
 </style>
 </head>
 <body>
@@ -239,7 +245,7 @@ summary:hover { color: var(--purple); }
                 <button type="button" class="btn btn-primary" id="btnBrowse">Parcourir (PDF)</button>
                 <button type="button" class="btn btn-secondary" id="btnPhoto">Photo / Scanner</button>
                 <input type="file" id="fileInput" accept="application/pdf,image/png,image/jpeg,image/webp,image/bmp,image/tiff" style="display:none">
-                <input type="file" id="camInput" accept="image/*" capture="environment" style="display:none">
+                <input type="file" id="camInput" accept="image/*" style="display:none">
             </div>
         </div>
         <div class="file-preview hidden" id="filePreview">
@@ -334,7 +340,7 @@ summary:hover { color: var(--purple); }
                     <span style="font-size:1.2em;">📷</span>
                     <span>Scanner ma piece d'identite</span>
                 </button>
-                <input type="file" id="inputScanId" accept="image/*" capture="environment" style="display:none;">
+                <input type="file" id="inputScanId" accept="image/*" style="display:none;">
                 <div id="scanIdSpinner" class="scan-id-spinner" style="display:none;">
                     <div class="ring"></div>
                     <span>Luna analyse votre document...</span>
@@ -499,6 +505,7 @@ function showFillStep(){
     } else w.classList.add('hidden');
 
     buildForm(); loadPreview(0); goStep(3);
+    setTimeout(doAutofill, 400); // auto-remplit depuis le profil après rendu
 }
 
 function buildForm(){
@@ -578,9 +585,41 @@ async function doAutofill(){
         const r=await fetch('/api/form-filler/autofill/'+sessionId,{method:'POST',headers:HDR});
         if(!r.ok)throw new Error('Erreur');
         const d=await r.json();
-        if(d.filled_count>0){setFieldValues(d.fields);toast(d.filled_count+' champs remplis','ok');}
-        else toast('Aucun champ correspondant. Completez votre profil.','err');
-    }catch(e){toast('Auto-fill echoue','err');}
+        if(d.filled_count>0){
+            setFieldValues(d.fields);
+            const missing=d.total_count-d.filled_count;
+            _markEmptyRequired();
+            toast(d.filled_count+' champ'+(d.filled_count>1?'s':'')+' pré-remplis'+(missing?' · '+missing+' à compléter':''),'ok');
+        } else {
+            _showProfileBanner();
+        }
+    }catch(e){toast('Auto-fill échoué','err');}
+}
+
+function _markEmptyRequired(){
+    $$('[data-fid]').forEach(div=>{
+        const f=fields.find(x=>x.id===div.dataset.fid);
+        if(!f||!f.required)return;
+        const inp=div.querySelector('input,textarea');
+        if(inp&&!inp.value.trim()){
+            div.classList.add('field-empty-req');
+            if(!div.querySelector('.req-badge')){
+                const b=document.createElement('span');b.className='req-badge';b.textContent='À remplir';
+                const lbl=div.querySelector('label');if(lbl)lbl.appendChild(b);
+            }
+        }
+    });
+    const first=$('.field-empty-req');
+    if(first)first.scrollIntoView({behavior:'smooth',block:'center'});
+}
+
+function _showProfileBanner(){
+    if($('#profileBanner'))return;
+    const b=document.createElement('div');
+    b.id='profileBanner';b.className='profile-empty-banner';
+    b.innerHTML='<span style="font-size:1.4em">💡</span><div><strong>Profil vide</strong> — Scannez votre pièce d\'identité pour un remplissage automatique.<br><button id="btnOpenBanner">📷 Scanner ma pièce d\'identité</button></div>';
+    const fc=$('#formContainer');if(fc)fc.insertAdjacentElement('beforebegin',b);
+    document.getElementById('btnOpenBanner')?.addEventListener('click',openProfile);
 }
 
 // ── Step 4: Signature ──
@@ -695,7 +734,6 @@ function init(){
 document.readyState==='loading'?document.addEventListener('DOMContentLoaded',init):init();
 
 // ── Scan pièce d'identité ──
-(function(){
 const _ID_FIELDS=['nom','prenom','nom_naissance','date_naissance','lieu_naissance','departement_naissance','nationalite','adresse','code_postal','ville','numero_ci'];
 
 function _fileToB64(file){return new Promise((res,rej)=>{const r=new FileReader();r.onload=e=>res(e.target.result.split(',')[1]);r.onerror=rej;r.readAsDataURL(file);});}
@@ -740,11 +778,19 @@ async function _doScan(file){
         if(!r.ok)throw new Error(d.error||'Erreur analyse');
         const{filled,missing}=_highlightFields(d.extracted);
         const ok=filled.length,ko=missing.length;
+
+        // Auto-save les champs extraits dans le profil
+        if(ok>0){
+            const profileData={};
+            _ID_FIELDS.forEach(k=>{const inp=document.querySelector(`[data-p="${k}"]`);if(inp&&inp.value)profileData[k]=inp.value;});
+            fetch('/api/form-filler/profile',{method:'POST',headers:HJSON,body:JSON.stringify(profileData)}).catch(()=>{});
+        }
+
         result.style.cssText=`display:block;background:${ko?'rgba(245,158,11,.08)':'rgba(74,222,128,.08)'};border:1px solid ${ko?'var(--orange)':'var(--green)'}`;
         result.innerHTML=ko
-            ?`<span style="color:var(--orange)">⚠ ${ok} champ${ok>1?'s':''} extraits — complétez les champs en orange</span>`
-            :`<span style="color:var(--green)">✓ ${ok} champ${ok>1?'s':''} extraits avec succès</span>`;
-        toast(ko?`${ok} champs extraits, ${ko} à compléter`:`${ok} champs remplis automatiquement`,ko?'info':'ok');
+            ?`<span style="color:var(--orange)">⚠ ${ok} champ${ok>1?'s':''} extraits — complétez les champs en orange (sauvegardé)</span>`
+            :`<span style="color:var(--green)">✓ ${ok} champ${ok>1?'s':''} extraits et sauvegardés</span>`;
+        toast(ko?`${ok} champs sauvegardés, ${ko} à compléter`:`${ok} champs sauvegardés automatiquement`,ko?'info':'ok');
     }catch(e){
         toast(e.message||'Erreur lors de l\'analyse','err');
         result.style.cssText='display:block;background:rgba(248,113,113,.08);border:1px solid var(--red)';
