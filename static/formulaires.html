@@ -179,6 +179,19 @@ summary:hover { color: var(--purple); }
 .toast.info { background: var(--bg3); color: var(--text); border: 1px solid var(--border); }
 @keyframes tIn { from{transform:translateX(100%);opacity:0} to{transform:translateX(0);opacity:1} }
 @keyframes tOut { from{opacity:1} to{opacity:0} }
+
+/* Scan pièce d'identité */
+.btn-scan-id{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;padding:13px 20px;background:linear-gradient(135deg,var(--purple),var(--purple-dark));color:#fff;border:none;border-radius:12px;font-size:0.95rem;font-weight:600;cursor:pointer;transition:all .25s ease;box-shadow:0 4px 15px rgba(124,58,237,.3);margin-bottom:12px;}
+.btn-scan-id:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(124,58,237,.4);}
+.btn-scan-id:active{transform:translateY(0);}
+.btn-scan-id:disabled{opacity:.55;cursor:not-allowed;transform:none;}
+.scan-id-spinner{display:flex;flex-direction:column;align-items:center;gap:8px;padding:12px 0;font-size:0.82rem;color:var(--text2);}
+.scan-id-spinner .ring{width:28px;height:28px;border:3px solid rgba(167,139,250,.2);border-top-color:var(--purple);border-radius:50%;animation:spin .7s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg)}}
+.scan-id-result{padding:10px 14px;border-radius:8px;font-size:0.82rem;margin-bottom:8px;}
+[data-p].field-ok{border-color:var(--green)!important;background:rgba(74,222,128,.06)!important;}
+[data-p].field-missing{border-color:var(--orange)!important;background:rgba(245,158,11,.07)!important;}
+.badge-req{display:inline-block;padding:1px 6px;background:var(--orange);color:#000;font-size:0.68rem;font-weight:700;border-radius:4px;margin-left:4px;vertical-align:middle;}
 </style>
 </head>
 <body>
@@ -314,6 +327,21 @@ summary:hover { color: var(--purple); }
         <div class="modal-top"><h2>Mon Profil</h2><button class="modal-close" id="modalClose">&#10005;</button></div>
         <div class="modal-body">
             <p>Remplissez une fois, vos formulaires se rempliront automatiquement.</p>
+
+            <!-- Scanner pièce d'identité -->
+            <div id="scanIdSection" style="margin-bottom:16px;">
+                <button id="btnScanId" class="btn-scan-id" type="button">
+                    <span style="font-size:1.2em;">📷</span>
+                    <span>Scanner ma piece d'identite</span>
+                </button>
+                <input type="file" id="inputScanId" accept="image/*" capture="environment" style="display:none;">
+                <div id="scanIdSpinner" class="scan-id-spinner" style="display:none;">
+                    <div class="ring"></div>
+                    <span>Luna analyse votre document...</span>
+                </div>
+                <div id="scanIdResult" class="scan-id-result" style="display:none;"></div>
+            </div>
+
             <details open><summary>Identite</summary><div class="pf">
                 <div class="row2"><label>Nom<input data-p="nom" placeholder="DUPONT"></label><label>Prenom<input data-p="prenom" placeholder="Jean"></label></div>
                 <div class="row2"><label>Nom naissance<input data-p="nom_naissance"></label><label>Sexe<select data-p="sexe"><option value="">-</option><option value="M">M</option><option value="F">F</option></select></label></div>
@@ -665,6 +693,75 @@ function init(){
 }
 
 document.readyState==='loading'?document.addEventListener('DOMContentLoaded',init):init();
+
+// ── Scan pièce d'identité ──
+(function(){
+const _ID_FIELDS=['nom','prenom','nom_naissance','date_naissance','lieu_naissance','departement_naissance','nationalite','adresse','code_postal','ville','numero_ci'];
+
+function _fileToB64(file){return new Promise((res,rej)=>{const r=new FileReader();r.onload=e=>res(e.target.result.split(',')[1]);r.onerror=rej;r.readAsDataURL(file);});}
+
+function _highlightFields(extracted){
+    const filled=[],missing=[];
+    _ID_FIELDS.forEach(k=>{
+        const inp=document.querySelector(`[data-p="${k}"]`);
+        if(!inp)return;
+        const v=extracted?.[k];
+        // retire ancien highlight
+        inp.classList.remove('field-ok','field-missing');
+        const oldBadge=inp.parentElement?.querySelector('.badge-req');
+        if(oldBadge)oldBadge.remove();
+        if(v){inp.value=v;inp.classList.add('field-ok');filled.push(k);}
+        else{inp.classList.add('field-missing');const b=document.createElement('span');b.className='badge-req';b.textContent='Requis';inp.parentElement?.appendChild(b);missing.push(k);}
+    });
+    return{filled,missing};
+}
+
+function _clearHighlights(){
+    document.querySelectorAll('[data-p]').forEach(i=>{
+        i.classList.remove('field-ok','field-missing');
+        i.parentElement?.querySelector('.badge-req')?.remove();
+    });
+}
+
+async function _doScan(file){
+    const btn=document.getElementById('btnScanId');
+    const spinner=document.getElementById('scanIdSpinner');
+    const result=document.getElementById('scanIdResult');
+    btn.disabled=true;spinner.style.display='flex';result.style.display='none';
+    _clearHighlights();
+    try{
+        const b64=await _fileToB64(file);
+        const r=await fetch('/api/form-filler/profile/scan-document',{
+            method:'POST',
+            headers:{...HJSON},
+            body:JSON.stringify({image:b64,media_type:file.type||'image/jpeg'})
+        });
+        const d=await r.json();
+        if(!r.ok)throw new Error(d.error||'Erreur analyse');
+        const{filled,missing}=_highlightFields(d.extracted);
+        const ok=filled.length,ko=missing.length;
+        result.style.cssText=`display:block;background:${ko?'rgba(245,158,11,.08)':'rgba(74,222,128,.08)'};border:1px solid ${ko?'var(--orange)':'var(--green)'}`;
+        result.innerHTML=ko
+            ?`<span style="color:var(--orange)">⚠ ${ok} champ${ok>1?'s':''} extraits — complétez les champs en orange</span>`
+            :`<span style="color:var(--green)">✓ ${ok} champ${ok>1?'s':''} extraits avec succès</span>`;
+        toast(ko?`${ok} champs extraits, ${ko} à compléter`:`${ok} champs remplis automatiquement`,ko?'info':'ok');
+    }catch(e){
+        toast(e.message||'Erreur lors de l\'analyse','err');
+        result.style.cssText='display:block;background:rgba(248,113,113,.08);border:1px solid var(--red)';
+        result.innerHTML=`<span style="color:var(--red)">✗ ${e.message}</span>`;
+    }finally{
+        btn.disabled=false;spinner.style.display='none';
+        document.getElementById('inputScanId').value='';
+    }
+}
+
+document.addEventListener('DOMContentLoaded',function(){
+    const btn=document.getElementById('btnScanId');
+    const inp=document.getElementById('inputScanId');
+    if(!btn||!inp)return;
+    btn.addEventListener('click',()=>inp.click());
+    inp.addEventListener('change',function(){if(this.files[0])_doScan(this.files[0]);});
+});
 })();
 </script>
 </body>

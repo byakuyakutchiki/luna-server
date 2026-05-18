@@ -5,14 +5,54 @@
 
 import base64
 import html
+import json
 import logging
 import os
+import re
 
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse, Response
 
 from .redis_ops import FormFillerRedisOps
 from .engine import analyze_form, fill_pdf, image_to_pdf, pdf_to_preview_images
+
+# Modèles vision par provider (OCR pièce d'identité)
+_VISION_MODELS = {
+    "openai":   "gpt-4o",
+    "deepseek": "deepseek-chat",
+    "kimi":     "moonshot-v1-8k",
+}
+
+_ID_FIELDS = [
+    "nom", "prenom", "nom_naissance", "date_naissance", "lieu_naissance",
+    "departement_naissance", "nationalite", "adresse", "code_postal",
+    "ville", "numero_ci",
+]
+
+_OCR_PROMPT = """Tu es un systeme d'OCR expert specialise dans l'extraction de donnees depuis des pieces d'identite francaises (CNI, passeport, titre de sejour).
+
+Analyse cette image et extrais les informations suivantes. Reponds UNIQUEMENT en JSON valide avec ces cles exactes :
+
+{
+    "nom": "string ou null",
+    "prenom": "string ou null",
+    "nom_naissance": "string ou null",
+    "date_naissance": "YYYY-MM-DD ou null",
+    "lieu_naissance": "string ou null",
+    "departement_naissance": "string ou null (numero ou nom)",
+    "nationalite": "string ou null",
+    "adresse": "string ou null (numero + rue uniquement)",
+    "code_postal": "string ou null",
+    "ville": "string ou null",
+    "numero_ci": "string ou null"
+}
+
+REGLES :
+- Si un champ n'est pas visible ou illisible, mets null
+- Pour la date de naissance, convertis TOUJOURS au format YYYY-MM-DD
+- Pour l'adresse, ne garde que numero + rue (sans code postal ni ville)
+- Ne rajoute AUCUN texte en dehors du JSON
+- Ne fais AUCUNE supposition — null si tu n'es pas sur a plus de 90%"""
 
 logger = logging.getLogger(__name__)
 
@@ -304,6 +344,82 @@ async def api_save_profile(request: Request):
             clean[html.escape(k)] = html.escape(v.strip())
     fops.save_profile(clean)
     return {"success": True}
+
+
+# ═══════════════════════════════════════════════════════════════════
+# SCAN PIÈCE D'IDENTITÉ (OCR Vision IA)
+# ═══════════════════════════════════════════════════════════════════
+
+@form_filler_router.post("/api/form-filler/profile/scan-document")
+async def api_scan_identity_document(request: Request):
+    """Extrait les champs d'identité depuis une photo de CNI/passeport via Vision IA."""
+    fops = _get_fops(request)
+    if not fops:
+        return _unavailable()
+
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse(status_code=400, content={"error": "Corps JSON invalide"})
+
+    image_b64 = body.get("image", "")
+    media_type = body.get("media_type", "image/jpeg")
+
+    if not image_b64:
+        return JSONResponse(status_code=400, content={"error": "Image manquante"})
+    if len(image_b64) > 15_000_000:
+        return JSONResponse(status_code=413, content={"error": "Image trop volumineuse (max ~10MB)"})
+
+    # Fabrique le client LLM vision selon le provider configuré
+    try:
+        from integrations.llm.provider import build_llm_client, LLM_PROVIDERS
+        provider = os.getenv("LLM_PROVIDER", "openai").lower()
+        vision_model = _VISION_MODELS.get(provider, "gpt-4o")
+        llm = build_llm_client()
+    except Exception as e:
+        logger.error(f"Scan ID — client LLM indisponible: {e}")
+        return JSONResponse(status_code=503, content={"error": "Service IA non disponible"})
+
+    data_uri = f"data:{media_type};base64,{image_b64}"
+
+    try:
+        resp = llm.chat.completions.create(
+            model=vision_model,
+            messages=[
+                {"role": "system", "content": "Tu es un extracteur de donnees d'identite. Tu reponds UNIQUEMENT en JSON."},
+                {"role": "user", "content": [
+                    {"type": "text", "text": _OCR_PROMPT},
+                    {"type": "image_url", "image_url": {"url": data_uri, "detail": "high"}},
+                ]},
+            ],
+            max_tokens=800,
+            temperature=0.0,
+        )
+        raw = resp.choices[0].message.content or ""
+
+        # Parse JSON — supporte bloc ```json ... ``` ou JSON brut
+        m = re.search(r"```json\s*([\s\S]*?)\s*```", raw)
+        json_str = m.group(1) if m else raw[raw.find("{"):raw.rfind("}") + 1]
+        extracted: dict = json.loads(json_str)
+
+        # Normalise : garantit toutes les clés attendues
+        for k in _ID_FIELDS:
+            if k not in extracted:
+                extracted[k] = None
+
+        missing = [k for k in _ID_FIELDS if not extracted.get(k)]
+        filled_count = len(_ID_FIELDS) - len(missing)
+        confidence = "high" if len(missing) <= 2 else "medium" if len(missing) <= 5 else "low"
+
+        logger.info(f"Scan ID — tenant {getattr(request.state, 'tenant_id', '?')}: {filled_count}/{len(_ID_FIELDS)} champs | provider={provider} | model={vision_model}")
+        return {"success": True, "extracted": extracted, "missing": missing, "confidence": confidence}
+
+    except json.JSONDecodeError as e:
+        logger.error(f"Scan ID — JSON invalide: {e} | raw[:200]={raw[:200]}")
+        return JSONResponse(status_code=422, content={"error": f"Impossible de parser la reponse OCR: {e}"})
+    except Exception as e:
+        logger.exception(f"Scan ID — erreur API: {e}")
+        return JSONResponse(status_code=500, content={"error": f"Erreur lors de l'analyse: {e}"})
 
 
 # ═══════════════════════════════════════════════════════════════════
