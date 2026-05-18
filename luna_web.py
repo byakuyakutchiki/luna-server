@@ -3546,6 +3546,50 @@ async def _start_simli_visio(tenant_id: int, subscriber_name: str) -> tuple:
         return False, {"error": f"Simli erreur: {str(e)}"}
 
 
+@app.get("/api/visio/health")
+async def visio_health(request: Request):
+    """Etat du service visio — provider actif + credit Tavus (non-bloquant)."""
+    tavus_ok = tavus_client is not None and tavus_client.is_configured
+    simli_ok = bool(os.getenv("SIMLI_API_KEY") and os.getenv("SIMLI_FACE_ID"))
+
+    tavus_credit: Optional[float] = None
+    tavus_credit_low = False
+
+    if tavus_ok:
+        try:
+            async with httpx.AsyncClient(timeout=5) as _hc:
+                _cr = await _hc.get(
+                    "https://tavusapi.com/v2/credits",
+                    headers={"x-api-key": tavus_client.api_key},
+                )
+            if _cr.status_code == 200:
+                _cd = _cr.json()
+                _val = _cd.get("credits") or _cd.get("balance") or _cd.get("remaining_credits")
+                if isinstance(_val, (int, float)):
+                    tavus_credit = float(_val)
+                    tavus_credit_low = tavus_credit < 10.0
+                    if tavus_credit <= 0:
+                        tavus_ok = False  # force le fallback Simli
+        except Exception:
+            pass  # non critique — /api/call gère le fallback
+
+    provider = "tavus" if tavus_ok else ("simli" if simli_ok else "unavailable")
+
+    result = {
+        "visio_provider": provider,
+        "tavus_available": tavus_client is not None and tavus_client.is_configured,
+        "tavus_credit": tavus_credit,
+        "tavus_credit_low": tavus_credit_low,
+        "simli_available": simli_ok,
+    }
+
+    # Alerte admin si crédit Tavus bas
+    if tavus_credit_low and tavus_credit is not None:
+        logger.warning(f"Tavus credit bas : {tavus_credit:.2f} restant")
+
+    return result
+
+
 @app.post("/api/call")
 async def start_call(request: Request):
     """Cree un appel video — Tavus en priorite, Simli en repli."""

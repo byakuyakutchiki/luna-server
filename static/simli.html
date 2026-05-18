@@ -388,6 +388,76 @@
     /* Loading spinner in start screen */
     .start-loading { display: none; margin-top: 16px; color: #888; font-size: 13px; }
     .start-loading.visible { display: block; }
+
+    /* ===== PRE-TEST MICRO / CAMERA ===== */
+    #pretestScreen {
+      position: fixed; inset: 0; z-index: 45;
+      background: linear-gradient(135deg, #0a0a1a 0%, #1a1a3e 100%);
+      display: none; flex-direction: column; align-items: center; justify-content: center;
+      padding: 32px 24px; text-align: center;
+      padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom);
+    }
+    #pretestScreen.visible { display: flex; }
+    .pretest-logo {
+      width: 64px; height: 64px; border-radius: 50%;
+      background: linear-gradient(135deg, #7c8cf8, #a78bfa);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 28px; color: #fff; font-weight: 700; margin-bottom: 20px;
+      box-shadow: 0 0 30px rgba(124,140,248,0.3);
+    }
+    .pretest-title { font-size: 20px; color: #fff; font-weight: 700; margin-bottom: 6px; }
+    .pretest-sub { font-size: 14px; color: #888; margin-bottom: 28px; max-width: 300px; line-height: 1.6; }
+    .pretest-item {
+      display: flex; align-items: flex-start; gap: 12px;
+      margin-bottom: 18px; width: 100%; max-width: 340px;
+      background: rgba(255,255,255,0.04); border-radius: 14px; padding: 14px 16px;
+    }
+    .pretest-item-icon {
+      width: 38px; height: 38px; border-radius: 50%;
+      background: rgba(124,140,248,0.15); display: flex; align-items: center; justify-content: center;
+      font-size: 18px; flex-shrink: 0; margin-top: 2px;
+    }
+    .pretest-item-body { flex: 1; text-align: left; }
+    .pretest-item-title { font-size: 14px; color: #ddd; font-weight: 600; margin-bottom: 2px; }
+    .pretest-item-label { font-size: 12px; color: #888; line-height: 1.5; }
+    .pretest-item-status { font-size: 18px; flex-shrink: 0; margin-top: 6px; }
+    /* 8 barres audio */
+    .audio-bars {
+      display: flex; align-items: flex-end; gap: 3px; height: 32px; margin-top: 8px;
+    }
+    .audio-bar {
+      width: 7px; min-height: 3px; height: 3px;
+      background: linear-gradient(to top, #7c8cf8, #a78bfa);
+      border-radius: 3px 3px 0 0; transition: height 0.07s ease;
+    }
+    .audio-bar.idle { background: rgba(124,140,248,0.3); }
+    /* Message état */
+    #pretestReadyMsg {
+      font-size: 15px; color: #7cf8c8; font-weight: 600; margin: 16px 0;
+      max-width: 320px; line-height: 1.5; min-height: 48px;
+    }
+    .btn-pretest-start {
+      background: #0a6; color: #fff; border: none; border-radius: 50px;
+      padding: 15px 48px; font-size: 18px; font-weight: 700; cursor: pointer;
+      min-height: 54px; transition: all 0.15s;
+      box-shadow: 0 4px 20px rgba(0,170,100,0.3);
+    }
+    .btn-pretest-start:hover:not(:disabled) { background: #0b7; transform: scale(1.02); }
+    .btn-pretest-start:disabled { opacity: 0.4; cursor: not-allowed; }
+    .pretest-back { margin-top: 16px; color: #666; font-size: 13px; cursor: pointer; background: none; border: none; }
+    .pretest-back:hover { color: #999; }
+
+    /* ===== PROVIDER BADGE ===== */
+    #providerBadge {
+      position: fixed; top: 12px; right: 16px; z-index: 70;
+      background: rgba(12,12,30,0.85); backdrop-filter: blur(10px);
+      border-radius: 50px; padding: 5px 14px; font-size: 11px; font-weight: 600;
+      border: 1px solid rgba(167,139,250,0.4); color: #a78bfa;
+      display: none; align-items: center; gap: 5px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.5); pointer-events: none;
+    }
+    #providerBadge.visible { display: flex; }
+    #providerBadge.simli { border-color: rgba(124,220,180,0.4); color: #7cf8c8; }
   </style>
 </head>
 <body>
@@ -413,6 +483,47 @@
     <a href="/" class="start-back-link">&larr; Retour au chat</a>
   </div>
 
+  <!-- PRE-TEST MICRO / CAMERA -->
+  <div id="pretestScreen">
+    <div class="pretest-logo">L</div>
+    <h2 class="pretest-title">Vérification avant la visio</h2>
+    <p class="pretest-sub">Luna vérifie que votre micro et votre caméra fonctionnent bien.</p>
+
+    <!-- Micro -->
+    <div class="pretest-item">
+      <div class="pretest-item-icon">🎙</div>
+      <div class="pretest-item-body">
+        <div class="pretest-item-title">Microphone</div>
+        <div class="pretest-item-label" id="pretestMicLabel">Vérification en cours…</div>
+        <div class="audio-bars" id="audioBars">
+          <div class="audio-bar idle"></div>
+          <div class="audio-bar idle"></div>
+          <div class="audio-bar idle"></div>
+          <div class="audio-bar idle"></div>
+          <div class="audio-bar idle"></div>
+          <div class="audio-bar idle"></div>
+          <div class="audio-bar idle"></div>
+          <div class="audio-bar idle"></div>
+        </div>
+      </div>
+      <div class="pretest-item-status" id="pretestMicStatus">⏳</div>
+    </div>
+
+    <!-- Caméra -->
+    <div class="pretest-item">
+      <div class="pretest-item-icon">📷</div>
+      <div class="pretest-item-body">
+        <div class="pretest-item-title">Caméra</div>
+        <div class="pretest-item-label" id="pretestCamLabel">En attente du micro…</div>
+      </div>
+      <div class="pretest-item-status" id="pretestCamStatus">⏳</div>
+    </div>
+
+    <div id="pretestReadyMsg"></div>
+    <button class="btn-pretest-start" id="btnPretestStart" disabled>Commencer la visio</button>
+    <button class="pretest-back" id="btnPretestBack">← Annuler</button>
+  </div>
+
   <!-- AVATAR FULLSCREEN -->
   <div class="avatar-wrap" id="avatarWrap">
     <!-- Cinematique layers -->
@@ -436,6 +547,9 @@
         </div>
       </div>
     </div>
+
+    <!-- Provider badge -->
+    <div id="providerBadge"></div>
 
     <!-- Badge meteo -->
     <div id="weatherBadge" style="position:absolute;top:20px;right:20px;z-index:50;background:rgba(0,0,0,0.4);backdrop-filter:blur(8px);border-radius:16px;padding:6px 14px;color:#fff;font-size:0.9em;display:none;pointer-events:none;">
@@ -652,6 +766,167 @@
     var _visioStartTs = Date.now(); // heure de début pour durée
     var grainAnimId = null;
     var lastGrainTime = 0;
+
+    // Fonction d'erreur visio — globale pour être accessible depuis actCinematicZoom
+    var _showVisioError = function(msg) {
+      document.getElementById('startScreen').classList.remove('hidden');
+      startLoading.classList.remove('visible');
+      btnStartBig.disabled = false;
+      var el = document.getElementById('visioErrMsg');
+      if (el) { el.textContent = msg || 'Visio indisponible. Reessaie.'; el.style.display = 'block'; }
+    };
+
+    // =====================================================================
+    // PRE-TEST MICRO / CAMERA + VISUALISEUR 8 BARRES
+    // =====================================================================
+    var _pretestStream = null;
+    var _pretestAudioCtx = null;
+    var _pretestBarsAnimId = null;
+    var _pretestMicOk = false;
+    var _pretestCamOk = false;
+
+    function showPretest() {
+      document.getElementById('startScreen').classList.add('hidden');
+      document.getElementById('pretestScreen').classList.add('visible');
+      // Fetch provider dès maintenant (non-bloquant, pour le badge)
+      authFetch('/api/visio/health').then(function(r) { return r.json(); }).then(function(d) {
+        if (d && d.visio_provider) _expectedProvider = d.visio_provider;
+      }).catch(function() {});
+      setTimeout(_startMicTest, 400); // petit délai pour que le DOM s'affiche
+    }
+
+    function _startMicTest() {
+      var statusEl = document.getElementById('pretestMicStatus');
+      var labelEl = document.getElementById('pretestMicLabel');
+      if (statusEl) statusEl.textContent = '⏳';
+      if (labelEl) labelEl.textContent = 'Autorisation du micro en cours…';
+      navigator.mediaDevices.getUserMedia({ audio: true, video: false })
+        .then(function(stream) {
+          _pretestStream = stream;
+          _pretestMicOk = true;
+          if (statusEl) statusEl.textContent = '✅';
+          if (labelEl) labelEl.textContent = 'Micro actif — parlez, les barres bougent !';
+          _startAudioVisualizer(stream);
+          setTimeout(_startCamTest, 300);
+        })
+        .catch(function(err) {
+          _pretestMicOk = false;
+          if (statusEl) statusEl.textContent = '❌';
+          var msg;
+          if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+            msg = 'Micro bloqué. Pour le débloquer : Réglages → Applications → votre navigateur → Autorisations → Microphone → Autoriser, puis rechargez cette page.';
+          } else if (err.name === 'NotFoundError') {
+            msg = 'Aucun micro détecté. Vérifiez que votre appareil en possède un.';
+          } else {
+            msg = 'Micro non disponible (' + (err.name || 'erreur') + ').';
+          }
+          if (labelEl) labelEl.textContent = msg;
+          setTimeout(_startCamTest, 300);
+        });
+    }
+
+    function _startAudioVisualizer(stream) {
+      try {
+        var AC = window.AudioContext || window.webkitAudioContext;
+        if (!AC) return;
+        _pretestAudioCtx = new AC();
+        var analyser = _pretestAudioCtx.createAnalyser();
+        analyser.fftSize = 32; // 16 bins → on en utilise 8
+        var src = _pretestAudioCtx.createMediaStreamSource(stream);
+        src.connect(analyser);
+        var bars = document.querySelectorAll('#audioBars .audio-bar');
+        var buf = new Uint8Array(analyser.frequencyBinCount);
+        function animBars() {
+          _pretestBarsAnimId = requestAnimationFrame(animBars);
+          analyser.getByteFrequencyData(buf);
+          for (var i = 0; i < bars.length; i++) {
+            var idx = Math.floor(i * buf.length / bars.length);
+            var val = (buf[idx] || 0) / 255;
+            var h = Math.max(3, Math.round(val * 32));
+            bars[i].style.height = h + 'px';
+            bars[i].classList.toggle('idle', val < 0.04);
+          }
+        }
+        animBars();
+      } catch(e) { rLog('warn', 'simli', 'visualizer_err', String(e).substring(0, 60)); }
+    }
+
+    function _startCamTest() {
+      var statusEl = document.getElementById('pretestCamStatus');
+      var labelEl = document.getElementById('pretestCamLabel');
+      if (statusEl) statusEl.textContent = '⏳';
+      if (labelEl) labelEl.textContent = 'Demande d\'accès à la caméra…';
+      navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+        .then(function(stream) {
+          _pretestCamOk = true;
+          stream.getTracks().forEach(function(t) { t.stop(); }); // pas besoin de la garder
+          if (statusEl) statusEl.textContent = '✅';
+          if (labelEl) labelEl.textContent = 'Caméra prête';
+          _checkPretestReady();
+        })
+        .catch(function(err) {
+          _pretestCamOk = false;
+          if (statusEl) statusEl.textContent = '⚠️';
+          var msg;
+          if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+            msg = 'Caméra bloquée — vous pouvez continuer, mais Luna ne pourra pas vous voir.';
+          } else if (err.name === 'NotFoundError') {
+            msg = 'Pas de caméra détectée — la visio fonctionnera quand même (audio seul).';
+          } else {
+            msg = 'Caméra non disponible — vous pouvez continuer en audio.';
+          }
+          if (labelEl) labelEl.textContent = msg;
+          _checkPretestReady();
+        });
+    }
+
+    function _checkPretestReady() {
+      var readyEl = document.getElementById('pretestReadyMsg');
+      var btnEl = document.getElementById('btnPretestStart');
+      if (_pretestMicOk) {
+        if (readyEl) {
+          readyEl.style.color = '#7cf8c8';
+          readyEl.textContent = _pretestCamOk
+            ? '✨ Tout est prêt ! Cliquez pour rejoindre Luna.'
+            : '✓ Micro prêt. La visio démarrera en audio.';
+        }
+        if (btnEl) { btnEl.disabled = false; btnEl.textContent = 'Commencer la visio'; }
+      } else {
+        if (readyEl) {
+          readyEl.style.color = '#ffa040';
+          readyEl.textContent = 'Micro non disponible. Vous pouvez essayer quand même.';
+        }
+        if (btnEl) { btnEl.disabled = false; btnEl.textContent = 'Continuer quand même'; }
+      }
+    }
+
+    function _stopPretest() {
+      if (_pretestBarsAnimId) { cancelAnimationFrame(_pretestBarsAnimId); _pretestBarsAnimId = null; }
+      if (_pretestAudioCtx) { try { _pretestAudioCtx.close(); } catch(e) {} _pretestAudioCtx = null; }
+      if (_pretestStream) {
+        _pretestStream.getTracks().forEach(function(t) { t.stop(); });
+        _pretestStream = null;
+      }
+    }
+
+    // =====================================================================
+    // PROVIDER BADGE
+    // =====================================================================
+    var _expectedProvider = 'tavus';
+
+    function _showProviderBadge(provider) {
+      var badge = document.getElementById('providerBadge');
+      if (!badge) return;
+      if (provider === 'tavus') {
+        badge.textContent = '⭐ Mode Premium';
+        badge.classList.remove('simli');
+      } else {
+        badge.textContent = '💡 Mode économique';
+        badge.classList.add('simli');
+      }
+      badge.classList.add('visible');
+      setTimeout(function() { badge.classList.remove('visible'); }, 7000);
+    }
 
     function wait(ms) { return new Promise(function(r) { setTimeout(r, ms); }); }
 
@@ -1179,7 +1454,7 @@
     })();
 
     // =====================================================================
-    // START — Cinematique + Tavus
+    // START — Bouton "Démarrer" → pré-test → cinématique + Tavus
     // =====================================================================
     btnStartBig.onclick = function() {
       // Verifier token avant tout
@@ -1189,26 +1464,45 @@
         setTimeout(function() { window.location.href = '/'; }, 2000);
         return;
       }
+      // Aller vers l'écran de pré-test (micro / caméra)
+      showPretest();
+    };
 
+    // Bouton retour du pré-test
+    var btnPretestBack = document.getElementById('btnPretestBack');
+    if (btnPretestBack) {
+      btnPretestBack.onclick = function() {
+        _stopPretest();
+        document.getElementById('pretestScreen').classList.remove('visible');
+        document.getElementById('startScreen').classList.remove('hidden');
+        btnStartBig.disabled = false;
+        startLoading.classList.remove('visible');
+      };
+    }
+
+    // Bouton "Commencer la visio" du pré-test
+    var btnPretestStart = document.getElementById('btnPretestStart');
+    if (btnPretestStart) {
+      btnPretestStart.onclick = function() {
+        _stopPretest();
+        document.getElementById('pretestScreen').classList.remove('visible');
+        _launchVisioFlow();
+      };
+    }
+
+    function _launchVisioFlow() {
       btnStartBig.disabled = true;
       startLoading.classList.add('visible');
 
       var conversationUrl = null;
       var scene = getCurrentScene();
 
-      function _showVisioError(msg) {
-        startScreen.classList.remove('hidden');
-        startLoading.classList.remove('visible');
-        btnStartBig.disabled = false;
-        var el = document.getElementById('visioErrMsg');
-        if (el) { el.textContent = msg || 'Visio indisponible. Reessaie.'; el.style.display = 'block'; }
-      }
-
       // Attendre que l'appel soit pret AVANT de lancer la cinematique
       rLog('info', 'simli', 'createVisioCall_start', '');
       createVisioCall().then(function(url) {
         conversationUrl = url;
         rLog('info', 'simli', 'createVisioCall_ok', 'provider=' + currentProvider);
+        _showProviderBadge(currentProvider);
 
         // Masquer ecran de demarrage seulement si la visio est OK
         startScreen.classList.add('hidden');
