@@ -316,6 +316,7 @@ async def add_reminder(request: Request):
         "title": title,
         "description": html.escape(body.get("description", "")[:300]),
         "due_date": body.get("due_date", ""),
+        "due_time": body.get("due_time", ""),
         "type": body.get("type", "manuel"),
     }
 

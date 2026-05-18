@@ -2438,6 +2438,7 @@ function _concShowReminderForm() {
   _concModalShow("Creer un rappel", [
     {name: "title", label: "Quoi ?", placeholder: "ex: Prendre medicament"},
     {name: "due_date", label: "Pour quand ?", type: "date", default: today},
+    {name: "due_time", label: "A quelle heure ?", type: "time", default: "09:00"},
     {name: "description", label: "Details (optionnel)", type: "textarea", placeholder: "Details..."},
   ], "Creer le rappel", function(v) {
     if (v.title) {

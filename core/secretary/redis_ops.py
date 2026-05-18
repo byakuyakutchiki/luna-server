@@ -8,10 +8,14 @@ Architecture dossiers :
 
 import json
 import hashlib
+import re
 import secrets
 import logging
 from datetime import datetime, date
 from typing import Optional, Dict, List
+from zoneinfo import ZoneInfo
+
+_TZ_PARIS = ZoneInfo("Europe/Paris")
 
 logger = logging.getLogger(__name__)
 
@@ -49,6 +53,48 @@ def _doc_fingerprint(doc: Dict) -> str:
     ]
     raw = "|".join(parts)
     return hashlib.sha256(raw.encode()).hexdigest()[:16]
+
+
+def _reminder_timestamp(due_date: str, due_time: str, text: str = "") -> float:
+    """
+    Calcule le timestamp UTC d'un rappel en tenant compte de l'heure (TZ Paris).
+
+    Priorité : due_time explicite > heure extraite du texte (titre/description)
+    Si aucune heure → 9h00 Paris (heure raisonnable par défaut).
+    """
+    # --- Normalise la date ---
+    if not due_date:
+        return datetime.now(_TZ_PARIS).timestamp()
+    try:
+        d = date.fromisoformat(due_date[:10])
+    except ValueError:
+        return datetime.now(_TZ_PARIS).timestamp()
+
+    # --- Résout l'heure ---
+    hour, minute = 9, 0  # défaut : 9h00
+
+    # 1) due_time explicite : "HH:MM" ou "HH"
+    if due_time:
+        m = re.match(r"^(\d{1,2})(?::(\d{2}))?$", str(due_time).strip())
+        if m:
+            h = int(m.group(1))
+            mn = int(m.group(2) or 0)
+            if 0 <= h <= 23 and 0 <= mn <= 59:
+                hour, minute = h, mn
+
+    # 2) Fallback : extraire "à 20h", "a 8h30", "20:00", "8h" du texte
+    elif text:
+        m = re.search(r"\b(?:a|à)\s*(\d{1,2})h(\d{2})?\b", text, re.IGNORECASE)
+        if not m:
+            m = re.search(r"\b(\d{1,2})[h:](\d{2})\b", text)
+        if m:
+            h = int(m.group(1))
+            mn = int(m.group(2) or 0) if m.group(2) else 0
+            if 0 <= h <= 23 and 0 <= mn <= 59:
+                hour, minute = h, mn
+
+    dt_paris = datetime(d.year, d.month, d.day, hour, minute, tzinfo=_TZ_PARIS)
+    return dt_paris.timestamp()
 
 
 class SecretaryRedisOps:
@@ -420,11 +466,11 @@ class SecretaryRedisOps:
         reminder["created_at"] = datetime.utcnow().isoformat()
         reminder["done"] = "false"
 
-        due_date = reminder.get("due_date", "")
-        try:
-            ts = datetime.fromisoformat(due_date).timestamp() if due_date else datetime.utcnow().timestamp()
-        except (ValueError, TypeError):
-            ts = datetime.utcnow().timestamp()
+        ts = _reminder_timestamp(
+            reminder.get("due_date", ""),
+            reminder.get("due_time", ""),
+            reminder.get("title", "") + " " + reminder.get("description", ""),
+        )
 
         rem_key = self._key("reminder", rem_id)
         self.client.hset(rem_key, mapping={k: str(v) if v is not None else "" for k, v in reminder.items()})

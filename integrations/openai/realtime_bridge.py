@@ -526,12 +526,13 @@ VOICE_TOOLS = [
     {
         "type": "function",
         "name": "add_reminder",
-        "description": "Cree un rappel pour le souscripteur. Utilise quand il dit 'rappelle-moi de...', 'il faut que je pense a...', 'n'oublie pas de...'.",
+        "description": "Cree un rappel pour le souscripteur. Utilise quand il dit 'rappelle-moi de...', 'il faut que je pense a...', 'n'oublie pas de...'. Toujours extraire l'heure si mentionnee.",
         "parameters": {
             "type": "object",
             "properties": {
                 "title": {"type": "string", "description": "Titre du rappel"},
                 "due_date": {"type": "string", "description": "Date d'echeance au format YYYY-MM-DD"},
+                "due_time": {"type": "string", "description": "Heure du rappel au format HH:MM (ex: 20:00, 08:30). Obligatoire si l'heure est mentionnee."},
                 "description": {"type": "string", "description": "Details supplementaires"}
             },
             "required": ["title"]

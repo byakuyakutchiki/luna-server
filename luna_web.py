@@ -11435,11 +11435,16 @@ def _tool_secretary_add_reminder(tid: int, args: Dict) -> Dict:
         "title": title,
         "description": _html.escape(args.get("description", "")[:300]),
         "due_date": args.get("due_date", ""),
+        "due_time": args.get("due_time", ""),
         "type": "luna",
     }
     sops.add_reminder(reminder)
-    due = f" pour le {reminder['due_date']}" if reminder["due_date"] else ""
-    return {"status": "success", "message": f"Rappel cree : {title}{due}"}
+    due_str = ""
+    if reminder["due_date"]:
+        due_str = f" pour le {reminder['due_date']}"
+        if reminder["due_time"]:
+            due_str += f" à {reminder['due_time']}"
+    return {"status": "success", "message": f"Rappel cree : {title}{due_str}"}
 
 
 def _tool_secretary_search(tid: int, args: Dict) -> Dict:
