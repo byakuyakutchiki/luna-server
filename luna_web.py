@@ -116,6 +116,13 @@ try:
 except ImportError:
     _WORLD_SOCIAL_AVAILABLE = False
 
+# Exploitant dashboard
+try:
+    from core.exploitant import exploitant_router
+    _EXPLOITANT_AVAILABLE = True
+except ImportError:
+    _EXPLOITANT_AVAILABLE = False
+
 # Secretary module (documents, budget, reminders)
 try:
     from core.secretary.routes import secretary_router
@@ -1298,6 +1305,10 @@ if _SOCIAL_AVAILABLE:
 if _WORLD_SOCIAL_AVAILABLE:
     app.include_router(world_router)
 
+# Mount exploitant dashboard routes
+if _EXPLOITANT_AVAILABLE:
+    app.include_router(exploitant_router)
+
 # Mount secretary routes (documents, budget, reminders)
 if _SECRETARY_AVAILABLE:
     app.include_router(secretary_router)
@@ -1809,6 +1820,15 @@ async def admin_page():
     if os.path.exists(admin_path):
         return FileResponse(admin_path)
     return JSONResponse(status_code=404, content={"error": "Dashboard admin non disponible"})
+
+
+@app.get("/exploitant")
+async def exploitant_page():
+    """Dashboard exploitant — gestion clients, revenus, configuration."""
+    path = os.path.join(STATIC_DIR, "exploitant.html")
+    if os.path.exists(path):
+        return FileResponse(path)
+    return JSONResponse(status_code=404, content={"error": "Dashboard exploitant non disponible"})
 
 
 @app.get("/world")

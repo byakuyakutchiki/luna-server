@@ -118,6 +118,8 @@ tr:hover { background: rgba(167,139,250,0.05); }
     <button class="tab-btn" data-tab="costs" style="color:#fbbf24;">Couts API</button>
     <button class="tab-btn" data-tab="server">Serveur</button>
     <button class="tab-btn" data-tab="world" style="color:#a78bfa;">Monde</button>
+    <button class="tab-btn" data-tab="royalties" style="color:#2dd4bf;">💰 Royalties</button>
+    <button class="tab-btn" data-tab="valuation" style="color:#fbbf24;">📈 Valorisation</button>
   </div>
 
   <!-- DASHBOARD TAB -->
@@ -187,6 +189,31 @@ tr:hover { background: rgba(167,139,250,0.05); }
       <a href="/admin/world" target="_blank" style="display:inline-block; padding:14px 32px; background:#7c3aed; color:white; border-radius:12px; text-decoration:none; font-size:1em; font-weight:600; transition: background 0.2s;" onmouseover="this.style.background='#6d28d9'" onmouseout="this.style.background='#7c3aed'">
         Ouvrir le Monde
       </a>
+    </div>
+  </div>
+
+  <!-- ROYALTIES TAB (Fondateur) -->
+  <div class="tab-panel" id="tab-royalties">
+    <h3 style="margin-bottom:16px;font-size:1em;color:#2dd4bf;">💰 Royalties Fondateur (70%)</h3>
+    <div class="cards" id="royaltiesCards"></div>
+    <h3 style="margin:20px 0 12px;font-size:0.9em;color:#888;">Répartition par plan</h3>
+    <div id="royaltiesByPlan"></div>
+    <div style="margin-top:18px;padding:12px 16px;background:#111;border:1px solid #333;border-radius:10px;font-size:0.82em;color:#666;">
+      <strong style="color:#2dd4bf;">Modèle 70/30 :</strong> Tu perçois 70% du CA brut encaissé par l'exploitant au titre de la licence technologique (IP, code, mises à jour). L'exploitant conserve 30% pour ses opérations.
+    </div>
+  </div>
+
+  <!-- VALORISATION TAB (Fondateur) -->
+  <div class="tab-panel" id="tab-valuation">
+    <h3 style="margin-bottom:16px;font-size:1em;color:#fbbf24;">📈 Valorisation de la plateforme</h3>
+    <div class="cards" id="valuationCards"></div>
+    <h3 style="margin:20px 0 12px;font-size:0.9em;color:#888;">Comparables marché SaaS IA</h3>
+    <table>
+      <thead><tr><th>Société</th><th>Secteur</th><th>Multiple ARR</th><th>Note</th></tr></thead>
+      <tbody id="comparablesTable"></tbody>
+    </table>
+    <div style="margin-top:14px;padding:10px 14px;background:#111;border:1px solid #1a1a2e;border-radius:8px;font-size:0.78em;color:#555;">
+      ⚠️ Ces estimations sont indicatives. La valorisation réelle dépend du taux de croissance, de la rétention, du marché adressable et de l'état de la concurrence au moment de la transaction.
     </div>
   </div>
 </div>
@@ -276,6 +303,8 @@ document.querySelectorAll(".tab-btn").forEach(function(btn) {
     if (tab === "alerts") loadAlerts();
     if (tab === "costs") loadCosts();
     if (tab === "server") loadServer();
+    if (tab === "royalties") loadRoyalties();
+    if (tab === "valuation") loadValuation();
     if (tab === "location") startLocationRefresh();
     else stopLocationRefresh();
   });
@@ -685,6 +714,63 @@ if (token) {
   authFetch("/api/admin/dashboard").then(function() { showApp(); }).catch(function() {});
 } else {
   document.getElementById("loginScreen").style.display = "flex";
+}
+
+// =========================================================================
+// ROYALTIES (Fondateur 70%)
+// =========================================================================
+function loadRoyalties() {
+  authFetch("/api/admin/revenue").then(function(d) {
+    var ca = d.total_revenue || 0;
+    var roy = Math.round(ca * 0.70);
+    var expl = Math.round(ca * 0.30);
+    var cards = document.getElementById("royaltiesCards");
+    cards.innerHTML =
+      '<div class="card"><div class="label">CA brut mensuel</div><div class="value">'+_eur(ca)+'</div><div class="sub">Tous exploitants</div></div>' +
+      '<div class="card"><div class="label">Tes royalties (70%)</div><div class="value" style="color:#2dd4bf">'+_eur(roy)+'</div><div class="sub">Licence techno / IP</div></div>' +
+      '<div class="card"><div class="label">Marge exploitant (30%)</div><div class="value" style="color:#a78bfa">'+_eur(expl)+'</div><div class="sub">Opérations</div></div>' +
+      '<div class="card"><div class="label">ARR estimé (royalties)</div><div class="value" style="color:#fbbf24">'+_eur(roy*12)+'</div><div class="sub">Annualisé</div></div>';
+
+    var byPlan = d.by_plan || {};
+    var html = '<table><thead><tr><th>Plan</th><th>Clients</th><th>CA</th><th>Tes royalties (70%)</th><th>Exploitant (30%)</th></tr></thead><tbody>';
+    var prices = {essentiel:79, confort:149, premium:249};
+    Object.entries(byPlan).forEach(function(e) {
+      var plan=e[0], v=e[1], p=prices[plan]||0;
+      html += '<tr><td>'+plan+'</td><td>'+v.count+'</td><td>'+_eur(v.revenue)+'</td><td style="color:#2dd4bf">'+_eur(Math.round(v.revenue*0.7))+'</td><td style="color:#a78bfa">'+_eur(Math.round(v.revenue*0.3))+'</td></tr>';
+    });
+    html += '</tbody></table>';
+    document.getElementById("royaltiesByPlan").innerHTML = html;
+  }).catch(function(e) { document.getElementById("royaltiesCards").innerHTML = '<p style="color:#f87171">Erreur: '+e.message+'</p>'; });
+}
+
+function _eur(n){ return new Intl.NumberFormat('fr-FR',{style:'currency',currency:'EUR',maximumFractionDigits:0}).format(n||0); }
+
+// =========================================================================
+// VALORISATION
+// =========================================================================
+function loadValuation() {
+  authFetch("/api/admin/revenue").then(function(d) {
+    var mrrRoyalties = Math.round((d.total_revenue||0)*0.70);
+    var arr = mrrRoyalties * 12;
+    var multiLow = 5, multiMid = 10, multiHigh = 20;
+    var cards = document.getElementById("valuationCards");
+    cards.innerHTML =
+      '<div class="card"><div class="label">MRR Royalties</div><div class="value">'+_eur(mrrRoyalties)+'</div><div class="sub">Revenus mensuels récurrents</div></div>' +
+      '<div class="card"><div class="label">ARR Royalties</div><div class="value" style="color:#fbbf24">'+_eur(arr)+'</div><div class="sub">Annualisé</div></div>' +
+      '<div class="card"><div class="label">Valuation (×5 ARR)</div><div class="value" style="color:#60a5fa">'+_eur(arr*multiLow)+'</div><div class="sub">Multiple conservateur</div></div>' +
+      '<div class="card"><div class="label">Valuation (×10 ARR)</div><div class="value" style="color:#4ade80">'+_eur(arr*multiMid)+'</div><div class="sub">Multiple médian SaaS IA</div></div>';
+
+    var comparables = [
+      {name:'Replika', sector:'Compagnon IA', multiple:'8-15×', note:'Niche santé mentale'},
+      {name:'Character.AI', sector:'IA conversationnelle', multiple:'20-50×', note:'Croissance explosive'},
+      {name:'Heylo', sector:'Compagnon seniors', multiple:'6-12×', note:'Marché senior en croissance'},
+      {name:'SaaS B2B2C médian', sector:'IA / SaaS', multiple:'5-10×', note:'Référence marché 2024-2025'},
+    ];
+    var rows = comparables.map(function(c){
+      return '<tr><td>'+c.name+'</td><td style="color:#888">'+c.sector+'</td><td style="color:#fbbf24">'+c.multiple+'</td><td style="color:#555;font-size:0.85em">'+c.note+'</td></tr>';
+    }).join('');
+    document.getElementById("comparablesTable").innerHTML = rows;
+  }).catch(function(e){ document.getElementById("valuationCards").innerHTML='<p style="color:#f87171">'+e.message+'</p>'; });
 }
 </script>
 </body>
