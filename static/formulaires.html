@@ -531,13 +531,28 @@ function buildForm(){
                 div.innerHTML='<label>'+f.label+'</label><div class="desc" style="color:var(--purple)">Signature a l\'etape suivante</div>';
             } else {
                 const itype=f.field_type==='email'?'email':f.field_type==='phone'?'tel':'text';
-                div.innerHTML='<label>'+f.label+(f.required?'<span class="req">*</span>':'')+'</label>'+
-                    (f.field_type==='textarea'?
-                        '<textarea data-id="'+f.id+'" placeholder="'+(f.placeholder||'')+'" rows="3">'+(f.value||'')+'</textarea>':
-                        '<input type="'+itype+'" data-id="'+f.id+'" value="'+(f.value||'')+'" placeholder="'+(f.placeholder||'')+'">')+
-                    (f.description?'<div class="desc">'+f.description+'</div>':'');
-                const inp=div.querySelector('input,textarea');
-                if(inp) inp.oninput=function(){f.value=this.value;div.classList.toggle('filled',!!this.value);updateCounts();};
+                // Construire le DOM sans innerHTML pour éviter les injections HTML dans les valeurs
+                const lbl=document.createElement('label');
+                lbl.textContent=f.label;
+                if(f.required){const s=document.createElement('span');s.className='req';s.textContent='*';lbl.appendChild(s);}
+                div.appendChild(lbl);
+                let inp;
+                if(f.field_type==='textarea'){
+                    inp=document.createElement('textarea');
+                    inp.setAttribute('data-id',f.id);
+                    inp.setAttribute('rows','3');
+                    inp.setAttribute('placeholder',f.placeholder||'');
+                    inp.value=f.value||'';
+                }else{
+                    inp=document.createElement('input');
+                    inp.type=itype;
+                    inp.setAttribute('data-id',f.id);
+                    inp.setAttribute('placeholder',f.placeholder||'');
+                    inp.value=f.value||'';
+                }
+                div.appendChild(inp);
+                if(f.description){const d=document.createElement('div');d.className='desc';d.textContent=f.description;div.appendChild(d);}
+                inp.oninput=function(){f.value=this.value;div.classList.toggle('filled',!!this.value);updateCounts();};
             }
             c.appendChild(div);
         }
@@ -721,7 +736,19 @@ function init(){
     $('#btnClearSig').onclick=()=>sigPad&&sigPad.clear();
     $('#btnGenerate').onclick=()=>generate(true);
     $('#btnSkipSig').onclick=()=>generate(false);
-    $('#btnDownload').onclick=()=>{if(sessionId)window.location.href='/api/form-filler/download/'+sessionId;};
+    $('#btnDownload').onclick=async function(){
+        if(!sessionId)return;
+        try{
+            const r=await fetch('/api/form-filler/download/'+sessionId,{headers:HDR});
+            if(!r.ok){toast('Erreur téléchargement (session expirée?)','err');return;}
+            const blob=await r.blob();
+            const url=URL.createObjectURL(blob);
+            const a=document.createElement('a');
+            a.href=url;a.download='formulaire_rempli.pdf';
+            document.body.appendChild(a);a.click();
+            setTimeout(()=>{URL.revokeObjectURL(url);a.remove();},1000);
+        }catch(e){toast('Erreur: '+e.message,'err');}
+    };
     $('#btnNewForm').onclick=reset;
 
     // Profile
@@ -797,6 +824,8 @@ async function _doScan(file){
             ?`<span style="color:var(--orange)">⚠ ${ok} champ${ok>1?'s':''} extraits — complétez les champs en orange (sauvegardé)</span>`
             :`<span style="color:var(--green)">✓ ${ok} champ${ok>1?'s':''} extraits et sauvegardés</span>`;
         toast(ko?`${ok} champs sauvegardés, ${ko} à compléter`:`${ok} champs sauvegardés automatiquement`,ko?'info':'ok');
+        // Repousser le profil dans les champs du formulaire si on est à l'étape de remplissage
+        if(sessionId)setTimeout(doAutofill,300);
     }catch(e){
         toast(e.message||'Erreur lors de l\'analyse','err');
         result.style.cssText='display:block;background:rgba(248,113,113,.08);border:1px solid var(--red)';

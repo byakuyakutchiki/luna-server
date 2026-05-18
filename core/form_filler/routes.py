@@ -383,10 +383,19 @@ async def api_scan_identity_document(request: Request):
     data_uri = f"data:{media_type};base64,{image_b64}"
 
     try:
+        # response_format json_object force gpt-4o à ne jamais wrapper en markdown
+        fmt_kwargs = {}
+        if provider == "openai":
+            fmt_kwargs["response_format"] = {"type": "json_object"}
+
         resp = llm.chat.completions.create(
             model=vision_model,
             messages=[
-                {"role": "system", "content": "Tu es un extracteur de donnees d'identite. Tu reponds UNIQUEMENT en JSON."},
+                {"role": "system", "content": (
+                    "Tu es un extracteur OCR de pièces d'identité françaises. "
+                    "Tu réponds UNIQUEMENT avec un objet JSON valide, sans texte avant ou après, "
+                    "sans bloc markdown, sans commentaire."
+                )},
                 {"role": "user", "content": [
                     {"type": "text", "text": _OCR_PROMPT},
                     {"type": "image_url", "image_url": {"url": data_uri, "detail": "high"}},
@@ -394,19 +403,22 @@ async def api_scan_identity_document(request: Request):
             ],
             max_tokens=800,
             temperature=0.0,
+            **fmt_kwargs,
         )
         raw = resp.choices[0].message.content or ""
 
-        # Parse JSON — supporte bloc ```json ... ``` ou JSON brut
+        # Parse JSON — priorité json_object, fallback extraction manuelle
         extracted: dict = {}
         try:
-            m = re.search(r"```json\s*([\s\S]*?)\s*```", raw)
-            json_str = m.group(1) if m else raw[raw.find("{"):raw.rfind("}") + 1]
-            if json_str.strip():
-                extracted = json.loads(json_str)
+            extracted = json.loads(raw)
         except (json.JSONDecodeError, ValueError):
-            # Image illisible ou pas de document : on renvoie tout à null (pas une erreur fatale)
-            logger.warning(f"Scan ID — réponse non-JSON du LLM: {raw[:120]}")
+            try:
+                m = re.search(r"```json\s*([\s\S]*?)\s*```", raw)
+                json_str = m.group(1) if m else raw[raw.find("{"):raw.rfind("}") + 1]
+                if json_str.strip():
+                    extracted = json.loads(json_str)
+            except (json.JSONDecodeError, ValueError):
+                logger.warning(f"Scan ID — réponse non-JSON du LLM: {raw[:120]}")
 
         # Normalise : garantit toutes les clés attendues
         for k in _ID_FIELDS:
