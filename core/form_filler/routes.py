@@ -398,9 +398,15 @@ async def api_scan_identity_document(request: Request):
         raw = resp.choices[0].message.content or ""
 
         # Parse JSON — supporte bloc ```json ... ``` ou JSON brut
-        m = re.search(r"```json\s*([\s\S]*?)\s*```", raw)
-        json_str = m.group(1) if m else raw[raw.find("{"):raw.rfind("}") + 1]
-        extracted: dict = json.loads(json_str)
+        extracted: dict = {}
+        try:
+            m = re.search(r"```json\s*([\s\S]*?)\s*```", raw)
+            json_str = m.group(1) if m else raw[raw.find("{"):raw.rfind("}") + 1]
+            if json_str.strip():
+                extracted = json.loads(json_str)
+        except (json.JSONDecodeError, ValueError):
+            # Image illisible ou pas de document : on renvoie tout à null (pas une erreur fatale)
+            logger.warning(f"Scan ID — réponse non-JSON du LLM: {raw[:120]}")
 
         # Normalise : garantit toutes les clés attendues
         for k in _ID_FIELDS:
@@ -411,12 +417,13 @@ async def api_scan_identity_document(request: Request):
         filled_count = len(_ID_FIELDS) - len(missing)
         confidence = "high" if len(missing) <= 2 else "medium" if len(missing) <= 5 else "low"
 
+        if filled_count == 0:
+            logger.info(f"Scan ID — aucun champ extrait (document illisible?) | provider={provider}")
+            return {"success": True, "extracted": extracted, "missing": missing, "confidence": "none",
+                    "warning": "Document illisible ou aucune pièce d'identité détectée."}
+
         logger.info(f"Scan ID — tenant {getattr(request.state, 'tenant_id', '?')}: {filled_count}/{len(_ID_FIELDS)} champs | provider={provider} | model={vision_model}")
         return {"success": True, "extracted": extracted, "missing": missing, "confidence": confidence}
-
-    except json.JSONDecodeError as e:
-        logger.error(f"Scan ID — JSON invalide: {e} | raw[:200]={raw[:200]}")
-        return JSONResponse(status_code=422, content={"error": f"Impossible de parser la reponse OCR: {e}"})
     except Exception as e:
         logger.exception(f"Scan ID — erreur API: {e}")
         return JSONResponse(status_code=500, content={"error": f"Erreur lors de l'analyse: {e}"})
