@@ -446,6 +446,7 @@ _PUBLIC_PATHS = (
     "/api/webhook/sms",
     "/api/webhook/sms-status",
     "/api/webhook/tavus",
+    "/api/webhook/simli",
     "/api/webhook/voice-incoming",
     "/api/webhooks/meetingbaas",
     "/api/meeting/webhook",
@@ -9084,6 +9085,38 @@ async def webhook_tavus(request: Request):
     return {"status": "ok"}
 
 
+@app.post("/api/webhook/simli")
+async def webhook_simli(request: Request):
+    """
+    Webhook Simli (fallback audio quand Tavus est down).
+    Reçoit les utterances du souscripteur et applique le même filtrage intelligent.
+    Body attendu: { session_id, user_message, assistant_message, tenant_id? }
+    """
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse(status_code=400, content={"error": "Invalid JSON"})
+
+    session_id = body.get("session_id", "")
+    user_text  = body.get("user_message", "") or body.get("text", "")
+
+    # Résolution tenant : via session_id ou champ direct
+    tid = body.get("tenant_id") or TENANT_ID
+    if session_id and _redis_client:
+        try:
+            stored = _redis_client.client.get(f"luna:simli:session:{session_id}")
+            if stored:
+                import json as _sj
+                tid = _sj.loads(stored).get("tenant_id", tid)
+        except Exception:
+            pass
+
+    if user_text:
+        await _handle_simli_utterance(int(tid), user_text, session_id)
+
+    return {"status": "ok"}
+
+
 async def _handle_tavus_tool_call(body: Dict) -> Dict:
     """Route un tool call Tavus vers le bon handler backend."""
     import json as _json
@@ -11644,8 +11677,105 @@ async def _handle_tavus_transcription(body: Dict) -> Dict:
     return {"status": "ok"}
 
 
+# ── Notes intelligentes : filtres + déduplication ──────────────────────────
+
+# Patterns à ignorer (salutations, remplissages, météo banale)
+_NOTE_SKIP_RE = re.compile(
+    r"^\s*(?:"
+    r"bonjour|bonsoir|salut|coucou|hello|hi\b|au revoir|bonne journee|bonne soiree|bonne nuit|"
+    r"a bientot|a tout a l'heure|a tout heure|merci|de rien|s'il vous plait|sil vous plait|"
+    r"euh+|bah+|ben+|hm+|ah+|oh+|ouais|oui|non|ok|d'accord|d'ac|"
+    r"ca va|ça va|je vais bien|tout va bien|nickel|impeccable|parfait|"
+    r"il fait beau|beau temps|soleil|nuageux|il pleut|meteorologie|la meteo|"
+    r"c'est bien|tres bien|super|excellent|formidable"
+    r")[\s!?.]*$",
+    re.IGNORECASE | re.UNICODE,
+)
+
+# Catégories + mots-clés pour classification heuristique
+_NOTE_CATEGORIES = {
+    "RDV":   ["rendez-vous", "rdv", "docteur", "dentiste", "medecin", "hopital", "clinique",
+               "appointment", "demain", "lundi", "mardi", "mercredi", "jeudi", "vendredi",
+               "samedi", "dimanche", "semaine prochaine", "consultation", "examen"],
+    "MED":   ["medicament", "médicament", "comprime", "comprimé", "pilule", "cachet",
+               "ordonnance", "pharmacie", "dose", "prendre", "oublier", "oublie",
+               "tension", "glycemie", "glycémie", "insuline", "traitement"],
+    "SYM":   ["douleur", "mal", "souffre", "fatigue", "fatigué", "essoufle", "essoufflé",
+               "vertige", "tete", "tête", "ventre", "dos", "jambe", "bras", "chute",
+               "tombe", "tombé", "blessure", "fievre", "fièvre", "nausee", "nausée"],
+    "INST":  ["rappelle", "n'oublie pas", "pense a", "pense à", "dis-moi", "previens",
+               "préviens", "alerte", "contacte", "appelle", "envoie", "fais", "il faut que"],
+    "FAM":   ["fils", "fille", "mari", "femme", "enfant", "petit-fils", "petite-fille",
+               "famille", "frere", "sœur", "soeur", "neveu", "niece", "parent", "proche"],
+    "ALERT": ["urgence", "aide", "au secours", "danger", "chute", "inconscient", "douleur forte",
+               "ambulance", "pompier", "appel urgence"],
+}
+
+_NOTE_MIN_LENGTH = 25  # caractères minimum pour déclencher une note
+_NOTE_SIM_THRESHOLD = 0.70  # similarité au-delà de laquelle c'est un doublon
+
+def _note_similarity(a: str, b: str) -> float:
+    """Similarité simple mot-à-mot (Jaccard sur tokens)."""
+    wa = set(re.findall(r"\w+", a.lower()))
+    wb = set(re.findall(r"\w+", b.lower()))
+    if not wa or not wb:
+        return 0.0
+    return len(wa & wb) / max(len(wa), len(wb))
+
+def _classify_note(text: str) -> str | None:
+    """
+    Classe le texte dans une catégorie si score suffisant.
+    Retourne la catégorie (ex: 'RDV') ou None si le texte n'est pas digne d'une note.
+    """
+    text_l = text.lower()
+    scores: dict[str, int] = {}
+    for cat, keywords in _NOTE_CATEGORIES.items():
+        scores[cat] = sum(1 for kw in keywords if kw in text_l)
+
+    best_cat, best_score = max(scores.items(), key=lambda x: x[1])
+    if best_score >= 1:
+        return best_cat
+
+    # Fallback : verbe d'action + phrase assez longue = INFO mémorable
+    action_verbs = ["prendre", "aller", "faire", "acheter", "appeler", "venir", "passer", "voir"]
+    if any(v in text_l for v in action_verbs) and len(text.strip()) >= _NOTE_MIN_LENGTH:
+        return "INFO"
+
+    return None
+
+def _should_skip_note(text: str, mgr) -> tuple[bool, str]:
+    """
+    Retourne (doit_ignorer, raison).
+    Vérifie : longueur min, pattern skip, classification, déduplication.
+    """
+    t = text.strip()
+
+    if len(t) < _NOTE_MIN_LENGTH:
+        return True, "trop_court"
+
+    if _NOTE_SKIP_RE.match(t):
+        return True, "salutation_ou_remplissage"
+
+    category = _classify_note(t)
+    if category is None:
+        return True, "non_classifiable"
+
+    # Déduplication : comparer avec les 5 dernières notes (2 min)
+    if mgr:
+        try:
+            recent = mgr.get_recent_notes(limit=5, minutes=2)
+            for note_data in recent:
+                prev_content = note_data.get("content", "")
+                if _note_similarity(t, prev_content) >= _NOTE_SIM_THRESHOLD:
+                    return True, "doublon"
+        except Exception:
+            pass
+
+    return False, category
+
+
 async def _handle_tavus_utterance(body: Dict) -> Dict:
-    """Gère les utterances en temps réel : note auto + vérification checkin."""
+    """Utterances Tavus : filtrage intelligent + note auto + checkin."""
     data = body.get("data", {})
     speaker = data.get("speaker", "")
     text = data.get("text", "")
@@ -11661,22 +11791,47 @@ async def _handle_tavus_utterance(body: Dict) -> Dict:
             tid = conv.tenant_id
     mgr = _get_tenant_manager(tid) if tid else _memory_manager
 
-    # Note auto si activée
-    if mgr and mgr.is_auto_note_enabled():
-        try:
-            mgr.add_note(
-                content=f"[Visio live] {speaker}: {text[:500]}",
-                context="visio_utterance",
-                tags=["visio", "utterance", speaker, conversation_id],
-            )
-        except Exception:
-            pass
+    # Note auto filtrée (uniquement ce que dit le souscripteur)
+    if speaker == "user" and mgr and mgr.is_auto_note_enabled():
+        skip, reason = _should_skip_note(text, mgr)
+        if not skip:
+            try:
+                mgr.add_note(
+                    content=f"[{reason}] {text[:400]}",
+                    context="visio_utterance",
+                    tags=["visio", "tavus", reason, conversation_id],
+                )
+                logger.debug(f"Note visio [{reason}] tenant={tid}: {text[:60]}")
+            except Exception:
+                pass
+        else:
+            logger.debug(f"Note ignorée ({reason}) tenant={tid}: {text[:60]}")
 
     # Vérification checkin si le souscripteur parle
     if speaker == "user":
         await _process_checkin_response(tid, conversation_id, text)
 
     return {"status": "ok"}
+
+
+async def _handle_simli_utterance(tid: int, user_text: str, session_id: str = "") -> None:
+    """Même logique de filtrage que Tavus, pour les appels audio Simli."""
+    if not user_text or not user_text.strip():
+        return
+    mgr = _get_tenant_manager(tid) if tid else _memory_manager
+    if not mgr or not mgr.is_auto_note_enabled():
+        return
+    skip, reason = _should_skip_note(user_text, mgr)
+    if not skip:
+        try:
+            mgr.add_note(
+                content=f"[{reason}] {user_text[:400]}",
+                context="audio_utterance",
+                tags=["audio", "simli", reason, session_id],
+            )
+            logger.debug(f"Note audio Simli [{reason}] tenant={tid}: {user_text[:60]}")
+        except Exception:
+            pass
 
 
 async def _process_checkin_response(tenant_id: int, conversation_id: str, text: str) -> None:

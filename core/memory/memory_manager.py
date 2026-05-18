@@ -588,6 +588,10 @@ class MemoryManager:
     def is_auto_note_enabled(self) -> bool:
         return self.redis.is_auto_note_enabled(self.tenant_id)
 
+    def get_recent_notes(self, limit: int = 5, minutes: int = 2) -> list:
+        """Notes créées dans les `minutes` dernières minutes (pour déduplication)."""
+        return self.redis.get_recent_notes(self.tenant_id, limit=limit, minutes=minutes)
+
     def update_perception_state(self, scene_state) -> None:
         """Stocke l'etat courant de la scene dans Redis."""
         import json

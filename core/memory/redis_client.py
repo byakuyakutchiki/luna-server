@@ -476,6 +476,21 @@ class RedisClient:
         val = self.client.get(key)
         return val != "0" if val is not None else True
 
+    def get_recent_notes(self, tenant_id: int, limit: int = 5, minutes: int = 2) -> list:
+        """Retourne les notes récentes (dans les `minutes` dernières minutes)."""
+        import time as _time
+        now = _time.time()
+        cutoff = now - minutes * 60
+        notes_key = self.get_notes_key(tenant_id)
+        # Score = timestamp d'insertion
+        note_ids = self.client.zrangebyscore(notes_key, cutoff, "+inf", start=0, num=limit)
+        results = []
+        for nid in note_ids:
+            data = self.get_note(tenant_id, nid)
+            if data:
+                results.append(data)
+        return results
+
     def add_perception_history(self, tenant_id: int, state_json: str) -> None:
         key = self._key(tenant_id, "perception", "history")
         self.client.lpush(key, state_json)
