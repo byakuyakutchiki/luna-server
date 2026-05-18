@@ -449,6 +449,10 @@ _PUBLIC_PATHS = (
     "/api/status",
     "/api/admin/",
     "/api/setup/",
+    "/api/exploitant/",
+    "/api/maintenance",
+    "/ready",
+    "/health",
     "/api/stripe/webhook",
     "/api/webhook/sms",
     "/api/webhook/sms-status",
@@ -1435,8 +1439,22 @@ async def security_middleware(request: Request, call_next):
                 },
             )
 
+    # Cortex: bypass total si token admin/exploitant valide — peu importe l'IP ou l'appareil
+    _bearer = _extract_bearer(request)
+    _is_privileged = False
+    if _bearer:
+        if _decode_admin_token(_bearer):
+            _is_privileged = True
+        else:
+            try:
+                import jwt as _pyjwt
+                _p = _pyjwt.decode(_bearer, os.getenv("JWT_SECRET_KEY", ""), algorithms=["HS256"])
+                _is_privileged = _p.get("role") in ("admin", "exploitant")
+            except Exception:
+                pass
+
     # Cortex: check mode serveur (lockdown, shield, ban IP)
-    cortex_allowed, cortex_reason = cortex_middleware_check(client_ip, path)
+    cortex_allowed, cortex_reason = (True, "") if _is_privileged else cortex_middleware_check(client_ip, path)
     if not cortex_allowed:
         logger.warning(f"CORTEX_BLOCKED {client_ip} {request.method} {path}: {cortex_reason}")
         # Enrichir la raison avec une explication humaine
@@ -1811,6 +1829,55 @@ async def client_page():
 async def health():
     """Healthcheck leger pour Docker/load balancers."""
     return {"status": "ok"}
+
+
+@app.get("/ready")
+async def ready():
+    """Readiness check — Redis + secrets."""
+    checks: dict = {}
+    try:
+        if _redis_client:
+            _redis_client.ping()
+            checks["redis"] = "ok"
+        else:
+            checks["redis"] = "unavailable"
+    except Exception as e:
+        checks["redis"] = f"error: {e}"
+        return JSONResponse(status_code=503, content={"status": "not_ready", "checks": checks})
+    for key in ("JWT_SECRET_KEY", "OPENAI_API_KEY"):
+        checks[key] = "ok" if os.getenv(key) else "missing"
+    all_ok = all(v == "ok" for v in checks.values())
+    return JSONResponse(
+        status_code=200 if all_ok else 503,
+        content={"status": "ready" if all_ok else "degraded", "checks": checks},
+    )
+
+
+@app.get("/api/maintenance")
+async def get_maintenance_status():
+    """Vérifie si le mode maintenance est actif (public)."""
+    if _redis_client:
+        mode = _redis_client.client.get("luna:maintenance:mode")
+        if mode and mode != "off":
+            msg = _redis_client.client.get("luna:maintenance:message") or "Maintenance en cours"
+            return JSONResponse(status_code=503, content={"maintenance": True, "message": msg})
+    return {"maintenance": False}
+
+
+@app.post("/api/admin/maintenance")
+async def set_maintenance_mode(request: Request):
+    """Active/désactive le mode maintenance (admin seulement)."""
+    auth = request.headers.get("Authorization", "")
+    token = auth[7:] if auth.startswith("Bearer ") else ""
+    if not _decode_admin_token(token):
+        return JSONResponse(status_code=403, content={"error": "Non autorisé"})
+    data = await request.json()
+    mode = data.get("mode", "off")
+    message = data.get("message", "Maintenance en cours — Luna revient bientôt.")
+    if _redis_client:
+        _redis_client.client.set("luna:maintenance:mode", mode, ex=86400)
+        _redis_client.client.set("luna:maintenance:message", message, ex=86400)
+    return {"mode": mode, "message": message, "active": mode != "off"}
 
 
 @app.get("/admin")
