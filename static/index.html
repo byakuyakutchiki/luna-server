@@ -4029,7 +4029,7 @@ function inviteContact(phone, name) {
   .then(function(data) {
     if (data.success) {
       if (st) { st.textContent = "✅ Invitation envoyée à " + name + " par SMS !"; st.className = "form-status success"; }
-      showLunaToast("📱 Invitation envoyée à " + name);
+      _showToast("📱 Invitation envoyée", "SMS envoyé à " + name);
     } else {
       if (st) { st.textContent = "Erreur: " + (data.error || "inconnue"); st.className = "form-status error"; }
     }
