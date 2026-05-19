@@ -23,6 +23,7 @@ import android.webkit.CookieManager;
 import android.webkit.DownloadListener;
 import android.webkit.JavascriptInterface;
 import android.webkit.PermissionRequest;
+import android.webkit.ConsoleMessage;
 import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
@@ -202,6 +203,17 @@ public class MainActivity extends Activity {
             }
 
             @Override
+            public boolean onConsoleMessage(ConsoleMessage cm) {
+                String level = "debug";
+                if (cm.messageLevel() == ConsoleMessage.MessageLevel.ERROR) level = "error";
+                else if (cm.messageLevel() == ConsoleMessage.MessageLevel.WARNING) level = "warn";
+                else if (cm.messageLevel() == ConsoleMessage.MessageLevel.LOG) level = "info";
+                String loc = cm.sourceId().replaceAll(".*/", "") + ":" + cm.lineNumber();
+                sendLog(level, cm.message() + "  [" + loc + "]", "js/" + Build.MODEL);
+                return false; // laisser le log natif aussi
+            }
+
+            @Override
             public void onPermissionRequest(final PermissionRequest request) {
                 // Sécurité : refuser caméra/micro à toute origine autre que Luna
                 String origin = request.getOrigin().toString();
@@ -288,7 +300,23 @@ public class MainActivity extends Activity {
 
             @Override
             public void onReceivedSslError(WebView view, android.webkit.SslErrorHandler handler, android.net.http.SslError error) {
-                handler.cancel(); // Rejeter les certificats invalides
+                sendLog("error", "SSL error: " + error.toString(), "webview/" + Build.MODEL);
+                handler.cancel();
+            }
+
+            @Override
+            public void onReceivedError(WebView view, int errorCode, String description, String failingUrl) {
+                sendLog("error", "WebView err " + errorCode + ": " + description + " — " + failingUrl, "webview/" + Build.MODEL);
+            }
+
+            @Override
+            public void onPageStarted(WebView view, String url, android.graphics.Bitmap favicon) {
+                sendLog("nav", "LOAD START: " + url, "nav/" + Build.MODEL);
+            }
+
+            @Override
+            public void onPageFinished(WebView view, String url) {
+                sendLog("nav", "LOAD OK: " + url, "nav/" + Build.MODEL);
             }
         });
 
@@ -296,10 +324,36 @@ public class MainActivity extends Activity {
         webView.clearCache(true);
 
         // Charge Luna
+        sendLog("info", "APP START v" + CURRENT_VERSION + " (" + CURRENT_VERSION_CODE + ") — " + Build.MODEL + " Android " + Build.VERSION.RELEASE, "apk/" + Build.MODEL);
         webView.loadUrl(LUNA_URL);
 
         // Verification auto-update en arriere-plan
         checkForUpdate();
+    }
+
+    /**
+     * Envoie un log au serveur Luna en arrière-plan (non bloquant).
+     */
+    private void sendLog(final String level, final String msg, final String src) {
+        new Thread(() -> {
+            try {
+                URL url = new URL(LUNA_URL + "/api/logs/client");
+                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                conn.setRequestMethod("POST");
+                conn.setRequestProperty("Content-Type", "application/json");
+                conn.setDoOutput(true);
+                conn.setConnectTimeout(4000);
+                conn.setReadTimeout(4000);
+                JSONObject json = new JSONObject();
+                json.put("level", level);
+                json.put("msg", msg);
+                json.put("src", src);
+                byte[] bytes = json.toString().getBytes("UTF-8");
+                conn.getOutputStream().write(bytes);
+                conn.getInputStream().close();
+                conn.disconnect();
+            } catch (Exception ignored) {}
+        }).start();
     }
 
     /**

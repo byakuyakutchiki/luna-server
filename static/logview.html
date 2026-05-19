@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Luna — Logs APK temps réel</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --border: #30363d;
+    --error: #f85149;
+    --warn: #d29922;
+    --info: #58a6ff;
+    --debug: #8b949e;
+    --nav: #3fb950;
+    --js: #e3b341;
+    --text: #e6edf3;
+    --dim: #8b949e;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'JetBrains Mono', 'Fira Code', monospace; font-size: 12px; display: flex; flex-direction: column; height: 100vh; }
+
+  header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 10px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  header h1 { font-size: 14px; color: var(--text); letter-spacing: 0.05em; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: #666; flex-shrink: 0; }
+  .dot.live { background: var(--nav); box-shadow: 0 0 6px var(--nav); animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+  .filters { display: flex; gap: 6px; flex-wrap: wrap; margin-left: auto; }
+  .filter-btn {
+    padding: 3px 10px; border-radius: 12px; border: 1px solid var(--border);
+    background: transparent; color: var(--dim); cursor: pointer; font-size: 11px;
+    transition: all .15s;
+  }
+  .filter-btn.active { color: #fff; border-color: currentColor; }
+  .filter-btn[data-level="all"].active { color: var(--text); border-color: var(--text); }
+  .filter-btn[data-level="error"].active { color: var(--error); border-color: var(--error); }
+  .filter-btn[data-level="warn"].active { color: var(--warn); border-color: var(--warn); }
+  .filter-btn[data-level="info"].active { color: var(--info); border-color: var(--info); }
+  .filter-btn[data-level="nav"].active { color: var(--nav); border-color: var(--nav); }
+  .filter-btn[data-level="debug"].active { color: var(--debug); border-color: var(--debug); }
+
+  .btn-clear {
+    padding: 3px 10px; border-radius: 12px; border: 1px solid var(--border);
+    background: transparent; color: var(--error); cursor: pointer; font-size: 11px;
+  }
+  .btn-scroll {
+    padding: 3px 10px; border-radius: 12px; border: 1px solid var(--border);
+    background: transparent; color: var(--dim); cursor: pointer; font-size: 11px;
+  }
+  .btn-scroll.on { color: var(--nav); border-color: var(--nav); }
+
+  .stats {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 6px 16px;
+    display: flex;
+    gap: 20px;
+    font-size: 11px;
+    color: var(--dim);
+  }
+  .stat-error { color: var(--error); }
+  .stat-warn { color: var(--warn); }
+  .stat-info { color: var(--info); }
+  .stat-nav { color: var(--nav); }
+
+  #log-container {
+    flex: 1;
+    overflow-y: auto;
+    padding: 4px 0;
+  }
+
+  .log-line {
+    display: flex;
+    gap: 8px;
+    padding: 2px 16px;
+    border-left: 3px solid transparent;
+    line-height: 1.6;
+    transition: background .1s;
+  }
+  .log-line:hover { background: rgba(255,255,255,.03); }
+  .log-line.level-error { border-left-color: var(--error); }
+  .log-line.level-warn { border-left-color: var(--warn); }
+  .log-line.level-info { border-left-color: var(--info); }
+  .log-line.level-nav { border-left-color: var(--nav); }
+  .log-line.hidden { display: none; }
+
+  .log-ts { color: var(--dim); flex-shrink: 0; width: 85px; }
+  .log-level {
+    flex-shrink: 0;
+    width: 46px;
+    font-weight: 700;
+    text-align: center;
+    border-radius: 3px;
+    padding: 0 3px;
+    font-size: 10px;
+    line-height: 1.8;
+  }
+  .level-error .log-level { color: var(--error); background: rgba(248,81,73,.12); }
+  .level-warn  .log-level { color: var(--warn);  background: rgba(210,153,34,.12); }
+  .level-info  .log-level { color: var(--info);  background: rgba(88,166,255,.1);  }
+  .level-nav   .log-level { color: var(--nav);   background: rgba(63,185,80,.1);   }
+  .level-debug .log-level { color: var(--debug); background: rgba(139,148,158,.1); }
+
+  .log-src { color: var(--js); flex-shrink: 0; max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .log-msg { color: var(--text); word-break: break-all; }
+  .level-error .log-msg { color: #ffa198; }
+  .level-warn  .log-msg { color: #f0c27a; }
+
+  #empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: var(--dim);
+    gap: 8px;
+  }
+  #empty-state .big { font-size: 40px; }
+  #empty-state p { font-size: 13px; }
+
+  #search-bar {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 6px 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  #search-input {
+    flex: 1;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 4px 10px;
+    color: var(--text);
+    font-family: inherit;
+    font-size: 12px;
+    outline: none;
+  }
+  #search-input:focus { border-color: var(--info); }
+  #search-count { color: var(--dim); font-size: 11px; min-width: 60px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="dot" id="status-dot"></div>
+  <h1>Luna APK — Logs temps réel</h1>
+  <div class="filters">
+    <button class="filter-btn active" data-level="all">Tout</button>
+    <button class="filter-btn" data-level="error">ERROR</button>
+    <button class="filter-btn" data-level="warn">WARN</button>
+    <button class="filter-btn" data-level="info">INFO</button>
+    <button class="filter-btn" data-level="nav">NAV</button>
+    <button class="filter-btn" data-level="debug">DEBUG</button>
+    <button class="btn-scroll on" id="btn-scroll" onclick="toggleScroll()">↓ Auto</button>
+    <button class="btn-clear" onclick="clearLogs()">Vider</button>
+  </div>
+</header>
+
+<div id="search-bar">
+  <input id="search-input" type="text" placeholder="Filtrer les messages..." oninput="applySearch()">
+  <span id="search-count"></span>
+</div>
+
+<div class="stats">
+  <span>Total: <strong id="cnt-total">0</strong></span>
+  <span class="stat-error">Erreurs: <strong id="cnt-error">0</strong></span>
+  <span class="stat-warn">Avert.: <strong id="cnt-warn">0</strong></span>
+  <span class="stat-info">Info: <strong id="cnt-info">0</strong></span>
+  <span class="stat-nav">Nav: <strong id="cnt-nav">0</strong></span>
+  <span id="conn-label" style="margin-left:auto">Connexion...</span>
+</div>
+
+<div id="log-container">
+  <div id="empty-state">
+    <div class="big">📡</div>
+    <p>En attente des logs de l'APK...</p>
+    <p style="font-size:11px;color:#555">Lance Luna sur ton téléphone</p>
+  </div>
+</div>
+
+<script>
+const container = document.getElementById('log-container');
+const emptyState = document.getElementById('empty-state');
+const statusDot = document.getElementById('status-dot');
+const connLabel = document.getElementById('conn-label');
+const searchInput = document.getElementById('search-input');
+
+let autoScroll = true;
+let activeFilter = 'all';
+let searchTerm = '';
+let counts = { total:0, error:0, warn:0, info:0, nav:0, debug:0 };
+let es;
+
+function fmt(ts) {
+  try {
+    const d = new Date(ts);
+    return d.toLocaleTimeString('fr', {hour12:false}) + '.' + String(d.getMilliseconds()).padStart(3,'0');
+  } catch { return ts.slice(11,23); }
+}
+
+function levelClass(level) {
+  const l = (level||'debug').toLowerCase();
+  if (l === 'error') return 'level-error';
+  if (l === 'warn' || l === 'warning') return 'level-warn';
+  if (l === 'info') return 'level-info';
+  if (l === 'nav') return 'level-nav';
+  return 'level-debug';
+}
+
+function levelLabel(level) {
+  const l = (level||'debug').toLowerCase();
+  if (l === 'warn' || l === 'warning') return 'WARN';
+  return l.toUpperCase().slice(0,5);
+}
+
+function matchesFilter(el) {
+  const level = el.dataset.level || 'debug';
+  const lc = level.toLowerCase();
+  if (activeFilter !== 'all' && lc !== activeFilter) return false;
+  if (searchTerm) {
+    const msg = el.querySelector('.log-msg')?.textContent || '';
+    const src = el.querySelector('.log-src')?.textContent || '';
+    if (!msg.toLowerCase().includes(searchTerm) && !src.toLowerCase().includes(searchTerm)) return false;
+  }
+  return true;
+}
+
+function addLog(entry) {
+  if (emptyState.parentNode) emptyState.remove();
+
+  const lc = (entry.level||'debug').toLowerCase();
+  counts.total++;
+  counts[lc] = (counts[lc]||0) + 1;
+  updateCounters();
+
+  const line = document.createElement('div');
+  line.className = 'log-line ' + levelClass(entry.level);
+  line.dataset.level = lc;
+
+  const src = (entry.src||'apk').split('/');
+  const srcLabel = src[0]; // juste "js", "webview", "nav", "apk"
+  const device = src[1] || '';
+
+  line.innerHTML = `
+    <span class="log-ts">${fmt(entry.ts)}</span>
+    <span class="log-level">${levelLabel(entry.level)}</span>
+    <span class="log-src" title="${entry.src}">${srcLabel}${device?' · '+device:''}</span>
+    <span class="log-msg">${escHtml(entry.msg)}</span>
+  `;
+
+  if (!matchesFilter(line)) line.classList.add('hidden');
+  container.appendChild(line);
+
+  // Max 2000 lignes dans le DOM
+  const lines = container.querySelectorAll('.log-line');
+  if (lines.length > 2000) lines[0].remove();
+
+  if (autoScroll) container.scrollTop = container.scrollHeight;
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function updateCounters() {
+  document.getElementById('cnt-total').textContent = counts.total;
+  document.getElementById('cnt-error').textContent = counts.error||0;
+  document.getElementById('cnt-warn').textContent = counts.warn||0;
+  document.getElementById('cnt-info').textContent = counts.info||0;
+  document.getElementById('cnt-nav').textContent = counts.nav||0;
+}
+
+function applyFilter() {
+  container.querySelectorAll('.log-line').forEach(el => {
+    el.classList.toggle('hidden', !matchesFilter(el));
+  });
+  if (autoScroll) container.scrollTop = container.scrollHeight;
+}
+
+function applySearch() {
+  searchTerm = searchInput.value.trim().toLowerCase();
+  applyFilter();
+  const visible = container.querySelectorAll('.log-line:not(.hidden)').length;
+  document.getElementById('search-count').textContent = searchTerm ? visible + ' résultats' : '';
+}
+
+document.querySelectorAll('.filter-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    activeFilter = btn.dataset.level;
+    applyFilter();
+  });
+});
+
+function toggleScroll() {
+  autoScroll = !autoScroll;
+  const btn = document.getElementById('btn-scroll');
+  btn.classList.toggle('on', autoScroll);
+  btn.textContent = autoScroll ? '↓ Auto' : '↕ Manuel';
+  if (autoScroll) container.scrollTop = container.scrollHeight;
+}
+
+container.addEventListener('scroll', () => {
+  const atBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 50;
+  if (!atBottom && autoScroll) {
+    autoScroll = false;
+    const btn = document.getElementById('btn-scroll');
+    btn.classList.remove('on');
+    btn.textContent = '↕ Manuel';
+  }
+});
+
+function clearLogs() {
+  fetch('/api/logs/buffer', {method:'DELETE'}).catch(()=>{});
+  container.querySelectorAll('.log-line').forEach(el => el.remove());
+  counts = { total:0, error:0, warn:0, info:0, nav:0, debug:0 };
+  updateCounters();
+  if (!container.querySelector('.log-line')) container.appendChild(emptyState);
+}
+
+function connect() {
+  statusDot.className = 'dot';
+  connLabel.textContent = 'Connexion...';
+  connLabel.style.color = '#666';
+
+  es = new EventSource('/api/logs/stream');
+
+  es.onopen = () => {
+    statusDot.className = 'dot live';
+    connLabel.textContent = 'Connecté — logs en direct';
+    connLabel.style.color = '#3fb950';
+  };
+
+  es.onmessage = (e) => {
+    try { addLog(JSON.parse(e.data)); } catch {}
+  };
+
+  es.onerror = () => {
+    statusDot.className = 'dot';
+    connLabel.textContent = 'Reconnexion dans 3s...';
+    connLabel.style.color = '#f85149';
+    es.close();
+    setTimeout(connect, 3000);
+  };
+}
+
+connect();
+</script>
+</body>
+</html>

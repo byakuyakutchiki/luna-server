@@ -477,6 +477,10 @@ _PUBLIC_PATHS = (
     "/api/cortex/telegram/webhook",
     "/api/app/version",
     "/api/debug/log",
+    "/api/logs/client",
+    "/api/logs/stream",
+    "/api/logs/buffer",
+    "/logs",
     "/api/rooms/",  # Accessible via HMAC member token (invites par SMS)
     "/download",
     "/download/",
@@ -16342,6 +16346,95 @@ async def theo_generate_letter(request: Request):
     except Exception as e:
         logger.error(f"Theo letter error: {e}")
         return JSONResponse(status_code=500, content={"error": str(e)})
+
+
+# ==================== TUNNEL LOGS TEMPS REEL ====================
+
+_log_buffer: list = []          # ring buffer 500 entrées
+_log_subscribers: list = []     # queues SSE actives
+_LOG_MAX = 500
+
+async def _broadcast_log(entry: dict):
+    dead = []
+    for q in _log_subscribers:
+        try:
+            q.put_nowait(entry)
+        except Exception:
+            dead.append(q)
+    for q in dead:
+        try:
+            _log_subscribers.remove(q)
+        except ValueError:
+            pass
+
+@app.post("/api/logs/client")
+async def receive_client_log(request: Request):
+    """Reçoit un log depuis l'APK Android (public)."""
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse(status_code=400, content={"error": "JSON invalide"})
+    entry = {
+        "ts": datetime.utcnow().isoformat(),
+        "level": str(body.get("level", "info"))[:10],
+        "msg": str(body.get("msg", ""))[:2000],
+        "src": str(body.get("src", "apk"))[:80],
+    }
+    _log_buffer.append(entry)
+    if len(_log_buffer) > _LOG_MAX:
+        _log_buffer.pop(0)
+    await _broadcast_log(entry)
+    return {"ok": True}
+
+@app.get("/api/logs/stream")
+async def log_stream():
+    """SSE temps réel — consomme les logs du buffer puis les nouveaux."""
+    import asyncio as _aio
+    queue: _aio.Queue = _aio.Queue()
+    _log_subscribers.append(queue)
+
+    async def generate():
+        try:
+            for entry in _log_buffer[-200:]:
+                yield f"data: {json.dumps(entry, ensure_ascii=False)}\n\n"
+            while True:
+                try:
+                    entry = await _aio.wait_for(queue.get(), timeout=25)
+                    yield f"data: {json.dumps(entry, ensure_ascii=False)}\n\n"
+                except _aio.TimeoutError:
+                    yield ": keepalive\n\n"
+        finally:
+            try:
+                _log_subscribers.remove(queue)
+            except ValueError:
+                pass
+
+    return StreamingResponse(generate(), media_type="text/event-stream", headers={
+        "Cache-Control": "no-cache",
+        "X-Accel-Buffering": "no",
+        "Connection": "keep-alive",
+    })
+
+@app.get("/api/logs/buffer")
+async def log_buffer_endpoint():
+    """Retourne les derniers logs en JSON."""
+    return {"logs": _log_buffer, "count": len(_log_buffer)}
+
+@app.delete("/api/logs/buffer")
+async def clear_log_buffer():
+    """Vide le buffer de logs."""
+    _log_buffer.clear()
+    return {"ok": True, "msg": "Buffer vidé"}
+
+@app.get("/logs")
+async def log_viewer_page():
+    """Page de visualisation des logs en temps réel."""
+    html_path = os.path.join(STATIC_DIR, "logview.html")
+    if os.path.exists(html_path):
+        return FileResponse(html_path)
+    return HTMLResponse("<h1>logview.html non trouvé</h1>", status_code=404)
+
+# ==================== FIN TUNNEL LOGS ====================
 
 
 if __name__ == "__main__":
