@@ -217,7 +217,7 @@ public class MainActivity extends Activity {
             public void onPermissionRequest(final PermissionRequest request) {
                 // Sécurité : refuser caméra/micro à toute origine autre que Luna
                 String origin = request.getOrigin().toString();
-                if (!origin.startsWith(LUNA_URL)) {
+                if (!origin.startsWith(LUNA_URL) && !origin.contains("daily.co")) {
                     request.deny();
                     return;
                 }

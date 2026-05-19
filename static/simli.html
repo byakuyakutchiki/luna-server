@@ -1214,6 +1214,11 @@
             showLeaveButton: false,
             showFullscreenButton: false,
           });
+          // Fix Android WebView : forcer allow sur l'iframe Daily.co (cross-origin)
+          setTimeout(function() {
+            var fi = tavusFrameEl.querySelector('iframe');
+            if (fi) fi.allow = 'camera; microphone; autoplay; display-capture; compute-pressure; fullscreen';
+          }, 300);
 
           _activeRoomUrl = conversationUrl;
           dailyCall.on('joined-meeting', function() {
