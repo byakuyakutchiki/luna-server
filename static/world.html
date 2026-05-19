@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <title>Le Monde de Luna — YAWatch</title>
 <style>
 *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
@@ -13492,6 +13492,105 @@ window.socialSavePrivacy = socialSavePrivacy;
 window.socialTogglePrivacy = socialTogglePrivacy;
 window.socialSendChatMessage = socialSendChatMessage;
 
+})();
+</script>
+
+<script>
+/* ================================================================
+   ZOOM & PAN GESTURES — pinch-to-zoom + horizontal swipe
+   ================================================================ */
+(function() {
+  'use strict';
+  var scene = document.getElementById('scene');
+  if (!scene) return;
+
+  var zoom = 1, panX = 0;
+  var MIN_ZOOM = 1.0, MAX_ZOOM = 3.0;
+
+  function clampPan() {
+    var maxPan = window.innerWidth * (zoom - 1) / 2;
+    panX = Math.max(-maxPan, Math.min(maxPan, panX));
+  }
+
+  function applyTransform(animated) {
+    clampPan();
+    if (animated) {
+      scene.style.transition = 'transform 0.3s ease-out';
+      setTimeout(function() { scene.style.transition = ''; }, 320);
+    }
+    scene.style.transform = 'translateX(' + panX.toFixed(1) + 'px) scale(' + zoom.toFixed(3) + ')';
+  }
+
+  var activeTouches = {};
+  var pinchStartDist = null, pinchStartZoom = null;
+  var dragStartX = null, dragStartPanX = null;
+
+  function touchArray() { return Object.values(activeTouches); }
+
+  function dist2(a, b) {
+    var dx = a.clientX - b.clientX, dy = a.clientY - b.clientY;
+    return Math.sqrt(dx * dx + dy * dy);
+  }
+
+  function inPanel(el) {
+    return !!(el && el.closest && el.closest(
+      '.loading-overlay,.detail-panel,.social-panel-overlay,#world-map-container,.world-transition'
+    ));
+  }
+
+  document.addEventListener('touchstart', function(e) {
+    if (inPanel(e.target)) return;
+    for (var i = 0; i < e.changedTouches.length; i++) {
+      var t = e.changedTouches[i];
+      activeTouches[t.identifier] = { clientX: t.clientX, clientY: t.clientY };
+    }
+    var all = touchArray();
+    if (all.length >= 2) {
+      pinchStartDist = dist2(all[0], all[1]);
+      pinchStartZoom = zoom;
+      dragStartX = null;
+    } else if (all.length === 1) {
+      dragStartX = all[0].clientX;
+      dragStartPanX = panX;
+      pinchStartDist = null;
+    }
+  }, { passive: true });
+
+  document.addEventListener('touchmove', function(e) {
+    if (inPanel(e.target)) return;
+    for (var i = 0; i < e.changedTouches.length; i++) {
+      var t = e.changedTouches[i];
+      if (activeTouches[t.identifier]) {
+        activeTouches[t.identifier] = { clientX: t.clientX, clientY: t.clientY };
+      }
+    }
+    var all = touchArray();
+    if (all.length >= 2 && pinchStartDist) {
+      e.preventDefault();
+      var newDist = dist2(all[0], all[1]);
+      zoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, pinchStartZoom * (newDist / pinchStartDist)));
+      applyTransform(false);
+    } else if (all.length === 1 && dragStartX !== null && zoom > 1.02) {
+      e.preventDefault();
+      panX = dragStartPanX + (all[0].clientX - dragStartX);
+      applyTransform(false);
+    }
+  }, { passive: false });
+
+  document.addEventListener('touchend', function(e) {
+    for (var i = 0; i < e.changedTouches.length; i++) {
+      delete activeTouches[e.changedTouches[i].identifier];
+    }
+    var all = touchArray();
+    if (all.length < 2) {
+      pinchStartDist = null; pinchStartZoom = null;
+      if (all.length === 1) {
+        dragStartX = all[0].clientX;
+        dragStartPanX = panX;
+      }
+    }
+    if (zoom <= 1.05) { zoom = 1; panX = 0; applyTransform(true); }
+  }, { passive: true });
 })();
 </script>
 
