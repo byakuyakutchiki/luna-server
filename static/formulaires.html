@@ -198,6 +198,30 @@ summary:hover { color: var(--purple); }
 /* Bannière profil vide */
 .profile-empty-banner{background:rgba(124,58,237,.10);border:1px solid rgba(124,58,237,.35);border-radius:10px;padding:12px 16px;margin-bottom:14px;font-size:0.84rem;display:flex;align-items:flex-start;gap:10px;}
 .profile-empty-banner button{margin-top:6px;padding:5px 13px;background:var(--purple);color:#fff;border:none;border-radius:6px;font-size:0.8rem;cursor:pointer;font-weight:600;}
+
+/* Auth gate */
+.auth-gate { min-height: 60dvh; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 40px 24px; gap: 16px; }
+.auth-gate .gate-icon { font-size: 3rem; }
+.auth-gate h2 { font-size: 1.3rem; }
+.auth-gate p { color: var(--text2); font-size: 0.9rem; max-width: 300px; }
+.auth-gate a { display: inline-flex; align-items: center; gap: 6px; padding: 12px 24px; background: var(--purple-dark); color: #fff; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 0.95rem; }
+.auth-gate a:hover { background: var(--purple); }
+
+/* Lien coffre-fort dans step 5 */
+.vault-suggest { background: rgba(124,58,237,.08); border: 1px solid rgba(124,58,237,.25); border-radius: 10px; padding: 14px 18px; margin-top: 16px; display: flex; align-items: center; gap: 14px; text-align: left; }
+.vault-suggest .vault-icon { font-size: 1.8rem; flex-shrink: 0; }
+.vault-suggest p { font-size: 0.83rem; color: var(--text2); margin-bottom: 6px; line-height: 1.5; }
+.vault-suggest a { display: inline-flex; align-items: center; gap: 5px; padding: 7px 16px; background: var(--purple-dark); color: #fff; text-decoration: none; border-radius: 8px; font-size: 0.82rem; font-weight: 600; }
+.vault-suggest a:hover { background: var(--purple); }
+
+/* Scan ID inline dans step 3 */
+.scan-id-inline { background: rgba(124,58,237,.07); border: 1px solid rgba(124,58,237,.25); border-radius: 10px; padding: 12px 16px; margin-bottom: 14px; display: flex; align-items: center; gap: 12px; }
+.scan-id-inline .sii-icon { font-size: 1.6rem; flex-shrink: 0; }
+.scan-id-inline .sii-body { flex: 1; }
+.scan-id-inline .sii-title { font-size: 0.88rem; font-weight: 600; color: var(--text); margin-bottom: 2px; }
+.scan-id-inline .sii-sub { font-size: 0.78rem; color: var(--text2); }
+.sii-btn { padding: 8px 16px; background: var(--purple-dark); color: #fff; border: none; border-radius: 8px; font-size: 0.82rem; font-weight: 600; cursor: pointer; white-space: nowrap; flex-shrink: 0; }
+.sii-btn:hover { background: var(--purple); }
 </style>
 </head>
 <body>
@@ -205,10 +229,13 @@ summary:hover { color: var(--purple); }
 <!-- HEADER -->
 <div class="header">
     <div class="header-left">
-        <a href="/" title="Retour">&#8592;</a>
+        <a href="/" title="Retour Luna">&#8592;</a>
         <h1>Formulaires<span>by Luna</span></h1>
     </div>
-    <button class="btn-profile" id="btnProfile">Mon profil</button>
+    <div style="display:flex;gap:8px;align-items:center">
+        <a href="/vault" style="color:var(--text2);text-decoration:none;font-size:0.78rem;padding:6px 10px;border:1px solid var(--border);border-radius:8px;" title="Coffre-fort">🔒 Coffre-fort</a>
+        <button class="btn-profile" id="btnProfile">Mon profil</button>
+    </div>
 </div>
 
 <!-- STEPS BAR -->
@@ -229,11 +256,11 @@ summary:hover { color: var(--purple); }
 <!-- ═══ STEP 1 ═══ -->
 <div class="section active" id="s1">
     <div class="upload-center">
-        <h2>Scannez ou importez votre formulaire</h2>
-        <p class="sub">PDF, photo, scan... Luna s'occupe du reste.</p>
-        <div style="background:var(--purple-50);border:1px solid rgba(124,58,237,0.3);border-radius:8px;padding:10px 14px;margin-top:12px;font-size:0.82rem;color:var(--text2);max-width:520px;margin-left:auto;margin-right:auto;text-align:left;">
-            <strong style="color:var(--purple);">Conseil :</strong> Pour un résultat parfait, téléchargez le formulaire PDF vierge depuis le site officiel (service-public.fr, impots.gouv.fr...) et uploadez-le ici. Le document final sera identique avec vos infos remplies dedans.
-            <br>La photo marche aussi, mais le rendu sera celui de votre scan.
+        <h2>Importez votre formulaire</h2>
+        <p class="sub">Luna détecte les champs et les remplit avec votre profil.</p>
+        <div style="display:flex;align-items:flex-start;gap:10px;background:var(--purple-50);border:1px solid rgba(124,58,237,0.25);border-radius:10px;padding:10px 14px;margin-top:12px;font-size:0.82rem;color:var(--text2);max-width:520px;margin-left:auto;margin-right:auto;text-align:left;">
+            <span style="font-size:1.3em;flex-shrink:0">💡</span>
+            <div><strong style="color:var(--purple);">Conseil :</strong> Préférez le PDF vierge officiel (service-public.fr, impots.gouv.fr…) — le résultat sera plus propre. La photo fonctionne aussi.</div>
         </div>
         <div class="drop-zone" id="dropZone">
             <div style="cursor:pointer;display:block;" id="dropZoneClickArea">
@@ -273,6 +300,15 @@ summary:hover { color: var(--purple); }
 
 <!-- ═══ STEP 3 ═══ -->
 <div class="section" id="s3">
+    <!-- Scan ID inline — visible seulement si profil vide -->
+    <div class="scan-id-inline" id="scanIdInline" style="display:none">
+        <div class="sii-icon">📷</div>
+        <div class="sii-body">
+            <div class="sii-title">Remplissage automatique</div>
+            <div class="sii-sub">Scannez votre pièce d'identité pour pré-remplir tous les champs en 1 clic.</div>
+        </div>
+        <button class="sii-btn" id="btnScanIdInline">Scanner</button>
+    </div>
     <div class="fill-head">
         <div><h2 id="formTitle">Formulaire</h2><p class="sub" id="formDesc"></p></div>
         <button class="btn btn-secondary btn-sm" id="btnAutofill">Remplissage auto</button>
@@ -314,12 +350,19 @@ summary:hover { color: var(--purple); }
 <div class="section" id="s5">
     <div class="done-center">
         <div class="done-check"><svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="#4ade80" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div>
-        <h2>Votre formulaire est pret !</h2>
-        <p class="sub">Verifiez l'apercu puis telechargez.</p>
+        <h2>Votre formulaire est prêt !</h2>
+        <p class="sub">Vérifiez l'aperçu puis téléchargez.</p>
         <div class="done-preview" id="donePrev"></div>
         <div class="done-btns">
-            <button class="btn btn-primary btn-lg" id="btnDownload">Telecharger le PDF</button>
+            <button class="btn btn-primary btn-lg" id="btnDownload">⬇ Télécharger le PDF</button>
             <button class="btn btn-secondary" id="btnNewForm">Nouveau formulaire</button>
+        </div>
+        <div class="vault-suggest">
+            <div class="vault-icon">🔒</div>
+            <div>
+                <p>Gardez vos documents importants en sécurité. Scannez vos pièces d'identité, factures et ordonnances dans le coffre-fort Luna.</p>
+                <a href="/vault">Ouvrir le coffre-fort →</a>
+            </div>
         </div>
     </div>
 </div>
@@ -390,6 +433,18 @@ const TOKEN = localStorage.getItem('luna_token') || '';
 const HDR = TOKEN ? {'Authorization':'Bearer '+TOKEN} : {};
 const HJSON = {...HDR, 'Content-Type':'application/json'};
 
+// ── Auth gate ──
+if(!TOKEN){
+    document.querySelector('.steps').style.display = 'none';
+    document.querySelector('.content').innerHTML = `
+        <div class="auth-gate">
+            <div class="gate-icon">🔐</div>
+            <h2>Connexion requise</h2>
+            <p>Connectez-vous à Luna pour utiliser le remplissage automatique de formulaires.</p>
+            <a href="/">← Retour à Luna</a>
+        </div>`;
+}
+
 let step=1, file=null, fileB64=null, mediaType='', sessionId=null, analysis=null, fields=[], sigPad=null;
 let _cortexWarnShown=false;
 
@@ -422,6 +477,7 @@ function goStep(n){
         e.classList.toggle('done',s<n);
     });
     step=n;
+    window.scrollTo({top:0, behavior:'smooth'});
     if(n===4&&!sigPad) initSig();
 }
 
@@ -465,6 +521,11 @@ async function startAnalysis(){
     goStep(2);
     if(file.type.startsWith('image/')){
         const r=new FileReader(); r.onload=e=>{$('#scanImg').src=e.target.result;}; r.readAsDataURL(file);
+    } else {
+        // PDF : icône SVG élégante en placeholder
+        $('#scanImg').src = 'data:image/svg+xml,' + encodeURIComponent(
+            '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="260"><rect width="200" height="260" fill="#1a1a3e" rx="8"/><rect x="50" y="60" width="100" height="130" rx="6" fill="#2d1b69" stroke="#7c3aed" stroke-width="1.5"/><text x="100" y="115" text-anchor="middle" fill="#a78bfa" font-size="32" font-family="sans-serif">PDF</text><text x="100" y="155" text-anchor="middle" fill="#888" font-size="11" font-family="sans-serif">Analyse en cours...</text></svg>'
+        );
     }
 
     const pf=$('#progFill'); let prog=0;
@@ -600,13 +661,16 @@ async function doAutofill(){
         const r=await fetch('/api/form-filler/autofill/'+sessionId,{method:'POST',headers:HDR});
         if(!r.ok)throw new Error('Erreur');
         const d=await r.json();
+        const inlineBanner=document.getElementById('scanIdInline');
         if(d.filled_count>0){
             setFieldValues(d.fields);
             const missing=d.total_count-d.filled_count;
             _markEmptyRequired();
             toast(d.filled_count+' champ'+(d.filled_count>1?'s':'')+' pré-remplis'+(missing?' · '+missing+' à compléter':''),'ok');
+            if(inlineBanner)inlineBanner.style.display='none';
         } else {
             _showProfileBanner();
+            if(inlineBanner)inlineBanner.style.display='flex';
         }
     }catch(e){toast('Auto-fill échoué','err');}
 }
@@ -756,6 +820,10 @@ function init(){
     $('#modalClose').onclick=()=>$('#modalProfile').classList.add('hidden');
     $('#modalProfile').querySelector('.modal-bg').onclick=()=>$('#modalProfile').classList.add('hidden');
     $('#btnSaveProfile').onclick=saveProfile;
+
+    // Scan inline (étape 3)
+    const btnScanIdInline=document.getElementById('btnScanIdInline');
+    if(btnScanIdInline)btnScanIdInline.onclick=()=>document.getElementById('inputScanId').click();
 }
 
 document.readyState==='loading'?document.addEventListener('DOMContentLoaded',init):init();
