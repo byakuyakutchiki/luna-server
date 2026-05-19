@@ -8858,7 +8858,7 @@ async def guardian_share(session_id: str, request: Request):
     """Génère un lien public temporaire (1h) pour suivre la position en direct."""
     engine = _get_guardian()
     if not engine:
-        raise HTTPException(503, "Guardian non disponible")
+        return JSONResponse(status_code=503, content={"error": "Guardian non disponible"})
 
     token = secrets.token_urlsafe(32)
     redis_key = f"luna:guardian:share:{token}"
@@ -8881,14 +8881,14 @@ async def guardian_live_position(token: str):
     redis_key = f"luna:guardian:share:{token}"
     raw = _redis_client.client.get(redis_key)
     if not raw:
-        raise HTTPException(404, "Lien expiré ou invalide")
+        return JSONResponse(status_code=404, content={"error": "Lien expiré ou invalide"})
 
     info = json.loads(raw)
     session_id = info["session_id"]
 
     engine = _get_guardian()
     if not engine:
-        raise HTTPException(503, "Guardian non disponible")
+        return JSONResponse(status_code=503, content={"error": "Guardian non disponible"})
 
     session = engine.get_session(session_id)
     if not session:
