@@ -812,11 +812,11 @@ async function _doScan(file){
         const{filled,missing}=_highlightFields(d.extracted);
         const ok=filled.length,ko=missing.length;
 
-        // Auto-save les champs extraits dans le profil
+        // Auto-save les champs extraits dans le profil (await pour que doAutofill lise les bonnes données)
         if(ok>0){
             const profileData={};
             _ID_FIELDS.forEach(k=>{const inp=document.querySelector(`[data-p="${k}"]`);if(inp&&inp.value)profileData[k]=inp.value;});
-            fetch('/api/form-filler/profile',{method:'POST',headers:HJSON,body:JSON.stringify(profileData)}).catch(()=>{});
+            await fetch('/api/form-filler/profile',{method:'POST',headers:HJSON,body:JSON.stringify(profileData)}).catch(()=>{});
         }
 
         result.style.cssText=`display:block;background:${ko?'rgba(245,158,11,.08)':'rgba(74,222,128,.08)'};border:1px solid ${ko?'var(--orange)':'var(--green)'}`;
@@ -825,7 +825,7 @@ async function _doScan(file){
             :`<span style="color:var(--green)">✓ ${ok} champ${ok>1?'s':''} extraits et sauvegardés</span>`;
         toast(ko?`${ok} champs sauvegardés, ${ko} à compléter`:`${ok} champs sauvegardés automatiquement`,ko?'info':'ok');
         // Repousser le profil dans les champs du formulaire si on est à l'étape de remplissage
-        if(sessionId)setTimeout(doAutofill,300);
+        if(sessionId) doAutofill();
     }catch(e){
         toast(e.message||'Erreur lors de l\'analyse','err');
         result.style.cssText='display:block;background:rgba(248,113,113,.08);border:1px solid var(--red)';
