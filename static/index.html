@@ -3991,8 +3991,12 @@ function loadContacts() {
       var addressLine = c.address
         ? '<br>&#128205; <a href="https://www.google.com/maps/search/' + encodeURIComponent(c.address) + '" target="_blank" rel="noopener" style="color:#60a5fa;">' + esc(c.address) + '</a>'
         : '';
+      var ph = c.phone.replace(/'/g, "\\'");
       card.innerHTML = '<div class="card-header"><span class="card-title">' + esc(c.name) + ' <span class="badge badge-blue">' + esc(c.relation) + '</span></span>' +
-        '<button class="btn btn-danger btn-sm" onclick="deleteContact(\'' + c.phone.replace(/'/g, "\\'") + '\')">Supprimer</button></div>' +
+        '<div style="display:flex;gap:6px;">' +
+        '<button class="btn btn-sm" style="background:#7c3aed;color:#fff;" onclick="inviteContact(\'' + ph + '\',\'' + esc(c.name) + '\')">&#128231; Inviter</button>' +
+        '<button class="btn btn-danger btn-sm" onclick="deleteContact(\'' + ph + '\')">Supprimer</button>' +
+        '</div></div>' +
         '<div class="card-body">&#128222; ' + esc(c.phone) + ' &mdash; ' + esc(c.preferred_channel) + emailLine +
         addressLine + (c.emergency_only ? ' <span class="badge badge-red">Urgence seulement</span>' : '') + '</div>';
       list.appendChild(card);
@@ -4013,6 +4017,24 @@ function deleteContact(phone) {
   .then(function() { loadContacts(); })
   .catch(function(e) {
     var st = document.getElementById("contactStatus");
+    if (st) { st.textContent = "Erreur: " + e.message; st.className = "form-status error"; }
+  });
+}
+
+function inviteContact(phone, name) {
+  var st = document.getElementById("contactStatus");
+  if (st) { st.textContent = "Envoi de l'invitation à " + name + "..."; st.className = "form-status"; }
+  authFetch("/api/contacts/" + encodeURIComponent(phone) + "/invite", { method: "POST" })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    if (data.success) {
+      if (st) { st.textContent = "✅ Invitation envoyée à " + name + " par SMS !"; st.className = "form-status success"; }
+      showLunaToast("📱 Invitation envoyée à " + name);
+    } else {
+      if (st) { st.textContent = "Erreur: " + (data.error || "inconnue"); st.className = "form-status error"; }
+    }
+  })
+  .catch(function(e) {
     if (st) { st.textContent = "Erreur: " + e.message; st.className = "form-status error"; }
   });
 }

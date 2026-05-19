@@ -7406,6 +7406,47 @@ async def delete_contact(phone: str, request: Request):
     return {"success": True}
 
 
+@app.post("/api/contacts/{phone}/invite")
+async def invite_contact_to_luna(phone: str, request: Request):
+    """Envoie un SMS d'invitation a telecharger Luna a un contact."""
+    tid = getattr(request.state, "tenant_id", 1)
+    mgr = _get_tenant_manager(tid)
+    if not mgr:
+        return JSONResponse(status_code=503, content={"error": "Service non disponible"})
+
+    # Trouver le contact
+    contacts = mgr.list_trusted_contacts()
+    contact = next((c for c in contacts if c.phone == phone), None)
+    if not contact:
+        return JSONResponse(status_code=404, content={"error": "Contact introuvable"})
+
+    if not sms_client.is_configured:
+        return JSONResponse(status_code=503, content={"error": "Service SMS non configure"})
+
+    # Prenom du souscripteur
+    sub_name = _SUBSCRIBER_NAME
+    try:
+        profile = mgr.get_subscriber_profile()
+        if profile and profile.first_name:
+            sub_name = profile.first_name
+    except Exception:
+        pass
+
+    apk_url = f"https://luna-beta-674304336025.europe-west1.run.app/static/luna-proprio.apk"
+    body = (
+        f"Bonjour {contact.name} 👋\n"
+        f"{sub_name} vous invite à rejoindre Luna, son assistant IA personnel.\n"
+        f"Téléchargez l'application ici :\n{apk_url}\n"
+        f"À bientôt sur Luna ! 🌙"
+    )
+
+    success, details = _tracked_sms_send(contact.phone, body, label=f"invite_{contact.phone}")
+    if not success:
+        return JSONResponse(status_code=500, content={"error": "Echec envoi SMS", "details": str(details)})
+
+    return {"success": True, "message": f"Invitation envoyée à {contact.name} ({contact.phone})"}
+
+
 # =========================================================================
 # FAMILY PACK ENDPOINTS
 # =========================================================================
