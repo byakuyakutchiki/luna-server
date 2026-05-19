@@ -9,6 +9,7 @@ import json
 import logging
 import os
 import re
+import unicodedata
 
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse, Response
@@ -55,6 +56,84 @@ REGLES :
 - Ne fais AUCUNE supposition — null si tu n'es pas sur a plus de 90%"""
 
 logger = logging.getLogger(__name__)
+
+# ── Mapping sémantique label → champ normalisé ────────────────────────────────
+# Permet de retrouver les données vault même quand le formulaire utilise
+# des libellés variés ("NOM DE FAMILLE", "Nom patronymique", "Last name"…)
+
+_FIELD_SYNONYMS: dict[str, list[str]] = {
+    "nom":                  ["nom", "nom de famille", "nom patronymique", "nom de naissance", "family name", "last name", "surname"],
+    "prenom":               ["prenom", "prenoms", "first name", "given name"],
+    "nom_naissance":        ["nom de naissance", "nom patronymique", "birth name"],
+    "date_naissance":       ["date de naissance", "date naissance", "nee le", "birth date", "dob", "date of birth"],
+    "lieu_naissance":       ["lieu de naissance", "commune de naissance", "place of birth"],
+    "departement_naissance":["departement de naissance", "departement naissance"],
+    "nationalite":          ["nationalite", "nationality"],
+    "sexe":                 ["sexe", "civilite", "genre", "gender", "sex"],
+    "adresse":              ["adresse", "adresse postale", "domicile", "address", "street address"],
+    "code_postal":          ["code postal", "cp", "postal code", "zip"],
+    "ville":                ["ville", "commune", "city", "town"],
+    "numero_ci":            ["numero carte identite", "numero cni", "n cni", "numero carte nationale", "id card number"],
+    "numero_passeport":     ["numero passeport", "n passeport", "passport number"],
+    "numero_secu":          ["numero securite sociale", "numero secu", "n secu", "nss", "numero immatriculation"],
+    "numero_fiscal":        ["numero fiscal", "numero identification fiscale", "nif", "tax number"],
+    "reference_avis":       ["reference avis", "ref avis", "reference d avis"],
+    "iban":                 ["iban", "numero iban", "account number"],
+    "bic":                  ["bic", "swift", "code bic", "code swift"],
+    "banque":               ["banque", "etablissement bancaire", "bank name"],
+    "assureur":             ["assureur", "compagnie assurance", "insurance company", "insurer"],
+    "numero_contrat":       ["numero contrat assurance", "numero contrat", "n contrat", "policy number"],
+    "type_couverture":      ["type couverture", "type assurance", "insurance type"],
+    "numero_fiscal_ref":    ["numero fiscal", "reference fiscale"],
+    "annee_revenus":        ["annee revenus", "annee d imposition", "fiscal year"],
+    "revenu_fiscal":        ["revenu fiscal", "revenus fiscaux", "revenu imposable"],
+    "date_debut":           ["date debut", "debut", "start date", "from date"],
+    "date_fin":             ["date fin", "fin", "end date", "to date"],
+}
+
+def _norm(text: str) -> str:
+    """Normalise un libellé : minuscules, sans accents, sans ponctuation."""
+    t = text.lower().strip()
+    t = "".join(c for c in unicodedata.normalize("NFD", t) if unicodedata.category(c) != "Mn")
+    t = re.sub(r"[^a-z0-9\s]", " ", t)
+    return re.sub(r"\s+", " ", t).strip()
+
+# Index inverse pré-calculé (variant → champ)
+_REVERSE: dict[str, str] = {}
+for _field, _variants in _FIELD_SYNONYMS.items():
+    for _v in _variants:
+        _REVERSE[_norm(_v)] = _field
+
+
+def _match_label(label: str) -> str | None:
+    """Retourne le champ normalisé correspondant à un libellé de formulaire, ou None."""
+    n = _norm(label)
+    if n in _REVERSE:
+        return _REVERSE[n]
+    # Match partiel (le variant est contenu dans le label ou vice-versa)
+    for variant, field in _REVERSE.items():
+        if variant in n or n in variant:
+            return field
+    # Match par mots (≥2 mots en commun)
+    words = set(n.split())
+    best, best_score = None, 0
+    for variant, field in _REVERSE.items():
+        score = len(words & set(variant.split()))
+        if score > best_score:
+            best_score, best = score, field
+    if best_score >= 2 or (best_score == 1 and len(words) == 1):
+        return best
+    return None
+
+
+def _value_from_vault(vault_profile: dict, field: str) -> tuple[str | None, str]:
+    """Cherche `field` dans le profil vault consolidé. Retourne (valeur, source)."""
+    for category in ("identity", "address", "secu", "fiscal", "assurance", "banking"):
+        cat_data = vault_profile.get(category) or {}
+        if cat_data.get(field):
+            return str(cat_data[field]), f"vault:{category}"
+    return None, ""
+
 
 form_filler_router = APIRouter()
 
@@ -283,7 +362,13 @@ async def api_download(request: Request, session_id: str):
 
 @form_filler_router.post("/api/form-filler/autofill/{session_id}")
 async def api_autofill(request: Request, session_id: str):
-    """Pré-remplit les champs depuis le profil utilisateur."""
+    """Pré-remplit les champs depuis le profil identité + le vault documentaire.
+
+    Ordre de priorité :
+    1. profile_key explicite (mapping direct existant)
+    2. Matching sémantique du libellé → vault profile-data (identité, adresse, sécu, fiscal…)
+    3. Matching sémantique → profil legacy (identité seulement)
+    """
     fops = _get_fops(request)
     if not fops:
         return _unavailable()
@@ -292,24 +377,65 @@ async def api_autofill(request: Request, session_id: str):
     if not session:
         return _error("Session expirée", 404)
 
-    profile = fops.get_profile()
-    if not profile:
-        return {"fields": [], "filled_count": 0, "total_count": 0}
-
     analysis = session.get("analysis", {})
     fields = analysis.get("fields", [])
 
+    # Profil legacy (identité CNI)
+    profile = fops.get_profile() or {}
+
+    # Profil vault enrichi (identité + adresse + sécu + fiscal + assurance + banque)
+    vault_profile: dict = {}
+    try:
+        from core.vault.redis_ops import VaultRedisOps
+        from luna_web import _redis_client
+        if _redis_client and fops.tid:
+            vops = VaultRedisOps(_redis_client, fops.tid)
+            if vops.has_consent():
+                vault_profile = vops.get_profile_data()
+    except Exception as e:
+        logger.debug(f"Autofill vault profile non disponible: {e}")
+
     filled_count = 0
+    sources: dict = {}
+
     for field in fields:
+        if field.get("value"):
+            filled_count += 1
+            continue
+
+        label = field.get("label") or field.get("name") or ""
         pk = field.get("profile_key")
+
+        value, source = None, ""
+
+        # 1. profile_key direct (comportement existant)
         if pk and pk in profile and profile[pk]:
-            field["value"] = str(profile[pk])
+            value, source = str(profile[pk]), "profile"
+
+        # 2. Vault profile-data via matching sémantique
+        if not value and vault_profile:
+            matched = _match_label(label) or (pk if pk else None)
+            if matched:
+                value, source = _value_from_vault(vault_profile, matched)
+
+        # 3. Profil legacy via matching sémantique (fallback)
+        if not value and profile:
+            matched = _match_label(label)
+            if matched and matched in profile and profile[matched]:
+                value, source = str(profile[matched]), "profile:legacy"
+
+        if value:
+            field["value"] = value
+            field["_source"] = source
+            sources[field.get("name") or label] = source
             filled_count += 1
 
     return {
         "fields": fields,
         "filled_count": filled_count,
         "total_count": len(fields),
+        "sources": sources,
+        "vault_available": bool(vault_profile),
     }
 
 

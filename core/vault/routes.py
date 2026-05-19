@@ -4,6 +4,7 @@ Chaque client gère ses propres documents.
 RGPD : consentement explicite requis, delete complet disponible, images non stockées.
 """
 import html
+import json
 import logging
 import os
 from datetime import datetime
@@ -155,6 +156,11 @@ async def scan_document(request: Request):
         "reminders_count": len(metadata.get("reminders", [])),
         "is_sensitive": metadata.get("is_sensitive", False),
         "reminders": metadata.get("reminders", []),
+        # Nouveaux champs v2
+        "confidence": metadata.get("confidence", 0.0),
+        "extracted_fields": metadata.get("extracted_fields", {}),
+        "profile_update_available": metadata.get("profile_update_available", False),
+        "profile_fields": metadata.get("profile_fields", {}),
     }
 
 
@@ -248,7 +254,115 @@ async def get_doc_types(request: Request):
     """Liste les types de documents supportés."""
     return {
         "types": [
-            {"id": k, "label": v["label"], "emoji": v["emoji"], "sensitive": v.get("sensitive", False)}
+            {
+                "id": k, "label": v["label"], "emoji": v.get("emoji", "📎"),
+                "sensitive": v.get("sensitive", False),
+                "fields_count": len(v.get("fields", [])),
+            }
             for k, v in DOC_TYPES.items()
         ]
     }
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# PROFIL UNIFIÉ (pont vault → formulaires)
+# ═══════════════════════════════════════════════════════════════════════
+
+@vault_router.get("/api/vault/profile-data")
+async def get_profile_data(request: Request):
+    """Consolide toutes les données extraites du vault en un profil structuré.
+
+    Pont critique vault → formulaires : identité, adresse, sécu, fiscal,
+    assurance, bancaire — chacun tracé vers le document source.
+    """
+    vops = _get_vops(request)
+    if not vops:
+        return _err("Authentification requise", 401)
+
+    if not vops.has_consent():
+        return {"identity": {}, "address": {}, "secu": {}, "fiscal": {},
+                "assurance": {}, "banking": {}, "sources": {},
+                "completeness": {}, "consent_required": True}
+
+    return vops.get_profile_data()
+
+
+@vault_router.post("/api/vault/apply-to-profile")
+async def apply_to_profile(request: Request):
+    """Applique les champs identité d'un doc scanné au profil form-filler.
+
+    Corps: {"doc_id": "xxx"}
+    Seuls les types identité (cni, passeport, titre_sejour, permis_conduire) sont éligibles.
+    """
+    vops = _get_vops(request)
+    if not vops:
+        return _err("Authentification requise", 401)
+
+    try:
+        body = await request.json()
+    except Exception:
+        return _err("Corps JSON invalide")
+
+    doc_id = body.get("doc_id", "").strip()
+    if not doc_id:
+        return _err("doc_id requis")
+
+    doc = vops.get_doc(doc_id)
+    if not doc:
+        return _err("Document non trouvé", 404)
+
+    doc_type = doc.get("doc_type", "")
+    _IDENTITY_TYPES = {"cni", "passeport", "titre_sejour", "permis_conduire"}
+    if doc_type not in _IDENTITY_TYPES:
+        return _err(f"Type '{doc_type}' non éligible — seuls CNI/passeport/titre séjour/permis", 400)
+
+    # Extraire les champs d'identité
+    raw_fields = doc.get("extracted_fields", {})
+    if isinstance(raw_fields, str):
+        try:
+            raw_fields = json.loads(raw_fields)
+        except Exception:
+            raw_fields = {}
+
+    _IDENTITY_KEYS = {
+        "nom", "prenom", "nom_naissance", "date_naissance", "lieu_naissance",
+        "departement_naissance", "nationalite", "adresse", "code_postal",
+        "ville", "numero_ci", "numero_passeport", "numero_permis",
+    }
+    updates = {k: v for k, v in raw_fields.items() if k in _IDENTITY_KEYS and v is not None}
+
+    if not updates:
+        return {"success": False, "updated_fields": [],
+                "message": "Aucun champ identité extractible dans ce document"}
+
+    # Écriture dans le profil form-filler (même format que FormFillerRedisOps.save_profile)
+    try:
+        from luna_web import _redis_client
+        if not _redis_client:
+            return _err("Redis non disponible", 503)
+        tid = vops.tid
+        profile_key = f"luna:t:{tid}:formfiller:profile"
+        existing_raw = _redis_client.client.get(profile_key)
+        existing = {}
+        if existing_raw:
+            try:
+                existing = json.loads(existing_raw)
+            except Exception:
+                pass
+        existing.update(updates)
+        existing["_source_doc_id"] = doc_id
+        existing["_source_doc_type"] = doc_type
+        _redis_client.client.set(
+            profile_key,
+            json.dumps(existing, ensure_ascii=False),
+            ex=86400 * 365,
+        )
+        logger.info(f"Vault apply-to-profile: tenant={tid} doc={doc_id} fields={list(updates.keys())}")
+        return {
+            "success": True,
+            "updated_fields": list(updates.keys()),
+            "message": f"Profil mis à jour avec {len(updates)} champs depuis {doc.get('doc_label', doc_type)}",
+        }
+    except Exception as e:
+        logger.error(f"Vault apply-to-profile error: {e}")
+        return _err(f"Erreur mise à jour profil: {e}", 500)
