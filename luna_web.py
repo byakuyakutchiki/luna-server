@@ -1592,7 +1592,7 @@ async def security_middleware(request: Request, call_next):
     response = await call_next(request)
 
     # No-cache sur assets cinematiques (SVGs, sons) pour eviter le cache WebView
-    if path.startswith("/static/assets/") or path == "/simli":
+    if path.startswith("/static/assets/") or path in ("/simli", "/guardian"):
         response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
         response.headers["Pragma"] = "no-cache"
         response.headers["Expires"] = "0"
@@ -4315,6 +4315,19 @@ async def simli_page():
             "Expires": "0",
         })
     return JSONResponse(status_code=404, content={"error": "Simli non disponible"})
+
+
+@app.get("/guardian")
+async def guardian_page():
+    """Page surveillance géolocalisée Guardian (full-screen, mobile-first)."""
+    path = os.path.join(STATIC_DIR, "guardian.html")
+    if os.path.isfile(path):
+        return FileResponse(path, headers={
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "Pragma": "no-cache",
+            "Expires": "0",
+        })
+    return JSONResponse(status_code=404, content={"error": "Guardian non disponible"})
 
 
 # =========================================================================

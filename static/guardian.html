@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Luna Guardian</title>
+
+<!-- Leaflet CSS -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0d1117;
+    --card: #161b22;
+    --border: #21262d;
+    --text: #e6edf3;
+    --muted: #8b949e;
+    --purple: #7c3aed;
+    --green: #22c55e;
+    --yellow: #f59e0b;
+    --red: #ef4444;
+    --crimson: #dc2626;
+  }
+  html, body { height: 100%; background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; overflow: hidden; }
+
+  /* ── HEADER ── */
+  #header {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 1000;
+    height: 54px; background: rgba(13,17,23,0.92); backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 10px; padding: 0 14px;
+  }
+  #header-logo { font-size: 1.1em; font-weight: 700; color: var(--text); text-decoration: none; }
+  #header-logo span { color: #f87171; }
+  #status-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--muted); flex-shrink: 0; transition: background 0.4s; }
+  #status-dot.active { background: var(--green); box-shadow: 0 0 8px var(--green); animation: pulse-dot 2s infinite; }
+  #status-dot.alert { background: var(--red); box-shadow: 0 0 12px var(--red); animation: pulse-dot 0.6s infinite; }
+  @keyframes pulse-dot { 0%,100%{opacity:1} 50%{opacity:0.4} }
+  #status-label { font-size: 0.82em; color: var(--muted); flex: 1; }
+  #risk-badge { padding: 3px 10px; border-radius: 20px; font-size: 0.75em; font-weight: 700; display: none; }
+  #back-btn { color: var(--muted); font-size: 0.8em; text-decoration: none; padding: 4px 8px; border: 1px solid var(--border); border-radius: 6px; }
+  #back-btn:hover { color: var(--text); }
+
+  /* ── MAP ── */
+  #map {
+    position: fixed; top: 54px; left: 0; right: 0; bottom: 160px;
+    z-index: 1;
+  }
+  #map.setup-mode { bottom: 310px; }
+
+  /* ── BOTTOM PANEL ── */
+  #bottom-panel {
+    position: fixed; bottom: 0; left: 0; right: 0; z-index: 1000;
+    background: rgba(13,17,23,0.96); backdrop-filter: blur(12px);
+    border-top: 1px solid var(--border);
+    transition: height 0.3s ease;
+  }
+
+  /* Poignée de glissement */
+  #panel-handle {
+    width: 36px; height: 4px; background: var(--border); border-radius: 2px;
+    margin: 8px auto 4px;
+    cursor: pointer;
+  }
+
+  /* Risk bar */
+  #risk-section { padding: 6px 14px 8px; }
+  #risk-label { display: flex; justify-content: space-between; font-size: 0.78em; color: var(--muted); margin-bottom: 4px; }
+  #risk-bar-outer { height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; }
+  #risk-bar-inner { height: 100%; width: 0%; border-radius: 3px; transition: width 0.5s, background 0.5s; background: var(--green); }
+
+  /* Boutons principaux */
+  #main-controls { display: flex; gap: 8px; padding: 0 14px 10px; }
+  .ctrl-btn {
+    flex: 1; padding: 12px 8px; border: none; border-radius: 10px;
+    font-size: 0.9em; font-weight: 700; cursor: pointer; transition: opacity 0.2s;
+  }
+  .ctrl-btn:active { opacity: 0.75; }
+  #btn-start { background: var(--green); color: #000; }
+  #btn-stop  { background: var(--border); color: var(--text); display: none; }
+  #btn-sos   { background: var(--crimson); color: #fff; display: none; font-size: 1.1em; letter-spacing: 1px; }
+
+  /* Toggle config */
+  #config-toggle { text-align: center; padding: 0 14px 6px; }
+  #config-toggle button { background: none; border: none; color: var(--muted); font-size: 0.78em; cursor: pointer; text-decoration: underline; }
+
+  /* Config section */
+  #config-section { padding: 0 14px 10px; display: none; }
+  #config-section.open { display: block; }
+  .cfg-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
+  .cfg-row.full { grid-template-columns: 1fr; }
+  .cfg-label { font-size: 0.75em; color: var(--muted); display: block; margin-bottom: 3px; }
+  .cfg-input {
+    width: 100%; background: var(--border); border: 1px solid #30363d; border-radius: 6px;
+    color: var(--text); padding: 7px 10px; font-size: 0.85em;
+  }
+  .cfg-input:focus { outline: none; border-color: var(--purple); }
+  select.cfg-input option { background: var(--card); }
+  #zone-capture-btn {
+    background: var(--purple); color: #fff; border: none; border-radius: 6px;
+    padding: 7px 12px; font-size: 0.82em; cursor: pointer; width: 100%;
+  }
+  #zone-status { font-size: 0.75em; color: var(--muted); margin-top: 4px; text-align: center; }
+
+  /* ── EVENTS PANEL ── */
+  #events-toggle {
+    position: fixed; right: 14px; top: 64px; z-index: 1001;
+    background: rgba(22,27,34,0.9); border: 1px solid var(--border);
+    border-radius: 8px; padding: 6px 10px; cursor: pointer;
+    font-size: 0.75em; color: var(--muted); backdrop-filter: blur(6px);
+    display: flex; align-items: center; gap: 4px;
+  }
+  #events-count { background: var(--red); color: #fff; border-radius: 10px; padding: 1px 5px; font-size: 0.85em; display: none; }
+  #events-panel {
+    position: fixed; right: 0; top: 54px; bottom: 0; width: 300px;
+    background: rgba(13,17,23,0.97); border-left: 1px solid var(--border);
+    z-index: 999; transform: translateX(100%); transition: transform 0.3s;
+    display: flex; flex-direction: column;
+    backdrop-filter: blur(10px);
+  }
+  #events-panel.open { transform: translateX(0); }
+  #events-panel-header {
+    padding: 12px 14px; border-bottom: 1px solid var(--border);
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  #events-panel-header h3 { font-size: 0.9em; }
+  #events-close { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 1.2em; }
+  #events-list { flex: 1; overflow-y: auto; padding: 8px; }
+  .event-item {
+    padding: 7px 10px; border-radius: 6px; margin-bottom: 5px;
+    background: var(--card); border: 1px solid var(--border); font-size: 0.8em;
+  }
+  .event-item .ev-time { color: var(--muted); font-size: 0.9em; }
+  .event-item .ev-desc { margin-top: 2px; }
+  .event-item.alert-item { border-color: var(--red); }
+  .event-item.ok-item { border-color: var(--green); }
+
+  /* ── VERIFICATION MODAL ── */
+  #verify-modal {
+    position: fixed; inset: 0; z-index: 2000; background: rgba(0,0,0,0.85);
+    display: none; align-items: center; justify-content: center; padding: 20px;
+  }
+  #verify-modal.open { display: flex; }
+  #verify-box {
+    background: var(--card); border: 2px solid var(--yellow); border-radius: 16px;
+    padding: 28px 22px; max-width: 340px; width: 100%; text-align: center;
+  }
+  #verify-box .v-icon { font-size: 3em; margin-bottom: 12px; }
+  #verify-box h2 { font-size: 1.1em; margin-bottom: 8px; }
+  #verify-box p { color: var(--muted); font-size: 0.85em; margin-bottom: 20px; line-height: 1.5; }
+  #verify-box .v-btns { display: flex; gap: 10px; }
+  .v-btn-ok  { flex:1; padding: 13px; background: var(--green); color: #000; border: none; border-radius: 10px; font-weight: 700; font-size: 1em; cursor: pointer; }
+  .v-btn-nok { flex:1; padding: 13px; background: var(--crimson); color: #fff; border: none; border-radius: 10px; font-weight: 700; font-size: 1em; cursor: pointer; }
+
+  /* ── POSITION OVERLAY ── */
+  #pos-overlay {
+    position: fixed; left: 14px; top: 64px; z-index: 1001;
+    background: rgba(22,27,34,0.88); border: 1px solid var(--border); border-radius: 8px;
+    padding: 6px 10px; font-size: 0.72em; color: var(--muted); backdrop-filter: blur(6px);
+    display: none; max-width: 180px;
+  }
+  #pos-coords { color: var(--text); font-family: monospace; }
+  #pos-detail { margin-top: 1px; }
+
+  /* ── SOS OVERLAY (confirmation) ── */
+  #sos-modal {
+    position: fixed; inset: 0; z-index: 3000; background: rgba(0,0,0,0.9);
+    display: none; align-items: center; justify-content: center; padding: 20px;
+  }
+  #sos-modal.open { display: flex; }
+  #sos-box {
+    background: #1a0000; border: 2px solid var(--crimson); border-radius: 16px;
+    padding: 28px 22px; max-width: 340px; width: 100%; text-align: center;
+  }
+  #sos-box .s-icon { font-size: 4em; margin-bottom: 12px; }
+  #sos-box h2 { font-size: 1.2em; color: #fca5a5; margin-bottom: 8px; }
+  #sos-box p { color: var(--muted); font-size: 0.83em; margin-bottom: 20px; line-height: 1.5; }
+  #sos-confirm { width: 100%; padding: 14px; background: var(--crimson); color: #fff; border: none; border-radius: 10px; font-size: 1em; font-weight: 700; cursor: pointer; margin-bottom: 10px; }
+  #sos-cancel  { width: 100%; padding: 11px; background: none; color: var(--muted); border: 1px solid var(--border); border-radius: 10px; font-size: 0.85em; cursor: pointer; }
+
+  /* ── TOAST ── */
+  #toast {
+    position: fixed; bottom: 170px; left: 50%; transform: translateX(-50%);
+    z-index: 2000; background: var(--card); border: 1px solid var(--border);
+    border-radius: 10px; padding: 10px 18px; font-size: 0.85em;
+    opacity: 0; transition: opacity 0.3s; pointer-events: none; white-space: nowrap;
+    max-width: 90vw; text-align: center;
+  }
+  #toast.show { opacity: 1; }
+
+  /* ── DISCLAIMER ── */
+  #disclaimer {
+    position: fixed; bottom: 165px; left: 14px; right: 14px; z-index: 999;
+    background: rgba(254,242,242,0.08); border: 1px solid #7f1d1d;
+    border-radius: 6px; padding: 6px 10px; font-size: 0.7em; color: #fca5a5;
+    text-align: center; pointer-events: none;
+  }
+
+  /* Leaflet overrides */
+  .leaflet-control-attribution { font-size: 9px !important; }
+  .leaflet-popup-content-wrapper { background: var(--card); color: var(--text); border: 1px solid var(--border); }
+  .leaflet-popup-tip { background: var(--card); }
+</style>
+</head>
+<body>
+
+<!-- ── HEADER ──────────────────────────────── -->
+<div id="header">
+  <a href="/" id="back-btn">← App</a>
+  <span style="font-size:1.2em;">🛡️</span>
+  <span id="header-logo">Luna <span>Guardian</span></span>
+  <div id="status-dot"></div>
+  <span id="status-label">Inactif</span>
+  <span id="risk-badge"></span>
+</div>
+
+<!-- ── MAP ──────────────────────────────────── -->
+<div id="map"></div>
+
+<!-- ── POSITION OVERLAY ─────────────────────── -->
+<div id="pos-overlay">
+  <div id="pos-coords">--</div>
+  <div id="pos-detail"></div>
+</div>
+
+<!-- ── EVENTS TOGGLE ────────────────────────── -->
+<div id="events-toggle" onclick="toggleEvents()">
+  📋 Événements <span id="events-count">0</span>
+</div>
+
+<!-- ── EVENTS PANEL ──────────────────────────── -->
+<div id="events-panel">
+  <div id="events-panel-header">
+    <h3>📋 Événements</h3>
+    <button id="events-close" onclick="toggleEvents()">✕</button>
+  </div>
+  <div id="events-list"><p style="color:var(--muted);font-size:0.82em;padding:10px;">Aucun événement.</p></div>
+</div>
+
+<!-- ── DISCLAIMER ───────────────────────────── -->
+<div id="disclaimer" style="display:none;">⚕️ Outil de prévention uniquement — pas un dispositif médical. En cas d'urgence réelle, appelez le 15 ou le 112.</div>
+
+<!-- ── BOTTOM PANEL ──────────────────────────── -->
+<div id="bottom-panel">
+  <div id="panel-handle" onclick="toggleConfig()"></div>
+
+  <!-- Risk bar -->
+  <div id="risk-section">
+    <div id="risk-label">
+      <span>Niveau de risque</span>
+      <span id="risk-level-text">–</span>
+    </div>
+    <div id="risk-bar-outer"><div id="risk-bar-inner"></div></div>
+  </div>
+
+  <!-- Main controls -->
+  <div id="main-controls">
+    <button id="btn-start" class="ctrl-btn" onclick="guardianStart()">▶ Démarrer</button>
+    <button id="btn-stop"  class="ctrl-btn" onclick="guardianStop()">⏹ Arrêter</button>
+    <button id="btn-sos"   class="ctrl-btn" onclick="openSosModal()">🆘 SOS</button>
+  </div>
+
+  <!-- Toggle config -->
+  <div id="config-toggle">
+    <button onclick="toggleConfig()" id="config-toggle-btn">⚙️ Configurer</button>
+  </div>
+
+  <!-- Config section -->
+  <div id="config-section">
+    <div class="cfg-row">
+      <div>
+        <label class="cfg-label">Profil</label>
+        <select id="cfg-profile" class="cfg-input">
+          <option value="senior">👴 Senior</option>
+          <option value="dog">🐕 Animal</option>
+          <option value="baby">👶 Bébé/Enfant</option>
+          <option value="home">🏠 Domicile</option>
+        </select>
+      </div>
+      <div>
+        <label class="cfg-label">Alerte immobilité (min)</label>
+        <input type="number" id="cfg-immo" class="cfg-input" value="30" min="5" max="120">
+      </div>
+    </div>
+    <div class="cfg-row">
+      <div>
+        <label class="cfg-label">Nom de la zone sûre</label>
+        <input type="text" id="cfg-zone-name" class="cfg-input" placeholder="ex: Domicile">
+      </div>
+      <div>
+        <label class="cfg-label">Rayon (mètres)</label>
+        <input type="number" id="cfg-zone-radius" class="cfg-input" value="150" min="30" max="5000">
+      </div>
+    </div>
+    <div class="cfg-row full">
+      <button id="zone-capture-btn" onclick="captureZone()">📍 Utiliser ma position comme zone sûre</button>
+      <div id="zone-status"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── VERIFICATION MODAL ─────────────────────── -->
+<div id="verify-modal">
+  <div id="verify-box">
+    <div class="v-icon">❓</div>
+    <h2>Tout va bien ?</h2>
+    <p id="verify-msg">Luna vérifie que vous allez bien.<br>Appuyez sur le bouton vert si tout va bien.</p>
+    <div class="v-btns">
+      <button class="v-btn-ok"  onclick="verifyResponse(true)">✅ Oui, ça va</button>
+      <button class="v-btn-nok" onclick="verifyResponse(false)">❌ Besoin d'aide</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── SOS MODAL ──────────────────────────────── -->
+<div id="sos-modal">
+  <div id="sos-box">
+    <div class="s-icon">🆘</div>
+    <h2>Envoyer une alerte SOS ?</h2>
+    <p>Vos contacts de confiance recevront un SMS avec votre position GPS exacte et un lien Google Maps.<br><br>En cas d'urgence médicale, appelez le <strong style="color:#fca5a5;">15 (SAMU)</strong> ou le <strong style="color:#fca5a5;">112</strong>.</p>
+    <button id="sos-confirm" onclick="triggerSOS()">🆘 Confirmer — Envoyer l'alerte</button>
+    <button id="sos-cancel"  onclick="closeSosModal()">Annuler</button>
+  </div>
+</div>
+
+<!-- ── TOAST ──────────────────────────────────── -->
+<div id="toast"></div>
+
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV/XN/WPcU=" crossorigin=""></script>
+
+<script>
+// ── AUTH ──────────────────────────────────────
+function getToken() { return localStorage.getItem('luna_token') || ''; }
+function authFetch(url, options) {
+  var opts = Object.assign({headers: {}}, options || {});
+  opts.headers = Object.assign({}, opts.headers);
+  var t = getToken();
+  if (t) opts.headers['Authorization'] = 'Bearer ' + t;
+  return fetch(url, opts).then(function(r) {
+    if (r.status === 401) { localStorage.removeItem('luna_token'); window.location.href = '/'; }
+    return r;
+  });
+}
+
+if (!getToken()) { window.location.href = '/'; }
+
+// ── STATE ─────────────────────────────────────
+var _sessionId = null;
+var _ws = null;
+var _watchId = null;
+var _safeZonePending = null;
+var _map = null;
+var _posMarker = null;
+var _safeCircle = null;
+var _trailLine = null;
+var _trailCoords = [];
+var _configOpen = false;
+var _eventsPanelOpen = false;
+var _eventsCount = 0;
+var _currentRisk = 0;
+var _riskColors = {low:'#22c55e', medium:'#f59e0b', high:'#ef4444', critical:'#dc2626'};
+
+// ── MAP INIT ──────────────────────────────────
+function initMap() {
+  _map = L.map('map', {zoomControl: false, attributionControl: true}).setView([46.6, 1.88], 13);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap',
+    maxZoom: 19,
+  }).addTo(_map);
+  L.control.zoom({position: 'bottomright'}).addTo(_map);
+}
+initMap();
+
+// ── POSITION MARKER ───────────────────────────
+function _personIcon(color) {
+  return L.divIcon({
+    className: '',
+    html: '<div style="width:20px;height:20px;border-radius:50%;background:' + color + ';border:3px solid #fff;box-shadow:0 0 10px ' + color + ';"></div>',
+    iconSize: [20, 20], iconAnchor: [10, 10],
+  });
+}
+
+function updateMapPosition(lat, lng, accuracy) {
+  if (!_map) return;
+  var latlng = [lat, lng];
+  var color = _riskColors[_currentRiskLevel()] || '#22c55e';
+
+  if (!_posMarker) {
+    _posMarker = L.marker(latlng, {icon: _personIcon(color), zIndexOffset: 1000}).addTo(_map);
+    _map.setView(latlng, 16);
+  } else {
+    _posMarker.setLatLng(latlng);
+    _posMarker.setIcon(_personIcon(color));
+  }
+
+  // Tracer la trajectoire
+  _trailCoords.push(latlng);
+  if (_trailCoords.length > 200) _trailCoords.shift();
+  if (_trailLine) {
+    _trailLine.setLatLngs(_trailCoords);
+  } else {
+    _trailLine = L.polyline(_trailCoords, {color: color, weight: 2, opacity: 0.5}).addTo(_map);
+  }
+
+  // Position overlay
+  document.getElementById('pos-overlay').style.display = 'block';
+  document.getElementById('pos-coords').textContent = lat.toFixed(6) + ', ' + lng.toFixed(6);
+  document.getElementById('pos-detail').textContent = 'Précision: ' + Math.round(accuracy) + 'm';
+}
+
+function drawSafeZone(lat, lng, radius, name) {
+  if (_safeCircle) _map.removeLayer(_safeCircle);
+  _safeCircle = L.circle([lat, lng], {
+    radius: radius,
+    color: '#22c55e', fillColor: '#22c55e', fillOpacity: 0.08, weight: 2, dashArray: '5,5',
+  }).addTo(_map).bindPopup('🏠 Zone sûre : ' + (name || 'Domicile'));
+  _map.fitBounds(_safeCircle.getBounds().pad(0.3));
+}
+
+// ── RISK UI ───────────────────────────────────
+var _riskLevel = 'low';
+function _currentRiskLevel() { return _riskLevel; }
+
+function updateRisk(score, level, description) {
+  _currentRisk = score || 0;
+  _riskLevel = level || 'low';
+  var pct = Math.round(_currentRisk * 100);
+  var color = _riskColors[_riskLevel] || '#22c55e';
+  document.getElementById('risk-bar-inner').style.width = pct + '%';
+  document.getElementById('risk-bar-inner').style.background = color;
+  document.getElementById('risk-level-text').textContent = _riskLevel.toUpperCase() + ' ' + pct + '%';
+  document.getElementById('risk-level-text').style.color = color;
+
+  // Badge header
+  var badge = document.getElementById('risk-badge');
+  if (_riskLevel !== 'low') {
+    badge.style.display = 'inline-block';
+    badge.style.background = color; badge.style.color = (_riskLevel === 'medium') ? '#000' : '#fff';
+    badge.textContent = _riskLevel.toUpperCase();
+  } else {
+    badge.style.display = 'none';
+  }
+
+  // Status dot
+  var dot = document.getElementById('status-dot');
+  if (_riskLevel === 'high' || _riskLevel === 'critical') {
+    dot.className = 'alert';
+  } else if (_sessionId) {
+    dot.className = 'active';
+  }
+
+  // Mettre à jour la couleur du marqueur
+  if (_posMarker) _posMarker.setIcon(_personIcon(color));
+  if (_trailLine) _trailLine.setStyle({color: color});
+}
+
+// ── TOAST ─────────────────────────────────────
+function showToast(msg, duration) {
+  var t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(function() { t.classList.remove('show'); }, duration || 2500);
+}
+
+// ── CONFIG ────────────────────────────────────
+function toggleConfig() {
+  _configOpen = !_configOpen;
+  var cs = document.getElementById('config-section');
+  var btn = document.getElementById('config-toggle-btn');
+  if (_configOpen) { cs.classList.add('open'); btn.textContent = '▲ Masquer'; }
+  else { cs.classList.remove('open'); btn.textContent = '⚙️ Configurer'; }
+  setTimeout(function() { if (_map) _map.invalidateSize(); }, 320);
+}
+
+function captureZone() {
+  if (!navigator.geolocation) { showToast('Géolocalisation non disponible'); return; }
+  var st = document.getElementById('zone-status');
+  st.textContent = 'Obtention GPS...';
+  navigator.geolocation.getCurrentPosition(function(pos) {
+    var name = document.getElementById('cfg-zone-name').value.trim() || 'Domicile';
+    var radius = parseFloat(document.getElementById('cfg-zone-radius').value) || 150;
+    _safeZonePending = {name: name, lat: pos.coords.latitude, lng: pos.coords.longitude, radius_m: radius};
+    st.textContent = '✅ ' + name + ' (' + radius + 'm) — ' + pos.coords.latitude.toFixed(4) + ', ' + pos.coords.longitude.toFixed(4);
+    drawSafeZone(pos.coords.latitude, pos.coords.longitude, radius, name);
+  }, function(err) { st.textContent = '❌ ' + err.message; });
+}
+
+// ── START / STOP ──────────────────────────────
+function guardianStart() {
+  if (!navigator.geolocation) { showToast('Géolocalisation non disponible'); return; }
+  var profile = document.getElementById('cfg-profile').value;
+  var immo = parseInt(document.getElementById('cfg-immo').value) || 30;
+  var config = {immobility_threshold_minutes: immo, safe_zones: []};
+  if (_safeZonePending) config.safe_zones = [_safeZonePending];
+
+  setStatusUI('Connexion...', 'Démarrage de la surveillance', '#f59e0b', false);
+
+  authFetch('/api/guardian/start', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({profile_type: profile, config: config}),
+  }).then(function(r) { return r.json(); }).then(function(data) {
+    if (!data.success) throw new Error(data.error || 'Erreur démarrage');
+    _sessionId = data.session_id;
+    setStatusUI('Actif — ' + profileLabel(data.profile_type), 'Envoi GPS toutes les 10s', '#22c55e', true);
+    document.getElementById('btn-start').style.display = 'none';
+    document.getElementById('btn-stop').style.display = '';
+    document.getElementById('btn-sos').style.display = '';
+    document.getElementById('disclaimer').style.display = 'block';
+    // Fermer la config
+    if (_configOpen) toggleConfig();
+    connectWs();
+    startGps();
+    loadEvents();
+    showToast('Guardian démarré ✅');
+    // Notification browser
+    if (window.Notification && Notification.permission !== 'denied') {
+      Notification.requestPermission();
+    }
+  }).catch(function(e) {
+    setStatusUI('Erreur', e.message, '#ef4444', false);
+    showToast('❌ ' + e.message, 3000);
+  });
+}
+
+function guardianStop() {
+  if (!_sessionId) return;
+  authFetch('/api/guardian/stop/' + _sessionId, {method: 'POST'})
+  .then(function() {
+    _cleanupSession();
+    setStatusUI('Arrêté', 'Session terminée', '#6b7280', false);
+    document.getElementById('btn-start').style.display = '';
+    document.getElementById('btn-stop').style.display = 'none';
+    document.getElementById('btn-sos').style.display = 'none';
+    document.getElementById('disclaimer').style.display = 'none';
+    updateRisk(0, 'low', '');
+    showToast('Guardian arrêté');
+  });
+}
+
+function _cleanupSession() {
+  if (_ws) { try { _ws.close(); } catch(e) {} _ws = null; }
+  if (_watchId !== null) { navigator.geolocation.clearWatch(_watchId); _watchId = null; }
+  _sessionId = null;
+  _trailCoords = [];
+  if (_trailLine) { _map.removeLayer(_trailLine); _trailLine = null; }
+}
+
+function profileLabel(p) {
+  return {senior:'👴 Senior', dog:'🐕 Animal', baby:'👶 Bébé', home:'🏠 Domicile'}[p] || p;
+}
+
+// ── GPS ───────────────────────────────────────
+var _lastGpsSent = 0;
+function startGps() {
+  _watchId = navigator.geolocation.watchPosition(function(pos) {
+    var now = Date.now();
+    if (now - _lastGpsSent < 10000) {
+      // Quand même mettre à jour la carte visuellement
+      updateMapPosition(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy);
+      return;
+    }
+    _lastGpsSent = now;
+    var lat = pos.coords.latitude;
+    var lng = pos.coords.longitude;
+    var acc = pos.coords.accuracy;
+    var spd = pos.coords.speed;
+    updateMapPosition(lat, lng, acc);
+    if (!_sessionId) return;
+    authFetch('/api/guardian/location/' + _sessionId, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({lat: lat, lng: lng, accuracy: acc, speed: spd}),
+    }).then(function(r) { return r.json(); }).then(function(d) {
+      updateRisk(d.risk_score, d.risk_level, d.description);
+      if (d.risk_level !== 'low') loadEvents();
+    }).catch(function() {});
+  }, function(err) {
+    setStatusUI('Erreur GPS', err.message, '#ef4444', false);
+    showToast('❌ GPS: ' + err.message, 4000);
+  }, {enableHighAccuracy: true, maximumAge: 5000, timeout: 20000});
+}
+
+// ── WEBSOCKET ─────────────────────────────────
+function connectWs() {
+  if (!_sessionId) return;
+  var proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  try {
+    _ws = new WebSocket(proto + '://' + location.host + '/api/guardian/ws/' + _sessionId);
+    _ws.onmessage = function(evt) {
+      try { handleWsMsg(JSON.parse(evt.data)); } catch(e) {}
+    };
+    _ws.onclose = function() {
+      if (_sessionId) setTimeout(function() { if (_sessionId) connectWs(); }, 4000);
+    };
+    _ws.onopen = function() { _ws.send(JSON.stringify({type:'ping'})); };
+  } catch(e) {}
+}
+
+function handleWsMsg(msg) {
+  if (msg.type === 'update' || msg.type === 'risk_update') {
+    updateRisk(msg.risk, msg.level, '');
+  } else if (msg.type === 'alert') {
+    var d = msg.data || {};
+    showAlert(d.description || 'Alerte Guardian', d.lat, d.lng);
+    loadEvents();
+  } else if (msg.type === 'verification_needed') {
+    openVerifyModal(msg.message);
+  } else if (msg.type === 'sos') {
+    showAlert('🆘 SOS activé', null, null);
+  }
+}
+
+// ── SOS ───────────────────────────────────────
+function openSosModal() { document.getElementById('sos-modal').classList.add('open'); }
+function closeSosModal() { document.getElementById('sos-modal').classList.remove('open'); }
+
+function triggerSOS() {
+  closeSosModal();
+  if (!_sessionId) { showToast('Guardian non actif'); return; }
+  authFetch('/api/guardian/sos/' + _sessionId, {method: 'POST'})
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    showAlert('🆘 SOS envoyé — ' + (data.message || ''), null, null);
+    updateRisk(1.0, 'critical', 'SOS');
+    loadEvents();
+    if (window.Notification && Notification.permission === 'granted') {
+      new Notification('🆘 Luna Guardian — SOS envoyé', {body: data.message || ''});
+    }
+  });
+}
+
+// ── VERIFICATION ──────────────────────────────
+function openVerifyModal(msg) {
+  document.getElementById('verify-msg').textContent = msg || 'Luna vérifie que vous allez bien.';
+  document.getElementById('verify-modal').classList.add('open');
+  // Vibration mobile
+  if (navigator.vibrate) navigator.vibrate([500, 200, 500]);
+  // Notification browser
+  if (window.Notification && Notification.permission === 'granted') {
+    new Notification('❓ Luna Guardian', {body: msg || 'Tout va bien ?'});
+  }
+}
+
+function verifyResponse(ok) {
+  document.getElementById('verify-modal').classList.remove('open');
+  if (!_sessionId) return;
+  authFetch('/api/guardian/verify-response/' + _sessionId, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ok: ok}),
+  }).then(function(r) { return r.json(); }).then(function(d) {
+    showToast(d.message || (ok ? 'Réponse enregistrée ✅' : 'Alerte confirmée'));
+    if (ok) updateRisk(0, 'low', '');
+    loadEvents();
+  });
+}
+
+// ── ALERT DISPLAY ─────────────────────────────
+function showAlert(description, lat, lng) {
+  setStatusUI('⚠️ ALERTE', description, '#ef4444', true);
+  document.getElementById('status-dot').className = 'alert';
+  showToast('🔔 ' + description, 5000);
+  if (lat && lng) {
+    var popup = L.popup()
+      .setLatLng([lat, lng])
+      .setContent('<b>🔔 Alerte</b><br>' + description + '<br><a href="https://maps.google.com/?q=' + lat + ',' + lng + '" target="_blank" style="color:#a78bfa;">Ouvrir dans Maps</a>')
+      .openOn(_map);
+    updateMapPosition(lat, lng, 20);
+  }
+}
+
+// ── EVENTS ───────────────────────────────────
+function toggleEvents() {
+  _eventsPanelOpen = !_eventsPanelOpen;
+  document.getElementById('events-panel').classList.toggle('open', _eventsPanelOpen);
+  if (_eventsPanelOpen && _sessionId) loadEvents();
+  setTimeout(function() { if (_map) _map.invalidateSize(); }, 320);
+}
+
+function loadEvents() {
+  if (!_sessionId) return;
+  authFetch('/api/guardian/events/' + _sessionId + '?limit=30')
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    var list = document.getElementById('events-list');
+    var events = data.events || [];
+    _eventsCount = events.length;
+    var cnt = document.getElementById('events-count');
+    if (events.length > 0) { cnt.style.display = 'inline'; cnt.textContent = events.length; }
+    else { cnt.style.display = 'none'; }
+    if (events.length === 0) {
+      list.innerHTML = '<p style="color:var(--muted);font-size:0.82em;padding:10px;">Aucun événement.</p>';
+      return;
+    }
+    var icons = {location_update:'📍', geofence_exit:'⚠️', geofence_enter:'✅',
+      alert_triggered:'🔔', alert_escalated:'📢', sos_triggered:'🆘',
+      verification_needed:'❓', verified_ok:'✅', session_stopped:'⏹️'};
+    list.innerHTML = events.map(function(evt) {
+      var icon = icons[evt.event_type] || '•';
+      var ts = evt.timestamp ? evt.timestamp.substring(11, 16) : '';
+      var isAlert = ['alert_triggered','alert_escalated','sos_triggered','geofence_exit'].indexOf(evt.event_type) >= 0;
+      var isOk = ['verified_ok','geofence_enter'].indexOf(evt.event_type) >= 0;
+      var mapsLink = (evt.lat && evt.lng)
+        ? ' <a href="https://maps.google.com/?q=' + evt.lat + ',' + evt.lng + '" target="_blank" style="color:#a78bfa;font-size:0.9em;">Maps</a>'
+        : '';
+      return '<div class="event-item' + (isAlert ? ' alert-item' : isOk ? ' ok-item' : '') + '">' +
+        '<div class="ev-time">' + ts + '</div>' +
+        '<div class="ev-desc">' + icon + ' ' + escHtml(evt.description || evt.event_type) + mapsLink + '</div>' +
+        '</div>';
+    }).join('');
+  }).catch(function() {});
+}
+
+// ── STATUS UI ─────────────────────────────────
+function setStatusUI(label, sub, dotColor, active) {
+  document.getElementById('status-dot').style.background = dotColor || '#6b7280';
+  document.getElementById('status-dot').className = active ? 'active' : '';
+  document.getElementById('status-label').textContent = label || '';
+  document.getElementById('status-label').title = sub || '';
+}
+
+// ── UTILS ─────────────────────────────────────
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── INIT ──────────────────────────────────────
+// Récupère une session active existante si elle est en cours
+(function checkExistingSession() {
+  authFetch('/api/guardian/sessions').then(function(r) { return r.json(); }).then(function(data) {
+    if (data.sessions && data.sessions.length > 0) {
+      var s = data.sessions[0];
+      _sessionId = s.session_id;
+      setStatusUI('Reprise — ' + profileLabel(s.profile_type), 'Session existante', '#22c55e', true);
+      document.getElementById('btn-start').style.display = 'none';
+      document.getElementById('btn-stop').style.display = '';
+      document.getElementById('btn-sos').style.display = '';
+      document.getElementById('disclaimer').style.display = 'block';
+      updateRisk(0, s.alert_level || 'low', '');
+      connectWs();
+      startGps();
+      loadEvents();
+    }
+  }).catch(function() {});
+})();
+</script>
+</body>
+</html>
