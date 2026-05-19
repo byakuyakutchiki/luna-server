@@ -800,8 +800,25 @@
       var labelEl = document.getElementById('pretestMicLabel');
       if (statusEl) statusEl.textContent = '⏳';
       if (labelEl) labelEl.textContent = 'Autorisation du micro en cours…';
+
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        _pretestMicOk = false;
+        if (statusEl) statusEl.textContent = '❌';
+        if (labelEl) labelEl.textContent = 'Micro non accessible (page non HTTPS ?). Vérifiez votre connexion.';
+        setTimeout(_startCamTest, 300);
+        return;
+      }
+
+      var _micTimeout = setTimeout(function() {
+        _pretestMicOk = false;
+        if (statusEl) statusEl.textContent = '❌';
+        if (labelEl) labelEl.textContent = 'Délai dépassé. Autorisez le micro dans les réglages Android, puis rechargez.';
+        _startCamTest();
+      }, 10000);
+
       navigator.mediaDevices.getUserMedia({ audio: true, video: false })
         .then(function(stream) {
+          clearTimeout(_micTimeout);
           _pretestStream = stream;
           _pretestMicOk = true;
           if (statusEl) statusEl.textContent = '✅';
@@ -810,13 +827,17 @@
           setTimeout(_startCamTest, 300);
         })
         .catch(function(err) {
+          clearTimeout(_micTimeout);
           _pretestMicOk = false;
           if (statusEl) statusEl.textContent = '❌';
+          var isAndroid = /android/i.test(navigator.userAgent || '');
           var msg;
-          if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-            msg = 'Micro bloqué. Pour le débloquer : Réglages → Applications → votre navigateur → Autorisations → Microphone → Autoriser, puis rechargez cette page.';
+          if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError' || err.name === 'SecurityError') {
+            msg = isAndroid
+              ? 'Micro bloqué. Sur Android : Réglages → Applications → Chrome → Autorisations → Micro → Autoriser, puis rechargez.'
+              : 'Micro bloqué. Réglages → Applications → votre navigateur → Autorisations → Microphone → Autoriser, puis rechargez.';
           } else if (err.name === 'NotFoundError') {
-            msg = 'Aucun micro détecté. Vérifiez que votre appareil en possède un.';
+            msg = 'Aucun micro détecté sur cet appareil.';
           } else {
             msg = 'Micro non disponible (' + (err.name || 'erreur') + ').';
           }
@@ -855,25 +876,56 @@
       var statusEl = document.getElementById('pretestCamStatus');
       var labelEl = document.getElementById('pretestCamLabel');
       if (statusEl) statusEl.textContent = '⏳';
-      if (labelEl) labelEl.textContent = 'Demande d\'accès à la caméra…';
-      navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+      if (labelEl) labelEl.textContent = "Demande d'accès à la caméra…";
+
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        _pretestCamOk = false;
+        if (statusEl) statusEl.textContent = '⚠️';
+        if (labelEl) labelEl.textContent = 'Caméra non accessible — visio en audio seul.';
+        _checkPretestReady();
+        return;
+      }
+
+      // Timeout 12s : sur Redmi/MIUI le dialog système peut ne jamais apparaître
+      var _camTimeout = setTimeout(function() {
+        _pretestCamOk = false;
+        if (statusEl) statusEl.textContent = '⚠️';
+        if (labelEl) labelEl.textContent = 'Caméra non répondue. Sur Redmi/MIUI : Réglages → Applications → Chrome → Autorisations → Appareil photo → Autoriser.';
+        _checkPretestReady();
+      }, 12000);
+
+      // facingMode:'user' plus compatible sur Android que { video: true }
+      navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false })
         .then(function(stream) {
+          clearTimeout(_camTimeout);
           _pretestCamOk = true;
-          stream.getTracks().forEach(function(t) { t.stop(); }); // pas besoin de la garder
+          stream.getTracks().forEach(function(t) { t.stop(); });
           if (statusEl) statusEl.textContent = '✅';
           if (labelEl) labelEl.textContent = 'Caméra prête';
           _checkPretestReady();
         })
         .catch(function(err) {
+          clearTimeout(_camTimeout);
           _pretestCamOk = false;
           if (statusEl) statusEl.textContent = '⚠️';
+          var isAndroid = /android/i.test(navigator.userAgent || '');
           var msg;
-          if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-            msg = 'Caméra bloquée — vous pouvez continuer, mais Luna ne pourra pas vous voir.';
-          } else if (err.name === 'NotFoundError') {
-            msg = 'Pas de caméra détectée — la visio fonctionnera quand même (audio seul).';
+          if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError' || err.name === 'SecurityError') {
+            msg = isAndroid
+              ? 'Caméra bloquée. Sur Android : Réglages → Applications → Chrome → Autorisations → Appareil photo → Autoriser. Vous pouvez continuer en audio.'
+              : 'Caméra bloquée — visio en audio. Réglages → Applications → votre navigateur → Autorisations → Caméra.';
+          } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+            msg = 'Pas de caméra détectée — visio en audio seul.';
+          } else if (err.name === 'AbortError') {
+            msg = 'Caméra interrompue — vous pouvez continuer en audio.';
+          } else if (err.name === 'OverconstrainedError') {
+            // Réessayer sans contrainte facingMode
+            navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+              .then(function(s2) { clearTimeout(_camTimeout); _pretestCamOk = true; s2.getTracks().forEach(function(t){t.stop();}); if(statusEl)statusEl.textContent='✅'; if(labelEl)labelEl.textContent='Caméra prête'; _checkPretestReady(); })
+              .catch(function() { if(statusEl)statusEl.textContent='⚠️'; if(labelEl)labelEl.textContent='Caméra non disponible — visio en audio.'; _checkPretestReady(); });
+            return;
           } else {
-            msg = 'Caméra non disponible — vous pouvez continuer en audio.';
+            msg = 'Caméra non disponible (' + (err.name || 'erreur') + ') — visio en audio.';
           }
           if (labelEl) labelEl.textContent = msg;
           _checkPretestReady();
