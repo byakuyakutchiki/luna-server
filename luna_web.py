@@ -16179,17 +16179,32 @@ async def theo_hours(request: Request, month: str = None):
 
     advice = None
     if status == "behind":
-        alternatives = []
-        if remaining > 10:
-            alternatives.append("Ecrire des lettres de temoignage (compte dans les heures)")
-            alternatives.append("Temoignage par telephone le soir")
-            alternatives.append("Temoignage informel au travail, transports")
-            alternatives.append("Temoignage public avec presentoir/chariot")
-        advice = {
-            "message": f"Il te reste {remaining:.0f}h a faire en {days_left} jours. "
-                       f"Objectif: {daily_needed}h/jour.",
-            "alternatives": alternatives,
-        }
+        # Throttle server-side: envoyer le conseil max 1x/4h (localStorage effacé à chaque restart APK)
+        _THEO_ADVICE_TTL = 4 * 3600  # 4h
+        _theo_advice_key = f"luna:{tid}:theo:advice_sent_ts"
+        _can_send_advice = True
+        try:
+            _last_ts = _redis_client.client.get(_theo_advice_key)
+            if _last_ts and (now.timestamp() - float(_last_ts)) < _THEO_ADVICE_TTL:
+                _can_send_advice = False
+        except Exception:
+            pass
+        if _can_send_advice:
+            try:
+                _redis_client.client.setex(_theo_advice_key, _THEO_ADVICE_TTL, str(now.timestamp()))
+            except Exception:
+                pass
+            alternatives = []
+            if remaining > 10:
+                alternatives.append("Ecrire des lettres de temoignage (compte dans les heures)")
+                alternatives.append("Temoignage par telephone le soir")
+                alternatives.append("Temoignage informel au travail, transports")
+                alternatives.append("Temoignage public avec presentoir/chariot")
+            advice = {
+                "message": f"Il te reste {remaining:.0f}h a faire en {days_left} jours. "
+                           f"Objectif: {daily_needed}h/jour.",
+                "alternatives": alternatives,
+            }
 
     return {
         "hours": round(total, 1),
