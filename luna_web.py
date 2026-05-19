@@ -2011,8 +2011,8 @@ async def download_apk():
 
 
 # Version APK pour auto-update
-LUNA_APP_VERSION = "2.7"
-LUNA_APP_VERSION_CODE = 18
+LUNA_APP_VERSION = "2.8"
+LUNA_APP_VERSION_CODE = 19
 
 
 def _compute_apk_sha256() -> str:
