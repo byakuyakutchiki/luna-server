@@ -12792,6 +12792,193 @@ async def serve_document(filename: str, request: Request):
 
 
 # =========================================================================
+# DOCUMENTS V2 — Centre de contrôle IA
+# =========================================================================
+
+def _get_vault_ops_for_tid(tid) -> Optional[object]:
+    """Helper: retourne VaultRedisOps pour un tenant."""
+    try:
+        from core.vault.redis_ops import VaultRedisOps
+        if not _redis_client:
+            return None
+        return VaultRedisOps(_redis_client, int(tid))
+    except Exception:
+        return None
+
+
+@app.get("/documents")
+async def documents_page():
+    """Page Documents v2 (auth via token JS)."""
+    path = os.path.join(STATIC_DIR, "documents.html")
+    if os.path.isfile(path):
+        return FileResponse(path, headers={"Cache-Control": "no-cache, no-store, must-revalidate"})
+    return JSONResponse(status_code=404, content={"error": "Page non trouvée"})
+
+
+@app.get("/api/documents/v2/dashboard")
+async def documents_v2_dashboard(request: Request):
+    """Dashboard : actions prioritaires, stats, résumé IA."""
+    tid = getattr(request.state, "tenant_id", 1)
+    vops = _get_vault_ops_for_tid(tid)
+    if not vops:
+        return JSONResponse(status_code=503, content={"error": "Vault non disponible"})
+
+    try:
+        from core.documents.actions_engine import build_dashboard
+        docs = vops.list_docs(limit=200)
+        dashboard = build_dashboard(docs)
+        return JSONResponse(content=dashboard)
+    except Exception as e:
+        logger.error(f"Documents v2 dashboard error: {e}")
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+
+@app.get("/api/documents/v2/actions/{doc_id}")
+async def documents_v2_actions(doc_id: str, request: Request):
+    """Actions intelligentes pour un document spécifique."""
+    tid = getattr(request.state, "tenant_id", 1)
+    vops = _get_vault_ops_for_tid(tid)
+    if not vops:
+        return JSONResponse(status_code=503, content={"error": "Vault non disponible"})
+
+    doc = vops.get_doc(doc_id)
+    if not doc:
+        return JSONResponse(status_code=404, content={"error": "Document non trouvé"})
+
+    try:
+        from core.documents.actions_engine import generate_actions
+        actions = generate_actions(doc)
+        return JSONResponse(content={"doc_id": doc_id, "actions": actions})
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+
+@app.post("/api/documents/v2/actions/execute")
+async def documents_v2_execute(request: Request):
+    """Exécute une action sur un document (email, rappel, explication, paiement…)."""
+    tid = getattr(request.state, "tenant_id", 1)
+    vops = _get_vault_ops_for_tid(tid)
+    if not vops:
+        return JSONResponse(status_code=503, content={"error": "Vault non disponible"})
+
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse(status_code=400, content={"error": "Corps JSON invalide"})
+
+    doc_id = body.get("doc_id", "")
+    action_type = body.get("action_type", "")
+
+    if not doc_id or not action_type:
+        return JSONResponse(status_code=400, content={"error": "doc_id et action_type requis"})
+
+    doc = vops.get_doc(doc_id)
+    if not doc:
+        return JSONResponse(status_code=404, content={"error": "Document non trouvé"})
+
+    try:
+        from core.documents.actions_engine import execute_action
+        result = execute_action(action_type, doc, openai_client)
+        return JSONResponse(content={"success": True, "result": result, "doc_id": doc_id})
+    except Exception as e:
+        logger.error(f"Documents v2 execute error: {e}")
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+
+@app.get("/api/documents/v2/timeline")
+async def documents_v2_timeline(request: Request, limit: int = 50):
+    """Timeline IA chronologique des documents scannés."""
+    tid = getattr(request.state, "tenant_id", 1)
+    vops = _get_vault_ops_for_tid(tid)
+    if not vops:
+        return JSONResponse(status_code=503, content={"error": "Vault non disponible"})
+
+    try:
+        from core.documents.actions_engine import _compute_priority, _urgency_label
+        from core.vault.classifier import DOC_TYPES
+        docs = vops.list_docs(limit=limit)
+        timeline = []
+        for doc in docs:
+            doc_type = doc.get("doc_type", "autre")
+            timeline.append({
+                "doc_id":    doc.get("id", ""),
+                "doc_type":  doc_type,
+                "label":     DOC_TYPES.get(doc_type, {}).get("label", doc_type),
+                "titre":     doc.get("titre", "Document"),
+                "emetteur":  doc.get("emetteur"),
+                "created_at": doc.get("created_at"),
+                "priority":  _compute_priority(doc),
+                "urgency":   _urgency_label(doc),
+            })
+        return JSONResponse(content={"timeline": timeline, "total": len(timeline)})
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+
+@app.get("/api/documents/v2/categories")
+async def documents_v2_categories(request: Request):
+    """Catégories de documents avec compteurs et stats d'urgence."""
+    tid = getattr(request.state, "tenant_id", 1)
+    vops = _get_vault_ops_for_tid(tid)
+    if not vops:
+        return JSONResponse(status_code=503, content={"error": "Vault non disponible"})
+
+    try:
+        from core.documents.actions_engine import _compute_priority
+        from core.vault.classifier import DOC_TYPES
+        docs = vops.list_docs(limit=500)
+        cats: dict = {}
+        for doc in docs:
+            t = doc.get("doc_type", "autre")
+            if t not in cats:
+                cats[t] = {
+                    "id": t,
+                    "label": DOC_TYPES.get(t, {}).get("label", t),
+                    "count": 0, "urgent": 0, "recent": None,
+                }
+            cats[t]["count"] += 1
+            if _compute_priority(doc) == "high":
+                cats[t]["urgent"] += 1
+            ts = doc.get("created_at")
+            if ts and (not cats[t]["recent"] or ts > cats[t]["recent"]):
+                cats[t]["recent"] = ts
+
+        sorted_cats = sorted(cats.values(), key=lambda c: (-c["urgent"], -c["count"]))
+        return JSONResponse(content={"categories": sorted_cats, "total_types": len(sorted_cats)})
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+
+@app.get("/api/documents/v2/stats")
+async def documents_v2_stats(request: Request):
+    """Statistiques globales du coffre-fort."""
+    tid = getattr(request.state, "tenant_id", 1)
+    vops = _get_vault_ops_for_tid(tid)
+    if not vops:
+        return JSONResponse(status_code=503, content={"error": "Vault non disponible"})
+
+    try:
+        from core.documents.actions_engine import _compute_priority
+        docs = vops.list_docs(limit=500)
+        by_priority = {"high": 0, "medium": 0, "low": 0}
+        by_type: dict = {}
+        for doc in docs:
+            p = _compute_priority(doc)
+            by_priority[p] = by_priority.get(p, 0) + 1
+            t = doc.get("doc_type", "autre")
+            by_type[t] = by_type.get(t, 0) + 1
+
+        return JSONResponse(content={
+            "total_docs":    len(docs),
+            "by_priority":   by_priority,
+            "by_type":       by_type,
+            "has_urgent":    by_priority["high"] > 0,
+        })
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+
+# =========================================================================
 # PERCEPTION - Aide contextuelle visuelle
 # =========================================================================
 
