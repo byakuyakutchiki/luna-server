@@ -9346,6 +9346,37 @@ Sois factuel et concis. Ne fabrique rien qui n'est pas dans la transcription."""
             logger.info(f"Meeting report saved: {note.id} (bot={bot_id})")
 
 
+@app.get("/api/meeting/{bot_id}/summary")
+async def meeting_summary(bot_id: str, request: Request):
+    """Retourne le compte rendu généré pour une réunion (ou le génère si absent)."""
+    session = _mtg_session_get(bot_id)
+    if not session:
+        return JSONResponse(status_code=404, content={"error": "Réunion introuvable"})
+    note_id = session.get("note_id")
+    transcripts = _mtg_transcripts_get(bot_id)
+    if not note_id and not transcripts:
+        return JSONResponse(status_code=404, content={
+            "error": "Compte rendu non disponible — la réunion est peut-être encore en cours",
+            "status": session.get("status"),
+            "bot_id": bot_id,
+        })
+    # Si transcriptions disponibles mais pas de note → générer
+    if not note_id and transcripts:
+        await _generate_meeting_report(bot_id, transcripts, session)
+        session = _mtg_session_get(bot_id)
+        note_id = (session or {}).get("note_id")
+    return {
+        "bot_id": bot_id,
+        "note_id": note_id,
+        "status": session.get("status"),
+        "meeting_name": session.get("meeting_name", "Réunion"),
+        "started_at": session.get("started_at"),
+        "ended_at": session.get("ended_at"),
+        "transcript_count": len(transcripts),
+        "summary_available": note_id is not None,
+    }
+
+
 @app.post("/api/webhooks/meetingbaas")
 async def meetingbaas_webhook(request: Request):
     """

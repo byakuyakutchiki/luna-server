@@ -6312,7 +6312,15 @@ function _playWakeBeep() {
 
 function startWakeWord() {
   if (!SpeechRecognition) {
-    addMsg("Ton navigateur ne supporte pas la reconnaissance vocale. Utilise Chrome ou un navigateur compatible.", "luna");
+    if (wakewordBtn) {
+      wakewordBtn.style.display = 'none';
+      // Afficher hint discret sous l'input chat
+      var hint = document.createElement('p');
+      hint.style.cssText = 'color:#888;font-size:0.75rem;text-align:center;padding:4px 0;margin:0;';
+      hint.textContent = 'Mode mains libres indisponible sur cet appareil — utilisez le micro manuel.';
+      var chatInput = document.getElementById('chat-input') || document.querySelector('.input-area');
+      if (chatInput && chatInput.parentNode) chatInput.parentNode.insertBefore(hint, chatInput);
+    }
     return;
   }
   if (wakewordActive) return;

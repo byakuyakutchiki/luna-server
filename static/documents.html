@@ -276,6 +276,21 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
 .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
 .tab-pane { display: none; }
 .tab-pane.active { display: block; }
+
+/* ── DETAIL RELATED ──────────────────────── */
+.det-sep { border: none; border-top: 1px solid var(--border); margin: 14px 0; }
+.det-section-hdr { font-size:.72em; font-weight:700; color:var(--muted);
+  text-transform:uppercase; letter-spacing:.06em; padding:2px 0 10px; }
+.det-related-row { display:flex; align-items:center; gap:10px; padding:9px 0;
+  border-bottom:1px solid var(--border); cursor:pointer; }
+.det-related-row:last-child { border-bottom:none; }
+.det-related-row:active { opacity:.65; }
+.det-related-badge { flex-shrink:0; width:32px; height:32px; border-radius:8px;
+  background:var(--surface2); border:1px solid var(--border);
+  display:flex; align-items:center; justify-content:center;
+  font-size:.75em; font-weight:700; color:var(--muted); }
+.det-related-title { flex:1; font-size:.83em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.det-related-date { font-size:.72em; color:var(--muted); flex-shrink:0; margin-left:6px; }
 </style>
 </head>
 <body>
@@ -366,6 +381,8 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
     </div>
     <div id="detail-body">
       <div id="detail-fields"></div>
+      <div id="detail-related"></div>
+      <hr class="det-sep">
       <div id="detail-actions"></div>
     </div>
   </div>
@@ -551,14 +568,22 @@ function loadTimeline(){
 
 // ── DOCUMENT DETAIL ───────────────────────────
 function openDocDetail(docId){
-  authFetch('/api/documents/v2/actions/'+docId).then(function(r){ return r.json(); }).then(function(d){
-    renderDetail(docId, d.actions||[]);
+  var loadActions = authFetch('/api/documents/v2/actions/'+docId).then(function(r){ return r.json(); });
+  var loadAll = _allDocs.length > 0
+    ? Promise.resolve(_allDocs)
+    : authFetch('/api/documents/v2/timeline?limit=100').then(function(r){ return r.json(); }).then(function(x){
+        _allDocs = x.timeline||[]; return _allDocs;
+      });
+
+  Promise.all([loadActions, loadAll]).then(function(results){
+    renderDetail(docId, results[0].actions||[], results[1]);
     document.getElementById('detail-modal').classList.add('open');
   }).catch(function(){ showToast('Erreur chargement document'); });
 }
 
-function renderDetail(docId, actions){
-  var doc = _allDocs.find(function(d){ return d.doc_id===docId; }) || {};
+function renderDetail(docId, actions, allDocs){
+  var docs = allDocs || _allDocs;
+  var doc = docs.find(function(d){ return d.doc_id===docId; }) || {};
   document.getElementById('detail-title').textContent = doc.titre||'Document';
 
   // Fields
@@ -573,14 +598,32 @@ function renderDetail(docId, actions){
     return '<div class="df-row"><span class="df-key">'+f[0]+'</span><span class="df-val">'+escH(f[1])+'</span></div>';
   }).join('');
 
+  // Related docs of same type (directory panel)
+  var related = doc.doc_type ? docs.filter(function(d){ return d.doc_id!==docId && d.doc_type===doc.doc_type; }) : [];
+  var relatedHtml = '';
+  if(related.length){
+    relatedHtml = '<div class="det-section-hdr">◫ Autres ' + escH(doc.label||doc.doc_type||'documents') + ' ('+related.length+')</div>'
+      + related.slice(0,8).map(function(r){
+          return '<div class="det-related-row" onclick="closeDetail();setTimeout(function(){openDocDetail(\''+r.doc_id+'\');},180);">'
+            +'<div class="det-related-badge">'+_typeInitial(r.doc_type)+'</div>'
+            +'<span class="det-related-title">'+escH(r.titre||'Document')+'</span>'
+            +'<span class="det-related-date">'+_fmtDate(r.created_at||'')+'</span>'
+            +'</div>';
+        }).join('');
+  }
+  document.getElementById('detail-related').innerHTML = relatedHtml;
+  document.querySelector('.det-sep').style.display = related.length ? '' : 'none';
+
   // Actions
-  document.getElementById('detail-actions').innerHTML = actions.map(function(a){
-    return '<button class="det-action-btn" onclick="execAction(\''+docId+'\',\''+a.type+'\',\''+escH(a.label)+'\',\''+escH(a.doc_title||'')+'\');closeDetail();">'
-      +'<span class="btn-icon">'+a.icon+'</span>'
-      +'<span>'+escH(a.label)+'</span>'
-      +(a.auto?'<span class="btn-auto">Auto</span>':'')
-      +'</button>';
-  }).join('');
+  document.getElementById('detail-actions').innerHTML = actions.length
+    ? actions.map(function(a){
+        return '<button class="det-action-btn" onclick="execAction(\''+docId+'\',\''+a.type+'\',\''+escH(a.label)+'\',\''+escH(a.doc_title||'')+'\');closeDetail();">'
+          +'<span class="btn-icon">'+a.icon+'</span>'
+          +'<span>'+escH(a.label)+'</span>'
+          +(a.auto?'<span class="btn-auto">Auto</span>':'')
+          +'</button>';
+      }).join('')
+    : '<p style="color:var(--muted);font-size:.82em;padding:4px 0;">Aucune action disponible.</p>';
 }
 
 function closeDetail(){ document.getElementById('detail-modal').classList.remove('open'); }
