@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>Luna Guardian</title>
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css"/>
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; user-select: none; }
 :root {
@@ -179,16 +179,16 @@ html,body { height:100%; overflow:hidden; background:var(--bg); color:var(--text
   transition:width .7s cubic-bezier(.4,0,.2,1), background .5s; }
 
 /* Controls */
-#ctrls { display:flex; gap:8px; padding:0 14px 8px; }
-.ctrl { flex:1; padding:13px 6px; border:none; border-radius:14px;
-  font-size:.9em; font-weight:700; cursor:pointer;
-  transition:transform .12s cubic-bezier(.4,0,.2,1), opacity .15s, box-shadow .2s; }
-.ctrl:active { transform:scale(.95); opacity:.85; }
-#btn-start { background:linear-gradient(135deg, var(--green), #059669); color:#fff;
-  box-shadow:0 4px 14px rgba(16,185,129,.3); }
-#btn-start:active { box-shadow:0 2px 6px rgba(16,185,129,.2); }
-#btn-stop  { background:rgba(255,255,255,0.07); color:var(--text); display:none;
-  border:1px solid var(--border); }
+#ctrls { display:flex; gap:10px; padding:0 14px 10px; }
+.ctrl { flex:1; padding:16px 10px; border:none; border-radius:60px;
+  font-size:1rem; font-weight:700; cursor:pointer; min-height:54px;
+  transition:transform .1s cubic-bezier(.4,0,.2,1), opacity .15s, box-shadow .2s; }
+.ctrl:active { transform:scale(.96); opacity:.88; }
+#btn-start { background:linear-gradient(135deg, #10b981, #059669); color:#fff;
+  box-shadow:0 4px 18px rgba(16,185,129,.35); letter-spacing:.02em; }
+#btn-start:active { box-shadow:0 2px 8px rgba(16,185,129,.2); }
+#btn-stop  { background:linear-gradient(135deg, #dc2626, #9b1c1c); color:#fff; display:none;
+  box-shadow:0 4px 18px rgba(220,38,38,.3); letter-spacing:.02em; }
 
 /* ─── SOS BUTTON ─────────────────────────── */
 #btn-sos {
@@ -543,7 +543,7 @@ select.cfg-inp option { background:#13131f; }
 <!-- TOAST -->
 <div id="toast"></div>
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV/XN/WPcU=" crossorigin=""></script>
+<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 'use strict';
 
