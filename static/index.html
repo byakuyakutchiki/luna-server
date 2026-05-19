@@ -1368,10 +1368,38 @@ body.mode-secretaire .luna-chip:hover { background: rgba(16,185,129,0.2); border
 <div class="tab-panel" id="tab-instructions">
   <div class="panel-content">
     <h2>Instructions</h2>
+
+    <!-- Avertissement médicaments — RGPD + responsabilité -->
+    <div id="medDisclaimer" style="background:#fff3cd;border:1px solid #ffc107;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:0.85em;color:#7d5800;display:flex;gap:8px;align-items:flex-start;">
+      <span style="font-size:1.3em;flex-shrink:0;">⚕️</span>
+      <span>Luna peut vous <strong>rappeler de prendre vos médicaments</strong>. Ce service est un rappel uniquement — <strong>jamais un conseil médical</strong>. Pour tout avis médical, consultez votre médecin ou pharmacien. Luna décline toute responsabilité médicale.</span>
+    </div>
+
+    <!-- Instructions actives -->
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+      <h3 style="margin:0;">Instructions actives</h3>
+      <button class="btn btn-sm" onclick="loadInstructions()" style="padding:4px 10px;font-size:0.8em;">↻</button>
+    </div>
     <div id="instructionsList"></div>
-    <h3>Nouvelle instruction (texte naturel)</h3>
-    <div class="form-group"><textarea id="instr-text" placeholder="Rappelle-moi de prendre mes cachets tous les jours a 8h&#10;Envoie un SMS a Marie tous les dimanches a 10h&#10;Si je ne reponds pas pendant 24h, alerte mes contacts" rows="3"></textarea></div>
-    <button class="btn btn-primary" id="instrAddBtn">Creer l'instruction</button>
+
+    <!-- Modèles rapides -->
+    <h3 style="margin-top:16px;margin-bottom:8px;">Modèles rapides</h3>
+    <div id="instrTemplates" style="display:flex;flex-wrap:wrap;gap:7px;margin-bottom:14px;">
+      <button class="btn" style="font-size:0.8em;padding:5px 11px;border-radius:20px;" onclick="useInstrTemplate('Réveille-moi tous les jours à 7h30')">⏰ Réveil</button>
+      <button class="btn" style="font-size:0.8em;padding:5px 11px;border-radius:20px;border:1px solid #ffc107;color:#7d5800;" onclick="useInstrTemplate('Rappelle-moi de prendre mes médicaments tous les jours à 8h')" title="Rappel uniquement — pas un conseil médical">💊 Médicaments ⚕️</button>
+      <button class="btn" style="font-size:0.8em;padding:5px 11px;border-radius:20px;" onclick="useInstrTemplate('Demande-moi comment je vais tous les matins à 9h')">💬 Check-in matin</button>
+      <button class="btn" style="font-size:0.8em;padding:5px 11px;border-radius:20px;" onclick="useInstrTemplate('Propose-moi un quiz de culture générale tous les soirs à 18h')">🧠 Quiz</button>
+      <button class="btn" style="font-size:0.8em;padding:5px 11px;border-radius:20px;" onclick="useInstrTemplate('Lis-moi une histoire ou un poème tous les soirs à 21h')">📖 Lecture</button>
+      <button class="btn" style="font-size:0.8em;padding:5px 11px;border-radius:20px;" onclick="useInstrTemplate('Propose un exercice de gratitude tous les soirs à 20h')">🙏 Gratitude</button>
+      <button class="btn" style="font-size:0.8em;padding:5px 11px;border-radius:20px;" onclick="useInstrTemplate('Si je ne réponds pas pendant 24h, alerte mes contacts de confiance')">🔔 Surveillance</button>
+    </div>
+
+    <!-- Formulaire nouvelle instruction -->
+    <h3 style="margin-bottom:6px;">Nouvelle instruction (langage naturel)</h3>
+    <div class="form-group">
+      <textarea id="instr-text" placeholder="Rappelle-moi de prendre mes médicaments tous les jours à 8h&#10;Envoie un SMS à Marie tous les dimanches à 10h&#10;Si je ne réponds pas pendant 24h, alerte mes contacts" rows="3"></textarea>
+    </div>
+    <button class="btn btn-primary" id="instrAddBtn">Créer l'instruction</button>
     <p class="form-status" id="instrStatus"></p>
     <div id="instrConfirmation" style="display:none; margin-top: 12px;" class="card">
       <div class="card-body" id="instrConfirmText"></div>
@@ -3946,25 +3974,48 @@ document.getElementById("contactAddBtn").addEventListener("click", function() {
 // =========================================================================
 // INSTRUCTIONS
 // =========================================================================
+var _INSTR_ICONS = {
+  reminder: "🔔", sms_contact: "💬", call_contact: "📞", visio_contact: "📹",
+  wake_up: "⏰", check_in: "💬", daily_routine: "📅", surveillance: "👁️",
+  reading: "📖", game: "🧠", music: "🎵", gratitude: "🙏", note: "📝",
+};
+var _INSTR_LABELS = {
+  daily: "Quotidien", recurring: "Récurrent", one_time: "Unique", conditional: "Conditionnel",
+};
+
 function loadInstructions() {
   var list = document.getElementById("instructionsList");
   list.innerHTML = '<p class="empty-state">Chargement...</p>';
   authFetch("/api/instructions").then(function(r) { return r.json(); }).then(function(data) {
     if (!data.instructions || data.instructions.length === 0) {
-      list.innerHTML = '<p class="empty-state">Aucune instruction active. Cree-en ci-dessous en langage naturel.</p>';
+      list.innerHTML = '<p class="empty-state">Aucune instruction active. Utilise un modèle ou saisis une instruction ci-dessous.</p>';
       return;
     }
     list.innerHTML = "";
     data.instructions.forEach(function(instr) {
-      var card = document.createElement("div"); card.className = "card";
-      var typeBadge = instr.type === "daily" ? "badge-green" : instr.type === "recurring" ? "badge-blue" : "badge-yellow";
-      card.innerHTML = '<div class="card-header"><span class="card-title">' + esc(instr.description.substring(0, 80)) + '</span>' +
-        '<button class="btn btn-danger btn-sm" onclick="deleteInstruction(\'' + esc(instr.id) + '\')">Desactiver</button></div>' +
-        '<div class="card-body"><span class="badge ' + typeBadge + '">' + esc(instr.type) + '</span> ' +
-        '<span class="badge badge-blue">' + esc(instr.action) + '</span> ' +
-        (instr.schedule ? '<span class="badge badge-yellow">' + esc(instr.schedule) + '</span> ' : '') +
-        (instr.target && instr.target !== "self" ? 'Cible: ' + esc(instr.target) + ' ' : '') +
-        (instr.last_executed ? '<br><small style="color:#666">Derniere exec: ' + esc(instr.last_executed) + '</small>' : '') +
+      var card = document.createElement("div");
+      card.className = "card";
+      card.style.cssText = "margin-bottom:8px;";
+      var icon = _INSTR_ICONS[instr.action] || "🔔";
+      var typeLabel = _INSTR_LABELS[instr.type] || instr.type;
+      var typeBadgeClass = instr.type === "daily" ? "badge-green" : instr.type === "recurring" ? "badge-blue" : "badge-yellow";
+      var desc = esc(instr.description.substring(0, 100));
+      // Avertissement discret pour médicaments
+      var medWarn = /médic|medic|cachet|comprim|pilule|traitement/i.test(instr.description)
+        ? '<span style="font-size:0.75em;color:#7d5800;margin-left:6px;" title="Rappel uniquement — pas un conseil médical">⚕️ rappel uniquement</span>'
+        : '';
+      card.innerHTML =
+        '<div class="card-header" style="display:flex;align-items:center;gap:8px;">' +
+          '<span style="font-size:1.2em;">' + icon + '</span>' +
+          '<span class="card-title" style="flex:1;">' + desc + medWarn + '</span>' +
+          '<button class="btn btn-sm" style="font-size:0.75em;padding:3px 8px;" onclick="execInstruction(\'' + esc(instr.id) + '\')" title="Exécuter maintenant">▶</button>' +
+          '<button class="btn btn-danger btn-sm" style="font-size:0.75em;padding:3px 8px;margin-left:4px;" onclick="deleteInstruction(\'' + esc(instr.id) + '\')" title="Désactiver">✕</button>' +
+        '</div>' +
+        '<div class="card-body" style="padding-top:4px;font-size:0.82em;">' +
+          '<span class="badge ' + typeBadgeClass + '">' + typeLabel + '</span> ' +
+          (instr.schedule ? '<span class="badge badge-yellow">🕐 ' + esc(instr.schedule) + '</span> ' : '') +
+          (instr.target && instr.target !== "self" ? '<span class="badge badge-blue">→ ' + esc(instr.target) + '</span> ' : '') +
+          (instr.last_executed ? '<span style="color:#888;margin-left:4px;">Dernière exec: ' + esc(instr.last_executed.substring(0,16).replace("T"," ")) + '</span>' : '') +
         '</div>';
       list.appendChild(card);
     });
@@ -3972,9 +4023,10 @@ function loadInstructions() {
 }
 
 function deleteInstruction(id) {
+  if (!confirm("Désactiver cette instruction ?")) return;
   authFetch("/api/instructions/" + encodeURIComponent(id), { method: "DELETE" })
   .then(function(r) {
-    if (!r.ok) throw new Error("Suppression echouee");
+    if (!r.ok) throw new Error("Suppression échouée");
     return r.json();
   })
   .then(function() { loadInstructions(); })
@@ -3984,19 +4036,47 @@ function deleteInstruction(id) {
   });
 }
 
+function execInstruction(id) {
+  authFetch("/api/instructions/" + encodeURIComponent(id) + "/execute", { method: "POST" })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    var st = document.getElementById("instrStatus");
+    if (st) { st.textContent = data.success ? "Instruction exécutée." : "Erreur: " + (data.error || "inconnue"); st.className = "form-status " + (data.success ? "success" : "error"); }
+  })
+  .catch(function(e) {
+    var st = document.getElementById("instrStatus");
+    if (st) { st.textContent = "Erreur: " + e.message; st.className = "form-status error"; }
+  });
+}
+
+function useInstrTemplate(text) {
+  var ta = document.getElementById("instr-text");
+  if (ta) { ta.value = text; ta.focus(); ta.scrollIntoView({ behavior: "smooth", block: "center" }); }
+  // Afficher avertissement médical si modèle médicaments
+  if (/médic|medic/i.test(text)) {
+    var d = document.getElementById("medDisclaimer");
+    if (d) { d.style.border = "2px solid #ffc107"; setTimeout(function() { if(d) d.style.border = "1px solid #ffc107"; }, 1500); }
+  }
+}
+
 document.getElementById("instrAddBtn").addEventListener("click", function() {
   var st = document.getElementById("instrStatus");
   var conf = document.getElementById("instrConfirmation");
   var text = document.getElementById("instr-text").value.trim();
-  if (!text) { st.textContent = "Ecris une instruction."; st.className = "form-status error"; return; }
-  st.textContent = "Analyse..."; st.className = "form-status"; conf.style.display = "none";
+  if (!text) { st.textContent = "Écris une instruction."; st.className = "form-status error"; return; }
+  st.textContent = "Analyse en cours..."; st.className = "form-status"; conf.style.display = "none";
   authFetch("/api/instructions", { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({text: text}) })
   .then(function(r) { return r.json(); })
   .then(function(data) {
     if (data.success) {
-      st.textContent = "Instruction creee."; st.className = "form-status success";
-      if (data.confirmation) {
-        document.getElementById("instrConfirmText").textContent = data.confirmation;
+      st.textContent = "Instruction créée."; st.className = "form-status success";
+      var confText = data.confirmation || "";
+      // Ajouter disclaimer médical si pertinent
+      if (/médic|medic|cachet|comprim/i.test(text)) {
+        confText += "\n\n⚕️ Rappel : Luna vous rappelle de prendre vos médicaments. Ce n'est pas un conseil médical — consultez votre médecin pour tout avis médical.";
+      }
+      if (confText) {
+        document.getElementById("instrConfirmText").textContent = confText;
         conf.style.display = "block";
       }
       document.getElementById("instr-text").value = "";

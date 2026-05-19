@@ -7,9 +7,10 @@ Parse les instructions du souscripteur pour extraire:
 - Le timing (heure, récurrence, condition)
 - Le contenu du message si applicable
 """
+import json
 import re
 from typing import Optional, List, Dict, Any, Tuple
-from datetime import datetime, time, timedelta
+from datetime import datetime, time, timedelta, date
 from dataclasses import dataclass, field
 from enum import Enum
 
@@ -73,6 +74,7 @@ class ParsedInstruction:
     target: str = "self"  # "self", nom du contact, ou numéro
     recurrence: RecurrenceType = RecurrenceType.ONCE
     scheduled_time: Optional[ParsedTime] = None
+    scheduled_date: Optional[date] = None  # Date unique (ONCE)
     scheduled_days: List[int] = field(default_factory=list)  # 0=Lundi, 6=Dimanche
     message_template: Optional[str] = None
     condition: ConditionType = ConditionType.NONE
@@ -209,9 +211,123 @@ class InstructionParser:
     }
 
     @classmethod
-    def parse(cls, text: str) -> ParsedInstruction:
+    def parse(cls, text: str) -> 'ParsedInstruction':
+        """Parse une instruction — LLM d'abord, regex en fallback."""
+        llm_result = cls._parse_with_llm(text)
+        if llm_result:
+            return llm_result
+        return cls._parse_with_regex(text)
+
+    @classmethod
+    def _parse_with_llm(cls, text: str) -> Optional['ParsedInstruction']:
+        """Utilise gpt-4o-mini pour parser l'instruction avec haute précision.
+        Ne stocke jamais de noms de médicaments ou données de santé.
         """
-        Parse une instruction en langage naturel.
+        try:
+            from luna_web import openai_client  # injection depuis luna_web
+            if not openai_client:
+                return None
+        except (ImportError, AttributeError):
+            return None
+
+        _SYSTEM = (
+            "Tu analyses une instruction en français pour un assistant vocal de lien social.\n"
+            "Retourne UNIQUEMENT un JSON valide, sans markdown.\n"
+            "IMPORTANT RGPD: Dans message_template, n'inclus JAMAIS de noms de médicaments, "
+            "diagnostics, ou données de santé personnelles. "
+            "Pour tout rappel de médicaments, utilise uniquement: \"Rappel de prise de médicaments\".\n\n"
+            "Format JSON attendu:\n"
+            "{\n"
+            "  \"action_type\": \"reminder|sms_contact|call_contact|visio_contact|wake_up|check_in|daily_routine|surveillance|reading|game|music|gratitude\",\n"
+            "  \"recurrence\": \"once|daily|weekly|weekdays|weekend|monthly\",\n"
+            "  \"scheduled_time\": {\"hour\": 8, \"minute\": 0} ou null,\n"
+            "  \"scheduled_date\": \"YYYY-MM-DD\" ou null,\n"
+            "  \"scheduled_days\": [0,1,2],\n"
+            "  \"target\": \"self\" ou nom du contact,\n"
+            "  \"message_template\": \"message générique\" ou null,\n"
+            "  \"condition\": \"none|if_no_response|if_confirmed\",\n"
+            "  \"condition_params\": {},\n"
+            "  \"priority\": 5,\n"
+            "  \"confidence\": 0.95\n"
+            "}"
+        )
+
+        try:
+            resp = openai_client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {"role": "system", "content": _SYSTEM},
+                    {"role": "user", "content": text},
+                ],
+                max_tokens=300,
+                temperature=0,
+            )
+            raw = resp.choices[0].message.content.strip()
+            # Nettoyer si entouré de ```json
+            raw = re.sub(r'^```(?:json)?\s*', '', raw)
+            raw = re.sub(r'\s*```$', '', raw)
+            data = json.loads(raw)
+
+            st_data = data.get("scheduled_time")
+            scheduled_time = None
+            if st_data and isinstance(st_data, dict):
+                h = int(st_data.get("hour", 0))
+                m = int(st_data.get("minute", 0))
+                if 0 <= h <= 23 and 0 <= m <= 59:
+                    scheduled_time = ParsedTime(hour=h, minute=m)
+
+            sd_raw = data.get("scheduled_date")
+            scheduled_date = None
+            if sd_raw:
+                try:
+                    scheduled_date = date.fromisoformat(sd_raw)
+                except ValueError:
+                    pass
+
+            recurrence_val = data.get("recurrence", "once")
+            try:
+                recurrence = RecurrenceType(recurrence_val)
+            except ValueError:
+                recurrence = RecurrenceType.ONCE
+
+            action_val = data.get("action_type", "reminder")
+            try:
+                action_type = ActionType(action_val)
+            except ValueError:
+                action_type = ActionType.REMINDER
+
+            condition_val = data.get("condition", "none")
+            try:
+                condition = ConditionType(condition_val)
+            except ValueError:
+                condition = ConditionType.NONE
+
+            parsed = ParsedInstruction(
+                original_text=text,
+                action_type=action_type,
+                target=str(data.get("target", "self")),
+                recurrence=recurrence,
+                scheduled_time=scheduled_time,
+                scheduled_date=scheduled_date,
+                scheduled_days=[int(d) for d in data.get("scheduled_days", [])],
+                message_template=data.get("message_template") or None,
+                condition=condition,
+                condition_params=data.get("condition_params", {}),
+                priority=int(data.get("priority", 5)),
+                confidence=float(data.get("confidence", 0.95)),
+            )
+            parsed.needs_clarification, parsed.clarification_question = cls._check_clarification_needed(
+                parsed.action_type, parsed.scheduled_time, parsed.target, parsed.recurrence
+            )
+            return parsed
+
+        except Exception:
+            return None
+
+    @classmethod
+    def _parse_with_regex(cls, text: str) -> 'ParsedInstruction':
+        """
+        Parse une instruction en langage naturel (fallback regex).
 
         Args:
             text: L'instruction en français

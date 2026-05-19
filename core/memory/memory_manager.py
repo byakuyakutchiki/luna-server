@@ -300,6 +300,77 @@ class MemoryManager:
             )
             self.redis.increment_daily_usage(self.tenant_id, "instructions_executed")
 
+    def update_instruction(self, instr_id: str, fields: Dict[str, Any]) -> Optional['Instruction']:
+        """Met à jour partiellement une instruction"""
+        from .schemas import Instruction as InstructionSchema
+        data = self.redis.get_instruction(self.tenant_id, instr_id)
+        if not data:
+            return None
+        for k, v in fields.items():
+            if v is None:
+                data[k] = ""
+            elif isinstance(v, bool):
+                data[k] = "1" if v else "0"
+            elif isinstance(v, (list, dict)):
+                data[k] = json.dumps(v, ensure_ascii=False)
+            else:
+                data[k] = str(v)
+        data["updated_at"] = datetime.utcnow().isoformat()
+        self.redis.client.hset(
+            self.redis.get_instruction_key(self.tenant_id, instr_id),
+            mapping=data
+        )
+        return self.get_instruction(instr_id)
+
+    def get_upcoming_executions(self, days: int = 7) -> List[Dict[str, Any]]:
+        """Retourne les instructions actives avec leur prochaine exécution estimée"""
+        import re as _re
+        from datetime import timedelta
+        instructions = self.list_active_instructions()
+        result = []
+        now = datetime.utcnow()
+        for instr in instructions:
+            if not instr.schedule:
+                continue
+            next_exec = self._estimate_next_execution(instr.schedule, now)
+            if next_exec and (next_exec - now).days <= days:
+                result.append({
+                    "instruction_id": instr.id,
+                    "description": instr.description,
+                    "schedule": instr.schedule,
+                    "next_execution": next_exec.isoformat(),
+                    "action": instr.action.value,
+                    "priority": instr.priority,
+                })
+        result.sort(key=lambda x: x["next_execution"])
+        return result
+
+    def _estimate_next_execution(self, schedule: str, from_dt: datetime) -> Optional[datetime]:
+        """Estime la prochaine exécution depuis une expression schedule (HH:MM ou cron daily)"""
+        import re as _re
+        from datetime import timedelta
+        m = _re.match(r'^(\d{1,2}):(\d{2})$', schedule)
+        if m:
+            h, mn = int(m.group(1)), int(m.group(2))
+            candidate = from_dt.replace(hour=h, minute=mn, second=0, microsecond=0)
+            if candidate <= from_dt:
+                candidate += timedelta(days=1)
+            return candidate
+        # Cron daily: "min h * * *"
+        m = _re.match(r'^(\d+) (\d+) \* \* \*$', schedule)
+        if m:
+            mn, h = int(m.group(1)), int(m.group(2))
+            candidate = from_dt.replace(hour=h, minute=mn, second=0, microsecond=0)
+            if candidate <= from_dt:
+                candidate += timedelta(days=1)
+            return candidate
+        return None
+
+    def get_execution_history(self, limit: int = 20) -> List[Dict[str, Any]]:
+        """Retourne l'historique des exécutions d'instructions depuis le journal d'événements"""
+        events = self.get_event_log(limit=min(limit * 4, 400))
+        return [e for e in events if e.get("category") == "instruction"][:limit]
+
     # ========================================================================
     # TASKS
     # ========================================================================

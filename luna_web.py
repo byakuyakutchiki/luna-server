@@ -8389,6 +8389,71 @@ async def create_instruction(req: InstructionRequest, request: Request):
         return JSONResponse(status_code=400, content={"error": str(e)})
 
 
+@app.get("/api/instructions/upcoming")
+async def get_upcoming_instructions(request: Request, days: int = 7):
+    """Prochaines executions estimees sur N jours"""
+    tid = getattr(request.state, "tenant_id", 1)
+    mgr = _get_tenant_manager(tid)
+    if not mgr:
+        return JSONResponse(status_code=503, content={"error": "Memoire non disponible"})
+    upcoming = mgr.get_upcoming_executions(days=days)
+    return {"upcoming": upcoming, "count": len(upcoming), "days": days}
+
+
+@app.get("/api/instructions/history")
+async def get_instructions_history(request: Request, limit: int = 20):
+    """Historique des executions d'instructions"""
+    tid = getattr(request.state, "tenant_id", 1)
+    mgr = _get_tenant_manager(tid)
+    if not mgr:
+        return JSONResponse(status_code=503, content={"error": "Memoire non disponible"})
+    history = mgr.get_execution_history(limit=limit)
+    return {"history": history, "count": len(history)}
+
+
+@app.get("/api/instructions/{instr_id}")
+async def get_single_instruction(instr_id: str, request: Request):
+    """Detail d'une instruction"""
+    tid = getattr(request.state, "tenant_id", 1)
+    mgr = _get_tenant_manager(tid)
+    if not mgr:
+        return JSONResponse(status_code=503, content={"error": "Memoire non disponible"})
+    instr = mgr.get_instruction(instr_id)
+    if not instr:
+        return JSONResponse(status_code=404, content={"error": "Instruction non trouvee"})
+    return {
+        "id": instr.id,
+        "type": instr.type.value,
+        "description": instr.description,
+        "schedule": instr.schedule,
+        "action": instr.action.value,
+        "target": instr.target,
+        "enabled": instr.enabled,
+        "message_template": instr.message_template,
+        "priority": instr.priority,
+        "execution_count": instr.execution_count,
+        "last_executed": instr.last_executed.isoformat() if instr.last_executed else None,
+        "created_at": instr.created_at.isoformat() if instr.created_at else None,
+    }
+
+
+@app.put("/api/instructions/{instr_id}")
+async def update_instruction_endpoint(instr_id: str, request: Request):
+    """Met a jour partiellement une instruction"""
+    tid = getattr(request.state, "tenant_id", 1)
+    mgr = _get_tenant_manager(tid)
+    if not mgr:
+        return JSONResponse(status_code=503, content={"error": "Memoire non disponible"})
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse(status_code=400, content={"error": "JSON invalide"})
+    instr = mgr.update_instruction(instr_id, body)
+    if not instr:
+        return JSONResponse(status_code=404, content={"error": "Instruction non trouvee"})
+    return {"success": True, "instruction": {"id": instr.id, "description": instr.description}}
+
+
 @app.delete("/api/instructions/{instr_id}")
 async def delete_instruction(instr_id: str, request: Request):
     """Desactive une instruction"""
