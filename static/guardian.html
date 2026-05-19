@@ -435,9 +435,8 @@ window.addEventListener('resize',_layoutUpdate);
 function reverseGeocode(lat,lng,cb){
   var key=lat.toFixed(3)+','+lng.toFixed(3);
   if(GEO_CACHE[key]){ cb(GEO_CACHE[key]); return; }
-  fetch('https://nominatim.openstreetmap.org/reverse?format=json&lat='+lat+'&lon='+lng+'&zoom=18',{
-    headers:{'User-Agent':'LunaGuardian/1.0'}
-  }).then(function(r){return r.json();}).then(function(d){
+  fetch('https://nominatim.openstreetmap.org/reverse?format=json&lat='+lat+'&lon='+lng+'&zoom=18&accept-language=fr')
+  .then(function(r){return r.json();}).then(function(d){
     var a=d.address||{};
     var parts=[];
     if(a.road) parts.push(a.road+(a.house_number?' '+a.house_number:''));
@@ -602,8 +601,7 @@ function startGps(){
     updateMapPos(lat,lng,acc);
     var now=Date.now();
     if(!SID||(now-LAST_GPS_SENT<10000&&LAST_GPS_SENT>0)){
-      // Mettre à jour l'adresse visuellement même sans envoyer
-      if(now-LAST_GPS_SENT>30000) updateAddressCard(lat,lng,acc,false,null);
+      updateAddressCard(lat,lng,acc,false,null); // GEO_CACHE évite le spam Nominatim
       return;
     }
     LAST_GPS_SENT=now;
