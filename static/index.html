@@ -2348,6 +2348,9 @@ tabBtns.forEach(function(btn) {
     if (btn.dataset.tab === "world") loadMonde();
     if (btn.dataset.tab === "theo") _theoLoad();
     if (btn.dataset.tab === "settings") loadSettings();
+    // Masquer le bouton voix flottant dans Monde (FABs propres au monde suffisent)
+    var vb = document.getElementById("lunaVoiceBtn");
+    if (vb) vb.style.display = btn.dataset.tab === "world" ? "none" : "";
   });
 });
 
