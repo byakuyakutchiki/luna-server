@@ -11062,21 +11062,22 @@ function setAvatarType(avatarType) {
    ═══════════════════════════════════════ */
 
 function loadWorld() {
+  var _f = function(url) { return apiFetch(url).catch(function() { return null; }); };
   Promise.all([
-    apiFetch("/api/world/player"),
-    apiFetch("/api/world/badges"),
-    apiFetch("/api/world/missions"),
-    apiFetch("/api/world/stability"),
-    apiFetch("/api/world/activity?limit=30"),
-    apiFetch("/api/profile").catch(function() { return null; }),
-    apiFetch("/api/contacts").catch(function() { return null; }),
-    apiFetch("/api/family").catch(function() { return null; }),
-    apiFetch("/api/world/shop").catch(function() { return null; }),
-    apiFetch("/api/world/inventory").catch(function() { return null; }),
-    apiFetch("/api/world/family").catch(function() { return null; }),
-    apiFetch("/api/social/profile").catch(function() { return null; }),
-    apiFetch("/api/social/friends").catch(function() { return null; }),
-    apiFetch("/api/weather").catch(function() { return null; })
+    _f("/api/world/player"),
+    _f("/api/world/badges"),
+    _f("/api/world/missions"),
+    _f("/api/world/stability"),
+    _f("/api/world/activity?limit=30"),
+    _f("/api/profile"),
+    _f("/api/contacts"),
+    _f("/api/family"),
+    _f("/api/world/shop"),
+    _f("/api/world/inventory"),
+    _f("/api/world/family"),
+    _f("/api/social/profile"),
+    _f("/api/social/friends"),
+    _f("/api/weather")
   ]).then(function(results) {
     state.player = results[0];
     state.badges = results[1];
@@ -11193,7 +11194,12 @@ function loadWorld() {
    ═══════════════════════════════════════ */
 
 if (!getToken()) {
-  if (_isEmbed) { /* Stay in iframe, don't redirect */ } else { window.location = "/"; }
+  if (_isEmbed) {
+    var _noTokLoader = document.getElementById("loadingOverlay");
+    if (_noTokLoader) _noTokLoader.innerHTML = '<div style="text-align:center;color:#f87171;padding:20px;font-size:.9em;">Session expirée<br><button onclick="window.top.location=\'/\'" style="margin-top:12px;padding:8px 20px;background:#7c3aed;color:#fff;border:none;border-radius:8px;cursor:pointer;">Reconnecter</button></div>';
+  } else {
+    window.location = "/";
+  }
 } else {
   /* Hide back button in embed mode */
   if (_isEmbed) {

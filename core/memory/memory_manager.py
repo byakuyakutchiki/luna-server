@@ -585,13 +585,27 @@ class MemoryManager:
     def list_notes(self, limit: int = 50, context: str = "") -> List[Note]:
         """Liste les notes récentes, avec filtre optionnel par context."""
         note_ids = self.redis.get_notes(self.tenant_id, limit=min(limit, 200))
+        if not note_ids:
+            return []
+        # Pipeline: fetch all hashes in one round-trip (évite N×RTT sur Redis distant)
+        try:
+            pipe = self.redis.client.pipeline(transaction=False)
+            for nid in note_ids:
+                pipe.hgetall(self.redis.get_note_key(self.tenant_id, nid))
+            raw_list = pipe.execute()
+        except Exception:
+            raw_list = [self.redis.get_note(self.tenant_id, nid) for nid in note_ids]
         notes = []
-        for note_id in note_ids:
-            note = self.get_note(note_id)
-            if note:
-                if context and note.context != context:
-                    continue
-                notes.append(note)
+        for data in raw_list:
+            if not data:
+                continue
+            try:
+                note = Note.from_redis(data)
+            except Exception:
+                continue
+            if context and note.context != context:
+                continue
+            notes.append(note)
             if len(notes) >= limit:
                 break
         return notes

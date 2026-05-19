@@ -404,7 +404,7 @@ body.mode-secretaire .conc-modal-box .field input, body.mode-secretaire .conc-mo
 .invite-status { font-size: 0.85em; color: #888; min-height: 1.2em; }
 
 /* Panel content */
-.panel-content { padding: 20px; max-width: 700px; margin: 0 auto; width: 100%; }
+.panel-content { padding: 20px 20px 90px; max-width: 700px; margin: 0 auto; width: 100%; }
 .panel-content h2 { color: #a78bfa; margin-bottom: 16px; font-size: 1.2em; }
 .panel-content h3 { color: #c4b5fd; margin: 16px 0 8px; font-size: 1em; }
 
@@ -7476,22 +7476,22 @@ function _theoMeditation(type) {
   }).catch(function(e) { resultEl.textContent = "Erreur: " + e; });
 }
 
-// Reminder: check pioneer hours proactively when loading chat
+// Reminder: check pioneer hours proactively when loading chat (once per 4h)
 (function() {
-  var origInitApp = window.initApp || function(){};
-  var _theoChecked = false;
+  var _THEO_NOTIF_KEY = "luna_theo_notif_ts";
+  var _THEO_NOTIF_INTERVAL = 4 * 3600 * 1000; // 4h en ms
   function _theoProactiveCheck() {
-    if (_theoChecked) return;
-    _theoChecked = true;
+    var last = parseInt(localStorage.getItem(_THEO_NOTIF_KEY) || "0", 10);
+    if (Date.now() - last < _THEO_NOTIF_INTERVAL) return; // déjà montré il y a moins de 4h
     authFetch("/api/theo/hours").then(function(r) { if (!r.ok) return null; return r.json(); }).then(function(d) {
       if (!d || !d.advice) return;
-      // Show a gentle reminder in chat
+      localStorage.setItem(_THEO_NOTIF_KEY, String(Date.now()));
       setTimeout(function() {
         var msg = "🙏 Rappel predication: " + d.advice.message;
         if (d.advice.alternatives && d.advice.alternatives.length) {
           msg += "\n\nAlternatives possibles:\n" + d.advice.alternatives.map(function(a) { return "→ " + a; }).join("\n");
         }
-        addMsg(msg, "luna");
+        addMsg(msg, "luna", undefined, true); // skipSave=true : ne pas persister dans l'historique
       }, 5000);
     }).catch(function() {});
   }
@@ -7499,7 +7499,6 @@ function _theoMeditation(type) {
   var _origInit = initApp;
   initApp = function() {
     _origInit();
-    // Check after 3s if behind on hours
     setTimeout(_theoProactiveCheck, 3000);
   };
 })();
