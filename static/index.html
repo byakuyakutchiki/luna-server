@@ -11,7 +11,7 @@
 <title>Luna - YAWatch</title>
 <style>
 * { margin:0; padding:0; box-sizing:border-box; }
-body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #0a0a1a; color: #e0e0e0; height: 100vh; height: 100dvh; display: flex; flex-direction: column; padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #0a0a1a; color: #e0e0e0; height: 100vh; height: 100dvh; display: flex; flex-direction: column; padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); box-sizing: border-box; }
 .header { background: linear-gradient(135deg, #1a1a3e, #2d1b69); padding: 16px 20px; text-align: center; border-bottom: 1px solid #333; }
 .header h1 { font-size: 1.4em; color: #a78bfa; display: inline-flex; align-items: center; gap: 8px; }
 .header p { font-size: 0.8em; color: #888; margin-top: 2px; }
@@ -824,6 +824,8 @@ body.mode-secretaire .luna-chip:hover { background: rgba(16,185,129,0.2); border
   #lunaVoiceStatus { bottom:118px; right:8px; }
   #lunaVoiceTranscript { bottom:118px; left:8px; right:60px; max-height:80px; }
 }
+.instr-day-btn { padding:5px 10px; border-radius:20px; border:1px solid #444; background:#111; color:#888; cursor:pointer; font-size:.8em; transition:all .15s; }
+.instr-day-btn.instr-day-active { border-color:#7c3aed; background:rgba(124,58,237,.2); color:#a78bfa; }
 </style>
 </head>
 <body>
@@ -852,7 +854,7 @@ body.mode-secretaire .luna-chip:hover { background: rgba(16,185,129,0.2); border
   </div>
 </div>
 
-<div class="app-container" id="appContainer">
+<div class="app-container" id="appContainer" style="display:none;">
 <div class="header" style="display:flex;justify-content:space-between;align-items:center;">
   <div style="display:flex;align-items:center;gap:8px;">
     <button class="sidebar-toggle" id="sidebarToggle" title="Historique">
@@ -893,13 +895,13 @@ body.mode-secretaire .luna-chip:hover { background: rgba(16,185,129,0.2); border
   <button class="tab-btn active" data-tab="chat">Chat</button>
   <button class="tab-btn" data-tab="conciergerie">Conciergerie</button>
   <button class="tab-btn" data-tab="amis" data-modes="compagnon">Amis<span class="tab-badge" id="amisBadge" style="display:none">0</span></button>
-  <button class="tab-btn" data-tab="activities" data-modes="compagnon" style="color:#f59e0b;">Activites</button>
+  <button class="tab-btn" data-tab="activities" data-modes="compagnon">Activites</button>
   <button class="tab-btn" data-tab="world" data-modes="compagnon" style="color:#a78bfa;">Monde</button>
   <button class="tab-btn" data-tab="contacts" data-modes="secretaire">Contacts</button>
   <button class="tab-btn" data-tab="instructions" data-modes="secretaire">Instructions</button>
   <button class="tab-btn" data-tab="documents" data-modes="secretaire">Documents</button>
   <button class="tab-btn" data-tab="callreports">Rapports</button>
-  <button class="tab-btn" data-tab="formulaires" data-modes="secretaire" style="color:#4ade80;">Formulaires</button>
+  <button class="tab-btn" data-tab="formulaires" data-modes="secretaire">Formulaires</button>
   <button class="tab-btn" data-tab="map" data-modes="secretaire">Carte</button>
   <button class="tab-btn" data-tab="guardian" style="color:#f87171;" onclick="window.location.href='/guardian'">🛡️ Guardian</button>
   <button class="tab-btn" data-tab="profile">Profil</button>
@@ -1467,11 +1469,65 @@ body.mode-secretaire .luna-chip:hover { background: rgba(16,185,129,0.2); border
     </div>
 
     <!-- Formulaire nouvelle instruction -->
-    <h3 style="margin-bottom:6px;">Nouvelle instruction (langage naturel)</h3>
+    <h3 style="margin-bottom:6px;">Nouvelle instruction</h3>
     <div class="form-group">
-      <textarea id="instr-text" placeholder="Rappelle-moi de prendre mes médicaments tous les jours à 8h&#10;Envoie un SMS à Marie tous les dimanches à 10h&#10;Si je ne réponds pas pendant 24h, alerte mes contacts" rows="3"></textarea>
+      <textarea id="instr-text" placeholder="Rappelle-moi de prendre mes médicaments&#10;Envoie un SMS à Marie le dimanche&#10;Si je ne réponds pas pendant 24h, alerte mes contacts" rows="2"></textarea>
     </div>
-    <button class="btn btn-primary" id="instrAddBtn">Créer l'instruction</button>
+
+    <!-- Planification -->
+    <div style="background:#0d0d1a;border:1px solid #333;border-radius:10px;padding:12px;margin-bottom:12px;">
+      <div style="font-size:.83em;font-weight:600;color:#a78bfa;margin-bottom:10px;">⏰ Planification</div>
+
+      <!-- Fréquence -->
+      <div style="display:flex;gap:18px;margin-bottom:10px;">
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:.87em;">
+          <input type="radio" name="instr-freq" value="once" id="instr-freq-once" checked> Une fois
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:.87em;">
+          <input type="radio" name="instr-freq" value="recurring" id="instr-freq-recurring"> Récurrent
+        </label>
+      </div>
+
+      <!-- Heure -->
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+        <label style="font-size:.82em;color:#aaa;min-width:44px;">Heure</label>
+        <input type="time" id="instr-time" style="flex:1;background:#1a1a2e;border:1px solid #444;border-radius:8px;color:#fff;padding:7px 10px;font-size:.9em;">
+      </div>
+
+      <!-- Date (mode "une fois") -->
+      <div id="instr-date-row" style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
+        <label style="font-size:.82em;color:#aaa;min-width:44px;">Date</label>
+        <input type="date" id="instr-date" style="flex:1;background:#1a1a2e;border:1px solid #444;border-radius:8px;color:#fff;padding:7px 10px;font-size:.9em;">
+      </div>
+
+      <!-- Jours (mode récurrent) -->
+      <div id="instr-days-row" style="display:none;">
+        <div style="font-size:.82em;color:#aaa;margin-bottom:6px;">Jours</div>
+        <div style="display:flex;gap:5px;flex-wrap:wrap;" id="instrDayBtns">
+          <button type="button" data-day="lun" class="instr-day-btn instr-day-active">Lun</button>
+          <button type="button" data-day="mar" class="instr-day-btn instr-day-active">Mar</button>
+          <button type="button" data-day="mer" class="instr-day-btn instr-day-active">Mer</button>
+          <button type="button" data-day="jeu" class="instr-day-btn instr-day-active">Jeu</button>
+          <button type="button" data-day="ven" class="instr-day-btn instr-day-active">Ven</button>
+          <button type="button" data-day="sam" class="instr-day-btn">Sam</button>
+          <button type="button" data-day="dim" class="instr-day-btn">Dim</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bouton aperçu -->
+    <button class="btn btn-primary" id="instrPreviewBtn">👁 Vérifier &amp; Confirmer</button>
+
+    <!-- Panel aperçu / confirmation -->
+    <div id="instrPreviewPanel" style="display:none;background:#1a1a2e;border:1px solid #7c3aed;border-radius:10px;padding:12px 14px;margin-top:10px;">
+      <div style="font-weight:600;color:#a78bfa;margin-bottom:8px;">✅ Récapitulatif</div>
+      <div id="instrPreviewText" style="font-size:.88em;line-height:1.55;margin-bottom:12px;white-space:pre-wrap;color:#e0e0e0;"></div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn-primary" id="instrConfirmBtn" style="flex:1;">Confirmer</button>
+        <button class="btn" id="instrCancelBtn">Annuler</button>
+      </div>
+    </div>
+
     <p class="form-status" id="instrStatus"></p>
     <div id="instrConfirmation" style="display:none; margin-top: 12px;" class="card">
       <div class="card-body" id="instrConfirmText"></div>
@@ -1563,7 +1619,7 @@ body.mode-secretaire .luna-chip:hover { background: rgba(16,185,129,0.2); border
       <button class="notes-subtab" onclick="switchNotesTab('notes',this)">&#9998; Mes Notes</button>
       <button class="notes-subtab" onclick="switchNotesTab('meetings',this)">&#128187; Réunions</button>
     </div>
-    <div id="notesReports"><p class="empty-state">Chargement...</p></div>
+    <div id="notesReports"></div>
     <div id="notesNotes" style="display:none"></div>
     <div id="notesMeetings" style="display:none">
       <!-- Explication -->
@@ -4156,31 +4212,89 @@ function useInstrTemplate(text) {
   }
 }
 
-document.getElementById("instrAddBtn").addEventListener("click", function() {
+// Scheduling — toggle date/jours selon fréquence
+document.querySelectorAll('input[name="instr-freq"]').forEach(function(r) {
+  r.addEventListener("change", function() {
+    var once = r.value === "once";
+    document.getElementById("instr-date-row").style.display = once ? "" : "none";
+    document.getElementById("instr-days-row").style.display = once ? "none" : "";
+  });
+});
+
+// Scheduling — toggle jour actif/inactif
+document.getElementById("instrDayBtns").addEventListener("click", function(e) {
+  var btn = e.target.closest(".instr-day-btn");
+  if (btn) btn.classList.toggle("instr-day-active");
+});
+
+// Construit le suffixe de planification en langage naturel
+function _buildScheduleSuffix() {
+  var freq = document.querySelector('input[name="instr-freq"]:checked').value;
+  var time = document.getElementById("instr-time").value;
+  var parts = [];
+  if (freq === "once") {
+    var dateVal = document.getElementById("instr-date").value;
+    if (dateVal) {
+      try {
+        var d = new Date(dateVal + "T00:00:00");
+        parts.push("le " + d.toLocaleDateString("fr-FR", {day:"numeric",month:"long",year:"numeric"}));
+      } catch(e) { parts.push("le " + dateVal); }
+    }
+    if (time) parts.push("à " + time);
+  } else {
+    var days = [];
+    document.querySelectorAll(".instr-day-btn.instr-day-active").forEach(function(b) { days.push(b.dataset.day); });
+    if (days.length === 7) parts.push("tous les jours");
+    else if (days.length > 0) parts.push("tous les " + days.join(", "));
+    if (time) parts.push("à " + time);
+  }
+  return parts.join(" ");
+}
+
+// Bouton "Vérifier & Confirmer" → affiche l'aperçu
+document.getElementById("instrPreviewBtn").addEventListener("click", function() {
   var st = document.getElementById("instrStatus");
-  var conf = document.getElementById("instrConfirmation");
   var text = document.getElementById("instr-text").value.trim();
   if (!text) { st.textContent = "Écris une instruction."; st.className = "form-status error"; return; }
-  st.textContent = "Analyse en cours..."; st.className = "form-status"; conf.style.display = "none";
-  authFetch("/api/instructions", { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({text: text}) })
+  var suffix = _buildScheduleSuffix();
+  var fullText = text + (suffix ? " " + suffix : "");
+  document.getElementById("instrPreviewText").textContent = fullText;
+  document.getElementById("instrPreviewPanel").style.display = "";
+  st.textContent = ""; st.className = "form-status";
+  document.getElementById("instrPreviewPanel").scrollIntoView({behavior:"smooth",block:"center"});
+  // Stocker le texte complet pour la confirmation
+  document.getElementById("instrPreviewPanel").dataset.fullText = fullText;
+});
+
+// Bouton "Annuler" dans l'aperçu
+document.getElementById("instrCancelBtn").addEventListener("click", function() {
+  document.getElementById("instrPreviewPanel").style.display = "none";
+});
+
+// Bouton "Confirmer" — envoie à l'API
+document.getElementById("instrConfirmBtn").addEventListener("click", function() {
+  var st = document.getElementById("instrStatus");
+  var conf = document.getElementById("instrConfirmation");
+  var fullText = document.getElementById("instrPreviewPanel").dataset.fullText || "";
+  if (!fullText) { st.textContent = "Erreur : texte manquant."; st.className = "form-status error"; return; }
+  st.textContent = "Création en cours..."; st.className = "form-status";
+  conf.style.display = "none";
+  document.getElementById("instrPreviewPanel").style.display = "none";
+  authFetch("/api/instructions", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({text:fullText})})
   .then(function(r) { return r.json(); })
   .then(function(data) {
     if (data.success) {
-      st.textContent = "Instruction créée."; st.className = "form-status success";
+      st.textContent = "Instruction créée ✓"; st.className = "form-status success";
       var confText = data.confirmation || "";
-      // Ajouter disclaimer médical si pertinent
-      if (/médic|medic|cachet|comprim/i.test(text)) {
+      if (/médic|medic|cachet|comprim/i.test(fullText)) {
         confText += "\n\n⚕️ Rappel : Luna vous rappelle de prendre vos médicaments. Ce n'est pas un conseil médical — consultez votre médecin pour tout avis médical.";
       }
-      if (confText) {
-        document.getElementById("instrConfirmText").textContent = confText;
-        conf.style.display = "block";
-      }
+      if (confText) { document.getElementById("instrConfirmText").textContent = confText; conf.style.display = "block"; }
       document.getElementById("instr-text").value = "";
       loadInstructions();
-    } else { st.textContent = "Erreur: " + (data.error || "inconnue"); st.className = "form-status error"; }
+    } else { st.textContent = "Erreur : " + (data.error || "inconnue"); st.className = "form-status error"; }
   })
-  .catch(function(e) { st.textContent = "Erreur: " + e.message; st.className = "form-status error"; });
+  .catch(function(e) { st.textContent = "Erreur : " + e.message; st.className = "form-status error"; });
 });
 
 // =========================================================================
@@ -6726,7 +6840,7 @@ function stopPaymentPolling() {
   function _showVoiceBtn() {
     var app = document.getElementById("appContainer");
     var worldActive = document.getElementById("tab-world") && document.getElementById("tab-world").classList.contains("active");
-    if (app && app.style.display !== "none" && getToken() && !worldActive) voiceBtn.style.display = "flex";
+    if (app && window.getComputedStyle(app).display !== "none" && getToken() && !worldActive) voiceBtn.style.display = "flex";
     else voiceBtn.style.display = "none";
   }
   var _voiceBtnInterval = setInterval(function() { _showVoiceBtn(); }, 1000);

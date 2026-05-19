@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 
 import os
 
-OPENAI_REALTIME_MODEL = os.getenv("OPENAI_REALTIME_MODEL", "gpt-4o-realtime-preview-2024-12-17")
+OPENAI_REALTIME_MODEL = os.getenv("OPENAI_REALTIME_MODEL", "gpt-realtime")
 OPENAI_REALTIME_URL = f"wss://api.openai.com/v1/realtime?model={OPENAI_REALTIME_MODEL}"
 OPENAI_VOICE_NAME = os.getenv("OPENAI_VOICE_NAME", "alloy")
 
