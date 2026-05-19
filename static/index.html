@@ -901,6 +901,7 @@ body.mode-secretaire .luna-chip:hover { background: rgba(16,185,129,0.2); border
   <button class="tab-btn" data-tab="callreports">Rapports</button>
   <button class="tab-btn" data-tab="formulaires" data-modes="secretaire" style="color:#4ade80;">Formulaires</button>
   <button class="tab-btn" data-tab="map" data-modes="secretaire">Carte</button>
+  <button class="tab-btn" data-tab="guardian" style="color:#f87171;">🛡️ Guardian</button>
   <button class="tab-btn" data-tab="profile">Profil</button>
   <button class="tab-btn" data-tab="perception">Perception</button>
   <button class="tab-btn" data-tab="quotas">Quotas</button>
@@ -1118,6 +1119,77 @@ body.mode-secretaire .luna-chip:hover { background: rgba(16,185,129,0.2); border
       <button class="cancel" onclick="_concModalClose()">Annuler</button>
       <button class="submit" id="concModalSubmit">Rechercher</button>
     </div>
+  </div>
+</div>
+
+<!-- Guardian Tab -->
+<div class="tab-panel" id="tab-guardian">
+  <div class="panel-content">
+    <h2>🛡️ Guardian — Surveillance géolocalisée</h2>
+
+    <!-- Disclaimer RGPD -->
+    <div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:0.83em;color:#7f1d1d;">
+      <strong>🔒 RGPD</strong> — La position GPS n'est transmise que lorsque Guardian est actif. Aucune image n'est stockée. Les coordonnées sont supprimées après 24h. Luna Guardian est un outil de prévention, pas un dispositif médical certifié.
+    </div>
+
+    <!-- Statut session -->
+    <div id="guardianStatus" style="background:#1a1a2e;border-radius:10px;padding:14px;margin-bottom:14px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+      <div id="guardianStatusDot" style="width:14px;height:14px;border-radius:50%;background:#6b7280;flex-shrink:0;"></div>
+      <div style="flex:1;">
+        <div id="guardianStatusLabel" style="font-weight:700;font-size:0.95em;">Guardian inactif</div>
+        <div id="guardianStatusSub" style="font-size:0.78em;color:#9ca3af;margin-top:2px;">Sélectionne un profil et démarre la surveillance</div>
+      </div>
+      <div id="guardianRiskBadge" style="display:none;padding:4px 12px;border-radius:20px;font-size:0.8em;font-weight:700;"></div>
+    </div>
+
+    <!-- Profil + Zone sûre -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
+      <div>
+        <label style="font-size:0.82em;color:#9ca3af;display:block;margin-bottom:4px;">Profil</label>
+        <select id="guardianProfile" class="form-control" style="width:100%;">
+          <option value="senior">👴 Senior</option>
+          <option value="dog">🐕 Animal</option>
+          <option value="baby">👶 Bébé/Enfant</option>
+          <option value="home">🏠 Domicile</option>
+        </select>
+      </div>
+      <div>
+        <label style="font-size:0.82em;color:#9ca3af;display:block;margin-bottom:4px;">Immobilité alerte (min)</label>
+        <input type="number" id="guardianImmoThreshold" class="form-control" value="30" min="5" max="120" style="width:100%;">
+      </div>
+    </div>
+
+    <!-- Zone sûre (domicile) -->
+    <div id="guardianSafeZoneSection" style="margin-bottom:12px;">
+      <label style="font-size:0.82em;color:#9ca3af;display:block;margin-bottom:4px;">Zone sûre (optionnel — utilise ta position actuelle)</label>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <input type="text" id="guardianZoneName" class="form-control" placeholder="ex: Domicile" style="flex:1;">
+        <input type="number" id="guardianZoneRadius" class="form-control" placeholder="Rayon (m)" value="150" style="width:100px;">
+        <button class="btn btn-sm" onclick="guardianCaptureZone()" style="white-space:nowrap;font-size:0.8em;">📍 Ma position</button>
+      </div>
+      <div id="guardianZoneStatus" style="font-size:0.78em;color:#9ca3af;margin-top:3px;"></div>
+    </div>
+
+    <!-- Boutons start/stop + SOS -->
+    <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;">
+      <button id="guardianStartBtn" class="btn btn-primary" onclick="guardianStart()" style="flex:1;min-width:120px;">▶ Démarrer</button>
+      <button id="guardianStopBtn" class="btn" onclick="guardianStop()" style="flex:1;min-width:120px;display:none;">⏹ Arrêter</button>
+      <button id="guardianSosBtn" class="btn btn-danger" onclick="guardianSOS()" style="flex:1;min-width:120px;display:none;font-weight:700;font-size:1em;">🆘 SOS</button>
+    </div>
+
+    <!-- Position actuelle -->
+    <div id="guardianPositionCard" style="display:none;background:#0f172a;border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:0.83em;">
+      <div style="color:#9ca3af;margin-bottom:4px;">📍 Position actuelle</div>
+      <div id="guardianPosText" style="font-family:monospace;color:#e2e8f0;"></div>
+      <div id="guardianPosDetail" style="color:#9ca3af;margin-top:2px;"></div>
+    </div>
+
+    <!-- Events récents -->
+    <h3 style="margin-bottom:8px;font-size:0.95em;">Événements récents</h3>
+    <div id="guardianEventsList" style="max-height:240px;overflow-y:auto;"></div>
+
+    <!-- Statut alerte -->
+    <p class="form-status" id="guardianMsg"></p>
   </div>
 </div>
 
@@ -4084,6 +4156,254 @@ document.getElementById("instrAddBtn").addEventListener("click", function() {
     } else { st.textContent = "Erreur: " + (data.error || "inconnue"); st.className = "form-status error"; }
   })
   .catch(function(e) { st.textContent = "Erreur: " + e.message; st.className = "form-status error"; });
+});
+
+// =========================================================================
+// GUARDIAN — Surveillance géolocalisée
+// =========================================================================
+var _guardianSessionId = null;
+var _guardianWs = null;
+var _guardianWatchId = null;       // navigator.geolocation.watchPosition ID
+var _guardianSafeZonePending = null; // {name, radius_m, lat, lng}
+var _guardianRiskColors = {low:"#22c55e", medium:"#f59e0b", high:"#ef4444", critical:"#dc2626"};
+
+function guardianSetStatus(label, sub, dotColor, riskLevel) {
+  var dot = document.getElementById("guardianStatusDot");
+  var lbl = document.getElementById("guardianStatusLabel");
+  var slbl = document.getElementById("guardianStatusSub");
+  var badge = document.getElementById("guardianRiskBadge");
+  if (dot) dot.style.background = dotColor || "#6b7280";
+  if (lbl) lbl.textContent = label || "";
+  if (slbl) slbl.textContent = sub || "";
+  if (badge) {
+    if (riskLevel && riskLevel !== "low") {
+      badge.style.display = "inline-block";
+      badge.style.background = _guardianRiskColors[riskLevel] || "#6b7280";
+      badge.style.color = "#fff";
+      badge.textContent = riskLevel.toUpperCase();
+    } else {
+      badge.style.display = "none";
+    }
+  }
+}
+
+function guardianCaptureZone() {
+  if (!navigator.geolocation) { alert("Géolocalisation non disponible"); return; }
+  var st = document.getElementById("guardianZoneStatus");
+  if (st) st.textContent = "Obtention de la position...";
+  navigator.geolocation.getCurrentPosition(function(pos) {
+    var name = document.getElementById("guardianZoneName").value.trim() || "Domicile";
+    var radius = parseFloat(document.getElementById("guardianZoneRadius").value) || 150;
+    _guardianSafeZonePending = {name: name, lat: pos.coords.latitude, lng: pos.coords.longitude, radius_m: radius};
+    if (st) st.textContent = "✅ Zone capturée : " + name + " (" + radius + "m) — lat=" + pos.coords.latitude.toFixed(5) + ", lng=" + pos.coords.longitude.toFixed(5);
+  }, function(err) {
+    if (st) st.textContent = "❌ Erreur GPS: " + err.message;
+  });
+}
+
+function guardianStart() {
+  if (!navigator.geolocation) { alert("Géolocalisation non disponible sur cet appareil."); return; }
+  var profile = document.getElementById("guardianProfile").value;
+  var immo = parseInt(document.getElementById("guardianImmoThreshold").value) || 30;
+  var config = {immobility_threshold_minutes: immo, safe_zones: []};
+  if (_guardianSafeZonePending) config.safe_zones = [_guardianSafeZonePending];
+
+  guardianSetStatus("Démarrage...", "Connexion en cours", "#f59e0b");
+  authFetch("/api/guardian/start", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({profile_type: profile, config: config})
+  }).then(function(r) { return r.json(); }).then(function(data) {
+    if (!data.success) throw new Error(data.error || "Erreur démarrage");
+    _guardianSessionId = data.session_id;
+    guardianSetStatus("Guardian actif", "Profil: " + data.profile_type, "#22c55e");
+    document.getElementById("guardianStartBtn").style.display = "none";
+    document.getElementById("guardianStopBtn").style.display = "";
+    document.getElementById("guardianSosBtn").style.display = "";
+    document.getElementById("guardianPositionCard").style.display = "";
+    guardianConnectWs();
+    guardianStartGps();
+    guardianLoadEvents();
+  }).catch(function(e) {
+    guardianSetStatus("Erreur démarrage", e.message, "#ef4444");
+    var msg = document.getElementById("guardianMsg");
+    if (msg) { msg.textContent = "Erreur: " + e.message; msg.className = "form-status error"; }
+  });
+}
+
+function guardianStop() {
+  if (!_guardianSessionId) return;
+  authFetch("/api/guardian/stop/" + _guardianSessionId, {method: "POST"})
+  .then(function() {
+    if (_guardianWs) { try { _guardianWs.close(); } catch(e) {} _guardianWs = null; }
+    if (_guardianWatchId !== null) { navigator.geolocation.clearWatch(_guardianWatchId); _guardianWatchId = null; }
+    _guardianSessionId = null;
+    guardianSetStatus("Guardian arrêté", "Session terminée", "#6b7280");
+    document.getElementById("guardianStartBtn").style.display = "";
+    document.getElementById("guardianStopBtn").style.display = "none";
+    document.getElementById("guardianSosBtn").style.display = "none";
+    document.getElementById("guardianPositionCard").style.display = "none";
+    document.getElementById("guardianRiskBadge").style.display = "none";
+  });
+}
+
+function guardianSOS() {
+  if (!_guardianSessionId) { alert("Guardian non actif"); return; }
+  if (!confirm("🆘 Confirmer l'envoi du SOS à vos contacts de confiance ?")) return;
+  authFetch("/api/guardian/sos/" + _guardianSessionId, {method: "POST"})
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    var msg = document.getElementById("guardianMsg");
+    if (msg) { msg.textContent = data.message || "SOS envoyé !"; msg.className = "form-status error"; }
+    guardianSetStatus("🆘 SOS envoyé", data.message || "", "#dc2626", "critical");
+    guardianLoadEvents();
+  });
+}
+
+function guardianConnectWs() {
+  if (!_guardianSessionId) return;
+  var proto = location.protocol === "https:" ? "wss" : "ws";
+  var wsUrl = proto + "://" + location.host + "/api/guardian/ws/" + _guardianSessionId;
+  try {
+    _guardianWs = new WebSocket(wsUrl);
+    _guardianWs.onopen = function() { _guardianWs.send(JSON.stringify({type:"ping"})); };
+    _guardianWs.onmessage = function(evt) {
+      try {
+        var msg = JSON.parse(evt.data);
+        guardianHandleWsMsg(msg);
+      } catch(e) {}
+    };
+    _guardianWs.onclose = function() {
+      // Reconnexion si session encore active
+      if (_guardianSessionId) setTimeout(function() { if (_guardianSessionId) guardianConnectWs(); }, 3000);
+    };
+  } catch(e) { console.warn("Guardian WS:", e); }
+}
+
+function guardianHandleWsMsg(msg) {
+  if (msg.type === "risk_update" || msg.type === "update") {
+    var color = _guardianRiskColors[msg.level] || "#6b7280";
+    guardianSetStatus("Guardian actif", "Risque: " + (msg.level || "low"), color, msg.level);
+    document.getElementById("guardianStatusDot").style.background = color;
+  } else if (msg.type === "alert") {
+    var d = msg.data || {};
+    guardianShowAlert(d.description || "Alerte Guardian", d.lat, d.lng);
+    guardianLoadEvents();
+  } else if (msg.type === "sos") {
+    guardianShowAlert("🆘 SOS activé", null, null);
+  } else if (msg.type === "verification_needed") {
+    guardianShowVerification(msg.message || "Tout va bien ?");
+  }
+}
+
+function guardianShowAlert(description, lat, lng) {
+  var mapsLink = (lat && lng) ? " — <a href='https://maps.google.com/?q=" + lat + "," + lng + "' target='_blank'>Voir sur Maps</a>" : "";
+  var el = document.getElementById("guardianMsg");
+  if (el) { el.innerHTML = "🔔 " + esc(description) + mapsLink; el.className = "form-status error"; }
+  // Notification browser si disponible
+  if (window.Notification && Notification.permission === "granted") {
+    new Notification("🛡️ Luna Guardian", {body: description, icon: "/favicon.ico"});
+  }
+}
+
+function guardianShowVerification(message) {
+  var el = document.getElementById("guardianMsg");
+  if (el) {
+    el.innerHTML = '⚠️ ' + esc(message) + ' <button class="btn btn-sm" style="margin-left:8px;" onclick="guardianVerify(true)">✅ Oui, ça va</button> <button class="btn btn-danger btn-sm" onclick="guardianVerify(false)">❌ Besoin d\'aide</button>';
+    el.className = "form-status";
+  }
+}
+
+function guardianVerify(ok) {
+  if (!_guardianSessionId) return;
+  authFetch("/api/guardian/verify-response/" + _guardianSessionId, {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({ok: ok})
+  }).then(function(r) { return r.json(); }).then(function(data) {
+    var el = document.getElementById("guardianMsg");
+    if (el) { el.textContent = data.message || ""; el.className = "form-status " + (ok ? "success" : "error"); }
+    guardianLoadEvents();
+  });
+}
+
+function guardianStartGps() {
+  if (!navigator.geolocation || !_guardianSessionId) return;
+  var lastSent = 0;
+  _guardianWatchId = navigator.geolocation.watchPosition(function(pos) {
+    var now = Date.now();
+    // Throttle : une mise à jour toutes les 10 secondes maximum
+    if (now - lastSent < 10000) return;
+    lastSent = now;
+    var lat = pos.coords.latitude;
+    var lng = pos.coords.longitude;
+    var accuracy = pos.coords.accuracy;
+    var speed = pos.coords.speed;  // m/s, null si inconnu
+
+    // Afficher la position
+    var posText = document.getElementById("guardianPosText");
+    var posDetail = document.getElementById("guardianPosDetail");
+    if (posText) posText.textContent = lat.toFixed(6) + ", " + lng.toFixed(6);
+    if (posDetail) posDetail.textContent = "Précision: " + Math.round(accuracy) + "m" + (speed !== null ? " | Vitesse: " + (speed * 3.6).toFixed(1) + " km/h" : "");
+
+    // Envoyer au serveur (REST HTTP, le WS ne gère que les events push)
+    if (_guardianSessionId) {
+      authFetch("/api/guardian/location/" + _guardianSessionId, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({lat: lat, lng: lng, accuracy: accuracy, speed: speed})
+      }).then(function(r) { return r.json(); }).then(function(data) {
+        var level = data.risk_level || "low";
+        var color = _guardianRiskColors[level] || "#6b7280";
+        guardianSetStatus("Guardian actif", "Risque: " + level + (data.description ? " — " + data.description : ""), color, level);
+        if (level !== "low") guardianLoadEvents();
+      }).catch(function() {});
+    }
+  }, function(err) {
+    guardianSetStatus("Erreur GPS", err.message, "#ef4444");
+  }, {
+    enableHighAccuracy: true,
+    maximumAge: 5000,
+    timeout: 15000
+  });
+
+  // Demander permission notifications
+  if (window.Notification && Notification.permission === "default") {
+    Notification.requestPermission();
+  }
+}
+
+function guardianLoadEvents() {
+  if (!_guardianSessionId) return;
+  authFetch("/api/guardian/events/" + _guardianSessionId + "?limit=20")
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    var list = document.getElementById("guardianEventsList");
+    if (!list) return;
+    if (!data.events || data.events.length === 0) {
+      list.innerHTML = '<p class="empty-state" style="font-size:0.82em;">Aucun événement récent.</p>';
+      return;
+    }
+    var icons = {location_update:"📍", geofence_exit:"⚠️", geofence_enter:"✅", immobility_detected:"⏸️",
+      alert_triggered:"🔔", alert_escalated:"📢", sos_triggered:"🆘", verification_needed:"❓",
+      verified_ok:"✅", session_stopped:"⏹️"};
+    list.innerHTML = data.events.map(function(evt) {
+      var icon = icons[evt.event_type] || "•";
+      var ts = evt.timestamp ? evt.timestamp.substring(11,16) : "";
+      var mapsLink = (evt.lat && evt.lng) ? ' <a href="https://maps.google.com/?q=' + evt.lat + ',' + evt.lng + '" target="_blank" style="font-size:0.9em;">Maps</a>' : "";
+      return '<div style="display:flex;gap:8px;padding:5px 0;border-bottom:1px solid #1e293b;font-size:0.8em;">' +
+        '<span style="color:#9ca3af;flex-shrink:0;width:38px;">' + ts + '</span>' +
+        '<span>' + icon + ' ' + esc(evt.description || evt.event_type) + mapsLink + '</span>' +
+        '</div>';
+    }).join("");
+  }).catch(function() {});
+}
+
+// Rafraîchir les events quand on ouvre l'onglet
+document.querySelectorAll('.tab-btn[data-tab="guardian"]').forEach(function(btn) {
+  btn.addEventListener("click", function() {
+    if (_guardianSessionId) guardianLoadEvents();
+  });
 });
 
 // =========================================================================

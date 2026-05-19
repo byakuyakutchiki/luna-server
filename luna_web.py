@@ -8502,6 +8502,342 @@ async def execute_instruction(instr_id: str, request: Request):
 
 
 # =========================================================================
+# GUARDIAN ENDPOINTS — Surveillance géolocalisée (sans caméra)
+# =========================================================================
+#
+# Pipeline : Position GPS → Signaux comportementaux → RiskScore → Alerte
+# Contacts de confiance reçoivent un SMS avec lien Google Maps précis.
+# Pas de stockage d'images — RGPD OK.
+#
+
+try:
+    from core.guardian.engine import GuardianEngine, get_profile_templates
+    from core.guardian.alerts import send_guardian_alerts
+    _GUARDIAN_AVAILABLE = True
+except ImportError as _e:
+    logger.warning(f"Guardian module non disponible: {_e}")
+    _GUARDIAN_AVAILABLE = False
+
+_guardian_engine: Optional[object] = None
+
+def _get_guardian() -> Optional["GuardianEngine"]:
+    global _guardian_engine
+    if not _GUARDIAN_AVAILABLE:
+        return None
+    if _guardian_engine is None and _redis_client:
+        _guardian_engine = GuardianEngine(
+            redis_client=_redis_client,
+            openai_client=openai_client,
+        )
+    return _guardian_engine
+
+
+@app.post("/api/guardian/start")
+async def guardian_start(request: Request):
+    """Démarre une session Guardian pour le tenant."""
+    tid = getattr(request.state, "tenant_id", 1)
+    engine = _get_guardian()
+    if not engine:
+        return JSONResponse(status_code=503, content={"error": "Guardian non disponible"})
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    config = body.get("config", {})
+    profile_type = body.get("profile_type", config.pop("profile_type", "senior"))
+    session = engine.create_session(tenant_id=tid, profile_type=profile_type, config=config)
+    return {
+        "success": True,
+        "session_id": session.session_id,
+        "profile_type": session.profile_type.value,
+        "config": session.config,
+    }
+
+
+@app.post("/api/guardian/stop/{session_id}")
+async def guardian_stop(session_id: str, request: Request):
+    """Arrête une session Guardian."""
+    engine = _get_guardian()
+    if not engine:
+        return JSONResponse(status_code=503, content={"error": "Guardian non disponible"})
+    ok = engine.stop_session(session_id)
+    if not ok:
+        return JSONResponse(status_code=404, content={"error": "Session introuvable"})
+    return {"success": True, "session_id": session_id}
+
+
+@app.get("/api/guardian/status/{session_id}")
+async def guardian_status(session_id: str, request: Request):
+    """Statut temps réel d'une session."""
+    engine = _get_guardian()
+    if not engine:
+        return JSONResponse(status_code=503, content={"error": "Guardian non disponible"})
+    session = engine.get_session(session_id)
+    if not session:
+        return JSONResponse(status_code=404, content={"error": "Session introuvable"})
+    pos = session.last_position
+    return {
+        "session_id": session_id,
+        "profile_type": session.profile_type.value,
+        "is_active": session.is_active,
+        "started_at": session.started_at,
+        "is_immobile": session.is_immobile,
+        "immobile_since": session.immobile_since,
+        "in_safe_zone": session.in_safe_zone,
+        "current_zone": session.current_zone,
+        "alert_level": session.alert_level.value,
+        "alert_pending": session.alert_pending,
+        "alerts_sent": session.alerts_sent,
+        "last_position": {"lat": pos.lat, "lng": pos.lng, "ts": pos.timestamp} if pos else None,
+    }
+
+
+@app.post("/api/guardian/location/{session_id}")
+async def guardian_location(session_id: str, request: Request):
+    """
+    Reçoit une position GPS depuis le téléphone.
+    Appelé par le mobile à intervalles réguliers (ex: toutes les 10s).
+    """
+    engine = _get_guardian()
+    if not engine:
+        return JSONResponse(status_code=503, content={"error": "Guardian non disponible"})
+    try:
+        body = await request.json()
+        lat = float(body["lat"])
+        lng = float(body["lng"])
+        accuracy = float(body.get("accuracy", 15.0))
+        speed = float(body["speed"]) if body.get("speed") is not None else None
+    except (KeyError, ValueError, TypeError) as e:
+        return JSONResponse(status_code=400, content={"error": f"Paramètres invalides: {e}"})
+
+    risk, events = engine.process_location(session_id, lat, lng, accuracy, speed)
+
+    # Déclencher alertes SMS si niveau HIGH ou CRITICAL
+    if risk.level.value in ("high", "critical"):
+        session = engine.get_session(session_id)
+        if session:
+            tid = getattr(request.state, "tenant_id", 1)
+            mgr = _get_tenant_manager(tid)
+            contacts = []
+            if mgr:
+                try:
+                    tc = mgr.list_trusted_contacts()
+                    contacts = [{"phone": c.phone, "name": c.name} for c in tc]
+                except Exception:
+                    pass
+            # Contacts configurés dans la session (priorité)
+            session_contacts = session.config.get("emergency_contacts", [])
+            all_contacts = session_contacts or contacts
+
+            if all_contacts and sms_client:
+                try:
+                    sub = mgr.get_subscriber_profile() if mgr else None
+                    person_name = sub.name if sub and hasattr(sub, "name") else "Utilisateur"
+                    desc = risk.description
+                    send_guardian_alerts(
+                        sms_send_fn=_tracked_sms_send,
+                        contacts=all_contacts,
+                        person_name=person_name,
+                        description=desc,
+                        lat=lat, lng=lng,
+                        alert_level=risk.level.value,
+                        profile_type=session.profile_type.value,
+                        auto_call_112=session.config.get("auto_call_112", False),
+                    )
+                    logger.warning(f"Guardian SMS alerts sent for session {session_id}")
+                except Exception as e:
+                    logger.error(f"Guardian alert SMS failed: {e}")
+
+    return {
+        "risk_score": risk.total,
+        "risk_level": risk.level.value,
+        "signals": risk.signals,
+        "description": risk.description,
+        "events_count": len(events),
+    }
+
+
+@app.post("/api/guardian/sos/{session_id}")
+async def guardian_sos(session_id: str, request: Request):
+    """Bouton SOS — alerte immédiate envoyée aux contacts avec position."""
+    engine = _get_guardian()
+    if not engine:
+        return JSONResponse(status_code=503, content={"error": "Guardian non disponible"})
+    try:
+        event = engine.trigger_sos(session_id)
+    except ValueError as e:
+        return JSONResponse(status_code=404, content={"error": str(e)})
+
+    # SMS immédiat aux contacts de confiance
+    session = engine.get_session(session_id)
+    tid = getattr(request.state, "tenant_id", 1)
+    mgr = _get_tenant_manager(tid)
+    contacts = []
+    if session:
+        contacts = session.config.get("emergency_contacts", [])
+    if not contacts and mgr:
+        try:
+            tc = mgr.list_trusted_contacts()
+            contacts = [{"phone": c.phone, "name": c.name} for c in tc]
+        except Exception:
+            pass
+
+    sms_results = {"sent": [], "failed": []}
+    if contacts and sms_client:
+        try:
+            pos = session.last_position if session else None
+            sub = mgr.get_subscriber_profile() if mgr else None
+            person_name = sub.name if sub and hasattr(sub, "name") else "Utilisateur"
+            sms_results = send_guardian_alerts(
+                sms_send_fn=_tracked_sms_send,
+                contacts=contacts,
+                person_name=person_name,
+                description="🆘 Bouton SOS activé",
+                lat=pos.lat if pos else None,
+                lng=pos.lng if pos else None,
+                alert_level="critical",
+                profile_type=session.profile_type.value if session else "senior",
+            )
+        except Exception as e:
+            logger.error(f"SOS SMS failed: {e}")
+
+    _gamify(tid, "guardian_sos")
+    return {
+        "success": True,
+        "event": event.to_dict(),
+        "alerts_sent_to": len(sms_results.get("sent", [])),
+        "message": f"SOS envoyé à {len(sms_results.get('sent', []))} contact(s)",
+    }
+
+
+@app.post("/api/guardian/verify-response/{session_id}")
+async def guardian_verify_response(session_id: str, request: Request):
+    """Réponse de l'utilisateur à la vérification vocale (ok=true/false)."""
+    engine = _get_guardian()
+    if not engine:
+        return JSONResponse(status_code=503, content={"error": "Guardian non disponible"})
+    try:
+        body = await request.json()
+        ok = bool(body.get("ok", True))
+    except Exception:
+        ok = True
+    msg = engine.register_verification_response(session_id, ok)
+    return {"success": True, "message": msg}
+
+
+@app.get("/api/guardian/events/{session_id}")
+async def guardian_events(session_id: str, request: Request, limit: int = 50):
+    """Événements récents de la session."""
+    engine = _get_guardian()
+    if not engine:
+        return JSONResponse(status_code=503, content={"error": "Guardian non disponible"})
+    events = engine.get_events(session_id, limit=limit)
+    return {"events": events, "count": len(events)}
+
+
+@app.get("/api/guardian/timeline/{session_id}")
+async def guardian_timeline(session_id: str, request: Request):
+    """Timeline intelligente : résumé chronologique des événements."""
+    engine = _get_guardian()
+    if not engine:
+        return JSONResponse(status_code=503, content={"error": "Guardian non disponible"})
+    timeline = engine.get_timeline(session_id)
+    return {"timeline": timeline, "count": len(timeline)}
+
+
+@app.get("/api/guardian/config/profiles")
+async def guardian_profile_templates(request: Request):
+    """Templates de configuration par profil."""
+    if not _GUARDIAN_AVAILABLE:
+        return JSONResponse(status_code=503, content={"error": "Guardian non disponible"})
+    return {"profiles": get_profile_templates()}
+
+
+@app.post("/api/guardian/config/{session_id}")
+async def guardian_update_config(session_id: str, request: Request):
+    """Met à jour la configuration d'une session en cours."""
+    engine = _get_guardian()
+    if not engine:
+        return JSONResponse(status_code=503, content={"error": "Guardian non disponible"})
+    try:
+        new_config = await request.json()
+    except Exception:
+        return JSONResponse(status_code=400, content={"error": "JSON invalide"})
+    ok = engine.update_config(session_id, new_config)
+    if not ok:
+        return JSONResponse(status_code=404, content={"error": "Session introuvable"})
+    return {"success": True, "session_id": session_id}
+
+
+@app.get("/api/guardian/sessions")
+async def guardian_list_sessions(request: Request):
+    """Liste les sessions Guardian actives du tenant."""
+    tid = getattr(request.state, "tenant_id", 1)
+    engine = _get_guardian()
+    if not engine:
+        return JSONResponse(status_code=503, content={"error": "Guardian non disponible"})
+    session_ids = engine.get_active_sessions(tid)
+    sessions = []
+    for sid in session_ids:
+        s = engine.get_session(sid)
+        if s and s.is_active:
+            sessions.append({
+                "session_id": sid,
+                "profile_type": s.profile_type.value,
+                "started_at": s.started_at,
+                "alert_level": s.alert_level.value,
+                "is_immobile": s.is_immobile,
+            })
+    return {"sessions": sessions, "count": len(sessions)}
+
+
+from fastapi import WebSocket, WebSocketDisconnect
+
+@app.websocket("/api/guardian/ws/{session_id}")
+async def guardian_ws(websocket: WebSocket, session_id: str):
+    """WebSocket temps réel — push des alertes et mises à jour de position."""
+    await websocket.accept()
+    engine = _get_guardian()
+    if not engine:
+        await websocket.send_json({"error": "Guardian non disponible"})
+        await websocket.close()
+        return
+
+    engine.register_ws(session_id, websocket)
+    try:
+        while True:
+            data = await websocket.receive_json()
+            # Le mobile peut envoyer des frames de position directement via WS
+            if data.get("type") == "location":
+                lat = float(data.get("lat", 0))
+                lng = float(data.get("lng", 0))
+                accuracy = float(data.get("accuracy", 15))
+                speed = data.get("speed")
+                risk, _ = engine.process_location(session_id, lat, lng, accuracy,
+                                                   float(speed) if speed is not None else None)
+                await websocket.send_json({
+                    "type": "risk_update",
+                    "risk": risk.total,
+                    "level": risk.level.value,
+                    "signals": risk.signals,
+                })
+            elif data.get("type") == "sos":
+                try:
+                    event = engine.trigger_sos(session_id)
+                    await websocket.send_json({"type": "sos_confirmed", "event": event.to_dict()})
+                except Exception as e:
+                    await websocket.send_json({"type": "error", "message": str(e)})
+            elif data.get("type") == "ping":
+                await websocket.send_json({"type": "pong"})
+    except WebSocketDisconnect:
+        pass
+    except Exception as e:
+        logger.error(f"Guardian WS error: {e}")
+    finally:
+        engine.unregister_ws(session_id, websocket)
+
+
+# =========================================================================
 # NOTES ENDPOINTS
 # =========================================================================
 
