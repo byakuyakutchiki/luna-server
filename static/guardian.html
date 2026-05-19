@@ -2,751 +2,808 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>Luna Guardian</title>
-
-<!-- Leaflet CSS -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
-
 <style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  :root {
-    --bg: #0d1117;
-    --card: #161b22;
-    --border: #21262d;
-    --text: #e6edf3;
-    --muted: #8b949e;
-    --purple: #7c3aed;
-    --green: #22c55e;
-    --yellow: #f59e0b;
-    --red: #ef4444;
-    --crimson: #dc2626;
-  }
-  html, body { height: 100%; background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; overflow: hidden; }
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; user-select: none; }
+:root {
+  --bg:#0a0a0f; --card:rgba(18,18,28,0.92); --border:rgba(255,255,255,0.08);
+  --text:#f0f0f5; --muted:#6b7280;
+  --green:#22c55e; --yellow:#f59e0b; --red:#ef4444; --crimson:#dc2626; --purple:#a78bfa;
+}
+html,body { height:100%; overflow:hidden; background:var(--bg); color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; }
 
-  /* ── HEADER ── */
-  #header {
-    position: fixed; top: 0; left: 0; right: 0; z-index: 1000;
-    height: 54px; background: rgba(13,17,23,0.92); backdrop-filter: blur(8px);
-    border-bottom: 1px solid var(--border);
-    display: flex; align-items: center; gap: 10px; padding: 0 14px;
-  }
-  #header-logo { font-size: 1.1em; font-weight: 700; color: var(--text); text-decoration: none; }
-  #header-logo span { color: #f87171; }
-  #status-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--muted); flex-shrink: 0; transition: background 0.4s; }
-  #status-dot.active { background: var(--green); box-shadow: 0 0 8px var(--green); animation: pulse-dot 2s infinite; }
-  #status-dot.alert { background: var(--red); box-shadow: 0 0 12px var(--red); animation: pulse-dot 0.6s infinite; }
-  @keyframes pulse-dot { 0%,100%{opacity:1} 50%{opacity:0.4} }
-  #status-label { font-size: 0.82em; color: var(--muted); flex: 1; }
-  #risk-badge { padding: 3px 10px; border-radius: 20px; font-size: 0.75em; font-weight: 700; display: none; }
-  #back-btn { color: var(--muted); font-size: 0.8em; text-decoration: none; padding: 4px 8px; border: 1px solid var(--border); border-radius: 6px; }
-  #back-btn:hover { color: var(--text); }
+/* ─── HEADER ─────────────────────────────── */
+#hdr {
+  position:fixed; top:0; left:0; right:0; height:52px; z-index:500;
+  background:rgba(10,10,15,0.9); backdrop-filter:blur(12px);
+  border-bottom:1px solid var(--border);
+  display:flex; align-items:center; padding:0 14px; gap:10px;
+  padding-top:env(safe-area-inset-top);
+}
+#hdr-back { color:var(--muted); font-size:0.8em; text-decoration:none; padding:5px 8px;
+  border:1px solid var(--border); border-radius:8px; }
+#hdr-title { font-weight:700; font-size:0.95em; flex:1; }
+#hdr-title span { color:#f87171; }
+#hdr-dot { width:9px; height:9px; border-radius:50%; background:var(--muted); flex-shrink:0; }
+#hdr-dot.live { background:var(--green); box-shadow:0 0 8px var(--green); animation:dotpulse 2s infinite; }
+#hdr-dot.alert { background:var(--red); box-shadow:0 0 12px var(--red); animation:dotpulse 0.5s infinite; }
+@keyframes dotpulse { 0%,100%{opacity:1}50%{opacity:.35} }
+#hdr-risk { font-size:0.72em; font-weight:700; padding:3px 9px; border-radius:14px; display:none; }
 
-  /* ── MAP ── */
-  #map {
-    position: fixed; top: 54px; left: 0; right: 0; bottom: 160px;
-    z-index: 1;
-  }
-  #map.setup-mode { bottom: 310px; }
+/* ─── MAP ────────────────────────────────── */
+#map { position:fixed; top:52px; left:0; right:0; bottom:0; z-index:1; transition:bottom .3s; }
 
-  /* ── BOTTOM PANEL ── */
-  #bottom-panel {
-    position: fixed; bottom: 0; left: 0; right: 0; z-index: 1000;
-    background: rgba(13,17,23,0.96); backdrop-filter: blur(12px);
-    border-top: 1px solid var(--border);
-    transition: height 0.3s ease;
-  }
+/* ─── ADDRESS CARD ───────────────────────── */
+#addr-card {
+  position:fixed; top:62px; left:12px; right:12px; z-index:100;
+  background:rgba(10,10,15,0.82); backdrop-filter:blur(16px);
+  border:1px solid var(--border); border-radius:20px;
+  padding:12px 16px;
+  display:none; /* shown when GPS active */
+}
+#addr-line { font-size:1.05em; font-weight:500; }
+#addr-sub  { font-size:0.75em; color:var(--muted); margin-top:3px; }
+.safe-badge {
+  display:inline-flex; align-items:center; gap:5px;
+  background:rgba(34,197,94,0.15); border:1px solid rgba(34,197,94,0.3);
+  border-radius:16px; padding:3px 10px; font-size:0.72em; color:var(--green); margin-top:6px;
+}
 
-  /* Poignée de glissement */
-  #panel-handle {
-    width: 36px; height: 4px; background: var(--border); border-radius: 2px;
-    margin: 8px auto 4px;
-    cursor: pointer;
-  }
+/* ─── EVENTS PANEL (slide-in) ────────────── */
+#ev-toggle {
+  position:fixed; right:12px; top:62px; z-index:200;
+  background:var(--card); border:1px solid var(--border); border-radius:10px;
+  padding:6px 10px; cursor:pointer; font-size:0.74em; color:var(--muted);
+  backdrop-filter:blur(8px); display:flex; align-items:center; gap:5px;
+}
+#ev-badge { background:var(--red); color:#fff; border-radius:10px; padding:1px 6px; font-size:.85em; display:none; }
+#ev-panel {
+  position:fixed; right:0; top:52px; bottom:0; width:min(300px,90vw);
+  background:rgba(10,10,15,0.97); border-left:1px solid var(--border);
+  z-index:400; transform:translateX(100%); transition:transform .3s;
+  display:flex; flex-direction:column; backdrop-filter:blur(12px);
+}
+#ev-panel.open { transform:translateX(0); }
+#ev-panel-hdr { padding:12px 14px; border-bottom:1px solid var(--border);
+  display:flex; justify-content:space-between; align-items:center; }
+#ev-panel-hdr h3 { font-size:.9em; }
+#ev-close-btn { background:none; border:none; color:var(--muted); cursor:pointer; font-size:1.2em; padding:4px; }
+#ev-list { flex:1; overflow-y:auto; padding:8px; }
+.ev-item { padding:8px 10px; border-radius:8px; margin-bottom:5px;
+  background:rgba(255,255,255,0.03); border:1px solid var(--border); font-size:.79em; }
+.ev-item.ev-alert  { border-color:rgba(239,68,68,.4); }
+.ev-item.ev-ok     { border-color:rgba(34,197,94,.3); }
+.ev-time { color:var(--muted); font-size:.9em; }
+.ev-desc { margin-top:2px; line-height:1.4; }
+.ev-maps { color:var(--purple); font-size:.9em; margin-left:4px; }
 
-  /* Risk bar */
-  #risk-section { padding: 6px 14px 8px; }
-  #risk-label { display: flex; justify-content: space-between; font-size: 0.78em; color: var(--muted); margin-bottom: 4px; }
-  #risk-bar-outer { height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; }
-  #risk-bar-inner { height: 100%; width: 0%; border-radius: 3px; transition: width 0.5s, background 0.5s; background: var(--green); }
+/* ─── TIMELINE ────────────────────────────── */
+#timeline-wrap {
+  position:fixed; left:0; right:0; z-index:100;
+  background:rgba(10,10,15,0.88); backdrop-filter:blur(10px);
+  border-top:1px solid var(--border);
+  height:64px; overflow:hidden; display:none; /* shown when GPS active */
+  transition:bottom .3s;
+}
+#timeline {
+  display:flex; gap:8px; padding:8px 12px;
+  overflow-x:auto; height:100%;
+  scrollbar-width:thin; scrollbar-color:var(--border) transparent;
+}
+.tl-item {
+  flex-shrink:0; display:flex; flex-direction:column; align-items:center; gap:3px;
+  background:rgba(255,255,255,0.05); border:1px solid var(--border); border-radius:30px;
+  padding:5px 12px; font-size:.7em; cursor:pointer; transition:border-color .2s;
+}
+.tl-item.tl-alert { border-color:rgba(239,68,68,.5); }
+.tl-item.tl-ok    { border-color:rgba(34,197,94,.3); }
+.tl-time { color:var(--muted); font-size:.85em; }
+.tl-icon { font-size:1em; }
 
-  /* Boutons principaux */
-  #main-controls { display: flex; gap: 8px; padding: 0 14px 10px; }
-  .ctrl-btn {
-    flex: 1; padding: 12px 8px; border: none; border-radius: 10px;
-    font-size: 0.9em; font-weight: 700; cursor: pointer; transition: opacity 0.2s;
-  }
-  .ctrl-btn:active { opacity: 0.75; }
-  #btn-start { background: var(--green); color: #000; }
-  #btn-stop  { background: var(--border); color: var(--text); display: none; }
-  #btn-sos   { background: var(--crimson); color: #fff; display: none; font-size: 1.1em; letter-spacing: 1px; }
+/* ─── BOTTOM PANEL ────────────────────────── */
+#bottom {
+  position:fixed; bottom:0; left:0; right:0; z-index:300;
+  background:rgba(10,10,15,0.96); backdrop-filter:blur(16px);
+  border-top:1px solid var(--border);
+  padding-bottom:env(safe-area-inset-bottom);
+  transition:height .3s;
+}
+#panel-drag { width:36px; height:4px; background:var(--border); border-radius:2px;
+  margin:8px auto 4px; cursor:pointer; }
 
-  /* Toggle config */
-  #config-toggle { text-align: center; padding: 0 14px 6px; }
-  #config-toggle button { background: none; border: none; color: var(--muted); font-size: 0.78em; cursor: pointer; text-decoration: underline; }
+/* Risk bar */
+#risk-wrap { padding:4px 14px 8px; }
+#risk-row { display:flex; justify-content:space-between; font-size:.76em; color:var(--muted); margin-bottom:4px; }
+#risk-track { height:6px; background:var(--border); border-radius:3px; overflow:hidden; }
+#risk-fill { height:100%; width:0; border-radius:3px; background:var(--green); transition:width .6s,background .6s; }
 
-  /* Config section */
-  #config-section { padding: 0 14px 10px; display: none; }
-  #config-section.open { display: block; }
-  .cfg-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
-  .cfg-row.full { grid-template-columns: 1fr; }
-  .cfg-label { font-size: 0.75em; color: var(--muted); display: block; margin-bottom: 3px; }
-  .cfg-input {
-    width: 100%; background: var(--border); border: 1px solid #30363d; border-radius: 6px;
-    color: var(--text); padding: 7px 10px; font-size: 0.85em;
-  }
-  .cfg-input:focus { outline: none; border-color: var(--purple); }
-  select.cfg-input option { background: var(--card); }
-  #zone-capture-btn {
-    background: var(--purple); color: #fff; border: none; border-radius: 6px;
-    padding: 7px 12px; font-size: 0.82em; cursor: pointer; width: 100%;
-  }
-  #zone-status { font-size: 0.75em; color: var(--muted); margin-top: 4px; text-align: center; }
+/* Controls */
+#ctrls { display:flex; gap:8px; padding:0 14px 8px; }
+.ctrl { flex:1; padding:13px 6px; border:none; border-radius:12px;
+  font-size:.9em; font-weight:700; cursor:pointer; transition:transform .1s,opacity .15s; }
+.ctrl:active { transform:scale(.96); opacity:.8; }
+#btn-start { background:var(--green); color:#000; }
+#btn-stop  { background:rgba(255,255,255,0.08); color:var(--text); display:none; }
 
-  /* ── EVENTS PANEL ── */
-  #events-toggle {
-    position: fixed; right: 14px; top: 64px; z-index: 1001;
-    background: rgba(22,27,34,0.9); border: 1px solid var(--border);
-    border-radius: 8px; padding: 6px 10px; cursor: pointer;
-    font-size: 0.75em; color: var(--muted); backdrop-filter: blur(6px);
-    display: flex; align-items: center; gap: 4px;
-  }
-  #events-count { background: var(--red); color: #fff; border-radius: 10px; padding: 1px 5px; font-size: 0.85em; display: none; }
-  #events-panel {
-    position: fixed; right: 0; top: 54px; bottom: 0; width: 300px;
-    background: rgba(13,17,23,0.97); border-left: 1px solid var(--border);
-    z-index: 999; transform: translateX(100%); transition: transform 0.3s;
-    display: flex; flex-direction: column;
-    backdrop-filter: blur(10px);
-  }
-  #events-panel.open { transform: translateX(0); }
-  #events-panel-header {
-    padding: 12px 14px; border-bottom: 1px solid var(--border);
-    display: flex; justify-content: space-between; align-items: center;
-  }
-  #events-panel-header h3 { font-size: 0.9em; }
-  #events-close { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 1.2em; }
-  #events-list { flex: 1; overflow-y: auto; padding: 8px; }
-  .event-item {
-    padding: 7px 10px; border-radius: 6px; margin-bottom: 5px;
-    background: var(--card); border: 1px solid var(--border); font-size: 0.8em;
-  }
-  .event-item .ev-time { color: var(--muted); font-size: 0.9em; }
-  .event-item .ev-desc { margin-top: 2px; }
-  .event-item.alert-item { border-color: var(--red); }
-  .event-item.ok-item { border-color: var(--green); }
+/* ─── SOS BUTTON (dramatique) ────────────── */
+#btn-sos {
+  position:fixed; bottom:100px; right:18px; z-index:350;
+  width:68px; height:68px; border-radius:50%; border:none;
+  background:radial-gradient(circle at 35% 35%, #ff5555, #990000);
+  color:#fff; font-size:1.1em; font-weight:900; letter-spacing:0;
+  box-shadow:0 0 0 0 rgba(220,38,38,.7);
+  cursor:pointer; display:none;
+  animation:sos-pulse 2s infinite;
+}
+@keyframes sos-pulse {
+  0%   { box-shadow:0 0 0 0 rgba(220,38,38,.7); }
+  70%  { box-shadow:0 0 0 18px rgba(220,38,38,0); }
+  100% { box-shadow:0 0 0 0 rgba(220,38,38,0); }
+}
+#btn-sos:active { transform:scale(.93); }
 
-  /* ── VERIFICATION MODAL ── */
-  #verify-modal {
-    position: fixed; inset: 0; z-index: 2000; background: rgba(0,0,0,0.85);
-    display: none; align-items: center; justify-content: center; padding: 20px;
-  }
-  #verify-modal.open { display: flex; }
-  #verify-box {
-    background: var(--card); border: 2px solid var(--yellow); border-radius: 16px;
-    padding: 28px 22px; max-width: 340px; width: 100%; text-align: center;
-  }
-  #verify-box .v-icon { font-size: 3em; margin-bottom: 12px; }
-  #verify-box h2 { font-size: 1.1em; margin-bottom: 8px; }
-  #verify-box p { color: var(--muted); font-size: 0.85em; margin-bottom: 20px; line-height: 1.5; }
-  #verify-box .v-btns { display: flex; gap: 10px; }
-  .v-btn-ok  { flex:1; padding: 13px; background: var(--green); color: #000; border: none; border-radius: 10px; font-weight: 700; font-size: 1em; cursor: pointer; }
-  .v-btn-nok { flex:1; padding: 13px; background: var(--crimson); color: #fff; border: none; border-radius: 10px; font-weight: 700; font-size: 1em; cursor: pointer; }
+/* Config toggle */
+#cfg-toggle { text-align:center; padding:0 14px 8px; }
+#cfg-toggle button { background:none; border:none; color:var(--muted); font-size:.76em; cursor:pointer; }
 
-  /* ── POSITION OVERLAY ── */
-  #pos-overlay {
-    position: fixed; left: 14px; top: 64px; z-index: 1001;
-    background: rgba(22,27,34,0.88); border: 1px solid var(--border); border-radius: 8px;
-    padding: 6px 10px; font-size: 0.72em; color: var(--muted); backdrop-filter: blur(6px);
-    display: none; max-width: 180px;
-  }
-  #pos-coords { color: var(--text); font-family: monospace; }
-  #pos-detail { margin-top: 1px; }
+/* Config section */
+#cfg { display:none; padding:0 14px 10px; }
+#cfg.open { display:block; }
+.cfg-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:8px; }
+.cfg-grid.full { grid-template-columns:1fr; }
+.cfg-lbl { font-size:.74em; color:var(--muted); display:block; margin-bottom:3px; }
+.cfg-inp {
+  width:100%; background:rgba(255,255,255,0.05); border:1px solid var(--border);
+  border-radius:8px; color:var(--text); padding:8px 10px; font-size:.84em;
+}
+.cfg-inp:focus { outline:none; border-color:var(--purple); }
+select.cfg-inp option { background:#1a1a2e; }
+#zone-btn { width:100%; padding:9px; background:var(--purple); color:#fff; border:none;
+  border-radius:8px; font-size:.83em; cursor:pointer; }
+#zone-st { font-size:.73em; color:var(--muted); margin-top:4px; text-align:center; }
 
-  /* ── SOS OVERLAY (confirmation) ── */
-  #sos-modal {
-    position: fixed; inset: 0; z-index: 3000; background: rgba(0,0,0,0.9);
-    display: none; align-items: center; justify-content: center; padding: 20px;
-  }
-  #sos-modal.open { display: flex; }
-  #sos-box {
-    background: #1a0000; border: 2px solid var(--crimson); border-radius: 16px;
-    padding: 28px 22px; max-width: 340px; width: 100%; text-align: center;
-  }
-  #sos-box .s-icon { font-size: 4em; margin-bottom: 12px; }
-  #sos-box h2 { font-size: 1.2em; color: #fca5a5; margin-bottom: 8px; }
-  #sos-box p { color: var(--muted); font-size: 0.83em; margin-bottom: 20px; line-height: 1.5; }
-  #sos-confirm { width: 100%; padding: 14px; background: var(--crimson); color: #fff; border: none; border-radius: 10px; font-size: 1em; font-weight: 700; cursor: pointer; margin-bottom: 10px; }
-  #sos-cancel  { width: 100%; padding: 11px; background: none; color: var(--muted); border: 1px solid var(--border); border-radius: 10px; font-size: 0.85em; cursor: pointer; }
+/* ─── SHARE BUTTON ────────────────────────── */
+#btn-share {
+  position:fixed; bottom:100px; left:18px; z-index:350;
+  background:rgba(167,139,250,0.15); border:1px solid rgba(167,139,250,.3);
+  color:var(--purple); border-radius:30px; padding:10px 16px;
+  font-size:.8em; cursor:pointer; display:none; backdrop-filter:blur(8px);
+}
+#btn-share:active { opacity:.7; }
 
-  /* ── TOAST ── */
-  #toast {
-    position: fixed; bottom: 170px; left: 50%; transform: translateX(-50%);
-    z-index: 2000; background: var(--card); border: 1px solid var(--border);
-    border-radius: 10px; padding: 10px 18px; font-size: 0.85em;
-    opacity: 0; transition: opacity 0.3s; pointer-events: none; white-space: nowrap;
-    max-width: 90vw; text-align: center;
-  }
-  #toast.show { opacity: 1; }
+/* ─── PERMISSION MODAL ────────────────────── */
+#perm-modal {
+  position:fixed; inset:0; z-index:600; background:rgba(0,0,0,0.75);
+  display:none; align-items:flex-end;
+}
+#perm-modal.open { display:flex; }
+#perm-box {
+  width:100%; background:#13131f; border-radius:24px 24px 0 0;
+  border:1px solid var(--border); border-bottom:none;
+  padding:24px 22px 32px;
+}
+#perm-box h2 { font-size:1.1em; margin-bottom:8px; }
+#perm-box p  { color:var(--muted); font-size:.84em; margin-bottom:16px; line-height:1.5; }
+#perm-list   { list-style:none; margin-bottom:20px; display:flex; flex-direction:column; gap:8px; }
+#perm-list li { display:flex; align-items:center; gap:10px; font-size:.88em; padding:8px 12px;
+  background:rgba(255,255,255,0.04); border-radius:10px; }
+#perm-allow { width:100%; padding:14px; background:var(--purple); color:#fff; border:none;
+  border-radius:14px; font-weight:700; font-size:.95em; cursor:pointer; }
+#perm-skip { width:100%; margin-top:10px; background:none; border:none; color:var(--muted);
+  font-size:.8em; cursor:pointer; padding:8px; }
 
-  /* ── DISCLAIMER ── */
-  #disclaimer {
-    position: fixed; bottom: 165px; left: 14px; right: 14px; z-index: 999;
-    background: rgba(254,242,242,0.08); border: 1px solid #7f1d1d;
-    border-radius: 6px; padding: 6px 10px; font-size: 0.7em; color: #fca5a5;
-    text-align: center; pointer-events: none;
-  }
+/* ─── VERIFY MODAL ────────────────────────── */
+#verify-modal {
+  position:fixed; inset:0; z-index:700; background:rgba(0,0,0,.88);
+  display:none; align-items:center; justify-content:center; padding:20px;
+}
+#verify-modal.open { display:flex; }
+#verify-box {
+  background:#13131f; border:2px solid var(--yellow); border-radius:20px;
+  padding:28px 22px; max-width:340px; width:100%; text-align:center;
+}
+#verify-box .vi { font-size:3em; margin-bottom:12px; }
+#verify-box h2  { font-size:1.1em; margin-bottom:8px; }
+#verify-box p   { color:var(--muted); font-size:.84em; margin-bottom:20px; line-height:1.5; }
+.v-btns { display:flex; gap:10px; }
+.v-ok  { flex:1; padding:14px; background:var(--green); color:#000; border:none; border-radius:12px; font-weight:700; cursor:pointer; }
+.v-nok { flex:1; padding:14px; background:var(--crimson); color:#fff; border:none; border-radius:12px; font-weight:700; cursor:pointer; }
 
-  /* Leaflet overrides */
-  .leaflet-control-attribution { font-size: 9px !important; }
-  .leaflet-popup-content-wrapper { background: var(--card); color: var(--text); border: 1px solid var(--border); }
-  .leaflet-popup-tip { background: var(--card); }
+/* ─── SOS CONFIRM MODAL ───────────────────── */
+#sos-modal {
+  position:fixed; inset:0; z-index:800; background:rgba(0,0,0,.92);
+  display:none; align-items:center; justify-content:center; padding:20px;
+}
+#sos-modal.open { display:flex; }
+#sos-box {
+  background:#1a0505; border:2px solid var(--crimson); border-radius:20px;
+  padding:28px 22px; max-width:340px; width:100%; text-align:center;
+}
+#sos-box .si  { font-size:4em; margin-bottom:14px; animation:sos-icon 1s infinite; }
+@keyframes sos-icon { 0%,100%{transform:scale(1)}50%{transform:scale(1.1)} }
+#sos-box h2   { font-size:1.2em; color:#fca5a5; margin-bottom:8px; }
+#sos-box p    { color:var(--muted); font-size:.83em; margin-bottom:20px; line-height:1.6; }
+#sos-go   { width:100%; padding:15px; background:var(--crimson); color:#fff; border:none;
+  border-radius:12px; font-size:1em; font-weight:700; cursor:pointer; margin-bottom:10px; }
+#sos-no   { width:100%; padding:11px; background:none; color:var(--muted); border:1px solid var(--border);
+  border-radius:12px; font-size:.85em; cursor:pointer; }
+
+/* ─── TOAST ───────────────────────────────── */
+#toast {
+  position:fixed; bottom:180px; left:50%; transform:translateX(-50%);
+  z-index:900; background:rgba(30,30,45,0.95); border:1px solid var(--border);
+  border-radius:30px; padding:10px 20px; font-size:.84em; white-space:nowrap;
+  max-width:88vw; text-align:center; opacity:0; transition:opacity .3s; pointer-events:none;
+}
+#toast.show { opacity:1; }
+
+/* Leaflet override */
+.leaflet-control-attribution { font-size:9px !important; }
+.leaflet-popup-content-wrapper,.leaflet-popup-tip { background:#13131f !important; color:var(--text) !important; border:1px solid var(--border) !important; }
 </style>
 </head>
 <body>
 
-<!-- ── HEADER ──────────────────────────────── -->
-<div id="header">
-  <a href="/" id="back-btn">← App</a>
-  <span style="font-size:1.2em;">🛡️</span>
-  <span id="header-logo">Luna <span>Guardian</span></span>
-  <div id="status-dot"></div>
-  <span id="status-label">Inactif</span>
-  <span id="risk-badge"></span>
+<!-- HEADER -->
+<div id="hdr">
+  <a href="/" id="hdr-back">← App</a>
+  <span>🛡️</span>
+  <span id="hdr-title">Luna <span>Guardian</span></span>
+  <div id="hdr-dot"></div>
+  <span id="hdr-status" style="font-size:.78em;color:var(--muted);flex:1;">Inactif</span>
+  <span id="hdr-risk"></span>
 </div>
 
-<!-- ── MAP ──────────────────────────────────── -->
+<!-- MAP -->
 <div id="map"></div>
 
-<!-- ── POSITION OVERLAY ─────────────────────── -->
-<div id="pos-overlay">
-  <div id="pos-coords">--</div>
-  <div id="pos-detail"></div>
+<!-- EVENTS TOGGLE -->
+<div id="ev-toggle" onclick="toggleEvPanel()">📋 <span id="ev-badge">0</span></div>
+
+<!-- EVENTS PANEL -->
+<div id="ev-panel">
+  <div id="ev-panel-hdr">
+    <h3>📋 Activité</h3>
+    <button id="ev-close-btn" onclick="toggleEvPanel()">✕</button>
+  </div>
+  <div id="ev-list"><p style="color:var(--muted);font-size:.82em;padding:10px;">Aucun événement.</p></div>
 </div>
 
-<!-- ── EVENTS TOGGLE ────────────────────────── -->
-<div id="events-toggle" onclick="toggleEvents()">
-  📋 Événements <span id="events-count">0</span>
+<!-- ADDRESS CARD -->
+<div id="addr-card">
+  <div id="addr-line">📍 Localisation en cours…</div>
+  <div id="addr-sub">Précision inconnue</div>
+  <div id="addr-zone" style="display:none;" class="safe-badge">✅ Zone de confiance</div>
 </div>
 
-<!-- ── EVENTS PANEL ──────────────────────────── -->
-<div id="events-panel">
-  <div id="events-panel-header">
-    <h3>📋 Événements</h3>
-    <button id="events-close" onclick="toggleEvents()">✕</button>
+<!-- TIMELINE -->
+<div id="timeline-wrap"><div id="timeline"></div></div>
+
+<!-- SOS BUTTON (fixed, outside bottom panel) -->
+<button id="btn-sos" onclick="openSosModal()">🆘</button>
+
+<!-- SHARE BUTTON -->
+<button id="btn-share" onclick="sharePosition()">🔗 Partager</button>
+
+<!-- BOTTOM PANEL -->
+<div id="bottom">
+  <div id="panel-drag" onclick="toggleCfg()"></div>
+  <!-- Risk -->
+  <div id="risk-wrap">
+    <div id="risk-row"><span>Surveillance</span><span id="risk-txt">–</span></div>
+    <div id="risk-track"><div id="risk-fill"></div></div>
   </div>
-  <div id="events-list"><p style="color:var(--muted);font-size:0.82em;padding:10px;">Aucun événement.</p></div>
-</div>
-
-<!-- ── DISCLAIMER ───────────────────────────── -->
-<div id="disclaimer" style="display:none;">⚕️ Outil de prévention uniquement — pas un dispositif médical. En cas d'urgence réelle, appelez le 15 ou le 112.</div>
-
-<!-- ── BOTTOM PANEL ──────────────────────────── -->
-<div id="bottom-panel">
-  <div id="panel-handle" onclick="toggleConfig()"></div>
-
-  <!-- Risk bar -->
-  <div id="risk-section">
-    <div id="risk-label">
-      <span>Niveau de risque</span>
-      <span id="risk-level-text">–</span>
-    </div>
-    <div id="risk-bar-outer"><div id="risk-bar-inner"></div></div>
+  <!-- Controls -->
+  <div id="ctrls">
+    <button id="btn-start" class="ctrl" onclick="guardianStart()">▶ Démarrer</button>
+    <button id="btn-stop"  class="ctrl" onclick="guardianStop()">⏹ Arrêter</button>
   </div>
-
-  <!-- Main controls -->
-  <div id="main-controls">
-    <button id="btn-start" class="ctrl-btn" onclick="guardianStart()">▶ Démarrer</button>
-    <button id="btn-stop"  class="ctrl-btn" onclick="guardianStop()">⏹ Arrêter</button>
-    <button id="btn-sos"   class="ctrl-btn" onclick="openSosModal()">🆘 SOS</button>
-  </div>
-
-  <!-- Toggle config -->
-  <div id="config-toggle">
-    <button onclick="toggleConfig()" id="config-toggle-btn">⚙️ Configurer</button>
-  </div>
-
-  <!-- Config section -->
-  <div id="config-section">
-    <div class="cfg-row">
+  <!-- Config toggle -->
+  <div id="cfg-toggle"><button id="cfg-toggle-btn" onclick="toggleCfg()">⚙️ Configuration</button></div>
+  <!-- Config -->
+  <div id="cfg">
+    <div class="cfg-grid">
       <div>
-        <label class="cfg-label">Profil</label>
-        <select id="cfg-profile" class="cfg-input">
-          <option value="senior">👴 Senior</option>
+        <label class="cfg-lbl">Profil</label>
+        <select id="cfg-profile" class="cfg-inp">
+          <option value="senior">👴 Proche / Senior</option>
           <option value="dog">🐕 Animal</option>
-          <option value="baby">👶 Bébé/Enfant</option>
-          <option value="home">🏠 Domicile</option>
+          <option value="baby">👶 Bébé / Enfant</option>
+          <option value="home">🏠 Logement</option>
         </select>
       </div>
       <div>
-        <label class="cfg-label">Alerte immobilité (min)</label>
-        <input type="number" id="cfg-immo" class="cfg-input" value="30" min="5" max="120">
+        <label class="cfg-lbl">Alerte immobilité (min)</label>
+        <input type="number" id="cfg-immo" class="cfg-inp" value="30" min="5" max="180">
       </div>
     </div>
-    <div class="cfg-row">
+    <div class="cfg-grid">
       <div>
-        <label class="cfg-label">Nom de la zone sûre</label>
-        <input type="text" id="cfg-zone-name" class="cfg-input" placeholder="ex: Domicile">
+        <label class="cfg-lbl">Nom zone sûre</label>
+        <input type="text" id="cfg-zname" class="cfg-inp" placeholder="Domicile">
       </div>
       <div>
-        <label class="cfg-label">Rayon (mètres)</label>
-        <input type="number" id="cfg-zone-radius" class="cfg-input" value="150" min="30" max="5000">
+        <label class="cfg-lbl">Rayon (m)</label>
+        <input type="number" id="cfg-zradius" class="cfg-inp" value="150" min="30">
       </div>
     </div>
-    <div class="cfg-row full">
-      <button id="zone-capture-btn" onclick="captureZone()">📍 Utiliser ma position comme zone sûre</button>
-      <div id="zone-status"></div>
+    <div class="cfg-grid full">
+      <button id="zone-btn" onclick="captureZone()">📍 Utiliser ma position comme zone sûre</button>
+      <div id="zone-st"></div>
     </div>
   </div>
 </div>
 
-<!-- ── VERIFICATION MODAL ─────────────────────── -->
+<!-- PERMISSION MODAL -->
+<div id="perm-modal">
+  <div id="perm-box">
+    <h2>🔐 Accès nécessaires</h2>
+    <p>Pour vous protéger efficacement, Luna Guardian a besoin des autorisations suivantes.</p>
+    <ul id="perm-list">
+      <li>📍 <span>Position GPS précise</span></li>
+      <li id="perm-mic" style="display:none;">🎤 <span>Microphone — vérification vocale</span></li>
+      <li>🔔 <span>Notifications — alertes en temps réel</span></li>
+    </ul>
+    <button id="perm-allow" onclick="grantPermissions()">Autoriser et démarrer</button>
+    <button id="perm-skip"  onclick="closePerm()">Plus tard</button>
+  </div>
+</div>
+
+<!-- VERIFY MODAL -->
 <div id="verify-modal">
   <div id="verify-box">
-    <div class="v-icon">❓</div>
+    <div class="vi">❓</div>
     <h2>Tout va bien ?</h2>
-    <p id="verify-msg">Luna vérifie que vous allez bien.<br>Appuyez sur le bouton vert si tout va bien.</p>
+    <p id="verify-msg">Luna vérifie que vous allez bien.</p>
     <div class="v-btns">
-      <button class="v-btn-ok"  onclick="verifyResponse(true)">✅ Oui, ça va</button>
-      <button class="v-btn-nok" onclick="verifyResponse(false)">❌ Besoin d'aide</button>
+      <button class="v-ok"  onclick="verifyResponse(true)">✅ Oui, ça va</button>
+      <button class="v-nok" onclick="verifyResponse(false)">❌ Besoin d'aide</button>
     </div>
   </div>
 </div>
 
-<!-- ── SOS MODAL ──────────────────────────────── -->
+<!-- SOS MODAL -->
 <div id="sos-modal">
   <div id="sos-box">
-    <div class="s-icon">🆘</div>
+    <div class="si">🆘</div>
     <h2>Envoyer une alerte SOS ?</h2>
-    <p>Vos contacts de confiance recevront un SMS avec votre position GPS exacte et un lien Google Maps.<br><br>En cas d'urgence médicale, appelez le <strong style="color:#fca5a5;">15 (SAMU)</strong> ou le <strong style="color:#fca5a5;">112</strong>.</p>
-    <button id="sos-confirm" onclick="triggerSOS()">🆘 Confirmer — Envoyer l'alerte</button>
-    <button id="sos-cancel"  onclick="closeSosModal()">Annuler</button>
+    <p>Vos contacts de confiance recevront un SMS avec votre adresse et un lien Google Maps.<br><br>
+    En cas d'urgence médicale : <strong style="color:#fca5a5;">15 (SAMU)</strong><br>
+    Urgence générale : <strong style="color:#fca5a5;">112</strong><br>
+    Police : <strong style="color:#fca5a5;">17</strong></p>
+    <button id="sos-go" onclick="triggerSOS()">🆘 Confirmer l'alerte</button>
+    <button id="sos-no" onclick="closeSosModal()">Annuler</button>
   </div>
 </div>
 
-<!-- ── TOAST ──────────────────────────────────── -->
+<!-- TOAST -->
 <div id="toast"></div>
 
-<!-- Leaflet JS -->
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV/XN/WPcU=" crossorigin=""></script>
-
 <script>
-// ── AUTH ──────────────────────────────────────
-function getToken() { return localStorage.getItem('luna_token') || ''; }
-function authFetch(url, options) {
-  var opts = Object.assign({headers: {}}, options || {});
-  opts.headers = Object.assign({}, opts.headers);
-  var t = getToken();
-  if (t) opts.headers['Authorization'] = 'Bearer ' + t;
-  return fetch(url, opts).then(function(r) {
-    if (r.status === 401) { localStorage.removeItem('luna_token'); window.location.href = '/'; }
-    return r;
+'use strict';
+// ── AUTH ─────────────────────────────────────
+function getToken(){ return localStorage.getItem('luna_token')||''; }
+function authFetch(url,opts){
+  var o=Object.assign({headers:{}},opts||{});
+  o.headers=Object.assign({},o.headers);
+  var t=getToken(); if(t) o.headers['Authorization']='Bearer '+t;
+  return fetch(url,o).then(function(r){
+    if(r.status===401){localStorage.removeItem('luna_token');window.location.href='/';} return r;
   });
 }
+if(!getToken()){ window.location.href='/'; }
 
-if (!getToken()) { window.location.href = '/'; }
+// ── STATE ────────────────────────────────────
+var SID=null, WS=null, GEO_ID=null;
+var SAFE_ZONE=null;
+var MAP=null, MARKER=null, SAFE_CIRCLE=null, TRAIL=null, TRAIL_COORDS=[];
+var RISK_LEVEL='low', RISK_COLORS={low:'#22c55e',medium:'#f59e0b',high:'#ef4444',critical:'#dc2626'};
+var LAST_GPS_SENT=0, CFG_OPEN=false, EV_OPEN=false;
+var LAST_POS=null;  // {lat,lng,address}
+// Geocode cache (localStorage pour éviter les appels répétés)
+var GEO_CACHE={};
 
-// ── STATE ─────────────────────────────────────
-var _sessionId = null;
-var _ws = null;
-var _watchId = null;
-var _safeZonePending = null;
-var _map = null;
-var _posMarker = null;
-var _safeCircle = null;
-var _trailLine = null;
-var _trailCoords = [];
-var _configOpen = false;
-var _eventsPanelOpen = false;
-var _eventsCount = 0;
-var _currentRisk = 0;
-var _riskColors = {low:'#22c55e', medium:'#f59e0b', high:'#ef4444', critical:'#dc2626'};
-
-// ── MAP INIT ──────────────────────────────────
-function initMap() {
-  _map = L.map('map', {zoomControl: false, attributionControl: true}).setView([46.6, 1.88], 13);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '© OpenStreetMap',
-    maxZoom: 19,
-  }).addTo(_map);
-  L.control.zoom({position: 'bottomright'}).addTo(_map);
+// ── MAP INIT ─────────────────────────────────
+function initMap(){
+  MAP=L.map('map',{zoomControl:false,attributionControl:true}).setView([46.6,1.88],13);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{
+    attribution:'&copy; <a href="https://carto.com/">CARTO</a>',maxZoom:19
+  }).addTo(MAP);
+  L.control.zoom({position:'bottomright'}).addTo(MAP);
 }
 initMap();
 
-// ── POSITION MARKER ───────────────────────────
-function _personIcon(color) {
-  return L.divIcon({
-    className: '',
-    html: '<div style="width:20px;height:20px;border-radius:50%;background:' + color + ';border:3px solid #fff;box-shadow:0 0 10px ' + color + ';"></div>',
-    iconSize: [20, 20], iconAnchor: [10, 10],
+// ── LAYOUT ───────────────────────────────────
+function _layoutUpdate(){
+  var bh=document.getElementById('bottom').offsetHeight;
+  var th=document.getElementById('timeline-wrap').offsetHeight||0;
+  var tl_vis=document.getElementById('timeline-wrap').style.display!=='none';
+  document.getElementById('map').style.bottom=(bh+(tl_vis?th:0))+'px';
+  if(tl_vis) document.getElementById('timeline-wrap').style.bottom=bh+'px';
+  if(MAP) setTimeout(function(){MAP.invalidateSize();},320);
+}
+window.addEventListener('resize',_layoutUpdate);
+
+// ── REVERSE GEOCODE ───────────────────────────
+function reverseGeocode(lat,lng,cb){
+  var key=lat.toFixed(3)+','+lng.toFixed(3);
+  if(GEO_CACHE[key]){ cb(GEO_CACHE[key]); return; }
+  fetch('https://nominatim.openstreetmap.org/reverse?format=json&lat='+lat+'&lon='+lng+'&zoom=18',{
+    headers:{'User-Agent':'LunaGuardian/1.0'}
+  }).then(function(r){return r.json();}).then(function(d){
+    var a=d.address||{};
+    var parts=[];
+    if(a.road) parts.push(a.road+(a.house_number?' '+a.house_number:''));
+    if(a.suburb||a.neighbourhood) parts.push(a.suburb||a.neighbourhood);
+    if(a.city||a.town||a.village) parts.push(a.city||a.town||a.village);
+    var addr=parts.length?parts.join(', '):(d.display_name||key);
+    GEO_CACHE[key]=addr.substring(0,70);
+    cb(GEO_CACHE[key]);
+  }).catch(function(){cb(null);});
+}
+
+// ── ADDRESS CARD ─────────────────────────────
+function updateAddressCard(lat,lng,accuracy,inSafeZone,zoneName){
+  var card=document.getElementById('addr-card');
+  card.style.display='block';
+  document.getElementById('addr-line').textContent='📍 …';
+  document.getElementById('addr-sub').textContent='±'+Math.round(accuracy||15)+'m · '+new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+  var zoneEl=document.getElementById('addr-zone');
+  if(inSafeZone&&zoneName){ zoneEl.style.display='inline-flex'; zoneEl.textContent='✅ '+zoneName; }
+  else { zoneEl.style.display='none'; }
+  reverseGeocode(lat,lng,function(addr){
+    if(addr) document.getElementById('addr-line').textContent='📍 '+addr;
+    LAST_POS={lat:lat,lng:lng,address:addr};
   });
 }
 
-function updateMapPosition(lat, lng, accuracy) {
-  if (!_map) return;
-  var latlng = [lat, lng];
-  var color = _riskColors[_currentRiskLevel()] || '#22c55e';
-
-  if (!_posMarker) {
-    _posMarker = L.marker(latlng, {icon: _personIcon(color), zIndexOffset: 1000}).addTo(_map);
-    _map.setView(latlng, 16);
-  } else {
-    _posMarker.setLatLng(latlng);
-    _posMarker.setIcon(_personIcon(color));
+// ── MAP POSITION ─────────────────────────────
+function personIcon(color){
+  return L.divIcon({className:'',iconSize:[22,22],iconAnchor:[11,11],
+    html:'<div style="width:22px;height:22px;border-radius:50%;background:'+color+
+         ';border:3px solid #fff;box-shadow:0 0 12px '+color+'"></div>'});
+}
+function updateMapPos(lat,lng,accuracy,inSafeZone){
+  var ll=[lat,lng], c=RISK_COLORS[RISK_LEVEL]||'#22c55e';
+  if(!MARKER){
+    MARKER=L.marker(ll,{icon:personIcon(c),zIndexOffset:1000}).addTo(MAP);
+    MAP.setView(ll,16);
+  } else { MARKER.setLatLng(ll); MARKER.setIcon(personIcon(c)); }
+  // Cercle de précision
+  if(accuracy>30){
+    if(MAP._accuracyCircle) MAP.removeLayer(MAP._accuracyCircle);
+    MAP._accuracyCircle=L.circle(ll,{radius:accuracy,color:c,fillColor:c,fillOpacity:.07,weight:1}).addTo(MAP);
   }
-
-  // Tracer la trajectoire
-  _trailCoords.push(latlng);
-  if (_trailCoords.length > 200) _trailCoords.shift();
-  if (_trailLine) {
-    _trailLine.setLatLngs(_trailCoords);
-  } else {
-    _trailLine = L.polyline(_trailCoords, {color: color, weight: 2, opacity: 0.5}).addTo(_map);
-  }
-
-  // Position overlay
-  document.getElementById('pos-overlay').style.display = 'block';
-  document.getElementById('pos-coords').textContent = lat.toFixed(6) + ', ' + lng.toFixed(6);
-  document.getElementById('pos-detail').textContent = 'Précision: ' + Math.round(accuracy) + 'm';
+  // Trail
+  TRAIL_COORDS.push(ll);
+  if(TRAIL_COORDS.length>200) TRAIL_COORDS.shift();
+  if(TRAIL) TRAIL.setLatLngs(TRAIL_COORDS);
+  else TRAIL=L.polyline(TRAIL_COORDS,{color:c,weight:2,opacity:.4}).addTo(MAP);
 }
 
-function drawSafeZone(lat, lng, radius, name) {
-  if (_safeCircle) _map.removeLayer(_safeCircle);
-  _safeCircle = L.circle([lat, lng], {
-    radius: radius,
-    color: '#22c55e', fillColor: '#22c55e', fillOpacity: 0.08, weight: 2, dashArray: '5,5',
-  }).addTo(_map).bindPopup('🏠 Zone sûre : ' + (name || 'Domicile'));
-  _map.fitBounds(_safeCircle.getBounds().pad(0.3));
+function drawSafeZone(lat,lng,radius,name){
+  if(SAFE_CIRCLE) MAP.removeLayer(SAFE_CIRCLE);
+  SAFE_CIRCLE=L.circle([lat,lng],{radius:radius,color:'#22c55e',fillColor:'#22c55e',
+    fillOpacity:.07,weight:2,dashArray:'6,4'}).addTo(MAP)
+    .bindPopup('<b>🏠 '+escH(name||'Zone sûre')+'</b><br>Rayon : '+radius+'m');
 }
 
-// ── RISK UI ───────────────────────────────────
-var _riskLevel = 'low';
-function _currentRiskLevel() { return _riskLevel; }
-
-function updateRisk(score, level, description) {
-  _currentRisk = score || 0;
-  _riskLevel = level || 'low';
-  var pct = Math.round(_currentRisk * 100);
-  var color = _riskColors[_riskLevel] || '#22c55e';
-  document.getElementById('risk-bar-inner').style.width = pct + '%';
-  document.getElementById('risk-bar-inner').style.background = color;
-  document.getElementById('risk-level-text').textContent = _riskLevel.toUpperCase() + ' ' + pct + '%';
-  document.getElementById('risk-level-text').style.color = color;
-
-  // Badge header
-  var badge = document.getElementById('risk-badge');
-  if (_riskLevel !== 'low') {
-    badge.style.display = 'inline-block';
-    badge.style.background = color; badge.style.color = (_riskLevel === 'medium') ? '#000' : '#fff';
-    badge.textContent = _riskLevel.toUpperCase();
-  } else {
-    badge.style.display = 'none';
-  }
-
-  // Status dot
-  var dot = document.getElementById('status-dot');
-  if (_riskLevel === 'high' || _riskLevel === 'critical') {
-    dot.className = 'alert';
-  } else if (_sessionId) {
-    dot.className = 'active';
-  }
-
-  // Mettre à jour la couleur du marqueur
-  if (_posMarker) _posMarker.setIcon(_personIcon(color));
-  if (_trailLine) _trailLine.setStyle({color: color});
+// ── RISK UI ──────────────────────────────────
+function updateRisk(score,level,desc){
+  RISK_LEVEL=level||'low';
+  var pct=Math.round((score||0)*100);
+  var c=RISK_COLORS[RISK_LEVEL]||'#22c55e';
+  document.getElementById('risk-fill').style.width=pct+'%';
+  document.getElementById('risk-fill').style.background=c;
+  document.getElementById('risk-txt').textContent=({low:'Normal',medium:'Attention',high:'Alerte',critical:'CRITIQUE'}[RISK_LEVEL]||RISK_LEVEL)+' '+pct+'%';
+  document.getElementById('risk-txt').style.color=c;
+  var badge=document.getElementById('hdr-risk');
+  if(RISK_LEVEL!=='low'){
+    badge.style.display='inline-block'; badge.style.background=c;
+    badge.style.color=RISK_LEVEL==='medium'?'#000':'#fff'; badge.textContent=RISK_LEVEL.toUpperCase();
+  } else badge.style.display='none';
+  var dot=document.getElementById('hdr-dot');
+  dot.className=SID?(RISK_LEVEL==='high'||RISK_LEVEL==='critical'?'alert':'live'):'';
+  if(MARKER) MARKER.setIcon(personIcon(c));
+  if(TRAIL) TRAIL.setStyle({color:c});
 }
 
-// ── TOAST ─────────────────────────────────────
-function showToast(msg, duration) {
-  var t = document.getElementById('toast');
-  t.textContent = msg; t.classList.add('show');
-  setTimeout(function() { t.classList.remove('show'); }, duration || 2500);
+// ── PERMISSIONS ───────────────────────────────
+function openPerm(){
+  var hasMic=!!(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia);
+  if(hasMic) document.getElementById('perm-mic').style.display='flex';
+  document.getElementById('perm-modal').classList.add('open');
+}
+function closePerm(){ document.getElementById('perm-modal').classList.remove('open'); }
+async function grantPermissions(){
+  closePerm();
+  if(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia){
+    try{ await navigator.mediaDevices.getUserMedia({audio:true}); }catch(e){}
+  }
+  if(window.Notification&&Notification.permission==='default') await Notification.requestPermission();
 }
 
 // ── CONFIG ────────────────────────────────────
-function toggleConfig() {
-  _configOpen = !_configOpen;
-  var cs = document.getElementById('config-section');
-  var btn = document.getElementById('config-toggle-btn');
-  if (_configOpen) { cs.classList.add('open'); btn.textContent = '▲ Masquer'; }
-  else { cs.classList.remove('open'); btn.textContent = '⚙️ Configurer'; }
-  setTimeout(function() { if (_map) _map.invalidateSize(); }, 320);
+function toggleCfg(){
+  CFG_OPEN=!CFG_OPEN;
+  document.getElementById('cfg').classList.toggle('open',CFG_OPEN);
+  document.getElementById('cfg-toggle-btn').textContent=CFG_OPEN?'▲ Masquer':'⚙️ Configuration';
+  setTimeout(_layoutUpdate,320);
 }
-
-function captureZone() {
-  if (!navigator.geolocation) { showToast('Géolocalisation non disponible'); return; }
-  var st = document.getElementById('zone-status');
-  st.textContent = 'Obtention GPS...';
-  navigator.geolocation.getCurrentPosition(function(pos) {
-    var name = document.getElementById('cfg-zone-name').value.trim() || 'Domicile';
-    var radius = parseFloat(document.getElementById('cfg-zone-radius').value) || 150;
-    _safeZonePending = {name: name, lat: pos.coords.latitude, lng: pos.coords.longitude, radius_m: radius};
-    st.textContent = '✅ ' + name + ' (' + radius + 'm) — ' + pos.coords.latitude.toFixed(4) + ', ' + pos.coords.longitude.toFixed(4);
-    drawSafeZone(pos.coords.latitude, pos.coords.longitude, radius, name);
-  }, function(err) { st.textContent = '❌ ' + err.message; });
+function captureZone(){
+  if(!navigator.geolocation){showToast('GPS non disponible');return;}
+  document.getElementById('zone-st').textContent='Obtention…';
+  navigator.geolocation.getCurrentPosition(function(p){
+    var name=document.getElementById('cfg-zname').value.trim()||'Domicile';
+    var r=parseFloat(document.getElementById('cfg-zradius').value)||150;
+    SAFE_ZONE={name:name,lat:p.coords.latitude,lng:p.coords.longitude,radius_m:r};
+    document.getElementById('zone-st').textContent='✅ '+name+' ('+r+'m)';
+    drawSafeZone(p.coords.latitude,p.coords.longitude,r,name);
+  },function(e){document.getElementById('zone-st').textContent='❌ '+e.message;});
 }
 
 // ── START / STOP ──────────────────────────────
-function guardianStart() {
-  if (!navigator.geolocation) { showToast('Géolocalisation non disponible'); return; }
-  var profile = document.getElementById('cfg-profile').value;
-  var immo = parseInt(document.getElementById('cfg-immo').value) || 30;
-  var config = {immobility_threshold_minutes: immo, safe_zones: []};
-  if (_safeZonePending) config.safe_zones = [_safeZonePending];
-
-  setStatusUI('Connexion...', 'Démarrage de la surveillance', '#f59e0b', false);
-
-  authFetch('/api/guardian/start', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({profile_type: profile, config: config}),
-  }).then(function(r) { return r.json(); }).then(function(data) {
-    if (!data.success) throw new Error(data.error || 'Erreur démarrage');
-    _sessionId = data.session_id;
-    setStatusUI('Actif — ' + profileLabel(data.profile_type), 'Envoi GPS toutes les 10s', '#22c55e', true);
-    document.getElementById('btn-start').style.display = 'none';
-    document.getElementById('btn-stop').style.display = '';
-    document.getElementById('btn-sos').style.display = '';
-    document.getElementById('disclaimer').style.display = 'block';
-    // Fermer la config
-    if (_configOpen) toggleConfig();
-    connectWs();
-    startGps();
-    loadEvents();
+function guardianStart(){
+  if(!navigator.geolocation){showToast('GPS non disponible');return;}
+  setHdrStatus('Connexion…','#f59e0b',false);
+  var cfg={immobility_threshold_minutes:parseInt(document.getElementById('cfg-immo').value)||30,safe_zones:[]};
+  if(SAFE_ZONE) cfg.safe_zones=[SAFE_ZONE];
+  authFetch('/api/guardian/start',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({profile_type:document.getElementById('cfg-profile').value,config:cfg})
+  }).then(function(r){return r.json();}).then(function(d){
+    if(!d.success) throw new Error(d.error||'Erreur');
+    SID=d.session_id;
+    setHdrStatus('Actif',null,true);
+    document.getElementById('btn-start').style.display='none';
+    document.getElementById('btn-stop').style.display='';
+    document.getElementById('btn-sos').style.display='';
+    document.getElementById('btn-share').style.display='';
+    document.getElementById('addr-card').style.display='block';
+    document.getElementById('timeline-wrap').style.display='';
+    if(CFG_OPEN) toggleCfg();
+    _layoutUpdate();
+    connectWs(); startGps(); loadEvents();
     showToast('Guardian démarré ✅');
-    // Notification browser
-    if (window.Notification && Notification.permission !== 'denied') {
-      Notification.requestPermission();
-    }
-  }).catch(function(e) {
-    setStatusUI('Erreur', e.message, '#ef4444', false);
-    showToast('❌ ' + e.message, 3000);
+  }).catch(function(e){ setHdrStatus('Erreur: '+e.message,'#ef4444',false); showToast('❌ '+e.message,3500); });
+}
+
+function guardianStop(){
+  if(!SID) return;
+  authFetch('/api/guardian/stop/'+SID,{method:'POST'}).then(function(){
+    _cleanupSession(); setHdrStatus('Arrêté',null,false);
+    document.getElementById('btn-start').style.display='';
+    document.getElementById('btn-stop').style.display='none';
+    document.getElementById('btn-sos').style.display='none';
+    document.getElementById('btn-share').style.display='none';
+    document.getElementById('addr-card').style.display='none';
+    document.getElementById('timeline-wrap').style.display='none';
+    updateRisk(0,'low',''); _layoutUpdate(); showToast('Guardian arrêté');
   });
 }
-
-function guardianStop() {
-  if (!_sessionId) return;
-  authFetch('/api/guardian/stop/' + _sessionId, {method: 'POST'})
-  .then(function() {
-    _cleanupSession();
-    setStatusUI('Arrêté', 'Session terminée', '#6b7280', false);
-    document.getElementById('btn-start').style.display = '';
-    document.getElementById('btn-stop').style.display = 'none';
-    document.getElementById('btn-sos').style.display = 'none';
-    document.getElementById('disclaimer').style.display = 'none';
-    updateRisk(0, 'low', '');
-    showToast('Guardian arrêté');
-  });
-}
-
-function _cleanupSession() {
-  if (_ws) { try { _ws.close(); } catch(e) {} _ws = null; }
-  if (_watchId !== null) { navigator.geolocation.clearWatch(_watchId); _watchId = null; }
-  _sessionId = null;
-  _trailCoords = [];
-  if (_trailLine) { _map.removeLayer(_trailLine); _trailLine = null; }
-}
-
-function profileLabel(p) {
-  return {senior:'👴 Senior', dog:'🐕 Animal', baby:'👶 Bébé', home:'🏠 Domicile'}[p] || p;
+function _cleanupSession(){
+  if(WS){try{WS.close();}catch(e){} WS=null;}
+  if(GEO_ID!==null){navigator.geolocation.clearWatch(GEO_ID);GEO_ID=null;}
+  SID=null; TRAIL_COORDS=[];
+  if(TRAIL){MAP.removeLayer(TRAIL);TRAIL=null;}
+  if(MAP._accuracyCircle){MAP.removeLayer(MAP._accuracyCircle);}
 }
 
 // ── GPS ───────────────────────────────────────
-var _lastGpsSent = 0;
-function startGps() {
-  _watchId = navigator.geolocation.watchPosition(function(pos) {
-    var now = Date.now();
-    if (now - _lastGpsSent < 10000) {
-      // Quand même mettre à jour la carte visuellement
-      updateMapPosition(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy);
+function startGps(){
+  GEO_ID=navigator.geolocation.watchPosition(function(p){
+    var lat=p.coords.latitude,lng=p.coords.longitude,acc=p.coords.accuracy,spd=p.coords.speed;
+    updateMapPos(lat,lng,acc);
+    var now=Date.now();
+    if(!SID||(now-LAST_GPS_SENT<10000&&LAST_GPS_SENT>0)){
+      // Mettre à jour l'adresse visuellement même sans envoyer
+      if(now-LAST_GPS_SENT>30000) updateAddressCard(lat,lng,acc,false,null);
       return;
     }
-    _lastGpsSent = now;
-    var lat = pos.coords.latitude;
-    var lng = pos.coords.longitude;
-    var acc = pos.coords.accuracy;
-    var spd = pos.coords.speed;
-    updateMapPosition(lat, lng, acc);
-    if (!_sessionId) return;
-    authFetch('/api/guardian/location/' + _sessionId, {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({lat: lat, lng: lng, accuracy: acc, speed: spd}),
-    }).then(function(r) { return r.json(); }).then(function(d) {
-      updateRisk(d.risk_score, d.risk_level, d.description);
-      if (d.risk_level !== 'low') loadEvents();
-    }).catch(function() {});
-  }, function(err) {
-    setStatusUI('Erreur GPS', err.message, '#ef4444', false);
-    showToast('❌ GPS: ' + err.message, 4000);
-  }, {enableHighAccuracy: true, maximumAge: 5000, timeout: 20000});
+    LAST_GPS_SENT=now;
+    authFetch('/api/guardian/location/'+SID,{method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({lat:lat,lng:lng,accuracy:acc,speed:spd})
+    }).then(function(r){return r.json();}).then(function(d){
+      updateRisk(d.risk_score,d.risk_level,d.description);
+      // Récupère les infos de zone depuis la session
+      var inZone=false,zoneName=null;
+      if(SAFE_ZONE){
+        var dx=lat-SAFE_ZONE.lat,dy=lng-SAFE_ZONE.lng;
+        inZone=Math.sqrt(dx*dx+dy*dy)*111000<SAFE_ZONE.radius_m;
+        zoneName=inZone?SAFE_ZONE.name:null;
+      }
+      updateAddressCard(lat,lng,acc,inZone,zoneName);
+      if(d.risk_level&&d.risk_level!=='low') loadEvents();
+    }).catch(function(){});
+  },function(e){ setHdrStatus('GPS: '+e.message,'#ef4444',false); showToast('❌ GPS: '+e.message,4000); },
+  {enableHighAccuracy:true,maximumAge:5000,timeout:20000});
 }
 
 // ── WEBSOCKET ─────────────────────────────────
-function connectWs() {
-  if (!_sessionId) return;
-  var proto = location.protocol === 'https:' ? 'wss' : 'ws';
-  try {
-    _ws = new WebSocket(proto + '://' + location.host + '/api/guardian/ws/' + _sessionId);
-    _ws.onmessage = function(evt) {
-      try { handleWsMsg(JSON.parse(evt.data)); } catch(e) {}
-    };
-    _ws.onclose = function() {
-      if (_sessionId) setTimeout(function() { if (_sessionId) connectWs(); }, 4000);
-    };
-    _ws.onopen = function() { _ws.send(JSON.stringify({type:'ping'})); };
-  } catch(e) {}
+function connectWs(){
+  if(!SID) return;
+  var proto=location.protocol==='https:'?'wss':'ws';
+  try{
+    WS=new WebSocket(proto+'://'+location.host+'/api/guardian/ws/'+SID);
+    WS.onopen=function(){WS.send(JSON.stringify({type:'ping'}));};
+    WS.onmessage=function(e){try{handleWsMsg(JSON.parse(e.data));}catch(x){}};
+    WS.onclose=function(){if(SID) setTimeout(function(){if(SID)connectWs();},4000);};
+  }catch(e){}
+}
+function handleWsMsg(m){
+  if(m.type==='update'||m.type==='risk_update') updateRisk(m.risk,m.level,'');
+  else if(m.type==='alert'){
+    var d=m.data||{}; showAlertOnMap(d.description,d.lat,d.lng);
+    loadEvents(); showToast('🔔 '+escH(d.description||'Alerte'),5000);
+  }
+  else if(m.type==='verification_needed') openVerifyModal(m.message);
+  else if(m.type==='sos') showAlertOnMap('🆘 SOS activé',null,null);
 }
 
-function handleWsMsg(msg) {
-  if (msg.type === 'update' || msg.type === 'risk_update') {
-    updateRisk(msg.risk, msg.level, '');
-  } else if (msg.type === 'alert') {
-    var d = msg.data || {};
-    showAlert(d.description || 'Alerte Guardian', d.lat, d.lng);
-    loadEvents();
-  } else if (msg.type === 'verification_needed') {
-    openVerifyModal(msg.message);
-  } else if (msg.type === 'sos') {
-    showAlert('🆘 SOS activé', null, null);
+// ── ALERT ─────────────────────────────────────
+function showAlertOnMap(desc,lat,lng){
+  document.getElementById('hdr-dot').className='alert';
+  setHdrStatus('⚠️ ALERTE','#ef4444',true);
+  if(lat&&lng){
+    L.popup().setLatLng([lat,lng])
+     .setContent('<b>🔔 '+escH(desc)+'</b><br><a href="https://maps.google.com/?q='+lat+','+lng+'" target="_blank" style="color:#a78bfa;">Voir dans Maps</a>')
+     .openOn(MAP);
   }
+  if(window.Notification&&Notification.permission==='granted')
+    new Notification('🛡️ Luna Guardian',{body:desc||'Alerte',icon:'/favicon.ico'});
+  if(navigator.vibrate) navigator.vibrate([800,200,800]);
 }
 
 // ── SOS ───────────────────────────────────────
-function openSosModal() { document.getElementById('sos-modal').classList.add('open'); }
-function closeSosModal() { document.getElementById('sos-modal').classList.remove('open'); }
-
-function triggerSOS() {
-  closeSosModal();
-  if (!_sessionId) { showToast('Guardian non actif'); return; }
-  authFetch('/api/guardian/sos/' + _sessionId, {method: 'POST'})
-  .then(function(r) { return r.json(); })
-  .then(function(data) {
-    showAlert('🆘 SOS envoyé — ' + (data.message || ''), null, null);
-    updateRisk(1.0, 'critical', 'SOS');
+function openSosModal(){ document.getElementById('sos-modal').classList.add('open'); }
+function closeSosModal(){ document.getElementById('sos-modal').classList.remove('open'); }
+function triggerSOS(){
+  closeSosModal(); if(!SID){showToast('Guardian non actif');return;}
+  authFetch('/api/guardian/sos/'+SID,{method:'POST'})
+  .then(function(r){return r.json();}).then(function(d){
+    showToast('🆘 '+(d.message||'SOS envoyé'),5000);
+    updateRisk(1,'critical','SOS');
+    showAlertOnMap('🆘 SOS activé — '+d.alerts_sent_to+' contact(s) alerté(s)',
+      LAST_POS?LAST_POS.lat:null,LAST_POS?LAST_POS.lng:null);
     loadEvents();
-    if (window.Notification && Notification.permission === 'granted') {
-      new Notification('🆘 Luna Guardian — SOS envoyé', {body: data.message || ''});
-    }
   });
 }
 
-// ── VERIFICATION ──────────────────────────────
-function openVerifyModal(msg) {
-  document.getElementById('verify-msg').textContent = msg || 'Luna vérifie que vous allez bien.';
+// ── VERIFY ────────────────────────────────────
+function openVerifyModal(msg){
+  document.getElementById('verify-msg').textContent=msg||'Luna vérifie que vous allez bien.';
   document.getElementById('verify-modal').classList.add('open');
-  // Vibration mobile
-  if (navigator.vibrate) navigator.vibrate([500, 200, 500]);
-  // Notification browser
-  if (window.Notification && Notification.permission === 'granted') {
-    new Notification('❓ Luna Guardian', {body: msg || 'Tout va bien ?'});
-  }
+  if(navigator.vibrate) navigator.vibrate([500,200,500]);
+  if(window.Notification&&Notification.permission==='granted')
+    new Notification('❓ Luna Guardian',{body:msg||'Tout va bien ?'});
 }
-
-function verifyResponse(ok) {
+function verifyResponse(ok){
   document.getElementById('verify-modal').classList.remove('open');
-  if (!_sessionId) return;
-  authFetch('/api/guardian/verify-response/' + _sessionId, {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({ok: ok}),
-  }).then(function(r) { return r.json(); }).then(function(d) {
-    showToast(d.message || (ok ? 'Réponse enregistrée ✅' : 'Alerte confirmée'));
-    if (ok) updateRisk(0, 'low', '');
+  if(!SID) return;
+  authFetch('/api/guardian/verify-response/'+SID,{method:'POST',
+    headers:{'Content-Type':'application/json'},body:JSON.stringify({ok:ok})
+  }).then(function(r){return r.json();}).then(function(d){
+    showToast(d.message||(ok?'✅ Réponse enregistrée':'Alerte confirmée'));
+    if(ok) updateRisk(0,'low','');
     loadEvents();
   });
 }
 
-// ── ALERT DISPLAY ─────────────────────────────
-function showAlert(description, lat, lng) {
-  setStatusUI('⚠️ ALERTE', description, '#ef4444', true);
-  document.getElementById('status-dot').className = 'alert';
-  showToast('🔔 ' + description, 5000);
-  if (lat && lng) {
-    var popup = L.popup()
-      .setLatLng([lat, lng])
-      .setContent('<b>🔔 Alerte</b><br>' + description + '<br><a href="https://maps.google.com/?q=' + lat + ',' + lng + '" target="_blank" style="color:#a78bfa;">Ouvrir dans Maps</a>')
-      .openOn(_map);
-    updateMapPosition(lat, lng, 20);
-  }
+// ── SHARE ─────────────────────────────────────
+function sharePosition(){
+  if(!SID){showToast('Guardian non actif');return;}
+  authFetch('/api/guardian/share/'+SID).then(function(r){return r.json();}).then(function(d){
+    if(!d.public_url){showToast('Erreur partage');return;}
+    if(navigator.share){
+      navigator.share({title:'Ma position Luna',text:'Position en temps réel (1h)',url:d.public_url})
+               .catch(function(){_copyAndShowUrl(d.public_url);});
+    } else _copyAndShowUrl(d.public_url);
+  }).catch(function(){showToast('Erreur partage',3000);});
+}
+function _copyAndShowUrl(url){
+  if(navigator.clipboard){
+    navigator.clipboard.writeText(url).then(function(){ showToast('📋 Lien copié ! Valable 1h',3500); })
+    .catch(function(){ prompt('Lien temporaire (1h) :',url); });
+  } else prompt('Lien temporaire (1h) :',url);
 }
 
-// ── EVENTS ───────────────────────────────────
-function toggleEvents() {
-  _eventsPanelOpen = !_eventsPanelOpen;
-  document.getElementById('events-panel').classList.toggle('open', _eventsPanelOpen);
-  if (_eventsPanelOpen && _sessionId) loadEvents();
-  setTimeout(function() { if (_map) _map.invalidateSize(); }, 320);
+// ── EVENTS ────────────────────────────────────
+function toggleEvPanel(){
+  EV_OPEN=!EV_OPEN;
+  document.getElementById('ev-panel').classList.toggle('open',EV_OPEN);
+  if(EV_OPEN&&SID) loadEvents();
+  setTimeout(function(){if(MAP)MAP.invalidateSize();},320);
 }
-
-function loadEvents() {
-  if (!_sessionId) return;
-  authFetch('/api/guardian/events/' + _sessionId + '?limit=30')
-  .then(function(r) { return r.json(); })
-  .then(function(data) {
-    var list = document.getElementById('events-list');
-    var events = data.events || [];
-    _eventsCount = events.length;
-    var cnt = document.getElementById('events-count');
-    if (events.length > 0) { cnt.style.display = 'inline'; cnt.textContent = events.length; }
-    else { cnt.style.display = 'none'; }
-    if (events.length === 0) {
-      list.innerHTML = '<p style="color:var(--muted);font-size:0.82em;padding:10px;">Aucun événement.</p>';
-      return;
-    }
-    var icons = {location_update:'📍', geofence_exit:'⚠️', geofence_enter:'✅',
-      alert_triggered:'🔔', alert_escalated:'📢', sos_triggered:'🆘',
-      verification_needed:'❓', verified_ok:'✅', session_stopped:'⏹️'};
-    list.innerHTML = events.map(function(evt) {
-      var icon = icons[evt.event_type] || '•';
-      var ts = evt.timestamp ? evt.timestamp.substring(11, 16) : '';
-      var isAlert = ['alert_triggered','alert_escalated','sos_triggered','geofence_exit'].indexOf(evt.event_type) >= 0;
-      var isOk = ['verified_ok','geofence_enter'].indexOf(evt.event_type) >= 0;
-      var mapsLink = (evt.lat && evt.lng)
-        ? ' <a href="https://maps.google.com/?q=' + evt.lat + ',' + evt.lng + '" target="_blank" style="color:#a78bfa;font-size:0.9em;">Maps</a>'
-        : '';
-      return '<div class="event-item' + (isAlert ? ' alert-item' : isOk ? ' ok-item' : '') + '">' +
-        '<div class="ev-time">' + ts + '</div>' +
-        '<div class="ev-desc">' + icon + ' ' + escHtml(evt.description || evt.event_type) + mapsLink + '</div>' +
-        '</div>';
+var _evIcons={location_update:'📍',geofence_exit:'⚠️',geofence_enter:'✅',
+  alert_triggered:'🔔',alert_escalated:'📢',sos_triggered:'🆘',
+  verification_needed:'❓',verified_ok:'✅',session_stopped:'⏹️'};
+function loadEvents(){
+  if(!SID) return;
+  authFetch('/api/guardian/events/'+SID+'?limit=40')
+  .then(function(r){return r.json();}).then(function(data){
+    var evts=data.events||[];
+    var badge=document.getElementById('ev-badge');
+    var alertCount=evts.filter(function(e){return['alert_triggered','sos_triggered','geofence_exit'].indexOf(e.event_type)>=0;}).length;
+    if(alertCount>0){badge.style.display='inline';badge.textContent=alertCount;}
+    else badge.style.display='none';
+    // Events list
+    var list=document.getElementById('ev-list');
+    if(!evts.length){list.innerHTML='<p style="color:var(--muted);font-size:.82em;padding:10px;">Aucun événement.</p>';return;}
+    var isA=function(t){return['alert_triggered','alert_escalated','sos_triggered','geofence_exit'].indexOf(t)>=0;};
+    var isO=function(t){return['verified_ok','geofence_enter'].indexOf(t)>=0;};
+    list.innerHTML=evts.map(function(e){
+      var icon=_evIcons[e.event_type]||'•';
+      var ts=e.timestamp?e.timestamp.substring(11,16):'';
+      var maps=(e.lat&&e.lng)?'<a class="ev-maps" href="https://maps.google.com/?q='+e.lat+','+e.lng+'" target="_blank">Maps</a>':'';
+      return '<div class="ev-item'+(isA(e.event_type)?' ev-alert':isO(e.event_type)?' ev-ok':'')+'">'
+        +'<span class="ev-time">'+ts+'</span>'
+        +'<div class="ev-desc">'+icon+' '+escH(e.description||e.event_type)+maps+'</div>'
+        +'</div>';
     }).join('');
-  }).catch(function() {});
+    // Timeline
+    buildTimeline(evts.slice(0,20));
+  }).catch(function(){});
+}
+
+// ── TIMELINE ─────────────────────────────────
+function buildTimeline(evts){
+  var tl=document.getElementById('timeline');
+  var isA=function(t){return['alert_triggered','sos_triggered'].indexOf(t)>=0;};
+  var isO=function(t){return['verified_ok','geofence_enter'].indexOf(t)>=0;};
+  tl.innerHTML=evts.map(function(e){
+    var icon=_evIcons[e.event_type]||'•';
+    var ts=e.timestamp?e.timestamp.substring(11,16):'';
+    var cls=isA(e.event_type)?'tl-item tl-alert':isO(e.event_type)?'tl-item tl-ok':'tl-item';
+    var onClick=e.lat&&e.lng?'MAP.setView(['+e.lat+','+e.lng+'],17);':'';
+    return '<div class="'+cls+'" onclick="'+onClick+'">'
+      +'<span class="tl-time">'+ts+'</span>'
+      +'<span class="tl-icon">'+icon+'</span>'
+      +'</div>';
+  }).join('');
+  // Scroll vers le dernier
+  tl.scrollLeft=tl.scrollWidth;
 }
 
 // ── STATUS UI ─────────────────────────────────
-function setStatusUI(label, sub, dotColor, active) {
-  document.getElementById('status-dot').style.background = dotColor || '#6b7280';
-  document.getElementById('status-dot').className = active ? 'active' : '';
-  document.getElementById('status-label').textContent = label || '';
-  document.getElementById('status-label').title = sub || '';
+function setHdrStatus(label,color,live){
+  document.getElementById('hdr-status').textContent=label||'';
+  document.getElementById('hdr-dot').style.background=color||'var(--muted)';
+  document.getElementById('hdr-dot').className=live?(RISK_LEVEL==='high'||RISK_LEVEL==='critical'?'alert':'live'):'';
 }
 
 // ── UTILS ─────────────────────────────────────
-function escHtml(s) {
-  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+function escH(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function showToast(msg,ms){
+  var t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show');
+  clearTimeout(t._tid); t._tid=setTimeout(function(){t.classList.remove('show');},ms||2500);
 }
 
-// ── INIT ──────────────────────────────────────
-// Récupère une session active existante si elle est en cours
-(function checkExistingSession() {
-  authFetch('/api/guardian/sessions').then(function(r) { return r.json(); }).then(function(data) {
-    if (data.sessions && data.sessions.length > 0) {
-      var s = data.sessions[0];
-      _sessionId = s.session_id;
-      setStatusUI('Reprise — ' + profileLabel(s.profile_type), 'Session existante', '#22c55e', true);
-      document.getElementById('btn-start').style.display = 'none';
-      document.getElementById('btn-stop').style.display = '';
-      document.getElementById('btn-sos').style.display = '';
-      document.getElementById('disclaimer').style.display = 'block';
-      updateRisk(0, s.alert_level || 'low', '');
-      connectWs();
-      startGps();
-      loadEvents();
+// ── INIT : reprise session active ─────────────
+(function checkSession(){
+  authFetch('/api/guardian/sessions').then(function(r){return r.json();}).then(function(d){
+    if(d.sessions&&d.sessions.length>0){
+      var s=d.sessions[0]; SID=s.session_id;
+      setHdrStatus('Reprise — '+(s.profile_type||'?'),null,true);
+      document.getElementById('btn-start').style.display='none';
+      document.getElementById('btn-stop').style.display='';
+      document.getElementById('btn-sos').style.display='';
+      document.getElementById('btn-share').style.display='';
+      document.getElementById('addr-card').style.display='block';
+      document.getElementById('timeline-wrap').style.display='';
+      updateRisk(0,s.alert_level||'low','');
+      _layoutUpdate(); connectWs(); startGps(); loadEvents();
+    } else {
+      // Première visite : montrer modal permissions
+      openPerm();
     }
-  }).catch(function() {});
+  }).catch(function(){openPerm();});
 })();
 </script>
 </body>

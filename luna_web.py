@@ -50,6 +50,7 @@ from starlette.websockets import WebSocketState
 from pydantic import BaseModel, Field, field_validator
 from typing import Optional, Dict, Any
 import httpx
+import secrets
 
 from integrations.twilio.sms_client import TwilioSMSClient
 from integrations.twilio.voice_client import TwilioVoiceClient
@@ -480,6 +481,8 @@ _PUBLIC_PATHS = (
     "/download",
     "/download/",
     "/static/",
+    "/guardian-live/",
+    "/api/guardian/live-position/",
 )
 
 def _is_public_path(path: str) -> bool:
@@ -8848,6 +8851,173 @@ async def guardian_ws(websocket: WebSocket, session_id: str):
         logger.error(f"Guardian WS error: {e}")
     finally:
         engine.unregister_ws(session_id, websocket)
+
+
+@app.get("/api/guardian/share/{session_id}")
+async def guardian_share(session_id: str, request: Request):
+    """Génère un lien public temporaire (1h) pour suivre la position en direct."""
+    engine = _get_guardian()
+    if not engine:
+        raise HTTPException(503, "Guardian non disponible")
+
+    token = secrets.token_urlsafe(32)
+    redis_key = f"luna:guardian:share:{token}"
+    tenant_id = getattr(request.state, "tenant_id", 1)
+
+    _redis_client.client.setex(redis_key, 3600, json.dumps({
+        "session_id": session_id,
+        "tenant_id": str(tenant_id),
+        "created_at": datetime.utcnow().isoformat(),
+    }))
+
+    base = str(request.base_url).rstrip("/")
+    public_url = f"{base}/guardian-live/{token}"
+    return {"public_url": public_url, "expires_in": 3600}
+
+
+@app.get("/api/guardian/live-position/{token}")
+async def guardian_live_position(token: str):
+    """Retourne la dernière position connue pour un token de partage (public)."""
+    redis_key = f"luna:guardian:share:{token}"
+    raw = _redis_client.client.get(redis_key)
+    if not raw:
+        raise HTTPException(404, "Lien expiré ou invalide")
+
+    info = json.loads(raw)
+    session_id = info["session_id"]
+
+    engine = _get_guardian()
+    if not engine:
+        raise HTTPException(503, "Guardian non disponible")
+
+    session = engine.get_session(session_id)
+    if not session:
+        return {"lat": None, "lng": None, "accuracy": None, "address": None, "updated_at": None}
+
+    pos = session.last_position
+    return {
+        "lat": pos.lat if pos else None,
+        "lng": pos.lng if pos else None,
+        "accuracy": pos.accuracy if pos else None,
+        "address": None,
+        "risk_level": session.alert_level.value if session.alert_level else "low",
+        "profile_type": session.profile_type.value if session.profile_type else "senior",
+        "updated_at": pos.timestamp if pos else None,
+    }
+
+
+@app.get("/guardian-live/{token}")
+async def guardian_live_page(token: str):
+    """Page publique de suivi en direct (pas d'auth requise)."""
+    redis_key = f"luna:guardian:share:{token}"
+    raw = _redis_client.client.get(redis_key)
+    if not raw:
+        return HTMLResponse(
+            "<html><body style='background:#111;color:#fff;font-family:sans-serif;"
+            "display:flex;align-items:center;justify-content:center;height:100vh;margin:0;'>"
+            "<div style='text-align:center'><div style='font-size:3em'>⏱️</div>"
+            "<h2>Lien expiré</h2><p>Ce lien de suivi n'est plus valide.</p></div></body></html>",
+            status_code=410,
+        )
+
+    info = json.loads(raw)
+    html = f"""<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Luna Guardian — Suivi en direct</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+*{{margin:0;padding:0;box-sizing:border-box}}
+body{{background:#0d1117;color:#e6edf3;font-family:-apple-system,sans-serif;height:100vh;display:flex;flex-direction:column}}
+#header{{padding:12px 16px;background:#161b22;border-bottom:1px solid #30363d;display:flex;align-items:center;gap:10px}}
+#dot{{width:10px;height:10px;border-radius:50%;background:#2ea043;flex-shrink:0}}
+#dot.stale{{background:#6e7681}}
+h1{{font-size:1em;font-weight:600}}
+#sub{{font-size:.78em;color:#8b949e;margin-top:2px}}
+#map{{flex:1}}
+#footer{{padding:10px 16px;background:#161b22;border-top:1px solid #30363d;font-size:.8em;color:#8b949e;text-align:center}}
+#addr-bar{{padding:8px 16px;background:#0d1117;font-size:.82em;color:#8b949e;border-bottom:1px solid #21262d;min-height:34px}}
+.risk-badge{{display:inline-block;padding:2px 8px;border-radius:10px;font-size:.75em;margin-left:8px}}
+.risk-low{{background:#1f2d1f;color:#3fb950}}.risk-medium{{background:#2d2416;color:#d29922}}.risk-high,.risk-critical{{background:#2d1f1f;color:#f85149}}
+</style>
+</head>
+<body>
+<div id="header">
+  <div id="dot" class="stale"></div>
+  <div>
+    <div id="title" style="font-size:1em;font-weight:600">Luna Guardian</div>
+    <div id="sub">Chargement…</div>
+  </div>
+</div>
+<div id="addr-bar">Localisation en cours…</div>
+<div id="map"></div>
+<div id="footer">🔒 Lien sécurisé · Expire dans <span id="ttl">1h</span> · Luna Guardian</div>
+<script>
+var TOKEN="{token}";
+var MAP=L.map('map',{{zoomControl:true}});
+L.tileLayer('https://{{s}}.basemaps.cartocdn.com/dark_all/{{z}}/{{x}}/{{y}}{{r}}.png',{{
+  attribution:'© OpenStreetMap © CARTO',maxZoom:19,subdomains:'abcd'
+}}).addTo(MAP);
+MAP.setView([46.6,2.3],6);
+var MARKER=null,CIRCLE=null,FIRST=true;
+var _riskColors={{low:'#3fb950',medium:'#d29922',high:'#f85149',critical:'#ff0000'}};
+
+function fetchPosition(){{
+  fetch('/api/guardian/live-position/'+TOKEN)
+  .then(function(r){{return r.json();}})
+  .then(function(d){{
+    if(!d.lat||!d.lng){{
+      document.getElementById('sub').textContent='Position non disponible';
+      return;
+    }}
+    var lat=parseFloat(d.lat),lng=parseFloat(d.lng);
+    var acc=parseFloat(d.accuracy||15);
+    var color=_riskColors[d.risk_level||'low'];
+    var icon=L.divIcon({{
+      html:'<div style="width:18px;height:18px;border-radius:50%;background:'+color+';border:2px solid #fff;box-shadow:0 0 6px rgba(0,0,0,.6)"></div>',
+      iconSize:[18,18],iconAnchor:[9,9],className:''
+    }});
+    if(!MARKER){{
+      MARKER=L.marker([lat,lng],{{icon:icon}}).addTo(MAP);
+      CIRCLE=L.circle([lat,lng],{{radius:acc,color:color,fillOpacity:.1,weight:1}}).addTo(MAP);
+    }}else{{
+      MARKER.setLatLng([lat,lng]);MARKER.setIcon(icon);
+      CIRCLE.setLatLng([lat,lng]);CIRCLE.setRadius(acc);CIRCLE.setStyle({{color:color}});
+    }}
+    if(FIRST){{MAP.setView([lat,lng],15);FIRST=false;}}
+    document.getElementById('dot').className='';
+    var ts=d.updated_at?new Date(d.updated_at):new Date();
+    document.getElementById('sub').textContent='Mis à jour '+ts.toLocaleTimeString('fr-FR');
+    var risk=d.risk_level||'low';
+    var rLabel={{low:'Tout va bien',medium:'Attention',high:'Alerte',critical:'SOS'}};
+    document.getElementById('title').innerHTML='Luna Guardian <span class="risk-badge risk-'+risk+'">'+rLabel[risk]+'</span>';
+    if(d.address){{document.getElementById('addr-bar').textContent='📍 '+d.address;}}
+    else reverseGeocode(lat,lng);
+  }}).catch(function(){{}});
+}}
+function reverseGeocode(lat,lng){{
+  fetch('https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat='+lat+'&lon='+lng,{{headers:{{'User-Agent':'LunaGuardian/1.0'}}}})
+  .then(function(r){{return r.json();}}).then(function(d){{
+    var a=d.address||{{}};
+    var parts=[a.road,a.house_number,a.city||a.town||a.village,a.postcode].filter(Boolean);
+    if(parts.length)document.getElementById('addr-bar').textContent='📍 '+parts.join(' ');
+  }}).catch(function(){{}});
+}}
+fetchPosition();
+setInterval(fetchPosition,10000);
+// Countdown TTL
+var _exp=Date.now()+3600000;
+setInterval(function(){{
+  var rem=Math.max(0,Math.round((_exp-Date.now())/60000));
+  document.getElementById('ttl').textContent=rem>0?rem+'min':'expiré';
+}},30000);
+</script>
+</body>
+</html>"""
+    return HTMLResponse(html)
 
 
 # =========================================================================

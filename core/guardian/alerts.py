@@ -22,27 +22,47 @@ def build_sms_alert(
     lng: Optional[float],
     alert_level: str,
     profile_type: str,
+    address: Optional[str] = None,
+    redis_client=None,
 ) -> str:
-    """Construit le SMS d'alerte envoyé aux contacts de confiance."""
-    maps_link = f"https://maps.google.com/?q={lat},{lng}" if lat and lng else None
-    location_text = f"\n📍 Position précise : {maps_link}" if maps_link else "\n📍 Position non disponible"
+    """Construit le SMS d'alerte avec adresse humaine et lien Maps."""
+    from .profiles import get_profile, format_profile_message
 
-    profile_labels = {
-        "senior": "votre proche",
-        "dog": "votre animal",
-        "baby": "votre enfant",
-        "home": "le domicile surveillé",
-    }
-    who = profile_labels.get(profile_type, "la personne surveillée")
+    maps_link = f"https://maps.google.com/?q={lat},{lng}" if lat and lng else None
+
+    # Résolution adresse si non fournie
+    if not address and lat and lng:
+        try:
+            from .engine import reverse_geocode
+            address = reverse_geocode(lat, lng, redis_client)
+        except Exception:
+            address = maps_link
+
+    profile = get_profile(profile_type)
     level_emoji = "🆘" if alert_level == "critical" else "⚠️"
 
-    msg = (
-        f"{level_emoji} Alerte Luna — {person_name or who}\n"
-        f"{description}{location_text}\n\n"
-        f"Rendez-vous sur place si possible, ou appelez le 112 en cas d'urgence.\n"
-        f"Répondez OUI à ce SMS si vous intervenez."
+    if alert_level == "critical":
+        template = profile.get("sos_message", "{name} — alerte ! {maps_link}")
+    elif alert_level == "high":
+        template = profile.get("immobility_alert", "{name} — {duration}. {address}")
+    else:
+        template = profile.get("geofence_alert", "{name} hors zone. {address}")
+
+    body = format_profile_message(
+        template,
+        name=person_name or "Utilisateur",
+        duration=description,
+        address=address or "position inconnue",
+        maps_link=maps_link or "position non disponible",
     )
-    return msg[:320]  # Limite SMS Twilio sécurisée
+
+    footer = f"\n📍 {address}" if address and maps_link and address != maps_link else ""
+    if maps_link and maps_link not in body:
+        footer += f"\n🗺️ {maps_link}"
+
+    footer += "\n\nRendez-vous sur place si besoin, ou appelez le 15/112 en urgence.\nRépondez OUI si vous intervenez."
+
+    return (f"{level_emoji} Luna Guardian\n{body}{footer}")[:320]
 
 
 def send_guardian_alerts(

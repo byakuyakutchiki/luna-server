@@ -13,6 +13,8 @@ from dataclasses import dataclass, field, asdict
 from typing import Optional, List, Dict, Any, Tuple
 from enum import Enum
 
+from .profiles import get_profile, format_profile_message
+
 logger = logging.getLogger("luna.guardian")
 
 # ─────────────────────────────────────────────
@@ -704,13 +706,44 @@ def _default_config(profile: ProfileType) -> dict:
 
 
 def _verification_message(session: GuardianSession) -> str:
-    messages = {
-        ProfileType.SENIOR: "Bonjour, je suis Luna. Tout va bien ? Appuyez sur le bouton vert si vous allez bien.",
-        ProfileType.DOG: "Vérification en cours. Votre animal est-il en sécurité ?",
-        ProfileType.BABY: "Alerte bébé — vérifiez immédiatement.",
-        ProfileType.HOME: "Alerte domicile. Confirmez votre présence autorisée.",
-    }
-    return messages.get(session.profile_type, "Luna vérifie que tout va bien. Répondez si vous êtes en sécurité.")
+    profile = get_profile(session.profile_type.value)
+    name = session.config.get("person_name") or "vous"
+    return format_profile_message(profile["verification_message"], name=name)
+
+
+def reverse_geocode(lat: float, lng: float, redis_client=None) -> str:
+    """Convertit lat/lng en adresse lisible via Nominatim (cache Redis 24h)."""
+    if redis_client:
+        cache_key = f"luna:geocode:{lat:.4f}:{lng:.4f}"
+        try:
+            cached = redis_client.client.get(cache_key)
+            if cached:
+                return cached.decode() if isinstance(cached, bytes) else cached
+        except Exception:
+            pass
+    try:
+        import httpx
+        url = (f"https://nominatim.openstreetmap.org/reverse"
+               f"?format=json&lat={lat}&lon={lng}&zoom=18&addressdetails=1")
+        resp = httpx.get(url, headers={"User-Agent": "LunaGuardian/1.0"}, timeout=4.0)
+        data = resp.json()
+        parts = []
+        addr = data.get("address", {})
+        for key in ("road", "house_number", "suburb", "city", "town", "village", "postcode"):
+            if addr.get(key):
+                parts.append(addr[key])
+                if len(parts) >= 3:
+                    break
+        address = ", ".join(parts) if parts else data.get("display_name", f"{lat:.5f}, {lng:.5f}")
+        address = address[:80]
+        if redis_client:
+            try:
+                redis_client.client.setex(cache_key, 86400, address)
+            except Exception:
+                pass
+        return address
+    except Exception:
+        return f"{lat:.5f}, {lng:.5f}"
 
 
 def _risk_description(signals: Dict[str, float], profile: ProfileType) -> str:
