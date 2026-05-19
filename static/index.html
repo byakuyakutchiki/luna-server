@@ -6703,7 +6703,8 @@ function stopPaymentPolling() {
 
   function _showVoiceBtn() {
     var app = document.getElementById("appContainer");
-    if (app && app.style.display !== "none" && getToken()) voiceBtn.style.display = "flex";
+    var worldActive = document.getElementById("tab-world") && document.getElementById("tab-world").classList.contains("active");
+    if (app && app.style.display !== "none" && getToken() && !worldActive) voiceBtn.style.display = "flex";
     else voiceBtn.style.display = "none";
   }
   var _voiceBtnInterval = setInterval(function() { _showVoiceBtn(); }, 1000);

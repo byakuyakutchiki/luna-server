@@ -2584,11 +2584,16 @@ html, body {
 .social-panel-body::-webkit-scrollbar{width:4px;}
 .social-panel-body::-webkit-scrollbar-thumb{background:rgba(167,139,250,0.3);border-radius:2px;}
 
-/* FAB social group */
-.social-fab-group{position:fixed;bottom:80px;right:16px;z-index:7500;display:flex;flex-direction:column;gap:10px;align-items:flex-end;}
+/* FAB social group — repliable sur mobile */
+.social-fab-group{position:fixed;bottom:80px;right:14px;z-index:7500;display:flex;flex-direction:column;gap:10px;align-items:flex-end;}
 .social-fab-btn{width:46px;height:46px;border-radius:50%;border:2px solid rgba(167,139,250,0.4);background:rgba(15,10,30,0.92);color:#a78bfa;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(8px);transition:all .25s;position:relative;box-shadow:0 4px 16px rgba(107,33,168,0.4);}
 .social-fab-btn:hover{transform:scale(1.12);border-color:#a78bfa;color:#fbbf24;box-shadow:0 0 20px rgba(167,139,250,0.5);}
 .social-fab-badge{position:absolute;top:-4px;right:-4px;background:#f43f5e;color:#fff;font-size:10px;font-weight:700;border-radius:50%;width:18px;height:18px;display:none;align-items:center;justify-content:center;}
+/* Toggle repli */
+#fab-toggle{width:34px;height:34px;font-size:14px;border:1px solid rgba(167,139,250,0.35);background:rgba(15,10,30,0.75);opacity:.85;}
+/* État replié : seules les badges et le toggle visible */
+.social-fab-group.fab-collapsed .social-fab-main{display:none;}
+.social-fab-group.fab-collapsed{gap:0;}
 
 /* Visitors bar */
 #social-visitors-bar{position:fixed;top:0;left:0;right:0;z-index:7000;padding:6px 12px;background:rgba(15,10,30,0.95);border-bottom:1px solid rgba(167,139,250,0.2);display:none;gap:8px;overflow-x:auto;flex-wrap:nowrap;-webkit-overflow-scrolling:touch;}
@@ -12668,24 +12673,31 @@ window._setMapPrivacy = _setMapPrivacy;
 <div id="social-toast-container"></div>
 
 <!-- FAB social group -->
-<div class="social-fab-group" id="social-fab-group">
-  <button class="social-fab-btn social-fab-friends" id="social-btn-friends" title="Amis &amp; Invitations">
-    &#128101;
-    <span class="social-fab-badge" id="social-badge-friends" style="display:none;">0</span>
-  </button>
-  <button class="social-fab-btn social-fab-chat" id="social-btn-chat" title="Chat du monde">
-    &#128172;
-    <span class="social-fab-badge" id="social-badge-chat" style="display:none;">0</span>
-  </button>
-  <button class="social-fab-btn social-fab-map" id="social-btn-map" title="Carte mondiale" onclick="openWorldMap()">
-    &#128506;
-  </button>
-  <button class="social-fab-btn social-fab-secondary" id="social-btn-avatar" title="Mon avatar">
-    &#127917;
-  </button>
-  <button class="social-fab-btn social-fab-secondary" id="social-btn-privacy" title="Confidentialit&#233;">
-    &#128274;
-  </button>
+<div class="social-fab-group fab-collapsed" id="social-fab-group">
+  <!-- Boutons principaux (masqués quand replié) -->
+  <div class="social-fab-main" id="social-fab-main">
+    <div style="display:flex;flex-direction:column;gap:10px;align-items:flex-end;">
+      <button class="social-fab-btn social-fab-friends" id="social-btn-friends" title="Amis &amp; Invitations">
+        &#128101;
+        <span class="social-fab-badge" id="social-badge-friends" style="display:none;">0</span>
+      </button>
+      <button class="social-fab-btn social-fab-chat" id="social-btn-chat" title="Chat du monde">
+        &#128172;
+        <span class="social-fab-badge" id="social-badge-chat" style="display:none;">0</span>
+      </button>
+      <button class="social-fab-btn social-fab-map" id="social-btn-map" title="Carte mondiale" onclick="openWorldMap()">
+        &#128506;
+      </button>
+      <button class="social-fab-btn social-fab-secondary" id="social-btn-avatar" title="Mon avatar">
+        &#127917;
+      </button>
+      <button class="social-fab-btn social-fab-secondary" id="social-btn-privacy" title="Confidentialit&#233;">
+        &#128274;
+      </button>
+    </div>
+  </div>
+  <!-- Toggle toujours visible -->
+  <button class="social-fab-btn" id="fab-toggle" title="Ouvrir menu" onclick="_fabToggle()">&#9776;</button>
 </div>
 
 <!-- PANEL: AMIS -->
@@ -13408,6 +13420,36 @@ function socialInitFab() {
   wire('social-btn-chat',    'social-panel-chat');
   wire('social-btn-avatar',  'social-panel-avatar');
   wire('social-btn-privacy', 'social-panel-privacy');
+
+  // ── FAB repliable (mobile : libère la zone de swipe) ──────────────
+  var _fabTimer = null;
+  window._fabToggle = function() {
+    var g = document.getElementById('social-fab-group');
+    var t = document.getElementById('fab-toggle');
+    if (!g) return;
+    var collapsed = g.classList.contains('fab-collapsed');
+    if (collapsed) {
+      g.classList.remove('fab-collapsed');
+      if (t) t.textContent = '✕';
+      clearTimeout(_fabTimer);
+      _fabTimer = setTimeout(function() {
+        g.classList.add('fab-collapsed');
+        if (t) t.textContent = '☰';
+      }, 5000);
+    } else {
+      g.classList.add('fab-collapsed');
+      if (t) t.textContent = '☰';
+      clearTimeout(_fabTimer);
+    }
+  };
+  // Refermer automatiquement quand un panel social s'ouvre
+  var _origOpen = window.socialOpenPanel;
+  window.socialOpenPanel = function(id) {
+    var g = document.getElementById('social-fab-group');
+    var t = document.getElementById('fab-toggle');
+    if (g) { g.classList.add('fab-collapsed'); if (t) t.textContent = '☰'; }
+    if (_origOpen) _origOpen(id);
+  };
 }
 
 // ================================================================
