@@ -87,10 +87,11 @@ async def scan_doc(request: Request):
     if not success:
         return _error(data.get("error", "Erreur d'analyse"))
 
-    # Sanitize text fields
+    # Sanitize text fields — strip contrôles uniquement, pas d'HTML escape
+    # (les entités html.escape comme &#x27; s'affichent en cru dans le WebView)
     for field in ("emetteur", "destinataire", "objet", "reference", "notes", "action_requise"):
         if data.get(field):
-            data[field] = html.escape(str(data[field]), quote=True)
+            data[field] = str(data[field]).strip()
 
     data["source"] = source
     doc_id, is_duplicate = sops.add_document(data)
@@ -260,8 +261,8 @@ async def add_budget_entry(request: Request):
     entry = {
         "montant": montant,
         "direction": body.get("direction", "depense"),
-        "categorie": html.escape(body.get("categorie", "autre")),
-        "label": html.escape(body.get("label", "")[:100]),
+        "categorie": body.get("categorie", "autre"),
+        "label": body.get("label", "")[:100],
         "date": body.get("date", ""),
     }
 
@@ -308,13 +309,13 @@ async def add_reminder(request: Request):
     except Exception:
         return _error("Corps invalide")
 
-    title = html.escape(body.get("title", "").strip()[:100])
+    title = body.get("title", "").strip()[:100]
     if not title:
         return _error("Titre requis")
 
     reminder = {
         "title": title,
-        "description": html.escape(body.get("description", "")[:300]),
+        "description": body.get("description", "")[:300],
         "due_date": body.get("due_date", ""),
         "due_time": body.get("due_time", ""),
         "type": body.get("type", "manuel"),

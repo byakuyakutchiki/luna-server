@@ -12295,8 +12295,8 @@ def _tool_secretary_add_expense(tid: int, args: Dict) -> Dict:
     entry = {
         "montant": montant,
         "direction": args.get("direction", "depense"),
-        "categorie": _html.escape(args.get("categorie", "autre")),
-        "label": _html.escape(args.get("label", "")[:100]),
+        "categorie": args.get("categorie", "autre"),
+        "label": args.get("label", "")[:100],
     }
     entry_id = sops.add_budget_entry(entry)
     direction_label = "revenu" if entry["direction"] == "revenu" else "depense"
@@ -12321,13 +12321,12 @@ def _tool_secretary_add_reminder(tid: int, args: Dict) -> Dict:
     sops = _get_secretary_ops(tid)
     if not sops:
         return {"status": "error", "message": "Module secretaire non disponible"}
-    import html as _html
-    title = _html.escape(args.get("title", "").strip()[:100])
+    title = args.get("title", "").strip()[:100]
     if not title:
         return {"status": "error", "message": "Titre requis"}
     reminder = {
         "title": title,
-        "description": _html.escape(args.get("description", "")[:300]),
+        "description": args.get("description", "")[:300],
         "due_date": args.get("due_date", ""),
         "due_time": args.get("due_time", ""),
         "type": "luna",
