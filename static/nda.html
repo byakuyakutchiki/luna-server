@@ -108,14 +108,7 @@ body { font-family: 'Georgia', serif; background: #f8f7f4; color: #1a1a1a; }
 #btnConfirm:hover { background: #7c3aed; }
 #btnCancel  { background: white; border: 1px solid #ddd; color: #333; }
 
-/* PRINT */
-@media print {
-  .add-sig-btn, .dl-btn, .btn-clear, #signModal, .header-bar { display: none !important; }
-  body { background: white; }
-  .btn-sign { display: none; }
-  .sig-zone { border: 1px solid #ccc; background: white; }
-  .container { padding: 0; }
-}
+@media print { body { display: none !important; } }
 
 @media (max-width: 600px) {
   .container { padding: 0 12px 80px; }
@@ -252,6 +245,8 @@ body { font-family: 'Georgia', serif; background: #f8f7f4; color: #1a1a1a; }
   </div>
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script>
 var signatories = [
   { name: "Ludovic Saint-Louis", role: "Partie Divulgatrice", signed: false, data: null }
@@ -432,30 +427,75 @@ function checkAllSigned() {
   document.getElementById('dlBtn').style.display = allSigned ? 'block' : 'none';
 }
 
-function downloadPDF() {
-  // Enrichir le document avec les infos de la société
-  var orgName = document.getElementById('orgName').value.trim();
+async function downloadPDF() {
+  var orgName  = document.getElementById('orgName').value.trim();
   var orgSiren = document.getElementById('orgSiren').value.trim();
+
+  // Figer les champs texte comme du texte statique
   if (orgName) {
     var ri = document.getElementById('receptrice-info');
-    ri.innerHTML = '<div class="name">' + escHtml(orgName) + '</div>' +
+    ri.innerHTML =
+      '<div class="name">' + escHtml(orgName) + '</div>' +
       (orgSiren ? '<div class="info">SIRET : ' + escHtml(orgSiren) + '</div>' : '') +
       '<span class="role">Partie Réceptrice</span>';
   }
-  // Masquer les éléments non imprimables et imprimer
-  var addBtn = document.querySelector('.add-sig-btn');
-  var dlBtn  = document.getElementById('dlBtn');
-  var inputs = document.querySelectorAll('input[type=text], input[type=checkbox]');
-  addBtn.style.display = 'none';
-  dlBtn.style.display  = 'none';
-  inputs.forEach(function(i) { i.style.display = 'none'; });
-  window.print();
+
+  // Masquer les éléments interactifs pendant la capture
+  var addBtn       = document.querySelector('.add-sig-btn');
+  var dlBtn        = document.getElementById('dlBtn');
+  var rgpdConsent  = document.querySelector('.rgpd-consent');
+  var clearBtns    = document.querySelectorAll('.btn-clear');
+  addBtn.style.display      = 'none';
+  rgpdConsent.style.display = 'none';
+  clearBtns.forEach(function(b) { b.style.display = 'none'; });
+  dlBtn.textContent = '⏳ Génération du PDF…';
+  dlBtn.disabled    = true;
+
+  try {
+    var container = document.querySelector('.container');
+    var snap = await html2canvas(container, {
+      scale: 2,
+      useCORS: true,
+      logging: false,
+      backgroundColor: '#f8f7f4',
+      scrollY: -window.scrollY,
+      windowWidth: container.scrollWidth,
+      windowHeight: container.scrollHeight
+    });
+
+    var { jsPDF } = window.jspdf;
+    var pdf      = new jsPDF('p', 'mm', 'a4');
+    var pageW    = 210;
+    var pageH    = 297;
+    var imgW     = pageW;
+    var imgH     = (snap.height * imgW) / snap.width;
+    var imgData  = snap.toDataURL('image/jpeg', 0.92);
+    var remaining = imgH;
+    var page     = 0;
+
+    pdf.addImage(imgData, 'JPEG', 0, 0, imgW, imgH);
+    remaining -= pageH;
+
+    while (remaining > 0) {
+      page++;
+      pdf.addPage();
+      pdf.addImage(imgData, 'JPEG', 0, -(pageH * page), imgW, imgH);
+      remaining -= pageH;
+    }
+
+    var date = new Date().toISOString().slice(0, 10);
+    pdf.save('NDA-Luna-YAWatch-' + date + '.pdf');
+  } catch (err) {
+    console.error('PDF error:', err);
+    alert('Erreur lors de la génération du PDF.\nErreur : ' + err.message);
+  }
+
   // Restaurer
-  setTimeout(function() {
-    addBtn.style.display = '';
-    dlBtn.style.display  = 'block';
-    inputs.forEach(function(i) { i.style.display = ''; });
-  }, 1000);
+  addBtn.style.display      = '';
+  rgpdConsent.style.display = '';
+  clearBtns.forEach(function(b) { b.style.display = ''; });
+  dlBtn.textContent = '⬇ Télécharger le NDA signé (PDF)';
+  dlBtn.disabled    = false;
 }
 </script>
 </body>
