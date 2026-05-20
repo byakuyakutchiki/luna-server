@@ -42,7 +42,7 @@ from dotenv import load_dotenv
 from openai import OpenAI
 from integrations.llm.provider import build_llm_client, get_llm_model, get_provider_label
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Request, Response, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, Header, Request, Response, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
