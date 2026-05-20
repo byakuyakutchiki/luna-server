@@ -5105,6 +5105,10 @@ Quand il parle de ses heures, propose de les enregistrer. Quand il parle d'une r
             return _tool_secretary_search(tid, args)
         elif name == "list_folders":
             return _tool_secretary_folders(tid)
+        elif name == "hang_up":
+            # Raccrocher : le WebVoiceBridge gère la fermeture du WebSocket
+            # On retourne ok — le bridge se chargera de fermer la session
+            return {"status": "ok", "message": "Appel terminé."}
         else:
             return {"status": "error", "message": f"Fonction inconnue: {name}"}
 
@@ -5789,6 +5793,20 @@ async def delete_conversation_endpoint(conv_id: str, request: Request):
     tenant_convs = conversations.get(str(tid), {})
     tenant_convs.pop(conv_id, None)
     _conversation_ts.pop(conv_id, None)
+    return {"ok": True}
+
+
+@app.delete("/api/conversations/{conv_id}/messages")
+async def clear_conversation_messages_endpoint(conv_id: str, request: Request):
+    """Vide les messages d'une conversation sans la supprimer."""
+    tid = getattr(request.state, "tenant_id", 1)
+    mgr = _get_tenant_manager(tid)
+    if not mgr:
+        return JSONResponse(status_code=500, content={"error": "Service indisponible"})
+    mgr.clear_messages(conv_id)
+    tenant_convs = conversations.get(str(tid), {})
+    if conv_id in tenant_convs:
+        tenant_convs[conv_id] = []
     return {"ok": True}
 
 
@@ -16180,20 +16198,18 @@ async def theo_hours(request: Request, month: str = None):
     advice = None
     if status == "behind":
         # Throttle server-side: envoyer le conseil max 1x/4h (localStorage effacé à chaque restart APK)
+        # SET NX (atomic) évite la race condition get→setex sur requêtes simultanées
         _THEO_ADVICE_TTL = 4 * 3600  # 4h
         _theo_advice_key = f"luna:{tid}:theo:advice_sent_ts"
-        _can_send_advice = True
+        _can_send_advice = False
         try:
-            _last_ts = _redis_client.client.get(_theo_advice_key)
-            if _last_ts and (now.timestamp() - float(_last_ts)) < _THEO_ADVICE_TTL:
-                _can_send_advice = False
+            _set_ok = _redis_client.client.set(
+                _theo_advice_key, str(now.timestamp()),
+                ex=_THEO_ADVICE_TTL, nx=True
+            )
+            _can_send_advice = bool(_set_ok)
         except Exception:
             pass
-        if _can_send_advice:
-            try:
-                _redis_client.client.setex(_theo_advice_key, _THEO_ADVICE_TTL, str(now.timestamp()))
-            except Exception:
-                pass
             alternatives = []
             if remaining > 10:
                 alternatives.append("Ecrire des lettres de temoignage (compte dans les heures)")

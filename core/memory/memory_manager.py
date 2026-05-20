@@ -124,6 +124,18 @@ class MemoryManager:
         self.redis.remove_conversation(self.tenant_id, conv_id)
         logger.info(f"Deleted conversation {conv_id}")
 
+    def clear_messages(self, conv_id: str) -> None:
+        """Vide les messages d'une conversation sans la supprimer."""
+        key = self.redis.get_conversation_messages_key(self.tenant_id, conv_id)
+        self.redis.client.delete(key)
+        # Reset message count in metadata
+        conv_data = self.redis.get_conversation_meta(self.tenant_id, conv_id)
+        if conv_data:
+            conv_data["message_count"] = "0"
+            conv_data["preview"] = ""
+            self.redis.set_conversation_meta(self.tenant_id, conv_id, conv_data)
+        logger.info(f"Cleared messages for conversation {conv_id}")
+
     # ========================================================================
     # MESSAGES
     # ========================================================================

@@ -283,7 +283,7 @@ body.mode-secretaire .conc-modal-box .field input, body.mode-secretaire .conc-mo
 }
 
 /* Chat */
-.chat { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 20px; display: flex; flex-direction: column; gap: 12px; }
+.chat { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 20px 20px 90px; display: flex; flex-direction: column; gap: 12px; }
 .msg { max-width: 80%; padding: 12px 16px; border-radius: 16px; line-height: 1.5; font-size: 0.95em; animation: fadeIn 0.3s; white-space: pre-wrap; word-break: break-word; overflow-wrap: break-word; }
 .msg a { color: #a78bfa; word-break: break-all; text-decoration: underline; }
 .msg a:hover { color: #c4b5fd; }
@@ -905,7 +905,6 @@ body.mode-secretaire .luna-chip:hover { background: rgba(16,185,129,0.2); border
   <button class="tab-btn" data-tab="map" data-modes="secretaire">Carte</button>
   <button class="tab-btn" data-tab="guardian" style="color:#f87171;" onclick="window.location.href='/guardian'">🛡️ Guardian</button>
   <button class="tab-btn" data-tab="profile">Profil</button>
-  <button class="tab-btn" data-tab="perception">Perception</button>
   <button class="tab-btn" data-tab="quotas">Quotas</button>
   <button class="tab-btn" data-tab="theo" id="theoTabBtn" style="display:none; color:#f5c542;">Theocratie</button>
   <button class="tab-btn" data-tab="settings">Parametres</button>
@@ -965,7 +964,7 @@ body.mode-secretaire .luna-chip:hover { background: rgba(16,185,129,0.2); border
 
 <!-- Conciergerie Tab -->
 <div class="tab-panel" id="tab-conciergerie">
-  <div class="panel-content" style="padding:0;">
+  <div class="panel-content" style="padding:0 0 90px;">
     <div style="padding:16px 16px 8px;display:flex;align-items:center;gap:10px;">
       <div style="font-size:1.4em;">&#x1F4BC;</div>
       <div>
@@ -1372,7 +1371,7 @@ body.mode-secretaire .luna-chip:hover { background: rgba(16,185,129,0.2); border
     <div class="amis-section">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
         <h3 style="margin:0;">Amis non inscrits <span style="background:#0e7490;color:#fff;font-size:0.75em;padding:2px 8px;border-radius:8px;" id="amisExternCount">0</span></h3>
-        <button onclick="_openAddExternModal()" style="background:#0e7490;color:#fff;border:none;border-radius:8px;padding:7px 14px;font-size:0.85em;cursor:pointer;">+ Ajouter</button>
+        <button onclick="_openAddExternModal()" style="background:#0e7490;color:#fff;border:none;border-radius:8px;padding:7px 14px;font-size:0.85em;cursor:pointer;flex-shrink:0;white-space:nowrap;">+ Ajouter</button>
       </div>
       <p style="font-size:0.78em;color:#555;margin:0 0 10px;">Proches qui n'ont pas encore l'application</p>
       <div id="amisExternList"><p class="empty-state">Aucun ami externe.</p></div>
@@ -1618,6 +1617,7 @@ body.mode-secretaire .luna-chip:hover { background: rgba(16,185,129,0.2); border
       <button class="notes-subtab active" onclick="switchNotesTab('reports',this)">&#128203; Comptes Rendus</button>
       <button class="notes-subtab" onclick="switchNotesTab('notes',this)">&#9998; Mes Notes</button>
       <button class="notes-subtab" onclick="switchNotesTab('meetings',this)">&#128187; Réunions</button>
+      <button class="notes-subtab" onclick="switchNotesTab('sms',this)">&#128172; SMS envoyés</button>
     </div>
     <div id="notesReports"></div>
     <div id="notesNotes" style="display:none"></div>
@@ -1659,60 +1659,14 @@ body.mode-secretaire .luna-chip:hover { background: rgba(16,185,129,0.2); border
       <!-- Liste des réunions passées -->
       <div id="meetingsList"><p class="empty-state">Aucune réunion. Collez un lien Zoom, Google Meet ou Teams ci-dessus.</p></div>
     </div>
-  </div>
-</div>
-
-<!-- Perception Tab -->
-<div class="tab-panel" id="tab-perception">
-  <div class="panel-content">
-    <h2>Perception contextuelle</h2>
-    <p style="font-size:0.85em;color:#888;margin-bottom:16px;">
-      Luna observe ton environnement via la camera de ton telephone.
-      Aucune image n'est conservee &mdash; seul le contexte est analyse.<br>
-      <strong>Aide contextuelle uniquement.</strong>
-    </p>
-
-    <!-- Bouton principal gros et visible -->
-    <div style="text-align:center;margin-bottom:20px;">
-      <button class="btn btn-primary" id="perceptionStartBtn" style="padding:16px 40px;font-size:1.2em;border-radius:20px;min-height:56px;">
-        Ouvrir la camera
-      </button>
-      <button class="btn btn-danger" id="perceptionStopBtn" style="display:none;padding:16px 40px;font-size:1.2em;border-radius:20px;min-height:56px;">
-        Couper la camera
-      </button>
-      <p class="form-status" id="perceptionStatus" style="margin-top:10px;"></p>
-    </div>
-
-    <!-- Preview camera -->
-    <div class="card" id="perceptionCameraCard" style="display:none;">
-      <div class="card-header">
-        <span class="card-title">Camera en direct</span>
-        <span class="badge badge-green" id="perceptionCaptureBadge">En direct</span>
+    <!-- SMS envoyés -->
+    <div id="notesSms" style="display:none">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+        <p style="font-size:.84em;color:#888;margin:0;">Tous les SMS envoyés par Luna à tes contacts.</p>
+        <button onclick="_loadSmsLog()" style="background:none;border:1px solid #444;color:#a78bfa;border-radius:8px;padding:4px 12px;font-size:.8em;cursor:pointer;">&#x21BB; Actualiser</button>
       </div>
-      <div class="card-body" style="text-align:center;padding:8px;">
-        <video id="perceptionVideo" autoplay playsinline muted style="width:100%;max-width:400px;border-radius:12px;background:#000;aspect-ratio:4/3;object-fit:cover;"></video>
-        <canvas id="perceptionCanvas" style="display:none;"></canvas>
-        <div id="perceptionTimer" style="font-size:0.8em;color:#a78bfa;margin-top:8px;font-weight:bold;"></div>
-      </div>
+      <div id="smsLogList"><p class="empty-state">Chargement...</p></div>
     </div>
-
-    <!-- Resultat analyse -->
-    <div class="card" id="perceptionSceneCard" style="display:none;">
-      <div class="card-header"><span class="card-title">Ce que Luna voit</span></div>
-      <div class="card-body">
-        <div id="perceptionSceneText" style="font-size:1.05em;line-height:1.5;"></div>
-        <div id="perceptionDetails" style="margin-top:10px;font-size:0.8em;color:#888;"></div>
-      </div>
-    </div>
-
-    <!-- Evenements/anomalies -->
-    <div class="card" id="perceptionAbnCard" style="display:none;">
-      <div class="card-header"><span class="card-title">Evenements detectes</span></div>
-      <div class="card-body" id="perceptionAbnList"></div>
-    </div>
-
-    <!-- Statut serveur discret -->
-    <div id="perceptionCameraInfo" style="font-size:0.75em;color:#666;text-align:center;margin-top:12px;"></div>
   </div>
 </div>
 
@@ -2398,7 +2352,6 @@ tabBtns.forEach(function(btn) {
     if (btn.dataset.tab === "instructions") loadInstructions();
     if (btn.dataset.tab === "documents") loadDocuments();
     if (btn.dataset.tab === "callreports") loadCallReports();
-    if (btn.dataset.tab === "perception") loadPerception();
     if (btn.dataset.tab === "quotas") loadQuotas();
     if (btn.dataset.tab === "map") loadMap();
     if (btn.dataset.tab === "world") loadMonde();
@@ -4775,9 +4728,38 @@ function switchNotesTab(tab, btn) {
   document.getElementById('notesReports').style.display = tab === 'reports' ? '' : 'none';
   document.getElementById('notesNotes').style.display = tab === 'notes' ? '' : 'none';
   document.getElementById('notesMeetings').style.display = tab === 'meetings' ? '' : 'none';
+  document.getElementById('notesSms').style.display = tab === 'sms' ? '' : 'none';
   if (tab === 'reports') _loadNotesData('notesReports','/api/call-reports?limit=30','reports');
   else if (tab === 'notes') _loadNotesData('notesNotes','/api/notes?limit=50','notes');
   else if (tab === 'meetings') loadMeetings();
+  else if (tab === 'sms') _loadSmsLog();
+}
+
+function _loadSmsLog() {
+  var list = document.getElementById('smsLogList');
+  list.innerHTML = '<p class="empty-state">Chargement...</p>';
+  authFetch('/api/sms/status').then(function(r){return r.json();}).then(function(data){
+    var items = data.sms || [];
+    if (!items.length) {
+      list.innerHTML = '<p class="empty-state">Aucun SMS envoyé pour l\'instant.</p>';
+      return;
+    }
+    var html = '';
+    items.forEach(function(s) {
+      var statusColor = s.status === 'delivered' ? '#4ade80' : s.status === 'failed' ? '#f87171' : '#fbbf24';
+      var statusLabel = s.status === 'delivered' ? 'Reçu' : s.status === 'failed' ? 'Échec' : (s.status || 'Envoyé');
+      var dt = s.sent_at ? new Date(s.sent_at).toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '';
+      html += '<div style="background:#1a1a2e;border-radius:12px;padding:12px 14px;margin-bottom:10px;border-left:3px solid ' + statusColor + ';">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">' +
+          '<span style="font-weight:600;color:#e2e8f0;font-size:.9em;">&#128172; ' + esc(s.to || '?') + '</span>' +
+          '<span style="font-size:.75em;background:' + statusColor + '22;color:' + statusColor + ';padding:2px 8px;border-radius:8px;">' + esc(statusLabel) + '</span>' +
+        '</div>' +
+        '<div style="font-size:.85em;color:#cbd5e1;margin-bottom:4px;">' + esc(s.body_preview || '') + '</div>' +
+        '<div style="font-size:.75em;color:#6b7280;">' + esc(dt) + (s.label ? ' · ' + esc(s.label) : '') + '</div>' +
+      '</div>';
+    });
+    list.innerHTML = html;
+  }).catch(function(){ list.innerHTML = '<p class="empty-state">Erreur de chargement.</p>'; });
 }
 function loadCallReports() { _loadNotesData('notesReports','/api/call-reports?limit=30','reports'); }
 function _loadNotesData(containerId, url, dataKey) {
@@ -4786,7 +4768,7 @@ function _loadNotesData(containerId, url, dataKey) {
   authFetch(url).then(function(r){return r.json();}).then(function(data){
     var items = data[dataKey] || data.notes || data.reports || [];
     if (!items.length) {
-      list.innerHTML = '<p class="empty-state">' + (dataKey==='reports'?'Aucun compte-rendu. Lance un appel ou une conference !':'Aucune note enregistree.') + '</p>';
+      list.innerHTML = '<p class="empty-state">' + (dataKey==='reports'?'Aucun compte-rendu. Lance un appel ou une conférence !':'Aucune note enregistree.') + '</p>';
       return;
     }
     var groups = _groupByDate(items);
@@ -5061,287 +5043,6 @@ document.getElementById("docGenerateBtn").addEventListener("click", function() {
   })
   .catch(function(e) { st.textContent = "Erreur: " + e.message; st.className = "form-status error"; })
   .finally(function() { document.getElementById("docGenerateBtn").disabled = false; });
-});
-
-// =========================================================================
-// PERCEPTION — Camera navigateur + OpenAI Vision
-// =========================================================================
-var perceptionStream = null;
-var perceptionCaptureTimer = null;
-var perceptionCountdownTimer = null;
-var perceptionRefreshTimer = null;
-var perceptionAnalyzing = false;
-var perceptionAnalysisCount = 0;
-
-var PERCEPTION_CAPTURE_INTERVAL = 12; // secondes entre captures
-
-function loadPerception() {
-  var camInfo = document.getElementById("perceptionCameraInfo");
-  var startBtn = document.getElementById("perceptionStartBtn");
-  var stopBtn = document.getElementById("perceptionStopBtn");
-  if (perceptionStream) {
-    camInfo.textContent = "Camera active — analyses en cours.";
-    startBtn.style.display = "none";
-    stopBtn.style.display = "inline-block";
-  } else {
-    camInfo.textContent = "Appuie sur le bouton pour activer la camera.";
-    startBtn.style.display = "inline-block";
-    startBtn.disabled = false;
-    stopBtn.style.display = "none";
-    // Reset serveur si perception etait restee enabled sans camera
-    authFetch("/api/perception/stop", { method: "POST" }).catch(function() {});
-  }
-}
-
-function _perceptionCaptureAndSend() {
-  if (perceptionAnalyzing || !perceptionStream) return;
-  var video = document.getElementById("perceptionVideo");
-  var canvas = document.getElementById("perceptionCanvas");
-  if (!video || video.videoWidth === 0) {
-    document.getElementById("perceptionTimer").textContent = "En attente du flux video...";
-    return;
-  }
-
-  // Capturer une frame JPEG
-  canvas.width = Math.min(video.videoWidth, 640);
-  canvas.height = Math.round(canvas.width * video.videoHeight / video.videoWidth);
-  var ctx = canvas.getContext("2d");
-  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-  var dataUrl = canvas.toDataURL("image/jpeg", 0.5);
-  var b64 = dataUrl.split(",")[1];
-
-  perceptionAnalyzing = true;
-  var capBadge = document.getElementById("perceptionCaptureBadge");
-  var timerEl = document.getElementById("perceptionTimer");
-  capBadge.textContent = "Analyse..."; capBadge.className = "badge badge-yellow";
-  timerEl.textContent = "Luna regarde...";
-  timerEl.style.color = "#f59e0b";
-
-  authFetch("/api/perception/frame", {
-    method: "POST",
-    headers: {"Content-Type": "application/json"},
-    body: JSON.stringify({ image: b64 }),
-  })
-  .then(function(r) { return r.json(); })
-  .then(function(data) {
-    if (data.success && data.scene) {
-      perceptionAnalysisCount++;
-      // Afficher le resultat bien visible
-      var sceneCard = document.getElementById("perceptionSceneCard");
-      var sceneText = document.getElementById("perceptionSceneText");
-      var details = document.getElementById("perceptionDetails");
-      sceneCard.style.display = "block";
-      sceneText.textContent = data.scene.scene_description || "Aucune description";
-
-      var dp = [];
-      if (data.scene.persons_present > 0) dp.push(data.scene.persons_present + " personne(s)");
-      if (data.scene.primary_posture && data.scene.primary_posture !== "absent") dp.push("Posture: " + data.scene.primary_posture);
-      if (data.scene.objects_visible && data.scene.objects_visible.length > 0) dp.push("Objets: " + data.scene.objects_visible.join(", "));
-      if (data.inference_ms) dp.push(data.inference_ms + "ms");
-      dp.push("Analyse #" + perceptionAnalysisCount);
-      details.textContent = dp.join(" | ");
-
-      // Anomalies
-      if (data.scene.abnormalities && data.scene.abnormalities.length > 0) {
-        var abnCard = document.getElementById("perceptionAbnCard");
-        var abnList = document.getElementById("perceptionAbnList");
-        abnCard.style.display = "block";
-        abnList.innerHTML = "";
-        data.scene.abnormalities.forEach(function(abn) {
-          var cls = abn.severity === "concern" ? "badge-red" : abn.severity === "attention" ? "badge-yellow" : "badge-blue";
-          abnList.innerHTML += '<div style="margin-bottom:6px;"><span class="badge ' + cls + '">' + esc(abn.severity) + '</span> ' + esc(abn.description) + '</div>';
-        });
-      } else {
-        document.getElementById("perceptionAbnCard").style.display = "none";
-      }
-
-      capBadge.textContent = "OK"; capBadge.className = "badge badge-green";
-      timerEl.style.color = "#22c55e";
-    } else {
-      capBadge.textContent = "Erreur"; capBadge.className = "badge badge-red";
-      timerEl.textContent = "Erreur analyse: " + (data.error || "inconnue");
-      timerEl.style.color = "#ef4444";
-    }
-    // Lancer le countdown pour la prochaine capture
-    _startPerceptionCountdown();
-  })
-  .catch(function(e) {
-    console.error("Perception frame error:", e);
-    capBadge.textContent = "Erreur"; capBadge.className = "badge badge-red";
-    timerEl.textContent = "Erreur reseau: " + e.message;
-    timerEl.style.color = "#ef4444";
-    _startPerceptionCountdown();
-  })
-  .finally(function() { perceptionAnalyzing = false; });
-}
-
-function _startPerceptionCountdown() {
-  if (perceptionCountdownTimer) clearInterval(perceptionCountdownTimer);
-  var remaining = PERCEPTION_CAPTURE_INTERVAL;
-  var timerEl = document.getElementById("perceptionTimer");
-  var capBadge = document.getElementById("perceptionCaptureBadge");
-
-  perceptionCountdownTimer = setInterval(function() {
-    remaining--;
-    if (remaining <= 0) {
-      clearInterval(perceptionCountdownTimer);
-      perceptionCountdownTimer = null;
-      timerEl.textContent = "Capture en cours...";
-      _perceptionCaptureAndSend();
-      return;
-    }
-    timerEl.textContent = "Prochaine analyse dans " + remaining + "s";
-    timerEl.style.color = "#a78bfa";
-    if (remaining <= 3) {
-      capBadge.textContent = remaining + "s"; capBadge.className = "badge badge-yellow";
-    } else {
-      capBadge.textContent = "En direct"; capBadge.className = "badge badge-green";
-    }
-  }, 1000);
-}
-
-function _startPerceptionCamera() {
-  var st = document.getElementById("perceptionStatus");
-  var startBtn = document.getElementById("perceptionStartBtn");
-  var stopBtn = document.getElementById("perceptionStopBtn");
-
-  st.textContent = "1/4 — Verification navigateur..."; st.className = "form-status";
-  st.style.fontSize = "1em";
-  startBtn.disabled = true;
-
-  // Verifier que getUserMedia est disponible
-  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-    st.textContent = "Camera non supportee. Ouvre cette page dans Chrome (pas dans l'app Luna APK).";
-    st.className = "form-status error";
-    startBtn.disabled = false;
-    return;
-  }
-
-  st.textContent = "2/4 — Activation serveur...";
-
-  // 1. Activer la perception cote serveur
-  authFetch("/api/perception/start", { method: "POST" })
-  .then(function(r) { return r.json(); })
-  .then(function(data) {
-    if (!data.success) {
-      st.textContent = "Erreur serveur: " + (data.error || "indisponible"); st.className = "form-status error";
-      startBtn.disabled = false;
-      return Promise.reject("server_fail");
-    }
-    st.textContent = "3/4 — Ouverture camera... (autorise si demande)";
-
-    // 2. Ouvrir la camera — essai direct sans contrainte speciale
-    return navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-  })
-  .then(function(stream) {
-    if (!stream) {
-      st.textContent = "Erreur: aucun flux camera obtenu."; st.className = "form-status error";
-      startBtn.disabled = false;
-      return;
-    }
-
-    st.textContent = "4/4 — Camera ouverte !";
-
-    perceptionStream = stream;
-    perceptionAnalysisCount = 0;
-
-    var video = document.getElementById("perceptionVideo");
-    var camCard = document.getElementById("perceptionCameraCard");
-    video.srcObject = stream;
-    video.play().catch(function(e) {
-      st.textContent = "Erreur lecture video: " + e.message; st.className = "form-status error";
-    });
-
-    camCard.style.display = "block";
-    startBtn.style.display = "none";
-    stopBtn.style.display = "inline-block";
-    st.textContent = "Camera active ! Premiere analyse dans 3s...";
-    st.className = "form-status success";
-
-    var camInfo = document.getElementById("perceptionCameraInfo");
-    camInfo.textContent = "Luna observe ton environnement en temps reel.";
-
-    // Premiere capture apres 3s (stabilisation camera)
-    var timerEl = document.getElementById("perceptionTimer");
-    var countdown = 3;
-    timerEl.textContent = "Premiere analyse dans " + countdown + "s...";
-    timerEl.style.color = "#a78bfa";
-    var initCountdown = setInterval(function() {
-      countdown--;
-      if (countdown <= 0) {
-        clearInterval(initCountdown);
-        _perceptionCaptureAndSend();
-      } else {
-        timerEl.textContent = "Premiere analyse dans " + countdown + "s...";
-      }
-    }, 1000);
-  })
-  .catch(function(e) {
-    if (e === "server_fail") return; // Deja gere
-    var msg = e.message || String(e);
-    if (msg.indexOf("Permission") !== -1 || msg.indexOf("NotAllowed") !== -1 || msg.indexOf("denied") !== -1) {
-      st.textContent = "Camera refusee ! Va dans Parametres > Apps > Chrome > Permissions > Camera > Autoriser, puis reessaie.";
-    } else if (msg.indexOf("NotFound") !== -1 || msg.indexOf("Requested device not found") !== -1) {
-      st.textContent = "Aucune camera trouvee sur cet appareil.";
-    } else if (msg.indexOf("secure") !== -1 || msg.indexOf("https") !== -1) {
-      st.textContent = "La camera necessite HTTPS. Verifie l'URL.";
-    } else {
-      st.textContent = "Erreur camera: " + msg;
-    }
-    st.className = "form-status error";
-    startBtn.disabled = false;
-    startBtn.style.display = "inline-block";
-    // Desactiver aussi cote serveur
-    authFetch("/api/perception/stop", { method: "POST" }).catch(function() {});
-  });
-}
-
-function _stopPerceptionCamera() {
-  var st = document.getElementById("perceptionStatus");
-  var startBtn = document.getElementById("perceptionStartBtn");
-  var stopBtn = document.getElementById("perceptionStopBtn");
-  var video = document.getElementById("perceptionVideo");
-  var camCard = document.getElementById("perceptionCameraCard");
-  var camInfo = document.getElementById("perceptionCameraInfo");
-
-  // Arreter les timers
-  if (perceptionCaptureTimer) { clearInterval(perceptionCaptureTimer); perceptionCaptureTimer = null; }
-  if (perceptionCountdownTimer) { clearInterval(perceptionCountdownTimer); perceptionCountdownTimer = null; }
-
-  // Arreter le stream camera
-  if (perceptionStream) {
-    perceptionStream.getTracks().forEach(function(t) { t.stop(); });
-    perceptionStream = null;
-  }
-  video.srcObject = null;
-  camCard.style.display = "none";
-  startBtn.style.display = "inline-block";
-  startBtn.disabled = false;
-  stopBtn.style.display = "none";
-  camInfo.textContent = "";
-
-  // Desactiver cote serveur
-  authFetch("/api/perception/stop", { method: "POST" })
-  .then(function() {
-    st.textContent = "Perception desactivee. " + perceptionAnalysisCount + " analyses effectuees.";
-    st.className = "form-status success";
-    document.getElementById("perceptionSceneCard").style.display = "none";
-    document.getElementById("perceptionAbnCard").style.display = "none";
-  })
-  .catch(function(e) { st.textContent = "Erreur: " + e.message; st.className = "form-status error"; });
-}
-
-document.getElementById("perceptionStartBtn").addEventListener("click", _startPerceptionCamera);
-document.getElementById("perceptionStopBtn").addEventListener("click", _stopPerceptionCamera);
-
-// Cleanup auto-refresh quand on quitte le tab
-tabBtns.forEach(function(btn) {
-  btn.addEventListener("click", function() {
-    if (btn.dataset.tab !== "perception" && perceptionRefreshTimer) {
-      clearInterval(perceptionRefreshTimer);
-      perceptionRefreshTimer = null;
-    }
-  });
 });
 
 // =========================================================================
@@ -5870,6 +5571,9 @@ function renderConvList(filter) {
     var renBtn = document.createElement("button"); renBtn.className = "conv-item-btn"; renBtn.innerHTML = "&#9998;"; renBtn.title = "Renommer";
     renBtn.addEventListener("click", function(e) { e.stopPropagation(); renameConversation(conv.id); });
     actions.appendChild(renBtn);
+    var clrBtn = document.createElement("button"); clrBtn.className = "conv-item-btn"; clrBtn.innerHTML = "&#x1F9F9;"; clrBtn.title = "Vider les messages";
+    clrBtn.addEventListener("click", function(e) { e.stopPropagation(); clearConversation(conv.id); });
+    actions.appendChild(clrBtn);
     if (conv.id !== "default") {
       var delBtn = document.createElement("button"); delBtn.className = "conv-item-btn"; delBtn.innerHTML = "&#128465;"; delBtn.title = "Supprimer";
       delBtn.addEventListener("click", function(e) { e.stopPropagation(); deleteConversation(conv.id); });
@@ -5949,6 +5653,24 @@ function deleteConversation(convId) {
       loadHistory();
     }
     renderConvList();
+  })
+  .catch(function() {});
+}
+
+function clearConversation(convId) {
+  if (!confirm("Vider tous les messages de cette conversation ?")) return;
+  authFetch("/api/conversations/" + encodeURIComponent(convId) + "/messages", { method: "DELETE" })
+  .then(function(r) { return r.json(); })
+  .then(function() {
+    try { localStorage.removeItem(convStorageKey(convId)); } catch(e) {}
+    var conv = conversationsMeta.find(function(c) { return c.id === convId; });
+    if (conv) { conv.message_count = 0; conv.preview = ""; saveConvMeta(); }
+    if (currentConvId === convId) {
+      chat.innerHTML = "";
+      authFetch("/api/greeting").then(function(r) { return r.json(); }).then(function(d) { addMsg(d.response, "luna"); }).catch(function() {});
+    }
+    renderConvList();
+    closeSidebar();
   })
   .catch(function() {});
 }
