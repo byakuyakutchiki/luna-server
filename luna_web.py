@@ -4337,6 +4337,24 @@ async def guardian_page():
     return JSONResponse(status_code=404, content={"error": "Guardian non disponible"})
 
 
+@app.get("/nda")
+async def nda_page():
+    """Accord de Non-Divulgation (NDA) — propriété intellectuelle Luna YAWatch."""
+    path = os.path.join(STATIC_DIR, "nda.html")
+    if os.path.isfile(path):
+        return FileResponse(path, headers={"Cache-Control": "no-cache"})
+    return JSONResponse(status_code=404, content={"error": "NDA non disponible"})
+
+
+@app.get("/pitch")
+async def pitch_page():
+    """Présentation technique Luna YAWatch — équipe développement."""
+    path = os.path.join(STATIC_DIR, "pitch.html")
+    if os.path.isfile(path):
+        return FileResponse(path, headers={"Cache-Control": "no-cache"})
+    return JSONResponse(status_code=404, content={"error": "Pitch non disponible"})
+
+
 # =========================================================================
 # APPELS VOCAUX - Twilio Voice + OpenAI Realtime API
 # =========================================================================

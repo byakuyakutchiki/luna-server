@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NDA — Luna YAWatch — Accord de Confidentialité</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Georgia', serif; background: #f8f7f4; color: #1a1a1a; }
+
+  .header-bar {
+    background: #0a0a1a;
+    color: white;
+    padding: 14px 40px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    border-bottom: 3px solid #7c3aed;
+  }
+  .header-bar .logo { font-size: 1.4em; font-weight: 700; color: #a78bfa; letter-spacing: 1px; }
+  .header-bar .sub  { font-size: 0.8em; color: #888; }
+
+  .container {
+    max-width: 860px;
+    margin: 40px auto;
+    padding: 0 20px 80px;
+  }
+
+  .doc-title {
+    text-align: center;
+    border: 2px solid #1a1a1a;
+    padding: 24px;
+    margin-bottom: 32px;
+    background: white;
+  }
+  .doc-title h1 { font-size: 1.5em; font-weight: 700; text-transform: uppercase; letter-spacing: 2px; }
+  .doc-title h2 { font-size: 1.1em; font-weight: 400; margin-top: 6px; color: #444; }
+  .doc-title .ref { font-size: 0.8em; color: #888; margin-top: 10px; font-family: monospace; }
+
+  .parties {
+    background: white;
+    border: 1px solid #ddd;
+    border-left: 4px solid #7c3aed;
+    padding: 20px 24px;
+    margin-bottom: 28px;
+  }
+  .parties h3 { font-size: 0.85em; text-transform: uppercase; color: #7c3aed; letter-spacing: 1px; margin-bottom: 14px; }
+  .party { margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px solid #eee; }
+  .party:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+  .party .label { font-size: 0.75em; text-transform: uppercase; color: #888; letter-spacing: 1px; margin-bottom: 4px; }
+  .party .name  { font-weight: 700; font-size: 1.05em; }
+  .party .info  { font-size: 0.9em; color: #444; margin-top: 4px; }
+  .party .role  { display: inline-block; background: #7c3aed; color: white; font-size: 0.7em; padding: 2px 8px; border-radius: 4px; margin-top: 4px; text-transform: uppercase; letter-spacing: 1px; }
+
+  .section {
+    background: white;
+    border: 1px solid #ddd;
+    padding: 20px 24px;
+    margin-bottom: 16px;
+  }
+  .section h4 {
+    font-size: 0.9em;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #0a0a1a;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 10px;
+    margin-bottom: 14px;
+  }
+  .section h4 .num {
+    display: inline-block;
+    background: #0a0a1a;
+    color: white;
+    width: 24px;
+    height: 24px;
+    text-align: center;
+    line-height: 24px;
+    border-radius: 4px;
+    font-size: 0.85em;
+    margin-right: 8px;
+  }
+  .section p  { font-size: 0.93em; line-height: 1.7; color: #333; margin-bottom: 10px; }
+  .section ul { padding-left: 20px; margin-bottom: 10px; }
+  .section ul li { font-size: 0.93em; line-height: 1.7; color: #333; margin-bottom: 4px; }
+
+  .inpi-box {
+    background: #f0f4ff;
+    border: 1px solid #7c3aed;
+    padding: 14px 20px;
+    margin: 10px 0;
+    border-radius: 4px;
+    font-size: 0.88em;
+    color: #3730a3;
+  }
+  .inpi-box strong { font-weight: 700; }
+
+  .warning-box {
+    background: #fff7ed;
+    border: 1px solid #f59e0b;
+    border-left: 4px solid #f59e0b;
+    padding: 12px 18px;
+    margin: 10px 0;
+    font-size: 0.88em;
+    color: #92400e;
+  }
+
+  .signature-section {
+    background: white;
+    border: 2px solid #1a1a1a;
+    padding: 28px 32px;
+    margin-top: 32px;
+  }
+  .signature-section h3 { font-size: 1em; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 24px; text-align: center; }
+
+  .sig-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; }
+  .sig-block { }
+  .sig-block .sig-role { font-size: 0.75em; text-transform: uppercase; color: #888; letter-spacing: 1px; margin-bottom: 4px; }
+  .sig-block .sig-name { font-weight: 700; font-size: 1em; margin-bottom: 16px; }
+  .sig-block .sig-date { font-size: 0.85em; color: #444; margin-bottom: 20px; }
+  .sig-block .sig-line {
+    border: none;
+    border-bottom: 1px solid #999;
+    padding: 8px 0;
+    font-size: 0.85em;
+    color: #888;
+    margin-bottom: 8px;
+  }
+  .sig-block .sig-zone {
+    height: 80px;
+    border: 1px dashed #bbb;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #bbb;
+    font-size: 0.8em;
+    margin-bottom: 8px;
+    cursor: pointer;
+    transition: border-color 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+  .sig-block .sig-zone:hover { border-color: #7c3aed; }
+  .sig-zone canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+  .sig-zone .placeholder { pointer-events: none; }
+
+  .sign-btn {
+    background: #0a0a1a;
+    color: white;
+    border: none;
+    padding: 10px 24px;
+    font-size: 0.85em;
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    width: 100%;
+    margin-top: 8px;
+    transition: background 0.2s;
+  }
+  .sign-btn:hover { background: #7c3aed; }
+  .sign-btn.signed { background: #16a34a; }
+
+  .clear-btn {
+    background: none;
+    border: 1px solid #ddd;
+    color: #888;
+    padding: 5px 12px;
+    font-size: 0.75em;
+    cursor: pointer;
+    margin-top: 4px;
+    width: 100%;
+  }
+
+  .legal-footer {
+    text-align: center;
+    font-size: 0.75em;
+    color: #888;
+    margin-top: 32px;
+    padding-top: 16px;
+    border-top: 1px solid #eee;
+    line-height: 1.6;
+  }
+
+  .status-banner {
+    display: none;
+    background: #16a34a;
+    color: white;
+    text-align: center;
+    padding: 14px;
+    font-weight: 700;
+    font-size: 1em;
+    letter-spacing: 1px;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 100;
+  }
+
+  @media print {
+    .header-bar { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .status-banner { display: none !important; }
+    body { background: white; }
+    .sign-btn, .clear-btn { display: none; }
+  }
+
+  @media (max-width: 600px) {
+    .sig-grid { grid-template-columns: 1fr; }
+    .container { padding: 0 12px 60px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header-bar">
+  <div>
+    <div class="logo">LUNA · YAWATCH</div>
+    <div class="sub">Intelligence Artificielle Compagnon</div>
+  </div>
+</div>
+
+<div class="container">
+
+  <div class="doc-title">
+    <h1>Accord de Non-Divulgation</h1>
+    <h2>Non-Disclosure Agreement (NDA) — Propriété Intellectuelle</h2>
+    <div class="ref">Réf. NDA-LUNA-2026-001 &nbsp;|&nbsp; Date : 20/05/2026</div>
+  </div>
+
+  <!-- PARTIES -->
+  <div class="parties">
+    <h3>Entre les soussignés</h3>
+    <div class="party">
+      <div class="label">Partie Divulgatrice</div>
+      <div class="name">Ludovic Saint-Louis</div>
+      <div class="info">Créateur et propriétaire exclusif de la technologie Luna YAWatch</div>
+      <div class="info">Email : saintlouis.ludovic@gmail.com</div>
+      <span class="role">Fondateur · Détenteur des droits IP</span>
+    </div>
+    <div class="party">
+      <div class="label">Partie Réceptrice</div>
+      <div class="name" id="partyName" contenteditable="true" style="border-bottom:1px dashed #aaa;min-width:200px;outline:none;padding:2px 4px;">[Nom de la société / Personne]</div>
+      <div class="info" id="partyInfo" contenteditable="true" style="border-bottom:1px dashed #aaa;min-width:300px;outline:none;padding:2px 4px;">[Adresse — SIRET — Représentant légal]</div>
+      <span class="role">Partie Réceptrice</span>
+    </div>
+  </div>
+
+  <!-- PRÉAMBULE -->
+  <div class="section">
+    <h4><span class="num">1</span>Préambule et objet</h4>
+    <p>Le présent accord a pour objet de définir les conditions dans lesquelles la Partie Divulgatrice communique à la Partie Réceptrice des informations confidentielles relatives à la technologie <strong>Luna YAWatch</strong>, dans le cadre de discussions précontractuelles portant sur un éventuel accord de licence d'exploitation.</p>
+    <div class="inpi-box">
+      <strong>Protection INPI :</strong> La technologie Luna YAWatch, son architecture, ses algorithmes, son interface, son nom commercial et ses éléments graphiques constituent des œuvres de l'esprit protégées par le droit d'auteur (Code de la Propriété Intellectuelle, L.111-1 et suivants). Toute utilisation non autorisée est passible de poursuites pénales pour contrefaçon (L.335-2 CPI).
+    </div>
+  </div>
+
+  <!-- INFORMATIONS CONFIDENTIELLES -->
+  <div class="section">
+    <h4><span class="num">2</span>Définition des informations confidentielles</h4>
+    <p>Sont considérées comme confidentielles toutes les informations communiquées par la Partie Divulgatrice, notamment :</p>
+    <ul>
+      <li>Le code source de l'application Luna YAWatch (backend FastAPI, frontend HTML/JS, APK Android)</li>
+      <li>L'architecture technique, les algorithmes d'IA et les prompts système</li>
+      <li>Le modèle économique, la structure tarifaire et les marges</li>
+      <li>La liste des clients, prospects et partenaires</li>
+      <li>Les clés API, credentials et secrets techniques</li>
+      <li>Les projections financières, business plans et études de marché</li>
+      <li>Toute information désignée comme confidentielle lors de sa communication</li>
+    </ul>
+  </div>
+
+  <!-- OBLIGATIONS -->
+  <div class="section">
+    <h4><span class="num">3</span>Obligations de la Partie Réceptrice</h4>
+    <p>La Partie Réceptrice s'engage à :</p>
+    <ul>
+      <li>Maintenir la confidentialité stricte de toutes les informations reçues</li>
+      <li>Ne pas divulguer ces informations à des tiers sans accord écrit préalable</li>
+      <li>N'utiliser ces informations qu'aux fins des discussions autorisées</li>
+      <li>Protéger les informations avec le même niveau de soin que ses propres informations confidentielles, et au minimum avec une diligence raisonnable</li>
+      <li>Ne pas tenter de reproduire, décompiler, rétro-concevoir ou créer des œuvres dérivées</li>
+      <li>Informer immédiatement la Partie Divulgatrice de toute divulgation non autorisée</li>
+    </ul>
+    <div class="warning-box">
+      <strong>Important :</strong> La Partie Réceptrice reconnaît expressément que la technologie Luna YAWatch est une œuvre originale appartenant exclusivement à Ludovic Saint-Louis. Aucune disposition du présent accord ne lui confère de droits de propriété intellectuelle.
+    </div>
+  </div>
+
+  <!-- EXCLUSIONS -->
+  <div class="section">
+    <h4><span class="num">4</span>Exclusions</h4>
+    <p>Les obligations de confidentialité ne s'appliquent pas aux informations que la Partie Réceptrice peut démontrer :</p>
+    <ul>
+      <li>Être déjà dans le domaine public au moment de la divulgation</li>
+      <li>Avoir été développées de manière indépendante sans utilisation des informations confidentielles</li>
+      <li>Avoir été reçues légalement d'un tiers non soumis à obligation de confidentialité</li>
+      <li>Devoir être divulguées par obligation légale ou réglementaire (avec notification préalable à la Partie Divulgatrice)</li>
+    </ul>
+  </div>
+
+  <!-- PROPRIÉTÉ INTELLECTUELLE -->
+  <div class="section">
+    <h4><span class="num">5</span>Propriété intellectuelle et droits INPI</h4>
+    <p>La Partie Réceptrice reconnaît et accepte que :</p>
+    <ul>
+      <li>L'intégralité des droits de propriété intellectuelle sur Luna YAWatch appartient exclusivement à <strong>Ludovic Saint-Louis</strong></li>
+      <li>Le nom "Luna", "YAWatch", "Luna YAWatch" ainsi que les éléments distinctifs de l'application sont des signes distinctifs dont la Partie Divulgatrice est l'auteur</li>
+      <li>Toute exploitation commerciale nécessite la signature préalable d'un contrat de licence d'exploitation distinct</li>
+      <li>Le présent accord ne constitue pas une cession de droits, une licence d'utilisation, ni une autorisation d'exploitation</li>
+    </ul>
+    <div class="inpi-box">
+      <strong>Référence légale :</strong> Code de la Propriété Intellectuelle (CPI) — Loi n°92-597 du 1er juillet 1992 et ses modifications. La contrefaçon est punie de 3 ans d'emprisonnement et 300 000 € d'amende (article L.335-2 CPI).
+    </div>
+  </div>
+
+  <!-- DURÉE -->
+  <div class="section">
+    <h4><span class="num">6</span>Durée</h4>
+    <p>Le présent accord prend effet à la date de signature et demeure en vigueur pendant une durée de <strong>5 (cinq) ans</strong>.</p>
+    <p>Les obligations relatives aux secrets d'affaires et au code source demeurent permanentes, conformément à la Directive (UE) 2016/943 sur la protection des savoir-faire et informations commerciales non divulgués, transposée en droit français par la loi n°2018-670 du 30 juillet 2018.</p>
+  </div>
+
+  <!-- SANCTIONS -->
+  <div class="section">
+    <h4><span class="num">7</span>Conséquences en cas de violation</h4>
+    <p>En cas de violation du présent accord, la Partie Divulgatrice pourra :</p>
+    <ul>
+      <li>Réclamer des dommages et intérêts à hauteur du préjudice subi, incluant le manque à gagner</li>
+      <li>Demander en référé la cessation immédiate de l'utilisation non autorisée</li>
+      <li>Engager des poursuites pénales pour contrefaçon, violation du secret des affaires ou concurrence déloyale</li>
+    </ul>
+  </div>
+
+  <!-- LOI APPLICABLE -->
+  <div class="section">
+    <h4><span class="num">8</span>Loi applicable et juridiction compétente</h4>
+    <p>Le présent accord est régi par le <strong>droit français</strong>. Tout litige relatif à son interprétation ou à son exécution sera soumis aux <strong>tribunaux français compétents</strong>, après tentative de règlement amiable dans un délai de 30 jours.</p>
+  </div>
+
+  <!-- SIGNATURE -->
+  <div class="signature-section">
+    <h3>Signatures des parties</h3>
+    <div class="sig-grid">
+      <!-- Partie Divulgatrice -->
+      <div class="sig-block">
+        <div class="sig-role">Partie Divulgatrice</div>
+        <div class="sig-name">Ludovic Saint-Louis</div>
+        <div class="sig-date">Fait le : 20/05/2026</div>
+        <div class="sig-zone" id="sigZone1">
+          <canvas id="sigCanvas1"></canvas>
+          <span class="placeholder">Signer ici</span>
+        </div>
+        <button class="sign-btn" id="signBtn1" onclick="openSignModal(1)">✍ Signer</button>
+        <button class="clear-btn" onclick="clearSig(1)">Effacer</button>
+      </div>
+      <!-- Partie Réceptrice -->
+      <div class="sig-block">
+        <div class="sig-role">Partie Réceptrice</div>
+        <div class="sig-name" id="sig2Name">[Représentant légal]</div>
+        <div class="sig-date">Fait le : <span id="sig2Date">____/____/______</span></div>
+        <div class="sig-zone" id="sigZone2">
+          <canvas id="sigCanvas2"></canvas>
+          <span class="placeholder">Signer ici</span>
+        </div>
+        <button class="sign-btn" id="signBtn2" onclick="openSignModal(2)">✍ Signer</button>
+        <button class="clear-btn" onclick="clearSig(2)">Effacer</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="legal-footer">
+    NDA-LUNA-2026-001 &nbsp;·&nbsp; Luna YAWatch — Propriété intellectuelle de Ludovic Saint-Louis &nbsp;·&nbsp; Droit français
+    <br>Document généré le 20/05/2026 &nbsp;·&nbsp; Confidentiel
+  </div>
+
+</div>
+
+<!-- Modal signature -->
+<div id="signModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:1000;display:none;align-items:center;justify-content:center;">
+  <div style="background:white;padding:28px;max-width:500px;width:90%;border-radius:8px;">
+    <h3 style="margin-bottom:16px;font-size:1em;text-transform:uppercase;letter-spacing:1px;">Signature électronique</h3>
+    <canvas id="modalCanvas" width="440" height="160" style="border:1px solid #ddd;width:100%;cursor:crosshair;touch-action:none;"></canvas>
+    <div style="display:flex;gap:10px;margin-top:12px;">
+      <button onclick="confirmSig()" style="flex:1;background:#0a0a1a;color:white;border:none;padding:10px;cursor:pointer;text-transform:uppercase;letter-spacing:1px;">Confirmer</button>
+      <button onclick="closeSignModal()" style="flex:1;background:white;color:#333;border:1px solid #ddd;padding:10px;cursor:pointer;">Annuler</button>
+    </div>
+  </div>
+</div>
+
+<div class="status-banner" id="statusBanner">
+  ✅ NDA SIGNÉ PAR LES DEUX PARTIES — Document valide
+</div>
+
+<script>
+var currentSig = 0;
+var sigData = { 1: null, 2: null };
+var isDrawing = false;
+var lastX, lastY;
+var modalCtx;
+
+function openSignModal(party) {
+  currentSig = party;
+  var modal = document.getElementById('signModal');
+  modal.style.display = 'flex';
+  var canvas = document.getElementById('modalCanvas');
+  modalCtx = canvas.getContext('2d');
+  modalCtx.clearRect(0, 0, canvas.width, canvas.height);
+  modalCtx.strokeStyle = '#1a1a1a';
+  modalCtx.lineWidth = 2;
+  modalCtx.lineCap = 'round';
+  modalCtx.lineJoin = 'round';
+  isDrawing = false;
+
+  canvas.onmousedown = function(e) {
+    isDrawing = true;
+    var r = canvas.getBoundingClientRect();
+    var sx = canvas.width / r.width;
+    var sy = canvas.height / r.height;
+    lastX = (e.clientX - r.left) * sx;
+    lastY = (e.clientY - r.top) * sy;
+  };
+  canvas.onmousemove = function(e) {
+    if (!isDrawing) return;
+    var r = canvas.getBoundingClientRect();
+    var sx = canvas.width / r.width;
+    var sy = canvas.height / r.height;
+    var x = (e.clientX - r.left) * sx;
+    var y = (e.clientY - r.top) * sy;
+    modalCtx.beginPath();
+    modalCtx.moveTo(lastX, lastY);
+    modalCtx.lineTo(x, y);
+    modalCtx.stroke();
+    lastX = x; lastY = y;
+  };
+  canvas.onmouseup = canvas.onmouseleave = function() { isDrawing = false; };
+
+  // Touch
+  canvas.ontouchstart = function(e) {
+    e.preventDefault();
+    isDrawing = true;
+    var r = canvas.getBoundingClientRect();
+    var sx = canvas.width / r.width;
+    var sy = canvas.height / r.height;
+    lastX = (e.touches[0].clientX - r.left) * sx;
+    lastY = (e.touches[0].clientY - r.top) * sy;
+  };
+  canvas.ontouchmove = function(e) {
+    e.preventDefault();
+    if (!isDrawing) return;
+    var r = canvas.getBoundingClientRect();
+    var sx = canvas.width / r.width;
+    var sy = canvas.height / r.height;
+    var x = (e.touches[0].clientX - r.left) * sx;
+    var y = (e.touches[0].clientY - r.top) * sy;
+    modalCtx.beginPath();
+    modalCtx.moveTo(lastX, lastY);
+    modalCtx.lineTo(x, y);
+    modalCtx.stroke();
+    lastX = x; lastY = y;
+  };
+  canvas.ontouchend = function() { isDrawing = false; };
+}
+
+function confirmSig() {
+  var modalCanvas = document.getElementById('modalCanvas');
+  var dataUrl = modalCanvas.toDataURL();
+  sigData[currentSig] = dataUrl;
+
+  // Copier dans la zone de signature du document
+  var zone = document.getElementById('sigZone' + currentSig);
+  var canvas = document.getElementById('sigCanvas' + currentSig);
+  canvas.width = zone.offsetWidth;
+  canvas.height = zone.offsetHeight;
+  var ctx = canvas.getContext('2d');
+  var img = new Image();
+  img.onload = function() {
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    zone.querySelector('.placeholder').style.display = 'none';
+  };
+  img.src = dataUrl;
+
+  var btn = document.getElementById('signBtn' + currentSig);
+  btn.textContent = '✅ Signé';
+  btn.classList.add('signed');
+
+  if (currentSig === 2) {
+    var d = new Date();
+    document.getElementById('sig2Date').textContent =
+      String(d.getDate()).padStart(2,'0') + '/' +
+      String(d.getMonth()+1).padStart(2,'0') + '/' + d.getFullYear();
+  }
+
+  closeSignModal();
+  checkBothSigned();
+}
+
+function closeSignModal() {
+  document.getElementById('signModal').style.display = 'none';
+}
+
+function clearSig(party) {
+  sigData[party] = null;
+  var canvas = document.getElementById('sigCanvas' + party);
+  var ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  document.getElementById('sigZone' + party).querySelector('.placeholder').style.display = '';
+  var btn = document.getElementById('signBtn' + party);
+  btn.textContent = '✍ Signer';
+  btn.classList.remove('signed');
+  document.getElementById('statusBanner').style.display = 'none';
+}
+
+function checkBothSigned() {
+  if (sigData[1] && sigData[2]) {
+    document.getElementById('statusBanner').style.display = 'block';
+  }
+}
+
+// Pré-remplir le nom sig2 depuis la partie réceptrice éditable
+document.getElementById('partyName').addEventListener('input', function() {
+  document.getElementById('sig2Name').textContent = this.textContent || '[Représentant légal]';
+});
+</script>
+</body>
+</html>
