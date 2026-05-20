@@ -579,6 +579,24 @@ class WebVoiceBridge:
 
         logger.info(f"WebVoice tool_call: {function_name}({args})")
 
+        # hang_up : arrêter le bridge proprement
+        if function_name == "hang_up":
+            reason = args.get("reason", "fin de conversation")
+            logger.info(f"WebVoice hang_up: {reason}")
+            tool_response = {
+                "type": "conversation.item.create",
+                "item": {
+                    "type": "function_call_output",
+                    "call_id": call_id,
+                    "output": json.dumps({"status": "ok", "message": "Appel terminé."}, ensure_ascii=False),
+                },
+            }
+            await self._ws_send_openai(tool_response)
+            await self._ws_send_client({"type": "tool_call", "name": "hang_up", "status": "ok", "message": "Appel terminé."})
+            await asyncio.sleep(2)
+            self._running = False
+            return
+
         # Notifie le client qu'un tool est en cours
         await self._ws_send_client({
             "type": "tool_call",
