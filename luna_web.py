@@ -509,7 +509,7 @@ else:
     openai_client = build_llm_client(OPENAI_API_KEY)
     sms_client = TwilioSMSClient.from_env()
     voice_client = TwilioVoiceClient.from_env()
-    tavus_client = TavusClient.from_env() if _TAVUS_AVAILABLE and LUNA_MODE == "full" else None
+    tavus_client = TavusClient.from_env(memory_manager=_memory_manager) if _TAVUS_AVAILABLE and LUNA_MODE == "full" else None
     email_client = EmailClient.from_env()
 
 # --- Reservation clients ---
@@ -4598,7 +4598,7 @@ async def voice_call_media_stream(websocket: WebSocket):
         contact_name = call_params.get("contact_name", "")
 
         # Contexte Luna pour l'appel vocal
-        memory_mgr = tavus_client.memory if tavus_client else _memory_manager
+        memory_mgr = (tavus_client.memory if (tavus_client and tavus_client.memory) else None) or _memory_manager
 
         # Detect subscriber language preference
         _voice_lang = "fr"
@@ -4972,7 +4972,7 @@ async def ws_luna_voice(websocket: WebSocket):
     from integrations.openai.web_voice_bridge import WebVoiceBridge
     from integrations.openai.realtime_bridge import build_voice_context
 
-    memory_mgr = tavus_client.memory if tavus_client else _memory_manager
+    memory_mgr = (tavus_client.memory if (tavus_client and tavus_client.memory) else None) or _memory_manager
 
     # Detect language
     _voice_lang = "fr"
@@ -9185,6 +9185,7 @@ async def list_call_reports(request: Request, limit: int = 30):
     _REPORT_CONTEXTS = {
         "structured_call_report", "conference", "conference_call",
         "call", "voice_call", "appel_vocal", "visio",
+        "visio_notes", "visio_summary", "visio_report", "visio_transcription",
     }
     _REPORT_TAGS = {"rapport", "appel_vocal", "conference", "visio"}
     reports = []

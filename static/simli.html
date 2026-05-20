@@ -2208,24 +2208,29 @@
       currentConvId = '';
       _activeRoomUrl = '';
       _stopVisionLoop();
-      // Auto-save notes à la fin (silencieux, sans bloquer le retour)
-      if (transcriptAtHangup.length > 0 && durationAtHangup >= 1) {
-        authFetch('/api/visio/notes', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            events: transcriptAtHangup, vision_context: visionAtHangup,
-            duration_min: durationAtHangup, conversation_id: convIdAtHangup,
-            auto_save: true,
-          })
-        }).catch(function() {});
-      }
       var bar = document.getElementById('visioActionsBar');
       if (bar) bar.classList.remove('visible');
       _stopSpeechCapture();
       ambientAudioEl.pause();
       phoneSfxEl.pause();
-      window.location.href = '/';
+      // Auto-save notes — attendre la réponse avant de naviguer (sinon Android tue la requête)
+      var doNavigate = function() { window.location.href = '/'; };
+      var hasContent = transcriptAtHangup.length > 0 || convIdAtHangup;
+      if (hasContent) {
+        var saveTimeout = new Promise(function(r){ setTimeout(r, 5000); });
+        var saveReq = authFetch('/api/visio/notes', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            events: transcriptAtHangup, vision_context: visionAtHangup,
+            duration_min: Math.max(durationAtHangup, 1), conversation_id: convIdAtHangup,
+            auto_save: true,
+          })
+        }).catch(function(){});
+        Promise.race([saveReq, saveTimeout]).then(doNavigate).catch(doNavigate);
+      } else {
+        doNavigate();
+      }
     }
 
     btnHangup.onclick = doHangup;
