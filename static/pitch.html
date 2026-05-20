@@ -6,462 +6,594 @@
 <meta name="robots" content="noindex, nofollow">
 <title>Luna YAWatch — Présentation Technique Confidentielle</title>
 <style>
-* { box-sizing: border-box; margin: 0; padding: 0; }
-html, body {
-  width: 100%; height: 100%; background: #000; color: white;
-  font-family: 'Segoe UI', system-ui, sans-serif; overflow: hidden;
-  user-select: none; -webkit-user-select: none;
-  -webkit-touch-callout: none;
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{
+  width:100%;height:100%;background:#000;color:white;
+  font-family:'Segoe UI',system-ui,sans-serif;overflow:hidden;
+  user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;
 }
-/* Anti-capture : filigrane sur tout le document */
-body::after {
-  content: "CONFIDENTIEL — © Ludovic Saint-Louis — Luna YAWatch";
-  position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%) rotate(-35deg);
-  font-size: clamp(0.9em,2vw,1.3em); color: rgba(255,255,255,0.04);
-  white-space: nowrap; pointer-events: none; z-index: 9999;
-  letter-spacing: 3px; font-weight: 700; text-transform: uppercase;
+body::after{
+  content:"CONFIDENTIEL — © Ludovic Saint-Louis — Luna YAWatch";
+  position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-35deg);
+  font-size:clamp(0.8em,2vw,1.2em);color:rgba(255,255,255,0.035);
+  white-space:nowrap;pointer-events:none;z-index:9999;
+  letter-spacing:3px;font-weight:700;
 }
-@media print { html, body { display: none !important; } }
+@media print{html,body{display:none!important;}}
 
-#stage {
-  width: 100%; height: 100%;
-  display: flex; align-items: center; justify-content: center;
-  position: relative;
-}
-
-/* Fond animé */
-.bg-gradient {
-  position: absolute; inset: 0;
-  background: radial-gradient(ellipse at 30% 50%, #1a0533 0%, #000 60%);
-  transition: background 1.5s ease;
+/* BANDEAU HAUT */
+#topbar{
+  position:fixed;top:0;left:0;right:0;height:28px;
+  background:#4c1d95;color:white;text-align:center;
+  font-size:0.68em;line-height:28px;z-index:300;
+  letter-spacing:1px;font-weight:600;
 }
 
-.stars {
-  position: absolute; inset: 0; overflow: hidden;
+/* STAGE */
+#stage{
+  position:fixed;top:28px;left:0;right:0;bottom:40px;
+  display:flex;align-items:center;justify-content:center;overflow:hidden;
 }
-.star {
-  position: absolute; width: 2px; height: 2px; background: white;
-  border-radius: 50%; animation: twinkle 3s infinite;
-}
-@keyframes twinkle { 0%,100%{opacity:0.3} 50%{opacity:1} }
+.bg-gradient{position:absolute;inset:0;transition:background 1.5s ease;}
+.stars{position:absolute;inset:0;overflow:hidden;}
+.star{position:absolute;width:2px;height:2px;background:white;border-radius:50%;animation:twinkle 3s infinite;}
+@keyframes twinkle{0%,100%{opacity:.3}50%{opacity:1}}
 
-/* Slide container */
-.slide {
-  position: absolute;
-  width: 90%; max-width: 900px;
-  text-align: center;
-  opacity: 0;
-  transform: translateY(30px);
-  transition: opacity 0.8s ease, transform 0.8s ease;
-  pointer-events: none;
+/* SLIDES */
+.slide{
+  position:absolute;width:94%;max-width:960px;
+  text-align:center;opacity:0;transform:translateY(28px);
+  transition:opacity .7s ease,transform .7s ease;pointer-events:none;
+  padding:0 8px;
 }
-.slide.active {
-  opacity: 1; transform: translateY(0); pointer-events: auto;
-}
-.slide.exit {
-  opacity: 0; transform: translateY(-30px);
-}
+.slide.active{opacity:1;transform:translateY(0);pointer-events:auto;}
+.slide.exit{opacity:0;transform:translateY(-28px);}
 
-/* Typography */
-.slide .eyebrow {
-  font-size: 0.75em; letter-spacing: 3px; text-transform: uppercase;
-  color: #a78bfa; margin-bottom: 12px; font-weight: 500;
-}
-.slide h1 { font-size: clamp(2em, 6vw, 4em); font-weight: 800; line-height: 1.1; margin-bottom: 16px; }
-.slide h2 { font-size: clamp(1.4em, 4vw, 2.5em); font-weight: 700; line-height: 1.2; margin-bottom: 14px; }
-.slide h3 { font-size: clamp(1.1em, 3vw, 1.8em); font-weight: 600; line-height: 1.3; margin-bottom: 12px; }
-.slide p  { font-size: clamp(0.9em, 2.2vw, 1.15em); line-height: 1.7; color: #ccc; max-width: 700px; margin: 0 auto 16px; }
-.slide .accent { color: #a78bfa; }
-.slide .green  { color: #34d399; }
-.slide .gold   { color: #fbbf24; }
+.eyebrow{font-size:.72em;letter-spacing:3px;text-transform:uppercase;color:#a78bfa;margin-bottom:10px;font-weight:500;}
+.slide h1{font-size:clamp(1.8em,5vw,3.6em);font-weight:800;line-height:1.1;margin-bottom:14px;}
+.slide h2{font-size:clamp(1.3em,3.5vw,2.2em);font-weight:700;line-height:1.2;margin-bottom:12px;}
+.slide p{font-size:clamp(.85em,2vw,1.05em);line-height:1.7;color:#ccc;max-width:720px;margin:0 auto 14px;}
+.accent{color:#a78bfa;}.green{color:#34d399;}.gold{color:#fbbf24;}.red{color:#f87171;}
 
-/* Cards */
-.cards { display: flex; flex-wrap: wrap; gap: 16px; justify-content: center; margin-top: 20px; }
-.card {
-  background: rgba(255,255,255,0.05); border: 1px solid rgba(167,139,250,0.3);
-  border-radius: 12px; padding: 18px 22px; text-align: left; flex: 1; min-width: 200px; max-width: 260px;
-}
-.card .icon { font-size: 1.8em; margin-bottom: 8px; }
-.card .ct   { font-size: 0.85em; font-weight: 700; color: #e2e8f0; margin-bottom: 4px; }
-.card .cd   { font-size: 0.78em; color: #888; line-height: 1.5; }
+/* CARDS */
+.cards{display:flex;flex-wrap:wrap;gap:14px;justify-content:center;margin-top:18px;}
+.card{background:rgba(255,255,255,.05);border:1px solid rgba(167,139,250,.3);border-radius:10px;padding:14px 18px;text-align:left;flex:1;min-width:180px;max-width:240px;}
+.card .icon{font-size:1.6em;margin-bottom:6px;}
+.card .ct{font-size:.82em;font-weight:700;color:#e2e8f0;margin-bottom:3px;}
+.card .cd{font-size:.75em;color:#888;line-height:1.5;}
 
-/* Architecture diagram */
-.arch {
-  display: flex; align-items: center; justify-content: center;
-  gap: 8px; flex-wrap: wrap; margin-top: 20px;
+/* MOCKUP PHONE */
+.phone-wrap{display:flex;justify-content:center;margin-top:14px;}
+.phone{
+  width:200px;border:3px solid #444;border-radius:28px;overflow:hidden;
+  box-shadow:0 0 40px rgba(124,58,237,.4);position:relative;background:#0a0a1a;
 }
-.arch-box {
-  background: rgba(124,58,237,0.2); border: 1px solid #7c3aed;
-  border-radius: 8px; padding: 10px 16px; font-size: 0.82em; font-weight: 600;
-  color: #c4b5fd;
+.phone-notch{height:20px;background:#000;display:flex;align-items:center;justify-content:center;}
+.phone-notch::after{content:'';width:60px;height:6px;background:#222;border-radius:4px;}
+.phone-screen{padding:10px 8px;min-height:300px;}
+.phone-screen .msg{margin-bottom:8px;display:flex;gap:6px;align-items:flex-start;}
+.phone-screen .msg.luna{flex-direction:row;}
+.phone-screen .msg.user{flex-direction:row-reverse;}
+.phone-screen .bubble{
+  max-width:75%;padding:7px 10px;border-radius:12px;font-size:.7em;line-height:1.5;
 }
-.arch-arrow { color: #7c3aed; font-size: 1.2em; }
+.msg.luna  .bubble{background:#1e1b4b;color:#c4b5fd;border-radius:2px 12px 12px 12px;}
+.msg.user  .bubble{background:#7c3aed;color:white;border-radius:12px 2px 12px 12px;}
+.luna-dot{width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,#c4b5fd,#7c3aed);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:.8em;}
 
-/* Code block */
-.code {
-  background: #0d1117; border: 1px solid #30363d; border-radius: 8px;
-  padding: 16px 20px; font-family: 'Consolas', monospace; font-size: 0.82em;
-  text-align: left; margin: 16px auto; max-width: 600px; line-height: 1.8;
-}
-.code .c-green { color: #3fb950; }
-.code .c-blue  { color: #79c0ff; }
-.code .c-orange{ color: #ffa657; }
-.code .c-gray  { color: #8b949e; }
+/* ARCH */
+.arch{display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;margin-top:16px;}
+.arch-box{background:rgba(124,58,237,.2);border:1px solid #7c3aed;border-radius:8px;padding:8px 14px;font-size:.78em;font-weight:600;color:#c4b5fd;text-align:center;}
+.arch-box small{display:block;font-size:.85em;color:#666;font-weight:400;margin-top:2px;}
+.arch-arrow{color:#7c3aed;font-size:1.2em;}
 
-/* Steps */
-.steps { margin-top: 20px; text-align: left; max-width: 600px; margin-left: auto; margin-right: auto; }
-.step { display: flex; gap: 16px; margin-bottom: 18px; align-items: flex-start; }
-.step-num {
-  width: 32px; height: 32px; border-radius: 50%; background: #7c3aed;
-  display: flex; align-items: center; justify-content: center;
-  font-weight: 800; font-size: 0.9em; flex-shrink: 0; margin-top: 2px;
-}
-.step-text .st { font-weight: 700; font-size: 0.95em; margin-bottom: 3px; }
-.step-text .sd { font-size: 0.82em; color: #888; line-height: 1.5; }
+/* CODE */
+.code{background:#0d1117;border:1px solid #30363d;border-radius:8px;padding:14px 18px;font-family:'Consolas',monospace;font-size:.78em;text-align:left;margin:14px auto;max-width:580px;line-height:1.8;}
+.c-green{color:#3fb950;}.c-blue{color:#79c0ff;}.c-orange{color:#ffa657;}.c-gray{color:#6e7681;}
 
-/* Luna avatar */
-.luna-avatar {
-  width: 120px; height: 120px; border-radius: 50%;
-  background: radial-gradient(circle at 35% 35%, #c4b5fd, #7c3aed 60%, #4c1d95);
-  margin: 0 auto 20px;
-  box-shadow: 0 0 40px rgba(167,139,250,0.4);
-  display: flex; align-items: center; justify-content: center;
-  font-size: 3em;
-  animation: pulse-glow 3s ease-in-out infinite;
-}
-@keyframes pulse-glow {
-  0%,100% { box-shadow: 0 0 40px rgba(167,139,250,0.4); }
-  50%      { box-shadow: 0 0 70px rgba(167,139,250,0.7); }
-}
+/* STEPS */
+.steps{margin:16px auto 0;text-align:left;max-width:580px;}
+.step{display:flex;gap:14px;margin-bottom:14px;align-items:flex-start;}
+.step-num{width:28px;height:28px;border-radius:50%;background:#7c3aed;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:.82em;flex-shrink:0;margin-top:2px;}
+.step-text .st{font-weight:700;font-size:.9em;margin-bottom:2px;}
+.step-text .sd{font-size:.78em;color:#777;line-height:1.5;}
 
-/* Progress bar */
-#progress {
-  position: fixed; bottom: 0; left: 0; right: 0; height: 3px;
-  background: rgba(255,255,255,0.1);
-}
-#progress-fill {
-  height: 100%; background: #7c3aed;
-  transition: width 0.3s ease;
-}
+/* TABLE */
+.tbl{width:100%;max-width:680px;margin:14px auto 0;border-collapse:collapse;font-size:.8em;}
+.tbl th{background:#1e1b4b;color:#a78bfa;padding:8px 12px;text-align:left;font-weight:600;font-size:.85em;letter-spacing:.5px;}
+.tbl td{padding:8px 12px;border-bottom:1px solid rgba(255,255,255,.06);color:#ccc;vertical-align:top;}
+.tbl tr:nth-child(even) td{background:rgba(255,255,255,.02);}
 
-/* Nav */
-#nav {
-  position: fixed; bottom: 20px; right: 24px;
-  display: flex; gap: 10px; align-items: center;
-}
-#nav button {
-  background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);
-  color: white; padding: 8px 18px; border-radius: 20px; cursor: pointer;
-  font-size: 0.82em; transition: background 0.2s;
-}
-#nav button:hover { background: rgba(124,58,237,0.5); }
-#slide-counter { font-size: 0.75em; color: #555; }
+/* LUNA AVATAR */
+.luna-avatar{width:100px;height:100px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#c4b5fd,#7c3aed 60%,#4c1d95);margin:0 auto 16px;box-shadow:0 0 40px rgba(167,139,250,.4);display:flex;align-items:center;justify-content:center;font-size:2.6em;animation:pulse 3s ease-in-out infinite;}
+@keyframes pulse{0%,100%{box-shadow:0 0 40px rgba(167,139,250,.4);}50%{box-shadow:0 0 70px rgba(167,139,250,.7);}}
 
-/* Voix-off text */
-#voiceover {
-  position: fixed; bottom: 60px; left: 50%; transform: translateX(-50%);
-  background: rgba(0,0,0,0.7); border: 1px solid rgba(255,255,255,0.1);
-  padding: 10px 20px; border-radius: 20px; font-size: 0.78em; color: #aaa;
-  max-width: 80%; text-align: center; opacity: 0;
-  transition: opacity 0.5s;
-}
-#voiceover.show { opacity: 1; }
+/* BADGE */
+.badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:.7em;font-weight:700;letter-spacing:.5px;margin:2px;}
+.badge-v{background:rgba(52,211,153,.15);border:1px solid #34d399;color:#34d399;}
+.badge-w{background:rgba(251,191,36,.15);border:1px solid #fbbf24;color:#fbbf24;}
+.badge-r{background:rgba(248,113,113,.15);border:1px solid #f87171;color:#f87171;}
+.badge-p{background:rgba(167,139,250,.2);border:1px solid #a78bfa;color:#a78bfa;}
 
-/* Start screen */
-#start-screen {
-  position: fixed; inset: 0; background: #000;
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  z-index: 100; transition: opacity 0.8s;
+/* VISIO PREVIEW */
+.visio-preview{
+  width:260px;border:2px solid #7c3aed;border-radius:16px;overflow:hidden;
+  margin:16px auto 0;background:#0d0d1a;
+  box-shadow:0 0 30px rgba(124,58,237,.5);
 }
-#start-screen h1 { font-size: 3em; font-weight: 800; color: #a78bfa; margin-bottom: 8px; }
-#start-screen p  { color: #555; margin-bottom: 40px; font-size: 1em; }
-#start-btn {
-  background: #7c3aed; color: white; border: none;
-  padding: 16px 48px; font-size: 1.1em; font-weight: 700;
-  border-radius: 30px; cursor: pointer; letter-spacing: 1px;
-  transition: transform 0.2s, box-shadow 0.2s;
+.visio-bar{background:#1e1b4b;padding:8px 14px;font-size:.72em;display:flex;align-items:center;gap:8px;}
+.visio-bar .dot{width:8px;height:8px;border-radius:50%;background:#34d399;animation:blink 1.5s infinite;}
+@keyframes blink{0%,100%{opacity:1;}50%{opacity:.3;}}
+.visio-face{
+  height:180px;display:flex;align-items:center;justify-content:center;
+  background:radial-gradient(ellipse at 50% 40%,#1e1b4b,#050510);
+  font-size:5em;
 }
-#start-btn:hover { transform: scale(1.05); box-shadow: 0 0 30px rgba(124,58,237,0.6); }
+.visio-controls{background:#0a0814;padding:10px;display:flex;justify-content:center;gap:16px;}
+.visio-btn{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.9em;}
+
+/* WORLD PREVIEW */
+.world-preview{
+  width:320px;height:180px;border:1px solid #1e3a5f;border-radius:12px;overflow:hidden;
+  margin:14px auto 0;background:#020c18;position:relative;
+  box-shadow:0 0 20px rgba(16,185,129,.3);
+}
+.world-grid{
+  position:absolute;inset:0;
+  background-image:linear-gradient(rgba(16,185,129,.1) 1px,transparent 1px),linear-gradient(90deg,rgba(16,185,129,.1) 1px,transparent 1px);
+  background-size:20px 20px;
+}
+.world-pin{position:absolute;font-size:1.2em;animation:float 2s ease-in-out infinite;}
+@keyframes float{0%,100%{transform:translateY(0);}50%{transform:translateY(-4px);}}
+
+/* BOTTOM BAR */
+#bottombar{
+  position:fixed;bottom:0;left:0;right:0;height:40px;
+  background:#0a0a1a;border-top:1px solid #1e1e3f;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 20px;z-index:300;
+}
+#progress-wrap{flex:1;height:3px;background:rgba(255,255,255,.1);border-radius:2px;margin:0 16px;}
+#progress-fill{height:100%;background:#7c3aed;border-radius:2px;transition:width .3s;}
+#slide-counter{font-size:.72em;color:#555;min-width:50px;text-align:right;}
+.nav-btn{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);color:white;padding:5px 14px;border-radius:16px;cursor:pointer;font-size:.75em;}
+.nav-btn:hover{background:rgba(124,58,237,.4);}
+#pauseBtn{background:rgba(124,58,237,.3);border-color:#7c3aed;}
+
+/* VOICEOVER */
+#voiceover{
+  position:fixed;bottom:50px;left:50%;transform:translateX(-50%);
+  background:rgba(0,0,0,.8);border:1px solid rgba(255,255,255,.1);
+  padding:8px 18px;border-radius:18px;font-size:.76em;color:#aaa;
+  max-width:78%;text-align:center;opacity:0;transition:opacity .5s;
+  pointer-events:none;z-index:200;
+}
+#voiceover.show{opacity:1;}
+
+/* PAUSE OVERLAY */
+#pauseOverlay{
+  display:none;position:fixed;inset:0;
+  background:rgba(0,0,0,.6);z-index:500;
+  align-items:center;justify-content:center;flex-direction:column;gap:12px;
+}
+#pauseOverlay.show{display:flex;}
+#pauseOverlay .po-text{font-size:1.4em;font-weight:700;color:#a78bfa;letter-spacing:2px;}
+#pauseOverlay .po-sub{font-size:.85em;color:#666;}
+
+/* START SCREEN */
+#start-screen{
+  position:fixed;inset:0;background:#000;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  z-index:400;transition:opacity .8s;
+}
+#start-screen h1{font-size:2.8em;font-weight:800;color:#a78bfa;margin-bottom:6px;}
+#start-screen p{color:#555;margin-bottom:36px;font-size:.95em;}
+#nda-required{
+  background:#1e1b4b;border:1px solid #7c3aed;padding:14px 24px;
+  border-radius:8px;margin-bottom:24px;font-size:.85em;color:#c4b5fd;
+  text-align:center;max-width:460px;
+}
+#start-btn{
+  background:#7c3aed;color:white;border:none;padding:14px 44px;
+  font-size:1em;font-weight:700;border-radius:28px;cursor:pointer;
+  letter-spacing:1px;transition:transform .2s,box-shadow .2s;
+}
+#start-btn:hover{transform:scale(1.05);box-shadow:0 0 28px rgba(124,58,237,.6);}
 </style>
 </head>
 <body>
 
-<!-- Bandeau confidentialité -->
-<div style="position:fixed;top:0;left:0;right:0;background:#7c3aed;color:white;text-align:center;font-size:0.72em;padding:5px;z-index:200;letter-spacing:1px;font-weight:600;">
-  🔒 DOCUMENT CONFIDENTIEL — © Ludovic Saint-Louis — Toute reproduction, capture ou enregistrement est strictement interdit
-</div>
+<div id="topbar">🔒 DOCUMENT CONFIDENTIEL — © Ludovic Saint-Louis — Toute reproduction ou enregistrement est strictement interdit</div>
 
 <!-- Écran de démarrage -->
 <div id="start-screen">
-  <div style="font-size:3em;margin-bottom:16px;">🌙</div>
+  <div style="font-size:3em;margin-bottom:12px;">🌙</div>
   <h1>Luna YAWatch</h1>
-  <p>Présentation technique — Équipe développement</p>
+  <p>Présentation technique — Équipe développement &amp; Partenaires</p>
+  <div id="nda-required">
+    ⚠️ <strong>Rappel :</strong> Le NDA doit être signé par tous les participants<br>
+    avant de commencer cette présentation.<br>
+    <a href="/nda" target="_blank" style="color:#a78bfa;font-weight:700;">→ Ouvrir et signer le NDA</a>
+  </div>
   <button id="start-btn" onclick="startPresentation()">▶ Lancer la présentation</button>
+  <div style="font-size:.72em;color:#333;margin-top:16px;">Espace / → pour avancer · ← pour reculer · P pour pause</div>
 </div>
 
 <div id="stage">
   <div class="bg-gradient" id="bgGrad"></div>
   <div class="stars" id="stars"></div>
 
-  <!-- SLIDE 1 : Intro -->
+  <!-- SLIDE 0 : Intro -->
   <div class="slide" id="slide-0">
     <div class="luna-avatar">🌙</div>
-    <div class="eyebrow">Luna YAWatch — Intelligence Artificielle</div>
+    <div class="eyebrow">Luna YAWatch — Intelligence Artificielle Compagnon</div>
     <h1>Rencontrez <span class="accent">Luna</span></h1>
-    <p>La première IA compagnon bienveillante conçue pour le lien social, disponible 24h/24, 7j/7.</p>
+    <p>La première IA compagnon bienveillante — disponible 24h/24, 7j/7, sur téléphone et navigateur.</p>
+    <div style="margin-top:14px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
+      <span class="badge badge-p">🧠 OpenAI GPT-4o-mini</span>
+      <span class="badge badge-v">☁️ Google Cloud Run</span>
+      <span class="badge badge-w">📱 Android WebView</span>
+    </div>
   </div>
 
-  <!-- SLIDE 2 : Problème -->
+  <!-- SLIDE 1 : Le Chat -->
   <div class="slide" id="slide-1">
-    <div class="eyebrow">Le problème qu'on résout</div>
-    <h2>L'isolement social n'attend pas</h2>
-    <p>Millions de personnes cherchent une présence attentive, un interlocuteur disponible, un compagnon de confiance — à tout moment.</p>
-    <div class="cards">
-      <div class="card"><div class="icon">🗣️</div><div class="ct">Chat illimité</div><div class="cd">Conversation naturelle, personnalisée, empathique</div></div>
-      <div class="card"><div class="icon">🎙️</div><div class="ct">Voix & Visio</div><div class="cd">Appel vocal et visioconférence avec avatar IA</div></div>
-      <div class="card"><div class="icon">🔔</div><div class="ct">Conciergerie</div><div class="cd">Rappels, météo, actualités, voyages, services</div></div>
+    <div class="eyebrow">Fonctionnalité 1 / 12 — Chat</div>
+    <h2>💬 Conversation <span class="accent">intelligente</span></h2>
+    <p>Luna répond en langage naturel, se souvient du contexte, adapte son ton. Historique multi-conversations avec sidebar, recherche, renommage et suppression.</p>
+    <div class="phone-wrap">
+      <div class="phone">
+        <div class="phone-notch"></div>
+        <div class="phone-screen">
+          <div class="msg luna"><div class="luna-dot">🌙</div><div class="bubble">Bonjour ! Comment te sens-tu aujourd'hui ? 😊</div></div>
+          <div class="msg user"><div class="bubble">Un peu fatigué mais ça va. Qu'est-ce qu'on fait ?</div></div>
+          <div class="msg luna"><div class="luna-dot">🌙</div><div class="bubble">Je peux te lire l'actu, passer un appel à ta famille, ou juste te tenir compagnie 🌟</div></div>
+          <div class="msg user"><div class="bubble">Raconte-moi les news !</div></div>
+        </div>
+      </div>
     </div>
   </div>
 
-  <!-- SLIDE 3 : Architecture -->
+  <!-- SLIDE 2 : Voix -->
   <div class="slide" id="slide-2">
-    <div class="eyebrow">Architecture technique</div>
-    <h2>Stack 100% Cloud</h2>
-    <div class="arch">
-      <div class="arch-box">📱 APK Android<br><span style="font-size:0.8em;color:#888">WebView</span></div>
+    <div class="eyebrow">Fonctionnalité 2 / 12 — Appel vocal</div>
+    <h2>🎙️ Appels <span class="accent">vocaux</span></h2>
+    <p>Luna passe des appels téléphoniques réels via <strong>Twilio</strong> — vers des contacts proches ou de l'aide d'urgence. STT/TTS OpenAI pour la synthèse vocale naturelle.</p>
+    <div class="arch" style="margin-top:20px;">
+      <div class="arch-box">📱 Téléphone<br><small>Microphone utilisateur</small></div>
       <div class="arch-arrow">→</div>
-      <div class="arch-box">🌐 FastAPI<br><span style="font-size:0.8em;color:#888">Cloud Run</span></div>
+      <div class="arch-box">🧠 STT OpenAI<br><small>Transcription voix→texte</small></div>
       <div class="arch-arrow">→</div>
-      <div class="arch-box">🧠 OpenAI<br><span style="font-size:0.8em;color:#888">GPT-4o-mini</span></div>
+      <div class="arch-box">🤖 GPT-4o-mini<br><small>Réponse IA</small></div>
+      <div class="arch-arrow">→</div>
+      <div class="arch-box">🔊 TTS OpenAI<br><small>Voix Coral/Nova</small></div>
     </div>
-    <div class="arch" style="margin-top:12px;">
-      <div class="arch-box">🔴 Redis<br><span style="font-size:0.8em;color:#888">Sessions</span></div>
-      <div class="arch-arrow">+</div>
-      <div class="arch-box">📹 Tavus<br><span style="font-size:0.8em;color:#888">Avatar IA</span></div>
-      <div class="arch-arrow">+</div>
-      <div class="arch-box">📱 Twilio<br><span style="font-size:0.8em;color:#888">Voix / SMS</span></div>
-    </div>
-    <p style="margin-top:16px;font-size:0.82em;">Backend Python · Frontend SPA HTML/JS · Android WebView APK · CI/CD Cloud Build</p>
+    <p style="margin-top:14px;font-size:.8em;"><span class="badge badge-w">⚠️ Twilio requis</span> — SMS également pris en charge avec journalisation complète</p>
   </div>
 
-  <!-- SLIDE 4 : Fonctionnalités -->
+  <!-- SLIDE 3 : Visio Tavus -->
   <div class="slide" id="slide-3">
-    <div class="eyebrow">Ce que Luna sait faire</div>
-    <h2>17 écrans. Un seul objectif.</h2>
-    <div class="cards">
-      <div class="card"><div class="icon">💬</div><div class="ct">Mode Compagnon</div><div class="cd">Chat, voix, visio Tavus, conciergerie, famille, monde</div></div>
-      <div class="card"><div class="icon">🗂️</div><div class="ct">Mode Secrétaire</div><div class="cd">Contacts, documents, formulaires, carte, rapports</div></div>
-      <div class="card"><div class="icon">🛡️</div><div class="ct">Guardian</div><div class="cd">Surveillance géolocalisée, alertes, check-ins</div></div>
-      <div class="card"><div class="icon">📊</div><div class="ct">Rapports</div><div class="cd">Comptes rendus, notes, réunions, SMS envoyés</div></div>
+    <div class="eyebrow">Fonctionnalité 3 / 12 — Visioconférence</div>
+    <h2>📹 Visio <span class="accent">Avatar IA</span> — Tavus</h2>
+    <p>Cinématique d'intro 9 décors horaires → appel Tavus fullscreen. L'avatar Luna parle, écoute et répond en temps réel (~2-3s de latence).</p>
+    <div class="visio-preview">
+      <div class="visio-bar"><div class="dot"></div> <span>Luna — En appel</span> <span style="margin-left:auto;color:#888;">02:34</span></div>
+      <div class="visio-face">🌙</div>
+      <div class="visio-controls">
+        <div class="visio-btn" style="background:#dc2626;">📵</div>
+        <div class="visio-btn" style="background:#374151;">🔇</div>
+        <div class="visio-btn" style="background:#374151;">📷</div>
+      </div>
     </div>
+    <p style="margin-top:10px;font-size:.78em;">Persona Luna FR : <code style="color:#a78bfa;">p10341f761ef</code> · Daily.js iframe · Cinématique SVG Ken Burns</p>
   </div>
 
-  <!-- SLIDE 5 : Modèle exploitant -->
+  <!-- SLIDE 4 : Conciergerie -->
   <div class="slide" id="slide-4">
-    <div class="eyebrow">Modèle business</div>
-    <h2>Licence <span class="accent">70/30</span></h2>
+    <div class="eyebrow">Fonctionnalité 4 / 12 — Conciergerie</div>
+    <h2>🏨 Conciergerie <span class="accent">intelligente</span></h2>
+    <p>Luna agit comme un assistant personnel complet. Elle peut effectuer des recherches, gérer des rappels et proposer des services.</p>
     <div class="cards">
-      <div class="card" style="border-color:rgba(167,139,250,0.5)">
-        <div class="icon">👑</div>
-        <div class="ct" style="color:#a78bfa">Fondateur — 70%</div>
-        <div class="cd">Licence technologie, code, mises à jour, IP</div>
-      </div>
-      <div class="card" style="border-color:rgba(52,211,153,0.4)">
-        <div class="icon">🏢</div>
-        <div class="ct" style="color:#34d399">Exploitant — 30%</div>
-        <div class="cd">Ses serveurs, ses clés API, ses clients</div>
-      </div>
+      <div class="card"><div class="icon">✈️</div><div class="ct">Vols &amp; Hôtels</div><div class="cd">Recherche Duffel API, prix en temps réel</div></div>
+      <div class="card"><div class="icon">🌤️</div><div class="ct">Météo</div><div class="cd">Conditions actuelles et prévisions</div></div>
+      <div class="card"><div class="icon">📰</div><div class="ct">Actualités</div><div class="cd">Résumé news du jour personnalisé</div></div>
+      <div class="card"><div class="icon">⏰</div><div class="ct">Rappels</div><div class="cd">Médicaments, rendez-vous, tâches</div></div>
+      <div class="card"><div class="icon">🍽️</div><div class="ct">Restaurants</div><div class="cd">Trouvez où manger selon vos goûts</div></div>
+      <div class="card"><div class="icon">📋</div><div class="ct">Formulaires</div><div class="cd">Upload PDF → analyse → remplissage IA</div></div>
     </div>
-    <p style="margin-top:16px;">Plans <span class="gold">Essentiel 79€</span> · <span class="gold">Confort 149€</span> · <span class="gold">Premium 249€</span> / mois</p>
   </div>
 
-  <!-- SLIDE 6 : Package exploitant -->
+  <!-- SLIDE 5 : Mode Secrétaire -->
   <div class="slide" id="slide-5">
-    <div class="eyebrow">Ce que reçoit l'exploitant</div>
-    <h2>Package <span class="green">clé en main</span></h2>
-    <div class="steps">
-      <div class="step"><div class="step-num">1</div><div class="step-text"><div class="st">Docker One-Click</div><div class="sd">Dockerfile + docker-compose.yml — Luna + Redis + SSL automatique</div></div></div>
-      <div class="step"><div class="step-num">2</div><div class="step-text"><div class="st">Interface Setup AI</div><div class="sd">Wizard 10 étapes guidé par chatbot IA pour configurer ses clés API</div></div></div>
-      <div class="step"><div class="step-num">3</div><div class="step-text"><div class="st">Dashboard Admin</div><div class="sd">Gestion clients, quotas, alertes, CA, statut serveur</div></div></div>
-      <div class="step"><div class="step-num">4</div><div class="step-text"><div class="st">Stripe Auto-Setup</div><div class="sd">3 produits créés automatiquement avec webhooks</div></div></div>
-      <div class="step"><div class="step-num">5</div><div class="step-num" style="background:#16a34a;width:auto;padding:0 12px;border-radius:20px;font-size:0.75em;">PV de recette</div><div class="step-text" style="margin-left:8px;"><div class="sd">Signature numérique — verrouille le serveur en mode autonome</div></div></div>
-    </div>
+    <div class="eyebrow">Fonctionnalité 5 / 12 — Mode Secrétaire</div>
+    <h2>🗂️ Mode <span class="accent">Secrétaire</span></h2>
+    <p>Basculement en un clic — Luna devient une assistante professionnelle avec accès complet aux outils de gestion.</p>
+    <table class="tbl">
+      <tr><th>Onglet</th><th>Contenu</th></tr>
+      <tr><td>📞 Contacts</td><td>Liste de contacts avec appel direct, SMS, invitation visio</td></tr>
+      <tr><td>📄 Documents</td><td>Génération PDF, comptes rendus, rapports d'incident</td></tr>
+      <tr><td>🗺️ Carte</td><td>Géolocalisation en temps réel, zones, historique</td></tr>
+      <tr><td>📋 Instructions</td><td>Règles comportementales pour personnaliser Luna</td></tr>
+      <tr><td>📊 Rapports</td><td>Comptes rendus, notes, réunions, SMS envoyés</td></tr>
+      <tr><td>📝 Formulaires</td><td>Page dédiée /formulaires — analyse IA de PDF</td></tr>
+    </table>
   </div>
 
-  <!-- SLIDE 7 : Intégration dev -->
+  <!-- SLIDE 6 : Monde -->
   <div class="slide" id="slide-6">
-    <div class="eyebrow">Pour l'équipe développement</div>
-    <h2>Comment vous branchez <span class="accent">Luna Exploitant</span></h2>
-    <div class="code">
-      <span class="c-gray"># 1. Cloner le package exploitant</span><br>
-      <span class="c-blue">git clone</span> <span class="c-orange">https://github.com/byakuyakutchiki/luna-exploitants</span><br><br>
-      <span class="c-gray"># 2. Configurer vos clés API</span><br>
-      <span class="c-blue">cp</span> .env.template .env<br>
-      <span class="c-green">nano</span> .env <span class="c-gray"># OPENAI_API_KEY, TWILIO, STRIPE...</span><br><br>
-      <span class="c-gray"># 3. Lancer avec Docker</span><br>
-      <span class="c-blue">docker-compose up -d</span><br><br>
-      <span class="c-gray"># 4. Wizard de setup automatique</span><br>
-      <span class="c-green">python</span> wizard_install.py
+    <div class="eyebrow">Fonctionnalité 6 / 12 — Monde &amp; Guardian</div>
+    <h2>🌍 Carte du <span class="accent">Monde</span> &amp; 🛡️ Guardian</h2>
+    <p><strong>Monde</strong> — Globe interactif avec marqueurs de contacts proches à travers le monde.<br>
+    <strong>Guardian</strong> — Surveillance géolocalisée, alertes de détresse, check-ins automatiques.</p>
+    <div class="world-preview">
+      <div class="world-grid"></div>
+      <div class="world-pin" style="top:30%;left:42%;">📍</div>
+      <div class="world-pin" style="top:50%;left:60%;animation-delay:.8s;">👨‍👩‍👧</div>
+      <div class="world-pin" style="top:20%;left:25%;animation-delay:.4s;">🌟</div>
+      <div class="world-pin" style="top:65%;left:70%;animation-delay:1.2s;">❤️</div>
+      <div style="position:absolute;bottom:8px;left:10px;font-size:.65em;color:#34d399;opacity:.7;">● En ligne — 4 contacts</div>
     </div>
-    <p style="font-size:0.82em;">Le wizard guide l'exploitant étape par étape · Validation automatique des clés · PV de recette numérique</p>
   </div>
 
-  <!-- SLIDE 8 : Clés API nécessaires -->
+  <!-- SLIDE 7 : Architecture technique -->
   <div class="slide" id="slide-7">
-    <div class="eyebrow">Prérequis techniques</div>
-    <h2>Vos propres <span class="accent">clés API</span></h2>
-    <div class="cards">
-      <div class="card"><div class="icon">🧠</div><div class="ct">OpenAI</div><div class="cd">GPT-4o-mini — chat, transcription voix, TTS, résumés</div></div>
-      <div class="card"><div class="icon">📱</div><div class="ct">Twilio</div><div class="cd">Numéro de téléphone — SMS, appels vocaux sortants</div></div>
-      <div class="card"><div class="icon">💳</div><div class="ct">Stripe</div><div class="cd">Paiements — abonnements clients automatisés</div></div>
-      <div class="card"><div class="icon">📹</div><div class="ct">Tavus (optionnel)</div><div class="cd">Mode Full uniquement — avatar IA en visioconférence</div></div>
+    <div class="eyebrow">Architecture — Stack technique</div>
+    <h2>⚙️ Architecture <span class="accent">100% Cloud</span></h2>
+    <div class="arch">
+      <div class="arch-box">📱 APK Android<br><small>WebView + HTTPS</small></div>
+      <div class="arch-arrow">↔</div>
+      <div class="arch-box">🌐 FastAPI<br><small>Cloud Run · Python</small></div>
+      <div class="arch-arrow">↔</div>
+      <div class="arch-box">🔴 Redis<br><small>Sessions · Conv.</small></div>
     </div>
-    <p style="margin-top:12px;font-size:0.82em;color:#666;">Chaque exploitant utilise SES propres comptes — jamais les clés du fondateur.</p>
+    <div class="arch" style="margin-top:10px;">
+      <div class="arch-box">🧠 OpenAI<br><small>Chat · TTS · STT</small></div>
+      <div class="arch-arrow">+</div>
+      <div class="arch-box">📹 Tavus<br><small>Avatar IA</small></div>
+      <div class="arch-arrow">+</div>
+      <div class="arch-box">📱 Twilio<br><small>Voix · SMS</small></div>
+      <div class="arch-arrow">+</div>
+      <div class="arch-box">💳 Stripe<br><small>Paiements</small></div>
+    </div>
+    <p style="margin-top:12px;font-size:.78em;">CI/CD Cloud Build · Artifact Registry · Cloud Scheduler · QA Sentinel automatique</p>
   </div>
 
-  <!-- SLIDE 9 : QA Sentinel -->
+  <!-- SLIDE 8 : GitHub & Code -->
   <div class="slide" id="slide-8">
-    <div class="eyebrow">Qualité & Maintenance</div>
-    <h2>Surveillance <span class="green">automatique</span></h2>
-    <p>Un sentinel Playwright tourne toutes les 6h sur Cloud Run et vérifie 50 fonctionnalités de l'app.</p>
-    <div class="cards">
-      <div class="card"><div class="icon">🤖</div><div class="ct">Cloud Sentinel</div><div class="cd">Playwright headless · 0 clé API · 0 téléphone · résultat en logs</div></div>
-      <div class="card"><div class="icon">📊</div><div class="ct">50 checks / run</div><div class="cd">Login, chat, tabs, APIs, pages dédiées, console JS</div></div>
-      <div class="card"><div class="icon">⏰</div><div class="ct">Toutes les 6h</div><div class="cd">Cloud Scheduler automatique · exit 0 = OK, exit 1 = alerte</div></div>
+    <div class="eyebrow">Repos GitHub (privés)</div>
+    <h2>📦 Organisation du <span class="accent">code</span></h2>
+    <table class="tbl">
+      <tr><th>Repo</th><th>Contenu</th><th>Accès</th></tr>
+      <tr><td>🖥️ luna-server</td><td>Backend FastAPI + frontend SPA + APK Android</td><td><span class="badge badge-r">Fondateur</span></td></tr>
+      <tr><td>🏢 luna-exploitants</td><td>Package clé en main (Docker, wizard, admin)</td><td><span class="badge badge-w">Exploitant signé</span></td></tr>
+      <tr><td>🔒 luna-proprio</td><td>QA Sentinel (ADB + Cloud Playwright)</td><td><span class="badge badge-r">Fondateur</span></td></tr>
+      <tr><td>📚 luna-docs</td><td>Business model, études de marché, contrats</td><td><span class="badge badge-r">Fondateur</span></td></tr>
+    </table>
+    <div class="code" style="margin-top:14px;">
+      <span class="c-gray"># Repo principal — structure</span><br>
+      <span class="c-blue">luna_web.py</span>       <span class="c-gray"># Serveur FastAPI (~17 000 lignes)</span><br>
+      <span class="c-blue">static/index.html</span> <span class="c-gray"># SPA frontend (~7 000 lignes)</span><br>
+      <span class="c-blue">core/memory/</span>      <span class="c-gray"># MemoryManager Redis</span><br>
+      <span class="c-blue">integrations/</span>     <span class="c-gray"># OpenAI · Tavus · Twilio</span><br>
+      <span class="c-blue">android-app/</span>      <span class="c-gray"># WebView APK signé</span>
     </div>
   </div>
 
-  <!-- SLIDE 10 : Closing -->
+  <!-- SLIDE 9 : Package exploitant -->
   <div class="slide" id="slide-9">
+    <div class="eyebrow">Pour l'équipe dev — Intégration</div>
+    <h2>🔧 Brancher <span class="green">Luna Exploitant</span></h2>
+    <div class="steps">
+      <div class="step"><div class="step-num">1</div><div class="step-text"><div class="st">Cloner le package</div><div class="sd"><code>git clone https://github.com/byakuyakutchiki/luna-exploitants</code></div></div></div>
+      <div class="step"><div class="step-num">2</div><div class="step-text"><div class="st">Configurer les clés API</div><div class="sd">Copier <code>.env.template → .env</code> · Renseigner OpenAI, Twilio, Stripe, Tavus (optionnel)</div></div></div>
+      <div class="step"><div class="step-num">3</div><div class="step-text"><div class="st">Lancer Docker</div><div class="sd"><code>docker-compose up -d</code> → Luna + Redis + SSL automatique</div></div></div>
+      <div class="step"><div class="step-num">4</div><div class="step-text"><div class="st">Wizard de setup IA</div><div class="sd"><code>python wizard_install.py</code> → Guide étape par étape avec chatbot IA</div></div></div>
+      <div class="step"><div class="step-num">5</div><div class="step-text"><div class="st">PV de recette + signature</div><div class="sd">Verrouille le serveur en mode autonome — fondateur n'a plus accès</div></div></div>
+    </div>
+  </div>
+
+  <!-- SLIDE 10 : Modèle économique -->
+  <div class="slide" id="slide-10">
+    <div class="eyebrow">Business Model</div>
+    <h2>Licence <span class="accent">70 / 30</span></h2>
+    <div class="cards">
+      <div class="card" style="border-color:rgba(167,139,250,.5);max-width:280px;">
+        <div class="icon">👑</div>
+        <div class="ct" style="color:#a78bfa;font-size:.9em;">Fondateur — 70%</div>
+        <div class="cd">Licence technologie, code, mises à jour, IP, support</div>
+      </div>
+      <div class="card" style="border-color:rgba(52,211,153,.4);max-width:280px;">
+        <div class="icon">🏢</div>
+        <div class="ct" style="color:#34d399;font-size:.9em;">Exploitant — 30%</div>
+        <div class="cd">Ses serveurs, ses clés API, ses clients, son marketing</div>
+      </div>
+    </div>
+    <table class="tbl" style="margin-top:16px;">
+      <tr><th>Plan</th><th>Prix/mois</th><th>Chat</th><th>Voix</th><th>Visio</th></tr>
+      <tr><td>⭐ Essentiel</td><td class="gold">79 €</td><td>Illimité</td><td>40 min</td><td>12 min</td></tr>
+      <tr><td>⭐⭐ Confort</td><td class="gold">149 €</td><td>Illimité</td><td>100 min</td><td>28 min</td></tr>
+      <tr><td>⭐⭐⭐ Premium</td><td class="gold">249 €</td><td>Illimité</td><td>180 min</td><td>55 min</td></tr>
+    </table>
+  </div>
+
+  <!-- SLIDE 11 : QA & Maintenance -->
+  <div class="slide" id="slide-11">
+    <div class="eyebrow">Qualité &amp; Fiabilité</div>
+    <h2>🤖 Sentinel <span class="green">automatique</span></h2>
+    <p>Un QA Sentinel Playwright tourne <strong>toutes les 6h</strong> sur Cloud Run et vérifie 50 fonctionnalités sans téléphone ni clé API.</p>
+    <div class="cards">
+      <div class="card"><div class="icon">✅</div><div class="ct">50 checks / run</div><div class="cd">Login, chat, tabs, APIs, console JS, pages dédiées</div></div>
+      <div class="card"><div class="icon">⏰</div><div class="ct">Cloud Scheduler</div><div class="cd">0h · 6h · 12h · 18h (Paris) — automatique</div></div>
+      <div class="card"><div class="icon">🚨</div><div class="ct">Alertes</div><div class="cd">Exit 1 = erreur critique visible dans Cloud Run logs</div></div>
+    </div>
+    <p style="margin-top:14px;font-size:.8em;">Dernier rapport : <span class="green">50 ✅ — 0 ❌</span> · Tous les endpoints API : HTTP 200</p>
+  </div>
+
+  <!-- SLIDE 12 : Closing -->
+  <div class="slide" id="slide-12">
     <div class="luna-avatar">🌙</div>
     <div class="eyebrow">Luna YAWatch — Prêt pour l'exploitation</div>
     <h1>Construisons ça <span class="accent">ensemble</span></h1>
-    <p>Une technologie propriétaire, un modèle économique clair, un package clé en main — prêt à déployer.</p>
-    <div style="margin-top:24px;display:flex;gap:12px;justify-content:center;flex-wrap:wrap;">
-      <div style="background:rgba(124,58,237,0.2);border:1px solid #7c3aed;padding:10px 20px;border-radius:8px;font-size:0.85em;">
-        📋 <strong>NDA</strong> — à signer aujourd'hui
-      </div>
-      <div style="background:rgba(16,185,129,0.15);border:1px solid #10b981;padding:10px 20px;border-radius:8px;font-size:0.85em;">
+    <p>Technologie propriétaire · Modèle économique clair · Package clé en main · Maintenance automatique</p>
+    <div style="margin-top:20px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
+      <a href="/nda" target="_blank" style="text-decoration:none;">
+        <div style="background:rgba(124,58,237,.2);border:1px solid #7c3aed;padding:10px 20px;border-radius:8px;font-size:.85em;color:#c4b5fd;">
+          📋 <strong>NDA</strong> — à signer maintenant
+        </div>
+      </a>
+      <div style="background:rgba(16,185,129,.15);border:1px solid #10b981;padding:10px 20px;border-radius:8px;font-size:.85em;color:#34d399;">
         🤝 <strong>Contrat 70/30</strong> — licence d'exploitation
+      </div>
+      <div style="background:rgba(251,191,36,.1);border:1px solid #fbbf24;padding:10px 20px;border-radius:8px;font-size:.85em;color:#fbbf24;">
+        🚀 <strong>Démo live</strong> — luna-beta.run.app
       </div>
     </div>
   </div>
 
+</div><!-- /stage -->
+
+<!-- Voix-off -->
+<div id="voiceover"></div>
+
+<!-- Pause overlay -->
+<div id="pauseOverlay">
+  <div class="po-text">⏸ PAUSE</div>
+  <div class="po-sub">Appuie sur P ou clique pour reprendre</div>
 </div>
 
-<div id="voiceover"></div>
-<div id="progress"><div id="progress-fill" style="width:0%"></div></div>
-<div id="nav">
-  <span id="slide-counter">1 / 10</span>
-  <button onclick="prevSlide()">← Précédent</button>
-  <button onclick="nextSlide()">Suivant →</button>
+<!-- Bottom bar -->
+<div id="bottombar">
+  <button class="nav-btn" onclick="prevSlide()">←</button>
+  <button class="nav-btn" id="pauseBtn" onclick="togglePause()">⏸</button>
+  <div id="progress-wrap"><div id="progress-fill" style="width:0%"></div></div>
+  <span id="slide-counter">1 / 13</span>
+  <button class="nav-btn" onclick="nextSlide()">→</button>
 </div>
 
 <script>
-// Voix-off pour chaque slide
+var TOTAL = 13;
+var current = 0;
+var paused = false;
+var autoTimer = null;
+var AUTO_DELAY = 9000;
+
 var voiceTexts = [
-  "Luna YAWatch — une IA compagnon bienveillante, toujours disponible.",
-  "L'isolement social touche des millions de personnes. Luna est là pour créer du lien.",
-  "Architecture 100% cloud : FastAPI sur Google Cloud Run, OpenAI pour l'intelligence, Redis pour les sessions.",
-  "17 écrans, deux modes — Compagnon pour le quotidien, Secrétaire pour la productivité.",
-  "Modèle 70/30 : le fondateur garde 70% sur la licence, l'exploitant opère avec ses propres ressources.",
-  "Package clé en main : Docker, wizard de setup, dashboard admin, Stripe automatique, PV de recette.",
-  "Pour brancher Luna Exploitant, l'équipe dev clone le repo, configure les clés, et lance Docker.",
-  "Chaque exploitant utilise ses propres clés API — OpenAI, Twilio, Stripe. Pas de dépendance.",
-  "Un sentinel automatique vérifie 50 fonctionnalités toutes les 6 heures sur Cloud Run.",
-  "NDA et contrat 70/30 — construisons cette aventure ensemble.",
+  "Luna YAWatch — une IA compagnon bienveillante, disponible 24h/24.",
+  "Le chat intelligent avec historique multi-conversations — Luna se souvient de tout.",
+  "Appels vocaux réels via Twilio, avec synthèse vocale OpenAI naturelle.",
+  "Visioconférence avec avatar IA Tavus — cinématique d'intro puis face à face.",
+  "La conciergerie intelligente — vols, météo, actualités, rappels, restaurants.",
+  "Mode Secrétaire — contacts, documents, carte, rapports, formulaires IA.",
+  "La carte du monde et Guardian pour la géolocalisation et la sécurité.",
+  "Architecture 100% cloud — FastAPI, Redis, OpenAI, Tavus, Twilio, Stripe.",
+  "4 repos GitHub privés — code protégé, accès contrôlé par contrat signé.",
+  "Package clé en main — Docker, wizard IA, admin, Stripe automatique, PV de recette.",
+  "Modèle 70/30 — 3 plans tarifaires de 79 à 249 euros par mois.",
+  "QA Sentinel automatique — 50 vérifications toutes les 6 heures sur Cloud Run.",
+  "NDA signé. Contrat 70/30. Démo live. Construisons Luna ensemble.",
 ];
 
 var bgColors = [
-  "radial-gradient(ellipse at 30% 50%, #1a0533 0%, #000 60%)",
-  "radial-gradient(ellipse at 70% 30%, #0d1f3c 0%, #000 60%)",
-  "radial-gradient(ellipse at 20% 70%, #0f2027 0%, #000 60%)",
-  "radial-gradient(ellipse at 80% 60%, #1a0533 0%, #000 60%)",
-  "radial-gradient(ellipse at 40% 40%, #1c1404 0%, #000 60%)",
-  "radial-gradient(ellipse at 60% 80%, #041c0c 0%, #000 60%)",
-  "radial-gradient(ellipse at 30% 20%, #1a0533 0%, #000 60%)",
-  "radial-gradient(ellipse at 70% 50%, #0d1f3c 0%, #000 60%)",
-  "radial-gradient(ellipse at 50% 30%, #041c0c 0%, #000 60%)",
-  "radial-gradient(ellipse at 50% 50%, #1a0533 0%, #000 60%)",
+  "radial-gradient(ellipse at 30% 50%,#1a0533 0%,#000 60%)",
+  "radial-gradient(ellipse at 60% 40%,#0d1a3c 0%,#000 60%)",
+  "radial-gradient(ellipse at 20% 60%,#1a0533 0%,#000 60%)",
+  "radial-gradient(ellipse at 70% 30%,#0a2040 0%,#000 60%)",
+  "radial-gradient(ellipse at 40% 70%,#1a1404 0%,#000 60%)",
+  "radial-gradient(ellipse at 60% 50%,#031a0d 0%,#000 60%)",
+  "radial-gradient(ellipse at 30% 30%,#031a1a 0%,#000 60%)",
+  "radial-gradient(ellipse at 50% 50%,#1a0533 0%,#000 60%)",
+  "radial-gradient(ellipse at 80% 40%,#0d1a3c 0%,#000 60%)",
+  "radial-gradient(ellipse at 20% 50%,#031a0d 0%,#000 60%)",
+  "radial-gradient(ellipse at 50% 30%,#1a1404 0%,#000 60%)",
+  "radial-gradient(ellipse at 40% 60%,#031a0d 0%,#000 60%)",
+  "radial-gradient(ellipse at 50% 50%,#1a0533 0%,#000 60%)",
 ];
 
-var TOTAL = 10;
-var current = 0;
-var autoTimer = null;
-var AUTO_DELAY = 8000; // 8 secondes par slide
-
-// Générer des étoiles
-(function() {
-  var s = document.getElementById('stars');
-  for (var i = 0; i < 80; i++) {
-    var el = document.createElement('div');
-    el.className = 'star';
-    el.style.left = Math.random() * 100 + '%';
-    el.style.top  = Math.random() * 100 + '%';
-    el.style.animationDelay = Math.random() * 3 + 's';
-    el.style.animationDuration = (2 + Math.random() * 3) + 's';
+// Étoiles
+(function(){
+  var s=document.getElementById('stars');
+  for(var i=0;i<80;i++){
+    var el=document.createElement('div');
+    el.className='star';
+    el.style.left=Math.random()*100+'%';
+    el.style.top=Math.random()*100+'%';
+    el.style.animationDelay=Math.random()*3+'s';
+    el.style.animationDuration=(2+Math.random()*3)+'s';
     s.appendChild(el);
   }
 })();
 
 function showSlide(n) {
-  var slides = document.querySelectorAll('.slide');
-  slides.forEach(function(s) { s.classList.remove('active', 'exit'); });
-  slides[n].classList.add('active');
-  current = n;
+  if(n<0||n>=TOTAL) return;
+  document.querySelectorAll('.slide').forEach(function(s){s.classList.remove('active','exit');});
+  document.getElementById('slide-'+n).classList.add('active');
+  current=n;
+  document.getElementById('bgGrad').style.background=bgColors[n];
+  document.getElementById('slide-counter').textContent=(n+1)+' / '+TOTAL;
+  document.getElementById('progress-fill').style.width=((n+1)/TOTAL*100)+'%';
 
-  // Fond
-  document.getElementById('bgGrad').style.background = bgColors[n];
-
-  // Voix-off
-  var vo = document.getElementById('voiceover');
-  vo.textContent = voiceTexts[n];
+  var vo=document.getElementById('voiceover');
+  vo.textContent=voiceTexts[n];
   vo.classList.add('show');
-  clearTimeout(window._voTimer);
-  window._voTimer = setTimeout(function() { vo.classList.remove('show'); }, 5000);
+  clearTimeout(window._voT);
+  window._voT=setTimeout(function(){vo.classList.remove('show');},5500);
 
-  // Compteur
-  document.getElementById('slide-counter').textContent = (n+1) + ' / ' + TOTAL;
-
-  // Barre de progression
-  document.getElementById('progress-fill').style.width = ((n+1)/TOTAL*100) + '%';
-
-  // Auto-advance
   clearTimeout(autoTimer);
-  if (n < TOTAL - 1) {
-    autoTimer = setTimeout(function() { nextSlide(); }, AUTO_DELAY);
+  if(!paused && n<TOTAL-1) {
+    autoTimer=setTimeout(function(){nextSlide();},AUTO_DELAY);
   }
 }
 
-function nextSlide() { if (current < TOTAL-1) showSlide(current+1); }
-function prevSlide() { if (current > 0) showSlide(current-1); }
+function nextSlide(){if(!paused&&current<TOTAL-1)showSlide(current+1);}
+function prevSlide(){clearTimeout(autoTimer);showSlide(current-1);}
 
-// Clavier
-document.addEventListener('keydown', function(e) {
-  if (e.key === 'ArrowRight' || e.key === ' ') nextSlide();
-  if (e.key === 'ArrowLeft') prevSlide();
-});
-
-function startPresentation() {
-  var ss = document.getElementById('start-screen');
-  ss.style.opacity = '0';
-  setTimeout(function() { ss.style.display = 'none'; showSlide(0); }, 800);
+function togglePause(){
+  paused=!paused;
+  var btn=document.getElementById('pauseBtn');
+  var overlay=document.getElementById('pauseOverlay');
+  if(paused){
+    clearTimeout(autoTimer);
+    btn.textContent='▶';
+    btn.style.background='rgba(16,185,129,.3)';
+    btn.style.borderColor='#10b981';
+    overlay.classList.add('show');
+  } else {
+    btn.textContent='⏸';
+    btn.style.background='rgba(124,58,237,.3)';
+    btn.style.borderColor='#7c3aed';
+    overlay.classList.remove('show');
+    if(current<TOTAL-1) autoTimer=setTimeout(function(){nextSlide();},AUTO_DELAY);
+  }
 }
 
-// Protection anti-copie
-document.addEventListener('contextmenu', function(e) { e.preventDefault(); });
-document.addEventListener('keydown', function(e) {
-  // Bloquer Ctrl+S, Ctrl+P, Ctrl+C, PrintScreen, F12
-  if (e.ctrlKey && (e.key==='s'||e.key==='p'||e.key==='c'||e.key==='u')) { e.preventDefault(); }
-  if (e.key === 'PrintScreen') { e.preventDefault(); }
+document.getElementById('pauseOverlay').addEventListener('click',function(){
+  if(paused) togglePause();
 });
-document.addEventListener('copy', function(e) { e.preventDefault(); });
-document.addEventListener('dragstart', function(e) { e.preventDefault(); });
-// Filigrane dynamique avec heure
-(function watermark() {
-  var el = document.createElement('div');
-  el.style.cssText = 'position:fixed;bottom:36px;left:16px;font-size:0.65em;color:rgba(255,255,255,0.18);pointer-events:none;z-index:9998;letter-spacing:1px;';
-  el.textContent = '© Luna YAWatch — Confidentiel — ' + new Date().toLocaleString('fr-FR');
+
+document.addEventListener('keydown',function(e){
+  if(e.key==='ArrowRight'||e.key===' '){e.preventDefault();clearTimeout(autoTimer);nextSlide();}
+  if(e.key==='ArrowLeft'){e.preventDefault();prevSlide();}
+  if(e.key==='p'||e.key==='P'){togglePause();}
+});
+
+function startPresentation(){
+  var ss=document.getElementById('start-screen');
+  ss.style.opacity='0';
+  setTimeout(function(){ss.style.display='none';showSlide(0);},800);
+}
+
+// Protection
+document.addEventListener('contextmenu',function(e){e.preventDefault();});
+document.addEventListener('keydown',function(e){
+  if(e.ctrlKey&&(e.key==='s'||e.key==='u'||e.key==='c')){e.preventDefault();}
+  if(e.key==='PrintScreen'){e.preventDefault();}
+});
+document.addEventListener('copy',function(e){e.preventDefault();});
+// Filigrane horodaté
+(function(){
+  var el=document.createElement('div');
+  el.style.cssText='position:fixed;bottom:46px;right:14px;font-size:.62em;color:rgba(255,255,255,.15);pointer-events:none;z-index:9998;letter-spacing:.5px;';
+  el.textContent='© Luna YAWatch — '+new Date().toLocaleString('fr-FR');
   document.body.appendChild(el);
 })();
 </script>
