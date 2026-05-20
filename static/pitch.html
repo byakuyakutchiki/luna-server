@@ -3,10 +3,25 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Luna YAWatch — Présentation Technique</title>
+<meta name="robots" content="noindex, nofollow">
+<title>Luna YAWatch — Présentation Technique Confidentielle</title>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
-html, body { width: 100%; height: 100%; background: #000; color: white; font-family: 'Segoe UI', system-ui, sans-serif; overflow: hidden; }
+html, body {
+  width: 100%; height: 100%; background: #000; color: white;
+  font-family: 'Segoe UI', system-ui, sans-serif; overflow: hidden;
+  user-select: none; -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+/* Anti-capture : filigrane sur tout le document */
+body::after {
+  content: "CONFIDENTIEL — © Ludovic Saint-Louis — Luna YAWatch";
+  position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%) rotate(-35deg);
+  font-size: clamp(0.9em,2vw,1.3em); color: rgba(255,255,255,0.04);
+  white-space: nowrap; pointer-events: none; z-index: 9999;
+  letter-spacing: 3px; font-weight: 700; text-transform: uppercase;
+}
+@media print { html, body { display: none !important; } }
 
 #stage {
   width: 100%; height: 100%;
@@ -170,6 +185,11 @@ html, body { width: 100%; height: 100%; background: #000; color: white; font-fam
 </style>
 </head>
 <body>
+
+<!-- Bandeau confidentialité -->
+<div style="position:fixed;top:0;left:0;right:0;background:#7c3aed;color:white;text-align:center;font-size:0.72em;padding:5px;z-index:200;letter-spacing:1px;font-weight:600;">
+  🔒 DOCUMENT CONFIDENTIEL — © Ludovic Saint-Louis — Toute reproduction, capture ou enregistrement est strictement interdit
+</div>
 
 <!-- Écran de démarrage -->
 <div id="start-screen">
@@ -427,6 +447,23 @@ function startPresentation() {
   ss.style.opacity = '0';
   setTimeout(function() { ss.style.display = 'none'; showSlide(0); }, 800);
 }
+
+// Protection anti-copie
+document.addEventListener('contextmenu', function(e) { e.preventDefault(); });
+document.addEventListener('keydown', function(e) {
+  // Bloquer Ctrl+S, Ctrl+P, Ctrl+C, PrintScreen, F12
+  if (e.ctrlKey && (e.key==='s'||e.key==='p'||e.key==='c'||e.key==='u')) { e.preventDefault(); }
+  if (e.key === 'PrintScreen') { e.preventDefault(); }
+});
+document.addEventListener('copy', function(e) { e.preventDefault(); });
+document.addEventListener('dragstart', function(e) { e.preventDefault(); });
+// Filigrane dynamique avec heure
+(function watermark() {
+  var el = document.createElement('div');
+  el.style.cssText = 'position:fixed;bottom:36px;left:16px;font-size:0.65em;color:rgba(255,255,255,0.18);pointer-events:none;z-index:9998;letter-spacing:1px;';
+  el.textContent = '© Luna YAWatch — Confidentiel — ' + new Date().toLocaleString('fr-FR');
+  document.body.appendChild(el);
+})();
 </script>
 </body>
 </html>
