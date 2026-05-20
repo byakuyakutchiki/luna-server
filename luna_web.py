@@ -509,7 +509,7 @@ else:
     openai_client = build_llm_client(OPENAI_API_KEY)
     sms_client = TwilioSMSClient.from_env()
     voice_client = TwilioVoiceClient.from_env()
-    tavus_client = TavusClient.from_env(memory_manager=_memory_manager) if _TAVUS_AVAILABLE and LUNA_MODE == "full" else None
+    tavus_client = TavusClient.from_env() if _TAVUS_AVAILABLE and LUNA_MODE == "full" else None
     email_client = EmailClient.from_env()
 
 # --- Reservation clients ---
@@ -738,6 +738,9 @@ def _init_core():
             if not _memory_manager.get_behavioral_memory("behavior_rules"):
                 _memory_manager.set_behavioral_memory("behavior_rules", DEFAULT_BEHAVIOR_RULES)
             logger.info("Behavioral memory loaded")
+            # Injecter la mémoire dans TavusClient (créé avant _memory_manager au boot)
+            if tavus_client and not tavus_client.memory:
+                tavus_client.memory = _memory_manager
 
             # Perception (camera navigateur -> OpenAI Vision)
             try:
