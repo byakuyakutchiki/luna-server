@@ -21,7 +21,6 @@ body::after{
 }
 @media print{html,body{display:none!important;}}
 
-/* BANDEAU HAUT */
 #topbar{
   position:fixed;top:0;left:0;right:0;height:28px;
   background:#4c1d95;color:white;text-align:center;
@@ -29,7 +28,6 @@ body::after{
   letter-spacing:1px;font-weight:600;
 }
 
-/* STAGE */
 #stage{
   position:fixed;top:28px;left:0;right:0;bottom:40px;
   display:flex;align-items:center;justify-content:center;overflow:hidden;
@@ -39,7 +37,6 @@ body::after{
 .star{position:absolute;width:2px;height:2px;background:white;border-radius:50%;animation:twinkle 3s infinite;}
 @keyframes twinkle{0%,100%{opacity:.3}50%{opacity:1}}
 
-/* SLIDES */
 .slide{
   position:absolute;width:94%;max-width:960px;
   text-align:center;opacity:0;transform:translateY(28px);
@@ -55,84 +52,159 @@ body::after{
 .slide p{font-size:clamp(.85em,2vw,1.05em);line-height:1.7;color:#ccc;max-width:720px;margin:0 auto 14px;}
 .accent{color:#a78bfa;}.green{color:#34d399;}.gold{color:#fbbf24;}.red{color:#f87171;}
 
-/* CARDS */
 .cards{display:flex;flex-wrap:wrap;gap:14px;justify-content:center;margin-top:18px;}
-.card{background:rgba(255,255,255,.05);border:1px solid rgba(167,139,250,.3);border-radius:10px;padding:14px 18px;text-align:left;flex:1;min-width:180px;max-width:240px;}
+.card{background:rgba(255,255,255,.05);border:1px solid rgba(167,139,250,.3);border-radius:10px;padding:14px 18px;text-align:left;flex:1;min-width:160px;max-width:220px;}
 .card .icon{font-size:1.6em;margin-bottom:6px;}
 .card .ct{font-size:.82em;font-weight:700;color:#e2e8f0;margin-bottom:3px;}
 .card .cd{font-size:.75em;color:#888;line-height:1.5;}
 
-/* MOCKUP PHONE */
 .phone-wrap{display:flex;justify-content:center;margin-top:14px;}
-.phone{
-  width:200px;border:3px solid #444;border-radius:28px;overflow:hidden;
-  box-shadow:0 0 40px rgba(124,58,237,.4);position:relative;background:#0a0a1a;
-}
+.phone{width:200px;border:3px solid #444;border-radius:28px;overflow:hidden;box-shadow:0 0 40px rgba(124,58,237,.4);position:relative;background:#0a0a1a;}
 .phone-notch{height:20px;background:#000;display:flex;align-items:center;justify-content:center;}
 .phone-notch::after{content:'';width:60px;height:6px;background:#222;border-radius:4px;}
-.phone-screen{padding:10px 8px;min-height:300px;}
+.phone-screen{padding:10px 8px;min-height:280px;}
 .phone-screen .msg{margin-bottom:8px;display:flex;gap:6px;align-items:flex-start;}
 .phone-screen .msg.luna{flex-direction:row;}
 .phone-screen .msg.user{flex-direction:row-reverse;}
-.phone-screen .bubble{
-  max-width:75%;padding:7px 10px;border-radius:12px;font-size:.7em;line-height:1.5;
-}
+.phone-screen .bubble{max-width:75%;padding:7px 10px;border-radius:12px;font-size:.7em;line-height:1.5;}
 .msg.luna  .bubble{background:#1e1b4b;color:#c4b5fd;border-radius:2px 12px 12px 12px;}
 .msg.user  .bubble{background:#7c3aed;color:white;border-radius:12px 2px 12px 12px;}
 .luna-dot{width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,#c4b5fd,#7c3aed);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:.8em;}
 
-/* ARCH */
 .arch{display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;margin-top:16px;}
 .arch-box{background:rgba(124,58,237,.2);border:1px solid #7c3aed;border-radius:8px;padding:8px 14px;font-size:.78em;font-weight:600;color:#c4b5fd;text-align:center;}
 .arch-box small{display:block;font-size:.85em;color:#666;font-weight:400;margin-top:2px;}
 .arch-arrow{color:#7c3aed;font-size:1.2em;}
 
-/* CODE */
 .code{background:#0d1117;border:1px solid #30363d;border-radius:8px;padding:14px 18px;font-family:'Consolas',monospace;font-size:.78em;text-align:left;margin:14px auto;max-width:580px;line-height:1.8;}
 .c-green{color:#3fb950;}.c-blue{color:#79c0ff;}.c-orange{color:#ffa657;}.c-gray{color:#6e7681;}
 
-/* STEPS */
 .steps{margin:16px auto 0;text-align:left;max-width:580px;}
 .step{display:flex;gap:14px;margin-bottom:14px;align-items:flex-start;}
 .step-num{width:28px;height:28px;border-radius:50%;background:#7c3aed;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:.82em;flex-shrink:0;margin-top:2px;}
 .step-text .st{font-weight:700;font-size:.9em;margin-bottom:2px;}
 .step-text .sd{font-size:.78em;color:#777;line-height:1.5;}
 
-/* TABLE */
 .tbl{width:100%;max-width:680px;margin:14px auto 0;border-collapse:collapse;font-size:.8em;}
 .tbl th{background:#1e1b4b;color:#a78bfa;padding:8px 12px;text-align:left;font-weight:600;font-size:.85em;letter-spacing:.5px;}
 .tbl td{padding:8px 12px;border-bottom:1px solid rgba(255,255,255,.06);color:#ccc;vertical-align:top;}
 .tbl tr:nth-child(even) td{background:rgba(255,255,255,.02);}
 
-/* LUNA AVATAR */
 .luna-avatar{width:100px;height:100px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#c4b5fd,#7c3aed 60%,#4c1d95);margin:0 auto 16px;box-shadow:0 0 40px rgba(167,139,250,.4);display:flex;align-items:center;justify-content:center;font-size:2.6em;animation:pulse 3s ease-in-out infinite;}
 @keyframes pulse{0%,100%{box-shadow:0 0 40px rgba(167,139,250,.4);}50%{box-shadow:0 0 70px rgba(167,139,250,.7);}}
 
-/* BADGE */
 .badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:.7em;font-weight:700;letter-spacing:.5px;margin:2px;}
 .badge-v{background:rgba(52,211,153,.15);border:1px solid #34d399;color:#34d399;}
 .badge-w{background:rgba(251,191,36,.15);border:1px solid #fbbf24;color:#fbbf24;}
 .badge-r{background:rgba(248,113,113,.15);border:1px solid #f87171;color:#f87171;}
 .badge-p{background:rgba(167,139,250,.2);border:1px solid #a78bfa;color:#a78bfa;}
 
-/* VISIO PREVIEW */
-.visio-preview{
-  width:260px;border:2px solid #7c3aed;border-radius:16px;overflow:hidden;
-  margin:16px auto 0;background:#0d0d1a;
-  box-shadow:0 0 30px rgba(124,58,237,.5);
-}
+.visio-preview{width:260px;border:2px solid #7c3aed;border-radius:16px;overflow:hidden;margin:16px auto 0;background:#0d0d1a;box-shadow:0 0 30px rgba(124,58,237,.5);}
 .visio-bar{background:#1e1b4b;padding:8px 14px;font-size:.72em;display:flex;align-items:center;gap:8px;}
 .visio-bar .dot{width:8px;height:8px;border-radius:50%;background:#34d399;animation:blink 1.5s infinite;}
 @keyframes blink{0%,100%{opacity:1;}50%{opacity:.3;}}
-.visio-face{
-  height:180px;display:flex;align-items:center;justify-content:center;
-  background:radial-gradient(ellipse at 50% 40%,#1e1b4b,#050510);
-  font-size:5em;
-}
+.visio-face{height:180px;display:flex;align-items:center;justify-content:center;background:radial-gradient(ellipse at 50% 40%,#1e1b4b,#050510);font-size:5em;}
 .visio-controls{background:#0a0814;padding:10px;display:flex;justify-content:center;gap:16px;}
 .visio-btn{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.9em;}
 
-/* WORLD PREVIEW */
+/* WORLD VILLAGE */
+.village-wrap{
+  width:340px;height:200px;margin:14px auto 0;position:relative;
+  background:linear-gradient(to bottom,#0a1a0a 0%,#0d2b10 40%,#1a3a18 100%);
+  border-radius:12px;overflow:hidden;border:1px solid #1a4a1a;
+  box-shadow:0 0 20px rgba(52,211,153,.2);
+}
+.village-sky{position:absolute;top:0;left:0;right:0;height:50%;background:linear-gradient(to bottom,#050f20,#0a1a30);}
+.village-ground{position:absolute;bottom:0;left:0;right:0;height:60%;background:linear-gradient(to bottom,#1a3a18,#0d2010);}
+.v-building{position:absolute;text-align:center;cursor:default;}
+.v-building .v-icon{font-size:1.5em;display:block;animation:vfloat 3s ease-in-out infinite;}
+.v-building .v-label{font-size:.52em;color:#a7f3d0;display:block;margin-top:2px;white-space:nowrap;}
+@keyframes vfloat{0%,100%{transform:translateY(0);}50%{transform:translateY(-3px);}}
+.xp-bar-wrap{display:flex;align-items:center;gap:10px;justify-content:center;margin-top:10px;}
+.xp-label{font-size:.72em;color:#34d399;font-weight:700;}
+.xp-bar{flex:1;max-width:240px;height:8px;background:rgba(255,255,255,.1);border-radius:4px;overflow:hidden;}
+.xp-fill{height:100%;background:linear-gradient(90deg,#34d399,#10b981);border-radius:4px;animation:xpgrow 2s ease-out forwards;}
+@keyframes xpgrow{from{width:0%}to{width:68%}}
+
+/* ACTIVITIES */
+.act-grid{display:flex;flex-wrap:wrap;gap:12px;justify-content:center;margin-top:16px;}
+.act-card{
+  background:rgba(255,255,255,.05);border:1px solid rgba(52,211,153,.3);
+  border-radius:12px;padding:12px 16px;min-width:120px;max-width:150px;
+  text-align:center;
+}
+.act-card .a-icon{font-size:2em;margin-bottom:6px;}
+.act-card .a-name{font-size:.78em;font-weight:700;color:#a7f3d0;}
+.act-card .a-sub{font-size:.68em;color:#666;margin-top:2px;}
+
+/* DOCUMENTS */
+.doc-preview{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-top:16px;}
+.doc-folder{
+  background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.3);
+  border-radius:10px;padding:12px 16px;min-width:130px;text-align:center;
+}
+.doc-folder .df-icon{font-size:2em;margin-bottom:6px;}
+.doc-folder .df-name{font-size:.78em;font-weight:700;color:#fbbf24;}
+.doc-folder .df-count{font-size:.68em;color:#666;margin-top:2px;}
+
+/* MAP PREVIEW */
+.map-preview{
+  width:320px;height:180px;border:1px solid #1e3a5f;border-radius:12px;overflow:hidden;
+  margin:14px auto 0;background:#0a1428;position:relative;
+  box-shadow:0 0 20px rgba(37,99,235,.3);
+}
+.map-grid{
+  position:absolute;inset:0;
+  background-image:linear-gradient(rgba(37,99,235,.12) 1px,transparent 1px),linear-gradient(90deg,rgba(37,99,235,.12) 1px,transparent 1px);
+  background-size:24px 24px;
+}
+.map-road-h{position:absolute;height:3px;background:rgba(255,255,255,.12);left:0;right:0;}
+.map-road-v{position:absolute;width:3px;background:rgba(255,255,255,.12);top:0;bottom:0;}
+.map-pin{position:absolute;font-size:1.4em;animation:mapfloat 2s ease-in-out infinite;}
+@keyframes mapfloat{0%,100%{transform:translateY(0);}50%{transform:translateY(-4px);}}
+.map-radar{
+  position:absolute;width:40px;height:40px;border-radius:50%;
+  border:1px solid rgba(37,99,235,.5);
+  animation:radar 2s ease-out infinite;
+}
+@keyframes radar{0%{transform:scale(.5);opacity:.8;}100%{transform:scale(2.5);opacity:0;}}
+.map-search{
+  position:absolute;top:8px;left:8px;right:8px;
+  background:rgba(0,0,0,.7);border:1px solid #2563eb;
+  border-radius:6px;padding:5px 10px;font-size:.65em;color:#93c5fd;
+  display:flex;align-items:center;gap:6px;
+}
+
+/* GUARDIAN */
+.shield-wrap{display:flex;justify-content:center;margin-top:14px;}
+.shield{
+  width:120px;height:140px;position:relative;display:flex;align-items:center;justify-content:center;
+  font-size:3em;
+}
+.shield::before{
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(to bottom,rgba(16,185,129,.25),rgba(16,185,129,.05));
+  clip-path:polygon(50% 0%,100% 20%,100% 60%,50% 100%,0% 60%,0% 20%);
+  border:2px solid rgba(16,185,129,.5);
+  animation:shieldpulse 2s ease-in-out infinite;
+}
+@keyframes shieldpulse{0%,100%{filter:drop-shadow(0 0 8px rgba(16,185,129,.4));}50%{filter:drop-shadow(0 0 18px rgba(16,185,129,.7));}}
+
+/* AMIS */
+.friends-row{display:flex;justify-content:center;gap:16px;flex-wrap:wrap;margin-top:16px;}
+.friend-card{text-align:center;}
+.friend-avatar{
+  width:56px;height:56px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;font-size:1.6em;
+  margin:0 auto 6px;border:2px solid #333;
+  position:relative;
+}
+.friend-avatar.online{border-color:#34d399;box-shadow:0 0 10px rgba(52,211,153,.3);}
+.online-dot{position:absolute;bottom:2px;right:2px;width:10px;height:10px;background:#34d399;border-radius:50%;border:2px solid #000;}
+.friend-name{font-size:.72em;color:#ccc;}
+.friend-status{font-size:.65em;color:#555;margin-top:2px;}
+
+/* WORLD MAP (Monde tab — globe) */
 .world-preview{
   width:320px;height:180px;border:1px solid #1e3a5f;border-radius:12px;overflow:hidden;
   margin:14px auto 0;background:#020c18;position:relative;
@@ -146,7 +218,6 @@ body::after{
 .world-pin{position:absolute;font-size:1.2em;animation:float 2s ease-in-out infinite;}
 @keyframes float{0%,100%{transform:translateY(0);}50%{transform:translateY(-4px);}}
 
-/* BOTTOM BAR */
 #bottombar{
   position:fixed;bottom:0;left:0;right:0;height:40px;
   background:#0a0a1a;border-top:1px solid #1e1e3f;
@@ -155,12 +226,11 @@ body::after{
 }
 #progress-wrap{flex:1;height:3px;background:rgba(255,255,255,.1);border-radius:2px;margin:0 16px;}
 #progress-fill{height:100%;background:#7c3aed;border-radius:2px;transition:width .3s;}
-#slide-counter{font-size:.72em;color:#555;min-width:50px;text-align:right;}
+#slide-counter{font-size:.72em;color:#555;min-width:55px;text-align:right;}
 .nav-btn{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);color:white;padding:5px 14px;border-radius:16px;cursor:pointer;font-size:.75em;}
 .nav-btn:hover{background:rgba(124,58,237,.4);}
 #pauseBtn{background:rgba(124,58,237,.3);border-color:#7c3aed;}
 
-/* VOICEOVER */
 #voiceover{
   position:fixed;bottom:50px;left:50%;transform:translateX(-50%);
   background:rgba(0,0,0,.8);border:1px solid rgba(255,255,255,.1);
@@ -170,7 +240,6 @@ body::after{
 }
 #voiceover.show{opacity:1;}
 
-/* PAUSE OVERLAY */
 #pauseOverlay{
   display:none;position:fixed;inset:0;
   background:rgba(0,0,0,.6);z-index:500;
@@ -180,7 +249,6 @@ body::after{
 #pauseOverlay .po-text{font-size:1.4em;font-weight:700;color:#a78bfa;letter-spacing:2px;}
 #pauseOverlay .po-sub{font-size:.85em;color:#666;}
 
-/* START SCREEN */
 #start-screen{
   position:fixed;inset:0;background:#000;
   display:flex;flex-direction:column;align-items:center;justify-content:center;
@@ -205,7 +273,6 @@ body::after{
 
 <div id="topbar">🔒 DOCUMENT CONFIDENTIEL — © Ludovic Saint-Louis — Toute reproduction ou enregistrement est strictement interdit</div>
 
-<!-- Écran de démarrage -->
 <div id="start-screen">
   <div style="font-size:3em;margin-bottom:12px;">🌙</div>
   <h1>Luna YAWatch</h1>
@@ -236,9 +303,9 @@ body::after{
     </div>
   </div>
 
-  <!-- SLIDE 1 : Le Chat -->
+  <!-- SLIDE 1 : Chat -->
   <div class="slide" id="slide-1">
-    <div class="eyebrow">Fonctionnalité 1 / 12 — Chat</div>
+    <div class="eyebrow">Fonctionnalité 1 / 17 — Chat</div>
     <h2>💬 Conversation <span class="accent">intelligente</span></h2>
     <p>Luna répond en langage naturel, se souvient du contexte, adapte son ton. Historique multi-conversations avec sidebar, recherche, renommage et suppression.</p>
     <div class="phone-wrap">
@@ -246,9 +313,10 @@ body::after{
         <div class="phone-notch"></div>
         <div class="phone-screen">
           <div class="msg luna"><div class="luna-dot">🌙</div><div class="bubble">Bonjour ! Comment te sens-tu aujourd'hui ? 😊</div></div>
-          <div class="msg user"><div class="bubble">Un peu fatigué mais ça va. Qu'est-ce qu'on fait ?</div></div>
-          <div class="msg luna"><div class="luna-dot">🌙</div><div class="bubble">Je peux te lire l'actu, passer un appel à ta famille, ou juste te tenir compagnie 🌟</div></div>
+          <div class="msg user"><div class="bubble">Un peu fatigué mais ça va.</div></div>
+          <div class="msg luna"><div class="luna-dot">🌙</div><div class="bubble">Je peux te lire l'actu, passer un appel, ou juste te tenir compagnie 🌟</div></div>
           <div class="msg user"><div class="bubble">Raconte-moi les news !</div></div>
+          <div class="msg luna"><div class="luna-dot">🌙</div><div class="bubble">Bien sûr ! Voici les dernières nouvelles… 📰</div></div>
         </div>
       </div>
     </div>
@@ -256,26 +324,26 @@ body::after{
 
   <!-- SLIDE 2 : Voix -->
   <div class="slide" id="slide-2">
-    <div class="eyebrow">Fonctionnalité 2 / 12 — Appel vocal</div>
+    <div class="eyebrow">Fonctionnalité 2 / 17 — Appel vocal</div>
     <h2>🎙️ Appels <span class="accent">vocaux</span></h2>
-    <p>Luna passe des appels téléphoniques réels via <strong>Twilio</strong> — vers des contacts proches ou de l'aide d'urgence. STT/TTS OpenAI pour la synthèse vocale naturelle.</p>
+    <p>Luna passe des appels téléphoniques réels via <strong>Twilio</strong>. STT/TTS OpenAI pour une synthèse vocale naturelle. SMS avec journalisation complète.</p>
     <div class="arch" style="margin-top:20px;">
-      <div class="arch-box">📱 Téléphone<br><small>Microphone utilisateur</small></div>
+      <div class="arch-box">📱 Micro<br><small>Utilisateur parle</small></div>
       <div class="arch-arrow">→</div>
-      <div class="arch-box">🧠 STT OpenAI<br><small>Transcription voix→texte</small></div>
+      <div class="arch-box">🧠 STT OpenAI<br><small>Voix → Texte</small></div>
       <div class="arch-arrow">→</div>
-      <div class="arch-box">🤖 GPT-4o-mini<br><small>Réponse IA</small></div>
+      <div class="arch-box">🤖 GPT-4o<br><small>Réponse IA</small></div>
       <div class="arch-arrow">→</div>
-      <div class="arch-box">🔊 TTS OpenAI<br><small>Voix Coral/Nova</small></div>
+      <div class="arch-box">🔊 TTS Coral<br><small>Synthèse vocale</small></div>
     </div>
-    <p style="margin-top:14px;font-size:.8em;"><span class="badge badge-w">⚠️ Twilio requis</span> — SMS également pris en charge avec journalisation complète</p>
+    <p style="margin-top:14px;font-size:.8em;"><span class="badge badge-w">Twilio</span> Appels réels · SMS · Wake-word "Luna"</p>
   </div>
 
   <!-- SLIDE 3 : Visio Tavus -->
   <div class="slide" id="slide-3">
-    <div class="eyebrow">Fonctionnalité 3 / 12 — Visioconférence</div>
+    <div class="eyebrow">Fonctionnalité 3 / 17 — Visioconférence</div>
     <h2>📹 Visio <span class="accent">Avatar IA</span> — Tavus</h2>
-    <p>Cinématique d'intro 9 décors horaires → appel Tavus fullscreen. L'avatar Luna parle, écoute et répond en temps réel (~2-3s de latence).</p>
+    <p>Cinématique d'intro (9 décors SVG horaires, Ken Burns) → appel Tavus fullscreen. L'avatar Luna parle, écoute et répond en temps réel (~2-3s de latence).</p>
     <div class="visio-preview">
       <div class="visio-bar"><div class="dot"></div> <span>Luna — En appel</span> <span style="margin-left:auto;color:#888;">02:34</span></div>
       <div class="visio-face">🌙</div>
@@ -285,58 +353,246 @@ body::after{
         <div class="visio-btn" style="background:#374151;">📷</div>
       </div>
     </div>
-    <p style="margin-top:10px;font-size:.78em;">Persona Luna FR : <code style="color:#a78bfa;">p10341f761ef</code> · Daily.js iframe · Cinématique SVG Ken Burns</p>
+    <p style="margin-top:10px;font-size:.78em;">Persona Luna FR : <code style="color:#a78bfa;">p10341f761ef</code> · Daily.js · Cinématique SVG</p>
   </div>
 
-  <!-- SLIDE 4 : Conciergerie -->
+  <!-- SLIDE 4 : Le Monde de Luna -->
   <div class="slide" id="slide-4">
-    <div class="eyebrow">Fonctionnalité 4 / 12 — Conciergerie</div>
-    <h2>🏨 Conciergerie <span class="accent">intelligente</span></h2>
-    <p>Luna agit comme un assistant personnel complet. Elle peut effectuer des recherches, gérer des rappels et proposer des services.</p>
-    <div class="cards">
-      <div class="card"><div class="icon">✈️</div><div class="ct">Vols &amp; Hôtels</div><div class="cd">Recherche Duffel API, prix en temps réel</div></div>
-      <div class="card"><div class="icon">🌤️</div><div class="ct">Météo</div><div class="cd">Conditions actuelles et prévisions</div></div>
-      <div class="card"><div class="icon">📰</div><div class="ct">Actualités</div><div class="cd">Résumé news du jour personnalisé</div></div>
-      <div class="card"><div class="icon">⏰</div><div class="ct">Rappels</div><div class="cd">Médicaments, rendez-vous, tâches</div></div>
-      <div class="card"><div class="icon">🍽️</div><div class="ct">Restaurants</div><div class="cd">Trouvez où manger selon vos goûts</div></div>
-      <div class="card"><div class="icon">📋</div><div class="ct">Formulaires</div><div class="cd">Upload PDF → analyse → remplissage IA</div></div>
+    <div class="eyebrow">Fonctionnalité 4 / 17 — Monde virtuel</div>
+    <h2>🏘️ Le <span class="accent">Monde de Luna</span></h2>
+    <p>Un village virtuel gamifié — 7 lieux à débloquer selon le niveau. XP gagné à chaque échange avec Luna.</p>
+    <div class="village-wrap">
+      <div class="village-sky"></div>
+      <div class="village-ground"></div>
+      <div class="v-building" style="left:12%;bottom:38%;">
+        <span class="v-icon" style="animation-delay:.2s;">🏠</span>
+        <span class="v-label">Maison de Luna<br><span style="color:#34d399;font-size:.9em;">Niv.1</span></span>
+      </div>
+      <div class="v-building" style="left:34%;bottom:44%;">
+        <span class="v-icon" style="animation-delay:.6s;">🌳</span>
+        <span class="v-label">Jardin des Liens<br><span style="color:#fbbf24;font-size:.9em;">Niv.2</span></span>
+      </div>
+      <div class="v-building" style="left:56%;bottom:40%;">
+        <span class="v-icon" style="animation-delay:.4s;">🏛️</span>
+        <span class="v-label">Bibliothèque<br><span style="color:#fbbf24;font-size:.9em;">Niv.3</span></span>
+      </div>
+      <div class="v-building" style="left:75%;bottom:34%;">
+        <span class="v-icon" style="animation-delay:.8s;">🔭</span>
+        <span class="v-label">Observatoire<br><span style="color:#a78bfa;font-size:.9em;">Niv.5</span></span>
+      </div>
+      <div class="v-building" style="left:47%;bottom:22%;">
+        <span class="v-icon" style="animation-delay:1s;">⛩️</span>
+        <span class="v-label">Place du Village<br><span style="color:#fbbf24;font-size:.9em;">Niv.2</span></span>
+      </div>
+      <div class="v-building" style="left:88%;bottom:42%;">
+        <span class="v-icon" style="animation-delay:.3s;">🛍️</span>
+        <span class="v-label">Boutique<br><span style="color:#fbbf24;font-size:.9em;">Niv.2</span></span>
+      </div>
+    </div>
+    <div class="xp-bar-wrap">
+      <span class="xp-label">🏅 Niveau 3</span>
+      <div class="xp-bar"><div class="xp-fill"></div></div>
+      <span style="font-size:.72em;color:#555;">68 / 100 XP</span>
     </div>
   </div>
 
-  <!-- SLIDE 5 : Mode Secrétaire -->
+  <!-- SLIDE 5 : Salon & Activités / Jeux -->
   <div class="slide" id="slide-5">
-    <div class="eyebrow">Fonctionnalité 5 / 12 — Mode Secrétaire</div>
+    <div class="eyebrow">Fonctionnalité 5 / 17 — Activités &amp; Jeux</div>
+    <h2>🎮 Salon &amp; <span class="green">Activités</span></h2>
+    <p>Luna propose des activités interactives personnalisées chaque jour — quiz, jeux de mémoire, lecture partagée, musique, gratitude.</p>
+    <div class="act-grid">
+      <div class="act-card">
+        <div class="a-icon">🧠</div>
+        <div class="a-name">Quiz culture</div>
+        <div class="a-sub">Adapté au niveau</div>
+      </div>
+      <div class="act-card">
+        <div class="a-icon">🎲</div>
+        <div class="a-name">Jeux de mots</div>
+        <div class="a-sub">Devinettes, charades</div>
+      </div>
+      <div class="act-card">
+        <div class="a-icon">📖</div>
+        <div class="a-name">Lecture</div>
+        <div class="a-sub">Luna lit pour toi</div>
+      </div>
+      <div class="act-card">
+        <div class="a-icon">🎵</div>
+        <div class="a-name">Musique</div>
+        <div class="a-sub">Ambiance sonore</div>
+      </div>
+      <div class="act-card">
+        <div class="a-icon">🙏</div>
+        <div class="a-name">Gratitude</div>
+        <div class="a-sub">Journal du bien-être</div>
+      </div>
+    </div>
+    <p style="margin-top:12px;font-size:.8em;">Page <code style="color:#a78bfa;">/salon</code> — navigation directe depuis l'onglet Activités</p>
+  </div>
+
+  <!-- SLIDE 6 : Conciergerie -->
+  <div class="slide" id="slide-6">
+    <div class="eyebrow">Fonctionnalité 6 / 17 — Conciergerie</div>
+    <h2>🏨 Conciergerie <span class="accent">intelligente</span></h2>
+    <p>Luna agit comme un assistant personnel complet — elle recherche, organise, rappelle et réserve à ta place.</p>
+    <div class="cards">
+      <div class="card"><div class="icon">✈️</div><div class="ct">Vols &amp; Hôtels</div><div class="cd">Recherche Duffel API, prix temps réel</div></div>
+      <div class="card"><div class="icon">🌤️</div><div class="ct">Météo</div><div class="cd">Conditions actuelles et prévisions 7j</div></div>
+      <div class="card"><div class="icon">📰</div><div class="ct">Actualités</div><div class="cd">Résumé news du jour personnalisé</div></div>
+      <div class="card"><div class="icon">⏰</div><div class="ct">Rappels</div><div class="cd">Médicaments, rendez-vous, tâches</div></div>
+      <div class="card"><div class="icon">🍽️</div><div class="ct">Restaurants</div><div class="cd">Trouvez où manger selon vos goûts</div></div>
+      <div class="card"><div class="icon">🗺️</div><div class="ct">Géolocalisation</div><div class="cd">Commerces à proximité, itinéraires</div></div>
+    </div>
+  </div>
+
+  <!-- SLIDE 7 : Mode Secrétaire -->
+  <div class="slide" id="slide-7">
+    <div class="eyebrow">Fonctionnalité 7 / 17 — Mode Secrétaire</div>
     <h2>🗂️ Mode <span class="accent">Secrétaire</span></h2>
     <p>Basculement en un clic — Luna devient une assistante professionnelle avec accès complet aux outils de gestion.</p>
     <table class="tbl">
       <tr><th>Onglet</th><th>Contenu</th></tr>
       <tr><td>📞 Contacts</td><td>Liste de contacts avec appel direct, SMS, invitation visio</td></tr>
       <tr><td>📄 Documents</td><td>Génération PDF, comptes rendus, rapports d'incident</td></tr>
-      <tr><td>🗺️ Carte</td><td>Géolocalisation en temps réel, zones, historique</td></tr>
+      <tr><td>🗺️ Carte</td><td>Géolocalisation temps réel, zones, commerces à proximité</td></tr>
       <tr><td>📋 Instructions</td><td>Règles comportementales pour personnaliser Luna</td></tr>
       <tr><td>📊 Rapports</td><td>Comptes rendus, notes, réunions, SMS envoyés</td></tr>
-      <tr><td>📝 Formulaires</td><td>Page dédiée /formulaires — analyse IA de PDF</td></tr>
+      <tr><td>📝 Formulaires</td><td>Page /formulaires — upload PDF → analyse IA</td></tr>
     </table>
   </div>
 
-  <!-- SLIDE 6 : Monde -->
-  <div class="slide" id="slide-6">
-    <div class="eyebrow">Fonctionnalité 6 / 12 — Monde &amp; Guardian</div>
-    <h2>🌍 Carte du <span class="accent">Monde</span> &amp; 🛡️ Guardian</h2>
-    <p><strong>Monde</strong> — Globe interactif avec marqueurs de contacts proches à travers le monde.<br>
-    <strong>Guardian</strong> — Surveillance géolocalisée, alertes de détresse, check-ins automatiques.</p>
-    <div class="world-preview">
-      <div class="world-grid"></div>
-      <div class="world-pin" style="top:30%;left:42%;">📍</div>
-      <div class="world-pin" style="top:50%;left:60%;animation-delay:.8s;">👨‍👩‍👧</div>
-      <div class="world-pin" style="top:20%;left:25%;animation-delay:.4s;">🌟</div>
-      <div class="world-pin" style="top:65%;left:70%;animation-delay:1.2s;">❤️</div>
-      <div style="position:absolute;bottom:8px;left:10px;font-size:.65em;color:#34d399;opacity:.7;">● En ligne — 4 contacts</div>
+  <!-- SLIDE 8 : Documents & Vault -->
+  <div class="slide" id="slide-8">
+    <div class="eyebrow">Fonctionnalité 8 / 17 — Documents</div>
+    <h2>📁 Documents &amp; <span class="gold">Coffre-fort</span></h2>
+    <p>Espace sécurisé pour stocker, classer et retrouver les documents importants. Génération automatique par Luna, téléchargement PDF.</p>
+    <div class="doc-preview">
+      <div class="doc-folder">
+        <div class="df-icon">📄</div>
+        <div class="df-name">Rapports</div>
+        <div class="df-count">Comptes rendus · Incidents</div>
+      </div>
+      <div class="doc-folder">
+        <div class="df-icon">📑</div>
+        <div class="df-name">Contrats</div>
+        <div class="df-count">PDFs signés · Archives</div>
+      </div>
+      <div class="doc-folder">
+        <div class="df-icon">🔒</div>
+        <div class="df-name">Vault</div>
+        <div class="df-count">Documents confidentiels</div>
+      </div>
+      <div class="doc-folder">
+        <div class="df-icon">📊</div>
+        <div class="df-name">Notes</div>
+        <div class="df-count">Réunions · Mémos · TODO</div>
+      </div>
+    </div>
+    <p style="margin-top:14px;font-size:.8em;">Page <code style="color:#fbbf24;">/documents</code> — filtres par type, statut, recherche texte</p>
+  </div>
+
+  <!-- SLIDE 9 : Formulaires -->
+  <div class="slide" id="slide-9">
+    <div class="eyebrow">Fonctionnalité 9 / 17 — Formulaires IA</div>
+    <h2>📋 <span class="accent">Formulaires</span> intelligents</h2>
+    <p>Glisse un PDF administratif — Luna l'analyse, identifie les champs et le remplit automatiquement grâce au profil de l'utilisateur.</p>
+    <div class="arch" style="margin-top:20px;">
+      <div class="arch-box">📎 Upload PDF<br><small>Formulaire administratif</small></div>
+      <div class="arch-arrow">→</div>
+      <div class="arch-box">🧠 Analyse IA<br><small>Détection des champs</small></div>
+      <div class="arch-arrow">→</div>
+      <div class="arch-box">👤 Profil Luna<br><small>Données pré-remplies</small></div>
+      <div class="arch-arrow">→</div>
+      <div class="arch-box">⬇️ PDF rempli<br><small>Téléchargement</small></div>
+    </div>
+    <p style="margin-top:14px;font-size:.8em;">Page <code style="color:#a78bfa;">/formulaires</code> · Disponible en mode Secrétaire et Conciergerie</p>
+  </div>
+
+  <!-- SLIDE 10 : Guardian -->
+  <div class="slide" id="slide-10">
+    <div class="eyebrow">Fonctionnalité 10 / 17 — Sécurité</div>
+    <h2>🛡️ <span class="green">Guardian</span> — Surveillance bienveillante</h2>
+    <p>Guardian veille en permanence — détection de détresse, check-ins automatiques, alertes aux proches. Luna surveille sans surveiller.</p>
+    <div class="shield-wrap">
+      <div class="shield">🛡️</div>
+    </div>
+    <div class="cards" style="margin-top:12px;">
+      <div class="card" style="border-color:rgba(52,211,153,.4);">
+        <div class="icon">🆘</div>
+        <div class="ct">Détection détresse</div>
+        <div class="cd">Analyse sémantique des messages — alerte best-effort</div>
+      </div>
+      <div class="card" style="border-color:rgba(52,211,153,.4);">
+        <div class="icon">✅</div>
+        <div class="ct">Check-ins</div>
+        <div class="cd">Confirmations régulières de présence — proches notifiés</div>
+      </div>
+      <div class="card" style="border-color:rgba(52,211,153,.4);">
+        <div class="icon">📍</div>
+        <div class="ct">Zones</div>
+        <div class="cd">Géofencing, alertes entrée/sortie de zones définies</div>
+      </div>
     </div>
   </div>
 
-  <!-- SLIDE 7 : Architecture technique -->
-  <div class="slide" id="slide-7">
+  <!-- SLIDE 11 : Carte Interactive -->
+  <div class="slide" id="slide-11">
+    <div class="eyebrow">Fonctionnalité 11 / 17 — Carte</div>
+    <h2>🗺️ Carte <span class="accent">interactive</span></h2>
+    <p>Localisation en temps réel, recherche de commerces, restaurants, pharmacies. Navigation et itinéraires. Disponible en mode Secrétaire.</p>
+    <div class="map-preview">
+      <div class="map-grid"></div>
+      <div class="map-road-h" style="top:35%;"></div>
+      <div class="map-road-h" style="top:65%;"></div>
+      <div class="map-road-v" style="left:40%;"></div>
+      <div class="map-road-v" style="left:70%;"></div>
+      <div class="map-radar" style="top:calc(35% - 20px);left:calc(40% - 20px);"></div>
+      <div class="map-pin" style="top:28%;left:37%;">📍</div>
+      <div class="map-pin" style="top:55%;left:62%;animation-delay:.5s;">🍽️</div>
+      <div class="map-pin" style="top:18%;left:65%;animation-delay:1s;">💊</div>
+      <div class="map-pin" style="top:70%;left:28%;animation-delay:.8s;">🏥</div>
+      <div class="map-search">🔍 &nbsp;Pharmacie à proximité…</div>
+      <div style="position:absolute;bottom:8px;left:10px;font-size:.62em;color:#93c5fd;opacity:.8;">● Position temps réel · Google Maps</div>
+    </div>
+    <p style="margin-top:10px;font-size:.8em;">Onglet <code style="color:#a78bfa;">Carte</code> · Intégration Google Maps · Historique des déplacements</p>
+  </div>
+
+  <!-- SLIDE 12 : Amis & Famille -->
+  <div class="slide" id="slide-12">
+    <div class="eyebrow">Fonctionnalité 12 / 17 — Social</div>
+    <h2>👨‍👩‍👧 Amis &amp; <span class="accent">Famille</span></h2>
+    <p>Luna connaît tes proches. Voir qui est en ligne dans le Monde de Luna, partager des moments, visiter la Maison Familiale.</p>
+    <div class="friends-row">
+      <div class="friend-card">
+        <div class="friend-avatar online" style="background:linear-gradient(135deg,#fbbf24,#f59e0b);">👩</div>
+        <div class="online-dot"></div>
+        <div class="friend-name">Sabine</div>
+        <div class="friend-status">🟢 En ligne</div>
+      </div>
+      <div class="friend-card">
+        <div class="friend-avatar online" style="background:linear-gradient(135deg,#34d399,#10b981);">👨</div>
+        <div class="online-dot"></div>
+        <div class="friend-name">Victor</div>
+        <div class="friend-status">🟢 Monde</div>
+      </div>
+      <div class="friend-card">
+        <div class="friend-avatar" style="background:linear-gradient(135deg,#a78bfa,#7c3aed);">👩</div>
+        <div class="friend-name">Gwladys</div>
+        <div class="friend-status" style="color:#555;">⚫ Hors ligne</div>
+      </div>
+      <div class="friend-card">
+        <div class="friend-avatar online" style="background:linear-gradient(135deg,#f87171,#dc2626);">👵</div>
+        <div class="online-dot"></div>
+        <div class="friend-name">Andrèze</div>
+        <div class="friend-status">🟢 Jardin</div>
+      </div>
+    </div>
+    <p style="margin-top:14px;font-size:.8em;">Onglet <code style="color:#a78bfa;">Amis</code> · Maison Familiale dans le Monde · Invitations visio</p>
+  </div>
+
+  <!-- SLIDE 13 : Architecture technique -->
+  <div class="slide" id="slide-13">
     <div class="eyebrow">Architecture — Stack technique</div>
     <h2>⚙️ Architecture <span class="accent">100% Cloud</span></h2>
     <div class="arch">
@@ -358,8 +614,8 @@ body::after{
     <p style="margin-top:12px;font-size:.78em;">CI/CD Cloud Build · Artifact Registry · Cloud Scheduler · QA Sentinel automatique</p>
   </div>
 
-  <!-- SLIDE 8 : GitHub & Code -->
-  <div class="slide" id="slide-8">
+  <!-- SLIDE 14 : GitHub & Code -->
+  <div class="slide" id="slide-14">
     <div class="eyebrow">Repos GitHub (privés)</div>
     <h2>📦 Organisation du <span class="accent">code</span></h2>
     <table class="tbl">
@@ -370,42 +626,41 @@ body::after{
       <tr><td>📚 luna-docs</td><td>Business model, études de marché, contrats</td><td><span class="badge badge-r">Fondateur</span></td></tr>
     </table>
     <div class="code" style="margin-top:14px;">
-      <span class="c-gray"># Repo principal — structure</span><br>
-      <span class="c-blue">luna_web.py</span>       <span class="c-gray"># Serveur FastAPI (~17 000 lignes)</span><br>
-      <span class="c-blue">static/index.html</span> <span class="c-gray"># SPA frontend (~7 000 lignes)</span><br>
+      <span class="c-gray"># Serveur — ~17 000 lignes</span><br>
+      <span class="c-blue">luna_web.py</span>       <span class="c-gray"># FastAPI — routes, APIs, auth JWT</span><br>
+      <span class="c-blue">static/index.html</span> <span class="c-gray"># SPA — tous les onglets (~7 000 lignes)</span><br>
       <span class="c-blue">core/memory/</span>      <span class="c-gray"># MemoryManager Redis</span><br>
-      <span class="c-blue">integrations/</span>     <span class="c-gray"># OpenAI · Tavus · Twilio</span><br>
-      <span class="c-blue">android-app/</span>      <span class="c-gray"># WebView APK signé</span>
+      <span class="c-blue">static/world.html</span> <span class="c-gray"># Monde de Luna — village 3D SVG</span>
     </div>
   </div>
 
-  <!-- SLIDE 9 : Package exploitant -->
-  <div class="slide" id="slide-9">
+  <!-- SLIDE 15 : Package exploitant -->
+  <div class="slide" id="slide-15">
     <div class="eyebrow">Pour l'équipe dev — Intégration</div>
     <h2>🔧 Brancher <span class="green">Luna Exploitant</span></h2>
     <div class="steps">
       <div class="step"><div class="step-num">1</div><div class="step-text"><div class="st">Cloner le package</div><div class="sd"><code>git clone https://github.com/byakuyakutchiki/luna-exploitants</code></div></div></div>
-      <div class="step"><div class="step-num">2</div><div class="step-text"><div class="st">Configurer les clés API</div><div class="sd">Copier <code>.env.template → .env</code> · Renseigner OpenAI, Twilio, Stripe, Tavus (optionnel)</div></div></div>
+      <div class="step"><div class="step-num">2</div><div class="step-text"><div class="st">Configurer les clés API</div><div class="sd">Copier <code>.env.template → .env</code> · OpenAI, Twilio, Stripe, Tavus (optionnel)</div></div></div>
       <div class="step"><div class="step-num">3</div><div class="step-text"><div class="st">Lancer Docker</div><div class="sd"><code>docker-compose up -d</code> → Luna + Redis + SSL automatique</div></div></div>
-      <div class="step"><div class="step-num">4</div><div class="step-text"><div class="st">Wizard de setup IA</div><div class="sd"><code>python wizard_install.py</code> → Guide étape par étape avec chatbot IA</div></div></div>
+      <div class="step"><div class="step-num">4</div><div class="step-text"><div class="st">Wizard de setup IA</div><div class="sd"><code>python wizard_install.py</code> → Guide 10 étapes avec chatbot IA intégré</div></div></div>
       <div class="step"><div class="step-num">5</div><div class="step-text"><div class="st">PV de recette + signature</div><div class="sd">Verrouille le serveur en mode autonome — fondateur n'a plus accès</div></div></div>
     </div>
   </div>
 
-  <!-- SLIDE 10 : Modèle économique -->
-  <div class="slide" id="slide-10">
+  <!-- SLIDE 16 : Modèle économique -->
+  <div class="slide" id="slide-16">
     <div class="eyebrow">Business Model</div>
     <h2>Licence <span class="accent">70 / 30</span></h2>
     <div class="cards">
-      <div class="card" style="border-color:rgba(167,139,250,.5);max-width:280px;">
+      <div class="card" style="border-color:rgba(167,139,250,.5);max-width:260px;">
         <div class="icon">👑</div>
         <div class="ct" style="color:#a78bfa;font-size:.9em;">Fondateur — 70%</div>
         <div class="cd">Licence technologie, code, mises à jour, IP, support</div>
       </div>
-      <div class="card" style="border-color:rgba(52,211,153,.4);max-width:280px;">
+      <div class="card" style="border-color:rgba(52,211,153,.4);max-width:260px;">
         <div class="icon">🏢</div>
         <div class="ct" style="color:#34d399;font-size:.9em;">Exploitant — 30%</div>
-        <div class="cd">Ses serveurs, ses clés API, ses clients, son marketing</div>
+        <div class="cd">Ses serveurs, ses clés API, ses clients · dont 6% Ambre</div>
       </div>
     </div>
     <table class="tbl" style="margin-top:16px;">
@@ -416,25 +671,25 @@ body::after{
     </table>
   </div>
 
-  <!-- SLIDE 11 : QA & Maintenance -->
-  <div class="slide" id="slide-11">
+  <!-- SLIDE 17 : QA Sentinel -->
+  <div class="slide" id="slide-17">
     <div class="eyebrow">Qualité &amp; Fiabilité</div>
     <h2>🤖 Sentinel <span class="green">automatique</span></h2>
-    <p>Un QA Sentinel Playwright tourne <strong>toutes les 6h</strong> sur Cloud Run et vérifie 50 fonctionnalités sans téléphone ni clé API.</p>
+    <p>Un QA Sentinel Playwright tourne <strong>toutes les 6h</strong> sur Cloud Run et vérifie 50+ fonctionnalités sans téléphone ni clé API.</p>
     <div class="cards">
-      <div class="card"><div class="icon">✅</div><div class="ct">50 checks / run</div><div class="cd">Login, chat, tabs, APIs, console JS, pages dédiées</div></div>
+      <div class="card"><div class="icon">✅</div><div class="ct">50+ checks / run</div><div class="cd">Login, chat, tabs, APIs, console JS, pages dédiées</div></div>
       <div class="card"><div class="icon">⏰</div><div class="ct">Cloud Scheduler</div><div class="cd">0h · 6h · 12h · 18h (Paris) — automatique</div></div>
-      <div class="card"><div class="icon">🚨</div><div class="ct">Alertes</div><div class="cd">Exit 1 = erreur critique visible dans Cloud Run logs</div></div>
+      <div class="card"><div class="icon">🚨</div><div class="ct">Alertes</div><div class="cd">Exit 1 = erreur critique dans Cloud Run logs</div></div>
     </div>
     <p style="margin-top:14px;font-size:.8em;">Dernier rapport : <span class="green">50 ✅ — 0 ❌</span> · Tous les endpoints API : HTTP 200</p>
   </div>
 
-  <!-- SLIDE 12 : Closing -->
-  <div class="slide" id="slide-12">
+  <!-- SLIDE 18 : Closing -->
+  <div class="slide" id="slide-18">
     <div class="luna-avatar">🌙</div>
     <div class="eyebrow">Luna YAWatch — Prêt pour l'exploitation</div>
     <h1>Construisons ça <span class="accent">ensemble</span></h1>
-    <p>Technologie propriétaire · Modèle économique clair · Package clé en main · Maintenance automatique</p>
+    <p>Technologie propriétaire · 17 fonctionnalités · Package clé en main · Maintenance automatique</p>
     <div style="margin-top:20px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
       <a href="/nda" target="_blank" style="text-decoration:none;">
         <div style="background:rgba(124,58,237,.2);border:1px solid #7c3aed;padding:10px 20px;border-radius:8px;font-size:.85em;color:#c4b5fd;">
@@ -452,26 +707,23 @@ body::after{
 
 </div><!-- /stage -->
 
-<!-- Voix-off -->
 <div id="voiceover"></div>
 
-<!-- Pause overlay -->
 <div id="pauseOverlay">
   <div class="po-text">⏸ PAUSE</div>
   <div class="po-sub">Appuie sur P ou clique pour reprendre</div>
 </div>
 
-<!-- Bottom bar -->
 <div id="bottombar">
   <button class="nav-btn" onclick="prevSlide()">←</button>
   <button class="nav-btn" id="pauseBtn" onclick="togglePause()">⏸</button>
   <div id="progress-wrap"><div id="progress-fill" style="width:0%"></div></div>
-  <span id="slide-counter">1 / 13</span>
+  <span id="slide-counter">1 / 19</span>
   <button class="nav-btn" onclick="nextSlide()">→</button>
 </div>
 
 <script>
-var TOTAL = 13;
+var TOTAL = 19;
 var current = 0;
 var paused = false;
 var autoTimer = null;
@@ -482,12 +734,18 @@ var voiceTexts = [
   "Le chat intelligent avec historique multi-conversations — Luna se souvient de tout.",
   "Appels vocaux réels via Twilio, avec synthèse vocale OpenAI naturelle.",
   "Visioconférence avec avatar IA Tavus — cinématique d'intro puis face à face.",
-  "La conciergerie intelligente — vols, météo, actualités, rappels, restaurants.",
+  "Le Monde de Luna — un village virtuel gamifié avec 7 lieux à débloquer et un système d'XP.",
+  "Le Salon et les Activités — quiz, jeux de mémoire, lecture partagée, musique et gratitude.",
+  "La conciergerie intelligente — vols, météo, actualités, rappels, restaurants, géolocalisation.",
   "Mode Secrétaire — contacts, documents, carte, rapports, formulaires IA.",
-  "La carte du monde et Guardian pour la géolocalisation et la sécurité.",
+  "L'espace Documents sécurisé — coffre-fort, rapports, contrats, notes, accès filtré.",
+  "Les Formulaires intelligents — upload PDF, analyse IA, remplissage automatique depuis le profil.",
+  "Guardian — détection de détresse, check-ins automatiques, alertes géolocalisées aux proches.",
+  "La carte interactive — localisation temps réel, commerces à proximité, itinéraires.",
+  "Amis et Famille — réseau social privé, présence en ligne, Maison Familiale dans le Monde.",
   "Architecture 100% cloud — FastAPI, Redis, OpenAI, Tavus, Twilio, Stripe.",
   "4 repos GitHub privés — code protégé, accès contrôlé par contrat signé.",
-  "Package clé en main — Docker, wizard IA, admin, Stripe automatique, PV de recette.",
+  "Package clé en main — Docker, wizard IA, admin dashboard, Stripe auto, PV de recette.",
   "Modèle 70/30 — 3 plans tarifaires de 79 à 249 euros par mois.",
   "QA Sentinel automatique — 50 vérifications toutes les 6 heures sur Cloud Run.",
   "NDA signé. Contrat 70/30. Démo live. Construisons Luna ensemble.",
@@ -498,9 +756,15 @@ var bgColors = [
   "radial-gradient(ellipse at 60% 40%,#0d1a3c 0%,#000 60%)",
   "radial-gradient(ellipse at 20% 60%,#1a0533 0%,#000 60%)",
   "radial-gradient(ellipse at 70% 30%,#0a2040 0%,#000 60%)",
+  "radial-gradient(ellipse at 40% 70%,#031a0d 0%,#000 60%)",
+  "radial-gradient(ellipse at 55% 45%,#031a0d 0%,#000 60%)",
   "radial-gradient(ellipse at 40% 70%,#1a1404 0%,#000 60%)",
   "radial-gradient(ellipse at 60% 50%,#031a0d 0%,#000 60%)",
-  "radial-gradient(ellipse at 30% 30%,#031a1a 0%,#000 60%)",
+  "radial-gradient(ellipse at 50% 40%,#1a1200 0%,#000 60%)",
+  "radial-gradient(ellipse at 30% 60%,#1a0533 0%,#000 60%)",
+  "radial-gradient(ellipse at 60% 35%,#031a0d 0%,#000 60%)",
+  "radial-gradient(ellipse at 45% 55%,#0d1a3c 0%,#000 60%)",
+  "radial-gradient(ellipse at 35% 45%,#1a0a1a 0%,#000 60%)",
   "radial-gradient(ellipse at 50% 50%,#1a0533 0%,#000 60%)",
   "radial-gradient(ellipse at 80% 40%,#0d1a3c 0%,#000 60%)",
   "radial-gradient(ellipse at 20% 50%,#031a0d 0%,#000 60%)",
@@ -509,7 +773,6 @@ var bgColors = [
   "radial-gradient(ellipse at 50% 50%,#1a0533 0%,#000 60%)",
 ];
 
-// Étoiles
 (function(){
   var s=document.getElementById('stars');
   for(var i=0;i<80;i++){
@@ -582,14 +845,13 @@ function startPresentation(){
   setTimeout(function(){ss.style.display='none';showSlide(0);},800);
 }
 
-// Protection
 document.addEventListener('contextmenu',function(e){e.preventDefault();});
 document.addEventListener('keydown',function(e){
   if(e.ctrlKey&&(e.key==='s'||e.key==='u'||e.key==='c')){e.preventDefault();}
   if(e.key==='PrintScreen'){e.preventDefault();}
 });
 document.addEventListener('copy',function(e){e.preventDefault();});
-// Filigrane horodaté
+
 (function(){
   var el=document.createElement('div');
   el.style.cssText='position:fixed;bottom:46px;right:14px;font-size:.62em;color:rgba(255,255,255,.15);pointer-events:none;z-index:9998;letter-spacing:.5px;';
