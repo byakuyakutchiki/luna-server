@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>Luna YAWatch — Réunion</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{
+  background:#000;color:white;min-height:100vh;
+  font-family:'Segoe UI',system-ui,sans-serif;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:24px;
+}
+
+.logo{font-size:2.8em;font-weight:800;color:#a78bfa;margin-bottom:4px;letter-spacing:1px;}
+.tagline{font-size:.9em;color:#555;margin-bottom:40px;}
+
+.steps{display:flex;flex-direction:column;gap:20px;width:100%;max-width:480px;}
+
+.step-card{
+  background:#0a0a1a;border-radius:14px;padding:24px 28px;
+  position:relative;overflow:hidden;
+}
+.step-card::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:3px;
+}
+.step-card.nda::before{background:#7c3aed;}
+.step-card.live::before{background:#10b981;}
+
+.step-num{
+  font-size:.68em;font-weight:700;text-transform:uppercase;letter-spacing:2px;
+  margin-bottom:8px;
+}
+.step-card.nda  .step-num{color:#7c3aed;}
+.step-card.live .step-num{color:#10b981;}
+
+.step-title{font-size:1.15em;font-weight:700;margin-bottom:6px;}
+.step-desc{font-size:.83em;color:#666;line-height:1.6;margin-bottom:18px;}
+
+.step-btn{
+  display:flex;align-items:center;justify-content:space-between;
+  width:100%;padding:14px 20px;border-radius:10px;border:none;
+  font-size:.95em;font-weight:700;cursor:pointer;text-decoration:none;
+  transition:filter .2s,transform .15s;
+}
+.step-btn:hover{filter:brightness(1.1);transform:translateY(-1px);}
+.step-btn:active{transform:translateY(0);}
+.btn-nda{background:#7c3aed;color:white;}
+.btn-live{background:#10b981;color:white;}
+.step-btn .arr{font-size:1.1em;}
+
+.note{
+  font-size:.72em;color:#333;margin-top:32px;text-align:center;line-height:1.8;
+}
+.note strong{color:#555;}
+
+/* QR placeholders — juste pour la lisibilité visuelle */
+.url-box{
+  background:#111;border:1px solid #222;border-radius:6px;
+  padding:6px 12px;font-size:.72em;font-family:monospace;color:#555;
+  margin-top:10px;word-break:break-all;
+}
+</style>
+</head>
+<body>
+
+<div class="logo">🌙 Luna YAWatch</div>
+<div class="tagline">Réunion confidentielle — Suivez les deux étapes ci-dessous</div>
+
+<div class="steps">
+
+  <!-- Étape 1 — NDA -->
+  <div class="step-card nda">
+    <div class="step-num">Étape 1 — Avant tout</div>
+    <div class="step-title">📋 Signer l'accord de confidentialité</div>
+    <div class="step-desc">
+      Chaque participant doit signer le NDA (Non-Disclosure Agreement) <strong>avant</strong> de voir la présentation. Votre signature numérique vous engage juridiquement.
+    </div>
+    <a class="step-btn btn-nda" href="/nda" target="_blank">
+      <span>Ouvrir et signer le NDA</span>
+      <span class="arr">→</span>
+    </a>
+    <div class="url-box">luna-beta-674304336025.europe-west1.run.app/nda</div>
+  </div>
+
+  <!-- Étape 2 — Pitch live -->
+  <div class="step-card live">
+    <div class="step-num">Étape 2 — Présentation en direct</div>
+    <div class="step-title">🎬 Rejoindre la présentation</div>
+    <div class="step-desc">
+      Une fois le NDA signé, rejoignez la présentation en direct. Les slides s'affichent automatiquement — le présentateur contrôle l'avancement.
+    </div>
+    <a class="step-btn btn-live" href="/pitch/live" target="_blank">
+      <span>Rejoindre la présentation</span>
+      <span class="arr">→</span>
+    </a>
+    <div class="url-box">luna-beta-674304336025.europe-west1.run.app/pitch/live</div>
+  </div>
+
+</div>
+
+<div class="note">
+  <strong>Document confidentiel</strong> — © Ludovic Saint-Louis · Luna YAWatch<br>
+  Toute reproduction, capture ou enregistrement est strictement interdit.
+</div>
+
+<script>
+document.addEventListener('contextmenu', function(e){ e.preventDefault(); });
+document.addEventListener('copy', function(e){ e.preventDefault(); });
+</script>
+</body>
+</html>

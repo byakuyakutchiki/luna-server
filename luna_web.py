@@ -4355,6 +4355,15 @@ async def pitch_page():
     return JSONResponse(status_code=404, content={"error": "Pitch non disponible"})
 
 
+@app.get("/demo")
+async def demo_page():
+    """Page lobby de réunion — lien unique à envoyer aux participants."""
+    path = os.path.join(STATIC_DIR, "demo.html")
+    if os.path.isfile(path):
+        return FileResponse(path, headers={"Cache-Control": "no-cache"})
+    return JSONResponse(status_code=404, content={"error": "Page non disponible"})
+
+
 @app.get("/pitch/live")
 async def pitch_live_page():
     """Vue audience — lecture seule, synchronisée avec le présentateur."""
