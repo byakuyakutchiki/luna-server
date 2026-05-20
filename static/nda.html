@@ -186,8 +186,30 @@ body { font-family: 'Georgia', serif; background: #f8f7f4; color: #1a1a1a; }
   <div class="section">
     <h4><span class="num">5</span>Durée &amp; Sanctions</h4>
     <p><strong>Durée :</strong> 5 ans à compter de la signature. Les obligations relatives aux secrets d'affaires sont permanentes (Loi n°2018-670 du 30 juillet 2018).</p>
-    <p><strong>Sanctions :</strong> Violation = dommages et intérêts, cessation en référé, poursuites pénales pour contrefaçon et/ou violation du secret des affaires.</p>
-    <p><strong>Loi applicable :</strong> Droit français. Juridiction compétente : tribunaux français.</p>
+    <p><strong>Loi applicable :</strong> Droit français. Juridiction compétente : Tribunaux de Paris.</p>
+  </div>
+
+  <div class="section">
+    <h4><span class="num">6</span>Sanctions pénales et civiles applicables</h4>
+    <p>Toute violation du présent accord expose son auteur aux poursuites suivantes, cumulables :</p>
+    <table style="width:100%;border-collapse:collapse;font-size:.86em;margin-top:10px;">
+      <thead><tr style="background:#f0f4ff;">
+        <th style="padding:7px 10px;text-align:left;border-bottom:2px solid #7c3aed;color:#3730a3;">Infraction</th>
+        <th style="padding:7px 10px;text-align:left;border-bottom:2px solid #7c3aed;color:#3730a3;">Base légale</th>
+        <th style="padding:7px 10px;text-align:left;border-bottom:2px solid #7c3aed;color:#3730a3;">Peine maximale</th>
+      </tr></thead>
+      <tbody>
+        <tr><td style="padding:6px 10px;border-bottom:1px solid #eee;">Contrefaçon logiciel</td><td style="padding:6px 10px;border-bottom:1px solid #eee;">Art. L.335-2 CPI</td><td style="padding:6px 10px;border-bottom:1px solid #eee;color:#dc2626;font-weight:600;">3 ans · 300 000 €</td></tr>
+        <tr style="background:#fafafa;"><td style="padding:6px 10px;border-bottom:1px solid #eee;">Violation secret des affaires</td><td style="padding:6px 10px;border-bottom:1px solid #eee;">Art. L.151-1 Loi 2018-670</td><td style="padding:6px 10px;border-bottom:1px solid #eee;color:#dc2626;font-weight:600;">Dommages-intérêts + cessation</td></tr>
+        <tr><td style="padding:6px 10px;border-bottom:1px solid #eee;">Abus de confiance</td><td style="padding:6px 10px;border-bottom:1px solid #eee;">Art. 314-1 Code pénal</td><td style="padding:6px 10px;border-bottom:1px solid #eee;color:#dc2626;font-weight:600;">3 ans · 375 000 €</td></tr>
+        <tr style="background:#fafafa;"><td style="padding:6px 10px;border-bottom:1px solid #eee;">Violation du secret professionnel</td><td style="padding:6px 10px;border-bottom:1px solid #eee;">Art. 226-13 Code pénal</td><td style="padding:6px 10px;border-bottom:1px solid #eee;color:#dc2626;font-weight:600;">1 an · 15 000 €</td></tr>
+        <tr><td style="padding:6px 10px;border-bottom:1px solid #eee;">Atteinte aux systèmes informatiques</td><td style="padding:6px 10px;border-bottom:1px solid #eee;">Art. 323-1 Code pénal</td><td style="padding:6px 10px;border-bottom:1px solid #eee;color:#dc2626;font-weight:600;">2 ans · 60 000 €</td></tr>
+        <tr style="background:#fafafa;"><td style="padding:6px 10px;">Concurrence déloyale / parasitisme</td><td style="padding:6px 10px;">Art. 1240 Code civil</td><td style="padding:6px 10px;color:#dc2626;font-weight:600;">Dommages-intérêts illimités</td></tr>
+      </tbody>
+    </table>
+    <div class="warning-box" style="margin-top:12px;">
+      <strong>⚠️ En signant, chaque Partie Réceptrice reconnaît :</strong> avoir été informée de ces sanctions, avoir eu le temps de lire et comprendre l'intégralité du présent accord, et s'engager personnellement et solidairement au respect des obligations qui en découlent. La signature numérique apposée vaut engagement ferme et irrévocable au sens de l'article 1366 du Code civil et du Règlement eIDAS (UE 910/2014).
+    </div>
   </div>
 
   <!-- SIGNATURES -->
@@ -212,7 +234,7 @@ body { font-family: 'Georgia', serif; background: #f8f7f4; color: #1a1a1a; }
       </div>
     </div>
 
-    <button class="add-sig-btn" onclick="addSignatory()">+ Ajouter un signataire</button>
+    <button class="add-sig-btn" onclick="openAddSigModal()">+ Ajouter un signataire</button>
 
     <!-- Consentement RGPD global -->
     <div class="rgpd-consent">
@@ -229,6 +251,41 @@ body { font-family: 'Georgia', serif; background: #f8f7f4; color: #1a1a1a; }
     NDA-LUNA-2026-001 &nbsp;·&nbsp; Propriété intellectuelle de Ludovic Saint-Louis &nbsp;·&nbsp; Droit français &nbsp;·&nbsp; Réf. eIDAS (UE 910/2014)<br>
     Document généré le 20/05/2026 &nbsp;·&nbsp; Confidentiel — Ne pas diffuser
   </div>
+</div>
+
+<!-- Modal ajout signataire -->
+<div id="addSigModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:1001;align-items:center;justify-content:center;">
+<div style="background:white;padding:28px;max-width:460px;width:92%;border-radius:10px;box-shadow:0 4px 30px rgba(0,0,0,.3);">
+  <h3 style="font-size:.95em;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;color:#0a0a1a;">Ajouter un signataire</h3>
+  <p style="font-size:.78em;color:#888;margin-bottom:16px;">Renseignez les informations du participant.</p>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
+    <div>
+      <label style="font-size:.72em;text-transform:uppercase;color:#888;letter-spacing:.5px;display:block;margin-bottom:4px;">Prénom *</label>
+      <input id="asFirstName" type="text" placeholder="Prénom" style="width:100%;border:1px solid #ddd;padding:8px 10px;font-size:.9em;font-family:inherit;border-radius:4px;">
+    </div>
+    <div>
+      <label style="font-size:.72em;text-transform:uppercase;color:#888;letter-spacing:.5px;display:block;margin-bottom:4px;">Nom *</label>
+      <input id="asLastName" type="text" placeholder="Nom" style="width:100%;border:1px solid #ddd;padding:8px 10px;font-size:.9em;font-family:inherit;border-radius:4px;">
+    </div>
+  </div>
+  <div style="margin-bottom:10px;">
+    <label style="font-size:.72em;text-transform:uppercase;color:#888;letter-spacing:.5px;display:block;margin-bottom:4px;">Société / Organisation</label>
+    <input id="asCompany" type="text" placeholder="Nom de la société (optionnel)" style="width:100%;border:1px solid #ddd;padding:8px 10px;font-size:.9em;font-family:inherit;border-radius:4px;">
+  </div>
+  <div style="margin-bottom:10px;">
+    <label style="font-size:.72em;text-transform:uppercase;color:#888;letter-spacing:.5px;display:block;margin-bottom:4px;">Rôle / Fonction *</label>
+    <input id="asRole" type="text" placeholder="Ex : Directeur Technique, Développeur…" style="width:100%;border:1px solid #ddd;padding:8px 10px;font-size:.9em;font-family:inherit;border-radius:4px;">
+  </div>
+  <div style="margin-bottom:16px;">
+    <label style="font-size:.72em;text-transform:uppercase;color:#888;letter-spacing:.5px;display:block;margin-bottom:4px;">Email professionnel</label>
+    <input id="asEmail" type="email" placeholder="email@société.com" style="width:100%;border:1px solid #ddd;padding:8px 10px;font-size:.9em;font-family:inherit;border-radius:4px;">
+  </div>
+  <div id="asErr" style="font-size:.78em;color:#dc2626;margin-bottom:10px;min-height:16px;"></div>
+  <div style="display:flex;gap:10px;">
+    <button onclick="closeAddSigModal()" style="flex:1;padding:10px;border:1px solid #ddd;background:white;color:#666;cursor:pointer;border-radius:4px;font-size:.85em;">Annuler</button>
+    <button onclick="confirmAddSig()" style="flex:1;padding:10px;background:#0a0a1a;color:white;border:none;cursor:pointer;border-radius:4px;font-size:.85em;font-weight:700;text-transform:uppercase;letter-spacing:.5px;">+ Ajouter</button>
+  </div>
+</div>
 </div>
 
 <!-- Modal dessin signature -->
@@ -371,14 +428,33 @@ function clearSig(slot) {
   checkAllSigned();
 }
 
-function addSignatory() {
-  var firstName = prompt('Prénom du signataire :');
-  if (!firstName) return;
-  var lastName  = prompt('Nom du signataire :') || '';
-  var role      = prompt('Rôle / Fonction :') || 'Signataire';
+function openAddSigModal() {
+  document.getElementById('asFirstName').value = '';
+  document.getElementById('asLastName').value  = '';
+  document.getElementById('asCompany').value   = '';
+  document.getElementById('asRole').value      = '';
+  document.getElementById('asEmail').value     = '';
+  document.getElementById('asErr').textContent = '';
+  var m = document.getElementById('addSigModal');
+  m.style.display = 'flex';
+  setTimeout(function(){ document.getElementById('asFirstName').focus(); }, 80);
+}
+function closeAddSigModal() {
+  document.getElementById('addSigModal').style.display = 'none';
+}
+function confirmAddSig() {
+  var firstName = document.getElementById('asFirstName').value.trim();
+  var lastName  = document.getElementById('asLastName').value.trim();
+  var company   = document.getElementById('asCompany').value.trim();
+  var role      = document.getElementById('asRole').value.trim() || 'Signataire';
+  var email     = document.getElementById('asEmail').value.trim();
+  if (!firstName || !lastName) {
+    document.getElementById('asErr').textContent = '⚠️ Prénom et Nom sont obligatoires.';
+    return;
+  }
   var fullName = (firstName + ' ' + lastName).trim();
   var idx = signatories.length;
-  signatories.push({ name: fullName, role: role, signed: false, data: null });
+  signatories.push({ name: fullName, role: role, company: company, email: email, signed: false, data: null });
 
   var grid = document.getElementById('sigGrid');
   var block = document.createElement('div');
@@ -387,18 +463,23 @@ function addSignatory() {
   block.innerHTML =
     '<div class="sb-role">' + escHtml(role) + '</div>' +
     '<div class="sb-name">' + escHtml(fullName) + '</div>' +
+    (company ? '<div style="font-size:.72em;color:#7c3aed;margin-bottom:3px;">' + escHtml(company) + '</div>' : '') +
+    (email ? '<div style="font-size:.7em;color:#888;margin-bottom:6px;">' + escHtml(email) + '</div>' : '') +
     '<div class="sb-ts" id="sbTs' + idx + '"></div>' +
     '<div class="sig-zone" id="sigZone' + idx + '">' +
       '<canvas id="sigCanvas' + idx + '"></canvas>' +
       '<div class="ph">Signer ici</div>' +
     '</div>' +
     '<div class="sig-actions">' +
-      '<button class="btn-sign" id="btnSign' + idx + '" onclick="openModal(' + idx + ')">✍ Signer</button>' +
+      '<button class="btn-sign" id="btnSign' + idx + '" onclick="openModal(' + idx + ')" style="opacity:' + (document.getElementById('rgpdCheck').checked ? '1' : '0.4') + '" ' + (document.getElementById('rgpdCheck').checked ? '' : 'disabled') + '>✍ Signer</button>' +
       '<button class="btn-clear" onclick="clearSig(' + idx + ')" title="Effacer">✕</button>' +
       '<button class="btn-clear" onclick="removeSig(' + idx + ')" title="Supprimer" style="background:#fee2e2;color:#dc2626;">🗑</button>' +
     '</div>';
   grid.appendChild(block);
+  closeAddSigModal();
 }
+
+function addSignatory() { openAddSigModal(); }
 
 function removeSig(idx) {
   if (!confirm('Retirer ce signataire ?')) return;

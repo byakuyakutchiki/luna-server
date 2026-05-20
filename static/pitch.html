@@ -267,11 +267,63 @@ body::after{
   letter-spacing:1px;transition:transform .2s,box-shadow .2s;
 }
 #start-btn:hover{transform:scale(1.05);box-shadow:0 0 28px rgba(124,58,237,.6);}
+
+/* PRESENTER LOCK */
+#presenterLock{
+  position:fixed;top:0;right:8px;height:28px;
+  display:flex;align-items:center;gap:6px;z-index:400;cursor:pointer;
+  font-size:.72em;color:rgba(255,255,255,.4);padding:0 8px;
+  transition:color .2s;
+}
+#presenterLock:hover{color:rgba(255,255,255,.8);}
+#presenterLock.unlocked{color:#34d399;}
+#pinModal{
+  display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);
+  z-index:600;align-items:center;justify-content:center;
+}
+#pinModal.open{display:flex;}
+.pin-box{
+  background:#0d0d1a;border:2px solid #7c3aed;border-radius:12px;
+  padding:28px 36px;text-align:center;min-width:280px;
+}
+.pin-box h3{font-size:.9em;color:#a78bfa;letter-spacing:2px;text-transform:uppercase;margin-bottom:8px;}
+.pin-box p{font-size:.76em;color:#555;margin-bottom:16px;}
+#pinInput{
+  width:100%;background:#1a1a2e;border:1px solid #333;color:white;
+  padding:10px;border-radius:6px;font-size:1.2em;letter-spacing:4px;
+  text-align:center;font-family:monospace;margin-bottom:12px;
+  outline:none;
+}
+#pinInput:focus{border-color:#7c3aed;}
+.pin-btns{display:flex;gap:10px;}
+.pin-btns button{flex:1;padding:9px;border:none;border-radius:6px;cursor:pointer;font-size:.85em;font-weight:700;}
+#pinOk{background:#7c3aed;color:white;}
+#pinOk:hover{background:#6d28d9;}
+#pinCancel{background:#1a1a2e;border:1px solid #333;color:#666;}
+#pinErr{font-size:.75em;color:#f87171;margin-top:8px;min-height:16px;}
 </style>
 </head>
 <body>
 
 <div id="topbar">🔒 DOCUMENT CONFIDENTIEL — © Ludovic Saint-Louis — Toute reproduction ou enregistrement est strictement interdit</div>
+
+<!-- Verrou présentateur -->
+<div id="presenterLock" onclick="toggleLock()" title="Mode présentateur">🔒 Présent.</div>
+
+<!-- Modal PIN -->
+<div id="pinModal">
+  <div class="pin-box">
+    <h3>🎯 Mode Présentateur</h3>
+    <p>Entrez votre code pour contrôler la présentation</p>
+    <input id="pinInput" type="password" maxlength="12" placeholder="••••" autocomplete="off"
+           onkeydown="if(event.key==='Enter')submitPin()">
+    <div class="pin-btns">
+      <button id="pinCancel" onclick="closePinModal()">Annuler</button>
+      <button id="pinOk" onclick="submitPin()">Valider →</button>
+    </div>
+    <div id="pinErr"></div>
+  </div>
+</div>
 
 <div id="start-screen">
   <div style="font-size:3em;margin-bottom:12px;">🌙</div>
@@ -282,8 +334,8 @@ body::after{
     avant de commencer cette présentation.<br>
     <a href="/nda" target="_blank" style="color:#a78bfa;font-weight:700;">→ Ouvrir et signer le NDA</a>
   </div>
-  <button id="start-btn" onclick="startPresentation()">▶ Lancer la présentation</button>
-  <div style="font-size:.72em;color:#333;margin-top:16px;">Espace / → pour avancer · ← pour reculer · P pour pause</div>
+  <button id="start-btn" onclick="startPresentation()">🔒 Activer le contrôle</button>
+  <div style="font-size:.72em;color:#333;margin-top:16px;">Code présentateur requis pour démarrer</div>
 </div>
 
 <div id="stage">
@@ -728,6 +780,50 @@ var current = 0;
 var paused = false;
 var autoTimer = null;
 var AUTO_DELAY = 9000;
+var presenterMode = false;
+var PRESENTER_PIN = "LUNA2026";
+var pinTarget = null; // 'start' or 'toggle'
+
+function toggleLock() {
+  if (presenterMode) {
+    presenterMode = false;
+    var lk = document.getElementById('presenterLock');
+    lk.textContent = '🔒 Présent.';
+    lk.classList.remove('unlocked');
+    clearTimeout(autoTimer);
+  } else {
+    openPinModal('toggle');
+  }
+}
+function openPinModal(target) {
+  pinTarget = target;
+  document.getElementById('pinInput').value = '';
+  document.getElementById('pinErr').textContent = '';
+  document.getElementById('pinModal').classList.add('open');
+  setTimeout(function(){ document.getElementById('pinInput').focus(); }, 100);
+}
+function closePinModal() {
+  document.getElementById('pinModal').classList.remove('open');
+  document.getElementById('pinInput').value = '';
+  document.getElementById('pinErr').textContent = '';
+}
+function submitPin() {
+  var val = document.getElementById('pinInput').value;
+  if (val === PRESENTER_PIN) {
+    presenterMode = true;
+    var lk = document.getElementById('presenterLock');
+    lk.textContent = '🔓 Présent.';
+    lk.classList.add('unlocked');
+    closePinModal();
+    if (pinTarget === 'start') {
+      _doStartPresentation();
+    }
+  } else {
+    document.getElementById('pinErr').textContent = '❌ Code incorrect';
+    document.getElementById('pinInput').value = '';
+    document.getElementById('pinInput').focus();
+  }
+}
 
 var voiceTexts = [
   "Luna YAWatch — une IA compagnon bienveillante, disponible 24h/24.",
@@ -807,10 +903,17 @@ function showSlide(n) {
   }
 }
 
-function nextSlide(){if(!paused&&current<TOTAL-1)showSlide(current+1);}
-function prevSlide(){clearTimeout(autoTimer);showSlide(current-1);}
+function nextSlide(){
+  if(!presenterMode)return;
+  if(!paused&&current<TOTAL-1)showSlide(current+1);
+}
+function prevSlide(){
+  if(!presenterMode)return;
+  clearTimeout(autoTimer);showSlide(current-1);
+}
 
 function togglePause(){
+  if(!presenterMode)return;
   paused=!paused;
   var btn=document.getElementById('pauseBtn');
   var overlay=document.getElementById('pauseOverlay');
@@ -830,16 +933,27 @@ function togglePause(){
 }
 
 document.getElementById('pauseOverlay').addEventListener('click',function(){
-  if(paused) togglePause();
+  if(presenterMode&&paused) togglePause();
 });
 
 document.addEventListener('keydown',function(e){
+  if(document.getElementById('pinModal').classList.contains('open')) return;
+  if(!presenterMode) return;
   if(e.key==='ArrowRight'||e.key===' '){e.preventDefault();clearTimeout(autoTimer);nextSlide();}
   if(e.key==='ArrowLeft'){e.preventDefault();prevSlide();}
   if(e.key==='p'||e.key==='P'){togglePause();}
 });
 
 function startPresentation(){
+  if(!presenterMode){
+    openPinModal('start');
+    return;
+  }
+  _doStartPresentation();
+}
+function _doStartPresentation(){
+  var btn=document.getElementById('start-btn');
+  btn.textContent='▶ Lancer la présentation';
   var ss=document.getElementById('start-screen');
   ss.style.opacity='0';
   setTimeout(function(){ss.style.display='none';showSlide(0);},800);
