@@ -4355,6 +4355,42 @@ async def pitch_page():
     return JSONResponse(status_code=404, content={"error": "Pitch non disponible"})
 
 
+@app.get("/pitch/live")
+async def pitch_live_page():
+    """Vue audience — lecture seule, synchronisée avec le présentateur."""
+    path = os.path.join(STATIC_DIR, "pitch_live.html")
+    if os.path.isfile(path):
+        return FileResponse(path, headers={"Cache-Control": "no-cache"})
+    return JSONResponse(status_code=404, content={"error": "Page non disponible"})
+
+
+_PITCH_PIN = "LUNA2026"
+_PITCH_REDIS_KEY = "pitch:current_slide"
+
+
+@app.get("/api/pitch/state")
+async def pitch_state():
+    """Retourne le numéro de slide courant."""
+    try:
+        val = _redis_client.client.get(_PITCH_REDIS_KEY) if _redis_client else None
+        return {"slide": int(val) if val else 0}
+    except Exception:
+        return {"slide": 0}
+
+
+@app.post("/api/pitch/slide/{n}")
+async def pitch_set_slide(n: int, x_presenter_token: str = Header(None)):
+    """Met à jour le slide courant (présentateur authentifié uniquement)."""
+    if x_presenter_token != _PITCH_PIN:
+        return JSONResponse(status_code=403, content={"error": "Non autorisé"})
+    try:
+        _redis_client.client.set(_PITCH_REDIS_KEY, n)
+        _redis_client.client.publish("pitch:slide_update", str(n))
+    except Exception:
+        pass
+    return {"ok": True, "slide": n}
+
+
 # =========================================================================
 # APPELS VOCAUX - Twilio Voice + OpenAI Realtime API
 # =========================================================================

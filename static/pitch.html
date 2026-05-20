@@ -882,6 +882,14 @@ var bgColors = [
   }
 })();
 
+function syncSlideToAudience(n) {
+  if(!presenterMode) return;
+  fetch('/api/pitch/slide/'+n, {
+    method:'POST',
+    headers:{'X-Presenter-Token': PRESENTER_PIN}
+  }).catch(function(){});
+}
+
 function showSlide(n) {
   if(n<0||n>=TOTAL) return;
   document.querySelectorAll('.slide').forEach(function(s){s.classList.remove('active','exit');});
@@ -890,6 +898,7 @@ function showSlide(n) {
   document.getElementById('bgGrad').style.background=bgColors[n];
   document.getElementById('slide-counter').textContent=(n+1)+' / '+TOTAL;
   document.getElementById('progress-fill').style.width=((n+1)/TOTAL*100)+'%';
+  syncSlideToAudience(n);
 
   var vo=document.getElementById('voiceover');
   vo.textContent=voiceTexts[n];
