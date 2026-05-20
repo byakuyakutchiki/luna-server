@@ -335,7 +335,24 @@ body::after{
     <a href="/nda" target="_blank" style="color:#a78bfa;font-weight:700;">→ Ouvrir et signer le NDA</a>
   </div>
   <button id="start-btn" onclick="startPresentation()">🔒 Activer le contrôle</button>
-  <div style="font-size:.72em;color:#333;margin-top:16px;">Code présentateur requis pour démarrer</div>
+  <div style="font-size:.72em;color:#333;margin-top:12px;">Code présentateur requis pour démarrer</div>
+  <button onclick="testWithoutNda()" style="margin-top:14px;background:none;border:1px solid #333;color:#555;padding:8px 22px;border-radius:20px;cursor:pointer;font-size:.78em;">⚠️ Tester sans NDA</button>
+</div>
+
+<!-- Warning test -->
+<div id="testWarning" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:600;align-items:center;justify-content:center;">
+  <div style="background:#0d0d1a;border:2px solid #f59e0b;border-radius:12px;padding:28px 32px;max-width:360px;text-align:center;">
+    <div style="font-size:2em;margin-bottom:12px;">⚠️</div>
+    <div style="font-size:.95em;font-weight:700;color:#fbbf24;margin-bottom:8px;">Mode test — NDA non signé</div>
+    <div style="font-size:.8em;color:#777;line-height:1.6;margin-bottom:20px;">
+      Vous visionnez cette présentation <strong style="color:#f87171;">sans accord de confidentialité</strong>.<br>
+      Toute reproduction ou divulgation reste illégale (Art. L.335-2 CPI).
+    </div>
+    <div style="display:flex;gap:10px;">
+      <button onclick="document.getElementById('testWarning').style.display='none'" style="flex:1;padding:10px;background:#1a1a2e;border:1px solid #333;color:#666;border-radius:6px;cursor:pointer;font-size:.85em;">Annuler</button>
+      <button onclick="confirmTest()" style="flex:1;padding:10px;background:#f59e0b;border:none;color:#000;border-radius:6px;cursor:pointer;font-size:.85em;font-weight:700;">Lancer le test</button>
+    </div>
+  </div>
 </div>
 
 <div id="stage">
@@ -966,6 +983,18 @@ function _doStartPresentation(){
   var ss=document.getElementById('start-screen');
   ss.style.opacity='0';
   setTimeout(function(){ss.style.display='none';showSlide(0);},800);
+}
+
+function testWithoutNda(){
+  document.getElementById('testWarning').style.display='flex';
+}
+function confirmTest(){
+  document.getElementById('testWarning').style.display='none';
+  presenterMode=true;
+  var lk=document.getElementById('presenterLock');
+  lk.textContent='🔓 TEST';
+  lk.classList.add('unlocked');
+  _doStartPresentation();
 }
 
 document.addEventListener('contextmenu',function(e){e.preventDefault();});
