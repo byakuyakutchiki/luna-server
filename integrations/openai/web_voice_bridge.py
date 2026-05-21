@@ -333,25 +333,34 @@ class WebVoiceBridge:
         logger.info(f"WebVoice: injected {len(history)} history entries for continuity")
 
     async def _configure_session(self):
+        # Format API Realtime GA (post-beta) — audio imbriqué sous audio.input/output
         session_config = {
             "type": "session.update",
             "session": {
-                "voice": self.voice,
+                "type": "realtime",
                 "instructions": self.context,
-                "input_audio_format": "pcm16",
-                "output_audio_format": "pcm16",
-                "input_audio_transcription": {
-                    "model": "whisper-1",
-                },
-                "turn_detection": {
-                    "type": "semantic_vad",
-                    "eagerness": self.vad_eagerness,
+                "audio": {
+                    "input": {
+                        "format": {"type": "audio/pcm", "rate": 24000},
+                        "transcription": {"model": "whisper-1"},
+                        "turn_detection": {
+                            "type": "server_vad",
+                            "threshold": 0.5,
+                            "prefix_padding_ms": 300,
+                            "silence_duration_ms": 500,
+                        },
+                    },
+                    "output": {
+                        "format": {"type": "audio/pcm", "rate": 24000},
+                        "voice": self.voice,
+                    },
                 },
                 "tools": VOICE_TOOLS,
+                "tool_choice": "auto",
             },
         }
         await self._ws_send_openai(session_config)
-        logger.info(f"WebVoice: session configured (pcm16 24kHz, vad={self.vad_eagerness})")
+        logger.info("WebVoice: session configured (audio/pcm 24kHz, server_vad)")
 
     async def _send_greeting(self):
         """Envoie un message initial pour que Luna salue le souscripteur."""
