@@ -165,7 +165,6 @@ class WebVoiceBridge:
                 _ws_kwargs = {
                     _headers_kwarg: {
                         "Authorization": f"Bearer {self.openai_api_key}",
-                        "OpenAI-Beta": "realtime=v1",
                     },
                     "close_timeout": 5,
                     "ping_interval": 20,
