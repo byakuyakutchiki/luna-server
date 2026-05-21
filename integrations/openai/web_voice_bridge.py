@@ -29,9 +29,9 @@ logger = logging.getLogger(__name__)
 
 import os
 
-OPENAI_REALTIME_MODEL = os.getenv("OPENAI_REALTIME_MODEL", "gpt-realtime")
+OPENAI_REALTIME_MODEL = os.getenv("OPENAI_REALTIME_MODEL", "gpt-realtime-2")
 OPENAI_REALTIME_URL = f"wss://api.openai.com/v1/realtime?model={OPENAI_REALTIME_MODEL}"
-OPENAI_VOICE_NAME = os.getenv("OPENAI_VOICE_NAME", "alloy")
+OPENAI_VOICE_NAME = os.getenv("OPENAI_VOICE_NAME", "coral")
 
 # Import des tools depuis le bridge Twilio (meme jeu de tools)
 from integrations.openai.realtime_bridge import VOICE_TOOLS, _realtime_semaphore, _active_bridges
@@ -343,6 +343,7 @@ class WebVoiceBridge:
                     "input": {
                         "format": {"type": "audio/pcm", "rate": 24000},
                         "transcription": {"model": "whisper-1"},
+                        "noise_reduction": {"type": "near_field"},
                         "turn_detection": {
                             "type": "server_vad",
                             "threshold": 0.5,
@@ -355,6 +356,7 @@ class WebVoiceBridge:
                     "output": {
                         "format": {"type": "audio/pcm", "rate": 24000},
                         "voice": self.voice,
+                        "speed": 1.05,
                     },
                 },
                 "tools": VOICE_TOOLS,

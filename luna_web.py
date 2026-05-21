@@ -5189,11 +5189,10 @@ Quand il parle de ses heures, propose de les enregistrer. Quand il parle d'une r
         ws_client=websocket,
         context=context,
         tool_handler=handle_voice_tool,
-        voice=os.getenv("OPENAI_VOICE_NAME", "alloy"),
-        max_duration_seconds=1800,
+        voice=os.getenv("OPENAI_VOICE_NAME", "coral"),
+        max_duration_seconds=int(os.getenv("VOICE_MAX_DURATION", "900")),
         greeting=_greeting,
         conversation_history=_voice_history,
-        vad_eagerness="low",
     )
 
     _voice_start = time.time()
