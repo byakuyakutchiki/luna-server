@@ -437,7 +437,7 @@ class WebVoiceBridge:
                 elif event_type == "session.updated":
                     logger.debug("WebVoice: OpenAI session updated")
 
-                elif event_type == "response.audio.delta":
+                elif event_type in ("response.audio.delta", "response.output_audio.delta"):
                     audio_delta = data.get("delta", "")
                     if audio_delta:
                         await self._ws_send_client({
@@ -445,7 +445,7 @@ class WebVoiceBridge:
                             "audio": audio_delta,
                         })
 
-                elif event_type == "response.audio.done":
+                elif event_type in ("response.audio.done", "response.output_audio.done"):
                     await self._ws_send_client({"type": "audio_done"})
 
                 elif event_type == "input_audio_buffer.speech_started":
@@ -470,7 +470,7 @@ class WebVoiceBridge:
                             "text": text,
                         })
 
-                elif event_type == "response.audio_transcript.done":
+                elif event_type in ("response.audio_transcript.done", "response.output_audio_transcript.done"):
                     text = data.get("transcript", "").strip()
                     if text:
                         self.transcript.append({"role": "luna", "text": text})
@@ -511,8 +511,11 @@ class WebVoiceBridge:
                 elif event_type == "conversation.item.created":
                     pass
 
-                elif event_type == "response.audio_transcript.delta":
+                elif event_type in ("response.audio_transcript.delta", "response.output_audio_transcript.delta"):
                     pass  # Partial transcript, handled at .done
+
+                elif event_type in ("conversation.item.done", "conversation.item.added"):
+                    pass
 
                 elif event_type == "conversation.item.input_audio_transcription.failed":
                     logger.warning(f"WebVoice: transcription failed: {data.get('error', {})}")
