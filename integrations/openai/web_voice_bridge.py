@@ -346,9 +346,9 @@ class WebVoiceBridge:
                         "noise_reduction": {"type": "near_field"},
                         "turn_detection": {
                             "type": "server_vad",
-                            "threshold": 0.5,
-                            "prefix_padding_ms": 200,
-                            "silence_duration_ms": 300,
+                            "threshold": 0.75,
+                            "prefix_padding_ms": 400,
+                            "silence_duration_ms": 350,
                             "create_response": True,
                             "interrupt_response": True,
                         },
@@ -356,7 +356,6 @@ class WebVoiceBridge:
                     "output": {
                         "format": {"type": "audio/pcm", "rate": 24000},
                         "voice": self.voice,
-                        "speed": 1.05,
                     },
                 },
                 "tools": VOICE_TOOLS,
