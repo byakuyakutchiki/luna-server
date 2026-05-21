@@ -486,7 +486,7 @@ class MemoryManager:
         data = self.redis.get_contact_profile(self.tenant_id, phone)
         if not data:
             return None
-        return TrustedContact.from_redis(data)
+        return TrustedContact.from_redis(data, phone_fallback=phone)
 
     def list_trusted_contacts(self) -> List[TrustedContact]:
         """Liste tous les contacts de confiance"""

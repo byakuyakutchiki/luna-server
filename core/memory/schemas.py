@@ -405,17 +405,23 @@ class TrustedContact(BaseModel):
         }
 
     @classmethod
-    def from_redis(cls, data: Dict[str, str]) -> "TrustedContact":
-        """Crée depuis format Redis"""
-        if not data.get("phone") or not data.get("name"):
+    def from_redis(cls, data: Dict[str, str], phone_fallback: str = "") -> "TrustedContact":
+        """Crée depuis format Redis — phone peut venir de la clé Redis si absent du hash."""
+        phone = data.get("phone") or phone_fallback
+        name = data.get("name", "")
+        if not phone or not name:
             raise ValueError(f"Contact Redis corrompu: champs manquants (keys={list(data.keys())})")
+        try:
+            verified_at = datetime.fromisoformat(data["verified_at"]) if data.get("verified_at") else datetime.now()
+        except (ValueError, KeyError):
+            verified_at = datetime.now()
         return cls(
-            phone=data["phone"],
-            name=data["name"],
+            phone=phone,
+            name=name,
             relation=data.get("relation", ""),
             email=data.get("email") or None,
             address=data.get("address") or None,
-            verified_at=datetime.fromisoformat(data["verified_at"]),
+            verified_at=verified_at,
             last_contact=datetime.fromisoformat(data["last_contact"]) if data.get("last_contact") else None,
             preferred_channel=Channel(data.get("preferred_channel", "sms")),
             quiet_hours_start=data.get("quiet_hours_start") or None,
