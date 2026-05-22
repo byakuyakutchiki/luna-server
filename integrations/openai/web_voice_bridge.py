@@ -39,7 +39,7 @@ from integrations.openai.realtime_bridge import VOICE_TOOLS, _realtime_semaphore
 # Nombre d'erreurs client consecutives avant arret
 _MAX_CLIENT_ERRORS = 3
 # Nombre d'erreurs OpenAI consecutives (hors audio) avant arret
-_MAX_OPENAI_ERRORS = 5
+_MAX_OPENAI_ERRORS = 15
 
 
 class WebVoiceBridge:
@@ -342,7 +342,6 @@ class WebVoiceBridge:
                 "audio": {
                     "input": {
                         "format": {"type": "audio/pcm", "rate": 24000},
-                        "transcription": {"model": "whisper-1"},
                         "noise_reduction": {"type": "near_field"},
                         "turn_detection": {
                             "type": "server_vad",

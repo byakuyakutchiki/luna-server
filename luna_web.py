@@ -5223,7 +5223,7 @@ Quand il parle de ses heures, propose de les enregistrer. Quand il parle d'une r
                 logger.info(f"Luna Voice transcript saved: {conv_id} ({len(bridge.transcript)} entries, {_voice_dur:.1f}min)")
 
                 # Auto-generer un compte rendu structure si conversation > 2 echanges
-                if len(bridge.transcript) >= 4 and openai_client:
+                if len(bridge.transcript) >= 4 and openai_client and _voice_dur > 0.5:
                     try:
                         _transcript_text = "\n".join(
                             f"{'Utilisateur' if e['role'] == 'user' else 'Luna'}: {e['text']}"
