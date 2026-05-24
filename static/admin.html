@@ -120,6 +120,7 @@ tr:hover { background: rgba(167,139,250,0.05); }
     <button class="tab-btn" data-tab="world" style="color:#a78bfa;">Monde</button>
     <button class="tab-btn" data-tab="royalties" style="color:#2dd4bf;">💰 Royalties</button>
     <button class="tab-btn" data-tab="valuation" style="color:#fbbf24;">📈 Valorisation</button>
+    <button class="tab-btn" data-tab="objectives" style="color:#34d399;" onclick="loadObjectives()">🔍 Objectifs</button>
   </div>
 
   <!-- DASHBOARD TAB -->
@@ -746,6 +747,72 @@ function loadRoyalties() {
 function _eur(n){ return new Intl.NumberFormat('fr-FR',{style:'currency',currency:'EUR',maximumFractionDigits:0}).format(n||0); }
 
 // =========================================================================
+// OBJECTIFS — Diagnostic temps réel par domaine de clé
+// =========================================================================
+function loadObjectives(force) {
+  var url = "/api/admin/objectives" + (force ? "?force=1" : "");
+  var el = document.getElementById("objectivesPanel");
+  if (!force) el.innerHTML = '<p style="color:#888;text-align:center;padding:20px;">Chargement du diagnostic...</p>';
+  authFetch(url).then(function(d) {
+    var score = d.score || "?/?";
+    var allOk = d.all_ok;
+    var objs = d.objectives || [];
+    var byDomain = d.summary_by_domain || {};
+    var checkedAt = d.checked_at || "";
+
+    var domainColors = {chat:"#60a5fa", cortex:"#f59e0b", analysis:"#a78bfa", guardian:"#f87171", "":"#888"};
+    var domainLabels = {chat:"CHAT", cortex:"CORTEX", analysis:"ANALYSIS", guardian:"GUARDIAN"};
+
+    var html = '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">';
+    html += '<div>';
+    html += '<span style="font-size:2em;font-weight:700;color:' + (allOk?"#4ade80":"#f87171") + '">' + score + '</span>';
+    html += '<span style="color:#888;font-size:0.85em;margin-left:10px;">objectifs atteints</span>';
+    html += '</div>';
+    html += '<div style="display:flex;gap:8px;align-items:center;">';
+    html += '<span style="color:#555;font-size:0.75em;">' + (checkedAt ? checkedAt.replace("T"," ").replace("Z","") + " UTC" : "") + '</span>';
+    html += '<button onclick="loadObjectives(true)" style="padding:6px 14px;border-radius:6px;border:none;background:#7c3aed;color:#fff;cursor:pointer;font-size:0.82em;">↺ Relancer</button>';
+    html += '</div></div>';
+
+    // Score par domaine de clé
+    html += '<div style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap;">';
+    ["chat","cortex","analysis","guardian"].forEach(function(dom) {
+      var s = byDomain[dom] || {ok:0, total:0};
+      var allGood = s.total > 0 && s.ok === s.total;
+      html += '<div style="background:#1a1a2e;border:1px solid ' + (allGood?"#4ade80":"#f87171") + ';border-radius:8px;padding:10px 16px;min-width:100px;">';
+      html += '<div style="color:' + domainColors[dom] + ';font-size:0.7em;font-weight:700;letter-spacing:1px;">' + domainLabels[dom] + '</div>';
+      html += '<div style="font-size:1.4em;font-weight:700;color:' + (allGood?"#4ade80":"#f87171") + '">' + s.ok + '/' + s.total + '</div>';
+      html += '</div>';
+    });
+    html += '</div>';
+
+    // Liste détaillée par tab
+    var tabs = {};
+    objs.forEach(function(o) { if (!tabs[o.tab]) tabs[o.tab] = []; tabs[o.tab].push(o); });
+    Object.keys(tabs).forEach(function(tab) {
+      var items = tabs[tab];
+      var tabOk = items.every(function(i){ return i.ok; });
+      html += '<div style="margin-bottom:10px;background:#0f0f1a;border-radius:8px;border:1px solid ' + (tabOk?"#2d2d4e":"#7f1d1d") + ';overflow:hidden;">';
+      html += '<div style="padding:8px 14px;background:' + (tabOk?"#1a1a2e":"#1c0a0a") + ';display:flex;justify-content:space-between;align-items:center;">';
+      html += '<span style="font-weight:600;color:#ddd;">' + tab + '</span>';
+      html += '<span style="font-size:0.8em;color:' + (tabOk?"#4ade80":"#f87171") + '">' + (tabOk?"✓ OK":"⚠ ECHEC") + '</span>';
+      html += '</div>';
+      items.forEach(function(o) {
+        var dom = o.domain || "";
+        var domTag = dom ? '<span style="font-size:0.68em;font-weight:700;color:' + domainColors[dom] + ';margin-left:6px;letter-spacing:1px;">[' + domainLabels[dom] + ']</span>' : "";
+        html += '<div style="padding:6px 14px;border-top:1px solid #1a1a2e;display:flex;justify-content:space-between;align-items:center;">';
+        html += '<span style="color:#aaa;font-size:0.82em;">' + o.objective + domTag + '</span>';
+        var detail = o.detail ? '<span style="color:#888;font-size:0.75em;margin-left:8px;">' + o.detail + '</span>' : "";
+        html += '<span>' + (o.ok ? '✅' : '❌') + detail + '</span>';
+        html += '</div>';
+      });
+      html += '</div>';
+    });
+
+    el.innerHTML = html;
+  }).catch(function(e) { document.getElementById("objectivesPanel").innerHTML = '<p style="color:#f87171">Erreur: '+e.message+'</p>'; });
+}
+
+// =========================================================================
 // VALORISATION
 // =========================================================================
 function loadValuation() {
@@ -773,5 +840,15 @@ function loadValuation() {
   }).catch(function(e){ document.getElementById("valuationCards").innerHTML='<p style="color:#f87171">'+e.message+'</p>'; });
 }
 </script>
+
+<!-- OBJECTIFS TAB -->
+<div class="tab-panel" id="tab-objectives" style="display:none;">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+    <h3 style="font-size:1em;margin:0;">🔍 Diagnostic — Objectifs par tab et par clé</h3>
+    <span style="font-size:0.75em;color:#555;">Mis à jour toutes les 5 min · Alerte Telegram si échec</span>
+  </div>
+  <div id="objectivesPanel"><p style="color:#888;text-align:center;padding:40px;">Cliquez sur l'onglet pour lancer le diagnostic.</p></div>
+</div>
+
 </body>
 </html>

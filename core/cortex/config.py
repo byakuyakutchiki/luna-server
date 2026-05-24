@@ -93,6 +93,14 @@ class CortexConfig:
         # Contacts
         config.founder_phone = os.getenv("FOUNDER_PHONE", "")
         config.founder_telegram_chat_id = os.getenv("FOUNDER_TELEGRAM_CHAT_ID", "")
+        # Surcharge depuis Redis si disponible (persisté après /pair)
+        try:
+            if redis_client and not config.founder_telegram_chat_id:
+                saved = redis_client.client.get("cortex:founder_telegram_chat_id")
+                if saved:
+                    config.founder_telegram_chat_id = saved
+        except Exception:
+            pass
         config.exploitant_phone = os.getenv("ADMIN_NUMBER", "")
         config.exploitant_telegram_chat_id = os.getenv("ALERT_TELEGRAM_CHAT_ID", "")
         config.telegram_bot_token = os.getenv("ALERT_TELEGRAM_BOT_TOKEN", "")

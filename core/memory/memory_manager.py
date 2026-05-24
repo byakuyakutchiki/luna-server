@@ -103,13 +103,19 @@ class MemoryManager:
         return Conversation.from_redis(data)
 
     def list_conversations(self) -> List[Conversation]:
-        """Liste toutes les conversations actives"""
+        """Liste toutes les conversations actives (pipeline Redis = 1 aller-retour)."""
         conv_ids = self.redis.get_conversation_ids(self.tenant_id)
+        if not conv_ids:
+            return []
+        all_metas = self.redis.get_all_conversation_metas(self.tenant_id, list(conv_ids))
         conversations = []
-        for conv_id in conv_ids:
-            conv = self.get_conversation(conv_id)
-            if conv:
-                conversations.append(conv)
+        for data in all_metas:
+            if data:
+                try:
+                    conv = Conversation.from_redis(data)
+                    conversations.append(conv)
+                except Exception:
+                    pass
         return sorted(conversations, key=lambda c: c.last_activity, reverse=True)
 
     def close_conversation(self, conv_id: str) -> None:

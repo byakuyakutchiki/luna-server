@@ -1,5 +1,5 @@
 // Luna Service Worker — Offline cache + push notifications
-var CACHE_NAME = "luna-v47";
+var CACHE_NAME = "luna-v49";
 var PRECACHE_URLS = [
   "/",
   "/static/index.html",
@@ -85,7 +85,7 @@ self.addEventListener("fetch", function(event) {
     caches.match(event.request).then(function(cached) {
       if (cached) return cached;
       return fetch(event.request).then(function(response) {
-        if (response.ok && event.request.method === "GET" &&
+        if (response.ok && response.status !== 206 && event.request.method === "GET" &&
             url.pathname.startsWith("/static/")) {
           var clone = response.clone();
           caches.open(CACHE_NAME).then(function(cache) { cache.put(event.request, clone); });

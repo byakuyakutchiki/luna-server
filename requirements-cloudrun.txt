@@ -35,8 +35,11 @@ stripe>=7.0.0
 # Documents (certificat DOCX)
 python-docx>=1.0.0
 
-# OpenAI
+# OpenAI (voix temps réel)
 openai>=1.0.0
+
+# Anthropic Claude (chat + luna-brain)
+anthropic>=0.69.0,<1.0.0
 
 # Cortex (cerveau autonome)
 pyotp>=2.9.0
@@ -50,3 +53,6 @@ edge-tts>=6.1.0
 # Form Filler (remplissage PDF)
 PyMuPDF>=1.25.0
 Pillow>=11.0.0
+
+# Monitoring & Error tracking
+sentry-sdk[fastapi]>=2.0.0,<3.0.0

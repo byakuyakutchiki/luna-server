@@ -39,6 +39,9 @@ class RedisClient:
     def client(self) -> redis.Redis:
         """Lazy initialization du client Redis avec connection pool dimensionne."""
         if self._client is None:
+            extra = {}
+            if self._url.startswith("rediss://"):
+                extra["ssl_cert_reqs"] = None  # Upstash TLS
             pool = redis.ConnectionPool.from_url(
                 self._url,
                 decode_responses=True,
@@ -48,6 +51,7 @@ class RedisClient:
                 socket_keepalive=True,
                 retry_on_timeout=True,
                 health_check_interval=30,
+                **extra,
             )
             self._client = redis.Redis(connection_pool=pool)
         return self._client
@@ -157,6 +161,17 @@ class RedisClient:
         key = self.get_conversation_meta_key(tenant_id, conv_id)
         data = self.client.hgetall(key)
         return data if data else None
+
+    def get_all_conversation_metas(self, tenant_id: int, conv_ids: List[str]) -> List[Optional[Dict[str, str]]]:
+        """Récupère les métadonnées de toutes les conversations en un seul aller-retour (pipeline)."""
+        if not conv_ids:
+            return []
+        pipe = self.client.pipeline(transaction=False)
+        for conv_id in conv_ids:
+            key = self.get_conversation_meta_key(tenant_id, conv_id)
+            pipe.hgetall(key)
+        results = pipe.execute()
+        return [r if r else None for r in results]
 
     def add_message(self, tenant_id: int, conv_id: str, message_json: str) -> None:
         """Ajoute un message à une conversation"""
@@ -384,15 +399,13 @@ class RedisClient:
         return self._key(tenant_id, "usage", date)
 
     def get_memory_usage(self, tenant_id: int) -> int:
-        """Calcule l'usage mémoire approximatif d'un tenant (en bytes)"""
+        """Estime l'usage mémoire d'un tenant (en bytes) via comptage de clés × taille estimée."""
         pattern = self._key(tenant_id, "*")
-        total = 0
-        for key in self.client.scan_iter(match=pattern):
-            try:
-                total += self.client.memory_usage(key) or 0
-            except redis.RedisError:
-                pass
-        return total
+        try:
+            count = sum(1 for _ in self.client.scan_iter(match=pattern, count=500))
+            return count * 2048  # ~2KB par clé en moyenne
+        except redis.RedisError:
+            return 0
 
     def increment_daily_usage(self, tenant_id: int, field: str, amount: int = 1) -> int:
         """Incrémente un compteur d'usage quotidien"""

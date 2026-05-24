@@ -26,6 +26,9 @@ python-multipart>=0.0.6
 PyJWT>=2.8.0
 bcrypt>=4.0.0
 
+# Anthropic Claude (chat écrit + luna-brain)
+anthropic>=0.69.0,<1.0.0
+
 # System monitoring (Cortex)
 psutil>=5.9.0,<7.0.0
 
@@ -39,3 +42,6 @@ opencv-python-headless>=4.8.0,<5.0.0
 # Form Filler (remplissage PDF)
 PyMuPDF>=1.25.0
 Pillow>=11.0.0
+
+# Monitoring & Error tracking
+sentry-sdk[fastapi]>=2.0.0,<3.0.0

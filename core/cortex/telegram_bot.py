@@ -382,22 +382,32 @@ class CortexTelegramBot:
             return
 
         if self.auth.verify_totp(code):
-            # Determiner le role
-            # Premier utilisateur = founder, suivants = exploitant
+            # Determiner le role — premier utilisateur = founder
             role = "founder" if not self.auth.get_telegram_users() else "exploitant"
             self.auth.register_telegram_user(user_id, role, username)
             self._totp_sessions[user_id] = time.time()
+
+            # Sauvegarder le chat_id fondateur dans Redis (= user_id pour DMs)
+            if role == "founder" and self._redis:
+                try:
+                    self._redis.client.set("cortex:founder_telegram_chat_id", str(chat_id))
+                    # Mettre à jour la config en mémoire immédiatement
+                    if hasattr(self, '_brain') and self._brain:
+                        self._brain.config.founder_telegram_chat_id = str(chat_id)
+                    logger.info(f"Founder chat_id sauvegardé: {chat_id}")
+                except Exception as _e:
+                    logger.warning(f"Impossible de sauvegarder founder chat_id: {_e}")
+
             await self._send(
                 chat_id,
-                f"ASSOCIATION REUSSIE\n"
+                f"✅ ASSOCIATION REUSSIE\n"
                 f"User ID: {user_id}\n"
                 f"Username: @{username}\n"
                 f"Role: {role}\n\n"
-                f"Vous pouvez maintenant controler Luna.\n"
+                f"Tu recevras les alertes Luna directement ici.\n"
                 f"Tapez /help pour les commandes."
             )
-            logger.info(
-                f"Telegram user enregistre: {user_id} (@{username}) = {role}")
+            logger.info(f"Telegram user enregistre: {user_id} (@{username}) = {role}")
         else:
             await self._send(chat_id,
                              "Code TOTP incorrect. Verifiez Google Authenticator.")
