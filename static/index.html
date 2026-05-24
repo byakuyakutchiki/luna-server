@@ -8,6 +8,9 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="manifest" href="/static/manifest.json">
 <link rel="apple-touch-icon" href="/static/icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <title>Luna - YAWatch</title>
 <style>
 * { margin:0; padding:0; box-sizing:border-box; }
@@ -347,7 +350,21 @@ body.mode-secretaire .conc-modal-box .field input, body.mode-secretaire .conc-mo
 @keyframes bounce { 0%,80%,100% { transform: translateY(0); } 40% { transform: translateY(-8px); } }
 .luna-toast { position: fixed; top: calc(env(safe-area-inset-top, 0px) + 16px); right: 12px; left: 12px; max-width: 380px; margin: 0 auto; background: #1e1e3f; border-left: 4px solid #a78bfa; padding: 12px 16px; border-radius: 10px; z-index: 10000; color: #fff; opacity: 0; transform: translateY(-8px); transition: opacity 0.25s ease, transform 0.25s ease; font-size: 0.88em; box-shadow: 0 4px 24px rgba(0,0,0,0.5); pointer-events: none; }
 .luna-toast.show { opacity: 1; transform: translateY(0); }
+.luna-toast.toast-error { border-left-color: #f87171; background: #2a1a1a; }
+.luna-toast.toast-warning { border-left-color: #f59e0b; background: #1e1a0a; }
+.luna-toast.toast-success { border-left-color: #10b981; background: #0a1a14; }
 @media (min-width: 480px) { .luna-toast { left: auto; right: 20px; max-width: 320px; } }
+/* Modal de confirmation générique */
+#_lunaConfirmModal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 20000; align-items: center; justify-content: center; }
+#_lunaConfirmModal.active { display: flex; }
+#_lunaConfirmBox { background: #1a1a2e; border: 1px solid #444; border-radius: 16px; padding: 24px; width: 88%; max-width: 380px; text-align: center; }
+#_lunaConfirmBox h3 { margin: 0 0 12px; color: #e0e0e0; font-size: 1.05em; }
+#_lunaConfirmBox p { color: #aaa; font-size: 0.88em; margin: 0 0 20px; line-height: 1.5; }
+#_lunaConfirmBtns { display: flex; gap: 10px; }
+#_lunaConfirmBtns button { flex: 1; padding: 11px; border-radius: 10px; border: none; font-weight: 600; font-size: 0.88em; cursor: pointer; }
+#_lunaConfirmOk { background: #7c3aed; color: #fff; }
+#_lunaConfirmOk.danger { background: #dc2626; }
+#_lunaConfirmCancel { background: #333; color: #ccc; }
 .error-msg { border: 1px solid rgba(248,113,113,0.3); }
 .retry-btn { margin-left: 10px; padding: 8px 14px; border-radius: 12px; border: 1px solid #7c3aed; background: transparent; color: #a78bfa; cursor: pointer; font-size: 0.85em; min-height: 36px; }
 .retry-btn:hover { background: #7c3aed; color: white; }
@@ -487,6 +504,27 @@ body.mode-secretaire .conc-modal-box .field input, body.mode-secretaire .conc-mo
 
 @keyframes fadeIn { from { opacity:0; transform: translateY(8px); } to { opacity:1; transform: translateY(0); } }
 @keyframes slideUp { from { opacity:0; transform: translateY(20px); } to { opacity:1; transform: translateY(0); } }
+@keyframes lunaGlow { 0%,100%{box-shadow:0 0 10px rgba(139,76,240,0.4);} 50%{box-shadow:0 0 20px rgba(167,139,250,0.7),0 0 40px rgba(124,58,237,0.3);} }
+@keyframes headerAurora { 0%,100%{background-position:0% 50%;} 50%{background-position:100% 50%;} }
+/* AXE 4 — Premium UI */
+.header {
+  background: linear-gradient(135deg, #1a1a3e 0%, #2d1b69 50%, #1a1a3e 100%);
+  background-size: 200% 200%;
+  animation: headerAurora 8s ease infinite;
+}
+.luna::before { animation: lunaGlow 3s ease-in-out infinite; }
+.typing::before { animation: lunaGlow 2s ease-in-out infinite; }
+.user { background: linear-gradient(135deg, #5b21b6, #4c1d95); }
+/* Provider badge dans les messages */
+.msg-provider { font-size: 0.68em; color: #6b7280; margin-left: 6px; }
+.msg-provider.claude { color: #8b5cf6; }
+/* Amélioration input focus */
+.input-row:focus-within { border-color: #7c3aed !important; box-shadow: 0 0 0 2px rgba(124,58,237,0.15) !important; }
+/* Smooth button press */
+button:active:not(:disabled) { transform: scale(0.97); }
+/* Loading skeleton pour les messages en cours */
+@keyframes shimmerBg { 0%{background-position:-300px 0} 100%{background-position:300px 0} }
+.msg-loading { background: linear-gradient(90deg, #1e1e3f 25%, #2a2a5e 50%, #1e1e3f 75%); background-size: 300px 100%; animation: shimmerBg 1.5s infinite; }
 
 /* Stream tool indicator */
 .stream-tool-indicator { display: inline-flex; align-items: center; gap: 6px; margin-top: 8px; padding: 4px 12px; border-radius: 12px; background: rgba(124,58,237,0.12); color: #a78bfa; font-size: 0.82em; animation: pulse 1.5s infinite; }
@@ -546,7 +584,7 @@ body.mode-secretaire .conc-modal-box .field input, body.mode-secretaire .conc-mo
 
 /* Auth screens */
 .auth-screen { display: flex; justify-content: center; align-items: center; flex: 1; }
-.auth-box { background: #111; border: 1px solid #333; border-radius: 12px; padding: 40px; width: 90%; max-width: 360px; }
+.auth-box { background: #111; border: 1px solid #333; border-radius: 12px; padding: 40px; width: 90%; max-width: 360px; overflow: visible; }
 .auth-box h2 { color: #a78bfa; margin-bottom: 20px; text-align: center; }
 .auth-box input { width: 100%; padding: 14px 12px; border-radius: 8px; border: 1px solid #333; background: #1a1a2e; color: #fff; margin-bottom: 16px; font-size: 16px; outline: none; }
 .auth-box input:focus { border-color: #7c3aed; }
@@ -826,13 +864,671 @@ body.mode-secretaire .luna-chip:hover { background: rgba(16,185,129,0.2); border
 }
 .instr-day-btn { padding:5px 10px; border-radius:20px; border:1px solid #444; background:#111; color:#888; cursor:pointer; font-size:.8em; transition:all .15s; }
 .instr-day-btn.instr-day-active { border-color:#7c3aed; background:rgba(124,58,237,.2); color:#a78bfa; }
+
+/* ═══════════════════════════════════════════════════════════════════
+   YAWATCH INDUSTRIES — SHOWTIME v3 — L'APPLI DE L'ANNÉE
+   Canvas Aurora · Full Glassmorphism · Neon AAA
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* Design tokens v3 */
+:root {
+  --v:  #7c3aed;   --v2: #a78bfa;   --v3: #c4b5fd;
+  --g:  #4ade80;   --r:  #f87171;   --c:  #38bdf8;
+  --glass:  rgba(167,139,250,.06);
+  --glass2: rgba(167,139,250,.11);
+  --b:   rgba(167,139,250,.18);
+  --b2:  rgba(167,139,250,.38);
+  --blur: blur(28px) saturate(180%);
+  --tr:  all .25s cubic-bezier(.4,0,.2,1);
+  /* legacy yw- aliases kept for backwards compat */
+  --yw-bg:        #07071c;
+  --yw-bg2:       #07071c;
+  --yw-glass:     rgba(167,139,250,.06);
+  --yw-glass2:    rgba(167,139,250,.11);
+  --yw-border:    rgba(167,139,250,0.12);
+  --yw-border2:   rgba(167,139,250,0.25);
+  --yw-neon:      #a78bfa;
+  --yw-neon2:     #c4b5fd;
+  --yw-glow:      rgba(124,58,237,0.35);
+  --yw-glow2:     rgba(167,139,250,0.5);
+  --yw-cyan:      #67e8f9;
+  --yw-green:     #4ade80;
+  --yw-red:       #f87171;
+  --yw-gold:      #fbbf24;
+  --yw-text:      #d4c8f8;
+  --yw-muted:     #6b6b8a;
+  --yw-radius:    14px;
+  --yw-blur:      blur(24px);
+  --yw-transition: all 0.28s cubic-bezier(0.4,0,0.2,1);
+}
+
+/* ── Body & background ─────────────────────────────────────── */
+body {
+  background: #07071c !important;
+  color: #ddd6fe !important;
+  font-family: 'Space Grotesk','SF Pro Display',system-ui,sans-serif !important;
+  overflow-x: hidden;
+}
+#yw-aurora { position:fixed;inset:0;z-index:0;pointer-events:none; }
+
+/* Dot grid — JARVIS feel, z-index above aurora canvas */
+body::before {
+  content: '';
+  position: fixed; inset: 0; z-index: 1; pointer-events: none;
+  background-image: radial-gradient(circle, rgba(167,139,250,.10) 1px, transparent 1px);
+  background-size: 38px 38px;
+  mask-image: radial-gradient(ellipse 90% 90% at 50% 50%, black 30%, transparent 100%);
+  -webkit-mask-image: radial-gradient(ellipse 90% 90% at 50% 50%, black 30%, transparent 100%);
+}
+
+/* ── HEADER ──────────────────────────────────────────────────────────── */
+.header {
+  background: rgba(7,7,28,.88) !important;
+  background-size: unset !important; animation: none !important;
+  border-bottom: 1px solid var(--b) !important;
+  backdrop-filter: var(--blur) !important; -webkit-backdrop-filter: var(--blur) !important;
+  position: relative; z-index: 50;
+  box-shadow: 0 1px 0 rgba(167,139,250,.28), 0 8px 48px rgba(0,0,0,.85) !important;
+}
+.header::after {
+  content: ''; position: absolute; bottom: -1px; left: 0; right: 0; height: 1px;
+  background: linear-gradient(90deg, transparent 0%, var(--v2) 20%, #fff 50%, var(--v2) 80%, transparent 100%);
+  box-shadow: 0 0 16px var(--v2), 0 0 40px var(--v);
+  animation: scanPulse 5s ease-in-out infinite;
+}
+@keyframes scanPulse {
+  0%,100% { opacity:.35; transform: scaleX(.65); }
+  50%     { opacity:1;   transform: scaleX(1); }
+}
+.header h1 {
+  background: linear-gradient(90deg, #c4b5fd 0%, #e9d5ff 40%, #a78bfa 70%, #c4b5fd 100%) !important;
+  -webkit-background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+  background-clip: text !important;
+  font-weight: 700 !important; letter-spacing:.04em !important;
+  filter: drop-shadow(0 0 18px rgba(196,181,253,.6));
+}
+body.mode-secretaire .header h1 {
+  background: linear-gradient(90deg, #6ee7b7 0%, #a7f3d0 40%, #34d399 70%, #6ee7b7 100%) !important;
+  -webkit-background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+  background-clip: text !important;
+  filter: drop-shadow(0 0 18px rgba(52,211,153,.6)) !important;
+}
+.header p { color: #7c6fa8 !important; text-transform: uppercase; letter-spacing:.09em; font-size:.7em !important; }
+
+/* ── STATUS DOT ──────────────────────────────────────────────────────── */
+.status-dot.online {
+  background: var(--g) !important;
+  animation: sonar 2.5s ease-in-out infinite !important;
+}
+@keyframes sonar {
+  0%  { box-shadow: 0 0 0 0   rgba(74,222,128,.85); }
+  70% { box-shadow: 0 0 0 9px rgba(74,222,128,0); }
+  100%{ box-shadow: 0 0 0 0   rgba(74,222,128,0); }
+}
+
+/* ── SIDEBAR TOGGLE ──────────────────────────────────────────────────── */
+.sidebar-toggle {
+  background: var(--glass) !important; border: 1px solid var(--b) !important;
+  border-radius: 10px !important; color: var(--v2) !important; transition: var(--tr) !important;
+}
+.sidebar-toggle:hover {
+  background: var(--glass2) !important; border-color: var(--b2) !important;
+  box-shadow: 0 0 22px rgba(124,58,237,.55) !important; color: var(--v3) !important;
+}
+.logout-btn {
+  background: transparent !important; border: 1px solid rgba(248,113,113,.32) !important;
+  color: #f87171 !important; border-radius: 10px !important; font-size:.73em !important;
+  letter-spacing:.04em; transition: var(--tr) !important;
+}
+.logout-btn:hover { border-color: rgba(248,113,113,.72) !important; box-shadow: 0 0 20px rgba(248,113,113,.38) !important; }
+
+/* ── MODE SWITCHER ───────────────────────────────────────────────────── */
+.mode-switcher {
+  background: rgba(6,5,20,.90) !important; border-bottom: 1px solid var(--b) !important;
+  padding: 7px 12px !important;
+  backdrop-filter: var(--blur) !important; -webkit-backdrop-filter: var(--blur) !important;
+  position: relative; z-index: 40;
+}
+.mode-btn {
+  border: 1px solid rgba(167,139,250,.18) !important; color: #6b6b8a !important;
+  background: transparent !important; font-weight: 600 !important;
+  font-size:.8em !important; letter-spacing:.05em !important;
+  border-radius: 10px !important; transition: var(--tr) !important;
+}
+.mode-btn:hover { color: var(--v2) !important; border-color: var(--b) !important; }
+.mode-btn.active[data-mode="compagnon"] {
+  background: linear-gradient(135deg, rgba(124,58,237,.42) 0%, rgba(167,139,250,.18) 100%) !important;
+  border-color: var(--v2) !important; color: var(--v3) !important;
+  box-shadow: 0 0 30px rgba(124,58,237,.38), inset 0 1px 0 rgba(255,255,255,.09) !important;
+  text-shadow: 0 0 16px var(--v2);
+}
+.mode-btn.active[data-mode="secretaire"] {
+  background: linear-gradient(135deg, rgba(16,185,129,.32) 0%, rgba(52,211,153,.14) 100%) !important;
+  border-color: #34d399 !important; color: #6ee7b7 !important;
+  box-shadow: 0 0 26px rgba(16,185,129,.28) !important;
+}
+
+/* ── TABS ────────────────────────────────────────────────────────────── */
+.tabs {
+  background: rgba(6,5,20,.87) !important; border-bottom: 1px solid var(--b) !important;
+  backdrop-filter: var(--blur) !important; -webkit-backdrop-filter: var(--blur) !important;
+  position: relative; z-index: 30; box-shadow: 0 4px 32px rgba(0,0,0,.65);
+}
+.tab-btn {
+  color: #5a5a7a !important; font-size:.77em !important; font-weight: 500 !important;
+  letter-spacing:.04em !important; border-bottom: 2px solid transparent !important;
+  padding: 10px 12px !important; transition: var(--tr) !important; position: relative;
+}
+.tab-btn svg { transition: var(--tr); }
+.tab-btn:hover { color: var(--v2) !important; }
+.tab-btn:hover svg { filter: drop-shadow(0 0 6px var(--v)); }
+.tab-btn.active {
+  color: var(--v3) !important; border-bottom: 2px solid var(--v2) !important;
+  background: linear-gradient(180deg, transparent, rgba(124,58,237,.14)) !important;
+  text-shadow: 0 0 12px var(--v2);
+}
+.tab-btn.active svg { filter: drop-shadow(0 0 8px var(--v2)); }
+.tab-btn.active::before {
+  content: ''; position: absolute; bottom: -2px; left: 5%; right: 5%; height: 2px;
+  background: linear-gradient(90deg, transparent, var(--v3), transparent);
+  box-shadow: 0 0 16px var(--v2), 0 0 32px var(--v);
+}
+
+/* ── CHAT ────────────────────────────────────────────────────────────── */
+.chat { background: transparent !important; }
+
+/* Luna bubble */
+.luna {
+  background: linear-gradient(135deg,
+    rgba(40,25,90,.70) 0%, rgba(25,15,60,.58) 100%) !important;
+  border: 1px solid rgba(167,139,250,.22) !important;
+  backdrop-filter: blur(20px) saturate(160%) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(160%) !important;
+  box-shadow: 0 8px 32px rgba(0,0,0,.52), inset 0 1px 0 rgba(167,139,250,.15) !important;
+  transition: var(--tr);
+}
+.luna::before {
+  animation: lunaOrb 3.5s ease-in-out infinite !important;
+}
+@keyframes lunaOrb {
+  0%,100% { box-shadow: 0 0 14px rgba(124,58,237,.55), 0 0 28px rgba(124,58,237,.22); }
+  50%     { box-shadow: 0 0 28px rgba(167,139,250,.95), 0 0 56px rgba(124,58,237,.55), 0 0 80px rgba(124,58,237,.22); }
+}
+.luna-name { color: var(--v2) !important; font-size:.66em !important; text-transform: uppercase; letter-spacing:.1em; }
+
+/* User bubble */
+.user {
+  background: linear-gradient(135deg, #4c1d95 0%, #3b1478 100%) !important;
+  border: 1px solid rgba(167,139,250,.25) !important;
+  box-shadow: 0 8px 28px rgba(76,29,149,.55), inset 0 1px 0 rgba(255,255,255,.08) !important;
+}
+
+/* Typing */
+.typing {
+  background: linear-gradient(135deg, rgba(40,25,90,.65), rgba(25,15,60,.55)) !important;
+  border: 1px solid rgba(167,139,250,.18) !important;
+  backdrop-filter: blur(16px) !important; -webkit-backdrop-filter: blur(16px) !important;
+}
+.typing::before { animation: lunaOrb 2.5s ease-in-out infinite !important; }
+.typing-dots span { background: var(--v2) !important; }
+
+/* Message animation */
+.msg { animation: msgSlide .32s cubic-bezier(.34,1.56,.64,1) !important; }
+@keyframes msgSlide {
+  from { opacity:0; transform: translateY(16px) scale(.96); }
+  to   { opacity:1; transform: translateY(0)   scale(1); }
+}
+
+/* ── INPUT ───────────────────────────────────────────────────────────── */
+.input-area {
+  background: rgba(6,5,20,.94) !important; border-top: 1px solid var(--b) !important;
+  backdrop-filter: var(--blur) !important; -webkit-backdrop-filter: var(--blur) !important;
+  box-shadow: 0 -8px 40px rgba(0,0,0,.65) !important;
+}
+.input-row {
+  background: rgba(30,20,70,.68) !important;
+  border: 1px solid rgba(167,139,250,.22) !important; border-radius: 16px !important;
+  box-shadow: inset 0 1px 0 rgba(167,139,250,.08) !important; transition: var(--tr) !important;
+}
+.input-row:focus-within {
+  border-color: rgba(167,139,250,.52) !important;
+  box-shadow: 0 0 0 3px rgba(124,58,237,.20), 0 0 44px rgba(124,58,237,.22),
+              inset 0 1px 0 rgba(167,139,250,.14) !important;
+}
+#input { color: #ddd6fe !important; background: transparent !important; }
+#input::placeholder { color: #4a4a6a !important; }
+
+/* Send button — neon core */
+.send-btn {
+  background: linear-gradient(135deg, #5b21b6 0%, #7c3aed 100%) !important;
+  border: 1px solid rgba(167,139,250,.38) !important; border-radius: 14px !important;
+  box-shadow: 0 0 28px rgba(124,58,237,.65), 0 0 56px rgba(124,58,237,.22),
+              inset 0 1px 0 rgba(255,255,255,.16) !important;
+  transition: var(--tr) !important;
+}
+.send-btn:hover {
+  box-shadow: 0 0 44px rgba(124,58,237,.95), 0 0 88px rgba(124,58,237,.38),
+              inset 0 1px 0 rgba(255,255,255,.22) !important;
+  transform: scale(1.06) !important;
+}
+.send-btn:active  { transform: scale(.96) !important; }
+.send-btn:disabled { background: #1a1a3a !important; box-shadow: none !important; }
+
+/* Action toggle */
+.action-toggle {
+  background: var(--glass) !important; border: 1px solid var(--b) !important;
+  border-radius: 12px !important; color: var(--v2) !important; transition: var(--tr) !important;
+}
+.action-toggle:hover { background: var(--glass2) !important; border-color: var(--b2) !important; box-shadow: 0 0 24px rgba(124,58,237,.52) !important; }
+.action-toggle.open  { color: #fff !important; background: rgba(124,58,237,.42) !important; }
+
+/* ── SIDEBAR ─────────────────────────────────────────────────────────── */
+.conv-sidebar {
+  background: rgba(5,5,22,.97) !important; border-right: 1px solid var(--b) !important;
+  backdrop-filter: var(--blur) !important;
+}
+.conv-item { border-radius: 10px; margin: 2px 8px; transition: var(--tr) !important; }
+.conv-item:hover { background: var(--glass) !important; }
+.conv-item.active {
+  background: linear-gradient(135deg, rgba(124,58,237,.28), rgba(124,58,237,.10)) !important;
+  border-left-color: var(--v2) !important;
+}
+.conv-search {
+  background: rgba(20,15,50,.72) !important; border: 1px solid var(--b) !important;
+  border-radius: 10px !important; color: #ddd6fe !important;
+}
+.conv-search:focus { border-color: var(--b2) !important; outline: none; box-shadow: 0 0 0 2px rgba(124,58,237,.16); }
+.conv-new-btn { color: var(--v2) !important; }
+
+/* ── PANELS ──────────────────────────────────────────────────────────── */
+.tab-panel { background: transparent !important; position: relative; z-index: 2; }
+.panel-content { background: transparent !important; }
+.panel-content h2 { color: var(--v2) !important; letter-spacing:.03em; }
+.panel-content h3 { color: var(--v3) !important; }
+
+/* Generic card — glass override */
+.card, .note-card {
+  background: rgba(30,20,65,.72) !important;
+  border: 1px solid rgba(167,139,250,.14) !important; border-radius: 14px !important;
+  backdrop-filter: blur(18px) !important; -webkit-backdrop-filter: blur(18px) !important;
+  transition: var(--tr) !important;
+}
+.card:hover, .note-card:hover {
+  border-color: rgba(167,139,250,.34) !important;
+  box-shadow: 0 8px 32px rgba(124,58,237,.25) !important; transform: translateY(-3px);
+}
+
+/* Concierge cards */
+.conc-result-card, .conc-stat-box, .conc-contact, .conc-forecast-day {
+  background: rgba(25,15,55,.74) !important;
+  border: 1px solid rgba(167,139,250,.12) !important;
+  backdrop-filter: blur(16px) !important; -webkit-backdrop-filter: blur(16px) !important;
+  transition: var(--tr) !important;
+}
+.conc-result-card:hover { border-color: rgba(167,139,250,.28) !important; }
+.conc-card {
+  background: linear-gradient(145deg, rgba(25,15,58,.90), rgba(15,10,40,.80)) !important;
+  border: 1px solid rgba(167,139,250,.14) !important;
+  backdrop-filter: blur(18px) !important; transition: var(--tr) !important;
+}
+.conc-card:hover {
+  border-color: rgba(167,139,250,.36) !important;
+  box-shadow: 0 8px 32px rgba(124,58,237,.28) !important; transform: translateY(-3px);
+}
+
+/* Rich cards */
+.rich-card {
+  background: rgba(22,14,52,.82) !important;
+  border: 1px solid rgba(167,139,250,.12) !important;
+  backdrop-filter: blur(16px) !important;
+}
+.rich-card:hover { border-color: rgba(167,139,250,.3) !important; box-shadow: 0 8px 28px rgba(124,58,237,.22) !important; }
+
+/* Quota */
+.quota-card { background: rgba(18,12,45,.78) !important; border: 1px solid var(--b) !important; border-radius: 12px !important; backdrop-filter: blur(16px) !important; }
+.quota-track { background: rgba(30,20,60,.82) !important; }
+
+/* ── FORMS ───────────────────────────────────────────────────────────── */
+.form-group label { color: #7c6fa8 !important; font-size:.76em !important; text-transform: uppercase; letter-spacing:.06em; }
+.form-group input, .form-group select, .form-group textarea,
+input[type="text"], input[type="email"], input[type="password"],
+input[type="tel"], input[type="number"], select, textarea {
+  background: rgba(18,12,45,.72) !important; border: 1px solid var(--b) !important;
+  border-radius: 10px !important; color: #ddd6fe !important; transition: var(--tr) !important;
+}
+.form-group input:focus, .form-group select:focus, .form-group textarea:focus,
+input[type="text"]:focus, input[type="email"]:focus, input[type="password"]:focus,
+input[type="tel"]:focus, input[type="number"]:focus, select:focus, textarea:focus {
+  border-color: rgba(167,139,250,.52) !important; outline: none !important;
+  box-shadow: 0 0 0 2px rgba(124,58,237,.16) !important;
+}
+
+/* ── BUTTONS ─────────────────────────────────────────────────────────── */
+.btn { border-radius: 10px !important; transition: var(--tr) !important; }
+.btn-primary {
+  background: linear-gradient(135deg, rgba(109,40,217,.88), rgba(124,58,237,.72)) !important;
+  border: 1px solid rgba(167,139,250,.40) !important; border-radius: 11px !important;
+  box-shadow: 0 0 22px rgba(124,58,237,.32), inset 0 1px 0 rgba(255,255,255,.10) !important;
+  letter-spacing:.03em;
+}
+.btn-primary:hover {
+  box-shadow: 0 0 40px rgba(124,58,237,.58), inset 0 1px 0 rgba(255,255,255,.18) !important;
+  border-color: rgba(167,139,250,.62) !important; transform: translateY(-2px);
+}
+button:active:not(:disabled) { transform: scale(.97) !important; }
+/* Pulse subtil sur le send btn */
+@keyframes sendPulse {
+  0%,100% { box-shadow: 0 0 28px rgba(124,58,237,.65), 0 0 56px rgba(124,58,237,.22), inset 0 1px 0 rgba(255,255,255,.16); }
+  50%     { box-shadow: 0 0 40px rgba(167,139,250,.85), 0 0 80px rgba(124,58,237,.35), inset 0 1px 0 rgba(255,255,255,.20); }
+}
+.send-btn:not(:disabled) { animation: sendPulse 3s ease-in-out infinite !important; }
+.send-btn:hover { animation: none !important; }
+body.mode-secretaire .send-btn:not(:disabled) {
+  animation: sendPulseGreen 3s ease-in-out infinite !important;
+}
+@keyframes sendPulseGreen {
+  0%,100% { box-shadow: 0 0 32px rgba(16,185,129,.60), 0 0 64px rgba(16,185,129,.22), inset 0 1px 0 rgba(255,255,255,.15); }
+  50%     { box-shadow: 0 0 48px rgba(52,211,153,.88), 0 0 96px rgba(16,185,129,.38), inset 0 1px 0 rgba(255,255,255,.22); }
+}
+
+/* ── ACTION MENU ─────────────────────────────────────────────────────── */
+.action-menu {
+  background: rgba(8,6,24,.98) !important; border: 1px solid var(--b2) !important;
+  backdrop-filter: var(--blur) !important;
+  box-shadow: 0 22px 65px rgba(0,0,0,.75), 0 0 44px rgba(124,58,237,.16) !important;
+  border-radius: 16px !important;
+}
+.action-menu-item:hover { background: var(--glass) !important; }
+.emoji-picker {
+  background: rgba(8,6,24,.98) !important; border: 1px solid var(--b) !important;
+  backdrop-filter: var(--blur) !important; border-radius: 14px !important;
+}
+.invite-box {
+  background: rgba(10,7,32,.97) !important; border: 1px solid var(--b2) !important;
+  backdrop-filter: var(--blur) !important; border-radius: 18px !important;
+  box-shadow: 0 24px 64px rgba(0,0,0,.85), 0 0 44px rgba(124,58,237,.16) !important;
+}
+.invite-box input {
+  background: rgba(20,15,50,.72) !important; border: 1px solid var(--b) !important; border-radius: 10px !important;
+}
+
+/* ── VOICE OVERLAY ───────────────────────────────────────────────────── */
+#voiceOverlay { background: radial-gradient(ellipse at center, #0d0820 0%, #050310 60%, #02020a 100%) !important; }
+.voice-ov-orb-core {
+  background: linear-gradient(135deg, #5b21b6, #7c3aed) !important;
+  box-shadow: 0 0 65px rgba(124,58,237,.75), 0 0 130px rgba(124,58,237,.32) !important;
+}
+.voice-ov-orb.speaking .voice-ov-orb-core {
+  background: linear-gradient(135deg, #7c3aed, #a78bfa) !important;
+  box-shadow: 0 0 110px rgba(167,139,250,.95), 0 0 220px rgba(124,58,237,.42) !important;
+}
+.voice-ov-bar { background: var(--v2) !important; }
+#lunaVoiceBtn {
+  background: linear-gradient(135deg, #5b21b6, #7c3aed) !important;
+  border: 1px solid rgba(167,139,250,.32) !important;
+  box-shadow: 0 4px 28px rgba(124,58,237,.60) !important;
+}
+#lunaVoiceBtn:hover { box-shadow: 0 4px 48px rgba(124,58,237,.90) !important; transform: scale(1.08); }
+#lunaVoiceBtn.active { background: linear-gradient(135deg, #991b1b, #dc2626) !important; }
+
+/* ── AUTH ────────────────────────────────────────────────────────────── */
+.auth-box {
+  background: linear-gradient(145deg, rgba(11,7,32,.98), rgba(7,5,22,.96)) !important;
+  border: 1px solid rgba(167,139,250,.3) !important;
+  box-shadow:
+    0 0 0 1px rgba(124,58,237,.12),
+    0 32px 80px rgba(0,0,0,.9),
+    0 0 60px rgba(124,58,237,.18),
+    inset 0 1px 0 rgba(255,255,255,.05) !important;
+  backdrop-filter: var(--blur) !important;
+  position: relative;
+}
+.auth-box::before {
+  content: '';
+  position: absolute; inset: -1px; border-radius: inherit; z-index: -1;
+  background: linear-gradient(135deg, rgba(124,58,237,.4), transparent 40%, rgba(167,139,250,.2));
+  border-radius: 14px;
+}
+.auth-logo { color: var(--v3) !important; }
+
+/* ── MODALS ──────────────────────────────────────────────────────────── */
+#_lunaConfirmBox {
+  background: linear-gradient(145deg, rgba(11,7,32,.99), rgba(7,5,22,.97)) !important;
+  border: 1px solid var(--b2) !important;
+  box-shadow: 0 24px 64px rgba(0,0,0,.88), 0 0 52px rgba(124,58,237,.22) !important;
+  backdrop-filter: var(--blur) !important;
+}
+#_lunaConfirmOk { background: linear-gradient(135deg, #5b21b6, #7c3aed) !important; box-shadow: 0 0 22px rgba(124,58,237,.44) !important; }
+#_lunaConfirmOk.danger { background: linear-gradient(135deg, #991b1b, #dc2626) !important; }
+
+/* ── TOAST ───────────────────────────────────────────────────────────── */
+.luna-toast {
+  background: rgba(8,6,24,.96) !important; border: 1px solid var(--b2) !important;
+  backdrop-filter: var(--blur) !important;
+  box-shadow: 0 8px 44px rgba(0,0,0,.65), 0 0 26px rgba(124,58,237,.14) !important;
+}
+.luna-toast.toast-error   { border-color: rgba(248,113,113,.48) !important; }
+.luna-toast.toast-warning { border-color: rgba(245,158,11,.48) !important; }
+.luna-toast.toast-success { border-color: rgba(74,222,128,.48) !important; }
+
+/* ── SECRETAIRE — FULL GREEN OVERRIDE (must beat !important on base rules) ── */
+body.mode-secretaire { background: #050f08 !important; }
+body.mode-secretaire .header        { background: rgba(4,18,11,.92) !important; border-bottom-color: rgba(16,185,129,.25) !important; box-shadow: 0 1px 0 rgba(52,211,153,.2), 0 8px 48px rgba(0,0,0,.85) !important; }
+body.mode-secretaire .header::after { background: linear-gradient(90deg, transparent, #34d399, #fff, #34d399, transparent) !important; box-shadow: 0 0 16px #10b981, 0 0 40px #059669 !important; }
+body.mode-secretaire .header h1    { color: #6ee7b7 !important; text-shadow: 0 0 28px rgba(52,211,153,.65) !important; }
+body.mode-secretaire .tabs         { background: rgba(4,18,11,.89) !important; border-bottom-color: rgba(16,185,129,.22) !important; }
+body.mode-secretaire .mode-switcher{ background: rgba(4,18,11,.92) !important; border-bottom-color: rgba(16,185,129,.2) !important; }
+body.mode-secretaire .tab-btn.active { color: #34d399 !important; border-bottom-color: #10b981 !important; text-shadow: 0 0 12px #10b981 !important; }
+body.mode-secretaire .tab-btn.active::before { background: linear-gradient(90deg, transparent, #34d399, transparent) !important; box-shadow: 0 0 14px #10b981, 0 0 28px #059669 !important; }
+body.mode-secretaire .tab-btn.active svg { filter: drop-shadow(0 0 8px #10b981) !important; }
+body.mode-secretaire .luna          { background: linear-gradient(135deg, rgba(6,60,30,.78), rgba(4,40,20,.65)) !important; border-color: rgba(52,211,153,.22) !important; }
+body.mode-secretaire .luna::before  { background-image: url("/static/assets/aby_avatar.jpg") !important; background-size: cover !important; background-position: 50% 22% !important; box-shadow: 0 0 14px rgba(16,185,129,.55), 0 0 28px rgba(16,185,129,.22) !important; border-color: rgba(52,211,153,.5) !important; background-color: transparent !important; }
+body.mode-secretaire .luna-name    { color: #34d399 !important; }
+body.mode-secretaire .typing        { background: linear-gradient(135deg, rgba(6,60,30,.68), rgba(4,40,20,.55)) !important; border-color: rgba(52,211,153,.18) !important; }
+body.mode-secretaire .typing-dots span { background: #34d399 !important; }
+body.mode-secretaire .user          { background: linear-gradient(135deg, #065f46, #047857) !important; border-color: rgba(52,211,153,.25) !important; }
+body.mode-secretaire .input-area   { background: rgba(3,14,8,.95) !important; border-top-color: rgba(16,185,129,.22) !important; }
+body.mode-secretaire .input-row    { background: rgba(6,40,22,.72) !important; border-color: rgba(52,211,153,.22) !important; }
+body.mode-secretaire .input-row:focus-within { border-color: rgba(52,211,153,.55) !important; box-shadow: 0 0 0 3px rgba(16,185,129,.18), 0 0 44px rgba(16,185,129,.22) !important; }
+body.mode-secretaire .send-btn     { background: linear-gradient(135deg, #065f46, #10b981) !important; box-shadow: 0 0 32px rgba(16,185,129,.60), 0 0 64px rgba(16,185,129,.22), inset 0 1px 0 rgba(255,255,255,.15) !important; border-color: rgba(52,211,153,.4) !important; }
+body.mode-secretaire .send-btn:hover { box-shadow: 0 0 48px rgba(16,185,129,.9), 0 0 96px rgba(16,185,129,.4) !important; }
+body.mode-secretaire .sidebar-toggle { background: rgba(16,185,129,.08) !important; border-color: rgba(52,211,153,.25) !important; color: #34d399 !important; }
+body.mode-secretaire .conv-sidebar { background: rgba(3,14,8,.97) !important; border-right-color: rgba(16,185,129,.2) !important; }
+body.mode-secretaire .conv-item.active { background: linear-gradient(135deg, rgba(16,185,129,.22), rgba(16,185,129,.08)) !important; border-left-color: #10b981 !important; }
+body.mode-secretaire .conv-new-btn { color: #34d399 !important; }
+body.mode-secretaire .btn-primary  { background: linear-gradient(135deg, rgba(6,95,70,.88), rgba(16,185,129,.68)) !important; border-color: rgba(52,211,153,.42) !important; box-shadow: 0 0 20px rgba(16,185,129,.28) !important; }
+body.mode-secretaire .mode-btn.active[data-mode="secretaire"] { background: linear-gradient(135deg, rgba(16,185,129,.42), rgba(52,211,153,.18)) !important; border-color: #34d399 !important; color: #6ee7b7 !important; box-shadow: 0 0 28px rgba(16,185,129,.35) !important; }
+body.mode-secretaire .header-luna-avatar { border-color: rgba(52,211,153,.55) !important; box-shadow: 0 0 18px rgba(16,185,129,.65), 0 0 36px rgba(16,185,129,.25) !important; }
+
+/* ── LUNA AVATAR PHOTO — chat bubbles ────────────────────────────────── */
+.luna::before {
+  background-image: url("/static/assets/luna_avatar.jpg") !important;
+  background-size: cover !important;
+  background-position: 50% 28% !important;
+  background-color: transparent !important;
+}
+body.mode-secretaire .luna::before {
+  background-image: url("/static/assets/luna_avatar.jpg") !important;
+  background-size: cover !important;
+  background-position: 50% 28% !important;
+}
+
+/* ── HEADER LUNA AVATAR ──────────────────────────────────────────────── */
+.header-luna-avatar {
+  width: 40px; height: 40px; border-radius: 50%; overflow: hidden; flex-shrink: 0;
+  border: 2px solid rgba(167,139,250,.5);
+  box-shadow: 0 0 18px rgba(124,58,237,.65), 0 0 36px rgba(124,58,237,.25);
+  animation: lunaOrb 3.5s ease-in-out infinite;
+}
+.header-luna-avatar img {
+  width: 100%; height: 100%; object-fit: cover; object-position: 50% 30%;
+}
+
+/* ── AUTH SCREEN PREMIUM ─────────────────────────────────────────────── */
+.auth-header { text-align: center; margin-bottom: 28px; }
+.auth-yawatch-logo {
+  width: 96px; height: 96px; object-fit: cover;
+  display: block; margin: 0 auto 16px;
+  border-radius: 22px;
+  border: 1px solid rgba(167,139,250,.3);
+  box-shadow: 0 0 32px rgba(124,58,237,.55), 0 0 64px rgba(124,58,237,.22);
+  filter: brightness(1.25) contrast(1.1) saturate(1.2);
+  mix-blend-mode: lighten;
+}
+.auth-luna-photo {
+  width: 90px; height: 90px; border-radius: 50%; overflow: hidden;
+  margin: 0 auto 14px;
+  border: 2px solid rgba(167,139,250,.45);
+  box-shadow: 0 0 28px rgba(124,58,237,.6), 0 0 56px rgba(124,58,237,.22);
+}
+.auth-luna-photo img {
+  width: 100%; height: 100%; object-fit: cover; object-position: top center;
+}
+.auth-subtitle {
+  font-size: .68em; color: #7c6fa8; letter-spacing: .14em;
+  text-transform: uppercase; margin-top: -6px;
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   GTA CHARACTER INTERLUDE — YAWatch Industries
+   ══════════════════════════════════════════════════════════════════════ */
+#yw-interlude {
+  position: fixed; inset: 0; z-index: 9999;
+  display: none; overflow: hidden;
+  background: #000;
+  font-family: 'Space Grotesk', sans-serif;
+}
+#yw-interlude.yw-active { display: block; }
+
+/* Letterbox bars */
+#yw-interlude::before, #yw-interlude::after {
+  content: ''; position: absolute; left: 0; right: 0;
+  background: #000; z-index: 3;
+  height: 10vh;
+}
+#yw-interlude::before { top: 0; }
+#yw-interlude::after  { bottom: 0; }
+
+/* Photo background */
+.yw-il-photo {
+  position: absolute; inset: 0;
+  background-size: cover; background-position: 50% 28%;
+  animation: ilZoom 3.2s ease-out forwards;
+}
+@keyframes ilZoom {
+  from { transform: scale(1.06); filter: brightness(.6) contrast(1.1); }
+  to   { transform: scale(1);    filter: brightness(.75) contrast(1.05); }
+}
+
+/* Cinematic gradient overlay */
+.yw-il-vignette {
+  position: absolute; inset: 0; z-index: 1;
+  background:
+    linear-gradient(to top,   rgba(0,0,0,.88) 0%, transparent 45%),
+    linear-gradient(to right, transparent 35%, rgba(0,0,0,.72) 100%),
+    linear-gradient(to left,  transparent 60%, rgba(0,0,0,.3) 100%);
+}
+
+/* Text block */
+.yw-il-text {
+  position: absolute; z-index: 2;
+  bottom: 14vh; left: 0; right: 0;
+  padding: 0 8vw;
+  display: flex; flex-direction: column; align-items: flex-end;
+  text-align: right;
+}
+
+.yw-il-company {
+  font-size: .68em; letter-spacing: .32em; text-transform: uppercase;
+  color: rgba(255,255,255,.45); margin-bottom: 4px;
+  transform: translateX(50px); opacity: 0;
+  animation: ilSlide .55s .2s ease-out forwards;
+}
+.yw-il-role {
+  font-size: .78em; letter-spacing: .18em; text-transform: uppercase;
+  color: rgba(255,255,255,.55); margin-bottom: 6px;
+  transform: translateX(50px); opacity: 0;
+  animation: ilSlide .55s .4s ease-out forwards;
+}
+.yw-il-name {
+  font-size: clamp(3.5rem, 12vw, 6.5rem);
+  font-weight: 700; line-height: .92; letter-spacing: -.02em;
+  transform: translateX(60px); opacity: 0;
+  animation: ilSlide .6s .6s ease-out forwards;
+}
+.yw-il-bar {
+  width: 56px; height: 3px; margin: 14px 0;
+  transform: scaleX(0); transform-origin: right;
+  opacity: 0; border-radius: 2px;
+  animation: ilBar .45s 1s ease-out forwards;
+}
+.yw-il-quote {
+  font-size: .82em; font-style: italic;
+  color: rgba(255,255,255,.6); line-height: 1.55; max-width: 320px;
+  transform: translateX(40px); opacity: 0;
+  animation: ilSlide .55s 1.2s ease-out forwards;
+}
+
+@keyframes ilSlide {
+  from { transform: translateX(50px); opacity: 0; }
+  to   { transform: translateX(0);    opacity: 1; }
+}
+@keyframes ilBar {
+  from { transform: scaleX(0); opacity: 0; }
+  to   { transform: scaleX(1); opacity: 1; }
+}
+/* Fade out */
+#yw-interlude.yw-fadeout {
+  animation: ilFadeOut .7s ease-in forwards;
+}
+@keyframes ilFadeOut {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+
+/* Luna colors */
+.yw-il-luna .yw-il-name { color: #e9d5ff; text-shadow: 0 0 40px rgba(167,139,250,.7); }
+.yw-il-luna .yw-il-bar  { background: linear-gradient(90deg, transparent, #a78bfa); box-shadow: 0 0 12px #7c3aed; }
+
+/* Aby colors */
+.yw-il-aby .yw-il-name { color: #fef3c7; text-shadow: 0 0 40px rgba(251,191,36,.5); }
+.yw-il-aby .yw-il-bar  { background: linear-gradient(90deg, transparent, #fbbf24); box-shadow: 0 0 12px #f59e0b; }
+.yw-il-aby .yw-il-role { color: rgba(251,191,36,.6); }
+
+/* ── SCROLLBAR ───────────────────────────────────────────────────────── */
+* { scrollbar-width: thin; scrollbar-color: rgba(124,58,237,.38) transparent; }
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(124,58,237,.38); border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(167,139,250,.65); }
 </style>
+<script src="https://browser.sentry-cdn.com/7.99.0/bundle.min.js" crossorigin="anonymous"></script>
+<script src="/luna-config.js"></script>
 </head>
 <body>
 <!-- Auth screens -->
+<!-- GTA Character Interlude -->
+<div id="yw-interlude">
+  <div class="yw-il-photo" id="yw-il-photo"></div>
+  <div class="yw-il-vignette"></div>
+  <div class="yw-il-text" id="yw-il-text">
+    <div class="yw-il-company" id="yw-il-company">YAWatch Industries</div>
+    <div class="yw-il-role" id="yw-il-role"></div>
+    <div class="yw-il-name" id="yw-il-name"></div>
+    <div class="yw-il-bar" id="yw-il-bar"></div>
+    <div class="yw-il-quote" id="yw-il-quote"></div>
+  </div>
+</div>
+
 <div class="auth-screen" id="loginScreen">
   <div class="auth-box">
-    <h2>Luna</h2>
+    <div class="auth-header">
+      <img src="/static/assets/yawatch_logo.png" class="auth-yawatch-logo" alt="YAWatch Industries" width="72" height="72">
+      <h2 style="color:var(--v3);font-size:1.6em;letter-spacing:.08em;font-weight:700;">LUNA</h2>
+      <p class="auth-subtitle">YAWatch Industries</p>
+    </div>
     <p class="auth-error" id="loginError"></p>
     <input type="email" id="loginEmail" placeholder="Email" autocomplete="email" inputmode="email">
     <input type="password" id="loginPassword" placeholder="Mot de passe" autocomplete="current-password">
@@ -860,9 +1556,14 @@ body.mode-secretaire .luna-chip:hover { background: rgba(16,185,129,0.2); border
     <button class="sidebar-toggle" id="sidebarToggle" title="Historique">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="15" y2="12"/><line x1="3" y1="18" x2="18" y2="18"/></svg>
     </button>
-    <div>
-      <h1><span class="status-dot online" id="statusDot"></span> Luna <span id="headerWeather" style="font-size:0.55em;color:#888;font-weight:400;margin-left:4px;"></span></h1>
-      <p id="greetingSubtitle">Ton compagnon bienveillant</p>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <div class="header-luna-avatar">
+        <img src="/static/assets/luna_avatar.jpg" alt="Luna">
+      </div>
+      <div>
+        <h1><span class="status-dot online" id="statusDot"></span> Luna <span id="headerWeather" style="font-size:0.55em;color:#888;font-weight:400;margin-left:4px;"></span></h1>
+        <p id="greetingSubtitle">Ton compagnon bienveillant</p>
+      </div>
     </div>
   </div>
   <div style="display:flex;align-items:center;gap:6px;">
@@ -873,6 +1574,7 @@ body.mode-secretaire .luna-chip:hover { background: rgba(16,185,129,0.2); border
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
     </button>
     <button id="updateAppBtn" title="Mettre a jour" style="background:none;border:1px solid #f59e0b;border-radius:8px;color:#f59e0b;padding:4px 8px;font-size:0.7em;cursor:pointer;display:none;animation:pulseUpdate 2s infinite;">MAJ</button>
+    <img src="/static/assets/yawatch_logo.png" alt="YAWatch" style="height:30px;width:30px;object-fit:cover;border-radius:8px;border:1px solid rgba(167,139,250,.2);filter:brightness(1.1) drop-shadow(0 0 8px rgba(124,58,237,.7));opacity:.9;">
     <button class="logout-btn" id="logoutBtn">Deconnexion</button>
   </div>
 </div>
@@ -892,22 +1594,52 @@ body.mode-secretaire .luna-chip:hover { background: rgba(16,185,129,0.2); border
 </div>
 <!-- Tabs -->
 <div class="tabs">
-  <button class="tab-btn active" data-tab="chat">Chat</button>
-  <button class="tab-btn" data-tab="conciergerie">Conciergerie</button>
-  <button class="tab-btn" data-tab="amis" data-modes="compagnon">Amis<span class="tab-badge" id="amisBadge" style="display:none">0</span></button>
-  <button class="tab-btn" data-tab="activities" data-modes="compagnon">Activites</button>
-  <button class="tab-btn" data-tab="world" data-modes="compagnon">Monde</button>
-  <button class="tab-btn" data-tab="contacts" data-modes="secretaire">Contacts</button>
-  <button class="tab-btn" data-tab="instructions" data-modes="secretaire">Instructions</button>
-  <button class="tab-btn" data-tab="documents" data-modes="secretaire">Documents</button>
-  <button class="tab-btn" data-tab="callreports">Rapports</button>
-  <button class="tab-btn" data-tab="formulaires" data-modes="secretaire">Formulaires</button>
-  <button class="tab-btn" data-tab="map" data-modes="secretaire">Carte</button>
-  <button class="tab-btn" data-tab="guardian" style="color:#f87171;" onclick="window.location.href='/guardian'">🛡️ Guardian</button>
-  <button class="tab-btn" data-tab="profile">Profil</button>
-  <button class="tab-btn" data-tab="quotas">Quotas</button>
-  <button class="tab-btn" data-tab="theo" id="theoTabBtn" style="display:none; color:#f5c542;">Theocratie</button>
-  <button class="tab-btn" data-tab="settings">Parametres</button>
+  <button class="tab-btn active" data-tab="chat">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" style="margin-right:5px;vertical-align:-2px"><path d="M3 4h18v13H8l-5 5V4z"/><line x1="7" y1="9" x2="17" y2="9"/><line x1="7" y1="13" x2="12" y2="13"/><circle cx="15.5" cy="13" r="1" fill="currentColor" stroke="none"/></svg>Chat
+  </button>
+  <button class="tab-btn" data-tab="conciergerie">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" style="margin-right:5px;vertical-align:-2px"><circle cx="12" cy="12" r="3.5"/><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/><line x1="5.6" y1="5.6" x2="8.5" y2="8.5"/><line x1="15.5" y1="15.5" x2="18.4" y2="18.4"/><line x1="18.4" y1="5.6" x2="15.5" y2="8.5"/><line x1="8.5" y1="15.5" x2="5.6" y2="18.4"/></svg>Services
+  </button>
+  <button class="tab-btn" data-tab="amis" data-modes="compagnon">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" style="margin-right:5px;vertical-align:-2px"><circle cx="7" cy="7" r="2.5"/><circle cx="17" cy="7" r="2.5"/><circle cx="12" cy="17.5" r="2.5"/><line x1="9.5" y1="7" x2="14.5" y2="7"/><line x1="8.2" y1="9" x2="11" y2="15.2"/><line x1="15.8" y1="9" x2="13" y2="15.2"/></svg>Amis<span class="tab-badge" id="amisBadge" style="display:none">0</span>
+  </button>
+  <button class="tab-btn" data-tab="activities" data-modes="compagnon">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" style="margin-right:5px;vertical-align:-2px"><polyline points="2,12 5,12 7,7 10,17 12,5 14,15 16,12 22,12"/></svg>Activités
+  </button>
+  <button class="tab-btn" data-tab="world" data-modes="compagnon">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" style="margin-right:5px;vertical-align:-2px"><circle cx="12" cy="12" r="9"/><line x1="3" y1="12" x2="21" y2="12"/><path d="M12 3 Q16 7.5 16 12 Q16 16.5 12 21"/><path d="M12 3 Q8 7.5 8 12 Q8 16.5 12 21"/></svg>Monde
+  </button>
+  <button class="tab-btn" data-tab="contacts" data-modes="secretaire">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" style="margin-right:5px;vertical-align:-2px"><rect x="2" y="5" width="20" height="14" rx="2"/><circle cx="8" cy="12" r="3"/><line x1="14" y1="9.5" x2="20" y2="9.5"/><line x1="14" y1="12" x2="20" y2="12"/><line x1="14" y1="14.5" x2="18" y2="14.5"/></svg>Contacts
+  </button>
+  <button class="tab-btn" data-tab="instructions" data-modes="secretaire">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" style="margin-right:5px;vertical-align:-2px"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><polyline points="12 11 9 15 12 15 9 19"/></svg>Instructions
+  </button>
+  <button class="tab-btn" data-tab="documents" data-modes="secretaire">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" style="margin-right:5px;vertical-align:-2px"><rect x="6" y="8" width="14" height="13" rx="1"/><rect x="4" y="5" width="14" height="13" rx="1"/><line x1="7" y1="10" x2="15" y2="10"/><line x1="7" y1="13" x2="12" y2="13"/></svg>Documents
+  </button>
+  <button class="tab-btn" data-tab="callreports">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" style="margin-right:5px;vertical-align:-2px"><rect x="3" y="13" width="4" height="8" rx="0.5"/><rect x="10" y="8" width="4" height="13" rx="0.5"/><rect x="17" y="4" width="4" height="17" rx="0.5"/><polyline points="5,11 12,6 19,3"/></svg>Rapports
+  </button>
+  <button class="tab-btn" data-tab="formulaires" data-modes="secretaire">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" style="margin-right:5px;vertical-align:-2px"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><circle cx="6" cy="6" r="1" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/><circle cx="18" cy="18" r="1" fill="currentColor" stroke="none"/></svg>Formulaires
+  </button>
+  <button class="tab-btn" data-tab="map" data-modes="secretaire">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" style="margin-right:5px;vertical-align:-2px"><path d="M12 22C12 22 4 15.5 4 10a8 8 0 0 1 16 0c0 5.5-8 12-8 12z"/><circle cx="12" cy="10" r="3"/></svg>Carte
+  </button>
+  <button class="tab-btn" data-tab="guardian" style="color:#f87171;" onclick="window.location.href='/guardian'">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" style="margin-right:5px;vertical-align:-2px"><path d="M12 22s8-5 8-11V4l-8-2-8 2v7c0 6 8 11 8 11z"/><path d="M9 12l3-4 3 4-3 4z"/></svg>Guardian
+  </button>
+  <button class="tab-btn" data-tab="profile">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" style="margin-right:5px;vertical-align:-2px"><polygon points="12 2 19 6 19 18 12 22 5 18 5 6"/><circle cx="12" cy="11" r="3.5"/><path d="M6.5 18.5c.5-2.5 2.8-4.5 5.5-4.5s5 2 5.5 4.5"/></svg>Profil
+  </button>
+  <button class="tab-btn" data-tab="quotas">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" style="margin-right:5px;vertical-align:-2px"><path d="M5.5 17a8 8 0 1 1 13 0"/><line x1="12" y1="5" x2="12" y2="7"/><line x1="4.5" y1="10.5" x2="6.5" y2="11.5"/><line x1="19.5" y1="10.5" x2="17.5" y2="11.5"/><line x1="12" y1="17" x2="15.5" y2="11"/><circle cx="12" cy="17" r="1.5" fill="currentColor" stroke="none"/></svg>Quotas
+  </button>
+  <button class="tab-btn" data-tab="theo" id="theoTabBtn" style="display:none;color:#f5c542;">Théocratie</button>
+  <button class="tab-btn" data-tab="settings">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" style="margin-right:5px;vertical-align:-2px"><polygon points="12 2 19 6 19 18 12 22 5 18 5 6"/><circle cx="12" cy="12" r="3"/><line x1="12" y1="2" x2="12" y2="9"/><line x1="12" y1="15" x2="12" y2="22"/><line x1="19" y1="6" x2="14.3" y2="10.1"/><line x1="9.7" y1="13.9" x2="5" y2="18"/><line x1="19" y1="18" x2="14.3" y2="13.9"/><line x1="9.7" y1="10.1" x2="5" y2="6"/></svg>Réglages
+  </button>
 </div>
 
 <!-- Chat Tab -->
@@ -2655,7 +3387,7 @@ function _concStartVisio() {
   if (typeof startCall === "function") startCall();
 }
 function _concAlertUrgence() {
-  if (!confirm("ALERTE URGENCE\n\nTous tes contacts de confiance vont recevoir un SMS d'alerte.\n\nConfirmer ?")) return;
+  _showConfirm("Alerte urgence", "Tous tes contacts de confiance vont recevoir un SMS d'alerte. Confirmer ?", function() {
   _concShowResults("Alerte urgence");
   authFetch("/api/concierge/action", {
     method: "POST", headers: {"Content-Type": "application/json"},
@@ -2663,8 +3395,9 @@ function _concAlertUrgence() {
   }).then(function(r) { return r.json(); }).then(function(d) {
     _concResultsBody.innerHTML = '<div style="text-align:center;padding:40px;">' +
       '<div style="font-size:3em;margin-bottom:12px;">&#x1F6A8;</div>' +
-      '<p style="color:#f87171;font-size:1.1em;font-weight:600;">' + esc(d.message || "Alerte envoyee") + '</p></div>';
+      '<p style="color:#f87171;font-size:1.1em;font-weight:600;">' + esc(d.message || "Alerte envoyée") + '</p></div>';
   });
+  }, true);
 }
 
 // =========================================================================
@@ -2775,8 +3508,8 @@ function _renderFlights(data) {
 }
 
 function _concBookFlight(offerId, price) {
-  if (!confirm("Confirmer la reservation ?\n" + price + "\n\nTes infos de profil seront utilisees.")) return;
-  _concShowResults("Reservation en cours...");
+  _showConfirm("Réserver ce vol ?", price + "\n\nTes informations de profil seront utilisées.", function() {
+  _concShowResults("Réservation en cours...");
   authFetch("/api/concierge/action", {
     method: "POST", headers: {"Content-Type": "application/json"},
     body: JSON.stringify({action: "book_flight", params: {offer_id: offerId}})
@@ -2789,8 +3522,9 @@ function _concBookFlight(offerId, price) {
         (d.booking_reference ? '<p style="color:#10b981;font-size:1.3em;margin-top:12px;">Ref: ' + esc(d.booking_reference) + '</p>' : '') +
         '</div>';
     } else {
-      _concResultsBody.innerHTML = '<div style="text-align:center;padding:40px;color:#f87171;">' + esc(d.message || d.error || "Erreur de reservation") + '</div>';
+      _concResultsBody.innerHTML = '<div style="text-align:center;padding:40px;color:#f87171;">' + esc(d.message || d.error || "Erreur de réservation") + '</div>';
     }
+  });
   });
 }
 
@@ -2827,8 +3561,8 @@ function _renderHotels(data) {
 }
 
 function _concBookHotel(rateId, hotelName) {
-  if (!confirm("Confirmer la reservation ?\n" + hotelName + "\n\nTes infos de profil seront utilisees.")) return;
-  _concShowResults("Reservation en cours...");
+  _showConfirm("Réserver cet hôtel ?", hotelName + "\n\nTes informations de profil seront utilisées.", function() {
+  _concShowResults("Réservation en cours...");
   authFetch("/api/concierge/action", {
     method: "POST", headers: {"Content-Type": "application/json"},
     body: JSON.stringify({action: "book_hotel", params: {rate_id: rateId}})
@@ -2836,13 +3570,14 @@ function _concBookHotel(rateId, hotelName) {
     if (d.status === "success") {
       _concResultsBody.innerHTML = '<div style="text-align:center;padding:40px;">' +
         '<div style="font-size:3em;margin-bottom:12px;">&#x1F3E8;</div>' +
-        '<p style="color:#10b981;font-size:1.2em;font-weight:700;">Hotel reserve !</p>' +
+        '<p style="color:#10b981;font-size:1.2em;font-weight:700;">Hôtel réservé !</p>' +
         '<p style="color:#e0e0e0;margin-top:8px;">' + esc(d.message || "") + '</p>' +
-        (d.confirmation_code ? '<p style="color:#10b981;font-size:1.3em;margin-top:12px;">Confirmation: ' + esc(d.confirmation_code) + '</p>' : '') +
+        (d.confirmation_code ? '<p style="color:#10b981;font-size:1.3em;margin-top:12px;">Confirmation : ' + esc(d.confirmation_code) + '</p>' : '') +
         '</div>';
     } else {
-      _concResultsBody.innerHTML = '<div style="text-align:center;padding:40px;color:#f87171;">' + esc(d.message || d.error || "Erreur de reservation") + '</div>';
+      _concResultsBody.innerHTML = '<div style="text-align:center;padding:40px;color:#f87171;">' + esc(d.message || d.error || "Erreur de réservation") + '</div>';
     }
+  });
   });
 }
 
@@ -3150,12 +3885,12 @@ function _pollNotifications() {
     .catch(function() {}); // silent fail
 }
 var _toastOffset = 0;
-function _showToast(title, body) {
+function _showToast(title, body, type) {
   var toast = document.createElement("div");
-  toast.className = "luna-toast";
-  toast.innerHTML = '<strong>' + esc(title) + '</strong><br>' + esc((body||"").substring(0, 100));
+  toast.className = "luna-toast" + (type ? " toast-" + type : "");
+  toast.innerHTML = '<strong>' + esc(title) + '</strong>' + (body ? '<br>' + esc((body||"").substring(0, 120)) : '');
   var idx = _toastOffset;
-  toast.style.top = (20 + idx * 72) + "px";
+  toast.style.top = "calc(env(safe-area-inset-top, 0px) + " + (16 + idx * 76) + "px)";
   _toastOffset++;
   document.body.appendChild(toast);
   setTimeout(function() { toast.classList.add("show"); }, 50);
@@ -3163,6 +3898,25 @@ function _showToast(title, body) {
     toast.classList.remove("show");
     setTimeout(function() { toast.remove(); _toastOffset = Math.max(0, _toastOffset - 1); }, 300);
   }, 5000);
+}
+
+function _showAlert(msg, type) {
+  _showToast(type === "error" ? "Attention" : "Luna", msg, type || "info");
+}
+
+var _lunaConfirmCallback = null;
+function _showConfirm(title, body, onConfirm, isDanger) {
+  document.getElementById("_lunaConfirmTitle").textContent = title || "Confirmer ?";
+  document.getElementById("_lunaConfirmBody").textContent = body || "";
+  var okBtn = document.getElementById("_lunaConfirmOk");
+  okBtn.className = isDanger ? "danger" : "";
+  _lunaConfirmCallback = onConfirm;
+  document.getElementById("_lunaConfirmModal").classList.add("active");
+}
+function _lunaConfirmClose(confirmed) {
+  document.getElementById("_lunaConfirmModal").classList.remove("active");
+  if (confirmed && _lunaConfirmCallback) _lunaConfirmCallback();
+  _lunaConfirmCallback = null;
 }
 
 // Request notification permission on first load
@@ -3701,6 +4455,13 @@ function _handleStreamResponse(response, originalMsg) {
               var conv = conversationsMeta.find(function(c) { return c.id === currentConvId; });
               if (conv) { conv.title = data.auto_title; saveConvMeta(); renderConvList(); }
             }
+            // Provider badge discret
+            if (data.provider === "claude") {
+              var provBadge = document.createElement("span");
+              provBadge.className = "msg-provider claude";
+              provBadge.textContent = "✦ Claude";
+              timeEl.appendChild(provBadge);
+            }
             // Save to local storage
             saveHistory();
           } else if (data.type === "error") {
@@ -4129,7 +4890,7 @@ function loadInstructions() {
 }
 
 function deleteInstruction(id) {
-  if (!confirm("Désactiver cette instruction ?")) return;
+  _showConfirm("Désactiver cette instruction ?", "L'instruction sera supprimée.", function() {
   authFetch("/api/instructions/" + encodeURIComponent(id), { method: "DELETE" })
   .then(function(r) {
     if (!r.ok) throw new Error("Suppression échouée");
@@ -4138,7 +4899,8 @@ function deleteInstruction(id) {
   .then(function() { loadInstructions(); })
   .catch(function(e) {
     var st = document.getElementById("instrStatus");
-    if (st) { st.textContent = "Erreur: " + e.message; st.className = "form-status error"; }
+    if (st) { st.textContent = "Erreur : " + e.message; st.className = "form-status error"; }
+  });
   });
 }
 
@@ -4280,7 +5042,7 @@ function guardianSetStatus(label, sub, dotColor, riskLevel) {
 }
 
 function guardianCaptureZone() {
-  if (!navigator.geolocation) { alert("Géolocalisation non disponible"); return; }
+  if (!navigator.geolocation) { _showAlert("Géolocalisation non disponible sur cet appareil.", "error"); return; }
   var st = document.getElementById("guardianZoneStatus");
   if (st) st.textContent = "Obtention de la position...";
   navigator.geolocation.getCurrentPosition(function(pos) {
@@ -4294,7 +5056,7 @@ function guardianCaptureZone() {
 }
 
 function guardianStart() {
-  if (!navigator.geolocation) { alert("Géolocalisation non disponible sur cet appareil."); return; }
+  if (!navigator.geolocation) { _showAlert("Géolocalisation non disponible sur cet appareil.", "error"); return; }
   var profile = document.getElementById("guardianProfile").value;
   var immo = parseInt(document.getElementById("guardianImmoThreshold").value) || 30;
   var config = {immobility_threshold_minutes: immo, safe_zones: []};
@@ -4340,16 +5102,17 @@ function guardianStop() {
 }
 
 function guardianSOS() {
-  if (!_guardianSessionId) { alert("Guardian non actif"); return; }
-  if (!confirm("🆘 Confirmer l'envoi du SOS à vos contacts de confiance ?")) return;
-  authFetch("/api/guardian/sos/" + _guardianSessionId, {method: "POST"})
-  .then(function(r) { return r.json(); })
-  .then(function(data) {
-    var msg = document.getElementById("guardianMsg");
-    if (msg) { msg.textContent = data.message || "SOS envoyé !"; msg.className = "form-status error"; }
-    guardianSetStatus("🆘 SOS envoyé", data.message || "", "#dc2626", "critical");
-    guardianLoadEvents();
-  });
+  if (!_guardianSessionId) { _showAlert("Guardian non actif. Démarre le guardian d'abord.", "warning"); return; }
+  _showConfirm("Envoyer le SOS ?", "Tous tes contacts de confiance recevront un SMS d'alerte d'urgence.", function() {
+    authFetch("/api/guardian/sos/" + _guardianSessionId, {method: "POST"})
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      var msg = document.getElementById("guardianMsg");
+      if (msg) { msg.textContent = data.message || "SOS envoyé !"; msg.className = "form-status error"; }
+      guardianSetStatus("SOS envoyé", data.message || "", "#dc2626", "critical");
+      guardianLoadEvents();
+    });
+  }, true);
 }
 
 function guardianConnectWs() {
@@ -4845,9 +5608,10 @@ function _toggleNote(uid,btn){
   var e=b.classList.toggle('expanded'); btn.textContent=e?'Réduire ▲':'Lire la suite ▼';
 }
 function _deleteNote(noteId,btn){
-  if(!confirm('Supprimer cette note ?')) return;
-  authFetch('/api/notes/'+noteId,{method:'DELETE'}).then(function(r){
-    if(r.status===204||r.ok){ var c=btn.closest('.note-card'); if(c){c.style.opacity='0';c.style.transition='opacity .25s';setTimeout(function(){c.remove();},260);} }
+  _showConfirm("Supprimer cette note ?", "", function() {
+    authFetch('/api/notes/'+noteId,{method:'DELETE'}).then(function(r){
+      if(r.status===204||r.ok){ var c=btn.closest('.note-card'); if(c){c.style.opacity='0';c.style.transition='opacity .25s';setTimeout(function(){c.remove();},260);} }
+    });
   });
 }
 
@@ -5248,13 +6012,13 @@ function _confirmDeleteFriend() {
       if (d.success) {
         loadAmisList();
       } else {
-        alert("Erreur : " + (d.error || "impossible de supprimer"));
+        _showAlert(d.error || "Impossible de supprimer cet ami.", "error");
       }
     })
     .catch(function() {
       btn.disabled = false;
       btn.textContent = "Supprimer";
-      alert("Erreur réseau, réessaie.");
+      _showAlert("Erreur réseau, réessaie dans un instant.", "error");
     });
 }
 
@@ -5293,12 +6057,13 @@ function loadExternFriends() {
 }
 
 function _removeExternFriend(encodedPhone, btn) {
-  if (!confirm("Retirer cet ami de ta liste ?")) return;
-  btn.disabled = true;
-  authFetch("/api/social/friend-extern/" + encodedPhone, { method: "DELETE" })
-    .then(function(r) { return r.json(); })
-    .then(function(d) { if (d.success) loadExternFriends(); else btn.disabled = false; })
-    .catch(function() { btn.disabled = false; });
+  _showConfirm("Retirer cet ami ?", "Il sera retiré de ta liste de contacts.", function() {
+    btn.disabled = true;
+    authFetch("/api/social/friend-extern/" + encodedPhone, { method: "DELETE" })
+      .then(function(r) { return r.json(); })
+      .then(function(d) { if (d.success) loadExternFriends(); else btn.disabled = false; })
+      .catch(function() { btn.disabled = false; });
+  });
 }
 
 function _openAddExternModal() {
@@ -5639,7 +6404,7 @@ function renameConversation(convId) {
 }
 
 function deleteConversation(convId) {
-  if (!confirm("Supprimer cette conversation ?")) return;
+  _showConfirm("Supprimer cette conversation ?", "Tous les messages seront effacés définitivement.", function() {
   authFetch("/api/conversations/" + encodeURIComponent(convId), { method: "DELETE" })
   .then(function(r) { return r.json(); })
   .then(function() {
@@ -5655,10 +6420,11 @@ function deleteConversation(convId) {
     renderConvList();
   })
   .catch(function() {});
+  });
 }
 
 function clearConversation(convId) {
-  if (!confirm("Vider tous les messages de cette conversation ?")) return;
+  _showConfirm("Vider cette conversation ?", "Tous les messages seront supprimés.", function() {
   authFetch("/api/conversations/" + encodeURIComponent(convId) + "/messages", { method: "DELETE" })
   .then(function(r) { return r.json(); })
   .then(function() {
@@ -5673,6 +6439,7 @@ function clearConversation(convId) {
     closeSidebar();
   })
   .catch(function() {});
+  });
 }
 
 function loadConversationList() {
@@ -7225,6 +7992,167 @@ function _theoMeditation(type) {
   };
 })();
 
+</script>
+
+<!-- Modal confirmation générique (remplace confirm()) -->
+<div id="_lunaConfirmModal">
+  <div id="_lunaConfirmBox">
+    <h3 id="_lunaConfirmTitle">Confirmer ?</h3>
+    <p id="_lunaConfirmBody"></p>
+    <div id="_lunaConfirmBtns">
+      <button id="_lunaConfirmCancel" onclick="_lunaConfirmClose(false)">Annuler</button>
+      <button id="_lunaConfirmOk" onclick="_lunaConfirmClose(true)">Confirmer</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ── YAWatch GTA Character Interlude ── */
+(function(){
+  var CHARS = {
+    compagnon: {
+      photo: '/static/assets/luna_avatar.jpg', bgpos: '50% 28%',
+      company: 'YAWatch Industries',
+      role:  'PDG & Fondatrice', name: 'LUNA',
+      quote: "« La technologie au service de l'humain. »",
+      cls:   'yw-il-luna'
+    },
+    secretaire: {
+      photo: '/static/assets/aby_avatar.jpg', bgpos: '50% 22%',
+      company: 'YAWatch Industries',
+      role:  'Directrice Stratégique', name: 'ABY',
+      quote: "« Le pouvoir ne se donne pas, il se prend. »",
+      cls:   'yw-il-aby'
+    },
+    monde_luna: {
+      photo: '/static/assets/luna_enfant.png', bgpos: '50% 40%',
+      company: 'YAWatch Archives',
+      role:  'Son Univers · Il y a 20 ans', name: 'LUNA',
+      quote: "« Luna City n'existait encore que dans ma tête. »",
+      cls:   'yw-il-luna'
+    },
+    monde_aby: {
+      photo: '/static/assets/aby_enfant.png', bgpos: '50% 50%',
+      company: 'YAWatch Archives',
+      role:  'Son Univers · Il y a 20 ans', name: 'ABY',
+      quote: "« J'avais déjà compris les règles du jeu. »",
+      cls:   'yw-il-aby'
+    }
+  };
+
+  var il         = document.getElementById('yw-interlude');
+  var ilPh       = document.getElementById('yw-il-photo');
+  var ilTxt      = document.getElementById('yw-il-text');
+  var ilCo       = document.getElementById('yw-il-company');
+  var ilRole     = document.getElementById('yw-il-role');
+  var ilName     = document.getElementById('yw-il-name');
+  var ilQt       = document.getElementById('yw-il-quote');
+  var _timer     = null;
+  var _showing   = false;
+  var _mondeCount = 0;
+
+  function showInterlude(key, onDone) {
+    var c = CHARS[key];
+    if (!c || _showing) { if (onDone) onDone(); return; }
+    _showing = true;
+
+    il.className = '';
+    void il.offsetWidth;
+    ilPh.style.backgroundImage    = 'url("' + c.photo + '")';
+    ilPh.style.backgroundPosition = c.bgpos || '50% 28%';
+    ilTxt.className               = 'yw-il-text ' + c.cls;
+    if (ilCo) ilCo.textContent    = c.company;
+    ilRole.textContent            = c.role;
+    ilName.textContent            = c.name;
+    ilQt.textContent              = c.quote;
+    il.classList.add('yw-active');
+
+    if (_timer) clearTimeout(_timer);
+    _timer = setTimeout(function(){
+      il.classList.add('yw-fadeout');
+      setTimeout(function(){
+        il.className = '';
+        _showing = false;
+        if (onDone) onDone();
+      }, 700);
+    }, 2600);
+  }
+
+  document.addEventListener('DOMContentLoaded', function(){
+    /* Interlude adulte au switch de mode */
+    document.querySelectorAll('.mode-btn[data-mode]').forEach(function(btn){
+      btn.addEventListener('click', function(e){
+        if (_showing) return;
+        var mode = btn.dataset.mode;
+        if (!CHARS[mode]) return;
+        e.stopImmediatePropagation();
+        showInterlude(mode, function(){
+          if (typeof ywSetAuroraMode === 'function') ywSetAuroraMode(mode);
+          if (typeof applyMode === 'function') applyMode(mode);
+        });
+      }, true);
+    });
+
+    /* Onglet Monde : interlude enfant alterné Luna / Aby à chaque clic */
+    var mondeBtn = document.querySelector('.tab-btn[data-tab="world"]');
+    if (mondeBtn) {
+      mondeBtn.addEventListener('click', function(){
+        if (_showing) return;
+        _mondeCount++;
+        var key = (_mondeCount % 2 === 1) ? 'monde_luna' : 'monde_aby';
+        showInterlude(key, null);
+      });
+    }
+  });
+  window.ywShowInterlude = showInterlude;
+})();
+/* ── YAWatch Aurora Canvas — animated background ── */
+(function(){
+  var c = document.createElement('canvas');
+  c.id = 'yw-aurora';
+  c.style.cssText = 'position:fixed;inset:0;z-index:0;pointer-events:none;';
+  document.body.prepend(c);
+  var ctx = c.getContext('2d');
+  function resize(){ c.width = innerWidth; c.height = innerHeight; }
+  resize();
+  window.addEventListener('resize', resize);
+
+  /* Orbs: offset-x, offset-y, radius-fraction, rgb, speed */
+  var PALETTES = {
+    compagnon:  [[124,58,237],[76,29,149],[56,189,248],[150,80,255],[100,30,200]],
+    secretaire: [[16,120,60], [6,95,50],  [34,197,94], [5,150,70],  [20,180,80]]
+  };
+  var orbs = [
+    { ox:.16, oy:.02, r:.62, rgb:[124,58,237],  sp:.00016 },
+    { ox:.84, oy:.96, r:.52, rgb:[76,29,149],   sp:.00021 },
+    { ox:.52, oy:.40, r:.42, rgb:[56,189,248],  sp:.00013 },
+    { ox:.08, oy:.70, r:.38, rgb:[150,80,255],  sp:.00027 },
+    { ox:.90, oy:.25, r:.32, rgb:[100,30,200],  sp:.00019 },
+  ];
+  function setAuroraMode(mode){
+    var pal = PALETTES[mode] || PALETTES.compagnon;
+    orbs.forEach(function(o,i){ o.rgb = pal[i % pal.length]; });
+  }
+  window.ywSetAuroraMode = setAuroraMode;
+
+  function draw(){
+    var t = Date.now(), w = c.width, h = c.height;
+    ctx.clearRect(0, 0, w, h);
+    orbs.forEach(function(o){
+      var px = (o.ox + Math.sin(t * o.sp) * .20) * w;
+      var py = (o.oy + Math.cos(t * o.sp * 1.4) * .16) * h;
+      var r  = o.r * Math.max(w, h);
+      var g  = ctx.createRadialGradient(px, py, 0, px, py, r);
+      g.addColorStop(0,    'rgba('+o.rgb+',.62)');
+      g.addColorStop(.40,  'rgba('+o.rgb+',.18)');
+      g.addColorStop(1,    'rgba('+o.rgb+',0)');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, w, h);
+    });
+    requestAnimationFrame(draw);
+  }
+  draw();
+})();
 </script>
 </body>
 </html>
