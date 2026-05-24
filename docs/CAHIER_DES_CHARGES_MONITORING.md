@@ -520,29 +520,73 @@ Statuts :
 
 ## 10. Cartes — Localisation Temps Réel
 
-**Objectif** : L'utilisateur peut partager sa position en temps réel avec ses contacts de confiance, et les contacts peuvent voir sa position sur une carte.
+**Objectif** : L'utilisateur peut lancer une session Guardian, partager sa position en temps réel avec ses contacts de confiance via un lien temporaire, et les contacts peuvent voir une position fraîche sur une carte sans avoir accès au compte complet.
+
+Cartes ne désigne pas une carte bancaire. Ici, l'objectif produit est la **carte de localisation live** : suivre, rassurer, partager temporairement, puis expirer proprement.
 
 ### Étapes obligatoires
-- GuardianEngine actif (même engine que Guardian)
-- Session Guardian créée avec token de partage
-- Position GPS mise à jour en Redis en temps réel
-- Page `/guardian-live/{token}` accessible sans login
-- Lien de partage transmis par SMS au contact
+- GuardianEngine actif (même engine que Guardian).
+- Page `/guardian` disponible côté utilisateur.
+- Autorisation GPS demandée clairement au navigateur/APK.
+- Session Guardian créée avec `session_id`.
+- Position GPS mise à jour via HTTP et/ou WebSocket.
+- Dernière position persistée en Redis avec horodatage.
+- Token public temporaire créé pour le partage live.
+- Page `/guardian-live/{token}` accessible sans login mais limitée au token.
+- Endpoint `/api/guardian/live-position/{token}` retourne uniquement la position utile, pas les données privées du compte.
+- Carte Leaflet chargée ou fallback texte/lien Google Maps proposé.
+- Session stoppable et token expiré proprement.
+- Lien de partage transmis au contact uniquement lors d'une vraie action utilisateur, jamais pendant un check.
 
 ### Points de contrôle
 | Contrôle | Fréquence | Seuil d'alerte |
 |---|---|---|
 | Engine Guardian actif | Chaque check | Non init |
 | Sessions Redis accessibles | Chaque check | Erreur |
+| Routes Guardian live présentes | Chaque check | Route manquante |
+| Page `/guardian` présente | Chaque check | HTML absent |
+| Page `/guardian-live/{token}` présente | Chaque check | Route manquante |
+| Endpoint position publique présent | Chaque check | Route manquante |
+| WebSocket Guardian présent | Chaque check | Route manquante |
+| Token de partage stockable | Chaque check | Redis KO |
 | Délai mise à jour position | Par session active | > 30s |
+| Fraîcheur position | Par session active | > 2 min |
+| Dépendance Leaflet | Déploiement + visuel | CDN KO sans fallback |
 
 ### Erreurs possibles
 - GPS bloqué par le navigateur (permissions)
 - Token de partage expiré
 - Carte non chargée (Leaflet.js CDN KO)
+- Position trop ancienne affichée comme si elle était live
+- Redis indisponible
+- Session Guardian absente ou arrêtée
+- WebSocket coupé, mais HTTP polling possible
+- Lien public qui expose plus que la position nécessaire
 
 ### Réparation automatique
 - Token de partage auto-renouvelé si expiré pendant session active
+- Si WebSocket KO → fallback polling HTTP
+- Si Leaflet KO → fallback lien `maps.google.com/?q=lat,lng`
+- Si position ancienne → afficher statut "dernière position connue" au lieu de "live"
+- Si GPS refusé → message clair et mode manuel/adresse si disponible
+
+### Limites à ne pas franchir
+- Le monitoring ne doit jamais envoyer de SMS réel.
+- Le monitoring ne doit jamais déclencher de SOS réel.
+- Le token public ne doit jamais exposer l'identité complète, les contacts, les documents ou l'historique.
+- Une position ancienne ne doit pas être présentée comme une position temps réel.
+- Ne pas considérer l'objectif atteint si seule la page carte existe.
+
+### Preuve de réussite
+Un check complet doit prouver le parcours :
+
+`GuardianEngine → session → position → token public → live-position → page carte → expiration/stop`
+
+Statuts :
+- `ok` : parcours live disponible avec position fraîche ou aucune session active mais infrastructure complète.
+- `warning` : aucune session active, GPS non testé, ou Leaflet dépend d'un CDN sans fallback.
+- `degraded` : WebSocket/Leaflet indisponible mais fallback HTTP ou lien carte utilisable.
+- `critical` : GuardianEngine, Redis, routes live ou endpoint position indisponibles.
 
 ---
 

@@ -120,11 +120,11 @@ Pour chaque objectif, il faut produire :
 
 Implémenter le monitoring de l'objectif :
 
-`## 8. Formulaires — Assistant Administratif Intelligent`
+`## 10. Cartes — Localisation Temps Réel`
 
 Prompt détaillé prêt à utiliser :
 
-`docs/PROMPT_CLAUDE_MONITORING_FORMULAIRES.md`
+`docs/PROMPT_CLAUDE_MONITORING_CARTES.md`
 
 État au 25 mai 2026 :
 
@@ -132,6 +132,8 @@ Prompt détaillé prêt à utiliser :
 - Ne pas refaire Services sauf bug explicite ou demande de revue.
 - Documents / Vault IA a déjà un premier commit de monitoring : `feat: monitoring Documents/Vault IA dans /api/admin/objectives`.
 - Ne pas refaire Documents sauf bug explicite ou demande de revue.
+- Formulaires / Assistant Administratif a déjà un premier commit de monitoring : `feat: monitoring Formulaires / Assistant Administratif dans /api/admin/objectives`.
+- Ne pas refaire Formulaires sauf bug explicite ou demande de revue.
 
 Le but est d'ajouter ou compléter :
 
@@ -142,7 +144,7 @@ avec un bloc :
 ```json
 {
   "objectives": {
-    "formulaires": {
+    "cartes": {
       "status": "degraded",
       "checks": [],
       "subservices": {},
@@ -152,6 +154,8 @@ avec un bloc :
   }
 }
 ```
+
+## Archive objectif précédent — Formulaires
 
 ## Archive objectif précédent — Documents / Vault IA
 
