@@ -39,6 +39,25 @@ from collections import defaultdict
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 from dotenv import load_dotenv
+
+# Sentry — monitoring & error tracking (optionnel si SENTRY_DSN absent)
+try:
+    import sentry_sdk
+    from sentry_sdk.integrations.fastapi import FastApiIntegration
+    from sentry_sdk.integrations.starlette import StarletteIntegration
+    _SENTRY_DSN = os.getenv("SENTRY_DSN", "")
+    if _SENTRY_DSN:
+        sentry_sdk.init(
+            dsn=_SENTRY_DSN,
+            environment=os.getenv("ENVIRONMENT", "local"),
+            integrations=[StarletteIntegration(), FastApiIntegration()],
+            traces_sample_rate=0.1,
+            send_default_pii=False,
+            enable_logs=True,
+        )
+        logging.getLogger(__name__).info("Sentry activé")
+except ImportError:
+    pass
 from openai import OpenAI
 from integrations.llm.provider import build_llm_client, get_llm_model, get_provider_label
 from contextlib import asynccontextmanager
@@ -178,6 +197,80 @@ TENANT_ID = 1  # Fallback pour retro-compatibilite (REQUIRE_AUTH=false)
 _PROPRIO_TENANT_ID = 1  # Tenant du fondateur (Ludo)
 LEGAL_MODE = "assistance_only"  # Mode legal: aide contextuelle, pas de surveillance garantie
 REQUIRE_AUTH = os.getenv("REQUIRE_AUTH", "true").lower() == "true"
+
+# --- Feature flags (désactive modules coûteux ou instables au boot) ---
+ENABLE_TAVUS_BOOT = os.getenv("ENABLE_TAVUS_BOOT", "true").lower() == "true"
+ENABLE_TWILIO_BOOT = os.getenv("ENABLE_TWILIO_BOOT", "true").lower() == "true"
+ENABLE_INSTRUCTIONS = os.getenv("ENABLE_INSTRUCTIONS", "true").lower() == "true"
+ENABLE_VAULT_REMINDERS = os.getenv("ENABLE_VAULT_REMINDERS", "true").lower() == "true"
+ENABLE_CORTEX = os.getenv("ENABLE_CORTEX", "true").lower() == "true"
+ENABLE_CLAUDE_CHAT = os.getenv("ENABLE_CLAUDE_CHAT", "true").lower() == "true"
+
+# --- Anthropic Claude — architecture multi-clés par domaine ---
+ANTHROPIC_MODEL = os.getenv("ANTHROPIC_MODEL", "claude-sonnet-4-6")
+
+# Clés par domaine fonctionnel
+_ANT_KEYS = {
+    "chat":     os.getenv("ANTHROPIC_KEY_CHAT",     os.getenv("ANTHROPIC_API_KEY", "")),
+    "cortex":   os.getenv("ANTHROPIC_KEY_CORTEX",   os.getenv("ANTHROPIC_API_KEY", "")),
+    "guardian": os.getenv("ANTHROPIC_KEY_GUARDIAN", os.getenv("ANTHROPIC_API_KEY", "")),
+    "analysis": os.getenv("ANTHROPIC_KEY_ANALYSIS", os.getenv("ANTHROPIC_API_KEY", "")),
+}
+# Rétrocompatibilité
+ANTHROPIC_API_KEY = _ANT_KEYS["chat"]
+
+_anthropic_clients: dict = {}
+
+def _get_anthropic_client(domain: str = "chat"):
+    """Retourne le client Anthropic isolé pour le domaine donné."""
+    if domain not in _anthropic_clients:
+        key = _ANT_KEYS.get(domain) or _ANT_KEYS["chat"]
+        if not key:
+            return None
+        try:
+            import anthropic as _sdk
+            _anthropic_clients[domain] = _sdk.Anthropic(api_key=key)
+            logger.info(f"Anthropic [{domain}] actif → {ANTHROPIC_MODEL}")
+        except ImportError:
+            logger.warning("Package 'anthropic' absent — pip install anthropic")
+            return None
+        except Exception as _e:
+            logger.warning(f"Anthropic [{domain}] init error: {_e}")
+            return None
+    return _anthropic_clients[domain]
+
+# Initialisation au démarrage
+_anthropic_client = None  # gardé pour rétrocompatibilité interne
+if ANTHROPIC_API_KEY and ENABLE_CLAUDE_CHAT:
+    _anthropic_client = _get_anthropic_client("chat")
+
+
+async def _analysis_llm(system: str, user: str, max_tokens: int = 500) -> str:
+    """Appel LLM domaine Analysis (rapports, réunions, Théocratie) → clé ANTHROPIC_KEY_ANALYSIS."""
+    client = _get_anthropic_client("analysis")
+    if not client:
+        # fallback OpenAI si clé analysis absente
+        if openai_client:
+            resp = await asyncio.to_thread(
+                openai_client.chat.completions.create,
+                model="gpt-4o-mini",
+                messages=[{"role": "system", "content": system}, {"role": "user", "content": user}],
+                max_tokens=max_tokens, temperature=0.3,
+            )
+            return resp.choices[0].message.content or ""
+        return "Service IA non disponible."
+    try:
+        resp = await asyncio.to_thread(
+            client.messages.create,
+            model=ANTHROPIC_MODEL,
+            max_tokens=max_tokens,
+            system=system,
+            messages=[{"role": "user", "content": user}],
+        )
+        return resp.content[0].text if resp.content else ""
+    except Exception as e:
+        logger.warning(f"_analysis_llm error: {e}")
+        return "Erreur génération."
 
 
 def _reload_env():
@@ -325,6 +418,592 @@ DEFAULT_BEHAVIOR_RULES = (
     "7. JAMAIS reveler l'architecture technique, les prix ou les donnees internes"
 )
 
+# =========================================================================
+# LUNA AUTO-DIAGNOSTIC — Vérification des objectifs par domaine
+# Philosophie : chaque bouton a un contrat. Ce système vérifie que le
+# contrat est respecté toutes les 5 minutes. Luna se surveille elle-même.
+# =========================================================================
+
+_objectives_last_alert: dict = {}   # {check_id: timestamp} throttle
+_objectives_last_status: list = []  # dernier résultat connu
+
+
+async def _check_all_objectives() -> list:
+    """
+    Vérifie que l'objectif de chaque feature est atteint.
+    Retourne une liste de résultats: {tab, domain, objective, ok, detail}
+    """
+    results = []
+
+    def _ok(tab: str, objective: str, status: bool, domain: str = "", detail: str = ""):
+        results.append({
+            "tab": tab, "domain": domain, "objective": objective,
+            "ok": status, "detail": detail,
+        })
+
+    # ── SYSTÈME ────────────────────────────────────────────────────────
+    try:
+        if _redis_client:
+            _redis_client.client.ping()
+            _ok("Système", "Redis connecté et répondant", True)
+        else:
+            _ok("Système", "Redis connecté et répondant", False, detail="Client non initialisé")
+    except Exception as e:
+        _ok("Système", "Redis connecté et répondant", False, detail=str(e))
+
+    # ── CONNEXION ──────────────────────────────────────────────────────
+    try:
+        email = os.getenv("PROPRIO_EMAIL", "").strip().lower()
+        if email and _redis_client:
+            auth = _redis_client.get_auth_by_email(email)
+            _ok("Connexion", f"Compte proprio ({email}) existe", bool(auth))
+        else:
+            _ok("Connexion", "Compte proprio configuré", False,
+                detail="PROPRIO_EMAIL absent ou Redis indisponible")
+    except Exception as e:
+        _ok("Connexion", "Compte proprio existe", False, detail=str(e))
+
+    # ── CHAT [KEY_CHAT] ────────────────────────────────────────────────
+    try:
+        client = _get_anthropic_client("chat")
+        _ok("Chat", "Clé ANTHROPIC_KEY_CHAT initialisée", client is not None, domain="chat")
+    except Exception as e:
+        _ok("Chat", "Clé ANTHROPIC_KEY_CHAT initialisée", False, domain="chat", detail=str(e))
+
+    try:
+        _ok("Chat", "Memory Manager tenant actif", _get_tenant_manager(TENANT_ID) is not None)
+    except Exception as e:
+        _ok("Chat", "Memory Manager tenant actif", False, detail=str(e))
+
+    # ── SERVICES / CORTEX [KEY_CORTEX] ────────────────────────────────
+    try:
+        client = _get_anthropic_client("cortex")
+        _ok("Services", "Clé ANTHROPIC_KEY_CORTEX initialisée", client is not None, domain="cortex")
+    except Exception as e:
+        _ok("Services", "Clé ANTHROPIC_KEY_CORTEX initialisée", False, domain="cortex", detail=str(e))
+
+    try:
+        tw_sid = os.getenv("TWILIO_ACCOUNT_SID", "")
+        tw_token = os.getenv("TWILIO_AUTH_TOKEN", "")
+        _ok("Services", "Twilio SMS/Appels configuré", bool(tw_sid and tw_token), domain="cortex")
+    except Exception as e:
+        _ok("Services", "Twilio SMS/Appels configuré", False, domain="cortex", detail=str(e))
+
+    # ── RAPPORTS / THÉOCRATIE / DOCUMENTS [KEY_ANALYSIS] ──────────────
+    try:
+        client = _get_anthropic_client("analysis")
+        _ok("Rapports·Théocratie·Docs", "Clé ANTHROPIC_KEY_ANALYSIS initialisée",
+            client is not None, domain="analysis")
+    except Exception as e:
+        _ok("Rapports·Théocratie·Docs", "Clé ANTHROPIC_KEY_ANALYSIS initialisée",
+            False, domain="analysis", detail=str(e))
+
+    try:
+        _ok("Rapports·Théocratie·Docs", "Générateur documents actif",
+            _doc_generator is not None, domain="analysis")
+    except Exception as e:
+        _ok("Rapports·Théocratie·Docs", "Générateur documents actif",
+            False, domain="analysis", detail=str(e))
+
+    # ── GUARDIAN [KEY_GUARDIAN] ────────────────────────────────────────
+    try:
+        client = _get_anthropic_client("guardian")
+        _ok("Guardian", "Clé ANTHROPIC_KEY_GUARDIAN initialisée", client is not None, domain="guardian")
+    except Exception as e:
+        _ok("Guardian", "Clé ANTHROPIC_KEY_GUARDIAN initialisée", False, domain="guardian", detail=str(e))
+
+    try:
+        engine = _get_guardian()
+        _ok("Guardian", "GuardianEngine disponible", engine is not None, domain="guardian")
+    except Exception as e:
+        _ok("Guardian", "GuardianEngine disponible", False, domain="guardian", detail=str(e))
+
+    try:
+        mgr = _get_tenant_manager(TENANT_ID)
+        contacts = mgr.list_trusted_contacts() if mgr else []
+        has_contacts = bool(contacts)
+        _ok("Guardian", "Contacts d'urgence configurés (SOS non silencieux)", has_contacts,
+            domain="guardian",
+            detail="" if has_contacts else "Aucun contact → SOS ne peut pas prévenir")
+    except Exception as e:
+        _ok("Guardian", "Contacts d'urgence configurés", False, domain="guardian", detail=str(e))
+
+    # ── AMIS / SOCIAL ─────────────────────────────────────────────────
+    try:
+        sops = _get_sops()
+        if sops:
+            code = sops.get_friend_code(TENANT_ID)
+            _ok("Amis", "Code ami généré (friend-code)", bool(code and len(code) >= 4))
+            friends = sops.get_friends(TENANT_ID)
+            _ok("Amis", "Liste amis accessible (type correct)", isinstance(friends, (set, list, type(None))))
+        else:
+            _ok("Amis", "Code ami généré", False, detail="SocialRedisOps indisponible")
+            _ok("Amis", "Liste amis accessible", False, detail="SocialRedisOps indisponible")
+    except Exception as e:
+        _ok("Amis", "Social Redis Ops", False, detail=str(e))
+
+    # ── VOIX / VISIO [OPENAI + SIMLI + TAVUS] ────────────────────────
+    try:
+        _ok("Voix·Visio", "OpenAI configuré (voix temps réel + vision)", openai_client is not None)
+    except Exception as e:
+        _ok("Voix·Visio", "OpenAI configuré", False, detail=str(e))
+
+    try:
+        simli_key = os.getenv("SIMLI_API_KEY", "")
+        simli_face = os.getenv("SIMLI_FACE_ID", "")
+        _ok("Visio Avatar", "Simli configuré (visio avatar principal)",
+            bool(simli_key and simli_face),
+            detail="" if (simli_key and simli_face) else "SIMLI_API_KEY ou SIMLI_FACE_ID manquant")
+    except Exception as e:
+        _ok("Visio Avatar", "Simli configuré", False, detail=str(e))
+
+    try:
+        tavus_key = os.getenv("TAVUS_API_KEY", "")
+        tavus_persona = os.getenv("TAVUS_LUNA_PERSONA_ID", "")
+        _ok("Visio Avatar", "Tavus configuré (visio Premium / fallback)",
+            bool(tavus_key and tavus_persona))
+    except Exception as e:
+        _ok("Visio Avatar", "Tavus configuré", False, detail=str(e))
+
+    # ── INSTRUCTIONS ──────────────────────────────────────────────────
+    try:
+        _ok("Instructions", "Moteur instructions actif (scheduler + executor)",
+            _CORE_AVAILABLE and _scheduler is not None and _executor is not None,
+            detail="" if (_CORE_AVAILABLE and _scheduler and _executor)
+                    else "Core non disponible ou scheduler/executor non initialisé")
+    except Exception as e:
+        _ok("Instructions", "Moteur instructions actif", False, detail=str(e))
+
+    try:
+        if _CORE_AVAILABLE and _scheduler:
+            mgr = _get_tenant_manager(TENANT_ID)
+            instructions = mgr.list_active_instructions() if mgr else []
+            _ok("Instructions", "Instructions actives lisibles",
+                True, detail=f"{len(instructions)} instruction(s) planifiée(s)")
+        else:
+            _ok("Instructions", "Instructions actives lisibles", False,
+                detail="Scheduler non initialisé")
+    except Exception as e:
+        _ok("Instructions", "Instructions actives lisibles", False, detail=str(e))
+
+    # ── DOCUMENTS (VAULT) ─────────────────────────────────────────────
+    try:
+        _ok("Documents", "Module Vault disponible",
+            _VAULT_AVAILABLE,
+            detail="" if _VAULT_AVAILABLE else "Import core.vault échoué")
+    except Exception as e:
+        _ok("Documents", "Module Vault disponible", False, detail=str(e))
+
+    try:
+        if _VAULT_AVAILABLE and _redis_client:
+            from core.vault.redis_ops import VaultRedisOps as _VaultOps
+            vops = _VaultOps(_redis_client, int(TENANT_ID))
+            docs = vops.list_docs(limit=5)
+            consent = vops.has_consent()
+            _ok("Documents", "Répertoire docs indexé et lisible",
+                True, detail=f"{len(docs)} doc(s) — consentement: {'oui' if consent else 'non'}")
+        else:
+            _ok("Documents", "Répertoire docs indexé et lisible", False,
+                detail="Vault ou Redis indisponible")
+    except Exception as e:
+        _ok("Documents", "Répertoire docs indexé et lisible", False, detail=str(e))
+
+    # ── FORMULAIRES ───────────────────────────────────────────────────
+    try:
+        from core.form_filler.routes import form_filler_router as _ff_router
+        _ok("Formulaires", "Module form-filler monté", _ff_router is not None)
+    except Exception as e:
+        _ok("Formulaires", "Module form-filler monté", False, detail=str(e))
+
+    try:
+        if _redis_client:
+            from core.form_filler.redis_ops import FormFillerRedisOps as _FFOps
+            fops = _FFOps(_redis_client, int(TENANT_ID))
+            profile = fops.get_profile()
+            history = fops.get_history(limit=3)
+            has_profile = bool(profile and any(v for v in profile.values() if v))
+            _ok("Formulaires", "Profil pré-remplissage + historique formulaires",
+                True,
+                detail=f"Profil {'rempli' if has_profile else 'vide'}, {len(history)} formulaire(s) traité(s)")
+        else:
+            _ok("Formulaires", "Profil pré-remplissage + historique formulaires", False,
+                detail="Redis indisponible")
+    except Exception as e:
+        _ok("Formulaires", "Profil pré-remplissage + historique formulaires", False, detail=str(e))
+
+    # ── CARTES (Guardian localisation live) ───────────────────────────
+    try:
+        engine = _get_guardian()
+        _ok("Cartes", "Moteur Guardian (localisation temps réel) actif",
+            engine is not None,
+            detail="" if engine else "GuardianEngine non initialisé")
+    except Exception as e:
+        _ok("Cartes", "Moteur Guardian (localisation temps réel) actif", False, detail=str(e))
+
+    try:
+        if _redis_client:
+            sessions_key = f"guardian:sessions"
+            raw_sessions = _redis_client.client.smembers(sessions_key) if _redis_client else set()
+            active_count = len(raw_sessions) if raw_sessions else 0
+            _ok("Cartes", "Sessions Guardian accessibles (partage de position)",
+                True, detail=f"{active_count} session(s) en cours")
+        else:
+            _ok("Cartes", "Sessions Guardian accessibles", False, detail="Redis indisponible")
+    except Exception as e:
+        _ok("Cartes", "Sessions Guardian accessibles", False, detail=str(e))
+
+    # ── ACTIVITÉS (Gamification) ──────────────────────────────────────
+    try:
+        if _redis_client:
+            from core.gamification.redis_ops import GamificationRedisOps as _GamOps
+            gops = _GamOps(_redis_client)
+            player = gops.get_player(str(TENANT_ID))
+            badges = gops.get_badges(str(TENANT_ID))
+            _ok("Activités", "Système gamification actif (XP, badges, niveaux)",
+                True, detail=f"{'Joueur actif' if player else 'Joueur non init'}, {len(badges)} badge(s)")
+        else:
+            _ok("Activités", "Système gamification actif", False, detail="Redis indisponible")
+    except Exception as e:
+        _ok("Activités", "Système gamification actif", False, detail=str(e))
+
+    # ── MONDE (World social) ──────────────────────────────────────────
+    try:
+        _ok("Monde", "Module World social disponible",
+            _WORLD_SOCIAL_AVAILABLE,
+            detail="" if _WORLD_SOCIAL_AVAILABLE else "Import core.world échoué")
+    except Exception as e:
+        _ok("Monde", "Module World social disponible", False, detail=str(e))
+
+    try:
+        if _WORLD_SOCIAL_AVAILABLE and _redis_client:
+            from core.world.redis_ops import WorldRedisOps as _WorldOps
+            wops = _WorldOps(_redis_client)
+            privacy = wops.get_privacy(str(TENANT_ID))
+            _ok("Monde", "Paramètres vie privée monde accessibles",
+                isinstance(privacy, dict),
+                detail=f"Visibilité carte: {privacy.get('map_visible', '?')}")
+        else:
+            _ok("Monde", "Paramètres vie privée monde accessibles", False,
+                detail="World social ou Redis indisponible")
+    except Exception as e:
+        _ok("Monde", "Paramètres vie privée monde accessibles", False, detail=str(e))
+
+    # ── PROFIL ────────────────────────────────────────────────────────
+    try:
+        mgr = _get_tenant_manager(TENANT_ID)
+        _ok("Profil", "Gestionnaire profil souscripteur actif", mgr is not None)
+    except Exception as e:
+        _ok("Profil", "Gestionnaire profil souscripteur actif", False, detail=str(e))
+
+    # ── QUOTAS ────────────────────────────────────────────────────────
+    try:
+        mgr = _get_tenant_manager(TENANT_ID)
+        if mgr and hasattr(mgr, "get_quota_status"):
+            quota = mgr.get_quota_status()
+            _ok("Quotas", "Système quotas retourne les données", isinstance(quota, dict))
+        else:
+            _ok("Quotas", "Système quotas disponible", mgr is not None)
+    except Exception as e:
+        _ok("Quotas", "Système quotas disponible", False, detail=str(e))
+
+    # ── RÉGLAGES ──────────────────────────────────────────────────────
+    try:
+        stripe_key = os.getenv("STRIPE_SECRET_KEY", "") or os.getenv("STRIPE_API_KEY", "")
+        _ok("Réglages", "Stripe configuré (paiement)", bool(stripe_key))
+    except Exception as e:
+        _ok("Réglages", "Stripe configuré", False, detail=str(e))
+
+    try:
+        email = os.getenv("PROPRIO_EMAIL", "")
+        pwd = os.getenv("PROPRIO_PASSWORD", "")
+        _ok("Réglages", "Identifiants admin configurés", bool(email and pwd))
+    except Exception as e:
+        _ok("Réglages", "Identifiants admin configurés", False, detail=str(e))
+
+    return results
+
+
+async def _check_objective_services() -> dict:
+    """Monitoring fonctionnel Services/Concierge — aucune action réelle déclenchée."""
+    checks = []
+    subservices = {}
+    metrics: dict = {
+        "tools_declared": 0,
+        "tools_available": 0,
+        "missing_env": [],
+        "optional_missing_env": [],
+        "last_tool_error": None,
+    }
+
+    def _chk(name: str, ok: bool, message: str = "", **extra):
+        checks.append({"name": name, "status": "ok" if ok else "warning", "message": message, **extra})
+
+    _g = globals()
+
+    # ── Catalogue d'outils ────────────────────────────────────────────
+    tools_loaded = isinstance(_SIMLI_TOOLS, list) and len(_SIMLI_TOOLS) > 0
+    metrics["tools_declared"] = len(_SIMLI_TOOLS) if isinstance(_SIMLI_TOOLS, list) else 0
+    _chk("tools_catalog_loaded", tools_loaded,
+         f"_SIMLI_TOOLS: {metrics['tools_declared']} outil(s)" if tools_loaded else "_SIMLI_TOOLS vide ou absent")
+
+    # ── Fonctions outils présentes ────────────────────────────────────
+    expected_fns = [
+        "_tool_get_weather", "_tool_get_news", "_tool_search_web", "_tool_search_places",
+        "_tool_search_flights", "_tool_search_hotels", "_tool_book_restaurant",
+        "_tool_send_sms", "_tool_call_contact", "_tool_send_email",
+        "_tool_create_note", "_tool_generate_document",
+    ]
+    available_count = sum(1 for fn in expected_fns if callable(_g.get(fn)))
+    metrics["tools_available"] = available_count
+    _chk("tool_functions_available", available_count == len(expected_fns),
+         f"{available_count}/{len(expected_fns)} fonctions outils présentes")
+
+    # ── Dispatcher ────────────────────────────────────────────────────
+    dispatcher_ok = callable(_g.get("_handle_tavus_tool_call"))
+    _chk("tool_dispatcher_available", dispatcher_ok,
+         "Dispatcher Tavus disponible" if dispatcher_ok else "_handle_tavus_tool_call manquant")
+
+    # ── Memory Manager ────────────────────────────────────────────────
+    mm_ok = _memory_manager is not None
+    _chk("memory_manager_available", mm_ok,
+         "Memory Manager disponible" if mm_ok else "Memory Manager non initialisé")
+
+    # ── Redis ─────────────────────────────────────────────────────────
+    redis_ok = False
+    try:
+        if _redis_client:
+            _redis_client.client.ping()
+            redis_ok = True
+    except Exception as e:
+        metrics["last_tool_error"] = f"Redis: {e}"
+    _chk("redis_available", redis_ok,
+         "Redis disponible" if redis_ok else "Redis indisponible")
+
+    # ── Sous-services ─────────────────────────────────────────────────
+    # Météo — wttr.in + Open-Meteo, pas de clé
+    subservices["weather"] = {
+        "status": "ok" if callable(_g.get("_tool_get_weather")) else "degraded",
+        "critical": False,
+    }
+
+    # Actualités — RSS gratuits
+    subservices["news"] = {
+        "status": "ok" if callable(_g.get("_tool_get_news")) else "degraded",
+        "critical": False,
+    }
+
+    # Recherche web — Serper
+    serper_key = os.getenv("SERPER_API_KEY", "")
+    if serper_key:
+        subservices["web_search"] = {"status": "ok", "critical": False}
+    else:
+        subservices["web_search"] = {"status": "warning", "critical": False, "missing": ["SERPER_API_KEY"]}
+        metrics["optional_missing_env"].append("SERPER_API_KEY")
+
+    # Lieux / restaurants
+    places_fn_ok = callable(_g.get("_tool_search_places")) and callable(_g.get("_tool_book_restaurant"))
+    if serper_key and places_fn_ok:
+        subservices["places_restaurants"] = {"status": "ok", "critical": False}
+    else:
+        missing_p = ([] if serper_key else ["SERPER_API_KEY"])
+        subservices["places_restaurants"] = {
+            "status": "warning" if places_fn_ok else "degraded",
+            "critical": False, "missing": missing_p,
+        }
+
+    # SMS — Twilio
+    tw_sid = os.getenv("TWILIO_ACCOUNT_SID", "")
+    tw_token = os.getenv("TWILIO_AUTH_TOKEN", "")
+    tw_number = os.getenv("TWILIO_PHONE_NUMBER", "")
+    twilio_ok = bool(tw_sid and tw_token and tw_number)
+    if twilio_ok:
+        subservices["sms"] = {"status": "ok", "critical": True}
+    else:
+        missing_tw = [k for k, v in {
+            "TWILIO_ACCOUNT_SID": tw_sid, "TWILIO_AUTH_TOKEN": tw_token, "TWILIO_PHONE_NUMBER": tw_number
+        }.items() if not v]
+        subservices["sms"] = {"status": "warning", "critical": True, "missing": missing_tw}
+        for k in missing_tw:
+            if k not in metrics["missing_env"]:
+                metrics["missing_env"].append(k)
+
+    # Appels vocaux — Twilio + _tool_call_contact
+    call_fn_ok = callable(_g.get("_tool_call_contact"))
+    if twilio_ok and call_fn_ok:
+        subservices["voice_call"] = {"status": "ok", "critical": True, "note": "numéros urgence bloqués"}
+    else:
+        subservices["voice_call"] = {
+            "status": "warning", "critical": True,
+            "missing": [] if twilio_ok else missing_tw,
+            "note": "numéros urgence bloqués",
+        }
+
+    # Email — SMTP non configuré, mode brouillon uniquement
+    subservices["email"] = {
+        "status": "warning", "critical": False,
+        "mode": "draft_only",
+        "recommended_fix": "Configurer SMTP_HOST + SMTP_USER pour envoi réel",
+    }
+    metrics["optional_missing_env"].append("SMTP_HOST")
+
+    # Paiements — Stripe optionnel sur serveur fondateur
+    stripe_key = os.getenv("STRIPE_SECRET_KEY", "") or os.getenv("STRIPE_API_KEY", "")
+    subservices["payments"] = {
+        "status": "ok" if stripe_key else "warning",
+        "critical": False,
+        "mode": "active" if stripe_key else "founder_optional",
+    }
+    if not stripe_key:
+        metrics["optional_missing_env"].append("STRIPE_SECRET_KEY")
+
+    # Vols — Duffel
+    duffel_token = os.getenv("DUFFEL_ACCESS_TOKEN", "")
+    if duffel_token and callable(_g.get("_tool_search_flights")):
+        subservices["flights"] = {"status": "ok", "critical": False}
+    else:
+        missing_d = [] if duffel_token else ["DUFFEL_ACCESS_TOKEN"]
+        subservices["flights"] = {"status": "degraded", "critical": False, "missing": missing_d}
+        if not duffel_token and "DUFFEL_ACCESS_TOKEN" not in metrics["optional_missing_env"]:
+            metrics["optional_missing_env"].append("DUFFEL_ACCESS_TOKEN")
+
+    # Hôtels — Duffel
+    if duffel_token and callable(_g.get("_tool_search_hotels")):
+        subservices["hotels"] = {"status": "ok", "critical": False}
+    else:
+        subservices["hotels"] = {
+            "status": "degraded", "critical": False,
+            "missing": [] if duffel_token else ["DUFFEL_ACCESS_TOKEN"],
+        }
+
+    # Secrétariat — secretary_ops + Redis
+    sec_ok = callable(_g.get("_get_secretary_ops"))
+    if sec_ok and redis_ok:
+        subservices["secretary"] = {"status": "ok", "critical": False}
+    elif sec_ok:
+        subservices["secretary"] = {"status": "warning", "critical": False, "missing": ["redis"]}
+    else:
+        subservices["secretary"] = {"status": "degraded", "critical": False, "missing": ["_get_secretary_ops"]}
+
+    # ── Auto-heal ──────────────────────────────────────────────────────
+    auto_heal = [
+        {"condition": "weather_primary_down", "action": "fallback_open_meteo", "available": True},
+        {"condition": "twilio_transient_failure", "action": "queue_sms_in_redis", "available": redis_ok},
+        {"condition": "missing_location", "action": "fallback_profile_city", "available": True},
+    ]
+
+    # ── Statut global ─────────────────────────────────────────────────
+    sub_statuses = [s.get("status") for s in subservices.values()]
+    critical_down = any(
+        s.get("status") in ("warning", "degraded") and s.get("critical")
+        for s in subservices.values()
+    )
+    n_degraded = sub_statuses.count("degraded")
+
+    if not tools_loaded or not dispatcher_ok:
+        status = "critical"
+    elif critical_down or n_degraded >= 3:
+        status = "degraded"
+    elif "warning" in sub_statuses or "degraded" in sub_statuses:
+        status = "warning"
+    else:
+        status = "ok"
+
+    return {
+        "status": status,
+        "goal": "Luna agit pour l'utilisateur via les services de conciergerie.",
+        "checks": checks,
+        "subservices": subservices,
+        "metrics": metrics,
+        "auto_heal": auto_heal,
+    }
+
+
+async def _send_objectives_alert(failures: list, total: int) -> None:
+    """Envoie une alerte Telegram ou SMS si des objectifs ne sont pas atteints."""
+    bot_token = os.getenv("ALERT_TELEGRAM_BOT_TOKEN", "")
+    founder_chat_id = os.getenv("FOUNDER_TELEGRAM_CHAT_ID", "")
+    # Charger depuis Redis si non configuré dans .env (persisté après /pair Telegram)
+    if not founder_chat_id and _redis_client:
+        try:
+            founder_chat_id = _redis_client.client.get("cortex:founder_telegram_chat_id") or ""
+        except Exception:
+            pass
+
+    lines = ["🔴 *Luna Auto-Diagnostic — Objectifs non atteints*\n"]
+    for f in failures:
+        tab = f.get("tab", "?")
+        obj = f.get("objective", "?")
+        dom = f.get("domain", "")
+        detail = f.get("detail", "")
+        domain_tag = f" [{dom.upper()}]" if dom else ""
+        lines.append(f"❌ *{tab}*{domain_tag} — {obj}")
+        if detail:
+            lines.append(f"   _{detail}_")
+    lines.append(f"\n_{len(failures)} objectif(s) non atteints / {total} vérifiés_")
+    msg = "\n".join(lines)
+
+    if bot_token and founder_chat_id:
+        try:
+            import httpx as _hx
+            async with _hx.AsyncClient(timeout=10) as _c:
+                await _c.post(
+                    f"https://api.telegram.org/bot{bot_token}/sendMessage",
+                    json={"chat_id": founder_chat_id, "text": msg, "parse_mode": "Markdown"},
+                )
+            logger.info(f"Objectives alert sent via Telegram ({len(failures)} failures)")
+            return
+        except Exception as e:
+            logger.warning(f"Telegram objectives alert failed: {e}")
+
+    # Fallback SMS
+    admin = os.getenv("ADMIN_NUMBER", "")
+    tw_sid = os.getenv("TWILIO_ACCOUNT_SID", "")
+    tw_token = os.getenv("TWILIO_AUTH_TOKEN", "")
+    tw_from = os.getenv("TWILIO_SMS_FROM", "")
+    if admin and tw_sid and tw_token and tw_from:
+        try:
+            from twilio.rest import Client as _Tw
+            _tw = _Tw(tw_sid, tw_token)
+            sms_body = f"LUNA DIAGNOSTIC: {len(failures)}/{total} objectifs en echec — " + \
+                       ", ".join(f["tab"] for f in failures[:4])
+            await asyncio.to_thread(_tw.messages.create, body=sms_body, from_=tw_from, to=admin)
+            logger.info("Objectives alert sent via SMS")
+        except Exception as e:
+            logger.warning(f"SMS objectives alert failed: {e}")
+
+
+async def _objectives_monitor_loop() -> None:
+    """
+    Boucle autonome : vérifie les objectifs toutes les 5 minutes.
+    Alerte Telegram/SMS si un objectif n'est plus atteint.
+    Luna se surveille elle-même — les bugs ne doivent pas être trouvés
+    par l'utilisateur avant le système.
+    """
+    global _objectives_last_status
+    await asyncio.sleep(45)  # Laisse le temps à tous les services de démarrer
+    while True:
+        try:
+            results = await _check_all_objectives()
+            _objectives_last_status = results
+            failures = [r for r in results if not r.get("ok")]
+            total = len(results)
+
+            if failures:
+                # Throttle : 1 alerte par combinaison d'échecs toutes les 30 min
+                failure_key = "|".join(sorted(f["objective"] for f in failures))
+                last_alert = _objectives_last_alert.get(failure_key, 0)
+                if time.time() - last_alert > 1800:
+                    _objectives_last_alert[failure_key] = time.time()
+                    await _send_objectives_alert(failures, total)
+                logger.warning(f"OBJECTIVES: {len(failures)}/{total} non atteints — " +
+                               ", ".join(f['tab'] for f in failures))
+            else:
+                logger.info(f"OBJECTIVES: {total}/{total} objectifs atteints ✓")
+        except Exception as e:
+            logger.error(f"Objectives monitor error: {e}")
+        await asyncio.sleep(300)  # 5 minutes
+
+
 # --- Caution Mode Descriptions ---
 CAUTION_MODE_PROMPTS = {
     "passif": (
@@ -375,33 +1054,34 @@ def _bootstrap_proprio_auth():
     proprio_password = os.getenv("PROPRIO_PASSWORD", "").strip()
     if not proprio_email or not proprio_password:
         return
-    existing = _redis_client.get_auth_by_email(proprio_email)
-    if existing:
-        # S'assurer que c'est bien le tenant 1
-        if existing.get("tenant_id") != _PROPRIO_TENANT_ID:
-            logger.warning(f"PROPRIO_EMAIL {proprio_email} est lie au tenant {existing.get('tenant_id')}, pas {_PROPRIO_TENANT_ID}")
+    try:
+        existing = _redis_client.get_auth_by_email(proprio_email)
+        if existing:
+            if existing.get("tenant_id") != _PROPRIO_TENANT_ID:
+                logger.warning(f"PROPRIO_EMAIL {proprio_email} est lie au tenant {existing.get('tenant_id')}, pas {_PROPRIO_TENANT_ID}")
+            else:
+                logger.info(f"Auth proprio OK: {proprio_email} (tenant {_PROPRIO_TENANT_ID})")
+            return
+        # Creer le record auth
+        password_hash = _hash_password(proprio_password)
+        created = _redis_client.create_auth_record(proprio_email, password_hash, _PROPRIO_TENANT_ID, "fondateur")
+        if created:
+            logger.info(f"AUTH BOOTSTRAP: cree {proprio_email} pour tenant {_PROPRIO_TENANT_ID} (plan fondateur)")
         else:
-            logger.info(f"Auth proprio OK: {proprio_email} (tenant {_PROPRIO_TENANT_ID})")
-        return
-    # Creer le record auth
-    password_hash = _hash_password(proprio_password)
-    created = _redis_client.create_auth_record(proprio_email, password_hash, _PROPRIO_TENANT_ID, "fondateur")
-    if created:
-        logger.info(f"AUTH BOOTSTRAP: cree {proprio_email} pour tenant {_PROPRIO_TENANT_ID} (plan fondateur)")
-    else:
-        # create_auth_record a echoue (race condition) — forcer via set direct
-        import json as _json
-        key = f"{_redis_client.prefix}:auth:{proprio_email}"
-        record = _json.dumps({
-            "tenant_id": _PROPRIO_TENANT_ID,
-            "password_hash": password_hash,
-            "plan": "fondateur",
-            "active": True,
-            "created_at": time.time(),
-            "email": proprio_email,
-        })
-        _redis_client.client.set(key, record)
-        logger.info(f"AUTH BOOTSTRAP (force): cree {proprio_email} pour tenant {_PROPRIO_TENANT_ID}")
+            import json as _json
+            key = f"{_redis_client.prefix}:auth:{proprio_email}"
+            record = _json.dumps({
+                "tenant_id": _PROPRIO_TENANT_ID,
+                "password_hash": password_hash,
+                "plan": "fondateur",
+                "active": True,
+                "created_at": time.time(),
+                "email": proprio_email,
+            })
+            _redis_client.client.set(key, record)
+            logger.info(f"AUTH BOOTSTRAP (force): cree {proprio_email} pour tenant {_PROPRIO_TENANT_ID}")
+    except Exception as _e:
+        logger.warning(f"AUTH BOOTSTRAP Redis indisponible au demarrage ({_e}) — sera retente au premier login")
 
 
 def _create_client_token(tenant_id: int, email: str, plan: str, first_name: str = "") -> str:
@@ -433,15 +1113,18 @@ def _decode_client_token(token: str) -> Optional[dict]:
 
 
 def _decode_admin_token(token: str) -> Optional[dict]:
-    """Decode un JWT admin. Retourne le payload ou None."""
+    """Decode un JWT admin ou un JWT fondateur (plan=fondateur). Retourne le payload ou None."""
     if not token:
         return None
     try:
         import jwt as pyjwt
         payload = pyjwt.decode(token, _JWT_SECRET, algorithms=[_JWT_ALGORITHM])
-        if payload.get("role") != "admin":
-            return None
-        return payload
+        if payload.get("role") == "admin":
+            return payload
+        # Le fondateur peut utiliser son luna_token (role=client, plan=fondateur)
+        if payload.get("role") == "client" and payload.get("plan") == "fondateur":
+            return payload
+        return None
     except Exception:
         return None
 
@@ -476,6 +1159,8 @@ _PUBLIC_PATHS = (
     "/api/email/oauth/",
     "/api/cortex/telegram/webhook",
     "/api/app/version",
+    "/api/license/",
+    "/api/settings/auto-note",
     "/api/debug/log",
     "/api/logs/client",
     "/api/logs/stream",
@@ -676,6 +1361,29 @@ gmail_client = GmailClient.from_env(base_url=_gmail_base_url)
 
 # --- Core modules (Redis, Safety, Quota) ---
 _redis_client: Optional[object] = None
+_redis_up: bool = False          # True si dernier ping Redis OK
+_redis_last_check: float = 0.0   # timestamp du dernier ping
+
+def _redis_available() -> bool:
+    """Ping Redis avec cache 30s. Retourne True si Redis repond."""
+    global _redis_up, _redis_last_check
+    now = time.time()
+    if now - _redis_last_check < 30:
+        return _redis_up
+    _redis_last_check = now
+    if not _redis_client:
+        _redis_up = False
+        return False
+    try:
+        _redis_client.client.ping()
+        if not _redis_up:
+            logger.info("Redis: connexion retablie")
+        _redis_up = True
+    except Exception:
+        if _redis_up:
+            logger.warning("Redis: connexion perdue — mode degrade")
+        _redis_up = False
+    return _redis_up
 _memory_manager: Optional[object] = None
 _safety_guardian: Optional[object] = None
 _quota_guard: Optional[object] = None
@@ -780,12 +1488,15 @@ def _get_tenant_manager(tenant_id: int):
         return _memory_manager  # fallback global
     # Slow path: create new manager (rare, only first access per tenant)
     plan = PlanType.ESSENTIEL
-    auth = _redis_client.get_auth_by_tenant_id(tenant_id)
-    if auth:
-        try:
-            plan = PlanType(auth.get("plan", "essentiel"))
-        except ValueError:
-            pass
+    try:
+        auth = _redis_client.get_auth_by_tenant_id(tenant_id)
+        if auth:
+            try:
+                plan = PlanType(auth.get("plan", "essentiel"))
+            except ValueError:
+                pass
+    except Exception:
+        return _memory_manager  # Redis KO — fallback global
     mgr = MemoryManager(
         tenant_id=tenant_id,
         plan=plan,
@@ -796,10 +1507,13 @@ def _get_tenant_manager(tenant_id: int):
     if existing is not mgr:
         mgr = existing  # Another coroutine won the race
     # Init behavioral memory si pas deja fait
-    if not mgr.get_behavioral_memory("identity_core"):
-        mgr.set_behavioral_memory("identity_core", DEFAULT_IDENTITY_CORE)
-    if not mgr.get_behavioral_memory("behavior_rules"):
-        mgr.set_behavioral_memory("behavior_rules", DEFAULT_BEHAVIOR_RULES)
+    try:
+        if not mgr.get_behavioral_memory("identity_core"):
+            mgr.set_behavioral_memory("identity_core", DEFAULT_IDENTITY_CORE)
+        if not mgr.get_behavioral_memory("behavior_rules"):
+            mgr.set_behavioral_memory("behavior_rules", DEFAULT_BEHAVIOR_RULES)
+    except Exception:
+        pass  # Redis KO — behavioral memory indisponible
     return mgr
 
 # Enregistrer le manager du tenant 1 (boot) dans le pool
@@ -1308,15 +2022,17 @@ async def lifespan(app):
         except Exception as e:
             logger.warning(f"Integrity check skipped: {e}")
 
-    if _CORE_AVAILABLE and _scheduler:
+    if ENABLE_INSTRUCTIONS and _CORE_AVAILABLE and _scheduler:
         await _load_instructions_to_scheduler()
-        _instruction_loop_task = asyncio.create_task(_instruction_loop())
-        logger.info("Instruction engine started")
+        _instruction_loop_task = asyncio.create_task(_instruction_loop_watchdog())
+        logger.info("Instruction engine started (auto-restart watchdog actif)")
+    elif not ENABLE_INSTRUCTIONS:
+        logger.info("Instruction engine désactivé (ENABLE_INSTRUCTIONS=false)")
     # Perception prete (camera navigateur, pas de background loop)
     if _perception_detector:
         logger.info("Perception ready (browser camera mode)")
     # Configure Tavus tool calling + perception (mode full uniquement)
-    if tavus_client and tavus_client.is_configured:
+    if ENABLE_TAVUS_BOOT and tavus_client and tavus_client.is_configured:
         try:
             await asyncio.wait_for(tavus_client.configure_tools(), timeout=10.0)
         except Exception as e:
@@ -1325,26 +2041,43 @@ async def lifespan(app):
             await asyncio.wait_for(tavus_client.configure_perception(), timeout=10.0)
         except Exception as e:
             logger.warning(f"Tavus configure_perception error: {e}")
+    elif not ENABLE_TAVUS_BOOT:
+        logger.info("Tavus boot désactivé (ENABLE_TAVUS_BOOT=false)")
     # Vault: boucle de rappels documentaires (SMS + chat)
-    if _VAULT_AVAILABLE and _redis_client:
+    if ENABLE_VAULT_REMINDERS and _VAULT_AVAILABLE and _redis_client:
         asyncio.create_task(_vault_reminder_loop())
         logger.info("Vault reminder loop started")
+    elif not ENABLE_VAULT_REMINDERS:
+        logger.info("Vault reminders désactivés (ENABLE_VAULT_REMINDERS=false)")
 
     # Cortex: init + demarrage du cerveau autonome
-    _cortex_instance = init_cortex(redis_client=_redis_client)
-    if _cortex_instance:
-        await start_cortex()
-        logger.info("Luna Cortex ACTIF — securite + monitoring + commandes SMS d'urgence")
+    if ENABLE_CORTEX:
+        _cortex_instance = init_cortex(redis_client=_redis_client)
+        if _cortex_instance:
+            await start_cortex()
+            logger.info("Luna Cortex ACTIF — securite + monitoring + commandes SMS d'urgence")
+    else:
+        logger.info("Cortex désactivé (ENABLE_CORTEX=false)")
 
     # Auto-configure Twilio phone number webhooks (voice + SMS)
-    if voice_client and voice_client.is_configured and VOICE_CALLBACK_URL:
+    if ENABLE_TWILIO_BOOT and voice_client and voice_client.is_configured and VOICE_CALLBACK_URL:
         try:
             await asyncio.wait_for(_configure_twilio_webhooks(), timeout=15.0)
         except Exception as e:
             logger.warning(f"Twilio webhook config error: {e}")
+    elif not ENABLE_TWILIO_BOOT:
+        logger.info("Twilio boot désactivé (ENABLE_TWILIO_BOOT=false)")
 
     # Bootstrap auth pour le proprio (tenant 1) si absent
     _bootstrap_proprio_auth()
+
+    # Reload licences depuis Redis maintenant que la connexion est établie
+    _licenses_load()
+    logger.info(f"Licences chargées depuis Redis: {len(_licenses_db)} exploitant(s)")
+
+    # Auto-diagnostic : démarre la boucle de vérification des objectifs
+    asyncio.create_task(_objectives_monitor_loop())
+    logger.info("Luna Auto-Diagnostic démarré — vérification des objectifs toutes les 5 min")
 
     yield
     # Shutdown
@@ -1584,15 +2317,18 @@ async def security_middleware(request: Request, call_next):
         else:
             # Verifier que le compte est actif
             if _redis_client:
-                auth_record = _redis_client.get_auth_by_email(payload["email"])
-                if auth_record and not auth_record.get("active", True):
-                    return JSONResponse(
-                        status_code=403,
-                        content={"error": "Compte desactive"},
-                    )
-            request.state.tenant_id = payload["tenant_id"]
-            request.state.email = payload["email"]
-            request.state.plan = payload["plan"]
+                try:
+                    auth_record = _redis_client.get_auth_by_email(payload["email"])
+                    if auth_record and not auth_record.get("active", True):
+                        return JSONResponse(
+                            status_code=403,
+                            content={"error": "Compte desactive"},
+                        )
+                except Exception:
+                    pass  # Redis KO — on fait confiance au JWT valide
+            request.state.tenant_id = payload.get("tenant_id", 1)
+            request.state.email = payload.get("email", "")
+            request.state.plan = payload.get("plan", "essentiel")
     else:
         # Mode retro-compatible ou path public: tenant_id = 1
         request.state.tenant_id = TENANT_ID
@@ -1896,6 +2632,30 @@ async def client_page():
     return FileResponse(os.path.join(STATIC_DIR, "index.html"), headers=_NO_CACHE_HEADERS)
 
 
+@app.get("/luna-config.js", response_class=Response)
+async def luna_config_js():
+    """Config publique injectée côté client (SENTRY_DSN, env, version)."""
+    sentry_dsn = os.getenv("SENTRY_DSN", "")
+    env = os.getenv("ENVIRONMENT", "local")
+    js = f"""
+window.LUNA_CONFIG = {{
+  sentryDsn: {json.dumps(sentry_dsn)},
+  environment: {json.dumps(env)},
+  version: "luna-beta"
+}};
+if (window.LUNA_CONFIG.sentryDsn && typeof Sentry !== 'undefined') {{
+  Sentry.init({{
+    dsn: window.LUNA_CONFIG.sentryDsn,
+    environment: window.LUNA_CONFIG.environment,
+    tracesSampleRate: 0.1,
+    ignoreErrors: ['ResizeObserver loop', 'Non-Error promise rejection']
+  }});
+}}
+""".strip()
+    return Response(content=js, media_type="application/javascript",
+                    headers={"Cache-Control": "no-cache"})
+
+
 @app.get("/health")
 async def health():
     """Healthcheck leger pour Docker/load balancers."""
@@ -1958,6 +2718,15 @@ async def admin_page():
     if os.path.exists(admin_path):
         return FileResponse(admin_path)
     return JSONResponse(status_code=404, content={"error": "Dashboard admin non disponible"})
+
+
+@app.get("/fondateur")
+async def fondateur_page():
+    """Dashboard superadmin fondateur — accès restreint, hors package exploitant."""
+    path = os.path.join(STATIC_DIR, "fondateur.html")
+    if os.path.exists(path):
+        return FileResponse(path, headers={"Cache-Control": "no-store"})
+    return JSONResponse(status_code=404, content={"error": "Dashboard fondateur non disponible"})
 
 
 @app.get("/exploitant")
@@ -2192,6 +2961,141 @@ def _build_rich_cards(tool_calls_made: list) -> list:
                     "phone": p.get("phone", ""), "rating": p.get("rating", ""), "hours": p.get("hours", ""),
                     "url": p.get("website", ""), "price_level": p.get("price_level", "")})
     return cards
+
+
+def _messages_to_claude_format(messages):
+    """Convertit le tableau messages OpenAI en (system_str, claude_messages) pour Anthropic."""
+    system_parts = []
+    conv = []
+    for m in messages:
+        role = m.get("role") if isinstance(m, dict) else getattr(m, "role", None)
+        content = m.get("content") if isinstance(m, dict) else getattr(m, "content", None)
+        if role == "system":
+            if isinstance(content, str) and content:
+                system_parts.append(content)
+        elif role in ("user", "assistant"):
+            if isinstance(content, str) and content:
+                # Fusionner les messages consécutifs de même rôle
+                if conv and conv[-1]["role"] == role:
+                    conv[-1]["content"] += "\n\n" + content
+                else:
+                    conv.append({"role": role, "content": content})
+    # Claude exige au moins un message user
+    if not conv:
+        conv = [{"role": "user", "content": "Bonjour"}]
+    # Le dernier message doit être user
+    if conv[-1]["role"] != "user":
+        conv.append({"role": "user", "content": "(Réponds)"})
+    return "\n\n".join(system_parts), conv
+
+
+def _tools_to_claude_format(chat_tools):
+    """Convertit les tools OpenAI en format Anthropic."""
+    result = []
+    for t in (chat_tools or []):
+        fn = t.get("function", {})
+        result.append({
+            "name": fn.get("name", ""),
+            "description": fn.get("description", ""),
+            "input_schema": fn.get("parameters", {"type": "object", "properties": {}}),
+        })
+    return result
+
+
+async def _stream_chat_sse_claude(messages, chat_tools, tid, session_id, req_message, mgr, semaphore=None):
+    """Streaming SSE avec Claude — routing par domaine (chat vs cortex pour tool calls)."""
+    try:
+        system_str, claude_msgs = _messages_to_claude_format(messages)
+        claude_tools = _tools_to_claude_format(chat_tools)
+
+        # Routing : si tool calls actifs → domaine cortex, sinon chat
+        domain = "cortex" if claude_tools else "chat"
+        client = _get_anthropic_client(domain) or _get_anthropic_client("chat")
+
+        import anthropic as _ant
+        response = await asyncio.to_thread(
+            client.messages.create,
+            model=ANTHROPIC_MODEL,
+            max_tokens=1024,
+            system=system_str or "Tu es Luna, assistante IA bienveillante de YAWatch.",
+            messages=claude_msgs,
+            tools=claude_tools if claude_tools else _ant.NOT_GIVEN,
+        )
+
+        full_text = ""
+        tool_use_blocks = []
+        for block in response.content:
+            if block.type == "text":
+                full_text += block.text
+            elif block.type == "tool_use":
+                tool_use_blocks.append(block)
+
+        if full_text:
+            yield f"data: {json.dumps({'type': 'chunk', 'text': full_text})}\n\n"
+
+        tool_calls_made = []
+        if tool_use_blocks:
+            # Ajoute le message assistant avec les tool_use blocks
+            claude_msgs.append({"role": "assistant", "content": response.content})
+            tool_results_content = []
+
+            for block in tool_use_blocks:
+                fn_name = block.name
+                fn_args = block.input if isinstance(block.input, dict) else {}
+                yield f"data: {json.dumps({'type': 'tool', 'name': fn_name, 'status': 'running'})}\n\n"
+                result = await _dispatch_chat_tool(fn_name, fn_args, tid, session_id)
+                tool_calls_made.append({"tool": fn_name, "result": result})
+                tool_results_content.append({
+                    "type": "tool_result",
+                    "tool_use_id": block.id,
+                    "content": json.dumps(result, ensure_ascii=False),
+                })
+                yield f"data: {json.dumps({'type': 'tool', 'name': fn_name, 'status': 'done'})}\n\n"
+
+            claude_msgs.append({"role": "user", "content": tool_results_content})
+
+            # Deuxième appel avec les résultats des tools (toujours sur cortex)
+            response2 = await asyncio.to_thread(
+                client.messages.create,
+                model=ANTHROPIC_MODEL,
+                max_tokens=1024,
+                system=system_str or "Tu es Luna.",
+                messages=claude_msgs,
+            )
+            full_text = ""
+            for block in response2.content:
+                if block.type == "text":
+                    full_text += block.text
+            if full_text:
+                yield f"data: {json.dumps({'type': 'chunk', 'text': full_text})}\n\n"
+
+        # Persist
+        if mgr:
+            try:
+                mgr.add_message(conv_id=session_id, role=MessageRole.LUNA, content=full_text, channel=Channel.APP)
+            except Exception:
+                pass
+
+        _gamify(tid, "chat_message")
+
+        done_data = {"type": "done", "response": full_text, "provider": "claude"}
+        if tool_calls_made:
+            done_data["actions"] = [{"tool": t["tool"], "status": t["result"].get("status", "unknown")} for t in tool_calls_made]
+            for t in tool_calls_made:
+                if t["result"].get("visio_url"):
+                    done_data["visio_url"] = t["result"]["visio_url"]
+                    break
+        yield f"data: {json.dumps(done_data)}\n\n"
+
+    except asyncio.CancelledError:
+        raise
+    except Exception as e:
+        logger.error(f"Claude chat error: {e} — fallback OpenAI")
+        async for event in _stream_chat_sse(messages, chat_tools, tid, session_id, req_message, mgr):
+            yield event
+    finally:
+        if semaphore:
+            semaphore.release()
 
 
 async def _stream_chat_sse(messages, chat_tools, tid, session_id, req_message, mgr, semaphore=None):
@@ -2747,14 +3651,18 @@ COMPORTEMENT COMPAGNON :
         ] if _CHAT_TOOLS else []
 
         if _openai_breaker.is_open:
-            return {"response": "Luna est temporairement indisponible. Reessaie dans une minute."}
+            return {"response": "Luna est temporairement indisponible. Réessaie dans une minute."}
 
         # --- STREAMING SSE ---
         if getattr(req, "stream", False):
-            # Pass semaphore to generator — it will release when stream ends
             _stream_sem = _chat_semaphore
+            # Claude Sonnet si disponible, sinon OpenAI
+            if _anthropic_client and ENABLE_CLAUDE_CHAT:
+                gen = _stream_chat_sse_claude(messages, chat_tools, tid, req.session_id, req.message, mgr, semaphore=_stream_sem)
+            else:
+                gen = _stream_chat_sse(messages, chat_tools, tid, req.session_id, req.message, mgr, semaphore=_stream_sem)
             return StreamingResponse(
-                _stream_chat_sse(messages, chat_tools, tid, req.session_id, req.message, mgr, semaphore=_stream_sem),
+                gen,
                 media_type="text/event-stream",
                 headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
             )
@@ -2966,7 +3874,7 @@ COMPORTEMENT COMPAGNON :
                 meta = mgr.redis.get_conversation_meta(tid, req.session_id)
                 if meta and not meta.get("summary") and int(meta.get("message_count", 0)) <= 2:
                     try:
-                        title_resp = openai_client.chat.completions.create(
+                        title_resp = await asyncio.to_thread(openai_client.chat.completions.create,
                             model="gpt-4o-mini",
                             messages=[{
                                 "role": "system",
@@ -3167,7 +4075,7 @@ async def greeting(request: Request):
                 except Exception:
                     pass
             messages.append({"role": "system", "content": _sec_context})
-        response = openai_client.chat.completions.create(
+        response = await asyncio.to_thread(openai_client.chat.completions.create,
             model=OPENAI_MODEL,
             messages=messages,
             max_tokens=300,
@@ -3461,15 +4369,6 @@ async def _start_simli_visio(tenant_id: int, subscriber_name: str) -> tuple:
     face_id = os.getenv("SIMLI_FACE_ID", "")
     openai_key = os.getenv("OPENAI_API_KEY", "")
     elevenlabs_key = os.getenv("ELEVENLABS_API_KEY", "")
-    # voiceId: ElevenLabs Charlotte FR si cle dispo, sinon Cartesia voix FR feminine
-    tts_provider = "ElevenLabs" if elevenlabs_key else "Cartesia"
-    # Charlotte FR (ElevenLabs) si cle dispo, sinon voix Cartesia par defaut (multilingual)
-    # La voix par defaut Simli/Cartesia fonctionne avec language:"fr"
-    # (voix custom Cartesia FR requiert plan payant Cartesia)
-    # f9836c6e = "Helpful Woman" Cartesia, voix feminine multilingue (supporte fr)
-    voice_id = os.getenv("SIMLI_VOICE_ID",
-        "XB0fDUnXU5powFXDhCwa" if elevenlabs_key else "f9836c6e-a0bd-460e-9d3c-f7299fa60f94")
-    tts_api_key = elevenlabs_key if elevenlabs_key else None
 
     if not api_key or not face_id:
         return False, {"error": "Simli non configure (SIMLI_API_KEY / SIMLI_FACE_ID manquants)"}
@@ -3507,11 +4406,12 @@ async def _start_simli_visio(tenant_id: int, subscriber_name: str) -> tuple:
     )
     ctx = french_prefix + ctx + realtime_ctx
 
+    elevenlabs_key = os.getenv("ELEVENLABS_API_KEY", "")
+    cartesia_key = os.getenv("CARTESIA_API_KEY", "")
+
     payload = {
+        "simliAPIKey": api_key,
         "faceId": face_id,
-        "ttsProvider": tts_provider,
-        "voiceId": voice_id,
-        "language": "fr",
         "systemPrompt": ctx,
         "firstMessage": f"Bonjour {subscriber_name} ! Je suis ravie de te voir. Comment je peux t'aider aujourd'hui ?",
         "customLLMConfig": {
@@ -3519,12 +4419,17 @@ async def _start_simli_visio(tenant_id: int, subscriber_name: str) -> tuple:
             "baseURL": "https://api.openai.com/v1",
             "llmAPIKey": openai_key,
         },
-        "tools": _SIMLI_TOOLS,
         "maxSessionLength": 3600,
         "maxIdleTime": 300,
     }
-    if tts_api_key:
-        payload["ttsAPIKey"] = tts_api_key
+    if cartesia_key:
+        payload["ttsProvider"] = "Cartesia"
+        payload["voiceId"] = os.getenv("CARTESIA_VOICE_ID", "65b25c5d-ff07-4687-a04c-da2f43ef6fa9")
+        payload["ttsAPIKey"] = cartesia_key
+    elif elevenlabs_key:
+        payload["ttsProvider"] = "ElevenLabs"
+        payload["voiceId"] = os.getenv("ELEVENLABS_VOICE_ID", "21m00Tcm4TlvDq8ikWAM")
+        payload["ttsAPIKey"] = elevenlabs_key
 
     try:
         async with httpx.AsyncClient(timeout=30) as client:
@@ -3623,7 +4528,10 @@ async def start_call(request: Request):
 
     sub_name = _tenant_subscriber_first_name(tid)
 
-    if tavus_client and tavus_client.is_configured:
+    # Routing par plan : Premium + Fondateur → Tavus, Essentiel/Confort → Simli
+    use_tavus = (_plan in ("premium", "fondateur")) and tavus_client and tavus_client.is_configured
+
+    if use_tavus:
         try:
             realtime_ctx_tavus = await _build_realtime_context(tid)
         except Exception:
@@ -3648,8 +4556,9 @@ async def start_call(request: Request):
                 "conversation_id": data["conversation_id"],
                 "provider": "tavus",
             }
-        logger.warning(f"Tavus indisponible, repli Simli: {data.get('error', 'unknown')}")
+        logger.warning(f"Tavus indisponible (plan {_plan}), repli Simli: {data.get('error', 'unknown')}")
 
+    # Essentiel / Confort / fondateur / ou fallback Premium → Simli
     ok, payload = await _start_simli_visio(tid, sub_name)
     if ok:
         _gamify(tid, "voice_call")
@@ -5229,7 +6138,7 @@ Quand il parle de ses heures, propose de les enregistrer. Quand il parle d'une r
                             f"{'Utilisateur' if e['role'] == 'user' else 'Luna'}: {e['text']}"
                             for e in bridge.transcript
                         )
-                        _summary_resp = openai_client.chat.completions.create(
+                        _summary_resp = await asyncio.to_thread(openai_client.chat.completions.create,
                             model=OPENAI_MODEL,
                             messages=[
                                 {"role": "system", "content": "Tu generes des comptes rendus concis de conversations vocales. Format: 1) Resume (2-3 phrases), 2) Points cles (liste), 3) Actions a suivre (si applicable). En francais."},
@@ -5277,6 +6186,328 @@ Quand il parle de ses heures, propose de les enregistrer. Quand il parle d'une r
             await websocket.close()
         except Exception:
             pass
+
+
+# =========================================================================
+# SOCIAL API — Amis, DMs, Présence en ligne
+# =========================================================================
+
+def _get_sops():
+    """Retourne un SocialRedisOps ou None si Redis indisponible."""
+    if not _redis_available():
+        return None
+    try:
+        from core.social.redis_ops import SocialRedisOps
+        return SocialRedisOps(_redis_client)
+    except Exception:
+        return None
+
+def _sync_social_profile(tid: int, sops) -> None:
+    """Synchronise le profil social (nickname, level, avatar_type) depuis les données tenant."""
+    try:
+        mgr = _get_tenant_manager(tid)
+        profile = mgr.get_subscriber_profile() if mgr else None
+        first = getattr(profile, "first_name", "") or ""
+        last = getattr(profile, "last_name", "") or ""
+        nickname = (first + (" " + last[0] + "." if last else "")).strip() or f"Utilisateur{tid}"
+
+        level = "1"
+        avatar_type = "adult_man"
+        try:
+            from core.gamification.redis_ops import GamificationRedisOps
+            from core.gamification.engine import get_level_for_xp
+            gops = GamificationRedisOps(_redis_client)
+            player = gops.get_player(tid)
+            if player:
+                xp = player.get("xp", 0)
+                lvl_info = get_level_for_xp(int(xp))
+                level = str(lvl_info.get("level", 1))
+                avatar_type = gops.get_avatar_type(tid) or "adult_man"
+        except Exception:
+            pass
+
+        sops.set_social_profile(tid, {
+            "tid": str(tid),
+            "nickname": nickname,
+            "level": level,
+            "avatar_type": avatar_type,
+        })
+    except Exception as e:
+        logger.warning(f"_sync_social_profile tid={tid}: {e}")
+
+
+@app.get("/api/social/friend-code")
+async def social_friend_code(request: Request):
+    """Retourne le code ami unique du souscripteur."""
+    tid = getattr(request.state, "tenant_id", TENANT_ID)
+    sops = _get_sops()
+    if not sops:
+        return JSONResponse(status_code=503, content={"error": "Service social indisponible"})
+    _sync_social_profile(tid, sops)
+    code = sops.get_friend_code(tid)
+    return {"friend_code": code, "tid": tid}
+
+
+@app.post("/api/social/friend-code/use")
+async def social_use_friend_code(request: Request):
+    """Envoie une demande d'ami via le code ami d'un autre souscripteur."""
+    tid = getattr(request.state, "tenant_id", TENANT_ID)
+    body = await request.json()
+    code = (body.get("code", "") or "").strip().upper()
+    if not code:
+        return JSONResponse(status_code=400, content={"error": "Code requis"})
+    sops = _get_sops()
+    if not sops:
+        return JSONResponse(status_code=503, content={"error": "Service social indisponible"})
+    target_tid_str = sops.resolve_friend_code(code)
+    if not target_tid_str:
+        return JSONResponse(status_code=404, content={"error": "Code invalide ou expiré"})
+    target_tid = int(target_tid_str)
+    if target_tid == tid:
+        return JSONResponse(status_code=400, content={"error": "Tu ne peux pas t'ajouter toi-même"})
+    sent = sops.send_friend_request(tid, target_tid)
+    if not sent:
+        # Check if already friends
+        friends = sops.get_friends(tid)
+        if str(target_tid) in friends:
+            return {"success": False, "status": "already_friends", "error": "Vous êtes déjà amis"}
+        return {"success": False, "status": "already_sent", "error": "Demande déjà envoyée"}
+    return {"success": True, "status": "sent", "friend_tid": target_tid}
+
+
+@app.get("/api/social/friends")
+async def social_list_friends(request: Request):
+    """Liste les amis acceptés avec présence en ligne."""
+    tid = getattr(request.state, "tenant_id", TENANT_ID)
+    sops = _get_sops()
+    if not sops:
+        return {"friends": []}
+    friend_tids = sops.get_friends(tid)
+    online_set = sops.get_online_tids()
+    friends = []
+    for f_tid_str in friend_tids:
+        f_tid = int(f_tid_str)
+        profile = sops.get_social_profile(f_tid)
+        if not profile:
+            _sync_social_profile(f_tid, sops)
+            profile = sops.get_social_profile(f_tid) or {}
+        friends.append({
+            "tid": f_tid,
+            "nickname": profile.get("nickname", f"Utilisateur{f_tid}"),
+            "level": int(profile.get("level", 1)),
+            "avatar_type": profile.get("avatar_type", "adult_man"),
+            "is_online": f_tid_str in online_set,
+        })
+    friends.sort(key=lambda f: (not f["is_online"], f["nickname"].lower()))
+    return {"friends": friends, "count": len(friends)}
+
+
+@app.get("/api/social/friends/requests")
+async def social_friend_requests(request: Request):
+    """Demandes d'amis reçues en attente."""
+    tid = getattr(request.state, "tenant_id", TENANT_ID)
+    sops = _get_sops()
+    if not sops:
+        return {"requests": []}
+    requester_tids = sops.get_friend_requests(tid)
+    requests_list = []
+    for r_tid_str in requester_tids:
+        r_tid = int(r_tid_str)
+        profile = sops.get_social_profile(r_tid)
+        if not profile:
+            _sync_social_profile(r_tid, sops)
+            profile = sops.get_social_profile(r_tid) or {}
+        requests_list.append({
+            "tid": r_tid,
+            "nickname": profile.get("nickname", f"Utilisateur{r_tid}"),
+            "level": int(profile.get("level", 1)),
+            "avatar_type": profile.get("avatar_type", "adult_man"),
+        })
+    return {"requests": requests_list, "count": len(requests_list)}
+
+
+@app.post("/api/social/friends/accept")
+async def social_accept_friend(request: Request):
+    """Accepte une demande d'ami."""
+    tid = getattr(request.state, "tenant_id", TENANT_ID)
+    body = await request.json()
+    requester_tid = int(body.get("requester_tid", 0))
+    if not requester_tid:
+        return JSONResponse(status_code=400, content={"error": "requester_tid requis"})
+    sops = _get_sops()
+    if not sops:
+        return JSONResponse(status_code=503, content={"error": "Service social indisponible"})
+    ok = sops.accept_friend_request(tid, requester_tid)
+    return {"success": ok, "error": None if ok else "Demande introuvable ou déjà traitée"}
+
+
+@app.post("/api/social/friends/decline")
+async def social_decline_friend(request: Request):
+    """Refuse une demande d'ami."""
+    tid = getattr(request.state, "tenant_id", TENANT_ID)
+    body = await request.json()
+    requester_tid = int(body.get("requester_tid", 0))
+    if not requester_tid:
+        return JSONResponse(status_code=400, content={"error": "requester_tid requis"})
+    sops = _get_sops()
+    if not sops:
+        return JSONResponse(status_code=503, content={"error": "Service social indisponible"})
+    ok = sops.decline_friend_request(tid, requester_tid)
+    return {"success": ok}
+
+
+@app.delete("/api/social/friends/{friend_tid}")
+async def social_remove_friend(friend_tid: int, request: Request):
+    """Supprime un ami et toutes les données associées (DM inclus)."""
+    tid = getattr(request.state, "tenant_id", TENANT_ID)
+    sops = _get_sops()
+    if not sops:
+        return JSONResponse(status_code=503, content={"error": "Service social indisponible"})
+    result = sops.delete_friend_and_data(tid, friend_tid)
+    return {"success": True, **result}
+
+
+@app.post("/api/social/heartbeat")
+async def social_heartbeat(request: Request):
+    """Met à jour la présence en ligne et retourne les compteurs non-lus."""
+    tid = getattr(request.state, "tenant_id", TENANT_ID)
+    sops = _get_sops()
+    if not sops:
+        return {"online": True, "pending_requests": 0, "unread_dm_count": 0}
+    sops.set_online(tid)
+    pending = sops.get_pending_request_count(tid)
+    unread_dm = sops.get_unread_dm_count(tid)
+    return {"online": True, "pending_requests": pending, "unread_dm_count": unread_dm}
+
+
+@app.get("/api/social/dm/rooms")
+async def social_dm_rooms(request: Request):
+    """Liste les DM rooms de l'utilisateur avec compteurs non-lus."""
+    tid = getattr(request.state, "tenant_id", TENANT_ID)
+    sops = _get_sops()
+    if not sops:
+        return {"rooms": []}
+    rooms_raw = sops.get_dm_rooms(tid)
+    unread_map = sops.get_unread_dm_per_room(tid)
+    rooms = []
+    for r in rooms_raw:
+        other_tid = r.get("tid2") if str(r.get("tid1")) == str(tid) else r.get("tid1")
+        rooms.append({
+            "room_id": r.get("room_id", ""),
+            "other_tid": other_tid,
+            "last_message_at": r.get("last_message_at", ""),
+            "unread": unread_map.get(r.get("room_id", ""), 0),
+        })
+    return {"rooms": rooms}
+
+
+@app.post("/api/social/dm/create")
+async def social_dm_create(request: Request):
+    """Crée ou récupère un DM room avec un ami."""
+    tid = getattr(request.state, "tenant_id", TENANT_ID)
+    body = await request.json()
+    friend_tid = int(body.get("friend_tid", 0))
+    if not friend_tid:
+        return JSONResponse(status_code=400, content={"error": "friend_tid requis"})
+    sops = _get_sops()
+    if not sops:
+        return JSONResponse(status_code=503, content={"error": "Service social indisponible"})
+    room_id = sops.create_dm_room(tid, friend_tid)
+    if not room_id:
+        return JSONResponse(status_code=403, content={"error": "Vous devez être amis pour démarrer une conversation"})
+    sops.mark_dm_read(tid, room_id)
+    return {"room_id": room_id, "friend_tid": friend_tid}
+
+
+@app.get("/api/social/dm/{room_id}/messages")
+async def social_dm_messages(room_id: str, request: Request):
+    """Retourne les messages d'un DM (plus récents en dernier)."""
+    tid = getattr(request.state, "tenant_id", TENANT_ID)
+    sops = _get_sops()
+    if not sops:
+        return {"messages": []}
+    room = sops.get_dm_room(room_id)
+    if not room or str(tid) not in (room.get("tid1", ""), room.get("tid2", "")):
+        return JSONResponse(status_code=403, content={"error": "Accès refusé"})
+    sops.mark_dm_read(tid, room_id)
+    messages = sops.get_dm_messages(room_id, limit=50)
+    # Normalize field names for frontend (sender_tid)
+    for m in messages:
+        m["sender_tid"] = m.get("sender", "")
+    return {"messages": messages}
+
+
+@app.post("/api/social/dm/{room_id}/send")
+async def social_dm_send(room_id: str, request: Request):
+    """Envoie un message dans un DM (fallback REST quand WS indisponible)."""
+    tid = getattr(request.state, "tenant_id", TENANT_ID)
+    body = await request.json()
+    text = (body.get("text", "") or "").strip()
+    if not text or len(text) > 500:
+        return JSONResponse(status_code=400, content={"error": "Message vide ou trop long (500 chars max)"})
+    sops = _get_sops()
+    if not sops:
+        return JSONResponse(status_code=503, content={"error": "Service social indisponible"})
+    room = sops.get_dm_room(room_id)
+    if not room or str(tid) not in (room.get("tid1", ""), room.get("tid2", "")):
+        return JSONResponse(status_code=403, content={"error": "Accès refusé"})
+    other_tid = room.get("tid2") if str(room.get("tid1")) == str(tid) else room.get("tid1")
+    if sops.is_blocked(tid, other_tid) or sops.is_blocked(other_tid, tid):
+        return JSONResponse(status_code=403, content={"error": "Conversation bloquée"})
+    msg = sops.add_dm_message(room_id, tid, text)
+    msg["sender_tid"] = msg.get("sender", "")
+    # Broadcast via WS if listeners present
+    payload = json.dumps({"type": "message", "message": msg})
+    for sub_tid, sub_ws in list(_dm_subscribers.get(room_id, set())):
+        try:
+            await sub_ws.send_text(payload)
+            if sub_tid != str(tid):
+                sops.mark_dm_read(sub_tid, room_id)
+        except Exception:
+            _dm_subscribers.get(room_id, set()).discard((sub_tid, sub_ws))
+    return {"success": True, "message": msg}
+
+
+@app.get("/api/social/friends-extern")
+async def social_extern_friends(request: Request):
+    """Liste les amis externes (non-inscrits)."""
+    tid = getattr(request.state, "tenant_id", TENANT_ID)
+    sops = _get_sops()
+    if not sops:
+        return {"friends": []}
+    friends = sops.get_extern_friends(tid)
+    return {"friends": friends, "count": len(friends)}
+
+
+@app.post("/api/social/friend-extern")
+async def social_add_extern_friend(request: Request):
+    """Ajoute un ami externe (non-inscrit)."""
+    tid = getattr(request.state, "tenant_id", TENANT_ID)
+    body = await request.json()
+    name = (body.get("name", "") or "").strip()
+    phone = (body.get("phone", "") or "").strip()
+    email = (body.get("email", "") or "").strip()
+    if not name:
+        return JSONResponse(status_code=400, content={"detail": "Le nom est requis"})
+    if not phone:
+        return JSONResponse(status_code=400, content={"detail": "Le numéro de téléphone est requis"})
+    sops = _get_sops()
+    if not sops:
+        return JSONResponse(status_code=503, content={"error": "Service social indisponible"})
+    entry = sops.add_extern_friend(tid, name, phone, email)
+    return {"success": True, "friend": entry}
+
+
+@app.delete("/api/social/friend-extern/{phone}")
+async def social_remove_extern_friend(phone: str, request: Request):
+    """Retire un ami externe par numéro de téléphone."""
+    from urllib.parse import unquote
+    tid = getattr(request.state, "tenant_id", TENANT_ID)
+    sops = _get_sops()
+    if not sops:
+        return JSONResponse(status_code=503, content={"error": "Service social indisponible"})
+    ok = sops.remove_extern_friend(tid, unquote(phone))
+    return {"success": ok}
 
 
 # =========================================================================
@@ -5415,32 +6646,21 @@ async def _generate_call_summary(transcript: list, contact_name: str = "") -> st
         text_parts.append(f"{speaker}: {e.get('text', '')}")
     text = "\n".join(text_parts)
     try:
-        resp = openai_client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[
-                {"role": "system", "content": (
-                    f"Tu generes un compte-rendu factuel d'un appel telephonique entre Luna (assistante IA) et {interlocutor}. "
-                    "Structure ton resume ainsi :\n"
-                    f"1. Ce que {interlocutor} a dit/repondu (l'essentiel de ses propos)\n"
-                    "2. Ce que Luna a transmis ou demande\n"
-                    "3. Actions ou informations a retenir\n"
-                    "Sois precis et factuel (5-8 phrases). Ne mentionne QUE ce qui a ete reellement dit. "
-                    "N'invente rien. N'ajoute pas de details techniques."
-                )},
-                {"role": "user", "content": f"Transcription de l'appel:\n{text[:4000]}"},
-            ],
-            max_tokens=400,
-            temperature=0.3,
+        sys_prompt = (
+            f"Tu generes un compte-rendu factuel d'un appel telephonique entre Luna (assistante IA) et {interlocutor}. "
+            f"Structure : 1. Ce que {interlocutor} a dit/repondu "
+            "2. Ce que Luna a transmis ou demande "
+            "3. Actions ou informations a retenir. "
+            "Sois precis et factuel (5-8 phrases). Ne mentionne QUE ce qui a ete reellement dit."
         )
-        await _track_openai_cost(resp)
-        return resp.choices[0].message.content or "Resume non disponible."
+        return await _analysis_llm(sys_prompt, f"Transcription de l'appel:\n{text[:4000]}", max_tokens=400)
     except Exception as e:
         logger.warning(f"Failed to generate call summary: {e}")
         return f"Appel de {len(transcript)} echanges avec {interlocutor}."
 
 
 async def _generate_visio_summary(transcript: list, conversation_id: str, duration_min: float) -> str:
-    """Resume factuel d'un appel visio via LLM (gpt-4o-mini)."""
+    """Resume factuel d'un appel visio via LLM — clé Analysis."""
     if not transcript:
         return f"[Resume visio | {duration_min:.0f} min] Aucun echange."
     entries = []
@@ -5449,21 +6669,14 @@ async def _generate_visio_summary(transcript: list, conversation_id: str, durati
         entries.append(f"{speaker}: {e.get('text', '')}")
     text = "\n".join(entries)
     try:
-        resp = openai_client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[
-                {"role": "system", "content": "Tu resumes un appel video. Genere un resume structure avec: 1) Sujets abordes 2) Actions demandees 3) Humeur generale. Sois factuel et concis (5-8 phrases max). Ne mentionne aucune donnee technique."},
-                {"role": "user", "content": f"Transcription d'un appel visio de {duration_min:.0f} minutes:\n{text[:4000]}"},
-            ],
+        return await _analysis_llm(
+            "Tu resumes un appel video. Structure : 1) Sujets abordes 2) Actions demandees 3) Humeur generale. Factuel, 5-8 phrases max.",
+            f"Transcription d'un appel visio de {duration_min:.0f} minutes:\n{text[:4000]}",
             max_tokens=300,
-            temperature=0.3,
         )
-        await _track_openai_cost(resp)
-        summary = resp.choices[0].message.content or ""
-        return f"[Compte rendu visio | {duration_min:.0f} min | {len(transcript)} echanges]\n{summary}"
     except Exception as e:
-        logger.warning(f"Failed to generate visio summary: {e}")
-        return f"[Resume visio | {duration_min:.0f} min | {len(transcript)} echanges]\nResume automatique non disponible."
+        logger.warning(f"_generate_visio_summary error: {e}")
+        return f"[Visio {duration_min:.0f} min — resume indisponible]"
 
 
 # =========================================================================
@@ -5787,7 +7000,7 @@ async def list_conversations_endpoint(request: Request):
     if not mgr:
         return {"conversations": []}
     try:
-        convs = mgr.list_conversations()
+        convs = await asyncio.to_thread(mgr.list_conversations)
         return {
             "conversations": [
                 {
@@ -6044,12 +7257,28 @@ async def auth_register(req: RegisterRequest):
 @app.post("/api/auth/login")
 async def auth_login(req: LoginRequest):
     """Connexion d'un client existant."""
-    if not _redis_client:
-        return JSONResponse(status_code=503, content={"error": "Service temporairement indisponible"})
-
     email = req.email.strip().lower()
-    auth = _redis_client.get_auth_by_email(email)
+    auth = None
+
+    if _redis_client:
+        try:
+            auth = _redis_client.get_auth_by_email(email)
+            if not auth:
+                # Bootstrap peut avoir échoué au démarrage (Redis pas encore prêt) — retenter
+                _bootstrap_proprio_auth()
+                auth = _redis_client.get_auth_by_email(email)
+        except Exception as _redis_err:
+            logger.warning(f"AUTH_LOGIN Redis indisponible: {_redis_err} — fallback env-vars")
+
+    # Fallback fondateur : si Redis KO, vérifier les credentials depuis .env
     if not auth:
+        proprio_email = os.getenv("PROPRIO_EMAIL", "").strip().lower()
+        proprio_password = os.getenv("PROPRIO_PASSWORD", "").strip()
+        if proprio_email and proprio_password and email == proprio_email:
+            if req.password == proprio_password:
+                token = _create_client_token(_PROPRIO_TENANT_ID, email, "fondateur")
+                logger.info(f"AUTH_LOGIN fondateur via fallback env-vars (Redis KO): {email}")
+                return {"token": token, "tenant_id": _PROPRIO_TENANT_ID, "plan": "fondateur", "first_name": ""}
         return JSONResponse(status_code=401, content={"error": "Email ou mot de passe incorrect"})
 
     if not _verify_password(req.password, auth["password_hash"]):
@@ -6089,10 +7318,13 @@ async def auth_me(request: Request):
     first_name = ""
     last_name = ""
     if _redis_client:
-        profile = _redis_client.get_profile(tenant_id)
-        if profile:
-            first_name = profile.get("first_name", "")
-            last_name = profile.get("last_name", "")
+        try:
+            profile = _redis_client.get_profile(tenant_id)
+            if profile:
+                first_name = profile.get("first_name", "")
+                last_name = profile.get("last_name", "")
+        except Exception:
+            pass
 
     return {
         "tenant_id": tenant_id,
@@ -7236,8 +8468,8 @@ async def update_geolocation(request: Request):
     Stocke dans Redis avec TTL 1h (position fraiche).
     """
     tid = getattr(request.state, "tenant_id", 1)
-    if not _redis_client:
-        return JSONResponse(status_code=503, content={"error": "Service indisponible"})
+    if not _redis_available():
+        return {"success": True, "stored": False}  # silencieux si Redis KO
     try:
         body = await request.json()
     except Exception:
@@ -7262,7 +8494,10 @@ async def update_geolocation(request: Request):
         "updated_at": time.time(),
     })
     key = f"luna:{tid}:geolocation"
-    _redis_client.client.set(key, geo_data, ex=3600)  # TTL 1h
+    try:
+        _redis_client.client.set(key, geo_data, ex=3600)  # TTL 1h
+    except Exception:
+        return {"success": True, "stored": False}
     logger.info(f"Geolocation updated for tenant {tid}: {lat},{lng} ({city})")
 
     # Auto-detect language from country in address
@@ -7301,11 +8536,14 @@ async def update_geolocation(request: Request):
 async def get_geolocation(request: Request):
     """Retourne la derniere position connue du souscripteur."""
     tid = getattr(request.state, "tenant_id", 1)
-    if not _redis_client:
-        return JSONResponse(status_code=503, content={"error": "Service indisponible"})
+    if not _redis_available():
+        return {"geolocation": None, "message": "Service indisponible"}
     import json as _json
     key = f"luna:{tid}:geolocation"
-    raw = _redis_client.client.get(key)
+    try:
+        raw = _redis_client.client.get(key)
+    except Exception:
+        return {"geolocation": None, "message": "Service indisponible"}
     if not raw:
         return {"geolocation": None, "message": "Aucune position connue"}
     geo = _json.loads(raw)
@@ -7352,23 +8590,29 @@ async def set_notification_prefs(request: Request):
 async def get_pending_notifications(request: Request):
     """Poll for pending notifications. Returns up to 5 and removes them."""
     tid = getattr(request.state, "tenant_id", 1)
-    if not _redis_client:
+    if not _redis_available():
         return {"notifications": []}
-    from core.notifications.redis_ops import NotificationRedisOps
-    nops = NotificationRedisOps(_redis_client)
-    pending = nops.pop_pending(tid, limit=5)
-    return {"notifications": pending}
+    try:
+        from core.notifications.redis_ops import NotificationRedisOps
+        nops = NotificationRedisOps(_redis_client)
+        pending = nops.pop_pending(tid, limit=5)
+        return {"notifications": pending}
+    except Exception:
+        return {"notifications": []}
 
 
 @app.get("/api/notifications/count")
 async def get_notification_count(request: Request):
     """Returns count of pending notifications (for badge display)."""
     tid = getattr(request.state, "tenant_id", 1)
-    if not _redis_client:
+    if not _redis_available():
         return {"count": 0}
-    from core.notifications.redis_ops import NotificationRedisOps
-    nops = NotificationRedisOps(_redis_client)
-    return {"count": nops.peek_pending(tid)}
+    try:
+        from core.notifications.redis_ops import NotificationRedisOps
+        nops = NotificationRedisOps(_redis_client)
+        return {"count": nops.peek_pending(tid)}
+    except Exception:
+        return {"count": 0}
 
 
 @app.get("/api/settings")
@@ -8689,6 +9933,25 @@ async def guardian_start(request: Request):
         body = {}
     config = body.get("config", {})
     profile_type = body.get("profile_type", config.pop("profile_type", "senior"))
+
+    # Vérifier contacts d'urgence avant de démarrer (SOS ne doit jamais être silencieux)
+    mgr = _get_tenant_manager(tid)
+    emergency_contacts = []
+    if mgr:
+        contacts = mgr.list_trusted_contacts()
+        emergency_contacts = [
+            {"name": c.name, "phone": c.phone, "relation": getattr(c, "relation", "")}
+            for c in (contacts or [])
+            if getattr(c, "phone", None)
+        ]
+    if not emergency_contacts and not config.get("emergency_contacts"):
+        return JSONResponse(status_code=422, content={
+            "error": "Aucun contact d'urgence configuré. Ajoute au moins un contact dans l'onglet Contacts avant d'activer Guardian.",
+            "code": "no_emergency_contacts",
+        })
+    if emergency_contacts and not config.get("emergency_contacts"):
+        config["emergency_contacts"] = emergency_contacts
+
     session = engine.create_session(tenant_id=tid, profile_type=profile_type, config=config)
     return {
         "success": True,
@@ -9407,8 +10670,8 @@ async def meeting_report(bot_id: str, request: Request):
 
 
 async def _generate_meeting_report(bot_id: str, segments: list, session: dict):
-    """Génère le compte rendu final via GPT et le sauvegarde en Redis."""
-    if not openai_client or not segments:
+    """Génère le compte rendu final via LLM Analysis et le sauvegarde en Redis."""
+    if not segments:
         return
     transcript_text = format_transcript(segments)
     if not transcript_text.strip():
@@ -9446,15 +10709,14 @@ Génère un compte rendu structuré dans ce format exact (ne modifie pas les num
 
 Sois factuel et concis. Ne fabrique rien qui n'est pas dans la transcription."""
     try:
-        resp = openai_client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[{"role": "user", "content": prompt}],
+        content = await _analysis_llm(
+            "Tu es Luna, secrétaire IA de YAWatch. Génère des comptes rendus de réunion structurés, factuels et concis.",
+            prompt,
             max_tokens=1200,
-            temperature=0.3,
         )
-        content = resp.choices[0].message.content.strip()
+        content = content.strip()
     except Exception as e:
-        logger.error(f"Meeting report GPT error: {e}")
+        logger.error(f"Meeting report error: {e}")
         content = transcript_text  # fallback: transcription brute
     tid = session.get("tenant_id", 1)
     mgr = _get_tenant_manager(tid)
@@ -9764,7 +11026,7 @@ async def get_quota(request: Request):
         return JSONResponse(status_code=503, content={"error": "Memoire non disponible"})
     try:
         # --- Quotas stockage (memoire, conversations, etc.) ---
-        quota_status = mgr.get_quota_status()
+        quota_status = await asyncio.to_thread(mgr.get_quota_status)
 
         # --- Usage reel depuis Cortex Redis ---
         # Plan depuis le profil, mais verifier aussi auth record (fondateur)
@@ -9826,7 +11088,7 @@ async def get_quota(request: Request):
             "blocked": budget_used >= budget_max,
         }
 
-        daily_stats = mgr.get_daily_stats()
+        daily_stats = await asyncio.to_thread(mgr.get_daily_stats)
         return {
             "quota": quota_status,
             "daily": daily_stats,
@@ -10991,15 +12253,11 @@ async def _tool_generate_document(args: Dict, tenant_id: int = 0) -> Dict:
     prompt += "Redige uniquement le corps du courrier, sans en-tete ni signature (ils seront ajoutes automatiquement)."
 
     try:
-        gpt_resp = openai_client.chat.completions.create(
-            model=OPENAI_MODEL,
-            messages=[{"role": "user", "content": prompt}],
+        body_text = await _analysis_llm(
+            "Tu rediges des courriers professionnels en francais. Corps du courrier uniquement, sans en-tete ni signature.",
+            prompt,
             max_tokens=1000,
-            temperature=0.7,
-            timeout=30,
         )
-        await _track_openai_cost(gpt_resp)
-        body_text = gpt_resp.choices[0].message.content
     except Exception as e:
         logger.error(f"Document generation LLM error: {e}")
         return {"status": "error", "message": "Erreur lors de la generation du document. Reessaie."}
@@ -11926,20 +13184,15 @@ async def _tool_get_page_info(args: Dict, tenant_id: int = 0) -> Dict:
         "url": url,
     }
 
-    # Si un focus est specifie et que OpenAI est dispo, resumer le contenu
-    if focus and openai_client:
+    # Si un focus est specifie, resumer le contenu via LLM Analysis
+    if focus:
         try:
-            _summary_resp = openai_client.chat.completions.create(
-                model=OPENAI_MODEL,
-                messages=[
-                    {"role": "system", "content": "Tu es un assistant qui extrait des informations precises d'un texte de page web. Reponds en francais, de facon concise et structuree."},
-                    {"role": "user", "content": f"Voici le contenu de la page {url}.\nJe cherche : {focus}\n\nTexte:\n{text[:2500]}\n\nExtrais uniquement les informations pertinentes pour '{focus}'. Sois precis et concis."},
-                ],
+            _summary = await _analysis_llm(
+                "Tu extrais des informations precises d'un texte de page web. Reponds en francais, de facon concise et structuree.",
+                f"Voici le contenu de la page {url}.\nJe cherche : {focus}\n\nTexte:\n{text[:2500]}\n\nExtrais uniquement les informations pertinentes pour '{focus}'. Sois precis et concis.",
                 max_tokens=500,
-                temperature=0.1,
             )
-            _summary = _summary_resp.choices[0].message.content.strip()
-            result["summary"] = _summary
+            result["summary"] = _summary.strip()
             result["message"] = f"Informations sur '{focus}' extraites de {url}."
         except Exception as e:
             logger.warning(f"Page summary error: {e}")
@@ -12872,7 +14125,7 @@ async def generate_document(req: DocumentRequest, request: Request):
             "type": "export_notes",
         }
 
-    # General case: GPT generates the body
+    # General case: LLM Analysis generates the body
     prompt = f"Redige un {req.doc_type} professionnel en francais.\nObjet: {req.subject}\n"
     if req.details:
         prompt += f"Details: {req.details}\n"
@@ -12883,15 +14136,11 @@ async def generate_document(req: DocumentRequest, request: Request):
     prompt += "Redige uniquement le corps du courrier, sans en-tete ni signature (ils seront ajoutes automatiquement). Ton professionnel et respectueux."
 
     try:
-        gpt_resp = openai_client.chat.completions.create(
-            model=OPENAI_MODEL,
-            messages=[{"role": "user", "content": prompt}],
+        body_text = await _analysis_llm(
+            "Tu rediges des courriers professionnels en francais. Corps du courrier uniquement, sans en-tete ni signature.",
+            prompt,
             max_tokens=1500,
-            temperature=0.7,
-            timeout=30,
         )
-        await _track_openai_cost(gpt_resp)
-        body_text = gpt_resp.choices[0].message.content
     except Exception as e:
         logger.error(f"Document generation error: {e}")
         return JSONResponse(status_code=500, content={"error": "Erreur lors de la generation du document."})
@@ -13506,6 +14755,19 @@ async def _load_instructions_to_scheduler():
 
 _last_heartbeat_time = 0  # timestamp du dernier heartbeat
 
+
+async def _instruction_loop_watchdog():
+    """Relance automatiquement _instruction_loop si elle crashe (exception non catchée)."""
+    while True:
+        try:
+            await _instruction_loop()
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:
+            logger.error(f"Instruction loop crash inattendu — redémarrage dans 10s: {e}")
+            await asyncio.sleep(10)
+
+
 async def _instruction_loop():
     """Boucle de fond : verifie les taches dues toutes les 30s et les execute"""
     global _last_heartbeat_time
@@ -13728,7 +14990,7 @@ async def run_scenario(req: Request):
                     ]
                 messages = conversations[test_session]
                 messages.append({"role": "user", "content": message})
-                response = openai_client.chat.completions.create(
+                response = await asyncio.to_thread(openai_client.chat.completions.create,
                     model=OPENAI_MODEL,
                     messages=messages,
                     max_tokens=500,
@@ -13881,7 +15143,7 @@ async def unified_send(request: Request):
 
         # Appel OpenAI
         try:
-            response = openai_client.chat.completions.create(
+            response = await asyncio.to_thread(openai_client.chat.completions.create,
                 model=OPENAI_MODEL,
                 messages=messages,
                 max_tokens=500,
@@ -14864,17 +16126,11 @@ async def analyze_content(request: Request):
     full_prompt = f"{prompt}\n\nTexte a analyser:\n\n{content}"
 
     try:
-        response = openai_client.chat.completions.create(
-            model=OPENAI_MODEL,
-            messages=[
-                {"role": "system", "content": "Tu es un assistant d'analyse professionnelle. Reponds en francais de maniere structuree."},
-                {"role": "user", "content": full_prompt}
-            ],
+        analysis = await _analysis_llm(
+            "Tu es un assistant d'analyse professionnelle. Reponds en francais de maniere structuree.",
+            full_prompt,
             max_tokens=1500,
-            temperature=0.3,
         )
-        await _track_openai_cost(response, tid)
-        analysis = response.choices[0].message.content
 
         # Sauvegarder la tache
         task = AssistantTask(
@@ -14979,17 +16235,11 @@ Contexte: {context}
 {f'Instructions: {additional}' if additional else ''}"""
 
     try:
-        response = openai_client.chat.completions.create(
-            model=OPENAI_MODEL,
-            messages=[
-                {"role": "system", "content": "Tu es un assistant de redaction professionnelle. Tu rediges des documents clairs, bien structures et adaptes au contexte."},
-                {"role": "user", "content": prompt}
-            ],
+        generated_text = await _analysis_llm(
+            "Tu es un assistant de redaction professionnelle. Tu rediges des documents clairs, bien structures et adaptes au contexte.",
+            prompt,
             max_tokens=2000,
-            temperature=0.7,
         )
-        await _track_openai_cost(response, tid)
-        generated_text = response.choices[0].message.content
 
         # Sauvegarder la tache
         task = AssistantTask(
@@ -15057,17 +16307,11 @@ Feedback de l'utilisateur: {feedback}
 Ameliore le document en tenant compte du feedback. Garde le meme format et le meme ton general, sauf si le feedback demande un changement de ton."""
 
     try:
-        response = openai_client.chat.completions.create(
-            model=OPENAI_MODEL,
-            messages=[
-                {"role": "system", "content": "Tu es un assistant de redaction. Tu ameliores les documents selon le feedback sans changer leur essence."},
-                {"role": "user", "content": prompt}
-            ],
+        improved_text = await _analysis_llm(
+            "Tu es un assistant de redaction. Tu ameliores les documents selon le feedback sans changer leur essence.",
+            prompt,
             max_tokens=2000,
-            temperature=0.5,
         )
-        await _track_openai_cost(response, tid)
-        improved_text = response.choices[0].message.content
 
         # Creer une nouvelle version
         new_task = AssistantTask(
@@ -15400,7 +16644,7 @@ def _create_admin_token() -> str:
 
 
 def _verify_admin(request: Request) -> bool:
-    """Verifie le token admin dans le header Authorization."""
+    """Verifie le token admin ou fondateur dans le header Authorization."""
     auth = request.headers.get("Authorization", "")
     if not auth.startswith("Bearer "):
         return False
@@ -15408,7 +16652,12 @@ def _verify_admin(request: Request) -> bool:
     try:
         import jwt as pyjwt
         payload = pyjwt.decode(token, _JWT_SECRET, algorithms=[_JWT_ALGORITHM])
-        return payload.get("role") == "admin"
+        if payload.get("role") == "admin":
+            return True
+        # Le fondateur (role=client, plan=fondateur) a les mêmes droits que l'admin
+        if payload.get("role") == "client" and payload.get("plan") == "fondateur":
+            return True
+        return False
     except Exception:
         return False
 
@@ -16015,31 +17264,54 @@ async def admin_subscriber_location(request: Request):
 @app.get("/api/settings/auto-note")
 async def get_auto_note(request: Request):
     """Retourne l'état de la prise de note automatique en visio."""
-    tid = getattr(request.state, "tenant_id", TENANT_ID)
-    mgr = _get_tenant_manager(tid) if tid else _memory_manager
-    if not mgr:
+    try:
+        tid = getattr(request.state, "tenant_id", TENANT_ID)
+        mgr = _get_tenant_manager(tid) if tid else _memory_manager
+        if not mgr:
+            return {"enabled": True}
+        return {"enabled": mgr.is_auto_note_enabled()}
+    except Exception:
         return {"enabled": True}
-    return {"enabled": mgr.is_auto_note_enabled()}
 
 
 @app.post("/api/settings/auto-note")
 async def set_auto_note(request: Request):
     """Active ou désactive la prise de note automatique en visio."""
-    tid = getattr(request.state, "tenant_id", TENANT_ID)
-    mgr = _get_tenant_manager(tid) if tid else _memory_manager
-    if not mgr:
-        return JSONResponse(status_code=503, content={"error": "Service non disponible"})
     try:
         body = await request.json()
     except Exception:
         body = {}
     enabled = bool(body.get("enabled", True))
-    mgr.set_auto_note_enabled(enabled)
+    try:
+        tid = getattr(request.state, "tenant_id", TENANT_ID)
+        mgr = _get_tenant_manager(tid) if tid else _memory_manager
+        if mgr:
+            mgr.set_auto_note_enabled(enabled)
+    except Exception:
+        pass
     return {
         "status": "success",
         "enabled": enabled,
         "message": f"Prise de notes automatique {'activee' if enabled else 'desactivee'}",
     }
+
+
+@app.get("/api/admin/sentry-test")
+async def sentry_test(request: Request):
+    """Déclenche une erreur test pour valider l'intégration Sentry."""
+    if not _verify_admin(request):
+        return JSONResponse(status_code=401, content={"error": "Non autorise"})
+    try:
+        import sentry_sdk as _sentry
+        _sentry.capture_message("Luna Beta — Sentry test OK", level="info")
+        raise ValueError("Test Sentry Luna — cette erreur est volontaire")
+    except Exception as e:
+        try:
+            import sentry_sdk as _sentry
+            _sentry.capture_exception(e)
+        except Exception:
+            pass
+        return {"sentry": "triggered", "message": str(e), "check_dashboard": "https://sentry.io"}
 
 
 @app.get("/api/admin/health")
@@ -16065,6 +17337,8 @@ async def admin_health(request: Request):
             "quota": bool(_quota_guard),
             "scheduler": bool(_scheduler),
             "executor": bool(_executor),
+            "redis": _redis_available(),
+            "cortex": bool(_cortex_instance) if '_cortex_instance' in dir() else False,
         },
     }
 
@@ -16075,6 +17349,45 @@ async def admin_health(request: Request):
             pass
 
     return result
+
+
+@app.get("/api/admin/objectives")
+async def admin_objectives(request: Request):
+    """
+    Diagnostic en temps réel de tous les objectifs par tab et par domaine de clé.
+    Permet à l'admin de voir instantanément si un bouton tient sa promesse.
+    """
+    if not _verify_admin(request):
+        return JSONResponse(status_code=401, content={"error": "Non autorise"})
+
+    # Relancer un check frais si demandé ou si aucun check précédent
+    force = request.query_params.get("force") == "1"
+    if force or not _objectives_last_status:
+        results = await _check_all_objectives()
+    else:
+        results = _objectives_last_status
+
+    total = len(results)
+    failures = [r for r in results if not r.get("ok")]
+    score = total - len(failures)
+
+    services_detail = await _check_objective_services()
+
+    return {
+        "score": f"{score}/{total}",
+        "all_ok": len(failures) == 0,
+        "failures": len(failures),
+        "checked_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "objectives": results,
+        "services": services_detail,
+        "summary_by_domain": {
+            domain: {
+                "ok": sum(1 for r in results if r.get("domain") == domain and r.get("ok")),
+                "total": sum(1 for r in results if r.get("domain") == domain),
+            }
+            for domain in ["chat", "cortex", "analysis", "guardian"]
+        },
+    }
 
 
 @app.get("/api/admin/revenue")
@@ -16444,17 +17757,11 @@ async def theo_prepare_meeting(request: Request):
     system_prompt = prompt_map.get(request_type, prompt_map["midweek"])
 
     try:
-        response = openai_client.chat.completions.create(
-            model=OPENAI_MODEL,
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": question or f"Prepare ma reunion pour la semaine du {week_str}"},
-            ],
+        text = await _analysis_llm(
+            system_prompt,
+            question or f"Prepare ma reunion pour la semaine du {week_str}",
             max_tokens=2500,
-            temperature=0.5,
         )
-        text = response.choices[0].message.content
-        await _track_openai_cost(response, tid)
         return {"response": text, "type": request_type}
     except Exception as e:
         logger.error(f"Theo prepare error: {e}")
@@ -16497,19 +17804,7 @@ async def theo_generate_letter(request: Request):
     user_msg += f"Theme souhaite: {topic}\nTon: {tone}"
 
     try:
-        if not openai_client:
-            return JSONResponse(status_code=503, content={"error": "Service IA non disponible"})
-        response = openai_client.chat.completions.create(
-            model=OPENAI_MODEL,
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_msg},
-            ],
-            max_tokens=800,
-            temperature=0.8,
-        )
-        text = response.choices[0].message.content
-        await _track_openai_cost(response, tid)
+        text = await _analysis_llm(system_prompt, user_msg, max_tokens=800)
         return {"letter": text, "recipient": recipient_name, "topic": topic}
     except Exception as e:
         logger.error(f"Theo letter error: {e}")
@@ -16604,6 +17899,223 @@ async def log_viewer_page():
 
 # ==================== FIN TUNNEL LOGS ====================
 
+# =============================================================================
+# LICENCES EXPLOITANTS — canal de coupure à distance
+# =============================================================================
+import uuid as _uuid
+
+_LICENSES_FILE = "/tmp/luna_licenses.json"
+_licenses_db: dict = {}  # eid → {email, plan, key, status, expires_at, last_heartbeat, created_at}
+
+def _licenses_load():
+    """Charge les licences depuis Redis (primaire) ou fichier local (fallback)."""
+    global _licenses_db
+    try:
+        if _redis_available():
+            raw = _redis_client.client.get("luna:licenses")
+            if raw:
+                _licenses_db = json.loads(raw)
+                return
+    except Exception:
+        pass
+    try:
+        if os.path.exists(_LICENSES_FILE):
+            with open(_LICENSES_FILE) as f:
+                _licenses_db = json.load(f)
+    except Exception:
+        _licenses_db = {}
+
+def _licenses_save():
+    """Persiste les licences dans Redis (primaire) + fichier local (backup)."""
+    try:
+        if _redis_available():
+            _redis_client.client.set("luna:licenses", json.dumps(_licenses_db))
+    except Exception as e:
+        logger.warning(f"License Redis save error: {e}")
+    try:
+        with open(_LICENSES_FILE, "w") as f:
+            json.dump(_licenses_db, f, indent=2)
+    except Exception as e:
+        logger.warning(f"License file save error: {e}")
+
+def _license_create_key(email: str, plan: str, days: int = 90) -> str:
+    """Génère un JWT de licence signé par le fondateur."""
+    import jwt as pyjwt
+    payload = {
+        "type": "license",
+        "eid": email.lower().strip(),
+        "plan": plan,
+        "iat": int(time.time()),
+        "exp": int(time.time()) + days * 86400,
+    }
+    return pyjwt.encode(payload, _JWT_SECRET, algorithm=_JWT_ALGORITHM)
+
+def _license_decode_key(key: str) -> Optional[dict]:
+    """Décode et valide un JWT de licence."""
+    try:
+        import jwt as pyjwt
+        payload = pyjwt.decode(key, _JWT_SECRET, algorithms=[_JWT_ALGORITHM])
+        if payload.get("type") != "license":
+            return None
+        return payload
+    except Exception:
+        return None
+
+_licenses_load()
+
+# --- Endpoints publics (appelés par les serveurs exploitants) ---
+
+@app.post("/api/license/activate")
+async def license_activate_endpoint(request: Request):
+    """Activation initiale d'une licence exploitant."""
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse(status_code=400, content={"error": "JSON invalide"})
+    key = body.get("license_key", "").strip()
+    fingerprint = body.get("fingerprint", "")
+    payload = _license_decode_key(key)
+    if not payload:
+        return JSONResponse(status_code=403, content={"status": "invalid", "reason": "Clé de licence invalide ou expirée"})
+    eid = payload["eid"]
+    if eid in _licenses_db and _licenses_db[eid].get("status") == "blocked":
+        return JSONResponse(status_code=403, content={"status": "blocked", "reason": "Licence suspendue — contactez YAWatch Industries"})
+    if eid not in _licenses_db:
+        _licenses_db[eid] = {
+            "email": eid, "plan": payload.get("plan", "essentiel"),
+            "key": key[:20] + "...", "status": "active",
+            "expires_at": payload.get("exp"), "fingerprint": fingerprint,
+            "last_heartbeat": time.time(), "created_at": time.time(),
+        }
+    else:
+        _licenses_db[eid]["last_heartbeat"] = time.time()
+        _licenses_db[eid]["fingerprint"] = fingerprint
+    _licenses_save()
+    logger.info(f"LICENSE ACTIVATE: {eid} (plan={payload.get('plan')})")
+    return {"status": "ok", "valid": True, "plan": payload.get("plan"), "startup_key": key[:16]}
+
+@app.post("/api/license/heartbeat")
+async def license_heartbeat_endpoint(request: Request):
+    """Heartbeat périodique — le serveur exploitant vérifie sa licence."""
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse(status_code=400, content={"error": "JSON invalide"})
+    key = body.get("license_key", "").strip()
+    payload = _license_decode_key(key)
+    if not payload:
+        return {"valid": False, "action": "block", "reason": "Clé invalide ou expirée"}
+    eid = payload["eid"]
+    # Vérifier le statut fondateur (blocage manuel)
+    db_entry = _licenses_db.get(eid, {})
+    if db_entry.get("status") == "blocked":
+        return {"valid": False, "action": "block", "reason": "Licence suspendue par YAWatch Industries"}
+    # Vérifier expiration JWT
+    if payload.get("exp", 0) < time.time():
+        if eid in _licenses_db:
+            _licenses_db[eid]["status"] = "expired"
+            _licenses_save()
+        return {"valid": False, "action": "degrade", "reason": "Licence expirée — renouvelez votre abonnement"}
+    # OK — mettre à jour le last_heartbeat
+    if eid not in _licenses_db:
+        _licenses_db[eid] = {"email": eid, "plan": payload.get("plan", "essentiel"),
+                              "key": key[:20]+"...", "status": "active",
+                              "expires_at": payload.get("exp"), "last_heartbeat": time.time(),
+                              "created_at": time.time()}
+    else:
+        _licenses_db[eid]["last_heartbeat"] = time.time()
+        if _licenses_db[eid].get("status") != "active":
+            _licenses_db[eid]["status"] = "active"
+    _licenses_save()
+    return {"valid": True, "action": "ok", "plan": payload.get("plan"), "expires_at": payload.get("exp")}
+
+# --- Endpoints admin fondateur ---
+
+@app.get("/api/admin/licenses")
+async def admin_list_licenses(request: Request):
+    """Liste toutes les licences — fondateur seulement."""
+    if not _verify_admin(request):
+        return JSONResponse(status_code=403, content={"error": "Non autorisé"})
+    now = time.time()
+    result = []
+    for eid, entry in _licenses_db.items():
+        exp = entry.get("expires_at", 0)
+        days_left = max(0, int((exp - now) / 86400)) if exp else 0
+        last_hb = entry.get("last_heartbeat", 0)
+        minutes_ago = int((now - last_hb) / 60) if last_hb else None
+        result.append({
+            "email": eid,
+            "plan": entry.get("plan", "?"),
+            "status": entry.get("status", "unknown"),
+            "days_left": days_left,
+            "last_heartbeat_minutes": minutes_ago,
+            "created_at": entry.get("created_at"),
+        })
+    result.sort(key=lambda x: x.get("created_at") or 0, reverse=True)
+    return {"licenses": result, "total": len(result)}
+
+@app.post("/api/admin/licenses")
+async def admin_create_license(request: Request):
+    """Crée une nouvelle licence JWT pour un exploitant."""
+    if not _verify_admin(request):
+        return JSONResponse(status_code=403, content={"error": "Non autorisé"})
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse(status_code=400, content={"error": "JSON invalide"})
+    email = body.get("email", "").strip().lower()
+    plan = body.get("plan", "essentiel")
+    days = int(body.get("days", 90))
+    if not email:
+        return JSONResponse(status_code=400, content={"error": "email requis"})
+    key = _license_create_key(email, plan, days)
+    _licenses_db[email] = {
+        "email": email, "plan": plan, "key": key[:20]+"...",
+        "status": "active", "expires_at": int(time.time()) + days * 86400,
+        "last_heartbeat": None, "created_at": time.time(),
+    }
+    _licenses_save()
+    logger.info(f"LICENSE CREATED: {email} plan={plan} days={days}")
+    return {"email": email, "plan": plan, "days": days, "license_key": key,
+            "env_var": f"YAWATCH_LICENSE_KEY={key}", "expires_in_days": days}
+
+@app.post("/api/admin/licenses/{email}/block")
+async def admin_block_license(request: Request, email: str):
+    """Bloque immédiatement un exploitant — son serveur sera bloqué au prochain heartbeat."""
+    if not _verify_admin(request):
+        return JSONResponse(status_code=403, content={"error": "Non autorisé"})
+    email = email.lower()
+    if email not in _licenses_db:
+        return JSONResponse(status_code=404, content={"error": "Licence non trouvée"})
+    _licenses_db[email]["status"] = "blocked"
+    _licenses_save()
+    logger.warning(f"LICENSE BLOCKED: {email}")
+    return {"email": email, "status": "blocked", "message": "Accès suspendu — effectif au prochain heartbeat (max 4h)"}
+
+@app.post("/api/admin/licenses/{email}/unblock")
+async def admin_unblock_license(request: Request, email: str):
+    """Réactive une licence bloquée."""
+    if not _verify_admin(request):
+        return JSONResponse(status_code=403, content={"error": "Non autorisé"})
+    email = email.lower()
+    if email not in _licenses_db:
+        return JSONResponse(status_code=404, content={"error": "Licence non trouvée"})
+    _licenses_db[email]["status"] = "active"
+    _licenses_save()
+    logger.info(f"LICENSE UNBLOCKED: {email}")
+    return {"email": email, "status": "active", "message": "Licence réactivée"}
+
+@app.delete("/api/admin/licenses/{email}")
+async def admin_delete_license(request: Request, email: str):
+    """Supprime une licence de la base."""
+    if not _verify_admin(request):
+        return JSONResponse(status_code=403, content={"error": "Non autorisé"})
+    email = email.lower()
+    _licenses_db.pop(email, None)
+    _licenses_save()
+    return {"email": email, "deleted": True}
+
+# ==================== FIN LICENCES ====================
 
 if __name__ == "__main__":
     import uvicorn
@@ -16650,6 +18162,7 @@ if __name__ == "__main__":
     logger.info(f"Quota Guard: {'OK' if _quota_guard else 'OFFLINE'}")
     logger.info(f"Scheduler: {'OK' if _scheduler else 'OFFLINE'}")
     logger.info(f"Executor: {'OK' if _executor else 'OFFLINE'}")
+    logger.info(f"Licences: {len(_licenses_db)} enregistrees")
     if _pv_locked:
         logger.info(f"Setup AI: {'OK' if SETUP_OPENAI_API_KEY else 'MANQUANT (SETUP_OPENAI_API_KEY)'}")
 
