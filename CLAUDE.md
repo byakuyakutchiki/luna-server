@@ -120,17 +120,18 @@ Pour chaque objectif, il faut produire :
 
 Implémenter le monitoring de l'objectif :
 
-`## 6. Documents — Vault IA`
+`## 8. Formulaires — Assistant Administratif Intelligent`
 
 Prompt détaillé prêt à utiliser :
 
-`docs/PROMPT_CLAUDE_MONITORING_DOCUMENTS.md`
+`docs/PROMPT_CLAUDE_MONITORING_FORMULAIRES.md`
 
 État au 25 mai 2026 :
 
 - Services / Concierge a déjà un premier commit de monitoring : `feat: monitoring Services/Concierge dans /api/admin/objectives`.
 - Ne pas refaire Services sauf bug explicite ou demande de revue.
-- Prochain chantier préparé après Documents : `docs/PROMPT_CLAUDE_MONITORING_FORMULAIRES.md`.
+- Documents / Vault IA a déjà un premier commit de monitoring : `feat: monitoring Documents/Vault IA dans /api/admin/objectives`.
+- Ne pas refaire Documents sauf bug explicite ou demande de revue.
 
 Le but est d'ajouter ou compléter :
 
@@ -141,16 +142,18 @@ avec un bloc :
 ```json
 {
   "objectives": {
-    "documents": {
+    "formulaires": {
       "status": "degraded",
       "checks": [],
-      "folders": {},
+      "subservices": {},
       "metrics": {},
       "auto_heal": []
     }
   }
 }
 ```
+
+## Archive objectif précédent — Documents / Vault IA
 
 ## Archive objectif précédent — Services / Concierge
 
