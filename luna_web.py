@@ -2126,6 +2126,307 @@ async def _check_objective_amis() -> dict:
     }
 
 
+async def _check_objective_activites() -> dict:
+    """Monitoring Activités / Gamification — aucune action réelle déclenchée."""
+    checks = []
+    subservices = {}
+    metrics: dict = {
+        "xp": 0,
+        "level": None,
+        "badges_count": 0,
+        "active_missions": 0,
+        "completed_missions": 0,
+        "activity_entries": 0,
+        "inventory_items": 0,
+        "stability_score": None,
+        "avatar_type": None,
+        "gamification_routes_ok": 0,
+    }
+
+    def _chk(name: str, ok: bool, message: str = "", **extra):
+        checks.append({"name": name, "status": "ok" if ok else "warning", "message": message, **extra})
+
+    # ── Module gamification ───────────────────────────────────────────
+    gam_module_ok = False
+    try:
+        from core.gamification.routes import gamification_router
+        gam_module_ok = True
+    except Exception:
+        pass
+    _chk("gamification_module", gam_module_ok,
+         "core.gamification disponible" if gam_module_ok else "Import core.gamification.routes échoué")
+
+    # ── Redis ─────────────────────────────────────────────────────────
+    redis_ok = False
+    try:
+        if _redis_client:
+            _redis_client.client.ping()
+            redis_ok = True
+    except Exception:
+        pass
+    _chk("redis_available", redis_ok,
+         "Redis disponible" if redis_ok else "Redis indisponible")
+
+    # ── GamificationRedisOps ──────────────────────────────────────────
+    gops = None
+    gops_ok = False
+    try:
+        from core.gamification.redis_ops import GamificationRedisOps as _GOps
+        gops_ok = True
+        if redis_ok:
+            gops = _GOps(_redis_client)
+    except Exception:
+        pass
+    _chk("gamification_redis_ops", gops_ok,
+         "GamificationRedisOps disponible" if gops_ok else "GamificationRedisOps inaccessible")
+
+    # ── Routes gamification présentes ─────────────────────────────────
+    expected_routes = [
+        "get_player", "get_badges", "get_missions", "check_missions",
+        "collect_reward", "get_activity", "get_stability",
+        "get_shop", "shop_buy", "get_inventory",
+        "equip_outfit", "equip_frame",
+    ]
+    routes_ok = 0
+    try:
+        import core.gamification.routes as _gr
+        for fn in expected_routes:
+            if callable(getattr(_gr, fn, None)):
+                routes_ok += 1
+    except Exception:
+        pass
+    metrics["gamification_routes_ok"] = routes_ok
+    _chk("gamification_routes", routes_ok >= 8,
+         f"{routes_ok}/{len(expected_routes)} routes gamification présentes")
+
+    # ── Données joueur ────────────────────────────────────────────────
+    player = None
+    badges: set = set()
+    active_missions: set = set()
+    activity: list = []
+    stability = None
+    inventory: set = set()
+    avatar_type = None
+    family_level = None
+
+    try:
+        if gops:
+            player = gops.get_player(str(TENANT_ID))
+            badges = gops.get_badges(str(TENANT_ID)) or set()
+            active_missions = gops.get_active_mission_ids(str(TENANT_ID)) or set()
+            completed_count = gops.get_completed_missions_count(str(TENANT_ID))
+            activity = gops.get_activity(str(TENANT_ID), limit=10) or []
+            stability = gops.get_stability(str(TENANT_ID))
+            inventory = gops.get_inventory(str(TENANT_ID)) or set()
+            avatar_type = gops.get_avatar_type(str(TENANT_ID))
+            try:
+                family_level = gops.get_family_level(str(TENANT_ID))
+            except Exception:
+                pass
+            if player:
+                metrics["xp"] = int(player.get("xp", 0))
+                metrics["level"] = player.get("level")
+            metrics["badges_count"] = len(badges)
+            metrics["active_missions"] = len(active_missions)
+            metrics["completed_missions"] = completed_count
+            metrics["activity_entries"] = len(activity)
+            metrics["inventory_items"] = len(inventory)
+            metrics["stability_score"] = int(stability.get("score", 0)) if stability else None
+            metrics["avatar_type"] = avatar_type
+    except Exception:
+        pass
+
+    # ── Sous-services ─────────────────────────────────────────────────
+
+    # Module + ops
+    subservices["gamification_module"] = {
+        "status": "ok" if (gam_module_ok and gops_ok and redis_ok) else "critical",
+        "critical": True,
+        "message": "" if (gam_module_ok and gops_ok and redis_ok)
+                   else "Module gamification ou Redis indisponible",
+    }
+
+    # Profil joueur (XP + niveau)
+    if not redis_ok:
+        subservices["player_profile"] = {"status": "critical", "critical": True}
+    elif player:
+        subservices["player_profile"] = {
+            "status": "ok", "critical": True,
+            "metrics": {"xp": metrics["xp"], "level": metrics["level"]},
+        }
+    else:
+        subservices["player_profile"] = {
+            "status": "warning", "critical": True,
+            "message": "Joueur non initialisé — sera créé au premier login",
+            "recommended_fix": "Initialiser le joueur au premier login",
+        }
+
+    # Système XP (vérification structurelle)
+    xp_ok = False
+    try:
+        from core.gamification.redis_ops import GamificationRedisOps as _GX
+        xp_ok = hasattr(_GX, "increment_player_field") and hasattr(_GX, "get_player_field")
+    except Exception:
+        pass
+    subservices["xp_system"] = {
+        "status": "ok" if xp_ok else "critical",
+        "critical": True,
+        "metrics": {"current_xp": metrics["xp"]},
+        "note": "XP incrémenté sur chat, voix, visio, login — idempotence sous responsabilité appelant",
+    }
+
+    # Badges
+    if not redis_ok:
+        subservices["badges"] = {"status": "critical", "critical": False}
+    elif len(badges) > 0:
+        subservices["badges"] = {
+            "status": "ok", "critical": False,
+            "metrics": {"count": len(badges)},
+        }
+    else:
+        subservices["badges"] = {
+            "status": "warning", "critical": False,
+            "message": "0 badge débloqué — normal pour un nouveau joueur",
+            "metrics": {"count": 0},
+        }
+
+    # Missions
+    if not redis_ok:
+        subservices["missions"] = {"status": "critical", "critical": False}
+    elif routes_ok >= 4:
+        subservices["missions"] = {
+            "status": "ok", "critical": False,
+            "metrics": {"active": len(active_missions), "completed": metrics["completed_missions"]},
+        }
+    else:
+        subservices["missions"] = {
+            "status": "degraded", "critical": False,
+            "message": "Routes missions manquantes",
+        }
+
+    # Flux d'activité
+    if not redis_ok:
+        subservices["activity_feed"] = {"status": "critical", "critical": False}
+    elif len(activity) > 0:
+        subservices["activity_feed"] = {
+            "status": "ok", "critical": False,
+            "metrics": {"recent_entries": len(activity)},
+        }
+    else:
+        subservices["activity_feed"] = {
+            "status": "warning", "critical": False,
+            "message": "Aucune activité enregistrée",
+            "metrics": {"recent_entries": 0},
+        }
+
+    # Stabilité (score de bien-être)
+    if not redis_ok:
+        subservices["stability"] = {"status": "degraded", "critical": False}
+    elif stability:
+        subservices["stability"] = {
+            "status": "ok", "critical": False,
+            "metrics": {"score": metrics["stability_score"]},
+        }
+    else:
+        subservices["stability"] = {
+            "status": "warning", "critical": False,
+            "message": "Score stabilité non encore calculé",
+        }
+
+    # Inventaire / boutique
+    shop_ok = routes_ok >= 9
+    if not redis_ok:
+        subservices["inventory_shop"] = {"status": "critical", "critical": False}
+    elif shop_ok:
+        subservices["inventory_shop"] = {
+            "status": "ok", "critical": False,
+            "metrics": {"inventory_items": len(inventory)},
+        }
+    else:
+        subservices["inventory_shop"] = {
+            "status": "degraded", "critical": False,
+            "message": "Routes boutique/inventaire manquantes",
+        }
+
+    # Bonus actifs
+    bonus_ok = False
+    try:
+        from core.gamification.redis_ops import GamificationRedisOps as _GB
+        bonus_ok = hasattr(_GB, "get_active_bonus") and hasattr(_GB, "set_active_bonus")
+    except Exception:
+        pass
+    subservices["bonuses"] = {
+        "status": "ok" if bonus_ok else "warning",
+        "critical": False,
+        "message": "Système bonus avec TTL auto-expiration disponible" if bonus_ok
+                   else "Méthodes bonus inaccessibles",
+    }
+
+    # Avatar / skin
+    equip_ok = routes_ok >= 12
+    subservices["avatar_skin"] = {
+        "status": "ok" if (gops_ok and equip_ok) else "warning",
+        "critical": False,
+        "metrics": {"avatar_type": avatar_type},
+        "message": "" if (gops_ok and equip_ok)
+                   else "Routes equip outfit/frame manquantes",
+    }
+
+    # Gamification famille
+    subservices["family_gamification"] = {
+        "status": "ok" if (gops_ok and family_level is not None) else "warning",
+        "critical": False,
+        "metrics": {"family_xp": int(family_level.get("family_xp", 0)) if family_level else 0},
+        "message": "" if (gops_ok and family_level is not None)
+                   else "Niveau famille non initialisé",
+    }
+
+    # Auto-init joueur
+    subservices["auto_init"] = {
+        "status": "ok" if (gops_ok and redis_ok) else "degraded",
+        "critical": False,
+        "note": "Joueur initialisé au premier login si absent",
+    }
+
+    # ── Auto-heal ──────────────────────────────────────────────────────
+    auto_heal = [
+        {"condition": "player_not_initialized", "action": "init_player_on_first_login", "available": gops_ok and redis_ok},
+        {"condition": "xp_lost_after_redis_flush", "action": "warn_admin_no_silent_recovery", "available": True},
+        {"condition": "double_xp_attribution", "action": "check_idempotency_key_before_increment", "available": gops_ok},
+        {"condition": "mission_stuck_active", "action": "check_and_complete_on_next_trigger", "available": gops_ok},
+        {"condition": "badge_not_unlocked", "action": "recheck_criteria_on_next_action", "available": gops_ok},
+        {"condition": "activity_feed_empty", "action": "warn_no_auto_backfill", "available": True},
+        {"condition": "stability_not_calculated", "action": "recalculate_on_next_chat_session", "available": gops_ok},
+        {"condition": "redis_ko", "action": "critical_no_fake_gamification_state", "available": False},
+    ]
+
+    # ── Statut global ─────────────────────────────────────────────────
+    sub_statuses = [s.get("status") for s in subservices.values()]
+    critical_down = any(
+        s.get("status") in ("critical", "degraded") and s.get("critical")
+        for s in subservices.values()
+    )
+    n_critical = sub_statuses.count("critical")
+
+    if not gam_module_ok or not redis_ok or n_critical >= 2:
+        status = "critical"
+    elif critical_down:
+        status = "degraded"
+    elif "warning" in sub_statuses or "degraded" in sub_statuses:
+        status = "warning"
+    else:
+        status = "ok"
+
+    return {
+        "status": status,
+        "goal": "L'utilisateur gagne des XP, des badges et monte de niveau en interagissant avec Luna — missions, stabilité, boutique, inventaire, avatar.",
+        "checks": checks,
+        "subservices": subservices,
+        "metrics": metrics,
+        "auto_heal": auto_heal,
+    }
+
+
 async def _send_objectives_alert(failures: list, total: int) -> None:
     """Envoie une alerte Telegram ou SMS si des objectifs ne sont pas atteints."""
     bot_token = os.getenv("ALERT_TELEGRAM_BOT_TOKEN", "")
@@ -18584,6 +18885,7 @@ async def admin_objectives(request: Request):
     formulaires_detail = await _check_objective_formulaires()
     cartes_detail = await _check_objective_cartes()
     amis_detail = await _check_objective_amis()
+    activites_detail = await _check_objective_activites()
 
     return {
         "score": f"{score}/{total}",
@@ -18596,6 +18898,7 @@ async def admin_objectives(request: Request):
         "formulaires": formulaires_detail,
         "cartes": cartes_detail,
         "amis": amis_detail,
+        "activites": activites_detail,
         "summary_by_domain": {
             domain: {
                 "ok": sum(1 for r in results if r.get("domain") == domain and r.get("ok")),
