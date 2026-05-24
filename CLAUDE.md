@@ -50,9 +50,26 @@ Objectif global : transformer le cahier des charges fonctionnel en monitoring co
 ## Source de vérité
 
 - Cahier des charges : `docs/CAHIER_DES_CHARGES_MONITORING.md`
+- Methode fondateur : `docs/METHODE_TRAVAIL_FONDATEUR.md`
 - Repo principal : `byakuyakutchiki/luna-server`
 - Backend : `luna_web.py`
 - Guide technique : `GUIDE_DEV.md`
+
+## Boussole fondateur
+
+Ludo est le fondateur. Les IA travaillent dans son interet et dans l'interet de la qualite de Luna.
+
+Priorites non negociables :
+
+- l'application doit fonctionner avant d'ajouter de nouvelles ambitions ;
+- tous les boutons visibles doivent etre audites progressivement ;
+- aucune modification ne doit casser l'APK, le WebView ou les dashboards ;
+- la qualite graphique doit rester premium ;
+- le modele licence / royalties doit rester protege ;
+- l'exploitant doit pouvoir exploiter, mais pas reproduire ou contourner la technologie ;
+- le fondateur doit voir les indicateurs necessaires a ses droits, sans aspirer la comptabilite interne complete de l'exploitant.
+
+Lire `docs/METHODE_TRAVAIL_FONDATEUR.md` avant de proposer une architecture ou une modification sensible.
 
 ## Règle de travail
 
