@@ -1877,6 +1877,247 @@ async def _check_objective_cartes() -> dict:
     }
 
 
+async def _check_objective_amis() -> dict:
+    """Monitoring Amis / Réseau Social — aucun DM ni alerte réels envoyés."""
+    checks = []
+    subservices = {}
+    metrics: dict = {
+        "friends_count": 0,
+        "pending_requests": 0,
+        "blocked_count": 0,
+        "dm_rooms_count": 0,
+        "unread_dm_count": 0,
+        "is_online": False,
+        "max_friends": 0,
+        "max_blocked": 0,
+        "social_routes_ok": 0,
+    }
+
+    def _chk(name: str, ok: bool, message: str = "", **extra):
+        checks.append({"name": name, "status": "ok" if ok else "warning", "message": message, **extra})
+
+    _chk("social_module_available", _SOCIAL_AVAILABLE,
+         "core.social disponible" if _SOCIAL_AVAILABLE else "Import core.social.routes échoué")
+
+    redis_ok = False
+    try:
+        if _redis_client:
+            _redis_client.client.ping()
+            redis_ok = True
+    except Exception:
+        pass
+    _chk("redis_available", redis_ok,
+         "Redis disponible" if redis_ok else "Redis indisponible")
+
+    sops = None
+    sops_ok = False
+    try:
+        from core.social.redis_ops import SocialRedisOps as _SOps, MAX_FRIENDS, MAX_BLOCKED
+        sops_ok = True
+        metrics["max_friends"] = MAX_FRIENDS
+        metrics["max_blocked"] = MAX_BLOCKED
+        if redis_ok:
+            sops = _SOps(_redis_client)
+    except Exception:
+        pass
+    _chk("social_redis_ops", sops_ok,
+         f"SocialRedisOps disponible (max {metrics['max_friends']} amis)" if sops_ok
+         else "SocialRedisOps inaccessible")
+
+    routes_ok = 0
+    try:
+        import core.social.routes as _sr
+        for fn in ["get_my_profile", "get_friend_code", "use_friend_code",
+                   "send_friend_request", "get_friend_requests", "accept_friend",
+                   "decline_friend", "get_friends", "remove_friend",
+                   "block_user", "unblock_user", "get_dm_rooms",
+                   "get_dm_messages", "heartbeat"]:
+            if callable(getattr(_sr, fn, None)):
+                routes_ok += 1
+    except Exception:
+        pass
+    metrics["social_routes_ok"] = routes_ok
+    _chk("social_routes", routes_ok >= 12,
+         f"{routes_ok}/14 routes sociales présentes")
+
+    friend_code = None
+    friends: set = set()
+    pending: list = []
+    blocked: set = set()
+    dm_rooms: list = []
+    unread = 0
+    is_online = False
+    profile = None
+    try:
+        if sops:
+            profile = sops.get_social_profile(TENANT_ID)
+            friend_code = sops.get_friend_code(TENANT_ID)
+            friends = sops.get_friends(TENANT_ID) or set()
+            pending = sops.get_friend_requests(TENANT_ID) or []
+            blocked = sops.get_blocked(TENANT_ID) or set()
+            dm_rooms = sops.get_dm_rooms(TENANT_ID) or []
+            unread = sops.get_unread_dm_count(TENANT_ID)
+            is_online = sops.is_online(TENANT_ID)
+            metrics.update({
+                "friends_count": len(friends), "pending_requests": len(pending),
+                "blocked_count": len(blocked), "dm_rooms_count": len(dm_rooms),
+                "unread_dm_count": unread, "is_online": is_online,
+            })
+    except Exception:
+        pass
+
+    # Module social
+    subservices["social_module"] = {
+        "status": "ok" if (_SOCIAL_AVAILABLE and sops_ok and redis_ok) else "critical",
+        "critical": True,
+        "message": "" if (_SOCIAL_AVAILABLE and sops_ok and redis_ok)
+                   else "Module social ou Redis indisponible",
+    }
+
+    # Profil
+    if not redis_ok:
+        subservices["profile"] = {"status": "critical", "critical": False, "message": "Redis absent"}
+    elif profile:
+        subservices["profile"] = {"status": "ok", "critical": False,
+                                   "metrics": {"has_name": bool(profile.get("display_name"))}}
+    else:
+        subservices["profile"] = {"status": "warning", "critical": False,
+                                   "message": "Profil social non initialisé — fallback neutre"}
+
+    # Friend code
+    if not sops_ok or not redis_ok:
+        subservices["friend_code"] = {"status": "critical", "critical": True}
+    elif friend_code:
+        subservices["friend_code"] = {"status": "ok", "critical": True,
+                                       "metrics": {"code_prefix": friend_code[:4] + "****"}}
+    else:
+        subservices["friend_code"] = {"status": "warning", "critical": True,
+                                       "message": "Code absent — régénéré au démarrage"}
+
+    # Ajout par code
+    subservices["add_by_code"] = {
+        "status": "ok" if (sops_ok and routes_ok >= 10) else "degraded",
+        "critical": False,
+        "note": "Validation + anti self-add + anti doublon + filtre blocage",
+    }
+
+    # Invitations
+    if not redis_ok:
+        subservices["invitations"] = {"status": "critical", "critical": False}
+    elif routes_ok >= 5:
+        subservices["invitations"] = {"status": "ok", "critical": False,
+                                       "metrics": {"pending": len(pending)}}
+    else:
+        subservices["invitations"] = {"status": "degraded", "critical": False,
+                                       "message": "Routes accept/decline manquantes"}
+
+    # Liste amis
+    if not redis_ok:
+        subservices["friends_list"] = {"status": "critical", "critical": True}
+    elif len(friends) == 0:
+        subservices["friends_list"] = {"status": "warning", "critical": True,
+                                        "message": "0 ami — liste vide mais système disponible",
+                                        "metrics": {"count": 0, "max": metrics["max_friends"]}}
+    else:
+        subservices["friends_list"] = {"status": "ok", "critical": True,
+                                        "metrics": {"count": len(friends), "max": metrics["max_friends"]}}
+
+    # Présence / heartbeat
+    heartbeat_ok = False
+    try:
+        import core.social.routes as _srh
+        heartbeat_ok = callable(getattr(_srh, "heartbeat", None))
+    except Exception:
+        pass
+    subservices["presence"] = {
+        "status": "ok" if heartbeat_ok else "warning",
+        "critical": False,
+        "metrics": {"is_online": is_online, "ttl_seconds": 300},
+        "message": "" if heartbeat_ok else "Route heartbeat absente",
+    }
+
+    # DM rooms
+    subservices["dm_rooms"] = {
+        "status": "ok" if redis_ok else "critical",
+        "critical": False,
+        "metrics": {"rooms": len(dm_rooms), "unread": unread},
+        "note": "DM entre amis uniquement — bloqués filtrés",
+    }
+
+    # DM messages
+    subservices["dm_messages"] = {
+        "status": "ok" if (sops_ok and redis_ok) else "degraded",
+        "critical": False,
+        "metrics": {"max_per_room": 100},
+        "note": "Aucun DM envoyé pendant le monitoring",
+    }
+
+    # Blocage
+    block_ok = False
+    try:
+        from core.social.redis_ops import SocialRedisOps as _SB
+        block_ok = all(hasattr(_SB, m) for m in
+                       ["block_user", "unblock_user", "is_blocked", "delete_friend_and_data"])
+    except Exception:
+        pass
+    subservices["blocking"] = {
+        "status": "ok" if block_ok else "critical",
+        "critical": True,
+        "metrics": {"blocked_count": len(blocked), "max": metrics["max_blocked"]},
+    }
+
+    # Anti-abus
+    subservices["anti_abuse"] = {
+        "status": "ok" if (metrics["max_friends"] > 0 and metrics["max_blocked"] > 0) else "warning",
+        "critical": False,
+        "metrics": {"max_friends": metrics["max_friends"], "max_blocked": metrics["max_blocked"],
+                    "rate_limits": routes_ok > 0},
+    }
+
+    # Pont privacy World / Carte
+    subservices["privacy_world_bridge"] = {
+        "status": "ok" if (_WORLD_SOCIAL_AVAILABLE and sops_ok) else "warning",
+        "critical": False,
+        "message": "" if (_WORLD_SOCIAL_AVAILABLE and sops_ok)
+                   else "World social absent — cohérence carte/amis non garantie",
+    }
+
+    auto_heal = [
+        {"condition": "friend_code_absent", "action": "regenerate_on_startup", "available": sops_ok and redis_ok},
+        {"condition": "invitation_duplicate", "action": "deduplicate_requests", "available": sops_ok},
+        {"condition": "blocked_user_contact", "action": "reject_dm_and_request", "available": block_ok},
+        {"condition": "presence_stale", "action": "mark_offline_after_ttl_5min", "available": sops_ok},
+        {"condition": "dm_realtime_ko", "action": "fallback_polling", "available": sops_ok and redis_ok},
+        {"condition": "profile_incomplete", "action": "fallback_neutral_name_avatar", "available": True},
+        {"condition": "redis_ko", "action": "critical_no_fake_social_state", "available": False},
+    ]
+
+    sub_statuses = [s.get("status") for s in subservices.values()]
+    critical_down = any(
+        s.get("status") in ("critical", "degraded") and s.get("critical")
+        for s in subservices.values()
+    )
+    n_critical = sub_statuses.count("critical")
+
+    if not _SOCIAL_AVAILABLE or not redis_ok or n_critical >= 2:
+        status = "critical"
+    elif critical_down:
+        status = "degraded"
+    elif "warning" in sub_statuses or "degraded" in sub_statuses:
+        status = "warning"
+    else:
+        status = "ok"
+
+    return {
+        "status": status,
+        "goal": "L'utilisateur peut créer une relation sociale consentie et sûre : profil → code ami → invitation → amis → DM → présence → blocage.",
+        "checks": checks,
+        "subservices": subservices,
+        "metrics": metrics,
+        "auto_heal": auto_heal,
+    }
+
+
 async def _send_objectives_alert(failures: list, total: int) -> None:
     """Envoie une alerte Telegram ou SMS si des objectifs ne sont pas atteints."""
     bot_token = os.getenv("ALERT_TELEGRAM_BOT_TOKEN", "")
@@ -18334,6 +18575,7 @@ async def admin_objectives(request: Request):
     documents_detail = await _check_objective_documents()
     formulaires_detail = await _check_objective_formulaires()
     cartes_detail = await _check_objective_cartes()
+    amis_detail = await _check_objective_amis()
 
     return {
         "score": f"{score}/{total}",
@@ -18345,6 +18587,7 @@ async def admin_objectives(request: Request):
         "documents": documents_detail,
         "formulaires": formulaires_detail,
         "cartes": cartes_detail,
+        "amis": amis_detail,
         "summary_by_domain": {
             domain: {
                 "ok": sum(1 for r in results if r.get("domain") == domain and r.get("ok")),
