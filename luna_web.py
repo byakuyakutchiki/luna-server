@@ -1213,6 +1213,289 @@ async def _check_objective_documents() -> dict:
     }
 
 
+async def _check_objective_formulaires() -> dict:
+    """Monitoring Formulaires / Assistant Administratif — aucun document réel traité."""
+    checks = []
+    subservices = {}
+    metrics: dict = {
+        "routes_available": 0,
+        "profile_fields": 0,
+        "history_count": 0,
+        "has_size_limit": False,
+        "pymupdf_available": False,
+        "pil_available": False,
+    }
+
+    def _chk(name: str, ok: bool, message: str = "", **extra):
+        checks.append({"name": name, "status": "ok" if ok else "warning", "message": message, **extra})
+
+    # ── Router form_filler monté ──────────────────────────────────────
+    _chk("form_filler_module", _FORM_FILLER_AVAILABLE,
+         "core.form_filler disponible" if _FORM_FILLER_AVAILABLE
+         else "Import core.form_filler.routes échoué")
+
+    # ── Redis disponible ──────────────────────────────────────────────
+    redis_ok = False
+    try:
+        if _redis_client:
+            _redis_client.client.ping()
+            redis_ok = True
+    except Exception:
+        pass
+    _chk("redis_available", redis_ok,
+         "Redis disponible" if redis_ok else "Redis indisponible")
+
+    # ── FormFillerRedisOps importable ─────────────────────────────────
+    fops = None
+    fops_ok = False
+    try:
+        from core.form_filler.redis_ops import FormFillerRedisOps as _FFOps
+        fops_ok = True
+        if redis_ok:
+            fops = _FFOps(_redis_client, int(TENANT_ID))
+    except Exception:
+        pass
+    _chk("form_filler_redis_ops", fops_ok,
+         "FormFillerRedisOps disponible" if fops_ok else "FormFillerRedisOps inaccessible")
+
+    # ── Engine + PyMuPDF + PIL ────────────────────────────────────────
+    engine_ok = False
+    pymupdf_ok = False
+    pil_ok = False
+    has_size_limit = False
+    try:
+        from core.form_filler.engine import analyze_form, fill_pdf, pdf_to_preview_images
+        engine_ok = True
+        import fitz as _fitz
+        pymupdf_ok = True
+        from PIL import Image as _Image
+        pil_ok = True
+    except ImportError:
+        pass
+    except Exception:
+        pass
+    metrics["pymupdf_available"] = pymupdf_ok
+    metrics["pil_available"] = pil_ok
+    _chk("form_filler_engine", engine_ok,
+         "Engine analyze/fill/preview disponible" if engine_ok else "core.form_filler.engine inaccessible")
+    _chk("pymupdf_available", pymupdf_ok,
+         "PyMuPDF (fitz) disponible" if pymupdf_ok else "PyMuPDF absent — génération/preview PDF impossible")
+
+    # ── IA disponible pour analyse ────────────────────────────────────
+    ai_ok = openai_client is not None
+    _chk("ai_client_available", ai_ok,
+         "Client IA disponible pour analyse formulaire" if ai_ok
+         else "openai_client absent — analyse IA désactivée")
+
+    # ── Routes présentes ──────────────────────────────────────────────
+    expected_routes = {
+        "analyze":  "api_analyze",
+        "preview":  "api_preview",
+        "fill":     "api_fill",
+        "download": "api_download",
+        "autofill": "api_autofill",
+        "profile":  "api_get_profile",
+        "history":  "api_history",
+    }
+    _g = globals()
+    # routes montées dans form_filler_router, on vérifie via import
+    routes_available = 0
+    try:
+        from core.form_filler import routes as _ffr
+        for attr in expected_routes.values():
+            if callable(getattr(_ffr, attr, None)):
+                routes_available += 1
+    except Exception:
+        pass
+    metrics["routes_available"] = routes_available
+    _chk("form_filler_routes", routes_available == len(expected_routes),
+         f"{routes_available}/{len(expected_routes)} routes disponibles")
+
+    # ── Limite de taille vérifiée ─────────────────────────────────────
+    try:
+        from core.form_filler.routes import MAX_UPLOAD_B64
+        has_size_limit = MAX_UPLOAD_B64 > 0
+        metrics["has_size_limit"] = has_size_limit
+    except Exception:
+        pass
+    _chk("upload_size_limit", has_size_limit,
+         f"Limite upload définie (MAX_UPLOAD_B64)" if has_size_limit
+         else "Limite upload absente — risque de dépassement mémoire")
+
+    # ── Sous-services ─────────────────────────────────────────────────
+
+    # Upload
+    if not _FORM_FILLER_AVAILABLE:
+        subservices["upload"] = {"status": "critical", "critical": True,
+                                  "message": "Router form_filler non monté"}
+    elif not pymupdf_ok:
+        subservices["upload"] = {"status": "degraded", "critical": True,
+                                  "message": "PyMuPDF absent — PDF non traitable"}
+    else:
+        subservices["upload"] = {
+            "status": "ok", "critical": True,
+            "metrics": {"max_size_mb": 18, "limit_enforced": has_size_limit},
+        }
+
+    # Analyse / OCR
+    if not engine_ok:
+        subservices["analyse"] = {"status": "critical", "critical": True,
+                                   "message": "Engine inaccessible"}
+    elif not ai_ok:
+        subservices["analyse"] = {"status": "degraded", "critical": True,
+                                   "message": "IA absente — champs non détectables"}
+    else:
+        subservices["analyse"] = {"status": "ok", "critical": True}
+
+    # Preview
+    if not pymupdf_ok:
+        subservices["preview"] = {"status": "critical", "critical": False,
+                                   "message": "PyMuPDF absent — preview impossible"}
+    elif not redis_ok:
+        subservices["preview"] = {"status": "degraded", "critical": False,
+                                   "message": "Redis absent — session preview inaccessible"}
+    else:
+        subservices["preview"] = {"status": "ok", "critical": False}
+
+    # Profil
+    profile_fields = 0
+    try:
+        if fops:
+            p = fops.get_profile()
+            profile_fields = sum(1 for v in p.values() if v) if p else 0
+            metrics["profile_fields"] = profile_fields
+    except Exception:
+        pass
+    if not redis_ok:
+        subservices["profile"] = {"status": "critical", "critical": False,
+                                   "message": "Redis indisponible"}
+    elif profile_fields == 0:
+        subservices["profile"] = {"status": "warning", "critical": False,
+                                   "message": "Profil vide — peu de suggestions possibles",
+                                   "metrics": {"fields": 0},
+                                   "recommended_fix": "Inviter l'utilisateur à remplir son profil ou scanner un document identité"}
+    else:
+        subservices["profile"] = {"status": "ok", "critical": False,
+                                   "metrics": {"fields": profile_fields}}
+
+    # Vault bridge
+    vault_bridge_ok = False
+    try:
+        from core.form_filler.routes import _value_from_vault
+        vault_bridge_ok = True
+    except Exception:
+        pass
+    if not _VAULT_AVAILABLE:
+        subservices["vault_bridge"] = {"status": "warning", "critical": False,
+                                        "message": "Vault indisponible — fallback profil uniquement"}
+    elif not vault_bridge_ok:
+        subservices["vault_bridge"] = {"status": "degraded", "critical": False,
+                                        "message": "_value_from_vault inaccessible"}
+    else:
+        subservices["vault_bridge"] = {"status": "ok", "critical": False}
+
+    # Autofill
+    if not ai_ok or not redis_ok:
+        subservices["autofill"] = {"status": "degraded", "critical": False,
+                                    "message": "IA ou Redis absent — autofill impossible"}
+    elif profile_fields == 0:
+        subservices["autofill"] = {"status": "warning", "critical": False,
+                                    "message": "Profil vide — suggestions limitées"}
+    else:
+        subservices["autofill"] = {"status": "ok", "critical": False}
+
+    # Correction / champs incertains
+    # Structurellement disponible si autofill l'est (champs incertains retournés par api_autofill)
+    subservices["correction"] = {
+        "status": "ok" if (redis_ok and _FORM_FILLER_AVAILABLE) else "degraded",
+        "critical": False,
+        "message": "" if (redis_ok and _FORM_FILLER_AVAILABLE)
+                   else "Session inaccessible — correction impossible",
+    }
+
+    # Signature (jamais automatique — vérification structurelle)
+    try:
+        from core.form_filler.engine import fill_pdf as _fp
+        import inspect
+        sig_supported = "signature_b64" in inspect.signature(_fp).parameters
+    except Exception:
+        sig_supported = False
+    subservices["signature"] = {
+        "status": "ok" if sig_supported else "warning",
+        "critical": False,
+        "note": "Signature jamais automatique — confirmation utilisateur requise",
+        "message": "" if sig_supported else "Paramètre signature_b64 absent de fill_pdf",
+    }
+
+    # Génération PDF
+    if not pymupdf_ok or not engine_ok:
+        subservices["generation_pdf"] = {"status": "critical", "critical": True,
+                                          "message": "PyMuPDF ou engine absent — génération impossible"}
+    else:
+        subservices["generation_pdf"] = {"status": "ok", "critical": True}
+
+    # Download
+    if not redis_ok or not _FORM_FILLER_AVAILABLE:
+        subservices["download"] = {"status": "critical", "critical": True,
+                                    "message": "Session ou router inaccessible"}
+    else:
+        subservices["download"] = {"status": "ok", "critical": True}
+
+    # Historique
+    history_count = 0
+    try:
+        if fops:
+            history_count = len(fops.get_history(limit=5))
+            metrics["history_count"] = history_count
+    except Exception:
+        pass
+    if not redis_ok:
+        subservices["historique"] = {"status": "critical", "critical": False,
+                                      "message": "Redis indisponible"}
+    else:
+        subservices["historique"] = {
+            "status": "ok", "critical": False,
+            "metrics": {"recent_entries": history_count},
+        }
+
+    # ── Auto-heal ──────────────────────────────────────────────────────
+    auto_heal = [
+        {"condition": "pdf_image_not_fillable", "action": "ocr_then_overlay", "available": pymupdf_ok and pil_ok},
+        {"condition": "field_not_recognized", "action": "manual_correction_list", "available": _FORM_FILLER_AVAILABLE},
+        {"condition": "profile_empty", "action": "prompt_profile_fill_or_scan_id", "available": _VAULT_AVAILABLE},
+        {"condition": "vault_unavailable", "action": "fallback_profile_only", "available": fops_ok},
+        {"condition": "session_expired", "action": "request_reupload", "available": _FORM_FILLER_AVAILABLE},
+        {"condition": "pdf_corrupted_or_protected", "action": "return_clear_error_no_crash", "available": engine_ok},
+        {"condition": "ambiguous_data", "action": "request_user_confirmation", "available": True},
+    ]
+
+    # ── Statut global ─────────────────────────────────────────────────
+    sub_statuses = [s.get("status") for s in subservices.values()]
+    critical_down = any(
+        s.get("status") in ("critical", "degraded") and s.get("critical")
+        for s in subservices.values()
+    )
+    n_critical = sub_statuses.count("critical")
+
+    if not _FORM_FILLER_AVAILABLE or not pymupdf_ok or n_critical >= 2:
+        status = "critical"
+    elif critical_down:
+        status = "degraded"
+    elif "warning" in sub_statuses or "degraded" in sub_statuses:
+        status = "warning"
+    else:
+        status = "ok"
+
+    return {
+        "status": status,
+        "goal": "L'utilisateur peut confier un formulaire à Luna : upload → analyse → preview → autofill → correction → PDF final → download → historique.",
+        "checks": checks,
+        "subservices": subservices,
+        "metrics": metrics,
+        "auto_heal": auto_heal,
+    }
+
+
 async def _send_objectives_alert(failures: list, total: int) -> None:
     """Envoie une alerte Telegram ou SMS si des objectifs ne sont pas atteints."""
     bot_token = os.getenv("ALERT_TELEGRAM_BOT_TOKEN", "")
@@ -17668,6 +17951,7 @@ async def admin_objectives(request: Request):
 
     services_detail = await _check_objective_services()
     documents_detail = await _check_objective_documents()
+    formulaires_detail = await _check_objective_formulaires()
 
     return {
         "score": f"{score}/{total}",
@@ -17677,6 +17961,7 @@ async def admin_objectives(request: Request):
         "objectives": results,
         "services": services_detail,
         "documents": documents_detail,
+        "formulaires": formulaires_detail,
         "summary_by_domain": {
             domain: {
                 "ok": sum(1 for r in results if r.get("domain") == domain and r.get("ok")),
