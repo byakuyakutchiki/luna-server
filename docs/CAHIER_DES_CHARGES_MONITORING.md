@@ -712,11 +712,16 @@ Voix couvre deux usages :
 - **Voix directe navigateur / APK** : conversation orale avec Luna via WebSocket OpenAI Realtime.
 - **Appel téléphonique assisté** : Luna peut appeler un contact ou un numéro autorisé via Twilio, rester dans les limites du forfait voix, puis produire une trace utile.
 
+Mention fondateur : aujourd'hui, le bouton Voix a déjà été testé manuellement et peut ne donner aucun retour visible. Ce point est prioritaire : un clic sur le bouton vocal doit toujours produire un état clair, même en cas d'échec.
+
 ### Étapes obligatoires
 - OpenAI Realtime API configuré.
 - WebSocket `/ws/luna-voice` disponible.
 - WebSocket Twilio media stream `/api/voice-call/media-stream` disponible.
-- TTS OpenAI configuré avec voix `coral` ou voix définie par `OPENAI_VOICE_NAME`.
+- TTS OpenAI configuré avec voix féminine par défaut : `coral` ou autre voix féminine définie par `OPENAI_VOICE_NAME`.
+- Bouton Voix visible et connecté au bon flux.
+- Au clic : feedback immédiat (`connexion`, `micro demandé`, `écoute`, `erreur`, `quota`, `reconnexion`) en moins d'une seconde.
+- Si le micro, OpenAI, quota ou WebSocket bloque : message utilisateur clair, pas de silence.
 - Contexte vocal construit : profil, mémoire, amis, services autorisés, garde-fous.
 - Connexion WebSocket stable < 2s.
 - Quota/budget voix vérifié avant démarrage.
@@ -730,6 +735,9 @@ Voix couvre deux usages :
 |---|---|---|
 | OpenAI configuré | Chaque check | Absent |
 | Quota voix restant | Chaque check | < 10% |
+| Bouton Voix câblé | Chaque check / test UI | Aucun retour au clic |
+| Feedback utilisateur au clic | Test UI | Silence > 1s |
+| Voix féminine configurée | Chaque check | Voix absente ou non conforme |
 | `/ws/luna-voice` présent | Chaque check | Route manquante |
 | `/api/voice-call` présent | Chaque check | Route manquante |
 | Media stream Twilio présent | Chaque check | Route manquante |
@@ -744,6 +752,7 @@ Voix couvre deux usages :
 
 ### Erreurs possibles
 - Micro bloqué navigateur (permissions)
+- Bouton Voix cliquable mais sans effet visible
 - WebSocket coupé par Cloud Run timeout
 - Quota voix épuisé
 - OpenAI Realtime absent ou clé invalide
@@ -756,6 +765,9 @@ Voix couvre deux usages :
 
 ### Réparation automatique
 - Reconnexion WebSocket automatique x3
+- Si clic sans retour → afficher erreur locale et logger l'événement
+- Si micro refusé → afficher aide permission micro
+- Si voix non définie → fallback voix féminine `coral`
 - Alerte quota < 10% restant
 - Fallback texte/chat si voix indisponible
 - Nettoyage session orpheline après TTL
@@ -767,12 +779,14 @@ Voix couvre deux usages :
 - Le monitoring ne doit jamais ouvrir un vrai media stream externe.
 - Aucun outil vocal engageant ne doit agir sans confirmation.
 - Ne pas considérer l'objectif atteint si seul OpenAI est configuré.
+- Ne pas considérer l'objectif atteint si le bouton Voix reste silencieux au clic.
+- La voix par défaut doit être féminine, sauf choix explicite utilisateur.
 - Ne pas perdre la transcription en cas de coupure.
 
 ### Preuve de réussite
 Un check complet doit prouver le parcours :
 
-`OpenAI Realtime → WebSocket voix → budget/quota → contexte → outils autorisés → transcription → mémoire/rapport → cleanup`
+`clic bouton Voix → feedback immédiat → permission micro → OpenAI Realtime → WebSocket voix → voix féminine → budget/quota → contexte → outils autorisés → transcription → mémoire/rapport → cleanup`
 
 Statuts :
 - `ok` : voix directe prête, transcription/mémoire disponibles, quota vérifiable, appels Twilio prêts ou optionnels selon plan.
