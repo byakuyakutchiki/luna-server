@@ -918,6 +918,301 @@ async def _check_objective_services() -> dict:
     }
 
 
+async def _check_objective_documents() -> dict:
+    """Monitoring Documents/Vault IA — aucun scan réel déclenché."""
+    checks = []
+    subservices = {}
+    metrics: dict = {
+        "documents_count": 0,
+        "doc_types_count": 0,
+        "folders_count": 0,
+        "upcoming_reminders": 0,
+        "expired_documents": 0,
+        "urgent_documents": 0,
+        "profile_completeness": None,
+    }
+
+    def _chk(name: str, ok: bool, message: str = "", **extra):
+        checks.append({"name": name, "status": "ok" if ok else "warning", "message": message, **extra})
+
+    # ── Module Vault importable ───────────────────────────────────────
+    _chk("vault_module_importable", _VAULT_AVAILABLE,
+         "core.vault disponible" if _VAULT_AVAILABLE else "Import core.vault échoué")
+
+    # ── Redis disponible ──────────────────────────────────────────────
+    redis_ok = False
+    try:
+        if _redis_client:
+            _redis_client.client.ping()
+            redis_ok = True
+    except Exception as e:
+        pass
+    _chk("redis_available", redis_ok,
+         "Redis disponible" if redis_ok else "Redis indisponible")
+
+    # ── VaultRedisOps importable ──────────────────────────────────────
+    vops_ok = False
+    vops = None
+    try:
+        from core.vault.redis_ops import VaultRedisOps as _VaultOps
+        vops_ok = True
+        if redis_ok:
+            vops = _VaultOps(_redis_client, int(TENANT_ID))
+    except Exception:
+        pass
+    _chk("vault_redis_ops_importable", vops_ok,
+         "VaultRedisOps disponible" if vops_ok else "VaultRedisOps inaccessible")
+
+    # ── Classifier + DOC_TYPES ────────────────────────────────────────
+    doc_types = {}
+    classifier_ok = False
+    try:
+        from core.vault.classifier import DOC_TYPES, classify_document
+        doc_types = DOC_TYPES or {}
+        classifier_ok = bool(doc_types)
+        metrics["doc_types_count"] = len(doc_types)
+        metrics["folders_count"] = len(set(
+            v.get("folder", "autres") for v in doc_types.values()
+        )) if doc_types else 0
+    except Exception:
+        pass
+    _chk("doc_types_available", classifier_ok,
+         f"{metrics['doc_types_count']} types documentaires couverts" if classifier_ok
+         else "DOC_TYPES vide ou classifier inaccessible")
+
+    # ── Actions engine ────────────────────────────────────────────────
+    actions_ok = False
+    try:
+        from core.documents.actions_engine import build_dashboard
+        actions_ok = True
+    except Exception:
+        pass
+    _chk("document_actions_available", actions_ok,
+         "actions_engine disponible" if actions_ok else "core.documents.actions_engine inaccessible")
+
+    # ── Routes documents v2 présentes ────────────────────────────────
+    _g = globals()
+    v2_routes = {
+        "dashboard": "documents_v2_dashboard",
+        "timeline": "documents_v2_timeline",
+        "categories": "documents_v2_categories",
+        "actions": "documents_v2_actions",
+    }
+    v2_ok = all(callable(_g.get(fn)) for fn in v2_routes.values())
+    _chk("documents_v2_routes_available", v2_ok,
+         "Routes v2 dashboard/timeline/categories/actions présentes" if v2_ok
+         else "Une ou plusieurs routes documents v2 manquantes")
+
+    # ── Client IA disponible pour scan ────────────────────────────────
+    ai_ok = openai_client is not None
+    _chk("ai_client_available", ai_ok,
+         "Client IA disponible pour OCR/classification" if ai_ok
+         else "openai_client absent — scan désactivé")
+
+    # ── Page dashboard statique présente ─────────────────────────────
+    docs_html = Path(__file__).parent / "static" / "documents.html"
+    html_ok = docs_html.exists()
+    _chk("documents_html_present", html_ok,
+         "static/documents.html présent" if html_ok else "static/documents.html manquant")
+
+    # ── Recherche disponible ──────────────────────────────────────────
+    search_ok = vops_ok and redis_ok
+    _chk("document_search_available", search_ok,
+         "Recherche par liste/type disponible" if search_ok else "Recherche indisponible (Vault ou Redis KO)")
+
+    # ── Sous-services ─────────────────────────────────────────────────
+
+    # Consentement RGPD
+    consent_ok = False
+    consent_present = False
+    try:
+        if vops:
+            consent_present = vops.has_consent()
+            consent_ok = True
+    except Exception:
+        pass
+    if not vops_ok or not redis_ok:
+        subservices["consent"] = {"status": "critical", "critical": True,
+                                   "message": "Impossible de lire le consentement"}
+    elif consent_ok and consent_present:
+        subservices["consent"] = {"status": "ok", "critical": True}
+    else:
+        subservices["consent"] = {"status": "warning", "critical": True,
+                                   "message": "Consentement absent (état utilisateur normal)"}
+
+    # Scan / OCR / classification
+    if not _VAULT_AVAILABLE:
+        subservices["scan_classification"] = {"status": "critical", "critical": True,
+                                               "message": "Module vault inaccessible"}
+    elif not ai_ok:
+        subservices["scan_classification"] = {"status": "degraded", "critical": True,
+                                               "message": "IA absente — scan impossible"}
+    elif not classifier_ok:
+        subservices["scan_classification"] = {"status": "critical", "critical": True,
+                                               "message": "Classifier ou DOC_TYPES absent"}
+    else:
+        subservices["scan_classification"] = {"status": "ok", "critical": True}
+
+    # Index Redis / liste documents
+    docs_count = 0
+    try:
+        if vops:
+            docs = vops.list_docs(limit=200)
+            docs_count = len(docs)
+            metrics["documents_count"] = docs_count
+    except Exception:
+        pass
+    if not redis_ok:
+        subservices["document_index"] = {"status": "critical", "critical": True,
+                                          "message": "Redis indisponible"}
+    elif docs_count == 0:
+        subservices["document_index"] = {"status": "warning", "critical": True,
+                                          "message": "0 document stocké",
+                                          "metrics": {"documents": 0}}
+    else:
+        subservices["document_index"] = {"status": "ok", "critical": True,
+                                          "metrics": {"documents": docs_count}}
+
+    # Dashboard v2
+    if not v2_ok:
+        subservices["dashboard_v2"] = {"status": "critical", "critical": False,
+                                        "message": "Routes v2 manquantes"}
+    elif not actions_ok:
+        subservices["dashboard_v2"] = {"status": "degraded", "critical": False,
+                                        "message": "Routes présentes mais actions engine absent"}
+    else:
+        subservices["dashboard_v2"] = {"status": "ok", "critical": False}
+
+    # Répertoires / dossiers
+    if metrics["folders_count"] >= 8:
+        subservices["folders"] = {"status": "ok", "critical": False,
+                                   "metrics": {"folders": metrics["folders_count"],
+                                               "doc_types": metrics["doc_types_count"]}}
+    elif metrics["folders_count"] > 0:
+        subservices["folders"] = {"status": "warning", "critical": False,
+                                   "message": f"Seulement {metrics['folders_count']} répertoires couverts"}
+    else:
+        subservices["folders"] = {"status": "degraded", "critical": False,
+                                   "message": "Aucun répertoire de vie courante défini"}
+
+    # Recherche / retrouvabilité
+    if not search_ok:
+        subservices["search_retrieval"] = {"status": "critical", "critical": False}
+    elif docs_count == 0:
+        subservices["search_retrieval"] = {"status": "warning", "critical": False,
+                                            "message": "Aucun document à rechercher"}
+    else:
+        subservices["search_retrieval"] = {"status": "ok", "critical": False,
+                                            "metrics": {"documents": docs_count}}
+
+    # Actions suggérées depuis un document
+    subservices["document_actions"] = {
+        "status": "ok" if actions_ok else "degraded",
+        "critical": False,
+        "message": "" if actions_ok else "actions_engine inaccessible",
+    }
+
+    # Rappels d'expiration
+    upcoming = 0
+    expired = 0
+    urgent = 0
+    reminders_ok = False
+    try:
+        if vops:
+            upcoming_list = vops.get_upcoming_reminders(days=30)
+            due_list = vops.get_due_reminders()
+            upcoming = len(upcoming_list)
+            expired = len(due_list)
+            urgent = sum(1 for r in upcoming_list if r.get("days_left", 999) <= 7)
+            metrics["upcoming_reminders"] = upcoming
+            metrics["expired_documents"] = expired
+            metrics["urgent_documents"] = urgent
+            reminders_ok = True
+    except Exception:
+        pass
+    if not reminders_ok:
+        subservices["reminders"] = {"status": "critical", "critical": False,
+                                     "message": "Lecture rappels impossible"}
+    elif docs_count == 0:
+        subservices["reminders"] = {"status": "warning", "critical": False,
+                                     "message": "Aucun document — rappels vides",
+                                     "metrics": {"upcoming": 0}}
+    else:
+        subservices["reminders"] = {
+            "status": "ok", "critical": False,
+            "metrics": {"upcoming": upcoming, "expired": expired, "urgent": urgent},
+        }
+
+    # Profil unifié / pont formulaires
+    profile_completeness = None
+    profile_ok = False
+    try:
+        if vops:
+            pd = vops.get_profile_data()
+            profile_completeness = pd.get("completeness") if pd else None
+            metrics["profile_completeness"] = profile_completeness
+            profile_ok = True
+    except Exception:
+        pass
+    if not profile_ok:
+        subservices["profile_bridge"] = {"status": "degraded", "critical": False,
+                                          "message": "get_profile_data inaccessible"}
+    elif profile_completeness == 0 or profile_completeness is None:
+        subservices["profile_bridge"] = {"status": "warning", "critical": False,
+                                          "message": "Profil vide (aucun document extrait)",
+                                          "metrics": {"completeness": 0}}
+    else:
+        subservices["profile_bridge"] = {"status": "ok", "critical": False,
+                                          "metrics": {"completeness": profile_completeness}}
+
+    # Suppression / droit à l'effacement
+    try:
+        from core.vault.redis_ops import VaultRedisOps as _VR
+        has_delete = hasattr(_VR, "delete_doc") and hasattr(_VR, "revoke_consent")
+    except Exception:
+        has_delete = False
+    subservices["deletion_rgpd"] = {
+        "status": "ok" if has_delete else "critical",
+        "critical": True,
+        "message": "" if has_delete else "delete_doc ou revoke_consent manquant",
+    }
+
+    # ── Auto-heal ──────────────────────────────────────────────────────
+    auto_heal = [
+        {"condition": "unknown_doc_type", "action": "reclassify_with_ai", "available": ai_ok},
+        {"condition": "empty_ocr_result", "action": "retry_scan_or_request_better_photo", "available": _VAULT_AVAILABLE},
+        {"condition": "missing_reminders_for_expiring_doc", "action": "rebuild_reminders_from_metadata", "available": vops_ok and redis_ok},
+        {"condition": "doc_visible_but_not_searchable", "action": "fallback_vault_docs_list", "available": vops_ok and redis_ok},
+    ]
+
+    # ── Statut global ─────────────────────────────────────────────────
+    sub_statuses = [s.get("status") for s in subservices.values()]
+    critical_down = any(
+        s.get("status") in ("critical", "degraded") and s.get("critical")
+        for s in subservices.values()
+    )
+    n_critical = sub_statuses.count("critical")
+    n_degraded = sub_statuses.count("degraded")
+
+    if not _VAULT_AVAILABLE or not redis_ok or n_critical >= 2:
+        status = "critical"
+    elif critical_down or n_degraded >= 2:
+        status = "degraded"
+    elif "warning" in sub_statuses or "degraded" in sub_statuses:
+        status = "warning"
+    else:
+        status = "ok"
+
+    return {
+        "status": status,
+        "goal": "L'utilisateur dispose d'un grand porte-document : il scanne, range, retrouve et exploite ses documents de vie courante avec Luna.",
+        "checks": checks,
+        "subservices": subservices,
+        "metrics": metrics,
+        "auto_heal": auto_heal,
+    }
+
+
 async def _send_objectives_alert(failures: list, total: int) -> None:
     """Envoie une alerte Telegram ou SMS si des objectifs ne sont pas atteints."""
     bot_token = os.getenv("ALERT_TELEGRAM_BOT_TOKEN", "")
@@ -17372,6 +17667,7 @@ async def admin_objectives(request: Request):
     score = total - len(failures)
 
     services_detail = await _check_objective_services()
+    documents_detail = await _check_objective_documents()
 
     return {
         "score": f"{score}/{total}",
@@ -17380,6 +17676,7 @@ async def admin_objectives(request: Request):
         "checked_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "objectives": results,
         "services": services_detail,
+        "documents": documents_detail,
         "summary_by_domain": {
             domain: {
                 "ok": sum(1 for r in results if r.get("domain") == domain and r.get("ok")),
