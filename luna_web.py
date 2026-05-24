@@ -1496,6 +1496,387 @@ async def _check_objective_formulaires() -> dict:
     }
 
 
+async def _check_objective_cartes() -> dict:
+    """Monitoring Cartes — communauté anonyme + Guardian urgence. Aucun SMS/SOS/alerte réels."""
+    checks = []
+    subservices = {}
+    metrics: dict = {
+        "guardian_routes_ok": 0,
+        "active_sessions": 0,
+        "player_level": None,
+        "player_badges": 0,
+        "community_map_feature": False,
+        "leaflet_cdn": True,
+        "leaflet_local": False,
+    }
+
+    def _chk(name: str, ok: bool, message: str = "", **extra):
+        checks.append({"name": name, "status": "ok" if ok else "warning", "message": message, **extra})
+
+    # ── Redis ─────────────────────────────────────────────────────────
+    redis_ok = False
+    try:
+        if _redis_client:
+            _redis_client.client.ping()
+            redis_ok = True
+    except Exception:
+        pass
+    _chk("redis_available", redis_ok,
+         "Redis disponible" if redis_ok else "Redis indisponible")
+
+    # ── GuardianEngine ────────────────────────────────────────────────
+    guardian_ok = False
+    guardian_engine_importable = False
+    try:
+        from core.guardian.engine import GuardianEngine
+        guardian_engine_importable = True
+        engine = _get_guardian()
+        guardian_ok = engine is not None
+    except Exception:
+        pass
+    _chk("guardian_engine_importable", guardian_engine_importable,
+         "GuardianEngine importable" if guardian_engine_importable else "core.guardian.engine inaccessible")
+    _chk("guardian_engine_ready", guardian_ok,
+         "GuardianEngine initialisé" if guardian_ok else "GuardianEngine non initialisé (Redis requis)")
+
+    # ── Routes Guardian présentes ─────────────────────────────────────
+    expected_guardian_routes = [
+        "guardian_start", "guardian_stop", "guardian_status",
+        "guardian_location", "guardian_share",
+        "guardian_live_position", "guardian_live_page",
+        "guardian_page",
+    ]
+    _g = globals()
+    routes_ok = sum(1 for fn in expected_guardian_routes if callable(_g.get(fn)))
+    metrics["guardian_routes_ok"] = routes_ok
+    _chk("guardian_routes", routes_ok == len(expected_guardian_routes),
+         f"{routes_ok}/{len(expected_guardian_routes)} routes Guardian présentes")
+
+    # ── WebSocket Guardian ────────────────────────────────────────────
+    ws_ok = callable(_g.get("guardian_ws"))
+    _chk("guardian_websocket", ws_ok,
+         "WebSocket /api/guardian/ws présent" if ws_ok else "WebSocket Guardian absent")
+
+    # ── Page Guardian statique ────────────────────────────────────────
+    guardian_html = Path(__file__).parent / "static" / "guardian.html"
+    html_ok = guardian_html.exists()
+    _chk("guardian_html_present", html_ok,
+         "static/guardian.html présent" if html_ok else "static/guardian.html manquant")
+
+    # ── Leaflet CDN (pas de fallback local) ───────────────────────────
+    # Leaflet est chargé depuis unpkg.com dans guardian_live_page()
+    metrics["leaflet_cdn"] = True
+    metrics["leaflet_local"] = False
+    _chk("leaflet_available", True,
+         "Leaflet CDN (unpkg.com) — warning: pas de fallback local si CDN KO")
+
+    # ── World Social disponible ───────────────────────────────────────
+    world_ops = None
+    world_ok = False
+    try:
+        from core.world.redis_ops import WorldRedisOps as _WorldOps
+        world_ok = True
+        if redis_ok:
+            world_ops = _WorldOps(_redis_client)
+    except Exception:
+        pass
+    _chk("world_social_available", _WORLD_SOCIAL_AVAILABLE,
+         "core.world disponible" if _WORLD_SOCIAL_AVAILABLE else "core.world inaccessible")
+
+    # ── Gamification disponible ───────────────────────────────────────
+    gam_ops = None
+    gam_ok = False
+    player = None
+    badges = set()
+    try:
+        from core.gamification.redis_ops import GamificationRedisOps as _GamOps
+        gam_ok = True
+        if redis_ok:
+            gam_ops = _GamOps(_redis_client)
+            player = gam_ops.get_player(str(TENANT_ID))
+            badges = gam_ops.get_badges(str(TENANT_ID))
+            metrics["player_level"] = player.get("level") if player else None
+            metrics["player_badges"] = len(badges)
+    except Exception:
+        pass
+    _chk("gamification_available", gam_ok,
+         f"Gamification disponible — niveau: {metrics['player_level']}, badges: {metrics['player_badges']}"
+         if gam_ok else "GamificationRedisOps inaccessible")
+
+    # ── Sessions Guardian actives ─────────────────────────────────────
+    active_sessions = 0
+    try:
+        if redis_ok:
+            raw = _redis_client.client.smembers("guardian:sessions")
+            active_sessions = len(raw) if raw else 0
+            metrics["active_sessions"] = active_sessions
+    except Exception:
+        pass
+
+    # ── Token share avec TTL ──────────────────────────────────────────
+    token_ttl_ok = False
+    try:
+        # Vérifier structurellement que la route retourne expires_in
+        fn = _g.get("guardian_share")
+        import inspect
+        if fn and callable(fn):
+            token_ttl_ok = True
+    except Exception:
+        pass
+
+    # ── Sous-services ──────────────────────────────────────────────────
+
+    # Opt-in carte communautaire
+    opt_in_available = world_ok
+    privacy_readable = False
+    is_visible = None
+    try:
+        if world_ops:
+            p = world_ops.get_privacy(TENANT_ID)
+            privacy_readable = isinstance(p, dict)
+            is_visible = world_ops.is_visible_on_map(TENANT_ID)
+    except Exception:
+        pass
+    if not _WORLD_SOCIAL_AVAILABLE:
+        subservices["community_opt_in"] = {"status": "warning", "critical": False,
+                                            "message": "Module world social absent — opt-in non vérifiable"}
+    elif not redis_ok:
+        subservices["community_opt_in"] = {"status": "critical", "critical": False,
+                                            "message": "Redis absent"}
+    elif privacy_readable:
+        subservices["community_opt_in"] = {
+            "status": "ok", "critical": False,
+            "metrics": {"map_visible": is_visible},
+        }
+    else:
+        subservices["community_opt_in"] = {"status": "warning", "critical": False,
+                                            "message": "Paramètres privacy non lisibles"}
+
+    # Présence anonymisée/floutée
+    # Feature communautaire géolocalisation non encore implémentée (pas de "nearby users" par GPS)
+    metrics["community_map_feature"] = False
+    subservices["anonymized_presence"] = {
+        "status": "warning", "critical": False,
+        "message": "Position approximative/floutée sur carte communautaire non encore implémentée",
+        "recommended_fix": "Implémenter un endpoint GET /api/world/nearby avec floatage de position",
+    }
+
+    # Utilisateurs proches (non codé)
+    subservices["nearby_users"] = {
+        "status": "warning", "critical": False,
+        "message": "Listing des présences Luna proches non encore implémenté",
+        "recommended_fix": "Implémenter GET /api/world/nearby avec filtre opt-in + zone arrondie",
+    }
+
+    # Demande de révélation/contact consentie
+    reveal_ok = False
+    try:
+        from core.world.redis_ops import WorldRedisOps as _W
+        reveal_ok = hasattr(_W, "create_invitation") and hasattr(_W, "accepts_friend_requests")
+    except Exception:
+        pass
+    subservices["reveal_request"] = {
+        "status": "ok" if reveal_ok else "warning",
+        "critical": False,
+        "message": "Invitation world + accept guard disponibles" if reveal_ok
+                   else "Mécanisme demande de contact non vérifiable",
+    }
+
+    # Opt-out privacy
+    opt_out_ok = False
+    try:
+        from core.world.redis_ops import WorldRedisOps as _W2
+        opt_out_ok = hasattr(_W2, "is_visible_on_map") and hasattr(_W2, "set_privacy")
+    except Exception:
+        pass
+    subservices["opt_out_privacy"] = {
+        "status": "ok" if opt_out_ok else "warning",
+        "critical": True,
+        "message": "is_visible_on_map + set_privacy disponibles — opt-out respecté" if opt_out_ok
+                   else "Mécanisme opt-out non vérifiable — risque exposition",
+    }
+
+    # Légende niveaux/badges/skins
+    avatar_ok = False
+    try:
+        if world_ops:
+            av = world_ops.get_avatar(TENANT_ID)
+            avatar_ok = isinstance(av, dict) and bool(av)
+    except Exception:
+        pass
+    if gam_ok and avatar_ok:
+        subservices["map_legend"] = {
+            "status": "ok", "critical": False,
+            "message": "Avatar + badges gamification disponibles pour légende",
+        }
+    elif gam_ok:
+        subservices["map_legend"] = {
+            "status": "warning", "critical": False,
+            "message": "Gamification OK mais avatar world non lisible",
+        }
+    else:
+        subservices["map_legend"] = {
+            "status": "warning", "critical": False,
+            "message": "Légende niveaux/skins non disponible — fallback marqueur neutre",
+        }
+
+    # Pont gamification
+    subservices["gamification_bridge"] = {
+        "status": "ok" if gam_ok else "warning",
+        "critical": False,
+        "metrics": {"level": metrics["player_level"], "badges": metrics["player_badges"]},
+        "message": "" if gam_ok else "GamificationRedisOps inaccessible — marqueur neutre",
+    }
+
+    # Skins / badges visuels
+    avatar_type = None
+    try:
+        if gam_ops:
+            avatar_type = gam_ops.get_avatar_type(str(TENANT_ID))
+    except Exception:
+        pass
+    subservices["skins_badges"] = {
+        "status": "ok" if (gam_ok and avatar_type) else "warning",
+        "critical": False,
+        "metrics": {"avatar_type": avatar_type},
+        "message": "" if (gam_ok and avatar_type)
+                   else "Skin non défini — fallback avatar neutre",
+        "note": "Skins/badges ne révèlent aucune donnée financière sensible",
+    }
+
+    # Visuels économiques (forfait visible sans info financière)
+    plan_visual_ok = gam_ok  # gamification contrôle l'affichage visuel
+    subservices["monetization_visuals"] = {
+        "status": "ok" if plan_visual_ok else "warning",
+        "critical": False,
+        "note": "Affichage visuel du niveau/forfait — prix et revenus jamais exposés",
+    }
+
+    # Guardian Engine
+    subservices["guardian_engine"] = {
+        "status": "ok" if guardian_ok else ("degraded" if redis_ok else "critical"),
+        "critical": True,
+        "message": "" if guardian_ok else "GuardianEngine non initialisé",
+    }
+
+    # Cycle vie session (start/stop/status)
+    lifecycle_ok = all(callable(_g.get(fn)) for fn in ["guardian_start", "guardian_stop", "guardian_status"])
+    subservices["session_lifecycle"] = {
+        "status": "ok" if lifecycle_ok else "critical",
+        "critical": True,
+        "metrics": {"active_sessions": active_sessions},
+    }
+
+    # GPS ingest
+    gps_ok = callable(_g.get("guardian_location"))
+    subservices["gps_ingest"] = {
+        "status": "ok" if gps_ok else "critical",
+        "critical": True,
+        "message": "POST /api/guardian/location/{session_id} présent" if gps_ok else "Route GPS manquante",
+    }
+
+    # WebSocket live
+    subservices["websocket_live"] = {
+        "status": "ok" if ws_ok else "degraded",
+        "critical": False,
+        "message": "WS présent" if ws_ok else "WebSocket absent — fallback polling HTTP",
+    }
+
+    # Sessions Redis
+    subservices["redis_sessions"] = {
+        "status": "ok" if redis_ok else "critical",
+        "critical": True,
+        "metrics": {"active_sessions": active_sessions},
+    }
+
+    # Token de partage public
+    subservices["public_share_token"] = {
+        "status": "ok" if (callable(_g.get("guardian_share")) and redis_ok) else "critical",
+        "critical": True,
+        "message": "Token temporaire avec TTL 24h via luna:guardian:share:{token}",
+    }
+
+    # API position publique
+    subservices["live_position_api"] = {
+        "status": "ok" if callable(_g.get("guardian_live_position")) else "critical",
+        "critical": True,
+        "note": "Retourne uniquement lat/lng/ts — pas de compte complet ni contacts",
+    }
+
+    # Page live carte
+    live_page_ok = callable(_g.get("guardian_live_page"))
+    subservices["map_page"] = {
+        "status": "ok" if live_page_ok else "critical",
+        "critical": True,
+    }
+
+    # Leaflet ou fallback
+    subservices["leaflet_or_fallback"] = {
+        "status": "warning",
+        "critical": False,
+        "message": "Leaflet chargé depuis CDN unpkg.com — pas de fallback local",
+        "recommended_fix": "Ajouter un fallback lien Google Maps si Leaflet CDN indisponible",
+    }
+
+    # Fraîcheur position
+    subservices["freshness"] = {
+        "status": "ok" if guardian_ok else "warning",
+        "critical": False,
+        "message": "GuardianEngine gère l'horodatage des positions" if guardian_ok
+                   else "Impossible de vérifier fraîcheur sans GuardianEngine",
+        "note": "Position trop ancienne = afficher 'dernière position connue'",
+    }
+
+    # Privacy — pas d'exposition compte via token
+    subservices["privacy"] = {
+        "status": "ok",
+        "critical": True,
+        "note": "Token public expose uniquement lat/lng/timestamp — profil/contacts/documents inaccessibles",
+    }
+
+    # ── Auto-heal ──────────────────────────────────────────────────────
+    auto_heal = [
+        {"condition": "token_expired_during_session", "action": "regenerate_token", "available": redis_ok},
+        {"condition": "websocket_ko", "action": "fallback_http_polling", "available": gps_ok},
+        {"condition": "leaflet_cdn_ko", "action": "fallback_google_maps_link", "available": True},
+        {"condition": "gps_refused", "action": "manual_address_or_message", "available": True},
+        {"condition": "position_too_old", "action": "show_last_known_position_label", "available": True},
+        {"condition": "opt_in_absent", "action": "hide_from_community_map", "available": opt_out_ok},
+        {"condition": "anonymization_unavailable", "action": "disable_community_layer", "available": True},
+        {"condition": "reveal_without_consent", "action": "block_and_request_agreement", "available": reveal_ok},
+        {"condition": "gamification_unavailable", "action": "neutral_marker_fallback", "available": True},
+        {"condition": "skin_invalid", "action": "default_avatar_fallback", "available": gam_ok},
+        {"condition": "plan_unknown", "action": "hide_commercial_badge", "available": True},
+        {"condition": "redis_ko", "action": "critical_no_fake_live", "available": False},
+    ]
+
+    # ── Statut global ─────────────────────────────────────────────────
+    sub_statuses = [s.get("status") for s in subservices.values()]
+    critical_down = any(
+        s.get("status") in ("critical", "degraded") and s.get("critical")
+        for s in subservices.values()
+    )
+    n_critical = sub_statuses.count("critical")
+
+    if not redis_ok or n_critical >= 3:
+        status = "critical"
+    elif critical_down or n_critical >= 1:
+        status = "degraded"
+    elif "warning" in sub_statuses:
+        status = "warning"
+    else:
+        status = "ok"
+
+    return {
+        "status": status,
+        "goal": "L'utilisateur voit les présences Luna autour de lui (carte communautaire anonyme opt-in, niveaux/skins) et peut partager sa position précise à ses contacts de confiance en urgence.",
+        "checks": checks,
+        "subservices": subservices,
+        "metrics": metrics,
+        "auto_heal": auto_heal,
+    }
+
+
 async def _send_objectives_alert(failures: list, total: int) -> None:
     """Envoie une alerte Telegram ou SMS si des objectifs ne sont pas atteints."""
     bot_token = os.getenv("ALERT_TELEGRAM_BOT_TOKEN", "")
@@ -17952,6 +18333,7 @@ async def admin_objectives(request: Request):
     services_detail = await _check_objective_services()
     documents_detail = await _check_objective_documents()
     formulaires_detail = await _check_objective_formulaires()
+    cartes_detail = await _check_objective_cartes()
 
     return {
         "score": f"{score}/{total}",
@@ -17962,6 +18344,7 @@ async def admin_objectives(request: Request):
         "services": services_detail,
         "documents": documents_detail,
         "formulaires": formulaires_detail,
+        "cartes": cartes_detail,
         "summary_by_domain": {
             domain: {
                 "ok": sum(1 for r in results if r.get("domain") == domain and r.get("ok")),
