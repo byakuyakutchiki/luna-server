@@ -118,46 +118,26 @@ Pour chaque objectif, il faut produire :
 
 ## Tâche prioritaire actuelle
 
-Implémenter le monitoring de l'objectif :
+**Monitoring de base TERMINÉ** — 10 objectifs implémentés dans `GET /api/admin/objectives` :
 
-`## 12. Voix — Appel Vocal IA`
+| Objectif | Commit | Statut |
+|---|---|---|
+| Services / Concierge | `feat: monitoring Services/Concierge` | ✅ |
+| Documents / Vault IA | `feat: monitoring Documents/Vault IA` | ✅ |
+| Formulaires | `feat: monitoring Formulaires` | ✅ |
+| Cartes / Localisation | `feat: monitoring Cartes / Localisation` | ✅ |
+| Amis / Réseau Social | `feat: monitoring Amis / Réseau Social` | ✅ |
+| Activités / Gamification | `feat: monitoring Activités / Gamification` | ✅ |
+| Monde | `feat: monitoring Monde, Profil, Quotas, Réglages` | ✅ |
+| Profil | idem | ✅ |
+| Quotas | idem | ✅ |
+| Réglages | idem | ✅ |
 
-Prompt détaillé prêt à utiliser :
+État au 25 mai 2026 : tous les objectifs de monitoring de base sont implémentés.
 
-`docs/PROMPT_CLAUDE_MONITORING_VOIX.md`
-
-État au 25 mai 2026 :
-
-- Services / Concierge a déjà un premier commit de monitoring : `feat: monitoring Services/Concierge dans /api/admin/objectives`.
-- Ne pas refaire Services sauf bug explicite ou demande de revue.
-- Documents / Vault IA a déjà un premier commit de monitoring : `feat: monitoring Documents/Vault IA dans /api/admin/objectives`.
-- Ne pas refaire Documents sauf bug explicite ou demande de revue.
-- Formulaires / Assistant Administratif a déjà un premier commit de monitoring : `feat: monitoring Formulaires / Assistant Administratif dans /api/admin/objectives`.
-- Ne pas refaire Formulaires sauf bug explicite ou demande de revue.
-- Cartes / Localisation Temps Réel a déjà un premier commit de monitoring : `feat: monitoring Cartes / Localisation dans /api/admin/objectives`.
-- Ne pas refaire Cartes sauf bug explicite ou demande de revue.
-- Amis / Réseau Social a déjà un premier commit de monitoring : `feat: monitoring Amis / Réseau Social dans /api/admin/objectives`.
-- Ne pas refaire Amis sauf bug explicite ou demande de revue.
-
-Le but est d'ajouter ou compléter :
-
-`GET /api/admin/objectives`
-
-avec un bloc :
-
-```json
-{
-  "objectives": {
-    "voix": {
-      "status": "degraded",
-      "checks": [],
-      "subservices": {},
-      "metrics": {},
-      "auto_heal": []
-    }
-  }
-}
-```
+Prochain chantier possible :
+- Monitoring Voix (objectif 12 du cahier des charges) : `docs/PROMPT_CLAUDE_MONITORING_VOIX.md`
+- Ou audit fonctionnel des onglets déjà implémentés
 
 ## Archive objectif précédent — Amis
 
