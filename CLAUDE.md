@@ -120,11 +120,11 @@ Pour chaque objectif, il faut produire :
 
 Implémenter le monitoring de l'objectif :
 
-`## 11. Amis — Réseau Social`
+`## 12. Voix — Appel Vocal IA`
 
 Prompt détaillé prêt à utiliser :
 
-`docs/PROMPT_CLAUDE_MONITORING_AMIS.md`
+`docs/PROMPT_CLAUDE_MONITORING_VOIX.md`
 
 État au 25 mai 2026 :
 
@@ -136,6 +136,8 @@ Prompt détaillé prêt à utiliser :
 - Ne pas refaire Formulaires sauf bug explicite ou demande de revue.
 - Cartes / Localisation Temps Réel a déjà un premier commit de monitoring : `feat: monitoring Cartes / Localisation dans /api/admin/objectives`.
 - Ne pas refaire Cartes sauf bug explicite ou demande de revue.
+- Amis / Réseau Social a déjà un premier commit de monitoring : `feat: monitoring Amis / Réseau Social dans /api/admin/objectives`.
+- Ne pas refaire Amis sauf bug explicite ou demande de revue.
 
 Le but est d'ajouter ou compléter :
 
@@ -146,7 +148,7 @@ avec un bloc :
 ```json
 {
   "objectives": {
-    "amis": {
+    "voix": {
       "status": "degraded",
       "checks": [],
       "subservices": {},
@@ -156,6 +158,8 @@ avec un bloc :
   }
 }
 ```
+
+## Archive objectif précédent — Amis
 
 ## Archive objectif précédent — Cartes
 

@@ -705,20 +705,40 @@ Statuts :
 
 ## 12. Voix — Appel Vocal IA
 
-**Objectif** : L'utilisateur parle à Luna en temps réel, Luna répond avec une voix naturelle, la conversation est transcrite et mémorisée.
+**Objectif** : L'utilisateur parle à Luna en temps réel, Luna répond avec une voix naturelle, comprend le contexte personnel autorisé, peut utiliser les outils disponibles, puis sauvegarde la transcription et le compte-rendu sans dépasser les quotas.
+
+Voix couvre deux usages :
+
+- **Voix directe navigateur / APK** : conversation orale avec Luna via WebSocket OpenAI Realtime.
+- **Appel téléphonique assisté** : Luna peut appeler un contact ou un numéro autorisé via Twilio, rester dans les limites du forfait voix, puis produire une trace utile.
 
 ### Étapes obligatoires
-- OpenAI Realtime API configuré
-- TTS OpenAI (voix `coral`) fonctionnel
-- Connexion WebSocket stable < 2s
-- Transcription sauvegardée en mémoire après l'appel
-- Quota voix non dépassé
+- OpenAI Realtime API configuré.
+- WebSocket `/ws/luna-voice` disponible.
+- WebSocket Twilio media stream `/api/voice-call/media-stream` disponible.
+- TTS OpenAI configuré avec voix `coral` ou voix définie par `OPENAI_VOICE_NAME`.
+- Contexte vocal construit : profil, mémoire, amis, services autorisés, garde-fous.
+- Connexion WebSocket stable < 2s.
+- Quota/budget voix vérifié avant démarrage.
+- Outils vocaux autorisés disponibles sans action dangereuse non confirmée.
+- Transcription sauvegardée en mémoire après l'appel.
+- Compte-rendu ou rapport d'appel générable si appel téléphonique.
+- Nettoyage des sessions vocales orphelines.
 
 ### Points de contrôle
 | Contrôle | Fréquence | Seuil d'alerte |
 |---|---|---|
 | OpenAI configuré | Chaque check | Absent |
 | Quota voix restant | Chaque check | < 10% |
+| `/ws/luna-voice` présent | Chaque check | Route manquante |
+| `/api/voice-call` présent | Chaque check | Route manquante |
+| Media stream Twilio présent | Chaque check | Route manquante |
+| Twilio voix configuré | Chaque check | Warning si absent |
+| RealtimeBridge importable | Chaque check | Import échoué |
+| WebVoiceBridge importable | Chaque check | Import échoué |
+| Sauvegarde transcription | Chaque check | Fonction absente |
+| Tracking coût voix | Chaque check | Tracker absent |
+| Nettoyage sessions orphelines | Chaque check | Absent |
 | Latence connexion WS | Sentry | > 3s |
 | Taux déconnexion WS | Sentry | > 10% |
 
@@ -726,10 +746,39 @@ Statuts :
 - Micro bloqué navigateur (permissions)
 - WebSocket coupé par Cloud Run timeout
 - Quota voix épuisé
+- OpenAI Realtime absent ou clé invalide
+- Twilio non configuré ou callback public absent
+- Appel vocal lancé sans confirmation explicite
+- Transcription perdue après déconnexion
+- Rapport généré mais non stocké
+- Session vocale orpheline
+- Outils vocaux qui déclenchent SMS/appel/DM sans garde-fou
 
 ### Réparation automatique
 - Reconnexion WebSocket automatique x3
 - Alerte quota < 10% restant
+- Fallback texte/chat si voix indisponible
+- Nettoyage session orpheline après TTL
+- Sauvegarde transcription en `finally` même sur déconnexion
+- Si Twilio absent → désactiver appels téléphoniques mais garder voix directe
+
+### Limites à ne pas franchir
+- Le monitoring ne doit jamais passer un vrai appel.
+- Le monitoring ne doit jamais ouvrir un vrai media stream externe.
+- Aucun outil vocal engageant ne doit agir sans confirmation.
+- Ne pas considérer l'objectif atteint si seul OpenAI est configuré.
+- Ne pas perdre la transcription en cas de coupure.
+
+### Preuve de réussite
+Un check complet doit prouver le parcours :
+
+`OpenAI Realtime → WebSocket voix → budget/quota → contexte → outils autorisés → transcription → mémoire/rapport → cleanup`
+
+Statuts :
+- `ok` : voix directe prête, transcription/mémoire disponibles, quota vérifiable, appels Twilio prêts ou optionnels selon plan.
+- `warning` : Twilio absent mais voix directe OK, quota bas, aucun appel actif, ou transcription non testée réellement.
+- `degraded` : voix directe indisponible mais fallback texte possible, ou Twilio disponible sans rapport.
+- `critical` : OpenAI/Realtime absent, WebSocket voix absent, quota bloquant non géré, ou transcription impossible.
 
 ---
 
