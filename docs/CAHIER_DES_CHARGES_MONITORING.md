@@ -631,14 +631,23 @@ Statuts :
 
 ## 11. Amis — Réseau Social
 
-**Objectif** : L'utilisateur se connecte avec d'autres utilisateurs Luna via un code ami, échange des messages et partage des moments.
+**Objectif** : L'utilisateur peut créer un lien social sûr dans l'univers Luna : être visible s'il le souhaite, ajouter des amis via code ou invitation, échanger en message privé, voir la présence en ligne, partager des moments, et garder le contrôle total sur blocage, confidentialité et demandes reçues.
+
+Amis est le pont entre le monde de Luna, la carte communautaire et la relation directe entre utilisateurs. L'objectif n'est pas seulement "avoir un code ami" : c'est permettre une socialisation consentie, modérée et utile, sans exposer l'utilisateur à des contacts non désirés.
 
 ### Étapes obligatoires
-- `SocialRedisOps` disponible
-- Friend code unique généré pour le tenant
-- Ajout ami par code fonctionnel
-- Liste amis lisible
-- Messages entre amis transmis en temps réel
+- `SocialRedisOps` disponible.
+- Profil social lisible : display name, avatar, niveau, code ami.
+- Friend code unique généré pour le tenant.
+- Ajout ami par code fonctionnel avec validation.
+- Invitations reçues/envoyées lisibles.
+- Acceptation/refus d'invitation fonctionnels.
+- Liste amis lisible avec statut en ligne si disponible.
+- Messages privés entre amis transmis et historisés.
+- WebSocket ou polling de présence disponible.
+- Blocage/suppression ami fonctionnel.
+- Limites anti-abus : max amis, max bloqués, validation code, pas de spam invitation.
+- Cohérence avec la carte : révélation/contact uniquement si consentement.
 
 ### Points de contrôle
 | Contrôle | Fréquence | Seuil d'alerte |
@@ -646,13 +655,51 @@ Statuts :
 | Friend code généré | Chaque check | Absent |
 | Liste amis accessible | Chaque check | Erreur Redis |
 | Module Social disponible | Chaque check | Import échoué |
+| Profil social lisible | Chaque check | Données absentes |
+| Invitations accessibles | Chaque check | Erreur Redis |
+| DM rooms accessibles | Chaque check | Erreur Redis |
+| Présence online lisible | Chaque check | Statut inconnu |
+| Blocage / suppression | Chaque check | Méthode absente |
+| Limites anti-abus | Chaque check | Limite absente |
+| Cohérence World/Carte | Chaque check | Contact possible sans consentement |
 
 ### Erreurs possibles
 - Collision de codes amis (rare)
 - Redis flush → relations amis perdues
+- Code ami invalide ou expiré
+- Invitation en double
+- Message envoyé à un non-ami
+- Utilisateur bloqué qui peut encore contacter
+- Statut en ligne faux ou bloqué
+- DM stocké mais non livré
+- Spam d'invitations
+- Fuite d'identité via carte ou profil social
 
 ### Réparation automatique
 - Régénération friend code si absent au démarrage
+- Déduplication invitation si déjà envoyée
+- Refus automatique si utilisateur bloqué
+- Fallback polling si WebSocket DM/presence indisponible
+- Masquage profil si privacy/opt-in absent
+- Réinitialisation présence si heartbeat trop ancien
+
+### Limites à ne pas franchir
+- Ne jamais permettre un DM si la relation ami n'est pas établie.
+- Ne jamais révéler l'identité depuis la carte sans consentement.
+- Ne jamais contourner un blocage.
+- Ne pas encourager le spam d'invitations.
+- Ne pas considérer l'objectif atteint si seul le friend code existe.
+
+### Preuve de réussite
+Un check complet doit prouver le parcours :
+
+`profil social → code ami → invitation → accept/refuse → liste amis → présence → DM → blocage/suppression → respect privacy carte`
+
+Statuts :
+- `ok` : parcours social complet disponible avec Redis, profil, invitations, amis, DM et privacy.
+- `warning` : aucun ami/invitation, présence vide ou profil incomplet, mais système utilisable.
+- `degraded` : DM temps réel indisponible mais fallback polling possible, ou World/Carte partiellement absent.
+- `critical` : Redis, SocialRedisOps, friend code, liste amis, blocage ou DM indisponibles.
 
 ---
 
