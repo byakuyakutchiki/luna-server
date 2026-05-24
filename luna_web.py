@@ -1607,7 +1607,7 @@ async def _check_objective_cartes() -> dict:
     active_sessions = 0
     try:
         if redis_ok:
-            raw = _redis_client.client.smembers("guardian:sessions")
+            raw = _redis_client.client.smembers(f"luna:{TENANT_ID}:guardian:sessions")
             active_sessions = len(raw) if raw else 0
             metrics["active_sessions"] = active_sessions
     except Exception:
