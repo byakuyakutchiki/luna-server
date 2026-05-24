@@ -529,6 +529,8 @@ Cartes ne désigne pas une carte bancaire. Ici, l'objectif produit est double :
 
 Par défaut, la carte doit protéger l'identité. Un autre utilisateur peut voir "un utilisateur Luna est dans cette zone", mais ne connaît pas son identité, ne peut pas le contacter et ne voit pas sa position exacte sans autorisation explicite.
 
+La carte doit aussi refléter le **monde de Luna** : chaque présence peut avoir une légende visuelle selon le niveau, les badges, les skins, le forfait et l'engagement de l'utilisateur. Ce système doit donner envie de progresser et de consommer, sans transformer la carte en fuite de données personnelles.
+
 ### Étapes obligatoires
 - GuardianEngine actif (même engine que Guardian).
 - Page `/guardian` disponible côté utilisateur.
@@ -537,6 +539,10 @@ Par défaut, la carte doit protéger l'identité. Un autre utilisateur peut voir
 - Position communautaire anonymisée : précision réduite, zone approximative, pas de nom réel par défaut.
 - Les autres utilisateurs visibles seulement s'ils ont accepté d'apparaître.
 - Demande de révélation/contact possible uniquement avec accord de l'autre utilisateur.
+- Légende visuelle disponible pour distinguer les niveaux sans révéler l'identité : nouveau, actif, avancé, premium, légende, etc.
+- Intégration gamification : niveau XP, badges, étoiles, streak/temps passé ou ancienneté.
+- Intégration économique : skins/badges achetés ou débloqués, forfait utilisateur, avantages visuels contrôlés.
+- Les skins et niveaux affichés doivent rester compatibles avec l'anonymat : on peut montrer un style, pas forcément le nom de la personne.
 - Autorisation GPS demandée clairement au navigateur/APK.
 - Session Guardian créée avec `session_id`.
 - Position GPS mise à jour via HTTP et/ou WebSocket.
@@ -559,6 +565,9 @@ Par défaut, la carte doit protéger l'identité. Un autre utilisateur peut voir
 | Anonymisation position communautaire | Chaque check | Position exacte exposée |
 | Listing utilisateurs proches | Chaque check | Redis/World KO |
 | Demande révélation/contact | Chaque check | Pas de garde consentement |
+| Légende niveaux/badges | Chaque check | Impossible de différencier les statuts |
+| Gamification disponible | Chaque check | XP/badges/niveaux indisponibles |
+| Skins/forfaits visibles sans identité | Chaque check | Skin expose données perso |
 | Page `/guardian-live/{token}` présente | Chaque check | Route manquante |
 | Endpoint position publique présent | Chaque check | Route manquante |
 | WebSocket Guardian présent | Chaque check | Route manquante |
@@ -579,6 +588,9 @@ Par défaut, la carte doit protéger l'identité. Un autre utilisateur peut voir
 - Carte communautaire qui expose une position exacte ou une identité sans consentement
 - Utilisateur visible alors qu'il a désactivé le partage
 - Demande de contact/révélation envoyée sans garde consentement
+- Légende absente : tous les utilisateurs se ressemblent, donc pas d'incitation à progresser
+- Skin ou badge affiché avec trop d'informations personnelles
+- Forfait/achat visible de manière humiliante ou trop commerciale
 
 ### Réparation automatique
 - Token de partage auto-renouvelé si expiré pendant session active
@@ -588,6 +600,9 @@ Par défaut, la carte doit protéger l'identité. Un autre utilisateur peut voir
 - Si GPS refusé → message clair et mode manuel/adresse si disponible
 - Si opt-in communautaire absent → masquer l'utilisateur de la carte
 - Si anonymisation indisponible → désactiver la couche communautaire, garder Guardian privé
+- Si gamification indisponible → afficher un marqueur neutre, statut `warning`
+- Si skin invalide → fallback skin par défaut
+- Si forfait absent → ne pas afficher de badge commercial
 
 ### Limites à ne pas franchir
 - Le monitoring ne doit jamais envoyer de SMS réel.
@@ -596,17 +611,20 @@ Par défaut, la carte doit protéger l'identité. Un autre utilisateur peut voir
 - Une position ancienne ne doit pas être présentée comme une position temps réel.
 - La carte communautaire ne doit jamais afficher l'identité ou la position exacte d'un utilisateur sans consentement explicite.
 - Un utilisateur invisible/offline/opt-out ne doit jamais apparaître.
+- La légende ne doit pas permettre de deviner une personne unique dans une zone trop précise.
+- Les achats, skins ou forfaits ne doivent pas afficher une information financière sensible.
+- Le système doit inciter à progresser sans pression agressive ni humiliation des petits forfaits.
 - Ne pas considérer l'objectif atteint si seule la page carte existe.
 
 ### Preuve de réussite
 Un check complet doit prouver le parcours :
 
-`opt-in carte → position anonymisée → utilisateurs proches anonymes → demande de révélation protégée → GuardianEngine → session → position précise → token public urgence → live-position → page carte → expiration/stop`
+`opt-in carte → position anonymisée → utilisateurs proches anonymes → légende niveau/skin/badge → demande de révélation protégée → GuardianEngine → session → position précise → token public urgence → live-position → page carte → expiration/stop`
 
 Statuts :
-- `ok` : carte communautaire consentie/anonyme disponible et mode Guardian urgence prêt.
-- `warning` : carte communautaire non activée mais Guardian live complet, aucune session active, GPS non testé, ou Leaflet dépend d'un CDN sans fallback.
-- `degraded` : couche communautaire désactivée par sécurité, WebSocket/Leaflet indisponible mais fallback HTTP ou lien carte utilisable.
+- `ok` : carte communautaire consentie/anonyme disponible, légende niveaux/skins prête, et mode Guardian urgence prêt.
+- `warning` : carte communautaire non activée mais Guardian live complet, gamification/skins absents avec fallback neutre, aucune session active, GPS non testé, ou Leaflet dépend d'un CDN sans fallback.
+- `degraded` : couche communautaire désactivée par sécurité, WebSocket/Leaflet indisponible mais fallback HTTP ou lien carte utilisable, ou légende désactivée pour éviter une fuite.
 - `critical` : GuardianEngine, Redis, routes live, anonymisation ou endpoint position indisponibles avec risque de fuite ou service inutilisable.
 
 ---

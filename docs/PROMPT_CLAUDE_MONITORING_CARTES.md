@@ -23,6 +23,7 @@ L'objectif n'est pas seulement la carte Guardian privée. Ludo veut une expérie
 - leur position peut être arrondie/floutée par zone ;
 - leur identité n'est révélée que s'ils l'autorisent ;
 - un utilisateur opt-out n'apparaît jamais ;
+- les utilisateurs ont des niveaux visuels, légendes, badges ou skins selon leur progression et leurs achats ;
 - en cas d'urgence, Luna peut partager une position précise aux contacts de confiance.
 
 Il y a donc deux couches :
@@ -31,7 +32,9 @@ Il y a donc deux couches :
    - présence Luna approximative ;
    - opt-in obligatoire ;
    - identité masquée par défaut ;
-   - demande de révélation/contact soumise à accord.
+   - demande de révélation/contact soumise à accord ;
+   - légende de niveau visible : nouveau, actif, avancé, premium, légende, etc. ;
+   - skins/badges visuels issus de la gamification ou des achats.
 
 2. **Carte Guardian urgence**
    - position précise ;
@@ -52,8 +55,10 @@ L'objectif Guardian existant reste nécessaire :
 
 L'utilisateur doit pouvoir utiliser la carte de deux façons :
 
-- **Mode communauté** : voir des présences Luna anonymes autour de lui, sans exposer les identités ni les positions exactes sans consentement.
+- **Mode communauté** : voir des présences Luna anonymes autour de lui, avec une différence visuelle de niveau/badge/skin, sans exposer les identités ni les positions exactes sans consentement.
 - **Mode urgence/Guardian** : partager sa position précise avec ses contacts de confiance, sans donner accès à tout son compte Luna.
+
+Le design économique est assumé : les niveaux, skins, badges, étoiles, streaks, forfaits ou achats peuvent rendre la présence plus valorisante sur la carte, afin d'inciter l'utilisateur à progresser et à consommer. Mais cette incitation ne doit jamais casser l'anonymat, exposer les revenus, ni humilier les petits forfaits.
 
 L'objectif est atteint seulement si :
 
@@ -61,6 +66,10 @@ L'objectif est atteint seulement si :
 - l'identité et la position exacte sont masquées par défaut ;
 - un autre utilisateur ne peut révéler/contacter quelqu'un qu'avec accord ;
 - la couche communautaire peut lister des présences anonymes proches ;
+- la légende de carte peut distinguer les niveaux/skins/badges de façon lisible ;
+- les données gamification sont récupérables : XP, niveau, badges, étoiles, ancienneté/streak si disponible ;
+- les données économiques visuelles sont contrôlées : forfait, skin acheté/débloqué, badge premium ;
+- les skins/badges ne révèlent aucune donnée personnelle sensible ;
 - GuardianEngine est disponible ;
 - une session peut exister ;
 - la position peut être envoyée par HTTP ou WebSocket ;
@@ -97,6 +106,10 @@ Vérifier au minimum :
 - la position communautaire est anonymisée/floutée et ne réutilise pas la position exacte Guardian ;
 - un utilisateur opt-out ne peut pas apparaître ;
 - une demande de contact/révélation nécessite un accord explicite ;
+- `core.gamification.redis_ops.GamificationRedisOps` importable ;
+- niveau/XP/badges/étoiles lisibles pour le tenant courant, ou fallback marqueur neutre ;
+- une légende de carte existe côté config ou UI, ou le check signale `warning` ;
+- les skins/forfaits ne sont exposés que sous forme visuelle non sensible ;
 - routes présentes :
   - `/guardian`
   - `/api/guardian/start`
@@ -122,6 +135,10 @@ Vérifier au minimum :
 | nearby_users | listing de présences anonymes proches |
 | reveal_request | demande de révélation/contact protégée par consentement |
 | opt_out_privacy | utilisateur opt-out jamais visible |
+| map_legend | légende niveaux/badges/skins disponible |
+| gamification_bridge | XP, niveau, badges, étoiles lisibles |
+| skins_badges | skins achetés/débloqués ou fallback neutre |
+| monetization_visuals | forfait/premium traduit en avantage visuel non sensible |
 | guardian_engine | moteur disponible |
 | session_lifecycle | start/status/stop présents |
 | gps_ingest | endpoint location + validation lat/lng |
@@ -144,11 +161,14 @@ Le test monitoring peut rester structurel, mais il doit pouvoir prouver :
 2. L'opt-in/opt-out est vérifiable.
 3. La position communautaire n'expose pas la latitude/longitude exacte d'un utilisateur sans consentement.
 4. La demande de révélation/contact passe par un garde consentement.
-5. Les routes Guardian live existent.
-6. Redis peut stocker une clé de partage avec TTL.
-7. La page live sait interroger `/api/guardian/live-position/{token}`.
-8. Une position trop ancienne déclenche un statut `warning/degraded`.
-9. L'absence de session active n'est pas critique si l'infrastructure est complète.
+5. La légende de niveaux/badges/skins est disponible ou fallback neutre.
+6. La gamification est lisible sans casser la carte si elle est indisponible.
+7. Les informations économiques visibles ne révèlent pas une donnée financière sensible.
+8. Les routes Guardian live existent.
+9. Redis peut stocker une clé de partage avec TTL.
+10. La page live sait interroger `/api/guardian/live-position/{token}`.
+11. Une position trop ancienne déclenche un statut `warning/degraded`.
+12. L'absence de session active n'est pas critique si l'infrastructure est complète.
 
 ## Statuts attendus
 
@@ -156,19 +176,19 @@ Le test monitoring peut rester structurel, mais il doit pouvoir prouver :
 ok
 ```
 
-Carte communautaire consentie/anonyme disponible + Guardian live prêt. Si aucune session active existe, ce n'est pas une panne.
+Carte communautaire consentie/anonyme disponible + légende niveaux/skins/badges disponible + Guardian live prêt. Si aucune session active existe, ce n'est pas une panne.
 
 ```text
 warning
 ```
 
-Carte communautaire pas encore activée mais Guardian live complet, aucune session active, aucune position récente, ou dépendance Leaflet CDN sans fallback local.
+Carte communautaire pas encore activée mais Guardian live complet, gamification/skins indisponibles avec fallback neutre, aucune session active, aucune position récente, ou dépendance Leaflet CDN sans fallback local.
 
 ```text
 degraded
 ```
 
-Couche communautaire désactivée par sécurité, WebSocket indisponible mais polling HTTP possible, ou Leaflet indisponible mais fallback lien carte possible.
+Couche communautaire désactivée par sécurité, légende désactivée pour éviter une fuite, WebSocket indisponible mais polling HTTP possible, ou Leaflet indisponible mais fallback lien carte possible.
 
 ```text
 critical
@@ -188,6 +208,9 @@ GuardianEngine, Redis, routes live, endpoint position ou protection anonymat/con
 | Opt-in absent | masquer l'utilisateur de la carte communautaire |
 | Anonymisation indisponible | désactiver la couche communautaire |
 | Demande révélation sans consentement | bloquer et demander accord |
+| Gamification indisponible | marqueur neutre |
+| Skin invalide ou supprimé | skin par défaut |
+| Forfait absent/inconnu | ne pas afficher de badge commercial |
 | Redis KO | statut `critical`, pas de faux live |
 
 ## Limites à respecter
@@ -198,6 +221,9 @@ GuardianEngine, Redis, routes live, endpoint position ou protection anonymat/con
 - Ne pas exposer les contacts, documents, profil, historique ou identité complète via token public.
 - Ne jamais exposer une identité ou une position exacte dans la carte communautaire sans consentement explicite.
 - Ne jamais afficher un utilisateur opt-out.
+- Ne jamais utiliser un skin, badge ou niveau pour rendre une personne identifiable dans une zone trop précise.
+- Ne jamais afficher une information de paiement, revenu ou prix payé.
+- Ne pas faire de pression agressive : la progression doit donner envie, pas rabaisser.
 - Ne pas toucher à `static/index.html` dans ce chantier.
 
 ## Sortie souhaitée
@@ -209,4 +235,4 @@ Merci de produire :
 3. Les statuts `ok/warning/degraded/critical`.
 4. Les auto-heal proposés.
 5. Un résumé des fichiers modifiés.
-6. Comment tester sans SMS, sans SOS réel, et sans contact réel.
+6. Comment tester sans SMS, sans SOS réel, sans contact réel, et sans exposer une vraie position précise.
