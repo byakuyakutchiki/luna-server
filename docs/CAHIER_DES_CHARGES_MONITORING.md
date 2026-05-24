@@ -403,33 +403,85 @@ Le document n'est pas seulement une pièce stockée : c'est un élément vivant 
 
 ---
 
-## 8. Formulaires — Remplissage Intelligent
+## 8. Formulaires — Assistant Administratif Intelligent
 
-**Objectif** : L'utilisateur soumet un formulaire PDF, Luna le remplit automatiquement avec les données du profil, et retourne un PDF signé prêt à envoyer.
+**Objectif** : L'utilisateur donne à Luna un formulaire administratif ou privé, Luna le comprend, le pré-remplit avec les données autorisées du profil et du porte-document, laisse l'utilisateur corriger, puis produit un PDF final prêt à envoyer ou à stocker.
+
+Ce module n'est pas seulement un "remplisseur de PDF". C'est l'assistant administratif qui transforme un document compliqué en action simple : analyser, compléter, vérifier, signer si l'utilisateur confirme, télécharger, historiser, et éventuellement ranger le résultat dans le porte-document.
+
+### Périmètre fonctionnel attendu
+- Formulaires PDF officiels : CERFA, mairie, CAF, CPAM, impôts, préfecture, assurance, banque.
+- Formulaires privés : inscription, autorisation, attestation, demande de résiliation, réclamation, logement, école, santé.
+- Entrées acceptées : PDF texte, PDF scanné, image/photo de formulaire.
+- Données utilisables : profil formulaire, profil utilisateur, documents Vault autorisés, données scannées depuis carte d'identité ou justificatif.
+- Sorties attendues : aperçu, champs détectés, propositions de pré-remplissage, corrections manuelles, PDF final, historique.
 
 ### Étapes obligatoires
-- Module `form_filler` monté
-- Profil pré-remplissage complet (nom, adresse, date de naissance, etc.)
-- Analyse PDF des champs (via IA)
-- Remplissage + signature numérique si requise
-- Téléchargement du PDF final
+- Module `form_filler` monté sans erreur.
+- Upload d'un PDF ou d'une image accepté avec limites de taille et type contrôlées.
+- Analyse du formulaire par IA/OCR pour détecter les champs, libellés, groupes et positions.
+- Génération d'un aperçu visuel avant remplissage.
+- Pré-remplissage depuis le profil et, si autorisé, depuis le porte-document.
+- Affichage des champs incertains ou non reconnus pour correction manuelle.
+- Signature ajoutée uniquement si l'utilisateur la fournit et confirme son usage.
+- Génération d'un PDF final téléchargeable.
+- Ajout à l'historique avec statut, date, nom du formulaire et méthode de remplissage.
+- Possibilité de ranger le PDF final dans le porte-document si l'utilisateur le demande.
 
 ### Points de contrôle
 | Contrôle | Fréquence | Seuil d'alerte |
 |---|---|---|
-| Router form-filler monté | Chaque check | Import échoué |
-| Profil pré-remplissage | Chaque check | Vide (avertissement) |
+| Router `form_filler` monté | Chaque check | Import échoué |
+| Dépendances PDF/OCR disponibles | Chaque check | `fitz`/PIL/IA indisponible |
+| Analyse formulaire test | Quotidien + déploiement | Aucun champ détecté |
+| Preview générable | Chaque check | Image preview absente |
+| Profil pré-remplissage lisible | Chaque check | Erreur Redis |
+| Bridge Vault/profil disponible | Chaque check | Données autorisées inaccessibles |
+| Autofill produit au moins une suggestion sur formulaire test | Quotidien | 0 suggestion avec profil non vide |
+| Champs incertains exposés à l'utilisateur | Chaque check | Remplissage silencieux risqué |
+| Génération PDF final | Quotidien + déploiement | PDF absent ou illisible |
+| Download final | Quotidien + déploiement | HTTP non-200 |
 | Historique formulaires accessible | Chaque check | Erreur Redis |
-| Taux completion bout-en-bout | Sentry | < 80% |
+| Taux completion bout-en-bout | Sentry / monitoring | < 80% |
 
 ### Erreurs possibles
-- PDF non-remplissable (image scannée sans champs)
-- Champ non reconnu par l'IA
-- Signature numérique non supportée par le PDF
+- PDF non-remplissable ou formulaire scanné sans champs natifs.
+- Champ non reconnu par l'IA.
+- Donnée absente du profil ou du porte-document.
+- Donnée ambiguë : plusieurs adresses, plusieurs noms, date au mauvais format.
+- Formulaire trop lourd, corrompu ou protégé par mot de passe.
+- Signature numérique non supportée par le PDF.
+- Session expirée avant téléchargement.
+- Redis ou Vault indisponible.
+- Risque de remplissage erroné sur document administratif sensible.
 
 ### Réparation automatique
-- OCR + extraction de champs si PDF image
-- Champs non reconnus → liste pour remplissage manuel
+- Image ou PDF scanné → conversion/OCR puis extraction de champs.
+- Champ non reconnu → bascule en correction manuelle avec libellé visible.
+- Profil vide → proposer scan document d'identité ou saisie guidée du profil.
+- Vault indisponible → fallback profil formulaire, statut `degraded`.
+- Session expirée → demander ré-upload proprement, sans perte silencieuse.
+- PDF non modifiable → remplissage par overlay lorsque possible.
+- Donnée ambiguë → demander confirmation à l'utilisateur avant écriture.
+
+### Limites à ne pas franchir
+- Ne jamais signer sans confirmation explicite.
+- Ne jamais envoyer un formulaire à un tiers sans validation humaine.
+- Ne pas masquer les champs incertains.
+- Ne pas utiliser un document Vault sans consentement et traçabilité.
+- Ne pas logger les données sensibles extraites des formulaires.
+- Ne pas considérer l'objectif atteint si seul l'upload fonctionne.
+
+### Preuve de réussite
+Un check complet doit prouver le parcours :
+
+`upload formulaire test → analyse → preview → autofill → correction possible → génération PDF → download → historique`
+
+Statuts :
+- `ok` : parcours bout-en-bout réussi avec au moins une suggestion contrôlable.
+- `warning` : profil vide ou peu de suggestions, mais parcours manuel possible.
+- `degraded` : Vault/Redis/IA partiellement indisponible, fallback utilisable.
+- `critical` : formulaire impossible à analyser/remplir/télécharger.
 
 ---
 

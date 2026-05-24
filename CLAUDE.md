@@ -105,6 +105,14 @@ Prompt détaillé prêt à utiliser :
 
 `docs/PROMPT_CLAUDE_MONITORING_SERVICES.md`
 
+État au 25 mai 2026 :
+
+- Services / Concierge a déjà un premier commit de monitoring : `feat: monitoring Services/Concierge dans /api/admin/objectives`.
+- Si ce bloc existe déjà et fonctionne, ne pas le refaire.
+- Chantiers préparés ensuite :
+  - `docs/PROMPT_CLAUDE_MONITORING_DOCUMENTS.md`
+  - `docs/PROMPT_CLAUDE_MONITORING_FORMULAIRES.md`
+
 Le but est d'ajouter ou compléter :
 
 `GET /api/admin/objectives`
