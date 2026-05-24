@@ -1925,20 +1925,21 @@ async def _check_objective_amis() -> dict:
          else "SocialRedisOps inaccessible")
 
     routes_ok = 0
+    expected_social_routes = ["get_my_profile", "get_friend_code", "use_friend_code",
+                              "send_friend_request", "get_friend_requests", "accept_friend",
+                              "decline_friend", "get_friends", "remove_friend",
+                              "block_user", "unblock_user", "get_dm_rooms",
+                              "get_dm_messages", "heartbeat"]
     try:
         import core.social.routes as _sr
-        for fn in ["get_my_profile", "get_friend_code", "use_friend_code",
-                   "send_friend_request", "get_friend_requests", "accept_friend",
-                   "decline_friend", "get_friends", "remove_friend",
-                   "block_user", "unblock_user", "get_dm_rooms",
-                   "get_dm_messages", "heartbeat"]:
+        for fn in expected_social_routes:
             if callable(getattr(_sr, fn, None)):
                 routes_ok += 1
     except Exception:
         pass
     metrics["social_routes_ok"] = routes_ok
-    _chk("social_routes", routes_ok >= 12,
-         f"{routes_ok}/14 routes sociales présentes")
+    _chk("social_routes", routes_ok == len(expected_social_routes),
+         f"{routes_ok}/{len(expected_social_routes)} routes sociales présentes")
 
     friend_code = None
     friends: set = set()
@@ -2067,11 +2068,18 @@ async def _check_objective_amis() -> dict:
     }
 
     # Anti-abus
+    rate_limits_ok = False
+    try:
+        import core.social.routes as _srr
+        limits = getattr(_srr, "_RATE_LIMITS", {})
+        rate_limits_ok = all(k in limits for k in ("heartbeat", "friend_request", "dm_send"))
+    except Exception:
+        pass
     subservices["anti_abuse"] = {
-        "status": "ok" if (metrics["max_friends"] > 0 and metrics["max_blocked"] > 0) else "warning",
+        "status": "ok" if (metrics["max_friends"] > 0 and metrics["max_blocked"] > 0 and rate_limits_ok) else "warning",
         "critical": False,
         "metrics": {"max_friends": metrics["max_friends"], "max_blocked": metrics["max_blocked"],
-                    "rate_limits": routes_ok > 0},
+                    "rate_limits": rate_limits_ok},
     }
 
     # Pont privacy World / Carte
