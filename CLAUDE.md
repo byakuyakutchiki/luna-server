@@ -1,0 +1,135 @@
+# Claude — Inbox de collaboration IA
+
+Ce fichier sert de point de passage entre Ludo, Codex, Claude, Kimi et DeepSeek pour le chantier Luna.
+
+Objectif global : transformer le cahier des charges fonctionnel en monitoring concret, objectif par objectif, pour que chaque onglet de l'application soit vérifié sur sa promesse utilisateur réelle.
+
+## Source de vérité
+
+- Cahier des charges : `docs/CAHIER_DES_CHARGES_MONITORING.md`
+- Repo principal : `byakuyakutchiki/luna-server`
+- Backend : `luna_web.py`
+- Guide technique : `GUIDE_DEV.md`
+
+## Règle de travail
+
+Ne pas travailler sur tous les onglets en même temps.
+
+On valide un objectif à la fois :
+
+1. Instructions
+2. Services / Concierge
+3. Documents
+4. Formulaires
+5. Cartes
+6. Puis les autres onglets
+
+Pour chaque objectif, il faut produire :
+
+- objectif utilisateur clair
+- checks techniques
+- checks fonctionnels
+- statut `ok`, `warning`, `degraded`, `critical`
+- preuves de réussite
+- auto-heal possible
+- limites à ne pas franchir
+- procédure de test
+
+## Tâche prioritaire actuelle
+
+Implémenter le monitoring de l'objectif :
+
+`## 4. Services / Concierge — Actions Déléguées`
+
+Prompt détaillé prêt à utiliser :
+
+`docs/PROMPT_CLAUDE_MONITORING_SERVICES.md`
+
+Le but est d'ajouter ou compléter :
+
+`GET /api/admin/objectives`
+
+avec un bloc :
+
+```json
+{
+  "objectives": {
+    "services": {
+      "status": "degraded",
+      "checks": [],
+      "subservices": {},
+      "metrics": {},
+      "auto_heal": []
+    }
+  }
+}
+```
+
+## Sous-services Services / Concierge à surveiller
+
+- SMS
+- appel vocal
+- email
+- invitation visio
+- compte-rendu / conclusions
+- note / mémoire
+- météo
+- actualités
+- recherche web
+- lieux / commerces
+- restaurants
+- page web
+- paiement
+- vols
+- hôtels
+- secrétariat
+
+## Contraintes fortes
+
+Le monitoring ne doit jamais déclencher d'action réelle engageante.
+
+Donc ne pas envoyer pendant un check :
+
+- SMS réel
+- appel réel
+- email réel
+- paiement Stripe
+- réservation Duffel
+- réservation hôtel
+- réservation restaurant
+
+Le monitoring doit seulement vérifier :
+
+- fonctions présentes
+- variables d'environnement présentes
+- modules importables
+- configuration cohérente
+- dépendance optionnelle ou critique
+- dernier état connu si disponible
+
+## États attendus
+
+- `ok` : objectif atteint
+- `warning` : service optionnel absent ou profil incomplet
+- `degraded` : service partiellement utilisable
+- `critical` : objectif inutilisable ou action dangereuse possible
+
+## Important
+
+Stripe peut être absent sur le serveur fondateur sans être une panne critique.
+
+Duffel peut être absent tant que les vols/hôtels ne sont pas activés en production.
+
+Serper absent doit dégrader recherche web, lieux et restaurants, mais ne doit pas casser tout l'onglet Services.
+
+Twilio absent est critique pour SMS/appels si ces actions sont promises à l'utilisateur.
+
+## Réponse attendue après implémentation
+
+Quand tu termines, indique :
+
+- fichiers modifiés
+- exemple JSON réel de `/api/admin/objectives`
+- comment tester sans action réelle
+- services `ok`, `warning`, `degraded`, `critical`
+- ce qui reste à faire avant de passer à Documents
