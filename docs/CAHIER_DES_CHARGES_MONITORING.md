@@ -122,34 +122,160 @@ Un onglet est **OK** seulement si l'utilisateur peut accomplir son objectif de b
 
 ---
 
-## 4. Services / Cortex — Actions Déléguées
+## 4. Services / Concierge — Actions Déléguées
 
-**Objectif** : Luna agit au nom de l'utilisateur : envoie des SMS, passe des appels, gère des rappels, surveille l'inactivité.
+**Objectif** : Luna agit concrètement pour l'utilisateur depuis l'onglet Services / Conciergerie : contacter quelqu'un, rechercher une information, trouver un lieu, préparer un déplacement, produire un document, ou initier une transaction, avec confirmation et traçabilité.
+
+Un service est **OK** seulement si Luna peut aller plus loin qu'une réponse texte : elle doit appeler le bon outil, recevoir un résultat exploitable, l'expliquer à l'utilisateur, et enregistrer l'action quand cela engage la mémoire, un contact, un paiement ou un déplacement.
+
+### Sous-objectifs couverts
+
+| Sous-service | Objectif utilisateur | Outil / dépendance | Preuve de réussite |
+|---|---|---|---|
+| SMS | Envoyer un message à un contact fiable | Twilio, contacts Redis | SID Twilio créé ou message mis en file d'attente |
+| Appel vocal | Appeler un contact ou numéro autorisé | Twilio Voice | Call SID créé, numéros d'urgence bloqués |
+| Email | Préparer ou envoyer un email | SMTP/API email, contacts | Email envoyé ou brouillon explicite si SMTP absent |
+| Invitation visio | Inviter un contact dans une visio | SMS + lien session | Lien envoyé au bon contact |
+| Compte-rendu / conclusions | Générer et transmettre un résumé structuré | DocumentGenerator + SMS/email | Document créé et destinataires notifiés |
+| Note / mémoire | Sauvegarder une note utile | Memory Manager / Redis | Note persistée avec contexte et tags |
+| Météo | Donner une météo actuelle et prévisionnelle | wttr.in + fallback Open-Meteo | Ville résolue, météo actuelle + 3 jours |
+| Actualités | Donner des nouvelles récentes | Flux RSS | Articles datés et sourcés |
+| Recherche web | Chercher une réponse vérifiable | Serper API | Résultats avec titres, extraits, liens |
+| Lieux / commerces | Trouver restaurants, pharmacies, hôtels, services proches | Serper Places + géoloc/profil | Adresses, notes, téléphone, itinéraire |
+| Page web | Résumer une URL donnée | HTTP fetch + parsing HTML | Titre, résumé, contenu lisible ou erreur claire |
+| Paiement | Demander un paiement sécurisé | Stripe | PaymentIntent / Checkout créé ou Stripe déclaré optionnel |
+| Vols | Rechercher des vols | Duffel API | Offres disponibles, prix, compagnie, horaires |
+| Hôtels | Rechercher des hôtels | Duffel Stays API | Offres disponibles, prix, dates, conditions |
+| Restaurant | Proposer un restaurant réservable | Places / recherche web | Options classées + téléphone/lien/réservation si disponible |
+| Secrétariat | Lire budget, dépenses, rappels, documents | Secretary Redis ops | Données lues et action enregistrée |
 
 ### Étapes obligatoires
-- Clé `ANTHROPIC_KEY_CORTEX` valide
-- Twilio configuré (`TWILIO_ACCOUNT_SID` + `TWILIO_AUTH_TOKEN` + numéro)
-- Cortex engine initialisé et connecté au Memory Manager
-- Actions exécutables : SMS, appel, note, rappel, alerte inactivité
 
-### Points de contrôle
+- Catalogue d'outils déclaré dans `_SIMLI_TOOLS` et cohérent avec le dispatcher Tavus / Simli.
+- Chaque outil appelé doit retourner un JSON normalisé : `status`, `message`, et données métier (`results`, `places`, `articles`, `offers`, etc.).
+- Les actions engageantes (SMS, appel, paiement, réservation, alerte contacts) doivent exiger confirmation ou respecter une règle de sécurité explicite.
+- Les dépendances externes doivent être détectées séparément : Twilio, Serper, Stripe, Duffel, flux RSS, météo gratuite, Redis, DocumentGenerator.
+- Les actions qui créent de la valeur durable doivent être persistées : note, recherche importante, paiement, document, invitation, instruction.
+- Les services optionnels non configurés ne doivent pas faire tomber tout l'onglet : ils doivent remonter `warning` ou `degraded` avec solution.
+
+### Points de contrôle globaux
+
 | Contrôle | Fréquence | Seuil d'alerte |
 |---|---|---|
-| Clé Cortex initialisée | Chaque check | Absente |
-| Twilio credentials valides | Chaque check | Absents |
-| Solde Twilio | Hebdomadaire | < 5€ |
-| Taux d'échec SMS | Sentry | > 5% |
+| Catalogue `_SIMLI_TOOLS` chargé | Chaque check | Absent ou vide |
+| Dispatcher tool-call actif | Chaque check | Erreur import / route KO |
+| Memory Manager disponible | Chaque check | Non initialisé |
+| Redis disponible pour logs/actions | Chaque check | Erreur Redis |
+| Format JSON des outils | À chaque appel outil | Pas de `status` |
+| Taux d'erreur outil global | Sentry / logs | > 5% sur 15 min |
+| Latence outil globale | Sentry / logs | > 10s hors vols/hôtels |
+
+### Points de contrôle par sous-service
+
+| Sous-service | Contrôle | Fréquence | Seuil d'alerte |
+|---|---|---|---|
+| SMS | Credentials Twilio + numéro émetteur | Chaque check | Manquant |
+| SMS | Taux livraison SMS | 15 min / webhook | > 5% failed |
+| Appel vocal | Twilio Voice configuré | Chaque check | Manquant |
+| Appel vocal | Blocage numéros d'urgence | Test quotidien | Échec blocage |
+| Email | SMTP/API configuré ou mode brouillon assumé | Chaque check | Ambigu |
+| Invitation visio | Lien session disponible + SMS OK | Chaque check | Lien/SMS KO |
+| Conclusions | Générateur document disponible | Chaque check | Import KO |
+| Météo | wttr.in répond ou Open-Meteo fallback répond | 15 min | 2 échecs consécutifs |
+| Actualités | Au moins un flux RSS répond | 30 min | 0 article |
+| Recherche web | `SERPER_API_KEY` présente | Chaque check | Manquante |
+| Recherche web | Appel Serper search réussi | 15 min | 2 échecs consécutifs |
+| Lieux/restaurants | Appel Serper Places réussi | 15 min | 2 échecs consécutifs |
+| Page web | HTTP fetch + parsing HTML | À chaque appel | Timeout / contenu vide |
+| Paiement | Stripe configuré selon environnement | Chaque check | Manquant en mode exploitant |
+| Vols | `DUFFEL_ACCESS_TOKEN` présent si service activé | Chaque check | Manquant |
+| Vols | Ratio search/order Duffel | Quotidien | > 1500:1 |
+| Hôtels | Duffel Stays disponible si activé | Chaque check | Manquant |
+| Restaurant | Options avec téléphone/lien/adresse | À chaque appel | 0 option exploitable |
+| Secrétariat | Budget/rappels/docs lisibles | Chaque check | Erreur Redis |
+
+### Règles de statut
+
+| Statut | Condition |
+|---|---|
+| `ok` | Tous les services critiques configurés, et les services gratuits/fallback répondent |
+| `warning` | Service optionnel absent mais l'utilisateur reçoit une explication claire |
+| `degraded` | Sous-service disponible partiellement (ex : recherche lieux OK mais réservation directe absente) |
+| `critical` | Action essentielle impossible : Redis KO, dispatcher KO, Twilio KO pour SMS/appels, ou outil engageant sans garde-fou |
 
 ### Erreurs possibles
-- Solde Twilio vide → SMS échouent silencieusement
-- Numéro non vérifié pour appels sortants
-- Rate limit Twilio France (numéro longcode)
+
+- `SERPER_API_KEY` absente → recherche web, lieux et restaurants indisponibles.
+- Twilio configuré partiellement → SMS/appels échouent après validation utilisateur.
+- Flux RSS indisponibles → actualités vides.
+- wttr.in lent ou bloqué → bascule nécessaire vers Open-Meteo.
+- Duffel absent ou KYC non finalisé → vols/hôtels limités à une recherche simulée ou désactivés.
+- Stripe absent sur serveur fondateur → normal si pas en mode exploitant, KO si paiement client attendu.
+- Géolocalisation absente → restaurants/lieux moins pertinents.
+- Tool-call halluciné par l'IA → nom d'outil inconnu ou arguments incomplets.
+- Réservation/paiement déclenché sans confirmation → risque critique.
+- Résultat externe vide → Luna doit l'expliquer, pas inventer.
 
 ### Réparation automatique
-- File d'attente Redis pour SMS en cas d'indisponibilité Twilio momentanée
+
+- Météo : fallback automatique wttr.in → Open-Meteo.
+- SMS : mise en file Redis si Twilio momentanément indisponible.
+- Recherche locale : enrichissement automatique par ville du profil ou dernière géolocalisation.
+- Tool-call incomplet : demander les champs manquants avant action.
+- Page web : timeout court + résumé d'erreur propre au lieu d'un crash.
+- Service optionnel absent : désactiver seulement le sous-service concerné, pas tout l'onglet.
+- Vols/hôtels : si Duffel absent, retourner `degraded` avec "recherche non configurée" et ne jamais inventer de prix.
 
 ### Réparation semi-auto
-- Alerte : "Solde Twilio critique — recharger sur twilio.com"
+
+- Alerte : "SERPER_API_KEY absente — recherche web, lieux et restaurants indisponibles."
+- Alerte : "Solde Twilio critique — recharger sur twilio.com."
+- Alerte : "Duffel non configuré ou KYC absent — vols/hôtels non réservables."
+- Alerte : "Stripe absent — paiement indisponible en mode exploitant."
+- Alerte : "SMTP absent — email limité aux brouillons."
+- Alerte : "Flux RSS tous indisponibles — vérifier les sources d'actualités."
+
+### Monitoring attendu pour `/api/admin/objectives`
+
+Le bloc `services` doit être structuré pour afficher une vue globale et un détail par sous-service :
+
+```json
+{
+  "services": {
+    "status": "degraded",
+    "goal": "Luna agit pour l'utilisateur via les services de conciergerie.",
+    "checks": [
+      {"name": "tools_catalog_loaded", "status": "ok"},
+      {"name": "tool_dispatcher_available", "status": "ok"},
+      {"name": "redis_available", "status": "ok"}
+    ],
+    "subservices": {
+      "weather": {"status": "ok", "critical": false},
+      "news": {"status": "ok", "critical": false},
+      "web_search": {"status": "warning", "critical": false, "missing": ["SERPER_API_KEY"]},
+      "places_restaurants": {"status": "warning", "critical": false, "missing": ["SERPER_API_KEY"]},
+      "sms": {"status": "ok", "critical": true},
+      "voice_call": {"status": "ok", "critical": true},
+      "email": {"status": "warning", "critical": false, "mode": "draft_only"},
+      "payments": {"status": "warning", "critical": false, "mode": "founder_optional"},
+      "flights": {"status": "degraded", "critical": false, "missing": ["DUFFEL_ACCESS_TOKEN"]},
+      "hotels": {"status": "degraded", "critical": false, "missing": ["DUFFEL_ACCESS_TOKEN"]}
+    },
+    "metrics": {
+      "tools_declared": 0,
+      "tools_available": 0,
+      "last_tool_error": null,
+      "sms_failed_rate": null,
+      "duffel_search_order_ratio": null
+    },
+    "auto_heal": [
+      {"condition": "weather_primary_down", "action": "fallback_open_meteo", "available": true},
+      {"condition": "twilio_transient_failure", "action": "queue_sms_in_redis", "available": true},
+      {"condition": "missing_location", "action": "fallback_profile_city", "available": true}
+    ]
+  }
+}
+```
 
 ---
 
