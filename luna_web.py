@@ -2427,6 +2427,555 @@ async def _check_objective_activites() -> dict:
     }
 
 
+async def _check_objective_monde() -> dict:
+    """Monitoring objectif Monde — Espace Social Global."""
+    checks: list = []
+    subservices: dict = {}
+    metrics: dict = {}
+    auto_heal: list = []
+
+    def _chk(name: str, ok: bool, msg: str = "", critical: bool = False):
+        checks.append({"name": name, "status": "ok" if ok else ("critical" if critical else "warning"), "message": msg})
+        return ok
+
+    world_ok = _chk("world_module_available", _WORLD_SOCIAL_AVAILABLE,
+                     "core.world chargé" if _WORLD_SOCIAL_AVAILABLE else "Import core.world échoué", critical=True)
+
+    world_ops_ok = False
+    if world_ok and _redis_client:
+        try:
+            from core.world.redis_ops import WorldRedisOps as _WOps
+            _WOps(_redis_client.client, TENANT_ID)
+            world_ops_ok = True
+        except Exception as e:
+            pass
+    _chk("world_redis_ops", world_ops_ok,
+         "WorldRedisOps instanciable" if world_ops_ok else "WorldRedisOps KO ou Redis absent", critical=True)
+
+    routes_ok = _WORLD_SOCIAL_AVAILABLE
+    _chk("world_routes_mounted", routes_ok,
+         "world_router monté" if routes_ok else "world_router non inclus")
+
+    privacy_ok = world_ok and _redis_client
+    _chk("world_privacy_routes", privacy_ok,
+         "/api/world/privacy accessible" if privacy_ok else "Routes vie privée inaccessibles")
+
+    avatar_ok = world_ok and _redis_client
+    _chk("world_avatar_routes", avatar_ok,
+         "/api/world/avatar accessible" if avatar_ok else "Routes avatar inaccessibles")
+
+    invitations_ok = world_ok and _redis_client
+    _chk("world_invitations_routes", invitations_ok,
+         "/api/world/invitations accessible" if invitations_ok else "Routes invitations inaccessibles")
+
+    presence_ok = world_ok and _redis_client
+    _chk("world_presence_routes", presence_ok,
+         "/api/world/presence accessible" if presence_ok else "Routes présence inaccessibles")
+
+    chat_ok = world_ok and _redis_client
+    _chk("world_chat_routes", chat_ok,
+         "/api/world/chat accessible" if chat_ok else "Routes chat monde inaccessibles")
+
+    subservices["world_module"] = {
+        "status": "ok" if world_ok else "critical",
+        "critical": True,
+        "message": "core.world disponible" if world_ok else "Module inaccessible",
+    }
+    subservices["privacy_settings"] = {
+        "status": "ok" if privacy_ok else "degraded",
+        "critical": False,
+        "message": "Paramètres vie privée lisibles" if privacy_ok else "Redis absent",
+    }
+    subservices["avatar"] = {
+        "status": "ok" if avatar_ok else "degraded",
+        "critical": False,
+        "message": "Avatar configurable" if avatar_ok else "Avatar inaccessible",
+    }
+    subservices["invitations"] = {
+        "status": "ok" if invitations_ok else "degraded",
+        "critical": False,
+        "message": "Invitations envoyables/recevables" if invitations_ok else "Invitations inaccessibles",
+    }
+    subservices["presence"] = {
+        "status": "ok" if presence_ok else "degraded",
+        "critical": False,
+        "message": "Présence dans le monde disponible" if presence_ok else "Présence inaccessible",
+    }
+    subservices["world_chat"] = {
+        "status": "ok" if chat_ok else "degraded",
+        "critical": False,
+        "message": "Chat monde disponible" if chat_ok else "Chat monde inaccessible",
+    }
+    subservices["nearby_users"] = {
+        "status": "warning",
+        "critical": False,
+        "message": "GET /api/world/nearby non encore implémenté — carte communautaire à venir",
+        "recommended_fix": "Implémenter /api/world/nearby avec géolocalisation anonymisée + consentement opt-in",
+    }
+
+    metrics["world_module_available"] = world_ok
+    metrics["world_ops_available"] = world_ops_ok
+    metrics["routes_mounted"] = routes_ok
+
+    auto_heal.append({
+        "condition": "world_ops_redis_error",
+        "action": "retry_world_ops_on_redis_reconnect",
+        "available": bool(_redis_client),
+    })
+    auto_heal.append({
+        "condition": "invitation_expired_ttl",
+        "action": "cleanup_expired_invitations_from_index",
+        "available": world_ops_ok,
+    })
+
+    critical_failures = [c for c in checks if c["status"] == "critical"]
+    warnings_or_degraded = [c for c in checks if c["status"] in ("warning", "degraded")]
+    if critical_failures:
+        status = "critical"
+    elif not world_ok or not world_ops_ok:
+        status = "critical"
+    elif len(warnings_or_degraded) >= 3:
+        status = "degraded"
+    elif warnings_or_degraded:
+        status = "warning"
+    else:
+        status = "ok"
+
+    return {
+        "status": status,
+        "goal": "L'utilisateur existe dans un espace social Luna : avatar visible, invitations d'amis, présence dans des mondes virtuels partagés.",
+        "checks": checks,
+        "subservices": subservices,
+        "metrics": metrics,
+        "auto_heal": auto_heal,
+    }
+
+
+async def _check_objective_profil() -> dict:
+    """Monitoring objectif Profil — Identité Souscripteur."""
+    checks: list = []
+    subservices: dict = {}
+    metrics: dict = {}
+    auto_heal: list = []
+
+    def _chk(name: str, ok: bool, msg: str = "", critical: bool = False):
+        checks.append({"name": name, "status": "ok" if ok else ("critical" if critical else "warning"), "message": msg})
+        return ok
+
+    mm_ok = _memory_manager is not None
+    _chk("memory_manager_available", mm_ok,
+         "MemoryManager initialisé" if mm_ok else "MemoryManager non initialisé", critical=True)
+
+    tenant_mgr = None
+    tenant_mgr_ok = False
+    if mm_ok:
+        try:
+            tenant_mgr = _get_tenant_manager(TENANT_ID)
+            tenant_mgr_ok = tenant_mgr is not None
+        except Exception:
+            pass
+    _chk("tenant_manager_available", tenant_mgr_ok,
+         "TenantManager actif" if tenant_mgr_ok else "TenantManager indisponible", critical=True)
+
+    profile = None
+    profile_ok = False
+    profile_empty = True
+    if mm_ok:
+        try:
+            profile = _memory_manager.get_subscriber_profile()
+            profile_ok = profile is not None
+            if profile_ok:
+                first = getattr(profile, "first_name", None) or (profile.get("first_name") if isinstance(profile, dict) else None)
+                last = getattr(profile, "last_name", None) or (profile.get("last_name") if isinstance(profile, dict) else None)
+                profile_empty = not first and not last
+        except Exception:
+            pass
+    _chk("profile_readable", profile_ok,
+         "Profil lisible" if profile_ok else "Profil illisible ou absent", critical=True)
+    if profile_ok:
+        _chk("profile_not_empty", not profile_empty,
+             "Profil renseigné" if not profile_empty else "Profil vide — nom/prénom manquants")
+
+    contacts: list = []
+    contacts_ok = False
+    if mm_ok:
+        try:
+            contacts = _memory_manager.list_trusted_contacts()
+            contacts_ok = True
+        except Exception:
+            pass
+    _chk("trusted_contacts_readable", contacts_ok,
+         f"{len(contacts)} contact(s) de confiance" if contacts_ok else "Lecture contacts impossible")
+
+    profile_injected_ok = mm_ok and profile_ok
+    _chk("profile_injected_in_conversations", profile_injected_ok,
+         "Profil injecté dans les conversations" if profile_injected_ok else "Profil non injecté (MemoryManager ou profil absent)")
+
+    quota_status: dict = {}
+    quota_readable = False
+    if mm_ok:
+        try:
+            quota_status = _memory_manager.get_quota_status()
+            quota_readable = isinstance(quota_status, dict)
+        except Exception:
+            pass
+    _chk("quota_status_via_profil", quota_readable,
+         "Quotas lisibles depuis le profil" if quota_readable else "Quotas illisibles depuis MemoryManager")
+
+    subservices["identity_core"] = {
+        "status": "ok" if (mm_ok and tenant_mgr_ok) else "critical",
+        "critical": True,
+        "message": "MemoryManager + TenantManager disponibles" if (mm_ok and tenant_mgr_ok) else "Gestionnaire d'identité KO",
+    }
+    subservices["subscriber_profile"] = {
+        "status": "ok" if (profile_ok and not profile_empty) else ("warning" if profile_ok else "critical"),
+        "critical": True,
+        "message": "Profil complet" if (profile_ok and not profile_empty) else ("Profil vide" if profile_ok else "Profil illisible"),
+        "metrics": {"has_profile": profile_ok, "profile_empty": profile_empty},
+    }
+    subservices["trusted_contacts"] = {
+        "status": "ok" if contacts_ok else "warning",
+        "critical": False,
+        "metrics": {"contacts_count": len(contacts)},
+    }
+    subservices["profile_injection"] = {
+        "status": "ok" if profile_injected_ok else "degraded",
+        "critical": False,
+        "message": "Profil injecté dans chaque conversation" if profile_injected_ok else "Injection indisponible",
+    }
+    subservices["profile_persistence"] = {
+        "status": "ok" if (mm_ok and _redis_client) else "degraded",
+        "critical": False,
+        "message": "Modifications profil persistées via Redis" if (mm_ok and _redis_client) else "Redis absent — persistance dégradée",
+    }
+
+    metrics["memory_manager_available"] = mm_ok
+    metrics["tenant_manager_available"] = tenant_mgr_ok
+    metrics["profile_readable"] = profile_ok
+    metrics["profile_empty"] = profile_empty
+    metrics["trusted_contacts_count"] = len(contacts)
+    metrics["quota_readable"] = quota_readable
+
+    auto_heal.append({
+        "condition": "profile_empty",
+        "action": "prompt_user_to_complete_profile_via_chat",
+        "available": mm_ok,
+    })
+    auto_heal.append({
+        "condition": "memory_manager_unavailable",
+        "action": "reinitialize_memory_manager_on_next_request",
+        "available": bool(_redis_client),
+    })
+
+    critical_failures = [c for c in checks if c["status"] == "critical"]
+    warnings = [c for c in checks if c["status"] == "warning"]
+    degraded = [c for c in checks if c["status"] == "degraded"]
+    if critical_failures:
+        status = "critical"
+    elif degraded:
+        status = "degraded"
+    elif warnings:
+        status = "warning"
+    else:
+        status = "ok"
+
+    return {
+        "status": status,
+        "goal": "Luna connaît l'utilisateur en profondeur (préférences, habitudes, famille, santé) pour personnaliser chaque interaction.",
+        "checks": checks,
+        "subservices": subservices,
+        "metrics": metrics,
+        "auto_heal": auto_heal,
+    }
+
+
+async def _check_objective_quotas() -> dict:
+    """Monitoring objectif Quotas — Maîtrise de la Consommation."""
+    checks: list = []
+    subservices: dict = {}
+    metrics: dict = {}
+    auto_heal: list = []
+
+    def _chk(name: str, ok: bool, msg: str = "", critical: bool = False):
+        checks.append({"name": name, "status": "ok" if ok else ("critical" if critical else "warning"), "message": msg})
+        return ok
+
+    quota_guard_ok = _quota_guard is not None
+    _chk("quota_guard_available", quota_guard_ok,
+         "QuotaGuard initialisé" if quota_guard_ok else "QuotaGuard non initialisé", critical=True)
+
+    plan_limits_ok = False
+    plan_limits: dict = {}
+    try:
+        from core.actions.quota_guard import PLAN_SMS_LIMITS, PLAN_VOICE_LIMITS, PLAN_VISIO_LIMITS, PlanType as _PT
+        plan_limits = {
+            "essentiel": {"sms": PLAN_SMS_LIMITS[_PT.ESSENTIEL], "voice_min": PLAN_VOICE_LIMITS[_PT.ESSENTIEL], "visio_min": PLAN_VISIO_LIMITS[_PT.ESSENTIEL]},
+            "confort":   {"sms": PLAN_SMS_LIMITS[_PT.CONFORT],   "voice_min": PLAN_VOICE_LIMITS[_PT.CONFORT],   "visio_min": PLAN_VISIO_LIMITS[_PT.CONFORT]},
+            "premium":   {"sms": PLAN_SMS_LIMITS[_PT.PREMIUM],   "voice_min": PLAN_VOICE_LIMITS[_PT.PREMIUM],   "visio_min": PLAN_VISIO_LIMITS[_PT.PREMIUM]},
+        }
+        plan_limits_ok = len(plan_limits) == 3
+    except Exception:
+        pass
+    _chk("plan_limits_loaded", plan_limits_ok,
+         "Limites par plan chargées (essentiel/confort/premium)" if plan_limits_ok else "Limites plan illisibles", critical=True)
+
+    quota_status: dict = {}
+    quota_readable = False
+    if _memory_manager:
+        try:
+            quota_status = await asyncio.to_thread(_memory_manager.get_quota_status)
+            quota_readable = isinstance(quota_status, dict) and bool(quota_status)
+        except Exception:
+            pass
+    _chk("quota_status_readable", quota_readable,
+         "Quotas lisibles pour le tenant courant" if quota_readable else "get_quota_status() retourne vide ou échoue")
+
+    voice_quota_ok = quota_readable and "voice_minutes" in quota_status
+    sms_quota_ok = quota_readable and "sms" in quota_status
+    visio_quota_ok = quota_readable and "visio_minutes" in quota_status
+    _chk("voice_quota_readable", voice_quota_ok,
+         f"Voice: {quota_status.get('voice_minutes', '?')} min" if voice_quota_ok else "Quota voix illisible")
+    _chk("sms_quota_readable", sms_quota_ok,
+         f"SMS: {quota_status.get('sms', '?')}" if sms_quota_ok else "Quota SMS illisible")
+    _chk("visio_quota_readable", visio_quota_ok,
+         f"Visio: {quota_status.get('visio_minutes', '?')} min" if visio_quota_ok else "Quota visio illisible")
+
+    alert_threshold_ok = quota_guard_ok
+    _chk("alert_80pct_threshold", alert_threshold_ok,
+         "Alerte 80% disponible via QuotaGuard" if alert_threshold_ok else "Alerte 80% indisponible")
+
+    blocking_ok = quota_guard_ok
+    _chk("graceful_blocking_at_100pct", blocking_ok,
+         "Blocage gracieux à 100% disponible" if blocking_ok else "Blocage à 100% indisponible")
+
+    subservices["quota_guard"] = {
+        "status": "ok" if quota_guard_ok else "critical",
+        "critical": True,
+        "message": "QuotaGuard opérationnel" if quota_guard_ok else "QuotaGuard absent",
+    }
+    subservices["plan_limits"] = {
+        "status": "ok" if plan_limits_ok else "critical",
+        "critical": True,
+        "message": "Limites par plan définies" if plan_limits_ok else "Limites indisponibles",
+        "metrics": plan_limits,
+    }
+    subservices["quota_voice"] = {
+        "status": "ok" if voice_quota_ok else "warning",
+        "critical": False,
+        "metrics": {"used": quota_status.get("voice_minutes"), "unit": "minutes"},
+    }
+    subservices["quota_sms"] = {
+        "status": "ok" if sms_quota_ok else "warning",
+        "critical": False,
+        "metrics": {"used": quota_status.get("sms"), "unit": "messages"},
+    }
+    subservices["quota_visio"] = {
+        "status": "ok" if visio_quota_ok else "warning",
+        "critical": False,
+        "metrics": {"used": quota_status.get("visio_minutes"), "unit": "minutes"},
+    }
+    subservices["alert_threshold"] = {
+        "status": "ok" if alert_threshold_ok else "degraded",
+        "critical": False,
+        "message": "Alerte à 80% configurée" if alert_threshold_ok else "Alerte 80% indisponible",
+    }
+    subservices["graceful_blocking"] = {
+        "status": "ok" if blocking_ok else "critical",
+        "critical": True,
+        "message": "Blocage gracieux à 100% disponible" if blocking_ok else "Risque de dépassement sans blocage",
+    }
+
+    metrics["quota_guard_available"] = quota_guard_ok
+    metrics["plan_limits_loaded"] = plan_limits_ok
+    metrics["quota_status_readable"] = quota_readable
+    metrics["voice_used"] = quota_status.get("voice_minutes")
+    metrics["sms_used"] = quota_status.get("sms")
+    metrics["visio_used"] = quota_status.get("visio_minutes")
+    metrics["plan_limits"] = plan_limits
+
+    auto_heal.append({
+        "condition": "quota_guard_missing",
+        "action": "reinitialize_quota_guard_from_memory_manager",
+        "available": _memory_manager is not None,
+    })
+    auto_heal.append({
+        "condition": "quota_near_100pct",
+        "action": "send_alert_sms_to_admin_and_notify_user",
+        "available": quota_guard_ok,
+    })
+
+    critical_failures = [c for c in checks if c["status"] == "critical"]
+    warnings = [c for c in checks if c["status"] == "warning"]
+    degraded = [c for c in checks if c["status"] == "degraded"]
+    if critical_failures:
+        status = "critical"
+    elif degraded:
+        status = "degraded"
+    elif warnings:
+        status = "warning"
+    else:
+        status = "ok"
+
+    return {
+        "status": status,
+        "goal": "L'utilisateur sait combien il lui reste de minutes voix, visio, SMS. Il ne peut jamais dépasser son forfait sans être prévenu.",
+        "checks": checks,
+        "subservices": subservices,
+        "metrics": metrics,
+        "auto_heal": auto_heal,
+    }
+
+
+async def _check_objective_reglages() -> dict:
+    """Monitoring objectif Réglages — Configuration Exploitant."""
+    checks: list = []
+    subservices: dict = {}
+    metrics: dict = {}
+    auto_heal: list = []
+    missing_env: list = []
+    optional_missing: list = []
+
+    def _chk(name: str, ok: bool, msg: str = "", critical: bool = False):
+        checks.append({"name": name, "status": "ok" if ok else ("critical" if critical else "warning"), "message": msg})
+        return ok
+
+    jwt_ok = bool(os.getenv("JWT_SECRET_KEY", ""))
+    _chk("jwt_secret_key", jwt_ok, "JWT_SECRET_KEY présente" if jwt_ok else "JWT_SECRET_KEY ABSENTE — sécurité compromise", critical=True)
+    if not jwt_ok:
+        missing_env.append("JWT_SECRET_KEY")
+
+    admin_number_ok = bool(os.getenv("ADMIN_NUMBER", ""))
+    _chk("admin_number", admin_number_ok,
+         "ADMIN_NUMBER configuré" if admin_number_ok else "ADMIN_NUMBER absent — alertes fondateur impossibles", critical=True)
+    if not admin_number_ok:
+        missing_env.append("ADMIN_NUMBER")
+
+    proprio_email_ok = bool(os.getenv("PROPRIO_EMAIL", ""))
+    _chk("proprio_email", proprio_email_ok,
+         "PROPRIO_EMAIL configuré" if proprio_email_ok else "PROPRIO_EMAIL absent")
+    if not proprio_email_ok:
+        missing_env.append("PROPRIO_EMAIL")
+
+    proprio_pwd_ok = bool(os.getenv("PROPRIO_PASSWORD", ""))
+    _chk("proprio_password", proprio_pwd_ok,
+         "PROPRIO_PASSWORD configuré" if proprio_pwd_ok else "PROPRIO_PASSWORD absent")
+    if not proprio_pwd_ok:
+        missing_env.append("PROPRIO_PASSWORD")
+
+    luna_mode = os.getenv("LUNA_MODE", "full").lower()
+    luna_mode_ok = luna_mode in ("lite", "full")
+    _chk("luna_mode", luna_mode_ok, f"LUNA_MODE={luna_mode}")
+
+    stripe_key = os.getenv("STRIPE_SECRET_KEY", "") or os.getenv("STRIPE_API_KEY", "")
+    stripe_ok = bool(stripe_key)
+    _chk("stripe_secret_key", stripe_ok,
+         "Stripe configuré" if stripe_ok else "STRIPE_SECRET_KEY absente — paiements indisponibles (optionnel sur serveur fondateur)")
+    if not stripe_ok:
+        optional_missing.append("STRIPE_SECRET_KEY")
+
+    webhook_secret = os.getenv("STRIPE_WEBHOOK_SECRET", "")
+    webhook_secret_ok = bool(webhook_secret)
+    _chk("stripe_webhook_secret", webhook_secret_ok,
+         "STRIPE_WEBHOOK_SECRET configuré" if webhook_secret_ok else "STRIPE_WEBHOOK_SECRET absent — signature webhook non vérifiable")
+    if not webhook_secret_ok:
+        optional_missing.append("STRIPE_WEBHOOK_SECRET")
+
+    price_essentiel = os.getenv("STRIPE_PRICE_ESSENTIEL", "")
+    price_confort = os.getenv("STRIPE_PRICE_CONFORT", "")
+    price_premium = os.getenv("STRIPE_PRICE_PREMIUM", "")
+    prices_ok = bool(price_essentiel and price_confort and price_premium)
+    _chk("stripe_price_ids", prices_ok,
+         "3 price IDs Stripe configurés" if prices_ok else "Price IDs Stripe manquants (optionnel sur serveur fondateur)")
+    if not prices_ok:
+        optional_missing.append("STRIPE_PRICE_ESSENTIEL/CONFORT/PREMIUM")
+
+    webhook_received_ok = bool(_stripe_webhook_received)
+    _chk("stripe_webhook_received", webhook_received_ok,
+         f"Dernier webhook Stripe reçu: {_stripe_webhook_received.get('event_type', '?')} (vérifié: {_stripe_webhook_received.get('verified', False)})"
+         if webhook_received_ok else "Aucun webhook Stripe reçu depuis le démarrage")
+    if not webhook_received_ok and stripe_ok:
+        optional_missing.append("stripe_webhook_not_yet_received")
+
+    pv_signed = PV_SIGNED
+    _chk("pv_signed", pv_signed,
+         "PV de recette signé — serveur en production" if pv_signed else "PV non signé — serveur en mode SETUP")
+
+    subservices["jwt_auth"] = {
+        "status": "ok" if jwt_ok else "critical",
+        "critical": True,
+        "message": "JWT_SECRET_KEY présente" if jwt_ok else "JWT absent — authentification impossible",
+    }
+    subservices["admin_credentials"] = {
+        "status": "ok" if (admin_number_ok and proprio_email_ok and proprio_pwd_ok) else ("warning" if admin_number_ok else "critical"),
+        "critical": True,
+        "missing": [k for k in ["ADMIN_NUMBER", "PROPRIO_EMAIL", "PROPRIO_PASSWORD"] if not os.getenv(k, "")],
+    }
+    subservices["luna_mode"] = {
+        "status": "ok" if luna_mode_ok else "warning",
+        "critical": False,
+        "value": luna_mode,
+        "message": f"Mode Luna: {luna_mode}",
+    }
+    subservices["stripe"] = {
+        "status": "ok" if (stripe_ok and webhook_secret_ok and prices_ok) else "warning",
+        "critical": False,
+        "message": "Stripe complet" if (stripe_ok and webhook_secret_ok and prices_ok) else "Stripe optionnel absent (normal sur serveur fondateur)",
+        "missing": [k for k in optional_missing if "STRIPE" in k or "stripe" in k],
+        "founder_note": "Stripe est optionnel sur le serveur fondateur — critique uniquement en production exploitant",
+    }
+    subservices["stripe_webhook"] = {
+        "status": "ok" if webhook_received_ok else "warning",
+        "critical": False,
+        "message": f"Webhook reçu: {_stripe_webhook_received.get('event_type', '?')}"
+        if webhook_received_ok else "Aucun webhook reçu depuis le démarrage",
+        "verified": _stripe_webhook_received.get("verified", False) if webhook_received_ok else None,
+    }
+    subservices["pv_recette"] = {
+        "status": "ok" if pv_signed else "warning",
+        "critical": False,
+        "message": "Serveur en production (PV signé)" if pv_signed else "Serveur en mode SETUP (PV non signé)",
+    }
+
+    metrics["luna_mode"] = luna_mode
+    metrics["pv_signed"] = pv_signed
+    metrics["stripe_configured"] = stripe_ok
+    metrics["stripe_webhook_received"] = webhook_received_ok
+    metrics["missing_critical_env"] = missing_env
+    metrics["optional_missing_env"] = optional_missing
+
+    auto_heal.append({
+        "condition": "stripe_price_ids_missing",
+        "action": "run_stripe_setup_py_to_create_products",
+        "available": stripe_ok,
+    })
+    auto_heal.append({
+        "condition": "webhook_secret_missing",
+        "action": "configure_STRIPE_WEBHOOK_SECRET_in_env",
+        "available": False,
+    })
+
+    critical_failures = [c for c in checks if c["status"] == "critical"]
+    warnings = [c for c in checks if c["status"] == "warning"]
+    degraded = [c for c in checks if c["status"] == "degraded"]
+    if critical_failures:
+        status = "critical"
+    elif degraded:
+        status = "degraded"
+    elif warnings:
+        status = "warning"
+    else:
+        status = "ok"
+
+    return {
+        "status": status,
+        "goal": "L'exploitant configure Luna via un dashboard (Stripe, personnalisation, branding, limites) sans toucher au code.",
+        "checks": checks,
+        "subservices": subservices,
+        "metrics": metrics,
+        "auto_heal": auto_heal,
+    }
+
+
 async def _send_objectives_alert(failures: list, total: int) -> None:
     """Envoie une alerte Telegram ou SMS si des objectifs ne sont pas atteints."""
     bot_token = os.getenv("ALERT_TELEGRAM_BOT_TOKEN", "")
@@ -18886,6 +19435,10 @@ async def admin_objectives(request: Request):
     cartes_detail = await _check_objective_cartes()
     amis_detail = await _check_objective_amis()
     activites_detail = await _check_objective_activites()
+    monde_detail = await _check_objective_monde()
+    profil_detail = await _check_objective_profil()
+    quotas_detail = await _check_objective_quotas()
+    reglages_detail = await _check_objective_reglages()
 
     return {
         "score": f"{score}/{total}",
@@ -18899,6 +19452,10 @@ async def admin_objectives(request: Request):
         "cartes": cartes_detail,
         "amis": amis_detail,
         "activites": activites_detail,
+        "monde": monde_detail,
+        "profil": profil_detail,
+        "quotas": quotas_detail,
+        "reglages": reglages_detail,
         "summary_by_domain": {
             domain: {
                 "ok": sum(1 for r in results if r.get("domain") == domain and r.get("ok")),
