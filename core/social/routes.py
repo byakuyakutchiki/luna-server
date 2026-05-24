@@ -75,7 +75,13 @@ def _sanitize(text: str) -> str:
 # =====================================================================
 
 def _get_sops(request: Request):
-    """Get SocialRedisOps from app state."""
+    """Get SocialRedisOps from app state. Retourne None si Redis indisponible."""
+    try:
+        from luna_web import _redis_available
+        if not _redis_available():
+            return None
+    except (ImportError, AttributeError):
+        pass
     rc = getattr(request.app.state, "_redis_client", None)
     if rc is None:
         try:
@@ -923,7 +929,7 @@ async def heartbeat(request: Request):
     """Heartbeat de presence en ligne."""
     sops = _get_sops(request)
     if not sops:
-        return _unavailable()
+        return JSONResponse({"online": True, "pending_requests": 0, "unread_dm_count": 0})
     tid = _get_tenant_id(request)
     if tid is None:
         return _error("Non authentifie", 401)
