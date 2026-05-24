@@ -27,6 +27,18 @@ Ludo (voix) → ChatGPT reformule → Claude analyse + décide
      Claude implémente / valide → ChatGPT lit le résultat à Ludo
 ```
 
+### Protocole obligatoire avant toute modification
+
+```
+1. git pull origin main
+2. Lire CLAUDE.md (ce fichier)
+3. Lire docs/METHODE_TRAVAIL_FONDATEUR.md
+4. Lire le prompt actif : docs/PROMPT_CLAUDE_MONITORING_*.md
+5. Vérifier git log --oneline -5 (voir ce que l'autre IA vient de faire)
+6. Ne travailler que sur l'objectif indiqué dans "Tâche prioritaire actuelle"
+7. Ne pas toucher aux fichiers déjà en chantier par l'autre IA
+```
+
 ### Règles non-négociables
 
 1. **Claude a le dernier mot** sur toute modification production
@@ -35,6 +47,15 @@ Ludo (voix) → ChatGPT reformule → Claude analyse + décide
 4. **Anti-régression** : analyser les dépendances avant toute modification
 5. **Validation humaine obligatoire** pour : refactorisation, changement d'API, sécurité, licensing, migration BDD
 6. **Stabilité avant optimisation** : ne jamais casser une fonctionnalité stable pour un gain mineur
+7. **Zéro doublon** : si l'objectif est déjà implémenté ou en cours, passer au suivant
+
+### Axes de travail (éviter les doublons)
+
+| IA | Rôle principal |
+|---|---|
+| **Claude** | Implémentation code, revue des PR Codex, monitoring backend |
+| **Codex** | Préparation docs/prompts, UI/CSS, structure cahiers des charges |
+| **Ludo** | Vision fondateur, validation, arbitrage, définition des objectifs |
 
 ### Priorités fondateur
 
