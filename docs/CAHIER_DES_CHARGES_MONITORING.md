@@ -520,13 +520,23 @@ Statuts :
 
 ## 10. Cartes — Localisation Temps Réel
 
-**Objectif** : L'utilisateur peut lancer une session Guardian, partager sa position en temps réel avec ses contacts de confiance via un lien temporaire, et les contacts peuvent voir une position fraîche sur une carte sans avoir accès au compte complet.
+**Objectif** : L'utilisateur peut voir une carte vivante de l'écosystème Luna, partager sa présence de façon anonyme et consentie avec les autres utilisateurs qui le souhaitent, et basculer en mode Guardian pour transmettre sa position précise à ses contacts de confiance en cas de besoin.
 
-Cartes ne désigne pas une carte bancaire. Ici, l'objectif produit est la **carte de localisation live** : suivre, rassurer, partager temporairement, puis expirer proprement.
+Cartes ne désigne pas une carte bancaire. Ici, l'objectif produit est double :
+
+- **Carte communautaire façon Waze** : afficher des présences Luna anonymes ou floutées autour de soi, uniquement pour les utilisateurs ayant accepté d'apparaître.
+- **Carte Guardian urgence** : partager une position précise, temporaire et sécurisée avec les contacts de confiance lors d'une session Guardian ou d'un appel d'urgence.
+
+Par défaut, la carte doit protéger l'identité. Un autre utilisateur peut voir "un utilisateur Luna est dans cette zone", mais ne connaît pas son identité, ne peut pas le contacter et ne voit pas sa position exacte sans autorisation explicite.
 
 ### Étapes obligatoires
 - GuardianEngine actif (même engine que Guardian).
 - Page `/guardian` disponible côté utilisateur.
+- Mode carte communautaire disponible ou explicitement marqué non activé.
+- Consentement opt-in pour apparaître sur la carte communautaire.
+- Position communautaire anonymisée : précision réduite, zone approximative, pas de nom réel par défaut.
+- Les autres utilisateurs visibles seulement s'ils ont accepté d'apparaître.
+- Demande de révélation/contact possible uniquement avec accord de l'autre utilisateur.
 - Autorisation GPS demandée clairement au navigateur/APK.
 - Session Guardian créée avec `session_id`.
 - Position GPS mise à jour via HTTP et/ou WebSocket.
@@ -545,6 +555,10 @@ Cartes ne désigne pas une carte bancaire. Ici, l'objectif produit est la **cart
 | Sessions Redis accessibles | Chaque check | Erreur |
 | Routes Guardian live présentes | Chaque check | Route manquante |
 | Page `/guardian` présente | Chaque check | HTML absent |
+| Consentement carte communautaire | Chaque check | Statut inconnu |
+| Anonymisation position communautaire | Chaque check | Position exacte exposée |
+| Listing utilisateurs proches | Chaque check | Redis/World KO |
+| Demande révélation/contact | Chaque check | Pas de garde consentement |
 | Page `/guardian-live/{token}` présente | Chaque check | Route manquante |
 | Endpoint position publique présent | Chaque check | Route manquante |
 | WebSocket Guardian présent | Chaque check | Route manquante |
@@ -562,6 +576,9 @@ Cartes ne désigne pas une carte bancaire. Ici, l'objectif produit est la **cart
 - Session Guardian absente ou arrêtée
 - WebSocket coupé, mais HTTP polling possible
 - Lien public qui expose plus que la position nécessaire
+- Carte communautaire qui expose une position exacte ou une identité sans consentement
+- Utilisateur visible alors qu'il a désactivé le partage
+- Demande de contact/révélation envoyée sans garde consentement
 
 ### Réparation automatique
 - Token de partage auto-renouvelé si expiré pendant session active
@@ -569,24 +586,28 @@ Cartes ne désigne pas une carte bancaire. Ici, l'objectif produit est la **cart
 - Si Leaflet KO → fallback lien `maps.google.com/?q=lat,lng`
 - Si position ancienne → afficher statut "dernière position connue" au lieu de "live"
 - Si GPS refusé → message clair et mode manuel/adresse si disponible
+- Si opt-in communautaire absent → masquer l'utilisateur de la carte
+- Si anonymisation indisponible → désactiver la couche communautaire, garder Guardian privé
 
 ### Limites à ne pas franchir
 - Le monitoring ne doit jamais envoyer de SMS réel.
 - Le monitoring ne doit jamais déclencher de SOS réel.
 - Le token public ne doit jamais exposer l'identité complète, les contacts, les documents ou l'historique.
 - Une position ancienne ne doit pas être présentée comme une position temps réel.
+- La carte communautaire ne doit jamais afficher l'identité ou la position exacte d'un utilisateur sans consentement explicite.
+- Un utilisateur invisible/offline/opt-out ne doit jamais apparaître.
 - Ne pas considérer l'objectif atteint si seule la page carte existe.
 
 ### Preuve de réussite
 Un check complet doit prouver le parcours :
 
-`GuardianEngine → session → position → token public → live-position → page carte → expiration/stop`
+`opt-in carte → position anonymisée → utilisateurs proches anonymes → demande de révélation protégée → GuardianEngine → session → position précise → token public urgence → live-position → page carte → expiration/stop`
 
 Statuts :
-- `ok` : parcours live disponible avec position fraîche ou aucune session active mais infrastructure complète.
-- `warning` : aucune session active, GPS non testé, ou Leaflet dépend d'un CDN sans fallback.
-- `degraded` : WebSocket/Leaflet indisponible mais fallback HTTP ou lien carte utilisable.
-- `critical` : GuardianEngine, Redis, routes live ou endpoint position indisponibles.
+- `ok` : carte communautaire consentie/anonyme disponible et mode Guardian urgence prêt.
+- `warning` : carte communautaire non activée mais Guardian live complet, aucune session active, GPS non testé, ou Leaflet dépend d'un CDN sans fallback.
+- `degraded` : couche communautaire désactivée par sécurité, WebSocket/Leaflet indisponible mais fallback HTTP ou lien carte utilisable.
+- `critical` : GuardianEngine, Redis, routes live, anonymisation ou endpoint position indisponibles avec risque de fuite ou service inutilisable.
 
 ---
 

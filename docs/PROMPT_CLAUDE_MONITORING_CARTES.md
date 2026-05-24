@@ -16,7 +16,30 @@ Source de vérité :
 
 Ici, **Cartes** ne veut pas dire carte bancaire.
 
-L'objectif est la **carte de localisation temps réel Guardian** :
+L'objectif n'est pas seulement la carte Guardian privée. Ludo veut une expérience proche de Waze :
+
+- un utilisateur Luna peut voir qu'il y a d'autres utilisateurs Luna autour ;
+- les autres utilisateurs sont anonymes par défaut ;
+- leur position peut être arrondie/floutée par zone ;
+- leur identité n'est révélée que s'ils l'autorisent ;
+- un utilisateur opt-out n'apparaît jamais ;
+- en cas d'urgence, Luna peut partager une position précise aux contacts de confiance.
+
+Il y a donc deux couches :
+
+1. **Carte communautaire consentie/anonyme**
+   - présence Luna approximative ;
+   - opt-in obligatoire ;
+   - identité masquée par défaut ;
+   - demande de révélation/contact soumise à accord.
+
+2. **Carte Guardian urgence**
+   - position précise ;
+   - session Guardian ;
+   - lien temporaire vers contacts de confiance ;
+   - expiration propre.
+
+L'objectif Guardian existant reste nécessaire :
 
 - l'utilisateur lance une session Guardian ;
 - son téléphone envoie une position GPS ;
@@ -27,10 +50,17 @@ L'objectif est la **carte de localisation temps réel Guardian** :
 
 ## Objectif utilisateur
 
-L'utilisateur doit pouvoir partager sa position en direct avec un contact de confiance, sans donner accès à tout son compte Luna.
+L'utilisateur doit pouvoir utiliser la carte de deux façons :
+
+- **Mode communauté** : voir des présences Luna anonymes autour de lui, sans exposer les identités ni les positions exactes sans consentement.
+- **Mode urgence/Guardian** : partager sa position précise avec ses contacts de confiance, sans donner accès à tout son compte Luna.
 
 L'objectif est atteint seulement si :
 
+- un consentement opt-in contrôle l'apparition sur la carte communautaire ;
+- l'identité et la position exacte sont masquées par défaut ;
+- un autre utilisateur ne peut révéler/contacter quelqu'un qu'avec accord ;
+- la couche communautaire peut lister des présences anonymes proches ;
 - GuardianEngine est disponible ;
 - une session peut exister ;
 - la position peut être envoyée par HTTP ou WebSocket ;
@@ -63,6 +93,10 @@ Vérifier au minimum :
 - `_get_guardian()` disponible ;
 - `core.guardian.engine.GuardianEngine` importable ;
 - Redis accessible ;
+- une structure de consentement/présence communautaire existe, ou le check signale `warning` si la feature n'est pas encore codée ;
+- la position communautaire est anonymisée/floutée et ne réutilise pas la position exacte Guardian ;
+- un utilisateur opt-out ne peut pas apparaître ;
+- une demande de contact/révélation nécessite un accord explicite ;
 - routes présentes :
   - `/guardian`
   - `/api/guardian/start`
@@ -83,6 +117,11 @@ Vérifier au minimum :
 
 | Sous-service | Ce qui doit être vérifié |
 |---|---|
+| community_opt_in | opt-in/opt-out pour apparaître sur la carte |
+| anonymized_presence | position approximative, pas position exacte |
+| nearby_users | listing de présences anonymes proches |
+| reveal_request | demande de révélation/contact protégée par consentement |
+| opt_out_privacy | utilisateur opt-out jamais visible |
 | guardian_engine | moteur disponible |
 | session_lifecycle | start/status/stop présents |
 | gps_ingest | endpoint location + validation lat/lng |
@@ -101,11 +140,15 @@ Ne pas déclencher de vrai SOS, de vrai SMS, ni de vraie alerte contact.
 
 Le test monitoring peut rester structurel, mais il doit pouvoir prouver :
 
-1. Les routes live existent.
-2. Redis peut stocker une clé de partage avec TTL.
-3. La page live sait interroger `/api/guardian/live-position/{token}`.
-4. Une position trop ancienne déclenche un statut `warning/degraded`.
-5. L'absence de session active n'est pas critique si l'infrastructure est complète.
+1. La couche communautaire est soit disponible, soit clairement `warning` si non codée.
+2. L'opt-in/opt-out est vérifiable.
+3. La position communautaire n'expose pas la latitude/longitude exacte d'un utilisateur sans consentement.
+4. La demande de révélation/contact passe par un garde consentement.
+5. Les routes Guardian live existent.
+6. Redis peut stocker une clé de partage avec TTL.
+7. La page live sait interroger `/api/guardian/live-position/{token}`.
+8. Une position trop ancienne déclenche un statut `warning/degraded`.
+9. L'absence de session active n'est pas critique si l'infrastructure est complète.
 
 ## Statuts attendus
 
@@ -113,25 +156,25 @@ Le test monitoring peut rester structurel, mais il doit pouvoir prouver :
 ok
 ```
 
-Infrastructure complète. Si aucune session active existe, ce n'est pas une panne.
+Carte communautaire consentie/anonyme disponible + Guardian live prêt. Si aucune session active existe, ce n'est pas une panne.
 
 ```text
 warning
 ```
 
-Aucune session active, aucune position récente, ou dépendance Leaflet CDN sans fallback local.
+Carte communautaire pas encore activée mais Guardian live complet, aucune session active, aucune position récente, ou dépendance Leaflet CDN sans fallback local.
 
 ```text
 degraded
 ```
 
-WebSocket indisponible mais polling HTTP possible, ou Leaflet indisponible mais fallback lien carte possible.
+Couche communautaire désactivée par sécurité, WebSocket indisponible mais polling HTTP possible, ou Leaflet indisponible mais fallback lien carte possible.
 
 ```text
 critical
 ```
 
-GuardianEngine, Redis, routes live ou endpoint position indisponibles.
+GuardianEngine, Redis, routes live, endpoint position ou protection anonymat/consentement indisponibles avec risque de fuite ou service inutilisable.
 
 ## Auto-heal attendu
 
@@ -142,6 +185,9 @@ GuardianEngine, Redis, routes live ou endpoint position indisponibles.
 | Leaflet/CDN KO | fallback lien Google Maps |
 | GPS refusé | message clair + mode adresse/position manuelle si disponible |
 | Position trop ancienne | afficher "dernière position connue" |
+| Opt-in absent | masquer l'utilisateur de la carte communautaire |
+| Anonymisation indisponible | désactiver la couche communautaire |
+| Demande révélation sans consentement | bloquer et demander accord |
 | Redis KO | statut `critical`, pas de faux live |
 
 ## Limites à respecter
@@ -150,6 +196,8 @@ GuardianEngine, Redis, routes live ou endpoint position indisponibles.
 - Ne jamais déclencher de SOS réel.
 - Ne jamais créer une fausse session qui alerte quelqu'un.
 - Ne pas exposer les contacts, documents, profil, historique ou identité complète via token public.
+- Ne jamais exposer une identité ou une position exacte dans la carte communautaire sans consentement explicite.
+- Ne jamais afficher un utilisateur opt-out.
 - Ne pas toucher à `static/index.html` dans ce chantier.
 
 ## Sortie souhaitée
@@ -162,4 +210,3 @@ Merci de produire :
 4. Les auto-heal proposés.
 5. Un résumé des fichiers modifiés.
 6. Comment tester sans SMS, sans SOS réel, et sans contact réel.
-
