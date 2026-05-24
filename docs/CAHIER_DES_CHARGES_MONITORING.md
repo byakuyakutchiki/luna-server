@@ -310,20 +310,45 @@ Le bloc `services` doit être structuré pour afficher une vue globale et un dé
 
 ## 6. Documents — Vault IA
 
-**Objectif** : L'utilisateur scanne, classe et retrouve tous ses documents importants (identité, santé, factures, contrats, famille). Luna sait quels documents existent pour les utiliser dans ses réponses.
+**Objectif** : L'utilisateur dispose d'un **grand porte-document de vie courante**. Il scanne ses documents, Luna les classe dans les bons répertoires, les rend visibles dans une bibliothèque claire, et peut ensuite les retrouver, les expliquer et proposer l'action utile : relancer, payer, générer un courrier, appeler un organisme, préparer un formulaire, ou rappeler une échéance.
+
+Le document n'est pas seulement une pièce stockée : c'est un élément vivant de l'assistance Luna. Quand l'utilisateur demande "est-ce que j'ai ma facture EDF ?", "qu'est-ce que je dois faire avec ce courrier ?", ou "peux-tu me préparer une réponse ?", Luna doit savoir si le document existe, où il est rangé, ce qu'il contient, et quelle action proposer.
+
+### Répertoires attendus
+
+| Répertoire | Exemples de documents | Objectif Luna |
+|---|---|---|
+| Identité | CNI, passeport, titre de séjour, permis | Retrouver les pièces, surveiller expirations, remplir formulaires |
+| Santé | Carte vitale, mutuelle, ordonnances, comptes-rendus médicaux | Aider à préparer démarches santé et rappels |
+| Domicile | Factures EDF/gaz/eau, internet, assurance habitation, bail | Suivre contrats, factures, changements d'adresse |
+| Finances | RIB, relevés bancaires, crédits, avis d'imposition | Retrouver justificatifs, aider aux dossiers administratifs |
+| Travail / retraite | Contrats, fiches de paie, attestations, pension | Préparer dossiers, courriers, justificatifs |
+| Famille | Livret de famille, documents enfants, autorisations | Retrouver pièces familiales utiles |
+| Véhicule | Carte grise, assurance auto, contrôle technique, amendes | Suivre échéances et démarches |
+| Assurances | Habitation, auto, santé, responsabilité civile | Retrouver contrats et générer courriers |
+| Administratif | CAF, CPAM, impôts, mairie, préfecture, justice | Comprendre le courrier et proposer la prochaine action |
+| Factures / achats | EDF, téléphone, abonnements, garanties, tickets importants | Suivre paiements, garanties, litiges |
+| Urgence | Contacts, directives, documents critiques | Accès rapide aux documents essentiels |
+| Autres | Tout document non reconnu | Classer provisoirement puis proposer reclassement |
 
 ### Étapes obligatoires
 - Module Vault chargé (`core.vault`)
 - Consentement utilisateur donné (`has_consent()`)
 - Documents indexés en Redis avec métadonnées (type, date, expiration, résumé IA)
-- Catégories disponibles : identité, santé, factures, contrats, administratif, famille, urgence
+- Répertoires disponibles : identité, santé, domicile, finances, travail/retraite, famille, véhicule, assurances, administratif, factures/achats, urgence, autres
+- Vue bibliothèque disponible : liste, recherche, catégories, timeline, documents urgents, actions suggérées
 - Luna peut répondre "tu as un passeport expirant le JJ/MM/AAAA" depuis le chat
+- Luna peut répondre "oui, j'ai retrouvé ta facture EDF de mars" puis proposer une action : lire, résumer, générer un courrier, appeler, créer un rappel, préparer un formulaire
 
 ### Points de contrôle
 | Contrôle | Fréquence | Seuil d'alerte |
 |---|---|---|
 | Module Vault disponible | Chaque check | Import échoué |
 | Documents lisibles en Redis | Chaque check | Erreur |
+| Répertoires / types disponibles | Chaque check | Catalogue vide |
+| Dashboard porte-document lisible | Chaque check | Route/page KO |
+| Recherche document fonctionnelle | Chaque check | Résultat impossible |
+| Actions suggérées disponibles | Chaque check | Engine actions KO |
 | Consentement donné | Chaque check | Non (avertissement) |
 | Rappels documents actifs | Hebdomadaire | Expirations non détectées |
 
@@ -331,13 +356,22 @@ Le bloc `services` doit être structuré pour afficher une vue globale et un dé
 - Consentement non donné → aucun document scanné
 - PDF illisible (OCR échoué)
 - Document classé dans mauvaise catégorie
+- Document stocké mais invisible dans le dashboard
+- Document retrouvé sans action utile proposée
+- Facture/courrier administratif non compris par Luna
+- Expiration détectée mais aucun rappel généré
 
 ### Réparation automatique
 - Relance OCR si résultat vide
 - Reclassement via IA si catégorie = `unknown`
+- Reconstruction des index par type depuis la liste globale
+- Reconstruction des rappels depuis les dates d'expiration
+- Fallback vers dossier `Autres` si classification incertaine, avec proposition de reclassement
 
 ### Réparation semi-auto
 - Alerte : "Consentement Vault non donné — demander à l'utilisateur d'autoriser le scan"
+- Alerte : "Document visible en Redis mais absent du dashboard — reconstruire index"
+- Alerte : "Document classé Autres — proposer reclassement manuel ou IA"
 
 ---
 

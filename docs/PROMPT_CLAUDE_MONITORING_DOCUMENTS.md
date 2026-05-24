@@ -12,6 +12,21 @@ Source de vérité :
 - Section `## 6. Documents — Vault IA`
 - Méthode fondateur : `docs/METHODE_TRAVAIL_FONDATEUR.md`
 
+## Vision produit
+
+Documents doit être compris comme un **grand porte-document personnel**.
+
+L'utilisateur doit pouvoir scanner n'importe quel document de vie courante, le retrouver dans une bibliothèque visible, et demander à Luna :
+
+- "Est-ce que j'ai cette facture EDF ?"
+- "Retrouve-moi mon avis d'imposition."
+- "Qu'est-ce que je dois faire avec ce courrier ?"
+- "Est-ce que tu peux générer une réponse ?"
+- "Est-ce qu'il faut appeler quelqu'un ?"
+- "Est-ce qu'il y a une échéance à surveiller ?"
+
+Luna ne doit pas seulement stocker : elle doit ranger, rendre visible, comprendre, expliquer, et proposer la prochaine action.
+
 ## Objectif utilisateur
 
 L'utilisateur doit pouvoir scanner, classer, retrouver et exploiter ses documents importants sans perdre le contrôle de ses données.
@@ -21,11 +36,52 @@ L'objectif est atteint seulement si :
 - le consentement RGPD est vérifiable ;
 - un document peut être scanné après consentement ;
 - Luna extrait des métadonnées utiles ;
-- le document est classé ;
-- il est visible dans le dashboard ;
+- le document est classé dans le bon répertoire ;
+- il est visible dans le dashboard / porte-document ;
+- l'utilisateur peut le retrouver par recherche, catégorie ou timeline ;
 - les rappels d'expiration sont détectables ;
+- Luna peut proposer une action utile selon le document ;
 - les données extraites peuvent alimenter le profil/formulaire quand c'est autorisé ;
 - la suppression et la révocation du consentement fonctionnent.
+
+## Répertoires attendus
+
+Le monitoring doit vérifier que le système sait au moins représenter ces grands répertoires :
+
+| Répertoire | Exemples | Actions Luna attendues |
+|---|---|---|
+| Identité | CNI, passeport, titre de séjour, permis | surveiller expiration, remplir formulaire, retrouver justificatif |
+| Santé | carte vitale, mutuelle, ordonnances, comptes-rendus | retrouver info, préparer dossier, créer rappel |
+| Domicile | EDF, gaz, eau, internet, bail, assurance habitation | retrouver facture, expliquer courrier, suivre contrat |
+| Finances | RIB, relevés, crédits, avis d'imposition | préparer justificatif, analyser échéance |
+| Travail / retraite | contrat, fiche de paie, attestation, pension | retrouver preuve, générer courrier |
+| Famille | livret de famille, documents enfants | retrouver pièce familiale |
+| Véhicule | carte grise, assurance, contrôle technique, amende | rappeler échéance, préparer contestation/courrier |
+| Assurances | habitation, auto, santé, responsabilité civile | retrouver garanties, générer résiliation/demande |
+| Administratif | CAF, CPAM, impôts, mairie, préfecture, justice | expliquer le courrier, proposer prochaine action |
+| Factures / achats | achats, garanties, abonnements, téléphone | suivre paiement, garantie, litige |
+| Urgence | documents critiques, contacts, directives | accès rapide en situation critique |
+| Autres | document non reconnu | classer provisoirement puis proposer reclassement |
+
+## Objectif IA associé
+
+Pour chaque document important, Luna doit pouvoir produire une réponse orientée action :
+
+```text
+Oui, j'ai retrouvé ta facture EDF de mars 2026.
+Elle est rangée dans Domicile > Energie.
+Elle concerne 84,20 EUR, échéance au 12 avril 2026.
+Tu veux que je la résume, que je crée un rappel, ou que je prépare un courrier ?
+```
+
+Le monitoring doit donc distinguer :
+
+- document scanné ;
+- document classé ;
+- document visible ;
+- document retrouvable ;
+- document compréhensible ;
+- action suggérée disponible.
 
 ## Surfaces code à lire
 
@@ -63,7 +119,7 @@ Quand `/api/admin/objectives` sera prêt à recevoir ce bloc, ajouter :
 {
   "documents": {
     "status": "warning",
-    "goal": "L'utilisateur scanne, classe, retrouve et exploite ses documents importants avec consentement RGPD.",
+    "goal": "L'utilisateur dispose d'un grand porte-document : il scanne, range, retrouve et exploite ses documents de vie courante avec Luna.",
     "checks": [],
     "subservices": {},
     "metrics": {},
@@ -82,10 +138,13 @@ Vérifier sans déclencher de scan réel :
 - `VaultRedisOps` importable ;
 - `classify_document` importable ;
 - `DOC_TYPES` non vide ;
+- répertoires / types de documents couvrent la vie courante ;
 - routes documents v2 présentes ;
 - `core.documents.actions_engine` importable ;
 - client IA disponible pour scan (`openai_client`) ;
 - dashboard `static/documents.html` présent ;
+- recherche / timeline / catégories disponibles ;
+- actions suggérées disponibles ;
 - aucun crash si consentement absent.
 
 ## Sous-services
@@ -137,6 +196,8 @@ Checks :
 - `list_docs()` fonctionne ;
 - `get_doc()` fonctionne ;
 - index par type disponible ;
+- les documents peuvent être regroupés par répertoire ;
+- un document stocké est visible dans le dashboard ;
 - TTL document connu ;
 - erreurs Redis capturées proprement.
 
@@ -148,7 +209,7 @@ Statuts :
 
 ### Dashboard documents v2
 
-Objectif : l'utilisateur voit ses documents et les actions prioritaires.
+Objectif : l'utilisateur voit son porte-document et les actions prioritaires.
 
 Checks :
 
@@ -157,6 +218,9 @@ Checks :
 - `/api/documents/v2/categories` présent ;
 - `static/documents.html` appelle les bons endpoints ;
 - dashboard vide affiche un état propre.
+- les catégories montrent les répertoires de vie courante ;
+- les documents urgents / expirés remontent ;
+- les actions prioritaires sont visibles.
 
 Statuts :
 
@@ -218,24 +282,71 @@ Statuts :
 - `ok` : suppression disponible ;
 - `critical` : suppression impossible ou révocation incomplète.
 
+### Recherche et question-réponse documentaire
+
+Objectif : Luna peut retrouver un document à partir d'une demande naturelle.
+
+Checks :
+
+- recherche par titre / émetteur / référence disponible ;
+- recherche par catégorie disponible ;
+- le dashboard expose une timeline ou liste exploitable ;
+- le chat ou les outils peuvent interroger les documents ;
+- si document trouvé, Luna propose une action utile.
+
+Statuts :
+
+- `ok` : document retrouvable + action suggérée ;
+- `warning` : recherche vide car aucun document ;
+- `degraded` : documents visibles mais recherche limitée ;
+- `critical` : documents stockés mais impossibles à retrouver.
+
+### Actions proposées depuis un document
+
+Objectif : chaque document utile peut déclencher une suite logique.
+
+Exemples d'actions :
+
+- résumer le document ;
+- expliquer ce qu'il faut faire ;
+- générer un courrier ;
+- appeler un organisme ou un contact ;
+- créer un rappel ;
+- préparer un formulaire ;
+- classer / reclasser ;
+- marquer comme traité ;
+- supprimer.
+
+Checks :
+
+- `core.documents.actions_engine` disponible ;
+- `/api/documents/v2/actions/{doc_id}` répond ;
+- `/api/documents/v2/actions/execute` existe ;
+- les actions dangereuses ou engageantes demandent confirmation.
+
 ## Exemple JSON attendu
 
 ```json
 {
   "status": "warning",
-  "goal": "L'utilisateur scanne, classe, retrouve et exploite ses documents importants avec consentement RGPD.",
+  "goal": "L'utilisateur dispose d'un grand porte-document : il scanne, range, retrouve et exploite ses documents de vie courante avec Luna.",
   "checks": [
     {"name": "vault_module_importable", "status": "ok"},
     {"name": "vault_routes_available", "status": "ok"},
     {"name": "redis_available", "status": "ok"},
     {"name": "doc_types_available", "status": "ok"},
-    {"name": "documents_v2_dashboard_available", "status": "ok"}
+    {"name": "documents_v2_dashboard_available", "status": "ok"},
+    {"name": "document_search_available", "status": "ok"},
+    {"name": "document_actions_available", "status": "ok"}
   ],
   "subservices": {
     "consent": {"status": "warning", "critical": true, "message": "Consentement absent mais lisible"},
     "scan_classification": {"status": "ok", "critical": true},
     "document_index": {"status": "warning", "critical": true, "metrics": {"documents": 0}},
     "dashboard_v2": {"status": "ok", "critical": false},
+    "folders": {"status": "ok", "critical": false, "metrics": {"folders": 12}},
+    "search_retrieval": {"status": "warning", "critical": false, "message": "Aucun document à rechercher"},
+    "document_actions": {"status": "ok", "critical": false},
     "reminders": {"status": "warning", "critical": false, "metrics": {"upcoming": 0}},
     "profile_bridge": {"status": "warning", "critical": false, "metrics": {"completeness": 0}},
     "deletion_rgpd": {"status": "ok", "critical": true}
@@ -243,6 +354,7 @@ Statuts :
   "metrics": {
     "documents_count": 0,
     "doc_types_count": 0,
+    "folders_count": 0,
     "upcoming_reminders": 0,
     "expired_documents": 0,
     "urgent_documents": 0,
@@ -264,6 +376,8 @@ Sans action destructive automatique :
 - OCR vide → demander nouvelle photo ou relance contrôlée ;
 - document expirant sans rappel → reconstruire rappel depuis `date_expiration` ;
 - index type manquant → reconstruire `vault:docs_by_type:*` depuis `vault:docs` ;
+- document sans dossier clair → ranger dans `Autres` puis proposer reclassement ;
+- document stocké mais invisible → reconstruire dashboard/timeline depuis Redis ;
 - dashboard v2 KO mais Vault OK → fallback vers `/api/vault/docs`.
 
 ## Contraintes fortes
@@ -285,5 +399,8 @@ Sans action destructive automatique :
 6. Scanner un document de test non sensible.
 7. Vérifier `/api/vault/docs`.
 8. Vérifier `/api/documents/v2/dashboard`.
-9. Vérifier qu'une suppression retire document + rappels.
-10. Révoquer le consentement et vérifier que les documents sont supprimés.
+9. Vérifier que le document est visible dans le bon répertoire.
+10. Vérifier qu'une recherche simple retrouve le document.
+11. Vérifier que Luna peut proposer une action : résumé, courrier, rappel ou appel.
+12. Vérifier qu'une suppression retire document + rappels.
+13. Révoquer le consentement et vérifier que les documents sont supprimés.
