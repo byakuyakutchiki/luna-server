@@ -276,13 +276,15 @@ fondateur.html               — section voix avec chronologie
 
 ### Validation
 
-- [ ] Schéma événements validé par Claude
-- [ ] DeepSeek a proposé les points d'injection dans `startVoice()`
-- [ ] Kimi a rédigé les textes fondateur
-- [ ] Cursor a vérifié la cohérence UI
-- [ ] Claude a implémenté `POST /api/apk/event`
-- [ ] Claude a mis à jour le diagnostic avec les événements voix
-- [ ] Ludovic a validé avant déploiement
+- [x] Schéma événements validé par Claude
+- [x] Claude a implémenté `POST /api/apk/event` (commit 7c31a2a)
+- [x] Claude a mis à jour `_analyze_voice_events()` avec textes Kimi
+- [x] Claude a mis à jour `fondateur.html` section 🎙️ Voix APK
+- [x] Kimi a rédigé les textes fondateur (intégrés, branche `kimi/objectif-005-events-voix`)
+- [ ] DeepSeek doit refaire audit sur `origin/main` (voir `CLAUDE_TO_DEEPSEEK_005_UPDATE.md`)
+- [ ] Cursor doit vérifier la cohérence UI et non-régression `startVoice()`
+- [ ] **Heartbeat réel APK reçu** ← BLOQUANT — rebuild APK nécessaire
+- [ ] **Ludovic valide avant déploiement** ← BLOQUANT
 - [ ] Test réel : bouton vocal → `voice_no_audio_after_timeout` visible dans cockpit
 
 ---

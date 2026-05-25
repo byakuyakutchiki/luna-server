@@ -1,6 +1,6 @@
 # Tableau de bord — Orchestration Luna
 
-Mis à jour : 2026-05-25
+Mis à jour : 2026-05-25 (après vérification GitHub par Ludovic)
 
 ## Rôles et outils
 
@@ -17,10 +17,10 @@ Mis à jour : 2026-05-25
 
 | Agent | Statut | Objectif en cours | Dernier commit |
 |---|---|---|---|
-| Claude | **004 déployé** | 005 schéma événements voix — en attente heartbeat réel | b9a42e8 |
-| Codex | **à solliciter** | 005 cadrage PR + garde-fous voix | — |
-| DeepSeek | **à solliciter** | 005 injection `startVoice()` + timer 20s | — |
-| Kimi Code CLI | **à solliciter** | 005 textes cockpit voix : sait / suppose / recommande | — |
+| Claude | **005 implémenté** | En attente heartbeat réel APK avant déploiement | 7c31a2a |
+| Codex | **avis en cours** | 005 garde-fous PR (branches `codex/journal-fondateur`, `codex/priorite-heartbeat-apk`) | — |
+| DeepSeek | **avis OBSOLÈTE** | Refaire audit sur `origin/main` — voir `CLAUDE_TO_DEEPSEEK_005_UPDATE.md` | f0855c1 |
+| Kimi Code CLI | **avis rendu** | 005 textes cockpit voix intégrés dans fondateur.html (commit 7c31a2a) | 752b999 |
 | Cursor | **à solliciter** | 005 cohérence UI + vérif non-régression `startVoice()` | — |
 
 ## Flux de travail standard
