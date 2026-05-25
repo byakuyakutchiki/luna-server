@@ -118,7 +118,7 @@ Pour chaque objectif, il faut produire :
 
 ## Tâche prioritaire actuelle
 
-**Objective 008-stabilité — OUVERT** 🔄 Corriger les coupures audio Luna
+**Objective 009 — OUVERT** 🔄 Corriger les coupures audio Luna — diagnostic multi-agents
 
 ### Statut Objectives
 
@@ -126,55 +126,68 @@ Pour chaque objectif, il faut produire :
 |---|---|---|
 | 001-006 | ✅ Baseline | Monitoring de base implémenté sur 10 zones |
 | 007 Télémétrie Voix | ✅ **TERMINÉ** | 11 événements remontés en test réel |
-| 008 Voix Pipeline | ✅ **VALIDÉ PARTIELLEMENT** | Cause OpenAI quota insuffisant identifiée + corrigée, pipeline fonctionne |
-| **008-stabilité Coupures** | 🔄 **EN COURS** | Luna commence à parler puis coupe — diagnostic de la cause |
-| 007-bis Refresh APK | 📋 **Planned** | pull-to-refresh + apk_manual_refresh_triggered |
+| 008 Voix Pipeline | ✅ **VALIDÉ PARTIELLEMENT** | Cause OpenAI quota insuffisant identifiée + corrigée |
+| 008-stabilité Coupures | 🔄 **FUSIONNÉ AVEC 009** | Objectif 009 plus complet multi-agents |
+| **009 Stabilité Voix** | 🔄 **EN COURS** | Diagnostic multi-agents de coupures audio |
 
-### Objective 008 — Résultat validation partielle (2026-05-25 19:30)
+### Objective 009 — Stabilité voix Luna
 
-**Ludovic téléphone — Après recharge OpenAI**
+**Problème** : Luna s'arrête parfois de parler / coupe la réponse sans raison claire
+
+**Approche** : Diagnostic multi-agents coordonné, correction minimale
+
+**Agents et missions** :
+
+| Agent | Mission | Deadline |
+|---|---|---|
+| **Ludovic** 🔴 | Test réel + heure exacte + observation | ASAP |
+| **Claude** 🔵 | Lead : logs serveur, cause probable, correction | 30min après Ludovic |
+| **DeepSeek** 🟠 | Télémétrie APK, seuils incident, diagnostics type | Parallèle Claude |
+| **Kimi** 🟢 | Textes cockpit clairs et non-culpabilisants | Après Claude |
+| **Cursor** 🟡 | UI mobile vérification, états vocaux | Parallèle DeepSeek |
+| **Codex** ⚪ | Coordination, synthèse, garde-fous | Final |
+
+**Points à investiguer** (Claude priority order) :
+
+1. **Logs Cloud Run** à heure exacte de Ludovic
+   - /ws/luna-voice ouvert/fermé quand ?
+   - Code fermeture WS (1000 vs autre) ?
+
+2. **OpenAI Realtime state**
+   - Timeout après combien de secondes ?
+   - VAD a arrêté la génération ?
+   - response.audio.delta complète ou non ?
+
+3. **WebSocket fermé par qui ?**
+   - Serveur côté Luna ?
+   - Client APK ?
+
+4. **Correction proposée**
+   - Minimal : 1-3 lignes max
+   - Pas de refactor WebSocket
+   - Pas de changement modèle OpenAI
+
+**Livrables attendus** :
+
+1. Ludovic : heure exacte + comportement test
+2. Claude : cause probable + logs preuve + correction + risques
+3. DeepSeek : seuils incident + diagnostics + `DEEPSEEK_AVIS_009.md`
+4. Kimi : textes cockpit par zone + `KIMI_AVIS_009.md`
+5. Cursor : screenshots UI + propositions + `CURSOR_AVIS_009.md`
+6. Codex : synthèse `DECISION_FINALE_009.md` + validation checklist
+
+**Timeline estimée** : ~2h30 (Ludovic 15min + Claude 30min + DeepSeek 30min + Kimi 20min + Cursor 20min + Codex 30min)
+
+**Documentation complète** : `docs/AGENTS_COLLABORATION/OBJECTIF_009_STABILITE_VOIX.md`
+
+**Status avant Objective 009** :
 
 ```
-✅ Heartbeat OK
-✅ Télémétrie voix OK (11 événements)
-✅ Audio envoyé côté client
-✅ Pipeline APK → serveur → OpenAI Realtime → réponse audio validé
-✅ Modèle : gpt-4o-realtime-preview-2024-12-17
-⚠️ Voix fonctionne MAIS coupe/s'arrête sans raison
-
-CAUSE IDENTIFIÉE : OpenAI quota insuffisant (insufficient_quota)
-SOLUTION APPLIQUÉE : Recharge du compte OpenAI
-APPRENTISSAGE : Points à ne plus chercher :
-  - Cause principale n'est PAS l'APK
-  - Cause principale n'est PAS le cache
-  - Cause principale n'est PAS le WebSocket client
+✅ Voix fonctionne avec gpt-realtime-mini
+✅ Pipeline valide : APK → serveur → OpenAI → audio retour
+✅ Cause du silence total résolue : OpenAI quota
+⚠️ Problème restant : Luna coupe/s'arrête pendant conversation
 ```
-
-**Documentation** : `docs/AGENTS_COLLABORATION/OBJECTIF_008_VOIX_VALIDATION_PARTIELLE.md`
-
-### Objective 008-stabilité — Mission Claude
-
-**Priorité** : haute (utilisateur entend Luna mais c'est décousu)
-
-**Problème** : Luna commence à parler mais coupe / s'arrête sans raison claire
-
-**Points à investiguer** :
-
-1. **Durée session OpenAI Realtime** — timeout côté OpenAI ?
-2. **WebSocket fermé prématurément** — qui ferme et pourquoi ?
-3. **Timeout audio côté client** — timer 20s silence interfère-t-il ?
-4. **Buffer playback** — Apollo vide-t-il le buffer trop tôt ?
-5. **Logs serveur** — erreurs OpenAI entre réception audio et génération réponse ?
-6. **Télémétrie** — ajouter `voice_audio_cut` / `voice_playback_stopped_early`
-
-**Assigné** : Claude lead + DeepSeek audit code
-**Livrables** : Cause probable + correction minimale + tests sans audio réel
-**Validation** : Ludovic test téléphone
-**Branche** : `ds/objectif-008-stabilite-voix`
-
-**Règle** : Pas de gros refactor, correction ciblée uniquement
-
-## Archive objectif précédent — Amis
 
 ## Archive objectif précédent — Cartes
 

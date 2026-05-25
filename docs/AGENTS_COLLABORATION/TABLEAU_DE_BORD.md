@@ -1,6 +1,6 @@
 # Tableau de bord — Orchestration Luna
 
-Mis à jour : 2026-05-25 19:35 (008 voix validée partiellement · ouverture 008-stabilité — diagnostiquer coupures audio)
+Mis à jour : 2026-05-25 19:45 (ouverture objectif 009 — diagnostic multi-agents stabilité voix)
 
 ## Rôles et outils
 
@@ -15,37 +15,45 @@ Mis à jour : 2026-05-25 19:35 (008 voix validée partiellement · ouverture 008
 
 ## État actuel des agents
 
-| Agent | Statut | Objectif en cours | Dernier commit |
+| Agent | Statut | Objectif en cours | Branche |
 |---|---|---|---|
-| Claude | **lead 008-stabilité** | Investigation lecture seule : logs Cloud Run, web_voice_bridge.py, OpenAI session timeouts | — |
-| Codex | **à solliciter 008-stabilité** | Garde-fous, correction minimale, pas de gros refactor voix | — |
-| DeepSeek | **à solliciter 008-stabilité** | Audit startVoice(), timer 20s, playback queue, détection arrêt prématuré | — |
-| Kimi Code CLI | **à solliciter 008-stabilité** | Textes cockpit coupures audio : observation et recommandations | — |
-| Cursor | **à solliciter 008-stabilité** | Intégration UI cockpit, vérifier non-régression frontend | — |
+| Claude | **lead 009** | Investigation logs serveur, logs /ws/luna-voice, OpenAI state, cause probable | — |
+| DeepSeek | **à solliciter 009** | Télémétrie APK, seuils incident, diagnostics type, avis technique | `ds/objectif-009-*` |
+| Kimi Code CLI | **à solliciter 009** | Textes cockpit : observe / suppose / recommande / ne peut pas | `kimi/objectif-009-*` |
+| Cursor | **à solliciter 009** | UI mobile : états vocaux, overlay, boutons, chronologie après coupure | `cursor/objectif-009-*` |
+| Codex | **à solliciter 009** | Coordination, synthèse, garde-fous, checklist validation | `codex/objectif-009-*` |
 
 ## Objectif actif prioritaire
 
-**Objectif 008-stabilité — Corriger les coupures audio Luna**
+**Objectif 009 — Stabilité voix Luna : diagnostiquer et corriger les coupures audio**
 
-**Status Objective 008 (voix)** : ✅ Validée partiellement
+**Status Objective 008** : ✅ Validée partiellement
 ```
-Cause identifiée : OpenAI quota insuffisant (insufficient_quota)
-Solution appliquée : Recharge compte OpenAI
-Résultat : Voix fonctionne maintenant ✅
-Problème restant : Luna coupe/s'arrête pendant la parole
+Cause identifiée et corrigée : OpenAI quota insuffisant
+Voix fonctionne maintenant ✅
+Problème restant : Luna coupe/s'arrête sans raison
 ```
 
-**Mission 008-stabilité** : Diagnostiquer et corriger les arrêts audio prématurés
+**Mission 009** : Diagnostic multi-agents coordonné de pourquoi la voix coupe
 
-Points à investiguer :
-1. Durée session OpenAI Realtime — timeout ?
-2. WebSocket fermé prématurément — qui et pourquoi ?
-3. Timer 20s silence — interfère-t-il avec le playback ?
-4. Buffer playback Apollo — vide-t-il trop tôt ?
-5. Logs serveur — erreurs OpenAI entre audio reçu et réponse ?
-6. Télémétrie — ajouter `voice_audio_cut` pour tracer les coupures
+**Processus** :
+1. Ludovic teste réel (téléphone) + note heure exacte HH:MM:SS
+2. Claude lit logs Cloud Run au moment exact
+3. DeepSeek analyse télémétrie APK + seuils
+4. Kimi rédige diagnostics cockpit
+5. Cursor vérifie UI mobile pendant/après coupure
+6. Codex synthétise → prêt pour correction
 
-Document : `docs/AGENTS_COLLABORATION/OBJECTIF_008_VOIX_VALIDATION_PARTIELLE.md`
+**Livrables attendus** :
+- Claude : cause probable + correction minimale (1-3 lignes)
+- DeepSeek : seuils incident + `DEEPSEEK_AVIS_009.md`
+- Kimi : textes cockpit + `KIMI_AVIS_009.md`
+- Cursor : screenshots UI + `CURSOR_AVIS_009.md`
+- Codex : synthèse + `DECISION_FINALE_009.md`
+
+**Timeline** : ~2h30 total (Ludovic 15min + parallelization pour les autres)
+
+Document : `docs/AGENTS_COLLABORATION/OBJECTIF_009_STABILITE_VOIX.md`
 
 ## Flux de travail standard
 

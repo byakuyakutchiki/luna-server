@@ -594,6 +594,76 @@ Pas de gros refactor — correction minimale ciblée sur la cause racine.
 
 ---
 
+## Objectif 009 — Stabilité voix Luna : diagnostiquer et corriger les coupures
+
+**Statut** : ouvert — diagnostic multi-agents
+**Priorité** : critique
+**Lead** : Claude
+**Date ouverture** : 2026-05-25 19:45
+**Dépendance** : Objective 008 (voix fonctionne maintenant)
+**Document dédié** : `docs/AGENTS_COLLABORATION/OBJECTIF_009_STABILITE_VOIX.md`
+
+### Problème
+
+✅ Voix fonctionne avec `gpt-realtime-mini`
+⚠️ Luna s'arrête parfois de parler seule / coupe la réponse sans raison claire
+
+### But
+
+Identifier pourquoi la session vocale se coupe prématurément et corriger **uniquement** la cause minimale.
+
+### Agents et missions
+
+| Agent | Mission | Statut |
+|---|---|---|
+| **Ludovic** | Test réel + heure exacte + observation du comportement | À faire |
+| **Claude** | Lead : logs serveur, OpenAI state, cause probable, correction minimale | À faire |
+| **DeepSeek** | Télémétrie APK, seuils incident "voice_cut_mid_response", diagnostics type | À faire |
+| **Kimi** | Textes cockpit clairs, non-culpabilisants, par zone (client/serveur/OpenAI/VAD) | À faire |
+| **Cursor** | UI mobile : états vocaux, overlay, boutons, chronologie après coupure | À faire |
+| **Codex** | Coordination, séparation domaines, synthèse, garde-fous | À faire |
+
+### Livrables attendus
+
+1. **Ludovic** : heure exacte test + comportement documenté
+2. **Claude** : cause probable + logs + correction proposée (1-3 lignes max)
+3. **DeepSeek** : seuils incident + diagnostics type + `agents/DEEPSEEK_AVIS_009_VOIX_COUPURE.md`
+4. **Kimi** : textes cockpit par zone + `agents/KIMI_AVIS_009_VOIX_COUPURE.md`
+5. **Cursor** : screenshots problèmes UI + propositions + `agents/CURSOR_AVIS_009_VOIX_UI.md`
+6. **Codex** : synthèse finale `DECISION_FINALE_009_STABILITE_VOIX.md` + validation checklist
+
+### Points à ne PAS faire
+
+- ❌ Gros refactor WebSocket
+- ❌ Changement modèle OpenAI
+- ❌ Modification APK version
+- ❌ Déploiement sans validation Ludovic
+- ❌ Auto-correction sans diagnostic préalable
+
+### Validation
+
+- [ ] Ludovic a noté heure exacte et comportement
+- [ ] Claude a identifié cause probable dans logs
+- [ ] DeepSeek a proposé seuils et diagnostics
+- [ ] Kimi a rédigé textes cockpit
+- [ ] Cursor a vérifié UI mobile
+- [ ] Codex a synthétisé l'ensemble
+- [ ] Correction est minimale (1-3 lignes)
+- [ ] Test réel après correction améliore stabilité
+- [ ] Ludovic valide avant déploiement
+
+### Timeline estimée
+
+- Ludovic test : 15min
+- Claude logs : 30min
+- DeepSeek audit : 30min
+- Kimi formulation : 20min
+- Cursor UI : 20min
+- Codex synthèse : 30min
+- **Total** : ~2h30
+
+---
+
 ## Règle d'ouverture d'un objectif
 
 Pour ouvrir un nouvel objectif :
