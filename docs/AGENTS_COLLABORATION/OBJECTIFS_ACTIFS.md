@@ -25,7 +25,7 @@ mais ne simule pas l'expérience utilisateur réelle (flux audio reçu ou non).
 |---|---|---|
 | **DeepSeek** | Analyser `web_voice_bridge.py`, `realtime_bridge.py`, `startVoice()` — voir `DEEPSEEK_AVIS.md` | **En cours** |
 | **Codex** | Vérifier commits voix, fix AudioWorklet, timeout, tests — voir `CODEX_AVIS.md` | **En cours** |
-| **Kimi** | Vérifier cohérence avec cahier des charges vocal | À faire |
+| **Kimi** | Audit documentaire — promesse utilisateur vs réalité — voir `KIMI_AVIS.md` | **En cours** |
 | **Cursor** | Vérifier intégration locale, cohérence fichiers VS Code | À faire |
 | **Claude** | Synthèse finale, correction, déploiement | En attente des avis |
 

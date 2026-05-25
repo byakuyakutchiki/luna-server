@@ -20,7 +20,7 @@ Mis à jour : 2026-05-25
 | Claude | en attente avis | 001 voix — synthèse après retours | 10d3ec3 |
 | Codex | **analyse en cours** | 001 voix — voir `CODEX_AVIS.md` | — |
 | DeepSeek | **analyse en cours** | 001 voix — voir `DEEPSEEK_AVIS.md` | — |
-| Kimi | en attente | 001 | — |
+| Kimi | **analyse en cours** | 001 voix — voir `KIMI_AVIS.md` | — |
 | Cursor | en attente | 001 | — |
 
 ## Flux de travail standard
