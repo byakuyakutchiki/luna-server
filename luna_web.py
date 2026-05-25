@@ -20253,6 +20253,9 @@ async def admin_apk_diagnosis(request: Request):
 # =========================================================================
 _APK_VOICE_EVENTS_KEY = "luna:apk:voice:events"
 _APK_VOICE_EVENTS_MAX = 50
+_FOUNDER_VOICE_LOG_KEY = "luna:founder:voice:log"
+_FOUNDER_VOICE_LOG_MAX = 100
+_FOUNDER_VOICE_LOG_LAST_STATUS: dict = {}  # cache mémoire pour écriture conditionnelle
 
 # Whitelist stricte des événements autorisés (aucun autre accepté)
 _VOICE_EVENTS_ALLOWED = {
@@ -20470,10 +20473,45 @@ def _analyze_voice_events(events: list) -> dict:
     }
 
 
+def _write_founder_voice_log(voice_diagnosis: dict) -> None:
+    """
+    Journalise le diagnostic voix dans Redis (luna:founder:voice:log).
+    Conditionnel : écrit uniquement si le statut voix a changé ou > 10 min depuis la dernière entrée.
+    Permet à Ludovic de voir l'historique des conclusions vocales dans le cockpit.
+    """
+    if not _redis_client:
+        return
+    status = voice_diagnosis.get("voice_status", "")
+    if not status or status == "no_data":
+        return  # Pas d'événements = rien à journaliser
+    now = time.time()
+    last_ts = _FOUNDER_VOICE_LOG_LAST_STATUS.get("ts", 0)
+    last_status = _FOUNDER_VOICE_LOG_LAST_STATUS.get("status", "")
+    if status == last_status and (now - last_ts) < 600:
+        return
+    _FOUNDER_VOICE_LOG_LAST_STATUS["ts"] = now
+    _FOUNDER_VOICE_LOG_LAST_STATUS["status"] = status
+    entry = {
+        "ts": datetime.now(ZoneInfo("Europe/Paris")).strftime("%Y-%m-%d %H:%M:%S"),
+        "voice_status": status,
+        "voice_summary": voice_diagnosis.get("voice_summary", ""),
+        "luna_knows": voice_diagnosis.get("luna_knows", ""),
+        "luna_recommends": voice_diagnosis.get("luna_recommends", ""),
+        "events": voice_diagnosis.get("voice_events", []),
+        "session_ts": voice_diagnosis.get("voice_last_session_ts"),
+    }
+    try:
+        _redis_client.client.lpush(_FOUNDER_VOICE_LOG_KEY, json.dumps(entry, ensure_ascii=False))
+        _redis_client.client.ltrim(_FOUNDER_VOICE_LOG_KEY, 0, _FOUNDER_VOICE_LOG_MAX - 1)
+        _redis_client.client.expire(_FOUNDER_VOICE_LOG_KEY, 30 * 86400)
+    except Exception as e:
+        logger.error(f"Founder voice log write error: {e}")
+
+
 @app.get("/api/admin/apk-voice-events")
 async def admin_apk_voice_events(request: Request):
     """
-    Diagnostic voix APK — dernière session + événements bruts.
+    Diagnostic voix APK — dernière session + événements bruts + journal historique.
     Auth admin ou fondateur requise.
     """
     if not _verify_admin(request):
@@ -20492,8 +20530,23 @@ async def admin_apk_voice_events(request: Request):
             pass
 
     diagnosis = _analyze_voice_events(events)
+    _write_founder_voice_log(diagnosis)
+
+    voice_log: list = []
+    if _redis_client:
+        try:
+            raw_log = _redis_client.client.lrange(_FOUNDER_VOICE_LOG_KEY, 0, 9)
+            for r in raw_log:
+                try:
+                    voice_log.append(json.loads(r))
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
     return {
         **diagnosis,
+        "voice_log": voice_log,
         "total_events_stored": len(events),
         "checked_at": datetime.now(ZoneInfo("Europe/Paris")).strftime("%Y-%m-%d %H:%M:%S"),
     }
