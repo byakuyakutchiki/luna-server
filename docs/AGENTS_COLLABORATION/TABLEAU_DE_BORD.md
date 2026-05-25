@@ -17,11 +17,11 @@ Mis à jour : 2026-05-25
 
 | Agent | Statut | Objectif en cours | Dernier commit |
 |---|---|---|---|
-| Claude | en attente avis | 001 voix — synthèse après retours | 10d3ec3 |
-| Codex | **analyse en cours** | 001 voix — voir `CODEX_AVIS.md` | — |
-| DeepSeek | **analyse en cours** | 001 voix — voir `DEEPSEEK_AVIS.md` | — |
-| Kimi Code CLI | **analyse en cours** | 001 voix — voir `KIMI_AVIS.md` + `GUIDE_KIMI_CODE.md` | — |
-| Cursor | en attente | 001 | — |
+| Claude | en attente avis | 001 voix + cadrage 003 APK | 66ecec5 |
+| Codex | **cadrage en cours** | 003 cerveau APK — voir `OBJECTIF_003_CERVEAU_APK.md` | — |
+| DeepSeek | **à solliciter** | 003 schéma technique heartbeat / événements APK | — |
+| Kimi Code CLI | **à solliciter** | 003 audit documentaire expérience réelle APK | — |
+| Cursor | en attente | 003 cohérence VS Code / Android / frontend | — |
 
 ## Flux de travail standard
 

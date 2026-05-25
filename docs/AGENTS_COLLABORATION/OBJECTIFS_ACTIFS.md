@@ -90,6 +90,69 @@ Tester dans l'ordre : Instructions → Services → Documents → Formulaires �
 
 ---
 
+## Objectif 003 — Cerveau APK / télémétrie appareil réel
+
+**Statut** : idée validée par Ludovic — cadrage multi-agents demandé
+**Priorité** : haute
+**Lead** : Claude
+**Date ouverture** : 2026-05-25
+**Document dédié** : `docs/AGENTS_COLLABORATION/OBJECTIF_003_CERVEAU_APK.md`
+
+### Vision
+
+Cloud Run sait ce qu'il sert. L'APK sait ce que l'utilisateur vit.
+Luna doit comparer les deux pour détecter les décalages entre GitHub, Docker,
+Cloud Run et l'expérience réelle sur le téléphone.
+
+### Problème
+
+Aujourd'hui, une modification peut être correcte dans GitHub ou Cloud Run,
+mais l'APK réelle peut rester silencieuse, obsolète, bloquée ou décalée
+pendant plusieurs minutes sans que les agents le sachent.
+
+Le téléphone de Ludovic doit devenir une sonde vivante : version APK, URL active,
+WebView, permission micro, WebSocket voix, audio reçu, erreurs JS et dernier
+contact serveur doivent remonter au cerveau central.
+
+### Agents concernés
+
+| Agent | Tâche | Statut |
+|---|---|---|
+| **Claude** | Architecture finale, arbitrage sécurité, décision d'implémentation | À cadrer |
+| **DeepSeek** | Prototype local VS Code : schéma heartbeat + analyse Android/WebView | À cadrer |
+| **Kimi** | Audit documentaire : promesse utilisateur vs observabilité APK réelle | À cadrer |
+| **Codex** | Cadrage GitHub, PR, tests automatisables, garde-fous de branche | En cours |
+| **Cursor** | Vérifier cohérence locale VS Code / fichiers Android / frontend | À cadrer |
+
+### Livrables attendus
+
+1. Schéma minimal d'événement APK → serveur.
+2. Proposition d'endpoint serveur, sans secret production dans l'APK.
+3. Liste des signaux critiques : version, build frontend, URL Cloud Run, écran, voix, WebSocket, audio, erreurs.
+4. Stratégie d'affichage dans `/api/admin/objectives` ou dashboard admin.
+5. Risques confidentialité / batterie / spam réseau / sécurité.
+6. Plan de rollback et désactivation.
+
+### Interdictions pour cet objectif
+
+- Pas de déploiement Cloud Run sans validation Ludovic.
+- Pas de collecte de données personnelles fines sans consentement explicite.
+- Pas de position exacte, audio brut, transcript privé ou secret dans la télémétrie.
+- Pas de capacité de déploiement ou d'administration Cloud depuis l'APK.
+- Pas de gros refactor Android ou backend : commencer par heartbeat minimal.
+
+### Validation
+
+- [ ] Claude a validé l'architecture.
+- [ ] DeepSeek a proposé un schéma technique.
+- [ ] Kimi a audité la promesse documentaire.
+- [ ] Codex a préparé la PR de cadrage.
+- [ ] Ludovic a validé le périmètre.
+- [ ] Implémentation sur branche dédiée.
+- [ ] Test sur téléphone fondateur.
+
+---
+
 ## Règle d'ouverture d'un objectif
 
 Pour ouvrir un nouvel objectif :
