@@ -2445,7 +2445,7 @@ async def _check_objective_monde() -> dict:
     if world_ok and _redis_client:
         try:
             from core.world.redis_ops import WorldRedisOps as _WOps
-            _WOps(_redis_client.client, TENANT_ID)
+            _WOps(_redis_client)
             world_ops_ok = True
         except Exception as e:
             pass
@@ -2579,19 +2579,21 @@ async def _check_objective_profil() -> dict:
 
     profile = None
     profile_ok = False
+    profile_read_failed = False
     profile_empty = True
     if mm_ok:
         try:
             profile = _memory_manager.get_subscriber_profile()
-            profile_ok = profile is not None
-            if profile_ok:
+            profile_ok = True  # lecture réussie même si profil vide
+            if profile is not None:
                 first = getattr(profile, "first_name", None) or (profile.get("first_name") if isinstance(profile, dict) else None)
                 last = getattr(profile, "last_name", None) or (profile.get("last_name") if isinstance(profile, dict) else None)
                 profile_empty = not first and not last
         except Exception:
-            pass
-    _chk("profile_readable", profile_ok,
-         "Profil lisible" if profile_ok else "Profil illisible ou absent", critical=True)
+            profile_read_failed = True
+    # Profil absent = warning (état normal nouveau tenant), lecture cassée = critical
+    _chk("profile_readable", not profile_read_failed,
+         "Profil lisible" if not profile_read_failed else "Lecture profil échoue (Redis KO ?)", critical=True)
     if profile_ok:
         _chk("profile_not_empty", not profile_empty,
              "Profil renseigné" if not profile_empty else "Profil vide — nom/prénom manquants")
@@ -2719,26 +2721,43 @@ async def _check_objective_quotas() -> dict:
     _chk("plan_limits_loaded", plan_limits_ok,
          "Limites par plan chargées (essentiel/confort/premium)" if plan_limits_ok else "Limites plan illisibles", critical=True)
 
-    quota_status: dict = {}
-    quota_readable = False
+    # Quota mémoire (conversations/instructions/notes via MemoryManager)
+    mem_quota_status: dict = {}
+    mem_quota_readable = False
     if _memory_manager:
         try:
-            quota_status = await asyncio.to_thread(_memory_manager.get_quota_status)
-            quota_readable = isinstance(quota_status, dict) and bool(quota_status)
+            mem_quota_status = await asyncio.to_thread(_memory_manager.get_quota_status)
+            mem_quota_readable = isinstance(mem_quota_status, dict) and bool(mem_quota_status)
         except Exception:
             pass
-    _chk("quota_status_readable", quota_readable,
-         "Quotas lisibles pour le tenant courant" if quota_readable else "get_quota_status() retourne vide ou échoue")
+    _chk("quota_status_readable", mem_quota_readable,
+         f"Quotas mémoire lisibles (plan: {mem_quota_status.get('plan','?')})" if mem_quota_readable else "get_quota_status() échoue ou MemoryManager absent")
 
-    voice_quota_ok = quota_readable and "voice_minutes" in quota_status
-    sms_quota_ok = quota_readable and "sms" in quota_status
-    visio_quota_ok = quota_readable and "visio_minutes" in quota_status
-    _chk("voice_quota_readable", voice_quota_ok,
-         f"Voice: {quota_status.get('voice_minutes', '?')} min" if voice_quota_ok else "Quota voix illisible")
-    _chk("sms_quota_readable", sms_quota_ok,
-         f"SMS: {quota_status.get('sms', '?')}" if sms_quota_ok else "Quota SMS illisible")
-    _chk("visio_quota_readable", visio_quota_ok,
-         f"Visio: {quota_status.get('visio_minutes', '?')} min" if visio_quota_ok else "Quota visio illisible")
+    # Quotas voix/SMS/visio — limites chargées depuis PLAN_*_LIMITS (source de vérité)
+    voice_quota_ok = plan_limits_ok
+    sms_quota_ok = plan_limits_ok
+    visio_quota_ok = plan_limits_ok
+    _chk("voice_quota_limits", voice_quota_ok,
+         f"Limite voix chargée (essentiel: {plan_limits.get('essentiel',{}).get('voice_min','?')} min)" if voice_quota_ok else "Limites voix illisibles")
+    _chk("sms_quota_limits", sms_quota_ok,
+         f"Limite SMS chargée (essentiel: {plan_limits.get('essentiel',{}).get('sms','?')})" if sms_quota_ok else "Limites SMS illisibles")
+    _chk("visio_quota_limits", visio_quota_ok,
+         f"Limite visio chargée (essentiel: {plan_limits.get('essentiel',{}).get('visio_min','?')} min)" if visio_quota_ok else "Limites visio illisibles")
+
+    # Usage réel ce mois via Cortex CostTracker (optionnel)
+    usage_real: dict = {}
+    cost_tracker_available = False
+    if _CORTEX_AVAILABLE:
+        try:
+            _ct = get_cortex()
+            if _ct and hasattr(_ct, "cost_tracker") and _ct.cost_tracker:
+                usage_real = await _ct.cost_tracker.get_tenant_month_usage(TENANT_ID)
+                cost_tracker_available = True
+        except Exception:
+            pass
+    _chk("cost_tracker_quota", cost_tracker_available,
+         f"Usage réel lisible (voix: {round(usage_real.get('voice_minutes',0),1)} min, SMS: {usage_real.get('sms_count',0)})"
+         if cost_tracker_available else "CostTracker absent — usage réel non mesuré")
 
     alert_threshold_ok = quota_guard_ok
     _chk("alert_80pct_threshold", alert_threshold_ok,
@@ -2762,17 +2781,29 @@ async def _check_objective_quotas() -> dict:
     subservices["quota_voice"] = {
         "status": "ok" if voice_quota_ok else "warning",
         "critical": False,
-        "metrics": {"used": quota_status.get("voice_minutes"), "unit": "minutes"},
+        "metrics": {
+            "limit_essentiel": plan_limits.get("essentiel", {}).get("voice_min"),
+            "used_this_month": round(usage_real.get("voice_minutes", 0), 1) if cost_tracker_available else None,
+            "unit": "minutes",
+        },
     }
     subservices["quota_sms"] = {
         "status": "ok" if sms_quota_ok else "warning",
         "critical": False,
-        "metrics": {"used": quota_status.get("sms"), "unit": "messages"},
+        "metrics": {
+            "limit_essentiel": plan_limits.get("essentiel", {}).get("sms"),
+            "used_this_month": usage_real.get("sms_count", 0) if cost_tracker_available else None,
+            "unit": "messages",
+        },
     }
     subservices["quota_visio"] = {
         "status": "ok" if visio_quota_ok else "warning",
         "critical": False,
-        "metrics": {"used": quota_status.get("visio_minutes"), "unit": "minutes"},
+        "metrics": {
+            "limit_essentiel": plan_limits.get("essentiel", {}).get("visio_min"),
+            "used_this_month": round(usage_real.get("tavus_minutes", 0), 1) if cost_tracker_available else None,
+            "unit": "minutes",
+        },
     }
     subservices["alert_threshold"] = {
         "status": "ok" if alert_threshold_ok else "degraded",
@@ -2787,10 +2818,11 @@ async def _check_objective_quotas() -> dict:
 
     metrics["quota_guard_available"] = quota_guard_ok
     metrics["plan_limits_loaded"] = plan_limits_ok
-    metrics["quota_status_readable"] = quota_readable
-    metrics["voice_used"] = quota_status.get("voice_minutes")
-    metrics["sms_used"] = quota_status.get("sms")
-    metrics["visio_used"] = quota_status.get("visio_minutes")
+    metrics["mem_quota_readable"] = mem_quota_readable
+    metrics["cost_tracker_available"] = cost_tracker_available
+    metrics["voice_used_this_month"] = round(usage_real.get("voice_minutes", 0), 1) if cost_tracker_available else None
+    metrics["sms_used_this_month"] = usage_real.get("sms_count", 0) if cost_tracker_available else None
+    metrics["visio_used_this_month"] = round(usage_real.get("tavus_minutes", 0), 1) if cost_tracker_available else None
     metrics["plan_limits"] = plan_limits
 
     auto_heal.append({
