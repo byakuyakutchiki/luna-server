@@ -7271,6 +7271,7 @@ function stopPaymentPolling() {
   var _voiceFirstAudioSent = false;
   var _voiceFirstAudioReceived = false;
   var _voiceCaptureSent = false;
+  var _voiceWsClosedSent = false;  // Fix Obj-008 : évite double envoi / session_ts=0
 
   function sendApkEvent(eventName, extra) {
     if (_apkEventCount >= 30) return;
@@ -7765,7 +7766,7 @@ function stopPaymentPolling() {
       };
 
       voiceWs.onclose = function(evt) {
-        sendApkEvent("voice_ws_closed", {ws_close_code: evt.code || 0});
+        if (!_voiceWsClosedSent) { _voiceWsClosedSent = true; sendApkEvent("voice_ws_closed", {ws_close_code: evt.code || 0}); }
         if (_voiceNoAudioTimer) { clearTimeout(_voiceNoAudioTimer); _voiceNoAudioTimer = null; }
         if (_voiceKeepaliveInterval) { clearInterval(_voiceKeepaliveInterval); _voiceKeepaliveInterval = null; }
         if (!voiceActive || _voiceStopping) return;
@@ -7848,12 +7849,17 @@ function stopPaymentPolling() {
 
     if (voiceWs) {
       sendApkEvent("voice_session_ended");
+      // Fix Obj-008 : voice_ws_closed doit avoir le bon session_ts.
+      // Si stopVoice() est appelé avant onclose (ex: timeout 3s sur error bridge),
+      // onclose se déclenchera après le reset et aurait session_ts=0.
+      // On l'envoie ici pendant que _voiceSessionStartTs est encore valide.
+      if (!_voiceWsClosedSent) { _voiceWsClosedSent = true; sendApkEvent("voice_ws_closed", {ws_close_code: 0}); }
       if (_voiceNoAudioTimer) { clearTimeout(_voiceNoAudioTimer); _voiceNoAudioTimer = null; }
       try { voiceWs.send(JSON.stringify({ type: "stop" })); } catch(e) {}
       try { voiceWs.close(); } catch(e) {}
       voiceWs = null;
     }
-    _voiceSessionStartTs = 0;  // reset après voice_session_ended
+    _voiceSessionStartTs = 0;  // reset après voice_session_ended et voice_ws_closed
     if (micStream) { micStream.getTracks().forEach(function(t) { t.stop(); }); micStream = null; }
     if (workletNode) { try { workletNode.disconnect(); } catch(e) {} workletNode = null; }
     if (micCtx) { try { micCtx.close(); } catch(e) {} micCtx = null; }
@@ -7879,6 +7885,7 @@ function stopPaymentPolling() {
     _voiceFirstAudioSent = false;
     _voiceFirstAudioReceived = false;
     _voiceCaptureSent = false;
+    _voiceWsClosedSent = false;
     sendApkEvent("voice_click_received");
     // Vérification token avant startVoice
     var _clickTok = typeof getToken === "function" ? getToken() : null;
