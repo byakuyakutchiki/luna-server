@@ -17,11 +17,11 @@ Mis à jour : 2026-05-25
 
 | Agent | Statut | Objectif en cours | Dernier commit |
 |---|---|---|---|
-| Claude | en attente avis | 001 voix + cadrage 003 APK | 66ecec5 |
-| Codex | **cadrage en cours** | 003 cerveau APK — voir `OBJECTIF_003_CERVEAU_APK.md` | — |
-| DeepSeek | **à solliciter** | 003 schéma technique heartbeat / événements APK | — |
-| Kimi Code CLI | **à solliciter** | 003 audit documentaire expérience réelle APK | — |
-| Cursor | en attente | 003 cohérence VS Code / Android / frontend | — |
+| Claude | **synthèse prête** | 001 voix déployé + 003 cadrage complet | 0cacddd |
+| Codex | **avis livré** | 003 cerveau APK — voir `OBJECTIF_003_CERVEAU_APK.md` | PR ouverte |
+| DeepSeek | **avis livré** | 001 analyse voix + 003 schéma heartbeat complet | 42eaf8e |
+| Kimi Code CLI | **avis livré** | 001 ping_timeout bug + 003 audit documentaire | 908031c |
+| Cursor | **avis livré** | 003 sendLog() existant, FRONTEND_BUILD manquant | 90eaa5d |
 
 ## Flux de travail standard
 
