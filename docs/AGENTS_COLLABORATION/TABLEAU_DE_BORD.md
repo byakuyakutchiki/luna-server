@@ -1,6 +1,6 @@
 # Tableau de bord — Orchestration Luna
 
-Mis à jour : 2026-05-25 (ouverture objectif 006 — validation cerveau voix)
+Mis à jour : 2026-05-25 (ouverture objectif 007 — télémétrie vocale précise)
 
 ## Rôles et outils
 
@@ -17,24 +17,28 @@ Mis à jour : 2026-05-25 (ouverture objectif 006 — validation cerveau voix)
 
 | Agent | Statut | Objectif en cours | Dernier commit |
 |---|---|---|---|
-| Claude | **lead final 006** | Synthèse finale, correction minimale, déploiement après validation Ludovic | a3545a1 |
-| Codex | **cadrage 006** | Rôles, garde-fous, critères de validation cerveau voix | — |
-| DeepSeek | **à solliciter 006** | Audit local VS Code : `startVoice()`, `sendApkEvent()`, timer silence, WebSocket | — |
-| Kimi Code CLI | **à solliciter 006** | Audit humain : textes cockpit, diagnostic non trompeur, journal fondateur | — |
-| Cursor | **à solliciter 006** | Vérification UI mobile, assets graphiques, non-régression frontend | — |
+| Claude | **lead 007** | Fix session_ts + 21 événements voix + déploiement après validation Ludovic | ce26b5e |
+| Codex | **à solliciter 007** | Critères validation, garde-fous, synthèse | — |
+| DeepSeek | **à solliciter 007** | Audit startVoice(), session_ts, chemins alternatifs, fetch/WebSocket Android | — |
+| Kimi Code CLI | **à solliciter 007** | Textes cockpit pour 8 scénarios voix (knows/guesses/recommends/cannot) | — |
+| Cursor | **à solliciter 007** | UI mobile, non-régression startVoice(), section chronologie | — |
 
 ## Objectif actif prioritaire
 
-**Objectif 006 — Validation du cerveau Luna sur panne vocale réelle**
+**Objectif 007 — Télémétrie vocale précise APK**
 
-Question à résoudre : quand Ludovic appuie sur le bouton vocal et n'entend rien,
-est-ce que Luna voit la panne, sait où elle bloque, l'explique dans le cockpit
-fondateur, et garde une trace exploitable ?
+Question à résoudre : pourquoi seulement `voice_session_ended` remonte,
+et comment faire en sorte que tous les événements de la chronologie vocale
+soient visibles dans le cockpit fondateur après un appui réel.
 
-Document : `docs/AGENTS_COLLABORATION/OBJECTIF_006_VALIDATION_CERVEAU_VOIX.md`
+Cause identifiée par Claude :
+- Bug 1 : `session_ts = 0` pour `voice_button_clicked` → session fantôme
+- Bug 2 : `_apkEventCount >= 10` trop bas pour 21 événements
 
-Claude intervient en dernier : il lit les avis, vérifie les logs/endpoints, propose
-la correction minimale, puis déploie seulement après validation Ludovic.
+Document : `docs/AGENTS_COLLABORATION/OBJECTIF_007_TELEMETRIE_VOIX_APK.md`
+
+Claude implémente les corrections. Les agents audite et proposent.
+Déploiement uniquement après validation Ludovic.
 
 ## Flux de travail standard
 
