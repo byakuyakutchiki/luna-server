@@ -1,6 +1,6 @@
 # Objectif 009 — Stabilité voix Luna (coupures spontanées)
 
-**Statut** : ouvert — en attente test téléphone réel Ludovic  
+**Statut** : ✅ VALIDÉ — voix stable sur téléphone réel Ludovic (2026-05-25)  
 **Priorité** : haute  
 **Lead** : Claude  
 **Date ouverture** : 2026-05-25  

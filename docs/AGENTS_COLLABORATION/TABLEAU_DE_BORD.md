@@ -1,6 +1,6 @@
 # Tableau de bord — Orchestration Luna
 
-Mis à jour : 2026-05-25 (008 VALIDÉ — voix Luna entendue · ouverture objectif 009 — stabilité voix)
+Mis à jour : 2026-05-25 (008 + 009 VALIDÉS — voix Luna stable sur téléphone réel)
 
 ## Rôles et outils
 
