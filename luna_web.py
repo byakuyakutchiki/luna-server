@@ -5640,7 +5640,7 @@ async def _stream_chat_sse(messages, chat_tools, tid, session_id, req_message, m
         if mgr:
             try:
                 meta = mgr.redis.get_conversation_meta(tid, session_id)
-                if meta and not meta.get("summary") and int(meta.get("message_count", 0)) <= 2:
+                if meta and not meta.get("summary") and int(meta.get("message_count", 0)) <= 4:
                     try:
                         title_resp = await loop.run_in_executor(None, lambda: openai_client.chat.completions.create(
                             model="gpt-4o-mini",
@@ -5650,11 +5650,13 @@ async def _stream_chat_sse(messages, chat_tools, tid, session_id, req_message, m
                         auto_title = title_resp.choices[0].message.content.strip().strip('"').strip("'")
                         if len(auto_title) > 50:
                             auto_title = auto_title[:50]
-                        meta["summary"] = auto_title
-                        meta["last_activity"] = datetime.utcnow().isoformat()
-                        mgr.redis.set_conversation_meta(tid, session_id, meta)
                     except Exception:
-                        pass
+                        auto_title = req_message[:40].strip()
+                        if len(req_message) > 40:
+                            auto_title += "..."
+                    meta["summary"] = auto_title
+                    meta["last_activity"] = datetime.utcnow().isoformat()
+                    mgr.redis.set_conversation_meta(tid, session_id, meta)
             except Exception:
                 pass
 
@@ -6301,7 +6303,7 @@ COMPORTEMENT COMPAGNON :
         if mgr:
             try:
                 meta = mgr.redis.get_conversation_meta(tid, req.session_id)
-                if meta and not meta.get("summary") and int(meta.get("message_count", 0)) <= 2:
+                if meta and not meta.get("summary") and int(meta.get("message_count", 0)) <= 4:
                     try:
                         title_resp = await asyncio.to_thread(openai_client.chat.completions.create,
                             model="gpt-4o-mini",
