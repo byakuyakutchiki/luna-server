@@ -5,8 +5,6 @@ venv/
 *.pem
 .claude/
 *.pt
-static/documents/
-
 # Secrets & credentials
 data/cortex_api.key
 data/cortex_totp.secret
@@ -19,8 +17,5 @@ android-app/build/
 firebase-debug.log
 reports/
 
-# Assets binaires lourds
-static/assets/sounds/
-static/assets/backgrounds/
-static/assets/*.jpg
-static/assets/*.png
+# Données utilisateur générées
+static/documents/
