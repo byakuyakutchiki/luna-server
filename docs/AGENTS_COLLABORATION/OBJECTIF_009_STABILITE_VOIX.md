@@ -1,10 +1,22 @@
 # Objectif 009 — Stabilité voix Luna (coupures spontanées)
 
-**Statut** : ouvert  
+**Statut** : ouvert — en attente test téléphone réel Ludovic  
 **Priorité** : haute  
 **Lead** : Claude  
 **Date ouverture** : 2026-05-25  
 **Dépendance** : Objectif 008 validé (voix Luna entendue — gpt-realtime-mini)
+
+---
+
+## Décision Ludovic — Protocole de correction (2026-05-25)
+
+1. **Ne pas corriger encore** — test réel d'abord
+2. Ludovic fait un test voix sur téléphone et note l'heure exacte
+3. Claude lit les logs Cloud Run autour de cette heure
+4. **Si logs confirment** `input_audio_buffer.speech_started` → `response.cancel` :
+   → valider **Option A** : `threshold` VAD `0.5` → `0.8`
+5. Si Option A ne suffit pas → envisager **Option C** : `vad_eagerness="low"` transmis à `session.update`
+6. **Option B** (pause micro pendant playback) : seulement en dernier recours
 
 ---
 
