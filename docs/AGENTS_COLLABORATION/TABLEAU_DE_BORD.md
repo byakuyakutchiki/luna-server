@@ -98,3 +98,4 @@ Pas de copier-coller de code brut dans les rapports — pointer vers le fichier 
 - Monitoring : `GET /api/admin/objectives` (auth admin requise)
 - Health : `GET /api/admin/health`
 - Déploiement : `bash /home/ludo/PROJETS/IA_WATCH/PROPRIO/serveur/deploy.sh`
+- Sentry : source de diagnostic filtrée, voir `NOTE_SENTRY_CERVEAU_LUNA.md`
