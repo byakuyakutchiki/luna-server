@@ -451,6 +451,22 @@ async def _check_all_objectives() -> list:
     except Exception as e:
         _ok("Système", "Redis connecté et répondant", False, detail=str(e))
 
+    # ── APK HEARTBEAT — sonde vivante téléphone fondateur ─────────────
+    try:
+        hb_raw = _redis_client.client.get(_APK_HEARTBEAT_KEY) if _redis_client else None
+        if hb_raw:
+            hb = json.loads(hb_raw)
+            age_s = time.time() - hb.get("ts", 0)
+            age_min = round(age_s / 60, 1)
+            hb_ok = age_s < 7200  # ok si vu dans les 2h
+            _ok("APK Fondateur", f"Heartbeat APK reçu — v{hb.get('apk_version','?')} il y a {int(age_min)} min",
+                hb_ok, detail=f"Dernier contact : {hb.get('ts_str','?')}")
+        else:
+            _ok("APK Fondateur", "Heartbeat APK fondateur", False,
+                detail="Aucun heartbeat — APK pas encore connectée")
+    except Exception as e:
+        _ok("APK Fondateur", "Heartbeat APK fondateur", False, detail=str(e))
+
     # ── CONNEXION ──────────────────────────────────────────────────────
     try:
         email = os.getenv("PROPRIO_EMAIL", "").strip().lower()
@@ -19794,6 +19810,7 @@ async def admin_objectives(request: Request):
     quotas_detail = await _check_objective_quotas()
     reglages_detail = await _check_objective_reglages()
     voix_detail = await _check_objective_voix()
+    apk_heartbeat_detail = await _check_objective_apk_heartbeat()
 
     return {
         "score": f"{score}/{total}",
@@ -19812,6 +19829,7 @@ async def admin_objectives(request: Request):
         "quotas": quotas_detail,
         "reglages": reglages_detail,
         "voix": voix_detail,
+        "apk_heartbeat": apk_heartbeat_detail,
         "summary_by_domain": {
             domain: {
                 "ok": sum(1 for r in results if r.get("domain") == domain and r.get("ok")),
@@ -19921,6 +19939,137 @@ async def admin_clear_debug_logs(request: Request):
     if _redis_client:
         _redis_client.client.delete(_DEBUG_LOG_KEY)
     return {"ok": True}
+
+
+# =========================================================================
+# APK HEARTBEAT — Objectif 003 Phase 1
+# Sonde vivante : l'APK du téléphone fondateur signale son état au serveur.
+# =========================================================================
+_APK_HEARTBEAT_KEY = "luna:apk:heartbeat:fondateur"
+
+
+@app.post("/api/apk/heartbeat")
+async def apk_heartbeat(request: Request):
+    """
+    Heartbeat APK fondateur.
+    Pas d'auth JWT (APK Java ne dispose pas du localStorage).
+    Identificateur : User-Agent contient 'LunaApp/'.
+    Rate limit naturel : appelé à chaque onResume() — pas en boucle continue.
+    Pas de collecte : audio, transcript, position, secrets.
+    """
+    ua = request.headers.get("user-agent", "")
+    if "LunaApp/" not in ua:
+        return JSONResponse(status_code=403, content={"ok": False, "reason": "not_luna_app"})
+
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+
+    now_paris = datetime.now(ZoneInfo("Europe/Paris"))
+    entry = {
+        "ts": int(now_paris.timestamp()),
+        "ts_str": now_paris.strftime("%Y-%m-%d %H:%M:%S"),
+        "apk_version": str(body.get("apk_version", ""))[:10],
+        "device_role": str(body.get("device_role", ""))[:20],
+        "cloud_url": str(body.get("cloud_url", ""))[:120],
+        "webview_user_agent": ua[:200],
+        "android_version": str(body.get("android_version", ""))[:20],
+        "device_model": str(body.get("device_model", ""))[:50],
+        "last_screen": str(body.get("last_screen", ""))[:100],
+    }
+
+    if _redis_client:
+        try:
+            _redis_client.client.set(_APK_HEARTBEAT_KEY, json.dumps(entry), ex=7 * 86400)
+        except Exception as e:
+            logger.error(f"APK heartbeat Redis write error: {e}")
+    else:
+        logger.info(f"[APK-HEARTBEAT] {entry}")
+
+    return {"ok": True}
+
+
+async def _check_objective_apk_heartbeat() -> dict:
+    """Monitoring objectif APK Heartbeat — sonde vivante sur téléphone fondateur."""
+    checks: list = []
+
+    def _chk(name: str, ok: bool, msg: str = "", critical: bool = False):
+        checks.append({
+            "name": name,
+            "status": "ok" if ok else ("critical" if critical else "warning"),
+            "message": msg,
+        })
+        return ok
+
+    heartbeat = None
+    age_minutes = None
+
+    if _redis_client:
+        try:
+            raw = _redis_client.client.get(_APK_HEARTBEAT_KEY)
+            if raw:
+                heartbeat = json.loads(raw)
+        except Exception:
+            pass
+
+    hb_received = heartbeat is not None
+    if hb_received:
+        _chk("apk_heartbeat_received", True,
+             f"Heartbeat reçu — APK v{heartbeat.get('apk_version','?')} "
+             f"({heartbeat.get('device_role','?')}) vu le {heartbeat.get('ts_str','?')}")
+    else:
+        _chk("apk_heartbeat_received", False,
+             "Aucun heartbeat reçu — APK pas encore connectée ou rebuild nécessaire",
+             critical=True)
+
+    if hb_received:
+        age_seconds = time.time() - heartbeat.get("ts", 0)
+        age_minutes = round(age_seconds / 60, 1)
+        age_ok = age_minutes < 120
+        _chk("apk_heartbeat_recent", age_ok,
+             f"Vu il y a {int(age_minutes)} min" if age_ok
+             else f"Dernier contact il y a {int(age_minutes)} min — vérifier si APK active")
+
+        _chk("apk_version_known", bool(heartbeat.get("apk_version")),
+             f"APK v{heartbeat.get('apk_version')}" if heartbeat.get("apk_version")
+             else "Version APK inconnue dans le heartbeat")
+
+        cloud_url = heartbeat.get("cloud_url", "")
+        expected_url = os.getenv("LUNA_URL", "")
+        url_match = not expected_url or cloud_url.rstrip("/") == expected_url.rstrip("/")
+        _chk("apk_cloud_url_match", url_match,
+             f"URL correcte : {cloud_url}" if url_match
+             else f"URL APK ({cloud_url}) ≠ attendue ({expected_url})")
+
+    all_ok = all(c["status"] == "ok" for c in checks)
+    return {
+        "ok": all_ok,
+        "checks": checks,
+        "heartbeat": heartbeat,
+        "age_minutes": age_minutes,
+    }
+
+
+@app.get("/api/admin/totp-setup")
+async def admin_totp_setup(request: Request):
+    """
+    Retourne le secret TOTP Telegram fondateur.
+    Auth fondateur requise — jamais exposé dans le HTML.
+    """
+    if not _verify_admin(request):
+        return JSONResponse(status_code=403, content={"error": "Accès fondateur requis"})
+
+    secret = os.getenv("CORTEX_TOTP_SECRET")
+    if not secret:
+        try:
+            p = os.path.join(os.path.dirname(__file__), "data", "cortex_totp.secret")
+            with open(p) as f:
+                secret = f.read().strip()
+        except Exception:
+            secret = None
+
+    return {"secret": secret, "configured": bool(secret)}
 
 
 # =========================================================================

@@ -332,6 +332,36 @@ public class MainActivity extends Activity {
     }
 
     /**
+     * Heartbeat APK — signale au serveur que l'APK est vivante sur ce téléphone.
+     * Appelé à chaque onResume() : au démarrage et retour au premier plan.
+     * Même pattern que sendLog() : thread séparé, timeout 4s, silencieux en cas d'erreur.
+     */
+    private void sendHeartbeat() {
+        new Thread(() -> {
+            try {
+                URL url = new URL(LUNA_URL + "/api/apk/heartbeat");
+                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                conn.setRequestMethod("POST");
+                conn.setRequestProperty("Content-Type", "application/json");
+                conn.setDoOutput(true);
+                conn.setConnectTimeout(4000);
+                conn.setReadTimeout(4000);
+                JSONObject json = new JSONObject();
+                json.put("apk_version", CURRENT_VERSION);
+                json.put("device_role", "fondateur");
+                json.put("cloud_url", LUNA_URL);
+                json.put("android_version", Build.VERSION.RELEASE);
+                json.put("device_model", Build.MODEL);
+                json.put("last_screen", "app_resume");
+                byte[] bytes = json.toString().getBytes("UTF-8");
+                conn.getOutputStream().write(bytes);
+                conn.getInputStream().close();
+                conn.disconnect();
+            } catch (Exception ignored) {}
+        }).start();
+    }
+
+    /**
      * Envoie un log au serveur Luna en arrière-plan (non bloquant).
      */
     private void sendLog(final String level, final String msg, final String src) {
@@ -699,6 +729,7 @@ public class MainActivity extends Activity {
         super.onResume();
         isInForeground = true;
         webView.onResume();
+        sendHeartbeat();
         getWindow().getDecorView().setSystemUiVisibility(
             View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
             | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION

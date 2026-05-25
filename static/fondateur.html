@@ -76,7 +76,7 @@ code { background: #000; padding: 2px 7px; border-radius: 4px; font-family: mono
       <div style="color:#a78bfa;font-weight:700;font-size:1em;letter-spacing:1px;">ACCÈS FONDATEUR</div>
       <div style="color:#555;font-size:0.78em;margin-top:4px;">YAWatch Industries</div>
     </div>
-    <input id="loginEmail" type="email" placeholder="Email" value="saintlouis.ludovic@gmail.com"
+    <input id="loginEmail" type="email" placeholder="Email"
       style="width:100%;background:#0a0a18;border:1px solid #2d2d4e;color:#e2e8f0;border-radius:8px;padding:10px 14px;font-size:0.9em;margin-bottom:10px;outline:none;" />
     <input id="loginPassword" type="password" placeholder="Mot de passe"
       style="width:100%;background:#0a0a18;border:1px solid #2d2d4e;color:#e2e8f0;border-radius:8px;padding:10px 14px;font-size:0.9em;margin-bottom:6px;outline:none;" />
@@ -211,7 +211,8 @@ code { background: #000; padding: 2px 7px; border-radius: 4px; font-family: mono
       <div class="tg-step"><strong style="color:#a78bfa;">Étape 1</strong> — Ouvre Telegram, cherche le bot Luna Cortex et envoie <code>/start</code></div>
       <div class="tg-step">
         <strong style="color:#a78bfa;">Étape 2</strong> — Ajoute ce secret dans Google Authenticator :<br>
-        <code style="color:#fbbf24;">DL27LYTT6GAYAT5A7HZEWXIPNCRZG5NU</code>
+        <code id="totpSecret" style="color:#fbbf24;">⏳ chargement...</code>
+      <button class="btn btn-outline btn-yellow" style="font-size:0.7em;padding:2px 7px;margin-left:8px;" onclick="copyTotpSecret()">📋</button>
       </div>
       <div class="tg-step"><strong style="color:#a78bfa;">Étape 3</strong> — Envoie au bot : <code>/pair &lt;code_6_chiffres&gt;</code><br>
         <span style="color:#4ade80;font-size:0.9em;">✓ Luna sauvegarde ton chat_id automatiquement dans Redis</span></div>
@@ -421,7 +422,28 @@ function loadObjectives(force) {
   }).catch(function(e){ document.getElementById("objectivesBody").innerHTML='<p style="color:#f87171">Erreur: '+e.message+'</p>'; });
 }
 
+function loadTotpSecret() {
+  authFetch("/api/admin/totp-setup").then(function(d) {
+    var el = document.getElementById("totpSecret");
+    if (!el) return;
+    if (d && d.secret) {
+      el.textContent = d.secret;
+    } else {
+      el.textContent = "Non configuré";
+      el.style.color = "#f87171";
+    }
+  }).catch(function() {
+    var el = document.getElementById("totpSecret");
+    if (el) { el.textContent = "Erreur"; el.style.color = "#f87171"; }
+  });
+}
+function copyTotpSecret() {
+  var s = document.getElementById("totpSecret");
+  if (s && s.textContent && s.textContent.length > 8) navigator.clipboard.writeText(s.textContent);
+}
+
 function loadTgStatus() {
+  loadTotpSecret();
   authFetch("/api/admin/health").then(function(d) {
     var cortex = (d.core_modules||{}).cortex;
     var html = cortex
