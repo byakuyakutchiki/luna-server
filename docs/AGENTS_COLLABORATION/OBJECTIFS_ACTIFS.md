@@ -434,3 +434,15 @@ Pour ouvrir un nouvel objectif :
 2. Affecter les agents concernés
 3. Définir les interdictions et livrables
 4. Notifier dans `TABLEAU_DE_BORD.md`
+
+---
+
+## Note transversale — Sentry
+
+Sentry est une source d'observation du cerveau Luna.
+
+Toute erreur utile observée dans Sentry doit être résumée dans GitHub sous forme
+filtrée/anonymisée, notamment dans `RAPPORT_SENTRY_OBJECTIF_008.md`.
+
+Règle : aucun secret, token, cookie, clé API, email privé, audio brut ou transcript
+privé ne doit être copié dans GitHub.
