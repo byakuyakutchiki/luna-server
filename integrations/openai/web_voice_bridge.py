@@ -176,7 +176,9 @@ class WebVoiceBridge:
                 )
                 logger.info("WebVoice: OpenAI Realtime connected")
 
-                await self._configure_session()
+                ok = await self._configure_session()
+                if not ok or not self._running:
+                    return
 
                 self._start_time = _time.time()
                 self._timer_task = asyncio.create_task(self._duration_timer())
@@ -332,7 +334,30 @@ class WebVoiceBridge:
         })
         logger.info(f"WebVoice: injected {len(history)} history entries for continuity")
 
-    async def _configure_session(self):
+    async def _configure_session(self) -> bool:
+        # Lire l'événement initial d'OpenAI (session.created ou error) avant d'envoyer session.update.
+        # Si le modèle est invalide ou le quota épuisé, OpenAI envoie un error ici puis ferme le WS.
+        try:
+            raw = await asyncio.wait_for(self.ws_openai.recv(), timeout=5.0)
+            first = json.loads(raw)
+            first_type = first.get("type", "?")
+            if first_type == "error":
+                err = first.get("error", {})
+                logger.error(
+                    f"WebVoice: OpenAI error avant session.update — code={err.get('code','?')} msg={err.get('message','')[:200]}"
+                )
+                self._running = False
+                await self._ws_send_client({
+                    "type": "error",
+                    "message": "Service vocal temporairement indisponible.",
+                })
+                return False
+            logger.info(f"WebVoice: OpenAI initial event: {first_type}")
+        except asyncio.TimeoutError:
+            logger.warning("WebVoice: pas d'événement initial OpenAI (timeout 5s) — on continue")
+        except Exception as e:
+            logger.warning(f"WebVoice: lecture event initial OpenAI: {e}")
+
         session_config = {
             "type": "session.update",
             "session": {
@@ -354,8 +379,10 @@ class WebVoiceBridge:
                 "tool_choice": "auto",
             },
         }
-        await self._ws_send_openai(session_config)
-        logger.info(f"WebVoice: session configured (pcm16, voice={self.voice}, server_vad)")
+        ok = await self._ws_send_openai(session_config)
+        if ok:
+            logger.info(f"WebVoice: session configured (pcm16, voice={self.voice}, server_vad)")
+        return ok
 
     async def _send_greeting(self):
         """Envoie un message initial pour que Luna salue le souscripteur."""
@@ -367,9 +394,12 @@ class WebVoiceBridge:
                 "content": [{"type": "input_text", "text": self.greeting}],
             },
         }
-        await self._ws_send_openai(greeting_event)
-        await self._ws_send_openai({"type": "response.create"})
-        logger.info("WebVoice: greeting sent")
+        ok1 = await self._ws_send_openai(greeting_event)
+        ok2 = await self._ws_send_openai({"type": "response.create"})
+        if ok1 and ok2:
+            logger.info("WebVoice: greeting sent")
+        else:
+            logger.warning("WebVoice: greeting send failed")
 
     async def _relay_client_to_openai(self):
         """Recoit l'audio PCM16 du navigateur et l'envoie a OpenAI."""
