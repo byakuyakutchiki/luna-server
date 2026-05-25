@@ -1,8 +1,8 @@
 # Kimi — Avis Objectif 010 — UX conversationnelle + Mémoire non-intrusive
 
-**Date** : 2026-05-25  
-**Objectif** : 010 — Historique intelligent + mémoire utile Luna  
-**Rôle** : UX conversationnelle, formulation mémoire, règles titrage, textes interface  
+**Date** : 2026-05-25
+**Objectif** : 010 — Historique intelligent + mémoire utile Luna
+**Rôle** : UX conversationnelle, formulation mémoire, règles titrage, textes interface
 
 ---
 
@@ -218,7 +218,7 @@ Luna : "Avec ton objectif de 50h/mois, il reste {X}h."
 Si Luna n'est pas sûre du contexte :
 
 ```
-Luna : "Je ne suis pas certain — parles-tu du monitoring voix 
+Luna : "Je ne suis pas certain — parles-tu du monitoring voix
         ou du monitoring général ?"
 ```
 
@@ -336,19 +336,127 @@ Oui à : information directe, pertinente
 
 ---
 
+## CLARIFICATION LUDOVIC (26 mai) — Titrage intelligent
+
+### Problème
+
+Les conversations gardent le titre "Nouvelle conversation" même après plusieurs messages.
+C'est inutile, personne ne peut savoir de quoi on parlait.
+
+### Nouvelle mission Kimi : Règles titrage court et pertinent
+
+#### 1. Heuristique extraction mots-clés
+
+À partir du **1er message utilisateur**, extraire top 3-4 mots importants :
+
+```
+Exemple 1 :
+User: "Peux-tu vérifier ma voix Luna ? Elle coupe parfois."
+Mots-clés extraits : ["voix", "Luna", "coupe"]
+Titre généré : "Voix Luna — coupures"
+
+Exemple 2 :
+User: "Expliquer comment marche la recherche de documents"
+Mots-clés extraits : ["recherche", "documents"]
+Titre généré : "Recherche documents"
+
+Exemple 3 :
+User: "Voici l'Objectif 010 à mettre en place"
+Mots-clés : ["Objectif", "010"]
+Titre : "Objectif 010 — historique"
+```
+
+#### 2. Règles construction titre
+
+**Format** :
+- Pattern 1 : "{mot1} et {mot2}" → "Voix et OpenAI"
+- Pattern 2 : "{mot1} — {mot2}" → "Voix — coupures"
+- Pattern 3 : "{mot1}" si seul pertinent → "Documents"
+
+**Capitalisation française** :
+- Première lettre maj
+- Noms propres maj (Luna, OpenAI, Ludovic)
+- Autres minuscules
+
+**Longueur** : 5-10 mots max
+
+#### 3. Stop-words à éliminer
+
+Ne pas inclure dans titre :
+```
+"comment", "pourquoi", "peux-tu", "est-ce", "tu", "je",
+"pour", "avec", "dans", "à", "et", "ou", "un", "une",
+"le", "la", "les", "mon", "ton", "son", "la"
+```
+
+#### 4. Exemples attendus
+
+✅ Bons titres :
+```
+"Voix Luna instable"
+"Objectif 010 — historique"
+"Documents — porte-documents"
+"Connexion bouton mobile"
+"Mémoire Luna et personnalité"
+"Réglages exploitant APK"
+"OpenAI Realtime API"
+```
+
+❌ À éviter :
+```
+"a b c d e"  (mots vides)
+"..."  (ellipses)
+"Nouvelle conversation"  (générique)
+"Conversation du 25 mai"  (pas de contexte)
+"Tu veux savoir comment"  (commence par "Tu")
+```
+
+#### 5. Textes UX Kimi
+
+**Barre recherche** :
+- Placeholder : "Rechercher conversation..."
+- Vide : "Aucune conversation trouvée"
+- Tags suggestions : "Essayez : #voix #documents #APK #objectif"
+
+**Fallback** :
+- Si titrage échoue : "Conversation du 26 mai" (pas "Nouvelle conversation")
+
+**Livrables Kimi (updated)** :
+1. **Heuristique extraction mots-clés complète**
+   - Stop-words list
+   - Règles capitalisation
+   - Exemples transformations
+
+2. **Format construction titre**
+   - Patterns ("X et Y", "X — Y", "X")
+   - Longueur et style
+   - Cas limites (trop court, trop long, vide)
+
+3. **Textes UX recherche**
+   - Placeholders, messages vides, suggestions
+   - Français clair et court
+
+---
+
 ## Validation attendue
 
-- [ ] Titres auto cohérents et clairs
+- [ ] **Titres auto cohérents et clairs**
+- [ ] **Aucun titre générique ("Nouvelle conversation") ne reste après messages**
+- [ ] **Titres sont intelligibles** (ex: "Voix Luna", pas "a b c d")
 - [ ] Mémoire utilisée discrètement, pas récitée
 - [ ] Textes interface en français clair
 - [ ] Pas de secret en réponse
+- [ ] **Textes recherche clairs et court**
 - [ ] Luna semble naturelle, pas "machine qui parle sa mémoire"
 
 ---
 
 ## Prochaines étapes
 
-Attendre Claude (backend) et DeepSeek (frontend) pour intégration.
+Parallèle :
+- DeepSeek : implémenter heuristique + recherche
+- Cursor : barre recherche CSS
+- Claude : architecture titrage
 
-**Status** : ⏳ Règles formulation commençant
+**Status** : 🔄 Règles titrage et UX finalisées
 

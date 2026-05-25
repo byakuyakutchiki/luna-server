@@ -1,8 +1,8 @@
 # Claude — Avis Objectif 010 — Historique + Mémoire Luna
 
-**Date** : 2026-05-25  
-**Objectif** : 010 — Historique intelligent + mémoire utile Luna  
-**Rôle** : Lead backend, intégration, décisions architecture  
+**Date** : 2026-05-25
+**Objectif** : 010 — Historique intelligent + mémoire utile Luna
+**Rôle** : Lead backend, intégration, décisions architecture
 
 ---
 
@@ -109,7 +109,7 @@ Stockage : Redis (cache rapide) + base de secours
 ```
 GET /api/chat/conversations?limit=20&offset=0
   → Retourne liste conversations, triée par updated_at DESC
-  
+
 POST /api/chat/conversations
   → Crée une nouvelle conversation
   → Body: {"title": "Titre optionnel", "description": ""}
@@ -117,10 +117,10 @@ POST /api/chat/conversations
 
 GET /api/chat/conversations/{conversation_id}
   → Retourne une conversation + ses messages (limit 50)
-  
+
 PUT /api/chat/conversations/{conversation_id}
   → Met à jour titre/description
-  
+
 DELETE /api/chat/conversations/{conversation_id}
   → Soft-delete (marquer is_active=false)
 ```
@@ -130,7 +130,7 @@ DELETE /api/chat/conversations/{conversation_id}
 ```
 GET /api/chat/conversations/{conversation_id}/messages?limit=50&offset=0
   → Messages de la conversation
-  
+
 POST /api/chat/conversations/{conversation_id}/messages
   → Ajoute un message
   → Body: {"sender": "user", "content": "..."}
@@ -142,7 +142,7 @@ POST /api/chat/conversations/{conversation_id}/messages
 ```
 GET /api/luna/memory?type=project&limit=20
   → Retourne mémoire utile par type
-  
+
 POST /api/luna/memory
   → Ajoute un élément mémoire (admin/founder seulement)
   → Body: {"memory_type": "project", "key": "architecture", "value": "..."}
@@ -255,7 +255,7 @@ async def list_conversations(request: Request):
     """Retourne les conversations de l'utilisateur."""
     jwt_payload = _decode_client_token(...)
     tenant_id = jwt_payload.get("tenant_id")
-    
+
     # Récupérer Redis ou base de données
     conversations = _redis_client.lrange(f"luna:{tenant_id}:conversations", 0, 20)
     return {"conversations": conversations}
@@ -320,19 +320,73 @@ async def create_conversation(request: Request, body: Dict):
 
 ---
 
+## CLARIFICATION LUDOVIC (26 mai) — Titrage intelligent + Recherche
+
+### Nouveau problème identifié
+
+Le menu historique existe, mais les conversations gardent des titres génériques :
+```
+❌ "Nouvelle conversation"  ← Impossible de savoir de quoi on parlait
+```
+
+### Nouvelles missions Claude
+
+#### 1. Audit : Pourquoi le titre n'est pas généré ?
+
+```
+→ Y a-t-il déjà une fonction generate_title() côté serveur ?
+→ Pourquoi n'est-elle pas appliquée dans l'APK réelle ?
+→ Où générer le titre : serveur ou client ?
+```
+
+Livrable : `CLAUDE_AUDIT_010_TITRAGE_SERVEUR.md`
+
+#### 2. Architecture titrage
+
+**Décision à arbitrer** :
+- Génération **serveur** (qualité LLM, mais latence)
+- Génération **client** (rapide, heuristique local)
+- **Hybride** (client d'abord, serveur améliore en background)
+
+#### 3. Endpoint recherche
+
+Proposer `/api/chat/conversations/search?q=voix` si nécessaire.
+
+**Stockage** :
+- Redis pour cache titre (rapide)
+- DB durable pour persistance (fallback)
+
+#### 4. Garde-fous titrage
+
+- [ ] Jamais "Nouvelle conversation" après 1-2 messages
+- [ ] Titre intelligible (pas "a b c d")
+- [ ] Fallback "Conversation du DD/MM" si génération échoue
+- [ ] Pas de migration des anciens titres (garder existant)
+
+**Livrables Claude (updated)** :
+1. Audit titrage serveur existant
+2. Décision architecture (serveur vs client vs hybrid)
+3. Endpoint `/api/chat/conversations/search` si besoin
+4. Modèle Pydantic Conversation avec champ `title` garanti non-null
+5. Tests : titre généré et appliqué immédiatement
+
+---
+
 ## Validation Ludovic attendue
 
 - [ ] Modèle backend approuvé
 - [ ] Endpoints performants
 - [ ] Mémoire utile sans secret
-- [ ] Titre automatique fonctionnel
+- [ ] **Titre automatique généré et visible immédiatement**
+- [ ] **Recherche conversation par mot-clé fonctionnelle**
+- [ ] Pas de régression chat existant
 - [ ] Test sur téléphone avant déploiement
 
 ---
 
 ## Prochaines étapes après Claude
 
-Attendre les audits de DeepSeek (frontend) et Kimi (UX) pour proposition finale.
+Attendre audits DeepSeek (frontend titrage + recherche) et Kimi (règles UX) pour proposition finale.
 
-**Status** : ⏳ Audit de l'existant commençant
+**Status** : ⏳ Audit titrage commençant
 

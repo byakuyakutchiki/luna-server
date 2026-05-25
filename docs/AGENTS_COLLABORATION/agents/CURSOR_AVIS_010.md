@@ -1,8 +1,8 @@
 # Cursor — Avis Objectif 010 — UI Mobile + Menu conversationnel
 
-**Date** : 2026-05-25  
-**Objectif** : 010 — Historique intelligent + mémoire utile Luna  
-**Rôle** : UI/UX mobile, responsive, correction bug Connexion/Déconnexion  
+**Date** : 2026-05-25
+**Objectif** : 010 — Historique intelligent + mémoire utile Luna
+**Rôle** : UI/UX mobile, responsive, correction bug Connexion/Déconnexion
 
 ---
 
@@ -58,7 +58,7 @@ Auditer et implémenter le menu trois traits pour conversations, corriger le bou
       <path d="M3 6h18M3 12h18M3 18h18"/>
     </svg>
   </button>
-  
+
   <h1 class="chat-title">Chat</h1>
 </header>
 
@@ -68,11 +68,11 @@ Auditer et implémenter le menu trois traits pour conversations, corriger le bou
     <h2>Conversations</h2>
     <button id="closeSidebarBtn" class="close-btn" aria-label="Fermer">✕</button>
   </div>
-  
+
   <button id="newConversationBtn" class="btn-new-conversation">
     + Nouvelle conversation
   </button>
-  
+
   <div id="conversationsList" class="conversations-list">
     <!-- Rempli dynamiquement par JavaScript -->
   </div>
@@ -155,11 +155,11 @@ Auditer et implémenter le menu trois traits pour conversations, corriger le bou
     box-shadow: none;
     border-right: 1px solid #e5e7eb;
   }
-  
+
   .chat-menu-toggle {
     display: none;
   }
-  
+
   .sidebar-backdrop {
     display: none;
   }
@@ -269,7 +269,7 @@ Auditer et implémenter le menu trois traits pour conversations, corriger le bou
   .chat-sidebar {
     width: 100%;  /* Fullscreen */
   }
-  
+
   .chat-title {
     font-size: 16px;
   }
@@ -285,7 +285,7 @@ Auditer et implémenter le menu trois traits pour conversations, corriger le bou
 document.getElementById('chatMenuToggle').addEventListener('click', function() {
   const sidebar = document.getElementById('chatSidebar');
   const backdrop = document.getElementById('sidebarBackdrop');
-  
+
   sidebar.classList.toggle('is-visible');
   backdrop.classList.toggle('is-hidden');
 });
@@ -318,7 +318,7 @@ document.addEventListener('click', function(e) {
     const item = e.target.closest('.conversation-item');
     const conversationId = item.dataset.conversationId;
     loadConversation(conversationId);
-    
+
     // Fermer sidebar sur mobile
     if (window.innerWidth < 768) {
       document.getElementById('chatSidebar').classList.remove('is-visible');
@@ -369,12 +369,12 @@ Trouver le bouton dans `static/index.html` (ex: `.auth-button`, `#loginBtn`, etc
     font-size: 12px;
     max-width: 90px;
   }
-  
+
   /* Ou icone only si vraiment trop tight */
   .auth-button-text {
     display: none;  /* Cacher texte */
   }
-  
+
   .auth-button-icon {
     display: inline;  /* Montrer icone seule */
   }
@@ -485,13 +485,104 @@ body {
 
 ---
 
+## CLARIFICATION LUDOVIC (26 mai) — Barre de recherche
+
+### Nouveau besoin
+
+Utilisateurs doivent pouvoir retrouver une conversation en tapant un mot-clé.
+
+**Exemple** :
+```
+Tape "voix" → affiche toutes conversations contenant "voix"
+Tape "documents" → affiche conversations "Documents", "Porte-documents"
+Tape "APK" → affiche conversations liées à l'APK
+```
+
+### Nouvelle mission Cursor : Barre recherche mobile responsive
+
+#### 1. Position et layout
+
+```
+Panneau gauche :
+┌────────────────────────────┐
+│ ☰  Conversations          │  ← Header
+├────────────────────────────┤
+│ 🔍 Rechercher...          │  ← NEW : Barre recherche
+├────────────────────────────┤
+│ [Voix Luna — 25 mai]      │
+│ [Documents — porte...]    │  ← Filtrées en temps réel
+│ [Objectif 010]            │
+└────────────────────────────┘
+```
+
+#### 2. CSS responsive
+
+**Mobile (<400px)** :
+- Largeur 100% du panneau (pas de débord)
+- Font 14px (lisible)
+- Padding 12px
+- Clearable (X button visible après typing)
+
+**Tablet (400-768px)** :
+- Largeur 100% toujours
+- Font 15px
+
+**Desktop (768px+)** :
+- Peut rester visible ou dans header
+- Pas de changement brusque
+
+#### 3. Interactions UX
+
+- Focus automatique quand utilisateur tape
+- Debounce 200ms (pas de flicker)
+- X button "Effacer" visible après typing
+- Placeholder : "Rechercher conversation..."
+- Clavier virtuel ne doit pas cacher la barre
+
+#### 4. Pas de régression
+
+- [ ] Chat existant fonctionne toujours
+- [ ] Menu trois traits toujours accessible
+- [ ] Pas de horizontal scroll
+- [ ] Safe-area respectées
+- [ ] Performance : recherche < 100ms
+
+**Livrables Cursor (updated)** :
+1. **Barre recherche CSS complète**
+   - Layout responsive (<320px, 320-480px, 480-768px, 768px+)
+   - Clearable avec X button
+   - Placeholder texte
+
+2. **Intégration JavaScript**
+   - Focus et blur handlers
+   - Debounce 200ms
+   - Trigger recherche via DeepSeek
+
+3. **Mobile vérification**
+   - Pas de débord (<320px)
+   - Clavier ne cache pas
+   - Touch-friendly (44px min height)
+   - Safe-area respectées
+
+4. **Tests responsivité**
+   - [ ] <320px OK
+   - [ ] 320-480px OK (mobile)
+   - [ ] 480-768px OK
+   - [ ] 768px+ OK (desktop)
+   - [ ] Safe-area (notch, home indicator)
+
+---
+
 ## Validation attendue
 
 - [ ] Menu trois traits accessible et intuitive
 - [ ] Conversations listées et cliquables
+- [ ] **Barre recherche présente et fonctionnelle**
 - [ ] Sidebar responsive (fullscreen mobile, side panel desktop)
 - [ ] Bouton Connexion/Déconnexion non coupé
 - [ ] Pas d'horizontal scroll sur petit écran
+- [ ] **Recherche fonctionne : taper "voix" filtre les conversations**
+- [ ] **Performance recherche < 100ms**
 - [ ] Safe-area respectées (notch, home indicator)
 - [ ] Font sizes lisibles (min 14px)
 
@@ -499,7 +590,10 @@ body {
 
 ## Prochaines étapes
 
-Attendre DeepSeek (frontend structure) et Kimi (UX) pour intégration globale.
+Parallèle :
+- DeepSeek : heuristique recherche locale
+- Kimi : textes UX et règles titrage
+- Claude : architecture titrage
 
-**Status** : ⏳ Menu trois traits implémentation commençant
+**Status** : 🔄 Barre recherche implémentation
 

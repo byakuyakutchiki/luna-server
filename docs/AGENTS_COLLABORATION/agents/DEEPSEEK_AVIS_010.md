@@ -1,8 +1,8 @@
 # DeepSeek — Avis Objectif 010 — Frontend Chat + Structure conversations
 
-**Date** : 2026-05-25  
-**Objectif** : 010 — Historique intelligent + mémoire utile Luna  
-**Rôle** : Audit technique frontend, séparation conversations, structure minimale  
+**Date** : 2026-05-25
+**Objectif** : 010 — Historique intelligent + mémoire utile Luna
+**Rôle** : Audit technique frontend, séparation conversations, structure minimale
 
 ---
 
@@ -102,14 +102,14 @@ let _lunaCurrentConversation = null;  // Conversation active
   <button id="chatMenuBtn" class="hamburger-btn">
     <span></span><span></span><span></span>  <!-- Trois traits -->
   </button>
-  
+
   <!-- Panneau latéral (hidden par défaut) -->
   <div id="chatSidebar" class="chat-sidebar">
     <div class="chat-sidebar-header">
       <h3>Conversations</h3>
       <button id="newConversationBtn">+ Nouvelle</button>
     </div>
-    
+
     <div id="conversationsList" class="conversations-list">
       <!-- Rempli dynamiquement -->
     </div>
@@ -169,11 +169,11 @@ function initConversations() {
       messages_count: 0
     });
   }
-  
+
   // Charger la conversation courante
   const currentId = localStorage.getItem("luna:current_conversation_id");
   _lunaCurrentConversation = currentId || _lunaConversations[0].conversation_id;
-  
+
   // Afficher la liste
   renderConversationsList();
 }
@@ -188,11 +188,11 @@ function initConversations() {
 ```javascript
 function generateConversationTitle(messages) {
   if (messages.length === 0) return "Nouvelle conversation";
-  
+
   // Extraire mots-clés des 3 premiers messages
   const firstMessages = messages.slice(0, 3).map(m => m.content);
   const keywords = extractKeywords(firstMessages.join(" "));
-  
+
   // Construire titre court
   if (keywords.length >= 2) {
     return `${keywords[0]} et ${keywords[1]}`;
@@ -208,7 +208,7 @@ function extractKeywords(text) {
   const words = text.toLowerCase()
     .split(/\s+/)
     .filter(w => w.length > 4 && !stopWords.includes(w));
-  
+
   // Retirer doublons, garder top 3
   return [...new Set(words)].slice(0, 3);
 }
@@ -280,25 +280,25 @@ async function loadConversation(conversationId) {
   // 1. Mettre à jour la conversation courante
   _lunaCurrentConversation = conversationId;
   localStorage.setItem("luna:current_conversation_id", conversationId);
-  
+
   // 2. Charger les messages (depuis localStorage ou serveur)
   const convo = _lunaConversations.find(c => c.conversation_id === conversationId);
   if (!convo) return;
-  
+
   // 3. Vider la zone chat et afficher les messages de cette conversation
   clearChatMessages();
-  
+
   // Charger depuis serveur (délégataire Claude)
   const messages = await fetch(`/api/chat/conversations/${conversationId}/messages`)
     .then(r => r.json())
     .then(data => data.messages || []);
-  
+
   // 4. Afficher les messages
   messages.forEach(msg => renderMessage(msg));
-  
+
   // 5. Scroll au bas
   scrollChatToBottom();
-  
+
   // 6. Focus input pour nouveau message
   document.getElementById("chatInput").focus();
 }
@@ -356,19 +356,88 @@ async function loadConversation(conversationId) {
 
 ---
 
+## CLARIFICATION LUDOVIC (26 mai) — Titrage intelligent + Recherche
+
+### Nouveau besoin urgent
+
+**Titrage** : Générer titre intelligent **localement** après 1er message
+- Extraire mots-clés du message utilisateur
+- Construire titre court (5-10 mots) selon règles Kimi
+- Mettre à jour immédiatement dans la liste historique
+
+**Recherche** : Barre recherche dans le panneau
+- Filtrer conversations par titre + mot dans messages
+- Recherche locale sur localStorage (débounce 200ms)
+- Afficher résultats matching > 70%
+
+### Nouvelles missions DeepSeek
+
+#### 1. Heuristique titrage local (PRIORITAIRE)
+
+```javascript
+function generateConversationTitle(messages) {
+  // Extraire top 3-4 mots importants du 1er message user
+  // Appliquer règles Kimi (éliminer stop-words, capitaliser)
+  // Construire titre court "Sujet1 et Sujet2" ou "Sujet — détail"
+  // Retourner titre intelligible
+}
+```
+
+Timing : doit s'exécuter en < 100ms (pas de lag)
+
+#### 2. Recherche locale sur localStorage
+
+```javascript
+function searchConversations(query) {
+  // Filter conversations :
+  //   - title.includes(query)
+  //   - first_message.includes(query)
+  // Trier par pertinence (title match > content match)
+  // Retourner top 10 résultats
+}
+```
+
+Debounce 200ms pour éviter flicker.
+
+#### 3. Architecture ready pour recherche serveur
+
+Proposer endpoint `/api/chat/search` mais **ne pas l'implémenter** maintenant.
+
+#### 4. Pas de refactor
+
+- [ ] Chat existant reste intact
+- [ ] Ajouter titrage par-dessus
+- [ ] localStorage utilisé pour cache titres
+- [ ] Fallback "Conversation du DD/MM" si génération échoue
+
+**Livrables DeepSeek (updated)** :
+1. Heuristique titrage local + tests
+2. Code recherche locale (localStorage)
+3. Barre recherche intégrée (avec Cursor)
+4. Performance : titrage < 100ms, recherche < 100ms
+5. Tests : "Voix" trouve "Voix Luna instable"
+
+---
+
 ## Validation attendue
 
 - [ ] Chat existant non cassé
 - [ ] Conversations listées et persistantes
-- [ ] Titre auto généré (pas vide)
+- [ ] **Titre auto généré immédiatement après 1er message**
+- [ ] **Titre intelligible (pas "a b c d", pas "Nouvelle conversation")**
 - [ ] Chargement conversation fluide
 - [ ] Cache cohérent (pas d'anciennes données)
+- [ ] **Recherche locale fonctionne (debounce 200ms)**
+- [ ] **Performance < 100ms pour titrage et recherche**
 
 ---
 
 ## Prochaines étapes
 
-Attendre Kimi (UX messages) et Claude (endpoints backend) pour intégration complète.
+Parallèle :
+- Kimi : règles titrage + UX recherche
+- Cursor : barre recherche CSS mobile
+- Claude : architecture titrage (serveur vs client)
 
-**Status** : ⏳ Audit frontend commençant
+**Status** : 🔄 Titrage + recherche implémentation
 
