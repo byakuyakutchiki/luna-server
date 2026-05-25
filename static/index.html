@@ -594,7 +594,7 @@ button:active:not(:disabled) { transform: scale(0.97); }
 .auth-link a { color: #a78bfa; cursor: pointer; text-decoration: none; }
 .auth-link a:hover { text-decoration: underline; }
 .app-container { display: none; flex: 1; flex-direction: column; overflow: hidden; }
-.logout-btn { padding: 6px 14px; border-radius: 6px; border: 1px solid #555; background: transparent; color: #aaa; cursor: pointer; font-size: 0.8em; }
+.logout-btn { padding: 6px 14px; border-radius: 6px; border: 1px solid #555; background: transparent; color: #aaa; cursor: pointer; font-size: 0.8em; white-space: nowrap; }
 .logout-btn:hover { border-color: #f87171; color: #f87171; }
 .wakeword-btn { width: 40px; height: 40px; border-radius: 50%; border: 1px solid #555; background: transparent; color: #aaa; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.3s; }
 .wakeword-btn:hover { border-color: #a78bfa; color: #a78bfa; }
@@ -631,7 +631,7 @@ body.mode-secretaire .luna-chip:hover { background: rgba(16,185,129,0.2); border
   .emoji-btn { font-size: 1.3em; padding: 4px; }
   .emoji-picker { width: 260px; left: 4px; }
   .action-menu { right: 4px; min-width: 180px; }
-  .header { padding: 10px 12px; }
+  .header { padding: 10px 12px; padding-right: max(12px, env(safe-area-inset-right, 12px)); }
   .header h1 { font-size: 1.1em; }
   .header p { font-size: 0.7em; }
   .logout-btn { padding: 8px 12px; min-height: 44px; }
