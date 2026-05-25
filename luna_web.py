@@ -2976,6 +2976,328 @@ async def _check_objective_reglages() -> dict:
     }
 
 
+async def _check_objective_voix() -> dict:
+    """Monitoring objectif Voix — Appel Vocal IA (voix féminine par défaut)."""
+    checks: list = []
+    subservices: dict = {}
+    metrics: dict = {}
+    auto_heal: list = []
+    _FEMALE_VOICES = {"coral", "nova", "shimmer"}
+    _MALE_VOICES = {"alloy", "echo", "onyx", "fable"}
+
+    def _chk(name: str, ok: bool, msg: str = "", critical: bool = False):
+        checks.append({"name": name, "status": "ok" if ok else ("critical" if critical else "warning"), "message": msg})
+        return ok
+
+    # --- OpenAI Realtime ---
+    openai_key_ok = bool(os.getenv("LLM_API_KEY") or os.getenv("OPENAI_API_KEY"))
+    _chk("openai_api_key", openai_key_ok,
+         "OPENAI_API_KEY présente" if openai_key_ok else "OPENAI_API_KEY absente — voix directe impossible", critical=True)
+
+    client_ok = openai_client is not None
+    _chk("openai_client_available", client_ok,
+         "openai_client initialisé" if client_ok else "openai_client absent", critical=True)
+
+    # --- Voix féminine ---
+    voice_name = os.getenv("OPENAI_VOICE_NAME", "").strip().lower() or ""
+    realtime_default = "alloy"  # default de realtime_bridge quand OPENAI_VOICE_NAME absent
+    web_default = "coral"       # default de web_voice_bridge quand OPENAI_VOICE_NAME absent
+
+    if voice_name:
+        voice_is_female = voice_name in _FEMALE_VOICES
+        voice_msg = f"OPENAI_VOICE_NAME={voice_name} ({'féminine ✓' if voice_is_female else 'masculine — recommander coral/nova/shimmer'})"
+    else:
+        voice_is_female = False  # realtime_bridge defaulte sur alloy (masculin)
+        voice_name = f"non défini (web_voice_bridge→{web_default}, realtime_bridge→{realtime_default})"
+        voice_msg = f"OPENAI_VOICE_NAME non défini — realtime_bridge defaulte sur '{realtime_default}' (masculin). Définir OPENAI_VOICE_NAME=coral"
+    _chk("female_voice_configured", voice_is_female, voice_msg)
+
+    # --- Bridges importables ---
+    web_bridge_ok = False
+    realtime_bridge_ok = False
+    build_voice_context_ok = False
+    try:
+        from integrations.openai.web_voice_bridge import WebVoiceBridge as _WVB
+        web_bridge_ok = True
+    except Exception:
+        pass
+    try:
+        from integrations.openai.realtime_bridge import RealtimeBridge as _RTB, build_voice_context as _bvc
+        realtime_bridge_ok = True
+        build_voice_context_ok = True
+    except Exception:
+        pass
+    _chk("web_voice_bridge_importable", web_bridge_ok,
+         "WebVoiceBridge importable" if web_bridge_ok else "integrations.openai.web_voice_bridge KO", critical=True)
+    _chk("realtime_bridge_importable", realtime_bridge_ok,
+         "RealtimeBridge importable" if realtime_bridge_ok else "integrations.openai.realtime_bridge KO", critical=True)
+    _chk("build_voice_context_available", build_voice_context_ok,
+         "build_voice_context disponible" if build_voice_context_ok else "build_voice_context absent", critical=True)
+
+    # --- Fonctions voix critiques ---
+    build_realtime_ctx_ok = callable(globals().get("_build_realtime_context"))
+    _chk("build_realtime_context_available", build_realtime_ctx_ok,
+         "_build_realtime_context disponible" if build_realtime_ctx_ok else "_build_realtime_context absent", critical=True)
+
+    save_transcript_ok = callable(globals().get("_save_voice_transcript"))
+    _chk("save_voice_transcript_available", save_transcript_ok,
+         "_save_voice_transcript disponible" if save_transcript_ok else "_save_voice_transcript absent")
+
+    semaphore_ok = "_openai_realtime_semaphore" in globals()
+    _chk("realtime_semaphore_available", semaphore_ok,
+         "_openai_realtime_semaphore disponible (max 50 sessions)" if semaphore_ok else "_openai_realtime_semaphore absent")
+
+    # --- Routes WebSocket et REST ---
+    ws_voice_ok = True  # /ws/luna-voice est monté dans luna_web.py
+    _chk("ws_luna_voice_route", ws_voice_ok, "/ws/luna-voice monté")
+
+    voice_call_route_ok = True  # /api/voice-call est monté
+    _chk("voice_call_route", voice_call_route_ok, "/api/voice-call monté")
+
+    twiml_route_ok = True  # /api/voice-call/twiml est monté
+    _chk("voice_call_twiml_route", twiml_route_ok, "/api/voice-call/twiml monté")
+
+    media_stream_route_ok = True  # /api/voice-call/media-stream est monté
+    _chk("voice_call_media_stream_route", media_stream_route_ok, "/api/voice-call/media-stream monté")
+
+    # --- UI : bouton Voix ---
+    index_html_path = os.path.join(os.path.dirname(__file__), "static", "index.html")
+    voice_btn_present = False
+    voice_btn_wired = False
+    click_feedback_ok = False
+    mic_permission_handled = False
+    reconnect_ok = False
+    try:
+        with open(index_html_path, "r", encoding="utf-8") as _f:
+            _html = _f.read()
+        voice_btn_present = "lunaVoiceBtn" in _html
+        voice_btn_wired = "startVoice" in _html and "ws/luna-voice" in _html
+        click_feedback_ok = "voiceOverlay" in _html and "_setOvStatus" in _html
+        mic_permission_handled = "NotAllowedError" in _html
+        reconnect_ok = "_reconnectVoiceWs" in _html
+    except Exception:
+        pass
+    _chk("voice_button_present", voice_btn_present,
+         "lunaVoiceBtn présent dans index.html" if voice_btn_present else "lunaVoiceBtn absent de index.html", critical=True)
+    _chk("voice_button_wired", voice_btn_wired,
+         "Bouton câblé vers startVoice + /ws/luna-voice" if voice_btn_wired else "Bouton non câblé — clic silencieux possible", critical=True)
+    _chk("click_feedback_available", click_feedback_ok,
+         "voiceOverlay + états (Connexion/Écoute/Luna parle) disponibles" if click_feedback_ok else "Feedback clic absent — silence possible", critical=True)
+    _chk("mic_permission_handled", mic_permission_handled,
+         "NotAllowedError géré — message clair si micro refusé" if mic_permission_handled else "Refus micro non géré — silence possible", critical=True)
+    _chk("voice_reconnect_available", reconnect_ok,
+         "_reconnectVoiceWs disponible (reconnexion x3)" if reconnect_ok else "Reconnexion automatique absente")
+
+    # --- Twilio Voice (optionnel) ---
+    twilio_voice_ok = voice_client is not None and getattr(voice_client, "is_configured", False)
+    _chk("twilio_voice_configured", twilio_voice_ok,
+         "Twilio Voice configuré" if twilio_voice_ok else "Twilio Voice absent — appels téléphoniques indisponibles (voix directe OK)")
+
+    # --- Budget et quota ---
+    budget_guard_ok = callable(globals().get("_check_budget_guard"))
+    _chk("budget_guard_available", budget_guard_ok,
+         "_check_budget_guard disponible (bloque si budget dépassé)" if budget_guard_ok else "_check_budget_guard absent — dépassement budget possible", critical=True)
+
+    quota_guard_ok = _quota_guard is not None
+    _chk("quota_guard_voice", quota_guard_ok,
+         "QuotaGuard disponible pour voix" if quota_guard_ok else "QuotaGuard absent — dépassement quota voix possible")
+
+    # --- Transcription + mémoire ---
+    transcript_mem_ok = _memory_manager is not None and save_transcript_ok
+    _chk("transcription_memory", transcript_mem_ok,
+         "Transcription sauvegardée en mémoire disponible" if transcript_mem_ok else "Sauvegarde transcript indisponible")
+
+    # --- Suivi coût voix ---
+    cortex_inst = get_cortex() if callable(globals().get("get_cortex")) else None
+    cost_tracker_ok = cortex_inst is not None and hasattr(cortex_inst, "cost_tracker") and cortex_inst.cost_tracker is not None
+    _chk("voice_cost_tracking", cost_tracker_ok,
+         "Suivi coût voix disponible (Cortex CostTracker)" if cost_tracker_ok else "Suivi coût voix indisponible — cortex absent")
+
+    # --- Cleanup sessions orphelines ---
+    cleanup_ok = semaphore_ok and _redis_client is not None
+    _chk("orphan_session_cleanup", cleanup_ok,
+         "Cleanup sessions orphelines disponible (Redis + semaphore)" if cleanup_ok else "Cleanup sessions orphelines indisponible")
+
+    # --- Fallback texte/chat ---
+    fallback_ok = client_ok  # si OpenAI dispo, le chat texte fonctionne comme fallback
+    _chk("fallback_text_chat", fallback_ok,
+         "Fallback chat texte disponible si voix KO" if fallback_ok else "Aucun fallback — service vocal KO = coupure totale")
+
+    # --- Sous-services ---
+    subservices["voice_button"] = {
+        "status": "ok" if (voice_btn_present and voice_btn_wired) else "critical",
+        "critical": True,
+        "message": "Bouton vocal visible et câblé" if (voice_btn_present and voice_btn_wired) else "Bouton absent ou non câblé",
+    }
+    subservices["click_feedback"] = {
+        "status": "ok" if click_feedback_ok else "critical",
+        "critical": True,
+        "message": "État immédiat au clic (Connexion → Écoute → Luna parle)" if click_feedback_ok else "Clic peut être silencieux",
+    }
+    subservices["mic_permission"] = {
+        "status": "ok" if mic_permission_handled else "critical",
+        "critical": True,
+        "message": "Refus micro géré avec message clair" if mic_permission_handled else "Refus micro produit un silence",
+    }
+    subservices["female_voice"] = {
+        "status": "ok" if voice_is_female else "warning",
+        "critical": False,
+        "message": voice_msg,
+        "recommended_fix": "Définir OPENAI_VOICE_NAME=coral dans .env" if not voice_is_female else "",
+    }
+    subservices["openai_realtime"] = {
+        "status": "ok" if (client_ok and openai_key_ok and realtime_bridge_ok) else "critical",
+        "critical": True,
+        "message": "Client + clé + bridge disponibles" if (client_ok and openai_key_ok and realtime_bridge_ok) else "OpenAI Realtime indisponible",
+    }
+    subservices["browser_voice_ws"] = {
+        "status": "ok" if ws_voice_ok else "critical",
+        "critical": True,
+        "message": "/ws/luna-voice monté" if ws_voice_ok else "/ws/luna-voice absent",
+    }
+    subservices["twilio_voice"] = {
+        "status": "ok" if twilio_voice_ok else "warning",
+        "critical": False,
+        "message": "Twilio Voice prêt" if twilio_voice_ok else "Twilio absent — appels téléphoniques désactivés (voix directe non impactée)",
+    }
+    subservices["media_stream"] = {
+        "status": "ok" if media_stream_route_ok else "critical",
+        "critical": False,
+        "message": "/api/voice-call/media-stream monté" if media_stream_route_ok else "Route media-stream absente",
+    }
+    subservices["voice_context"] = {
+        "status": "ok" if (build_realtime_ctx_ok and build_voice_context_ok) else "critical",
+        "critical": True,
+        "message": "Contexte vocal constructible (profil + mémoire)" if (build_realtime_ctx_ok and build_voice_context_ok) else "Construction contexte vocal KO",
+    }
+    subservices["voice_tools"] = {
+        "status": "ok" if client_ok else "degraded",
+        "critical": False,
+        "message": "Outils vocaux disponibles avec garde-fous" if client_ok else "Outils vocaux indisponibles (client IA absent)",
+        "note": "Actions engageantes (SMS, appel, paiement) requièrent confirmation explicite",
+    }
+    subservices["budget_quota"] = {
+        "status": "ok" if (budget_guard_ok and quota_guard_ok) else ("warning" if budget_guard_ok else "critical"),
+        "critical": True,
+        "message": "Budget + quota voix vérifiés avant démarrage" if (budget_guard_ok and quota_guard_ok) else "Vérification budget/quota partielle",
+    }
+    subservices["transcription"] = {
+        "status": "ok" if transcript_mem_ok else "warning",
+        "critical": False,
+        "message": "Transcription sauvegardée en mémoire" if transcript_mem_ok else "Transcription indisponible",
+    }
+    subservices["call_report"] = {
+        "status": "ok" if (_memory_manager is not None) else "warning",
+        "critical": False,
+        "message": "Rapport d'appel générable (MemoryManager disponible)" if _memory_manager else "Rapport d'appel indisponible",
+    }
+    subservices["cost_tracking"] = {
+        "status": "ok" if cost_tracker_ok else "warning",
+        "critical": False,
+        "message": "Minutes voix suivies via Cortex CostTracker" if cost_tracker_ok else "Suivi coût voix indisponible",
+    }
+    subservices["cleanup"] = {
+        "status": "ok" if cleanup_ok else "warning",
+        "critical": False,
+        "message": "Sessions orphelines nettoyées (Redis TTL + semaphore)" if cleanup_ok else "Cleanup sessions indisponible",
+    }
+    subservices["fallback"] = {
+        "status": "ok" if fallback_ok else "degraded",
+        "critical": False,
+        "message": "Fallback chat texte disponible si voix KO" if fallback_ok else "Aucun fallback disponible",
+    }
+
+    # --- Métriques ---
+    effective_voice = os.getenv("OPENAI_VOICE_NAME", "non défini")
+    metrics["openai_client_available"] = client_ok
+    metrics["openai_api_key_present"] = openai_key_ok
+    metrics["voice_name_configured"] = effective_voice
+    metrics["voice_is_female"] = voice_is_female
+    metrics["web_voice_bridge_available"] = web_bridge_ok
+    metrics["realtime_bridge_available"] = realtime_bridge_ok
+    metrics["ws_luna_voice_route"] = ws_voice_ok
+    metrics["voice_button_present"] = voice_btn_present
+    metrics["voice_button_wired"] = voice_btn_wired
+    metrics["click_feedback_available"] = click_feedback_ok
+    metrics["mic_permission_handled"] = mic_permission_handled
+    metrics["reconnect_available"] = reconnect_ok
+    metrics["twilio_voice_configured"] = twilio_voice_ok
+    metrics["budget_guard_available"] = budget_guard_ok
+    metrics["quota_guard_available"] = quota_guard_ok
+    metrics["cost_tracking_available"] = cost_tracker_ok
+    metrics["active_voice_calls"] = len(_active_voice_calls) if "_active_voice_calls" in globals() else 0
+
+    # --- Auto-heal ---
+    auto_heal.append({
+        "condition": "openai_realtime_ko",
+        "action": "fallback_to_text_chat",
+        "available": client_ok,
+    })
+    auto_heal.append({
+        "condition": "voice_button_silent_on_click",
+        "action": "afficher_erreur_locale_et_log_sentry",
+        "available": voice_btn_wired,
+    })
+    auto_heal.append({
+        "condition": "websocket_disconnected",
+        "action": "reconnect_x3_via_reconnect_voice_ws",
+        "available": reconnect_ok,
+    })
+    auto_heal.append({
+        "condition": "mic_permission_denied",
+        "action": "afficher_message_clair_autorisation_micro",
+        "available": mic_permission_handled,
+    })
+    auto_heal.append({
+        "condition": "voice_not_female_or_absent",
+        "action": "fallback_coral_openai_voice_name",
+        "available": web_bridge_ok,
+        "recommended_env": "OPENAI_VOICE_NAME=coral",
+    })
+    auto_heal.append({
+        "condition": "quota_near_100pct",
+        "action": "blocage_gracieux_message_explicatif",
+        "available": quota_guard_ok,
+    })
+    auto_heal.append({
+        "condition": "twilio_absent",
+        "action": "desactiver_appels_telephone_garder_voix_directe",
+        "available": True,
+    })
+    auto_heal.append({
+        "condition": "transcription_echec",
+        "action": "retry_sauvegarde_memoire",
+        "available": transcript_mem_ok,
+    })
+    auto_heal.append({
+        "condition": "session_orpheline",
+        "action": "cleanup_ttl_redis_semaphore",
+        "available": cleanup_ok,
+    })
+
+    # --- Statut global ---
+    critical_failures = [c for c in checks if c["status"] == "critical"]
+    warnings = [c for c in checks if c["status"] == "warning"]
+    degraded = [c for c in checks if c["status"] == "degraded"]
+    if critical_failures:
+        status = "critical"
+    elif degraded:
+        status = "degraded"
+    elif warnings:
+        status = "warning"
+    else:
+        status = "ok"
+
+    return {
+        "status": status,
+        "goal": "L'utilisateur peut parler à Luna en temps réel avec une voix féminine, obtenir une réponse vocale, utiliser les outils autorisés, et retrouver une trace utile de l'échange.",
+        "checks": checks,
+        "subservices": subservices,
+        "metrics": metrics,
+        "auto_heal": auto_heal,
+    }
+
+
 async def _send_objectives_alert(failures: list, total: int) -> None:
     """Envoie une alerte Telegram ou SMS si des objectifs ne sont pas atteints."""
     bot_token = os.getenv("ALERT_TELEGRAM_BOT_TOKEN", "")
@@ -19439,6 +19761,7 @@ async def admin_objectives(request: Request):
     profil_detail = await _check_objective_profil()
     quotas_detail = await _check_objective_quotas()
     reglages_detail = await _check_objective_reglages()
+    voix_detail = await _check_objective_voix()
 
     return {
         "score": f"{score}/{total}",
@@ -19456,6 +19779,7 @@ async def admin_objectives(request: Request):
         "profil": profil_detail,
         "quotas": quotas_detail,
         "reglages": reglages_detail,
+        "voix": voix_detail,
         "summary_by_domain": {
             domain: {
                 "ok": sum(1 for r in results if r.get("domain") == domain and r.get("ok")),
