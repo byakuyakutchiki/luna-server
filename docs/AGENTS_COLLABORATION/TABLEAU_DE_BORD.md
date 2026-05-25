@@ -1,6 +1,6 @@
 # Tableau de bord — Orchestration Luna
 
-Mis à jour : 2026-05-25 (007 validé · ouverture objectif 008 — correction voix OpenAI)
+Mis à jour : 2026-05-25 (008 VALIDÉ — voix Luna entendue · ouverture objectif 009 — stabilité voix)
 
 ## Rôles et outils
 
@@ -17,28 +17,28 @@ Mis à jour : 2026-05-25 (007 validé · ouverture objectif 008 — correction v
 
 | Agent | Statut | Objectif en cours | Dernier commit |
 |---|---|---|---|
-| Claude | **lead 008** | Investigation lecture seule : logs Cloud Run, web_voice_bridge.py | 76072a9 |
-| Codex | **à solliciter 008** | Garde-fous, règle no-merge branches divergentes | — |
-| DeepSeek | **à solliciter 008** | Audit web_voice_bridge.py — session.created + correction minimale | — |
-| Kimi Code CLI | **à solliciter 008** | Textes cockpit icônes + scénarios OpenAI error | — |
-| Cursor | **à solliciter 008** | Intégration icônes Kimi dans fondateur.html | — |
+| Claude | **lead 009** | Stabilité voix — coupures spontanées Luna | dd4a4a4 |
+| Codex | **à solliciter 009** | Garde-fous stabilité, rate limit DeepSeek | — |
+| DeepSeek | **à solliciter 009** | IA temps réel APK — diagnostic incidents voix | — |
+| Kimi Code CLI | **à solliciter 009** | Textes cockpit DeepSeek (observe/recommande/ne peut pas) | — |
+| Cursor | **à solliciter 009** | Intégration icônes Kimi + affichage diagnostic DeepSeek | — |
 
 ## Objectif actif prioritaire
 
-**Objectif 008 — Correction voix OpenAI Realtime**
+**Objectif 009 — Stabilité voix Luna (coupures spontanées)**
 
-Cause identifiée : `gpt-4o-realtime-preview-2024-12-17` → OpenAI ferme le WS
-pendant `_configure_session()` (~2s après connexion).
-Log Cloud Run : `WARNING: WebVoice: OpenAI WS closed during send`
+Symptôme : Luna s'arrête parfois de parler seule en cours de session.
+Pistes : VAD trop sensible, timeout session, déconnexion WebSocket silencieuse.
+Modèle actif : `gpt-realtime-mini` (révision `luna-beta-00442-7gg`)
 
-**Règle Ludovic** : diagnostic lecture seule autorisé. Déploiement uniquement après validation.
+**Règle Ludovic** : diagnostic avant toute correction. Déploiement uniquement après validation.
 
-Document : `docs/AGENTS_COLLABORATION/OBJECTIF_008_CORRECTION_VOIX_OPENAI.md`
+Document à créer : `docs/AGENTS_COLLABORATION/OBJECTIF_009_STABILITE_VOIX.md`
 
-**Note critique** : NE PAS merger les branches DeepSeek/Kimi directement (divergences
-avec main — suppression de fichiers potentielle). Prendre uniquement leurs docs utiles.
+**Note critique** : NE PAS merger les branches DeepSeek/Kimi directement.
 
 **Objectif 007 VALIDÉ** — 11 événements reçus sur téléphone réel Ludovic.
+**Objectif 008 VALIDÉ** — Voix Luna entendue sur téléphone réel Ludovic (2026-05-25 ~20h30).
 
 ## Flux de travail standard
 

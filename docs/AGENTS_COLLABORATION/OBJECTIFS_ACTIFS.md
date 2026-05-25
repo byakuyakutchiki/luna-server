@@ -383,7 +383,7 @@ Note : branches DeepSeek/Kimi NE PAS merger directement (divergences — utilise
 
 ## Objectif 008 — Correction voix OpenAI Realtime : modèle + bridge
 
-**Statut** : ouvert — diagnostic lecture seule + DeepSeek temps réel APK à cadrer  
+**Statut** : ✅ VALIDÉ — voix Luna entendue sur téléphone réel Ludovic (2026-05-25)
 **Priorité** : critique  
 **Lead** : Claude  
 **Date ouverture** : 2026-05-25  
@@ -424,8 +424,11 @@ pendant `_configure_session()` (~2s après connexion). Logs confirment :
 - [ ] Kimi — `agents/KIMI_AVIS_008.md`
 - [ ] Codex — `agents/CODEX_AVIS_008.md`
 - [ ] Cursor — `agents/CURSOR_AVIS_008.md`
-- [ ] **Ludovic valide le correctif avant déploiement**
-- [ ] Voix Luna entendue sur téléphone réel
+- [x] **Ludovic a validé — voix entendue sur téléphone réel**
+- [x] Voix Luna entendue sur téléphone réel Ludovic ✅
+
+### Reste à améliorer (post-008)
+- Luna s'arrête parfois de parler seule (coupure VAD ou session) — à investiguer objectif 009
 
 ### Exigence Ludovic — DeepSeek dans l'expérience téléphone
 
