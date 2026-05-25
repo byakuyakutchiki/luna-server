@@ -291,10 +291,10 @@ fondateur.html               — section voix avec chronologie
 
 ## Objectif 006 — Validation du cerveau Luna sur panne vocale réelle
 
-**Statut** : ouvert — test réel Ludovic en cours  
-**Priorité** : critique  
-**Lead final** : Claude  
-**Date ouverture** : 2026-05-25  
+**Statut** : ouvert — test réel Ludovic en cours
+**Priorité** : critique
+**Lead final** : Claude
+**Date ouverture** : 2026-05-25
 **Document dédié** : `docs/AGENTS_COLLABORATION/OBJECTIF_006_VALIDATION_CERVEAU_VOIX.md`
 
 ### Problème
@@ -334,6 +334,198 @@ test réel Ludovic → événements APK → diagnostic serveur → cockpit fonda
 - [ ] Aucun asset graphique ne disparaît.
 - [ ] Claude propose la correction finale.
 - [ ] Ludovic valide avant déploiement/rebuild.
+
+---
+
+---
+
+## Objectif 007 — Télémétrie vocale APK : 20+ événements de chronologie réelle
+
+**Statut** : ✅ VALIDÉ — test réel 2026-05-25 18:47
+**Priorité** : critique
+**Lead** : Claude
+**Date ouverture** : 2026-05-25
+**Date validation** : 2026-05-25 18:47
+**Document dédié** : `docs/AGENTS_COLLABORATION/OBJECTIF_007_RESULTAT_TEST.md`
+
+### Problème
+
+Objectif 006 devait prouver que Luna voit une panne vocale. Mais seul `voice_session_ended`
+remontait en test réel — aucun des événements intermédiaires.
+
+### Solution déployée
+
+Augmenter les points de capture de 10 à 20+ événements pour tracer :
+- clic du bouton
+- vérification token
+- entrée `startVoice()`
+- demande permission micro
+- micro autorisé / refusé
+- début capture audio
+- création WebSocket
+- WebSocket ouvert / fermé / timeout
+- premier audio envoyé
+- audio reçu
+- premier audio envoyé échoué
+- timeout 20s silence
+- session terminée
+
+### Résultat test réel Ludovic
+
+**11 événements capturés et traçables** :
+
+```
+voice_button_clicked → voice_start_entered → voice_micro_request_started
+→ microphone_permission_granted → voice_audio_capture_started
+→ voice_ws_create_started → voice_ws_opened → voice_first_audio_chunk_sent
+→ voice_ws_closed (~5s) → voice_session_ended
+
+BUT : pas de voice_audio_received (aucune réponse)
+```
+
+**Diagnostic Luna générée** :
+```json
+{
+  "scenario": "incomplete",
+  "luna_knows": [client token OK, mic OK, capture OK, WS ouvert, audio envoyé],
+  "luna_guesses": [serveur voix fermé WS prématurément, OpenAI Realtime n'a pas répondu],
+  "luna_recommends": [vérifier logs serveur voix, OpenAI connection state, fermeture WS],
+  "luna_cannot": [diagnostiquer serveur, voir logs Python, auditer web_voice_bridge.py]
+}
+```
+
+### Agents concernés
+
+| Agent | Tâche | Statut |
+|---|---|---|
+| **DeepSeek** | Audit points injection `sendApkEvent()`, bug token/counter, proposer 20+ événements | ✅ Fait |
+| **Claude** | Intégration backend, `_analyze_voice_events()`, textes diagnostic | ✅ Fait |
+| **Kimi** | Textes cockpit "Luna sait / suppose / recommande / ne peut pas" | ✅ Fait |
+| **Ludovic** | Test téléphone réel → 11 événements validés | ✅ Fait |
+| **Codex** | Cadrage, garde-fous, coordination branches | ✅ Fait |
+
+### Validation
+
+- [x] Schéma 20+ événements défini dans DEEPSEEK_AVIS_007.md
+- [x] Points injection vérifiés en code
+- [x] Bug silencieux identifié (token check après counter++)
+- [x] Test réel : 11 événements reçus
+- [x] Diagnostic Luna généré correctement
+- [x] Blocage serveur voix/OpenAI identifié
+- [x] Journal test enregistré
+
+### Extension 007-bis — Geste maintenance APK
+
+Ajouter pull-to-refresh : vider cache, recharger page, renvoyer heartbeat.
+
+Événements : `apk_manual_refresh_triggered`, `apk_cache_cleared`, `apk_webview_reloaded`
+
+---
+
+## Objectif 008 — DeepSeek temps réel dans l'expérience APK
+
+**Statut** : en cours — architecture cadrée, implémentation en attente
+**Priorité** : critique
+**Lead** : Claude + DeepSeek
+**Date ouverture** : 2026-05-25
+**Document dédié** : `docs/AGENTS_COLLABORATION/OBJECTIF_008_DEEPSEEK_TEMPS_REEL_APK.md`
+
+### Vision Ludovic
+
+DeepSeek doit être "dans le téléphone" fonctionnellement :
+
+- recevoir les signaux APK en temps réel ;
+- être déclenché automatiquement sur incident (WebSocket fermé, no audio, erreur JS, bouton bloqué) ;
+- produire un diagnostic exploitable structuré ;
+- ne pas tourner en permanence inutilement ;
+- envoyer ses diagnostics au cockpit fondateur via serveur Luna.
+
+### Architecture imposée
+
+```
+APK téléphone
+  → flux diagnostic temps réel
+Serveur Luna (clé DeepSeek protégée)
+  → appel DeepSeek API côté serveur
+DeepSeek
+  → diagnostic structuré JSON
+Cockpit fondateur
+  → recommandation exploitable
+```
+
+### Décisions clés
+
+1. **Clé DeepSeek côté serveur uniquement** — jamais dans l'APK.
+2. **Mode incident uniquement** — pas d'appels IA sans anomalie.
+3. **Fenêtre compacte** — 30-60s d'événements max, pas d'audio brut, pas de secret.
+4. **Sortie structurée** — diagnostic + preuve + cause + zone + action + risque.
+
+### Cas d'usage dès Objective 008
+
+1. **Voix APK** : premier audio envoyé mais WebSocket ferme → DeepSeek analyse logs 20+ événements.
+2. **Cache/WebView** : frontend obsolète → détecte mismatch version, propose clear cache.
+3. **Boutons futurs** : clic → aucune action → incident → déploie DeepSeek.
+4. **UI mobile** : régression détectée (bouton coupé) → rapportée.
+
+### Agents concernés
+
+| Agent | Tâche | Statut |
+|---|---|---|
+| **DeepSeek** | Format événement minimal, seuils incident, stratégie anti-gaspillage tokens, diagnostics type | À faire |
+| **Claude** | Endpoint serveur, protection clé, rate limiting, journal diagnostics, cockpit | À faire |
+| **Kimi** | Textes cockpit : "DeepSeek observe / suppose / recommande / ne peut pas" | À faire |
+| **Codex** | Garde-fous : no key in APK, no IA spam, no raw audio, no auto-correct without Ludovic | À faire |
+| **Cursor** | Vérifier intégration icônes, UX cockpit, pas de régression | À faire |
+
+### Livrables attendus
+
+1. **DeepSeek audit** : `docs/AGENTS_COLLABORATION/agents/DEEPSEEK_AVIS_008_TEMPS_REEL_APK.md`
+   - format événement compact minimal
+   - seuils de déclenchement incident
+   - stratégie tokens et fréquence limites
+   - exemple diagnostics pour voix + cache + boutons
+
+2. **Claude implémentation** :
+   - `POST /api/deepseek/diagnose` endpoint serveur
+   - Protection clé DeepSeek en `os.environ["DEEPSEEK_API_KEY"]` (jamais dans code)
+   - Rate limiting : 1 appel/30s par session max
+   - Stockage journal : `luna:deepseek:diagnostics` Redis
+   - Affichage cockpit `fondateur.html` section 🔍 DeepSeek
+
+3. **Kimi formulation** :
+   - Textes "Luna / DeepSeek observe : [faits]"
+   - Textes "Luna / DeepSeek suppose : [hypothèses]"
+   - Textes "Luna / DeepSeek recommande : [actions]"
+   - Textes "Luna / DeepSeek ne peut pas : [limites]"
+
+4. **Codex garde-fous** :
+   - Vérifier aucune clé API dans `static/index.html`
+   - Vérifier aucun appel IA en navigation normale
+   - Vérifier aucun audio brut ni transcript envoyé
+   - Vérifier incident détecté avant appel DeepSeek
+
+5. **Cursor vérification** :
+   - Icônes intégrées dans cockpit
+   - UX mobile : textes lisibles, pas de débordement
+   - Non-régression : boutons existants, navigation, réglages
+
+### Interdictions pour cet objectif
+
+- Pas de clé DeepSeek dans l'APK ou GitHub public.
+- Pas d'appels IA à chaque événement normal.
+- Pas d'audio brut, transcript privé, token ou secret.
+- Pas de correction automatique sans validation Ludovic.
+- Pas de mélange diagnostic APK / serveur voix / UI — rester ciblé.
+
+### Validation
+
+- [ ] DeepSeek a conçu le format événement et seuils incident.
+- [ ] Claude a implémenté l'endpoint serveur sécurisé.
+- [ ] Kimi a rédigé les textes cockpit.
+- [ ] Codex a validé les garde-fous (no API key, no spam, no secrets).
+- [ ] Cursor a vérifier UX + icônes cockpit.
+- [ ] Ludovic a validé l'implémentation avant déploiement.
+- [ ] Test réel : incident voix → diagnostic DeepSeek visible dans cockpit.
 
 ---
 

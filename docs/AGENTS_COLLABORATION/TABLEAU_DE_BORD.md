@@ -1,6 +1,6 @@
 # Tableau de bord — Orchestration Luna
 
-Mis à jour : 2026-05-25 (ouverture objectif 006 — validation cerveau voix)
+Mis à jour : 2026-05-25 18:50 (007 validé en test réel · ouverture objectif 008 — DeepSeek temps réel APK)
 
 ## Rôles et outils
 
@@ -17,24 +17,33 @@ Mis à jour : 2026-05-25 (ouverture objectif 006 — validation cerveau voix)
 
 | Agent | Statut | Objectif en cours | Dernier commit |
 |---|---|---|---|
-| Claude | **lead final 006** | Synthèse finale, correction minimale, déploiement après validation Ludovic | a3545a1 |
-| Codex | **cadrage 006** | Rôles, garde-fous, critères de validation cerveau voix | — |
-| DeepSeek | **à solliciter 006** | Audit local VS Code : `startVoice()`, `sendApkEvent()`, timer silence, WebSocket | — |
-| Kimi Code CLI | **à solliciter 006** | Audit humain : textes cockpit, diagnostic non trompeur, journal fondateur | — |
-| Cursor | **à solliciter 006** | Vérification UI mobile, assets graphiques, non-régression frontend | — |
+| Claude | **lead 008** | Investigation lecture seule : logs Cloud Run, web_voice_bridge.py, OpenAI Realtime state | 59f72b6 |
+| Codex | **à solliciter 008** | Garde-fous : clé DeepSeek côté serveur, rate limiting, pas de secrets dans APK | — |
+| DeepSeek | **à solliciter 008** | Format événement minimal, seuils incident, diagnostics type voix + cache + boutons | — |
+| Kimi Code CLI | **à solliciter 008** | Textes cockpit : "DeepSeek observe / suppose / recommande / ne peut pas" | — |
+| Cursor | **à solliciter 008** | Intégration icônes/UX cockpit, vérifier non-régression frontend | — |
 
 ## Objectif actif prioritaire
 
-**Objectif 006 — Validation du cerveau Luna sur panne vocale réelle**
+**Objectif 008 — DeepSeek temps réel dans l'expérience APK**
 
-Question à résoudre : quand Ludovic appuie sur le bouton vocal et n'entend rien,
-est-ce que Luna voit la panne, sait où elle bloque, l'explique dans le cockpit
-fondateur, et garde une trace exploitable ?
+Ludovic a désigné DeepSeek comme IA "dans le téléphone" :
+- recevoir signaux APK en temps réel
+- déclenché automatiquement sur incident (WebSocket fermé, no audio, erreur JS)
+- produire diagnostic structuré exploitable
+- clé DeepSeek côté serveur Luna uniquement (jamais APK)
 
-Document : `docs/AGENTS_COLLABORATION/OBJECTIF_006_VALIDATION_CERVEAU_VOIX.md`
+**Architecture** : APK → serveur Luna (clé protégée) → DeepSeek API → diagnostic JSON → cockpit fondateur
 
-Claude intervient en dernier : il lit les avis, vérifie les logs/endpoints, propose
-la correction minimale, puis déploie seulement après validation Ludovic.
+Document : `docs/AGENTS_COLLABORATION/OBJECTIF_008_DEEPSEEK_TEMPS_REEL_APK.md`
+
+**Status Objective 007** : ✅ Terminé — 11 événements validés en test réel Ludovic
+```
+Chronologie complète capturée : clic → token OK → micro OK → capture active
+→ WS ouvert → audio envoyé → WS fermé après ~5s (aucune réponse audio)
+Diagnostic : blocage serveur voix / OpenAI Realtime
+```
+**Voir** : `docs/AGENTS_COLLABORATION/OBJECTIF_007_RESULTAT_TEST.md`
 
 ## Flux de travail standard
 
