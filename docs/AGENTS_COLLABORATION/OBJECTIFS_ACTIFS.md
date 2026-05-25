@@ -446,3 +446,20 @@ filtrée/anonymisée, notamment dans `RAPPORT_SENTRY_OBJECTIF_008.md`.
 
 Règle : aucun secret, token, cookie, clé API, email privé, audio brut ou transcript
 privé ne doit être copié dans GitHub.
+
+---
+
+## Consigne active — Investigation interne APK / voix
+
+Document :
+
+`docs/AGENTS_COLLABORATION/CONSIGNE_INVESTIGATION_APK_INTERNE_008.md`
+
+Décision Ludovic :
+
+- DeepSeek est responsable de l'intérieur APK / WebView / cache / build.
+- Claude est responsable du serveur voix / Cloud Run / OpenAI.
+- Kimi est responsable des textes cockpit et diagnostic humain.
+- Codex est responsable de la coordination et des garde-fous.
+
+But : prouver ce qui se passe réellement avant toute nouvelle correction.
