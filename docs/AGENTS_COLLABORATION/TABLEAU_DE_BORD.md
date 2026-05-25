@@ -17,11 +17,11 @@ Mis à jour : 2026-05-25
 
 | Agent | Statut | Objectif en cours | Dernier commit |
 |---|---|---|---|
-| Claude | **004 déployé** | 005 schéma événements voix — en attente heartbeat réel | b9a42e8 |
-| Codex | **à solliciter** | 005 cadrage PR + garde-fous voix | — |
-| DeepSeek | **à solliciter** | 005 injection `startVoice()` + timer 20s | — |
-| Kimi Code CLI | **à solliciter** | 005 textes cockpit voix : sait / suppose / recommande | — |
-| Cursor | **à solliciter** | 005 cohérence UI + vérif non-régression `startVoice()` | — |
+| Claude | **priorité heartbeat** | Rebuild APK heartbeat puis préparation 005 sans déploiement | b9a42e8 |
+| Codex | **note priorité livrée** | Clarifier ordre : heartbeat réel avant validation 005 | — |
+| DeepSeek | **préparation autorisée** | 005 injection `startVoice()` + timer 20s, sans déployer | — |
+| Kimi Code CLI | **préparation autorisée** | 005 textes cockpit voix, sans supposer absence d'action utilisateur | — |
+| Cursor | **préparation autorisée** | 005 cohérence UI + non-régression JS, après heartbeat réel pour validation |
 
 ## Flux de travail standard
 

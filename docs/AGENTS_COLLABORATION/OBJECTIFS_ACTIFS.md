@@ -227,6 +227,29 @@ suffit pas. Luna doit transformer ce signal en diagnostic fondateur :
 **Document dédié** : `docs/AGENTS_COLLABORATION/OBJECTIF_005_EVENTS_VOIX_APK.md`
 **Dépendance** : Objectif 003/004 — le premier heartbeat réel doit avoir été reçu
 
+### Note de priorité — 2026-05-25
+
+L'équipe peut préparer l'objectif 005, mais la validation réelle de la voix
+ne doit pas commencer tant que la boucle heartbeat n'est pas fermée.
+
+État confirmé par Claude :
+
+- APK rebuildée avec `sendHeartbeat()` : **non**
+- APK installée sur le téléphone : **non**
+- `/api/admin/apk-diagnosis` reçoit un heartbeat réel : **non**
+- `fondateur.html` affiche le téléphone vu récemment : **non**
+
+Priorité immédiate :
+
+1. rebuilder l'APK avec `sendHeartbeat()` et le fix User-Agent ;
+2. installer cette APK sur le téléphone de Ludovic ;
+3. ouvrir Luna ;
+4. confirmer que `/api/admin/apk-diagnosis` passe de `waiting_first_contact` à `ok` ;
+5. confirmer que `fondateur.html` affiche le téléphone vu récemment.
+
+Objectif 005 peut être préparé sans déploiement, mais ne doit pas être validé
+tant que le heartbeat réel n'a pas été observé.
+
 ### Problème
 
 Le heartbeat sait que le téléphone respire. Mais quand Ludovic appuie sur le bouton vocal et n'entend rien après 20 secondes, le cockpit ne peut pas encore savoir à quelle étape ça bloque.
