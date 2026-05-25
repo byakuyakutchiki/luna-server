@@ -153,6 +153,71 @@ contact serveur doivent remonter au cerveau central.
 
 ---
 
+## Objectif 004 — API fondateur : diagnostic APK + journal des actions
+
+**Statut** : ouvert — cadrage multi-agents demandé après déploiement Objectif 003 Phase 1
+**Priorité** : haute
+**Lead** : Claude
+**Date ouverture** : 2026-05-25
+**Document dédié** : `docs/AGENTS_COLLABORATION/OBJECTIF_004_API_FONDATEUR_DIAGNOSTIC.md`
+
+### Vision
+
+Objectif 003 observe le réel. Objectif 004 doit interpréter ce réel,
+proposer une décision lisible à Ludovic, et garder une trace de ce qui a été
+proposé, validé ou exécuté.
+
+### Problème
+
+Le heartbeat APK centralise l'état réel du téléphone, mais une donnée brute ne
+suffit pas. Luna doit transformer ce signal en diagnostic fondateur :
+
+- est-ce normal ?
+- est-ce un décalage APK / Cloud Run ?
+- quelle est la cause probable ?
+- quelle action est recommandée ?
+- cette action est-elle automatique, proposée, ou interdite sans validation ?
+- quelle trace garde-t-on ?
+
+### Agents concernés
+
+| Agent | Tâche | Statut |
+|---|---|---|
+| **Claude** | Architecture finale, API fondateur, arbitrage actions autorisées | À cadrer |
+| **DeepSeek** | Proposer moteur de diagnostic + schéma actions/journal | À cadrer |
+| **Kimi** | Audit UX fondateur : textes lisibles, traçabilité, validation | À cadrer |
+| **Codex** | Cadrage GitHub, garde-fous, tests de diagnostics sans production | En cours |
+| **Cursor** | Vérifier cohérence frontend `fondateur.html` / endpoints / états | À cadrer |
+
+### Livrables attendus
+
+1. Fonction d'analyse serveur type `_analyze_apk_state()`.
+2. Schéma de diagnostic : status, cause probable, action recommandée, niveau de validation.
+3. Journal d'actions fondateur : proposé / validé / exécuté / résultat.
+4. Liste des actions sûres, actions proposées, actions interdites sans Ludovic.
+5. Intégration UI dans `fondateur.html` ou dashboard admin.
+6. Tests sans appel Cloud Run destructif ni modification production automatique.
+
+### Interdictions pour cet objectif
+
+- Pas de déploiement automatique depuis l'API fondateur.
+- Pas de rebuild APK automatique sans validation Ludovic.
+- Pas de modification `.env`, Cloud Run, Redis critique ou secrets sans validation.
+- Pas d'action corrective invisible : toute proposition ou action doit être journalisée.
+- Pas d'auto-healing complet dans cette phase : seulement diagnostic + recommandations + traces.
+
+### Validation
+
+- [ ] Claude a validé le modèle d'actions.
+- [ ] DeepSeek a proposé le moteur de diagnostic.
+- [ ] Kimi a validé les textes fondateur.
+- [ ] Codex a préparé la PR de cadrage.
+- [ ] Ludovic a validé ce qui peut être automatique ou non.
+- [ ] Implémentation sur branche dédiée.
+- [ ] Test sur heartbeat réel APK.
+
+---
+
 ## Règle d'ouverture d'un objectif
 
 Pour ouvrir un nouvel objectif :

@@ -17,11 +17,11 @@ Mis à jour : 2026-05-25
 
 | Agent | Statut | Objectif en cours | Dernier commit |
 |---|---|---|---|
-| Claude | **synthèse prête** | 001 voix déployé + 003 cadrage complet | 0cacddd |
-| Codex | **avis livré** | 003 cerveau APK — voir `OBJECTIF_003_CERVEAU_APK.md` | PR ouverte |
-| DeepSeek | **avis livré** | 001 analyse voix + 003 schéma heartbeat complet | 42eaf8e |
-| Kimi Code CLI | **avis livré** | 001 ping_timeout bug + 003 audit documentaire | 908031c |
-| Cursor | **avis livré** | 003 sendLog() existant, FRONTEND_BUILD manquant | 90eaa5d |
+| Claude | **déploiement 003 fait** | 004 API fondateur diagnostic + journal | 09d5284 |
+| Codex | **cadrage en cours** | 004 diagnostic APK — voir `OBJECTIF_004_API_FONDATEUR_DIAGNOSTIC.md` | — |
+| DeepSeek | **à solliciter** | 004 moteur de diagnostic + schéma actions | — |
+| Kimi Code CLI | **à solliciter** | 004 textes fondateur + traçabilité | — |
+| Cursor | **à solliciter** | 004 cohérence UI fondateur / endpoints | — |
 
 ## Flux de travail standard
 
