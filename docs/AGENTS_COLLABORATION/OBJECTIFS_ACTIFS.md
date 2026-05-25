@@ -461,3 +461,44 @@ filtrée/anonymisée, notamment dans `RAPPORT_SENTRY_OBJECTIF_008.md`.
 
 Règle : aucun secret, token, cookie, clé API, email privé, audio brut ou transcript
 privé ne doit être copié dans GitHub.
+
+---
+
+## Objectif 010 — Historique intelligent des conversations + mémoire Luna
+
+**Statut** : ouvert — cadrage multi-agents  
+**Priorité** : haute  
+**Lead final** : Claude  
+**Date ouverture** : 2026-05-25  
+**Document dédié** : `docs/AGENTS_COLLABORATION/OBJECTIF_010_HISTORIQUE_MEMOIRE_CHAT.md`
+
+### Problème
+
+Le chat Luna manque d'organisation par conversations. Le fil peut devenir trop long.
+Luna doit aussi conserver une mémoire utile de son architecture, des décisions et de
+son identité, sans l'exposer inutilement.
+
+Un bug UI mobile est aussi à traiter séparément : le bouton `Connexion` /
+`Déconnexion` est coupé sur téléphone.
+
+### Agents concernés
+
+| Agent | Tâche | Statut |
+|---|---|---|
+| **Claude** | Backend conversations, stockage, endpoints, intégration finale | À solliciter |
+| **DeepSeek** | Audit frontend chat, menu trois traits, localStorage/WebView/cache | À solliciter |
+| **Kimi** | UX conversationnelle, titrage automatique, mémoire non intrusive | À solliciter |
+| **Cursor** | UI mobile, menu conversations, correction bouton coupé | À solliciter |
+| **Codex** | Cadrage, garde-fous mémoire, séparation bug UI / architecture | En cours |
+| **Ludovic** | Validation produit sur téléphone | En attente |
+
+### Validation
+
+- [ ] Avis Claude rendu.
+- [ ] Avis DeepSeek rendu.
+- [ ] Avis Kimi rendu.
+- [ ] Avis Cursor rendu.
+- [ ] Avis Codex rendu.
+- [ ] Ludovic valide l'architecture.
+- [ ] Implémentation sur branche dédiée.
+- [ ] Test téléphone validé.
