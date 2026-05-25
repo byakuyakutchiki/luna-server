@@ -517,15 +517,80 @@ Cockpit fondateur
 - Pas de correction automatique sans validation Ludovic.
 - Pas de mélange diagnostic APK / serveur voix / UI — rester ciblé.
 
+### Validation Objective 008 (voix)
+
+- [x] **VOIX VALIDÉE** — pipeline complet fonctionne
+- [x] Cause identifiée : OpenAI quota insuffisant (insufficient_quota)
+- [x] Après recharge OpenAI : voix Luna fonctionne
+- [x] Modèle actif : gpt-4o-realtime-preview-2024-12-17
+- [x] Audio bidirectionnel PCM16 24kHz validé
+- [x] Heartbeat, télémétrie, pipeline serveur tous OK
+
+**Documentation** : `docs/AGENTS_COLLABORATION/OBJECTIF_008_VOIX_VALIDATION_PARTIELLE.md`
+
+---
+
+## Objectif 008-stabilité — Voix : corriger les coupures audio
+
+**Statut** : ouvert — diagnostic requis
+**Priorité** : haute
+**Lead** : Claude
+**Date ouverture** : 2026-05-25 19:35
+**Dépendance** : Objective 008 (voix fonctionne maintenant)
+
+### Problème
+
+Après que la voix Luna fonctionne suite à recharge OpenAI :
+
+**Symptôme** : Luna commence à parler mais coupe / s'arrête sans raison claire.
+
+Les sessions audio ne durent pas jusqu'à la fin du message ou se interrompent prématurément.
+
+### But
+
+Diagnostiquer et corriger les coupures audio.
+
+Pas de gros refactor — correction minimale ciblée sur la cause racine.
+
+### Points à diagnostiquer
+
+1. **Durée session OpenAI Realtime** : timeout côté OpenAI après combien de secondes ?
+2. **WebSocket fermé prématurément** : qui ferme (serveur ou client) et pourquoi ?
+3. **Timeout audio côté client** : Apollo re-utilise-t-il le timer 20s silence ou y a-t-il un autre timeout ?
+4. **Buffer playback** : Apollo joue-t-il le buffer complètement ou le vide-t-il trop tôt ?
+5. **Logs serveur** : y a-t-il des erreurs OpenAI entre audio reçu et réponse générée ?
+6. **Événement télémétrie** : ajouter `voice_audio_cut` ou `voice_playback_stopped_early` pour tracer les coupures
+
+### Agents concernés
+
+| Agent | Tâche | Statut |
+|---|---|---|
+| **Claude** | Lead : examiner logs serveur, OpenAI state, timeout logic | À faire |
+| **DeepSeek** | Audit `startVoice()`, timer 20s, playback queue, détection de fin session | À faire |
+| **Codex** | Proposer minimal fix : vérifier timeout, réduire logs bruits, garder-fous | À faire |
+
+### Livrables attendus
+
+1. Cause probable identifiée (fichier + ligne)
+2. Correction minimale proposée
+3. Tests à lancer (sans audio réel)
+4. Risques de régression
+5. Validation Ludovic requise : oui
+
+### Interdictions
+
+- Pas de gros refactor WebSocket
+- Pas de changement modèle OpenAI
+- Pas de modification APK version (correction serveur/frontend seulement)
+- Pas de auto-correction sans validation Ludovic
+
 ### Validation
 
-- [ ] DeepSeek a conçu le format événement et seuils incident.
-- [ ] Claude a implémenté l'endpoint serveur sécurisé.
-- [ ] Kimi a rédigé les textes cockpit.
-- [ ] Codex a validé les garde-fous (no API key, no spam, no secrets).
-- [ ] Cursor a vérifier UX + icônes cockpit.
-- [ ] Ludovic a validé l'implémentation avant déploiement.
-- [ ] Test réel : incident voix → diagnostic DeepSeek visible dans cockpit.
+- [ ] Claude a proposé cause probable
+- [ ] DeepSeek a audité code serveur/client
+- [ ] Codex a validé la correction
+- [ ] Ludovic a validé avant déploiement
+- [ ] Test réel : voix Luna ne coupe plus
 
 ---
 

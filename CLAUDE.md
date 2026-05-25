@@ -118,85 +118,61 @@ Pour chaque objectif, il faut produire :
 
 ## Tâche prioritaire actuelle
 
-**Objective 008 — OUVERT** 🔄 DeepSeek temps réel dans l'expérience APK
+**Objective 008-stabilité — OUVERT** 🔄 Corriger les coupures audio Luna
 
 ### Statut Objectives
 
 | Objective | Statut | Détails |
 |---|---|---|
 | 001-006 | ✅ Baseline | Monitoring de base implémenté sur 10 zones |
-| 007 Télémétrie Voix | ✅ **TERMINÉ** | 11 événements remontés en test réel, chronologie complète capturée |
+| 007 Télémétrie Voix | ✅ **TERMINÉ** | 11 événements remontés en test réel |
+| 008 Voix Pipeline | ✅ **VALIDÉ PARTIELLEMENT** | Cause OpenAI quota insuffisant identifiée + corrigée, pipeline fonctionne |
+| **008-stabilité Coupures** | 🔄 **EN COURS** | Luna commence à parler puis coupe — diagnostic de la cause |
 | 007-bis Refresh APK | 📋 **Planned** | pull-to-refresh + apk_manual_refresh_triggered |
-| **008 DeepSeek Temps Réel** | 🔄 **EN COURS** | Architecture cadrée, implémentation multi-agents en cours |
 
-### Objective 007 — Résultat test réel (2026-05-25 18:47)
+### Objective 008 — Résultat validation partielle (2026-05-25 19:30)
 
-**Ludovic téléphone — APK v2.8 connectée — 11 événements capturés**
+**Ludovic téléphone — Après recharge OpenAI**
 
 ```
-✅ Heartbeat OK (26s)
-✅ Télémétrie OK (11 événements)
-✅ Chronologie complète : clic → token OK → micro OK → capture active
-   → WS créé/ouvert → premier audio envoyé → WS fermé (~5s)
-❌ Pas de réponse audio reçue
+✅ Heartbeat OK
+✅ Télémétrie voix OK (11 événements)
+✅ Audio envoyé côté client
+✅ Pipeline APK → serveur → OpenAI Realtime → réponse audio validé
+✅ Modèle : gpt-4o-realtime-preview-2024-12-17
+⚠️ Voix fonctionne MAIS coupe/s'arrête sans raison
 
-DIAGNOSTIC : Blocage côté serveur vocal / OpenAI Realtime / fermeture WS prématurée
-CAUSE PROBABLE : OpenAI n'a pas reçu premier audio OU n'a pas envoyé réponse
-PROCHAINE ÉTAPE : Objective 008-diag investiguer logs /ws/luna-voice serveur
+CAUSE IDENTIFIÉE : OpenAI quota insuffisant (insufficient_quota)
+SOLUTION APPLIQUÉE : Recharge du compte OpenAI
+APPRENTISSAGE : Points à ne plus chercher :
+  - Cause principale n'est PAS l'APK
+  - Cause principale n'est PAS le cache
+  - Cause principale n'est PAS le WebSocket client
 ```
 
-**Documentation** : `docs/AGENTS_COLLABORATION/OBJECTIF_007_RESULTAT_TEST.md`
+**Documentation** : `docs/AGENTS_COLLABORATION/OBJECTIF_008_VOIX_VALIDATION_PARTIELLE.md`
 
-### Objective 008 — DeepSeek temps réel APK
+### Objective 008-stabilité — Mission Claude
 
-**Décision Ludovic** : DeepSeek devient IA "dans le téléphone" pour diagnostiquer incidents en temps réel.
+**Priorité** : haute (utilisateur entend Luna mais c'est décousu)
 
-**Architecture**:
-```
-APK téléphone (signaux)
-  → Serveur Luna (clé DeepSeek protégée côté serveur)
-  → DeepSeek API (diagnostic structuré)
-  → Cockpit fondateur (recommandation exploitable)
-```
+**Problème** : Luna commence à parler mais coupe / s'arrête sans raison claire
 
-**Cas d'usage dès 008**:
-1. **Voix APK** — premier audio envoyé mais WS ferme → analyse chronologie 20+ événements
-2. **Cache/WebView** — frontend obsolète → détecte mismatch version, propose clear cache
-3. **Boutons futurs** — clic → aucune action → déploie DeepSeek incident
-4. **UI mobile** — régression détectée → rapportée avec snapshot
+**Points à investiguer** :
 
-**Règles d'or**:
-- ✅ Clé DeepSeek côté serveur UNIQUEMENT
-- ✅ Mode incident UNIQUEMENT (pas d'appels IA sans anomalie)
-- ✅ Fenêtre compacte 30-60s (pas d'audio brut, pas de secret)
-- ✅ Sortie structurée JSON (diagnostic + preuve + cause + zone + action + risque)
+1. **Durée session OpenAI Realtime** — timeout côté OpenAI ?
+2. **WebSocket fermé prématurément** — qui ferme et pourquoi ?
+3. **Timeout audio côté client** — timer 20s silence interfère-t-il ?
+4. **Buffer playback** — Apollo vide-t-il le buffer trop tôt ?
+5. **Logs serveur** — erreurs OpenAI entre réception audio et génération réponse ?
+6. **Télémétrie** — ajouter `voice_audio_cut` / `voice_playback_stopped_early`
 
-**Agents assignés**:
+**Assigné** : Claude lead + DeepSeek audit code
+**Livrables** : Cause probable + correction minimale + tests sans audio réel
+**Validation** : Ludovic test téléphone
+**Branche** : `ds/objectif-008-stabilite-voix`
 
-| Agent | Mission | Branche |
-|---|---|---|
-| **DeepSeek** | Format événement minimal, seuils incident, diagnostics type | `ds/objectif-008-*` |
-| **Claude** | Endpoint serveur, protection clé, rate limiting, journal, cockpit | lead 008 |
-| **Kimi** | Textes cockpit : observe / suppose / recommande / ne peut pas | `kimi/objectif-008-*` |
-| **Codex** | Garde-fous : no API key in APK, no spam, no secrets, no auto-correct | `codex/objectif-008-*` |
-| **Cursor** | Intégration UI, icônes cockpit, non-régression | `cursor/objectif-008-*` |
-
-**Livrables attendus**:
-
-1. `agents/DEEPSEEK_AVIS_008_TEMPS_REEL_APK.md` — format + seuils + diagnostics
-2. Claude implémentation — `POST /api/deepseek/diagnose`, clé protégée, rate limit
-3. Kimi formulation — textes cockpit lisibles + non-trompeurs
-4. Codex validation — garde-fous + aucun secret
-5. Cursor UI — cockpit intégrée + non-régression
-
-**Documentation complète** : `docs/AGENTS_COLLABORATION/OBJECTIF_008_DEEPSEEK_TEMPS_REEL_APK.md`
-
-### Ancien Objective — Diagnostic serveur voix (007-diag)
-
-Le diagnostic serveur voix (logs /ws/luna-voice, OpenAI Realtime state) sera capturé
-comme étape préalable à Objective 008 (Claude doit d'abord localiser exact du blocage).
-
-Voir : `docs/AGENTS_COLLABORATION/OBJECTIF_007_RESULTAT_TEST.md` → "Points à vérifier"
+**Règle** : Pas de gros refactor, correction ciblée uniquement
 
 ## Archive objectif précédent — Amis
 
