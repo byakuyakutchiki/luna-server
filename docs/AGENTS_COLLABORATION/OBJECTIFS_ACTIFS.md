@@ -356,21 +356,22 @@ Deux bugs identifiés par Claude :
 
 | Agent | Tâche | Statut |
 |---|---|---|
-| **Claude** | Fix session_ts + plafond + implémentation 21 événements | En cours |
-| **DeepSeek** | Audit startVoice(), session_ts, chemins alternatifs, fetch/WebSocket Android | À solliciter |
-| **Kimi** | Textes cockpit pour 8 scénarios voix | À solliciter |
+| **Claude** | Fix session_ts + plafond + implémentation 21 événements | Implémenté sur `main` (`01ac7a5`) — validation réelle requise |
+| **DeepSeek** | Audit startVoice(), session_ts, chemins alternatifs, fetch/WebSocket Android | Avis rendu |
+| **Kimi** | Textes cockpit pour 8 scénarios voix | Avis rendu |
 | **Cursor** | UI mobile, non-régression startVoice() | À solliciter |
-| **Codex** | Critères validation, garde-fous, synthèse Claude | À solliciter |
-| **Ludovic** | Test réel après déploiement | En attente déploiement |
+| **Codex** | Critères validation, garde-fous, synthèse Claude | Avis rendu |
+| **Ludovic** | Test réel après déploiement | En attente confirmation déploiement |
 
 ### Validation
 
 - [x] Claude a identifié les causes
-- [ ] DeepSeek — `agents/DEEPSEEK_AVIS_007.md`
-- [ ] Kimi — `agents/KIMI_AVIS_007.md`
+- [x] DeepSeek — `agents/DEEPSEEK_AVIS_007.md`
+- [x] Kimi — `agents/KIMI_AVIS_007.md`
 - [ ] Cursor — `agents/CURSOR_AVIS_007.md`
-- [ ] Codex — `agents/CODEX_AVIS_007.md`
-- [ ] Claude a implémenté et déployé
+- [x] Codex — `agents/CODEX_AVIS_007.md`
+- [x] Claude a implémenté (`01ac7a5`)
+- [ ] Claude a déployé
 - [ ] Ludovic a validé sur téléphone réel
 - [ ] Chronologie complète visible dans le cockpit fondateur
 
