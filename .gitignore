@@ -12,3 +12,15 @@ data/cortex_api.key
 data/cortex_totp.secret
 data/cortex_telegram.json
 android-app/luna.keystore
+android-app/luna.keystore.old
+android-app/build/
+
+# Logs & rapports générés
+firebase-debug.log
+reports/
+
+# Assets binaires lourds
+static/assets/sounds/
+static/assets/backgrounds/
+static/assets/*.jpg
+static/assets/*.png

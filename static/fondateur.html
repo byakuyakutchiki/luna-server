@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>YAWatch — Superadmin Fondateur</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: #050510; color: #e2e8f0; font-family: 'Segoe UI', system-ui, sans-serif; min-height: 100vh; }
+.header { background: linear-gradient(135deg, #0f0f2e 0%, #1a0a2e 100%); border-bottom: 1px solid #7c3aed40; padding: 18px 28px; display: flex; align-items: center; justify-content: space-between; }
+.header-title { display: flex; align-items: center; gap: 12px; }
+.header-title h1 { font-size: 1.1em; font-weight: 700; color: #a78bfa; letter-spacing: 1px; }
+.header-title .crown { font-size: 1.4em; }
+.header-sub { color: #555; font-size: 0.75em; }
+.badge { background: #7c3aed22; border: 1px solid #7c3aed; color: #a78bfa; padding: 4px 10px; border-radius: 20px; font-size: 0.72em; font-weight: 700; letter-spacing: 1px; }
+.container { max-width: 1100px; margin: 0 auto; padding: 28px 20px; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; margin-bottom: 28px; }
+.card { background: #0f0f1a; border: 1px solid #1e1e3a; border-radius: 12px; padding: 18px; }
+.card .label { font-size: 0.7em; color: #666; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 6px; }
+.card .value { font-size: 1.9em; font-weight: 700; color: #fff; }
+.card .sub { font-size: 0.75em; color: #555; margin-top: 4px; }
+.section { background: #0a0a18; border: 1px solid #1e1e3a; border-radius: 14px; padding: 22px; margin-bottom: 20px; }
+.section h2 { font-size: 0.9em; font-weight: 700; color: #a78bfa; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+.tabs { display: flex; gap: 6px; margin-bottom: 20px; flex-wrap: wrap; }
+.tab-btn { padding: 8px 16px; background: transparent; border: 1px solid #2d2d4e; color: #888; font-size: 0.82em; cursor: pointer; border-radius: 8px; transition: all 0.2s; }
+.tab-btn:hover { color: #a78bfa; border-color: #7c3aed; }
+.tab-btn.active { color: #a78bfa; border-color: #7c3aed; background: #7c3aed18; }
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+
+/* Objectives */
+.obj-row { display: flex; justify-content: space-between; align-items: center; padding: 7px 12px; border-top: 1px solid #0f0f1a; font-size: 0.82em; }
+.obj-tab { background: #0f0f1a; border: 1px solid #1e1e3a; border-radius: 8px; margin-bottom: 8px; overflow: hidden; }
+.obj-tab-header { padding: 9px 14px; display: flex; justify-content: space-between; align-items: center; font-weight: 600; font-size: 0.85em; }
+.domain-chip { font-size: 0.65em; font-weight: 700; letter-spacing: 1px; padding: 2px 7px; border-radius: 4px; margin-left: 6px; }
+.chip-chat { background: #1e3a5f; color: #60a5fa; }
+.chip-cortex { background: #3a2a00; color: #f59e0b; }
+.chip-analysis { background: #2a1a4e; color: #a78bfa; }
+.chip-guardian { background: #3a0a0a; color: #f87171; }
+
+/* Keys */
+.key-card { border-radius: 10px; padding: 14px 18px; display: flex; flex-direction: column; gap: 4px; border-left: 3px solid; }
+.key-chat { background: #0a1a2e; border-color: #60a5fa; }
+.key-cortex { background: #1a0e00; border-color: #f59e0b; }
+.key-analysis { background: #160a2e; border-color: #a78bfa; }
+.key-guardian { background: #1a0505; border-color: #f87171; }
+.key-label { font-size: 0.65em; font-weight: 700; letter-spacing: 1px; }
+.key-desc { font-size: 0.78em; color: #aaa; }
+.key-score { font-size: 1.3em; font-weight: 700; }
+
+/* Telegram */
+.tg-step { background: #0f0f1a; border-radius: 8px; padding: 12px 16px; margin-bottom: 8px; font-size: 0.83em; color: #ddd; line-height: 1.8; border-left: 3px solid #7c3aed; }
+code { background: #000; padding: 2px 7px; border-radius: 4px; font-family: monospace; font-size: 0.9em; }
+.btn { padding: 8px 18px; border-radius: 8px; border: none; cursor: pointer; font-size: 0.82em; font-weight: 600; transition: all 0.2s; }
+.btn-primary { background: #7c3aed; color: #fff; }
+.btn-primary:hover { background: #6d28d9; }
+.btn-outline { background: transparent; border: 1px solid; }
+.btn-green { border-color: #4ade80; color: #4ade80; }
+.btn-blue { border-color: #60a5fa; color: #60a5fa; }
+.btn-yellow { border-color: #fbbf24; color: #fbbf24; }
+.status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 6px; }
+.dot-green { background: #4ade80; box-shadow: 0 0 6px #4ade80; }
+.dot-red { background: #f87171; box-shadow: 0 0 6px #f87171; }
+.dot-grey { background: #444; }
+</style>
+<script src="https://browser.sentry-cdn.com/7.99.0/bundle.min.js" crossorigin="anonymous"></script>
+<script src="/luna-config.js"></script>
+</head>
+<body>
+
+<!-- Login overlay fondateur -->
+<div id="loginOverlay" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:#050510ee;z-index:999;align-items:center;justify-content:center;">
+  <div style="background:#0f0f1a;border:1px solid #7c3aed;border-radius:16px;padding:36px 32px;width:320px;max-width:90vw;">
+    <div style="text-align:center;margin-bottom:24px;">
+      <div style="font-size:2em;margin-bottom:8px;">👑</div>
+      <div style="color:#a78bfa;font-weight:700;font-size:1em;letter-spacing:1px;">ACCÈS FONDATEUR</div>
+      <div style="color:#555;font-size:0.78em;margin-top:4px;">YAWatch Industries</div>
+    </div>
+    <input id="loginEmail" type="email" placeholder="Email" value="saintlouis.ludovic@gmail.com"
+      style="width:100%;background:#0a0a18;border:1px solid #2d2d4e;color:#e2e8f0;border-radius:8px;padding:10px 14px;font-size:0.9em;margin-bottom:10px;outline:none;" />
+    <input id="loginPassword" type="password" placeholder="Mot de passe"
+      style="width:100%;background:#0a0a18;border:1px solid #2d2d4e;color:#e2e8f0;border-radius:8px;padding:10px 14px;font-size:0.9em;margin-bottom:6px;outline:none;" />
+    <div id="loginError" style="color:#f87171;font-size:0.8em;min-height:18px;margin-bottom:10px;"></div>
+    <button onclick="doLogin()" class="btn btn-primary" style="width:100%;padding:11px;">Se connecter</button>
+  </div>
+</div>
+
+<div class="header">
+  <div class="header-title">
+    <span class="crown">👑</span>
+    <div>
+      <h1>SUPERADMIN FONDATEUR</h1>
+      <div class="header-sub">YAWatch Industries · Ludovic Saint-Louis</div>
+    </div>
+  </div>
+  <div style="display:flex;gap:10px;align-items:center;">
+    <span class="badge">PROPRIO</span>
+    <a href="/admin" style="color:#555;font-size:0.8em;text-decoration:none;">→ Dashboard Exploitant</a>
+    <button onclick="doLogout()" class="btn btn-outline" style="border-color:#333;color:#555;font-size:0.75em;padding:5px 12px;">Déconnexion</button>
+  </div>
+</div>
+
+<div class="container">
+
+  <!-- Métriques globales -->
+  <div class="grid" id="metaCards">
+    <div class="card"><div class="label">Score Objectifs</div><div class="value" id="metaScore">—</div><div class="sub" id="metaScoreSub">features opérationnelles</div></div>
+    <div class="card"><div class="label">Exploitants actifs</div><div class="value" id="metaExploitants">—</div><div class="sub">licences en cours</div></div>
+    <div class="card"><div class="label">Visio Provider</div><div class="value" id="metaVisio" style="font-size:0.8em;">—</div><div class="sub" id="metaViSub">Simli / Tavus</div></div>
+    <div class="card"><div class="label">Telegram</div><div class="value" id="metaTg" style="font-size:0.85em;">—</div><div class="sub">alertes automatiques</div></div>
+    <div class="card"><div class="label">Redis</div><div class="value" id="metaRedis" style="font-size:0.85em;">—</div><div class="sub">Upstash eu-west-1</div></div>
+    <div class="card"><div class="label">Dernier Check</div><div class="value" id="metaTime" style="font-size:0.65em;word-break:break-all;">—</div><div class="sub">auto toutes les 5 min</div></div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="objectives" onclick="switchTab('objectives')">🔍 Objectifs</button>
+    <button class="tab-btn" data-tab="licenses" onclick="switchTab('licenses')">🪪 Licences</button>
+    <button class="tab-btn" data-tab="keys" onclick="switchTab('keys')">🔑 Clés</button>
+    <button class="tab-btn" data-tab="telegram" onclick="switchTab('telegram')">📱 Telegram</button>
+    <button class="tab-btn" data-tab="actions" onclick="switchTab('actions')">⚡ Actions</button>
+  </div>
+
+  <!-- TAB: OBJECTIFS -->
+  <div class="tab-panel active" id="tab-objectives">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+      <span style="color:#666;font-size:0.8em;">Chaque feature doit tenir sa promesse — si l'objectif n'est pas atteint, Luna alerte automatiquement.</span>
+      <button class="btn btn-primary" onclick="loadObjectives(true)">↺ Relancer diagnostic</button>
+    </div>
+    <div id="objectivesBody"><p style="color:#555;text-align:center;padding:40px;">Chargement...</p></div>
+  </div>
+
+  <!-- TAB: LICENCES -->
+  <div class="tab-panel" id="tab-licenses">
+    <!-- Créer une licence -->
+    <div class="section" style="margin-bottom:18px;">
+      <h2>➕ Nouvelle licence exploitant</h2>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
+        <div>
+          <div style="color:#666;font-size:0.72em;margin-bottom:4px;">EMAIL EXPLOITANT</div>
+          <input id="licEmail" type="email" placeholder="exploitant@exemple.com"
+            style="background:#0a0a18;border:1px solid #2d2d4e;color:#e2e8f0;border-radius:8px;padding:8px 12px;font-size:0.85em;width:230px;outline:none;" />
+        </div>
+        <div>
+          <div style="color:#666;font-size:0.72em;margin-bottom:4px;">PLAN</div>
+          <select id="licPlan" style="background:#0a0a18;border:1px solid #2d2d4e;color:#e2e8f0;border-radius:8px;padding:8px 12px;font-size:0.85em;outline:none;">
+            <option value="essentiel">Essentiel — 79€/mois</option>
+            <option value="confort">Confort — 149€/mois</option>
+            <option value="premium">Premium — 249€/mois</option>
+          </select>
+        </div>
+        <div>
+          <div style="color:#666;font-size:0.72em;margin-bottom:4px;">DURÉE (jours)</div>
+          <input id="licDays" type="number" value="90" min="7" max="365"
+            style="background:#0a0a18;border:1px solid #2d2d4e;color:#e2e8f0;border-radius:8px;padding:8px 12px;font-size:0.85em;width:90px;outline:none;" />
+        </div>
+        <button class="btn btn-primary" onclick="createLicense()">Générer</button>
+      </div>
+      <div id="licKey" style="margin-top:14px;display:none;">
+        <div style="color:#4ade80;font-size:0.78em;margin-bottom:6px;">✓ Licence générée — copier dans le .env de l'exploitant :</div>
+        <div style="background:#000;border:1px solid #4ade8040;border-radius:8px;padding:12px;font-family:monospace;font-size:0.75em;color:#4ade80;word-break:break-all;" id="licKeyValue"></div>
+        <button class="btn btn-outline btn-green" style="margin-top:8px;font-size:0.75em;" onclick="navigator.clipboard.writeText(document.getElementById('licKeyValue').textContent)">📋 Copier</button>
+      </div>
+    </div>
+    <!-- Liste des licences -->
+    <div class="section">
+      <h2 style="display:flex;justify-content:space-between;">
+        <span>🪪 Licences enregistrées</span>
+        <button class="btn btn-outline btn-blue" style="font-size:0.75em;" onclick="loadLicenses()">↺ Actualiser</button>
+      </h2>
+      <div id="licenseList"><p style="color:#555;font-size:0.85em;text-align:center;padding:20px;">Chargement...</p></div>
+    </div>
+  </div>
+
+  <!-- TAB: CLÉS -->
+  <div class="tab-panel" id="tab-keys">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px;">
+      <div class="key-card key-chat">
+        <span class="key-label" style="color:#60a5fa;">ANTHROPIC_KEY_CHAT</span>
+        <span class="key-desc">Conversations pures Luna ↔ souscripteur</span>
+        <span class="key-score" id="ks-chat">—</span>
+      </div>
+      <div class="key-card key-cortex">
+        <span class="key-label" style="color:#f59e0b;">ANTHROPIC_KEY_CORTEX</span>
+        <span class="key-desc">Tool calls · Services · Conciergerie · Actions</span>
+        <span class="key-score" id="ks-cortex">—</span>
+      </div>
+      <div class="key-card key-analysis">
+        <span class="key-label" style="color:#a78bfa;">ANTHROPIC_KEY_ANALYSIS</span>
+        <span class="key-desc">Rapports · Théocratie · Documents · Réunions</span>
+        <span class="key-score" id="ks-analysis">—</span>
+      </div>
+      <div class="key-card key-guardian">
+        <span class="key-label" style="color:#f87171;">ANTHROPIC_KEY_GUARDIAN</span>
+        <span class="key-desc">Sécurité · SOS · Détresse · Alertes</span>
+        <span class="key-score" id="ks-guardian">—</span>
+      </div>
+    </div>
+    <p style="color:#555;font-size:0.8em;">1 clé = 1 domaine = 1 rate limit isolé. Un quota dépassé sur Cortex ne bloque pas le Chat.</p>
+  </div>
+
+  <!-- TAB: TELEGRAM -->
+  <div class="tab-panel" id="tab-telegram">
+    <div class="section" style="margin-bottom:16px;">
+      <h2>📊 Statut</h2>
+      <div id="tgStatus" style="color:#888;font-size:0.85em;">Vérification...</div>
+    </div>
+    <div class="section">
+      <h2>🔗 Connexion fondateur</h2>
+      <p style="color:#888;font-size:0.8em;margin-bottom:16px;">Une fois connecté, Luna t'envoie une alerte Telegram dès qu'un objectif n'est plus atteint — avant que tu t'en rendes compte.</p>
+      <div class="tg-step"><strong style="color:#a78bfa;">Étape 1</strong> — Ouvre Telegram, cherche le bot Luna Cortex et envoie <code>/start</code></div>
+      <div class="tg-step">
+        <strong style="color:#a78bfa;">Étape 2</strong> — Ajoute ce secret dans Google Authenticator :<br>
+        <code style="color:#fbbf24;">DL27LYTT6GAYAT5A7HZEWXIPNCRZG5NU</code>
+      </div>
+      <div class="tg-step"><strong style="color:#a78bfa;">Étape 3</strong> — Envoie au bot : <code>/pair &lt;code_6_chiffres&gt;</code><br>
+        <span style="color:#4ade80;font-size:0.9em;">✓ Luna sauvegarde ton chat_id automatiquement dans Redis</span></div>
+      <div class="tg-step"><strong style="color:#a78bfa;">Dès le prochain objectif raté</strong> — Tu reçois une alerte avec le tab, le domaine de clé et le détail de l'erreur.</div>
+    </div>
+  </div>
+
+  <!-- TAB: ACTIONS -->
+  <div class="tab-panel" id="tab-actions">
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px;">
+      <div class="card" style="border-color:#4ade8040;">
+        <div class="label">Diagnostic complet</div>
+        <p style="color:#888;font-size:0.78em;margin:8px 0 12px;">Relancer toutes les vérifications d'objectifs maintenant.</p>
+        <button class="btn btn-outline btn-green" onclick="loadObjectives(true);switchTab('objectives')">↺ Lancer</button>
+      </div>
+      <div class="card" style="border-color:#60a5fa40;">
+        <div class="label">Santé serveur</div>
+        <p style="color:#888;font-size:0.78em;margin:8px 0 12px;">Uptime, services, modules core actifs.</p>
+        <button class="btn btn-outline btn-blue" onclick="window.open('/api/admin/health','_blank')">🖥 Voir</button>
+      </div>
+      <div class="card" style="border-color:#fbbf2440;">
+        <div class="label">Coûts API</div>
+        <p style="color:#888;font-size:0.78em;margin:8px 0 12px;">Consommation OpenAI, Twilio, Tavus par tenant.</p>
+        <button class="btn btn-outline btn-yellow" onclick="window.location.href='/admin#costs'">💰 Voir</button>
+      </div>
+      <div class="card" style="border-color:#7c3aed40;">
+        <div class="label">Admin Exploitant</div>
+        <p style="color:#888;font-size:0.78em;margin:8px 0 12px;">Dashboard clients, quotas, alertes, CA.</p>
+        <button class="btn btn-primary" onclick="window.location.href='/admin'">→ Ouvrir</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// Token: luna_token (fondateur via /api/auth/login) ou admin_token (legacy)
+var _token = localStorage.getItem("luna_token") || localStorage.getItem("admin_token") || "";
+
+function showLogin(msg) {
+  document.getElementById("loginOverlay").style.display = "flex";
+  if (msg) document.getElementById("loginError").textContent = msg;
+}
+function hideLogin() {
+  document.getElementById("loginOverlay").style.display = "none";
+}
+
+function doLogin() {
+  var email = document.getElementById("loginEmail").value.trim();
+  var password = document.getElementById("loginPassword").value;
+  document.getElementById("loginError").textContent = "";
+  fetch("/api/auth/login", {
+    method: "POST",
+    headers: {"Content-Type":"application/json"},
+    body: JSON.stringify({email: email, password: password})
+  }).then(function(r){ return r.json(); }).then(function(d) {
+    if (d.token && d.plan === "fondateur") {
+      _token = d.token;
+      localStorage.setItem("luna_token", d.token);
+      hideLogin();
+      loadObjectives(false);
+      loadTgStatus();
+      loadVisioHealth();
+    } else if (d.token) {
+      document.getElementById("loginError").textContent = "Ce compte n'est pas fondateur.";
+    } else {
+      document.getElementById("loginError").textContent = d.error || "Connexion impossible.";
+    }
+  }).catch(function(){ document.getElementById("loginError").textContent = "Erreur réseau."; });
+}
+
+document.addEventListener("keydown", function(e) {
+  if (e.key === "Enter" && document.getElementById("loginOverlay").style.display === "flex") doLogin();
+});
+
+function authFetch(url, opts) {
+  opts = opts || {};
+  opts.headers = opts.headers || {};
+  if (_token) opts.headers["Authorization"] = "Bearer " + _token;
+  return fetch(url, opts).then(function(r) {
+    if (r.status === 401 || r.status === 403) {
+      _token = "";
+      localStorage.removeItem("luna_token");
+      showLogin("Session expirée — reconnecte-toi.");
+      return {};
+    }
+    return r.json();
+  });
+}
+
+function switchTab(name) {
+  document.querySelectorAll(".tab-btn").forEach(function(b){ b.classList.remove("active"); });
+  document.querySelectorAll(".tab-panel").forEach(function(p){ p.classList.remove("active"); });
+  document.querySelector('[data-tab="'+name+'"]').classList.add("active");
+  document.getElementById("tab-"+name).classList.add("active");
+  if (name === "telegram") loadTgStatus();
+  if (name === "licenses") loadLicenses();
+}
+
+// ===================== LICENCES =====================
+function createLicense() {
+  var email = document.getElementById("licEmail").value.trim();
+  var plan = document.getElementById("licPlan").value;
+  var days = parseInt(document.getElementById("licDays").value) || 90;
+  if (!email) { alert("Email requis"); return; }
+  authFetch("/api/admin/licenses", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({email:email, plan:plan, days:days})})
+  .then(function(d) {
+    if (d.license_key) {
+      document.getElementById("licKeyValue").textContent = "YAWATCH_LICENSE_KEY=" + d.license_key;
+      document.getElementById("licKey").style.display = "block";
+      loadLicenses();
+      document.getElementById("metaExploitants").textContent = "…";
+    }
+  }).catch(function(e){ alert("Erreur: " + e.message); });
+}
+
+function loadLicenses() {
+  authFetch("/api/admin/licenses").then(function(d) {
+    var licenses = d.licenses || [];
+    document.getElementById("metaExploitants").textContent = licenses.filter(function(l){return l.status==="active";}).length;
+    if (licenses.length === 0) {
+      document.getElementById("licenseList").innerHTML = '<p style="color:#555;text-align:center;padding:20px;font-size:0.85em;">Aucune licence enregistrée.</p>';
+      return;
+    }
+    var html = '<table style="width:100%;border-collapse:collapse;font-size:0.82em;">';
+    html += '<tr style="color:#555;font-size:0.7em;font-weight:700;letter-spacing:1px;">';
+    html += '<th style="text-align:left;padding:6px 10px;">EMAIL</th><th style="text-align:left;padding:6px 10px;">PLAN</th>';
+    html += '<th style="text-align:left;padding:6px 10px;">STATUT</th><th style="text-align:left;padding:6px 10px;">EXPIRE</th>';
+    html += '<th style="text-align:left;padding:6px 10px;">HEARTBEAT</th><th></th></tr>';
+    licenses.forEach(function(l) {
+      var sc = l.status === "active" ? "#4ade80" : l.status === "blocked" ? "#f87171" : "#fbbf24";
+      var sl = l.status === "active" ? "✓ Actif" : l.status === "blocked" ? "⛔ Bloqué" : "⚠ Expiré";
+      var hb = l.last_heartbeat_minutes === null ? "jamais" : (l.last_heartbeat_minutes < 60 ? l.last_heartbeat_minutes+"min" : Math.round(l.last_heartbeat_minutes/60)+"h");
+      var hbColor = l.last_heartbeat_minutes === null ? "#555" : l.last_heartbeat_minutes < 300 ? "#4ade80" : "#f87171";
+      html += '<tr style="border-top:1px solid #0f0f1a;">';
+      html += '<td style="padding:8px 10px;color:#e2e8f0;">'+l.email+'</td>';
+      html += '<td style="padding:8px 10px;color:#a78bfa;">'+l.plan+'</td>';
+      html += '<td style="padding:8px 10px;color:'+sc+';">'+sl+'</td>';
+      html += '<td style="padding:8px 10px;color:#888;">'+l.days_left+'j</td>';
+      html += '<td style="padding:8px 10px;color:'+hbColor+';">'+hb+'</td>';
+      html += '<td style="padding:8px 10px;text-align:right;">';
+      if (l.status === "active") {
+        html += '<button class="btn btn-outline" style="border-color:#f87171;color:#f87171;font-size:0.72em;padding:4px 10px;" onclick="blockLicense(\''+l.email+'\')">⛔ Bloquer</button>';
+      } else if (l.status === "blocked") {
+        html += '<button class="btn btn-outline btn-green" style="font-size:0.72em;padding:4px 10px;" onclick="unblockLicense(\''+l.email+'\')">✓ Réactiver</button>';
+      }
+      html += '</td></tr>';
+    });
+    html += '</table>';
+    document.getElementById("licenseList").innerHTML = html;
+  }).catch(function(){ document.getElementById("licenseList").innerHTML = '<p style="color:#f87171;font-size:0.85em;">Erreur de chargement.</p>'; });
+}
+
+function blockLicense(email) {
+  if (!confirm("Bloquer " + email + " ? Leur serveur sera suspendu au prochain heartbeat (max 4h).")) return;
+  authFetch("/api/admin/licenses/"+encodeURIComponent(email)+"/block", {method:"POST"})
+  .then(function(){ loadLicenses(); });
+}
+
+function unblockLicense(email) {
+  authFetch("/api/admin/licenses/"+encodeURIComponent(email)+"/unblock", {method:"POST"})
+  .then(function(){ loadLicenses(); });
+}
+
+var domainColors = {chat:"#60a5fa", cortex:"#f59e0b", analysis:"#a78bfa", guardian:"#f87171"};
+var domainLabels = {chat:"CHAT", cortex:"CORTEX", analysis:"ANALYSIS", guardian:"GUARDIAN"};
+var domainChips  = {chat:"chip-chat", cortex:"chip-cortex", analysis:"chip-analysis", guardian:"chip-guardian"};
+
+function loadObjectives(force) {
+  var url = "/api/admin/objectives" + (force ? "?force=1" : "");
+  authFetch(url).then(function(d) {
+    // Meta cards
+    document.getElementById("metaScore").textContent = d.score || "?/?";
+    document.getElementById("metaScore").style.color = d.all_ok ? "#4ade80" : "#f87171";
+    document.getElementById("metaTime").textContent = (d.checked_at||"").replace("T"," ").replace("Z","");
+
+    // Key scores
+    var byDomain = d.summary_by_domain || {};
+    ["chat","cortex","analysis","guardian"].forEach(function(dom){
+      var s = byDomain[dom] || {ok:0,total:0};
+      var el = document.getElementById("ks-"+dom);
+      if (el) { el.textContent = s.ok+"/"+s.total; el.style.color = (s.ok===s.total && s.total>0) ? "#4ade80" : "#f87171"; }
+    });
+
+    // Objectives body
+    var objs = d.objectives || [];
+    var tabs = {};
+    objs.forEach(function(o){ if(!tabs[o.tab]) tabs[o.tab]=[]; tabs[o.tab].push(o); });
+    var html = "";
+    Object.keys(tabs).forEach(function(tab){
+      var items = tabs[tab];
+      var tabOk = items.every(function(i){ return i.ok; });
+      html += '<div class="obj-tab">';
+      html += '<div class="obj-tab-header" style="background:'+(tabOk?"#0d0d1a":"#1a0808")+'">';
+      html += '<span>'+tab+'</span><span style="color:'+(tabOk?"#4ade80":"#f87171")+';font-size:0.8em;">'+(tabOk?"✓ OK":"⚠ ECHEC")+'</span>';
+      html += '</div>';
+      items.forEach(function(o){
+        var dom = o.domain || "";
+        var chip = dom ? '<span class="domain-chip '+domainChips[dom]+'">'+domainLabels[dom]+'</span>' : "";
+        var detail = o.detail ? ' <span style="color:#666;font-size:0.85em;">— '+o.detail+'</span>' : "";
+        html += '<div class="obj-row"><span style="color:#aaa;">'+o.objective+chip+'</span>';
+        html += '<span>'+(o.ok?'<span style="color:#4ade80;">✓</span>':'<span style="color:#f87171;">✗</span>')+detail+'</span></div>';
+      });
+      html += '</div>';
+    });
+    document.getElementById("objectivesBody").innerHTML = html || '<p style="color:#555;text-align:center;padding:20px;">Aucun résultat.</p>';
+  }).catch(function(e){ document.getElementById("objectivesBody").innerHTML='<p style="color:#f87171">Erreur: '+e.message+'</p>'; });
+}
+
+function loadTgStatus() {
+  authFetch("/api/admin/health").then(function(d) {
+    var cortex = (d.core_modules||{}).cortex;
+    var html = cortex
+      ? '<span class="status-dot dot-green"></span>Cortex actif — Telegram opérationnel'
+      : '<span class="status-dot dot-red"></span>Cortex inactif — alertes Telegram non disponibles';
+    html += '<br><br><span style="color:#555;font-size:0.85em;">Le webhook Telegram est enregistré sur Cloud Run. Envoie /start au bot pour t\'associer.</span>';
+    document.getElementById("tgStatus").innerHTML = html;
+    var tgEl = document.getElementById("metaTg");
+    if (cortex) { tgEl.innerHTML = '<span class="status-dot dot-green"></span>Actif'; tgEl.style.color="#4ade80"; }
+    else { tgEl.innerHTML = '<span class="status-dot dot-grey"></span>Inactif'; tgEl.style.color="#666"; }
+    // Redis status via health
+    var redis = (d.core_modules||{}).redis;
+    var redisEl = document.getElementById("metaRedis");
+    if (redisEl) {
+      if (redis) { redisEl.innerHTML = '<span class="status-dot dot-green"></span>OK'; redisEl.style.color="#4ade80"; }
+      else { redisEl.innerHTML = '<span class="status-dot dot-red"></span>KO'; redisEl.style.color="#f87171"; }
+    }
+  }).catch(function(){
+    document.getElementById("tgStatus").innerHTML='<span class="status-dot dot-grey"></span>Impossible de vérifier';
+  });
+}
+
+function loadVisioHealth() {
+  authFetch("/api/visio/health").then(function(d) {
+    var provider = d.visio_provider || "unavailable";
+    var el = document.getElementById("metaVisio");
+    var sub = document.getElementById("metaViSub");
+    if (!el) return;
+    var colors = {tavus:"#a78bfa", simli:"#4ade80", unavailable:"#f87171"};
+    el.textContent = provider === "tavus" ? "Tavus" : provider === "simli" ? "Simli" : "Indisponible";
+    el.style.color = colors[provider] || "#888";
+    if (sub) {
+      sub.style.color = "#555";
+      if (provider === "tavus") {
+        if (d.tavus_credit !== null && d.tavus_credit !== undefined) {
+          sub.textContent = "Crédits: " + d.tavus_credit.toFixed(1);
+          if (d.tavus_credit_low) sub.style.color = "#fbbf24";
+        } else {
+          sub.textContent = "Premium · Simli=" + (d.simli_available ? "OK" : "non configuré");
+        }
+      } else if (provider === "simli") {
+        sub.textContent = "Essentiel/Confort · Premium=Tavus";
+      } else {
+        sub.textContent = "Aucun provider disponible";
+        sub.style.color = "#f87171";
+      }
+    }
+  }).catch(function(){});
+}
+
+function doLogout() {
+  _token = "";
+  localStorage.removeItem("luna_token");
+  localStorage.removeItem("admin_token");
+  showLogin();
+}
+
+// Init : vérifier le token avant de charger
+if (_token) {
+  fetch("/api/auth/me", {headers:{"Authorization":"Bearer "+_token}}).then(function(r){
+    if (r.status === 401 || r.status === 403) { _token=""; showLogin(); return null; }
+    return r.json();
+  }).then(function(d) {
+    if (!d) return;
+    if (d.plan !== "fondateur") { _token=""; showLogin("Ce compte n'est pas fondateur."); return; }
+    loadObjectives(false);
+    loadTgStatus();
+    loadLicenses();
+    loadVisioHealth();
+  }).catch(function(){ loadObjectives(false); loadTgStatus(); loadLicenses(); loadVisioHealth(); });
+} else {
+  showLogin();
+}
+</script>
+</body>
+</html>
