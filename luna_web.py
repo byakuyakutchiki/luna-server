@@ -20051,6 +20051,201 @@ async def _check_objective_apk_heartbeat() -> dict:
     }
 
 
+# =========================================================================
+# OBJECTIF 004 — Diagnostic APK fondateur + journal des actions
+# Observer → Interpréter → Proposer → Tracer
+# Aucune action niveau 2/3 sans validation Ludovic + Claude.
+# =========================================================================
+_FOUNDER_LOG_KEY = "luna:founder:actions:log"
+_FOUNDER_LOG_MAX = 200
+_FOUNDER_LOG_LAST_STATUS: dict = {}  # cache mémoire pour écriture conditionnelle
+_EXPECTED_APK_VERSION = "2.8"
+
+
+def _analyze_apk_state(heartbeat: dict | None) -> dict:
+    """
+    Analyse le heartbeat APK et produit un diagnostic lisible.
+    Fonction pure — aucun effet de bord, aucun appel réseau.
+    """
+    if not heartbeat:
+        return {
+            "status": "waiting_first_contact",
+            "diagnosis": "no_heartbeat_yet",
+            "probable_cause": "APK pas encore ouverte après le dernier rebuild",
+            "recommended_action": "Ouvrir l'APK sur le téléphone fondateur",
+            "action_level": "info_only",
+            "can_auto_fix": False,
+            "evidence": {},
+        }
+
+    age_s = time.time() - heartbeat.get("ts", 0)
+    apk_version = heartbeat.get("apk_version", "")
+    cloud_url = heartbeat.get("cloud_url", "").rstrip("/")
+    expected_url = os.getenv("LUNA_URL", "").rstrip("/")
+
+    if age_s > 86400:
+        return {
+            "status": "critical",
+            "diagnosis": "heartbeat_lost",
+            "probable_cause": "L'APK n'a pas contacté le serveur depuis plus de 24h",
+            "recommended_action": "Vérifier que l'app est installée et ouverte sur le téléphone",
+            "action_level": "info_only",
+            "can_auto_fix": False,
+            "evidence": {"last_seen_seconds": int(age_s), "apk_version": apk_version},
+        }
+
+    if age_s > 7200:
+        return {
+            "status": "warning",
+            "diagnosis": "heartbeat_old",
+            "probable_cause": f"L'APK n'a pas été ouverte depuis {int(age_s // 3600)}h",
+            "recommended_action": "Ouvrir l'app sur le téléphone pour confirmer qu'elle est active",
+            "action_level": "info_only",
+            "can_auto_fix": False,
+            "evidence": {"last_seen_seconds": int(age_s), "apk_version": apk_version},
+        }
+
+    if not apk_version:
+        return {
+            "status": "warning",
+            "diagnosis": "apk_version_unknown",
+            "probable_cause": "La version APK n'a pas été transmise dans le heartbeat",
+            "recommended_action": "Vérifier sendHeartbeat() dans MainActivity.java",
+            "action_level": "info_only",
+            "can_auto_fix": False,
+            "evidence": {"last_seen_seconds": int(age_s)},
+        }
+
+    if apk_version != _EXPECTED_APK_VERSION:
+        try:
+            is_older = (
+                tuple(int(x) for x in apk_version.split("."))
+                < tuple(int(x) for x in _EXPECTED_APK_VERSION.split("."))
+            )
+        except Exception:
+            is_older = True
+        return {
+            "status": "warning",
+            "diagnosis": "apk_version_obsolete" if is_older else "apk_version_ahead",
+            "probable_cause": f"APK v{apk_version} active — v{_EXPECTED_APK_VERSION} attendue",
+            "recommended_action": "Installer la dernière APK" if is_older else "Vérifier _EXPECTED_APK_VERSION côté serveur",
+            "action_level": "info_only",
+            "can_auto_fix": False,
+            "evidence": {
+                "apk_version": apk_version,
+                "expected_apk_version": _EXPECTED_APK_VERSION,
+                "last_seen_seconds": int(age_s),
+            },
+        }
+
+    if expected_url and cloud_url and cloud_url != expected_url:
+        return {
+            "status": "warning",
+            "diagnosis": "cloudrun_url_mismatch",
+            "probable_cause": f"L'APK pointe vers {cloud_url}, serveur actuel : {expected_url}",
+            "recommended_action": "Vérifier LUNA_URL dans l'APK et Cloud Run",
+            "action_level": "info_only",
+            "can_auto_fix": False,
+            "evidence": {
+                "apk_url": cloud_url,
+                "expected_url": expected_url,
+                "last_seen_seconds": int(age_s),
+            },
+        }
+
+    return {
+        "status": "ok",
+        "diagnosis": "apk_alive",
+        "probable_cause": "",
+        "recommended_action": "",
+        "action_level": "info_only",
+        "can_auto_fix": False,
+        "evidence": {
+            "apk_version": apk_version,
+            "last_seen_seconds": int(age_s),
+            "device_model": heartbeat.get("device_model", ""),
+            "android_version": heartbeat.get("android_version", ""),
+        },
+    }
+
+
+def _write_founder_action_log(diagnosis: dict) -> None:
+    """
+    Écrit le diagnostic dans le journal Redis.
+    Conditionnel : écrit uniquement si le statut a changé ou si > 10 min depuis la dernière entrée.
+    """
+    if not _redis_client:
+        return
+    now = time.time()
+    last_ts = _FOUNDER_LOG_LAST_STATUS.get("ts", 0)
+    last_status = _FOUNDER_LOG_LAST_STATUS.get("status", "")
+    if diagnosis.get("status") == last_status and (now - last_ts) < 600:
+        return
+    _FOUNDER_LOG_LAST_STATUS["ts"] = now
+    _FOUNDER_LOG_LAST_STATUS["status"] = diagnosis.get("status")
+    entry = {
+        "ts": datetime.now(ZoneInfo("Europe/Paris")).strftime("%Y-%m-%d %H:%M:%S"),
+        "source": "apk_heartbeat_analyzer",
+        "status": diagnosis.get("status"),
+        "diagnosis": diagnosis.get("diagnosis"),
+        "probable_cause": diagnosis.get("probable_cause", ""),
+        "action_proposed": diagnosis.get("recommended_action", ""),
+        "action_level": diagnosis.get("action_level"),
+        "action_taken": "none",
+        "validated_by": None,
+        "result": "info" if diagnosis.get("action_level") == "info_only" else "pending",
+    }
+    try:
+        _redis_client.client.lpush(_FOUNDER_LOG_KEY, json.dumps(entry, ensure_ascii=False))
+        _redis_client.client.ltrim(_FOUNDER_LOG_KEY, 0, _FOUNDER_LOG_MAX - 1)
+        _redis_client.client.expire(_FOUNDER_LOG_KEY, 30 * 86400)
+    except Exception as e:
+        logger.error(f"Founder log write error: {e}")
+
+
+@app.get("/api/admin/apk-diagnosis")
+async def admin_apk_diagnosis(request: Request):
+    """
+    Diagnostic APK fondateur — état courant + journal.
+    Niveau 0 : observer et diagnostiquer.
+    Niveau 1 : afficher/proposer uniquement.
+    Niveau 2/3 : jamais automatique, toujours Ludovic + Claude.
+    """
+    if not _verify_admin(request):
+        return JSONResponse(status_code=401, content={"error": "Non autorisé"})
+
+    heartbeat = None
+    if _redis_client:
+        try:
+            raw = _redis_client.client.get(_APK_HEARTBEAT_KEY)
+            if raw:
+                heartbeat = json.loads(raw)
+        except Exception:
+            pass
+
+    diagnosis = _analyze_apk_state(heartbeat)
+    _write_founder_action_log(diagnosis)
+
+    log_entries: list = []
+    if _redis_client:
+        try:
+            raw_entries = _redis_client.client.lrange(_FOUNDER_LOG_KEY, 0, 49)
+            for r in raw_entries:
+                try:
+                    log_entries.append(json.loads(r))
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
+    return {
+        "heartbeat": heartbeat,
+        "diagnosis": diagnosis,
+        "log": log_entries,
+        "checked_at": datetime.now(ZoneInfo("Europe/Paris")).strftime("%Y-%m-%d %H:%M:%S"),
+    }
+
+
 @app.get("/api/admin/totp-setup")
 async def admin_totp_setup(request: Request):
     """
