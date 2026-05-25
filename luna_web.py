@@ -5640,7 +5640,7 @@ async def _stream_chat_sse(messages, chat_tools, tid, session_id, req_message, m
         if mgr:
             try:
                 meta = mgr.redis.get_conversation_meta(tid, session_id)
-                if meta and not meta.get("summary") and int(meta.get("message_count", 0)) <= 4:
+                if not (meta or {}).get("summary"):
                     try:
                         title_resp = await loop.run_in_executor(None, lambda: openai_client.chat.completions.create(
                             model="gpt-4o-mini",
@@ -5654,9 +5654,10 @@ async def _stream_chat_sse(messages, chat_tools, tid, session_id, req_message, m
                         auto_title = req_message[:40].strip()
                         if len(req_message) > 40:
                             auto_title += "..."
-                    meta["summary"] = auto_title
-                    meta["last_activity"] = datetime.utcnow().isoformat()
-                    mgr.redis.set_conversation_meta(tid, session_id, meta)
+                    if meta:
+                        meta["summary"] = auto_title
+                        meta["last_activity"] = datetime.utcnow().isoformat()
+                        mgr.redis.set_conversation_meta(tid, session_id, meta)
             except Exception:
                 pass
 
@@ -6303,7 +6304,7 @@ COMPORTEMENT COMPAGNON :
         if mgr:
             try:
                 meta = mgr.redis.get_conversation_meta(tid, req.session_id)
-                if meta and not meta.get("summary") and int(meta.get("message_count", 0)) <= 4:
+                if not (meta or {}).get("summary"):
                     try:
                         title_resp = await asyncio.to_thread(openai_client.chat.completions.create,
                             model="gpt-4o-mini",
@@ -6325,9 +6326,10 @@ COMPORTEMENT COMPAGNON :
                         auto_title = req.message[:40].strip()
                         if len(req.message) > 40:
                             auto_title += "..."
-                    meta["summary"] = auto_title
-                    meta["last_activity"] = datetime.utcnow().isoformat()
-                    mgr.redis.set_conversation_meta(tid, req.session_id, meta)
+                    if meta:
+                        meta["summary"] = auto_title
+                        meta["last_activity"] = datetime.utcnow().isoformat()
+                        mgr.redis.set_conversation_meta(tid, req.session_id, meta)
             except Exception:
                 pass
 
