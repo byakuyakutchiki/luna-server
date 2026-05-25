@@ -7264,6 +7264,25 @@ function stopPaymentPolling() {
   var _voiceElapsedInterval = null;
   var _voiceStartTime = 0;
   var _voiceMaxDuration = 1800;
+  // Objectif 005 — APK voice events telemetry
+  var _apkEventCount = 0;
+  var _voiceNoAudioTimer = null;
+  var _voiceFirstAudioSent = false;
+  var _voiceFirstAudioReceived = false;
+
+  function sendApkEvent(eventName, extra) {
+    if (_apkEventCount >= 10) return;
+    _apkEventCount++;
+    var tok = typeof getToken === "function" ? getToken() : null;
+    if (!tok) return;
+    var payload = { event: eventName, ts: Math.floor(Date.now() / 1000),
+      session_ts: _voiceStartTime ? Math.floor(_voiceStartTime / 1000) : 0,
+      apk_version: "2.8", screen: "home" };
+    if (extra) Object.keys(extra).forEach(function(k) { payload[k] = extra[k]; });
+    fetch("/api/apk/event", { method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": "Bearer " + tok },
+      body: JSON.stringify(payload) }).catch(function() {});
+  }
   var audioCtx = null;
   var micStream = null;
   var micCtx = null;
@@ -7579,6 +7598,7 @@ function stopPaymentPolling() {
       micStream = await navigator.mediaDevices.getUserMedia({
         audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true, autoGainControl: true }
       });
+      sendApkEvent("microphone_permission_granted");
 
       try { micCtx = new AudioContext({ sampleRate: 48000 }); }
       catch(e) { micCtx = new AudioContext(); }
@@ -7619,6 +7639,7 @@ function stopPaymentPolling() {
             pcm16[i] = s < 0 ? s * 32768 : s * 32767;
           }
           if (voiceWs && voiceWs.readyState === 1) {
+            if (!_voiceFirstAudioSent) { _voiceFirstAudioSent = true; sendApkEvent("voice_audio_sent"); }
             voiceWs.send(JSON.stringify({ type: "audio", audio: _int16ToBase64(pcm16.buffer) }));
           }
         };
@@ -7638,6 +7659,16 @@ function stopPaymentPolling() {
       voiceWs = new WebSocket(wsUrl);
 
       voiceWs.onopen = function() {
+        sendApkEvent("voice_ws_opened");
+        if (_voiceNoAudioTimer) { clearTimeout(_voiceNoAudioTimer); _voiceNoAudioTimer = null; }
+        _voiceNoAudioTimer = setTimeout(function() {
+          if (!_voiceFirstAudioReceived) {
+            sendApkEvent("voice_no_audio_after_timeout", {
+              elapsed_ms: 20000, ws_connected: true,
+              audio_sent: _voiceFirstAudioSent, audio_received: false
+            });
+          }
+        }, 20000);
         _setStatus("Connexion a Luna...");
         if (!isReconnect) _voiceReconnectAttempts = 0;
         if (_voiceKeepaliveInterval) clearInterval(_voiceKeepaliveInterval);
@@ -7667,11 +7698,17 @@ function stopPaymentPolling() {
             if (workletNode && workletNode.port) {
               workletNode.port.onmessage = function(e) {
                 if (voiceWs && voiceWs.readyState === 1) {
+                  if (!_voiceFirstAudioSent) { _voiceFirstAudioSent = true; sendApkEvent("voice_audio_sent"); }
                   voiceWs.send(JSON.stringify({ type: "audio", audio: _int16ToBase64(e.data) }));
                 }
               };
             }
           } else if (data.type === "audio") {
+            if (!_voiceFirstAudioReceived) {
+              _voiceFirstAudioReceived = true;
+              if (_voiceNoAudioTimer) { clearTimeout(_voiceNoAudioTimer); _voiceNoAudioTimer = null; }
+              sendApkEvent("voice_audio_received");
+            }
             _queueAudio(data.audio);
             _setStatus("Luna parle...", "speak");
           } else if (data.type === "audio_done") {
@@ -7716,6 +7753,8 @@ function stopPaymentPolling() {
       };
 
       voiceWs.onclose = function(evt) {
+        sendApkEvent("voice_ws_closed", {ws_close_code: evt.code || 0});
+        if (_voiceNoAudioTimer) { clearTimeout(_voiceNoAudioTimer); _voiceNoAudioTimer = null; }
         if (_voiceKeepaliveInterval) { clearInterval(_voiceKeepaliveInterval); _voiceKeepaliveInterval = null; }
         if (!voiceActive || _voiceStopping) return;
         if (evt.code === 4001) {
@@ -7745,12 +7784,14 @@ function stopPaymentPolling() {
       };
 
       voiceWs.onerror = function() {
+        sendApkEvent("voice_ws_error");
         if (!_voiceReconnecting) _setOvStatus("Probleme de connexion...");
       };
 
     } catch(err) {
       console.error("Luna Voice error:", err);
       voiceActive = false;
+      if (err.name === "NotAllowedError") sendApkEvent("microphone_permission_denied", {error_msg: "NotAllowedError"});
       var errMsg = "Micro non disponible";
       if (err.name === "NotAllowedError") errMsg = "Autorise le micro pour parler a Luna";
       else if (err.name === "NotFoundError") errMsg = "Aucun micro detecte";
@@ -7793,6 +7834,8 @@ function stopPaymentPolling() {
     if (_voiceElapsedInterval) { clearInterval(_voiceElapsedInterval); _voiceElapsedInterval = null; }
 
     if (voiceWs) {
+      sendApkEvent("voice_session_ended");
+      if (_voiceNoAudioTimer) { clearTimeout(_voiceNoAudioTimer); _voiceNoAudioTimer = null; }
       try { voiceWs.send(JSON.stringify({ type: "stop" })); } catch(e) {}
       try { voiceWs.close(); } catch(e) {}
       voiceWs = null;
@@ -7815,7 +7858,13 @@ function stopPaymentPolling() {
     }, 1500);
   }
 
-  voiceBtn.addEventListener("click", function() { startVoice(false); });
+  voiceBtn.addEventListener("click", function() {
+    _apkEventCount = 0;
+    _voiceFirstAudioSent = false;
+    _voiceFirstAudioReceived = false;
+    sendApkEvent("voice_button_clicked");
+    startVoice(false);
+  });
   voiceOvHangup.addEventListener("click", function() { stopVoice(); });
 })();
 

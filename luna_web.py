@@ -20246,6 +20246,215 @@ async def admin_apk_diagnosis(request: Request):
     }
 
 
+# =========================================================================
+# OBJECTIF 005 — Événements voix APK
+# Prouver ce qui se passe quand Ludovic appuie sur le bouton vocal.
+# Pas d'audio brut. Pas de transcript. Pas de position. Pas de correction auto.
+# =========================================================================
+_APK_VOICE_EVENTS_KEY = "luna:apk:voice:events"
+_APK_VOICE_EVENTS_MAX = 50
+
+# Whitelist stricte des événements autorisés (aucun autre accepté)
+_VOICE_EVENTS_ALLOWED = {
+    "voice_button_clicked",
+    "microphone_permission_granted",
+    "microphone_permission_denied",
+    "voice_ws_opened",
+    "voice_audio_sent",
+    "voice_audio_received",
+    "voice_no_audio_after_timeout",
+    "voice_ws_closed",
+    "voice_ws_error",
+    "voice_session_ended",
+}
+
+# Champs autorisés dans le payload (aucun autre stocké)
+_VOICE_EVENT_ALLOWED_FIELDS = {
+    "event", "ts", "session_ts", "elapsed_ms", "apk_version", "screen",
+    "ws_connected", "audio_sent", "audio_received", "ws_close_code", "error_msg",
+}
+
+
+def _verify_jwt(request: Request) -> dict | None:
+    """Vérifie un JWT client standard (role=client ou admin). Retourne le payload ou None."""
+    auth = request.headers.get("Authorization", "")
+    if not auth.startswith("Bearer "):
+        return None
+    token = auth[7:]
+    try:
+        import jwt as pyjwt
+        payload = pyjwt.decode(token, _JWT_SECRET, algorithms=[_JWT_ALGORITHM])
+        return payload
+    except Exception:
+        return None
+
+
+@app.post("/api/apk/event")
+async def apk_voice_event(request: Request):
+    """
+    Reçoit les événements voix APK depuis le JS de l'APK WebView.
+    Auth : JWT client (luna_token depuis localStorage JS).
+    Rate limit : max 10 événements par session (contrôlé côté JS + vérification ici).
+    Pas d'audio brut, transcript, position ou secret stocké.
+    """
+    payload = _verify_jwt(request)
+    if payload is None:
+        return JSONResponse(status_code=403, content={"ok": False, "reason": "token_invalide"})
+
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse(status_code=400, content={"ok": False, "reason": "json_invalide"})
+
+    event_name = str(body.get("event", ""))
+    if event_name not in _VOICE_EVENTS_ALLOWED:
+        return JSONResponse(status_code=400, content={"ok": False, "reason": "evenement_non_autorise"})
+
+    # Filtrage strict : seuls les champs autorisés sont stockés
+    clean = {}
+    for field in _VOICE_EVENT_ALLOWED_FIELDS:
+        if field in body:
+            val = body[field]
+            if isinstance(val, (str, int, float, bool, type(None))):
+                clean[field] = val if not isinstance(val, str) else str(val)[:200]
+
+    now_paris = datetime.now(ZoneInfo("Europe/Paris"))
+    entry = {
+        "event": event_name,
+        "stored_at": now_paris.strftime("%Y-%m-%d %H:%M:%S"),
+        "user_role": str(payload.get("role", ""))[:20],
+        **clean,
+    }
+
+    if _redis_client:
+        try:
+            _redis_client.client.lpush(_APK_VOICE_EVENTS_KEY, json.dumps(entry, ensure_ascii=False))
+            _redis_client.client.ltrim(_APK_VOICE_EVENTS_KEY, 0, _APK_VOICE_EVENTS_MAX - 1)
+            _redis_client.client.expire(_APK_VOICE_EVENTS_KEY, 86400)
+        except Exception as e:
+            logger.error(f"APK voice event Redis write error: {e}")
+    else:
+        logger.info(f"[APK-EVENT] {entry}")
+
+    return {"ok": True}
+
+
+def _analyze_voice_events(events: list) -> dict:
+    """
+    Analyse la dernière session voix APK et produit un diagnostic lisible.
+    Retourne un dict avec voice_status, voice_summary, voice_events.
+    Fonction pure — aucun effet de bord.
+    """
+    if not events:
+        return {
+            "voice_status": "no_data",
+            "voice_summary": "Aucun événement voix reçu pour cette session.",
+            "voice_events": [],
+            "voice_last_session_ts": None,
+        }
+
+    # Regrouper par session_ts pour identifier la dernière session
+    sessions: dict = {}
+    for ev in events:
+        sid = ev.get("session_ts") or ev.get("ts") or "unknown"
+        if sid not in sessions:
+            sessions[sid] = []
+        sessions[sid].append(ev)
+
+    # Prendre la session la plus récente (session_ts le plus grand)
+    try:
+        latest_sid = max(sessions.keys(), key=lambda x: int(x) if str(x).isdigit() else 0)
+    except Exception:
+        latest_sid = list(sessions.keys())[0]
+
+    session_events = sessions[latest_sid]
+    event_names = {e["event"] for e in session_events}
+
+    last_ts = max((e.get("stored_at", "") for e in session_events), default=None)
+
+    # Cas d'échec : silence après timeout
+    if "voice_no_audio_after_timeout" in event_names:
+        details = []
+        if "voice_button_clicked" in event_names:
+            details.append("bouton appuyé")
+        if "microphone_permission_granted" in event_names:
+            details.append("micro autorisé")
+        elif "microphone_permission_denied" in event_names:
+            details.append("micro refusé")
+        if "voice_ws_opened" in event_names:
+            details.append("WebSocket ouvert")
+        return {
+            "voice_status": "no_audio_timeout",
+            "voice_summary": f"Luna sait : {', '.join(details)} — aucun audio reçu après 20s.",
+            "voice_events": [e["event"] for e in session_events],
+            "voice_last_session_ts": last_ts,
+        }
+
+    # Cas d'échec : micro refusé
+    if "microphone_permission_denied" in event_names:
+        return {
+            "voice_status": "mic_denied",
+            "voice_summary": "Luna sait : le bouton vocal a été appuyé mais la permission micro a été refusée.",
+            "voice_events": [e["event"] for e in session_events],
+            "voice_last_session_ts": last_ts,
+        }
+
+    # Cas d'échec : WebSocket error
+    if "voice_ws_error" in event_names and "voice_audio_received" not in event_names:
+        return {
+            "voice_status": "ws_error",
+            "voice_summary": "Luna sait : le WebSocket voix a rencontré une erreur avant de recevoir de l'audio.",
+            "voice_events": [e["event"] for e in session_events],
+            "voice_last_session_ts": last_ts,
+        }
+
+    # Cas succès : audio reçu
+    if "voice_audio_received" in event_names:
+        return {
+            "voice_status": "ok",
+            "voice_summary": "Luna sait : la session voix a produit de l'audio reçu par l'APK.",
+            "voice_events": [e["event"] for e in session_events],
+            "voice_last_session_ts": last_ts,
+        }
+
+    # Session en cours ou incomplète
+    return {
+        "voice_status": "partial",
+        "voice_summary": f"Session voix partielle — événements reçus : {', '.join(sorted(event_names))}.",
+        "voice_events": [e["event"] for e in session_events],
+        "voice_last_session_ts": last_ts,
+    }
+
+
+@app.get("/api/admin/apk-voice-events")
+async def admin_apk_voice_events(request: Request):
+    """
+    Diagnostic voix APK — dernière session + événements bruts.
+    Auth admin ou fondateur requise.
+    """
+    if not _verify_admin(request):
+        return JSONResponse(status_code=401, content={"error": "Non autorisé"})
+
+    events: list = []
+    if _redis_client:
+        try:
+            raw_list = _redis_client.client.lrange(_APK_VOICE_EVENTS_KEY, 0, _APK_VOICE_EVENTS_MAX - 1)
+            for r in raw_list:
+                try:
+                    events.append(json.loads(r))
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
+    diagnosis = _analyze_voice_events(events)
+    return {
+        **diagnosis,
+        "total_events_stored": len(events),
+        "checked_at": datetime.now(ZoneInfo("Europe/Paris")).strftime("%Y-%m-%d %H:%M:%S"),
+    }
+
+
 @app.get("/api/admin/totp-setup")
 async def admin_totp_setup(request: Request):
     """
