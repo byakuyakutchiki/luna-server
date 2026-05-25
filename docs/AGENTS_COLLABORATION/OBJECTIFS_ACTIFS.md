@@ -291,7 +291,7 @@ fondateur.html               — section voix avec chronologie
 
 ## Objectif 006 — Validation du cerveau Luna sur panne vocale réelle
 
-**Statut** : ouvert — test réel Ludovic en cours  
+**Statut** : partiellement validé — heartbeat OK, télémétrie voix insuffisante → Objectif 007  
 **Priorité** : critique  
 **Lead final** : Claude  
 **Date ouverture** : 2026-05-25  
@@ -326,14 +326,53 @@ test réel Ludovic → événements APK → diagnostic serveur → cockpit fonda
 
 ### Validation
 
-- [ ] Heartbeat APK réel visible.
-- [ ] Test bouton vocal produit une chronologie d'événements.
-- [ ] `voice_no_audio_after_timeout` ou erreur équivalente visible si silence.
+- [x] Heartbeat APK réel visible. ← validé (révision luna-beta-00438-f4j)
+- [ ] Test bouton vocal produit une chronologie d'événements. → Objectif 007
+- [ ] `voice_no_audio_after_timeout` ou erreur équivalente visible si silence. → Objectif 007
 - [ ] Cockpit fondateur explique la cause probable.
 - [ ] Journal fondateur trace le test et la conclusion.
-- [ ] Aucun asset graphique ne disparaît.
+- [x] Aucun asset graphique ne disparaît. ← validé commit a3545a1
 - [ ] Claude propose la correction finale.
 - [ ] Ludovic valide avant déploiement/rebuild.
+
+---
+
+## Objectif 007 — Télémétrie vocale précise APK
+
+**Statut** : ouvert — implémentation en cours  
+**Priorité** : critique  
+**Lead** : Claude  
+**Date ouverture** : 2026-05-25  
+**Document dédié** : `docs/AGENTS_COLLABORATION/OBJECTIF_007_TELEMETRIE_VOIX_APK.md`
+
+### Problème
+
+Heartbeat OK. Mais seulement `voice_session_ended` arrive dans Redis.
+Deux bugs identifiés par Claude :
+1. `session_ts = 0` pour `voice_button_clicked` → groupé dans une session fantôme
+2. `_apkEventCount >= 10` trop bas pour 21 événements
+
+### Agents concernés
+
+| Agent | Tâche | Statut |
+|---|---|---|
+| **Claude** | Fix session_ts + plafond + implémentation 21 événements | En cours |
+| **DeepSeek** | Audit startVoice(), session_ts, chemins alternatifs, fetch/WebSocket Android | À solliciter |
+| **Kimi** | Textes cockpit pour 8 scénarios voix | À solliciter |
+| **Cursor** | UI mobile, non-régression startVoice() | À solliciter |
+| **Codex** | Critères validation, garde-fous, synthèse Claude | À solliciter |
+| **Ludovic** | Test réel après déploiement | En attente déploiement |
+
+### Validation
+
+- [x] Claude a identifié les causes
+- [ ] DeepSeek — `agents/DEEPSEEK_AVIS_007.md`
+- [ ] Kimi — `agents/KIMI_AVIS_007.md`
+- [ ] Cursor — `agents/CURSOR_AVIS_007.md`
+- [ ] Codex — `agents/CODEX_AVIS_007.md`
+- [ ] Claude a implémenté et déployé
+- [ ] Ludovic a validé sur téléphone réel
+- [ ] Chronologie complète visible dans le cockpit fondateur
 
 ---
 

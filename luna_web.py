@@ -20260,16 +20260,34 @@ _FOUNDER_VOICE_LOG_LAST_STATUS: dict = {}  # cache mémoire pour écriture condi
 
 # Whitelist stricte des événements autorisés (aucun autre accepté)
 _VOICE_EVENTS_ALLOWED = {
+    # Objectif 007 — nouveaux événements précis
+    "voice_click_received",
+    "voice_start_entered",
+    "voice_token_present",
+    "voice_token_missing",
+    "voice_state_blocked",
+    "voice_micro_request_started",
+    "voice_micro_permission_granted",
+    "voice_micro_permission_denied",
+    "voice_ws_create_started",
+    "voice_ws_create_failed",
+    "voice_ws_opened",
+    "voice_ws_closed",
+    "voice_ws_error",
+    "voice_capture_started",
+    "voice_first_audio_chunk_sent",
+    "voice_audio_send_failed",
+    "voice_first_audio_chunk_received",
+    "voice_playback_started",
+    "voice_playback_failed",
+    "voice_no_audio_after_timeout",
+    "voice_session_ended",
+    # Anciens noms conservés pour rétrocompatibilité
     "voice_button_clicked",
     "microphone_permission_granted",
     "microphone_permission_denied",
-    "voice_ws_opened",
     "voice_audio_sent",
     "voice_audio_received",
-    "voice_no_audio_after_timeout",
-    "voice_ws_closed",
-    "voice_ws_error",
-    "voice_session_ended",
 }
 
 # Champs autorisés dans le payload (aucun autre stocké)
@@ -20344,16 +20362,34 @@ async def apk_voice_event(request: Request):
 
 
 _VOICE_EVENT_LABELS: dict = {
-    "voice_button_clicked": "Bouton vocal appuyé",
-    "microphone_permission_granted": "Microphone autorisé",
-    "microphone_permission_denied": "Permission microphone non accordée",
+    # Objectif 007 — labels précis
+    "voice_click_received": "Bouton vocal appuyé",
+    "voice_start_entered": "Démarrage vocal initié",
+    "voice_token_present": "Session active (token présent)",
+    "voice_token_missing": "Pas de session active (token absent)",
+    "voice_state_blocked": "Voix déjà active au moment du clic",
+    "voice_micro_request_started": "Demande accès microphone en cours",
+    "voice_micro_permission_granted": "Microphone autorisé",
+    "voice_micro_permission_denied": "Permission microphone refusée",
+    "voice_ws_create_started": "Création connexion vocale démarrée",
+    "voice_ws_create_failed": "Création connexion vocale échouée",
     "voice_ws_opened": "Connexion vocale ouverte",
-    "voice_audio_sent": "Audio envoyé vers Luna",
-    "voice_audio_received": "Luna répond vocalement",
-    "voice_no_audio_after_timeout": "Luna n'a pas répondu après 20 secondes",
     "voice_ws_closed": "Connexion vocale fermée",
     "voice_ws_error": "Problème de connexion vocale",
+    "voice_capture_started": "Capture micro active",
+    "voice_first_audio_chunk_sent": "Premier audio envoyé vers Luna",
+    "voice_audio_send_failed": "Erreur envoi audio",
+    "voice_first_audio_chunk_received": "Luna répond vocalement",
+    "voice_playback_started": "Lecture audio démarrée",
+    "voice_playback_failed": "Lecture audio impossible",
+    "voice_no_audio_after_timeout": "Luna n'a pas répondu après 20 secondes",
     "voice_session_ended": "Session vocale terminée",
+    # Anciens noms
+    "voice_button_clicked": "Bouton vocal appuyé",
+    "microphone_permission_granted": "Microphone autorisé",
+    "microphone_permission_denied": "Permission microphone refusée",
+    "voice_audio_sent": "Premier audio envoyé vers Luna",
+    "voice_audio_received": "Luna répond vocalement",
 }
 
 
@@ -20376,10 +20412,16 @@ def _analyze_voice_events(events: list) -> dict:
             "voice_last_session_ts": None,
         }
 
-    # Regrouper par session_ts pour identifier la dernière session
+    # Regrouper par session_ts pour identifier la dernière session.
+    # Fix Obj-007 : session_ts=0 est falsy en Python → on utilise str() pour éviter
+    # que le "or" tombe sur ts individuel (ce qui créait une micro-session par événement).
     sessions: dict = {}
     for ev in events:
-        sid = ev.get("session_ts") or ev.get("ts") or "unknown"
+        raw_sid = ev.get("session_ts")
+        if raw_sid is not None and raw_sid != 0 and raw_sid != "0" and raw_sid != "":
+            sid = str(raw_sid)
+        else:
+            sid = str(ev.get("ts") or "unknown")
         if sid not in sessions:
             sessions[sid] = []
         sessions[sid].append(ev)
@@ -20402,15 +20444,60 @@ def _analyze_voice_events(events: list) -> dict:
             "ts": e.get("stored_at", ""),
         })
 
-    def _has(*names): return all(n in event_names for n in names)
+    # Aliases pour compatibilité anciens/nouveaux noms d'événements
+    def _has_click(): return bool(event_names & {"voice_click_received", "voice_button_clicked"})
+    def _has_mic_ok(): return bool(event_names & {"voice_micro_permission_granted", "microphone_permission_granted"})
+    def _has_mic_denied(): return bool(event_names & {"voice_micro_permission_denied", "microphone_permission_denied"})
+    def _has_ws_open(): return "voice_ws_opened" in event_names
+    def _has_audio_sent(): return bool(event_names & {"voice_first_audio_chunk_sent", "voice_audio_sent"})
+    def _has_audio_recv(): return bool(event_names & {"voice_first_audio_chunk_received", "voice_audio_received"})
 
-    # Scénario B — cas réel Ludovic : silence après timeout
+    # Scénario — token absent (sortie anticipée avant startVoice)
+    if "voice_token_missing" in event_names:
+        return {
+            "voice_status": "token_missing",
+            "voice_summary": "Bouton appuyé — mais Luna n'est pas connectée (session expirée ou absente)",
+            "voice_events": labeled_events,
+            "luna_knows": "Le bouton vocal a été appuyé mais aucune session active n'était présente sur le téléphone.",
+            "luna_guesses": "La session a expiré ou l'utilisateur n'était pas connecté au moment du test.",
+            "luna_recommends": "Fermer et rouvrir l'application · Se reconnecter si demandé.",
+            "luna_cannot": "Créer une session à la place de l'utilisateur.",
+            "voice_last_session_ts": last_ts,
+        }
+
+    # Scénario — voix déjà active (double appui)
+    if "voice_state_blocked" in event_names:
+        return {
+            "voice_status": "state_blocked",
+            "voice_summary": "Bouton appuyé alors qu'une session vocale était déjà active",
+            "voice_events": labeled_events,
+            "luna_knows": "Une session vocale était déjà en cours au moment du clic.",
+            "luna_guesses": "Double appui ou session précédente non fermée correctement.",
+            "luna_recommends": "Attendre la fin de la session en cours ou fermer l'overlay vocal avant de recliquer.",
+            "luna_cannot": "Forcer la fermeture de la session depuis l'extérieur.",
+            "voice_last_session_ts": last_ts,
+        }
+
+    # Scénario — WebSocket n'a pas pu être créé
+    if "voice_ws_create_failed" in event_names:
+        return {
+            "voice_status": "ws_create_failed",
+            "voice_summary": "Bouton appuyé, micro OK — mais la connexion vocale n'a pas pu démarrer",
+            "voice_events": labeled_events,
+            "luna_knows": "Le microphone était disponible mais l'ouverture du canal vocal a échoué immédiatement.",
+            "luna_guesses": "Le réseau du téléphone bloque les connexions WebSocket, ou l'URL du serveur est inaccessible.",
+            "luna_recommends": "Vérifier la connexion réseau · Réessayer en WiFi · Vérifier que Cloud Run est accessible.",
+            "luna_cannot": "Ouvrir la connexion WebSocket à la place du téléphone.",
+            "voice_last_session_ts": last_ts,
+        }
+
+    # Scénario — silence après timeout
     if "voice_no_audio_after_timeout" in event_names:
         known_parts = []
-        if "voice_button_clicked" in event_names: known_parts.append("le bouton vocal a été appuyé")
-        if "microphone_permission_granted" in event_names: known_parts.append("le microphone est autorisé")
-        if "voice_ws_opened" in event_names: known_parts.append("la connexion s'est ouverte")
-        if "voice_audio_sent" in event_names: known_parts.append("de l'audio a été envoyé vers le serveur")
+        if _has_click(): known_parts.append("le bouton vocal a été appuyé")
+        if _has_mic_ok(): known_parts.append("le microphone est autorisé")
+        if _has_ws_open(): known_parts.append("la connexion s'est ouverte")
+        if _has_audio_sent(): known_parts.append("de l'audio a été envoyé vers le serveur")
         return {
             "voice_status": "no_audio_timeout",
             "voice_summary": "Bouton appuyé, micro OK, connexion ouverte, audio envoyé — aucune réponse de Luna après 20s",
@@ -20422,8 +20509,8 @@ def _analyze_voice_events(events: list) -> dict:
             "voice_last_session_ts": last_ts,
         }
 
-    # Scénario C — micro refusé
-    if "microphone_permission_denied" in event_names:
+    # Scénario — micro refusé
+    if _has_mic_denied():
         return {
             "voice_status": "mic_denied",
             "voice_summary": "Bouton appuyé — mais la permission microphone n'a pas été accordée",
@@ -20435,8 +20522,8 @@ def _analyze_voice_events(events: list) -> dict:
             "voice_last_session_ts": last_ts,
         }
 
-    # Scénario D — erreur WebSocket avant audio
-    if "voice_ws_error" in event_names and "voice_audio_received" not in event_names:
+    # Scénario — erreur WebSocket avant audio
+    if "voice_ws_error" in event_names and not _has_audio_recv():
         return {
             "voice_status": "ws_error",
             "voice_summary": "Connexion vocale ouverte — mais une erreur WebSocket s'est produite avant de recevoir de l'audio",
@@ -20448,14 +20535,17 @@ def _analyze_voice_events(events: list) -> dict:
             "voice_last_session_ts": last_ts,
         }
 
-    # Scénario A — succès complet
-    if "voice_audio_received" in event_names:
+    # Scénario — succès complet (audio reçu)
+    if _has_audio_recv():
+        playback = "voice_playback_started" in event_names
         return {
             "voice_status": "ok",
-            "voice_summary": "Bouton appuyé, micro OK, connexion ouverte, audio envoyé et reçu — session normale",
+            "voice_summary": "Session vocale complète — bouton, micro, connexion, audio envoyé et reçu{}".format(
+                ", lecture démarrée" if playback else ""
+            ),
             "voice_events": labeled_events,
             "luna_knows": "La session voix a produit de l'audio reçu par l'APK. La chaîne complète fonctionne sur ce téléphone.",
-            "luna_guesses": "",
+            "luna_guesses": "" if playback else "L'audio a été reçu mais le démarrage de la lecture n'a pas été confirmé — peut-être joué sans événement.",
             "luna_recommends": "Aucune action nécessaire. La voix est opérationnelle.",
             "luna_cannot": "Vérifier que l'utilisateur a bien entendu (volume, qualité audio, environnement bruyant).",
             "voice_last_session_ts": last_ts,

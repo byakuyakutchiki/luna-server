@@ -7264,19 +7264,21 @@ function stopPaymentPolling() {
   var _voiceElapsedInterval = null;
   var _voiceStartTime = 0;
   var _voiceMaxDuration = 1800;
-  // Objectif 005 — APK voice events telemetry
+  // Objectif 007 — APK voice events telemetry (précision maximale)
   var _apkEventCount = 0;
+  var _voiceSessionStartTs = 0;  // timestamp fixé au clic, commun à tous les événements
   var _voiceNoAudioTimer = null;
   var _voiceFirstAudioSent = false;
   var _voiceFirstAudioReceived = false;
+  var _voiceCaptureSent = false;
 
   function sendApkEvent(eventName, extra) {
-    if (_apkEventCount >= 10) return;
+    if (_apkEventCount >= 30) return;
     _apkEventCount++;
     var tok = typeof getToken === "function" ? getToken() : null;
     if (!tok) return;
     var payload = { event: eventName, ts: Math.floor(Date.now() / 1000),
-      session_ts: _voiceStartTime ? Math.floor(_voiceStartTime / 1000) : 0,
+      session_ts: _voiceSessionStartTs ? Math.floor(_voiceSessionStartTs / 1000) : 0,
       apk_version: "2.8", screen: "home" };
     if (extra) Object.keys(extra).forEach(function(k) { payload[k] = extra[k]; });
     fetch("/api/apk/event", { method: "POST",
@@ -7575,7 +7577,8 @@ function stopPaymentPolling() {
 
   // --- Main start/stop ---
   async function startVoice(isReconnect) {
-    if (voiceActive && !isReconnect) { stopVoice(); return; }
+    if (!isReconnect) sendApkEvent("voice_start_entered");
+    if (voiceActive && !isReconnect) { sendApkEvent("voice_state_blocked"); stopVoice(); return; }
     voiceActive = true;
     _voiceStopping = false;
     voiceBtn.classList.add("active");
@@ -7595,10 +7598,11 @@ function stopPaymentPolling() {
       _initAudioCtx();
       if (audioCtx && audioCtx.state === "suspended") await audioCtx.resume();
 
+      sendApkEvent("voice_micro_request_started");
       micStream = await navigator.mediaDevices.getUserMedia({
         audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true, autoGainControl: true }
       });
-      sendApkEvent("microphone_permission_granted");
+      sendApkEvent("voice_micro_permission_granted");
 
       try { micCtx = new AudioContext({ sampleRate: 48000 }); }
       catch(e) { micCtx = new AudioContext(); }
@@ -7639,7 +7643,7 @@ function stopPaymentPolling() {
             pcm16[i] = s < 0 ? s * 32768 : s * 32767;
           }
           if (voiceWs && voiceWs.readyState === 1) {
-            if (!_voiceFirstAudioSent) { _voiceFirstAudioSent = true; sendApkEvent("voice_audio_sent"); }
+            if (!_voiceFirstAudioSent) { _voiceFirstAudioSent = true; sendApkEvent("voice_first_audio_chunk_sent"); }
             voiceWs.send(JSON.stringify({ type: "audio", audio: _int16ToBase64(pcm16.buffer) }));
           }
         };
@@ -7647,6 +7651,7 @@ function stopPaymentPolling() {
         scriptNode.connect(micCtx.destination);
         workletNode = scriptNode;
       }
+      if (!_voiceCaptureSent) { _voiceCaptureSent = true; sendApkEvent("voice_capture_started"); }
 
       // Build WS URL — pass history for reconnect
       var proto = location.protocol === "https:" ? "wss:" : "ws:";
@@ -7656,7 +7661,13 @@ function stopPaymentPolling() {
         var historyData = _voiceTranscriptEntries.slice(-10);
         wsUrl += "&history=" + encodeURIComponent(JSON.stringify(historyData));
       }
-      voiceWs = new WebSocket(wsUrl);
+      sendApkEvent("voice_ws_create_started");
+      try {
+        voiceWs = new WebSocket(wsUrl);
+      } catch(wsErr) {
+        sendApkEvent("voice_ws_create_failed", {error_msg: (wsErr && wsErr.message) ? wsErr.message.substring(0,100) : "unknown"});
+        throw wsErr;
+      }
 
       voiceWs.onopen = function() {
         sendApkEvent("voice_ws_opened");
@@ -7698,7 +7709,7 @@ function stopPaymentPolling() {
             if (workletNode && workletNode.port) {
               workletNode.port.onmessage = function(e) {
                 if (voiceWs && voiceWs.readyState === 1) {
-                  if (!_voiceFirstAudioSent) { _voiceFirstAudioSent = true; sendApkEvent("voice_audio_sent"); }
+                  if (!_voiceFirstAudioSent) { _voiceFirstAudioSent = true; sendApkEvent("voice_first_audio_chunk_sent"); }
                   voiceWs.send(JSON.stringify({ type: "audio", audio: _int16ToBase64(e.data) }));
                 }
               };
@@ -7707,7 +7718,8 @@ function stopPaymentPolling() {
             if (!_voiceFirstAudioReceived) {
               _voiceFirstAudioReceived = true;
               if (_voiceNoAudioTimer) { clearTimeout(_voiceNoAudioTimer); _voiceNoAudioTimer = null; }
-              sendApkEvent("voice_audio_received");
+              sendApkEvent("voice_first_audio_chunk_received");
+              sendApkEvent("voice_playback_started");
             }
             _queueAudio(data.audio);
             _setStatus("Luna parle...", "speak");
@@ -7791,7 +7803,8 @@ function stopPaymentPolling() {
     } catch(err) {
       console.error("Luna Voice error:", err);
       voiceActive = false;
-      if (err.name === "NotAllowedError") sendApkEvent("microphone_permission_denied", {error_msg: "NotAllowedError"});
+      if (err.name === "NotAllowedError") sendApkEvent("voice_micro_permission_denied", {error_msg: "NotAllowedError"});
+      else sendApkEvent("voice_micro_permission_denied", {error_msg: err.name || "unknown"});
       var errMsg = "Micro non disponible";
       if (err.name === "NotAllowedError") errMsg = "Autorise le micro pour parler a Luna";
       else if (err.name === "NotFoundError") errMsg = "Aucun micro detecte";
@@ -7840,6 +7853,7 @@ function stopPaymentPolling() {
       try { voiceWs.close(); } catch(e) {}
       voiceWs = null;
     }
+    _voiceSessionStartTs = 0;  // reset après voice_session_ended
     if (micStream) { micStream.getTracks().forEach(function(t) { t.stop(); }); micStream = null; }
     if (workletNode) { try { workletNode.disconnect(); } catch(e) {} workletNode = null; }
     if (micCtx) { try { micCtx.close(); } catch(e) {} micCtx = null; }
@@ -7859,10 +7873,17 @@ function stopPaymentPolling() {
   }
 
   voiceBtn.addEventListener("click", function() {
+    // Fix Obj-007 : session_ts fixé ici, avant tout envoi, commun à tous les événements
+    _voiceSessionStartTs = Date.now();
     _apkEventCount = 0;
     _voiceFirstAudioSent = false;
     _voiceFirstAudioReceived = false;
-    sendApkEvent("voice_button_clicked");
+    _voiceCaptureSent = false;
+    sendApkEvent("voice_click_received");
+    // Vérification token avant startVoice
+    var _clickTok = typeof getToken === "function" ? getToken() : null;
+    if (!_clickTok) { sendApkEvent("voice_token_missing"); return; }
+    sendApkEvent("voice_token_present");
     startVoice(false);
   });
   voiceOvHangup.addEventListener("click", function() { stopVoice(); });
