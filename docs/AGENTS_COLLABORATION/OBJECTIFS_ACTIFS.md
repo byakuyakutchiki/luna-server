@@ -365,14 +365,65 @@ Deux bugs identifiés par Claude :
 
 ### Validation
 
-- [x] Claude a identifié les causes
-- [ ] DeepSeek — `agents/DEEPSEEK_AVIS_007.md`
-- [ ] Kimi — `agents/KIMI_AVIS_007.md`
-- [ ] Cursor — `agents/CURSOR_AVIS_007.md`
-- [ ] Codex — `agents/CODEX_AVIS_007.md`
-- [ ] Claude a implémenté et déployé
-- [ ] Ludovic a validé sur téléphone réel
-- [ ] Chronologie complète visible dans le cockpit fondateur
+- [x] Claude a identifié les causes (session_ts=0 + plafond 10→30)
+- [x] DeepSeek — `agents/DEEPSEEK_AVIS_007.md` (branche ds/objectif-007)
+- [x] Kimi — `agents/KIMI_AVIS_007.md` (branche kimi/objectif-007)
+- [x] Codex — `agents/CODEX_AVIS_007.md` (2 branches codex/007)
+- [x] Claude a implémenté et déployé (commit 01ac7a5, révision 00439-7v9)
+- [x] **Ludovic a validé sur téléphone réel** — 11 événements reçus, chronologie complète
+- [x] Chronologie complète visible dans le cockpit fondateur
+
+**OBJECTIF 007 VALIDÉ** — 2026-05-25
+
+Résultat test réel : clic → token → micro → capture → WS ouvert → premier audio envoyé
+→ WS fermé (5s) → session terminée. Blocage confirmé : côté serveur / OpenAI Realtime.
+Note : branches DeepSeek/Kimi NE PAS merger directement (divergences — utiliser docs uniquement).
+
+---
+
+## Objectif 008 — Correction voix OpenAI Realtime : modèle + bridge
+
+**Statut** : ouvert — diagnostic lecture seule en cours  
+**Priorité** : critique  
+**Lead** : Claude  
+**Date ouverture** : 2026-05-25  
+**Document dédié** : `docs/AGENTS_COLLABORATION/OBJECTIF_008_CORRECTION_VOIX_OPENAI.md`
+
+### Cause racine identifiée
+
+Modèle `gpt-4o-realtime-preview-2024-12-17` (daté déc 2024) → OpenAI ferme le WS
+pendant `_configure_session()` (~2s après connexion). Logs confirment :
+`WARNING: WebVoice: OpenAI WS closed during send`.
+
+### Périmètre autorisé par Ludovic
+
+- Lecture logs / Cloud Run / code serveur : **autorisé**
+- Correction `OPENAI_REALTIME_MODEL` : **attendre validation Ludovic**
+- Correction bridge (session.created + logs) : **attendre validation Ludovic**
+- Déploiement : **interdit sans validation Ludovic**
+- Modification client APK pour la voix : **interdit**
+- Pull-to-refresh APK : **accepté comme amélioration séparée** (à cadrer après 008)
+
+### Agents concernés
+
+| Agent | Tâche | Statut |
+|---|---|---|
+| **Claude** | Investigation lecture seule : logs, web_voice_bridge.py, modèle OpenAI | En cours |
+| **DeepSeek** | Audit `web_voice_bridge.py` — session.created, correction minimale bridge | À solliciter |
+| **Kimi** | Textes cockpit (icônes 007 + scénarios OpenAI error) | À solliciter |
+| **Codex** | Garde-fous, règle no-merge branches divergentes | À solliciter |
+| **Cursor** | Intégration icônes Kimi dans fondateur.html | À solliciter |
+| **Ludovic** | Validation avant tout déploiement | En attente |
+
+### Validation
+
+- [x] Cause racine identifiée par Claude (logs Cloud Run)
+- [ ] DeepSeek — `agents/DEEPSEEK_AVIS_008.md`
+- [ ] Kimi — `agents/KIMI_AVIS_008.md`
+- [ ] Codex — `agents/CODEX_AVIS_008.md`
+- [ ] Cursor — `agents/CURSOR_AVIS_008.md`
+- [ ] **Ludovic valide le correctif avant déploiement**
+- [ ] Voix Luna entendue sur téléphone réel
 
 ---
 

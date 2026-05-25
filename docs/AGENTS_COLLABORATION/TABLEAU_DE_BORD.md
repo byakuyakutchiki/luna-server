@@ -1,6 +1,6 @@
 # Tableau de bord — Orchestration Luna
 
-Mis à jour : 2026-05-25 (ouverture objectif 007 — télémétrie vocale précise)
+Mis à jour : 2026-05-25 (007 validé · ouverture objectif 008 — correction voix OpenAI)
 
 ## Rôles et outils
 
@@ -17,28 +17,28 @@ Mis à jour : 2026-05-25 (ouverture objectif 007 — télémétrie vocale préci
 
 | Agent | Statut | Objectif en cours | Dernier commit |
 |---|---|---|---|
-| Claude | **lead 007** | Fix session_ts + 21 événements voix + déploiement après validation Ludovic | ce26b5e |
-| Codex | **à solliciter 007** | Critères validation, garde-fous, synthèse | — |
-| DeepSeek | **à solliciter 007** | Audit startVoice(), session_ts, chemins alternatifs, fetch/WebSocket Android | — |
-| Kimi Code CLI | **à solliciter 007** | Textes cockpit pour 8 scénarios voix (knows/guesses/recommends/cannot) | — |
-| Cursor | **à solliciter 007** | UI mobile, non-régression startVoice(), section chronologie | — |
+| Claude | **lead 008** | Investigation lecture seule : logs Cloud Run, web_voice_bridge.py | 76072a9 |
+| Codex | **à solliciter 008** | Garde-fous, règle no-merge branches divergentes | — |
+| DeepSeek | **à solliciter 008** | Audit web_voice_bridge.py — session.created + correction minimale | — |
+| Kimi Code CLI | **à solliciter 008** | Textes cockpit icônes + scénarios OpenAI error | — |
+| Cursor | **à solliciter 008** | Intégration icônes Kimi dans fondateur.html | — |
 
 ## Objectif actif prioritaire
 
-**Objectif 007 — Télémétrie vocale précise APK**
+**Objectif 008 — Correction voix OpenAI Realtime**
 
-Question à résoudre : pourquoi seulement `voice_session_ended` remonte,
-et comment faire en sorte que tous les événements de la chronologie vocale
-soient visibles dans le cockpit fondateur après un appui réel.
+Cause identifiée : `gpt-4o-realtime-preview-2024-12-17` → OpenAI ferme le WS
+pendant `_configure_session()` (~2s après connexion).
+Log Cloud Run : `WARNING: WebVoice: OpenAI WS closed during send`
 
-Cause identifiée par Claude :
-- Bug 1 : `session_ts = 0` pour `voice_button_clicked` → session fantôme
-- Bug 2 : `_apkEventCount >= 10` trop bas pour 21 événements
+**Règle Ludovic** : diagnostic lecture seule autorisé. Déploiement uniquement après validation.
 
-Document : `docs/AGENTS_COLLABORATION/OBJECTIF_007_TELEMETRIE_VOIX_APK.md`
+Document : `docs/AGENTS_COLLABORATION/OBJECTIF_008_CORRECTION_VOIX_OPENAI.md`
 
-Claude implémente les corrections. Les agents audite et proposent.
-Déploiement uniquement après validation Ludovic.
+**Note critique** : NE PAS merger les branches DeepSeek/Kimi directement (divergences
+avec main — suppression de fichiers potentielle). Prendre uniquement leurs docs utiles.
+
+**Objectif 007 VALIDÉ** — 11 événements reçus sur téléphone réel Ludovic.
 
 ## Flux de travail standard
 
