@@ -167,8 +167,8 @@ class WebVoiceBridge:
                         "Authorization": f"Bearer {self.openai_api_key}",
                     },
                     "close_timeout": 5,
-                    "ping_interval": 20,
-                    "ping_timeout": 20,
+                    "ping_interval": 30,
+                    "ping_timeout": 60,  # WebView Android peut bloquer le thread JS > 20s
                 }
                 self.ws_openai = await asyncio.wait_for(
                     websockets.connect(OPENAI_REALTIME_URL, **_ws_kwargs),
@@ -244,10 +244,10 @@ class WebVoiceBridge:
                 await self._cleanup()
 
     async def _client_keepalive(self):
-        """Ping le client toutes les 25s pour detecter les deconnexions tot."""
+        """Ping le client toutes les 45s — WebView Android peut être lent à répondre."""
         try:
             while self._running:
-                await asyncio.sleep(25)
+                await asyncio.sleep(45)
                 if not self._running:
                     break
                 # Verifie l'inactivite client — 5 min en mode conversationnel
