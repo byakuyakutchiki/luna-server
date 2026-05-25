@@ -118,26 +118,65 @@ Pour chaque objectif, il faut produire :
 
 ## Tâche prioritaire actuelle
 
-**Monitoring de base TERMINÉ** — 10 objectifs implémentés dans `GET /api/admin/objectives` :
+**Objective 007 — TERMINÉ** ✅ Télémétrie vocale APK validée en production
 
-| Objectif | Commit | Statut |
+### Statut Objectives
+
+| Objective | Statut | Détails |
 |---|---|---|
-| Services / Concierge | `feat: monitoring Services/Concierge` | ✅ |
-| Documents / Vault IA | `feat: monitoring Documents/Vault IA` | ✅ |
-| Formulaires | `feat: monitoring Formulaires` | ✅ |
-| Cartes / Localisation | `feat: monitoring Cartes / Localisation` | ✅ |
-| Amis / Réseau Social | `feat: monitoring Amis / Réseau Social` | ✅ |
-| Activités / Gamification | `feat: monitoring Activités / Gamification` | ✅ |
-| Monde | `feat: monitoring Monde, Profil, Quotas, Réglages` | ✅ |
-| Profil | idem | ✅ |
-| Quotas | idem | ✅ |
-| Réglages | idem | ✅ |
+| 001-006 | ✅ Baseline | Monitoring de base implémenté sur 10 zones |
+| 007 Télémétrie Voix | ✅ **VALIDÉ** | 11 événements remontés en test réel, localisation blocage serveur |
+| 008 Diag Serveur Voix | 🔄 **EN COURS** | Claude : investiguer /ws/luna-voice, fermeture WS, OpenAI Realtime |
+| 007-bis Refresh APK | 📋 **Planned** | DeepSeek : pull-to-refresh, apk_manual_refresh_triggered |
 
-État au 25 mai 2026 : tous les objectifs de monitoring de base sont implémentés.
+### Objective 007 — Résultat test réel (2026-05-25 18:47)
 
-Prochain chantier possible :
-- Monitoring Voix (objectif 12 du cahier des charges) : `docs/PROMPT_CLAUDE_MONITORING_VOIX.md`
-- Ou audit fonctionnel des onglets déjà implémentés
+**Ludovic téléphone — APK v2.8 connectée**
+
+```
+✅ Heartbeat OK (26s)
+✅ Télémétrie OK (11 événements)
+✅ Chronologie complète du clic au WebSocket ouvert
+✅ Premier audio envoyé vers serveur
+❌ Pas de réponse audio reçue (WebSocket ferme après ~5s)
+
+DIAGNOSTIC : Blocage côté serveur vocal / OpenAI Realtime
+```
+
+**Voir** : `docs/AGENTS_COLLABORATION/OBJECTIF_007_RESULTAT_TEST.md`
+
+### Objective 008 — Mission Claude
+
+**Priorité** : Blocker actuellement identifié, impacts expérience utilisateur directement
+
+**Points à vérifier** (ordre de priorité) :
+
+1. **Logs serveur `/ws/luna-voice`** au moment connexion Ludovic
+   - Premier audio reçu côté serveur ?
+   - Forwards à OpenAI Realtime ?
+   - Réponse audio générée ?
+   - Code fermeture WebSocket (1000 vs autre) ?
+
+2. **Token validation c.serveur**
+   - JWT décodé correctement ?
+   - Permissions actives ?
+
+3. **OpenAI Realtime state**
+   - Connected et authenticated ?
+   - Premier audio traité ?
+
+4. **Audio relay (serveur → client)**
+   - Format PCM16 24kHz accepté par OpenAI ?
+   - Transcodage réussi ?
+   - Retour audio envoyé client ?
+
+5. **Fermeture WS prématurée**
+   - Timeout interne (5s) ?
+   - Erreur non-catchée en Python ?
+
+**Assigné** : Claude lead + DeepSeek audit code
+**Validation** : Ludovic test sur téléphone
+**Branche** : `ds/objectif-008-diag-serveur-voix`
 
 ## Archive objectif précédent — Amis
 

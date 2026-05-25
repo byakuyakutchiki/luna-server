@@ -7,11 +7,53 @@
 
 Instrumenter la chaîne vocale APK pour capturer TOUTES les étapes critiques du flux, plutôt que seulement la fin de session.
 
-## Constat du test réel Ludovic (Objectif 006)
+## Constat initial (avant implémentation)
 
 - Heartbeat APK visible : OK
 - Mais seul événement remontant : `voice_session_ended`
 - Aucun des événements intermédiaires n'a remonté
+
+## ✅ VALIDATION — Test réel 2026-05-25 18:47 (Ludovic téléphone)
+
+**Resultat : OBJECTIF 007 VALIDÉ**
+
+11 événements reçus et analysés correctement.
+
+### Chronologie réelle capturée
+
+1. `voice_button_clicked` — bouton vocal appuyé
+2. `voice_start_entered` — démarrage vocal initié
+3. `voice_micro_request_started` — demande de permission micro
+4. `microphone_permission_granted` — microphone autorisé
+5. `voice_audio_capture_started` — capture audio active
+6. `voice_ws_create_started` — création connexion vocale
+7. `voice_ws_opened` — connexion vocale ouverte
+8. `voice_first_audio_chunk_sent` — premier audio envoyé vers Luna
+9. `voice_ws_closed` — connexion vocale fermée (~5s après audio envoyé)
+10. `voice_session_ended` — session vocale terminée
+
+### Diagnostic cerveau Luna
+
+```
+Scénario : incomplete (pas d'audio reçu)
+Luna sait : utilisateur a cliqué, micro OK, capture OK, WS ouvert, audio envoyé
+Luna devine : serveur vocal n'a pas répondu ou WebSocket fermé prématurément
+Luna recommande : vérifier logs serveur voix / OpenAI Realtime / fermeture WS
+Luna ne peut pas : diagnostiquer côté serveur (hors scope APK)
+```
+
+### Conclusion côté client
+
+✓ Token présent et valide
+✓ Clic du bouton fonctionne
+✓ Permission micro accordée
+✓ Capture audio démarre
+✓ WebSocket s'ouvre
+✓ Premier audio transmis
+✗ **Pas de réponse audio reçue**
+✗ **WebSocket ferme après ~5 secondes**
+
+**Blocage : côté serveur voice / OpenAI Realtime / fermeture WS précoce**
 
 ## Analyse technique
 
@@ -259,6 +301,144 @@ voiceWs.onopen = function() {
 5. `voice_micro_list_failed` (error: NotAllowedError)
 6. `voice_session_ended`
 
-## Validation Ludovic requise ?
+## Extension Objective 007 — Geste de maintenance APK
 
-Oui — cette télémétrie doit être testée sur téléphone réel avant diagnostic final.
+### Contexte
+
+Ludovic a suggéré un geste de "pull-to-refresh" pour éviter que des assets statiques (index.html, fondateur.html, CSS) restent coincés en cache dans la WebView.
+
+### Implémentation requise
+
+Ajouter à `static/index.html` et `android-app/` :
+
+1. **Détection du geste pull-to-refresh**
+   - Swipe vers le bas sur l'écran principal
+   - Affichage discret d'une barre de progression
+
+2. **Actions lors du refresh**
+   - Vider le cache WebView (si API disponible)
+   - Recharger la page complète
+   - Recharger les assets (CSS, JS, images)
+   - Renvoyer heartbeat immédiatement après
+   - Afficher message "Luna mise à jour" pendant 2s
+
+3. **Événements télémétrie à ajouter**
+   - `apk_manual_refresh_triggered` — geste reçu
+   - `apk_cache_cleared` — cache vidé avec succès
+   - `apk_webview_reloaded` — page rechargée
+   - `apk_heartbeat_sent_after_refresh` — heartbeat renvoyé
+
+4. **Code exemple (JavaScript)**
+
+```javascript
+var _lastTouchY = 0;
+var _refreshInProgress = false;
+
+document.addEventListener("touchstart", function(e) {
+  if (e.touches.length > 0) _lastTouchY = e.touches[0].clientY;
+});
+
+document.addEventListener("touchmove", function(e) {
+  if (_refreshInProgress) return;
+  if (window.scrollY === 0 && _lastTouchY > 0) {
+    var currentY = e.touches[0].clientY;
+    if (currentY - _lastTouchY > 100) { // 100px swipe threshold
+      e.preventDefault();
+      _triggerManualRefresh();
+    }
+  }
+});
+
+function _triggerManualRefresh() {
+  _refreshInProgress = true;
+  sendApkEvent("apk_manual_refresh_triggered");
+
+  // Vider cache si API disponible
+  try {
+    if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+      navigator.serviceWorker.controller.postMessage({cmd: "clear_cache"});
+    }
+    sendApkEvent("apk_cache_cleared");
+  } catch(e) {
+    // API pas disponible, continuer
+  }
+
+  // Afficher feedback utilisateur
+  var msg = document.createElement("div");
+  msg.style.cssText = "position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); " +
+    "background:#333; color:#fff; padding:20px; border-radius:10px; font-size:14px; z-index:99999;";
+  msg.textContent = "Luna mise à jour...";
+  document.body.appendChild(msg);
+
+  // Recharger après 1s
+  setTimeout(function() {
+    sendApkEvent("apk_webview_reloaded");
+    location.reload(true); // force reload, bypass cache
+  }, 1000);
+}
+```
+
+5. **Intégration Android (java)**
+   - WebViewClient: ajouter `onPageFinished()` pour tracer recharge
+   - CookieManager: forcer vidage cookies après refresh
+   - WebSettings: `setCacheMode(WebSettings.LOAD_NO_CACHE)` temporaire
+
+6. **Resultat attendu**
+   - Utilisateur final peut forcer mise à jour complète sans restart APK
+   - Ludovic voit les événements: `apk_manual_refresh_triggered` → `apk_cache_cleared` → `apk_webview_reloaded`
+   - Évite les blocages liés au cache persistant
+
+## Prochaine étape — Objective 008 (ou 007-bis)
+
+### Mission
+
+Diagnostique serveur voix après audio envoyé.
+
+Maintenant que Objective 007 (télémétrie client) est validé, il faut investiguer pourquoi :
+- WebSocket se ferme après ~5 secondes
+- Aucune réponse audio n'est reçue
+- OpenAI Realtime interrompt la connexion
+
+### Points à vérifier
+
+1. **Logs serveur** — `/ws/luna-voice` entre 18:47:05 → 18:47:10
+   - Premier audio reçu ?
+   - Forwards à OpenAI Realtime ?
+   - Réponse reçue ?
+   - Code de fermeture WS ?
+
+2. **Token validation côté serveur**
+   - JWT valide et non expiré ?
+   - Permissions suffisantes ?
+
+3. **OpenAI Realtime connection**
+   - Connectée au moment du premier audio ?
+   - Erreur d'authentification ?
+   - Rate limit atteint ?
+   - Timeout interne ?
+
+4. **Audio relay**
+   - PCM16 24kHz reçu correctement ?
+   - Format incompatible avec OpenAI ?
+   - Transcodage échoué ?
+
+5. **Fermeture précoce**
+   - Code fermeture WS : 1000 (normal) ou autre ?
+   - Erreur Python non catchée ?
+   - Timeout côté server ?
+
+### Assignation
+
+- **Claude** : analyser logs serveur `luna_web.py` + `web_voice_bridge.py`
+- **DeepSeek** : audit code serveur voix pour points d'arrêt silencieux (comme 007 client)
+- **Codex** : coordination + préparation reproduction locale
+- **Ludovic** : validation des corrections avant production
+
+### Réussite Objective 007
+
+✓ Télémétrie implémentée et validée
+✓ 11 événements remontent correctement
+✓ Diagnostic client complet et précis
+✓ Localisation du blocage (serveur voix)
+✓ Geste maintenance APK proposé
+→ **Prêt pour Objective 008 (serveur voix)**
