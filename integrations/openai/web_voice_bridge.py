@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 
 import os
 
-OPENAI_REALTIME_MODEL = os.getenv("OPENAI_REALTIME_MODEL", "gpt-realtime-2")
+OPENAI_REALTIME_MODEL = os.getenv("OPENAI_REALTIME_MODEL", "gpt-4o-realtime-preview-2024-12-17")
 OPENAI_REALTIME_URL = f"wss://api.openai.com/v1/realtime?model={OPENAI_REALTIME_MODEL}"
 OPENAI_VOICE_NAME = os.getenv("OPENAI_VOICE_NAME", "coral")
 
@@ -333,36 +333,29 @@ class WebVoiceBridge:
         logger.info(f"WebVoice: injected {len(history)} history entries for continuity")
 
     async def _configure_session(self):
-        # Format API Realtime GA (post-beta) — audio imbriqué sous audio.input/output
         session_config = {
             "type": "session.update",
             "session": {
-                "type": "realtime",
                 "instructions": self.context,
-                "audio": {
-                    "input": {
-                        "format": {"type": "audio/pcm", "rate": 24000},
-                        "noise_reduction": {"type": "near_field"},
-                        "turn_detection": {
-                            "type": "server_vad",
-                            "threshold": 0.75,
-                            "prefix_padding_ms": 400,
-                            "silence_duration_ms": 350,
-                            "create_response": True,
-                            "interrupt_response": True,
-                        },
-                    },
-                    "output": {
-                        "format": {"type": "audio/pcm", "rate": 24000},
-                        "voice": self.voice,
-                    },
+                "voice": self.voice,
+                "input_audio_format": "pcm16",
+                "output_audio_format": "pcm16",
+                "input_audio_transcription": {
+                    "model": "whisper-1",
+                },
+                "turn_detection": {
+                    "type": "server_vad",
+                    "threshold": 0.5,
+                    "prefix_padding_ms": 300,
+                    "silence_duration_ms": 500,
+                    "create_response": True,
                 },
                 "tools": VOICE_TOOLS,
                 "tool_choice": "auto",
             },
         }
         await self._ws_send_openai(session_config)
-        logger.info("WebVoice: session configured (audio/pcm 24kHz, server_vad)")
+        logger.info(f"WebVoice: session configured (pcm16, voice={self.voice}, server_vad)")
 
     async def _send_greeting(self):
         """Envoie un message initial pour que Luna salue le souscripteur."""
