@@ -1,0 +1,8 @@
+{
+  "git.autofetch": true,
+  "git.confirmSync": true,
+  "git.enableSmartCommit": false,
+  "files.eol": "\n",
+  "files.trimTrailingWhitespace": true,
+  "terminal.integrated.cwd": "${workspaceFolder}"
+}
