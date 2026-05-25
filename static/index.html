@@ -517,7 +517,6 @@ body.mode-secretaire .conc-modal-box .field input, body.mode-secretaire .conc-mo
 .user { background: linear-gradient(135deg, #5b21b6, #4c1d95); }
 /* Provider badge dans les messages */
 .msg-provider { font-size: 0.68em; color: #6b7280; margin-left: 6px; }
-.msg-provider.claude { color: #8b5cf6; }
 /* Amélioration input focus */
 .input-row:focus-within { border-color: #7c3aed !important; box-shadow: 0 0 0 2px rgba(124,58,237,0.15) !important; }
 /* Smooth button press */
@@ -4455,13 +4454,6 @@ function _handleStreamResponse(response, originalMsg) {
               var conv = conversationsMeta.find(function(c) { return c.id === currentConvId; });
               if (conv) { conv.title = data.auto_title; saveConvMeta(); renderConvList(); }
             }
-            // Provider badge discret
-            if (data.provider === "claude") {
-              var provBadge = document.createElement("span");
-              provBadge.className = "msg-provider claude";
-              provBadge.textContent = "✦ Claude";
-              timeEl.appendChild(provBadge);
-            }
             // Save to local storage
             saveHistory();
           } else if (data.type === "error") {
@@ -7593,8 +7585,9 @@ function stopPaymentPolling() {
       if (micCtx.state === "suspended") await micCtx.resume();
 
       var source = micCtx.createMediaStreamSource(micStream);
+      var _isWebView = /LunaApp\//.test(navigator.userAgent);
       var _useWorklet = false;
-      if (micCtx.audioWorklet) {
+      if (!_isWebView && micCtx.audioWorklet) {
         try {
           var wUrl = _workletBlobUrl;
           if (!wUrl) {
