@@ -1,6 +1,6 @@
 # Tableau de bord — Orchestration Luna
 
-Mis à jour : 2026-05-25 (après vérification GitHub par Ludovic)
+Mis à jour : 2026-05-25 (ouverture objectif 006 — validation cerveau voix)
 
 ## Rôles et outils
 
@@ -17,11 +17,24 @@ Mis à jour : 2026-05-25 (après vérification GitHub par Ludovic)
 
 | Agent | Statut | Objectif en cours | Dernier commit |
 |---|---|---|---|
-| Claude | **005 implémenté** | En attente heartbeat réel APK avant déploiement | 7c31a2a |
-| Codex | **avis en cours** | 005 garde-fous PR (branches `codex/journal-fondateur`, `codex/priorite-heartbeat-apk`) | — |
-| DeepSeek | **avis OBSOLÈTE** | Refaire audit sur `origin/main` — voir `CLAUDE_TO_DEEPSEEK_005_UPDATE.md` | f0855c1 |
-| Kimi Code CLI | **avis rendu** | 005 textes cockpit voix intégrés dans fondateur.html (commit 7c31a2a) | 752b999 |
-| Cursor | **à solliciter** | 005 cohérence UI + vérif non-régression `startVoice()` | — |
+| Claude | **lead final 006** | Synthèse finale, correction minimale, déploiement après validation Ludovic | a3545a1 |
+| Codex | **cadrage 006** | Rôles, garde-fous, critères de validation cerveau voix | — |
+| DeepSeek | **à solliciter 006** | Audit local VS Code : `startVoice()`, `sendApkEvent()`, timer silence, WebSocket | — |
+| Kimi Code CLI | **à solliciter 006** | Audit humain : textes cockpit, diagnostic non trompeur, journal fondateur | — |
+| Cursor | **à solliciter 006** | Vérification UI mobile, assets graphiques, non-régression frontend | — |
+
+## Objectif actif prioritaire
+
+**Objectif 006 — Validation du cerveau Luna sur panne vocale réelle**
+
+Question à résoudre : quand Ludovic appuie sur le bouton vocal et n'entend rien,
+est-ce que Luna voit la panne, sait où elle bloque, l'explique dans le cockpit
+fondateur, et garde une trace exploitable ?
+
+Document : `docs/AGENTS_COLLABORATION/OBJECTIF_006_VALIDATION_CERVEAU_VOIX.md`
+
+Claude intervient en dernier : il lit les avis, vérifie les logs/endpoints, propose
+la correction minimale, puis déploie seulement après validation Ludovic.
 
 ## Flux de travail standard
 

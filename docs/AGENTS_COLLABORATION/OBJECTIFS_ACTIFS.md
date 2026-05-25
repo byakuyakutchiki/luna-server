@@ -289,6 +289,54 @@ fondateur.html               — section voix avec chronologie
 
 ---
 
+## Objectif 006 — Validation du cerveau Luna sur panne vocale réelle
+
+**Statut** : ouvert — test réel Ludovic en cours  
+**Priorité** : critique  
+**Lead final** : Claude  
+**Date ouverture** : 2026-05-25  
+**Document dédié** : `docs/AGENTS_COLLABORATION/OBJECTIF_006_VALIDATION_CERVEAU_VOIX.md`
+
+### Problème
+
+Ludovic teste l'APK réelle. Le bouton vocal peut toujours rester silencieux après
+15 à 20 secondes. Maintenant que le heartbeat, le diagnostic APK et les événements
+voix existent, il faut vérifier si Luna détecte réellement cette panne et l'explique
+dans le cockpit fondateur.
+
+### But
+
+Valider la boucle :
+
+```
+test réel Ludovic → événements APK → diagnostic serveur → cockpit fondateur
+→ recommandation → journal → correction validée
+```
+
+### Agents concernés
+
+| Agent | Tâche | Statut |
+|---|---|---|
+| **Ludovic** | Reproduire la panne sur téléphone et valider le diagnostic affiché | En cours |
+| **Claude** | Lead final : synthèse, correction minimale, déploiement si validé | En attente des avis |
+| **Codex** | Cadrage GitHub, rôles, garde-fous, critères de validation | En cours |
+| **DeepSeek** | Audit `startVoice()`, `sendApkEvent()`, timer silence, WebSocket, erreurs JS | À solliciter |
+| **Kimi** | Audit humain des textes cockpit et du journal fondateur | À solliciter |
+| **Cursor** | Vérification UI mobile, assets, non-régression frontend | À solliciter |
+
+### Validation
+
+- [ ] Heartbeat APK réel visible.
+- [ ] Test bouton vocal produit une chronologie d'événements.
+- [ ] `voice_no_audio_after_timeout` ou erreur équivalente visible si silence.
+- [ ] Cockpit fondateur explique la cause probable.
+- [ ] Journal fondateur trace le test et la conclusion.
+- [ ] Aucun asset graphique ne disparaît.
+- [ ] Claude propose la correction finale.
+- [ ] Ludovic valide avant déploiement/rebuild.
+
+---
+
 ## Règle d'ouverture d'un objectif
 
 Pour ouvrir un nouvel objectif :
