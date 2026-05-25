@@ -6302,6 +6302,11 @@ function getDateGroup(isoStr) {
   } catch(e) { return "Plus ancien"; }
 }
 
+function _convDateShort(iso) {
+  if (!iso) return "Conversation";
+  try { var d = new Date(iso); return d.toLocaleDateString("fr-FR", {day:"numeric", month:"short"}); } catch(e) { return "Conversation"; }
+}
+
 function renderConvList(filter) {
   var list = document.getElementById("convList");
   if (!list) return;
@@ -6314,6 +6319,13 @@ function renderConvList(filter) {
     });
   }
   filtered.sort(function(a, b) { return (b.last_activity || "").localeCompare(a.last_activity || ""); });
+  if (filtered.length === 0) {
+    var empty = document.createElement("div");
+    empty.style.cssText = "padding:24px 16px;text-align:center;color:#555;font-size:0.85em;";
+    empty.textContent = filter ? "Aucune conversation trouvée." : "Aucune conversation.";
+    list.appendChild(empty);
+    return;
+  }
   var lastGroup = "";
   filtered.forEach(function(conv) {
     var group = getDateGroup(conv.last_activity);
@@ -6328,7 +6340,9 @@ function renderConvList(filter) {
     item.className = "conv-item" + (conv.id === currentConvId ? " active" : "");
     var title = document.createElement("div");
     title.className = "conv-item-title";
-    title.textContent = conv.title || "Nouvelle conversation";
+    var displayTitle = conv.title || (conv.preview ? conv.preview.substring(0, 40) + "…" : _convDateShort(conv.last_activity));
+    title.textContent = displayTitle;
+    if (!conv.title) title.style.cssText = "font-style:italic;color:#888;";
     item.appendChild(title);
     var actions = document.createElement("div"); actions.className = "conv-item-actions";
     var renBtn = document.createElement("button"); renBtn.className = "conv-item-btn"; renBtn.innerHTML = "&#9998;"; renBtn.title = "Renommer";
@@ -6446,7 +6460,8 @@ function loadConversationList() {
   .then(function(data) {
     if (data.conversations && data.conversations.length > 0) {
       conversationsMeta = data.conversations.map(function(c) {
-        return { id: c.id, title: c.title || "", last_activity: c.last_activity || "", message_count: c.message_count || 0, preview: "" };
+        var local = conversationsMeta.find(function(e) { return e.id === c.id; });
+        return { id: c.id, title: c.title || "", last_activity: c.last_activity || "", message_count: c.message_count || 0, preview: local ? (local.preview || "") : "" };
       });
     }
     if (!conversationsMeta.find(function(c) { return c.id === currentConvId; })) {
