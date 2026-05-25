@@ -4,30 +4,40 @@
 
 ## Résumé rapide
 
-J'ai lu le briefing `CLAUDE_TO_DEEPSEEK_005.md`. Je confirme la branche locale `ds/objectif-005-events-voix` est créée.
-Le travail consiste à vérifier les points d'injection JS autour de `startVoice()` et le timer 20s, et proposer corrections si nécessaire.
+Audit effectué sur `static/index.html` dans la branche locale `ds/objectif-005-events-voix`.
+Constat principal : la base du monitoring vocal existe, mais la collecte d’événements APK `sendApkEvent()` n’est pas présente dans le code actuel.
 
 ---
 
 ## Vérifications `startVoice()`
 
-| Point d'injection | Ligne repère | Présent ? | Correctement placé ? | Commentaire / Risque |
+| Point d'injection | Lignes observées | Présent ? | Correctement placé ? | Commentaire / Risque |
 |---|---:|---:|---:|---|
-| `voice_button_clicked` (reset `_apkEventCount`) | ? | non trouvé | non | `sendApkEvent` et reset absent de `static/index.html`. Doit être ajouté dans le click handler du bouton `voiceBtn`.
-| déclaration `var _apkEventCount` | ? | non trouvé | non | variable non trouvée dans `static/index.html` (présente uniquement dans `CLAUDE_TO_DEEPSEEK_005.md`), ajouter en tête du bloc vocal.
-| déclaration `var _voiceNoAudioTimer` | ? | non trouvé | non | idem, doit exister et être géré.
-| déclaration `_voiceFirstAudioSent` / `_voiceFirstAudioReceived` | ? | non trouvé | non | idem.
-| fonction `sendApkEvent(eventName, extra)` | ? | non trouvé | non | Absente du `static/index.html` actuel — nécessaire pour appeler `/api/apk/event`.
-| `voice_ws_opened` (démarrage timer 20s) | dans `voiceWs.onopen` | partie `onopen` présente | timer non trouvé | Ajouter `sendApkEvent("voice_ws_opened")` et `clear/setTimeout` ici.
-| `voice_audio_sent` (ScriptProcessor) | dans `onaudioprocess` | `onaudioprocess` existe | `sendApkEvent` absent | Injecter `voice_audio_sent` lors du premier envoi audio.
-| `voice_audio_sent` (AudioWorklet port.onmessage) | worklet handler | worklet port handler présent | `sendApkEvent` absent | idem.
-| `voice_audio_received` (onmessage data.type === 'audio') | in `voiceWs.onmessage` | `audio` handling exists | `sendApkEvent` absent | ajout : clear timer + send event.
-| annulation timer `_voiceNoAudioTimer` dans `onclose` et `stopVoice()` | `voiceWs.onclose` + `stopVoice()` | `onclose` and `stopVoice` present | timer cancel not present | ensure `clearTimeout(_voiceNoAudioTimer)` in both locations.
+| `voiceBtn` click handler | 7818 | oui | oui | `voiceBtn.addEventListener("click", function() { startVoice(false); });` existe, mais pas de reset d’état ni d’événement APK. |
+| déclaration `var _apkEventCount` | N/A | non | non | aucune déclaration observée dans `static/index.html`. |
+| déclaration `var _voiceNoAudioTimer` | N/A | non | non | aucune déclaration observée dans `static/index.html`. |
+| déclaration `_voiceFirstAudioSent` / `_voiceFirstAudioReceived` | N/A | non | non | aucune déclaration observée. |
+| fonction `sendApkEvent(eventName, extra)` | N/A | non | non | pas de définition dans `static/index.html`. |
+| `voiceWs.onopen` | 7640 | oui | partiel | `voiceWs.onopen` existe, mais aucun timer 20s et aucun envoi d’événement APK. |
+| `voice_audio_sent` ScriptProcessor | 7610 | oui | partiel | `scriptNode.onaudioprocess` envoie l’audio, mais pas de `sendApkEvent` sur le premier chunk. |
+| `voice_audio_sent` AudioWorklet port.onmessage | 7668 | oui | partiel | `workletNode.port.onmessage` envoie l’audio, mais pas de `sendApkEvent` sur le premier chunk. |
+| `voice_audio_received` | 7654 | oui | partiel | `data.type === "audio"` est géré, mais pas de `sendApkEvent` ni de clear timer. |
+| `voiceWs.onclose` | 7718 | oui | partiel | `voiceWs.onclose` existe, mais aucun clear timer ni événement APK. |
+| `stopVoice()` | 7795 | oui | partiel | `stopVoice()` nettoie bien les ressources, mais n’annule pas de timer lié à un timeout de silence et n’envoie pas d’événement APK. |
 
+## Constat clé
 
-## Corrections nécessaires (proposition)
+Le bug réel peut actuellement être détecté, mais le code ne remonte pas suffisamment d’événements :
+- il n’y a pas de `sendApkEvent` dans `static/index.html`
+- il n’y a pas de timer silence 20s associé à un événement `voice_no_audio_after_timeout`
+- les états `audio_sent` / `audio_received` ne sont pas tracés vers le serveur
+- aucune métrique `voice_button_clicked` n’est envoyée au démarrage de la session vocale
 
-1. Ajouter en haut du scope vocal (dans le bloc JS global du overlay) :
+Cela signifie que le cockpit ne peut pas encore prouver que la panne voix se produit après le bouton, après ouverture du WS, et sans audio entrant.
+
+## Corrections nécessaires
+
+1. Ajouter en haut du scope vocal :
 
 ```javascript
 var _apkEventCount = 0;
@@ -36,7 +46,7 @@ var _voiceFirstAudioSent = false;
 var _voiceFirstAudioReceived = false;
 ```
 
-2. Implémenter `sendApkEvent()` (compact, sans secrets) :
+2. Ajouter `sendApkEvent()` :
 
 ```javascript
 function sendApkEvent(eventName, extra) {
@@ -45,52 +55,72 @@ function sendApkEvent(eventName, extra) {
   _apkEventCount++;
   var tok = typeof getToken === 'function' ? getToken() : null;
   if (!tok) return;
-  var payload = { event: eventName, ts: Math.floor(Date.now()/1000), session_ts: _voiceStartTime ? Math.floor(_voiceStartTime/1000) : 0, apk_version: "2.8", screen: "home" };
-  if (extra) Object.keys(extra).forEach(function(k){ payload[k]=extra[k]; });
-  try { fetch('/api/apk/event', { method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+tok}, body: JSON.stringify(payload) }); } catch(e){}
+  var payload = {
+    event: eventName,
+    ts: Math.floor(Date.now() / 1000),
+    session_ts: _voiceStartTime ? Math.floor(_voiceStartTime / 1000) : 0,
+    screen: 'home'
+  };
+  if (extra) Object.keys(extra).forEach(function(k) { payload[k] = extra[k]; });
+  try {
+    fetch('/api/apk/event', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + tok
+      },
+      body: JSON.stringify(payload)
+    });
+  } catch(e) {}
 }
 ```
 
-3. Dans le `voiceBtn` click handler :
-- Réinitialiser `_apkEventCount = 0; _voiceFirstAudioSent = false; _voiceFirstAudioReceived = false;`
-- Appeler `sendApkEvent('voice_button_clicked')`.
+3. Dans le click handler du bouton vocal :
+- `_apkEventCount = 0;`
+- `_voiceFirstAudioSent = false;`
+- `_voiceFirstAudioReceived = false;`
+- `sendApkEvent('voice_button_clicked');`
 
 4. Dans `voiceWs.onopen` :
-- Appeler `sendApkEvent('voice_ws_opened')`.
-- Démarrer `_voiceNoAudioTimer = setTimeout(function(){ if(!_voiceFirstAudioReceived) sendApkEvent('voice_no_audio_after_timeout'); }, 20000);`
+- `sendApkEvent('voice_ws_opened');`
+- démarrer `_voiceNoAudioTimer = setTimeout(function() { if (!_voiceFirstAudioReceived) sendApkEvent('voice_no_audio_after_timeout'); }, 20000);`
 
 5. Dans `workletNode.port.onmessage` et `scriptNode.onaudioprocess` :
-- Au premier chunk audio envoyé : si `_voiceFirstAudioSent === false` { `_voiceFirstAudioSent = true; sendApkEvent('voice_audio_sent');` }
+- au premier package audio envoyé, si `_voiceFirstAudioSent === false` :
+  - `_voiceFirstAudioSent = true;`
+  - `sendApkEvent('voice_audio_sent');`
 
-6. Dans `voiceWs.onmessage` quand `data.type === 'audio'` :
-- Si `_voiceFirstAudioReceived === false` { `_voiceFirstAudioReceived = true; sendApkEvent('voice_audio_received'); clearTimeout(_voiceNoAudioTimer);` }
+6. Dans `voiceWs.onmessage` pour `data.type === 'audio'` :
+- si `_voiceFirstAudioReceived === false` :
+  - `_voiceFirstAudioReceived = true;`
+  - `clearTimeout(_voiceNoAudioTimer);`
+  - `sendApkEvent('voice_audio_received');`
 
 7. Dans `voiceWs.onclose` et `stopVoice()` :
 - `if (_voiceNoAudioTimer) { clearTimeout(_voiceNoAudioTimer); _voiceNoAudioTimer = null; }`
-- `sendApkEvent('voice_ws_closed', {ws_close_code: evt.code})` (dans onclose)
+- `sendApkEvent('voice_ws_closed', { ws_close_code: evt.code });` dans `onclose`
 
 ## Risques de régression identifiés
 
-- Ajout de `fetch()` peut augmenter le nombre de requêtes réseau côté APK; limiter via `_apkEventCount` et sampling.
-- Mauvais emplacement de reset (`startVoice()` vs click handler) peut empêcher les reconnexions de conserver état correctement.
-- Erreurs JS lors d'un `getToken()` manquant : `sendApkEvent` doit être resilient.
+- La collecte d’événements ajoute du trafic réseau côté APK ; limiter à 10 événements par session est juste.
+- Si le reset d’état est fait après `startVoice(false)` ou dans `startVoice()` plutôt que dans le click handler, la logique de reconnexion peut réinitialiser les compteurs au mauvais moment.
+- `getToken()` peut être absent dans certains contextes ; `sendApkEvent` doit échouer silencieusement.
 
 ## Tests proposés (sans téléphone)
 
-- Grep statique pour vérifier que `sendApkEvent` et variables sont présentes.
-- Tests unitaires JS (sinon manuels) : simuler `voiceWs.onopen` et vérifier que `setTimeout` est démarré et `sendApkEvent` appelé (mock fetch).
-- Simuler `onaudioprocess` et `port.onmessage` pour vérifier `voice_audio_sent` annonce une seule fois.
-- Simuler `onmessage` audio pour vérifier `voice_audio_received` clear timer.
+- Grep statique : `grep -n "sendApkEvent" static/index.html` doit être vide aujourd’hui, puis contenir les points d’injection après correction.
+- Vérifier la présence des variables : `_apkEventCount`, `_voiceNoAudioTimer`, `_voiceFirstAudioSent`, `_voiceFirstAudioReceived`.
+- Vérifier les handlers : `voiceWs.onopen`, `scriptNode.onaudioprocess`, `workletNode.port.onmessage`, `voiceWs.onmessage`, `voiceWs.onclose`, `stopVoice()`.
+- Simulation JS possible : mock `voiceWs` et `fetch`, appeler `startVoice()` et valider l’ordre des appels.
 
 ## Validation Ludovic requise ?
 
-Oui — validation demandée pour toute action qui modifierait l'APK ou les comportements utilisateur visibles. Pour les events non destructifs, proposer la PR et demander validation.
+Oui — le code doit être vérifié sur APK réel avant toute correction fonctionnelle du circuit voix.
 
 ---
 
-## Actions suivantes que je peux faire maintenant
+## Conclusion DeepSeek
 
-- Implémenter les modifications proposées dans `static/index.html` sur la branche `ds/objectif-005-events-voix` et ouvrir une PR (si tu me valides de pousser).
-- Ou seulement produire le fichier `agents/DEEPSEEK_AVIS_005.md` (déjà créé) et attendre validation.
+Le monitoring n’est pas encore actif dans le fichier actuel. Je recommande de livrer d’abord l’instrumentation `sendApkEvent` et le timer silence 20s, puis de retester sur téléphone.
 
-Indique si je dois appliquer les changements JS et pousser la PR.
+Ensuite, DeepSeek pourra confirmer que le cockpit voit bien la panne voix réelle et fournir un diagnostic précis.
