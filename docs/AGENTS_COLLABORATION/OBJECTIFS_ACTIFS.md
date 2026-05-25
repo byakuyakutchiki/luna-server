@@ -446,3 +446,18 @@ filtrée/anonymisée, notamment dans `RAPPORT_SENTRY_OBJECTIF_008.md`.
 
 Règle : aucun secret, token, cookie, clé API, email privé, audio brut ou transcript
 privé ne doit être copié dans GitHub.
+
+---
+
+## Note transversale — Objectif 008 modèle Realtime
+
+Coordination active :
+
+`docs/AGENTS_COLLABORATION/NOTE_COORDINATION_OBJECTIF_008_MODELE_REALTIME.md`
+
+Principe :
+
+1. restaurer la télémétrie complète ;
+2. tester un seul modèle Realtime à la fois ;
+3. proposition actuelle : `OPENAI_REALTIME_MODEL=gpt-realtime-mini` ;
+4. ne pas mélanger correction UI mobile, modèle OpenAI et refactor serveur dans un même changement.
