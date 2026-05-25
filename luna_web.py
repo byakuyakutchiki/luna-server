@@ -3600,6 +3600,7 @@ _PUBLIC_PATHS = (
     "/static/",
     "/guardian-live/",
     "/api/guardian/live-position/",
+    "/api/apk/heartbeat",  # Auth via User-Agent LunaApp (pas JWT)
 )
 
 def _is_public_path(path: str) -> bool:
