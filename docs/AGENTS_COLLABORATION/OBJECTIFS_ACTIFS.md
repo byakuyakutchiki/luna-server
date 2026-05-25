@@ -383,11 +383,12 @@ Note : branches DeepSeek/Kimi NE PAS merger directement (divergences — utilise
 
 ## Objectif 008 — Correction voix OpenAI Realtime : modèle + bridge
 
-**Statut** : ouvert — diagnostic lecture seule en cours  
+**Statut** : ouvert — diagnostic lecture seule + DeepSeek temps réel APK à cadrer  
 **Priorité** : critique  
 **Lead** : Claude  
 **Date ouverture** : 2026-05-25  
 **Document dédié** : `docs/AGENTS_COLLABORATION/OBJECTIF_008_CORRECTION_VOIX_OPENAI.md`
+**Document DeepSeek APK** : `docs/AGENTS_COLLABORATION/OBJECTIF_008_DEEPSEEK_TEMPS_REEL_APK.md`
 
 ### Cause racine identifiée
 
@@ -409,7 +410,7 @@ pendant `_configure_session()` (~2s après connexion). Logs confirment :
 | Agent | Tâche | Statut |
 |---|---|---|
 | **Claude** | Investigation lecture seule : logs, web_voice_bridge.py, modèle OpenAI | En cours |
-| **DeepSeek** | Audit `web_voice_bridge.py` — session.created, correction minimale bridge | À solliciter |
+| **DeepSeek** | IA désignée dans l'expérience APK : diagnostic temps réel, cache, WebView, boutons | À solliciter |
 | **Kimi** | Textes cockpit (icônes 007 + scénarios OpenAI error) | À solliciter |
 | **Codex** | Garde-fous, règle no-merge branches divergentes | À solliciter |
 | **Cursor** | Intégration icônes Kimi dans fondateur.html | À solliciter |
@@ -418,12 +419,23 @@ pendant `_configure_session()` (~2s après connexion). Logs confirment :
 ### Validation
 
 - [x] Cause racine identifiée par Claude (logs Cloud Run)
+- [ ] DeepSeek temps réel APK — `agents/DEEPSEEK_AVIS_008_TEMPS_REEL_APK.md`
 - [ ] DeepSeek — `agents/DEEPSEEK_AVIS_008.md`
 - [ ] Kimi — `agents/KIMI_AVIS_008.md`
 - [ ] Codex — `agents/CODEX_AVIS_008.md`
 - [ ] Cursor — `agents/CURSOR_AVIS_008.md`
 - [ ] **Ludovic valide le correctif avant déploiement**
 - [ ] Voix Luna entendue sur téléphone réel
+
+### Exigence Ludovic — DeepSeek dans l'expérience téléphone
+
+Pour les prochains tests boutons/onglets, DeepSeek doit être l'IA désignée pour
+voir ce qui se passe dans l'APK en temps réel.
+
+Architecture : APK → serveur Luna → DeepSeek API côté serveur → cockpit/journal.
+
+Interdit : clé DeepSeek dans l'APK, audio brut, transcript privé, appel IA permanent
+sans anomalie.
 
 ---
 

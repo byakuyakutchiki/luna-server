@@ -99,3 +99,4 @@ Pas de copier-coller de code brut dans les rapports — pointer vers le fichier 
 - Health : `GET /api/admin/health`
 - Déploiement : `bash /home/ludo/PROJETS/IA_WATCH/PROPRIO/serveur/deploy.sh`
 - Sentry : source de diagnostic filtrée, voir `NOTE_SENTRY_CERVEAU_LUNA.md`
+- DeepSeek temps réel APK : voir `OBJECTIF_008_DEEPSEEK_TEMPS_REEL_APK.md`
