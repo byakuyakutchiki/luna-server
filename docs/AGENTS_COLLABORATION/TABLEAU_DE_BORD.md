@@ -25,20 +25,21 @@ Mis à jour : 2026-05-25 (008 + 009 VALIDÉS — voix Luna stable sur téléphon
 
 ## Objectif actif prioritaire
 
-**Objectif 009 — Stabilité voix Luna (coupures spontanées)**
+**Objectif 010 — Historique intelligent des conversations + mémoire Luna**
 
-Symptôme : Luna s'arrête parfois de parler seule en cours de session.
-Pistes : VAD trop sensible, timeout session, déconnexion WebSocket silencieuse.
-Modèle actif : `gpt-realtime-mini` (révision `luna-beta-00442-7gg`)
+But : organiser le chat en conversations répertoriées, avec titres automatiques,
+mémoire utile et discrète, et corriger le bouton mobile `Connexion` / `Déconnexion`
+coupé.
 
 **Règle Ludovic** : diagnostic avant toute correction. Déploiement uniquement après validation.
 
-Document à créer : `docs/AGENTS_COLLABORATION/OBJECTIF_009_STABILITE_VOIX.md`
+Document : `docs/AGENTS_COLLABORATION/OBJECTIF_010_HISTORIQUE_MEMOIRE_CHAT.md`
 
 **Note critique** : NE PAS merger les branches DeepSeek/Kimi directement.
 
 **Objectif 007 VALIDÉ** — 11 événements reçus sur téléphone réel Ludovic.
 **Objectif 008 VALIDÉ** — Voix Luna entendue sur téléphone réel Ludovic (2026-05-25 ~20h30).
+**Objectif 009** — stabilité voix à surveiller, passage à l'objectif suivant autorisé par Ludovic.
 
 ## Flux de travail standard
 
@@ -100,3 +101,4 @@ Pas de copier-coller de code brut dans les rapports — pointer vers le fichier 
 - Déploiement : `bash /home/ludo/PROJETS/IA_WATCH/PROPRIO/serveur/deploy.sh`
 - Sentry : source de diagnostic filtrée, voir `NOTE_SENTRY_CERVEAU_LUNA.md`
 - DeepSeek temps réel APK : voir `OBJECTIF_008_DEEPSEEK_TEMPS_REEL_APK.md`
+- Objectif 010 : voir `OBJECTIF_010_HISTORIQUE_MEMOIRE_CHAT.md`
