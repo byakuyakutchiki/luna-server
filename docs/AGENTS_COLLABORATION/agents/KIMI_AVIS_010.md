@@ -43,10 +43,13 @@ Il doit être compréhensible en un coup d'œil dans la liste des conversations.
 
 ```
 Voix Luna et OpenAI Realtime
+Voix Luna instable
 Documents — porte-documents
-Réglages exploitant
 Objectif 010 — mémoire Luna
+Objectif 010 — historique
 Configurer les quotas
+Connexion bouton mobile
+Mémoire Luna
 Météo — Bordeaux
 Envoyer SMS à Marie
 Rappel — médicaments 20h
@@ -340,6 +343,151 @@ Ou plus sobre :
 | Connecté | "Sortir" | 🚪 |
 | Connecté | "Quitter" | 🚪 |
 | Fondateur connecté | "👑" | (icône seule) |
+
+---
+
+## 8. Diagnostic technique et corrections proposées
+
+### Ce qui existe déjà (audit du code)
+
+| Fonctionnalité | État | Localisation |
+|---|---|---|
+| Génération de titre serveur | ✅ Existe | `luna_web.py` lignes 5638 et 6302 — appel `gpt-4o-mini` avec timeout 5s |
+| Fallback titre si OpenAI échoue | ⚠️ Partiel | `req.message[:40]` — peu informatif si le message est court |
+| Recherche dans l'historique | ✅ Existe | `static/index.html` lignes 6310–6314 — filtre client sur `title` + `preview` |
+| Affichage liste avec groupes | ✅ Existe | `renderConvList()` — groupes par date, actions renommer/vider/supprimer |
+| Stockage serveur | ✅ Existe | Redis — `summary` = titre, `messages` = liste JSON |
+| Stockage client | ✅ Existe | localStorage — `luna_conversations_meta`, `luna_conv_msgs_<id>` |
+
+### Bug identifié : "Nouvelle conversation" qui persiste
+
+**Cause racine** : Le titre est généré côté serveur par OpenAI (`gpt-4o-mini`). Si l'appel échoue (timeout, quota, erreur réseau), le fallback `req.message[:40]` est appliqué, mais :
+
+1. Si le message est très court ("salut", "ok"), le titre reste vide ou non significatif.
+2. Si la réponse au client ne contient pas le champ `auto_title` (streaming interrompu, erreur SSE), le `localStorage` conserve `title: ""`.
+3. Au rechargement de page, `loadConversationList()` charge les conversations depuis le serveur via `GET /api/conversations` qui renvoie `c.summary or ""`. Si `summary` est vide, le titre reste vide → `"Nouvelle conversation"`.
+
+**Code problématique** (client) :
+```javascript
+// static/index.html ligne 6331
+title.textContent = conv.title || "Nouvelle conversation";
+
+// static/index.html ligne 4380 — le titre n'est mis à jour QUE si auto_title est présent
+if (data.auto_title) { _jsonConv.title = data.auto_title; }
+```
+
+**Code problématique** (serveur) :
+```python
+# luna_web.py ligne 5643 — dépend d'OpenAI avec timeout 5s
+if not (meta or {}).get("summary"):
+    title_resp = await loop.run_in_executor(None, lambda: openai_client.chat.completions.create(...))
+    # Si échec : fallback req.message[:40] — pas assez robuste
+```
+
+### Corrections proposées
+
+#### A. Côté client — fallback local immédiat
+
+Si le serveur ne renvoie pas `auto_title` dans les 3 secondes après la réponse Luna, générer un titre local à partir du premier message utilisateur :
+
+```javascript
+function generateLocalTitle(firstMessage) {
+  if (!firstMessage) return "Discussion";
+  var m = firstMessage.trim();
+  // Extraire les mots-clés techniques connus
+  var keywords = {
+    "voix": "Voix Luna", "voice": "Voix Luna", "micro": "Voix Luna",
+    "objectif": "Objectif", "doc": "Documents", "document": "Documents",
+    "apk": "APK", "android": "APK", "connexion": "Connexion",
+    "mémoire": "Mémoire Luna", "historique": "Historique",
+    "météo": "Météo", "sms": "SMS", "rappel": "Rappel"
+  };
+  for (var kw in keywords) {
+    if (m.toLowerCase().indexOf(kw) >= 0) return keywords[kw];
+  }
+  // Fallback : premiers 30 caractères du message
+  return m.substring(0, 30) + (m.length > 30 ? "..." : "");
+}
+```
+
+#### B. Côté serveur — améliorer le prompt et le fallback
+
+Remplacer le prompt actuel par celui défini dans la section 1 de ce document :
+
+```python
+system_prompt = (
+    "Tu génères un titre court (3-6 mots max, 40 caractères max) pour une conversation. "
+    "Règles : sujet concret en premier, verbe à l'infinitif si action, "
+    "numéro d'objectif si pertinent, pas de dates, pas de pronoms, pas d'articles superflus. "
+    "Pas de guillemets, pas de ponctuation finale."
+)
+```
+
+Améliorer le fallback quand OpenAI échoue :
+```python
+if not auto_title or len(auto_title) < 3:
+    auto_title = _generate_fallback_title(req_message)
+
+def _generate_fallback_title(msg: str) -> str:
+    if not msg or len(msg.strip()) < 3:
+        return "Discussion"
+    # Extraction de mots-clés
+    lower = msg.lower()
+    keywords = {
+        "voix": "Voix Luna", "voice": "Voix Luna", "micro": "Voix Luna",
+        "objectif": "Objectif", "doc": "Documents", "document": "Documents",
+        "apk": "APK", "android": "APK", "connexion": "Connexion",
+        "mémoire": "Mémoire Luna", "historique": "Historique",
+    }
+    for kw, title in keywords.items():
+        if kw in lower:
+            return title
+    return msg.strip()[:40] + ("..." if len(msg) > 40 else "")
+```
+
+#### C. Synchronisation — forcer le titre au chargement
+
+Dans `loadConversationList()`, si une conversation a un titre vide mais contient des messages, déclencher une génération de titre côté serveur via un endpoint dédié, ou utiliser le fallback client :
+
+```javascript
+// Après loadConversationList() — vérifier les titres vides
+conversationsMeta.forEach(function(conv) {
+  if (!conv.title && conv.message_count > 0) {
+    var msgs = JSON.parse(localStorage.getItem("luna_conv_msgs_" + conv.id) || "[]");
+    if (msgs.length > 0) {
+      var firstUser = msgs.find(function(m) { return m.role === "user"; });
+      conv.title = generateLocalTitle(firstUser ? firstUser.content : "");
+    }
+  }
+});
+saveConvMeta(); renderConvList();
+```
+
+#### D. Recherche — vérifier la couverture
+
+La recherche existe déjà (filtre sur `title + preview`). Vérifier qu'elle couvre bien :
+- ✅ Mots du titre
+- ✅ Mots dans les messages (via `preview`)
+- ⚠️ Objectifs — le preview contient-il "Objectif 010" ? Oui si Luna l'a mentionné.
+- ⚠️ Sujets techniques — même réponse.
+
+**Aucune action requise sur la recherche** — elle fonctionne déjà. S'il faut l'améliorer, DeepSeek peut proposer une indexation serveur.
+
+### Rôles validés par Ludovic
+
+| Rôle | Mission | Action |
+|---|---|---|
+| **Claude** | Vérifier la génération côté serveur et corriger le fallback | Modifier `luna_web.py` lignes 5638 et 6302 + ajouter `_generate_fallback_title` |
+| **DeepSeek** | Proposer la logique de recherche avancée | Si besoin d'indexation serveur (recherche dans tous les messages, pas juste preview) |
+| **Kimi** | Définir les règles de titrage humain | ✅ Ce document — sections 1, 2, 3, 5, 8 |
+| **Cursor** | Intégrer la barre de recherche dans le panneau gauche | La barre existe déjà (`convSearch` ligne 1654). Vérifier le rendu mobile. |
+
+### Validation Ludovic
+
+- [ ] Une conversation ne reste plus nommée "Nouvelle conversation" après le premier échange.
+- [ ] Le titre reflète le sujet réel (ex: "Voix Luna instable", "Objectif 010 — historique").
+- [ ] La recherche retrouve une conversation par mot-clé technique ("voix", "documents", "APK").
+- [ ] L'interface mobile reste utilisable (barre de recherche visible, titres tronqués proprement).
 
 ---
 
