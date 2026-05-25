@@ -222,4 +222,86 @@ Rate limiting : max 1 req / 10s par appareil ; contrôle global par tenant.
 
 ---
 
-*Fin de l'analyse DeepSeek — Objectifs 001 et 003.*
+## OBJECTIF 004 — API fondateur : diagnostic APK + journal des actions
+
+### Mission DeepSeek
+
+- Proposer le moteur de diagnostic serveur `_analyze_apk_state()`.
+- Définir le schéma `status / diagnosis / probable_cause / recommended_action / action_level / evidence`.
+- Lister les niveaux d'action et les cas de test sans modifier la production.
+- Rester en phase d'observation / recommandation, pas d'auto-correction de niveau 3.
+
+### Proposition de moteur de règles
+
+La fonction doit analyser les signaux APK et produire un diagnostic lisible, sans action automatique non autorisée.
+
+Exemple de sortie :
+
+```json
+{
+  "status": "warning",
+  "diagnosis": "APK vivante mais version obsolète",
+  "probable_cause": "Ancienne APK installée ou auto-update non appliqué",
+  "recommended_action": "Installer la dernière APK",
+  "action_level": "manual_validation_required",
+  "can_auto_fix": false,
+  "evidence": {
+    "apk_version": "2.7",
+    "expected_apk_version": "2.8",
+    "last_seen_seconds": 42
+  }
+}
+```
+
+### Schéma d'analyse proposé
+
+- `status` : `ok`, `warning`, `critical`, `degraded`
+- `diagnosis` : code court de diagnostic
+- `probable_cause` : cause probable en langage clair
+- `recommended_action` : texte actionnable
+- `action_level` : `info_only`, `safe_local_action`, `manual_validation_required`, `forbidden_without_claude_ludo`
+- `can_auto_fix` : booléen pour indiquer si une correction automatique est envisageable
+- `evidence` : données brutes limitées (version, URL, statut WS, dernier contact)
+
+### Niveaux d'action proposés
+
+- `info_only` : simple diagnostique lisible, pas d'effet.
+- `safe_local_action` : action locale non destructive ou recommandation de réouverture/rafraîchissement.
+- `manual_validation_required` : action qui nécessite validation Ludovic avant exécution.
+- `forbidden_without_claude_ludo` : production/infra, interdit sans Claude + Ludovic.
+
+### Cas de test prioritaires
+
+- heartbeat absent -> `critical` / `missing_heartbeat`
+- heartbeat récent -> `ok`
+- heartbeat ancien -> `warning` / `heartbeat_old`
+- URL Cloud Run différente -> `warning` / `cloudrun_url_incorrect`
+- version APK absente -> `warning` / `apk_version_unknown`
+- version APK inférieure à attendue -> `warning` / `apk_version_obsolete`
+- WebSocket voix fermé -> `warning` / `ws_voice_disconnected`
+- pas d'audio envoyé/reçu -> `warning` / `no_audio_detected`
+- Redis indisponible -> `degraded` sans crash
+
+### Journal des actions proposé
+
+- Clé Redis : `luna:founder:actions:log`
+- Entrée log : `ts`, `source`, `status`, `diagnosis`, `probable_cause`, `action_proposed`, `action_level`, `action_taken`, `validated_by`, `result`
+- Trace chaque diagnostic et action recommandée, pas seulement les actions exécutées.
+- Ne pas écrire d'actions niveau 3 sans validation.
+
+### Observations DeepSeek
+
+- Je suis sur la branche `ds/objectif-004-founder-diagnostics`, alignée avec la PR `codex/objectif-004-founder-diagnostics`.
+- Le document de cadrage local est présent et clarifie le périmètre.
+- Ma partie réservée consiste à formaliser le moteur de diagnostic et le niveau d'action, en restant sur du non destructif pour l'instant.
+
+### Prochaine étape
+
+1. Formaliser `_analyze_apk_state()` dans le backend existant.
+2. Ajouter des tests unitaires de diagnostics basés sur les heartbeats.
+3. Proposer l’API fondateur / affichage `fondateur.html`.
+4. Laisser Claude + Ludovic décider du niveau d'automatisation admissible.
+
+---
+
+*Fin de l'analyse DeepSeek — Objectifs 001, 003 et 004.*
