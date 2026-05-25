@@ -1,14 +1,16 @@
 # Avis Kimi
 
-Agent : Kimi
-Rôle : Lecture longue, audit documentaire, recul critique
+Agent : Kimi Code CLI (kimi-k2.6)
+Outil : terminal — `kimi` dans le répertoire du repo
+Rôle : Audit documentaire + analyse code, shell, recherche web
 
 ---
 
 ## MISSION ACTIVE — Objectif 001 voix
 
 **Assigné le** : 2026-05-25
-**Pas de branche à créer** — Kimi ne modifie pas de code, seulement des fichiers `docs/`
+**Branche** : `kimi/objectif-001-voix` (pour toute modification code ou doc)
+**Guide** : lire `docs/AGENTS_COLLABORATION/GUIDE_KIMI_CODE.md` avant de commencer
 
 ### Contexte
 
@@ -19,6 +21,27 @@ Luna répond avec une voix féminine (OpenAI Realtime, voix `coral`).
 
 DeepSeek et Codex analysent le code technique.
 **Ta tâche est différente** : vérifier que ce qui est documenté correspond à ce qui est promis à l'utilisateur, et identifier les incohérences entre la documentation et la réalité.
+
+### Mission 1 — Audit documentaire (spécialité Kimi)
+
+Comparer ce qui est promis à l'utilisateur avec ce qui est réellement implémenté.
+
+### Mission 2 — Analyse code (Kimi Code CLI)
+
+Lancer dans le terminal depuis le repo :
+```bash
+grep -n "LunaApp\|ScriptProcessor\|AudioWorklet\|coral\|alloy" static/index.html
+grep -n "voice_name\|timeout\|session_duration\|max_duration" integrations/openai/web_voice_bridge.py
+grep -n "luna-voice\|_check_objective_voix" luna_web.py | head -20
+```
+
+Puis lire directement :
+- `integrations/openai/web_voice_bridge.py` — voix par défaut, timeout, gestion fin session
+- `static/index.html` — fonction `startVoice()`, détection WebView
+
+Poster les résultats dans la section "Analyse code" ci-dessous.
+
+---
 
 ### Documents à lire
 
@@ -79,17 +102,30 @@ Timeout mentionné dans la doc : oui / non (valeur : )
 
 Ce qui manque :
 
+#### Analyse code (Kimi Code CLI)
+
+Résultat grep `LunaApp` dans index.html :
+
+Voix par défaut dans web_voice_bridge.py :
+
+Timeout session (valeur réelle) :
+
+Gestion fin de session (reconnexion ou pas) :
+
 #### Verdict Kimi
 
 La documentation couvre-t-elle correctement la fonctionnalité vocale ? oui / non
 
 Recommandation (document à créer / à corriger) :
 
+Problème code identifié (fichier + ligne) :
+
 ---
 
 ### Interdictions
 
-- Ne pas modifier `luna_web.py`, `index.html`, ou tout fichier de code
-- Ne pas déployer quoi que ce soit
-- Modifications autorisées : uniquement les fichiers `docs/` (ajouter de la documentation manquante)
-- Tout ajout de doc → commiter directement sur `main` (pas besoin de PR pour de la doc pure)
+- Ne pas pusher sur `main` directement
+- Ne pas lancer `bash deploy.sh` ou commandes Cloud Run
+- Ne pas lire ni modifier `.env` ou clés API
+- Modifications code → branche `kimi/objectif-001-voix` + PR
+- Modifications doc → peut commiter sur `main` directement

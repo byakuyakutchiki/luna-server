@@ -10,7 +10,7 @@ Mis à jour : 2026-05-25
 | **Claude** | Terminal Linux + API | ✅ push main | Lead technique, synthèse, déploiement |
 | **Codex** | OpenAI API | ✅ PR sur branches | Corrections ciblées, commits, PR, tests |
 | **DeepSeek** | VS Code Windows | ✅ branches `ds/*` | Codeur puissant, analyse technique |
-| **Kimi** | API / interface web | branches `kimi/*` | Lecture longue, audit, recul documentaire |
+| **Kimi** | **Kimi Code CLI** (terminal) | branches `kimi/*` | Audit documentaire + analyse code, shell, web search |
 | **Cursor** | VS Code (IA intégrée) | branches `cursor/*` | Édition locale, cohérence projet |
 
 ## État actuel des agents
@@ -20,7 +20,7 @@ Mis à jour : 2026-05-25
 | Claude | en attente avis | 001 voix — synthèse après retours | 10d3ec3 |
 | Codex | **analyse en cours** | 001 voix — voir `CODEX_AVIS.md` | — |
 | DeepSeek | **analyse en cours** | 001 voix — voir `DEEPSEEK_AVIS.md` | — |
-| Kimi | **analyse en cours** | 001 voix — voir `KIMI_AVIS.md` | — |
+| Kimi Code CLI | **analyse en cours** | 001 voix — voir `KIMI_AVIS.md` + `GUIDE_KIMI_CODE.md` | — |
 | Cursor | en attente | 001 | — |
 
 ## Flux de travail standard
