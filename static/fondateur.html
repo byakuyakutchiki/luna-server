@@ -459,7 +459,7 @@ function loadVoiceDiagnosis() {
     var statusColors = { ok:"#4ade80", no_audio_timeout:"#f87171", mic_denied:"#fb923c",
       ws_error:"#f87171", partial:"#f59e0b", no_data:"#555" };
     var statusLabels = { ok:"Tout va bien", no_audio_timeout:"Problème important",
-      mic_denied:"Microphone non autorisé", ws_error:"Erreur de connexion",
+      mic_denied:"Microphone non autorisé", ws_error:"Problème de connexion vocale",
       partial:"Session partielle", no_data:"Aucun événement reçu" };
     var color = statusColors[d.voice_status] || "#888";
     var label = statusLabels[d.voice_status] || d.voice_status;
@@ -486,6 +486,21 @@ function loadVoiceDiagnosis() {
         html += '<div style="font-size:0.82em;padding:2px 0;color:' + evColor + ';">';
         if (ev.ts) html += '<span style="color:#444;margin-right:8px;">' + ev.ts.slice(11,19) + '</span>';
         html += icon + ' ' + (ev.label || ev.event) + '</div>';
+      });
+      html += '</div>';
+    }
+
+    if (d.voice_log && d.voice_log.length > 0) {
+      html += '<div style="margin-top:12px;border-top:1px solid #1e1e3a;padding-top:10px;">';
+      html += '<div style="color:#555;font-size:0.72em;font-weight:700;letter-spacing:1px;margin-bottom:6px;">JOURNAL VOIX (3 dernières sessions)</div>';
+      d.voice_log.slice(0, 3).forEach(function(entry) {
+        var ec = statusColors[entry.voice_status] || "#555";
+        var lbl = statusLabels[entry.voice_status] || entry.voice_status;
+        html += '<div style="color:#666;font-size:0.78em;padding:3px 0;">';
+        html += '<span style="color:' + ec + ';">' + lbl + '</span> ';
+        html += '<span style="color:#444;">' + (entry.ts||"") + '</span>';
+        if (entry.voice_summary) html += ' — <span style="color:#555;">' + entry.voice_summary + '</span>';
+        html += '</div>';
       });
       html += '</div>';
     }
