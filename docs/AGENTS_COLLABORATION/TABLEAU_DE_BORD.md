@@ -1,6 +1,6 @@
 # Tableau de bord — Orchestration Luna
 
-Mis à jour : 2026-05-25 (ouverture objectif 007 — télémétrie vocale précise)
+Mis à jour : 2026-05-25 (objectif 007 déployé — validation Ludovic requise)
 
 ## Rôles et outils
 
@@ -17,10 +17,10 @@ Mis à jour : 2026-05-25 (ouverture objectif 007 — télémétrie vocale préci
 
 | Agent | Statut | Objectif en cours | Dernier commit |
 |---|---|---|---|
-| Claude | **lead 007** | Fix session_ts + 21 événements voix + déploiement après validation Ludovic | ce26b5e |
-| Codex | **à solliciter 007** | Critères validation, garde-fous, synthèse | — |
-| DeepSeek | **à solliciter 007** | Audit startVoice(), session_ts, chemins alternatifs, fetch/WebSocket Android | — |
-| Kimi Code CLI | **à solliciter 007** | Textes cockpit pour 8 scénarios voix (knows/guesses/recommends/cannot) | — |
+| Claude | **intégrateur final 007** | Code final + déploiement réalisés, validation réelle réservée à Ludovic | 76072a9 |
+| Codex | **coordination 007** | Règle validation Ludovic + garde-fous | — |
+| DeepSeek | **avis 007 rendu** | Audit startVoice(), session_ts, chemins alternatifs, fetch/WebSocket Android | 7f516f3 |
+| Kimi Code CLI | **avis 007 rendu** | Textes cockpit pour scénarios voix | cf33985 |
 | Cursor | **à solliciter 007** | UI mobile, non-régression startVoice(), section chronologie | — |
 
 ## Objectif actif prioritaire
@@ -37,8 +37,13 @@ Cause identifiée par Claude :
 
 Document : `docs/AGENTS_COLLABORATION/OBJECTIF_007_TELEMETRIE_VOIX_APK.md`
 
-Claude implémente les corrections. Les agents audite et proposent.
-Déploiement uniquement après validation Ludovic.
+Claude est l'intégrateur final : il peut coder, corriger et déployer quand Ludovic
+l'autorise. La validation fonctionnelle reste uniquement celle de Ludovic après test
+sur téléphone réel.
+
+État actuel : Objectif 007 déployé sur Cloud Run selon `CLAUDE_AVIS_007.md`
+(`luna-beta-00439-7v9`). La simulation serveur est positive, mais elle ne remplace
+pas le test réel APK.
 
 ## Flux de travail standard
 

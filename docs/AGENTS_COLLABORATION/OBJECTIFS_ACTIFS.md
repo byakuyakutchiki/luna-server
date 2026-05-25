@@ -339,7 +339,7 @@ test réel Ludovic → événements APK → diagnostic serveur → cockpit fonda
 
 ## Objectif 007 — Télémétrie vocale précise APK
 
-**Statut** : ouvert — implémentation en cours  
+**Statut** : déployé — validation Ludovic sur téléphone réel requise  
 **Priorité** : critique  
 **Lead** : Claude  
 **Date ouverture** : 2026-05-25  
@@ -356,23 +356,27 @@ Deux bugs identifiés par Claude :
 
 | Agent | Tâche | Statut |
 |---|---|---|
-| **Claude** | Fix session_ts + plafond + implémentation 21 événements | En cours |
-| **DeepSeek** | Audit startVoice(), session_ts, chemins alternatifs, fetch/WebSocket Android | À solliciter |
-| **Kimi** | Textes cockpit pour 8 scénarios voix | À solliciter |
+| **Claude** | Intégrateur final : fix session_ts + plafond + événements + déploiement | Déployé, validation Ludovic requise |
+| **DeepSeek** | Audit startVoice(), session_ts, chemins alternatifs, fetch/WebSocket Android | Avis rendu |
+| **Kimi** | Textes cockpit pour 8 scénarios voix | Avis rendu |
 | **Cursor** | UI mobile, non-régression startVoice() | À solliciter |
-| **Codex** | Critères validation, garde-fous, synthèse Claude | À solliciter |
-| **Ludovic** | Test réel après déploiement | En attente déploiement |
+| **Codex** | Critères validation, garde-fous, synthèse Claude | En cours |
+| **Ludovic** | Test réel après déploiement | À faire maintenant |
 
 ### Validation
 
 - [x] Claude a identifié les causes
-- [ ] DeepSeek — `agents/DEEPSEEK_AVIS_007.md`
-- [ ] Kimi — `agents/KIMI_AVIS_007.md`
+- [x] DeepSeek — `agents/DEEPSEEK_AVIS_007.md`
+- [x] Kimi — `agents/KIMI_AVIS_007.md`
 - [ ] Cursor — `agents/CURSOR_AVIS_007.md`
 - [ ] Codex — `agents/CODEX_AVIS_007.md`
-- [ ] Claude a implémenté et déployé
+- [x] Claude a implémenté et déployé (`luna-beta-00439-7v9`, selon `CLAUDE_AVIS_007.md`)
 - [ ] Ludovic a validé sur téléphone réel
 - [ ] Chronologie complète visible dans le cockpit fondateur
+
+**Règle spécifique objectif 007** : Claude est l'intégrateur final du code. Il peut
+coder et déployer sous validation Ludovic, mais la validation fonctionnelle de
+l'objectif reste uniquement le test réel de Ludovic sur téléphone.
 
 ---
 

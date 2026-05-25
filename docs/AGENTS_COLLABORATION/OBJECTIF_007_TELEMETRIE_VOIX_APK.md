@@ -1,6 +1,6 @@
 # Objectif 007 — Télémétrie vocale précise APK
 
-**Statut** : ouvert — en cours d'implémentation  
+**Statut** : déployé — validation Ludovic sur téléphone réel requise  
 **Priorité** : critique  
 **Lead** : Claude  
 **Date ouverture** : 2026-05-25  
@@ -112,14 +112,18 @@ ou un point d'arrêt explicite.
 
 ## Rôles
 
-### Claude — Lead final et intégrateur
+### Claude — Intégrateur final
 
 - Diagnostic initial et causes (fait)
-- Implémentation du fix `session_ts` + plafond + nouveaux événements
+- Implémentation du fix `session_ts` + plafond + nouveaux événements (fait)
 - Relecture avis DeepSeek, Kimi, Cursor, Codex
-- Vérification Cloud Run, Redis, cockpit après déploiement
-- Déploiement uniquement après validation Ludovic
+- Vérification Cloud Run, Redis, cockpit après déploiement (simulation faite)
+- Code et déploiement en finalité seulement sous validation Ludovic
 - Ne pas corriger la voix fonctionnelle avant chronologie suffisante
+
+**Règle de validation** : Claude peut être l'intégrateur final du code, mais il ne
+valide pas seul l'objectif. L'objectif 007 est validé uniquement quand Ludovic teste
+l'APK réelle et confirme que le cockpit affiche une chronologie exploitable.
 
 ### DeepSeek — Mission technique (VS Code)
 
@@ -234,12 +238,12 @@ Pour chacun des scénarios ci-dessous, rédiger les 4 textes :
 
 ## Validation
 
-- [ ] Claude a identifié les causes (fait)
-- [ ] DeepSeek a posté son avis dans `agents/DEEPSEEK_AVIS_007.md`
-- [ ] Kimi a posté ses textes dans `agents/KIMI_AVIS_007.md`
+- [x] Claude a identifié les causes (fait)
+- [x] DeepSeek a posté son avis dans `agents/DEEPSEEK_AVIS_007.md`
+- [x] Kimi a posté ses textes dans `agents/KIMI_AVIS_007.md`
 - [ ] Cursor a posté son audit dans `agents/CURSOR_AVIS_007.md`
 - [ ] Codex a posté la synthèse dans `agents/CODEX_AVIS_007.md`
-- [ ] Claude a implémenté les corrections + nouveaux événements
-- [ ] Déployé sur Cloud Run
+- [x] Claude a implémenté les corrections + nouveaux événements (`01ac7a5`)
+- [x] Déployé sur Cloud Run (`luna-beta-00439-7v9`, selon `CLAUDE_AVIS_007.md`)
 - [ ] Ludovic a validé sur téléphone réel
 - [ ] Chronologie complète visible dans le cockpit fondateur
