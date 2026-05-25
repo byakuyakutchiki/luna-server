@@ -17,9 +17,9 @@ Mis à jour : 2026-05-25
 
 | Agent | Statut | Objectif en cours | Dernier commit |
 |---|---|---|---|
-| Claude | actif | 001 (voix) — en attente avis | fb4c7af |
-| Codex | en attente | 001 | — |
-| DeepSeek | en attente | 001 | — |
+| Claude | en attente avis | 001 voix — synthèse après retours | 10d3ec3 |
+| Codex | **analyse en cours** | 001 voix — voir `CODEX_AVIS.md` | — |
+| DeepSeek | **analyse en cours** | 001 voix — voir `DEEPSEEK_AVIS.md` | — |
 | Kimi | en attente | 001 | — |
 | Cursor | en attente | 001 | — |
 

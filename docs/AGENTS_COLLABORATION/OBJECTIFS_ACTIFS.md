@@ -7,10 +7,11 @@ Mise à jour obligatoire avant toute modification majeure.
 
 ## Objectif 001 — Monitoring vocal réel
 
-**Statut** : en analyse
+**Statut** : assigné — analyse en cours
 **Priorité** : haute
 **Lead** : Claude
 **Date ouverture** : 2026-05-25
+**Date assignation** : 2026-05-25
 
 ### Problème
 
@@ -22,8 +23,8 @@ mais ne simule pas l'expérience utilisateur réelle (flux audio reçu ou non).
 
 | Agent | Tâche | Statut |
 |---|---|---|
-| **DeepSeek** | Analyser code vocal : `web_voice_bridge.py`, `realtime_bridge.py`, `index.html` (startVoice) | À faire |
-| **Codex** | Vérifier fichiers modifiés récents, tests existants | À faire |
+| **DeepSeek** | Analyser `web_voice_bridge.py`, `realtime_bridge.py`, `startVoice()` — voir `DEEPSEEK_AVIS.md` | **En cours** |
+| **Codex** | Vérifier commits voix, fix AudioWorklet, timeout, tests — voir `CODEX_AVIS.md` | **En cours** |
 | **Kimi** | Vérifier cohérence avec cahier des charges vocal | À faire |
 | **Cursor** | Vérifier intégration locale, cohérence fichiers VS Code | À faire |
 | **Claude** | Synthèse finale, correction, déploiement | En attente des avis |

@@ -55,4 +55,49 @@ Compréhension : GitHub `main` est la source de vérité du code, mais ne prouve
 
 ---
 
-**Note pour Codex** : Cloner directement `https://github.com/byakuyakutchiki/luna-server` — c'est la source de vérité. Ne pas travailler depuis un repo local Windows séparé. Toutes les règles de coordination sont dans ce répertoire.
+## MISSION ACTIVE — Objectif 001 voix
+
+**Assigné le** : 2026-05-25
+**Branche à créer** : `codex/objectif-001-voix`
+
+### Ce qu'on sait
+
+Le bouton vocal dans l'APK peut ne pas produire de voix et s'arrêter après ~20 secondes.
+Un fix AudioWorklet → ScriptProcessorNode a été déployé sur Cloud Run (commit `e699ae6`),
+mais il n'a pas encore été validé sur appareil réel.
+
+### Ta tâche (Codex)
+
+1. **Vérifier les commits récents liés à la voix** :
+   ```
+   git log --oneline --all | grep -iE "voice|vocal|audio|worklet|coral"
+   ```
+
+2. **Confirmer que le fix est bien dans `static/index.html`** :
+   Chercher `LunaApp` dans `startVoice()` — doit sélectionner ScriptProcessorNode si WebView détecté.
+
+3. **Vérifier `integrations/openai/web_voice_bridge.py`** :
+   - La voix par défaut est-elle `coral` ou `alloy` ?
+   - Y a-t-il un timeout configuré ? Lequel ?
+   - Le WebSocket `/ws/luna-voice` est-il enregistré dans `luna_web.py` ?
+
+4. **Vérifier `integrations/openai/realtime_bridge.py`** :
+   - Même question sur la voix par défaut.
+   - Quelle est la durée de session max configurée ?
+
+5. **Lister les tests voix existants** (si présents dans `tests/`).
+
+### Ce que tu dois poster ici (remplacer "À compléter" ci-dessous)
+
+- Commits voix trouvés (hash + message)
+- État du fix AudioWorklet dans index.html (présent / absent / ligne)
+- Voix par défaut dans web_voice_bridge.py et realtime_bridge.py
+- Timeout session vocal (valeur réelle)
+- Tests voix existants (oui/non, combien)
+- Ton verdict : le fix est-il suffisant ou y a-t-il autre chose à corriger ?
+
+### Interdictions
+
+- Ne pas modifier `luna_web.py` ni `index.html` sans validation Claude
+- Ne pas déployer sur Cloud Run
+- Branche `codex/objectif-001-voix` uniquement — pas de push sur `main`
