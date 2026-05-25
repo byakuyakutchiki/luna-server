@@ -208,13 +208,82 @@ suffit pas. Luna doit transformer ce signal en diagnostic fondateur :
 
 ### Validation
 
-- [ ] Claude a validé le modèle d'actions.
-- [ ] DeepSeek a proposé le moteur de diagnostic.
-- [ ] Kimi a validé les textes fondateur.
-- [ ] Codex a préparé la PR de cadrage.
-- [ ] Ludovic a validé ce qui peut être automatique ou non.
-- [ ] Implémentation sur branche dédiée.
-- [ ] Test sur heartbeat réel APK.
+- [x] Claude a validé le modèle d'actions et implémenté Phase 1 (commit b9a42e8)
+- [x] DeepSeek a proposé le moteur de diagnostic
+- [x] Kimi a validé les textes fondateur
+- [x] Codex a préparé la PR de cadrage
+- [x] Ludovic a validé les 3 décisions (waiting_first_contact, journal 30j, niveau 1 sans confirmation)
+- [x] Implémenté et déployé sur Cloud Run (révision luna-beta-00433-zxg)
+- [ ] Test sur heartbeat réel APK — **en attente rebuild APK**
+
+---
+
+## Objectif 005 — Événements voix APK : prouver ce qui se passe quand Ludovic appuie sur le bouton vocal
+
+**Statut** : cadré — en attente validation heartbeat réel (objectif 004)
+**Priorité** : haute
+**Lead** : Claude
+**Date ouverture** : 2026-05-25
+**Document dédié** : `docs/AGENTS_COLLABORATION/OBJECTIF_005_EVENTS_VOIX_APK.md`
+**Dépendance** : Objectif 003/004 — le premier heartbeat réel doit avoir été reçu
+
+### Problème
+
+Le heartbeat sait que le téléphone respire. Mais quand Ludovic appuie sur le bouton vocal et n'entend rien après 20 secondes, le cockpit ne peut pas encore savoir à quelle étape ça bloque.
+
+### Vision
+
+Chronologie réelle visible dans le cockpit fondateur :
+```
+voice_button_clicked → microphone_permission_granted → voice_ws_opened
+→ voice_audio_sent → voice_no_audio_after_timeout → voice_ws_closed
+```
+
+Affichage fondateur :
+```
+Voix APK — Problème important
+Luna sait : bouton appuyé, micro OK, WebSocket ouvert — aucun audio reçu après 20s.
+Luna suppose : la réponse OpenAI ou le playback WebView ne revient pas jusqu'au téléphone.
+Luna recommande : vérifier la chaîne WebSocket → OpenAI → audio client.
+```
+
+### Agents concernés
+
+| Agent | Tâche | Statut |
+|---|---|---|
+| **Claude** | Schéma final, `POST /api/apk/event`, diagnostic voix, `fondateur.html` | À faire |
+| **DeepSeek** | Points d'injection dans `startVoice()`, timer 20s, cas précis silence | À solliciter |
+| **Kimi** | Textes cockpit fondateur : sait / suppose / recommande / ne peut pas | À solliciter |
+| **Cursor** | Cohérence UI, vérifier que les événements JS ne cassent pas `startVoice()` | À solliciter |
+| **Codex** | Cadrage PR, garde-fous, découpage | À solliciter |
+
+### Livrable principal
+
+```
+POST /api/apk/event          — reçoit les événements voix depuis le JS
+GET /api/admin/apk-diagnosis — champ voice_events ajouté
+fondateur.html               — section voix avec chronologie
+```
+
+### Interdictions pour cet objectif
+
+- Pas d'audio brut, pas de transcript
+- Pas de géolocalisation
+- Pas de correction automatique de la voix
+- Pas de déploiement sans validation Ludovic
+- Pas de rebuild APK pour cette phase (événements JS uniquement dans `static/index.html`)
+- Pas de gros refactor de `startVoice()` — injection minimale
+
+### Validation
+
+- [ ] Schéma événements validé par Claude
+- [ ] DeepSeek a proposé les points d'injection dans `startVoice()`
+- [ ] Kimi a rédigé les textes fondateur
+- [ ] Cursor a vérifié la cohérence UI
+- [ ] Claude a implémenté `POST /api/apk/event`
+- [ ] Claude a mis à jour le diagnostic avec les événements voix
+- [ ] Ludovic a validé avant déploiement
+- [ ] Test réel : bouton vocal → `voice_no_audio_after_timeout` visible dans cockpit
 
 ---
 

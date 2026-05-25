@@ -17,11 +17,11 @@ Mis à jour : 2026-05-25
 
 | Agent | Statut | Objectif en cours | Dernier commit |
 |---|---|---|---|
-| Claude | **déploiement 003 fait** | 004 API fondateur diagnostic + journal | 09d5284 |
-| Codex | **cadrage en cours** | 004 diagnostic APK — voir `OBJECTIF_004_API_FONDATEUR_DIAGNOSTIC.md` | — |
-| DeepSeek | **à solliciter** | 004 moteur de diagnostic + schéma actions | — |
-| Kimi Code CLI | **à solliciter** | 004 textes fondateur + traçabilité | — |
-| Cursor | **à solliciter** | 004 cohérence UI fondateur / endpoints | — |
+| Claude | **004 déployé** | 005 schéma événements voix — en attente heartbeat réel | b9a42e8 |
+| Codex | **à solliciter** | 005 cadrage PR + garde-fous voix | — |
+| DeepSeek | **à solliciter** | 005 injection `startVoice()` + timer 20s | — |
+| Kimi Code CLI | **à solliciter** | 005 textes cockpit voix : sait / suppose / recommande | — |
+| Cursor | **à solliciter** | 005 cohérence UI + vérif non-régression `startVoice()` | — |
 
 ## Flux de travail standard
 
