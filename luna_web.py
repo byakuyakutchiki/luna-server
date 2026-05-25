@@ -20069,7 +20069,10 @@ async def admin_totp_setup(request: Request):
         except Exception:
             secret = None
 
-    return {"secret": secret, "configured": bool(secret)}
+    return JSONResponse(
+        content={"secret": secret, "configured": bool(secret)},
+        headers={"Cache-Control": "no-store, no-cache, must-revalidate"},
+    )
 
 
 # =========================================================================

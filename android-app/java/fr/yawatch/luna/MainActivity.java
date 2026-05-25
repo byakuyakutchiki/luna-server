@@ -343,6 +343,7 @@ public class MainActivity extends Activity {
                 HttpURLConnection conn = (HttpURLConnection) url.openConnection();
                 conn.setRequestMethod("POST");
                 conn.setRequestProperty("Content-Type", "application/json");
+                conn.setRequestProperty("User-Agent", "LunaApp/" + CURRENT_VERSION + " Android/" + Build.VERSION.RELEASE);
                 conn.setDoOutput(true);
                 conn.setConnectTimeout(4000);
                 conn.setReadTimeout(4000);
