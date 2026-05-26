@@ -5642,9 +5642,10 @@ async def _stream_chat_sse(messages, chat_tools, tid, session_id, req_message, m
                 meta = mgr.redis.get_conversation_meta(tid, session_id)
                 if not (meta or {}).get("summary"):
                     _title_prompt = (
-                        "Résume cette conversation en un titre français très court, 3 à 6 mots, "
-                        "sans guillemets, sans ponctuation finale. "
-                        "Le titre doit décrire le sujet réel, pas dire 'nouvelle conversation' ni donner une date."
+                        "Donne un titre français très court, 2 à 4 mots, "
+                        "à la manière de ChatGPT, sans guillemets ni ponctuation finale. "
+                        "Le titre doit être court, scannable et décrire le sujet réel. "
+                        "Ne dis pas 'nouvelle conversation' ni de date."
                     )
                     try:
                         title_resp = await loop.run_in_executor(None, lambda: openai_client.chat.completions.create(
@@ -5653,11 +5654,18 @@ async def _stream_chat_sse(messages, chat_tools, tid, session_id, req_message, m
                                       {"role": "user", "content": f"User: {req_message[:300]}\nLuna: {full_text[:300]}"}],
                             max_tokens=20, temperature=0.3, timeout=5))
                         auto_title = title_resp.choices[0].message.content.strip().strip('"').strip("'")
+                        words = auto_title.split()
+                        if len(words) > 5:
+                            auto_title = " ".join(words[:5])
                         if len(auto_title) > 50:
                             auto_title = auto_title[:50]
                     except Exception:
                         _fb = req_message.strip()
-                        auto_title = (_fb[:40] + "…") if len(_fb) > 40 else (_fb or "Conversation")
+                        _fb_words = _fb.split()
+                        if len(_fb_words) > 5:
+                            auto_title = " ".join(_fb_words[:5])
+                        else:
+                            auto_title = _fb or "Conversation"
                     if meta:
                         meta["summary"] = auto_title
                         meta["last_activity"] = datetime.utcnow().isoformat()
@@ -6310,9 +6318,10 @@ COMPORTEMENT COMPAGNON :
                 meta = mgr.redis.get_conversation_meta(tid, req.session_id)
                 if not (meta or {}).get("summary"):
                     _title_prompt = (
-                        "Résume cette conversation en un titre français très court, 3 à 6 mots, "
-                        "sans guillemets, sans ponctuation finale. "
-                        "Le titre doit décrire le sujet réel, pas dire 'nouvelle conversation' ni donner une date."
+                        "Donne un titre français très court, 2 à 4 mots, "
+                        "à la manière de ChatGPT, sans guillemets ni ponctuation finale. "
+                        "Le titre doit être court, scannable et décrire le sujet réel. "
+                        "Ne dis pas 'nouvelle conversation' ni de date."
                     )
                     try:
                         title_resp = await asyncio.to_thread(openai_client.chat.completions.create,
@@ -6329,11 +6338,18 @@ COMPORTEMENT COMPAGNON :
                             timeout=5,
                         )
                         auto_title = title_resp.choices[0].message.content.strip().strip('"').strip("'")
+                        words = auto_title.split()
+                        if len(words) > 5:
+                            auto_title = " ".join(words[:5])
                         if len(auto_title) > 50:
                             auto_title = auto_title[:50]
                     except Exception:
                         _fb = req.message.strip()
-                        auto_title = (_fb[:40] + "…") if len(_fb) > 40 else (_fb or "Conversation")
+                        _fb_words = _fb.split()
+                        if len(_fb_words) > 5:
+                            auto_title = " ".join(_fb_words[:5])
+                        else:
+                            auto_title = _fb or "Conversation"
                     if meta:
                         meta["summary"] = auto_title
                         meta["last_activity"] = datetime.utcnow().isoformat()

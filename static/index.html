@@ -246,8 +246,16 @@ body.mode-secretaire .conc-modal-box .field input, body.mode-secretaire .conc-mo
   display: flex; align-items: center; gap: 6px; transition: background 0.2s;
 }
 .conv-new-btn:hover { background: #1e1e3f; }
+.conv-search-wrapper {
+  position: relative;
+  width: 100%;
+}
+.conv-search-icon {
+  position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+  color: #888; font-size: 0.95em; pointer-events: none;
+}
 .conv-search {
-  width: 100%; padding: 7px 10px; border-radius: 8px; border: 1px solid #333;
+  width: 100%; padding: 8px 10px 8px 36px; border-radius: 8px; border: 1px solid #333;
   background: #1a1a2e; color: #fff; font-size: 0.82em; outline: none;
 }
 .conv-search:focus { border-color: #7c3aed; }
@@ -624,6 +632,11 @@ body.mode-secretaire .luna-chip:hover { background: rgba(16,185,129,0.2); border
   .msg { max-width: 92%; font-size: 0.9em; padding: 10px 14px; }
   .chat { padding: 12px; gap: 10px; }
   .input-area { padding: 6px 8px; padding-bottom: calc(6px + env(safe-area-inset-bottom)); gap: 6px; flex-wrap: nowrap; }
+  .header-actions img { display: none; }
+  #updateAppBtn { display: none !important; }
+  .logout-btn { min-width: 40px; }
+  .logout-label { display: none; }
+  #headerWeather { display: none; }
   .input-row { padding: 2px 6px; }
   .input-area textarea { padding: 8px 4px; font-size: 16px; min-width: 0; min-height: 40px; }
   .send-btn { width: 40px; height: 40px; font-size: 1.1em; }
@@ -631,10 +644,12 @@ body.mode-secretaire .luna-chip:hover { background: rgba(16,185,129,0.2); border
   .emoji-btn { font-size: 1.3em; padding: 4px; }
   .emoji-picker { width: 260px; left: 4px; }
   .action-menu { right: 4px; min-width: 180px; }
-  .header { padding: 10px 12px; padding-right: max(12px, env(safe-area-inset-right, 12px)); }
+  .header { padding: 10px 12px; padding-right: max(12px, env(safe-area-inset-right, 12px)); flex-wrap: wrap; gap: 10px; }
+  .header-actions { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
   .header h1 { font-size: 1.1em; }
   .header p { font-size: 0.7em; }
-  .logout-btn { padding: 8px 12px; min-height: 44px; }
+  .logout-btn { min-width: 40px; display: inline-flex; align-items: center; gap: 6px; }
+  .logout-icon { font-size: 1.1em; line-height: 1; }
   .video-overlay iframe, .video-overlay #videoFrame { width: 100vw; height: 100vh; height: 100dvh; border-radius: 0; }
   .close-btn { top: 8px; right: 8px; padding: 10px 16px; min-height: 44px; }
   .invite-btn { top: 8px; left: 8px; padding: 10px 16px; min-height: 44px; font-size: 0.85em; }
@@ -651,6 +666,9 @@ body.mode-secretaire .luna-chip:hover { background: rgba(16,185,129,0.2); border
 @media (max-width: 380px) {
   .header h1 { font-size: 1em; gap: 4px; }
   .header p { display: none; }
+  .header-actions img { display: none; }
+  .logout-btn { width: 40px; height: 40px; padding: 0; justify-content: center; }
+  .logout-label { display: none; }
   .tab-btn { padding: 6px 8px; font-size: 0.75em; }
   .msg { font-size: 0.85em; padding: 8px 12px; }
   .input-area textarea { font-size: 16px; padding: 8px 4px; min-height: 38px; }
@@ -980,6 +998,7 @@ body.mode-secretaire .header h1 {
   background: transparent !important; border: 1px solid rgba(248,113,113,.32) !important;
   color: #f87171 !important; border-radius: 10px !important; font-size:.73em !important;
   letter-spacing:.04em; transition: var(--tr) !important;
+  display: inline-flex !important; align-items: center; gap: 6px;
 }
 .logout-btn:hover { border-color: rgba(248,113,113,.72) !important; box-shadow: 0 0 20px rgba(248,113,113,.38) !important; }
 
@@ -1565,7 +1584,7 @@ body.mode-secretaire .luna::before {
       </div>
     </div>
   </div>
-  <div style="display:flex;align-items:center;gap:6px;">
+  <div class="header-actions">
     <button class="sidebar-toggle" id="newChatBtn" title="Nouvelle conversation" style="font-size:1.4em;font-weight:300;line-height:1;">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
     </button>
@@ -1574,7 +1593,7 @@ body.mode-secretaire .luna::before {
     </button>
     <button id="updateAppBtn" title="Mettre a jour" style="background:none;border:1px solid #f59e0b;border-radius:8px;color:#f59e0b;padding:4px 8px;font-size:0.7em;cursor:pointer;display:none;animation:pulseUpdate 2s infinite;">MAJ</button>
     <img src="/static/assets/yawatch_logo.png" alt="YAWatch" style="height:30px;width:30px;object-fit:cover;border-radius:8px;border:1px solid rgba(167,139,250,.2);filter:brightness(1.1) drop-shadow(0 0 8px rgba(124,58,237,.7));opacity:.9;">
-    <button class="logout-btn" id="logoutBtn">Deconnexion</button>
+    <button class="logout-btn" id="logoutBtn" title="Déconnexion" aria-label="Déconnexion"><span class="logout-icon" aria-hidden="true">⏏</span><span class="logout-label">Déconnexion</span></button>
   </div>
 </div>
 
@@ -1651,7 +1670,10 @@ body.mode-secretaire .luna::before {
           <button class="conv-item-btn conv-sidebar-close" id="sidebarClose" style="font-size:1.2em;padding:4px 8px;">&#10005;</button>
         </div>
         <button class="conv-new-btn" id="newConvBtn">+ Nouvelle conversation</button>
-        <input type="text" class="conv-search" id="convSearch" placeholder="Rechercher..." autocomplete="off">
+        <div class="conv-search-wrapper">
+          <span class="conv-search-icon" aria-hidden="true">🔍</span>
+          <input type="text" class="conv-search" id="convSearch" placeholder="Rechercher..." autocomplete="off">
+        </div>
       </div>
       <div class="conv-list" id="convList"></div>
     </aside>

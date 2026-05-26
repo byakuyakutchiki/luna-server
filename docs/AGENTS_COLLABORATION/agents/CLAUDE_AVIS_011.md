@@ -1,7 +1,7 @@
 # Claude — Avis Objectif 011
 
-**Date** : 2026-05-26  
-**Objectif** : Audit complet onglet Services / Conciergerie  
+**Date** : 2026-05-26
+**Objectif** : Audit complet onglet Services / Conciergerie
 **Statut** : audit terminé — en attente avis DeepSeek/Kimi/Cursor avant toute correction
 
 ---
@@ -16,7 +16,7 @@ APK → _concDirect(action, params) → POST /api/concierge/action
      → renderer JS → affichage cartes/résultats
 ```
 
-Un seul endpoint : `POST /api/concierge/action` (`luna_web.py` ligne 13558).  
+Un seul endpoint : `POST /api/concierge/action` (`luna_web.py` ligne 13558).
 19 actions enregistrées dans le dispatcher (ligne 13570–13594).
 
 ---
@@ -60,7 +60,7 @@ Un seul endpoint : `POST /api/concierge/action` (`luna_web.py` ligne 13558).
 |---|---|---|
 | Restaurant | `book_restaurant` | ⚠️ **DÉGRADÉ** — fallback sur `search_places` |
 
-TheFork non configuré dans `.env` → le service tombe automatiquement sur Serper Places.  
+TheFork non configuré dans `.env` → le service tombe automatiquement sur Serper Places.
 L'utilisateur reçoit des résultats mais ne peut pas réserver directement.
 
 ### Services internes (Redis / MemoryManager)
@@ -79,27 +79,27 @@ L'utilisateur reçoit des résultats mais ne peut pas réserver directement.
 
 ### `alert_contacts` (alerte urgence)
 
-Côté client : `_showConfirm()` avec dialog "Confirmer ?" avant exécution (ligne 3389).  
-Côté serveur : vérifie Twilio configuré + liste contacts de confiance.  
+Côté client : `_showConfirm()` avec dialog "Confirmer ?" avant exécution (ligne 3389).
+Côté serveur : vérifie Twilio configuré + liste contacts de confiance.
 **Verdict : correctement gardé.**
 
 ### `send_sms`
 
-Côté serveur : quota SMS vérifié (`_quota_guard`), contact doit être dans la liste de confiance.  
-Côté client : **PAS de confirmation** — le formulaire envoie directement après "Envoyer" (ligne 3294).  
+Côté serveur : quota SMS vérifié (`_quota_guard`), contact doit être dans la liste de confiance.
+Côté client : **PAS de confirmation** — le formulaire envoie directement après "Envoyer" (ligne 3294).
 **Risque** : SMS envoyé sans demande de confirmation à l'utilisateur.
 
 ### `book_flight` / `book_hotel` via Duffel
 
-Duffel permet de rechercher ET de réserver (débiter). Le dispatcher expose `book_flight` et `book_hotel`.  
-La recherche (`search_flights`, `search_hotels`) est safe. La réservation réelle :  
-- Un bouton "Réserver" dans l'UI (ligne 3514) appelle `book_flight` avec un `offer_id`.  
-- **Je ne sais pas si Duffel débite réellement ou juste confirme une intention.**  
+Duffel permet de rechercher ET de réserver (débiter). Le dispatcher expose `book_flight` et `book_hotel`.
+La recherche (`search_flights`, `search_hotels`) est safe. La réservation réelle :
+- Un bouton "Réserver" dans l'UI (ligne 3514) appelle `book_flight` avec un `offer_id`.
+- **Je ne sais pas si Duffel débite réellement ou juste confirme une intention.**
 - À vérifier avec Ludovic : est-ce que `book_flight` crée un ordre payant ?
 
 ### `send_email`
 
-L'email du destinataire est saisi librement dans le formulaire (pas forcément un contact de confiance).  
+L'email du destinataire est saisi librement dans le formulaire (pas forcément un contact de confiance).
 Côté serveur, il faut vérifier si `_tool_send_email` valide le destinataire ou envoie vers n'importe quelle adresse.
 
 ---
@@ -232,8 +232,8 @@ Structure recommandée :
 
 **Corrections prioritaires (Lot 1, mode audit):**
 
-1. **`send_sms` — ajouter confirmation client** : même pattern que `alert_contacts` (`_showConfirm`). Une ligne JS.  
-2. **`send_email` — valider côté serveur** : vérifier que `_tool_send_email` ne permet pas d'envoyer à une adresse hors contacts.  
+1. **`send_sms` — ajouter confirmation client** : même pattern que `alert_contacts` (`_showConfirm`). Une ligne JS.
+2. **`send_email` — valider côté serveur** : vérifier que `_tool_send_email` ne permet pas d'envoyer à une adresse hors contacts.
 3. **`book_flight` — clarifier Duffel** : documenter si c'est une commande réelle ou une réservation test. Si réel, créer un mode sandbox.
 4. **Tous les services — vérifier message d'erreur** : existe-t-il un fallback lisible si API externe down ?
 
