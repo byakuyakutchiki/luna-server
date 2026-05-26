@@ -502,3 +502,60 @@ Un bug UI mobile est aussi à traiter séparément : le bouton `Connexion` /
 - [ ] Ludovic valide l'architecture.
 - [ ] Implémentation sur branche dédiée.
 - [ ] Test téléphone validé.
+
+---
+
+## Objectif 011 - Audit complet onglet Services / Conciergerie
+
+**Statut** : ouvert - audit multi-agents uniquement  
+**Priorite** : tres haute  
+**Lead final** : Claude  
+**Date ouverture** : 2026-05-26  
+**Document dedie** : `docs/AGENTS_COLLABORATION/OBJECTIF_011_AUDIT_SERVICES.md`
+
+### Probleme
+
+L'onglet Services contient de nombreuses fonctions : recherche, voyage, meteo,
+actualites, SMS, email, appel, visio, alerte urgence, rappels, notes, documents,
+contacts, formulaires, stats, missions, badges et amis en ligne.
+
+Chaque service doit etre audite avant correction : but utilisateur, code appele,
+dependances externes, resultat attendu, message d'erreur, risque, garde-fou et
+remontee cockpit/cerveau.
+
+### Regle Ludovic
+
+Audit et observations avant action. Aucune refonte, aucun test sensible, aucun
+deploiement production sans validation.
+
+### Agents concernes
+
+| Agent | Tache | Statut |
+|---|---|---|
+| **Claude** | Lead final, cartographie frontend/backend, synthese avant code | A solliciter |
+| **DeepSeek** | Audit technique cartes -> handlers -> endpoint -> tools | A solliciter |
+| **Kimi** | UX, promesse utilisateur, textes de reussite/echec | A solliciter |
+| **Cursor** | Audit UI mobile Services, cartes, modales, resultats | A solliciter |
+| **Codex** | Cadrage, garde-fous, priorites de test non destructif | En cours |
+| **Ludovic** | Validation produit et tests telephone | En attente |
+
+### Actions sensibles interdites sans validation
+
+- SMS reel.
+- Email reel.
+- Appel telephone reel.
+- Alerte urgence.
+- Paiement.
+- Reservation.
+- Invitation visio a un tiers.
+
+### Validation
+
+- [ ] Avis Claude rendu.
+- [ ] Avis DeepSeek rendu.
+- [ ] Avis Kimi rendu.
+- [ ] Avis Cursor rendu.
+- [ ] Avis Codex rendu.
+- [ ] Tous les services inventories.
+- [ ] Services classes par risque.
+- [ ] Ludovic valide le premier lot a corriger.
