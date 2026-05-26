@@ -125,3 +125,14 @@ avant synthese multi-agents.
 | Kimi | Promesse UX, textes humains, actions sensibles | `agents/KIMI_AVIS_011.md` |
 | Cursor | UI mobile Services, modales, resultats | `agents/CURSOR_AVIS_011.md` |
 | Codex | Cadrage et garde-fous | `agents/CODEX_AVIS_011.md` |
+
+## Retour reel 2026-05-27 - objectif 010
+
+UI sidebar/loupe/deconnexion validee sur APK Android.
+
+La direction UX apportee par Kimi est retenue : le mode focus sidebar corrige la
+superposition et preserve la qualite visuelle. Claude doit conserver cette base
+et ne pas la remplacer par une refonte rapide.
+
+Reste a traiter : titres/recherche des conversations anciennes et nouvelles,
+notamment retrouver un sujet comme `chocolat` dans l'historique.
