@@ -117,25 +117,142 @@ Côté serveur, il faut vérifier si `_tool_send_email` valide le destinataire o
 
 ---
 
-## Ce que je propose (après avis équipe)
+---
 
-**Corrections prioritaires :**
+## Architecture à deux couches (Clarification Ludovic)
 
-1. **`send_sms` — ajouter confirmation client** : même pattern que `alert_contacts` (`_showConfirm`). Une ligne JS.  
-2. **`send_email` — valider côté serveur** : vérifier que `_tool_send_email` ne permet pas d'envoyer à une adresse hors contacts.  
-3. **`book_flight` — clarifier Duffel** : documenter si c'est une commande réelle ou une réservation test.
+### Contexte
 
-**Pas de correction nécessaire :**
-- Météo, actualités, recherche web, recherche lieux : 100 % safe, rien à faire.
-- `alert_contacts` : déjà protégé correctement.
-- Services internes Redis : aucun risque.
+Ludovic teste comme **fondateur**, pas comme entreprise exploitante.
+
+Cela signifie :
+- Ludovic ne doit pas engager de dépenses personnelles pour tester vols, hôtels, SMS, etc.
+- Le but n'est pas de réserver réellement maintenant, mais de **prouver que le parcours sera opérationnel** quand un exploitant arrivera avec ses clés, ses moyens de paiement et son dashboard.
+
+### Les 4 questions clés pour chaque service sensible
+
+Pour chaque action sensible (SMS, Email, Appel, Urgence, Vol, Hôtel, Paiement) :
+
+1. **Est-ce testable sans dépense fondateur ?**
+   - Mode sandbox ou dry-run disponible ?
+   - Confirmation avant action réelle ?
+   - Trace observable ?
+
+2. **Est-ce prêt pour un exploitant avec ses moyens de paiement ?**
+   - Endpoint prêt à recevoir clés exploitant ?
+   - Configuration Stripe/Duffel/Twilio par exploitant ?
+   - Dashboard pour exploitant (logs, quotas, monitoring) ?
+
+3. **Est-ce protégé contre l'exposition du code et des secrets ?**
+   - Secrets jamais envoyés en frontend ou APK ?
+   - Code opaque pour l'exploitant (pas de fork possible) ?
+   - Clés stockées côté serveur uniquement ?
+
+4. **Est-ce observable dans le monitoring/cockpit ?**
+   - Chaque action journalisée ?
+   - Cockpit fondateur voit les erreurs ?
+   - Cockpit exploitant voit ses transactions et quotas ?
+
+### Plan d'implémentation à deux couches
+
+#### 1. Couche audit/sandbox fondateur
+
+**Objectif** : Ludovic teste sans débiter, sans action irréversible.
+
+Pour chaque service payant ou sensible :
+- Recherche → OK (aucune charge)
+- Panier / intention → OK si sandbox garanti
+- Confirmation finale / débit → BLOQUÉ (Ludovic ne paie pas)
+
+Services OK en audit :
+- ✅ Météo, Actualités, Recherche web/lieux
+- ✅ Recherche vols/hôtels (affichage seulement)
+- ✅ Stats, Missions, Badges, Contacts, Rappels, Notes
+
+Services à tester avec confirmation :
+- ⚠️ SMS / Email / Appel (modale de confirmation)
+- ⚠️ Alerte urgence (confirmation 2x)
+
+Services à tester en sandbox seulement :
+- 🔴 Réservation vol / hôtel (si Duffel sandbox disponible)
+- 🔴 Paiement (si Stripe dev mode)
+- 🔴 Réservation restaurant (si TheFork sandbox)
+
+#### 2. Couche exploitation/production exploitant
+
+**Objectif** : Entreprise exploitante connecte ses moyens et fonctionne indépendamment.
+
+Structure recommandée :
+```
+1. Exploitant reçoit accès dashboard Luna
+2. Exploitant configure ses clés (Stripe, Twilio, Duffel, Serper)
+3. Exploitant définit quotas et confirmations (SMS/jour, appels/jour, etc.)
+4. Exploitant voit tous les logs et transactions
+5. Luna exécute actions avec clés exploitant, jamais clés fondateur
+```
+
+**Code requiert :**
+- Configuration par tenant/exploitant (multi-tenant)
+- Séparation secrets fondateur vs exploitant
+- Endpoint de gestion des clés pour exploitant (sécurisé)
+- Dashboard exploitant distinct (cockpit alternatif)
 
 ---
 
-## Je n'agis pas avant
+## Ce que Claude doit proposer
 
-1. Avis DeepSeek sur le flux JS complet (cartes → handlers → résultats)
-2. Avis Kimi sur la promesse utilisateur et les textes des actions sensibles
-3. Avis Cursor sur l'UI mobile des cartes et modales
-4. Clarification Ludovic sur `book_flight` / Duffel réel ou test
-5. Validation Ludovic sur les corrections à implémenter
+**Plan de correction par priorité et par couche :**
+
+### Lot 1 — Audit/Sandbox (Ludovic test maintenant)
+
+- SMS : ajouter confirmation modale (1 ligne JS)
+- Email : valider destinataire côté serveur
+- Alerte urgence : garder confirmation 2x existante
+- Tous les autres services : vérifier affichage/erreurs
+
+**Livrable** : Ludovic peut tester sans débiter.
+
+### Lot 2 — Infrastructure exploitant (préparation future)
+
+- Ajouter gestion tenant/clés par exploitant
+- Créer endpoint config clés exploitant
+- Documenter étapes activation exploitant
+
+**Livrable** : Route prête pour futur exploitant.
+
+### Lot 3 — Optimisations (après Ludovic valide)
+
+- Cache résultats recherches
+- Amélioration messages erreur
+- Monitoring détaillé transactions
+
+---
+
+## Ce que je propose maintenant
+
+**Corrections prioritaires (Lot 1, mode audit):**
+
+1. **`send_sms` — ajouter confirmation client** : même pattern que `alert_contacts` (`_showConfirm`). Une ligne JS.  
+2. **`send_email` — valider côté serveur** : vérifier que `_tool_send_email` ne permet pas d'envoyer à une adresse hors contacts.  
+3. **`book_flight` — clarifier Duffel** : documenter si c'est une commande réelle ou une réservation test. Si réel, créer un mode sandbox.
+4. **Tous les services — vérifier message d'erreur** : existe-t-il un fallback lisible si API externe down ?
+
+**Pas de correction nécessaire (Lot 1):**
+- Météo, actualités, recherche web, recherche lieux : 100 % safe.
+- `alert_contacts` : déjà protégé.
+- Services internes Redis : aucun risque.
+
+**Infrastructure exploitant (Lot 2, futur):**
+- Configuration par tenant (clés, quotas, moyens de paiement)
+- Dashboard exploitant séparé
+- API gestion clés
+
+---
+
+## Validation avant implémentation
+
+1. ✅ Avis DeepSeek : flux JS complet (cartes → handlers → résultats)
+2. ✅ Avis Kimi : promesse utilisateur et textes sensibles
+3. ✅ Avis Cursor : UI mobile cartes et modales
+4. ⏳ Ludovic : valide le plan à deux couches (audit vs exploitation)
+5. ⏳ Ludovic : approuve Lot 1 avant code
