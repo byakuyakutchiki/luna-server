@@ -277,6 +277,91 @@ Valider l'implémentation de l'objectif 004 Phase 1 :
 
 ---
 
+## 2026-05-26 — Objectifs 010 et 011 + bug Déconnexion mobile
+
+### Résumé humain
+
+Journée de consolidation sur deux objectifs parallèles :
+- **Objectif 010** (chat / titres / recherche) : le code est poussé, reste à valider sur téléphone.
+- **Bug Déconnexion** : la cause réelle a été identifiée (header droit trop chargé sur mobile) et corrigée proprement.
+- **Objectif 011** (services / conciergerie) : audit complet réalisé, SMS/email sécurisés confirmés, trous identifiés sur sandbox et confirmations voix/visio.
+
+### Ce qui a été codé
+
+#### Bug Déconnexion — correction définitive (commit `2452edc`)
+
+Le bouton n'était pas juste "un peu coupé". Le header droit entier débordait sur téléphone :
+- nouveau chat (icône) + wakeword (icône) + MAJ (texte court) + logo (30px) + "Deconnexion" (texte long) = trop large.
+- Les padding `safe-area-inset-right` sur iPhone ajoutent encore ~20-40px de marge.
+- Le texte "Deconnexion" (sans accent) compressait le bouton et le dernier caractère disparaissait.
+
+**Solution implémentée** :
+- Bouton `logout-btn` restructuré : icône SVG porte de sortie + span texte séparé.
+- Desktop (>600px) : texte "Déconnexion" visible (avec accent corrigé).
+- Mobile (<=600px) : texte masqué, icône seule dans un carré 44×44 tactile.
+- Très petit écran (<=380px) : `gap` du header droit réduit à 2px.
+- Classe `.header-right` ajoutée pour contrôler le `gap` proprement via CSS au lieu de `style` inline.
+
+**Ce que ça change** :
+- Économie d'environ 60px de largeur sur mobile.
+- Le bouton reste utilisable (44×44 min, tactile accessible).
+- Le style premium est conservé (bordure rougeâtre, hover glow).
+
+#### Objectif 010 — validation code
+
+Audit du commit `0d030c5` (titres style ChatGPT + loupe sidebar) :
+- Deux blocs `auto_title` dans `luna_web.py` (lignes ~5638 et ~6311) — identiques, cohérents.
+- Prompt : "2 à 4 mots maximum", exemples OK/refusés, pas de date, pas de guillemets.
+- Garde-fou : si > 5 mots, troncature à 4 mots ; si > 40 caractères, troncature.
+- Fallback : premiers 40 caractères du message utilisateur.
+- Loupe 🔍 : CSS `::before` sur `.conv-search-wrap`, padding-left 28px, visible et bien positionnée.
+
+**Validation attendue de Ludovic** :
+- Créer une conversation claire sur téléphone.
+- Vérifier que le titre devient "Services exploitant" ou "Bouton connexion" (2-4 mots).
+- Vérifier que ce n'est PAS une phrase comme "Résumé de notre conversation".
+- Vérifier que la loupe est visible dans le champ de recherche de la sidebar.
+- Vérifier que la recherche filtre bien l'historique.
+
+#### Objectif 011 — audit services (fichier `docs/AUDIT_011_SERVICES.md`)
+
+**Services non sensibles** (10 identifiés) : météo, actualités, recherche web, lieux, stats, missions, badges, contacts, amis — tous en lecture seule, testables sans risque.
+
+**Services sensibles protégés** :
+- `send_sms` / `send_email` : confirmations client + garde-fou serveur contact confiance. ✅
+- `alert_contacts` : confirmation client + limité aux contacts de confiance. ✅
+- `book_flight` / `book_hotel` : confirmation client, mais **pas de mode sandbox**. ⚠️
+- `request_payment` : plafond budget + Stripe, mais **pas de confirmation client directe** ni sandbox. ⚠️
+
+**Services sensibles à renforcer** :
+- `call_contact` : modal 2 étapes mais **pas de `_showConfirm` explicite** avant l'appel.
+- `invite_visio` : picker durée puis redirection immédiate, **pas de confirmation explicite**.
+
+**Risque critique identifié** :
+- Absence totale de `LUNA_SANDBOX_MODE`. En mode test, un exploitant peut réserver un vrai vol/hôtel ou déclencher un vrai paiement Stripe.
+
+### Ce qui reste à faire
+
+1. **Valider Objectif 010 sur téléphone** — test réel obligatoire.
+2. **Implémenter `LUNA_SANDBOX_MODE`** pour Duffel (vols/hôtels) et Stripe (paiements) avant tout test exploitant.
+3. **Ajouter `_showConfirm`** sur `call_contact` et `invite_visio` si validé par Ludovic.
+4. **Tester le Lot A** (services non sensibles) dès que possible.
+5. **Rebuild APK** si le commit Déconnexion doit être inclus dans l'APK (frontend modifié).
+
+### Risques / points d'attention
+
+- Si l'APK n'est pas rebuildée, la correction Déconnexion ne sera pas visible sur téléphone.
+- Sans sandbox, un test malencontreux sur `book_flight` peut engendrer un coût réel.
+- Le LLM est le seul garde-fou pour `request_payment` côté conversation. Si le prompt est contourné, le paiement peut passer.
+
+### Décision Ludovic attendue
+
+1. Est-ce que le titre d'une conversation générée sur téléphone respecte bien le format 2-4 mots ?
+2. Est-ce que le bouton Déconnexion est entièrement visible et cliquable après rebuild APK ?
+3. Faut-il prioriser le mode sandbox avant de continuer l'audit 011 ?
+
+---
+
 ## Modèle pour les prochaines entrées
 
 ```md
