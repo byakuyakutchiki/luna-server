@@ -1,9 +1,9 @@
 # Cursor — Avis Objectif 011 — Audit UI mobile onglet Services
 
-**Date** : 2026-05-26  
-**Objectif** : Audit complet onglet Services / Conciergerie  
-**Rôle** : Audit UI mobile, cartes, modales, résultats, responsive  
-**Règle absolue** : Observer la lisibilité et l'ergonomie sur téléphone, ne pas coder  
+**Date** : 2026-05-26
+**Objectif** : Audit complet onglet Services / Conciergerie
+**Rôle** : Audit UI mobile, cartes, modales, résultats, responsive
+**Règle absolue** : Observer la lisibilité et l'ergonomie sur téléphone, ne pas coder
 
 ---
 
@@ -287,10 +287,10 @@ Chercher :
 
 ## Interdictions
 
-❌ Ne pas coder directement.  
-❌ Ne pas refondre le CSS.  
-❌ Ne pas tester actions réelles.  
-✅ Juste observer et documenter les problèmes.  
+❌ Ne pas coder directement.
+❌ Ne pas refondre le CSS.
+❌ Ne pas tester actions réelles.
+✅ Juste observer et documenter les problèmes.
 
 ---
 

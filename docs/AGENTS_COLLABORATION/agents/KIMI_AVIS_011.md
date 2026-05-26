@@ -1,9 +1,9 @@
 # Kimi — Avis Objectif 011 — Audit UX et promesse utilisateur
 
-**Date** : 2026-05-26  
-**Objectif** : Audit complet onglet Services / Conciergerie  
-**Rôle** : Audit UX, promesse utilisateur, textes humains et clarté  
-**Règle absolue** : L'utilisateur doit comprendre ce qui arrive à chaque action  
+**Date** : 2026-05-26
+**Objectif** : Audit complet onglet Services / Conciergerie
+**Rôle** : Audit UX, promesse utilisateur, textes humains et clarté
+**Règle absolue** : L'utilisateur doit comprendre ce qui arrive à chaque action
 
 ---
 
@@ -143,7 +143,7 @@ Auditer la promesse utilisateur de chaque service :
   ```
   Confirmation 1 : "Déclarer une urgence ?"
   [Annuler] [Continuer]
-  
+
   Confirmation 2 (avec compte à rebours) :
   "DERNIÈRE CHANCE : Alerter [N] contacts d'urgence.
    Cette action ne peut pas être annulée une fois lancée.
@@ -298,10 +298,10 @@ Pour chaque service, vérifier si l'APK affiche actuellement :
 
 ## Interdictions
 
-❌ Ne pas envoyer SMS/email/appel réels.  
-❌ Ne pas tester Alerte urgence.  
-❌ Ne pas coder directement.  
-✅ Juste proposer textes et confirmations.  
+❌ Ne pas envoyer SMS/email/appel réels.
+❌ Ne pas tester Alerte urgence.
+❌ Ne pas coder directement.
+✅ Juste proposer textes et confirmations.
 
 ---
 
