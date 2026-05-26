@@ -658,6 +658,18 @@ body.mode-secretaire .luna-chip:hover { background: rgba(16,185,129,0.2); border
   .invite-box { padding: 20px; width: 95%; }
 }
 
+/* Mode focus sidebar mobile */
+@media (max-width: 768px) {
+  body.sidebar-open .header,
+  body.sidebar-open .mode-switcher,
+  body.sidebar-open .tabs {
+    z-index: 1 !important;
+    opacity: 0.25;
+    pointer-events: none;
+    transition: opacity 0.25s ease;
+  }
+}
+
 /* Tres petit ecran (iPhone SE, Galaxy S5) */
 @media (max-width: 380px) {
   .header-right { gap: 2px; }
@@ -6512,10 +6524,12 @@ function loadConversationList() {
 function openSidebar() {
   document.getElementById("convSidebar").classList.add("open");
   document.getElementById("convOverlay").classList.add("open");
+  document.body.classList.add("sidebar-open");
 }
 function closeSidebar() {
   document.getElementById("convSidebar").classList.remove("open");
   document.getElementById("convOverlay").classList.remove("open");
+  document.body.classList.remove("sidebar-open");
 }
 
 document.getElementById("sidebarToggle").addEventListener("click", openSidebar);
