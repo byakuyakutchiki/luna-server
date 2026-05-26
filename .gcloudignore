@@ -1,0 +1,36 @@
+.env
+__pycache__/
+*.pyc
+venv/
+*.pem
+.claude/
+*.pt
+# Secrets & credentials
+data/cortex_api.key
+data/cortex_totp.secret
+data/cortex_telegram.json
+android-app/luna.keystore
+android-app/luna.keystore.old
+android-app/build/
+
+# Logs & rapports générés
+firebase-debug.log
+reports/
+
+# Données utilisateur générées
+static/documents/
+
+# Additionnels
+.env
+.claude/
+*.keystore
+*.keystore.bak
+android-app/build/
+android-app/*.bak
+reports/
+static/documents/
+__pycache__/
+venv/
+*.pyc
+.git/
+
