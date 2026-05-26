@@ -289,15 +289,124 @@ Confirmation dialog, affichage du prix, mention du profil utilisé. ✅
 - Tester SMS, email, appel ou visio sur un numéro/destinataire réel.
 - Modifier les garde-fous serveur (quota, license, blocage numéros d'urgence).
 - Supprimer ou désactiver une carte sans audit préalable.
+- Finaliser une réservation, débiter une carte ou confirmer une commande payante.
 
 ---
 
-## 10. Message à l'équipe
+## 10. Mode fondateur vs exploitant — Les 4 questions de Ludovic
 
-> Objectif 011 = rendre l'onglet Services digne de confiance.  
-> 7 actions sur 22 sont sensibles. 3 sont bien protégées. 4 ne le sont pas.  
-> Priorité : ajouter une confirmation aux 4 actions sans garde-fou avant tout test réel.
+> Ludovic teste comme **fondateur**, pas comme entreprise exploitante.  
+> Il ne doit pas payer personnellement pour vérifier hôtels, vols, réservations ou services payants.  
+> Le but : prouver que le parcours sera prêt pour un exploitant futur, avec ses propres clés, moyens de paiement, quotas et dashboard.
+
+### 10.1 Les 4 questions pour chaque service sensible
+
+| Service | Q1 : Testable sans dépense ? | Q2 : Prêt pour exploitant ? | Q3 : Code et secrets protégés ? | Q4 : Observable cockpit ? |
+|---|---|---|---|---|
+| **Recherche vol** | ✅ Oui — Duffel/Amadeus recherche = lecture seule, aucun paiement | ⚠️ Partiel — l'exploitant devra brancher son compte Duffel/Amadeus | ⚠️ Clés API dans `.env` serveur, pas dans l'APK | 🟡 Partiel — erreur API remontée, pas de métrique dédiée |
+| **Réservation vol** | ❌ Non — `book_flight` débite réellement | ❌ Non — pas de mode sandbox visible, pas de séparation fondateur/exploitant | ⚠️ Clés API serveur, mais pas de sandbox | 🟡 Partiel — booking reference logguée |
+| **Recherche hôtel** | ✅ Oui — lecture seule | ⚠️ Partiel — même situation que vols | ⚠️ Même situation | 🟡 Même situation |
+| **Réservation hôtel** | ❌ Non — `book_hotel` débite réellement | ❌ Non — pas de sandbox visible | ⚠️ Même situation | 🟡 Même situation |
+| **Recherche restaurant** | ✅ Oui — TheFork/search_places = lecture seule | ⚠️ Partiel — TheFork requiert un compte | ⚠️ Clé API serveur | 🟡 Partiel |
+| **SMS** | ❌ Non — Twilio = SMS réel, débite le compte | ⚠️ Partiel — Twilio configuré, mais c'est le compte fondateur actuel | ✅ Clés serveur, pas dans l'APK | ✅ Oui — log mémoire + quota |
+| **Email** | ❌ Non — Gmail/SendGrid = email réel | ⚠️ Partiel — Gmail OAuth par tenant, SendGrid fallback | ✅ Clés serveur | ✅ Oui — log mémoire |
+| **Appel** | ❌ Non — Twilio voice = appel réel, débite le compte | ⚠️ Partiel — même situation que SMS | ✅ Clés serveur | ✅ Oui — log mémoire + `_voice_call_params` |
+| **Visio** | ❌ Non — Tavus + Twilio SMS = SMS réel + visio | ⚠️ Partiel — Tavus requiert un compte | ✅ Clés serveur | ✅ Oui — log mémoire |
+| **Alerte urgence** | ❌ Non — Twilio SMS à tous les contacts = SMS réel | ⚠️ Partiel — même situation que SMS | ✅ Clés serveur | ✅ Oui — log mémoire + safety event |
+| **Paiement** | ❌ Non — débite carte réelle | ❌ Non — pas de sandbox visible | ⚠️ Clés serveur | ✅ Oui — budget + commission loggués |
+
+### 10.2 Mode fondateur — Ce qui est autorisé
+
+| Action | Mode fondateur autorisé ? | Comment tester sans dépense |
+|---|---|---|
+| Recherche vol | ✅ Oui | Afficher les résultats, ne pas cliquer "Réserver" |
+| Recherche hôtel | ✅ Oui | Afficher les résultats, ne pas cliquer "Réserver" |
+| Recherche restaurant | ✅ Oui | Afficher les résultats |
+| Réservation vol | ❌ Non | **Interdit sans validation explicite** |
+| Réservation hôtel | ❌ Non | **Interdit sans validation explicite** |
+| SMS | ❌ Non | **Interdit** — tester uniquement avec `_test_mode` ou numéro de test Twilio |
+| Email | ❌ Non | **Interdit** — tester avec adresse de test ou mock |
+| Appel | ❌ Non | **Interdit** — tester avec numéro de test ou mock |
+| Visio | ❌ Non | **Interdit** — tester avec contact de test ou mock |
+| Alerte urgence | ❌ Non | **Interdit** — tester uniquement avec liste de contacts vide ou mock |
+| Paiement | ❌ Non | **Interdit sans validation explicite** |
+
+### 10.3 Mode exploitant — Ce qu'il faudra pour chaque service
+
+| Service | Ce que l'exploitant doit brancher | Prêt dans le code actuel ? |
+|---|---|---|
+| Vols | Compte Duffel/Amadeus + moyen de paiement | ⚠️ Partiel — recherche OK, réservation sans sandbox |
+| Hôtels | Compte Duffel/Amadeus + moyen de paiement | ⚠️ Partiel — même situation |
+| Restaurants | Compte TheFork ou fallback recherche | ⚠️ Partiel — fallback OK, réservation non implémentée |
+| SMS | Compte Twilio + quota configuré | ✅ Oui — Twilio déjà intégré, mais c'est le compte fondateur |
+| Email | Gmail OAuth ou SendGrid configuré | ✅ Oui — par tenant |
+| Appel | Compte Twilio + crédit vocal | ✅ Oui — Twilio déjà intégré |
+| Visio | Compte Tavus + Twilio SMS | ✅ Oui — Tavus + Twilio déjà intégrés |
+| Alerte | Twilio SMS + contacts configurés | ✅ Oui — Twilio déjà intégré |
+| Paiement | Stripe/connecteur + budget mensuel | ⚠️ Partiel — budget existe, mais pas de sandbox visible |
+
+### 10.4 Proposition UX : indicateur "Mode fondateur" dans l'onglet Services
+
+Pour que Ludovic (et tout futur fondateur) comprenne immédiatement ce qu'il peut tester :
+
+```
+┌─────────────────────────────────────────┐
+│  🛡️ Mode fondateur — Audit en cours     │
+│                                         │
+│  Les actions avec 💰 débitent réellement│
+│  et nécessitent une validation explicite│
+│  avant test.                            │
+│                                         │
+│  Les actions avec 🔍 sont en lecture    │
+│  seule et peuvent être testées librement│
+└─────────────────────────────────────────┘
+```
+
+| Badge | Signification | Peut tester ? |
+|---|---|---|
+| 🔍 | Recherche / lecture seule | ✅ Oui, sans risque |
+| 📝 | Action interne (rappel, note) | ✅ Oui, sans risque |
+| 🧪 | Test/simulation possible | ✅ Oui, en mode sandbox |
+| 💰 | Action payante / réelle | ❌ Non, sans validation explicite |
+| 🚨 | Action critique (alerte) | ❌ Non, sans validation explicite |
 
 ---
 
-*Document produit par Kimi Code CLI pour l'objectif 011 — branche `kimi/objectif-011-audit-services`*
+## 11. Recommandations mises à jour (post-clarification Ludovic)
+
+### Phase 1 — Mode fondateur (audit sans dépense)
+
+1. **Marquer visuellement les cartes** avec le badge 🔍/📝/💰 selon le type d'action.
+2. **Bloquer les actions 💰 en mode fondateur** par défaut, sauf activation explicite via un toggle "Mode test exploitant" dans le profil fondateur.
+3. **Ajouter le bandeau "Mode fondateur"** en haut de l'onglet Services pour rappeler les règles.
+4. **Tester uniquement les cartes 🔍 et 📝** : météo, actualités, recherche web, autour de moi, stats, missions, badges, amis, rappels, notes, documents, contacts.
+
+### Phase 2 — Préparation exploitant (sans tester de paiement)
+
+5. **Vérifier que chaque service 💰 a un mode sandbox/dry-run** chez le fournisseur (Duffel sandbox, Twilio test credentials, Tavus sandbox, Stripe test mode).
+6. **Documenter dans le cockpit** comment un exploitant branchera ses clés (champs de configuration par tenant).
+7. **Ajouter une confirmation dialog** aux 4 actions sans garde-fou (SMS, email, appel, visio) — même en mode exploitant.
+
+### Phase 3 — Validation Ludovic (actions réelles)
+
+8. **Tester les actions 💰 uniquement après** :
+   - Validation explicite de Ludovic
+   - Configuration d'un compte de test (numéro Twilio de test, email de test, etc.)
+   - Vérification du mode sandbox activé
+
+---
+
+## 12. Message à l'équipe (mise à jour)
+
+> Objectif 011 = rendre l'onglet Services digne de confiance **en mode fondateur**, puis prêt pour **exploitation**.  
+>  
+> **Verdict Kimi** :  
+> - 15 cartes sur 22 sont testables sans risque (🔍 recherche, 📝 interne).  
+> - 7 cartes sont sensibles (💰), dont 3 ont déjà une confirmation dialog (alerte, vol, hôtel).  
+> - 4 cartes sont dangereuses (SMS, email, appel, visio) — **pas de confirmation, pas de sandbox visible**.  
+> - **Priorité immédiate** : ajouter confirmation + badge visuel + bandeau mode fondateur.  
+> - **Priorité exploitant** : vérifier sandbox Duffel/Twilio/Tavus/Stripe et documenter l'activation par tenant.
+
+---
+
+*Document produit par Kimi Code CLI pour l'objectif 011 — branche `kimi/objectif-011-mode-fondateur`*
