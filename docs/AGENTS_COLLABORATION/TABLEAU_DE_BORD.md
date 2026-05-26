@@ -125,3 +125,14 @@ avant synthese multi-agents.
 | Kimi | Promesse UX, textes humains, actions sensibles | `agents/KIMI_AVIS_011.md` |
 | Cursor | UI mobile Services, modales, resultats | `agents/CURSOR_AVIS_011.md` |
 | Codex | Cadrage et garde-fous | `agents/CODEX_AVIS_011.md` |
+
+## Mission DeepSeek complementaire
+
+DeepSeek doit aussi traiter le point visible Objectif 010 / UI mobile :
+
+- titres courts facon ChatGPT ;
+- loupe/recherche historique ;
+- bouton `Deconnexion` encore mange sur telephone ;
+- audit Services separe.
+
+Document : `agents/DEEPSEEK_MISSION_010_011.md`
