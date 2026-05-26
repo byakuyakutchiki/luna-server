@@ -5641,19 +5641,23 @@ async def _stream_chat_sse(messages, chat_tools, tid, session_id, req_message, m
             try:
                 meta = mgr.redis.get_conversation_meta(tid, session_id)
                 if not (meta or {}).get("summary"):
+                    _title_prompt = (
+                        "Résume cette conversation en un titre français très court, 3 à 6 mots, "
+                        "sans guillemets, sans ponctuation finale. "
+                        "Le titre doit décrire le sujet réel, pas dire 'nouvelle conversation' ni donner une date."
+                    )
                     try:
                         title_resp = await loop.run_in_executor(None, lambda: openai_client.chat.completions.create(
                             model="gpt-4o-mini",
-                            messages=[{"role": "system", "content": "Tu generes un titre court (4-6 mots max) pour une conversation. Pas de guillemets."},
-                                      {"role": "user", "content": f"User: {req_message[:200]}\nLuna: {full_text[:200]}"}],
+                            messages=[{"role": "system", "content": _title_prompt},
+                                      {"role": "user", "content": f"User: {req_message[:300]}\nLuna: {full_text[:300]}"}],
                             max_tokens=20, temperature=0.3, timeout=5))
                         auto_title = title_resp.choices[0].message.content.strip().strip('"').strip("'")
                         if len(auto_title) > 50:
                             auto_title = auto_title[:50]
                     except Exception:
-                        auto_title = req_message[:40].strip()
-                        if len(req_message) > 40:
-                            auto_title += "..."
+                        _fb = req_message.strip()
+                        auto_title = (_fb[:40] + "…") if len(_fb) > 40 else (_fb or "Conversation")
                     if meta:
                         meta["summary"] = auto_title
                         meta["last_activity"] = datetime.utcnow().isoformat()
@@ -6305,15 +6309,20 @@ COMPORTEMENT COMPAGNON :
             try:
                 meta = mgr.redis.get_conversation_meta(tid, req.session_id)
                 if not (meta or {}).get("summary"):
+                    _title_prompt = (
+                        "Résume cette conversation en un titre français très court, 3 à 6 mots, "
+                        "sans guillemets, sans ponctuation finale. "
+                        "Le titre doit décrire le sujet réel, pas dire 'nouvelle conversation' ni donner une date."
+                    )
                     try:
                         title_resp = await asyncio.to_thread(openai_client.chat.completions.create,
                             model="gpt-4o-mini",
                             messages=[{
                                 "role": "system",
-                                "content": "Tu generes un titre court (4-6 mots max) pour une conversation. Pas de guillemets, pas de ponctuation finale. Juste le theme principal."
+                                "content": _title_prompt
                             }, {
                                 "role": "user",
-                                "content": f"User: {req.message[:200]}\nLuna: {luna_msg[:200]}"
+                                "content": f"User: {req.message[:300]}\nLuna: {luna_msg[:300]}"
                             }],
                             max_tokens=20,
                             temperature=0.3,
@@ -6323,9 +6332,8 @@ COMPORTEMENT COMPAGNON :
                         if len(auto_title) > 50:
                             auto_title = auto_title[:50]
                     except Exception:
-                        auto_title = req.message[:40].strip()
-                        if len(req.message) > 40:
-                            auto_title += "..."
+                        _fb = req.message.strip()
+                        auto_title = (_fb[:40] + "…") if len(_fb) > 40 else (_fb or "Conversation")
                     if meta:
                         meta["summary"] = auto_title
                         meta["last_activity"] = datetime.utcnow().isoformat()
