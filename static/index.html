@@ -3291,9 +3291,15 @@ function _concShowSmsForm() {
     {name: "message", label: "Message", type: "textarea", placeholder: "Ton message..."},
   ], "Envoyer", function(v) {
     if (!v.contact_name || !v.message) return;
-    _concDirect("send_sms", {contact_name: v.contact_name, message: v.message}, "SMS", function(d) {
-      _concResultsBody.innerHTML = '<div style="text-align:center;padding:40px;"><div style="font-size:3em;">&#x1F4AC;</div><p style="color:#10b981;font-weight:600;">' + esc(d.message || "SMS envoye") + '</p></div>';
-    });
+    _showConfirm(
+      "Envoyer ce SMS ?",
+      "À : " + v.contact_name + "\n\n" + v.message.substring(0, 120),
+      function() {
+        _concDirect("send_sms", {contact_name: v.contact_name, message: v.message}, "SMS", function(d) {
+          _concResultsBody.innerHTML = '<div style="text-align:center;padding:40px;"><div style="font-size:3em;">&#x1F4AC;</div><p style="color:#10b981;font-weight:600;">' + esc(d.message || "SMS envoye") + '</p></div>';
+        });
+      }
+    );
   });
 }
 function _concShowEmailForm() {
@@ -3304,9 +3310,15 @@ function _concShowEmailForm() {
     {name: "body", label: "Message", type: "textarea", placeholder: "Contenu..."},
   ], "Envoyer", function(v) {
     if (!v.contact_name || !v.subject || !v.email) return;
-    _concDirect("send_email", {contact_name: v.contact_name, email: v.email, subject: v.subject, body: v.body || ""}, "Email", function(d) {
-      _concResultsBody.innerHTML = '<div style="text-align:center;padding:40px;"><div style="font-size:3em;">&#x2709;</div><p style="color:#10b981;font-weight:600;">' + esc(d.message || "Email envoye") + '</p></div>';
-    });
+    _showConfirm(
+      "Envoyer cet email ?",
+      "À : " + v.contact_name + " (" + v.email + ")\nObjet : " + v.subject,
+      function() {
+        _concDirect("send_email", {contact_name: v.contact_name, email: v.email, subject: v.subject, body: v.body || ""}, "Email", function(d) {
+          _concResultsBody.innerHTML = '<div style="text-align:center;padding:40px;"><div style="font-size:3em;">&#x2709;</div><p style="color:#10b981;font-weight:600;">' + esc(d.message || "Email envoye") + '</p></div>';
+        });
+      }
+    );
   });
 }
 function _concShowReminderForm() {

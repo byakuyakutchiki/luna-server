@@ -14036,8 +14036,12 @@ async def _tool_send_email(args: Dict, tenant_id: int = 0) -> Dict:
         subject = f"Message de {sub_name} via Luna"
 
     if direct_email:
-        # Email fourni directement (formulaire conciergerie) — pas besoin de chercher dans les contacts
-        matched_name = contact_name
+        # Email fourni directement — le contact doit quand même être dans la liste de confiance
+        matched_contact_check, _ = mgr.find_contact_by_name(contact_name)
+        if not matched_contact_check:
+            logger.warning(f"Email refuse: '{contact_name}' absent des contacts de confiance (tentative vers {direct_email[:30]})")
+            return {"status": "error", "message": f"'{contact_name}' n'est pas dans vos contacts de confiance. Email refusé."}
+        matched_name = matched_contact_check.name
         contact_email = direct_email
     else:
         # Cherche le contact par nom avec correspondance floue
