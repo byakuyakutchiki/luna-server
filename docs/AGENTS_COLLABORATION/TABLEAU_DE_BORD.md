@@ -41,6 +41,9 @@ Document : `docs/AGENTS_COLLABORATION/OBJECTIF_010_HISTORIQUE_MEMOIRE_CHAT.md`
 **Objectif 008 VALIDÉ** — Voix Luna entendue sur téléphone réel Ludovic (2026-05-25 ~20h30).
 **Objectif 009** — stabilité voix à surveiller, passage à l'objectif suivant autorisé par Ludovic.
 
+**Objectif 011** — audit complet onglet Services / Conciergerie ouvert par Ludovic.
+Audit et observation uniquement avant toute correction.
+
 ## Flux de travail standard
 
 ```
@@ -102,3 +105,23 @@ Pas de copier-coller de code brut dans les rapports — pointer vers le fichier 
 - Sentry : source de diagnostic filtrée, voir `NOTE_SENTRY_CERVEAU_LUNA.md`
 - DeepSeek temps réel APK : voir `OBJECTIF_008_DEEPSEEK_TEMPS_REEL_APK.md`
 - Objectif 010 : voir `OBJECTIF_010_HISTORIQUE_MEMOIRE_CHAT.md`
+- Objectif 011 : voir `OBJECTIF_011_AUDIT_SERVICES.md`
+
+## Objectif actif suivant
+
+**Objectif 011 - Audit complet onglet Services / Conciergerie**
+
+But : auditer toutes les cartes de l'onglet Services avant correction. Le travail
+est volontairement separe en observation, classification du risque, puis decision
+Ludovic.
+
+**Regle Ludovic** : aucun code majeur, aucun test sensible et aucun deploiement
+avant synthese multi-agents.
+
+| Agent | Mission 011 | Livrable |
+|---|---|---|
+| Claude | Synthese technique finale et plan de correction | `agents/CLAUDE_AVIS_011.md` |
+| DeepSeek | Audit technique cartes/handlers/actions/tools | `agents/DEEPSEEK_AVIS_011.md` |
+| Kimi | Promesse UX, textes humains, actions sensibles | `agents/KIMI_AVIS_011.md` |
+| Cursor | UI mobile Services, modales, resultats | `agents/CURSOR_AVIS_011.md` |
+| Codex | Cadrage et garde-fous | `agents/CODEX_AVIS_011.md` |
