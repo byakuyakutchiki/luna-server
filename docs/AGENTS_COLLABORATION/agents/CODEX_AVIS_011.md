@@ -77,3 +77,25 @@ Claude ne doit pas coder avant d'avoir :
 - avis Kimi UX/promesse ;
 - avis Cursor mobile ;
 - validation Ludovic sur le premier lot a corriger.
+
+## Clarification fondateur / exploitant
+
+Ludovic teste aujourd'hui comme fondateur, pas comme entreprise exploitante.
+Il ne doit pas payer personnellement pour verifier les hotels, vols,
+reservations ou services payants.
+
+La question a poser pour chaque service sensible est donc :
+
+```text
+Peut-on valider ce parcours en mode audit/sandbox sans debit ni action reelle,
+et sera-t-il activable plus tard par un exploitant avec ses propres moyens de
+paiement et son dashboard ?
+```
+
+Conclusion Codex :
+
+- les recherches et affichages peuvent etre testes maintenant ;
+- les confirmations, reservations, paiements, SMS, emails, appels et alertes
+  doivent etre proteges par un mode audit/sandbox ou une confirmation explicite ;
+- l'exploitant futur doit acceder aux services par dashboard/configuration, sans
+  voir le code source ni les secrets.

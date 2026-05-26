@@ -69,6 +69,17 @@ Pour chaque carte/service, l'equipe doit dire :
 Personne ne doit refondre l'onglet Services, declencher des actions reelles, ni
 deployer en production avant validation de Ludovic.
 
+Clarification importante : Ludovic teste actuellement en tant que fondateur, sans
+entreprise exploitante et sans carte bancaire entreprise. Les tests doivent donc
+prouver que le parcours sera pret pour un exploitant futur, sans depense
+personnelle fondateur et sans action irreversible pendant l'audit.
+
+Voir aussi :
+
+```text
+docs/AGENTS_COLLABORATION/NOTE_011_MODE_FONDATEUR_EXPLOITANT.md
+```
+
 Actions sensibles interdites en test sans confirmation explicite :
 
 - SMS reel ;
@@ -223,4 +234,6 @@ Claude propose un plan de correction par priorite. Ludovic valide avant code.
 - [ ] Les messages utilisateur sont comprehensibles.
 - [ ] L'APK remonte les erreurs utiles.
 - [ ] Ludovic sait quoi tester sur son telephone.
+- [ ] Les services payants/sensibles sont testables en mode audit/sandbox.
+- [ ] Le futur mode exploitant est separe du mode fondateur.
 - [ ] Aucune correction majeure n'a ete faite sans validation.
