@@ -246,9 +246,14 @@ body.mode-secretaire .conc-modal-box .field input, body.mode-secretaire .conc-mo
   display: flex; align-items: center; gap: 6px; transition: background 0.2s;
 }
 .conv-new-btn:hover { background: #1e1e3f; }
+.conv-search-wrap { position: relative; width: 100%; }
+.conv-search-wrap::before {
+  content: "🔍"; position: absolute; left: 8px; top: 50%; transform: translateY(-50%);
+  font-size: 0.8em; pointer-events: none; opacity: 0.5;
+}
 .conv-search {
-  width: 100%; padding: 7px 10px; border-radius: 8px; border: 1px solid #333;
-  background: #1a1a2e; color: #fff; font-size: 0.82em; outline: none;
+  width: 100%; padding: 7px 10px 7px 28px; border-radius: 8px; border: 1px solid #333;
+  background: #1a1a2e; color: #fff; font-size: 0.82em; outline: none; box-sizing: border-box;
 }
 .conv-search:focus { border-color: #7c3aed; }
 .conv-list { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 2px 0; }
@@ -1136,7 +1141,7 @@ body.mode-secretaire .header h1 {
 }
 .conv-search {
   background: rgba(20,15,50,.72) !important; border: 1px solid var(--b) !important;
-  border-radius: 10px !important; color: #ddd6fe !important;
+  border-radius: 10px !important; color: #ddd6fe !important; padding-left: 28px !important;
 }
 .conv-search:focus { border-color: var(--b2) !important; outline: none; box-shadow: 0 0 0 2px rgba(124,58,237,.16); }
 .conv-new-btn { color: var(--v2) !important; }
@@ -1651,7 +1656,9 @@ body.mode-secretaire .luna::before {
           <button class="conv-item-btn conv-sidebar-close" id="sidebarClose" style="font-size:1.2em;padding:4px 8px;">&#10005;</button>
         </div>
         <button class="conv-new-btn" id="newConvBtn">+ Nouvelle conversation</button>
-        <input type="text" class="conv-search" id="convSearch" placeholder="Rechercher..." autocomplete="off">
+        <div class="conv-search-wrap">
+          <input type="text" class="conv-search" id="convSearch" placeholder="Rechercher..." autocomplete="off">
+        </div>
       </div>
       <div class="conv-list" id="convList"></div>
     </aside>

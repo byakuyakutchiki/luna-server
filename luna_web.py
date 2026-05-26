@@ -5642,19 +5642,24 @@ async def _stream_chat_sse(messages, chat_tools, tid, session_id, req_message, m
                 meta = mgr.redis.get_conversation_meta(tid, session_id)
                 if not (meta or {}).get("summary"):
                     _title_prompt = (
-                        "Résume cette conversation en un titre français très court, 3 à 6 mots, "
-                        "sans guillemets, sans ponctuation finale. "
-                        "Le titre doit décrire le sujet réel, pas dire 'nouvelle conversation' ni donner une date."
+                        "Donne un titre de répertoire en français, 2 à 4 mots maximum. "
+                        "Comme ChatGPT : un label court et scannable, pas une phrase. "
+                        "Sans guillemets, sans ponctuation finale, sans date, sans 'Nouvelle conversation'. "
+                        "Exemples OK : 'Voix Luna', 'Bouton connexion', 'Services exploitant', 'Recherche hôtels'. "
+                        "Exemples refusés : 'Résumé de notre conversation', 'Discussion autour de', 'Conversation du 26 mai'."
                     )
                     try:
                         title_resp = await loop.run_in_executor(None, lambda: openai_client.chat.completions.create(
                             model="gpt-4o-mini",
                             messages=[{"role": "system", "content": _title_prompt},
                                       {"role": "user", "content": f"User: {req_message[:300]}\nLuna: {full_text[:300]}"}],
-                            max_tokens=20, temperature=0.3, timeout=5))
+                            max_tokens=15, temperature=0.3, timeout=5))
                         auto_title = title_resp.choices[0].message.content.strip().strip('"').strip("'")
-                        if len(auto_title) > 50:
-                            auto_title = auto_title[:50]
+                        words = auto_title.split()
+                        if len(words) > 5:
+                            auto_title = " ".join(words[:4])
+                        if len(auto_title) > 40:
+                            auto_title = auto_title[:40]
                     except Exception:
                         _fb = req_message.strip()
                         auto_title = (_fb[:40] + "…") if len(_fb) > 40 else (_fb or "Conversation")
@@ -6310,9 +6315,11 @@ COMPORTEMENT COMPAGNON :
                 meta = mgr.redis.get_conversation_meta(tid, req.session_id)
                 if not (meta or {}).get("summary"):
                     _title_prompt = (
-                        "Résume cette conversation en un titre français très court, 3 à 6 mots, "
-                        "sans guillemets, sans ponctuation finale. "
-                        "Le titre doit décrire le sujet réel, pas dire 'nouvelle conversation' ni donner une date."
+                        "Donne un titre de répertoire en français, 2 à 4 mots maximum. "
+                        "Comme ChatGPT : un label court et scannable, pas une phrase. "
+                        "Sans guillemets, sans ponctuation finale, sans date, sans 'Nouvelle conversation'. "
+                        "Exemples OK : 'Voix Luna', 'Bouton connexion', 'Services exploitant', 'Recherche hôtels'. "
+                        "Exemples refusés : 'Résumé de notre conversation', 'Discussion autour de', 'Conversation du 26 mai'."
                     )
                     try:
                         title_resp = await asyncio.to_thread(openai_client.chat.completions.create,
@@ -6324,13 +6331,16 @@ COMPORTEMENT COMPAGNON :
                                 "role": "user",
                                 "content": f"User: {req.message[:300]}\nLuna: {luna_msg[:300]}"
                             }],
-                            max_tokens=20,
+                            max_tokens=15,
                             temperature=0.3,
                             timeout=5,
                         )
                         auto_title = title_resp.choices[0].message.content.strip().strip('"').strip("'")
-                        if len(auto_title) > 50:
-                            auto_title = auto_title[:50]
+                        words = auto_title.split()
+                        if len(words) > 5:
+                            auto_title = " ".join(words[:4])
+                        if len(auto_title) > 40:
+                            auto_title = auto_title[:40]
                     except Exception:
                         _fb = req.message.strip()
                         auto_title = (_fb[:40] + "…") if len(_fb) > 40 else (_fb or "Conversation")
