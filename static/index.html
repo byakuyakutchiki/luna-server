@@ -249,7 +249,8 @@ body.mode-secretaire .conc-modal-box .field input, body.mode-secretaire .conc-mo
 .conv-search-wrap { position: relative; width: 100%; }
 .conv-search-icon {
   position: absolute; left: 8px; top: 50%; transform: translateY(-50%);
-  font-size: 0.8em; pointer-events: none; opacity: 0.5; line-height: 1;
+  pointer-events: none; opacity: 0.55; line-height: 1; z-index: 2;
+  display: flex; align-items: center;
 }
 .conv-search {
   width: 100%; padding: 7px 10px 7px 28px; border-radius: 8px; border: 1px solid #333;
@@ -1666,7 +1667,7 @@ body.mode-secretaire .luna::before {
         </div>
         <button class="conv-new-btn" id="newConvBtn">+ Nouvelle conversation</button>
         <div class="conv-search-wrap">
-          <span class="conv-search-icon" aria-hidden="true">🔍</span>
+          <span class="conv-search-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
           <input type="text" class="conv-search" id="convSearch" placeholder="Rechercher..." autocomplete="off">
         </div>
       </div>
