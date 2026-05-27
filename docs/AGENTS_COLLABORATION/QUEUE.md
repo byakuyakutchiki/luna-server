@@ -44,6 +44,15 @@
 - Interdits : aucun changement applicatif.
 - Resultat attendu : message court dans AGENT_CHANNEL.md.
 
+### TASK-012-CODEX-RUNNER-VALIDATION
+- Agent : Codex
+- Objectif : 012
+- Niveau : 0
+- Statut : open
+- Tache : valider que le runner Windows Codex peut pull, lire la queue, ecrire un resultat, commit et push.
+- Interdits : aucun changement applicatif.
+- Resultat attendu : message court dans AGENT_CHANNEL.md visible par Kimi au cycle suivant.
+
 ---
 
 ## IN PROGRESS
@@ -61,4 +70,3 @@
 ## BLOCKED
 
 <!-- Les agents deplacent ici une tache si elle est bloquee en attendant Ludovic. -->
-
