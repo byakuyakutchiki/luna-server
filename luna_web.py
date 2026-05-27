@@ -9464,19 +9464,32 @@ async def list_conversations_endpoint(request: Request):
         return {"conversations": []}
     try:
         convs = await asyncio.to_thread(mgr.list_conversations)
-        return {
-            "conversations": [
-                {
-                    "id": c.id,
-                    "title": c.summary or "",
-                    "last_activity": c.last_activity.isoformat(),
-                    "message_count": c.message_count,
-                    "started_at": c.started_at.isoformat(),
-                }
-                for c in convs
-                if c.status != ConversationStatus.CLOSED
-            ]
-        }
+        result = []
+        for c in convs:
+            if c.status == ConversationStatus.CLOSED:
+                continue
+            preview = ""
+            if not c.summary:
+                # Extrait le premier message comme preview (évite d'afficher une date)
+                try:
+                    msgs = mgr.redis.get_messages(tid, c.id, start=0, end=2)
+                    for raw in msgs:
+                        m = json.loads(raw)
+                        text = (m.get("content") or m.get("text") or "").strip()
+                        if text:
+                            preview = text[:60]
+                            break
+                except Exception:
+                    pass
+            result.append({
+                "id": c.id,
+                "title": c.summary or "",
+                "preview": preview,
+                "last_activity": c.last_activity.isoformat(),
+                "message_count": c.message_count,
+                "started_at": c.started_at.isoformat(),
+            })
+        return {"conversations": result}
     except Exception as e:
         logger.warning(f"List conversations error: {e}")
         return {"conversations": []}
@@ -9504,6 +9517,69 @@ async def create_conversation_endpoint(req: CreateConversationRequest, request: 
     except Exception as e:
         logger.warning(f"Create conversation error: {e}")
         return JSONResponse(status_code=429, content={"error": str(e)})
+
+
+@app.post("/api/admin/retitle-conversations")
+async def retitle_conversations_endpoint(request: Request, dry_run: bool = True, limit: int = 20):
+    """Dry-run (défaut) ou retitrage GPT des conversations sans titre.
+    dry_run=true → liste ce qui serait modifié, sans écrire.
+    dry_run=false → applique les titres générés (validation Ludovic requise).
+    """
+    tid = getattr(request.state, "tenant_id", 1)
+    mgr = _get_tenant_manager(tid)
+    if not mgr:
+        return {"error": "Service indisponible"}
+    results = []
+    conv_ids = list(mgr.redis.get_conversation_ids(tid))[:limit]
+    for conv_id in conv_ids:
+        meta = mgr.redis.get_conversation_meta(tid, conv_id)
+        if not meta:
+            continue
+        summary = meta.get("summary", "")
+        if summary and len(summary.split()) <= 5:
+            continue  # titre déjà bon
+        # Récupère les 2 premiers messages pour générer un titre
+        msgs = mgr.redis.get_messages(tid, conv_id, start=0, end=3)
+        texts = []
+        for raw in msgs:
+            try:
+                m = json.loads(raw)
+                t = (m.get("content") or m.get("text") or "").strip()
+                if t:
+                    texts.append(t[:200])
+            except Exception:
+                pass
+        if not texts:
+            continue
+        # Génère le titre
+        new_title = summary  # valeur par défaut si GPT échoue
+        try:
+            _tp = (
+                "Donne un titre de répertoire en français, 2 à 4 mots maximum. "
+                "Label court et scannable, pas une phrase. Sans date, sans ponctuation finale. "
+                "Exemples : 'Voix Luna', 'Chocolat noir', 'Objectif 010', 'Documents maison'."
+            )
+            tr = await asyncio.to_thread(openai_client.chat.completions.create,
+                model="gpt-4o-mini",
+                messages=[{"role": "system", "content": _tp},
+                          {"role": "user", "content": "\n".join(texts[:2])}],
+                max_tokens=15, temperature=0.3, timeout=5)
+            new_title = tr.choices[0].message.content.strip().strip('"').strip("'")
+            words = new_title.split()
+            if len(words) > 5:
+                new_title = " ".join(words[:4])
+        except Exception as e:
+            logger.warning(f"Retitle GPT error conv {conv_id}: {e}")
+            continue
+        results.append({"id": conv_id, "old": summary, "new": new_title})
+        if not dry_run:
+            meta["summary"] = new_title
+            mgr.redis.set_conversation_meta(tid, conv_id, meta)
+    return {
+        "dry_run": dry_run,
+        "processed": len(results),
+        "results": results,
+    }
 
 
 @app.get("/api/conversations/search")
