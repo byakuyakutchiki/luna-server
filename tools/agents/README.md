@@ -15,18 +15,20 @@ Le runner fait une boucle simple : `pull -> lire queue -> travailler -> commit/p
 
 | Fichier | Role |
 |---|---|
-| `agent_loop.ps1` | Script PowerShell du runner |
+| `agent_loop.ps1` | Script PowerShell du runner (Windows) |
+| `agent_loop.sh` | Script Bash du runner (Linux/macOS) |
 | `agent_loop.config.example.json` | Configuration exemple |
 | `../../docs/AGENTS_COLLABORATION/QUEUE.md` | File de taches partagee |
 | `../../docs/AGENTS_COLLABORATION/AGENT_CHANNEL.md` | Journal des actions agents |
 
 ## Prerequis
 
-- PowerShell 7+ (`pwsh`)
+- **Windows** : PowerShell 7+ (`pwsh`)
+- **Linux/macOS** : Bash + Python 3 + Git
 - Git installe et configure (`git config user.name` / `user.email`)
 - Acces en ecriture au depot `luna-server`
 
-## Lancer le runner
+## Lancer le runner — Windows (PowerShell)
 
 ```powershell
 # Kimi
@@ -40,6 +42,22 @@ Le runner fait une boucle simple : `pull -> lire queue -> travailler -> commit/p
 
 # Repo personnalise
 .\agent_loop.ps1 -Agent DeepSeek -RepoPath "C:\Users\moi\luna-server"
+```
+
+## Lancer le runner — Linux/macOS (Bash)
+
+```bash
+# Kimi
+./agent_loop.sh --agent Kimi --interval 120
+
+# DeepSeek
+./agent_loop.sh --agent DeepSeek
+
+# Mode simulation (aucun commit/push)
+./agent_loop.sh --agent Kimi --dry-run
+
+# Repo personnalise
+./agent_loop.sh --agent Codex --repo-path /home/moi/luna-server
 ```
 
 ## Cycle du runner
