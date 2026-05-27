@@ -16,3 +16,10 @@ Fichier concerne : `docs/AGENTS_COLLABORATION/OBJECTIF_012_CANAL_DECISION_AGENTS
 Risque : faible, documentation uniquement
 Decision Ludovic requise : non
 Action proposee : chaque agent utilise ce format pour signaler avis, blocage, risque ou validation.
+
+---
+Agent : Codex
+Heure : 2026-05-28 01:11:35
+Tache : TASK-012-CODEX-RUNNER-VALIDATION
+Type : runner-detecte
+Resume : Tache TASK-012-CODEX-RUNNER-VALIDATION detectee et prete. L'agent doit executer son audit/correction localement.

@@ -145,13 +145,15 @@ function DeplacerTache([string]$taskId, [string]$from, [string]$to) {
         return
     }
     $bloc = $match.Groups[1].Value
-    $content = $content -replace [regex]::Escape($bloc), ""
+    $newStatus = $to.ToLowerInvariant().Replace(" ", "_")
+    $bloc = $bloc -replace "(?m)^- Statut\s*:\s*.*$", "- Statut : $newStatus"
+    $content = $content.Replace($match.Groups[1].Value, "")
     # Nettoyage des lignes vides residuelles
     $content = $content -replace "(?m)^\s*\r?\n{2,}", "`n"
 
     # Ajout dans la section cible
-    $insertMarker = "$sectionTo\n"
-    $content = $content -replace [regex]::Escape($insertMarker), ($insertMarker + $bloc + "`n")
+    $sectionPattern = "(?m)^$([regex]::Escape($sectionTo))\s*$"
+    $content = [regex]::Replace($content, $sectionPattern, "$sectionTo`r`n`r`n$bloc", 1)
 
     Set-Content -Path $QueueFile -Value $content -Encoding UTF8 -NoNewline
     Log "Tache $taskId deplacee : $from -> $to"
