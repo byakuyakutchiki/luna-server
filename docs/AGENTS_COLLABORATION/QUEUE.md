@@ -1,12 +1,30 @@
 # Queue agents Luna
 
-> Derniere mise a jour : 2026-05-27
+> Derniere mise a jour : 2026-05-28
 > Regles : agents autonomes niveau 0/1, Ludovic niveau 2/3
 > Ne jamais modifier cette section d'en-tete.
 
 ---
 
 ## TODO
+
+### TASK-011-CODEX-P0-CONFIRMATION-AUDIT
+- Agent : Codex
+- Objectif : 011
+- Niveau : 0
+- Statut : open
+- Tache : auditer dans le code les boutons Appeler et Visio, identifier les handlers exacts, proposer le patch minimal de confirmation sans action sensible reelle.
+- Interdits : pas d'appel reel, pas de SMS/email reel, pas de deploiement, pas de modification majeure UI.
+- Resultat attendu : message court dans AGENT_CHANNEL.md avec fichiers/lignes et proposition de patch.
+
+### TASK-010-CODEX-DEPLOY-RISK-CHECK
+- Agent : Codex
+- Objectif : 010
+- Niveau : 0
+- Statut : open
+- Tache : relire le diff Objectif 010 chat/titres/recherche, lister les risques de regression avant deploiement Kimi.
+- Interdits : pas de deploiement, pas de modification production.
+- Resultat attendu : message court dans AGENT_CHANNEL.md : pret / bloque / risques / tests conseilles.
 
 ### TASK-010-DEPLOY-READY-CHECK
 - Agent : Kimi
