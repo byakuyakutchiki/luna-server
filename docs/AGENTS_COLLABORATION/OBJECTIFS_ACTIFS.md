@@ -559,3 +559,44 @@ deploiement production sans validation.
 - [ ] Tous les services inventories.
 - [ ] Services classes par risque.
 - [ ] Ludovic valide le premier lot a corriger.
+
+---
+
+## Objectif 012 - Canal de decision agents Luna
+
+**Statut** : ouvert - V1 GitHub documentaire
+**Priorite** : haute
+**Lead coordination** : Codex
+**Date ouverture** : 2026-05-28
+**Document dedie** : `docs/AGENTS_COLLABORATION/OBJECTIF_012_CANAL_DECISION_AGENTS.md`
+
+### Probleme
+
+Ludovic ne doit pas servir de relais manuel entre les IA par copier-coller.
+Les agents doivent pouvoir converger dans GitHub, preparer les decisions, et ne
+remonter au fondateur que les arbitrages importants.
+
+### Regle Ludovic
+
+Luna doit toujours aller vers plus beau, plus fluide et plus fonctionnel.
+Aucune regression graphique. Aucun changement majeur sans validation fondateur.
+
+### Agents concernes
+
+| Agent | Tache | Statut |
+|---|---|---|
+| **Kimi** | Referent UX, graphisme, textes, detection regressions visuelles | A solliciter |
+| **Codex** | Synthese, tri, garde-fous, decisions structurees | En cours |
+| **DeepSeek** | Audit technique, faisabilite, risques code | A solliciter |
+| **Claude** | Integration finale et deploiement apres validation si impact majeur | A solliciter |
+| **Ludovic** | Validation niveau 2/3 et arbitrage fondateur | Selon besoin |
+
+### Validation
+
+- [x] Structure V1 creee dans `docs/AGENTS_COLLABORATION`.
+- [x] Regles legeres ajoutees.
+- [x] Decisions en attente / validees separees.
+- [x] Canal agent court ajoute.
+- [ ] Kimi poste son premier avis UX sur le canal.
+- [ ] DeepSeek poste son premier avis technique sur le canal.
+- [ ] Claude confirme le mode integration finale.
