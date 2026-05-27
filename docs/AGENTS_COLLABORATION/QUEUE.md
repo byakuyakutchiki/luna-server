@@ -8,15 +8,6 @@
 
 ## TODO
 
-### TASK-010-CODEX-DEPLOY-RISK-CHECK
-- Agent : Codex
-- Objectif : 010
-- Niveau : 0
-- Statut : open
-- Tache : relire le diff Objectif 010 chat/titres/recherche, lister les risques de regression avant deploiement Kimi.
-- Interdits : pas de deploiement, pas de modification production.
-- Resultat attendu : message court dans AGENT_CHANNEL.md : pret / bloque / risques / tests conseilles.
-
 ### TASK-010-DEPLOY-READY-CHECK
 - Agent : Kimi
 - Objectif : 010
@@ -56,6 +47,15 @@
 ---
 
 ## IN PROGRESS
+
+### TASK-010-CODEX-DEPLOY-RISK-CHECK
+- Agent : Codex
+- Objectif : 010
+- Niveau : 0
+- Statut : in_progress
+- Tache : relire le diff Objectif 010 chat/titres/recherche, lister les risques de regression avant deploiement Kimi.
+- Interdits : pas de deploiement, pas de modification production.
+- Resultat attendu : message court dans AGENT_CHANNEL.md : pret / bloque / risques / tests conseilles.
 
 ### TASK-012-CODEX-RUNNER-VALIDATION
 - Agent : Codex

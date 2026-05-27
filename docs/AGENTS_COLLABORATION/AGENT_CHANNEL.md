@@ -48,3 +48,10 @@ Fichier concerne : `static/index.html:3427`, `static/index.html:4616`, `static/i
 Risque : moyen si non corrige ; faible pour patch niveau 1 apres test Kimi
 Decision Ludovic requise : oui avant deploiement, non pour audit
 Action proposee : Kimi valide l'UX reelle puis code ou demande a Codex le patch minimal.
+
+---
+Agent : Codex
+Heure : 2026-05-28 01:22:17
+Tache : TASK-010-CODEX-DEPLOY-RISK-CHECK
+Type : runner-detecte
+Resume : Tache TASK-010-CODEX-DEPLOY-RISK-CHECK detectee et prete. L'agent doit executer son audit/correction localement.
