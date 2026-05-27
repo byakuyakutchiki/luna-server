@@ -6357,7 +6357,18 @@ function renderConvList(filter) {
   if (filter) {
     var lower = filter.toLowerCase();
     filtered = filtered.filter(function(c) {
-      return (c.title || "").toLowerCase().indexOf(lower) >= 0 || (c.preview || "").toLowerCase().indexOf(lower) >= 0;
+      // 1. Titre
+      if ((c.title || "").toLowerCase().indexOf(lower) >= 0) return true;
+      // 2. Preview (dernier message)
+      if ((c.preview || "").toLowerCase().indexOf(lower) >= 0) return true;
+      // 3. Messages complets stockes localement
+      try {
+        var msgs = JSON.parse(localStorage.getItem(convStorageKey(c.id)) || "[]");
+        for (var i = 0; i < msgs.length; i++) {
+          if ((msgs[i].text || "").toLowerCase().indexOf(lower) >= 0) return true;
+        }
+      } catch(e) {}
+      return false;
     });
   }
   filtered.sort(function(a, b) { return (b.last_activity || "").localeCompare(a.last_activity || ""); });
@@ -6383,7 +6394,13 @@ function renderConvList(filter) {
     var title = document.createElement("div");
     title.className = "conv-item-title";
     var displayTitle = conv.title || (conv.preview ? conv.preview.substring(0, 40) + "…" : _convDateShort(conv.last_activity));
+    // Garde-fou : tronquer l'affichage a 4 mots max pour rester scannable
+    var words = displayTitle.split(/\s+/);
+    if (words.length > 4) {
+      displayTitle = words.slice(0, 4).join(" ") + "…";
+    }
     title.textContent = displayTitle;
+    title.title = conv.title || ""; // infobulle avec titre complet
     if (!conv.title) title.style.cssText = "font-style:italic;color:#888;";
     item.appendChild(title);
     var actions = document.createElement("div"); actions.className = "conv-item-actions";
