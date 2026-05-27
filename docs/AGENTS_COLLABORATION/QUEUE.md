@@ -26,6 +26,9 @@
 - Interdits : pas d'appel reel, pas de SMS/email reel, pas de modification production.
 - Resultat attendu : fichier agents/DEEPSEEK_AVIS_011.md ou message court dans AGENT_CHANNEL.md.
 
+
+## IN PROGRESS
+
 ### TASK-011-KIMI-UX-REAL-TEST
 - Agent : Kimi
 - Objectif : 011
@@ -88,3 +91,4 @@ Resultat : voir `docs/AGENTS_COLLABORATION/agents/CODEX_DEPLOY_RISK_010.md`.
 ## BLOCKED
 
 <!-- Les agents deplacent ici une tache si elle est bloquee en attendant Ludovic. -->
+
