@@ -26,9 +26,7 @@
 - Interdits : pas d'appel reel, pas de SMS/email reel, pas de modification production.
 - Resultat attendu : fichier agents/DEEPSEEK_AVIS_011.md ou message court dans AGENT_CHANNEL.md.
 
-
 ## IN PROGRESS
-
 ### TASK-012-RUNNER-VALIDATION
 - Agent : Kimi, DeepSeek
 - Objectif : 012
@@ -95,4 +93,6 @@ Resultat : test web Cloud Run OK (elements presents et code verifie). Test APK r
 ## BLOCKED
 
 <!-- Les agents deplacent ici une tache si elle est bloquee en attendant Ludovic. -->
+
+
 
