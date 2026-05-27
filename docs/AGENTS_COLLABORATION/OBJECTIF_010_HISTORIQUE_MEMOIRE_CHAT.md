@@ -189,3 +189,20 @@ Objectif 010 = donner à Luna une organisation conversationnelle sérieuse :
 historique par conversations, titres automatiques, mémoire utile et discrète,
 plus correction mobile du bouton `Connexion` / `Déconnexion` coupé.
 
+## Retour reel 2026-05-27 - UI sidebar validee
+
+Ludovic a teste l'APK Android et valide la correction UI de la sidebar :
+
+- la sidebar est maintenant lisible ;
+- le mode focus resout la superposition avec les barres du haut ;
+- la loupe est visible ;
+- le bouton deconnexion mobile est corrige ;
+- la qualite graphique doit etre preservee.
+
+Point de coordination important : Ludovic attribue la bonne direction UX a Kimi
+sur cette correction sidebar. Claude doit tenir compte de ce retour avant toute
+nouvelle modification UI.
+
+Reste ouvert : les titres et la recherche doivent retrouver les conversations par
+sujet, y compris les anciennes conversations. Exemple donne : conversations sur
+le chocolat non retrouvees.
