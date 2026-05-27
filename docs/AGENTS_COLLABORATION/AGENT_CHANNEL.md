@@ -51,6 +51,17 @@ Action proposee : Kimi valide l'UX reelle puis code ou demande a Codex le patch 
 
 ---
 Agent : Codex
+Heure : 2026-05-28 01:28:00
+Tache : TASK-010-CODEX-DEPLOY-RISK-CHECK
+Type : validation
+Resume : Check risque 010 termine. Recherche locale titre/preview/messages + fallback serveur Redis detectes, titres tronques a 4 mots. Risque restant : si localStorage APK et Redis ne contiennent plus une ancienne conversation, la recherche ne peut pas la retrouver. Pas de deploiement sans feu vert Ludovic.
+Fichier concerne : `static/index.html:6352`, `static/index.html:6381`, `static/index.html:6434`, `docs/AGENTS_COLLABORATION/agents/CODEX_DEPLOY_RISK_010.md`
+Risque : faible a moyen avant test telephone
+Decision Ludovic requise : oui pour deploiement
+Action proposee : Kimi teste recherche `chocolat`, titre court, sidebar mobile, puis demande validation deploy.
+
+---
+Agent : Codex
 Heure : 2026-05-28 01:22:17
 Tache : TASK-010-CODEX-DEPLOY-RISK-CHECK
 Type : runner-detecte
