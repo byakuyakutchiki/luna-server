@@ -6282,6 +6282,15 @@ document.getElementById("amisSalonBtn").addEventListener("click", function() {
 // =========================================================================
 function esc(s) { if (!s) return ""; var d = document.createElement("div"); d.textContent = s; return d.innerHTML; }
 
+function debounce(fn, delay) {
+  var timer = null;
+  return function() {
+    var args = arguments;
+    clearTimeout(timer);
+    timer = setTimeout(function() { fn.apply(null, args); }, delay);
+  };
+}
+
 // =========================================================================
 // XP WIDGET + TOAST
 // =========================================================================
@@ -6483,8 +6492,12 @@ function clearConversation(convId) {
   });
 }
 
-function loadConversationList() {
-  authFetch("/api/conversations")
+function loadConversationList(search) {
+  var url = "/api/conversations";
+  if (search) {
+    url += "?search=" + encodeURIComponent(search);
+  }
+  authFetch(url)
   .then(function(r) { return r.json(); })
   .then(function(data) {
     if (data.conversations && data.conversations.length > 0) {
@@ -6504,7 +6517,7 @@ function loadConversationList() {
     if (conversationsMeta.length === 0) {
       conversationsMeta = [{ id: "default", title: "Conversation", last_activity: new Date().toISOString(), message_count: 0, preview: "" }];
     }
-    renderConvList();
+    renderConvList(search);
   });
 }
 
@@ -6520,7 +6533,7 @@ function closeSidebar() {
 document.getElementById("sidebarToggle").addEventListener("click", openSidebar);
 document.getElementById("sidebarClose").addEventListener("click", closeSidebar);
 document.getElementById("newConvBtn").addEventListener("click", createNewConversation);
-document.getElementById("convSearch").addEventListener("input", function() { renderConvList(this.value); });
+document.getElementById("convSearch").addEventListener("input", debounce(function() { loadConversationList(this.value); }, 250));
 document.getElementById("convOverlay").addEventListener("click", closeSidebar);
 document.getElementById("newChatBtn").addEventListener("click", createNewConversation);
 

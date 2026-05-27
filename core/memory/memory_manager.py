@@ -118,6 +118,30 @@ class MemoryManager:
                     pass
         return sorted(conversations, key=lambda c: c.last_activity, reverse=True)
 
+    def search_conversations(self, query: str, max_results: int = 50) -> List[Conversation]:
+        """Recherche une conversation par titre, contact ou contenu des messages."""
+        query = (query or "").strip().lower()
+        if not query:
+            return self.list_conversations()
+
+        results: List[Conversation] = []
+        for conv in self.list_conversations():
+            if conv.summary and query in conv.summary.lower():
+                results.append(conv)
+            elif conv.contact_name and query in conv.contact_name.lower():
+                results.append(conv)
+            elif conv.relation and query in (conv.relation or "").lower():
+                results.append(conv)
+            else:
+                messages = self.get_messages(conv.id, start=0, end=-1)
+                for msg in messages:
+                    if query in (msg.content or "").lower():
+                        results.append(conv)
+                        break
+            if len(results) >= max_results:
+                break
+        return results
+
     def close_conversation(self, conv_id: str) -> None:
         """Ferme une conversation"""
         data = self.redis.get_conversation_meta(self.tenant_id, conv_id)

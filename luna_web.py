@@ -9456,14 +9456,17 @@ class UpdateConversationRequest(BaseModel):
 
 
 @app.get("/api/conversations")
-async def list_conversations_endpoint(request: Request):
+async def list_conversations_endpoint(request: Request, search: str = ""):
     """Liste toutes les conversations du tenant."""
     tid = getattr(request.state, "tenant_id", 1)
     mgr = _get_tenant_manager(tid)
     if not mgr:
         return {"conversations": []}
     try:
-        convs = await asyncio.to_thread(mgr.list_conversations)
+        if search:
+            convs = await asyncio.to_thread(mgr.search_conversations, search, 200)
+        else:
+            convs = await asyncio.to_thread(mgr.list_conversations)
         return {
             "conversations": [
                 {
