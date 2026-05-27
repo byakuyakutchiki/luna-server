@@ -6372,6 +6372,43 @@ function renderConvList(filter) {
     });
   }
   filtered.sort(function(a, b) { return (b.last_activity || "").localeCompare(a.last_activity || ""); });
+  if (filtered.length === 0 && filter && filter.length >= 2) {
+    // Fallback : recherche serveur Redis si rien trouvé localement
+    var empty = document.createElement("div");
+    empty.style.cssText = "padding:24px 16px;text-align:center;color:#555;font-size:0.85em;";
+    empty.textContent = "Recherche dans l'historique…";
+    list.appendChild(empty);
+    authFetch("/api/conversations/search?q=" + encodeURIComponent(filter))
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (!data.results || data.results.length === 0) {
+          empty.textContent = "Aucune conversation trouvée.";
+          return;
+        }
+        list.innerHTML = "";
+        var hdr = document.createElement("div");
+        hdr.style.cssText = "padding:10px 10px 4px;font-size:0.72em;font-weight:600;color:#666;text-transform:uppercase;letter-spacing:0.5px;";
+        hdr.textContent = "Résultats serveur";
+        list.appendChild(hdr);
+        data.results.forEach(function(r) {
+          var item = document.createElement("div");
+          item.className = "conv-item" + (r.id === currentConvId ? " active" : "");
+          var title = document.createElement("div");
+          title.className = "conv-item-title";
+          var words = (r.title || r.id).split(/\s+/);
+          title.textContent = words.length > 4 ? words.slice(0, 4).join(" ") + "…" : (r.title || r.id);
+          var preview = document.createElement("div");
+          preview.className = "conv-item-preview";
+          preview.textContent = r.excerpt || "";
+          item.appendChild(title);
+          item.appendChild(preview);
+          item.addEventListener("click", function() { loadConversation(r.id); closeSidebar(); });
+          list.appendChild(item);
+        });
+      })
+      .catch(function() { empty.textContent = "Aucune conversation trouvée."; });
+    return;
+  }
   if (filtered.length === 0) {
     var empty = document.createElement("div");
     empty.style.cssText = "padding:24px 16px;text-align:center;color:#555;font-size:0.85em;";

@@ -9506,6 +9506,43 @@ async def create_conversation_endpoint(req: CreateConversationRequest, request: 
         return JSONResponse(status_code=429, content={"error": str(e)})
 
 
+@app.get("/api/conversations/search")
+async def search_conversations_endpoint(q: str, request: Request):
+    """Recherche plein texte dans les messages Redis des conversations actives (fallback si localStorage vide)."""
+    tid = getattr(request.state, "tenant_id", 1)
+    mgr = _get_tenant_manager(tid)
+    if not mgr or not q or len(q.strip()) < 2:
+        return {"results": []}
+    lower = q.strip().lower()
+    results = []
+    try:
+        conv_ids = mgr.redis.get_conversation_ids(tid)
+        checked = 0
+        for conv_id in list(conv_ids)[:50]:  # max 50 conversations
+            if checked >= 50:
+                break
+            checked += 1
+            msgs = mgr.redis.get_messages(tid, conv_id)
+            for raw in msgs:
+                try:
+                    m = json.loads(raw)
+                    text = (m.get("content") or m.get("text") or "").lower()
+                    if lower in text:
+                        meta = mgr.redis.get_conversation_meta(tid, conv_id)
+                        results.append({
+                            "id": conv_id,
+                            "title": (meta or {}).get("summary", ""),
+                            "excerpt": text[:120],
+                            "last_activity": (meta or {}).get("last_activity", ""),
+                        })
+                        break
+                except Exception:
+                    pass
+    except Exception as e:
+        logger.warning(f"Search conversations error: {e}")
+    return {"results": results}
+
+
 @app.patch("/api/conversations/{conv_id}")
 async def update_conversation_endpoint(conv_id: str, req: UpdateConversationRequest, request: Request):
     """Renomme une conversation."""
