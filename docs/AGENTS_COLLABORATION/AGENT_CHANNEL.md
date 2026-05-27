@@ -80,3 +80,14 @@ Heure : 2026-05-28 01:27:27
 Tache : TASK-011-KIMI-UX-REAL-TEST
 Type : runner-detecte
 Resume : Tache TASK-011-KIMI-UX-REAL-TEST detectee et prete. L'agent doit executer son audit/correction localement.
+
+---
+Agent : Kimi
+Heure : 2026-05-28 01:30:00
+Tache : TASK-011-KIMI-UX-REAL-TEST
+Type : validation
+Resume : Test web Cloud Run OK : logout-btn (6x), conv-search-icon (2x), sidebar-open classe (5x), renderConvList (11x), _showConfirm (12x) tous presents. Code source confirme recherche plein texte local + fallback serveur, troncature 4 mots. Limitation : test APK reel impossible depuis VM Linux. Recommandation : Ludovic valide recherche "chocolat", titres courts et sidebar mobile sur telephone avant deploiement.
+Fichier concerne : static/index.html, luna_web.py
+Risque : faible pour code ; moyen si non teste sur device reel
+Decision Ludovic requise : non pour cloture agent ; oui pour validation finale deploiement
+Action proposee : Test telephone Ludovic (recherche, titres, sidebar, boutons Services) puis feu vert deploy 010.

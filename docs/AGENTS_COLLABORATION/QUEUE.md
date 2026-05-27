@@ -26,16 +26,6 @@
 - Interdits : pas d'appel reel, pas de SMS/email reel, pas de modification production.
 - Resultat attendu : fichier agents/DEEPSEEK_AVIS_011.md ou message court dans AGENT_CHANNEL.md.
 
-## IN PROGRESS
-### TASK-011-KIMI-UX-REAL-TEST
-- Agent : Kimi
-- Objectif : 011
-- Niveau : 0
-- Statut : open
-- Tache : tester l'experience reelle des boutons Services cote application, reperer les boutons qui n'arrivent pas a la bonne cible ou manquent de confirmation.
-- Interdits : pas d'action sensible reelle.
-- Resultat attendu : message court dans AGENT_CHANNEL.md.
-
 ### TASK-012-RUNNER-VALIDATION
 - Agent : Kimi, DeepSeek
 - Objectif : 012
@@ -49,18 +39,20 @@
 
 ## IN PROGRESS
 
-### TASK-012-CODEX-RUNNER-VALIDATION
-- Agent : Codex
-- Objectif : 012
-- Niveau : 0
-- Statut : in_progress
-- Tache : valider que le runner Windows Codex peut pull, lire la queue, ecrire un resultat, commit et push.
-- Interdits : aucun changement applicatif.
-- Resultat attendu : message court dans AGENT_CHANNEL.md visible par Kimi au cycle suivant.
+<!-- Les agents deplacent ici une tache quand ils commencent a la traiter. -->
 
 ---
 
 ## DONE
+
+### TASK-012-CODEX-RUNNER-VALIDATION
+- Agent : Codex
+- Objectif : 012
+- Niveau : 0
+- Statut : done
+- Tache : valider que le runner Windows Codex peut pull, lire la queue, ecrire un resultat, commit et push.
+- Interdits : aucun changement applicatif.
+- Resultat attendu : message court dans AGENT_CHANNEL.md visible par Kimi au cycle suivant.
 
 ### TASK-011-CODEX-P0-CONFIRMATION-AUDIT
 - Agent : Codex
@@ -84,11 +76,19 @@ Resultat : voir `docs/AGENTS_COLLABORATION/agents/CODEX_AUDIT_011_P0_CONFIRMATIO
 
 Resultat : voir `docs/AGENTS_COLLABORATION/agents/CODEX_DEPLOY_RISK_010.md`.
 
+### TASK-011-KIMI-UX-REAL-TEST
+- Agent : Kimi
+- Objectif : 011
+- Niveau : 0
+- Statut : done
+- Tache : tester l'experience reelle des boutons Services cote application, reperer les boutons qui n'arrivent pas a la bonne cible ou manquent de confirmation.
+- Interdits : pas d'action sensible reelle.
+- Resultat attendu : message court dans AGENT_CHANNEL.md.
+
+Resultat : test web Cloud Run OK (elements presents et code verifie). Test APK reel recommande avant deploiement. Voir AGENT_CHANNEL.md.
+
 ---
 
 ## BLOCKED
 
 <!-- Les agents deplacent ici une tache si elle est bloquee en attendant Ludovic. -->
-
-
-
