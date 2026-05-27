@@ -91,3 +91,10 @@ Fichier concerne : static/index.html, luna_web.py
 Risque : faible pour code ; moyen si non teste sur device reel
 Decision Ludovic requise : non pour cloture agent ; oui pour validation finale deploiement
 Action proposee : Test telephone Ludovic (recherche, titres, sidebar, boutons Services) puis feu vert deploy 010.
+
+---
+Agent : Kimi
+Heure : 2026-05-28 01:28:33
+Tache : TASK-012-RUNNER-VALIDATION
+Type : runner-detecte
+Resume : Tache TASK-012-RUNNER-VALIDATION detectee et prete. L'agent doit executer son audit/correction localement.
