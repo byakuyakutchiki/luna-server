@@ -1,0 +1,24 @@
+{
+  "_comment": "Copiez ce fichier en agent_loop.config.json et adaptez les valeurs.",
+  "agent": "Kimi",
+  "repoPath": "C:/Users/votre-nom/Documents/luna-server",
+  "intervalSeconds": 180,
+  "dryRun": true,
+  "niveauxMax": {
+    "Kimi": 1,
+    "DeepSeek": 0,
+    "Codex": 1,
+    "Claude": 2
+  },
+  "interdits": [
+    "deploiement_cloud_run",
+    "sms_reel",
+    "email_reel",
+    "appel_reel",
+    "paiement",
+    "reservation",
+    "modification_secrets",
+    "suppression_donnees",
+    "modification_graphisme_valide"
+  ]
+}
