@@ -1,6 +1,6 @@
 # Runner local agents Luna
 
-> Objectif 012 — Canal de decision agents  
+> Objectif 012 - Canal de decision agents
 > Pas de serveur. Pas de cout. GitHub = salle de coordination.
 
 ---
@@ -28,7 +28,7 @@ Le runner fait une boucle simple : `pull -> lire queue -> travailler -> commit/p
 - Git installe et configure (`git config user.name` / `user.email`)
 - Acces en ecriture au depot `luna-server`
 
-## Lancer le runner — Windows (PowerShell)
+## Lancer le runner - Windows (PowerShell)
 
 ```powershell
 # Kimi
@@ -44,7 +44,7 @@ Le runner fait une boucle simple : `pull -> lire queue -> travailler -> commit/p
 .\agent_loop.ps1 -Agent DeepSeek -RepoPath "C:\Users\moi\luna-server"
 ```
 
-## Lancer le runner — Linux/macOS (Bash)
+## Lancer le runner - Linux/macOS (Bash)
 
 ```bash
 # Kimi
@@ -126,4 +126,4 @@ Action proposee : Ajouter _showConfirm() avant startVoiceCall()
 
 ---
 
-*Document produit par Kimi Code CLI — 2026-05-27*
+*Document produit par Kimi Code CLI - 2026-05-27*

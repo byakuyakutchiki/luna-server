@@ -1,7 +1,7 @@
 #Requires -Version 5
 <#
 .SYNOPSIS
-    Runner local GitHub pour agents Luna — boucle de coordination sans serveur.
+    Runner local GitHub pour agents Luna - boucle de coordination sans serveur.
 
 .DESCRIPTION
     Lit la queue dans docs/AGENTS_COLLABORATION/QUEUE.md,
@@ -199,7 +199,7 @@ while ($true) {
                 # DeplacerTache $id "IN PROGRESS" "DONE"
             }
 
-            GitPush "agent($Agent): runner cycle — tache $id detectee"
+            GitPush "agent($Agent): runner cycle - tache $id detectee"
         }
     }
     catch {
