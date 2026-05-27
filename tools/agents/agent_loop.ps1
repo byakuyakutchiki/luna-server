@@ -133,29 +133,88 @@ Resume : $resume
 }
 
 function DeplacerTache([string]$taskId, [string]$from, [string]$to) {
-    $content = Get-Content -Raw $QueueFile
-    $sectionFrom = "## $from"
-    $sectionTo   = "## $to"
+    $lines = @(Get-Content $QueueFile)
+    $sectionFromMarker = "## $from"
+    $sectionToMarker   = "## $to"
+    $taskMarker        = "### $taskId"
 
-    # Regex pour capturer le bloc TASK complet
-    $pattern = "(?m)(### $taskId\r?\n(?:- .*\r?\n)+)"
-    $match = [regex]::Match($content, $pattern)
-    if (-not $match.Success) {
+    $inSectionFrom = $false
+    $inTask        = $false
+    $taskLines     = @()
+    $resultLines   = @()
+    $found         = $false
+
+    for ($i = 0; $i -lt $lines.Count; $i++) {
+        $line = $lines[$i]
+
+        if ($line -eq $sectionFromMarker) {
+            $inSectionFrom = $true
+            $resultLines += $line
+            continue
+        }
+
+        if ($line -match '^## ' -and $line -ne $sectionFromMarker) {
+            $inSectionFrom = $false
+            if ($inTask) { $inTask = $false }
+        }
+
+        if ($inSectionFrom -and $line -eq $taskMarker) {
+            $inTask = $true
+            $found  = $true
+            $taskLines += $line
+            continue
+        }
+
+        if ($inTask) {
+            if ($line -match '^### ' -or $line -match '^## ') {
+                $inTask = $false
+                $inSectionFrom = $false
+                $resultLines += $line
+            } else {
+                $taskLines += $line
+            }
+        } else {
+            $resultLines += $line
+        }
+    }
+
+    if (-not $found) {
         Log "Tache $taskId non trouvee dans $from"
         return
     }
-    $bloc = $match.Groups[1].Value
+
+    # Mise a jour du statut
     $newStatus = $to.ToLowerInvariant().Replace(" ", "_")
-    $bloc = $bloc -replace "(?m)^- Statut\s*:\s*.*$", "- Statut : $newStatus"
-    $content = $content.Replace($match.Groups[1].Value, "")
-    # Nettoyage des lignes vides residuelles
-    $content = $content -replace "(?m)^\s*\r?\n{2,}", "`n"
+    for ($i = 0; $i -lt $taskLines.Count; $i++) {
+        if ($taskLines[$i] -match '^- Statut\s*:\s*.*$') {
+            $taskLines[$i] = "- Statut : $newStatus"
+        }
+    }
 
-    # Ajout dans la section cible
-    $sectionPattern = "(?m)^$([regex]::Escape($sectionTo))\s*$"
-    $content = [regex]::Replace($content, $sectionPattern, "$sectionTo`r`n`r`n$bloc", 1)
+    # Supprimer lignes vides en fin de bloc
+    while ($taskLines.Count -gt 0 -and [string]::IsNullOrWhiteSpace($taskLines[$taskLines.Count - 1])) {
+        $taskLines = $taskLines[0..($taskLines.Count - 2)]
+    }
 
-    Set-Content -Path $QueueFile -Value $content -Encoding UTF8 -NoNewline
+    # Inserer dans la section cible
+    $newResult = @()
+    for ($i = 0; $i -lt $resultLines.Count; $i++) {
+        $line = $resultLines[$i]
+        $newResult += $line
+
+        if ($line -eq $sectionToMarker) {
+            $newResult += ""
+            $newResult += $taskLines
+        }
+    }
+
+    # Garde-fou : ne pas ecrire un fichier vide ou trop court
+    if ($newResult.Count -lt 5) {
+        Log "ERREUR CRITIQUE : DeplacerTache aurait vide QUEUE.md. Operation annulee."
+        return
+    }
+
+    Set-Content -Path $QueueFile -Value $newResult -Encoding UTF8
     Log "Tache $taskId deplacee : $from -> $to"
 }
 
