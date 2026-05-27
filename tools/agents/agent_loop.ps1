@@ -41,8 +41,10 @@ param(
 # CONFIG
 # ---------------------------------------------------------------------------
 $ErrorActionPreference = "Stop"
-$QueueFile      = Join-Path $RepoPath "docs" "AGENTS_COLLABORATION" "QUEUE.md"
-$ChannelFile    = Join-Path $RepoPath "docs" "AGENTS_COLLABORATION" "AGENT_CHANNEL.md"
+$DocsDir        = Join-Path $RepoPath "docs"
+$CollabDir      = Join-Path $DocsDir "AGENTS_COLLABORATION"
+$QueueFile      = Join-Path $CollabDir "QUEUE.md"
+$ChannelFile    = Join-Path $CollabDir "AGENT_CHANNEL.md"
 $GitCommand     = Get-Command git -ErrorAction SilentlyContinue
 $GitExe         = if ($GitCommand) { $GitCommand.Source } else { $null }
 $StartTime      = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
