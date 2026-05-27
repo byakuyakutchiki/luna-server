@@ -136,3 +136,8 @@ et ne pas la remplacer par une refonte rapide.
 
 Reste a traiter : titres/recherche des conversations anciennes et nouvelles,
 notamment retrouver un sujet comme `chocolat` dans l'historique.
+
+Synthese Codex disponible : `SYNTHESE_010_RECHERCHE_HISTORIQUE_CODEX.md`.
+Recommendation : tester d'abord le patch local deja sur `main`, puis ajouter un
+fallback serveur Redis uniquement si la recherche locale ne retrouve pas les
+anciens sujets.
