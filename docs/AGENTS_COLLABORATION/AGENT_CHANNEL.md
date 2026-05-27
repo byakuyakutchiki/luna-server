@@ -37,3 +37,14 @@ Heure : 2026-05-28 01:17:13
 Tache : TASK-011-CODEX-P0-CONFIRMATION-AUDIT
 Type : runner-detecte
 Resume : Tache TASK-011-CODEX-P0-CONFIRMATION-AUDIT detectee et prete. L'agent doit executer son audit/correction localement.
+
+---
+Agent : Codex
+Heure : 2026-05-28 01:24:00
+Tache : TASK-011-CODEX-P0-CONFIRMATION-AUDIT
+Type : risque
+Resume : Audit code termine. Appeler contact et Visio Luna ont des chemins sans confirmation finale, alors que `_showConfirm()` existe deja pour SMS/email/SOS. Patch minimal recommande sans nouvelle UI : reutiliser `_showConfirm()` autour de `_confirmCallContact()` et `startCall()`. Aucun appel reel, aucun endpoint, aucun deploiement.
+Fichier concerne : `static/index.html:3427`, `static/index.html:4616`, `static/index.html:4703`, `static/index.html:4722`, `docs/AGENTS_COLLABORATION/agents/CODEX_AUDIT_011_P0_CONFIRMATIONS.md`
+Risque : moyen si non corrige ; faible pour patch niveau 1 apres test Kimi
+Decision Ludovic requise : oui avant deploiement, non pour audit
+Action proposee : Kimi valide l'UX reelle puis code ou demande a Codex le patch minimal.

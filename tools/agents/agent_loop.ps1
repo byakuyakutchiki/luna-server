@@ -138,7 +138,7 @@ function DeplacerTache([string]$taskId, [string]$from, [string]$to) {
     $sectionTo   = "## $to"
 
     # Regex pour capturer le bloc TASK complet
-    $pattern = "(?ms)(### $taskId\r?\n(?:- .*\r?\n)+)"
+    $pattern = "(?m)(### $taskId\r?\n(?:- .*\r?\n)+)"
     $match = [regex]::Match($content, $pattern)
     if (-not $match.Success) {
         Log "Tache $taskId non trouvee dans $from"
