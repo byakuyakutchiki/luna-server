@@ -1,4 +1,4 @@
-#Requires -Version 7
+#Requires -Version 5
 <#
 .SYNOPSIS
     Runner local GitHub pour agents Luna — boucle de coordination sans serveur.
@@ -43,7 +43,8 @@ param(
 $ErrorActionPreference = "Stop"
 $QueueFile      = Join-Path $RepoPath "docs" "AGENTS_COLLABORATION" "QUEUE.md"
 $ChannelFile    = Join-Path $RepoPath "docs" "AGENTS_COLLABORATION" "AGENT_CHANNEL.md"
-$GitExe         = (Get-Command git -ErrorAction SilentlyContinue)?.Source
+$GitCommand     = Get-Command git -ErrorAction SilentlyContinue
+$GitExe         = if ($GitCommand) { $GitCommand.Source } else { $null }
 $StartTime      = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
 
 if (-not $GitExe) { throw "git introuvable. Installez Git et ajoutez-le au PATH." }

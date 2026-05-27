@@ -23,7 +23,7 @@ Le runner fait une boucle simple : `pull -> lire queue -> travailler -> commit/p
 
 ## Prerequis
 
-- **Windows** : PowerShell 7+ (`pwsh`)
+- **Windows** : Windows PowerShell 5.1+ ou PowerShell 7+ (`pwsh`)
 - **Linux/macOS** : Bash + Python 3 + Git
 - Git installe et configure (`git config user.name` / `user.email`)
 - Acces en ecriture au depot `luna-server`
