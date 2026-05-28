@@ -57,9 +57,20 @@ Say ""
 if (-not (Test-Path $queuePath)) { throw "QUEUE.md introuvable : $queuePath" }
 
 $queueText = Get-Content -Raw $queuePath
+$channelText = ""
+if (Test-Path $channelPath) {
+    $channelText = (Get-Content $channelPath -Tail 140) -join "`n"
+}
+
 $taskBlock = Get-TaskBlock $queueText $TaskId
 if (-not $taskBlock) {
-    $taskBlock = "Aucune tache precise fournie. Lire QUEUE.md et proposer la prochaine action DeepSeek niveau 0."
+    $todoMatch = [regex]::Match($queueText, "(?s)## TODO\s*(.*?)\s*---")
+    $todoText = if ($todoMatch.Success) { $todoMatch.Groups[1].Value.Trim() } else { "" }
+    if ($todoText -and $todoText -notmatch "Aucune tache ouverte") {
+        $taskBlock = "Aucune tache precise fournie. TODO actuel :`n$todoText"
+    } else {
+        $taskBlock = "Aucune tache DeepSeek ouverte. Ne pas relancer les audits deja termines ; faire seulement une synthese de l'etat actuel."
+    }
 }
 
 $codexAudit = ""
@@ -80,8 +91,16 @@ Contraintes absolues :
 Queue actuelle :
 $taskBlock
 
+Derniers messages valides du canal agents :
+$channelText
+
 Audit Codex disponible :
 $codexAudit
+
+Important :
+- Si le canal indique qu'un patch est deploye ou qu'une tache est done, tu dois le considerer comme l'etat le plus recent.
+- Ne redis pas qu'un risque est encore present si AGENT_CHANNEL.md indique qu'il a ete corrige/deploye.
+- Si aucune tache ouverte n'existe, reponds que DeepSeek est en attente et propose uniquement les tests telephone non destructifs.
 
 Reponds au format :
 Agent :

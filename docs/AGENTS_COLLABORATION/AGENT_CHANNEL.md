@@ -170,3 +170,14 @@ Fichier concerne : static/index.html
 Risque : faible
 Decision Ludovic requise : non
 Action proposee : Tester sur telephone que la confirmation s'affiche bien avant chaque appel/visio.
+
+---
+Agent : Codex
+Heure : 2026-05-29 00:22:00
+Tache : TASK-012-DEEPSEEK-TERMINAL-CONTEXT
+Type : validation
+Resume : Terminal DeepSeek corrige. Il lit maintenant AGENT_CHANNEL.md recent avant les anciens audits, donc il reconnait que 010 et 011 sont deja deployes. Test API OK : DeepSeek indique aucune tache ouverte et attente validation telephone Ludovic.
+Fichier concerne : tools/agents/deepseek_terminal.ps1, docs/AGENTS_COLLABORATION/AGENT_CHANNEL.md
+Risque : faible
+Decision Ludovic requise : non
+Action proposee : Utiliser .\tools\agents\deepseek_terminal.ps1 dans un nouveau terminal si besoin ; ne pas relancer d'audit 011 obsolete.
