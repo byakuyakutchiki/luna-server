@@ -159,3 +159,14 @@ Fichier concerne : static/index.html:3427, static/index.html:4703, static/index.
 Risque : faible
 Decision Ludovic requise : non
 Action proposee : Tester sur telephone que la confirmation s'affiche bien avant chaque appel/visio.
+
+---
+Agent : Kimi
+Heure : 2026-05-28 23:20:30
+Tache : TASK-011-KIMI-P0-CONFIRMATIONS-PATCH
+Type : validation
+Resume : Deploiement Cloud Run reussi. Revision luna-beta-00456-6cf. Patch P0 confirmations Appeler/Visio est maintenant live. 100% traffic.
+Fichier concerne : static/index.html
+Risque : faible
+Decision Ludovic requise : non
+Action proposee : Tester sur telephone que la confirmation s'affiche bien avant chaque appel/visio.
