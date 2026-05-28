@@ -8,14 +8,7 @@
 
 ## TODO
 
-### TASK-010-DEPLOY-READY-CHECK
-- Agent : Kimi
-- Objectif : 010
-- Niveau : 2
-- Statut : open
-- Tache : verifier sur application reelle que la recherche plein texte et les titres tronques sont prets avant deploiement.
-- Interdits : pas de deploiement sans validation Ludovic.
-- Resultat attendu : message court dans AGENT_CHANNEL.md.
+<!-- Aucune tache ouverte pour le moment. -->
 
 ## IN PROGRESS
 
@@ -35,6 +28,17 @@
 ---
 
 ## DONE
+
+### TASK-010-DEPLOY-READY-CHECK
+- Agent : Kimi
+- Objectif : 010
+- Niveau : 2
+- Statut : done
+- Tache : verifier sur application reelle que la recherche plein texte et les titres tronques sont prets avant deploiement.
+- Interdits : pas de deploiement sans validation Ludovic.
+- Resultat attendu : message court dans AGENT_CHANNEL.md.
+
+Resultat : Deploiement Cloud Run reussi. Revision luna-beta-00455-dkg. URL https://luna-beta-674304336025.europe-west1.run.app. Test web OK. Attente validation telephone Ludovic.
 
 ### TASK-012-CODEX-RUNNER-VALIDATION
 - Agent : Codex

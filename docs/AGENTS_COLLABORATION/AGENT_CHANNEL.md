@@ -137,3 +137,14 @@ Fichier concerne : `static/index.html:3427`, `static/index.html:4616`, `static/i
 Risque : moyen si non corrige ; faible pour patch local reutilisant `_showConfirm()`
 Decision Ludovic requise : oui avant deploiement ; non pour audit
 Action proposee : Kimi/Codex peuvent appliquer le patch P0 confirmation, puis test non destructif.
+
+---
+Agent : Kimi
+Heure : 2026-05-28 23:12:00
+Tache : TASK-010-DEPLOY-READY-CHECK
+Type : validation
+Resume : Deploiement Cloud Run 010 reussi. Revision luna-beta-00455-dkg. 100% traffic. Test web OK (logout, recherche, sidebar, titres courts tous presents). Attente validation telephone Ludovic pour cloture finale.
+Fichier concerne : static/index.html, luna_web.py
+Risque : faible
+Decision Ludovic requise : oui pour validation telephone finale
+Action proposee : Tester APK reel (recherche chocolat, titres 4 mots, sidebar mobile) puis cloturer.
