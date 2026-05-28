@@ -8,15 +8,6 @@
 
 ## TODO
 
-### TASK-013-KIMI-UX-VISIO-REAL-TEST
-- Agent : Kimi
-- Objectif : 013
-- Niveau : 0
-- Statut : open
-- Tache : tester l'experience reelle de la visio Luna sur application : bouton Visio, confirmation, cinematique, avatar, voix, reponse au texte, vision camera. Reperer les frictions UI et les incoherences.
-- Interdits : pas de consommation inutile des credits Simli, pas de sessions longues en boucle.
-- Resultat attendu : message court dans AGENT_CHANNEL.md avec points de friction et propositions UX.
-
 ### TASK-013-DEEPSEEK-SIMLI-FLOW-AUDIT
 - Agent : DeepSeek
 - Objectif : 013
@@ -36,6 +27,15 @@
 - Resultat attendu : message court dans AGENT_CHANNEL.md + mise a jour OBJECTIF_013_VISIO_LUNA_SIMLI.md si besoin.
 
 ## IN PROGRESS
+
+### TASK-013-KIMI-UX-VISIO-REAL-TEST
+- Agent : Kimi
+- Objectif : 013
+- Niveau : 0
+- Statut : in_progress
+- Tache : tester l'experience reelle de la visio Luna sur application : bouton Visio, confirmation, cinematique, avatar, voix, reponse au texte, vision camera. Reperer les frictions UI et les incoherences.
+- Interdits : pas de consommation inutile des credits Simli, pas de sessions longues en boucle.
+- Resultat attendu : message court dans AGENT_CHANNEL.md avec points de friction et propositions UX.
 
 ### TASK-012-RUNNER-VALIDATION
 - Agent : Kimi, DeepSeek
