@@ -181,3 +181,14 @@ Fichier concerne : tools/agents/deepseek_terminal.ps1, docs/AGENTS_COLLABORATION
 Risque : faible
 Decision Ludovic requise : non
 Action proposee : Utiliser .\tools\agents\deepseek_terminal.ps1 dans un nouveau terminal si besoin ; ne pas relancer d'audit 011 obsolete.
+
+---
+Agent : Codex
+Heure : 2026-05-29 00:45:00
+Tache : TASK-013-LUNA-AVATAR-ASSETS
+Type : validation
+Resume : References visuelles Luna centralisees pour Objectif 013. Photos app, Luna adulte Windows et references doll/decor copiees dans docs/assets/luna_avatar_sources avec planche contact. Ce sont des sources, pas un changement production.
+Fichier concerne : docs/assets/luna_avatar_sources/, docs/AGENTS_COLLABORATION/LUNA_AVATAR_ASSETS.md
+Risque : faible
+Decision Ludovic requise : oui avant creation/remplacement avatar Simli
+Action proposee : Kimi choisit la meilleure reference Luna adulte ; DeepSeek audite SIMLI_FACE_ID/voix/flux.
