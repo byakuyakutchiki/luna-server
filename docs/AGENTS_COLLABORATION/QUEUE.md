@@ -17,16 +17,16 @@
 - Interdits : pas de deploiement, pas de consommation Simli inutile.
 - Resultat attendu : message court dans AGENT_CHANNEL.md avec fichiers/lignes exacts et propositions techniques.
 
+## IN PROGRESS
+
 ### TASK-013-CODEX-VISIO-SYNTHESIS
 - Agent : Codex
 - Objectif : 013
 - Niveau : 0
-- Statut : open
+- Statut : in_progress
 - Tache : structurer la synthese Objectif 013, prioriser les corrections, identifier les decisions niveau 2/3 a remonter a Ludovic (avatar Luna, voix feminine, input texte visio, vision camera V1/V2).
 - Interdits : pas de modification code, pas de deploiement.
 - Resultat attendu : message court dans AGENT_CHANNEL.md + mise a jour OBJECTIF_013_VISIO_LUNA_SIMLI.md si besoin.
-
-## IN PROGRESS
 
 ### TASK-013-KIMI-UX-VISIO-REAL-TEST
 - Agent : Kimi
