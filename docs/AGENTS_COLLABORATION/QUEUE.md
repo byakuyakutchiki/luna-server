@@ -8,7 +8,32 @@
 
 ## TODO
 
-<!-- Aucune tache ouverte pour le moment. -->
+### TASK-013-KIMI-UX-VISIO-REAL-TEST
+- Agent : Kimi
+- Objectif : 013
+- Niveau : 0
+- Statut : open
+- Tache : tester l'experience reelle de la visio Luna sur application : bouton Visio, confirmation, cinematique, avatar, voix, reponse au texte, vision camera. Reperer les frictions UI et les incoherences.
+- Interdits : pas de consommation inutile des credits Simli, pas de sessions longues en boucle.
+- Resultat attendu : message court dans AGENT_CHANNEL.md avec points de friction et propositions UX.
+
+### TASK-013-DEEPSEEK-SIMLI-FLOW-AUDIT
+- Agent : DeepSeek
+- Objectif : 013
+- Niveau : 0
+- Statut : open
+- Tache : auditer le flux technique Simli/Tavus dans le code : configuration avatar/voix, transmission messages, vision camera, hangup, WebSocket desactivee. Identifier causes exactes des 4 problemes (avatar, voix masculine, texte non transmis, vision limitee).
+- Interdits : pas de deploiement, pas de consommation Simli inutile.
+- Resultat attendu : message court dans AGENT_CHANNEL.md avec fichiers/lignes exacts et propositions techniques.
+
+### TASK-013-CODEX-VISIO-SYNTHESIS
+- Agent : Codex
+- Objectif : 013
+- Niveau : 0
+- Statut : open
+- Tache : structurer la synthese Objectif 013, prioriser les corrections, identifier les decisions niveau 2/3 a remonter a Ludovic (avatar Luna, voix feminine, input texte visio, vision camera V1/V2).
+- Interdits : pas de modification code, pas de deploiement.
+- Resultat attendu : message court dans AGENT_CHANNEL.md + mise a jour OBJECTIF_013_VISIO_LUNA_SIMLI.md si besoin.
 
 ## IN PROGRESS
 

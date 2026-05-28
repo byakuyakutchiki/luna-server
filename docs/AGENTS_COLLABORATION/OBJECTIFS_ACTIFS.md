@@ -505,6 +505,56 @@ Un bug UI mobile est aussi à traiter séparément : le bouton `Connexion` /
 
 ---
 
+## Objectif 013 — Visio Luna réelle / Simli / voix / vision caméra
+
+**Statut** : ouvert — audit multi-agents  
+**Priorité** : haute  
+**Lead final** : Claude  
+**Date ouverture** : 2026-05-28  
+**Document dédié** : `docs/AGENTS_COLLABORATION/OBJECTIF_013_VISIO_LUNA_SIMLI.md`
+
+### Problème
+
+Ludovic a testé la visio sur l'APK réelle. Le bouton Visio lance Simli, l'avatar apparaît, mais :
+1. L'avatar n'est pas Luna.
+2. La voix est masculine (avatar féminin).
+3. Luna ne répond pas aux messages texte.
+4. Luna ne semble pas analyser la caméra.
+
+### Architecture
+
+Flux visio = Tavus (premium) → Simli (fallback) → Daily.js iframe (WebRTC).  
+LLM côté Simli = gpt-4o-mini. TTS = Cartesia ou ElevenLabs.  
+Vision caméra = capture canvas toutes les 12s → POST /api/visio/perception → injection texte.
+
+### Agents concernés
+
+| Agent | Tâche | Statut |
+|---|---|---|
+| **Kimi** | UX visio réelle : tester le parcours, frictions UI, cohérence avatar/voix | À solliciter |
+| **DeepSeek** | Audit technique : flux Simli/Tavus, config voix/avatar, vision, hangup | À solliciter |
+| **Codex** | Synthèse, priorisation, décisions Ludovic | À solliciter |
+| **Claude** | Intégration finale après validation | En attente |
+| **Ludovic** | Validation avatar, voix, input texte, vision | En attente |
+
+### Interdictions
+
+- Pas de déploiement sans validation.
+- Pas de consommation inutile des 996 min Simli restantes.
+- Pas de remplacement avatar/voix sans validation Ludovic.
+- Pas de sessions longues en boucle.
+
+### Validation
+
+- [ ] Kimi a testé l'UX visio réelle.
+- [ ] DeepSeek a audité le flux technique.
+- [ ] Codex a structuré la synthèse.
+- [ ] Ludovic a validé le plan d'action.
+- [ ] Implémentation sur branche dédiée.
+- [ ] Test téléphone validé.
+
+---
+
 ## Objectif 011 - Audit complet onglet Services / Conciergerie
 
 **Statut** : ouvert - audit multi-agents uniquement  

@@ -192,3 +192,14 @@ Fichier concerne : docs/assets/luna_avatar_sources/, docs/AGENTS_COLLABORATION/L
 Risque : faible
 Decision Ludovic requise : oui avant creation/remplacement avatar Simli
 Action proposee : Kimi choisit la meilleure reference Luna adulte ; DeepSeek audite SIMLI_FACE_ID/voix/flux.
+
+---
+Agent : Kimi
+Heure : 2026-05-29 00:30:00
+Tache : OBJECTIF-013-CREATION
+Type : proposition
+Resume : Objectif 013 cree suite au test terrain visio Ludovic. 4 problemes identifies : (1) avatar pas Luna, (2) voix masculine, (3) Luna ne repond pas au texte, (4) vision camera limitee. Audit multi-agents lance. Flux visio = Tavus prio + Simli fallback, Daily.js WebRTC, gpt-4o-mini cote Simli. 996 min Simli restantes.
+Fichier concerne : docs/AGENTS_COLLABORATION/OBJECTIF_013_VISIO_LUNA_SIMLI.md, static/simli.html, luna_web.py
+Risque : moyen (changement visible majeur si avatar/voix modifies) ; faible pour audit
+Decision Ludovic requise : non pour audit ; oui pour choix avatar Luna, voix feminine, input texte visio
+Action proposee : Kimi teste UX, DeepSeek audite code, Codex structure synthese et decisions.
