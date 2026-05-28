@@ -204,31 +204,79 @@ _deplacer_tache_py() {
 python3 - "$QUEUE_FILE" "$1" "$2" "$3" << 'PYEOF'
 import sys, re
 path, task_id, section_from, section_to = sys.argv[1:5]
-with open(path, "r", encoding="utf-8") as f:
-    content = f.read()
 
-# Regex pour capturer le bloc TASK complet (### TASK-ID\n puis lignes jusqu'à ligne vide ou prochain ### ou ##)
-pattern = re.compile(rf'(?ms)(### {re.escape(task_id)}\r?\n(?:- .*\r?\n)+)')
-match = pattern.search(content)
-if not match:
+with open(path, "r", encoding="utf-8") as f:
+    lines = f.read().splitlines()
+
+section_from_marker = f"## {section_from}"
+section_to_marker   = f"## {section_to}"
+task_marker         = f"### {task_id}"
+
+in_section_from = False
+in_task         = False
+task_lines      = []
+result_lines    = []
+found           = False
+
+for line in lines:
+    if line == section_from_marker:
+        in_section_from = True
+        result_lines.append(line)
+        continue
+
+    if line.startswith("## ") and line != section_from_marker:
+        in_section_from = False
+        if in_task:
+            in_task = False
+
+    if in_section_from and line == task_marker:
+        in_task = True
+        found   = True
+        task_lines.append(line)
+        continue
+
+    if in_task:
+        if line.startswith("### ") or line.startswith("## "):
+            in_task = False
+            in_section_from = False
+            result_lines.append(line)
+        else:
+            task_lines.append(line)
+    else:
+        result_lines.append(line)
+
+if not found:
     print(f"Tache {task_id} non trouvee dans {section_from}", file=sys.stderr)
     sys.exit(1)
 
-bloc = match.group(1)
-content = content.replace(bloc, "", 1)
-# Nettoyage lignes vides residuelles
-content = re.sub(r'\n{3,}', '\n\n', content)
+# Mise a jour du statut
+new_status = section_to.lower().replace(" ", "_")
+for i in range(len(task_lines)):
+    if re.match(r'^- Statut\s*:\s*', task_lines[i]):
+        task_lines[i] = f"- Statut : {new_status}"
 
-# Trouver la section cible et inserer
-marker = f"## {section_to}\n"
-if marker in content:
-    content = content.replace(marker, marker + bloc + "\n", 1)
-else:
-    # fallback : ajouter à la fin
-    content += "\n" + marker + "\n" + bloc + "\n"
+# Supprimer lignes vides en fin de bloc
+while task_lines and task_lines[-1].strip() == "":
+    task_lines.pop()
+
+# Inserer dans la section cible
+new_result = []
+inserted = False
+for line in result_lines:
+    new_result.append(line)
+    if line == section_to_marker and not inserted:
+        new_result.append("")
+        new_result.extend(task_lines)
+        inserted = True
+
+# Garde-fou
+if len(new_result) < 5:
+    print("ERREUR CRITIQUE : DeplacerTache aurait vide QUEUE.md. Operation annulee.", file=sys.stderr)
+    sys.exit(1)
 
 with open(path, "w", encoding="utf-8") as f:
-    f.write(content)
+    f.write("\n".join(new_result) + "\n")
+
 print(f"Tache {task_id} deplacee : {section_from} -> {section_to}")
 PYEOF
 }
