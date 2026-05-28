@@ -26,18 +26,18 @@
 - Interdits : pas d'appel reel, pas de SMS/email reel, pas de modification production.
 - Resultat attendu : fichier agents/DEEPSEEK_AVIS_011.md ou message court dans AGENT_CHANNEL.md.
 
+## IN PROGRESS
+
 ### TASK-012-RUNNER-VALIDATION
 - Agent : Kimi, DeepSeek
 - Objectif : 012
 - Niveau : 0
-- Statut : open
+- Statut : in_progress
 - Tache : valider que le runner local peut pull, lire la queue, ecrire un resultat, commit et push.
 - Interdits : aucun changement applicatif.
 - Resultat attendu : message court dans AGENT_CHANNEL.md.
 
 ---
-
-## IN PROGRESS
 
 <!-- Les agents deplacent ici une tache quand ils commencent a la traiter. -->
 
