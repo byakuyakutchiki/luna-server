@@ -1,7 +1,7 @@
-#Requires -Version 7
+#Requires -Version 5
 <#
 .SYNOPSIS
-    Runner local GitHub pour agents Luna — boucle de coordination sans serveur.
+    Runner local GitHub pour agents Luna - boucle de coordination sans serveur.
 
 .DESCRIPTION
     Lit la queue dans docs/AGENTS_COLLABORATION/QUEUE.md,
@@ -41,9 +41,12 @@ param(
 # CONFIG
 # ---------------------------------------------------------------------------
 $ErrorActionPreference = "Stop"
-$QueueFile      = Join-Path $RepoPath "docs" "AGENTS_COLLABORATION" "QUEUE.md"
-$ChannelFile    = Join-Path $RepoPath "docs" "AGENTS_COLLABORATION" "AGENT_CHANNEL.md"
-$GitExe         = (Get-Command git -ErrorAction SilentlyContinue)?.Source
+$DocsDir        = Join-Path $RepoPath "docs"
+$CollabDir      = Join-Path $DocsDir "AGENTS_COLLABORATION"
+$QueueFile      = Join-Path $CollabDir "QUEUE.md"
+$ChannelFile    = Join-Path $CollabDir "AGENT_CHANNEL.md"
+$GitCommand     = Get-Command git -ErrorAction SilentlyContinue
+$GitExe         = if ($GitCommand) { $GitCommand.Source } else { $null }
 $StartTime      = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
 
 if (-not $GitExe) { throw "git introuvable. Installez Git et ajoutez-le au PATH." }
@@ -130,27 +133,88 @@ Resume : $resume
 }
 
 function DeplacerTache([string]$taskId, [string]$from, [string]$to) {
-    $content = Get-Content -Raw $QueueFile
-    $sectionFrom = "## $from"
-    $sectionTo   = "## $to"
+    $lines = @(Get-Content $QueueFile)
+    $sectionFromMarker = "## $from"
+    $sectionToMarker   = "## $to"
+    $taskMarker        = "### $taskId"
 
-    # Regex pour capturer le bloc TASK complet
-    $pattern = "(?ms)(### $taskId\r?\n(?:- .*\r?\n)+)"
-    $match = [regex]::Match($content, $pattern)
-    if (-not $match.Success) {
+    $inSectionFrom = $false
+    $inTask        = $false
+    $taskLines     = @()
+    $resultLines   = @()
+    $found         = $false
+
+    for ($i = 0; $i -lt $lines.Count; $i++) {
+        $line = $lines[$i]
+
+        if ($line -eq $sectionFromMarker) {
+            $inSectionFrom = $true
+            $resultLines += $line
+            continue
+        }
+
+        if ($line -match '^## ' -and $line -ne $sectionFromMarker) {
+            $inSectionFrom = $false
+            if ($inTask) { $inTask = $false }
+        }
+
+        if ($inSectionFrom -and $line -eq $taskMarker) {
+            $inTask = $true
+            $found  = $true
+            $taskLines += $line
+            continue
+        }
+
+        if ($inTask) {
+            if ($line -match '^### ' -or $line -match '^## ') {
+                $inTask = $false
+                $inSectionFrom = $false
+                $resultLines += $line
+            } else {
+                $taskLines += $line
+            }
+        } else {
+            $resultLines += $line
+        }
+    }
+
+    if (-not $found) {
         Log "Tache $taskId non trouvee dans $from"
         return
     }
-    $bloc = $match.Groups[1].Value
-    $content = $content -replace [regex]::Escape($bloc), ""
-    # Nettoyage des lignes vides residuelles
-    $content = $content -replace "(?m)^\s*\r?\n{2,}", "`n"
 
-    # Ajout dans la section cible
-    $insertMarker = "$sectionTo\n"
-    $content = $content -replace [regex]::Escape($insertMarker), ($insertMarker + $bloc + "`n")
+    # Mise a jour du statut
+    $newStatus = $to.ToLowerInvariant().Replace(" ", "_")
+    for ($i = 0; $i -lt $taskLines.Count; $i++) {
+        if ($taskLines[$i] -match '^- Statut\s*:\s*.*$') {
+            $taskLines[$i] = "- Statut : $newStatus"
+        }
+    }
 
-    Set-Content -Path $QueueFile -Value $content -Encoding UTF8 -NoNewline
+    # Supprimer lignes vides en fin de bloc
+    while ($taskLines.Count -gt 0 -and [string]::IsNullOrWhiteSpace($taskLines[$taskLines.Count - 1])) {
+        $taskLines = $taskLines[0..($taskLines.Count - 2)]
+    }
+
+    # Inserer dans la section cible
+    $newResult = @()
+    for ($i = 0; $i -lt $resultLines.Count; $i++) {
+        $line = $resultLines[$i]
+        $newResult += $line
+
+        if ($line -eq $sectionToMarker) {
+            $newResult += ""
+            $newResult += $taskLines
+        }
+    }
+
+    # Garde-fou : ne pas ecrire un fichier vide ou trop court
+    if ($newResult.Count -lt 5) {
+        Log "ERREUR CRITIQUE : DeplacerTache aurait vide QUEUE.md. Operation annulee."
+        return
+    }
+
+    Set-Content -Path $QueueFile -Value $newResult -Encoding UTF8
     Log "Tache $taskId deplacee : $from -> $to"
 }
 
@@ -198,7 +262,7 @@ while ($true) {
                 # DeplacerTache $id "IN PROGRESS" "DONE"
             }
 
-            GitPush "agent($Agent): runner cycle — tache $id detectee"
+            GitPush "agent($Agent): runner cycle - tache $id detectee"
         }
     }
     catch {

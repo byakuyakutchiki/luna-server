@@ -3425,7 +3425,9 @@ function _concStartVoice() {
   if (typeof _showCallContactModal === "function") _showCallContactModal();
 }
 function _concStartVisio() {
-  if (typeof startCall === "function") startCall();
+  _showConfirm("Lancer la visio Luna ?", "La session va ouvrir la caméra et le micro selon tes autorisations.", function() {
+    if (typeof startCall === "function") startCall();
+  });
 }
 function _concAlertUrgence() {
   _showConfirm("Alerte urgence", "Tous tes contacts de confiance vont recevoir un SMS d'alerte. Confirmer ?", function() {
@@ -4704,8 +4706,10 @@ function _confirmCallContact() {
   if (!_callContactSelected) return;
   var mission   = document.getElementById("callContactMission").value.trim();
   var duration  = parseInt(document.getElementById("callContactDuration").value, 10);
-  _closeCallContactModal();
-  startVoiceCall(_callContactSelected.phone, _callContactSelected.name, mission, duration);
+  _showConfirm("Lancer l'appel ?", "Appel à " + _callContactSelected.name + " (" + duration + " min). Confirmer ?", function() {
+    _closeCallContactModal();
+    startVoiceCall(_callContactSelected.phone, _callContactSelected.name, mission, duration);
+  });
 }
 
 // --- Action Menu (+) ---
@@ -4719,7 +4723,12 @@ actionToggle.addEventListener("click", function(e) {
   if (actionMenu.classList.contains("open")) _closeActionMenu(); else _openActionMenu();
 });
 actionOverlay.addEventListener("click", _closeActionMenu);
-callBtn.addEventListener("click", function() { _closeActionMenu(); startCall(); });
+callBtn.addEventListener("click", function() {
+  _closeActionMenu();
+  _showConfirm("Lancer la visio Luna ?", "La session va ouvrir la caméra et le micro selon tes autorisations.", function() {
+    startCall();
+  });
+});
 document.getElementById("activitiesShortcut").addEventListener("click", function() {
   _closeActionMenu();
   loadActivities();
