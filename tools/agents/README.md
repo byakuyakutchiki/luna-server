@@ -109,3 +109,48 @@ Action proposee : Ajouter _showConfirm() avant startVoiceCall()
 ---
 
 *Document produit par Kimi Code CLI — 2026-05-27*
+
+---
+
+## Terminal DeepSeek VM
+
+Lance un chat interactif avec DeepSeek directement depuis le terminal de la VM.
+DeepSeek charge automatiquement le contexte Luna (objectifs, queue, règles).
+
+### Prérequis
+
+```bash
+export DEEPSEEK_API_KEY="sk-..."
+```
+
+> Ne jamais committer cette clé. Ne jamais l'écrire dans un fichier Git.
+
+### Lancer
+
+```bash
+cd /home/ludo/luna-server
+./tools/agents/deepseek_chat.sh
+```
+
+Ou directement :
+
+```bash
+python3 tools/agents/deepseek_chat.py
+```
+
+### Exemple de session
+
+```
+Ludovic > qui es-tu ?
+DeepSeek > Je suis DeepSeek, l'agent technique d'audit code Luna.
+
+Ludovic > audite le fichier luna_web.py côté voix
+DeepSeek > ...
+```
+
+### Règles DeepSeek dans ce terminal
+
+- Niveau autorisé : **0 uniquement** (audit, avis, doc, tests non destructifs)
+- Jamais de déploiement, jamais de modification production
+- Jamais d'action réelle (SMS, appel, paiement, réservation)
+- Changement niveau 1+ : soumettre à Ludovic pour validation
