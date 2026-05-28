@@ -17,15 +17,6 @@
 - Interdits : pas de deploiement sans validation Ludovic.
 - Resultat attendu : message court dans AGENT_CHANNEL.md.
 
-### TASK-011-DEEPSEEK-AUDIT-CODE
-- Agent : DeepSeek
-- Objectif : 011
-- Niveau : 0
-- Statut : open
-- Tache : auditer le code des boutons Services / Conciergerie, surtout Appeler et Visio.
-- Interdits : pas d'appel reel, pas de SMS/email reel, pas de modification production.
-- Resultat attendu : fichier agents/DEEPSEEK_AVIS_011.md ou message court dans AGENT_CHANNEL.md.
-
 ## IN PROGRESS
 
 ### TASK-012-RUNNER-VALIDATION
@@ -86,6 +77,17 @@ Resultat : voir `docs/AGENTS_COLLABORATION/agents/CODEX_DEPLOY_RISK_010.md`.
 - Resultat attendu : message court dans AGENT_CHANNEL.md.
 
 Resultat : test web Cloud Run OK (elements presents et code verifie). Test APK reel recommande avant deploiement. Voir AGENT_CHANNEL.md.
+
+### TASK-011-DEEPSEEK-AUDIT-CODE
+- Agent : DeepSeek
+- Objectif : 011
+- Niveau : 0
+- Statut : done
+- Tache : auditer le code des boutons Services / Conciergerie, surtout Appeler et Visio.
+- Interdits : pas d'appel reel, pas de SMS/email reel, pas de modification production.
+- Resultat attendu : fichier agents/DEEPSEEK_AVIS_011.md ou message court dans AGENT_CHANNEL.md.
+
+Resultat : voir `docs/AGENTS_COLLABORATION/agents/DEEPSEEK_AVIS_011.md`.
 
 ---
 

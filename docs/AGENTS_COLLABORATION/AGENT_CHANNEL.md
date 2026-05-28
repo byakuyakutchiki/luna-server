@@ -126,3 +126,14 @@ Heure : 2026-05-28 23:00:45
 Tache : TASK-012-RUNNER-VALIDATION
 Type : runner-detecte
 Resume : Tache TASK-012-RUNNER-VALIDATION detectee et prete. L'agent doit executer son audit/correction localement.
+
+---
+Agent : DeepSeek
+Heure : 2026-05-28 23:09:00
+Tache : TASK-011-DEEPSEEK-AUDIT-CODE
+Type : risque
+Resume : Audit code termine. DeepSeek confirme le risque Codex : Appeler et Visio contournent `_showConfirm()` sur certains chemins. Patch minimal recommande : wrapper confirmation avant `startCall()` et `startVoiceCall()`, sans nouvelle UI ni endpoint.
+Fichier concerne : `static/index.html:3427`, `static/index.html:4616`, `static/index.html:4703`, `static/index.html:4722`, `docs/AGENTS_COLLABORATION/agents/DEEPSEEK_AVIS_011.md`
+Risque : moyen si non corrige ; faible pour patch local reutilisant `_showConfirm()`
+Decision Ludovic requise : oui avant deploiement ; non pour audit
+Action proposee : Kimi/Codex peuvent appliquer le patch P0 confirmation, puis test non destructif.
