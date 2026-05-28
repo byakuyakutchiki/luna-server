@@ -29,6 +29,17 @@
 
 ## DONE
 
+### TASK-011-KIMI-P0-CONFIRMATIONS-PATCH
+- Agent : Kimi
+- Objectif : 011
+- Niveau : 1
+- Statut : done
+- Tache : implementer le patch minimal de confirmation P0 sur Appeler et Visio, converge avec audits Codex + DeepSeek.
+- Interdits : pas d'appel reel, pas de SMS/email reel, pas de nouvelle UI.
+- Resultat attendu : commit + deploiement Cloud Run.
+
+Resultat : Patch applique static/index.html. _showConfirm() ajoute sur _concStartVisio(), _confirmCallContact() et callBtn. Deploiement en cours.
+
 ### TASK-010-DEPLOY-READY-CHECK
 - Agent : Kimi
 - Objectif : 010

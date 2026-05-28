@@ -148,3 +148,14 @@ Fichier concerne : static/index.html, luna_web.py
 Risque : faible
 Decision Ludovic requise : oui pour validation telephone finale
 Action proposee : Tester APK reel (recherche chocolat, titres 4 mots, sidebar mobile) puis cloturer.
+
+---
+Agent : Kimi
+Heure : 2026-05-28 23:18:00
+Tache : TASK-011-KIMI-P0-CONFIRMATIONS-PATCH
+Type : validation
+Resume : Patch P0 confirme et deploye. _showConfirm() ajoute sur 3 chemins : _concStartVisio() (visio concierge), _confirmCallContact() (appel contact avec recapitulatif nom+duree), callBtn listener (visio depuis menu action). Modale existante reutilisee, pas de nouvelle UI. Risque faible niveau 1.
+Fichier concerne : static/index.html:3427, static/index.html:4703, static/index.html:4722
+Risque : faible
+Decision Ludovic requise : non
+Action proposee : Tester sur telephone que la confirmation s'affiche bien avant chaque appel/visio.
