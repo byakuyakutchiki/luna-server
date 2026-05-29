@@ -301,3 +301,25 @@ Fichier concerne : `docs/AGENTS_COLLABORATION/agents/KIMI_VOIX_AVATAR_RECOMMANDA
 Risque : faible (documentation)
 Decision Ludovic requise : oui (choix provider + voice ID + avatar)
 Action proposee : Ludovic choisit voix et avatar → Kimi configure Cloud Run → test terrain 30s.
+
+---
+Agent : DeepSeek
+Heure : 2026-05-29 10:38:00
+Tache : TASK-002-DEEPSEEK-BUTTON-HANDLER-MAP
+Type : audit
+Resume : Cartographie technique handlers/endpoints terminee. Zones couvertes : Services, Visio, Voix, Documents, Formulaires, Monde, Profil, Reglages, Guardian. Aucun test sensible lance ; recommandations non destructives listees.
+Fichier concerne : docs/AGENTS_COLLABORATION/agents/DEEPSEEK_BUTTON_HANDLER_MAP.md
+Risque : faible
+Decision Ludovic requise : non
+Action proposee : Kimi s'appuie sur la carte pour tests terrain ; Codex priorise les risques P0/P1.
+
+---
+Agent : DeepSeek
+Heure : 2026-05-29 10:39:00
+Tache : TASK-013-DEEPSEEK-SIMLI-FLOW-AUDIT
+Type : audit
+Resume : Audit technique Simli/visio termine. Causes confirmees : SIMLI_FACE_ID env, voix Cartesia/ElevenLabs a choisir, pas d'input texte visio, vision par capture /api/visio/perception, sendAppMessage a auditer, fin Simli encore a securiser malgre maxIdleTime=60.
+Fichier concerne : docs/AGENTS_COLLABORATION/agents/DEEPSEEK_SIMLI_FLOW_AUDIT.md
+Risque : moyen
+Decision Ludovic requise : oui pour avatar, voix, input texte et vision avancee
+Action proposee : Codex structure la synthese Objectif 013 ; Kimi valide UX premium avant toute correction visible.
