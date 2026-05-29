@@ -290,3 +290,14 @@ Fichier concerne : docs/AGENTS_COLLABORATION/QUEUE.md, docs/AGENTS_COLLABORATION
 Risque : faible
 Decision Ludovic requise : non
 Action proposee : Kimi signale toute regression visuelle ; DeepSeek documente les targets ; corrections niveau 2/3 seulement apres validation Ludovic.
+
+---
+Agent : Kimi
+Heure : 2026-05-28 21:45:00
+Tache : TASK-013-KIMI-VOIX-AVATAR-RECOS
+Type : decision-niveau-2-prete
+Resume : Document de recommandations voix + avatar Luna pret pour decision Ludovic. 6 voix ElevenLabs feminines francaises avec IDs (Camille, Camille Martin, Anais, Lise, Lison, Adina). 3 voix Cartesia francaises. Procedure Cloud Run incluse. 3 options avatar (galerie Simli / personnalise / garder actuel). Diagnostic : voix masculine probablement due a l'absence de cle TTS configuree sur Cloud Run (Simli utilise son TTS natif masculin par defaut).
+Fichier concerne : `docs/AGENTS_COLLABORATION/agents/KIMI_VOIX_AVATAR_RECOMMANDATIONS.md`
+Risque : faible (documentation)
+Decision Ludovic requise : oui (choix provider + voice ID + avatar)
+Action proposee : Ludovic choisit voix et avatar → Kimi configure Cloud Run → test terrain 30s.
