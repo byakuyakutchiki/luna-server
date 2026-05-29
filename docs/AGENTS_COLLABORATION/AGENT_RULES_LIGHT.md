@@ -21,6 +21,9 @@ Action proposee :
 - Garder les messages courts et actionnables.
 - Ne pas refaire le graphisme valide.
 - Toute modification doit ameliorer l'UI ou la fonctionnalite, jamais regresser.
+- Qualite graphique obligatoire : aucune proposition ne doit rendre Luna moins premium, moins lisible, moins fluide ou moins coherente visuellement.
+- Si une correction fonctionnelle degrade l'interface, elle est refusee ou doit etre compensee par une finition UI propre.
+- Kimi doit signaler explicitement tout rendu cheap, brouillon, mal aligne, mal contraste, trop charge ou incoherent avec l'identite Luna.
 - Si doute sur un impact produit, demander validation Ludovic.
 - Ne pas consommer des tokens pour repeter ce qui est deja dans les fichiers.
 

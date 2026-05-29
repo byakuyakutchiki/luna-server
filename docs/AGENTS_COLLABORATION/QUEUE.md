@@ -8,6 +8,15 @@
 
 ## TODO
 
+### TASK-002-KIMI-VISUAL-QUALITY-GATE
+- Agent : Kimi
+- Objectif : 002
+- Niveau : 0
+- Statut : open
+- Tache : appliquer une garde graphique permanente sur les audits et propositions : chaque correction doit rendre Luna plus premium, plus lisible, plus fluide ou plus coherente. Signaler tout rendu cheap, mal aligne, brouillon, trop charge, mal contraste ou incoherent avec l'identite Luna.
+- Interdits : pas de refonte UI majeure sans validation Ludovic, pas de changement graphique gratuit, pas de regression visuelle toleree.
+- Resultat attendu : message court dans AGENT_CHANNEL.md avec verdict qualite graphique et recommandations UI prioritaires.
+
 ### TASK-002-DEEPSEEK-BUTTON-HANDLER-MAP
 - Agent : DeepSeek
 - Objectif : 002

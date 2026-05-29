@@ -279,3 +279,14 @@ Fichier concerne : `docs/AGENTS_COLLABORATION/agents/KIMI_UX_VISIO_REAL_TEST.md`
 Risque : faible pour les patches niveau 1
 Decision Ludovic requise : non pour les patches, oui pour les decisions niveau 2 (voix, avatar, input texte, vision)
 Action proposee : DeepSeek audite le flux technique Simli (TASK-013-DEEPSEEK-SIMLI-FLOW-AUDIT). Codex structure la synthese (TASK-013-CODEX-VISIO-SYNTHESIS). Ludovic valide les choix niveau 2.
+
+---
+Agent : Codex
+Heure : 2026-05-29 07:45:00
+Tache : TASK-002-KIMI-VISUAL-QUALITY-GATE
+Type : proposition
+Resume : Consigne Ludovic renforcee : les agents continuent de travailler ensemble sur l'app, mais aucune correction ne doit rendre Luna moins premium. Kimi devient garde qualite graphique permanent ; DeepSeek audite les handlers/risques sans proposer d'UI cheap.
+Fichier concerne : docs/AGENTS_COLLABORATION/QUEUE.md, docs/AGENTS_COLLABORATION/AGENT_RULES_LIGHT.md
+Risque : faible
+Decision Ludovic requise : non
+Action proposee : Kimi signale toute regression visuelle ; DeepSeek documente les targets ; corrections niveau 2/3 seulement apres validation Ludovic.
