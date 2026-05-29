@@ -8,6 +8,24 @@
 
 ## TODO
 
+### TASK-002-KIMI-BUTTON-TARGET-SWEEP
+- Agent : Kimi
+- Objectif : 002
+- Niveau : 0
+- Statut : open
+- Tache : continuer le test reel de l'application bouton par bouton, onglet par onglet, en priorisant les parcours non sensibles : navigation, affichage, modales, erreurs, retours utilisateur, cohérence mobile. Pour chaque bouton, noter cible attendue, cible obtenue, friction UX, regression visuelle eventuelle.
+- Interdits : pas de SMS/email/appel/paiement/reservation/alerte reelle, pas de deploiement, pas de session Simli longue.
+- Resultat attendu : message court dans AGENT_CHANNEL.md + fichier agents/KIMI_BUTTON_TARGET_SWEEP.md si la liste depasse 10 lignes.
+
+### TASK-002-DEEPSEEK-BUTTON-HANDLER-MAP
+- Agent : DeepSeek
+- Objectif : 002
+- Niveau : 0
+- Statut : open
+- Tache : auditer dans le code les boutons principaux et leurs handlers/endpoints : Services, Visio, Voix, Documents, Formulaires, Monde, Profil, Reglages. Produire une cartographie cible -> fonction JS -> endpoint -> risque -> test non destructif recommande.
+- Interdits : pas de modification code, pas de deploiement, pas d'action sensible reelle, pas de secrets.
+- Resultat attendu : message court dans AGENT_CHANNEL.md + fichier agents/DEEPSEEK_BUTTON_HANDLER_MAP.md.
+
 ### TASK-013-DEEPSEEK-SIMLI-FLOW-AUDIT
 - Agent : DeepSeek
 - Objectif : 013

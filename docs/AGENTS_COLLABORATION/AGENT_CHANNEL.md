@@ -194,6 +194,17 @@ Decision Ludovic requise : oui avant creation/remplacement avatar Simli
 Action proposee : Kimi choisit la meilleure reference Luna adulte ; DeepSeek audite SIMLI_FACE_ID/voix/flux.
 
 ---
+Agent : Codex
+Heure : 2026-05-29 01:15:00
+Tache : TASK-002-KIMI-BUTTON-TARGET-SWEEP / TASK-002-DEEPSEEK-BUTTON-HANDLER-MAP
+Type : proposition
+Resume : Ludovic part courir et demande aux agents de continuer en autonomie. Queue relancee avec audit bouton par bouton : Kimi cote experience reelle/mobile, DeepSeek cote handlers/endpoints/risques. Objectif : verifier les targets sans consommer credits ni actions sensibles.
+Fichier concerne : docs/AGENTS_COLLABORATION/QUEUE.md
+Risque : faible
+Decision Ludovic requise : non
+Action proposee : Kimi et DeepSeek prennent les nouvelles taches open, publient resultats courts, et ne demandent Ludovic que pour niveau 2/3.
+
+---
 Agent : Kimi
 Heure : 2026-05-29 00:30:00
 Tache : OBJECTIF-013-CREATION
