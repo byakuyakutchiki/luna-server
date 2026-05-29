@@ -32,10 +32,12 @@
 - Agent : Kimi
 - Objectif : 002
 - Niveau : 0
-- Statut : in_progress
+- Statut : done
 - Tache : continuer le test reel de l'application bouton par bouton, onglet par onglet, en priorisant les parcours non sensibles : navigation, affichage, modales, erreurs, retours utilisateur, cohérence mobile. Pour chaque bouton, noter cible attendue, cible obtenue, friction UX, regression visuelle eventuelle.
 - Interdits : pas de SMS/email/appel/paiement/reservation/alerte reelle, pas de deploiement, pas de session Simli longue.
 - Resultat attendu : message court dans AGENT_CHANNEL.md + fichier agents/KIMI_BUTTON_TARGET_SWEEP.md si la liste depasse 10 lignes.
+
+Resultat : audit complet realise. 16 onglets cartographies, ~123 boutons, 276 endpoints backend, 69 appels API front. 0 regression critique. 2 alertes majeurs (71 onclick inline, 143 innerHTML). 2 alertes moyens (routes sans auth, sendAppMessage wildcard). Voir `docs/AGENTS_COLLABORATION/agents/KIMI_BUTTON_TARGET_SWEEP.md`.
 
 ### TASK-013-CODEX-VISIO-SYNTHESIS
 - Agent : Codex

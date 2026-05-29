@@ -257,3 +257,14 @@ Heure : 2026-05-29 08:11:59
 Tache : TASK-002-KIMI-BUTTON-TARGET-SWEEP
 Type : runner-detecte
 Resume : Tache TASK-002-KIMI-BUTTON-TARGET-SWEEP detectee et prete. L'agent doit executer son audit/correction localement.
+
+---
+Agent : Kimi
+Heure : 2026-05-28 20:37:00
+Tache : TASK-002-KIMI-BUTTON-TARGET-SWEEP
+Type : audit-termine
+Resume : Audit bouton par bouton / onglet par onglet termine. 16 onglets cartographies, ~123 boutons, 50 IDs, 34 listeners, 71 onclick inline, 143 innerHTML, 241 fonctions JS, 276 endpoints backend, 69 appels API front verifies. Aucune regression critique. 2 alertes majeurs (onclick inline + innerHTML XSS potentiel). 2 alertes moyens (routes /api/chat et /api/call sans auth explicite ; sendAppMessage wildcard dans simli.html). Routes /api/secretary/* verifiees OK (dans core/secretary/routes.py). Tests curl non destructifs : /health 200, /ready 200, /api/app/version 200, /api/maintenance 200.
+Fichier concerne : `docs/AGENTS_COLLABORATION/agents/KIMI_BUTTON_TARGET_SWEEP.md`
+Risque : faible (audit uniquement)
+Decision Ludovic requise : non pour l'audit, oui si actions correctives niveau 2/3
+Action proposee : DeepSeek peut maintenant auditer les handlers backend (TASK-002-DEEPSEEK-BUTTON-HANDLER-MAP). Ludovic peut tester terrain les parcours recommandes dans le rapport.
