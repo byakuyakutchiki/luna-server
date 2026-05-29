@@ -6876,7 +6876,7 @@ async def _start_simli_visio(tenant_id: int, subscriber_name: str) -> tuple:
         "simliAPIKey": api_key,
         "faceId": face_id,
         "systemPrompt": ctx,
-        "firstMessage": f"Bonjour {subscriber_name} ! Je suis ravie de te voir. Comment je peux t'aider aujourd'hui ?",
+        "firstMessage": f"Bonjour {subscriber_name} ! C'est Luna, ton assistante. Je te vois et je t'entends. Comment je peux t'aider aujourd'hui ?",
         "customLLMConfig": {
             "model": "gpt-4o-mini",
             "baseURL": "https://api.openai.com/v1",
@@ -6891,7 +6891,8 @@ async def _start_simli_visio(tenant_id: int, subscriber_name: str) -> tuple:
         payload["ttsAPIKey"] = cartesia_key
     elif elevenlabs_key:
         payload["ttsProvider"] = "ElevenLabs"
-        payload["voiceId"] = os.getenv("ELEVENLABS_VOICE_ID", "21m00Tcm4TlvDq8ikWAM")
+        # Voix Camille — française, chaleureuse, expressive (recommandation Kimi Objectif 013)
+        payload["voiceId"] = os.getenv("ELEVENLABS_VOICE_ID", "Z9ZHGvFZ90R0h0x1prsJ")
         payload["ttsAPIKey"] = elevenlabs_key
 
     try:
