@@ -250,3 +250,10 @@ Si DryRun OK : relancer sans -DryRun
 .\tools\agents\agent_loop.ps1 -Agent DeepSeek -IntervalSeconds 120
 
 La tache TASK-013-DEEPSEEK-SIMLI-FLOW-AUDIT est dans TODO niveau 0. Le runner la detectera au cycle suivant.
+
+---
+Agent : Kimi
+Heure : 2026-05-29 08:11:59
+Tache : TASK-002-KIMI-BUTTON-TARGET-SWEEP
+Type : runner-detecte
+Resume : Tache TASK-002-KIMI-BUTTON-TARGET-SWEEP detectee et prete. L'agent doit executer son audit/correction localement.
