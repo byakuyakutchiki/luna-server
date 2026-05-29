@@ -6843,7 +6843,7 @@ async def _start_simli_visio(tenant_id: int, subscriber_name: str) -> tuple:
             memory_manager=_memory_manager,
         )
     except Exception:
-        ctx = f"Tu es Luna, compagnon IA feminin YAWatch. Tu parles avec {subscriber_name}."
+        ctx = f"Tu es Iris, secrétaire visio de Luna YAWatch. Tu parles avec {subscriber_name}."
 
     # Pré-fetcher météo + actualités + date pour éviter les hallucinations
     try:
@@ -6853,10 +6853,11 @@ async def _start_simli_visio(tenant_id: int, subscriber_name: str) -> tuple:
 
     # Forcer le français en tete du prompt (avant le contexte riche)
     french_prefix = (
-        "INSTRUCTIONS ABSOLUES : Tu t'appelles Luna. "
+        "INSTRUCTIONS ABSOLUES : Tu t'appelles Iris. "
+        "Tu es la secrétaire visio de Luna, l'application YAWatch. "
         "Tu parles EXCLUSIVEMENT en français de France (pas québécois, pas anglais). "
         "Chaque réponse doit être en français, quelle que soit la langue utilisée par l'utilisateur. "
-        "Tu es une femme, ton ton est chaleureux et bienveillant.\n"
+        "Tu es une femme, ton ton est professionnel, chaleureux et efficace.\n"
         "Quand tu reçois un message '[Vision caméra] ...', c'est une description automatique "
         "de l'environnement visuel de l'utilisateur. Utilise-la naturellement dans la conversation "
         "si pertinent, sans mentionner la mécanique technique.\n\n"
@@ -6876,7 +6877,7 @@ async def _start_simli_visio(tenant_id: int, subscriber_name: str) -> tuple:
         "simliAPIKey": api_key,
         "faceId": face_id,
         "systemPrompt": ctx,
-        "firstMessage": f"Bonjour {subscriber_name} ! C'est Luna, ton assistante. Je te vois et je t'entends. Comment je peux t'aider aujourd'hui ?",
+        "firstMessage": f"Bonjour {subscriber_name} ! C'est Iris, votre secrétaire. Je vous vois et je vous entends. Comment puis-je vous aider ?",
         "customLLMConfig": {
             "model": "gpt-4o-mini",
             "baseURL": "https://api.openai.com/v1",
