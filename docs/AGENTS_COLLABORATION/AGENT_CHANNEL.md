@@ -268,3 +268,14 @@ Fichier concerne : `docs/AGENTS_COLLABORATION/agents/KIMI_BUTTON_TARGET_SWEEP.md
 Risque : faible (audit uniquement)
 Decision Ludovic requise : non pour l'audit, oui si actions correctives niveau 2/3
 Action proposee : DeepSeek peut maintenant auditer les handlers backend (TASK-002-DEEPSEEK-BUTTON-HANDLER-MAP). Ludovic peut tester terrain les parcours recommandes dans le rapport.
+
+---
+Agent : Kimi
+Heure : 2026-05-28 21:10:00
+Tache : TASK-013-KIMI-UX-VISIO-REAL-TEST
+Type : audit-termine + patch-niveau-1
+Resume : Audit UX visio termine. 2 problemes critiques (pas d'input texte, hangup Simli non gere = credits gaspilles). 4 problemes majeurs (voix masculine, avatar generique, sendAppMessage wildcard, mute = instruction texte). 3 problemes moyens (vision 12s, auto-demarrage 300ms, cinematique non skippable). 2 patches niveau 1 appliques : auto-demarrage 300ms -> 1200ms (static/simli.html:1511) et confirmation hangup avec confirm() natif (static/simli.html:2238 + popstate). Pas de deploiement.
+Fichier concerne : `docs/AGENTS_COLLABORATION/agents/KIMI_UX_VISIO_REAL_TEST.md`, `static/simli.html`
+Risque : faible pour les patches niveau 1
+Decision Ludovic requise : non pour les patches, oui pour les decisions niveau 2 (voix, avatar, input texte, vision)
+Action proposee : DeepSeek audite le flux technique Simli (TASK-013-DEEPSEEK-SIMLI-FLOW-AUDIT). Codex structure la synthese (TASK-013-CODEX-VISIO-SYNTHESIS). Ludovic valide les choix niveau 2.

@@ -52,10 +52,12 @@ Resultat : audit complet realise. 16 onglets cartographies, ~123 boutons, 276 en
 - Agent : Kimi
 - Objectif : 013
 - Niveau : 0
-- Statut : in_progress
+- Statut : done
 - Tache : tester l'experience reelle de la visio Luna sur application : bouton Visio, confirmation, cinematique, avatar, voix, reponse au texte, vision camera. Reperer les frictions UI et les incoherences.
 - Interdits : pas de consommation inutile des credits Simli, pas de sessions longues en boucle.
 - Resultat attendu : message court dans AGENT_CHANNEL.md avec points de friction et propositions UX.
+
+Resultat : audit UX complet realise. 2 problemes critiques (pas d'input texte, hangup Simli non gere = credits gaspilles). 4 problemes majeurs (voix masculine, avatar generique, sendAppMessage wildcard, mute = instruction texte). 3 problemes moyens (vision 12s, auto-demarrage 300ms, cinematique non skippable). Priorisation niveau 1/2/3 proposee. Voir `docs/AGENTS_COLLABORATION/agents/KIMI_UX_VISIO_REAL_TEST.md`.
 
 ### TASK-012-RUNNER-VALIDATION
 - Agent : Kimi, DeepSeek

@@ -1507,8 +1507,8 @@
           }
           if (best !== null) sel.selectedIndex = best;
         }
-        // Auto-start après 300ms (laisse le temps au DOM de charger)
-        setTimeout(function() { if (btnStartBig && !btnStartBig.disabled) btnStartBig.click(); }, 300);
+        // Auto-start après 1200ms (laisse le temps au DOM de charger et à l'utilisateur de lire)
+        setTimeout(function() { if (btnStartBig && !btnStartBig.disabled) btnStartBig.click(); }, 1200);
       }
     })();
 
@@ -2235,10 +2235,18 @@
       }
     }
 
-    btnHangup.onclick = doHangup;
+    btnHangup.onclick = function() {
+      if (confirm('Raccrocher la visio ?\n\nLa session va se terminer.')) {
+        doHangup();
+      }
+    };
 
     // Android back button
-    window.addEventListener('popstate', function() { doHangup(); });
+    window.addEventListener('popstate', function() {
+      if (confirm('Raccrocher la visio ?\n\nLa session va se terminer.')) {
+        doHangup();
+      }
+    });
     history.pushState(null, '', window.location.href);
   </script>
 </body>
