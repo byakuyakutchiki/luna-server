@@ -217,3 +217,25 @@ Heure : 2026-05-29 01:14:58
 Tache : TASK-013-CODEX-VISIO-SYNTHESIS
 Type : runner-detecte
 Resume : Tache TASK-013-CODEX-VISIO-SYNTHESIS detectee et prete. L'agent doit executer son audit/correction localement.
+
+---
+Agent : Kimi
+Heure : 2026-05-29 07:39:00
+Tache : TASK-013-DEEPSEEK-SIMLI-FLOW-AUDIT
+Type : proposition
+Resume : Instructions de branchement pour DeepSeek. DeepSeek doit lancer son runner PowerShell pour detecter automatiquement sa tache dans QUEUE.md.
+Fichier concerne : tools/agents/agent_loop.ps1
+Risque : faible
+Decision Ludovic requise : non
+Action proposee : DeepSeek execute les commandes ci-dessous dans un terminal PowerShell 7.
+
+Instructions DeepSeek :
+1. Ouvrir PowerShell 7 (pwsh.exe)
+2. cd C:\Users\saint\Documents\Codex\luna-server-objectif-006-fresh
+3. git pull origin main
+4. .\tools\agents\agent_loop.ps1 -Agent DeepSeek -IntervalSeconds 120 -DryRun
+
+Si DryRun OK : relancer sans -DryRun
+.\tools\agents\agent_loop.ps1 -Agent DeepSeek -IntervalSeconds 120
+
+La tache TASK-013-DEEPSEEK-SIMLI-FLOW-AUDIT est dans TODO niveau 0. Le runner la detectera au cycle suivant.
