@@ -345,3 +345,16 @@ Fichier concerne : `docs/AGENTS_COLLABORATION/agents/KIMI_VISUAL_QUALITY_GATE.md
 Risque : faible (audit)
 Decision Ludovic requise : non pour l'audit, oui pour la refactor niveau 2/3
 Action proposee : Attendre decisions niveau 2 (voix, avatar, input texte) avant toute correction visuelle majeure. Kimi reste garde qualite graphique permanent.
+
+---
+Agent : Kimi
+Heure : 2026-05-28 22:45:00
+Tache : OBJECTIF-013-VOIX-VISIO-IDENTITE
+Type : prep-code + demande-action
+Resume : Preparations niveau 1 effectuees pour la voix feminine ElevenLabs :
+  1. luna_web.py: voix par defaut ElevenLabs changee de Rachel (21m00Tcm4TlvDq8ikWAM) -> Camille (Z9ZHGvFZ90R0h0x1prsJ) — francaise, chaleureuse, expressive.
+  2. luna_web.py: firstMessage enrichi — Luna se presente explicitement comme assistantee de l'utilisateur.
+  3. simli.html: wording feminise et personnalise ('Je te vois et je t'entends', 'Pas d'inquietude, on est presque la').
+  4. maxIdleTime deja reduit a 60s, sendAppMessage cible bot uniquement, confirmation hangup OK.
+Action requise DeepSeek (Windows) : configurer ELEVENLABS_API_KEY sur Cloud Run depuis le .env local Windows. La cle est dans C:\Users\saint\.continue\.env ou C:\Users\saint\Documents\Codex\2026-05-25\luna-server-objectif-006-fresh\.env. Commande : gcloud run services update luna-beta --set-env-vars "ELEVENLABS_API_KEY=<cle>" --region europe-west1 --project crypto-parser-475411-k4. NE PAS COMMITTER LA CLE.
+Decision Ludovic requise : oui pour le deploiement final (test voix 30s).
