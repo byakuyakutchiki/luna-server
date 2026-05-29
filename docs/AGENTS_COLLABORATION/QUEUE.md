@@ -14,18 +14,22 @@
 
 ## IN PROGRESS
 
-### TASK-013-CODEX-VISIO-SYNTHESIS
-- Agent : Codex
-- Objectif : 013
-- Niveau : 0
-- Statut : in_progress
-- Tache : structurer la synthese Objectif 013, prioriser les corrections, identifier les decisions niveau 2/3 a remonter a Ludovic (avatar Luna, voix feminine, input texte visio, vision camera V1/V2).
-- Interdits : pas de modification code, pas de deploiement.
-- Resultat attendu : message court dans AGENT_CHANNEL.md + mise a jour OBJECTIF_013_VISIO_LUNA_SIMLI.md si besoin.
+<!-- Les agents deplacent ici une tache quand ils la detectent dans la queue. -->
 
 ---
 
 ## DONE
+
+### TASK-013-CODEX-VISIO-SYNTHESIS
+- Agent : Codex
+- Objectif : 013
+- Niveau : 0
+- Statut : done
+- Tache : structurer la synthese Objectif 013, prioriser les corrections, identifier les decisions niveau 2/3 a remonter a Ludovic (avatar Luna, voix feminine, input texte visio, vision camera V1/V2).
+- Interdits : pas de modification code, pas de deploiement.
+- Resultat attendu : message court dans AGENT_CHANNEL.md + mise a jour OBJECTIF_013_VISIO_LUNA_SIMLI.md si besoin.
+
+Resultat : audit formalise des objectifs demandables a l'assistante pendant la visio. Elle sait lancer/parler/noter/recevoir tool calls/vision indirecte, mais l'exploitabilite complete n'est pas prouvee. Voir `docs/AGENTS_COLLABORATION/agents/CODEX_AUDIT_013_OBJECTIFS_SECRETAIRE_VISIO.md`.
 
 ### TASK-002-KIMI-VISUAL-QUALITY-GATE
 - Agent : Kimi
