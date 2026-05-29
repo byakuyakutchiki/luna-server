@@ -10,10 +10,40 @@ PROJECT="crypto-parser-475411-k4"
 # Charger les vars critiques depuis .env local (source de vérité)
 source "$(dirname "$0")/.env" 2>/dev/null || true
 
-echo "Déploiement $SERVICE → $REGION..."
+# Construire la liste des env vars a mettre a jour
+# On n'INCLUT PAS les variables vides pour eviter d'ecraser les valeurs existantes sur Cloud Run
+update_vars=()
+update_vars+=("ENVIRONMENT=cloudrun")
+
+# Fonction helper : ajoute une variable seulement si elle est definie et non vide
+add_var() {
+  local name="$1"
+  local val="${!name}"
+  if [[ -n "$val" ]]; then
+    update_vars+=("${name}=${val}")
+  fi
+}
+
+add_var "PROPRIO_PASSWORD"
+add_var "PROPRIO_EMAIL"
+add_var "REDIS_URL"
+add_var "SIMLI_API_KEY"
+add_var "SIMLI_FACE_ID"
+add_var "CARTESIA_API_KEY"
+add_var "ELEVENLABS_API_KEY"
+add_var "LUNA_MODE"
+add_var "SENTRY_DSN"
+add_var "OPENAI_VOICE_NAME"
+add_var "OPENAI_REALTIME_MODEL"
+
+# Joindre avec des virgules
+vars_string=$(IFS=,; echo "${update_vars[*]}")
+
+echo "Deploiement $SERVICE -> $REGION..."
+echo "Variables mises a jour : ${vars_string}"
 gcloud run deploy "$SERVICE" \
   --source=. \
   --region="$REGION" \
   --project="$PROJECT" \
-  --update-env-vars="PROPRIO_PASSWORD=${PROPRIO_PASSWORD},PROPRIO_EMAIL=${PROPRIO_EMAIL},REDIS_URL=${REDIS_URL},SIMLI_API_KEY=${SIMLI_API_KEY},SIMLI_FACE_ID=${SIMLI_FACE_ID},CARTESIA_API_KEY=${CARTESIA_API_KEY},ELEVENLABS_API_KEY=${ELEVENLABS_API_KEY},LUNA_MODE=${LUNA_MODE},SENTRY_DSN=${SENTRY_DSN},ENVIRONMENT=cloudrun,OPENAI_VOICE_NAME=${OPENAI_VOICE_NAME:-coral},OPENAI_REALTIME_MODEL=${OPENAI_REALTIME_MODEL:-gpt-4o-realtime-preview-2024-12-17}" \
+  --update-env-vars="$vars_string" \
   "$@"

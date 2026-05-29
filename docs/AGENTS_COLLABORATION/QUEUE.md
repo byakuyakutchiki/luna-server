@@ -8,26 +8,90 @@
 
 ## TODO
 
-<!-- Aucune tache ouverte pour le moment. -->
+<!-- Les agents deplacent ici une tache quand ils la detectent dans la queue. -->
+
+---
 
 ## IN PROGRESS
+
+### TASK-013-CODEX-VISIO-SYNTHESIS
+- Agent : Codex
+- Objectif : 013
+- Niveau : 0
+- Statut : in_progress
+- Tache : structurer la synthese Objectif 013, prioriser les corrections, identifier les decisions niveau 2/3 a remonter a Ludovic (avatar Luna, voix feminine, input texte visio, vision camera V1/V2).
+- Interdits : pas de modification code, pas de deploiement.
+- Resultat attendu : message court dans AGENT_CHANNEL.md + mise a jour OBJECTIF_013_VISIO_LUNA_SIMLI.md si besoin.
+
+---
+
+## DONE
+
+### TASK-002-KIMI-VISUAL-QUALITY-GATE
+- Agent : Kimi
+- Objectif : 002
+- Niveau : 0
+- Statut : done
+- Tache : appliquer une garde graphique permanente sur les audits et propositions : chaque correction doit rendre Luna plus premium, plus lisible, plus fluide ou plus coherente. Signaler tout rendu cheap, mal aligne, brouillon, trop charge, mal contraste ou incoherent avec l'identite Luna.
+- Interdits : pas de refonte UI majeure sans validation Ludovic, pas de changement graphique gratuit, pas de regression visuelle toleree.
+- Resultat attendu : message court dans AGENT_CHANNEL.md avec verdict qualite graphique et recommandations UI prioritaires.
+
+Resultat : verdict 6.5/10. 315 couleurs, 324 !important, 95KB CSS monolithique dans index.html. simli.html est bien meilleur (1 !important, design immersif). Priorite : creer un design system CSS minimal. Voir `docs/AGENTS_COLLABORATION/agents/KIMI_VISUAL_QUALITY_GATE.md`.
+
+### TASK-002-KIMI-BUTTON-TARGET-SWEEP
+- Agent : Kimi
+- Objectif : 002
+- Niveau : 0
+- Statut : done
+- Tache : continuer le test reel de l'application bouton par bouton, onglet par onglet, en priorisant les parcours non sensibles : navigation, affichage, modales, erreurs, retours utilisateur, coherence mobile. Pour chaque bouton, noter cible attendue, cible obtenue, friction UX, regression visuelle eventuelle.
+- Interdits : pas de SMS/email/appel/paiement/reservation/alerte reelle, pas de deploiement, pas de session Simli longue.
+- Resultat attendu : message court dans AGENT_CHANNEL.md + fichier agents/KIMI_BUTTON_TARGET_SWEEP.md si la liste depasse 10 lignes.
+
+Resultat : audit complet realise. 16 onglets cartographies, ~123 boutons, 276 endpoints backend, 69 appels API front. 0 regression critique. 2 alertes majeurs (71 onclick inline, 143 innerHTML). 2 alertes moyens (routes sans auth, sendAppMessage wildcard). Voir `docs/AGENTS_COLLABORATION/agents/KIMI_BUTTON_TARGET_SWEEP.md`.
+
+### TASK-013-KIMI-UX-VISIO-REAL-TEST
+- Agent : Kimi
+- Objectif : 013
+- Niveau : 0
+- Statut : done
+- Tache : tester l'experience reelle de la visio Luna sur application : bouton Visio, confirmation, cinematique, avatar, voix, reponse au texte, vision camera. Reperer les frictions UI et les incoherences.
+- Interdits : pas de consommation inutile des credits Simli, pas de sessions longues en boucle.
+- Resultat attendu : message court dans AGENT_CHANNEL.md avec points de friction et propositions UX.
+
+Resultat : audit UX complet realise. 2 problemes critiques (pas d'input texte, hangup Simli non gere = credits gaspilles). 4 problemes majeurs (voix masculine, avatar generique, sendAppMessage wildcard, mute = instruction texte). 3 problemes moyens (vision 12s, auto-demarrage 300ms, cinematique non skippable). 4 patches niveau 1 appliques (auto-demarrage 1200ms, confirm hangup, maxIdleTime 60s, sendAppMessage cible bot uniquement). Priorisation niveau 1/2/3 proposee. Voir `docs/AGENTS_COLLABORATION/agents/KIMI_UX_VISIO_REAL_TEST.md`.
 
 ### TASK-012-RUNNER-VALIDATION
 - Agent : Kimi, DeepSeek
 - Objectif : 012
 - Niveau : 0
-- Statut : in_progress
+- Statut : done
 - Tache : valider que le runner local peut pull, lire la queue, ecrire un resultat, commit et push.
 - Interdits : aucun changement applicatif.
 - Resultat attendu : message court dans AGENT_CHANNEL.md.
 
----
+Resultat : runners Linux (Kimi) et Windows (Codex, DeepSeek) operationnels. Pull, lecture queue, ecriture resultat, commit et push valides. Conflits git geres manuellement quand plusieurs agents poussent simultanement.
 
-<!-- Les agents deplacent ici une tache quand ils commencent a la traiter. -->
+### TASK-013-DEEPSEEK-SIMLI-FLOW-AUDIT
+- Agent : DeepSeek
+- Objectif : 013
+- Niveau : 0
+- Statut : done
+- Tache : auditer le flux technique Simli/Tavus dans le code : configuration avatar/voix, transmission messages, vision camera, hangup, WebSocket desactivee. Identifier causes exactes des 4 problemes (avatar, voix masculine, texte non transmis, vision limitee).
+- Interdits : pas de deploiement, pas de consommation Simli inutile.
+- Resultat attendu : message court dans AGENT_CHANNEL.md avec fichiers/lignes exacts et propositions techniques.
 
----
+Resultat : voir `docs/AGENTS_COLLABORATION/agents/DEEPSEEK_SIMLI_FLOW_AUDIT.md`.
 
-## DONE
+### TASK-002-DEEPSEEK-BUTTON-HANDLER-MAP
+- Agent : DeepSeek
+- Objectif : 002
+- Niveau : 0
+- Statut : done
+- Tache : auditer dans le code les boutons principaux et leurs handlers/endpoints : Services, Visio, Voix, Documents, Formulaires, Monde, Profil, Reglages. Produire une cartographie cible -> fonction JS -> endpoint -> risque -> test non destructif recommande.
+- Interdits : pas de modification code, pas de deploiement, pas d'action sensible reelle, pas de secrets.
+- Resultat attendu : message court dans AGENT_CHANNEL.md + fichier agents/DEEPSEEK_BUTTON_HANDLER_MAP.md.
+
+Resultat : voir `docs/AGENTS_COLLABORATION/agents/DEEPSEEK_BUTTON_HANDLER_MAP.md`.
 
 ### TASK-011-KIMI-P0-CONFIRMATIONS-PATCH
 - Agent : Kimi
@@ -91,7 +155,7 @@ Resultat : voir `docs/AGENTS_COLLABORATION/agents/CODEX_DEPLOY_RISK_010.md`.
 - Interdits : pas d'action sensible reelle.
 - Resultat attendu : message court dans AGENT_CHANNEL.md.
 
-Resultat : test web Cloud Run OK (elements presents et code verifie). Test APK reel recommande avant deploiement. Voir AGENT_CHANNEL.md.
+Resultat : test web Cloud Run OK (elements presents et code verifies). Test APK reel recommande avant deploiement. Voir AGENT_CHANNEL.md.
 
 ### TASK-011-DEEPSEEK-AUDIT-CODE
 - Agent : DeepSeek

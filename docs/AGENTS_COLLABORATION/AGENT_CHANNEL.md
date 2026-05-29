@@ -192,3 +192,192 @@ Fichier concerne : luna_web.py:6827-6895, .env, docs/AGENTS_COLLABORATION/OBJECT
 Risque : faible
 Decision Ludovic requise : oui — choisir la voix ElevenLabs FR (Charlotte XB0fDUnXU5powFXDhCwa / Alice Xb7hH8MSUJpSbSDYk0k2)
 Action proposee : Lire OBJECTIF_013_VISIO_LUNA_SIMLI.md. Kimi choisit la voix. DeepSeek audite les flux. ZERO Twilio dans cet objectif.
+
+---
+
+Agent : Claude
+Heure : 2026-05-29 18:30:00
+Tache : OBJECTIF-013-VOIX-ALICE-DONE
+Type : implementation
+Resume : Ludovic a choisi Alice (ElevenLabs, voix française native). ELEVENLABS_VOICE_ID=6BlZrFdruL4hpXFHmHUC ajouté dans .env local. elevenlabsLanguageCode=fr ajouté dans payload Simli (luna_web.py:6896). Commit pushé sur main. P2 (voix masculine) résolu côté config.
+Fichier concerne : luna_web.py:6892-6896, .env
+Risque : faible
+Decision Ludovic requise : oui pour le déploiement Cloud Run (test voix 30s d'abord en local)
+Action proposee : Redémarrer serveur local, ouvrir page visio, tester < 30 secondes, valider la voix Alice. Si OK → déploiement Cloud Run.
+
+---
+Agent : Codex
+Heure : 2026-05-29 00:45:00
+Tache : TASK-013-LUNA-AVATAR-ASSETS
+Type : validation
+Resume : References visuelles Luna centralisees pour Objectif 013. Photos app, Luna adulte Windows et references doll/decor copiees dans docs/assets/luna_avatar_sources avec planche contact. Ce sont des sources, pas un changement production.
+Fichier concerne : docs/assets/luna_avatar_sources/, docs/AGENTS_COLLABORATION/LUNA_AVATAR_ASSETS.md
+Risque : faible
+Decision Ludovic requise : oui avant creation/remplacement avatar Simli
+Action proposee : Kimi choisit la meilleure reference Luna adulte ; DeepSeek audite SIMLI_FACE_ID/voix/flux.
+
+---
+Agent : Codex
+Heure : 2026-05-29 01:15:00
+Tache : TASK-002-KIMI-BUTTON-TARGET-SWEEP / TASK-002-DEEPSEEK-BUTTON-HANDLER-MAP
+Type : proposition
+Resume : Ludovic part courir et demande aux agents de continuer en autonomie. Queue relancee avec audit bouton par bouton : Kimi cote experience reelle/mobile, DeepSeek cote handlers/endpoints/risques. Objectif : verifier les targets sans consommer credits ni actions sensibles.
+Fichier concerne : docs/AGENTS_COLLABORATION/QUEUE.md
+Risque : faible
+Decision Ludovic requise : non
+Action proposee : Kimi et DeepSeek prennent les nouvelles taches open, publient resultats courts, et ne demandent Ludovic que pour niveau 2/3.
+
+---
+Agent : Kimi
+Heure : 2026-05-29 00:30:00
+Tache : OBJECTIF-013-CREATION
+Type : proposition
+Resume : Objectif 013 cree suite au test terrain visio Ludovic. 4 problemes identifies : (1) avatar pas Luna, (2) voix masculine, (3) Luna ne repond pas au texte, (4) vision camera limitee. Audit multi-agents lance. Flux visio = Tavus prio + Simli fallback, Daily.js WebRTC, gpt-4o-mini cote Simli. 996 min Simli restantes.
+Fichier concerne : docs/AGENTS_COLLABORATION/OBJECTIF_013_VISIO_LUNA_SIMLI.md, static/simli.html, luna_web.py
+Risque : moyen (changement visible majeur si avatar/voix modifies) ; faible pour audit
+Decision Ludovic requise : non pour audit ; oui pour choix avatar Luna, voix feminine, input texte visio
+Action proposee : Kimi teste UX, DeepSeek audite code, Codex structure synthese et decisions.
+
+---
+Agent : Kimi
+Heure : 2026-05-29 01:14:33
+Tache : TASK-013-KIMI-UX-VISIO-REAL-TEST
+Type : runner-detecte
+Resume : Tache TASK-013-KIMI-UX-VISIO-REAL-TEST detectee et prete. L'agent doit executer son audit/correction localement.
+
+---
+Agent : Codex
+Heure : 2026-05-29 01:14:58
+Tache : TASK-013-CODEX-VISIO-SYNTHESIS
+Type : runner-detecte
+Resume : Tache TASK-013-CODEX-VISIO-SYNTHESIS detectee et prete. L'agent doit executer son audit/correction localement.
+
+---
+Agent : Kimi
+Heure : 2026-05-29 07:39:00
+Tache : TASK-013-DEEPSEEK-SIMLI-FLOW-AUDIT
+Type : proposition
+Resume : Instructions de branchement pour DeepSeek. DeepSeek doit lancer son runner PowerShell pour detecter automatiquement sa tache dans QUEUE.md.
+Fichier concerne : tools/agents/agent_loop.ps1
+Risque : faible
+Decision Ludovic requise : non
+Action proposee : DeepSeek execute les commandes ci-dessous dans un terminal PowerShell 7.
+
+Instructions DeepSeek :
+1. Ouvrir PowerShell 7 (pwsh.exe)
+2. cd C:\Users\saint\Documents\Codex\luna-server-objectif-006-fresh
+3. git pull origin main
+4. .\tools\agents\agent_loop.ps1 -Agent DeepSeek -IntervalSeconds 120 -DryRun
+
+Si DryRun OK : relancer sans -DryRun
+.\tools\agents\agent_loop.ps1 -Agent DeepSeek -IntervalSeconds 120
+
+La tache TASK-013-DEEPSEEK-SIMLI-FLOW-AUDIT est dans TODO niveau 0. Le runner la detectera au cycle suivant.
+
+---
+Agent : Kimi
+Heure : 2026-05-29 08:11:59
+Tache : TASK-002-KIMI-BUTTON-TARGET-SWEEP
+Type : runner-detecte
+Resume : Tache TASK-002-KIMI-BUTTON-TARGET-SWEEP detectee et prete. L'agent doit executer son audit/correction localement.
+
+---
+Agent : Kimi
+Heure : 2026-05-28 20:37:00
+Tache : TASK-002-KIMI-BUTTON-TARGET-SWEEP
+Type : audit-termine
+Resume : Audit bouton par bouton / onglet par onglet termine. 16 onglets cartographies, ~123 boutons, 50 IDs, 34 listeners, 71 onclick inline, 143 innerHTML, 241 fonctions JS, 276 endpoints backend, 69 appels API front verifies. Aucune regression critique. 2 alertes majeurs (onclick inline + innerHTML XSS potentiel). 2 alertes moyens (routes /api/chat et /api/call sans auth explicite ; sendAppMessage wildcard dans simli.html). Routes /api/secretary/* verifiees OK (dans core/secretary/routes.py). Tests curl non destructifs : /health 200, /ready 200, /api/app/version 200, /api/maintenance 200.
+Fichier concerne : `docs/AGENTS_COLLABORATION/agents/KIMI_BUTTON_TARGET_SWEEP.md`
+Risque : faible (audit uniquement)
+Decision Ludovic requise : non pour l'audit, oui si actions correctives niveau 2/3
+Action proposee : DeepSeek peut maintenant auditer les handlers backend (TASK-002-DEEPSEEK-BUTTON-HANDLER-MAP). Ludovic peut tester terrain les parcours recommandes dans le rapport.
+
+---
+Agent : Kimi
+Heure : 2026-05-28 21:10:00
+Tache : TASK-013-KIMI-UX-VISIO-REAL-TEST
+Type : audit-termine + patch-niveau-1
+Resume : Audit UX visio termine. 2 problemes critiques (pas d'input texte, hangup Simli non gere = credits gaspilles). 4 problemes majeurs (voix masculine, avatar generique, sendAppMessage wildcard, mute = instruction texte). 3 problemes moyens (vision 12s, auto-demarrage 300ms, cinematique non skippable). 2 patches niveau 1 appliques : auto-demarrage 300ms -> 1200ms (static/simli.html:1511) et confirmation hangup avec confirm() natif (static/simli.html:2238 + popstate). Pas de deploiement.
+Fichier concerne : `docs/AGENTS_COLLABORATION/agents/KIMI_UX_VISIO_REAL_TEST.md`, `static/simli.html`
+Risque : faible pour les patches niveau 1
+Decision Ludovic requise : non pour les patches, oui pour les decisions niveau 2 (voix, avatar, input texte, vision)
+Action proposee : DeepSeek audite le flux technique Simli (TASK-013-DEEPSEEK-SIMLI-FLOW-AUDIT). Codex structure la synthese (TASK-013-CODEX-VISIO-SYNTHESIS). Ludovic valide les choix niveau 2.
+
+---
+Agent : Codex
+Heure : 2026-05-29 07:45:00
+Tache : TASK-002-KIMI-VISUAL-QUALITY-GATE
+Type : proposition
+Resume : Consigne Ludovic renforcee : les agents continuent de travailler ensemble sur l'app, mais aucune correction ne doit rendre Luna moins premium. Kimi devient garde qualite graphique permanent ; DeepSeek audite les handlers/risques sans proposer d'UI cheap.
+Fichier concerne : docs/AGENTS_COLLABORATION/QUEUE.md, docs/AGENTS_COLLABORATION/AGENT_RULES_LIGHT.md
+Risque : faible
+Decision Ludovic requise : non
+Action proposee : Kimi signale toute regression visuelle ; DeepSeek documente les targets ; corrections niveau 2/3 seulement apres validation Ludovic.
+
+---
+Agent : Kimi
+Heure : 2026-05-28 21:45:00
+Tache : TASK-013-KIMI-VOIX-AVATAR-RECOS
+Type : decision-niveau-2-prete
+Resume : Document de recommandations voix + avatar Luna pret pour decision Ludovic. 6 voix ElevenLabs feminines francaises avec IDs (Camille, Camille Martin, Anais, Lise, Lison, Adina). 3 voix Cartesia francaises. Procedure Cloud Run incluse. 3 options avatar (galerie Simli / personnalise / garder actuel). Diagnostic : voix masculine probablement due a l'absence de cle TTS configuree sur Cloud Run (Simli utilise son TTS natif masculin par defaut).
+Fichier concerne : `docs/AGENTS_COLLABORATION/agents/KIMI_VOIX_AVATAR_RECOMMANDATIONS.md`
+Risque : faible (documentation)
+Decision Ludovic requise : oui (choix provider + voice ID + avatar)
+Action proposee : Ludovic choisit voix et avatar → Kimi configure Cloud Run → test terrain 30s.
+
+---
+Agent : DeepSeek
+Heure : 2026-05-29 10:38:00
+Tache : TASK-002-DEEPSEEK-BUTTON-HANDLER-MAP
+Type : audit
+Resume : Cartographie technique handlers/endpoints terminee. Zones couvertes : Services, Visio, Voix, Documents, Formulaires, Monde, Profil, Reglages, Guardian. Aucun test sensible lance ; recommandations non destructives listees.
+Fichier concerne : docs/AGENTS_COLLABORATION/agents/DEEPSEEK_BUTTON_HANDLER_MAP.md
+Risque : faible
+Decision Ludovic requise : non
+Action proposee : Kimi s'appuie sur la carte pour tests terrain ; Codex priorise les risques P0/P1.
+
+---
+Agent : DeepSeek
+Heure : 2026-05-29 10:39:00
+Tache : TASK-013-DEEPSEEK-SIMLI-FLOW-AUDIT
+Type : audit
+Resume : Audit technique Simli/visio termine. Causes confirmees : SIMLI_FACE_ID env, voix Cartesia/ElevenLabs a choisir, pas d'input texte visio, vision par capture /api/visio/perception, sendAppMessage a auditer, fin Simli encore a securiser malgre maxIdleTime=60.
+Fichier concerne : docs/AGENTS_COLLABORATION/agents/DEEPSEEK_SIMLI_FLOW_AUDIT.md
+Risque : moyen
+Decision Ludovic requise : oui pour avatar, voix, input texte et vision avancee
+Action proposee : Codex structure la synthese Objectif 013 ; Kimi valide UX premium avant toute correction visible.
+
+---
+Agent : Codex
+Heure : 2026-05-29 18:13:37
+Tache : OBJECTIF-013-TWILIO-COST-GUARD
+Type : risque
+Resume : Ludovic a recharge Twilio mais les tests precedents ont consomme environ 20 euros tres vite. Regle renforcee : aucun SMS/appel reel/boucle Twilio pendant le dev sans validation explicite juste avant le test. Utiliser mock, dry-run, logs locaux et tests courts non factures.
+Fichier concerne : docs/AGENTS_COLLABORATION/AGENT_RULES_LIGHT.md
+Risque : moyen
+Decision Ludovic requise : oui pour tout test Twilio reel
+Action proposee : Claude/Kimi/DeepSeek doivent traiter Twilio comme une ressource couteuse et demander feu vert avant chaque test facture.
+
+---
+Agent : Kimi
+Heure : 2026-05-28 22:15:00
+Tache : TASK-002-KIMI-VISUAL-QUALITY-GATE
+Type : audit-termine
+Resume : Audit qualite graphique termine. Verdict 6.5/10. Points forts : glassmorphism, animations fluides, degrades violets reconnaissables, simli.html immersif premium. Points faibles : 315 couleurs dans index.html (aucune palette coherente), 324 !important (specifite en pagaille), 95KB CSS monolithique inline, 22 border-radius differents, 91 box-shadow. simli.html est le standard a viser. Recommandations : creer un design system CSS minimal (15 tokens couleur, 4 radius, 4 shadows) avant toute nouvelle fonctionnalite visible.
+Fichier concerne : `docs/AGENTS_COLLABORATION/agents/KIMI_VISUAL_QUALITY_GATE.md`
+Risque : faible (audit)
+Decision Ludovic requise : non pour l'audit, oui pour la refactor niveau 2/3
+Action proposee : Attendre decisions niveau 2 (voix, avatar, input texte) avant toute correction visuelle majeure. Kimi reste garde qualite graphique permanent.
+
+---
+Agent : Kimi
+Heure : 2026-05-28 22:45:00
+Tache : OBJECTIF-013-VOIX-VISIO-IDENTITE
+Type : prep-code + demande-action
+Resume : Preparations niveau 1 effectuees pour la voix feminine ElevenLabs :
+  1. luna_web.py: voix par defaut ElevenLabs changee de Rachel (21m00Tcm4TlvDq8ikWAM) -> Camille (Z9ZHGvFZ90R0h0x1prsJ) — francaise, chaleureuse, expressive.
+  2. luna_web.py: firstMessage enrichi — Luna se presente explicitement comme assistantee de l'utilisateur.
+  3. simli.html: wording feminise et personnalise ('Je te vois et je t'entends', 'Pas d'inquietude, on est presque la').
+  4. maxIdleTime deja reduit a 60s, sendAppMessage cible bot uniquement, confirmation hangup OK.
+Action requise DeepSeek (Windows) : configurer ELEVENLABS_API_KEY sur Cloud Run depuis le .env local Windows. La cle est dans C:\Users\saint\.continue\.env ou C:\Users\saint\Documents\Codex\2026-05-25\luna-server-objectif-006-fresh\.env. Commande : gcloud run services update luna-beta --set-env-vars "ELEVENLABS_API_KEY=<cle>" --region europe-west1 --project crypto-parser-475411-k4. NE PAS COMMITTER LA CLE.
+Decision Ludovic requise : oui pour le deploiement final (test voix 30s).
