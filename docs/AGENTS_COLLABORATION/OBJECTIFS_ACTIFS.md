@@ -666,8 +666,8 @@ Aucune regression graphique. Aucun changement majeur sans validation fondateur.
 | Agent | Tâche | Statut |
 |---|---|---|
 | **Claude** | Architecture + intégration ELEVENLABS_VOICE_ID | ✅ Architecture livrée |
-| **Kimi** | Choix voix FR féminine + wording assistante visio | À faire |
-| **DeepSeek** | Audit flux + risques coût + test plan économe | À faire |
+| **Kimi** | Choix voix FR féminine + wording assistante visio | ✅ Voix Camille + wording Iris livrés |
+| **DeepSeek** | Audit flux + risques coût + test plan économe | ✅ Audits techniques livrés |
 | **Ludovic** | Valider la voix choisie avant déploiement | En attente |
 
 ### Interdictions absolues
@@ -680,9 +680,8 @@ Aucune regression graphique. Aucun changement majeur sans validation fondateur.
 ### Validation
 
 - [x] Claude a analysé l'architecture et livré OBJECTIF_013_VISIO_LUNA_SIMLI.md
-- [ ] Kimi a recommandé une voix + wording
-- [ ] DeepSeek a audité les flux
-- [ ] Ludovic a choisi la voix
-- [ ] ELEVENLABS_VOICE_ID ajouté dans .env
-- [ ] Test local validé
+- [x] Kimi a recommandé une voix (Camille — Z9ZHGvFZ90R0h0x1prsJ) + wording Iris
+- [x] DeepSeek a audité les flux (DEEPSEEK_SIMLI_FLOW_AUDIT.md)
+- [ ] Ludovic a validé la voix (test terrain 30s)
+- [ ] ELEVENLABS_API_KEY configuré sur Cloud Run
 - [ ] Déploiement Cloud Run validé par Ludovic
