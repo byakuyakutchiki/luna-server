@@ -26,6 +26,8 @@ Action proposee :
 - Kimi doit signaler explicitement tout rendu cheap, brouillon, mal aligne, mal contraste, trop charge ou incoherent avec l'identite Luna.
 - Si doute sur un impact produit, demander validation Ludovic.
 - Ne pas consommer des tokens pour repeter ce qui est deja dans les fichiers.
+- Twilio economie obligatoire : aucun SMS, appel reel, test vocal payant ou boucle Twilio pendant le developpement sans validation explicite de Ludovic juste avant le test.
+- Pour Twilio, privilegier mock, simulation, logs locaux, dry-run et tests d'interface non factures. Tout test reel doit etre court, unique, documente et arrete immediatement apres verification.
 
 ## Niveaux de decision
 

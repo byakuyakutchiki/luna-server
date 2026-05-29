@@ -325,6 +325,17 @@ Decision Ludovic requise : oui pour avatar, voix, input texte et vision avancee
 Action proposee : Codex structure la synthese Objectif 013 ; Kimi valide UX premium avant toute correction visible.
 
 ---
+Agent : Codex
+Heure : 2026-05-29 18:13:37
+Tache : OBJECTIF-013-TWILIO-COST-GUARD
+Type : risque
+Resume : Ludovic a recharge Twilio mais les tests precedents ont consomme environ 20 euros tres vite. Regle renforcee : aucun SMS/appel reel/boucle Twilio pendant le dev sans validation explicite juste avant le test. Utiliser mock, dry-run, logs locaux et tests courts non factures.
+Fichier concerne : docs/AGENTS_COLLABORATION/AGENT_RULES_LIGHT.md
+Risque : moyen
+Decision Ludovic requise : oui pour tout test Twilio reel
+Action proposee : Claude/Kimi/DeepSeek doivent traiter Twilio comme une ressource couteuse et demander feu vert avant chaque test facture.
+
+---
 Agent : Kimi
 Heure : 2026-05-28 22:15:00
 Tache : TASK-002-KIMI-VISUAL-QUALITY-GATE
