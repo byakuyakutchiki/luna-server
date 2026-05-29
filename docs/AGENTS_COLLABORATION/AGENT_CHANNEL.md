@@ -392,3 +392,14 @@ Fichier concerne : docs/AGENTS_COLLABORATION/agents/CODEX_AUDIT_013_OBJECTIFS_SE
 Risque : moyen
 Decision Ludovic requise : oui pour input texte visio, avatar, vision avancee, actions Twilio reelles
 Action proposee : Claude/Kimi passent la matrice une ligne apres l'autre avec tests courts non factures ; aucun Twilio reel.
+
+---
+Agent : Codex
+Heure : 2026-05-29 19:05:00
+Tache : OBJECTIVES-SMS-SPAM-GUARD
+Type : risque
+Resume : Ludovic recoit encore des SMS inutiles "objectifs" malgre l'arret de la veille Codex. Cause probable identifiee dans luna_web.py : l'Auto-Diagnostic objectifs avait un fallback SMS Twilio si Telegram echouait. Patch applique : fallback SMS supprime, Telegram/log uniquement.
+Fichier concerne : luna_web.py
+Risque : moyen
+Decision Ludovic requise : non pour le patch ; oui pour deploiement Cloud Run si necessaire
+Action proposee : Claude/Kimi deploient ce patch ou retirent temporairement ADMIN_NUMBER de Cloud Run pour stopper immediatement les SMS objectifs.

@@ -3347,7 +3347,7 @@ async def _check_objective_voix() -> dict:
 
 
 async def _send_objectives_alert(failures: list, total: int) -> None:
-    """Envoie une alerte Telegram ou SMS si des objectifs ne sont pas atteints."""
+    """Envoie une alerte Telegram si des objectifs ne sont pas atteints."""
     bot_token = os.getenv("ALERT_TELEGRAM_BOT_TOKEN", "")
     founder_chat_id = os.getenv("FOUNDER_TELEGRAM_CHAT_ID", "")
     # Charger depuis Redis si non configuré dans .env (persisté après /pair Telegram)
@@ -3383,27 +3383,15 @@ async def _send_objectives_alert(failures: list, total: int) -> None:
         except Exception as e:
             logger.warning(f"Telegram objectives alert failed: {e}")
 
-    # Fallback SMS
-    admin = os.getenv("ADMIN_NUMBER", "")
-    tw_sid = os.getenv("TWILIO_ACCOUNT_SID", "")
-    tw_token = os.getenv("TWILIO_AUTH_TOKEN", "")
-    tw_from = os.getenv("TWILIO_SMS_FROM", "")
-    if admin and tw_sid and tw_token and tw_from:
-        try:
-            from twilio.rest import Client as _Tw
-            _tw = _Tw(tw_sid, tw_token)
-            sms_body = f"LUNA DIAGNOSTIC: {len(failures)}/{total} objectifs en echec — " + \
-                       ", ".join(f["tab"] for f in failures[:4])
-            await asyncio.to_thread(_tw.messages.create, body=sms_body, from_=tw_from, to=admin)
-            logger.info("Objectives alert sent via SMS")
-        except Exception as e:
-            logger.warning(f"SMS objectives alert failed: {e}")
+    logger.warning(
+        "Objectives alert not sent: Telegram unavailable and SMS fallback disabled to protect Twilio credit"
+    )
 
 
 async def _objectives_monitor_loop() -> None:
     """
     Boucle autonome : vérifie les objectifs toutes les 5 minutes.
-    Alerte Telegram/SMS si un objectif n'est plus atteint.
+    Alerte Telegram si un objectif n'est plus atteint.
     Luna se surveille elle-même — les bugs ne doivent pas être trouvés
     par l'utilisateur avant le système.
     """
