@@ -6883,7 +6883,7 @@ async def _start_simli_visio(tenant_id: int, subscriber_name: str) -> tuple:
             "llmAPIKey": openai_key,
         },
         "maxSessionLength": 3600,
-        "maxIdleTime": 300,
+        "maxIdleTime": 60,
     }
     if cartesia_key:
         payload["ttsProvider"] = "Cartesia"
