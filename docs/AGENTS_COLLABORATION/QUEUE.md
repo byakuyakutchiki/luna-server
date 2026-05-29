@@ -17,24 +17,6 @@
 - Interdits : pas de refonte UI majeure sans validation Ludovic, pas de changement graphique gratuit, pas de regression visuelle toleree.
 - Resultat attendu : message court dans AGENT_CHANNEL.md avec verdict qualite graphique et recommandations UI prioritaires.
 
-### TASK-002-DEEPSEEK-BUTTON-HANDLER-MAP
-- Agent : DeepSeek
-- Objectif : 002
-- Niveau : 0
-- Statut : open
-- Tache : auditer dans le code les boutons principaux et leurs handlers/endpoints : Services, Visio, Voix, Documents, Formulaires, Monde, Profil, Reglages. Produire une cartographie cible -> fonction JS -> endpoint -> risque -> test non destructif recommande.
-- Interdits : pas de modification code, pas de deploiement, pas d'action sensible reelle, pas de secrets.
-- Resultat attendu : message court dans AGENT_CHANNEL.md + fichier agents/DEEPSEEK_BUTTON_HANDLER_MAP.md.
-
-### TASK-013-DEEPSEEK-SIMLI-FLOW-AUDIT
-- Agent : DeepSeek
-- Objectif : 013
-- Niveau : 0
-- Statut : open
-- Tache : auditer le flux technique Simli/Tavus dans le code : configuration avatar/voix, transmission messages, vision camera, hangup, WebSocket desactivee. Identifier causes exactes des 4 problemes (avatar, voix masculine, texte non transmis, vision limitee).
-- Interdits : pas de deploiement, pas de consommation Simli inutile.
-- Resultat attendu : message court dans AGENT_CHANNEL.md avec fichiers/lignes exacts et propositions techniques.
-
 ## IN PROGRESS
 
 ### TASK-002-KIMI-BUTTON-TARGET-SWEEP
@@ -84,6 +66,28 @@ Resultat : audit UX complet realise. 2 problemes critiques (pas d'input texte, h
 ---
 
 ## DONE
+
+### TASK-013-DEEPSEEK-SIMLI-FLOW-AUDIT
+- Agent : DeepSeek
+- Objectif : 013
+- Niveau : 0
+- Statut : done
+- Tache : auditer le flux technique Simli/Tavus dans le code : configuration avatar/voix, transmission messages, vision camera, hangup, WebSocket desactivee. Identifier causes exactes des 4 problemes (avatar, voix masculine, texte non transmis, vision limitee).
+- Interdits : pas de deploiement, pas de consommation Simli inutile.
+- Resultat attendu : message court dans AGENT_CHANNEL.md avec fichiers/lignes exacts et propositions techniques.
+
+Resultat : voir `docs/AGENTS_COLLABORATION/agents/DEEPSEEK_SIMLI_FLOW_AUDIT.md`.
+
+### TASK-002-DEEPSEEK-BUTTON-HANDLER-MAP
+- Agent : DeepSeek
+- Objectif : 002
+- Niveau : 0
+- Statut : done
+- Tache : auditer dans le code les boutons principaux et leurs handlers/endpoints : Services, Visio, Voix, Documents, Formulaires, Monde, Profil, Reglages. Produire une cartographie cible -> fonction JS -> endpoint -> risque -> test non destructif recommande.
+- Interdits : pas de modification code, pas de deploiement, pas d'action sensible reelle, pas de secrets.
+- Resultat attendu : message court dans AGENT_CHANNEL.md + fichier agents/DEEPSEEK_BUTTON_HANDLER_MAP.md.
+
+Resultat : voir `docs/AGENTS_COLLABORATION/agents/DEEPSEEK_BUTTON_HANDLER_MAP.md`.
 
 ### TASK-011-KIMI-P0-CONFIRMATIONS-PATCH
 - Agent : Kimi
