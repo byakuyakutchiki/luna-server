@@ -1230,6 +1230,8 @@
             _visioTranscript = [];
             _visioStartTs = Date.now();
             _startSpeechCapture();
+            // Détecter le bot parmi les participants déjà présents
+            _detectBotId();
             // Démarrer la vision caméra avec délai (laisser la session stabiliser)
             setTimeout(_startVisionLoop, 4000);
           });
@@ -1238,14 +1240,48 @@
 
           // Multi-participants : Luna s'efface quand d'autres personnes rejoignent
           var _guestCount = 0;
+          var _simliBotId = null;
           function _isHumanParticipant(p) {
             if (!p || p.local) return false;
             var uname = (p.user_name || p.userName || '').toLowerCase();
             // Filtrer les bots IA (Tavus, Simli, Luna)
             return !uname.match(/luna|tavus|simli|bot|ai|agent/i);
           }
+          function _isBotParticipant(p) {
+            if (!p || p.local) return false;
+            var uname = (p.user_name || p.userName || '').toLowerCase();
+            return uname.match(/luna|tavus|simli|bot|ai|agent/i);
+          }
+          function _detectBotId() {
+            try {
+              var parts = dailyCall.participants();
+              for (var pid in parts) {
+                if (_isBotParticipant(parts[pid])) {
+                  _simliBotId = pid;
+                  rLog('info', 'simli', 'bot_detected', pid);
+                  return;
+                }
+              }
+            } catch(e) {}
+          }
+          function _sendAppMessageToBot(data) {
+            try {
+              if (_simliBotId) {
+                dailyCall.sendAppMessage(data, _simliBotId);
+              } else {
+                dailyCall.sendAppMessage(data, '*');
+              }
+            } catch(e) {}
+          }
           dailyCall.on('participant-joined', function(e) {
-            if (!e || !e.participant || !_isHumanParticipant(e.participant)) return;
+            if (!e || !e.participant) return;
+            // Détecter le bot s'il rejoint
+            if (_isBotParticipant(e.participant)) {
+              _simliBotId = e.participant.session_id || e.participant.id || '';
+              rLog('info', 'simli', 'bot_joined', _simliBotId);
+              return;
+            }
+            if (!_isHumanParticipant(e.participant)) return;
             _guestCount++;
             rLog('info', 'simli', 'guest_joined', 'count=' + _guestCount);
             showToast('👥 ' + (e.participant.user_name || 'Invité') + ' a rejoint la visio', 4000);
@@ -1331,23 +1367,23 @@
                 rLog('info', 'simli', 'tool_result', resultText.substring(0,80));
                 _visioTranscript.push({ ts: Date.now(), type: 'tool_result', tool: toolName, text: resultText });
                 try {
-                  dailyCall.sendAppMessage({
+                  _sendAppMessageToBot({
                     message_type: 'conversation',
                     event_type: 'conversation.echo',
                     conversation_id: currentConvId,
                     properties: { modality: 'text', text: resultText }
-                  }, '*');
+                  });
                 } catch(e) {}
               })
               .catch(function() {
                 showToast('❌ Erreur lors de la tâche', 3000);
                 try {
-                  dailyCall.sendAppMessage({
+                  _sendAppMessageToBot({
                     message_type: 'conversation',
                     event_type: 'conversation.echo',
                     conversation_id: currentConvId,
                     properties: { modality: 'text', text: 'Erreur lors du traitement.' }
-                  }, '*');
+                  });
                 } catch(e2) {}
               });
             }
@@ -1643,7 +1679,7 @@
         rLog('info', 'simli', 'upload_ok', analysis.substring(0, 80));
         // Injecter l'analyse dans la conversation Luna
         try {
-          dailyCall.sendAppMessage({
+          _sendAppMessageToBot({
             message_type: 'conversation',
             event_type: 'conversation.echo',
             conversation_id: currentConvId,
@@ -1652,7 +1688,7 @@
               text: '[Document partagé : "' + fname + '"]\n' + analysis +
                     '\n\nDis à ton souscripteur ce que tu penses de ce document. Donne ton avis, souligne les points importants et pose-lui des questions si nécessaire.'
             }
-          }, '*');
+          });
         } catch(e2) { rLog('warn', 'simli', 'upload_echo_fail', String(e2).substring(0,60)); }
       })
       .catch(function(err) {
@@ -1692,12 +1728,12 @@
           var silentMsg = _lunaMuted
             ? '[Instruction système] Tu es maintenant en mode SILENCIEUX. N\'émets AUCUNE réponse vocale. Écoute uniquement. Attends qu\'on te demande explicitement de reprendre la parole.'
             : '[Instruction système] Tu peux à nouveau parler normalement. Reprends la conversation.';
-          dailyCall.sendAppMessage({
+          _sendAppMessageToBot({
             message_type: 'conversation',
             event_type: 'conversation.echo',
             conversation_id: currentConvId,
             properties: { modality: 'text', text: silentMsg }
-          }, '*');
+          });
         } catch(e) { rLog('warn', 'simli', 'mute_err', String(e).substring(0,60)); }
         btnMuteLuna.textContent = _lunaMuted ? '🔇 Luna muette' : '🎙 Luna active';
         btnMuteLuna.classList.toggle('muted', _lunaMuted);
@@ -1970,12 +2006,12 @@
               if (!_visionNotified && dailyCall && currentConvId) {
                 _visionNotified = true;
                 try {
-                  dailyCall.sendAppMessage({
+                  _sendAppMessageToBot({
                     message_type: 'conversation',
                     event_type: 'conversation.echo',
                     conversation_id: currentConvId,
                     properties: { modality: 'text', text: '[Système vision] Ta caméra est maintenant active. Tu peux voir ton interlocuteur. Description initiale : ' + data.description + '. Utilise get_vision_context si on te demande ce que tu vois.' }
-                  }, '*');
+                  });
                   rLog('info', 'simli', 'vision_notify', 'ok');
                 } catch(e2) {}
               }
@@ -1999,12 +2035,12 @@
               );
               if ((hasConcern || concernText) && !_visionSilent && data.description) {
                 try {
-                  dailyCall.sendAppMessage({
+                  _sendAppMessageToBot({
                     message_type: 'conversation',
                     event_type: 'conversation.echo',
                     conversation_id: currentConvId,
                     properties: { modality: 'text', text: '[Alerte vision] ' + data.description }
-                  }, '*');
+                  });
                   rLog('warn', 'simli', 'vision_concern', data.description.substring(0, 70));
                 } catch(e2) {}
               }
