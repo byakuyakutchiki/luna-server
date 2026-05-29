@@ -600,3 +600,39 @@ Aucune regression graphique. Aucun changement majeur sans validation fondateur.
 - [ ] Kimi poste son premier avis UX sur le canal.
 - [ ] DeepSeek poste son premier avis technique sur le canal.
 - [ ] Claude confirme le mode integration finale.
+
+---
+
+## Objectif 013 — Voix féminine FR + Identité Ludovic + Vision caméra (Simli/ElevenLabs)
+
+**Statut** : ouvert — architecture analysée par Claude  
+**Priorité** : haute  
+**Lead technique** : Claude  
+**Date ouverture** : 2026-05-29  
+**Document dédié** : `docs/AGENTS_COLLABORATION/OBJECTIF_013_VISIO_LUNA_SIMLI.md`
+
+### Agents concernés
+
+| Agent | Tâche | Statut |
+|---|---|---|
+| **Claude** | Architecture + intégration ELEVENLABS_VOICE_ID | ✅ Architecture livrée |
+| **Kimi** | Choix voix FR féminine + wording assistante visio | À faire |
+| **DeepSeek** | Audit flux + risques coût + test plan économe | À faire |
+| **Ludovic** | Valider la voix choisie avant déploiement | En attente |
+
+### Interdictions absolues
+
+- ZERO SMS / appel Twilio pendant cet objectif
+- Ne jamais committer ELEVENLABS_API_KEY
+- Test Simli < 30 secondes par session
+- Déploiement Cloud Run interdit sans validation Ludovic
+
+### Validation
+
+- [x] Claude a analysé l'architecture et livré OBJECTIF_013_VISIO_LUNA_SIMLI.md
+- [ ] Kimi a recommandé une voix + wording
+- [ ] DeepSeek a audité les flux
+- [ ] Ludovic a choisi la voix
+- [ ] ELEVENLABS_VOICE_ID ajouté dans .env
+- [ ] Test local validé
+- [ ] Déploiement Cloud Run validé par Ludovic

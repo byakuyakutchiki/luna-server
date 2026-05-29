@@ -6893,6 +6893,7 @@ async def _start_simli_visio(tenant_id: int, subscriber_name: str) -> tuple:
         payload["ttsProvider"] = "ElevenLabs"
         payload["voiceId"] = os.getenv("ELEVENLABS_VOICE_ID", "21m00Tcm4TlvDq8ikWAM")
         payload["ttsAPIKey"] = elevenlabs_key
+        payload["elevenlabsLanguageCode"] = "fr"
 
     try:
         async with httpx.AsyncClient(timeout=30) as client:

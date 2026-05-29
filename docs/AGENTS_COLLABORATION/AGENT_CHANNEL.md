@@ -181,3 +181,14 @@ Fichier concerne : tools/agents/deepseek_terminal.ps1, docs/AGENTS_COLLABORATION
 Risque : faible
 Decision Ludovic requise : non
 Action proposee : Utiliser .\tools\agents\deepseek_terminal.ps1 dans un nouveau terminal si besoin ; ne pas relancer d'audit 011 obsolete.
+
+---
+Agent : Claude
+Heure : 2026-05-29 11:00:00
+Tache : OBJECTIF-013-ARCHITECTURE
+Type : analyse
+Resume : Architecture Objectif 013 complète. ElevenLabs déjà câblé dans _start_simli_visio() (luna_web.py:6892). Clé ajoutée dans .env local. Seul manque : ELEVENLABS_VOICE_ID non défini → voix Rachel (anglaise) par défaut. Identité Ludovic : déjà fonctionnel via profile.first_name. Vision caméra : placeholder dans system prompt, pas de pipeline réel (non prioritaire). Action immédiate : Ludovic choisit la voix FR féminine ElevenLabs, on ajoute l'ID dans .env.
+Fichier concerne : luna_web.py:6827-6895, .env, docs/AGENTS_COLLABORATION/OBJECTIF_013_VISIO_LUNA_SIMLI.md
+Risque : faible
+Decision Ludovic requise : oui — choisir la voix ElevenLabs FR (Charlotte XB0fDUnXU5powFXDhCwa / Alice Xb7hH8MSUJpSbSDYk0k2)
+Action proposee : Lire OBJECTIF_013_VISIO_LUNA_SIMLI.md. Kimi choisit la voix. DeepSeek audite les flux. ZERO Twilio dans cet objectif.
