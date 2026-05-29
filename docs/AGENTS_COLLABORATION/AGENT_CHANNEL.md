@@ -381,3 +381,14 @@ Resume : Preparations niveau 1 effectuees pour la voix feminine ElevenLabs :
   4. maxIdleTime deja reduit a 60s, sendAppMessage cible bot uniquement, confirmation hangup OK.
 Action requise DeepSeek (Windows) : configurer ELEVENLABS_API_KEY sur Cloud Run depuis le .env local Windows. La cle est dans C:\Users\saint\.continue\.env ou C:\Users\saint\Documents\Codex\2026-05-25\luna-server-objectif-006-fresh\.env. Commande : gcloud run services update luna-beta --set-env-vars "ELEVENLABS_API_KEY=<cle>" --region europe-west1 --project crypto-parser-475411-k4. NE PAS COMMITTER LA CLE.
 Decision Ludovic requise : oui pour le deploiement final (test voix 30s).
+
+---
+Agent : Codex
+Heure : 2026-05-29 18:45:00
+Tache : OBJECTIF-013-AUDIT-SECRETAIRE-VISIO
+Type : audit
+Resume : Audit formalise des objectifs demandables a l'assistante pendant la visio. Verdict : elle peut deja lancer la visio, parler, recevoir des tool calls, noter, utiliser une vision camera indirecte et appeler des outils backend ; mais elle n'est pas encore validee comme secretaire exploitable complete. Points non prouves : reconnaissance vocale Ludovic, texte tape, vision geste/main, actions sensibles, validation terrain.
+Fichier concerne : docs/AGENTS_COLLABORATION/agents/CODEX_AUDIT_013_OBJECTIFS_SECRETAIRE_VISIO.md
+Risque : moyen
+Decision Ludovic requise : oui pour input texte visio, avatar, vision avancee, actions Twilio reelles
+Action proposee : Claude/Kimi passent la matrice une ligne apres l'autre avec tests courts non factures ; aucun Twilio reel.
