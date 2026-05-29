@@ -12,7 +12,7 @@
 - Agent : Kimi
 - Objectif : 002
 - Niveau : 0
-- Statut : open
+- Statut : in_progress
 - Tache : appliquer une garde graphique permanente sur les audits et propositions : chaque correction doit rendre Luna plus premium, plus lisible, plus fluide ou plus coherente. Signaler tout rendu cheap, mal aligne, brouillon, trop charge, mal contraste ou incoherent avec l'identite Luna.
 - Interdits : pas de refonte UI majeure sans validation Ludovic, pas de changement graphique gratuit, pas de regression visuelle toleree.
 - Resultat attendu : message court dans AGENT_CHANNEL.md avec verdict qualite graphique et recommandations UI prioritaires.
@@ -54,10 +54,12 @@ Resultat : audit UX complet realise. 2 problemes critiques (pas d'input texte, h
 - Agent : Kimi, DeepSeek
 - Objectif : 012
 - Niveau : 0
-- Statut : in_progress
+- Statut : done
 - Tache : valider que le runner local peut pull, lire la queue, ecrire un resultat, commit et push.
 - Interdits : aucun changement applicatif.
 - Resultat attendu : message court dans AGENT_CHANNEL.md.
+
+Resultat : runners Linux (Kimi) et Windows (Codex, DeepSeek) operationnels. Pull, lecture queue, ecriture resultat, commit et push valides. Conflits git geres manuellement quand plusieurs agents poussent simultanement.
 
 ---
 
