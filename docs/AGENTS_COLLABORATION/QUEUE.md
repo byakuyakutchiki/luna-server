@@ -13,9 +13,9 @@
 - Objectif : 014
 - Niveau : 0/2
 - Statut : done
-- Tache : lire la vision finale dans OBJECTIF_014_RECADRAGE_VISIO_REELLE.md, puis regarder/tester le rendu reel de la visio publiee. Juger si Iris sert la promesse "secretaire visio" : presence, voix, comprehension, vision, secretariat, sobriete UI. Juger la barre texte Iris : regression ou secours discret acceptable ?
+- Tache : lire la vision finale dans OBJECTIF_014_RECADRAGE_VISIO_REELLE.md, surtout "Contextes implicites de visio" et "Options attendues pendant une visio", puis regarder/tester le rendu reel. Juger si Iris comprend le cadre (personnel/pro/demo/assistance/invite/admin/urgence) et sert la promesse secretaire visio.
 - Interdits : pas de deploiement, pas de session Simli longue, pas de correction UI visible sans validation Ludovic.
-- Resultat attendu : `docs/AGENTS_COLLABORATION/agents/KIMI_REAL_VISIO_UX_014.md` + message court AGENT_CHANNEL.
+- Resultat attendu : `docs/AGENTS_COLLABORATION/agents/KIMI_REAL_VISIO_UX_014.md` + message court AGENT_CHANNEL + commit/push GitHub.
 
 Resultat : 10 targets juges contre la vision finale. Verdicts detailles dans le rapport. Points cles : (1) barre Iris = regression validee, suppression OK ; (2) proposition canal texte secours = swipe-up mini-drawer discret ; (3) 5 boutons top mobile = surcharge a corriger ; (4) incoherence nom Luna/Iris = friction cognitive ; (5) voix/vision/comprehension = non prouvees, tests terrain requis. Aucun code modifie, aucun credit consomme.
 
@@ -24,18 +24,18 @@ Resultat : 10 targets juges contre la vision finale. Verdicts detailles dans le 
 - Objectif : 014
 - Niveau : 0
 - Statut : open
-- Tache : partir des targets fonctionnelles Iris en visio dans OBJECTIF_014_RECADRAGE_VISIO_REELLE.md. Pour chaque target prioritaire (voix, identité Ludovic, vision, note, résumé, rappel, tool non sensible), auditer pourquoi la production ne prouve pas le résultat. Verifier env Cloud Run attendues, payload Simli, vision injection, STT, tool calls, limites cout.
+- Tache : partir des targets fonctionnelles et contextes implicites Iris en visio dans OBJECTIF_014_RECADRAGE_VISIO_REELLE.md. Pour chaque target prioritaire (voix, identité Ludovic, vision, note, résumé, rappel, contexte pro/perso, tool non sensible), auditer pourquoi la production ne prouve pas le résultat. Verifier env Cloud Run attendues, payload Simli, vision injection, STT, tool calls, limites cout.
 - Interdits : pas de secret dans GitHub, pas de SMS/appel/Twilio, pas de deploiement, pas de session longue.
-- Resultat attendu : `docs/AGENTS_COLLABORATION/agents/DEEPSEEK_VISIO_CAPABILITY_GAP_014.md` + tests non destructifs.
+- Resultat attendu : `docs/AGENTS_COLLABORATION/agents/DEEPSEEK_VISIO_CAPABILITY_GAP_014.md` + tests non destructifs + message AGENT_CHANNEL + commit/push GitHub obligatoire.
 
 ### TASK-014-CLAUDE-NO-CODE-BEFORE-MATRIX
 - Agent : Claude
 - Objectif : 014
 - Niveau : 0/2
 - Statut : done
-- Tache : lire toute la vision finale et les targets fonctionnelles dans OBJECTIF_014_RECADRAGE_VISIO_REELLE.md. Stopper les ajouts UI visibles non valides, proposer un plan minimal de correction par target. La barre texte Iris est une regression produit non validee : proposer retrait/masquage ou alternative seulement apres validation Ludovic.
+- Tache : lire toute la vision finale, les contextes implicites et les targets fonctionnelles dans OBJECTIF_014_RECADRAGE_VISIO_REELLE.md. Stopper les ajouts UI visibles non valides, proposer un plan minimal de correction par target et par contexte. La barre texte Iris est une regression produit non validee : proposer retrait/masquage ou alternative seulement apres validation Ludovic.
 - Interdits : pas de nouvelle UI visible, pas de deploiement, pas de Cloud Run, pas de secrets, pas d'action payante.
-- Resultat attendu : `docs/AGENTS_COLLABORATION/agents/CLAUDE_PLAN_VISIO_014.md`.
+- Resultat attendu : `docs/AGENTS_COLLABORATION/agents/CLAUDE_PLAN_VISIO_014.md` + message AGENT_CHANNEL + commit/push GitHub.
 
 Resultat : barre Iris supprimee du code (commit 4e1d2ba, non deploye — attend validation Ludovic). Plan par target produit dans CLAUDE_PLAN_VISIO_014.md. En attente audits DeepSeek (gaps env/voix/vision) et Kimi (rendu terrain + proposition canal texte discret).
 

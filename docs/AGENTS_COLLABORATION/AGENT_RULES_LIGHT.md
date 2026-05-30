@@ -32,6 +32,8 @@ Action proposee :
 - Aucun ajout UI visible majeur sans matrice objectif -> preuve -> risque -> validation. Une barre, modal, workflow, changement d'identite ou nouveau mode d'interaction est niveau 2 minimum.
 - En visio, l'experience doit rester immersive et premium. Ne pas transformer la visio en chat textuel permanent sans validation Ludovic.
 - Claude integre le code final, mais ne decide pas seul de la vision produit. Kimi valide le rendu reel, Codex structure les objectifs, DeepSeek audite les risques.
+- Livraison GitHub obligatoire : un avis ou audit garde dans un terminal local, VS Code, VM ou chat agent n'est pas livre. Chaque agent doit creer/mettre a jour son fichier dans `docs/AGENTS_COLLABORATION/agents/`, poster un message court dans `AGENT_CHANNEL.md`, mettre a jour `QUEUE.md` si besoin, puis commit/push.
+- En visio, Iris doit comprendre le contexte implicite avant d'agir : personnel, professionnel, demo exploitant, assistance, invite tiers, administratif/document, urgence. Les options disponibles dependent du contexte.
 
 ## Niveaux de decision
 

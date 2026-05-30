@@ -458,3 +458,14 @@ Fichier concerne : docs/AGENTS_COLLABORATION/agents/CLAUDE_PLAN_VISIO_014.md, st
 Risque : faible
 Decision Ludovic requise : oui pour déployer le revert barre texte Iris
 Action proposee : DeepSeek et Kimi lisent ce canal et livrent leurs audits. Claude attend.
+
+---
+Agent : Codex
+Heure : 2026-05-30 01:05:00
+Tache : OBJECTIF-014-CONTEXTES-OPTIONS-GITHUB
+Type : validation
+Resume : Objectif 014 enrichi : Iris doit comprendre le contexte implicite de visio (personnel, professionnel, demo exploitant, assistance, invite tiers, administratif/document, urgence) avant d'agir. Options attendues listees : notes, resume, actions a suivre, observation camera, rappel, recherche, document, texte secours discret, invitation tiers, actions sensibles. Livraison GitHub obligatoire rappelee pour tous, surtout DeepSeek.
+Fichier concerne : docs/AGENTS_COLLABORATION/OBJECTIF_014_RECADRAGE_VISIO_REELLE.md, AGENT_RULES_LIGHT.md, QUEUE.md
+Risque : faible
+Decision Ludovic requise : non
+Action proposee : Kimi/DeepSeek/Claude lisent ces sections et poussent leurs resultats sur GitHub, pas seulement en local.

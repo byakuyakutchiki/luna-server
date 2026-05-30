@@ -71,6 +71,62 @@ Si une proposition ne sert pas au moins un de ces points, elle ne doit pas être
 
 ---
 
+## Contextes implicites de visio
+
+Iris doit comprendre le cadre de la visio avant d'agir.  
+Elle ne doit pas demander mécaniquement "dans quel mode sommes-nous ?" si le contexte est évident. Elle doit inférer le cadre avec humanité, puis adapter ses options.
+
+| Contexte | Indices possibles | Posture Iris | Options utiles |
+| --- | --- | --- | --- |
+| **Visio personnelle Ludovic/Iris** | Ludovic seul, échange direct, demande libre | Présence chaleureuse, naturelle, non robotique | écouter, répondre, voir, prendre une note si demandé |
+| **Visio professionnelle** | mots comme client, rendez-vous, réunion, dossier, exploitant, projet | secrétaire discrète, structurée, efficace | notes automatiques discrètes, résumé, actions à suivre, points de décision |
+| **Visio démonstration exploitant** | présentation de Luna, test application, futur exploitant | posture claire et rassurante, expliquer sans surjouer | montrer capacités, répondre simplement, éviter jargon technique |
+| **Visio assistance utilisateur fragile** | besoin d'aide, confusion, fatigue, inquiétude | rassurer, ralentir, reformuler, ne pas brusquer | voir/entendre, rappeler, guider étape par étape |
+| **Visio avec invité tiers** | autre participant rejoint, partage de lien | confidentialité renforcée, retenue | prise de notes possible, actions sensibles bloquées |
+| **Visio document / administratif** | document montré/upload, formulaire, facture | secrétaire administrative | lire, résumer, extraire échéances, préparer rappel |
+| **Visio urgence / inquiétude** | chute, malaise, danger, SOS | calme, sécurité, demander confirmation quand possible | alerte seulement selon règles validées, jamais fausse promesse |
+
+Règle : Iris doit adapter son comportement au contexte, pas imposer une interface.  
+Exemple : en visio professionnelle, la prise de notes peut être proposée ou automatique discrète. En échange personnel, elle doit rester naturelle. En présence d'un invité, les actions sensibles doivent être bloquées ou explicitement validées.
+
+---
+
+## Options attendues pendant une visio
+
+Les agents doivent vérifier ces options comme des capacités de produit, pas comme de simples boutons.
+
+| Option | But humain | Déclenchement idéal | Validation |
+| --- | --- | --- | --- |
+| Notes de visio | Ne rien oublier | implicite en mode pro, ou demandé vocalement | notes générées et sauvegardées |
+| Résumé final | Donner une trace claire | fin de session ou demande | résumé lisible, sans hallucination |
+| Actions à suivre | Transformer la conversation en tâches | contexte réunion/projet | liste actionnable |
+| Observation caméra | Répondre à "tu me vois ?" et détecter élément simple | demande vocale ou besoin d'assistance | description cohérente |
+| Rappel | Ne pas oublier une échéance | "rappelle-moi..." ou échéance détectée | confirmation claire |
+| Recherche simple | Aider sans quitter la visio | météo/info/service proche | source/tool ou refus honnête |
+| Document montré/upload | Aider sur papier/formulaire | document visible ou upload | analyse factice/test avant données réelles |
+| Canal texte secours | Continuer si STT/micro échoue | bouton discret ou action temporaire | pas de barre permanente imposée |
+| Invitation tiers | Faire rejoindre quelqu'un | validation explicite | aucun SMS en dev |
+| Action sensible | appel/SMS/email/paiement/réservation/alerte | seulement validation Ludovic | niveau 3 |
+
+---
+
+## Livraison GitHub obligatoire
+
+Tout résultat agent doit finir sur GitHub.  
+Un résultat affiché uniquement dans un terminal, un chat local, une VM ou VS Code n'est pas considéré comme livré.
+
+Format obligatoire :
+
+1. créer ou mettre à jour un fichier dans `docs/AGENTS_COLLABORATION/agents/` ;
+2. ajouter un message court dans `AGENT_CHANNEL.md` ;
+3. mettre à jour `QUEUE.md` si la tâche change de statut ;
+4. `git add`, `git commit`, `git pull --rebase origin main`, `git push origin main` ;
+5. si conflit, résoudre sans supprimer les avis des autres agents.
+
+DeepSeek doit appliquer cette règle explicitement : son audit local doit être poussé sur GitHub, sinon Kimi, Claude et Codex ne peuvent pas l'utiliser comme source de vérité.
+
+---
+
 ## Ce que Kimi doit comprendre comme "visionnaire terrain"
 
 Kimi ne doit pas seulement dire si c'est joli.  
