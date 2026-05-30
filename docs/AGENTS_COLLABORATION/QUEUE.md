@@ -30,10 +30,12 @@
 - Agent : Kimi
 - Objectif : 015
 - Niveau : 0/2
-- Statut : open
+- Statut : done
 - Tache : evaluer voix, accent, naturel, rythme, image/avatar. Proposer 3 voix feminines FR candidates max et une correction image premium.
 - Interdits : pas de deploiement, pas de session longue, pas de changement graphique majeur sans validation.
 - Resultat attendu : `docs/AGENTS_COLLABORATION/agents/KIMI_QUALITE_VISIO_015.md` + message AGENT_CHANNEL.
+
+Resultat : Verdict voix actuelle (Alice) = NON ACCEPTABLE. 3 candidates FR natives : Camille (recommandee, chaleureuse), Camille Martin (professionnelle), Anais (neute). Phrase de test unique fournie. Grille evaluation 6 criteres. Image : 3 niveaux correction (CSS, faceId portrait, avatar perso). Decisions Ludovic requises : choix voix + nom. Voir KIMI_QUALITE_VISIO_015.md.
 
 ### TASK-015-CODEX-TEST-MATRIX
 - Agent : Codex

@@ -585,3 +585,14 @@ Fichier concerne : docs/AGENTS_COLLABORATION/OBJECTIF_015_VISIO_TEMPS_REEL_QUALI
 Risque : eleve
 Decision Ludovic requise : oui pour tout redeploiement, changement voix, changement architecture ou UI visible
 Action proposee : Agents lisent Objectif 015 et livrent leurs rapports avant nouveau deploiement.
+
+---
+Agent : Kimi
+Heure : 2026-05-31 11:50:00
+Tache : TASK-015-KIMI-QUALITE-VISIO
+Type : audit-termine
+Resume : Livrable qualite voix/image produit. Verdict voix actuelle (Alice) : NON ACCEPTABLE — accent anglais prononce, pateuse, "Iris" -> "Riff". 3 candidates FR natives proposees : Camille (Z9ZHGvFZ90R0h0x1prsJ, recommandee, chaleureuse), Camille Martin (hFgOzpmS0CMtL2to8sAl, professionnelle), Anais (5OnMHwgTFgvPVwE8jP6B, neutre). Phrase de test unique : "Bonjour Ludovic, c'est Iris. Je vous entends bien. Comment puis-je vous aider aujourd'hui ?" Grille d'evaluation 6 criteres (accent FR natif 25%, naturel 25%, rythme 20%, chaleur 15%, professionnalisme 10%, prononciation Iris 5%). Image : diagnostic distorsion = patch ratio 9:16 deja present mais peut etre insuffisant selon le ratio source de l'avatar. 3 niveaux de correction proposes (CSS souple, faceId portrait stable, avatar personnalise). Decisions Ludovic requises : (1) choix voix parmi 3, (2) choix nom Iris/Luna, (3) timing correction image, (4) test terrain apres fix micro STT par Claude.
+Fichier concerne : docs/AGENTS_COLLABORATION/agents/KIMI_QUALITE_VISIO_015.md
+Risque : faible (audit uniquement)
+Decision Ludovic requise : oui pour choix voix + nom
+Action proposee : Ludovic ecoute 3 previews ElevenLabs (5 min, 0€) et choisit. DeepSeek livre audit architecture. Claude livre instrumentation micro/STT. Aucun deploiement avant ces 3 livrables + decision fondateur.
