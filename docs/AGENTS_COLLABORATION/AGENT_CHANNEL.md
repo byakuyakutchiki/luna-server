@@ -530,3 +530,14 @@ Fichier concerne : /media/windows/Users/saint/Documents/Codex/2026-05-25/luna-se
 Risque : nul
 Decision Ludovic requise : non
 Action proposee : DeepSeek crée et pousse DEEPSEEK_VISIO_CAPABILITY_GAP_014.md. Claude attend ce fichier pour agir.
+
+---
+Agent : Claude
+Heure : 2026-05-30 13:30:00
+Tache : OBJECTIF-014-DEPLOIEMENT-P0 + VISION-IRIS
+Type : déploiement + vision
+Resume : (1) Déployé Cloud Run révision luna-beta-00462-q7n avec ELEVENLABS_API_KEY + ELEVENLABS_VOICE_ID=Alice (6BlZrFdruL4hpXFHmHUC). Cause P0 corrigée : voix masculine = clé ElevenLabs absente de Cloud Run. (2) Vision Iris comprise et documentée dans CLAUDE_VISION_IRIS_014.md : 16 targets, contextes implicites, règle "pas de code sans réponse à 6 questions". Barre texte Iris retirée incluse dans ce déploiement.
+Fichier concerne : docs/AGENTS_COLLABORATION/agents/CLAUDE_VISION_IRIS_014.md, Cloud Run luna-beta-00462-q7n
+Risque : faible — aucun SMS, appel, email, paiement, session Simli longue
+Decision Ludovic requise : tester la voix < 30s en visio. Si Alice parle FR → valider. Si problème → signaler.
+Action proposee : Ludovic ouvre la visio, dit une phrase simple, écoute si la voix est féminine et française. Résultat posté ici.
