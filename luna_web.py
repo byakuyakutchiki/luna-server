@@ -391,16 +391,8 @@ def _notify_admin_health(message: str, alert_key: str = "generic"):
         except Exception as e:
             logger.warning(f"HEALTH ALERT Telegram echoue: {e}")
 
-    # 2. Fallback SMS
-    admin = os.getenv("ADMIN_NUMBER", "")
-    if admin:
-        try:
-            from twilio.rest import Client as _TwClient
-            tw = _TwClient(os.getenv("TWILIO_ACCOUNT_SID"), os.getenv("TWILIO_AUTH_TOKEN"))
-            tw.messages.create(body=full_msg, from_=os.getenv("TWILIO_PHONE_NUMBER"), to=admin)
-            logger.info(f"HEALTH ALERT SMS envoye a {admin}")
-        except Exception as e:
-            logger.error(f"HEALTH ALERT SMS echoue: {e}")
+    # Fallback SMS désactivé — protéger le crédit Twilio (Objectif 013)
+    logger.warning(f"HEALTH ALERT non envoyée (Telegram indisponible, SMS désactivé): {message}")
 
 # --- Behavioral Memory (locked identity + rules) ---
 DEFAULT_IDENTITY_CORE = (
