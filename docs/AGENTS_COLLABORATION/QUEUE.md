@@ -13,7 +13,7 @@
 - Objectif : 014
 - Niveau : 0/2
 - Statut : open
-- Tache : regarder/tester le rendu reel de la visio publiee, juger la barre texte Iris, verifier si elle casse l'immersion et proposer une alternative premium/discrete si un canal texte est necessaire.
+- Tache : lire la vision finale dans OBJECTIF_014_RECADRAGE_VISIO_REELLE.md, puis regarder/tester le rendu reel de la visio publiee. Juger si Iris sert la promesse "secretaire visio" : presence, voix, comprehension, vision, secretariat, sobriete UI. Juger la barre texte Iris : regression ou secours discret acceptable ?
 - Interdits : pas de deploiement, pas de session Simli longue, pas de correction UI visible sans validation Ludovic.
 - Resultat attendu : `docs/AGENTS_COLLABORATION/agents/KIMI_REAL_VISIO_UX_014.md` + message court AGENT_CHANNEL.
 
@@ -22,7 +22,7 @@
 - Objectif : 014
 - Niveau : 0
 - Statut : open
-- Tache : auditer pourquoi la production ne parle pas avec ElevenLabs, ne voit pas Ludovic et ne realise pas les objectifs secretaire. Verifier env Cloud Run attendues, payload Simli, vision injection, STT, tool calls, limites cout.
+- Tache : partir des targets fonctionnelles Iris en visio dans OBJECTIF_014_RECADRAGE_VISIO_REELLE.md. Pour chaque target prioritaire (voix, identité Ludovic, vision, note, résumé, rappel, tool non sensible), auditer pourquoi la production ne prouve pas le résultat. Verifier env Cloud Run attendues, payload Simli, vision injection, STT, tool calls, limites cout.
 - Interdits : pas de secret dans GitHub, pas de SMS/appel/Twilio, pas de deploiement, pas de session longue.
 - Resultat attendu : `docs/AGENTS_COLLABORATION/agents/DEEPSEEK_VISIO_CAPABILITY_GAP_014.md` + tests non destructifs.
 
@@ -31,7 +31,7 @@
 - Objectif : 014
 - Niveau : 0/2
 - Statut : open
-- Tache : lire OBJECTIF_014_RECADRAGE_VISIO_REELLE.md, stopper les ajouts UI visibles non valides, proposer un plan minimal de correction. La barre texte Iris est une regression produit non validee : proposer retrait/masquage ou alternative seulement apres validation Ludovic.
+- Tache : lire toute la vision finale et les targets fonctionnelles dans OBJECTIF_014_RECADRAGE_VISIO_REELLE.md. Stopper les ajouts UI visibles non valides, proposer un plan minimal de correction par target. La barre texte Iris est une regression produit non validee : proposer retrait/masquage ou alternative seulement apres validation Ludovic.
 - Interdits : pas de nouvelle UI visible, pas de deploiement, pas de Cloud Run, pas de secrets, pas d'action payante.
 - Resultat attendu : `docs/AGENTS_COLLABORATION/agents/CLAUDE_PLAN_VISIO_014.md`.
 

@@ -33,6 +33,94 @@ Une barre de chat permanente dans la visio est considérée comme une régressio
 
 ---
 
+## Vision finale de la visio
+
+Iris n'est pas un chatbot affiché sur une page vidéo.  
+Iris est la secrétaire visio de Luna : une présence qui accompagne Ludovic ou un exploitant pendant un échange vidéo, avec une posture professionnelle, discrète et utile.
+
+La finalité utilisateur :
+
+1. **Présence** : l'utilisateur a l'impression de parler à une assistante réelle, pas à une interface technique.
+2. **Identité** : Iris sait à qui elle parle, par exemple Ludovic, à partir du profil/contexte autorisé.
+3. **Écoute** : Iris comprend une phrase vocale simple, sans demander à l'utilisateur de taper sauf secours.
+4. **Vision** : Iris peut répondre à une question visuelle simple : "tu me vois ?", "je lève la main ?", "qu'est-ce que tu vois ?".
+5. **Secrétariat** : Iris peut prendre une note, résumer l'appel, créer un rappel, chercher une information non sensible.
+6. **Protection** : Iris refuse ou demande validation pour SMS, appel, email, paiement, réservation, alerte, données sensibles.
+7. **Sobriété UI** : l'écran visio reste immersif ; les contrôles doivent être discrets, contextuels, pas une messagerie permanente.
+8. **Économie** : chaque test réel est court, mesuré, sans boucle Simli/ElevenLabs/Twilio.
+
+Si une proposition ne sert pas au moins un de ces points, elle ne doit pas être codée.
+
+---
+
+## Targets fonctionnelles Iris en visio
+
+| Target | Exemple utilisateur | Résultat attendu | Preuve avant validation |
+| --- | --- | --- | --- |
+| Saluer l'utilisateur | "Bonjour" | Iris répond en français et peut dire "Ludovic" si le profil le permet | Test réel court |
+| Comprendre la voix | "Prends une note : appeler le garage demain" | Note créée ou transcript local avec confirmation claire | Trace notes / message outil |
+| Voir la présence | "Est-ce que tu me vois ?" | Iris répond à partir de la caméra, sans inventer | Description caméra cohérente |
+| Voir un geste simple | "Je lève la main" | Iris décrit ou confirme si la vision le détecte | Test main levée |
+| Résumer l'échange | "Fais-moi un résumé" | Résumé propre dans les notes visio | `/api/visio/notes` OK |
+| Chercher une info simple | "Quelle est la météo ?" | Réponse via contexte/tool, sans hallucination | Tool ou contexte temps réel |
+| Créer un rappel non sensible | "Rappelle-moi demain à 9h" | Rappel proposé/créé avec confirmation | Trace instruction |
+| Inviter quelqu'un | "Invite X" | Refus en dev ou demande validation car SMS/visio tiers | Aucun SMS sans Ludovic |
+| Appeler/SMS/email | "Appelle maman" | Demande validation, pas d'action réelle en dev | Aucun Twilio consommé |
+| Paiement/réservation | "Réserve/paye" | Refus ou validation niveau 3 | Aucun paiement/réservation |
+| Canal texte secours | L'utilisateur ne peut pas parler | Option discrète, non intrusive, activable à la demande | Validation UX Kimi + Ludovic |
+
+---
+
+## Ce que Kimi doit comprendre comme "visionnaire terrain"
+
+Kimi ne doit pas seulement dire si c'est joli.  
+Kimi doit vérifier si l'expérience réelle sert la promesse :
+
+- Est-ce qu'Iris ressemble à une secrétaire visio crédible ?
+- Est-ce que l'utilisateur comprend quoi faire sans mode d'emploi ?
+- Est-ce que l'UI laisse la vidéo respirer ?
+- Est-ce que la barre texte Iris détruit l'immersion ?
+- Si un canal texte est nécessaire, doit-il être un bouton discret "Écrire", un panneau temporaire, une commande vocale "je veux écrire", ou autre ?
+- Est-ce que la voix, les mots, le rythme et les contrôles donnent confiance ?
+- Est-ce que l'expérience protège les crédits Simli/ElevenLabs/Twilio ?
+
+Livrable Kimi attendu : pas une opinion vague. Il faut :
+
+1. verdict : validé / à corriger / régression ;
+2. capture ou description du rendu réel ;
+3. impact sur la promesse secrétaire visio ;
+4. proposition UX premium ;
+5. décision Ludovic nécessaire : oui/non.
+
+---
+
+## Ce que DeepSeek doit comprendre comme auditeur technique
+
+DeepSeek doit partir de la promesse fonctionnelle, pas seulement du code.
+
+Pour chaque target, DeepSeek doit dire :
+
+- quel fichier/fonction/endpoint est impliqué ;
+- si la target est déjà branchée ou seulement supposée ;
+- ce qui manque exactement : env var, payload, event, tool, auth, permission, navigateur, Cloud Run ;
+- comment tester sans action sensible ;
+- risque coût/sécurité/régression.
+
+---
+
+## Ce que Claude doit comprendre comme intégrateur
+
+Claude ne doit pas transformer une cible produit floue en code visible.  
+Son rôle est de prendre une matrice validée et de produire l'implémentation minimale.
+
+Pour la barre Iris :
+
+- elle ne doit pas être considérée comme validée ;
+- l'action par défaut est retrait/masquage si elle casse l'immersion ;
+- une alternative doit attendre l'avis Kimi + validation Ludovic si visible.
+
+---
+
 ## Nouvelle répartition des rôles
 
 | Agent | Rôle | Ce qu'il doit faire | Ce qu'il ne doit pas faire |

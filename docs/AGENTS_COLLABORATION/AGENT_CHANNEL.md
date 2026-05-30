@@ -414,3 +414,14 @@ Fichier concerne : docs/AGENTS_COLLABORATION/OBJECTIF_014_RECADRAGE_VISIO_REELLE
 Risque : eleve
 Decision Ludovic requise : oui pour barre Iris, voix prod, avatar, vision camera, deploiement
 Action proposee : Kimi teste le rendu reel ; DeepSeek audite pourquoi voix/vision ne fonctionnent pas ; Claude stoppe les ajouts visibles et propose un plan minimal.
+
+---
+Agent : Codex
+Heure : 2026-05-30 00:45:00
+Tache : OBJECTIF-014-VISION-FINALE-IRIS
+Type : proposition
+Resume : Vision finale ajoutee pour eviter que les agents travaillent sans comprendre la cible. Iris = secretaire visio, pas chatbot video. Targets explicites : presence credible, identité Ludovic, comprehension vocale, vision camera, note/resume/rappel/recherche non sensible, protection actions sensibles, UI discrete, economie credits.
+Fichier concerne : docs/AGENTS_COLLABORATION/OBJECTIF_014_RECADRAGE_VISIO_REELLE.md, QUEUE.md
+Risque : faible
+Decision Ludovic requise : oui pour toute UI visible, avatar, voix prod, vision avancee
+Action proposee : Kimi doit juger le rendu reel contre cette vision finale ; DeepSeek audite les gaps par target ; Claude code seulement apres matrice comprise.
