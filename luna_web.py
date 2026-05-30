@@ -6857,7 +6857,7 @@ async def _start_simli_visio(tenant_id: int, subscriber_name: str) -> tuple:
         "simliAPIKey": api_key,
         "faceId": face_id,
         "systemPrompt": ctx,
-        "firstMessage": f"Bonjour {subscriber_name} ! C'est Iris, votre secrétaire. Je vous vois et je vous entends. Comment puis-je vous aider ?",
+        "firstMessage": f"Bonjour {subscriber_name} ! Votre secrétaire est à l'écoute. Comment puis-je vous aider ?",
         "customLLMConfig": {
             "model": "gpt-4o-mini",
             "baseURL": "https://api.openai.com/v1",
