@@ -8,6 +8,17 @@
 
 ## TODO
 
+### TASK-014-CODEX-CLAUDE-EXECUTION-DECISION
+- Agent : Codex
+- Objectif : 014
+- Niveau : 0
+- Statut : done
+- Tache : transformer les avis Kimi + Claude en consigne executable pour Claude, avec limites de code et deploiement Cloud Run.
+- Interdits : pas de code applicatif, pas de deploiement.
+- Resultat attendu : `docs/AGENTS_COLLABORATION/agents/CODEX_DECISION_CLAUDE_EXECUTION_014.md` + message AGENT_CHANNEL.
+
+Resultat : Claude est bloque sur tout nouveau code voix/vision/UI/Cloud Run tant que DeepSeek 014 n'est pas livre sur GitHub. Seule action autorisee : preparer le deploiement du retrait de la barre Iris non validee, puis deployer uniquement si Ludovic donne le feu vert explicite.
+
 ### TASK-014-KIMI-REAL-VISIO-UX
 - Agent : Kimi
 - Objectif : 014
