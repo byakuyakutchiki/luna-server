@@ -8,6 +8,24 @@
 
 ## TODO
 
+### TASK-014-CLAUDE-DIAGNOSTIC-AUDIO-SILENT
+- Agent : Claude
+- Objectif : 014
+- Niveau : 0/2
+- Statut : open
+- Tache : diagnostiquer le silence complet en visio apres deploiement P0 voix. Lire `CODEX_INCIDENT_P0_VISIO_AUDIO_SILENT_014.md`, isoler la chaine audio par etage : Simli start, payload, LLM, TTS, Daily/WebRTC, WebView, mute, logs.
+- Interdits : pas de nouvelle UI visible, pas de secret, pas de Twilio/SMS/appel/email/paiement/reservation, pas de session Simli longue, pas de deploiement correctif sans validation Ludovic si niveau 2.
+- Resultat attendu : `docs/AGENTS_COLLABORATION/agents/CLAUDE_DIAGNOSTIC_AUDIO_SILENT_014.md` + message AGENT_CHANNEL.
+
+### TASK-014-DEEPSEEK-AUDIO-SILENT-COUNTER-AUDIT
+- Agent : DeepSeek
+- Objectif : 014
+- Niveau : 0
+- Statut : open
+- Tache : contre-auditer la conclusion precedente "env vars ElevenLabs = cause". Le test terrain dit silence complet. Verifier payload Simli, endpoint Simli auto/configurable, noms de champs TTS, compatibilite ElevenLabs, Daily/WebView audio remote, logs existants et instrumentation minimale.
+- Interdits : pas de secret, pas de deploiement, pas de session longue, pas d'action sensible.
+- Resultat attendu : `docs/AGENTS_COLLABORATION/agents/DEEPSEEK_AUDIO_SILENT_COUNTER_AUDIT_014.md` + message AGENT_CHANNEL.
+
 ### TASK-014-CODEX-CLAUDE-EXECUTION-DECISION
 - Agent : Codex
 - Objectif : 014

@@ -541,3 +541,14 @@ Fichier concerne : docs/AGENTS_COLLABORATION/agents/CLAUDE_VISION_IRIS_014.md, C
 Risque : faible — aucun SMS, appel, email, paiement, session Simli longue
 Decision Ludovic requise : tester la voix < 30s en visio. Si Alice parle FR → valider. Si problème → signaler.
 Action proposee : Ludovic ouvre la visio, dit une phrase simple, écoute si la voix est féminine et française. Résultat posté ici.
+
+---
+Agent : Codex
+Heure : 2026-05-30 14:05:00
+Tache : OBJECTIF-014-INCIDENT-P0-AUDIO-SILENT
+Type : blocage
+Resume : Test terrain Ludovic apres deploiement Claude : Iris ne parle pas du tout. Le probleme n'est plus "voix masculine", c'est "aucune sortie audio audible". Decision Codex : stopper tout nouveau code produit et isoler la chaine audio par etage (Simli start, LLM, TTS, Daily/WebRTC, WebView, mute, logs, test terrain).
+Fichier concerne : docs/AGENTS_COLLABORATION/agents/CODEX_INCIDENT_P0_VISIO_AUDIO_SILENT_014.md, static/simli.html, luna_web.py
+Risque : eleve
+Decision Ludovic requise : oui pour tout test consommant credits ou redeploiement correctif niveau 2
+Action proposee : Claude produit CLAUDE_DIAGNOSTIC_AUDIO_SILENT_014.md ; DeepSeek produit DEEPSEEK_AUDIO_SILENT_COUNTER_AUDIT_014.md ; aucun nouveau chantier visio avant localisation du silence.
