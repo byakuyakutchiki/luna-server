@@ -356,34 +356,6 @@
     .btn-hangup.visible { display: flex; }
     .btn-hangup:hover { background: #d63050; }
 
-    /* ===== INPUT TEXTE IRIS ===== */
-    .iris-text-bar {
-      position: fixed; bottom: 96px; left: 50%; transform: translateX(-50%); z-index: 60;
-      width: calc(100% - 48px); max-width: 460px;
-      display: none; align-items: center; gap: 8px;
-      background: rgba(10,10,20,0.78); backdrop-filter: blur(18px);
-      border: 1px solid rgba(255,255,255,0.1); border-radius: 50px;
-      padding: 6px 6px 6px 18px;
-      box-shadow: 0 4px 28px rgba(0,0,0,0.45);
-      transition: opacity 0.2s;
-    }
-    .iris-text-bar.visible { display: flex; }
-    .iris-text-bar input {
-      flex: 1; background: none; border: none; outline: none;
-      color: #fff; font-size: 14px; min-width: 0; line-height: 1.4;
-    }
-    .iris-text-bar input::placeholder { color: rgba(255,255,255,0.32); }
-    .iris-text-btn {
-      background: linear-gradient(135deg, #7c8cf8, #a78bfa);
-      border: none; border-radius: 50px;
-      width: 38px; height: 38px; cursor: pointer;
-      display: flex; align-items: center; justify-content: center;
-      color: #fff; font-size: 17px; flex-shrink: 0;
-      transition: transform 0.12s;
-    }
-    .iris-text-btn:hover { transform: scale(1.08); }
-    .iris-text-btn:active { transform: scale(0.94); }
-
     /* ===== ECRAN DE DEMARRAGE ===== */
     .start-screen {
       position: fixed; inset: 0; z-index: 40;
@@ -672,12 +644,6 @@
     </div>
   </div>
 
-  <!-- INPUT TEXTE IRIS -->
-  <div class="iris-text-bar" id="irisTextBar">
-    <input type="text" id="irisTextInput" placeholder="Écrire à Iris…" autocomplete="off" maxlength="300" />
-    <button class="iris-text-btn" id="irisTextSend" aria-label="Envoyer">&#10148;</button>
-  </div>
-
   <!-- HANGUP -->
   <button class="btn-hangup" id="btnHangup">Raccrocher</button>
 
@@ -762,9 +728,6 @@
     var startLoading    = $('startLoading');
     var tavusFrameEl    = $('tavusFrame');
     var btnHangup       = $('btnHangup');
-    var irisTextBar     = $('irisTextBar');
-    var irisTextInput   = $('irisTextInput');
-    var irisTextSend    = $('irisTextSend');
 
     // Cinematique
     var sceneBackgroundEl = $('sceneBackground');
@@ -1439,7 +1402,6 @@
           return wait(800).then(function() {
             tavusFrameEl.classList.add('visible');
             btnHangup.classList.add('visible');
-            irisTextBar.classList.add('visible');
             // Retirer les elements de cinematique
             return wait(1500);
           }).then(function() {
@@ -2262,7 +2224,6 @@
     // HANGUP
     // =====================================================================
     function doHangup() {
-      if (irisTextBar) irisTextBar.classList.remove('visible');
       // Terminer la conversation Tavus cote serveur (stoppe la facturation)
       if (currentConvId) {
         try {
@@ -2308,32 +2269,6 @@
       } else {
         doNavigate();
       }
-    }
-
-    // =====================================================================
-    // INPUT TEXTE IRIS
-    // =====================================================================
-    function _sendIrisText() {
-      if (!irisTextInput || !dailyCall) return;
-      var msg = irisTextInput.value.trim();
-      if (!msg) return;
-      irisTextInput.value = '';
-      _sendAppMessageToBot({
-        message_type: 'conversation',
-        event_type: 'conversation.echo',
-        conversation_id: currentConvId,
-        properties: { modality: 'text', text: '[Message écrit] ' + msg }
-      });
-      showToast('✉ Iris a reçu votre message', 2000);
-      _visioTranscript.push({ ts: Date.now(), type: 'user.text', text: msg });
-    }
-    if (irisTextSend) {
-      irisTextSend.onclick = _sendIrisText;
-    }
-    if (irisTextInput) {
-      irisTextInput.addEventListener('keydown', function(e) {
-        if (e.key === 'Enter') { e.preventDefault(); _sendIrisText(); }
-      });
     }
 
     btnHangup.onclick = function() {
