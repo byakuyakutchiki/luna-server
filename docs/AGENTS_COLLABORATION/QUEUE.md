@@ -8,6 +8,17 @@
 
 ## TODO
 
+### TASK-014-CODEX-AUDIO-NEXT-STEP
+- Agent : Codex
+- Objectif : 014
+- Niveau : 0
+- Statut : done
+- Tache : transformer le diagnostic Claude audio silencieux en decision d'action, sans redeploiement au hasard.
+- Interdits : pas de code applicatif, pas de test consommant credits, pas de secret.
+- Resultat attendu : `docs/AGENTS_COLLABORATION/agents/CODEX_DECISION_AUDIO_NEXT_STEP_014.md` + message AGENT_CHANNEL.
+
+Resultat : prochaine etape imposee = logs console `[simli]` + test ElevenLabs direct hors Simli si Ludovic valide. Aucun redeploiement tant que la voix Alice n'est pas confirmee accessible avec la cle.
+
 ### TASK-014-CLAUDE-DIAGNOSTIC-AUDIO-SILENT
 - Agent : Claude
 - Objectif : 014

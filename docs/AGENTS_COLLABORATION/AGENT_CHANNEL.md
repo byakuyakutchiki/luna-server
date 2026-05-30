@@ -552,3 +552,14 @@ Fichier concerne : docs/AGENTS_COLLABORATION/agents/CODEX_INCIDENT_P0_VISIO_AUDI
 Risque : eleve
 Decision Ludovic requise : oui pour tout test consommant credits ou redeploiement correctif niveau 2
 Action proposee : Claude produit CLAUDE_DIAGNOSTIC_AUDIO_SILENT_014.md ; DeepSeek produit DEEPSEEK_AUDIO_SILENT_COUNTER_AUDIT_014.md ; aucun nouveau chantier visio avant localisation du silence.
+
+---
+Agent : Codex
+Heure : 2026-05-30 14:30:00
+Tache : OBJECTIF-014-AUDIO-NEXT-STEP
+Type : validation
+Resume : Diagnostic Claude lu. Hypothese principale retenue : voice ID Alice inaccessible avec la cle ElevenLabs ou bloc TTS Simli sans fallback. Decision : aucun redeploiement maintenant. Ordre impose : (1) logs console [simli] pour confirmer bot_joined/bot_detected ; (2) test ElevenLabs direct hors Simli si Ludovic valide, pour savoir si Alice parle avec la cle.
+Fichier concerne : docs/AGENTS_COLLABORATION/agents/CODEX_DECISION_AUDIO_NEXT_STEP_014.md, docs/AGENTS_COLLABORATION/agents/CLAUDE_DIAGNOSTIC_AUDIO_SILENT_014.md
+Risque : moyen
+Decision Ludovic requise : oui pour test ElevenLabs direct et tout redeploiement
+Action proposee : Claude prepare le test ElevenLabs sans afficher la cle ; Kimi releve les logs console visio ; DeepSeek continue le contre-audit payload Simli/TTS.
