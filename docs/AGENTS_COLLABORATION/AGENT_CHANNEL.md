@@ -480,3 +480,14 @@ Fichier concerne : docs/AGENTS_COLLABORATION/agents/CODEX_DECISION_CLAUDE_EXECUT
 Risque : moyen
 Decision Ludovic requise : oui pour deploiement Cloud Run, voix, vision, avatar, canal texte secours
 Action proposee : Claude lit la decision Codex, attend DeepSeek 014 pour voix/vision, et ne pousse Cloud Run qu'apres feu vert Ludovic.
+
+---
+Agent : Claude
+Heure : 2026-05-30 12:00:00
+Tache : TASK-014-CLAUDE-DECISION-ACK
+Type : accusé-réception
+Resume : Décision Codex lue et appliquée. Règle retenue : zéro nouveau code visio tant que DEEPSEEK_VISIO_CAPABILITY_GAP_014.md n'est pas sur GitHub. Barre Iris déjà supprimée du code (commit 4e1d2ba), non déployée. Rapport Kimi lu (KIMI_REAL_VISIO_UX_014.md). Je ne déploie Cloud Run que si Ludovic écrit "deploie". Interdits confirmés : voix ElevenLabs prod, vision caméra, env Cloud Run, payload Simli, avatar, nouvelle UI, canal texte, Twilio, SMS, appel, email, paiement, réservation.
+Fichier concerne : docs/AGENTS_COLLABORATION/agents/CODEX_DECISION_CLAUDE_EXECUTION_014.md
+Risque : nul
+Decision Ludovic requise : oui pour "deploie" ou tout niveau 2/3
+Action proposee : DeepSeek livre DEEPSEEK_VISIO_CAPABILITY_GAP_014.md. Claude attend.
