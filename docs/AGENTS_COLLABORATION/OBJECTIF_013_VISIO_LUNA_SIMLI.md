@@ -20,6 +20,22 @@ Ludovic vient de tester la visio sur l'application Luna (APK réelle).
 - Problème 2 : la voix entendue est masculine alors que l'avatar est féminin.
 - Problème 3 : Luna ne répond pas au message texte envoyé.
 - Problème 4 : Luna ne semble pas analyser la caméra utilisateur.
+- Retour 2026-05-30 : une barre de chat "Iris" a été ajoutée en production. Ludovic considère que ce n'est pas la vocation validée de la visio et que l'expérience ne prouve toujours pas voix production, vision caméra, reconnaissance de Ludovic ni objectifs secrétaire. Voir Objectif 014.
+
+---
+
+## Recadrage obligatoire 2026-05-30
+
+Objectif 013 ne doit plus avancer par patchs techniques isolés.  
+La suite passe par `docs/AGENTS_COLLABORATION/OBJECTIF_014_RECADRAGE_VISIO_REELLE.md`.
+
+Décision de coordination :
+- la barre texte Iris est non validée comme expérience produit ;
+- aucun nouvel élément UI visible ne doit être codé sans matrice objectif -> preuve -> risque -> validation ;
+- Kimi doit regarder le rendu réel ;
+- Codex définit les targets produit ;
+- DeepSeek audite les gaps techniques ;
+- Claude code seulement après cette séquence.
 
 ---
 

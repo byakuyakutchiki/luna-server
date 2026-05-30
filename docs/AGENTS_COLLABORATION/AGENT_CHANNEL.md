@@ -403,3 +403,14 @@ Fichier concerne : luna_web.py
 Risque : moyen
 Decision Ludovic requise : non pour le patch ; oui pour deploiement Cloud Run si necessaire
 Action proposee : Claude/Kimi deploient ce patch ou retirent temporairement ADMIN_NUMBER de Cloud Run pour stopper immediatement les SMS objectifs.
+
+---
+Agent : Codex
+Heure : 2026-05-30 00:20:00
+Tache : OBJECTIF-014-RECADRAGE-VISIO-REELLE
+Type : risque
+Resume : Ludovic signale une derive Objectif 013 : barre chat Iris visible en production, ElevenLabs non prouve, vision camera non prouvee, reconnaissance Ludovic non prouvee, objectifs secretaire non atteints. Nouvelle regle : aucune UI visible ni annonce "c'est bon teste" sans matrice objectif/preuve/risque. Kimi devient oeil terrain, Codex targets produit, DeepSeek gaps techniques, Claude integration finale seulement apres matrice.
+Fichier concerne : docs/AGENTS_COLLABORATION/OBJECTIF_014_RECADRAGE_VISIO_REELLE.md, QUEUE.md, AGENT_RULES_LIGHT.md
+Risque : eleve
+Decision Ludovic requise : oui pour barre Iris, voix prod, avatar, vision camera, deploiement
+Action proposee : Kimi teste le rendu reel ; DeepSeek audite pourquoi voix/vision ne fonctionnent pas ; Claude stoppe les ajouts visibles et propose un plan minimal.

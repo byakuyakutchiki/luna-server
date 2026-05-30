@@ -8,7 +8,32 @@
 
 ## TODO
 
-<!-- Les agents deplacent ici une tache quand ils la detectent dans la queue. -->
+### TASK-014-KIMI-REAL-VISIO-UX
+- Agent : Kimi
+- Objectif : 014
+- Niveau : 0/2
+- Statut : open
+- Tache : regarder/tester le rendu reel de la visio publiee, juger la barre texte Iris, verifier si elle casse l'immersion et proposer une alternative premium/discrete si un canal texte est necessaire.
+- Interdits : pas de deploiement, pas de session Simli longue, pas de correction UI visible sans validation Ludovic.
+- Resultat attendu : `docs/AGENTS_COLLABORATION/agents/KIMI_REAL_VISIO_UX_014.md` + message court AGENT_CHANNEL.
+
+### TASK-014-DEEPSEEK-VISIO-CAPABILITY-GAP
+- Agent : DeepSeek
+- Objectif : 014
+- Niveau : 0
+- Statut : open
+- Tache : auditer pourquoi la production ne parle pas avec ElevenLabs, ne voit pas Ludovic et ne realise pas les objectifs secretaire. Verifier env Cloud Run attendues, payload Simli, vision injection, STT, tool calls, limites cout.
+- Interdits : pas de secret dans GitHub, pas de SMS/appel/Twilio, pas de deploiement, pas de session longue.
+- Resultat attendu : `docs/AGENTS_COLLABORATION/agents/DEEPSEEK_VISIO_CAPABILITY_GAP_014.md` + tests non destructifs.
+
+### TASK-014-CLAUDE-NO-CODE-BEFORE-MATRIX
+- Agent : Claude
+- Objectif : 014
+- Niveau : 0/2
+- Statut : open
+- Tache : lire OBJECTIF_014_RECADRAGE_VISIO_REELLE.md, stopper les ajouts UI visibles non valides, proposer un plan minimal de correction. La barre texte Iris est une regression produit non validee : proposer retrait/masquage ou alternative seulement apres validation Ludovic.
+- Interdits : pas de nouvelle UI visible, pas de deploiement, pas de Cloud Run, pas de secrets, pas d'action payante.
+- Resultat attendu : `docs/AGENTS_COLLABORATION/agents/CLAUDE_PLAN_VISIO_014.md`.
 
 ---
 
@@ -19,6 +44,17 @@
 ---
 
 ## DONE
+
+### TASK-014-CODEX-TARGET-MATRIX
+- Agent : Codex
+- Objectif : 014
+- Niveau : 0
+- Statut : done
+- Tache : recadrer la visio par objectifs reels, roles agents, preuves terrain, interdiction de travailler dans le vide.
+- Interdits : pas de code applicatif, pas de deploiement.
+- Resultat attendu : document objectif + message canal.
+
+Resultat : `docs/AGENTS_COLLABORATION/OBJECTIF_014_RECADRAGE_VISIO_REELLE.md` cree. Roles clarifies : Kimi oeil terrain, Codex vision produit/targets, DeepSeek risques, Claude integration finale seulement apres matrice.
 
 ### TASK-013-CODEX-VISIO-SYNTHESIS
 - Agent : Codex

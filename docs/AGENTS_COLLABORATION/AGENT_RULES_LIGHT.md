@@ -28,6 +28,10 @@ Action proposee :
 - Ne pas consommer des tokens pour repeter ce qui est deja dans les fichiers.
 - Twilio economie obligatoire : aucun SMS, appel reel, test vocal payant ou boucle Twilio pendant le developpement sans validation explicite de Ludovic juste avant le test.
 - Pour Twilio, privilegier mock, simulation, logs locaux, dry-run et tests d'interface non factures. Tout test reel doit etre court, unique, documente et arrete immediatement apres verification.
+- Preuve terrain obligatoire : une fonctionnalite visible n'est pas "validee" parce que le code existe. Il faut une preuve sur rendu reel, mobile ou navigateur, avec resultat attendu/resultat obtenu.
+- Aucun ajout UI visible majeur sans matrice objectif -> preuve -> risque -> validation. Une barre, modal, workflow, changement d'identite ou nouveau mode d'interaction est niveau 2 minimum.
+- En visio, l'experience doit rester immersive et premium. Ne pas transformer la visio en chat textuel permanent sans validation Ludovic.
+- Claude integre le code final, mais ne decide pas seul de la vision produit. Kimi valide le rendu reel, Codex structure les objectifs, DeepSeek audite les risques.
 
 ## Niveaux de decision
 
@@ -45,10 +49,10 @@ deploiement production, paiement, reservation, SMS/email/appel reel, secrets, Go
 
 ## Roles
 
-Kimi : referent UX, graphisme et textes. Protege la qualite visuelle Luna, propose mieux si c'est plus beau et plus fonctionnel, signale toute regression graphique.
+Kimi : referent UX, graphisme, textes et rendu reel. Protege la qualite visuelle Luna, regarde/teste l'application reelle quand possible, propose mieux si c'est plus beau et plus fonctionnel, signale toute regression graphique.
 
-Codex : synthese, tri, garde-fous, decisions structurees, coordination avec Ludovic.
+Codex : vision produit, synthese, tri, garde-fous, targets de boutons/workflows, decisions structurees, coordination avec Ludovic.
 
 DeepSeek : audit technique, faisabilite, risques code, propositions precises.
 
-Claude : integrateur final et deploiement seulement apres validation Ludovic si impact majeur.
+Claude : integrateur final et deploiement seulement apres validation Ludovic si impact majeur. Ne code pas de nouvelle experience visible tant que la matrice objectif/preuve n'est pas posee.

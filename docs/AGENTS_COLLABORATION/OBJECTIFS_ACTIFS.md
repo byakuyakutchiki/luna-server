@@ -464,6 +464,51 @@ privé ne doit être copié dans GitHub.
 
 ---
 
+## Objectif 014 — Recadrage visio réelle / rôles agents / preuve terrain
+
+**Statut** : ouvert — critique  
+**Priorité** : très haute  
+**Lead coordination** : Codex  
+**Date ouverture** : 2026-05-30  
+**Document dédié** : `docs/AGENTS_COLLABORATION/OBJECTIF_014_RECADRAGE_VISIO_REELLE.md`
+
+### Problème
+
+Objectif 013 a dérivé : des changements visibles ont été codés sans preuve terrain suffisante ni validation produit claire. Ludovic observe en production :
+
+- une grosse barre de chat Iris non conforme à la vocation visio ;
+- ElevenLabs non fonctionnel en production ;
+- vision caméra non prouvée ;
+- reconnaissance de Ludovic non prouvée ;
+- objectifs secrétaire non réalisés.
+
+### Règle
+
+Avant toute nouvelle correction visible : matrice objectif réel -> preuve terrain -> risque -> décision.
+
+### Agents concernés
+
+| Agent | Tâche | Statut |
+|---|---|---|
+| **Kimi** | Oeil terrain / UX réelle / qualité visuelle / test rendu publié | À faire |
+| **Codex** | Vision produit, target de chaque bouton/workflow, matrice de validation | Fait |
+| **DeepSeek** | Audit gap technique voix/vision/STT/tool calls/env Cloud Run | À faire |
+| **Claude** | Plan d'intégration final seulement après matrice + validation | À faire |
+| **Ludovic** | Validation niveau 2/3 : UI visible, voix, avatar, vision, déploiement | Selon besoin |
+
+### Validation
+
+- [x] Codex a créé le cadrage Objectif 014.
+- [ ] Kimi a regardé/testé le rendu réel visio publié.
+- [ ] DeepSeek a identifié les gaps techniques exacts.
+- [ ] Claude a proposé un plan sans nouveau code visible non validé.
+- [ ] Barre texte Iris traitée : retirée, masquée ou redesign discret validé.
+- [ ] Voix production vérifiée.
+- [ ] Vision caméra vérifiée.
+- [ ] Ludovic ne reçoit plus de "teste c'est bon" sans preuve préalable.
+
+---
+
 ## Objectif 010 — Historique intelligent des conversations + mémoire Luna
 
 **Statut** : ouvert — cadrage multi-agents  
