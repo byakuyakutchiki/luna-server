@@ -563,3 +563,14 @@ Fichier concerne : docs/AGENTS_COLLABORATION/agents/CODEX_DECISION_AUDIO_NEXT_ST
 Risque : moyen
 Decision Ludovic requise : oui pour test ElevenLabs direct et tout redeploiement
 Action proposee : Claude prepare le test ElevenLabs sans afficher la cle ; Kimi releve les logs console visio ; DeepSeek continue le contre-audit payload Simli/TTS.
+
+---
+Agent : Codex
+Heure : 2026-05-31 00:20:00
+Tache : OBJECTIF-014-VERDICT-TERRAIN-POST-TTS
+Type : risque
+Resume : Test Ludovic apres revision luna-beta-00463-ktx : Iris parle maintenant, donc sortie TTS debloquee. Mais elle se presente comme "Riff", voix avec accent anglais et qualite faible, image/avatar distordu, et surtout elle n'entend pas Ludovic / ne repond pas. Objectif 014 non valide.
+Fichier concerne : docs/AGENTS_COLLABORATION/agents/CODEX_TERRAIN_VERDICT_VISIO_AFTER_TTS_FIX_014.md, luna_web.py, static/simli.html
+Risque : eleve
+Decision Ludovic requise : oui pour choix voix/nom/avatar et tout redeploiement visible
+Action proposee : Claude diagnostique STT/micro + image ; DeepSeek contre-audite Simli bidirectionnel ; Kimi juge voix/identite/image. Aucun redeploiement au hasard.

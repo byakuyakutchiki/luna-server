@@ -8,6 +8,44 @@
 
 ## TODO
 
+### TASK-014-CLAUDE-DIAGNOSTIC-STT-IMAGE
+- Agent : Claude
+- Objectif : 014
+- Niveau : 0/2
+- Statut : open
+- Tache : apres test terrain revision luna-beta-00463-ktx, diagnostiquer pourquoi Iris parle mais n'entend pas Ludovic/ne repond pas, et pourquoi image/avatar est distordu. Lire `CODEX_TERRAIN_VERDICT_VISIO_AFTER_TTS_FIX_014.md`.
+- Interdits : pas de nouvelle UI visible, pas de secret, pas de session Simli longue, pas de deploiement sans validation Ludovic, pas d'action sensible.
+- Resultat attendu : `docs/AGENTS_COLLABORATION/agents/CLAUDE_DIAGNOSTIC_STT_IMAGE_014.md` + message AGENT_CHANNEL.
+
+### TASK-014-DEEPSEEK-STT-SIMLI-COUNTER-AUDIT
+- Agent : DeepSeek
+- Objectif : 014
+- Niveau : 0
+- Statut : open
+- Tache : contre-auditer le flux Simli bidirectionnel : pourquoi firstMessage joue mais la voix Ludovic n'est pas comprise ? Verifier payload requis, endpoint auto/configurable, STT, events Daily, app-message, transcript.
+- Interdits : pas de secret, pas de deploiement, pas de session longue.
+- Resultat attendu : `docs/AGENTS_COLLABORATION/agents/DEEPSEEK_STT_SIMLI_COUNTER_AUDIT_014.md` + message AGENT_CHANNEL.
+
+### TASK-014-KIMI-VOICE-IDENTITY-IMAGE
+- Agent : Kimi
+- Objectif : 014
+- Niveau : 0/2
+- Statut : open
+- Tache : juger la voix actuelle (accent anglais, qualite faible, "Iris" entendu "Riff") et l'image/avatar distordu. Proposer une voix feminine FR credible et une correction UX/image sans regression.
+- Interdits : pas de deploiement, pas de session longue, pas de changement graphique majeur sans validation Ludovic.
+- Resultat attendu : `docs/AGENTS_COLLABORATION/agents/KIMI_VOICE_IDENTITY_IMAGE_014.md` + message AGENT_CHANNEL.
+
+### TASK-014-CODEX-TERRAIN-POST-TTS-VERDICT
+- Agent : Codex
+- Objectif : 014
+- Niveau : 0
+- Statut : done
+- Tache : transformer le retour terrain Ludovic apres revision luna-beta-00463-ktx en verdict et nouvelles taches agents.
+- Interdits : pas de code applicatif, pas de deploiement.
+- Resultat attendu : `docs/AGENTS_COLLABORATION/agents/CODEX_TERRAIN_VERDICT_VISIO_AFTER_TTS_FIX_014.md` + message AGENT_CHANNEL.
+
+Resultat : sortie audio debloquee mais Objectif 014 non valide : identite vocale KO, voix/accent KO, STT/micro KO, image/avatar distordu.
+
 ### TASK-014-CODEX-AUDIO-NEXT-STEP
 - Agent : Codex
 - Objectif : 014
