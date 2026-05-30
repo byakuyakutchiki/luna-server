@@ -1244,6 +1244,7 @@
           })();
 
           _activeRoomUrl = conversationUrl;
+          var _userSpeechTs = 0; // pour mesurer latence user→réponse
           dailyCall.on('joined-meeting', function() {
             rLog('info', 'simli', 'daily_joined', currentProvider);
             var bar = document.getElementById('visioActionsBar');
@@ -1253,8 +1254,27 @@
             _startSpeechCapture();
             // Détecter le bot parmi les participants déjà présents
             _detectBotId();
+            // Sonde : état piste audio locale (1s après join pour laisser le temps à Daily)
+            setTimeout(function() {
+              try {
+                var local = dailyCall.participants().local;
+                var aState = local && local.tracks && local.tracks.audio && local.tracks.audio.state;
+                rLog('info', 'simli', 'probe_local_audio', aState || 'absent');
+              } catch(e) { rLog('warn', 'simli', 'probe_local_audio_err', String(e).substring(0,80)); }
+            }, 1000);
             // Démarrer la vision caméra avec délai (laisser la session stabiliser)
             setTimeout(_startVisionLoop, 4000);
+          });
+          // Sonde : track démarré/stoppé (local ou bot)
+          dailyCall.on('track-started', function(e) {
+            if (!e || !e.participant) return;
+            var who = e.participant.local ? 'local' : (_isBotParticipant(e.participant) ? 'bot' : 'guest');
+            rLog('info', 'simli', 'track_started', who + ':' + (e.track && e.track.kind));
+          });
+          dailyCall.on('track-stopped', function(e) {
+            if (!e || !e.participant) return;
+            var who = e.participant.local ? 'local' : (_isBotParticipant(e.participant) ? 'bot' : 'guest');
+            rLog('info', 'simli', 'track_stopped', who + ':' + (e.track && e.track.kind));
           });
           dailyCall.on('error', function(e) { rLog('error', 'simli', 'daily_error', JSON.stringify(e)); });
           dailyCall.on('camera-error', function(e) { rLog('error', 'simli', 'daily_cam_error', JSON.stringify(e)); });
@@ -1300,6 +1320,15 @@
             if (_isBotParticipant(e.participant)) {
               _simliBotId = e.participant.session_id || e.participant.id || '';
               rLog('info', 'simli', 'bot_joined', _simliBotId);
+              // Sonde : état piste audio bot (2s après join pour laisser le temps à Simli)
+              setTimeout(function() {
+                try {
+                  var parts = dailyCall.participants();
+                  var bot = parts[_simliBotId];
+                  var aState = bot && bot.tracks && bot.tracks.audio && bot.tracks.audio.state;
+                  rLog('info', 'simli', 'probe_bot_audio', aState || 'absent');
+                } catch(e2) { rLog('warn', 'simli', 'probe_bot_audio_err', String(e2).substring(0,80)); }
+              }, 2000);
               return;
             }
             if (!_isHumanParticipant(e.participant)) return;
@@ -1346,9 +1375,16 @@
             if (props.name) entry.tool = props.name;
             if (props.arguments) entry.args = props.arguments;
             if (props.role) entry.role = props.role;
-            // Catégoriser les utterances Tavus
+            // Catégoriser les utterances + mesurer latence user→assistant
             if (evtType === 'conversation.utterance') {
               entry.type = (props.role === 'assistant') ? 'luna.speech' : 'user.speech';
+              if (props.role === 'user') {
+                _userSpeechTs = Date.now();
+                rLog('info', 'simli', 'stt_user_utterance', (props.text || '').substring(0, 60));
+              } else if (props.role === 'assistant' && _userSpeechTs) {
+                rLog('info', 'simli', 'latency_ms', String(Date.now() - _userSpeechTs));
+                _userSpeechTs = 0;
+              }
             }
             // Filtrer les injections système — elles ne doivent pas figurer dans les notes
             var _sysPrefix = entry.text && (
