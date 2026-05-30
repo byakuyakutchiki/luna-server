@@ -668,6 +668,10 @@
     // =====================================================================
     function rLog(level, tag, msg, data) {
       try {
+        try {
+          var c = (level === 'error') ? console.error : (level === 'warn' ? console.warn : console.log);
+          c.call(console, '[' + String(level || 'info').toUpperCase() + '][' + tag + '] ' + msg, data || '');
+        } catch(_ce) {}
         var tok = localStorage.getItem('luna_token') || '';
         var hdrs = {'Content-Type': 'application/json'};
         if (tok) hdrs['Authorization'] = 'Bearer ' + tok;
@@ -764,6 +768,9 @@
     var currentConvId = '';
     var currentProvider = 'tavus';
     var _activeRoomUrl = '';
+    var _simliBotId = null;
+    var _dailyUserSpeechSeen = false;
+    var _lastLocalSttBridgeAt = 0;
 
     // Vision caméra
     var _visionCanvas = document.createElement('canvas');
@@ -798,6 +805,21 @@
     var _pretestBarsAnimId = null;
     var _pretestMicOk = false;
     var _pretestCamOk = false;
+
+    function _sendAppMessageToBot(data) {
+      try {
+        if (!dailyCall || !data) return false;
+        if (_simliBotId) {
+          dailyCall.sendAppMessage(data, _simliBotId);
+          return true;
+        }
+        dailyCall.sendAppMessage(data, '*');
+        return true;
+      } catch(e) {
+        rLog('warn', 'simli', 'send_app_message_fail', String(e).substring(0, 80));
+        return false;
+      }
+    }
 
     function showPretest() {
       document.getElementById('startScreen').classList.add('hidden');
@@ -1251,6 +1273,8 @@
             if (bar) bar.classList.add('visible');
             _visioTranscript = [];
             _visioStartTs = Date.now();
+            _dailyUserSpeechSeen = false;
+            _lastLocalSttBridgeAt = 0;
             _startSpeechCapture();
             // Détecter le bot parmi les participants déjà présents
             _detectBotId();
@@ -1278,10 +1302,33 @@
           });
           dailyCall.on('error', function(e) { rLog('error', 'simli', 'daily_error', JSON.stringify(e)); });
           dailyCall.on('camera-error', function(e) { rLog('error', 'simli', 'daily_cam_error', JSON.stringify(e)); });
+          dailyCall.on('participant-updated', function(e) {
+            try {
+              var p = e && e.participant;
+              if (!p) return;
+              var tracks = p.tracks || {};
+              var audioState = tracks.audio && (tracks.audio.state || tracks.audio.off || tracks.audio.blocked);
+              rLog('info', 'simli', (p.local ? 'local' : 'remote') + '_participant_updated', 'audio=' + JSON.stringify(audioState || 'n/a'));
+            } catch(_e) {}
+          });
+          dailyCall.on('track-started', function(e) {
+            try {
+              var kind = e && e.track && e.track.kind;
+              var local = e && e.participant && e.participant.local;
+              rLog('info', 'simli', 'track_started', (local ? 'local ' : 'remote ') + kind);
+            } catch(_e) {}
+          });
+          dailyCall.on('track-stopped', function(e) {
+            try {
+              var kind = e && e.track && e.track.kind;
+              var local = e && e.participant && e.participant.local;
+              rLog('warn', 'simli', 'track_stopped', (local ? 'local ' : 'remote ') + kind);
+            } catch(_e) {}
+          });
 
           // Multi-participants : Luna s'efface quand d'autres personnes rejoignent
           var _guestCount = 0;
-          var _simliBotId = null;
+          _simliBotId = null;
           function _isHumanParticipant(p) {
             if (!p || p.local) return false;
             var uname = (p.user_name || p.userName || '').toLowerCase();
@@ -1302,15 +1349,6 @@
                   rLog('info', 'simli', 'bot_detected', pid);
                   return;
                 }
-              }
-            } catch(e) {}
-          }
-          function _sendAppMessageToBot(data) {
-            try {
-              if (_simliBotId) {
-                dailyCall.sendAppMessage(data, _simliBotId);
-              } else {
-                dailyCall.sendAppMessage(data, '*');
               }
             } catch(e) {}
           }
@@ -1379,9 +1417,13 @@
             if (evtType === 'conversation.utterance') {
               entry.type = (props.role === 'assistant') ? 'luna.speech' : 'user.speech';
               if (props.role === 'user') {
+                _dailyUserSpeechSeen = true;
                 _userSpeechTs = Date.now();
                 rLog('info', 'simli', 'stt_user_utterance', (props.text || '').substring(0, 60));
-              } else if (props.role === 'assistant' && _userSpeechTs) {
+              } else if (props.role !== 'assistant') {
+                _dailyUserSpeechSeen = true;
+              }
+              if (props.role === 'assistant' && _userSpeechTs) {
                 rLog('info', 'simli', 'latency_ms', String(Date.now() - _userSpeechTs));
                 _userSpeechTs = 0;
               }
@@ -2150,6 +2192,16 @@
               if (txt.length > 4) {
                 _visioTranscript.push({ ts: Date.now(), type: 'user.speech', text: txt });
                 rLog('info', 'simli', 'speech_captured', txt.substring(0, 60));
+                if (dailyCall && currentConvId && !_dailyUserSpeechSeen && Date.now() - _lastLocalSttBridgeAt > 2500) {
+                  _lastLocalSttBridgeAt = Date.now();
+                  var sent = _sendAppMessageToBot({
+                    message_type: 'conversation',
+                    event_type: 'conversation.echo',
+                    conversation_id: currentConvId,
+                    properties: { modality: 'text', text: '[Voix utilisateur transcrite localement] ' + txt }
+                  });
+                  rLog(sent ? 'info' : 'warn', 'simli', sent ? 'local_stt_bridge_sent' : 'local_stt_bridge_failed', txt.substring(0, 60));
+                }
                 // Mettre à jour l'indicateur micro
                 var micDot = document.getElementById('micDot');
                 if (micDot) { micDot.style.opacity = '1'; setTimeout(function() { micDot.style.opacity = '0.4'; }, 800); }

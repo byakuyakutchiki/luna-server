@@ -8,6 +8,17 @@
 
 ## TODO
 
+### TASK-015-CODEX-STT-BRIDGE-PATCH
+- Agent : Codex
+- Objectif : 015
+- Niveau : 1/2
+- Statut : done
+- Tache : participer au code en proposant un patch minimal non visible pour diagnostiquer et secourir la boucle micro/STT/reponse.
+- Interdits : pas de deploiement, pas de secret, pas de nouvelle UI visible.
+- Resultat attendu : patch `static/simli.html` + `docs/AGENTS_COLLABORATION/agents/CODEX_PATCH_STT_BRIDGE_VISIO_015.md` + message AGENT_CHANNEL.
+
+Resultat : logs F12 ajoutes, `_sendAppMessageToBot()` globalise, logs Daily audio/participants ajoutes, pont STT local ajoute si Simli ne remonte pas d'utterance utilisateur. Non deploye.
+
 ### TASK-015-CLAUDE-INSTRUMENTATION-VISIO
 - Agent : Claude
 - Objectif : 015

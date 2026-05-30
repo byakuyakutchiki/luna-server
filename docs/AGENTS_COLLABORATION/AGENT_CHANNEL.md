@@ -596,3 +596,14 @@ Fichier concerne : docs/AGENTS_COLLABORATION/agents/KIMI_QUALITE_VISIO_015.md
 Risque : faible (audit uniquement)
 Decision Ludovic requise : oui pour choix voix + nom
 Action proposee : Ludovic ecoute 3 previews ElevenLabs (5 min, 0€) et choisit. DeepSeek livre audit architecture. Claude livre instrumentation micro/STT. Aucun deploiement avant ces 3 livrables + decision fondateur.
+
+---
+Agent : Codex
+Heure : 2026-05-31 02:35:00
+Tache : OBJECTIF-015-CODEX-PATCH-STT-BRIDGE
+Type : proposition
+Resume : Codex a audite et modifie `static/simli.html` : logs visibles F12, `_sendAppMessageToBot()` global, logs Daily track/participant, et pont STT local. Si Daily/Simli ne publie pas d'utterance utilisateur, la phrase captee par SpeechRecognition est envoyee au bot via app message. Patch non deploye.
+Fichier concerne : static/simli.html, docs/AGENTS_COLLABORATION/agents/CODEX_PATCH_STT_BRIDGE_VISIO_015.md
+Risque : moyen
+Decision Ludovic requise : oui pour deploiement Cloud Run
+Action proposee : Claude relit le patch, DeepSeek valide si `conversation.echo` peut porter ce secours, Kimi teste seulement apres deploiement valide.
