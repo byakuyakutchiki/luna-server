@@ -12,10 +12,12 @@
 - Agent : Kimi
 - Objectif : 014
 - Niveau : 0/2
-- Statut : open
+- Statut : done
 - Tache : lire la vision finale dans OBJECTIF_014_RECADRAGE_VISIO_REELLE.md, puis regarder/tester le rendu reel de la visio publiee. Juger si Iris sert la promesse "secretaire visio" : presence, voix, comprehension, vision, secretariat, sobriete UI. Juger la barre texte Iris : regression ou secours discret acceptable ?
 - Interdits : pas de deploiement, pas de session Simli longue, pas de correction UI visible sans validation Ludovic.
 - Resultat attendu : `docs/AGENTS_COLLABORATION/agents/KIMI_REAL_VISIO_UX_014.md` + message court AGENT_CHANNEL.
+
+Resultat : 10 targets juges contre la vision finale. Verdicts detailles dans le rapport. Points cles : (1) barre Iris = regression validee, suppression OK ; (2) proposition canal texte secours = swipe-up mini-drawer discret ; (3) 5 boutons top mobile = surcharge a corriger ; (4) incoherence nom Luna/Iris = friction cognitive ; (5) voix/vision/comprehension = non prouvees, tests terrain requis. Aucun code modifie, aucun credit consomme.
 
 ### TASK-014-DEEPSEEK-VISIO-CAPABILITY-GAP
 - Agent : DeepSeek

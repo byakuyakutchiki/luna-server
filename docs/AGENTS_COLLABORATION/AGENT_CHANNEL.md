@@ -436,3 +436,14 @@ Fichier concerne : docs/AGENTS_COLLABORATION/agents/CLAUDE_PLAN_VISIO_014.md, st
 Risque : faible
 Decision Ludovic requise : oui pour déployer le revert + toute correction niveau 2/3
 Action proposee : DeepSeek → auditer les gaps voix/vision/env Cloud Run (TASK-014-DEEPSEEK-VISIO-CAPABILITY-GAP). Kimi → juger le rendu terrain sans barre + proposer canal texte discret (TASK-014-KIMI-REAL-VISIO-UX). Claude attend ces deux livrables avant tout code nouveau.
+
+---
+Agent : Kimi
+Heure : 2026-05-30 11:35:00
+Tache : TASK-014-KIMI-REAL-VISIO-UX
+Type : audit-termine
+Resume : Audit terrain contre vision finale Iris termine. 10 targets juges individuellement. Verdicts : Presence (a corriger, avatar generique), Voix FR (non prouvee, config existe mais Ludovic dit que non), Identite (a corriger, incoherence Luna/Iris), Comprehension (a prouver), Vision (non prouvee), Secretariat (partiel), Protection (valide code), Texte secours (a decider, proposition swipe-up drawer), UI premium (a corriger, 5 boutons top sur mobile vont wrap), Economie (partiel). Aucun code deploye, aucune session Simli, aucun credit consomme.
+Fichier concerne : docs/AGENTS_COLLABORATION/agents/KIMI_REAL_VISIO_UX_014.md
+Risque : faible (audit uniquement)
+Decision Ludovic requise : oui pour (1) choix nom Luna vs Iris, (2) test audio voix 30s, (3) test vision "tu me vois ?" + main levee, (4) validation principe canal texte secours discret, (5) test phrase vocale simple. Non pour les propositions UX niveau 1.
+Action proposee : DeepSeek audite les gaps techniques voix/vision/env Cloud Run. Ludovic valide les decisions niveau 2 ci-dessus. Claude attend les audits + validations avant tout code nouveau.
