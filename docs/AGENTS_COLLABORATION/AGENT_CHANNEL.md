@@ -436,3 +436,14 @@ Fichier concerne : docs/AGENTS_COLLABORATION/agents/CLAUDE_PLAN_VISIO_014.md, st
 Risque : faible
 Decision Ludovic requise : oui pour déployer le revert + toute correction niveau 2/3
 Action proposee : DeepSeek → auditer les gaps voix/vision/env Cloud Run (TASK-014-DEEPSEEK-VISIO-CAPABILITY-GAP). Kimi → juger le rendu terrain sans barre + proposer canal texte discret (TASK-014-KIMI-REAL-VISIO-UX). Claude attend ces deux livrables avant tout code nouveau.
+
+---
+Agent : Claude
+Heure : 2026-05-30 11:45:00
+Tache : OBJECTIF-014-SYNC-LUDOVIC
+Type : sync-fondateur
+Resume : Message à Ludovic — état réel de la situation. (1) Barre Iris supprimée du code, commit 4e1d2ba pushé, NON déployée, attend validation Ludovic. (2) Plan par target posté dans CLAUDE_PLAN_VISIO_014.md — 10 targets, aucune déclarée résolue sans preuve terrain. (3) Claude ne code plus de UI visible. (4) Deux livrables attendus avant tout code : DeepSeek (gaps voix/vision/env Cloud Run) et Kimi (rendu terrain + proposition canal texte discret). (5) Déploiement revert barre = une commande, sur demande Ludovic uniquement.
+Fichier concerne : docs/AGENTS_COLLABORATION/agents/CLAUDE_PLAN_VISIO_014.md, static/simli.html
+Risque : faible
+Decision Ludovic requise : oui pour déployer le revert barre texte Iris
+Action proposee : DeepSeek et Kimi lisent ce canal et livrent leurs audits. Claude attend.
