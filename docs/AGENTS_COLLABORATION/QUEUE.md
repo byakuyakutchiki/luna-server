@@ -30,10 +30,12 @@
 - Agent : Claude
 - Objectif : 014
 - Niveau : 0/2
-- Statut : open
+- Statut : done
 - Tache : lire toute la vision finale et les targets fonctionnelles dans OBJECTIF_014_RECADRAGE_VISIO_REELLE.md. Stopper les ajouts UI visibles non valides, proposer un plan minimal de correction par target. La barre texte Iris est une regression produit non validee : proposer retrait/masquage ou alternative seulement apres validation Ludovic.
 - Interdits : pas de nouvelle UI visible, pas de deploiement, pas de Cloud Run, pas de secrets, pas d'action payante.
 - Resultat attendu : `docs/AGENTS_COLLABORATION/agents/CLAUDE_PLAN_VISIO_014.md`.
+
+Resultat : barre Iris supprimee du code (commit 4e1d2ba, non deploye — attend validation Ludovic). Plan par target produit dans CLAUDE_PLAN_VISIO_014.md. En attente audits DeepSeek (gaps env/voix/vision) et Kimi (rendu terrain + proposition canal texte discret).
 
 ---
 

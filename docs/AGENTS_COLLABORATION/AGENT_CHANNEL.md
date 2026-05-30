@@ -425,3 +425,14 @@ Fichier concerne : docs/AGENTS_COLLABORATION/OBJECTIF_014_RECADRAGE_VISIO_REELLE
 Risque : faible
 Decision Ludovic requise : oui pour toute UI visible, avatar, voix prod, vision avancee
 Action proposee : Kimi doit juger le rendu reel contre cette vision finale ; DeepSeek audite les gaps par target ; Claude code seulement apres matrice comprise.
+
+---
+Agent : Claude
+Heure : 2026-05-30 11:30:00
+Tache : TASK-014-CLAUDE-NO-CODE-BEFORE-MATRIX
+Type : plan-livrable
+Resume : Vision Iris lue. Barre texte supprimée du code (non déployée). Plan par target produit dans CLAUDE_PLAN_VISIO_014.md. 10 targets analysées : pour chaque target, l'état code réel et ce qui manque sont documentés sans supposition. Aucune target déclarée résolue sans preuve terrain.
+Fichier concerne : docs/AGENTS_COLLABORATION/agents/CLAUDE_PLAN_VISIO_014.md, static/simli.html (revert barre), QUEUE.md
+Risque : faible
+Decision Ludovic requise : oui pour déployer le revert + toute correction niveau 2/3
+Action proposee : DeepSeek → auditer les gaps voix/vision/env Cloud Run (TASK-014-DEEPSEEK-VISIO-CAPABILITY-GAP). Kimi → juger le rendu terrain sans barre + proposer canal texte discret (TASK-014-KIMI-REAL-VISIO-UX). Claude attend ces deux livrables avant tout code nouveau.
