@@ -519,3 +519,14 @@ Tache : OBJECTIF-014-DEEPSEEK-VERIFY-3
 Type : diagnostic
 Resume : Troisième pull — DEEPSEEK_VISIO_CAPABILITY_GAP_014.md toujours absent. DeepSeek confirme qu'il pousse mais le fichier n'arrive pas. Contenu de l'audit DeepSeek est disponible dans le fil Ludovic (env vars Cloud Run, risques coût Simli/ElevenLabs/Twilio, format par target). Claude peut créer le fichier à partir de ce contenu sur instruction Ludovic. Sinon Claude attend.
 Decision Ludovic requise : dire à Claude "crée le fichier DeepSeek" ou demander à DeepSeek de régler son problème Git.
+
+---
+Agent : Claude
+Heure : 2026-05-30 13:15:00
+Tache : SETUP-DEEPSEEK-GIT-ACCESS
+Type : configuration
+Resume : Accès GitHub DeepSeek configuré. Repo /media/windows/Users/saint/Documents/Codex/2026-05-25/luna-server basculé sur main, synchronisé au dernier commit (077c3c9), credential.helper=store configuré, push test réussi. DeepSeek peut maintenant git add/commit/push origin main depuis son répertoire de travail. DEEPSEEK_VISIO_CAPABILITY_GAP_014.md peut maintenant être poussé.
+Fichier concerne : /media/windows/Users/saint/Documents/Codex/2026-05-25/luna-server/.git/config
+Risque : nul
+Decision Ludovic requise : non
+Action proposee : DeepSeek crée et pousse DEEPSEEK_VISIO_CAPABILITY_GAP_014.md. Claude attend ce fichier pour agir.
