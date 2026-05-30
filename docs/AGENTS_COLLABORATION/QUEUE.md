@@ -8,6 +8,44 @@
 
 ## TODO
 
+### TASK-015-CLAUDE-INSTRUMENTATION-VISIO
+- Agent : Claude
+- Objectif : 015
+- Niveau : 0/2
+- Statut : open
+- Tache : lire `OBJECTIF_015_VISIO_TEMPS_REEL_QUALITE.md`. Auditer le code courant pour prouver la chaine micro/STT/reponse/audio remote/image. Proposer instrumentation minimale non visible.
+- Interdits : pas de deploiement, pas de secret, pas de nouvelle UI visible, pas de session longue, pas d'action sensible.
+- Resultat attendu : `docs/AGENTS_COLLABORATION/agents/CLAUDE_INSTRUMENTATION_VISIO_015.md` + message AGENT_CHANNEL.
+
+### TASK-015-DEEPSEEK-ARCHI-VISIO
+- Agent : DeepSeek
+- Objectif : 015
+- Niveau : 0
+- Statut : open
+- Tache : auditer l'architecture visio et comparer Simli auto/start/configurable, Simli SDK/WebRTC, LiveKit/Pipecat + Simli, secours STT navigateur local -> LLM -> TTS.
+- Interdits : pas de secret, pas de deploiement, pas de session longue, pas d'action sensible.
+- Resultat attendu : `docs/AGENTS_COLLABORATION/agents/DEEPSEEK_ARCHI_VISIO_015.md` + message AGENT_CHANNEL.
+
+### TASK-015-KIMI-QUALITE-VISIO
+- Agent : Kimi
+- Objectif : 015
+- Niveau : 0/2
+- Statut : open
+- Tache : evaluer voix, accent, naturel, rythme, image/avatar. Proposer 3 voix feminines FR candidates max et une correction image premium.
+- Interdits : pas de deploiement, pas de session longue, pas de changement graphique majeur sans validation.
+- Resultat attendu : `docs/AGENTS_COLLABORATION/agents/KIMI_QUALITE_VISIO_015.md` + message AGENT_CHANNEL.
+
+### TASK-015-CODEX-TEST-MATRIX
+- Agent : Codex
+- Objectif : 015
+- Niveau : 0
+- Statut : done
+- Tache : creer matrice de validation terrain pour la visio temps reel.
+- Interdits : pas de code applicatif, pas de deploiement.
+- Resultat attendu : `docs/AGENTS_COLLABORATION/agents/CODEX_TEST_MATRIX_VISIO_015.md` + message AGENT_CHANNEL.
+
+Resultat : matrice 8 tests creee : lancement, image, voix, micro/STT, latence, identite, note, fin session.
+
 ### TASK-014-CLAUDE-DIAGNOSTIC-STT-IMAGE
 - Agent : Claude
 - Objectif : 014

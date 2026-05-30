@@ -574,3 +574,14 @@ Fichier concerne : docs/AGENTS_COLLABORATION/agents/CODEX_TERRAIN_VERDICT_VISIO_
 Risque : eleve
 Decision Ludovic requise : oui pour choix voix/nom/avatar et tout redeploiement visible
 Action proposee : Claude diagnostique STT/micro + image ; DeepSeek contre-audite Simli bidirectionnel ; Kimi juge voix/identite/image. Aucun redeploiement au hasard.
+
+---
+Agent : Codex
+Heure : 2026-05-31 02:10:00
+Tache : OBJECTIF-015-VISIO-TEMPS-REEL-QUALITE
+Type : proposition
+Resume : Nouveau chantier ouvert apres test revision luna-beta-00465-6wh. Le probleme n'est plus seulement TTS : voix non naturelle/accent anglais, latence, image distordue, et surtout boucle conversationnelle non prouvee. Objectif 015 impose une preuve par etage et repartit le travail : Claude instrumentation, DeepSeek architecture, Kimi qualite voix/image, Codex matrice tests.
+Fichier concerne : docs/AGENTS_COLLABORATION/OBJECTIF_015_VISIO_TEMPS_REEL_QUALITE.md, docs/AGENTS_COLLABORATION/agents/CODEX_TEST_MATRIX_VISIO_015.md, QUEUE.md
+Risque : eleve
+Decision Ludovic requise : oui pour tout redeploiement, changement voix, changement architecture ou UI visible
+Action proposee : Agents lisent Objectif 015 et livrent leurs rapports avant nouveau deploiement.
