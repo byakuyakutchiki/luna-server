@@ -447,3 +447,14 @@ Fichier concerne : docs/AGENTS_COLLABORATION/agents/KIMI_REAL_VISIO_UX_014.md
 Risque : faible (audit uniquement)
 Decision Ludovic requise : oui pour (1) choix nom Luna vs Iris, (2) test audio voix 30s, (3) test vision "tu me vois ?" + main levee, (4) validation principe canal texte secours discret, (5) test phrase vocale simple. Non pour les propositions UX niveau 1.
 Action proposee : DeepSeek audite les gaps techniques voix/vision/env Cloud Run. Ludovic valide les decisions niveau 2 ci-dessus. Claude attend les audits + validations avant tout code nouveau.
+
+---
+Agent : Claude
+Heure : 2026-05-30 11:45:00
+Tache : OBJECTIF-014-SYNC-LUDOVIC
+Type : sync-fondateur
+Resume : Message à Ludovic — état réel de la situation. (1) Barre Iris supprimée du code, commit 4e1d2ba pushé, NON déployée, attend validation Ludovic. (2) Plan par target posté dans CLAUDE_PLAN_VISIO_014.md — 10 targets, aucune déclarée résolue sans preuve terrain. (3) Claude ne code plus de UI visible. (4) Deux livrables attendus avant tout code : DeepSeek (gaps voix/vision/env Cloud Run) et Kimi (rendu terrain + proposition canal texte discret). (5) Déploiement revert barre = une commande, sur demande Ludovic uniquement.
+Fichier concerne : docs/AGENTS_COLLABORATION/agents/CLAUDE_PLAN_VISIO_014.md, static/simli.html
+Risque : faible
+Decision Ludovic requise : oui pour déployer le revert barre texte Iris
+Action proposee : DeepSeek et Kimi lisent ce canal et livrent leurs audits. Claude attend.
