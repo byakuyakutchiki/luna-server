@@ -802,6 +802,7 @@
     // PRE-TEST MICRO / CAMERA + VISUALISEUR 8 BARRES
     // =====================================================================
     var _pretestStream = null;
+    var _visionCameraStream = null; // stream caméra conservé depuis le pretest pour la vision loop
     var _pretestAudioCtx = null;
     var _pretestBarsAnimId = null;
     var _pretestMicOk = false;
@@ -936,7 +937,7 @@
         .then(function(stream) {
           clearTimeout(_camTimeout);
           _pretestCamOk = true;
-          stream.getTracks().forEach(function(t) { t.stop(); });
+          _visionCameraStream = stream; // conserver pour la vision loop (ne pas stopper)
           if (statusEl) statusEl.textContent = '✅';
           if (labelEl) labelEl.textContent = 'Caméra prête';
           _checkPretestReady();
@@ -958,7 +959,7 @@
           } else if (err.name === 'OverconstrainedError') {
             // Réessayer sans contrainte facingMode
             navigator.mediaDevices.getUserMedia({ video: true, audio: false })
-              .then(function(s2) { clearTimeout(_camTimeout); _pretestCamOk = true; s2.getTracks().forEach(function(t){t.stop();}); if(statusEl)statusEl.textContent='✅'; if(labelEl)labelEl.textContent='Caméra prête'; _checkPretestReady(); })
+              .then(function(s2) { clearTimeout(_camTimeout); _pretestCamOk = true; _visionCameraStream = s2; if(statusEl)statusEl.textContent='✅'; if(labelEl)labelEl.textContent='Caméra prête'; _checkPretestReady(); })
               .catch(function() { if(statusEl)statusEl.textContent='⚠️'; if(labelEl)labelEl.textContent='Caméra non disponible — visio en audio.'; _checkPretestReady(); });
             return;
           } else {
@@ -1494,8 +1495,8 @@
           rLog('info', 'simli', 'daily_join', 'joining...');
           dailyCall.join({
             url: conversationUrl,
-            startVideoOff: false,
-            startAudioOff: false,
+            startVideoOff: true,  // caméra gérée en parent frame (vision loop)
+            startAudioOff: true,  // micro géré par Web Speech API (évite conflit STT)
           });
 
           // Fade in le fullscreen Tavus
@@ -2055,6 +2056,12 @@
     }
 
     function _getLocalVideoTrack() {
+      // Utiliser le stream caméra conservé depuis le pretest (parent frame context)
+      if (_visionCameraStream) {
+        var tracks = _visionCameraStream.getVideoTracks();
+        if (tracks.length > 0 && tracks[0].readyState === 'live') return tracks[0];
+      }
+      // Fallback : tenter via Daily participants (iframe mode — souvent inaccessible)
       try {
         var parts = dailyCall.participants();
         var local = parts && parts.local;
@@ -2425,6 +2432,7 @@
       currentConvId = '';
       _activeRoomUrl = '';
       _stopVisionLoop();
+      if (_visionCameraStream) { _visionCameraStream.getTracks().forEach(function(t){t.stop();}); _visionCameraStream = null; }
       var bar = document.getElementById('visioActionsBar');
       if (bar) bar.classList.remove('visible');
       _stopSpeechCapture();
