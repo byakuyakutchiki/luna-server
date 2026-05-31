@@ -325,3 +325,144 @@ Une belle voix française qui parle dans le vide (monologue sans écoute) n'est 
 ---
 
 *Mise à jour après lecture CODEX_LOG_ANALYSIS_VISIO_015.md. Position inchangée : voix = préparation, expérience = non validée.*
+
+---
+
+## 9. Test audio réel — génération ElevenLabs API (2026-05-31)
+
+**Phrase de test** : "Bonjour Ludovic, c'est Iris. Je vous entends bien. Comment puis-je vous aider aujourd'hui ?"
+
+**Modèle** : `eleven_multilingual_v2`
+**Voice settings** : stability=0.5, similarity_boost=0.75
+
+### Fichiers générés
+
+| Fichier | Voice ID | Nom | Taille | Statut API |
+|---|---|---|---|---|
+| `test_alice.mp3` | `6BlZrFdruL4hpXFHmHUC` | Alice (actuelle) | 119KB | ✅ HTTP 200 |
+| `test_camille.mp3` | `Z9ZHGvFZ90R0h0x1prsJ` | **Camille** (choix Ludovic) | 79KB | ✅ HTTP 200 |
+| `test_elia.mp3` | `6ttbYOa7qzV4SVBtOEQS` | Elia — French AI Assistant | 87KB | ✅ HTTP 200 |
+| `test_nelly.mp3` | `iFBdB4I143qF5ByX6o5A` | Nelly — French Interactive AI | 74KB | ✅ HTTP 200 |
+| `test_virginie.mp3` | `NzCI2wsmQgzQiufNpYi7` | Virginie Faup — Soft & Melodic | 103KB | ✅ HTTP 200 |
+
+**Emplacement** : `docs/assets/voices_test_015/`
+
+### Note importante sur les IDs
+
+Les IDs `Z9ZHGvFZ90R0h0x1prsJ` (Camille), `hFgOzpmS0CMtL2to8sAl` (Camille Martin) et `5OnMHwgTFgvPVwE8jP6B` (Anaïs) ne sont **pas** des voix du compte ElevenLabs. Ce sont des **shared voices** (Voice Library publique) accessibles via l'API TTS mais non listées dans `/v1/voices`. Cela explique l'erreur "voice_not_found" lors de la vérification directe — mais le TTS fonctionne.
+
+### Analyse des tailles (indicateur indirect)
+
+La taille MP3 reflète approximativement la durée audio (même bitrate, même modèle) :
+
+| Voix | Taille | Durée estimée | Commentaire |
+|---|---|---|---|
+| Alice | 119KB | ~7.5s | **La plus longue** — débit lent, pauses longues, voix "pâteuse" confirmée par la durée |
+| Virginie | 103KB | ~6.5s | Assez lente également |
+| Elia | 87KB | ~5.5s | Durée moyenne |
+| Camille | 79KB | ~5.0s | **Durée la plus courte** — débit plus rapide, plus dynamique |
+| Nelly | 74KB | ~4.7s | **La plus courte** — débit rapide, concise |
+
+**Interprétation Kimi** (sans écoute) : Alice est significativement plus longue que les autres pour la même phrase. Cela confirme le retour terrain "voix lente, pâteuse, lourde". Camille et Nelly sont plus courtes = débit plus naturel, plus fluide.
+
+### Validation finale
+
+**Kimi ne peut pas écouter** (VM headless, pas de haut-parleur). La validation auditive finale est à faire par **Ludovic**.
+
+**Procédure** :
+1. Télécharger les 5 fichiers depuis `docs/assets/voices_test_015/`
+2. Écouter dans l'ordre : Alice (référence négative) → Camille → Elia → Nelly → Virginie
+3. Noter sur la grille section 4
+4. Choisir la meilleure pour Option B-lite
+
+**Recommandation Kimi** (basée sur données uniquement) : **Camille** reste la candidate privilégiée car elle est la plus proche d'un débit conversationnel naturel (5.0s pour 12 mots = ~2.4 mots/seconde, proche du débit humain normal de 2-3 mots/seconde). Alice à 7.5s = ~1.6 mots/seconde = trop lent.
+
+---
+
+## 10. Définition technique — conversation fluide visio Luna/Iris
+
+**Source** : Codex / Ludovic (2026-05-31)
+
+### Latence conversationnelle
+
+| Niveau | Début de réponse après fin de parole | Verdict |
+|---|---|---|
+| **Excellent** | < 1.5 s | Objectif V2 |
+| **Acceptable V1** | 1.5 s — 3 s | **Cible Option B-lite** |
+| **Limite tolérable** | 3 s — 4 s | OK si réponse utile, occasionnel |
+| **Échec produit** | > 4 s régulièrement | Non acceptable |
+| **Échec total** | > 6 s | Sensation de bug |
+
+**Critère V1 chiffré** :
+- `total_latency_ms` < 3000 ms dans **80%** des tours simples
+- `total_latency_ms` < 4000 ms dans **95%** des tours simples
+- **Aucune** réponse simple ne doit dépasser 6000 ms
+
+### Rythme vocal
+
+- Réponse standard : **1 à 2 phrases**
+- Réponse longue : **uniquement** si demande de résumé, explication ou note
+- La voix ne doit pas parler pendant **10 secondes** pour une question simple
+- Début de réponse par une phrase **courte et pertinente**
+
+### Tour de parole
+
+1. Détecter la fin de parole utilisateur
+2. STT produit un texte exploitable
+3. LLM commence le traitement immédiatement
+4. TTS commence à jouer en moins de 3 s (80% des cas)
+5. **Micro coupé ou ignoré pendant la lecture TTS** (anti-boucle)
+6. Micro réactivé dès que la réponse audio est terminée
+7. L'assistante ne doit **pas couper** la phrase de l'utilisateur
+8. L'assistante doit **ignorer sa propre voix**
+
+### Logs obligatoires par tour
+
+```
+speech_start
+speech_end
+stt_done
+llm_start
+llm_done
+tts_start
+audio_play_start
+audio_play_end
+total_latency_ms
+```
+
+### Règle produit absolue
+
+> Si la réponse à "tu m'entends ?" prend plus de 4 secondes, la visio n'est pas exploitable.  
+> Si la voix répond avec plus de deux phrases à une question simple, la visio n'est pas naturelle.
+
+---
+
+## 11. Synthèse finale — position Kimi pour Option B-lite
+
+### Voix
+
+**Camille** (`Z9ZHGvFZ90R0h0x1prsJ`) est la voix de test B-lite recommandée. L'API génère l'audio correctement. La durée estimée (5.0s) suggère un débit conversationnel naturel, contrairement à Alice (7.5s, trop lente).
+
+**Validation auditive finale** : à confirmer par Ludovic en écoutant `test_camille.mp3`.
+
+### Image
+
+Reste en observation. Priorité **après** P0 conversation. Un `faceId` portrait stable à choisir quand le flux audio/texte est prouvé.
+
+### Expérience globale
+
+**NON VALIDÉE** tant que :
+- STT navigateur -> backend -> TTS n'est pas prouvé en < 4s
+- Anti-boucle micro/TTS n'est pas implémenté
+- Logs `total_latency_ms` ne confirment pas la cible V1
+
+### Prochaines étapes
+
+1. **Claude** : implémenter Option B-lite (Web Speech API -> /api/chat -> ElevenLabs TTS -> lecture frontend)
+2. **DeepSeek** : auditer le patch sécurité + coût + anti-boucle
+3. **Ludovic** : écouter `test_camille.mp3` et valider ou invalider la voix
+4. **Kimi** : après test terrain B-lite, juger la qualité conversationnelle contre la définition section 10
+
+---
+
+*Document finalisé pour Option B-lite. Fichiers audio joints. Aucun déploiement, aucune session Simli, crédits ElevenLabs : ~5 appels TTS de test (~0.003€).*
