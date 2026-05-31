@@ -640,3 +640,14 @@ Fichier concerne : docs/AGENTS_COLLABORATION/agents/CODEX_LOG_ANALYSIS_VISIO_015
 Risque : eleve
 Decision Ludovic requise : oui pour redeploiement correctif et choix architecture
 Action proposee : Desactiver le pont STT auto par defaut, ne plus considerer Simli auto comme STT prouve, demander architecture controlee Option B si besoin conversation fiable.
+
+---
+Agent : Codex
+Heure : 2026-06-01 00:25:00
+Tache : OBJECTIF-015-REPRISE-OPTION-B-LITE
+Type : validation
+Resume : Retour Ludovic pris en compte : voix un peu meilleure mais Iris ne repond toujours pas et ne voit pas la camera. Le code contient Option B-lite, donc le prochain travail est une preuve par logs, pas un nouveau test au feeling. Marqueurs obligatoires : speech_start, speech_end, stt_done, llm_start, llm_done, tts_start, tts_done, audio_play_start, audio_play_end, total_latency_ms.
+Fichier concerne : docs/AGENTS_COLLABORATION/agents/CODEX_REPRISE_VISIO_OPTION_B_LITE_015.md, static/simli.html, luna_web.py
+Risque : eleve
+Decision Ludovic requise : oui pour tout redeploiement, changement architecture, camera vision ou action payante
+Action proposee : Claude prouve la revision deployee et corrige le maillon casse ; DeepSeek audite Option B-lite dans le code reel ; Kimi bloque les tests voix/UX tant que total_latency_ms n'est pas present ; Codex tient la matrice.
