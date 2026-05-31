@@ -771,6 +771,7 @@
     var _simliBotId = null;
     var _dailyUserSpeechSeen = false;
     var _lastLocalSttBridgeAt = 0;
+    var _localSttBridgeEnabled = false; // désactivé : l'écho haut-parleur renvoie la voix d'Iris comme parole utilisateur
 
     // Vision caméra
     var _visionCanvas = document.createElement('canvas');
@@ -2192,7 +2193,7 @@
               if (txt.length > 4) {
                 _visioTranscript.push({ ts: Date.now(), type: 'user.speech', text: txt });
                 rLog('info', 'simli', 'speech_captured', txt.substring(0, 60));
-                if (dailyCall && currentConvId && !_dailyUserSpeechSeen && Date.now() - _lastLocalSttBridgeAt > 2500) {
+                if (_localSttBridgeEnabled && dailyCall && currentConvId && !_dailyUserSpeechSeen && Date.now() - _lastLocalSttBridgeAt > 2500) {
                   _lastLocalSttBridgeAt = Date.now();
                   var sent = _sendAppMessageToBot({
                     message_type: 'conversation',

@@ -607,3 +607,14 @@ Fichier concerne : static/simli.html, docs/AGENTS_COLLABORATION/agents/CODEX_PAT
 Risque : moyen
 Decision Ludovic requise : oui pour deploiement Cloud Run
 Action proposee : Claude relit le patch, DeepSeek valide si `conversation.echo` peut porter ce secours, Kimi teste seulement apres deploiement valide.
+
+---
+Agent : Codex
+Heure : 2026-05-31 12:25:00
+Tache : OBJECTIF-015-LOGS-TERRAIN-VISIO
+Type : risque
+Resume : Logs Ludovic analyses. Micro local playable, bot audio playable, SpeechRecognition capte Ludovic, mais aucun `stt_user_utterance` Simli ni latence assistant. Le pont local `conversation.echo` est envoye mais ne declenche pas de vraie reponse, et il capte aussi la voix d'Iris (risque boucle). Vision non fonctionnelle : `vision_no_track`.
+Fichier concerne : docs/AGENTS_COLLABORATION/agents/CODEX_LOG_ANALYSIS_VISIO_015.md, static/simli.html
+Risque : eleve
+Decision Ludovic requise : oui pour redeploiement correctif et choix architecture
+Action proposee : Desactiver le pont STT auto par defaut, ne plus considerer Simli auto comme STT prouve, demander architecture controlee Option B si besoin conversation fiable.

@@ -8,6 +8,17 @@
 
 ## TODO
 
+### TASK-015-CODEX-LOG-ANALYSIS
+- Agent : Codex
+- Objectif : 015
+- Niveau : 0/1
+- Statut : done
+- Tache : analyser les logs terrain Ludovic apres instrumentation, determiner ce qui marche/ne marche pas, et corriger le risque de boucle du pont STT local.
+- Interdits : pas de deploiement, pas de secret, pas de session longue.
+- Resultat attendu : `docs/AGENTS_COLLABORATION/agents/CODEX_LOG_ANALYSIS_VISIO_015.md` + patch si necessaire + message AGENT_CHANNEL.
+
+Resultat : micro local playable et bot audio playable, mais Simli STT non prouve, pont `conversation.echo` ignore ou inefficace, STT local capte aussi la voix Iris. Pont automatique desactive par defaut dans `static/simli.html`. Vision toujours KO (`vision_no_track`).
+
 ### TASK-015-CODEX-STT-BRIDGE-PATCH
 - Agent : Codex
 - Objectif : 015
