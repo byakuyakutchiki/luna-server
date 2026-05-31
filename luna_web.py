@@ -7500,6 +7500,82 @@ async def visio_notes_save(request: Request):
         return JSONResponse(status_code=500, content={"ok": False, "error": str(e)[:100]})
 
 
+@app.post("/api/visio/chat")
+async def visio_chat(request: Request):
+    """Chat dédié visio Option B-lite — réponse courte, pas de streaming."""
+    tid = getattr(request.state, "tenant_id", 1)
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse(status_code=400, content={"ok": False, "error": "JSON invalide"})
+
+    user_text = (body.get("message") or "").strip()[:500]
+    session_id = body.get("session_id", "visio_default")
+    if not user_text:
+        return JSONResponse(status_code=400, content={"ok": False, "error": "Message vide"})
+    if not OPENAI_API_KEY:
+        return JSONResponse(status_code=503, content={"ok": False, "error": "LLM non configuré"})
+
+    # Prompt système visio : réponses courtes, français, identité Iris
+    visio_system = (
+        "Tu es Iris, la secrétaire visio de Luna YAWatch. "
+        "Tu parles EXCLUSIVEMENT en français de France. "
+        "Tu réponds toujours en 1 à 2 phrases maximum sauf si l'utilisateur demande un résumé ou une liste. "
+        "Réponses courtes, naturelles, professionnelles. Jamais de longueur inutile."
+    )
+    try:
+        client = build_llm_client(OPENAI_API_KEY)
+        completion = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": visio_system},
+                {"role": "user", "content": user_text},
+            ],
+            max_tokens=150,
+            temperature=0.7,
+        )
+        reply = completion.choices[0].message.content.strip()
+    except Exception as e:
+        logger.error(f"visio_chat LLM error: {e}")
+        return JSONResponse(status_code=500, content={"ok": False, "error": "LLM indisponible"})
+
+    logger.info(f"visio_chat tid={tid} q={user_text[:40]!r} → {reply[:40]!r}")
+    return {"ok": True, "response": reply}
+
+
+@app.post("/api/visio/tts")
+async def visio_tts(request: Request):
+    """Proxy TTS ElevenLabs pour la visio — clé jamais exposée au frontend."""
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse(status_code=400, content={"error": "JSON invalide"})
+
+    text = (body.get("text") or "").strip()[:600]
+    if not text:
+        return JSONResponse(status_code=400, content={"error": "Texte vide"})
+
+    key = os.getenv("ELEVENLABS_API_KEY", "")
+    voice_id = os.getenv("ELEVENLABS_VOICE_ID", "Z9ZHGvFZ90R0h0x1prsJ")
+    if not key:
+        return JSONResponse(status_code=503, content={"error": "ElevenLabs non configuré"})
+
+    try:
+        async with httpx.AsyncClient(timeout=15) as client:
+            resp = await client.post(
+                f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}",
+                headers={"xi-api-key": key, "Content-Type": "application/json"},
+                json={"text": text, "model_id": "eleven_multilingual_v2"},
+            )
+        if resp.status_code != 200:
+            logger.error(f"visio_tts ElevenLabs {resp.status_code}: {resp.text[:100]}")
+            return JSONResponse(status_code=502, content={"error": "TTS indisponible"})
+        return Response(content=resp.content, media_type="audio/mpeg")
+    except Exception as e:
+        logger.error(f"visio_tts error: {e}")
+        return JSONResponse(status_code=500, content={"error": str(e)[:80]})
+
+
 @app.post("/api/visio/upload")
 async def visio_upload(request: Request):
     """Analyse un document ou une image partagée pendant la visio.

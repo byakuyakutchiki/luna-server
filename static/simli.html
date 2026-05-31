@@ -2170,10 +2170,85 @@
     }
 
     // =====================================================================
-    // CAPTURE PAROLE UTILISATEUR (SpeechRecognition) — pour les notes
+    // =====================================================================
+    // OPTION B-LITE — Pipeline conversationnel contrôlé
+    // Web Speech API → /api/visio/chat (LLM) → /api/visio/tts (ElevenLabs) → <audio>
+    // Micro coupé pendant la réponse pour éviter la boucle écho
     // =====================================================================
     var _speechReco = null;
     var _speechActive = false;
+    var _irisReplying = false;   // true pendant LLM+TTS : micro ignoré
+    var _irisAudio = null;       // élément audio courant
+
+    function _irisReply(userText) {
+      if (_irisReplying) return; // éviter double appel
+      _irisReplying = true;
+      var t0 = Date.now();
+      rLog('info', 'simli', 'speech_end', userText.substring(0, 60));
+      rLog('info', 'simli', 'stt_done', userText.substring(0, 60));
+      rLog('info', 'simli', 'llm_start', '');
+
+      authFetch('/api/visio/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: userText, session_id: currentConvId || 'visio' })
+      })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        var t1 = Date.now();
+        rLog('info', 'simli', 'llm_done', String(t1 - t0) + 'ms');
+        if (!data.ok || !data.response) {
+          rLog('warn', 'simli', 'llm_empty', JSON.stringify(data).substring(0, 60));
+          _irisReplying = false;
+          return;
+        }
+        var replyText = data.response;
+        _visioTranscript.push({ ts: Date.now(), type: 'luna.speech', text: replyText });
+        rLog('info', 'simli', 'tts_start', replyText.substring(0, 60));
+
+        authFetch('/api/visio/tts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: replyText })
+        })
+        .then(function(r) {
+          if (!r.ok) { rLog('warn', 'simli', 'tts_error', r.status); _irisReplying = false; return null; }
+          return r.blob();
+        })
+        .then(function(blob) {
+          if (!blob) return;
+          var t2 = Date.now();
+          rLog('info', 'simli', 'tts_done', String(t2 - t1) + 'ms');
+          var url = URL.createObjectURL(blob);
+          if (_irisAudio) { try { _irisAudio.pause(); URL.revokeObjectURL(_irisAudio.src); } catch(e) {} }
+          _irisAudio = new Audio(url);
+          _irisAudio.onplay = function() { rLog('info', 'simli', 'audio_play_start', ''); };
+          _irisAudio.onended = function() {
+            var total = Date.now() - t0;
+            rLog('info', 'simli', 'audio_play_end', '');
+            rLog('info', 'simli', 'total_latency_ms', String(total));
+            URL.revokeObjectURL(url);
+            _irisReplying = false; // réactiver le micro
+          };
+          _irisAudio.onerror = function() {
+            rLog('warn', 'simli', 'audio_error', '');
+            _irisReplying = false;
+          };
+          _irisAudio.play().catch(function(e) {
+            rLog('warn', 'simli', 'audio_play_blocked', String(e).substring(0, 60));
+            _irisReplying = false;
+          });
+        })
+        .catch(function(e) {
+          rLog('warn', 'simli', 'tts_fetch_err', String(e).substring(0, 60));
+          _irisReplying = false;
+        });
+      })
+      .catch(function(e) {
+        rLog('warn', 'simli', 'llm_fetch_err', String(e).substring(0, 60));
+        _irisReplying = false;
+      });
+    }
 
     function _startSpeechCapture() {
       var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -2189,21 +2264,15 @@
           for (var i = e.resultIndex; i < e.results.length; i++) {
             if (e.results[i].isFinal) {
               var txt = e.results[i][0].transcript.trim();
-              // confidence peut être 0 sur Firefox/Safari — ne pas filtrer sur ce critère
-              if (txt.length > 4) {
+              if (txt.length > 2) {
+                rLog('info', 'simli', 'speech_start', txt.substring(0, 60));
                 _visioTranscript.push({ ts: Date.now(), type: 'user.speech', text: txt });
-                rLog('info', 'simli', 'speech_captured', txt.substring(0, 60));
-                if (_localSttBridgeEnabled && dailyCall && currentConvId && !_dailyUserSpeechSeen && Date.now() - _lastLocalSttBridgeAt > 2500) {
-                  _lastLocalSttBridgeAt = Date.now();
-                  var sent = _sendAppMessageToBot({
-                    message_type: 'conversation',
-                    event_type: 'conversation.echo',
-                    conversation_id: currentConvId,
-                    properties: { modality: 'text', text: '[Voix utilisateur transcrite localement] ' + txt }
-                  });
-                  rLog(sent ? 'info' : 'warn', 'simli', sent ? 'local_stt_bridge_sent' : 'local_stt_bridge_failed', txt.substring(0, 60));
+                if (_irisReplying) {
+                  rLog('info', 'simli', 'speech_ignored_iris_busy', txt.substring(0, 40));
+                  return; // micro ignoré pendant la réponse d'Iris
                 }
-                // Mettre à jour l'indicateur micro
+                _irisReply(txt);
+                // Indicateur micro
                 var micDot = document.getElementById('micDot');
                 if (micDot) { micDot.style.opacity = '1'; setTimeout(function() { micDot.style.opacity = '0.4'; }, 800); }
               }
@@ -2216,7 +2285,7 @@
             _speechActive = false;
             var micDot = document.getElementById('micDot');
             if (micDot) { micDot.style.display = 'none'; }
-            rLog('warn', 'simli', 'speech_blocked', 'micro refusé — notes limitées aux actions Luna');
+            rLog('warn', 'simli', 'speech_blocked', 'micro refusé');
           }
         };
         _speechReco.onend = function() {
