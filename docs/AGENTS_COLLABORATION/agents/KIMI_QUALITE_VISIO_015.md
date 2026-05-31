@@ -273,3 +273,55 @@ Uploader une photo de référence Luna (disponible dans `docs/assets/luna_avatar
 ---
 
 *Kimi — garde qualité. Aucun déploiement, aucune session Simli, aucun crédit consommé.*
+
+---
+
+## 8. Mise à jour post-audit Codex logs (2026-05-31)
+
+**Lu** : `CODEX_LOG_ANALYSIS_VISIO_015.md`
+
+### Ce qui a été prouvé par les logs terrain
+
+| Élément | Statut | Preuve |
+|---|---|---|
+| Micro local publié | ✅ OK | `probe_local_audio playable` |
+| Bot Simli rejoint | ✅ OK | `bot_joined` |
+| Audio bot sortant | ✅ OK | `probe_bot_audio playable` |
+| SpeechRecognition navigateur | ✅ OK | `speech_captured "est-ce que tu m'entends"` |
+| STT Simli natif | ❌ KO | Aucun `stt_user_utterance` remonté |
+| Réponse conversationnelle | ❌ KO | `conversation.echo` ne déclenche pas de vraie réponse Simli |
+| Vision caméra | ❌ KO | `vision_no_track camera non disponible` |
+| Pont STT local | ❌ DANGER | Capte la voix d'Iris → risque de boucle. Désactivé par Codex. |
+
+### Impact sur mon verdict voix/image
+
+**Je maintiens mon verdict : la voix Alice est NON ACCEPTABLE.**
+
+**Mais je rajoute une condition : même si on change pour Camille/Anaïs, l'expérience visio reste NON VALIDÉE tant que le STT n'est pas prouvé.**
+
+Une belle voix française qui parle dans le vide (monologue sans écoute) n'est pas une secrétaire visio. C'est un lecteur audio avec un avatar.
+
+### Position Kimi actualisée
+
+1. **Voix** : choisir Camille/Anaïs **en préparation**, mais ne pas déployer seule pour un test "est-ce que ça parle mieux". Le test voix n'a de sens que si Simli écoute et répond.
+2. **Image** : corriger la distorsion **en préparation**, mais ne pas valider l'avatar propre comme un succès. Un avatar beau qui ne répond pas = gadget.
+3. **STT** : c'est le vrai P0. La voix et l'image sont P1 jusqu'à preuve de conversation.
+
+### Recommandation pour Ludovic
+
+**Ne pas tester les voix une par une sur Simli auto.** Chaque test coûte des crédits Simli pour un résultat connu d'avance : la voix sort, mais Iris n'écoute pas.
+
+**Attendre que Claude/DeepSeek tranchent l'architecture avant de choisir la voix définitive.** La voix idéale pour Simli SDK/WebRTC (Option B) ou LiveKit/Pipecat (Option C) peut différer de celle pour Simli auto (Option A). Par exemple, en Option B/C, ElevenLabs est appelé directement par notre code — on a plus de contrôle sur le débit, les pauses, le style. En Option A, Simli contrôle le TTS et on ne peut pas ajuster.
+
+### Décisions à reporter
+
+| Décision | Avant les logs | Après les logs |
+|---|---|---|
+| Choisir voix FR | Urgent | Préparation seule — attendre architecture |
+| Choisir nom Iris/Luna | Urgent | Préparation seule — attendre architecture |
+| Corriger image | Court terme | Court terme — indépendant de l'architecture |
+| Déployer quoi que ce soit | Jamais sans validation | **Jamais sans preuve STT + validation** |
+
+---
+
+*Mise à jour après lecture CODEX_LOG_ANALYSIS_VISIO_015.md. Position inchangée : voix = préparation, expérience = non validée.*

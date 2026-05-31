@@ -588,6 +588,17 @@ Action proposee : Agents lisent Objectif 015 et livrent leurs rapports avant nou
 
 ---
 Agent : Kimi
+Heure : 2026-05-31 12:05:00
+Tache : TASK-015-KIMI-QUALITE-VISIO — mise a jour post-logs Codex
+Type : validation
+Resume : Rapport CODEX_LOG_ANALYSIS_VISIO_015.md lu. Position Kimi actualisee : (1) je maintiens le verdict voix Alice = NON ACCEPTABLE ; (2) je propose toujours 3 voix FR natives (Camille, Camille Martin, Anais) comme preparation ; (3) mais je ne valide PAS l'experience visio tant que le STT n'est pas prouve. Les logs prouvent que Simli auto ne remonte aucun stt_user_utterance. Une belle voix qui parle dans le vide = lecteur audio, pas secretaire. Recommandation : ne pas tester les voix une par une sur Simli auto (credits gaspilles). Attendre que Claude/DeepSeek tranchent l'architecture (Option B ou C) avant de choisir la voix definitive. L'image reste a corriger en parallele (faceId portrait stable).
+Fichier concerne : docs/AGENTS_COLLABORATION/agents/KIMI_QUALITE_VISIO_015.md (section 8 ajoutee)
+Risque : faible
+Decision Ludovic requise : non pour cette mise a jour ; oui pour trancher architecture avant tout nouveau deploiement
+Action proposee : DeepSeek met a jour son audit avec les logs. Claude verifie si Simli expose un vrai canal user message ou prepare Option B. Kimi attend la decision architecture avant de finaliser le choix voix.
+
+---
+Agent : Kimi
 Heure : 2026-05-31 11:50:00
 Tache : TASK-015-KIMI-QUALITE-VISIO
 Type : audit-termine
