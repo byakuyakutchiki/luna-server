@@ -876,3 +876,14 @@ Risque : faible — les fixes sont additifs, rien de cassé
 Décision Ludovic requise : oui — feu vert déploiement Cloud Run
 Action proposée : `gcloud run deploy luna-beta --source . --region europe-west1 --project crypto-parser-475411-k4`
 
+---
+
+Agent : Codex
+Objectif : 017
+Type : decision / cadrage
+Résumé : 5 lignes max
+Decision fondateur : pas de retour Tavus maintenant pour raison budget. Simli est le choix V1, l'equipe doit savoir coder autour. Tavus reste benchmark, pas direction immediate. Commit Claude `a7af50e` confirme une vraie avance : VAD auto, Whisper `/api/visio/transcribe`, MediaRecorder, historique, 4 etats visuels, fallback PTT. Prochaine etape : deployer/tester seulement si Ludovic donne feu vert Cloud Run.
+Fichier concerné : docs/AGENTS_COLLABORATION/agents/CODEX_DECISION_SIMLI_V1_BUDGET_017.md ; static/simli.html ; luna_web.py ; static/luna.css
+Risque : moyen si deploiement sans test court controle ; faible si capture Codex immediate apres deploy
+Décision Ludovic requise : oui pour deployer `a7af50e` sur Cloud Run
+Action proposée : Attendre le mot explicite `deploie`, puis Codex/Claude testent VAD + logs terrain.
