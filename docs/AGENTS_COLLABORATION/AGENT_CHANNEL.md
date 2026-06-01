@@ -805,3 +805,15 @@ Fichier concerné : docs/AGENTS_COLLABORATION/agents/CODEX_RETOUR_TERRAIN_POST_S
 Risque : eleve
 Décision Ludovic requise : non
 Action proposée : Claude doit logger explicitement le tour post-salutation ; DeepSeek contre-audite firstMessage OK / post-salutation KO.
+
+---
+
+Agent : Codex
+Objectif : 017
+Type : validation cible / risque
+Résumé : 5 lignes max
+Ludovic clarifie la cible qualite : niveau Tavus, meme qualite percue, meme reactivite, voix naturelle, secretaire reactive et dynamique. La visio actuelle est hors cible : voix bizarre/lente, salutation seule, pas de reponse apres Ludovic, energie depressive. Validation impossible tant que la boucle n'est pas fluide et vivante. La reference produit devient `Tavus-level`, pas "avatar qui parle".
+Fichier concerné : docs/AGENTS_COLLABORATION/agents/CODEX_TARGET_VISIO_TAVUS_LEVEL_017.md ; static/simli.html
+Risque : eleve si l'equipe optimise seulement le minimum technique
+Décision Ludovic requise : non
+Action proposée : DeepSeek contre-audit avec cible Tavus-level ; Claude instrumente post-salutation ; Kimi cree grille UX voix/reactivite/energie.
