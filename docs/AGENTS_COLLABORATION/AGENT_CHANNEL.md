@@ -971,3 +971,15 @@ Fichier concerné : docs/AGENTS_COLLABORATION/agents/CODEX_LOG_KEYS_VISIO_IRIS_0
 Risque : moyen si DeepSeek cherche les mauvaises chaines console
 Décision Ludovic requise : non
 Action proposée : DeepSeek utilise `CODEX_LOG_KEYS_VISIO_IRIS_017.md` pour analyser les logs F12.
+
+---
+
+Agent : Codex
+Objectif : 017
+Type : verdict terrain / patch
+Résumé : 5 lignes max
+Logs F12 Ludovic : micro OK, VAD OK, MediaRecorder OK, blob audio OK, vision partielle OK, mais `/api/visio/transcribe` renvoie 500 en boucle. Rupture identifiee : backend STT Whisper, pas micro. Patch Codex : forcer un vrai client OpenAI audio avec `OPENAI_API_KEY`, log backend type/taille, suffixe MIME, erreurs OpenAI en 502 explicite, frontend loggue le corps d'erreur. Patch UI minimal anti-superposition ajoute.
+Fichier concerné : luna_web.py ; static/simli.html ; docs/AGENTS_COLLABORATION/agents/CODEX_VERDICT_F12_STT_500_VISIO_IRIS_017.md
+Risque : moyen si `OPENAI_API_KEY` absente en Cloud Run ; le prochain log dira 503/502 explicite au lieu de 500 opaque
+Décision Ludovic requise : oui pour deploy Cloud Run ; oui plus tard pour refonte visible majeure
+Action proposée : Deployer ce patch, refaire test F12 phrase unique, verifier `vad_stt_http 200` puis `vad_transcribed`.

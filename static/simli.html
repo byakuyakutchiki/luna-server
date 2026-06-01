@@ -4,6 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="theme-color" content="#0a0a1a" />
+  <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <title>Iris — Visio</title>
@@ -242,6 +243,27 @@
     #btnUpload  { color: #f8b07c; border-color: rgba(248,160,100,0.35); }
     #btnUpload:hover  { background: rgba(248,160,100,0.12); border-color: rgba(248,160,100,0.7); }
     #btnUpload.uploading { opacity: 0.6; pointer-events: none; }
+    @media (max-width: 980px) {
+      #visioActionsBar {
+        justify-content: flex-start;
+        gap: 6px;
+        padding-left: max(8px, env(safe-area-inset-left));
+        padding-right: max(8px, env(safe-area-inset-right));
+        overflow-x: auto;
+        scrollbar-width: none;
+      }
+      #visioActionsBar::-webkit-scrollbar { display: none; }
+      .vab-btn {
+        min-width: 44px;
+        height: 44px;
+        justify-content: center;
+        padding: 0 11px;
+        font-size: 0;
+        flex: 0 0 auto;
+      }
+      .vab-btn::first-letter { font-size: 18px; }
+      #micDot { margin-left: 0; }
+    }
     /* PTT Orb — Whisper STT (remplace le vab-btn plat) */
     #pttContainer {
       position: fixed;
@@ -396,6 +418,17 @@
     }
     .btn-hangup.visible { display: flex; }
     .btn-hangup:hover { background: #d63050; }
+    @media (max-width: 980px) {
+      .btn-hangup {
+        left: auto;
+        right: max(14px, env(safe-area-inset-right));
+        bottom: calc(22px + env(safe-area-inset-bottom));
+        transform: none;
+        min-height: 48px;
+        padding: 12px 22px;
+        font-size: 14px;
+      }
+    }
 
     /* ===== ECRAN DE DEMARRAGE ===== */
     .start-screen {
@@ -2411,7 +2444,8 @@
       var _vadT0 = Date.now();
       rLog('info', 'simli', 'vad_send', String(blob.size) + 'b');
       var fd = new FormData();
-      fd.append('audio', blob, 'recording.webm');
+      var ext = blob.type.indexOf('mp4') >= 0 ? 'mp4' : (blob.type.indexOf('ogg') >= 0 ? 'ogg' : 'webm');
+      fd.append('audio', blob, 'recording.' + ext);
       var token = typeof getToken === 'function' ? getToken() : localStorage.getItem('luna_token');
       if (!token) rLog('warn', 'simli', 'vad_no_token', 'JWT absent — 401 probable');
       fetch('/api/visio/transcribe', {
@@ -2428,9 +2462,11 @@
           return null;
         }
         if (!r.ok) {
-          rLog('warn', 'simli', 'vad_stt_err', 'HTTP ' + r.status);
-          _setIrisState('idle');
-          return null;
+          return r.text().then(function(txt) {
+            rLog('warn', 'simli', 'vad_stt_err', 'HTTP ' + r.status + ' ' + txt.substring(0, 140));
+            _setIrisState('idle');
+            return null;
+          });
         }
         return r.json();
       })

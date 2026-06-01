@@ -7602,23 +7602,39 @@ async def visio_tts(request: Request):
 @app.post("/api/visio/transcribe")
 async def visio_transcribe(request: Request):
     """STT Whisper — fallback WebView quand Web Speech API absent."""
-    if not openai_client:
-        return JSONResponse(status_code=503, content={"ok": False, "error": "Whisper non configuré"})
+    audio_api_key = os.getenv("OPENAI_API_KEY") or (
+        OPENAI_API_KEY if os.getenv("LLM_PROVIDER", "openai").lower().strip() == "openai" else ""
+    )
+    if not audio_api_key:
+        return JSONResponse(status_code=503, content={"ok": False, "error": "OPENAI_API_KEY requise pour Whisper"})
     try:
         form = await request.form()
         audio_file = form.get("audio")
         if not audio_file:
             return JSONResponse(status_code=400, content={"ok": False, "error": "Fichier audio requis"})
         audio_bytes = await audio_file.read()
+        content_type = getattr(audio_file, "content_type", "") or "audio/webm"
+        filename = getattr(audio_file, "filename", "") or "recording.webm"
+        suffix = ".webm"
+        if "mp4" in content_type or filename.endswith(".mp4"):
+            suffix = ".mp4"
+        elif "mpeg" in content_type or filename.endswith(".mp3"):
+            suffix = ".mp3"
+        elif "wav" in content_type or filename.endswith(".wav"):
+            suffix = ".wav"
+        elif "ogg" in content_type or filename.endswith(".ogg"):
+            suffix = ".ogg"
+        logger.info(f"visio_transcribe recv bytes={len(audio_bytes)} type={content_type} file={filename}")
         if len(audio_bytes) < 500:
             return {"ok": True, "text": "", "method": "whisper", "empty": True}
         import tempfile as _tmpfile
-        with _tmpfile.NamedTemporaryFile(suffix=".webm", delete=False) as f:
+        with _tmpfile.NamedTemporaryFile(suffix=suffix, delete=False) as f:
             f.write(audio_bytes)
             tmp_path = f.name
         try:
             with open(tmp_path, "rb") as f:
-                transcript = openai_client.audio.transcriptions.create(
+                audio_client = OpenAI(api_key=audio_api_key)
+                transcript = audio_client.audio.transcriptions.create(
                     model="whisper-1", file=f, language="fr"
                 )
             text = transcript.text.strip()
@@ -7629,6 +7645,10 @@ async def visio_transcribe(request: Request):
                 pass
         logger.info(f"visio_transcribe: {text[:60]!r}")
         return {"ok": True, "text": text, "method": "whisper"}
+    except openai.APIError as e:
+        status = getattr(e, "status_code", None) or 502
+        logger.error(f"visio_transcribe OpenAI API error status={status}: {e}")
+        return JSONResponse(status_code=502, content={"ok": False, "error": "Whisper OpenAI indisponible", "detail": str(e)[:160]})
     except Exception as e:
         logger.error(f"visio_transcribe error: {e}")
         return JSONResponse(status_code=500, content={"ok": False, "error": str(e)[:80]})
