@@ -1,0 +1,12 @@
+[
+  {
+    "description": "{\"attached\":false,\"empty\":true,\"never_attached\":true,\"screenX\":0,\"screenY\":0,\"visible\":true}",
+    "devtoolsFrontendUrl": "https://chrome-devtools-frontend.appspot.com/serve_rev/@d096af1c9e98c45c3596e59620622b1a049bfecb/inspector.html?ws=127.0.0.1:9222/devtools/page/087C0EDF9C38ECB978E3A2B0BBEC66AF",
+    "faviconUrl": "https://googleads.g.doubleclick.net/favicon.ico",
+    "id": "087C0EDF9C38ECB978E3A2B0BBEC66AF",
+    "title": "about:blank",
+    "type": "page",
+    "url": "about:blank",
+    "webSocketDebuggerUrl": "ws://127.0.0.1:9222/devtools/page/087C0EDF9C38ECB978E3A2B0BBEC66AF"
+  }
+]

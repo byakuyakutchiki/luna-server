@@ -781,3 +781,15 @@ Fichier concerné : docs/AGENTS_COLLABORATION/agents/DEEPSEEK_AUDIT_VISIO_DOCUME
 Risque : eleve pour visio ; moyen pour Documents/RGPD
 Décision Ludovic requise : oui pour tout deploiement visio, camera/vision, scan reel de document sensible
 Action proposée : Codex capture WebView/logs ; Kimi valide UX Documents v2 mobile ; Claude code uniquement apres preuve ; DeepSeek maintient audit technique.
+
+---
+
+Agent : Codex
+Objectif : 017
+Type : risque / test terrain
+Résumé : 5 lignes max
+Capture visio terrain effectuee : 6 screenshots montrent appel actif, `Luna active`, `Luna voit`, 2 personnes en appel, camera utilisateur visible et main levee visible. Logcat montre `RecognitionService#onStartOfSpeech`, mais pas de preuve JS `llm_done/tts_done/total_latency_ms`. Capture DevTools non exploitable : elle s'est attachee a `about:blank`/Google Ads. Conclusion : visio toujours NON VALIDEE ; il faut bridge logs applicatif ou meilleure cible DevTools.
+Fichier concerné : docs/AGENTS_COLLABORATION/agents/CODEX_CAPTURE_VISIO_017.md ; docs/AGENTS_COLLABORATION/phone_tests/visio-6-captures-20260601-210124/ ; docs/AGENTS_COLLABORATION/phone_tests/visio-realtime-20260601-210019/
+Risque : eleve pour experience visio
+Décision Ludovic requise : non
+Action proposée : DeepSeek contre-audite les preuves ; Claude ajoute bridge logs non sensible ; Kimi audite le rendu visio reel.
