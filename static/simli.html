@@ -2290,8 +2290,18 @@
           history: _conversationHistory.slice(-16)
         })
       })
-      .then(function(r) { return r.json(); })
+      .then(function(r) {
+        rLog('info', 'simli', 'llm_http', String(r.status));
+        if (r.status === 401) {
+          rLog('warn', 'simli', 'llm_jwt_expired', '401');
+          showToast('⚠️ Session expirée — rechargez la page', 5000);
+          _irisReplying = false; _setIrisState('idle'); return null;
+        }
+        if (!r.ok) { rLog('warn', 'simli', 'llm_http_err', String(r.status)); _irisReplying = false; _setIrisState('idle'); return null; }
+        return r.json();
+      })
       .then(function(data) {
+        if (!data) return;
         var t1 = Date.now();
         rLog('info', 'simli', 'llm_done', String(t1 - t0) + 'ms');
         if (!data.ok || !data.response) {
@@ -2302,7 +2312,7 @@
         }
         var replyText = data.response;
         _conversationHistory.push({ role: 'assistant', content: replyText });
-        _visioTranscript.push({ ts: Date.now(), type: 'luna.speech', text: replyText });
+        _visioTranscript.push({ ts: Date.now(), type: 'iris.speech', text: replyText });
         rLog('info', 'simli', 'tts_start', replyText.substring(0, 60));
 
         authFetch('/api/visio/tts', {
@@ -2311,7 +2321,13 @@
           body: JSON.stringify({ text: replyText })
         })
         .then(function(r) {
-          if (!r.ok) { rLog('warn', 'simli', 'tts_error', r.status); _irisReplying = false; _setIrisState('idle'); return null; }
+          rLog('info', 'simli', 'tts_http', String(r.status));
+          if (r.status === 401) {
+            rLog('warn', 'simli', 'tts_jwt_expired', '401');
+            showToast('⚠️ Session expirée — rechargez la page', 5000);
+            _irisReplying = false; _setIrisState('idle'); return null;
+          }
+          if (!r.ok) { rLog('warn', 'simli', 'tts_error', String(r.status)); _irisReplying = false; _setIrisState('idle'); return null; }
           return r.blob();
         })
         .then(function(blob) {
@@ -2383,10 +2399,12 @@
 
     function _sendVADAudio() {
       if (!_vadChunks.length) { _setIrisState('idle'); return; }
+      rLog('info', 'simli', 'vad_chunks', String(_vadChunks.length));
       var blob = new Blob(_vadChunks, { type: _vadChunks[0].type || 'audio/webm' });
       _vadChunks = [];
+      rLog('info', 'simli', 'vad_blob_size', String(blob.size) + 'b');
       if (blob.size < 500) {
-        rLog('info', 'simli', 'vad_audio_empty', 'trop court');
+        rLog('info', 'simli', 'vad_audio_empty', 'trop court <500b');
         _setIrisState('idle');
         return;
       }
@@ -2395,13 +2413,29 @@
       var fd = new FormData();
       fd.append('audio', blob, 'recording.webm');
       var token = typeof getToken === 'function' ? getToken() : localStorage.getItem('luna_token');
+      if (!token) rLog('warn', 'simli', 'vad_no_token', 'JWT absent — 401 probable');
       fetch('/api/visio/transcribe', {
         method: 'POST',
         headers: token ? { 'Authorization': 'Bearer ' + token } : {},
         body: fd
       })
-      .then(function(r) { return r.json(); })
+      .then(function(r) {
+        rLog('info', 'simli', 'vad_stt_http', String(r.status));
+        if (r.status === 401) {
+          rLog('warn', 'simli', 'vad_jwt_expired', '401 — token invalide ou expiré');
+          showToast('⚠️ Session expirée — rechargez la page', 5000);
+          _setIrisState('idle');
+          return null;
+        }
+        if (!r.ok) {
+          rLog('warn', 'simli', 'vad_stt_err', 'HTTP ' + r.status);
+          _setIrisState('idle');
+          return null;
+        }
+        return r.json();
+      })
       .then(function(data) {
+        if (!data) return;
         rLog('info', 'simli', 'vad_whisper_ms', String(Date.now() - _vadT0));
         if (!data.ok || !data.text) {
           rLog('info', 'simli', 'vad_transcribe_empty', JSON.stringify(data).substring(0, 60));
@@ -2423,13 +2457,29 @@
     function _startVAD() {
       if (_vadActive) return;
       _vadActive = true;
+      var _vadInitTs = Date.now();
       var pttContainer = document.getElementById('pttContainer');
       if (pttContainer) pttContainer.style.display = 'flex';
       _setIrisState('idle');
+      rLog('info', 'simli', 'vad_init', 'ts=' + _vadInitTs);
 
       navigator.mediaDevices.getUserMedia({ audio: true, video: false })
         .then(function(stream) {
           _vadStream = stream;
+
+          // --- DIAG: micro track ---
+          var tracks = stream.getAudioTracks();
+          if (!tracks.length) {
+            rLog('warn', 'simli', 'vad_track_missing', 'aucune piste audio');
+          } else {
+            var t0 = tracks[0];
+            rLog('info', 'simli', 'vad_track', 'label=' + (t0.label || 'none') +
+              ' state=' + t0.readyState + ' enabled=' + t0.enabled + ' muted=' + t0.muted);
+            if (!t0.enabled || t0.readyState !== 'live') {
+              rLog('warn', 'simli', 'vad_track_bad', 'track non-live ou disabled — micro suspect');
+            }
+          }
+
           var ACtx = window.AudioContext || window.webkitAudioContext;
           if (!ACtx) {
             rLog('warn', 'simli', 'vad_no_audiocontext', 'fallback PTT manuel');
@@ -2437,34 +2487,72 @@
             return;
           }
           _vadAudioCtx = new ACtx();
-          var source = _vadAudioCtx.createMediaStreamSource(stream);
-          _vadProcessor = _vadAudioCtx.createScriptProcessor(2048, 1, 1);
-          source.connect(_vadProcessor);
-          _vadProcessor.connect(_vadAudioCtx.destination);
+          rLog('info', 'simli', 'vad_actx_state_init', _vadAudioCtx.state);
 
-          _vadProcessor.onaudioprocess = function(e) {
-            if (!_vadActive || _irisReplying) return;
-            var data = e.inputBuffer.getChannelData(0);
-            var rms = 0;
-            for (var i = 0; i < data.length; i++) rms += data[i] * data[i];
-            rms = Math.sqrt(rms / data.length);
+          function _setupProcessor() {
+            var source = _vadAudioCtx.createMediaStreamSource(stream);
+            _vadProcessor = _vadAudioCtx.createScriptProcessor(2048, 1, 1);
+            source.connect(_vadProcessor);
+            _vadProcessor.connect(_vadAudioCtx.destination);
 
-            if (rms > VAD_RMS_THRESHOLD) {
-              if (_vadSilenceTimer) { clearTimeout(_vadSilenceTimer); _vadSilenceTimer = null; }
-              if (!_vadRecording) _vadStartRecording();
-            } else {
-              if (_vadRecording && !_vadSilenceTimer) {
-                _vadSilenceTimer = setTimeout(function() {
-                  _vadSilenceTimer = null;
-                  _vadStopRecording();
-                }, VAD_SILENCE_MS);
+            var _rmsFrame = 0;
+            _vadProcessor.onaudioprocess = function(e) {
+              if (!_vadActive || _irisReplying) return;
+
+              // Monitor AudioContext suspend (mobile browser can suspend on background)
+              if (_vadAudioCtx && _vadAudioCtx.state === 'suspended') {
+                rLog('warn', 'simli', 'vad_actx_suspended', 'resume...');
+                _vadAudioCtx.resume().catch(function(err) {
+                  rLog('warn', 'simli', 'vad_resume_err', String(err).substring(0, 40));
+                });
+                return;
               }
-            }
-          };
 
-          var micDot = document.getElementById('micDot');
-          if (micDot) micDot.style.display = 'inline-block';
-          rLog('info', 'simli', 'vad_start', 'seuil=' + VAD_RMS_THRESHOLD);
+              var data = e.inputBuffer.getChannelData(0);
+              var rms = 0;
+              for (var i = 0; i < data.length; i++) rms += data[i] * data[i];
+              rms = Math.sqrt(rms / data.length);
+
+              // --- DIAG: RMS log throttled (~1x per 1.4s = 30 frames at ~22ms/frame) ---
+              _rmsFrame++;
+              if (_rmsFrame >= 30) {
+                _rmsFrame = 0;
+                rLog('info', 'simli', 'vad_rms', rms.toFixed(4) + (rms > VAD_RMS_THRESHOLD ? ' PAROLE' : ' silence'));
+              }
+
+              if (rms > VAD_RMS_THRESHOLD) {
+                if (_vadSilenceTimer) { clearTimeout(_vadSilenceTimer); _vadSilenceTimer = null; }
+                if (!_vadRecording) _vadStartRecording();
+              } else {
+                if (_vadRecording && !_vadSilenceTimer) {
+                  _vadSilenceTimer = setTimeout(function() {
+                    _vadSilenceTimer = null;
+                    _vadStopRecording();
+                  }, VAD_SILENCE_MS);
+                }
+              }
+            };
+
+            var micDot = document.getElementById('micDot');
+            if (micDot) micDot.style.display = 'inline-block';
+            rLog('info', 'simli', 'vad_start', 'seuil=' + VAD_RMS_THRESHOLD + ' actx=' + _vadAudioCtx.state);
+          }
+
+          // Resume AudioContext if suspended (common on mobile after user gesture)
+          if (_vadAudioCtx.state === 'suspended') {
+            rLog('warn', 'simli', 'vad_actx_suspended_init', 'appel resume()');
+            _vadAudioCtx.resume()
+              .then(function() {
+                rLog('info', 'simli', 'vad_actx_resumed', _vadAudioCtx.state);
+                _setupProcessor();
+              })
+              .catch(function(err) {
+                rLog('warn', 'simli', 'vad_actx_resume_fail', String(err).substring(0, 60));
+                _vadFallbackPTT(stream);
+              });
+          } else {
+            _setupProcessor();
+          }
         })
         .catch(function(e) {
           rLog('warn', 'simli', 'vad_mic_err', String(e).substring(0, 60));
