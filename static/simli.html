@@ -2294,7 +2294,7 @@
         rLog('info', 'simli', 'llm_http', String(r.status));
         if (r.status === 401) {
           rLog('warn', 'simli', 'llm_jwt_expired', '401');
-          showToast('⚠️ Session expirée — rechargez la page', 5000);
+          showToast('⚠️ Session expirée — reconnecte-toi avant de relancer la visio.', 6000);
           _irisReplying = false; _setIrisState('idle'); return null;
         }
         if (!r.ok) { rLog('warn', 'simli', 'llm_http_err', String(r.status)); _irisReplying = false; _setIrisState('idle'); return null; }
@@ -2324,7 +2324,7 @@
           rLog('info', 'simli', 'tts_http', String(r.status));
           if (r.status === 401) {
             rLog('warn', 'simli', 'tts_jwt_expired', '401');
-            showToast('⚠️ Session expirée — rechargez la page', 5000);
+            showToast('⚠️ Session expirée — reconnecte-toi avant de relancer la visio.', 6000);
             _irisReplying = false; _setIrisState('idle'); return null;
           }
           if (!r.ok) { rLog('warn', 'simli', 'tts_error', String(r.status)); _irisReplying = false; _setIrisState('idle'); return null; }
@@ -2423,7 +2423,7 @@
         rLog('info', 'simli', 'vad_stt_http', String(r.status));
         if (r.status === 401) {
           rLog('warn', 'simli', 'vad_jwt_expired', '401 — token invalide ou expiré');
-          showToast('⚠️ Session expirée — rechargez la page', 5000);
+          showToast('⚠️ Session expirée — reconnecte-toi avant de relancer la visio.', 6000);
           _setIrisState('idle');
           return null;
         }
@@ -2477,6 +2477,9 @@
               ' state=' + t0.readyState + ' enabled=' + t0.enabled + ' muted=' + t0.muted);
             if (!t0.enabled || t0.readyState !== 'live') {
               rLog('warn', 'simli', 'vad_track_bad', 'track non-live ou disabled — micro suspect');
+            }
+            if (t0.muted === true) {
+              rLog('warn', 'simli', 'vad_track_muted', 'piste micro live mais muted=true — RMS sera nul');
             }
           }
 
