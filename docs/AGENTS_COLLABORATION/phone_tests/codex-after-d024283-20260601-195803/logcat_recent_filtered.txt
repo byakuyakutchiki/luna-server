@@ -1,0 +1,13 @@
+06-01 19:58:07.170  3005  3039 E libsensor-parseRGB: CWB NotifyCWBBufferDone  error 0
+06-01 19:58:07.176  2578  6041 D BarFollowAnimation: pairAppearanceRegionAndWin win=Window{6b10307 u0 fr.yawatch.luna/fr.yawatch.luna.MainActivity} 0
+06-01 19:58:07.176  2578  6041 D BarFollowAnimation: isAppTaskBarOnTop win:Window{6b10307 u0 fr.yawatch.luna/fr.yawatch.luna.MainActivity} (mCurrentTopTask:Task{1145407 #4755 type=standard A=10527:fr.yawatch.luna} : true); (mAssociatedTask:Task{1145407 #4755 type=standard A=10527:fr.yawatch.luna} : true); (mHomeTask:Task{577fe23 #1 type=home} : false); mReparentToOriginParent:false mLastAppBarVisible:true mLastHomeBarVisible:false
+06-01 19:58:07.217  2578  3393 D BarFollowAnimation: pairAppearanceRegionAndWin win=Window{6b10307 u0 fr.yawatch.luna/fr.yawatch.luna.MainActivity} 0
+06-01 19:58:07.217  2578  3393 D BarFollowAnimation: isAppTaskBarOnTop win:Window{6b10307 u0 fr.yawatch.luna/fr.yawatch.luna.MainActivity} (mCurrentTopTask:Task{1145407 #4755 type=standard A=10527:fr.yawatch.luna} : true); (mAssociatedTask:Task{1145407 #4755 type=standard A=10527:fr.yawatch.luna} : true); (mHomeTask:Task{577fe23 #1 type=home} : false); mReparentToOriginParent:false mLastAppBarVisible:true mLastHomeBarVisible:false
+06-01 19:58:07.222  2578  3869 D BarFollowAnimation: pairAppearanceRegionAndWin win=Window{6b10307 u0 fr.yawatch.luna/fr.yawatch.luna.MainActivity} 0
+06-01 19:58:07.222  2578  3869 D BarFollowAnimation: isAppTaskBarOnTop win:Window{6b10307 u0 fr.yawatch.luna/fr.yawatch.luna.MainActivity} (mCurrentTopTask:Task{1145407 #4755 type=standard A=10527:fr.yawatch.luna} : true); (mAssociatedTask:Task{1145407 #4755 type=standard A=10527:fr.yawatch.luna} : true); (mHomeTask:Task{577fe23 #1 type=home} : false); mReparentToOriginParent:false mLastAppBarVisible:true mLastHomeBarVisible:false
+06-01 19:58:07.238  2578  3393 D BarFollowAnimation: pairAppearanceRegionAndWin win=Window{6b10307 u0 fr.yawatch.luna/fr.yawatch.luna.MainActivity} 0
+06-01 19:58:07.238  2578  3393 D BarFollowAnimation: isAppTaskBarOnTop win:Window{6b10307 u0 fr.yawatch.luna/fr.yawatch.luna.MainActivity} (mCurrentTopTask:Task{1145407 #4755 type=standard A=10527:fr.yawatch.luna} : true); (mAssociatedTask:Task{1145407 #4755 type=standard A=10527:fr.yawatch.luna} : true); (mHomeTask:Task{577fe23 #1 type=home} : false); mReparentToOriginParent:false mLastAppBarVisible:true mLastHomeBarVisible:false
+06-01 19:58:07.394  3005  3041 E libsensor-parseRGB: CWB NotifyCWBBufferDone  error 0
+06-01 19:58:07.628  3005  3039 E libsensor-parseRGB: CWB NotifyCWBBufferDone  error 0
+06-01 19:58:07.853  3005  3041 E libsensor-parseRGB: CWB NotifyCWBBufferDone  error 0
+06-01 19:58:08.061  3005  3041 E libsensor-parseRGB: CWB NotifyCWBBufferDone  error 0
