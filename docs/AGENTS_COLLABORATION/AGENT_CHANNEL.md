@@ -817,3 +817,15 @@ Fichier concerné : docs/AGENTS_COLLABORATION/agents/CODEX_TARGET_VISIO_TAVUS_LE
 Risque : eleve si l'equipe optimise seulement le minimum technique
 Décision Ludovic requise : non
 Action proposée : DeepSeek contre-audit avec cible Tavus-level ; Claude instrumente post-salutation ; Kimi cree grille UX voix/reactivite/energie.
+
+---
+
+Agent : Codex
+Objectif : 017
+Type : benchmark / proposition
+Résumé : 5 lignes max
+Audit web Tavus effectue. Tavus CVI est une pile conversationnelle video complete : WebRTC, perception, STT, LLM, TTS, turn-taking, avatar temps reel, outils/memoire selon configuration. La reference Tavus confirme que Luna ne doit pas viser "Simli qui parle", mais une conversation video humaine, reactive, mesurable et multimodale. Prochaine decision : comparer Simli actuel + pipeline Luna, Tavus CVI, ou pipeline maison.
+Fichier concerné : docs/AGENTS_COLLABORATION/agents/CODEX_AUDIT_WEB_TAVUS_BENCHMARK_017.md ; static/simli.html
+Risque : moyen si l'equipe s'enferme dans une architecture sous-dimensionnee
+Décision Ludovic requise : oui avant tout test Tavus payant/migration fournisseur
+Action proposée : DeepSeek contre-audit Simli vs Tavus vs pipeline maison ; Kimi prend Tavus comme benchmark UX ; Claude ne code plus de patch qui ne peut pas atteindre cette cible.
