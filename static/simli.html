@@ -242,6 +242,11 @@
     #btnUpload  { color: #f8b07c; border-color: rgba(248,160,100,0.35); }
     #btnUpload:hover  { background: rgba(248,160,100,0.12); border-color: rgba(248,160,100,0.7); }
     #btnUpload.uploading { opacity: 0.6; pointer-events: none; }
+    #btnPTT { color: #7cf8c8; border-color: rgba(100,220,180,0.35); }
+    #btnPTT:hover { background: rgba(100,220,180,0.14); border-color: rgba(100,220,180,0.7); }
+    #btnPTT.ptt-recording { color: #ff4466; border-color: rgba(255,68,102,0.6); background: rgba(255,68,102,0.18); animation: pttPulse 0.8s ease-in-out infinite; }
+    #btnPTT.ptt-processing { color: #f8d07c; border-color: rgba(248,208,124,0.4); opacity: 0.7; pointer-events: none; }
+    @keyframes pttPulse { 0%,100% { box-shadow: 0 2px 12px rgba(0,0,0,0.5); } 50% { box-shadow: 0 0 22px rgba(255,68,102,0.55); } }
 
     /* ===== SHARE MODAL ===== */
     #shareModal {
@@ -599,6 +604,7 @@
   <!-- BARRE D'ACTIONS (haut, visible seulement pendant la visio) -->
   <div id="visioActionsBar">
     <button class="vab-btn" id="btnMuteLuna" title="Couper/rétablir le micro de Luna">🎙 Luna active</button>
+    <button class="vab-btn" id="btnPTT" title="Appuyer pour parler — transcription Whisper" style="display:none">🎤 Parler</button>
     <button class="vab-btn" id="btnUpload" title="Partager un document ou une image à Luna">📎 Analyser</button>
     <button class="vab-btn" id="btnInvite">👥 Inviter</button>
     <button class="vab-btn" id="btnShare">🔗 Partager</button>
@@ -2186,6 +2192,10 @@
     var _speechActive = false;
     var _irisReplying = false;   // true pendant LLM+TTS : micro ignoré
     var _irisAudio = null;       // élément audio courant
+    var _pttMode = false;        // true si Web Speech API absent → mode PTT Whisper
+    var _pttRecording = false;
+    var _pttMediaRecorder = null;
+    var _pttChunks = [];
 
     function _irisReply(userText) {
       if (_irisReplying) return; // éviter double appel
@@ -2257,9 +2267,104 @@
       });
     }
 
+    // ----- PTT (Push-To-Talk) Whisper fallback -----
+
+    function _startPTT() {
+      if (_pttRecording || _irisReplying) return;
+      var btnPTT = document.getElementById('btnPTT');
+      navigator.mediaDevices.getUserMedia({ audio: true, video: false })
+        .then(function(stream) {
+          _pttChunks = [];
+          var options = {};
+          if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) options.mimeType = 'audio/webm;codecs=opus';
+          else if (MediaRecorder.isTypeSupported('audio/webm')) options.mimeType = 'audio/webm';
+          _pttMediaRecorder = new MediaRecorder(stream, options);
+          _pttMediaRecorder.ondataavailable = function(e) { if (e.data.size > 0) _pttChunks.push(e.data); };
+          _pttMediaRecorder.onstop = function() {
+            stream.getTracks().forEach(function(t) { t.stop(); });
+            _sendPTTAudio();
+          };
+          _pttMediaRecorder.start();
+          _pttRecording = true;
+          if (btnPTT) { btnPTT.textContent = '⏹ Stop'; btnPTT.classList.add('ptt-recording'); }
+          rLog('info', 'simli', 'ptt_start', '');
+        })
+        .catch(function(e) {
+          rLog('warn', 'simli', 'ptt_mic_err', String(e).substring(0, 60));
+        });
+    }
+
+    function _stopPTT() {
+      if (!_pttRecording || !_pttMediaRecorder) return;
+      _pttRecording = false;
+      var btnPTT = document.getElementById('btnPTT');
+      if (btnPTT) { btnPTT.textContent = '⏳ Envoi…'; btnPTT.classList.remove('ptt-recording'); btnPTT.classList.add('ptt-processing'); }
+      try { _pttMediaRecorder.stop(); } catch(e) {}
+    }
+
+    function _sendPTTAudio() {
+      var btnPTT = document.getElementById('btnPTT');
+      if (!_pttChunks.length) {
+        if (btnPTT) { btnPTT.textContent = '🎤 Parler'; btnPTT.classList.remove('ptt-processing'); }
+        return;
+      }
+      var blob = new Blob(_pttChunks, { type: _pttChunks[0].type || 'audio/webm' });
+      _pttChunks = [];
+      if (blob.size < 500) {
+        rLog('info', 'simli', 'ptt_empty', 'audio trop court');
+        if (btnPTT) { btnPTT.textContent = '🎤 Parler'; btnPTT.classList.remove('ptt-processing'); }
+        return;
+      }
+      rLog('info', 'simli', 'ptt_send', String(blob.size) + 'b');
+      var fd = new FormData();
+      fd.append('audio', blob, 'recording.webm');
+      // authFetch ne supporte pas FormData directement (ajoute Content-Type JSON) → fetch direct avec token
+      var token = typeof getToken === 'function' ? getToken() : localStorage.getItem('luna_token');
+      fetch('/api/visio/transcribe', {
+        method: 'POST',
+        headers: token ? { 'Authorization': 'Bearer ' + token } : {},
+        body: fd
+      })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (btnPTT) { btnPTT.textContent = '🎤 Parler'; btnPTT.classList.remove('ptt-processing'); }
+        if (!data.ok || !data.text) {
+          rLog('info', 'simli', 'ptt_transcribe_empty', JSON.stringify(data).substring(0, 60));
+          return;
+        }
+        rLog('info', 'simli', 'ptt_transcribed', data.text.substring(0, 60));
+        _visioTranscript.push({ ts: Date.now(), type: 'user.speech', text: data.text });
+        var micDot = document.getElementById('micDot');
+        if (micDot) { micDot.style.opacity = '1'; setTimeout(function() { micDot.style.opacity = '0.4'; }, 800); }
+        _irisReply(data.text);
+      })
+      .catch(function(e) {
+        rLog('warn', 'simli', 'ptt_transcribe_err', String(e).substring(0, 60));
+        if (btnPTT) { btnPTT.textContent = '🎤 Parler'; btnPTT.classList.remove('ptt-processing'); }
+      });
+    }
+
+    function _initPTTButton() {
+      var btnPTT = document.getElementById('btnPTT');
+      if (!btnPTT) return;
+      btnPTT.style.display = 'flex';
+      btnPTT.addEventListener('click', function() {
+        if (_pttRecording) { _stopPTT(); }
+        else { _startPTT(); }
+      });
+      rLog('info', 'simli', 'ptt_mode', 'activé — Web Speech API absent');
+    }
+
+    // ----- STT Web Speech API (fallback vers PTT si absent) -----
+
     function _startSpeechCapture() {
       var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-      if (!SR) { rLog('info', 'simli', 'speech_reco', 'non disponible'); return; }
+      if (!SR) {
+        rLog('info', 'simli', 'speech_reco', 'non disponible — mode PTT activé');
+        _pttMode = true;
+        _initPTTButton();
+        return;
+      }
       try {
         _speechReco = new SR();
         _speechReco.lang = 'fr-FR';
@@ -2308,8 +2413,11 @@
     function _stopSpeechCapture() {
       _speechActive = false;
       if (_speechReco) { try { _speechReco.stop(); } catch(e) {} _speechReco = null; }
+      if (_pttRecording) { try { _pttMediaRecorder.stop(); } catch(e) {} _pttRecording = false; }
       var micDot = document.getElementById('micDot');
       if (micDot) micDot.style.display = 'none';
+      var btnPTT = document.getElementById('btnPTT');
+      if (btnPTT) { btnPTT.textContent = '🎤 Parler'; btnPTT.classList.remove('ptt-recording', 'ptt-processing'); }
     }
 
     // =====================================================================

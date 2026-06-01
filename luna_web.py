@@ -7518,10 +7518,11 @@ async def visio_chat(request: Request):
 
     # Prompt système visio : réponses courtes, français, identité Iris
     visio_system = (
-        "Tu es Iris, la secrétaire visio de Luna YAWatch. "
-        "Tu parles EXCLUSIVEMENT en français de France. "
-        "Tu réponds toujours en 1 à 2 phrases maximum sauf si l'utilisateur demande un résumé ou une liste. "
-        "Réponses courtes, naturelles, professionnelles. Jamais de longueur inutile."
+        "Tu es Iris, la secrétaire personnelle de Luna YAWatch, présente en visio. "
+        "Tu parles EXCLUSIVEMENT en français de France, avec une voix naturelle et chaleureuse. "
+        "Tu réponds toujours en 1 à 2 phrases courtes, comme dans une vraie conversation. "
+        "Sois directe, professionnelle, et ne répète jamais les formules d'introduction. "
+        "Si tu n'as pas compris, dis simplement : 'Pouvez-vous répéter ?' — jamais 'je ne comprends pas'."
     )
     try:
         client = build_llm_client(OPENAI_API_KEY)
@@ -7565,7 +7566,16 @@ async def visio_tts(request: Request):
             resp = await client.post(
                 f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}",
                 headers={"xi-api-key": key, "Content-Type": "application/json"},
-                json={"text": text, "model_id": "eleven_multilingual_v2"},
+                json={
+                    "text": text,
+                    "model_id": "eleven_multilingual_v2",
+                    "voice_settings": {
+                        "stability": 0.45,
+                        "similarity_boost": 0.75,
+                        "style": 0.3,
+                        "use_speaker_boost": True,
+                    },
+                },
             )
         if resp.status_code != 200:
             logger.error(f"visio_tts ElevenLabs {resp.status_code}: {resp.text[:100]}")
@@ -7574,6 +7584,41 @@ async def visio_tts(request: Request):
     except Exception as e:
         logger.error(f"visio_tts error: {e}")
         return JSONResponse(status_code=500, content={"error": str(e)[:80]})
+
+
+@app.post("/api/visio/transcribe")
+async def visio_transcribe(request: Request):
+    """STT Whisper — fallback WebView quand Web Speech API absent."""
+    if not openai_client:
+        return JSONResponse(status_code=503, content={"ok": False, "error": "Whisper non configuré"})
+    try:
+        form = await request.form()
+        audio_file = form.get("audio")
+        if not audio_file:
+            return JSONResponse(status_code=400, content={"ok": False, "error": "Fichier audio requis"})
+        audio_bytes = await audio_file.read()
+        if len(audio_bytes) < 500:
+            return {"ok": True, "text": "", "method": "whisper", "empty": True}
+        import tempfile as _tmpfile
+        with _tmpfile.NamedTemporaryFile(suffix=".webm", delete=False) as f:
+            f.write(audio_bytes)
+            tmp_path = f.name
+        try:
+            with open(tmp_path, "rb") as f:
+                transcript = openai_client.audio.transcriptions.create(
+                    model="whisper-1", file=f, language="fr"
+                )
+            text = transcript.text.strip()
+        finally:
+            try:
+                os.unlink(tmp_path)
+            except Exception:
+                pass
+        logger.info(f"visio_transcribe: {text[:60]!r}")
+        return {"ok": True, "text": text, "method": "whisper"}
+    except Exception as e:
+        logger.error(f"visio_transcribe error: {e}")
+        return JSONResponse(status_code=500, content={"ok": False, "error": str(e)[:80]})
 
 
 @app.post("/api/visio/upload")
