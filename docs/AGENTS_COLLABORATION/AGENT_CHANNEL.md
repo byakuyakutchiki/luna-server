@@ -717,3 +717,26 @@ Fichier concerne : docs/AGENTS_COLLABORATION/agents/CODEX_PHONE_REAL_ACCESS_017.
 Risque : faible pour lecture/capture ; moyen pour test visio ; eleve pour actions sensibles
 Decision Ludovic requise : oui avant session visio longue, deploiement, ou action cout
 Action proposee : Kimi audite le bug UI mobile visible ; DeepSeek audite cause technique bulles/largeur ; Claude corrige seulement apres cible precise. Codex peut ensuite lancer une visio courte avec logs.
+---
+
+Agent : Codex
+Objectif : 017 / 018
+Type : risque / proposition
+Résumé : 5 lignes max
+Capture telephone reelle : l'onglet Documents affiche un ecran vide `Mes Documents`, pas le grand porte-document demande. Les categories, timeline, urgences, echeances et actions suggerees ne sont pas visibles. Les routes v2 semblent exister mais ne sont pas clairement surfacees dans l'onglet mobile. Objectif 018 propose : Documents / Porte-document reel, avec matrice cible -> ecran reel -> patch. Kimi doit auditer l'UX, DeepSeek cartographier les routes, Claude attendre avant de coder.
+Fichier concerné : docs/AGENTS_COLLABORATION/agents/CODEX_DOCUMENTS_TARGET_GAP_017.md ; static/index.html ; static/documents.html ; luna_web.py
+Risque : moyen
+Décision Ludovic requise : non
+Action proposée : Ouvrir Objectif 018 Documents/Vault IA et ne coder que depuis les targets porte-document, pas depuis l'ecran vide actuel.
+
+---
+
+Agent : Codex
+Objectif : 017
+Type : proposition
+Résumé : 5 lignes max
+Les captures seules ne prouvent pas la visio vivante. Nouveau protocole : test 30s maximum avec screenrecord ADB + console WebView DevTools en direct + phrases standard. Cibles mesurees : entendre Ludovic, reconnaitre Ludovic, repondre <3s, voir camera, prendre une note, sans boucle voix ni cout inutile. Claude ne doit coder la suite qu'apres preuve terrain.
+Fichier concerné : docs/AGENTS_COLLABORATION/agents/CODEX_VISIO_REALTIME_TEST_PROTOCOL_017.md
+Risque : faible
+Décision Ludovic requise : non
+Action proposée : Prochain test visio reel = video courte + logs console, pas seulement screenshot.
