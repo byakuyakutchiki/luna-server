@@ -7511,6 +7511,7 @@ async def visio_chat(request: Request):
 
     user_text = (body.get("message") or "").strip()[:500]
     session_id = body.get("session_id", "visio_default")
+    raw_history = body.get("history") or []
     if not user_text:
         return JSONResponse(status_code=400, content={"ok": False, "error": "Message vide"})
     if not OPENAI_API_KEY:
@@ -7524,14 +7525,26 @@ async def visio_chat(request: Request):
         "Sois directe, professionnelle, et ne répète jamais les formules d'introduction. "
         "Si tu n'as pas compris, dis simplement : 'Pouvez-vous répéter ?' — jamais 'je ne comprends pas'."
     )
+
+    # Build messages with conversation history (last 8 exchanges = 16 messages)
+    history_msgs = []
+    if isinstance(raw_history, list):
+        for turn in raw_history[-16:]:
+            role = turn.get("role", "") if isinstance(turn, dict) else ""
+            content = turn.get("content", "") if isinstance(turn, dict) else ""
+            if role in ("user", "assistant") and content:
+                history_msgs.append({"role": role, "content": str(content)[:300]})
+
+    messages = [{"role": "system", "content": visio_system}] + history_msgs
+    # Append current turn only if not already the last history entry
+    if not history_msgs or history_msgs[-1].get("content") != user_text:
+        messages.append({"role": "user", "content": user_text})
+
     try:
         client = build_llm_client(OPENAI_API_KEY)
         completion = client.chat.completions.create(
             model="gpt-4o-mini",
-            messages=[
-                {"role": "system", "content": visio_system},
-                {"role": "user", "content": user_text},
-            ],
+            messages=messages,
             max_tokens=150,
             temperature=0.7,
         )

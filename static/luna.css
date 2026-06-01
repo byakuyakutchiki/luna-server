@@ -443,6 +443,16 @@ html, body {
 
 .ptt-orb.ptt-processing { opacity: 0.55; pointer-events: none; }
 
+.ptt-orb.ptt-speaking {
+    background: radial-gradient(circle at 35% 35%, #5EE0FF, var(--cyan));
+    box-shadow: 0 0 50px rgba(62, 232, 255, 0.5), 0 0 100px rgba(62, 232, 255, 0.2);
+    transform: scale(1.04); pointer-events: none;
+}
+
+.ptt-orb.ptt-speaking::before {
+    border-color: rgba(62, 232, 255, 0.5); animation: ptt-ring-active 0.8s infinite;
+}
+
 .ptt-orb:active { transform: scale(0.93); }
 
 .ptt-label {

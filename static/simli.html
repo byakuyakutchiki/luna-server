@@ -2233,19 +2233,62 @@
     var _pttRecording = false;
     var _pttMediaRecorder = null;
     var _pttChunks = [];
+    // VAD pipeline
+    var _conversationHistory = [];
+    var _vadAudioCtx = null;
+    var _vadStream = null;
+    var _vadProcessor = null;
+    var _vadChunks = [];
+    var _vadRecording = false;
+    var _vadMediaRecorder = null;
+    var _vadSilenceTimer = null;
+    var _vadActive = false;
+    var VAD_RMS_THRESHOLD = 0.018;
+    var VAD_SILENCE_MS = 1400;
+
+    function _setIrisState(state) {
+      var orb = document.getElementById('btnPTT');
+      var label = document.getElementById('pttLabel');
+      if (!orb || !label) return;
+      orb.classList.remove('listening', 'ptt-processing', 'ptt-speaking');
+      switch (state) {
+        case 'listening':
+          orb.classList.add('listening');
+          label.textContent = 'ÉCOUTE…';
+          break;
+        case 'thinking':
+          orb.classList.add('ptt-processing');
+          label.textContent = 'RÉFLÉCHIT…';
+          break;
+        case 'speaking':
+          orb.classList.add('ptt-speaking');
+          label.textContent = 'RÉPOND…';
+          break;
+        default:
+          label.textContent = 'PARLER';
+      }
+    }
 
     function _irisReply(userText) {
-      if (_irisReplying) return; // éviter double appel
+      if (_irisReplying) return;
       _irisReplying = true;
+      _setIrisState('thinking');
       var t0 = Date.now();
       rLog('info', 'simli', 'speech_end', userText.substring(0, 60));
       rLog('info', 'simli', 'stt_done', userText.substring(0, 60));
       rLog('info', 'simli', 'llm_start', '');
 
+      _conversationHistory.push({ role: 'user', content: userText });
+      if (_conversationHistory.length > 16) _conversationHistory.splice(0, 2);
+
       authFetch('/api/visio/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: userText, session_id: currentConvId || 'visio' })
+        body: JSON.stringify({
+          message: userText,
+          session_id: currentConvId || 'visio',
+          history: _conversationHistory.slice(-16)
+        })
       })
       .then(function(r) { return r.json(); })
       .then(function(data) {
@@ -2254,9 +2297,11 @@
         if (!data.ok || !data.response) {
           rLog('warn', 'simli', 'llm_empty', JSON.stringify(data).substring(0, 60));
           _irisReplying = false;
+          _setIrisState('idle');
           return;
         }
         var replyText = data.response;
+        _conversationHistory.push({ role: 'assistant', content: replyText });
         _visioTranscript.push({ ts: Date.now(), type: 'luna.speech', text: replyText });
         rLog('info', 'simli', 'tts_start', replyText.substring(0, 60));
 
@@ -2266,7 +2311,7 @@
           body: JSON.stringify({ text: replyText })
         })
         .then(function(r) {
-          if (!r.ok) { rLog('warn', 'simli', 'tts_error', r.status); _irisReplying = false; return null; }
+          if (!r.ok) { rLog('warn', 'simli', 'tts_error', r.status); _irisReplying = false; _setIrisState('idle'); return null; }
           return r.blob();
         })
         .then(function(blob) {
@@ -2276,91 +2321,77 @@
           var url = URL.createObjectURL(blob);
           if (_irisAudio) { try { _irisAudio.pause(); URL.revokeObjectURL(_irisAudio.src); } catch(e) {} }
           _irisAudio = new Audio(url);
-          _irisAudio.onplay = function() { rLog('info', 'simli', 'audio_play_start', ''); };
+          _irisAudio.onplay = function() {
+            rLog('info', 'simli', 'audio_play_start', '');
+            _setIrisState('speaking');
+          };
           _irisAudio.onended = function() {
             var total = Date.now() - t0;
             rLog('info', 'simli', 'audio_play_end', '');
             rLog('info', 'simli', 'total_latency_ms', String(total));
             URL.revokeObjectURL(url);
-            _irisReplying = false; // réactiver le micro
+            _irisReplying = false;
+            _setIrisState('idle');
           };
           _irisAudio.onerror = function() {
             rLog('warn', 'simli', 'audio_error', '');
             _irisReplying = false;
+            _setIrisState('idle');
           };
           _irisAudio.play().catch(function(e) {
             rLog('warn', 'simli', 'audio_play_blocked', String(e).substring(0, 60));
             _irisReplying = false;
+            _setIrisState('idle');
           });
         })
         .catch(function(e) {
           rLog('warn', 'simli', 'tts_fetch_err', String(e).substring(0, 60));
           _irisReplying = false;
+          _setIrisState('idle');
         });
       })
       .catch(function(e) {
         rLog('warn', 'simli', 'llm_fetch_err', String(e).substring(0, 60));
         _irisReplying = false;
+        _setIrisState('idle');
       });
     }
 
-    // ----- PTT (Push-To-Talk) Whisper fallback -----
+    // ----- VAD (Voice Activity Detection) — pipeline universel -----
 
-    function _pttResetUI() {
-      var btnPTT = document.getElementById('btnPTT');
-      var pttLabel = document.getElementById('pttLabel');
-      if (btnPTT) { btnPTT.classList.remove('listening', 'ptt-processing'); }
-      if (pttLabel) { pttLabel.textContent = 'PARLER'; pttLabel.classList.remove('active'); }
+    function _vadStartRecording() {
+      if (_vadRecording || !_vadStream) return;
+      _vadRecording = true;
+      _vadChunks = [];
+      var options = {};
+      if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) options.mimeType = 'audio/webm;codecs=opus';
+      else if (MediaRecorder.isTypeSupported('audio/webm')) options.mimeType = 'audio/webm';
+      _vadMediaRecorder = new MediaRecorder(_vadStream, options);
+      _vadMediaRecorder.ondataavailable = function(e) { if (e.data.size > 0) _vadChunks.push(e.data); };
+      _vadMediaRecorder.onstop = function() { _sendVADAudio(); };
+      _vadMediaRecorder.start();
+      _setIrisState('listening');
+      rLog('info', 'simli', 'vad_speech_start', '');
     }
 
-    function _startPTT() {
-      if (_pttRecording || _irisReplying) return;
-      var btnPTT = document.getElementById('btnPTT');
-      var pttLabel = document.getElementById('pttLabel');
-      navigator.mediaDevices.getUserMedia({ audio: true, video: false })
-        .then(function(stream) {
-          _pttChunks = [];
-          var options = {};
-          if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) options.mimeType = 'audio/webm;codecs=opus';
-          else if (MediaRecorder.isTypeSupported('audio/webm')) options.mimeType = 'audio/webm';
-          _pttMediaRecorder = new MediaRecorder(stream, options);
-          _pttMediaRecorder.ondataavailable = function(e) { if (e.data.size > 0) _pttChunks.push(e.data); };
-          _pttMediaRecorder.onstop = function() {
-            stream.getTracks().forEach(function(t) { t.stop(); });
-            _sendPTTAudio();
-          };
-          _pttMediaRecorder.start();
-          _pttRecording = true;
-          if (btnPTT) { btnPTT.classList.add('listening'); }
-          if (pttLabel) { pttLabel.textContent = 'ÉCOUTE…'; pttLabel.classList.add('active'); }
-          rLog('info', 'simli', 'ptt_start', '');
-        })
-        .catch(function(e) {
-          rLog('warn', 'simli', 'ptt_mic_err', String(e).substring(0, 60));
-        });
+    function _vadStopRecording() {
+      if (!_vadRecording || !_vadMediaRecorder) return;
+      _vadRecording = false;
+      _setIrisState('thinking');
+      try { _vadMediaRecorder.stop(); } catch(e) {}
     }
 
-    function _stopPTT() {
-      if (!_pttRecording || !_pttMediaRecorder) return;
-      _pttRecording = false;
-      var btnPTT = document.getElementById('btnPTT');
-      var pttLabel = document.getElementById('pttLabel');
-      if (btnPTT) { btnPTT.classList.remove('listening'); btnPTT.classList.add('ptt-processing'); }
-      if (pttLabel) { pttLabel.textContent = 'ENVOI…'; pttLabel.classList.remove('active'); }
-      try { _pttMediaRecorder.stop(); } catch(e) {}
-    }
-
-    function _sendPTTAudio() {
-      if (!_pttChunks.length) { _pttResetUI(); return; }
-      var blob = new Blob(_pttChunks, { type: _pttChunks[0].type || 'audio/webm' });
-      _pttChunks = [];
+    function _sendVADAudio() {
+      if (!_vadChunks.length) { _setIrisState('idle'); return; }
+      var blob = new Blob(_vadChunks, { type: _vadChunks[0].type || 'audio/webm' });
+      _vadChunks = [];
       if (blob.size < 500) {
-        rLog('info', 'simli', 'ptt_empty', 'audio trop court');
-        _pttResetUI();
+        rLog('info', 'simli', 'vad_audio_empty', 'trop court');
+        _setIrisState('idle');
         return;
       }
-      var _pttT0 = Date.now();
-      rLog('info', 'simli', 'ptt_send', String(blob.size) + 'b');
+      var _vadT0 = Date.now();
+      rLog('info', 'simli', 'vad_send', String(blob.size) + 'b');
       var fd = new FormData();
       fd.append('audio', blob, 'recording.webm');
       var token = typeof getToken === 'function' ? getToken() : localStorage.getItem('luna_token');
@@ -2371,100 +2402,114 @@
       })
       .then(function(r) { return r.json(); })
       .then(function(data) {
-        rLog('info', 'simli', 'ptt_whisper_ms', String(Date.now() - _pttT0));
-        _pttResetUI();
+        rLog('info', 'simli', 'vad_whisper_ms', String(Date.now() - _vadT0));
         if (!data.ok || !data.text) {
-          rLog('info', 'simli', 'ptt_transcribe_empty', JSON.stringify(data).substring(0, 60));
+          rLog('info', 'simli', 'vad_transcribe_empty', JSON.stringify(data).substring(0, 60));
+          _setIrisState('idle');
           return;
         }
-        rLog('info', 'simli', 'ptt_transcribed', data.text.substring(0, 60));
+        rLog('info', 'simli', 'vad_transcribed', data.text.substring(0, 60));
         _visioTranscript.push({ ts: Date.now(), type: 'user.speech', text: data.text });
         var micDot = document.getElementById('micDot');
         if (micDot) { micDot.style.opacity = '1'; setTimeout(function() { micDot.style.opacity = '0.4'; }, 800); }
         _irisReply(data.text);
       })
       .catch(function(e) {
-        rLog('warn', 'simli', 'ptt_transcribe_err', String(e).substring(0, 60));
-        _pttResetUI();
+        rLog('warn', 'simli', 'vad_transcribe_err', String(e).substring(0, 60));
+        _setIrisState('idle');
       });
     }
 
-    function _initPTTButton() {
-      var btnPTT = document.getElementById('btnPTT');
+    function _startVAD() {
+      if (_vadActive) return;
+      _vadActive = true;
       var pttContainer = document.getElementById('pttContainer');
-      if (!btnPTT || !pttContainer) return;
-      pttContainer.style.display = 'flex';
-      btnPTT.addEventListener('click', function() {
-        if (_pttRecording) { _stopPTT(); }
-        else { _startPTT(); }
-      });
-      rLog('info', 'simli', 'ptt_mode', 'activé — Web Speech API absent');
-    }
+      if (pttContainer) pttContainer.style.display = 'flex';
+      _setIrisState('idle');
 
-    // ----- STT Web Speech API (fallback vers PTT si absent) -----
+      navigator.mediaDevices.getUserMedia({ audio: true, video: false })
+        .then(function(stream) {
+          _vadStream = stream;
+          var ACtx = window.AudioContext || window.webkitAudioContext;
+          if (!ACtx) {
+            rLog('warn', 'simli', 'vad_no_audiocontext', 'fallback PTT manuel');
+            _vadFallbackPTT(stream);
+            return;
+          }
+          _vadAudioCtx = new ACtx();
+          var source = _vadAudioCtx.createMediaStreamSource(stream);
+          _vadProcessor = _vadAudioCtx.createScriptProcessor(2048, 1, 1);
+          source.connect(_vadProcessor);
+          _vadProcessor.connect(_vadAudioCtx.destination);
 
-    function _startSpeechCapture() {
-      var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-      if (!SR) {
-        rLog('info', 'simli', 'speech_reco', 'non disponible — mode PTT activé');
-        _pttMode = true;
-        _initPTTButton();
-        return;
-      }
-      try {
-        _speechReco = new SR();
-        _speechReco.lang = 'fr-FR';
-        _speechReco.continuous = true;
-        _speechReco.interimResults = false;
-        _speechReco.maxAlternatives = 1;
-        _speechActive = true;
-        _speechReco.onresult = function(e) {
-          for (var i = e.resultIndex; i < e.results.length; i++) {
-            if (e.results[i].isFinal) {
-              var txt = e.results[i][0].transcript.trim();
-              if (txt.length > 2) {
-                rLog('info', 'simli', 'speech_start', txt.substring(0, 60));
-                _visioTranscript.push({ ts: Date.now(), type: 'user.speech', text: txt });
-                if (_irisReplying) {
-                  rLog('info', 'simli', 'speech_ignored_iris_busy', txt.substring(0, 40));
-                  return; // micro ignoré pendant la réponse d'Iris
-                }
-                _irisReply(txt);
-                // Indicateur micro
-                var micDot = document.getElementById('micDot');
-                if (micDot) { micDot.style.opacity = '1'; setTimeout(function() { micDot.style.opacity = '0.4'; }, 800); }
+          _vadProcessor.onaudioprocess = function(e) {
+            if (!_vadActive || _irisReplying) return;
+            var data = e.inputBuffer.getChannelData(0);
+            var rms = 0;
+            for (var i = 0; i < data.length; i++) rms += data[i] * data[i];
+            rms = Math.sqrt(rms / data.length);
+
+            if (rms > VAD_RMS_THRESHOLD) {
+              if (_vadSilenceTimer) { clearTimeout(_vadSilenceTimer); _vadSilenceTimer = null; }
+              if (!_vadRecording) _vadStartRecording();
+            } else {
+              if (_vadRecording && !_vadSilenceTimer) {
+                _vadSilenceTimer = setTimeout(function() {
+                  _vadSilenceTimer = null;
+                  _vadStopRecording();
+                }, VAD_SILENCE_MS);
               }
             }
-          }
-        };
-        _speechReco.onerror = function(e) {
-          rLog('warn', 'simli', 'speech_err', e.error);
-          if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
-            _speechActive = false;
-            var micDot = document.getElementById('micDot');
-            if (micDot) { micDot.style.display = 'none'; }
-            rLog('warn', 'simli', 'speech_blocked', 'micro refusé');
-          }
-        };
-        _speechReco.onend = function() {
-          if (_speechActive) { try { _speechReco.start(); } catch(e2) {} }
-        };
-        _speechReco.start();
-        var micDot = document.getElementById('micDot');
-        if (micDot) micDot.style.display = 'inline-block';
-        rLog('info', 'simli', 'speech_reco', 'démarré fr-FR');
-      } catch(e) { rLog('warn', 'simli', 'speech_reco_fail', String(e).substring(0,60)); }
+          };
+
+          var micDot = document.getElementById('micDot');
+          if (micDot) micDot.style.display = 'inline-block';
+          rLog('info', 'simli', 'vad_start', 'seuil=' + VAD_RMS_THRESHOLD);
+        })
+        .catch(function(e) {
+          rLog('warn', 'simli', 'vad_mic_err', String(e).substring(0, 60));
+          _vadActive = false;
+        });
+    }
+
+    function _vadFallbackPTT(stream) {
+      // Manual PTT fallback if AudioContext unavailable
+      _vadStream = stream;
+      var btnPTT = document.getElementById('btnPTT');
+      if (!btnPTT) return;
+      btnPTT.addEventListener('click', function() {
+        if (_irisReplying) return;
+        if (_vadRecording) { _vadStopRecording(); }
+        else { _vadStartRecording(); }
+      });
+      rLog('info', 'simli', 'vad_ptt_fallback', 'PTT manuel activé');
+    }
+
+    function _stopVAD() {
+      _vadActive = false;
+      if (_vadSilenceTimer) { clearTimeout(_vadSilenceTimer); _vadSilenceTimer = null; }
+      if (_vadProcessor) { try { _vadProcessor.disconnect(); } catch(e) {} _vadProcessor = null; }
+      if (_vadAudioCtx) { try { _vadAudioCtx.close(); } catch(e) {} _vadAudioCtx = null; }
+      if (_vadMediaRecorder && _vadRecording) { try { _vadMediaRecorder.stop(); } catch(e) {} }
+      _vadRecording = false;
+      if (_vadStream) { _vadStream.getTracks().forEach(function(t) { t.stop(); }); _vadStream = null; }
+      var pttContainer = document.getElementById('pttContainer');
+      if (pttContainer) pttContainer.style.display = 'none';
+      _setIrisState('idle');
+    }
+
+    // ----- STT entry points (now always VAD) -----
+
+    function _startSpeechCapture() {
+      _startVAD();
     }
 
     function _stopSpeechCapture() {
       _speechActive = false;
       if (_speechReco) { try { _speechReco.stop(); } catch(e) {} _speechReco = null; }
-      if (_pttRecording) { try { _pttMediaRecorder.stop(); } catch(e) {} _pttRecording = false; }
+      _stopVAD();
       var micDot = document.getElementById('micDot');
       if (micDot) micDot.style.display = 'none';
-      var pttContainer = document.getElementById('pttContainer');
-      if (pttContainer) pttContainer.style.display = 'none';
-      _pttResetUI();
     }
 
     // =====================================================================
