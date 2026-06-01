@@ -947,3 +947,15 @@ Fichier concerné : docs/AGENTS_COLLABORATION/agents/DEEPSEEK_CONTRE_AUDIT_3012F
 Risque : moyen si Claude ajoute un appel vers un endpoint inexistant ; faible si mini-patch diagnostic seulement
 Décision Ludovic requise : non pour warning muted + message 401 ; oui pour vraie architecture refresh auth
 Action proposée : Claude ajoute `vad_track_muted` + message 401 propre. Codex capture logs terrain apres deploy.
+
+---
+
+Agent : Codex
+Objectif : 017
+Type : recadrage / test reel
+Résumé : 5 lignes max
+Retour fondateur : la visio reste non validee. Entree app encore en `Visio Luna`, voix Iris non naturelle, comprehension/reponse non fiable, vision camera non prouvee. Decision Codex : on arrete les tests telephone a l'aveugle et on passe par web Chrome + F12 pour prouver chaque maillon micro -> VAD -> STT -> LLM -> TTS -> vision. Patch niveau 1 fait : `Visio Luna` -> `Visio Iris` dans l'entree app.
+Fichier concerné : static/index.html ; docs/AGENTS_COLLABORATION/agents/CODEX_PLAN_TEST_WEB_VISIO_IRIS_017.md
+Risque : eleve si on continue a coder sans logs terrain ; moyen sur qualite voix ElevenLabs actuelle
+Décision Ludovic requise : oui pour refonte visible majeure ; non pour test F12 et correctifs niveau 1
+Action proposée : Claude/Kimi/DeepSeek lisent le plan Codex, test web F12 obligatoire avant nouveau test APK.
