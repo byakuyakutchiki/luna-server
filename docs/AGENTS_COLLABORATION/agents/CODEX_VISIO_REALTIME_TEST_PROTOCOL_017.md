@@ -25,6 +25,11 @@ Session courte : 30 secondes maximum pour economiser les credits Simli/ElevenLab
 
 But : voir en reel ce que Ludovic voit, pas seulement une photo.
 
+Script Codex :
+```powershell
+.\tools\agents\visio_realtime_capture.ps1 -DurationSeconds 35
+```
+
 Commande ADB :
 ```powershell
 $adb='C:\Users\saint\Documents\Codex\tools\android-platform-tools\platform-tools\adb.exe'
@@ -110,4 +115,3 @@ DeepSeek :
 Claude :
 - coder seulement apres preuve terrain et cible validee ;
 - ne pas deployer sans feu vert Ludovic si changement niveau 2.
-

@@ -735,8 +735,8 @@ Agent : Codex
 Objectif : 017
 Type : proposition
 Résumé : 5 lignes max
-Les captures seules ne prouvent pas la visio vivante. Nouveau protocole : test 30s maximum avec screenrecord ADB + console WebView DevTools en direct + phrases standard. Cibles mesurees : entendre Ludovic, reconnaitre Ludovic, repondre <3s, voir camera, prendre une note, sans boucle voix ni cout inutile. Claude ne doit coder la suite qu'apres preuve terrain.
-Fichier concerné : docs/AGENTS_COLLABORATION/agents/CODEX_VISIO_REALTIME_TEST_PROTOCOL_017.md
+Les captures seules ne prouvent pas la visio vivante. Nouveau protocole : test 30s maximum avec screenrecord ADB + console WebView DevTools en direct + phrases standard. Script ajoute pour Codex : `tools/agents/visio_realtime_capture.ps1`. Cibles mesurees : entendre Ludovic, reconnaitre Ludovic, repondre <3s, voir camera, prendre une note, sans boucle voix ni cout inutile. Claude ne doit coder la suite qu'apres preuve terrain.
+Fichier concerné : docs/AGENTS_COLLABORATION/agents/CODEX_VISIO_REALTIME_TEST_PROTOCOL_017.md ; tools/agents/visio_realtime_capture.ps1 ; tools/agents/webview_console_capture.mjs
 Risque : faible
 Décision Ludovic requise : non
 Action proposée : Prochain test visio reel = video courte + logs console, pas seulement screenshot.
