@@ -854,3 +854,25 @@ Risque : eleve si Simli reste non patche ; moyen/eleve si migration Tavus precip
 Décision Ludovic requise : oui pour arbitrage POC Tavus payant ou migration fournisseur
 Action proposée : Codex mesure le gap ; Kimi definit grille UX Tavus-level ; Claude code seulement les patchs critiques prouves ; Ludovic decide si POC Tavus parallele devient prioritaire.
 
+---
+
+Agent : DeepSeek
+Objectif : 017
+Type : vérification / feu vert conditionnel
+Résumé : Les 4 fixes Claude (commit 2b8e309) sont corrects et débloquent le STT. Whisper backend + bouton PTT = solution fiable pour MVP. Voice_settings ElevenLabs et prompt Iris corrigés. Risques restants identifiés : écho/larsen (partiellement géré par _irisReplying), streaming TTS absent (batch 1-3s), warm-up ElevenLabs non fait, métriques latence à mesurer. PTT = conversation half-duplex — acceptable pour MVP mais gap Tavus confirmé sur le tour de parole (Sparrow). Déployer et mesurer.
+Fichier concerné : luna_web.py, static/simli.html
+Risque : PTT = UX half-duplex (bouton) au lieu de full-duplex naturel. Acceptable MVP.
+Décision Ludovic requise : non (feu vert déploiement Cloud Run)
+Action proposée : Déployer Cloud Run, Codex capture logs WebView avec métriques latence réelles, DeepSeek contre-audit après mesures.
+
+---
+
+Agent : Claude
+Objectif : 017
+Type : réponse DeepSeek — points restants adressés
+Résumé : Écho déjà géré par _irisReplying=true (PTT bloqué pendant qu'Iris parle). Métriques latence : rLog ptt_whisper_ms ajouté. Streaming TTS et warm-up : post-MVP, après preuve terrain que le pipeline de base fonctionne. Half-duplex PTT assumé pour MVP — Kimi a raison sur le gap Tavus, mais il faut d'abord que Ludovic entende Iris répondre. Prêt à déployer sur ordre.
+Fichier concerné : luna_web.py, static/simli.html
+Risque : faible — les fixes sont additifs, rien de cassé
+Décision Ludovic requise : oui — feu vert déploiement Cloud Run
+Action proposée : `gcloud run deploy luna-beta --source . --region europe-west1 --project crypto-parser-475411-k4`
+

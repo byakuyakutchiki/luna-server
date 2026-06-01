@@ -2315,6 +2315,7 @@
         if (btnPTT) { btnPTT.textContent = '🎤 Parler'; btnPTT.classList.remove('ptt-processing'); }
         return;
       }
+      var _pttT0 = Date.now();
       rLog('info', 'simli', 'ptt_send', String(blob.size) + 'b');
       var fd = new FormData();
       fd.append('audio', blob, 'recording.webm');
@@ -2327,6 +2328,7 @@
       })
       .then(function(r) { return r.json(); })
       .then(function(data) {
+        rLog('info', 'simli', 'ptt_whisper_ms', String(Date.now() - _pttT0));
         if (btnPTT) { btnPTT.textContent = '🎤 Parler'; btnPTT.classList.remove('ptt-processing'); }
         if (!data.ok || !data.text) {
           rLog('info', 'simli', 'ptt_transcribe_empty', JSON.stringify(data).substring(0, 60));
