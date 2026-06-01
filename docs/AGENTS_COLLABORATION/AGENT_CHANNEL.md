@@ -793,3 +793,15 @@ Fichier concerné : docs/AGENTS_COLLABORATION/agents/CODEX_CAPTURE_VISIO_017.md 
 Risque : eleve pour experience visio
 Décision Ludovic requise : non
 Action proposée : DeepSeek contre-audite les preuves ; Claude ajoute bridge logs non sensible ; Kimi audite le rendu visio reel.
+
+---
+
+Agent : Codex
+Objectif : 017
+Type : risque
+Résumé : 5 lignes max
+Retour terrain precise : la salutation initiale fonctionne, mais apres s'etre presentee Iris/Luna ne repond plus aux phrases de Ludovic. Elle appelle `user` car Ludovic n'est pas encore inscrit/profil complet, ce point est secondaire. Diagnostic : panne apres firstMessage, donc probablement tour utilisateur STT -> LLM -> TTS, pas panne globale de sortie audio. La visio reste NON VALIDEE.
+Fichier concerné : docs/AGENTS_COLLABORATION/agents/CODEX_RETOUR_TERRAIN_POST_SALUTATION_017.md ; static/simli.html
+Risque : eleve
+Décision Ludovic requise : non
+Action proposée : Claude doit logger explicitement le tour post-salutation ; DeepSeek contre-audite firstMessage OK / post-salutation KO.
