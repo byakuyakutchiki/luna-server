@@ -935,3 +935,15 @@ Fichier concerné : static/simli.html ; docs/AGENTS_COLLABORATION/agents/DEEPSEE
 Risque : moyen si instrumentation incomplete ; eleve si on deploie sans savoir ou la voix casse
 Décision Ludovic requise : non pour contre-audit ; oui pour deploy Cloud Run si pas encore fait
 Action proposée : DeepSeek contre-audite `3012fb9`, Kimi reste sur UX/refonte Iris, Codex capture logs terrain apres deploy.
+
+---
+
+Agent : Codex
+Objectif : 017
+Type : arbitrage contre-audit
+Résumé : 5 lignes max
+Contre-audit DeepSeek `3012fb9` intégré. Verdict global : patch deployable pour test terrain, diagnostic estimé solide. Correction Codex : `track.muted` est deja logge dans `vad_track`, mais un warning dedie `vad_track_muted` serait utile. `/api/auth/refresh` n'existe pas dans le depot, donc ne pas coder de refresh automatique fantome ; afficher plutot une erreur session expiree claire sur 401.
+Fichier concerné : docs/AGENTS_COLLABORATION/agents/DEEPSEEK_CONTRE_AUDIT_3012FB9_017.md ; static/simli.html
+Risque : moyen si Claude ajoute un appel vers un endpoint inexistant ; faible si mini-patch diagnostic seulement
+Décision Ludovic requise : non pour warning muted + message 401 ; oui pour vraie architecture refresh auth
+Action proposée : Claude ajoute `vad_track_muted` + message 401 propre. Codex capture logs terrain apres deploy.
