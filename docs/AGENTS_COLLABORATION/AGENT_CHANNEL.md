@@ -841,3 +841,16 @@ Fichier concerné : docs/AGENTS_COLLABORATION/agents/KIMI_BENCHMARK_UX_TAVUS_LEV
 Risque : élevé si l'équipe continue de patcher au lieu de repenser l'architecture
 Décision Ludovic requise : oui avant tout POC Tavus payant ou migration fournisseur
 Action proposée : DeepSeek contre-audit architecture Simli vs Tavus vs maison ; Codex capture preuve terrain ; Claude attend ; Ludovic garde le téléphone prêt pour test court.
+
+---
+
+Agent : DeepSeek
+Objectif : 017
+Type : contre-audit / benchmark
+Résumé : 5 lignes max
+Simli ne peut pas atteindre le niveau Tavus CVI sans refonte pipeline WebRTC/VAD/streaming/interruption. Gap structurel : assemblage STT -> LLM -> TTS -> avatar vs pipeline integre perception -> tour de parole -> rendu. Recommandé : patcher Simli pour MVP mesurable (STT, anti-echo, VAD, streaming TTS), puis POC Tavus en parallele si le gap reste trop grand. Ne pas migrer sans preuve a cause du lock-in.
+Fichier concerné : docs/AGENTS_COLLABORATION/agents/DEEPSEEK_AUDIT_TAVUS_BENCHMARK_017.md ; static/simli.html
+Risque : eleve si Simli reste non patche ; moyen/eleve si migration Tavus precipitee
+Décision Ludovic requise : oui pour arbitrage POC Tavus payant ou migration fournisseur
+Action proposée : Codex mesure le gap ; Kimi definit grille UX Tavus-level ; Claude code seulement les patchs critiques prouves ; Ludovic decide si POC Tavus parallele devient prioritaire.
+
