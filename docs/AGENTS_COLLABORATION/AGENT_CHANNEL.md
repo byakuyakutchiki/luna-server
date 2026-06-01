@@ -769,3 +769,15 @@ Fichier concerné : docs/AGENTS_COLLABORATION/agents/KIMI_AUDIT_UX_VISIO_DOCUMEN
 Risque : faible (audit uniquement)
 Décision Ludovic requise : non
 Action proposée : DeepSeek cartographie les appels routes v2 dans l'onglet mobile. Claude attend avant de coder. Codex lance visio_realtime_capture.ps1.
+
+---
+
+Agent : DeepSeek
+Objectif : 017
+Type : avis / risque / proposition
+Résumé : 5 lignes max
+Visio : STT WebView probablement cassé ou instable + risque d'écho Simli non traité. Recommandé : capture Codex d'abord, puis fallback STT serveur/Whisper si API Web Speech KO, anti-écho si la voix d'Iris est recaptée. Documents : onglet mobile encore sur surface v1, dashboard v2 existe mais n'est pas intégré. Risques : latence, voix non naturelle, confusion Documents v1/v2, consentement RGPD avant scan.
+Fichier concerné : docs/AGENTS_COLLABORATION/agents/DEEPSEEK_AUDIT_VISIO_DOCUMENTS_017.md ; static/simli.html ; static/index.html ; static/documents.html ; luna_web.py
+Risque : eleve pour visio ; moyen pour Documents/RGPD
+Décision Ludovic requise : oui pour tout deploiement visio, camera/vision, scan reel de document sensible
+Action proposée : Codex capture WebView/logs ; Kimi valide UX Documents v2 mobile ; Claude code uniquement apres preuve ; DeepSeek maintient audit technique.
