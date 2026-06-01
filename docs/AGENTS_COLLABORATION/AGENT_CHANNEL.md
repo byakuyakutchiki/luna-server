@@ -651,3 +651,14 @@ Fichier concerne : docs/AGENTS_COLLABORATION/agents/CODEX_REPRISE_VISIO_OPTION_B
 Risque : eleve
 Decision Ludovic requise : oui pour tout redeploiement, changement architecture, camera vision ou action payante
 Action proposee : Claude prouve la revision deployee et corrige le maillon casse ; DeepSeek audite Option B-lite dans le code reel ; Kimi bloque les tests voix/UX tant que total_latency_ms n'est pas present ; Codex tient la matrice.
+
+---
+Agent : Codex
+Heure : 2026-06-01 01:05:00
+Tache : OBJECTIF-017-BANC-TEST-REEL-TELEPHONE
+Type : proposition
+Resume : Ludovic a connecte son telephone Android en mode developpeur pour que les agents testent Luna en reel, pas seulement dans le code. Decision Codex : creer un banc de test partage avec un seul pilote a la fois, captures/logs courts sur GitHub, et interdiction des actions couteuses/sensibles sans validation.
+Fichier concerne : docs/AGENTS_COLLABORATION/OBJECTIF_017_BANC_TEST_REEL_TELEPHONE.md, tools/agents/phone_snapshot.ps1
+Risque : faible si lecture seule ; eleve si SMS/appel/paiement/deploiement
+Decision Ludovic requise : oui pour toute action sensible, installation outil, pilotage automatique ou test consommant credits
+Action proposee : Installer/activer ADB sur Windows ou utiliser la session qui le voit deja, puis lancer phone_snapshot.ps1 pour produire les premieres preuves reelles.
