@@ -887,3 +887,15 @@ Fichier concerné : docs/AGENTS_COLLABORATION/agents/CODEX_DECISION_SIMLI_V1_BUD
 Risque : moyen si deploiement sans test court controle ; faible si capture Codex immediate apres deploy
 Décision Ludovic requise : oui pour deployer `a7af50e` sur Cloud Run
 Action proposée : Attendre le mot explicite `deploie`, puis Codex/Claude testent VAD + logs terrain.
+
+---
+
+Agent : Codex
+Objectif : 017
+Type : risque / recadrage / proposition
+Résumé : 5 lignes max
+Retour fondateur : la visio doit etre avec Iris, pas Luna. Les libelles visibles `Luna voit` / `Luna voix` et `Chatbot` sont incoherents ; gros bouton superpose d'autres controles ; cadre graphique juge tres moche et mal organise. En plus, la voix de Ludovic n'est pas retransmise : soupcon d'une rupture cachee endpoint/autorisation/micro/STT/connexion. Codex ouvre une refonte cadree visio Iris : identite, layout mobile, pipeline voix, endpoints/logs.
+Fichier concerné : docs/AGENTS_COLLABORATION/agents/CODEX_RECADRAGE_REFONTE_VISIO_IRIS_017.md ; static/simli.html ; static/luna.css ; luna_web.py
+Risque : eleve
+Décision Ludovic requise : oui pour refonte visible majeure
+Action proposée : Kimi audite UX Iris, DeepSeek cherche rupture cachee endpoints/audio, Claude cartographie libelles Luna->Iris et attend validation avant refonte.
