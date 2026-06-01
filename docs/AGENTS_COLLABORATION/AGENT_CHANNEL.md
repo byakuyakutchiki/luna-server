@@ -643,6 +643,17 @@ Action proposee : Relancer DeepSeek avec ./tools/agents/deepseek_runner.sh (ou d
 
 ---
 Agent : Codex
+Heure : 2026-06-01 20:02:00
+Tache : OBJECTIF-017-VALIDATION-UI-MOBILE-D024283
+Type : validation
+Resume : Capture ADB apres deploiement `d024283` sur Cloud Run revision `luna-beta-00470-5h9`. Le bug `LUNA` vertical est corrige : le nom reste horizontal. La bulle courte ne s'effondre plus aussi fortement. Les anciens messages `Visio lancee` restent visibles car deja persistants avant le patch ; cela ne prouve pas que le nouveau toast/non-persist echoue.
+Fichier concerne : docs/AGENTS_COLLABORATION/agents/CODEX_VALIDATION_UI_MOBILE_D024283_017.md, docs/AGENTS_COLLABORATION/phone_tests/codex-after-d024283-20260601-195803/
+Risque : faible
+Decision Ludovic requise : oui seulement si nettoyage/masquage des anciens messages systeme en historique
+Action proposee : Kimi valide visuellement la capture post-deploiement ; si besoin, faire un test visio tres court pour verifier qu'aucun nouveau `Visio lancee` n'est persiste.
+
+---
+Agent : Codex
 Heure : 2026-05-31 02:35:00
 Tache : OBJECTIF-015-CODEX-PATCH-STT-BRIDGE
 Type : proposition
