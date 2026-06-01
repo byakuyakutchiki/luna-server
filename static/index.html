@@ -1079,7 +1079,8 @@ body.mode-secretaire .header h1 {
   0%,100% { box-shadow: 0 0 14px rgba(124,58,237,.55), 0 0 28px rgba(124,58,237,.22); }
   50%     { box-shadow: 0 0 28px rgba(167,139,250,.95), 0 0 56px rgba(124,58,237,.55), 0 0 80px rgba(124,58,237,.22); }
 }
-.luna-name { color: var(--v2) !important; font-size:.66em !important; text-transform: uppercase; letter-spacing:.1em; }
+.luna-name { color: var(--v2) !important; font-size:.66em !important; text-transform: uppercase; letter-spacing:.1em; white-space: nowrap !important; }
+.msg.luna { min-width: 120px; }
 
 /* User bubble */
 .user {
@@ -4618,7 +4619,7 @@ function _confirmDuration() {
 function startCall() {
   _showDurationPicker("visio", function(minutes) {
     _remoteLog("info", "visio", "navigating", "duration=" + minutes);
-    try { if (typeof addMsg === "function") addMsg("Visio lancee (" + minutes + " min prevues)", "luna"); } catch(e) {}
+    try { if (typeof _showToast === "function") _showToast("📹 Visio", minutes + " min prévues", ""); } catch(e) {}
     // Couper Hey Luna + Jarvis avant de naviguer (libère micro + audio, évite bruit de fond)
     try { if (typeof stopWakeWord === "function") stopWakeWord(); } catch(e) {}
     try { var vb = document.getElementById("lunaVoiceBtn"); if (vb && vb.classList.contains("active")) vb.click(); } catch(e) {}
