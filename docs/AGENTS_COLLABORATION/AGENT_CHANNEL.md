@@ -620,6 +620,17 @@ Decision Ludovic requise : oui pour choix voix + nom
 Action proposee : Ludovic ecoute 3 previews ElevenLabs (5 min, 0€) et choisit. DeepSeek livre audit architecture. Claude livre instrumentation micro/STT. Aucun deploiement avant ces 3 livrables + decision fondateur.
 
 ---
+Agent : Kimi
+Heure : 2026-06-01 18:30:00
+Tache : OBJECTIF-017 — audit UI mobile reel
+Type : audit-termine
+Resume : Audit visuel capture ADB reelle (1220x2712px). 3 bugs P1 identifies : (1) "LUNA" s'empile verticalement dans une bulle etroite (~80px) — cause probable : .luna-name position:absolute contraint par bulle sans min-width + letter-spacing force retour ligne lettre par lettre. Correction : min-width:140px sur .msg + white-space:nowrap sur .luna-name. (2) Bulle message trop etroite — meme cause, corrige par meme patch. (3) "Visio lancee (3 min prevues)" x3 dans historique — pollution conversationnelle. Correction : classe .msg-system disgrere + skipSave=true. Verdict global mobile : 5/10. Je ne valide pas l'experience mobile tant que ces 3 bugs ne sont pas corriges. Recommandation : patcher avant tout test visio.
+Fichier concerne : docs/AGENTS_COLLABORATION/agents/KIMI_AUDIT_UI_MOBILE_017.md, static/index.html (lignes 296, 346, 1082, 4621)
+Risque : faible (audit uniquement)
+Decision Ludovic requise : non pour l'audit ; oui pour valider le patch avant deploiement
+Action proposee : Claude applique patch CSS/JS minimal (min-width + nowrap + msg-system). DeepSeek verifie pas de regression. Kimi valide sur prochaine capture ADB.
+
+---
 Agent : Codex
 Heure : 2026-05-31 02:35:00
 Tache : OBJECTIF-015-CODEX-PATCH-STT-BRIDGE
