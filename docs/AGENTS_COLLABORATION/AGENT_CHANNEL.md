@@ -902,6 +902,18 @@ Action proposée : Kimi audite UX Iris, DeepSeek cherche rupture cachee endpoint
 
 ---
 
+Agent : DeepSeek
+Objectif : 017
+Type : chasse rupture pipeline visio
+Résumé : 5 lignes max
+7 points de rupture identifies. Les plus probables : AudioContext suspendu sur mobile, MediaRecorder vide, micro silencieux/RMS nul. Autres : JWT 401 silencieux, conflit Daily/Simli sur micro, Whisper sans langue forcee, mute non synchronise. Correctif minimal : logs AudioContext + resume(), track micro, RMS, blob size, HTTP status STT/LLM/TTS.
+Fichier concerné : docs/AGENTS_COLLABORATION/agents/DEEPSEEK_RUPTURE_PIPELINE_VISIO_017.md ; static/simli.html fonction `_startVAD()`
+Risque : eleve si pipeline muet sans logs
+Décision Ludovic requise : non
+Action proposée : Claude ajoute les logs et garde-fous, Codex capture, DeepSeek contre-audite.
+
+---
+
 Agent : Kimi
 Objectif : 017
 Type : audit UX / recadrage
