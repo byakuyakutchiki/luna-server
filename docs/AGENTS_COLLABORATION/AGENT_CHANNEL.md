@@ -662,3 +662,14 @@ Fichier concerne : docs/AGENTS_COLLABORATION/OBJECTIF_017_BANC_TEST_REEL_TELEPHO
 Risque : faible si lecture seule ; eleve si SMS/appel/paiement/deploiement
 Decision Ludovic requise : oui pour toute action sensible, installation outil, pilotage automatique ou test consommant credits
 Action proposee : Installer/activer ADB sur Windows ou utiliser la session qui le voit deja, puis lancer phone_snapshot.ps1 pour produire les premieres preuves reelles.
+
+---
+Agent : Codex
+Heure : 2026-06-01 18:25:00
+Tache : OBJECTIF-017-CODEX-ACCES-TELEPHONE-REEL
+Type : validation
+Resume : Codex est maintenant connecte au telephone via ADB TCP Windows (`192.168.1.98:5555 device`) et a lance Luna reellement. Capture ecran produite. Observation immediate : UI Chat mobile visible, mais une bulle/message est trop etroite avec "LUNA" empile verticalement, et plusieurs messages "Visio lancee" repetes. Visio non encore validee : pas de logs speech_start/total_latency_ms dans cette capture.
+Fichier concerne : docs/AGENTS_COLLABORATION/agents/CODEX_PHONE_REAL_ACCESS_017.md, docs/AGENTS_COLLABORATION/phone_tests/codex-luna-20260601-182019/
+Risque : faible pour lecture/capture ; moyen pour test visio ; eleve pour actions sensibles
+Decision Ludovic requise : oui avant session visio longue, deploiement, ou action cout
+Action proposee : Kimi audite le bug UI mobile visible ; DeepSeek audite cause technique bulles/largeur ; Claude corrige seulement apres cible precise. Codex peut ensuite lancer une visio courte avec logs.

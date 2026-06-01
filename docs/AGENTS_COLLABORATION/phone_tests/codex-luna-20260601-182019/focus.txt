@@ -1,0 +1,2 @@
+  mCurrentFocus=Window{5ae6395 u0 fr.yawatch.luna/fr.yawatch.luna.MainActivity}
+  mFocusedApp=ActivityRecord{18542473 u0 fr.yawatch.luna/.MainActivity t4753}

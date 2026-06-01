@@ -1,0 +1,8 @@
+06-01 18:20:47.192  3005  3041 E libsensor-parseRGB: CWB NotifyCWBBufferDone  error 0
+06-01 18:20:47.194  2578  5107 W WifiService: Permission violation - getScanResults not allowed for uid=10335, packageName=com.whatsapp, reason=java.lang.SecurityException: UID 10335 has no location permission
+06-01 18:20:47.388  4827  5441 E PhoneAdapter: get ntnphones failed, exception: java.lang.IllegalStateException: not support satellite!
+06-01 18:20:47.398  3005  3041 E libsensor-parseRGB: CWB NotifyCWBBufferDone  error 0
+06-01 18:20:47.667  3005  5661 E libsensor-parseRGB: CWB NotifyCWBBufferDone  error 0
+06-01 18:20:47.713 27240  5883 W fr.yawatch.luna: userfaultfd: MOVE ioctl seems unsupported: Connection timed out
+06-01 18:20:47.722 27240 27240 W FinalizerDaemon: type=1400 audit(0.0:2592973): avc:  denied  { getopt } for  path="/dev/socket/usap_pool_primary" scontext=u:r:untrusted_app:s0:c15,c258,c512,c768 tcontext=u:r:zygote:s0 tclass=unix_stream_socket permissive=0 app=fr.yawatch.luna
+06-01 18:20:47.895  3005  3041 E libsensor-parseRGB: CWB NotifyCWBBufferDone  error 0
