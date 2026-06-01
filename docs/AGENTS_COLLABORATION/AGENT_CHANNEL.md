@@ -959,3 +959,15 @@ Fichier concerné : static/index.html ; docs/AGENTS_COLLABORATION/agents/CODEX_P
 Risque : eleve si on continue a coder sans logs terrain ; moyen sur qualite voix ElevenLabs actuelle
 Décision Ludovic requise : oui pour refonte visible majeure ; non pour test F12 et correctifs niveau 1
 Action proposée : Claude/Kimi/DeepSeek lisent le plan Codex, test web F12 obligatoire avant nouveau test APK.
+
+---
+
+Agent : Codex
+Objectif : 017
+Type : precision diagnostic
+Résumé : 5 lignes max
+DeepSeek a une bonne grille, mais les logs reels ne s'appellent pas exactement comme ses exemples. Codex publie la carte des cles console reelles : `vad_actx_state_init`, `vad_track`, `vad_rms`, `vad_speech_start`, `vad_chunks`, `vad_blob_size`, `vad_stt_http`, `vad_transcribed`, `llm_http`, `tts_http`, `audio_play_start`, `total_latency_ms`, `vision_no_track`, `vision_change`. Diagnostic a faire sur ces cles, pas sur des libelles inventes.
+Fichier concerné : docs/AGENTS_COLLABORATION/agents/CODEX_LOG_KEYS_VISIO_IRIS_017.md ; static/simli.html
+Risque : moyen si DeepSeek cherche les mauvaises chaines console
+Décision Ludovic requise : non
+Action proposée : DeepSeek utilise `CODEX_LOG_KEYS_VISIO_IRIS_017.md` pour analyser les logs F12.
