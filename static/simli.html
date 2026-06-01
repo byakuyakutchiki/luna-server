@@ -242,11 +242,41 @@
     #btnUpload  { color: #f8b07c; border-color: rgba(248,160,100,0.35); }
     #btnUpload:hover  { background: rgba(248,160,100,0.12); border-color: rgba(248,160,100,0.7); }
     #btnUpload.uploading { opacity: 0.6; pointer-events: none; }
-    #btnPTT { color: #7cf8c8; border-color: rgba(100,220,180,0.35); }
-    #btnPTT:hover { background: rgba(100,220,180,0.14); border-color: rgba(100,220,180,0.7); }
-    #btnPTT.ptt-recording { color: #ff4466; border-color: rgba(255,68,102,0.6); background: rgba(255,68,102,0.18); animation: pttPulse 0.8s ease-in-out infinite; }
-    #btnPTT.ptt-processing { color: #f8d07c; border-color: rgba(248,208,124,0.4); opacity: 0.7; pointer-events: none; }
-    @keyframes pttPulse { 0%,100% { box-shadow: 0 2px 12px rgba(0,0,0,0.5); } 50% { box-shadow: 0 0 22px rgba(255,68,102,0.55); } }
+    /* PTT Orb — Whisper STT (remplace le vab-btn plat) */
+    #pttContainer {
+      position: fixed;
+      bottom: calc(88px + env(safe-area-inset-bottom, 0px));
+      left: 50%; transform: translateX(-50%);
+      z-index: 60; display: flex; flex-direction: column;
+      align-items: center; gap: 12px; pointer-events: auto;
+    }
+    .ptt-orb {
+      width: 78px; height: 78px; border-radius: 50%; border: none; cursor: pointer;
+      position: relative;
+      background: radial-gradient(circle at 35% 35%, #9B7EFF, #7C5CFC);
+      box-shadow: 0 0 32px rgba(124,92,252,0.4), 0 0 64px rgba(124,92,252,0.18);
+      color: #fff; display: flex; align-items: center; justify-content: center;
+      transition: all 0.25s ease; -webkit-tap-highlight-color: transparent;
+    }
+    .ptt-orb::before {
+      content: ''; position: absolute; inset: -6px; border-radius: 50%;
+      border: 2px solid rgba(124,92,252,0.3); animation: ptt-ring 2s infinite;
+    }
+    .ptt-orb.listening {
+      background: radial-gradient(circle at 35% 35%, #FF6B7A, #FF5C72);
+      box-shadow: 0 0 48px rgba(255,92,114,0.6), 0 0 96px rgba(255,92,114,0.28);
+      transform: scale(1.08);
+    }
+    .ptt-orb.listening::before { border-color: rgba(255,92,114,0.6); animation: ptt-ring-active 0.6s infinite; }
+    .ptt-orb.ptt-processing { opacity: 0.55; pointer-events: none; }
+    .ptt-orb:active { transform: scale(0.92); }
+    .ptt-label {
+      font-size: 11px; font-weight: 700; color: rgba(255,255,255,0.45);
+      text-transform: uppercase; letter-spacing: 2.5px; transition: color 0.25s;
+    }
+    .ptt-label.active { color: #FF5C72; }
+    @keyframes ptt-ring { 0%,100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.18); opacity: 0.22; } }
+    @keyframes ptt-ring-active { 0%,100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.28); opacity: 0.12; } }
 
     /* ===== SHARE MODAL ===== */
     #shareModal {
@@ -604,12 +634,19 @@
   <!-- BARRE D'ACTIONS (haut, visible seulement pendant la visio) -->
   <div id="visioActionsBar">
     <button class="vab-btn" id="btnMuteLuna" title="Couper/rétablir le micro de Luna">🎙 Luna active</button>
-    <button class="vab-btn" id="btnPTT" title="Appuyer pour parler — transcription Whisper" style="display:none">🎤 Parler</button>
     <button class="vab-btn" id="btnUpload" title="Partager un document ou une image à Luna">📎 Analyser</button>
     <button class="vab-btn" id="btnInvite">👥 Inviter</button>
     <button class="vab-btn" id="btnShare">🔗 Partager</button>
     <button class="vab-btn" id="btnNotes">📝 Notes <span id="micDot" title="Micro actif — capture les échanges pour les notes" style="display:none"></span></button>
   </div>
+  <!-- PTT Orb — Whisper STT (affiché si Web Speech API absent dans WebView) -->
+  <div id="pttContainer" style="display:none">
+    <button id="btnPTT" class="ptt-orb" title="Appuyer pour parler — Whisper STT" aria-label="Parler à Iris">
+      <svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+    </button>
+    <div id="pttLabel" class="ptt-label">PARLER</div>
+  </div>
+
   <!-- File input caché pour upload visio -->
   <input type="file" id="uploadInput" accept="image/*,.pdf,.txt,.md,.csv,.docx" style="display:none"
          capture="environment" />
@@ -2269,9 +2306,17 @@
 
     // ----- PTT (Push-To-Talk) Whisper fallback -----
 
+    function _pttResetUI() {
+      var btnPTT = document.getElementById('btnPTT');
+      var pttLabel = document.getElementById('pttLabel');
+      if (btnPTT) { btnPTT.classList.remove('listening', 'ptt-processing'); }
+      if (pttLabel) { pttLabel.textContent = 'PARLER'; pttLabel.classList.remove('active'); }
+    }
+
     function _startPTT() {
       if (_pttRecording || _irisReplying) return;
       var btnPTT = document.getElementById('btnPTT');
+      var pttLabel = document.getElementById('pttLabel');
       navigator.mediaDevices.getUserMedia({ audio: true, video: false })
         .then(function(stream) {
           _pttChunks = [];
@@ -2286,7 +2331,8 @@
           };
           _pttMediaRecorder.start();
           _pttRecording = true;
-          if (btnPTT) { btnPTT.textContent = '⏹ Stop'; btnPTT.classList.add('ptt-recording'); }
+          if (btnPTT) { btnPTT.classList.add('listening'); }
+          if (pttLabel) { pttLabel.textContent = 'ÉCOUTE…'; pttLabel.classList.add('active'); }
           rLog('info', 'simli', 'ptt_start', '');
         })
         .catch(function(e) {
@@ -2298,28 +2344,25 @@
       if (!_pttRecording || !_pttMediaRecorder) return;
       _pttRecording = false;
       var btnPTT = document.getElementById('btnPTT');
-      if (btnPTT) { btnPTT.textContent = '⏳ Envoi…'; btnPTT.classList.remove('ptt-recording'); btnPTT.classList.add('ptt-processing'); }
+      var pttLabel = document.getElementById('pttLabel');
+      if (btnPTT) { btnPTT.classList.remove('listening'); btnPTT.classList.add('ptt-processing'); }
+      if (pttLabel) { pttLabel.textContent = 'ENVOI…'; pttLabel.classList.remove('active'); }
       try { _pttMediaRecorder.stop(); } catch(e) {}
     }
 
     function _sendPTTAudio() {
-      var btnPTT = document.getElementById('btnPTT');
-      if (!_pttChunks.length) {
-        if (btnPTT) { btnPTT.textContent = '🎤 Parler'; btnPTT.classList.remove('ptt-processing'); }
-        return;
-      }
+      if (!_pttChunks.length) { _pttResetUI(); return; }
       var blob = new Blob(_pttChunks, { type: _pttChunks[0].type || 'audio/webm' });
       _pttChunks = [];
       if (blob.size < 500) {
         rLog('info', 'simli', 'ptt_empty', 'audio trop court');
-        if (btnPTT) { btnPTT.textContent = '🎤 Parler'; btnPTT.classList.remove('ptt-processing'); }
+        _pttResetUI();
         return;
       }
       var _pttT0 = Date.now();
       rLog('info', 'simli', 'ptt_send', String(blob.size) + 'b');
       var fd = new FormData();
       fd.append('audio', blob, 'recording.webm');
-      // authFetch ne supporte pas FormData directement (ajoute Content-Type JSON) → fetch direct avec token
       var token = typeof getToken === 'function' ? getToken() : localStorage.getItem('luna_token');
       fetch('/api/visio/transcribe', {
         method: 'POST',
@@ -2329,7 +2372,7 @@
       .then(function(r) { return r.json(); })
       .then(function(data) {
         rLog('info', 'simli', 'ptt_whisper_ms', String(Date.now() - _pttT0));
-        if (btnPTT) { btnPTT.textContent = '🎤 Parler'; btnPTT.classList.remove('ptt-processing'); }
+        _pttResetUI();
         if (!data.ok || !data.text) {
           rLog('info', 'simli', 'ptt_transcribe_empty', JSON.stringify(data).substring(0, 60));
           return;
@@ -2342,14 +2385,15 @@
       })
       .catch(function(e) {
         rLog('warn', 'simli', 'ptt_transcribe_err', String(e).substring(0, 60));
-        if (btnPTT) { btnPTT.textContent = '🎤 Parler'; btnPTT.classList.remove('ptt-processing'); }
+        _pttResetUI();
       });
     }
 
     function _initPTTButton() {
       var btnPTT = document.getElementById('btnPTT');
-      if (!btnPTT) return;
-      btnPTT.style.display = 'flex';
+      var pttContainer = document.getElementById('pttContainer');
+      if (!btnPTT || !pttContainer) return;
+      pttContainer.style.display = 'flex';
       btnPTT.addEventListener('click', function() {
         if (_pttRecording) { _stopPTT(); }
         else { _startPTT(); }
@@ -2418,8 +2462,9 @@
       if (_pttRecording) { try { _pttMediaRecorder.stop(); } catch(e) {} _pttRecording = false; }
       var micDot = document.getElementById('micDot');
       if (micDot) micDot.style.display = 'none';
-      var btnPTT = document.getElementById('btnPTT');
-      if (btnPTT) { btnPTT.textContent = '🎤 Parler'; btnPTT.classList.remove('ptt-recording', 'ptt-processing'); }
+      var pttContainer = document.getElementById('pttContainer');
+      if (pttContainer) pttContainer.style.display = 'none';
+      _pttResetUI();
     }
 
     // =====================================================================
