@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#0a0a1a" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <title>Luna IA — Visio</title>
+  <title>Iris — Visio</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     html, body { width: 100%; height: 100vh; height: 100dvh; overflow: hidden; background: #000; color: #e0e0e0; font-family: system-ui, -apple-system, sans-serif; -webkit-user-select: none; user-select: none; }
@@ -508,7 +508,7 @@
   <!-- ECRAN DE DEMARRAGE -->
   <div class="start-screen" id="startScreen">
     <div class="start-logo">L</div>
-    <h2>Visio avec Luna</h2>
+    <h2>Visio avec Iris</h2>
     <p>Je te vois et je t'entends. Parle-moi naturellement, je te reponds en direct.</p>
     <div style="margin-bottom:20px;">
       <label for="durationSelect" style="color:#888;font-size:13px;display:block;margin-bottom:6px;">Duree de l'appel</label>
@@ -580,10 +580,10 @@
           <div class="phone-screen" id="phoneScreen">
             <div id="phoneNotification" class="phone-notification">
               <div class="caller-icon">L</div>
-              <div class="caller-name">Luna</div>
+              <div class="caller-name">Iris</div>
               <div class="caller-label">Appel entrant...</div>
             </div>
-            <!-- Luna avatar mini dans le tel -->
+            <!-- Iris avatar mini dans le tel -->
             <div id="phoneAvatarFrame" class="phone-avatar-frame"></div>
           </div>
           <div class="phone-home-btn"></div>
@@ -629,12 +629,12 @@
   <div id="lunaToast"></div>
 
   <!-- VISION STATUS (cliquer = mode silencieux) -->
-  <div id="visionStatus" title="Cliquer : activer/désactiver mode observation silencieux"><div class="v-dot"></div><span id="visionLabel">Luna voit</span></div>
+  <div id="visionStatus" title="Cliquer : activer/désactiver mode observation silencieux"><div class="v-dot"></div><span id="visionLabel">Iris voit</span></div>
 
   <!-- BARRE D'ACTIONS (haut, visible seulement pendant la visio) -->
   <div id="visioActionsBar">
-    <button class="vab-btn" id="btnMuteLuna" title="Couper/rétablir le micro de Luna">🎙 Luna active</button>
-    <button class="vab-btn" id="btnUpload" title="Partager un document ou une image à Luna">📎 Analyser</button>
+    <button class="vab-btn" id="btnMuteLuna" title="Couper/rétablir le micro d'Iris">🎙 Iris active</button>
+    <button class="vab-btn" id="btnUpload" title="Partager un document ou une image à Iris">📎 Analyser</button>
     <button class="vab-btn" id="btnInvite">👥 Inviter</button>
     <button class="vab-btn" id="btnShare">🔗 Partager</button>
     <button class="vab-btn" id="btnNotes">📝 Notes <span id="micDot" title="Micro actif — capture les échanges pour les notes" style="display:none"></span></button>
@@ -663,7 +663,7 @@
           <button class="btn-copy-link" id="btnCopyLink">Copier</button>
         </div>
         <button class="btn-web-share" id="btnWebShare">📤 Partager via…</button>
-        <p class="share-warning">⚠️ Luna est une IA — toute demande illégale ou abusive engage la responsabilité de l'invité. Les abus sont tracés.</p>
+        <p class="share-warning">⚠️ Iris est une IA — toute demande illégale ou abusive engage la responsabilité de l'invité. Les abus sont tracés.</p>
       </div>
       <button class="btn-share-close" id="btnShareClose">Fermer</button>
     </div>
@@ -731,39 +731,39 @@
     // =====================================================================
     var LUNA_SCHEDULE = [
       { start: 6,  end: 8,  bg: 'bg_bedroom.svg',           ambient: 'ambient_morning.mp3',
-        text: 'Luna se r\u00e9veille doucement\u2026',
+        text: 'Iris se r\u00e9veille doucement\u2026',
         phone: { bottom: '25%', right: '60%', width: '55px', height: '96px' },
         zoomTarget: { x: '40%', y: '75%', scale: 7 } },
       { start: 8,  end: 10, bg: 'bg_kitchen_morning.svg',    ambient: 'ambient_kitchen.mp3',
-        text: 'Luna pr\u00e9pare son th\u00e9\u2026',
+        text: 'Iris pr\u00e9pare son th\u00e9\u2026',
         phone: { bottom: '16%', right: '32%', width: '60px', height: '106px' },
         zoomTarget: { x: '68%', y: '84%', scale: 6 } },
       { start: 10, end: 12, bg: 'bg_livingroom_day.svg',     ambient: 'ambient_calm.mp3',
-        text: 'Luna lit tranquillement\u2026',
+        text: 'Iris lit tranquillement\u2026',
         phone: { bottom: '18%', right: '20%', width: '55px', height: '96px' },
         zoomTarget: { x: '80%', y: '82%', scale: 7 } },
       { start: 12, end: 14, bg: 'bg_kitchen_lunch.svg',      ambient: 'ambient_cooking.mp3',
-        text: 'Luna pr\u00e9pare le d\u00e9jeuner\u2026',
+        text: 'Iris pr\u00e9pare le d\u00e9jeuner\u2026',
         phone: { bottom: '16%', right: '32%', width: '60px', height: '106px' },
         zoomTarget: { x: '68%', y: '84%', scale: 6 } },
       { start: 14, end: 16, bg: 'bg_park.svg',               ambient: 'ambient_nature.mp3',
-        text: 'Luna profite du soleil\u2026',
+        text: 'Iris profite du soleil\u2026',
         phone: { bottom: '22%', right: '40%', width: '52px', height: '92px' },
         zoomTarget: { x: '60%', y: '78%', scale: 7 } },
       { start: 16, end: 18, bg: 'bg_workshop.svg',           ambient: 'ambient_creative.mp3',
-        text: "Luna peint dans son atelier\u2026",
+        text: "Iris peint dans son atelier\u2026",
         phone: { bottom: '16%', right: '40%', width: '50px', height: '88px' },
         zoomTarget: { x: '60%', y: '84%', scale: 7.5 } },
       { start: 18, end: 20, bg: 'bg_kitchen_dinner.svg',     ambient: 'ambient_cooking.mp3',
-        text: 'Luna cuisine le d\u00eener\u2026',
+        text: 'Iris cuisine le d\u00eener\u2026',
         phone: { bottom: '16%', right: '32%', width: '60px', height: '106px' },
         zoomTarget: { x: '68%', y: '84%', scale: 6 } },
       { start: 20, end: 22, bg: 'bg_livingroom_evening.svg', ambient: 'ambient_cozy.mp3',
-        text: "Luna se d\u00e9tend pr\u00e8s du feu\u2026",
+        text: "Iris se d\u00e9tend pr\u00e8s du feu\u2026",
         phone: { bottom: '20%', right: '22%', width: '55px', height: '96px' },
         zoomTarget: { x: '78%', y: '80%', scale: 7 } },
       { start: 22, end: 6,  bg: 'bg_night.svg',              ambient: 'ambient_night.mp3',
-        text: 'Luna se pr\u00e9pare \u00e0 dormir\u2026',
+        text: 'Iris se pr\u00e9pare \u00e0 dormir\u2026',
         phone: { bottom: '30%', right: '68%', width: '50px', height: '88px' },
         zoomTarget: { x: '32%', y: '70%', scale: 7.5 } },
     ];
@@ -1020,7 +1020,7 @@
         if (readyEl) {
           readyEl.style.color = '#7cf8c8';
           readyEl.textContent = _pretestCamOk
-            ? '✨ Tout est prêt ! Cliquez pour rejoindre Luna.'
+            ? '✨ Tout est prêt ! Cliquez pour rejoindre Iris.'
             : '✓ Micro prêt. La visio démarrera en audio.';
         }
         if (btnEl) { btnEl.disabled = false; btnEl.textContent = 'Commencer la visio'; }
@@ -1100,7 +1100,7 @@
       create_instruction: '⚙️ Instruction créée',
       invite_visio: '📹 Invitation envoyée',
       send_conclusions: '📋 Envoi du compte-rendu…',
-      get_vision_context: '👁 Luna regarde…',
+      get_vision_context: '👁 Iris regarde…',
     };
 
     // =====================================================================
@@ -1254,7 +1254,7 @@
       // Petit flash blanc sur l'ecran du telephone = decrochage
       phoneScreen.style.transition = 'background 0.15s ease';
       phoneScreen.style.background = 'rgba(255,255,255,0.3)';
-      sceneTextEl.textContent = 'Luna d\u00e9croche\u2026';
+      sceneTextEl.textContent = 'Iris d\u00e9croche\u2026';
       return wait(300).then(function() {
         phoneScreen.style.background = '';
         phoneNotification.classList.remove('visible');
@@ -1794,7 +1794,7 @@
       if (!file || !dailyCall) return;
       var btn = document.getElementById('btnUpload');
       if (btn) { btn.textContent = '⏳ Analyse…'; btn.classList.add('uploading'); }
-      showToast('📎 Luna prend connaissance de "' + file.name + '"…', 10000);
+      showToast('📎 Iris prend connaissance de "' + file.name + '"…', 10000);
       rLog('info', 'simli', 'upload_start', file.name + ' ' + file.type + ' ' + file.size);
 
       _readFileAsBase64(file).then(function(b64) {
@@ -1818,7 +1818,7 @@
         }
         var analysis = data.analysis || '';
         var fname = file.name;
-        showToast('✓ Luna a analysé "' + fname + '"', 3000);
+        showToast('✓ Iris a analysé "' + fname + '"', 3000);
         _visioTranscript.push({ ts: Date.now(), type: 'upload.analysis', text: '[Document: ' + fname + '] ' + analysis });
         rLog('info', 'simli', 'upload_ok', analysis.substring(0, 80));
         // Injecter l'analyse dans la conversation Luna
@@ -1879,11 +1879,11 @@
             properties: { modality: 'text', text: silentMsg }
           });
         } catch(e) { rLog('warn', 'simli', 'mute_err', String(e).substring(0,60)); }
-        btnMuteLuna.textContent = _lunaMuted ? '🔇 Luna muette' : '🎙 Luna active';
+        btnMuteLuna.textContent = _lunaMuted ? '🔇 Iris muette' : '🎙 Iris active';
         btnMuteLuna.classList.toggle('muted', _lunaMuted);
         showToast(_lunaMuted
-          ? '🔇 Luna écoute sans parler'
-          : '🎙 Luna peut à nouveau parler', 3000);
+          ? '🔇 Iris écoute sans parler'
+          : '🎙 Iris peut à nouveau parler', 3000);
         rLog('info', 'simli', 'luna_mute', _lunaMuted ? 'on' : 'off');
       };
     }
@@ -2031,8 +2031,8 @@
     if (btnWebShare) btnWebShare.onclick = function() {
       if (!_shareUrl || !navigator.share) return;
       navigator.share({
-        title: 'Rejoindre la visio Luna',
-        text: 'Rejoins-moi en visio avec Luna IA',
+        title: 'Rejoindre la visio Iris',
+        text: 'Rejoins-moi en visio avec Iris (Luna YAWatch)',
         url: _shareUrl
       }).catch(function() {});
     };
@@ -2053,8 +2053,8 @@
         _visionSilent = !_visionSilent;
         _updateVisionUI();
         showToast(_visionSilent
-          ? '🔇 Observation silencieuse — Luna note sans en parler'
-          : '👁 Luna voit et peut en parler', 3000);
+          ? '🔇 Observation silencieuse — Iris note sans en parler'
+          : '👁 Iris voit et peut en parler', 3000);
         rLog('info', 'simli', 'vision_mode', _visionSilent ? 'silent' : 'active');
       };
     }
@@ -2066,7 +2066,7 @@
         if (_visionLabelEl) _visionLabelEl.textContent = 'Observation';
       } else {
         _visionStatusEl.classList.remove('silent');
-        if (_visionLabelEl) _visionLabelEl.textContent = 'Luna voit';
+        if (_visionLabelEl) _visionLabelEl.textContent = 'Iris voit';
       }
     }
 
