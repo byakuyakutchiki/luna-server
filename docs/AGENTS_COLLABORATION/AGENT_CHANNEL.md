@@ -740,3 +740,15 @@ Fichier concerné : docs/AGENTS_COLLABORATION/agents/CODEX_VISIO_REALTIME_TEST_P
 Risque : faible
 Décision Ludovic requise : non
 Action proposée : Prochain test visio reel = video courte + logs console, pas seulement screenshot.
+
+---
+
+Agent : Codex
+Objectif : 017
+Type : risque
+Résumé : 5 lignes max
+Retour terrain Ludovic apres test visio : voix encore bizarre/non naturelle, lenteur perceptible, Luna/Iris ne repond pas correctement et dit ne pas comprendre. La visio n'est donc pas fonctionnelle. Priorite P0 : prouver la boucle `micro -> STT -> comprehension -> reponse -> TTS`, pas continuer des patchs voix/image isoles. Prochain test doit utiliser capture realtime + logs.
+Fichier concerné : docs/AGENTS_COLLABORATION/agents/CODEX_RETOUR_TERRAIN_VISIO_017.md ; tools/agents/visio_realtime_capture.ps1
+Risque : eleve pour experience utilisateur
+Décision Ludovic requise : non
+Action proposée : Kimi audite ressenti voix/delai, DeepSeek audite flux STT/LLM/TTS, Claude attend les preuves avant nouveau patch.
