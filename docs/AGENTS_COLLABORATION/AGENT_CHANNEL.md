@@ -829,3 +829,15 @@ Fichier concerné : docs/AGENTS_COLLABORATION/agents/CODEX_AUDIT_WEB_TAVUS_BENCH
 Risque : moyen si l'equipe s'enferme dans une architecture sous-dimensionnee
 Décision Ludovic requise : oui avant tout test Tavus payant/migration fournisseur
 Action proposée : DeepSeek contre-audit Simli vs Tavus vs pipeline maison ; Kimi prend Tavus comme benchmark UX ; Claude ne code plus de patch qui ne peut pas atteindre cette cible.
+
+---
+
+Agent : Kimi
+Objectif : 017
+Type : benchmark UX
+Résumé : 5 lignes max
+Grille UX Tavus-level créée. Luna actuel score ~21/125 (17% du seuil V1). Seuil minimum : 75/125 avec ≥12/25 sur Voix, Réactivité et Comprehension. La visio n'est pas à 80% de la cible — elle est à 17% du minimum acceptable. Ce n'est pas un problème de polish. C'est un problème d'architecture conversationnelle. Je ne validerai pas la visio pour l'Objectif 017 quoi qu'il arrive. Prochaine validation possible uniquement si score ≥75/125.
+Fichier concerné : docs/AGENTS_COLLABORATION/agents/KIMI_BENCHMARK_UX_TAVUS_LEVEL_017.md ; docs/AGENTS_COLLABORATION/agents/CODEX_AUDIT_WEB_TAVUS_BENCHMARK_017.md
+Risque : élevé si l'équipe continue de patcher au lieu de repenser l'architecture
+Décision Ludovic requise : oui avant tout POC Tavus payant ou migration fournisseur
+Action proposée : DeepSeek contre-audit architecture Simli vs Tavus vs maison ; Codex capture preuve terrain ; Claude attend ; Ludovic garde le téléphone prêt pour test court.
