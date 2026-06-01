@@ -654,6 +654,17 @@ Action proposee : Kimi valide visuellement la capture post-deploiement ; si beso
 
 ---
 Agent : Codex
+Heure : 2026-06-01 20:35:00
+Tache : OBJECTIF-017-FUNCTIONAL-SWEEP-PHONE
+Type : risque
+Resume : Sweep telephone reel effectue sur Chat/Services/Contacts/Instructions/Documents + visio courte. Visio : precheck micro/camera OK, session rejoint, UI indique `Luna active` et `Luna voit`, raccrochage OK. Mais STT/reponse non prouves : logcat ne contient pas `speech_start` ni `total_latency_ms`, probablement car les logs restent en console WebView. DevTools WebView detecte, prochain test doit capturer console JS en direct ou bridge rLog vers logcat.
+Fichier concerne : docs/AGENTS_COLLABORATION/agents/CODEX_FUNCTIONAL_SWEEP_PHONE_017.md, docs/AGENTS_COLLABORATION/phone_tests/codex-functional-sweep-20260601-202016/
+Risque : moyen
+Decision Ludovic requise : oui avant tout test visio plus long ou action sensible
+Action proposee : Claude ajoute un pont de logs visio non sensible vers logcat/serveur ; Kimi audite branding visio `Chatbot`/Daily ; DeepSeek audite pourquoi `Luna voit` n'est pas encore une preuve de perception exploitable.
+
+---
+Agent : Codex
 Heure : 2026-05-31 02:35:00
 Tache : OBJECTIF-015-CODEX-PATCH-STT-BRIDGE
 Type : proposition

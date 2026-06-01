@@ -1,0 +1,24 @@
+06-01 20:26:18.705  2113  2113 I SurfaceFlinger: SF-MICapture: mode:0, layerName:fr.yawatch.luna/fr.yawatch.luna.MainActivity#60436
+06-01 20:26:18.769  3005  3039 E libsensor-parseRGB: CWB NotifyCWBBufferDone  error 0
+06-01 20:26:18.783  4827  6478 E PhoneAdapter: get ntnphones failed, exception: java.lang.IllegalStateException: not support satellite!
+06-01 20:26:18.922 20558 20654 W msgr.MultiSignalANRDetectorLacrima: Pausing error state checks
+06-01 20:26:18.967  3005  3039 E libsensor-parseRGB: CWB NotifyCWBBufferDone  error 0
+06-01 20:26:19.184  3005  3039 E libsensor-parseRGB: CWB NotifyCWBBufferDone  error 0
+06-01 20:26:19.385  3005  5661 E libsensor-parseRGB: CWB NotifyCWBBufferDone  error 0
+06-01 20:26:19.407  2578  4968 D PerfShielderService: fr.yawatch.luna|fr.yawatch.luna/fr.yawatch.luna.MainActivity|3373|208701264180905|115|5|120
+06-01 20:26:19.409  8499 10039 W MiuiPerfServiceClient: interceptAndQueuing:23960|fr.yawatch.luna|3373|115|208701264180905|Slow issue draw commands|120
+06-01 20:26:19.591  3005  5661 E libsensor-parseRGB: CWB NotifyCWBBufferDone  error 0
+06-01 20:26:19.597   409 18957 E QTagParser: Error reading from /proc/net/xt_qtaguid/stats. Please check if this file exists.
+06-01 20:26:19.614   409 18957 E QTagParser: Error reading from /proc/net/xt_qtaguid/stats. Please check if this file exists.
+06-01 20:26:19.808  3005  3039 E libsensor-parseRGB: CWB NotifyCWBBufferDone  error 0
+06-01 20:26:20.018  3005  3041 E libsensor-parseRGB: CWB NotifyCWBBufferDone  error 0
+06-01 20:26:20.226  3005  3039 E libsensor-parseRGB: CWB NotifyCWBBufferDone  error 0
+06-01 20:26:20.427  3005  5661 E libsensor-parseRGB: CWB NotifyCWBBufferDone  error 0
+06-01 20:26:20.637  3005  5661 E libsensor-parseRGB: CWB NotifyCWBBufferDone  error 0
+06-01 20:26:20.853  3005  3041 E libsensor-parseRGB: CWB NotifyCWBBufferDone  error 0
+06-01 20:26:20.924 32576 32753 D JavaheapMonitor: Java heap used=6M max=512M, proc: com.android.camera
+06-01 20:26:21.082  3005  3041 E libsensor-parseRGB: CWB NotifyCWBBufferDone  error 0
+06-01 20:26:21.274  3005  5661 E libsensor-parseRGB: CWB NotifyCWBBufferDone  error 0
+06-01 20:26:21.492  3005  3041 E libsensor-parseRGB: CWB NotifyCWBBufferDone  error 0
+06-01 20:26:21.700  3005  3041 E libsensor-parseRGB: CWB NotifyCWBBufferDone  error 0
+06-01 20:26:21.813  4827  6478 E PhoneAdapter: get ntnphones failed, exception: java.lang.IllegalStateException: not support satellite!

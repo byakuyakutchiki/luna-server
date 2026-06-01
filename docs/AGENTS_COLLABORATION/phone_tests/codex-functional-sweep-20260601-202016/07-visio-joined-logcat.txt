@@ -1,0 +1,152 @@
+06-01 20:25:17.073  2578  4054 E MiuiNetworkPolicy: TcUtils.tcFilterDelDev(ifaceIndex=24, ingress=true, PRIO_POLICE, ETH_P_ALL) failure: java.io.IOException: com_android_net_module_util_TcUtils_tcFilterDelDev error: : No such file or directory
+06-01 20:25:17.076  1753  3226 E AHAL: AudioStream: SetParameters: 3343: error 0, failed to get stream and controller
+06-01 20:25:17.080  1868  3329 E CamX    : [ERROR][SENSOR ] camxapois.cpp:990 ExecuteProcessRequest() pdata is null
+06-01 20:25:17.114  1868  3330 E CamX    : [ERROR][SENSOR ] camxapois.cpp:990 ExecuteProcessRequest() pdata is null
+06-01 20:25:17.169  1868  3332 E CamX    : [ERROR][SENSOR ] camxapois.cpp:990 ExecuteProcessRequest() pdata is null
+06-01 20:25:17.191  3005  5661 E libsensor-parseRGB: CWB NotifyCWBBufferDone  error 0
+06-01 20:25:17.198  1868  3331 E CamX    : [ERROR][SENSOR ] camxapois.cpp:990 ExecuteProcessRequest() pdata is null
+06-01 20:25:17.246  1868  3333 E CamX    : [ERROR][SENSOR ] camxapois.cpp:990 ExecuteProcessRequest() pdata is null
+06-01 20:25:17.280  1868  3328 E CamX    : [ERROR][SENSOR ] camxapois.cpp:990 ExecuteProcessRequest() pdata is null
+06-01 20:25:17.329  1868  3329 E CamX    : [ERROR][SENSOR ] camxapois.cpp:990 ExecuteProcessRequest() pdata is null
+06-01 20:25:17.348 23960 15999 W RenderInspector: QueueBuffer time out on fr.yawatch.luna/fr.yawatch.luna.MainActivity, count=1, avg=12 ms, max=12 ms.
+06-01 20:25:17.349  1868  3332 E CamX    : [ERROR][SENSOR ] camxapois.cpp:990 ExecuteProcessRequest() pdata is null
+06-01 20:25:17.382  1868  3332 E CamX    : [ERROR][SENSOR ] camxapois.cpp:990 ExecuteProcessRequest() pdata is null
+06-01 20:25:17.406  3005  3039 E libsensor-parseRGB: CWB NotifyCWBBufferDone  error 0
+06-01 20:25:17.434  1868  3330 E CamX    : [ERROR][SENSOR ] camxapois.cpp:990 ExecuteProcessRequest() pdata is null
+06-01 20:25:17.459  1868  3330 E CamX    : [ERROR][SENSOR ] camxapois.cpp:990 ExecuteProcessRequest() pdata is null
+06-01 20:25:17.475  2113  2113 I SurfaceFlinger: SF-MICapture: mode:0, layerName:fr.yawatch.luna/fr.yawatch.luna.MainActivity#60436
+06-01 20:25:17.526  1868  3328 E CamX    : [ERROR][SENSOR ] camxapois.cpp:990 ExecuteProcessRequest() pdata is null
+06-01 20:25:17.542  1868  3329 E CamX    : [ERROR][SENSOR ] camxapois.cpp:990 ExecuteProcessRequest() pdata is null
+06-01 20:25:17.581  1868  3333 E CamX    : [ERROR][SENSOR ] camxapois.cpp:990 ExecuteProcessRequest() pdata is null
+06-01 20:25:17.612  1868  3330 E CamX    : [ERROR][SENSOR ] camxapois.cpp:990 ExecuteProcessRequest() pdata is null
+06-01 20:25:17.655  1868  3333 E CamX    : [ERROR][SENSOR ] camxapois.cpp:990 ExecuteProcessRequest() pdata is null
+06-01 20:25:17.679  1868  3328 E CamX    : [ERROR][SENSOR ] camxapois.cpp:990 ExecuteProcessRequest() pdata is null
+06-01 20:25:17.689  3005  5661 E libsensor-parseRGB: CWB NotifyCWBBufferDone  error 0
+06-01 20:25:17.725  1868  3331 E CamX    : [ERROR][SENSOR ] camxapois.cpp:990 ExecuteProcessRequest() pdata is null
+06-01 20:25:17.744  1868  3333 E CamX    : [ERROR][SENSOR ] camxapois.cpp:990 ExecuteProcessRequest() pdata is null
+06-01 20:25:17.810  1868  3332 E CamX    : [ERROR][SENSOR ] camxapois.cpp:990 ExecuteProcessRequest() pdata is null
+06-01 20:25:17.853  1868  3332 E CamX    : [ERROR][SENSOR ] camxapois.cpp:990 ExecuteProcessRequest() pdata is null
+06-01 20:25:17.880  1868  3328 E CamX    : [ERROR][SENSOR ] camxapois.cpp:990 ExecuteProcessRequest() pdata is null
+06-01 20:25:17.890  3005  3039 E libsensor-parseRGB: CWB NotifyCWBBufferDone  error 0
+06-01 20:25:17.915  1868  3332 E CamX    : [ERROR][SENSOR ] camxapois.cpp:990 ExecuteProcessRequest() pdata is null
+06-01 20:25:17.915  2578  6508 D PerfShielderService: fr.yawatch.luna|fr.yawatch.luna/fr.yawatch.luna.MainActivity|4066|208639771836137|182|5|115
+06-01 20:25:17.916  8499 10039 W MiuiPerfServiceClient: interceptAndQueuing:23960|fr.yawatch.luna|4066|182|208639771836137|Slow issue draw commands|115
+06-01 20:25:17.960  1868  3331 E CamX    : [ERROR][SENSOR ] camxapois.cpp:990 ExecuteProcessRequest() pdata is null
+06-01 20:25:18.008  4827  6482 E PhoneAdapter: get ntnphones failed, exception: java.lang.IllegalStateException: not support satellite!
+06-01 20:25:18.017  1868  3330 E CamX    : [ERROR][SENSOR ] camxapois.cpp:990 ExecuteProcessRequest() pdata is null
+06-01 20:25:18.037  1868  3331 E CamX    : [ERROR][SENSOR ] camxapois.cpp:990 ExecuteProcessRequest() pdata is null
+06-01 20:25:18.089  3005  3039 E libsensor-parseRGB: CWB NotifyCWBBufferDone  error 0
+06-01 20:25:18.102  1868  3329 E CamX    : [ERROR][SENSOR ] camxapois.cpp:990 ExecuteProcessRequest() pdata is null
+06-01 20:25:18.128  1868  3328 E CamX    : [ERROR][SENSOR ] camxapois.cpp:990 ExecuteProcessRequest() pdata is null
+06-01 20:25:18.136  2578  6508 D BarFollowAnimation: pairAppearanceRegionAndWin win=Window{59c3c94 u0 fr.yawatch.luna/fr.yawatch.luna.MainActivity} 0
+06-01 20:25:18.137  2578  6508 D BarFollowAnimation: isAppTaskBarOnTop win:Window{59c3c94 u0 fr.yawatch.luna/fr.yawatch.luna.MainActivity} (mCurrentTopTask:Task{782a681 #4758 type=standard A=10527:fr.yawatch.luna} : true); (mAssociatedTask:Task{782a681 #4758 type=standard A=10527:fr.yawatch.luna} : true); (mHomeTask:Task{577fe23 #1 type=home} : false); mReparentToOriginParent:false mLastAppBarVisible:true mLastHomeBarVisible:false
+06-01 20:25:18.175  2578  3393 D BarFollowAnimation: pairAppearanceRegionAndWin win=Window{59c3c94 u0 fr.yawatch.luna/fr.yawatch.luna.MainActivity} 0
+06-01 20:25:18.178  2578  3393 D BarFollowAnimation: isAppTaskBarOnTop win:Window{59c3c94 u0 fr.yawatch.luna/fr.yawatch.luna.MainActivity} (mCurrentTopTask:Task{782a681 #4758 type=standard A=10527:fr.yawatch.luna} : true); (mAssociatedTask:Task{782a681 #4758 type=standard A=10527:fr.yawatch.luna} : true); (mHomeTask:Task{577fe23 #1 type=home} : false); mReparentToOriginParent:false mLastAppBarVisible:true mLastHomeBarVisible:false
+06-01 20:25:18.186  1868  3329 E CamX    : [ERROR][SENSOR ] camxapois.cpp:990 ExecuteProcessRequest() pdata is null
+06-01 20:25:18.199  2578  6508 D BarFollowAnimation: pairAppearanceRegionAndWin win=Window{59c3c94 u0 fr.yawatch.luna/fr.yawatch.luna.MainActivity} 0
+06-01 20:25:18.199  2578  6508 D BarFollowAnimation: isAppTaskBarOnTop win:Window{59c3c94 u0 fr.yawatch.luna/fr.yawatch.luna.MainActivity} (mCurrentTopTask:Task{782a681 #4758 type=standard A=10527:fr.yawatch.luna} : true); (mAssociatedTask:Task{782a681 #4758 type=standard A=10527:fr.yawatch.luna} : true); (mHomeTask:Task{577fe23 #1 type=home} : false); mReparentToOriginParent:false mLastAppBarVisible:true mLastHomeBarVisible:false
+06-01 20:25:18.211  1868  3331 E CamX    : [ERROR][SENSOR ] camxapois.cpp:990 ExecuteProcessRequest() pdata is null
+06-01 20:25:18.250  2578  3393 D BarFollowAnimation: pairAppearanceRegionAndWin win=Window{59c3c94 u0 fr.yawatch.luna/fr.yawatch.luna.MainActivity} 0
+06-01 20:25:18.251  2578  3393 D BarFollowAnimation: isAppTaskBarOnTop win:Window{59c3c94 u0 fr.yawatch.luna/fr.yawatch.luna.MainActivity} (mCurrentTopTask:Task{782a681 #4758 type=standard A=10527:fr.yawatch.luna} : true); (mAssociatedTask:Task{782a681 #4758 type=standard A=10527:fr.yawatch.luna} : true); (mHomeTask:Task{577fe23 #1 type=home} : false); mReparentToOriginParent:false mLastAppBarVisible:true mLastHomeBarVisible:false
+06-01 20:25:18.252  1868  3331 E CamX    : [ERROR][SENSOR ] camxapois.cpp:990 ExecuteProcessRequest() pdata is null
+06-01 20:25:18.263  6847  6969 V ScanController: Skipping client: permission=true matches=false
+06-01 20:25:18.263  6847  6969 V ScanController: Skipping client: permission=true matches=false
+06-01 20:25:18.266  6847  6969 V ScanController: Skipping client: permission=true matches=false
+06-01 20:25:18.267  6847  6969 V ScanController: Skipping client: permission=true matches=false
+06-01 20:25:18.267  6847  6969 V ScanController: Skipping client: permission=true matches=false
+06-01 20:25:18.282  6847  6969 V ScanController: Skipping client: permission=true matches=false
+06-01 20:25:18.282  6847  6969 V ScanController: Skipping client: permission=true matches=false
+06-01 20:25:18.282  6847  6969 V ScanController: Skipping client: permission=true matches=false
+06-01 20:25:18.285  6847  6969 V ScanController: Skipping client: permission=true matches=false
+06-01 20:25:18.288  6847  6969 V ScanController: Skipping client: permission=true matches=false
+06-01 20:25:18.306  3005  3039 E libsensor-parseRGB: CWB NotifyCWBBufferDone  error 0
+06-01 20:25:18.311  1868  3330 E CamX    : [ERROR][SENSOR ] camxapois.cpp:990 ExecuteProcessRequest() pdata is null
+06-01 20:25:18.355  1868  3328 E CamX    : [ERROR][SENSOR ] camxapois.cpp:990 ExecuteProcessRequest() pdata is null
+06-01 20:25:18.375  1868  3333 E CamX    : [ERROR][SENSOR ] camxapois.cpp:990 ExecuteProcessRequest() pdata is null
+06-01 20:25:18.410  1868  3330 E CamX    : [ERROR][SENSOR ] camxapois.cpp:990 ExecuteProcessRequest() pdata is null
+06-01 20:25:18.472  1868  3329 E CamX    : [ERROR][SENSOR ] camxapois.cpp:990 ExecuteProcessRequest() pdata is null
+06-01 20:25:18.535  1868  3331 E CamX    : [ERROR][SENSOR ] camxapois.cpp:990 ExecuteProcessRequest() pdata is null
+06-01 20:25:18.553  1868  3332 E CamX    : [ERROR][SENSOR ] camxapois.cpp:990 ExecuteProcessRequest() pdata is null
+06-01 20:25:18.558  3005  5661 E libsensor-parseRGB: CWB NotifyCWBBufferDone  error 0
+06-01 20:25:18.577  1868  3332 E CamX    : [ERROR][SENSOR ] camxapois.cpp:990 ExecuteProcessRequest() pdata is null
+06-01 20:25:18.606  1868  3329 E CamX    : [ERROR][SENSOR ] camxapois.cpp:990 ExecuteProcessRequest() pdata is null
+06-01 20:25:18.641  1868  3333 E CamX    : [ERROR][SENSOR ] camxapois.cpp:990 ExecuteProcessRequest() pdata is null
+06-01 20:25:18.675  1868  3330 E CamX    : [ERROR][SENSOR ] camxapois.cpp:990 ExecuteProcessRequest() pdata is null
+06-01 20:25:18.720  1868  3330 E CamX    : [ERROR][SENSOR ] camxapois.cpp:990 ExecuteProcessRequest() pdata is null
+06-01 20:25:18.741  1868  3333 E CamX    : [ERROR][SENSOR ] camxapois.cpp:990 ExecuteProcessRequest() pdata is null
+06-01 20:25:18.792  1868  3331 E CamX    : [ERROR][SENSOR ] camxapois.cpp:990 ExecuteProcessRequest() pdata is null
+06-01 20:25:18.806  3005  3039 E libsensor-parseRGB: CWB NotifyCWBBufferDone  error 0
+06-01 20:25:18.827  1868  3329 E CamX    : [ERROR][SENSOR ] camxapois.cpp:990 ExecuteProcessRequest() pdata is null
+06-01 20:25:18.855  1868  3329 E CamX    : [ERROR][SENSOR ] camxapois.cpp:990 ExecuteProcessRequest() pdata is null
+06-01 20:25:18.876  6847  6969 V ScanController: Skipping client: permission=true matches=false
+06-01 20:25:18.876  6847  6969 V ScanController: Skipping client: permission=true matches=false
+06-01 20:25:18.877  6847  6969 V ScanController: Skipping client: permission=true matches=false
+06-01 20:25:18.877  6847  6969 V ScanController: Skipping client: permission=true matches=false
+06-01 20:25:18.878  6847  6969 V ScanController: Skipping client: permission=true matches=false
+06-01 20:25:18.905  1868  3330 E CamX    : [ERROR][SENSOR ] camxapois.cpp:990 ExecuteProcessRequest() pdata is null
+06-01 20:25:18.937  1868  3330 E CamX    : [ERROR][SENSOR ] camxapois.cpp:990 ExecuteProcessRequest() pdata is null
+06-01 20:25:18.978  1868  3330 E CamX    : [ERROR][SENSOR ] camxapois.cpp:990 ExecuteProcessRequest() pdata is null
+06-01 20:25:19.012  1868  3329 E CamX    : [ERROR][SENSOR ] camxapois.cpp:990 ExecuteProcessRequest() pdata is null
+06-01 20:25:19.048  1868  3329 E CamX    : [ERROR][SENSOR ] camxapois.cpp:990 ExecuteProcessRequest() pdata is null
+06-01 20:25:19.072  3005  5661 E libsensor-parseRGB: CWB NotifyCWBBufferDone  error 0
+06-01 20:25:19.120  1868  3329 E CamX    : [ERROR][SENSOR ] camxapois.cpp:990 ExecuteProcessRequest() pdata is null
+06-01 20:25:19.122  1868  3329 E CamX    : [ERROR][SENSOR ] camxapois.cpp:990 ExecuteProcessRequest() pdata is null
+06-01 20:25:19.176  1868  3333 E CamX    : [ERROR][SENSOR ] camxapois.cpp:990 ExecuteProcessRequest() pdata is null
+06-01 20:25:19.214  1868  3328 E CamX    : [ERROR][SENSOR ] camxapois.cpp:990 ExecuteProcessRequest() pdata is null
+06-01 20:25:19.239  1868  3333 E CamX    : [ERROR][SENSOR ] camxapois.cpp:990 ExecuteProcessRequest() pdata is null
+06-01 20:25:19.274  1868  3331 E CamX    : [ERROR][SENSOR ] camxapois.cpp:990 ExecuteProcessRequest() pdata is null
+06-01 20:25:19.289  3005  3039 E libsensor-parseRGB: CWB NotifyCWBBufferDone  error 0
+06-01 20:25:19.317  1868  3332 E CamX    : [ERROR][SENSOR ] camxapois.cpp:990 ExecuteProcessRequest() pdata is null
+06-01 20:25:19.336  1868  3331 E CamX    : [ERROR][SENSOR ] camxapois.cpp:990 ExecuteProcessRequest() pdata is null
+06-01 20:25:19.361 23960 15999 W RenderInspector: QueueBuffer time out on fr.yawatch.luna/fr.yawatch.luna.MainActivity, count=1, avg=374 ms, max=374 ms.
+06-01 20:25:19.376  1868  3330 E CamX    : [ERROR][SENSOR ] camxapois.cpp:990 ExecuteProcessRequest() pdata is null
+06-01 20:25:19.417  1868  3332 E CamX    : [ERROR][SENSOR ] camxapois.cpp:990 ExecuteProcessRequest() pdata is null
+06-01 20:25:19.448  1868  3329 E CamX    : [ERROR][SENSOR ] camxapois.cpp:990 ExecuteProcessRequest() pdata is null
+06-01 20:25:19.478  1868  3330 E CamX    : [ERROR][SENSOR ] camxapois.cpp:990 ExecuteProcessRequest() pdata is null
+06-01 20:25:19.521  1868  3328 E CamX    : [ERROR][SENSOR ] camxapois.cpp:990 ExecuteProcessRequest() pdata is null
+06-01 20:25:19.522  3005  5661 E libsensor-parseRGB: CWB NotifyCWBBufferDone  error 0
+06-01 20:25:19.540  1868  3329 E CamX    : [ERROR][SENSOR ] camxapois.cpp:990 ExecuteProcessRequest() pdata is null
+06-01 20:25:19.596  1868  3330 E CamX    : [ERROR][SENSOR ] camxapois.cpp:990 ExecuteProcessRequest() pdata is null
+06-01 20:25:19.635  1868  3332 E CamX    : [ERROR][SENSOR ] camxapois.cpp:990 ExecuteProcessRequest() pdata is null
+06-01 20:25:19.673  1868  3330 E CamX    : [ERROR][SENSOR ] camxapois.cpp:990 ExecuteProcessRequest() pdata is null
+06-01 20:25:19.694 18139 26318 E msys    : E[N mns:DGWClient]_LogError(290)=>Failed to resolve using system DNS resolver, getaddrinfo(): No address associated with hostname
+06-01 20:25:19.703  1868  3330 E CamX    : [ERROR][SENSOR ] camxapois.cpp:990 ExecuteProcessRequest() pdata is null
+06-01 20:25:19.705 18139 26318 E msys    : E[N mns:DGWClient]_LogError(290)=>Failed to resolve using system DNS resolver, getaddrinfo(): No address associated with hostname
+06-01 20:25:19.745  1868  3329 E CamX    : [ERROR][SENSOR ] camxapois.cpp:990 ExecuteProcessRequest() pdata is null
+06-01 20:25:19.773  3005  3039 E libsensor-parseRGB: CWB NotifyCWBBufferDone  error 0
+06-01 20:25:19.782  1868  3331 E CamX    : [ERROR][SENSOR ] camxapois.cpp:990 ExecuteProcessRequest() pdata is null
+06-01 20:25:19.814  1868  3329 E CamX    : [ERROR][SENSOR ] camxapois.cpp:990 ExecuteProcessRequest() pdata is null
+06-01 20:25:19.852  1868  3328 E CamX    : [ERROR][SENSOR ] camxapois.cpp:990 ExecuteProcessRequest() pdata is null
+06-01 20:25:19.895  1868  3331 E CamX    : [ERROR][SENSOR ] camxapois.cpp:990 ExecuteProcessRequest() pdata is null
+06-01 20:25:19.920  1868  3331 E CamX    : [ERROR][SENSOR ] camxapois.cpp:990 ExecuteProcessRequest() pdata is null
+06-01 20:25:19.972  3005  5661 E libsensor-parseRGB: CWB NotifyCWBBufferDone  error 0
+06-01 20:25:19.977  1868  3329 E CamX    : [ERROR][SENSOR ] camxapois.cpp:990 ExecuteProcessRequest() pdata is null
+06-01 20:25:20.009  1868  3330 E CamX    : [ERROR][SENSOR ] camxapois.cpp:990 ExecuteProcessRequest() pdata is null
+06-01 20:25:20.045  1868  3328 E CamX    : [ERROR][SENSOR ] camxapois.cpp:990 ExecuteProcessRequest() pdata is null
+06-01 20:25:20.082  1868  3333 E CamX    : [ERROR][SENSOR ] camxapois.cpp:990 ExecuteProcessRequest() pdata is null
+06-01 20:25:20.130  1868  3332 E CamX    : [ERROR][SENSOR ] camxapois.cpp:990 ExecuteProcessRequest() pdata is null
+06-01 20:25:20.158  1868  3330 E CamX    : [ERROR][SENSOR ] camxapois.cpp:990 ExecuteProcessRequest() pdata is null
+06-01 20:25:20.173  3005  5661 E libsensor-parseRGB: CWB NotifyCWBBufferDone  error 0
+06-01 20:25:20.215  1868  3329 E CamX    : [ERROR][SENSOR ] camxapois.cpp:990 ExecuteProcessRequest() pdata is null
+06-01 20:25:20.263  1868  3333 E CamX    : [ERROR][SENSOR ] camxapois.cpp:990 ExecuteProcessRequest() pdata is null
+06-01 20:25:20.265  2143  2143 I vendor.rmt_storage: wakelock acquired: 1, error no: 11
+06-01 20:25:20.284  2143  3338 I vendor.rmt_storage: rmt_storage_client_thread: /boot/modem_fs1: About to block rmt_storage client thread (th_id: 488597326976) wakelock released: 1, error no: 22
+06-01 20:25:20.316  1868  3332 E CamX    : [ERROR][SENSOR ] camxapois.cpp:990 ExecuteProcessRequest() pdata is null
+06-01 20:25:20.328  1868  3332 E CamX    : [ERROR][SENSOR ] camxapois.cpp:990 ExecuteProcessRequest() pdata is null
+06-01 20:25:20.366  1868  3331 E CamX    : [ERROR][SENSOR ] camxapois.cpp:990 ExecuteProcessRequest() pdata is null
+06-01 20:25:20.389  3005  5661 E libsensor-parseRGB: CWB NotifyCWBBufferDone  error 0
+06-01 20:25:20.407  1868  3330 E CamX    : [ERROR][SENSOR ] camxapois.cpp:990 ExecuteProcessRequest() pdata is null
+06-01 20:25:20.446  1868  3330 E CamX    : [ERROR][SENSOR ] camxapois.cpp:990 ExecuteProcessRequest() pdata is null
+06-01 20:25:20.468  1868  3332 E CamX    : [ERROR][SENSOR ] camxapois.cpp:990 ExecuteProcessRequest() pdata is null
+06-01 20:25:20.508  1868  3332 E CamX    : [ERROR][SENSOR ] camxapois.cpp:990 ExecuteProcessRequest() pdata is null
+06-01 20:25:20.539  1868  3332 E CamX    : [ERROR][SENSOR ] camxapois.cpp:990 ExecuteProcessRequest() pdata is null
+06-01 20:25:20.572  1868  3330 E CamX    : [ERROR][SENSOR ] camxapois.cpp:990 ExecuteProcessRequest() pdata is null
+06-01 20:25:20.606  3005  5661 E libsensor-parseRGB: CWB NotifyCWBBufferDone  error 0
+06-01 20:25:20.612  1868  3331 E CamX    : [ERROR][SENSOR ] camxapois.cpp:990 ExecuteProcessRequest() pdata is null
+06-01 20:25:20.645  1868  3328 E CamX    : [ERROR][SENSOR ] camxapois.cpp:990 ExecuteProcessRequest() pdata is null
+06-01 20:25:20.677  1868  3333 E CamX    : [ERROR][SENSOR ] camxapois.cpp:990 ExecuteProcessRequest() pdata is null
+06-01 20:25:20.716  1868  3331 E CamX    : [ERROR][SENSOR ] camxapois.cpp:990 ExecuteProcessRequest() pdata is null
+06-01 20:25:20.739  1868  3333 E CamX    : [ERROR][SENSOR ] camxapois.cpp:990 ExecuteProcessRequest() pdata is null
+06-01 20:25:20.775  1868  3329 E CamX    : [ERROR][SENSOR ] camxapois.cpp:990 ExecuteProcessRequest() pdata is null
+06-01 20:25:20.811  1868  3332 E CamX    : [ERROR][SENSOR ] camxapois.cpp:990 ExecuteProcessRequest() pdata is null
+06-01 20:25:20.822  3005  3039 E libsensor-parseRGB: CWB NotifyCWBBufferDone  error 0

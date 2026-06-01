@@ -1,0 +1,15 @@
+06-01 20:02:52.832  3005  3041 E libsensor-parseRGB: CWB NotifyCWBBufferDone  error 0
+06-01 20:02:52.921  6847  6969 V ScanController: onScanResult() - eventType=0x10, addressType=1, address=XX:XX:XX:XX:D6:22, primaryPhy=1, secondaryPhy=0, advertisingSid=0xff, txPower=127, rssi=-84, periodicAdvInt=0x0, originalAddress=3C:08:FA:F7:D6:22
+06-01 20:02:53.058  3005  3039 E libsensor-parseRGB: CWB NotifyCWBBufferDone  error 0
+06-01 20:02:53.341  3005  3041 E libsensor-parseRGB: CWB NotifyCWBBufferDone  error 0
+06-01 20:02:53.501  6847  6969 V ScanController: onScanResult() - eventType=0x10, addressType=1, address=XX:XX:XX:XX:D6:22, primaryPhy=1, secondaryPhy=0, advertisingSid=0xff, txPower=127, rssi=-87, periodicAdvInt=0x0, originalAddress=3C:08:FA:F7:D6:22
+06-01 20:02:53.557  3005  4170 E libsensor-parseRGB: CWB NotifyCWBBufferDone  error 0
+06-01 20:02:53.568  2578  3184 D GnssSsruImpl: onLocationPermissionsChanged provider:network packageName:com.android.camera
+06-01 20:02:53.568  2578  3184 D GnssSsruImpl: onLocationPermissionsChanged provider:passive packageName:com.android.camera
+06-01 20:02:53.636  4377  5231 E msgr.msys: E[D db_vacuum_logging]MCISQLiteLogDatabaseErrorWithFormat(81)=>Failed to get database connection or file url.: (0)(0) not an error
+06-01 20:02:53.749  3005  3041 E libsensor-parseRGB: CWB NotifyCWBBufferDone  error 0
+06-01 20:02:53.844 20053 32570 I AudioTrack: stop(sessionID=23809), packageName: fr.yawatch.luna
+06-01 20:02:53.928  3365  5105 E fb4a.FbnsAIDLClientManager: Fbns AIDL request got RemoteException
+06-01 20:02:53.928  3365  5105 E fb4a.FbnsAIDLClientManager: android.os.RemoteException: AIDLService is not bound
+06-01 20:02:53.943  2090  2691 D APM_AudioPolicyManager: stoptOutput() output 13, portId 4042, stream 3, session 23809, sample_rate 48000, format 0x5, channel_mask 0x3, appname fr.yawatch.luna)
+06-01 20:02:54.050  3005  4170 E libsensor-parseRGB: CWB NotifyCWBBufferDone  error 0
