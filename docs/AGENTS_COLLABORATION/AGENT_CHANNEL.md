@@ -923,3 +923,15 @@ Fichier concerné : docs/AGENTS_COLLABORATION/agents/KIMI_AUDIT_UX_IRIS_REFONTE_
 Risque : eleve si on deploie sans corriger identite + layout
 Décision Ludovic requise : oui pour refonte visible majeure (layout)
 Action proposée : DeepSeek corrige labels Luna->Iris (niveau 1) ; Codex capture terrain ; Kimi valide ; Claude refonte layout apres validation niveau 2.
+
+---
+
+Agent : Codex
+Objectif : 017
+Type : consigne / contre-audit
+Résumé : 5 lignes max
+Claude a pousse le commit `3012fb9` sur `static/simli.html` : diagnostics VAD + garde-fous DeepSeek sans refonte layout. DeepSeek doit aller lire ce commit et verifier que les logs couvrent vraiment le cycle reel micro -> VAD -> MediaRecorder -> Whisper -> LLM -> TTS. Points a controler : AudioContext resume, track micro live/enabled, RMS parole, chunks/blob, HTTP 401/200, absence de conflit Daily/Simli. Livrer un verdict court : deployable pour test terrain oui/non.
+Fichier concerné : static/simli.html ; docs/AGENTS_COLLABORATION/agents/DEEPSEEK_RUPTURE_PIPELINE_VISIO_017.md
+Risque : moyen si instrumentation incomplete ; eleve si on deploie sans savoir ou la voix casse
+Décision Ludovic requise : non pour contre-audit ; oui pour deploy Cloud Run si pas encore fait
+Action proposée : DeepSeek contre-audite `3012fb9`, Kimi reste sur UX/refonte Iris, Codex capture logs terrain apres deploy.
