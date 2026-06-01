@@ -1,129 +1,71 @@
-# Objectif 017 — Banc de test reel telephone Luna
+# Objectif 017 — Banc de test réel téléphone
 
 Date : 2026-06-01  
-Statut : ouvert  
-Priorite : haute, mais non destructive
+Propriétaire : Ludovic  
+Coordinateur : Claude  
+Validateurs : Codex (terrain), Kimi (UX), DeepSeek (audit risques)
+
+---
 
 ## But
 
-Utiliser le telephone Android de Ludovic en mode developpeur comme banc de test reel Luna, pour eviter que les agents travaillent uniquement depuis le code ou l'imagination.
+Créer un accès de preuve téléphone partageable entre les 4 IAs via GitHub,  
+sans casser l'app, sans actions sensibles, sans exposer de secrets.
 
-Le but n'est pas d'ajouter du bruit. Le but est d'aller plus vite :
+---
 
-- voir l'application reelle ;
-- tester bouton par bouton ;
-- capturer les logs utiles ;
-- proposer des corrections ciblees ;
-- ne pas casser le code existant ;
-- ne pas consommer inutilement les credits Twilio, Simli, ElevenLabs ou OpenAI.
+## Contraintes absolues
 
-## Principe de controle
+- ❌ Pas de SMS, appel, email, paiement, réservation
+- ❌ Pas de test Simli long (> 30s)
+- ❌ Pas d'ouverture de port public
+- ❌ Pas de clés API dans les captures
+- ✅ Captures push GitHub = seul mode de partage validé
 
-Un seul agent pilote le telephone a la fois.
+---
 
-Les autres agents ne pilotent pas directement. Ils lisent :
+## Preuves à capturer par session
 
-- captures ecran ;
-- logs Android/logcat ;
-- logs navigateur/F12 si disponibles ;
-- rapports courts publies sur GitHub.
+| Fichier | Commande ADB | Contenu |
+|---|---|---|
+| `adb_devices.txt` | `adb devices` | Statut connexion |
+| `screen.png` | `adb exec-out screencap -p` | Screenshot |
+| `logcat_tail.txt` | `adb logcat -d -v time \| tail -200` | Logs récents |
+| `app_info.txt` | `adb shell dumpsys package com.luna.app` | Version APK |
 
-## Roles
+---
 
-### Codex
+## Dossier de preuves
 
-- coordonne le banc de test ;
-- definit la target avant chaque test ;
-- capture ou demande les preuves minimales ;
-- met a jour GitHub ;
-- bloque les tests inutiles ou trop couteux.
-
-### Claude
-
-- code les correctifs apres preuve ;
-- peut deployer uniquement apres feu vert Ludovic ;
-- ne doit pas inventer l'UX sans preuve terrain.
-
-### Kimi
-
-- regarde les captures et le rendu reel ;
-- juge la qualite visuelle, la fluidite, la coherence Luna ;
-- signale toute regression graphique.
-
-### DeepSeek
-
-- audite les logs et les causes techniques ;
-- verifie les risques : permissions Android, WebView, ADB, micro/camera, auth, couts, crashs ;
-- propose des patchs minimaux.
-
-## Regles de test
-
-Avant chaque test, ecrire :
-
-```text
-Bouton / fonction :
-Objectif utilisateur :
-Etat attendu :
-Preuve attendue :
-Risque cout :
-Action sensible : oui/non
+```
+docs/AGENTS_COLLABORATION/phone_tests/<YYYY-MM-DD_HH-MM>/
+├── adb_devices.txt
+├── screen.png
+├── logcat_tail.txt
+└── app_info.txt
 ```
 
-Interdits sans validation Ludovic :
+---
 
-- SMS Twilio ;
-- appel reel ;
-- email reel ;
-- paiement ;
-- reservation ;
-- suppression de donnees ;
-- deploiement Cloud Run ;
-- test long Simli/ElevenLabs.
+## Script de capture
 
-## Preuves minimales
+`tools/agents/phone_snapshot.sh` — à lancer depuis la VM Linux (ADB disponible).
 
-Pour chaque test reel :
+---
 
-- capture ecran avant/apres ;
-- logs utiles uniquement, pas de dump enorme ;
-- verdict : OK / KO / partiel ;
-- fichier ou bouton concerne ;
-- prochaine action proposee.
+## Accès Codex depuis Windows
 
-## Outillage Windows
+Codex ne peut pas accéder à ADB directement (USB sur VM Linux).  
+Seul accès autorisé : **consulter les captures pushées sur GitHub**.
 
-Script prevu :
+Option avancée (non activée) : ADB over TCP — documenter si besoin.
 
-```powershell
-.\tools\agents\phone_snapshot.ps1
-```
+---
 
-Ce script doit rester non destructif :
+## Rapport de chaque IA
 
-- verifier `adb devices` ;
-- capturer un screenshot ;
-- capturer un court logcat ;
-- ne pas cliquer ;
-- ne pas taper ;
-- ne pas lancer d'action sensible.
-
-## Condition technique
-
-Actuellement, dans la session Windows Codex, `adb` n'est pas disponible dans le PATH.
-
-Action requise avant usage :
-
-- installer Android Platform Tools, ou
-- ajouter le dossier contenant `adb.exe` au PATH Windows, ou
-- lancer les tests depuis la machine/session ou ADB fonctionne deja.
-
-## Definition de succes
-
-Le banc de test est valide quand :
-
-- `adb devices` voit le telephone en `device` ;
-- une capture ecran est produite ;
-- un logcat court est produit ;
-- les fichiers sont ranges dans `docs/AGENTS_COLLABORATION/phone_tests/` ou autre dossier dedie ;
-- les agents peuvent commenter les preuves sur GitHub.
-
+Chaque IA publie dans `docs/AGENTS_COLLABORATION/agents/` :
+- `CLAUDE_PHONE_ACCESS_017.md` — capture + diagnostic
+- `CODEX_PHONE_REVIEW_017.md` — lecture captures GitHub
+- `KIMI_PHONE_UX_017.md` — audit UX depuis captures
+- `DEEPSEEK_PHONE_RISK_017.md` — audit risques

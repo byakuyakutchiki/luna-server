@@ -1,0 +1,910 @@
+06-01 17:44:07.643 D/MiuiDecorationController( 4869): relayout::taskId=4709, visible=false, bounds=Rect(0, 0 - 1220, 2712), focused=false, oldImmersive=false, newImmersive=false, windowMode=1, activityType=1, displayId=0, baseActivity=ComponentInfo{com.android.chrome/org.chromium.chrome.browser.ChromeTabbedActivity}, topActivity=ComponentInfo{com.android.chrome/org.chromium.chrome.browser.ChromeTabbedActivity}, callers=com.android.wm.shell.multitasking.miuimultiwinswitch.miuiwindowdecor.decoration.MiuiDecorationController.relayout:4 com.android.wm.shell.multitasking.miuimultiwinswitch.miuiwindowdecor.MulWinSwitchDecorViewModel.lambda$relayoutDecorations$11:5 com.android.wm.shell.multitasking.miuimultiwinswitch.miuiwindowdecor.MulWinSwitchDecorViewModel.$r8$lambda$MqSeEEmyfz6mNfEbbBsEI7ZCbd0:1 com.android.wm.shell.multitasking.miuimultiwinswitch.miuiwindowdecor.MulWinSwitchDecorViewModel$$ExternalSyntheticLambda9.accept:10 java.util.concurrent.ConcurrentHashMap.forEach:1608 
+06-01 17:44:07.666 D/MiuiDecorationController( 4869): relayout::taskId=4709, visible=false, bounds=Rect(0, 0 - 1220, 2712), focused=false, oldImmersive=false, newImmersive=false, windowMode=1, activityType=1, displayId=0, baseActivity=ComponentInfo{com.android.chrome/org.chromium.chrome.browser.ChromeTabbedActivity}, topActivity=ComponentInfo{com.android.chrome/org.chromium.chrome.browser.ChromeTabbedActivity}, callers=com.android.wm.shell.multitasking.miuimultiwinswitch.miuiwindowdecor.decoration.MiuiDecorationController.relayout:4 com.android.wm.shell.multitasking.miuimultiwinswitch.miuiwindowdecor.decoration.MiuiDecorationController.updateNeedShowAndRelayout:38 com.android.wm.shell.multitasking.miuimultiwinswitch.miuiwindowdecor.MulWinSwitchDecorViewModel.lambda$disable$4:3 com.android.wm.shell.multitasking.miuimultiwinswitch.miuiwindowdecor.MulWinSwitchDecorViewModel.$r8$lambda$lfZznhn5bTM5EA7GvCf8XHKgFAY:1 com.android.wm.shell.multitasking.miuimultiwinswitch.miuiwindowdecor.MulWinSwitchDecorViewModel$$ExternalSyntheticLambda6.accept:12 
+06-01 17:44:20.239 D/RemoteTransitionHandler( 4869): Found filterPair{{types=[] flags=0x0] notFlags=0xb900 checks=[{atype=home independent=true modes=[OPEN,TO_FRONT] flags=NONE mustBeTask=false order=TOP topActivity=ComponentInfo{com.miui.home/com.miui.home.launcher.Launcher} launchCookie=null windowingMode=undefined},{atype=standard independent=true modes=[CLOSE,TO_BACK] flags=NONE mustBeTask=false order=ANY topActivity=null launchCookie=null windowingMode=undefined},{NOT atype=undefined independent=true modes=[] flags=NONE mustBeTask=false order=ANY topActivity=ComponentInfo{com.android.settings/com.android.settings.provision.ProvisionCongratulationActivity} launchCookie=null windowingMode=undefined},{NOT atype=standard independent=true modes=[TO_FRONT] flags=NONE mustBeTask=false order=TOP topActivity=null launchCookie=null windowingMode=undefined}]} RemoteTransition { remoteTransition = android.window.IRemoteTransition$Stub$Proxy@8804027, appThread = null, debugName = 10165:4402-com.miui.home.recents.QuickstepAppTransitionManagerImpl$1, hyperRemoteTransition = null }}
+06-01 17:44:22.096 I/SmartPower: com.google.android.webview:sandboxed_process0:org.chromium.content.app.SandboxedProcessServiceidle->background(1174134ms) R(add to whitelist) adj=101.
+06-01 17:44:25.103 I/SmartPower: com.google.android.webview:sandboxed_process0:org.chromium.content.app.SandboxedProcessServicebackground->idle(3007ms) R(adj below visible) adj=101.
+06-01 17:44:52.975 D/SSRU-CpuResourceTracker( 2578): [deal]doCpuMonitor:AppCpuState{uid=90001, pkgName='pkg_90001', usages=0.041, duringTime=120312, details={com.android.chrome_sandboxed_process0_org.chromium.content.app.SandboxedProcessService0_1=0.041}, state=0, stateUpdateTime={}, restricter=0}
+06-01 17:44:52.975 D/SSRU-CpuResourceTracker( 2578): [deal]doCpuMonitor:AppCpuState{uid=99000, pkgName='pkg_99000', usages=0.008, duringTime=120292, details={com.google.android.webview_sandboxed_process0_org.chromium.content.app.SandboxedProcessService0_0=0.008}, state=0, stateUpdateTime={}, restricter=0}
+06-01 17:44:52.975 D/SSRU-CpuResourceTracker( 2578): [deal]doCpuMonitor:AppCpuState{uid=99110, pkgName='pkg_99110', usages=0.008, duringTime=240512, details={com.google.android.webview_sandboxed_process0_org.chromium.content.app.SandboxedProcessService0_0=0.008}, state=0, stateUpdateTime={}, restricter=0}
+06-01 17:44:52.975 D/SSRU-CpuResourceTracker( 2578): [deal]doCpuMonitor:AppCpuState{uid=99202, pkgName='pkg_99202', usages=0.004, duringTime=240582, details={com.google.android.webview_sandboxed_process0_org.chromium.content.app.SandboxedProcessService0_0=0.004}, state=0, stateUpdateTime={}, restricter=0}
+06-01 17:44:52.975 D/SSRU-CpuResourceTracker( 2578): [deal]doCpuMonitor:AppCpuState{uid=99207, pkgName='pkg_99207', usages=0.008, duringTime=120303, details={com.google.android.webview_sandboxed_process0_org.chromium.content.app.SandboxedProcessService0_0=0.008}, state=0, stateUpdateTime={}, restricter=0}
+06-01 17:44:52.975 D/SSRU-CpuResourceTracker( 2578): [deal]doCpuMonitor:AppCpuState{uid=99249, pkgName='pkg_99249', usages=0.008, duringTime=120292, details={com.google.android.webview_sandboxed_process0_org.chromium.content.app.SandboxedProcessService0_0=0.008}, state=0, stateUpdateTime={}, restricter=0}
+06-01 17:45:25.647 I/ActivityManager( 2578): Killing 6652:com.google.android.webview:sandboxed_process0:org.chromium.content.app.SandboxedProcessService0:0/u0a338i247 (adj 905): isolated not needed
+06-01 17:45:25.647 I/ActivityManager( 2578): note: ProcessRecord{3d183c1 6652:com.google.android.webview:sandboxed_process0:org.chromium.content.app.SandboxedProcessService0:0/u0a338i247} is being killed, reason: OTHER KILLS BY SYSTEM, sub-reason: ISOLATED NOT NEEDED, message: isolated not needed
+06-01 17:45:25.698 I/ActivityManager( 2578): note: ProcessRecord{3d183c1 6652:com.google.android.webview:sandboxed_process0:org.chromium.content.app.SandboxedProcessService0:0/u0a338i247} died, saving the exit info
+06-01 17:45:39.399 D/RemoteTransitionHandler( 4869): Found filterPair{{types=[] flags=0x0] notFlags=0xb900 checks=[{atype=home independent=true modes=[OPEN,TO_FRONT] flags=NONE mustBeTask=false order=TOP topActivity=ComponentInfo{com.miui.home/com.miui.home.launcher.Launcher} launchCookie=null windowingMode=undefined},{atype=standard independent=true modes=[CLOSE,TO_BACK] flags=NONE mustBeTask=false order=ANY topActivity=null launchCookie=null windowingMode=undefined},{NOT atype=undefined independent=true modes=[] flags=NONE mustBeTask=false order=ANY topActivity=ComponentInfo{com.android.settings/com.android.settings.provision.ProvisionCongratulationActivity} launchCookie=null windowingMode=undefined},{NOT atype=standard independent=true modes=[TO_FRONT] flags=NONE mustBeTask=false order=TOP topActivity=null launchCookie=null windowingMode=undefined}]} RemoteTransition { remoteTransition = android.window.IRemoteTransition$Stub$Proxy@8804027, appThread = null, debugName = 10165:4402-com.miui.home.recents.QuickstepAppTransitionManagerImpl$1, hyperRemoteTransition = null }}
+06-01 17:45:43.096 I/ActivityManager( 2578): Start proc 8491:com.android.chrome:privileged_process6/u0a193 for service {com.android.chrome/org.chromium.content.app.PrivilegedProcessService6} caller=com.android.chrome
+06-01 17:45:46.266 I/SmartPower: com.android.chrome:privileged_process6/10193(8491)( 2578): background->idle(3209ms) R(service end com.android.chrome/org.chromium.content.app.PrivilegedProcessService6) adj=902.
+06-01 17:45:47.588 I/SmartPower: com.google.android.webview:sandboxed_process0:org.chromium.content.app.SandboxedProcessServiceidle->background(82485ms) R(add to whitelist) adj=101.
+06-01 17:45:48.383 I/ActivityManager( 2578): Start proc 9457:com.google.android.rkpdapp/u0a500 for service {com.google.android.rkpdapp/com.android.rkpdapp.service.RemoteProvisioningService} caller=android
+06-01 17:45:48.550 I/SmartPower: com.google.android.webview:sandboxed_process0:org.chromium.content.app.SandboxedProcessService-1->background(0ms) R(become background) adj=-10000.
+06-01 17:45:48.552 I/ActivityManager( 2578): Posting procStart msg for 0:com.google.android.webview:sandboxed_process0:org.chromium.content.app.SandboxedProcessService0:0/u0a350i251
+06-01 17:45:48.725 I/ActivityManager( 2578): Start proc 9496:com.google.android.webview:sandboxed_process0:org.chromium.content.app.SandboxedProcessService0:0/u0i251 for  {com.openai.chatgpt/org.chromium.content.app.SandboxedProcessService0:0} caller=com.openai.chatgpt
+06-01 17:45:49.110 I/ActivityManager( 2578): Start proc 9567:com.android.chrome:privileged_process8/u0a193 for service {com.android.chrome/org.chromium.content.app.PrivilegedProcessService8} caller=com.android.chrome
+06-01 17:45:50.799 I/SmartPower: com.google.android.webview:sandboxed_process0:org.chromium.content.app.SandboxedProcessServicebackground->idle(3211ms) R(adj below visible) adj=101.
+06-01 17:45:52.251 I/SmartPower: com.android.chrome:privileged_process8/10193(9567)( 2578): background->idle(3180ms) R(service end com.android.chrome/org.chromium.content.app.PrivilegedProcessService8) adj=910.
+06-01 17:46:14.986 I/SoScStageCoordinator( 4869): Transition requested:TransitionRequestInfo { type = OPEN, triggerTask = TaskInfo{userId=0 taskId=4523 effectiveUid=10350 displayId=0 isRunning=true baseIntent=Intent { act=android.intent.action.MAIN cat=[android.intent.category.LAUNCHER] flg=0x10200000 cmp=com.openai.chatgpt/.MainActivity } baseActivity=ComponentInfo{com.openai.chatgpt/com.openai.chatgpt.MainActivity} topActivity=ComponentInfo{com.android.chrome/org.chromium.chrome.browser.document.ChromeLauncherActivity} origActivity=null realActivity=ComponentInfo{com.openai.chatgpt/com.openai.chatgpt.MainActivity} numActivities=2 lastActiveTime=281005589 supportsSplitScreenMultiWindow=true mSoScDisplayMode=-1 supportsMultiWindow=true resizeMode=2 isResizeable=true minWidth=-1 minHeight=-1 defaultMinSize=200 token=WCT{android.window.IWindowContainerToken$Stub$Proxy@640efb7} topActivityType=1 pictureInPictureParams=null shouldDockBigOverlays=false launchIntoPipHostTaskId=-1 lastParentTaskIdBeforePip=-1 displayCutoutSafeInsets=Rect(0, 0 - 0, 0) topActivityInfo=ActivityInfo{13a0324 com.google.android.apps.chrome.IntentDispatcher} launchCookies=[] positionInParent=Point(0, 0) parentTaskId=-1 isFocused=true isVisible=true isVisibleRequested=true isTopActivityNoDisplay=true isSleeping=false locusId=null displayAreaFeatureId=1 isTopActivityTransparent=true isActivityStackTransparent=false lastNonFullscreenBounds=Rect(305, 740 - 915, 1960) capturedLink=https://snapcalorie.com?utm_source=chatgpt.com capturedLinkTimestamp=0 requestedVisibleTypes=-9 topActivityRequestOpenInBrowserEducationTimestamp=0 appCompatTaskInfo=AppCompatTaskInfo { topActivityInSizeCompat=false eligibleForLetterboxEducation= false topActivityInMiuiSizeCompat=false isLetterboxEducationEnabled= false isLetterboxDoubleTapEnabled= false eligibleForUserAspectRatioButton= false topActivityBoundsLetterboxed= false isFromLetterboxDoubleTap= false topActivityLetterboxVerticalPosition= -1 topActivityLetterboxHorizontalPosition= -1 topActivityLetterboxWidth=-1 topActivityLetterboxHeight=-1 topActivityAppBounds=Rect(0, 0 - 1220, 2712) isUserFullscreenOverrideEnabled=false isSystemFullscreenOverrideEnabled=false hasMinAspectRatioOverride=false topActivityLetterboxBounds=null cameraCompatTaskInfo=CameraCompatTaskInfo { freeformCameraCompatMode=inactive}} isImmersive=false mTopActivityRequestOrientation=-1 mStatusBarParent=null mNavBarParent=null mBehindAppLockPkg=null mOriginatingUid=0 isEmbedded=false shouldBeVisible=true isCreatedByOrganizer=false mIsCastMode=false mTopActivityMediaSize=null mTopActivityRecordName=ActivityRecord{45219829 u0 com.android.chrome/com.google.android.apps.chrome.IntentDispatcher t4523} mTopActivityOrientation=-2 topActivityMainWindowFrame=null}, pipChange = null, remoteTransition = null, displayChange = null, flags = 0, debugId = 3290 } isSoScActive:false triggerTask:TaskInfo{userId=0 taskId=4523 effectiveUid=10350 displayId=0 isRunning=true baseIntent=Intent { act=android.intent.action.MAIN cat=[android.intent.category.LAUNCHER] flg=0x10200000 cmp=com.openai.chatgpt/.MainActivity } baseActivity=ComponentInfo{com.openai.chatgpt/com.openai.chatgpt.MainActivity} topActivity=ComponentInfo{com.android.chrome/org.chromium.chrome.browser.document.ChromeLauncherActivity} origActivity=null realActivity=ComponentInfo{com.openai.chatgpt/com.openai.chatgpt.MainActivity} numActivities=2 lastActiveTime=281005589 supportsSplitScreenMultiWindow=true mSoScDisplayMode=-1 supportsMultiWindow=true resizeMode=2 isResizeable=true minWidth=-1 minHeight=-1 defaultMinSize=200 token=WCT{android.window.IWindowContainerToken$Stub$Proxy@640efb7} topActivityType=1 pictureInPictureParams=null shouldDockBigOverlays=false launchIntoPipHostTaskId=-1 lastParentTaskIdBeforePip=-1 displayCutoutSafeInsets=Rect(0, 0 - 0, 0) topActivityInfo=ActivityInfo{13a0324 com.google.android.apps.chrome.IntentDispatcher} launchCookies=[] positionInParent=Point(0, 0) parentTaskId=-1 isFocused=true isVisible=true isVisibleRequested=true isTopActivityNoDisplay=true isSleeping=false locusId=null
+06-01 17:46:14.992 D/MiuiDecorationController( 4869): relayout::taskId=4523, visible=true, bounds=Rect(0, 0 - 1220, 2712), focused=true, oldImmersive=false, newImmersive=false, windowMode=1, activityType=1, displayId=0, baseActivity=ComponentInfo{com.openai.chatgpt/com.openai.chatgpt.MainActivity}, topActivity=ComponentInfo{com.android.chrome/org.chromium.chrome.browser.document.ChromeLauncherActivity}, callers=com.android.wm.shell.multitasking.miuimultiwinswitch.miuiwindowdecor.decoration.MiuiDecorationController.relayout:4 com.android.wm.shell.multitasking.miuimultiwinswitch.miuiwindowdecor.MulWinSwitchDecorViewModel.onTaskInfoChanged:18 com.android.wm.shell.multitasking.common.taskmanager.MultiTaskingTaskListener.onTaskInfoChanged:47 com.android.wm.shell.ShellTaskOrganizer.onTaskInfoChanged:136 android.window.TaskOrganizer$1.lambda$onTaskInfoChanged$6:300 
+06-01 17:46:15.001 D/MiuiDecorationController( 4869): relayout::taskId=4523, visible=true, bounds=Rect(0, 0 - 1220, 2712), focused=true, oldImmersive=false, newImmersive=false, windowMode=1, activityType=1, displayId=0, baseActivity=ComponentInfo{com.openai.chatgpt/com.openai.chatgpt.MainActivity}, topActivity=ComponentInfo{com.android.chrome/org.chromium.chrome.browser.document.ChromeLauncherActivity}, callers=com.android.wm.shell.multitasking.miuimultiwinswitch.miuiwindowdecor.decoration.MiuiDecorationController.relayout:4 com.android.wm.shell.multitasking.miuimultiwinswitch.miuiwindowdecor.MulWinSwitchDecorViewModel.onTaskInfoChanged:18 com.android.wm.shell.multitasking.common.taskmanager.MultiTaskingTaskListener.onTaskInfoChanged:47 com.android.wm.shell.ShellTaskOrganizer.onTaskInfoChanged:136 android.window.TaskOrganizer$1.lambda$onTaskInfoChanged$6:300 
+06-01 17:46:15.481 I/SmartPower: com.android.chrome:sandboxed_process0:org.chromium.content.app.SandboxedProcessService0:12/900-1->background(0ms) R(become background) adj=-10000.
+06-01 17:46:15.482 I/ActivityManager( 2578): Posting procStart msg for 0:com.android.chrome:sandboxed_process0:org.chromium.content.app.SandboxedProcessService0:12/u0a193i-8988
+06-01 17:46:15.540 I/ActivityManager( 2578): Start proc 9957:com.android.chrome:sandboxed_process0:org.chromium.content.app.SandboxedProcessService0:12/u0ai12 for  {com.android.chrome/org.chromium.content.app.SandboxedProcessService0:12} caller=com.android.chrome
+06-01 17:46:15.546 D/WindowManager( 2578): Collecting in transition 3290: ActivityRecord{104291128 u0 com.android.chrome/org.chromium.chrome.browser.customtabs.CustomTabActivity init visibleRequested:false dc:null
+06-01 17:46:15.551 D/WindowManager( 2578): All the checks have been done, return STARTING_WINDOW_TYPE_NONE. this = ActivityRecord{104291128 u0 com.android.chrome/org.chromium.chrome.browser.customtabs.CustomTabActivity t4523}
+06-01 17:46:15.551 I/WindowManager( 2578): Try to add startingWindow type = STARTING_WINDOW_TYPE_NONE this = ActivityRecord{104291128 u0 com.android.chrome/org.chromium.chrome.browser.customtabs.CustomTabActivity t4523} mOccludesParent = true preAllowTaskSnapshot = true afterAllowTaskSnapshot = true newTask = false taskSwitch = false processRunning = true activityCreated = false activityAllDrawn = false isSnapshotCompatible = false snapshotRotation = NaN resolvedTheme = 2132084462 theme = 2132084462
+06-01 17:46:15.552 D/WindowManager( 2578):    ChangeInfo{d7cc677 container=ActivityRecord{104291128 u0 com.android.chrome/org.chromium.chrome.browser.customtabs.CustomTabActivity t4523} flags=0x0}
+06-01 17:46:15.552 D/WindowManager( 2578): Collecting in transition 3290: ActivityRecord{104291128 u0 com.android.chrome/org.chromium.chrome.browser.customtabs.CustomTabActivity t4523} init visibleRequested:false dc:Display{#0 state=ON size=1220x2712 ROTATION_0}
+06-01 17:46:15.552 D/Transition( 2578): setReady 3290 wc=ActivityRecord{104291128 u0 com.android.chrome/org.chromium.chrome.browser.customtabs.CustomTabActivity t4523} ready=false
+06-01 17:46:15.552 D/WindowManager( 2578):    ChangeInfo{d7cc677 container=ActivityRecord{104291128 u0 com.android.chrome/org.chromium.chrome.browser.customtabs.CustomTabActivity t4523} flags=0x0}
+06-01 17:46:15.554 I/ActivityTaskManager( 2578): START u0 {act=android.intent.action.VIEW dat=https://snapcalorie.com/... flg=0x2800000 xflg=0x4 cmp=com.android.chrome/org.chromium.chrome.browser.customtabs.CustomTabActivity (has extras)} with LAUNCH_MULTIPLE from uid 10193 from pid 19235 callingPackage com.android.chrome (sr=45219829) (BAL_ALLOW_VISIBLE_WINDOW) result code=0
+06-01 17:46:15.554 I/Perf[AppStartScene]( 2578): onSceneChangeNotify:Bundle[{renderThreadId=31409, applicationThread=android.os.BinderProxy@5278ca0, pid=19235, uid=10193, name=org.chromium.chrome.browser.customtabs.CustomTabActivity, type=1, begin=true, state=2, processName=com.android.chrome, packageName=com.android.chrome, homeApp=false, appSwitch=false}]
+06-01 17:46:15.559 D/MiuiDecorationController( 4869): relayout::taskId=4523, visible=true, bounds=Rect(0, 0 - 1220, 2712), focused=true, oldImmersive=false, newImmersive=false, windowMode=1, activityType=1, displayId=0, baseActivity=ComponentInfo{com.openai.chatgpt/com.openai.chatgpt.MainActivity}, topActivity=ComponentInfo{com.android.chrome/org.chromium.chrome.browser.customtabs.CustomTabActivity}, callers=com.android.wm.shell.multitasking.miuimultiwinswitch.miuiwindowdecor.decoration.MiuiDecorationController.relayout:4 com.android.wm.shell.multitasking.miuimultiwinswitch.miuiwindowdecor.MulWinSwitchDecorViewModel.onTaskInfoChanged:18 com.android.wm.shell.multitasking.common.taskmanager.MultiTaskingTaskListener.onTaskInfoChanged:47 com.android.wm.shell.ShellTaskOrganizer.onTaskInfoChanged:136 android.window.TaskOrganizer$1.lambda$onTaskInfoChanged$6:300 
+06-01 17:46:15.561 E/TransitionChain( 2578):    ChangeInfo{d7cc677 container=ActivityRecord{104291128 u0 com.android.chrome/org.chromium.chrome.browser.customtabs.CustomTabActivity t4523} flags=0x0}
+06-01 17:46:15.561 E/TransitionChain( 2578):    ChangeInfo{d7cc677 container=ActivityRecord{104291128 u0 com.android.chrome/org.chromium.chrome.browser.customtabs.CustomTabActivity t4523} flags=0x0}
+06-01 17:46:15.603 D/WindowManager( 2578): Collecting in transition 3290: ActivityRecord{104291128 u0 com.android.chrome/org.chromium.chrome.browser.customtabs.CustomTabActivity t4523} init visibleRequested:false dc:Display{#0 state=ON size=1220x2712 ROTATION_0}
+06-01 17:46:15.607 D/WindowManager( 2578): Collecting in transition 3290: ActivityRecord{104291128 u0 com.android.chrome/org.chromium.chrome.browser.customtabs.CustomTabActivity t4523} init visibleRequested:true dc:Display{#0 state=ON size=1220x2712 ROTATION_0}
+06-01 17:46:15.611 D/WindowManager( 2578):    ChangeInfo{d7cc677 container=ActivityRecord{104291128 u0 com.android.chrome/org.chromium.chrome.browser.customtabs.CustomTabActivity t4523} flags=0x0}
+06-01 17:46:15.613 D/MiuiDecorationController( 4869): relayout::taskId=4523, visible=true, bounds=Rect(0, 0 - 1220, 2712), focused=true, oldImmersive=false, newImmersive=false, windowMode=1, activityType=1, displayId=0, baseActivity=ComponentInfo{com.openai.chatgpt/com.openai.chatgpt.MainActivity}, topActivity=ComponentInfo{com.android.chrome/org.chromium.chrome.browser.customtabs.CustomTabActivity}, callers=com.android.wm.shell.multitasking.miuimultiwinswitch.miuiwindowdecor.decoration.MiuiDecorationController.relayout:4 com.android.wm.shell.multitasking.miuimultiwinswitch.miuiwindowdecor.MulWinSwitchDecorViewModel.onTaskInfoChanged:18 com.android.wm.shell.multitasking.common.taskmanager.MultiTaskingTaskListener.onTaskInfoChanged:47 com.android.wm.shell.ShellTaskOrganizer.onTaskInfoChanged:136 android.window.TaskOrganizer$1.lambda$onTaskInfoChanged$6:300 
+06-01 17:46:15.616 I/BLASTSyncEngine( 2578): SyncGroup 3290:  Unfinished container:ActivityRecord{104291128 u0 com.android.chrome/org.chromium.chrome.browser.customtabs.CustomTabActivity t4523}
+06-01 17:46:15.616 I/BLASTSyncEngine( 2578): isActivitySyncFinished isSyncFinished false ActivityRecord{104291128 u0 com.android.chrome/org.chromium.chrome.browser.customtabs.CustomTabActivity t4523}
+06-01 17:46:15.627 E/TransitionChain( 2578):    ChangeInfo{d7cc677 container=ActivityRecord{104291128 u0 com.android.chrome/org.chromium.chrome.browser.customtabs.CustomTabActivity t4523} flags=0x0}
+06-01 17:46:15.627 E/TransitionChain( 2578):    ChangeInfo{d7cc677 container=ActivityRecord{104291128 u0 com.android.chrome/org.chromium.chrome.browser.customtabs.CustomTabActivity t4523} flags=0x0}
+06-01 17:46:15.728 D/Activity(19235): Activity = ActivityInfo{82eed49 org.chromium.chrome.browser.customtabs.CustomTabActivity}, Resume onConfigurationChanged = {1.0 208mcc10mnc [fr_FR] ldltr sw407dp w407dp h904dp 480dpi nrml long hdr widecg port finger -keyb/v/h -nav/h winConfig={ mBounds=Rect(0, 0 - 1220, 2712) mAppBounds=Rect(0, 0 - 1220, 2712) mMaxBounds=Rect(0, 0 - 1220, 2712) mDisplayRotation=ROTATION_0 mWindowingMode=fullscreen mActivityType=standard mAlwaysOnTop=undefined mRotation=ROTATION_0 mInSplitScreen=false letterBoxed=false foScaled=false isSpecificEmbedded=false embeddingScale=1.0} s.2 fontWeightAdjustment=0/d/0 themeChanged=0 themeChangedFlags=0 display=0 extraData = Bundle[{}] screenType=0/0}
+06-01 17:46:15.764 D/MiuiDecorationController( 4869): relayout::taskId=4523, visible=true, bounds=Rect(0, 0 - 1220, 2712), focused=true, oldImmersive=false, newImmersive=false, windowMode=1, activityType=1, displayId=0, baseActivity=ComponentInfo{com.openai.chatgpt/com.openai.chatgpt.MainActivity}, topActivity=ComponentInfo{com.android.chrome/org.chromium.chrome.browser.customtabs.CustomTabActivity}, callers=com.android.wm.shell.multitasking.miuimultiwinswitch.miuiwindowdecor.decoration.MiuiDecorationController.relayout:4 com.android.wm.shell.multitasking.miuimultiwinswitch.miuiwindowdecor.MulWinSwitchDecorViewModel.onTaskInfoChanged:18 com.android.wm.shell.multitasking.common.taskmanager.MultiTaskingTaskListener.onTaskInfoChanged:47 com.android.wm.shell.ShellTaskOrganizer.onTaskInfoChanged:136 android.window.TaskOrganizer$1.lambda$onTaskInfoChanged$6:300 
+06-01 17:46:15.769 E/TransitionChain( 2578):    ChangeInfo{d7cc677 container=ActivityRecord{104291128 u0 com.android.chrome/org.chromium.chrome.browser.customtabs.CustomTabActivity t4523} flags=0x0}
+06-01 17:46:15.769 E/TransitionChain( 2578):    ChangeInfo{d7cc677 container=ActivityRecord{104291128 u0 com.android.chrome/org.chromium.chrome.browser.customtabs.CustomTabActivity t4523} flags=0x0}
+06-01 17:46:15.772 D/CoreBackPreview( 2578): Window{8981f0a u0 com.android.chrome/org.chromium.chrome.browser.customtabs.CustomTabActivity}: Setting back callback OnBackInvokedCallbackInfo{mCallback=android.window.IOnBackInvokedCallback$Stub$Proxy@e996e29, mPriority=-1, mIsAnimationCallback=false, mOverrideBehavior=0}
+06-01 17:46:15.780 I/BLASTSyncEngine( 2578): SyncGroup 3290:  Unfinished container:ActivityRecord{104291128 u0 com.android.chrome/org.chromium.chrome.browser.customtabs.CustomTabActivity t4523}
+06-01 17:46:15.780 I/BLASTSyncEngine( 2578): isActivitySyncFinished isSyncFinished false ActivityRecord{104291128 u0 com.android.chrome/org.chromium.chrome.browser.customtabs.CustomTabActivity t4523}
+06-01 17:46:15.780 D/MiuiDecorationController( 4869): relayout::taskId=4523, visible=true, bounds=Rect(0, 0 - 1220, 2712), focused=true, oldImmersive=false, newImmersive=false, windowMode=1, activityType=1, displayId=0, baseActivity=ComponentInfo{com.openai.chatgpt/com.openai.chatgpt.MainActivity}, topActivity=ComponentInfo{com.android.chrome/org.chromium.chrome.browser.customtabs.CustomTabActivity}, callers=com.android.wm.shell.multitasking.miuimultiwinswitch.miuiwindowdecor.decoration.MiuiDecorationController.relayout:4 com.android.wm.shell.multitasking.miuimultiwinswitch.miuiwindowdecor.MulWinSwitchDecorViewModel.onTaskInfoChanged:18 com.android.wm.shell.multitasking.common.taskmanager.MultiTaskingTaskListener.onTaskInfoChanged:47 com.android.wm.shell.ShellTaskOrganizer.onTaskInfoChanged:136 android.window.TaskOrganizer$1.lambda$onTaskInfoChanged$6:300 
+06-01 17:46:15.781 D/BarFollowAnimation( 2578): isAppTaskBarOnTop win:Window{8981f0a u0 com.android.chrome/org.chromium.chrome.browser.customtabs.CustomTabActivity} (mCurrentTopTask:Task{643f676 #4523 type=standard A=10350:com.openai.chatgpt} : true); (mAssociatedTask:Task{643f676 #4523 type=standard A=10350:com.openai.chatgpt} : true); (mHomeTask:Task{577fe23 #1 type=home} : false); mReparentToOriginParent:false mLastAppBarVisible:true mLastHomeBarVisible:false
+06-01 17:46:15.784 D/WindowManager( 2578): updateSystemBarAttributes displayId: 16777216 Window{8981f0a u0 com.android.chrome/org.chromium.chrome.browser.customtabs.CustomTabActivity} winAppearance=LIGHT_STATUS_BARS LIGHT_NAVIGATION_BARS
+06-01 17:46:15.784 D/WindowManager( 2578): wms.Input focus has changed to Window{8981f0a u0 com.android.chrome/org.chromium.chrome.browser.customtabs.CustomTabActivity} display=0 updateInputWindows = true
+06-01 17:46:15.786 E/TransitionChain( 2578):    ChangeInfo{d7cc677 container=ActivityRecord{104291128 u0 com.android.chrome/org.chromium.chrome.browser.customtabs.CustomTabActivity t4523} flags=0x0}
+06-01 17:46:15.786 E/TransitionChain( 2578):    ChangeInfo{d7cc677 container=ActivityRecord{104291128 u0 com.android.chrome/org.chromium.chrome.browser.customtabs.CustomTabActivity t4523} flags=0x0}
+06-01 17:46:15.839 D/WindowManager( 2578): wms.finishDrawingLocked: mDrawState=COMMIT_DRAW_PENDING Window{8981f0a u0 com.android.chrome/org.chromium.chrome.browser.customtabs.CustomTabActivity} in Surface(name=com.android.chrome/org.chromium.chrome.browser.customtabs.CustomTabActivity#58835)/@0x39a95ae
+06-01 17:46:15.842 D/BarFollowAnimation( 2578): isAppTaskBarOnTop win:Window{8981f0a u0 com.android.chrome/org.chromium.chrome.browser.customtabs.CustomTabActivity} (mCurrentTopTask:Task{643f676 #4523 type=standard A=10350:com.openai.chatgpt} : true); (mAssociatedTask:Task{643f676 #4523 type=standard A=10350:com.openai.chatgpt} : true); (mHomeTask:Task{577fe23 #1 type=home} : false); mReparentToOriginParent:false mLastAppBarVisible:true mLastHomeBarVisible:false
+06-01 17:46:15.843 D/ViewRootImplStubImpl(19235): , vri:android.view.ViewRootImpl@a3e52d1, com.android.chrome/org.chromium.chrome.browser.customtabs.CustomTabActivity
+06-01 17:46:15.843 D/ViewRootImplStubImpl(19235): , surfaceView:android.view.SurfaceView{17ea95a V.E...... ......ID 0,0-1220,2440}, SurfaceView[com.android.chrome/org.chromium.chrome.browser.customtabs.CustomTabActivity]
+06-01 17:46:15.843 D/ViewRootImplStubImpl(19235): , surfaceControl:Surface(name=17ea95a SurfaceView[com.android.chrome/org.chromium.chrome.browser.customtabs.CustomTabActivity](BLAST)#58841)/@0x86b2136
+06-01 17:46:15.843 D/WindowManager( 2578): wms.commitFinishDrawingLocked: mDrawState=READY_TO_SHOW Window{8981f0a u0 com.android.chrome/org.chromium.chrome.browser.customtabs.CustomTabActivity} in Surface(name=com.android.chrome/org.chromium.chrome.browser.customtabs.CustomTabActivity#58835)/@0x39a95ae
+06-01 17:46:15.845 D/WindowManager( 2578): wms.commitFinishDrawingLocked: mDrawState=READY_TO_SHOW Window{8981f0a u0 com.android.chrome/org.chromium.chrome.browser.customtabs.CustomTabActivity} in Surface(name=com.android.chrome/org.chromium.chrome.browser.customtabs.CustomTabActivity#58835)/@0x39a95ae
+06-01 17:46:15.845 I/SmartPower: com.android.chrome:sandboxed_process0:org.chromium.content.app.SandboxedProcessService0:1/9000idle->background(4701144ms) R(add to whitelist) adj=200.
+06-01 17:46:15.846 I/WindowManager( 2578): wms.showSurfaceRobustly mWin:Window{8981f0a u0 com.android.chrome/org.chromium.chrome.browser.customtabs.CustomTabActivity} in Surface(name=com.android.chrome/org.chromium.chrome.browser.customtabs.CustomTabActivity#58835)/@0x39a95ae
+06-01 17:46:15.847 D/WindowManager( 2578): Final targets: [ChangeInfo{d7cc677 container=ActivityRecord{104291128 u0 com.android.chrome/org.chromium.chrome.browser.customtabs.CustomTabActivity t4523} flags=0x0}, ChangeInfo{57a118b container=ActivityRecord{201863480 u0 com.openai.chatgpt/.MainActivity t4523} flags=0x0}]
+06-01 17:46:15.850 D/WindowManager( 2578): Calling onTransitionReady info={id=3290 t=OPEN f=0x0 trk=0 r=[0@Point(0, 0)] c=[{m=OPEN f=FILLS_TASK leash=Surface(name=ActivityRecord{104291128 u0 com.android.chrome/org.chromium.chrome.browser.customtabs.CustomTabActivity t4523}#58833)/@0x6e03076 sb=Rect(0, 0 - 0, 0) eb=Rect(0, 0 - 1220, 2712) epz=Point(1220, 2712) d=-1->0 r=-1->0:-1 windowMode=0->1 bc=ffffffff component=com.android.chrome/org.chromium.chrome.browser.customtabs.CustomTabActivity opt={t=FROM_STYLE mUserId=0} v=trueMiuiChangeImpl {miuiEmbedding:false, scale:1.0}},{m=TO_BACK f=FILLS_TASK leash=Surface(name=ActivityRecord{201863480 u0 com.openai.chatgpt/.MainActivity t4523}#19269)/@0x2f10402 sb=Rect(0, 0 - 1220, 2712) eb=Rect(0, 0 - 1220, 2712) epz=Point(1220, 2712) d=0 bc=ffffffff component=com.openai.chatgpt/.MainActivity opt={t=FROM_STYLE mUserId=0} v=falseMiuiChangeImpl {miuiEmbedding:false, scale:1.0}}] mk=[false] noAni=[false] df=[false] rsa=[false] oa=[true] nc=[0] ho=[false] hla=[false] iSync=[-1]}, mToken=Token{4a24a3f TransitionRecord{b4892c id=3290 type=OPEN flags=0x0 c=[
+06-01 17:46:15.850 D/WindowManager( 2578):    ChangeInfo{d7cc677 container=ActivityRecord{104291128 u0 com.android.chrome/org.chromium.chrome.browser.customtabs.CustomTabActivity t4523} flags=0x0}
+06-01 17:46:15.851 D/BarFollowAnimation( 2578): disableBarAnimation change={m=OPEN f=FILLS_TASK leash=Surface(name=ActivityRecord{104291128 u0 com.android.chrome/org.chromium.chrome.browser.customtabs.CustomTabActivity t4523}#58833)/@0x6e03076 sb=Rect(0, 0 - 0, 0) eb=Rect(0, 0 - 1220, 2712) epz=Point(1220, 2712) d=-1->0 r=-1->0:-1 windowMode=0->1 bc=ffffffff component=com.android.chrome/org.chromium.chrome.browser.customtabs.CustomTabActivity opt={t=FROM_STYLE mUserId=0} v=trueMiuiChangeImpl {miuiEmbedding:false, scale:1.0}} 0 1
+06-01 17:46:15.852 I/Perf[AppStartScene]( 2578): onSceneChangeNotify:Bundle[{renderThreadId=31409, pid=19235, uid=10193, name=org.chromium.chrome.browser.customtabs.CustomTabActivity, type=1, begin=false, state=1, processName=com.android.chrome, packageName=com.android.chrome}]
+06-01 17:46:15.869 D/BarFollowAnimation( 2578): pairAppearanceRegionAndWin win=Window{8981f0a u0 com.android.chrome/org.chromium.chrome.browser.customtabs.CustomTabActivity} 8
+06-01 17:46:15.870 D/BarFollowAnimation( 2578): isAppTaskBarOnTop win:Window{8981f0a u0 com.android.chrome/org.chromium.chrome.browser.customtabs.CustomTabActivity} (mCurrentTopTask:Task{643f676 #4523 type=standard A=10350:com.openai.chatgpt} : true); (mAssociatedTask:Task{643f676 #4523 type=standard A=10350:com.openai.chatgpt} : true); (mHomeTask:Task{577fe23 #1 type=home} : false); mReparentToOriginParent:false mLastAppBarVisible:true mLastHomeBarVisible:false
+06-01 17:46:16.042 D/ViewRootImplStubImpl(19235): , vri:android.view.ViewRootImpl@a3e52d1, com.android.chrome/org.chromium.chrome.browser.customtabs.CustomTabActivity
+06-01 17:46:16.042 D/ViewRootImplStubImpl(19235): , surfaceView:android.view.SurfaceView{41d2df8 V.E...... ......ID 0,0-1220,2440}, SurfaceView[com.android.chrome/org.chromium.chrome.browser.customtabs.CustomTabActivity]
+06-01 17:46:16.042 D/ViewRootImplStubImpl(19235): , surfaceControl:Surface(name=41d2df8 SurfaceView[com.android.chrome/org.chromium.chrome.browser.customtabs.CustomTabActivity](BLAST)#58847)/@0xba400d0
+06-01 17:46:16.106 D/ViewRootImplStubImpl(19235): , vri:android.view.ViewRootImpl@a3e52d1, com.android.chrome/org.chromium.chrome.browser.customtabs.CustomTabActivity
+06-01 17:46:16.106 D/ViewRootImplStubImpl(19235): , surfaceView:android.view.SurfaceView{17ea95a V.E...... ........ 0,0-1220,2440}, SurfaceView[com.android.chrome/org.chromium.chrome.browser.customtabs.CustomTabActivity]
+06-01 17:46:16.106 D/ViewRootImplStubImpl(19235): , surfaceControl:Surface(name=17ea95a SurfaceView[com.android.chrome/org.chromium.chrome.browser.customtabs.CustomTabActivity](BLAST)#58841)/@0x86b2136
+06-01 17:46:16.129 D/BarFollowAnimation( 2578): pairAppearanceRegionAndWin win=Window{8981f0a u0 com.android.chrome/org.chromium.chrome.browser.customtabs.CustomTabActivity} 8
+06-01 17:46:16.130 D/BarFollowAnimation( 2578): isAppTaskBarOnTop win:Window{8981f0a u0 com.android.chrome/org.chromium.chrome.browser.customtabs.CustomTabActivity} (mCurrentTopTask:Task{643f676 #4523 type=standard A=10350:com.openai.chatgpt} : true); (mAssociatedTask:Task{643f676 #4523 type=standard A=10350:com.openai.chatgpt} : true); (mHomeTask:Task{577fe23 #1 type=home} : false); mReparentToOriginParent:false mLastAppBarVisible:true mLastHomeBarVisible:false
+06-01 17:46:16.409 D/MiuiDecorationController( 4869): relayout::taskId=4523, visible=true, bounds=Rect(0, 0 - 1220, 2712), focused=true, oldImmersive=false, newImmersive=false, windowMode=1, activityType=1, displayId=0, baseActivity=ComponentInfo{com.openai.chatgpt/com.openai.chatgpt.MainActivity}, topActivity=ComponentInfo{com.android.chrome/org.chromium.chrome.browser.customtabs.CustomTabActivity}, callers=com.android.wm.shell.multitasking.miuimultiwinswitch.miuiwindowdecor.decoration.MiuiDecorationController.relayout:4 com.android.wm.shell.multitasking.miuimultiwinswitch.miuiwindowdecor.MulWinSwitchDecorViewModel.onTaskInfoChanged:18 com.android.wm.shell.multitasking.common.taskmanager.MultiTaskingTaskListener.onTaskInfoChanged:47 com.android.wm.shell.ShellTaskOrganizer.onTaskInfoChanged:136 android.window.TaskOrganizer$1.lambda$onTaskInfoChanged$6:300 
+06-01 17:46:16.477 D/BarFollowAnimation( 2578): pairAppearanceRegionAndWin win=Window{8981f0a u0 com.android.chrome/org.chromium.chrome.browser.customtabs.CustomTabActivity} 8
+06-01 17:46:16.477 D/BarFollowAnimation( 2578): isAppTaskBarOnTop win:Window{8981f0a u0 com.android.chrome/org.chromium.chrome.browser.customtabs.CustomTabActivity} (mCurrentTopTask:Task{643f676 #4523 type=standard A=10350:com.openai.chatgpt} : true); (mAssociatedTask:Task{643f676 #4523 type=standard A=10350:com.openai.chatgpt} : true); (mHomeTask:Task{577fe23 #1 type=home} : false); mReparentToOriginParent:false mLastAppBarVisible:true mLastHomeBarVisible:false
+06-01 17:46:17.847 D/BarFollowAnimation( 2578): pairAppearanceRegionAndWin win=Window{8981f0a u0 com.android.chrome/org.chromium.chrome.browser.customtabs.CustomTabActivity} 8
+06-01 17:46:17.848 D/BarFollowAnimation( 2578): isAppTaskBarOnTop win:Window{8981f0a u0 com.android.chrome/org.chromium.chrome.browser.customtabs.CustomTabActivity} (mCurrentTopTask:Task{643f676 #4523 type=standard A=10350:com.openai.chatgpt} : true); (mAssociatedTask:Task{643f676 #4523 type=standard A=10350:com.openai.chatgpt} : true); (mHomeTask:Task{577fe23 #1 type=home} : false); mReparentToOriginParent:false mLastAppBarVisible:true mLastHomeBarVisible:false
+06-01 17:46:20.124 D/BarFollowAnimation( 2578): pairAppearanceRegionAndWin win=Window{8981f0a u0 com.android.chrome/org.chromium.chrome.browser.customtabs.CustomTabActivity} 8
+06-01 17:46:20.125 D/BarFollowAnimation( 2578): isAppTaskBarOnTop win:Window{8981f0a u0 com.android.chrome/org.chromium.chrome.browser.customtabs.CustomTabActivity} (mCurrentTopTask:Task{643f676 #4523 type=standard A=10350:com.openai.chatgpt} : true); (mAssociatedTask:Task{643f676 #4523 type=standard A=10350:com.openai.chatgpt} : true); (mHomeTask:Task{577fe23 #1 type=home} : false); mReparentToOriginParent:false mLastAppBarVisible:true mLastHomeBarVisible:false
+06-01 17:46:20.285 D/PerfShielderService( 2578): com.android.chrome|com.android.chrome/org.chromium.chrome.browser.customtabs.CustomTabActivity|394|199098704871756|394|0|1
+06-01 17:46:20.285 D/PerfShielderService( 2578): com.android.chrome|com.android.chrome/org.chromium.chrome.browser.customtabs.CustomTabActivity|257|199100009500557|157|0|6
+06-01 17:46:20.307 D/CoreBackPreview( 2578): Window{8981f0a u0 com.android.chrome/org.chromium.chrome.browser.customtabs.CustomTabActivity}: Setting back callback OnBackInvokedCallbackInfo{mCallback=android.window.IOnBackInvokedCallback$Stub$Proxy@ef53930, mPriority=0, mIsAnimationCallback=true, mOverrideBehavior=0}
+06-01 17:46:21.880 D/CoreBackPreview( 2578): Window{8981f0a u0 com.android.chrome/org.chromium.chrome.browser.customtabs.CustomTabActivity}: Setting back callback OnBackInvokedCallbackInfo{mCallback=android.window.IOnBackInvokedCallback$Stub$Proxy@d5ed0c7, mPriority=-1, mIsAnimationCallback=false, mOverrideBehavior=0}
+06-01 17:46:21.882 D/CoreBackPreview( 2578): Window{8981f0a u0 com.android.chrome/org.chromium.chrome.browser.customtabs.CustomTabActivity}: Setting back callback OnBackInvokedCallbackInfo{mCallback=android.window.IOnBackInvokedCallback$Stub$Proxy@5e5b6f4, mPriority=0, mIsAnimationCallback=true, mOverrideBehavior=0}
+06-01 17:46:21.892 I/SmartPower: com.android.chrome:sandboxed_process0:org.chromium.content.app.SandboxedProcessService0:13/900-1->background(0ms) R(become background) adj=-10000.
+06-01 17:46:21.893 I/ActivityManager( 2578): Posting procStart msg for 0:com.android.chrome:sandboxed_process0:org.chromium.content.app.SandboxedProcessService0:13/u0a193i-8987
+06-01 17:46:21.933 I/ActivityManager( 2578): Start proc 10069:com.android.chrome:sandboxed_process0:org.chromium.content.app.SandboxedProcessService0:13/u0ai13 for  {com.android.chrome/org.chromium.content.app.SandboxedProcessService0:13} caller=com.android.chrome
+06-01 17:46:21.955 D/MiuiFreeformServiceImpl( 2578): addLaunchFreeformActivityOptionIfNeed skip due to not find sourceTask: null sourceFfas: null sourceFreeFormActivity: ActivityRecord{104291128 u0 com.android.chrome/org.chromium.chrome.browser.customtabs.CustomTabActivity t4523}
+06-01 17:46:22.012 D/BarFollowAnimation( 2578): pairAppearanceRegionAndWin win=Window{8981f0a u0 com.android.chrome/org.chromium.chrome.browser.customtabs.CustomTabActivity} 8
+06-01 17:46:22.013 D/BarFollowAnimation( 2578): isAppTaskBarOnTop win:Window{8981f0a u0 com.android.chrome/org.chromium.chrome.browser.customtabs.CustomTabActivity} (mCurrentTopTask:Task{5652f9a #4746 type=standard A=10174:com.android.vending} : true); (mAssociatedTask:Task{643f676 #4523 type=standard A=10350:com.openai.chatgpt} : true); (mHomeTask:Task{577fe23 #1 type=home} : false); mReparentToOriginParent:false mLastAppBarVisible:true mLastHomeBarVisible:false
+06-01 17:46:22.081 D/BarFollowAnimation( 2578): pairAppearanceRegionAndWin win=Window{8981f0a u0 com.android.chrome/org.chromium.chrome.browser.customtabs.CustomTabActivity} 8
+06-01 17:46:22.083 D/BarFollowAnimation( 2578): isAppTaskBarOnTop win:Window{8981f0a u0 com.android.chrome/org.chromium.chrome.browser.customtabs.CustomTabActivity} (mCurrentTopTask:Task{5652f9a #4746 type=standard A=10174:com.android.vending} : true); (mAssociatedTask:Task{643f676 #4523 type=standard A=10350:com.openai.chatgpt} : true); (mHomeTask:Task{577fe23 #1 type=home} : false); mReparentToOriginParent:false mLastAppBarVisible:true mLastHomeBarVisible:false
+06-01 17:46:22.180 D/PerfShielderService( 2578): com.android.chrome|com.android.chrome/org.chromium.chrome.browser.customtabs.CustomTabActivity|170|199102329901286|170|0|1
+06-01 17:46:22.180 D/PerfShielderService( 2578): com.android.chrome|com.android.chrome/org.chromium.chrome.browser.customtabs.CustomTabActivity|93|199102461750661|93|0|1
+06-01 17:46:22.184 I/ActivityManager( 2578): Killing 10069:com.android.chrome:sandboxed_process0:org.chromium.content.app.SandboxedProcessService0:13/u0a193i-8987 (adj 0): isolated not needed
+06-01 17:46:22.184 I/ActivityManager( 2578): note: ProcessRecord{c4fcf19 10069:com.android.chrome:sandboxed_process0:org.chromium.content.app.SandboxedProcessService0:13/u0a193i-8987} is being killed, reason: OTHER KILLS BY SYSTEM, sub-reason: ISOLATED NOT NEEDED, message: isolated not needed
+06-01 17:46:22.196 D/WindowManager( 2578): Collecting in transition 3291: ActivityRecord{104291128 u0 com.android.chrome/org.chromium.chrome.browser.customtabs.CustomTabActivity t4523} init visibleRequested:true dc:Display{#0 state=ON size=1220x2712 ROTATION_0}
+06-01 17:46:22.201 D/BarFollowAnimation( 2578): isAppTaskBarOnTop win:Window{8981f0a u0 com.android.chrome/org.chromium.chrome.browser.customtabs.CustomTabActivity} (mCurrentTopTask:Task{5652f9a #4746 type=standard A=10174:com.android.vending} : true); (mAssociatedTask:Task{643f676 #4523 type=standard A=10350:com.openai.chatgpt} : false); (mHomeTask:Task{577fe23 #1 type=home} : false); mReparentToOriginParent:false mLastAppBarVisible:true mLastHomeBarVisible:false
+06-01 17:46:22.202 D/WindowManager( 2578): updateSystemBarAttributes displayId: 0 Window{8981f0a u0 com.android.chrome/org.chromium.chrome.browser.customtabs.CustomTabActivity} winAppearance=LIGHT_STATUS_BARS LIGHT_NAVIGATION_BARS
+06-01 17:46:22.203 D/WindowManager( 2578):    ChangeInfo{f266e38 container=ActivityRecord{104291128 u0 com.android.chrome/org.chromium.chrome.browser.customtabs.CustomTabActivity t4523} flags=0x0}
+06-01 17:46:22.207 D/BarFollowAnimation( 2578): pairAppearanceRegionAndWin win=Window{8981f0a u0 com.android.chrome/org.chromium.chrome.browser.customtabs.CustomTabActivity} 8
+06-01 17:46:22.207 D/BarFollowAnimation( 2578): isAppTaskBarOnTop win:Window{8981f0a u0 com.android.chrome/org.chromium.chrome.browser.customtabs.CustomTabActivity} (mCurrentTopTask:Task{5652f9a #4746 type=standard A=10174:com.android.vending} : true); (mAssociatedTask:Task{643f676 #4523 type=standard A=10350:com.openai.chatgpt} : false); (mHomeTask:Task{577fe23 #1 type=home} : false); mReparentToOriginParent:false mLastAppBarVisible:true mLastHomeBarVisible:false
+06-01 17:46:22.212 D/MiuiDecorationController( 4869): relayout::taskId=4523, visible=true, bounds=Rect(0, 0 - 1220, 2712), focused=false, oldImmersive=false, newImmersive=false, windowMode=1, activityType=1, displayId=0, baseActivity=ComponentInfo{com.openai.chatgpt/com.openai.chatgpt.MainActivity}, topActivity=ComponentInfo{com.android.chrome/org.chromium.chrome.browser.customtabs.CustomTabActivity}, callers=com.android.wm.shell.multitasking.miuimultiwinswitch.miuiwindowdecor.decoration.MiuiDecorationController.relayout:4 com.android.wm.shell.multitasking.miuimultiwinswitch.miuiwindowdecor.MulWinSwitchDecorViewModel.onTaskInfoChanged:18 com.android.wm.shell.multitasking.common.taskmanager.MultiTaskingTaskListener.onTaskInfoChanged:47 com.android.wm.shell.ShellTaskOrganizer.onTaskInfoChanged:136 android.window.TaskOrganizer$1.lambda$onTaskInfoChanged$6:300 
+06-01 17:46:22.212 D/WindowManager( 2578):    ChangeInfo{f266e38 container=ActivityRecord{104291128 u0 com.android.chrome/org.chromium.chrome.browser.customtabs.CustomTabActivity t4523} flags=0x0}
+06-01 17:46:22.229 D/MiuiDecorationController( 4869): relayout::taskId=4523, visible=true, bounds=Rect(0, 0 - 1220, 2712), focused=false, oldImmersive=false, newImmersive=false, windowMode=1, activityType=1, displayId=0, baseActivity=ComponentInfo{com.openai.chatgpt/com.openai.chatgpt.MainActivity}, topActivity=ComponentInfo{com.android.chrome/org.chromium.chrome.browser.customtabs.CustomTabActivity}, callers=com.android.wm.shell.multitasking.miuimultiwinswitch.miuiwindowdecor.MulWinSwitchDecorViewModel.onTaskChanging:110 com.android.wm.shell.freeform.FreeformTaskTransitionObserver.onTransitionReady:187 com.android.wm.shell.transition.Transitions.dispatchReady:241 com.android.wm.shell.transition.Transitions.onTransitionReady:269 com.android.wm.shell.transition.Transitions$TransitionPlayerImpl$$ExternalSyntheticLambda1.run:48 
+06-01 17:46:22.246 I/ActivityManager( 2578): note: ProcessRecord{c4fcf19 10069:com.android.chrome:sandboxed_process0:org.chromium.content.app.SandboxedProcessService0:13/u0a193i-8987} died, saving the exit info
+06-01 17:46:22.810 I/WindowManager( 2578): wms.hideSurface mWin:Window{8981f0a u0 com.android.chrome/org.chromium.chrome.browser.customtabs.CustomTabActivity} reason:(prepareSurfaceLocked) in Surface(name=com.android.chrome/org.chromium.chrome.browser.customtabs.CustomTabActivity#58835)/@0x39a95ae
+06-01 17:46:22.819 D/MiuiDecorationController( 4869): relayout::taskId=4523, visible=false, bounds=Rect(0, 0 - 1220, 2712), focused=false, oldImmersive=false, newImmersive=false, windowMode=1, activityType=1, displayId=0, baseActivity=ComponentInfo{com.openai.chatgpt/com.openai.chatgpt.MainActivity}, topActivity=ComponentInfo{com.android.chrome/org.chromium.chrome.browser.customtabs.CustomTabActivity}, callers=com.android.wm.shell.multitasking.miuimultiwinswitch.miuiwindowdecor.decoration.MiuiDecorationController.relayout:4 com.android.wm.shell.multitasking.miuimultiwinswitch.miuiwindowdecor.MulWinSwitchDecorViewModel.onTaskInfoChanged:18 com.android.wm.shell.multitasking.common.taskmanager.MultiTaskingTaskListener.onTaskInfoChanged:47 com.android.wm.shell.ShellTaskOrganizer.onTaskInfoChanged:136 android.window.TaskOrganizer$1.lambda$onTaskInfoChanged$6:300 
+06-01 17:46:22.853 D/ViewRootImplStubImpl(19235): , vri:android.view.ViewRootImpl@a3e52d1, com.android.chrome/org.chromium.chrome.browser.customtabs.CustomTabActivity
+06-01 17:46:22.853 D/ViewRootImplStubImpl(19235): , surfaceView:android.view.SurfaceView{41d2df8 V.E...... ........ 0,0-1220,2440}, SurfaceView[com.android.chrome/org.chromium.chrome.browser.customtabs.CustomTabActivity]
+06-01 17:46:22.853 D/ViewRootImplStubImpl(19235): , surfaceControl:Surface(name=41d2df8 SurfaceView[com.android.chrome/org.chromium.chrome.browser.customtabs.CustomTabActivity](BLAST)#58847)/@0xba400d0
+06-01 17:46:22.905 D/CoreBackPreview( 2578): Window{8981f0a u0 com.android.chrome/org.chromium.chrome.browser.customtabs.CustomTabActivity}: Setting back callback OnBackInvokedCallbackInfo{mCallback=android.window.IOnBackInvokedCallback$Stub$Proxy@2f1a199, mPriority=-1, mIsAnimationCallback=false, mOverrideBehavior=0}
+06-01 17:46:33.689 I/SmartPower: com.google.android.webview:sandboxed_process0:org.chromium.content.app.SandboxedProcessServiceidle->background(2502003ms) R(service unbind com.google.android.gm/org.chromium.content.app.SandboxedProcessService0:0) adj=0.
+06-01 17:46:33.785 I/ActivityManager( 2578): Killing 11080:com.google.android.webview:sandboxed_process0:org.chromium.content.app.SandboxedProcessService0:0/u0a202i249 (adj 0): isolated not needed
+06-01 17:46:33.785 I/ActivityManager( 2578): note: ProcessRecord{1e28654 11080:com.google.android.webview:sandboxed_process0:org.chromium.content.app.SandboxedProcessService0:0/u0a202i249} is being killed, reason: OTHER KILLS BY SYSTEM, sub-reason: ISOLATED NOT NEEDED, message: isolated not needed
+06-01 17:46:33.930 I/ActivityManager( 2578): note: ProcessRecord{1e28654 11080:com.google.android.webview:sandboxed_process0:org.chromium.content.app.SandboxedProcessService0:0/u0a202i249} died, saving the exit info
+06-01 17:46:36.354 W/ActivityManager( 2578): Foreground service started from background can not have location/camera/microphone access: service com.xiaomi.discover/com.xiaomi.market.service.AppActiveStatService
+06-01 17:46:38.839 I/SmartPower: com.android.chrome:sandboxed_process0:org.chromium.content.app.SandboxedProcessService0:12/900background->idle(23358ms) R(adj below visible) adj=502.
+06-01 17:46:39.172 I/SmartPower: com.android.chrome:sandboxed_process0:org.chromium.content.app.SandboxedProcessService0:1/9000background->idle(23327ms) R(adj below visible) adj=501.
+06-01 17:46:41.032 I/SmartPower: com.google.android.webview:sandboxed_process0:org.chromium.content.app.SandboxedProcessService-1->background(0ms) R(become background) adj=-10000.
+06-01 17:46:41.033 I/ActivityManager( 2578): Posting procStart msg for 0:com.google.android.webview:sandboxed_process0:org.chromium.content.app.SandboxedProcessService0:0/u0a516i252
+06-01 17:46:41.080 I/ActivityManager( 2578): Start proc 11724:com.google.android.webview:sandboxed_process0:org.chromium.content.app.SandboxedProcessService0:0/u0i252 for  {com.snapcalorie.alpha002/org.chromium.content.app.SandboxedProcessService0:0} caller=com.snapcalorie.alpha002
+06-01 17:46:43.595 I/ActivityManager( 2578): Start proc 12334:com.google.android.webview:webview_service/u0a222 for service {com.google.android.webview/org.chromium.android_webview.services.VariationsSeedServer} caller=com.snapcalorie.alpha002
+06-01 17:46:53.289 D/SSRU-CpuResourceTracker( 2578): [deal]doCpuMonitor:AppCpuState{uid=90001, pkgName='pkg_90001', usages=0.182, duringTime=120311, details={com.android.chrome_sandboxed_process0_org.chromium.content.app.SandboxedProcessService0_1=0.182}, state=0, stateUpdateTime={}, restricter=0}
+06-01 17:46:53.289 D/SSRU-CpuResourceTracker( 2578): [deal]doCpuMonitor:AppCpuState{uid=90012, pkgName='pkg_90012', usages=0.0, duringTime=0, details={com.android.chrome_sandboxed_process0_org.chromium.content.app.SandboxedProcessService0_12=0.0}, state=0, stateUpdateTime={}, restricter=0}
+06-01 17:46:53.289 D/SSRU-CpuResourceTracker( 2578): [deal]doCpuMonitor:AppCpuState{uid=99000, pkgName='pkg_99000', usages=0.016, duringTime=120295, details={com.google.android.webview_sandboxed_process0_org.chromium.content.app.SandboxedProcessService0_0=0.016}, state=0, stateUpdateTime={}, restricter=0}
+06-01 17:46:53.289 D/SSRU-CpuResourceTracker( 2578): [deal]doCpuMonitor:AppCpuState{uid=99202, pkgName='pkg_99202', usages=0.008, duringTime=120288, details={com.google.android.webview_sandboxed_process0_org.chromium.content.app.SandboxedProcessService0_0=0.008}, state=0, stateUpdateTime={}, restricter=0}
+06-01 17:46:53.289 D/SSRU-CpuResourceTracker( 2578): [deal]doCpuMonitor:AppCpuState{uid=99207, pkgName='pkg_99207', usages=0.008, duringTime=120316, details={com.google.android.webview_sandboxed_process0_org.chromium.content.app.SandboxedProcessService0_0=0.008}, state=0, stateUpdateTime={}, restricter=0}
+06-01 17:46:53.289 D/SSRU-CpuResourceTracker( 2578): [deal]doCpuMonitor:AppCpuState{uid=99251, pkgName='pkg_99251', usages=0.0, duringTime=0, details={com.google.android.webview_sandboxed_process0_org.chromium.content.app.SandboxedProcessService0_0=0.0}, state=0, stateUpdateTime={}, restricter=0}
+06-01 17:46:53.289 D/SSRU-CpuResourceTracker( 2578): [deal]doCpuMonitor:AppCpuState{uid=99252, pkgName='pkg_99252', usages=0.0, duringTime=0, details={com.google.android.webview_sandboxed_process0_org.chromium.content.app.SandboxedProcessService0_0=0.0}, state=0, stateUpdateTime={}, restricter=0}
+06-01 17:47:09.289 I/SmartPower: com.google.android.webview:sandboxed_process0:org.chromium.content.app.SandboxedProcessService-1->background(0ms) R(become background) adj=-10000.
+06-01 17:47:09.289 I/ActivityManager( 2578): Posting procStart msg for 0:com.google.android.webview:sandboxed_process0:org.chromium.content.app.SandboxedProcessService0:0/u0a202i253
+06-01 17:47:09.328 I/ActivityManager( 2578): Start proc 13734:com.google.android.webview:sandboxed_process0:org.chromium.content.app.SandboxedProcessService0:0/u0i253 for  {com.google.android.gm/org.chromium.content.app.SandboxedProcessService0:0} caller=com.google.android.gm
+06-01 17:47:11.900 I/ActivityManager( 2578): Start proc 13895:com.google.android.webview:webview_service/u0a222 for service {com.google.android.webview/org.chromium.android_webview.services.VariationsSeedServer} caller=com.google.android.gm
+06-01 17:47:15.016 I/SmartPower: com.google.android.webview:webview_service/10222(13895)( 2578): background->idle(3080ms) R(service end com.google.android.webview/org.chromium.android_webview.services.VariationsSeedServer) adj=905.
+06-01 17:47:16.377 I/ActivityManager( 2578): Killing 13734:com.google.android.webview:sandboxed_process0:org.chromium.content.app.SandboxedProcessService0:0/u0a202i253 (adj 0): isolated not needed
+06-01 17:47:16.377 I/ActivityManager( 2578): note: ProcessRecord{efbaeb6 13734:com.google.android.webview:sandboxed_process0:org.chromium.content.app.SandboxedProcessService0:0/u0a202i253} is being killed, reason: OTHER KILLS BY SYSTEM, sub-reason: ISOLATED NOT NEEDED, message: isolated not needed
+06-01 17:47:16.398 I/ActivityManager( 2578): note: ProcessRecord{efbaeb6 13734:com.google.android.webview:sandboxed_process0:org.chromium.content.app.SandboxedProcessService0:0/u0a202i253} died, saving the exit info
+06-01 17:48:42.551 I/ActivityManager( 2578): Start proc 15709:com.android.chrome:privileged_process0/u0a193 for service {com.android.chrome/org.chromium.content.app.PrivilegedProcessService0} caller=com.android.chrome
+06-01 17:48:53.547 D/SSRU-CpuResourceTracker( 2578): [deal]doCpuMonitor:AppCpuState{uid=90001, pkgName='pkg_90001', usages=0.108, duringTime=120266, details={com.android.chrome_sandboxed_process0_org.chromium.content.app.SandboxedProcessService0_1=0.108}, state=0, stateUpdateTime={}, restricter=0}
+06-01 17:48:53.547 D/SSRU-CpuResourceTracker( 2578): [deal]doCpuMonitor:AppCpuState{uid=90012, pkgName='pkg_90012', usages=0.955, duringTime=120294, details={com.android.chrome_sandboxed_process0_org.chromium.content.app.SandboxedProcessService0_12=0.955}, state=0, stateUpdateTime={}, restricter=0}
+06-01 17:48:53.547 D/SSRU-CpuResourceTracker( 2578): [deal]doCpuMonitor:AppCpuState{uid=99000, pkgName='pkg_99000', usages=0.008, duringTime=120288, details={com.google.android.webview_sandboxed_process0_org.chromium.content.app.SandboxedProcessService0_0=0.008}, state=0, stateUpdateTime={}, restricter=0}
+06-01 17:48:53.547 D/SSRU-CpuResourceTracker( 2578): [deal]doCpuMonitor:AppCpuState{uid=99110, pkgName='pkg_99110', usages=0.008, duringTime=120329, details={com.google.android.webview_sandboxed_process0_org.chromium.content.app.SandboxedProcessService0_0=0.008}, state=0, stateUpdateTime={}, restricter=0}
+06-01 17:48:53.547 D/SSRU-CpuResourceTracker( 2578): [deal]doCpuMonitor:AppCpuState{uid=99202, pkgName='pkg_99202', usages=0.008, duringTime=120293, details={com.google.android.webview_sandboxed_process0_org.chromium.content.app.SandboxedProcessService0_0=0.008}, state=0, stateUpdateTime={}, restricter=0}
+06-01 17:48:53.547 D/SSRU-CpuResourceTracker( 2578): [deal]doCpuMonitor:AppCpuState{uid=99251, pkgName='pkg_99251', usages=0.008, duringTime=120298, details={com.google.android.webview_sandboxed_process0_org.chromium.content.app.SandboxedProcessService0_0=0.008}, state=0, stateUpdateTime={}, restricter=0}
+06-01 17:48:53.547 D/SSRU-CpuResourceTracker( 2578): [deal]doCpuMonitor:AppCpuState{uid=99252, pkgName='pkg_99252', usages=2.194, duringTime=120281, details={com.google.android.webview_sandboxed_process0_org.chromium.content.app.SandboxedProcessService0_0=2.194}, state=0, stateUpdateTime={}, restricter=0}
+06-01 17:48:59.228 I/ActivityManager( 2578): Process com.android.chrome:sandboxed_process0:org.chromium.content.app.SandboxedProcessService0:12 (pid 9957) has died: cch+20 CACC
+06-01 17:48:59.234 I/ActivityManager( 2578): note: ProcessRecord{6a94aee 9957:com.android.chrome:sandboxed_process0:org.chromium.content.app.SandboxedProcessService0:12/u0a193i-8988} died, saving the exit info
+06-01 17:48:59.338 I/ActivityManager( 2578): Start proc 16058:com.android.chrome:privileged_process2/u0a193 for service {com.android.chrome/org.chromium.content.app.PrivilegedProcessService2} caller=com.android.chrome
+06-01 17:48:59.342 I/ActivityManager( 2578): Killing 9496:com.google.android.webview:sandboxed_process0:org.chromium.content.app.SandboxedProcessService0:0/u0a350i251 (adj 0): isolated not needed
+06-01 17:48:59.342 I/ActivityManager( 2578): note: ProcessRecord{f059088 9496:com.google.android.webview:sandboxed_process0:org.chromium.content.app.SandboxedProcessService0:0/u0a350i251} is being killed, reason: OTHER KILLS BY SYSTEM, sub-reason: ISOLATED NOT NEEDED, message: isolated not needed
+06-01 17:48:59.374 I/ActivityManager( 2578): note: ProcessRecord{f059088 9496:com.google.android.webview:sandboxed_process0:org.chromium.content.app.SandboxedProcessService0:0/u0a350i251} died, saving the exit info
+06-01 17:49:00.294 I/ActivityManager( 2578): Start proc 16202:com.android.chrome:privileged_process4/u0a193 for service {com.android.chrome/org.chromium.content.app.PrivilegedProcessService4} caller=com.android.chrome
+06-01 17:49:00.883 I/ActivityManager( 2578): Start proc 16256:com.android.chrome:privileged_process6/u0a193 for service {com.android.chrome/org.chromium.content.app.PrivilegedProcessService6} caller=com.android.chrome
+06-01 17:49:01.046 I/ActivityManager( 2578): Start proc 16282:com.android.chrome:privileged_process8/u0a193 for service {com.android.chrome/org.chromium.content.app.PrivilegedProcessService8} caller=com.android.chrome
+06-01 17:49:03.833 W/ActivityManager( 2578): Exception when unbinding service com.android.chrome/org.chromium.content.app.PrivilegedProcessService8
+06-01 17:49:03.894 I/ActivityManager( 2578): Start proc 16459:com.android.chrome:privileged_process0/u0a193 for service {com.android.chrome/org.chromium.content.app.PrivilegedProcessService0} caller=com.android.chrome
+06-01 17:49:04.077 I/WindowManager( 2578): WIN DEATH: Window{8981f0a u0 com.android.chrome/org.chromium.chrome.browser.customtabs.CustomTabActivity}
+06-01 17:49:04.139 E/ProcessStats( 2578): Executing service ServiceState{f164114 org.chromium.content.app.SandboxedProcessService0 pkg=com.android.chrome proc=263a3ff} without owner
+06-01 17:49:04.164 I/SmartPower: com.android.chrome:sandboxed_process0:org.chromium.content.app.SandboxedProcessService0:1/9000idle->background(144991ms) R(service unbind com.android.chrome/org.chromium.content.app.SandboxedProcessService0:1) adj=0.
+06-01 17:49:04.164 W/ActivityManager( 2578): Exception when unbinding service com.android.chrome/org.chromium.content.app.SandboxedProcessService0:1
+06-01 17:49:04.164 E/ProcessStats( 2578): Executing service ServiceState{f164114 org.chromium.content.app.SandboxedProcessService0 pkg=com.android.chrome proc=263a3ff} without owner
+06-01 17:49:04.164 E/ProcessStats( 2578): Foregrounding service ServiceState{f164114 org.chromium.content.app.SandboxedProcessService0 pkg=com.android.chrome proc=263a3ff} without owner
+06-01 17:49:04.164 E/ProcessStats( 2578): Binding service ServiceState{f164114 org.chromium.content.app.SandboxedProcessService0 pkg=com.android.chrome proc=263a3ff} without owner
+06-01 17:49:04.164 E/ProcessStats( 2578): Starting service ServiceState{f164114 org.chromium.content.app.SandboxedProcessService0 pkg=com.android.chrome proc=263a3ff} without owner
+06-01 17:49:04.165 E/ProcessStats( 2578): Executing service ServiceState{f164114 org.chromium.content.app.SandboxedProcessService0 pkg=com.android.chrome proc=263a3ff} without owner
+06-01 17:49:04.165 E/ProcessStats( 2578): Foregrounding service ServiceState{f164114 org.chromium.content.app.SandboxedProcessService0 pkg=com.android.chrome proc=263a3ff} without owner
+06-01 17:49:04.168 I/ActivityManager( 2578): Killing 31603:com.android.chrome:sandboxed_process0:org.chromium.content.app.SandboxedProcessService0:1/u0a193i-8999 (adj 999): isolated not needed
+06-01 17:49:04.168 I/ActivityManager( 2578): note: ProcessRecord{b7f9c0e 31603:com.android.chrome:sandboxed_process0:org.chromium.content.app.SandboxedProcessService0:1/u0a193i-8999} is being killed, reason: OTHER KILLS BY SYSTEM, sub-reason: ISOLATED NOT NEEDED, message: isolated not needed
+06-01 17:49:04.189 W/UsageStatsService( 2578): Unexpected activity event reported! (com.android.chrome/org.chromium.chrome.browser.customtabs.CustomTabActivity event : 23 instanceId : 145561361)
+06-01 17:49:04.189 W/UsageStatsService( 2578): Unexpected activity event reported! (com.android.chrome/org.chromium.chrome.browser.ChromeTabbedActivity event : 23 instanceId : 74227546)
+06-01 17:49:04.192 I/ActivityManager( 2578): note: ProcessRecord{b7f9c0e 31603:com.android.chrome:sandboxed_process0:org.chromium.content.app.SandboxedProcessService0:1/u0a193i-8999} died, saving the exit info
+06-01 17:50:53.887 D/SSRU-CpuResourceTracker( 2578): [deal]doCpuMonitor:AppCpuState{uid=99000, pkgName='pkg_99000', usages=0.033, duringTime=120287, details={com.google.android.webview_sandboxed_process0_org.chromium.content.app.SandboxedProcessService0_0=0.033}, state=0, stateUpdateTime={}, restricter=0}
+06-01 17:50:53.887 D/SSRU-CpuResourceTracker( 2578): [deal]doCpuMonitor:AppCpuState{uid=99110, pkgName='pkg_99110', usages=0.016, duringTime=120274, details={com.google.android.webview_sandboxed_process0_org.chromium.content.app.SandboxedProcessService0_0=0.016}, state=0, stateUpdateTime={}, restricter=0}
+06-01 17:50:53.888 D/SSRU-CpuResourceTracker( 2578): [deal]doCpuMonitor:AppCpuState{uid=99202, pkgName='pkg_99202', usages=0.016, duringTime=120288, details={com.google.android.webview_sandboxed_process0_org.chromium.content.app.SandboxedProcessService0_0=0.016}, state=0, stateUpdateTime={}, restricter=0}
+06-01 17:50:53.888 D/SSRU-CpuResourceTracker( 2578): [deal]doCpuMonitor:AppCpuState{uid=99207, pkgName='pkg_99207', usages=0.02, duringTime=240610, details={com.google.android.webview_sandboxed_process0_org.chromium.content.app.SandboxedProcessService0_0=0.02}, state=0, stateUpdateTime={}, restricter=0}
+06-01 17:50:53.888 D/SSRU-CpuResourceTracker( 2578): [deal]doCpuMonitor:AppCpuState{uid=99252, pkgName='pkg_99252', usages=1.296, duringTime=120295, details={com.google.android.webview_sandboxed_process0_org.chromium.content.app.SandboxedProcessService0_0=1.296}, state=0, stateUpdateTime={}, restricter=0}
+06-01 17:51:50.283 D/RemoteTransitionHandler( 4869): Found filterPair{{types=[] flags=0x0] notFlags=0xb900 checks=[{atype=home independent=true modes=[OPEN,TO_FRONT] flags=NONE mustBeTask=false order=TOP topActivity=ComponentInfo{com.miui.home/com.miui.home.launcher.Launcher} launchCookie=null windowingMode=undefined},{atype=standard independent=true modes=[CLOSE,TO_BACK] flags=NONE mustBeTask=false order=ANY topActivity=null launchCookie=null windowingMode=undefined},{NOT atype=undefined independent=true modes=[] flags=NONE mustBeTask=false order=ANY topActivity=ComponentInfo{com.android.settings/com.android.settings.provision.ProvisionCongratulationActivity} launchCookie=null windowingMode=undefined},{NOT atype=standard independent=true modes=[TO_FRONT] flags=NONE mustBeTask=false order=TOP topActivity=null launchCookie=null windowingMode=undefined}]} RemoteTransition { remoteTransition = android.window.IRemoteTransition$Stub$Proxy@8804027, appThread = null, debugName = 10165:4402-com.miui.home.recents.QuickstepAppTransitionManagerImpl$1, hyperRemoteTransition = null }}
+06-01 17:51:55.784 I/SmartPower: com.google.android.webview:sandboxed_process0:org.chromium.content.app.SandboxedProcessServiceidle->background(364985ms) R(add to whitelist) adj=101.
+06-01 17:51:58.848 I/SmartPower: com.google.android.webview:sandboxed_process0:org.chromium.content.app.SandboxedProcessServicebackground->idle(3063ms) R(adj below visible) adj=101.
+06-01 17:52:12.459 I/ActivityManager( 2578): Start proc 21087:com.google.android.rkpdapp/u0a500 for service {com.google.android.rkpdapp/com.android.rkpdapp.service.RemoteProvisioningService} caller=android
+06-01 17:52:54.278 D/SSRU-CpuResourceTracker( 2578): [deal]doCpuMonitor:AppCpuState{uid=99000, pkgName='pkg_99000', usages=0.066, duringTime=120395, details={com.google.android.webview_sandboxed_process0_org.chromium.content.app.SandboxedProcessService0_0=0.066}, state=0, stateUpdateTime={}, restricter=0}
+06-01 17:52:54.278 D/SSRU-CpuResourceTracker( 2578): [deal]doCpuMonitor:AppCpuState{uid=99110, pkgName='pkg_99110', usages=0.024, duringTime=120408, details={com.google.android.webview_sandboxed_process0_org.chromium.content.app.SandboxedProcessService0_0=0.024}, state=0, stateUpdateTime={}, restricter=0}
+06-01 17:52:54.278 D/SSRU-CpuResourceTracker( 2578): [deal]doCpuMonitor:AppCpuState{uid=99202, pkgName='pkg_99202', usages=0.008, duringTime=120397, details={com.google.android.webview_sandboxed_process0_org.chromium.content.app.SandboxedProcessService0_0=0.008}, state=0, stateUpdateTime={}, restricter=0}
+06-01 17:52:54.278 D/SSRU-CpuResourceTracker( 2578): [deal]doCpuMonitor:AppCpuState{uid=99207, pkgName='pkg_99207', usages=0.016, duringTime=120388, details={com.google.android.webview_sandboxed_process0_org.chromium.content.app.SandboxedProcessService0_0=0.016}, state=0, stateUpdateTime={}, restricter=0}
+06-01 17:53:07.154 D/RemoteTransitionHandler( 4869): Found filterPair{{types=[] flags=0x0] notFlags=0xb900 checks=[{atype=home independent=true modes=[OPEN,TO_FRONT] flags=NONE mustBeTask=false order=TOP topActivity=ComponentInfo{com.miui.home/com.miui.home.launcher.Launcher} launchCookie=null windowingMode=undefined},{atype=standard independent=true modes=[CLOSE,TO_BACK] flags=NONE mustBeTask=false order=ANY topActivity=null launchCookie=null windowingMode=undefined},{NOT atype=undefined independent=true modes=[] flags=NONE mustBeTask=false order=ANY topActivity=ComponentInfo{com.android.settings/com.android.settings.provision.ProvisionCongratulationActivity} launchCookie=null windowingMode=undefined},{NOT atype=standard independent=true modes=[TO_FRONT] flags=NONE mustBeTask=false order=TOP topActivity=null launchCookie=null windowingMode=undefined}]} RemoteTransition { remoteTransition = android.window.IRemoteTransition$Stub$Proxy@8804027, appThread = null, debugName = 10165:4402-com.miui.home.recents.QuickstepAppTransitionManagerImpl$1, hyperRemoteTransition = null }}
+06-01 17:53:09.320 I/SmartPower: com.google.android.webview:sandboxed_process0:org.chromium.content.app.SandboxedProcessServiceidle->background(70473ms) R(add to whitelist) adj=101.
+06-01 17:53:12.340 I/SmartPower: com.google.android.webview:sandboxed_process0:org.chromium.content.app.SandboxedProcessServicebackground->idle(3018ms) R(adj below visible) adj=101.
+06-01 17:53:37.690 W/ActivityManager( 2578): Foreground service started from background can not have location/camera/microphone access: service com.whatsapp/.messaging.service.GcmFGService
+06-01 17:54:54.702 D/SSRU-CpuResourceTracker( 2578): [deal]doCpuMonitor:AppCpuState{uid=99000, pkgName='pkg_99000', usages=0.008, duringTime=120419, details={com.google.android.webview_sandboxed_process0_org.chromium.content.app.SandboxedProcessService0_0=0.008}, state=0, stateUpdateTime={}, restricter=0}
+06-01 17:54:54.702 D/SSRU-CpuResourceTracker( 2578): [deal]doCpuMonitor:AppCpuState{uid=99110, pkgName='pkg_99110', usages=0.041, duringTime=120401, details={com.google.android.webview_sandboxed_process0_org.chromium.content.app.SandboxedProcessService0_0=0.041}, state=0, stateUpdateTime={}, restricter=0}
+06-01 17:54:54.702 D/SSRU-CpuResourceTracker( 2578): [deal]doCpuMonitor:AppCpuState{uid=99202, pkgName='pkg_99202', usages=0.008, duringTime=120418, details={com.google.android.webview_sandboxed_process0_org.chromium.content.app.SandboxedProcessService0_0=0.008}, state=0, stateUpdateTime={}, restricter=0}
+06-01 17:56:54.991 D/SSRU-CpuResourceTracker( 2578): [deal]doCpuMonitor:AppCpuState{uid=99207, pkgName='pkg_99207', usages=0.004, duringTime=240707, details={com.google.android.webview_sandboxed_process0_org.chromium.content.app.SandboxedProcessService0_0=0.004}, state=0, stateUpdateTime={}, restricter=0}
+06-01 17:58:55.376 D/SSRU-CpuResourceTracker( 2578): [deal]doCpuMonitor:AppCpuState{uid=99110, pkgName='pkg_99110', usages=0.012, duringTime=240733, details={com.google.android.webview_sandboxed_process0_org.chromium.content.app.SandboxedProcessService0_0=0.012}, state=0, stateUpdateTime={}, restricter=0}
+06-01 18:00:07.092 W/ActivityManager( 2578): Foreground service started from background can not have location/camera/microphone access: service com.google.android.apps.messaging/com.google.apps.tiktok.concurrent.InternalForegroundService
+06-01 18:00:55.646 D/SSRU-CpuResourceTracker( 2578): [deal]doCpuMonitor:AppCpuState{uid=99000, pkgName='pkg_99000', usages=0.004, duringTime=240650, details={com.google.android.webview_sandboxed_process0_org.chromium.content.app.SandboxedProcessService0_0=0.004}, state=0, stateUpdateTime={}, restricter=0}
+06-01 18:02:55.954 D/SSRU-CpuResourceTracker( 2578): [deal]doCpuMonitor:AppCpuState{uid=99110, pkgName='pkg_99110', usages=0.004, duringTime=240560, details={com.google.android.webview_sandboxed_process0_org.chromium.content.app.SandboxedProcessService0_0=0.004}, state=0, stateUpdateTime={}, restricter=0}
+06-01 18:02:55.955 D/SSRU-CpuResourceTracker( 2578): [deal]doCpuMonitor:AppCpuState{uid=99202, pkgName='pkg_99202', usages=0.091, duringTime=120303, details={com.google.android.webview_sandboxed_process0_org.chromium.content.app.SandboxedProcessService0_0=0.091}, state=0, stateUpdateTime={}, restricter=0}
+06-01 18:02:55.955 D/SSRU-CpuResourceTracker( 2578): [deal]doCpuMonitor:AppCpuState{uid=99207, pkgName='pkg_99207', usages=0.013, duringTime=360953, details={com.google.android.webview_sandboxed_process0_org.chromium.content.app.SandboxedProcessService0_0=0.013}, state=0, stateUpdateTime={}, restricter=0}
+06-01 18:03:24.690 I/RcsProvisioningListenab( 4440): [seqId=11][workId=dc91aca2-e78c-4d99-b843-54b821adfa0e] Provisioning task is stopped by the system
+06-01 18:03:24.746 I/RcsProvisioningListenab( 4440): [seqId=11][workId=dc91aca2-e78c-4d99-b843-54b821adfa0e] finish provisioning task with result Success {mOutputData=Data {}}
+06-01 18:03:24.746 I/RcsProvisioningListenab( 4440): [seqId=11][workId=dc91aca2-e78c-4d99-b843-54b821adfa0e] RCS provisioning task has finished with result Success {mOutputData=Data {}}
+06-01 18:03:24.748 I/SharedPreferencesSimSta( 4440): SharedPreferencesSimStateStore: No sim subscription info found for RCS provisioning id
+06-01 18:03:24.776 I/SharedPreferencesSimSta( 4440): SharedPreferencesSimStateStore: No sim subscription info found for RCS provisioning id
+06-01 18:03:24.777 I/BugleRcsProvisioning( 4440): updateAvailabilityForRcsProvisioningId. SimId: redacted-pii:sim_id[chars:20,last3:805], currentAvailability: 9, newAvailability: 9, hint: NO_HINT
+06-01 18:03:24.777 I/SharedPreferencesSimSta( 4440): SharedPreferencesSimStateStore: No sim subscription info found for RCS provisioning id
+06-01 18:03:24.778 I/RcsProvisioningWorkMana( 4440): Skipping provisioning scheduling since RCS is disabled
+06-01 18:03:24.780 I/WM-WorkerWrapper( 4440): Work [ id=dc91aca2-e78c-4d99-b843-54b821adfa0e, tags={ com.google.android.apps.messaging.shared.rcsprovisioning.RcsProvisioningListenableWorker,provisioning } ] was cancelled
+06-01 18:03:25.021 D/MddListenableWorkerFactory( 4440): createWorker for class: com.google.android.apps.messaging.shared.rcsprovisioning.RcsProvisioningListenableWorker
+06-01 18:03:25.025 D/WM-WorkerWrapper( 4440): Starting work for com.google.android.apps.messaging.shared.rcsprovisioning.RcsProvisioningListenableWorker
+06-01 18:03:25.026 I/RcsProvisioningListenab( 4440): [seqId=12][workId=dc91aca2-e78c-4d99-b843-54b821adfa0e] RCS provisioning task has started
+06-01 18:03:25.029 I/SharedPreferencesSimSta( 4440): SharedPreferencesSimStateStore: No sim subscription info found for RCS provisioning id
+06-01 18:03:25.029 W/RcsProvisioningListenab( 4440): [seqId=12][workId=dc91aca2-e78c-4d99-b843-54b821adfa0e] Cannot start provisioning engine. Unable to obtain sim info for sim id: SimId(idValue=89331057250066361805)
+06-01 18:04:56.222 D/SSRU-CpuResourceTracker( 2578): [deal]doCpuMonitor:AppCpuState{uid=99110, pkgName='pkg_99110', usages=0.058, duringTime=120309, details={com.google.android.webview_sandboxed_process0_org.chromium.content.app.SandboxedProcessService0_0=0.058}, state=0, stateUpdateTime={}, restricter=0}
+06-01 18:04:56.222 D/SSRU-CpuResourceTracker( 2578): [deal]doCpuMonitor:AppCpuState{uid=99202, pkgName='pkg_99202', usages=0.041, duringTime=120298, details={com.google.android.webview_sandboxed_process0_org.chromium.content.app.SandboxedProcessService0_0=0.041}, state=0, stateUpdateTime={}, restricter=0}
+06-01 18:06:11.880 D/MI-SF   ( 2113): addDolbyVisionHdr enter hdrTypes 4
+06-01 18:06:11.880 D/MI-SF   ( 2113): debug.config.media.video.dolby_vision_suports == true
+06-01 18:06:11.880 D/MI-SF   ( 2113): addDolbyVisionHdr enter hdrTypes 4
+06-01 18:06:11.880 D/MI-SF   ( 2113): debug.config.media.video.dolby_vision_suports == true
+06-01 18:06:11.880 D/MI-SF   ( 2113): addDolbyVisionHdr enter hdrTypes 4
+06-01 18:06:11.880 D/MI-SF   ( 2113): debug.config.media.video.dolby_vision_suports == true
+06-01 18:06:11.880 D/MI-SF   ( 2113): addDolbyVisionHdr enter hdrTypes 4
+06-01 18:06:11.880 D/MI-SF   ( 2113): debug.config.media.video.dolby_vision_suports == true
+06-01 18:06:12.372 W/SessionScopedProviderInitializer(28325): Initialize com.instagram.supervision.data.SupervisionUserSessionStart start
+06-01 18:06:12.372 W/SessionScopedProviderInitializer(28325): Initialize com.instagram.supervision.data.SupervisionUserSessionStart end
+06-01 18:06:12.450 W/VideoCapabilities(28325): Unsupported mime video/dolby-vision
+06-01 18:06:12.451 W/VideoCapabilities(28325): Unsupported mime video/dolby-vision
+06-01 18:06:12.485 W/VideoCapabilities(28325): Unsupported mime video/dolby-vision
+06-01 18:06:12.485 W/VideoCapabilities(28325): Unsupported mime video/dolby-vision
+06-01 18:06:44.669 V/MediaPlayer(11068): resetDrmState:  mDrmInfo=null mDrmProvisioningThread=null mPrepareDrmInProgress=false mActiveDrmScheme=false
+06-01 18:06:44.669 V/MediaPlayer(11068): resetDrmState:  mDrmInfo=null mDrmProvisioningThread=null mPrepareDrmInProgress=false mActiveDrmScheme=false
+06-01 18:06:45.317 E/chromium(11212): [0601/180645.317748:ERROR:quic_idle_network_detector.cc(102)] SetAlarm called after stopped
+06-01 18:06:45.783 I/MediaCodec(18529): MediaStub sendDolbyVision
+06-01 18:06:45.865 W/Settings( 4402): Setting device_provisioned has moved from android.provider.Settings.Secure to android.provider.Settings.Global.
+06-01 18:06:46.087 D/RemoteTransitionHandler( 4869): Found filterPair{{types=[] flags=0x0] notFlags=0xb900 checks=[{atype=home independent=true modes=[OPEN,TO_FRONT] flags=NONE mustBeTask=false order=TOP topActivity=ComponentInfo{com.miui.home/com.miui.home.launcher.Launcher} launchCookie=null windowingMode=undefined},{atype=standard independent=true modes=[CLOSE,TO_BACK] flags=NONE mustBeTask=false order=ANY topActivity=null launchCookie=null windowingMode=undefined},{NOT atype=undefined independent=true modes=[] flags=NONE mustBeTask=false order=ANY topActivity=ComponentInfo{com.android.settings/com.android.settings.provision.ProvisionCongratulationActivity} launchCookie=null windowingMode=undefined},{NOT atype=standard independent=true modes=[TO_FRONT] flags=NONE mustBeTask=false order=TOP topActivity=null launchCookie=null windowingMode=undefined}]} RemoteTransition { remoteTransition = android.window.IRemoteTransition$Stub$Proxy@8804027, appThread = null, debugName = 10165:4402-com.miui.home.recents.QuickstepAppTransitionManagerImpl$1, hyperRemoteTransition = null }}
+06-01 18:06:46.226 D/RecentsTaskLoader( 4402): reloadTasksData [TaskKey{id=4523, stackId=0, baseIntent=Intent { act=android.intent.action.MAIN cat=[android.intent.category.LAUNCHER] flg=0x10200000 cmp=com.openai.chatgpt/.MainActivity }, userId=0, lastActiveTime=281012579, windowingMode=1, isThumbnailBlur=false, isAccessLocked=false, isScreening=false, topActivity=ComponentInfo{com.android.chrome/org.chromium.chrome.browser.customtabs.CustomTabActivity}, mHashCode=135668245}, title=ChatGPT, titleDescription=ChatGPT, bounds=null, isLaunchTarget=true, isStackTask=true, isSystemApp=false, isDockable=true, baseActivity=ComponentInfo{com.openai.chatgpt/com.openai.chatgpt.MainActivity}, isLocked=false, mNeedHide=false, hasMultipleTasks=false, cti1Key=, cti2Key=, cti1Task=, cti2Task=] 
+06-01 18:06:46.760 D/RecentsTaskLoader( 4402): reloadTasksData [TaskKey{id=4523, stackId=0, baseIntent=Intent { act=android.intent.action.MAIN cat=[android.intent.category.LAUNCHER] flg=0x10200000 cmp=com.openai.chatgpt/.MainActivity }, userId=0, lastActiveTime=281012579, windowingMode=1, isThumbnailBlur=false, isAccessLocked=false, isScreening=false, topActivity=ComponentInfo{com.android.chrome/org.chromium.chrome.browser.customtabs.CustomTabActivity}, mHashCode=135668245}, title=ChatGPT, titleDescription=ChatGPT, bounds=null, isLaunchTarget=true, isStackTask=true, isSystemApp=false, isDockable=true, baseActivity=ComponentInfo{com.openai.chatgpt/com.openai.chatgpt.MainActivity}, isLocked=false, mNeedHide=false, hasMultipleTasks=false, cti1Key=, cti2Key=, cti1Task=, cti2Task=] 
+06-01 18:06:46.761 D/RecentsTaskLoader( 4402): reloadTasksData [TaskKey{id=4709, stackId=0, baseIntent=Intent { act=android.intent.action.MAIN cat=[android.intent.category.LAUNCHER] flg=0x10200000 cmp=com.android.chrome/com.google.android.apps.chrome.Main }, userId=0, lastActiveTime=276299850, windowingMode=1, isThumbnailBlur=false, isAccessLocked=false, isScreening=false, topActivity=ComponentInfo{com.android.chrome/org.chromium.chrome.browser.ChromeTabbedActivity}, mHashCode=141209371}, title=Chrome, titleDescription=Chrome, bounds=null, isLaunchTarget=true, isStackTask=true, isSystemApp=true, isDockable=true, baseActivity=ComponentInfo{com.android.chrome/org.chromium.chrome.browser.ChromeTabbedActivity}, isLocked=false, mNeedHide=false, hasMultipleTasks=false, cti1Key=, cti2Key=, cti1Task=, cti2Task=] 
+06-01 18:06:46.883 V/MediaPlayer(11068): resetDrmState:  mDrmInfo=null mDrmProvisioningThread=null mPrepareDrmInProgress=false mActiveDrmScheme=false
+06-01 18:06:46.900 V/MediaPlayer(11068): resetDrmState:  mDrmInfo=null mDrmProvisioningThread=null mPrepareDrmInProgress=false mActiveDrmScheme=false
+06-01 18:06:48.313 D/MI-SF   ( 2113): addDolbyVisionHdr enter hdrTypes 4
+06-01 18:06:48.314 D/MI-SF   ( 2113): debug.config.media.video.dolby_vision_suports == true
+06-01 18:06:48.314 D/MI-SF   ( 2113): addDolbyVisionHdr enter hdrTypes 4
+06-01 18:06:48.314 D/MI-SF   ( 2113): debug.config.media.video.dolby_vision_suports == true
+06-01 18:06:48.314 D/MI-SF   ( 2113): addDolbyVisionHdr enter hdrTypes 4
+06-01 18:06:48.314 D/MI-SF   ( 2113): debug.config.media.video.dolby_vision_suports == true
+06-01 18:06:48.314 D/MI-SF   ( 2113): addDolbyVisionHdr enter hdrTypes 4
+06-01 18:06:48.314 D/MI-SF   ( 2113): debug.config.media.video.dolby_vision_suports == true
+06-01 18:06:48.568 I/cn_CronetUrlRequestContext(28038): destroyNativeStreamLocked org.chromium.net.impl.CronetBidirectionalStream@afdd579
+06-01 18:06:48.884 W/SessionScopedProviderInitializer(29431): Initialize com.instagram.supervision.data.SupervisionUserSessionStart start
+06-01 18:06:48.884 W/SessionScopedProviderInitializer(29431): Initialize com.instagram.supervision.data.SupervisionUserSessionStart end
+06-01 18:06:49.078 W/VideoCapabilities(29431): Unsupported mime video/dolby-vision
+06-01 18:06:49.079 W/VideoCapabilities(29431): Unsupported mime video/dolby-vision
+06-01 18:06:49.157 W/VideoCapabilities(29431): Unsupported mime video/dolby-vision
+06-01 18:06:49.159 W/VideoCapabilities(29431): Unsupported mime video/dolby-vision
+06-01 18:06:49.668 D/MI-SF   ( 2113): addDolbyVisionHdr enter hdrTypes 4
+06-01 18:06:49.668 D/MI-SF   ( 2113): debug.config.media.video.dolby_vision_suports == true
+06-01 18:06:49.668 D/MI-SF   ( 2113): addDolbyVisionHdr enter hdrTypes 4
+06-01 18:06:49.668 D/MI-SF   ( 2113): debug.config.media.video.dolby_vision_suports == true
+06-01 18:06:49.668 D/MI-SF   ( 2113): addDolbyVisionHdr enter hdrTypes 4
+06-01 18:06:49.668 D/MI-SF   ( 2113): debug.config.media.video.dolby_vision_suports == true
+06-01 18:06:49.668 D/MI-SF   ( 2113): addDolbyVisionHdr enter hdrTypes 4
+06-01 18:06:49.668 D/MI-SF   ( 2113): debug.config.media.video.dolby_vision_suports == true
+06-01 18:06:52.266 D/RecentsTaskLoader( 4402): reloadTasksData [TaskKey{id=4523, stackId=0, baseIntent=Intent { act=android.intent.action.MAIN cat=[android.intent.category.LAUNCHER] flg=0x10200000 cmp=com.openai.chatgpt/.MainActivity }, userId=0, lastActiveTime=281012579, windowingMode=1, isThumbnailBlur=false, isAccessLocked=false, isScreening=false, topActivity=ComponentInfo{com.android.chrome/org.chromium.chrome.browser.customtabs.CustomTabActivity}, mHashCode=135668245}, title=ChatGPT, titleDescription=ChatGPT, bounds=null, isLaunchTarget=true, isStackTask=true, isSystemApp=false, isDockable=true, baseActivity=ComponentInfo{com.openai.chatgpt/com.openai.chatgpt.MainActivity}, isLocked=false, mNeedHide=false, hasMultipleTasks=false, cti1Key=, cti2Key=, cti1Task=, cti2Task=] 
+06-01 18:06:52.266 D/RecentsTaskLoader( 4402): reloadTasksData [TaskKey{id=4709, stackId=0, baseIntent=Intent { act=android.intent.action.MAIN cat=[android.intent.category.LAUNCHER] flg=0x10200000 cmp=com.android.chrome/com.google.android.apps.chrome.Main }, userId=0, lastActiveTime=276299850, windowingMode=1, isThumbnailBlur=false, isAccessLocked=false, isScreening=false, topActivity=ComponentInfo{com.android.chrome/org.chromium.chrome.browser.ChromeTabbedActivity}, mHashCode=141209371}, title=Chrome, titleDescription=Chrome, bounds=null, isLaunchTarget=true, isStackTask=true, isSystemApp=true, isDockable=true, baseActivity=ComponentInfo{com.android.chrome/org.chromium.chrome.browser.ChromeTabbedActivity}, isLocked=false, mNeedHide=false, hasMultipleTasks=false, cti1Key=, cti2Key=, cti1Task=, cti2Task=] 
+06-01 18:06:52.267 D/RecentsTaskLoader( 4402): reloadTasksData [TaskKey{id=4523, stackId=0, baseIntent=Intent { act=android.intent.action.MAIN cat=[android.intent.category.LAUNCHER] flg=0x10200000 cmp=com.openai.chatgpt/.MainActivity }, userId=0, lastActiveTime=281012579, windowingMode=1, isThumbnailBlur=false, isAccessLocked=false, isScreening=false, topActivity=ComponentInfo{com.android.chrome/org.chromium.chrome.browser.customtabs.CustomTabActivity}, mHashCode=135668245}, title=ChatGPT, titleDescription=ChatGPT, bounds=null, isLaunchTarget=true, isStackTask=true, isSystemApp=false, isDockable=true, baseActivity=ComponentInfo{com.openai.chatgpt/com.openai.chatgpt.MainActivity}, isLocked=false, mNeedHide=false, hasMultipleTasks=false, cti1Key=, cti2Key=, cti1Task=, cti2Task=] 
+06-01 18:06:52.267 D/RecentsTaskLoader( 4402): reloadTasksData [TaskKey{id=4709, stackId=0, baseIntent=Intent { act=android.intent.action.MAIN cat=[android.intent.category.LAUNCHER] flg=0x10200000 cmp=com.android.chrome/com.google.android.apps.chrome.Main }, userId=0, lastActiveTime=276299850, windowingMode=1, isThumbnailBlur=false, isAccessLocked=false, isScreening=false, topActivity=ComponentInfo{com.android.chrome/org.chromium.chrome.browser.ChromeTabbedActivity}, mHashCode=141209371}, title=Chrome, titleDescription=Chrome, bounds=null, isLaunchTarget=true, isStackTask=true, isSystemApp=true, isDockable=true, baseActivity=ComponentInfo{com.android.chrome/org.chromium.chrome.browser.ChromeTabbedActivity}, isLocked=false, mNeedHide=false, hasMultipleTasks=false, cti1Key=, cti2Key=, cti1Task=, cti2Task=] 
+06-01 18:06:52.437 W/Settings(20597): Setting device_provisioned has moved from android.provider.Settings.Secure to android.provider.Settings.Global.
+06-01 18:06:52.564 I/SmartPower: com.google.android.webview:sandboxed_process0:org.chromium.content.app.SandboxedProcessServiceidle->background(820226ms) R(add to whitelist) adj=1.
+06-01 18:06:53.475 D/MI-SF   ( 2113): addDolbyVisionHdr enter hdrTypes 4
+06-01 18:06:53.475 D/MI-SF   ( 2113): debug.config.media.video.dolby_vision_suports == true
+06-01 18:06:53.475 D/MI-SF   ( 2113): addDolbyVisionHdr enter hdrTypes 4
+06-01 18:06:53.475 D/MI-SF   ( 2113): debug.config.media.video.dolby_vision_suports == true
+06-01 18:06:53.475 D/MI-SF   ( 2113): addDolbyVisionHdr enter hdrTypes 4
+06-01 18:06:53.475 D/MI-SF   ( 2113): debug.config.media.video.dolby_vision_suports == true
+06-01 18:06:53.475 D/MI-SF   ( 2113): addDolbyVisionHdr enter hdrTypes 4
+06-01 18:06:53.475 D/MI-SF   ( 2113): debug.config.media.video.dolby_vision_suports == true
+06-01 18:06:53.483 D/MI-SF   ( 2113): addDolbyVisionHdr enter hdrTypes 4
+06-01 18:06:53.483 D/MI-SF   ( 2113): debug.config.media.video.dolby_vision_suports == true
+06-01 18:06:53.483 D/MI-SF   ( 2113): addDolbyVisionHdr enter hdrTypes 4
+06-01 18:06:53.483 D/MI-SF   ( 2113): debug.config.media.video.dolby_vision_suports == true
+06-01 18:06:53.483 D/MI-SF   ( 2113): addDolbyVisionHdr enter hdrTypes 4
+06-01 18:06:53.483 D/MI-SF   ( 2113): debug.config.media.video.dolby_vision_suports == true
+06-01 18:06:53.483 D/MI-SF   ( 2113): addDolbyVisionHdr enter hdrTypes 4
+06-01 18:06:53.483 D/MI-SF   ( 2113): debug.config.media.video.dolby_vision_suports == true
+06-01 18:06:56.678 I/SmartPower: com.google.android.webview:sandboxed_process0:org.chromium.content.app.SandboxedProcessServicebackground->idle(4114ms) R(adj below visible) adj=101.
+06-01 18:06:56.762 D/SSRU-CpuResourceTracker( 2578): [deal]doCpuMonitor:AppCpuState{uid=99000, pkgName='pkg_99000', usages=0.024, duringTime=120434, details={com.google.android.webview_sandboxed_process0_org.chromium.content.app.SandboxedProcessService0_0=0.024}, state=0, stateUpdateTime={}, restricter=0}
+06-01 18:06:56.762 D/SSRU-CpuResourceTracker( 2578): [deal]doCpuMonitor:AppCpuState{uid=99252, pkgName='pkg_99252', usages=0.033, duringTime=962817, details={com.google.android.webview_sandboxed_process0_org.chromium.content.app.SandboxedProcessService0_0=0.033}, state=0, stateUpdateTime={}, restricter=0}
+06-01 18:06:56.821 I/EuiccGoogle(30739): isSystemUser: true isDeviceProvisioned: true deleteTestProfile: true deleteTs48TestProfile flag: false esimFlowStarted: false
+06-01 18:07:00.869 W/VideoCapabilities(29669): Unsupported mime video/dolby-vision
+06-01 18:07:00.870 W/VideoCapabilities(29669): Unsupported mime video/dolby-vision
+06-01 18:07:00.963 I/RcsProvisioningListenab( 4440): [seqId=12][workId=dc91aca2-e78c-4d99-b843-54b821adfa0e] Provisioning task is stopped by the system
+06-01 18:07:00.969 W/VideoCapabilities(29669): Unsupported mime video/dolby-vision
+06-01 18:07:00.969 W/VideoCapabilities(29669): Unsupported mime video/dolby-vision
+06-01 18:07:00.979 I/RcsProvisioningListenab( 4440): [seqId=12][workId=dc91aca2-e78c-4d99-b843-54b821adfa0e] finish provisioning task with result Success {mOutputData=Data {}}
+06-01 18:07:00.979 I/RcsProvisioningListenab( 4440): [seqId=12][workId=dc91aca2-e78c-4d99-b843-54b821adfa0e] RCS provisioning task has finished with result Success {mOutputData=Data {}}
+06-01 18:07:01.034 I/SharedPreferencesSimSta( 4440): SharedPreferencesSimStateStore: No sim subscription info found for RCS provisioning id
+06-01 18:07:01.036 I/WM-WorkerWrapper( 4440): Work [ id=dc91aca2-e78c-4d99-b843-54b821adfa0e, tags={ com.google.android.apps.messaging.shared.rcsprovisioning.RcsProvisioningListenableWorker,provisioning } ] was cancelled
+06-01 18:07:01.074 I/SharedPreferencesSimSta( 4440): SharedPreferencesSimStateStore: No sim subscription info found for RCS provisioning id
+06-01 18:07:01.075 I/BugleRcsProvisioning( 4440): updateAvailabilityForRcsProvisioningId. SimId: redacted-pii:sim_id[chars:20,last3:805], currentAvailability: 9, newAvailability: 9, hint: NO_HINT
+06-01 18:07:01.075 I/SharedPreferencesSimSta( 4440): SharedPreferencesSimStateStore: No sim subscription info found for RCS provisioning id
+06-01 18:07:01.076 I/RcsProvisioningWorkMana( 4440): Skipping provisioning scheduling since RCS is disabled
+06-01 18:07:01.305 D/MddListenableWorkerFactory( 4440): createWorker for class: com.google.android.apps.messaging.shared.rcsprovisioning.RcsProvisioningListenableWorker
+06-01 18:07:01.310 D/WM-WorkerWrapper( 4440): Starting work for com.google.android.apps.messaging.shared.rcsprovisioning.RcsProvisioningListenableWorker
+06-01 18:07:01.311 I/RcsProvisioningListenab( 4440): [seqId=13][workId=dc91aca2-e78c-4d99-b843-54b821adfa0e] RCS provisioning task has started
+06-01 18:07:01.312 I/SharedPreferencesSimSta( 4440): SharedPreferencesSimStateStore: No sim subscription info found for RCS provisioning id
+06-01 18:07:01.313 W/RcsProvisioningListenab( 4440): [seqId=13][workId=dc91aca2-e78c-4d99-b843-54b821adfa0e] Cannot start provisioning engine. Unable to obtain sim info for sim id: SimId(idValue=89331057250066361805)
+06-01 18:07:04.414 I/PowerRankHelperHolder(11068): mDesktopPkgSet =[com.housinganywhere.app, sport.android.betclic.fr, com.ubercab, com.google.android.apps.tasks, com.m365downgrade, com.xman.eu.gp, com.mobilehealth.cardiac, com.sukhavati.gotoplaying.bubble.BubbleShooter.mint, com.miui.compass, com.miui.huanji, com.miui.calculator, com.android.deskclock, m365.xiaodash.scooter, com.tuya.smartlife, com.gameloft.android.ANMP.GloftA9HM, com.xiaomi.finddevice, com.google.android.apps.photos, com.runtastic.android, com.samsung.android.oneconnect, com.plarium.raidlegends, com.android.nfc, com.netdistrict.youpijob, com.duokan.phone.remotecontroller, com.sleepingbeastgames.spaceteam, com.discord, com.orange.fr.assurancemobileweb, com.miui.videoplayer, com.gameduell.tarot, com.mfashiongallery.emag, com.trello, com.seloger.android, com.miui.home, com.md.mcdonalds.gomcdo, co.dygest, com.vitotechnology.StarWalk2Free, com.android.quicksearchbox, com.facebook.katana, com.xiaomi.smarthome, com.miui.miwallpaper, ai.perplexity.app.android, com.groupon, com.snapcalorie.alpha002, com.android.thememanager, com.airbnb.android, com.adobe.psmobile, com.disney.disneyplus, com.ridedott.rider, com.termux.api, com.android.incallui, com.xiaomi.glgm, com.sec.android.app.shealth, com.naturalsoft.personalweb, com.telerama.fr, com.google.android.apps.youtube.music, com.tplink.iot, fr.gouv.franceidentite, com.orange.appshop, com.orange.tdd, com.linkedin.android, org.chromium.webapk.afd143849f678e3e8_v2, com.limebike, net.wooga.junes_journey_hidden_object_mystery_game, com.miui.mishare.connectivity, com.c4mprod.voiturelib, com.google.android.apps.docs.editors.docs, com.block.juggle, com.xiaomi.scanner, com.fooga.joinchargeback, com.xiaomi.midrop, oops.tallycounter, com.funtomic.matchmasters, com.nf.snake, com.einnovation.temu, org.chromium.webapk.ae9855d617e8932dd_v2, com.starmakerinteractive.starmaker, ee.mtakso.client, com.mi.android.globalFileexplorer, com.openai.chatgpt, com.google.android.apps.docs, org.jw.jwlibrary.mobile, com.miui.gallery, com.facebook.stella, com.plato.android, com.sfr.android.moncompte, com.google.android.apps.adm, com.udemy.android, fr.geev.application, com.google.android.videos, com.miui.notes, com.bienici.prod, com.hiza.pj009.main, com.whatsapp, com.duolingo, com.citymapper.app.release, com.moonshot.kimichat, com.samsung.vd.companions, fr.laposte.lapostemobile, com.technogym.tgapp, ai.music.app, com.xiaomi.calendar, com.google.android.dialer, com.lemon.lvoverseas, com.ludovic.melanie, com.google.android.apps.magazines, com.orange.fr.protegee2, com.mi.global.bbs, com.mi.globalminusscreen, com.google.android.apps.authenticator2, com.google.android.apps.podcasts, com.milink.service, com.revolut.revolut, com.miui.player, com.mintgames.wordtrip, com.orange.securite, com.termux, fr.yawatch.luna, com.nvidia.geforcenow, com.king.candycrushsaga, com.google.android.apps.walletnfcrel, com.block.puzzle.game.hippo.mi, com.karmamobile, com.wood.block.sudoku.puzzle.bm, host.exp.exponent, com.tailscale.ipn, com.pieyel.scrabble, com.garmin.android.apps.connectmobile, com.google.chromeremotedesktop, com.google.android.apps.bard, com.strava, com.shopify.arrive, com.google.android.apps.safetyhub, com.bose.bosemusic, com.paypal.android.p2pmobile, org.connectbot, digifit.android.virtuagym.pro.fitnessparksuperclub, com.google.android.apps.maps, com.google.android.apps.tachyon, us.zoom.videomeetings, screenmirroring.tvcast.smartview.miracast.chromecast, com.netshort.abroad, com.google.android.apps.messaging, com.shazam.android, com.google.android.googlequicksearchbox, com.booking, com.zhiliaoapp.musically, org.fdroid.fdroid, com.heetch, ru.iiec.pydroid3, org.telegram.messenger, com.adobe.reader, com.microsoft.skydrive, com.babelfrance.loueragile, fr.doctolib.www, de.autodoc.gmbh, com.ovelin.guitartuna, com.miui.weather2, com.waze, com.android.camera, com.anthropic.claude, com.mintgames.triplecrush.tile.fun, com.android.settings, org.chromium.webapk.af5a6634b68f64365_v2, com.orange.orangeetmoi, com.android.soundrecorder, org.chromium.webapk.a46f94e2fa
+06-01 18:07:15.441 E/chromium(11212): [0601/180715.441610:ERROR:quic_idle_network_detector.cc(102)] SetAlarm called after stopped
+06-01 18:08:57.105 D/SSRU-CpuResourceTracker( 2578): [deal]doCpuMonitor:AppCpuState{uid=99000, pkgName='pkg_99000', usages=0.016, duringTime=120435, details={com.google.android.webview_sandboxed_process0_org.chromium.content.app.SandboxedProcessService0_0=0.016}, state=0, stateUpdateTime={}, restricter=0}
+06-01 18:08:57.105 D/SSRU-CpuResourceTracker( 2578): [deal]doCpuMonitor:AppCpuState{uid=99110, pkgName='pkg_99110', usages=0.008, duringTime=240866, details={com.google.android.webview_sandboxed_process0_org.chromium.content.app.SandboxedProcessService0_0=0.008}, state=0, stateUpdateTime={}, restricter=0}
+06-01 18:08:57.105 D/SSRU-CpuResourceTracker( 2578): [deal]doCpuMonitor:AppCpuState{uid=99202, pkgName='pkg_99202', usages=0.041, duringTime=120436, details={com.google.android.webview_sandboxed_process0_org.chromium.content.app.SandboxedProcessService0_0=0.041}, state=0, stateUpdateTime={}, restricter=0}
+06-01 18:08:57.105 D/SSRU-CpuResourceTracker( 2578): [deal]doCpuMonitor:AppCpuState{uid=99207, pkgName='pkg_99207', usages=0.005, duringTime=361156, details={com.google.android.webview_sandboxed_process0_org.chromium.content.app.SandboxedProcessService0_0=0.005}, state=0, stateUpdateTime={}, restricter=0}
+06-01 18:08:57.105 D/SSRU-CpuResourceTracker( 2578): [deal]doCpuMonitor:AppCpuState{uid=99252, pkgName='pkg_99252', usages=0.058, duringTime=120433, details={com.google.android.webview_sandboxed_process0_org.chromium.content.app.SandboxedProcessService0_0=0.058}, state=0, stateUpdateTime={}, restricter=0}
+06-01 18:09:53.239 I/RcsProvisioningFlow( 4440): Scheduling 3 using PWQ with updateTrigger: 2, scheduledAt: 2026-06-01T16:09:53.216Z, initialDelaySeconds: 0.
+06-01 18:09:53.320 I/RcsProvisioningFlow( 4440): Handling SIM state update work request for 3 with updateTrigger 2, scheduledAt 2026-06-01T16:09:53.216Z.
+06-01 18:09:53.321 I/RcsProvisioningFlow( 4440): Beginning update task for phone SIMs state scheduledAt: 2026-06-01T16:09:53.216Z
+06-01 18:09:53.328 I/RcsProvisioningFlow( 4440): Lock acquired for updatng phone SIMs state with update trigger: 2.
+06-01 18:09:53.377 I/RcsProvisioningFlow( 4440): All newly built SimSubscriptionInfos: [(simId: redacted-pii:sim_id[chars:20,last3:452],
+06-01 18:09:53.377 I/RcsProvisioningFlow( 4440): subId: 1,
+06-01 18:09:53.377 I/RcsProvisioningFlow( 4440): simSlot: 0,
+06-01 18:09:53.377 I/RcsProvisioningFlow( 4440): imsi: redacted-pii:imsi[chars:15],
+06-01 18:09:53.377 I/RcsProvisioningFlow( 4440): phoneNumber: redacted-pii:phone_number[chars:0,last2:],
+06-01 18:09:53.377 I/RcsProvisioningFlow( 4440): countryCode: FR,
+06-01 18:09:53.377 I/RcsProvisioningFlow( 4440): networkOperatorName: SFR,
+06-01 18:09:53.377 I/RcsProvisioningFlow( 4440): subscriptionGroupUuid: ,
+06-01 18:09:53.377 I/RcsProvisioningFlow( 4440): mcc: 208,
+06-01 18:09:53.377 I/RcsProvisioningFlow( 4440): mnc: 10,
+06-01 18:09:53.377 I/RcsProvisioningFlow( 4440): simCarrierId: 27,
+06-01 18:09:53.377 I/RcsProvisioningFlow( 4440): iccid: redacted-pii:sim_iccid[chars:20],
+06-01 18:09:53.377 I/RcsProvisioningFlow( 4440): isFi: false,
+06-01 18:09:53.377 I/RcsProvisioningFlow( 4440): loggableGuid: ea567c19-2325-4dd0-a548-610e49a53dd8,
+06-01 18:09:53.377 I/RcsProvisioningFlow( 4440): formattedMsisdn: redacted-pii:phone_number[chars:0,last2:],
+06-01 18:09:53.377 I/RcsProvisioningFlow( 4440): simOperatorName: F SFR,
+06-01 18:09:53.377 I/RcsProvisioningFlow( 4440): simOperator: 20810,
+06-01 18:09:53.377 I/RcsProvisioningFlow( 4440): groupIdLevel1: ,
+06-01 18:09:53.377 I/RcsProvisioningFlow( 4440): preferredSubscriptionName: F SFR)]
+06-01 18:09:53.386 I/RcsProvisioningFlow( 4440): Storing updated SimSubscriptionInfo list: [(redacted-pii:sim_id[chars:20,last3:452], ea567c19-2325-4dd0-a548-610e49a53dd8)]
+06-01 18:09:53.393 I/RcsProvisioningFlow( 4440): Phone defaults have not changed, skipping saving
+06-01 18:09:53.394 I/RcsProvisioningFlow( 4440): Broadcasting SIM_LOADED event for new or updated SIMs: [(redacted-pii:sim_id[chars:20,last3:452], ea567c19-2325-4dd0-a548-610e49a53dd8)]
+06-01 18:09:53.439 I/Bugle   ( 4440): RcsAvailabilityUtilForProvisioningEngineV2: updateAvailabilityForAllSimsAsync, hint: NO_HINT
+06-01 18:09:53.439 I/BugleRcsProvisioning( 4440): updateAvailabilityForAllSimsAsync: hint: NO_HINT
+06-01 18:09:53.440 I/BugleRcsProvisioning( 4440): updateRcsAvailabilityForMultipleSims: hint: NO_HINT
+06-01 18:09:53.448 I/RcsProvisioningFlow( 4440): Clearing provisioning flow state for redacted-pii:sim_id[chars:55,last3:AGS]
+06-01 18:09:53.456 I/BugleRcsProvisioning( 4440): RcsAvailability configuration availability and enabled status: simId: redacted-pii:sim_id[chars:20,last3:452], SipConnectionType: DUAL_REG, isConfigurationAvailableAndEnabled: true
+06-01 18:09:53.456 I/BugleRcsProvisioning( 4440): Checking isConfigServerUrlAvailable with simId: redacted-pii:sim_id[chars:20,last3:452], 
+06-01 18:09:53.457 I/BugleRcsEngine( 4440): getConfigServerUrl with simId: redacted-pii:sim_id[chars:20,last3:452] [CONTEXT log_prefix="ProvisioningServerUtil" thread_id=48643 ]
+06-01 18:09:53.457 I/BugleRcsEngine( 4440): Using RCS compliant config URL [CONTEXT log_prefix="ProvisioningServerUtil" thread_id=48643 ]
+06-01 18:09:53.458 I/ProvisioningServerUtil( 4440): Getting mccmnc from SimSubscriptionInfo.
+06-01 18:09:53.461 I/RcsProvisioningFlow( 4440): Clearing provisioning flow state for redacted-pii:sim_id[chars:117,last3:ION]
+06-01 18:09:53.463 I/RcsProvisioningFlow( 4440): Clearing provisioning flow state for redacted-pii:sim_id[chars:73,last3:AGS]
+06-01 18:09:53.464 I/BugleRcsProvisioning( 4440): RcsAvailability: Subscription Id: 1, simId: redacted-pii:sim_id[chars:20,last3:452], sipConnectionType: DUAL_REG, isRcsAvailable: true
+06-01 18:09:53.464 I/BugleRcsProvisioning( 4440): updateAvailabilityForRcsProvisioningId. SimId: redacted-pii:sim_id[chars:20,last3:452], currentAvailability: 7, newAvailability: 7, hint: NO_HINT
+06-01 18:09:53.467 I/BugleRcsProvisioning( 4440): RcsProvisioningTrigger: onRcsAvailabilityUpdate : availability is updated to RCS is setup, lastAvailabilityLocal is RCS is setup, simId hash = 4870830445601495748, simId = redacted-pii:sim_id[chars:20,last3:452], isPev3Enabled = true
+06-01 18:09:53.468 I/RcsProvisioningFlow( 4440): Clearing provisioning flow state for redacted-pii:sim_id[chars:60,last3:AGS]
+06-01 18:09:53.471 I/RcsProvisioningFlow( 4440): Clearing provisioning flow state for redacted-pii:sim_id[chars:60,last3:AGS]
+06-01 18:09:53.544 I/Bugle   ( 4440): RcsAvailabilityUtilForProvisioningEngineV2: onCsLibPhenotypeUpdated
+06-01 18:09:53.545 I/BugleRcsProvisioning( 4440): RcsProvisioningTrigger: onCsLibPhenotypeUpdated, enableProvisioningTaskInBugle = true
+06-01 18:09:53.545 I/BugleRcsProvisioning( 4440): RcsProvisioningTrigger: updateAvailabilityForAllSimsAsync : hint = CSLIB_PHENOTYPE_UPDATE logTriggerEvent = true
+06-01 18:09:53.546 I/Bugle   ( 4440): RcsAvailabilityUtilForProvisioningEngineV2: updateAvailabilityForAllSimsAsync, hint: CSLIB_PHENOTYPE_UPDATE
+06-01 18:09:53.546 I/BugleRcsProvisioning( 4440): updateAvailabilityForAllSimsAsync: hint: CSLIB_PHENOTYPE_UPDATE
+06-01 18:09:53.547 I/BugleRcsProvisioning( 4440): updateRcsAvailabilityForMultipleSims: hint: CSLIB_PHENOTYPE_UPDATE
+06-01 18:09:53.556 I/BugleRcsProvisioning( 4440): RcsAvailability configuration availability and enabled status: simId: redacted-pii:sim_id[chars:20,last3:452], SipConnectionType: DUAL_REG, isConfigurationAvailableAndEnabled: true
+06-01 18:09:53.557 I/BugleRcsProvisioning( 4440): Checking isConfigServerUrlAvailable with simId: redacted-pii:sim_id[chars:20,last3:452], 
+06-01 18:09:53.557 I/BugleRcsEngine( 4440): getConfigServerUrl with simId: redacted-pii:sim_id[chars:20,last3:452] [CONTEXT log_prefix="ProvisioningServerUtil" thread_id=48647 ]
+06-01 18:09:53.558 I/BugleRcsEngine( 4440): Using RCS compliant config URL [CONTEXT log_prefix="ProvisioningServerUtil" thread_id=48647 ]
+06-01 18:09:53.558 I/ProvisioningServerUtil( 4440): Getting mccmnc from SimSubscriptionInfo.
+06-01 18:09:53.562 I/BugleRcsProvisioning( 4440): RcsAvailability: Subscription Id: 1, simId: redacted-pii:sim_id[chars:20,last3:452], sipConnectionType: DUAL_REG, isRcsAvailable: true
+06-01 18:09:53.562 I/BugleRcsProvisioning( 4440): updateAvailabilityForRcsProvisioningId. SimId: redacted-pii:sim_id[chars:20,last3:452], currentAvailability: 7, newAvailability: 7, hint: CSLIB_PHENOTYPE_UPDATE
+06-01 18:09:53.563 I/BugleRcsProvisioning( 4440): scheduleProvisioningForEligibleSims
+06-01 18:09:53.564 I/BugleRcsProvisioning( 4440): RcsProvisioningTrigger: onRcsAvailabilityUpdate : availability is updated to RCS is setup, lastAvailabilityLocal is RCS is setup, simId hash = 4870830445601495748, simId = redacted-pii:sim_id[chars:20,last3:452], isPev3Enabled = true
+06-01 18:09:53.565 I/dbqi    ( 4440): scheduleProvisioningForEligibleSims: operationTrigger: 2 bugle trigger event: 9
+06-01 18:09:53.565 I/dbqi    ( 4440): scheduleProvisioningForAllEligibleSims: operationTrigger: 2 bugle trigger event: 9
+06-01 18:09:53.567 I/dbqi    ( 4440): scheduleProvisioningForRcsProvisioningId: rcsProvisioningId: redacted-pii:sim_id[chars:20,last3:452] operationTrigger: 2 bugle trigger event: 9
+06-01 18:09:53.568 I/dbqi    ( 4440): RcsProvisioningTrigger: DR is active, initializing DR provisioning. DUAL_REG
+06-01 18:09:53.571 I/RcsProvisioningWorkMana( 4440): Skipping full provisioning scheduling since we already have valid and updated RCS configuration
+06-01 18:09:53.572 I/RcsProvisioningFlow( 4440): Clearing provisioning flow state for redacted-pii:sim_id[chars:20,last3:452]
+06-01 18:09:53.768 I/RcsProvisioningFlow( 4440): Scheduling 3 using PWQ with updateTrigger: 2, scheduledAt: 2026-06-01T16:09:53.768Z, initialDelaySeconds: 0.
+06-01 18:09:53.832 I/RcsProvisioningFlow( 4440): Handling SIM state update work request for 3 with updateTrigger 2, scheduledAt 2026-06-01T16:09:53.768Z.
+06-01 18:09:53.832 I/RcsProvisioningFlow( 4440): Beginning update task for phone SIMs state scheduledAt: 2026-06-01T16:09:53.768Z
+06-01 18:09:53.836 I/RcsProvisioningFlow( 4440): Lock acquired for updatng phone SIMs state with update trigger: 2.
+06-01 18:09:53.863 I/RcsProvisioningFlow( 4440): All newly built SimSubscriptionInfos: [(simId: redacted-pii:sim_id[chars:20,last3:452],
+06-01 18:09:53.863 I/RcsProvisioningFlow( 4440): subId: 1,
+06-01 18:09:53.863 I/RcsProvisioningFlow( 4440): simSlot: 0,
+06-01 18:09:53.863 I/RcsProvisioningFlow( 4440): imsi: redacted-pii:imsi[chars:15],
+06-01 18:09:53.863 I/RcsProvisioningFlow( 4440): phoneNumber: redacted-pii:phone_number[chars:0,last2:],
+06-01 18:09:53.863 I/RcsProvisioningFlow( 4440): countryCode: FR,
+06-01 18:09:53.863 I/RcsProvisioningFlow( 4440): networkOperatorName: ,
+06-01 18:09:53.863 I/RcsProvisioningFlow( 4440): subscriptionGroupUuid: ,
+06-01 18:09:53.863 I/RcsProvisioningFlow( 4440): mcc: 208,
+06-01 18:09:53.863 I/RcsProvisioningFlow( 4440): mnc: 10,
+06-01 18:09:53.863 I/RcsProvisioningFlow( 4440): simCarrierId: 27,
+06-01 18:09:53.863 I/RcsProvisioningFlow( 4440): iccid: redacted-pii:sim_iccid[chars:20],
+06-01 18:09:53.863 I/RcsProvisioningFlow( 4440): isFi: false,
+06-01 18:09:53.863 I/RcsProvisioningFlow( 4440): loggableGuid: ea567c19-2325-4dd0-a548-610e49a53dd8,
+06-01 18:09:53.863 I/RcsProvisioningFlow( 4440): formattedMsisdn: redacted-pii:phone_number[chars:0,last2:],
+06-01 18:09:53.863 I/RcsProvisioningFlow( 4440): simOperatorName: F SFR,
+06-01 18:09:53.863 I/RcsProvisioningFlow( 4440): simOperator: 20810,
+06-01 18:09:53.863 I/RcsProvisioningFlow( 4440): groupIdLevel1: ,
+06-01 18:09:53.863 I/RcsProvisioningFlow( 4440): preferredSubscriptionName: F SFR)]
+06-01 18:09:53.870 I/RcsProvisioningFlow( 4440): Storing updated SimSubscriptionInfo list: [(redacted-pii:sim_id[chars:20,last3:452], ea567c19-2325-4dd0-a548-610e49a53dd8)]
+06-01 18:09:53.872 I/RcsProvisioningFlow( 4440): Phone defaults have not changed, skipping saving
+06-01 18:09:53.872 I/RcsProvisioningFlow( 4440): No new or updated SIMs on phone sim state update.
+06-01 18:09:55.755 I/RcsProvisioningFlow( 4440): Scheduling 3 using PWQ with updateTrigger: 2, scheduledAt: 2026-06-01T16:09:55.754Z, initialDelaySeconds: 0.
+06-01 18:09:55.797 I/RcsProvisioningFlow( 4440): Handling SIM state update work request for 3 with updateTrigger 2, scheduledAt 2026-06-01T16:09:55.754Z.
+06-01 18:09:55.797 I/RcsProvisioningFlow( 4440): Beginning update task for phone SIMs state scheduledAt: 2026-06-01T16:09:55.754Z
+06-01 18:09:55.801 I/RcsProvisioningFlow( 4440): Lock acquired for updatng phone SIMs state with update trigger: 2.
+06-01 18:09:55.824 I/RcsProvisioningFlow( 4440): All newly built SimSubscriptionInfos: [(simId: redacted-pii:sim_id[chars:20,last3:452],
+06-01 18:09:55.824 I/RcsProvisioningFlow( 4440): subId: 1,
+06-01 18:09:55.824 I/RcsProvisioningFlow( 4440): simSlot: 0,
+06-01 18:09:55.824 I/RcsProvisioningFlow( 4440): imsi: redacted-pii:imsi[chars:15],
+06-01 18:09:55.824 I/RcsProvisioningFlow( 4440): phoneNumber: redacted-pii:phone_number[chars:0,last2:],
+06-01 18:09:55.824 I/RcsProvisioningFlow( 4440): countryCode: FR,
+06-01 18:09:55.824 I/RcsProvisioningFlow( 4440): networkOperatorName: F SFR,
+06-01 18:09:55.824 I/RcsProvisioningFlow( 4440): subscriptionGroupUuid: ,
+06-01 18:09:55.824 I/RcsProvisioningFlow( 4440): mcc: 208,
+06-01 18:09:55.824 I/RcsProvisioningFlow( 4440): mnc: 10,
+06-01 18:09:55.824 I/RcsProvisioningFlow( 4440): simCarrierId: 27,
+06-01 18:09:55.824 I/RcsProvisioningFlow( 4440): iccid: redacted-pii:sim_iccid[chars:20],
+06-01 18:09:55.824 I/RcsProvisioningFlow( 4440): isFi: false,
+06-01 18:09:55.824 I/RcsProvisioningFlow( 4440): loggableGuid: ea567c19-2325-4dd0-a548-610e49a53dd8,
+06-01 18:09:55.824 I/RcsProvisioningFlow( 4440): formattedMsisdn: redacted-pii:phone_number[chars:0,last2:],
+06-01 18:09:55.824 I/RcsProvisioningFlow( 4440): simOperatorName: F SFR,
+06-01 18:09:55.824 I/RcsProvisioningFlow( 4440): simOperator: 20810,
+06-01 18:09:55.824 I/RcsProvisioningFlow( 4440): groupIdLevel1: ,
+06-01 18:09:55.824 I/RcsProvisioningFlow( 4440): preferredSubscriptionName: F SFR)]
+06-01 18:09:55.832 I/RcsProvisioningFlow( 4440): Storing updated SimSubscriptionInfo list: [(redacted-pii:sim_id[chars:20,last3:452], ea567c19-2325-4dd0-a548-610e49a53dd8)]
+06-01 18:09:55.834 I/RcsProvisioningFlow( 4440): Phone defaults have not changed, skipping saving
+06-01 18:09:55.834 I/RcsProvisioningFlow( 4440): No new or updated SIMs on phone sim state update.
+06-01 18:09:59.555 I/BugleSelfIdentity( 4440): Phone number for MyIdentity 8348f722-e4cd-407e-8d47-b92ad1f1b91e does not change [CONTEXT sub_id=1 icc_id="redacted-pii[20-chars]" rcs_provisioning_id="redacted-pii[0-chars]" ]
+06-01 18:09:59.566 I/BugleSelfIdentity( 4440): Phone number for MyIdentity 8348f722-e4cd-407e-8d47-b92ad1f1b91e does not change [CONTEXT sub_id=1 icc_id="redacted-pii[20-chars]" rcs_provisioning_id="redacted-pii[0-chars]" ]
+06-01 18:10:02.417 I/RcsProvisioningFlow( 4440): Scheduling 3 using PWQ with updateTrigger: 2, scheduledAt: 2026-06-01T16:10:02.417Z, initialDelaySeconds: 0.
+06-01 18:10:02.461 I/RcsProvisioningFlow( 4440): Handling SIM state update work request for 3 with updateTrigger 2, scheduledAt 2026-06-01T16:10:02.417Z.
+06-01 18:10:02.462 I/RcsProvisioningFlow( 4440): Beginning update task for phone SIMs state scheduledAt: 2026-06-01T16:10:02.417Z
+06-01 18:10:02.465 I/RcsProvisioningFlow( 4440): Lock acquired for updatng phone SIMs state with update trigger: 2.
+06-01 18:10:02.489 I/RcsProvisioningFlow( 4440): All newly built SimSubscriptionInfos: [(simId: redacted-pii:sim_id[chars:20,last3:452],
+06-01 18:10:02.489 I/RcsProvisioningFlow( 4440): subId: 1,
+06-01 18:10:02.489 I/RcsProvisioningFlow( 4440): simSlot: 0,
+06-01 18:10:02.489 I/RcsProvisioningFlow( 4440): imsi: redacted-pii:imsi[chars:15],
+06-01 18:10:02.489 I/RcsProvisioningFlow( 4440): phoneNumber: redacted-pii:phone_number[chars:12,last2:52],
+06-01 18:10:02.489 I/RcsProvisioningFlow( 4440): countryCode: FR,
+06-01 18:10:02.489 I/RcsProvisioningFlow( 4440): networkOperatorName: SFR,
+06-01 18:10:02.489 I/RcsProvisioningFlow( 4440): subscriptionGroupUuid: ,
+06-01 18:10:02.489 I/RcsProvisioningFlow( 4440): mcc: 208,
+06-01 18:10:02.489 I/RcsProvisioningFlow( 4440): mnc: 10,
+06-01 18:10:02.489 I/RcsProvisioningFlow( 4440): simCarrierId: 27,
+06-01 18:10:02.489 I/RcsProvisioningFlow( 4440): iccid: redacted-pii:sim_iccid[chars:20],
+06-01 18:10:02.489 I/RcsProvisioningFlow( 4440): isFi: false,
+06-01 18:10:02.489 I/RcsProvisioningFlow( 4440): loggableGuid: ea567c19-2325-4dd0-a548-610e49a53dd8,
+06-01 18:10:02.489 I/RcsProvisioningFlow( 4440): formattedMsisdn: redacted-pii:phone_number[chars:12,last2:52],
+06-01 18:10:02.489 I/RcsProvisioningFlow( 4440): simOperatorName: F SFR,
+06-01 18:10:02.489 I/RcsProvisioningFlow( 4440): simOperator: 20810,
+06-01 18:10:02.489 I/RcsProvisioningFlow( 4440): groupIdLevel1: ,
+06-01 18:10:02.489 I/RcsProvisioningFlow( 4440): preferredSubscriptionName: F SFR)]
+06-01 18:10:02.495 I/RcsProvisioningFlow( 4440): Storing updated SimSubscriptionInfo list: [(redacted-pii:sim_id[chars:20,last3:452], ea567c19-2325-4dd0-a548-610e49a53dd8)]
+06-01 18:10:02.496 I/RcsProvisioningFlow( 4440): Phone defaults have not changed, skipping saving
+06-01 18:10:02.497 I/RcsProvisioningFlow( 4440): Broadcasting SIM_LOADED event for new or updated SIMs: [(redacted-pii:sim_id[chars:20,last3:452], ea567c19-2325-4dd0-a548-610e49a53dd8)]
+06-01 18:10:02.504 I/Bugle   ( 4440): RcsAvailabilityUtilForProvisioningEngineV2: updateAvailabilityForAllSimsAsync, hint: NO_HINT
+06-01 18:10:02.505 I/BugleRcsProvisioning( 4440): updateAvailabilityForAllSimsAsync: hint: NO_HINT
+06-01 18:10:02.507 I/BugleRcsProvisioning( 4440): updateRcsAvailabilityForMultipleSims: hint: NO_HINT
+06-01 18:10:02.517 I/BugleRcsProvisioning( 4440): RcsAvailability configuration availability and enabled status: simId: redacted-pii:sim_id[chars:20,last3:452], SipConnectionType: DUAL_REG, isConfigurationAvailableAndEnabled: true
+06-01 18:10:02.520 I/BugleRcsProvisioning( 4440): Checking isConfigServerUrlAvailable with simId: redacted-pii:sim_id[chars:20,last3:452], 
+06-01 18:10:02.521 I/BugleRcsEngine( 4440): getConfigServerUrl with simId: redacted-pii:sim_id[chars:20,last3:452] [CONTEXT log_prefix="ProvisioningServerUtil" thread_id=48647 ]
+06-01 18:10:02.522 I/BugleRcsEngine( 4440): Using RCS compliant config URL [CONTEXT log_prefix="ProvisioningServerUtil" thread_id=48647 ]
+06-01 18:10:02.522 I/ProvisioningServerUtil( 4440): Getting mccmnc from SimSubscriptionInfo.
+06-01 18:10:02.526 I/BugleRcsProvisioning( 4440): RcsAvailability: Subscription Id: 1, simId: redacted-pii:sim_id[chars:20,last3:452], sipConnectionType: DUAL_REG, isRcsAvailable: true
+06-01 18:10:02.526 I/BugleRcsProvisioning( 4440): updateAvailabilityForRcsProvisioningId. SimId: redacted-pii:sim_id[chars:20,last3:452], currentAvailability: 7, newAvailability: 7, hint: NO_HINT
+06-01 18:10:02.528 I/BugleRcsProvisioning( 4440): RcsProvisioningTrigger: onRcsAvailabilityUpdate : availability is updated to RCS is setup, lastAvailabilityLocal is RCS is setup, simId hash = 4870830445601495748, simId = redacted-pii:sim_id[chars:20,last3:452], isPev3Enabled = true
+06-01 18:10:02.531 I/RcsProvisioningFlow( 4440): Clearing provisioning flow state for redacted-pii:sim_id[chars:55,last3:AGS]
+06-01 18:10:02.533 I/RcsProvisioningFlow( 4440): Clearing provisioning flow state for redacted-pii:sim_id[chars:117,last3:ION]
+06-01 18:10:02.535 I/RcsProvisioningFlow( 4440): Clearing provisioning flow state for redacted-pii:sim_id[chars:73,last3:AGS]
+06-01 18:10:02.538 I/RcsProvisioningFlow( 4440): Clearing provisioning flow state for redacted-pii:sim_id[chars:60,last3:AGS]
+06-01 18:10:02.541 I/RcsProvisioningFlow( 4440): Clearing provisioning flow state for redacted-pii:sim_id[chars:60,last3:AGS]
+06-01 18:10:02.563 I/Bugle   ( 4440): RcsAvailabilityUtilForProvisioningEngineV2: onCsLibPhenotypeUpdated
+06-01 18:10:02.563 I/BugleRcsProvisioning( 4440): RcsProvisioningTrigger: onCsLibPhenotypeUpdated, enableProvisioningTaskInBugle = true
+06-01 18:10:02.563 I/BugleRcsProvisioning( 4440): RcsProvisioningTrigger: updateAvailabilityForAllSimsAsync : hint = CSLIB_PHENOTYPE_UPDATE logTriggerEvent = true
+06-01 18:10:02.564 I/Bugle   ( 4440): RcsAvailabilityUtilForProvisioningEngineV2: updateAvailabilityForAllSimsAsync, hint: CSLIB_PHENOTYPE_UPDATE
+06-01 18:10:02.564 I/BugleRcsProvisioning( 4440): updateAvailabilityForAllSimsAsync: hint: CSLIB_PHENOTYPE_UPDATE
+06-01 18:10:02.565 I/BugleRcsProvisioning( 4440): updateRcsAvailabilityForMultipleSims: hint: CSLIB_PHENOTYPE_UPDATE
+06-01 18:10:02.573 I/BugleRcsProvisioning( 4440): RcsAvailability configuration availability and enabled status: simId: redacted-pii:sim_id[chars:20,last3:452], SipConnectionType: DUAL_REG, isConfigurationAvailableAndEnabled: true
+06-01 18:10:02.574 I/BugleRcsProvisioning( 4440): Checking isConfigServerUrlAvailable with simId: redacted-pii:sim_id[chars:20,last3:452], 
+06-01 18:10:02.574 I/BugleRcsEngine( 4440): getConfigServerUrl with simId: redacted-pii:sim_id[chars:20,last3:452] [CONTEXT log_prefix="ProvisioningServerUtil" thread_id=48648 ]
+06-01 18:10:02.575 I/BugleRcsEngine( 4440): Using RCS compliant config URL [CONTEXT log_prefix="ProvisioningServerUtil" thread_id=48648 ]
+06-01 18:10:02.575 I/ProvisioningServerUtil( 4440): Getting mccmnc from SimSubscriptionInfo.
+06-01 18:10:02.578 I/BugleRcsProvisioning( 4440): RcsAvailability: Subscription Id: 1, simId: redacted-pii:sim_id[chars:20,last3:452], sipConnectionType: DUAL_REG, isRcsAvailable: true
+06-01 18:10:02.578 I/BugleRcsProvisioning( 4440): updateAvailabilityForRcsProvisioningId. SimId: redacted-pii:sim_id[chars:20,last3:452], currentAvailability: 7, newAvailability: 7, hint: CSLIB_PHENOTYPE_UPDATE
+06-01 18:10:02.580 I/BugleRcsProvisioning( 4440): scheduleProvisioningForEligibleSims
+06-01 18:10:02.580 I/BugleRcsProvisioning( 4440): RcsProvisioningTrigger: onRcsAvailabilityUpdate : availability is updated to RCS is setup, lastAvailabilityLocal is RCS is setup, simId hash = 4870830445601495748, simId = redacted-pii:sim_id[chars:20,last3:452], isPev3Enabled = true
+06-01 18:10:02.580 I/dbqi    ( 4440): scheduleProvisioningForEligibleSims: operationTrigger: 2 bugle trigger event: 9
+06-01 18:10:02.581 I/dbqi    ( 4440): scheduleProvisioningForAllEligibleSims: operationTrigger: 2 bugle trigger event: 9
+06-01 18:10:02.582 I/dbqi    ( 4440): scheduleProvisioningForRcsProvisioningId: rcsProvisioningId: redacted-pii:sim_id[chars:20,last3:452] operationTrigger: 2 bugle trigger event: 9
+06-01 18:10:02.582 I/dbqi    ( 4440): RcsProvisioningTrigger: DR is active, initializing DR provisioning. DUAL_REG
+06-01 18:10:02.585 I/RcsProvisioningWorkMana( 4440): Skipping full provisioning scheduling since we already have valid and updated RCS configuration
+06-01 18:10:02.586 I/RcsProvisioningFlow( 4440): Clearing provisioning flow state for redacted-pii:sim_id[chars:20,last3:452]
+06-01 18:10:07.777 I/<unknown class>( 4440): isConversationAllowed: Devices not under supervision, conversation is always allowed. [CONTEXT x_message_id=-746518145324234234 work_id="2027ea6c-3d9c-43c6-8199-6ea6447e47a4" pipeline_type="SmsReceivePipeline" class_name="ConversationTrustedContactsApi" ratelimit_period="1 MINUTES" ]
+06-01 18:10:08.010 I/<unknown class>( 4440): Devices not under supervision, conversation notification should always be posted. [CONTEXT x_message_id=-746518145324234234 work_id="2027ea6c-3d9c-43c6-8199-6ea6447e47a4" pipeline_type="SmsReceivePipeline" class_name="ConversationTrustedContactsApi" ratelimit_period="1 MINUTES" ]
+06-01 18:10:08.051 W/ActivityManager( 2578): Foreground service started from background can not have location/camera/microphone access: service com.google.android.apps.messaging/com.google.apps.tiktok.concurrent.InternalForegroundService
+06-01 18:10:08.071 I/SimSubscriptionInfoRetr( 4440): Found provisioning id for sub id in simStateCache. subId SubscriptionId(idValue=1): provisioning id: redacted-pii:sim_id[chars:20,last3:452]
+06-01 18:10:08.072 I/SimSubscriptionInfoRetr( 4440): Found provisioning id for sub id in simStateCache. subId SubscriptionId(idValue=1): provisioning id: redacted-pii:sim_id[chars:20,last3:452]
+06-01 18:10:08.124 I/SimSubscriptionInfoRetr( 4440): Found provisioning id for sub id in simStateCache. subId SubscriptionId(idValue=1): provisioning id: redacted-pii:sim_id[chars:20,last3:452]
+06-01 18:10:08.157 I/cn_CronetUrlRequestContext( 4440): destroyNativeStreamLocked org.chromium.net.impl.CronetBidirectionalStream@ff942d5
+06-01 18:10:08.777 I/BugleSelfIdentity( 4440): Phone number for MyIdentity 8348f722-e4cd-407e-8d47-b92ad1f1b91e does not change [CONTEXT sub_id=1 icc_id="redacted-pii[20-chars]" messaging_identity="redacted-pii[12-chars]" rcs_provisioning_id="redacted-pii[0-chars]" ]
+06-01 18:10:08.792 I/BugleSelfIdentity( 4440): Phone number for MyIdentity 8348f722-e4cd-407e-8d47-b92ad1f1b91e does not change [CONTEXT sub_id=1 icc_id="redacted-pii[20-chars]" messaging_identity="redacted-pii[12-chars]" rcs_provisioning_id="redacted-pii[0-chars]" ]
+06-01 18:10:21.463 I/WebViewFactory(31909): Loading com.google.android.webview version 148.0.7778.178 (code 777817803)
+06-01 18:10:21.578 D/nativeloader(31909): Load /data/app/~~hu47LTRUYJus8DInyw_Htg==/com.google.android.webview-fUw4RZY2KwrKr6slqGnegg==/base.apk!/lib/arm64-v8a/libwebviewchromium.so using class loader ns clns-11 (caller=/data/app/~~hu47LTRUYJus8DInyw_Htg==/com.google.android.webview-fUw4RZY2KwrKr6slqGnegg==/base.apk): ok
+06-01 18:10:21.583 D/nativeloader(31909): Load /system/lib64/libwebviewchromium_plat_support.so using class loader ns clns-11 (caller=/data/app/~~hu47LTRUYJus8DInyw_Htg==/com.google.android.webview-fUw4RZY2KwrKr6slqGnegg==/base.apk): ok
+06-01 18:10:21.616 I/chromium(31909): [0601/181021.596201:INFO:android_webview/browser/variations/variations_seed_loader.cc:67] Failed to open file for reading.: No such file or directory (2)
+06-01 18:10:21.935 D/MI-SF   ( 2113): addDolbyVisionHdr enter hdrTypes 4
+06-01 18:10:21.935 D/MI-SF   ( 2113): debug.config.media.video.dolby_vision_suports == true
+06-01 18:10:21.935 D/MI-SF   ( 2113): addDolbyVisionHdr enter hdrTypes 4
+06-01 18:10:21.935 D/MI-SF   ( 2113): debug.config.media.video.dolby_vision_suports == true
+06-01 18:10:21.935 D/MI-SF   ( 2113): addDolbyVisionHdr enter hdrTypes 4
+06-01 18:10:21.935 D/MI-SF   ( 2113): debug.config.media.video.dolby_vision_suports == true
+06-01 18:10:21.935 D/MI-SF   ( 2113): addDolbyVisionHdr enter hdrTypes 4
+06-01 18:10:21.935 D/MI-SF   ( 2113): debug.config.media.video.dolby_vision_suports == true
+06-01 18:10:33.073 I/RcsProvisioningFlow( 4440): Scheduling 3 using PWQ with updateTrigger: 2, scheduledAt: 2026-06-01T16:10:33.072Z, initialDelaySeconds: 0.
+06-01 18:10:33.126 I/RcsProvisioningFlow( 4440): Handling SIM state update work request for 3 with updateTrigger 2, scheduledAt 2026-06-01T16:10:33.072Z.
+06-01 18:10:33.126 I/RcsProvisioningFlow( 4440): Beginning update task for phone SIMs state scheduledAt: 2026-06-01T16:10:33.072Z
+06-01 18:10:33.129 I/RcsProvisioningFlow( 4440): Lock acquired for updatng phone SIMs state with update trigger: 2.
+06-01 18:10:33.185 I/RcsProvisioningFlow( 4440): All newly built SimSubscriptionInfos: [(simId: redacted-pii:sim_id[chars:20,last3:452],
+06-01 18:10:33.185 I/RcsProvisioningFlow( 4440): subId: 1,
+06-01 18:10:33.185 I/RcsProvisioningFlow( 4440): simSlot: 0,
+06-01 18:10:33.185 I/RcsProvisioningFlow( 4440): imsi: redacted-pii:imsi[chars:15],
+06-01 18:10:33.185 I/RcsProvisioningFlow( 4440): phoneNumber: redacted-pii:phone_number[chars:0,last2:],
+06-01 18:10:33.185 I/RcsProvisioningFlow( 4440): countryCode: FR,
+06-01 18:10:33.185 I/RcsProvisioningFlow( 4440): networkOperatorName: ,
+06-01 18:10:33.185 I/RcsProvisioningFlow( 4440): subscriptionGroupUuid: ,
+06-01 18:10:33.185 I/RcsProvisioningFlow( 4440): mcc: 208,
+06-01 18:10:33.185 I/RcsProvisioningFlow( 4440): mnc: 10,
+06-01 18:10:33.185 I/RcsProvisioningFlow( 4440): simCarrierId: 27,
+06-01 18:10:33.185 I/RcsProvisioningFlow( 4440): iccid: redacted-pii:sim_iccid[chars:20],
+06-01 18:10:33.185 I/RcsProvisioningFlow( 4440): isFi: false,
+06-01 18:10:33.185 I/RcsProvisioningFlow( 4440): loggableGuid: ea567c19-2325-4dd0-a548-610e49a53dd8,
+06-01 18:10:33.185 I/RcsProvisioningFlow( 4440): formattedMsisdn: redacted-pii:phone_number[chars:0,last2:],
+06-01 18:10:33.185 I/RcsProvisioningFlow( 4440): simOperatorName: F SFR,
+06-01 18:10:33.185 I/RcsProvisioningFlow( 4440): simOperator: 20810,
+06-01 18:10:33.185 I/RcsProvisioningFlow( 4440): groupIdLevel1: ,
+06-01 18:10:33.185 I/RcsProvisioningFlow( 4440): preferredSubscriptionName: F SFR)]
+06-01 18:10:33.195 I/RcsProvisioningFlow( 4440): Storing updated SimSubscriptionInfo list: [(redacted-pii:sim_id[chars:20,last3:452], ea567c19-2325-4dd0-a548-610e49a53dd8)]
+06-01 18:10:33.197 I/RcsProvisioningFlow( 4440): Phone defaults have not changed, skipping saving
+06-01 18:10:33.198 I/RcsProvisioningFlow( 4440): Broadcasting SIM_LOADED event for new or updated SIMs: [(redacted-pii:sim_id[chars:20,last3:452], ea567c19-2325-4dd0-a548-610e49a53dd8)]
+06-01 18:10:33.200 I/Bugle   ( 4440): RcsAvailabilityUtilForProvisioningEngineV2: updateAvailabilityForAllSimsAsync, hint: NO_HINT
+06-01 18:10:33.200 I/BugleRcsProvisioning( 4440): updateAvailabilityForAllSimsAsync: hint: NO_HINT
+06-01 18:10:33.204 I/BugleRcsProvisioning( 4440): updateRcsAvailabilityForMultipleSims: hint: NO_HINT
+06-01 18:10:33.214 I/BugleRcsProvisioning( 4440): RcsAvailability configuration availability and enabled status: simId: redacted-pii:sim_id[chars:20,last3:452], SipConnectionType: DUAL_REG, isConfigurationAvailableAndEnabled: true
+06-01 18:10:33.215 I/BugleRcsProvisioning( 4440): Checking isConfigServerUrlAvailable with simId: redacted-pii:sim_id[chars:20,last3:452], 
+06-01 18:10:33.215 I/BugleRcsEngine( 4440): getConfigServerUrl with simId: redacted-pii:sim_id[chars:20,last3:452] [CONTEXT log_prefix="ProvisioningServerUtil" thread_id=48655 ]
+06-01 18:10:33.216 I/BugleRcsEngine( 4440): Using RCS compliant config URL [CONTEXT log_prefix="ProvisioningServerUtil" thread_id=48655 ]
+06-01 18:10:33.216 I/ProvisioningServerUtil( 4440): Getting mccmnc from SimSubscriptionInfo.
+06-01 18:10:33.227 I/RcsProvisioningFlow( 4440): Scheduling 3 using PWQ with updateTrigger: 2, scheduledAt: 2026-06-01T16:10:33.227Z, initialDelaySeconds: 0.
+06-01 18:10:33.233 I/BugleRcsProvisioning( 4440): RcsAvailability: Subscription Id: 1, simId: redacted-pii:sim_id[chars:20,last3:452], sipConnectionType: DUAL_REG, isRcsAvailable: true
+06-01 18:10:33.234 I/BugleRcsProvisioning( 4440): updateAvailabilityForRcsProvisioningId. SimId: redacted-pii:sim_id[chars:20,last3:452], currentAvailability: 7, newAvailability: 7, hint: NO_HINT
+06-01 18:10:33.239 I/BugleRcsProvisioning( 4440): RcsProvisioningTrigger: onRcsAvailabilityUpdate : availability is updated to RCS is setup, lastAvailabilityLocal is RCS is setup, simId hash = 4870830445601495748, simId = redacted-pii:sim_id[chars:20,last3:452], isPev3Enabled = true
+06-01 18:10:33.244 I/RcsProvisioningFlow( 4440): Clearing provisioning flow state for redacted-pii:sim_id[chars:55,last3:AGS]
+06-01 18:10:33.249 I/RcsProvisioningFlow( 4440): Clearing provisioning flow state for redacted-pii:sim_id[chars:117,last3:ION]
+06-01 18:10:33.251 I/RcsProvisioningFlow( 4440): Clearing provisioning flow state for redacted-pii:sim_id[chars:73,last3:AGS]
+06-01 18:10:33.258 I/RcsProvisioningFlow( 4440): Clearing provisioning flow state for redacted-pii:sim_id[chars:60,last3:AGS]
+06-01 18:10:33.260 I/RcsProvisioningFlow( 4440): Clearing provisioning flow state for redacted-pii:sim_id[chars:60,last3:AGS]
+06-01 18:10:33.292 I/Bugle   ( 4440): RcsAvailabilityUtilForProvisioningEngineV2: onCsLibPhenotypeUpdated
+06-01 18:10:33.292 I/BugleRcsProvisioning( 4440): RcsProvisioningTrigger: onCsLibPhenotypeUpdated, enableProvisioningTaskInBugle = true
+06-01 18:10:33.293 I/BugleRcsProvisioning( 4440): RcsProvisioningTrigger: updateAvailabilityForAllSimsAsync : hint = CSLIB_PHENOTYPE_UPDATE logTriggerEvent = true
+06-01 18:10:33.294 I/Bugle   ( 4440): RcsAvailabilityUtilForProvisioningEngineV2: updateAvailabilityForAllSimsAsync, hint: CSLIB_PHENOTYPE_UPDATE
+06-01 18:10:33.294 I/BugleRcsProvisioning( 4440): updateAvailabilityForAllSimsAsync: hint: CSLIB_PHENOTYPE_UPDATE
+06-01 18:10:33.296 I/BugleRcsProvisioning( 4440): updateRcsAvailabilityForMultipleSims: hint: CSLIB_PHENOTYPE_UPDATE
+06-01 18:10:33.305 I/BugleRcsProvisioning( 4440): RcsAvailability configuration availability and enabled status: simId: redacted-pii:sim_id[chars:20,last3:452], SipConnectionType: DUAL_REG, isConfigurationAvailableAndEnabled: true
+06-01 18:10:33.305 I/BugleRcsProvisioning( 4440): Checking isConfigServerUrlAvailable with simId: redacted-pii:sim_id[chars:20,last3:452], 
+06-01 18:10:33.306 I/BugleRcsEngine( 4440): getConfigServerUrl with simId: redacted-pii:sim_id[chars:20,last3:452] [CONTEXT log_prefix="ProvisioningServerUtil" thread_id=48644 ]
+06-01 18:10:33.306 I/BugleRcsEngine( 4440): Using RCS compliant config URL [CONTEXT log_prefix="ProvisioningServerUtil" thread_id=48644 ]
+06-01 18:10:33.307 I/ProvisioningServerUtil( 4440): Getting mccmnc from SimSubscriptionInfo.
+06-01 18:10:33.311 I/BugleRcsProvisioning( 4440): RcsAvailability: Subscription Id: 1, simId: redacted-pii:sim_id[chars:20,last3:452], sipConnectionType: DUAL_REG, isRcsAvailable: true
+06-01 18:10:33.311 I/BugleRcsProvisioning( 4440): updateAvailabilityForRcsProvisioningId. SimId: redacted-pii:sim_id[chars:20,last3:452], currentAvailability: 7, newAvailability: 7, hint: CSLIB_PHENOTYPE_UPDATE
+06-01 18:10:33.312 I/BugleRcsProvisioning( 4440): scheduleProvisioningForEligibleSims
+06-01 18:10:33.312 I/BugleRcsProvisioning( 4440): RcsProvisioningTrigger: onRcsAvailabilityUpdate : availability is updated to RCS is setup, lastAvailabilityLocal is RCS is setup, simId hash = 4870830445601495748, simId = redacted-pii:sim_id[chars:20,last3:452], isPev3Enabled = true
+06-01 18:10:33.313 I/dbqi    ( 4440): scheduleProvisioningForEligibleSims: operationTrigger: 2 bugle trigger event: 9
+06-01 18:10:33.313 I/dbqi    ( 4440): scheduleProvisioningForAllEligibleSims: operationTrigger: 2 bugle trigger event: 9
+06-01 18:10:33.315 I/dbqi    ( 4440): scheduleProvisioningForRcsProvisioningId: rcsProvisioningId: redacted-pii:sim_id[chars:20,last3:452] operationTrigger: 2 bugle trigger event: 9
+06-01 18:10:33.316 I/dbqi    ( 4440): RcsProvisioningTrigger: DR is active, initializing DR provisioning. DUAL_REG
+06-01 18:10:33.320 I/RcsProvisioningWorkMana( 4440): Skipping full provisioning scheduling since we already have valid and updated RCS configuration
+06-01 18:10:33.321 I/RcsProvisioningFlow( 4440): Clearing provisioning flow state for redacted-pii:sim_id[chars:20,last3:452]
+06-01 18:10:35.930 I/RcsProvisioningFlow( 4440): Scheduling 3 using PWQ with updateTrigger: 2, scheduledAt: 2026-06-01T16:10:35.929Z, initialDelaySeconds: 0.
+06-01 18:10:35.982 I/RcsProvisioningFlow( 4440): Handling SIM state update work request for 3 with updateTrigger 2, scheduledAt 2026-06-01T16:10:35.929Z.
+06-01 18:10:35.983 I/RcsProvisioningFlow( 4440): Beginning update task for phone SIMs state scheduledAt: 2026-06-01T16:10:35.929Z
+06-01 18:10:35.989 I/RcsProvisioningFlow( 4440): Lock acquired for updatng phone SIMs state with update trigger: 2.
+06-01 18:10:36.025 I/RcsProvisioningFlow( 4440): All newly built SimSubscriptionInfos: [(simId: redacted-pii:sim_id[chars:20,last3:452],
+06-01 18:10:36.025 I/RcsProvisioningFlow( 4440): subId: 1,
+06-01 18:10:36.025 I/RcsProvisioningFlow( 4440): simSlot: 0,
+06-01 18:10:36.025 I/RcsProvisioningFlow( 4440): imsi: redacted-pii:imsi[chars:15],
+06-01 18:10:36.025 I/RcsProvisioningFlow( 4440): phoneNumber: redacted-pii:phone_number[chars:0,last2:],
+06-01 18:10:36.025 I/RcsProvisioningFlow( 4440): countryCode: FR,
+06-01 18:10:36.025 I/RcsProvisioningFlow( 4440): networkOperatorName: F SFR,
+06-01 18:10:36.025 I/RcsProvisioningFlow( 4440): subscriptionGroupUuid: ,
+06-01 18:10:36.025 I/RcsProvisioningFlow( 4440): mcc: 208,
+06-01 18:10:36.025 I/RcsProvisioningFlow( 4440): mnc: 10,
+06-01 18:10:36.025 I/RcsProvisioningFlow( 4440): simCarrierId: 27,
+06-01 18:10:36.025 I/RcsProvisioningFlow( 4440): iccid: redacted-pii:sim_iccid[chars:20],
+06-01 18:10:36.025 I/RcsProvisioningFlow( 4440): isFi: false,
+06-01 18:10:36.025 I/RcsProvisioningFlow( 4440): loggableGuid: ea567c19-2325-4dd0-a548-610e49a53dd8,
+06-01 18:10:36.025 I/RcsProvisioningFlow( 4440): formattedMsisdn: redacted-pii:phone_number[chars:0,last2:],
+06-01 18:10:36.025 I/RcsProvisioningFlow( 4440): simOperatorName: F SFR,
+06-01 18:10:36.025 I/RcsProvisioningFlow( 4440): simOperator: 20810,
+06-01 18:10:36.025 I/RcsProvisioningFlow( 4440): groupIdLevel1: ,
+06-01 18:10:36.025 I/RcsProvisioningFlow( 4440): preferredSubscriptionName: F SFR)]
+06-01 18:10:36.038 I/RcsProvisioningFlow( 4440): Storing updated SimSubscriptionInfo list: [(redacted-pii:sim_id[chars:20,last3:452], ea567c19-2325-4dd0-a548-610e49a53dd8)]
+06-01 18:10:36.040 I/RcsProvisioningFlow( 4440): Phone defaults have not changed, skipping saving
+06-01 18:10:36.042 I/RcsProvisioningFlow( 4440): No new or updated SIMs on phone sim state update.
+06-01 18:10:39.338 I/BugleSelfIdentity( 4440): Phone number for MyIdentity 8348f722-e4cd-407e-8d47-b92ad1f1b91e does not change [CONTEXT sub_id=1 icc_id="redacted-pii[20-chars]" rcs_provisioning_id="redacted-pii[0-chars]" ]
+06-01 18:10:39.354 I/BugleSelfIdentity( 4440): Phone number for MyIdentity 8348f722-e4cd-407e-8d47-b92ad1f1b91e does not change [CONTEXT sub_id=1 icc_id="redacted-pii[20-chars]" rcs_provisioning_id="redacted-pii[0-chars]" ]
+06-01 18:10:42.149 I/RcsProvisioningFlow( 4440): Scheduling 3 using PWQ with updateTrigger: 2, scheduledAt: 2026-06-01T16:10:42.149Z, initialDelaySeconds: 0.
+06-01 18:10:42.197 I/RcsProvisioningFlow( 4440): Handling SIM state update work request for 3 with updateTrigger 2, scheduledAt 2026-06-01T16:10:42.149Z.
+06-01 18:10:42.198 I/RcsProvisioningFlow( 4440): Beginning update task for phone SIMs state scheduledAt: 2026-06-01T16:10:42.149Z
+06-01 18:10:42.202 I/RcsProvisioningFlow( 4440): Lock acquired for updatng phone SIMs state with update trigger: 2.
+06-01 18:10:42.225 I/RcsProvisioningFlow( 4440): All newly built SimSubscriptionInfos: [(simId: redacted-pii:sim_id[chars:20,last3:452],
+06-01 18:10:42.225 I/RcsProvisioningFlow( 4440): subId: 1,
+06-01 18:10:42.225 I/RcsProvisioningFlow( 4440): simSlot: 0,
+06-01 18:10:42.225 I/RcsProvisioningFlow( 4440): imsi: redacted-pii:imsi[chars:15],
+06-01 18:10:42.225 I/RcsProvisioningFlow( 4440): phoneNumber: redacted-pii:phone_number[chars:12,last2:52],
+06-01 18:10:42.225 I/RcsProvisioningFlow( 4440): countryCode: FR,
+06-01 18:10:42.225 I/RcsProvisioningFlow( 4440): networkOperatorName: SFR,
+06-01 18:10:42.225 I/RcsProvisioningFlow( 4440): subscriptionGroupUuid: ,
+06-01 18:10:42.225 I/RcsProvisioningFlow( 4440): mcc: 208,
+06-01 18:10:42.225 I/RcsProvisioningFlow( 4440): mnc: 10,
+06-01 18:10:42.225 I/RcsProvisioningFlow( 4440): simCarrierId: 27,
+06-01 18:10:42.225 I/RcsProvisioningFlow( 4440): iccid: redacted-pii:sim_iccid[chars:20],
+06-01 18:10:42.225 I/RcsProvisioningFlow( 4440): isFi: false,
+06-01 18:10:42.225 I/RcsProvisioningFlow( 4440): loggableGuid: ea567c19-2325-4dd0-a548-610e49a53dd8,
+06-01 18:10:42.225 I/RcsProvisioningFlow( 4440): formattedMsisdn: redacted-pii:phone_number[chars:12,last2:52],
+06-01 18:10:42.225 I/RcsProvisioningFlow( 4440): simOperatorName: F SFR,
+06-01 18:10:42.225 I/RcsProvisioningFlow( 4440): simOperator: 20810,
+06-01 18:10:42.225 I/RcsProvisioningFlow( 4440): groupIdLevel1: ,
+06-01 18:10:42.225 I/RcsProvisioningFlow( 4440): preferredSubscriptionName: F SFR)]
+06-01 18:10:42.232 I/RcsProvisioningFlow( 4440): Storing updated SimSubscriptionInfo list: [(redacted-pii:sim_id[chars:20,last3:452], ea567c19-2325-4dd0-a548-610e49a53dd8)]
+06-01 18:10:42.233 I/RcsProvisioningFlow( 4440): Phone defaults have not changed, skipping saving
+06-01 18:10:42.234 I/RcsProvisioningFlow( 4440): Broadcasting SIM_LOADED event for new or updated SIMs: [(redacted-pii:sim_id[chars:20,last3:452], ea567c19-2325-4dd0-a548-610e49a53dd8)]
+06-01 18:10:42.238 I/Bugle   ( 4440): RcsAvailabilityUtilForProvisioningEngineV2: updateAvailabilityForAllSimsAsync, hint: NO_HINT
+06-01 18:10:42.238 I/BugleRcsProvisioning( 4440): updateAvailabilityForAllSimsAsync: hint: NO_HINT
+06-01 18:10:42.240 I/BugleRcsProvisioning( 4440): updateRcsAvailabilityForMultipleSims: hint: NO_HINT
+06-01 18:10:42.250 I/BugleRcsProvisioning( 4440): RcsAvailability configuration availability and enabled status: simId: redacted-pii:sim_id[chars:20,last3:452], SipConnectionType: DUAL_REG, isConfigurationAvailableAndEnabled: true
+06-01 18:10:42.251 I/BugleRcsProvisioning( 4440): Checking isConfigServerUrlAvailable with simId: redacted-pii:sim_id[chars:20,last3:452], 
+06-01 18:10:42.251 I/BugleRcsEngine( 4440): getConfigServerUrl with simId: redacted-pii:sim_id[chars:20,last3:452] [CONTEXT log_prefix="ProvisioningServerUtil" thread_id=48643 ]
+06-01 18:10:42.252 I/BugleRcsEngine( 4440): Using RCS compliant config URL [CONTEXT log_prefix="ProvisioningServerUtil" thread_id=48643 ]
+06-01 18:10:42.252 I/ProvisioningServerUtil( 4440): Getting mccmnc from SimSubscriptionInfo.
+06-01 18:10:42.255 I/BugleRcsProvisioning( 4440): RcsAvailability: Subscription Id: 1, simId: redacted-pii:sim_id[chars:20,last3:452], sipConnectionType: DUAL_REG, isRcsAvailable: true
+06-01 18:10:42.256 I/BugleRcsProvisioning( 4440): updateAvailabilityForRcsProvisioningId. SimId: redacted-pii:sim_id[chars:20,last3:452], currentAvailability: 7, newAvailability: 7, hint: NO_HINT
+06-01 18:10:42.258 I/BugleRcsProvisioning( 4440): RcsProvisioningTrigger: onRcsAvailabilityUpdate : availability is updated to RCS is setup, lastAvailabilityLocal is RCS is setup, simId hash = 4870830445601495748, simId = redacted-pii:sim_id[chars:20,last3:452], isPev3Enabled = true
+06-01 18:10:42.261 I/RcsProvisioningFlow( 4440): Clearing provisioning flow state for redacted-pii:sim_id[chars:55,last3:AGS]
+06-01 18:10:42.264 I/RcsProvisioningFlow( 4440): Clearing provisioning flow state for redacted-pii:sim_id[chars:117,last3:ION]
+06-01 18:10:42.271 I/RcsProvisioningFlow( 4440): Clearing provisioning flow state for redacted-pii:sim_id[chars:73,last3:AGS]
+06-01 18:10:42.273 I/RcsProvisioningFlow( 4440): Clearing provisioning flow state for redacted-pii:sim_id[chars:60,last3:AGS]
+06-01 18:10:42.277 I/RcsProvisioningFlow( 4440): Clearing provisioning flow state for redacted-pii:sim_id[chars:60,last3:AGS]
+06-01 18:10:42.298 I/Bugle   ( 4440): RcsAvailabilityUtilForProvisioningEngineV2: onCsLibPhenotypeUpdated
+06-01 18:10:42.299 I/BugleRcsProvisioning( 4440): RcsProvisioningTrigger: onCsLibPhenotypeUpdated, enableProvisioningTaskInBugle = true
+06-01 18:10:42.299 I/BugleRcsProvisioning( 4440): RcsProvisioningTrigger: updateAvailabilityForAllSimsAsync : hint = CSLIB_PHENOTYPE_UPDATE logTriggerEvent = true
+06-01 18:10:42.300 I/Bugle   ( 4440): RcsAvailabilityUtilForProvisioningEngineV2: updateAvailabilityForAllSimsAsync, hint: CSLIB_PHENOTYPE_UPDATE
+06-01 18:10:42.300 I/BugleRcsProvisioning( 4440): updateAvailabilityForAllSimsAsync: hint: CSLIB_PHENOTYPE_UPDATE
+06-01 18:10:42.300 I/BugleRcsProvisioning( 4440): updateRcsAvailabilityForMultipleSims: hint: CSLIB_PHENOTYPE_UPDATE
+06-01 18:10:42.309 I/BugleRcsProvisioning( 4440): RcsAvailability configuration availability and enabled status: simId: redacted-pii:sim_id[chars:20,last3:452], SipConnectionType: DUAL_REG, isConfigurationAvailableAndEnabled: true
+06-01 18:10:42.310 I/BugleRcsProvisioning( 4440): Checking isConfigServerUrlAvailable with simId: redacted-pii:sim_id[chars:20,last3:452], 
+06-01 18:10:42.310 I/BugleRcsEngine( 4440): getConfigServerUrl with simId: redacted-pii:sim_id[chars:20,last3:452] [CONTEXT log_prefix="ProvisioningServerUtil" thread_id=48648 ]
+06-01 18:10:42.311 I/BugleRcsEngine( 4440): Using RCS compliant config URL [CONTEXT log_prefix="ProvisioningServerUtil" thread_id=48648 ]
+06-01 18:10:42.312 I/ProvisioningServerUtil( 4440): Getting mccmnc from SimSubscriptionInfo.
+06-01 18:10:42.315 I/BugleRcsProvisioning( 4440): RcsAvailability: Subscription Id: 1, simId: redacted-pii:sim_id[chars:20,last3:452], sipConnectionType: DUAL_REG, isRcsAvailable: true
+06-01 18:10:42.315 I/BugleRcsProvisioning( 4440): updateAvailabilityForRcsProvisioningId. SimId: redacted-pii:sim_id[chars:20,last3:452], currentAvailability: 7, newAvailability: 7, hint: CSLIB_PHENOTYPE_UPDATE
+06-01 18:10:42.317 I/BugleRcsProvisioning( 4440): scheduleProvisioningForEligibleSims
+06-01 18:10:42.317 I/BugleRcsProvisioning( 4440): RcsProvisioningTrigger: onRcsAvailabilityUpdate : availability is updated to RCS is setup, lastAvailabilityLocal is RCS is setup, simId hash = 4870830445601495748, simId = redacted-pii:sim_id[chars:20,last3:452], isPev3Enabled = true
+06-01 18:10:42.317 I/dbqi    ( 4440): scheduleProvisioningForEligibleSims: operationTrigger: 2 bugle trigger event: 9
+06-01 18:10:42.318 I/dbqi    ( 4440): scheduleProvisioningForAllEligibleSims: operationTrigger: 2 bugle trigger event: 9
+06-01 18:10:42.318 I/dbqi    ( 4440): scheduleProvisioningForRcsProvisioningId: rcsProvisioningId: redacted-pii:sim_id[chars:20,last3:452] operationTrigger: 2 bugle trigger event: 9
+06-01 18:10:42.319 I/dbqi    ( 4440): RcsProvisioningTrigger: DR is active, initializing DR provisioning. DUAL_REG
+06-01 18:10:42.322 I/RcsProvisioningWorkMana( 4440): Skipping full provisioning scheduling since we already have valid and updated RCS configuration
+06-01 18:10:42.323 I/RcsProvisioningFlow( 4440): Clearing provisioning flow state for redacted-pii:sim_id[chars:20,last3:452]
+06-01 18:10:47.120 D/RecentsTaskLoader( 4402): reloadTasksData [TaskKey{id=4523, stackId=0, baseIntent=Intent { act=android.intent.action.MAIN cat=[android.intent.category.LAUNCHER] flg=0x10200000 cmp=com.openai.chatgpt/.MainActivity }, userId=0, lastActiveTime=281012579, windowingMode=1, isThumbnailBlur=false, isAccessLocked=false, isScreening=false, topActivity=ComponentInfo{com.android.chrome/org.chromium.chrome.browser.customtabs.CustomTabActivity}, mHashCode=135668245}, title=ChatGPT, titleDescription=ChatGPT, bounds=null, isLaunchTarget=true, isStackTask=true, isSystemApp=false, isDockable=true, baseActivity=ComponentInfo{com.openai.chatgpt/com.openai.chatgpt.MainActivity}, isLocked=false, mNeedHide=false, hasMultipleTasks=false, cti1Key=, cti2Key=, cti1Task=, cti2Task=] 
+06-01 18:10:47.120 D/RecentsTaskLoader( 4402): reloadTasksData [TaskKey{id=4709, stackId=0, baseIntent=Intent { act=android.intent.action.MAIN cat=[android.intent.category.LAUNCHER] flg=0x10200000 cmp=com.android.chrome/com.google.android.apps.chrome.Main }, userId=0, lastActiveTime=276299850, windowingMode=1, isThumbnailBlur=false, isAccessLocked=false, isScreening=false, topActivity=ComponentInfo{com.android.chrome/org.chromium.chrome.browser.ChromeTabbedActivity}, mHashCode=141209371}, title=Chrome, titleDescription=Chrome, bounds=null, isLaunchTarget=true, isStackTask=true, isSystemApp=true, isDockable=true, baseActivity=ComponentInfo{com.android.chrome/org.chromium.chrome.browser.ChromeTabbedActivity}, isLocked=false, mNeedHide=false, hasMultipleTasks=false, cti1Key=, cti2Key=, cti1Task=, cti2Task=] 
+06-01 18:10:47.414 D/RecentsTaskLoader( 4402): reloadTasksData [TaskKey{id=4523, stackId=0, baseIntent=Intent { act=android.intent.action.MAIN cat=[android.intent.category.LAUNCHER] flg=0x10200000 cmp=com.openai.chatgpt/.MainActivity }, userId=0, lastActiveTime=281012579, windowingMode=1, isThumbnailBlur=false, isAccessLocked=false, isScreening=false, topActivity=ComponentInfo{com.android.chrome/org.chromium.chrome.browser.customtabs.CustomTabActivity}, mHashCode=135668245}, title=ChatGPT, titleDescription=ChatGPT, bounds=null, isLaunchTarget=true, isStackTask=true, isSystemApp=false, isDockable=true, baseActivity=ComponentInfo{com.openai.chatgpt/com.openai.chatgpt.MainActivity}, isLocked=false, mNeedHide=false, hasMultipleTasks=false, cti1Key=, cti2Key=, cti1Task=, cti2Task=] 
+06-01 18:10:47.414 D/RecentsTaskLoader( 4402): reloadTasksData [TaskKey{id=4709, stackId=0, baseIntent=Intent { act=android.intent.action.MAIN cat=[android.intent.category.LAUNCHER] flg=0x10200000 cmp=com.android.chrome/com.google.android.apps.chrome.Main }, userId=0, lastActiveTime=276299850, windowingMode=1, isThumbnailBlur=false, isAccessLocked=false, isScreening=false, topActivity=ComponentInfo{com.android.chrome/org.chromium.chrome.browser.ChromeTabbedActivity}, mHashCode=141209371}, title=Chrome, titleDescription=Chrome, bounds=null, isLaunchTarget=true, isStackTask=true, isSystemApp=true, isDockable=true, baseActivity=ComponentInfo{com.android.chrome/org.chromium.chrome.browser.ChromeTabbedActivity}, isLocked=false, mNeedHide=false, hasMultipleTasks=false, cti1Key=, cti2Key=, cti1Task=, cti2Task=] 
+06-01 18:10:47.431 D/RecentsTaskLoader( 4402): reloadTasksData [TaskKey{id=4523, stackId=0, baseIntent=Intent { act=android.intent.action.MAIN cat=[android.intent.category.LAUNCHER] flg=0x10200000 cmp=com.openai.chatgpt/.MainActivity }, userId=0, lastActiveTime=281012579, windowingMode=1, isThumbnailBlur=false, isAccessLocked=false, isScreening=false, topActivity=ComponentInfo{com.android.chrome/org.chromium.chrome.browser.customtabs.CustomTabActivity}, mHashCode=135668245}, title=ChatGPT, titleDescription=ChatGPT, bounds=null, isLaunchTarget=true, isStackTask=true, isSystemApp=false, isDockable=true, baseActivity=ComponentInfo{com.openai.chatgpt/com.openai.chatgpt.MainActivity}, isLocked=false, mNeedHide=false, hasMultipleTasks=false, cti1Key=, cti2Key=, cti1Task=, cti2Task=] 
+06-01 18:10:47.431 D/RecentsTaskLoader( 4402): reloadTasksData [TaskKey{id=4709, stackId=0, baseIntent=Intent { act=android.intent.action.MAIN cat=[android.intent.category.LAUNCHER] flg=0x10200000 cmp=com.android.chrome/com.google.android.apps.chrome.Main }, userId=0, lastActiveTime=276299850, windowingMode=1, isThumbnailBlur=false, isAccessLocked=false, isScreening=false, topActivity=ComponentInfo{com.android.chrome/org.chromium.chrome.browser.ChromeTabbedActivity}, mHashCode=141209371}, title=Chrome, titleDescription=Chrome, bounds=null, isLaunchTarget=true, isStackTask=true, isSystemApp=true, isDockable=true, baseActivity=ComponentInfo{com.android.chrome/org.chromium.chrome.browser.ChromeTabbedActivity}, isLocked=false, mNeedHide=false, hasMultipleTasks=false, cti1Key=, cti2Key=, cti1Task=, cti2Task=] 
+06-01 18:10:48.336 I/BugleSelfIdentity( 4440): Phone number for MyIdentity 8348f722-e4cd-407e-8d47-b92ad1f1b91e does not change [CONTEXT sub_id=1 icc_id="redacted-pii[20-chars]" messaging_identity="redacted-pii[12-chars]" rcs_provisioning_id="redacted-pii[0-chars]" ]
+06-01 18:10:48.349 I/BugleSelfIdentity( 4440): Phone number for MyIdentity 8348f722-e4cd-407e-8d47-b92ad1f1b91e does not change [CONTEXT sub_id=1 icc_id="redacted-pii[20-chars]" messaging_identity="redacted-pii[12-chars]" rcs_provisioning_id="redacted-pii[0-chars]" ]
+06-01 18:10:49.819 D/RecentsTaskLoader( 4402): reloadTasksData [TaskKey{id=4523, stackId=0, baseIntent=Intent { act=android.intent.action.MAIN cat=[android.intent.category.LAUNCHER] flg=0x10200000 cmp=com.openai.chatgpt/.MainActivity }, userId=0, lastActiveTime=281012579, windowingMode=1, isThumbnailBlur=false, isAccessLocked=false, isScreening=false, topActivity=ComponentInfo{com.android.chrome/org.chromium.chrome.browser.customtabs.CustomTabActivity}, mHashCode=135668245}, title=ChatGPT, titleDescription=ChatGPT, bounds=null, isLaunchTarget=true, isStackTask=true, isSystemApp=false, isDockable=true, baseActivity=ComponentInfo{com.openai.chatgpt/com.openai.chatgpt.MainActivity}, isLocked=false, mNeedHide=false, hasMultipleTasks=false, cti1Key=, cti2Key=, cti1Task=, cti2Task=] 
+06-01 18:10:49.819 D/RecentsTaskLoader( 4402): reloadTasksData [TaskKey{id=4709, stackId=0, baseIntent=Intent { act=android.intent.action.MAIN cat=[android.intent.category.LAUNCHER] flg=0x10200000 cmp=com.android.chrome/com.google.android.apps.chrome.Main }, userId=0, lastActiveTime=276299850, windowingMode=1, isThumbnailBlur=false, isAccessLocked=false, isScreening=false, topActivity=ComponentInfo{com.android.chrome/org.chromium.chrome.browser.ChromeTabbedActivity}, mHashCode=141209371}, title=Chrome, titleDescription=Chrome, bounds=null, isLaunchTarget=true, isStackTask=true, isSystemApp=true, isDockable=true, baseActivity=ComponentInfo{com.android.chrome/org.chromium.chrome.browser.ChromeTabbedActivity}, isLocked=false, mNeedHide=false, hasMultipleTasks=false, cti1Key=, cti2Key=, cti1Task=, cti2Task=] 
+06-01 18:10:49.853 D/RecentsTaskLoader( 4402): reloadTasksData [TaskKey{id=4523, stackId=0, baseIntent=Intent { act=android.intent.action.MAIN cat=[android.intent.category.LAUNCHER] flg=0x10200000 cmp=com.openai.chatgpt/.MainActivity }, userId=0, lastActiveTime=281012579, windowingMode=1, isThumbnailBlur=false, isAccessLocked=false, isScreening=false, topActivity=ComponentInfo{com.android.chrome/org.chromium.chrome.browser.customtabs.CustomTabActivity}, mHashCode=135668245}, title=ChatGPT, titleDescription=ChatGPT, bounds=null, isLaunchTarget=true, isStackTask=true, isSystemApp=false, isDockable=true, baseActivity=ComponentInfo{com.openai.chatgpt/com.openai.chatgpt.MainActivity}, isLocked=false, mNeedHide=false, hasMultipleTasks=false, cti1Key=, cti2Key=, cti1Task=, cti2Task=] 
+06-01 18:10:49.853 D/RecentsTaskLoader( 4402): reloadTasksData [TaskKey{id=4709, stackId=0, baseIntent=Intent { act=android.intent.action.MAIN cat=[android.intent.category.LAUNCHER] flg=0x10200000 cmp=com.android.chrome/com.google.android.apps.chrome.Main }, userId=0, lastActiveTime=276299850, windowingMode=1, isThumbnailBlur=false, isAccessLocked=false, isScreening=false, topActivity=ComponentInfo{com.android.chrome/org.chromium.chrome.browser.ChromeTabbedActivity}, mHashCode=141209371}, title=Chrome, titleDescription=Chrome, bounds=null, isLaunchTarget=true, isStackTask=true, isSystemApp=true, isDockable=true, baseActivity=ComponentInfo{com.android.chrome/org.chromium.chrome.browser.ChromeTabbedActivity}, isLocked=false, mNeedHide=false, hasMultipleTasks=false, cti1Key=, cti2Key=, cti1Task=, cti2Task=] 
+06-01 18:10:50.146 D/RecentsTaskLoader( 4402): reloadTasksData [TaskKey{id=4523, stackId=0, baseIntent=Intent { act=android.intent.action.MAIN cat=[android.intent.category.LAUNCHER] flg=0x10200000 cmp=com.openai.chatgpt/.MainActivity }, userId=0, lastActiveTime=281012579, windowingMode=1, isThumbnailBlur=false, isAccessLocked=false, isScreening=false, topActivity=ComponentInfo{com.android.chrome/org.chromium.chrome.browser.customtabs.CustomTabActivity}, mHashCode=135668245}, title=ChatGPT, titleDescription=ChatGPT, bounds=null, isLaunchTarget=true, isStackTask=true, isSystemApp=false, isDockable=true, baseActivity=ComponentInfo{com.openai.chatgpt/com.openai.chatgpt.MainActivity}, isLocked=false, mNeedHide=false, hasMultipleTasks=false, cti1Key=, cti2Key=, cti1Task=, cti2Task=] 
+06-01 18:10:50.146 D/RecentsTaskLoader( 4402): reloadTasksData [TaskKey{id=4709, stackId=0, baseIntent=Intent { act=android.intent.action.MAIN cat=[android.intent.category.LAUNCHER] flg=0x10200000 cmp=com.android.chrome/com.google.android.apps.chrome.Main }, userId=0, lastActiveTime=276299850, windowingMode=1, isThumbnailBlur=false, isAccessLocked=false, isScreening=false, topActivity=ComponentInfo{com.android.chrome/org.chromium.chrome.browser.ChromeTabbedActivity}, mHashCode=141209371}, title=Chrome, titleDescription=Chrome, bounds=null, isLaunchTarget=true, isStackTask=true, isSystemApp=true, isDockable=true, baseActivity=ComponentInfo{com.android.chrome/org.chromium.chrome.browser.ChromeTabbedActivity}, isLocked=false, mNeedHide=false, hasMultipleTasks=false, cti1Key=, cti2Key=, cti1Task=, cti2Task=] 
+06-01 18:10:57.471 D/SSRU-CpuResourceTracker( 2578): [deal]doCpuMonitor:AppCpuState{uid=99000, pkgName='pkg_99000', usages=0.008, duringTime=120353, details={com.google.android.webview_sandboxed_process0_org.chromium.content.app.SandboxedProcessService0_0=0.008}, state=0, stateUpdateTime={}, restricter=0}
+06-01 18:11:19.121 I/RcsProvisioningFlow( 4440): Scheduling 3 using PWQ with updateTrigger: 2, scheduledAt: 2026-06-01T16:11:19.120Z, initialDelaySeconds: 0.
+06-01 18:11:19.176 I/RcsProvisioningFlow( 4440): Handling SIM state update work request for 3 with updateTrigger 2, scheduledAt 2026-06-01T16:11:19.120Z.
+06-01 18:11:19.176 I/RcsProvisioningFlow( 4440): Beginning update task for phone SIMs state scheduledAt: 2026-06-01T16:11:19.120Z
+06-01 18:11:19.180 I/RcsProvisioningFlow( 4440): Lock acquired for updatng phone SIMs state with update trigger: 2.
+06-01 18:11:19.206 I/RcsProvisioningFlow( 4440): All newly built SimSubscriptionInfos: [(simId: redacted-pii:sim_id[chars:20,last3:452],
+06-01 18:11:19.206 I/RcsProvisioningFlow( 4440): subId: 1,
+06-01 18:11:19.206 I/RcsProvisioningFlow( 4440): simSlot: 0,
+06-01 18:11:19.206 I/RcsProvisioningFlow( 4440): imsi: redacted-pii:imsi[chars:15],
+06-01 18:11:19.206 I/RcsProvisioningFlow( 4440): phoneNumber: redacted-pii:phone_number[chars:12,last2:52],
+06-01 18:11:19.206 I/RcsProvisioningFlow( 4440): countryCode: FR,
+06-01 18:11:19.206 I/RcsProvisioningFlow( 4440): networkOperatorName: ,
+06-01 18:11:19.206 I/RcsProvisioningFlow( 4440): subscriptionGroupUuid: ,
+06-01 18:11:19.206 I/RcsProvisioningFlow( 4440): mcc: 208,
+06-01 18:11:19.206 I/RcsProvisioningFlow( 4440): mnc: 10,
+06-01 18:11:19.206 I/RcsProvisioningFlow( 4440): simCarrierId: 27,
+06-01 18:11:19.206 I/RcsProvisioningFlow( 4440): iccid: redacted-pii:sim_iccid[chars:20],
+06-01 18:11:19.206 I/RcsProvisioningFlow( 4440): isFi: false,
+06-01 18:11:19.206 I/RcsProvisioningFlow( 4440): loggableGuid: ea567c19-2325-4dd0-a548-610e49a53dd8,
+06-01 18:11:19.206 I/RcsProvisioningFlow( 4440): formattedMsisdn: redacted-pii:phone_number[chars:12,last2:52],
+06-01 18:11:19.206 I/RcsProvisioningFlow( 4440): simOperatorName: F SFR,
+06-01 18:11:19.206 I/RcsProvisioningFlow( 4440): simOperator: 20810,
+06-01 18:11:19.206 I/RcsProvisioningFlow( 4440): groupIdLevel1: ,
+06-01 18:11:19.206 I/RcsProvisioningFlow( 4440): preferredSubscriptionName: F SFR)]
+06-01 18:11:19.212 I/RcsProvisioningFlow( 4440): Storing updated SimSubscriptionInfo list: [(redacted-pii:sim_id[chars:20,last3:452], ea567c19-2325-4dd0-a548-610e49a53dd8)]
+06-01 18:11:19.213 I/RcsProvisioningFlow( 4440): Phone defaults have not changed, skipping saving
+06-01 18:11:19.214 I/RcsProvisioningFlow( 4440): No new or updated SIMs on phone sim state update.
+06-01 18:11:23.012 I/RcsProvisioningFlow( 4440): Scheduling 3 using PWQ with updateTrigger: 2, scheduledAt: 2026-06-01T16:11:23.012Z, initialDelaySeconds: 0.
+06-01 18:11:23.073 I/RcsProvisioningFlow( 4440): Handling SIM state update work request for 3 with updateTrigger 2, scheduledAt 2026-06-01T16:11:23.012Z.
+06-01 18:11:23.073 I/RcsProvisioningFlow( 4440): Beginning update task for phone SIMs state scheduledAt: 2026-06-01T16:11:23.012Z
+06-01 18:11:23.080 I/RcsProvisioningFlow( 4440): Lock acquired for updatng phone SIMs state with update trigger: 2.
+06-01 18:11:23.104 I/RcsProvisioningFlow( 4440): All newly built SimSubscriptionInfos: [(simId: redacted-pii:sim_id[chars:20,last3:452],
+06-01 18:11:23.104 I/RcsProvisioningFlow( 4440): subId: 1,
+06-01 18:11:23.104 I/RcsProvisioningFlow( 4440): simSlot: 0,
+06-01 18:11:23.104 I/RcsProvisioningFlow( 4440): imsi: redacted-pii:imsi[chars:15],
+06-01 18:11:23.104 I/RcsProvisioningFlow( 4440): phoneNumber: redacted-pii:phone_number[chars:0,last2:],
+06-01 18:11:23.104 I/RcsProvisioningFlow( 4440): countryCode: FR,
+06-01 18:11:23.104 I/RcsProvisioningFlow( 4440): networkOperatorName: ,
+06-01 18:11:23.104 I/RcsProvisioningFlow( 4440): subscriptionGroupUuid: ,
+06-01 18:11:23.104 I/RcsProvisioningFlow( 4440): mcc: 208,
+06-01 18:11:23.104 I/RcsProvisioningFlow( 4440): mnc: 10,
+06-01 18:11:23.104 I/RcsProvisioningFlow( 4440): simCarrierId: 27,
+06-01 18:11:23.104 I/RcsProvisioningFlow( 4440): iccid: redacted-pii:sim_iccid[chars:20],
+06-01 18:11:23.104 I/RcsProvisioningFlow( 4440): isFi: false,
+06-01 18:11:23.104 I/RcsProvisioningFlow( 4440): loggableGuid: ea567c19-2325-4dd0-a548-610e49a53dd8,
+06-01 18:11:23.104 I/RcsProvisioningFlow( 4440): formattedMsisdn: redacted-pii:phone_number[chars:0,last2:],
+06-01 18:11:23.104 I/RcsProvisioningFlow( 4440): simOperatorName: F SFR,
+06-01 18:11:23.104 I/RcsProvisioningFlow( 4440): simOperator: 20810,
+06-01 18:11:23.104 I/RcsProvisioningFlow( 4440): groupIdLevel1: ,
+06-01 18:11:23.104 I/RcsProvisioningFlow( 4440): preferredSubscriptionName: F SFR)]
+06-01 18:11:23.113 I/RcsProvisioningFlow( 4440): Storing updated SimSubscriptionInfo list: [(redacted-pii:sim_id[chars:20,last3:452], ea567c19-2325-4dd0-a548-610e49a53dd8)]
+06-01 18:11:23.114 I/RcsProvisioningFlow( 4440): Phone defaults have not changed, skipping saving
+06-01 18:11:23.115 I/RcsProvisioningFlow( 4440): Broadcasting SIM_LOADED event for new or updated SIMs: [(redacted-pii:sim_id[chars:20,last3:452], ea567c19-2325-4dd0-a548-610e49a53dd8)]
+06-01 18:11:23.119 I/Bugle   ( 4440): RcsAvailabilityUtilForProvisioningEngineV2: updateAvailabilityForAllSimsAsync, hint: NO_HINT
+06-01 18:11:23.126 I/BugleRcsProvisioning( 4440): updateAvailabilityForAllSimsAsync: hint: NO_HINT
+06-01 18:11:23.126 I/BugleRcsProvisioning( 4440): updateRcsAvailabilityForMultipleSims: hint: NO_HINT
+06-01 18:11:23.139 I/BugleRcsProvisioning( 4440): RcsAvailability configuration availability and enabled status: simId: redacted-pii:sim_id[chars:20,last3:452], SipConnectionType: DUAL_REG, isConfigurationAvailableAndEnabled: true
+06-01 18:11:23.139 I/BugleRcsProvisioning( 4440): Checking isConfigServerUrlAvailable with simId: redacted-pii:sim_id[chars:20,last3:452], 
+06-01 18:11:23.140 I/BugleRcsEngine( 4440): getConfigServerUrl with simId: redacted-pii:sim_id[chars:20,last3:452] [CONTEXT log_prefix="ProvisioningServerUtil" thread_id=48651 ]
+06-01 18:11:23.140 I/BugleRcsEngine( 4440): Using RCS compliant config URL [CONTEXT log_prefix="ProvisioningServerUtil" thread_id=48651 ]
+06-01 18:11:23.141 I/ProvisioningServerUtil( 4440): Getting mccmnc from SimSubscriptionInfo.
+06-01 18:11:23.144 I/BugleRcsProvisioning( 4440): RcsAvailability: Subscription Id: 1, simId: redacted-pii:sim_id[chars:20,last3:452], sipConnectionType: DUAL_REG, isRcsAvailable: true
+06-01 18:11:23.145 I/BugleRcsProvisioning( 4440): updateAvailabilityForRcsProvisioningId. SimId: redacted-pii:sim_id[chars:20,last3:452], currentAvailability: 7, newAvailability: 7, hint: NO_HINT
+06-01 18:11:23.145 I/RcsProvisioningFlow( 4440): Clearing provisioning flow state for redacted-pii:sim_id[chars:55,last3:AGS]
+06-01 18:11:23.146 I/BugleRcsProvisioning( 4440): RcsProvisioningTrigger: onRcsAvailabilityUpdate : availability is updated to RCS is setup, lastAvailabilityLocal is RCS is setup, simId hash = 4870830445601495748, simId = redacted-pii:sim_id[chars:20,last3:452], isPev3Enabled = true
+06-01 18:11:23.147 I/RcsProvisioningFlow( 4440): Clearing provisioning flow state for redacted-pii:sim_id[chars:117,last3:ION]
+06-01 18:11:23.149 I/RcsProvisioningFlow( 4440): Clearing provisioning flow state for redacted-pii:sim_id[chars:73,last3:AGS]
+06-01 18:11:23.151 I/RcsProvisioningFlow( 4440): Clearing provisioning flow state for redacted-pii:sim_id[chars:60,last3:AGS]
+06-01 18:11:23.153 I/RcsProvisioningFlow( 4440): Clearing provisioning flow state for redacted-pii:sim_id[chars:60,last3:AGS]
+06-01 18:11:23.189 I/Bugle   ( 4440): RcsAvailabilityUtilForProvisioningEngineV2: onCsLibPhenotypeUpdated
+06-01 18:11:23.189 I/BugleRcsProvisioning( 4440): RcsProvisioningTrigger: onCsLibPhenotypeUpdated, enableProvisioningTaskInBugle = true
+06-01 18:11:23.190 I/BugleRcsProvisioning( 4440): RcsProvisioningTrigger: updateAvailabilityForAllSimsAsync : hint = CSLIB_PHENOTYPE_UPDATE logTriggerEvent = true
+06-01 18:11:23.191 I/Bugle   ( 4440): RcsAvailabilityUtilForProvisioningEngineV2: updateAvailabilityForAllSimsAsync, hint: CSLIB_PHENOTYPE_UPDATE
+06-01 18:11:23.191 I/BugleRcsProvisioning( 4440): updateAvailabilityForAllSimsAsync: hint: CSLIB_PHENOTYPE_UPDATE
+06-01 18:11:23.191 I/BugleRcsProvisioning( 4440): updateRcsAvailabilityForMultipleSims: hint: CSLIB_PHENOTYPE_UPDATE
+06-01 18:11:23.201 I/BugleRcsProvisioning( 4440): RcsAvailability configuration availability and enabled status: simId: redacted-pii:sim_id[chars:20,last3:452], SipConnectionType: DUAL_REG, isConfigurationAvailableAndEnabled: true
+06-01 18:11:23.202 I/BugleRcsProvisioning( 4440): Checking isConfigServerUrlAvailable with simId: redacted-pii:sim_id[chars:20,last3:452], 
+06-01 18:11:23.202 I/BugleRcsEngine( 4440): getConfigServerUrl with simId: redacted-pii:sim_id[chars:20,last3:452] [CONTEXT log_prefix="ProvisioningServerUtil" thread_id=48644 ]
+06-01 18:11:23.203 I/BugleRcsEngine( 4440): Using RCS compliant config URL [CONTEXT log_prefix="ProvisioningServerUtil" thread_id=48644 ]
+06-01 18:11:23.204 I/ProvisioningServerUtil( 4440): Getting mccmnc from SimSubscriptionInfo.
+06-01 18:11:23.211 I/BugleRcsProvisioning( 4440): RcsAvailability: Subscription Id: 1, simId: redacted-pii:sim_id[chars:20,last3:452], sipConnectionType: DUAL_REG, isRcsAvailable: true
+06-01 18:11:23.211 I/BugleRcsProvisioning( 4440): updateAvailabilityForRcsProvisioningId. SimId: redacted-pii:sim_id[chars:20,last3:452], currentAvailability: 7, newAvailability: 7, hint: CSLIB_PHENOTYPE_UPDATE
+06-01 18:11:23.212 I/BugleRcsProvisioning( 4440): scheduleProvisioningForEligibleSims
+06-01 18:11:23.214 I/dbqi    ( 4440): scheduleProvisioningForEligibleSims: operationTrigger: 2 bugle trigger event: 9
+06-01 18:11:23.214 I/BugleRcsProvisioning( 4440): RcsProvisioningTrigger: onRcsAvailabilityUpdate : availability is updated to RCS is setup, lastAvailabilityLocal is RCS is setup, simId hash = 4870830445601495748, simId = redacted-pii:sim_id[chars:20,last3:452], isPev3Enabled = true
+06-01 18:11:23.214 I/dbqi    ( 4440): scheduleProvisioningForAllEligibleSims: operationTrigger: 2 bugle trigger event: 9
+06-01 18:11:23.215 I/dbqi    ( 4440): scheduleProvisioningForRcsProvisioningId: rcsProvisioningId: redacted-pii:sim_id[chars:20,last3:452] operationTrigger: 2 bugle trigger event: 9
+06-01 18:11:23.216 I/dbqi    ( 4440): RcsProvisioningTrigger: DR is active, initializing DR provisioning. DUAL_REG
+06-01 18:11:23.220 I/RcsProvisioningWorkMana( 4440): Skipping full provisioning scheduling since we already have valid and updated RCS configuration
+06-01 18:11:23.221 I/RcsProvisioningFlow( 4440): Clearing provisioning flow state for redacted-pii:sim_id[chars:20,last3:452]
+06-01 18:11:25.374 I/BugleSelfIdentity( 4440): Phone number for MyIdentity 8348f722-e4cd-407e-8d47-b92ad1f1b91e does not change [CONTEXT sub_id=1 icc_id="redacted-pii[20-chars]" rcs_provisioning_id="redacted-pii[0-chars]" ]
+06-01 18:11:25.387 I/BugleSelfIdentity( 4440): Phone number for MyIdentity 8348f722-e4cd-407e-8d47-b92ad1f1b91e does not change [CONTEXT sub_id=1 icc_id="redacted-pii[20-chars]" rcs_provisioning_id="redacted-pii[0-chars]" ]
+06-01 18:11:26.067 I/RcsProvisioningFlow( 4440): Scheduling 3 using PWQ with updateTrigger: 2, scheduledAt: 2026-06-01T16:11:26.066Z, initialDelaySeconds: 0.
+06-01 18:11:26.115 I/RcsProvisioningFlow( 4440): Handling SIM state update work request for 3 with updateTrigger 2, scheduledAt 2026-06-01T16:11:26.066Z.
+06-01 18:11:26.115 I/RcsProvisioningFlow( 4440): Beginning update task for phone SIMs state scheduledAt: 2026-06-01T16:11:26.066Z
+06-01 18:11:26.120 I/RcsProvisioningFlow( 4440): Lock acquired for updatng phone SIMs state with update trigger: 2.
+06-01 18:11:26.144 I/RcsProvisioningFlow( 4440): All newly built SimSubscriptionInfos: [(simId: redacted-pii:sim_id[chars:20,last3:452],
+06-01 18:11:26.144 I/RcsProvisioningFlow( 4440): subId: 1,
+06-01 18:11:26.144 I/RcsProvisioningFlow( 4440): simSlot: 0,
+06-01 18:11:26.144 I/RcsProvisioningFlow( 4440): imsi: redacted-pii:imsi[chars:15],
+06-01 18:11:26.144 I/RcsProvisioningFlow( 4440): phoneNumber: redacted-pii:phone_number[chars:0,last2:],
+06-01 18:11:26.144 I/RcsProvisioningFlow( 4440): countryCode: FR,
+06-01 18:11:26.144 I/RcsProvisioningFlow( 4440): networkOperatorName: F SFR,
+06-01 18:11:26.144 I/RcsProvisioningFlow( 4440): subscriptionGroupUuid: ,
+06-01 18:11:26.144 I/RcsProvisioningFlow( 4440): mcc: 208,
+06-01 18:11:26.144 I/RcsProvisioningFlow( 4440): mnc: 10,
+06-01 18:11:26.144 I/RcsProvisioningFlow( 4440): simCarrierId: 27,
+06-01 18:11:26.144 I/RcsProvisioningFlow( 4440): iccid: redacted-pii:sim_iccid[chars:20],
+06-01 18:11:26.144 I/RcsProvisioningFlow( 4440): isFi: false,
+06-01 18:11:26.144 I/RcsProvisioningFlow( 4440): loggableGuid: ea567c19-2325-4dd0-a548-610e49a53dd8,
+06-01 18:11:26.144 I/RcsProvisioningFlow( 4440): formattedMsisdn: redacted-pii:phone_number[chars:0,last2:],
+06-01 18:11:26.144 I/RcsProvisioningFlow( 4440): simOperatorName: F SFR,
+06-01 18:11:26.144 I/RcsProvisioningFlow( 4440): simOperator: 20810,
+06-01 18:11:26.144 I/RcsProvisioningFlow( 4440): groupIdLevel1: ,
+06-01 18:11:26.144 I/RcsProvisioningFlow( 4440): preferredSubscriptionName: F SFR)]
+06-01 18:11:26.151 I/RcsProvisioningFlow( 4440): Storing updated SimSubscriptionInfo list: [(redacted-pii:sim_id[chars:20,last3:452], ea567c19-2325-4dd0-a548-610e49a53dd8)]
+06-01 18:11:26.153 I/RcsProvisioningFlow( 4440): Phone defaults have not changed, skipping saving
+06-01 18:11:26.153 I/RcsProvisioningFlow( 4440): No new or updated SIMs on phone sim state update.
+06-01 18:11:32.365 I/BugleSelfIdentity( 4440): Phone number for MyIdentity 8348f722-e4cd-407e-8d47-b92ad1f1b91e does not change [CONTEXT sub_id=1 icc_id="redacted-pii[20-chars]" rcs_provisioning_id="redacted-pii[0-chars]" ]
+06-01 18:11:32.380 I/BugleSelfIdentity( 4440): Phone number for MyIdentity 8348f722-e4cd-407e-8d47-b92ad1f1b91e does not change [CONTEXT sub_id=1 icc_id="redacted-pii[20-chars]" rcs_provisioning_id="redacted-pii[0-chars]" ]
+06-01 18:11:33.192 I/RcsProvisioningFlow( 4440): Scheduling 3 using PWQ with updateTrigger: 2, scheduledAt: 2026-06-01T16:11:33.191Z, initialDelaySeconds: 0.
+06-01 18:11:33.257 I/RcsProvisioningFlow( 4440): Handling SIM state update work request for 3 with updateTrigger 2, scheduledAt 2026-06-01T16:11:33.191Z.
+06-01 18:11:33.257 I/RcsProvisioningFlow( 4440): Beginning update task for phone SIMs state scheduledAt: 2026-06-01T16:11:33.191Z
+06-01 18:11:33.262 I/RcsProvisioningFlow( 4440): Lock acquired for updatng phone SIMs state with update trigger: 2.
+06-01 18:11:33.288 I/RcsProvisioningFlow( 4440): All newly built SimSubscriptionInfos: [(simId: redacted-pii:sim_id[chars:20,last3:452],
+06-01 18:11:33.288 I/RcsProvisioningFlow( 4440): subId: 1,
+06-01 18:11:33.288 I/RcsProvisioningFlow( 4440): simSlot: 0,
+06-01 18:11:33.288 I/RcsProvisioningFlow( 4440): imsi: redacted-pii:imsi[chars:15],
+06-01 18:11:33.288 I/RcsProvisioningFlow( 4440): phoneNumber: redacted-pii:phone_number[chars:12,last2:52],
+06-01 18:11:33.288 I/RcsProvisioningFlow( 4440): countryCode: FR,
+06-01 18:11:33.288 I/RcsProvisioningFlow( 4440): networkOperatorName: SFR,
+06-01 18:11:33.288 I/RcsProvisioningFlow( 4440): subscriptionGroupUuid: ,
+06-01 18:11:33.288 I/RcsProvisioningFlow( 4440): mcc: 208,
+06-01 18:11:33.288 I/RcsProvisioningFlow( 4440): mnc: 10,
+06-01 18:11:33.288 I/RcsProvisioningFlow( 4440): simCarrierId: 27,
+06-01 18:11:33.288 I/RcsProvisioningFlow( 4440): iccid: redacted-pii:sim_iccid[chars:20],
+06-01 18:11:33.288 I/RcsProvisioningFlow( 4440): isFi: false,
+06-01 18:11:33.288 I/RcsProvisioningFlow( 4440): loggableGuid: ea567c19-2325-4dd0-a548-610e49a53dd8,
+06-01 18:11:33.288 I/RcsProvisioningFlow( 4440): formattedMsisdn: redacted-pii:phone_number[chars:12,last2:52],
+06-01 18:11:33.288 I/RcsProvisioningFlow( 4440): simOperatorName: F SFR,
+06-01 18:11:33.288 I/RcsProvisioningFlow( 4440): simOperator: 20810,
+06-01 18:11:33.288 I/RcsProvisioningFlow( 4440): groupIdLevel1: ,
+06-01 18:11:33.288 I/RcsProvisioningFlow( 4440): preferredSubscriptionName: F SFR)]
+06-01 18:11:33.298 I/RcsProvisioningFlow( 4440): Storing updated SimSubscriptionInfo list: [(redacted-pii:sim_id[chars:20,last3:452], ea567c19-2325-4dd0-a548-610e49a53dd8)]
+06-01 18:11:33.299 I/RcsProvisioningFlow( 4440): Phone defaults have not changed, skipping saving
+06-01 18:11:33.300 I/RcsProvisioningFlow( 4440): Broadcasting SIM_LOADED event for new or updated SIMs: [(redacted-pii:sim_id[chars:20,last3:452], ea567c19-2325-4dd0-a548-610e49a53dd8)]
+06-01 18:11:33.306 I/Bugle   ( 4440): RcsAvailabilityUtilForProvisioningEngineV2: updateAvailabilityForAllSimsAsync, hint: NO_HINT
+06-01 18:11:33.306 I/BugleRcsProvisioning( 4440): updateAvailabilityForAllSimsAsync: hint: NO_HINT
+06-01 18:11:33.309 I/BugleRcsProvisioning( 4440): updateRcsAvailabilityForMultipleSims: hint: NO_HINT
+06-01 18:11:33.323 I/BugleRcsProvisioning( 4440): RcsAvailability configuration availability and enabled status: simId: redacted-pii:sim_id[chars:20,last3:452], SipConnectionType: DUAL_REG, isConfigurationAvailableAndEnabled: true
+06-01 18:11:33.323 I/BugleRcsProvisioning( 4440): Checking isConfigServerUrlAvailable with simId: redacted-pii:sim_id[chars:20,last3:452], 
+06-01 18:11:33.324 I/BugleRcsEngine( 4440): getConfigServerUrl with simId: redacted-pii:sim_id[chars:20,last3:452] [CONTEXT log_prefix="ProvisioningServerUtil" thread_id=48644 ]
+06-01 18:11:33.327 I/RcsProvisioningFlow( 4440): Clearing provisioning flow state for redacted-pii:sim_id[chars:55,last3:AGS]
+06-01 18:11:33.327 I/BugleRcsEngine( 4440): Using RCS compliant config URL [CONTEXT log_prefix="ProvisioningServerUtil" thread_id=48644 ]
+06-01 18:11:33.328 I/ProvisioningServerUtil( 4440): Getting mccmnc from SimSubscriptionInfo.
+06-01 18:11:33.330 I/RcsProvisioningFlow( 4440): Clearing provisioning flow state for redacted-pii:sim_id[chars:117,last3:ION]
+06-01 18:11:33.331 I/BugleRcsProvisioning( 4440): RcsAvailability: Subscription Id: 1, simId: redacted-pii:sim_id[chars:20,last3:452], sipConnectionType: DUAL_REG, isRcsAvailable: true
+06-01 18:11:33.332 I/BugleRcsProvisioning( 4440): updateAvailabilityForRcsProvisioningId. SimId: redacted-pii:sim_id[chars:20,last3:452], currentAvailability: 7, newAvailability: 7, hint: NO_HINT
+06-01 18:11:33.333 I/BugleRcsProvisioning( 4440): RcsProvisioningTrigger: onRcsAvailabilityUpdate : availability is updated to RCS is setup, lastAvailabilityLocal is RCS is setup, simId hash = 4870830445601495748, simId = redacted-pii:sim_id[chars:20,last3:452], isPev3Enabled = true
+06-01 18:11:33.333 I/RcsProvisioningFlow( 4440): Clearing provisioning flow state for redacted-pii:sim_id[chars:73,last3:AGS]
+06-01 18:11:33.336 I/RcsProvisioningFlow( 4440): Clearing provisioning flow state for redacted-pii:sim_id[chars:60,last3:AGS]
+06-01 18:11:33.338 I/RcsProvisioningFlow( 4440): Clearing provisioning flow state for redacted-pii:sim_id[chars:60,last3:AGS]
+06-01 18:11:33.372 I/Bugle   ( 4440): RcsAvailabilityUtilForProvisioningEngineV2: onCsLibPhenotypeUpdated
+06-01 18:11:33.373 I/BugleRcsProvisioning( 4440): RcsProvisioningTrigger: onCsLibPhenotypeUpdated, enableProvisioningTaskInBugle = true
+06-01 18:11:33.373 I/BugleRcsProvisioning( 4440): RcsProvisioningTrigger: updateAvailabilityForAllSimsAsync : hint = CSLIB_PHENOTYPE_UPDATE logTriggerEvent = true
+06-01 18:11:33.374 I/Bugle   ( 4440): RcsAvailabilityUtilForProvisioningEngineV2: updateAvailabilityForAllSimsAsync, hint: CSLIB_PHENOTYPE_UPDATE
+06-01 18:11:33.374 I/BugleRcsProvisioning( 4440): updateAvailabilityForAllSimsAsync: hint: CSLIB_PHENOTYPE_UPDATE
+06-01 18:11:33.375 I/BugleRcsProvisioning( 4440): updateRcsAvailabilityForMultipleSims: hint: CSLIB_PHENOTYPE_UPDATE
+06-01 18:11:33.383 I/BugleRcsProvisioning( 4440): RcsAvailability configuration availability and enabled status: simId: redacted-pii:sim_id[chars:20,last3:452], SipConnectionType: DUAL_REG, isConfigurationAvailableAndEnabled: true
+06-01 18:11:33.383 I/BugleRcsProvisioning( 4440): Checking isConfigServerUrlAvailable with simId: redacted-pii:sim_id[chars:20,last3:452], 
+06-01 18:11:33.384 I/BugleRcsEngine( 4440): getConfigServerUrl with simId: redacted-pii:sim_id[chars:20,last3:452] [CONTEXT log_prefix="ProvisioningServerUtil" thread_id=48644 ]
+06-01 18:11:33.384 I/BugleRcsEngine( 4440): Using RCS compliant config URL [CONTEXT log_prefix="ProvisioningServerUtil" thread_id=48644 ]
+06-01 18:11:33.385 I/ProvisioningServerUtil( 4440): Getting mccmnc from SimSubscriptionInfo.
+06-01 18:11:33.387 I/BugleRcsProvisioning( 4440): RcsAvailability: Subscription Id: 1, simId: redacted-pii:sim_id[chars:20,last3:452], sipConnectionType: DUAL_REG, isRcsAvailable: true
+06-01 18:11:33.388 I/BugleRcsProvisioning( 4440): updateAvailabilityForRcsProvisioningId. SimId: redacted-pii:sim_id[chars:20,last3:452], currentAvailability: 7, newAvailability: 7, hint: CSLIB_PHENOTYPE_UPDATE
+06-01 18:11:33.389 I/BugleRcsProvisioning( 4440): scheduleProvisioningForEligibleSims
+06-01 18:11:33.389 I/BugleRcsProvisioning( 4440): RcsProvisioningTrigger: onRcsAvailabilityUpdate : availability is updated to RCS is setup, lastAvailabilityLocal is RCS is setup, simId hash = 4870830445601495748, simId = redacted-pii:sim_id[chars:20,last3:452], isPev3Enabled = true
+06-01 18:11:33.389 I/dbqi    ( 4440): scheduleProvisioningForEligibleSims: operationTrigger: 2 bugle trigger event: 9
+06-01 18:11:33.390 I/dbqi    ( 4440): scheduleProvisioningForAllEligibleSims: operationTrigger: 2 bugle trigger event: 9
+06-01 18:11:33.390 I/dbqi    ( 4440): scheduleProvisioningForRcsProvisioningId: rcsProvisioningId: redacted-pii:sim_id[chars:20,last3:452] operationTrigger: 2 bugle trigger event: 9
+06-01 18:11:33.391 I/dbqi    ( 4440): RcsProvisioningTrigger: DR is active, initializing DR provisioning. DUAL_REG
+06-01 18:11:33.395 I/RcsProvisioningWorkMana( 4440): Skipping full provisioning scheduling since we already have valid and updated RCS configuration
+06-01 18:11:33.396 I/RcsProvisioningFlow( 4440): Clearing provisioning flow state for redacted-pii:sim_id[chars:20,last3:452]
+06-01 18:11:39.401 I/BugleSelfIdentity( 4440): Phone number for MyIdentity 8348f722-e4cd-407e-8d47-b92ad1f1b91e does not change [CONTEXT sub_id=1 icc_id="redacted-pii[20-chars]" messaging_identity="redacted-pii[12-chars]" rcs_provisioning_id="redacted-pii[0-chars]" ]
+06-01 18:11:39.416 I/BugleSelfIdentity( 4440): Phone number for MyIdentity 8348f722-e4cd-407e-8d47-b92ad1f1b91e does not change [CONTEXT sub_id=1 icc_id="redacted-pii[20-chars]" messaging_identity="redacted-pii[12-chars]" rcs_provisioning_id="redacted-pii[0-chars]" ]
+06-01 18:11:49.597 I/RcsProvisioningListenab( 4440): [seqId=13][workId=dc91aca2-e78c-4d99-b843-54b821adfa0e] Provisioning task is stopped by the system
+06-01 18:11:49.604 I/RcsProvisioningListenab( 4440): [seqId=13][workId=dc91aca2-e78c-4d99-b843-54b821adfa0e] finish provisioning task with result Success {mOutputData=Data {}}
+06-01 18:11:49.605 I/RcsProvisioningListenab( 4440): [seqId=13][workId=dc91aca2-e78c-4d99-b843-54b821adfa0e] RCS provisioning task has finished with result Success {mOutputData=Data {}}
+06-01 18:11:49.609 I/SharedPreferencesSimSta( 4440): SharedPreferencesSimStateStore: No sim subscription info found for RCS provisioning id
+06-01 18:11:49.617 I/SharedPreferencesSimSta( 4440): SharedPreferencesSimStateStore: No sim subscription info found for RCS provisioning id
+06-01 18:11:49.618 I/BugleRcsProvisioning( 4440): updateAvailabilityForRcsProvisioningId. SimId: redacted-pii:sim_id[chars:20,last3:805], currentAvailability: 9, newAvailability: 9, hint: NO_HINT
+06-01 18:11:49.618 I/SharedPreferencesSimSta( 4440): SharedPreferencesSimStateStore: No sim subscription info found for RCS provisioning id
+06-01 18:11:49.618 I/RcsProvisioningWorkMana( 4440): Skipping provisioning scheduling since RCS is disabled
+06-01 18:11:49.624 I/WM-WorkerWrapper( 4440): Work [ id=dc91aca2-e78c-4d99-b843-54b821adfa0e, tags={ com.google.android.apps.messaging.shared.rcsprovisioning.RcsProvisioningListenableWorker,provisioning } ] was cancelled
+06-01 18:11:49.685 D/MddListenableWorkerFactory( 4440): createWorker for class: com.google.android.apps.messaging.shared.rcsprovisioning.RcsProvisioningListenableWorker
+06-01 18:11:49.687 D/WM-WorkerWrapper( 4440): Starting work for com.google.android.apps.messaging.shared.rcsprovisioning.RcsProvisioningListenableWorker
+06-01 18:11:49.688 I/RcsProvisioningListenab( 4440): [seqId=14][workId=dc91aca2-e78c-4d99-b843-54b821adfa0e] RCS provisioning task has started
+06-01 18:11:49.688 I/SharedPreferencesSimSta( 4440): SharedPreferencesSimStateStore: No sim subscription info found for RCS provisioning id
+06-01 18:11:49.689 W/RcsProvisioningListenab( 4440): [seqId=14][workId=dc91aca2-e78c-4d99-b843-54b821adfa0e] Cannot start provisioning engine. Unable to obtain sim info for sim id: SimId(idValue=89331057250066361805)
+06-01 18:12:12.920 I/artd    (10388): GetBestInfo: odex next to the dex file (/data/app/~~gKS3EzmNnx2nlohpGmPOYQ==/fr.yawatch.luna-2ryrq_4ZjR_ZHnxVy0Ph0Q==/oat/arm64/base.odex) is kOatUpToDate with filter 'verify' executable 'false'
+06-01 18:12:12.922 I/artd    (10388): GetBestInfo: odex next to the dex file (/data/app/~~gKS3EzmNnx2nlohpGmPOYQ==/fr.yawatch.luna-2ryrq_4ZjR_ZHnxVy0Ph0Q==/oat/arm64/base.odex) is kOatUpToDate with filter 'verify' executable 'false'
+06-01 18:12:49.757 I/WebViewFactory(26821): Loading com.google.android.webview version 148.0.7778.178 (code 777817803)
+06-01 18:12:49.787 D/nativeloader(26821): Load /data/app/~~hu47LTRUYJus8DInyw_Htg==/com.google.android.webview-fUw4RZY2KwrKr6slqGnegg==/base.apk!/lib/arm64-v8a/libwebviewchromium.so using class loader ns clns-13 (caller=/data/app/~~hu47LTRUYJus8DInyw_Htg==/com.google.android.webview-fUw4RZY2KwrKr6slqGnegg==/base.apk): ok
+06-01 18:12:49.789 D/nativeloader(26821): Load /system/lib64/libwebviewchromium_plat_support.so using class loader ns clns-13 (caller=/data/app/~~hu47LTRUYJus8DInyw_Htg==/com.google.android.webview-fUw4RZY2KwrKr6slqGnegg==/base.apk): ok
+06-01 18:12:49.846 I/cn_CronetUrlRequestContext(29681): destroyNativeStreamLocked org.chromium.net.impl.CronetBidirectionalStream@2608375
+06-01 18:12:57.741 D/SSRU-CpuResourceTracker( 2578): [deal]doCpuMonitor:AppCpuState{uid=99000, pkgName='pkg_99000', usages=0.008, duringTime=120293, details={com.google.android.webview_sandboxed_process0_org.chromium.content.app.SandboxedProcessService0_0=0.008}, state=0, stateUpdateTime={}, restricter=0}
+06-01 18:12:57.741 D/SSRU-CpuResourceTracker( 2578): [deal]doCpuMonitor:AppCpuState{uid=99202, pkgName='pkg_99202', usages=0.008, duringTime=120294, details={com.google.android.webview_sandboxed_process0_org.chromium.content.app.SandboxedProcessService0_0=0.008}, state=0, stateUpdateTime={}, restricter=0}
+06-01 18:12:57.741 D/SSRU-CpuResourceTracker( 2578): [deal]doCpuMonitor:AppCpuState{uid=99207, pkgName='pkg_99207', usages=0.004, duringTime=240642, details={com.google.android.webview_sandboxed_process0_org.chromium.content.app.SandboxedProcessService0_0=0.004}, state=0, stateUpdateTime={}, restricter=0}
+06-01 18:12:57.741 D/SSRU-CpuResourceTracker( 2578): [deal]doCpuMonitor:AppCpuState{uid=99252, pkgName='pkg_99252', usages=0.058, duringTime=120293, details={com.google.android.webview_sandboxed_process0_org.chromium.content.app.SandboxedProcessService0_0=0.058}, state=0, stateUpdateTime={}, restricter=0}
+06-01 18:13:43.872 I/cn_CronetUrlRequestContext(29681): destroyNativeStreamLocked org.chromium.net.impl.CronetBidirectionalStream@f7e31a0

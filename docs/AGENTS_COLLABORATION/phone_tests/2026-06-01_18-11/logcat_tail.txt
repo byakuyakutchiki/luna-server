@@ -1,0 +1,200 @@
+06-01 18:11:49.607 W/JobScheduler.JobStatus( 2578): Exempted app com.google.android.apps.messaging considered buggy
+06-01 18:11:49.608 E/AlarmManager( 2578): not align this alarm: Alarm{3c3be81 type 3 origWhen 283308905 whenElapsed 283308905 android}, reason=0
+06-01 18:11:49.609 I/SharedPreferencesSimSta( 4440): SharedPreferencesSimStateStore: No sim subscription info found for RCS provisioning id
+06-01 18:11:49.610 I/BugleRcsEngine( 4440): [SR]: Single Registration is disabled. Skipping Single Registration capability check for subId: -1 [CONTEXT thread_id=48651 ]
+06-01 18:11:49.613 D/JavaheapMonitor(11987): Java heap used=6M max=256M, proc: com.google.android.as
+06-01 18:11:49.613 V/JavaheapMonitor(11987): Check java heap usage finished! Next check delay: 300000
+06-01 18:11:49.615 D/WM-Processor( 4440): WorkerWrapper interrupted for dc91aca2-e78c-4d99-b843-54b821adfa0e
+06-01 18:11:49.615 D/WM-StopWorkRunnable( 4440): StopWorkRunnable for dc91aca2-e78c-4d99-b843-54b821adfa0e; Processor.stopWork = true
+06-01 18:11:49.617 I/SharedPreferencesSimSta( 4440): SharedPreferencesSimStateStore: No sim subscription info found for RCS provisioning id
+06-01 18:11:49.618 I/BugleRcsProvisioning( 4440): updateAvailabilityForRcsProvisioningId. SimId: redacted-pii:sim_id[chars:20,last3:805], currentAvailability: 9, newAvailability: 9, hint: NO_HINT
+06-01 18:11:49.618 I/SharedPreferencesSimSta( 4440): SharedPreferencesSimStateStore: No sim subscription info found for RCS provisioning id
+06-01 18:11:49.618 I/RcsProvisioningWorkMana( 4440): Skipping provisioning scheduling since RCS is disabled
+06-01 18:11:49.624 I/WM-WorkerWrapper( 4440): Work [ id=dc91aca2-e78c-4d99-b843-54b821adfa0e, tags={ com.google.android.apps.messaging.shared.rcsprovisioning.RcsProvisioningListenableWorker,provisioning } ] was cancelled
+06-01 18:11:49.624 I/WM-WorkerWrapper( 4440): sxs
+06-01 18:11:49.624 I/WM-WorkerWrapper( 4440): 	at svy.e(PG:5)
+06-01 18:11:49.624 I/WM-WorkerWrapper( 4440): 	at tfp.run(PG:92)
+06-01 18:11:49.624 I/WM-WorkerWrapper( 4440): 	at tfi.run(PG:3)
+06-01 18:11:49.624 I/WM-WorkerWrapper( 4440): 	at ejlw.run(PG:7)
+06-01 18:11:49.624 I/WM-WorkerWrapper( 4440): 	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1154)
+06-01 18:11:49.624 I/WM-WorkerWrapper( 4440): 	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:652)
+06-01 18:11:49.624 I/WM-WorkerWrapper( 4440): 	at ejla.run(PG:13)
+06-01 18:11:49.624 I/WM-WorkerWrapper( 4440): 	at java.lang.Thread.run(Thread.java:1564)
+06-01 18:11:49.624 I/WM-WorkerWrapper( 4440): 	at ejmt.run(PG:62)
+06-01 18:11:49.625 D/WM-WorkerWrapper( 4440): Status for dc91aca2-e78c-4d99-b843-54b821adfa0e is RUNNING; not doing any work and rescheduling for later execution
+06-01 18:11:49.626 D/WM-Processor( 4440): svy dc91aca2-e78c-4d99-b843-54b821adfa0e executed; reschedule = true
+06-01 18:11:49.626 D/WM-GreedyScheduler( 4440): Stopping tracking for WorkGenerationalId(workSpecId=dc91aca2-e78c-4d99-b843-54b821adfa0e, generation=0)
+06-01 18:11:49.632 D/WM-GreedyScheduler( 4440): Cancelling work ID dc91aca2-e78c-4d99-b843-54b821adfa0e
+06-01 18:11:49.655 I/BatteryEventDispatcherImpl(30255): [_waitingForDispatchEvent] processing BatteryEventDispatcherImpl$DispatchEvent$OnPollTimeout
+06-01 18:11:49.659 I/[THP]   ( 9866): ALG_I: [gdix]: gdix_alg_update_frame_data IN
+06-01 18:11:49.659 I/[THP]   ( 9866): 
+06-01 18:11:49.660 I/[THP]   ( 9866): ALG_I: [gdix]: raw_data_callback
+06-01 18:11:49.660 I/[THP]   ( 9866): ALG_I: [gdix]: gdix_alg_update_diff_data IN
+06-01 18:11:49.660 I/[THP]   ( 9866): 
+06-01 18:11:49.660 I/[THP]   ( 9866): ALG_I: [gdix]: output_alg_info_callback
+06-01 18:11:49.661 W/JobInfo ( 4440): Requested important-while-foreground flag for job2742 is ignored and takes no effect
+06-01 18:11:49.661 D/WM-SystemJobScheduler( 4440): Scheduling work ID dc91aca2-e78c-4d99-b843-54b821adfa0eJob ID 2742
+06-01 18:11:49.663 W/JobScheduler.JobStatus( 2578): Exempted app com.google.android.apps.messaging considered buggy
+06-01 18:11:49.663 W/JobScheduler.JobStatus( 2578): Exempted app com.google.android.apps.messaging considered buggy
+06-01 18:11:49.663 W/JobScheduler.JobStatus( 2578): Exempted app com.google.android.apps.messaging considered buggy
+06-01 18:11:49.664 D/WM-GreedyScheduler( 4440): Ignoring {WorkSpec: 220b08a1-a8b1-447e-b5d6-de4f76daf649}. Requires ContentUri triggers.
+06-01 18:11:49.664 D/WM-GreedyScheduler( 4440): Ignoring {WorkSpec: 846804f2-0966-44fe-8822-56d8a97619d6}. Requires device idle.
+06-01 18:11:49.664 D/WM-GreedyScheduler( 4440): Ignoring {WorkSpec: 33069b68-318b-414d-92f6-e017cf4768d1}. Requires ContentUri triggers.
+06-01 18:11:49.664 D/WM-GreedyScheduler( 4440): Starting tracking for dc91aca2-e78c-4d99-b843-54b821adfa0e,4bb93050-0614-4970-afd4-abac122c424c
+06-01 18:11:49.666 D/vendor.qti.bluetooth@1.1-wake_lock( 1756): Release wakelock is released 
+06-01 18:11:49.677 D/WM-WorkConstraintsTrack( 4440): NetworkRequestConstraintController send initial capabilities
+06-01 18:11:49.678 D/WM-GreedyScheduler( 4440): Constraints met: Scheduling work ID WorkGenerationalId(workSpecId=dc91aca2-e78c-4d99-b843-54b821adfa0e, generation=0)
+06-01 18:11:49.682 D/WM-Processor( 4440): svy: processing WorkGenerationalId(workSpecId=dc91aca2-e78c-4d99-b843-54b821adfa0e, generation=0)
+06-01 18:11:49.685 D/MddListenableWorkerFactory( 4440): createWorker for class: com.google.android.apps.messaging.shared.rcsprovisioning.RcsProvisioningListenableWorker
+06-01 18:11:49.687 D/WM-WorkerWrapper( 4440): Starting work for com.google.android.apps.messaging.shared.rcsprovisioning.RcsProvisioningListenableWorker
+06-01 18:11:49.688 I/RcsProvisioningListenab( 4440): [seqId=14][workId=dc91aca2-e78c-4d99-b843-54b821adfa0e] RCS provisioning task has started
+06-01 18:11:49.688 I/SharedPreferencesSimSta( 4440): SharedPreferencesSimStateStore: No sim subscription info found for RCS provisioning id
+06-01 18:11:49.689 W/RcsProvisioningListenab( 4440): [seqId=14][workId=dc91aca2-e78c-4d99-b843-54b821adfa0e] Cannot start provisioning engine. Unable to obtain sim info for sim id: SimId(idValue=89331057250066361805)
+06-01 18:11:50.004 D/PolicyMaker( 2578): fg uid=10397
+06-01 18:11:50.004 D/PolicyMaker( 2578): HasForegroundService pkgName=com.garmin.android.apps.connectmobile uid:10397
+06-01 18:11:50.004 D/PolicyMaker( 2578): uid =10397 pkg=com.garmin.android.apps.connectmobile reason=fgservice
+06-01 18:11:50.005 D/ActionExecute( 2578): setPkgData uid = 10397 time=3000
+06-01 18:11:50.060 E/PhoneAdapter( 4827): get ntnphones failed, exception: java.lang.IllegalStateException: not support satellite!
+06-01 18:11:50.067 D/JavaheapMonitor( 5671): Java heap used=4M max=256M, proc: com.xiaomi.bluetooth
+06-01 18:11:50.067 V/JavaheapMonitor( 5671): Check java heap usage finished! Next check delay: 300000
+06-01 18:11:50.067 D/AmlWifiScoreReportInjector( 2578): isMobileDataSignalPoor cellLteSignalRsrp = -106
+06-01 18:11:50.068 E/AmlWifiScoreReportInjector( 2578): current network is in roaming environment
+06-01 18:11:50.078 D/JavaheapMonitor( 4598): Java heap used=2M max=256M, proc: .dataservices
+06-01 18:11:50.078 V/JavaheapMonitor( 4598): Check java heap usage finished! Next check delay: 300000
+06-01 18:11:50.079 D/JavaheapMonitor( 8387): Java heap used=5M max=256M, proc: com.google.android.providers.media.module
+06-01 18:11:50.079 V/JavaheapMonitor( 8387): Check java heap usage finished! Next check delay: 300000
+06-01 18:11:50.163 D/FileUtils( 2578): Rounded bytes from 7738212352 to 8000000000
+06-01 18:11:50.585 D/SLM-SRV-SLAService( 2578): checktemp temperature = 38581 temperature_average = 38610 isPerformanceMode = false thermal_enable_slm = true
+06-01 18:11:50.847 E/msys    (29431): E[N mns:DGWClient]_LogError(290)=>Failed to resolve using system DNS resolver, getaddrinfo(): No address associated with hostname
+06-01 18:11:50.854 E/msys    (29431): E[N mns:DGWClient]_LogError(290)=>Failed to resolve using system DNS resolver, getaddrinfo(): No address associated with hostname
+06-01 18:11:51.127 I/NetworkAccelerateSwitchService( 2578): EVENT_RSSI_POLL. mRssiPoll=true
+06-01 18:11:51.128 I/NetworkAccelerateSwitchService( 2578): checkWifiRssiAndLinkSpeed rssi:43
+06-01 18:11:51.128 I/NetworkAccelerateSwitchService( 2578): checkWifiRssiAndLinkSpeed mWifiFastFade:false mWifiFastFadeAdjustThreshold:false
+06-01 18:11:51.128 I/NetworkAccelerateSwitchService( 2578): getAverageWifiRssi:43
+06-01 18:11:51.129 D/NetworkAccelerateSwitchService( 2578): checkIntervalModeChange mMovementState:false mIntervalMode:0 mIsBadLinkLayerQoE:false mBadLinkLayerQoETimes = 0
+06-01 18:11:51.148 I/[THP]   ( 9866): ALG_I: [gdix]: gdix_alg_update_frame_data IN
+06-01 18:11:51.148 I/[THP]   ( 9866): 
+06-01 18:11:51.149 I/[THP]   ( 9866): ALG_I: [gdix]: raw_data_callback
+06-01 18:11:51.149 I/[THP]   ( 9866): ALG_I: [gdix]: gdix_alg_update_diff_data IN
+06-01 18:11:51.149 I/[THP]   ( 9866): 
+06-01 18:11:51.149 I/[THP]   ( 9866): ALG_I: [gdix]: output_alg_info_callback
+06-01 18:11:51.162 D/FileUtils( 2578): Rounded bytes from 7738212352 to 8000000000
+06-01 18:11:51.412 I/libsensor-boledalgo( 3005): dbv:936,lux:25.2,hsv:-1.0,dc:0CWB R:5692.7,G:5093.7,B:4650.1Event ALS:3801.2,IR:123.8Cali ALS:3013.0,IR:20.1
+06-01 18:11:51.481 D/vendor.qti.bluetooth@1.1-wake_lock( 1756): Acquire wakelock is acquired 
+06-01 18:11:51.483 V/ScanController( 6847): onScanResult() - eventType=0x0, addressType=1, address=XX:XX:XX:XX:8E:FE, primaryPhy=1, secondaryPhy=1, advertisingSid=0x2, txPower=127, rssi=-86, periodicAdvInt=0x0, originalAddress=10:53:04:B4:8E:FE
+06-01 18:11:51.483 V/ScanController( 6847): Legacy scan, non legacy result; skip.
+06-01 18:11:51.483 V/ScanController( 6847): Skipping client: permission=true matches=false
+06-01 18:11:51.483 V/ScanController( 6847): Legacy scan, non legacy result; skip.
+06-01 18:11:51.483 V/ScanController( 6847): Legacy scan, non legacy result; skip.
+06-01 18:11:51.483 V/ScanController( 6847): Legacy scan, non legacy result; skip.
+06-01 18:11:51.581 E/DeviceGuardManagerService( 2578): bindLockRemoteService result = null
+06-01 18:11:51.672 D/vendor.qti.bluetooth@1.1-wake_lock( 1756): Release wakelock is released 
+06-01 18:11:51.704 D/JavaheapMonitor( 4402): Java heap used=58M max=512M, proc: com.miui.home
+06-01 18:11:51.705 V/JavaheapMonitor( 4402): Check java heap usage finished! Next check delay: 300000
+06-01 18:11:51.745 D/QLM-Service( 6777): check_headroom_zone: Timer EVT, Temp: 43296
+06-01 18:11:52.162 D/FileUtils( 2578): Rounded bytes from 7738212352 to 8000000000
+06-01 18:11:52.350 D/JavaheapMonitor(13166): Java heap used=16M max=512M, proc: com.google.android.googlequicksearchbox:googleapp
+06-01 18:11:52.351 V/JavaheapMonitor(13166): Check java heap usage finished! Next check delay: 300000
+06-01 18:11:52.463 E/msys    (29431): E[N mns:DGWClient]_LogError(290)=>Failed to resolve using system DNS resolver, getaddrinfo(): No address associated with hostname
+06-01 18:11:52.605 I/SmartPower: com.google.android.apps.messaging/10186(4440)( 2578): background->idle(3003ms) R(service unbind com.google.android.apps.messaging/androidx.work.impl.background.systemjob.SystemJobService) adj=800.
+06-01 18:11:52.637 I/[THP]   ( 9866): ALG_I: [gdix]: gdix_alg_update_frame_data IN
+06-01 18:11:52.637 I/[THP]   ( 9866): 
+06-01 18:11:52.637 I/[THP]   ( 9866): ALG_I: [gdix]: raw_data_callback
+06-01 18:11:52.637 I/[THP]   ( 9866): ALG_I: [gdix]: gdix_alg_update_diff_data IN
+06-01 18:11:52.637 I/[THP]   ( 9866): 
+06-01 18:11:52.637 I/[THP]   ( 9866): ALG_I: [gdix]: output_alg_info_callback
+06-01 18:11:52.705 E/msys    (29431): E[N mns:DGWClient]_LogError(290)=>Failed to resolve using system DNS resolver, getaddrinfo(): No address associated with hostname
+06-01 18:11:52.751 I/vendor.qti.hardware.servicetrackeraidl-service( 1912): destroyService is called for service : com.google.android.gms/.chimera.PersistentIntentOperationService
+06-01 18:11:53.060 D/vendor.xiaomi.hardware.mimd2-service( 1610): psi 10  is reloaded.
+06-01 18:11:53.080 E/PhoneAdapter( 4827): get ntnphones failed, exception: java.lang.IllegalStateException: not support satellite!
+06-01 18:11:53.085 D/AmlWifiScoreReportInjector( 2578): isMobileDataSignalPoor cellLteSignalRsrp = -106
+06-01 18:11:53.086 E/AmlWifiScoreReportInjector( 2578): current network is in roaming environment
+06-01 18:11:53.161 D/FileUtils( 2578): Rounded bytes from 7738212352 to 8000000000
+06-01 18:11:53.360 I/libsensor-boledalgo( 3005): dbv:936,lux:26.6,hsv:-1.0,dc:0CWB R:5692.7,G:5093.7,B:4650.1Event ALS:3843.8,IR:123.8Cali ALS:3013.0,IR:20.1
+06-01 18:11:53.476 D/JavaheapMonitor( 4739): Java heap used=6M max=256M, proc: org.codeaurora.ims
+06-01 18:11:53.476 V/JavaheapMonitor( 4739): Check java heap usage finished! Next check delay: 300000
+06-01 18:11:53.656 D/JavaheapMonitor( 8834): Java heap used=33M max=256M, proc: com.mi.globalminusscreen
+06-01 18:11:53.656 V/JavaheapMonitor( 8834): Check java heap usage finished! Next check delay: 300000
+06-01 18:11:53.660 D/JavaheapMonitor( 4764): Java heap used=8M max=256M, proc: com.xiaomi.hypercomm
+06-01 18:11:53.660 V/JavaheapMonitor( 4764): Check java heap usage finished! Next check delay: 300000
+06-01 18:11:54.124 I/[THP]   ( 9866): ALG_I: [gdix]: gdix_alg_update_frame_data IN
+06-01 18:11:54.124 I/[THP]   ( 9866): 
+06-01 18:11:54.125 I/[THP]   ( 9866): ALG_I: [gdix]: raw_data_callback
+06-01 18:11:54.125 I/[THP]   ( 9866): ALG_I: [gdix]: gdix_alg_update_diff_data IN
+06-01 18:11:54.125 I/[THP]   ( 9866): 
+06-01 18:11:54.125 I/[THP]   ( 9866): ALG_I: [gdix]: output_alg_info_callback
+06-01 18:11:54.132 I/NetworkAccelerateSwitchService( 2578): EVENT_RSSI_POLL. mRssiPoll=true
+06-01 18:11:54.133 I/NetworkAccelerateSwitchService( 2578): checkWifiRssiAndLinkSpeed rssi:43
+06-01 18:11:54.133 I/NetworkAccelerateSwitchService( 2578): checkWifiRssiAndLinkSpeed mWifiFastFade:false mWifiFastFadeAdjustThreshold:false
+06-01 18:11:54.133 I/NetworkAccelerateSwitchService( 2578): getAverageWifiRssi:43
+06-01 18:11:54.134 D/NetworkAccelerateSwitchService( 2578): checkIntervalModeChange mMovementState:false mIntervalMode:0 mIsBadLinkLayerQoE:false mBadLinkLayerQoETimes = 0
+06-01 18:11:54.162 D/JavaheapMonitor( 4731): Java heap used=2M max=256M, proc: com.st.android.nfc_extensions_16
+06-01 18:11:54.162 V/JavaheapMonitor( 4731): Check java heap usage finished! Next check delay: 300000
+06-01 18:11:54.163 D/FileUtils( 2578): Rounded bytes from 7738212352 to 8000000000
+06-01 18:11:54.312 D/BroadcastQueue( 2578): Logging broadcast for android, stopped=false, firstLaunch=false
+06-01 18:11:54.313 E/JobScheduler.Background( 2578): Couldn't determine stopped state for unknown package: com.google.android.apps.turbo
+06-01 18:11:54.314 E/JobScheduler.Background( 2578): Couldn't determine stopped state for unknown package: com.google.android.apps.turbo
+06-01 18:11:54.314 E/JobScheduler.Background( 2578): Couldn't determine stopped state for unknown package: com.google.android.apps.turbo
+06-01 18:11:54.315 E/JobScheduler.Background( 2578): Couldn't determine stopped state for unknown package: com.google.android.apps.turbo
+06-01 18:11:54.315 E/JobScheduler.Background( 2578): Couldn't determine stopped state for unknown package: com.google.android.apps.turbo
+06-01 18:11:54.361 D/ControlCenterHeaderExpandController( 4869): onExpansionChanged: progress =  0.0
+06-01 18:11:54.366 D/ControlCenterHeaderExpandController( 4869): onExpansionChanged: progress =  0.0
+06-01 18:11:54.366 D/ControlCenterHeaderExpandController( 4869): onExpansionChanged: progress =  0.0
+06-01 18:11:54.374 W/binder:2113_2( 2113): type=1400 audit(0.0:2591846): avc:  denied  { search } for  name="mcd" dev="dm-61" ino=798 scontext=u:r:surfaceflinger:s0 tcontext=u:object_r:mcd_data_file:s0 tclass=dir permissive=0
+06-01 18:11:54.380 D/ControlCenterHeaderExpandController( 4869): onExpansionChanged: progress =  0.0
+06-01 18:11:54.386 D/ControlCenterHeaderExpandController( 4869): onExpansionChanged: progress =  0.0
+06-01 18:11:54.387 D/MI-SF   ( 2113): setIdleFps choose FPS:60, mode:0
+06-01 18:11:54.386 W/binder:2113_2( 2113): type=1400 audit(0.0:2591847): avc:  denied  { search } for  name="mcd" dev="dm-61" ino=798 scontext=u:r:surfaceflinger:s0 tcontext=u:object_r:mcd_data_file:s0 tclass=dir permissive=0
+06-01 18:11:54.389 I/vendor.qti.hardware.display.composer-service( 1883): Sensor: notify citsensorservice to trigger cwb, misForced = 0
+06-01 18:11:54.389 I/libsensor-parseRGB( 3005): request dump start for mRequestDisplayId 0
+06-01 18:11:54.389 D/vendor.xiaomi.sensor.citsensorservice.aidl( 3005): handle id:21 wxh:1280x2712 uwxuh:1220x2712 size: 10416128 fd:13 fd_meta:14 flags:0x228 usage:0x33  format:0x3 layer_count: 1 reserved_size = 0 custom_content_md_reserved_size = 0
+06-01 18:11:54.390 D/SDM     ( 1883): HWCSession::PostBuffer: CWB config passed by cwb_client : tappoint 1  CWB_ROI : (784.000000 -1.000000 965.000000 140.000000)
+06-01 18:11:54.404 D/MI-SF   ( 2113): setIdleFps choose FPS:60, mode:0
+06-01 18:11:54.425 D/SDM     ( 1883): CompManager::NotifyCwbDone: display 0 notify cwb callback, status = 0
+06-01 18:11:54.426 D/SDM     ( 1883): HWCSession::NotifyCWBStatus: Notify the client about buffer status 0.
+06-01 18:11:54.426 D/SDM     ( 1883): HWCSession::ProcessCWBStatus: CWB queue is empty. Display: 0
+06-01 18:11:54.426 E/libsensor-parseRGB( 3005): CWB NotifyCWBBufferDone  error 0
+06-01 18:11:54.491 I/SDM     ( 1883): DisplayBase::CommitThread: Received idle timeout, panel: video, timeout: 80000 us
+06-01 18:11:54.505 D/SDM     ( 1883): HWDeviceDRM::SetupConcurrentWriteback: Tear down the Concurrent Writeback topology
+06-01 18:11:54.728 D/JavaheapMonitor(12015): Java heap used=4M max=256M, proc: com.miui.analytics
+06-01 18:11:54.728 V/JavaheapMonitor(12015): Check java heap usage finished! Next check delay: 300000
+06-01 18:11:55.008 D/PolicyMaker( 2578): fg uid=10397
+06-01 18:11:55.008 D/PolicyMaker( 2578): HasForegroundService pkgName=com.garmin.android.apps.connectmobile uid:10397
+06-01 18:11:55.008 D/PolicyMaker( 2578): uid =10397 pkg=com.garmin.android.apps.connectmobile reason=fgservice
+06-01 18:11:55.009 D/ActionExecute( 2578): setPkgData uid = 10397 time=2999
+06-01 18:11:55.161 D/FileUtils( 2578): Rounded bytes from 7738212352 to 8000000000
+06-01 18:11:55.360 D/JavaheapMonitor( 2578): Java heap used=208M max=512M, proc: system_server
+06-01 18:11:55.360 V/JavaheapMonitor( 2578): Check java heap usage finished! Next check delay: 60000
+06-01 18:11:55.419 D/JavaheapMonitor(12993): Java heap used=5M max=256M, proc: com.lbe.security.miui
+06-01 18:11:55.419 V/JavaheapMonitor(12993): Check java heap usage finished! Next check delay: 300000
+06-01 18:11:55.611 I/[THP]   ( 9866): ALG_I: [gdix]: gdix_alg_update_frame_data IN
+06-01 18:11:55.611 I/[THP]   ( 9866): 
+06-01 18:11:55.612 I/[THP]   ( 9866): ALG_I: [gdix]: raw_data_callback
+06-01 18:11:55.612 I/[THP]   ( 9866): ALG_I: [gdix]: gdix_alg_update_diff_data IN
+06-01 18:11:55.612 I/[THP]   ( 9866): 
+06-01 18:11:55.612 I/[THP]   ( 9866): ALG_I: [gdix]: output_alg_info_callback
+06-01 18:11:56.054 D/vendor.qti.bluetooth@1.1-wake_lock( 1756): Acquire wakelock is acquired 
+06-01 18:11:56.056 V/ScanController( 6847): onScanResult() - eventType=0x0, addressType=1, address=XX:XX:XX:XX:8E:FE, primaryPhy=1, secondaryPhy=1, advertisingSid=0x2, txPower=127, rssi=-87, periodicAdvInt=0x0, originalAddress=10:53:04:B4:8E:FE
+06-01 18:11:56.056 V/ScanController( 6847): Legacy scan, non legacy result; skip.
+06-01 18:11:56.056 V/ScanController( 6847): Skipping client: permission=true matches=false
+06-01 18:11:56.056 V/ScanController( 6847): Legacy scan, non legacy result; skip.
+06-01 18:11:56.056 V/ScanController( 6847): Legacy scan, non legacy result; skip.
+06-01 18:11:56.056 V/ScanController( 6847): Legacy scan, non legacy result; skip.
+06-01 18:11:56.059 I/libsensor-boledalgo( 3005): dbv:936,lux:27.8,hsv:-1.0,dc:0CWB R:5693.7,G:5094.0,B:4650.7Event ALS:3885.0,IR:130.0Cali ALS:3013.7,IR:20.1
+06-01 18:11:56.095 E/PhoneAdapter( 4827): get ntnphones failed, exception: java.lang.IllegalStateException: not support satellite!
+06-01 18:11:56.097 D/AmlWifiScoreReportInjector( 2578): isMobileDataSignalPoor cellLteSignalRsrp = -106
+06-01 18:11:56.098 E/AmlWifiScoreReportInjector( 2578): current network is in roaming environment
+06-01 18:11:56.162 D/FileUtils( 2578): Rounded bytes from 7738212352 to 8000000000
+06-01 18:11:56.223 D/JavaheapMonitor(13855): Java heap used=7M max=256M, proc: com.miui.msa.global
+06-01 18:11:56.223 V/JavaheapMonitor(13855): Check java heap usage finished! Next check delay: 300000
+06-01 18:11:56.245 D/vendor.qti.bluetooth@1.1-wake_lock( 1756): Release wakelock is released 
+06-01 18:11:56.388 D/JavaheapMonitor( 6847): Java heap used=4M max=256M, proc: com.android.bluetooth
+06-01 18:11:56.389 V/JavaheapMonitor( 6847): Check java heap usage finished! Next check delay: 300000
+06-01 18:11:56.544 D/JavaheapMonitor( 6735): Java heap used=4M max=256M, proc: com.google.android.ext.services
+06-01 18:11:56.544 V/JavaheapMonitor( 6735): Check java heap usage finished! Next check delay: 300000
+06-01 18:11:56.583 E/DeviceGuardManagerService( 2578): bindLockRemoteService result = null
+06-01 18:11:56.614 D/JavaheapMonitor( 5455): Java heap used=5M max=256M, proc: com.xiaomi.mirror
+06-01 18:11:56.614 V/JavaheapMonitor( 5455): Check java heap usage finished! Next check delay: 300000
+06-01 18:11:56.752 D/QLM-Service( 6777): check_headroom_zone: Timer EVT, Temp: 43327
+06-01 18:11:56.901 D/JavaheapMonitor( 4619): Java heap used=5M max=256M, proc: .qtidataservices
+06-01 18:11:56.901 V/JavaheapMonitor( 4619): Check java heap usage finished! Next check delay: 300000

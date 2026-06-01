@@ -1,0 +1,20 @@
+package:fr.yawatch.luna
+--- device ---
+24115RA8EG
+16
+36
+--- webview ---
+    versionCode=777821533 minSdk=32 targetSdk=36
+    versionName=148.0.7778.215
+    versionCode=733920733 minSdk=29 targetSdk=36
+    versionCode=777817803 minSdk=32 targetSdk=36
+    versionName=148.0.7778.178
+    versionCode=733920733 minSdk=29 targetSdk=36
+Xiaomi
+24115RA8EG
+--- luna app ---
+    versionCode=19 minSdk=24 targetSdk=35
+    versionName=2.8
+    lastUpdateTime=2026-05-25 14:14:44
+      dataDir=/data/user/0/fr.yawatch.luna
+      firstInstallTime=2026-05-25 14:14:44
