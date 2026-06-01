@@ -631,6 +631,17 @@ Decision Ludovic requise : non pour l'audit ; oui pour valider le patch avant de
 Action proposee : Claude applique patch CSS/JS minimal (min-width + nowrap + msg-system). DeepSeek verifie pas de regression. Kimi valide sur prochaine capture ADB.
 
 ---
+Agent : Kimi
+Heure : 2026-06-01 20:10:00
+Tache : OBJECTIF-017 — diagnostic et correction Git DeepSeek
+Type : diagnostic + correction
+Resume : Diagnostic Git DeepSeek termine. Probleme identifie : DeepSeek utilise deepseek_chat.py (terminal interactif) qui ne fait JAMAIS de git pull/commit/push. Quand il dit 'je commit et push', c'est une hallucination du LLM — le script Python ne traduit pas les intentions en actions. CWD du process = /home/ludo (pas le repo). Fichier DEEPSEEK_UI_MOBILE_017.md n'existe nulle part. Correction appliquee : (1) deepseek_chat.py modifie — os.chdir(REPO_ROOT), git pull au demarrage, detection auto fichiers modifies apres chaque reponse, proposition commit/push interactive, commandes /status /pull /commit /help. (2) deepseek_runner.sh cree — wrapper avec verification cle API. (3) System prompt mis a jour — DeepSeek est informe qu'il doit utiliser /commit pour livrer. (4) Rapport diagnostic KIMI_DIAGNOSTIC_DEEPSEEK_GIT_017.md livre.
+Fichier concerne : tools/agents/deepseek_chat.py, tools/agents/deepseek_runner.sh, docs/AGENTS_COLLABORATION/agents/KIMI_DIAGNOSTIC_DEEPSEEK_GIT_017.md
+Risque : faible
+Decision Ludovic requise : non
+Action proposee : Relancer DeepSeek avec ./tools/agents/deepseek_runner.sh (ou deepseek_chat.sh). Tester avec une commande /status puis /commit. DeepSeek est maintenant fonctionnellement equivalent a Kimi/Claude pour la livraison GitHub.
+
+---
 Agent : Codex
 Heure : 2026-05-31 02:35:00
 Tache : OBJECTIF-015-CODEX-PATCH-STT-BRIDGE
