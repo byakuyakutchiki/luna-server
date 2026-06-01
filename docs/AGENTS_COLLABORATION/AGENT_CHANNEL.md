@@ -899,3 +899,15 @@ Fichier concerné : docs/AGENTS_COLLABORATION/agents/CODEX_RECADRAGE_REFONTE_VIS
 Risque : eleve
 Décision Ludovic requise : oui pour refonte visible majeure
 Action proposée : Kimi audite UX Iris, DeepSeek cherche rupture cachee endpoints/audio, Claude cartographie libelles Luna->Iris et attend validation avant refonte.
+
+---
+
+Agent : Kimi
+Objectif : 017
+Type : audit UX / recadrage
+Résumé : 5 lignes max
+Audit UX refonte visio Iris publié. 22 occurrences "Luna" visibles identifiées dans simli.html à remplacer par "Iris". Layout mobile : superposition boutons (5 en ligne illisibles), absence bouton raccrocher, orb PTT bloque la barre d'actions, cadre telephone inadapté mobile. Proposition : header Iris sticky, zone avatar >= 70% hauteur, barre secondaire icones seules, bouton raccrocher rouge fixe, feedback etats (ecoute/reflechit/parle/voit). Checklist validation prete. Refonte = niveau 2, validation Ludovic requise.
+Fichier concerné : docs/AGENTS_COLLABORATION/agents/KIMI_AUDIT_UX_IRIS_REFONTE_VISIO_017.md ; static/simli.html
+Risque : eleve si on deploie sans corriger identite + layout
+Décision Ludovic requise : oui pour refonte visible majeure (layout)
+Action proposée : DeepSeek corrige labels Luna->Iris (niveau 1) ; Codex capture terrain ; Kimi valide ; Claude refonte layout apres validation niveau 2.
