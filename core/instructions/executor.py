@@ -311,24 +311,26 @@ class InstructionExecutor:
         message = instruction.message_template or "C'est l'heure de votre rappel"
 
         # Envoyer un SMS de rappel au souscripteur
+        # DESACTIVE temporairement : consommation excessive forfait Twilio (2026-06-02)
+        # Les rappels restent en in-app uniquement jusqu'a nouvelle decision.
         sms_sent = False
         subscriber_phone = context.get("subscriber_phone", "")
-        if self.sms and subscriber_phone:
-            try:
-                ok, details = self.sms.send(subscriber_phone, f"[Luna] Rappel : {message}")
-                sms_sent = ok
-                if ok:
-                    logger.info(f"Reminder SMS sent to {subscriber_phone}: {message[:50]}")
-                else:
-                    logger.warning(f"Reminder SMS failed: {details}")
-            except Exception as e:
-                logger.warning(f"Reminder SMS error: {e}")
+        # if self.sms and subscriber_phone:
+        #     try:
+        #         ok, details = self.sms.send(subscriber_phone, f"[Luna] Rappel : {message}")
+        #         sms_sent = ok
+        #         if ok:
+        #             logger.info(f"Reminder SMS sent to {subscriber_phone}: {message[:50]}")
+        #         else:
+        #             logger.warning(f"Reminder SMS failed: {details}")
+        #     except Exception as e:
+        #         logger.warning(f"Reminder SMS error: {e}")
 
         # Sauvegarder en note pour traçabilité
         if self.memory:
             try:
                 self.memory.add_note(
-                    content=f"[Rappel execute] {message}" + (" (SMS envoye)" if sms_sent else " (in-app uniquement)"),
+                    content=f"[Rappel execute] {message} (in-app uniquement — SMS auto desactive)",
                     context="reminder_executed",
                     tags=["rappel", "instruction"],
                 )
@@ -342,8 +344,8 @@ class InstructionExecutor:
             message=message,
             details={
                 "reminder_text": message,
-                "delivery_method": "sms" if sms_sent else "in_app",
-                "sms_sent": sms_sent,
+                "delivery_method": "in_app",
+                "sms_sent": False,
             },
             requires_followup=True,
             followup_action="speak_to_user",

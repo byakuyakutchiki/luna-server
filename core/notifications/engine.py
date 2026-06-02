@@ -235,16 +235,18 @@ class NotificationEngine:
         logger.info(f"Notification queued for tenant {tenant_id}: {notification['type']}")
 
         # Also send SMS for high-priority notifications
-        if self.sms and notification.get("type") in ("reminder", "streak_risk", "alert"):
-            try:
-                import os
-                phone = os.getenv("ADMIN_PHONE", "")
-                if phone:
-                    body = f"[Luna] {notification.get('title', 'Luna')}: {notification.get('body', '')[:140]}"
-                    self.sms.send(phone, body)
-                    self.nops.log_delivery(tenant_id, notification["type"], "sms")
-            except Exception as e:
-                logger.warning(f"Notification SMS delivery failed: {e}")
+        # DESACTIVE temporairement : consommation excessive forfait Twilio (2026-06-02)
+        # Reactivation uniquement sur demande explicite Ludovic avec garde-fou frequence.
+        # if self.sms and notification.get("type") in ("reminder", "streak_risk", "alert"):
+        #     try:
+        #         import os
+        #         phone = os.getenv("ADMIN_PHONE", "")
+        #         if phone:
+        #             body = f"[Luna] {notification.get('title', 'Luna')}: {notification.get('body', '')[:140]}"
+        #             self.sms.send(phone, body)
+        #             self.nops.log_delivery(tenant_id, notification["type"], "sms")
+        #     except Exception as e:
+        #         logger.warning(f"Notification SMS delivery failed: {e}")
 
     def _in_quiet_hours(self, prefs: dict) -> bool:
         try:
