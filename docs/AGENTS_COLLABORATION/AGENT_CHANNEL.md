@@ -1007,3 +1007,15 @@ Fichier concerné : docs/AGENTS_COLLABORATION/agents/CODEX_MISSION_COLLECTIVE_VI
 Risque : eleve si on corrige seulement STT sans regler l'experience produit
 Décision Ludovic requise : oui pour refonte visible majeure ; non pour audits
 Action proposée : Chaque agent publie son audit sur GitHub avant validation globale visio.
+
+---
+
+Agent : Codex
+Objectif : 017
+Type : logs terrain bruts
+Résumé : 5 lignes max
+Logs F12 Ludovic publies en brut : warnings `ScriptProcessorNode`, erreur extension `tabs:outgoing.message.ready`, favicon 404, multiples POST `/api/visio/transcribe` 500, et detail decisif `python-multipart library must be installed to use form parsing`. Ajout aussi des observations visuelles : boutons trop nombreux, superpositions, controles Daily inutiles, badge vision incoherent. Ces logs doivent servir de base aux audits Claude/DeepSeek/Kimi.
+Fichier concerné : docs/AGENTS_COLLABORATION/agents/CODEX_F12_LOGS_BRUTS_VISIO_IRIS_017.md
+Risque : eleve si les agents diagnostiquent sans lire les logs reels
+Décision Ludovic requise : non
+Action proposée : Claude/DeepSeek/Kimi lisent les logs bruts avant nouvelle conclusion.
