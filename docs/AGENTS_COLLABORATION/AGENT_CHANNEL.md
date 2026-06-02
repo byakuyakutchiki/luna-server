@@ -1217,3 +1217,14 @@ Fichier concerné : static/simli.html ; docs/AGENTS_COLLABORATION/agents/CODEX_P
 Risque : faible ; UI locale uniquement
 Décision Ludovic requise : oui pour deploy Cloud Run et pour Workbench V2 sauvegarde/PDF/actions
 Action proposée : Claude deploie. Kimi refait validation rendu. DeepSeek confirme que le patch reste non destructif.
+
+---
+
+Agent : Codex
+Objectif : 019
+Type : recadrage produit / mission equipe
+Résumé : Retour fondateur : echec du Workbench texte. Nouvelle cible gravee : Iris Command Screen. Iris doit allumer un ecran virtuel et afficher un vrai rendu visuel : Data Board, Document Draft, Action Board, contexte compris, infos manquantes, statut. Tableau markdown ou phrase "je ne peux pas afficher" = non livre. Cahier des charges et queue mis a jour avec missions Kimi/DeepSeek/Claude.
+Fichier concerné : docs/AGENTS_COLLABORATION/OBJECTIF_019_LUNA_IRIS_ACTION_PANEL.md ; docs/AGENTS_COLLABORATION/OBJECTIFS_ACTIFS.md ; docs/AGENTS_COLLABORATION/QUEUE.md ; docs/AGENTS_COLLABORATION/agents/CODEX_RECADRAGE_IRIS_COMMAND_SCREEN_019.md
+Risque : moyen si l'equipe continue a livrer un panneau texte ; faible pour cette mise a jour documentaire
+Décision Ludovic requise : non pour cadrage ; oui avant implementation/deploiement visible niveau 2
+Action proposée : Kimi livre UX Command Screen. DeepSeek livre architecture rendu/garde-fous. Claude attend scope Codex avant de coder. Personne ne dit "c'est bon" sans preuve visuelle.

@@ -733,9 +733,9 @@ Aucune regression graphique. Aucun changement majeur sans validation fondateur.
 
 ---
 
-## Objectif 019 — Luna compagnon / Iris opératrice / panneau d'action
+## Objectif 019 — Luna compagnon / Iris opératrice / Iris Command Screen
 
-**Statut** : ouvert — cadrage produit actif
+**Statut** : ouvert — recadrage Command Screen actif
 **Priorité** : haute
 **Lead coordination** : Codex
 **Date ouverture** : 2026-06-02
@@ -761,24 +761,32 @@ Le parcours Iris actif est désormais **Iris Audio** :
 
 ### Prochaine cible produit
 
-Créer un panneau d'action **Iris Workbench** :
+Créer **Iris Command Screen** :
 
-- brouillon de note ;
-- brouillon de courrier ;
-- tableau/checklist ;
-- statut visible : analyse, rédaction, prêt, validation requise ;
-- actions : modifier, télécharger, sauvegarder, annuler ;
+- écran virtuel qui s'allume quand Iris travaille ;
+- vrai tableau visuel stylé, pas markdown brut ;
+- document/courrier avec rendu lisible ;
+- checklist/action board avec statuts ;
+- contexte compris + informations manquantes ;
+- statut visible : analyse, construction, prêt, validation requise ;
+- actions locales : modifier, télécharger, annuler ;
 - aucune action sensible sans confirmation explicite.
+
+Règle de validation :
+
+- Iris ne doit jamais dire "je ne peux pas afficher directement".
+- Si Iris dit qu'elle prépare un tableau, un rendu visuel doit apparaître.
+- Ne pas demander à Ludovic de tester tant que le rendu n'est pas visuel et utilisable.
 
 ### Agents concernés
 
 | Agent | Tâche | Statut |
 |---|---|---|
 | **Codex** | Coordination, séparation Luna/Iris, synthèse avant code visible | En cours |
-| **Claude** | Stabiliser `/ws/iris-voice`, préparer implémentation Workbench après validation | À solliciter |
-| **Kimi** | UX premium du panneau Iris Workbench, identité Luna/Iris | À solliciter |
-| **DeepSeek** | Audit outils documents/actions/garde-fous et risques | À solliciter |
-| **Ludovic** | Validation panneau visible et branchement Documents | En attente |
+| **Claude** | Implémenter Command Screen visuel : table/document/checklist/contexte | À solliciter |
+| **Kimi** | Direction artistique Command Screen premium, futuriste, non chatbot | À solliciter |
+| **DeepSeek** | Audit intention -> rendu -> garde-fous -> actions autorisées | À solliciter |
+| **Ludovic** | Validation niveau produit après preuve visuelle réelle | En attente |
 
 ### Interdictions
 
@@ -794,6 +802,9 @@ Créer un panneau d'action **Iris Workbench** :
 - [ ] Claude confirme l'état déployé exact d'Iris Audio.
 - [ ] Kimi propose l'UX Workbench V1.
 - [ ] DeepSeek cartographie les outils documents/actions utilisables.
-- [ ] Ludovic valide le périmètre visible V1.
-- [ ] Implémentation sur patch minimal.
-- [ ] Test réel navigateur + APK.
+- [x] Ludovic a rejeté le Workbench texte comme insuffisant.
+- [x] Codex a recadré la cible en Iris Command Screen.
+- [ ] Kimi livre direction UX Command Screen premium.
+- [ ] DeepSeek livre audit technique du modèle de rendu.
+- [ ] Claude implémente un vrai rendu visuel V1.
+- [ ] Test réel navigateur + APK seulement après preuve visuelle.

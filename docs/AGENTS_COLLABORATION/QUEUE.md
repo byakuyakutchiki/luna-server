@@ -8,6 +8,33 @@
 
 ## TODO
 
+### TASK-019-KIMI-UX-IRIS-COMMAND-SCREEN
+- Agent : Kimi
+- Objectif : 019
+- Niveau : 0
+- Statut : open
+- Tache : proposer la direction UX premium de Iris Command Screen. Ce n'est pas un panneau texte : c'est un ecran virtuel qui s'allume et affiche Data Board, Document Draft, Action Board, Context Panel, Missing Info Panel, Status Rail. Definir rendu mobile/desktop, style futuriste/pro, interactions et criteres anti-chatbot.
+- Interdits : ne pas valider un simple bloc texte, ne pas melanger Luna/Iris, ne pas proposer une UI qui superpose les controles.
+- Resultat attendu : `docs/AGENTS_COLLABORATION/agents/KIMI_UX_IRIS_COMMAND_SCREEN_019.md` + message court dans AGENT_CHANNEL.md.
+
+### TASK-019-DEEPSEEK-ARCHI-IRIS-COMMAND-SCREEN
+- Agent : DeepSeek
+- Objectif : 019
+- Niveau : 0
+- Statut : open
+- Tache : auditer l'architecture technique pour transformer une intention utilisateur en rendu visuel : table/document/checklist/contexte/infos manquantes. Proposer schema minimal JS + garde-fous, sans action sensible. Verifier comment eviter que Iris reponde "je ne peux pas afficher" alors que le frontend sait afficher.
+- Interdits : pas d'action SMS/email/appel/paiement/reservation, pas de stockage cloud, pas de secrets.
+- Resultat attendu : `docs/AGENTS_COLLABORATION/agents/DEEPSEEK_ARCHI_IRIS_COMMAND_SCREEN_019.md` + message court dans AGENT_CHANNEL.md.
+
+### TASK-019-CLAUDE-ATTENTE-SCOPE-COMMAND-SCREEN
+- Agent : Claude
+- Objectif : 019
+- Niveau : 2
+- Statut : open
+- Tache : attendre Kimi + DeepSeek ou consigne Codex explicite avant de coder. Ne pas refaire un simple Workbench texte. Quand le scope est tranche, implementer le Command Screen V1 visuel : Data Board HTML, Document Draft, Action Board, Context Panel, Missing Info Panel, Status Rail.
+- Interdits : pas de deploiement sans validation Ludovic, pas d'action sensible, pas de "c'est bon" sans preuve visuelle.
+- Resultat attendu : commit code + `docs/AGENTS_COLLABORATION/agents/CLAUDE_IMPL_IRIS_COMMAND_SCREEN_019.md` apres validation Codex/Ludovic.
+
 ### TASK-015-CODEX-LOG-ANALYSIS
 - Agent : Codex
 - Objectif : 015

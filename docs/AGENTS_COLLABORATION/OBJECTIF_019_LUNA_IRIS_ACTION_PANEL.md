@@ -88,15 +88,78 @@ Quand Ludovic demande une action :
 
 ---
 
-## Panneau d'action Iris
+## Iris Command Screen
 
-Nom provisoire : **Iris Workbench**.
+Nom cible : **Iris Command Screen**.
+
+Ancien nom provisoire : Iris Workbench.
+
+Décision fondateur du 2026-06-02 :
+
+Iris ne doit pas seulement écrire qu'elle peut faire un tableau, un document ou une analyse. Elle doit matérialiser son travail dans un écran virtuel visible.
+
+La cible n'est pas un chatbot avec un panneau texte. La cible est un poste de commande futuriste et exploitable :
+
+- un écran de travail qui s'allume quand Iris agit ;
+- une interface qui donne l'impression que l'utilisateur est aux commandes ;
+- des rendus visuels réels : tableau, carte, dossier, synthèse, checklist, document, plan d'action ;
+- un contenu structuré qui peut ensuite être matérialisé en document numérique si Ludovic valide ;
+- une capacité à croiser, organiser, afficher et mettre à jour les données pendant la conversation ;
+- une expérience premium, lisible, dynamique, niveau outil professionnel ambitieux.
+
+Règle produit :
+
+> Si Iris dit "je prépare / j'affiche / je crée un tableau", alors quelque chose doit apparaître visuellement dans le Command Screen. Sinon, le travail n'est pas livré.
+
+Phrase interdite pour Iris :
+
+> Je ne peux pas afficher directement un tableau visuel.
+
+Phrase attendue :
+
+> J'ouvre l'écran de travail. Je te prépare une première structure, puis je te demanderai les informations manquantes.
+
+### Composants visuels attendus V1
+
+Le Command Screen V1 doit afficher au minimum :
+
+- **Data Board** : vrai tableau visuel stylé, pas markdown brut ;
+- **Document Draft** : brouillon de courrier ou note avec mise en page lisible ;
+- **Action Board** : checklist / plan d'action avec statuts ;
+- **Context Panel** : ce qu'Iris a compris de la demande ;
+- **Missing Info Panel** : les informations qu'Iris doit demander avant de finaliser ;
+- **Status Rail** : analyse, construction, prêt, validation requise, sauvegarde, terminé.
+
+### Comportement attendu
+
+Quand l'utilisateur demande :
+
+- "affiche-moi un tableau" ;
+- "croise ces données" ;
+- "prépare un workspace" ;
+- "fais un courrier" ;
+- "organise-moi ça" ;
+- "montre-moi ce que tu fais" ;
+
+Iris doit :
+
+1. ouvrir le Command Screen ;
+2. choisir le bon type de rendu ;
+3. afficher une première version visuelle immédiatement ;
+4. poser une question uniquement si une information manque ;
+5. mettre à jour l'écran après la réponse ;
+6. ne jamais prétendre avoir fait une action qui n'a pas été matérialisée ;
+7. ne jamais exécuter une action sensible sans validation.
+
+---
+
+## Panneau d'action Iris V1
 
 Fonctions attendues :
 
 - afficher ce qu'Iris prépare ;
-- montrer un brouillon de document ;
-- montrer un tableau ou une checklist ;
+- montrer un brouillon de document avec mise en page ;
+- montrer un tableau visuel ou une checklist interactive ;
 - indiquer l'état : analyse, rédaction, prêt, validation requise ;
 - proposer les actions : modifier, télécharger, sauvegarder dans Documents, annuler ;
 - ne jamais ressembler à un chatbot ajouté au hasard.
@@ -130,16 +193,17 @@ Valider sur navigateur et APK :
 
 Niveau : 1 pour logs/garde-fous, 2 pour refonte pipeline.
 
-### Phase 3 — Panneau d'action V1
+### Phase 3 — Command Screen V1
 
-Créer un panneau de travail non destructif.
+Créer un écran de travail visuel non destructif.
 
 Actions V1 autorisées :
 
-- brouillon de note ;
-- brouillon de courrier ;
-- brouillon de checklist ;
-- aperçu tableau simple ;
+- brouillon de note avec rendu visuel ;
+- brouillon de courrier avec rendu document ;
+- brouillon de checklist avec cases/statuts ;
+- tableau visuel stylé, lisible, non markdown brut ;
+- contexte compris + informations manquantes ;
 - sauvegarde uniquement si Ludovic valide.
 
 Interdit V1 :
@@ -152,6 +216,14 @@ Interdit V1 :
 - suppression de document.
 
 Niveau : 2, validation Ludovic obligatoire avant déploiement visible.
+
+Critères "pas de fausse livraison" :
+
+- ne pas dire "c'est bon" si le tableau est seulement du texte ;
+- ne pas demander à Ludovic de tester si le Command Screen n'affiche pas au moins un rendu visuel réel ;
+- ne pas valider tant qu'Iris répond "je ne peux pas afficher" ;
+- ne pas valider tant que l'utilisateur ne peut pas voir ce qu'Iris produit sans ouvrir F12 ;
+- ne pas valider tant que la version mobile superpose les contrôles.
 
 ### Phase 4 — Porte-documents
 
@@ -190,19 +262,23 @@ Pas de diarisation obligatoire en V1.
 - tenir la séparation Luna/Iris ;
 - transformer les retours terrain en objectifs vérifiables ;
 - ne pas laisser l'équipe repartir sur Simli/avatar si ce n'est pas la priorité validée.
+- cadrer le Command Screen et empêcher les livrables à moitié finis.
 
 ### Claude
 
 - intégration technique ;
 - stabilisation `/ws/iris-voice` ;
-- implémentation propre du panneau d'action quand Ludovic valide ;
+- implémentation propre du Command Screen ;
+- rendre les composants visuels réels : table, document, checklist, contexte, infos manquantes ;
+- empêcher Iris de dire qu'elle ne peut pas afficher si le frontend sait l'afficher ;
 - pas de déploiement visible majeur sans feu vert.
 
 ### Kimi
 
 - vision UX ;
 - qualité graphique ;
-- panneau Iris premium ;
+- Command Screen premium, futuriste, professionnel ;
+- vérifier que le rendu donne l'impression d'un poste de commande, pas d'un bloc texte ;
 - vérifier que Luna et Iris ont chacune une identité claire.
 
 ### DeepSeek
@@ -211,6 +287,7 @@ Pas de diarisation obligatoire en V1.
 - sécurité outils/actions ;
 - vérifier que les tool calls ne déclenchent rien de sensible sans confirmation ;
 - cartographier les endpoints documents/outils utilisables par Iris.
+- auditer le flux intention utilisateur -> type de rendu -> affichage -> action autorisée.
 
 ---
 
@@ -221,7 +298,9 @@ Iris V1 est validée seulement si :
 - elle répond vite et naturellement ;
 - elle se tait quand on ne lui parle pas ;
 - elle n'exécute rien de sensible sans confirmation ;
-- elle peut produire au moins un brouillon visible dans le panneau d'action ;
+- elle peut produire au moins un rendu visuel réel dans le Command Screen ;
+- elle affiche un tableau visuel stylé quand on lui demande un tableau ;
+- elle affiche ce qu'elle comprend et ce qui manque avant de finaliser ;
 - Ludovic peut comprendre ce qu'elle fait sans ouvrir F12 ;
 - l'expérience est plus belle, plus fluide et plus fonctionnelle que l'ancien empilement visio.
 
