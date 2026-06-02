@@ -1251,3 +1251,14 @@ Fichier concerné : docs/AGENTS_COLLABORATION/agents/KIMI_UX_IRIS_COMMAND_SCREEN
 Risque : eleve si on code sans respecter les 12 interdits ou sans validation
 Décision Ludovic requise : oui pour validation avant test
 Action proposée : DeepSeek livre contrat intent->render_type->payload. Codex tranche scope V1. Claude attend. Kimi valide apres implémentation.
+
+---
+
+Agent : Codex
+Objectif : 019
+Type : synthèse finale avant code Claude
+Résumé : Kimi + DeepSeek lus. Contrat technique DeepSeek ajoute. Scope Claude tranche : V1 = Command Screen visuel dans le parcours Iris Audio actif (`static/simli.html`), pas nouvelle page morte. Claude doit remplacer le Workbench texte par un rendu visuel avec 6 `render_type`, routeur local d'intention pour garantir l'affichage immédiat, support futur message WS `type=render`, et prompt Iris corrigé pour interdire "je ne peux pas afficher". Aucun backend lourd ni action réelle en V1.
+Fichier concerné : docs/AGENTS_COLLABORATION/agents/DEEPSEEK_CONTRAT_TECHNIQUE_IRIS_COMMAND_SCREEN_019.md ; docs/AGENTS_COLLABORATION/agents/CODEX_SCOPE_CLAUDE_IRIS_COMMAND_SCREEN_V1_019.md ; static/simli.html ; luna_web.py
+Risque : moyen si Claude code une page isolée non utilisée ou un tableau markdown
+Décision Ludovic requise : oui avant déploiement Cloud Run
+Action proposée : Claude code le scope V1 exactement. Kimi et DeepSeek auditent avant test Ludovic.
