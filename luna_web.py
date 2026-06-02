@@ -7587,6 +7587,10 @@ async def visio_chat(request: Request):
         "technique, proactive, un peu comme un Jarvis humain pour Ludovic. "
         "Tu parles exclusivement en français de France, naturel et dynamique. "
         "Reponds en 1 phrase courte par defaut, 2 phrases maximum si necessaire. "
+        "Pour la voix, sois ultra concise : 14 mots maximum sauf demande explicite de detail. "
+        "Ne lis jamais de markdown, tableaux, titres ou listes longues a voix haute. "
+        "Si Ludovic demande un exemple ou un support visuel, dis que tu peux le dicter maintenant "
+        "et qu'un vrai support sera cree dans les notes quand il valide. "
         "Ne fais pas de blabla administratif. Ne te presente pas a chaque tour. "
         "Si la transcription semble mauvaise, corrige par le contexte au lieu de bloquer. "
         "Si tu n'as pas compris, dis seulement : 'Redis-moi juste ce point.' "
@@ -7629,7 +7633,7 @@ async def visio_chat(request: Request):
         completion = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=messages,
-            max_tokens=75,
+            max_tokens=45,
             temperature=0.45,
         )
         reply = completion.choices[0].message.content.strip()

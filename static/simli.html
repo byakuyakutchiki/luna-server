@@ -2277,6 +2277,7 @@
     var _speechReco = null;
     var _speechActive = false;
     var _irisReplying = false;   // true pendant LLM+TTS : micro ignoré
+    var _vadBusy = false;        // true pendant STT+LLM+TTS : évite les tours qui se chevauchent
     var _irisAudio = null;       // élément audio courant
     var _pttMode = false;        // true si Web Speech API absent → mode PTT Whisper
     var _pttRecording = false;
@@ -2320,7 +2321,7 @@
     }
 
     function _irisReply(userText) {
-      if (_irisReplying) return;
+      if (_irisReplying) { _vadBusy = false; return; }
       _irisReplying = true;
       _setIrisState('thinking');
       var t0 = Date.now();
@@ -2347,9 +2348,9 @@
         if (r.status === 401) {
           rLog('warn', 'simli', 'llm_jwt_expired', '401');
           showToast('⚠️ Session expirée — reconnecte-toi avant de relancer la visio.', 6000);
-          _irisReplying = false; _setIrisState('idle'); return null;
+          _irisReplying = false; _vadBusy = false; _setIrisState('idle'); return null;
         }
-        if (!r.ok) { rLog('warn', 'simli', 'llm_http_err', String(r.status)); _irisReplying = false; _setIrisState('idle'); return null; }
+        if (!r.ok) { rLog('warn', 'simli', 'llm_http_err', String(r.status)); _irisReplying = false; _vadBusy = false; _setIrisState('idle'); return null; }
         return r.json();
       })
       .then(function(data) {
@@ -2359,6 +2360,7 @@
         if (!data.ok || !data.response) {
           rLog('warn', 'simli', 'llm_empty', JSON.stringify(data).substring(0, 60));
           _irisReplying = false;
+          _vadBusy = false;
           _setIrisState('idle');
           return;
         }
@@ -2377,9 +2379,9 @@
           if (r.status === 401) {
             rLog('warn', 'simli', 'tts_jwt_expired', '401');
             showToast('⚠️ Session expirée — reconnecte-toi avant de relancer la visio.', 6000);
-            _irisReplying = false; _setIrisState('idle'); return null;
+            _irisReplying = false; _vadBusy = false; _setIrisState('idle'); return null;
           }
-          if (!r.ok) { rLog('warn', 'simli', 'tts_error', String(r.status)); _irisReplying = false; _setIrisState('idle'); return null; }
+          if (!r.ok) { rLog('warn', 'simli', 'tts_error', String(r.status)); _irisReplying = false; _vadBusy = false; _setIrisState('idle'); return null; }
           return r.blob();
         })
         .then(function(blob) {
@@ -2400,28 +2402,33 @@
             rLog('info', 'simli', 'total_latency_ms', String(total));
             URL.revokeObjectURL(url);
             _irisReplying = false;
+            _vadBusy = false;
             _setIrisState('idle');
           };
           _irisAudio.onerror = function() {
             rLog('warn', 'simli', 'audio_error', '');
             _irisReplying = false;
+            _vadBusy = false;
             _setIrisState('idle');
           };
           _irisAudio.play().catch(function(e) {
             rLog('warn', 'simli', 'audio_play_blocked', String(e).substring(0, 60));
             _irisReplying = false;
+            _vadBusy = false;
             _setIrisState('idle');
           });
         })
         .catch(function(e) {
           rLog('warn', 'simli', 'tts_fetch_err', String(e).substring(0, 60));
           _irisReplying = false;
+          _vadBusy = false;
           _setIrisState('idle');
         });
       })
       .catch(function(e) {
         rLog('warn', 'simli', 'llm_fetch_err', String(e).substring(0, 60));
         _irisReplying = false;
+        _vadBusy = false;
         _setIrisState('idle');
       });
     }
@@ -2461,6 +2468,7 @@
         _setIrisState('idle');
         return;
       }
+      _vadBusy = true;
       var _vadT0 = Date.now();
       rLog('info', 'simli', 'vad_send', String(blob.size) + 'b');
       var fd = new FormData();
@@ -2478,12 +2486,14 @@
         if (r.status === 401) {
           rLog('warn', 'simli', 'vad_jwt_expired', '401 — token invalide ou expiré');
           showToast('⚠️ Session expirée — reconnecte-toi avant de relancer la visio.', 6000);
+          _vadBusy = false;
           _setIrisState('idle');
           return null;
         }
         if (!r.ok) {
           return r.text().then(function(txt) {
             rLog('warn', 'simli', 'vad_stt_err', 'HTTP ' + r.status + ' ' + txt.substring(0, 140));
+            _vadBusy = false;
             _setIrisState('idle');
             return null;
           });
@@ -2495,6 +2505,7 @@
         rLog('info', 'simli', 'vad_whisper_ms', String(Date.now() - _vadT0));
         if (!data.ok || !data.text) {
           rLog('info', 'simli', 'vad_transcribe_empty', JSON.stringify(data).substring(0, 60));
+          _vadBusy = false;
           _setIrisState('idle');
           return;
         }
@@ -2506,6 +2517,7 @@
       })
       .catch(function(e) {
         rLog('warn', 'simli', 'vad_transcribe_err', String(e).substring(0, 60));
+        _vadBusy = false;
         _setIrisState('idle');
       });
     }
@@ -2577,7 +2589,7 @@
 
           var _rmsFrame = 0;
           _vadProcessor.onaudioprocess = function(e) {
-            if (!_vadActive || _irisReplying) return;
+            if (!_vadActive || _irisReplying || _vadBusy) return;
 
             // Monitor AudioContext suspend (mobile browser can suspend on background)
             if (_vadAudioCtx && _vadAudioCtx.state === 'suspended') {
@@ -2666,6 +2678,7 @@
 
     function _stopVAD() {
       _vadActive = false;
+      _vadBusy = false;
       if (_vadSilenceTimer) { clearTimeout(_vadSilenceTimer); _vadSilenceTimer = null; }
       if (_vadProcessor) { try { _vadProcessor.disconnect(); } catch(e) {} _vadProcessor = null; }
       if (_vadAudioCtx) { try { _vadAudioCtx.close(); } catch(e) {} _vadAudioCtx = null; }

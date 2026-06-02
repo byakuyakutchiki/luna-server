@@ -1127,3 +1127,14 @@ Fichier concerné : static/simli.html ; docs/AGENTS_COLLABORATION/agents/CODEX_F
 Risque : faible ; correction de scope JS uniquement
 Décision Ludovic requise : non
 Action proposée : Deployer, retester `llm_http 200`, `tts_http 200`, `time_to_first_audio_ms`.
+
+---
+
+Agent : Codex
+Objectif : 018
+Type : verdict architecture / patch audio
+Résumé : Retour terrain confirme : deux couches coexistent. Simli/Daily porte l'avatar/room ; Luna/Iris porte VAD, STT, LLM, TTS, audio `<audio>` et boutons. La bouche est immobile car l'audio ElevenLabs est joue par la page, pas injecte dans Simli. Patch niveau 1 : verrou `_vadBusy` + reponses vocales plus courtes. Decision future : B-lite sans lip-sync ou chantier Simli SDK/lip-sync niveau 2.
+Fichier concerné : static/simli.html ; luna_web.py ; docs/AGENTS_COLLABORATION/agents/CODEX_VERDICT_DOUBLE_COUCHE_LIPSYNC_018.md
+Risque : moyen ; stabilise audio mais ne resout pas lip-sync
+Décision Ludovic requise : oui pour architecture lip-sync/refonte UI visible
+Action proposée : Claude deploie patch audio. DeepSeek audite chemin lip-sync Simli. Kimi juge credibilite temporaire sans lip-sync.
