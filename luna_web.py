@@ -4496,9 +4496,11 @@ async def lifespan(app):
     _licenses_load()
     logger.info(f"Licences chargées depuis Redis: {len(_licenses_db)} exploitant(s)")
 
-    # Auto-diagnostic : démarre la boucle de vérification des objectifs
-    asyncio.create_task(_objectives_monitor_loop())
-    logger.info("Luna Auto-Diagnostic démarré — vérification des objectifs toutes les 5 min")
+    # Auto-diagnostic : désactivé sur demande Ludovic (2026-06-02)
+    # La boucle envoyait trop de messages Telegram à cause d'objectifs dynamiques.
+    # asyncio.create_task(_objectives_monitor_loop())
+    # logger.info("Luna Auto-Diagnostic démarré — vérification des objectifs toutes les 5 min")
+    logger.info("Luna Auto-Diagnostic DESACTIVE — pas de vérification auto des objectifs")
 
     yield
     # Shutdown
