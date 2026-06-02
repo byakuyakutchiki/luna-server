@@ -15,6 +15,7 @@ Ce fichier sert a suivre les targets actives. Il doit etre mis a jour quand une 
 | Teams interne | Iris affiche participants, roles, mute/kick, validation actions invite | partiel / a prouver | session avec owner + invite | Claude + Kimi |
 | Command Screen visuel | Iris projette tableaux, graphiques, documents, decisions, statuts, pas du texte brut | partiel | capture rendu visuel + logs render_type | Kimi + Codex |
 | Feedback préparation Iris | Quand Iris dit qu'elle prépare/crée/rédige, un état de travail visible s'affiche, le transcript reste discret, puis timeout clair à 10s si rien ne revient | code non prouvé | capture "Iris prépare" puis rendu ou "Préparation trop longue" ; vérifier absence de pavé texte | Codex |
+| Conscience Command Screen | Iris sait qu'elle pilote son propre écran et peut transformer tableau/chiffres en graphique via `chart` | code non prouvé | test "utilise ton tableau pour faire un graphique" + capture `Graphique` | Codex + Kimi + DeepSeek |
 
 ### Mise à jour DeepSeek/Codex — 2026-06-02
 

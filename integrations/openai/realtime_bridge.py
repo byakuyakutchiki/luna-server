@@ -636,20 +636,38 @@ VOICE_TOOLS = [
         "name": "iris_render",
         "description": (
             "Afficher du contenu visuel dans l'Iris Command Screen. "
-            "Appelle cette fonction AVANT de parler chaque fois que tu prepares : "
-            "un tableau (render_type=data_board), un courrier ou lettre (document_draft), "
-            "une checklist ou plan d'action (action_board), une analyse ou explication (context_panel), "
-            "des informations manquantes a demander (missing_info), un etat des services (status_rail). "
+            "Tu as la main sur cet ecran : tu peux projeter un tableau, un graphique, "
+            "des KPI, une timeline, une roadmap, une comparaison, un document, une carte, "
+            "un budget, une reunion, une decision, une fiche contact ou un formulaire. "
+            "Appelle cette fonction AVANT de parler chaque fois que tu prepares un rendu visuel. "
+            "Si l'utilisateur demande de transformer un tableau ou des chiffres en graphique, "
+            "utilise render_type=chart. Ne dis jamais que tu ne peux pas utiliser ton tableau. "
             "Le souscripteur voit le rendu visuel en temps reel pendant que tu parles. "
-            "N'envoie pas le contenu en texte oral — mets-le dans le payload et parle brievement."
+            "N'envoie pas le contenu en texte oral : mets-le dans le payload et parle brievement."
         ),
         "parameters": {
             "type": "object",
             "properties": {
                 "render_type": {
                     "type": "string",
-                    "enum": ["data_board", "document_draft", "action_board", "context_panel", "missing_info", "status_rail"],
-                    "description": "data_board=tableau de donnees, document_draft=courrier/lettre, action_board=checklist/plan, context_panel=analyse/explication, missing_info=infos manquantes, status_rail=etat services"
+                    "enum": [
+                        "data_board", "document_draft", "action_board", "context_panel",
+                        "missing_info", "status_rail", "kpi_cards", "chart", "timeline",
+                        "roadmap", "comparison", "document_insight", "kanban_board",
+                        "contact_board", "map_board", "decision_board", "budget_board",
+                        "meeting_board", "media_board", "form_board"
+                    ],
+                    "description": (
+                        "data_board=tableau, chart=graphique/courbe/barres/donut, "
+                        "kpi_cards=indicateurs, timeline=chronologie, roadmap=plan par phases, "
+                        "comparison=comparaison, document_draft=courrier/lettre, "
+                        "document_insight=analyse document, action_board=checklist/action, "
+                        "kanban_board=taches par colonnes, contact_board=fiche contact, "
+                        "map_board=carte/adresse, decision_board=aide a la decision, "
+                        "budget_board=budget, meeting_board=reunion, media_board=fichiers, "
+                        "form_board=formulaire, context_panel=contexte, missing_info=infos manquantes, "
+                        "status_rail=etat services"
+                    )
                 },
                 "payload": {
                     "type": "object",
@@ -660,7 +678,12 @@ VOICE_TOOLS = [
                         "action_board: {sections:[{title,items:[{text,done?,tag?}]}], requires_confirmation?, action_type?, summary?}. "
                         "context_panel: {sections:[{heading,body}]}. "
                         "missing_info: {fields:[str], suggestions?:[str]}. "
-                        "status_rail: {services:[{name,status,info?}]}."
+                        "status_rail: {services:[{name,status,info?}]}. "
+                        "chart: {title, type:'line'|'bar'|'donut', labels:[str], datasets:[{label,data:[number]}], summary?}. "
+                        "kpi_cards: {kpis:[{label,value,trend?}], summary?}. "
+                        "timeline: {events:[{date,title,description?}], summary?}. "
+                        "roadmap: {phases:[{title,description,status?}], summary?}. "
+                        "decision_board: {options:[{name,pros:[str],cons:[str]}], recommendation?}."
                     ),
                     "additionalProperties": True
                 }

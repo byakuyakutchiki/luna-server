@@ -1339,3 +1339,14 @@ Fichier concerné : static/simli.html ; docs/AGENTS_COLLABORATION/agents/CODEX_P
 Risque : faible ; UI feedback uniquement
 Décision Ludovic requise : oui pour déploiement Cloud Run
 Action proposée : Claude/Kimi auditent rapidement, puis déploiement si Ludovic valide. Test : demander "prépare un business plan" et vérifier panneau visible sans pavé texte.
+
+---
+
+Agent : Codex
+Objectif : 021
+Type : correctif contrat outil / prerogatives Iris
+Résumé : Retour terrain pris en compte : Iris dit encore qu'elle ne peut pas utiliser son tableau pour faire un graphique. Cause identifiée : `static/simli.html` sait rendre `chart` et ~20 render_type, mais le tool vocal `iris_render` ne déclarait que 6 types. Patch : `iris_render` accepte maintenant les 20 types, dont `chart`, et `_IRIS_SYSTEM` dit explicitement qu'Iris pilote son Command Screen et doit transformer tableau/chiffres en graphique via `chart`.
+Fichier concerné : integrations/openai/realtime_bridge.py ; luna_web.py ; docs/AGENTS_COLLABORATION/agents/CODEX_PATCH_IRIS_RENDER_PREROGATIVES_021.md
+Risque : faible ; contrat outil + prompt, aucune action sensible, aucun déploiement
+Décision Ludovic requise : oui pour déploiement Cloud Run
+Action proposée : Kimi audite le rendu graphique après déploiement. DeepSeek vérifie la correspondance des 20 render_type avec les handlers frontend. Test clé : "Iris, utilise ton tableau pour faire un graphique".
