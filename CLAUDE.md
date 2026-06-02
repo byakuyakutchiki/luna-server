@@ -116,7 +116,60 @@ Pour chaque objectif, il faut produire :
 - limites à ne pas franchir
 - procédure de test
 
-## Tâche prioritaire actuelle — Iris Command Screen V1 (2 juin 2026)
+## Tâche prioritaire actuelle — Iris Workspace Phase 1 (2 juin 2026)
+
+**Chantier actif : Iris Workspace comme système de projection intelligente** (objectif 020).
+Voir : `docs/IRIS_WORKSPACE_VISION.md` (vision Ludo), `docs/AGENTS_COLLABORATION/agents/DEEPSEEK_IRIS_WORKSPACE_VISION.md` (spec DeepSeek), `docs/AGENTS_COLLABORATION/agents/CLAUDE_IMPL_IRIS_WORKSPACE_020.md` (plan Claude).
+
+### Instructions DeepSeek
+
+**Tâche : améliorer `inferCommandRenderFromText` dans `static/simli.html` (ligne ~3373)**
+
+La fonction doit détecter les 12 types de projection depuis le texte d'Iris :
+- Présence de 2+ nombres → `kpi_cards`
+- Présence de dates (15 juin, "la semaine prochaine") → `timeline`
+- "phase"/"étape" + numéros → `roadmap`
+- "vs" ou deux entités nommées comparées → `comparison`
+- "risque"/"opportunité"/"résumé" du document → `document_insight`
+- Texte > 100 mots sans structure → `context_panel`
+- "évolution"/"tendance"/"croissance" + chiffres → `chart`
+
+Livrer dans : `docs/AGENTS_COLLABORATION/agents/DEEPSEEK_IRIS_WORKSPACE_020.md`
+Format attendu : bloc JS complet de la fonction + explication des regex.
+Ne pas modifier d'autres fichiers. Ne pas déployer.
+
+### Instructions Kimi
+
+**Tâche : améliorer `_icsBuildPayload` dans `static/simli.html` (ligne ~3384)**
+
+Objectif : extraire des données réelles du texte pour construire des payloads riches.
+
+Pour `kpi_cards` : regex `/(\d[\d\s,.]*)\s*(€|euro|client|contrat|%|km|kg)/gi` → extraire valeur + label
+Pour `timeline` : regex dates → extraire "label : date" pairs
+Pour `chart` : chercher séquences de nombres séparées par virgules ou "et"
+Pour `comparison` : détecter les deux entités comparées + leurs attributs
+
+Livrer dans : `docs/AGENTS_COLLABORATION/agents/KIMI_IRIS_WORKSPACE_020.md`
+Format attendu : nouvelle version de `_icsBuildPayload` + section fallback transcript améliorée.
+Ne pas modifier d'autres fichiers. Ne pas déployer.
+
+### Instructions Codex
+
+**Tâche : tester + rapporter l'état actuel**
+
+1. Ouvrir `/simli` sur le serveur déployé
+2. Parler à Iris — vérifier que le `context_panel` s'affiche après chaque réponse
+3. Tester les phrases : "quel est mon état ?", "liste mes services", "compare EDF et Engie"
+4. Rapporter dans `docs/AGENTS_COLLABORATION/agents/CODEX_IRIS_WORKSPACE_020.md` :
+   - Quel type de render s'affiche pour chaque phrase
+   - Est-ce le bon type ?
+   - Qu'est-ce qui devrait s'afficher mais ne s'affiche pas ?
+
+Claude implémente Phase 1 (6 nouveaux types) une fois les livrables DeepSeek + Kimi reçus.
+
+---
+
+## Archive — Iris Command Screen V1 (2 juin 2026)
 
 **Chantier actif : Iris Command Screen** — panneau visuel temps réel dans `/simli` (page audio Iris).
 
