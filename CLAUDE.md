@@ -116,9 +116,66 @@ Pour chaque objectif, il faut produire :
 - limites à ne pas franchir
 - procédure de test
 
-## Tâche prioritaire actuelle
+## Tâche prioritaire actuelle — Iris Command Screen V1 (2 juin 2026)
 
-**Monitoring de base TERMINÉ** — 10 objectifs implémentés dans `GET /api/admin/objectives` :
+**Chantier actif : Iris Command Screen** — panneau visuel temps réel dans `/simli` (page audio Iris).
+
+### Contexte pour DeepSeek, Kimi, Codex
+
+L'Iris Command Screen est un panneau latéral holographique qui s'affiche pendant la conversation vocale avec Iris.
+Il doit **toujours afficher du contenu** après chaque réponse d'Iris.
+
+**Architecture actuelle :**
+- Page : `static/simli.html`
+- Backend bridge : `integrations/openai/web_voice_bridge.py`
+- Modèle voix : `gpt-realtime-mini` (seul modèle disponible sur ce compte OpenAI)
+- Tool serveur : `iris_render` dans `VOICE_TOOLS` (`realtime_bridge.py`) + handler dans `web_voice_bridge.py`
+- System prompt Iris : `_IRIS_SYSTEM` dans `luna_web.py` (ligne ~8912)
+
+**Problème connu :**
+`gpt-realtime-mini` n'appelle pas `iris_render` de manière fiable.
+Le fallback client compense : quand le transcript Iris arrive sans render serveur, le client affiche la réponse dans un `context_panel`.
+
+**Séquence d'événements OpenAI Realtime (ordre réel) :**
+1. `response.audio.delta` → chunks audio envoyés au client
+2. `response.audio.done` → `{type:"audio_done"}` envoyé au client
+3. `response.audio_transcript.done` → `{type:"transcript", role:"luna", text:"..."}` envoyé au client
+
+⚠️ Le transcript arrive APRÈS `audio_done`. Tout fallback basé sur `audio_done` sera vide.
+
+**Fallback actuel (commit `20042bc` + correction suivante) :**
+- Sur `transcript` role=luna : debounce 300ms → si pas de render serveur, affiche `context_panel` avec le texte d'Iris
+- Variable `_icsFallbackTimer` : debounce pour laisser tous les chunks arriver
+
+**6 types de render disponibles dans `renderIrisCommand()` :**
+- `data_board` — tableau colonnes/lignes avec badges
+- `document_draft` — courrier/lettre avec placeholders
+- `action_board` — checklist avec cases et confirmation
+- `context_panel` — sections titre/corps (fallback par défaut)
+- `missing_info` — champs manquants + suggestions
+- `status_rail` — liste services avec statuts colorés
+
+### Ce qui reste à faire
+
+| Tâche | Priorité | Assigné à |
+|---|---|---|
+| Tester fallback debounce (transcript → context_panel) | 🔴 URGENT | Codex teste + rapporte |
+| Améliorer `inferCommandRenderFromText` — détecter plus de patterns | 🟡 | DeepSeek |
+| V2 : sauvegarde du contenu affiché (bouton "Sauvegarder") | 🟢 | À planifier |
+| V2 : export PDF/DOCX depuis le Command Screen | 🟢 | À planifier |
+| V2 : actions réelles avec confirmation (SMS, note, rappel) | 🟢 | À planifier |
+
+### Règles pour les contributions
+
+1. **Ne jamais modifier** `.env`, `pv_lock.json`, clés API
+2. **Ne jamais déployer** sans validation explicite de Ludo
+3. **Ne modifier que** `static/simli.html` et `luna_web.py` pour l'ICS
+4. Tout changement doit passer par PR ou patch envoyé ici dans CLAUDE.md
+5. Claude a le dernier mot avant tout merge
+
+---
+
+## Archive — Monitoring de base TERMINÉ — 10 objectifs implémentés dans `GET /api/admin/objectives` :
 
 | Objectif | Commit | Statut |
 |---|---|---|
