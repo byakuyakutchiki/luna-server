@@ -3256,6 +3256,7 @@
     // IRIS COMMAND SCREEN — renderIrisCommand + inferCommandRenderFromText
     // =====================================================================
     var _icsFormBound = false;
+    var _icsLastServerRender = 0; // timestamp du dernier render envoyé par le serveur
 
     function _esc(s) {
       return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
@@ -3265,7 +3266,7 @@
       var t = String(text||'').toLowerCase();
       if (/\b(tableau|table|colonnes?|données|compare[zr]?|liste[zr]?|grille|affiche.*(données|résultats|chiffres))\b/.test(t)) return 'data_board';
       if (/\b(courrier|lettre|mail|email|message officiel|réponse écrite|rédige|redige|écris|ecris|brouillon|note officielle)\b/.test(t)) return 'document_draft';
-      if (/\b(checklist|liste de tâches?|plan d['’']?action|todo|étapes?|etapes?|organise|fais.*(liste|plan|checklist))\b/.test(t)) return 'action_board';
+      if (/\b(checklist|liste de tâches?|plan d'?action|todo|étapes?|etapes?|organise|fais.*(liste|plan|checklist))\b/.test(t)) return 'action_board';
       if (/\b(état|etat|statut|services?|diagnostic|quotas?|santé|sante|check)\b/.test(t)) return 'status_rail';
       if (/\b(explique|analyse[zr]?|résume|resume|contexte|comprends?|qu.est-ce)\b/.test(t)) return 'context_panel';
       if (/\b(panneau|command screen|workspace|bureau|workbench|espace de travail)\b/.test(t)) return 'data_board';
@@ -3727,17 +3728,21 @@
               _irisClearPlayback();
               _setIrisState('idle');
             } else if (data.type === 'render') {
+              _icsLastServerRender = Date.now();
               renderIrisCommand(data);
             } else if (data.type === 'transcript') {
               var role = data.role === 'user' ? 'user' : 'iris';
               _afAppendTranscript(role, data.text || '');
               if (data.role === 'user') {
                 _setIrisState('thinking');
-                var _rType = inferCommandRenderFromText(data.text || '');
-                if (_rType) {
-                  var _pl = _icsBuildPayload(_rType, data.text || '');
-                  _pl.render_type = _rType;
-                  renderIrisCommand(_pl);
+                // Fallback local uniquement si le serveur n'a pas envoyé de render récent (< 3s)
+                if (Date.now() - _icsLastServerRender > 3000) {
+                  var _rType = inferCommandRenderFromText(data.text || '');
+                  if (_rType) {
+                    var _pl = _icsBuildPayload(_rType, data.text || '');
+                    _pl.render_type = _rType;
+                    renderIrisCommand(_pl);
+                  }
                 }
               }
             } else if (data.type === 'tool_call') {

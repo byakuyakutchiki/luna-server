@@ -629,6 +629,27 @@ class WebVoiceBridge:
 
         logger.info(f"WebVoice tool_call: {function_name}({args})")
 
+        # iris_render : affichage Iris Command Screen — intercepté ici, pas de backend
+        if function_name == "iris_render":
+            render_type = args.get("render_type", "context_panel")
+            payload = args.get("payload", {})
+            await self._ws_send_client({
+                "type": "render",
+                "render_type": render_type,
+                "payload": payload,
+            })
+            await self._ws_send_openai({
+                "type": "conversation.item.create",
+                "item": {
+                    "type": "function_call_output",
+                    "call_id": call_id,
+                    "output": json.dumps({"status": "ok", "displayed": True}, ensure_ascii=False),
+                },
+            })
+            await self._ws_send_openai({"type": "response.create"})
+            self._tool_calls_log.append(f"iris_render:{render_type}")
+            return
+
         # hang_up : arrêter le bridge proprement
         if function_name == "hang_up":
             reason = args.get("reason", "fin de conversation")

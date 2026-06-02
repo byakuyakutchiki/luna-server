@@ -592,6 +592,43 @@ VOICE_TOOLS = [
     # === CALL CONTROL ===
     {
         "type": "function",
+        "name": "iris_render",
+        "description": (
+            "Afficher du contenu visuel dans l'Iris Command Screen. "
+            "Appelle cette fonction AVANT de parler chaque fois que tu prepares : "
+            "un tableau (render_type=data_board), un courrier ou lettre (document_draft), "
+            "une checklist ou plan d'action (action_board), une analyse ou explication (context_panel), "
+            "des informations manquantes a demander (missing_info), un etat des services (status_rail). "
+            "Le souscripteur voit le rendu visuel en temps reel pendant que tu parles. "
+            "N'envoie pas le contenu en texte oral — mets-le dans le payload et parle brievement."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "render_type": {
+                    "type": "string",
+                    "enum": ["data_board", "document_draft", "action_board", "context_panel", "missing_info", "status_rail"],
+                    "description": "data_board=tableau de donnees, document_draft=courrier/lettre, action_board=checklist/plan, context_panel=analyse/explication, missing_info=infos manquantes, status_rail=etat services"
+                },
+                "payload": {
+                    "type": "object",
+                    "description": (
+                        "Donnees du rendu selon render_type. "
+                        "data_board: {title, columns:[str], rows:[[str]], summary?}. "
+                        "document_draft: {title, recipient?, body, placeholders?:[str]}. "
+                        "action_board: {sections:[{title,items:[{text,done?,tag?}]}], requires_confirmation?, action_type?, summary?}. "
+                        "context_panel: {sections:[{heading,body}]}. "
+                        "missing_info: {fields:[str], suggestions?:[str]}. "
+                        "status_rail: {services:[{name,status,info?}]}."
+                    ),
+                    "additionalProperties": True
+                }
+            },
+            "required": ["render_type", "payload"]
+        }
+    },
+    {
+        "type": "function",
         "name": "hang_up",
         "description": "Raccrocher et terminer l'appel telephonique. OBLIGATOIRE : utilise cette fonction CHAQUE FOIS que tu dis au revoir, que tu raccroches, ou que la conversation est terminee. Ne dis JAMAIS 'je raccroche' sans appeler cette fonction immediatement apres.",
         "parameters": {
