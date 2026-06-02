@@ -9343,6 +9343,220 @@ Règles de collaboration :
 
     async def handle_iris_tool(function_name: str, arguments: Dict) -> Dict:
         """Outils Iris : lecture/recherche autorisées, actions sensibles en attente Workbench."""
+
+        async def _iris_auto_render(fn: str, args: dict, res: dict) -> None:
+            """Capability Gateway Bridge — transforme le résultat d'un tool en render_type WS."""
+            if res.get("status") == "error":
+                return
+            payload: Optional[Dict] = None
+            try:
+                if fn in {"search_web", "get_page_info"}:
+                    import urllib.parse as _up
+                    query = args.get("query", res.get("query", "Recherche"))
+                    results = res.get("results", [])
+                    sources = []
+                    for r in results[:5]:
+                        domain, snippet = "", str(r)[:120]
+                        try:
+                            if " | " in r:
+                                parts = r.split(" | ")
+                                for part in parts:
+                                    if part.strip().startswith("http"):
+                                        domain = _up.urlparse(part.strip()).netloc
+                                snippet = parts[0][:120]
+                        except Exception:
+                            pass
+                        trusted = {"wikipedia.org", "service-public.fr", "gouvernement.fr", "lemonde.fr", "francetvinfo.fr"}
+                        low_rel = {"forum", "reddit", "twitter", "facebook", "youtube"}
+                        reliability = "high" if any(t in domain for t in trusted) else ("low" if any(l in domain for l in low_rel) else "medium")
+                        sources.append({"domain": domain or "source", "snippet": snippet, "reliability": reliability})
+                    summary = res.get("message", results[0][:200] if results else "Aucun résultat.")
+                    payload = {
+                        "type": "iris_render", "render_type": "research_board",
+                        "query": query, "summary": str(summary)[:300], "sources": sources,
+                    }
+
+                elif fn == "get_news":
+                    articles = res.get("articles", [])
+                    category = res.get("categorie", "actualités")
+                    sources = [
+                        {
+                            "domain": a.get("source", ""),
+                            "snippet": a.get("titre", "") + (f" — {a.get('resume', '')[:80]}" if a.get("resume") else ""),
+                            "reliability": "medium",
+                        }
+                        for a in articles[:5]
+                    ]
+                    payload = {
+                        "type": "iris_render", "render_type": "research_board",
+                        "query": f"Actualités · {category}",
+                        "summary": f"{len(articles)} actualité(s) · {category}",
+                        "sources": sources,
+                    }
+
+                elif fn == "get_weather":
+                    actuel = res.get("actuel", {})
+                    previsions = res.get("previsions", [])
+                    ville = actuel.get("ville", "?")
+                    kpis = [
+                        {"value": actuel.get("temperature", "?"), "label": f"Température · {ville}", "trend": "flat"},
+                        {"value": actuel.get("ressenti", "?"), "label": "Ressenti", "trend": "flat"},
+                        {"value": actuel.get("humidite", "?"), "label": "Humidité", "trend": "flat"},
+                        {"value": actuel.get("vent", "?"), "label": "Vent", "trend": "flat"},
+                    ]
+                    desc = actuel.get("description", "")
+                    prev_texts = [f"{p.get('date', '')}: {p.get('min', '?')}/{p.get('max', '?')}" for p in previsions[:3]]
+                    payload = {
+                        "type": "iris_render", "render_type": "kpi_cards",
+                        "kpis": kpis,
+                        "summary": desc + (" · " + " · ".join(prev_texts) if prev_texts else ""),
+                    }
+
+                elif fn == "search_places":
+                    import urllib.parse as _up
+                    results = res.get("results", [])
+                    if not results:
+                        return
+                    first = results[0] if isinstance(results[0], str) else str(results[0])
+                    address, label = first, first
+                    try:
+                        if "[Lieu]" in first:
+                            body = first.replace("[Lieu] ", "")
+                            label = body.split(" — ")[0].split(" | ")[0]
+                            address = body.split(" — ")[1].split(" | ")[0] if " — " in body else label
+                    except Exception:
+                        pass
+                    payload = {
+                        "type": "iris_render", "render_type": "map_board",
+                        "address": address[:100], "label": label[:60],
+                        "maps_url": "https://maps.google.com/?q=" + _up.quote((address or label)[:100]),
+                    }
+
+                elif fn == "get_contacts":
+                    contacts = res.get("contacts", [])
+                    if not contacts:
+                        return
+                    if len(contacts) == 1:
+                        c = contacts[0]
+                        name = c.get("name", "?")
+                        initials = "".join(w[0].upper() for w in name.split()[:2])
+                        payload = {
+                            "type": "iris_render", "render_type": "contact_board",
+                            "contact": {"name": name, "initials": initials, "role": c.get("relation", ""), "trust_level": 3},
+                            "history": [],
+                        }
+                    else:
+                        rows = [[c.get("name", "?"), c.get("relation", "")] for c in contacts]
+                        payload = {
+                            "type": "iris_render", "render_type": "data_board",
+                            "title": f"Contacts ({len(contacts)})", "columns": ["Nom", "Relation"], "rows": rows,
+                        }
+
+                elif fn in {"search_documents", "get_documents_summary"}:
+                    docs = res.get("documents", [])
+                    if not docs:
+                        payload = {
+                            "type": "iris_render", "render_type": "missing_info",
+                            "title": "Aucun document trouvé",
+                            "missing_fields": ["Aucun document correspondant"],
+                            "suggestions": [{"label": "Élargir la recherche"}, {"label": "Scanner un document"}],
+                        }
+                    else:
+                        boxes = []
+                        for d in docs[:4]:
+                            if isinstance(d, dict):
+                                dtitle = d.get("name", d.get("title", d.get("filename", "Document")))
+                                parts = []
+                                if d.get("folder"):
+                                    parts.append(f"\U0001f4c1 {d['folder']}")
+                                if d.get("date"):
+                                    parts.append(f"\U0001f4c5 {d['date']}")
+                                if d.get("summary") or d.get("content"):
+                                    parts.append((d.get("summary") or d.get("content", ""))[:80])
+                                boxes.append({"title": str(dtitle)[:60], "body": " · ".join(parts) or "—"})
+                            else:
+                                boxes.append({"title": str(d)[:60], "body": ""})
+                        payload = {
+                            "type": "iris_render", "render_type": "document_insight",
+                            "title": f"Documents ({len(docs)})",
+                            "boxes": boxes,
+                            "tags": [{"type": "info", "label": res.get("message", f"{len(docs)} doc(s)")[:60]}],
+                        }
+
+                elif fn == "list_folders":
+                    folders = res.get("folders", [])
+                    if not folders:
+                        return
+                    rows = [[f.get("path", "?"), f"{f.get('count', 0)} doc(s)"] for f in folders[:8]]
+                    payload = {
+                        "type": "iris_render", "render_type": "data_board",
+                        "title": "Dossiers", "columns": ["Chemin", "Documents"], "rows": rows,
+                    }
+
+                elif fn in {"get_budget_analysis", "check_affordability"}:
+                    if fn == "check_affordability":
+                        verdict = res.get("verdict", "?")
+                        reste_apres = res.get("reste_apres", 0)
+                        kpis = [
+                            {"value": f"{reste_apres:.0f} €", "label": "Reste après achat", "trend": "flat"},
+                            {"value": verdict.upper(), "label": "Verdict Iris", "trend": "flat"},
+                        ]
+                        payload = {
+                            "type": "iris_render", "render_type": "budget_board",
+                            "kpis": kpis, "summary": res.get("message", ""),
+                        }
+                    else:
+                        analysis = res.get("analysis", {})
+                        suggestions = res.get("suggestions", [])
+                        kpis = []
+                        if "reste_a_vivre" in analysis:
+                            kpis.append({"value": f"{analysis['reste_a_vivre']:.0f} €", "label": "Reste à vivre", "trend": "flat"})
+                        if "solde_prevu_fin_mois" in analysis:
+                            fin = analysis["solde_prevu_fin_mois"]
+                            kpis.append({"value": f"{fin:.0f} €", "label": "Fin de mois prévu", "trend": "down" if fin < 0 else "flat", "alert": fin < 0})
+                        if "total_depenses" in analysis:
+                            kpis.append({"value": f"{analysis['total_depenses']:.0f} €", "label": "Dépenses ce mois", "trend": "flat"})
+                        if "total_revenus" in analysis:
+                            kpis.append({"value": f"{analysis['total_revenus']:.0f} €", "label": "Revenus", "trend": "up"})
+                        cats = []
+                        dep_cat = analysis.get("depenses_par_categorie", {})
+                        total_dep = float(analysis.get("total_depenses", 1) or 1)
+                        for cat, amount in list(dep_cat.items())[:5]:
+                            cats.append({"name": cat, "amount": round(float(amount)), "percent": round(float(amount) / total_dep * 100)})
+                        summ_parts = [(s.get("text", s) if isinstance(s, dict) else str(s)) for s in suggestions[:2]]
+                        payload = {
+                            "type": "iris_render", "render_type": "budget_board",
+                            "kpis": kpis, "categories": cats,
+                            "summary": " · ".join(summ_parts) if summ_parts else "",
+                        }
+
+                elif fn == "get_reminders":
+                    upcoming = res.get("upcoming", [])
+                    overdue = res.get("overdue", [])
+                    events = [
+                        {"date": r.get("due_date", "") or "Dépassé", "title": r.get("title", "?"), "description": "⚠ En retard"}
+                        for r in overdue[:3]
+                    ] + [
+                        {"date": r.get("due_date", "") or "À venir", "title": r.get("title", "?"), "description": ""}
+                        for r in upcoming[:5]
+                    ]
+                    if not events:
+                        return
+                    payload = {
+                        "type": "iris_render", "render_type": "timeline",
+                        "events": events, "summary": res.get("message", ""),
+                    }
+
+            except Exception as _re:
+                logger.warning(f"_iris_auto_render build error ({fn}): {_re}")
+                return
+
+            if payload:
+                try:
+                    await websocket.send_text(json.dumps(payload, ensure_ascii=False))
+                except Exception as _se:
+                    logger.warning(f"_iris_auto_render send error: {_se}")
+
         safe_tools = {
             "search_web", "search_places", "get_page_info", "get_weather", "get_news",
             "get_contacts", "get_documents_summary", "search_documents", "list_folders",
@@ -9355,7 +9569,9 @@ Règles de collaboration :
             "generate_document", "request_payment", "book_restaurant",
         }
         if function_name in safe_tools:
-            return await _dispatch_chat_tool(function_name, arguments or {}, tid, "iris_voice")
+            result = await _dispatch_chat_tool(function_name, arguments or {}, tid, "iris_voice")
+            await _iris_auto_render(function_name, arguments or {}, result)
+            return result
         if function_name in draft_tools:
             return {
                 "status": "validation_required",
@@ -9366,6 +9582,54 @@ Règles de collaboration :
                 "tool": function_name,
             }
         if function_name in sensitive_tools:
+            # Step 3 — Action Board : prépare l'action visuelle, ZÉRO exécution réelle
+            if function_name in {"send_sms", "call_contact", "send_email"}:
+                args = arguments or {}
+                contact_name = args.get("contact_name", args.get("to", args.get("recipient", "?")))
+                message_text = args.get("message", args.get("body", args.get("text", "")))
+                contact_display = contact_name
+                try:
+                    contacts_res = await _dispatch_chat_tool("get_contacts", {}, tid, "iris_voice")
+                    contacts_list = contacts_res.get("contacts", [])
+                    matched = next(
+                        (c for c in contacts_list if contact_name.lower() in c.get("name", "").lower()),
+                        None
+                    )
+                    if matched:
+                        contact_display = f"{matched['name']} ({matched.get('relation', '')})"
+                except Exception:
+                    pass
+                cost_map = {"send_sms": "~ 0.07 €", "call_contact": "~ 0.10 €/min", "send_email": "gratuit"}
+                action_label = {"send_sms": "SMS", "call_contact": "Appel", "send_email": "Email"}
+                details: Dict = {"Destinataire": contact_display}
+                if message_text:
+                    details["Message"] = message_text[:100]
+                details["Coût estimé"] = cost_map[function_name]
+                details["Garde-fous"] = "Validation owner · Horaires 22h-7h · Quota mensuel"
+                action_board_payload = {
+                    "type": "iris_render",
+                    "render_type": "action_board",
+                    "action_type": function_name,
+                    "requires_confirmation": True,
+                    "summary": (
+                        f"{action_label[function_name]} vers {contact_display}"
+                        + (f" : «{message_text[:80]}»" if message_text else "")
+                    ),
+                    "details": details,
+                }
+                try:
+                    await websocket.send_text(json.dumps(action_board_payload, ensure_ascii=False))
+                except Exception as _ae:
+                    logger.warning(f"action_board send error: {_ae}")
+                return {
+                    "status": "validation_required",
+                    "message": (
+                        f"J'ai préparé l'{action_label[function_name]} vers {contact_display}. "
+                        "Le panneau de validation est affiché — dis 'Confirme' ou clique Approuver pour que je l'envoie."
+                    ),
+                    "tool": function_name,
+                    "contact": contact_display,
+                }
             return {
                 "status": "validation_required",
                 "message": (
