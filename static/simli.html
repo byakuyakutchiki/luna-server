@@ -419,7 +419,7 @@
 
     /* ===== HANGUP BUTTON ===== */
     .btn-hangup {
-      position: fixed; bottom: 32px; left: 50%; transform: translateX(-50%); z-index: 60;
+      position: fixed; bottom: 32px; left: 50%; transform: translateX(-50%); z-index: 120;
       background: #e94560; color: #fff; border: none; border-radius: 50px;
       padding: 14px 40px; font-size: 16px; font-weight: 700; cursor: pointer;
       min-height: 52px; display: none; align-items: center; gap: 8px;
@@ -428,6 +428,7 @@
     }
     .btn-hangup.visible { display: flex; }
     .btn-hangup:hover { background: #d63050; }
+    .btn-hangup:disabled { opacity: 0.78; cursor: wait; }
     @media (max-width: 980px) {
       .btn-hangup {
         left: auto;
@@ -2750,7 +2751,14 @@
     // =====================================================================
     // HANGUP
     // =====================================================================
+    var _hangupInProgress = false;
     function doHangup() {
+      if (_hangupInProgress) return;
+      _hangupInProgress = true;
+      if (btnHangup) {
+        btnHangup.disabled = true;
+        btnHangup.textContent = 'Fermeture…';
+      }
       // Terminer la conversation Tavus cote serveur (stoppe la facturation)
       if (currentConvId) {
         try {
@@ -2776,6 +2784,8 @@
       if (_visionCameraStream) { _visionCameraStream.getTracks().forEach(function(t){t.stop();}); _visionCameraStream = null; }
       var bar = document.getElementById('visioActionsBar');
       if (bar) bar.classList.remove('visible');
+      var pttContainer = document.getElementById('pttContainer');
+      if (pttContainer) pttContainer.style.display = 'none';
       _stopSpeechCapture();
       ambientAudioEl.pause();
       phoneSfxEl.pause();
@@ -2783,7 +2793,7 @@
       var doNavigate = function() { window.location.href = '/'; };
       var hasContent = transcriptAtHangup.length > 0 || convIdAtHangup;
       if (hasContent) {
-        var saveTimeout = new Promise(function(r){ setTimeout(r, 5000); });
+        var saveTimeout = new Promise(function(r){ setTimeout(r, 1200); });
         var saveReq = authFetch('/api/visio/notes', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -2800,9 +2810,7 @@
     }
 
     btnHangup.onclick = function() {
-      if (confirm('Raccrocher la visio ?\n\nLa session va se terminer.')) {
-        doHangup();
-      }
+      doHangup();
     };
 
     // Android back button

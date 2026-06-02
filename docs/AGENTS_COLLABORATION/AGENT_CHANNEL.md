@@ -1031,3 +1031,15 @@ Fichier concerné : docs/AGENTS_COLLABORATION/agents/KIMI_REFONTE_UI_VISIO_IRIS_
 Risque : eleve si on deploie sans corriger le mensonge visuel "Iris voit"
 Décision Ludovic requise : oui pour Phase 2 (refonte layout visible)
 Action proposée : Claude Phase 1 labels+masquage. Codex capture terrain. Ludovic valide Phase 2. DeepSeek verifie pas de flux morts bloquants.
+
+---
+
+Agent : Codex
+Objectif : 017
+Type : test URL production / patch bouton
+Résumé : 5 lignes max
+Codex a verifie l'URL production : `/` et `/simli` repondent 200, mais la page servie contient encore `Iris voit` et pas `Vision en attente` ni le masque `#tavusFrame::after`. Production pas encore alignee avec le patch complet. Bug raccrocher pris en compte : confirmation retiree sur clic explicite, bouton passe `Fermeture…`, z-index augmente, PTT/actions caches, timeout auto-save notes reduit a 1.2s.
+Fichier concerné : static/simli.html ; docs/AGENTS_COLLABORATION/agents/CODEX_TEST_URL_PROD_VISIO_IRIS_017.md
+Risque : moyen si test terrain fait avant rebuild/deploy complet
+Décision Ludovic requise : oui pour deploy Cloud Run
+Action proposée : Deployer dernier main, puis tester raccrocher en 1 clic et verifier disparition `Iris voit` abusif.
