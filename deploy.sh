@@ -14,6 +14,7 @@ source "$(dirname "$0")/.env" 2>/dev/null || true
 # On n'INCLUT PAS les variables vides pour eviter d'ecraser les valeurs existantes sur Cloud Run
 update_vars=()
 update_vars+=("ENVIRONMENT=cloudrun")
+update_vars+=("CORTEX_ENABLED=false")   # SMS auto désactivé — évite vidage crédit Twilio
 
 # Fonction helper : ajoute une variable seulement si elle est definie et non vide
 add_var() {
