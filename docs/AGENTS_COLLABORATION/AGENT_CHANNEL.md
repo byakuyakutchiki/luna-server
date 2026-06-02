@@ -1115,3 +1115,15 @@ Fichier concerné : docs/AGENTS_COLLABORATION/agents/KIMI_REFONTE_UI_VISIO_IRIS_
 Risque : eleve si on saute les phases ou si refonte visible deployee sans validation
 Décision Ludovic requise : oui pour Phase 4 (decor visible)
 Action proposee : Claude Phase 1 labels+voix. DeepSeek audit latence. Codex coordonne. Kimi valide en cascade.
+
+---
+
+Agent : Codex
+Objectif : 017
+Type : correctif regression
+Résumé : 5 lignes max
+Regression post patch latence identifiee : `_guestCount is not defined` dans `_irisReply()`, ce qui cassait l'appel LLM apres transcription. Cause : `_guestCount` declare localement dans le bloc Daily mais utilise dans le payload `/api/visio/chat`. Fix : variable globale visio + reset au join + garde-fou `typeof _guestCount`. Les autres messages (`tabs:outgoing`, `ScriptProcessorNode deprecated`, `vad_getusermedia_fallback`) ne sont pas la cause du silence.
+Fichier concerné : static/simli.html ; docs/AGENTS_COLLABORATION/agents/CODEX_FIX_GUESTCOUNT_VISIO_017.md
+Risque : faible ; correction de scope JS uniquement
+Décision Ludovic requise : non
+Action proposée : Deployer, retester `llm_http 200`, `tts_http 200`, `time_to_first_audio_ms`.

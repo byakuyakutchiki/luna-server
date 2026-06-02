@@ -873,6 +873,7 @@
     var _visionNotified = false; // Luna a déjà été informée de la caméra (1x par appel)
     var _visioTranscript = []; // événements conversation pour prise de notes
     var _visioStartTs = Date.now(); // heure de début pour durée
+    var _guestCount = 0; // participants humains invités dans la room Daily
     var grainAnimId = null;
     var lastGrainTime = 0;
 
@@ -1420,7 +1421,7 @@
           });
 
           // Multi-participants : Luna s'efface quand d'autres personnes rejoignent
-          var _guestCount = 0;
+          _guestCount = 0;
           _simliBotId = null;
           function _isHumanParticipant(p) {
             if (!p || p.local) return false;
@@ -2338,7 +2339,7 @@
           session_id: currentConvId || 'visio',
           history: _conversationHistory.slice(-12),
           vision_context: _lastVisionDesc || '',
-          participants_count: _guestCount + 1
+          participants_count: (typeof _guestCount === 'number' ? _guestCount : 0) + 1
         })
       })
       .then(function(r) {
