@@ -424,6 +424,21 @@ class WebVoiceBridge:
                             "audio": audio_b64,
                         }, retries=0, critical=False)
 
+                elif msg_type == "text":
+                    text = str(data.get("text", "")).strip()
+                    if text and self.ws_openai:
+                        self.transcript.append({"role": "user", "text": text})
+                        logger.info(f"WebVoice TEXT USER: {text[:120]}")
+                        await self._ws_send_openai({
+                            "type": "conversation.item.create",
+                            "item": {
+                                "type": "message",
+                                "role": "user",
+                                "content": [{"type": "input_text", "text": text}],
+                            },
+                        })
+                        await self._ws_send_openai({"type": "response.create"})
+
                 elif msg_type == "stop":
                     logger.info("WebVoice: client requested stop")
                     self._running = False

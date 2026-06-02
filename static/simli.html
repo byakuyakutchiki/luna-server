@@ -436,7 +436,7 @@
     #afLastText.speaking { color: rgba(0,210,165,0.45); }
     /* Transcript */
     #afTranscript {
-      position: absolute; bottom: 72px; left: 20px; right: 20px;
+      position: absolute; bottom: 154px; left: 20px; right: 20px;
       max-height: 120px; overflow-y: auto; scrollbar-width: none;
     }
     #afTranscript::-webkit-scrollbar { display: none; }
@@ -462,6 +462,83 @@
       user-select: none; -webkit-user-select: none;
     }
     #afHangup:hover, #afHangup:active { background: rgba(220,50,50,0.3); border-color: rgba(220,70,70,0.6); color: rgba(255,155,155,1); transform: translateX(-50%) scale(0.97); }
+
+    /* Iris Workbench — panneau de travail non destructif */
+    .af-inputbar {
+      position: absolute; z-index: 11; left: 50%; bottom: calc(92px + env(safe-area-inset-bottom));
+      transform: translateX(-50%); width: min(560px, calc(100% - 32px));
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px; border: 1px solid rgba(124,92,252,0.22); border-radius: 18px;
+      background: rgba(8,8,24,0.82); box-shadow: 0 16px 60px rgba(0,0,0,0.28);
+      backdrop-filter: blur(14px);
+    }
+    #afTextInput {
+      flex: 1; min-width: 0; border: none; outline: none; color: rgba(255,255,255,0.86);
+      background: rgba(255,255,255,0.045); border-radius: 12px; padding: 13px 14px;
+      font-size: 14px;
+    }
+    #afTextInput::placeholder { color: rgba(255,255,255,0.28); }
+    #afTextSend {
+      border: 1px solid rgba(0,220,170,0.28); border-radius: 12px;
+      background: rgba(0,150,118,0.18); color: rgba(0,240,190,0.9);
+      padding: 12px 16px; min-height: 44px; font-weight: 750; cursor: pointer;
+    }
+    .af-workbench {
+      position: absolute; z-index: 8; top: 88px; right: 22px; bottom: 154px;
+      width: min(430px, calc(100% - 44px)); display: none; flex-direction: column;
+      border: 1px solid rgba(0,220,170,0.18); border-radius: 18px;
+      background: rgba(7,10,22,0.84); box-shadow: 0 22px 90px rgba(0,0,0,0.36);
+      backdrop-filter: blur(18px); overflow: hidden;
+    }
+    .af-workbench.open { display: flex; }
+    #audioView.workbench-open .af-center { transform: translateX(-16vw); transition: transform 0.32s ease; }
+    .af-workbench-head {
+      display: flex; justify-content: space-between; align-items: flex-start; gap: 12px;
+      padding: 16px 16px 12px; border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+    .af-workbench-kicker {
+      color: rgba(0,220,170,0.72); font-size: 10px; font-weight: 800; letter-spacing: 3px;
+      text-transform: uppercase; margin-bottom: 6px;
+    }
+    #afWorkbenchTitle { color: rgba(255,255,255,0.92); font-size: 17px; font-weight: 800; }
+    #afWorkbenchState {
+      white-space: nowrap; color: rgba(255,255,255,0.68); font-size: 11px; font-weight: 750;
+      border: 1px solid rgba(255,255,255,0.1); border-radius: 999px; padding: 6px 9px;
+      background: rgba(255,255,255,0.04);
+    }
+    .af-workbench-body { padding: 14px 16px; overflow: auto; flex: 1; }
+    #afWorkbenchType {
+      display: inline-flex; margin-bottom: 10px; color: rgba(124,180,255,0.86);
+      font-size: 11px; font-weight: 800; letter-spacing: 0.5px;
+    }
+    #afWorkbenchContent {
+      color: rgba(255,255,255,0.78); line-height: 1.55; font-size: 13px;
+      white-space: pre-wrap; min-height: 180px;
+    }
+    .af-workbench-actions {
+      display: flex; gap: 8px; padding: 12px 16px 16px;
+      border-top: 1px solid rgba(255,255,255,0.06);
+    }
+    .af-workbench-actions button {
+      flex: 1; min-height: 40px; border-radius: 11px; cursor: pointer;
+      border: 1px solid rgba(255,255,255,0.11); background: rgba(255,255,255,0.05);
+      color: rgba(255,255,255,0.72); font-size: 12px; font-weight: 750;
+    }
+    .af-workbench-actions button.primary {
+      border-color: rgba(0,220,170,0.3); background: rgba(0,140,112,0.18);
+      color: rgba(0,238,190,0.92);
+    }
+    @media (max-width: 820px) {
+      #audioView.workbench-open .af-center { transform: none; }
+      .af-center { justify-content: flex-start; padding-top: 82px; gap: 18px; }
+      .af-workbench {
+        left: 14px; right: 14px; top: auto; bottom: calc(150px + env(safe-area-inset-bottom));
+        width: auto; max-height: 42vh; border-radius: 16px;
+      }
+      #afTranscript { display: none; }
+      .af-workbench-actions { flex-wrap: wrap; }
+      .af-workbench-actions button { flex: 1 1 calc(50% - 8px); }
+    }
 
     /* ===== SHARE MODAL ===== */
     #shareModal {
@@ -922,6 +999,29 @@
       <div id="afLastText"></div>
     </div>
     <div id="afTranscript"></div>
+    <section id="afWorkbench" class="af-workbench" aria-live="polite" aria-label="Iris Workbench">
+      <div class="af-workbench-head">
+        <div>
+          <div class="af-workbench-kicker">Iris Workbench</div>
+          <div id="afWorkbenchTitle">Panneau de travail</div>
+        </div>
+        <div id="afWorkbenchState">En attente</div>
+      </div>
+      <div class="af-workbench-body">
+        <div id="afWorkbenchType">Brouillon</div>
+        <div id="afWorkbenchContent">Demande à Iris de préparer une note, un courrier, une checklist ou un tableau. Le travail apparaît ici avant toute validation.</div>
+      </div>
+      <div class="af-workbench-actions">
+        <button id="afWorkbenchEdit" type="button">Modifier</button>
+        <button id="afWorkbenchCopy" type="button" class="primary">Copier</button>
+        <button id="afWorkbenchDownload" type="button">Télécharger</button>
+        <button id="afWorkbenchClose" type="button">Fermer</button>
+      </div>
+    </section>
+    <form id="afTextForm" class="af-inputbar">
+      <input id="afTextInput" type="text" autocomplete="off" placeholder="Écrire à Iris…" aria-label="Écrire à Iris">
+      <button id="afTextSend" type="submit">Envoyer</button>
+    </form>
     <button id="afHangup">Raccrocher</button>
   </div>
 
@@ -3083,6 +3183,159 @@
     // =====================================================================
     // AUDIO-FIRST MODE — init et utilitaires [AUDIO-FIRST]
     // =====================================================================
+    var _afWorkbenchDraft = '';
+    var _afTextFormBound = false;
+
+    function _afDetectWorkbenchKind(text) {
+      var t = String(text || '').toLowerCase();
+      if (/\b(tableau|table|colonnes|ligne|lignes|graphique)\b/.test(t)) return 'table';
+      if (/\b(courrier|lettre|mail|email|message officiel|réponse écrite|reponse ecrite)\b/.test(t)) return 'letter';
+      if (/\b(checklist|liste|tâche|tache|actions|plan d'action|todo)\b/.test(t)) return 'checklist';
+      if (/\b(résumé|resume|synthèse|synthese|note|compte rendu|compte-rendu)\b/.test(t)) return 'summary';
+      if (/\b(panneau|workspace|workbench|bureau|document|prépare|prepare|rédige|redige|écris|ecris)\b/.test(t)) return 'workspace';
+      return '';
+    }
+
+    function _afWorkbenchLabel(kind) {
+      if (kind === 'table') return 'Tableau de travail';
+      if (kind === 'letter') return 'Courrier brouillon';
+      if (kind === 'checklist') return 'Checklist opérationnelle';
+      if (kind === 'summary') return 'Note / synthèse';
+      return 'Brouillon';
+    }
+
+    function _afWorkbenchTemplate(kind, sourceText) {
+      var ask = String(sourceText || '').trim();
+      if (kind === 'table') {
+        return 'Tableau préparé par Iris\n\n| Sujet | État | Prochaine action |\n|---|---|---|\n| Demande utilisateur | À analyser | Préciser les données attendues |\n| Contexte | À compléter | Demander les critères utiles |\n| Validation | En attente | Valider avant sauvegarde |\n\nDemande reçue : ' + ask;
+      }
+      if (kind === 'letter') {
+        return 'Brouillon de courrier\n\nObjet : à préciser\n\nBonjour,\n\nIris prépare un courrier à partir de ta demande. Avant de finaliser, il faut confirmer :\n- le destinataire ;\n- l’objectif exact ;\n- le ton souhaité ;\n- les informations à ne pas oublier.\n\nDemande reçue : ' + ask;
+      }
+      if (kind === 'checklist') {
+        return 'Checklist préparée par Iris\n\n[ ] Clarifier l’objectif\n[ ] Identifier les informations utiles\n[ ] Préparer le brouillon\n[ ] Faire relire par Ludovic\n[ ] Valider avant action réelle\n\nDemande reçue : ' + ask;
+      }
+      if (kind === 'summary') {
+        return 'Note de travail\n\nRésumé provisoire :\nIris a ouvert le panneau pour structurer la demande. Le contenu reste un brouillon local tant que Ludovic n’a pas validé.\n\nPoints à compléter :\n- contexte ;\n- objectif ;\n- destinataire ou usage ;\n- prochaine action.\n\nDemande reçue : ' + ask;
+      }
+      return 'Workbench prêt.\n\nIris peut préparer ici un brouillon, une note, un courrier, une checklist ou un tableau. Les actions sensibles restent bloquées tant que Ludovic ne valide pas.\n\nDemande reçue : ' + (ask || 'affichage du panneau');
+    }
+
+    function _afOpenWorkbench(kind, sourceText, stateText, customContent) {
+      var panel = document.getElementById('afWorkbench');
+      var view = document.getElementById('audioView');
+      if (!panel) return;
+      kind = kind || 'workspace';
+      _afWorkbenchDraft = customContent || _afWorkbenchTemplate(kind, sourceText);
+      panel.classList.add('open');
+      if (view) view.classList.add('workbench-open');
+      var title = document.getElementById('afWorkbenchTitle');
+      var state = document.getElementById('afWorkbenchState');
+      var type = document.getElementById('afWorkbenchType');
+      var content = document.getElementById('afWorkbenchContent');
+      if (title) title.textContent = _afWorkbenchLabel(kind);
+      if (state) state.textContent = stateText || 'Brouillon prêt';
+      if (type) type.textContent = _afWorkbenchLabel(kind);
+      if (content) content.textContent = _afWorkbenchDraft;
+      rLog('info', 'simli', 'workbench_open', kind);
+    }
+
+    function _afSetWorkbenchState(text) {
+      var state = document.getElementById('afWorkbenchState');
+      if (state) state.textContent = text || 'En cours';
+    }
+
+    function _afCloseWorkbench() {
+      var panel = document.getElementById('afWorkbench');
+      var view = document.getElementById('audioView');
+      if (panel) panel.classList.remove('open');
+      if (view) view.classList.remove('workbench-open');
+    }
+
+    function _afCopyWorkbench() {
+      var text = _afWorkbenchDraft || '';
+      if (!text) return;
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(function() {
+          _afSetWorkbenchState('Copié');
+        }).catch(function() {
+          _afSetWorkbenchState('Copie impossible');
+        });
+      } else {
+        _afSetWorkbenchState('Copie impossible');
+      }
+    }
+
+    function _afDownloadWorkbench() {
+      var text = _afWorkbenchDraft || '';
+      if (!text) return;
+      var blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url;
+      a.download = 'iris-workbench-' + Date.now() + '.txt';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(function() { URL.revokeObjectURL(url); }, 500);
+      _afSetWorkbenchState('Téléchargé');
+    }
+
+    function _afMaybeOpenWorkbenchFromText(text) {
+      var kind = _afDetectWorkbenchKind(text);
+      if (!kind) return false;
+      _afOpenWorkbench(kind, text, 'Préparation');
+      return true;
+    }
+
+    function _afSendTextToIris(text) {
+      text = String(text || '').trim();
+      if (!text) return;
+      _afAppendTranscript('user', text);
+      _afMaybeOpenWorkbenchFromText(text);
+      if (_irisWs && _irisWs.readyState === 1) {
+        try {
+          _irisWs.send(JSON.stringify({ type: 'text', text: text }));
+          _setIrisState('thinking');
+          rLog('info', 'simli', 'iris_text_sent', text.substring(0, 80));
+        } catch(e) {
+          _afAppendTranscript('system', 'Envoi écrit impossible');
+        }
+      } else {
+        _afAppendTranscript('system', 'Iris n’est pas connectée');
+      }
+    }
+
+    function _afBindWorkbenchControls() {
+      if (_afTextFormBound) return;
+      _afTextFormBound = true;
+      var form = document.getElementById('afTextForm');
+      var input = document.getElementById('afTextInput');
+      if (form) {
+        form.addEventListener('submit', function(e) {
+          e.preventDefault();
+          var value = input ? input.value : '';
+          if (input) input.value = '';
+          _afSendTextToIris(value);
+        });
+      }
+      var closeBtn = document.getElementById('afWorkbenchClose');
+      var copyBtn = document.getElementById('afWorkbenchCopy');
+      var dlBtn = document.getElementById('afWorkbenchDownload');
+      var editBtn = document.getElementById('afWorkbenchEdit');
+      if (closeBtn) closeBtn.addEventListener('click', _afCloseWorkbench);
+      if (copyBtn) copyBtn.addEventListener('click', _afCopyWorkbench);
+      if (dlBtn) dlBtn.addEventListener('click', _afDownloadWorkbench);
+      if (editBtn) editBtn.addEventListener('click', function() {
+        _afSetWorkbenchState('Modification locale');
+        var inputEl = document.getElementById('afTextInput');
+        if (inputEl) {
+          inputEl.focus();
+          inputEl.placeholder = 'Demande la modification à Iris…';
+        }
+      });
+    }
+
     function _initAudioMode() {
       _audioFirstMode = true;
       currentConvId = 'audio_' + Date.now();
@@ -3096,6 +3349,7 @@
       // Afficher la vue audio-first
       var av = document.getElementById('audioView');
       if (av) av.style.display = 'flex';
+      _afBindWorkbenchControls();
 
       // Barre d'actions : masquer les boutons qui nécessitent une salle Daily
       var btnInviteEl = document.getElementById('btnInvite');
@@ -3237,6 +3491,18 @@
               var role = data.role === 'user' ? 'user' : 'iris';
               _afAppendTranscript(role, data.text || '');
               if (data.role === 'user') _setIrisState('thinking');
+              if (data.role === 'user') _afMaybeOpenWorkbenchFromText(data.text || '');
+            } else if (data.type === 'tool_call') {
+              var toolName = data.name || 'outil';
+              var status = data.status || 'running';
+              var msg = data.message || '';
+              if (status === 'running') {
+                _afOpenWorkbench('workspace', toolName, 'Analyse');
+              } else if (status === 'validation_required') {
+                _afOpenWorkbench('workspace', toolName, 'Validation requise', 'Action sensible bloquée.\n\nOutil demandé : ' + toolName + '\n\n' + (msg || 'Iris prépare le brouillon, mais aucune action réelle ne part sans validation explicite.'));
+              } else {
+                _afOpenWorkbench('workspace', toolName, status === 'ok' ? 'Terminé' : 'À vérifier', msg || ('Résultat outil : ' + toolName));
+              }
             } else if (data.type === 'ended') {
               _afAppendTranscript('system', data.reason || 'Session terminée');
               _irisWsActive = false;

@@ -1183,3 +1183,14 @@ Fichier concerné : luna_web.py ; docs/AGENTS_COLLABORATION/agents/CODEX_PATCH_I
 Risque : moyen-faible ; ameliore identite et garde-fous sans action sensible
 Décision Ludovic requise : oui pour Workbench visible V1
 Action proposée : Claude deploie ce patch, Ludovic teste identite/capacites, puis Claude prepare Workbench V1 a partir de Kimi.
+
+---
+
+Agent : Codex
+Objectif : 019
+Type : patch Workbench V1 / coordination
+Résumé : Workbench V1 implemente en mode non destructif. Iris a maintenant un panneau visible dans `simli.html`, une entree texte, une ouverture automatique pour note/resume/courrier/checklist/tableau/panneau, et les retours `tool_call`/`validation_required` s'affichent dans le panneau. Le pont `/ws/iris-voice` accepte aussi les messages texte. Aucune action sensible, aucune sauvegarde cloud, aucun SMS/email/appel.
+Fichier concerné : static/simli.html ; integrations/openai/web_voice_bridge.py ; docs/AGENTS_COLLABORATION/agents/CODEX_PATCH_IRIS_WORKBENCH_V1_019.md
+Risque : moyen-faible ; UI visible mais actions reelles bloquees
+Décision Ludovic requise : oui pour deploy Cloud Run et pour etapes sauvegarde/PDF/actions
+Action proposée : Claude deploie apres pull. Kimi audite lisibilite mobile/premium. DeepSeek verifie WebSocket texte + garde-fous `validation_required`. Test terrain : ecrire "prepare un tableau avec mes objectifs" puis "envoie un SMS".
