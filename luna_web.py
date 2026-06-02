@@ -9066,14 +9066,19 @@ async def ws_iris_voice(websocket: WebSocket):
     # Salutation aléatoire
     _is_reconnect = len(_voice_history) > 0 and _history_param
     if _is_reconnect:
-        _greeting = f"{sub_name} revient après une coupure. Reprends naturellement là où vous en étiez."
+        context += "\n\nREPRISE DE SESSION : dis simplement à Ludovic que tu es de retour et reprends la conversation."
+        _greeting = "Reprends la conversation."
     else:
         _tpl = _random.choice(_IRIS_GREETINGS)
         _greeting_text = _tpl.format(name=sub_name or "Ludovic")
-        _greeting = (
-            "Commence la session en disant exactement cette phrase, sans ajouter de nom, "
-            f"sans te présenter autrement, et surtout sans dire Alex : {_greeting_text}"
+        # Injecter la phrase EXACTE dans le system prompt — OpenAI la respecte mieux qu'un user message
+        context += (
+            f"\n\nPHRASE D'OUVERTURE OBLIGATOIRE — au tout début de cette session, "
+            f"prononce mot pour mot, SANS AUCUNE MODIFICATION, SANS AJOUTER NI ENLEVER UN MOT : "
+            f"« {_greeting_text} »"
         )
+        # Trigger minimal — ne répète pas la phrase ici pour éviter la reformulation
+        _greeting = "Prononce maintenant ta phrase d'ouverture obligatoire."
 
     bridge = WebVoiceBridge(
         openai_api_key=OPENAI_API_KEY,

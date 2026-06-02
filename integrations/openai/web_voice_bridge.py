@@ -386,21 +386,19 @@ class WebVoiceBridge:
         return ok
 
     async def _send_greeting(self):
-        """Envoie un message initial pour que Luna salue le souscripteur."""
-        greeting_event = {
-            "type": "conversation.item.create",
-            "item": {
-                "type": "message",
-                "role": "user",
-                "content": [{"type": "input_text", "text": self.greeting}],
+        """Déclenche la salutation initiale via response.create/instructions (pas de user message)."""
+        # On n'envoie PAS de user message — cela forçait OpenAI à reformuler.
+        # On utilise response.create avec instructions pour respecter la phrase exacte du system prompt.
+        ok = await self._ws_send_openai({
+            "type": "response.create",
+            "response": {
+                "instructions": self.greeting,
             },
-        }
-        ok1 = await self._ws_send_openai(greeting_event)
-        ok2 = await self._ws_send_openai({"type": "response.create"})
-        if ok1 and ok2:
-            logger.info("WebVoice: greeting sent")
+        })
+        if ok:
+            logger.info("WebVoice: greeting triggered via response.create/instructions")
         else:
-            logger.warning("WebVoice: greeting send failed")
+            logger.warning("WebVoice: greeting trigger failed")
 
     async def _relay_client_to_openai(self):
         """Recoit l'audio PCM16 du navigateur et l'envoie a OpenAI."""
