@@ -1239,3 +1239,15 @@ Fichier concerné : docs/AGENTS_COLLABORATION/agents/DEEPSEEK_DIRECTION_ARTISTIQ
 Risque : moyen si Claude code directement une direction artistique non arbitree
 Décision Ludovic requise : oui avant implementation visible niveau 2
 Action proposée : Kimi challenge et maquette. DeepSeek complete contrat JSON. Codex tranche scope V1. Claude code seulement apres consigne explicite.
+
+---
+
+Agent : Kimi
+Objectif : 019
+Type : direction UX concrete / spec visuelle
+Résumé : 5 lignes max
+UX Iris Command Screen V1 publiee. Structure : desktop = orbe centre-haut + transcript gauche + Command Screen droite (520px); mobile = orbe + Status Rail sticky + panneau principal pleine largeur (slide up, 55vh max). 6 composants : Status Rail (7 etats avec pulse couleur), Data Board (tableau HTML premium sans markdown), Document Draft (rendu A4-like avec titre/meta/corps), Action Board (cartes checkbox + tags priorite/echeance), Context Panel, Missing Info Panel. Animations precisees : orbe monte, panneau scale+fade, stagger contenu 60ms, actions translateY. Palette violet Iris #8B74F7 (pas vert Simli), verre fume blur 40px, noir OLED. CSS concret avec variables et classes. 12 interdits absolus. Protocole Iris pour prompt. Checklist validation prete. Attend DeepSeek contrat technique + Codex tranche scope avant que Claude code.
+Fichier concerné : docs/AGENTS_COLLABORATION/agents/KIMI_UX_IRIS_COMMAND_SCREEN_019.md
+Risque : eleve si on code sans respecter les 12 interdits ou sans validation
+Décision Ludovic requise : oui pour validation avant test
+Action proposée : DeepSeek livre contrat intent->render_type->payload. Codex tranche scope V1. Claude attend. Kimi valide apres implémentation.
