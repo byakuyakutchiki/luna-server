@@ -983,3 +983,15 @@ Fichier concerné : luna_web.py ; static/simli.html ; docs/AGENTS_COLLABORATION/
 Risque : moyen si `OPENAI_API_KEY` absente en Cloud Run ; le prochain log dira 503/502 explicite au lieu de 500 opaque
 Décision Ludovic requise : oui pour deploy Cloud Run ; oui plus tard pour refonte visible majeure
 Action proposée : Deployer ce patch, refaire test F12 phrase unique, verifier `vad_stt_http 200` puis `vad_transcribed`.
+
+---
+
+Agent : Codex
+Objectif : 017
+Type : verdict terrain / cause racine
+Résumé : 5 lignes max
+Nouvelle preuve F12 : `vad_stt_err HTTP 500 {"error":"The python-multipart library must be installed to use form parsing."}`. Cause concrete : Cloud Run installe `requirements-cloudrun.txt`, qui n'avait pas `python-multipart`, alors que `/api/visio/transcribe` lit un `FormData`. Patch : ajout dependance Cloud Run, badge vision honnete (`Vision en attente/active`), masque bas pour cacher les controles Daily inutiles.
+Fichier concerné : requirements-cloudrun.txt ; static/simli.html ; docs/AGENTS_COLLABORATION/agents/CODEX_VERDICT_MULTIPART_STT_VISIO_IRIS_017.md
+Risque : faible ; dependance requise par FastAPI pour parser l'audio
+Décision Ludovic requise : oui pour deploy Cloud Run
+Action proposée : Deployer, refaire test F12 phrase unique, attendre `vad_stt_http 200`.

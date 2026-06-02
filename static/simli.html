@@ -171,6 +171,16 @@
       width: min(100vw, calc(100vh * 9 / 16));
       height: min(100vh, calc(100vw * 16 / 9));
     }
+    #tavusFrame::after {
+      content: "";
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: calc(88px + env(safe-area-inset-bottom));
+      background: linear-gradient(to top, rgba(5,8,18,0.98), rgba(5,8,18,0.86) 70%, rgba(5,8,18,0));
+      pointer-events: none;
+    }
 
     /* ===== INVITE MODAL ===== */
     #inviteModal {
@@ -662,7 +672,7 @@
   <div id="lunaToast"></div>
 
   <!-- VISION STATUS (cliquer = mode silencieux) -->
-  <div id="visionStatus" title="Cliquer : activer/désactiver mode observation silencieux"><div class="v-dot"></div><span id="visionLabel">Iris voit</span></div>
+  <div id="visionStatus" title="Cliquer : activer/désactiver mode observation silencieux"><div class="v-dot"></div><span id="visionLabel">Vision en attente</span></div>
 
   <!-- BARRE D'ACTIONS (haut, visible seulement pendant la visio) -->
   <div id="visioActionsBar">
@@ -2087,7 +2097,7 @@
         _updateVisionUI();
         showToast(_visionSilent
           ? '🔇 Observation silencieuse — Iris note sans en parler'
-          : '👁 Iris voit et peut en parler', 3000);
+          : '👁 Vision active — Iris peut s'en servir si besoin', 3000);
         rLog('info', 'simli', 'vision_mode', _visionSilent ? 'silent' : 'active');
       };
     }
@@ -2099,7 +2109,7 @@
         if (_visionLabelEl) _visionLabelEl.textContent = 'Observation';
       } else {
         _visionStatusEl.classList.remove('silent');
-        if (_visionLabelEl) _visionLabelEl.textContent = 'Iris voit';
+        if (_visionLabelEl) _visionLabelEl.textContent = _lastVisionDesc ? 'Vision active' : 'Vision en attente';
       }
     }
 
@@ -2183,6 +2193,7 @@
               if (!data || !data.ok || !data.description) return resolve();
 
               // Afficher l'indicateur dès le premier résultat
+              if (data.description) _lastVisionDesc = data.description;
               if (_visionStatusEl) { _visionStatusEl.classList.add('visible'); _updateVisionUI(); }
 
               // Notifier Luna une seule fois que sa caméra est active
@@ -2200,7 +2211,6 @@
               }
 
               // Mettre à jour la description locale (pour les notes et le tool get_vision_context)
-              if (data.description) _lastVisionDesc = data.description;
               if (data.changed) {
                 rLog('info', 'simli', 'vision_change', (data.description || '').substring(0, 80));
                 _visioTranscript.push({ ts: Date.now(), type: 'vision.change', text: data.description });
