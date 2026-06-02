@@ -7647,60 +7647,42 @@ async def visio_chat(request: Request):
 
 @app.post("/api/visio/tts")
 async def visio_tts(request: Request):
-    """Proxy TTS ElevenLabs pour la visio — clé jamais exposée au frontend."""
+    """TTS OpenAI pour Iris Audio.
+    ElevenLabs reste réservé aux épisodes/vidéos narratifs Domina·Luna (Simli payload).
+    Voix configurable via IRIS_VOICE (défaut: nova). Modèle via IRIS_TTS_MODEL (défaut: tts-1).
+    """
     try:
         body = await request.json()
     except Exception:
         return JSONResponse(status_code=400, content={"error": "JSON invalide"})
 
-    text = (body.get("text") or "").strip()[:360]
+    text = (body.get("text") or "").strip()[:400]
     if not text:
         return JSONResponse(status_code=400, content={"error": "Texte vide"})
 
-    key = os.getenv("ELEVENLABS_API_KEY", "")
-    voice_id = os.getenv("ELEVENLABS_VOICE_ID", "Z9ZHGvFZ90R0h0x1prsJ")
-    model_id = os.getenv("ELEVENLABS_MODEL_ID", "eleven_flash_v2_5")
-    if not key:
-        return JSONResponse(status_code=503, content={"error": "ElevenLabs non configuré"})
+    # Clé OpenAI dédiée — ne jamais utiliser openai_client (peut pointer vers DeepSeek/Kimi)
+    audio_api_key = os.getenv("OPENAI_API_KEY") or (
+        OPENAI_API_KEY if os.getenv("LLM_PROVIDER", "openai").lower().strip() == "openai" else ""
+    )
+    if not audio_api_key:
+        return JSONResponse(status_code=503, content={"error": "OPENAI_API_KEY requise pour TTS Iris"})
+
+    voice = os.getenv("IRIS_VOICE", "nova")       # alloy | echo | fable | onyx | nova | shimmer
+    model = os.getenv("IRIS_TTS_MODEL", "tts-1")  # tts-1 (latence min) | tts-1-hd (qualité max)
 
     try:
-        async with httpx.AsyncClient(timeout=15) as client:
-            resp = await client.post(
-                f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}",
-                headers={"xi-api-key": key, "Content-Type": "application/json"},
-                json={
-                    "text": text,
-                    "model_id": model_id,
-                    "voice_settings": {
-                        "stability": float(os.getenv("ELEVENLABS_STABILITY", "0.35")),
-                        "similarity_boost": float(os.getenv("ELEVENLABS_SIMILARITY", "0.78")),
-                        "style": float(os.getenv("ELEVENLABS_STYLE", "0.12")),
-                        "use_speaker_boost": os.getenv("ELEVENLABS_SPEAKER_BOOST", "false").lower() == "true",
-                    },
-                },
-            )
-            if resp.status_code != 200 and model_id != "eleven_multilingual_v2":
-                logger.warning(f"visio_tts fallback multilingual after {model_id}: {resp.status_code}")
-                resp = await client.post(
-                    f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}",
-                    headers={"xi-api-key": key, "Content-Type": "application/json"},
-                    json={
-                        "text": text,
-                        "model_id": "eleven_multilingual_v2",
-                        "voice_settings": {
-                            "stability": 0.45,
-                            "similarity_boost": 0.75,
-                            "style": 0.2,
-                            "use_speaker_boost": False,
-                        },
-                    },
-                )
-        if resp.status_code != 200:
-            logger.error(f"visio_tts ElevenLabs {resp.status_code}: {resp.text[:100]}")
-            return JSONResponse(status_code=502, content={"error": "TTS indisponible"})
-        return Response(content=resp.content, media_type="audio/mpeg")
+        tts_client = OpenAI(api_key=audio_api_key)
+        response = tts_client.audio.speech.create(
+            model=model,
+            voice=voice,
+            input=text,
+            response_format="mp3",
+        )
+        audio_bytes = response.content
+        logger.info(f"iris_tts openai ok voice={voice} model={model} len={len(audio_bytes)}")
+        return Response(content=audio_bytes, media_type="audio/mpeg")
     except Exception as e:
-        logger.error(f"visio_tts error: {e}")
+        logger.error(f"iris_tts openai error: {e}")
         return JSONResponse(status_code=500, content={"error": str(e)[:80]})
 
 

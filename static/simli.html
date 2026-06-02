@@ -7,7 +7,7 @@
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <title>Iris — Visio</title>
+  <title>Iris — Audio</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     html, body { width: 100%; height: 100vh; height: 100dvh; overflow: hidden; background: #000; color: #e0e0e0; font-family: system-ui, -apple-system, sans-serif; -webkit-user-select: none; user-select: none; }
@@ -701,7 +701,7 @@
   <!-- ECRAN DE DEMARRAGE -->
   <div class="start-screen" id="startScreen">
     <div class="start-logo">L</div>
-    <h2>Visio avec Iris</h2>
+    <h2>Iris Audio</h2>
     <p>Je te vois et je t'entends. Parle-moi naturellement, je te reponds en direct.</p>
     <div style="margin-bottom:20px;">
       <label for="durationSelect" style="color:#888;font-size:13px;display:block;margin-bottom:6px;">Duree de l'appel</label>
@@ -722,7 +722,7 @@
   <!-- PRE-TEST MICRO / CAMERA -->
   <div id="pretestScreen">
     <div class="pretest-logo">L</div>
-    <h2 class="pretest-title">Vérification avant la visio</h2>
+    <h2 class="pretest-title">Vérification audio</h2>
     <p class="pretest-sub">Je vérifie que ton micro et ta caméra fonctionnent bien. Pas d'inquiétude, on est presque là.</p>
 
     <!-- Micro -->
@@ -756,7 +756,7 @@
     </div>
 
     <div id="pretestReadyMsg"></div>
-    <button class="btn-pretest-start" id="btnPretestStart" disabled>Commencer la visio</button>
+    <button class="btn-pretest-start" id="btnPretestStart" disabled>Démarrer</button>
     <button class="pretest-back" id="btnPretestBack">← Annuler</button>
   </div>
 
@@ -1250,7 +1250,7 @@
             ? '✨ Tout est prêt ! Cliquez pour rejoindre Iris.'
             : '✓ Micro prêt. La visio démarrera en audio.';
         }
-        if (btnEl) { btnEl.disabled = false; btnEl.textContent = 'Commencer la visio'; }
+        if (btnEl) { btnEl.disabled = false; btnEl.textContent = 'Démarrer'; }
       } else {
         if (readyEl) {
           readyEl.style.color = '#ffa040';
@@ -1950,7 +1950,7 @@
       };
     }
 
-    // Bouton "Commencer la visio" du pré-test
+    // Bouton "Démarrer" du pré-test
     var btnPretestStart = document.getElementById('btnPretestStart');
     if (btnPretestStart) {
       btnPretestStart.onclick = function() {
