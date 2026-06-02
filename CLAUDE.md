@@ -116,56 +116,90 @@ Pour chaque objectif, il faut produire :
 - limites à ne pas franchir
 - procédure de test
 
-## Tâche prioritaire actuelle — Iris Workspace Phase 1 (2 juin 2026)
+## Tâche prioritaire actuelle — Iris Visual System V2 + Teams UI (2 juin 2026)
 
-**Chantier actif : Iris Workspace comme système de projection intelligente** (objectif 020).
-Voir : `docs/IRIS_WORKSPACE_VISION.md` (vision Ludo), `docs/AGENTS_COLLABORATION/agents/DEEPSEEK_IRIS_WORKSPACE_VISION.md` (spec DeepSeek), `docs/AGENTS_COLLABORATION/agents/CLAUDE_IMPL_IRIS_WORKSPACE_020.md` (plan Claude).
+**Ambition : numéro mondial. Chaque écran Iris doit être meilleur que ce qui existe.**
 
-### Instructions DeepSeek
+**Backend Teams : TERMINÉ** (commit c2b1990 — IrisSessionManager, 10 routes API, WS handler collaboratif).
+**Ce qui reste : UX frontend (Kimi) + Inférence intelligente (DeepSeek) + 8 nouveaux types (Claude après livrables).**
 
-**Tâche : améliorer `inferCommandRenderFromText` dans `static/simli.html` (ligne ~3373)**
+---
 
-La fonction doit détecter les 12 types de projection depuis le texte d'Iris :
-- Présence de 2+ nombres → `kpi_cards`
-- Présence de dates (15 juin, "la semaine prochaine") → `timeline`
-- "phase"/"étape" + numéros → `roadmap`
-- "vs" ou deux entités nommées comparées → `comparison`
-- "risque"/"opportunité"/"résumé" du document → `document_insight`
-- Texte > 100 mots sans structure → `context_panel`
-- "évolution"/"tendance"/"croissance" + chiffres → `chart`
+### Instructions Kimi — URGENT
 
-Livrer dans : `docs/AGENTS_COLLABORATION/agents/DEEPSEEK_IRIS_WORKSPACE_020.md`
-Format attendu : bloc JS complet de la fonction + explication des regex.
-Ne pas modifier d'autres fichiers. Ne pas déployer.
+**Fichier mission complet : `docs/AGENTS_COLLABORATION/agents/KIMI_UX_IRIS_021.md`**
 
-### Instructions Kimi
+Trois chantiers simultanés :
 
-**Tâche : améliorer `_icsBuildPayload` dans `static/simli.html` (ligne ~3384)**
+**1. Teams Overlay** (panneau participants style Zoom/Teams dans `/simli`)
+- Liste participants avec rôles (owner 👑, trusted 👤, guest 🟢)
+- Indicateur qui parle (anneau pulsant vert autour avatar)
+- Boutons mute/kick (owner uniquement, visibles au hover)
+- Bannière actions en attente de validation (owner approuve/rejette)
+- Mobile : barre compacte horizontal + déploiement slide down
 
-Objectif : extraire des données réelles du texte pour construire des payloads riches.
+**2. Light / Dark Mode** (vrai thème clair premium)
+- Variables CSS complètes : `--bg-base`, `--bg-panel`, `--text-primary`, etc.
+- Palettes dark ET light dans `:root` vs `[data-theme="light"]`
+- Bouton toggle [🌙/☀] dans la barre basse, persisté dans localStorage
+- Aucune inversion de couleur — vraie palette clair inspirée MacOS/Linear
 
-Pour `kpi_cards` : regex `/(\d[\d\s,.]*)\s*(€|euro|client|contrat|%|km|kg)/gi` → extraire valeur + label
-Pour `timeline` : regex dates → extraire "label : date" pairs
-Pour `chart` : chercher séquences de nombres séparées par virgules ou "et"
-Pour `comparison` : détecter les deux entités comparées + leurs attributs
+**3. 8 nouveaux render_type : specs visuelles** (skeleton HTML + CSS)
+`kanban_board`, `contact_board`, `map_board`, `decision_board`,
+`budget_board`, `meeting_board`, `media_board`, `form_board`
 
-Livrer dans : `docs/AGENTS_COLLABORATION/agents/KIMI_IRIS_WORKSPACE_020.md`
-Format attendu : nouvelle version de `_icsBuildPayload` + section fallback transcript améliorée.
-Ne pas modifier d'autres fichiers. Ne pas déployer.
+Livrer dans : `docs/AGENTS_COLLABORATION/agents/KIMI_UX_IRIS_021.md` (en réponse dans ce fichier)
+Ne pas modifier luna_web.py. Ne pas déployer.
 
-### Instructions Codex
+---
 
-**Tâche : tester + rapporter l'état actuel**
+### Instructions DeepSeek — URGENT
 
-1. Ouvrir `/simli` sur le serveur déployé
-2. Parler à Iris — vérifier que le `context_panel` s'affiche après chaque réponse
-3. Tester les phrases : "quel est mon état ?", "liste mes services", "compare EDF et Engie"
-4. Rapporter dans `docs/AGENTS_COLLABORATION/agents/CODEX_IRIS_WORKSPACE_020.md` :
-   - Quel type de render s'affiche pour chaque phrase
+**Fichier mission complet : `docs/AGENTS_COLLABORATION/agents/DEEPSEEK_IRIS_021.md`**
+
+**Tâche : réécrire `inferCommandRenderFromText` pour 20 types de projection**
+
+La fonction actuelle est trop basique → Iris atterrit sur `context_panel` presque toujours.
+Version cible : 20 types, ordre de priorité défini, regex robustes avec accents.
+
+Plus : améliorer `_icsBuildPayload` pour extraire des données réelles du texte sur 8 types :
+`kpi_cards` (chiffres + unités), `timeline` (dates), `chart` (séries numériques),
+`decision_board` (options + pros/cons), `budget_board`, `meeting_board`, `kanban_board`, `contact_board`
+
+Livrer dans : `docs/AGENTS_COLLABORATION/agents/DEEPSEEK_IRIS_021_LIVRABLE.md`
+Format : bloc JS complet prêt à coller dans `simli.html` + matrice 40 phrases test.
+Ne pas modifier luna_web.py. Ne pas déployer.
+
+---
+
+### Instructions Codex — TEST TERRAIN
+
+**Tâche : tester l'état actuel de l'Iris Command Screen déployé**
+
+1. Ouvrir `/simli` sur `https://luna-beta-674304336025.europe-west1.run.app`
+2. Parler à Iris, phrases à tester :
+   - "quel est mon état ?" → attendu : `status_rail`
+   - "liste mes services" → attendu : `data_board`
+   - "compare EDF et Engie" → attendu : `comparison` ou `decision_board`
+   - "montre-moi un graphique de mes dépenses" → attendu : `chart`
+   - "fais-moi un plan d'action pour déménager" → attendu : `action_board`
+   - "quelles sont mes échéances ce mois ?" → attendu : `timeline`
+3. Rapporter dans `docs/AGENTS_COLLABORATION/agents/CODEX_IRIS_021_TERRAIN.md` :
+   - render_type réellement affiché pour chaque phrase
    - Est-ce le bon type ?
-   - Qu'est-ce qui devrait s'afficher mais ne s'affiche pas ?
+   - Texte exact d'Iris pour chaque réponse (copier-coller)
 
-Claude implémente Phase 1 (6 nouveaux types) une fois les livrables DeepSeek + Kimi reçus.
+---
+
+### Ce que Claude implémente après livrables
+
+1. Intégrer `inferCommandRenderFromText` V2 de DeepSeek dans `simli.html`
+2. Intégrer `_icsBuildPayload` amélioré de DeepSeek
+3. Ajouter les 8 nouveaux `renderIrisCommand` cases en JS/HTML (specs Kimi)
+4. Ajouter CSS dark/light variables (specs Kimi)
+5. Ajouter Teams overlay HTML/CSS/JS (consomme les API backend déjà disponibles)
+6. Ajouter toggle dark/light mode
+7. Déployer et valider avec Codex
 
 ---
 
