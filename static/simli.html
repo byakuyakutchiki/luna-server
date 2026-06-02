@@ -463,14 +463,15 @@
     }
     #afHangup:hover, #afHangup:active { background: rgba(220,50,50,0.3); border-color: rgba(220,70,70,0.6); color: rgba(255,155,155,1); transform: translateX(-50%) scale(0.97); }
 
-    /* ===== IRIS COMMAND SCREEN ===== */
+    /* ===== IRIS COMMAND SCREEN — POSTE DE COMMANDE FUTURISTE ===== */
     :root {
-      --ics-bg: rgba(10,10,15,0.82); --ics-border: rgba(255,255,255,0.06);
-      --ics-blur: 40px; --ics-sat: 180%;
-      --ics-violet: #8B74F7; --ics-violet-g: rgba(139,116,247,0.25);
-      --ics-cyan: #40E0FF; --ics-amber: #FFB74D; --ics-coral: #FF6B7B; --ics-green: #4ade80;
-      --ics-text: rgba(255,255,255,0.90); --ics-text2: rgba(255,255,255,0.55); --ics-text3: rgba(255,255,255,0.28);
-      --ics-r: 22px; --ics-rbtn: 100px;
+      --ics-bg: #000609;
+      --ics-border: rgba(0,210,255,0.32);
+      --ics-violet: #8B74F7; --ics-violet-g: rgba(139,116,247,0.2);
+      --ics-cyan: #00D2FF; --ics-amber: #FFB74D; --ics-coral: #FF6B7B; --ics-green: #39FF8A;
+      --ics-text: rgba(230,245,255,0.92); --ics-text2: rgba(180,220,255,0.58); --ics-text3: rgba(140,190,230,0.30);
+      --ics-r: 4px; --ics-rbtn: 3px;
+      --ics-glow: 0 0 18px rgba(0,210,255,0.18);
     }
     .af-inputbar {
       position: absolute; z-index: 11; left: 50%; bottom: calc(92px + env(safe-area-inset-bottom));
@@ -489,121 +490,197 @@
       background: rgba(139,92,246,0.15); color: rgba(196,181,253,0.92);
       padding: 12px 16px; min-height: 44px; font-weight: 700; cursor: pointer;
     }
+    /* === Panel principal — poste de commande === */
     .ics-panel {
-      position: absolute; z-index: 8; top: 88px; right: 22px;
-      bottom: calc(154px + env(safe-area-inset-bottom));
-      width: min(480px, calc(100% - 44px)); display: none; flex-direction: column;
+      position: absolute; z-index: 8; top: 72px; right: 18px;
+      bottom: calc(148px + env(safe-area-inset-bottom));
+      width: min(540px, calc(100% - 36px)); display: none; flex-direction: column;
       border: 1px solid var(--ics-border); border-radius: var(--ics-r);
-      background: var(--ics-bg);
-      backdrop-filter: blur(var(--ics-blur)) saturate(var(--ics-sat));
-      box-shadow: 0 0 0 1px rgba(139,116,247,0.07), 0 28px 90px rgba(0,0,0,0.44);
-      overflow: hidden; transition: box-shadow 0.4s;
+      background: var(--ics-bg); overflow: hidden;
+      box-shadow: 0 0 0 1px rgba(0,210,255,0.06), var(--ics-glow), 0 40px 100px rgba(0,0,0,0.7);
     }
-    .ics-panel.open { display: flex; animation: ics-in 0.48s cubic-bezier(0.16,1,0.3,1) both; }
-    @keyframes ics-in { from{opacity:0;transform:scale(0.97) translateY(8px);} to{opacity:1;transform:none;} }
+    /* Grille holographique de fond */
+    .ics-panel::before {
+      content: ''; position: absolute; inset: 0; z-index: 0; pointer-events: none;
+      background-image:
+        linear-gradient(rgba(0,210,255,0.028) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,210,255,0.028) 1px, transparent 1px);
+      background-size: 36px 36px;
+    }
+    /* Coins HUD */
+    .ics-panel::after {
+      content: ''; position: absolute; inset: 0; z-index: 0; pointer-events: none;
+      background:
+        linear-gradient(var(--ics-cyan),var(--ics-cyan)) top    left  / 16px 1.5px no-repeat,
+        linear-gradient(var(--ics-cyan),var(--ics-cyan)) top    left  / 1.5px 16px no-repeat,
+        linear-gradient(var(--ics-cyan),var(--ics-cyan)) top    right / 16px 1.5px no-repeat,
+        linear-gradient(var(--ics-cyan),var(--ics-cyan)) top    right / 1.5px 16px no-repeat,
+        linear-gradient(var(--ics-cyan),var(--ics-cyan)) bottom left  / 16px 1.5px no-repeat,
+        linear-gradient(var(--ics-cyan),var(--ics-cyan)) bottom left  / 1.5px 16px no-repeat,
+        linear-gradient(var(--ics-cyan),var(--ics-cyan)) bottom right / 16px 1.5px no-repeat,
+        linear-gradient(var(--ics-cyan),var(--ics-cyan)) bottom right / 1.5px 16px no-repeat;
+      opacity: 0.55;
+    }
+    /* Boot : scan-line qui descend puis contenu apparait */
+    @keyframes ics-boot {
+      0%   { clip-path: inset(0 0 100% 0); opacity: 0.6; }
+      55%  { clip-path: inset(0 0 0%   0); opacity: 1;   }
+      100% { clip-path: inset(0 0 0%   0); opacity: 1;   }
+    }
+    @keyframes ics-scanline-sweep {
+      0%   { top: 0;    opacity: 1; }
+      85%  { top: 100%; opacity: 0.7; }
+      100% { top: 100%; opacity: 0; }
+    }
+    .ics-panel.open { display: flex; animation: ics-boot 0.55s cubic-bezier(0.16,1,0.3,1) both; }
     #audioView.ics-open .af-center { transform: translateX(-14vw); transition: transform 0.35s ease; }
-    .ics-panel.st-analyse { box-shadow: 0 0 0 1px rgba(255,183,77,0.12), 0 28px 90px rgba(0,0,0,0.44); }
-    .ics-panel.st-ready   { box-shadow: 0 0 0 1px rgba(139,116,247,0.16), 0 28px 90px rgba(0,0,0,0.44); }
-    .ics-panel.st-warning { box-shadow: 0 0 0 1px rgba(255,183,77,0.20), 0 28px 90px rgba(0,0,0,0.44); }
-    .ics-panel.st-error   { box-shadow: 0 0 0 1px rgba(255,107,123,0.15), 0 28px 90px rgba(0,0,0,0.44); }
-    /* Status Rail */
+    .ics-panel.st-analyse { box-shadow: 0 0 0 1px rgba(255,183,77,0.18), var(--ics-glow); }
+    .ics-panel.st-ready   { box-shadow: 0 0 0 1px rgba(0,210,255,0.28), var(--ics-glow); }
+    .ics-panel.st-warning { box-shadow: 0 0 0 1px rgba(255,183,77,0.28), 0 0 24px rgba(255,183,77,0.1); }
+    .ics-panel.st-error   { box-shadow: 0 0 0 1px rgba(255,107,123,0.28), 0 0 24px rgba(255,107,123,0.08); }
+    /* Ligne de scan visible */
+    .ics-scanline {
+      position: absolute; left: 0; right: 0; height: 2px; z-index: 50; pointer-events: none;
+      background: linear-gradient(transparent 0%, rgba(0,210,255,0.9) 50%, transparent 100%);
+      opacity: 0;
+    }
+    .ics-panel.open .ics-scanline { animation: ics-scanline-sweep 0.55s ease-out both; }
+    /* Header HUD */
     .ics-rail {
       display: flex; align-items: center; justify-content: space-between;
-      height: 48px; padding: 0 16px; flex-shrink: 0;
-      border-bottom: 1px solid var(--ics-border);
+      height: 44px; padding: 0 14px; flex-shrink: 0; position: relative; z-index: 1;
+      border-bottom: 1px solid rgba(0,210,255,0.14);
+      background: rgba(0,8,18,0.7);
     }
-    .ics-rail-title { font-size: 10px; font-weight: 700; letter-spacing: 3px; text-transform: uppercase; color: rgba(139,116,247,0.72); }
-    .ics-rail-r { display: flex; align-items: center; gap: 7px; }
+    .ics-rail-title {
+      font-size: 9px; font-weight: 700; letter-spacing: 3.5px; text-transform: uppercase;
+      color: var(--ics-cyan); font-family: monospace;
+      text-shadow: 0 0 10px rgba(0,210,255,0.6);
+    }
+    .ics-rail-r { display: flex; align-items: center; gap: 8px; }
     .ics-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
-    .ics-dot.violet { background: var(--ics-violet); }
+    .ics-dot.violet { background: var(--ics-violet); box-shadow: 0 0 5px var(--ics-violet); }
+    .ics-dot.cyan   { background: var(--ics-cyan);   box-shadow: 0 0 6px var(--ics-cyan); }
     .ics-dot.amber  { background: var(--ics-amber); }
-    .ics-dot.cyan   { background: var(--ics-cyan); }
     .ics-dot.coral  { background: var(--ics-coral); }
-    .ics-dot.green  { background: var(--ics-green); }
-    .ics-dot.pulse  { animation: ics-pulse 1.8s ease-in-out infinite; }
-    @keyframes ics-pulse { 0%,100%{opacity:.35;transform:scale(1);} 50%{opacity:1;transform:scale(1.45);} }
-    #icsStatusText { font-size: 11px; font-weight: 500; color: var(--ics-text2); white-space: nowrap; }
-    /* Body */
+    .ics-dot.green  { background: var(--ics-green);  box-shadow: 0 0 5px var(--ics-green); }
+    .ics-dot.pulse  { animation: ics-pulse 1.5s ease-in-out infinite; }
+    @keyframes ics-pulse { 0%,100%{opacity:.3;transform:scale(1);} 50%{opacity:1;transform:scale(1.6);} }
+    #icsStatusText { font-size: 9px; font-weight: 700; color: var(--ics-cyan); letter-spacing: 1.5px; text-transform: uppercase; font-family: monospace; }
+    /* Corps */
     .ics-body {
-      flex: 1; overflow-y: auto; overflow-x: hidden; padding: 16px;
-      scrollbar-width: thin; scrollbar-color: rgba(139,116,247,0.2) transparent;
+      flex: 1; overflow-y: auto; overflow-x: hidden; padding: 14px 16px;
+      position: relative; z-index: 1;
+      scrollbar-width: thin; scrollbar-color: rgba(0,210,255,0.18) transparent;
     }
-    .ics-body::-webkit-scrollbar { width: 4px; }
-    .ics-body::-webkit-scrollbar-thumb { background: rgba(139,116,247,0.2); border-radius: 2px; }
-    /* Footer context/missing */
-    .ics-footer { border-top: 1px solid var(--ics-border); padding: 10px 16px; flex-shrink: 0; }
-    .ics-foot-sec { margin-bottom: 6px; }
-    .ics-foot-lbl { font-size: 10px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--ics-text3); margin-bottom: 4px; }
-    .ics-foot-item { font-size: 12px; color: var(--ics-text2); line-height: 1.5; padding-left: 8px; border-left: 2px solid rgba(139,116,247,0.22); margin-bottom: 3px; }
-    .ics-miss-item { border-left-color: rgba(255,183,77,0.4); color: rgba(255,183,77,0.82); }
-    /* Action buttons */
-    .ics-actions { display: flex; gap: 8px; padding: 10px 16px 14px; flex-shrink: 0; border-top: 1px solid var(--ics-border); }
+    .ics-body::-webkit-scrollbar { width: 3px; }
+    .ics-body::-webkit-scrollbar-thumb { background: rgba(0,210,255,0.22); border-radius: 2px; }
+    /* Etat "Iris réfléchit" */
+    .ics-thinking {
+      display: flex; align-items: center; gap: 12px; padding: 18px 0;
+      font-family: monospace; font-size: 11px; letter-spacing: 2px; text-transform: uppercase;
+      color: var(--ics-cyan);
+    }
+    .ics-think-dots { display: flex; gap: 5px; }
+    .ics-think-dots span {
+      width: 5px; height: 5px; border-radius: 50%; background: var(--ics-cyan);
+      animation: ics-tdot 1.2s ease-in-out infinite;
+    }
+    .ics-think-dots span:nth-child(2) { animation-delay: 0.2s; }
+    .ics-think-dots span:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes ics-tdot { 0%,80%,100%{opacity:0.15;transform:scale(0.7);} 40%{opacity:1;transform:scale(1.3);} }
+    /* Animation de construction progressive */
+    @keyframes ics-buildin {
+      from { opacity: 0; transform: translateX(-8px); }
+      to   { opacity: 1; transform: none; }
+    }
+    .ics-row-anim { animation: ics-buildin 0.22s ease both; }
+    /* Footer */
+    .ics-footer { border-top: 1px solid rgba(0,210,255,0.1); padding: 8px 14px; flex-shrink: 0; position: relative; z-index: 1; }
+    .ics-foot-sec { margin-bottom: 5px; }
+    .ics-foot-lbl { font-size: 9px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--ics-text3); margin-bottom: 3px; font-family: monospace; }
+    .ics-foot-item { font-size: 11px; color: var(--ics-text2); line-height: 1.5; padding-left: 7px; border-left: 2px solid rgba(0,210,255,0.2); margin-bottom: 3px; }
+    .ics-miss-item { border-left-color: rgba(255,183,77,0.45); color: rgba(255,183,77,0.82); }
+    /* Barre d'actions */
+    .ics-actions {
+      display: flex; gap: 6px; padding: 8px 14px 12px; flex-shrink: 0;
+      border-top: 1px solid rgba(0,210,255,0.1); position: relative; z-index: 1;
+    }
     .ics-btn {
-      flex: 1; min-height: 38px; border-radius: var(--ics-rbtn); cursor: pointer;
-      border: 1px solid var(--ics-border); background: rgba(255,255,255,0.04);
-      color: var(--ics-text2); font-size: 12px; font-weight: 600; transition: all 0.18s;
+      flex: 1; min-height: 32px; border-radius: var(--ics-rbtn); cursor: pointer;
+      border: 1px solid rgba(0,210,255,0.15); background: rgba(0,210,255,0.04);
+      color: var(--ics-text2); font-size: 10px; font-weight: 700; transition: all 0.16s;
+      font-family: monospace; letter-spacing: 1px; text-transform: uppercase;
     }
-    .ics-btn:hover { background: rgba(255,255,255,0.08); }
-    .ics-btn.copy { border-color: rgba(139,116,247,0.3); background: rgba(139,92,246,0.12); color: rgba(196,181,253,0.92); }
-    .ics-btn.dl   { border-color: rgba(64,224,255,0.25); background: rgba(64,224,255,0.08); color: rgba(64,224,255,0.85); }
-    .ics-btn.close{ color: var(--ics-text3); }
-    /* ----- Data Board ----- */
-    .ics-data-title { font-size: 14px; font-weight: 600; color: var(--ics-violet); margin-bottom: 12px; }
-    .ics-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-    .ics-table th { text-align: left; padding: 10px 12px; color: var(--ics-violet); font-weight: 500; font-size: 11px; letter-spacing: 0.5px; border-bottom: 1px solid rgba(139,116,247,0.15); background: rgba(139,116,247,0.04); }
-    .ics-table td { padding: 10px 12px; border-bottom: 1px solid rgba(255,255,255,0.03); color: var(--ics-text); font-variant-numeric: tabular-nums; }
-    .ics-table tr:hover td { background: rgba(139,116,247,0.04); }
+    .ics-btn:hover { background: rgba(0,210,255,0.1); border-color: rgba(0,210,255,0.35); color: var(--ics-cyan); }
+    .ics-btn.copy  { border-color: rgba(139,116,247,0.28); background: rgba(139,92,246,0.08); color: rgba(196,181,253,0.88); }
+    .ics-btn.dl    { border-color: rgba(0,210,255,0.28); background: rgba(0,210,255,0.07); color: var(--ics-cyan); }
+    .ics-btn.close { color: var(--ics-text3); border-color: rgba(255,255,255,0.06); }
+    /* === Data Board === */
+    .ics-data-title {
+      font-size: 11px; font-weight: 700; color: var(--ics-cyan); margin-bottom: 14px;
+      text-transform: uppercase; letter-spacing: 2.5px; font-family: monospace;
+      text-shadow: 0 0 12px rgba(0,210,255,0.5);
+    }
+    .ics-table { width: 100%; border-collapse: collapse; font-size: 12px; font-family: monospace; }
+    .ics-table th {
+      text-align: left; padding: 8px 10px;
+      color: var(--ics-cyan); font-weight: 700; font-size: 9px; letter-spacing: 1.5px; text-transform: uppercase;
+      border-bottom: 1px solid rgba(0,210,255,0.15); background: rgba(0,210,255,0.04);
+    }
+    .ics-table td { padding: 9px 10px; border-bottom: 1px solid rgba(0,210,255,0.05); color: var(--ics-text); font-variant-numeric: tabular-nums; }
+    .ics-table tr:hover td { background: rgba(0,210,255,0.03); }
     .ics-table tr:last-child td { border-bottom: none; }
-    .ics-badge { display: inline-flex; align-items: center; padding: 3px 8px; border-radius: 99px; font-size: 11px; font-weight: 600; }
-    .ics-badge.ok   { background: rgba(74,222,128,0.12); color: var(--ics-green); }
-    .ics-badge.warn { background: rgba(255,183,77,0.12);  color: var(--ics-amber); }
-    .ics-badge.crit { background: rgba(255,107,123,0.12); color: var(--ics-coral); }
-    .ics-badge.neu  { background: rgba(255,255,255,0.06); color: var(--ics-text2); }
-    .ics-summary { font-size: 12px; color: var(--ics-text2); margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--ics-border); }
-    /* ----- Doc Draft ----- */
-    .ics-doc-title { font-size: 18px; font-weight: 500; color: var(--ics-violet); margin-bottom: 6px; line-height: 1.3; }
-    .ics-doc-meta  { font-size: 12px; color: var(--ics-text2); margin-bottom: 20px; line-height: 1.6; }
-    .ics-doc-body  { font-size: 14px; line-height: 1.75; color: var(--ics-text); }
-    .ics-doc-body p { margin: 0 0 14px; }
-    .ics-ph { background: rgba(139,116,247,0.12); color: var(--ics-violet); border-radius: 4px; padding: 1px 5px; font-size: 12px; }
-    /* ----- Action Board ----- */
-    .ics-action-sec { margin-bottom: 16px; }
-    .ics-action-sec-title { font-size: 10px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--ics-text3); margin-bottom: 8px; }
-    .ics-acard { display: flex; align-items: flex-start; gap: 10px; padding: 12px 14px; border-radius: 12px; background: rgba(255,255,255,0.03); margin-bottom: 8px; border: 1px solid transparent; transition: all 0.2s; }
-    .ics-acard:hover { background: rgba(255,255,255,0.05); border-color: var(--ics-border); }
-    .ics-cb { width: 17px; height: 17px; border-radius: 5px; border: 1.5px solid var(--ics-text3); flex-shrink: 0; margin-top: 1px; }
-    .ics-cb.done { background: var(--ics-violet); border-color: var(--ics-violet); }
-    .ics-card-text { flex: 1; font-size: 13px; color: var(--ics-text); line-height: 1.4; }
-    .ics-tag { display: inline-flex; padding: 2px 7px; border-radius: 99px; font-size: 10px; font-weight: 600; margin-top: 4px; }
-    .ics-tag.urgent { background: rgba(255,107,123,0.15); color: var(--ics-coral); }
-    .ics-tag.warn   { background: rgba(255,183,77,0.12);  color: var(--ics-amber); }
-    .ics-tag.attach { background: rgba(64,224,255,0.10);  color: var(--ics-cyan); }
-    .ics-confirm-bar { background: rgba(255,183,77,0.06); border: 1px solid rgba(255,183,77,0.2); border-radius: 12px; padding: 14px 16px; margin-bottom: 12px; }
-    .ics-confirm-title { font-size: 12px; font-weight: 700; color: var(--ics-amber); margin-bottom: 6px; }
+    .ics-badge { display: inline-flex; align-items: center; padding: 2px 7px; border-radius: 2px; font-size: 9px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; font-family: monospace; }
+    .ics-badge.ok   { background: rgba(57,255,138,0.1);  color: var(--ics-green);  border: 1px solid rgba(57,255,138,0.22); }
+    .ics-badge.warn { background: rgba(255,183,77,0.1);  color: var(--ics-amber);  border: 1px solid rgba(255,183,77,0.22); }
+    .ics-badge.crit { background: rgba(255,107,123,0.1); color: var(--ics-coral);  border: 1px solid rgba(255,107,123,0.22); }
+    .ics-badge.neu  { background: rgba(255,255,255,0.04); color: var(--ics-text2); border: 1px solid rgba(255,255,255,0.09); }
+    .ics-summary { font-size: 11px; color: var(--ics-text2); margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(0,210,255,0.06); font-family: monospace; }
+    /* === Document Draft === */
+    .ics-doc-title { font-size: 15px; font-weight: 600; color: var(--ics-violet); margin-bottom: 5px; }
+    .ics-doc-meta  { font-size: 11px; color: var(--ics-text2); margin-bottom: 16px; line-height: 1.6; font-family: monospace; }
+    .ics-doc-body  { font-size: 13px; line-height: 1.8; color: var(--ics-text); }
+    .ics-doc-body p { margin: 0 0 12px; }
+    .ics-ph { background: rgba(139,116,247,0.1); color: var(--ics-violet); border: 1px solid rgba(139,116,247,0.22); border-radius: 2px; padding: 1px 5px; font-size: 11px; font-family: monospace; }
+    /* === Action Board === */
+    .ics-action-sec { margin-bottom: 14px; }
+    .ics-action-sec-title { font-size: 9px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--ics-text3); margin-bottom: 7px; font-family: monospace; }
+    .ics-acard { display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; border-radius: 3px; background: rgba(0,210,255,0.02); margin-bottom: 5px; border: 1px solid rgba(0,210,255,0.07); transition: all 0.18s; }
+    .ics-acard:hover { background: rgba(0,210,255,0.06); border-color: rgba(0,210,255,0.18); }
+    .ics-cb { width: 15px; height: 15px; border-radius: 2px; border: 1.5px solid rgba(0,210,255,0.3); flex-shrink: 0; margin-top: 1px; }
+    .ics-cb.done { background: var(--ics-cyan); border-color: var(--ics-cyan); }
+    .ics-card-text { flex: 1; font-size: 12px; color: var(--ics-text); line-height: 1.4; font-family: monospace; }
+    .ics-tag { display: inline-block; padding: 1px 5px; border-radius: 2px; font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; margin-left: 6px; font-family: monospace; }
+    .ics-tag.urgent { background: rgba(255,107,123,0.1); color: var(--ics-coral); }
+    .ics-tag.warn   { background: rgba(255,183,77,0.1);  color: var(--ics-amber); }
+    .ics-tag.attach { background: rgba(0,210,255,0.08);  color: var(--ics-cyan); }
+    .ics-confirm-bar { background: rgba(255,183,77,0.04); border: 1px solid rgba(255,183,77,0.2); border-radius: 3px; padding: 12px 14px; margin-bottom: 12px; }
+    .ics-confirm-title { font-size: 10px; font-weight: 700; color: var(--ics-amber); margin-bottom: 5px; font-family: monospace; letter-spacing: 1.5px; text-transform: uppercase; }
     .ics-confirm-detail { font-size: 12px; color: var(--ics-text2); line-height: 1.5; }
-    .ics-confirm-btns { display: flex; gap: 8px; margin-top: 10px; }
-    .ics-confirm-btn { flex: 1; padding: 9px; border-radius: 99px; font-size: 12px; font-weight: 600; cursor: pointer; border: 1px solid transparent; }
-    .ics-confirm-btn.yes { background: rgba(139,116,247,0.18); border-color: rgba(139,116,247,0.35); color: rgba(196,181,253,0.92); }
-    .ics-confirm-btn.no  { background: rgba(255,107,123,0.10); border-color: rgba(255,107,123,0.25); color: rgba(255,107,123,0.85); }
-    /* ----- Status Rail full ----- */
-    .ics-svc-grid { display: flex; flex-direction: column; gap: 6px; }
-    .ics-svc-row  { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 10px; background: rgba(255,255,255,0.02); }
-    .ics-svc-dot  { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-    .ics-svc-dot.active  { background: var(--ics-green); }
-    .ics-svc-dot.syncing { background: var(--ics-cyan); animation: ics-pulse 1.2s ease-in-out infinite; }
+    .ics-confirm-btns { display: flex; gap: 7px; margin-top: 10px; }
+    .ics-confirm-btn { flex: 1; padding: 8px; border-radius: 3px; font-size: 10px; font-weight: 700; cursor: pointer; border: 1px solid transparent; font-family: monospace; letter-spacing: 1px; text-transform: uppercase; }
+    .ics-confirm-btn.yes { background: rgba(139,116,247,0.15); border-color: rgba(139,116,247,0.3); color: rgba(196,181,253,0.9); }
+    .ics-confirm-btn.no  { background: rgba(255,107,123,0.08); border-color: rgba(255,107,123,0.24); color: rgba(255,107,123,0.85); }
+    /* === Status Rail === */
+    .ics-svc-grid { display: flex; flex-direction: column; gap: 4px; }
+    .ics-svc-row  { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 2px; background: rgba(0,210,255,0.02); border: 1px solid rgba(0,210,255,0.05); font-family: monospace; }
+    .ics-svc-dot  { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+    .ics-svc-dot.active  { background: var(--ics-green); box-shadow: 0 0 5px var(--ics-green); }
+    .ics-svc-dot.syncing { background: var(--ics-cyan); animation: ics-pulse 1.0s ease-in-out infinite; }
     .ics-svc-dot.warn    { background: var(--ics-amber); }
     .ics-svc-dot.error   { background: var(--ics-coral); }
-    .ics-svc-name   { font-size: 13px; color: var(--ics-text); flex: 1; }
-    .ics-svc-detail { font-size: 11px; color: var(--ics-text2); }
+    .ics-svc-name   { font-size: 12px; color: var(--ics-text); flex: 1; letter-spacing: 0.5px; }
+    .ics-svc-detail { font-size: 10px; color: var(--ics-text2); }
     @media (max-width: 820px) {
       #audioView.ics-open .af-center { transform: none; }
       .af-center { justify-content: flex-start; padding-top: 82px; gap: 18px; }
-      .ics-panel { left: 10px; right: 10px; top: auto; bottom: calc(156px + env(safe-area-inset-bottom)); width: auto; max-height: 40vh; border-radius: 18px; }
+      .ics-panel { left: 8px; right: 8px; top: auto; bottom: calc(156px + env(safe-area-inset-bottom)); width: auto; max-height: 42vh; border-radius: 3px; }
       #afTranscript { display: none; }
       .ics-actions { flex-wrap: wrap; }
-      .ics-btn { flex: 1 1 calc(50% - 4px); }
-      .ics-table { font-size: 12px; }
-      .ics-table th, .ics-table td { padding: 8px; }
+      .ics-btn { flex: 1 1 calc(50% - 3px); }
+      .ics-table { font-size: 11px; }
+      .ics-table th, .ics-table td { padding: 6px 8px; }
     }
 
     /* ===== SHARE MODAL ===== */
@@ -1066,11 +1143,12 @@
     </div>
     <div id="afTranscript"></div>
     <section id="irisCommandScreen" class="ics-panel" aria-live="polite" aria-label="Iris Command Screen">
+      <div class="ics-scanline"></div>
       <div class="ics-rail">
-        <div class="ics-rail-title">Iris Command Screen</div>
+        <div class="ics-rail-title">IRIS // COMMAND SCREEN</div>
         <div class="ics-rail-r">
-          <div id="icsDot" class="ics-dot violet pulse"></div>
-          <span id="icsStatusText">En attente</span>
+          <div id="icsDot" class="ics-dot cyan pulse"></div>
+          <span id="icsStatusText">STAND BY</span>
         </div>
       </div>
       <div class="ics-body" id="icsBody">
@@ -3256,7 +3334,37 @@
     // IRIS COMMAND SCREEN — renderIrisCommand + inferCommandRenderFromText
     // =====================================================================
     var _icsFormBound = false;
-    var _icsLastServerRender = 0; // timestamp du dernier render envoyé par le serveur
+    var _icsLastServerRender = 0;
+
+    // Affiche le panneau en mode "Iris réfléchit" dès que l'utilisateur parle
+    function _icsShowThinking() {
+      var panel  = document.getElementById('irisCommandScreen');
+      var render = document.getElementById('icsRender');
+      var footer = document.getElementById('icsFooter');
+      var view   = document.getElementById('audioView');
+      if (!panel || !render) return;
+      render.innerHTML =
+        '<div class="ics-thinking">' +
+        '<span>IRIS ANALYSE</span>' +
+        '<div class="ics-think-dots"><span></span><span></span><span></span></div>' +
+        '</div>';
+      if (footer) footer.style.display = 'none';
+      _icsSetState('ANALYSE...', 'amber');
+      panel.className = 'ics-panel open st-analyse';
+      if (view) view.classList.add('ics-open');
+    }
+
+    // Stagger : anime chaque enfant direct de container avec un délai croissant
+    function _icsStaggerBuild(container) {
+      if (!container) return;
+      var items = container.querySelectorAll(
+        'tr, .ics-acard, .ics-svc-row, .ics-doc-body p, .ics-action-sec, [data-row]'
+      );
+      Array.prototype.forEach.call(items, function(el, i) {
+        el.classList.add('ics-row-anim');
+        el.style.animationDelay = (i * 0.06) + 's';
+      });
+    }
 
     function _esc(s) {
       return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
@@ -3457,6 +3565,7 @@
       else html='<div style="color:var(--ics-text2);font-size:13px">'+_esc(JSON.stringify(p))+'</div>';
 
       render.innerHTML = html;
+      _icsStaggerBuild(render);
 
       var hasFooter = false;
       if (ctx) {
@@ -3735,15 +3844,19 @@
               _afAppendTranscript(role, data.text || '');
               if (data.role === 'user') {
                 _setIrisState('thinking');
-                // Fallback local uniquement si le serveur n'a pas envoyé de render récent (< 3s)
-                if (Date.now() - _icsLastServerRender > 3000) {
-                  var _rType = inferCommandRenderFromText(data.text || '');
-                  if (_rType) {
-                    var _pl = _icsBuildPayload(_rType, data.text || '');
-                    _pl.render_type = _rType;
-                    renderIrisCommand(_pl);
+                // Ouvre immédiatement l'écran en mode "Iris réfléchit"
+                _icsShowThinking();
+                // Fallback local uniquement si le serveur n'a pas envoyé de render récent (< 4s)
+                setTimeout(function() {
+                  if (Date.now() - _icsLastServerRender > 4000) {
+                    var _rType = inferCommandRenderFromText(data.text || '');
+                    if (_rType) {
+                      var _pl = _icsBuildPayload(_rType, data.text || '');
+                      _pl.render_type = _rType;
+                      renderIrisCommand(_pl);
+                    }
                   }
-                }
+                }, 800);
               }
             } else if (data.type === 'tool_call') {
               var toolName = data.name || 'outil';
