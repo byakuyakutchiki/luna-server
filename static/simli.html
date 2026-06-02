@@ -2336,7 +2336,9 @@
         body: JSON.stringify({
           message: userText,
           session_id: currentConvId || 'visio',
-          history: _conversationHistory.slice(-16)
+          history: _conversationHistory.slice(-12),
+          vision_context: _lastVisionDesc || '',
+          participants_count: _guestCount + 1
         })
       })
       .then(function(r) {
@@ -2387,6 +2389,7 @@
           if (_irisAudio) { try { _irisAudio.pause(); URL.revokeObjectURL(_irisAudio.src); } catch(e) {} }
           _irisAudio = new Audio(url);
           _irisAudio.onplay = function() {
+            rLog('info', 'simli', 'time_to_first_audio_ms', String(Date.now() - t0));
             rLog('info', 'simli', 'audio_play_start', '');
             _setIrisState('speaking');
           };

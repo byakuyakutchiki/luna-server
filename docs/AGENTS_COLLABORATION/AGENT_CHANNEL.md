@@ -1079,3 +1079,15 @@ Fichier concerné : static/simli.html ; docs/AGENTS_COLLABORATION/agents/CODEX_P
 Risque : faible ; reduction d'un conflit micro sans refonte visible
 Décision Ludovic requise : non pour patch ; oui pour refonte UI visio niveau 2
 Action proposée : Deployer ce main, test F12 phrase unique, puis DeepSeek/Kimi auditent les logs post-patch.
+
+---
+
+Agent : Codex
+Objectif : 017
+Type : verdict terrain / patch latence-persona
+Résumé : 5 lignes max
+Iris répond maintenant : STT 200, transcription, LLM 200, TTS 200, audio joué. Mais expérience non validée : délai perçu trop long, voix pas assez jeune/naturelle, persona trop administratif. Patch niveau 1 : contexte visio injecté (profil/contacts/notes/vision/participants), persona Iris renforcé concierge technique/Jarvis, réponses plus courtes, `time_to_first_audio_ms`, TTS configurable basse latence avec fallback, route favicon pour retirer faux bruit console. `tabs:outgoing.message.ready` = bruit extension navigateur, pas Luna.
+Fichier concerné : luna_web.py ; static/simli.html ; docs/AGENTS_COLLABORATION/agents/CODEX_VERDICT_VISIO_IRIS_LATENCE_PERSONA_017.md
+Risque : moyen-faible ; modifie ton et latence sans action sensible ; changement voix Cloud Run reste niveau 2
+Décision Ludovic requise : oui pour forcer une nouvelle voix ElevenLabs sur Cloud Run
+Action proposée : Claude deploie, Ludovic teste 3 phrases, DeepSeek audite latence `time_to_first_audio_ms`, Kimi valide voix/persona.

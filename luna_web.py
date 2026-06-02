@@ -5033,6 +5033,16 @@ async def index(request: Request):
     return FileResponse(os.path.join(STATIC_DIR, "index.html"), headers=_NO_CACHE_HEADERS)
 
 
+@app.get("/favicon.ico")
+async def favicon():
+    """Evite un faux 404 dans la console navigateur pendant les tests terrain."""
+    return FileResponse(
+        os.path.join(STATIC_DIR, "icon-192.png"),
+        media_type="image/png",
+        headers={"Cache-Control": "public, max-age=86400"},
+    )
+
+
 @app.api_route("/sw.js", methods=["GET", "HEAD"])
 async def service_worker():
     """Serve SW from root scope so it can intercept all requests."""
@@ -7500,6 +7510,58 @@ async def visio_notes_save(request: Request):
         return JSONResponse(status_code=500, content={"ok": False, "error": str(e)[:100]})
 
 
+def _build_visio_context_for_tenant(tid: int) -> str:
+    """Contexte court pour Iris en visio : profil, contacts, notes recentes."""
+    mgr = _get_tenant_manager(tid) if tid else _memory_manager
+    if not mgr:
+        return ""
+
+    parts = []
+    try:
+        profile = mgr.get_subscriber_profile()
+        if profile:
+            lines = ["=== SOUSCRIPTEUR ==="]
+            if getattr(profile, "first_name", None):
+                lines.append(f"Prenom: {profile.first_name}")
+            if getattr(profile, "last_name", None):
+                lines.append(f"Nom: {profile.last_name}")
+            if getattr(profile, "city", None):
+                lines.append(f"Ville: {profile.city}")
+            if getattr(profile, "interests", None):
+                lines.append(f"Centres d'interet: {profile.interests}")
+            if getattr(profile, "tone", None):
+                lines.append(f"Ton souhaite: {profile.tone}")
+            parts.append("\n".join(lines))
+    except Exception as e:
+        logger.debug(f"visio profile context error: {e}")
+
+    try:
+        contacts = mgr.list_trusted_contacts()
+        if contacts:
+            lines = ["=== CONTACTS DE CONFIANCE ==="]
+            for c in contacts[:10]:
+                lines.append(f"- {c.name} ({c.relation or 'proche'})")
+            lines.append("Si Ludovic demande ses contacts, reponds avec cette liste. Ne dis pas que tu n'y as pas acces.")
+            lines.append("Appel/SMS/email reel = confirmation explicite obligatoire avant action.")
+            parts.append("\n".join(lines))
+        else:
+            parts.append("=== CONTACTS ===\nAucun contact de confiance enregistre dans le contexte actuel.")
+    except Exception as e:
+        logger.debug(f"visio contacts context error: {e}")
+
+    try:
+        notes = mgr.list_notes(limit=5)
+        if notes:
+            lines = ["=== NOTES RECENTES ==="]
+            for n in notes[:5]:
+                lines.append(f"- {n.content[:140]}")
+            parts.append("\n".join(lines))
+    except Exception as e:
+        logger.debug(f"visio notes context error: {e}")
+
+    return "\n\n".join(parts)[:2500]
+
+
 @app.post("/api/visio/chat")
 async def visio_chat(request: Request):
     """Chat dédié visio Option B-lite — réponse courte, pas de streaming."""
@@ -7512,6 +7574,8 @@ async def visio_chat(request: Request):
     user_text = (body.get("message") or "").strip()[:500]
     session_id = body.get("session_id", "visio_default")
     raw_history = body.get("history") or []
+    vision_context = (body.get("vision_context") or "").strip()[:400]
+    participants_count = int(body.get("participants_count") or 1)
     if not user_text:
         return JSONResponse(status_code=400, content={"ok": False, "error": "Message vide"})
     if not OPENAI_API_KEY:
@@ -7519,23 +7583,43 @@ async def visio_chat(request: Request):
 
     # Prompt système visio : réponses courtes, français, identité Iris
     visio_system = (
-        "Tu es Iris, la secrétaire personnelle de Luna YAWatch, présente en visio. "
-        "Tu parles EXCLUSIVEMENT en français de France, avec une voix naturelle et chaleureuse. "
-        "Tu réponds toujours en 1 à 2 phrases courtes, comme dans une vraie conversation. "
-        "Sois directe, professionnelle, et ne répète jamais les formules d'introduction. "
-        "Si tu n'as pas compris, dis simplement : 'Pouvez-vous répéter ?' — jamais 'je ne comprends pas'."
+        "Tu es Iris, l'assistante visio de Luna YAWatch : vive, jeune adulte, brillante, "
+        "technique, proactive, un peu comme un Jarvis humain pour Ludovic. "
+        "Tu parles exclusivement en français de France, naturel et dynamique. "
+        "Reponds en 1 phrase courte par defaut, 2 phrases maximum si necessaire. "
+        "Ne fais pas de blabla administratif. Ne te presente pas a chaque tour. "
+        "Si la transcription semble mauvaise, corrige par le contexte au lieu de bloquer. "
+        "Si tu n'as pas compris, dis seulement : 'Redis-moi juste ce point.' "
+        "Tu peux prendre des notes, suivre une reunion, utiliser le contexte camera, "
+        "identifier les demandes de contacts/projets/documents et proposer l'action utile. "
+        "Action sensible reelle (appel, SMS, email, paiement, reservation) = confirmation explicite obligatoire."
     )
 
     # Build messages with conversation history (last 8 exchanges = 16 messages)
     history_msgs = []
     if isinstance(raw_history, list):
-        for turn in raw_history[-16:]:
+        for turn in raw_history[-12:]:
             role = turn.get("role", "") if isinstance(turn, dict) else ""
             content = turn.get("content", "") if isinstance(turn, dict) else ""
             if role in ("user", "assistant") and content:
-                history_msgs.append({"role": role, "content": str(content)[:300]})
+                history_msgs.append({"role": role, "content": str(content)[:220]})
 
-    messages = [{"role": "system", "content": visio_system}] + history_msgs
+    messages = [{"role": "system", "content": visio_system}]
+    visio_context = _build_visio_context_for_tenant(tid)
+    if visio_context:
+        messages.append({"role": "system", "content": visio_context})
+    if vision_context:
+        messages.append({"role": "system", "content":
+            "=== VISION CAMERA ACTUELLE ===\n"
+            f"{vision_context}\n"
+            "Si Ludovic demande ce que tu vois ou ton environnement, utilise cette description directement."
+        })
+    if participants_count > 1:
+        messages.append({"role": "system", "content":
+            f"=== VISIO MULTI-PARTICIPANTS ===\n{participants_count} personnes sont dans l'appel. "
+            "Tu peux aider a cadrer, prendre des notes, identifier decisions et actions."
+        })
+    messages += history_msgs
     # Append current turn only if not already the last history entry
     if not history_msgs or history_msgs[-1].get("content") != user_text:
         messages.append({"role": "user", "content": user_text})
@@ -7545,8 +7629,8 @@ async def visio_chat(request: Request):
         completion = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=messages,
-            max_tokens=150,
-            temperature=0.7,
+            max_tokens=75,
+            temperature=0.45,
         )
         reply = completion.choices[0].message.content.strip()
     except Exception as e:
@@ -7565,12 +7649,13 @@ async def visio_tts(request: Request):
     except Exception:
         return JSONResponse(status_code=400, content={"error": "JSON invalide"})
 
-    text = (body.get("text") or "").strip()[:600]
+    text = (body.get("text") or "").strip()[:360]
     if not text:
         return JSONResponse(status_code=400, content={"error": "Texte vide"})
 
     key = os.getenv("ELEVENLABS_API_KEY", "")
     voice_id = os.getenv("ELEVENLABS_VOICE_ID", "Z9ZHGvFZ90R0h0x1prsJ")
+    model_id = os.getenv("ELEVENLABS_MODEL_ID", "eleven_flash_v2_5")
     if not key:
         return JSONResponse(status_code=503, content={"error": "ElevenLabs non configuré"})
 
@@ -7581,15 +7666,31 @@ async def visio_tts(request: Request):
                 headers={"xi-api-key": key, "Content-Type": "application/json"},
                 json={
                     "text": text,
-                    "model_id": "eleven_multilingual_v2",
+                    "model_id": model_id,
                     "voice_settings": {
-                        "stability": 0.45,
-                        "similarity_boost": 0.75,
-                        "style": 0.3,
-                        "use_speaker_boost": True,
+                        "stability": float(os.getenv("ELEVENLABS_STABILITY", "0.35")),
+                        "similarity_boost": float(os.getenv("ELEVENLABS_SIMILARITY", "0.78")),
+                        "style": float(os.getenv("ELEVENLABS_STYLE", "0.12")),
+                        "use_speaker_boost": os.getenv("ELEVENLABS_SPEAKER_BOOST", "false").lower() == "true",
                     },
                 },
             )
+            if resp.status_code != 200 and model_id != "eleven_multilingual_v2":
+                logger.warning(f"visio_tts fallback multilingual after {model_id}: {resp.status_code}")
+                resp = await client.post(
+                    f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}",
+                    headers={"xi-api-key": key, "Content-Type": "application/json"},
+                    json={
+                        "text": text,
+                        "model_id": "eleven_multilingual_v2",
+                        "voice_settings": {
+                            "stability": 0.45,
+                            "similarity_boost": 0.75,
+                            "style": 0.2,
+                            "use_speaker_boost": False,
+                        },
+                    },
+                )
         if resp.status_code != 200:
             logger.error(f"visio_tts ElevenLabs {resp.status_code}: {resp.text[:100]}")
             return JSONResponse(status_code=502, content={"error": "TTS indisponible"})
