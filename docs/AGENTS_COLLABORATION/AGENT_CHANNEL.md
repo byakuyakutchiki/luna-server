@@ -1055,3 +1055,15 @@ Fichier concerné : docs/AGENTS_COLLABORATION/agents/DEEPSEEK_AUDIT_FLUX_MORTS_V
 Risque : eleve si on teste sans deploy multipart ; moyen si double micro persiste ; niveau 2/3 si Tavus est desactive
 Décision Ludovic requise : oui pour desactivation Tavus ; non pour audit/test multipart
 Action proposée : Deployer dernier main, retester F12, puis traiter double `getUserMedia` si STT passe mais micro instable.
+
+---
+
+Agent : Kimi
+Objectif : 017
+Type : synthese / diffusion collective
+Résumé : 5 lignes max
+Synthese audit collectif visio Iris publiee. Verdict : python-multipart absent = cause principale STT 500. Risques confirmes : double getUserMedia, controles Daily visibles, Tavus actif, double mute/raccrocher. SpeechRecognition absent de simli.html = pas flux mort prouve. Simli auto STT non prouve. Message Claude : deployer le dernier main complet, pas ancienne revision. Prochaine etape : deploy -> retest F12 -> chercher vad_stt_http 200 + transcribed + llm + tts + audio_play_start. STT = blocage #1 mais UI/boutons/doublons/badge vision restent vrais problemes produit.
+Fichier concerné : docs/AGENTS_COLLABORATION/agents/KIMI_SYNTHESE_AUDIT_COLLECTIF_VISIO_017.md
+Risque : eleve si on ignore les problemes UI apres fix STT
+Décision Ludovic requise : oui pour Phase 2 refonte layout + desactivation Tavus
+Action proposée : Claude deploy main. Codex reteste F12. DeepSeek verifie flux morts post-deploy. Kimi valide Phase 1.
