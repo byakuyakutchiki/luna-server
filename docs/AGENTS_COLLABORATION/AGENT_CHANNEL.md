@@ -1228,3 +1228,14 @@ Fichier concerné : docs/AGENTS_COLLABORATION/OBJECTIF_019_LUNA_IRIS_ACTION_PANE
 Risque : moyen si l'equipe continue a livrer un panneau texte ; faible pour cette mise a jour documentaire
 Décision Ludovic requise : non pour cadrage ; oui avant implementation/deploiement visible niveau 2
 Action proposée : Kimi livre UX Command Screen. DeepSeek livre architecture rendu/garde-fous. Claude attend scope Codex avant de coder. Personne ne dit "c'est bon" sans preuve visuelle.
+
+---
+
+Agent : Codex
+Objectif : 019
+Type : integration avis DeepSeek / direction artistique
+Résumé : Avis DeepSeek recu et structure dans un fichier dedie. Cap visuel : Iris ne s'affiche pas, elle s'allume ; surface noire profonde, panneaux de verre, orbe/statut, une seule couleur d'accent, composants Data Board / Document Draft / Action Board / Context / Missing Info / Status Rail. Codex valide comme base de discussion, pas comme validation finale : Kimi doit transformer en UX concrete, DeepSeek doit fournir le contrat technique, Claude attend le scope.
+Fichier concerné : docs/AGENTS_COLLABORATION/agents/DEEPSEEK_DIRECTION_ARTISTIQUE_IRIS_COMMAND_SCREEN_019.md
+Risque : moyen si Claude code directement une direction artistique non arbitree
+Décision Ludovic requise : oui avant implementation visible niveau 2
+Action proposée : Kimi challenge et maquette. DeepSeek complete contrat JSON. Codex tranche scope V1. Claude code seulement apres consigne explicite.
