@@ -589,6 +589,22 @@
     .ics-think-dots span:nth-child(2) { animation-delay: 0.2s; }
     .ics-think-dots span:nth-child(3) { animation-delay: 0.4s; }
     @keyframes ics-tdot { 0%,80%,100%{opacity:0.15;transform:scale(0.7);} 40%{opacity:1;transform:scale(1.3);} }
+    .ics-work-card {
+      border: 1px solid rgba(0,210,255,0.12); background: rgba(0,210,255,0.025);
+      border-radius: 3px; padding: 14px 14px 12px; font-family: monospace;
+    }
+    .ics-work-title { color: var(--ics-cyan); font-size: 11px; font-weight: 700; letter-spacing: 1.8px; text-transform: uppercase; margin-bottom: 9px; }
+    .ics-work-sub { color: var(--ics-text2); font-size: 12px; line-height: 1.55; margin-bottom: 12px; }
+    .ics-work-steps { display: grid; gap: 7px; }
+    .ics-work-step { display: flex; align-items: center; gap: 8px; color: var(--ics-text2); font-size: 11px; }
+    .ics-work-step::before {
+      content: ""; width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;
+      background: var(--ics-cyan); box-shadow: 0 0 8px rgba(0,210,255,0.45);
+      animation: ics-pulse 1.4s ease-in-out infinite;
+    }
+    .ics-work-warn { border-color: rgba(255,183,77,0.28); background: rgba(255,183,77,0.055); }
+    .ics-work-warn .ics-work-title { color: var(--ics-amber); }
+    .ics-work-warn .ics-work-step::before { background: var(--ics-amber); box-shadow: 0 0 8px rgba(255,183,77,0.35); }
     /* Animation de construction progressive */
     @keyframes ics-buildin {
       from { opacity: 0; transform: translateX(-8px); }
@@ -3496,6 +3512,7 @@
     var _icsLastUserSpoke = 0;
     var _icsIrisResponseText = '';
     var _icsFallbackTimer = null;
+    var _icsWorkTimer = null;
 
     // Affiche le panneau en mode "Iris réfléchit" dès que l'utilisateur parle
     function _icsShowThinking() {
@@ -3513,6 +3530,62 @@
       _icsSetState('ANALYSE...', 'amber');
       panel.className = 'ics-panel open st-analyse';
       if (view) view.classList.add('ics-open');
+    }
+
+    function _icsLooksLikeWorkPromise(text) {
+      var t = String(text || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      return /\b(je prepare|je vais preparer|je cree|je vais creer|je te cree|je redige|je vais rediger|je genere|je vais generer|je construis|je vais construire|je m'en occupe|patiente|un instant|quelques instants|maintenant)\b/.test(t);
+    }
+
+    function _icsShowWorking(label, detail) {
+      var panel  = document.getElementById('irisCommandScreen');
+      var render = document.getElementById('icsRender');
+      var footer = document.getElementById('icsFooter');
+      var view   = document.getElementById('audioView');
+      if (!panel || !render) return;
+      clearTimeout(_icsWorkTimer);
+      render.innerHTML =
+        '<div class="ics-work-card">' +
+          '<div class="ics-work-title">'+_esc(label || 'Iris prépare')+'</div>' +
+          '<div class="ics-work-sub">'+_esc(detail || 'Je traite la demande et je prépare un rendu visuel exploitable.')+'</div>' +
+          '<div class="ics-work-steps">' +
+            '<div class="ics-work-step">Compréhension de la demande</div>' +
+            '<div class="ics-work-step">Structuration des informations</div>' +
+            '<div class="ics-work-step">Préparation du rendu</div>' +
+          '</div>' +
+        '</div>';
+      if (footer) footer.style.display = 'none';
+      _icsSetState('Préparation...', 'amber');
+      panel.className = 'ics-panel open st-analyse';
+      if (view) view.classList.add('ics-open');
+      _icsWorkTimer = setTimeout(function() {
+        if (_icsLastServerRender > _icsLastUserSpoke) return;
+        _icsShowWorkTimeout();
+      }, 18000);
+      rLog('info','simli','ics_working',label || 'Iris prepare');
+    }
+
+    function _icsShowWorkTimeout() {
+      var panel  = document.getElementById('irisCommandScreen');
+      var render = document.getElementById('icsRender');
+      var footer = document.getElementById('icsFooter');
+      var view   = document.getElementById('audioView');
+      if (!panel || !render) return;
+      render.innerHTML =
+        '<div class="ics-work-card ics-work-warn">' +
+          '<div class="ics-work-title">Préparation trop longue</div>' +
+          '<div class="ics-work-sub">Iris a annoncé une préparation, mais aucun rendu final n’est encore revenu. Vous pouvez relancer la demande ou demander un rendu plus simple.</div>' +
+          '<div class="ics-work-steps">' +
+            '<div class="ics-work-step">Connexion toujours ouverte</div>' +
+            '<div class="ics-work-step">Rendu final non reçu</div>' +
+            '<div class="ics-work-step">Action utilisateur possible : reformuler ou simplifier</div>' +
+          '</div>' +
+        '</div>';
+      if (footer) footer.style.display = 'none';
+      _icsSetState('À vérifier', 'amber');
+      panel.className = 'ics-panel open st-warning';
+      if (view) view.classList.add('ics-open');
+      rLog('warn','simli','ics_work_timeout','no render after work promise');
     }
 
     // Stagger : anime chaque enfant direct de container avec un délai croissant
@@ -4188,6 +4261,7 @@
       var ctx    = document.getElementById('icsContext');
       var miss   = document.getElementById('icsMissing');
       if (!panel||!render) return;
+      clearTimeout(_icsWorkTimer);
 
       var rType = payload.render_type||'context_panel';
       var p = payload.payload||payload;
@@ -4275,6 +4349,7 @@
     function _icsClose() {
       var panel = document.getElementById('irisCommandScreen');
       var view  = document.getElementById('audioView');
+      clearTimeout(_icsWorkTimer);
       if (panel) { panel.classList.remove('open'); panel.style.display='none'; panel.style.display=''; }
       if (view)  view.classList.remove('ics-open');
       rLog('info','simli','ics_close','');
@@ -4515,6 +4590,7 @@
               _setIrisState('idle');
             } else if (data.type === 'render') {
               _icsLastServerRender = Date.now();
+              clearTimeout(_icsWorkTimer);
               renderIrisCommand(data);
             } else if (data.type === 'transcript') {
               var role = data.role === 'user' ? 'user' : 'iris';
@@ -4528,6 +4604,9 @@
               } else {
                 // Accumule la réponse Iris — debounce 300ms pour laisser tous les chunks arriver
                 _icsIrisResponseText += ' ' + (data.text || '');
+                if (_icsLooksLikeWorkPromise(data.text || '')) {
+                  _icsShowWorking('Iris prépare', data.text || 'Préparation en cours.');
+                }
                 clearTimeout(_icsFallbackTimer);
                 _icsFallbackTimer = setTimeout(function() {
                   if (_icsLastServerRender <= _icsLastUserSpoke) {
