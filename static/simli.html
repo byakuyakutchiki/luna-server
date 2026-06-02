@@ -454,10 +454,12 @@
       background: rgba(220,50,50,0.18); border: 1px solid rgba(220,70,70,0.35);
       color: rgba(255,130,130,0.85); border-radius: 50px;
       padding: 15px 44px; font-size: 14px; font-weight: 700; letter-spacing: 1.5px;
-      min-height: 52px; min-width: 160px;
+      min-height: 56px; min-width: 180px;
       cursor: pointer; transition: all 0.2s ease; white-space: nowrap;
       -webkit-tap-highlight-color: rgba(220,50,50,0.3);
       touch-action: manipulation;
+      z-index: 10; pointer-events: auto;
+      user-select: none; -webkit-user-select: none;
     }
     #afHangup:hover, #afHangup:active { background: rgba(220,50,50,0.3); border-color: rgba(220,70,70,0.6); color: rgba(255,155,155,1); transform: translateX(-50%) scale(0.97); }
 
@@ -2982,9 +2984,27 @@
       var bar = document.getElementById('visioActionsBar');
       if (bar) bar.classList.add('visible');
 
-      // Bouton raccrocher audio-first
+      // Bouton raccrocher audio-first — navigation immédiate, pas d'attente async
       var afHangupEl = document.getElementById('afHangup');
-      if (afHangupEl) afHangupEl.onclick = doHangup;
+      if (afHangupEl) {
+        var _afHangupFired = false;
+        function _doAudioHangup(e) {
+          if (e) { e.preventDefault(); e.stopPropagation(); }
+          if (_afHangupFired) return;
+          _afHangupFired = true;
+          afHangupEl.disabled = true;
+          afHangupEl.textContent = 'Fermeture…';
+          // Arrêt immédiat de l'audio
+          if (_irisAudio) { try { _irisAudio.pause(); URL.revokeObjectURL(_irisAudio.src); } catch(_e) {} _irisAudio = null; }
+          _irisReplying = false; _vadBusy = false; _pendingUserText = '';
+          if (_afSessionTimer) { clearInterval(_afSessionTimer); _afSessionTimer = null; }
+          try { _stopSpeechCapture(); } catch(_e) {}
+          // Navigation immédiate — pas d'attente
+          window.location.href = '/';
+        }
+        afHangupEl.addEventListener('click', _doAudioHangup);
+        afHangupEl.addEventListener('touchend', _doAudioHangup);
+      }
 
       // Minuterie de session
       _afSessionStart = Date.now();

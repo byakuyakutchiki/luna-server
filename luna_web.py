@@ -7630,10 +7630,12 @@ async def visio_chat(request: Request):
 
     try:
         client = build_llm_client(OPENAI_API_KEY)
+        iris_model = os.getenv("IRIS_LLM_MODEL", "gpt-4o")
+        iris_max_tokens = int(os.getenv("IRIS_MAX_TOKENS", "60"))
         completion = client.chat.completions.create(
-            model="gpt-4o-mini",
+            model=iris_model,
             messages=messages,
-            max_tokens=45,
+            max_tokens=iris_max_tokens,
             temperature=0.45,
         )
         reply = completion.choices[0].message.content.strip()
