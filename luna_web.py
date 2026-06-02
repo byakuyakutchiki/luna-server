@@ -9311,6 +9311,8 @@ async def ws_iris_voice(websocket: WebSocket):
         "Tu es en appel telephonique avec",
         "Tu es en conversation vocale directe avec"
     )
+    # Forcer le français explicitement pour le modèle Realtime (évite le basculement anglais)
+    context = "=== LANGUE ABSOLUE ===\nTu dois répondre EXCLUSIVEMENT en français de France. Quelle que soit la langue de l'utilisateur, tu restes en français. Pas d'anglais. Pas de franglais. Pas de québécois.\n\n" + context
     # Personnalité Iris par-dessus le contexte profil.
     context += f"\n\n=== IRIS MODE ===\n{_IRIS_SYSTEM}"
 
