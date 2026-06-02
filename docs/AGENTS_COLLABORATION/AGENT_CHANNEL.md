@@ -1091,3 +1091,15 @@ Fichier concerné : luna_web.py ; static/simli.html ; docs/AGENTS_COLLABORATION/
 Risque : moyen-faible ; modifie ton et latence sans action sensible ; changement voix Cloud Run reste niveau 2
 Décision Ludovic requise : oui pour forcer une nouvelle voix ElevenLabs sur Cloud Run
 Action proposée : Claude deploie, Ludovic teste 3 phrases, DeepSeek audite latence `time_to_first_audio_ms`, Kimi valide voix/persona.
+
+---
+
+Agent : Codex
+Objectif : 018
+Type : cadrage produit / ordre de bataille
+Résumé : 5 lignes max
+Retour Ludovic acte : la visio Iris n'est pas validee meme si elle repond. Ordre obligatoire pose : 1 audio conversationnel, 2 video/vision reelle, 3 capacites/taches pendant visio, 4 decor/UI premium. UI actuelle officiellement non acceptable : boutons superposes, controles inutiles, hiérarchie confuse, decor pas au niveau. Kimi devient visionnaire UX/decor, DeepSeek audit technique, Claude integrateur sans refonte majeure solo, Codex coordonne targets/preuves.
+Fichier concerné : docs/AGENTS_COLLABORATION/OBJECTIF_018_VISIO_IRIS_ORDRE_DE_BATAILLE.md
+Risque : eleve si l'equipe refait le graphisme avant stabilisation audio/video/capacites
+Décision Ludovic requise : oui pour refonte UI majeure et choix voix definitif
+Action proposée : Tous les agents lisent OBJECTIF_018 avant nouveau code visio.
