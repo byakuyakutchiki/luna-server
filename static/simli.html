@@ -683,6 +683,51 @@
       .ics-table th, .ics-table td { padding: 6px 8px; }
     }
 
+    /* === Phase 1 — Nouvelles projections === */
+    /* KPI Cards */
+    .ics-kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; margin-bottom: 10px; }
+    .ics-kpi-card { background: rgba(0,210,255,0.03); border: 1px solid rgba(0,210,255,0.1); border-radius: 3px; padding: 14px 12px; text-align: center; }
+    .ics-kpi-value { font-size: 22px; font-weight: 700; color: var(--ics-cyan); font-family: monospace; letter-spacing: -1px; line-height: 1; }
+    .ics-kpi-label { font-size: 9px; color: var(--ics-text3); margin-top: 6px; font-family: monospace; letter-spacing: 1px; text-transform: uppercase; }
+    .ics-kpi-trend { font-size: 10px; margin-top: 4px; font-family: monospace; }
+    .ics-kpi-trend.up { color: var(--ics-green); }
+    .ics-kpi-trend.down { color: var(--ics-coral); }
+    /* Chart container */
+    .ics-chart-wrap { position: relative; height: 220px; width: 100%; }
+    /* Timeline */
+    .ics-timeline { position: relative; padding-left: 18px; }
+    .ics-timeline::before { content: ''; position: absolute; left: 4px; top: 6px; bottom: 6px; width: 1px; background: rgba(0,210,255,0.15); }
+    .ics-tl-item { position: relative; margin-bottom: 14px; padding-left: 14px; }
+    .ics-tl-dot { position: absolute; left: -15px; top: 4px; width: 7px; height: 7px; border-radius: 50%; background: var(--ics-cyan); box-shadow: 0 0 5px var(--ics-cyan); }
+    .ics-tl-date { font-size: 9px; color: var(--ics-text3); font-family: monospace; letter-spacing: 1px; margin-bottom: 2px; }
+    .ics-tl-title { font-size: 12px; color: var(--ics-text); font-weight: 600; margin-bottom: 2px; }
+    .ics-tl-desc { font-size: 11px; color: var(--ics-text2); line-height: 1.4; }
+    /* Roadmap */
+    .ics-roadmap { display: flex; flex-direction: column; gap: 10px; }
+    .ics-rm-phase { background: rgba(0,210,255,0.03); border: 1px solid rgba(0,210,255,0.1); border-radius: 3px; padding: 10px 12px; }
+    .ics-rm-header { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+    .ics-rm-num { width: 18px; height: 18px; border-radius: 50%; background: var(--ics-cyan); color: #000; font-size: 9px; font-weight: 700; display: flex; align-items: center; justify-content: center; font-family: monospace; flex-shrink: 0; }
+    .ics-rm-title { font-size: 12px; font-weight: 600; color: var(--ics-text); }
+    .ics-rm-desc { font-size: 11px; color: var(--ics-text2); line-height: 1.4; }
+    /* Comparison */
+    .ics-compare { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .ics-compare-col { background: rgba(0,210,255,0.03); border: 1px solid rgba(0,210,255,0.1); border-radius: 3px; padding: 12px; }
+    .ics-compare-title { font-size: 11px; font-weight: 700; color: var(--ics-cyan); margin-bottom: 8px; font-family: monospace; letter-spacing: 1px; text-transform: uppercase; text-align: center; }
+    .ics-compare-row { display: flex; justify-content: space-between; font-size: 11px; padding: 5px 0; border-bottom: 1px solid rgba(0,210,255,0.06); color: var(--ics-text2); }
+    .ics-compare-row:last-child { border-bottom: none; }
+    .ics-compare-winner { border-color: rgba(57,255,138,0.25); background: rgba(57,255,138,0.04); }
+    /* Document Insight */
+    .ics-insight-header { font-size: 11px; font-weight: 700; color: var(--ics-violet); margin-bottom: 10px; font-family: monospace; letter-spacing: 1.5px; text-transform: uppercase; }
+    .ics-insight-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+    .ics-insight-box { background: rgba(139,116,247,0.05); border: 1px solid rgba(139,116,247,0.15); border-radius: 3px; padding: 10px; }
+    .ics-insight-box-title { font-size: 9px; color: var(--ics-text3); margin-bottom: 4px; font-family: monospace; letter-spacing: 1px; text-transform: uppercase; }
+    .ics-insight-box-body { font-size: 11px; color: var(--ics-text); line-height: 1.5; }
+    .ics-insight-actions { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
+    .ics-insight-tag { display: inline-block; padding: 2px 7px; border-radius: 2px; font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; font-family: monospace; }
+    .ics-insight-tag.risk { background: rgba(255,107,123,0.1); color: var(--ics-coral); border: 1px solid rgba(255,107,123,0.2); }
+    .ics-insight-tag.opportunity { background: rgba(57,255,138,0.1); color: var(--ics-green); border: 1px solid rgba(57,255,138,0.2); }
+    .ics-insight-tag.info { background: rgba(0,210,255,0.08); color: var(--ics-cyan); border: 1px solid rgba(0,210,255,0.2); }
+
     /* ===== SHARE MODAL ===== */
     #shareModal {
       position: fixed; inset: 0; z-index: 200; background: rgba(0,0,0,0.7);
@@ -919,6 +964,7 @@
   </style>
   <script src="https://browser.sentry-cdn.com/7.99.0/bundle.min.js" crossorigin="anonymous"></script>
   <script src="/luna-config.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" crossorigin="anonymous"></script>
 </head>
 <body>
 
@@ -3375,6 +3421,14 @@
 
     function inferCommandRenderFromText(text) {
       var t = String(text||'').toLowerCase();
+      // Phase 1 — nouveaux types prioritaires
+      if (/\b(kpi|métrique|métriques|indicateur|indicateurs|chiffre clé|chiffres clés|performance|performances|stats|statistiques)\b/.test(t)) return 'kpi_cards';
+      if (/\b(graphique|courbe|histogramme|camembert|diagramme en barres|évolution|tendance|croissance|progression|repartition|répartition)\b/.test(t)) return 'chart';
+      if (/\b(chronologie|historique|timeline|frise|dates passées|quand s.est.il passé|au fil du temps)\b/.test(t)) return 'timeline';
+      if (/\b(roadmap|feuille de route|phases?|étapes? successives|d'abord.*ensuite|plan sur \d+|sur \d+ mois|sur \d+ ans|stratégie.*\d+ ans)\b/.test(t)) return 'roadmap';
+      if (/\b(comparer?|versus|vs\b|plutôt.*ou|avantages.*inconvénients|pros.*cons|différence entre|en face de|opposé à)\b/.test(t)) return 'comparison';
+      if (/\b(document|pdf|contrat|devis|facture|analyse de fichier|upload|téléchargement|fichier joint)\b/.test(t)) return 'document_insight';
+      // Types existants
       if (/\b(tableau|table|colonnes?|données|compare[zr]?|liste[zr]?|grille|affiche.*(données|résultats|chiffres))\b/.test(t)) return 'data_board';
       if (/\b(courrier|lettre|mail|email|message officiel|réponse écrite|rédige|redige|écris|ecris|brouillon|note officielle)\b/.test(t)) return 'document_draft';
       if (/\b(checklist|liste de tâches?|plan d'?action|todo|étapes?|etapes?|organise|fais.*(liste|plan|checklist))\b/.test(t)) return 'action_board';
@@ -3439,11 +3493,78 @@
         context: 'Analyse contextuelle.',
         missing: []
       };
+      // Phase 1 — nouveaux types
+      if (renderType === 'kpi_cards') return {
+        kpis: [
+          { label: 'Indicateur principal', value: '—', trend: 'flat' },
+          { label: 'Évolution', value: '—', trend: 'flat' },
+          { label: 'Objectif', value: '—', trend: 'flat' }
+        ],
+        summary: 'KPIs provisoires — précisez les données à mesurer.',
+        context: 'Métriques demandées : ' + (ask.substring(0,60)||'?'),
+        missing: ['La période de référence', 'La source des données', 'L\'objectif cible']
+      };
+      if (renderType === 'chart') return {
+        type: 'bar',
+        labels: ['Période 1', 'Période 2', 'Période 3'],
+        datasets: [{ label: 'Valeur', data: [0, 0, 0] }],
+        title: 'Évolution',
+        summary: 'Graphique provisoire — fournissez les données chiffrées.',
+        context: 'Graphique demandé : ' + (ask.substring(0,60)||'?'),
+        missing: ['Les données chiffrées', 'L\'échelle temporelle', 'Le type de graphique préféré']
+      };
+      if (renderType === 'timeline') return {
+        events: [
+          { date: 'Phase 1', title: 'Démarrage', description: ask||'—' },
+          { date: 'Phase 2', title: 'Développement', description: 'À préciser avec Iris' },
+          { date: 'Phase 3', title: 'Finalisation', description: 'Validation requise' }
+        ],
+        summary: 'Chronologie provisoire — précisez les dates et événements clés.',
+        context: 'Timeline demandée : ' + (ask.substring(0,60)||'?'),
+        missing: ['Les dates clés', 'Les événements marquants', 'La granularité souhaitée']
+      };
+      if (renderType === 'roadmap') return {
+        phases: [
+          { title: 'Phase 1 — Fondation', description: 'Définition et mise en place', status: 'pending' },
+          { title: 'Phase 2 — Construction', description: 'Développement et itérations', status: 'pending' },
+          { title: 'Phase 3 — Déploiement', description: 'Mise en production et scaling', status: 'pending' }
+        ],
+        summary: 'Roadmap provisoire — précisez les phases et échéances.',
+        context: 'Roadmap demandée : ' + (ask.substring(0,60)||'?'),
+        missing: ['Les échéances par phase', 'Les ressources nécessaires', 'Les livrables attendus']
+      };
+      if (renderType === 'comparison') return {
+        title_left: 'Option A',
+        title_right: 'Option B',
+        rows: [
+          { label: 'Critère 1', left: '—', right: '—', winner: 'none' },
+          { label: 'Critère 2', left: '—', right: '—', winner: 'none' },
+          { label: 'Critère 3', left: '—', right: '—', winner: 'none' }
+        ],
+        summary: 'Comparaison provisoire — précisez les options à comparer.',
+        context: 'Comparaison demandée : ' + (ask.substring(0,60)||'?'),
+        missing: ['Les options à comparer', 'Les critères de comparaison', 'Les données chiffrées']
+      };
+      if (renderType === 'document_insight') return {
+        title: 'Analyse de document',
+        boxes: [
+          { title: 'Résumé', body: ask||'—' },
+          { title: 'Points clés', body: 'À extraire du document' },
+          { title: 'Risques', body: 'À évaluer après analyse' },
+          { title: 'Actions', body: 'À définir avec Iris' }
+        ],
+        tags: [
+          { label: 'Analyse requise', type: 'info' }
+        ],
+        summary: 'Analyse provisoire — uploadez le document pour une extraction complète.',
+        context: 'Document demandé : ' + (ask.substring(0,60)||'?'),
+        missing: ['Le document à analyser', 'Le type de document', 'Les points d\'attention spécifiques']
+      };
       return {
         question: 'Pour traiter cette demande, Iris a besoin de précisions.',
         missing_fields: ['Le type de rendu souhaité'],
         provided_fields: { demande: ask },
-        suggestions: ['Tableau', 'Courrier', 'Checklist', 'Analyse']
+        suggestions: ['Tableau', 'Graphique', 'Roadmap', 'KPIs', 'Comparaison', 'Analyse']
       };
     }
 
@@ -3538,6 +3659,138 @@
         +(p.summary?'<div class="ics-summary" style="margin-top:8px">'+_esc(p.summary)+'</div>':'')+'</div>';
     }
 
+    function _icsRenderKpiCards(p) {
+      var kpis = (p.kpis||[]).map(function(k,i){
+        var trend = k.trend || 'flat';
+        var trendCls = trend==='up'?'up':trend==='down'?'down':'';
+        var trendSym = trend==='up'?'▲':trend==='down'?'▼':'—';
+        return '<div class="ics-kpi-card ics-row-anim" style="animation-delay:'+(i*0.05)+'s">'
+          +'<div class="ics-kpi-value">'+_esc(String(k.value||'0'))+'</div>'
+          +'<div class="ics-kpi-label">'+_esc(k.label||'')+'</div>'
+          +(trend!=='flat'?'<div class="ics-kpi-trend '+trendCls+'">'+trendSym+' '+_esc(String(k.change||''))+'</div>':'')
+          +'</div>';
+      }).join('');
+      return '<div class="ics-kpi-grid">'+kpis+'</div>'
+        +(p.summary?'<div class="ics-summary">'+_esc(p.summary)+'</div>':'');
+    }
+
+    var _icsLastChart = null;
+    function _icsRenderChart(p) {
+      var cid = 'icsChart_' + Date.now();
+      var labels = p.labels || [];
+      var datasets = (p.datasets || []).map(function(d, idx){
+        var colors = ['rgba(0,210,255,0.7)','rgba(139,116,247,0.7)','rgba(57,255,138,0.7)','rgba(255,183,77,0.7)','rgba(255,107,123,0.7)'];
+        var borderColors = ['#00D2FF','#8B74F7','#39FF8A','#FFB74D','#FF6B7B'];
+        return {
+          label: d.label || '',
+          data: d.data || [],
+          backgroundColor: d.backgroundColor || colors[idx % colors.length],
+          borderColor: d.borderColor || borderColors[idx % borderColors.length],
+          borderWidth: 1,
+          tension: 0.3,
+          fill: p.type === 'line'
+        };
+      });
+      setTimeout(function(){
+        var canvas = document.getElementById(cid);
+        if (!canvas) return;
+        var ctx2d = canvas.getContext('2d');
+        if (_icsLastChart) { try { _icsLastChart.destroy(); } catch(e){} }
+        _icsLastChart = new Chart(ctx2d, {
+          type: p.type || 'bar',
+          data: { labels: labels, datasets: datasets },
+          options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: {
+              legend: { labels: { color: 'rgba(255,255,255,0.6)', font: { family: 'monospace', size: 10 } } },
+              title: { display: !!p.title, text: p.title||'', color: 'rgba(255,255,255,0.8)', font: { family: 'monospace', size: 11 } }
+            },
+            scales: (p.type==='doughnut'?{}:{
+              x: { ticks: { color: 'rgba(255,255,255,0.4)', font: { family: 'monospace', size: 9 } }, grid: { color: 'rgba(255,255,255,0.05)' } },
+              y: { ticks: { color: 'rgba(255,255,255,0.4)', font: { family: 'monospace', size: 9 } }, grid: { color: 'rgba(255,255,255,0.05)' } }
+            })
+          }
+        });
+      }, 50);
+      return '<div class="ics-chart-wrap"><canvas id="'+cid+'"></canvas></div>'
+        +(p.summary?'<div class="ics-summary">'+_esc(p.summary)+'</div>':'');
+    }
+
+    function _icsRenderTimeline(p) {
+      var items = (p.events||[]).map(function(e,i){
+        return '<div class="ics-tl-item ics-row-anim" style="animation-delay:'+(i*0.08)+'s">'
+          +'<div class="ics-tl-dot"></div>'
+          +'<div class="ics-tl-date">'+_esc(e.date||'')+'</div>'
+          +'<div class="ics-tl-title">'+_esc(e.title||'')+'</div>'
+          +(e.description?'<div class="ics-tl-desc">'+_esc(e.description)+'</div>':'')
+          +'</div>';
+      }).join('');
+      return '<div class="ics-timeline">'+items+'</div>'
+        +(p.summary?'<div class="ics-summary">'+_esc(p.summary)+'</div>':'');
+    }
+
+    function _icsRenderRoadmap(p) {
+      var phases = (p.phases||[]).map(function(ph,i){
+        var num = i + 1;
+        var statusDot = ph.status==='done' ? '<span style="color:var(--ics-green)">●</span>' : ph.status==='active' ? '<span style="color:var(--ics-cyan)">●</span>' : '<span style="color:var(--ics-text3)">○</span>';
+        return '<div class="ics-rm-phase ics-row-anim" style="animation-delay:'+(i*0.08)+'s">'
+          +'<div class="ics-rm-header"><div class="ics-rm-num">'+num+'</div><div class="ics-rm-title">'+statusDot+' '+_esc(ph.title||'')+'</div></div>'
+          +(ph.description?'<div class="ics-rm-desc">'+_esc(ph.description)+'</div>':'')
+          +'</div>';
+      }).join('');
+      return '<div class="ics-roadmap">'+phases+'</div>'
+        +(p.summary?'<div class="ics-summary">'+_esc(p.summary)+'</div>':'');
+    }
+
+    function _icsRenderComparison(p) {
+      var rows = (p.rows||[]).map(function(r){
+        var winner = r.winner || 'none';
+        var leftCls = winner==='left'?' style="color:var(--ics-green);font-weight:700"':'';
+        var rightCls = winner==='right'?' style="color:var(--ics-green);font-weight:700"':'';
+        return '<div class="ics-compare-row"><span'+leftCls+'>'+_esc(String(r.left||'—'))+'</span><span style="color:var(--ics-text3)">'+_esc(r.label||'')+'</span><span'+rightCls+'>'+_esc(String(r.right||'—'))+'</span></div>';
+      }).join('');
+      var leftTitle = '<div class="ics-compare-title">'+_esc(p.title_left||'Option A')+'</div>';
+      var rightTitle = '<div class="ics-compare-title">'+_esc(p.title_right||'Option B')+'</div>';
+      var leftCol = '<div class="ics-compare-col'+(p.winner==='left'?' ics-compare-winner':'')+'">'+leftTitle+rows.replace(/<span style="color:var\(--ics-text3\)">.*?<\/span><span/g,'<span')+'</div>';
+      var rightCol = '<div class="ics-compare-col'+(p.winner==='right'?' ics-compare-winner':'')+'">'+rightTitle+rows.replace(/<span>.*?<\/span><span style="color:var\(--ics-text3\)">.*?<\/span><\/div>/g,'</div>')+'</div>';
+      // Rebuild properly per column
+      var leftRows = (p.rows||[]).map(function(r){
+        var w = r.winner || 'none';
+        var cls = w==='left'?' style="color:var(--ics-green);font-weight:700"':'';
+        return '<div class="ics-compare-row"><span'+cls+'>'+_esc(String(r.left||'—'))+'</span><span style="color:var(--ics-text3);font-size:9px">'+_esc(r.label||'')+'</span></div>';
+      }).join('');
+      var rightRows = (p.rows||[]).map(function(r){
+        var w = r.winner || 'none';
+        var cls = w==='right'?' style="color:var(--ics-green);font-weight:700"':'';
+        return '<div class="ics-compare-row"><span style="color:var(--ics-text3);font-size:9px">'+_esc(r.label||'')+'</span><span'+cls+'>'+_esc(String(r.right||'—'))+'</span></div>';
+      }).join('');
+      return '<div class="ics-compare">'
+        +'<div class="ics-compare-col'+(p.winner==='left'?' ics-compare-winner':'')+'">'+leftTitle+leftRows+'</div>'
+        +'<div class="ics-compare-col'+(p.winner==='right'?' ics-compare-winner':'')+'">'+rightTitle+rightRows+'</div>'
+        +'</div>'+(p.summary?'<div class="ics-summary">'+_esc(p.summary)+'</div>':'');
+    }
+
+    function _icsRenderDocumentInsight(p) {
+      var boxes = (p.boxes||[]).map(function(b,i){
+        return '<div class="ics-insight-box ics-row-anim" style="animation-delay:'+(i*0.06)+'s">'
+          +'<div class="ics-insight-box-title">'+_esc(b.title||'')+'</div>'
+          +'<div class="ics-insight-box-body">'+_esc(b.body||'')+'</div>'
+          +'</div>';
+      }).join('');
+      var tags = (p.tags||[]).map(function(t){
+        return '<span class="ics-insight-tag '+_esc(t.type||'info')+'">'+_esc(t.label||'')+'</span>';
+      }).join('');
+      var actions = (p.actions||[]).map(function(a){
+        return '<button class="ics-btn" style="flex:none;padding:5px 12px;font-size:10px" onclick="_icsSuggestion(\''+_esc(a.label||'')+'\')">'+_esc(a.label||'')+'</button>';
+      }).join('');
+      return '<div>'
+        +(p.title?'<div class="ics-insight-header">'+_esc(p.title)+'</div>':'')
+        +'<div class="ics-insight-grid">'+boxes+'</div>'
+        +(tags?'<div class="ics-insight-actions">'+tags+'</div>':'')
+        +(actions?'<div class="ics-insight-actions" style="margin-top:6px">'+actions+'</div>':'')
+        +'</div>';
+    }
+
     function renderIrisCommand(payload) {
       var panel  = document.getElementById('irisCommandScreen');
       var render = document.getElementById('icsRender');
@@ -3549,23 +3802,37 @@
       var rType = payload.render_type||'context_panel';
       var p = payload.payload||payload;
 
+      if (_icsLastChart) { try { _icsLastChart.destroy(); } catch(e){} _icsLastChart = null; }
+
       var stateMap = {
-        data_board:      ['Construction', 'cyan'],
-        document_draft:  ['Brouillon', 'violet'],
-        action_board:    p.requires_confirmation ? ['Validation requise','amber'] : ['Plan d\'action','violet'],
-        context_panel:   ['Analyse', 'cyan'],
-        missing_info:    ['Infos manquantes', 'amber'],
-        status_rail:     ['Diagnostic', 'cyan']
+        data_board:       ['Construction', 'cyan'],
+        document_draft:   ['Brouillon', 'violet'],
+        action_board:     p.requires_confirmation ? ['Validation requise','amber'] : ['Plan d\'action','violet'],
+        context_panel:    ['Analyse', 'cyan'],
+        missing_info:     ['Infos manquantes', 'amber'],
+        status_rail:      ['Diagnostic', 'cyan'],
+        kpi_cards:        ['Métriques', 'cyan'],
+        chart:            ['Graphique', 'cyan'],
+        timeline:         ['Chronologie', 'cyan'],
+        roadmap:          ['Roadmap', 'violet'],
+        comparison:       ['Comparaison', 'cyan'],
+        document_insight: ['Analyse document', 'violet']
       };
       var si = stateMap[rType]||['En cours','violet'];
 
       var html = '';
-      if      (rType==='data_board')     html = _icsRenderDataBoard(p);
-      else if (rType==='document_draft') html = _icsRenderDocDraft(p);
-      else if (rType==='action_board')   html = _icsRenderActionBoard(p);
-      else if (rType==='context_panel')  html = _icsRenderContextPanel(p);
-      else if (rType==='missing_info')   html = _icsRenderMissingInfo(p);
-      else if (rType==='status_rail')    html = _icsRenderStatusRail(p);
+      if      (rType==='data_board')       html = _icsRenderDataBoard(p);
+      else if (rType==='document_draft')   html = _icsRenderDocDraft(p);
+      else if (rType==='action_board')     html = _icsRenderActionBoard(p);
+      else if (rType==='context_panel')    html = _icsRenderContextPanel(p);
+      else if (rType==='missing_info')     html = _icsRenderMissingInfo(p);
+      else if (rType==='status_rail')      html = _icsRenderStatusRail(p);
+      else if (rType==='kpi_cards')        html = _icsRenderKpiCards(p);
+      else if (rType==='chart')            html = _icsRenderChart(p);
+      else if (rType==='timeline')         html = _icsRenderTimeline(p);
+      else if (rType==='roadmap')          html = _icsRenderRoadmap(p);
+      else if (rType==='comparison')       html = _icsRenderComparison(p);
+      else if (rType==='document_insight') html = _icsRenderDocumentInsight(p);
       else html='<div style="color:var(--ics-text2);font-size:13px">'+_esc(JSON.stringify(p))+'</div>';
 
       render.innerHTML = html;
