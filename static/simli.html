@@ -449,15 +449,17 @@
     @keyframes af-line-in { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: none; } }
     /* Bouton raccrocher audio */
     #afHangup {
-      position: absolute; bottom: calc(16px + env(safe-area-inset-bottom));
+      position: absolute; bottom: calc(24px + env(safe-area-inset-bottom));
       left: 50%; transform: translateX(-50%);
-      background: rgba(200,40,40,0.11); border: 1px solid rgba(200,60,60,0.22);
-      color: rgba(255,110,110,0.65); border-radius: 50px;
-      padding: 11px 30px; font-size: 13px; font-weight: 600; letter-spacing: 1px;
+      background: rgba(220,50,50,0.18); border: 1px solid rgba(220,70,70,0.35);
+      color: rgba(255,130,130,0.85); border-radius: 50px;
+      padding: 15px 44px; font-size: 14px; font-weight: 700; letter-spacing: 1.5px;
+      min-height: 52px; min-width: 160px;
       cursor: pointer; transition: all 0.2s ease; white-space: nowrap;
+      -webkit-tap-highlight-color: rgba(220,50,50,0.3);
+      touch-action: manipulation;
     }
-    #afHangup:hover { background: rgba(200,40,40,0.22); border-color: rgba(200,60,60,0.42); color: rgba(255,130,130,0.9); }
-    #afHangup:active { transform: translateX(-50%) scale(0.97); }
+    #afHangup:hover, #afHangup:active { background: rgba(220,50,50,0.3); border-color: rgba(220,70,70,0.6); color: rgba(255,155,155,1); transform: translateX(-50%) scale(0.97); }
 
     /* ===== SHARE MODAL ===== */
     #shareModal {
@@ -2492,11 +2494,14 @@
     var _vadSilenceTimer = null;
     var _vadActive = false;
     var VAD_RMS_THRESHOLD = 0.018;
-    var VAD_SILENCE_MS = 1400;
+    var VAD_SILENCE_MS = 700;  // réduit 1400→700 : coupe ~700ms sur chaque tour
     // Audio-first mode [AUDIO-FIRST]
     var _audioFirstMode = false;
     var _afSessionStart = 0;
     var _afSessionTimer = null;
+    // Métriques timing
+    var _vadSpeechStartMs = 0;
+    var _vadSpeechEndMs = 0;
 
     function _setIrisState(state) {
       // Legacy PTT orb (masqué en mode audio, maintenu pour sécurité)
@@ -2616,7 +2621,9 @@
           if (_irisAudio) { try { _irisAudio.pause(); URL.revokeObjectURL(_irisAudio.src); } catch(e) {} }
           _irisAudio = new Audio(url);
           _irisAudio.onplay = function() {
-            rLog('info', 'simli', 'time_to_first_audio_ms', String(Date.now() - t0));
+            var tPlay = Date.now();
+            rLog('info', 'simli', 'time_to_first_audio_ms', String(tPlay - t0));
+            if (_vadSpeechEndMs) rLog('info', 'simli', 'turn_total_from_silence_ms', String(tPlay - _vadSpeechEndMs));
             rLog('info', 'simli', 'audio_play_start', '');
             _setIrisState('speaking');
           };
@@ -2662,6 +2669,7 @@
     function _vadStartRecording() {
       if (_vadRecording || !_vadStream) return;
       _vadRecording = true;
+      _vadSpeechStartMs = Date.now();
       _vadChunks = [];
       var options = {};
       if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) options.mimeType = 'audio/webm;codecs=opus';
@@ -2677,6 +2685,8 @@
     function _vadStopRecording() {
       if (!_vadRecording || !_vadMediaRecorder) return;
       _vadRecording = false;
+      _vadSpeechEndMs = Date.now();
+      rLog('info', 'simli', 'speech_end_ms', String(_vadSpeechEndMs - (_vadSpeechStartMs || _vadSpeechEndMs)));
       _setIrisState('thinking');
       try { _vadMediaRecorder.stop(); } catch(e) {}
     }
@@ -2880,7 +2890,10 @@
       }
 
       rLog('warn', 'simli', 'vad_getusermedia_fallback', 'piste Daily absente — demande micro secondaire');
-      navigator.mediaDevices.getUserMedia({ audio: true, video: false })
+      navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+        video: false
+      })
         .then(function(stream) { _setupVADStream(stream, 'getUserMedia', true); })
         .catch(function(e) {
           rLog('warn', 'simli', 'vad_mic_err', String(e).substring(0, 60));
@@ -3093,6 +3106,15 @@
     function doHangup() {
       if (_hangupInProgress) return;
       _hangupInProgress = true;
+      // Fallback dur : navigation garantie dans 2.5s quelle que soit l'erreur
+      var _hangupNavTimer = setTimeout(function() { window.location.href = '/'; }, 2500);
+      // Arrêt immédiat de l'audio Iris
+      if (_irisAudio) {
+        try { _irisAudio.pause(); URL.revokeObjectURL(_irisAudio.src); } catch(e) {}
+        _irisAudio = null;
+      }
+      _irisReplying = false;
+      _vadBusy = false;
       // Arrêter minuterie audio-first [AUDIO-FIRST]
       if (_afSessionTimer) { clearInterval(_afSessionTimer); _afSessionTimer = null; }
       var afHangupEl = document.getElementById('afHangup');
@@ -3132,7 +3154,7 @@
       ambientAudioEl.pause();
       phoneSfxEl.pause();
       // Auto-save notes — attendre la réponse avant de naviguer (sinon Android tue la requête)
-      var doNavigate = function() { window.location.href = '/'; };
+      var doNavigate = function() { clearTimeout(_hangupNavTimer); window.location.href = '/'; };
       var hasContent = transcriptAtHangup.length > 0 || convIdAtHangup;
       if (hasContent) {
         var saveTimeout = new Promise(function(r){ setTimeout(r, 1200); });
