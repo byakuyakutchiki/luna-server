@@ -3258,14 +3258,14 @@
     var _icsFormBound = false;
 
     function _esc(s) {
-      return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+      return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
     }
 
     function inferCommandRenderFromText(text) {
       var t = String(text||'').toLowerCase();
       if (/\b(tableau|table|colonnes?|données|compare[zr]?|liste[zr]?|grille|affiche.*(données|résultats|chiffres))\b/.test(t)) return 'data_board';
       if (/\b(courrier|lettre|mail|email|message officiel|réponse écrite|rédige|redige|écris|ecris|brouillon|note officielle)\b/.test(t)) return 'document_draft';
-      if (/\b(checklist|liste de tâches?|plan d.action|todo|étapes?|etapes?|organise|fais.*(liste|plan|checklist))\b/.test(t)) return 'action_board';
+      if (/\b(checklist|liste de tâches?|plan d['’']?action|todo|étapes?|etapes?|organise|fais.*(liste|plan|checklist))\b/.test(t)) return 'action_board';
       if (/\b(état|etat|statut|services?|diagnostic|quotas?|santé|sante|check)\b/.test(t)) return 'status_rail';
       if (/\b(explique|analyse[zr]?|résume|resume|contexte|comprends?|qu.est-ce)\b/.test(t)) return 'context_panel';
       if (/\b(panneau|command screen|workspace|bureau|workbench|espace de travail)\b/.test(t)) return 'data_board';
