@@ -1295,3 +1295,14 @@ Fichier concerné : docs/AGENTS_COLLABORATION/OBJECTIF_021_IRIS_CAPABILITY_GATEW
 Risque : eleve si l'equipe continue a livrer des panneaux jolis mais non branches aux outils reels
 Décision Ludovic requise : oui avant deploy visible/action sensible
 Action proposée : Kimi + DeepSeek livrent audits 021 gateway, puis Codex donne consigne executable a Claude.
+
+---
+
+Agent : Codex
+Objectif : transversal
+Type : regle de livraison / cellule target
+Résumé : Cellule Target creee. Toute fonctionnalite doit maintenant passer par objectif -> target exacte -> capacites -> chemin utilisateur -> backend -> frontend -> garde-fous -> preuve. Un code sans preuve terrain reste `code non prouve`. Un rendu joli sans outil reel reste `partiel`. Le registre Target suit Iris Capability Gateway, Command Screen et Teams.
+Fichier concerné : docs/AGENTS_COLLABORATION/TARGET_CELL.md ; docs/AGENTS_COLLABORATION/TARGET_REGISTER.md ; docs/AGENTS_COLLABORATION/AGENT_RULES_LIGHT.md
+Risque : moyen si les agents continuent a livrer sans remplir la target
+Décision Ludovic requise : non
+Action proposée : Claude/Kimi/DeepSeek/Codex utilisent TARGET_CELL avant chaque livraison et mettent TARGET_REGISTER a jour.

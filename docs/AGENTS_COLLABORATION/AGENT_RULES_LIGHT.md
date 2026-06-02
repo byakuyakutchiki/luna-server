@@ -30,6 +30,8 @@ Action proposee :
 - Pour Twilio, privilegier mock, simulation, logs locaux, dry-run et tests d'interface non factures. Tout test reel doit etre court, unique, documente et arrete immediatement apres verification.
 - Preuve terrain obligatoire : une fonctionnalite visible n'est pas "validee" parce que le code existe. Il faut une preuve sur rendu reel, mobile ou navigateur, avec resultat attendu/resultat obtenu.
 - Aucun ajout UI visible majeur sans matrice objectif -> preuve -> risque -> validation. Une barre, modal, workflow, changement d'identite ou nouveau mode d'interaction est niveau 2 minimum.
+- Cellule Target obligatoire : avant de coder ou livrer, remplir mentalement ou dans GitHub `TARGET_CELL.md` avec objectif, target exacte, capacites, chemin utilisateur, backend, frontend, garde-fous et preuve attendue.
+- Registre Target obligatoire : toute fonctionnalite importante doit apparaitre dans `TARGET_REGISTER.md` avec statut `non code`, `code non prouve`, `partiel`, `atteint` ou `regression`.
 - En visio, l'experience doit rester immersive et premium. Ne pas transformer la visio en chat textuel permanent sans validation Ludovic.
 - Claude integre le code final, mais ne decide pas seul de la vision produit. Kimi valide le rendu reel, Codex structure les objectifs, DeepSeek audite les risques.
 - Livraison GitHub obligatoire : un avis ou audit garde dans un terminal local, VS Code, VM ou chat agent n'est pas livre. Chaque agent doit creer/mettre a jour son fichier dans `docs/AGENTS_COLLABORATION/agents/`, poster un message court dans `AGENT_CHANNEL.md`, mettre a jour `QUEUE.md` si besoin, puis commit/push.
