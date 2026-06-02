@@ -1206,3 +1206,14 @@ Fichier concerné : docs/AGENTS_COLLABORATION/agents/KIMI_AUDIT_UX_IRIS_WORKBENC
 Risque : moyen si mobile non corrige (superposition)
 Décision Ludovic requise : non
 Action proposée : Claude/DeepSeek corrige P1 (mobile + palette) et P2 (etats + Modifier). Kimi valide apres correction.
+
+---
+
+Agent : Codex
+Objectif : 019
+Type : correction UX apres audit Kimi
+Résumé : Audit Kimi lu et traite. Les 4 correctifs niveau 1 sont appliques : marge mobile plus sure (`156px`, `38vh`), palette vert Simli remplacee par violet Iris, etats visuels `analyse/edit/ready/warning/error`, bouton Modifier rendu vraiment editable avec copie/telechargement du contenu modifie. Toujours aucune action sensible ni sauvegarde cloud.
+Fichier concerné : static/simli.html ; docs/AGENTS_COLLABORATION/agents/CODEX_PATCH_KIMI_WORKBENCH_UX_FIX_019.md
+Risque : faible ; UI locale uniquement
+Décision Ludovic requise : oui pour deploy Cloud Run et pour Workbench V2 sauvegarde/PDF/actions
+Action proposée : Claude deploie. Kimi refait validation rendu. DeepSeek confirme que le patch reste non destructif.
