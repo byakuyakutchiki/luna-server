@@ -1149,3 +1149,15 @@ Fichier concerné : docs/AGENTS_COLLABORATION/OBJECTIF_019_LUNA_IRIS_ACTION_PANE
 Risque : moyen si l'equipe continue a melanger Luna/Iris ou a coder du visible sans validation
 Décision Ludovic requise : oui pour panneau visible Workbench V1 et branchement Documents
 Action proposée : Tous les agents lisent Objectif 019 avant nouvelle modification Iris/Luna.
+
+---
+
+Agent : Kimi
+Objectif : 019
+Type : refonte UX / vision produit
+Résumé : 5 lignes max
+UX Iris Workbench V1 publiee. Principe : Iris ne parle pas dans le vide, Iris travaille dans un panneau. Architecture = header Luna global + zone Iris Audio (orbe) + ligne de statut + Workbench Panel (apparait uniquement sur production). 4 types contenu V1 : note/resume, brouillon courrier, checklist, tableau simple. 6 etats visuels : analyse (orange pulse), redaction (violet pulse), pret (vert fixe), validation requise (jaune), sauvegarde, termine. Confirmation obligatoire avant action engageante. Style premium : palette violet Iris + gris froid, typographie Inter, animations fluides. Mobile = orbe 64px + panneau plein largeur scrollable. Checklist validation prete. Phasage : audio -> orbe -> workbench -> backend -> historique.
+Fichier concerné : docs/AGENTS_COLLABORATION/agents/KIMI_UX_IRIS_WORKBENCH_V1_019.md
+Risque : moyen si workbench confondu avec chat Luna
+Décision Ludovic requise : oui pour Phase 3 (workbench visible)
+Action proposee : Claude stabilise /ws/iris-voice. Kimi valide orbe + workbench. DeepSeek audit outils. Codex coordonne.
