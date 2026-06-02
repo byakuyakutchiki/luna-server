@@ -310,6 +310,155 @@
     @keyframes ptt-ring { 0%,100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.18); opacity: 0.22; } }
     @keyframes ptt-ring-active { 0%,100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.28); opacity: 0.12; } }
 
+    /* ===== AUDIO-FIRST VIEW — Iris invisible, présente par la voix (Jarvis / K2000) ===== */
+    /* [AUDIO-FIRST] Pour réactiver la vidéo : supprimer le return; dans _launchVisioFlow() */
+    #audioView {
+      position: fixed; inset: 0; z-index: 25; background: #050510;
+      display: none; flex-direction: column; align-items: center; overflow: hidden;
+    }
+    .af-grid-bg {
+      position: absolute; inset: 0; pointer-events: none; z-index: 0;
+      background-image:
+        linear-gradient(rgba(124,92,252,0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(124,92,252,0.04) 1px, transparent 1px);
+      background-size: 44px 44px;
+      -webkit-mask-image: radial-gradient(ellipse 80% 80% at 50% 50%, black 15%, transparent 68%);
+      mask-image: radial-gradient(ellipse 80% 80% at 50% 50%, black 15%, transparent 68%);
+    }
+    .af-header {
+      position: relative; z-index: 1; width: 100%;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 18px 28px; padding-top: calc(18px + env(safe-area-inset-top));
+    }
+    .af-logo {
+      font-size: 11px; font-weight: 700; letter-spacing: 8px; color: rgba(124,92,252,0.45);
+    }
+    .af-session-time {
+      font-size: 11px; font-weight: 500; letter-spacing: 3px;
+      color: rgba(255,255,255,0.18); font-variant-numeric: tabular-nums;
+    }
+    .af-center {
+      flex: 1; display: flex; flex-direction: column; align-items: center;
+      justify-content: center; position: relative; z-index: 1; gap: 26px;
+    }
+    .af-orb-wrap {
+      position: relative; display: flex; align-items: center; justify-content: center;
+    }
+    .af-orb-rings {
+      position: absolute; pointer-events: none;
+      top: 50%; left: 50%; transform: translate(-50%, -50%);
+      width: 270px; height: 270px;
+    }
+    .af-ring {
+      position: absolute; border-radius: 50%;
+      top: 50%; left: 50%; transform: translate(-50%, -50%);
+      border: 1px solid rgba(124,92,252,0.12);
+      transition: border-color 0.4s ease;
+    }
+    .af-ring.r1 { width: 172px; height: 172px; }
+    .af-ring.r2 { width: 214px; height: 214px; border-color: rgba(124,92,252,0.07); }
+    .af-ring.r3 { width: 260px; height: 260px; border-color: rgba(124,92,252,0.04); }
+    /* Rings — listening */
+    .af-orb-rings.listening .af-ring.r1 { animation: af-ring-ping 1.4s ease-out infinite; border-color: rgba(255,92,60,0.55); }
+    .af-orb-rings.listening .af-ring.r2 { animation: af-ring-ping 1.4s ease-out 0.35s infinite; border-color: rgba(255,92,60,0.3); }
+    .af-orb-rings.listening .af-ring.r3 { animation: af-ring-ping 1.4s ease-out 0.7s infinite; border-color: rgba(255,92,60,0.14); }
+    /* Rings — thinking */
+    .af-orb-rings.thinking .af-ring.r1 { animation: af-ring-rotate 2.2s linear infinite; border-style: dashed; border-color: rgba(0,160,255,0.3); }
+    .af-orb-rings.thinking .af-ring.r2 { border-color: rgba(0,160,255,0.1); }
+    .af-orb-rings.thinking .af-ring.r3 { border-color: rgba(0,160,255,0.05); }
+    /* Rings — speaking */
+    .af-orb-rings.speaking .af-ring.r1 { animation: af-ring-pulse 0.5s ease-in-out infinite alternate; border-color: rgba(0,220,170,0.45); }
+    .af-orb-rings.speaking .af-ring.r2 { animation: af-ring-pulse 0.5s ease-in-out 0.15s infinite alternate; border-color: rgba(0,220,170,0.22); }
+    .af-orb-rings.speaking .af-ring.r3 { border-color: rgba(0,220,170,0.09); }
+    @keyframes af-ring-ping {
+      0% { transform: translate(-50%,-50%) scale(1); opacity: 0.85; }
+      100% { transform: translate(-50%,-50%) scale(1.65); opacity: 0; }
+    }
+    @keyframes af-ring-rotate {
+      0% { transform: translate(-50%,-50%) rotate(0deg); }
+      100% { transform: translate(-50%,-50%) rotate(360deg); }
+    }
+    @keyframes af-ring-pulse {
+      0% { transform: translate(-50%,-50%) scale(1); }
+      100% { transform: translate(-50%,-50%) scale(1.1); }
+    }
+    /* Orb principal */
+    #irisOrb {
+      width: 130px; height: 130px; border-radius: 50%; border: none; cursor: default;
+      position: relative; z-index: 2;
+      background: radial-gradient(circle at 38% 32%, #2d1b69, #1a0a3e);
+      box-shadow: 0 0 60px rgba(124,92,252,0.22), 0 0 120px rgba(124,92,252,0.08),
+                  inset 0 1px 0 rgba(255,255,255,0.06);
+      display: flex; align-items: center; justify-content: center;
+      animation: af-breathe 3.2s ease-in-out infinite;
+      transition: background 0.5s ease, box-shadow 0.5s ease;
+      -webkit-tap-highlight-color: transparent; outline: none;
+    }
+    @keyframes af-breathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.04); } }
+    #irisOrb svg { opacity: 0.3; transition: opacity 0.3s ease; }
+    #irisOrb.listening {
+      background: radial-gradient(circle at 38% 32%, #6a1a0a, #3d0a00);
+      box-shadow: 0 0 80px rgba(255,92,60,0.55), 0 0 160px rgba(255,92,60,0.2),
+                  inset 0 0 40px rgba(255,92,60,0.12);
+      animation: af-listen-pulse 0.55s ease-in-out infinite;
+    }
+    #irisOrb.listening svg { opacity: 0.7; }
+    @keyframes af-listen-pulse { 0%, 100% { transform: scale(1.05); } 50% { transform: scale(1.13); } }
+    #irisOrb.thinking {
+      background: radial-gradient(circle at 38% 32%, #001840, #000d2a);
+      box-shadow: 0 0 60px rgba(0,160,255,0.42), 0 0 120px rgba(0,160,255,0.12),
+                  inset 0 0 30px rgba(0,160,255,0.08);
+      animation: af-think-glow 1.6s ease-in-out infinite;
+    }
+    @keyframes af-think-glow { 0%, 100% { filter: brightness(1); } 50% { filter: brightness(1.28); } }
+    #irisOrb.speaking {
+      background: radial-gradient(circle at 38% 32%, #003d30, #001a15);
+      box-shadow: 0 0 80px rgba(0,220,170,0.52), 0 0 160px rgba(0,220,170,0.18),
+                  inset 0 0 40px rgba(0,220,170,0.1);
+      animation: af-speak-pulse 0.42s ease-in-out infinite alternate;
+    }
+    #irisOrb.speaking svg { opacity: 0.6; }
+    @keyframes af-speak-pulse { 0% { transform: scale(1); } 100% { transform: scale(1.07); } }
+    /* State label */
+    #afStateLabel {
+      font-size: 11px; font-weight: 700; letter-spacing: 4px; text-transform: uppercase;
+      color: rgba(255,255,255,0.2); transition: color 0.35s ease;
+    }
+    #afStateLabel.listening { color: rgba(255,130,80,0.75); }
+    #afStateLabel.thinking  { color: rgba(0,185,255,0.72); }
+    #afStateLabel.speaking  { color: rgba(0,210,165,0.82); }
+    /* Dernier texte Iris */
+    #afLastText {
+      font-size: 13px; color: rgba(255,255,255,0.28); max-width: 290px;
+      text-align: center; line-height: 1.5; font-style: italic;
+      min-height: 20px; padding: 0 16px; transition: color 0.35s ease;
+    }
+    #afLastText.speaking { color: rgba(0,210,165,0.45); }
+    /* Transcript */
+    #afTranscript {
+      position: absolute; bottom: 72px; left: 20px; right: 20px;
+      max-height: 120px; overflow-y: auto; scrollbar-width: none;
+    }
+    #afTranscript::-webkit-scrollbar { display: none; }
+    .af-line {
+      font-size: 11.5px; line-height: 1.55; margin-bottom: 3px;
+      opacity: 0; animation: af-line-in 0.4s ease forwards;
+    }
+    .af-line.user { color: rgba(255,255,255,0.42); }
+    .af-line.iris { color: rgba(0,200,160,0.6); }
+    @keyframes af-line-in { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: none; } }
+    /* Bouton raccrocher audio */
+    #afHangup {
+      position: absolute; bottom: calc(16px + env(safe-area-inset-bottom));
+      left: 50%; transform: translateX(-50%);
+      background: rgba(200,40,40,0.11); border: 1px solid rgba(200,60,60,0.22);
+      color: rgba(255,110,110,0.65); border-radius: 50px;
+      padding: 11px 30px; font-size: 13px; font-weight: 600; letter-spacing: 1px;
+      cursor: pointer; transition: all 0.2s ease; white-space: nowrap;
+    }
+    #afHangup:hover { background: rgba(200,40,40,0.22); border-color: rgba(200,60,60,0.42); color: rgba(255,130,130,0.9); }
+    #afHangup:active { transform: translateX(-50%) scale(0.97); }
+
     /* ===== SHARE MODAL ===== */
     #shareModal {
       position: fixed; inset: 0; z-index: 200; background: rgba(0,0,0,0.7);
@@ -746,6 +895,32 @@
   <!-- HANGUP -->
   <button class="btn-hangup" id="btnHangup">Raccrocher</button>
 
+  <!-- AUDIO-FIRST VIEW — Iris invisible, présente par la voix [AUDIO-FIRST] -->
+  <!-- Pour réactiver la vidéo : supprimer le return; dans _launchVisioFlow() -->
+  <div id="audioView">
+    <div class="af-grid-bg"></div>
+    <div class="af-header">
+      <div class="af-logo">IRIS</div>
+      <div id="afSessionTime" class="af-session-time">00:00</div>
+    </div>
+    <div class="af-center">
+      <div class="af-orb-wrap">
+        <div id="afOrbRings" class="af-orb-rings">
+          <div class="af-ring r1"></div>
+          <div class="af-ring r2"></div>
+          <div class="af-ring r3"></div>
+        </div>
+        <button id="irisOrb" aria-label="Iris — état de la conversation">
+          <svg xmlns="http://www.w3.org/2000/svg" width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+        </button>
+      </div>
+      <div id="afStateLabel">PRÊTE</div>
+      <div id="afLastText"></div>
+    </div>
+    <div id="afTranscript"></div>
+    <button id="afHangup">Raccrocher</button>
+  </div>
+
   <!-- Daily.js SDK -->
   <script crossorigin src="https://unpkg.com/@daily-co/daily-js"></script>
 
@@ -1001,6 +1176,13 @@
     function _startCamTest() {
       var statusEl = document.getElementById('pretestCamStatus');
       var labelEl = document.getElementById('pretestCamLabel');
+      // [AUDIO-FIRST] Mode audio — caméra non requise
+      if (statusEl) statusEl.textContent = '—';
+      if (labelEl) labelEl.textContent = 'Mode audio — caméra non utilisée.';
+      _pretestCamOk = true;
+      _checkPretestReady();
+      return;
+      // [AUDIO-FIRST: disabled below] Réactiver si mode vidéo
       if (statusEl) statusEl.textContent = '⏳';
       if (labelEl) labelEl.textContent = "Demande d'accès à la caméra…";
 
@@ -1782,6 +1964,16 @@
       btnStartBig.disabled = true;
       startLoading.classList.add('visible');
 
+      // ── [AUDIO-FIRST] ──────────────────────────────────────────────────────
+      // Pipeline vidéo (Tavus/Simli/Daily) désactivé temporairement.
+      // Iris = secrétaire IA invisible, présente par la voix uniquement.
+      // Pour réactiver la vidéo : retirer ce bloc jusqu'à "fin AUDIO-FIRST".
+      startScreen.classList.add('hidden');
+      startLoading.classList.remove('visible');
+      _initAudioMode();
+      return;
+      // ── fin AUDIO-FIRST ────────────────────────────────────────────────────
+
       var conversationUrl = null;
       var scene = getCurrentScene();
 
@@ -1840,7 +2032,7 @@
     }
 
     function _handleUpload(file) {
-      if (!file || !dailyCall) return;
+      if (!file) return;
       var btn = document.getElementById('btnUpload');
       if (btn) { btn.textContent = '⏳ Analyse…'; btn.classList.add('uploading'); }
       showToast('📎 Iris prend connaissance de "' + file.name + '"…', 10000);
@@ -1893,7 +2085,7 @@
 
     if (btnUpload) {
       btnUpload.onclick = function() {
-        if (!dailyCall) return;
+        // Disponible en mode audio et vidéo [AUDIO-FIRST]
         uploadInput.value = '';
         uploadInput.click();
       };
@@ -1913,27 +2105,32 @@
     var btnMuteLuna = document.getElementById('btnMuteLuna');
     if (btnMuteLuna) {
       btnMuteLuna.onclick = function() {
-        if (!dailyCall) return;
         _lunaMuted = !_lunaMuted;
-        // Soft-mute : on dit à Luna via la conversation de se taire / reprendre
-        // updateParticipant ne contrôle pas l'audio ENTRANT dans Daily.co
-        try {
-          var silentMsg = _lunaMuted
-            ? '[Instruction système] Tu es maintenant en mode SILENCIEUX. N\'émets AUCUNE réponse vocale. Écoute uniquement. Attends qu\'on te demande explicitement de reprendre la parole.'
-            : '[Instruction système] Tu peux à nouveau parler normalement. Reprends la conversation.';
-          _sendAppMessageToBot({
-            message_type: 'conversation',
-            event_type: 'conversation.echo',
-            conversation_id: currentConvId,
-            properties: { modality: 'text', text: silentMsg }
-          });
-        } catch(e) { rLog('warn', 'simli', 'mute_err', String(e).substring(0,60)); }
+        if (_audioFirstMode) {
+          // Mode audio : stop/restart VAD [AUDIO-FIRST]
+          if (_lunaMuted) {
+            _stopSpeechCapture();
+          } else {
+            _startSpeechCapture();
+          }
+        } else if (dailyCall) {
+          // Mode vidéo : message système au bot Daily
+          try {
+            var silentMsg = _lunaMuted
+              ? '[Instruction système] Tu es maintenant en mode SILENCIEUX. N\'émets AUCUNE réponse vocale. Écoute uniquement. Attends qu\'on te demande explicitement de reprendre la parole.'
+              : '[Instruction système] Tu peux à nouveau parler normalement. Reprends la conversation.';
+            _sendAppMessageToBot({
+              message_type: 'conversation',
+              event_type: 'conversation.echo',
+              conversation_id: currentConvId,
+              properties: { modality: 'text', text: silentMsg }
+            });
+          } catch(e) { rLog('warn', 'simli', 'mute_err', String(e).substring(0,60)); }
+        }
         btnMuteLuna.textContent = _lunaMuted ? '🔇 Iris muette' : '🎙 Iris active';
         btnMuteLuna.classList.toggle('muted', _lunaMuted);
-        showToast(_lunaMuted
-          ? '🔇 Iris écoute sans parler'
-          : '🎙 Iris peut à nouveau parler', 3000);
-        rLog('info', 'simli', 'luna_mute', _lunaMuted ? 'on' : 'off');
+        showToast(_lunaMuted ? '🔇 Iris en pause' : '🎙 Iris à nouveau active', 3000);
+        rLog('info', 'simli', 'iris_mute', _lunaMuted ? 'on' : 'off');
       };
     }
 
@@ -2296,27 +2493,51 @@
     var _vadActive = false;
     var VAD_RMS_THRESHOLD = 0.018;
     var VAD_SILENCE_MS = 1400;
+    // Audio-first mode [AUDIO-FIRST]
+    var _audioFirstMode = false;
+    var _afSessionStart = 0;
+    var _afSessionTimer = null;
 
     function _setIrisState(state) {
+      // Legacy PTT orb (masqué en mode audio, maintenu pour sécurité)
       var orb = document.getElementById('btnPTT');
       var label = document.getElementById('pttLabel');
-      if (!orb || !label) return;
-      orb.classList.remove('listening', 'ptt-processing', 'ptt-speaking');
+      if (orb) orb.classList.remove('listening', 'ptt-processing', 'ptt-speaking');
+      // Audio-first orb [AUDIO-FIRST]
+      var irisOrb   = document.getElementById('irisOrb');
+      var stateEl   = document.getElementById('afStateLabel');
+      var ringsEl   = document.getElementById('afOrbRings');
+      var lastEl    = document.getElementById('afLastText');
+      if (irisOrb) irisOrb.classList.remove('listening', 'thinking', 'speaking');
+      if (ringsEl) ringsEl.classList.remove('listening', 'thinking', 'speaking');
+      if (stateEl) stateEl.className = 'af-state-label'; // reset
+      if (lastEl)  lastEl.classList.remove('speaking');
       switch (state) {
         case 'listening':
-          orb.classList.add('listening');
-          label.textContent = 'ÉCOUTE…';
+          if (orb)    orb.classList.add('listening');
+          if (label)  label.textContent = 'ÉCOUTE…';
+          if (irisOrb) irisOrb.classList.add('listening');
+          if (ringsEl) ringsEl.classList.add('listening');
+          if (stateEl) { stateEl.classList.add('listening'); stateEl.textContent = 'EN ÉCOUTE'; }
           break;
         case 'thinking':
-          orb.classList.add('ptt-processing');
-          label.textContent = 'RÉFLÉCHIT…';
+          if (orb)    orb.classList.add('ptt-processing');
+          if (label)  label.textContent = 'RÉFLÉCHIT…';
+          if (irisOrb) irisOrb.classList.add('thinking');
+          if (ringsEl) ringsEl.classList.add('thinking');
+          if (stateEl) { stateEl.classList.add('thinking'); stateEl.textContent = 'ANALYSE…'; }
           break;
         case 'speaking':
-          orb.classList.add('ptt-speaking');
-          label.textContent = 'RÉPOND…';
+          if (orb)    orb.classList.add('ptt-speaking');
+          if (label)  label.textContent = 'RÉPOND…';
+          if (irisOrb) irisOrb.classList.add('speaking');
+          if (ringsEl) ringsEl.classList.add('speaking');
+          if (stateEl) { stateEl.classList.add('speaking'); stateEl.textContent = 'RÉPOND…'; }
+          if (lastEl)  lastEl.classList.add('speaking');
           break;
         default:
-          label.textContent = 'PARLER';
+          if (label)  label.textContent = 'PARLER';
+          if (stateEl) stateEl.textContent = 'PRÊTE';
       }
     }
 
@@ -2367,6 +2588,9 @@
         var replyText = data.response;
         _conversationHistory.push({ role: 'assistant', content: replyText });
         _visioTranscript.push({ ts: Date.now(), type: 'iris.speech', text: replyText });
+        _afAppendTranscript('iris', replyText);
+        var _afLast = document.getElementById('afLastText');
+        if (_afLast) _afLast.textContent = '“' + replyText.substring(0, 110) + (replyText.length > 110 ? '…' : '') + '”';
         rLog('info', 'simli', 'tts_start', replyText.substring(0, 60));
 
         authFetch('/api/visio/tts', {
@@ -2511,6 +2735,7 @@
         }
         rLog('info', 'simli', 'vad_transcribed', data.text.substring(0, 60));
         _visioTranscript.push({ ts: Date.now(), type: 'user.speech', text: data.text });
+        _afAppendTranscript('user', data.text);
         var micDot = document.getElementById('micDot');
         if (micDot) { micDot.style.opacity = '1'; setTimeout(function() { micDot.style.opacity = '0.4'; }, 800); }
         _irisReply(data.text);
@@ -2547,7 +2772,7 @@
       _vadActive = true;
       var _vadInitTs = Date.now();
       var pttContainer = document.getElementById('pttContainer');
-      if (pttContainer) pttContainer.style.display = 'flex';
+      if (pttContainer && !_audioFirstMode) pttContainer.style.display = 'flex';
       _setIrisState('idle');
       rLog('info', 'simli', 'vad_init', 'ts=' + _vadInitTs);
 
@@ -2694,7 +2919,7 @@
         _vadOwnsStream = false;
       }
       var pttContainer = document.getElementById('pttContainer');
-      if (pttContainer) pttContainer.style.display = 'none';
+      if (pttContainer && !_audioFirstMode) pttContainer.style.display = 'none';
       _setIrisState('idle');
     }
 
@@ -2702,6 +2927,61 @@
 
     function _startSpeechCapture() {
       _startVAD();
+    }
+
+    // =====================================================================
+    // AUDIO-FIRST MODE — init et utilitaires [AUDIO-FIRST]
+    // =====================================================================
+    function _initAudioMode() {
+      _audioFirstMode = true;
+      currentConvId = 'audio_' + Date.now();
+      currentProvider = 'b-lite';
+
+      // Masquer les couches vidéo
+      if (tavusFrameEl) tavusFrameEl.style.display = 'none';
+      var avatarWrap = document.getElementById('avatarWrap');
+      if (avatarWrap) avatarWrap.style.display = 'none';
+
+      // Afficher la vue audio-first
+      var av = document.getElementById('audioView');
+      if (av) av.style.display = 'flex';
+
+      // Barre d'actions : masquer les boutons qui nécessitent une salle Daily
+      var btnInviteEl = document.getElementById('btnInvite');
+      var btnShareEl  = document.getElementById('btnShare');
+      if (btnInviteEl) btnInviteEl.style.display = 'none';
+      if (btnShareEl)  btnShareEl.style.display  = 'none';
+      var bar = document.getElementById('visioActionsBar');
+      if (bar) bar.classList.add('visible');
+
+      // Bouton raccrocher audio-first
+      var afHangupEl = document.getElementById('afHangup');
+      if (afHangupEl) afHangupEl.onclick = doHangup;
+
+      // Minuterie de session
+      _afSessionStart = Date.now();
+      _afSessionTimer = setInterval(function() {
+        var sec = Math.floor((Date.now() - _afSessionStart) / 1000);
+        var m = Math.floor(sec / 60), s = sec % 60;
+        var el = document.getElementById('afSessionTime');
+        if (el) el.textContent = (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
+      }, 1000);
+
+      rLog('info', 'simli', 'audio_mode_init', 'conv=' + currentConvId);
+      _startSpeechCapture();
+    }
+
+    function _afAppendTranscript(role, text) {
+      var container = document.getElementById('afTranscript');
+      if (!container) return;
+      var line = document.createElement('div');
+      line.className = 'af-line ' + role;
+      line.textContent = (role === 'iris' ? 'Iris : ' : 'Vous : ') +
+        text.substring(0, 130) + (text.length > 130 ? '…' : '');
+      container.appendChild(line);
+      container.scrollTop = container.scrollHeight;
+      // Limiter à 12 lignes
+      while (container.childNodes.length > 12) container.removeChild(container.firstChild);
     }
 
     function _stopSpeechCapture() {
@@ -2813,6 +3093,10 @@
     function doHangup() {
       if (_hangupInProgress) return;
       _hangupInProgress = true;
+      // Arrêter minuterie audio-first [AUDIO-FIRST]
+      if (_afSessionTimer) { clearInterval(_afSessionTimer); _afSessionTimer = null; }
+      var afHangupEl = document.getElementById('afHangup');
+      if (afHangupEl) { afHangupEl.disabled = true; afHangupEl.textContent = 'Fermeture…'; }
       if (btnHangup) {
         btnHangup.disabled = true;
         btnHangup.textContent = 'Fermeture…';
