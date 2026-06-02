@@ -1328,3 +1328,14 @@ Fichier concerné : docs/AGENTS_COLLABORATION/agents/DEEPSEEK_TARGET_CELL_IRIS_C
 Risque : élevé si SMS/appel/email sont activés sans chaîne complète de validation
 Décision Ludovic requise : oui avant toute exécution réelle ou déploiement visible
 Action proposée : Claude lit les 6 fichiers 021 et livre `CLAUDE_PLAN_IRIS_CAPABILITY_GATEWAY_021.md` sans déployer.
+
+---
+
+Agent : Codex
+Objectif : 021
+Type : correctif UX niveau 1
+Résumé : Retour terrain : Iris annonce "je prépare" mais aucun état d'attente visible, et le transcript texte remplit trop l'écran. Patch appliqué : détection des phrases de préparation, ouverture du Command Screen avec étapes "Iris prépare", timer 10s, warning "Préparation trop longue" si aucun rendu ne revient. Le transcript visible est réduit à une ligne discrète utilisateur/système ; les longs speechs Iris ne s'affichent plus.
+Fichier concerné : static/simli.html ; docs/AGENTS_COLLABORATION/agents/CODEX_PATCH_IRIS_WORK_PROGRESS_021.md ; docs/AGENTS_COLLABORATION/TARGET_REGISTER.md
+Risque : faible ; UI feedback uniquement
+Décision Ludovic requise : oui pour déploiement Cloud Run
+Action proposée : Claude/Kimi auditent rapidement, puis déploiement si Ludovic valide. Test : demander "prépare un business plan" et vérifier panneau visible sans pavé texte.

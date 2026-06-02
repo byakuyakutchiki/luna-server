@@ -436,16 +436,19 @@
     #afLastText.speaking { color: rgba(0,210,165,0.45); }
     /* Transcript */
     #afTranscript {
-      position: absolute; bottom: 154px; left: 20px; right: 20px;
-      max-height: 120px; overflow-y: auto; scrollbar-width: none;
+      position: absolute; bottom: 154px; left: 50%; transform: translateX(-50%);
+      width: min(520px, calc(100% - 40px)); max-height: 38px;
+      overflow: hidden; scrollbar-width: none; text-align: center;
+      pointer-events: none; opacity: 0.58;
     }
     #afTranscript::-webkit-scrollbar { display: none; }
     .af-line {
-      font-size: 11.5px; line-height: 1.55; margin-bottom: 3px;
+      font-size: 10.5px; line-height: 1.35; margin-bottom: 2px;
       opacity: 0; animation: af-line-in 0.4s ease forwards;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
-    .af-line.user { color: rgba(255,255,255,0.42); }
-    .af-line.iris { color: rgba(0,200,160,0.6); }
+    .af-line.user { color: rgba(255,255,255,0.28); }
+    .af-line.iris { display: none; }
     @keyframes af-line-in { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: none; } }
     /* Bouton raccrocher audio */
     #afHangup {
@@ -716,6 +719,22 @@
     .ics-think-dots span:nth-child(2) { animation-delay: 0.2s; }
     .ics-think-dots span:nth-child(3) { animation-delay: 0.4s; }
     @keyframes ics-tdot { 0%,80%,100%{opacity:0.15;transform:scale(0.7);} 40%{opacity:1;transform:scale(1.3);} }
+    .ics-work-card {
+      border: 1px solid rgba(0,210,255,0.12); background: rgba(0,210,255,0.025);
+      border-radius: 3px; padding: 14px 14px 12px; font-family: monospace;
+    }
+    .ics-work-title { color: var(--ics-cyan); font-size: 11px; font-weight: 700; letter-spacing: 1.8px; text-transform: uppercase; margin-bottom: 9px; }
+    .ics-work-sub { color: var(--ics-text2); font-size: 12px; line-height: 1.55; margin-bottom: 12px; }
+    .ics-work-steps { display: grid; gap: 7px; }
+    .ics-work-step { display: flex; align-items: center; gap: 8px; color: var(--ics-text2); font-size: 11px; }
+    .ics-work-step::before {
+      content: ""; width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;
+      background: var(--ics-cyan); box-shadow: 0 0 8px rgba(0,210,255,0.45);
+      animation: ics-pulse 1.4s ease-in-out infinite;
+    }
+    .ics-work-warn { border-color: rgba(255,183,77,0.28); background: rgba(255,183,77,0.055); }
+    .ics-work-warn .ics-work-title { color: var(--ics-amber); }
+    .ics-work-warn .ics-work-step::before { background: var(--ics-amber); box-shadow: 0 0 8px rgba(255,183,77,0.35); }
     /* Animation de construction progressive */
     @keyframes ics-buildin {
       from { opacity: 0; transform: translateX(-8px); }
@@ -3660,6 +3679,7 @@
     var _icsLastUserSpoke = 0;
     var _icsIrisResponseText = '';
     var _icsFallbackTimer = null;
+    var _icsWorkTimer = null;
 
     // Affiche le panneau en mode "Iris réfléchit" dès que l'utilisateur parle
     function _icsShowThinking() {
@@ -3677,6 +3697,62 @@
       _icsSetState('ANALYSE...', 'amber');
       panel.className = 'ics-panel open st-analyse';
       if (view) view.classList.add('ics-open');
+    }
+
+    function _icsLooksLikeWorkPromise(text) {
+      var t = String(text || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      return /\b(je prepare|je vais preparer|je cree|je vais creer|je te cree|je redige|je vais rediger|je genere|je vais generer|je construis|je vais construire|je m'en occupe|patiente|un instant|quelques instants|maintenant)\b/.test(t);
+    }
+
+    function _icsShowWorking(label, detail) {
+      var panel  = document.getElementById('irisCommandScreen');
+      var render = document.getElementById('icsRender');
+      var footer = document.getElementById('icsFooter');
+      var view   = document.getElementById('audioView');
+      if (!panel || !render) return;
+      clearTimeout(_icsWorkTimer);
+      render.innerHTML =
+        '<div class="ics-work-card">' +
+          '<div class="ics-work-title">'+_esc(label || 'Iris prépare')+'</div>' +
+          '<div class="ics-work-sub">'+_esc(detail || 'Je traite la demande et je prépare un rendu visuel exploitable.')+'</div>' +
+          '<div class="ics-work-steps">' +
+            '<div class="ics-work-step">Compréhension de la demande</div>' +
+            '<div class="ics-work-step">Structuration des informations</div>' +
+            '<div class="ics-work-step">Préparation du rendu</div>' +
+          '</div>' +
+        '</div>';
+      if (footer) footer.style.display = 'none';
+      _icsSetState('Préparation...', 'amber');
+      panel.className = 'ics-panel open st-analyse';
+      if (view) view.classList.add('ics-open');
+      _icsWorkTimer = setTimeout(function() {
+        if (_icsLastServerRender > _icsLastUserSpoke) return;
+        _icsShowWorkTimeout();
+      }, 10000);
+      rLog('info','simli','ics_working',label || 'Iris prepare');
+    }
+
+    function _icsShowWorkTimeout() {
+      var panel  = document.getElementById('irisCommandScreen');
+      var render = document.getElementById('icsRender');
+      var footer = document.getElementById('icsFooter');
+      var view   = document.getElementById('audioView');
+      if (!panel || !render) return;
+      render.innerHTML =
+        '<div class="ics-work-card ics-work-warn">' +
+          '<div class="ics-work-title">Préparation trop longue</div>' +
+          '<div class="ics-work-sub">Iris a annoncé une préparation, mais aucun rendu final n’est revenu après 10 secondes. Vous pouvez relancer la demande ou demander un rendu plus simple.</div>' +
+          '<div class="ics-work-steps">' +
+            '<div class="ics-work-step">Connexion toujours ouverte</div>' +
+            '<div class="ics-work-step">Rendu final non reçu</div>' +
+            '<div class="ics-work-step">Action utilisateur possible : reformuler ou simplifier</div>' +
+          '</div>' +
+        '</div>';
+      if (footer) footer.style.display = 'none';
+      _icsSetState('À vérifier', 'amber');
+      panel.className = 'ics-panel open st-warning';
+      if (view) view.classList.add('ics-open');
+      rLog('warn','simli','ics_work_timeout','no render after work promise');
     }
 
     // Stagger : anime chaque enfant direct de container avec un délai croissant
@@ -4415,6 +4491,7 @@
       var ctx    = document.getElementById('icsContext');
       var miss   = document.getElementById('icsMissing');
       if (!panel||!render) return;
+      clearTimeout(_icsWorkTimer);
 
       var rType = payload.render_type||'context_panel';
       var p = payload.payload||payload;
@@ -4504,6 +4581,7 @@
     function _icsClose() {
       var panel = document.getElementById('irisCommandScreen');
       var view  = document.getElementById('audioView');
+      clearTimeout(_icsWorkTimer);
       if (panel) { panel.classList.remove('open'); panel.style.display='none'; panel.style.display=''; }
       if (view)  view.classList.remove('ics-open');
       rLog('info','simli','ics_close','');
@@ -4744,6 +4822,7 @@
               _setIrisState('idle');
             } else if (data.type === 'render') {
               _icsLastServerRender = Date.now();
+              clearTimeout(_icsWorkTimer);
               renderIrisCommand(data);
             } else if (data.type === 'transcript') {
               var role = data.role === 'user' ? 'user' : 'iris';
@@ -4757,6 +4836,9 @@
               } else {
                 // Accumule la réponse Iris — debounce 300ms pour laisser tous les chunks arriver
                 _icsIrisResponseText += ' ' + (data.text || '');
+                if (_icsLooksLikeWorkPromise(data.text || '')) {
+                  _icsShowWorking('Iris prépare', data.text || 'Préparation en cours.');
+                }
                 clearTimeout(_icsFallbackTimer);
                 _icsFallbackTimer = setTimeout(function() {
                   if (_icsLastServerRender <= _icsLastUserSpoke) {
@@ -4830,15 +4912,20 @@
     function _afAppendTranscript(role, text) {
       var container = document.getElementById('afTranscript');
       if (!container) return;
+      text = String(text || '').trim();
+      if (!text) return;
+      // Iris doit projeter dans le Command Screen, pas remplir l'écran avec un transcript.
+      if (role === 'iris') return;
       var line = document.createElement('div');
       line.className = 'af-line ' + role;
-      var prefix = role === 'iris' ? 'Iris : ' : role === 'system' ? '' : 'Vous : ';
-      line.textContent = prefix + text.substring(0, 130) + (text.length > 130 ? '…' : '');
-      if (role === 'system') line.style.cssText = 'opacity:0.4;font-size:0.7em;text-align:center;color:#7c5cfc;margin:2px 0;';
+      var prefix = role === 'system' ? '' : 'Demande : ';
+      var maxLen = role === 'system' ? 90 : 72;
+      line.textContent = prefix + text.substring(0, maxLen) + (text.length > maxLen ? '…' : '');
+      if (role === 'system') line.style.cssText = 'opacity:0.42;font-size:10px;text-align:center;color:#7c5cfc;margin:2px 0;';
       container.appendChild(line);
       container.scrollTop = container.scrollHeight;
-      // Limiter à 16 lignes
-      while (container.childNodes.length > 16) container.removeChild(container.firstChild);
+      // Garder seulement le dernier signal visible : l'écran principal doit rester visuel.
+      while (container.childNodes.length > 2) container.removeChild(container.firstChild);
     }
 
     function _stopSpeechCapture() {
