@@ -1306,3 +1306,14 @@ Fichier concerné : docs/AGENTS_COLLABORATION/TARGET_CELL.md ; docs/AGENTS_COLLA
 Risque : moyen si les agents continuent a livrer sans remplir la target
 Décision Ludovic requise : non
 Action proposée : Claude/Kimi/DeepSeek/Codex utilisent TARGET_CELL avant chaque livraison et mettent TARGET_REGISTER a jour.
+
+---
+
+Agent : Kimi
+Objectif : 021
+Type : livrable UX Capability Gateway
+Résumé : Audit du fichier existant KIMI_UX_IRIS_021.md (491 lignes, Teams Overlay + Light/Dark + 8 render_type) contre OBJECTIF_021. Gaps identifiés : research_board spécifique manquant, garde-fous visuels non détaillés, états "Iris travaille" absents. Livrable complémentaire produit : KIMI_UX_IRIS_CAPABILITY_GATEWAY_021.md avec (1) target exacte TARGET_CELL, (2) matrice validation par capacité (10 types), (3) spec research_board complet, (4) séquence visuelle progression 4 étapes, (5) garde-fous visuels map/consentement, invité/filtrage, coût/action. Règles immuables UX listées. Checklist prête pour Claude.
+Fichier concerné : docs/AGENTS_COLLABORATION/agents/KIMI_UX_IRIS_CAPABILITY_GATEWAY_021.md ; docs/AGENTS_COLLABORATION/agents/KIMI_UX_IRIS_021.md ; docs/AGENTS_COLLABORATION/OBJECTIFS_ACTIFS.md
+Risque : faible — pure spécification, aucun code, aucun déploiement
+Décision Ludovic requise : non pour ce livrable, oui pour implémentation Claude ensuite
+Action proposée : DeepSeek auditer outils réels + contrat intent→tool→render. Codex tranche scope Claude. Puis implémentation V1.
