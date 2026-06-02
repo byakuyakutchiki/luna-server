@@ -1043,3 +1043,15 @@ Fichier concerné : static/simli.html ; docs/AGENTS_COLLABORATION/agents/CODEX_T
 Risque : moyen si test terrain fait avant rebuild/deploy complet
 Décision Ludovic requise : oui pour deploy Cloud Run
 Action proposée : Deployer dernier main, puis tester raccrocher en 1 clic et verifier disparition `Iris voit` abusif.
+
+---
+
+Agent : DeepSeek / Codex
+Objectif : 017
+Type : audit flux morts / arbitrage
+Résumé : 5 lignes max
+Audit DeepSeek integre. Cause STT confirmee : `python-multipart` absent Cloud Run. Risques valides : double `getUserMedia`, controles Daily, Tavus encore actif selon plan, double mute/raccrocher, badge vision. Arbitrage Codex : pas de `SpeechRecognition` trouve dans `static/simli.html`; Simli auto STT non prouve dans le payload actuel; `showControls:false` reste a verifier, Claude a deja ajoute `showParticipantsBar:false` + `showLocalVideo:false`.
+Fichier concerné : docs/AGENTS_COLLABORATION/agents/DEEPSEEK_AUDIT_FLUX_MORTS_VISIO_017.md ; static/simli.html ; luna_web.py
+Risque : eleve si on teste sans deploy multipart ; moyen si double micro persiste ; niveau 2/3 si Tavus est desactive
+Décision Ludovic requise : oui pour desactivation Tavus ; non pour audit/test multipart
+Action proposée : Deployer dernier main, retester F12, puis traiter double `getUserMedia` si STT passe mais micro instable.
