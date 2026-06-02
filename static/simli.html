@@ -2496,7 +2496,9 @@
     var _vadMediaRecorder = null;
     var _vadSilenceTimer = null;
     var _vadActive = false;
-    var VAD_RMS_THRESHOLD = 0.018;
+    var VAD_RMS_THRESHOLD = 0.015;  // légèrement plus sensible qu'avant (0.018)
+    var VAD_RMS_MIN_FRAMES = 3;     // au moins 3 frames consécutives avant de démarrer l'enregistrement
+    var _vadVoiceFrames = 0;        // compteur frames consécutives au-dessus du seuil
     var VAD_SILENCE_MS = 700;  // réduit 1400→700 : coupe ~700ms sur chaque tour
     // Audio-first mode [AUDIO-FIRST]
     var _audioFirstMode = false;
@@ -2865,8 +2867,10 @@
             }
 
             if (rms > VAD_RMS_THRESHOLD) {
+              _vadVoiceFrames++;
               if (_vadSilenceTimer) { clearTimeout(_vadSilenceTimer); _vadSilenceTimer = null; }
-              if (!_vadRecording) _vadStartRecording();
+              // Anti-bruit : attendre VAD_RMS_MIN_FRAMES frames consécutives avant de démarrer
+              if (!_vadRecording && _vadVoiceFrames >= VAD_RMS_MIN_FRAMES) _vadStartRecording();
             } else {
               if (_vadRecording && !_vadSilenceTimer) {
                 _vadSilenceTimer = setTimeout(function() {
@@ -2874,6 +2878,7 @@
                   _vadStopRecording();
                 }, VAD_SILENCE_MS);
               }
+              _vadVoiceFrames = 0; // reset compteur quand silence
             }
           };
 
