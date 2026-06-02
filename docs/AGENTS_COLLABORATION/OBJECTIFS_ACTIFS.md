@@ -730,3 +730,70 @@ Aucune regression graphique. Aucun changement majeur sans validation fondateur.
 - [ ] Ludovic a validé la voix (test terrain 30s)
 - [ ] ELEVENLABS_API_KEY configuré sur Cloud Run
 - [ ] Déploiement Cloud Run validé par Ludovic
+
+---
+
+## Objectif 019 — Luna compagnon / Iris opératrice / panneau d'action
+
+**Statut** : ouvert — cadrage produit actif
+**Priorité** : haute
+**Lead coordination** : Codex
+**Date ouverture** : 2026-06-02
+**Document dédié** : `docs/AGENTS_COLLABORATION/OBJECTIF_019_LUNA_IRIS_ACTION_PANEL.md`
+
+### Décision Ludovic
+
+Luna et Iris ne doivent plus être mélangées.
+
+- **Luna** : compagnon conversationnel, conseil, discussion, vision, accompagnement.
+- **Iris** : secrétaire opérationnelle, technique et administrative, capable de produire et d'exécuter avec confirmation.
+
+Luna doit savoir dire que la demande relève d'Iris quand il faut rédiger, classer, préparer un document, faire une action ou gérer un workflow.
+
+### État technique actuel
+
+Le parcours Iris actif est désormais **Iris Audio** :
+
+- `/simli` bascule en mode `AUDIO-FIRST`.
+- Le flux vidéo Simli/Daily est désactivé dans le parcours actif.
+- `/ws/iris-voice` utilise OpenAI Realtime.
+- Les anciens endpoints `/api/visio/transcribe`, `/api/visio/chat`, `/api/visio/tts` restent comme historique/secours.
+
+### Prochaine cible produit
+
+Créer un panneau d'action **Iris Workbench** :
+
+- brouillon de note ;
+- brouillon de courrier ;
+- tableau/checklist ;
+- statut visible : analyse, rédaction, prêt, validation requise ;
+- actions : modifier, télécharger, sauvegarder, annuler ;
+- aucune action sensible sans confirmation explicite.
+
+### Agents concernés
+
+| Agent | Tâche | Statut |
+|---|---|---|
+| **Codex** | Coordination, séparation Luna/Iris, synthèse avant code visible | En cours |
+| **Claude** | Stabiliser `/ws/iris-voice`, préparer implémentation Workbench après validation | À solliciter |
+| **Kimi** | UX premium du panneau Iris Workbench, identité Luna/Iris | À solliciter |
+| **DeepSeek** | Audit outils documents/actions/garde-fous et risques | À solliciter |
+| **Ludovic** | Validation panneau visible et branchement Documents | En attente |
+
+### Interdictions
+
+- Pas de SMS, appel, email, paiement, réservation sans confirmation explicite.
+- Pas de déploiement visible majeur sans validation Ludovic.
+- Pas de mélange Luna/Iris dans les textes.
+- Pas de retour à l'ancien avatar/visio sans décision niveau 2.
+- Pas de stockage document ou export sensible sans garde-fou.
+
+### Validation
+
+- [x] Codex a posé le cadrage Objectif 019.
+- [ ] Claude confirme l'état déployé exact d'Iris Audio.
+- [ ] Kimi propose l'UX Workbench V1.
+- [ ] DeepSeek cartographie les outils documents/actions utilisables.
+- [ ] Ludovic valide le périmètre visible V1.
+- [ ] Implémentation sur patch minimal.
+- [ ] Test réel navigateur + APK.

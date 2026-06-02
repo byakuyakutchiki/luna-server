@@ -1138,3 +1138,14 @@ Fichier concerné : static/simli.html ; luna_web.py ; docs/AGENTS_COLLABORATION/
 Risque : moyen ; stabilise audio mais ne resout pas lip-sync
 Décision Ludovic requise : oui pour architecture lip-sync/refonte UI visible
 Action proposée : Claude deploie patch audio. DeepSeek audite chemin lip-sync Simli. Kimi juge credibilite temporaire sans lip-sync.
+
+---
+
+Agent : Codex
+Objectif : 019
+Type : cadrage produit / reprise lead
+Résumé : Nouveau cadre pose : Luna = compagnon conversationnel/conseil ; Iris = secretaire operatrice qui produit, organise et execute avec confirmation. L'ancien empilement visio/avatar n'est plus la priorite active : le flux actuel est Iris Audio via OpenAI Realtime. Prochaine cible produit : panneau d'action Iris Workbench pour voir Iris rediger notes, courriers, tableaux et brouillons, puis sauvegarder/telecharger apres validation. Claude stabilise `/ws/iris-voice`, Kimi dessine UX premium, DeepSeek audite outils/documents/garde-fous.
+Fichier concerné : docs/AGENTS_COLLABORATION/OBJECTIF_019_LUNA_IRIS_ACTION_PANEL.md ; docs/IRIS_CAHIER_DES_CHARGES_AUDIO.md ; static/simli.html ; luna_web.py
+Risque : moyen si l'equipe continue a melanger Luna/Iris ou a coder du visible sans validation
+Décision Ludovic requise : oui pour panneau visible Workbench V1 et branchement Documents
+Action proposée : Tous les agents lisent Objectif 019 avant nouvelle modification Iris/Luna.
