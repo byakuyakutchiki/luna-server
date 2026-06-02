@@ -589,6 +589,47 @@ VOICE_TOOLS = [
             "required": ["phone_number"]
         }
     },
+    # === SESSION COLLABORATION ===
+    {
+        "type": "function",
+        "name": "invite_to_session",
+        "description": (
+            "Inviter quelqu'un a rejoindre la session Iris collaborative. "
+            "Utilise quand le souscripteur dit 'invite Marie', 'ajoute Pierre a la session', "
+            "'partage la session avec M. Dupont'. "
+            "Genere un lien d'invitation unique. "
+            "role='trusted' pour l'equipe interne, role='guest' pour un client ou collaborateur externe. "
+            "project_filter limite ce que l'invite peut voir (laisser vide = acces projet en cours seulement)."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string",
+                    "description": "Prenom ou nom de la personne a inviter (ex: 'Marie', 'M. Dupont')"
+                },
+                "role": {
+                    "type": "string",
+                    "enum": ["trusted", "guest"],
+                    "description": "trusted = equipe de confiance, guest = collaborateur externe"
+                },
+                "project_filter": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Projets que l'invite peut voir. Vide = projet en cours seulement."
+                },
+                "send_sms": {
+                    "type": "boolean",
+                    "description": "Envoyer le lien par SMS (necessite numero)"
+                },
+                "phone_number": {
+                    "type": "string",
+                    "description": "Numero de telephone pour envoyer le lien d'invitation"
+                }
+            },
+            "required": ["name"]
+        }
+    },
     # === CALL CONTROL ===
     {
         "type": "function",

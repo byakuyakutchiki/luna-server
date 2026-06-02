@@ -17,6 +17,7 @@ Usage:
     await bridge.run()
 """
 import json
+import uuid
 import asyncio
 import logging
 import time as _time
@@ -56,6 +57,12 @@ class WebVoiceBridge:
         greeting: str = "",
         conversation_history: Optional[List[Dict[str, str]]] = None,
         vad_eagerness: str = "low",
+        # Session collaborative
+        session_id: Optional[str] = None,
+        participant_id: Optional[str] = None,
+        participant_role: str = "owner",
+        participant_name: str = "",
+        session_manager=None,  # IrisSessionManager | None
     ):
         self.openai_api_key = openai_api_key
         self.ws_client = ws_client
@@ -77,6 +84,12 @@ class WebVoiceBridge:
         self._openai_errors = 0
         self._last_client_activity = 0.0
         self._start_time = 0.0
+        # Session
+        self._session_id = session_id
+        self._participant_id = participant_id
+        self._participant_role = participant_role
+        self._participant_name = participant_name
+        self._session_manager = session_manager
 
     def _client_connected(self) -> bool:
         """Verifie si le WebSocket client est toujours connecte."""
@@ -629,15 +642,15 @@ class WebVoiceBridge:
 
         logger.info(f"WebVoice tool_call: {function_name}({args})")
 
-        # iris_render : affichage Iris Command Screen — intercepté ici, pas de backend
+        # iris_render : affichage Iris Workspace — broadcast session ou envoi direct
         if function_name == "iris_render":
             render_type = args.get("render_type", "context_panel")
             payload = args.get("payload", {})
-            await self._ws_send_client({
-                "type": "render",
-                "render_type": render_type,
-                "payload": payload,
-            })
+            render_msg = {"type": "render", "render_type": render_type, "payload": payload}
+            if self._session_id and self._session_manager:
+                await self._session_manager.broadcast(self._session_id, render_msg)
+            else:
+                await self._ws_send_client(render_msg)
             await self._ws_send_openai({
                 "type": "conversation.item.create",
                 "item": {
@@ -648,6 +661,103 @@ class WebVoiceBridge:
             })
             await self._ws_send_openai({"type": "response.create"})
             self._tool_calls_log.append(f"iris_render:{render_type}")
+            return
+
+        # invite_to_session : crée un invité et retourne un lien
+        if function_name == "invite_to_session":
+            if not self._session_id or not self._session_manager:
+                _tool_result = {"status": "error",
+                                "message": "Aucune session active. Démarre une session via le bouton dans l'interface."}
+            else:
+                name = args.get("name", "Invité")
+                role = args.get("role", "guest")
+                project_filter = args.get("project_filter", [])
+                pid = str(uuid.uuid4())[:8]
+                participant = {
+                    "participant_id": pid,
+                    "session_id": self._session_id,
+                    "name": name,
+                    "role": role,
+                    "projects_allowed": project_filter,
+                    "can_trigger_actions": False,
+                }
+                self._session_manager.add_participant(self._session_id, participant)
+                invite_token = self._session_manager.create_invite(self._session_id, pid)
+                base_url = os.getenv("VOICE_CALLBACK_URL", "")
+                invite_link = f"{base_url}/join/{invite_token}"
+                # Notifier les autres participants via session_panel render
+                participants = self._session_manager.get_participants(self._session_id)
+                session = self._session_manager.get_session(self._session_id)
+                await self._session_manager.broadcast(self._session_id, {
+                    "type": "render",
+                    "render_type": "session_panel",
+                    "payload": {
+                        "session_name": session.get("name", "Session Iris") if session else "Session Iris",
+                        "participants": [
+                            {"name": p["name"], "role": p["role"], "status": "active" if p.get("online") else "invited"}
+                            for p in participants
+                        ],
+                        "pending_actions": [],
+                    },
+                })
+                _tool_result = {
+                    "status": "ok",
+                    "message": f"Invitation créée pour {name}.",
+                    "invite_link": invite_link,
+                    "role": role,
+                    "participant_id": pid,
+                }
+                logger.info(f"Iris invite created: {name} ({role}) → {invite_link}")
+            await self._ws_send_openai({
+                "type": "conversation.item.create",
+                "item": {
+                    "type": "function_call_output",
+                    "call_id": call_id,
+                    "output": json.dumps(_tool_result, ensure_ascii=False),
+                },
+            })
+            await self._ws_send_openai({"type": "response.create"})
+            return
+
+        # Gating actions sensibles pour les invités (non-owner)
+        _SENSITIVE_TOOLS = {"send_sms", "send_email", "call_contact", "alert_contacts",
+                            "invite_visio", "generate_document", "request_payment",
+                            "book_restaurant", "search_flights", "search_hotels",
+                            "add_expense", "add_reminder", "create_instruction", "create_note"}
+        if self._participant_role != "owner" and function_name in _SENSITIVE_TOOLS:
+            if self._session_id and self._session_manager:
+                aid = self._session_manager.create_pending_action(self._session_id, {
+                    "action_type": function_name,
+                    "payload": args,
+                    "requested_by_name": self._participant_name,
+                    "requested_by_id": self._participant_id,
+                })
+                await self._session_manager.notify_owner(self._session_id, {
+                    "type": "action_pending",
+                    "action_id": aid,
+                    "action_type": function_name,
+                    "requested_by": self._participant_name,
+                    "payload": args,
+                })
+                _gate_result = {
+                    "status": "pending_owner_approval",
+                    "action_id": aid,
+                    "message": f"Action '{function_name}' soumise au souscripteur pour validation.",
+                }
+            else:
+                _gate_result = {
+                    "status": "validation_required",
+                    "message": "Action sensible bloquée — validation du souscripteur requise.",
+                }
+            await self._ws_send_openai({
+                "type": "conversation.item.create",
+                "item": {
+                    "type": "function_call_output",
+                    "call_id": call_id,
+                    "output": json.dumps(_gate_result, ensure_ascii=False),
+                },
+            })
+            await self._ws_send_openai({"type": "response.create"})
             return
 
         # hang_up : arrêter le bridge proprement

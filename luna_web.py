@@ -3520,6 +3520,20 @@ def _decode_client_token(token: str) -> Optional[dict]:
         return None
 
 
+def _decode_participant_token(token: str) -> Optional[dict]:
+    """Decode un JWT participant de session Iris (role='participant')."""
+    if not token:
+        return None
+    try:
+        import jwt as pyjwt
+        payload = pyjwt.decode(token, _JWT_SECRET, algorithms=[_JWT_ALGORITHM])
+        if payload.get("role") != "participant":
+            return None
+        return payload
+    except Exception:
+        return None
+
+
 def _decode_admin_token(token: str) -> Optional[dict]:
     """Decode un JWT admin ou un JWT fondateur (plan=fondateur). Retourne le payload ou None."""
     if not token:
@@ -3804,6 +3818,7 @@ _perception_detector: Optional[object] = None
 _perception_analyzer: Optional[object] = None
 _test_mode: bool = False  # En mode test, les SMS ne sont PAS envoyes
 _notification_engine: Optional[object] = None
+_iris_session_manager: Optional[object] = None  # IrisSessionManager
 
 # Invitations visio en attente de reponse SMS (phone -> {tenant_id, subscriber_name, contact_name, timestamp})
 _pending_visio_invites: Dict[str, Dict] = {}
@@ -3814,13 +3829,19 @@ _visio_scene_cache: Dict[str, str] = {}  # ip -> dernière description (détecti
 
 def _init_core():
     """Initialize core modules. Graceful if Redis is down or imports failed."""
-    global _redis_client, _memory_manager, _safety_guardian, _quota_guard, _scheduler, _executor, _doc_generator, _perception_detector, _perception_analyzer, _notification_engine
+    global _redis_client, _memory_manager, _safety_guardian, _quota_guard, _scheduler, _executor, _doc_generator, _perception_detector, _perception_analyzer, _notification_engine, _iris_session_manager
     if not _CORE_AVAILABLE:
         logger.warning("Core modules non disponibles (import failed) - mode degrade")
         return
     try:
         _redis_client = RedisClient()
         if _redis_client.ping():
+            try:
+                from integrations.iris.session_manager import IrisSessionManager
+                _iris_session_manager = IrisSessionManager(_redis_client)
+                logger.info("Iris Session Manager initialisé")
+            except Exception as _ism_err:
+                logger.warning(f"Iris Session Manager non disponible: {_ism_err}")
             _memory_manager = MemoryManager(
                 tenant_id=TENANT_ID,
                 plan=PlanType.ESSENTIEL,
@@ -8968,16 +8989,271 @@ Phrase interdite :
 Ne dis jamais que tu t'appelles Alex ou Luna. Tu es Iris."""
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# IRIS TEAMS — API collaboration multi-participants
+# ─────────────────────────────────────────────────────────────────────────────
+
+@app.post("/api/iris/session/create")
+async def iris_session_create(request: Request):
+    """Crée une nouvelle session Iris collaborative."""
+    payload = _decode_client_token(request.headers.get("Authorization", "").replace("Bearer ", ""))
+    if not payload:
+        raise HTTPException(status_code=401, detail="Non autorisé")
+    if not _iris_session_manager:
+        raise HTTPException(status_code=503, detail="Session manager non disponible")
+    body = await request.json()
+    name = body.get("name", "Session Iris")
+    tid = payload.get("tenant_id", TENANT_ID)
+    session = _iris_session_manager.create_session(int(tid), name)
+    return JSONResponse({"ok": True, "session": session})
+
+
+@app.get("/api/iris/session/{session_id}/status")
+async def iris_session_status(session_id: str, request: Request):
+    """Retourne le statut d'une session et ses participants."""
+    payload = _decode_client_token(request.headers.get("Authorization", "").replace("Bearer ", ""))
+    if not payload:
+        raise HTTPException(status_code=401, detail="Non autorisé")
+    if not _iris_session_manager:
+        raise HTTPException(status_code=503, detail="Session manager non disponible")
+    session = _iris_session_manager.get_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session introuvable")
+    participants = _iris_session_manager.get_participants(session_id)
+    pending = _iris_session_manager.get_pending_actions(session_id)
+    return JSONResponse({"session": session, "participants": participants, "pending_actions": pending})
+
+
+@app.post("/api/iris/session/{session_id}/invite")
+async def iris_session_invite(session_id: str, request: Request):
+    """Crée une invitation pour un participant."""
+    payload = _decode_client_token(request.headers.get("Authorization", "").replace("Bearer ", ""))
+    if not payload:
+        raise HTTPException(status_code=401, detail="Non autorisé")
+    if not _iris_session_manager:
+        raise HTTPException(status_code=503, detail="Session manager non disponible")
+    session = _iris_session_manager.get_session(session_id)
+    if not session or str(session.get("tenant_id")) != str(payload.get("tenant_id", TENANT_ID)):
+        raise HTTPException(status_code=403, detail="Session introuvable ou accès refusé")
+    body = await request.json()
+    import uuid as _uuid
+    pid = str(_uuid.uuid4())[:8]
+    participant = {
+        "participant_id": pid,
+        "session_id": session_id,
+        "name": body.get("name", "Invité"),
+        "role": body.get("role", "guest"),
+        "projects_allowed": body.get("project_filter", []),
+        "can_trigger_actions": False,
+    }
+    _iris_session_manager.add_participant(session_id, participant)
+    invite_token = _iris_session_manager.create_invite(session_id, pid)
+    base_url = os.getenv("VOICE_CALLBACK_URL", "")
+    invite_link = f"{base_url}/join/{invite_token}"
+    return JSONResponse({"ok": True, "invite_link": invite_link, "participant": participant})
+
+
+@app.post("/api/iris/session/{session_id}/revoke/{participant_id}")
+async def iris_session_revoke(session_id: str, participant_id: str, request: Request):
+    """Exclut un participant de la session."""
+    payload = _decode_client_token(request.headers.get("Authorization", "").replace("Bearer ", ""))
+    if not payload:
+        raise HTTPException(status_code=401, detail="Non autorisé")
+    if not _iris_session_manager:
+        raise HTTPException(status_code=503, detail="Session manager non disponible")
+    _iris_session_manager.remove_participant(session_id, participant_id)
+    return JSONResponse({"ok": True})
+
+
+@app.delete("/api/iris/session/{session_id}")
+async def iris_session_close(session_id: str, request: Request):
+    """Ferme une session Iris."""
+    payload = _decode_client_token(request.headers.get("Authorization", "").replace("Bearer ", ""))
+    if not payload:
+        raise HTTPException(status_code=401, detail="Non autorisé")
+    if not _iris_session_manager:
+        raise HTTPException(status_code=503, detail="Session manager non disponible")
+    _iris_session_manager.close_session(session_id)
+    return JSONResponse({"ok": True})
+
+
+@app.get("/api/iris/session/{session_id}/pending")
+async def iris_session_pending(session_id: str, request: Request):
+    """Liste les actions en attente de validation."""
+    payload = _decode_client_token(request.headers.get("Authorization", "").replace("Bearer ", ""))
+    if not payload:
+        raise HTTPException(status_code=401, detail="Non autorisé")
+    if not _iris_session_manager:
+        raise HTTPException(status_code=503, detail="Session manager non disponible")
+    pending = _iris_session_manager.get_pending_actions(session_id)
+    return JSONResponse({"pending_actions": pending})
+
+
+@app.post("/api/iris/session/{session_id}/approve/{action_id}")
+async def iris_session_approve(session_id: str, action_id: str, request: Request):
+    """Approuve une action en attente (souscripteur uniquement)."""
+    payload = _decode_client_token(request.headers.get("Authorization", "").replace("Bearer ", ""))
+    if not payload:
+        raise HTTPException(status_code=401, detail="Non autorisé")
+    if not _iris_session_manager:
+        raise HTTPException(status_code=503, detail="Session manager non disponible")
+    action = _iris_session_manager.resolve_action(session_id, action_id, approved=True)
+    if not action:
+        raise HTTPException(status_code=404, detail="Action introuvable")
+    # Notifier tous les participants
+    await _iris_session_manager.broadcast(session_id, {
+        "type": "action_resolved",
+        "action_id": action_id,
+        "status": "approved",
+        "action_type": action.get("action_type"),
+    })
+    return JSONResponse({"ok": True, "action": action})
+
+
+@app.post("/api/iris/session/{session_id}/reject/{action_id}")
+async def iris_session_reject(session_id: str, action_id: str, request: Request):
+    """Rejette une action en attente."""
+    payload = _decode_client_token(request.headers.get("Authorization", "").replace("Bearer ", ""))
+    if not payload:
+        raise HTTPException(status_code=401, detail="Non autorisé")
+    if not _iris_session_manager:
+        raise HTTPException(status_code=503, detail="Session manager non disponible")
+    action = _iris_session_manager.resolve_action(session_id, action_id, approved=False)
+    if not action:
+        raise HTTPException(status_code=404, detail="Action introuvable")
+    await _iris_session_manager.broadcast(session_id, {
+        "type": "action_resolved",
+        "action_id": action_id,
+        "status": "rejected",
+        "action_type": action.get("action_type"),
+    })
+    return JSONResponse({"ok": True, "action": action})
+
+
+@app.get("/join/{invite_token}")
+async def iris_join_page(invite_token: str):
+    """Page d'accueil pour les invités — valide le token et retourne la page de connexion."""
+    if not _iris_session_manager:
+        return HTMLResponse("<h2>Service non disponible</h2>", status_code=503)
+    invite = _iris_session_manager.consume_invite(invite_token)
+    if not invite:
+        return HTMLResponse("<h2>Invitation invalide ou expirée.</h2>", status_code=404)
+    sid = invite["session_id"]
+    pid = invite["participant_id"]
+    session = _iris_session_manager.get_session(sid)
+    participants = _iris_session_manager.get_participants(sid)
+    participant = next((p for p in participants if p["participant_id"] == pid), None)
+    if not session or not participant:
+        return HTMLResponse("<h2>Session introuvable.</h2>", status_code=404)
+    # Générer un JWT participant
+    import jwt as pyjwt
+    import time as _time_jwt
+    _ptok = pyjwt.encode({
+        "role": "participant",
+        "session_id": sid,
+        "participant_id": pid,
+        "participant_role": participant.get("role", "guest"),
+        "participant_name": participant.get("name", "Invité"),
+        "tenant_id": int(session.get("tenant_id", TENANT_ID)),
+        "iat": int(_time_jwt.time()),
+        "exp": int(_time_jwt.time()) + SESSION_TTL if SESSION_TTL else int(_time_jwt.time()) + 28800,
+    }, _JWT_SECRET, algorithm=_JWT_ALGORITHM)
+    _session_name = session.get("name", "Session Iris")
+    _participant_name = participant.get("name", "Invité")
+    _role_label = "Invité" if participant.get("role") == "guest" else "Collaborateur"
+    _owner_count = len([p for p in participants if p.get("role") == "owner"])
+    _page = f"""<!doctype html><html lang="fr"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Rejoindre {_session_name}</title>
+<style>
+*{{box-sizing:border-box;margin:0;padding:0}}
+body{{min-height:100vh;background:#000609;color:#e0f5ff;font-family:system-ui,sans-serif;display:flex;align-items:center;justify-content:center;padding:24px}}
+.card{{background:rgba(0,210,255,0.04);border:1px solid rgba(0,210,255,0.2);border-radius:8px;padding:40px 32px;max-width:400px;width:100%;text-align:center}}
+.badge{{display:inline-block;background:rgba(0,210,255,0.1);color:#00D2FF;font-size:11px;letter-spacing:2px;padding:4px 12px;border-radius:20px;margin-bottom:24px;font-weight:600}}
+h1{{font-size:22px;font-weight:700;margin-bottom:8px;color:#fff}}
+p{{color:rgba(180,220,255,0.7);font-size:14px;line-height:1.6;margin-bottom:24px}}
+.role{{color:rgba(139,116,247,0.9);font-weight:600}}
+button{{background:linear-gradient(135deg,#00D2FF,#8B74F7);color:#fff;border:none;border-radius:6px;padding:14px 32px;font-size:16px;font-weight:600;cursor:pointer;width:100%;transition:opacity 0.2s}}
+button:hover{{opacity:0.88}}
+.info{{font-size:12px;color:rgba(180,220,255,0.4);margin-top:16px}}
+</style></head><body>
+<div class="card">
+  <div class="badge">IRIS TEAMS</div>
+  <h1>{_session_name}</h1>
+  <p>Bonjour <strong>{_participant_name}</strong>,<br>
+  Vous êtes invité(e) en tant que <span class="role">{_role_label}</span>.<br>
+  Vous pouvez parler à Iris et voir l'écran partagé.</p>
+  <button onclick="join()">Rejoindre la session</button>
+  <div class="info">Accès limité — actions engageantes soumises à validation</div>
+</div>
+<script>
+function join() {{
+  var token = {repr(_ptok)};
+  window.location.href = '/simli?token=' + encodeURIComponent(token) + '&session={sid}&participant={pid}';
+}}
+</script></body></html>"""
+    return HTMLResponse(_page)
+
+
+@app.post("/api/iris/session/join")
+async def iris_session_join(request: Request):
+    """Échange un invite_token contre un JWT participant (API alternative à /join/{token})."""
+    if not _iris_session_manager:
+        raise HTTPException(status_code=503, detail="Session manager non disponible")
+    body = await request.json()
+    invite_token = body.get("invite_token", "")
+    invite = _iris_session_manager.consume_invite(invite_token)
+    if not invite:
+        raise HTTPException(status_code=404, detail="Invitation invalide ou expirée")
+    sid = invite["session_id"]
+    pid = invite["participant_id"]
+    session = _iris_session_manager.get_session(sid)
+    participants = _iris_session_manager.get_participants(sid)
+    participant = next((p for p in participants if p["participant_id"] == pid), None)
+    if not session or not participant:
+        raise HTTPException(status_code=404, detail="Session ou participant introuvable")
+    import jwt as pyjwt
+    import time as _tj
+    token = pyjwt.encode({
+        "role": "participant",
+        "session_id": sid,
+        "participant_id": pid,
+        "participant_role": participant.get("role", "guest"),
+        "participant_name": participant.get("name", "Invité"),
+        "tenant_id": int(session.get("tenant_id", TENANT_ID)),
+        "iat": int(_tj.time()),
+        "exp": int(_tj.time()) + 28800,
+    }, _JWT_SECRET, algorithm=_JWT_ALGORITHM)
+    return JSONResponse({"ok": True, "token": token, "session_id": sid, "participant_id": pid})
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+
+
 @app.websocket("/ws/iris-voice")
 async def ws_iris_voice(websocket: WebSocket):
-    """Iris Audio — WebSocket direct navigateur <-> OpenAI Realtime API."""
+    """Iris Audio — WebSocket direct navigateur <-> OpenAI Realtime API (solo + session collaborative)."""
     await websocket.accept()
 
     token = websocket.query_params.get("token", "")
-    jwt_payload = _decode_client_token(token) if token else None
+    # Tenter d'abord le décode participant (session collaborative), puis le décode client classique
+    jwt_payload = _decode_participant_token(token) if token else None
+    _is_participant = jwt_payload is not None
+    if not jwt_payload:
+        jwt_payload = _decode_client_token(token) if token else None
     if not jwt_payload:
         await websocket.close(code=4001, reason="Token invalide")
         return
+
+    # --- Mode collaboratif : extraire infos session ---
+    _session_id: Optional[str] = jwt_payload.get("session_id") if _is_participant else None
+    _participant_id: Optional[str] = jwt_payload.get("participant_id") if _is_participant else None
+    _participant_role: str = jwt_payload.get("participant_role", "owner") if _is_participant else "owner"
+    _participant_name: str = jwt_payload.get("participant_name", "") if _is_participant else ""
+
+    # Vérifier le query param ?session= pour le souscripteur qui démarre une session
+    if not _session_id:
+        _session_id = websocket.query_params.get("session") or None
 
     if not OPENAI_API_KEY:
         try:
@@ -8988,8 +9264,10 @@ async def ws_iris_voice(websocket: WebSocket):
         return
 
     tid = jwt_payload.get("tenant_id", TENANT_ID)
-    plan_name = jwt_payload.get("plan", "essentiel")
+    plan_name = jwt_payload.get("plan", "essentiel") if not _is_participant else "essentiel"
     sub_name = jwt_payload.get("first_name", "") or _SUBSCRIBER_NAME
+    if _is_participant:
+        sub_name = _participant_name or "Invité"
 
     budget_err = await _check_budget_guard(tid, plan_name)
     if budget_err:
@@ -9035,6 +9313,33 @@ async def ws_iris_voice(websocket: WebSocket):
     )
     # Personnalité Iris par-dessus le contexte profil.
     context += f"\n\n=== IRIS MODE ===\n{_IRIS_SYSTEM}"
+
+    # Mode collaboratif : injecter le contexte session si active
+    if _session_id and _iris_session_manager:
+        _coll_session = _iris_session_manager.get_session(_session_id)
+        if _coll_session:
+            _coll_parts = _iris_session_manager.get_participants(_session_id)
+            _coll_owner = next((p for p in _coll_parts if p.get("role") == "owner"), None)
+            _owner_name = _coll_owner.get("name", "le souscripteur") if _coll_owner else "le souscripteur"
+            _parts_list = "\n".join([
+                f"- {p.get('name', 'Inconnu')} ({p.get('role', 'guest')})"
+                for p in _coll_parts
+            ])
+            context += f"""
+
+=== IRIS SESSION COLLABORATIVE ===
+Session : {_coll_session.get("name", "Session Iris")}
+Ton rôle vis-à-vis de {_participant_name} : tu réponds à la personne qui parle mais projettes pour tous.
+Participants :
+{_parts_list}
+
+Règles de collaboration :
+- Tu réponds à la personne qui parle, mais tu projettes pour tous.
+- Tu notes les décisions importantes sur l'écran partagé.
+- Actions engageantes (SMS, email, appel) : confirmation {_owner_name} OBLIGATOIRE si demandées par un invité.
+- Tu ne révèles JAMAIS les données d'un projet à un invité non autorisé.
+- Tu gardes un compte-rendu des décisions prises en session.
+"""
 
     async def handle_iris_tool(function_name: str, arguments: Dict) -> Dict:
         """Outils Iris : lecture/recherche autorisées, actions sensibles en attente Workbench."""
@@ -9111,7 +9416,16 @@ async def ws_iris_voice(websocket: WebSocket):
         greeting=_greeting,
         conversation_history=_voice_history,
         vad_eagerness="low",
+        session_id=_session_id,
+        participant_id=_participant_id,
+        participant_role=_participant_role,
+        participant_name=_participant_name,
+        session_manager=_iris_session_manager,
     )
+
+    # Enregistrer le WS dans la session collaborative si active
+    if _session_id and _participant_id and _iris_session_manager:
+        _iris_session_manager.register_ws(_session_id, _participant_id, websocket)
 
     _iris_start = time.time()
     try:
@@ -9123,6 +9437,9 @@ async def ws_iris_voice(websocket: WebSocket):
     except Exception as e:
         logger.error(f"Iris Voice error: {e}")
     finally:
+        # Désenregistrer le WS de la session collaborative
+        if _session_id and _participant_id and _iris_session_manager:
+            _iris_session_manager.unregister_ws(_session_id, _participant_id)
         _iris_dur = round((time.time() - _iris_start) / 60, 2)
         # Sauvegarder la transcription en mémoire
         if bridge.transcript and memory_mgr:
