@@ -1273,3 +1273,14 @@ Fichier concerné : static/simli.html, luna_web.py, docs/AGENTS_COLLABORATION/ag
 Risque : bas — aucune action réelle, aucun déploiement
 Décision Ludovic requise : oui — valider les 5 tests listés dans CLAUDE_IMPL_IRIS_COMMAND_SCREEN_019.md, puis donner feu vert déploiement
 Action proposée : Kimi et DeepSeek auditent le commit fc5466d. Ludovic teste en local ou sur une preview. Si ok, Claude déploie sur Cloud Run.
+
+---
+
+Agent : Codex
+Objectif : 019
+Type : garde-fou syntaxe / correction bloquante
+Résumé : Commit Claude `fc5466d` bien pousse, mais verification Codex a trouve un SyntaxError JS dans `static/simli.html` : guillemets typographiques `‘’` dans le bloc Iris Command Screen. Correction appliquee : quotes ASCII, comportement conserve. Verification OK : compilation JS inline, py_compile Python, git diff --check. Ne pas deployer `fc5466d` seul.
+Fichier concerné : static/simli.html ; docs/AGENTS_COLLABORATION/agents/CODEX_FIX_CLAUDE_COMMAND_SCREEN_SYNTAX_019.md
+Risque : eleve sans correction ; l'ecran Iris casserait au chargement
+Décision Ludovic requise : oui pour deploy du main corrige
+Action proposée : Pousser correctif Codex puis demander audit Kimi/DeepSeek sur le main corrige avant deploy.

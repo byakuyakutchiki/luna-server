@@ -2891,7 +2891,7 @@
         _visioTranscript.push({ ts: Date.now(), type: 'iris.speech', text: replyText });
         _afAppendTranscript('iris', replyText);
         var _afLast = document.getElementById('afLastText');
-        if (_afLast) _afLast.textContent = '“' + replyText.substring(0, 110) + (replyText.length > 110 ? '…' : '') + '”';
+        if (_afLast) _afLast.textContent = '"' + replyText.substring(0, 110) + (replyText.length > 110 ? '…' : '') + '"';
         rLog('info', 'simli', 'tts_start', replyText.substring(0, 60));
 
         authFetch('/api/visio/tts', {
@@ -3258,280 +3258,280 @@
     var _icsFormBound = false;
 
     function _esc(s) {
-      return String(s||’’).replace(/&/g,’&amp;’).replace(/</g,’&lt;’).replace(/>/g,’&gt;’).replace(/"/g,’&quot;’);
+      return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
     }
 
     function inferCommandRenderFromText(text) {
-      var t = String(text||’’).toLowerCase();
-      if (/\b(tableau|table|colonnes?|données|compare[zr]?|liste[zr]?|grille|affiche.*(données|résultats|chiffres))\b/.test(t)) return ‘data_board’;
-      if (/\b(courrier|lettre|mail|email|message officiel|réponse écrite|rédige|redige|écris|ecris|brouillon|note officielle)\b/.test(t)) return ‘document_draft’;
-      if (/\b(checklist|liste de tâches?|plan d.action|todo|étapes?|etapes?|organise|fais.*(liste|plan|checklist))\b/.test(t)) return ‘action_board’;
-      if (/\b(état|etat|statut|services?|diagnostic|quotas?|santé|sante|check)\b/.test(t)) return ‘status_rail’;
-      if (/\b(explique|analyse[zr]?|résume|resume|contexte|comprends?|qu.est-ce)\b/.test(t)) return ‘context_panel’;
-      if (/\b(panneau|command screen|workspace|bureau|workbench|espace de travail)\b/.test(t)) return ‘data_board’;
-      return ‘’;
+      var t = String(text||'').toLowerCase();
+      if (/\b(tableau|table|colonnes?|données|compare[zr]?|liste[zr]?|grille|affiche.*(données|résultats|chiffres))\b/.test(t)) return 'data_board';
+      if (/\b(courrier|lettre|mail|email|message officiel|réponse écrite|rédige|redige|écris|ecris|brouillon|note officielle)\b/.test(t)) return 'document_draft';
+      if (/\b(checklist|liste de tâches?|plan d.action|todo|étapes?|etapes?|organise|fais.*(liste|plan|checklist))\b/.test(t)) return 'action_board';
+      if (/\b(état|etat|statut|services?|diagnostic|quotas?|santé|sante|check)\b/.test(t)) return 'status_rail';
+      if (/\b(explique|analyse[zr]?|résume|resume|contexte|comprends?|qu.est-ce)\b/.test(t)) return 'context_panel';
+      if (/\b(panneau|command screen|workspace|bureau|workbench|espace de travail)\b/.test(t)) return 'data_board';
+      return '';
     }
 
     function _icsBuildPayload(renderType, sourceText) {
-      var ask = String(sourceText||’’).trim();
-      if (renderType === ‘data_board’) return {
-        title: ‘Données’,
-        columns: [‘Sujet’, ‘Détail’, ‘Statut’],
+      var ask = String(sourceText||'').trim();
+      if (renderType === 'data_board') return {
+        title: 'Données',
+        columns: ['Sujet', 'Détail', 'Statut'],
         rows: [
-          [‘Demande reçue’, ask.substring(0,46)||’—‘, ‘analyse’],
-          [‘Données attendues’, ‘À préciser avec Iris’, ‘attente’],
-          [‘Validation’, ‘Confirmation Ludovic requise’, ‘attente’]
+          ['Demande reçue', ask.substring(0,46)||'—', 'analyse'],
+          ['Données attendues', 'À préciser avec Iris', 'attente'],
+          ['Validation', 'Confirmation Ludovic requise', 'attente']
         ],
-        summary: ‘Structure provisoire — Iris attend les informations manquantes.’,
-        context: ‘Tableau demandé : ‘ + (ask.substring(0,60)||’?’),
-        missing: [‘Les colonnes souhaitées’, ‘La source des données’, ‘Le tri ou filtre voulu’]
+        summary: 'Structure provisoire — Iris attend les informations manquantes.',
+        context: 'Tableau demandé : ' + (ask.substring(0,60)||'?'),
+        missing: ['Les colonnes souhaitées', 'La source des données', 'Le tri ou filtre voulu']
       };
-      if (renderType === ‘document_draft’) return {
-        title: ‘Brouillon’,
-        recipient: ‘[Destinataire à préciser]’,
-        body: ‘Madame, Monsieur,\n\nJe me permets de vous contacter concernant : ‘ + (ask||’[objet à préciser]’) + ‘.\n\n[Corps du courrier — Iris complète avec vos informations]\n\nCordialement,\n[Signature]’,
-        placeholders: [‘[Destinataire à préciser]’, ‘[objet à préciser]’, ‘[Signature]’],
-        context: ‘Brouillon basé sur votre demande.’,
-        missing: [‘Le destinataire exact’, "L’objet précis du courrier", ‘Les informations clés’]
+      if (renderType === 'document_draft') return {
+        title: 'Brouillon',
+        recipient: '[Destinataire à préciser]',
+        body: 'Madame, Monsieur,\n\nJe me permets de vous contacter concernant : ' + (ask||'[objet à préciser]') + '.\n\n[Corps du courrier — Iris complète avec vos informations]\n\nCordialement,\n[Signature]',
+        placeholders: ['[Destinataire à préciser]', '[objet à préciser]', '[Signature]'],
+        context: 'Brouillon basé sur votre demande.',
+        missing: ['Le destinataire exact', "L'objet précis du courrier", 'Les informations clés']
       };
-      if (renderType === ‘action_board’) return {
+      if (renderType === 'action_board') return {
         sections: [
-          { title: ‘À faire’, items: [
-            { text: ask||’Action demandée’, done: false, tag: ‘warn’ },
-            { text: ‘Préciser les détails avec Iris’, done: false },
-            { text: ‘Valider avant toute action’, done: false, tag: ‘warn’ }
+          { title: 'À faire', items: [
+            { text: ask||'Action demandée', done: false, tag: 'warn' },
+            { text: 'Préciser les détails avec Iris', done: false },
+            { text: 'Valider avant toute action', done: false, tag: 'warn' }
           ]},
-          { title: ‘Reçu’, items: [{ text: ‘Iris a reçu la demande’, done: true }]}
+          { title: 'Reçu', items: [{ text: 'Iris a reçu la demande', done: true }]}
         ],
-        context: ‘Plan provisoire — aucune action envoyée.’,
-        missing: [‘Les priorités’, ‘Les échéances’, ‘Les responsables’]
+        context: 'Plan provisoire — aucune action envoyée.',
+        missing: ['Les priorités', 'Les échéances', 'Les responsables']
       };
-      if (renderType === ‘status_rail’) return {
+      if (renderType === 'status_rail') return {
         services: [
-          { name: ‘Voix’, status: ‘active’, detail: ‘OpenAI Realtime’ },
-          { name: ‘Command Screen’, status: ‘active’, detail: ‘V1 actif’ },
-          { name: ‘SMS’, status: ‘warn’, detail: ‘Validation requise’ },
-          { name: ‘Documents’, status: ‘active’, detail: ‘Brouillon local’ }
+          { name: 'Voix', status: 'active', detail: 'OpenAI Realtime' },
+          { name: 'Command Screen', status: 'active', detail: 'V1 actif' },
+          { name: 'SMS', status: 'warn', detail: 'Validation requise' },
+          { name: 'Documents', status: 'active', detail: 'Brouillon local' }
         ],
-        summary: ‘Actions sensibles requièrent confirmation explicite.’,
-        context: ‘Statut au ‘ + new Date().toLocaleDateString(‘fr-FR’)
+        summary: 'Actions sensibles requièrent confirmation explicite.',
+        context: 'Statut au ' + new Date().toLocaleDateString('fr-FR')
       };
-      if (renderType === ‘context_panel’) return {
-        title: ‘Analyse de la demande’,
+      if (renderType === 'context_panel') return {
+        title: 'Analyse de la demande',
         sections: [
-          { heading: ‘Demande reçue’, body: ask||’—‘ },
-          { heading: ‘Interprétation’, body: ‘Iris analyse le contexte et prépare une réponse structurée.’ },
-          { heading: ‘Prochaine étape’, body: ‘Précisez le résultat attendu pour construire le bon rendu.’ }
+          { heading: 'Demande reçue', body: ask||'—' },
+          { heading: 'Interprétation', body: 'Iris analyse le contexte et prépare une réponse structurée.' },
+          { heading: 'Prochaine étape', body: 'Précisez le résultat attendu pour construire le bon rendu.' }
         ],
-        context: ‘Analyse contextuelle.’,
+        context: 'Analyse contextuelle.',
         missing: []
       };
       return {
-        question: ‘Pour traiter cette demande, Iris a besoin de précisions.’,
-        missing_fields: [‘Le type de rendu souhaité’],
+        question: 'Pour traiter cette demande, Iris a besoin de précisions.',
+        missing_fields: ['Le type de rendu souhaité'],
         provided_fields: { demande: ask },
-        suggestions: [‘Tableau’, ‘Courrier’, ‘Checklist’, ‘Analyse’]
+        suggestions: ['Tableau', 'Courrier', 'Checklist', 'Analyse']
       };
     }
 
     function _icsRenderDataBoard(p) {
-      var cols = (p.columns||[]).map(function(c){return ‘<th>’+_esc(c)+’</th>’;}).join(‘’);
+      var cols = (p.columns||[]).map(function(c){return '<th>'+_esc(c)+'</th>';}).join('');
       var rows = (p.rows||[]).map(function(r){
         var cells = r.map(function(v,i){
           if (i===r.length-1){
             var sv=String(v).toLowerCase();
-            var cls=sv===’ok’||sv===’actif’||sv===’terminé’?’ok’:sv===’attente’||sv===’analyse’?’neu’:’warn’;
-            return ‘<td><span class="ics-badge ‘+cls+’">’+_esc(String(v))+’</span></td>’;
+            var cls=sv==='ok'||sv==='actif'||sv==='terminé'?'ok':sv==='attente'||sv==='analyse'?'neu':'warn';
+            return '<td><span class="ics-badge '+cls+'">'+_esc(String(v))+'</span></td>';
           }
-          return ‘<td>’+_esc(String(v))+’</td>’;
-        }).join(‘’);
-        return ‘<tr>’+cells+’</tr>’;
-      }).join(‘’);
-      return ‘<div><div class="ics-data-title">’+_esc(p.title||’Données’)+’</div>’
-        +’<table class="ics-table"><thead><tr>’+cols+’</tr></thead><tbody>’+rows+’</tbody></table>’
-        +(p.summary?’<div class="ics-summary">’+_esc(p.summary)+’</div>’:’’)
-        +’</div>’;
+          return '<td>'+_esc(String(v))+'</td>';
+        }).join('');
+        return '<tr>'+cells+'</tr>';
+      }).join('');
+      return '<div><div class="ics-data-title">'+_esc(p.title||'Données')+'</div>'
+        +'<table class="ics-table"><thead><tr>'+cols+'</tr></thead><tbody>'+rows+'</tbody></table>'
+        +(p.summary?'<div class="ics-summary">'+_esc(p.summary)+'</div>':'')
+        +'</div>';
     }
 
     function _icsRenderDocDraft(p) {
-      var lines = String(p.body||’’).split(‘\n’);
+      var lines = String(p.body||'').split('\n');
       var bodyHtml = lines.map(function(line){
-        if (!line.trim()) return ‘<p style="margin:0 0 6px"></p>’;
+        if (!line.trim()) return '<p style="margin:0 0 6px"></p>';
         var l = _esc(line);
         (p.placeholders||[]).forEach(function(ph){
-          l = l.split(_esc(ph)).join(‘<span class="ics-ph">’+_esc(ph)+’</span>’);
+          l = l.split(_esc(ph)).join('<span class="ics-ph">'+_esc(ph)+'</span>');
         });
-        return ‘<p>’+l+’</p>’;
-      }).join(‘’);
-      return ‘<div>’
-        +’<div class="ics-doc-title">’+_esc(p.title||’Document’)+’</div>’
-        +(p.recipient?’<div class="ics-doc-meta">Destinataire : ‘+_esc(p.recipient)+’</div>’:’’)
-        +’<div class="ics-doc-body">’+bodyHtml+’</div></div>’;
+        return '<p>'+l+'</p>';
+      }).join('');
+      return '<div>'
+        +'<div class="ics-doc-title">'+_esc(p.title||'Document')+'</div>'
+        +(p.recipient?'<div class="ics-doc-meta">Destinataire : '+_esc(p.recipient)+'</div>':'')
+        +'<div class="ics-doc-body">'+bodyHtml+'</div></div>';
     }
 
     function _icsRenderActionBoard(p) {
       if (p.action_type && p.requires_confirmation) {
         var det = p.details||{};
-        var detHtml = Object.keys(det).map(function(k){return ‘<div>’+_esc(k)+’ : ‘+_esc(String(det[k]))+’</div>’;}).join(‘’);
-        return ‘<div><div class="ics-confirm-bar">’
-          +’<div class="ics-confirm-title">Validation requise</div>’
-          +’<div class="ics-confirm-detail">’+_esc(p.summary||’’)+(detHtml?’<br>’+detHtml:’’)+’</div>’
-          +’<div class="ics-confirm-btns">’
-          +’<button class="ics-confirm-btn yes" onclick="_icsConfirmAction(\’’+_esc(p.action_type)+’\’,true)">Confirmer</button>’
-          +’<button class="ics-confirm-btn no"  onclick="_icsConfirmAction(\’’+_esc(p.action_type)+’\’,false)">Annuler</button>’
-          +’</div></div></div>’;
+        var detHtml = Object.keys(det).map(function(k){return '<div>'+_esc(k)+' : '+_esc(String(det[k]))+'</div>';}).join('');
+        return '<div><div class="ics-confirm-bar">'
+          +'<div class="ics-confirm-title">Validation requise</div>'
+          +'<div class="ics-confirm-detail">'+_esc(p.summary||'')+(detHtml?'<br>'+detHtml:'')+'</div>'
+          +'<div class="ics-confirm-btns">'
+          +'<button class="ics-confirm-btn yes" onclick="_icsConfirmAction(\''+_esc(p.action_type)+'\',true)">Confirmer</button>'
+          +'<button class="ics-confirm-btn no"  onclick="_icsConfirmAction(\''+_esc(p.action_type)+'\',false)">Annuler</button>'
+          +'</div></div></div>';
       }
       var secs = (p.sections||[]).map(function(sec){
         var items = (sec.items||[]).map(function(item){
-          var cbCls = item.done?’ics-cb done’:’ics-cb’;
-          var tag = item.tag?’<span class="ics-tag ‘+item.tag+’">’+(item.tag===’urgent’?’Urgent’:item.tag===’warn’?’Attention’:’’)+’</span>’:’’;
-          return ‘<div class="ics-acard"><div class="’+cbCls+’"></div><div class="ics-card-text">’+_esc(item.text||’’)+(tag?’<br>’+tag:’’)+’</div></div>’;
-        }).join(‘’);
-        return ‘<div class="ics-action-sec"><div class="ics-action-sec-title">’+_esc(sec.title||’’)+’</div>’+items+’</div>’;
-      }).join(‘’);
-      return ‘<div>’+secs+’</div>’;
+          var cbCls = item.done?'ics-cb done':'ics-cb';
+          var tag = item.tag?'<span class="ics-tag '+item.tag+'">'+(item.tag==='urgent'?'Urgent':item.tag==='warn'?'Attention':'')+'</span>':'';
+          return '<div class="ics-acard"><div class="'+cbCls+'"></div><div class="ics-card-text">'+_esc(item.text||'')+(tag?'<br>'+tag:'')+'</div></div>';
+        }).join('');
+        return '<div class="ics-action-sec"><div class="ics-action-sec-title">'+_esc(sec.title||'')+'</div>'+items+'</div>';
+      }).join('');
+      return '<div>'+secs+'</div>';
     }
 
     function _icsRenderContextPanel(p) {
       var secs = (p.sections||[]).map(function(s){
-        return ‘<div style="margin-bottom:12px">’
-          +’<div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--ics-text3);margin-bottom:4px">’+_esc(s.heading||’’)+’</div>’
-          +’<div style="font-size:13px;color:var(--ics-text);line-height:1.6">’+_esc(s.body||’’)+’</div></div>’;
-      }).join(‘’);
-      return ‘<div><div style="font-size:15px;font-weight:500;color:var(--ics-violet);margin-bottom:14px">’+_esc(p.title||’Contexte’)+’</div>’
+        return '<div style="margin-bottom:12px">'
+          +'<div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--ics-text3);margin-bottom:4px">'+_esc(s.heading||'')+'</div>'
+          +'<div style="font-size:13px;color:var(--ics-text);line-height:1.6">'+_esc(s.body||'')+'</div></div>';
+      }).join('');
+      return '<div><div style="font-size:15px;font-weight:500;color:var(--ics-violet);margin-bottom:14px">'+_esc(p.title||'Contexte')+'</div>'
         +secs
-        +(p.summary?’<div class="ics-summary">’+_esc(p.summary)+’</div>’:’’)+’</div>’;
+        +(p.summary?'<div class="ics-summary">'+_esc(p.summary)+'</div>':'')+'</div>';
     }
 
     function _icsRenderMissingInfo(p) {
       var fields = (p.missing_fields||[]).map(function(f){
-        return ‘<div class="ics-acard"><div class="ics-cb"></div><div class="ics-card-text" style="color:var(--ics-amber)">’+_esc(f)+’</div></div>’;
-      }).join(‘’);
+        return '<div class="ics-acard"><div class="ics-cb"></div><div class="ics-card-text" style="color:var(--ics-amber)">'+_esc(f)+'</div></div>';
+      }).join('');
       var sugg = (p.suggestions||[]).map(function(s){
-        var lbl=typeof s===’string’?s:(s.label||’’);
-        return ‘<button class="ics-btn" style="flex:none;padding:6px 14px;font-size:12px;border-radius:99px" onclick="_icsSuggestion(\’’+_esc(lbl)+’\’)">’+_esc(lbl)+’</button>’;
-      }).join(‘’);
-      return ‘<div><div style="font-size:13px;font-weight:500;color:var(--ics-amber);margin-bottom:12px">’+_esc(p.question||’Informations manquantes’)+’</div>’
-        +fields+(sugg?’<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px">’+sugg+’</div>’:’’)+’</div>’;
+        var lbl=typeof s==='string'?s:(s.label||'');
+        return '<button class="ics-btn" style="flex:none;padding:6px 14px;font-size:12px;border-radius:99px" onclick="_icsSuggestion(\''+_esc(lbl)+'\')">'+_esc(lbl)+'</button>';
+      }).join('');
+      return '<div><div style="font-size:13px;font-weight:500;color:var(--ics-amber);margin-bottom:12px">'+_esc(p.question||'Informations manquantes')+'</div>'
+        +fields+(sugg?'<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px">'+sugg+'</div>':'')+'</div>';
     }
 
     function _icsRenderStatusRail(p) {
       var rows = (p.services||[]).map(function(s){
-        return ‘<div class="ics-svc-row"><div class="ics-svc-dot ‘+(s.status||’active’)+’"></div>’
-          +’<div class="ics-svc-name">’+_esc(s.name||’’)+’</div>’
-          +’<div class="ics-svc-detail">’+_esc(s.detail||’’)+’</div></div>’;
-      }).join(‘’);
-      return ‘<div class="ics-svc-grid">’+rows
-        +(p.summary?’<div class="ics-summary" style="margin-top:8px">’+_esc(p.summary)+’</div>’:’’)+’</div>’;
+        return '<div class="ics-svc-row"><div class="ics-svc-dot '+(s.status||'active')+'"></div>'
+          +'<div class="ics-svc-name">'+_esc(s.name||'')+'</div>'
+          +'<div class="ics-svc-detail">'+_esc(s.detail||'')+'</div></div>';
+      }).join('');
+      return '<div class="ics-svc-grid">'+rows
+        +(p.summary?'<div class="ics-summary" style="margin-top:8px">'+_esc(p.summary)+'</div>':'')+'</div>';
     }
 
     function renderIrisCommand(payload) {
-      var panel  = document.getElementById(‘irisCommandScreen’);
-      var render = document.getElementById(‘icsRender’);
-      var footer = document.getElementById(‘icsFooter’);
-      var ctx    = document.getElementById(‘icsContext’);
-      var miss   = document.getElementById(‘icsMissing’);
+      var panel  = document.getElementById('irisCommandScreen');
+      var render = document.getElementById('icsRender');
+      var footer = document.getElementById('icsFooter');
+      var ctx    = document.getElementById('icsContext');
+      var miss   = document.getElementById('icsMissing');
       if (!panel||!render) return;
 
-      var rType = payload.render_type||’context_panel’;
+      var rType = payload.render_type||'context_panel';
       var p = payload.payload||payload;
 
       var stateMap = {
-        data_board:      [‘Construction’, ‘cyan’],
-        document_draft:  [‘Brouillon’, ‘violet’],
-        action_board:    p.requires_confirmation ? [‘Validation requise’,’amber’] : [‘Plan d\’action’,’violet’],
-        context_panel:   [‘Analyse’, ‘cyan’],
-        missing_info:    [‘Infos manquantes’, ‘amber’],
-        status_rail:     [‘Diagnostic’, ‘cyan’]
+        data_board:      ['Construction', 'cyan'],
+        document_draft:  ['Brouillon', 'violet'],
+        action_board:    p.requires_confirmation ? ['Validation requise','amber'] : ['Plan d\'action','violet'],
+        context_panel:   ['Analyse', 'cyan'],
+        missing_info:    ['Infos manquantes', 'amber'],
+        status_rail:     ['Diagnostic', 'cyan']
       };
-      var si = stateMap[rType]||[‘En cours’,’violet’];
+      var si = stateMap[rType]||['En cours','violet'];
 
-      var html = ‘’;
-      if      (rType===’data_board’)     html = _icsRenderDataBoard(p);
-      else if (rType===’document_draft’) html = _icsRenderDocDraft(p);
-      else if (rType===’action_board’)   html = _icsRenderActionBoard(p);
-      else if (rType===’context_panel’)  html = _icsRenderContextPanel(p);
-      else if (rType===’missing_info’)   html = _icsRenderMissingInfo(p);
-      else if (rType===’status_rail’)    html = _icsRenderStatusRail(p);
-      else html=’<div style="color:var(--ics-text2);font-size:13px">’+_esc(JSON.stringify(p))+’</div>’;
+      var html = '';
+      if      (rType==='data_board')     html = _icsRenderDataBoard(p);
+      else if (rType==='document_draft') html = _icsRenderDocDraft(p);
+      else if (rType==='action_board')   html = _icsRenderActionBoard(p);
+      else if (rType==='context_panel')  html = _icsRenderContextPanel(p);
+      else if (rType==='missing_info')   html = _icsRenderMissingInfo(p);
+      else if (rType==='status_rail')    html = _icsRenderStatusRail(p);
+      else html='<div style="color:var(--ics-text2);font-size:13px">'+_esc(JSON.stringify(p))+'</div>';
 
       render.innerHTML = html;
 
       var hasFooter = false;
       if (ctx) {
-        if (p.context) { ctx.innerHTML=’<div class="ics-foot-lbl">Contexte</div><div class="ics-foot-item">’+_esc(p.context)+’</div>’; hasFooter=true; }
-        else ctx.innerHTML=’’;
+        if (p.context) { ctx.innerHTML='<div class="ics-foot-lbl">Contexte</div><div class="ics-foot-item">'+_esc(p.context)+'</div>'; hasFooter=true; }
+        else ctx.innerHTML='';
       }
       if (miss) {
         if (p.missing&&p.missing.length) {
-          miss.innerHTML=’<div class="ics-foot-lbl">Infos manquantes</div>’
-            +p.missing.map(function(m){return ‘<div class="ics-foot-item ics-miss-item">’+_esc(m)+’</div>’;}).join(‘’);
-          miss.style.display=’’; hasFooter=true;
-        } else miss.style.display=’none’;
+          miss.innerHTML='<div class="ics-foot-lbl">Infos manquantes</div>'
+            +p.missing.map(function(m){return '<div class="ics-foot-item ics-miss-item">'+_esc(m)+'</div>';}).join('');
+          miss.style.display=''; hasFooter=true;
+        } else miss.style.display='none';
       }
-      if (footer) footer.style.display=hasFooter?’’:’none’;
+      if (footer) footer.style.display=hasFooter?'':'none';
 
       _icsSetState(si[0], si[1]);
-      var view = document.getElementById(‘audioView’);
-      panel.className=’ics-panel open st-’+(si[1]===’amber’?’warning’:si[1]===’coral’?’error’:si[1]===’cyan’?’analyse’:’ready’);
-      if (view) view.classList.add(‘ics-open’);
-      rLog(‘info’,’simli’,’ics_render’,rType);
+      var view = document.getElementById('audioView');
+      panel.className='ics-panel open st-'+(si[1]==='amber'?'warning':si[1]==='coral'?'error':si[1]==='cyan'?'analyse':'ready');
+      if (view) view.classList.add('ics-open');
+      rLog('info','simli','ics_render',rType);
     }
 
     function _icsSetState(text, color) {
-      var dot = document.getElementById(‘icsDot’);
-      var txt = document.getElementById(‘icsStatusText’);
-      if (txt) txt.textContent = text||’En cours’;
-      if (dot) dot.className = ‘ics-dot ‘+(color||’violet’)+’ pulse’;
+      var dot = document.getElementById('icsDot');
+      var txt = document.getElementById('icsStatusText');
+      if (txt) txt.textContent = text||'En cours';
+      if (dot) dot.className = 'ics-dot '+(color||'violet')+' pulse';
     }
 
     function _icsClose() {
-      var panel = document.getElementById(‘irisCommandScreen’);
-      var view  = document.getElementById(‘audioView’);
-      if (panel) { panel.classList.remove(‘open’); panel.style.display=’none’; panel.style.display=’’; }
-      if (view)  view.classList.remove(‘ics-open’);
-      rLog(‘info’,’simli’,’ics_close’,’’);
+      var panel = document.getElementById('irisCommandScreen');
+      var view  = document.getElementById('audioView');
+      if (panel) { panel.classList.remove('open'); panel.style.display='none'; panel.style.display=''; }
+      if (view)  view.classList.remove('ics-open');
+      rLog('info','simli','ics_close','');
     }
 
     function _icsCopy() {
-      var el = document.getElementById(‘icsRender’);
-      var t  = el?(el.innerText||el.textContent||’’):’’;
+      var el = document.getElementById('icsRender');
+      var t  = el?(el.innerText||el.textContent||''):'';
       if (!t) return;
       if (navigator.clipboard&&navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(t).then(function(){_icsSetState(‘Copié’,’green’);}).catch(function(){_icsSetState(‘Impossible’,’coral’);});
-      } else _icsSetState(‘Impossible’,’coral’);
+        navigator.clipboard.writeText(t).then(function(){_icsSetState('Copié','green');}).catch(function(){_icsSetState('Impossible','coral');});
+      } else _icsSetState('Impossible','coral');
     }
 
     function _icsDl() {
-      var el = document.getElementById(‘icsRender’);
-      var t  = el?(el.innerText||el.textContent||’’):’’;
+      var el = document.getElementById('icsRender');
+      var t  = el?(el.innerText||el.textContent||''):'';
       if (!t) return;
-      var blob = new Blob([t],{type:’text/plain;charset=utf-8’});
+      var blob = new Blob([t],{type:'text/plain;charset=utf-8'});
       var url = URL.createObjectURL(blob);
-      var a = document.createElement(‘a’);
-      a.href=url; a.download=’iris-command-’+Date.now()+’.txt’;
+      var a = document.createElement('a');
+      a.href=url; a.download='iris-command-'+Date.now()+'.txt';
       document.body.appendChild(a); a.click(); document.body.removeChild(a);
       setTimeout(function(){URL.revokeObjectURL(url);},500);
-      _icsSetState(‘Téléchargé’,’green’);
+      _icsSetState('Téléchargé','green');
     }
 
     function _icsSuggestion(lbl) {
-      var inp = document.getElementById(‘afTextInput’);
+      var inp = document.getElementById('afTextInput');
       if (inp){inp.value=lbl; inp.focus();}
     }
 
     function _icsConfirmAction(actionType, confirmed) {
-      _afAppendTranscript(‘system’, confirmed?(‘Confirmé : ‘+actionType):(‘Annulé : ‘+actionType));
+      _afAppendTranscript('system', confirmed?('Confirmé : '+actionType):('Annulé : '+actionType));
       if (_irisWs&&_irisWs.readyState===1&&confirmed) {
-        try{_irisWs.send(JSON.stringify({type:’text’,text:’Confirme : ‘+actionType}));}catch(e){}
+        try{_irisWs.send(JSON.stringify({type:'text',text:'Confirme : '+actionType}));}catch(e){}
       }
       _icsClose();
     }
 
     function _afSendTextToIris(text) {
-      text = String(text||’’).trim();
+      text = String(text||'').trim();
       if (!text) return;
-      _afAppendTranscript(‘user’, text);
+      _afAppendTranscript('user', text);
       var rType = inferCommandRenderFromText(text);
       if (rType) {
         var payload = _icsBuildPayload(rType, text);
@@ -3540,38 +3540,38 @@
       }
       if (_irisWs&&_irisWs.readyState===1) {
         try{
-          _irisWs.send(JSON.stringify({type:’text’,text:text}));
-          _setIrisState(‘thinking’);
-          rLog(‘info’,’simli’,’iris_text_sent’,text.substring(0,80));
-        }catch(e){_afAppendTranscript(‘system’,’Envoi impossible’);}
+          _irisWs.send(JSON.stringify({type:'text',text:text}));
+          _setIrisState('thinking');
+          rLog('info','simli','iris_text_sent',text.substring(0,80));
+        }catch(e){_afAppendTranscript('system','Envoi impossible');}
       } else {
-        _afAppendTranscript(‘system’,’Iris non connectée’);
+        _afAppendTranscript('system','Iris non connectée');
       }
     }
 
     function _icsBindControls() {
       if (_icsFormBound) return;
       _icsFormBound = true;
-      var form  = document.getElementById(‘afTextForm’);
-      var input = document.getElementById(‘afTextInput’);
+      var form  = document.getElementById('afTextForm');
+      var input = document.getElementById('afTextInput');
       if (form) {
-        form.addEventListener(‘submit’, function(e){
+        form.addEventListener('submit', function(e){
           e.preventDefault();
-          var v = input?input.value:’’;
-          if (input) input.value=’’;
+          var v = input?input.value:'';
+          if (input) input.value='';
           _afSendTextToIris(v);
         });
       }
-      var closeBtn = document.getElementById(‘icsClose’);
-      var copyBtn  = document.getElementById(‘icsCopy’);
-      var dlBtn    = document.getElementById(‘icsDl’);
-      var editBtn  = document.getElementById(‘icsEdit’);
-      if (closeBtn) closeBtn.addEventListener(‘click’, _icsClose);
-      if (copyBtn)  copyBtn.addEventListener(‘click’, _icsCopy);
-      if (dlBtn)    dlBtn.addEventListener(‘click’, _icsDl);
-      if (editBtn)  editBtn.addEventListener(‘click’, function(){
-        var r=document.getElementById(‘icsRender’);
-        if(r){r.contentEditable=’true’;r.focus();_icsSetState(‘Edition’,’violet’);}
+      var closeBtn = document.getElementById('icsClose');
+      var copyBtn  = document.getElementById('icsCopy');
+      var dlBtn    = document.getElementById('icsDl');
+      var editBtn  = document.getElementById('icsEdit');
+      if (closeBtn) closeBtn.addEventListener('click', _icsClose);
+      if (copyBtn)  copyBtn.addEventListener('click', _icsCopy);
+      if (dlBtn)    dlBtn.addEventListener('click', _icsDl);
+      if (editBtn)  editBtn.addEventListener('click', function(){
+        var r=document.getElementById('icsRender');
+        if(r){r.contentEditable='true';r.focus();_icsSetState('Edition','violet');}
       });
     }
 
