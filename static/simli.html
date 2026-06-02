@@ -463,105 +463,147 @@
     }
     #afHangup:hover, #afHangup:active { background: rgba(220,50,50,0.3); border-color: rgba(220,70,70,0.6); color: rgba(255,155,155,1); transform: translateX(-50%) scale(0.97); }
 
-    /* Iris Workbench — panneau de travail non destructif */
+    /* ===== IRIS COMMAND SCREEN ===== */
+    :root {
+      --ics-bg: rgba(10,10,15,0.82); --ics-border: rgba(255,255,255,0.06);
+      --ics-blur: 40px; --ics-sat: 180%;
+      --ics-violet: #8B74F7; --ics-violet-g: rgba(139,116,247,0.25);
+      --ics-cyan: #40E0FF; --ics-amber: #FFB74D; --ics-coral: #FF6B7B; --ics-green: #4ade80;
+      --ics-text: rgba(255,255,255,0.90); --ics-text2: rgba(255,255,255,0.55); --ics-text3: rgba(255,255,255,0.28);
+      --ics-r: 22px; --ics-rbtn: 100px;
+    }
     .af-inputbar {
       position: absolute; z-index: 11; left: 50%; bottom: calc(92px + env(safe-area-inset-bottom));
       transform: translateX(-50%); width: min(560px, calc(100% - 32px));
       display: flex; align-items: center; gap: 8px;
-      padding: 8px; border: 1px solid rgba(124,92,252,0.22); border-radius: 18px;
-      background: rgba(8,8,24,0.82); box-shadow: 0 16px 60px rgba(0,0,0,0.28);
-      backdrop-filter: blur(14px);
+      padding: 8px; border: 1px solid rgba(139,116,247,0.22); border-radius: 18px;
+      background: rgba(8,8,20,0.88); backdrop-filter: blur(16px);
     }
     #afTextInput {
-      flex: 1; min-width: 0; border: none; outline: none; color: rgba(255,255,255,0.86);
-      background: rgba(255,255,255,0.045); border-radius: 12px; padding: 13px 14px;
-      font-size: 14px;
+      flex: 1; min-width: 0; border: none; outline: none; color: var(--ics-text);
+      background: rgba(255,255,255,0.04); border-radius: 12px; padding: 13px 14px; font-size: 14px;
     }
-    #afTextInput::placeholder { color: rgba(255,255,255,0.28); }
+    #afTextInput::placeholder { color: var(--ics-text3); }
     #afTextSend {
-      border: 1px solid rgba(167,139,250,0.3); border-radius: 12px;
+      border: 1px solid rgba(139,116,247,0.3); border-radius: 12px;
       background: rgba(139,92,246,0.15); color: rgba(196,181,253,0.92);
-      padding: 12px 16px; min-height: 44px; font-weight: 750; cursor: pointer;
+      padding: 12px 16px; min-height: 44px; font-weight: 700; cursor: pointer;
     }
-    .af-workbench {
-      position: absolute; z-index: 8; top: 88px; right: 22px; bottom: 154px;
-      width: min(430px, calc(100% - 44px)); display: none; flex-direction: column;
-      border: 1px solid rgba(167,139,250,0.22); border-radius: 18px;
-      background: rgba(7,10,22,0.84); box-shadow: 0 22px 90px rgba(0,0,0,0.36);
-      backdrop-filter: blur(18px); overflow: hidden;
+    .ics-panel {
+      position: absolute; z-index: 8; top: 88px; right: 22px;
+      bottom: calc(154px + env(safe-area-inset-bottom));
+      width: min(480px, calc(100% - 44px)); display: none; flex-direction: column;
+      border: 1px solid var(--ics-border); border-radius: var(--ics-r);
+      background: var(--ics-bg);
+      backdrop-filter: blur(var(--ics-blur)) saturate(var(--ics-sat));
+      box-shadow: 0 0 0 1px rgba(139,116,247,0.07), 0 28px 90px rgba(0,0,0,0.44);
+      overflow: hidden; transition: box-shadow 0.4s;
     }
-    .af-workbench.open { display: flex; }
-    #audioView.workbench-open .af-center { transform: translateX(-16vw); transition: transform 0.32s ease; }
-    .af-workbench-head {
-      display: flex; justify-content: space-between; align-items: flex-start; gap: 12px;
-      padding: 16px 16px 12px; border-bottom: 1px solid rgba(255,255,255,0.06);
+    .ics-panel.open { display: flex; animation: ics-in 0.48s cubic-bezier(0.16,1,0.3,1) both; }
+    @keyframes ics-in { from{opacity:0;transform:scale(0.97) translateY(8px);} to{opacity:1;transform:none;} }
+    #audioView.ics-open .af-center { transform: translateX(-14vw); transition: transform 0.35s ease; }
+    .ics-panel.st-analyse { box-shadow: 0 0 0 1px rgba(255,183,77,0.12), 0 28px 90px rgba(0,0,0,0.44); }
+    .ics-panel.st-ready   { box-shadow: 0 0 0 1px rgba(139,116,247,0.16), 0 28px 90px rgba(0,0,0,0.44); }
+    .ics-panel.st-warning { box-shadow: 0 0 0 1px rgba(255,183,77,0.20), 0 28px 90px rgba(0,0,0,0.44); }
+    .ics-panel.st-error   { box-shadow: 0 0 0 1px rgba(255,107,123,0.15), 0 28px 90px rgba(0,0,0,0.44); }
+    /* Status Rail */
+    .ics-rail {
+      display: flex; align-items: center; justify-content: space-between;
+      height: 48px; padding: 0 16px; flex-shrink: 0;
+      border-bottom: 1px solid var(--ics-border);
     }
-    .af-workbench-kicker {
-      color: rgba(196,181,253,0.75); font-size: 10px; font-weight: 800; letter-spacing: 3px;
-      text-transform: uppercase; margin-bottom: 6px;
+    .ics-rail-title { font-size: 10px; font-weight: 700; letter-spacing: 3px; text-transform: uppercase; color: rgba(139,116,247,0.72); }
+    .ics-rail-r { display: flex; align-items: center; gap: 7px; }
+    .ics-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+    .ics-dot.violet { background: var(--ics-violet); }
+    .ics-dot.amber  { background: var(--ics-amber); }
+    .ics-dot.cyan   { background: var(--ics-cyan); }
+    .ics-dot.coral  { background: var(--ics-coral); }
+    .ics-dot.green  { background: var(--ics-green); }
+    .ics-dot.pulse  { animation: ics-pulse 1.8s ease-in-out infinite; }
+    @keyframes ics-pulse { 0%,100%{opacity:.35;transform:scale(1);} 50%{opacity:1;transform:scale(1.45);} }
+    #icsStatusText { font-size: 11px; font-weight: 500; color: var(--ics-text2); white-space: nowrap; }
+    /* Body */
+    .ics-body {
+      flex: 1; overflow-y: auto; overflow-x: hidden; padding: 16px;
+      scrollbar-width: thin; scrollbar-color: rgba(139,116,247,0.2) transparent;
     }
-    #afWorkbenchTitle { color: rgba(255,255,255,0.92); font-size: 17px; font-weight: 800; }
-    #afWorkbenchState {
-      white-space: nowrap; color: rgba(255,255,255,0.68); font-size: 11px; font-weight: 750;
-      border: 1px solid rgba(255,255,255,0.1); border-radius: 999px; padding: 6px 9px;
-      background: rgba(255,255,255,0.04);
+    .ics-body::-webkit-scrollbar { width: 4px; }
+    .ics-body::-webkit-scrollbar-thumb { background: rgba(139,116,247,0.2); border-radius: 2px; }
+    /* Footer context/missing */
+    .ics-footer { border-top: 1px solid var(--ics-border); padding: 10px 16px; flex-shrink: 0; }
+    .ics-foot-sec { margin-bottom: 6px; }
+    .ics-foot-lbl { font-size: 10px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--ics-text3); margin-bottom: 4px; }
+    .ics-foot-item { font-size: 12px; color: var(--ics-text2); line-height: 1.5; padding-left: 8px; border-left: 2px solid rgba(139,116,247,0.22); margin-bottom: 3px; }
+    .ics-miss-item { border-left-color: rgba(255,183,77,0.4); color: rgba(255,183,77,0.82); }
+    /* Action buttons */
+    .ics-actions { display: flex; gap: 8px; padding: 10px 16px 14px; flex-shrink: 0; border-top: 1px solid var(--ics-border); }
+    .ics-btn {
+      flex: 1; min-height: 38px; border-radius: var(--ics-rbtn); cursor: pointer;
+      border: 1px solid var(--ics-border); background: rgba(255,255,255,0.04);
+      color: var(--ics-text2); font-size: 12px; font-weight: 600; transition: all 0.18s;
     }
-    #afWorkbenchState.state-analyse {
-      color: #fbbf24; border-color: rgba(251,191,36,0.32);
-      background: rgba(251,191,36,0.08);
-    }
-    #afWorkbenchState.state-edit {
-      color: #c4b5fd; border-color: rgba(167,139,250,0.35);
-      background: rgba(139,92,246,0.12);
-    }
-    #afWorkbenchState.state-ready {
-      color: #4ade80; border-color: rgba(74,222,128,0.32);
-      background: rgba(74,222,128,0.08);
-    }
-    #afWorkbenchState.state-warning {
-      color: #facc15; border-color: rgba(250,204,21,0.34);
-      background: rgba(250,204,21,0.08);
-    }
-    #afWorkbenchState.state-error {
-      color: #f87171; border-color: rgba(248,113,113,0.32);
-      background: rgba(248,113,113,0.08);
-    }
-    .af-workbench-body { padding: 14px 16px; overflow: auto; flex: 1; }
-    #afWorkbenchType {
-      display: inline-flex; margin-bottom: 10px; color: rgba(124,180,255,0.86);
-      font-size: 11px; font-weight: 800; letter-spacing: 0.5px;
-    }
-    #afWorkbenchContent {
-      color: rgba(255,255,255,0.78); line-height: 1.55; font-size: 13px;
-      white-space: pre-wrap; min-height: 180px;
-    }
-    #afWorkbenchContent[contenteditable="true"] {
-      outline: 1px solid rgba(167,139,250,0.35); border-radius: 12px;
-      background: rgba(139,92,246,0.08); padding: 10px;
-    }
-    .af-workbench-actions {
-      display: flex; gap: 8px; padding: 12px 16px 16px;
-      border-top: 1px solid rgba(255,255,255,0.06);
-    }
-    .af-workbench-actions button {
-      flex: 1; min-height: 40px; border-radius: 11px; cursor: pointer;
-      border: 1px solid rgba(255,255,255,0.11); background: rgba(255,255,255,0.05);
-      color: rgba(255,255,255,0.72); font-size: 12px; font-weight: 750;
-    }
-    .af-workbench-actions button.primary {
-      border-color: rgba(167,139,250,0.35); background: rgba(139,92,246,0.18);
-      color: rgba(196,181,253,0.95);
-    }
+    .ics-btn:hover { background: rgba(255,255,255,0.08); }
+    .ics-btn.copy { border-color: rgba(139,116,247,0.3); background: rgba(139,92,246,0.12); color: rgba(196,181,253,0.92); }
+    .ics-btn.dl   { border-color: rgba(64,224,255,0.25); background: rgba(64,224,255,0.08); color: rgba(64,224,255,0.85); }
+    .ics-btn.close{ color: var(--ics-text3); }
+    /* ----- Data Board ----- */
+    .ics-data-title { font-size: 14px; font-weight: 600; color: var(--ics-violet); margin-bottom: 12px; }
+    .ics-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .ics-table th { text-align: left; padding: 10px 12px; color: var(--ics-violet); font-weight: 500; font-size: 11px; letter-spacing: 0.5px; border-bottom: 1px solid rgba(139,116,247,0.15); background: rgba(139,116,247,0.04); }
+    .ics-table td { padding: 10px 12px; border-bottom: 1px solid rgba(255,255,255,0.03); color: var(--ics-text); font-variant-numeric: tabular-nums; }
+    .ics-table tr:hover td { background: rgba(139,116,247,0.04); }
+    .ics-table tr:last-child td { border-bottom: none; }
+    .ics-badge { display: inline-flex; align-items: center; padding: 3px 8px; border-radius: 99px; font-size: 11px; font-weight: 600; }
+    .ics-badge.ok   { background: rgba(74,222,128,0.12); color: var(--ics-green); }
+    .ics-badge.warn { background: rgba(255,183,77,0.12);  color: var(--ics-amber); }
+    .ics-badge.crit { background: rgba(255,107,123,0.12); color: var(--ics-coral); }
+    .ics-badge.neu  { background: rgba(255,255,255,0.06); color: var(--ics-text2); }
+    .ics-summary { font-size: 12px; color: var(--ics-text2); margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--ics-border); }
+    /* ----- Doc Draft ----- */
+    .ics-doc-title { font-size: 18px; font-weight: 500; color: var(--ics-violet); margin-bottom: 6px; line-height: 1.3; }
+    .ics-doc-meta  { font-size: 12px; color: var(--ics-text2); margin-bottom: 20px; line-height: 1.6; }
+    .ics-doc-body  { font-size: 14px; line-height: 1.75; color: var(--ics-text); }
+    .ics-doc-body p { margin: 0 0 14px; }
+    .ics-ph { background: rgba(139,116,247,0.12); color: var(--ics-violet); border-radius: 4px; padding: 1px 5px; font-size: 12px; }
+    /* ----- Action Board ----- */
+    .ics-action-sec { margin-bottom: 16px; }
+    .ics-action-sec-title { font-size: 10px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--ics-text3); margin-bottom: 8px; }
+    .ics-acard { display: flex; align-items: flex-start; gap: 10px; padding: 12px 14px; border-radius: 12px; background: rgba(255,255,255,0.03); margin-bottom: 8px; border: 1px solid transparent; transition: all 0.2s; }
+    .ics-acard:hover { background: rgba(255,255,255,0.05); border-color: var(--ics-border); }
+    .ics-cb { width: 17px; height: 17px; border-radius: 5px; border: 1.5px solid var(--ics-text3); flex-shrink: 0; margin-top: 1px; }
+    .ics-cb.done { background: var(--ics-violet); border-color: var(--ics-violet); }
+    .ics-card-text { flex: 1; font-size: 13px; color: var(--ics-text); line-height: 1.4; }
+    .ics-tag { display: inline-flex; padding: 2px 7px; border-radius: 99px; font-size: 10px; font-weight: 600; margin-top: 4px; }
+    .ics-tag.urgent { background: rgba(255,107,123,0.15); color: var(--ics-coral); }
+    .ics-tag.warn   { background: rgba(255,183,77,0.12);  color: var(--ics-amber); }
+    .ics-tag.attach { background: rgba(64,224,255,0.10);  color: var(--ics-cyan); }
+    .ics-confirm-bar { background: rgba(255,183,77,0.06); border: 1px solid rgba(255,183,77,0.2); border-radius: 12px; padding: 14px 16px; margin-bottom: 12px; }
+    .ics-confirm-title { font-size: 12px; font-weight: 700; color: var(--ics-amber); margin-bottom: 6px; }
+    .ics-confirm-detail { font-size: 12px; color: var(--ics-text2); line-height: 1.5; }
+    .ics-confirm-btns { display: flex; gap: 8px; margin-top: 10px; }
+    .ics-confirm-btn { flex: 1; padding: 9px; border-radius: 99px; font-size: 12px; font-weight: 600; cursor: pointer; border: 1px solid transparent; }
+    .ics-confirm-btn.yes { background: rgba(139,116,247,0.18); border-color: rgba(139,116,247,0.35); color: rgba(196,181,253,0.92); }
+    .ics-confirm-btn.no  { background: rgba(255,107,123,0.10); border-color: rgba(255,107,123,0.25); color: rgba(255,107,123,0.85); }
+    /* ----- Status Rail full ----- */
+    .ics-svc-grid { display: flex; flex-direction: column; gap: 6px; }
+    .ics-svc-row  { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 10px; background: rgba(255,255,255,0.02); }
+    .ics-svc-dot  { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .ics-svc-dot.active  { background: var(--ics-green); }
+    .ics-svc-dot.syncing { background: var(--ics-cyan); animation: ics-pulse 1.2s ease-in-out infinite; }
+    .ics-svc-dot.warn    { background: var(--ics-amber); }
+    .ics-svc-dot.error   { background: var(--ics-coral); }
+    .ics-svc-name   { font-size: 13px; color: var(--ics-text); flex: 1; }
+    .ics-svc-detail { font-size: 11px; color: var(--ics-text2); }
     @media (max-width: 820px) {
-      #audioView.workbench-open .af-center { transform: none; }
+      #audioView.ics-open .af-center { transform: none; }
       .af-center { justify-content: flex-start; padding-top: 82px; gap: 18px; }
-      .af-workbench {
-        left: 14px; right: 14px; top: auto; bottom: calc(156px + env(safe-area-inset-bottom));
-        width: auto; max-height: 38vh; border-radius: 16px;
-      }
+      .ics-panel { left: 10px; right: 10px; top: auto; bottom: calc(156px + env(safe-area-inset-bottom)); width: auto; max-height: 40vh; border-radius: 18px; }
       #afTranscript { display: none; }
-      .af-workbench-actions { flex-wrap: wrap; }
-      .af-workbench-actions button { flex: 1 1 calc(50% - 8px); }
+      .ics-actions { flex-wrap: wrap; }
+      .ics-btn { flex: 1 1 calc(50% - 4px); }
+      .ics-table { font-size: 12px; }
+      .ics-table th, .ics-table td { padding: 8px; }
     }
 
     /* ===== SHARE MODAL ===== */
@@ -1023,23 +1065,26 @@
       <div id="afLastText"></div>
     </div>
     <div id="afTranscript"></div>
-    <section id="afWorkbench" class="af-workbench" aria-live="polite" aria-label="Iris Workbench">
-      <div class="af-workbench-head">
-        <div>
-          <div class="af-workbench-kicker">Iris Workbench</div>
-          <div id="afWorkbenchTitle">Panneau de travail</div>
+    <section id="irisCommandScreen" class="ics-panel" aria-live="polite" aria-label="Iris Command Screen">
+      <div class="ics-rail">
+        <div class="ics-rail-title">Iris Command Screen</div>
+        <div class="ics-rail-r">
+          <div id="icsDot" class="ics-dot violet pulse"></div>
+          <span id="icsStatusText">En attente</span>
         </div>
-        <div id="afWorkbenchState">En attente</div>
       </div>
-      <div class="af-workbench-body">
-        <div id="afWorkbenchType">Brouillon</div>
-        <div id="afWorkbenchContent">Demande à Iris de préparer une note, un courrier, une checklist ou un tableau. Le travail apparaît ici avant toute validation.</div>
+      <div class="ics-body" id="icsBody">
+        <div id="icsRender"></div>
       </div>
-      <div class="af-workbench-actions">
-        <button id="afWorkbenchEdit" type="button">Modifier</button>
-        <button id="afWorkbenchCopy" type="button" class="primary">Copier</button>
-        <button id="afWorkbenchDownload" type="button">Télécharger</button>
-        <button id="afWorkbenchClose" type="button">Fermer</button>
+      <div class="ics-footer" id="icsFooter" style="display:none">
+        <div id="icsContext" class="ics-foot-sec"></div>
+        <div id="icsMissing" class="ics-foot-sec" style="display:none"></div>
+      </div>
+      <div class="ics-actions">
+        <button class="ics-btn" id="icsEdit" type="button">Modifier</button>
+        <button class="ics-btn copy" id="icsCopy" type="button">Copier</button>
+        <button class="ics-btn dl" id="icsDl" type="button">Telecharger</button>
+        <button class="ics-btn close" id="icsClose" type="button">Fermer</button>
       </div>
     </section>
     <form id="afTextForm" class="af-inputbar">
@@ -3207,174 +3252,326 @@
     // =====================================================================
     // AUDIO-FIRST MODE — init et utilitaires [AUDIO-FIRST]
     // =====================================================================
-    var _afWorkbenchDraft = '';
-    var _afTextFormBound = false;
+    // =====================================================================
+    // IRIS COMMAND SCREEN — renderIrisCommand + inferCommandRenderFromText
+    // =====================================================================
+    var _icsFormBound = false;
 
-    function _afDetectWorkbenchKind(text) {
-      var t = String(text || '').toLowerCase();
-      if (/\b(tableau|table|colonnes|ligne|lignes|graphique)\b/.test(t)) return 'table';
-      if (/\b(courrier|lettre|mail|email|message officiel|réponse écrite|reponse ecrite)\b/.test(t)) return 'letter';
-      if (/\b(checklist|liste|tâche|tache|actions|plan d'action|todo)\b/.test(t)) return 'checklist';
-      if (/\b(résumé|resume|synthèse|synthese|note|compte rendu|compte-rendu)\b/.test(t)) return 'summary';
-      if (/\b(panneau|workspace|workbench|bureau|document|prépare|prepare|rédige|redige|écris|ecris)\b/.test(t)) return 'workspace';
-      return '';
+    function _esc(s) {
+      return String(s||’’).replace(/&/g,’&amp;’).replace(/</g,’&lt;’).replace(/>/g,’&gt;’).replace(/"/g,’&quot;’);
     }
 
-    function _afWorkbenchLabel(kind) {
-      if (kind === 'table') return 'Tableau de travail';
-      if (kind === 'letter') return 'Courrier brouillon';
-      if (kind === 'checklist') return 'Checklist opérationnelle';
-      if (kind === 'summary') return 'Note / synthèse';
-      return 'Brouillon';
+    function inferCommandRenderFromText(text) {
+      var t = String(text||’’).toLowerCase();
+      if (/\b(tableau|table|colonnes?|données|compare[zr]?|liste[zr]?|grille|affiche.*(données|résultats|chiffres))\b/.test(t)) return ‘data_board’;
+      if (/\b(courrier|lettre|mail|email|message officiel|réponse écrite|rédige|redige|écris|ecris|brouillon|note officielle)\b/.test(t)) return ‘document_draft’;
+      if (/\b(checklist|liste de tâches?|plan d.action|todo|étapes?|etapes?|organise|fais.*(liste|plan|checklist))\b/.test(t)) return ‘action_board’;
+      if (/\b(état|etat|statut|services?|diagnostic|quotas?|santé|sante|check)\b/.test(t)) return ‘status_rail’;
+      if (/\b(explique|analyse[zr]?|résume|resume|contexte|comprends?|qu.est-ce)\b/.test(t)) return ‘context_panel’;
+      if (/\b(panneau|command screen|workspace|bureau|workbench|espace de travail)\b/.test(t)) return ‘data_board’;
+      return ‘’;
     }
 
-    function _afWorkbenchTemplate(kind, sourceText) {
-      var ask = String(sourceText || '').trim();
-      if (kind === 'table') {
-        return 'Tableau préparé par Iris\n\n| Sujet | État | Prochaine action |\n|---|---|---|\n| Demande utilisateur | À analyser | Préciser les données attendues |\n| Contexte | À compléter | Demander les critères utiles |\n| Validation | En attente | Valider avant sauvegarde |\n\nDemande reçue : ' + ask;
-      }
-      if (kind === 'letter') {
-        return 'Brouillon de courrier\n\nObjet : à préciser\n\nBonjour,\n\nIris prépare un courrier à partir de ta demande. Avant de finaliser, il faut confirmer :\n- le destinataire ;\n- l’objectif exact ;\n- le ton souhaité ;\n- les informations à ne pas oublier.\n\nDemande reçue : ' + ask;
-      }
-      if (kind === 'checklist') {
-        return 'Checklist préparée par Iris\n\n[ ] Clarifier l’objectif\n[ ] Identifier les informations utiles\n[ ] Préparer le brouillon\n[ ] Faire relire par Ludovic\n[ ] Valider avant action réelle\n\nDemande reçue : ' + ask;
-      }
-      if (kind === 'summary') {
-        return 'Note de travail\n\nRésumé provisoire :\nIris a ouvert le panneau pour structurer la demande. Le contenu reste un brouillon local tant que Ludovic n’a pas validé.\n\nPoints à compléter :\n- contexte ;\n- objectif ;\n- destinataire ou usage ;\n- prochaine action.\n\nDemande reçue : ' + ask;
-      }
-      return 'Workbench prêt.\n\nIris peut préparer ici un brouillon, une note, un courrier, une checklist ou un tableau. Les actions sensibles restent bloquées tant que Ludovic ne valide pas.\n\nDemande reçue : ' + (ask || 'affichage du panneau');
+    function _icsBuildPayload(renderType, sourceText) {
+      var ask = String(sourceText||’’).trim();
+      if (renderType === ‘data_board’) return {
+        title: ‘Données’,
+        columns: [‘Sujet’, ‘Détail’, ‘Statut’],
+        rows: [
+          [‘Demande reçue’, ask.substring(0,46)||’—‘, ‘analyse’],
+          [‘Données attendues’, ‘À préciser avec Iris’, ‘attente’],
+          [‘Validation’, ‘Confirmation Ludovic requise’, ‘attente’]
+        ],
+        summary: ‘Structure provisoire — Iris attend les informations manquantes.’,
+        context: ‘Tableau demandé : ‘ + (ask.substring(0,60)||’?’),
+        missing: [‘Les colonnes souhaitées’, ‘La source des données’, ‘Le tri ou filtre voulu’]
+      };
+      if (renderType === ‘document_draft’) return {
+        title: ‘Brouillon’,
+        recipient: ‘[Destinataire à préciser]’,
+        body: ‘Madame, Monsieur,\n\nJe me permets de vous contacter concernant : ‘ + (ask||’[objet à préciser]’) + ‘.\n\n[Corps du courrier — Iris complète avec vos informations]\n\nCordialement,\n[Signature]’,
+        placeholders: [‘[Destinataire à préciser]’, ‘[objet à préciser]’, ‘[Signature]’],
+        context: ‘Brouillon basé sur votre demande.’,
+        missing: [‘Le destinataire exact’, "L’objet précis du courrier", ‘Les informations clés’]
+      };
+      if (renderType === ‘action_board’) return {
+        sections: [
+          { title: ‘À faire’, items: [
+            { text: ask||’Action demandée’, done: false, tag: ‘warn’ },
+            { text: ‘Préciser les détails avec Iris’, done: false },
+            { text: ‘Valider avant toute action’, done: false, tag: ‘warn’ }
+          ]},
+          { title: ‘Reçu’, items: [{ text: ‘Iris a reçu la demande’, done: true }]}
+        ],
+        context: ‘Plan provisoire — aucune action envoyée.’,
+        missing: [‘Les priorités’, ‘Les échéances’, ‘Les responsables’]
+      };
+      if (renderType === ‘status_rail’) return {
+        services: [
+          { name: ‘Voix’, status: ‘active’, detail: ‘OpenAI Realtime’ },
+          { name: ‘Command Screen’, status: ‘active’, detail: ‘V1 actif’ },
+          { name: ‘SMS’, status: ‘warn’, detail: ‘Validation requise’ },
+          { name: ‘Documents’, status: ‘active’, detail: ‘Brouillon local’ }
+        ],
+        summary: ‘Actions sensibles requièrent confirmation explicite.’,
+        context: ‘Statut au ‘ + new Date().toLocaleDateString(‘fr-FR’)
+      };
+      if (renderType === ‘context_panel’) return {
+        title: ‘Analyse de la demande’,
+        sections: [
+          { heading: ‘Demande reçue’, body: ask||’—‘ },
+          { heading: ‘Interprétation’, body: ‘Iris analyse le contexte et prépare une réponse structurée.’ },
+          { heading: ‘Prochaine étape’, body: ‘Précisez le résultat attendu pour construire le bon rendu.’ }
+        ],
+        context: ‘Analyse contextuelle.’,
+        missing: []
+      };
+      return {
+        question: ‘Pour traiter cette demande, Iris a besoin de précisions.’,
+        missing_fields: [‘Le type de rendu souhaité’],
+        provided_fields: { demande: ask },
+        suggestions: [‘Tableau’, ‘Courrier’, ‘Checklist’, ‘Analyse’]
+      };
     }
 
-    function _afOpenWorkbench(kind, sourceText, stateText, customContent) {
-      var panel = document.getElementById('afWorkbench');
-      var view = document.getElementById('audioView');
-      if (!panel) return;
-      kind = kind || 'workspace';
-      _afWorkbenchDraft = customContent || _afWorkbenchTemplate(kind, sourceText);
-      panel.classList.add('open');
-      if (view) view.classList.add('workbench-open');
-      var title = document.getElementById('afWorkbenchTitle');
-      var state = document.getElementById('afWorkbenchState');
-      var type = document.getElementById('afWorkbenchType');
-      var content = document.getElementById('afWorkbenchContent');
-      if (title) title.textContent = _afWorkbenchLabel(kind);
-      _afSetWorkbenchState(stateText || 'Brouillon prêt', stateText === 'Validation requise' ? 'state-warning' : (stateText === 'Analyse' || stateText === 'Préparation' ? 'state-analyse' : 'state-ready'));
-      if (type) type.textContent = _afWorkbenchLabel(kind);
-      if (content) {
-        content.contentEditable = 'false';
-        content.textContent = _afWorkbenchDraft;
-      }
-      rLog('info', 'simli', 'workbench_open', kind);
+    function _icsRenderDataBoard(p) {
+      var cols = (p.columns||[]).map(function(c){return ‘<th>’+_esc(c)+’</th>’;}).join(‘’);
+      var rows = (p.rows||[]).map(function(r){
+        var cells = r.map(function(v,i){
+          if (i===r.length-1){
+            var sv=String(v).toLowerCase();
+            var cls=sv===’ok’||sv===’actif’||sv===’terminé’?’ok’:sv===’attente’||sv===’analyse’?’neu’:’warn’;
+            return ‘<td><span class="ics-badge ‘+cls+’">’+_esc(String(v))+’</span></td>’;
+          }
+          return ‘<td>’+_esc(String(v))+’</td>’;
+        }).join(‘’);
+        return ‘<tr>’+cells+’</tr>’;
+      }).join(‘’);
+      return ‘<div><div class="ics-data-title">’+_esc(p.title||’Données’)+’</div>’
+        +’<table class="ics-table"><thead><tr>’+cols+’</tr></thead><tbody>’+rows+’</tbody></table>’
+        +(p.summary?’<div class="ics-summary">’+_esc(p.summary)+’</div>’:’’)
+        +’</div>’;
     }
 
-    function _afSetWorkbenchState(text, stateClass) {
-      var state = document.getElementById('afWorkbenchState');
-      if (state) {
-        state.textContent = text || 'En cours';
-        state.className = stateClass || '';
-      }
-    }
-
-    function _afCloseWorkbench() {
-      var content = document.getElementById('afWorkbenchContent');
-      var panel = document.getElementById('afWorkbench');
-      var view = document.getElementById('audioView');
-      if (content) content.contentEditable = 'false';
-      if (panel) panel.classList.remove('open');
-      if (view) view.classList.remove('workbench-open');
-      rLog('info', 'simli', 'workbench_close', '');
-    }
-
-    function _afCurrentWorkbenchText() {
-      var content = document.getElementById('afWorkbenchContent');
-      if (content) _afWorkbenchDraft = content.textContent || '';
-      return _afWorkbenchDraft || '';
-    }
-
-    function _afCopyWorkbench() {
-      var text = _afCurrentWorkbenchText();
-      if (!text) return;
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(text).then(function() {
-          _afSetWorkbenchState('Copié', 'state-ready');
-          rLog('info', 'simli', 'workbench_copy', String(text.length));
-        }).catch(function() {
-          _afSetWorkbenchState('Copie impossible', 'state-error');
+    function _icsRenderDocDraft(p) {
+      var lines = String(p.body||’’).split(‘\n’);
+      var bodyHtml = lines.map(function(line){
+        if (!line.trim()) return ‘<p style="margin:0 0 6px"></p>’;
+        var l = _esc(line);
+        (p.placeholders||[]).forEach(function(ph){
+          l = l.split(_esc(ph)).join(‘<span class="ics-ph">’+_esc(ph)+’</span>’);
         });
-      } else {
-        _afSetWorkbenchState('Copie impossible', 'state-error');
+        return ‘<p>’+l+’</p>’;
+      }).join(‘’);
+      return ‘<div>’
+        +’<div class="ics-doc-title">’+_esc(p.title||’Document’)+’</div>’
+        +(p.recipient?’<div class="ics-doc-meta">Destinataire : ‘+_esc(p.recipient)+’</div>’:’’)
+        +’<div class="ics-doc-body">’+bodyHtml+’</div></div>’;
+    }
+
+    function _icsRenderActionBoard(p) {
+      if (p.action_type && p.requires_confirmation) {
+        var det = p.details||{};
+        var detHtml = Object.keys(det).map(function(k){return ‘<div>’+_esc(k)+’ : ‘+_esc(String(det[k]))+’</div>’;}).join(‘’);
+        return ‘<div><div class="ics-confirm-bar">’
+          +’<div class="ics-confirm-title">Validation requise</div>’
+          +’<div class="ics-confirm-detail">’+_esc(p.summary||’’)+(detHtml?’<br>’+detHtml:’’)+’</div>’
+          +’<div class="ics-confirm-btns">’
+          +’<button class="ics-confirm-btn yes" onclick="_icsConfirmAction(\’’+_esc(p.action_type)+’\’,true)">Confirmer</button>’
+          +’<button class="ics-confirm-btn no"  onclick="_icsConfirmAction(\’’+_esc(p.action_type)+’\’,false)">Annuler</button>’
+          +’</div></div></div>’;
       }
+      var secs = (p.sections||[]).map(function(sec){
+        var items = (sec.items||[]).map(function(item){
+          var cbCls = item.done?’ics-cb done’:’ics-cb’;
+          var tag = item.tag?’<span class="ics-tag ‘+item.tag+’">’+(item.tag===’urgent’?’Urgent’:item.tag===’warn’?’Attention’:’’)+’</span>’:’’;
+          return ‘<div class="ics-acard"><div class="’+cbCls+’"></div><div class="ics-card-text">’+_esc(item.text||’’)+(tag?’<br>’+tag:’’)+’</div></div>’;
+        }).join(‘’);
+        return ‘<div class="ics-action-sec"><div class="ics-action-sec-title">’+_esc(sec.title||’’)+’</div>’+items+’</div>’;
+      }).join(‘’);
+      return ‘<div>’+secs+’</div>’;
     }
 
-    function _afDownloadWorkbench() {
-      var text = _afCurrentWorkbenchText();
-      if (!text) return;
-      var blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+    function _icsRenderContextPanel(p) {
+      var secs = (p.sections||[]).map(function(s){
+        return ‘<div style="margin-bottom:12px">’
+          +’<div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--ics-text3);margin-bottom:4px">’+_esc(s.heading||’’)+’</div>’
+          +’<div style="font-size:13px;color:var(--ics-text);line-height:1.6">’+_esc(s.body||’’)+’</div></div>’;
+      }).join(‘’);
+      return ‘<div><div style="font-size:15px;font-weight:500;color:var(--ics-violet);margin-bottom:14px">’+_esc(p.title||’Contexte’)+’</div>’
+        +secs
+        +(p.summary?’<div class="ics-summary">’+_esc(p.summary)+’</div>’:’’)+’</div>’;
+    }
+
+    function _icsRenderMissingInfo(p) {
+      var fields = (p.missing_fields||[]).map(function(f){
+        return ‘<div class="ics-acard"><div class="ics-cb"></div><div class="ics-card-text" style="color:var(--ics-amber)">’+_esc(f)+’</div></div>’;
+      }).join(‘’);
+      var sugg = (p.suggestions||[]).map(function(s){
+        var lbl=typeof s===’string’?s:(s.label||’’);
+        return ‘<button class="ics-btn" style="flex:none;padding:6px 14px;font-size:12px;border-radius:99px" onclick="_icsSuggestion(\’’+_esc(lbl)+’\’)">’+_esc(lbl)+’</button>’;
+      }).join(‘’);
+      return ‘<div><div style="font-size:13px;font-weight:500;color:var(--ics-amber);margin-bottom:12px">’+_esc(p.question||’Informations manquantes’)+’</div>’
+        +fields+(sugg?’<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px">’+sugg+’</div>’:’’)+’</div>’;
+    }
+
+    function _icsRenderStatusRail(p) {
+      var rows = (p.services||[]).map(function(s){
+        return ‘<div class="ics-svc-row"><div class="ics-svc-dot ‘+(s.status||’active’)+’"></div>’
+          +’<div class="ics-svc-name">’+_esc(s.name||’’)+’</div>’
+          +’<div class="ics-svc-detail">’+_esc(s.detail||’’)+’</div></div>’;
+      }).join(‘’);
+      return ‘<div class="ics-svc-grid">’+rows
+        +(p.summary?’<div class="ics-summary" style="margin-top:8px">’+_esc(p.summary)+’</div>’:’’)+’</div>’;
+    }
+
+    function renderIrisCommand(payload) {
+      var panel  = document.getElementById(‘irisCommandScreen’);
+      var render = document.getElementById(‘icsRender’);
+      var footer = document.getElementById(‘icsFooter’);
+      var ctx    = document.getElementById(‘icsContext’);
+      var miss   = document.getElementById(‘icsMissing’);
+      if (!panel||!render) return;
+
+      var rType = payload.render_type||’context_panel’;
+      var p = payload.payload||payload;
+
+      var stateMap = {
+        data_board:      [‘Construction’, ‘cyan’],
+        document_draft:  [‘Brouillon’, ‘violet’],
+        action_board:    p.requires_confirmation ? [‘Validation requise’,’amber’] : [‘Plan d\’action’,’violet’],
+        context_panel:   [‘Analyse’, ‘cyan’],
+        missing_info:    [‘Infos manquantes’, ‘amber’],
+        status_rail:     [‘Diagnostic’, ‘cyan’]
+      };
+      var si = stateMap[rType]||[‘En cours’,’violet’];
+
+      var html = ‘’;
+      if      (rType===’data_board’)     html = _icsRenderDataBoard(p);
+      else if (rType===’document_draft’) html = _icsRenderDocDraft(p);
+      else if (rType===’action_board’)   html = _icsRenderActionBoard(p);
+      else if (rType===’context_panel’)  html = _icsRenderContextPanel(p);
+      else if (rType===’missing_info’)   html = _icsRenderMissingInfo(p);
+      else if (rType===’status_rail’)    html = _icsRenderStatusRail(p);
+      else html=’<div style="color:var(--ics-text2);font-size:13px">’+_esc(JSON.stringify(p))+’</div>’;
+
+      render.innerHTML = html;
+
+      var hasFooter = false;
+      if (ctx) {
+        if (p.context) { ctx.innerHTML=’<div class="ics-foot-lbl">Contexte</div><div class="ics-foot-item">’+_esc(p.context)+’</div>’; hasFooter=true; }
+        else ctx.innerHTML=’’;
+      }
+      if (miss) {
+        if (p.missing&&p.missing.length) {
+          miss.innerHTML=’<div class="ics-foot-lbl">Infos manquantes</div>’
+            +p.missing.map(function(m){return ‘<div class="ics-foot-item ics-miss-item">’+_esc(m)+’</div>’;}).join(‘’);
+          miss.style.display=’’; hasFooter=true;
+        } else miss.style.display=’none’;
+      }
+      if (footer) footer.style.display=hasFooter?’’:’none’;
+
+      _icsSetState(si[0], si[1]);
+      var view = document.getElementById(‘audioView’);
+      panel.className=’ics-panel open st-’+(si[1]===’amber’?’warning’:si[1]===’coral’?’error’:si[1]===’cyan’?’analyse’:’ready’);
+      if (view) view.classList.add(‘ics-open’);
+      rLog(‘info’,’simli’,’ics_render’,rType);
+    }
+
+    function _icsSetState(text, color) {
+      var dot = document.getElementById(‘icsDot’);
+      var txt = document.getElementById(‘icsStatusText’);
+      if (txt) txt.textContent = text||’En cours’;
+      if (dot) dot.className = ‘ics-dot ‘+(color||’violet’)+’ pulse’;
+    }
+
+    function _icsClose() {
+      var panel = document.getElementById(‘irisCommandScreen’);
+      var view  = document.getElementById(‘audioView’);
+      if (panel) { panel.classList.remove(‘open’); panel.style.display=’none’; panel.style.display=’’; }
+      if (view)  view.classList.remove(‘ics-open’);
+      rLog(‘info’,’simli’,’ics_close’,’’);
+    }
+
+    function _icsCopy() {
+      var el = document.getElementById(‘icsRender’);
+      var t  = el?(el.innerText||el.textContent||’’):’’;
+      if (!t) return;
+      if (navigator.clipboard&&navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(t).then(function(){_icsSetState(‘Copié’,’green’);}).catch(function(){_icsSetState(‘Impossible’,’coral’);});
+      } else _icsSetState(‘Impossible’,’coral’);
+    }
+
+    function _icsDl() {
+      var el = document.getElementById(‘icsRender’);
+      var t  = el?(el.innerText||el.textContent||’’):’’;
+      if (!t) return;
+      var blob = new Blob([t],{type:’text/plain;charset=utf-8’});
       var url = URL.createObjectURL(blob);
-      var a = document.createElement('a');
-      a.href = url;
-      a.download = 'iris-workbench-' + Date.now() + '.txt';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      setTimeout(function() { URL.revokeObjectURL(url); }, 500);
-      _afSetWorkbenchState('Téléchargé', 'state-ready');
-      rLog('info', 'simli', 'workbench_download', String(text.length));
+      var a = document.createElement(‘a’);
+      a.href=url; a.download=’iris-command-’+Date.now()+’.txt’;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(function(){URL.revokeObjectURL(url);},500);
+      _icsSetState(‘Téléchargé’,’green’);
     }
 
-    function _afMaybeOpenWorkbenchFromText(text) {
-      var kind = _afDetectWorkbenchKind(text);
-      if (!kind) return false;
-      _afOpenWorkbench(kind, text, 'Préparation');
-      return true;
+    function _icsSuggestion(lbl) {
+      var inp = document.getElementById(‘afTextInput’);
+      if (inp){inp.value=lbl; inp.focus();}
+    }
+
+    function _icsConfirmAction(actionType, confirmed) {
+      _afAppendTranscript(‘system’, confirmed?(‘Confirmé : ‘+actionType):(‘Annulé : ‘+actionType));
+      if (_irisWs&&_irisWs.readyState===1&&confirmed) {
+        try{_irisWs.send(JSON.stringify({type:’text’,text:’Confirme : ‘+actionType}));}catch(e){}
+      }
+      _icsClose();
     }
 
     function _afSendTextToIris(text) {
-      text = String(text || '').trim();
+      text = String(text||’’).trim();
       if (!text) return;
-      _afAppendTranscript('user', text);
-      _afMaybeOpenWorkbenchFromText(text);
-      if (_irisWs && _irisWs.readyState === 1) {
-        try {
-          _irisWs.send(JSON.stringify({ type: 'text', text: text }));
-          _setIrisState('thinking');
-          rLog('info', 'simli', 'iris_text_sent', text.substring(0, 80));
-        } catch(e) {
-          _afAppendTranscript('system', 'Envoi écrit impossible');
-        }
+      _afAppendTranscript(‘user’, text);
+      var rType = inferCommandRenderFromText(text);
+      if (rType) {
+        var payload = _icsBuildPayload(rType, text);
+        payload.render_type = rType;
+        renderIrisCommand(payload);
+      }
+      if (_irisWs&&_irisWs.readyState===1) {
+        try{
+          _irisWs.send(JSON.stringify({type:’text’,text:text}));
+          _setIrisState(‘thinking’);
+          rLog(‘info’,’simli’,’iris_text_sent’,text.substring(0,80));
+        }catch(e){_afAppendTranscript(‘system’,’Envoi impossible’);}
       } else {
-        _afAppendTranscript('system', 'Iris n’est pas connectée');
+        _afAppendTranscript(‘system’,’Iris non connectée’);
       }
     }
 
-    function _afBindWorkbenchControls() {
-      if (_afTextFormBound) return;
-      _afTextFormBound = true;
-      var form = document.getElementById('afTextForm');
-      var input = document.getElementById('afTextInput');
+    function _icsBindControls() {
+      if (_icsFormBound) return;
+      _icsFormBound = true;
+      var form  = document.getElementById(‘afTextForm’);
+      var input = document.getElementById(‘afTextInput’);
       if (form) {
-        form.addEventListener('submit', function(e) {
+        form.addEventListener(‘submit’, function(e){
           e.preventDefault();
-          var value = input ? input.value : '';
-          if (input) input.value = '';
-          _afSendTextToIris(value);
+          var v = input?input.value:’’;
+          if (input) input.value=’’;
+          _afSendTextToIris(v);
         });
       }
-      var closeBtn = document.getElementById('afWorkbenchClose');
-      var copyBtn = document.getElementById('afWorkbenchCopy');
-      var dlBtn = document.getElementById('afWorkbenchDownload');
-      var editBtn = document.getElementById('afWorkbenchEdit');
-      if (closeBtn) closeBtn.addEventListener('click', _afCloseWorkbench);
-      if (copyBtn) copyBtn.addEventListener('click', _afCopyWorkbench);
-      if (dlBtn) dlBtn.addEventListener('click', _afDownloadWorkbench);
-      if (editBtn) editBtn.addEventListener('click', function() {
-        var content = document.getElementById('afWorkbenchContent');
-        if (content) {
-          content.contentEditable = 'true';
-          content.focus();
-          _afSetWorkbenchState('En édition', 'state-edit');
-          rLog('info', 'simli', 'workbench_edit', '');
-        }
+      var closeBtn = document.getElementById(‘icsClose’);
+      var copyBtn  = document.getElementById(‘icsCopy’);
+      var dlBtn    = document.getElementById(‘icsDl’);
+      var editBtn  = document.getElementById(‘icsEdit’);
+      if (closeBtn) closeBtn.addEventListener(‘click’, _icsClose);
+      if (copyBtn)  copyBtn.addEventListener(‘click’, _icsCopy);
+      if (dlBtn)    dlBtn.addEventListener(‘click’, _icsDl);
+      if (editBtn)  editBtn.addEventListener(‘click’, function(){
+        var r=document.getElementById(‘icsRender’);
+        if(r){r.contentEditable=’true’;r.focus();_icsSetState(‘Edition’,’violet’);}
       });
     }
 
@@ -3391,7 +3588,7 @@
       // Afficher la vue audio-first
       var av = document.getElementById('audioView');
       if (av) av.style.display = 'flex';
-      _afBindWorkbenchControls();
+      _icsBindControls();
 
       // Barre d'actions : masquer les boutons qui nécessitent une salle Daily
       var btnInviteEl = document.getElementById('btnInvite');
@@ -3529,21 +3726,41 @@
             } else if (data.type === 'interrupt') {
               _irisClearPlayback();
               _setIrisState('idle');
+            } else if (data.type === 'render') {
+              renderIrisCommand(data);
             } else if (data.type === 'transcript') {
               var role = data.role === 'user' ? 'user' : 'iris';
               _afAppendTranscript(role, data.text || '');
-              if (data.role === 'user') _setIrisState('thinking');
-              if (data.role === 'user') _afMaybeOpenWorkbenchFromText(data.text || '');
+              if (data.role === 'user') {
+                _setIrisState('thinking');
+                var _rType = inferCommandRenderFromText(data.text || '');
+                if (_rType) {
+                  var _pl = _icsBuildPayload(_rType, data.text || '');
+                  _pl.render_type = _rType;
+                  renderIrisCommand(_pl);
+                }
+              }
             } else if (data.type === 'tool_call') {
               var toolName = data.name || 'outil';
-              var status = data.status || 'running';
-              var msg = data.message || '';
-              if (status === 'running') {
-                _afOpenWorkbench('workspace', toolName, 'Analyse');
-              } else if (status === 'validation_required') {
-                _afOpenWorkbench('workspace', toolName, 'Validation requise', 'Action sensible bloquée.\n\nOutil demandé : ' + toolName + '\n\n' + (msg || 'Iris prépare le brouillon, mais aucune action réelle ne part sans validation explicite.'));
+              var tcStatus = data.status || 'running';
+              var tcMsg    = data.message || '';
+              if (tcStatus === 'running') {
+                renderIrisCommand({ render_type: 'status_rail', payload: {
+                  services: [{ name: toolName, status: 'syncing', detail: 'En cours' }],
+                  summary: 'Iris traite : ' + toolName, context: 'Outil en cours'
+                }});
+              } else if (tcStatus === 'validation_required') {
+                renderIrisCommand({ render_type: 'action_board', payload: {
+                  action_type: toolName, requires_confirmation: true,
+                  summary: tcMsg || 'Action sensible — validation requise.',
+                  details: { Outil: toolName }
+                }});
               } else {
-                _afOpenWorkbench('workspace', toolName, status === 'ok' ? 'Terminé' : 'À vérifier', msg || ('Résultat outil : ' + toolName));
+                renderIrisCommand({ render_type: 'context_panel', payload: {
+                  title: toolName,
+                  sections: [{ heading: 'Résultat', body: tcMsg || ('Outil ' + toolName + ' : ' + tcStatus) }],
+                  context: 'Résultat outil'
+                }});
               }
             } else if (data.type === 'ended') {
               _afAppendTranscript('system', data.reason || 'Session terminée');
