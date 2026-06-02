@@ -1019,3 +1019,15 @@ Fichier concerné : docs/AGENTS_COLLABORATION/agents/CODEX_F12_LOGS_BRUTS_VISIO_
 Risque : eleve si les agents diagnostiquent sans lire les logs reels
 Décision Ludovic requise : non
 Action proposée : Claude/DeepSeek/Kimi lisent les logs bruts avant nouvelle conclusion.
+
+---
+
+Agent : Kimi
+Objectif : 017
+Type : refonte UX V1
+Résumé : 5 lignes max
+Refonte UI visio Iris V1 publiee. 8 boutons/elements doivent disparaitre de l'ecran principal : controles Daily/Simli natifs (barre blanche, camera, micro, nom Chatbot), boutons Analyser/Inviter/Partager/Notes, badge vision mensonger, cadre telephone, selecteur duree. Layout V1 = header sticky (Iris + statut + minuteur), avatar plein ecran >= 75% hauteur, orb Parler centre-bas 64px, bouton raccrocher rouge fixe pleine largeur, menu parametres ⋮ pour tout le reste. Vision honnete : "Vision en attente" par defaut, jamais "Iris voit" sans description reelle. Phase 1 (labels + masquage) = niveau 1. Phase 2 (refonte layout) = niveau 2, validation Ludovic requise.
+Fichier concerné : docs/AGENTS_COLLABORATION/agents/KIMI_REFONTE_UI_VISIO_IRIS_V1_017.md ; static/simli.html
+Risque : eleve si on deploie sans corriger le mensonge visuel "Iris voit"
+Décision Ludovic requise : oui pour Phase 2 (refonte layout visible)
+Action proposée : Claude Phase 1 labels+masquage. Codex capture terrain. Ludovic valide Phase 2. DeepSeek verifie pas de flux morts bloquants.
