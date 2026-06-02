@@ -1194,3 +1194,15 @@ Fichier concerné : static/simli.html ; integrations/openai/web_voice_bridge.py 
 Risque : moyen-faible ; UI visible mais actions reelles bloquees
 Décision Ludovic requise : oui pour deploy Cloud Run et pour etapes sauvegarde/PDF/actions
 Action proposée : Claude deploie apres pull. Kimi audite lisibilite mobile/premium. DeepSeek verifie WebSocket texte + garde-fous `validation_required`. Test terrain : ecrire "prepare un tableau avec mes objectifs" puis "envoie un SMS".
+
+---
+
+Agent : Kimi
+Objectif : 019
+Type : audit UX / validation rendu
+Résumé : 5 lignes max
+Audit UX Iris Workbench V1 publie. Verdict : acceptable V1 avec 5 correctifs. Bien : separation Luna/Iris, non destructif, apparition conditionnelle, templates honnetes, desktop elegant, mobile responsive, 4 types contenu, logs instrumentes. A corriger P1 : superposition mobile (bottom 150px trop juste → 156px, max-height 42vh → 38vh), palette vert Simli → violet Iris. A corriger P2 : etats visuels manquants (texte seul, pas de couleur/animation), bouton Modifier non branche. Cohérence secretaire opératrice OK pour V1 mais contenu trop generique pour V2. Validation V1 conditionnelle : corriger P1-P2 puis re-soumettre.
+Fichier concerné : docs/AGENTS_COLLABORATION/agents/KIMI_AUDIT_UX_IRIS_WORKBENCH_V1_019.md ; static/simli.html
+Risque : moyen si mobile non corrige (superposition)
+Décision Ludovic requise : non
+Action proposée : Claude/DeepSeek corrige P1 (mobile + palette) et P2 (etats + Modifier). Kimi valide apres correction.
