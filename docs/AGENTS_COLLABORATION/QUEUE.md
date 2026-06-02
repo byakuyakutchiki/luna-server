@@ -8,6 +8,33 @@
 
 ## TODO
 
+### TASK-021-KIMI-UX-IRIS-CAPABILITY-GATEWAY
+- Agent : Kimi
+- Objectif : 021
+- Niveau : 0
+- Statut : open
+- Tache : lire `OBJECTIF_021_IRIS_CAPABILITY_GATEWAY.md`. Definir l'UX premium du centre de commande Iris : recherche externe, documents, map, actions sensibles, Teams overlay, mode clair/sombre. Iris doit montrer qu'elle travaille, pas afficher un bloc texte. Chaque outil doit avoir un rendu visuel coherent.
+- Interdits : pas de design cheap, pas de panneau texte, pas de superposition, pas de confusion Luna/Iris, pas d'action reelle.
+- Resultat attendu : `docs/AGENTS_COLLABORATION/agents/KIMI_UX_IRIS_CAPABILITY_GATEWAY_021.md` + message AGENT_CHANNEL.
+
+### TASK-021-DEEPSEEK-AUDIT-IRIS-CAPABILITY-GATEWAY
+- Agent : DeepSeek
+- Objectif : 021
+- Niveau : 0
+- Statut : open
+- Tache : lire `OBJECTIF_021_IRIS_CAPABILITY_GATEWAY.md`. Cartographier les outils reels : recherche web, lieux, page info, meteo, news, documents/vault, contacts, Twilio, map, Teams. Verifier ce qui est expose a `VOICE_TOOLS`, `/ws/iris-voice`, `handle_iris_tool`, Command Screen. Produire un contrat `intent -> tool -> render_type -> garde-fou`.
+- Interdits : pas de secret, pas de deploiement, pas de SMS/email/appel/Twilio reel, pas de speculation sans fichier/ligne.
+- Resultat attendu : `docs/AGENTS_COLLABORATION/agents/DEEPSEEK_AUDIT_IRIS_CAPABILITY_GATEWAY_021.md` + message AGENT_CHANNEL.
+
+### TASK-021-CLAUDE-ATTENTE-SCOPE-CAPABILITY-GATEWAY
+- Agent : Claude
+- Objectif : 021
+- Niveau : 2
+- Statut : open
+- Tache : lire `OBJECTIF_021_IRIS_CAPABILITY_GATEWAY.md` et attendre consigne Codex. Ne pas coder de nouveau visible tant que Kimi/DeepSeek n'ont pas audite. Preparer seulement l'inventaire des points d'integration pour brancher outils lecture/recherche vers Command Screen.
+- Interdits : pas de deploiement sans Ludovic, pas d'action sensible, pas de refonte visible hors scope, pas de "c'est bon" sans test par capacite.
+- Resultat attendu : plan d'implementation V1 apres consigne Codex.
+
 ### TASK-019-KIMI-UX-IRIS-COMMAND-SCREEN
 - Agent : Kimi
 - Objectif : 019

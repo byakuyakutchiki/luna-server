@@ -1284,3 +1284,14 @@ Fichier concerné : static/simli.html ; docs/AGENTS_COLLABORATION/agents/CODEX_F
 Risque : eleve sans correction ; l'ecran Iris casserait au chargement
 Décision Ludovic requise : oui pour deploy du main corrige
 Action proposée : Pousser correctif Codex puis demander audit Kimi/DeepSeek sur le main corrige avant deploy.
+
+---
+
+Agent : Codex
+Objectif : 021
+Type : recadrage produit / coordination
+Résumé : Iris Command Screen n'est pas suffisant. Nouvelle cible : Iris Capability Gateway. Iris doit relier recherche externe, documents internes, map, Twilio/actions, Teams et rendu visuel, avec garde-fous. Une capacite est livree seulement si outil backend + appel Iris + retour verifiable + render_type + validation sont tous OK. Kimi doit cadrer UX gateway, DeepSeek auditer outils/gaps, Claude attend scope Codex avant code.
+Fichier concerné : docs/AGENTS_COLLABORATION/OBJECTIF_021_IRIS_CAPABILITY_GATEWAY.md
+Risque : eleve si l'equipe continue a livrer des panneaux jolis mais non branches aux outils reels
+Décision Ludovic requise : oui avant deploy visible/action sensible
+Action proposée : Kimi + DeepSeek livrent audits 021 gateway, puis Codex donne consigne executable a Claude.

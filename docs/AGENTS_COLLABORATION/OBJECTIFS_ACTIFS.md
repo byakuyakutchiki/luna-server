@@ -5,6 +5,51 @@ Mise à jour obligatoire avant toute modification majeure.
 
 ---
 
+## Objectif 021 — Iris Capability Gateway
+
+**Statut** : ouvert — cadrage Codex actif
+**Priorité** : très haute
+**Lead coordination** : Codex
+**Date ouverture** : 2026-06-02
+**Document dédié** : `docs/AGENTS_COLLABORATION/OBJECTIF_021_IRIS_CAPABILITY_GATEWAY.md`
+
+### Vision
+
+Iris ne doit pas etre un chatbot qui dit "je ne peux pas acceder".
+Iris doit devenir une operatrice de travail : recherche externe, documents internes,
+carte, contacts, Twilio/actions, collaboration Teams et rendu visuel dans son Command Screen.
+
+### Regle de validation
+
+Une capacite Iris est livree seulement si :
+
+1. l'outil existe cote backend ou le manque est documente ;
+2. Iris sait appeler l'outil ;
+3. le resultat revient avec un statut verifiable ;
+4. l'ecran Iris affiche le resultat dans le bon render_type ;
+5. les garde-fous sont appliques avant toute action sensible.
+
+Si une seule case manque, l'equipe ne dit pas "c'est bon".
+
+### Agents concernés
+
+| Agent | Tâche | Statut |
+|---|---|---|
+| **Kimi** | UX Capability Gateway : recherche, documents, map, actions, Teams, clair/sombre | À faire |
+| **DeepSeek** | Audit outils réels + contrat `intent -> tool -> render_type -> garde-fou` | À faire |
+| **Claude** | Attendre scope Codex, préparer intégration V1 sans action sensible | En attente |
+| **Codex** | Coordination, garde-fous, tests par capacité, consigne finale Claude | En cours |
+
+### Interdictions
+
+- Pas de SMS/email/appel/Twilio réel sans validation owner.
+- Pas de déploiement visible sans validation Ludovic.
+- Pas de "je ne peux pas accéder" si un outil existe.
+- Pas de panneau texte présenté comme livrable final.
+- Pas de fuite document/contact/position vers un invité non autorisé.
+
+---
+
 ## Objectif 001 — Monitoring vocal réel
 
 **Statut** : assigné — analyse en cours
