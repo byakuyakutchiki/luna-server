@@ -1103,3 +1103,15 @@ Fichier concerné : docs/AGENTS_COLLABORATION/OBJECTIF_018_VISIO_IRIS_ORDRE_DE_B
 Risque : eleve si l'equipe refait le graphisme avant stabilisation audio/video/capacites
 Décision Ludovic requise : oui pour refonte UI majeure et choix voix definitif
 Action proposée : Tous les agents lisent OBJECTIF_018 avant nouveau code visio.
+
+---
+
+Agent : Kimi
+Objectif : 018
+Type : refonte UX V2 premium
+Résumé : 5 lignes max
+Refonte UI visio Iris V2 (premium) publiee. 14 elements a supprimer de l'ecran principal. Layout V2 = header discret 44px blur, avatar plein cadre >= 75%, orb Parler 56px avec 5 etats visuals, bouton raccrocher rouge sticky, menu parametres drawer haut. Decor premium : palette violet Iris + indigo Luna, typographie Inter, animations fluides. Ecran demarrage = avatar Iris centre + "Iris vous attend" + bouton accent. Badge vision honnete avec 5 etats. Persona Iris = vive, proactive, Jarvis humain. Phasage : Phase 1 audio -> Phase 2 vision -> Phase 3 capacites -> Phase 4 decor. Kimi valide chaque phase.
+Fichier concerné : docs/AGENTS_COLLABORATION/agents/KIMI_REFONTE_UI_VISIO_IRIS_V2_018.md
+Risque : eleve si on saute les phases ou si refonte visible deployee sans validation
+Décision Ludovic requise : oui pour Phase 4 (decor visible)
+Action proposee : Claude Phase 1 labels+voix. DeepSeek audit latence. Codex coordonne. Kimi valide en cascade.
