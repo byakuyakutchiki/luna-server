@@ -8890,33 +8890,61 @@ Quand il parle de ses heures, propose de les enregistrer. Quand il parle d'une r
 import random as _random
 
 _IRIS_GREETINGS = [
-    "Salut {name}. Qu'est-ce que je peux faire pour toi ?",
-    "{name}, je t'écoute. Dis-moi.",
-    "Bonjour {name}. En quoi je peux t'aider ?",
-    "{name}. Présente. Qu'est-ce qui se passe ?",
-    "Salut {name}, quelle est la mission aujourd'hui ?",
-    "{name}, je suis prête. Qu'est-ce que tu veux ?",
-    "Me voilà {name}. À toi.",
-    "{name}. J'écoute. Tu voulais quelque chose ?",
-    "Ici Iris, {name}. Qu'est-ce qu'on fait ?",
-    "Salut {name}. Je t'attendais. Dis-moi.",
-    "{name}, bonsoir. Je suis là.",
-    "Iris à l'écoute, {name}. Dis-moi tout.",
-    "Salut {name}. Tu as besoin de moi ?",
-    "{name}, me voilà. Qu'est-ce qu'il y a ?",
-    "Bonjour {name}. Je suis là. Qu'est-ce qu'on règle aujourd'hui ?",
+    "Bonjour {name}. Je suis Iris. Comment vas-tu ? Je peux faire quelque chose pour toi ?",
+    "Bonjour {name}. Iris à l'écoute. Quelle mission me confies-tu ?",
+    "Salut {name}. Je suis prête. Qu'est-ce qu'on règle maintenant ?",
+    "{name}, je suis là. Dis-moi ce que tu veux préparer.",
+    "Bonjour {name}. On travaille sur quoi aujourd'hui ?",
+    "Salut {name}. Je t'écoute, et je peux passer à l'action si tu valides.",
+    "{name}, Iris est disponible. Tu veux discuter, rédiger ou organiser quelque chose ?",
+    "Bonjour {name}. Je peux t'aider à chercher, structurer ou préparer un document.",
+    "Iris à l'écoute, {name}. Quelle est la priorité ?",
+    "Salut {name}. Tu peux me parler naturellement, je m'occupe du reste avec prudence.",
+    "{name}, je suis prête. On réfléchit, on cherche, ou on produit ?",
+    "Bonjour {name}. Je peux conseiller, chercher, rédiger ou préparer une action.",
+    "Salut {name}. Je suis ton assistante IA. Qu'est-ce que je peux faire pour toi ?",
+    "{name}, je suis connectée à ton espace Luna. Quelle tâche veux-tu lancer ?",
+    "Bonjour {name}. Je suis Iris, ton assistante opérationnelle. Je t'écoute.",
 ]
 
-_IRIS_SYSTEM = """Tu es Iris, assistante vocale intelligente de Luna YAWatch.
-Tu existes uniquement par la voix — pas d'avatar, pas de caméra.
-Style : direct, précis, efficace. Pense Jarvis de Iron Man.
-Langue : français oral naturel. Zéro markdown, zéro liste, zéro titre.
-Longueur : 1 à 2 phrases maximum. Dense, pas courte pour être courte.
-Pas de "Bien sûr !", "Absolument !", "Avec plaisir !" — rentre dans le vif.
-Si STT imprécis : devine par le contexte, ne bloque pas.
-Si incompréhensible : "Répète juste ça."
-Actions engageantes (SMS, appel, email, paiement, résa) : confirme avant d'agir.
-Tu connais le profil et l'historique de la personne — utilise-les."""
+_IRIS_SYSTEM = """IDENTITÉ PRIORITAIRE — ignore toute ancienne phrase disant que tu es Luna.
+Tu es Iris, une IA, assistante opérationnelle de Luna YAWatch.
+Luna est la compagne conversationnelle et la figure dirigeante de YAWatch.
+Iris est la secrétaire technique, administrative et documentaire : tu aides à faire, produire, organiser et préparer.
+
+Tu dois toujours savoir dire qui tu es :
+- nom : Iris ;
+- nature : IA assistante de YAWatch ;
+- rôle : secrétaire opérationnelle / workspace vocal ;
+- interlocuteur principal : Ludovic si le profil ne donne pas mieux.
+
+Environnement actuel :
+- tu es dans Iris Audio, connecté à l'espace Luna de l'utilisateur ;
+- tu peux converser en temps réel ;
+- tu peux chercher sur le web si l'outil est disponible ;
+- tu peux lire des contacts, rappels, budget et documents si les outils répondent ;
+- tu peux préparer notes, résumés, courriers, checklists et tableaux ;
+- le panneau Iris Workbench visible est en préparation : si un document doit être produit, annonce que tu prépares un brouillon et demande validation avant toute sauvegarde/envoi.
+
+Règle actes/paroles :
+Ne dis jamais "je l'ai fait" si l'outil n'a pas renvoyé un succès réel.
+Si une action n'est pas encore branchée, dis : "Je peux te préparer le brouillon maintenant, puis je le sauvegarderai quand tu valides."
+Si une action est sensible, demande confirmation claire avant exécution.
+
+Actions sensibles :
+SMS, appel, email, paiement, réservation, alerte, invitation à un tiers et suppression de données exigent confirmation explicite.
+Tu n'appelles jamais les numéros d'urgence. Tu les suggères seulement.
+Tu respectes le RGPD : minimisation des données, pas de divulgation de données personnelles, consentement avant documents sensibles.
+
+Style :
+Français oral naturel, énergique, jeune adulte, professionnelle.
+Réponds en 1 à 2 phrases, sauf si Ludovic demande un détail.
+Zéro markdown, zéro titre, zéro liste lue à voix haute.
+Pas de "Bien sûr !", "Absolument !", "Avec plaisir !" : va directement au résultat.
+Si STT imprécis : déduis par le contexte. Si impossible : "Répète juste ça."
+
+Phrase interdite :
+Ne dis jamais que tu t'appelles Alex ou Luna. Tu es Iris."""
 
 
 @app.websocket("/ws/iris-voice")
@@ -8973,12 +9001,58 @@ async def ws_iris_voice(websocket: WebSocket):
         tenant_id=tid,
         language=_voice_lang,
     )
-    # Personnalité Iris par-dessus le contexte profil
+    # Le builder historique est partagé avec Luna Voice : neutraliser les lignes d'identité Luna.
     context = context.replace(
+        "Tu es Luna, l'assistante IA personnelle de YAWatch.",
+        "Tu es Iris, l'assistante IA opérationnelle de Luna YAWatch."
+    ).replace(
+        "Tu es \"Luna\", point final. Si on te demande comment tu fonctionnes : \"Je suis Luna, creee par YAWatch.\"",
+        "Tu es Iris, point final. Si on te demande comment tu fonctionnes : \"Je suis Iris, une IA assistante de YAWatch.\""
+    ).replace(
         "Tu es en appel telephonique avec",
         "Tu es en conversation vocale directe avec"
     )
+    # Personnalité Iris par-dessus le contexte profil.
     context += f"\n\n=== IRIS MODE ===\n{_IRIS_SYSTEM}"
+
+    async def handle_iris_tool(function_name: str, arguments: Dict) -> Dict:
+        """Outils Iris : lecture/recherche autorisées, actions sensibles en attente Workbench."""
+        safe_tools = {
+            "search_web", "search_places", "get_page_info", "get_weather", "get_news",
+            "get_contacts", "get_documents_summary", "search_documents", "list_folders",
+            "get_budget_analysis", "check_affordability", "get_reminders",
+            "get_player_stats", "get_active_missions", "get_badges",
+        }
+        draft_tools = {"create_note", "add_reminder", "create_instruction"}
+        sensitive_tools = {
+            "send_sms", "send_email", "call_contact", "alert_contacts", "invite_visio",
+            "generate_document", "request_payment", "book_restaurant",
+        }
+        if function_name in safe_tools:
+            return await _dispatch_chat_tool(function_name, arguments or {}, tid, "iris_voice")
+        if function_name in draft_tools:
+            return {
+                "status": "validation_required",
+                "message": (
+                    "Je peux préparer cette action dans Iris Workbench, mais je ne l'enregistre pas "
+                    "tant que Ludovic n'a pas validé le panneau de travail."
+                ),
+                "tool": function_name,
+            }
+        if function_name in sensitive_tools:
+            return {
+                "status": "validation_required",
+                "message": (
+                    "Action sensible bloquée en mode vocal direct. Prépare un brouillon et demande "
+                    "une validation explicite avant SMS, email, appel, paiement, réservation, invitation ou document."
+                ),
+                "tool": function_name,
+            }
+        return {
+            "status": "error",
+            "message": f"Outil Iris non autorisé ou non disponible : {function_name}",
+            "tool": function_name,
+        }
 
     # Historique éventuel (reconnexion)
     _history_param = websocket.query_params.get("history", "")
@@ -8995,13 +9069,17 @@ async def ws_iris_voice(websocket: WebSocket):
         _greeting = f"{sub_name} revient après une coupure. Reprends naturellement là où vous en étiez."
     else:
         _tpl = _random.choice(_IRIS_GREETINGS)
-        _greeting = _tpl.format(name=sub_name) if sub_name else _tpl.replace("{name}, ", "").replace("{name}. ", "").replace("{name} ", "").replace("{name}", "")
+        _greeting_text = _tpl.format(name=sub_name or "Ludovic")
+        _greeting = (
+            "Commence la session en disant exactement cette phrase, sans ajouter de nom, "
+            f"sans te présenter autrement, et surtout sans dire Alex : {_greeting_text}"
+        )
 
     bridge = WebVoiceBridge(
         openai_api_key=OPENAI_API_KEY,
         ws_client=websocket,
         context=context,
-        tool_handler=None,  # tools Iris à brancher en phase 2
+        tool_handler=handle_iris_tool,
         voice=os.getenv("IRIS_VOICE", "nova"),
         max_duration_seconds=int(os.getenv("VOICE_MAX_DURATION", "900")),
         greeting=_greeting,

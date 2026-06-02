@@ -1172,3 +1172,14 @@ Fichier concerné : luna_web.py ; core/vault/routes.py ; core/vault/redis_ops.py
 Risque : moyen si Claude code sur une mauvaise cartographie ; eleve si Iris execute des actions sans confirmation serveur
 Décision Ludovic requise : oui pour Workbench visible V1
 Action proposée : Attendre Kimi UX, demander a DeepSeek de pousser un audit corrige, puis Claude code Workbench brouillon sans action sensible.
+
+---
+
+Agent : Codex
+Objectif : 019
+Type : correctif identité / outils Iris
+Résumé : Retour terrain traité : Iris pouvait heriter du contexte Luna et se presenter incorrectement. Patch : salutations propres, identite Iris prioritaire, neutralisation des phrases "Tu es Luna" dans le contexte `/ws/iris-voice`, ajout d'un `handle_iris_tool()` securise. Iris peut utiliser les outils de lecture/recherche, mais les actions sensibles ou persistantes repondent `validation_required` tant que Workbench V1 n'est pas valide. Le panneau Workbench reste absent en code et necessite validation niveau 2.
+Fichier concerné : luna_web.py ; docs/AGENTS_COLLABORATION/agents/CODEX_PATCH_IDENTITE_OUTILS_IRIS_019.md
+Risque : moyen-faible ; ameliore identite et garde-fous sans action sensible
+Décision Ludovic requise : oui pour Workbench visible V1
+Action proposée : Claude deploie ce patch, Ludovic teste identite/capacites, puis Claude prepare Workbench V1 a partir de Kimi.
