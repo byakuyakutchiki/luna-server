@@ -995,3 +995,15 @@ Fichier concerné : requirements-cloudrun.txt ; static/simli.html ; docs/AGENTS_
 Risque : faible ; dependance requise par FastAPI pour parser l'audio
 Décision Ludovic requise : oui pour deploy Cloud Run
 Action proposée : Deployer, refaire test F12 phrase unique, attendre `vad_stt_http 200`.
+
+---
+
+Agent : Codex
+Objectif : 017
+Type : recadrage collectif / non-validation
+Résumé : 5 lignes max
+Retour fondateur pris en compte : le STT 500 n'est pas le seul probleme. UI visio actuelle non acceptable : trop de boutons, superpositions, doublons Daily/Simli, statut vision incoherent, boutons sans target prouvee. Codex lance une audition collective obligatoire : Claude audite controles provider/iframe, DeepSeek cherche flux morts et handlers anciens, Kimi propose refonte UI V1, Codex maintient matrice bouton->target->preuve. Visio Iris reste non validee apres `e6f0bc3`.
+Fichier concerné : docs/AGENTS_COLLABORATION/agents/CODEX_MISSION_COLLECTIVE_VISIO_IRIS_017.md ; static/simli.html
+Risque : eleve si on corrige seulement STT sans regler l'experience produit
+Décision Ludovic requise : oui pour refonte visible majeure ; non pour audits
+Action proposée : Chaque agent publie son audit sur GitHub avant validation globale visio.
