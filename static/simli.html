@@ -2285,6 +2285,7 @@
     var _conversationHistory = [];
     var _vadAudioCtx = null;
     var _vadStream = null;
+    var _vadOwnsStream = false;
     var _vadProcessor = null;
     var _vadChunks = [];
     var _vadRecording = false;
@@ -2505,6 +2506,26 @@
       });
     }
 
+    function _getDailyLocalAudioTrack() {
+      if (!dailyCall || typeof dailyCall.participants !== 'function') return null;
+      try {
+        var local = dailyCall.participants().local;
+        var audio = local && local.tracks && local.tracks.audio;
+        if (!audio) return null;
+        var track = audio.persistentTrack || audio.track || null;
+        if (!track) return null;
+        rLog('info', 'simli', 'vad_daily_track_probe',
+          'state=' + (audio.state || 'none') +
+          ' ready=' + (track.readyState || 'none') +
+          ' enabled=' + track.enabled +
+          ' muted=' + track.muted);
+        if (track.readyState === 'live' && track.enabled !== false) return track;
+      } catch(e) {
+        rLog('warn', 'simli', 'vad_daily_track_err', String(e).substring(0, 60));
+      }
+      return null;
+    }
+
     function _startVAD() {
       if (_vadActive) return;
       _vadActive = true;
@@ -2514,100 +2535,112 @@
       _setIrisState('idle');
       rLog('info', 'simli', 'vad_init', 'ts=' + _vadInitTs);
 
-      navigator.mediaDevices.getUserMedia({ audio: true, video: false })
-        .then(function(stream) {
-          _vadStream = stream;
+      function _setupVADStream(stream, sourceName, ownsStream) {
+        _vadStream = stream;
+        _vadOwnsStream = ownsStream !== false;
+        rLog('info', 'simli', 'vad_stream_source', sourceName + ' owns=' + _vadOwnsStream);
 
-          // --- DIAG: micro track ---
-          var tracks = stream.getAudioTracks();
-          if (!tracks.length) {
-            rLog('warn', 'simli', 'vad_track_missing', 'aucune piste audio');
-          } else {
-            var t0 = tracks[0];
-            rLog('info', 'simli', 'vad_track', 'label=' + (t0.label || 'none') +
-              ' state=' + t0.readyState + ' enabled=' + t0.enabled + ' muted=' + t0.muted);
-            if (!t0.enabled || t0.readyState !== 'live') {
-              rLog('warn', 'simli', 'vad_track_bad', 'track non-live ou disabled — micro suspect');
-            }
-            if (t0.muted === true) {
-              rLog('warn', 'simli', 'vad_track_muted', 'piste micro live mais muted=true — RMS sera nul');
-            }
+        // --- DIAG: micro track ---
+        var tracks = stream.getAudioTracks();
+        if (!tracks.length) {
+          rLog('warn', 'simli', 'vad_track_missing', 'aucune piste audio');
+        } else {
+          var t0 = tracks[0];
+          rLog('info', 'simli', 'vad_track', 'label=' + (t0.label || 'none') +
+            ' state=' + t0.readyState + ' enabled=' + t0.enabled + ' muted=' + t0.muted);
+          if (!t0.enabled || t0.readyState !== 'live') {
+            rLog('warn', 'simli', 'vad_track_bad', 'track non-live ou disabled — micro suspect');
           }
-
-          var ACtx = window.AudioContext || window.webkitAudioContext;
-          if (!ACtx) {
-            rLog('warn', 'simli', 'vad_no_audiocontext', 'fallback PTT manuel');
-            _vadFallbackPTT(stream);
-            return;
+          if (t0.muted === true) {
+            rLog('warn', 'simli', 'vad_track_muted', 'piste micro live mais muted=true — RMS sera nul');
           }
-          _vadAudioCtx = new ACtx();
-          rLog('info', 'simli', 'vad_actx_state_init', _vadAudioCtx.state);
+        }
 
-          function _setupProcessor() {
-            var source = _vadAudioCtx.createMediaStreamSource(stream);
-            _vadProcessor = _vadAudioCtx.createScriptProcessor(2048, 1, 1);
-            source.connect(_vadProcessor);
-            _vadProcessor.connect(_vadAudioCtx.destination);
+        var ACtx = window.AudioContext || window.webkitAudioContext;
+        if (!ACtx) {
+          rLog('warn', 'simli', 'vad_no_audiocontext', 'fallback PTT manuel');
+          _vadFallbackPTT(stream);
+          return;
+        }
+        _vadAudioCtx = new ACtx();
+        rLog('info', 'simli', 'vad_actx_state_init', _vadAudioCtx.state);
 
-            var _rmsFrame = 0;
-            _vadProcessor.onaudioprocess = function(e) {
-              if (!_vadActive || _irisReplying) return;
+        function _setupProcessor() {
+          var source = _vadAudioCtx.createMediaStreamSource(stream);
+          _vadProcessor = _vadAudioCtx.createScriptProcessor(2048, 1, 1);
+          source.connect(_vadProcessor);
+          _vadProcessor.connect(_vadAudioCtx.destination);
 
-              // Monitor AudioContext suspend (mobile browser can suspend on background)
-              if (_vadAudioCtx && _vadAudioCtx.state === 'suspended') {
-                rLog('warn', 'simli', 'vad_actx_suspended', 'resume...');
-                _vadAudioCtx.resume().catch(function(err) {
-                  rLog('warn', 'simli', 'vad_resume_err', String(err).substring(0, 40));
-                });
-                return;
-              }
+          var _rmsFrame = 0;
+          _vadProcessor.onaudioprocess = function(e) {
+            if (!_vadActive || _irisReplying) return;
 
-              var data = e.inputBuffer.getChannelData(0);
-              var rms = 0;
-              for (var i = 0; i < data.length; i++) rms += data[i] * data[i];
-              rms = Math.sqrt(rms / data.length);
-
-              // --- DIAG: RMS log throttled (~1x per 1.4s = 30 frames at ~22ms/frame) ---
-              _rmsFrame++;
-              if (_rmsFrame >= 30) {
-                _rmsFrame = 0;
-                rLog('info', 'simli', 'vad_rms', rms.toFixed(4) + (rms > VAD_RMS_THRESHOLD ? ' PAROLE' : ' silence'));
-              }
-
-              if (rms > VAD_RMS_THRESHOLD) {
-                if (_vadSilenceTimer) { clearTimeout(_vadSilenceTimer); _vadSilenceTimer = null; }
-                if (!_vadRecording) _vadStartRecording();
-              } else {
-                if (_vadRecording && !_vadSilenceTimer) {
-                  _vadSilenceTimer = setTimeout(function() {
-                    _vadSilenceTimer = null;
-                    _vadStopRecording();
-                  }, VAD_SILENCE_MS);
-                }
-              }
-            };
-
-            var micDot = document.getElementById('micDot');
-            if (micDot) micDot.style.display = 'inline-block';
-            rLog('info', 'simli', 'vad_start', 'seuil=' + VAD_RMS_THRESHOLD + ' actx=' + _vadAudioCtx.state);
-          }
-
-          // Resume AudioContext if suspended (common on mobile after user gesture)
-          if (_vadAudioCtx.state === 'suspended') {
-            rLog('warn', 'simli', 'vad_actx_suspended_init', 'appel resume()');
-            _vadAudioCtx.resume()
-              .then(function() {
-                rLog('info', 'simli', 'vad_actx_resumed', _vadAudioCtx.state);
-                _setupProcessor();
-              })
-              .catch(function(err) {
-                rLog('warn', 'simli', 'vad_actx_resume_fail', String(err).substring(0, 60));
-                _vadFallbackPTT(stream);
+            // Monitor AudioContext suspend (mobile browser can suspend on background)
+            if (_vadAudioCtx && _vadAudioCtx.state === 'suspended') {
+              rLog('warn', 'simli', 'vad_actx_suspended', 'resume...');
+              _vadAudioCtx.resume().catch(function(err) {
+                rLog('warn', 'simli', 'vad_resume_err', String(err).substring(0, 40));
               });
-          } else {
-            _setupProcessor();
-          }
-        })
+              return;
+            }
+
+            var data = e.inputBuffer.getChannelData(0);
+            var rms = 0;
+            for (var i = 0; i < data.length; i++) rms += data[i] * data[i];
+            rms = Math.sqrt(rms / data.length);
+
+            // --- DIAG: RMS log throttled (~1x per 1.4s = 30 frames at ~22ms/frame) ---
+            _rmsFrame++;
+            if (_rmsFrame >= 30) {
+              _rmsFrame = 0;
+              rLog('info', 'simli', 'vad_rms', rms.toFixed(4) + (rms > VAD_RMS_THRESHOLD ? ' PAROLE' : ' silence'));
+            }
+
+            if (rms > VAD_RMS_THRESHOLD) {
+              if (_vadSilenceTimer) { clearTimeout(_vadSilenceTimer); _vadSilenceTimer = null; }
+              if (!_vadRecording) _vadStartRecording();
+            } else {
+              if (_vadRecording && !_vadSilenceTimer) {
+                _vadSilenceTimer = setTimeout(function() {
+                  _vadSilenceTimer = null;
+                  _vadStopRecording();
+                }, VAD_SILENCE_MS);
+              }
+            }
+          };
+
+          var micDot = document.getElementById('micDot');
+          if (micDot) micDot.style.display = 'inline-block';
+          rLog('info', 'simli', 'vad_start', 'seuil=' + VAD_RMS_THRESHOLD + ' actx=' + _vadAudioCtx.state);
+        }
+
+        // Resume AudioContext if suspended (common on mobile after user gesture)
+        if (_vadAudioCtx.state === 'suspended') {
+          rLog('warn', 'simli', 'vad_actx_suspended_init', 'appel resume()');
+          _vadAudioCtx.resume()
+            .then(function() {
+              rLog('info', 'simli', 'vad_actx_resumed', _vadAudioCtx.state);
+              _setupProcessor();
+            })
+            .catch(function(err) {
+              rLog('warn', 'simli', 'vad_actx_resume_fail', String(err).substring(0, 60));
+              _vadFallbackPTT(stream);
+            });
+        } else {
+          _setupProcessor();
+        }
+      }
+
+      var dailyTrack = _getDailyLocalAudioTrack();
+      if (dailyTrack) {
+        rLog('info', 'simli', 'vad_using_daily_track', 'micro deja ouvert par Daily');
+        _setupVADStream(new MediaStream([dailyTrack]), 'daily-local-track', false);
+        return;
+      }
+
+      rLog('warn', 'simli', 'vad_getusermedia_fallback', 'piste Daily absente — demande micro secondaire');
+      navigator.mediaDevices.getUserMedia({ audio: true, video: false })
+        .then(function(stream) { _setupVADStream(stream, 'getUserMedia', true); })
         .catch(function(e) {
           rLog('warn', 'simli', 'vad_mic_err', String(e).substring(0, 60));
           _vadActive = false;
@@ -2634,7 +2667,15 @@
       if (_vadAudioCtx) { try { _vadAudioCtx.close(); } catch(e) {} _vadAudioCtx = null; }
       if (_vadMediaRecorder && _vadRecording) { try { _vadMediaRecorder.stop(); } catch(e) {} }
       _vadRecording = false;
-      if (_vadStream) { _vadStream.getTracks().forEach(function(t) { t.stop(); }); _vadStream = null; }
+      if (_vadStream) {
+        if (_vadOwnsStream) {
+          _vadStream.getTracks().forEach(function(t) { t.stop(); });
+        } else {
+          rLog('info', 'simli', 'vad_borrowed_track_kept', 'Daily garde le micro');
+        }
+        _vadStream = null;
+        _vadOwnsStream = false;
+      }
       var pttContainer = document.getElementById('pttContainer');
       if (pttContainer) pttContainer.style.display = 'none';
       _setIrisState('idle');

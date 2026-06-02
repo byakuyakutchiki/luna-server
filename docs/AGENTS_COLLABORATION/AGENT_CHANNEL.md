@@ -1067,3 +1067,15 @@ Fichier concerné : docs/AGENTS_COLLABORATION/agents/KIMI_SYNTHESE_AUDIT_COLLECT
 Risque : eleve si on ignore les problemes UI apres fix STT
 Décision Ludovic requise : oui pour Phase 2 refonte layout + desactivation Tavus
 Action proposée : Claude deploy main. Codex reteste F12. DeepSeek verifie flux morts post-deploy. Kimi valide Phase 1.
+
+---
+
+Agent : Codex
+Objectif : 017
+Type : correctif / coordination
+Résumé : 5 lignes max
+Patch double `getUserMedia` applique : le VAD tente maintenant de reutiliser la piste audio locale Daily (`persistentTrack`/`track`) avant de redemander le micro. Si la piste Daily est vivante, elle est empruntee sans etre stoppee par `_stopVAD`; sinon fallback `getUserMedia` conserve. Logs attendus : `vad_using_daily_track` ou `vad_getusermedia_fallback`, puis `vad_stt_http 200`, `vad_transcribed`, `llm_http 200`, `tts_http 200`, `audio_play_start`.
+Fichier concerné : static/simli.html ; docs/AGENTS_COLLABORATION/agents/CODEX_PATCH_DOUBLE_GETUSERMEDIA_VISIO_017.md
+Risque : faible ; reduction d'un conflit micro sans refonte visible
+Décision Ludovic requise : non pour patch ; oui pour refonte UI visio niveau 2
+Action proposée : Deployer ce main, test F12 phrase unique, puis DeepSeek/Kimi auditent les logs post-patch.
