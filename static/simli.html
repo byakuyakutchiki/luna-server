@@ -2475,8 +2475,9 @@
     // =====================================================================
     var _speechReco = null;
     var _speechActive = false;
-    var _irisReplying = false;   // true pendant LLM+TTS : micro ignoré
+    var _irisReplying = false;   // true pendant LLM+TTS
     var _vadBusy = false;        // true pendant STT+LLM+TTS : évite les tours qui se chevauchent
+    var _pendingUserText = '';   // file d'attente multi-participants (1 slot)
     var _irisAudio = null;       // élément audio courant
     var _pttMode = false;        // true si Web Speech API absent → mode PTT Whisper
     var _pttRecording = false;
@@ -2547,7 +2548,13 @@
     }
 
     function _irisReply(userText) {
-      if (_irisReplying) { _vadBusy = false; return; }
+      if (_irisReplying) {
+        // Multi-participant : queue le texte, Iris le traitera dès qu'elle finit
+        _pendingUserText = userText;
+        _vadBusy = false;
+        return;
+      }
+      _pendingUserText = '';
       _irisReplying = true;
       _setIrisState('thinking');
       var t0 = Date.now();
@@ -2635,6 +2642,14 @@
             _irisReplying = false;
             _vadBusy = false;
             _setIrisState('idle');
+            // Multi-participant : traiter la parole en attente
+            if (_pendingUserText) {
+              var _queued = _pendingUserText;
+              _pendingUserText = '';
+              rLog('info', 'simli', 'multi_participant_queue_flush', _queued.substring(0, 40));
+              _afAppendTranscript('system', '(message suivant)');
+              setTimeout(function() { _irisReply(_queued); }, 150);
+            }
           };
           _irisAudio.onerror = function() {
             rLog('warn', 'simli', 'audio_error', '');
@@ -2824,7 +2839,7 @@
 
           var _rmsFrame = 0;
           _vadProcessor.onaudioprocess = function(e) {
-            if (!_vadActive || _irisReplying || _vadBusy) return;
+            if (!_vadActive || _vadBusy) return;
 
             // Monitor AudioContext suspend (mobile browser can suspend on background)
             if (_vadAudioCtx && _vadAudioCtx.state === 'suspended') {
@@ -2989,12 +3004,13 @@
       if (!container) return;
       var line = document.createElement('div');
       line.className = 'af-line ' + role;
-      line.textContent = (role === 'iris' ? 'Iris : ' : 'Vous : ') +
-        text.substring(0, 130) + (text.length > 130 ? '…' : '');
+      var prefix = role === 'iris' ? 'Iris : ' : role === 'system' ? '' : 'Vous : ';
+      line.textContent = prefix + text.substring(0, 130) + (text.length > 130 ? '…' : '');
+      if (role === 'system') line.style.cssText = 'opacity:0.4;font-size:0.7em;text-align:center;color:#7c5cfc;margin:2px 0;';
       container.appendChild(line);
       container.scrollTop = container.scrollHeight;
-      // Limiter à 12 lignes
-      while (container.childNodes.length > 12) container.removeChild(container.firstChild);
+      // Limiter à 16 lignes
+      while (container.childNodes.length > 16) container.removeChild(container.firstChild);
     }
 
     function _stopSpeechCapture() {
@@ -3115,6 +3131,7 @@
       }
       _irisReplying = false;
       _vadBusy = false;
+      _pendingUserText = '';
       // Arrêter minuterie audio-first [AUDIO-FIRST]
       if (_afSessionTimer) { clearInterval(_afSessionTimer); _afSessionTimer = null; }
       var afHangupEl = document.getElementById('afHangup');

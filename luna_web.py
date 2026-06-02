@@ -7617,8 +7617,11 @@ async def visio_chat(request: Request):
         })
     if participants_count > 1:
         messages.append({"role": "system", "content":
-            f"=== VISIO MULTI-PARTICIPANTS ===\n{participants_count} personnes sont dans l'appel. "
-            "Tu peux aider a cadrer, prendre des notes, identifier decisions et actions."
+            f"=== SESSION MULTI-PARTICIPANTS ===\n{participants_count} personnes participent à cet appel audio. "
+            "Les interventions arrivent à tour de rôle. "
+            "Tu t'adresses à la personne qui vient de parler, pas à toutes en même temps. "
+            "Si une question vient clairement d'une autre personne (changement de sujet), adapte ta réponse. "
+            "Tu peux prendre des notes, résumer, identifier décisions et actions si on te le demande."
         })
     messages += history_msgs
     # Append current turn only if not already the last history entry
