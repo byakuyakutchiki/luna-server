@@ -3421,21 +3421,44 @@
 
     function inferCommandRenderFromText(text) {
       var t = String(text||'').toLowerCase();
+      var wb = '(?:^|[^a-z0-9\u00e0-\u00ff])'; // word boundary compatible unicode
+      var wa = '(?:$|[^a-z0-9\u00e0-\u00ff])'; // word boundary end
       // Phase 1 — nouveaux types prioritaires
-      if (/\b(kpi|métrique|métriques|indicateur|indicateurs|chiffre clé|chiffres clés|performance|performances|stats|statistiques)\b/.test(t)) return 'kpi_cards';
-      if (/\b(graphique|courbe|histogramme|camembert|diagramme en barres|évolution|tendance|croissance|progression|repartition|répartition)\b/.test(t)) return 'chart';
-      if (/\b(chronologie|historique|timeline|frise|dates passées|quand s.est.il passé|au fil du temps)\b/.test(t)) return 'timeline';
-      if (/\b(roadmap|feuille de route|phases?|étapes? successives|d'abord.*ensuite|plan sur \d+|sur \d+ mois|sur \d+ ans|stratégie.*\d+ ans)\b/.test(t)) return 'roadmap';
-      if (/\b(comparer?|versus|vs\b|plutôt.*ou|avantages.*inconvénients|pros.*cons|différence entre|en face de|opposé à)\b/.test(t)) return 'comparison';
-      if (/\b(document|pdf|contrat|devis|facture|analyse de fichier|upload|téléchargement|fichier joint)\b/.test(t)) return 'document_insight';
+      if (new RegExp(wb+'(kpi|kpis|métrique|métriques|indicateur|indicateurs|performance|performances|stats|statistiques)'+wa).test(t)) return 'kpi_cards';
+      if (t.indexOf('chiffre clé')!==-1 || t.indexOf('chiffres clés')!==-1) return 'kpi_cards';
+      if (new RegExp(wb+'(graphique|courbe|histogramme|camembert|évolution|tendance|croissance|progression|répartition|repartition)'+wa).test(t)) return 'chart';
+      if (t.indexOf('diagramme en barres')!==-1) return 'chart';
+      if (new RegExp(wb+'(chronologie|historique|timeline|frise)'+wa).test(t)) return 'timeline';
+      if (t.indexOf('au fil du temps')!==-1 || t.indexOf('dates passées')!==-1) return 'timeline';
+      if (new RegExp(wb+'(roadmap|feuille de route)'+wa).test(t)) return 'roadmap';
+      if (t.indexOf("d'abord")!==-1 && t.indexOf('ensuite')!==-1) return 'roadmap';
+      if (/plan sur \d+/.test(t) || /sur \d+ mois/.test(t) || /sur \d+ ans/.test(t) || /stratégie.*\d+ ans/.test(t)) return 'roadmap';
+      if (new RegExp(wb+'(comparer?|versus|différence entre|opposé à)'+wa).test(t)) return 'comparison';
+      if (/\bvs\b/.test(t) || t.indexOf('plutôt')!==-1 && t.indexOf('ou')!==-1) return 'comparison';
+      if (t.indexOf('avantages')!==-1 && t.indexOf('inconvénients')!==-1) return 'comparison';
+      if (t.indexOf('pros')!==-1 && t.indexOf('cons')!==-1) return 'comparison';
+      if (new RegExp(wb+'(document|pdf|contrat|devis|facture|upload|téléchargement)'+wa).test(t)) return 'document_insight';
+      if (t.indexOf('analyse de fichier')!==-1 || t.indexOf('fichier joint')!==-1) return 'document_insight';
       // Types existants
-      if (/\b(tableau|table|colonnes?|données|compare[zr]?|liste[zr]?|grille|affiche.*(données|résultats|chiffres))\b/.test(t)) return 'data_board';
-      if (/\b(courrier|lettre|mail|email|message officiel|réponse écrite|rédige|redige|écris|ecris|brouillon|note officielle)\b/.test(t)) return 'document_draft';
-      if (/\b(checklist|liste de tâches?|plan d'?action|todo|étapes?|etapes?|organise|fais.*(liste|plan|checklist))\b/.test(t)) return 'action_board';
-      if (/\b(état|etat|statut|services?|diagnostic|quotas?|santé|sante|check)\b/.test(t)) return 'status_rail';
-      if (/\b(explique|analyse[zr]?|résume|resume|contexte|comprends?|qu.est-ce)\b/.test(t)) return 'context_panel';
-      if (/\b(panneau|command screen|workspace|bureau|workbench|espace de travail)\b/.test(t)) return 'data_board';
-      if (/\b(affiche|montre|ouvre|montrez?[-\s]moi|fais[-\s]voir|afficher|montrer)\b/.test(t)) return 'context_panel';
+      if (new RegExp(wb+'(tableau|table|données|grille)'+wa).test(t)) return 'data_board';
+      if (new RegExp(wb+'(compare[zr]?|liste[zr]?)'+wa).test(t)) return 'data_board';
+      if (/affiche.*données/.test(t) || /affiche.*résultats/.test(t) || /affiche.*chiffres/.test(t)) return 'data_board';
+      if (new RegExp(wb+'(courrier|lettre|mail|email|réponse écrite|brouillon)'+wa).test(t)) return 'document_draft';
+      if (t.indexOf('message officiel')!==-1 || t.indexOf('note officielle')!==-1) return 'document_draft';
+      if (new RegExp(wb+'(rédige|rédigé|rédiger|écris|ecris)'+wa).test(t)) return 'document_draft';
+      if (new RegExp(wb+'(checklist|todo|organise)'+wa).test(t)) return 'action_board';
+      if (t.indexOf('liste de tâches')!==-1 || t.indexOf('liste de tache')!==-1) return 'action_board';
+      if (new RegExp(wb+'(étape|etape)'+wa).test(t)) return 'action_board';
+      if (/fais.*liste/.test(t) || /fais.*plan/.test(t) || /fais.*checklist/.test(t)) return 'action_board';
+      if (t.indexOf("plan d'action")!==-1 || t.indexOf('plan d action')!==-1) return 'action_board';
+      if (new RegExp(wb+'(état|etat|statut|diagnostic|check)'+wa).test(t)) return 'status_rail';
+      if (new RegExp(wb+'(service|services|quota|quotas)'+wa).test(t)) return 'status_rail';
+      if (new RegExp(wb+'(santé|sante)'+wa).test(t)) return 'status_rail';
+      if (new RegExp(wb+'(explique|analyse[zr]?|résume|resume|contexte|comprends?)'+wa).test(t)) return 'context_panel';
+      if (t.indexOf("qu'est-ce")!==-1) return 'context_panel';
+      if (new RegExp(wb+'(panneau|workspace|workbench|espace de travail)'+wa).test(t)) return 'data_board';
+      if (new RegExp(wb+'(affiche|montre|ouvre|afficher|montrer)'+wa).test(t)) return 'context_panel';
+      if (/montre[-\s]moi/.test(t) || /fais[-\s]voir/.test(t)) return 'context_panel';
       return '';
     }
 
