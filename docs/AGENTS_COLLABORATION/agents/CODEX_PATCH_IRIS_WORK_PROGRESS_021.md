@@ -19,7 +19,8 @@ Capacités attendues :
 - ouvrir le Command Screen automatiquement ;
 - afficher étapes de préparation ;
 - annuler l'attente quand un vrai rendu arrive ;
-- afficher une alerte après timeout si aucun rendu n'arrive.
+- afficher une alerte après timeout si aucun rendu n'arrive ;
+- éviter que le transcript texte remplisse l'écran à la place du rendu visuel.
 
 Chemin utilisateur :
 
@@ -27,7 +28,7 @@ Chemin utilisateur :
 2. Iris répond "je prépare..." ;
 3. Command Screen affiche "Iris prépare" ;
 4. si `render` arrive : le rendu remplace l'attente ;
-5. si aucun rendu après 18s : message "Préparation trop longue".
+5. si aucun rendu après 10s : message "Préparation trop longue".
 
 Backend attendu : aucun changement.
 
@@ -40,6 +41,7 @@ Preuve attendue :
 - capture du Command Screen en état "Iris prépare" ;
 - si blocage, capture du warning "Préparation trop longue" ;
 - logs `ics_working` puis `ics_work_timeout` si aucun rendu.
+- vérifier que les longues réponses Iris ne remplissent plus le transcript visible.
 
 Preuve obtenue :
 
@@ -63,6 +65,8 @@ Fichier : `static/simli.html`
 - Annulation du timer quand un vrai `render` arrive.
 - Annulation du timer à la fermeture du panneau.
 - Détection sur les transcripts Iris.
+- Timeout réduit à 10 secondes.
+- Transcript visible réduit : une ligne de demande utilisateur, messages Iris masqués.
 
 ---
 
@@ -70,5 +74,4 @@ Fichier : `static/simli.html`
 
 Ce patch ne crée pas le document ou le business plan côté serveur.
 
-Il règle le défaut UX immédiat : l'utilisateur ne reste plus dans le doute quand Iris annonce qu'elle travaille.
-
+Il règle le défaut UX immédiat : l'utilisateur ne reste plus dans le doute quand Iris annonce qu'elle travaille, et le visuel reprend la priorité sur le texte.
