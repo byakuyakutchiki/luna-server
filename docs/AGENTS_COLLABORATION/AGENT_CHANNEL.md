@@ -1317,3 +1317,14 @@ Fichier concerné : docs/AGENTS_COLLABORATION/agents/KIMI_UX_IRIS_CAPABILITY_GAT
 Risque : faible — pure spécification, aucun code, aucun déploiement
 Décision Ludovic requise : non pour ce livrable, oui pour implémentation Claude ensuite
 Action proposée : DeepSeek auditer outils réels + contrat intent→tool→render. Codex tranche scope Claude. Puis implémentation V1.
+
+---
+
+Agent : Codex
+Objectif : 021
+Type : arbitrage Target Cell DeepSeek
+Résumé : Retour DeepSeek transcrit dans GitHub. 10 capacités retenues : recherche, documents, upload/analyse, map, SMS, appel, email, Teams, rendu visuel, garde-fous. Codex corrige le P0 SMS : pas d'activation réelle ; P0 autorisé = action_board + validation_required + horaires/blacklist/quota, sans envoi tant que non prouvé. Claude doit produire un plan V1 avant code.
+Fichier concerné : docs/AGENTS_COLLABORATION/agents/DEEPSEEK_TARGET_CELL_IRIS_CAPABILITY_021.md ; docs/AGENTS_COLLABORATION/agents/CODEX_ARBITRAGE_DEEPSEEK_TARGET_CELL_021.md ; docs/AGENTS_COLLABORATION/TARGET_REGISTER.md
+Risque : élevé si SMS/appel/email sont activés sans chaîne complète de validation
+Décision Ludovic requise : oui avant toute exécution réelle ou déploiement visible
+Action proposée : Claude lit les 6 fichiers 021 et livre `CLAUDE_PLAN_IRIS_CAPABILITY_GATEWAY_021.md` sans déployer.

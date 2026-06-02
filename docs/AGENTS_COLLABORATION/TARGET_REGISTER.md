@@ -15,6 +15,21 @@ Ce fichier sert a suivre les targets actives. Il doit etre mis a jour quand une 
 | Teams interne | Iris affiche participants, roles, mute/kick, validation actions invite | partiel / a prouver | session avec owner + invite | Claude + Kimi |
 | Command Screen visuel | Iris projette tableaux, graphiques, documents, decisions, statuts, pas du texte brut | partiel | capture rendu visuel + logs render_type | Kimi + Codex |
 
+### Mise à jour DeepSeek/Codex — 2026-06-02
+
+| Capacité | Statut DeepSeek | Arbitrage Codex |
+|---|---|---|
+| Recherche web | non code / à vérifier | Vérifier d'abord les tools existants `search_web`, puis brancher rendu `research_board` |
+| Porte-documents | partiel | Brancher vault/documents au Command Screen |
+| Upload / Analyse | partiel | Brancher `document_insight`, vérifier type/taille/consentement |
+| Carte / Map | non code | Créer `map_board` avec consentement avant géoloc |
+| SMS | code non prouvé | P0 = `action_board` sans SMS réel, pas activation directe |
+| Appel | non code | P1 = `action_board` sans appel réel tant que non prouvé |
+| Email | non code | P1 = brouillon + validation, pas envoi réel |
+| Teams | atteint selon DeepSeek | À prouver terrain : participants, roles, mute/kick, pending action |
+| Rendu visuel | partiel | Prouver intégration WS + `render_type` |
+| Garde-fous | partiel | Quota, consentement géoloc, filtres docs à vérifier |
+
 ---
 
 ## Objectif 019 — Iris Command Screen
@@ -36,4 +51,3 @@ Ce fichier sert a suivre les targets actives. Il doit etre mis a jour quand une 
 | Participants | Liste visible style Teams/Zoom | non code / a verifier | capture overlay | Kimi |
 | Mute/Kick | Owner peut muter/exclure un invite | non prouve | test non destructif | Claude + DeepSeek |
 | Actions invite | Invite ne peut pas declencher action sensible sans validation owner | a prouver | pending action board | DeepSeek |
-
