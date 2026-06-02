@@ -464,7 +464,7 @@
     #afHangup:hover, #afHangup:active { background: rgba(220,50,50,0.3); border-color: rgba(220,70,70,0.6); color: rgba(255,155,155,1); transform: translateX(-50%) scale(0.97); }
 
     /* ===== IRIS COMMAND SCREEN — POSTE DE COMMANDE FUTURISTE ===== */
-    :root {
+    :root, [data-theme="dark"] {
       --ics-bg: #000609;
       --ics-border: rgba(0,210,255,0.32);
       --ics-violet: #8B74F7; --ics-violet-g: rgba(139,116,247,0.2);
@@ -473,6 +473,133 @@
       --ics-r: 4px; --ics-rbtn: 3px;
       --ics-glow: 0 0 18px rgba(0,210,255,0.18);
     }
+    /* ===== LIGHT THEME ===== */
+    [data-theme="light"] {
+      --ics-bg: #f5f4f8;
+      --ics-border: rgba(109,85,232,0.28);
+      --ics-violet: #6d55e8; --ics-violet-g: rgba(109,85,232,0.1);
+      --ics-cyan: #0099bb; --ics-amber: #d97706; --ics-coral: #e53e3e; --ics-green: #16a34a;
+      --ics-text: rgba(15,10,30,0.92); --ics-text2: rgba(15,10,30,0.52); --ics-text3: rgba(15,10,30,0.28);
+      --ics-r: 4px; --ics-rbtn: 3px;
+      --ics-glow: 0 8px 32px rgba(0,0,0,0.10);
+    }
+    [data-theme="light"] #audioView { background: #f5f4f8; }
+    [data-theme="light"] .af-grid-bg { background-image: linear-gradient(rgba(109,85,232,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(109,85,232,0.04) 1px, transparent 1px); }
+    [data-theme="light"] #irisOrb { background: radial-gradient(circle at 38% 32%, #b8adfc, #7c6fe4); box-shadow: 0 0 40px rgba(109,85,232,0.22), 0 0 80px rgba(109,85,232,0.08), inset 0 1px 0 rgba(255,255,255,0.4); }
+    [data-theme="light"] #afStateLabel { color: rgba(15,10,30,0.3); }
+    [data-theme="light"] #afStateLabel.speaking { color: rgba(22,163,74,0.7); }
+    [data-theme="light"] #afLastText { color: rgba(15,10,30,0.35); }
+    [data-theme="light"] #afTranscript .af-line.user { color: rgba(15,10,30,0.5); }
+    [data-theme="light"] #afTranscript .af-line.iris { color: rgba(22,163,74,0.7); }
+    [data-theme="light"] .ics-panel { background: rgba(255,255,255,0.96); box-shadow: 0 8px 40px rgba(0,0,0,0.12), 0 1px 3px rgba(0,0,0,0.08); }
+    [data-theme="light"] .ics-panel::before { background-image: linear-gradient(rgba(109,85,232,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(109,85,232,0.04) 1px, transparent 1px); }
+    [data-theme="light"] .ics-rail { background: rgba(109,85,232,0.05); border-bottom-color: rgba(109,85,232,0.12); }
+    [data-theme="light"] .ics-rail-title { color: rgba(109,85,232,0.55); }
+    [data-theme="light"] #icsStatusText { color: var(--ics-violet); }
+    [data-theme="light"] .ics-body { background: transparent; }
+    [data-theme="light"] .ics-footer { border-top-color: rgba(109,85,232,0.1); }
+    [data-theme="light"] .ics-btn { border-color: rgba(109,85,232,0.22); color: var(--ics-violet); background: rgba(109,85,232,0.05); }
+    [data-theme="light"] .ics-btn:hover { background: rgba(109,85,232,0.1); }
+    [data-theme="light"] .af-inputbar { background: rgba(255,255,255,0.96); border-color: rgba(109,85,232,0.22); box-shadow: 0 4px 16px rgba(0,0,0,0.08); }
+    [data-theme="light"] #afTextInput { color: rgba(15,10,30,0.92); background: rgba(109,85,232,0.04); }
+    [data-theme="light"] #afTextInput::placeholder { color: rgba(15,10,30,0.3); }
+    [data-theme="light"] #afTextSend { background: rgba(109,85,232,0.12); border-color: rgba(109,85,232,0.3); color: #6d55e8; }
+    [data-theme="light"] .ics-summary { background: rgba(109,85,232,0.04); border-color: rgba(109,85,232,0.12); color: rgba(15,10,30,0.6); }
+    [data-theme="light"] .ics-data-row:nth-child(odd) { background: rgba(0,0,0,0.02); }
+    [data-theme="light"] .ics-data-row:hover { background: rgba(109,85,232,0.05); }
+    [data-theme="light"] .ics-kpi-card { background: rgba(255,255,255,0.8); border-color: rgba(109,85,232,0.15); }
+    [data-theme="light"] .ics-kpi-value { color: var(--ics-violet); }
+    [data-theme="light"] .ics-insight-box { background: rgba(255,255,255,0.9); border-color: rgba(109,85,232,0.12); }
+    [data-theme="light"] .ics-kanban-cards { border-color: rgba(109,85,232,0.1); }
+    [data-theme="light"] .ics-kanban-card { background: rgba(255,255,255,0.9); border-color: rgba(109,85,232,0.1); }
+    [data-theme="light"] .ics-research-summary { background: rgba(255,255,255,0.9); border-color: rgba(109,85,232,0.1); }
+    [data-theme="light"] .ics-map-placeholder { background: rgba(109,85,232,0.06); border-color: rgba(109,85,232,0.15); }
+    [data-theme="light"] .ics-budget-kpi { background: rgba(255,255,255,0.9); border-color: rgba(109,85,232,0.12); }
+    [data-theme="light"] .ics-budget-bar-fill { background: var(--ics-violet); }
+    [data-theme="light"] #afHangup { background: rgba(200,30,30,0.1); border-color: rgba(200,30,30,0.3); color: rgba(180,20,20,0.85); }
+    /* Theme toggle button */
+    #irisThemeToggle {
+      position: absolute; bottom: calc(26px + env(safe-area-inset-bottom));
+      right: calc(50% - 130px); z-index: 11;
+      width: 38px; height: 38px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.1);
+      background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.55);
+      font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+      transition: background 0.3s, color 0.3s, border-color 0.3s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    [data-theme="light"] #irisThemeToggle { background: rgba(0,0,0,0.06); border-color: rgba(0,0,0,0.1); color: rgba(15,10,30,0.6); }
+    #irisThemeToggle:hover { background: rgba(255,255,255,0.12); }
+    [data-theme="light"] #irisThemeToggle:hover { background: rgba(0,0,0,0.1); }
+    /* ===== TEAMS OVERLAY ===== */
+    #irisTeamsPanel {
+      position: absolute; z-index: 8; top: 72px; left: 18px;
+      bottom: calc(148px + env(safe-area-inset-bottom));
+      width: 230px; display: none; flex-direction: column;
+      border: 1px solid rgba(139,116,247,0.22); border-radius: 4px;
+      background: rgba(8,6,20,0.82); backdrop-filter: blur(20px);
+      box-shadow: 0 8px 40px rgba(0,0,0,0.5);
+      overflow: hidden;
+    }
+    #irisTeamsPanel.active { display: flex; animation: ics-boot 0.45s cubic-bezier(0.16,1,0.3,1) both; }
+    [data-theme="light"] #irisTeamsPanel { background: rgba(255,255,255,0.92); border-color: rgba(109,85,232,0.25); }
+    .irt-header { padding: 10px 12px 8px; border-bottom: 1px solid rgba(255,255,255,0.06); flex-shrink: 0; }
+    [data-theme="light"] .irt-header { border-bottom-color: rgba(109,85,232,0.1); }
+    .irt-session-name { font-size: 12px; font-weight: 700; color: var(--ics-violet); font-family: monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .irt-session-meta { font-size: 10px; color: var(--ics-text3); margin-top: 2px; display: flex; align-items: center; gap: 5px; font-family: monospace; }
+    .irt-session-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--ics-green); animation: irt-dot-blink 2s ease-in-out infinite; }
+    @keyframes irt-dot-blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+    .irt-participants { flex: 1; overflow-y: auto; padding: 6px 0; scrollbar-width: none; }
+    .irt-participants::-webkit-scrollbar { display: none; }
+    .irt-participant { display: flex; align-items: center; gap: 8px; padding: 6px 10px; position: relative; transition: background 0.15s; }
+    .irt-participant:hover { background: rgba(255,255,255,0.03); }
+    .irt-participant:hover .irt-actions { opacity: 1; }
+    [data-theme="light"] .irt-participant:hover { background: rgba(109,85,232,0.04); }
+    .irt-avatar-wrap { position: relative; flex-shrink: 0; }
+    .irt-avatar { width: 30px; height: 30px; border-radius: 50%; background: rgba(139,116,247,0.15); border: 1px solid rgba(139,116,247,0.25); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: var(--ics-violet); font-family: monospace; }
+    .irt-avatar.speaking::after { content:''; position:absolute; inset:-3px; border-radius:50%; border:2px solid var(--ics-green); animation: irt-speak-ring 1.8s ease-in-out infinite; }
+    @keyframes irt-speak-ring { 0%,100%{opacity:0.9;transform:scale(1)} 50%{opacity:0.4;transform:scale(1.08)} }
+    .irt-info { flex: 1; min-width: 0; }
+    .irt-name { font-size: 11px; font-weight: 600; color: var(--ics-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-family: monospace; }
+    .irt-role-badge { font-size: 9px; color: var(--ics-text3); font-family: monospace; }
+    .irt-mic-icon { font-size: 12px; flex-shrink: 0; opacity: 0.7; }
+    .irt-actions { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); display: flex; gap: 3px; opacity: 0; transition: opacity 0.15s; }
+    .irt-action-btn { width: 22px; height: 22px; border-radius: 3px; border: none; cursor: pointer; font-size: 10px; display: flex; align-items: center; justify-content: center; }
+    .irt-action-btn.kick { background: rgba(255,107,123,0.12); color: var(--ics-coral); }
+    .irt-action-btn.kick:hover { background: rgba(255,107,123,0.22); }
+    .irt-pending-banner { border-top: 1px solid rgba(255,183,77,0.2); background: rgba(255,183,77,0.07); padding: 8px 10px; flex-shrink: 0; }
+    .irt-pending-title { font-size: 9px; font-weight: 700; color: var(--ics-amber); text-transform: uppercase; letter-spacing: 1px; font-family: monospace; margin-bottom: 4px; }
+    .irt-pending-item { padding: 5px 0; border-bottom: 1px solid rgba(255,183,77,0.1); }
+    .irt-pending-item:last-child { border-bottom: none; }
+    .irt-pending-desc { font-size: 10px; color: var(--ics-text2); font-family: monospace; margin-bottom: 5px; }
+    .irt-pending-btns { display: flex; gap: 5px; }
+    .irt-pend-btn { flex: 1; padding: 4px; border-radius: 3px; border: none; font-size: 9px; font-weight: 700; cursor: pointer; font-family: monospace; text-transform: uppercase; letter-spacing: 0.5px; }
+    .irt-pend-btn.approve { background: rgba(57,255,138,0.1); color: var(--ics-green); border: 1px solid rgba(57,255,138,0.2); }
+    .irt-pend-btn.approve:hover { background: rgba(57,255,138,0.18); }
+    .irt-pend-btn.reject { background: rgba(255,107,123,0.08); color: var(--ics-coral); border: 1px solid rgba(255,107,123,0.18); }
+    .irt-pend-btn.reject:hover { background: rgba(255,107,123,0.15); }
+    .irt-invite-btn { margin: 6px 10px 8px; padding: 7px; border-radius: 99px; border: 1px solid rgba(139,116,247,0.25); background: rgba(139,116,247,0.08); color: rgba(196,181,253,0.85); font-size: 11px; font-family: monospace; cursor: pointer; text-align: center; transition: background 0.2s; flex-shrink: 0; }
+    .irt-invite-btn:hover { background: rgba(139,116,247,0.15); }
+    /* Mobile compact bar */
+    @media (max-width: 700px) {
+      #irisTeamsPanel { top: auto; left: 8px; right: 8px; bottom: auto; width: auto; height: 52px; flex-direction: row; align-items: center; padding: 0 10px; gap: 8px; border-radius: 3px; }
+      #irisTeamsPanel.expanded { height: auto; flex-direction: column; top: 0; bottom: calc(148px + env(safe-area-inset-bottom)); left: 0; right: 0; border-radius: 0; z-index: 50; padding: 0; }
+      .irt-compact-bar { display: flex; align-items: center; gap: 6px; width: 100%; }
+      .irt-header, .irt-participants, .irt-pending-banner, .irt-invite-btn { display: none; }
+      #irisTeamsPanel.expanded .irt-header, #irisTeamsPanel.expanded .irt-participants, #irisTeamsPanel.expanded .irt-invite-btn { display: flex; }
+      #irisTeamsPanel.expanded .irt-header { padding: 14px 14px 8px; flex-direction: column; align-items: flex-start; }
+      #irisTeamsPanel.expanded .irt-compact-bar { display: none; }
+      #irisTeamsPanel.expanded .irt-pending-banner { display: block; }
+    }
+    @media (min-width: 701px) {
+      .irt-compact-bar { display: none; }
+      #audioView.teams-open .af-center { margin-left: 248px; transition: margin 0.35s ease; }
+    }
+    /* Geoloc consent banner inside map_board */
+    .ics-geoloc-consent { margin-top: 8px; border: 1px solid rgba(139,116,247,0.2); border-radius: 4px; padding: 12px 14px; background: rgba(139,116,247,0.06); text-align: center; }
+    .ics-geoloc-consent-title { font-size: 11px; font-weight: 700; color: var(--ics-violet); margin-bottom: 4px; font-family: monospace; letter-spacing: 0.5px; }
+    .ics-geoloc-consent-text { font-size: 10px; color: var(--ics-text3); margin-bottom: 8px; line-height: 1.5; }
+    .ics-geoloc-btn { width: 100%; padding: 8px; border-radius: 3px; border: 1px solid rgba(139,116,247,0.3); background: rgba(139,116,247,0.12); color: rgba(196,181,253,0.92); font-size: 11px; font-weight: 700; cursor: pointer; font-family: monospace; transition: background 0.2s; }
+    .ics-geoloc-btn:hover { background: rgba(139,116,247,0.2); }
     .af-inputbar {
       position: absolute; z-index: 11; left: 50%; bottom: calc(92px + env(safe-area-inset-bottom));
       transform: translateX(-50%); width: min(560px, calc(100% - 32px));
@@ -1299,6 +1426,28 @@
       <div class="af-logo">IRIS</div>
       <div id="afSessionTime" class="af-session-time">00:00</div>
     </div>
+    <!-- Teams Overlay (Step 5) -->
+    <div id="irisTeamsPanel">
+      <div class="irt-compact-bar" onclick="_irtToggleMobile()">
+        <div id="irtCompactAvatars" style="display:flex;gap:4px;align-items:center"></div>
+        <span id="irtCompactCount" style="font-size:10px;color:var(--ics-text3);font-family:monospace;margin-left:4px"></span>
+        <span style="margin-left:auto;font-size:11px;color:var(--ics-text3)">▼</span>
+      </div>
+      <div class="irt-header">
+        <div class="irt-session-name" id="irtSessionName">Session Iris</div>
+        <div class="irt-session-meta">
+          <div class="irt-session-dot"></div>
+          <span id="irtParticipantCount">0 participant</span>
+        </div>
+      </div>
+      <div class="irt-participants" id="irtParticipantList"></div>
+      <div class="irt-pending-banner" id="irtPendingBanner" style="display:none">
+        <div class="irt-pending-title">⏳ Actions en attente</div>
+        <div id="irtPendingList"></div>
+      </div>
+      <button class="irt-invite-btn" onclick="_irtInvite()" id="irtInviteBtn" style="display:none">+ Inviter</button>
+    </div>
+
     <div class="af-center">
       <div class="af-orb-wrap">
         <div id="afOrbRings" class="af-orb-rings">
@@ -1342,6 +1491,7 @@
       <button id="afTextSend" type="submit">Envoyer</button>
     </form>
     <button id="afHangup">Raccrocher</button>
+    <button id="irisThemeToggle" title="Changer de thème" onclick="_toggleTheme()">🌙</button>
   </div>
 
   <!-- Daily.js SDK -->
@@ -4094,6 +4244,15 @@
       if (p.duration_walk_min) durs += '<div class="ics-map-dur"><div class="ics-map-dur-val">'+_esc(String(p.duration_walk_min))+' min</div><div class="ics-map-dur-lbl">À pied</div></div>';
       if (p.duration_car_min)  durs += '<div class="ics-map-dur"><div class="ics-map-dur-val">'+_esc(String(p.duration_car_min))+' min</div><div class="ics-map-dur-lbl">En voiture</div></div>';
       if (p.distance_km)       durs += '<div class="ics-map-dur"><div class="ics-map-dur-val">'+_esc(String(p.distance_km))+' km</div><div class="ics-map-dur-lbl">Distance</div></div>';
+      // Geoloc consent banner (Step 4) — shown only if position not yet consented
+      var geoConsentHtml = '';
+      if (!localStorage.getItem('iris_geoloc_consent')) {
+        geoConsentHtml = '<div class="ics-geoloc-consent">'
+          +'<div class="ics-geoloc-consent-title">📍 Position masquée</div>'
+          +'<div class="ics-geoloc-consent-text">Sans consentement, Iris affiche uniquement l\'adresse demandée, pas votre position.</div>'
+          +'<button class="ics-geoloc-btn" onclick="_icsGrantGeoloc(this)">Activer ma position</button>'
+          +'</div>';
+      }
       return '<div>'
         +'<div class="ics-map-placeholder"><div class="ics-map-grid"></div><div class="ics-map-pin">📍</div></div>'
         +'<div class="ics-map-address">'+_esc(p.address||'—')+'</div>'
@@ -4102,7 +4261,33 @@
         +'<div style="display:flex;gap:6px;margin-top:6px">'
         +'<a href="'+_esc(mapsUrl)+'" target="_blank" rel="noopener" class="ics-btn" style="flex:1;text-decoration:none;text-align:center;padding:7px">Ouvrir Maps</a>'
         +'<button class="ics-btn" style="flex:none" onclick="navigator.clipboard&&navigator.clipboard.writeText(\''+_esc(p.address||'')+'\')">Copier</button>'
-        +'</div></div>';
+        +'</div>'
+        + geoConsentHtml
+        + '</div>';
+    }
+
+    function _icsGrantGeoloc(btn) {
+      if (!navigator.geolocation) {
+        if (btn) btn.textContent = 'Non disponible sur cet appareil';
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(function(pos) {
+        localStorage.setItem('iris_geoloc_consent', '1');
+        if (btn && btn.parentNode) {
+          btn.parentNode.innerHTML = '<div style="font-size:10px;color:var(--ics-green);font-family:monospace;text-align:center">✓ Position activée</div>';
+        }
+        // Send geoloc to backend (best-effort)
+        var tok = localStorage.getItem('luna_token') || '';
+        if (tok) {
+          fetch('/api/geolocation', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer ' + tok},
+            body: JSON.stringify({lat: pos.coords.latitude, lng: pos.coords.longitude})
+          }).catch(function(){});
+        }
+      }, function() {
+        if (btn) btn.textContent = 'Accès refusé par le navigateur';
+      });
     }
 
     function _icsRenderDecisionBoard(p) {
@@ -4836,6 +5021,205 @@
     btnHangup.onclick = function() {
       doHangup();
     };
+
+    // =========================================================================
+    // STEP 6 — LIGHT / DARK MODE
+    // =========================================================================
+    function _initTheme() {
+      var saved = localStorage.getItem('iris-theme');
+      if (!saved) {
+        saved = (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) ? 'light' : 'dark';
+      }
+      document.documentElement.setAttribute('data-theme', saved);
+      var btn = document.getElementById('irisThemeToggle');
+      if (btn) btn.textContent = saved === 'light' ? '☀' : '🌙';
+    }
+    function _toggleTheme() {
+      var current = document.documentElement.getAttribute('data-theme') || 'dark';
+      var next = current === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', next);
+      localStorage.setItem('iris-theme', next);
+      var btn = document.getElementById('irisThemeToggle');
+      if (btn) btn.textContent = next === 'dark' ? '🌙' : '☀';
+    }
+    _initTheme();
+
+    // =========================================================================
+    // STEP 5 — TEAMS OVERLAY
+    // =========================================================================
+    var _irtSessionId = null;
+    var _irtIsOwner = false;
+    var _irtPollTimer = null;
+    var _irtPendingTimer = null;
+    var _irtAuthToken = localStorage.getItem('luna_token') || '';
+
+    function _irtInit() {
+      // Detect session_id from URL param or JWT
+      var urlParams = new URLSearchParams(window.location.search);
+      _irtSessionId = urlParams.get('session') || null;
+      if (!_irtSessionId) {
+        // Try to decode from token
+        try {
+          var tok = _irtAuthToken;
+          if (tok) {
+            var parts = tok.split('.');
+            if (parts.length === 3) {
+              var payload = JSON.parse(atob(parts[1].replace(/-/g,'+').replace(/_/g,'/')));
+              _irtSessionId = payload.session_id || null;
+              _irtIsOwner = (payload.participant_role === 'owner');
+            }
+          }
+        } catch(e) {}
+      }
+      if (!_irtSessionId) return;
+      var panel = document.getElementById('irisTeamsPanel');
+      if (panel) {
+        panel.classList.add('active');
+        var view = document.getElementById('audioView');
+        if (view) view.classList.add('teams-open');
+      }
+      // Show invite button for owners
+      var invBtn = document.getElementById('irtInviteBtn');
+      if (invBtn && _irtIsOwner) invBtn.style.display = 'block';
+      // Start polling
+      _irtPoll();
+      _irtPollTimer = setInterval(_irtPoll, 5000);
+      if (_irtIsOwner) {
+        _irtPollPending();
+        _irtPendingTimer = setInterval(_irtPollPending, 3000);
+      }
+    }
+
+    function _irtPoll() {
+      if (!_irtSessionId) return;
+      var headers = {'Content-Type': 'application/json'};
+      if (_irtAuthToken) headers['Authorization'] = 'Bearer ' + _irtAuthToken;
+      fetch('/api/iris/session/' + encodeURIComponent(_irtSessionId) + '/status', {headers: headers})
+        .then(function(r){ return r.ok ? r.json() : null; })
+        .then(function(data){ if (data) _irtRender(data); })
+        .catch(function(){});
+    }
+
+    function _irtRender(data) {
+      var session = data.session || {};
+      var participants = data.participants || [];
+      var nameEl = document.getElementById('irtSessionName');
+      if (nameEl) nameEl.textContent = session.name || 'Session Iris';
+      var countEl = document.getElementById('irtParticipantCount');
+      if (countEl) countEl.textContent = participants.length + ' participant' + (participants.length > 1 ? 's' : '');
+      var listEl = document.getElementById('irtParticipantList');
+      if (!listEl) return;
+      var roleIcon = {owner: '👑', trusted: '👤', guest: '🟢'};
+      var roleName = {owner: 'Owner', trusted: 'Trusted', guest: 'Invité'};
+      listEl.innerHTML = participants.map(function(p) {
+        var initials = (p.name || '?').split(' ').map(function(w){return w[0]||'';}).slice(0,2).join('').toUpperCase();
+        var isSpeaking = p.speaking || false;
+        var isMuted = p.muted || false;
+        var role = p.role || 'guest';
+        var kickBtn = (_irtIsOwner && role !== 'owner')
+          ? '<div class="irt-actions"><button class="irt-action-btn kick" onclick="_irtKick(\''+_esc(p.participant_id||'')+'\',\''+_esc(p.name||'')+'\')" title="Exclure">✕</button></div>'
+          : '';
+        return '<div class="irt-participant">'
+          + '<div class="irt-avatar-wrap">'
+          + '<div class="irt-avatar' + (isSpeaking ? ' speaking' : '') + '">' + _esc(initials) + '</div>'
+          + '</div>'
+          + '<div class="irt-info">'
+          + '<div class="irt-name">' + (roleIcon[role]||'') + ' ' + _esc(p.name||'?') + '</div>'
+          + '<div class="irt-role-badge">' + _esc(roleName[role]||role) + '</div>'
+          + '</div>'
+          + '<span class="irt-mic-icon">' + (isMuted ? '🔇' : '🎤') + '</span>'
+          + kickBtn
+          + '</div>';
+      }).join('');
+      // Compact bar avatars
+      var compactEl = document.getElementById('irtCompactAvatars');
+      if (compactEl) {
+        compactEl.innerHTML = participants.slice(0,4).map(function(p){
+          var initials = (p.name||'?').split(' ').map(function(w){return w[0]||'';}).slice(0,2).join('').toUpperCase();
+          return '<div style="width:26px;height:26px;border-radius:50%;background:rgba(139,116,247,0.2);border:1px solid rgba(139,116,247,0.3);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:var(--ics-violet);font-family:monospace">' + _esc(initials) + '</div>';
+        }).join('');
+      }
+      var compactCountEl = document.getElementById('irtCompactCount');
+      if (compactCountEl) compactCountEl.textContent = participants.length + ' ●';
+    }
+
+    function _irtPollPending() {
+      if (!_irtSessionId || !_irtIsOwner) return;
+      var headers = {'Content-Type': 'application/json'};
+      if (_irtAuthToken) headers['Authorization'] = 'Bearer ' + _irtAuthToken;
+      fetch('/api/iris/session/' + encodeURIComponent(_irtSessionId) + '/pending', {headers: headers})
+        .then(function(r){ return r.ok ? r.json() : null; })
+        .then(function(data){ if (data) _irtRenderPending(data.pending || []); })
+        .catch(function(){});
+    }
+
+    function _irtRenderPending(pending) {
+      var banner = document.getElementById('irtPendingBanner');
+      var list = document.getElementById('irtPendingList');
+      if (!banner || !list) return;
+      if (!pending.length) { banner.style.display = 'none'; return; }
+      banner.style.display = 'block';
+      list.innerHTML = pending.map(function(a) {
+        var desc = (a.requester_name || 'Invité') + ' demande : ' + (a.action || '');
+        return '<div class="irt-pending-item">'
+          + '<div class="irt-pending-desc">' + _esc(desc) + '</div>'
+          + '<div class="irt-pending-btns">'
+          + '<button class="irt-pend-btn reject" onclick="_irtReject(\''+_esc(a.action_id||'')+'\')">Refuser</button>'
+          + '<button class="irt-pend-btn approve" onclick="_irtApprove(\''+_esc(a.action_id||'')+'\')">Approuver</button>'
+          + '</div></div>';
+      }).join('');
+    }
+
+    function _irtKick(participantId, name) {
+      if (!confirm('Exclure ' + name + ' de la session ?')) return;
+      var headers = {'Content-Type': 'application/json'};
+      if (_irtAuthToken) headers['Authorization'] = 'Bearer ' + _irtAuthToken;
+      fetch('/api/iris/session/' + encodeURIComponent(_irtSessionId) + '/revoke/' + encodeURIComponent(participantId), {
+        method: 'POST', headers: headers
+      }).then(function(){ _irtPoll(); }).catch(function(){});
+    }
+
+    function _irtApprove(actionId) {
+      var headers = {'Content-Type': 'application/json'};
+      if (_irtAuthToken) headers['Authorization'] = 'Bearer ' + _irtAuthToken;
+      fetch('/api/iris/session/' + encodeURIComponent(_irtSessionId) + '/approve/' + encodeURIComponent(actionId), {
+        method: 'POST', headers: headers
+      }).then(function(){ _irtPollPending(); }).catch(function(){});
+    }
+
+    function _irtReject(actionId) {
+      var headers = {'Content-Type': 'application/json'};
+      if (_irtAuthToken) headers['Authorization'] = 'Bearer ' + _irtAuthToken;
+      fetch('/api/iris/session/' + encodeURIComponent(_irtSessionId) + '/reject/' + encodeURIComponent(actionId), {
+        method: 'POST', headers: headers
+      }).then(function(){ _irtPollPending(); }).catch(function(){});
+    }
+
+    function _irtInvite() {
+      var headers = {'Content-Type': 'application/json'};
+      if (_irtAuthToken) headers['Authorization'] = 'Bearer ' + _irtAuthToken;
+      fetch('/api/iris/session/' + encodeURIComponent(_irtSessionId) + '/invite', {
+        method: 'POST', headers: headers,
+        body: JSON.stringify({role: 'guest'})
+      })
+        .then(function(r){ return r.ok ? r.json() : null; })
+        .then(function(data){
+          if (data && data.invite_url) {
+            var msg = 'Lien d\'invitation :\n' + data.invite_url;
+            if (navigator.clipboard) {
+              navigator.clipboard.writeText(data.invite_url).then(function(){ alert(msg + '\n\n(Copié dans le presse-papiers)'); }).catch(function(){ alert(msg); });
+            } else { alert(msg); }
+          }
+        }).catch(function(){});
+    }
+
+    function _irtToggleMobile() {
+      var panel = document.getElementById('irisTeamsPanel');
+      if (panel) panel.classList.toggle('expanded');
+    }
+
+    // Init Teams overlay after audio starts
+    _irtInit();
 
     // Android back button
     window.addEventListener('popstate', function() {

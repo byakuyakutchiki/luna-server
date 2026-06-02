@@ -9372,7 +9372,7 @@ Règles de collaboration :
                         sources.append({"domain": domain or "source", "snippet": snippet, "reliability": reliability})
                     summary = res.get("message", results[0][:200] if results else "Aucun résultat.")
                     payload = {
-                        "type": "iris_render", "render_type": "research_board",
+                        "type": "render", "render_type": "research_board",
                         "query": query, "summary": str(summary)[:300], "sources": sources,
                     }
 
@@ -9388,7 +9388,7 @@ Règles de collaboration :
                         for a in articles[:5]
                     ]
                     payload = {
-                        "type": "iris_render", "render_type": "research_board",
+                        "type": "render", "render_type": "research_board",
                         "query": f"Actualités · {category}",
                         "summary": f"{len(articles)} actualité(s) · {category}",
                         "sources": sources,
@@ -9407,7 +9407,7 @@ Règles de collaboration :
                     desc = actuel.get("description", "")
                     prev_texts = [f"{p.get('date', '')}: {p.get('min', '?')}/{p.get('max', '?')}" for p in previsions[:3]]
                     payload = {
-                        "type": "iris_render", "render_type": "kpi_cards",
+                        "type": "render", "render_type": "kpi_cards",
                         "kpis": kpis,
                         "summary": desc + (" · " + " · ".join(prev_texts) if prev_texts else ""),
                     }
@@ -9427,7 +9427,7 @@ Règles de collaboration :
                     except Exception:
                         pass
                     payload = {
-                        "type": "iris_render", "render_type": "map_board",
+                        "type": "render", "render_type": "map_board",
                         "address": address[:100], "label": label[:60],
                         "maps_url": "https://maps.google.com/?q=" + _up.quote((address or label)[:100]),
                     }
@@ -9441,14 +9441,14 @@ Règles de collaboration :
                         name = c.get("name", "?")
                         initials = "".join(w[0].upper() for w in name.split()[:2])
                         payload = {
-                            "type": "iris_render", "render_type": "contact_board",
+                            "type": "render", "render_type": "contact_board",
                             "contact": {"name": name, "initials": initials, "role": c.get("relation", ""), "trust_level": 3},
                             "history": [],
                         }
                     else:
                         rows = [[c.get("name", "?"), c.get("relation", "")] for c in contacts]
                         payload = {
-                            "type": "iris_render", "render_type": "data_board",
+                            "type": "render", "render_type": "data_board",
                             "title": f"Contacts ({len(contacts)})", "columns": ["Nom", "Relation"], "rows": rows,
                         }
 
@@ -9456,7 +9456,7 @@ Règles de collaboration :
                     docs = res.get("documents", [])
                     if not docs:
                         payload = {
-                            "type": "iris_render", "render_type": "missing_info",
+                            "type": "render", "render_type": "missing_info",
                             "title": "Aucun document trouvé",
                             "missing_fields": ["Aucun document correspondant"],
                             "suggestions": [{"label": "Élargir la recherche"}, {"label": "Scanner un document"}],
@@ -9477,7 +9477,7 @@ Règles de collaboration :
                             else:
                                 boxes.append({"title": str(d)[:60], "body": ""})
                         payload = {
-                            "type": "iris_render", "render_type": "document_insight",
+                            "type": "render", "render_type": "document_insight",
                             "title": f"Documents ({len(docs)})",
                             "boxes": boxes,
                             "tags": [{"type": "info", "label": res.get("message", f"{len(docs)} doc(s)")[:60]}],
@@ -9489,7 +9489,7 @@ Règles de collaboration :
                         return
                     rows = [[f.get("path", "?"), f"{f.get('count', 0)} doc(s)"] for f in folders[:8]]
                     payload = {
-                        "type": "iris_render", "render_type": "data_board",
+                        "type": "render", "render_type": "data_board",
                         "title": "Dossiers", "columns": ["Chemin", "Documents"], "rows": rows,
                     }
 
@@ -9502,7 +9502,7 @@ Règles de collaboration :
                             {"value": verdict.upper(), "label": "Verdict Iris", "trend": "flat"},
                         ]
                         payload = {
-                            "type": "iris_render", "render_type": "budget_board",
+                            "type": "render", "render_type": "budget_board",
                             "kpis": kpis, "summary": res.get("message", ""),
                         }
                     else:
@@ -9525,7 +9525,7 @@ Règles de collaboration :
                             cats.append({"name": cat, "amount": round(float(amount)), "percent": round(float(amount) / total_dep * 100)})
                         summ_parts = [(s.get("text", s) if isinstance(s, dict) else str(s)) for s in suggestions[:2]]
                         payload = {
-                            "type": "iris_render", "render_type": "budget_board",
+                            "type": "render", "render_type": "budget_board",
                             "kpis": kpis, "categories": cats,
                             "summary": " · ".join(summ_parts) if summ_parts else "",
                         }
@@ -9543,7 +9543,7 @@ Règles de collaboration :
                     if not events:
                         return
                     payload = {
-                        "type": "iris_render", "render_type": "timeline",
+                        "type": "render", "render_type": "timeline",
                         "events": events, "summary": res.get("message", ""),
                     }
 
@@ -9607,7 +9607,7 @@ Règles de collaboration :
                 details["Coût estimé"] = cost_map[function_name]
                 details["Garde-fous"] = "Validation owner · Horaires 22h-7h · Quota mensuel"
                 action_board_payload = {
-                    "type": "iris_render",
+                    "type": "render",
                     "render_type": "action_board",
                     "action_type": function_name,
                     "requires_confirmation": True,
