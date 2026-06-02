@@ -3335,6 +3335,8 @@
     // =====================================================================
     var _icsFormBound = false;
     var _icsLastServerRender = 0;
+    var _icsLastUserSpoke = 0;
+    var _icsIrisResponseText = '';
 
     // Affiche le panneau en mode "Iris réfléchit" dès que l'utilisateur parle
     function _icsShowThinking() {
@@ -3378,6 +3380,7 @@
       if (/\b(état|etat|statut|services?|diagnostic|quotas?|santé|sante|check)\b/.test(t)) return 'status_rail';
       if (/\b(explique|analyse[zr]?|résume|resume|contexte|comprends?|qu.est-ce)\b/.test(t)) return 'context_panel';
       if (/\b(panneau|command screen|workspace|bureau|workbench|espace de travail)\b/.test(t)) return 'data_board';
+      if (/\b(affiche|montre|ouvre|montrez?[-\s]moi|fais[-\s]voir|afficher|montrer)\b/.test(t)) return 'context_panel';
       return '';
     }
 
@@ -3833,6 +3836,18 @@
               _irisQueueAudio(data.audio);
             } else if (data.type === 'audio_done') {
               _setIrisState('idle');
+              // Fallback : si le serveur n'a envoyé aucun render pendant ce tour, afficher la réponse Iris
+              setTimeout(function() {
+                if (_icsLastServerRender <= _icsLastUserSpoke && _icsIrisResponseText.trim()) {
+                  var _fbText = _icsIrisResponseText.trim();
+                  var _fbType = inferCommandRenderFromText(_fbText) || 'context_panel';
+                  var _fbPl = _fbType === 'context_panel'
+                    ? { title: 'Iris', sections: [{ heading: 'Réponse', body: _fbText }] }
+                    : _icsBuildPayload(_fbType, _fbText);
+                  _fbPl.render_type = _fbType;
+                  renderIrisCommand(_fbPl);
+                }
+              }, 200);
             } else if (data.type === 'interrupt') {
               _irisClearPlayback();
               _setIrisState('idle');
@@ -3844,19 +3859,12 @@
               _afAppendTranscript(role, data.text || '');
               if (data.role === 'user') {
                 _setIrisState('thinking');
-                // Ouvre immédiatement l'écran en mode "Iris réfléchit"
+                _icsLastUserSpoke = Date.now();
+                _icsIrisResponseText = '';
                 _icsShowThinking();
-                // Fallback local uniquement si le serveur n'a pas envoyé de render récent (< 4s)
-                setTimeout(function() {
-                  if (Date.now() - _icsLastServerRender > 4000) {
-                    var _rType = inferCommandRenderFromText(data.text || '');
-                    if (_rType) {
-                      var _pl = _icsBuildPayload(_rType, data.text || '');
-                      _pl.render_type = _rType;
-                      renderIrisCommand(_pl);
-                    }
-                  }
-                }, 800);
+              } else {
+                // Accumule la réponse Iris pour le fallback audio_done
+                _icsIrisResponseText += ' ' + (data.text || '');
               }
             } else if (data.type === 'tool_call') {
               var toolName = data.name || 'outil';
