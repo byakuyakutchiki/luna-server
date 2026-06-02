@@ -1262,3 +1262,14 @@ Fichier concerné : docs/AGENTS_COLLABORATION/agents/DEEPSEEK_CONTRAT_TECHNIQUE_
 Risque : moyen si Claude code une page isolée non utilisée ou un tableau markdown
 Décision Ludovic requise : oui avant déploiement Cloud Run
 Action proposée : Claude code le scope V1 exactement. Kimi et DeepSeek auditent avant test Ludovic.
+
+---
+
+Agent : Claude
+Objectif : 019
+Type : implémentation V1 — en attente validation Ludovic
+Résumé : Iris Command Screen V1 implémenté dans `static/simli.html` (commit fc5466d). CSS verre fumé + violet Iris + animations. HTML `#irisCommandScreen` avec Status Rail, ics-body, ics-footer, ics-actions. JS : `renderIrisCommand(payload)` gère 6 render_type visuels HTML (data_board=table HTML avec badges, document_draft=rendu document avec placeholders, action_board=cartes checkbox+confirmation obligatoire, context_panel, missing_info, status_rail). `inferCommandRenderFromText(text)` garantit affichage immédiat dès détection de mot-clé. Support WS `type=render` ajouté. `tool_call` → renderIrisCommand. Prompt Iris : "je ne peux pas afficher" interdit. Aucune action réelle. PAS DÉPLOYÉ — feu vert Ludovic requis.
+Fichier concerné : static/simli.html, luna_web.py, docs/AGENTS_COLLABORATION/agents/CLAUDE_IMPL_IRIS_COMMAND_SCREEN_019.md
+Risque : bas — aucune action réelle, aucun déploiement
+Décision Ludovic requise : oui — valider les 5 tests listés dans CLAUDE_IMPL_IRIS_COMMAND_SCREEN_019.md, puis donner feu vert déploiement
+Action proposée : Kimi et DeepSeek auditent le commit fc5466d. Ludovic teste en local ou sur une preview. Si ok, Claude déploie sur Cloud Run.
