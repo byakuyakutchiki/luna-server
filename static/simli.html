@@ -2508,6 +2508,122 @@
     var _vadSpeechStartMs = 0;
     var _vadSpeechEndMs = 0;
 
+    // ── Iris Realtime WebSocket (OpenAI Realtime via /ws/iris-voice) ──────
+    var _irisWs = null;
+    var _irisWsActive = false;
+    var _irisWsMicCtx = null;
+    var _irisWsMicStream = null;
+    var _irisWsWorkletNode = null;
+    var _irisWsPlayCtx = null;
+    var _irisWsQueue = [];
+    var _irisWsNextPlayTime = 0;
+    var _irisWsActiveSources = [];
+    var _irisWsPlaybackStarted = false;
+    var _IRIS_JITTER = 2;
+    var _irisWsWorkletCode = [
+      "class IrisMicProcessor extends AudioWorkletProcessor {",
+      "  process(inputs) {",
+      "    var input = inputs[0];",
+      "    if (!input || !input[0]) return true;",
+      "    var samples = input[0];",
+      "    var ratio = sampleRate / 24000;",
+      "    var outLen = Math.floor(samples.length / ratio);",
+      "    if (outLen < 1) return true;",
+      "    var pcm16 = new Int16Array(outLen);",
+      "    for (var i = 0; i < outLen; i++) {",
+      "      var idx = Math.floor(i * ratio);",
+      "      var s = Math.max(-1, Math.min(1, samples[idx]));",
+      "      pcm16[i] = s < 0 ? s * 32768 : s * 32767;",
+      "    }",
+      "    this.port.postMessage(pcm16.buffer, [pcm16.buffer]);",
+      "    return true;",
+      "  }",
+      "}",
+      "registerProcessor('iris-mic-processor', IrisMicProcessor);"
+    ].join("\n");
+
+    function _irisInt16ToBase64(buffer) {
+      var bytes = new Uint8Array(buffer);
+      var bin = '';
+      for (var i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+      return btoa(bin);
+    }
+
+    function _irisPcm16ToBuffer(pcm16) {
+      if (!_irisWsPlayCtx) return null;
+      var f32 = new Float32Array(pcm16.length);
+      for (var i = 0; i < pcm16.length; i++) f32[i] = pcm16[i] / 32768;
+      var targetRate = _irisWsPlayCtx.sampleRate;
+      var out = f32;
+      if (targetRate !== 24000) {
+        var ratio = targetRate / 24000;
+        var newLen = Math.round(f32.length * ratio);
+        out = new Float32Array(newLen);
+        for (var j = 0; j < newLen; j++) {
+          var si = j / ratio;
+          var i0 = Math.floor(si), i1 = Math.min(i0 + 1, f32.length - 1);
+          out[j] = f32[i0] * (1 - (si - i0)) + f32[i1] * (si - i0);
+        }
+      }
+      var buf = _irisWsPlayCtx.createBuffer(1, out.length, targetRate);
+      buf.getChannelData(0).set(out);
+      return buf;
+    }
+
+    function _irisScheduleChunks() {
+      if (!_irisWsPlayCtx || _irisWsQueue.length === 0) return;
+      if (_irisWsPlayCtx.state === 'suspended') {
+        _irisWsPlayCtx.resume().then(_irisScheduleChunks).catch(function() {});
+        return;
+      }
+      var now = _irisWsPlayCtx.currentTime;
+      if (_irisWsNextPlayTime < now) _irisWsNextPlayTime = now + 0.015;
+      while (_irisWsQueue.length > 0) {
+        var pcm16 = _irisWsQueue.shift();
+        var buf = _irisPcm16ToBuffer(pcm16);
+        if (!buf) break;
+        var src = _irisWsPlayCtx.createBufferSource();
+        src.buffer = buf;
+        src.connect(_irisWsPlayCtx.destination);
+        try { src.start(_irisWsNextPlayTime); } catch(e) { break; }
+        _irisWsNextPlayTime += buf.duration;
+        _irisWsActiveSources.push(src);
+        src.onended = (function(s) { return function() {
+          var idx = _irisWsActiveSources.indexOf(s);
+          if (idx !== -1) _irisWsActiveSources.splice(idx, 1);
+          if (_irisWsActiveSources.length === 0 && _irisWsQueue.length === 0) {
+            _setIrisState('idle');
+          }
+        }; })(src);
+      }
+    }
+
+    function _irisQueueAudio(base64) {
+      var bin = atob(base64);
+      var pcm = new Int16Array(bin.length / 2);
+      for (var i = 0; i < pcm.length; i++)
+        pcm[i] = bin.charCodeAt(i * 2) | (bin.charCodeAt(i * 2 + 1) << 8);
+      _irisWsQueue.push(pcm);
+      if (!_irisWsPlaybackStarted) {
+        if (_irisWsQueue.length >= _IRIS_JITTER) {
+          _irisWsPlaybackStarted = true;
+          _irisScheduleChunks();
+        }
+      } else {
+        _irisScheduleChunks();
+      }
+    }
+
+    function _irisClearPlayback() {
+      _irisWsQueue = [];
+      _irisWsPlaybackStarted = false;
+      _irisWsNextPlayTime = 0;
+      for (var i = 0; i < _irisWsActiveSources.length; i++) {
+        try { _irisWsActiveSources[i].stop(); } catch(e) {}
+      }
+      _irisWsActiveSources = [];
+    }
+
     function _setIrisState(state) {
       // Legacy PTT orb (masqué en mode audio, maintenu pour sécurité)
       var orb = document.getElementById('btnPTT');
@@ -3000,8 +3116,14 @@
           afHangupEl.disabled = true;
           afHangupEl.textContent = 'Fermeture…';
           // Arrêt immédiat de l'audio
+          // Arrêt pipeline REST (si actif)
           if (_irisAudio) { try { _irisAudio.pause(); URL.revokeObjectURL(_irisAudio.src); } catch(_e) {} _irisAudio = null; }
           _irisReplying = false; _vadBusy = false; _pendingUserText = '';
+          // Arrêt pipeline Realtime WS
+          _irisClearPlayback();
+          if (_irisWs) { try { _irisWs.close(); } catch(_e) {} _irisWs = null; }
+          _irisWsActive = false;
+          if (_irisWsMicStream) { try { _irisWsMicStream.getTracks().forEach(function(t){t.stop();}); } catch(_e) {} _irisWsMicStream = null; }
           if (_afSessionTimer) { clearInterval(_afSessionTimer); _afSessionTimer = null; }
           try { _stopSpeechCapture(); } catch(_e) {}
           // Navigation immédiate — pas d'attente
@@ -3021,7 +3143,131 @@
       }, 1000);
 
       rLog('info', 'simli', 'audio_mode_init', 'conv=' + currentConvId);
-      _startSpeechCapture();
+
+      // Mise à jour du hangup pour fermer aussi le WS Realtime
+      if (afHangupEl) {
+        var _origDoAudioHangup = afHangupEl._doAudioHangupRef || null;
+        afHangupEl._irisWsHangup = function() {
+          _irisClearPlayback();
+          if (_irisWs) { try { _irisWs.close(); } catch(e) {} _irisWs = null; }
+          _irisWsActive = false;
+          if (_irisWsMicCtx) { try { _irisWsMicCtx.close(); } catch(e) {} _irisWsMicCtx = null; }
+          if (_irisWsMicStream) { _irisWsMicStream.getTracks().forEach(function(t){t.stop();}); _irisWsMicStream = null; }
+          if (_irisWsPlayCtx) { try { _irisWsPlayCtx.close(); } catch(e) {} _irisWsPlayCtx = null; }
+        };
+      }
+
+      _startIrisVoiceWS();
+    }
+
+    function _startIrisVoiceWS() {
+      var token = typeof getToken === 'function' ? getToken() : localStorage.getItem('luna_token');
+      if (!token) {
+        _afAppendTranscript('system', 'Session expirée — reconnecte-toi.');
+        return;
+      }
+      _setIrisState('thinking');
+
+      navigator.mediaDevices.getUserMedia({
+        audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+        video: false
+      }).then(function(stream) {
+        _irisWsMicStream = stream;
+
+        // AudioContext pour capture micro → PCM16
+        try { _irisWsMicCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 48000 }); }
+        catch(e) { _irisWsMicCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+        if (_irisWsMicCtx.state === 'suspended') _irisWsMicCtx.resume().catch(function(){});
+
+        // AudioContext pour lecture PCM16 → haut-parleur
+        try { _irisWsPlayCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 24000 }); }
+        catch(e) { _irisWsPlayCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+        if (_irisWsPlayCtx.state === 'suspended') _irisWsPlayCtx.resume().catch(function(){});
+
+        var proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+        var wsUrl = proto + '//' + location.host + '/ws/iris-voice?token=' + encodeURIComponent(token);
+        _irisWs = new WebSocket(wsUrl);
+        _irisWsActive = true;
+
+        _irisWs.onopen = function() {
+          rLog('info', 'simli', 'iris_ws_open', '');
+          _setIrisState('idle');
+        };
+
+        _irisWs.onmessage = function(evt) {
+          try {
+            var data = JSON.parse(evt.data);
+            if (data.type === 'ping') {
+              try { _irisWs.send(JSON.stringify({ type: 'pong' })); } catch(e) {}
+              return;
+            }
+            if (data.type === 'ready') {
+              _setIrisState('idle');
+              rLog('info', 'simli', 'iris_ws_ready', '');
+              // Démarrer l'envoi audio via ScriptProcessor (compatible WebView)
+              var source = _irisWsMicCtx.createMediaStreamSource(stream);
+              var _micSampleRate = _irisWsMicCtx.sampleRate;
+              var scriptNode = _irisWsMicCtx.createScriptProcessor(4096, 1, 1);
+              scriptNode.onaudioprocess = function(e) {
+                if (!_irisWsActive || !_irisWs || _irisWs.readyState !== 1) return;
+                var input = e.inputBuffer.getChannelData(0);
+                var ratio = _micSampleRate / 24000;
+                var outLen = Math.floor(input.length / ratio);
+                if (outLen < 1) return;
+                var pcm16 = new Int16Array(outLen);
+                for (var i = 0; i < outLen; i++) {
+                  var idx = Math.floor(i * ratio);
+                  var s = Math.max(-1, Math.min(1, input[idx]));
+                  pcm16[i] = s < 0 ? s * 32768 : s * 32767;
+                }
+                try { _irisWs.send(JSON.stringify({ type: 'audio', audio: _irisInt16ToBase64(pcm16.buffer) })); } catch(e) {}
+              };
+              source.connect(scriptNode);
+              scriptNode.connect(_irisWsMicCtx.destination);
+              _irisWsWorkletNode = scriptNode;
+            } else if (data.type === 'audio') {
+              _setIrisState('speaking');
+              _irisQueueAudio(data.audio);
+            } else if (data.type === 'audio_done') {
+              _setIrisState('idle');
+            } else if (data.type === 'interrupt') {
+              _irisClearPlayback();
+              _setIrisState('idle');
+            } else if (data.type === 'transcript') {
+              var role = data.role === 'user' ? 'user' : 'iris';
+              _afAppendTranscript(role, data.text || '');
+              if (data.role === 'user') _setIrisState('thinking');
+            } else if (data.type === 'ended') {
+              _afAppendTranscript('system', data.reason || 'Session terminée');
+              _irisWsActive = false;
+            } else if (data.type === 'error') {
+              rLog('warn', 'simli', 'iris_ws_error', data.message || '');
+              _afAppendTranscript('system', data.message || 'Erreur Iris');
+              _setIrisState('idle');
+            }
+          } catch(e) {}
+        };
+
+        _irisWs.onclose = function(evt) {
+          rLog('info', 'simli', 'iris_ws_close', String(evt.code));
+          _irisWsActive = false;
+          if (evt.code === 4001) {
+            _afAppendTranscript('system', 'Session expirée');
+          }
+          _setIrisState('idle');
+        };
+
+        _irisWs.onerror = function() {
+          rLog('warn', 'simli', 'iris_ws_err', 'WS error');
+          _afAppendTranscript('system', 'Connexion perdue');
+          _setIrisState('idle');
+        };
+
+      }).catch(function(e) {
+        rLog('warn', 'simli', 'iris_mic_err', String(e).substring(0, 60));
+        _afAppendTranscript('system', 'Micro non accessible');
+        _setIrisState('idle');
+      });
     }
 
     function _afAppendTranscript(role, text) {

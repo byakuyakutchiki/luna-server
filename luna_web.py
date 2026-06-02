@@ -8883,6 +8883,166 @@ Quand il parle de ses heures, propose de les enregistrer. Quand il parle d'une r
 
 
 # =========================================================================
+# IRIS VOICE — WebSocket direct navigateur <-> OpenAI Realtime
+# Même infrastructure que /ws/luna-voice, persona Iris (Jarvis)
+# =========================================================================
+
+import random as _random
+
+_IRIS_GREETINGS = [
+    "Salut {name}. Qu'est-ce que je peux faire pour toi ?",
+    "{name}, je t'écoute. Dis-moi.",
+    "Bonjour {name}. En quoi je peux t'aider ?",
+    "{name}. Présente. Qu'est-ce qui se passe ?",
+    "Salut {name}, quelle est la mission aujourd'hui ?",
+    "{name}, je suis prête. Qu'est-ce que tu veux ?",
+    "Me voilà {name}. À toi.",
+    "{name}. J'écoute. Tu voulais quelque chose ?",
+    "Ici Iris, {name}. Qu'est-ce qu'on fait ?",
+    "Salut {name}. Je t'attendais. Dis-moi.",
+    "{name}, bonsoir. Je suis là.",
+    "Iris à l'écoute, {name}. Dis-moi tout.",
+    "Salut {name}. Tu as besoin de moi ?",
+    "{name}, me voilà. Qu'est-ce qu'il y a ?",
+    "Bonjour {name}. Je suis là. Qu'est-ce qu'on règle aujourd'hui ?",
+]
+
+_IRIS_SYSTEM = """Tu es Iris, assistante vocale intelligente de Luna YAWatch.
+Tu existes uniquement par la voix — pas d'avatar, pas de caméra.
+Style : direct, précis, efficace. Pense Jarvis de Iron Man.
+Langue : français oral naturel. Zéro markdown, zéro liste, zéro titre.
+Longueur : 1 à 2 phrases maximum. Dense, pas courte pour être courte.
+Pas de "Bien sûr !", "Absolument !", "Avec plaisir !" — rentre dans le vif.
+Si STT imprécis : devine par le contexte, ne bloque pas.
+Si incompréhensible : "Répète juste ça."
+Actions engageantes (SMS, appel, email, paiement, résa) : confirme avant d'agir.
+Tu connais le profil et l'historique de la personne — utilise-les."""
+
+
+@app.websocket("/ws/iris-voice")
+async def ws_iris_voice(websocket: WebSocket):
+    """Iris Audio — WebSocket direct navigateur <-> OpenAI Realtime API."""
+    await websocket.accept()
+
+    token = websocket.query_params.get("token", "")
+    jwt_payload = _decode_client_token(token) if token else None
+    if not jwt_payload:
+        await websocket.close(code=4001, reason="Token invalide")
+        return
+
+    if not OPENAI_API_KEY:
+        try:
+            await websocket.send_text(json.dumps({"type": "error", "message": "Service vocal non configuré"}))
+        except Exception:
+            pass
+        await websocket.close(code=1011, reason="Service non configuré")
+        return
+
+    tid = jwt_payload.get("tenant_id", TENANT_ID)
+    plan_name = jwt_payload.get("plan", "essentiel")
+    sub_name = jwt_payload.get("first_name", "") or _SUBSCRIBER_NAME
+
+    budget_err = await _check_budget_guard(tid, plan_name)
+    if budget_err:
+        try:
+            await websocket.send_text(json.dumps({"type": "error", "message": budget_err}))
+        except Exception:
+            pass
+        await websocket.close(code=1011, reason="Budget dépassé")
+        return
+
+    from integrations.openai.web_voice_bridge import WebVoiceBridge
+    from integrations.openai.realtime_bridge import build_voice_context
+
+    memory_mgr = (tavus_client.memory if (tavus_client and tavus_client.memory) else None) or _memory_manager
+
+    _voice_lang = "fr"
+    if _redis_client:
+        try:
+            _vs = _redis_client.client.hgetall(f"luna:{tid}:settings")
+            _voice_lang = _vs.get("language", "fr") if _vs else "fr"
+        except Exception:
+            pass
+
+    # Contexte profil + mémoire via le même builder que Luna Voix
+    context = build_voice_context(
+        subscriber_name=sub_name,
+        memory_manager=memory_mgr,
+        max_duration_minutes=30,
+        redis_client=_redis_client,
+        tenant_id=tid,
+        language=_voice_lang,
+    )
+    # Personnalité Iris par-dessus le contexte profil
+    context = context.replace(
+        "Tu es en appel telephonique avec",
+        "Tu es en conversation vocale directe avec"
+    )
+    context += f"\n\n=== IRIS MODE ===\n{_IRIS_SYSTEM}"
+
+    # Historique éventuel (reconnexion)
+    _history_param = websocket.query_params.get("history", "")
+    _voice_history = []
+    if _history_param:
+        try:
+            _voice_history = json.loads(_history_param)
+        except Exception:
+            pass
+
+    # Salutation aléatoire
+    _is_reconnect = len(_voice_history) > 0 and _history_param
+    if _is_reconnect:
+        _greeting = f"{sub_name} revient après une coupure. Reprends naturellement là où vous en étiez."
+    else:
+        _tpl = _random.choice(_IRIS_GREETINGS)
+        _greeting = _tpl.format(name=sub_name) if sub_name else _tpl.replace("{name}, ", "").replace("{name}. ", "").replace("{name} ", "").replace("{name}", "")
+
+    bridge = WebVoiceBridge(
+        openai_api_key=OPENAI_API_KEY,
+        ws_client=websocket,
+        context=context,
+        tool_handler=None,  # tools Iris à brancher en phase 2
+        voice=os.getenv("IRIS_VOICE", "nova"),
+        max_duration_seconds=int(os.getenv("VOICE_MAX_DURATION", "900")),
+        greeting=_greeting,
+        conversation_history=_voice_history,
+        vad_eagerness="low",
+    )
+
+    _iris_start = time.time()
+    try:
+        await bridge.run()
+    except WebSocketDisconnect:
+        logger.info("Iris Voice WS disconnected")
+    except asyncio.CancelledError:
+        logger.info("Iris Voice cancelled")
+    except Exception as e:
+        logger.error(f"Iris Voice error: {e}")
+    finally:
+        _iris_dur = round((time.time() - _iris_start) / 60, 2)
+        # Sauvegarder la transcription en mémoire
+        if bridge.transcript and memory_mgr:
+            try:
+                conv_id = f"iris_voice_{int(time.time())}"
+                for entry in bridge.transcript:
+                    role = MessageRole.SUBSCRIBER if entry["role"] == "user" else MessageRole.LUNA
+                    try:
+                        memory_mgr.add_message(
+                            conv_id=conv_id, role=role,
+                            content=entry["text"], channel=Channel.CALL,
+                        )
+                    except Exception:
+                        pass
+                logger.info(f"Iris Voice transcript saved: {conv_id} ({len(bridge.transcript)} entries, {_iris_dur:.1f}min)")
+            except Exception as e:
+                logger.warning(f"Failed to save Iris Voice transcript: {e}")
+        try:
+            await websocket.close()
+        except Exception:
+            pass
+
+
+# =========================================================================
 # SOCIAL API — Amis, DMs, Présence en ligne
 # =========================================================================
 
