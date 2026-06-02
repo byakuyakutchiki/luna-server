@@ -728,6 +728,118 @@
     .ics-insight-tag.opportunity { background: rgba(57,255,138,0.1); color: var(--ics-green); border: 1px solid rgba(57,255,138,0.2); }
     .ics-insight-tag.info { background: rgba(0,210,255,0.08); color: var(--ics-cyan); border: 1px solid rgba(0,210,255,0.2); }
 
+    /* === Kanban Board === */
+    .ics-kanban { display: flex; gap: 7px; overflow-x: auto; padding-bottom: 4px; }
+    .ics-kanban::-webkit-scrollbar { height: 3px; }
+    .ics-kanban::-webkit-scrollbar-thumb { background: rgba(0,210,255,0.2); border-radius: 2px; }
+    .ics-kanban-col { flex: 0 0 130px; display: flex; flex-direction: column; }
+    .ics-kanban-hdr { padding: 5px 8px; border-radius: 3px 3px 0 0; font-size: 8px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; font-family: monospace; display: flex; justify-content: space-between; align-items: center; }
+    .ics-kanban-hdr.todo    { background: rgba(139,116,247,0.12); color: var(--ics-violet); }
+    .ics-kanban-hdr.doing   { background: rgba(0,210,255,0.1);   color: var(--ics-cyan); }
+    .ics-kanban-hdr.blocked { background: rgba(255,107,123,0.1); color: var(--ics-coral); }
+    .ics-kanban-hdr.done    { background: rgba(57,255,138,0.08); color: var(--ics-green); }
+    .ics-kanban-hdr-count { font-size: 8px; opacity: 0.7; }
+    .ics-kanban-cards { border: 1px solid rgba(255,255,255,0.05); border-top: none; border-radius: 0 0 3px 3px; padding: 5px; display: flex; flex-direction: column; gap: 4px; min-height: 40px; }
+    .ics-kanban-card { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 3px; padding: 7px 8px; font-size: 10px; color: var(--ics-text); font-family: monospace; line-height: 1.4; }
+    .ics-kanban-tag { display: inline-block; margin-top: 4px; padding: 1px 5px; border-radius: 2px; font-size: 8px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; font-family: monospace; }
+    .ics-kanban-tag.urgent { background: rgba(255,107,123,0.1); color: var(--ics-coral); }
+    .ics-kanban-tag.doing   { background: rgba(0,210,255,0.08);  color: var(--ics-cyan); }
+    .ics-kanban-tag.blocked { background: rgba(255,183,77,0.1);  color: var(--ics-amber); }
+    .ics-kanban-tag.done    { background: rgba(57,255,138,0.08); color: var(--ics-green); }
+
+    /* === Contact Board === */
+    .ics-contact-hdr { display: flex; align-items: center; gap: 12px; padding-bottom: 12px; border-bottom: 1px solid rgba(0,210,255,0.07); margin-bottom: 11px; }
+    .ics-contact-avatar { width: 42px; height: 42px; border-radius: 50%; background: rgba(139,116,247,0.15); border: 1px solid rgba(139,116,247,0.28); display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 700; color: var(--ics-violet); flex-shrink: 0; font-family: monospace; }
+    .ics-contact-name { font-size: 14px; font-weight: 600; color: var(--ics-text); margin-bottom: 2px; }
+    .ics-contact-sub { font-size: 10px; color: var(--ics-text2); font-family: monospace; }
+    .ics-contact-stars { font-size: 10px; letter-spacing: 1px; margin-top: 2px; }
+    .ics-contact-rows { margin-bottom: 11px; }
+    .ics-contact-row { display: flex; align-items: center; gap: 8px; padding: 5px 0; font-size: 11px; color: var(--ics-text2); font-family: monospace; border-bottom: 1px solid rgba(255,255,255,0.03); }
+    .ics-contact-row:last-child { border-bottom: none; }
+    .ics-contact-row-icon { font-size: 11px; width: 16px; text-align: center; flex-shrink: 0; }
+    .ics-contact-hist-title { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; color: var(--ics-text3); margin-bottom: 6px; font-family: monospace; }
+    .ics-contact-hist-item { font-size: 10px; color: var(--ics-text2); padding: 4px 0; font-family: monospace; border-bottom: 1px solid rgba(255,255,255,0.03); }
+    .ics-contact-hist-item:last-child { border-bottom: none; }
+    .ics-contact-btns { display: flex; gap: 5px; margin-top: 10px; }
+    .ics-contact-btn { flex: 1; padding: 7px 4px; border-radius: 3px; font-size: 9px; font-weight: 700; text-align: center; cursor: pointer; border: 1px solid rgba(0,210,255,0.18); background: rgba(0,210,255,0.04); color: var(--ics-cyan); font-family: monospace; text-transform: uppercase; letter-spacing: 1px; }
+    .ics-contact-btn:hover { background: rgba(0,210,255,0.09); }
+
+    /* === Map Board === */
+    .ics-map-placeholder { height: 110px; background: rgba(0,210,255,0.02); border: 1px solid rgba(0,210,255,0.1); border-radius: 3px; margin-bottom: 10px; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; }
+    .ics-map-grid { position: absolute; inset: 0; background-image: linear-gradient(rgba(0,210,255,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(0,210,255,0.04) 1px, transparent 1px); background-size: 18px 18px; }
+    .ics-map-pin { position: relative; z-index: 1; font-size: 26px; filter: drop-shadow(0 0 6px rgba(0,210,255,0.5)); }
+    .ics-map-address { font-size: 12px; font-weight: 600; color: var(--ics-text); margin-bottom: 8px; }
+    .ics-map-durations { display: flex; gap: 7px; margin-bottom: 10px; }
+    .ics-map-dur { flex: 1; background: rgba(0,210,255,0.03); border: 1px solid rgba(0,210,255,0.1); border-radius: 3px; padding: 7px; text-align: center; }
+    .ics-map-dur-val { font-size: 13px; font-weight: 700; color: var(--ics-cyan); font-family: monospace; }
+    .ics-map-dur-lbl { font-size: 8px; color: var(--ics-text3); text-transform: uppercase; letter-spacing: 1px; font-family: monospace; margin-top: 2px; }
+
+    /* === Decision Board === */
+    .ics-decision-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
+    .ics-decision-col { border: 1px solid rgba(0,210,255,0.1); border-radius: 3px; padding: 10px; background: rgba(0,210,255,0.02); }
+    .ics-decision-col.reco { border-color: rgba(57,255,138,0.28); background: rgba(57,255,138,0.03); }
+    .ics-decision-col-name { font-size: 11px; font-weight: 700; color: var(--ics-text); margin-bottom: 8px; font-family: monospace; text-transform: uppercase; letter-spacing: 1px; }
+    .ics-decision-col.reco .ics-decision-col-name { color: var(--ics-green); }
+    .ics-decision-crit { display: flex; align-items: flex-start; gap: 5px; font-size: 10px; color: var(--ics-text2); font-family: monospace; line-height: 1.4; margin-bottom: 4px; }
+    .ics-decision-crit .ics-dc-icon { flex-shrink: 0; font-size: 10px; }
+    .ics-decision-crit.pro .ics-dc-icon { color: var(--ics-green); }
+    .ics-decision-crit.con .ics-dc-icon { color: var(--ics-coral); }
+    .ics-decision-reco { background: rgba(139,116,247,0.06); border: 1px solid rgba(139,116,247,0.15); border-radius: 3px; padding: 8px 12px; }
+    .ics-decision-reco-lbl { font-size: 8px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; color: var(--ics-text3); margin-bottom: 3px; font-family: monospace; }
+    .ics-decision-reco-text { font-size: 11px; color: var(--ics-violet); font-family: monospace; }
+
+    /* === Budget Board === */
+    .ics-budget-kpis { display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; }
+    .ics-budget-kpi { display: flex; justify-content: space-between; align-items: center; padding: 7px 10px; background: rgba(0,210,255,0.02); border: 1px solid rgba(0,210,255,0.07); border-radius: 3px; }
+    .ics-budget-kpi.alert { background: rgba(255,107,123,0.04); border-color: rgba(255,107,123,0.18); }
+    .ics-budget-kpi-lbl { font-size: 11px; color: var(--ics-text2); font-family: monospace; }
+    .ics-budget-kpi-val { font-size: 14px; font-weight: 700; color: var(--ics-text); font-family: monospace; font-variant-numeric: tabular-nums; }
+    .ics-budget-kpi.alert .ics-budget-kpi-val { color: var(--ics-coral); }
+    .ics-budget-cats-title { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; color: var(--ics-text3); margin-bottom: 8px; font-family: monospace; }
+    .ics-budget-cat { margin-bottom: 8px; }
+    .ics-budget-cat-hdr { display: flex; justify-content: space-between; margin-bottom: 3px; font-size: 10px; color: var(--ics-text2); font-family: monospace; }
+    .ics-budget-bar-track { height: 3px; background: rgba(255,255,255,0.06); border-radius: 2px; overflow: hidden; }
+    .ics-budget-bar-fill { height: 100%; border-radius: 2px; background: linear-gradient(90deg, var(--ics-violet), var(--ics-cyan)); transition: width 0.5s ease; }
+
+    /* === Meeting Board === */
+    .ics-meeting-hdr { margin-bottom: 11px; padding-bottom: 9px; border-bottom: 1px solid rgba(0,210,255,0.07); }
+    .ics-meeting-title { font-size: 13px; font-weight: 600; color: var(--ics-text); margin-bottom: 2px; }
+    .ics-meeting-meta { font-size: 9px; color: var(--ics-text3); font-family: monospace; }
+    .ics-meeting-avatars { display: flex; gap: 4px; margin-top: 7px; }
+    .ics-meeting-av { width: 22px; height: 22px; border-radius: 50%; background: rgba(139,116,247,0.14); border: 1px solid rgba(139,116,247,0.22); display: flex; align-items: center; justify-content: center; font-size: 8px; font-weight: 700; color: var(--ics-violet); font-family: monospace; }
+    .ics-meeting-sec { margin-bottom: 11px; }
+    .ics-meeting-sec-title { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; color: var(--ics-text3); margin-bottom: 6px; font-family: monospace; }
+    .ics-meeting-agenda-item { display: flex; align-items: center; gap: 7px; padding: 5px 0; font-size: 11px; color: var(--ics-text2); font-family: monospace; border-bottom: 1px solid rgba(255,255,255,0.03); }
+    .ics-meeting-agenda-item:last-child { border-bottom: none; }
+    .ics-meeting-cb { width: 12px; height: 12px; border-radius: 2px; border: 1.5px solid rgba(0,210,255,0.22); flex-shrink: 0; }
+    .ics-meeting-cb.done { background: var(--ics-green); border-color: var(--ics-green); }
+    .ics-meeting-decision { font-size: 11px; color: var(--ics-text); padding: 4px 0 4px 9px; border-left: 2px solid rgba(139,116,247,0.28); margin-bottom: 4px; font-family: monospace; }
+
+    /* === Media Board === */
+    .ics-media-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-bottom: 8px; }
+    .ics-media-file { background: rgba(0,210,255,0.02); border: 1px solid rgba(0,210,255,0.08); border-radius: 3px; padding: 10px 6px; text-align: center; cursor: pointer; transition: all 0.15s; }
+    .ics-media-file:hover { background: rgba(0,210,255,0.06); border-color: rgba(0,210,255,0.18); }
+    .ics-media-icon { font-size: 18px; margin-bottom: 5px; display: block; }
+    .ics-media-name { font-size: 9px; color: var(--ics-text2); font-family: monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; }
+    .ics-media-size { font-size: 8px; color: var(--ics-text3); font-family: monospace; margin-top: 2px; display: block; }
+
+    /* === Form Board === */
+    .ics-form-title { font-size: 13px; font-weight: 600; color: var(--ics-violet); margin-bottom: 3px; }
+    .ics-form-desc { font-size: 10px; color: var(--ics-text2); margin-bottom: 12px; font-family: monospace; }
+    .ics-form-field { margin-bottom: 11px; }
+    .ics-form-label { font-size: 9px; font-weight: 700; color: var(--ics-text3); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; display: block; font-family: monospace; }
+    .ics-form-required { color: var(--ics-violet); margin-left: 2px; }
+    .ics-form-input { width: 100%; background: rgba(0,210,255,0.03); border: 1px solid rgba(0,210,255,0.12); border-radius: 3px; padding: 7px 9px; font-size: 11px; color: var(--ics-text); font-family: monospace; outline: none; transition: border-color 0.15s, box-shadow 0.15s; box-sizing: border-box; }
+    .ics-form-input:focus { border-color: var(--ics-violet); box-shadow: 0 0 0 2px rgba(139,116,247,0.1); }
+    .ics-form-radio { display: flex; flex-direction: column; gap: 5px; }
+    .ics-form-radio-opt { display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--ics-text2); font-family: monospace; cursor: pointer; padding: 2px 0; }
+    .ics-form-radio-dot { width: 12px; height: 12px; border-radius: 50%; border: 1.5px solid rgba(0,210,255,0.28); flex-shrink: 0; }
+    .ics-form-btns { display: flex; gap: 6px; margin-top: 12px; }
+    .ics-form-btn { flex: 1; padding: 8px; border-radius: 3px; font-size: 9px; font-weight: 700; cursor: pointer; font-family: monospace; text-transform: uppercase; letter-spacing: 1px; }
+    .ics-form-btn.auto   { border: 1px solid rgba(139,116,247,0.28); background: rgba(139,116,247,0.07); color: rgba(196,181,253,0.88); }
+    .ics-form-btn.submit { border: 1px solid rgba(139,116,247,0.4);  background: rgba(139,116,247,0.14); color: rgba(196,181,253,0.95); }
+    .ics-form-btn:hover { opacity: 0.85; }
+
     /* ===== SHARE MODAL ===== */
     #shareModal {
       position: fixed; inset: 0; z-index: 200; background: rgba(0,0,0,0.7);
@@ -3439,6 +3551,19 @@
       if (t.indexOf('pros')!==-1 && t.indexOf('cons')!==-1) return 'comparison';
       if (new RegExp(wb+'(document|pdf|contrat|devis|facture|upload|téléchargement)'+wa).test(t)) return 'document_insight';
       if (t.indexOf('analyse de fichier')!==-1 || t.indexOf('fichier joint')!==-1) return 'document_insight';
+      // Phase 2 — 8 nouveaux types
+      if (new RegExp(wb+'(kanban|colonnes|taches|tâches en cours|a faire|a terminer)'+wa).test(t)) return 'kanban_board';
+      if (t.indexOf('à faire')!==-1 && (t.indexOf('en cours')!==-1 || t.indexOf('terminé')!==-1)) return 'kanban_board';
+      if (new RegExp(wb+'(reunion|réunion|compte.rendu|ordre du jour|seance|séance|pv de|procès.verbal|note de reunion)'+wa).test(t)) return 'meeting_board';
+      if (t.indexOf('participants à la réunion')!==-1 || t.indexOf('décisions prises')!==-1) return 'meeting_board';
+      if (new RegExp(wb+'(budget|depenses|dépenses|solde|finances|combien.*depense|combien.*reste|reste.*mois)'+wa).test(t)) return 'budget_board';
+      if (/combien j.ai (dépensé|depense)/.test(t) || t.indexOf('mon budget')!==-1) return 'budget_board';
+      if (new RegExp(wb+'(quelle option|lequel choisir|pour ou contre|avantage.*inconvenient|inconvenient.*avantage|laquelle.*option)'+wa).test(t)) return 'decision_board';
+      if (/option [a-z] .* option [a-z]/.test(t) || (t.indexOf('avantages')!==-1 && t.indexOf('inconvénients')!==-1 && t.indexOf('choisir')!==-1)) return 'decision_board';
+      if (new RegExp(wb+'(fiche contact|coordonnees|coordonnées|qui est|appelle|envoie a|envoie à)'+wa).test(t) && /[A-Z][a-z]{2,}/.test(sourceText||'')) return 'contact_board';
+      if (new RegExp(wb+'(adresse|itineraire|itinéraire|trajet|localisation|comment aller|ou est|où est|a quelle distance)'+wa).test(t)) return 'map_board';
+      if (new RegExp(wb+'(photo|image|fichiers?|pieces? jointes?|pièces? jointes?|documents joints?|media|médias|captures?)'+wa).test(t) && t.indexOf('analyse')===(-1)) return 'media_board';
+      if (new RegExp(wb+'(formulaire|remplis|complète|completer|remplir|besoin de tes infos|besoin d.informations)'+wa).test(t)) return 'form_board';
       // Types existants
       if (new RegExp(wb+'(tableau|table|données|grille)'+wa).test(t)) return 'data_board';
       if (new RegExp(wb+'(compare[zr]?|liste[zr]?)'+wa).test(t)) return 'data_board';
@@ -3582,6 +3707,92 @@
         summary: 'Analyse provisoire — uploadez le document pour une extraction complète.',
         context: 'Document demandé : ' + (ask.substring(0,60)||'?'),
         missing: ['Le document à analyser', 'Le type de document', 'Les points d\'attention spécifiques']
+      };
+      // Phase 2 — 8 nouveaux types
+      if (renderType === 'kanban_board') return {
+        title: 'Tableau de tâches',
+        columns: [
+          { id: 'todo',    label: 'À faire',  color: 'todo',    cards: [{ title: ask||'Tâche à définir', tag: null }] },
+          { id: 'doing',   label: 'En cours', color: 'doing',   cards: [] },
+          { id: 'blocked', label: 'Bloqué',   color: 'blocked', cards: [] },
+          { id: 'done',    label: 'Terminé',  color: 'done',    cards: [] }
+        ],
+        summary: 'Kanban provisoire — précisez les tâches à organiser.',
+        context: 'Kanban : ' + (ask.substring(0,60)||'?'),
+        missing: ['Les tâches à placer', 'Les priorités', 'Les responsables']
+      };
+      if (renderType === 'contact_board') return {
+        contact: { name: 'Contact', initials: 'C', company: '—', role: '—', phone: '—', email: '—', trust_level: 3, last_interaction: '—' },
+        history: [],
+        summary: 'Fiche contact — précisez le nom du contact.',
+        context: 'Contact demandé : ' + (ask.substring(0,60)||'?'),
+        missing: ['Le nom du contact', 'Ses coordonnées', 'Le type d\'action souhaitée']
+      };
+      if (renderType === 'map_board') return {
+        address: ask.substring(0,80)||'Adresse à préciser',
+        label: 'Destination',
+        distance_km: null, duration_walk_min: null, duration_car_min: null,
+        maps_url: 'https://maps.google.com/?q=' + encodeURIComponent(ask||''),
+        summary: 'Localisation — précisez l\'adresse exacte.',
+        context: 'Localisation : ' + (ask.substring(0,60)||'?'),
+        missing: ['L\'adresse complète', 'La ville', 'Le point de départ si trajet']
+      };
+      if (renderType === 'decision_board') return {
+        title: 'Comparaison d\'options',
+        options: [
+          { name: 'Option A', pros: ['À préciser'], cons: ['À préciser'], recommended: false },
+          { name: 'Option B', pros: ['À préciser'], cons: ['À préciser'], recommended: false }
+        ],
+        recommendation: 'Précisez les options pour obtenir une recommandation.',
+        summary: 'Décision provisoire — précisez les options à comparer.',
+        context: 'Décision : ' + (ask.substring(0,60)||'?'),
+        missing: ['Les options à comparer', 'Les critères importants', 'Les données chiffrées']
+      };
+      if (renderType === 'budget_board') return {
+        period: new Date().toLocaleString('fr-FR', {month:'long', year:'numeric'}),
+        kpis: [
+          { label: 'Solde estimé', value: '— €', alert: false },
+          { label: 'Dépenses', value: '— €', alert: false },
+          { label: 'Reste', value: '— €', alert: false }
+        ],
+        categories: [
+          { name: 'Charges fixes', amount: 0, percent: 0 },
+          { name: 'Autres', amount: 0, percent: 0 }
+        ],
+        summary: 'Budget provisoire — précisez la période et les données.',
+        context: 'Budget : ' + (ask.substring(0,60)||'?'),
+        missing: ['Le solde actuel', 'Les catégories de dépenses', 'Le budget mensuel cible']
+      };
+      if (renderType === 'meeting_board') return {
+        title: ask.substring(0,50)||'Réunion',
+        date: new Date().toLocaleDateString('fr-FR'),
+        time: '',
+        participants: [{ name: 'Vous', initials: 'V' }],
+        agenda: [{ item: 'Ordre du jour à définir', done: false }],
+        decisions: [],
+        summary: 'Compte-rendu provisoire — précisez les participants et décisions.',
+        context: 'Réunion : ' + (ask.substring(0,60)||'?'),
+        missing: ['Les participants', 'L\'ordre du jour', 'Les décisions prises']
+      };
+      if (renderType === 'media_board') return {
+        title: 'Fichiers',
+        files: [
+          { name: 'Aucun fichier joint', type: 'empty', size: '—' }
+        ],
+        summary: 'Aucun fichier disponible — partagez des fichiers avec Iris.',
+        context: 'Fichiers demandés : ' + (ask.substring(0,60)||'?'),
+        missing: ['Les fichiers à afficher', 'Le type de fichier', 'La source des fichiers']
+      };
+      if (renderType === 'form_board') return {
+        title: 'Formulaire',
+        description: 'Remplissez les champs ci-dessous',
+        fields: [
+          { id: 'field1', label: 'Nom', type: 'text', required: true, prefill: '', placeholder: 'Votre nom' },
+          { id: 'field2', label: 'Informations', type: 'text', required: false, prefill: '', placeholder: 'Détails...' }
+        ],
+        summary: 'Formulaire provisoire — précisez les champs nécessaires.',
+        context: 'Formulaire : ' + (ask.substring(0,60)||'?'),
+        missing: ['Les champs obligatoires', 'Le destinataire du formulaire', 'L\'action cible']
       };
       return {
         question: 'Pour traiter cette demande, Iris a besoin de précisions.',
@@ -3814,6 +4025,162 @@
         +'</div>';
     }
 
+    // ── Phase 2 — 8 nouveaux renderers ────────────────────────────────────────
+
+    function _icsRenderKanban(p) {
+      var cols = (p.columns||[]).map(function(col) {
+        var cls = col.color || col.id || 'todo';
+        var cards = (col.cards||[]).map(function(card) {
+          var tag = card.tag ? '<span class="ics-kanban-tag '+_esc(card.tag.toLowerCase())+'">'+_esc(card.tag)+'</span>' : '';
+          return '<div class="ics-kanban-card ics-row-anim">'+_esc(card.title||'')+(tag?'<br>'+tag:'')+'</div>';
+        }).join('');
+        return '<div class="ics-kanban-col">'
+          +'<div class="ics-kanban-hdr '+_esc(cls)+'">'+_esc(col.label||col.id||'')+'<span class="ics-kanban-hdr-count">'+((col.cards||[]).length)+'</span></div>'
+          +'<div class="ics-kanban-cards">'+cards+'</div>'
+          +'</div>';
+      }).join('');
+      return '<div class="ics-kanban">'+cols+'</div>'
+        +(p.summary?'<div class="ics-summary">'+_esc(p.summary)+'</div>':'');
+    }
+
+    function _icsRenderContactBoard(p) {
+      var c = p.contact || {};
+      var stars = '';
+      var tl = parseInt(c.trust_level||0);
+      for (var i=0;i<5;i++) stars += i<tl ? '<span style="color:var(--ics-violet)">★</span>' : '<span style="color:var(--ics-text3)">☆</span>';
+      var rows = '';
+      if (c.phone) rows += '<div class="ics-contact-row"><span class="ics-contact-row-icon">📞</span><span>'+_esc(c.phone)+'</span></div>';
+      if (c.email) rows += '<div class="ics-contact-row"><span class="ics-contact-row-icon">✉</span><span>'+_esc(c.email)+'</span></div>';
+      if (c.company) rows += '<div class="ics-contact-row"><span class="ics-contact-row-icon">🏢</span><span>'+_esc(c.company)+(c.role?' — '+_esc(c.role):'')+'</span></div>';
+      if (c.last_interaction) rows += '<div class="ics-contact-row"><span class="ics-contact-row-icon">⏱</span><span>'+_esc(c.last_interaction)+'</span></div>';
+      var hist = (p.history||[]).map(function(h) {
+        var icon = h.type==='sms'?'💬':h.type==='call'?'📞':'📄';
+        return '<div class="ics-contact-hist-item">'+icon+' '+_esc(h.preview||'')+(h.date?' — '+_esc(h.date):'')+'</div>';
+      }).join('');
+      var btns = '<div class="ics-contact-btns">'
+        +'<button class="ics-contact-btn" onclick="_icsSuggestion(\'Appeler\')">📞 Appel</button>'
+        +'<button class="ics-contact-btn" onclick="_icsSuggestion(\'Envoyer un email\')">✉ Email</button>'
+        +'<button class="ics-contact-btn" onclick="_icsSuggestion(\'Envoyer un SMS\')">💬 SMS</button>'
+        +'</div>';
+      return '<div>'
+        +'<div class="ics-contact-hdr">'
+        +'<div class="ics-contact-avatar">'+_esc(c.initials||'?')+'</div>'
+        +'<div><div class="ics-contact-name">'+_esc(c.name||'Contact')+'</div>'
+        +(c.role||c.company?'<div class="ics-contact-sub">'+_esc((c.role||'')+(c.company?' · '+c.company:''))+'</div>':'')
+        +'<div class="ics-contact-stars">'+stars+'</div>'
+        +'</div></div>'
+        +'<div class="ics-contact-rows">'+rows+'</div>'
+        +(hist?'<div class="ics-contact-hist-title">HISTORIQUE</div>'+hist:'')
+        +btns+'</div>';
+    }
+
+    function _icsRenderMapBoard(p) {
+      var mapsUrl = p.maps_url || ('https://maps.google.com/?q='+encodeURIComponent(p.address||''));
+      var durs = '';
+      if (p.duration_walk_min) durs += '<div class="ics-map-dur"><div class="ics-map-dur-val">'+_esc(String(p.duration_walk_min))+' min</div><div class="ics-map-dur-lbl">À pied</div></div>';
+      if (p.duration_car_min)  durs += '<div class="ics-map-dur"><div class="ics-map-dur-val">'+_esc(String(p.duration_car_min))+' min</div><div class="ics-map-dur-lbl">En voiture</div></div>';
+      if (p.distance_km)       durs += '<div class="ics-map-dur"><div class="ics-map-dur-val">'+_esc(String(p.distance_km))+' km</div><div class="ics-map-dur-lbl">Distance</div></div>';
+      return '<div>'
+        +'<div class="ics-map-placeholder"><div class="ics-map-grid"></div><div class="ics-map-pin">📍</div></div>'
+        +'<div class="ics-map-address">'+_esc(p.address||'—')+'</div>'
+        +(p.label?'<div style="font-size:10px;color:var(--ics-text3);font-family:monospace;margin-bottom:8px">'+_esc(p.label)+'</div>':'')
+        +(durs?'<div class="ics-map-durations">'+durs+'</div>':'')
+        +'<div style="display:flex;gap:6px;margin-top:6px">'
+        +'<a href="'+_esc(mapsUrl)+'" target="_blank" rel="noopener" class="ics-btn" style="flex:1;text-decoration:none;text-align:center;padding:7px">Ouvrir Maps</a>'
+        +'<button class="ics-btn" style="flex:none" onclick="navigator.clipboard&&navigator.clipboard.writeText(\''+_esc(p.address||'')+'\')">Copier</button>'
+        +'</div></div>';
+    }
+
+    function _icsRenderDecisionBoard(p) {
+      var cols = (p.options||[]).map(function(opt) {
+        var pros = (opt.pros||[]).map(function(x){return '<div class="ics-decision-crit pro"><span class="ics-dc-icon">✓</span><span>'+_esc(x)+'</span></div>';}).join('');
+        var cons = (opt.cons||[]).map(function(x){return '<div class="ics-decision-crit con"><span class="ics-dc-icon">✗</span><span>'+_esc(x)+'</span></div>';}).join('');
+        return '<div class="ics-decision-col'+(opt.recommended?' reco':'')+'"><div class="ics-decision-col-name">'+_esc(opt.name||'Option')+'</div>'+pros+cons+'</div>';
+      }).join('');
+      return '<div class="ics-decision-cols">'+cols+'</div>'
+        +(p.recommendation?'<div class="ics-decision-reco"><div class="ics-decision-reco-lbl">★ RECOMMANDATION IRIS</div><div class="ics-decision-reco-text">'+_esc(p.recommendation)+'</div></div>':'')
+        +(p.summary?'<div class="ics-summary">'+_esc(p.summary)+'</div>':'');
+    }
+
+    function _icsRenderBudgetBoard(p) {
+      var kpis = (p.kpis||[]).map(function(k) {
+        return '<div class="ics-budget-kpi'+(k.alert?' alert':'')+'"><span class="ics-budget-kpi-lbl">'+_esc(k.label||'')+'</span><span class="ics-budget-kpi-val">'+_esc(String(k.value||'—'))+'</span></div>';
+      }).join('');
+      var cats = (p.categories||[]).map(function(cat,i) {
+        var pct = Math.min(100, parseInt(cat.percent||0));
+        return '<div class="ics-budget-cat ics-row-anim" style="animation-delay:'+(i*0.06)+'s">'
+          +'<div class="ics-budget-cat-hdr"><span>'+_esc(cat.name||'')+'</span><span>'+_esc(String(cat.amount||0))+' € · '+pct+'%</span></div>'
+          +'<div class="ics-budget-bar-track"><div class="ics-budget-bar-fill" style="width:'+pct+'%"></div></div>'
+          +'</div>';
+      }).join('');
+      return '<div class="ics-budget-kpis">'+kpis+'</div>'
+        +(cats?'<div class="ics-budget-cats-title">TOP DÉPENSES</div>'+cats:'')
+        +(p.summary?'<div class="ics-summary">'+_esc(p.summary)+'</div>':'');
+    }
+
+    function _icsRenderMeetingBoard(p) {
+      var avatars = (p.participants||[]).map(function(pt) {
+        return '<div class="ics-meeting-av" title="'+_esc(pt.name||'')+'">'+_esc(pt.initials||pt.name[0]||'?')+'</div>';
+      }).join('');
+      var agenda = (p.agenda||[]).map(function(item) {
+        return '<div class="ics-meeting-agenda-item"><div class="ics-meeting-cb'+(item.done?' done':'')+'"></div><span>'+_esc(item.item||'')+'</span></div>';
+      }).join('');
+      var decisions = (p.decisions||[]).map(function(d) {
+        return '<div class="ics-meeting-decision">'+_esc(d)+'</div>';
+      }).join('');
+      return '<div>'
+        +'<div class="ics-meeting-hdr">'
+        +'<div class="ics-meeting-title">'+_esc(p.title||'Réunion')+'</div>'
+        +(p.date||p.time?'<div class="ics-meeting-meta">'+(p.date?_esc(p.date):'')+(p.time?' — '+_esc(p.time):'')+'</div>':'')
+        +(avatars?'<div class="ics-meeting-avatars">'+avatars+'</div>':'')
+        +'</div>'
+        +(agenda?'<div class="ics-meeting-sec"><div class="ics-meeting-sec-title">ORDRE DU JOUR</div>'+agenda+'</div>':'')
+        +(decisions?'<div class="ics-meeting-sec"><div class="ics-meeting-sec-title">DÉCISIONS</div>'+decisions+'</div>':'')
+        +(p.summary?'<div class="ics-summary">'+_esc(p.summary)+'</div>':'')
+        +'</div>';
+    }
+
+    function _icsRenderMediaBoard(p) {
+      var icons = { pdf: '📄', image: '🖼', spreadsheet: '📊', doc: '📝', empty: '📭' };
+      var files = (p.files||[]).map(function(f,i) {
+        var icon = icons[f.type] || '📎';
+        return '<div class="ics-media-file ics-row-anim" style="animation-delay:'+(i*0.05)+'s">'
+          +'<span class="ics-media-icon">'+icon+'</span>'
+          +'<span class="ics-media-name">'+_esc(f.name||'—')+'</span>'
+          +'<span class="ics-media-size">'+_esc(f.size||'')+'</span>'
+          +'</div>';
+      }).join('');
+      return '<div class="ics-media-grid">'+files+'</div>'
+        +(p.summary?'<div class="ics-summary">'+_esc(p.summary)+'</div>':'');
+    }
+
+    function _icsRenderFormBoard(p) {
+      var fields = (p.fields||[]).map(function(f) {
+        var req = f.required ? '<span class="ics-form-required">*</span>' : '';
+        var input;
+        if (f.type === 'radio') {
+          var opts = (f.options||[]).map(function(o) {
+            return '<label class="ics-form-radio-opt"><span class="ics-form-radio-dot"></span>'+_esc(o)+'</label>';
+          }).join('');
+          input = '<div class="ics-form-radio">'+opts+'</div>';
+        } else {
+          var val = f.prefill ? ' value="'+_esc(f.prefill)+'"' : '';
+          input = '<input class="ics-form-input" type="text" placeholder="'+_esc(f.placeholder||'')+'"'+val+' />';
+        }
+        return '<div class="ics-form-field"><label class="ics-form-label">'+_esc(f.label||'')+req+'</label>'+input+'</div>';
+      }).join('');
+      return '<div>'
+        +'<div class="ics-form-title">'+_esc(p.title||'Formulaire')+'</div>'
+        +(p.description?'<div class="ics-form-desc">'+_esc(p.description)+'</div>':'')
+        +fields
+        +'<div class="ics-form-btns">'
+        +'<button class="ics-form-btn auto" onclick="_icsSuggestion(\'Remplir automatiquement\')">Remplir auto</button>'
+        +'<button class="ics-form-btn submit" onclick="_icsSuggestion(\'Soumettre le formulaire\')">Envoyer</button>'
+        +'</div></div>';
+    }
+
+    // ── Fin Phase 2 ────────────────────────────────────────────────────────────
+
     function renderIrisCommand(payload) {
       var panel  = document.getElementById('irisCommandScreen');
       var render = document.getElementById('icsRender');
@@ -3839,7 +4206,15 @@
         timeline:         ['Chronologie', 'cyan'],
         roadmap:          ['Roadmap', 'violet'],
         comparison:       ['Comparaison', 'cyan'],
-        document_insight: ['Analyse document', 'violet']
+        document_insight: ['Analyse document', 'violet'],
+        kanban_board:     ['Kanban', 'violet'],
+        contact_board:    ['Contact', 'cyan'],
+        map_board:        ['Localisation', 'cyan'],
+        decision_board:   ['Décision', 'violet'],
+        budget_board:     ['Budget', 'amber'],
+        meeting_board:    ['Réunion', 'violet'],
+        media_board:      ['Fichiers', 'cyan'],
+        form_board:       ['Formulaire', 'violet']
       };
       var si = stateMap[rType]||['En cours','violet'];
 
@@ -3856,6 +4231,14 @@
       else if (rType==='roadmap')          html = _icsRenderRoadmap(p);
       else if (rType==='comparison')       html = _icsRenderComparison(p);
       else if (rType==='document_insight') html = _icsRenderDocumentInsight(p);
+      else if (rType==='kanban_board')     html = _icsRenderKanban(p);
+      else if (rType==='contact_board')    html = _icsRenderContactBoard(p);
+      else if (rType==='map_board')        html = _icsRenderMapBoard(p);
+      else if (rType==='decision_board')   html = _icsRenderDecisionBoard(p);
+      else if (rType==='budget_board')     html = _icsRenderBudgetBoard(p);
+      else if (rType==='meeting_board')    html = _icsRenderMeetingBoard(p);
+      else if (rType==='media_board')      html = _icsRenderMediaBoard(p);
+      else if (rType==='form_board')       html = _icsRenderFormBoard(p);
       else html='<div style="color:var(--ics-text2);font-size:13px">'+_esc(JSON.stringify(p))+'</div>';
 
       render.innerHTML = html;
