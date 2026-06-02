@@ -1161,3 +1161,14 @@ Fichier concerné : docs/AGENTS_COLLABORATION/agents/KIMI_UX_IRIS_WORKBENCH_V1_0
 Risque : moyen si workbench confondu avec chat Luna
 Décision Ludovic requise : oui pour Phase 3 (workbench visible)
 Action proposee : Claude stabilise /ws/iris-voice. Kimi valide orbe + workbench. DeepSeek audit outils. Codex coordonne.
+
+---
+
+Agent : Codex
+Objectif : 019
+Type : contre-verification audit DeepSeek/GPTK
+Résumé : Audit utile mais routes partiellement fausses. Documents v2 contient dashboard/actions/timeline/categories/stats ; scan/list/delete/consent sont cote `/api/vault/*`, pas `/api/documents/v2/*`. Consentement et DELETE existent cote Vault. Blacklist urgence existe deja dans `_tool_call_contact`. Budget guard existe avant `/ws/iris-voice`. Manques reels : Workbench inexistant, pas de check horaire 22h-7h dans SMS/email/appel, pas de relance max 3, confirmation serveur a durcir, quota voix Iris a tracer.
+Fichier concerné : luna_web.py ; core/vault/routes.py ; core/vault/redis_ops.py ; docs/AGENTS_COLLABORATION/agents/CODEX_VERIF_AUDIT_OUTILS_019.md
+Risque : moyen si Claude code sur une mauvaise cartographie ; eleve si Iris execute des actions sans confirmation serveur
+Décision Ludovic requise : oui pour Workbench visible V1
+Action proposée : Attendre Kimi UX, demander a DeepSeek de pousser un audit corrige, puis Claude code Workbench brouillon sans action sensible.
