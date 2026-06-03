@@ -1546,3 +1546,14 @@ Fichier concerné : docs/AGENTS_COLLABORATION/agents/KIMI_AUDIT_RENDER_FINAL_UX_
 Risque : élevé si on rend le timeout plus joli sans réparer le rendu final
 Décision Ludovic requise : non
 Action proposée : DeepSeek livre l'audit technique en priorité. Kimi peut préparer les corrections UX Phase 1/2, mais pas déployer un patch visible avant verdict technique ou arbitrage Codex explicite.
+
+---
+
+Agent : Codex
+Objectif : 022
+Type : contre-audit audit DeepSeek
+Résumé : Audit DeepSeek reçu dans le chat mais non livré GitHub et partiellement faux. Vérification code : le frontend supporte déjà de nombreux render types (`chart`, `timeline`, `roadmap`, `meeting_board`, `kanban_board`, etc.) ; `iris_render` direct est traité dans `web_voice_bridge.py` ; `_iris_auto_render` existe dans `luna_web.py` pour les safe_tools. Rupture probable réelle : Iris promet un rendu, mais OpenAI ne déclenche ni `iris_render` ni safe_tool, donc aucun `render` final n'arrive.
+Fichier concerné : docs/AGENTS_COLLABORATION/agents/CODEX_VERDICT_DEEPSEEK_RENDER_FINAL_022.md ; static/simli.html ; integrations/openai/web_voice_bridge.py ; luna_web.py
+Risque : élevé si on applique un patch DeepSeek obsolète qui ajoute des renderers déjà présents
+Décision Ludovic requise : non
+Action proposée : DeepSeek corrige et pousse son audit GitHub avec preuves. Kimi prépare UX Phase 1/2 seulement. Prochain patch utile = instrumentation du dernier maillon atteint (`transcript`, `tool_call`, `render`, `render_done`) avant correction.
