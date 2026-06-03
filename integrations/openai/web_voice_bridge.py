@@ -646,6 +646,12 @@ class WebVoiceBridge:
         if function_name == "chat":
             msg = args.get("message", "")
             logger.info(f"WebVoice chat: {msg[:120]}")
+            await self._ws_send_client({
+                "type": "tool_call",
+                "name": "chat",
+                "status": "ok",
+                "message": msg[:200],
+            })
             await self._ws_send_openai({
                 "type": "conversation.item.create",
                 "item": {

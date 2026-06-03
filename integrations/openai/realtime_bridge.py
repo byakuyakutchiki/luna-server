@@ -650,15 +650,18 @@ VOICE_TOOLS = [
         "type": "function",
         "name": "iris_render",
         "description": (
-            "Afficher du contenu visuel dans l'Iris Command Screen. "
-            "Tu as la main sur cet ecran : tu peux projeter un tableau, un graphique, "
-            "des KPI, une timeline, une roadmap, une comparaison, un document, une carte, "
-            "un budget, une reunion, une decision, une fiche contact ou un formulaire. "
-            "Appelle cette fonction AVANT de parler chaque fois que tu prepares un rendu visuel. "
-            "Si l'utilisateur demande de transformer un tableau ou des chiffres en graphique, "
-            "utilise render_type=chart. Ne dis jamais que tu ne peux pas utiliser ton tableau. "
+            "OBLIGATOIRE — Afficher du contenu visuel dans l'Iris Command Screen. "
+            "TU DOIS appeler iris_render AVANT de parler a chaque fois que tu prepares un rendu visuel. "
+            "C'est ton ecran de travail : tableau, graphique, KPI, timeline, roadmap, comparaison, "
+            "document, carte, budget, reunion, decision, fiche contact, formulaire, kanban. "
+            "Si l'utilisateur demande un tableau, un graphique, une courbe, des chiffres, une liste, "
+            "un document, un brouillon, une carte, un budget, une reunion, un kanban, ou tout contenu structure — "
+            "TU DOIS appeler iris_render avec le bon render_type. "
+            "Si l'utilisateur demande de transformer des donnees en graphique, utilise render_type=chart. "
+            "Ne dis jamais que tu ne peux pas utiliser ton tableau. "
             "Le souscripteur voit le rendu visuel en temps reel pendant que tu parles. "
-            "N'envoie pas le contenu en texte oral : mets-le dans le payload et parle brievement."
+            "N'envoie pas le contenu en texte oral : mets-le dans le payload et parle brievement. "
+            "NE JAMAIS utiliser l'outil chat pour les rendus visuels. Chat est UNIQUEMENT pour les conversations sans ecran."
         ),
         "parameters": {
             "type": "object",
