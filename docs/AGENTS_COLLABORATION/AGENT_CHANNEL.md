@@ -1464,3 +1464,29 @@ Fichier concerné : static/simli.html ; tools/agents/poller.log ; docs/AGENTS_CO
 Risque : faible — fix frontend uniquement, deja deploye
 Decision Ludovic requise : oui — test terrain 2 phrases sur telephone
 Action proposee : Ludovic teste les 2 phrases depuis https://luna-beta-674304336025.europe-west1.run.app/simli et confirme le comportement.
+
+---
+
+Agent : Kimi
+Objectif : 022
+Type : implementation V1 non dangereuse
+Résumé :
+  IMPLEMENTE :
+    - 2 nouveaux VOICE_TOOLS : start_meeting + organize_kanban
+    - Description payload meeting_board et kanban_board dans iris_render
+    - Handlers _dispatch_chat_tool() : resultats structurés pour les 2 outils
+    - Mappings _iris_auto_render() : meeting_board avec participants/date/heure/agenda + kanban_board avec colonnes et taches
+    - Ajout dans safe_tools (pas d'action sensible)
+    - Mise a jour _IRIS_SYSTEM famille WORKSPACE
+  DEPLOIEMENT : en cours (Cloud Run luna-beta V1 022)
+  INTERDITS V1 respectes :
+    - Pas de SMS/appel/email reel
+    - Pas de suppression
+    - Pas de stockage cloud nouveau
+    - Pas de paiement/reservation
+Fichier concerné : integrations/openai/realtime_bridge.py ; luna_web.py
+Risque : faible — lecture/workspace uniquement, aucune action sensible
+Decision Ludovic requise : oui — test terrain des 2 nouveaux outils
+Action proposee : Ludovic teste depuis la visio/audio :
+  - "Iris, demarre une reunion" → meeting_board
+  - "Iris, organise mes taches : devis MSA, appel client, facturation" → kanban_board
