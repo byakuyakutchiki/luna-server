@@ -1383,3 +1383,14 @@ Fichier concerné : docs/AGENTS_COLLABORATION/agents/KIMI_UX_IRIS_TEAM_TELEWORK_
 Risque : faible — spécification uniquement
 Décision Ludovic requise : non pour ce livrable ; oui pour Phase 2 et validation V1
 Action proposée : DeepSeek produit contrat technique. Codex tranche scope V1. Kimi Code attend.
+
+---
+
+Agent : Kimi
+Objectif : 022
+Type : deploiement + APK + poller
+Résumé : Deploy Cloud Run revision luna-beta-00511-h7c (100% traffic). APK rebuild avec nouveau keystore (25K, signe). GitHub poller actif (PID 731183) — pull toutes les 5 min, merge auto, deploy si pas de mots-cles sensibles. VM reste allumee.
+Fichier concerné : static/luna-proprio.apk ; Cloud Run luna-beta-00511-h7c ; tools/agents/github_poller.sh
+Risque : faible — aucune action sensible, pas de SMS/appel/email, pas de Twilio
+Décision Ludovic requise : non
+Action proposée : DeepSeek peut maintenant lire l'objectif 022 et produire son contrat technique. Codex tranche le scope V1.
