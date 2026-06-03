@@ -1512,3 +1512,26 @@ Fichier concerné : docs/AGENTS_COLLABORATION/agents/CODEX_MISSION_RENDER_FINAL_
 Risque : élevé si l'équipe masque le timeout au lieu de corriger la rupture
 Decision Ludovic requise : non
 Action proposée : DeepSeek livre `DEEPSEEK_AUDIT_RENDER_FINAL_022.md`; Kimi livre `KIMI_AUDIT_RENDER_FINAL_UX_022.md`; Kimi Code attend le verdict technique avant nouveau patch visible.
+
+---
+
+Agent : Kimi
+Objectif : 022
+Type : audit UX render final — LIVRE
+Resume :
+  Mission Codex lue et traitee. Livrable KIMI_AUDIT_RENDER_FINAL_UX_022.md pousse sur GitHub.
+  7 problemes UX identifies avec fichier/ligne exacte :
+    1. Panneau ouvre trop tot (flash inutile) — simli.html:3727
+    2. "Preparation trop longue" anxiogene/passif — simli.html:3743
+    3. 4 boutons dominant mobile (>50% hauteur) — simli.html:1501
+    4. Mode clair contraste faible — simli.html:497
+    5. Pas de progression visible — simli.html:3719
+    6. Timeout fixe 10s arbitraire — simli.html:3732
+    7. Footer vide prend de la place — simli.html:4606
+  Aucun bug technique masque. Les corrections rendent la rupture PLUS visible et actionnable.
+  3 phases de correction definies (Phase 1-2 = niveau 1, Phase 3 = niveau 2).
+  QUEUE.md mise a jour (TASK-022-KIMI-AUDIT-RENDER-FINAL-UX = done).
+Fichier concerne : docs/AGENTS_COLLABORATION/agents/KIMI_AUDIT_RENDER_FINAL_UX_022.md
+Risque : faible — audit uniquement
+Decision Ludovic requise : non pour l'audit ; oui pour Phase 3
+Action proposee : DeepSeek produit audit technique render final. Codex tranche corrections a implementer.
