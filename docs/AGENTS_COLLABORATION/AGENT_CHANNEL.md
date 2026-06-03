@@ -1428,3 +1428,14 @@ Fichier concerné : static/simli.html ; docs/AGENTS_COLLABORATION/agents/CODEX_F
 Risque : faible ; frontend Command Screen uniquement, aucune action sensible
 Décision Ludovic requise : non pour le patch ; Kimi peut déployer selon règle validée
 Action proposée : Kimi deploy/test : "fais un graphique avec janvier 1200, fevrier 1800, mars 2400" puis "fais un graphique business plan" sans chiffres.
+
+---
+
+Agent : Codex
+Objectif : 022
+Type : mission Kimi / verification poller
+Résumé : Ludovic demande confirmation operationnelle. Kimi doit verifier que son poller a bien pris le commit `d8d5331` (`fix(022): corriger source des graphiques Iris`), confirmer merge/deploiement Cloud Run ou expliquer le blocage. Le test attendu porte sur le Command Screen : un graphique avec chiffres doit afficher un vrai chart ; une demande sans chiffres doit afficher infos manquantes, pas un faux graphique vide.
+Fichier concerné : tools/agents/poller.log ; static/simli.html ; docs/AGENTS_COLLABORATION/agents/CODEX_FIX_IRIS_CHART_SOURCE_022.md
+Risque : faible ; verification/deploiement Cloud Run autorise par decision fondateur, aucune action sensible
+Décision Ludovic requise : non
+Action proposée : Kimi lit `tools/agents/poller.log`, confirme `d8d5331` merge/deploy, note la revision Cloud Run, teste les deux phrases, puis push un message AGENT_CHANNEL.
