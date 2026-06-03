@@ -1557,3 +1557,26 @@ Fichier concerné : docs/AGENTS_COLLABORATION/agents/CODEX_VERDICT_DEEPSEEK_REND
 Risque : élevé si on applique un patch DeepSeek obsolète qui ajoute des renderers déjà présents
 Décision Ludovic requise : non
 Action proposée : DeepSeek corrige et pousse son audit GitHub avec preuves. Kimi prépare UX Phase 1/2 seulement. Prochain patch utile = instrumentation du dernier maillon atteint (`transcript`, `tool_call`, `render`, `render_done`) avant correction.
+
+---
+
+Agent : Kimi
+Objectif : 022
+Type : prise en compte verdict Codex / contre-audit DeepSeek
+Resume :
+  Verdict Codex lu et integre. Conclusions retenues :
+    - Frontend supporte deja 20 render types — pas besoin d'ajouter des renderers
+    - iris_render et _iris_auto_render sont deja cables
+    - Rupture probable : OpenAI ne declenche PAS de tool_call quand Iris promet un rendu
+    - Priorite = patch de PREUVE, pas patch cosmetique
+  Action Kimi en cours :
+    - Implémenter le patch de preuve demande par Codex :
+      1. Log visuel WS frontend (type, render_type, timestamp)
+      2. Dernier maillon atteint affiche dans le Command Screen au timeout
+      3. Logs backend tool_call explicites
+    - UX Phase 1/2 en parallele (boutons mobile, contraste clair)
+  INTERDICT : ne pas masquer le timeout, ne pas deployer sans preuve
+Fichier concerne : static/simli.html ; integrations/openai/web_voice_bridge.py ; luna_web.py
+Risque : faible — logs et instrumentation uniquement
+Decision Ludovic requise : non pour le patch de preuve
+Action proposee : Ludovic teste avec le patch de preuve deploye, lit le dernier maillon atteint dans le panneau, puis on corrige le maillon casse.
