@@ -48,15 +48,23 @@ petite correction UI non destructive, texte, libelle, garde-fou local.
 Niveau 2 - validation Ludovic obligatoire :
 changement visible majeur, refonte UI, modification workflow, migration donnees, comportement utilisateur important.
 
-Niveau 3 - validation Ludovic obligatoire + Claude final :
-deploiement production, paiement, reservation, SMS/email/appel reel, secrets, Google Cloud, base de donnees, suppression de donnees.
+Niveau 3 - validation Ludovic obligatoire + protocole explicite :
+paiement, reservation, SMS/email/appel reel, secrets, base de donnees, suppression de donnees, APK, modification Google Cloud sensible.
+
+Exception validee 2026-06-03 :
+Kimi peut deployer Cloud Run sur `luna-beta` comme agent operationnel si et seulement si :
+- le commit est deja pousse sur `origin/main` ;
+- le patch ne contient aucune action sensible ;
+- les checks minimaux sont faits ou l'impossibilite est documentee ;
+- `AGENT_CHANNEL.md` indique commit, revision, test attendu et rollback possible.
+Ce droit ne couvre pas APK, secrets, base de donnees, Twilio reel, SMS/email/appel reel, paiement, reservation ou suppression.
 
 ## Roles
 
-Kimi : referent UX, graphisme, textes et rendu reel. Protege la qualite visuelle Luna, regarde/teste l'application reelle quand possible, propose mieux si c'est plus beau et plus fonctionnel, signale toute regression graphique.
+Kimi : referent UX, graphisme, textes et rendu reel. Protege la qualite visuelle Luna, regarde/teste l'application reelle quand possible, propose mieux si c'est plus beau et plus fonctionnel, signale toute regression graphique. Kimi est aussi agent de deploiement Cloud Run `luna-beta` sous l'exception validee du 2026-06-03.
 
 Codex : vision produit, synthese, tri, garde-fous, targets de boutons/workflows, decisions structurees, coordination avec Ludovic.
 
 DeepSeek : audit technique, faisabilite, risques code, propositions precises.
 
-Claude : integrateur final et deploiement seulement apres validation Ludovic si impact majeur. Ne code pas de nouvelle experience visible tant que la matrice objectif/preuve n'est pas posee.
+Claude : integrateur final historique, mais peut etre mis de cote si cout/API indisponible. Ne code pas de nouvelle experience visible tant que la matrice objectif/preuve n'est pas posee.

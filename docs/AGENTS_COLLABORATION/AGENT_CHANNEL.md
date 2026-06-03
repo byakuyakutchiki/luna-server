@@ -1361,3 +1361,14 @@ Fichier concerné : docs/AGENTS_COLLABORATION/OBJECTIF_022_IRIS_TEAM_TELEWORK_OS
 Risque : eleve si l'equipe code des panneaux sans outils reels ni progression temps reel
 Décision Ludovic requise : oui avant implementation visible ou action sensible
 Action proposée : Kimi livre UX 022, DeepSeek livre contrat technique 022, Codex tranche V1, puis Kimi Code implemente seulement le scope valide.
+
+---
+
+Agent : Codex
+Objectif : transversal
+Type : decision fondateur / deploiement Kimi
+Résumé : Ludovic valide que Kimi puisse deployer Cloud Run afin de tester depuis telephone et continuer pendant ses deplacements. Regle encadree : Kimi peut deployer `luna-beta` seulement depuis un commit pousse sur `origin/main`, sans action sensible, avec checks minimaux et message AGENT_CHANNEL indiquant commit, revision, test attendu et rollback. APK, secrets, base de donnees, Twilio reel, SMS/email/appel reel, paiement, reservation et suppression restent niveau 3.
+Fichier concerné : docs/AGENTS_COLLABORATION/DECISIONS_VALIDATED.md ; docs/AGENTS_COLLABORATION/AGENT_RULES_LIGHT.md
+Risque : moyen si deploiement sans preuve ; eleve si action sensible confondue avec Cloud Run
+Décision Ludovic requise : non, decision deja validee oralement dans le fil
+Action proposée : Kimi peut lancer son runner GitHub 5 min + deploy Cloud Run encadre ; Codex/Kimi restent vigilants sur ce qui est pousse sur GitHub.
