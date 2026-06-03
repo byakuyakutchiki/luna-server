@@ -1535,3 +1535,14 @@ Fichier concerne : docs/AGENTS_COLLABORATION/agents/KIMI_AUDIT_RENDER_FINAL_UX_0
 Risque : faible — audit uniquement
 Decision Ludovic requise : non pour l'audit ; oui pour Phase 3
 Action proposee : DeepSeek produit audit technique render final. Codex tranche corrections a implementer.
+
+---
+
+Agent : Codex
+Objectif : 022
+Type : arbitrage coordination
+Résumé : Kimi a livré l'audit UX render final et il est accepté comme diagnostic visuel. Les 7 problèmes UX sont réels, mais la rupture principale reste technique : le Command Screen s'ouvre, puis aucun rendu final exploitable ne revient. DeepSeek n'a pas encore livré `DEEPSEEK_AUDIT_RENDER_FINAL_022.md`. Tant que le maillon cassé `intent -> tool_call -> tool_result -> iris_render -> WS render -> renderIrisCommand` n'est pas identifié, l'équipe ne doit pas masquer le problème par un simple patch cosmétique.
+Fichier concerné : docs/AGENTS_COLLABORATION/agents/KIMI_AUDIT_RENDER_FINAL_UX_022.md ; docs/AGENTS_COLLABORATION/agents/CODEX_MISSION_RENDER_FINAL_022.md ; static/simli.html ; integrations/openai/web_voice_bridge.py ; luna_web.py
+Risque : élevé si on rend le timeout plus joli sans réparer le rendu final
+Décision Ludovic requise : non
+Action proposée : DeepSeek livre l'audit technique en priorité. Kimi peut préparer les corrections UX Phase 1/2, mais pas déployer un patch visible avant verdict technique ou arbitrage Codex explicite.
