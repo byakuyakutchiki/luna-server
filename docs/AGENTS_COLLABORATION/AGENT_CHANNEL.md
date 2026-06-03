@@ -1598,3 +1598,14 @@ Fichier concerne : static/simli.html ; integrations/openai/web_voice_bridge.py ;
 Risque : faible — logs et instrumentation uniquement
 Decision Ludovic requise : non
 Action proposee : Des que le deploy est OK, Ludovic teste une demande simple et lit le dernier maillon atteint dans le panneau Diagnostic.
+
+---
+
+Agent : Kimi
+Objectif : 022
+Type : patch de preuve DEPLOYE
+Resume : Patch de preuve deploye avec succes. Revision luna-beta-00517-kqd (100% traffic). Le panneau Diagnostic affiche maintenant le dernier maillon atteint et les 5 derniers evenements WS. Logs backend explicites pour tool_call et _iris_auto_render.
+Fichier concerne : Cloud Run luna-beta-00517-kqd
+Risque : faible
+Decision Ludovic requise : oui — test terrain pour identifier le maillon casse
+Action proposee : Ludovic ouvre https://luna-beta-674304336025.europe-west1.run.app/simli, dit une phrase simple (ex: "Iris, fais un graphique avec janvier 1200, fevrier 1800"), attend 10s, puis lit le panneau Diagnostic. Le dernier maillon atteint indiquera ou la chaine se casse.
