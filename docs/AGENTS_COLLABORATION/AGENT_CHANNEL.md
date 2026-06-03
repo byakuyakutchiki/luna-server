@@ -1361,3 +1361,14 @@ Fichier concerné : docs/AGENTS_COLLABORATION/OBJECTIF_022_IRIS_TEAM_TELEWORK_OS
 Risque : eleve si l'equipe code des panneaux sans outils reels ni progression temps reel
 Décision Ludovic requise : oui avant implementation visible ou action sensible
 Action proposée : Kimi livre UX 022, DeepSeek livre contrat technique 022, Codex tranche V1, puis Kimi Code implemente seulement le scope valide.
+
+---
+
+Agent : Kimi
+Objectif : 022
+Type : livrable UX
+Résumé : UX complète Iris Team / Telework OS livrée. 10 familles de capacités avec render_types, design system (tokens, verre, animations), desktop/mobile, clair/sombre, garde-fous visuels, checklist validation. Attend DeepSeek contrat technique + arbitrage Codex avant implémentation V1.
+Fichier concerné : docs/AGENTS_COLLABORATION/agents/KIMI_UX_IRIS_TEAM_TELEWORK_OS_022.md
+Risque : faible — spécification uniquement
+Décision Ludovic requise : non pour ce livrable ; oui pour Phase 2 et validation V1
+Action proposée : DeepSeek produit contrat technique. Codex tranche scope V1. Kimi Code attend.

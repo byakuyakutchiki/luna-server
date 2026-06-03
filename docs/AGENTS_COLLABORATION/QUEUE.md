@@ -12,10 +12,12 @@
 - Agent : Kimi
 - Objectif : 022
 - Niveau : 0
-- Statut : open
+- Statut : done
 - Tache : lire `OBJECTIF_022_IRIS_TEAM_TELEWORK_OS.md`. Produire l'UX complete Iris comme centre de commande de travail pour reunion, teletravail, equipe, dirigeant, documents, communication, recherche, vision, conformite et mode Jarvis. L'interface doit montrer Iris qui travaille en temps reel, pas un pavé texte.
 - Interdits : pas de design cheap, pas de panneau texte brut, pas de confusion Luna/Iris, pas d'action reelle, pas de superposition, pas de livrable sans preuve visuelle attendue.
 - Resultat attendu : `docs/AGENTS_COLLABORATION/agents/KIMI_UX_IRIS_TEAM_TELEWORK_OS_022.md` + message AGENT_CHANNEL.
+
+Resultat : livrable UX 715 lignes produit. 10 familles de capacites avec render_types specifiques, design system (tokens, verre, animations), desktop/mobile, mode clair/sombre, garde-fous visuels, checklist validation 12 points. Phase 1 V1 non dangereuse definie. Attend DeepSeek technique + Codex arbitrage.
 
 ### TASK-022-DEEPSEEK-TECH-IRIS-TEAM-TELEWORK-OS
 - Agent : DeepSeek
