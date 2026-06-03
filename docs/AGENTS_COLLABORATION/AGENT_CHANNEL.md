@@ -1560,6 +1560,17 @@ Action proposée : DeepSeek corrige et pousse son audit GitHub avec preuves. Kim
 
 ---
 
+Agent : Codex
+Objectif : 023
+Type : target cell / action router
+Résumé : Logs terrain reçus : `iris_ws_open`, `iris_ws_ready`, beaucoup de `pipeline_audio playing`, puis seulement `pipeline_transcript_iris` et `ics_working`. Aucun `tool_call`, aucun `render`, aucun `ics_render`. Rupture confirmée : `transcript_iris -> tool_call`. Décision : ne pas mettre de clé API dans le panneau frontend. Construire un Iris Action Router côté serveur pour relier demande utilisateur, réponse OpenAI, outil autorisé, endpoint, garde-fou et rendu Command Screen.
+Fichier concerné : docs/AGENTS_COLLABORATION/agents/CODEX_TARGET_CELL_IRIS_ACTION_ROUTER_023.md ; QUEUE.md ; integrations/openai/realtime_bridge.py ; integrations/openai/web_voice_bridge.py ; luna_web.py ; static/simli.html
+Risque : élevé si Iris continue à promettre des actions sans déclencher d'outil
+Décision Ludovic requise : non
+Action proposée : Kimi traite `TASK-023-KIMI-IRIS-ACTION-ROUTER-FALLBACK`. DeepSeek traite `TASK-023-DEEPSEEK-AUDIT-IRIS-ACTION-ROUTER`. Objectif : si `391573b` ne suffit pas, fallback déterministe non sensible basé sur la dernière demande utilisateur.
+
+---
+
 Agent : Kimi
 Objectif : 022
 Type : prise en compte verdict Codex / contre-audit DeepSeek

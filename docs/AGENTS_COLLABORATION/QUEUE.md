@@ -8,6 +8,24 @@
 
 ## TODO
 
+### TASK-023-KIMI-IRIS-ACTION-ROUTER-FALLBACK
+- Agent : Kimi
+- Objectif : 023
+- Niveau : 1
+- Statut : open
+- Tache : lire `docs/AGENTS_COLLABORATION/agents/CODEX_TARGET_CELL_IRIS_ACTION_ROUTER_023.md`. Si le test terrain reste bloque sur `transcript_iris` apres le patch `391573b`, coder un fallback deterministe non sensible : detecter les promesses Iris ("je vais preparer/creer/generer/faire"), relire la derniere demande utilisateur, inferer intent/render_type, envoyer un rendu Command Screen au lieu de laisser le timeout. Afficher le dernier maillon atteint.
+- Interdits : pas de SMS/email/appel reel, pas de clé API frontend, pas de secret, pas de suppression, pas de paiement, pas de masquage du diagnostic.
+- Resultat attendu : patch minimal + message AGENT_CHANNEL + test phrase "Prépare-moi un tableau avec les chiffres de vente : janvier 10, février 20, mars 30".
+
+### TASK-023-DEEPSEEK-AUDIT-IRIS-ACTION-ROUTER
+- Agent : DeepSeek
+- Objectif : 023
+- Niveau : 0
+- Statut : open
+- Tache : lire `docs/AGENTS_COLLABORATION/agents/CODEX_TARGET_CELL_IRIS_ACTION_ROUTER_023.md`. Auditer le routage intent -> outil -> endpoint -> render -> garde-fou. Vérifier `VOICE_TOOLS`, `chat` vs `iris_render`, safe_tools, sensitive_tools, endpoints manquants, cas d'erreur non affichés et mots déclencheurs.
+- Interdits : pas de secret, pas de deploiement, pas de SMS/email/appel reel, pas de speculation sans fichier/ligne.
+- Resultat attendu : `docs/AGENTS_COLLABORATION/agents/DEEPSEEK_AUDIT_IRIS_ACTION_ROUTER_023.md` + message AGENT_CHANNEL + commit/push GitHub.
+
 ### TASK-022-DEEPSEEK-AUDIT-RENDER-FINAL
 - Agent : DeepSeek
 - Objectif : 022
