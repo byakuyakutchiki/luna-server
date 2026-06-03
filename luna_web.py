@@ -5369,6 +5369,10 @@ async def _dispatch_chat_tool(fn_name: str, fn_args: dict, tid: int, session_id:
         return _tool_secretary_search(tid, fn_args)
     elif fn_name == "list_folders":
         return _tool_secretary_folders(tid)
+    elif fn_name == "start_meeting":
+        return {"status": "success", "meeting": {"title": fn_args.get("title", "Réunion"), "participants": fn_args.get("participants", []), "started_at": datetime.now().isoformat()}}
+    elif fn_name == "organize_kanban":
+        return {"status": "success", "tasks": fn_args.get("tasks", []), "organized_at": datetime.now().isoformat()}
     else:
         return {"status": "error", "message": f"Fonction inconnue: {fn_name}"}
 
@@ -8961,8 +8965,10 @@ Tu as 10 familles d'outils. Tu les utilises sans hésiter dès qu'une demande le
 4. COMMUNICATION — send_sms, send_email, call_contact, alert_contacts, invite_visio
    Tu prépares. Tu n'envoies/appelles qu'après confirmation explicite du souscripteur.
 
-5. WORKSPACE — iris_render
+5. WORKSPACE — iris_render, start_meeting, organize_kanban
    Tu projetes : tableau, graphique, carte, timeline, kanban, contact, budget, réunion, décision, fichiers.
+   start_meeting : démarre la prise de notes d'une réunion avec meeting_board.
+   organize_kanban : organise les tâches demandées en tableau Kanban.
    L'écran est ton principal canal d'expression. Tu appelles iris_render AVANT de parler, SANS EXCEPTION.
 
 6. VISION — look_around
@@ -9583,6 +9589,35 @@ Règles de collaboration :
                         "events": events, "summary": res.get("message", ""),
                     }
 
+                elif fn == "start_meeting":
+                    meeting = res.get("meeting", {})
+                    participants = meeting.get("participants", [])
+                    payload = {
+                        "type": "render", "render_type": "meeting_board",
+                        "title": meeting.get("title", "Réunion"),
+                        "date": datetime.now().strftime("%d/%m/%Y"),
+                        "time": datetime.now().strftime("%H:%M"),
+                        "participants": [{"name": p, "initials": p[0].upper() if p else "?"} for p in participants] or [{"name": "Vous", "initials": "V"}],
+                        "agenda": [{"item": "Ordre du jour à définir", "done": False}],
+                        "decisions": [],
+                        "summary": "Réunion démarrée — Iris prend les notes.",
+                    }
+
+                elif fn == "organize_kanban":
+                    tasks = res.get("tasks", [])
+                    cards_todo = [{"title": t, "tag": None} for t in tasks]
+                    payload = {
+                        "type": "render", "render_type": "kanban_board",
+                        "title": "Tableau de tâches",
+                        "columns": [
+                            {"id": "todo", "label": "À faire", "color": "todo", "cards": cards_todo},
+                            {"id": "doing", "label": "En cours", "color": "doing", "cards": []},
+                            {"id": "blocked", "label": "Bloqué", "color": "blocked", "cards": []},
+                            {"id": "done", "label": "Terminé", "color": "done", "cards": []}
+                        ],
+                        "summary": f"{len(tasks)} tâche(s) à organiser." if tasks else "Kanban vide — ajoutez des tâches.",
+                    }
+
             except Exception as _re:
                 logger.warning(f"_iris_auto_render build error ({fn}): {_re}")
                 return
@@ -9598,6 +9633,7 @@ Règles de collaboration :
             "get_contacts", "get_documents_summary", "search_documents", "list_folders",
             "get_budget_analysis", "check_affordability", "get_reminders",
             "get_player_stats", "get_active_missions", "get_badges",
+            "start_meeting", "organize_kanban",
         }
         draft_tools = {"create_note", "add_reminder", "create_instruction"}
         sensitive_tools = {

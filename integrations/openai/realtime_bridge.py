@@ -683,12 +683,43 @@ VOICE_TOOLS = [
                         "kpi_cards: {kpis:[{label,value,trend?}], summary?}. "
                         "timeline: {events:[{date,title,description?}], summary?}. "
                         "roadmap: {phases:[{title,description,status?}], summary?}. "
-                        "decision_board: {options:[{name,pros:[str],cons:[str]}], recommendation?}."
+                        "decision_board: {options:[{name,pros:[str],cons:[str]}], recommendation?}. "
+                        "meeting_board: {title, date?, time?, participants:[{name,initials?}], agenda:[{item,done?}], decisions:[str], summary?}. "
+                        "kanban_board: {title, columns:[{id,label,color?,cards:[{title,tag?}]}], summary?}."
                     ),
                     "additionalProperties": True
                 }
             },
             "required": ["render_type", "payload"]
+        }
+    },
+    {
+        "type": "function",
+        "name": "start_meeting",
+        "description": "Demarrer la prise de notes d'une reunion. Utilise quand l'utilisateur dit 'prenons les notes', 'reunion', 'compte-rendu', 'qui doit faire quoi'. Iris affiche un meeting_board avec participants, ordre du jour, decisions et actions. Tu peux mettre a jour le meeting_board plusieurs fois pendant la reunion avec iris_render.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "title": {"type": "string", "description": "Titre de la reunion"},
+                "participants": {"type": "array", "items": {"type": "string"}, "description": "Noms des participants"}
+            },
+            "required": ["title"]
+        }
+    },
+    {
+        "type": "function",
+        "name": "organize_kanban",
+        "description": "Organiser des taches en tableau Kanban. Utilise quand l'utilisateur dit 'organise mes taches', 'kanban', 'a faire', 'priorites', 'plan d'action'. Iris affiche un kanban_board avec colonnes (A faire, En cours, Bloque, Termine) et les taches demandees.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "tasks": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Liste des taches a organiser"
+                }
+            },
+            "required": ["tasks"]
         }
     },
     {
