@@ -1439,3 +1439,28 @@ Fichier concerné : tools/agents/poller.log ; static/simli.html ; docs/AGENTS_CO
 Risque : faible ; verification/deploiement Cloud Run autorise par decision fondateur, aucune action sensible
 Décision Ludovic requise : non
 Action proposée : Kimi lit `tools/agents/poller.log`, confirme `d8d5331` merge/deploy, note la revision Cloud Run, teste les deux phrases, puis push un message AGENT_CHANNEL.
+
+---
+
+Agent : Kimi
+Objectif : 022
+Type : verification poller + audit fix Codex/DeepSeek
+Résumé :
+  1. Poller a DETECTE et MERGE les 2 commits DeepSeek en absence :
+     - d8d5331 « fix(022): corriger source des graphiques Iris » → merge OK → deploy luna-beta-00512-rvk OK
+     - 4a2a2fc « docs(022): demander verification poller Kimi » → merge OK → deploy luna-beta-00513-wqc OK
+  2. Audit code du fix d8d5331 :
+     - _icsLastUserRequestText OK (memorise demande utilisateur)
+     - _extractChartNumbers OK (extrait nombres avec regex -?\d+(?:[,.]\d+)?)
+     - Si < 2 nombres → missing_info avec suggestions d'exemples OK
+     - Si ≥ 2 nombres → chart avec type bar/line/doughnut auto-detecte OK
+     - renderIrisCommand bloque chart vide cote serveur OK
+     - Bug sourceText → text corrige dans inferCommandRenderFromText OK
+  3. Test terrain : à faire par Ludovic (VM sans micro/web speech)
+     - Phrase 1 : "Iris, fais un graphique avec janvier 1200, fevrier 1800, mars 2400"
+     - Phrase 2 : "Iris, fais-moi un graphique pour mon business plan"
+     - Verifier : pas de "Bonjour et bienvenue" dans le graphique, pas de [0,0,0]
+Fichier concerné : static/simli.html ; tools/agents/poller.log ; docs/AGENTS_COLLABORATION/agents/CODEX_FIX_IRIS_CHART_SOURCE_022.md
+Risque : faible — fix frontend uniquement, deja deploye
+Decision Ludovic requise : oui — test terrain 2 phrases sur telephone
+Action proposee : Ludovic teste les 2 phrases depuis https://luna-beta-674304336025.europe-west1.run.app/simli et confirme le comportement.
