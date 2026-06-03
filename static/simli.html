@@ -1641,6 +1641,7 @@
     var _visioTranscript = []; // événements conversation pour prise de notes
     var _visioStartTs = Date.now(); // heure de début pour durée
     var _guestCount = 0; // participants humains invités dans la room Daily
+    var _icsLastUserRequestText = '';
     var grainAnimId = null;
     var lastGrainTime = 0;
 
@@ -3800,7 +3801,7 @@
       if (/combien j.ai (dépensé|depense)/.test(t) || t.indexOf('mon budget')!==-1) return 'budget_board';
       if (new RegExp(wb+'(quelle option|lequel choisir|pour ou contre|avantage.*inconvenient|inconvenient.*avantage|laquelle.*option)'+wa).test(t)) return 'decision_board';
       if (/option [a-z] .* option [a-z]/.test(t) || (t.indexOf('avantages')!==-1 && t.indexOf('inconvénients')!==-1 && t.indexOf('choisir')!==-1)) return 'decision_board';
-      if (new RegExp(wb+'(fiche contact|coordonnees|coordonnées|qui est|appelle|envoie a|envoie à)'+wa).test(t) && /[A-Z][a-z]{2,}/.test(sourceText||'')) return 'contact_board';
+      if (new RegExp(wb+'(fiche contact|coordonnees|coordonnées|qui est|appelle|envoie a|envoie à)'+wa).test(t) && /[A-Z][a-z]{2,}/.test(text||'')) return 'contact_board';
       if (new RegExp(wb+'(adresse|itineraire|itinéraire|trajet|localisation|comment aller|ou est|où est|a quelle distance)'+wa).test(t)) return 'map_board';
       if (new RegExp(wb+'(photo|image|fichiers?|pieces? jointes?|pièces? jointes?|documents joints?|media|médias|captures?)'+wa).test(t) && t.indexOf('analyse')===(-1)) return 'media_board';
       if (new RegExp(wb+'(formulaire|remplis|complète|completer|remplir|besoin de tes infos|besoin d.informations)'+wa).test(t)) return 'form_board';
@@ -3829,6 +3830,12 @@
 
     function _icsBuildPayload(renderType, sourceText) {
       var ask = String(sourceText||'').trim();
+      function _extractChartNumbers(raw) {
+        var matches = String(raw||'').match(/-?\d+(?:[,.]\d+)?/g) || [];
+        return matches.map(function(n){ return Number(String(n).replace(',', '.')); })
+          .filter(function(n){ return isFinite(n); })
+          .slice(0, 12);
+      }
       if (renderType === 'data_board') return {
         title: 'Données',
         columns: ['Sujet', 'Détail', 'Statut'],
@@ -3892,15 +3899,30 @@
         context: 'Métriques demandées : ' + (ask.substring(0,60)||'?'),
         missing: ['La période de référence', 'La source des données', 'L\'objectif cible']
       };
-      if (renderType === 'chart') return {
-        type: 'bar',
-        labels: ['Période 1', 'Période 2', 'Période 3'],
-        datasets: [{ label: 'Valeur', data: [0, 0, 0] }],
-        title: 'Évolution',
-        summary: 'Graphique provisoire — fournissez les données chiffrées.',
-        context: 'Graphique demandé : ' + (ask.substring(0,60)||'?'),
-        missing: ['Les données chiffrées', 'L\'échelle temporelle', 'Le type de graphique préféré']
-      };
+      if (renderType === 'chart') {
+        var nums = _extractChartNumbers(ask);
+        if (nums.length < 2) return {
+          render_type: 'missing_info',
+          title: 'Graphique à construire',
+          fields: ['Les données chiffrées', 'Les libellés ou périodes', 'Le type de graphique souhaité'],
+          suggestions: [
+            'Exemple : janvier 1200, février 1800, mars 2400',
+            'Exemple : prospects 15, devis 6, ventes 2'
+          ],
+          context: 'Demande graphique : ' + (ask.substring(0,90)||'?'),
+          summary: 'Iris ne doit pas inventer un graphique : elle attend les chiffres à projeter.'
+        };
+        var labels = nums.map(function(_, i){ return 'Valeur ' + (i + 1); });
+        return {
+          type: /camembert|donut|répartition|repartition/i.test(ask) ? 'doughnut' : (/courbe|évolution|tendance|progression/i.test(ask) ? 'line' : 'bar'),
+          labels: labels,
+          datasets: [{ label: 'Données', data: nums }],
+          title: 'Graphique',
+          summary: 'Graphique construit depuis les chiffres fournis.',
+          context: 'Demande graphique : ' + (ask.substring(0,90)||'?'),
+          missing: []
+        };
+      }
       if (renderType === 'timeline') return {
         events: [
           { date: 'Phase 1', title: 'Démarrage', description: ask||'—' },
@@ -4496,6 +4518,25 @@
       var rType = payload.render_type||'context_panel';
       var p = payload.payload||payload;
 
+      if (rType === 'chart') {
+        var _chartLabels = Array.isArray(p.labels) ? p.labels : [];
+        var _chartData = (Array.isArray(p.datasets) && p.datasets[0] && Array.isArray(p.datasets[0].data)) ? p.datasets[0].data : [];
+        var _hasChartData = _chartLabels.length > 0 && _chartData.some(function(v){ return Number(v) !== 0 && isFinite(Number(v)); });
+        if (!_hasChartData) {
+          rType = 'missing_info';
+          p = {
+            title: 'Graphique à construire',
+            fields: ['Les données chiffrées', 'Les libellés ou périodes', 'Le type de graphique souhaité'],
+            suggestions: [
+              'Exemple : janvier 1200, février 1800, mars 2400',
+              'Exemple : prospects 15, devis 6, ventes 2'
+            ],
+            context: p.context || 'Iris attend les chiffres avant de projeter un graphique.',
+            summary: 'Aucun faux graphique : Iris attend les données à afficher.'
+          };
+        }
+      }
+
       if (_icsLastChart) { try { _icsLastChart.destroy(); } catch(e){} _icsLastChart = null; }
 
       var stateMap = {
@@ -4625,11 +4666,12 @@
     function _afSendTextToIris(text) {
       text = String(text||'').trim();
       if (!text) return;
+      _icsLastUserRequestText = text;
       _afAppendTranscript('user', text);
       var rType = inferCommandRenderFromText(text);
       if (rType) {
         var payload = _icsBuildPayload(rType, text);
-        payload.render_type = rType;
+        if (!payload.render_type) payload.render_type = rType;
         renderIrisCommand(payload);
       }
       if (_irisWs&&_irisWs.readyState===1) {
@@ -4830,6 +4872,7 @@
               if (data.role === 'user') {
                 _setIrisState('thinking');
                 _icsLastUserSpoke = Date.now();
+                _icsLastUserRequestText = data.text || _icsLastUserRequestText || '';
                 _icsIrisResponseText = '';
                 clearTimeout(_icsFallbackTimer);
                 _icsShowThinking();
@@ -4841,14 +4884,15 @@
                 }
                 clearTimeout(_icsFallbackTimer);
                 _icsFallbackTimer = setTimeout(function() {
-                  if (_icsLastServerRender <= _icsLastUserSpoke) {
+                  if (_icsLastUserSpoke > 0 && _icsLastServerRender <= _icsLastUserSpoke) {
                     var _fbText = _icsIrisResponseText.trim();
-                    if (_fbText) {
-                      var _fbType = inferCommandRenderFromText(_fbText) || 'context_panel';
+                    var _srcText = (_icsLastUserRequestText || _fbText || '').trim();
+                    if (_fbText && _srcText) {
+                      var _fbType = inferCommandRenderFromText(_srcText) || inferCommandRenderFromText(_fbText) || 'context_panel';
                       var _fbPl = _fbType === 'context_panel'
                         ? { title: 'Iris', sections: [{ heading: 'Réponse', body: _fbText }] }
-                        : _icsBuildPayload(_fbType, _fbText);
-                      _fbPl.render_type = _fbType;
+                        : _icsBuildPayload(_fbType, _srcText);
+                      if (!_fbPl.render_type) _fbPl.render_type = _fbType;
                       renderIrisCommand(_fbPl);
                     }
                   }

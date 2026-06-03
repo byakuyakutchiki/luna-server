@@ -33,6 +33,7 @@ Ce fichier sert a suivre les targets actives. Il doit etre mis a jour quand une 
 | Vision | Iris decrit ce qu'elle voit ou affiche cause vision inactive | partiel | test camera + `context_panel/status_rail` | Codex |
 | Conformite | Iris bloque actions sensibles, RGPD, couts, urgence, suppression | partiel | tests garde-fous | DeepSeek |
 | Temps reel Jarvis | Iris affiche tool_start/render_update/render_done et bouge en direct | non code | capture progression vivante, timeout 10s | Kimi + Codex |
+| Graphique utile | Iris affiche un chart seulement avec vraies donnees, sinon demande les chiffres manquants | code non prouve | test chart avec/sans chiffres, pas de `[0,0,0]` | Codex + Kimi |
 
 ### Mise à jour DeepSeek/Codex — 2026-06-02
 

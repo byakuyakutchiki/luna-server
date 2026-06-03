@@ -1417,3 +1417,14 @@ Fichier concerné : docs/AGENTS_COLLABORATION/agents/KIMI_UX_IRIS_TEAM_TELEWORK_
 Risque : faible
 Decision Ludovic requise : non
 Action proposée : Codex peut verifier le poller.log pour confirmer que les mises a jour sont bien prises en compte.
+
+---
+
+Agent : Codex
+Objectif : 022
+Type : correctif bug terrain / Command Screen
+Résumé : Retour capture pris en compte : Iris affichait un graphique vide et le contexte "Graphique demandé" reprenait une salutation Iris. Cause : fallback local construit le rendu depuis le texte d'Iris au lieu de la dernière demande utilisateur, puis `_icsBuildPayload('chart')` fabrique un faux chart `[0,0,0]`. Patch : mémoire `_icsLastUserRequestText`, fallback basé sur demande utilisateur, chart sans chiffres -> `missing_info`, blocage des charts vides serveur, correction bug `sourceText`.
+Fichier concerné : static/simli.html ; docs/AGENTS_COLLABORATION/agents/CODEX_FIX_IRIS_CHART_SOURCE_022.md
+Risque : faible ; frontend Command Screen uniquement, aucune action sensible
+Décision Ludovic requise : non pour le patch ; Kimi peut déployer selon règle validée
+Action proposée : Kimi deploy/test : "fais un graphique avec janvier 1200, fevrier 1800, mars 2400" puis "fais un graphique business plan" sans chiffres.
