@@ -42,6 +42,222 @@ _MAX_CLIENT_ERRORS = 3
 # Nombre d'erreurs OpenAI consecutives (hors audio) avant arret
 _MAX_OPENAI_ERRORS = 15
 
+# Mots de promesse Iris qui signalent un rendu imminent mais non declenche
+_PROMISE_PATTERNS = [
+    "je vais préparer", "je vais créer", "je vais générer", "je vais faire",
+    "je m'en occupe", "je vais afficher", "je vais rédiger", "je vais montrer",
+    "je vais construire", "je vais organiser", "je vais dresser", "je vais établir",
+    "je te prépare", "je te crée", "je te génère", "je te fais",
+    "c'est parti", "je lance", "je démarre",
+]
+
+# Mapping intent -> render_type pour fallback deterministe
+_INTENT_RENDER_MAP = [
+    # (mots_cles, render_type)
+    (["graphique", "courbe", "histogramme", "camembert", "évolution", "chiffres en graphique"], "chart"),
+    (["tableau", "colonnes", "lignes", "classe", "organise en tableau", "données en tableau"], "data_board"),
+    (["indicateurs", "métriques", "chiffres clés", "résumé chiffré", "kpi"], "kpi_cards"),
+    (["kanban", "priorités", "à faire/en cours/fini", "colonnes tâches"], "kanban_board"),
+    (["checklist", "étapes", "à faire", "tâches", "liste d'actions"], "action_board"),
+    (["réunion", "compte-rendu", "note les décisions", "crpv"], "meeting_board"),
+    (["rédige", "courrier", "lettre", "brouillon", "contrat", "document"], "document_draft"),
+    (["planning", "chronologie", "échéances", "dates", "calendrier"], "timeline"),
+    (["roadmap", "phases", "plan par étapes", "jalons"], "roadmap"),
+    (["compare", "avantage", "inconvénient", "lequel choisir", "versus", "vs"], "comparison"),
+    (["localise", "adresse", "itinéraire", "carte", "où est"], "map_board"),
+    (["cherche", "trouve", "source", "va sur le web", "informations sur"], "context_panel"),
+]
+
+
+class _IrisActionRouter:
+    """Routeur d'action deterministe cote serveur.
+
+    Detecte les promesses Iris ('je vais preparer...') et, si aucun tool_call
+    n'arrive dans un delai court, force un render fallback base sur la derniere
+    demande utilisateur. Ne declenche JAMAIS d'actions sensibles.
+    """
+
+    _FALLBACK_DELAY_SECONDS = 4.0
+
+    def __init__(self, bridge):
+        self._bridge = bridge
+        self._last_user_text = ""
+        self._promise_detected = False
+        self._tool_call_received = False
+        self._fallback_task: Optional[asyncio.Task] = None
+        self._lock = asyncio.Lock()
+
+    def on_user_transcript(self, text: str):
+        """Memorise la derniere demande utilisateur."""
+        self._last_user_text = text
+        logger.info(f"ActionRouter: user demande memorisee ({len(text)} chars)")
+
+    def on_iris_transcript(self, text: str):
+        """Detecte une promesse Iris et demarre le timer de fallback."""
+        lower = text.lower()
+        is_promise = any(p.lower() in lower for p in _PROMISE_PATTERNS)
+        if is_promise:
+            logger.info(f"ActionRouter: PROMESSE detectee -> '{text[:80]}...'")
+            self._promise_detected = True
+            self._tool_call_received = False
+            self._start_fallback_timer()
+        else:
+            # Si Iris repond sans promesse, annuler tout timer en cours
+            self._cancel_fallback_timer()
+
+    def on_tool_call(self, name: str):
+        """Un tool_call a ete recu : annuler le fallback."""
+        logger.info(f"ActionRouter: tool_call recu ({name}) -> fallback annule")
+        self._tool_call_received = True
+        self._cancel_fallback_timer()
+
+    def _start_fallback_timer(self):
+        self._cancel_fallback_timer()
+        self._fallback_task = asyncio.create_task(self._fallback_worker())
+
+    def _cancel_fallback_timer(self):
+        if self._fallback_task and not self._fallback_task.done():
+            self._fallback_task.cancel()
+        self._fallback_task = None
+
+    async def _fallback_worker(self):
+        try:
+            await asyncio.sleep(self._FALLBACK_DELAY_SECONDS)
+            await self._execute_fallback()
+        except asyncio.CancelledError:
+            pass
+        except Exception as e:
+            logger.error(f"ActionRouter fallback error: {e}")
+
+    async def _execute_fallback(self):
+        async with self._lock:
+            if self._tool_call_received:
+                return  # Un tool_call est arrive entre-temps
+            if not self._last_user_text:
+                return  # Pas de demande utilisateur a router
+
+            render_type = self._infer_render_type(self._last_user_text)
+            payload = self._build_payload(render_type, self._last_user_text)
+
+            logger.info(f"ActionRouter: FALLBACK FORCE -> {render_type}")
+
+            # Envoyer le render au client Command Screen
+            render_msg = {
+                "type": "render",
+                "render_type": render_type,
+                "payload": payload,
+                "source": "action_router_fallback",
+            }
+            await self._bridge._ws_send_client(render_msg)
+
+            # Informer le client que c'est un fallback
+            await self._bridge._ws_send_client({
+                "type": "action_router",
+                "action": "force_render",
+                "render_type": render_type,
+                "reason": "promesse_iris_non_honoree",
+                "last_link": "action_router_fallback",
+            })
+
+    def _infer_render_type(self, text: str) -> str:
+        lower = text.lower()
+        for mots_cles, rt in _INTENT_RENDER_MAP:
+            if any(m in lower for m in mots_cles):
+                return rt
+        return "context_panel"  # fallback generique
+
+    def _build_payload(self, render_type: str, user_text: str) -> Dict[str, Any]:
+        """Construit un payload minimal adapte au render_type."""
+        now_str = _time.strftime("%d/%m/%Y %H:%M")
+        if render_type == "data_board":
+            return {
+                "title": "Données demandées",
+                "columns": ["Item", "Valeur"],
+                "rows": [["Demande", user_text[:60]]],
+                "summary": "Rendu forcé par Action Router — données à compléter.",
+            }
+        if render_type == "chart":
+            return {
+                "title": "Graphique demandé",
+                "type": "bar",
+                "labels": ["A", "B", "C"],
+                "datasets": [{"label": "Valeurs", "data": [0, 0, 0]}],
+                "summary": "Rendu forcé par Action Router — données chiffrées à extraire.",
+            }
+        if render_type == "kpi_cards":
+            return {
+                "kpis": [
+                    {"label": "Demande", "value": "?"},
+                    {"label": "Statut", "value": "En attente de données"},
+                ],
+                "summary": "Rendu forcé par Action Router — KPIs à compléter.",
+            }
+        if render_type == "action_board":
+            return {
+                "sections": [
+                    {"title": "À faire", "items": [{"text": user_text[:80], "done": False}]}
+                ],
+                "summary": "Rendu forcé par Action Router — actions à préciser.",
+            }
+        if render_type == "kanban_board":
+            return {
+                "columns": [
+                    {"id": "todo", "label": "À faire", "color": "todo", "cards": [{"title": user_text[:60], "tag": None}]},
+                    {"id": "doing", "label": "En cours", "color": "doing", "cards": []},
+                    {"id": "blocked", "label": "Bloqué", "color": "blocked", "cards": []},
+                    {"id": "done", "label": "Terminé", "color": "done", "cards": []},
+                ],
+                "summary": "Rendu forcé par Action Router — kanban à compléter.",
+            }
+        if render_type == "meeting_board":
+            return {
+                "title": "Réunion",
+                "date": now_str.split()[0],
+                "time": now_str.split()[1] if len(now_str.split()) > 1 else "--:--",
+                "participants": [{"name": "Vous", "initials": "V"}],
+                "agenda": [{"item": user_text[:100], "done": False}],
+                "decisions": [],
+                "summary": "Rendu forcé par Action Router — réunion à définir.",
+            }
+        if render_type == "document_draft":
+            return {
+                "title": "Brouillon",
+                "body": user_text,
+                "placeholders": ["[compléter]"],
+                "summary": "Rendu forcé par Action Router — brouillon à rédiger.",
+            }
+        if render_type == "timeline":
+            return {
+                "events": [{"date": now_str, "title": user_text[:60]}],
+                "summary": "Rendu forcé par Action Router — chronologie à établir.",
+            }
+        if render_type == "roadmap":
+            return {
+                "phases": [{"title": "Phase 1", "description": user_text[:80], "status": "en_cours"}],
+                "summary": "Rendu forcé par Action Router — roadmap à construire.",
+            }
+        if render_type == "comparison":
+            return {
+                "options": [
+                    {"name": "Option A", "pros": ["à définir"], "cons": ["à définir"]},
+                    {"name": "Option B", "pros": ["à définir"], "cons": ["à définir"]},
+                ],
+                "summary": "Rendu forcé par Action Router — comparaison à établir.",
+            }
+        if render_type == "map_board":
+            return {
+                "locations": [{"name": user_text[:60], "lat": 0.0, "lng": 0.0}],
+                "summary": "Rendu forcé par Action Router — localisation à préciser.",
+            }
+        # context_panel (default)
+        return {
+            "sections": [
+                {"heading": "Demande", "body": user_text},
+                {"heading": "Statut", "body": "Rendu forcé par Action Router — en attente de données complètes."},
+            ],
+            "summary": "Rendu forcé par Action Router.",
+        }
+
 
 class WebVoiceBridge:
     """Pont audio WebSocket navigateur <-> OpenAI Realtime API."""
@@ -90,6 +306,8 @@ class WebVoiceBridge:
         self._participant_role = participant_role
         self._participant_name = participant_name
         self._session_manager = session_manager
+        # Iris Action Router — fallback deterministe si le LLM n'appelle pas d'outil
+        self._action_router = _IrisActionRouter(self)
 
     def _client_connected(self) -> bool:
         """Verifie si le WebSocket client est toujours connecte."""
@@ -514,6 +732,7 @@ class WebVoiceBridge:
                     if text:
                         self.transcript.append({"role": "user", "text": text})
                         logger.info(f"WebVoice USER: {text[:120]}")
+                        self._action_router.on_user_transcript(text)
                         await self._ws_send_client({
                             "type": "transcript",
                             "role": "user",
@@ -525,6 +744,7 @@ class WebVoiceBridge:
                     if text:
                         self.transcript.append({"role": "luna", "text": text})
                         logger.info(f"WebVoice LUNA: {text[:120]}")
+                        self._action_router.on_iris_transcript(text)
                         await self._ws_send_client({
                             "type": "transcript",
                             "role": "luna",
@@ -532,6 +752,11 @@ class WebVoiceBridge:
                         })
 
                 elif event_type == "response.function_call_arguments.done":
+                    # Notifier le router AVANT le traitement pour annuler tout fallback
+                    call_id = data.get("call_id", "")
+                    function_name = data.get("name", "")
+                    if function_name:
+                        self._action_router.on_tool_call(function_name)
                     await self._handle_tool_call(data)
 
                 elif event_type == "response.done":
