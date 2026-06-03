@@ -735,6 +735,10 @@
     .ics-work-warn { border-color: rgba(255,183,77,0.28); background: rgba(255,183,77,0.055); }
     .ics-work-warn .ics-work-title { color: var(--ics-amber); }
     .ics-work-warn .ics-work-step::before { background: var(--ics-amber); box-shadow: 0 0 8px rgba(255,183,77,0.35); }
+    .ics-pipe-logs { margin: 8px 0; padding: 6px 8px; background: rgba(0,0,0,0.25); border-radius: 6px; font-family: monospace; font-size: 10px; color: var(--ics-text2); max-height: 80px; overflow-y: auto; }
+    .ics-pipe-log { margin-bottom: 2px; line-height: 1.4; }
+    .ics-diag-actions { display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
+    .ics-diag-actions .ics-btn { flex: 1; min-width: 80px; font-size: 11px; padding: 6px 8px; }
     /* Animation de construction progressive */
     @keyframes ics-buildin {
       from { opacity: 0; transform: translateX(-8px); }
@@ -1642,6 +1646,7 @@
     var _visioStartTs = Date.now(); // heure de début pour durée
     var _guestCount = 0; // participants humains invités dans la room Daily
     var _icsLastUserRequestText = '';
+    var _icsPipelineLog = []; // Log de preuve : derniers evenements WS recus
     var grainAnimId = null;
     var lastGrainTime = 0;
 
@@ -3705,6 +3710,12 @@
       return /\b(je prepare|je vais preparer|je cree|je vais creer|je te cree|je redige|je vais rediger|je genere|je vais generer|je construis|je vais construire|je m'en occupe|patiente|un instant|quelques instants|maintenant)\b/.test(t);
     }
 
+    function _icsLogPipeline(stage, detail) {
+      _icsPipelineLog.push({ stage: stage, detail: detail || '', ts: Date.now() });
+      if (_icsPipelineLog.length > 20) _icsPipelineLog.shift();
+      rLog('info', 'simli', 'pipeline_' + stage, detail || '');
+    }
+
     function _icsShowWorking(label, detail) {
       var panel  = document.getElementById('irisCommandScreen');
       var render = document.getElementById('icsRender');
@@ -3739,21 +3750,38 @@
       var footer = document.getElementById('icsFooter');
       var view   = document.getElementById('audioView');
       if (!panel || !render) return;
+      // Dernier maillon atteint
+      var lastStage = 'Aucun';
+      var lastDetail = '';
+      var logHtml = '';
+      if (_icsPipelineLog.length > 0) {
+        var last = _icsPipelineLog[_icsPipelineLog.length - 1];
+        lastStage = last.stage;
+        lastDetail = last.detail;
+        logHtml = _icsPipelineLog.slice(-5).map(function(e) {
+          var t = new Date(e.ts).toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit', second:'2-digit'});
+          return '<div class="ics-pipe-log">' + _esc(t) + ' — <b>' + _esc(e.stage) + '</b> ' + _esc(e.detail) + '</div>';
+        }).join('');
+      }
       render.innerHTML =
         '<div class="ics-work-card ics-work-warn">' +
-          '<div class="ics-work-title">Préparation trop longue</div>' +
-          '<div class="ics-work-sub">Iris a annoncé une préparation, mais aucun rendu final n’est revenu après 10 secondes. Vous pouvez relancer la demande ou demander un rendu plus simple.</div>' +
+          '<div class="ics-work-title">Diagnostic en cours</div>' +
+          '<div class="ics-work-sub">Le rendu n\'a pas été reçu dans le délai attendu. Dernier maillon atteint : <b>' + _esc(lastStage) + '</b> ' + (lastDetail ? '(' + _esc(lastDetail) + ')' : '') + '</div>' +
+          '<div class="ics-pipe-logs">' + logHtml + '</div>' +
           '<div class="ics-work-steps">' +
-            '<div class="ics-work-step">Connexion toujours ouverte</div>' +
-            '<div class="ics-work-step">Rendu final non reçu</div>' +
-            '<div class="ics-work-step">Action utilisateur possible : reformuler ou simplifier</div>' +
+            '<div class="ics-work-step">Connexion ouverte · Délai : 10s</div>' +
+          '</div>' +
+          '<div class="ics-diag-actions">' +
+            '<button class="ics-btn" onclick="_icsSuggestion(\'Relancer la demande\')">🔄 Relancer</button>' +
+            '<button class="ics-btn" onclick="_icsSuggestion(\'Simplifier\')">✂️ Simplifier</button>' +
+            '<button class="ics-btn" onclick="_icsSuggestion(\'Données manquantes\')">❓ Données manquantes</button>' +
           '</div>' +
         '</div>';
       if (footer) footer.style.display = 'none';
-      _icsSetState('À vérifier', 'amber');
+      _icsSetState('Diagnostic', 'amber');
       panel.className = 'ics-panel open st-warning';
       if (view) view.classList.add('ics-open');
-      rLog('warn','simli','ics_work_timeout','no render after work promise');
+      rLog('warn','simli','ics_work_timeout','no render after work promise | last_stage=' + lastStage);
     }
 
     // Stagger : anime chaque enfant direct de container avec un délai croissant
@@ -4856,6 +4884,7 @@
               _irisWsWorkletNode = scriptNode;
             } else if (data.type === 'audio') {
               _setIrisState('speaking');
+              _icsLogPipeline('audio', 'playing');
               _irisQueueAudio(data.audio);
             } else if (data.type === 'audio_done') {
               _setIrisState('idle');
@@ -4865,10 +4894,12 @@
             } else if (data.type === 'render') {
               _icsLastServerRender = Date.now();
               clearTimeout(_icsWorkTimer);
+              _icsLogPipeline('render', data.render_type || 'unknown');
               renderIrisCommand(data);
             } else if (data.type === 'transcript') {
               var role = data.role === 'user' ? 'user' : 'iris';
               _afAppendTranscript(role, data.text || '');
+              _icsLogPipeline('transcript_' + role, (data.text || '').substring(0, 60));
               if (data.role === 'user') {
                 _setIrisState('thinking');
                 _icsLastUserSpoke = Date.now();
@@ -4902,6 +4933,7 @@
               var toolName = data.name || 'outil';
               var tcStatus = data.status || 'running';
               var tcMsg    = data.message || '';
+              _icsLogPipeline('tool_call', toolName + ' : ' + tcStatus);
               if (tcStatus === 'running') {
                 renderIrisCommand({ render_type: 'status_rail', payload: {
                   services: [{ name: toolName, status: 'syncing', detail: 'En cours' }],

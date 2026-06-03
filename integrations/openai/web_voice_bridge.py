@@ -779,6 +779,7 @@ class WebVoiceBridge:
             return
 
         # Notifie le client qu'un tool est en cours
+        logger.info(f"WebVoice tool_call notify client: {function_name} -> running")
         await self._ws_send_client({
             "type": "tool_call",
             "name": function_name,

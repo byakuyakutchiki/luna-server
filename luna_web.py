@@ -9624,6 +9624,7 @@ Règles de collaboration :
 
             if payload:
                 try:
+                    logger.info(f"_iris_auto_render SEND render_type={payload.get('render_type','?')} fn={fn}")
                     await websocket.send_text(json.dumps(payload, ensure_ascii=False))
                 except Exception as _se:
                     logger.warning(f"_iris_auto_render send error: {_se}")
