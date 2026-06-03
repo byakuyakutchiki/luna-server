@@ -1609,3 +1609,22 @@ Fichier concerne : Cloud Run luna-beta-00517-kqd
 Risque : faible
 Decision Ludovic requise : oui — test terrain pour identifier le maillon casse
 Action proposee : Ludovic ouvre https://luna-beta-674304336025.europe-west1.run.app/simli, dit une phrase simple (ex: "Iris, fais un graphique avec janvier 1200, fevrier 1800"), attend 10s, puis lit le panneau Diagnostic. Le dernier maillon atteint indiquera ou la chaine se casse.
+
+---
+
+Agent : Kimi
+Objectif : 022
+Type : fix deploye — tool_choice required + outil chat
+Resume :
+  Correction deployee luna-beta-00518-v6t (100% traffic).
+  Probleme identifie : tool_choice=auto laissait le LLM choisir de ne pas appeler d'outil.
+  Iris repondait "je ne peux pas" au lieu d'appeler iris_render.
+  Fix applique :
+    - tool_choice passe de "auto" a "required" : le LLM DOIT appeler un outil a chaque tour
+    - Nouvel outil "chat" pour les conversations simples sans rendu
+    - Handler chat dans web_voice_bridge.py
+  Resultat attendu : quand Ludovic demande un graphique, Iris ne peut PLUS repondre textuellement. Elle est obligee d'appeler iris_render ou un autre outil.
+Fichier concerne : integrations/openai/web_voice_bridge.py ; integrations/openai/realtime_bridge.py ; Cloud Run luna-beta-00518-v6t
+Risque : moyen — change le comportement de toutes les conversations
+Decision Ludovic requise : oui — test terrain immediat
+Action proposee : Ludovic teste la phrase "Iris, fais un graphique avec janvier 1200, fevrier 1800, mars 2400". Si Iris appelle maintenant iris_render -> panneau graphique. Si elle appelle chat -> on affinera la description de l'outil.
