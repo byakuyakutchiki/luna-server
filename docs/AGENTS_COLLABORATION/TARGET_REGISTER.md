@@ -17,6 +17,23 @@ Ce fichier sert a suivre les targets actives. Il doit etre mis a jour quand une 
 | Feedback préparation Iris | Quand Iris dit qu'elle prépare/crée/rédige, un état de travail visible s'affiche, le transcript reste discret, puis timeout clair à 10s si rien ne revient | code non prouvé | capture "Iris prépare" puis rendu ou "Préparation trop longue" ; vérifier absence de pavé texte | Codex |
 | Conscience Command Screen | Iris sait qu'elle pilote son propre écran et peut transformer tableau/chiffres en graphique via `chart` | code non prouvé | test "utilise ton tableau pour faire un graphique" + capture `Graphique` | Codex + Kimi + DeepSeek |
 
+---
+
+## Objectif 022 — Iris Team / Telework Operating System
+
+| Fonctionnalite | Target exacte | Statut | Preuve attendue | Agent lead |
+|---|---|---|---|---|
+| Reunion intelligente | Iris prend notes, decisions, actions et compte-rendu pendant reunion | non code | test reunion + `meeting_board` qui evolue | Kimi + DeepSeek |
+| Teletravail individuel | Iris organise journee, priorites, taches et objectifs semaine | non code | test "organise ma journee" + `kanban_board` | Kimi |
+| Equipe/projet | Iris affiche participants, roles, responsabilites, avancement | partiel / a prouver | session owner + invite + roles | Kimi + DeepSeek |
+| Dirigeant | Iris prepare business plan, budget, decision, KPI, risques | partiel | test business plan visuel multi-rendus | Codex + Kimi |
+| Documents | Iris analyse, compare, classe et transforme des documents | partiel / a verifier | upload + `document_insight` + sauvegarde | DeepSeek |
+| Communication | Iris prepare SMS/email/courrier/invitation avec validation | non code / a verifier | `action_board` validation_required sans envoi reel | DeepSeek |
+| Recherche externe | Iris cherche dehors, cite sources, projette synthese | code non prouve | test web avec sources visibles | DeepSeek |
+| Vision | Iris decrit ce qu'elle voit ou affiche cause vision inactive | partiel | test camera + `context_panel/status_rail` | Codex |
+| Conformite | Iris bloque actions sensibles, RGPD, couts, urgence, suppression | partiel | tests garde-fous | DeepSeek |
+| Temps reel Jarvis | Iris affiche tool_start/render_update/render_done et bouge en direct | non code | capture progression vivante, timeout 10s | Kimi + Codex |
+
 ### Mise à jour DeepSeek/Codex — 2026-06-02
 
 | Capacité | Statut DeepSeek | Arbitrage Codex |

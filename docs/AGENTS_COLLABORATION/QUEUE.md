@@ -8,6 +8,33 @@
 
 ## TODO
 
+### TASK-022-KIMI-UX-IRIS-TEAM-TELEWORK-OS
+- Agent : Kimi
+- Objectif : 022
+- Niveau : 0
+- Statut : open
+- Tache : lire `OBJECTIF_022_IRIS_TEAM_TELEWORK_OS.md`. Produire l'UX complete Iris comme centre de commande de travail pour reunion, teletravail, equipe, dirigeant, documents, communication, recherche, vision, conformite et mode Jarvis. L'interface doit montrer Iris qui travaille en temps reel, pas un pavé texte.
+- Interdits : pas de design cheap, pas de panneau texte brut, pas de confusion Luna/Iris, pas d'action reelle, pas de superposition, pas de livrable sans preuve visuelle attendue.
+- Resultat attendu : `docs/AGENTS_COLLABORATION/agents/KIMI_UX_IRIS_TEAM_TELEWORK_OS_022.md` + message AGENT_CHANNEL.
+
+### TASK-022-DEEPSEEK-TECH-IRIS-TEAM-TELEWORK-OS
+- Agent : DeepSeek
+- Objectif : 022
+- Niveau : 0
+- Statut : open
+- Tache : lire `OBJECTIF_022_IRIS_TEAM_TELEWORK_OS.md`. Produire le contrat technique complet `intent -> tool -> render_type -> garde-fou -> preuve` pour les 10 familles de capacites. Verifier outils existants, routes manquantes, VOICE_TOOLS, WS Iris, Command Screen, droits participants, couts/Twilio/RGPD.
+- Interdits : pas de secret, pas de deploiement, pas de SMS/email/appel reel, pas de speculation sans fichier/ligne.
+- Resultat attendu : `docs/AGENTS_COLLABORATION/agents/DEEPSEEK_TECH_IRIS_TEAM_TELEWORK_OS_022.md` + message AGENT_CHANNEL.
+
+### TASK-022-KIMI-CODE-ATTENTE-SCOPE
+- Agent : Kimi
+- Objectif : 022
+- Niveau : 2
+- Statut : open
+- Tache : attendre les livrables Kimi UX + DeepSeek technique + arbitrage Codex avant de coder. Préparer une V1 non dangereuse : rendu temps reel, meeting_board, kanban_board, document_draft, action_board validation_required. Ne pas activer SMS/appel/email reel.
+- Interdits : pas de deploiement sans Ludovic, pas d'action sensible, pas de stockage cloud nouveau, pas de "c'est bon" sans preuve terrain.
+- Resultat attendu : plan d'implementation V1 puis patch seulement apres validation Codex/Ludovic.
+
 ### TASK-021-KIMI-UX-IRIS-CAPABILITY-GATEWAY
 - Agent : Kimi
 - Objectif : 021

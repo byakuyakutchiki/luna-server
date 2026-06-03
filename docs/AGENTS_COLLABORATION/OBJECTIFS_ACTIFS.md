@@ -50,6 +50,56 @@ Si une seule case manque, l'equipe ne dit pas "c'est bon".
 
 ---
 
+## Objectif 022 — Iris Team / Telework Operating System
+
+**Statut** : ouvert — cadrage produit Codex actif
+**Priorité** : très haute
+**Lead coordination** : Codex
+**Date ouverture** : 2026-06-03
+**Document dédié** : `docs/AGENTS_COLLABORATION/OBJECTIF_022_IRIS_TEAM_TELEWORK_OS.md`
+
+### Vision
+
+Iris ne doit pas etre seulement une IA qui affiche des tableaux ou des graphiques.
+Iris doit devenir un centre de commande utile a une personne en teletravail,
+une equipe en reunion, un dirigeant et une entreprise.
+
+Phrase cible :
+
+> Iris transforme une conversation de travail en actions concretes, visibles, organisees et validables.
+
+### Familles de capacites
+
+1. assistant de reunion ;
+2. assistant teletravail individuel ;
+3. assistant equipe/projet ;
+4. assistant dirigeant ;
+5. assistant documents ;
+6. assistant communication ;
+7. assistant recherche externe ;
+8. assistant vision ;
+9. assistant conformite/garde-fous ;
+10. assistant Jarvis / centre de commande.
+
+### Agents concernés
+
+| Agent | Tâche | Statut |
+|---|---|---|
+| **Kimi** | UX premium Iris Team/Telework OS, temps reel, travail d'equipe | À faire |
+| **DeepSeek** | Contrat technique `intent -> tool -> render_type -> garde-fou -> preuve` | À faire |
+| **Kimi Code** | Coder seulement apres UX + contrat, V1 non dangereuse | En attente |
+| **Codex** | Coordination, target cell, preuve de livraison | En cours |
+
+### Interdictions
+
+- Pas de "Iris peut aider" sans outil reel ou rendu visible.
+- Pas d'action sensible sans validation.
+- Pas d'attente silencieuse > 10s.
+- Pas de pavé texte comme livrable.
+- Pas de déploiement sans validation Ludovic.
+
+---
+
 ## Objectif 001 — Monitoring vocal réel
 
 **Statut** : assigné — analyse en cours

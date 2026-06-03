@@ -1350,3 +1350,14 @@ Fichier concerné : integrations/openai/realtime_bridge.py ; luna_web.py ; docs/
 Risque : faible ; contrat outil + prompt, aucune action sensible, aucun déploiement
 Décision Ludovic requise : oui pour déploiement Cloud Run
 Action proposée : Kimi audite le rendu graphique après déploiement. DeepSeek vérifie la correspondance des 20 render_type avec les handlers frontend. Test clé : "Iris, utilise ton tableau pour faire un graphique".
+
+---
+
+Agent : Codex
+Objectif : 022
+Type : cadrage produit / Team Telework OS
+Résumé : Nouvelle vision fondateur transcrite : Iris ne doit pas seulement afficher tableaux/graphiques. Elle devient un centre de commande pour reunion, teletravail, equipe/projet, dirigeant, documents, communication, recherche externe, vision, conformite et mode Jarvis. Definition de livraison : Iris comprend, affiche le bon ecran, fait bouger le workspace en temps reel, produit un livrable exploitable, demande validation si action et donne une preuve. Kimi UX + DeepSeek technique assignes ; Kimi Code attend arbitrage avant code.
+Fichier concerné : docs/AGENTS_COLLABORATION/OBJECTIF_022_IRIS_TEAM_TELEWORK_OS.md ; docs/AGENTS_COLLABORATION/QUEUE.md ; docs/AGENTS_COLLABORATION/TARGET_REGISTER.md
+Risque : eleve si l'equipe code des panneaux sans outils reels ni progression temps reel
+Décision Ludovic requise : oui avant implementation visible ou action sensible
+Action proposée : Kimi livre UX 022, DeepSeek livre contrat technique 022, Codex tranche V1, puis Kimi Code implemente seulement le scope valide.
