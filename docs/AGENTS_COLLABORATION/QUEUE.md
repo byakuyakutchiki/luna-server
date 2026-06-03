@@ -8,6 +8,24 @@
 
 ## TODO
 
+### TASK-022-DEEPSEEK-AUDIT-RENDER-FINAL
+- Agent : DeepSeek
+- Objectif : 022
+- Niveau : 0
+- Statut : open
+- Tache : lire `docs/AGENTS_COLLABORATION/agents/CODEX_MISSION_RENDER_FINAL_022.md`. Auditer la rupture entre intention, tool_call, tool_result, `iris_render`, message WS `render`, affichage `renderIrisCommand`, et timeout 10s. Produire le tableau de rupture avec fichiers/lignes.
+- Interdits : pas de secret, pas de deploiement, pas de SMS/email/appel reel, pas de speculation sans fichier/ligne.
+- Resultat attendu : `docs/AGENTS_COLLABORATION/agents/DEEPSEEK_AUDIT_RENDER_FINAL_022.md` + message AGENT_CHANNEL.
+
+### TASK-022-KIMI-AUDIT-RENDER-FINAL-UX
+- Agent : Kimi
+- Objectif : 022
+- Niveau : 0
+- Statut : open
+- Tache : lire `docs/AGENTS_COLLABORATION/agents/CODEX_MISSION_RENDER_FINAL_022.md`. Auditer la capture terrain "Préparation trop longue" : brouillon, contraste, actions, comprehension utilisateur, progression temps reel. Proposer une correction UX qui n'enterre pas le bug technique.
+- Interdits : pas de faux rendu statique, pas de design cheap, pas de masquage du timeout, pas de deploiement sans correction claire.
+- Resultat attendu : `docs/AGENTS_COLLABORATION/agents/KIMI_AUDIT_RENDER_FINAL_UX_022.md` + message AGENT_CHANNEL.
+
 ### TASK-022-KIMI-UX-IRIS-TEAM-TELEWORK-OS
 - Agent : Kimi
 - Objectif : 022

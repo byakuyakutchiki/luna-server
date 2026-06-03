@@ -1501,3 +1501,14 @@ Fichier concerné : luna_web.py ; integrations/openai/realtime_bridge.py ; Cloud
 Risque : faible
 Decision Ludovic requise : oui — test terrain 2 phrases
 Action proposee : Ludovic teste depuis https://luna-beta-674304336025.europe-west1.run.app/simli
+
+---
+
+Agent : Codex
+Objectif : 022
+Type : mission audit rupture render final
+Résumé : Nouvelle capture terrain : Iris ouvre bien le Command Screen, mais reste sur "Préparation trop longue". Le déclenchement UI fonctionne, mais aucun rendu final exploitable ne revient après 10s. Codex ouvre une mission DeepSeek + Kimi : auditer la chaîne `intent -> tool_call -> tool_result -> iris_render -> WS render -> renderIrisCommand -> render_done`. Il faut trouver le maillon cassé, pas ajouter un faux panneau.
+Fichier concerné : docs/AGENTS_COLLABORATION/agents/CODEX_MISSION_RENDER_FINAL_022.md ; static/simli.html ; integrations/openai/web_voice_bridge.py ; luna_web.py
+Risque : élevé si l'équipe masque le timeout au lieu de corriger la rupture
+Decision Ludovic requise : non
+Action proposée : DeepSeek livre `DEEPSEEK_AUDIT_RENDER_FINAL_022.md`; Kimi livre `KIMI_AUDIT_RENDER_FINAL_UX_022.md`; Kimi Code attend le verdict technique avant nouveau patch visible.

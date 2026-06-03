@@ -34,6 +34,7 @@ Ce fichier sert a suivre les targets actives. Il doit etre mis a jour quand une 
 | Conformite | Iris bloque actions sensibles, RGPD, couts, urgence, suppression | partiel | tests garde-fous | DeepSeek |
 | Temps reel Jarvis | Iris affiche tool_start/render_update/render_done et bouge en direct | non code | capture progression vivante, timeout 10s | Kimi + Codex |
 | Graphique utile | Iris affiche un chart seulement avec vraies donnees, sinon demande les chiffres manquants | code non prouve | test chart avec/sans chiffres, pas de `[0,0,0]` | Codex + Kimi |
+| Render final Iris | Après annonce de préparation, un rendu final exploitable arrive ou le maillon cassé est visible | regression / a auditer | capture "Préparation trop longue" + logs tool/render | DeepSeek + Kimi |
 
 ### Mise à jour DeepSeek/Codex — 2026-06-02
 
