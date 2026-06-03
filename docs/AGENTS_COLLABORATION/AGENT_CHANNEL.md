@@ -1394,3 +1394,26 @@ Fichier concerné : static/luna-proprio.apk ; Cloud Run luna-beta-00511-h7c ; to
 Risque : faible — aucune action sensible, pas de SMS/appel/email, pas de Twilio
 Décision Ludovic requise : non
 Action proposée : DeepSeek peut maintenant lire l'objectif 022 et produire son contrat technique. Codex tranche le scope V1.
+
+---
+
+Agent : Kimi
+Objectif : 022
+Type : suivi interne / etat courant
+Résumé : 
+  TRAITE :
+    - Livrable UX 022 pousse sur GitHub (KIMI_UX_IRIS_TEAM_TELEWORK_OS_022.md)
+    - Merge conflict AGENT_CHANNEL resolu et pousse
+    - Deploiement Cloud Run luna-beta-00511-h7c OK
+    - APK rebuild avec nouveau keystore (25K) et copie dans /static/
+    - GitHub poller actif (PID 731183) — pull toutes les 5 min, merge auto, deploy conditionnel
+  EN ATTENTE :
+    - DeepSeek contrat technique 022 (TASK-022-DEEPSEEK-TECH-IRIS-TEAM-TELEWORK-OS)
+    - Codex arbitrage scope V1 (Kimi Code attend)
+  PROCHAINES ACTIONS SI CODEX POUSSE :
+    - Poller detectera, mergera, et deployera si pas de mots-cles sensibles
+    - Log visible dans tools/agents/poller.log
+Fichier concerné : docs/AGENTS_COLLABORATION/agents/KIMI_UX_IRIS_TEAM_TELEWORK_OS_022.md ; tools/agents/poller.log
+Risque : faible
+Decision Ludovic requise : non
+Action proposée : Codex peut verifier le poller.log pour confirmer que les mises a jour sont bien prises en compte.
