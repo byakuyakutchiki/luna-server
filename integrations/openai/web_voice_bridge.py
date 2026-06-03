@@ -390,7 +390,7 @@ class WebVoiceBridge:
                     "create_response": True,
                 },
                 "tools": VOICE_TOOLS,
-                "tool_choice": "auto",
+                "tool_choice": "required",
             },
         }
         ok = await self._ws_send_openai(session_config)
@@ -641,6 +641,21 @@ class WebVoiceBridge:
             args = {}
 
         logger.info(f"WebVoice tool_call: {function_name}({args})")
+
+        # chat : reponse conversationnelle simple
+        if function_name == "chat":
+            msg = args.get("message", "")
+            logger.info(f"WebVoice chat: {msg[:120]}")
+            await self._ws_send_openai({
+                "type": "conversation.item.create",
+                "item": {
+                    "type": "function_call_output",
+                    "call_id": call_id,
+                    "output": json.dumps({"status": "ok", "message": msg}, ensure_ascii=False),
+                },
+            })
+            await self._ws_send_openai({"type": "response.create"})
+            return
 
         # iris_render : affichage Iris Workspace — broadcast session ou envoi direct
         if function_name == "iris_render":

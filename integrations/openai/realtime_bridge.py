@@ -41,6 +41,21 @@ _active_bridges = 0  # compteur pour monitoring
 VOICE_TOOLS = [
     {
         "type": "function",
+        "name": "chat",
+        "description": "Repondre a l'utilisateur par conversation normale. Utilise UNIQUEMENT quand l'utilisateur fait une simple conversation, une question d'information, ou une discussion sans demande de rendu visuel. Si l'utilisateur demande un tableau, un graphique, un document, une reunion, un kanban, ou tout rendu visuel — NE PAS utiliser chat, utiliser iris_render ou un autre outil approprie.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "type": "string",
+                    "description": "La reponse textuelle courte a l'utilisateur"
+                }
+            },
+            "required": ["message"]
+        }
+    },
+    {
+        "type": "function",
         "name": "call_contact",
         "description": "Appeler quelqu'un par TELEPHONE AUDIO maintenant. Luna passe un vrai appel telephonique vocal et parle pour transmettre un message. Deux usages : (A) Appeler un contact de confiance par son nom : 'appelle maman', 'appelle Marie'. (B) Appeler une administration/service avec un numero donne par le souscripteur : 'appelle la mairie au 01 44 56 78 90'. Pour (B), renseigner phone_number avec le numero fourni. C'est un APPEL VOCAL, pas un SMS.",
         "parameters": {
