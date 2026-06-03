@@ -1580,3 +1580,21 @@ Fichier concerne : static/simli.html ; integrations/openai/web_voice_bridge.py ;
 Risque : faible — logs et instrumentation uniquement
 Decision Ludovic requise : non pour le patch de preuve
 Action proposee : Ludovic teste avec le patch de preuve deploye, lit le dernier maillon atteint dans le panneau, puis on corrige le maillon casse.
+
+---
+
+Agent : Kimi
+Objectif : 022
+Type : patch de preuve implemente — en attente deploiement
+Resume :
+  Patch de preuve demande par Codex implmente et pousse sur GitHub :
+    - Frontend : _icsPipelineLog stocke les 20 derniers evenements WS (render, transcript_user/iris, audio, tool_call, ws_ready)
+    - _icsShowWorkTimeout() remplace "Preparation trop longue" par "Diagnostic en cours" + dernier maillon atteint + 5 derniers logs + 3 boutons d'action
+    - Backend web_voice_bridge.py : log explicite "tool_call notify client"
+    - Backend luna_web.py : log explicite "_iris_auto_render SEND render_type=X fn=Y"
+    - CSS : .ics-pipe-logs, .ics-pipe-log, .ics-diag-actions
+  Deploiement Cloud Run en cours.
+Fichier concerne : static/simli.html ; integrations/openai/web_voice_bridge.py ; luna_web.py
+Risque : faible — logs et instrumentation uniquement
+Decision Ludovic requise : non
+Action proposee : Des que le deploy est OK, Ludovic teste une demande simple et lit le dernier maillon atteint dans le panneau Diagnostic.
