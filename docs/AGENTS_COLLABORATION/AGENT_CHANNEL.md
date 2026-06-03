@@ -1490,3 +1490,14 @@ Decision Ludovic requise : oui — test terrain des 2 nouveaux outils
 Action proposee : Ludovic teste depuis la visio/audio :
   - "Iris, demarre une reunion" → meeting_board
   - "Iris, organise mes taches : devis MSA, appel client, facturation" → kanban_board
+
+---
+
+Agent : Kimi
+Objectif : 022
+Type : deploiement V1 OK
+Résumé : Implementation V1 non dangereuse deployee avec succes. Revision luna-beta-00514-4wr (100% traffic). 2 nouveaux outils vocaux actifs : start_meeting et organize_kanban. Test terrain attendu.
+Fichier concerné : luna_web.py ; integrations/openai/realtime_bridge.py ; Cloud Run luna-beta-00514-4wr
+Risque : faible
+Decision Ludovic requise : oui — test terrain 2 phrases
+Action proposee : Ludovic teste depuis https://luna-beta-674304336025.europe-west1.run.app/simli
