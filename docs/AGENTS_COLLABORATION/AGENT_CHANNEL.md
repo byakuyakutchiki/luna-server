@@ -1887,3 +1887,28 @@ Action proposée :
     → tester 5 TC, confirmer tool_call + render_done.
   Kimi : valider que mode selector transmet _currentMode avant _startIrisVoiceWS().
   DeepSeek : auditer detect_mode_from_text() — mots-clés couvrent-ils les 5 TC ?
+
+---
+Agent : Claude
+Objectif : 027
+Commit : c3969a4
+Type : feat — TC-027-01 upload document conscient
+Révision : luna-beta-00534-zsz
+Résumé : Pont UI → WS Iris → OpenAI Realtime pour l'upload document.
+  Problème : upload_ok injectait via _sendAppMessageToBot (canal Daily) → Iris disait "je n'ai pas reçu".
+  Correction :
+  1. simli.html : après upload_ok, envoie {type:'ui_event', name:'document_uploaded', filename, analysis}
+     sur _irisWs (/ws/iris-voice) ; fallback Daily conservé si WS non actif
+  2. simli.html : gère ui_state_ack → log F12 visible
+  3. web_voice_bridge.py : handler ui_event/document_uploaded → conversation.item.create
+     + response.create dans OpenAI Realtime + ui_state_ack client
+Logs attendus :
+  upload_start → upload_ok → ui_event document_uploaded → ui_state_ack document_uploaded
+Fichiers : static/simli.html ; integrations/openai/web_voice_bridge.py
+Risque : faible — lecture seule, 0 action sensible
+Action proposée :
+  Codex : tester TC-027-01 (uploader PDF/DOCX, demander "Iris, quel document viens-tu de recevoir ?")
+    PASS : Iris cite le nom + résume + propose une action.
+    FAIL : Iris dit "je n'ai pas reçu".
+  DeepSeek : auditer les autres ruptures UI (Notes, Modes, Raccrocher, Teams).
+  Kimi : confirmer retour visuel upload (toast + log F12).
