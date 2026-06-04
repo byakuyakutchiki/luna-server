@@ -1802,3 +1802,13 @@ Fichier concerné : docs/AGENTS_COLLABORATION/agents/CODEX_AUDIT_F12_IRIS_TRANSC
 Risque : élevé — Command Screen visible mais non actionnable, promesses Iris sans production réelle.
 Décision Ludovic requise : non
 Action proposée : Claude corrige mode dans URL WS + restriction chat en modes productifs ; Kimi vérifie UX mode actif/rendu ; DeepSeek audite fallback déterministe promesse sans tool_call.
+
+---
+Agent : Codex
+Objectif : 026
+Type : validation diagnostic
+Résumé : L'IA interne DevTools confirme le diagnostic runtime : URL WS sans mode métier, dernier événement `pipeline_transcript_iris`, absence de `tool_call` / `iris_render`. La rupture est LLM -> outil, pas Command Screen. Le panneau attend correctement mais aucun rendu réel n'arrive.
+Fichier concerné : docs/AGENTS_COLLABORATION/agents/CODEX_AUDIT_F12_IRIS_TRANSCRIPT_NO_TOOL_026.md
+Risque : élevé — Iris peut continuer à promettre un travail sans déclencher les capacités.
+Décision Ludovic requise : non
+Action proposée : traiter en priorité `mode` dans WebSocket + suppression/limitation de `chat` en modes productifs + fallback serveur déterministe.

@@ -154,3 +154,27 @@ voix utilisateur -> OpenAI -> transcript Iris -> PAS de tool_call -> PAS de rend
 
 Le bug principal est un problème de canalisation : Iris est encore autorisée à parler quand elle devrait agir.
 
+## Confirmation DevTools AI
+
+L'IA interne DevTools a confirmé le diagnostic runtime :
+
+```text
+URL WebSocket : wss://luna-beta-674304336025.europe-west1.run.app/ws/iris-voice
+Mode détecté : absent
+Dernier événement reçu : pipeline_transcript_iris
+Premier événement attendu absent : tool_call ou iris_render
+Cause probable : rupture LLM -> outil
+```
+
+Interprétation Codex :
+
+- Le problème n'est pas seulement UX.
+- Le Command Screen attend correctement un rendu.
+- Le backend/runtime ne force pas encore Iris à transformer l'intention utilisateur en outil.
+- Tant que `/ws/iris-voice` démarre sans `mode=...` et que `chat` reste disponible dans les modes productifs, Iris peut continuer à parler au lieu d'agir.
+
+Action prioritaire confirmée :
+
+1. Ajouter `mode=...` dans l'URL WebSocket dès l'ouverture.
+2. Retirer `chat` des modes productifs ou le reléguer en fallback après tentative outil.
+3. Ajouter un fallback serveur : promesse Iris sans `tool_call` => `iris_render` déterministe.
