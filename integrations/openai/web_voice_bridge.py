@@ -37,6 +37,11 @@ OPENAI_VOICE_NAME = os.getenv("OPENAI_VOICE_NAME", "coral")
 # Import des tools depuis le bridge Twilio (meme jeu de tools)
 from integrations.openai.realtime_bridge import VOICE_TOOLS, _realtime_semaphore, _active_bridges
 
+# Modes de mission Iris — Objectif 024
+from integrations.iris.modes import (
+    IRIS_MODES, DEFAULT_MODE, build_mode_context, get_mode_tools, detect_mode_from_text
+)
+
 # Nombre d'erreurs client consecutives avant arret
 _MAX_CLIENT_ERRORS = 3
 # Nombre d'erreurs OpenAI consecutives (hors audio) avant arret
@@ -308,6 +313,9 @@ class WebVoiceBridge:
         self._session_manager = session_manager
         # Iris Action Router — fallback deterministe si le LLM n'appelle pas d'outil
         self._action_router = _IrisActionRouter(self)
+        # Mode de mission Iris — Objectif 024
+        self._active_mode = DEFAULT_MODE
+        self._base_context = context  # Contexte système de base (sans mode)
 
     def _client_connected(self) -> bool:
         """Verifie si le WebSocket client est toujours connecte."""
@@ -589,10 +597,53 @@ class WebVoiceBridge:
         except Exception as e:
             logger.warning(f"WebVoice: lecture event initial OpenAI: {e}")
 
+    def _build_filtered_tools(self, mode_id: str) -> List[Dict]:
+        """Filtre VOICE_TOOLS selon le mode actif. Garde toujours chat."""
+        allowed = set(get_mode_tools(mode_id))
+        allowed.add("chat")
+        filtered = []
+        for tool in VOICE_TOOLS:
+            name = tool.get("name", "")
+            if name in allowed:
+                filtered.append(tool)
+        if not filtered:
+            for tool in VOICE_TOOLS:
+                if tool.get("name") == "chat":
+                    filtered.append(tool)
+                    break
+        return filtered
+
+    async def _configure_session(self):
+        """Configure la session OpenAI (voice, VAD, tools)."""
+        try:
+            raw = await asyncio.wait_for(self.ws_openai.recv(), timeout=5.0)
+            first = json.loads(raw)
+            first_type = first.get("type", "?")
+            if first_type == "error":
+                err = first.get("error", {})
+                logger.error(
+                    f"WebVoice: OpenAI error avant session.update — code={err.get('code','?')} msg={err.get('message','')[:200]}"
+                )
+                self._running = False
+                await self._ws_send_client({
+                    "type": "error",
+                    "message": "Service vocal temporairement indisponible.",
+                })
+                return False
+            logger.info(f"WebVoice: OpenAI initial event: {first_type}")
+        except asyncio.TimeoutError:
+            logger.warning("WebVoice: pas d'evenement initial OpenAI (timeout 5s) — on continue")
+        except Exception as e:
+            logger.warning(f"WebVoice: lecture event initial OpenAI: {e}")
+
+        mode_ctx = build_mode_context(self._active_mode)
+        full_context = f"{self._base_context}\n\n{mode_ctx}" if mode_ctx else self._base_context
+        filtered_tools = self._build_filtered_tools(self._active_mode)
+
         session_config = {
             "type": "session.update",
             "session": {
-                "instructions": self.context,
+                "instructions": full_context,
                 "voice": self.voice,
                 "input_audio_format": "pcm16",
                 "output_audio_format": "pcm16",
@@ -607,13 +658,54 @@ class WebVoiceBridge:
                     "silence_duration_ms": 700,
                     "create_response": True,
                 },
-                "tools": VOICE_TOOLS,
+                "tools": filtered_tools,
                 "tool_choice": "required",
             },
         }
         ok = await self._ws_send_openai(session_config)
         if ok:
-            logger.info(f"WebVoice: session configured (pcm16, voice={self.voice}, server_vad)")
+            logger.info(f"WebVoice: session configured (mode={self._active_mode}, {len(filtered_tools)} tools, pcm16, voice={self.voice})")
+        return ok
+
+    async def set_mode(self, mode_id: str) -> bool:
+        """Change le mode de mission Iris et met a jour la session OpenAI."""
+        mode = IRIS_MODES.get(mode_id)
+        if not mode:
+            logger.warning(f"WebVoice: mode inconnu '{mode_id}'")
+            return False
+
+        self._active_mode = mode_id
+        logger.info(f"WebVoice: mode change -> {mode_id} ({mode['label']})")
+
+        mode_ctx = build_mode_context(mode_id)
+        full_context = f"{self._base_context}\n\n{mode_ctx}" if mode_ctx else self._base_context
+        filtered_tools = self._build_filtered_tools(mode_id)
+
+        session_update = {
+            "type": "session.update",
+            "session": {
+                "instructions": full_context,
+                "tools": filtered_tools,
+                "tool_choice": "required",
+            },
+        }
+        ok = await self._ws_send_openai(session_update)
+
+        await self._ws_send_client({
+            "type": "mode_changed",
+            "mode": mode_id,
+            "label": mode["label"],
+            "allowed_tools": mode.get("allowed_tools", []),
+            "auto_render": mode.get("auto_render", False),
+        })
+
+        if self._session_id and self._session_manager:
+            await self._session_manager.broadcast(self._session_id, {
+                "type": "mode_changed",
+                "mode": mode_id,
+                "label": mode["label"],
+            })
+
         return ok
 
     async def _send_greeting(self):
@@ -669,6 +761,13 @@ class WebVoiceBridge:
                             },
                         })
                         await self._ws_send_openai({"type": "response.create"})
+
+                elif msg_type == "mode_select":
+                    mode_id = data.get("mode", "")
+                    if mode_id:
+                        await self.set_mode(mode_id)
+                    else:
+                        logger.warning("WebVoice: mode_select sans mode_id")
 
                 elif msg_type == "stop":
                     logger.info("WebVoice: client requested stop")

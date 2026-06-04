@@ -1237,6 +1237,72 @@
     }
     #providerBadge.visible { display: flex; }
     #providerBadge.simli { border-color: rgba(124,220,180,0.4); color: #7cf8c8; }
+    /* --- MODE SELECTOR (Objectif 024) --- */
+    .mode-selector {
+      display: flex;
+      gap: 6px;
+      padding: 8px 12px;
+      overflow-x: auto;
+      scrollbar-width: none;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      background: rgba(0,0,0,0.2);
+    }
+    [data-theme="light"] .mode-selector {
+      border-bottom-color: rgba(109,85,232,0.1);
+      background: rgba(109,85,232,0.04);
+    }
+    .mode-selector::-webkit-scrollbar { display: none; }
+    .mode-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 5px 10px;
+      border-radius: 16px;
+      border: 1px solid rgba(255,255,255,0.1);
+      background: rgba(255,255,255,0.05);
+      color: var(--ics-text2);
+      font-size: 11px;
+      font-weight: 500;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.2s ease;
+      font-family: var(--ics-font);
+    }
+    [data-theme="light"] .mode-chip {
+      border-color: rgba(109,85,232,0.15);
+      background: rgba(109,85,232,0.06);
+      color: #5a4a8a;
+    }
+    .mode-chip:hover {
+      background: rgba(255,255,255,0.1);
+      border-color: rgba(255,255,255,0.2);
+    }
+    .mode-chip.active {
+      background: var(--ics-violet);
+      color: #fff;
+      border-color: var(--ics-violet);
+      box-shadow: 0 0 8px rgba(138,92,246,0.3);
+    }
+    [data-theme="light"] .mode-chip.active {
+      background: #7c5cfc;
+      color: #fff;
+      border-color: #7c5cfc;
+    }
+    .mode-chip .mode-icon { font-size: 13px; line-height: 1; }
+    .mode-current-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 8px;
+      border-radius: 10px;
+      background: rgba(138,92,246,0.15);
+      color: var(--ics-violet);
+      font-size: 10px;
+      font-weight: 600;
+      margin-left: auto;
+      font-family: monospace;
+      letter-spacing: 0.5px;
+    }
   </style>
   <script src="https://browser.sentry-cdn.com/7.99.0/bundle.min.js" crossorigin="anonymous"></script>
   <script src="/luna-config.js"></script>
@@ -1461,7 +1527,41 @@
         <div class="irt-session-meta">
           <div class="irt-session-dot"></div>
           <span id="irtParticipantCount">0 participant</span>
+          <span class="mode-current-badge" id="modeCurrentBadge">💬 Discussion</span>
         </div>
+      </div>
+      <!-- MODE SELECTOR -->
+      <div class="mode-selector" id="modeSelector">
+        <button class="mode-chip active" data-mode="discussion" onclick="selectMode('discussion')">
+          <span class="mode-icon">💬</span><span class="mode-label">Discussion</span>
+        </button>
+        <button class="mode-chip" data-mode="analyse" onclick="selectMode('analyse')">
+          <span class="mode-icon">📄</span><span class="mode-label">Analyse</span>
+        </button>
+        <button class="mode-chip" data-mode="reunion" onclick="selectMode('reunion')">
+          <span class="mode-icon">👥</span><span class="mode-label">Réunion</span>
+        </button>
+        <button class="mode-chip" data-mode="tableau" onclick="selectMode('tableau')">
+          <span class="mode-icon">📊</span><span class="mode-label">Tableau</span>
+        </button>
+        <button class="mode-chip" data-mode="redaction" onclick="selectMode('redaction')">
+          <span class="mode-icon">✏️</span><span class="mode-label">Rédaction</span>
+        </button>
+        <button class="mode-chip" data-mode="recherche" onclick="selectMode('recherche')">
+          <span class="mode-icon">🔍</span><span class="mode-label">Recherche</span>
+        </button>
+        <button class="mode-chip" data-mode="actions" onclick="selectMode('actions')">
+          <span class="mode-icon">⚡</span><span class="mode-label">Actions</span>
+        </button>
+        <button class="mode-chip" data-mode="equipe" onclick="selectMode('equipe')">
+          <span class="mode-icon">🧑‍🤝‍🧑</span><span class="mode-label">Équipe</span>
+        </button>
+        <button class="mode-chip" data-mode="carte" onclick="selectMode('carte')">
+          <span class="mode-icon">🗺️</span><span class="mode-label">Carte</span>
+        </button>
+        <button class="mode-chip" data-mode="conformite" onclick="selectMode('conformite')">
+          <span class="mode-icon">🛡️</span><span class="mode-label">Conformité</span>
+        </button>
       </div>
       <div class="irt-participants" id="irtParticipantList"></div>
       <div class="irt-pending-banner" id="irtPendingBanner" style="display:none">
@@ -3685,6 +3785,7 @@
     var _icsLastUserSpoke = 0;
     var _icsIrisResponseText = '';
     var _icsFallbackTimer = null;
+    var _currentMode = 'discussion'; // Mode Iris courant — Objectif 024
     var _icsWorkTimer = null;
 
     // Affiche le panneau en mode "Iris réfléchit" dès que l'utilisateur parle
@@ -4952,6 +5053,10 @@
                   context: 'Résultat outil'
                 }});
               }
+            } else if (data.type === 'mode_changed') {
+              _currentMode = data.mode || 'discussion';
+              _updateModeSelectorUI(_currentMode, data.label || '');
+              rLog('info', 'simli', 'mode_changed', _currentMode);
             } else if (data.type === 'ended') {
               _afAppendTranscript('system', data.reason || 'Session terminée');
               _irisWsActive = false;
@@ -5383,6 +5488,48 @@
 
     // Init Teams overlay after audio starts
     _irtInit();
+
+    // --- MODE SELECTOR functions (Objectif 024) ---
+    function selectMode(mode) {
+      if (!_irisWs || _irisWs.readyState !== 1) {
+        rLog('warn', 'simli', 'mode_select', 'WS non connecte');
+        return;
+      }
+      try {
+        _irisWs.send(JSON.stringify({ type: 'mode_select', mode: mode }));
+        rLog('info', 'simli', 'mode_select', mode);
+      } catch(e) {
+        rLog('warn', 'simli', 'mode_select_error', String(e));
+      }
+    }
+
+    function _updateModeSelectorUI(mode, label) {
+      _currentMode = mode;
+      var badge = document.getElementById('modeCurrentBadge');
+      if (badge) {
+        var modeLabels = {
+          discussion: '💬 Discussion',
+          analyse: '📄 Analyse',
+          reunion: '👥 Réunion',
+          tableau: '📊 Tableau',
+          redaction: '✏️ Rédaction',
+          recherche: '🔍 Recherche',
+          actions: '⚡ Actions',
+          equipe: '🧑‍🤝‍🧑 Équipe',
+          carte: '🗺️ Carte',
+          conformite: '🛡️ Conformité'
+        };
+        badge.textContent = modeLabels[mode] || (label || mode);
+      }
+      var chips = document.querySelectorAll('.mode-chip');
+      chips.forEach(function(chip) {
+        if (chip.dataset.mode === mode) {
+          chip.classList.add('active');
+        } else {
+          chip.classList.remove('active');
+        }
+      });
+    }
 
     // Android back button
     window.addEventListener('popstate', function() {
