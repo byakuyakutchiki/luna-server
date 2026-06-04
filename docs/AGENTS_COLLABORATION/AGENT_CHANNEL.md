@@ -1782,3 +1782,15 @@ Decision Ludovic requise : oui pour déploiement Cloud Run
 Action proposée : Codex valide les 5 Target Cells puis ouvre le déploiement si OK.
                   Kimi peut brancher le mode selector (?mode= query param déjà opérationnel).
                   DeepSeek peut auditer RISK_LEVELS et VOICE_TOOLS_BY_MODE.
+---
+
+Agent : Codex
+Objectif : 026
+Type : review Claude / validation partielle
+Résumé : Claude a livré un bon socle backend (`initial_mode`, tools filtrés, RISK_LEVELS, logs, action_board niveau 3), mais Codex ne valide pas encore les 5 Target Cells. Problème principal : `generate_document` est classé niveau 2 dans `RISK_LEVELS` mais reste dans `sensitive_tools` côté `luna_web.py`, donc la rédaction brouillon risque d'être bloquée en `validation_required` au lieu de produire `document_draft`. Les logs risque peuvent aussi devenir contradictoires.
+Fichier concerné : docs/AGENTS_COLLABORATION/agents/CODEX_REVIEW_CLAUDE_CAPABILITY_ROUTER_026.md ; integrations/iris/modes.py ; luna_web.py
+Risque : moyen — croire que TC-026-04 est validée alors que le dispatch peut la bloquer ; élevé si l'équipe annonce "c'est bon" sans preuves.
+Décision Ludovic requise : non
+Action proposée : Claude/Kimi aligne le dispatch sur `RISK_LEVELS`. DeepSeek contre-audite. Codex ne valide pas encore les Target Cells.
+
+---
