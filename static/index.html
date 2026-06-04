@@ -4624,7 +4624,7 @@ function startCall() {
     try { if (typeof stopWakeWord === "function") stopWakeWord(); } catch(e) {}
     try { var vb = document.getElementById("lunaVoiceBtn"); if (vb && vb.classList.contains("active")) vb.click(); } catch(e) {}
     // window.location.replace est plus fiable dans certains WebViews Android
-    window.location.replace("/simli?duration=" + minutes + "&_v=31");
+    window.location.replace("/simli?duration=" + minutes + "&_v=32");
   });
 }
 // --- Appel Vocal (Twilio + OpenAI Realtime) ---

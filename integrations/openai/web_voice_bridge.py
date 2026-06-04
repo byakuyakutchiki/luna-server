@@ -834,6 +834,18 @@ class WebVoiceBridge:
                         self.transcript.append({"role": "user", "text": text})
                         logger.info(f"WebVoice USER: {text[:120]}")
                         self._action_router.on_user_transcript(text)
+                        # Fallback mode auto — si le client a envoyé mode=discussion (défaut)
+                        # et que le texte suggère un mode productif, basculer automatiquement
+                        if self._active_mode == DEFAULT_MODE:
+                            detected = detect_mode_from_text(text)
+                            if detected != DEFAULT_MODE:
+                                logger.info(f"WebVoice: mode_auto_detected={detected} from user text")
+                                await self.set_mode(detected)
+                                await self._ws_send_client({
+                                    "type": "mode_changed",
+                                    "mode": detected,
+                                    "label": IRIS_MODES[detected]["label"],
+                                })
                         await self._ws_send_client({
                             "type": "transcript",
                             "role": "user",

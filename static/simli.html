@@ -1641,6 +1641,8 @@
       } catch(e) {}
     }
 
+    rLog('info', 'simli', 'build_marker', '026-a2206ad-mode-ws');
+
     // =====================================================================
     // PLANNING HORAIRE
     // =====================================================================
@@ -4945,6 +4947,7 @@
         var proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
         var wsUrl = proto + '//' + location.host + '/ws/iris-voice?token=' + encodeURIComponent(token)
           + '&mode=' + encodeURIComponent(_currentMode || 'discussion');
+        rLog('info', 'simli', 'iris_ws_url', wsUrl.replace(encodeURIComponent(token), '***'));
         _irisWs = new WebSocket(wsUrl);
         _irisWsActive = true;
 
