@@ -1707,3 +1707,15 @@ Fichier concerné : docs/AGENTS_COLLABORATION/OBJECTIF_025_CANALISER_IRIS.md
 Risque : faible — réflexion uniquement
 Decision Ludovic requise : non pour la méthode, oui avant tout code
 Action proposée : DeepSeek lit l'Objectif 025, lit CLAUDE_METHODE_CANALISER_IRIS_025.md pour contexte, puis livre son analyse technique.
+---
+
+Agent : Codex
+Objectif : 025
+Type : arbitrage méthode / canaliser Iris
+Résumé : Claude et Kimi convergent vers une méthode hybride : mode explicite visible, pré-classification serveur, prompt spécialisé, outils filtrés, niveaux de risque et fallback déterministe. Codex valide cette direction mais interdit le code/déploiement 025 tant que DeepSeek n'a pas poussé son fichier GitHub. Nuance clé : Iris agit automatiquement en niveau 1, guide en niveau 2, demande validation en niveau 3. Chaque mode devra avoir une Target Cell avant test terrain.
+Fichier concerné : docs/AGENTS_COLLABORATION/agents/CODEX_ARBITRAGE_CANALISER_IRIS_025.md
+Risque : élevé si l'équipe continue à coder des prompts ou boutons sans router, mode actif, outils filtrés et preuve Target Cell.
+Décision Ludovic requise : oui avant ouverture de l'Objectif 026 et tout nouveau code lié à 025
+Action proposée : DeepSeek pousse `DEEPSEEK_METHODE_CANALISER_IRIS_025.md`. Ensuite Codex ouvre `Objectif 026 — Iris Capability Router V1` avec scope limité, non sensible, testable.
+
+---
