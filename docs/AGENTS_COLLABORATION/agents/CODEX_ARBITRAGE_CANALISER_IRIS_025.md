@@ -11,9 +11,9 @@ Statut : méthode validable — aucun code demandé ici
 |---|---|---|
 | Claude | `CLAUDE_METHODE_CANALISER_IRIS_025.md` | livré |
 | Kimi | `KIMI_METHODE_CANALISER_IRIS_025.md` | livré |
-| DeepSeek | `DEEPSEEK_METHODE_CANALISER_IRIS_025.md` | non trouvé sur GitHub au moment de l'arbitrage |
+| DeepSeek | `DEEPSEEK_METHODE_CANALISER_IRIS_025.md` | relayé par Codex depuis le texte transmis par Ludovic |
 
-L'analyse DeepSeek reçue dans le chat est pertinente, mais elle doit être poussée sur GitHub pour être considérée comme livrée officiellement.
+L'analyse DeepSeek reçue dans le chat est pertinente. Elle a été matérialisée sur GitHub par Codex avec mention de source.
 
 ## 2. Consensus équipe
 
@@ -161,7 +161,7 @@ Claude/Kimi Code devront préparer :
 
 ### 7.3 DeepSeek
 
-DeepSeek doit pousser sur GitHub :
+DeepSeek peut maintenant compléter ou corriger sur GitHub :
 
 ```text
 docs/AGENTS_COLLABORATION/agents/DEEPSEEK_METHODE_CANALISER_IRIS_025.md
@@ -218,9 +218,9 @@ Latence cible : < 3s
 
 ## 10. Prochaine consigne
 
-Tant que DeepSeek n'a pas poussé son fichier, l'équipe reste en réflexion.
+Les trois avis sont maintenant disponibles sur GitHub. L'équipe reste en réflexion tant que Ludovic/Codex n'a pas explicitement ouvert l'étape de code.
 
-Quand DeepSeek aura livré, Codex pourra ouvrir l'étape suivante :
+Après validation, Codex pourra ouvrir l'étape suivante :
 
 ```text
 Objectif 026 — Iris Capability Router V1
@@ -236,4 +236,3 @@ Scope probable :
 6. tests Target Cell.
 
 Pas d'action sensible dans la V1.
-

@@ -1711,6 +1711,17 @@ Action proposée : DeepSeek lit l'Objectif 025, lit CLAUDE_METHODE_CANALISER_IRI
 
 Agent : Codex
 Objectif : 025
+Type : relay DeepSeek / correction statut livraison
+Résumé : Ludovic précise que le texte fourni dans le fil est bien l'avis DeepSeek. Codex l'a donc matérialisé sur GitHub dans `DEEPSEEK_METHODE_CANALISER_IRIS_025.md` avec mention explicite : source DeepSeek transmise par Ludovic, relayée par Codex. L'avis DeepSeek ajoute un point important : classer les capacités Iris en 3 niveaux de risque avant dispatch.
+Fichier concerné : docs/AGENTS_COLLABORATION/agents/DEEPSEEK_METHODE_CANALISER_IRIS_025.md
+Risque : faible — documentation uniquement ; aucun code, aucun déploiement.
+Décision Ludovic requise : oui avant ouverture de l'Objectif 026.
+Action proposée : Codex peut maintenant finaliser l'arbitrage avec les trois avis : Claude, Kimi, DeepSeek.
+
+---
+
+Agent : Codex
+Objectif : 025
 Type : arbitrage méthode / canaliser Iris
 Résumé : Claude et Kimi convergent vers une méthode hybride : mode explicite visible, pré-classification serveur, prompt spécialisé, outils filtrés, niveaux de risque et fallback déterministe. Codex valide cette direction mais interdit le code/déploiement 025 tant que DeepSeek n'a pas poussé son fichier GitHub. Nuance clé : Iris agit automatiquement en niveau 1, guide en niveau 2, demande validation en niveau 3. Chaque mode devra avoir une Target Cell avant test terrain.
 Fichier concerné : docs/AGENTS_COLLABORATION/agents/CODEX_ARBITRAGE_CANALISER_IRIS_025.md
