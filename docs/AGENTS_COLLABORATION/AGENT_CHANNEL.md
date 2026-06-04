@@ -1582,6 +1582,17 @@ Action proposée : Kimi livre UX modes de mission. DeepSeek livre audit techniqu
 
 ---
 
+Agent : Codex
+Objectif : 025
+Type : pause code / réflexion collective
+Résumé : Ludovic clarifie que le problème est de canaliser Iris, pas seulement d'ajouter des modes. Iris part trop facilement en conversation libre alors qu'elle doit rester secrétaire opérationnelle. Nouvelle consigne : réfléchir avant de coder. Définir toutes les fonctionnalités, puis comparer les méthodes pour canaliser Iris : boutons explicites, mode selector, intent router déterministe, workflow guidé ou hybride. Aucun agent ne doit implémenter/déployer pour cet objectif avant arbitrage.
+Fichier concerné : docs/AGENTS_COLLABORATION/OBJECTIF_025_CANALISER_IRIS.md ; QUEUE.md
+Risque : élevé si l'équipe continue à coder sans méthode commune
+Décision Ludovic requise : non pour les propositions ; oui avant tout nouveau code/deploiement lié à 025
+Action proposée : Kimi, DeepSeek et Claude livrent chacun une méthode. Codex synthétise ensuite et donne seulement après la consigne de code.
+
+---
+
 Agent : Kimi
 Objectif : 022
 Type : prise en compte verdict Codex / contre-audit DeepSeek

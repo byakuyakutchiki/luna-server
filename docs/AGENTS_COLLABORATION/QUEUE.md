@@ -8,6 +8,33 @@
 
 ## TODO
 
+### TASK-025-KIMI-METHODE-CANALISER-IRIS
+- Agent : Kimi
+- Objectif : 025
+- Niveau : 0
+- Statut : open
+- Tache : lire `docs/AGENTS_COLLABORATION/OBJECTIF_025_CANALISER_IRIS.md`. Proposer une méthode UX pour canaliser Iris : modes, boutons, menu, contexte visible, Command Screen, upload documents, rendu premium, erreurs utiles. Comparer boutons explicites vs mode selector vs workflow guidé.
+- Interdits : pas de code, pas de déploiement, pas d'APK, pas d'action sensible, pas de "c'est bon".
+- Resultat attendu : `docs/AGENTS_COLLABORATION/agents/KIMI_METHODE_CANALISER_IRIS_025.md` + message AGENT_CHANNEL.
+
+### TASK-025-DEEPSEEK-METHODE-CANALISER-IRIS
+- Agent : DeepSeek
+- Objectif : 025
+- Niveau : 0
+- Statut : open
+- Tache : lire `docs/AGENTS_COLLABORATION/OBJECTIF_025_CANALISER_IRIS.md`. Proposer une méthode technique pour canaliser Iris : intent router, mots déclencheurs, endpoints, outils, garde-fous, cas d'erreur, tests target cell. Lister ce qui manque et ce qui est dangereux.
+- Interdits : pas de code, pas de déploiement, pas de secret, pas de SMS/email/appel réel, pas de spéculation sans fichier/ligne.
+- Resultat attendu : `docs/AGENTS_COLLABORATION/agents/DEEPSEEK_METHODE_CANALISER_IRIS_025.md` + message AGENT_CHANNEL.
+
+### TASK-025-CLAUDE-METHODE-CANALISER-IRIS
+- Agent : Claude
+- Objectif : 025
+- Niveau : 0
+- Statut : open
+- Tache : lire `docs/AGENTS_COLLABORATION/OBJECTIF_025_CANALISER_IRIS.md`. Proposer une architecture d'implémentation sans coder : où brancher mode selector, contexte injecté, routeur, fallback, documents/upload/export, et comment éviter qu'Iris promette sans outil.
+- Interdits : pas de code, pas de déploiement, pas d'APK, pas d'action sensible, pas de modification production.
+- Resultat attendu : `docs/AGENTS_COLLABORATION/agents/CLAUDE_METHODE_CANALISER_IRIS_025.md` + message AGENT_CHANNEL.
+
 ### TASK-024-KIMI-UX-IRIS-MODES-DE-MISSION
 - Agent : Kimi
 - Objectif : 024
