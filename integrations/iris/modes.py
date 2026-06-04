@@ -34,8 +34,7 @@ MODE_ANALYSE = {
         "Les formats acceptés : PDF, DOCX, TXT, CSV, XLSX, images, ZIP. "
         "Pour un ZIP : liste les fichiers, puis analyse chaque document pertinent."
     ),
-    "allowed_tools": ["get_documents_summary", "search_documents", "list_folders",
-                      "iris_render", "chat"],
+    "allowed_tools": ["get_documents_summary", "search_documents", "list_folders", "iris_render"],
     "default_render": "document_insight",
     "forbidden_actions": ["send_sms", "call_contact", "send_email"],
     "auto_render": True,
@@ -51,7 +50,7 @@ MODE_REUNION = {
         "Utilise meeting_board pour le CR. Utilize organize_kanban pour les actions. "
         "À la fin de la réunion, résume les décisions et les actions à venir."
     ),
-    "allowed_tools": ["start_meeting", "organize_kanban", "iris_render", "chat",
+    "allowed_tools": ["start_meeting", "organize_kanban", "iris_render",
                       "get_contacts", "add_reminder"],
     "default_render": "meeting_board",
     "forbidden_actions": ["send_sms", "call_contact", "send_email", "alert_contacts",
@@ -70,7 +69,7 @@ MODE_TABLEAU = {
         "Ne réponds JAMAIS en texte seul quand des données sont présentes. "
         "Si les données sont insuffisantes pour un graphique, affiche un tableau."
     ),
-    "allowed_tools": ["iris_render", "chat"],
+    "allowed_tools": ["iris_render"],
     "default_render": "data_board",
     "forbidden_actions": ["send_sms", "call_contact", "send_email"],
     "auto_render": True,
@@ -86,7 +85,7 @@ MODE_REDACTION = {
         "Utilise document_draft. Inclue les placeholders pour les informations manquantes. "
         "Le document est exportable en PDF/TXT. Pas d'envoi sans confirmation."
     ),
-    "allowed_tools": ["iris_render", "generate_document", "chat"],
+    "allowed_tools": ["iris_render", "generate_document"],
     "default_render": "document_draft",
     "forbidden_actions": ["send_sms", "call_contact", "send_email", "alert_contacts"],
     "auto_render": True,
@@ -102,7 +101,7 @@ MODE_RECHERCHE = {
         "Utilise context_panel pour la synthèse. "
         "Pas d'information médicale/juridique sans disclaimer."
     ),
-    "allowed_tools": ["search_web", "get_page_info", "get_news", "iris_render", "chat"],
+    "allowed_tools": ["search_web", "get_page_info", "get_news", "iris_render"],
     "default_render": "context_panel",
     "forbidden_actions": ["send_sms", "call_contact", "send_email"],
     "auto_render": True,
@@ -119,7 +118,7 @@ MODE_ACTIONS = {
         "Blacklist horaires 22h-7h. Pas d'appel aux numéros d'urgence."
     ),
     "allowed_tools": ["send_sms", "send_email", "call_contact", "add_reminder",
-                      "alert_contacts", "iris_render", "chat"],
+                      "alert_contacts", "iris_render"],
     "default_render": "action_board",
     "forbidden_actions": ["invite_visio", "invite_to_session"],
     "auto_render": True,
@@ -136,7 +135,7 @@ MODE_EQUIPE = {
         "Utilise status_rail pour l'état de l'équipe. "
         "Utilize invite_to_session pour les invitations."
     ),
-    "allowed_tools": ["invite_to_session", "get_contacts", "iris_render", "chat"],
+    "allowed_tools": ["invite_to_session", "get_contacts", "iris_render"],
     "default_render": "status_rail",
     "forbidden_actions": ["send_sms", "call_contact", "send_email", "alert_contacts"],
     "auto_render": True,
@@ -152,7 +151,7 @@ MODE_CARTE = {
         "Demande TOUJOURS le consentement pour la géolocalisation. "
         "Utilise search_places pour chercher un lieu. Utilise map_board pour l'affichage."
     ),
-    "allowed_tools": ["search_places", "iris_render", "chat"],
+    "allowed_tools": ["search_places", "iris_render"],
     "default_render": "map_board",
     "forbidden_actions": ["send_sms", "call_contact", "send_email", "alert_contacts"],
     "auto_render": True,
@@ -169,7 +168,7 @@ MODE_CONFORMITE = {
         "Ajoute TOUJOURS : 'Je ne suis pas un conseil juridique. Vérifiez avec un professionnel.' "
         "Utilise document_insight pour l'analyse. Utilise action_board pour les points à vérifier."
     ),
-    "allowed_tools": ["get_documents_summary", "search_documents", "iris_render", "chat"],
+    "allowed_tools": ["get_documents_summary", "search_documents", "iris_render"],
     "default_render": "document_insight",
     "forbidden_actions": ["send_sms", "call_contact", "send_email", "alert_contacts"],
     "auto_render": True,

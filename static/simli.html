@@ -4943,12 +4943,13 @@
         if (_irisWsPlayCtx.state === 'suspended') _irisWsPlayCtx.resume().catch(function(){});
 
         var proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-        var wsUrl = proto + '//' + location.host + '/ws/iris-voice?token=' + encodeURIComponent(token);
+        var wsUrl = proto + '//' + location.host + '/ws/iris-voice?token=' + encodeURIComponent(token)
+          + '&mode=' + encodeURIComponent(_currentMode || 'discussion');
         _irisWs = new WebSocket(wsUrl);
         _irisWsActive = true;
 
         _irisWs.onopen = function() {
-          rLog('info', 'simli', 'iris_ws_open', '');
+          rLog('info', 'simli', 'iris_ws_open', 'mode=' + (_currentMode || 'discussion'));
           _setIrisState('idle');
         };
 

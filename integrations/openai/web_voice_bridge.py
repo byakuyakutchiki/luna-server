@@ -599,19 +599,20 @@ class WebVoiceBridge:
             logger.warning(f"WebVoice: lecture event initial OpenAI: {e}")
 
     def _build_filtered_tools(self, mode_id: str) -> List[Dict]:
-        """Filtre VOICE_TOOLS selon le mode actif. Garde toujours chat."""
+        """Filtre VOICE_TOOLS selon le mode actif.
+        chat n'est inclus qu'en mode discussion — en modes productifs,
+        iris_render ou les outils métier sont obligatoires (tool_choice=required).
+        """
         allowed = set(get_mode_tools(mode_id))
-        allowed.add("chat")
-        filtered = []
-        for tool in VOICE_TOOLS:
-            name = tool.get("name", "")
-            if name in allowed:
-                filtered.append(tool)
+        # En mode discussion uniquement : ajouter chat si pas déjà présent
+        if mode_id == DEFAULT_MODE:
+            allowed.add("chat")
+        filtered = [t for t in VOICE_TOOLS if t.get("name", "") in allowed]
+        # Dernier recours : fournir iris_render si la liste est vide
         if not filtered:
-            for tool in VOICE_TOOLS:
-                if tool.get("name") == "chat":
-                    filtered.append(tool)
-                    break
+            fallback = next((t for t in VOICE_TOOLS if t.get("name") == "iris_render"), None)
+            if fallback:
+                filtered = [fallback]
         return filtered
 
     async def _configure_session(self):
