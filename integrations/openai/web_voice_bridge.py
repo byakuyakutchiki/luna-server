@@ -764,6 +764,36 @@ class WebVoiceBridge:
                         })
                         await self._ws_send_openai({"type": "response.create"})
 
+                elif msg_type == "ui_event":
+                    event_name = data.get("name", "")
+                    if event_name == "document_uploaded" and self.ws_openai:
+                        fname = str(data.get("filename", "fichier"))[:120]
+                        analysis = str(data.get("analysis", ""))[:2000]
+                        logger.info(f"WebVoice: ui_event document_uploaded fname={fname[:60]}")
+                        inject_text = (
+                            f'[Document reçu : "{fname}"]\n{analysis}\n\n'
+                            f'Tu viens de recevoir ce document. Confirme à ton souscripteur '
+                            f'que tu l\'as bien reçu, cite le nom du fichier, résume le contenu '
+                            f'en 2-3 phrases, et propose une action concrète.'
+                        )
+                        await self._ws_send_openai({
+                            "type": "conversation.item.create",
+                            "item": {
+                                "type": "message",
+                                "role": "user",
+                                "content": [{"type": "input_text", "text": inject_text}],
+                            },
+                        })
+                        await self._ws_send_openai({"type": "response.create"})
+                        await self._ws_send_client({
+                            "type": "ui_state_ack",
+                            "event": "document_uploaded",
+                            "filename": fname,
+                        })
+                        logger.info(f"WebVoice: ui_state_ack document_uploaded fname={fname[:60]}")
+                    else:
+                        logger.info(f"WebVoice: ui_event unhandled name={event_name}")
+
                 elif msg_type == "mode_select":
                     mode_id = data.get("mode", "")
                     if mode_id:

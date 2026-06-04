@@ -2762,19 +2762,32 @@
         showToast('✓ Iris a analysé "' + fname + '"', 3000);
         _visioTranscript.push({ ts: Date.now(), type: 'upload.analysis', text: '[Document: ' + fname + '] ' + analysis });
         rLog('info', 'simli', 'upload_ok', analysis.substring(0, 80));
-        // Injecter l'analyse dans la conversation Luna
-        try {
-          _sendAppMessageToBot({
-            message_type: 'conversation',
-            event_type: 'conversation.echo',
-            conversation_id: currentConvId,
-            properties: {
-              modality: 'text',
-              text: '[Document partagé : "' + fname + '"]\n' + analysis +
-                    '\n\nDis à ton souscripteur ce que tu penses de ce document. Donne ton avis, souligne les points importants et pose-lui des questions si nécessaire.'
-            }
-          });
-        } catch(e2) { rLog('warn', 'simli', 'upload_echo_fail', String(e2).substring(0,60)); }
+        // Injecter via le canal WS Iris réel (pont UI -> mémoire Iris Realtime)
+        if (_irisWs && _irisWs.readyState === WebSocket.OPEN) {
+          try {
+            _irisWs.send(JSON.stringify({
+              type: 'ui_event',
+              name: 'document_uploaded',
+              filename: fname,
+              analysis: analysis,
+              conversation_id: currentConvId
+            }));
+            rLog('info', 'simli', 'ui_event', 'document_uploaded ' + fname);
+          } catch(e2) { rLog('warn', 'simli', 'ui_event_fail', String(e2).substring(0, 60)); }
+        } else {
+          // Fallback : canal Daily (compat si WS Iris non actif)
+          try {
+            _sendAppMessageToBot({
+              message_type: 'conversation',
+              event_type: 'conversation.echo',
+              conversation_id: currentConvId,
+              properties: {
+                modality: 'text',
+                text: '[Document partagé : "' + fname + '"]\n' + analysis
+              }
+            });
+          } catch(e2b) { rLog('warn', 'simli', 'upload_echo_fail', String(e2b).substring(0, 60)); }
+        }
       })
       .catch(function(err) {
         if (btn) { btn.textContent = '📎 Analyser'; btn.classList.remove('uploading'); }
@@ -5057,6 +5070,8 @@
                   context: 'Résultat outil'
                 }});
               }
+            } else if (data.type === 'ui_state_ack') {
+              rLog('info', 'simli', 'ui_state_ack', data.event + ' ' + (data.filename || ''));
             } else if (data.type === 'mode_changed') {
               _currentMode = data.mode || 'discussion';
               _updateModeSelectorUI(_currentMode, data.label || '');
