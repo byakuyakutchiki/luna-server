@@ -770,11 +770,24 @@ class WebVoiceBridge:
                         fname = str(data.get("filename", "fichier"))[:120]
                         analysis = str(data.get("analysis", ""))[:2000]
                         logger.info(f"WebVoice: ui_event document_uploaded fname={fname[:60]}")
+
+                        # Bascule automatique en mode analyse si on est en discussion
+                        if self._active_mode == DEFAULT_MODE:
+                            logger.info(f"WebVoice: auto_switch_mode discussion -> analyse (document uploaded)")
+                            await self.set_mode("analyse")
+
+                        # Stocker le document en memoire de session
+                        doc_entry = {"filename": fname, "analysis": analysis, "ts": _time.time()}
+                        if not hasattr(self, "_session_documents"):
+                            self._session_documents = []
+                        self._session_documents.append(doc_entry)
+
+                        # Injecter un message utilisateur court et direct
                         inject_text = (
-                            f'[Document reçu : "{fname}"]\n{analysis}\n\n'
-                            f'Tu viens de recevoir ce document. Confirme à ton souscripteur '
-                            f'que tu l\'as bien reçu, cite le nom du fichier, résume le contenu '
-                            f'en 2-3 phrases, et propose une action concrète.'
+                            f'[DOCUMENT RECU : {fname}]\n'
+                            f'{analysis}\n\n'
+                            f'Action : confirme que tu as recu ce document, cite son nom, '
+                            f'et propose une analyse ou un rendu document_insight.'
                         )
                         await self._ws_send_openai({
                             "type": "conversation.item.create",
