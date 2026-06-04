@@ -284,6 +284,7 @@ class WebVoiceBridge:
         participant_role: str = "owner",
         participant_name: str = "",
         session_manager=None,  # IrisSessionManager | None
+        initial_mode: str = DEFAULT_MODE,  # Mode initial transmis via ?mode= (Objectif 026)
     ):
         self.openai_api_key = openai_api_key
         self.ws_client = ws_client
@@ -313,8 +314,8 @@ class WebVoiceBridge:
         self._session_manager = session_manager
         # Iris Action Router — fallback deterministe si le LLM n'appelle pas d'outil
         self._action_router = _IrisActionRouter(self)
-        # Mode de mission Iris — Objectif 024
-        self._active_mode = DEFAULT_MODE
+        # Mode de mission Iris — initialisé depuis le query param ?mode= (Objectif 026)
+        self._active_mode = initial_mode if initial_mode in IRIS_MODES else DEFAULT_MODE
         self._base_context = context  # Contexte système de base (sans mode)
 
     def _client_connected(self) -> bool:

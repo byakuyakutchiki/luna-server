@@ -9300,6 +9300,17 @@ async def ws_iris_voice(websocket: WebSocket):
     if not _session_id:
         _session_id = websocket.query_params.get("session") or None
 
+    # Mode de mission Iris — Objectif 026
+    from integrations.iris.modes import (
+        IRIS_MODES as _IRIS_MODES_MAP,
+        DEFAULT_MODE as _IRIS_DEFAULT_MODE,
+        RISK_LEVELS as _IRIS_RISK_LEVELS,
+    )
+    _iris_mode = websocket.query_params.get("mode", _IRIS_DEFAULT_MODE)
+    if _iris_mode not in _IRIS_MODES_MAP:
+        _iris_mode = _IRIS_DEFAULT_MODE
+    logger.info(f"Iris: mode_detected={_iris_mode} role={_participant_role} session={_session_id or 'solo'}")
+
     if not OPENAI_API_KEY:
         try:
             await websocket.send_text(json.dumps({"type": "error", "message": "Service vocal non configuré"}))
@@ -9390,6 +9401,9 @@ Règles de collaboration :
 
     async def handle_iris_tool(function_name: str, arguments: Dict) -> Dict:
         """Outils Iris : lecture/recherche autorisées, actions sensibles en attente Workbench."""
+        # Preuve Objectif 026 — log systématique avant dispatch
+        _risk = _IRIS_RISK_LEVELS.get(function_name, 2)
+        logger.info(f"Iris: tool_call fn={function_name} risk_level={_risk} mode={_iris_mode}")
 
         async def _iris_auto_render(fn: str, args: dict, res: dict) -> None:
             """Capability Gateway Bridge — transforme le résultat d'un tool en render_type WS."""
@@ -9629,7 +9643,7 @@ Règles de collaboration :
 
             if payload:
                 try:
-                    logger.info(f"_iris_auto_render SEND render_type={payload.get('render_type','?')} fn={fn}")
+                    logger.info(f"Iris: render_type={payload.get('render_type','?')} fn={fn} render_done=true")
                     await websocket.send_text(json.dumps(payload, ensure_ascii=False))
                 except Exception as _se:
                     logger.warning(f"_iris_auto_render send error: {_se}")
@@ -9647,6 +9661,7 @@ Règles de collaboration :
             "generate_document", "request_payment", "book_restaurant",
         }
         if function_name in safe_tools:
+            logger.info(f"Iris: tool_allowed fn={function_name} risk_level=1")
             result = await _dispatch_chat_tool(function_name, arguments or {}, tid, "iris_voice")
             await _iris_auto_render(function_name, arguments or {}, result)
             return result
@@ -9699,6 +9714,7 @@ Règles de collaboration :
                     await websocket.send_text(json.dumps(action_board_payload, ensure_ascii=False))
                 except Exception as _ae:
                     logger.warning(f"action_board send error: {_ae}")
+                logger.info(f"Iris: tool_blocked fn={function_name} risk=3 -> action_board")
                 return {
                     "status": "validation_required",
                     "message": (
@@ -9708,6 +9724,56 @@ Règles de collaboration :
                     "tool": function_name,
                     "contact": contact_display,
                 }
+            if function_name == "alert_contacts":
+                _reason = (arguments or {}).get("reason", "urgence")
+                _alert_board = {
+                    "type": "render",
+                    "render_type": "action_board",
+                    "action_type": "alert_contacts",
+                    "requires_confirmation": True,
+                    "summary": f"Alerte urgence : «{_reason[:80]}»",
+                    "details": {
+                        "Action": "Alerte envoyée à TOUS les contacts de confiance",
+                        "Coût estimé": "~ 0.07 €/SMS × nb contacts",
+                        "Garde-fous": "Validation owner · Horaires 22h-7h · Quota mensuel",
+                    },
+                }
+                try:
+                    await websocket.send_text(json.dumps(_alert_board, ensure_ascii=False))
+                except Exception as _ae:
+                    logger.warning(f"action_board send error: {_ae}")
+                logger.info("Iris: tool_blocked fn=alert_contacts risk=3 -> action_board")
+                return {
+                    "status": "validation_required",
+                    "message": "J'ai préparé l'alerte urgence. Confirmation obligatoire — dis 'Confirme' ou clique Approuver.",
+                    "tool": "alert_contacts",
+                }
+            if function_name == "invite_visio":
+                _contact = (arguments or {}).get("contact_name", "?")
+                _visio_board = {
+                    "type": "render",
+                    "render_type": "action_board",
+                    "action_type": "invite_visio",
+                    "requires_confirmation": True,
+                    "summary": f"Invitation visio vers {_contact}",
+                    "details": {
+                        "Destinataire": _contact,
+                        "Action": "Envoi d'un lien visio par SMS",
+                        "Coût estimé": "~ 0.07 €",
+                        "Garde-fous": "Validation owner · Quota mensuel",
+                    },
+                }
+                try:
+                    await websocket.send_text(json.dumps(_visio_board, ensure_ascii=False))
+                except Exception as _ae:
+                    logger.warning(f"action_board send error: {_ae}")
+                logger.info("Iris: tool_blocked fn=invite_visio risk=3 -> action_board")
+                return {
+                    "status": "validation_required",
+                    "message": f"J'ai préparé l'invitation visio pour {_contact}. Confirme pour envoyer le lien.",
+                    "tool": "invite_visio",
+                }
+            logger.info(f"Iris: tool_blocked fn={function_name} risk=3 -> validation_required")
             return {
                 "status": "validation_required",
                 "message": (
@@ -9763,6 +9829,7 @@ Règles de collaboration :
         participant_role=_participant_role,
         participant_name=_participant_name,
         session_manager=_iris_session_manager,
+        initial_mode=_iris_mode,
     )
 
     # Enregistrer le WS dans la session collaborative si active

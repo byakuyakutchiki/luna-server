@@ -242,3 +242,49 @@ def build_mode_context(mode_id: str) -> str:
     if mode.get("mandatory_disclaimer"):
         lines.append(f"Disclaimer obligatoire : {mode['mandatory_disclaimer']}")
     return "\n".join(lines)
+
+
+# Niveaux de risque par outil — Objectif 026
+# 1 = automatique   : lecture, rendu local, aucun impact externe
+# 2 = guidé         : production de contenu, validation avant stockage/export
+# 3 = obligatoire   : action réelle externe, engageante, potentiellement irréversible
+RISK_LEVELS: Dict[str, int] = {
+    # --- Niveau 1 — automatique ---
+    "chat": 1,
+    "iris_render": 1,
+    "get_weather": 1,
+    "get_news": 1,
+    "search_web": 1,
+    "get_page_info": 1,
+    "search_places": 1,
+    "get_contacts": 1,
+    "get_player_stats": 1,
+    "get_active_missions": 1,
+    "get_badges": 1,
+    "search_documents": 1,
+    "get_documents_summary": 1,
+    "list_folders": 1,
+    "get_budget_analysis": 1,
+    "check_affordability": 1,
+    "get_reminders": 1,
+    # --- Niveau 2 — guidé ---
+    "create_note": 2,
+    "generate_document": 2,
+    "add_reminder": 2,
+    "start_meeting": 2,
+    "organize_kanban": 2,
+    "analyze_document": 2,
+    "create_instruction": 2,
+    "search_flights": 2,
+    "search_hotels": 2,
+    "book_restaurant": 2,
+    "add_expense": 2,
+    # --- Niveau 3 — validation obligatoire ---
+    "send_sms": 3,
+    "call_contact": 3,
+    "send_email": 3,
+    "alert_contacts": 3,
+    "invite_visio": 3,
+    "invite_to_session": 3,
+    "request_payment": 3,
+}
