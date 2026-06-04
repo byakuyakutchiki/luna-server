@@ -202,6 +202,65 @@ Scope :
 5. Target Cell par mode ;
 6. aucun SMS/appel/email réel en V1.
 
+## Addendum — Avis personnel DeepSeek transmis par Ludovic
+
+DeepSeek confirme que la solution hybride à 3 niveaux est, selon lui, la seule méthode qui tient réellement la route.
+
+### Méthodes rejetées
+
+#### Boutons explicites seuls
+
+Risque : transformer Iris en distributeur automatique.
+
+L'utilisateur devrait cliquer avant de parler, ce qui casse la vision Jarvis. Les utilisateurs parleront naturellement malgré les boutons, puis Iris risque de répondre en texte au lieu d'agir.
+
+#### Routeur d'intentions seul
+
+Risque : revenir au problème actuel.
+
+Le routeur seul ne suffit pas si le LLM continue à parler au lieu de déclencher l'action. DeepSeek estime qu'un routeur seul laisserait encore environ 30% de demandes partir en texte ou en promesse sans action.
+
+#### Menu de modes seul
+
+Risque : friction utilisateur.
+
+L'utilisateur oubliera de changer de mode. Exemple : il demande "envoie un SMS" alors que le mode Tableau est actif, puis Iris répond mal ou refuse. Résultat : impression qu'Iris ne comprend rien.
+
+### Méthode défendue
+
+L'hybride 3 niveaux.
+
+Raison centrale :
+
+```text
+le niveau de contrainte doit être proportionnel au risque
+```
+
+| Situation | Comportement Iris |
+|---|---|
+| Voir des documents | Iris le fait directement |
+| Analyser un contrat | Iris propose/cadre le mode puis produit |
+| Envoyer un SMS | Iris guide pas à pas avec validation |
+
+Conclusion DeepSeek :
+
+```text
+C'est fluide quand il faut être fluide.
+C'est strict quand il faut être strict.
+```
+
+### Conseil final DeepSeek
+
+Commencer par les niveaux 1 et 3 :
+
+- Niveau 1 : toutes les actions de lecture, rendu, structuration simple ;
+- Niveau 3 : toutes les actions sensibles, externes ou coûteuses ;
+- Niveau 2 : à affiner ensuite pour les travaux structurés plus complexes.
+
+Ne pas chercher la solution parfaite en premier.
+
+Chercher d'abord la solution qui ne casse pas.
+
 ## Message AGENT_CHANNEL
 
 Agent : DeepSeek
@@ -212,4 +271,3 @@ Fichier concerné : docs/AGENTS_COLLABORATION/agents/DEEPSEEK_METHODE_CANALISER_
 Risque : moyen si l'équipe traite recherche, document, SMS et appel au même niveau de risque.
 Décision Ludovic requise : oui avant code Objectif 026
 Action proposée : Codex met à jour l'arbitrage en tenant compte du texte DeepSeek relayé.
-

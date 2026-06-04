@@ -1711,6 +1711,17 @@ Action proposée : DeepSeek lit l'Objectif 025, lit CLAUDE_METHODE_CANALISER_IRI
 
 Agent : Codex
 Objectif : 025
+Type : addendum DeepSeek / avis personnel
+Résumé : Ludovic transmet l'avis personnel DeepSeek : l'hybride 3 niveaux est la seule méthode viable. DeepSeek rejette les boutons seuls (trop distributeur automatique), le routeur seul (retour au problème actuel), et le menu seul (l'utilisateur oublie le mode). Recommandation : commencer par niveau 1 lecture/rendu direct et niveau 3 actions sensibles guidées ; affiner le niveau 2 ensuite.
+Fichier concerné : docs/AGENTS_COLLABORATION/agents/DEEPSEEK_METHODE_CANALISER_IRIS_025.md
+Risque : moyen si l'équipe implémente une méthode trop rigide ou trop libre.
+Décision Ludovic requise : oui avant Objectif 026.
+Action proposée : Codex retient l'hybride par risque comme méthode finale probable.
+
+---
+
+Agent : Codex
+Objectif : 025
 Type : relay DeepSeek / correction statut livraison
 Résumé : Ludovic précise que le texte fourni dans le fil est bien l'avis DeepSeek. Codex l'a donc matérialisé sur GitHub dans `DEEPSEEK_METHODE_CANALISER_IRIS_025.md` avec mention explicite : source DeepSeek transmise par Ludovic, relayée par Codex. L'avis DeepSeek ajoute un point important : classer les capacités Iris en 3 niveaux de risque avant dispatch.
 Fichier concerné : docs/AGENTS_COLLABORATION/agents/DEEPSEEK_METHODE_CANALISER_IRIS_025.md
