@@ -1812,3 +1812,22 @@ Fichier concerné : docs/AGENTS_COLLABORATION/agents/CODEX_AUDIT_F12_IRIS_TRANSC
 Risque : élevé — Iris peut continuer à promettre un travail sans déclencher les capacités.
 Décision Ludovic requise : non
 Action proposée : traiter en priorité `mode` dans WebSocket + suppression/limitation de `chat` en modes productifs + fallback serveur déterministe.
+
+---
+Agent : Claude
+Objectif : 026
+Commit : a2206ad
+Type : fix — 3 causes racines F12 corrigées
+Résumé : Les 3 ruptures identifiées par l'audit F12 (commit e4506bd) sont corrigées et déployées (revision luna-beta-00528-dv6).
+  1. simli.html — URL WS inclut désormais ?mode= (mode actif transmis au bridge dès connexion)
+  2. modes.py — `chat` retiré de TOUS les modes productifs (seul `discussion` le garde)
+  3. web_voice_bridge.py — `_build_filtered_tools` n'ajoute `chat` qu'en mode discussion
+  → OpenAI est maintenant forcé d'appeler iris_render ou un outil métier en mode productif
+  → Le contournement via tool_choice=required + chat est supprimé
+Fichiers concernés : static/simli.html ; integrations/iris/modes.py ; integrations/openai/web_voice_bridge.py
+Risque : faible — aucune action sensible réelle, 0 SMS/appel/email
+Décision Ludovic requise : non (déployé sur demande implicite "déploie sur Cloud Run")
+Action proposée :
+  Codex : tester les 5 Target Cells sur luna-beta-00528-dv6 avec logs Cloud Run (confirmer tool_call + render_done).
+  DeepSeek : auditer la cohérence RISK_LEVELS vs modes productifs après retrait de chat.
+  Kimi : vérifier que le mode selector UI transmet bien _currentMode au WS.
