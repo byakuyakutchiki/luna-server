@@ -798,6 +798,33 @@ class WebVoiceBridge:
                             },
                         })
                         await self._ws_send_openai({"type": "response.create"})
+
+                        # Rendu immédiat document_insight dans le Command Screen
+                        # Privé : _ws_send_client envoie uniquement à ce WS (pas de broadcast session)
+                        ext = fname.rsplit(".", 1)[-1].upper() if "." in fname else "DOC"
+                        preview = analysis[:300].strip() if analysis else "—"
+                        await self._ws_send_client({
+                            "type": "render",
+                            "render_type": "document_insight",
+                            "title": fname,
+                            "boxes": [
+                                {"title": "Contenu extrait", "body": preview + ("…" if len(analysis) > 300 else "")},
+                                {"title": "Analyse Iris", "body": "Iris analyse ce document…"},
+                            ],
+                            "tags": [
+                                {"label": ext, "type": "info"},
+                                {"label": "Reçu", "type": "ok"},
+                            ],
+                            "actions": [
+                                {"label": "Synthèse"},
+                                {"label": "Points clés"},
+                                {"label": "Tableau"},
+                                {"label": "Rédiger une réponse"},
+                            ],
+                            "private": True,
+                        })
+                        logger.info(f"WebVoice: render_type=document_insight fn=upload render_done=true")
+
                         await self._ws_send_client({
                             "type": "ui_state_ack",
                             "event": "document_uploaded",
