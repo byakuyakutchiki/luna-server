@@ -7814,6 +7814,16 @@ async def visio_upload(request: Request):
 
     is_image = mime_type.startswith("image/") or _re_up.search(r"\.(jpg|jpeg|png|gif|webp)$", filename, _re_up.I)
     is_pdf = mime_type == "application/pdf" or filename.lower().endswith(".pdf")
+    is_docx = mime_type in (
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "application/msword",
+    ) or filename.lower().endswith((".docx", ".doc"))
+    is_xlsx = mime_type in (
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "application/vnd.ms-excel",
+    ) or filename.lower().endswith((".xlsx", ".xls"))
+    is_csv = mime_type in ("text/csv", "application/csv") or filename.lower().endswith(".csv")
+    is_zip = mime_type in ("application/zip", "application/x-zip-compressed") or filename.lower().endswith(".zip")
 
     analysis = ""
 
@@ -7885,30 +7895,142 @@ async def visio_upload(request: Request):
             logger.error(f"Visio upload pdf analysis error: {e}")
             return JSONResponse(status_code=500, content={"ok": False, "error": f"Analyse PDF impossible: {str(e)[:80]}"})
 
+    elif is_docx:
+        # python-docx : extraction texte DOCX/DOC
+        try:
+            import io as _io
+            from docx import Document as _DocxDoc
+            doc = _DocxDoc(_io.BytesIO(raw_bytes))
+            paras = [p.text for p in doc.paragraphs if p.text.strip()]
+            tables_rows = []
+            for tbl in doc.tables:
+                for row in tbl.rows:
+                    row_txt = " | ".join(c.text.strip() for c in row.cells if c.text.strip())
+                    if row_txt:
+                        tables_rows.append(row_txt)
+            full_text = "\n".join(paras)
+            if tables_rows:
+                full_text += "\n\nTableaux :\n" + "\n".join(tables_rows)
+            full_text = full_text.strip()[:12000]
+        except ImportError:
+            return JSONResponse(status_code=500, content={"ok": False, "error": "DOCX non supporté sur ce serveur"})
+        except Exception as e:
+            return JSONResponse(status_code=500, content={"ok": False, "error": f"Erreur lecture DOCX: {str(e)[:80]}"})
+
+        if not full_text:
+            return JSONResponse(status_code=422, content={"ok": False, "error": "Document DOCX vide ou illisible"})
+
+        try:
+            loop = asyncio.get_event_loop()
+            resp = await loop.run_in_executor(None, lambda: openai_client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[{"role": "user", "content": (
+                    f"Voici le contenu d'un document Word nommé '{filename}'.\n\n{full_text}\n\n"
+                    "Identifie le type de document (CV, contrat, rapport, courrier…), son objet principal, "
+                    "les informations importantes et les points clés. Réponds en français, max 300 mots."
+                )}],
+                max_tokens=500, temperature=0.3,
+            ))
+            analysis = resp.choices[0].message.content.strip()
+        except Exception as e:
+            logger.error(f"Visio upload docx analysis error: {e}")
+            return JSONResponse(status_code=500, content={"ok": False, "error": f"Analyse DOCX impossible: {str(e)[:80]}"})
+
+    elif is_xlsx:
+        # openpyxl : extraction données Excel
+        try:
+            import io as _io
+            from openpyxl import load_workbook as _load_wb
+            wb = _load_wb(_io.BytesIO(raw_bytes), read_only=True, data_only=True)
+            rows_text = []
+            for sheet in list(wb.worksheets)[:3]:
+                rows_text.append(f"[Feuille : {sheet.title}]")
+                for i, row in enumerate(sheet.iter_rows(values_only=True)):
+                    if i >= 200:
+                        rows_text.append(f"[… {sheet.max_row - 200} lignes supplémentaires]")
+                        break
+                    row_str = " | ".join(str(c) for c in row if c is not None)
+                    if row_str.strip():
+                        rows_text.append(row_str)
+            full_text = "\n".join(rows_text).strip()[:12000]
+        except ImportError:
+            return JSONResponse(status_code=500, content={"ok": False, "error": "XLSX non supporté sur ce serveur"})
+        except Exception as e:
+            return JSONResponse(status_code=500, content={"ok": False, "error": f"Erreur lecture XLSX: {str(e)[:80]}"})
+
+        if not full_text:
+            return JSONResponse(status_code=422, content={"ok": False, "error": "Fichier Excel vide ou illisible"})
+
+        try:
+            loop = asyncio.get_event_loop()
+            resp = await loop.run_in_executor(None, lambda: openai_client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[{"role": "user", "content": (
+                    f"Voici les données d'un fichier Excel nommé '{filename}'.\n\n{full_text}\n\n"
+                    "Analyse ces données : identifie les colonnes principales, les tendances, "
+                    "les valeurs remarquables. Réponds en français, max 300 mots."
+                )}],
+                max_tokens=500, temperature=0.3,
+            ))
+            analysis = resp.choices[0].message.content.strip()
+        except Exception as e:
+            logger.error(f"Visio upload xlsx analysis error: {e}")
+            return JSONResponse(status_code=500, content={"ok": False, "error": f"Analyse Excel impossible: {str(e)[:80]}"})
+
+    elif is_zip:
+        # zipfile : inventaire + extraction fichiers texte
+        try:
+            import io as _io, zipfile as _zf
+            with _zf.ZipFile(_io.BytesIO(raw_bytes)) as zf:
+                names = zf.namelist()
+                text_files = [n for n in names if n.lower().endswith((".txt", ".md", ".csv", ".json"))]
+                full_text = f"Archive ZIP : {len(names)} fichiers\n" + "\n".join(names[:30])
+                for tf in text_files[:3]:
+                    try:
+                        content = zf.read(tf).decode("utf-8", errors="replace")[:2000]
+                        full_text += f"\n\n[{tf}]\n{content}"
+                    except Exception:
+                        pass
+            full_text = full_text.strip()[:12000]
+        except Exception as e:
+            return JSONResponse(status_code=500, content={"ok": False, "error": f"Erreur lecture ZIP: {str(e)[:80]}"})
+
+        try:
+            loop = asyncio.get_event_loop()
+            resp = await loop.run_in_executor(None, lambda: openai_client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[{"role": "user", "content": (
+                    f"Voici le contenu d'une archive ZIP nommée '{filename}'.\n\n{full_text}\n\n"
+                    "Décris le contenu de cette archive, identifie les fichiers principaux et leur utilité. "
+                    "Réponds en français, max 300 mots."
+                )}],
+                max_tokens=500, temperature=0.3,
+            ))
+            analysis = resp.choices[0].message.content.strip()
+        except Exception as e:
+            logger.error(f"Visio upload zip analysis error: {e}")
+            return JSONResponse(status_code=500, content={"ok": False, "error": f"Analyse ZIP impossible: {str(e)[:80]}"})
+
     else:
-        # Fichier texte (txt, md, csv, docx text brut...)
+        # Fichiers texte natifs : txt, md, csv, json, code…
         try:
             text_content = raw_bytes.decode("utf-8", errors="replace")[:12000]
         except Exception:
             text_content = raw_bytes[:12000].decode("latin-1", errors="replace")
 
         if not text_content.strip():
-            return JSONResponse(status_code=422, content={"ok": False, "error": "Fichier vide ou illisible"})
+            return JSONResponse(status_code=422, content={"ok": False, "error": "Fichier vide ou format non supporté"})
 
         try:
             loop = asyncio.get_event_loop()
             resp = await loop.run_in_executor(None, lambda: openai_client.chat.completions.create(
                 model="gpt-4o-mini",
-                messages=[{
-                    "role": "user",
-                    "content": (
-                        f"Voici le contenu d'un fichier nommé '{filename}' partagé pendant une visio.\n\n"
-                        f"{text_content}\n\n"
-                        "Analyse ce contenu et résume les informations importantes en français. Maximum 300 mots."
-                    )
-                }],
-                max_tokens=500,
-                temperature=0.3,
+                messages=[{"role": "user", "content": (
+                    f"Voici le contenu d'un fichier nommé '{filename}' partagé pendant une session.\n\n"
+                    f"{text_content}\n\n"
+                    "Analyse ce contenu et résume les informations importantes en français. Maximum 300 mots."
+                )}],
+                max_tokens=500, temperature=0.3,
             ))
             analysis = resp.choices[0].message.content.strip()
         except Exception as e:
