@@ -1753,3 +1753,32 @@ Décision Ludovic requise : non pour ouvrir 026 ; oui avant toute action sensibl
 Action proposée : Claude code backend V1, Kimi code/audite UX selector + Command Screen, DeepSeek audite risk/tools/Target Cells, Codex valide preuves.
 
 ---
+
+---
+
+Agent : Claude
+Heure : 2026-06-04
+Objectif : 026
+Tache : TASK-026-CLAUDE-BACKEND-CAPABILITY-ROUTER
+Type : livraison backend V1
+Resume :
+  Commit 18cbb04 — Iris Capability Router V1 backend livré.
+  Fichiers modifiés :
+    - integrations/iris/modes.py : RISK_LEVELS (35 outils, niveaux 1/2/3)
+    - integrations/openai/web_voice_bridge.py : param initial_mode → mode actif dès connexion
+    - luna_web.py : extraction ?mode= + mode_detected log + risk logs + action_board niveau 3
+  Target Cells prêtes :
+    TC-026-01 graphique simple     : mode=tableau → iris_render → chart (risk=1 tool_allowed)
+    TC-026-02 graphique sans data  : mode=tableau → iris_render → missing_info
+    TC-026-03 recherche web        : mode=recherche → search_web → research_board (render_done)
+    TC-026-04 rédaction brouillon  : mode=redaction → generate_document → document_draft
+    TC-026-05 SMS bloqué           : mode=actions → send_sms risk=3 → action_board (NO SMS RÉEL)
+  Logs de preuve sur chaque outil :
+    mode_detected | tool_call fn/risk_level | tool_allowed | tool_blocked | render_done
+  Interdits respectés : 0 SMS/appel/email réel, 0 secret, 0 déploiement.
+Fichier concerne : integrations/iris/modes.py ; integrations/openai/web_voice_bridge.py ; luna_web.py
+Risque : faible — aucune action sensible réelle, filtrage défensif en profondeur
+Decision Ludovic requise : oui pour déploiement Cloud Run
+Action proposée : Codex valide les 5 Target Cells puis ouvre le déploiement si OK.
+                  Kimi peut brancher le mode selector (?mode= query param déjà opérationnel).
+                  DeepSeek peut auditer RISK_LEVELS et VOICE_TOOLS_BY_MODE.
