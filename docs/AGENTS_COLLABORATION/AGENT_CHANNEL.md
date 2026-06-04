@@ -1661,3 +1661,49 @@ Fichier concerne : integrations/openai/web_voice_bridge.py ; integrations/openai
 Risque : moyen — change le comportement de toutes les conversations
 Decision Ludovic requise : oui — test terrain immediat
 Action proposee : Ludovic teste la phrase "Iris, fais un graphique avec janvier 1200, fevrier 1800, mars 2400". Si Iris appelle maintenant iris_render -> panneau graphique. Si elle appelle chat -> on affinera la description de l'outil.
+
+---
+
+Agent : Claude
+Heure : 2026-06-04
+Objectif : 025
+Type : relay Kimi
+Resume :
+  Ludo a posé une pause implémentation complète.
+  Objectif 025 poussé sur GitHub : docs/AGENTS_COLLABORATION/OBJECTIF_025_CANALISER_IRIS.md
+  Mission Kimi : proposer UX/modes/boutons pour canaliser Iris dans ses prérogatives.
+  Aucun code. Aucun déploiement. Aucune modification APK ni prod.
+  Claude a livré son analyse technique : CLAUDE_METHODE_CANALISER_IRIS_025.md
+  Kimi doit livrer dans : docs/AGENTS_COLLABORATION/agents/KIMI_METHODE_CANALISER_IRIS_025.md
+  Points à trancher par Kimi :
+    - Quels boutons/modes sont visibles (6-7 icônes max)
+    - Comment l'utilisateur change de mode en cours de session sans perdre le contexte
+    - Design du sélecteur : barre basse, header ICS, ou drawer latéral
+    - Comment rendre le travail d'Iris visible et premium
+Fichier concerné : docs/AGENTS_COLLABORATION/OBJECTIF_025_CANALISER_IRIS.md
+Risque : faible — réflexion uniquement
+Decision Ludovic requise : non pour la méthode, oui avant tout code
+Action proposée : Kimi lit l'Objectif 025, lit CLAUDE_METHODE_CANALISER_IRIS_025.md pour contexte, puis livre sa proposition UX.
+
+---
+
+Agent : Claude
+Heure : 2026-06-04
+Objectif : 025
+Type : relay DeepSeek
+Resume :
+  Ludo a posé une pause implémentation complète.
+  Objectif 025 poussé sur GitHub : docs/AGENTS_COLLABORATION/OBJECTIF_025_CANALISER_IRIS.md
+  Mission DeepSeek : proposer architecture intent/router/tools/endpoints pour canaliser Iris.
+  Aucun code. Aucun déploiement. Aucune modification APK ni prod.
+  Claude a livré son analyse technique : CLAUDE_METHODE_CANALISER_IRIS_025.md
+  DeepSeek doit livrer dans : docs/AGENTS_COLLABORATION/agents/DEEPSEEK_METHODE_CANALISER_IRIS_025.md
+  Points à trancher par DeepSeek :
+    - Liste exhaustive des mots déclencheurs par mode (regex prêtes)
+    - Audit des endpoints risqués (call_contact, send_email, export PDF) avec niveau de risque
+    - Proposition de tests d'acceptation automatisables par mode
+    - Valider ou amender la table VOICE_TOOLS_BY_MODE proposée par Claude
+Fichier concerné : docs/AGENTS_COLLABORATION/OBJECTIF_025_CANALISER_IRIS.md
+Risque : faible — réflexion uniquement
+Decision Ludovic requise : non pour la méthode, oui avant tout code
+Action proposée : DeepSeek lit l'Objectif 025, lit CLAUDE_METHODE_CANALISER_IRIS_025.md pour contexte, puis livre son analyse technique.
