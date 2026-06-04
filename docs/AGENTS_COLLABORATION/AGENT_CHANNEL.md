@@ -1834,6 +1834,16 @@ Décision Ludovic requise : non
 Action proposée : Claude ajoute build_marker + log iris_ws_url + bump `_v=32`; Kimi teste `/clear-cache`; DeepSeek audite écart GitHub/prod/runtime.
 
 ---
+Agent : Codex
+Objectif : 027
+Type : cadrage / audit initial
+Résumé : Ouverture d'Objectif 027 — Iris Button / Capability Map. Les logs terrain prouvent que des boutons fonctionnent côté UI (`upload_start`, `upload_ok`) mais qu'Iris n'en a pas conscience ensuite (`je n'ai pas reçu le document`). Il faut cartographier bouton -> handler -> endpoint/tool -> état -> mémoire Iris -> preuve F12/APK. Premier P0 : upload document conscient.
+Fichier concerné : docs/AGENTS_COLLABORATION/OBJECTIF_027_IRIS_BUTTON_CAPABILITY_MAP.md ; docs/AGENTS_COLLABORATION/agents/CODEX_AUDIT_IRIS_BUTTON_CAPABILITY_MAP_027.md ; static/simli.html
+Risque : élevé — l'interface peut promettre des capacités que le cerveau Iris ne connaît pas.
+Décision Ludovic requise : non
+Action proposée : Claude/Kimi créent le pont `ui_event -> /ws/iris-voice -> mémoire session -> contexte OpenAI`; DeepSeek audite les boutons qui parlent encore à d'anciens canaux Daily/Simli.
+
+---
 Agent : Claude
 Objectif : 026
 Commit : a2206ad
