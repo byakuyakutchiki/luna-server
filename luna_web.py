@@ -9637,6 +9637,20 @@ Règles de collaboration :
                         "summary": f"{len(tasks)} tâche(s) à organiser." if tasks else "Kanban vide — ajoutez des tâches.",
                     }
 
+                elif fn == "generate_document":
+                    subject = args.get("subject", "Document")
+                    doc_msg = res.get("message", "Document généré.")
+                    doc_url = res.get("url", "")
+                    body_lines = [doc_msg]
+                    if doc_url:
+                        body_lines.append(f"[Télécharger → {doc_url}]")
+                    payload = {
+                        "type": "render", "render_type": "document_draft",
+                        "title": subject[:80],
+                        "body": "\n".join(body_lines),
+                        "recipient": (args.get("details", "") or "")[:60] or None,
+                    }
+
             except Exception as _re:
                 logger.warning(f"_iris_auto_render build error ({fn}): {_re}")
                 return
@@ -9648,34 +9662,9 @@ Règles de collaboration :
                 except Exception as _se:
                     logger.warning(f"_iris_auto_render send error: {_se}")
 
-        safe_tools = {
-            "search_web", "search_places", "get_page_info", "get_weather", "get_news",
-            "get_contacts", "get_documents_summary", "search_documents", "list_folders",
-            "get_budget_analysis", "check_affordability", "get_reminders",
-            "get_player_stats", "get_active_missions", "get_badges",
-            "start_meeting", "organize_kanban",
-        }
-        draft_tools = {"create_note", "add_reminder", "create_instruction"}
-        sensitive_tools = {
-            "send_sms", "send_email", "call_contact", "alert_contacts", "invite_visio",
-            "generate_document", "request_payment", "book_restaurant",
-        }
-        if function_name in safe_tools:
-            logger.info(f"Iris: tool_allowed fn={function_name} risk_level=1")
-            result = await _dispatch_chat_tool(function_name, arguments or {}, tid, "iris_voice")
-            await _iris_auto_render(function_name, arguments or {}, result)
-            return result
-        if function_name in draft_tools:
-            return {
-                "status": "validation_required",
-                "message": (
-                    "Je peux préparer cette action dans Iris Workbench, mais je ne l'enregistre pas "
-                    "tant que Ludovic n'a pas validé le panneau de travail."
-                ),
-                "tool": function_name,
-            }
-        if function_name in sensitive_tools:
-            # Step 3 — Action Board : prépare l'action visuelle, ZÉRO exécution réelle
+        # Dispatch piloté par RISK_LEVELS — Objectif 026
+        # Niveau 3 — validation obligatoire, action_board, aucune exécution réelle
+        if _risk == 3:
             if function_name in {"send_sms", "call_contact", "send_email"}:
                 args = arguments or {}
                 contact_name = args.get("contact_name", args.get("to", args.get("recipient", "?")))
@@ -9782,11 +9771,12 @@ Règles de collaboration :
                 ),
                 "tool": function_name,
             }
-        return {
-            "status": "error",
-            "message": f"Outil Iris non autorisé ou non disponible : {function_name}",
-            "tool": function_name,
-        }
+
+        # Niveaux 1 et 2 — dispatch direct + auto render (aligné sur RISK_LEVELS)
+        logger.info(f"Iris: tool_allowed fn={function_name} risk_level={_risk}")
+        result = await _dispatch_chat_tool(function_name, arguments or {}, tid, "iris_voice")
+        await _iris_auto_render(function_name, arguments or {}, result)
+        return result
 
     # Historique éventuel (reconnexion)
     _history_param = websocket.query_params.get("history", "")

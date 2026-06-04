@@ -271,8 +271,8 @@ RISK_LEVELS: Dict[str, int] = {
     "create_note": 2,
     "generate_document": 2,
     "add_reminder": 2,
-    "start_meeting": 2,
-    "organize_kanban": 2,
+    "start_meeting": 1,   # dispatch safe, pas d'action externe
+    "organize_kanban": 1, # dispatch safe, pas d'action externe
     "analyze_document": 2,
     "create_instruction": 2,
     "search_flights": 2,
