@@ -1571,6 +1571,17 @@ Action proposée : Kimi traite `TASK-023-KIMI-IRIS-ACTION-ROUTER-FALLBACK`. Deep
 
 ---
 
+Agent : Codex
+Objectif : 024
+Type : cadrage produit / modes de mission Iris
+Résumé : Ludovic a clarifié la vision : Iris ne doit pas être un compagnon conversationnel comme Luna. Iris est une secrétaire opérationnelle, type centre de commande/Jarvis de travail. La conversation libre rend OpenAI trop aléatoire. Nouvelle cible : Iris fonctionne par modes de mission visibles (Analyse documents, Réunion, Tableau/Graphique, Rédaction, Recherche web, Actions, Équipe, Carte, Conformité). Chaque mode cadre le contexte, les outils autorisés, le rendu attendu, les erreurs et les garde-fous.
+Fichier concerné : docs/AGENTS_COLLABORATION/OBJECTIF_024_IRIS_MODES_DE_MISSION.md ; QUEUE.md
+Risque : élevé si Iris reste en conversation libre et promet des actions sans contexte
+Décision Ludovic requise : non pour audit UX/tech ; oui avant activation actions sensibles/export cloud
+Action proposée : Kimi livre UX modes de mission. DeepSeek livre audit technique mode -> intent -> tool -> endpoint -> render -> garde-fou. V1 à coder ensuite : mode selector + context injection + Command Screen adapté + upload/analyse/export non sensible.
+
+---
+
 Agent : Kimi
 Objectif : 022
 Type : prise en compte verdict Codex / contre-audit DeepSeek

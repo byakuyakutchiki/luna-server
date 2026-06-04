@@ -8,6 +8,24 @@
 
 ## TODO
 
+### TASK-024-KIMI-UX-IRIS-MODES-DE-MISSION
+- Agent : Kimi
+- Objectif : 024
+- Niveau : 0
+- Statut : open
+- Tache : lire `docs/AGENTS_COLLABORATION/OBJECTIF_024_IRIS_MODES_DE_MISSION.md`. Proposer l'UX V1 du sélecteur de modes Iris : Discussion courte, Analyse documents, Réunion, Tableau/Graphique, Rédaction, Recherche web, Actions, Équipe, Carte, Conformité. Le mode courant doit cadrer Iris et modifier le Command Screen. Définir mobile/desktop, états, erreurs utiles, export document propre.
+- Interdits : pas de design brouillon, pas de confusion Luna/Iris, pas de panneau texte brut, pas d'action sensible réelle.
+- Resultat attendu : `docs/AGENTS_COLLABORATION/agents/KIMI_UX_IRIS_MODES_DE_MISSION_024.md` + message AGENT_CHANNEL.
+
+### TASK-024-DEEPSEEK-TECH-IRIS-MODES-DE-MISSION
+- Agent : DeepSeek
+- Objectif : 024
+- Niveau : 0
+- Statut : open
+- Tache : lire `docs/AGENTS_COLLABORATION/OBJECTIF_024_IRIS_MODES_DE_MISSION.md`. Auditer techniquement le mode selector et le routeur : mode -> contexte -> intent -> outil -> endpoint -> render_type -> garde-fou -> export. Vérifier upload documents, analyse documents, génération document/PDF, recherche web, actions sensibles, endpoints manquants, RGPD.
+- Interdits : pas de secret, pas de déploiement, pas de SMS/email/appel réel, pas de spéculation sans fichier/ligne.
+- Resultat attendu : `docs/AGENTS_COLLABORATION/agents/DEEPSEEK_TECH_IRIS_MODES_DE_MISSION_024.md` + message AGENT_CHANNEL.
+
 ### TASK-023-KIMI-IRIS-ACTION-ROUTER-FALLBACK
 - Agent : Kimi
 - Objectif : 023
