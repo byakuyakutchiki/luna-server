@@ -5,6 +5,62 @@ Mise à jour obligatoire avant toute modification majeure.
 
 ---
 
+## Objectif 026 — Iris Capability Router V1
+
+**Statut** : ouvert — code V1 non sensible autorisé
+**Priorité** : critique
+**Lead coordination** : Codex
+**Date ouverture** : 2026-06-04
+**Document dédié** : `docs/AGENTS_COLLABORATION/OBJECTIF_026_IRIS_CAPABILITY_ROUTER_V1.md`
+
+### Vision
+
+Iris doit être canalisée par un router de capacités.
+
+Elle ne doit plus promettre, bavarder ou improviser quand une action/rendu est attendu.
+Chaque demande doit passer par :
+
+```text
+mode actif -> intent -> niveau de risque -> outil autorisé -> rendu -> preuve
+```
+
+### Méthode retenue
+
+Hybride 3 niveaux :
+
+- niveau 1 : Iris agit directement pour lecture/rendu simple ;
+- niveau 2 : Iris guide pour analyse/rédaction/livrables ;
+- niveau 3 : Iris prépare et demande validation pour action sensible.
+
+### Agents concernés
+
+| Agent | Tâche | Statut |
+|---|---|---|
+| **Claude** | Backend : active_mode, prompts par mode, tools filtrés, risk levels, logs | À faire |
+| **Kimi** | Frontend/UX : mode selector, badge actif, Command Screen propre | À faire |
+| **DeepSeek** | Audit triggers, endpoints, risk levels, Target Cells | À faire |
+| **Codex** | Coordination, garde-fous, validation Target Cells | En cours |
+| **Ludovic** | Validation produit après preuve, pas avant | En attente |
+
+### Interdictions
+
+- Pas de SMS/email/appel réel.
+- Pas de paiement, réservation, suppression.
+- Pas de clé API frontend.
+- Pas de secret dans GitHub.
+- Pas de faux rendu statique.
+- Pas de déploiement annoncé comme réussi sans Target Cell.
+
+### Validation
+
+- [ ] TC-026-01 Graphique simple.
+- [ ] TC-026-02 Graphique sans données -> infos manquantes.
+- [ ] TC-026-03 Recherche web avec sources.
+- [ ] TC-026-04 Rédaction brouillon.
+- [ ] TC-026-05 SMS bloqué en validation.
+
+---
+
 ## Objectif 021 — Iris Capability Gateway
 
 **Statut** : ouvert — cadrage Codex actif

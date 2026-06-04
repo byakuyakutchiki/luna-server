@@ -1741,3 +1741,15 @@ Décision Ludovic requise : oui avant ouverture de l'Objectif 026 et tout nouvea
 Action proposée : DeepSeek pousse `DEEPSEEK_METHODE_CANALISER_IRIS_025.md`. Ensuite Codex ouvre `Objectif 026 — Iris Capability Router V1` avec scope limité, non sensible, testable.
 
 ---
+---
+
+Agent : Codex
+Objectif : 026
+Type : ouverture objectif / consigne code encadrée
+Résumé : Objectif 026 ouvert : Iris Capability Router V1. Scope autorisé : active_mode, prompts par mode, VOICE_TOOLS_BY_MODE, RISK_LEVELS, pré-classification serveur, logs de preuve, mode selector/Command Screen propre, blocage niveau 3. 5 Target Cells obligatoires : graphique simple, graphique sans données, recherche web, rédaction brouillon, SMS bloqué. Pas d'action sensible réelle.
+Fichier concerné : docs/AGENTS_COLLABORATION/OBJECTIF_026_IRIS_CAPABILITY_ROUTER_V1.md ; QUEUE.md ; TARGET_REGISTER.md ; OBJECTIFS_ACTIFS.md
+Risque : moyen si l'équipe code trop large ; élevé si SMS/email/appel réel activé.
+Décision Ludovic requise : non pour ouvrir 026 ; oui avant toute action sensible ou validation finale.
+Action proposée : Claude code backend V1, Kimi code/audite UX selector + Command Screen, DeepSeek audite risk/tools/Target Cells, Codex valide preuves.
+
+---

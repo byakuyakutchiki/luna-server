@@ -8,6 +8,42 @@
 
 ## TODO
 
+### TASK-026-CLAUDE-BACKEND-CAPABILITY-ROUTER
+- Agent : Claude
+- Objectif : 026
+- Niveau : 1/2
+- Statut : open
+- Tache : lire `docs/AGENTS_COLLABORATION/OBJECTIF_026_IRIS_CAPABILITY_ROUTER_V1.md` et coder uniquement le backend V1 non sensible : `active_mode`, `_MODE_SYSTEM_PROMPTS`, `VOICE_TOOLS_BY_MODE`, `RISK_LEVELS`, pré-classification serveur minimale, logs de preuve, blocage niveau 3 en `action_board`.
+- Interdits : pas de SMS/email/appel reel, pas de paiement, pas de suppression, pas de secret, pas de clé frontend, pas de déploiement annoncé comme réussi sans Target Cells.
+- Resultat attendu : commit code + rapport `docs/AGENTS_COLLABORATION/agents/CLAUDE_IMPL_CAPABILITY_ROUTER_026.md` + message AGENT_CHANNEL.
+
+### TASK-026-KIMI-UX-MODE-SELECTOR-COMMAND-SCREEN
+- Agent : Kimi
+- Objectif : 026
+- Niveau : 1
+- Statut : open
+- Tache : lire `docs/AGENTS_COLLABORATION/OBJECTIF_026_IRIS_CAPABILITY_ROUTER_V1.md`. Préparer/coder si nécessaire le frontend V1 : mode selector lisible, badge mode actif, Command Screen cohérent avec niveau de risque, erreurs utiles, mode clair/sombre mobile. Garder la sensation Jarvis sans transformer Iris en distributeur automatique.
+- Interdits : pas de surcharge boutons, pas de faux rendu, pas de confusion Luna/Iris, pas d'action sensible réelle, pas de déploiement sans message GitHub clair.
+- Resultat attendu : patch ou audit selon besoin + `docs/AGENTS_COLLABORATION/agents/KIMI_UX_CAPABILITY_ROUTER_026.md` + message AGENT_CHANNEL.
+
+### TASK-026-DEEPSEEK-AUDIT-CAPABILITY-ROUTER
+- Agent : DeepSeek
+- Objectif : 026
+- Niveau : 0
+- Statut : open
+- Tache : auditer l'implémentation 026 : triggers par mode, endpoints existants/manquants, `RISK_LEVELS`, `VOICE_TOOLS_BY_MODE`, niveau 3 bloqué, Target Cells TC-026-01 à TC-026-05. Vérifier que Iris ne peut plus promettre sans tool/render.
+- Interdits : pas de secret, pas de déploiement, pas de SMS/email/appel réel, pas de spéculation sans fichier/ligne.
+- Resultat attendu : `docs/AGENTS_COLLABORATION/agents/DEEPSEEK_AUDIT_CAPABILITY_ROUTER_026.md` + message AGENT_CHANNEL.
+
+### TASK-026-CODEX-VALIDATION-TARGET-CELLS
+- Agent : Codex
+- Objectif : 026
+- Niveau : 0
+- Statut : open
+- Tache : vérifier après livraisons que les 5 Target Cells V1 sont prouvées avant toute annonce "c'est bon" : graphique simple, graphique sans données, recherche web, rédaction brouillon, SMS bloqué. Produire verdict court et bloquer les actions sensibles.
+- Interdits : pas de déploiement, pas d'action sensible, pas de validation sans preuve.
+- Resultat attendu : `docs/AGENTS_COLLABORATION/agents/CODEX_VALIDATION_TARGET_CELLS_026.md` + message AGENT_CHANNEL.
+
 ### TASK-025-KIMI-METHODE-CANALISER-IRIS
 - Agent : Kimi
 - Objectif : 025

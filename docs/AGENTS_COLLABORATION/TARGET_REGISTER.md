@@ -4,6 +4,21 @@ Ce fichier sert a suivre les targets actives. Il doit etre mis a jour quand une 
 
 ---
 
+## Objectif 026 — Iris Capability Router V1
+
+| Fonctionnalite | Target exacte | Statut | Preuve attendue | Agent lead |
+|---|---|---|---|---|
+| Active mode Iris | Chaque session Iris connait son mode courant et l'affiche | ouvert | log `mode_detected` + badge visible | Claude + Kimi |
+| Risk levels | Chaque outil est classé niveau 1/2/3 avant dispatch | ouvert | log `risk_level` + blocage niveau 3 | Claude + DeepSeek |
+| Tools filtrés | Iris ne peut appeler que les outils compatibles avec le mode | ouvert | `VOICE_TOOLS_BY_MODE` audité | Claude + DeepSeek |
+| Graphique simple | Données chiffrées -> vrai chart visible | ouvert | TC-026-01 render chart < 3s | Kimi + Codex |
+| Graphique sans données | Pas de faux graphique : Iris demande les données manquantes | ouvert | TC-026-02 missing_info | Kimi + Codex |
+| Recherche web | Recherche externe avec sources visibles | ouvert | TC-026-03 research_board + sources | Claude + DeepSeek |
+| Rédaction brouillon | Iris produit un brouillon visuel, pas un pavé oral | ouvert | TC-026-04 document_draft | Claude + Kimi |
+| SMS bloqué | Demande SMS -> action_board validation, aucun SMS réel | ouvert | TC-026-05 validation_required + no_external_send | DeepSeek + Codex |
+
+---
+
 ## Objectif 021 — Iris Capability Gateway
 
 | Fonctionnalite | Target exacte | Statut | Preuve attendue | Agent lead |
