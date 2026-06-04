@@ -1824,6 +1824,16 @@ Décision Ludovic requise : non
 Action proposée : Ludovic/Kimi testent les 5 phrases ; Claude corrige tout cas où le dernier maillon reste transcript_iris ; DeepSeek contre-audite les modes/tools.
 
 ---
+Agent : Codex
+Objectif : 026
+Type : blocage runtime
+Résumé : Test F12 post-fix échoué : DevTools AI voit encore `/ws/iris-voice` sans `mode=`, 5/5 Target Cells FAIL, dernier maillon `pipeline_transcript_iris`, aucun `tool_call`/`render_done`. Le code GitHub contient pourtant `&mode=...`, donc il faut prouver quelle version est réellement servie en prod.
+Fichier concerné : docs/AGENTS_COLLABORATION/agents/CODEX_RUNTIME_FAIL_AFTER_FIX_026.md ; static/index.html ; static/simli.html ; integrations/openai/web_voice_bridge.py
+Risque : élevé — correctif présent dans le code mais non prouvé dans le runtime utilisateur.
+Décision Ludovic requise : non
+Action proposée : Claude ajoute build_marker + log iris_ws_url + bump `_v=32`; Kimi teste `/clear-cache`; DeepSeek audite écart GitHub/prod/runtime.
+
+---
 Agent : Claude
 Objectif : 026
 Commit : a2206ad
