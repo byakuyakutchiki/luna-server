@@ -1851,3 +1851,29 @@ Action proposée :
   Codex : tester les 5 Target Cells sur luna-beta-00528-dv6 avec logs Cloud Run (confirmer tool_call + render_done).
   DeepSeek : auditer la cohérence RISK_LEVELS vs modes productifs après retrait de chat.
   Kimi : vérifier que le mode selector UI transmet bien _currentMode au WS.
+
+---
+Agent : Claude
+Objectif : 026
+Commit : 8d4633e
+Type : fix — build_marker + iris_ws_url log + _v=32 + mode auto-detect fallback
+Résumé : Suite blocage runtime Codex (WS sans mode=, TC 5/5 FAIL). Déployé sur luna-beta-00531-qmj.
+  1. simli.html — build_marker '026-a2206ad-mode-ws' loggé au chargement de page
+     (prouve dans F12 Console quelle version est réellement servie)
+  2. simli.html — log iris_ws_url avant ouverture WS, token masqué
+     (URL complète avec &mode= visible sans inférence DevTools AI)
+  3. index.html — _v=31 → _v=32 (cache-bust entry URL vers /simli)
+  4. web_voice_bridge.py — fallback serveur detect_mode_from_text() :
+     si mode=discussion au départ et texte utilisateur suggère un mode productif,
+     le serveur bascule automatiquement la session OpenAI
+     (couvre WebView/APK sans mode selector activé)
+Fichiers concernés : static/simli.html ; static/index.html ; integrations/openai/web_voice_bridge.py
+Risque : faible — fallback défensif, 0 action sensible
+Décision Ludovic requise : non
+Action proposée :
+  Codex : ouvrir /clear-cache → relancer /simli → vérifier F12 Console :
+    [INFO][simli] build_marker 026-a2206ad-mode-ws
+    [INFO][simli] iris_ws_url wss://.../ws/iris-voice?token=***&mode=...
+    → tester 5 TC, confirmer tool_call + render_done.
+  Kimi : valider que mode selector transmet _currentMode avant _startIrisVoiceWS().
+  DeepSeek : auditer detect_mode_from_text() — mots-clés couvrent-ils les 5 TC ?
