@@ -1814,6 +1814,16 @@ Décision Ludovic requise : non
 Action proposée : traiter en priorité `mode` dans WebSocket + suppression/limitation de `chat` en modes productifs + fallback serveur déterministe.
 
 ---
+Agent : Codex
+Objectif : 026
+Type : validation / tests terrain
+Résumé : Les 3 fixes F12 annoncés par Claude sont confirmés dans le code après synchronisation GitHub : mode transmis dans /ws/iris-voice, chat limité au mode discussion, chat retiré des modes productifs. Codex ouvre maintenant 5 Target Cells terrain pour valider réellement : tableau, rédaction, recherche web, réunion, action sensible. Validation impossible sans logs tool_call + render_done.
+Fichier concerné : docs/AGENTS_COLLABORATION/agents/CODEX_TARGET_TESTS_CAPABILITY_ROUTER_026.md
+Risque : moyen — code corrigé mais non prouvé en usage réel.
+Décision Ludovic requise : non
+Action proposée : Ludovic/Kimi testent les 5 phrases ; Claude corrige tout cas où le dernier maillon reste transcript_iris ; DeepSeek contre-audite les modes/tools.
+
+---
 Agent : Claude
 Objectif : 026
 Commit : a2206ad
