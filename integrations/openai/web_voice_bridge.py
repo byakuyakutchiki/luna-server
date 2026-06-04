@@ -83,6 +83,7 @@ class _IrisActionRouter:
     """
 
     _FALLBACK_DELAY_SECONDS = 4.0
+    _FALLBACK_DELAY_DOC_SECONDS = 2.0  # plus court quand un document est en session
 
     def __init__(self, bridge):
         self._bridge = bridge
@@ -118,16 +119,18 @@ class _IrisActionRouter:
 
     def _start_fallback_timer(self):
         self._cancel_fallback_timer()
-        self._fallback_task = asyncio.create_task(self._fallback_worker())
+        has_docs = bool(getattr(self._bridge, "_session_documents", []))
+        delay = self._FALLBACK_DELAY_DOC_SECONDS if has_docs else self._FALLBACK_DELAY_SECONDS
+        self._fallback_task = asyncio.create_task(self._fallback_worker(delay))
 
     def _cancel_fallback_timer(self):
         if self._fallback_task and not self._fallback_task.done():
             self._fallback_task.cancel()
         self._fallback_task = None
 
-    async def _fallback_worker(self):
+    async def _fallback_worker(self, delay: float = 4.0):
         try:
-            await asyncio.sleep(self._FALLBACK_DELAY_SECONDS)
+            await asyncio.sleep(delay)
             await self._execute_fallback()
         except asyncio.CancelledError:
             pass
@@ -137,22 +140,42 @@ class _IrisActionRouter:
     async def _execute_fallback(self):
         async with self._lock:
             if self._tool_call_received:
-                return  # Un tool_call est arrive entre-temps
+                return
             if not self._last_user_text:
-                return  # Pas de demande utilisateur a router
+                return
 
-            render_type = self._infer_render_type(self._last_user_text)
-            payload = self._build_payload(render_type, self._last_user_text)
+            # Si un document est en session → fallback document_insight avec le vrai contenu
+            session_docs = getattr(self._bridge, "_session_documents", [])
+            if session_docs:
+                last_doc = session_docs[-1]
+                render_type = "document_insight"
+                render_msg = {
+                    "type": "render",
+                    "render_type": "document_insight",
+                    "title": last_doc.get("filename", "Document"),
+                    "boxes": [
+                        {"title": "Analyse", "body": last_doc.get("analysis", "—")},
+                        {"title": "Demande", "body": self._last_user_text[:200]},
+                    ],
+                    "tags": [{"label": "Fallback visuel", "type": "warn"}],
+                    "actions": [
+                        {"label": "Synthèse"},
+                        {"label": "Points clés"},
+                        {"label": "Améliorer ce CV"},
+                        {"label": "Tableau"},
+                    ],
+                    "source": "action_router_fallback",
+                }
+            else:
+                render_type = self._infer_render_type(self._last_user_text)
+                render_msg = {
+                    "type": "render",
+                    "render_type": render_type,
+                    "payload": self._build_payload(render_type, self._last_user_text),
+                    "source": "action_router_fallback",
+                }
 
             logger.info(f"ActionRouter: FALLBACK FORCE -> {render_type}")
-
-            # Envoyer le render au client Command Screen
-            render_msg = {
-                "type": "render",
-                "render_type": render_type,
-                "payload": payload,
-                "source": "action_router_fallback",
-            }
             await self._bridge._ws_send_client(render_msg)
 
             # Informer le client que c'est un fallback

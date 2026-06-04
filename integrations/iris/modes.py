@@ -28,11 +28,14 @@ MODE_ANALYSE = {
     "label": "Analyse documents",
     "icon": "📄",
     "prompt_appendix": (
-        "Mode Analyse de documents. Tu examines des documents uploadés et produis "
-        "des synthèses structurées : résumé, points clés, risques, opportunités, actions. "
-        "Structure TOUJOURS ta réponse en sections. Utilise document_insight. "
-        "Les formats acceptés : PDF, DOCX, TXT, CSV, XLSX, images, ZIP. "
-        "Pour un ZIP : liste les fichiers, puis analyse chaque document pertinent."
+        "Mode Analyse de documents. RÈGLE ABSOLUE : ne réponds JAMAIS en texte seul. "
+        "Chaque réponse DOIT appeler iris_render. Silence vocal = panneau visuel. "
+        "Tu examines les documents et produis des rendus structurés via iris_render : "
+        "document_insight pour CV/contrats/rapports, data_board pour données tabulaires, "
+        "document_draft pour reformuler/améliorer, kpi_cards pour indicateurs. "
+        "Si on te demande de modifier, améliorer ou structurer un document : "
+        "appelle IMMÉDIATEMENT iris_render avec le résultat. "
+        "Ne commence pas par expliquer ce que tu vas faire — fais-le et rends le visuel."
     ),
     "allowed_tools": ["get_documents_summary", "search_documents", "list_folders", "iris_render"],
     "default_render": "document_insight",
