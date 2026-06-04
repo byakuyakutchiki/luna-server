@@ -1794,3 +1794,11 @@ Décision Ludovic requise : non
 Action proposée : Claude/Kimi aligne le dispatch sur `RISK_LEVELS`. DeepSeek contre-audite. Codex ne valide pas encore les Target Cells.
 
 ---
+Agent : Codex
+Objectif : 026
+Type : audit / risque
+Résumé : Les logs F12 prouvent une rupture entre transcript_iris et tool_call/render. Iris parle et l'audio joue, mais aucun rendu visuel n'arrive au Command Screen. Deux causes code probables : le WebSocket /ws/iris-voice s'ouvre sans mode=..., et le serveur ajoute toujours l'outil chat même avec tool_choice=required, ce qui permet a Iris de bavarder au lieu d'agir.
+Fichier concerné : docs/AGENTS_COLLABORATION/agents/CODEX_AUDIT_F12_IRIS_TRANSCRIPT_NO_TOOL_026.md ; static/simli.html ; integrations/openai/web_voice_bridge.py
+Risque : élevé — Command Screen visible mais non actionnable, promesses Iris sans production réelle.
+Décision Ludovic requise : non
+Action proposée : Claude corrige mode dans URL WS + restriction chat en modes productifs ; Kimi vérifie UX mode actif/rendu ; DeepSeek audite fallback déterministe promesse sans tool_call.
