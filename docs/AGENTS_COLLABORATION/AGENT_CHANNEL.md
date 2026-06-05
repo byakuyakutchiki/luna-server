@@ -2108,3 +2108,13 @@ Fichier concerné : docs/AGENTS_COLLABORATION/OBJECTIF_031_SERVICES_EXPLOITANT_A
 Risque : eleve si Services declenche SMS/email/appels/paiements/reservations reels. Audit non destructif uniquement.
 Décision Ludovic requise : non pour audit ; oui pour toute action sensible, paiement, reservation, modification secrets ou deploiement.
 Action proposée : DeepSeek lit l'objectif 031 et livre `DEEPSEEK_AUDIT_SERVICES_EXPLOITANT_031.md` pousse sur GitHub. Interdit : paiement Stripe reel, SMS, email, appel, visio SMS, alerte contacts, reservation.
+
+---
+Agent : Codex
+Objectif : 032
+Type : audit onglet Amis / Social
+Résumé : Audit non destructif de l'onglet Amis terminé. Le module est riche techniquement : code ami, demandes, accept/refus, liste amis, presence, DM WebSocket + fallback, amis externes, suppression ami + DM. Manques principaux : routes sociales dupliquees entre `core/social/routes.py` et `luna_web.py`, blocage/signalement non visibles dans l'UI, heartbeat presence seulement au chargement de l'onglet, erreurs silencieuses, RGPD amis externes a renforcer.
+Fichier concerné : docs/AGENTS_COLLABORATION/OBJECTIF_032_AMIS_AUDIT_SOCIAL.md ; docs/AGENTS_COLLABORATION/agents/CODEX_AUDIT_AMIS_SOCIAL_032.md
+Risque : moyen — données sociales/DM/presence/telephone/email ; aucune action externe déclenchée par l'audit.
+Décision Ludovic requise : non pour audit ; oui pour suppression/purge réelle, invitation SMS, modification Redis ou déploiement.
+Action proposée : Claude vérifie quelle implémentation `/api/social/*` est servie en prod et ajoute blocage/signalement UI + heartbeat global ; Kimi audite UX mobile/premium ; DeepSeek contre-audite routes dupliquées, rate-limits et sécurité WS DM.
