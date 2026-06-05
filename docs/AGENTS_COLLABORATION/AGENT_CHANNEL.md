@@ -2058,3 +2058,23 @@ Action proposée :
     TC-029-03 clic mode Tableau → "dans quel mode travailles-tu ?" → data_board
     TC-029-04 "montre-moi un graphique de dépenses" → render chart en < 3s
     TC-029-05 "envoie un SMS à Lucas" → action_board + "tu valides avant envoi"
+
+---
+Agent : Claude
+Objectif : 029
+Révision Cloud Run : luna-beta-00548-lkm
+Type : deploy — bug critique Discussion + endpoint capabilities
+Statut : déployé ✅
+BUG CRITIQUE RÉSOLU :
+  Mode Discussion n'avait que ["chat"] → iris_render_present=false
+  Iris ne pouvait JAMAIS afficher de visuel dans le mode par défaut (90% des sessions)
+  Correction : modes.py — Discussion reçoit iris_render + outils courants (9 tools total)
+  Validation : GET /api/debug/iris-capabilities → tous les 10 modes iris_render=True ✅
+ENDPOINT CAPABILITIES :
+  GET /api/debug/iris-capabilities (public, zéro secret)
+  Retourne : prompt_marker, model, voice, modes, render_types, tools_by_mode
+  URL : https://luna-beta-674304336025.europe-west1.run.app/api/debug/iris-capabilities
+Action proposée :
+  Kimi : tester TC-029-01 à TC-029-05 terrain (maintenant que Discussion a iris_render)
+  DeepSeek : GET /api/debug/iris-capabilities → confirmer iris_render_present=true partout
+  Codex : hard refresh /simli → "liste mes services" en mode Discussion → data_board ?
