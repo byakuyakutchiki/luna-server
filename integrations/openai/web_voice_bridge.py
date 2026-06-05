@@ -21,6 +21,7 @@ import uuid
 import asyncio
 import logging
 import time as _time
+import pathlib
 from typing import Optional, Dict, Any, Callable, Awaitable, List
 
 import websockets
@@ -29,6 +30,19 @@ from starlette.websockets import WebSocketState
 logger = logging.getLogger(__name__)
 
 import os
+
+# ── Enregistreur de session — pour diagnostic autonome Claude ────────────────
+_SESSION_LOG_DIR = pathlib.Path("/tmp/iris_sessions")
+_SESSION_LOG_DIR.mkdir(exist_ok=True)
+
+def _session_log(session_file: pathlib.Path, event_type: str, data: dict):
+    """Écrit un événement JSON dans le fichier de session (une ligne par événement)."""
+    try:
+        entry = {"t": round(_time.time(), 3), "type": event_type, **data}
+        with session_file.open("a") as f:
+            f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+    except Exception:
+        pass
 
 OPENAI_REALTIME_MODEL = os.getenv("OPENAI_REALTIME_MODEL", "gpt-4o-realtime-preview-2024-12-17")
 OPENAI_REALTIME_URL = f"wss://api.openai.com/v1/realtime?model={OPENAI_REALTIME_MODEL}"
@@ -340,6 +354,12 @@ class WebVoiceBridge:
         # Mode de mission Iris — initialisé depuis le query param ?mode= (Objectif 026)
         self._active_mode = initial_mode if initial_mode in IRIS_MODES else DEFAULT_MODE
         self._base_context = context  # Contexte système de base (sans mode)
+        # Fichier de session pour diagnostic autonome — /tmp/iris_sessions/<id>.jsonl
+        _sid = session_id or str(uuid.uuid4())[:8]
+        self._session_file = _SESSION_LOG_DIR / f"{_sid}_{int(_time.time())}.jsonl"
+        _session_log(self._session_file, "session_start", {
+            "mode": self._active_mode, "model": "",
+        })
 
     def _client_connected(self) -> bool:
         """Verifie si le WebSocket client est toujours connecte."""
@@ -1029,6 +1049,7 @@ class WebVoiceBridge:
                     if text:
                         self.transcript.append({"role": "luna", "text": text})
                         logger.info(f"WebVoice LUNA: {text[:120]}")
+                        _session_log(self._session_file, "iris_transcript", {"text": text[:300]})
                         self._action_router.on_iris_transcript(text)
                         await self._ws_send_client({
                             "type": "transcript",
@@ -1151,6 +1172,7 @@ class WebVoiceBridge:
             args = {}
 
         logger.info(f"WebVoice tool_call: {function_name}({args})")
+        _session_log(self._session_file, "tool_call", {"name": function_name, "args_keys": list(args.keys()) if isinstance(args, dict) else []})
 
         def _normalize_iris_render_args(raw_args: Dict) -> tuple[str, Dict, str]:
             """Accept both strict {render_type, payload} and direct render fields.
@@ -1219,6 +1241,7 @@ class WebVoiceBridge:
                 f"WebVoice: render_type={render_type} fn=iris_render "
                 f"payload_source={payload_source} keys={list(payload.keys())[:12]} render_done=true"
             )
+            _session_log(self._session_file, "iris_render", {"render_type": render_type, "source": payload_source})
             await self._ws_send_openai({
                 "type": "conversation.item.create",
                 "item": {

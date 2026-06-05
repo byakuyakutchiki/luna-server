@@ -3,7 +3,8 @@ Debug Routes - Endpoints pour valider l'etat du systeme (non sensibles).
 """
 import os
 import logging
-from fastapi import APIRouter
+import pathlib
+from fastapi import APIRouter, Query
 from fastapi.responses import JSONResponse
 
 from core.settings import get_settings
@@ -16,6 +17,50 @@ from integrations.reservations.duffel_client import DuffelClient
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/debug", tags=["debug"])
+
+_IRIS_SESSION_DIR = pathlib.Path("/tmp/iris_sessions")
+
+
+@router.get("/iris/sessions")
+async def iris_sessions_list():
+    """Liste les dernières sessions Iris enregistrées (pour diagnostic Claude)."""
+    if not _IRIS_SESSION_DIR.exists():
+        return JSONResponse({"sessions": []})
+    files = sorted(_IRIS_SESSION_DIR.glob("*.jsonl"), key=lambda f: f.stat().st_mtime, reverse=True)
+    result = []
+    for f in files[:20]:
+        try:
+            lines = f.read_text().strip().splitlines()
+            events = [l for l in lines if '"type"' in l]
+            result.append({
+                "file": f.name,
+                "events": len(events),
+                "size_bytes": f.stat().st_size,
+                "modified": round(f.stat().st_mtime),
+            })
+        except Exception:
+            pass
+    return JSONResponse({"sessions": result})
+
+
+@router.get("/iris/session/{filename}")
+async def iris_session_detail(filename: str, last: int = Query(default=50)):
+    """Retourne les N derniers événements d'une session Iris (pour diagnostic Claude)."""
+    path = _IRIS_SESSION_DIR / filename
+    if not path.exists() or not path.name.endswith(".jsonl"):
+        return JSONResponse({"error": "session introuvable"}, status_code=404)
+    try:
+        import json as _json
+        lines = path.read_text().strip().splitlines()
+        events = []
+        for line in lines[-last:]:
+            try:
+                events.append(_json.loads(line))
+            except Exception:
+                pass
+        return JSONResponse({"filename": filename, "total": len(lines), "events": events})
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
 
 
 @router.get("/services-mode")
