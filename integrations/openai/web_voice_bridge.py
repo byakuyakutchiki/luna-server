@@ -72,19 +72,28 @@ _PROMISE_PATTERNS = [
 
 # Mapping intent -> render_type pour fallback deterministe
 _INTENT_RENDER_MAP = [
-    # (mots_cles, render_type)
-    (["graphique", "courbe", "histogramme", "camembert", "évolution", "chiffres en graphique"], "chart"),
-    (["tableau", "colonnes", "lignes", "classe", "organise en tableau", "données en tableau"], "data_board"),
-    (["indicateurs", "métriques", "chiffres clés", "résumé chiffré", "kpi"], "kpi_cards"),
-    (["kanban", "priorités", "à faire/en cours/fini", "colonnes tâches"], "kanban_board"),
-    (["checklist", "étapes", "à faire", "tâches", "liste d'actions"], "action_board"),
-    (["réunion", "compte-rendu", "note les décisions", "crpv"], "meeting_board"),
-    (["rédige", "courrier", "lettre", "brouillon", "contrat", "document"], "document_draft"),
-    (["planning", "chronologie", "échéances", "dates", "calendrier"], "timeline"),
-    (["roadmap", "phases", "plan par étapes", "jalons"], "roadmap"),
-    (["compare", "avantage", "inconvénient", "lequel choisir", "versus", "vs"], "comparison"),
-    (["localise", "adresse", "itinéraire", "carte", "où est"], "map_board"),
-    (["cherche", "trouve", "source", "va sur le web", "informations sur"], "context_panel"),
+    # Ordre de priorité : actions sensibles d'abord, fallback en dernier
+    (["envoyer sms", "envoie sms", "envoyer un message", "envoie un email", "envoyer un email", "envoie un mail",
+      "appelle ", "appeler ", "contacte ", "payer ", "virement ", "réserver ", "commander "], "action_board"),
+    (["il me manque", "il manque", "information manquante", "pour ça il faut"], "missing_info"),
+    (["formulaire", "remplis ", "complète ", "besoin de tes infos"], "form_board"),
+    (["quelle option", "lequel choisir", "laquelle choisir", "pour ou contre",
+      "avantages inconvénients", "inconvénients avantages"], "decision_board"),
+    (["kanban", "à faire/en cours/terminé", "colonnes tâches"], "kanban_board"),
+    (["réunion", "compte-rendu", "ordre du jour", "pv de", "note de réunion"], "meeting_board"),
+    (["fiche contact", "qui est ", "coordonnées de"], "contact_board"),
+    (["budget", "solde", "mes dépenses", "mes finances", "combien j'ai"], "budget_board"),
+    (["adresse", "itinéraire", "trajet", "localisation", "comment aller", "où est"], "map_board"),
+    (["fichiers", "pièces jointes", "photos ", "images "], "media_board"),
+    (["graphique", "courbe", "histogramme", "camembert", "évolution", "tendance", "diagramme"], "chart"),
+    (["roadmap", "feuille de route", "plan par étapes", "jalons"], "roadmap"),
+    (["planning", "chronologie", "échéances", "calendrier", "timeline"], "timeline"),
+    (["indicateurs", "métriques", "chiffres clés", "kpi", "statistiques", "stats"], "kpi_cards"),
+    (["tableau", "colonnes", "lignes", "données en tableau", "liste de"], "data_board"),
+    (["état des services", "statut des services", "mes quotas", "diagnostic"], "status_rail"),
+    (["compare ", "versus ", "avantages", "inconvénients", " vs "], "comparison"),
+    (["rédige", "courrier", "lettre", "brouillon", "note officielle"], "document_draft"),
+    (["pdf", "contrat", "devis", "facture", "analyse de fichier"], "document_insight"),
 ]
 
 
@@ -900,16 +909,18 @@ class WebVoiceBridge:
                                 "content": [{"type": "input_text", "text": text}],
                             },
                         })
-                        # Pour les messages texte : iris_render côté serveur (immédiat)
-                        # puis response.create avec tools:[] pour que le modèle parle sans boucler.
-                        # gpt-realtime-mini ignore tool_choice:"required" sur response.create manuel.
+                        # Pour les messages texte : render immédiat avec type inféré (pas toujours context_panel)
+                        # Le client fait déjà son inference avant d'envoyer, mais en session collaborative
+                        # les autres participants ont besoin du render serveur.
+                        _tr_type = self._action_router._infer_render_type(text)
+                        _tr_payload = self._action_router._build_payload(_tr_type, text) if _tr_type != "context_panel" else {
+                            "title": "Iris",
+                            "sections": [{"heading": "Demande", "body": text[:400]}],
+                        }
                         _text_render = {
                             "type": "render",
-                            "render_type": "context_panel",
-                            "payload": {
-                                "title": "Iris",
-                                "sections": [{"heading": "Demande", "body": text[:400]}],
-                            },
+                            "render_type": _tr_type,
+                            "payload": _tr_payload,
                         }
                         if self._session_id and self._session_manager:
                             await self._session_manager.broadcast(self._session_id, _text_render)
