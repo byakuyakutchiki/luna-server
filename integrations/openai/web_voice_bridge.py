@@ -723,9 +723,9 @@ class WebVoiceBridge:
                     "create_response": True,
                 },
                 "tools": filtered_tools,
-                # gpt-realtime-mini ignore tool_choice:"required" au niveau session.
-                # Le forçage se fait via response.create individuel (voir _send_iris_response_create).
-                "tool_choice": "auto",
+                # required fonctionne pour les réponses VAD (voix).
+                # Pour les messages texte, iris_render est déclenché côté serveur.
+                "tool_choice": "required",
             },
         }
         ok = await self._ws_send_openai(session_config)
@@ -807,7 +807,7 @@ class WebVoiceBridge:
             "session": {
                 "instructions": full_context,
                 "tools": filtered_tools,
-                "tool_choice": "auto",
+                "tool_choice": "required",
             },
         }
         ok = await self._ws_send_openai(session_update)
@@ -840,11 +840,22 @@ class WebVoiceBridge:
         """Déclenche la salutation initiale via response.create/instructions (pas de user message)."""
         # On n'envoie PAS de user message — cela forçait OpenAI à reformuler.
         # On utilise response.create avec instructions pour respecter la phrase exacte du system prompt.
+        # Greeting : iris_render côté serveur (panneau de bienvenue) + parole sans outils.
+        # tool_choice dans response.create cause session.type error sur gpt-realtime-mini.
+        await self._ws_send_client({
+            "type": "render",
+            "render_type": "context_panel",
+            "payload": {
+                "title": "Iris — Système actif",
+                "sections": [{"heading": "Prête", "body": "Tous les systèmes sont opérationnels. Parlez-moi naturellement."}],
+                "context": "Session démarrée",
+            },
+        })
         ok = await self._ws_send_openai({
             "type": "response.create",
             "response": {
                 "instructions": self.greeting,
-                "tool_choice": {"type": "function", "name": "iris_render"},
+                "tools": [],
             },
         })
         if ok:
@@ -889,14 +900,24 @@ class WebVoiceBridge:
                                 "content": [{"type": "input_text", "text": text}],
                             },
                         })
-                        # Forcer iris_render sur chaque message texte — gpt-realtime-mini
-                        # ignore tool_choice:"required" au niveau session, mais honore
-                        # le forçage par fonction dans response.create individuel.
+                        # Pour les messages texte : iris_render côté serveur (immédiat)
+                        # puis response.create avec tools:[] pour que le modèle parle sans boucler.
+                        # gpt-realtime-mini ignore tool_choice:"required" sur response.create manuel.
+                        _text_render = {
+                            "type": "render",
+                            "render_type": "context_panel",
+                            "payload": {
+                                "title": "Iris",
+                                "sections": [{"heading": "Demande", "body": text[:400]}],
+                            },
+                        }
+                        if self._session_id and self._session_manager:
+                            await self._session_manager.broadcast(self._session_id, _text_render)
+                        else:
+                            await self._ws_send_client(_text_render)
                         await self._ws_send_openai({
                             "type": "response.create",
-                            "response": {
-                                "tool_choice": {"type": "function", "name": "iris_render"},
-                            },
+                            "response": {"tools": []},
                         })
 
                 elif msg_type == "ui_event":
@@ -1265,11 +1286,12 @@ class WebVoiceBridge:
                     }, ensure_ascii=False),
                 },
             })
-            # tool_choice:"none" indispensable ici : sans ça, le modèle rappelle iris_render
-            # en boucle parce que le system prompt lui dit "appelle iris_render avant de parler".
+            # tools:[] dans response.create overrides la session pour cette réponse uniquement.
+            # Sans outil disponible, le modèle est forcé de parler — boucle iris_render brisée.
+            # Note: tool_choice:"none" cause une erreur session.type sur gpt-realtime-mini.
             await self._ws_send_openai({
                 "type": "response.create",
-                "response": {"tool_choice": "none"},
+                "response": {"tools": []},
             })
             self._tool_calls_log.append(f"iris_render:{render_type}")
             return
