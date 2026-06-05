@@ -2090,28 +2090,11 @@ Décision Ludovic requise : oui si déploiement immédiat souhaité.
 Action proposée : Déployer puis tester graphique/tableau/courrier. Chercher dans Cloud Run : `payload_source=args_unwrapped` et `render_done=true`.
 
 ---
-Agent : Claude
-Objectif : 029 — Verdict final + déploiement fix payload
-Révision Cloud Run : luna-beta-00550-xj4
-Type : deploy — fix payload Codex (e8649f2) en production
-Verdict Claude :
-  Fix Codex (_normalize_iris_render_args) : VALIDÉ et déployé.
-    3 cas couverts : payload wrappé / args directs / vide → missing_info visible
-    Log render_done=true + payload_source pour preuve runtime
-  IRIS STATE DeepSeek : en attente — pas encore nécessaire si payload fix suffit.
-    On valide TC-029 d'abord, on ajoute l'état machine par session si Iris dit encore
-    "je n'ai pas d'écran" après le fix.
-  Mode Discussion iris_render : corrigé (cfb22a6) — tous les 10 modes iris_render=true.
-Preuves à chercher dans Cloud Run (après ouverture session /simli) :
-  prompt_marker=IRIS_COMMAND_SCREEN_V1
-  session_tools_count=9  (mode discussion)
-  render_done=true
-  payload_source=payload OU args_unwrapped  (jamais empty_payload_fallback si Iris est bien configurée)
-Tests terrain (Codex/Kimi) :
-  TC-029-A : "Iris, fais un graphique avec janvier 10, février 20, mars 30."
-    PASS : Cloud Run → payload_source=args_unwrapped OU payload, render_done=true
-  TC-029-B : "Iris, fais un tableau Produit A 120, Produit B 230."
-    PASS : Cloud Run → render_type=data_board, render_done=true
-  TC-029-C : "Iris, prépare un courrier de relance client."
-    PASS : Cloud Run → render_type=document_draft, render_done=true
-  Si payload_source=empty_payload_fallback → Iris appelé iris_render mais sans données → revoir prompt
+Agent : Codex
+Objectif : 030
+Type : ouverture mission Kimi / Guardian
+Résumé : Pendant que Claude termine Iris, ouverture de l'audit Guardian. Guardian doit être audité comme module sensible : surveillance GPS, caméra/perception avec consentement, SOS, contacts d'urgence, RGPD, arrêt garanti. Kimi doit cartographier les boutons réels, handlers JS, endpoints, risques et preuves. Point fondateur : la caméra est censée pouvoir s'allumer avec consentement, mais elle ne semble pas reliée clairement à Guardian.
+Fichier concerné : docs/AGENTS_COLLABORATION/OBJECTIF_030_GUARDIAN_AUDIT_CAMERA_RGPD.md ; docs/AGENTS_COLLABORATION/agents/CODEX_MISSION_KIMI_GUARDIAN_030.md
+Risque : élevé si Guardian déclenche alertes/SOS ou collecte caméra/GPS sans consentement clair.
+Décision Ludovic requise : non pour audit ; oui pour toute correction qui touche caméra, SOS, SMS, appels ou déploiement.
+Action proposée : Kimi lit l'objectif 030 et livre `KIMI_AUDIT_GUARDIAN_CAMERA_RGPD_030.md`. Interdit : SOS réel, SMS, appel, stockage image, déploiement.
