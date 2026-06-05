@@ -627,9 +627,6 @@ class WebVoiceBridge:
         iris_render ou les outils métier sont obligatoires (tool_choice=required).
         """
         allowed = set(get_mode_tools(mode_id))
-        # En mode discussion uniquement : ajouter chat si pas déjà présent
-        if mode_id == DEFAULT_MODE:
-            allowed.add("chat")
         filtered = [t for t in VOICE_TOOLS if t.get("name", "") in allowed]
         # Dernier recours : fournir iris_render si la liste est vide
         if not filtered:

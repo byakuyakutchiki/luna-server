@@ -16,7 +16,7 @@ MODE_DISCUSSION = {
         "appelle iris_render IMMÉDIATEMENT avec le type adapté — ne propose pas de changer de mode. "
         "Si la demande est trop complexe pour ce mode, change de mode ET rends le visuel."
     ),
-    "allowed_tools": ["chat", "iris_render", "get_weather", "get_news", "search_web",
+    "allowed_tools": ["iris_render", "get_weather", "get_news", "search_web",
                       "create_note", "get_reminders", "add_reminder", "get_contacts"],
     "default_render": "context_panel",
     "forbidden_actions": ["send_sms", "call_contact", "send_email", "alert_contacts",
