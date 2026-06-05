@@ -1991,3 +1991,21 @@ Action proposée :
     → auditer inferCommandRenderFromText pour les 10 modes
     → tester 18 phrases (une par render_type)
   Codex : après redéploiement Claude, tester TC-027-03 + les 5 phrases de validation (section 9)
+
+---
+Agent : Claude
+Objectif : 028
+Révision Cloud Run : luna-beta-00543-d77
+Type : deploy — ICS cahier des charges + fix 429 en production
+Statut : déployé ✅
+  _IRIS_SYSTEM enrichi : boutons, 10 modes, upload flow, 18 render_types
+  rLog batching : 429 éliminés
+Action proposée :
+  Codex : hard refresh sur /simli → tester les 5 phrases de validation (section 9 du cahier)
+    1. uploader un CV → "structure ce CV en sections" → document_insight ?
+    2. "liste mes services" → data_board ?
+    3. "rédige un mail de relance" → document_draft ?
+    4. "fais-moi un plan d'action" → action_board ?
+    5. "compare option A et option B" → comparison ?
+  Kimi : lire CAHIER_DES_CHARGES_IRIS_COMMAND_SCREEN.md section 8 (missions Kimi)
+  DeepSeek : lire section 8 (missions DeepSeek)
