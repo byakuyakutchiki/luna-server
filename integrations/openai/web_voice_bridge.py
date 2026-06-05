@@ -79,18 +79,29 @@ _INTENT_RENDER_MAP = [
     (["formulaire", "remplis ", "complète ", "besoin de tes infos"], "form_board"),
     (["quelle option", "lequel choisir", "laquelle choisir", "pour ou contre",
       "avantages inconvénients", "inconvénients avantages"], "decision_board"),
-    (["kanban", "à faire/en cours/terminé", "colonnes tâches"], "kanban_board"),
-    (["réunion", "compte-rendu", "ordre du jour", "pv de", "note de réunion"], "meeting_board"),
+    (["kanban", "sprint", "backlog", "a faire/en cours/termine", "colonnes taches",
+      "avancement des taches", "etat des taches", "en cours.*termine", "a faire.*en cours"], "kanban_board"),
+    (["reunion", "compte-rendu", "ordre du jour", "pv de", "note de reunion",
+      "demarre la reunion", "ouvre la reunion", "demarre.*reunion", "ouvre.*reunion"], "meeting_board"),
     (["fiche contact", "qui est ", "coordonnées de"], "contact_board"),
     (["budget", "solde", "mes dépenses", "mes finances", "combien j'ai"], "budget_board"),
     (["adresse", "itinéraire", "trajet", "localisation", "comment aller", "où est"], "map_board"),
     (["fichiers", "pièces jointes", "photos ", "images "], "media_board"),
     (["graphique", "courbe", "histogramme", "camembert", "évolution", "tendance", "diagramme"], "chart"),
     (["roadmap", "feuille de route", "plan par étapes", "jalons"], "roadmap"),
-    (["planning", "chronologie", "échéances", "calendrier", "timeline"], "timeline"),
-    (["indicateurs", "métriques", "chiffres clés", "kpi", "statistiques", "stats"], "kpi_cards"),
+    (["planning", "chronologie", "échéances", "calendrier", "timeline",
+      "lancement le ", "livraison le ", "mise en production"], "timeline"),
+    (["indicateurs", "metriques", "chiffres cles", "kpi", "statistiques", "stats",
+      "temps de reponse", "disponibilite", "quota voix", "chiffres cles",
+      "indicateurs de performance", "tableau de bord"], "kpi_cards"),
+    (["actions a faire", "liste les actions", "avant le lancement", "checklist",
+      "a faire avant", "todo", "taches a realiser", "taches a accomplir",
+      "liste.*taches", "avant la mise en production", "avant la livraison",
+      "a faire aujourd", "preparer pour la demo", "preparer pour le lancement"], "action_board"),
     (["tableau", "colonnes", "lignes", "données en tableau", "liste de"], "data_board"),
-    (["état des services", "statut des services", "mes quotas", "diagnostic"], "status_rail"),
+    (["etat des services", "statut des services", "mes quotas", "diagnostic",
+      "sante du systeme", "operationnel", "tout fonctionne", "services fonctionnent",
+      "verifie.*services", "etat.*systeme"], "status_rail"),
     (["compare ", "versus ", "avantages", "inconvénients", " vs "], "comparison"),
     (["rédige", "courrier", "lettre", "brouillon", "note officielle"], "document_draft"),
     (["pdf", "contrat", "devis", "facture", "analyse de fichier"], "document_insight"),
@@ -211,9 +222,13 @@ class _IrisActionRouter:
             })
 
     def _infer_render_type(self, text: str) -> str:
+        import unicodedata as _ud
         lower = text.lower()
+        # NFD normalization pour matcher même sans accents (transcriptions STT variables)
+        nfd = _ud.normalize("NFD", lower)
+        stripped = "".join(c for c in nfd if _ud.category(c) != "Mn")
         for mots_cles, rt in _INTENT_RENDER_MAP:
-            if any(m in lower for m in mots_cles):
+            if any(m in lower or m in stripped for m in mots_cles):
                 return rt
         return "context_panel"  # fallback generique
 
@@ -1318,7 +1333,7 @@ class WebVoiceBridge:
                                 and any(p in _tlow for p in _DENIAL_PHRASES)
                                 and (
                                     (hasattr(self, "_session_documents") and self._session_documents)
-                                    or self._active_mode == "analyse"
+                                    or self._active_mode in ("analyse", "reunion", "workspace")
                                 )):
                             logger.warning(f"WebVoice: iris_panel_denial detected — auto-correcting")
                             self._denial_correcting = True
@@ -1373,7 +1388,8 @@ class WebVoiceBridge:
                             "pas de panneau visuel", "je ne dispose pas d'un panneau",
                         ]
                         _has_doc = hasattr(self, "_session_documents") and bool(self._session_documents)
-                        if (_has_doc and not getattr(self, "_delta_cancelled", False)
+                        _in_work_mode = self._active_mode in ("analyse", "reunion", "workspace")
+                        if ((_has_doc or _in_work_mode) and not getattr(self, "_delta_cancelled", False)
                                 and any(p in self._delta_buf for p in _EARLY_DENIAL)):
                             self._delta_cancelled = True
                             self._delta_buf = ""

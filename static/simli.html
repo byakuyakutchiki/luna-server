@@ -1844,7 +1844,7 @@
         '', 0, 0, reason);
     });
 
-    rLog('info', 'simli', 'build_marker', '036-iris-precompute-cancel');
+    rLog('info', 'simli', 'build_marker', '037-iris-routing-v2');
 
     // =====================================================================
     // PLANNING HORAIRE
@@ -4197,6 +4197,11 @@
       if (/(?:^|[^a-z0-9])(paiement|payer|virement|vire|virer|transfert|achete|acheter|commande|commander|reserve|reserver|reservation)(?:$|[^a-z0-9])/.test(t)) return 'action_board';
       if (/(?:^|[^a-z0-9])(checklist|todo|plan d.action)(?:$|[^a-z0-9])/.test(t)) return 'action_board';
       if (/fais.*checklist/.test(t) || /fais.*plan/.test(t) || /fais.*liste.*action/.test(t)) return 'action_board';
+      if (/liste.*taches/.test(t) || /taches.*accomplir/.test(t) || /a faire (aujourd|ce soir|demain|maintenant)/.test(t)) return 'action_board';
+      if (/avant.*lancement/.test(t) || /avant.*livraison/.test(t) || /avant.*deploy/.test(t) || /avant.*mise en prod/.test(t) || /avant.*lancer/.test(t)) return 'action_board';
+      if (/actions.*a faire|a faire.*lancer|les actions.*faire/.test(t)) return 'action_board';
+      if (/qu.est.ce.*(j.ai|on a|il faut|reste).*faire/.test(t) || /j.ai.*a faire/.test(t) || /faut.il faire/.test(t)) return 'action_board';
+      if (/preparer.*pour/.test(t) && /(?:demo|reunion|lancement|livraison|client|prod)/.test(t)) return 'action_board';
 
       // 2. missing_info — Iris signale qu'il manque quelque chose
       if (/(?:^|[^a-z0-9])(il me manque|il manque|j.ai besoin de|pour ca il faut|peux.tu precis|information manquante)(?:$|[^a-z0-9])/.test(t)) return 'missing_info';
@@ -4206,6 +4211,7 @@
 
       // 4. decision_board — comparaison pour choisir
       if (/(?:^|[^a-z0-9])(quelle option|lequel choisir|laquelle choisir|pour ou contre|avantage.*inconvenient|inconvenient.*avantage)(?:$|[^a-z0-9])/.test(t)) return 'decision_board';
+      if (/avantage.*risque|risque.*avantage|pros.*cons|avantages et (risques|inconvenients)/.test(t)) return 'decision_board';
       if (/option [a-z] .* option [a-z]/.test(t)) return 'decision_board';
       if (/(?:^|[^a-z0-9])(compare|comparer|versus)(?:$|[^a-z0-9])/.test(t) && /(?:^|[^a-z0-9])(avantage|inconvenient|meilleur|lequel|choisir|recommand)(?:$|[^a-z0-9])/.test(t)) return 'decision_board';
 
@@ -4213,6 +4219,7 @@
       if (/(?:^|[^a-z0-9])(kanban)(?:$|[^a-z0-9])/.test(t)) return 'kanban_board';
       if (t.indexOf('a faire') !== -1 && (t.indexOf('en cours') !== -1 || t.indexOf('termine') !== -1)) return 'kanban_board';
       if (/(?:^|[^a-z0-9])(colonnes.*taches|taches.*colonnes|gestion.*taches)(?:$|[^a-z0-9])/.test(t)) return 'kanban_board';
+      if (/avancement.*taches|taches.*equipe|sprint.*semaine|backlog/.test(t)) return 'kanban_board';
 
       // 6. meeting_board — réunion, compte-rendu
       if (/(?:^|[^a-z0-9])(reunion|compte.rendu|ordre du jour|pv de|proces.verbal|note de reunion)(?:$|[^a-z0-9])/.test(t)) return 'meeting_board';
@@ -4254,8 +4261,9 @@
       if (/plan sur \d+/.test(t) || /sur \d+ mois/.test(t) || /strategie.*\d+ an/.test(t)) return 'roadmap';
 
       // 15. timeline — dates, planning, calendrier
-      if (/(?:^|[^a-z0-9])(chronologie|timeline|frise|planning|calendrier|echeances?)(?:$|[^a-z0-9])/.test(t)) return 'timeline';
+      if (/(?:^|[^a-z0-9])(chronologie|timeline|frise|planning|calendrier|echeances?|jalons?)(?:$|[^a-z0-9])/.test(t)) return 'timeline';
       if (t.indexOf('au fil du temps') !== -1 || t.indexOf('historique') !== -1) return 'timeline';
+      if (/lance.*\d{1,2} (jan|fev|mar|avr|mai|juin|juil|aou|sep|oct|nov|dec)/.test(t)) return 'timeline';
 
       // 16. kpi_cards — métriques clés
       if (/(?:^|[^a-z0-9])(kpi|kpis|metrique|metriques|indicateur|indicateurs|stats|statistiques|performance)(?:$|[^a-z0-9])/.test(t)) return 'kpi_cards';
@@ -4268,6 +4276,8 @@
       // 18. status_rail — santé services, quotas
       if (/(?:^|[^a-z0-9])(etat|statut|diagnostic|check|sante)(?:$|[^a-z0-9])/.test(t)) return 'status_rail';
       if (/(?:^|[^a-z0-9])(services?|quotas?|credits?|systemes?)(?:$|[^a-z0-9])/.test(t)) return 'status_rail';
+      if (/operationnel|fonctionnent.*tous|tout.*fonctionne|tout.*ok|tout.*operationnel/.test(t)) return 'status_rail';
+      if (/verifie.*si.*tout|tout.*est.*actif|active.*et.*fonctionnel/.test(t)) return 'status_rail';
 
       // 19. comparison — vs, versus
       if (/(?:^|[^a-z0-9])(compare|versus|difference entre)(?:$|[^a-z0-9])/.test(t) ||
