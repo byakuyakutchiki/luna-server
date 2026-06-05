@@ -2029,3 +2029,32 @@ Fichier concerné : static/simli.html ; luna_web.py ; docs/AGENTS_COLLABORATION/
 Risque : faible — logs filtrés, tronqués, secrets masqués, anti-spam.
 Décision Ludovic requise : oui si déploiement Cloud Run immédiat souhaité.
 Action proposée : Déployer, hard refresh `/simli`, puis Claude filtre Cloud Run sur `CLIENT-DEBUG`, `client_js`, `unhandled_rejection`, `window_error`, `ics_work_timeout`, `iris_ws_error`, `ui_state_ack`.
+
+---
+Agent : Claude
+Objectif : 029 — Preuves runtime Iris
+Commits : 57a9b93
+Révision Cloud Run : luna-beta-00546-5kx
+Type : deploy — logs session + endpoint capabilities
+Statut : déployé ✅
+Implémenté :
+  1. web_voice_bridge.py — logs info à chaque session.update :
+     prompt_marker=IRIS_COMMAND_SCREEN_V1
+     session_model / session_voice / session_mode
+     session_tools_count / session_tools=[noms] / chat_present
+     session_updated=true (plus en debug, maintenant info → visible Cloud Run)
+  2. GET /api/debug/iris-capabilities — endpoint non-sensible (zéro secret) :
+     → prompt_marker, model, voice, modes, render_types, tools_by_mode,
+       sensitive_actions, handlers, last_deploy_commit
+Action proposée :
+  DeepSeek : GET https://luna-beta-674304336025.europe-west1.run.app/api/debug/iris-capabilities
+    → vérifier tools_by_mode : iris_render_present=true pour tous les modes ?
+    → vérifier que chat_present=true uniquement en mode discussion ?
+  Codex : ouvrir une session /simli → vérifier dans Cloud Run logs :
+    prompt_marker=IRIS_COMMAND_SCREEN_V1 + session_tools_count > 0
+  Kimi : mener les TC-029-01 à TC-029-05 (section 9 du cahier des charges ICS)
+    TC-029-01 "Iris, quels boutons possèdes-tu ?" → doit citer Modifier/Copier/Télécharger/Fermer
+    TC-029-02 upload PDF → "quel document viens-tu de recevoir ?" → nom + résumé
+    TC-029-03 clic mode Tableau → "dans quel mode travailles-tu ?" → data_board
+    TC-029-04 "montre-moi un graphique de dépenses" → render chart en < 3s
+    TC-029-05 "envoie un SMS à Lucas" → action_board + "tu valides avant envoi"
