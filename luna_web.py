@@ -164,6 +164,14 @@ try:
 except ImportError:
     _FORM_FILLER_AVAILABLE = False
 
+# Debug routes (etat des services, non sensibles)
+try:
+    from core.debug.routes import router as debug_router
+    _DEBUG_ROUTER_AVAILABLE = True
+except ImportError:
+    _DEBUG_ROUTER_AVAILABLE = False
+    debug_router = None
+
 # Cortex: cerveau autonome (securite, monitoring, commandes SMS d'urgence)
 try:
     from core.cortex.integration import (
