@@ -4221,6 +4221,12 @@
       // 7. contact_board — fiche contact (nom propre requis)
       if (/(?:^|[^a-z0-9])(fiche contact|qui est|coordonnees)(?:$|[^a-z0-9])/.test(t) && /[A-Z][a-z]{2,}/.test(text||'')) return 'contact_board';
 
+      // 7.5 chart — graphique explicite (avant budget pour éviter 'graphique de mes dépenses' → budget)
+      if (/(?:^|[^a-z0-9])(graphique|diagramme|histogramme|camembert)(?:$|[^a-z0-9])/.test(t)) return 'chart';
+
+      // 7.6 status_rail — services/quotas/systèmes (avant data_board car 'liste mes services' ne doit pas → data_board)
+      if (/(?:^|[^a-z0-9])(mes services|mes quotas|mes credits|etat des services|statut des services)(?:$|[^a-z0-9])/.test(t)) return 'status_rail';
+
       // 8. budget_board — finances, dépenses
       if (/(?:^|[^a-z0-9])(budget|solde|finances|mon compte|ma cagnotte)(?:$|[^a-z0-9])/.test(t)) return 'budget_board';
       if (/(?:^|[^a-z0-9])(depenses?|depense|mes finances)(?:$|[^a-z0-9])/.test(t)) return 'budget_board';
