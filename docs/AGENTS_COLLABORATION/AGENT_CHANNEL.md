@@ -2019,3 +2019,13 @@ Fichier concerné : docs/AGENTS_COLLABORATION/OBJECTIF_029_IRIS_CONSCIENCE_RUNTI
 Risque : élevé — croire qu'Iris est consciente parce que le prompt existe, sans preuve runtime.
 Décision Ludovic requise : non
 Action proposée : Claude ajoute endpoint debug non sensible `/api/debug/iris-capabilities` + markers session ; Kimi teste les phrases "je ne peux pas" ; DeepSeek audite modèle/tools/endpoints.
+
+---
+Agent : Codex
+Objectif : 029
+Type : implementation / pont F12 vers Cloud Run
+Résumé : Câblage client JS terminé. `simli.html` capture maintenant `window_error`, `unhandled_rejection`, et erreurs SCRIPT/LINK, puis envoie `tag=client_js` vers `/api/debug/log` avec déduplication 30s et masquage tokens/clés. `luna_web.py` recopie maintenant les erreurs critiques `[CLIENT-DEBUG]` dans Cloud Run même si Redis est actif, pour que Claude voie les erreurs F12 sans copier-coller Ludovic.
+Fichier concerné : static/simli.html ; luna_web.py ; docs/AGENTS_COLLABORATION/agents/CODEX_CLIENT_JS_LOG_BRIDGE_029.md
+Risque : faible — logs filtrés, tronqués, secrets masqués, anti-spam.
+Décision Ludovic requise : oui si déploiement Cloud Run immédiat souhaité.
+Action proposée : Déployer, hard refresh `/simli`, puis Claude filtre Cloud Run sur `CLIENT-DEBUG`, `client_js`, `unhandled_rejection`, `window_error`, `ics_work_timeout`, `iris_ws_error`, `ui_state_ack`.

@@ -21390,6 +21390,15 @@ _DEBUG_LOG_KEY = "luna:debug:client_logs"
 _DEBUG_LOG_MAX = 500  # max entries kept
 
 
+def _redact_client_debug_text(value: Any, limit: int = 1000) -> str:
+    text = str(value or "")[:limit]
+    text = re.sub(r"Bearer\s+[A-Za-z0-9._~+/\-]+", "Bearer ***", text)
+    text = re.sub(r"token=([^&\s]+)", "token=***", text, flags=re.IGNORECASE)
+    text = re.sub(r"(sk|sk_live|sk_test|rk)_[A-Za-z0-9_\-]{12,}", r"\1_***", text)
+    text = re.sub(r"(api[_-]?key[\"'\s:=]+)[A-Za-z0-9_\-]{12,}", r"\1***", text, flags=re.IGNORECASE)
+    return text
+
+
 @app.post("/api/debug/log")
 async def client_debug_log(request: Request):
     """Receive debug logs from client (APK/browser). No auth required for reliability."""
@@ -21402,13 +21411,28 @@ async def client_debug_log(request: Request):
 
     entry = {
         "ts": datetime.now(ZoneInfo("Europe/Paris")).strftime("%Y-%m-%d %H:%M:%S"),
-        "level": body.get("level", "info"),
-        "tag": body.get("tag", ""),
-        "msg": str(body.get("msg", ""))[:500],
-        "data": str(body.get("data", ""))[:1000],
+        "level": _redact_client_debug_text(body.get("level", "info"), 40),
+        "tag": _redact_client_debug_text(body.get("tag", ""), 80),
+        "msg": _redact_client_debug_text(body.get("msg", ""), 500),
+        "data": _redact_client_debug_text(body.get("data", ""), 1000),
         "ua": str(request.headers.get("user-agent", ""))[:200],
         "tid": getattr(request.state, "tenant_id", None),
     }
+    cloud_line = f"[CLIENT-DEBUG] {entry['level']} [{entry['tag']}] {entry['msg']} | {entry['data']}"
+    if entry["level"] == "error" or entry["tag"] == "client_js":
+        logger.error(cloud_line)
+    elif entry["level"] == "warn":
+        logger.warning(cloud_line)
+    elif entry["tag"] in {"ics", "simli"} and entry["msg"] in {
+        "build_marker",
+        "iris_ws_url",
+        "iris_ws_error",
+        "mode_changed",
+        "ui_state_ack",
+        "ics_work_timeout",
+        "ics_render",
+    }:
+        logger.info(cloud_line)
     if _redis_client:
         try:
             _redis_client.client.lpush(_DEBUG_LOG_KEY, json.dumps(entry, ensure_ascii=False))
@@ -21417,7 +21441,7 @@ async def client_debug_log(request: Request):
         except Exception:
             pass
     else:
-        logger.info(f"[CLIENT-DEBUG] {entry['level']} [{entry['tag']}] {entry['msg']} | {entry['data']}")
+        logger.info(cloud_line)
     return {"ok": True}
 
 

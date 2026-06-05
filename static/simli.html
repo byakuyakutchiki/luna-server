@@ -1668,6 +1668,61 @@
       } catch(e) {}
     }
 
+    // Capture F12 critical client errors so Cloud Run can see what Claude cannot.
+    var _clientErrSeen = {};
+    function _clientLogSafeText(value, maxLen) {
+      var text = '';
+      try {
+        if (value && value.stack) text = String(value.stack);
+        else if (typeof value === 'string') text = value;
+        else text = JSON.stringify(value);
+      } catch(_e) { text = String(value || ''); }
+      text = text
+        .replace(/Bearer\s+[A-Za-z0-9._~+\/-]+/g, 'Bearer ***')
+        .replace(/token=([^&\s]+)/gi, 'token=***')
+        .replace(/(sk|sk_live|sk_test|rk)_[A-Za-z0-9_\-]{12,}/g, '$1_***')
+        .replace(/(api[_-]?key["'\s:=]+)[A-Za-z0-9_\-]{12,}/gi, '$1***');
+      return text.substring(0, maxLen || 700);
+    }
+    function _clientErrorLog(kind, message, source, line, col, detail) {
+      try {
+        var now = Date.now();
+        var src = _clientLogSafeText(source || '', 180);
+        var msg = _clientLogSafeText(message || '', 240);
+        var fingerprint = [kind, msg, src, line || 0, col || 0].join('|');
+        if (_clientErrSeen[fingerprint] && (now - _clientErrSeen[fingerprint]) < 30000) return;
+        _clientErrSeen[fingerprint] = now;
+        rLog('error', 'client_js', kind, JSON.stringify({
+          msg: msg,
+          source: src,
+          line: line || 0,
+          col: col || 0,
+          detail: _clientLogSafeText(detail || '', 700),
+          path: location.pathname
+        }));
+      } catch(_e) {}
+    }
+    window.addEventListener('error', function(evt) {
+      try {
+        if (evt && evt.message) {
+          _clientErrorLog('window_error', evt.message, evt.filename, evt.lineno, evt.colno, evt.error);
+          return;
+        }
+        var target = evt && evt.target;
+        var url = target && (target.src || target.href);
+        var tag = target && target.tagName;
+        if (url && /^(SCRIPT|LINK)$/i.test(tag || '')) {
+          _clientErrorLog('resource_error', tag + ' failed', url, 0, 0, '');
+        }
+      } catch(_e) {}
+    }, true);
+    window.addEventListener('unhandledrejection', function(evt) {
+      var reason = evt && evt.reason;
+      _clientErrorLog('unhandled_rejection',
+        (reason && (reason.message || reason.name)) || String(reason || 'unknown'),
+        '', 0, 0, reason);
+    });
+
     rLog('info', 'simli', 'build_marker', '026-a2206ad-mode-ws');
 
     // =====================================================================
