@@ -1232,7 +1232,12 @@ class WebVoiceBridge:
                     }, ensure_ascii=False),
                 },
             })
-            await self._ws_send_openai({"type": "response.create"})
+            # tool_choice:"none" indispensable ici : sans ça, le modèle rappelle iris_render
+            # en boucle parce que le system prompt lui dit "appelle iris_render avant de parler".
+            await self._ws_send_openai({
+                "type": "response.create",
+                "response": {"tool_choice": "none"},
+            })
             self._tool_calls_log.append(f"iris_render:{render_type}")
             return
 
