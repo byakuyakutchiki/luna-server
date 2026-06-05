@@ -2949,6 +2949,7 @@ function showApp() {
   if (typeof startPaymentPolling === "function") startPaymentPolling();
   // Apply saved mode
   if (typeof applyMode === "function") applyMode(currentMode);
+  if (typeof _startAmisHeartbeat === "function") _startAmisHeartbeat();
 }
 
 function showLogin() {
@@ -5925,10 +5926,16 @@ function loadAmis() {
   authFetch("/api/social/friend-code").then(function(r) { return r.json(); })
   .then(function(data) {
     if (data.friend_code) document.getElementById("amisMyCode").textContent = data.friend_code;
-  }).catch(function() {});
+  }).catch(function(e) {
+    _remoteLog("warn", "amis", "friend_code_load_failed", String(e && e.message || e || ""));
+  });
   loadAmisList();
   loadAmisRequests();
   loadExternFriends();
+  _startAmisHeartbeat();
+}
+
+function _startAmisHeartbeat() {
   if (!amisHeartbeatTimer) {
     _amisHeartbeat();
     amisHeartbeatTimer = setInterval(_amisHeartbeat, 30000);
@@ -5936,14 +5943,18 @@ function loadAmis() {
 }
 
 function _amisHeartbeat() {
+  if (!getToken()) return;
   authFetch("/api/social/heartbeat", { method: "POST", _silent: true })
   .then(function(r) { return r.json(); })
   .then(function(data) {
     var badge = document.getElementById("amisBadge");
+    if (!badge) return;
     var n = (data.pending_requests || 0) + (data.unread_dm_count || 0);
     if (n > 0) { badge.textContent = n; badge.style.display = "inline-flex"; }
     else { badge.style.display = "none"; }
-  }).catch(function() {});
+  }).catch(function(e) {
+    _remoteLog("warn", "amis", "heartbeat_failed", String(e && e.message || e || ""));
+  });
 }
 
 function _amisAvatarEmoji(type) {
@@ -5980,9 +5991,13 @@ function loadAmisList() {
         '<div class="friend-level">Niveau ' + (f.level || 1) + '</div></div>' +
         '<div class="friend-actions">' +
         '<button class="btn btn-primary" style="padding:8px 14px;font-size:0.85em;" data-dm-tid="' + f.tid + '" data-dm-name="' + esc(f.nickname || "Ami") + '">Message</button>' +
+        '<button class="btn" style="padding:8px 10px;font-size:0.8em;background:#3f2a16;color:#fbbf24;border:none;border-radius:8px;cursor:pointer;" data-report-tid="' + f.tid + '" data-report-name="' + esc(f.nickname || "Ami") + '">Signaler</button>' +
+        '<button class="btn" style="padding:8px 10px;font-size:0.8em;background:#451a1a;color:#fca5a5;border:none;border-radius:8px;cursor:pointer;" data-block-tid="' + f.tid + '" data-block-name="' + esc(f.nickname || "Ami") + '">Bloquer</button>' +
         '<button class="btn-remove-friend" title="Supprimer cet ami" data-del-tid="' + f.tid + '" data-del-name="' + esc(f.nickname || "Ami") + '">🗑</button>' +
         '</div>';
       card.querySelector('[data-dm-tid]').addEventListener("click", function(e) { e.stopPropagation(); openDm(f.tid, f.nickname || "Ami"); });
+      card.querySelector('[data-report-tid]').addEventListener("click", function(e) { e.stopPropagation(); _amisReportFriend(f.tid, f.nickname || "Ami", this); });
+      card.querySelector('[data-block-tid]').addEventListener("click", function(e) { e.stopPropagation(); _amisBlockFriend(f.tid, f.nickname || "Ami", this); });
       card.querySelector('[data-del-tid]').addEventListener("click", function(e) { e.stopPropagation(); _openDfm(f.tid, f.nickname || "Ami"); });
       list.appendChild(card);
     });
@@ -6070,6 +6085,63 @@ function _confirmDeleteFriend() {
       btn.textContent = "Supprimer";
       _showAlert("Erreur réseau, réessaie dans un instant.", "error");
     });
+}
+
+function _amisBlockFriend(friendTid, friendName, btnEl) {
+  _showConfirm(
+    "Bloquer " + friendName + " ?",
+    "Cette personne ne pourra plus t'envoyer de demande ni de message. L'amitie et les demandes en attente seront retirees.",
+    function() {
+      btnEl.disabled = true;
+      authFetch("/api/social/block", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({ target_tid: friendTid })
+      })
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        if (d.success) {
+          _showAlert(friendName + " est bloque.", "success");
+          loadAmis();
+        } else {
+          btnEl.disabled = false;
+          _showAlert(d.error || "Blocage impossible.", "error");
+        }
+      })
+      .catch(function(e) {
+        btnEl.disabled = false;
+        _remoteLog("error", "amis", "block_failed", String(e && e.message || e || ""));
+        _showAlert("Erreur reseau pendant le blocage.", "error");
+      });
+    }
+  );
+}
+
+function _amisReportFriend(friendTid, friendName, btnEl) {
+  var reason = prompt("Pourquoi veux-tu signaler " + friendName + " ?\nMinimum 5 caracteres. Aucun message n'est envoye a cette personne.");
+  reason = (reason || "").trim();
+  if (!reason) return;
+  if (reason.length < 5) {
+    _showAlert("Raison trop courte pour le signalement.", "error");
+    return;
+  }
+  btnEl.disabled = true;
+  authFetch("/api/social/report", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({ target_tid: friendTid, reason: reason })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(d) {
+    btnEl.disabled = false;
+    if (d.success) _showAlert(d.message || "Signalement enregistre.", "success");
+    else _showAlert(d.error || "Signalement impossible.", "error");
+  })
+  .catch(function(e) {
+    btnEl.disabled = false;
+    _remoteLog("error", "amis", "report_failed", String(e && e.message || e || ""));
+    _showAlert("Erreur reseau pendant le signalement.", "error");
+  });
 }
 
 function _myTid() {

@@ -2118,3 +2118,13 @@ Fichier concerné : docs/AGENTS_COLLABORATION/OBJECTIF_032_AMIS_AUDIT_SOCIAL.md 
 Risque : moyen — données sociales/DM/presence/telephone/email ; aucune action externe déclenchée par l'audit.
 Décision Ludovic requise : non pour audit ; oui pour suppression/purge réelle, invitation SMS, modification Redis ou déploiement.
 Action proposée : Claude vérifie quelle implémentation `/api/social/*` est servie en prod et ajoute blocage/signalement UI + heartbeat global ; Kimi audite UX mobile/premium ; DeepSeek contre-audite routes dupliquées, rate-limits et sécurité WS DM.
+
+---
+Agent : Codex
+Objectif : 032
+Type : patch niveau 1 / Amis social
+Résumé : Codex a applique une premiere correction concrete sur l'onglet Amis. `showApp()` demarre maintenant le heartbeat social global ; les cartes amis affichent `Signaler` et `Bloquer` branchés sur les endpoints existants avec confirmation/raison ; ajout de `GET /api/debug/social-capabilities` pour exposer sans secret les routes sociales, doublons, rate-limits et constantes Redis. Aucun SMS/email/appel/paiement/reservation/invitation n'est declenche.
+Fichier concerné : static/index.html ; luna_web.py ; docs/AGENTS_COLLABORATION/agents/CODEX_PATCH_AMIS_SOCIAL_032.md
+Risque : faible a moyen — blocage/signalement modifient des donnees seulement apres clic utilisateur ; UI mobile a auditer.
+Décision Ludovic requise : oui avant deploiement et avant tout test de blocage sur un vrai ami.
+Action proposée : Claude/Kimi verifient syntaxe sur VM, puis Kimi audite mobile. DeepSeek audite `/api/debug/social-capabilities` et l'ordre des routes `/api/social/*`.

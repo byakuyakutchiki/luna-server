@@ -15060,6 +15060,94 @@ async def api_weather(request: Request):
         return {"status": "error", "message": f"Erreur meteo: {type(e).__name__}"}
 
 
+@app.get("/api/debug/social-capabilities")
+async def debug_social_capabilities(request: Request):
+    """Expose un diagnostic non sensible de l'onglet Amis / routes sociales."""
+    social_paths = []
+    duplicate_counts: Dict[str, int] = {}
+    try:
+        for route in getattr(app, "routes", []):
+            path = getattr(route, "path", "")
+            if not path.startswith("/api/social") and not path.startswith("/ws/dm"):
+                continue
+            methods = sorted(getattr(route, "methods", []) or ["WS"])
+            endpoint = getattr(getattr(route, "endpoint", None), "__name__", "")
+            key = f"{','.join(methods)} {path}"
+            duplicate_counts[key] = duplicate_counts.get(key, 0) + 1
+            social_paths.append({
+                "path": path,
+                "methods": methods,
+                "endpoint": endpoint,
+                "module": getattr(getattr(route, "endpoint", None), "__module__", ""),
+            })
+    except Exception:
+        social_paths = []
+
+    redis_ok = False
+    try:
+        redis_ok = bool(_redis_client and _redis_client.client.ping())
+    except Exception:
+        redis_ok = False
+
+    sops_ok = False
+    limits = {}
+    constants = {}
+    try:
+        from core.social.redis_ops import SocialRedisOps, MAX_FRIENDS, MAX_BLOCKED, MAX_DM_MESSAGES, TTL_ONLINE, TTL_DM_MESSAGES
+        sops_ok = bool(_redis_client)
+        constants = {
+            "max_friends": MAX_FRIENDS,
+            "max_blocked": MAX_BLOCKED,
+            "max_dm_messages": MAX_DM_MESSAGES,
+            "online_ttl_seconds": TTL_ONLINE,
+            "dm_messages_ttl_seconds": TTL_DM_MESSAGES,
+        }
+        _ = SocialRedisOps
+    except Exception:
+        pass
+    try:
+        import core.social.routes as _social_routes
+        limits = getattr(_social_routes, "_RATE_LIMITS", {}) or {}
+    except Exception:
+        limits = {}
+
+    route_duplicates = [
+        {"route": route, "count": count}
+        for route, count in sorted(duplicate_counts.items())
+        if count > 1
+    ]
+
+    return {
+        "ok": True,
+        "module": "amis_social",
+        "redis_available": redis_ok,
+        "social_redis_ops_available": sops_ok,
+        "routes_count": len(social_paths),
+        "route_duplicates": route_duplicates,
+        "routes": social_paths,
+        "rate_limits": limits,
+        "constants": constants,
+        "ui_expected": [
+            "friend_code",
+            "use_friend_code",
+            "friend_requests",
+            "friends_list",
+            "presence_heartbeat",
+            "dm_ws",
+            "dm_rest_fallback",
+            "extern_friends",
+            "delete_friend",
+            "block_user",
+            "report_user",
+        ],
+        "sensitive_notes": [
+            "Aucun secret expose",
+            "Endpoint lecture seule",
+            "Les actions block/report existent mais ne sont declenchees que par clic utilisateur",
+        ],
+    }
+
+
 # =========================================================================
 # CONCIERGERIE — API directe (resultats inline, pas via chat)
 # =========================================================================
