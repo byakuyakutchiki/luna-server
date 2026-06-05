@@ -628,7 +628,7 @@ class WebVoiceBridge:
     def _build_filtered_tools(self, mode_id: str) -> List[Dict]:
         """Filtre VOICE_TOOLS selon le mode actif.
         chat n'est inclus qu'en mode discussion — en modes productifs,
-        iris_render ou les outils métier sont obligatoires (tool_choice=required).
+        iris_render et les outils métier sont disponibles (tool_choice=auto).
         """
         allowed = set(get_mode_tools(mode_id))
         filtered = [t for t in VOICE_TOOLS if t.get("name", "") in allowed]
@@ -703,7 +703,9 @@ class WebVoiceBridge:
                     "create_response": True,
                 },
                 "tools": filtered_tools,
-                "tool_choice": "required",
+                # "auto" évite la boucle infinie : "required" forçait un outil après CHAQUE
+                # response.create (y compris après le résultat d'un outil), créant un cycle iris_render.
+                "tool_choice": "auto",
             },
         }
         ok = await self._ws_send_openai(session_config)
@@ -717,26 +719,33 @@ class WebVoiceBridge:
                 f"session_tools={tool_names} chat_present={chat_present} session_updated=true"
             )
 
-            # Injection conversation.item.create role="system" — mémorisé dans l'historique du modèle
-            # Plus fiable que instructions: abstract qui peut être déprioritisé par gpt-realtime-mini
-            mode_label = IRIS_MODES.get(self._active_mode, {}).get("label", self._active_mode)
-            boot_text = (
-                f"[BOOT_IRIS] Mode actif : {mode_label}. "
-                f"Identité fixe : tu es Iris, opératrice YAWatch Luna — jamais un chatbot générique. "
-                f"Règle absolue : appelle iris_render AVANT chaque réponse vocale, sans exception. "
-                f"Vocal : 1-2 phrases maximum, centré sur la demande. "
-                f"Outils autorisés : {', '.join(tool_names)}."
-            )
-            boot_item = {
+            # Ancrage identité via Q&A planté dans l'historique de conversation.
+            # Plus fiable que role="system" (non garanti sur gpt-realtime-mini).
+            # Le modèle voit sa propre "réponse passée" et reste cohérent.
+            await self._ws_send_openai({
                 "type": "conversation.item.create",
                 "item": {
                     "type": "message",
-                    "role": "system",
-                    "content": [{"type": "input_text", "text": boot_text}],
+                    "role": "user",
+                    "content": [{"type": "input_text", "text": "Iris, qui es-tu et as-tu un panneau visuel ?"}],
                 },
-            }
-            await self._ws_send_openai(boot_item)
-            logger.info("[BOOT] conversation.item système injecté — Iris contextualisée")
+            })
+            await self._ws_send_openai({
+                "type": "conversation.item.create",
+                "item": {
+                    "type": "message",
+                    "role": "assistant",
+                    "content": [{
+                        "type": "text",
+                        "text": (
+                            "Je suis Iris, l'opératrice IA du centre de commande YAWatch Luna. "
+                            "Oui, j'ai l'Iris Command Screen — mon panneau visuel actif à l'écran en ce moment. "
+                            "Je l'alimente via la fonction iris_render à chaque réponse."
+                        ),
+                    }],
+                },
+            })
+            logger.info("[BOOT] Q&A d'ancrage injecté dans l'historique — Iris contextualisée")
 
             # BOOT ORANGE — vérifications terminées
             await self._ws_send_client({"type": "boot_state", "state": "orange"})
@@ -777,7 +786,7 @@ class WebVoiceBridge:
             "session": {
                 "instructions": full_context,
                 "tools": filtered_tools,
-                "tool_choice": "required",
+                "tool_choice": "auto",
             },
         }
         ok = await self._ws_send_openai(session_update)
