@@ -1723,7 +1723,7 @@
         '', 0, 0, reason);
     });
 
-    rLog('info', 'simli', 'build_marker', '026-a2206ad-mode-ws');
+    rLog('info', 'simli', 'build_marker', '029-schema-renderers-fix');
 
     // =====================================================================
     // PLANNING HORAIRE
@@ -4360,7 +4360,8 @@
     }
 
     function _icsRenderMissingInfo(p) {
-      var fields = (p.missing_fields||[]).map(function(f){
+      var fieldList = p.fields || p.missing_fields || [];
+      var fields = fieldList.map(function(f){
         return '<div class="ics-acard"><div class="ics-cb"></div><div class="ics-card-text" style="color:var(--ics-amber)">'+_esc(f)+'</div></div>';
       }).join('');
       var sugg = (p.suggestions||[]).map(function(s){
@@ -4375,7 +4376,7 @@
       var rows = (p.services||[]).map(function(s){
         return '<div class="ics-svc-row"><div class="ics-svc-dot '+(s.status||'active')+'"></div>'
           +'<div class="ics-svc-name">'+_esc(s.name||'')+'</div>'
-          +'<div class="ics-svc-detail">'+_esc(s.detail||'')+'</div></div>';
+          +'<div class="ics-svc-detail">'+_esc(s.detail||s.info||s.description||'')+'</div></div>';
       }).join('');
       return '<div class="ics-svc-grid">'+rows
         +(p.summary?'<div class="ics-summary" style="margin-top:8px">'+_esc(p.summary)+'</div>':'')+'</div>';
