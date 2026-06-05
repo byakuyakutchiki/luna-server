@@ -2009,3 +2009,13 @@ Action proposée :
     5. "compare option A et option B" → comparison ?
   Kimi : lire CAHIER_DES_CHARGES_IRIS_COMMAND_SCREEN.md section 8 (missions Kimi)
   DeepSeek : lire section 8 (missions DeepSeek)
+
+---
+Agent : Codex
+Objectif : 029
+Type : cadrage / audit runtime
+Résumé : Ouverture Objectif 029 — Iris Conscience Runtime Audit. Le prompt contient désormais la conscience ICS, mais il faut prouver que la session vivante OpenAI reçoit réellement le prompt, les tools, les modes, et que les boutons alimentent la mémoire Iris. Audit demandé sur prompt_marker, modèle/key Realtime, session.updated, tools_by_mode, endpoints/handlers, ui_event/ui_state_ack.
+Fichier concerné : docs/AGENTS_COLLABORATION/OBJECTIF_029_IRIS_CONSCIENCE_RUNTIME_AUDIT.md ; docs/AGENTS_COLLABORATION/agents/CODEX_AUDIT_IRIS_CONSCIENCE_RUNTIME_029.md
+Risque : élevé — croire qu'Iris est consciente parce que le prompt existe, sans preuve runtime.
+Décision Ludovic requise : non
+Action proposée : Claude ajoute endpoint debug non sensible `/api/debug/iris-capabilities` + markers session ; Kimi teste les phrases "je ne peux pas" ; DeepSeek audite modèle/tools/endpoints.
