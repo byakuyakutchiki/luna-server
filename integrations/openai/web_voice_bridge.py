@@ -982,8 +982,11 @@ class WebVoiceBridge:
                                 {"label": "Synthèse"},
                                 {"label": "Points clés"},
                                 {"label": "Tableau"},
+                                {"label": "Kanban"},
+                                {"label": "Timeline"},
+                                {"label": "Contacts"},
+                                {"label": "Budget"},
                                 {"label": "Rédiger une réponse"},
-                                {"label": "Sauvegarder"},
                             ],
                             "private": True,
                         })
@@ -995,6 +998,63 @@ class WebVoiceBridge:
                             "filename": fname,
                         })
                         logger.info(f"WebVoice: ui_state_ack document_uploaded fname={fname[:60]}")
+                    elif event_name == "doc_action" and self.ws_openai:
+                        _da_action = str(data.get("action", "")).strip()
+                        _da_fname  = str(data.get("filename", ""))
+                        if not _da_fname and hasattr(self, "_session_documents") and self._session_documents:
+                            _da_fname = self._session_documents[-1].get("filename", "le document")
+                        logger.info(f"WebVoice: ui_event doc_action action={_da_action[:40]} fname={_da_fname[:40]}")
+
+                        _DOC_ACTION_PROMPTS = {
+                            "synthese":            ("context_panel",   "Fais une synthese complete du document. Appelle iris_render(render_type='context_panel', payload={title:..., sections:[{heading:'Resume', body:...},{heading:'Points cles', body:...},{heading:'Conclusion', body:...}]}) avec le vrai contenu."),
+                            "synthèse":            ("context_panel",   "Fais une synthese complete du document. Appelle iris_render(render_type='context_panel', payload={title:..., sections:[{heading:'Resume', body:...},{heading:'Points cles', body:...},{heading:'Conclusion', body:...}]}) avec le vrai contenu."),
+                            "points cles":         ("action_board",    "Liste les points cles et actions a retenir. Appelle iris_render(render_type='action_board', payload={sections:[{title:'Actions', items:[{text:'...',done:false},...]}]}) avec les vrais items du document."),
+                            "points clés":         ("action_board",    "Liste les points cles et actions a retenir. Appelle iris_render(render_type='action_board', payload={sections:[{title:'Actions', items:[{text:'...',done:false},...]}]}) avec les vrais items du document."),
+                            "tableau":             ("data_board",      "Transforme le contenu en tableau structure. Appelle iris_render(render_type='data_board', payload={title:'...', columns:[...], rows:[[...]]}) avec les vraies donnees du document."),
+                            "kanban":              ("kanban_board",    "Organise les taches en Kanban. Appelle iris_render(render_type='kanban_board', payload={columns:[{id:'todo',label:'A faire',color:'todo',cards:[{title:'...'}]},{id:'doing',label:'En cours',color:'doing',cards:[]},{id:'done',label:'Termine',color:'done',cards:[]}]}) avec les taches reelles du document."),
+                            "timeline":            ("timeline",        "Extrais toutes les dates et jalons. Appelle iris_render(render_type='timeline', payload={events:[{date:'JJ/MM/AAAA',title:'...',description:'...'}]}) avec les vraies dates du document."),
+                            "rediger une reponse": ("document_draft",  "Redige une reponse professionnelle. Appelle iris_render(render_type='document_draft', payload={title:'Reponse a ...', recipient:'...', body:'...'}) avec le contenu adapte au document."),
+                            "rédiger une réponse": ("document_draft",  "Redige une reponse professionnelle. Appelle iris_render(render_type='document_draft', payload={title:'Reponse a ...', recipient:'...', body:'...'}) avec le contenu adapte au document."),
+                            "contacts":            ("contact_board",   "Extrais tous les noms et coordonnees mentionnes. Appelle iris_render(render_type='data_board', payload={title:'Contacts', columns:['Nom','Role','Contact'], rows:[...]}) avec les vraies personnes du document."),
+                            "budget":              ("budget_board",    "Extrais les donnees financieres et montants. Appelle iris_render(render_type='budget_board', payload={kpis:[{label:'...', value:'...€', trend:'flat'}], categories:[{name:'...', amount:0, percent:0}], summary:'...'}) avec les vrais chiffres."),
+                            "sauvegarder":         ("",                "Sauvegarde ce document dans le vault Luna de l'utilisateur et confirme."),
+                        }
+                        _key = _da_action.lower().strip()
+                        _rtype, _instruction = _DOC_ACTION_PROMPTS.get(_key, (
+                            "context_panel",
+                            f"Effectue l'action '{_da_action}' sur ce document et appelle iris_render avec le resultat structure."
+                        ))
+
+                        _doc_text = ""
+                        if hasattr(self, "_session_documents") and self._session_documents:
+                            _last = max(self._session_documents, key=lambda d: d.get("ts", 0))
+                            _doc_text = _last.get("analysis", "")
+
+                        _inject = (
+                            f"[ACTION SUR DOCUMENT : {_da_action} — Fichier : {_da_fname}]\n"
+                            f"Contenu du document :\n{_doc_text[:2000]}\n\n"
+                            f"INSTRUCTION : {_instruction}\n"
+                            f"OBLIGATOIRE : appelle iris_render avec un payload rempli avec les vraies donnees du document ci-dessus. "
+                            f"Ne reponds pas uniquement a l'oral. Parle brievement de ce que tu affiches."
+                        )
+                        await self._ws_send_openai({
+                            "type": "conversation.item.create",
+                            "item": {
+                                "type": "message",
+                                "role": "user",
+                                "content": [{"type": "input_text", "text": _inject}],
+                            },
+                        })
+                        _rc_instructions = (
+                            f"Appelle iris_render(render_type='{_rtype}') maintenant avec les donnees reelles du document. "
+                            f"Parle en 1-2 phrases de ce que tu affiches."
+                        ) if _rtype else None
+                        _rc_payload: dict = {"tools": VOICE_TOOLS}
+                        if _rc_instructions:
+                            _rc_payload["instructions"] = _rc_instructions
+                        await self._ws_send_openai({"type": "response.create", "response": _rc_payload})
+                        logger.info(f"WebVoice: doc_action response triggered rtype={_rtype}")
+
                     else:
                         logger.info(f"WebVoice: ui_event unhandled name={event_name}")
 

@@ -1844,7 +1844,7 @@
         '', 0, 0, reason);
     });
 
-    rLog('info', 'simli', 'build_marker', '034-iris-inference-v2');
+    rLog('info', 'simli', 'build_marker', '035-iris-doc-actions');
 
     // =====================================================================
     // PLANNING HORAIRE
@@ -4762,11 +4762,12 @@
           +'</div>';
       }).join('');
 
-      // Boutons actions
+      // Boutons actions — direct send via doc_action ui_event
+      _icsActiveDocFilename = fname;
       var actions = (p.actions||[]).map(function(a){
         var lbl = a.label || a;
         return '<button class="ics-btn" style="flex:none;padding:5px 12px;font-size:10px" '
-          +'onclick="_icsSuggestion(\''+_esc(lbl)+'\')">'+_esc(lbl)+'</button>';
+          +'onclick="_icsDocAction(\''+_esc(lbl)+'\',\''+_esc(fname)+'\')">'+_esc(lbl)+'</button>';
       }).join('');
 
       return '<div>'+header+sections
@@ -5140,6 +5141,19 @@
     function _icsSuggestion(lbl) {
       var inp = document.getElementById('afTextInput');
       if (inp){inp.value=lbl; inp.focus();}
+    }
+
+    var _icsActiveDocFilename = '';
+    function _icsDocAction(label, fname) {
+      if (_irisWs && _irisWs.readyState === WebSocket.OPEN) {
+        var fn = fname || _icsActiveDocFilename || '';
+        try {
+          _irisWs.send(JSON.stringify({type:'ui_event',name:'doc_action',action:label,filename:fn}));
+          _afAppendTranscript('user', label + (fn ? ' — ' + fn : ''));
+          _setIrisState('thinking');
+          rLog('info','simli','doc_action',label+' '+fn.substring(0,40));
+        } catch(e) { _icsSuggestion(label); }
+      } else { _icsSuggestion(label); }
     }
 
     function _icsConfirmAction(actionType, confirmed) {

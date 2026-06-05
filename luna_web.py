@@ -9970,14 +9970,9 @@ Règles de collaboration :
     else:
         _tpl = _random.choice(_IRIS_GREETINGS)
         _greeting_text = _tpl.format(name=sub_name or "Ludovic")
-        # Injecter la phrase EXACTE dans le system prompt — OpenAI la respecte mieux qu'un user message
-        context += (
-            f"\n\nPHRASE D'OUVERTURE OBLIGATOIRE — au tout début de cette session, "
-            f"prononce mot pour mot, SANS AUCUNE MODIFICATION, SANS AJOUTER NI ENLEVER UN MOT : "
-            f"« {_greeting_text} »"
-        )
-        # Trigger minimal — ne répète pas la phrase ici pour éviter la reformulation
-        _greeting = "Prononce maintenant ta phrase d'ouverture obligatoire."
+        # Passer la phrase directement comme instructions de response.create
+        # (gpt-realtime-2 lisait littéralement le label "PHRASE D'OUVERTURE OBLIGATOIRE")
+        _greeting = _greeting_text
 
     bridge = WebVoiceBridge(
         openai_api_key=OPENAI_API_KEY,
