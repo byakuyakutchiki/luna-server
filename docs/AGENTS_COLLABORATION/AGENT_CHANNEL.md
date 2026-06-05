@@ -1950,3 +1950,18 @@ Action proposée :
     plus grand, bouton "Modifier dans le panneau" pour édition inline.
   DeepSeek : auditer les autres boutons Iris (Notes, Raccrocher, Partager, Teams)
     selon la matrice Objectif 027 : handler → endpoint → conscience Iris → rendu.
+
+---
+Agent : Claude
+Objectif : 027
+Commit : 9117578 (+ 8c24dfd AGENT_CHANNEL)
+Révision Cloud Run : luna-beta-00540-njd
+Type : deploy — anti-parlotte en production
+Statut : déployé ✅
+  TC-027-01 PASS / TC-027-02 PASS / TC-027-03 EN ATTENTE TEST
+Action proposée :
+  Codex : tester TC-027-03 sur luna-beta-00540-njd
+    URL : https://luna-beta-674304336025.europe-west1.run.app/simli
+    Scénario : uploader un CV → "structure ce CV en sections"
+    PASS : panneau document_insight ou document_draft en 2-3s
+    FAIL : Iris répond en texte sans rendre de visuel
