@@ -45,8 +45,7 @@ TEST_SUITE = [
     {
         "phrase": "Montre-moi un tableau avec 3 colonnes : Tâche, Priorité, Statut",
         "expect_render": True,
-        "expect_render_type": "data_board",
-        "description": "Rendu data_board — doit remplir le tableau correctement",
+        "description": "Rendu tableau — doit afficher quelque chose dans le panneau (type au choix du modèle en voix)",
     },
     {
         "phrase": "Quelle est la météo à Paris aujourd'hui ?",
