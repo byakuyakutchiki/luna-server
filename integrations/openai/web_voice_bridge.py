@@ -723,9 +723,9 @@ class WebVoiceBridge:
                     "create_response": True,
                 },
                 "tools": filtered_tools,
-                # "auto" évite la boucle infinie : "required" forçait un outil après CHAQUE
-                # response.create (y compris après le résultat d'un outil), créant un cycle iris_render.
-                "tool_choice": "auto",
+                # required = force un outil sur toute réponse user-initiated.
+                # La boucle post-iris_render est cassée par tool_choice:"none" dans _handle_tool_call.
+                "tool_choice": "required",
             },
         }
         ok = await self._ws_send_openai(session_config)
@@ -806,7 +806,7 @@ class WebVoiceBridge:
             "session": {
                 "instructions": full_context,
                 "tools": filtered_tools,
-                "tool_choice": "auto",
+                "tool_choice": "required",
             },
         }
         ok = await self._ws_send_openai(session_update)
