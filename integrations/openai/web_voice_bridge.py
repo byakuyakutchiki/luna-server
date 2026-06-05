@@ -689,7 +689,14 @@ class WebVoiceBridge:
         }
         ok = await self._ws_send_openai(session_config)
         if ok:
-            logger.info(f"WebVoice: session configured (mode={self._active_mode}, {len(filtered_tools)} tools, pcm16, voice={self.voice})")
+            tool_names = [t.get("name", "?") for t in filtered_tools]
+            chat_present = "chat" in tool_names
+            logger.info(
+                f"WebVoice: prompt_marker=IRIS_COMMAND_SCREEN_V1 "
+                f"session_model={OPENAI_REALTIME_MODEL} session_voice={self.voice} "
+                f"session_mode={self._active_mode} session_tools_count={len(filtered_tools)} "
+                f"session_tools={tool_names} chat_present={chat_present} session_updated=true"
+            )
         return ok
 
     async def set_mode(self, mode_id: str) -> bool:
@@ -715,6 +722,13 @@ class WebVoiceBridge:
             },
         }
         ok = await self._ws_send_openai(session_update)
+        if ok:
+            tool_names = [t.get("name", "?") for t in filtered_tools]
+            logger.info(
+                f"WebVoice: prompt_marker=IRIS_COMMAND_SCREEN_V1 "
+                f"session_mode={mode_id} session_tools_count={len(filtered_tools)} "
+                f"session_tools={tool_names} chat_present={'chat' in tool_names} session_updated=true"
+            )
 
         await self._ws_send_client({
             "type": "mode_changed",
@@ -894,7 +908,7 @@ class WebVoiceBridge:
                     logger.info("WebVoice: OpenAI session created")
 
                 elif event_type == "session.updated":
-                    logger.debug("WebVoice: OpenAI session updated")
+                    logger.info("WebVoice: session_updated=true")
 
                 elif event_type in ("response.audio.delta", "response.output_audio.delta"):
                     audio_delta = data.get("delta", "")

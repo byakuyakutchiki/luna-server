@@ -21399,6 +21399,71 @@ def _redact_client_debug_text(value: Any, limit: int = 1000) -> str:
     return text
 
 
+@app.get("/api/debug/iris-capabilities")
+async def iris_capabilities(request: Request):
+    """Dump non-sensible des capacités runtime d'Iris — pour audit DeepSeek/Kimi/Codex."""
+    try:
+        from integrations.openai.web_voice_bridge import OPENAI_REALTIME_MODEL
+        from integrations.openai.realtime_bridge import VOICE_TOOLS
+        from integrations.iris.modes import IRIS_MODES, DEFAULT_MODE, get_mode_tools
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": str(e)})
+
+    all_tool_names = [t.get("name", "?") for t in VOICE_TOOLS]
+
+    tools_by_mode = {}
+    for mode_id, mode_cfg in IRIS_MODES.items():
+        allowed = set(get_mode_tools(mode_id))
+        if mode_id == DEFAULT_MODE:
+            allowed.add("chat")
+        mode_tools = [n for n in all_tool_names if n in allowed]
+        tools_by_mode[mode_id] = {
+            "label": mode_cfg.get("label", mode_id),
+            "tools": mode_tools,
+            "tools_count": len(mode_tools),
+            "chat_present": "chat" in mode_tools,
+            "iris_render_present": "iris_render" in mode_tools,
+        }
+
+    _RENDER_TYPES = [
+        "document_insight", "data_board", "document_draft", "action_board",
+        "context_panel", "status_rail", "kpi_cards", "chart", "timeline",
+        "comparison", "missing_info", "kanban_board", "meeting_board",
+        "budget_board", "decision_board", "contact_board", "media_board", "form_board",
+    ]
+
+    _SENSITIVE_ACTIONS = ["send_sms", "send_email", "call_contact", "alert_contacts",
+                          "invite_visio", "book_restaurant", "search_flights", "search_hotels"]
+
+    try:
+        last_commit = __import__("subprocess").check_output(
+            ["git", "log", "--oneline", "-1"], cwd="/app", stderr=__import__("subprocess").DEVNULL
+        ).decode().strip()
+    except Exception:
+        last_commit = "unavailable"
+
+    return JSONResponse({
+        "prompt_marker": "IRIS_COMMAND_SCREEN_V1",
+        "model": OPENAI_REALTIME_MODEL,
+        "voice": os.getenv("OPENAI_VOICE_NAME", "coral"),
+        "default_mode": DEFAULT_MODE,
+        "modes_count": len(IRIS_MODES),
+        "modes": list(IRIS_MODES.keys()),
+        "render_types_count": len(_RENDER_TYPES),
+        "render_types": _RENDER_TYPES,
+        "total_tools_available": len(all_tool_names),
+        "all_tools": all_tool_names,
+        "tools_by_mode": tools_by_mode,
+        "sensitive_actions_requiring_confirmation": _SENSITIVE_ACTIONS,
+        "handlers_available": [
+            "GET /ws/iris-voice", "POST /api/visio/upload", "POST /api/visio/notes",
+            "POST /api/iris/session/create", "POST /api/webhook/tavus",
+            "GET /api/debug/iris-capabilities",
+        ],
+        "last_deploy_commit": last_commit,
+    })
+
+
 @app.post("/api/debug/log")
 async def client_debug_log(request: Request):
     """Receive debug logs from client (APK/browser). No auth required for reliability."""
