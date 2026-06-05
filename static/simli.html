@@ -1844,7 +1844,7 @@
         '', 0, 0, reason);
     });
 
-    rLog('info', 'simli', 'build_marker', '035-iris-doc-actions');
+    rLog('info', 'simli', 'build_marker', '036-iris-precompute-cancel');
 
     // =====================================================================
     // PLANNING HORAIRE
@@ -5365,6 +5365,17 @@
               _irisQueueAudio(data.audio);
             } else if (data.type === 'audio_done') {
               _setIrisState('idle');
+            } else if (data.type === 'audio_cancel') {
+              // Réponse annulée côté serveur (détection déni mid-stream)
+              _irisClearPlayback();
+              _setIrisState('thinking');
+              rLog('warn', 'simli', 'audio_cancel', 'denial intercepted server-side');
+            } else if (data.type === 'doc_renders_ready') {
+              // Pré-calcul terminé — les boutons sont maintenant "chauds"
+              var _rdyFile = data.filename || '';
+              var _rdyAvail = data.available || [];
+              rLog('info', 'simli', 'doc_renders_ready', _rdyFile + ' [' + _rdyAvail.join(',') + ']');
+              showToast('✓ Transformations prêtes pour "' + _rdyFile + '"', 3000);
             } else if (data.type === 'interrupt') {
               _irisClearPlayback();
               _setIrisState('idle');

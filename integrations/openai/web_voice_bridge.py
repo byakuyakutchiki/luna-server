@@ -872,6 +872,91 @@ class WebVoiceBridge:
         else:
             logger.warning("WebVoice: greeting trigger failed")
 
+    async def _precompute_doc_renders(self, fname: str, analysis: str):
+        """Pre-calcule 8 render types pour un document via GPT-4o-mini."""
+        _prompt = (
+            f"Tu analyses ce document et génères des données structurées pour des rendus visuels.\n\n"
+            f"Document: {fname}\nContenu:\n{analysis[:4000]}\n\n"
+            f"Génère un JSON avec ces clés (null si non applicable) :\n"
+            f'{{"context_panel":{{"title":"Synthèse — titre court","sections":['
+            f'{{"heading":"Résumé","body":"2-3 phrases"}},{{"heading":"Points clés","body":"• point1\\n• point2\\n• point3"}},'
+            f'{{"heading":"Conclusion","body":"1 phrase"}}]}},'
+            f'"action_board":{{"sections":[{{"title":"Actions","items":[{{"text":"Action réelle du doc","done":false,"tag":"urgent"}}]}}]}},'
+            f'"timeline":{{"events":[{{"date":"JJ/MM/AAAA","title":"Jalon réel","description":"détail"}}]}},'
+            f'"data_board":{{"title":"Tableau","columns":["Col1","Col2","Col3"],"rows":[["val","val","val"]]}},'
+            f'"kanban_board":{{"columns":['
+            f'{{"id":"todo","label":"À faire","color":"todo","cards":[{{"title":"Tâche réelle"}}]}},'
+            f'{{"id":"doing","label":"En cours","color":"doing","cards":[]}},'
+            f'{{"id":"done","label":"Terminé","color":"done","cards":[]}}]}},'
+            f'"kpi_cards":{{"kpis":[{{"label":"Indicateur","value":"Valeur chiffrée","trend":"flat"}}]}},'
+            f'"budget_board":{{"kpis":[{{"label":"Total","value":"X €","trend":"flat"}}],'
+            f'"categories":[{{"name":"Poste","amount":0,"percent":0}}],"summary":""}},'
+            f'"document_draft":{{"title":"Réponse à {fname}","recipient":"","body":"Réponse professionnelle rédigée à partir du document"}}}}\n\n'
+            f"Règles : extrais uniquement les vraies données du document. "
+            f"Max 8 items par liste. Dates réelles si présentes. JSON valide uniquement sans markdown."
+        )
+        try:
+            import openai as _oa
+            _client = _oa.AsyncOpenAI(api_key=self.openai_api_key)
+            _resp = await _client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[{"role": "user", "content": _prompt}],
+                response_format={"type": "json_object"},
+                max_tokens=3000,
+                temperature=0.1,
+            )
+            _renders = json.loads(_resp.choices[0].message.content)
+            if not hasattr(self, "_session_doc_renders"):
+                self._session_doc_renders = {}
+            self._session_doc_renders[fname] = _renders
+            self._session_doc_renders["_latest"] = fname
+            _available = [k for k, v in _renders.items() if v is not None]
+            logger.info(f"WebVoice: precomputed {len(_available)} renders for {fname[:40]}: {_available}")
+            await self._ws_send_client({
+                "type": "doc_renders_ready",
+                "filename": fname,
+                "available": _available,
+            })
+        except Exception as _e:
+            logger.error(f"WebVoice: _precompute_doc_renders error: {_e}")
+
+    async def _auto_correct_denial(self):
+        """Corrige automatiquement quand Iris nie avoir un panneau ICS."""
+        try:
+            _doc_ctx = ""
+            if hasattr(self, "_session_documents") and self._session_documents:
+                _last = max(self._session_documents, key=lambda d: d.get("ts", 0))
+                _doc_ctx = f" Document actif : {_last['filename']}."
+            await self._ws_send_openai({
+                "type": "conversation.item.create",
+                "item": {
+                    "type": "message",
+                    "role": "user",
+                    "content": [{"type": "input_text", "text": (
+                        f"[CORRECTION SYSTÈME]{_doc_ctx} "
+                        f"Tu AS un panneau Iris Command Screen actif et visible à l'écran maintenant. "
+                        f"Appelle iris_render avec le bon render_type et le payload rempli. "
+                        f"Ne lis JAMAIS le contenu à l'oral — affiche-le dans le panneau."
+                    )}],
+                },
+            })
+            await self._ws_send_openai({
+                "type": "response.create",
+                "response": {
+                    "instructions": (
+                        "Appelle iris_render MAINTENANT avec le bon render_type et payload rempli. "
+                        "Ne lis pas le contenu à l'oral. 1 phrase courte puis appel iris_render."
+                    ),
+                    "tools": VOICE_TOOLS,
+                },
+            })
+            logger.info("WebVoice: auto_correct_denial triggered successfully")
+        except Exception as _e:
+            logger.error(f"WebVoice: auto_correct_denial error: {_e}")
+        finally:
+            await asyncio.sleep(15)
+            self._denial_correcting = False
+
     async def _relay_client_to_openai(self):
         """Recoit l'audio PCM16 du navigateur et l'envoie a OpenAI."""
         try:
@@ -949,12 +1034,16 @@ class WebVoiceBridge:
                             self._session_documents = []
                         self._session_documents.append(doc_entry)
 
-                        # Injecter un message utilisateur court et direct
+                        # Pré-calculer les rendus en arrière-plan (GPT-4o-mini)
+                        asyncio.create_task(self._precompute_doc_renders(fname, analysis))
+
+                        # Injecter un message court — Iris confirme la réception, ne lit pas le contenu
                         inject_text = (
-                            f'[DOCUMENT RECU : {fname}]\n'
-                            f'{analysis}\n\n'
-                            f'Action : confirme que tu as recu ce document, cite son nom, '
-                            f'et propose une analyse ou un rendu document_insight.'
+                            f'[DOCUMENT REÇU : {fname}]\n'
+                            f'Résumé court : {analysis[:300]}...\n\n'
+                            f'Confirme la réception en 1 phrase. '
+                            f'Dis que le panneau est mis à jour et que les transformations sont disponibles. '
+                            f'Ne lis PAS le contenu à l\'oral.'
                         )
                         await self._ws_send_openai({
                             "type": "conversation.item.create",
@@ -964,7 +1053,17 @@ class WebVoiceBridge:
                                 "content": [{"type": "input_text", "text": inject_text}],
                             },
                         })
-                        await self._ws_send_openai({"type": "response.create"})
+                        await self._ws_send_openai({
+                            "type": "response.create",
+                            "response": {
+                                "instructions": (
+                                    "Confirme la réception du document en 1 phrase. "
+                                    "Ex: 'Reçu — le panneau est à jour, clique sur les boutons pour transformer.' "
+                                    "Ne lis PAS le contenu. Ne liste pas les fonctionnalités."
+                                ),
+                                "tools": VOICE_TOOLS,
+                            },
+                        })
 
                         # Rendu immédiat document_insight dans le Command Screen
                         # Privé : _ws_send_client envoie uniquement à ce WS (pas de broadcast session)
@@ -1020,40 +1119,90 @@ class WebVoiceBridge:
                             "sauvegarder":         ("",                "Sauvegarde ce document dans le vault Luna de l'utilisateur et confirme."),
                         }
                         _key = _da_action.lower().strip()
-                        _rtype, _instruction = _DOC_ACTION_PROMPTS.get(_key, (
-                            "context_panel",
-                            f"Effectue l'action '{_da_action}' sur ce document et appelle iris_render avec le resultat structure."
-                        ))
+                        _ACTION_TO_RTYPE = {
+                            "synthese": "context_panel", "synthèse": "context_panel",
+                            "points cles": "action_board", "points clés": "action_board",
+                            "tableau": "data_board",
+                            "kanban": "kanban_board",
+                            "timeline": "timeline",
+                            "contacts": "contact_board",
+                            "budget": "budget_board",
+                            "rediger une reponse": "document_draft",
+                            "rédiger une réponse": "document_draft",
+                        }
+                        _rtype = _ACTION_TO_RTYPE.get(_key, "context_panel")
 
-                        _doc_text = ""
-                        if hasattr(self, "_session_documents") and self._session_documents:
-                            _last = max(self._session_documents, key=lambda d: d.get("ts", 0))
-                            _doc_text = _last.get("analysis", "")
+                        # Chercher le rendu pré-calculé
+                        _precomputed = None
+                        if hasattr(self, "_session_doc_renders"):
+                            _dr = self._session_doc_renders.get(_da_fname)
+                            if not _dr:
+                                _latest_name = self._session_doc_renders.get("_latest", "")
+                                _dr = self._session_doc_renders.get(_latest_name, {}) if _latest_name else {}
+                            if isinstance(_dr, dict):
+                                _precomputed = _dr.get(_rtype)
 
-                        _inject = (
-                            f"[ACTION SUR DOCUMENT : {_da_action} — Fichier : {_da_fname}]\n"
-                            f"Contenu du document :\n{_doc_text[:2000]}\n\n"
-                            f"INSTRUCTION : {_instruction}\n"
-                            f"OBLIGATOIRE : appelle iris_render avec un payload rempli avec les vraies donnees du document ci-dessus. "
-                            f"Ne reponds pas uniquement a l'oral. Parle brievement de ce que tu affiches."
-                        )
-                        await self._ws_send_openai({
-                            "type": "conversation.item.create",
-                            "item": {
-                                "type": "message",
-                                "role": "user",
-                                "content": [{"type": "input_text", "text": _inject}],
-                            },
-                        })
-                        _rc_instructions = (
-                            f"Appelle iris_render(render_type='{_rtype}') maintenant avec les donnees reelles du document. "
-                            f"Parle en 1-2 phrases de ce que tu affiches."
-                        ) if _rtype else None
-                        _rc_payload: dict = {"tools": VOICE_TOOLS}
-                        if _rc_instructions:
-                            _rc_payload["instructions"] = _rc_instructions
-                        await self._ws_send_openai({"type": "response.create", "response": _rc_payload})
-                        logger.info(f"WebVoice: doc_action response triggered rtype={_rtype}")
+                        if _precomputed:
+                            # Rendu pré-calculé : envoi direct au client, SANS passer par le modèle
+                            _render_msg = {"type": "render", "render_type": _rtype}
+                            _render_msg.update(_precomputed)
+                            await self._ws_send_client(_render_msg)
+                            logger.info(f"WebVoice: doc_action precomputed render sent rtype={_rtype}")
+
+                            # Iris confirme en 1 phrase — elle ne génère PAS les données
+                            await self._ws_send_openai({
+                                "type": "conversation.item.create",
+                                "item": {
+                                    "type": "message",
+                                    "role": "user",
+                                    "content": [{"type": "input_text", "text": (
+                                        f"[SYSTÈME : Le panneau '{_rtype}' a été affiché automatiquement "
+                                        f"pour '{_da_fname}'. Dis 1 phrase de confirmation courte. "
+                                        f"Ex: 'Voilà le kanban — les tâches sont organisées.' "
+                                        f"Ne décris pas chaque item. Ne lis pas le contenu."
+                                    )}],
+                                },
+                            })
+                            await self._ws_send_openai({
+                                "type": "response.create",
+                                "response": {
+                                    "instructions": "1 phrase de confirmation du panneau affiché. Rien de plus.",
+                                    "tools": [],
+                                },
+                            })
+                        else:
+                            # Fallback si pré-calcul pas encore prêt
+                            _rtype_fb, _instruction_fb = _DOC_ACTION_PROMPTS.get(_key, (
+                                "context_panel",
+                                f"Effectue '{_da_action}' sur ce document et appelle iris_render."
+                            ))
+                            _doc_text = ""
+                            if hasattr(self, "_session_documents") and self._session_documents:
+                                _last = max(self._session_documents, key=lambda d: d.get("ts", 0))
+                                _doc_text = _last.get("analysis", "")
+                            await self._ws_send_openai({
+                                "type": "conversation.item.create",
+                                "item": {
+                                    "type": "message",
+                                    "role": "user",
+                                    "content": [{"type": "input_text", "text": (
+                                        f"[ACTION : {_da_action} — {_da_fname}]\n"
+                                        f"Contenu : {_doc_text[:2000]}\n\n{_instruction_fb}\n"
+                                        f"OBLIGATOIRE : appelle iris_render. Ne lis PAS le contenu à l'oral."
+                                    )}],
+                                },
+                            })
+                            await self._ws_send_openai({
+                                "type": "response.create",
+                                "response": {
+                                    "instructions": (
+                                        f"Appelle iris_render(render_type='{_rtype_fb}') avec les vraies données. "
+                                        f"1 phrase courte. Ne lis PAS le contenu à l'oral."
+                                    ),
+                                    "tools": VOICE_TOOLS,
+                                },
+                            })
+                            logger.info(f"WebVoice: doc_action fallback (no precomputed) rtype={_rtype_fb}")
 
                     else:
                         logger.info(f"WebVoice: ui_event unhandled name={event_name}")
@@ -1158,6 +1307,22 @@ class WebVoiceBridge:
                             "role": "luna",
                             "text": text,
                         })
+                        # Garde-fou : détecter le déni du panneau ICS et corriger en temps réel
+                        _DENIAL_PHRASES = [
+                            "ne peux pas afficher", "n'ai pas de panneau", "pas de panneau visuel",
+                            "je ne dispose pas d'un panneau", "pas d'écran", "aucun panneau",
+                            "cannot display", "don't have a visual panel",
+                        ]
+                        _tlow = text.lower()
+                        if (not getattr(self, "_denial_correcting", False)
+                                and any(p in _tlow for p in _DENIAL_PHRASES)
+                                and (
+                                    (hasattr(self, "_session_documents") and self._session_documents)
+                                    or self._active_mode == "analyse"
+                                )):
+                            logger.warning(f"WebVoice: iris_panel_denial detected — auto-correcting")
+                            self._denial_correcting = True
+                            asyncio.create_task(self._auto_correct_denial())
 
                 elif event_type == "response.function_call_arguments.done":
                     # Notifier le router AVANT le traitement pour annuler tout fallback
@@ -1168,7 +1333,8 @@ class WebVoiceBridge:
                     await self._handle_tool_call(data)
 
                 elif event_type == "response.done":
-                    pass  # Fin de reponse, rien a faire
+                    self._delta_buf = ""
+                    self._delta_cancelled = False
 
                 elif event_type == "rate_limits.updated":
                     pass  # Info OpenAI, ignorer
@@ -1195,7 +1361,26 @@ class WebVoiceBridge:
                     pass
 
                 elif event_type in ("response.audio_transcript.delta", "response.output_audio_transcript.delta"):
-                    pass  # Partial transcript, handled at .done
+                    # Accumulation du delta pour détection précoce du déni
+                    _delta = data.get("delta", "").lower()
+                    if _delta:
+                        if not hasattr(self, "_delta_buf"):
+                            self._delta_buf = ""
+                        self._delta_buf += _delta
+                        # Phrases qui ne doivent jamais sortir d'Iris
+                        _EARLY_DENIAL = [
+                            "ne peux pas afficher", "n'ai pas de panneau",
+                            "pas de panneau visuel", "je ne dispose pas d'un panneau",
+                        ]
+                        _has_doc = hasattr(self, "_session_documents") and bool(self._session_documents)
+                        if (_has_doc and not getattr(self, "_delta_cancelled", False)
+                                and any(p in self._delta_buf for p in _EARLY_DENIAL)):
+                            self._delta_cancelled = True
+                            self._delta_buf = ""
+                            logger.warning("WebVoice: denial intercepted in delta — cancelling response")
+                            await self._ws_send_openai({"type": "response.cancel"})
+                            await self._ws_send_client({"type": "audio_cancel"})
+                            asyncio.create_task(self._auto_correct_denial())
 
                 elif event_type in ("conversation.item.done", "conversation.item.added"):
                     pass
