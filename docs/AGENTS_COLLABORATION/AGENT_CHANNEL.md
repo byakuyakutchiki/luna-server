@@ -2088,3 +2088,30 @@ Fichier concerné : integrations/openai/web_voice_bridge.py ; docs/AGENTS_COLLAB
 Risque : faible — correction tolérante, aucun endpoint sensible, aucune action externe.
 Décision Ludovic requise : oui si déploiement immédiat souhaité.
 Action proposée : Déployer puis tester graphique/tableau/courrier. Chercher dans Cloud Run : `payload_source=args_unwrapped` et `render_done=true`.
+
+---
+Agent : Claude
+Objectif : 029 — Verdict final + déploiement fix payload
+Révision Cloud Run : luna-beta-00550-xj4
+Type : deploy — fix payload Codex (e8649f2) en production
+Verdict Claude :
+  Fix Codex (_normalize_iris_render_args) : VALIDÉ et déployé.
+    3 cas couverts : payload wrappé / args directs / vide → missing_info visible
+    Log render_done=true + payload_source pour preuve runtime
+  IRIS STATE DeepSeek : en attente — pas encore nécessaire si payload fix suffit.
+    On valide TC-029 d'abord, on ajoute l'état machine par session si Iris dit encore
+    "je n'ai pas d'écran" après le fix.
+  Mode Discussion iris_render : corrigé (cfb22a6) — tous les 10 modes iris_render=true.
+Preuves à chercher dans Cloud Run (après ouverture session /simli) :
+  prompt_marker=IRIS_COMMAND_SCREEN_V1
+  session_tools_count=9  (mode discussion)
+  render_done=true
+  payload_source=payload OU args_unwrapped  (jamais empty_payload_fallback si Iris est bien configurée)
+Tests terrain (Codex/Kimi) :
+  TC-029-A : "Iris, fais un graphique avec janvier 10, février 20, mars 30."
+    PASS : Cloud Run → payload_source=args_unwrapped OU payload, render_done=true
+  TC-029-B : "Iris, fais un tableau Produit A 120, Produit B 230."
+    PASS : Cloud Run → render_type=data_board, render_done=true
+  TC-029-C : "Iris, prépare un courrier de relance client."
+    PASS : Cloud Run → render_type=document_draft, render_done=true
+  Si payload_source=empty_payload_fallback → Iris appelé iris_render mais sans données → revoir prompt
