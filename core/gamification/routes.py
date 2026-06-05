@@ -30,6 +30,7 @@ from .constants import (
     PRESTIGE_TIERS, BADGE_VISUALS, BADGE_RARITY_VISUALS,
 )
 from .schemas import PlayerState, Mission, StabilityGauge, CollectRewardRequest
+from core.settings import get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -908,7 +909,15 @@ async def shop_checkout(request: Request):
     if not price_id:
         return _error(f"Prix Stripe non configure ({stripe_env})")
 
-    stripe_key = os.getenv("STRIPE_API_KEY", "")
+    settings = get_settings()
+    if settings.foundation_test_mode:
+        stripe_key = os.getenv("STRIPE_TEST_SECRET_KEY", "")
+        if not stripe_key:
+            logger.warning("[DRY RUN] Stripe test checkout simulated (no STRIPE_TEST_SECRET_KEY)")
+            return {"checkout_url": "https://test-mode-simulated.stripe.com/checkout", "simulated": True}
+    else:
+        stripe_key = os.getenv("STRIPE_API_KEY", "")
+
     if not stripe_key:
         return JSONResponse(status_code=500, content={"error": "STRIPE_API_KEY non configure"})
 

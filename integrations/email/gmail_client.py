@@ -27,12 +27,15 @@ import hashlib
 import logging
 import asyncio
 import base64
+import time
 from typing import Dict, Any, Tuple, Optional
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from datetime import datetime
 
 import httpx
+
+from core.settings import get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -202,6 +205,19 @@ class GmailClient:
         Le FROM est l'email du proprietaire (pas une adresse tierce).
         Le sender name affiche "Luna de {subscriber_name}".
         """
+        settings = get_settings()
+        if settings.foundation_test_mode:
+            # Sauvegarde locale au lieu d'envoyer
+            tmp_dir = "tmp/emails"
+            os.makedirs(tmp_dir, exist_ok=True)
+            safe_to = to.replace("@", "_at_").replace(".", "_")
+            filepath = f"{tmp_dir}/{int(time.time())}_{safe_to}.html"
+            html_content = body_html or body_text.replace("\n", "<br>")
+            with open(filepath, "w", encoding="utf-8") as f:
+                f.write(f"<h1>To: {to}</h1><h2>Subject: {subject}</h2><hr>{html_content}")
+            logger.info(f"[DRY RUN] Gmail email tenant={tenant_id} to={to}: {subject} — saved to {filepath}")
+            return True, {"simulated": True, "to": to, "subject": subject, "saved_to": filepath}
+
         # Charge l'integration
         integration = redis_client.get_email_integration(tenant_id)
         if not integration or integration.get("service") != "gmail":

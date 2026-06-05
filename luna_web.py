@@ -4577,6 +4577,13 @@ if _CORTEX_AVAILABLE:
     except Exception:
         pass
 
+# Mount Debug routes (etat des services, non sensibles)
+if _DEBUG_ROUTER_AVAILABLE and debug_router:
+    try:
+        app.include_router(debug_router)
+    except Exception:
+        pass
+
 # Store redis_client in app.state for gamification routes
 app.state._redis_client = _redis_client if _CORE_AVAILABLE else None
 

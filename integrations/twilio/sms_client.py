@@ -12,6 +12,8 @@ import os
 import logging
 from typing import Optional, Dict, Any, Tuple
 
+from core.settings import get_settings
+
 logger = logging.getLogger(__name__)
 
 
@@ -178,6 +180,12 @@ class TwilioSMSClient:
         Version async de send() avec timeout 15s et backpressure.
         Wraps l'appel synchrone Twilio.
         """
+        settings = get_settings()
+        if settings.foundation_test_mode:
+            to_normalized = self.normalize_phone(to)
+            logger.info(f"[DRY RUN] SMS async to {to_normalized}: {body[:100]}")
+            return True, {"simulated": True, "to": to_normalized, "body": body, "sid": "SIMULATED_SMS"}
+
         import asyncio
         sem = self._get_sms_semaphore()
         try:

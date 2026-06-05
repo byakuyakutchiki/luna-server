@@ -19,9 +19,12 @@ Usage:
 import os
 import re
 import logging
+import time
 from typing import Dict, Any, Tuple, Optional
 
 import httpx
+
+from core.settings import get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -93,6 +96,19 @@ class EmailClient:
         Returns:
             (True, {"status_code": 202}) ou (False, {"error": "..."})
         """
+        settings = get_settings()
+        if settings.foundation_test_mode:
+            # Sauvegarde locale au lieu d'envoyer
+            tmp_dir = "tmp/emails"
+            os.makedirs(tmp_dir, exist_ok=True)
+            safe_to = re.sub(r'[^a-zA-Z0-9@._-]', '_', to)
+            filepath = f"{tmp_dir}/{int(time.time())}_{safe_to}.html"
+            html_content = body_html or body_text.replace("\n", "<br>")
+            with open(filepath, "w", encoding="utf-8") as f:
+                f.write(f"<h1>To: {to}</h1><h2>Subject: {subject}</h2><hr>{html_content}")
+            logger.info(f"[DRY RUN] Email to {to}: {subject} — saved to {filepath}")
+            return True, {"simulated": True, "to": to, "subject": subject, "saved_to": filepath}
+
         if not self.is_configured:
             return False, {"error": "Email non configure (SENDGRID_API_KEY ou LUNA_EMAIL_FROM manquant)"}
 

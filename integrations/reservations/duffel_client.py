@@ -23,6 +23,8 @@ from typing import Dict, Any, List, Optional, Tuple
 
 import httpx
 
+from core.settings import get_settings
+
 logger = logging.getLogger(__name__)
 
 DUFFEL_API_URL = "https://api.duffel.com"
@@ -245,6 +247,11 @@ class DuffelClient:
         Returns:
             (True, {"order": {...}}) ou (False, {"error": "..."})
         """
+        settings = get_settings()
+        if settings.foundation_test_mode:
+            logger.warning("[BLOCKED] book_flight() disabled in foundation test mode")
+            return False, {"error": "Confirmations desactivees en mode test fondateur", "blocked": True}
+
         if not self.is_configured:
             return False, {"error": "Duffel non configure."}
 
@@ -413,6 +420,11 @@ class DuffelClient:
         Returns:
             (True, {"booking": {...}}) ou (False, {"error": "..."})
         """
+        settings = get_settings()
+        if settings.foundation_test_mode:
+            logger.warning("[BLOCKED] book_hotel() disabled in foundation test mode")
+            return False, {"error": "Confirmations desactivees en mode test fondateur", "blocked": True}
+
         if not self.is_configured:
             return False, {"error": "Duffel non configure."}
 

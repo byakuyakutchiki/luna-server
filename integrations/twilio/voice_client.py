@@ -13,6 +13,8 @@ import os
 import logging
 from typing import Optional, Dict, Any, Tuple
 
+from core.settings import get_settings
+
 logger = logging.getLogger(__name__)
 
 
@@ -107,6 +109,13 @@ class TwilioVoiceClient:
         Returns:
             (True, {"call_sid": "...", "status": "..."}) ou (False, {"error": "..."})
         """
+        settings = get_settings()
+        if settings.foundation_test_mode:
+            from integrations.twilio.sms_client import TwilioSMSClient
+            to_normalized = TwilioSMSClient.normalize_phone(to)
+            logger.info(f"[SIMULATE] Call to {to_normalized} with TwiML {self.twiml_url}")
+            return True, {"simulated": True, "call_sid": "SIMULATED_CALL_" + str(os.urandom(4).hex()), "to": to_normalized}
+
         if not self.is_configured:
             return False, {"error": "Twilio Voice non configure"}
 
