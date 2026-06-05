@@ -677,7 +677,7 @@ def _default_config(profile: ProfileType) -> dict:
             "safe_zones": [],
             "verification_enabled": True,
             "emergency_contacts": [],
-            "auto_call_112": False,
+            # auto_call_112 : non implémenté — Luna ne peut pas appeler le 112
         },
         ProfileType.DOG: {
             "immobility_threshold_minutes": 60,
@@ -699,7 +699,7 @@ def _default_config(profile: ProfileType) -> dict:
             "armed_modes": ["away", "night"],
             "verification_enabled": True,
             "emergency_contacts": [],
-            "auto_call_112": False,
+            # auto_call_112 : non implémenté — Luna ne peut pas appeler le 112
         },
     }
     return defaults.get(profile, defaults[ProfileType.SENIOR])

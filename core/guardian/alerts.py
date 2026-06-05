@@ -5,9 +5,10 @@ Quand le risque est élevé :
   1. Vérification vocale (push WebSocket)
   2. Si pas de réponse (2 min) → SMS aux contacts de confiance avec lien Maps précis
   3. Contacts peuvent intervenir eux-mêmes ou appeler le 112
-  4. Si auto_call_112=True → Luna tente d'appeler le 112 via Twilio
+  4. auto_call_112 : NON IMPLÉMENTÉ — Luna ne peut pas appeler le 112 directement.
+     Le SMS invite les contacts à appeler le 112 eux-mêmes.
 
-RGPD : Les positions GPS ne sont jamais stockées au-delà de 24h.
+RGPD : Les positions GPS sont stockées 7 jours en Redis (TTL), jamais en base.
 """
 import logging
 from typing import Optional, List, Dict
