@@ -662,8 +662,22 @@ class WebVoiceBridge:
             logger.warning(f"WebVoice: lecture event initial OpenAI: {e}")
 
         mode_ctx = build_mode_context(self._active_mode)
-        full_context = f"{self._base_context}\n\n{mode_ctx}" if mode_ctx else self._base_context
         filtered_tools = self._build_filtered_tools(self._active_mode)
+        tool_names = [t.get("name", "?") for t in filtered_tools]
+        state_block = (
+            f"\n\n[IRIS_STATE]\n"
+            f"mode_actif={self._active_mode}\n"
+            f"command_screen=true\n"
+            f"boutons=Modifier,Copier,Télécharger,Fermer\n"
+            f"tools_autorisés={','.join(tool_names)}\n"
+            f"iris_render_disponible={'iris_render' in tool_names}\n"
+            f"document_chargé={'oui' if getattr(self, '_session_documents', []) else 'non'}\n"
+            f"[/IRIS_STATE]"
+        )
+        full_context = self._base_context
+        if mode_ctx:
+            full_context += f"\n\n{mode_ctx}"
+        full_context += state_block
 
         session_config = {
             "type": "session.update",
@@ -710,8 +724,22 @@ class WebVoiceBridge:
         logger.info(f"WebVoice: mode change -> {mode_id} ({mode['label']})")
 
         mode_ctx = build_mode_context(mode_id)
-        full_context = f"{self._base_context}\n\n{mode_ctx}" if mode_ctx else self._base_context
         filtered_tools = self._build_filtered_tools(mode_id)
+        tool_names_set = [t.get("name", "?") for t in filtered_tools]
+        state_block = (
+            f"\n\n[IRIS_STATE]\n"
+            f"mode_actif={mode_id}\n"
+            f"command_screen=true\n"
+            f"boutons=Modifier,Copier,Télécharger,Fermer\n"
+            f"tools_autorisés={','.join(tool_names_set)}\n"
+            f"iris_render_disponible={'iris_render' in tool_names_set}\n"
+            f"document_chargé={'oui' if getattr(self, '_session_documents', []) else 'non'}\n"
+            f"[/IRIS_STATE]"
+        )
+        full_context = self._base_context
+        if mode_ctx:
+            full_context += f"\n\n{mode_ctx}"
+        full_context += state_block
 
         session_update = {
             "type": "session.update",
