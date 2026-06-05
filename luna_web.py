@@ -3584,6 +3584,7 @@ _PUBLIC_PATHS = (
     "/api/license/",
     "/api/settings/auto-note",
     "/api/debug/log",
+    "/api/debug/iris-capabilities",
     "/api/logs/client",
     "/api/logs/stream",
     "/api/logs/buffer",
