@@ -2098,3 +2098,13 @@ Fichier concerné : docs/AGENTS_COLLABORATION/OBJECTIF_030_GUARDIAN_AUDIT_CAMERA
 Risque : élevé si Guardian déclenche alertes/SOS ou collecte caméra/GPS sans consentement clair.
 Décision Ludovic requise : non pour audit ; oui pour toute correction qui touche caméra, SOS, SMS, appels ou déploiement.
 Action proposée : Kimi lit l'objectif 030 et livre `KIMI_AUDIT_GUARDIAN_CAMERA_RGPD_030.md`. Interdit : SOS réel, SMS, appel, stockage image, déploiement.
+
+---
+Agent : Codex
+Objectif : 031
+Type : ouverture mission DeepSeek / Services exploitant
+Résumé : Mission ouverte pour auditer l'onglet Services/Conciergerie du point de vue exploitant. Ludovic est fondateur, pas entreprise exploitante : il ne doit pas utiliser un Stripe entreprise reel ni consommer Twilio/Duffel/Email pour prouver les parcours. DeepSeek doit cartographier chaque carte Services vers handler JS, action, endpoint, risque, garde-fou, test fondateur autorise/interdit et configuration exploitant necessaire.
+Fichier concerné : docs/AGENTS_COLLABORATION/OBJECTIF_031_SERVICES_EXPLOITANT_AUDIT.md ; docs/AGENTS_COLLABORATION/agents/CODEX_MISSION_DEEPSEEK_SERVICES_031.md
+Risque : eleve si Services declenche SMS/email/appels/paiements/reservations reels. Audit non destructif uniquement.
+Décision Ludovic requise : non pour audit ; oui pour toute action sensible, paiement, reservation, modification secrets ou deploiement.
+Action proposée : DeepSeek lit l'objectif 031 et livre `DEEPSEEK_AUDIT_SERVICES_EXPLOITANT_031.md` pousse sur GitHub. Interdit : paiement Stripe reel, SMS, email, appel, visio SMS, alerte contacts, reservation.
