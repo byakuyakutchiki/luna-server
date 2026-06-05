@@ -20,14 +20,15 @@ gcloud run deploy "$STAGING_SERVICE" \
   --region "$REGION" \
   --project "$PROJECT" \
   --quiet \
-  --set-env-vars="ENV=staging" 2>&1 | tail -5
+  --port 8888 \
+  --set-env-vars="ENV=staging,PORT=8888" 2>&1 | tail -5
 
 echo ""
 echo "── Tests automatiques Iris..."
 sleep 5
 
 # 2. Lancer le test harness
-python tools/test_iris_ws.py --url "$STAGING_URL"
+python3 tools/test_iris_ws.py --url "$STAGING_URL"
 TEST_EXIT=$?
 
 echo ""
