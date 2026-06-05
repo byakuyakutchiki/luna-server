@@ -723,9 +723,9 @@ class WebVoiceBridge:
                     "create_response": True,
                 },
                 "tools": filtered_tools,
-                # required = force un outil sur toute réponse user-initiated.
-                # La boucle post-iris_render est cassée par tool_choice:"none" dans _handle_tool_call.
-                "tool_choice": "required",
+                # gpt-realtime-mini ignore tool_choice:"required" au niveau session.
+                # Le forçage se fait via response.create individuel (voir _send_iris_response_create).
+                "tool_choice": "auto",
             },
         }
         ok = await self._ws_send_openai(session_config)
@@ -755,12 +755,13 @@ class WebVoiceBridge:
                 "item": {
                     "type": "message",
                     "role": "assistant",
+                    # Realtime API : le type de contenu assistant est "output_text" (pas "text")
                     "content": [{
-                        "type": "text",
+                        "type": "output_text",
                         "text": (
                             "Je suis Iris, l'opératrice IA du centre de commande YAWatch Luna. "
                             "Oui, j'ai l'Iris Command Screen — mon panneau visuel actif à l'écran en ce moment. "
-                            "Je l'alimente via la fonction iris_render à chaque réponse."
+                            "Je l'alimente via iris_render à chaque réponse."
                         ),
                     }],
                 },
@@ -806,7 +807,7 @@ class WebVoiceBridge:
             "session": {
                 "instructions": full_context,
                 "tools": filtered_tools,
-                "tool_choice": "required",
+                "tool_choice": "auto",
             },
         }
         ok = await self._ws_send_openai(session_update)
@@ -843,6 +844,7 @@ class WebVoiceBridge:
             "type": "response.create",
             "response": {
                 "instructions": self.greeting,
+                "tool_choice": {"type": "function", "name": "iris_render"},
             },
         })
         if ok:
@@ -887,7 +889,15 @@ class WebVoiceBridge:
                                 "content": [{"type": "input_text", "text": text}],
                             },
                         })
-                        await self._ws_send_openai({"type": "response.create"})
+                        # Forcer iris_render sur chaque message texte — gpt-realtime-mini
+                        # ignore tool_choice:"required" au niveau session, mais honore
+                        # le forçage par fonction dans response.create individuel.
+                        await self._ws_send_openai({
+                            "type": "response.create",
+                            "response": {
+                                "tool_choice": {"type": "function", "name": "iris_render"},
+                            },
+                        })
 
                 elif msg_type == "ui_event":
                     event_name = data.get("name", "")

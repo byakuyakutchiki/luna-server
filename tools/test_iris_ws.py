@@ -245,7 +245,11 @@ async def run_tests(base_url: str, phrases: list[str] | None = None):
             all_results.append({"test": test, "ok": False, "errors": ["Boot timeout"]})
             continue
 
-        print(f"   ✓ Session prête — envoi phrase test")
+        # Attendre que le greeting soit terminé avant d'envoyer la phrase
+        # sinon "conversation_already_has_active_response"
+        print(f"   ✓ Session prête — attente fin greeting...")
+        await asyncio.sleep(5)
+        print(f"   → envoi phrase test")
         await session.send_text(test["phrase"])
 
         result = await session.collect_response(timeout=30)
