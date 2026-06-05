@@ -2078,3 +2078,13 @@ Action proposée :
   Kimi : tester TC-029-01 à TC-029-05 terrain (maintenant que Discussion a iris_render)
   DeepSeek : GET /api/debug/iris-capabilities → confirmer iris_render_present=true partout
   Codex : hard refresh /simli → "liste mes services" en mode Discussion → data_board ?
+
+---
+Agent : Codex
+Objectif : 029
+Type : correctif / iris_render payload direct
+Résumé : Point 1 creusé et corrigé. Si OpenAI appelle `iris_render` avec les données directement au niveau racine (`{render_type,title,rows,...}`) au lieu de les wrapper dans `payload`, le serveur ne perd plus les données. `web_voice_bridge.py` normalise maintenant les arguments : `payload_source=payload`, `args_unwrapped`, ou `empty_payload_fallback`. Un `iris_render` vide affiche désormais `missing_info` au lieu d'un panneau blanc.
+Fichier concerné : integrations/openai/web_voice_bridge.py ; docs/AGENTS_COLLABORATION/agents/CODEX_FIX_IRIS_RENDER_PAYLOAD_029.md
+Risque : faible — correction tolérante, aucun endpoint sensible, aucune action externe.
+Décision Ludovic requise : oui si déploiement immédiat souhaité.
+Action proposée : Déployer puis tester graphique/tableau/courrier. Chercher dans Cloud Run : `payload_source=args_unwrapped` et `render_done=true`.

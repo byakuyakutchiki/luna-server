@@ -1084,6 +1084,40 @@ class WebVoiceBridge:
 
         logger.info(f"WebVoice tool_call: {function_name}({args})")
 
+        def _normalize_iris_render_args(raw_args: Dict) -> tuple[str, Dict, str]:
+            """Accept both strict {render_type, payload} and direct render fields.
+
+            OpenAI usually follows the tool schema, but under pressure it can send
+            {render_type, title, rows, boxes...}. The client only sees what the
+            server forwards, so never let a valid direct render become payload={}.
+            """
+            if not isinstance(raw_args, dict):
+                return "missing_info", {
+                    "title": "Rendu impossible",
+                    "fields": ["Arguments iris_render illisibles"],
+                    "context": "Iris a appelé l'outil, mais les données reçues ne sont pas un objet JSON.",
+                }, "invalid_args"
+
+            render_type = str(raw_args.get("render_type") or "context_panel")
+            payload = raw_args.get("payload")
+            if isinstance(payload, dict) and payload:
+                return render_type, payload, "payload"
+
+            direct_payload = {
+                k: v for k, v in raw_args.items()
+                if k not in {"render_type", "payload"} and v not in (None, "", [], {})
+            }
+            if direct_payload:
+                return render_type, direct_payload, "args_unwrapped"
+
+            last_user_text = getattr(self._action_router, "_last_user_text", "") if self._action_router else ""
+            return "missing_info", {
+                "title": "Informations manquantes",
+                "fields": ["Le contenu à afficher", "Les données du tableau ou du document"],
+                "context": last_user_text[:240] or "Iris a appelé le panneau sans fournir de contenu exploitable.",
+                "summary": "Le Command Screen est prêt, mais l'appel iris_render était vide.",
+            }, "empty_payload_fallback"
+
         # chat : reponse conversationnelle simple
         if function_name == "chat":
             msg = args.get("message", "")
@@ -1107,19 +1141,27 @@ class WebVoiceBridge:
 
         # iris_render : affichage Iris Workspace — broadcast session ou envoi direct
         if function_name == "iris_render":
-            render_type = args.get("render_type", "context_panel")
-            payload = args.get("payload", {})
+            render_type, payload, payload_source = _normalize_iris_render_args(args)
             render_msg = {"type": "render", "render_type": render_type, "payload": payload}
             if self._session_id and self._session_manager:
                 await self._session_manager.broadcast(self._session_id, render_msg)
             else:
                 await self._ws_send_client(render_msg)
+            logger.info(
+                f"WebVoice: render_type={render_type} fn=iris_render "
+                f"payload_source={payload_source} keys={list(payload.keys())[:12]} render_done=true"
+            )
             await self._ws_send_openai({
                 "type": "conversation.item.create",
                 "item": {
                     "type": "function_call_output",
                     "call_id": call_id,
-                    "output": json.dumps({"status": "ok", "displayed": True}, ensure_ascii=False),
+                    "output": json.dumps({
+                        "status": "ok",
+                        "displayed": True,
+                        "render_type": render_type,
+                        "payload_source": payload_source,
+                    }, ensure_ascii=False),
                 },
             })
             await self._ws_send_openai({"type": "response.create"})
