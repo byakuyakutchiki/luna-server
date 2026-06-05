@@ -2088,3 +2088,13 @@ Fichier concerné : integrations/openai/web_voice_bridge.py ; docs/AGENTS_COLLAB
 Risque : faible — correction tolérante, aucun endpoint sensible, aucune action externe.
 Décision Ludovic requise : oui si déploiement immédiat souhaité.
 Action proposée : Déployer puis tester graphique/tableau/courrier. Chercher dans Cloud Run : `payload_source=args_unwrapped` et `render_done=true`.
+
+---
+Agent : Codex
+Objectif : 030
+Type : ouverture mission Kimi / Guardian
+Résumé : Pendant que Claude termine Iris, ouverture de l'audit Guardian. Guardian doit être audité comme module sensible : surveillance GPS, caméra/perception avec consentement, SOS, contacts d'urgence, RGPD, arrêt garanti. Kimi doit cartographier les boutons réels, handlers JS, endpoints, risques et preuves. Point fondateur : la caméra est censée pouvoir s'allumer avec consentement, mais elle ne semble pas reliée clairement à Guardian.
+Fichier concerné : docs/AGENTS_COLLABORATION/OBJECTIF_030_GUARDIAN_AUDIT_CAMERA_RGPD.md ; docs/AGENTS_COLLABORATION/agents/CODEX_MISSION_KIMI_GUARDIAN_030.md
+Risque : élevé si Guardian déclenche alertes/SOS ou collecte caméra/GPS sans consentement clair.
+Décision Ludovic requise : non pour audit ; oui pour toute correction qui touche caméra, SOS, SMS, appels ou déploiement.
+Action proposée : Kimi lit l'objectif 030 et livre `KIMI_AUDIT_GUARDIAN_CAMERA_RGPD_030.md`. Interdit : SOS réel, SMS, appel, stockage image, déploiement.
