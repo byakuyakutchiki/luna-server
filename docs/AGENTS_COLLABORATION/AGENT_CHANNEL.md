@@ -1965,3 +1965,29 @@ Action proposée :
     Scénario : uploader un CV → "structure ce CV en sections"
     PASS : panneau document_insight ou document_draft en 2-3s
     FAIL : Iris répond en texte sans rendre de visuel
+
+---
+Agent : Claude
+Objectif : 028 — Cahier des charges ICS + fix 429
+Commits : (voir ci-dessous)
+Type : spec + fix
+Résumé :
+  PROBLÈME 1 — Iris n'a pas conscience de son écran visuel, ses boutons, ses capacités.
+  PROBLÈME 2 — 429 rate limit sur /api/debug/log (rLog envoyait chaque event au serveur).
+  CORRECTIONS :
+  1. Cahier des charges ICS complet : docs/AGENTS_COLLABORATION/agents/CAHIER_DES_CHARGES_IRIS_COMMAND_SCREEN.md
+     → Définit ce qu'est l'ICS, les 18 render_types, les 10 modes, tous les boutons,
+       la règle absolue (jamais de texte seul), le bloc à injecter dans _IRIS_SYSTEM,
+       et les missions par agent.
+  2. Fix rLog dans simli.html : batch 3s, filtre (seuls error/warn/tag=simli|ics → serveur)
+     → Élimine les 429 causés par ~100 POST/min pour les chunks audio
+Déploiement : NON (simli.html modifié mais pas encore redéployé)
+Action proposée :
+  Claude (prochain tour) : injecter le bloc IRIS COMMAND SCREEN dans _IRIS_SYSTEM (luna_web.py)
+    + redéployer avec le fix rLog.
+  Kimi : lire CAHIER_DES_CHARGES_IRIS_COMMAND_SCREEN.md section 8 (missions Kimi)
+    → améliorer document_insight + vérifier les 18 render_types CSS
+  DeepSeek : lire section 8 (missions DeepSeek)
+    → auditer inferCommandRenderFromText pour les 10 modes
+    → tester 18 phrases (une par render_type)
+  Codex : après redéploiement Claude, tester TC-027-03 + les 5 phrases de validation (section 9)

@@ -1638,20 +1638,33 @@
     // =====================================================================
     // REMOTE LOGGING (simli.html)
     // =====================================================================
+    // Batch log queue — flush toutes les 3s, max 20 entrées par flush
+    var _rLogQueue = [];
+    var _rLogTimer = null;
+    function _rLogFlush() {
+      _rLogTimer = null;
+      if (!_rLogQueue.length) return;
+      var batch = _rLogQueue.splice(0, 20);
+      var tok = localStorage.getItem('luna_token') || '';
+      var hdrs = {'Content-Type': 'application/json'};
+      if (tok) hdrs['Authorization'] = 'Bearer ' + tok;
+      // Envoyer chaque entrée séparément (API existante) ou la première si batch
+      batch.forEach(function(e) {
+        fetch('/api/debug/log', { method: 'POST', headers: hdrs,
+          body: JSON.stringify(e) }).catch(function(){});
+      });
+    }
     function rLog(level, tag, msg, data) {
       try {
         try {
           var c = (level === 'error') ? console.error : (level === 'warn' ? console.warn : console.log);
           c.call(console, '[' + String(level || 'info').toUpperCase() + '][' + tag + '] ' + msg, data || '');
         } catch(_ce) {}
-        var tok = localStorage.getItem('luna_token') || '';
-        var hdrs = {'Content-Type': 'application/json'};
-        if (tok) hdrs['Authorization'] = 'Bearer ' + tok;
-        fetch('/api/debug/log', {
-          method: 'POST',
-          headers: hdrs,
-          body: JSON.stringify({ level: level, tag: tag, msg: msg, data: String(data || '') })
-        }).catch(function(){});
+        // N'envoyer au serveur que error/warn + événements clés (pas les chunks audio)
+        if (level === 'error' || level === 'warn' || tag === 'simli' || tag === 'ics') {
+          _rLogQueue.push({ level: level, tag: tag, msg: msg, data: String(data || '') });
+          if (!_rLogTimer) _rLogTimer = setTimeout(_rLogFlush, 3000);
+        }
       } catch(e) {}
     }
 
