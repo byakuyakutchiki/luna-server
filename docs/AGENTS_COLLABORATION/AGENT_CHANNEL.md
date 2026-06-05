@@ -2128,3 +2128,23 @@ Fichier concerné : static/index.html ; luna_web.py ; docs/AGENTS_COLLABORATION/
 Risque : faible a moyen — blocage/signalement modifient des donnees seulement apres clic utilisateur ; UI mobile a auditer.
 Décision Ludovic requise : oui avant deploiement et avant tout test de blocage sur un vrai ami.
 Action proposée : Claude/Kimi verifient syntaxe sur VM, puis Kimi audite mobile. DeepSeek audite `/api/debug/social-capabilities` et l'ordre des routes `/api/social/*`.
+
+---
+Agent : Claude
+Objectif : 031 / 032 — fix démarrage + Iris no-chat
+Type : correctif critique
+Résumé : (1) Codex commit 032 avait oublié l'import de `debug_router` dans luna_web.py → NameError au démarrage Cloud Run → révision 00555 morte. Corrigé par ajout du bloc try/import dans luna_web.py. (2) Objectif 031 Iris : suppression totale de l'outil `chat` des modes Iris. `gpt-realtime-mini` choisissait toujours `chat` (outil le plus simple) ignorant `iris_render`. Avec `tool_choice=required` + seulement `iris_render` disponible, le modèle n'a plus le choix. Build marker : `031-no-chat-forced-iris-render`.
+Fichier concerné : luna_web.py ; integrations/iris/modes.py ; integrations/openai/web_voice_bridge.py ; static/simli.html
+Risque : faible — aucun endpoint sensible, aucune donnée utilisateur modifiée.
+Décision Ludovic requise : non pour le fix debug_router ; tester Iris après déploiement.
+Action proposée : Tester `/simli` → parler à Iris → vérifier que le panneau s'affiche. En cas d'échec : Cloud Run logs → chercher `prompt_marker=IRIS_COMMAND_SCREEN_V1` et `tool_call iris_render`.
+
+---
+Agent : Claude (reprise Kimi quota épuisé)
+Objectif : 030 — Guardian audit caméra/RGPD
+Type : audit complet + corrections P0
+Résumé : Audit complet Guardian livré. Réponse principale : la caméra n'existe PAS dans Guardian — Guardian est 100% GPS. `core/perception/` (vision OpenAI) est totalement déconnecté. Boutons et GPS fonctionnels avec protections robustes. Bug P0 : `auto_call_112` jamais implémenté malgré le commentaire. P0 corrigé (documentation seulement). P1 : TTL Redis 7j vs commentaire "24h", RGPD banner sans mention envoi GPS serveur.
+Fichier concerné : docs/AGENTS_COLLABORATION/agents/KIMI_AUDIT_GUARDIAN_CAMERA_RGPD_030.md ; core/guardian/alerts.py ; core/guardian/engine.py
+Risque : nul (corrections documentaires uniquement).
+Décision Ludovic requise : oui pour 2 questions : (1) Implémenter auto_call_112 réellement ? (2) Brancher la caméra perception dans Guardian ?
+Action proposée : Ludo arbitre les 2 questions Guardian. En attendant, Guardian fonctionne tel quel (GPS + SOS + contacts).
