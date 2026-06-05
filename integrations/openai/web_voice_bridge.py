@@ -453,6 +453,10 @@ class WebVoiceBridge:
                 if self.conversation_history:
                     await self._inject_conversation_history()
 
+                # BOOT VERT — session active, Iris prête
+                await self._ws_send_client({"type": "boot_state", "state": "vert"})
+                logger.info("[BOOT] VERT — IRIS READY")
+
                 # Notifie le client que la connexion est prete
                 await self._ws_send_client({
                     "type": "ready",
@@ -637,6 +641,10 @@ class WebVoiceBridge:
 
     async def _configure_session(self):
         """Configure la session OpenAI (voice, VAD, tools)."""
+        # BOOT ROUGE — identité et règles en cours de chargement
+        await self._ws_send_client({"type": "boot_state", "state": "rouge"})
+        logger.info("[BOOT] ROUGE — chargement identité système")
+
         try:
             raw = await asyncio.wait_for(self.ws_openai.recv(), timeout=5.0)
             first = json.loads(raw)
@@ -708,6 +716,32 @@ class WebVoiceBridge:
                 f"session_mode={self._active_mode} session_tools_count={len(filtered_tools)} "
                 f"session_tools={tool_names} chat_present={chat_present} session_updated=true"
             )
+
+            # Injection conversation.item.create role="system" — mémorisé dans l'historique du modèle
+            # Plus fiable que instructions: abstract qui peut être déprioritisé par gpt-realtime-mini
+            mode_label = IRIS_MODES.get(self._active_mode, {}).get("label", self._active_mode)
+            boot_text = (
+                f"[BOOT_IRIS] Mode actif : {mode_label}. "
+                f"Identité fixe : tu es Iris, opératrice YAWatch Luna — jamais un chatbot générique. "
+                f"Règle absolue : appelle iris_render AVANT chaque réponse vocale, sans exception. "
+                f"Vocal : 1-2 phrases maximum, centré sur la demande. "
+                f"Outils autorisés : {', '.join(tool_names)}."
+            )
+            boot_item = {
+                "type": "conversation.item.create",
+                "item": {
+                    "type": "message",
+                    "role": "system",
+                    "content": [{"type": "input_text", "text": boot_text}],
+                },
+            }
+            await self._ws_send_openai(boot_item)
+            logger.info("[BOOT] conversation.item système injecté — Iris contextualisée")
+
+            # BOOT ORANGE — vérifications terminées
+            await self._ws_send_client({"type": "boot_state", "state": "orange"})
+            logger.info("[BOOT] ORANGE — vérifications OK")
+
         return ok
 
     async def set_mode(self, mode_id: str) -> bool:

@@ -1317,12 +1317,133 @@
       font-family: monospace;
       letter-spacing: 0.5px;
     }
+    /* ===== IRIS BOOT SEQUENCE ===== */
+    #iris-boot {
+      position: fixed; inset: 0; z-index: 200;
+      background: #050512;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      font-family: 'Courier New', Courier, monospace; color: #cce;
+      opacity: 1; transition: opacity 0.9s ease; pointer-events: auto;
+      overflow: hidden;
+    }
+    #iris-boot.fade-out { opacity: 0; pointer-events: none; }
+    #iris-boot.hidden { display: none; }
+    .boot-scan {
+      position: absolute; inset: 0; pointer-events: none;
+      background-image: linear-gradient(transparent 50%, rgba(100,100,255,0.012) 50%);
+      background-size: 100% 3px; opacity: 0.7;
+    }
+    .boot-header-line {
+      font-size: 10px; letter-spacing: 3.5px; text-transform: uppercase; margin-bottom: 24px;
+      color: rgba(180,180,255,0.35);
+    }
+    .boot-badge {
+      display: inline-flex; align-items: center; gap: 8px; padding: 5px 16px;
+      border-radius: 20px; font-size: 9px; font-weight: 700; letter-spacing: 2.5px;
+      margin-bottom: 22px; text-transform: uppercase;
+    }
+    .boot-badge.rouge { background: rgba(220,38,38,0.12); color: #f87171; border: 1px solid rgba(220,38,38,0.25); }
+    .boot-badge.orange { background: rgba(251,146,60,0.12); color: #fb923c; border: 1px solid rgba(251,146,60,0.25); }
+    .boot-badge.vert { background: rgba(34,197,94,0.12); color: #4ade80; border: 1px solid rgba(34,197,94,0.25); }
+    .boot-dot { width: 6px; height: 6px; border-radius: 50%; }
+    .boot-badge.rouge .boot-dot { background: #f87171; animation: bootPulse 0.8s ease-in-out infinite; }
+    .boot-badge.orange .boot-dot { background: #fb923c; animation: bootPulse 0.8s ease-in-out infinite; }
+    .boot-badge.vert .boot-dot { background: #4ade80; }
+    @keyframes bootPulse { 0%,100% { opacity: 1; } 50% { opacity: 0.25; } }
+    .boot-box {
+      background: rgba(255,255,255,0.025); border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 10px; padding: 18px 26px; width: 360px; margin-bottom: 12px;
+    }
+    @media (max-width: 420px) { .boot-box { width: calc(100vw - 32px); padding: 14px 18px; } }
+    .boot-box-title {
+      font-size: 8px; letter-spacing: 2.5px; color: rgba(180,180,255,0.35);
+      text-transform: uppercase; margin-bottom: 12px;
+      border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 7px;
+    }
+    .boot-item {
+      font-size: 11.5px; color: rgba(200,205,255,0.65); line-height: 2;
+      opacity: 0; transform: translateX(-4px);
+      transition: opacity 0.2s ease, transform 0.2s ease;
+    }
+    .boot-item.vis { opacity: 1; transform: translateX(0); }
+    .boot-item::before { content: '✓ '; color: #4ade80; font-weight: 700; }
+    .boot-online {
+      font-size: 24px; font-weight: 700; letter-spacing: 5px; color: #4ade80;
+      margin-bottom: 16px; opacity: 0; transition: opacity 0.6s ease;
+    }
+    .boot-online.vis { opacity: 1; }
+    .boot-greeting {
+      font-size: 13px; color: rgba(180,220,180,0.65); font-family: system-ui, sans-serif;
+      line-height: 1.8; text-align: center; max-width: 300px;
+      opacity: 0; transition: opacity 0.6s ease 0.3s;
+    }
+    .boot-greeting.vis { opacity: 1; }
+    #boot-rouge, #boot-orange {
+      flex-direction: column; align-items: center;
+    }
   </style>
   <script src="https://browser.sentry-cdn.com/7.99.0/bundle.min.js" crossorigin="anonymous"></script>
   <script src="/luna-config.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" crossorigin="anonymous"></script>
 </head>
 <body>
+
+  <!-- IRIS BOOT SEQUENCE OVERLAY -->
+  <div id="iris-boot" class="hidden">
+    <div class="boot-scan"></div>
+    <div class="boot-header-line">YAWatch Luna — Iris Audio</div>
+
+    <!-- ÉTAT ROUGE -->
+    <div id="boot-rouge" style="display:none;width:100%;flex-direction:column;align-items:center;">
+      <div class="boot-badge rouge"><div class="boot-dot"></div>ÉTAT ROUGE — INITIALISATION</div>
+      <div class="boot-box">
+        <div class="boot-box-title">Chargement de l'identité système…</div>
+        <div class="boot-item" id="bi-r1">Nom : Iris</div>
+        <div class="boot-item" id="bi-r2">Rôle : Assistante virtuelle de l'écosystème Luna</div>
+        <div class="boot-item" id="bi-r3">Mode : Visio interactive</div>
+        <div class="boot-item" id="bi-r4">Interface : Panneau de contrôle intelligent</div>
+        <div class="boot-item" id="bi-r5">Utilisateur identifié</div>
+      </div>
+      <div class="boot-box">
+        <div class="boot-box-title">Chargement des règles de fonctionnement…</div>
+        <div class="boot-item" id="bi-r6">Répondre uniquement aux demandes formulées</div>
+        <div class="boot-item" id="bi-r7">Ne pas inventer d'actions non disponibles</div>
+        <div class="boot-item" id="bi-r8">Ne pas sortir du rôle défini</div>
+        <div class="boot-item" id="bi-r9">Rester concise et professionnelle</div>
+        <div class="boot-item" id="bi-r10">Respecter les limites techniques du système</div>
+      </div>
+    </div>
+
+    <!-- ÉTAT ORANGE -->
+    <div id="boot-orange" style="display:none;width:100%;flex-direction:column;align-items:center;">
+      <div class="boot-badge orange"><div class="boot-dot"></div>ÉTAT ORANGE — VÉRIFICATIONS</div>
+      <div class="boot-box">
+        <div class="boot-box-title">Vérification du contexte…</div>
+        <div class="boot-item" id="bi-o1">Contexte chargé</div>
+        <div class="boot-item" id="bi-o2">Configuration utilisateur chargée</div>
+        <div class="boot-item" id="bi-o3">Services IA disponibles</div>
+        <div class="boot-item" id="bi-o4">Audio disponible</div>
+        <div class="boot-item" id="bi-o5">Interface opérationnelle</div>
+      </div>
+      <div class="boot-box">
+        <div class="boot-box-title">Analyse des risques comportementaux…</div>
+        <div class="boot-item" id="bi-o6">Aucun monologue non sollicité</div>
+        <div class="boot-item" id="bi-o7">Aucune réponse hors sujet</div>
+        <div class="boot-item" id="bi-o8">Aucune action autonome non autorisée</div>
+      </div>
+    </div>
+
+    <!-- ÉTAT VERT -->
+    <div id="boot-vert" style="display:none;text-align:center;padding:0 16px;">
+      <div class="boot-badge vert" style="margin-bottom:28px;"><div class="boot-dot"></div>ÉTAT VERT — SESSION ACTIVE</div>
+      <div class="boot-online" id="boot-online-txt">IRIS ONLINE</div>
+      <div class="boot-greeting" id="boot-greeting-txt">
+        Bonjour Ludovic.<br>
+        Tous les systèmes sont opérationnels.<br>
+        Je suis prête à vous assister.
+      </div>
+    </div>
+  </div>
 
   <!-- ECRAN DE DEMARRAGE -->
   <div class="start-screen" id="startScreen">
@@ -1723,7 +1844,7 @@
         '', 0, 0, reason);
     });
 
-    rLog('info', 'simli', 'build_marker', '031-no-chat-forced-iris-render');
+    rLog('info', 'simli', 'build_marker', '033-iris-boot-sequence');
 
     // =====================================================================
     // PLANNING HORAIRE
@@ -3298,6 +3419,70 @@
     // Métriques timing
     var _vadSpeechStartMs = 0;
     var _vadSpeechEndMs = 0;
+
+    // ── Iris Boot Sequence ───────────────────────────────────────────────────
+    var _bootState = 'hidden';
+
+    function _bootAnimateItems(ids, intervalMs) {
+      ids.forEach(function(id, i) {
+        setTimeout(function() {
+          var el = document.getElementById(id);
+          if (el) el.classList.add('vis');
+        }, i * intervalMs);
+      });
+    }
+
+    function _handleBootState(state) {
+      var boot = document.getElementById('iris-boot');
+      if (!boot) return;
+
+      if (state === 'rouge' && _bootState !== 'rouge') {
+        _bootState = 'rouge';
+        boot.classList.remove('hidden', 'fade-out');
+        var rouge = document.getElementById('boot-rouge');
+        var orange = document.getElementById('boot-orange');
+        var vert = document.getElementById('boot-vert');
+        if (rouge) rouge.style.display = 'flex';
+        if (orange) orange.style.display = 'none';
+        if (vert) vert.style.display = 'none';
+        _bootAnimateItems(['bi-r1','bi-r2','bi-r3','bi-r4','bi-r5','bi-r6','bi-r7','bi-r8','bi-r9','bi-r10'], 80);
+
+      } else if (state === 'orange' && _bootState !== 'vert') {
+        _bootState = 'orange';
+        var rouge2 = document.getElementById('boot-rouge');
+        var orange2 = document.getElementById('boot-orange');
+        var vert2 = document.getElementById('boot-vert');
+        if (rouge2) rouge2.style.display = 'none';
+        if (orange2) orange2.style.display = 'flex';
+        if (vert2) vert2.style.display = 'none';
+        _bootAnimateItems(['bi-o1','bi-o2','bi-o3','bi-o4','bi-o5','bi-o6','bi-o7','bi-o8'], 90);
+
+      } else if (state === 'vert') {
+        _bootState = 'vert';
+        var rouge3 = document.getElementById('boot-rouge');
+        var orange3 = document.getElementById('boot-orange');
+        var vert3 = document.getElementById('boot-vert');
+        if (rouge3) rouge3.style.display = 'none';
+        if (orange3) orange3.style.display = 'none';
+        if (vert3) vert3.style.display = 'block';
+        setTimeout(function() {
+          var el = document.getElementById('boot-online-txt');
+          if (el) el.classList.add('vis');
+        }, 250);
+        setTimeout(function() {
+          var el = document.getElementById('boot-greeting-txt');
+          if (el) el.classList.add('vis');
+        }, 650);
+        // Disparaît après 3.5s — Iris a eu le temps de prononcer son bonjour
+        setTimeout(function() {
+          var b = document.getElementById('iris-boot');
+          if (b) {
+            b.classList.add('fade-out');
+            setTimeout(function() { b.classList.add('hidden'); _bootState = 'hidden'; }, 950);
+          }
+        }, 3500);
+      }
+    }
 
     // ── Iris Realtime WebSocket (OpenAI Realtime via /ws/iris-voice) ──────
     var _irisWs = null;
@@ -5083,6 +5268,8 @@
         _irisWs.onopen = function() {
           rLog('info', 'simli', 'iris_ws_open', 'mode=' + (_currentMode || 'discussion'));
           _setIrisState('idle');
+          // Affiche la boot sequence dès que le WS est ouvert
+          _handleBootState('rouge');
         };
 
         _irisWs.onmessage = function(evt) {
@@ -5186,6 +5373,8 @@
                   context: 'Résultat outil'
                 }});
               }
+            } else if (data.type === 'boot_state') {
+              _handleBootState(data.state || '');
             } else if (data.type === 'ui_state_ack') {
               rLog('info', 'simli', 'ui_state_ack', data.event + ' ' + (data.filename || ''));
             } else if (data.type === 'mode_changed') {
