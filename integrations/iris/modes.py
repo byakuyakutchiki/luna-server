@@ -11,12 +11,13 @@ MODE_DISCUSSION = {
     "label": "Discussion",
     "icon": "💬",
     "prompt_appendix": (
-        "Mode discussion courte. Réponses en 2-3 phrases maximum. "
-        "Pas de rendu visuel sauf demande explicite. "
-        "Si la demande devient complexe (tableau, graphique, document, analyse), "
-        "propose de passer en mode adapté."
+        "Mode discussion. Réponses courtes en 1-2 phrases pour les questions simples. "
+        "Pour toute demande de travail (tableau, graphique, document, liste, analyse, plan), "
+        "appelle iris_render IMMÉDIATEMENT avec le type adapté — ne propose pas de changer de mode. "
+        "Si la demande est trop complexe pour ce mode, change de mode ET rends le visuel."
     ),
-    "allowed_tools": ["chat"],
+    "allowed_tools": ["chat", "iris_render", "get_weather", "get_news", "search_web",
+                      "create_note", "get_reminders", "add_reminder", "get_contacts"],
     "default_render": "context_panel",
     "forbidden_actions": ["send_sms", "call_contact", "send_email", "alert_contacts",
                           "invite_visio", "invite_to_session", "add_expense"],
