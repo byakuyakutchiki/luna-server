@@ -14013,7 +14013,6 @@ async def guardian_location(session_id: str, request: Request):
                         lat=lat, lng=lng,
                         alert_level=risk.level.value,
                         profile_type=session.profile_type.value,
-                        auto_call_112=session.config.get("auto_call_112", False),
                     )
                     logger.warning(f"Guardian SMS alerts sent for session {session_id}")
                 except Exception as e:
@@ -14206,6 +14205,68 @@ async def guardian_ws(websocket: WebSocket, session_id: str):
         logger.error(f"Guardian WS error: {e}")
     finally:
         engine.unregister_ws(session_id, websocket)
+
+
+@app.post("/api/guardian/frame/{session_id}")
+async def guardian_frame(session_id: str, request: Request):
+    """Reçoit une frame caméra (base64 JPEG) et retourne la description de scène.
+    Aucune image n'est stockée — seule la description textuelle est conservée.
+    """
+    engine = _get_guardian()
+    if not engine:
+        return JSONResponse(status_code=503, content={"error": "Guardian non disponible"})
+    session = engine.get_session(session_id)
+    if not session or not session.is_active:
+        return JSONResponse(status_code=404, content={"error": "Session inactive"})
+
+    if not _perception_detector or not _perception_detector._initialized:
+        return JSONResponse(status_code=503, content={
+            "error": "Perception non disponible",
+            "description": "Analyse caméra non disponible — clé OpenAI manquante.",
+            "has_concern": False,
+        })
+
+    try:
+        body = await request.json()
+        frame_b64 = body.get("frame", "")
+        if not frame_b64 or len(frame_b64) < 100:
+            return JSONResponse(status_code=400, content={"error": "Frame vide ou invalide"})
+    except Exception:
+        return JSONResponse(status_code=400, content={"error": "Corps JSON invalide"})
+
+    try:
+        analysis = _perception_detector.analyze_frame_b64(frame_b64)
+        if not analysis:
+            return {"description": "Image peu lisible", "has_concern": False, "persons_count": 0}
+
+        from core.perception.analyzer import SceneAnalyzer
+        analyzer = SceneAnalyzer()
+        state = analyzer.analyze(analysis)
+        has_concern = analyzer.has_concern()
+
+        if has_concern:
+            from core.guardian.engine import GuardianEvent
+            engine._log_event(session_id, GuardianEvent(
+                event_type="perception_concern",
+                description=state.scene_description,
+                lat=session.last_position.lat if session.last_position else None,
+                lng=session.last_position.lng if session.last_position else None,
+            ))
+            engine._broadcast(session_id, {
+                "type": "perception",
+                "description": state.scene_description,
+                "has_concern": True,
+            })
+
+        return {
+            "description": state.scene_description,
+            "has_concern": has_concern,
+            "persons_count": state.persons_present,
+            "posture": state.primary_posture,
+        }
+    except Exception as e:
+        logger.error(f"Guardian frame analysis error: {e}")
+        return {"description": "Analyse indisponible", "has_concern": False}
 
 
 @app.get("/api/guardian/share/{session_id}")

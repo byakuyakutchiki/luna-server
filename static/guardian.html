@@ -337,6 +337,40 @@ select.cfg-inp option { background:#13131f; }
 #rgpd-close { width:100%; padding:12px; background:var(--border); color:var(--text);
   border:none; border-radius:12px; cursor:pointer; }
 
+/* ─── CAMERA ─────────────────────────────── */
+#cam-badge {
+  position:fixed; top:62px; right:12px; z-index:101;
+  display:none; align-items:center; gap:5px;
+  background:rgba(8,8,16,0.88); backdrop-filter:blur(16px);
+  border:1px solid var(--border); border-radius:20px;
+  padding:6px 12px; font-size:.74em; cursor:pointer;
+  transition:border-color .3s, color .3s;
+}
+#cam-badge.inactive { color:var(--muted); }
+#cam-badge.active   { border-color:rgba(16,185,129,.5); color:var(--green); }
+#cam-badge.refused  { border-color:rgba(239,68,68,.35); color:var(--red); }
+#cam-badge.external { border-color:rgba(124,58,237,.5); color:var(--purple-light); }
+#cam-badge.unavailable { color:var(--muted); }
+
+#cam-result {
+  position:fixed; left:12px; right:12px; z-index:102;
+  background:rgba(8,8,16,0.88); backdrop-filter:blur(16px);
+  border:1px solid rgba(16,185,129,.25); border-radius:14px;
+  padding:9px 14px; font-size:.76em; display:none; line-height:1.5;
+}
+#cam-result-txt { color:var(--muted); }
+#cam-result-close { float:right; background:none; border:none; color:var(--muted);
+  cursor:pointer; font-size:1em; padding:0 0 0 8px; }
+
+#btn-cam { width:100%; padding:9px; background:rgba(16,185,129,0.1); color:var(--green);
+  border:1px solid rgba(16,185,129,.3); border-radius:10px; font-size:.83em;
+  cursor:pointer; transition:background .2s; margin-top:6px; }
+#btn-cam:active { background:rgba(16,185,129,.2); }
+#btn-cam-stop { width:100%; padding:9px; background:rgba(239,68,68,0.1); color:var(--red);
+  border:1px solid rgba(239,68,68,.3); border-radius:10px; font-size:.83em;
+  cursor:pointer; display:none; transition:background .2s; margin-top:6px; }
+#btn-cam-stop:active { background:rgba(239,68,68,.2); }
+
 /* ─── TOAST ───────────────────────────────── */
 #toast {
   position:fixed; bottom:185px; left:50%; transform:translateX(-50%);
@@ -383,6 +417,21 @@ select.cfg-inp option { background:#13131f; }
   </div>
 </div>
 
+<!-- CAMERA STATE BADGE -->
+<div id="cam-badge" class="inactive" onclick="toggleCamDetails()">
+  🎥 <span id="cam-state-txt">Caméra inactive</span>
+</div>
+
+<!-- CAMERA PERCEPTION RESULT -->
+<div id="cam-result">
+  <button id="cam-result-close" onclick="document.getElementById('cam-result').style.display='none'">✕</button>
+  <div id="cam-result-txt"></div>
+</div>
+
+<!-- Hidden video/canvas for frame capture (jamais affiché) -->
+<video id="cam-video" muted playsinline style="display:none;position:fixed;width:1px;height:1px;opacity:0;pointer-events:none;"></video>
+<canvas id="cam-canvas" style="display:none;"></canvas>
+
 <!-- ADDRESS CARD -->
 <div id="addr-card">
   <div id="addr-line">📍 Localisation en cours…</div>
@@ -395,7 +444,7 @@ select.cfg-inp option { background:#13131f; }
 
 <!-- RGPD BANNER -->
 <div id="rgpd-banner">
-  <span>🔒 Données GPS auto-supprimées sous 24h · Jamais revendues</span>
+  <span>🔒 GPS transmis toutes les 10s · Caméra optionnelle · Aucune image stockée</span>
   <button id="rgpd-why" onclick="openRgpdModal()">Pourquoi ?</button>
 </div>
 
@@ -480,6 +529,14 @@ select.cfg-inp option { background:#13131f; }
       <button id="zone-btn" onclick="captureZone()">📍 Utiliser ma position comme zone sûre</button>
       <div id="zone-st"></div>
     </div>
+    <div class="cfg-grid full" style="border-top:1px solid var(--border);padding-top:8px;margin-top:4px;">
+      <label class="cfg-lbl">🎥 Caméra de surveillance (optionnel)</label>
+      <label class="cfg-lbl" style="margin-top:2px;">URL caméra externe MJPEG (laisser vide = caméra interne)</label>
+      <input type="text" id="cfg-cam-url" class="cfg-inp" placeholder="ex: http://192.168.1.x/stream ou vide">
+      <button id="btn-cam" onclick="cameraStart()">🎥 Activer caméra — analyse de scène</button>
+      <button id="btn-cam-stop" onclick="cameraStop()">⏹ Désactiver caméra</button>
+      <div style="font-size:.7em;color:var(--muted);margin-top:4px;">Aucune image stockée · Analyse IA toutes les 10s · Arrêt avec session</div>
+    </div>
   </div>
 </div>
 
@@ -491,6 +548,7 @@ select.cfg-inp option { background:#13131f; }
     <ul id="perm-list">
       <li>📍 <span>Position GPS précise — pour savoir où vous êtes</span></li>
       <li id="perm-mic" style="display:none;">🎤 <span>Microphone — vérification vocale en cas d'alerte</span></li>
+      <li>📡 <span>Transmission GPS au serveur toutes les 10s — position jamais stockée au-delà de 7 jours</span></li>
       <li>🔔 <span>Notifications — alertes silencieuses en temps réel</span></li>
     </ul>
     <button id="perm-allow" onclick="grantPermissions()">Autoriser et démarrer</button>
@@ -530,11 +588,13 @@ select.cfg-inp option { background:#13131f; }
   <div id="rgpd-box">
     <h3>🔒 Comment Luna protège vos données</h3>
     <ul>
-      <li>Votre position GPS n'est jamais stockée plus de 24h</li>
+      <li>Votre position GPS est transmise au serveur toutes les 10s et conservée 7 jours maximum</li>
       <li>Les alertes ne partent qu'à vos contacts de confiance, personne d'autre</li>
+      <li>La caméra est optionnelle — aucune image jamais stockée, seule la description textuelle est gardée</li>
+      <li>La caméra peut être interne (téléphone) ou externe (URL MJPEG compatible)</li>
       <li>Aucune donnée n'est revendue ni partagée avec des tiers</li>
-      <li>Vous pouvez supprimer toutes vos données à tout moment</li>
       <li>Luna est conforme au RGPD — vous restez maître de vos données</li>
+      <li>Luna ne peut pas appeler les services d'urgence — elle informe vos contacts pour qu'ils appellent le 112</li>
     </ul>
     <button id="rgpd-close" onclick="closeRgpdModal()">Compris</button>
   </div>
@@ -816,6 +876,7 @@ function guardianStart(){
     _layoutUpdate();
     connectWs(); startGps(); loadEvents();
     incrementSession();
+    _setCamState('inactive'); // badge caméra visible mais inactive
     showToast('🛡️ Guardian actif');
     vibrate([60,30,60]);
     maybeSpeak('Luna Guardian démarré. Je veille sur vous.');
@@ -844,8 +905,10 @@ function guardianStop(){
   });
 }
 function _cleanupSession(){
+  cameraStop(); // arrêt garanti caméra + timer
   if(WS){try{WS.close();}catch(e){} WS=null;}
   if(GEO_ID!==null){navigator.geolocation.clearWatch(GEO_ID);GEO_ID=null;}
+  document.getElementById('cam-badge').style.display='none';
   SID=null; TRAIL_COORDS=[]; PREV_POS=null;
   if(TRAIL){MAP.removeLayer(TRAIL);TRAIL=null;}
   if(MAP._accuracyCircle){MAP.removeLayer(MAP._accuracyCircle);}
@@ -922,6 +985,12 @@ function handleWsMsg(m){
   }
   else if(m.type==='verification_needed') openVerifyModal(m.message);
   else if(m.type==='sos') showAlertOnMap('🆘 SOS activé',null,null);
+  else if(m.type==='perception'&&m.description){
+    document.getElementById('cam-result-txt').textContent='👁 '+m.description;
+    document.getElementById('cam-result').style.display='block';
+    _layoutCamResult();
+    if(m.has_concern) vibrate([300,100,300]);
+  }
 }
 
 // ── ALERT ─────────────────────────────────────
@@ -1011,7 +1080,7 @@ var _evIcons={
   location_update:'📍', geofence_exit:'⚠️', geofence_enter:'🏠',
   alert_triggered:'🔔', alert_escalated:'📢', sos_triggered:'🆘',
   verification_needed:'❓', verified_ok:'✅', session_stopped:'⏹️',
-  immobility:'🪑', walk:'🚶'
+  immobility:'🪑', walk:'🚶', perception_concern:'👁'
 };
 function loadEvents(){
   if(!SID) return;
@@ -1105,6 +1174,135 @@ function escH(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').re
 function showToast(msg,ms){
   var t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show');
   clearTimeout(t._tid); t._tid=setTimeout(function(){t.classList.remove('show');},ms||2500);
+}
+
+// ── CAMERA ────────────────────────────────────
+var _camStream=null, _camTimer=null, CAM_STATE='inactive';
+
+function _setCamState(state,extra){
+  CAM_STATE=state;
+  var badge=document.getElementById('cam-badge');
+  var txt=document.getElementById('cam-state-txt');
+  var labels={inactive:'Caméra inactive',active:'Caméra active',
+    refused:'Caméra refusée',external:'Caméra externe',
+    unavailable:'Caméra indisponible',sending:'Analyse…'};
+  txt.textContent=(labels[state]||state)+(extra?' — '+extra:'');
+  badge.className=state;
+  badge.style.display=SID?'flex':'none';
+  var on=(state==='active'||state==='external'||state==='sending');
+  var bc=document.getElementById('btn-cam'), bs=document.getElementById('btn-cam-stop');
+  if(bc) bc.style.display=on?'none':'';
+  if(bs) bs.style.display=on?'':'none';
+}
+
+async function cameraStart(){
+  if(!SID){showToast('Démarrez Guardian d\'abord');return;}
+  var extUrl=(document.getElementById('cfg-cam-url')||{}).value||'';
+  extUrl=extUrl.trim();
+
+  if(extUrl){
+    // Caméra externe (flux MJPEG ou HTTP)
+    var video=document.getElementById('cam-video');
+    video.src=extUrl;
+    video.crossOrigin='anonymous';
+    video.onloadeddata=function(){
+      _setCamState('external'); _startCamLoop();
+      showToast('🔵 Caméra externe connectée'); vibrate([40]);
+    };
+    video.onerror=function(){
+      _setCamState('unavailable','URL inaccessible');
+      showToast('❌ Caméra externe inaccessible',3500);
+    };
+    video.load();
+    return;
+  }
+
+  // Caméra interne
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){
+    _setCamState('unavailable'); showToast('Caméra non disponible',3000); return;
+  }
+  try{
+    _camStream=await navigator.mediaDevices.getUserMedia({
+      video:{facingMode:'environment',width:{ideal:320},height:{ideal:240}},audio:false});
+    var video=document.getElementById('cam-video');
+    video.srcObject=_camStream;
+    await video.play();
+    _setCamState('active'); _startCamLoop();
+    showToast('🎥 Caméra active — analyse toutes les 10s'); vibrate([40]);
+  }catch(e){
+    if(e.name==='NotAllowedError'||e.name==='PermissionDeniedError'){
+      _setCamState('refused'); showToast('Caméra refusée',3000);
+    } else {
+      _setCamState('unavailable'); showToast('Caméra indisponible: '+e.message,3000);
+    }
+  }
+}
+
+function cameraStop(){
+  _stopCamLoop();
+  var video=document.getElementById('cam-video');
+  if(_camStream){_camStream.getTracks().forEach(function(t){t.stop();}); _camStream=null;}
+  video.srcObject=null; video.src='';
+  _setCamState('inactive');
+  document.getElementById('cam-result').style.display='none';
+  showToast('🎥 Caméra désactivée');
+}
+
+function _startCamLoop(){
+  _stopCamLoop();
+  _sendFrame();
+  _camTimer=setInterval(_sendFrame,10000);
+}
+function _stopCamLoop(){
+  if(_camTimer){clearInterval(_camTimer); _camTimer=null;}
+}
+
+function _sendFrame(){
+  if(!SID||(CAM_STATE!=='active'&&CAM_STATE!=='external')) return;
+  var video=document.getElementById('cam-video');
+  var canvas=document.getElementById('cam-canvas');
+  if(!video||!canvas) return;
+  var W=320,H=240;
+  canvas.width=W; canvas.height=H;
+  var ctx=canvas.getContext('2d');
+  try{ ctx.drawImage(video,0,0,W,H); }catch(e){return;} // video pas prête
+  var frame=canvas.toDataURL('image/jpeg',0.65).split(',')[1];
+  if(!frame||frame.length<200) return; // frame noire/vide
+  _setCamState('sending');
+  authFetch('/api/guardian/frame/'+SID,{
+    method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({frame:frame,width:W,height:H})
+  }).then(function(r){return r.json();}).then(function(d){
+    _setCamState(CAM_STATE==='sending'?(d.error?'inactive':((_camStream||document.getElementById('cam-video').src)?'active':'inactive')):CAM_STATE);
+    // Restaure l'état correct après 'sending'
+    if(_camStream) _setCamState('active');
+    else if(document.getElementById('cam-video').src) _setCamState('external');
+    if(d.description&&d.description!=='Analyse indisponible'){
+      var r2=document.getElementById('cam-result');
+      document.getElementById('cam-result-txt').textContent='👁 '+d.description;
+      r2.style.display='block';
+      _layoutCamResult();
+    }
+    if(d.has_concern){
+      showToast('⚠️ Situation inhabituelle détectée',4000);
+      loadEvents(); vibrate([300,100,300]);
+    }
+  }).catch(function(){
+    if(_camStream) _setCamState('active');
+    else if(document.getElementById('cam-video').src) _setCamState('external');
+  });
+}
+
+function _layoutCamResult(){
+  var addrCard=document.getElementById('addr-card');
+  var top=addrCard&&addrCard.style.display!=='none'?(62+addrCard.offsetHeight+8):70;
+  document.getElementById('cam-result').style.top=top+'px';
+}
+
+function toggleCamDetails(){
+  var r=document.getElementById('cam-result');
+  if(r.style.display==='none'||!r.style.display) _sendFrame();
+  else r.style.display='none';
 }
 
 // ── INIT : reprise session active ─────────────
