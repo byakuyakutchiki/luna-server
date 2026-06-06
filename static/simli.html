@@ -1844,7 +1844,7 @@
         '', 0, 0, reason);
     });
 
-    rLog('info', 'simli', 'build_marker', '037-iris-routing-v2');
+    rLog('info', 'simli', 'build_marker', '038-iris-noloop-panel');
 
     // =====================================================================
     // PLANNING HORAIRE
@@ -5418,9 +5418,15 @@
                     var _srcText = (_icsLastUserRequestText || _fbText || '').trim();
                     if (_fbText && _srcText) {
                       var _fbType = inferCommandRenderFromText(_srcText) || inferCommandRenderFromText(_fbText) || 'context_panel';
-                      var _fbPl = _fbType === 'context_panel'
-                        ? { title: 'Iris', sections: [{ heading: 'Réponse', body: _fbText }] }
-                        : _icsBuildPayload(_fbType, _srcText);
+                      // Kanban sans données pré-calculées → context_panel (squelette inutile sinon)
+                      if (_fbType === 'kanban_board' || _fbType === 'contact_board' || _fbType === 'map_board') _fbType = 'context_panel';
+                      var _fbPl;
+                      if (_fbType === 'context_panel') {
+                        // Afficher ce qu'Iris a dit — c'est le contenu réel
+                        _fbPl = { title: 'Iris', sections: [{ heading: _srcText.substring(0,60)||'Réponse', body: _fbText }] };
+                      } else {
+                        _fbPl = _icsBuildPayload(_fbType, _srcText + ' ' + _fbText);
+                      }
                       if (!_fbPl.render_type) _fbPl.render_type = _fbType;
                       renderIrisCommand(_fbPl);
                     }

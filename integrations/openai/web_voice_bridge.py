@@ -1389,10 +1389,13 @@ class WebVoiceBridge:
                         ]
                         _has_doc = hasattr(self, "_session_documents") and bool(self._session_documents)
                         _in_work_mode = self._active_mode in ("analyse", "reunion", "workspace")
-                        if ((_has_doc or _in_work_mode) and not getattr(self, "_delta_cancelled", False)
+                        if ((_has_doc or _in_work_mode)
+                                and not getattr(self, "_delta_cancelled", False)
+                                and not getattr(self, "_denial_correcting", False)
                                 and any(p in self._delta_buf for p in _EARLY_DENIAL)):
                             self._delta_cancelled = True
                             self._delta_buf = ""
+                            self._denial_correcting = True
                             logger.warning("WebVoice: denial intercepted in delta — cancelling response")
                             await self._ws_send_openai({"type": "response.cancel"})
                             await self._ws_send_client({"type": "audio_cancel"})
