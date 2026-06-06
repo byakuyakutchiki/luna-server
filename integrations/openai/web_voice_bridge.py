@@ -241,8 +241,92 @@ class _IrisActionRouter:
                         return rt
         return "context_panel"
 
+    async def _enrich_payload_async(self, render_type: str, user_text: str, send_fn) -> None:
+        """Appelle GPT-4o-mini pour enrichir le payload, puis l'envoie au client."""
+        _SCHEMAS = {
+            "status_rail": (
+                '{"services":[{"name":"OpenAI","status":"ok","detail":"API connectée"},{"name":"Twilio","status":"ok","detail":"SMS/Voix actif"},{"name":"Stripe","status":"ok","detail":"Paiements actifs"},{"name":"Redis","status":"ok","detail":"Cache opérationnel"}],"summary":"État général du système."}'
+            ),
+            "kpi_cards": (
+                '{"kpis":[{"label":"Utilisateurs actifs","value":"1 200","unit":"","trend":"up"},{"label":"Satisfaction","value":"94","unit":"%","trend":"stable"},{"label":"Temps de réponse","value":"1.8","unit":"s","trend":"down"},{"label":"Disponibilité","value":"99.7","unit":"%","trend":"stable"}],"summary":"Indicateurs clés du projet."}'
+            ),
+            "action_board": (
+                '{"sections":[{"title":"Urgent","items":[{"text":"Action 1","done":false,"priority":"high"},{"text":"Action 2","done":false,"priority":"high"}]},{"title":"Cette semaine","items":[{"text":"Action 3","done":false,"priority":"medium"}]}],"summary":"Liste des actions prioritaires."}'
+            ),
+            "timeline": (
+                '{"events":[{"date":"01/06/2026","title":"Phase 1","description":"Démarrage","status":"done"},{"date":"15/06/2026","title":"Phase 2","description":"Développement","status":"en_cours"},{"date":"30/06/2026","title":"Lancement","description":"Mise en production","status":"upcoming"}],"summary":"Chronologie du projet."}'
+            ),
+            "chart": (
+                '{"type":"bar","labels":["Jan","Fév","Mar","Avr","Mai","Jun"],"datasets":[{"label":"Revenus (€)","data":[2000,3200,4100,5500,7200,9000]}],"summary":"Évolution des revenus sur 6 mois."}'
+            ),
+            "budget_board": (
+                '{"lines":[{"label":"Infrastructure","amount":450,"category":"technique"},{"label":"APIs","amount":280,"category":"technique"},{"label":"Marketing","amount":500,"category":"commercial"},{"label":"Support","amount":150,"category":"opérations"}],"total":1380,"currency":"EUR","summary":"Budget mensuel consolidé."}'
+            ),
+            "decision_board": (
+                '{"options":[{"name":"Option A","pros":["Rapide","Moins cher"],"cons":["Risque","Moins stable"],"recommended":false},{"name":"Option B","pros":["Stable","Documenté"],"cons":["Plus long","Plus cher"],"recommended":true}],"recommendation":"Option B recommandée.","summary":"Analyse pour décision."}'
+            ),
+            "meeting_board": (
+                '{"title":"Réunion","date":"aujourd\'hui","time":"maintenant","participants":[{"name":"Alice","initials":"AL","role":"Chef de projet"},{"name":"Bob","initials":"BO","role":"Tech lead"},{"name":"Vous","initials":"V","role":"Fondateur"}],"agenda":[{"item":"Point avancement","done":false},{"item":"Décisions budget","done":false},{"item":"Planning Q3","done":false}],"decisions":[],"summary":"Réunion en cours."}'
+            ),
+            "document_draft": (
+                '{"title":"Brouillon","subject":"[Objet à préciser]","body":"Bonjour,\\n\\nSuite à notre échange, je vous confirme [détails].\\n\\nCordialement,\\n[Votre nom]","placeholders":["[Objet à préciser]","[détails]","[Votre nom]"],"summary":"Brouillon à compléter."}'
+            ),
+            "roadmap": (
+                '{"phases":[{"title":"Phase 1 — Fondation","description":"Architecture, auth, DB","status":"done","duration":"4 sem"},{"title":"Phase 2 — Core","description":"Fonctionnalités principales","status":"en_cours","duration":"6 sem"},{"title":"Phase 3 — Lancement","description":"Beta, marketing, onboarding","status":"upcoming","duration":"4 sem"}],"summary":"Roadmap produit."}'
+            ),
+            "comparison": (
+                '{"options":[{"name":"Option A","pros":["Avantage 1","Avantage 2"],"cons":["Inconvénient 1"],"score":7},{"name":"Option B","pros":["Avantage 3","Avantage 4"],"cons":["Inconvénient 2","Inconvénient 3"],"score":8}],"recommendation":"Option B légèrement préférée.","summary":"Comparaison des options."}'
+            ),
+            "data_board": (
+                '{"title":"Données","columns":["Item","Valeur","Statut"],"rows":[["Ligne 1","Donnée A","ok"],["Ligne 2","Donnée B","attente"],["Ligne 3","Donnée C","ok"]],"summary":"Tableau de données."}'
+            ),
+        }
+        if render_type not in _SCHEMAS:
+            return
+
+        _today = _time.strftime("%d/%m/%Y")
+        _prompt = (
+            f"Tu génères un payload JSON pour un panneau visuel professionnel (Iris Command Screen).\n"
+            f"Type de panneau : {render_type}\n"
+            f"Demande de l'utilisateur : \"{user_text}\"\n"
+            f"Date du jour : {_today}\n\n"
+            f"Génère un payload JSON réaliste et utile, directement adapté à la demande.\n"
+            f"Structure de référence (adapte les données) :\n{_SCHEMAS[render_type]}\n\n"
+            f"Règles :\n"
+            f"- Données cohérentes avec la demande utilisateur\n"
+            f"- Au moins 3-5 éléments par liste\n"
+            f"- Pour status_rail : services Luna réels (OpenAI, Twilio, Stripe, Redis, Tavus)\n"
+            f"- Pour timeline : dates autour de {_today}\n"
+            f"- Pour budget/chart : montants en euros réalistes\n"
+            f"- Tout en français\n"
+            f"- JSON valide uniquement, pas de commentaires"
+        )
+        try:
+            import openai as _openai
+            _client = _openai.AsyncOpenAI(api_key=self._bridge.openai_api_key)
+            _resp = await _client.chat.completions.create(
+                model="gpt-4o-mini",
+                response_format={"type": "json_object"},
+                temperature=0.3,
+                max_tokens=900,
+                messages=[
+                    {"role": "system", "content": "Tu es un générateur de données JSON pour panneaux visuels. Réponds uniquement en JSON valide."},
+                    {"role": "user", "content": _prompt},
+                ],
+            )
+            _rich = json.loads(_resp.choices[0].message.content)
+            await send_fn({
+                "type": "render",
+                "render_type": render_type,
+                "payload": _rich,
+                "enriched": True,
+            })
+            logger.info(f"WebVoice: payload enrichi envoyé ({render_type})")
+        except Exception as _e:
+            logger.warning(f"WebVoice: enrich_payload failed ({render_type}): {_e}")
+
     def _build_payload(self, render_type: str, user_text: str) -> Dict[str, Any]:
-        """Construit un payload minimal adapte au render_type."""
+        """Construit un payload minimal (squelette) — sera enrichi async par _enrich_payload_async."""
         now_str = _time.strftime("%d/%m/%Y %H:%M")
         if render_type == "data_board":
             return {
@@ -1035,6 +1119,18 @@ class WebVoiceBridge:
                             await self._session_manager.broadcast(self._session_id, _text_render)
                         else:
                             await self._ws_send_client(_text_render)
+
+                        # Enrichissement asynchrone — payload GPT-4o-mini remplace le squelette ~1s plus tard
+                        if _tr_type != "context_panel":
+                            _send_fn = (
+                                (lambda m: self._session_manager.broadcast(self._session_id, m))
+                                if (self._session_id and self._session_manager)
+                                else self._ws_send_client
+                            )
+                            asyncio.create_task(
+                                self._action_router._enrich_payload_async(_tr_type, text, _send_fn)
+                            )
+
                         # Dire à Iris ce qui vient d'être affiché → elle confirme en 1 phrase
                         _panel_labels = {
                             "status_rail": "tableau de statut des services",
