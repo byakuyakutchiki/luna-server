@@ -213,6 +213,17 @@ class _IrisActionRouter:
             logger.info(f"ActionRouter: FALLBACK FORCE -> {render_type}")
             await self._bridge._ws_send_client(render_msg)
 
+            # Enrichissement async du skeleton (voix path) — remplace le skeleton par des vraies données
+            if render_type != "context_panel" and not session_docs:
+                _send_fn = (
+                    (lambda m: self._bridge._session_manager.broadcast(self._bridge._session_id, m))
+                    if (self._bridge._session_id and self._bridge._session_manager)
+                    else self._bridge._ws_send_client
+                )
+                asyncio.create_task(
+                    self._enrich_payload_async(render_type, self._last_user_text, _send_fn)
+                )
+
             # Informer le client que c'est un fallback
             await self._bridge._ws_send_client({
                 "type": "action_router",
@@ -1666,6 +1677,21 @@ class WebVoiceBridge:
                 f"payload_source={payload_source} keys={list(payload.keys())[:12]} render_done=true"
             )
             _session_log(self._session_file, "iris_render", {"render_type": render_type, "source": payload_source})
+
+            # Enrichissement async quand le modèle a appelé iris_render avec payload vide
+            if payload_source == "empty_payload_fallback" and self._action_router:
+                _usr = getattr(self._action_router, "_last_user_text", "")
+                _real_type = self._action_router._infer_render_type(_usr) if _usr else "context_panel"
+                if _real_type != "context_panel" and _usr:
+                    _send_fn_v = (
+                        (lambda m: self._session_manager.broadcast(self._session_id, m))
+                        if (self._session_id and self._session_manager)
+                        else self._ws_send_client
+                    )
+                    asyncio.create_task(
+                        self._action_router._enrich_payload_async(_real_type, _usr, _send_fn_v)
+                    )
+
             await self._ws_send_openai({
                 "type": "conversation.item.create",
                 "item": {
