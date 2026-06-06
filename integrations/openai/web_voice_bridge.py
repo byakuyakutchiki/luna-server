@@ -101,7 +101,8 @@ _INTENT_RENDER_MAP = [
     (["tableau", "colonnes", "lignes", "données en tableau", "liste de"], "data_board"),
     (["etat des services", "statut des services", "mes quotas", "diagnostic",
       "sante du systeme", "operationnel", "tout fonctionne", "services fonctionnent",
-      "verifie.*services", "etat.*systeme"], "status_rail"),
+      "etat de mes services", "l etat de mes services", "mes services",
+      "etat du systeme", "verifie les services", "systeme fonctionne"], "status_rail"),
     (["compare ", "versus ", "avantages", "inconvénients", " vs "], "comparison"),
     (["rédige", "courrier", "lettre", "brouillon", "note officielle"], "document_draft"),
     (["pdf", "contrat", "devis", "facture", "analyse de fichier"], "document_insight"),
@@ -222,15 +223,23 @@ class _IrisActionRouter:
             })
 
     def _infer_render_type(self, text: str) -> str:
-        import unicodedata as _ud
+        import unicodedata as _ud, re as _re
         lower = text.lower()
-        # NFD normalization pour matcher même sans accents (transcriptions STT variables)
         nfd = _ud.normalize("NFD", lower)
         stripped = "".join(c for c in nfd if _ud.category(c) != "Mn")
         for mots_cles, rt in _INTENT_RENDER_MAP:
-            if any(m in lower or m in stripped for m in mots_cles):
-                return rt
-        return "context_panel"  # fallback generique
+            for m in mots_cles:
+                if ".*" in m or m.startswith("^") or m.endswith("$"):
+                    # Pattern regex — chercher dans lower et stripped
+                    try:
+                        if _re.search(m, lower) or _re.search(m, stripped):
+                            return rt
+                    except Exception:
+                        pass
+                else:
+                    if m in lower or m in stripped:
+                        return rt
+        return "context_panel"
 
     def _build_payload(self, render_type: str, user_text: str) -> Dict[str, Any]:
         """Construit un payload minimal adapte au render_type."""
@@ -1026,9 +1035,32 @@ class WebVoiceBridge:
                             await self._session_manager.broadcast(self._session_id, _text_render)
                         else:
                             await self._ws_send_client(_text_render)
+                        # Dire à Iris ce qui vient d'être affiché → elle confirme en 1 phrase
+                        _panel_labels = {
+                            "status_rail": "tableau de statut des services",
+                            "kpi_cards": "tableau de KPIs",
+                            "action_board": "checklist d'actions",
+                            "timeline": "planning chronologique",
+                            "decision_board": "tableau de décision",
+                            "budget_board": "tableau de budget",
+                            "chart": "graphique",
+                            "meeting_board": "panneau de réunion",
+                            "document_draft": "brouillon de document",
+                            "data_board": "tableau de données",
+                            "roadmap": "roadmap",
+                            "comparison": "tableau de comparaison",
+                            "kanban_board": "kanban",
+                        }
+                        _panel_label = _panel_labels.get(_tr_type, "panneau")
+                        _instr = (
+                            f"Le panneau ICS vient d'afficher : {_panel_label}. "
+                            f"Confirme en 1 phrase courte ce qui est visible à l'écran. "
+                            f"Ne dis JAMAIS 'je ne peux pas voir' ou 'mon interface n'a pas accès' — "
+                            f"le panneau EST affiché, tu le confirmes."
+                        )
                         await self._ws_send_openai({
                             "type": "response.create",
-                            "response": {"tools": []},
+                            "response": {"instructions": _instr, "tools": []},
                         })
 
                 elif msg_type == "ui_event":
