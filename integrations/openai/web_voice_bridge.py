@@ -269,7 +269,7 @@ class _IrisActionRouter:
                 '{"title":"Réunion","date":"aujourd\'hui","time":"maintenant","participants":[{"name":"Alice","initials":"AL","role":"Chef de projet"},{"name":"Bob","initials":"BO","role":"Tech lead"},{"name":"Vous","initials":"V","role":"Fondateur"}],"agenda":[{"item":"Point avancement","done":false},{"item":"Décisions budget","done":false},{"item":"Planning Q3","done":false}],"decisions":[],"summary":"Réunion en cours."}'
             ),
             "document_draft": (
-                '{"title":"Brouillon","subject":"[Objet à préciser]","body":"Bonjour,\\n\\nSuite à notre échange, je vous confirme [détails].\\n\\nCordialement,\\n[Votre nom]","placeholders":["[Objet à préciser]","[détails]","[Votre nom]"],"summary":"Brouillon à compléter."}'
+                '{"title":"Email de confirmation","subject":"Confirmation de votre demande","body":"Bonjour [Prénom],\n\nSuite à notre échange du [date], nous confirmons [action principale].\n\nCordialement,\n[Votre nom]","placeholders":["[Prénom]","[date]","[action principale]","[Votre nom]"],"summary":"Brouillon prêt à compléter."}'
             ),
             "roadmap": (
                 '{"phases":[{"title":"Phase 1 — Fondation","description":"Architecture, auth, DB","status":"done","duration":"4 sem"},{"title":"Phase 2 — Core","description":"Fonctionnalités principales","status":"en_cours","duration":"6 sem"},{"title":"Phase 3 — Lancement","description":"Beta, marketing, onboarding","status":"upcoming","duration":"4 sem"}],"summary":"Roadmap produit."}'
@@ -286,20 +286,10 @@ class _IrisActionRouter:
 
         _today = _time.strftime("%d/%m/%Y")
         _prompt = (
-            f"Tu génères un payload JSON pour un panneau visuel professionnel (Iris Command Screen).\n"
-            f"Type de panneau : {render_type}\n"
-            f"Demande de l'utilisateur : \"{user_text}\"\n"
-            f"Date du jour : {_today}\n\n"
-            f"Génère un payload JSON réaliste et utile, directement adapté à la demande.\n"
-            f"Structure de référence (adapte les données) :\n{_SCHEMAS[render_type]}\n\n"
-            f"Règles :\n"
-            f"- Données cohérentes avec la demande utilisateur\n"
-            f"- Au moins 3-5 éléments par liste\n"
-            f"- Pour status_rail : services Luna réels (OpenAI, Twilio, Stripe, Redis, Tavus)\n"
-            f"- Pour timeline : dates autour de {_today}\n"
-            f"- Pour budget/chart : montants en euros réalistes\n"
-            f"- Tout en français\n"
-            f"- JSON valide uniquement, pas de commentaires"
+            f"Panneau : {render_type}. Demande : \"{user_text}\". Date : {_today}.\n"
+            f"Génère un JSON réaliste adapté à la demande. Exacte structure :\n{_SCHEMAS[render_type]}\n"
+            f"Règles : 3-5 items min | status_rail→services Luna (OpenAI,Twilio,Stripe,Redis,Tavus) | "
+            f"timeline→dates réelles autour {_today} | montants en euros | français | JSON pur sans commentaires."
         )
         try:
             import openai as _openai
