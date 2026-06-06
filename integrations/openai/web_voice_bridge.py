@@ -841,7 +841,10 @@ class WebVoiceBridge:
                     "threshold": 0.5,
                     "prefix_padding_ms": 400,
                     "silence_duration_ms": 700,
-                    "create_response": True,
+                    # Iris must not answer before the server has the transcript.
+                    # We first infer the active mode from the user's words, update
+                    # the tool set, then explicitly trigger response.create.
+                    "create_response": False,
                 },
                 "tools": filtered_tools,
                 # required fonctionne pour les réponses VAD (voix).
@@ -1059,7 +1062,7 @@ class WebVoiceBridge:
                         "Appelle iris_render MAINTENANT avec le bon render_type et payload rempli. "
                         "Ne lis pas le contenu à l'oral. 1 phrase courte puis appel iris_render."
                     ),
-                    "tools": VOICE_TOOLS,
+                    "tools": self._build_filtered_tools(self._active_mode),
                 },
             })
             logger.info("WebVoice: auto_correct_denial triggered successfully")
@@ -1208,7 +1211,7 @@ class WebVoiceBridge:
                                     "Ex: 'Reçu — le panneau est à jour, clique sur les boutons pour transformer.' "
                                     "Ne lis PAS le contenu. Ne liste pas les fonctionnalités."
                                 ),
-                                "tools": VOICE_TOOLS,
+                                "tools": self._build_filtered_tools(self._active_mode),
                             },
                         })
 
@@ -1346,7 +1349,7 @@ class WebVoiceBridge:
                                         f"Appelle iris_render(render_type='{_rtype_fb}') avec les vraies données. "
                                         f"1 phrase courte. Ne lis PAS le contenu à l'oral."
                                     ),
-                                    "tools": VOICE_TOOLS,
+                                    "tools": self._build_filtered_tools(self._active_mode),
                                 },
                             })
                             logger.info(f"WebVoice: doc_action fallback (no precomputed) rtype={_rtype_fb}")
@@ -1441,6 +1444,10 @@ class WebVoiceBridge:
                             "role": "user",
                             "text": text,
                         })
+                        await self._ws_send_openai({"type": "response.create"})
+                        logger.info(
+                            f"WebVoice: response_created_after_mode mode={self._active_mode}"
+                        )
 
                 elif event_type in ("response.audio_transcript.done", "response.output_audio_transcript.done"):
                     text = data.get("transcript", "").strip()
@@ -1465,7 +1472,7 @@ class WebVoiceBridge:
                                 and any(p in _tlow for p in _DENIAL_PHRASES)
                                 and (
                                     (hasattr(self, "_session_documents") and self._session_documents)
-                                    or self._active_mode in ("analyse", "reunion", "workspace")
+                                    or self._active_mode != DEFAULT_MODE
                                 )):
                             logger.warning(f"WebVoice: iris_panel_denial detected — auto-correcting")
                             self._denial_correcting = True
@@ -1520,7 +1527,7 @@ class WebVoiceBridge:
                             "pas de panneau visuel", "je ne dispose pas d'un panneau",
                         ]
                         _has_doc = hasattr(self, "_session_documents") and bool(self._session_documents)
-                        _in_work_mode = self._active_mode in ("analyse", "reunion", "workspace")
+                        _in_work_mode = self._active_mode != DEFAULT_MODE
                         if ((_has_doc or _in_work_mode)
                                 and not getattr(self, "_delta_cancelled", False)
                                 and not getattr(self, "_denial_correcting", False)

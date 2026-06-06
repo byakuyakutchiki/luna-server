@@ -2148,3 +2148,13 @@ Fichier concerné : docs/AGENTS_COLLABORATION/agents/KIMI_AUDIT_GUARDIAN_CAMERA_
 Risque : nul (corrections documentaires uniquement).
 Décision Ludovic requise : oui pour 2 questions : (1) Implémenter auto_call_112 réellement ? (2) Brancher la caméra perception dans Guardian ?
 Action proposée : Ludo arbitre les 2 questions Guardian. En attendant, Guardian fonctionne tel quel (GPS + SOS + contacts).
+---
+
+Agent : Codex
+Objectif : 033
+Type : diagnostic + patch minimal Iris Command Screen Runtime
+Résumé : Cause critique trouvee : `turn_detection.create_response=true` laissait OpenAI commencer a repondre avant que le serveur recoive la transcription, detecte le mode et mette a jour les tools. Patch : `create_response=false`, puis `response.create` seulement apres transcription + mode auto-detect + session.update. Auto-correction deni ICS elargie a tous les modes productifs. Les chemins auto-correct/document utilisent maintenant les tools filtres du mode actif au lieu de `VOICE_TOOLS` global.
+Fichier concerné : integrations/openai/web_voice_bridge.py ; docs/AGENTS_COLLABORATION/agents/CODEX_DIAGNOSTIC_IRIS_COMMAND_SCREEN_RUNTIME_033.md
+Risque : Faible a moyen. Le flux vocal devient serveur-pilote : si la transcription OpenAI echoue, aucune reponse automatique ne part. A verifier en VM avec `python3 -m py_compile` puis test F12.
+Décision Ludovic requise : oui — faire verifier/deployer par Claude ou Kimi apres py_compile VM.
+Action proposée : Claude/Kimi doivent compiler, deployer, puis tester F12 : `mode_auto_detected` -> `session_updated` -> `response_created_after_mode` -> `tool_call iris_render` -> `render_done`.
