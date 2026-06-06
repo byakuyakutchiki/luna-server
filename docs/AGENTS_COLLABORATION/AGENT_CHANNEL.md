@@ -2158,3 +2158,13 @@ Fichier concerné : integrations/openai/web_voice_bridge.py ; docs/AGENTS_COLLAB
 Risque : Faible a moyen. Le flux vocal devient serveur-pilote : si la transcription OpenAI echoue, aucune reponse automatique ne part. A verifier en VM avec `python3 -m py_compile` puis test F12.
 Décision Ludovic requise : oui — faire verifier/deployer par Claude ou Kimi apres py_compile VM.
 Action proposée : Claude/Kimi doivent compiler, deployer, puis tester F12 : `mode_auto_detected` -> `session_updated` -> `response_created_after_mode` -> `tool_call iris_render` -> `render_done`.
+---
+
+Agent : Codex
+Objectif : 034
+Type : implementation Iris Workspace Orchestrator V1
+Résumé : Premiere brique serveur-first implementee. Ajout de `integrations/iris/workspace_orchestrator.py` : la phrase utilisateur est classee cote serveur, transforme en `WorkspacePlan`, puis le Command Screen est rendu avant que la voix OpenAI commente. Le bridge vocal appelle maintenant `_emit_workspace_plan()` pour les textes et les transcriptions vocales. Exemples couverts : graphique avec chiffres -> chart, graphique sans chiffres -> missing_info, tableau -> data_board, courrier -> document_draft, document charge -> document_insight, recherche web -> research_board cadrant le manque de sources, action sensible -> action_board validation requise.
+Fichier concerné : integrations/iris/workspace_orchestrator.py ; integrations/openai/web_voice_bridge.py ; docs/AGENTS_COLLABORATION/OBJECTIF_034_IRIS_WORKSPACE_ORCHESTRATOR.md ; docs/AGENTS_COLLABORATION/agents/CODEX_IMPL_IRIS_WORKSPACE_ORCHESTRATOR_034.md
+Risque : moyen. Le serveur prend la main avant OpenAI ; il faut verifier que les sessions vocales simples restent naturelles et que les demandes de travail affichent bien un rendu utile. Aucune action externe n'est declenchee.
+Décision Ludovic requise : oui avant deploiement.
+Action proposée : Claude/Kimi compilent sur VM puis testent F12 : `workspace_orchestrator render_type=chart` -> `response_created_after_orchestrator` -> `ics_render chart`.

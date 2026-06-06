@@ -55,6 +55,7 @@ from integrations.openai.realtime_bridge import VOICE_TOOLS, _realtime_semaphore
 from integrations.iris.modes import (
     IRIS_MODES, DEFAULT_MODE, build_mode_context, get_mode_tools, detect_mode_from_text
 )
+from integrations.iris.workspace_orchestrator import WorkspacePlan, orchestrate_workspace_request
 
 # Nombre d'erreurs client consecutives avant arret
 _MAX_CLIENT_ERRORS = 3
@@ -742,6 +743,33 @@ class WebVoiceBridge:
         })
         logger.info(f"WebVoice: injected {len(history)} history entries for continuity")
 
+    async def _emit_workspace_plan(self, plan: WorkspacePlan) -> None:
+        """Server-first Command Screen render for a work request."""
+        if not plan.should_render:
+            return
+        if plan.mode and plan.mode != self._active_mode and plan.mode in IRIS_MODES:
+            await self.set_mode(plan.mode)
+
+        render_msg = {
+            "type": "render",
+            "render_type": plan.render_type,
+            "payload": plan.payload,
+            "source": plan.source,
+        }
+        if self._session_id and self._session_manager:
+            await self._session_manager.broadcast(self._session_id, render_msg)
+        else:
+            await self._ws_send_client(render_msg)
+        logger.info(
+            f"WebVoice: workspace_orchestrator render_type={plan.render_type} "
+            f"mode={self._active_mode} render_done=true"
+        )
+        _session_log(self._session_file, "workspace_orchestrator", {
+            "mode": self._active_mode,
+            "render_type": plan.render_type,
+            "source": plan.source,
+        })
+
     async def _configure_session(self) -> bool:
         # Lire l'événement initial d'OpenAI (session.created ou error) avant d'envoyer session.update.
         # Si le modèle est invalide ou le quota épuisé, OpenAI envoie un error ici puis ferme le WS.
@@ -1109,62 +1137,26 @@ class WebVoiceBridge:
                                 "content": [{"type": "input_text", "text": text}],
                             },
                         })
-                        # Pour les messages texte : render immédiat avec type inféré (pas toujours context_panel)
-                        # Le client fait déjà son inference avant d'envoyer, mais en session collaborative
-                        # les autres participants ont besoin du render serveur.
-                        _tr_type = self._action_router._infer_render_type(text)
-                        _tr_payload = self._action_router._build_payload(_tr_type, text) if _tr_type != "context_panel" else {
-                            "title": "Iris",
-                            "sections": [{"heading": "Demande", "body": text[:400]}],
-                        }
-                        _text_render = {
-                            "type": "render",
-                            "render_type": _tr_type,
-                            "payload": _tr_payload,
-                        }
-                        if self._session_id and self._session_manager:
-                            await self._session_manager.broadcast(self._session_id, _text_render)
-                        else:
-                            await self._ws_send_client(_text_render)
-
-                        # Enrichissement asynchrone — payload GPT-4o-mini remplace le squelette ~1s plus tard
-                        if _tr_type != "context_panel":
-                            _send_fn = (
-                                (lambda m: self._session_manager.broadcast(self._session_id, m))
-                                if (self._session_id and self._session_manager)
-                                else self._ws_send_client
-                            )
-                            asyncio.create_task(
-                                self._action_router._enrich_payload_async(_tr_type, text, _send_fn)
-                            )
-
-                        # Dire à Iris ce qui vient d'être affiché → elle confirme en 1 phrase
-                        _panel_labels = {
-                            "status_rail": "tableau de statut des services",
-                            "kpi_cards": "tableau de KPIs",
-                            "action_board": "checklist d'actions",
-                            "timeline": "planning chronologique",
-                            "decision_board": "tableau de décision",
-                            "budget_board": "tableau de budget",
-                            "chart": "graphique",
-                            "meeting_board": "panneau de réunion",
-                            "document_draft": "brouillon de document",
-                            "data_board": "tableau de données",
-                            "roadmap": "roadmap",
-                            "comparison": "tableau de comparaison",
-                            "kanban_board": "kanban",
-                        }
-                        _panel_label = _panel_labels.get(_tr_type, "panneau")
-                        _instr = (
-                            f"Le panneau ICS vient d'afficher : {_panel_label}. "
-                            f"Confirme en 1 phrase courte ce qui est visible à l'écran. "
-                            f"Ne dis JAMAIS 'je ne peux pas voir' ou 'mon interface n'a pas accès' — "
-                            f"le panneau EST affiché, tu le confirmes."
+                        plan = orchestrate_workspace_request(
+                            text,
+                            active_mode=self._active_mode,
+                            session_documents=getattr(self, "_session_documents", []),
                         )
-                        await self._ws_send_openai({
-                            "type": "response.create",
-                            "response": {"instructions": _instr, "tools": []},
-                        })
+                        await self._emit_workspace_plan(plan)
+                        if plan.should_render:
+                            await self._ws_send_openai({
+                                "type": "response.create",
+                                "response": {
+                                    "instructions": (
+                                        plan.speech_instruction
+                                        + " Ne dis jamais que tu ne peux pas afficher : "
+                                          "le serveur vient d'afficher le panneau."
+                                    ),
+                                    "tools": [],
+                                },
+                            })
+                        else:
+                            await self._ws_send_openai({"type": "response.create"})
 
                 elif msg_type == "ui_event":
                     event_name = data.get("name", "")
@@ -1444,10 +1436,32 @@ class WebVoiceBridge:
                             "role": "user",
                             "text": text,
                         })
-                        await self._ws_send_openai({"type": "response.create"})
-                        logger.info(
-                            f"WebVoice: response_created_after_mode mode={self._active_mode}"
+                        plan = orchestrate_workspace_request(
+                            text,
+                            active_mode=self._active_mode,
+                            session_documents=getattr(self, "_session_documents", []),
                         )
+                        await self._emit_workspace_plan(plan)
+                        if plan.should_render:
+                            await self._ws_send_openai({
+                                "type": "response.create",
+                                "response": {
+                                    "instructions": (
+                                        plan.speech_instruction
+                                        + " Reponds en une phrase courte, sans relire le contenu du panneau."
+                                    ),
+                                    "tools": [],
+                                },
+                            })
+                            logger.info(
+                                f"WebVoice: response_created_after_orchestrator "
+                                f"mode={self._active_mode} render_type={plan.render_type}"
+                            )
+                        else:
+                            await self._ws_send_openai({"type": "response.create"})
+                            logger.info(
+                                f"WebVoice: response_created_after_mode mode={self._active_mode}"
+                            )
 
                 elif event_type in ("response.audio_transcript.done", "response.output_audio_transcript.done"):
                     text = data.get("transcript", "").strip()
