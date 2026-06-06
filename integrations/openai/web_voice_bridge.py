@@ -55,7 +55,7 @@ from integrations.openai.realtime_bridge import VOICE_TOOLS, _realtime_semaphore
 from integrations.iris.modes import (
     IRIS_MODES, DEFAULT_MODE, build_mode_context, get_mode_tools, detect_mode_from_text
 )
-from integrations.iris.workspace_orchestrator import WorkspacePlan, orchestrate_workspace_request
+from integrations.iris.workspace_orchestrator import MissionBrief, WorkspacePlan, orchestrate_workspace_request
 
 # Nombre d'erreurs client consecutives avant arret
 _MAX_CLIENT_ERRORS = 3
@@ -476,6 +476,7 @@ class WebVoiceBridge:
         # Mode de mission Iris — initialisé depuis le query param ?mode= (Objectif 026)
         self._active_mode = initial_mode if initial_mode in IRIS_MODES else DEFAULT_MODE
         self._base_context = context  # Contexte système de base (sans mode)
+        self._mission_brief: Dict[str, Any] = {}
         # Fichier de session pour diagnostic autonome — /tmp/iris_sessions/<id>.jsonl
         _sid = session_id or str(uuid.uuid4())[:8]
         self._session_file = _SESSION_LOG_DIR / f"{_sid}_{int(_time.time())}.jsonl"
@@ -768,6 +769,47 @@ class WebVoiceBridge:
             "mode": self._active_mode,
             "render_type": plan.render_type,
             "source": plan.source,
+        })
+
+    async def _update_mission_brief(self, raw_brief: Dict[str, Any]) -> None:
+        """Update the admin-defined mission frame for this workspace."""
+        brief = MissionBrief.from_dict(raw_brief)
+        self._mission_brief = {
+            "title": brief.title,
+            "domain": brief.domain,
+            "objective": brief.objective,
+            "context": brief.context,
+            "inputs": brief.inputs or [],
+            "deliverables": brief.deliverables or [],
+            "constraints": brief.constraints or [],
+            "external_research": brief.external_research,
+        }
+        logger.info(
+            f"WebVoice: mission_brief_updated title={brief.title[:50]!r} "
+            f"domain={brief.domain[:40]!r} inputs={len(brief.inputs or [])} "
+            f"deliverables={len(brief.deliverables or [])} external_research={brief.external_research}"
+        )
+        await self._ws_send_client({
+            "type": "render",
+            "render_type": "context_panel",
+            "payload": {
+                "title": brief.title or "Mission Iris",
+                "sections": [
+                    {"heading": "Domaine", "body": brief.domain or "A definir"},
+                    {"heading": "Objectif", "body": brief.objective or "A definir"},
+                    {"heading": "Contexte", "body": brief.context or "A completer"},
+                    {"heading": "Livrables", "body": ", ".join(brief.deliverables or ["A definir"])},
+                ],
+                "context": brief.context_text(),
+                "summary": "Brief mission mis a jour. Iris doit travailler dans ce cadre.",
+            },
+            "source": "mission_brief_update",
+        })
+        await self._ws_send_client({
+            "type": "ui_state_ack",
+            "event": "mission_brief_update",
+            "title": brief.title,
+            "external_research": brief.external_research,
         })
 
     async def _configure_session(self) -> bool:
@@ -1141,6 +1183,7 @@ class WebVoiceBridge:
                             text,
                             active_mode=self._active_mode,
                             session_documents=getattr(self, "_session_documents", []),
+                            mission_brief=self._mission_brief,
                         )
                         await self._emit_workspace_plan(plan)
                         if plan.should_render:
@@ -1160,7 +1203,9 @@ class WebVoiceBridge:
 
                 elif msg_type == "ui_event":
                     event_name = data.get("name", "")
-                    if event_name == "document_uploaded" and self.ws_openai:
+                    if event_name == "mission_brief_update":
+                        await self._update_mission_brief(data.get("brief") or data.get("payload") or data)
+                    elif event_name == "document_uploaded" and self.ws_openai:
                         fname = str(data.get("filename", "fichier"))[:120]
                         analysis = str(data.get("analysis", ""))[:2000]
                         logger.info(f"WebVoice: ui_event document_uploaded fname={fname[:60]}")
@@ -1175,6 +1220,10 @@ class WebVoiceBridge:
                         if not hasattr(self, "_session_documents"):
                             self._session_documents = []
                         self._session_documents.append(doc_entry)
+                        if self._mission_brief is not None:
+                            inputs = list(self._mission_brief.get("inputs") or [])
+                            inputs.append({"type": "document", "label": fname, "status": "uploadé"})
+                            self._mission_brief["inputs"] = inputs[-12:]
 
                         # Pré-calculer les rendus en arrière-plan (GPT-4o-mini)
                         asyncio.create_task(self._precompute_doc_renders(fname, analysis))
@@ -1440,6 +1489,7 @@ class WebVoiceBridge:
                             text,
                             active_mode=self._active_mode,
                             session_documents=getattr(self, "_session_documents", []),
+                            mission_brief=self._mission_brief,
                         )
                         await self._emit_workspace_plan(plan)
                         if plan.should_render:

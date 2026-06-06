@@ -140,3 +140,65 @@ panneau ensuite
 Iris apres
 ```
 
+## V2 — Mission Brief admin
+
+Le serveur ne doit pas laisser Iris improviser, mais l'humain doit pouvoir cadrer la mission.
+
+Le workspace doit accepter un brief de mission fourni par l'admin/owner :
+
+```json
+{
+  "title": "Analyse banque 2026",
+  "domain": "banque",
+  "objective": "Comparer les offres et produire une synthese exploitable",
+  "context": "Travail avec une equipe de business developpeurs",
+  "inputs": [
+    {"type": "document", "label": "dossier_banque.pdf"},
+    {"type": "youtube", "label": "interview marche bancaire"},
+    {"type": "url", "label": "https://..."}
+  ],
+  "deliverables": ["tableau comparatif", "graphique", "PDF final"],
+  "constraints": ["RGPD", "ne pas envoyer d'action externe sans validation"],
+  "external_research": false
+}
+```
+
+Effet attendu :
+
+```text
+L'utilisateur choisit le contexte
+-> le serveur stocke le brief
+-> Iris travaille dans ce cadre
+-> les documents uploades deviennent des sources
+-> la recherche externe est bloquee tant que le brief ne l'autorise pas
+```
+
+Protocole WS V2 :
+
+```json
+{
+  "type": "ui_event",
+  "name": "mission_brief_update",
+  "brief": {
+    "title": "...",
+    "domain": "...",
+    "objective": "...",
+    "context": "...",
+    "inputs": [],
+    "deliverables": [],
+    "constraints": [],
+    "external_research": false
+  }
+}
+```
+
+Validation attendue :
+
+```text
+WebVoice: mission_brief_updated ...
+ui_state_ack mission_brief_update
+workspace_orchestrator ... context=<brief>
+```
+
+Si l'utilisateur demande une recherche web alors que `external_research=false`,
+Iris ne doit pas inventer : le Command Screen affiche `missing_info` avec demande de validation.

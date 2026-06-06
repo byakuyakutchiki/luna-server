@@ -25,6 +25,80 @@ class WorkspacePlan:
     source: str = "workspace_orchestrator"
 
 
+@dataclass
+class MissionBrief:
+    """Human/admin-defined frame for an Iris workspace session."""
+
+    title: str = ""
+    domain: str = ""
+    objective: str = ""
+    context: str = ""
+    inputs: List[Dict[str, Any]] | None = None
+    deliverables: List[str] | None = None
+    constraints: List[str] | None = None
+    external_research: bool = False
+
+    @classmethod
+    def from_dict(cls, data: Optional[Dict[str, Any]]) -> "MissionBrief":
+        if not isinstance(data, dict):
+            return cls()
+        return cls(
+            title=str(data.get("title") or "")[:160],
+            domain=str(data.get("domain") or data.get("topic") or "")[:120],
+            objective=str(data.get("objective") or "")[:500],
+            context=str(data.get("context") or "")[:1500],
+            inputs=_list_of_dicts(data.get("inputs")),
+            deliverables=_list_of_strings(data.get("deliverables")),
+            constraints=_list_of_strings(data.get("constraints")),
+            external_research=bool(data.get("external_research") or data.get("allow_web")),
+        )
+
+    def active(self) -> bool:
+        return bool(self.title or self.domain or self.objective or self.context or self.inputs or self.deliverables)
+
+    def context_text(self) -> str:
+        parts = []
+        if self.title:
+            parts.append(f"Mission: {self.title}")
+        if self.domain:
+            parts.append(f"Domaine: {self.domain}")
+        if self.objective:
+            parts.append(f"Objectif: {self.objective}")
+        if self.context:
+            parts.append(f"Contexte: {self.context}")
+        if self.deliverables:
+            parts.append("Livrables attendus: " + ", ".join(self.deliverables))
+        if self.constraints:
+            parts.append("Contraintes: " + ", ".join(self.constraints))
+        if self.inputs:
+            labels = [str(i.get("label") or i.get("type") or "source") for i in self.inputs[:6]]
+            parts.append("Sources fournies: " + ", ".join(labels))
+        parts.append("Recherche externe: " + ("autorisee" if self.external_research else "non autorisee sans validation"))
+        return "\n".join(parts)
+
+
+def _list_of_strings(value: Any) -> List[str]:
+    if not isinstance(value, list):
+        return []
+    return [str(v)[:180] for v in value if str(v or "").strip()][:12]
+
+
+def _list_of_dicts(value: Any) -> List[Dict[str, Any]]:
+    if not isinstance(value, list):
+        return []
+    result: List[Dict[str, Any]] = []
+    for item in value[:12]:
+        if isinstance(item, dict):
+            result.append({
+                "type": str(item.get("type") or "source")[:60],
+                "label": str(item.get("label") or item.get("name") or item.get("url") or "source")[:180],
+                "status": str(item.get("status") or "fourni")[:60],
+            })
+        else:
+            result.append({"type": "source", "label": str(item)[:180], "status": "fourni"})
+    return result
+
+
 def _norm(text: str) -> str:
     raw = (text or "").lower()
     nfd = unicodedata.normalize("NFD", raw)
@@ -98,10 +172,12 @@ def orchestrate_workspace_request(
     *,
     active_mode: str = DEFAULT_MODE,
     session_documents: Optional[List[Dict[str, Any]]] = None,
+    mission_brief: Optional[Dict[str, Any] | MissionBrief] = None,
 ) -> WorkspacePlan:
     """Build a first deterministic Command Screen render for a user request."""
     ask = (text or "").strip()
     normalized = _norm(ask)
+    brief = mission_brief if isinstance(mission_brief, MissionBrief) else MissionBrief.from_dict(mission_brief)
     if not ask or not _is_work_request(ask):
         return WorkspacePlan(
             should_render=False,
@@ -115,6 +191,26 @@ def orchestrate_workspace_request(
     mode = detected_mode if detected_mode != DEFAULT_MODE else (active_mode or DEFAULT_MODE)
     doc = _latest_document(session_documents)
     nums = _numbers(ask)
+    mission_context = brief.context_text() if brief.active() else ""
+
+    if _has_any(ask, ["contexte", "mission", "brief", "workspace", "sujet", "objectif"]) and brief.active():
+        return WorkspacePlan(
+            True,
+            mode,
+            "context_panel",
+            {
+                "title": brief.title or "Mission Iris",
+                "sections": [
+                    {"heading": "Domaine", "body": brief.domain or "A definir"},
+                    {"heading": "Objectif", "body": brief.objective or ask},
+                    {"heading": "Contexte", "body": brief.context or "A completer"},
+                    {"heading": "Livrables", "body": ", ".join(brief.deliverables or ["A definir"])},
+                ],
+                "context": mission_context,
+                "summary": "Brief de mission actif. Iris doit rester dans ce cadre.",
+            },
+            "Confirme en une phrase que le brief de mission est actif.",
+        )
 
     if _has_any(ask, ["sms", "appelle", "appel", "email", "mail", "envoie", "envoyer"]):
         return WorkspacePlan(
@@ -137,7 +233,7 @@ def orchestrate_workspace_request(
                         ],
                     },
                 ],
-                "context": "Action sensible detectee par le serveur.",
+                "context": mission_context or "Action sensible detectee par le serveur.",
             },
             "Le panneau de validation est affiche. Dis que l'action attend confirmation.",
         )
@@ -155,7 +251,7 @@ def orchestrate_workspace_request(
                     "labels": labels,
                     "datasets": [{"label": "Valeur", "data": nums}],
                     "summary": "Graphique construit a partir des donnees fournies.",
-                    "context": ask[:220],
+                    "context": mission_context or ask[:220],
                 },
                 "Confirme en une phrase que le graphique est affiche.",
             )
@@ -166,7 +262,7 @@ def orchestrate_workspace_request(
             _missing(
                 "Graphique a construire",
                 ["Les donnees chiffrees", "Les libelles ou periodes", "Le type de graphique souhaite"],
-                ask,
+                mission_context or ask,
             ),
             "Explique en une phrase quelles donnees manquent pour afficher le graphique.",
         )
@@ -184,7 +280,7 @@ def orchestrate_workspace_request(
                 "columns": ["Element", "Valeur", "Statut"],
                 "rows": rows,
                 "summary": "Tableau cree par le serveur a partir de la demande.",
-                "context": ask[:220],
+                "context": mission_context or ask[:220],
             },
             "Confirme en une phrase que le tableau est affiche.",
         )
@@ -206,7 +302,7 @@ def orchestrate_workspace_request(
                 ),
                 "placeholders": ["Destinataire", "Objet exact", "Informations cles", "Signature"],
                 "summary": "Brouillon editable pret a completer.",
-                "context": ask[:220],
+                "context": mission_context or ask[:220],
             },
             "Confirme en une phrase que le brouillon est ouvert dans le panneau.",
         )
@@ -229,12 +325,24 @@ def orchestrate_workspace_request(
                     {"label": "Graphique"},
                     {"label": "Brouillon"},
                 ],
-                "context": "Document charge dans la session.",
+                "context": mission_context or "Document charge dans la session.",
             },
             "Confirme en une phrase que l'analyse du document est affichee.",
         )
 
     if _has_any(ask, ["cherche", "trouve", "web", "internet", "source"]):
+        if brief.active() and not brief.external_research:
+            return WorkspacePlan(
+                True,
+                "recherche",
+                "missing_info",
+                _missing(
+                    "Recherche externe a valider",
+                    ["Autorisation recherche web", "Perimetre des sources", "Niveau de fiabilite attendu"],
+                    mission_context or ask,
+                ),
+                "Explique en une phrase que la recherche externe doit etre autorisee dans le brief.",
+            )
         return WorkspacePlan(
             True,
             "recherche",
@@ -243,7 +351,7 @@ def orchestrate_workspace_request(
                 "query": ask,
                 "summary": "Recherche externe demandee. Le connecteur web doit retourner les sources avant le rendu final.",
                 "sources": [],
-                "context": "Le serveur a detecte une demande de recherche externe.",
+                "context": mission_context or "Le serveur a detecte une demande de recherche externe.",
                 "missing": ["Brancher ou verifier le tool search_web pour recuperer les sources en temps reel."],
             },
             "Dis en une phrase que la recherche est cadrée et que les sources doivent etre recuperees.",
@@ -261,7 +369,8 @@ def orchestrate_workspace_request(
                 "participants": [{"name": "Ludovic", "initials": "LU", "role": "Owner"}],
                 "agenda": [{"item": ask[:120], "done": False}],
                 "decisions": [],
-                "summary": "Espace de reunion initialise.",
+            "summary": "Espace de reunion initialise.",
+                "context": mission_context,
             },
             "Confirme en une phrase que le panneau reunion est ouvert.",
         )
@@ -277,8 +386,7 @@ def orchestrate_workspace_request(
                 {"heading": "Action serveur", "body": "Iris ouvre un panneau de travail au lieu de rester en conversation seule."},
             ],
             "summary": "Demande de travail detectee.",
-            "context": ask[:220],
+            "context": mission_context or ask[:220],
         },
         "Confirme en une phrase que le panneau de travail est ouvert.",
     )
-

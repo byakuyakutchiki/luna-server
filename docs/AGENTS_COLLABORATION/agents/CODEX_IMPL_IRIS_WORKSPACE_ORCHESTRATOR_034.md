@@ -120,3 +120,39 @@ response_created_after_orchestrator mode=<mode> render_type=<type>
 ics_render <type>
 ```
 
+## V2 ajoutee — Mission Brief admin
+
+Le bridge accepte maintenant :
+
+```json
+{
+  "type": "ui_event",
+  "name": "mission_brief_update",
+  "brief": {
+    "title": "Analyse banque 2026",
+    "domain": "banque",
+    "objective": "Produire un comparatif exploitable",
+    "context": "Equipe business developpement",
+    "inputs": [{"type": "document", "label": "dossier.pdf"}],
+    "deliverables": ["tableau", "graphique", "PDF"],
+    "constraints": ["RGPD"],
+    "external_research": false
+  }
+}
+```
+
+Effets :
+
+- le brief est stocke dans la session vocale ;
+- le Command Screen affiche le brief actif ;
+- les documents uploades sont ajoutes comme sources du brief ;
+- `orchestrate_workspace_request(...)` recoit le brief et cadre les rendus ;
+- si `external_research=false`, une demande web affiche `missing_info` au lieu d'inventer une recherche.
+
+Mission UI pour Kimi :
+
+- creer un panneau owner/admin "Brief mission" ;
+- champs : titre, domaine, objectif, contexte, sources, livrables, contraintes ;
+- toggle : recherche externe autorisee ;
+- bouton : appliquer le brief ;
+- afficher clairement le brief actif dans le Command Screen.

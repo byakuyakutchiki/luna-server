@@ -2168,3 +2168,14 @@ Fichier concerné : integrations/iris/workspace_orchestrator.py ; integrations/o
 Risque : moyen. Le serveur prend la main avant OpenAI ; il faut verifier que les sessions vocales simples restent naturelles et que les demandes de travail affichent bien un rendu utile. Aucune action externe n'est declenchee.
 Décision Ludovic requise : oui avant deploiement.
 Action proposée : Claude/Kimi compilent sur VM puis testent F12 : `workspace_orchestrator render_type=chart` -> `response_created_after_orchestrator` -> `ics_render chart`.
+
+---
+
+Agent : Codex
+Objectif : 034
+Type : extension Mission Brief admin
+Résumé : Ajout du cadrage humain du workspace. Le bridge accepte maintenant `ui_event mission_brief_update` avec titre, domaine, objectif, contexte, sources, livrables, contraintes et `external_research`. Le brief est stocke en session et passe a l'orchestrateur. Les documents uploades sont ajoutes aux sources. Si recherche web demandee mais non autorisee par le brief, le panneau affiche `missing_info` au lieu de laisser Iris inventer ou refuser vaguement.
+Fichier concerné : integrations/iris/workspace_orchestrator.py ; integrations/openai/web_voice_bridge.py ; docs/AGENTS_COLLABORATION/OBJECTIF_034_IRIS_WORKSPACE_ORCHESTRATOR.md ; docs/AGENTS_COLLABORATION/agents/CODEX_IMPL_IRIS_WORKSPACE_ORCHESTRATOR_034.md
+Risque : faible a moyen — protocole WS nouveau, aucune action externe.
+Décision Ludovic requise : oui avant deploiement.
+Action proposée : Kimi doit proposer l'UI owner/admin du Brief Mission. Claude/Kimi testent le WS : envoyer `mission_brief_update`, verifier `ui_state_ack`, puis demander une recherche web avec `external_research=false` et attendre `missing_info`.
