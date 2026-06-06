@@ -303,26 +303,29 @@ class _IrisActionRouter:
             f"timeline→dates réelles autour {_today} | montants en euros | français | JSON pur sans commentaires."
         )
         try:
-            import openai as _openai
-            _client = _openai.AsyncOpenAI(api_key=self._bridge.openai_api_key)
-            _resp = await _client.chat.completions.create(
-                model="gpt-4o-mini",
-                response_format={"type": "json_object"},
-                temperature=0.3,
+            import anthropic as _anthropic, re as _re_json
+            _ant_key = os.getenv("ANTHROPIC_API_KEY") or os.getenv("ANTHROPIC_KEY_CHAT")
+            _client = _anthropic.AsyncAnthropic(api_key=_ant_key)
+            _resp = await _client.messages.create(
+                model="claude-haiku-4-5-20251001",
                 max_tokens=900,
-                messages=[
-                    {"role": "system", "content": "Tu es un générateur de données JSON pour panneaux visuels. Réponds uniquement en JSON valide."},
-                    {"role": "user", "content": _prompt},
-                ],
+                temperature=0.3,
+                system=(
+                    "Tu génères uniquement du JSON valide pour des panneaux visuels. "
+                    "Aucun texte avant ou après le JSON. Aucun markdown. JSON pur."
+                ),
+                messages=[{"role": "user", "content": _prompt}],
             )
-            _rich = json.loads(_resp.choices[0].message.content)
+            _raw = _resp.content[0].text.strip()
+            _m = _re_json.search(r'\{.*\}', _raw, _re_json.DOTALL)
+            _rich = json.loads(_m.group(0) if _m else _raw)
             await send_fn({
                 "type": "render",
                 "render_type": render_type,
                 "payload": _rich,
                 "enriched": True,
             })
-            logger.info(f"WebVoice: payload enrichi envoyé ({render_type})")
+            logger.info(f"WebVoice: payload enrichi (haiku) envoyé ({render_type})")
         except Exception as _e:
             logger.warning(f"WebVoice: enrich_payload failed ({render_type}): {_e}")
 
