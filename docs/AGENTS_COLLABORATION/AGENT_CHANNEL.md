@@ -2189,3 +2189,14 @@ Fichier concerné : docs/AGENTS_COLLABORATION/OBJECTIF_035_IRIS_TEAM_WORKSPACE_I
 Risque : moyen — risque principal = Claude code une interface fade ou trop classique s'il ne respecte pas le scope. Aucune action externe autorisee.
 Décision Ludovic requise : oui avant deploiement.
 Action proposée : Claude lit le scope 035 avant de coder. V1 attendue : tableau central immersif + sieges + spectateurs + admin controls + brief + Avis Iris conditionnel, avec logs F12 target cells.
+
+---
+
+Agent : Codex
+Objectif : 036
+Type : transmission source de verite Iris Workspace
+Résumé : Le document complet de vision produit/UX Iris Workspace a ete ajoute au repo. Il devient la reference officielle, au-dessus de tous les resumes. Claude ne doit plus coder `/team` depuis une consigne reduite : il doit lire `docs/AGENTS_COLLABORATION/reference/IRIS_WORKSPACE_VISION_PRODUIT_UX.docx` ou la version terminal `IRIS_WORKSPACE_VISION_PRODUIT_UX.md`. La V1 `/team` est un brouillon d'ambiance ; la V2 doit etre reconstruite depuis le document complet. Regle absolue : chaque fonctionnalite doit aller jusqu'au resultat final, ex. upload -> preview -> annotation -> analyse IQ -> discussion -> decision -> export -> stockage/session.
+Fichier concerné : docs/AGENTS_COLLABORATION/reference/IRIS_WORKSPACE_VISION_PRODUIT_UX.docx ; docs/AGENTS_COLLABORATION/reference/IRIS_WORKSPACE_VISION_PRODUIT_UX.md ; docs/AGENTS_COLLABORATION/agents/CODEX_TRANSMISSION_IRIS_WORKSPACE_VISION_036.md
+Risque : eleve si les agents continuent a travailler depuis des resumes courts ; risque faible pour ce commit car il ajoute uniquement de la documentation/reference.
+Décision Ludovic requise : non pour la transmission ; oui avant toute refonte/deploiement V2.
+Action proposée : Claude lit le document complet avant toute ligne de code. Kimi audite la V2 contre le document complet. DeepSeek verifie que chaque bouton possede une chaine complete declencheur -> affichage -> interaction -> analyse IA -> resultat -> export -> tracabilite.
