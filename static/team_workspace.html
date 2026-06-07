@@ -3,288 +3,288 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Iris — Team Workspace</title>
+  <title>Iris Workspace — YAWatch Industries</title>
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    html, body { width: 100%; height: 100dvh; overflow: hidden; background: #050510; color: #e0e0ff; font-family: system-ui, -apple-system, sans-serif; -webkit-user-select: none; user-select: none; }
-    body::before {
-      content: ''; position: fixed; inset: 0; z-index: 0; pointer-events: none;
+    *{box-sizing:border-box;margin:0;padding:0;}
+    html,body{width:100%;height:100dvh;overflow:hidden;background:#050b1a;color:#e8eeff;font-family:system-ui,-apple-system,sans-serif;-webkit-user-select:none;user-select:none;}
+
+    /* === TOKENS === */
+    :root{
+      --bg:#050b1a;
+      --panel:rgba(8,14,30,0.92);
+      --glass:rgba(255,255,255,0.04);
+      --glass-h:rgba(255,255,255,0.07);
+      --border:rgba(255,255,255,0.07);
+      --border-s:rgba(255,255,255,0.12);
+      --text:#e8eeff;
+      --dim:rgba(232,238,255,0.45);
+      --dim2:rgba(232,238,255,0.22);
+      --iris:#10d48e;
+      --iris-d:rgba(16,212,142,0.13);
+      --iq:#22d3ee;
+      --iq-d:rgba(34,211,238,0.11);
+      --luna:#a78bfa;
+      --luna-d:rgba(167,139,250,0.13);
+      --metal:rgba(180,195,220,0.6);
+      --amber:#f59e0b;
+      --red:#f43f5e;
+    }
+
+    /* === LAYOUT === */
+    #twWrap{display:flex;flex-direction:column;height:100dvh;}
+
+    /* === HEADER === */
+    #twHeader{
+      flex-shrink:0;height:52px;background:rgba(3,6,16,0.97);
+      border-bottom:1px solid var(--border-s);
+      display:flex;align-items:center;gap:14px;padding:0 20px;
+    }
+    .tw-logomark{
+      width:30px;height:30px;border-radius:7px;flex-shrink:0;
+      background:linear-gradient(135deg,rgba(16,212,142,0.15),rgba(167,139,250,0.15));
+      border:1px solid var(--border-s);
+      display:flex;align-items:center;justify-content:center;
+    }
+    .tw-logotext{font-size:10px;font-weight:800;letter-spacing:1.8px;text-transform:uppercase;color:var(--metal);white-space:nowrap;}
+    .tw-logosub{font-size:8px;color:var(--dim2);letter-spacing:0.5px;margin-top:1px;}
+    .tw-vsep{width:1px;height:20px;background:var(--border-s);flex-shrink:0;}
+    #twSessionTitle{font-size:13px;font-weight:600;color:var(--text);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;}
+    .tw-hstat{font-size:10px;color:var(--dim);white-space:nowrap;flex-shrink:0;}
+    .tw-hstat strong{color:var(--text);font-weight:600;}
+    .tw-hbtn{
+      padding:6px 14px;border-radius:5px;font-size:10px;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;
+      cursor:pointer;transition:all 0.18s;white-space:nowrap;flex-shrink:0;border:1px solid;
+    }
+    .tw-hbtn.brief{background:var(--luna-d);border-color:rgba(167,139,250,0.3);color:var(--luna);}
+    .tw-hbtn.brief:hover{background:rgba(167,139,250,0.2);}
+    .tw-hbtn.brief.active{border-color:var(--luna);box-shadow:0 0 0 1px rgba(167,139,250,0.18);}
+    .tw-hbtn.back{background:var(--glass);border-color:var(--border-s);color:var(--dim);}
+    .tw-hbtn.back:hover{background:var(--glass-h);color:var(--text);}
+
+    /* === STEPPER === */
+    #twStepper{
+      flex-shrink:0;height:42px;background:rgba(3,6,16,0.75);
+      border-bottom:1px solid var(--border);
+      display:flex;align-items:center;gap:0;padding:0 16px;
+    }
+    .tw-step-nav{background:none;border:none;color:var(--dim);font-size:15px;cursor:pointer;padding:0 8px;height:100%;transition:color 0.15s;flex-shrink:0;}
+    .tw-step-nav:hover{color:var(--text);}
+    .tw-steps-track{flex:1;display:flex;align-items:center;gap:5px;overflow:hidden;min-width:0;}
+    .tw-step-dot{flex-shrink:0;width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,0.1);transition:all 0.22s;cursor:pointer;}
+    .tw-step-dot.done{background:rgba(16,212,142,0.38);}
+    .tw-step-dot.active{width:auto;padding:3px 10px;border-radius:11px;height:22px;background:var(--iris-d);border:1px solid rgba(16,212,142,0.32);display:flex;align-items:center;gap:5px;}
+    .tw-step-dot.active .tw-sn{font-size:8px;color:var(--dim2);}
+    .tw-step-dot.active .tw-sl{font-size:9px;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;color:var(--iris);white-space:nowrap;}
+    .tw-step-info{flex-shrink:0;font-size:9px;color:var(--dim);margin-left:10px;white-space:nowrap;}
+    .tw-step-info strong{color:var(--iris);font-weight:700;}
+
+    /* === PARTICIPANT ORBIT === */
+    .tw-prow{
+      flex-shrink:0;display:flex;align-items:center;gap:10px;
+      padding:8px 20px;overflow-x:auto;scrollbar-width:none;
+      background:rgba(3,6,16,0.55);
+    }
+    .tw-prow::-webkit-scrollbar{display:none;}
+    .tw-prow.top{border-bottom:1px solid var(--border);}
+    .tw-prow.bottom{border-top:1px solid var(--border);}
+    .tw-prow-lbl{font-size:8px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--dim2);flex-shrink:0;margin-right:4px;}
+
+    /* SEAT TILES */
+    .tw-seat{
+      flex-shrink:0;position:relative;width:106px;
+      background:var(--glass);border:1px solid var(--border-s);border-radius:8px;
+      overflow:hidden;transition:all 0.22s;
+    }
+    .tw-seat.speaking{border-color:rgba(16,212,142,0.45);box-shadow:0 0 0 2px rgba(16,212,142,0.1);}
+    .tw-seat.ai-iris{border-color:rgba(16,212,142,0.2);}
+    .tw-seat.ai-iq  {border-color:rgba(34,211,238,0.2);}
+    .tw-seat.ai-luna{border-color:rgba(167,139,250,0.2);}
+    .tw-seat.absent {opacity:0.3;}
+    .tw-seat:hover  {background:var(--glass-h);}
+    .tw-seat:hover .tw-smenu{display:flex;}
+    .tw-seat-halo{position:absolute;inset:0;pointer-events:none;border-radius:7px;opacity:0;box-shadow:inset 0 0 14px rgba(16,212,142,0.15);transition:opacity 0.3s;}
+    .tw-seat.speaking .tw-seat-halo{opacity:1;}
+    .tw-seat-cam{width:100%;height:58px;background:rgba(255,255,255,0.02);display:flex;align-items:center;justify-content:center;}
+    .tw-seat-av{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;letter-spacing:0.5px;color:#fff;}
+    .tw-seat-av.owner{background:linear-gradient(135deg,rgba(245,158,11,0.4),rgba(217,119,6,0.55));border:1.5px solid rgba(245,158,11,0.4);}
+    .tw-seat-av.participant{background:linear-gradient(135deg,rgba(99,102,241,0.3),rgba(79,70,229,0.45));border:1.5px solid rgba(99,102,241,0.3);}
+    .tw-seat-av.iris-av {background:linear-gradient(135deg,rgba(16,212,142,0.2),rgba(16,212,142,0.38));border:1.5px solid rgba(16,212,142,0.38);}
+    .tw-seat-av.iq-av   {background:linear-gradient(135deg,rgba(34,211,238,0.18),rgba(34,211,238,0.35));border:1.5px solid rgba(34,211,238,0.35);}
+    .tw-seat-av.luna-av {background:linear-gradient(135deg,rgba(167,139,250,0.18),rgba(167,139,250,0.36));border:1.5px solid rgba(167,139,250,0.36);}
+    .tw-seat-footer{padding:6px 8px;border-top:1px solid var(--border);}
+    .tw-seat-name{font-size:10px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .tw-seat-role{font-size:8px;color:var(--dim);letter-spacing:0.3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:1px;}
+    .tw-seat-role.iris-r{color:var(--iris);}
+    .tw-seat-role.iq-r  {color:var(--iq);}
+    .tw-seat-role.luna-r{color:var(--luna);}
+    .tw-seat-role.own-r {color:var(--amber);}
+    .tw-seat-icons{display:flex;gap:3px;margin-top:4px;}
+    .tw-sico{width:14px;height:14px;border-radius:3px;display:flex;align-items:center;justify-content:center;background:var(--glass);}
+    .tw-sico.on {background:var(--iris-d);}
+    .tw-sico.off{background:rgba(244,63,94,0.08);}
+    .tw-smenu{
+      display:none;position:absolute;bottom:calc(100% + 4px);left:0;z-index:30;
+      background:rgba(5,10,24,0.98);border:1px solid var(--border-s);border-radius:7px;
+      padding:4px;box-shadow:0 8px 28px rgba(0,0,0,0.6);flex-direction:column;gap:1px;min-width:138px;
+    }
+    .tw-smi{padding:7px 11px;font-size:10px;color:var(--dim);border-radius:5px;cursor:pointer;transition:background 0.15s;background:none;border:none;width:100%;text-align:left;font-family:inherit;}
+    .tw-smi:hover{background:var(--glass-h);color:var(--text);}
+    .tw-smi.danger{color:rgba(244,63,94,0.75);}
+    .tw-smi.danger:hover{background:rgba(244,63,94,0.08);}
+
+    /* === PLAN CENTRAL === */
+    #twCanvas{flex:1;overflow:hidden;display:flex;flex-direction:column;position:relative;min-height:0;}
+    #twCanvasInner{
+      flex:1;overflow-y:auto;overflow-x:hidden;padding:20px;
       background:
-        radial-gradient(ellipse 55% 45% at 12% 18%, rgba(0,210,255,0.05) 0%, transparent 60%),
-        radial-gradient(ellipse 45% 55% at 88% 82%, rgba(139,92,246,0.06) 0%, transparent 60%),
-        radial-gradient(ellipse 35% 35% at 50% 50%, rgba(0,210,255,0.025) 0%, transparent 60%);
+        radial-gradient(ellipse 60% 50% at 25% 35%,rgba(16,212,142,0.035) 0%,transparent 60%),
+        radial-gradient(ellipse 55% 40% at 78% 70%,rgba(167,139,250,0.035) 0%,transparent 60%),
+        #050b1a;
+      position:relative;
     }
-    body::after {
-      content: ''; position: fixed; inset: 0; z-index: 0; pointer-events: none;
-      background-image: linear-gradient(rgba(0,210,255,0.016) 1px, transparent 1px), linear-gradient(90deg, rgba(0,210,255,0.016) 1px, transparent 1px);
-      background-size: 52px 52px;
+    .tw-canvas-grid{
+      position:absolute;inset:0;pointer-events:none;opacity:0.5;
+      background-image:linear-gradient(rgba(255,255,255,0.02) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.02) 1px,transparent 1px);
+      background-size:32px 32px;
     }
+    #twGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px;position:relative;z-index:1;}
 
-    /* LAYOUT */
-    #twWrap { position: relative; width: 100%; height: 100dvh; display: flex; flex-direction: column; z-index: 1; }
+    /* WORKSPACE OBJECTS — no emoji type icons */
+    .tw-obj{
+      background:rgba(7,14,34,0.85);border:1px solid var(--border-s);border-left:3px solid;
+      border-radius:8px;padding:14px;cursor:pointer;transition:all 0.2s;position:relative;
+      backdrop-filter:blur(6px);
+    }
+    .tw-obj:hover{border-color:rgba(255,255,255,0.18);border-left-width:3px;transform:translateY(-1px);box-shadow:0 6px 20px rgba(0,0,0,0.35);}
+    .tw-obj.prop    {border-left-color:var(--iris);}
+    .tw-obj.source  {border-left-color:var(--iq);}
+    .tw-obj.decision{border-left-color:var(--luna);}
+    .tw-obj.action  {border-left-color:var(--amber);}
+    .tw-obj.synthesis{border-left-color:var(--iris);background:rgba(16,212,142,0.04);}
+    .tw-obj-type{display:flex;align-items:center;gap:6px;margin-bottom:8px;}
+    .tw-obj-ico{width:16px;height:16px;flex-shrink:0;}
+    .tw-obj-lbl{font-size:8px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;}
+    .tw-obj-lbl.prop    {color:var(--iris);}
+    .tw-obj-lbl.source  {color:var(--iq);}
+    .tw-obj-lbl.decision{color:var(--luna);}
+    .tw-obj-lbl.action  {color:var(--amber);}
+    .tw-obj-lbl.synthesis{color:var(--iris);}
+    .tw-obj-title{font-size:12px;font-weight:600;color:var(--text);line-height:1.45;margin-bottom:6px;}
+    .tw-obj-detail{font-size:10px;color:var(--dim);line-height:1.55;margin-bottom:8px;}
+    .tw-obj-meta{font-size:9px;color:var(--dim2);display:flex;justify-content:space-between;}
+    .tw-obj-del{position:absolute;top:8px;right:8px;background:none;border:none;color:var(--dim2);cursor:pointer;padding:3px;border-radius:3px;opacity:0;transition:opacity 0.15s;font-size:11px;}
+    .tw-obj:hover .tw-obj-del{opacity:1;}
+    .tw-obj-del:hover{color:var(--red)!important;background:rgba(244,63,94,0.1);}
 
-    /* HEADER */
-    #twHeader {
-      flex-shrink: 0; height: 54px; display: flex; align-items: center; gap: 14px; padding: 0 18px;
-      background: rgba(5,5,16,0.88); border-bottom: 1px solid rgba(0,210,255,0.07); backdrop-filter: blur(14px);
+    /* === ACTIONS BAR === */
+    #twActionsBar{
+      flex-shrink:0;height:52px;background:rgba(3,6,16,0.88);
+      border-top:1px solid var(--border);
+      display:flex;align-items:center;gap:8px;padding:0 20px;overflow-x:auto;scrollbar-width:none;
     }
-    .tw-logo { font-size: 10px; font-family: monospace; letter-spacing: 3px; text-transform: uppercase; color: rgba(0,210,255,0.65); white-space: nowrap; }
-    .tw-sep { width: 1px; height: 22px; background: rgba(0,210,255,0.09); flex-shrink: 0; }
-    #twSessionTitle { font-size: 13px; font-weight: 600; color: rgba(230,225,255,0.9); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
-    .tw-stat { font-size: 10px; font-family: monospace; color: rgba(196,181,253,0.55); white-space: nowrap; flex-shrink: 0; }
-    .tw-stat strong { color: rgba(196,181,253,0.9); }
-    .tw-hbtn {
-      padding: 6px 14px; border-radius: 3px; font-size: 10px; font-family: monospace; letter-spacing: 1px;
-      font-weight: 700; cursor: pointer; text-transform: uppercase; border: 1px solid; transition: all 0.2s; white-space: nowrap; flex-shrink: 0;
+    #twActionsBar::-webkit-scrollbar{display:none;}
+    .tw-act-lbl{font-size:8px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--dim2);white-space:nowrap;flex-shrink:0;margin-right:4px;}
+    #twActBtns{display:flex;align-items:center;gap:8px;}
+    .tw-act{
+      display:flex;align-items:center;gap:5px;padding:7px 14px;border-radius:6px;
+      font-size:10px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;
+      cursor:pointer;transition:all 0.18s;border:1px solid;white-space:nowrap;flex-shrink:0;
     }
-    .tw-hbtn.ghost { background: rgba(255,255,255,0.04); border-color: rgba(255,255,255,0.07); color: rgba(255,255,255,0.35); }
-    .tw-hbtn.ghost:hover { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.65); }
-    .tw-hbtn.brief { background: rgba(139,92,246,0.1); border-color: rgba(139,92,246,0.22); color: rgba(196,181,253,0.75); }
-    .tw-hbtn.brief:hover { background: rgba(139,92,246,0.18); }
-    .tw-hbtn.brief.active { background: rgba(139,92,246,0.24); border-color: rgba(139,92,246,0.5); color: rgba(220,210,255,1); box-shadow: 0 0 8px rgba(139,92,246,0.22); }
+    .tw-act.i{background:var(--iris-d);border-color:rgba(16,212,142,0.28);color:var(--iris);}
+    .tw-act.i:hover{background:rgba(16,212,142,0.2);}
+    .tw-act.q{background:var(--iq-d);border-color:rgba(34,211,238,0.22);color:var(--iq);}
+    .tw-act.q:hover{background:rgba(34,211,238,0.2);}
+    .tw-act.l{background:var(--luna-d);border-color:rgba(167,139,250,0.24);color:var(--luna);}
+    .tw-act.l:hover{background:rgba(167,139,250,0.2);}
+    .tw-act.n{background:var(--glass);border-color:var(--border-s);color:var(--dim);}
+    .tw-act.n:hover{background:var(--glass-h);color:var(--text);}
 
-    /* ARENA */
-    #twArena { flex: 1; position: relative; overflow: hidden; min-height: 0; }
-    #twConnLines { position: absolute; inset: 0; pointer-events: none; z-index: 1; }
+    /* === SPECTATORS === */
+    #twSpecRow{
+      flex-shrink:0;background:rgba(3,6,16,0.55);border-top:1px solid var(--border);
+      padding:5px 20px;display:flex;align-items:center;gap:8px;overflow-x:auto;scrollbar-width:none;
+    }
+    #twSpecRow::-webkit-scrollbar{display:none;}
+    #twSpecList{display:flex;gap:8px;align-items:center;}
+    .tw-spec{display:flex;align-items:center;gap:5px;padding:3px 8px 3px 5px;background:var(--glass);border:1px solid var(--border);border-radius:12px;font-size:9px;color:var(--dim);flex-shrink:0;}
+    .tw-spec.raised{border-color:rgba(245,158,11,0.3);color:var(--amber);}
+    .tw-spec-mini{width:18px;height:18px;border-radius:50%;background:rgba(255,255,255,0.07);display:flex;align-items:center;justify-content:center;font-size:7px;font-weight:700;color:var(--dim);flex-shrink:0;}
+    .tw-spec-promo{font-size:8px;font-weight:700;color:var(--iris);cursor:pointer;margin-left:4px;padding:1px 5px;border:1px solid rgba(16,212,142,0.28);border-radius:8px;background:var(--iris-d);transition:all 0.15s;}
+    .tw-spec-promo:hover{background:rgba(16,212,142,0.2);}
 
-    /* BOARD */
-    #twBoard {
-      position: absolute; z-index: 2; left: 50%; top: 50%; transform: translate(-50%,-50%);
-      width: 400px; height: 265px;
-      background: rgba(255,255,255,0.022); border: 1px solid rgba(0,210,255,0.16); border-radius: 5px;
-      box-shadow: 0 0 0 1px rgba(0,210,255,0.05), 0 0 50px rgba(0,210,255,0.06), inset 0 0 24px rgba(0,0,0,0.35);
-      overflow: hidden;
-    }
-    #twBoard::before {
-      content: ''; position: absolute; inset: 0; pointer-events: none; z-index: 0;
-      background-image: linear-gradient(rgba(0,210,255,0.022) 1px, transparent 1px), linear-gradient(90deg, rgba(0,210,255,0.022) 1px, transparent 1px);
-      background-size: 30px 30px;
-    }
-    .tw-board-rail {
-      position: relative; z-index: 1; display: flex; align-items: center; justify-content: space-between;
-      padding: 7px 11px; border-bottom: 1px solid rgba(0,210,255,0.07); background: rgba(0,0,0,0.22);
-    }
-    .tw-board-lbl { font-size: 9px; font-family: monospace; letter-spacing: 2px; text-transform: uppercase; color: rgba(0,210,255,0.55); }
-    .tw-board-acts { display: flex; gap: 5px; }
-    .tw-bbtn {
-      font-size: 9px; font-family: monospace; padding: 3px 8px; border-radius: 2px;
-      border: 1px solid rgba(0,210,255,0.14); background: rgba(0,210,255,0.05); color: rgba(0,210,255,0.65);
-      cursor: pointer; transition: all 0.2s;
-    }
-    .tw-bbtn:hover { background: rgba(0,210,255,0.12); border-color: rgba(0,210,255,0.3); color: rgba(0,210,255,0.95); }
-    #twBoardSvg { position: relative; z-index: 1; display: block; width: 100%; height: calc(100% - 32px); }
-    #twBoardLock {
-      position: absolute; inset: 0; z-index: 10; display: none; flex-direction: column;
-      align-items: center; justify-content: center; gap: 8px;
-      background: rgba(0,0,14,0.58); backdrop-filter: blur(3px);
-    }
-    #twBoardLock.on { display: flex; }
-    .tw-lock-ico { font-size: 26px; opacity: 0.7; }
-    .tw-lock-txt { font-size: 9px; font-family: monospace; letter-spacing: 2px; color: rgba(0,210,255,0.55); }
+    /* === MODALS === */
+    .tw-modal{position:fixed;inset:0;z-index:50;display:none;align-items:center;justify-content:center;padding:16px;background:rgba(2,4,12,0.72);backdrop-filter:blur(8px);}
+    .tw-modal.on{display:flex;}
+    .tw-mbox{background:rgba(5,10,26,0.98);border:1px solid var(--border-s);border-radius:12px;width:min(480px,100%);max-height:90vh;overflow-y:auto;box-shadow:0 24px 60px rgba(0,0,0,0.65),0 0 0 1px rgba(255,255,255,0.03);}
+    .tw-mhdr{display:flex;align-items:center;justify-content:space-between;padding:18px 22px;border-bottom:1px solid var(--border);position:sticky;top:0;background:rgba(5,10,26,0.99);border-radius:12px 12px 0 0;z-index:1;}
+    .tw-mtitle{font-size:14px;font-weight:700;color:var(--text);display:flex;align-items:center;gap:8px;}
+    .tw-mdot{width:8px;height:8px;border-radius:50%;}
+    .tw-mdot.i{background:var(--iris);}
+    .tw-mdot.q{background:var(--iq);}
+    .tw-mdot.l{background:var(--luna);}
+    .tw-mclose{background:none;border:none;color:var(--dim);font-size:16px;cursor:pointer;padding:4px;border-radius:5px;}
+    .tw-mclose:hover{background:var(--glass-h);color:var(--text);}
+    .tw-mbody{padding:20px 22px;display:flex;flex-direction:column;gap:14px;}
+    .tw-mfooter{padding:14px 22px;display:flex;gap:8px;justify-content:flex-end;border-top:1px solid var(--border);}
+    .tw-mfield{display:flex;flex-direction:column;gap:5px;}
+    .tw-mlbl{font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--dim);}
+    .tw-minput,.tw-mta{background:var(--glass);border:1px solid var(--border-s);border-radius:7px;color:var(--text);font-family:inherit;font-size:13px;padding:10px 12px;outline:none;width:100%;transition:border-color 0.2s;}
+    .tw-mta{resize:vertical;min-height:66px;}
+    .tw-minput:focus,.tw-mta:focus{border-color:rgba(167,139,250,0.45);background:rgba(255,255,255,0.05);}
+    .tw-minput::placeholder,.tw-mta::placeholder{color:var(--dim2);}
+    .tw-mbtn{padding:10px 18px;border-radius:7px;font-size:10px;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;cursor:pointer;transition:all 0.2s;border:1px solid;}
+    .tw-mbtn.primary{background:var(--luna-d);border-color:rgba(167,139,250,0.35);color:var(--luna);}
+    .tw-mbtn.primary:hover{background:rgba(167,139,250,0.22);}
+    .tw-mbtn.primary.iris{background:var(--iris-d);border-color:rgba(16,212,142,0.35);color:var(--iris);}
+    .tw-mbtn.primary.iris:hover{background:rgba(16,212,142,0.22);}
+    .tw-mbtn.ghost{background:var(--glass);border-color:var(--border-s);color:var(--dim);}
+    .tw-mbtn.ghost:hover{background:var(--glass-h);color:var(--text);}
 
-    /* SEATS */
-    .tw-seat {
-      position: absolute; z-index: 3; width: 128px;
-      background: rgba(255,255,255,0.035); border: 1px solid rgba(255,255,255,0.07);
-      border-radius: 4px; padding: 9px 10px 7px; display: flex; flex-direction: column; gap: 4px;
-      transition: border-color 0.3s, box-shadow 0.3s;
-    }
-    .tw-seat:hover .tw-sadmin { opacity: 1; }
-    .tw-seat.role-owner  { border-color: rgba(255,200,80,0.18); }
-    .tw-seat.role-owner:hover  { border-color: rgba(255,200,80,0.38); box-shadow: 0 0 14px rgba(255,200,80,0.07); }
-    .tw-seat.role-participant:hover { border-color: rgba(0,210,255,0.28); box-shadow: 0 0 12px rgba(0,210,255,0.06); }
-    .tw-seat.speaking { border-color: rgba(0,210,255,0.5) !important; animation: seat-pulse 1.6s ease-in-out infinite; }
-    @keyframes seat-pulse { 0%,100%{ box-shadow: 0 0 0 2px rgba(0,210,255,0.12), 0 0 18px rgba(0,210,255,0.1); } 50%{ box-shadow: 0 0 0 3px rgba(0,210,255,0.28), 0 0 26px rgba(0,210,255,0.18); } }
-    .tw-seat.editing  { border-color: rgba(255,183,77,0.28) !important; }
-    .tw-seat.absent   { opacity: 0.35; }
-    .tw-seat-top { display: flex; align-items: center; gap: 7px; }
-    .tw-av {
-      width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 10px; font-weight: 700; letter-spacing: 0.3px;
-      background: rgba(0,210,255,0.09); border: 1.5px solid rgba(0,210,255,0.18); color: rgba(0,210,255,0.85);
-    }
-    .tw-av.owner { background: rgba(255,200,80,0.11); border-color: rgba(255,200,80,0.32); color: rgba(255,210,100,1); }
-    .tw-seat-name { font-size: 11px; font-weight: 600; color: rgba(230,225,255,0.88); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .tw-seat-role { font-size: 9px; font-family: monospace; color: rgba(196,181,253,0.45); margin-top: 1px; }
-    .tw-seat-role.owner { color: rgba(255,200,80,0.65); }
-    .tw-seat-icons { display: flex; gap: 4px; align-items: center; }
-    .tw-ico { font-size: 11px; opacity: 0.5; }
-    .tw-ico.on { opacity: 1; }
-    .tw-ico.off { opacity: 0.2; }
-    .tw-raised { font-size: 11px; animation: raise-bounce 0.9s ease infinite alternate; }
-    @keyframes raise-bounce { from { transform: translateY(0); } to { transform: translateY(-3px); } }
-    .tw-seat-stat { font-size: 9px; font-family: monospace; letter-spacing: 1px; color: rgba(196,181,253,0.38); }
-    .tw-seat-stat.speaking { color: rgba(0,210,255,0.75); }
-    .tw-seat-stat.editing  { color: rgba(255,183,77,0.65); }
-    .tw-sadmin {
-      position: absolute; top: -1px; right: -1px;
-      display: flex; gap: 2px; opacity: 0; transition: opacity 0.2s;
-      background: rgba(5,5,16,0.96); border: 1px solid rgba(255,255,255,0.07); border-radius: 3px; padding: 2px 3px;
-    }
-    .tw-ab { background: none; border: none; font-size: 11px; cursor: pointer; padding: 2px 4px; border-radius: 2px; transition: background 0.15s; }
-    .tw-ab:hover { background: rgba(255,255,255,0.1); }
+    /* Type selector */
+    .tw-type-row{display:flex;gap:6px;flex-wrap:wrap;}
+    .tw-topt{flex:1;min-width:78px;padding:9px 8px;border-radius:7px;font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;cursor:pointer;text-align:center;transition:all 0.18s;border:1px solid var(--border-s);background:var(--glass);color:var(--dim);}
+    .tw-topt:hover{background:var(--glass-h);color:var(--text);}
+    .tw-topt.sel.p{background:var(--iris-d);border-color:rgba(16,212,142,0.42);color:var(--iris);}
+    .tw-topt.sel.s{background:var(--iq-d);border-color:rgba(34,211,238,0.38);color:var(--iq);}
+    .tw-topt.sel.d{background:var(--luna-d);border-color:rgba(167,139,250,0.38);color:var(--luna);}
+    .tw-topt.sel.a{background:rgba(245,158,11,0.1);border-color:rgba(245,158,11,0.4);color:var(--amber);}
 
-    /* BOTTOM STRIP */
-    #twBottom { flex-shrink: 0; height: 168px; display: flex; border-top: 1px solid rgba(0,210,255,0.06); min-height: 0; }
+    /* Source tabs */
+    .tw-stabs{display:flex;border:1px solid var(--border-s);border-radius:7px;overflow:hidden;}
+    .tw-stab{flex:1;padding:9px;font-size:9px;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;text-align:center;cursor:pointer;background:var(--glass);color:var(--dim);border:none;transition:all 0.18s;font-family:inherit;border-right:1px solid var(--border);}
+    .tw-stab:last-child{border-right:none;}
+    .tw-stab.active{background:var(--iq-d);color:var(--iq);}
 
-    /* Spectators */
-    #twSpec {
-      width: 240px; flex-shrink: 0; border-right: 1px solid rgba(0,210,255,0.06);
-      padding: 11px 13px; display: flex; flex-direction: column; gap: 8px; background: rgba(0,0,0,0.12);
-    }
-    .tw-section-lbl { font-size: 9px; font-family: monospace; letter-spacing: 2px; text-transform: uppercase; color: rgba(196,181,253,0.38); }
-    #twSpecList { display: flex; flex-wrap: wrap; gap: 5px; overflow: hidden; }
-    .tw-spectator {
-      display: flex; align-items: center; gap: 5px; padding: 5px 8px;
-      background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 3px;
-      font-size: 11px; color: rgba(200,195,230,0.65);
-    }
-    .tw-spectator.raised { border-color: rgba(255,183,77,0.28); color: rgba(255,210,120,0.82); }
-    .tw-spec-av { width: 20px; height: 20px; border-radius: 50%; background: rgba(255,255,255,0.05); display: flex; align-items: center; justify-content: center; font-size: 9px; color: rgba(200,195,230,0.55); font-weight: 600; }
-    .tw-spec-promo { font-size: 9px; font-family: monospace; padding: 2px 6px; border-radius: 2px; border: 1px solid rgba(0,210,255,0.18); background: rgba(0,210,255,0.05); color: rgba(0,210,255,0.55); cursor: pointer; margin-left: auto; transition: all 0.2s; }
-    .tw-spec-promo:hover { background: rgba(0,210,255,0.12); border-color: rgba(0,210,255,0.38); color: rgba(0,210,255,0.9); }
+    /* Toggle */
+    .tw-tog-row{display:flex;align-items:center;gap:12px;}
+    .tw-tog-lbl{font-size:12px;color:var(--dim);flex:1;}
+    .tw-toggle{position:relative;width:38px;height:20px;flex-shrink:0;}
+    .tw-toggle input{opacity:0;width:0;height:0;position:absolute;}
+    .tw-tslider{position:absolute;inset:0;background:rgba(255,255,255,0.1);border-radius:20px;cursor:pointer;transition:background 0.25s;}
+    .tw-tslider::before{content:'';position:absolute;width:14px;height:14px;left:3px;top:3px;background:rgba(255,255,255,0.4);border-radius:50%;transition:transform 0.25s;}
+    .tw-toggle input:checked+.tw-tslider{background:rgba(167,139,250,0.45);}
+    .tw-toggle input:checked+.tw-tslider::before{transform:translateX(18px);background:var(--luna);}
 
-    /* Admin area */
-    #twAdmin { flex: 1; display: flex; overflow: hidden; }
+    /* === IRIS OVERLAY === */
+    #twIrisOv{position:fixed;inset:0;z-index:60;display:none;align-items:center;justify-content:center;padding:20px;background:rgba(2,4,14,0.88);backdrop-filter:blur(10px);}
+    #twIrisOv.on{display:flex;animation:ov 0.3s ease both;}
+    @keyframes ov{from{opacity:0;transform:scale(0.97)}to{opacity:1;transform:scale(1)}}
+    .tw-ov{background:rgba(4,9,24,0.98);border:1px solid var(--border-s);border-radius:13px;width:min(560px,100%);padding:32px;box-shadow:0 30px 80px rgba(0,0,0,0.7),0 0 0 1px rgba(16,212,142,0.08),0 0 40px rgba(16,212,142,0.04);}
+    .tw-ov-hdr{display:flex;align-items:center;gap:14px;margin-bottom:22px;}
+    .tw-ov-ai{width:50px;height:50px;border-radius:50%;flex-shrink:0;background:radial-gradient(circle,rgba(16,212,142,0.18),rgba(16,212,142,0.06));border:1px solid rgba(16,212,142,0.3);display:flex;align-items:center;justify-content:center;}
+    .tw-ov-title{font-size:17px;font-weight:700;color:var(--text);}
+    .tw-ov-sub{font-size:10px;color:var(--iris);font-weight:600;letter-spacing:0.5px;margin-top:3px;}
+    .tw-wave{display:flex;gap:4px;align-items:flex-end;margin-bottom:20px;height:26px;}
+    .tw-wb{width:3px;border-radius:2px;background:var(--iris);animation:wb 1.3s ease-in-out infinite;}
+    .tw-wb:nth-child(2){animation-delay:.14s}.tw-wb:nth-child(3){animation-delay:.28s}.tw-wb:nth-child(4){animation-delay:.42s}.tw-wb:nth-child(5){animation-delay:.56s}
+    @keyframes wb{0%,100%{height:4px;opacity:0.2}50%{height:22px;opacity:1}}
+    .tw-ov-body{font-size:13px;color:var(--dim);line-height:1.8;margin-bottom:22px;}
+    .tw-ov-body strong{color:var(--text);font-weight:600;}
+    .tw-c-iris{color:var(--iris)}.tw-c-iq{color:var(--iq)}.tw-c-luna{color:var(--luna)}
 
-    #twBriefZone { flex: 1; padding: 11px 14px; display: flex; flex-direction: column; gap: 7px; overflow: hidden; }
-    .tw-brief-hdr { display: flex; align-items: center; justify-content: space-between; }
-    #twBriefSum { font-size: 11px; color: rgba(230,225,255,0.72); line-height: 1.55; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
-    #twBriefNone { font-size: 11px; color: rgba(196,181,253,0.32); font-style: italic; }
-    .tw-edit-lnk { font-size: 9px; font-family: monospace; color: rgba(139,92,246,0.55); cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
-    .tw-edit-lnk:hover { color: rgba(196,181,253,0.88); }
-
-    #twSrcZone {
-      width: 185px; flex-shrink: 0; border-left: 1px solid rgba(0,210,255,0.06);
-      padding: 11px 13px; display: flex; flex-direction: column; gap: 7px; overflow: hidden;
-    }
-    #twSrcList { display: flex; flex-direction: column; gap: 4px; overflow: hidden; }
-    .tw-src { display: flex; align-items: center; gap: 5px; font-size: 10px; color: rgba(200,195,230,0.62); overflow: hidden; }
-    .tw-src-ico { font-size: 11px; flex-shrink: 0; }
-    .tw-src-lbl { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .tw-no-src { font-size: 10px; color: rgba(196,181,253,0.28); font-style: italic; }
-    .tw-addsrc { font-size: 9px; font-family: monospace; padding: 4px 8px; border: 1px solid rgba(0,210,255,0.14); background: rgba(0,210,255,0.04); color: rgba(0,210,255,0.48); border-radius: 2px; cursor: pointer; transition: all 0.2s; align-self: flex-start; }
-    .tw-addsrc:hover { background: rgba(0,210,255,0.1); border-color: rgba(0,210,255,0.3); color: rgba(0,210,255,0.9); }
-
-    /* Iris panel */
-    #twIrisZone {
-      width: 172px; flex-shrink: 0; border-left: 1px solid rgba(139,92,246,0.09);
-      padding: 11px 13px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 9px;
-      background: rgba(139,92,246,0.025);
-    }
-    .tw-iris-ico {
-      width: 44px; height: 44px; border-radius: 50%;
-      display: flex; align-items: center; justify-content: center; font-size: 20px;
-      border: 1px solid rgba(139,92,246,0.18); background: rgba(139,92,246,0.07);
-    }
-    .tw-iris-ico.ready { border-color: rgba(139,92,246,0.42); background: rgba(139,92,246,0.14); animation: iris-glow 2.2s ease-in-out infinite; }
-    @keyframes iris-glow { 0%,100%{ box-shadow: 0 0 8px rgba(139,92,246,0.18); } 50%{ box-shadow: 0 0 20px rgba(139,92,246,0.42); } }
-    .tw-iris-st { font-size: 9px; font-family: monospace; letter-spacing: 1px; color: rgba(196,181,253,0.45); text-align: center; }
-    #twIrisBtn {
-      width: 100%; padding: 10px 6px; border-radius: 3px;
-      font-size: 10px; font-family: monospace; letter-spacing: 1px; font-weight: 700; text-transform: uppercase;
-      cursor: pointer; transition: all 0.25s; border: 1px solid;
-    }
-    #twIrisBtn:not(:disabled) { background: rgba(139,92,246,0.22); border-color: rgba(139,92,246,0.44); color: rgba(220,210,255,1); box-shadow: 0 0 10px rgba(139,92,246,0.18); }
-    #twIrisBtn:not(:disabled):hover { background: rgba(139,92,246,0.36); box-shadow: 0 0 18px rgba(139,92,246,0.35); }
-    #twIrisBtn:disabled { background: rgba(255,255,255,0.03); border-color: rgba(255,255,255,0.06); color: rgba(255,255,255,0.18); cursor: not-allowed; }
-    .tw-iris-hint { font-size: 9px; color: rgba(196,181,253,0.32); text-align: center; line-height: 1.4; }
-
-    /* IRIS OPINION OVERLAY */
-    #twOverlay {
-      position: fixed; inset: 0; z-index: 20; display: none; flex-direction: column;
-      align-items: center; justify-content: center; gap: 20px;
-      background: rgba(0,0,12,0.68); backdrop-filter: blur(5px);
-    }
-    #twOverlay.on { display: flex; animation: ov-in 0.3s ease both; }
-    @keyframes ov-in { from { opacity:0; } to { opacity:1; } }
-    .tw-ov-panel {
-      background: rgba(10,6,28,0.97); border: 1px solid rgba(139,92,246,0.28);
-      border-radius: 6px; width: min(490px, 92vw); padding: 26px 30px;
-      box-shadow: 0 0 70px rgba(139,92,246,0.14);
-    }
-    .tw-ov-title { font-size: 10px; font-family: monospace; letter-spacing: 3px; text-transform: uppercase; color: rgba(196,181,253,0.65); margin-bottom: 14px; }
-    .tw-ov-wave { display: flex; gap: 4px; justify-content: center; margin-bottom: 18px; }
-    .tw-wbar { width: 3px; border-radius: 2px; background: rgba(139,92,246,0.65); animation: wbar 1.3s ease-in-out infinite; }
-    .tw-wbar:nth-child(2){ animation-delay:.14s; }.tw-wbar:nth-child(3){ animation-delay:.28s; }.tw-wbar:nth-child(4){ animation-delay:.42s; }.tw-wbar:nth-child(5){ animation-delay:.56s; }
-    @keyframes wbar { 0%,100%{ height:8px; opacity:0.38; } 50%{ height:28px; opacity:1; } }
-    .tw-ov-body { font-size: 12px; color: rgba(230,225,255,0.72); line-height: 1.75; margin-bottom: 20px; }
-    .tw-ov-body strong { color: rgba(196,181,253,0.95); }
-    .tw-ov-close { float: right; padding: 9px 22px; border-radius: 3px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.09); color: rgba(255,255,255,0.42); font-size: 10px; font-family: monospace; cursor: pointer; transition: all 0.2s; }
-    .tw-ov-close:hover { background: rgba(255,255,255,0.11); color: rgba(255,255,255,0.75); }
-
-    /* BRIEF MODAL */
-    #twBriefModal {
-      position: fixed; inset: 0; z-index: 30; display: none; align-items: center; justify-content: center; padding: 20px;
-      background: rgba(0,0,0,0.58); backdrop-filter: blur(4px);
-    }
-    #twBriefModal.on { display: flex; }
-    .tw-bform {
-      background: rgba(10,6,28,0.98); border: 1px solid rgba(139,92,246,0.24); border-radius: 6px;
-      width: min(530px,100%); max-height: 88vh; overflow-y: auto;
-    }
-    .tw-bform-hdr { display: flex; align-items: center; justify-content: space-between; padding: 15px 19px; border-bottom: 1px solid rgba(139,92,246,0.11); position: sticky; top: 0; background: rgba(10,6,28,0.99); z-index: 1; }
-    .tw-bform-title { font-size: 10px; font-family: monospace; letter-spacing: 2px; text-transform: uppercase; color: rgba(196,181,253,0.75); }
-    .tw-bform-close { background: none; border: none; color: rgba(196,181,253,0.38); font-size: 17px; cursor: pointer; padding: 3px; }
-    .tw-bform-close:hover { color: rgba(220,210,255,0.88); }
-    .tw-bform-body { padding: 18px; display: flex; flex-direction: column; gap: 13px; }
-    .tw-bfield { display: flex; flex-direction: column; gap: 5px; }
-    .tw-blbl { font-size: 9px; font-family: monospace; letter-spacing: 1.5px; text-transform: uppercase; color: rgba(196,181,253,0.48); }
-    .tw-binput, .tw-bta {
-      background: rgba(255,255,255,0.04); border: 1px solid rgba(139,92,246,0.14);
-      border-radius: 3px; color: rgba(230,225,255,0.88); font-family: inherit; font-size: 13px; padding: 9px 11px; outline: none; width: 100%;
-    }
-    .tw-bta { resize: vertical; min-height: 62px; }
-    .tw-binput:focus, .tw-bta:focus { border-color: rgba(139,92,246,0.44); }
-    .tw-btoggle-row { display: flex; align-items: center; gap: 11px; }
-    .tw-btoggle-lbl { font-size: 12px; color: rgba(230,225,255,0.68); flex: 1; }
-    .tw-toggle { position: relative; width: 40px; height: 22px; flex-shrink: 0; }
-    .tw-toggle input { opacity: 0; width: 0; height: 0; position: absolute; }
-    .tw-tslider { position: absolute; inset: 0; background: rgba(255,255,255,0.07); border-radius: 22px; cursor: pointer; transition: background 0.25s; border: 1px solid rgba(139,92,246,0.18); }
-    .tw-tslider::before { content:''; position: absolute; width: 16px; height: 16px; left: 2px; top: 2px; background: rgba(196,181,253,0.48); border-radius: 50%; transition: transform 0.25s, background 0.25s; }
-    .tw-toggle input:checked + .tw-tslider { background: rgba(139,92,246,0.38); border-color: rgba(139,92,246,0.58); }
-    .tw-toggle input:checked + .tw-tslider::before { transform: translateX(18px); background: rgba(220,210,255,1); }
-    .tw-bform-footer { padding: 13px 18px; display: flex; gap: 8px; justify-content: flex-end; border-top: 1px solid rgba(139,92,246,0.07); }
-    .tw-bapply { background: rgba(139,92,246,0.26); border: 1px solid rgba(139,92,246,0.48); color: rgba(220,210,255,1); border-radius: 3px; padding: 10px 24px; font-size: 10px; font-family: monospace; font-weight: 700; letter-spacing: 1px; cursor: pointer; text-transform: uppercase; transition: background 0.2s; }
-    .tw-bapply:hover { background: rgba(139,92,246,0.4); }
-    .tw-bcancel { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.07); color: rgba(255,255,255,0.32); border-radius: 3px; padding: 10px 14px; font-size: 10px; font-family: monospace; cursor: pointer; transition: all 0.2s; }
-
-    /* ADD NODE MODAL */
-    #twAddModal { position: fixed; inset: 0; z-index: 25; display: none; align-items: center; justify-content: center; background: rgba(0,0,0,0.52); backdrop-filter: blur(3px); }
-    #twAddModal.on { display: flex; }
-    .tw-aform { background: rgba(10,6,28,0.98); border: 1px solid rgba(0,210,255,0.18); border-radius: 5px; padding: 22px; width: min(370px,90vw); }
-    .tw-aform h3 { font-size: 10px; font-family: monospace; letter-spacing: 2px; text-transform: uppercase; color: rgba(0,210,255,0.65); margin-bottom: 14px; }
-    .tw-atype-row { display: flex; gap: 5px; margin-bottom: 13px; }
-    .tw-atype { flex: 1; padding: 7px 5px; border: 1px solid rgba(255,255,255,0.07); border-radius: 3px; background: rgba(255,255,255,0.04); color: rgba(230,225,255,0.55); font-size: 11px; cursor: pointer; text-align: center; transition: all 0.2s; }
-    .tw-atype.active { background: rgba(0,210,255,0.11); border-color: rgba(0,210,255,0.28); color: rgba(0,210,255,0.88); }
-    .tw-abtns { display: flex; gap: 8px; justify-content: flex-end; margin-top: 13px; }
-    .tw-aok { background: rgba(0,210,255,0.14); border: 1px solid rgba(0,210,255,0.28); color: rgba(0,210,255,0.88); padding: 8px 18px; border-radius: 3px; font-size: 10px; font-family: monospace; cursor: pointer; transition: all 0.2s; }
-    .tw-aok:hover { background: rgba(0,210,255,0.26); }
-    .tw-acancel { background: none; border: 1px solid rgba(255,255,255,0.07); color: rgba(255,255,255,0.32); padding: 8px 14px; border-radius: 3px; font-size: 10px; font-family: monospace; cursor: pointer; }
-
-    /* TOAST */
-    #twToast {
-      position: fixed; bottom: 190px; left: 50%; transform: translateX(-50%) translateY(16px);
-      z-index: 99; background: rgba(12,8,32,0.96); border: 1px solid rgba(139,92,246,0.28);
-      border-radius: 4px; padding: 9px 18px; font-size: 12px; color: rgba(220,210,255,0.88);
-      opacity: 0; transition: opacity 0.28s, transform 0.28s; pointer-events: none; white-space: nowrap;
-    }
-    #twToast.on { opacity: 1; transform: translateX(-50%) translateY(0); }
-
-    /* MOBILE */
-    @media (max-width: 760px) {
-      #twBoard { width: 290px; height: 200px; }
-      .tw-seat { width: 104px; font-size: 0.88em; }
-      #twSpec { width: 170px; }
-      #twSrcZone { width: 150px; }
-      #twIrisZone { width: 145px; }
-    }
-    @media (max-width: 500px) {
-      #twBottom { flex-direction: column; height: auto; max-height: 260px; overflow-y: auto; }
-      #twSpec { width: 100%; border-right: none; border-bottom: 1px solid rgba(0,210,255,0.06); height: 90px; }
-      #twSrcZone { display: none; }
-    }
+    /* === TOAST === */
+    #twToast{position:fixed;bottom:70px;left:50%;transform:translateX(-50%) translateY(10px);z-index:99;background:rgba(6,12,30,0.96);border:1px solid var(--border-s);border-radius:8px;padding:8px 16px;font-size:11px;color:var(--dim);opacity:0;transition:opacity 0.25s,transform 0.25s;pointer-events:none;white-space:nowrap;box-shadow:0 8px 24px rgba(0,0,0,0.45);}
+    #twToast.on{opacity:1;transform:translateX(-50%) translateY(0);}
   </style>
 </head>
 <body>
@@ -292,499 +292,529 @@
 
   <!-- HEADER -->
   <header id="twHeader">
-    <span class="tw-logo">◈ Iris</span>
-    <div class="tw-sep"></div>
-    <div id="twSessionTitle">Nouveau workspace</div>
-    <span class="tw-stat" id="twPStat"><strong>4</strong> participants</span>
-    <span class="tw-stat" id="twSStat"><strong>0</strong> sources</span>
-    <button class="tw-hbtn brief" id="twBriefBtn" onclick="openBriefModal()">📋 Brief</button>
-    <button class="tw-hbtn ghost" onclick="twToast('Partage — fonctionnalité à venir.',2400)">🔗 Inviter</button>
-    <button class="tw-hbtn ghost" onclick="window.location.href='/simli'" title="Retourner vers Iris Audio">🎤 Iris Audio</button>
+    <div class="tw-logomark">
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+        <circle cx="7" cy="7" r="5.5" stroke="rgba(16,212,142,0.65)" stroke-width="1.2"/>
+        <circle cx="7" cy="7" r="2.5" fill="rgba(167,139,250,0.65)"/>
+      </svg>
+    </div>
+    <div>
+      <div class="tw-logotext">YAWatch Industries</div>
+      <div class="tw-logosub">Iris Workspace</div>
+    </div>
+    <div class="tw-vsep"></div>
+    <div id="twSessionTitle">Nouvelle session stratégique</div>
+    <span class="tw-hstat" id="twPStat"><strong>4</strong> participants</span>
+    <span class="tw-hstat" id="twSStat"><strong>0</strong> sources</span>
+    <button class="tw-hbtn brief" id="twBriefBtn" onclick="openModal('briefModal')">Brief mission</button>
+    <button class="tw-hbtn back" onclick="window.location.href='/simli'">← Iris Audio</button>
   </header>
 
-  <!-- Bandeau d'orientation (affiché uniquement au 1er chargement) -->
-  <div id="twOnboarding" style="
-    position:absolute; top:54px; left:0; right:0; z-index:20;
-    background:rgba(139,92,246,0.12); border-bottom:1px solid rgba(139,92,246,0.22);
-    padding:10px 20px; display:flex; align-items:center; gap:14px;
-    font-size:11px; color:rgba(220,210,255,0.85); backdrop-filter:blur(8px);
-  ">
-    <span style="font-size:16px">👥</span>
-    <span><strong>Iris Team Workspace</strong> — Définissez un brief, ajoutez des sources, puis demandez l'avis d'Iris. La table, les sièges et le tableau central sont ci-dessous.</span>
-    <button onclick="document.getElementById('twOnboarding').style.display='none'" style="margin-left:auto;background:none;border:none;color:rgba(196,181,253,0.5);font-size:16px;cursor:pointer;padding:0 4px;">✕</button>
+  <!-- STEPPER 13 étapes -->
+  <div id="twStepper">
+    <button class="tw-step-nav" onclick="stepNav(-1)">‹</button>
+    <div class="tw-steps-track" id="twStepsTrack"></div>
+    <button class="tw-step-nav" onclick="stepNav(1)">›</button>
+    <div class="tw-step-info">Étape <strong id="twStepNum">3</strong> / 13</div>
   </div>
 
-  <!-- ARENA -->
-  <div id="twArena">
-    <svg id="twConnLines"></svg>
+  <!-- TOP ORBIT — participants humains -->
+  <div class="tw-prow top" id="twSeatsTop"></div>
 
-    <div id="twBoard">
-      <div class="tw-board-rail">
-        <span class="tw-board-lbl">◆ Tableau collaboratif</span>
-        <div class="tw-board-acts">
-          <button class="tw-bbtn" onclick="openAddModal()">+ Idée</button>
-          <button class="tw-bbtn" onclick="addSourceQuick()">+ Source</button>
-        </div>
-      </div>
-      <svg id="twBoardSvg" viewBox="0 0 400 233"></svg>
-      <div id="twBoardLock">
-        <span class="tw-lock-ico">🔒</span>
-        <span class="tw-lock-txt">IRIS ANALYSE</span>
-      </div>
+  <!-- PLAN CENTRAL VIVANT -->
+  <div id="twCanvas">
+    <div id="twCanvasInner">
+      <div class="tw-canvas-grid"></div>
+      <div id="twGrid"></div>
     </div>
-    <!-- Seats injected by JS -->
   </div>
 
-  <!-- BOTTOM -->
-  <div id="twBottom">
+  <!-- BOTTOM ORBIT — Owner + IA -->
+  <div class="tw-prow bottom" id="twSeatsBottom"></div>
 
-    <div id="twSpec">
-      <span class="tw-section-lbl">Spectateurs</span>
-      <div id="twSpecList"></div>
-    </div>
-
-    <div id="twAdmin">
-      <div id="twBriefZone">
-        <div class="tw-brief-hdr">
-          <span class="tw-section-lbl">Mission Brief</span>
-          <span class="tw-edit-lnk" onclick="openBriefModal()">Modifier</span>
-        </div>
-        <div id="twBriefSum" style="display:none"></div>
-        <div id="twBriefNone">Aucun brief — définissez la mission pour activer Iris.</div>
-      </div>
-
-      <div id="twSrcZone">
-        <span class="tw-section-lbl">Sources</span>
-        <div id="twSrcList"><span class="tw-no-src">Aucune source.</span></div>
-        <button class="tw-addsrc" onclick="addSourceQuick()">+ Source</button>
-      </div>
-
-      <div id="twIrisZone">
-        <div class="tw-iris-ico" id="twIrisIco">🔮</div>
-        <span class="tw-iris-st" id="twIrisSt">EN ATTENTE</span>
-        <button id="twIrisBtn" disabled onclick="launchIrisOpinion()">Avis Iris</button>
-        <span class="tw-iris-hint" id="twIrisHint">Brief + source requis</span>
-      </div>
-    </div>
-
+  <!-- CONTEXTUAL ACTIONS BAR -->
+  <div id="twActionsBar">
+    <span class="tw-act-lbl" id="twActLbl">Collecte —</span>
+    <div id="twActBtns"></div>
   </div>
-</div>
 
-<!-- IRIS OPINION OVERLAY -->
-<div id="twOverlay">
-  <div class="tw-ov-panel">
-    <div class="tw-ov-title">◈ Iris — Synthèse workspace</div>
-    <div class="tw-ov-wave">
-      <div class="tw-wbar"></div><div class="tw-wbar"></div><div class="tw-wbar"></div><div class="tw-wbar"></div><div class="tw-wbar"></div>
-    </div>
-    <div class="tw-ov-body" id="twOvBody">
-      Iris analyse les éléments fournis dans ce workspace.<br>
-      <strong>Participants en écoute. Tableau verrouillé.</strong>
-    </div>
-    <button class="tw-ov-close" onclick="closeIrisOpinion()">Fermer</button>
+  <!-- SPECTATORS -->
+  <div id="twSpecRow">
+    <span class="tw-act-lbl">Spectateurs</span>
+    <div id="twSpecList"></div>
   </div>
+
 </div>
 
 <!-- BRIEF MODAL -->
-<div id="twBriefModal" onclick="briefOverlayClick(event)">
-  <div class="tw-bform">
-    <div class="tw-bform-hdr">
-      <span class="tw-bform-title">Brief de mission</span>
-      <button class="tw-bform-close" onclick="closeBriefModal()">✕</button>
+<div class="tw-modal" id="briefModal" onclick="mOvl(event,'briefModal')">
+  <div class="tw-mbox">
+    <div class="tw-mhdr">
+      <div class="tw-mtitle"><div class="tw-mdot l"></div>Brief de mission</div>
+      <button class="tw-mclose" onclick="closeModal('briefModal')">✕</button>
     </div>
-    <div class="tw-bform-body">
-      <div class="tw-bfield"><label class="tw-blbl" for="bfTitle">Titre</label><input id="bfTitle" class="tw-binput" type="text" placeholder="ex : Analyse banque 2026" maxlength="160" autocomplete="off"></div>
-      <div class="tw-bfield"><label class="tw-blbl" for="bfDomain">Domaine</label><input id="bfDomain" class="tw-binput" type="text" placeholder="banque, juridique, RH…" maxlength="120" autocomplete="off"></div>
-      <div class="tw-bfield"><label class="tw-blbl" for="bfObj">Objectif</label><textarea id="bfObj" class="tw-bta" placeholder="Comparer les offres et produire une synthèse exploitable" maxlength="500"></textarea></div>
-      <div class="tw-bfield"><label class="tw-blbl" for="bfCtx">Contexte</label><textarea id="bfCtx" class="tw-bta" placeholder="Équipe business, deadline vendredi…" maxlength="800"></textarea></div>
-      <div class="tw-bfield"><div class="tw-btoggle-row"><span class="tw-btoggle-lbl">Recherche externe autorisée</span><label class="tw-toggle"><input type="checkbox" id="bfExtRes"><span class="tw-tslider"></span></label></div></div>
+    <div class="tw-mbody">
+      <div class="tw-mfield"><label class="tw-mlbl" for="bfTitle">Titre</label><input id="bfTitle" class="tw-minput" type="text" placeholder="Analyse stratégique offres 2026…" maxlength="160" autocomplete="off"></div>
+      <div class="tw-mfield"><label class="tw-mlbl" for="bfDomain">Domaine</label><input id="bfDomain" class="tw-minput" type="text" placeholder="Finance, RH, Produit, Legal…" maxlength="100" autocomplete="off"></div>
+      <div class="tw-mfield"><label class="tw-mlbl" for="bfObj">Objectif</label><textarea id="bfObj" class="tw-mta" placeholder="Produire une recommandation exploitable pour la direction…" maxlength="600"></textarea></div>
+      <div class="tw-mfield"><label class="tw-mlbl" for="bfCtx">Contexte</label><textarea id="bfCtx" class="tw-mta" placeholder="Deadline, équipe, contraintes budget…" maxlength="600"></textarea></div>
+      <div class="tw-mfield"><label class="tw-mlbl" for="bfDel">Livrable attendu</label><input id="bfDel" class="tw-minput" type="text" placeholder="Synthèse PDF, plan d'action, recommandation Luna…" maxlength="200" autocomplete="off"></div>
+      <div class="tw-tog-row"><span class="tw-tog-lbl">Recherche externe autorisée</span><label class="tw-toggle"><input type="checkbox" id="bfExt"><span class="tw-tslider"></span></label></div>
     </div>
-    <div class="tw-bform-footer">
-      <button class="tw-bcancel" onclick="closeBriefModal()">Annuler</button>
-      <button class="tw-bapply" onclick="applyBrief()">Appliquer</button>
-    </div>
-  </div>
-</div>
-
-<!-- ADD NODE MODAL -->
-<div id="twAddModal" onclick="addModalOverlay(event)">
-  <div class="tw-aform">
-    <h3>◆ Ajouter au tableau</h3>
-    <div class="tw-atype-row">
-      <button class="tw-atype active" data-t="idea"     onclick="selType('idea')">💡 Idée</button>
-      <button class="tw-atype"        data-t="source"   onclick="selType('source')">📄 Source</button>
-      <button class="tw-atype"        data-t="decision" onclick="selType('decision')">✅ Décision</button>
-    </div>
-    <div class="tw-bfield"><label class="tw-blbl" for="twNodeLbl">Libellé</label><input id="twNodeLbl" class="tw-binput" type="text" placeholder="Décris l'idée, source ou décision…" maxlength="80" autocomplete="off"></div>
-    <div class="tw-abtns">
-      <button class="tw-acancel" onclick="closeAddModal()">Annuler</button>
-      <button class="tw-aok" onclick="confirmAddNode()">Ajouter</button>
+    <div class="tw-mfooter">
+      <button class="tw-mbtn ghost" onclick="closeModal('briefModal')">Annuler</button>
+      <button class="tw-mbtn primary" onclick="applyBrief()">Valider le brief</button>
     </div>
   </div>
 </div>
 
-<!-- TOAST -->
+<!-- ADD OBJECT MODAL -->
+<div class="tw-modal" id="addModal" onclick="mOvl(event,'addModal')">
+  <div class="tw-mbox">
+    <div class="tw-mhdr">
+      <div class="tw-mtitle"><div class="tw-mdot i"></div>Ajouter au plan central</div>
+      <button class="tw-mclose" onclick="closeModal('addModal')">✕</button>
+    </div>
+    <div class="tw-mbody">
+      <div class="tw-mfield">
+        <label class="tw-mlbl">Type d'objet</label>
+        <div class="tw-type-row">
+          <button class="tw-topt p sel" data-k="p" onclick="selType('prop','p')">Proposition</button>
+          <button class="tw-topt s"     data-k="s" onclick="selType('source','s')">Source</button>
+          <button class="tw-topt d"     data-k="d" onclick="selType('decision','d')">Décision</button>
+          <button class="tw-topt a"     data-k="a" onclick="selType('action','a')">Action</button>
+        </div>
+      </div>
+      <div class="tw-mfield"><label class="tw-mlbl" for="objTitle">Titre</label><input id="objTitle" class="tw-minput" type="text" placeholder="Décris l'élément…" maxlength="120" autocomplete="off"></div>
+      <div class="tw-mfield"><label class="tw-mlbl" for="objDetail">Détail (optionnel)</label><textarea id="objDetail" class="tw-mta" placeholder="Arguments, contexte, références…" maxlength="400" style="min-height:52px"></textarea></div>
+    </div>
+    <div class="tw-mfooter">
+      <button class="tw-mbtn ghost" onclick="closeModal('addModal')">Annuler</button>
+      <button class="tw-mbtn primary iris" onclick="confirmAddObj()">Ajouter</button>
+    </div>
+  </div>
+</div>
+
+<!-- SOURCE IMPORT MODAL — 3 modes -->
+<div class="tw-modal" id="sourceModal" onclick="mOvl(event,'sourceModal')">
+  <div class="tw-mbox">
+    <div class="tw-mhdr">
+      <div class="tw-mtitle"><div class="tw-mdot q"></div>Importer une source</div>
+      <button class="tw-mclose" onclick="closeModal('sourceModal')">✕</button>
+    </div>
+    <div class="tw-mbody">
+      <div class="tw-stabs">
+        <button class="tw-stab active" id="stab-file" onclick="selSrcTab('file')">Fichier</button>
+        <button class="tw-stab"        id="stab-url"  onclick="selSrcTab('url')">Lien web</button>
+        <button class="tw-stab"        id="stab-note" onclick="selSrcTab('note')">Note</button>
+      </div>
+      <!-- FILE -->
+      <div id="src-file">
+        <div style="border:1.5px dashed rgba(34,211,238,0.22);border-radius:8px;padding:24px;text-align:center;color:var(--dim);margin-bottom:10px;">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--iq)" stroke-width="1.4" style="margin:0 auto 8px;display:block"><path d="M7 16a4 4 0 01-.88-7.9A5 5 0 1115.9 6H16a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+          <div style="font-size:10px;font-weight:600;color:var(--dim);">PDF · DOCX · XLSX · TXT · PNG · JPG</div>
+          <div style="font-size:9px;color:var(--dim2);margin-top:4px;">Upload réel disponible en Phase P0.3</div>
+        </div>
+        <div class="tw-mfield"><label class="tw-mlbl" for="srcFName">Nom du document</label><input id="srcFName" class="tw-minput" type="text" placeholder="Rapport annuel BNP 2025…" maxlength="120" autocomplete="off"></div>
+      </div>
+      <!-- URL -->
+      <div id="src-url" style="display:none">
+        <div class="tw-mfield"><label class="tw-mlbl" for="srcUrl">URL</label><input id="srcUrl" class="tw-minput" type="url" placeholder="https://…" autocomplete="off"></div>
+        <div class="tw-mfield"><label class="tw-mlbl" for="srcUrlT">Titre</label><input id="srcUrlT" class="tw-minput" type="text" placeholder="Intitulé de la source…" maxlength="120" autocomplete="off"></div>
+      </div>
+      <!-- NOTE -->
+      <div id="src-note" style="display:none">
+        <div class="tw-mfield"><label class="tw-mlbl" for="srcNoteT">Titre de la note</label><input id="srcNoteT" class="tw-minput" type="text" placeholder="Observation terrain, chiffre clé…" maxlength="120" autocomplete="off"></div>
+        <div class="tw-mfield"><label class="tw-mlbl" for="srcNoteB">Contenu</label><textarea id="srcNoteB" class="tw-mta" placeholder="Texte de la note…" maxlength="800"></textarea></div>
+      </div>
+    </div>
+    <div class="tw-mfooter">
+      <button class="tw-mbtn ghost" onclick="closeModal('sourceModal')">Annuler</button>
+      <button class="tw-mbtn primary iris" onclick="confirmAddSource()">Importer</button>
+    </div>
+  </div>
+</div>
+
+<!-- IRIS/IQ/LUNA OVERLAY -->
+<div id="twIrisOv" onclick="if(event.target===this)closeOv()">
+  <div class="tw-ov">
+    <div class="tw-ov-hdr">
+      <div class="tw-ov-ai">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--iris)" stroke-width="1.4">
+          <circle cx="12" cy="12" r="9"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2"/>
+          <circle cx="12" cy="12" r="3.5" fill="rgba(16,212,142,0.22)"/>
+        </svg>
+      </div>
+      <div>
+        <div class="tw-ov-title" id="twOvTitle">Iris analyse</div>
+        <div class="tw-ov-sub"   id="twOvSub">En cours…</div>
+      </div>
+    </div>
+    <div class="tw-wave"><div class="tw-wb"></div><div class="tw-wb"></div><div class="tw-wb"></div><div class="tw-wb"></div><div class="tw-wb"></div></div>
+    <div class="tw-ov-body" id="twOvBody"></div>
+    <div style="display:flex;justify-content:flex-end;">
+      <button class="tw-mbtn ghost" onclick="closeOv()">Fermer</button>
+    </div>
+  </div>
+</div>
+
 <div id="twToast"></div>
 
 <script>
-// ================================================================
-// STATE
-// ================================================================
-var TW = {
-  brief: null, sources: [],
-  briefReady: false, sourcesReady: false,
-  irisActive: false, boardLocked: false,
-  selType: 'idea',
-  participants: [
-    { id:'ludo',   name:'Ludovic',   ini:'LU', role:'owner',       mic:true,  cam:true,  speaking:false, editing:false, raised:false, status:'active' },
-    { id:'alice',  name:'Alice M.',  ini:'AM', role:'participant', mic:true,  cam:false, speaking:false, editing:true,  raised:false, status:'active' },
-    { id:'thomas', name:'Thomas R.', ini:'TR', role:'participant', mic:false, cam:false, speaking:false, editing:false, raised:false, status:'active' },
-    { id:'sarah',  name:'Sarah K.',  ini:'SK', role:'participant', mic:true,  cam:true,  speaking:true,  editing:false, raised:false, status:'active' },
-  ],
-  spectators: [
-    { id:'carl', name:'Carl V.', ini:'CV', raised:false },
-    { id:'nina', name:'Nina P.', ini:'NP', raised:true  },
-  ],
-  board: {
-    nodes: [
-      { id:1, type:'idea',      label:'Analyse marché\nbanque 2026',  x:105, y:90  },
-      { id:2, type:'source',    label:'Rapport BNP\n2025.pdf',        x:305, y:58  },
-      { id:3, type:'idea',      label:'Cibler jeunes\nactifs < 35',   x:335, y:182 },
-      { id:4, type:'decision',  label:'Offre 100%\ndigitale',         x:148, y:190 },
-      { id:5, type:'synthesis', label:'Synthèse Iris\n(en attente)',   x:218, y:122 },
-    ],
-    links: [
-      {f:1,t:5},{f:2,t:5},{f:3,t:5},{f:5,t:4},{f:2,t:3}
-    ]
-  },
-};
+/* ============================================================
+   STATE
+   ============================================================ */
+var STEPS=[
+  {id:1,lbl:'Entrée'},{id:2,lbl:'Brief'},{id:3,lbl:'Collecte'},
+  {id:4,lbl:'Organisation Iris'},{id:5,lbl:'Vote priorité'},{id:6,lbl:'Analyse IQ'},
+  {id:7,lbl:'Débat'},{id:8,lbl:'Refonte Iris'},{id:9,lbl:'Comparaison IQ'},
+  {id:10,lbl:'Recommandation Luna'},{id:11,lbl:'Validation'},{id:12,lbl:'Livrable'},{id:13,lbl:'Distribution'},
+];
+var TW={step:3,brief:null,objects:[],sources:[],selType:'prop',selTypeK:'p',srcTab:'file'};
+var _nid=10;
 
-var _nextId = 10, _nextX = 85;
-
-// ================================================================
-// SEATS
-// ================================================================
-var SEATS = [
-  { top:'13%', left:'27%' },
-  { top:'13%', left:'calc(73% - 128px)' },
-  { top:'50%', left:'3%',  transform:'translateY(-50%)' },
-  { top:'50%', right:'3%', transform:'translateY(-50%)' },
-  { bottom:'6%', left:'27%' },
-  { bottom:'6%', left:'calc(73% - 128px)' },
+var SEATS_TOP=[
+  {id:'alice', name:'Alice M.',  ini:'AM',role:'participant',mic:true, cam:false,speaking:false},
+  {id:'thomas',name:'Thomas R.', ini:'TR',role:'participant',mic:false,cam:false,speaking:false},
+  {id:'sarah', name:'Sarah K.',  ini:'SK',role:'participant',mic:true, cam:false,speaking:true},
+];
+var SEATS_BOT=[
+  {id:'ludo',name:'Ludovic',ini:'LU',role:'owner',mic:true,cam:false,speaking:false},
+  {id:'iris',name:'Iris',  ini:'I', role:'iris', ai:true},
+  {id:'iq',  name:'IQ',   ini:'IQ',role:'iq',   ai:true},
+  {id:'luna',name:'Luna', ini:'L', role:'luna', ai:true},
+];
+var SPECS=[
+  {id:'carl',name:'Carl V.',ini:'CV',raised:false},
+  {id:'nina',name:'Nina P.',ini:'NP',raised:true},
 ];
 
-function renderSeats() {
-  document.querySelectorAll('.tw-seat').forEach(function(s){ s.remove(); });
-  var arena = document.getElementById('twArena');
-  TW.participants.forEach(function(p, i) {
-    var pos = SEATS[i] || SEATS[SEATS.length-1];
-    var el = document.createElement('div');
-    var cls = 'tw-seat role-'+p.role+(p.speaking?' speaking':'')+(p.editing?' editing':'')+(p.status==='absent'?' absent':'');
-    el.className = cls;
-    Object.keys(pos).forEach(function(k){ el.style[k]=pos[k]; });
-    var isAdmin = TW.participants[0] && TW.participants[0].role==='owner';
-    var adminHtml = (isAdmin && p.role!=='owner') ? (
-      '<div class="tw-sadmin">'+
-      '<button class="tw-ab" title="Muter"   onclick="seatAct(\'mute\',\''+p.id+'\')">🔇</button>'+
-      '<button class="tw-ab" title="Retirer" onclick="seatAct(\'remove\',\''+p.id+'\')">↩</button>'+
-      '<button class="tw-ab" title="Bannir"  onclick="seatAct(\'ban\',\''+p.id+'\')">🚫</button>'+
-      '</div>'
-    ) : '';
-    var micCls = p.mic ? 'on' : 'off';
-    var camCls = p.cam ? 'on' : 'off';
-    var statTxt = p.speaking ? 'PARLE' : (p.editing ? 'ÉDITE' : 'ÉCOUTE');
-    var statCls = p.speaking ? 'speaking' : (p.editing ? 'editing' : '');
-    el.innerHTML = adminHtml +
-      '<div class="tw-seat-top">'+
-        '<div class="tw-av '+(p.role==='owner'?'owner':'')+'">'+ _esc(p.ini) +'</div>'+
-        '<div style="flex:1;min-width:0">'+
-          '<div class="tw-seat-name">'+ _esc(p.name) +'</div>'+
-          '<div class="tw-seat-role '+(p.role==='owner'?'owner':'')+'">'+(p.role==='owner'?'👑 Owner':'Participant')+'</div>'+
-        '</div>'+
-      '</div>'+
-      '<div class="tw-seat-icons">'+
-        '<span class="tw-ico '+micCls+'" title="Micro">🎤</span>'+
-        '<span class="tw-ico '+camCls+'" title="Caméra">📷</span>'+
-        (p.raised ? '<span class="tw-raised" title="Main levée">✋</span>' : '')+
-      '</div>'+
-      '<div class="tw-seat-stat '+statCls+'">'+statTxt+'</div>';
-    arena.appendChild(el);
-    console.log('[TW] seat_assigned', p.name, p.role);
+/* ============================================================
+   SVG ICONS (no emoji)
+   ============================================================ */
+function typeIcon(t){
+  var c={prop:'var(--iris)',source:'var(--iq)',decision:'var(--luna)',action:'var(--amber)',synthesis:'var(--iris)'}[t]||'var(--dim)';
+  var p={
+    prop:    '<polygon points="8,1 15,8 8,15 1,8" fill="none" stroke="'+c+'" stroke-width="1.4" stroke-linejoin="round"/>',
+    source:  '<rect x="2" y="2" width="12" height="14" rx="1.5" fill="none" stroke="'+c+'" stroke-width="1.4"/><line x1="5" y1="6" x2="11" y2="6" stroke="'+c+'" stroke-width="1.2"/><line x1="5" y1="9" x2="11" y2="9" stroke="'+c+'" stroke-width="1.2"/><line x1="5" y1="12" x2="8" y2="12" stroke="'+c+'" stroke-width="1.2"/>',
+    decision:'<path d="M8 1l7 4v6l-7 4L1 11V5z" fill="none" stroke="'+c+'" stroke-width="1.4" stroke-linejoin="round"/>',
+    action:  '<path d="M2 8h10m-4-4l4 4-4 4" stroke="'+c+'" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>',
+    synthesis:'<circle cx="8" cy="8" r="3" fill="none" stroke="'+c+'" stroke-width="1.4"/><line x1="8" y1="1" x2="8" y2="5" stroke="'+c+'" stroke-width="1.2"/><line x1="8" y1="11" x2="8" y2="15" stroke="'+c+'" stroke-width="1.2"/><line x1="1" y1="8" x2="5" y2="8" stroke="'+c+'" stroke-width="1.2"/><line x1="11" y1="8" x2="15" y2="8" stroke="'+c+'" stroke-width="1.2"/>',
+  };
+  return '<svg class="tw-obj-ico" viewBox="0 0 16 16" fill="none">'+(p[t]||p.prop)+'</svg>';
+}
+var TLBL={prop:'Proposition',source:'Source',decision:'Décision',action:'Action',synthesis:'Synthèse Iris'};
+
+/* ============================================================
+   STEPPER
+   ============================================================ */
+function renderStepper(){
+  var track=document.getElementById('twStepsTrack');
+  track.innerHTML='';
+  STEPS.forEach(function(s){
+    var d=document.createElement('div');
+    if(s.id===TW.step){
+      d.className='tw-step-dot active';
+      d.innerHTML='<span class="tw-sn">'+s.id+'</span><span class="tw-sl">'+s.lbl+'</span>';
+    } else {
+      d.className='tw-step-dot'+(s.id<TW.step?' done':'');
+      d.title=s.id+'. '+s.lbl;
+    }
+    (function(sid,slbl){d.onclick=function(){if(sid<=TW.step+1){TW.step=sid;renderStepper();renderActions();toast('Étape : '+slbl,1800);}else{toast('Complète d\'abord l\'étape '+(TW.step)+'.',2200);}}})(s.id,s.lbl);
+    track.appendChild(d);
   });
-  drawConnLines();
+  document.getElementById('twStepNum').textContent=TW.step;
+}
+function stepNav(dir){
+  var n=TW.step+dir;
+  if(n<1||n>13)return;
+  TW.step=n;renderStepper();renderActions();
+  toast('Étape '+n+' — '+STEPS[n-1].lbl,1800);
 }
 
-function drawConnLines() {
-  var svg = document.getElementById('twConnLines');
-  var board = document.getElementById('twBoard');
-  var arena = document.getElementById('twArena');
-  if (!svg || !board || !arena) return;
-  var ar = arena.getBoundingClientRect();
-  var br = board.getBoundingClientRect();
-  var bx = br.left - ar.left + br.width/2;
-  var by = br.top  - ar.top  + br.height/2;
-  svg.setAttribute('width', ar.width);
-  svg.setAttribute('height', ar.height);
-  svg.innerHTML = '';
-  document.querySelectorAll('.tw-seat').forEach(function(seat){
-    var sr = seat.getBoundingClientRect();
-    var sx = sr.left - ar.left + sr.width/2;
-    var sy = sr.top  - ar.top  + sr.height/2;
-    var line = document.createElementNS('http://www.w3.org/2000/svg','line');
-    line.setAttribute('x1',sx); line.setAttribute('y1',sy);
-    line.setAttribute('x2',bx); line.setAttribute('y2',by);
-    line.setAttribute('stroke','rgba(0,210,255,0.045)');
-    line.setAttribute('stroke-width','1');
-    line.setAttribute('stroke-dasharray','3 6');
-    svg.appendChild(line);
-  });
-}
-
-// ================================================================
-// SPECTATORS
-// ================================================================
-function renderSpectators() {
-  var el = document.getElementById('twSpecList');
-  if (!el) return;
-  if (!TW.spectators.length) { el.innerHTML='<span class="tw-no-src">Aucun spectateur.</span>'; return; }
-  el.innerHTML = TW.spectators.map(function(s,i){
-    return '<div class="tw-spectator'+(s.raised?' raised':'')+'">'+
-      '<div class="tw-spec-av">'+_esc(s.ini)+'</div>'+
-      _esc(s.name)+(s.raised?' ✋':'')+
-      '<button class="tw-spec-promo" onclick="promoteSpec('+i+')">↑ Siège</button>'+
-      '</div>';
-  }).join('');
-  console.log('[TW] spectator_joined count='+TW.spectators.length);
-}
-
-function promoteSpec(i) {
-  var s = TW.spectators[i]; if (!s) return;
-  TW.spectators.splice(i,1);
-  TW.participants.push({ id:s.id, name:s.name, ini:s.ini, role:'participant', mic:false, cam:false, speaking:false, editing:false, raised:false, status:'active' });
-  renderSeats(); renderSpectators(); updateStats();
-  twToast(s.name+' promu participant.', 2400);
-}
-
-// ================================================================
-// BOARD / MIND MAP
-// ================================================================
-var NCOL = {
-  idea:      { fill:'rgba(0,210,255,0.11)', stroke:'rgba(0,210,255,0.42)', txt:'rgba(0,210,255,0.92)' },
-  source:    { fill:'rgba(255,183,77,0.1)',  stroke:'rgba(255,183,77,0.42)', txt:'rgba(255,200,100,0.92)' },
-  decision:  { fill:'rgba(80,230,130,0.1)',  stroke:'rgba(80,210,120,0.42)', txt:'rgba(110,235,145,0.92)' },
-  synthesis: { fill:'rgba(139,92,246,0.14)', stroke:'rgba(139,92,246,0.5)', txt:'rgba(196,181,253,0.92)' },
+/* ============================================================
+   CONTEXTUAL ACTIONS
+   ============================================================ */
+var STEP_ACTS={
+  1:{lbl:'Entrée —',acts:[{cls:'i',lbl:'Activer présence',fn:function(){toast('Caméra / micro disponibles en Phase P0.2.',2400);}}]},
+  2:{lbl:'Brief —',acts:[{cls:'l',lbl:'Définir le brief',fn:function(){openModal('briefModal');}}]},
+  3:{lbl:'Collecte —',acts:[
+    {cls:'i',lbl:'Proposition',fn:function(){openAdd('prop','p');}},
+    {cls:'q',lbl:'Source',    fn:function(){openModal('sourceModal');}},
+    {cls:'n',lbl:'Décision',  fn:function(){openAdd('decision','d');}},
+    {cls:'n',lbl:'Action',    fn:function(){openAdd('action','a');}},
+  ]},
+  4:{lbl:'Organisation Iris —',acts:[{cls:'i',lbl:'Déclencher Iris',fn:function(){launchOv('org');}}]},
+  5:{lbl:'Vote priorité —',acts:[{cls:'l',lbl:'Lancer le vote',fn:function(){toast('Vote multi-participants disponible en Phase P0.4.',2400);}}]},
+  6:{lbl:'Analyse IQ —',acts:[{cls:'q',lbl:'Demander analyse IQ',fn:function(){launchOv('iq');}}]},
+  7:{lbl:'Débat —',acts:[{cls:'n',lbl:'Ajouter objection',fn:function(){openAdd('prop','p');}}]},
+  8:{lbl:'Refonte Iris —',acts:[{cls:'i',lbl:'Demander refonte',fn:function(){launchOv('refonte');}}]},
+  9:{lbl:'Comparaison IQ —',acts:[{cls:'q',lbl:'Comparer versions',fn:function(){launchOv('compare');}}]},
+  10:{lbl:'Recommandation Luna —',acts:[{cls:'l',lbl:'Recommandation Luna',fn:function(){launchOv('luna');}}]},
+  11:{lbl:'Validation —',acts:[
+    {cls:'l',lbl:'Valider la décision',fn:function(){toast('Décision validée. Passage au livrable.',2200);TW.step=12;renderStepper();renderActions();}},
+    {cls:'n',lbl:'Retour en refonte',  fn:function(){TW.step=8;renderStepper();renderActions();toast('Retour à l\'étape Refonte.',1800);}},
+  ]},
+  12:{lbl:'Livrable —',acts:[{cls:'l',lbl:'Générer livrable',fn:function(){toast('Export PDF/Word disponible en Phase P2.',2400);}}]},
+  13:{lbl:'Distribution —',acts:[{cls:'i',lbl:'Distribuer',fn:function(){toast('Distribution disponible en Phase P2.',2400);}}]},
 };
-var NICO = { idea:'💡', source:'📄', decision:'✅', synthesis:'◈' };
-
-function renderBoard() {
-  var svg = document.getElementById('twBoardSvg');
-  if (!svg) return;
-  var ns = 'http://www.w3.org/2000/svg';
-  svg.innerHTML = '';
-  // Links
-  TW.board.links.forEach(function(lk){
-    var fr = TW.board.nodes.find(function(n){return n.id===lk.f;});
-    var to = TW.board.nodes.find(function(n){return n.id===lk.t;});
-    if (!fr||!to) return;
-    var l = document.createElementNS(ns,'line');
-    l.setAttribute('x1',fr.x); l.setAttribute('y1',fr.y);
-    l.setAttribute('x2',to.x); l.setAttribute('y2',to.y);
-    l.setAttribute('stroke','rgba(0,210,255,0.12)');
-    l.setAttribute('stroke-width','1.5');
-    l.setAttribute('stroke-dasharray','3 5');
-    svg.appendChild(l);
-  });
-  // Nodes
-  TW.board.nodes.forEach(function(n){
-    var col = NCOL[n.type] || NCOL.idea;
-    var r = n.type==='synthesis' ? 29 : 22;
-    var g = document.createElementNS(ns,'g');
-    g.style.cursor='pointer';
-    var c = document.createElementNS(ns,'circle');
-    c.setAttribute('cx',n.x); c.setAttribute('cy',n.y); c.setAttribute('r',r);
-    c.setAttribute('fill',col.fill); c.setAttribute('stroke',col.stroke); c.setAttribute('stroke-width','1.5');
-    g.appendChild(c);
-    var ico = document.createElementNS(ns,'text');
-    ico.setAttribute('x',n.x); ico.setAttribute('y',n.y-3);
-    ico.setAttribute('text-anchor','middle'); ico.setAttribute('dominant-baseline','middle');
-    ico.setAttribute('font-size', n.type==='synthesis'?'13':'11');
-    ico.textContent = NICO[n.type]||'◆';
-    g.appendChild(ico);
-    var lines = n.label.split('\n');
-    var tl = document.createElementNS(ns,'text');
-    tl.setAttribute('x',n.x); tl.setAttribute('text-anchor','middle');
-    tl.setAttribute('font-size','8.5'); tl.setAttribute('fill',col.txt); tl.setAttribute('font-family','monospace');
-    lines.forEach(function(line,li){
-      var sp = document.createElementNS(ns,'tspan');
-      sp.setAttribute('x',n.x);
-      sp.setAttribute('dy', li===0 ? (r+9)+'' : '11');
-      sp.textContent = line;
-      tl.appendChild(sp);
-    });
-    g.appendChild(tl);
-    g.addEventListener('click',function(){ twToast(n.label.replace('\n',' ')+' ['+n.type+']',1800); });
-    svg.appendChild(g);
+function renderActions(){
+  var conf=STEP_ACTS[TW.step]||{lbl:'—',acts:[]};
+  document.getElementById('twActLbl').textContent=conf.lbl;
+  var el=document.getElementById('twActBtns');
+  el.innerHTML='';
+  conf.acts.forEach(function(a){
+    var btn=document.createElement('button');
+    btn.className='tw-act '+a.cls;
+    btn.textContent=a.lbl;
+    btn.onclick=a.fn;
+    el.appendChild(btn);
   });
 }
 
-function selType(t) {
-  TW.selType = t;
-  document.querySelectorAll('.tw-atype').forEach(function(b){ b.classList.toggle('active', b.dataset.t===t); });
-}
-
-function confirmAddNode() {
-  var lbl = ((document.getElementById('twNodeLbl')||{}).value||'').trim();
-  if (!lbl) return;
-  TW.board.nodes.push({ id:_nextId++, type:TW.selType, label:lbl, x:_nextX, y:115 });
-  _nextX = (_nextX+85)%360+20;
-  if (TW.selType==='source') { TW.sources.push({ type:'board', label:lbl }); renderSources(); }
-  renderBoard(); closeAddModal(); updateIrisState(); updateStats();
-  twToast('"'+lbl.substring(0,28)+'" ajouté.',2000);
-}
-
-function openAddModal() { var m=document.getElementById('twAddModal'); if(m) m.classList.add('on'); setTimeout(function(){ var el=document.getElementById('twNodeLbl'); if(el) el.focus(); },60); }
-function closeAddModal() { var m=document.getElementById('twAddModal'); if(m){m.classList.remove('on'); var el=document.getElementById('twNodeLbl'); if(el) el.value='';} }
-function addModalOverlay(e) { if(!document.querySelector('.tw-aform').contains(e.target)) closeAddModal(); }
-
-// ================================================================
-// SOURCES
-// ================================================================
-function addSourceQuick() {
-  var lbl = prompt('Nom de la source (document, URL, note…) :');
-  if (!lbl||!lbl.trim()) return;
-  lbl = lbl.trim();
-  TW.sources.push({ type:'source', label:lbl });
-  TW.board.nodes.push({ id:_nextId++, type:'source', label:lbl.substring(0,22), x:_nextX, y:55 });
-  _nextX = (_nextX+90)%360+20;
-  renderSources(); renderBoard(); updateIrisState(); updateStats();
-  twToast('"'+lbl.substring(0,28)+'" ajoutée.',2000);
-}
-
-function renderSources() {
-  var el = document.getElementById('twSrcList');
-  if (!el) return;
-  if (!TW.sources.length) { el.innerHTML='<span class="tw-no-src">Aucune source.</span>'; return; }
-  el.innerHTML = TW.sources.slice(0,5).map(function(s){
-    var ico = s.type==='youtube'?'📺':s.type==='url'?'🔗':'📄';
-    return '<div class="tw-src"><span class="tw-src-ico">'+ico+'</span><span class="tw-src-lbl" title="'+_esc(s.label)+'">'+_esc(s.label)+'</span></div>';
-  }).join('');
-}
-
-// ================================================================
-// BRIEF
-// ================================================================
-function openBriefModal() {
-  var m=document.getElementById('twBriefModal'); if(m) m.classList.add('on');
-  if (TW.brief) {
-    var sv=function(id,v){ var e=document.getElementById(id); if(e) e.value=v||''; };
-    sv('bfTitle',TW.brief.title); sv('bfDomain',TW.brief.domain); sv('bfObj',TW.brief.objective); sv('bfCtx',TW.brief.context);
-    var tog=document.getElementById('bfExtRes'); if(tog) tog.checked=!!TW.brief.external_research;
+/* ============================================================
+   SEATS
+   ============================================================ */
+function makeSeat(p){
+  var d=document.createElement('div');
+  var aiCls=p.role==='iris'?'ai-iris':p.role==='iq'?'ai-iq':p.role==='luna'?'ai-luna':'';
+  d.className='tw-seat'+(p.speaking?' speaking':'')+(p.role==='absent'?' absent':'')+(aiCls?' '+aiCls:'');
+  var avCls=p.role==='owner'?'owner':p.ai?p.role+'-av':'participant';
+  var roleLabels={owner:'Owner',participant:'Participant',iris:'Secrétaire exécutive',iq:'Analyste',luna:'Direction stratégique'};
+  var roleCls=p.role==='iris'?'iris-r':p.role==='iq'?'iq-r':p.role==='luna'?'luna-r':p.role==='owner'?'own-r':'';
+  var micHtml='';
+  if(!p.ai){
+    if(p.mic){micHtml='<div class="tw-sico on"><svg width="8" height="8" viewBox="0 0 10 10" fill="none" stroke="var(--iris)" stroke-width="1.5"><rect x="3" y="1" width="4" height="6" rx="2"/><path d="M2 6.5C2 8.4 8 8.4 8 6.5M5 9v1"/></svg></div>';}
+    else{micHtml='<div class="tw-sico off"><svg width="8" height="8" viewBox="0 0 10 10" fill="none" stroke="var(--red)" stroke-width="1.5"><line x1="1" y1="1" x2="9" y2="9"/></svg></div>';}
   }
+  var adminMenu='';
+  if(p.role!=='owner'&&!p.ai){
+    adminMenu='<div class="tw-smenu">'+
+      '<button class="tw-smi" onclick="seatAct(\'mute\',\''+p.id+'\')">Couper le micro</button>'+
+      '<button class="tw-smi" onclick="seatAct(\'remove\',\''+p.id+'\')">Retirer vers spectateurs</button>'+
+      '<button class="tw-smi danger" onclick="seatAct(\'ban\',\''+p.id+'\')">Exclure (UI)</button>'+
+      '</div>';
+  }
+  d.innerHTML=adminMenu+
+    '<div class="tw-seat-halo"></div>'+
+    '<div class="tw-seat-cam"><div class="tw-seat-av '+avCls+'">'+_e(p.ini)+'</div></div>'+
+    '<div class="tw-seat-footer">'+
+      '<div class="tw-seat-name">'+_e(p.name)+'</div>'+
+      '<div class="tw-seat-role '+roleCls+'">'+_e(roleLabels[p.role]||p.role)+'</div>'+
+      '<div class="tw-seat-icons">'+micHtml+'</div>'+
+    '</div>';
+  return d;
 }
-function closeBriefModal() { var m=document.getElementById('twBriefModal'); if(m) m.classList.remove('on'); }
-function briefOverlayClick(e) { if(!document.querySelector('.tw-bform').contains(e.target)) closeBriefModal(); }
+function renderSeats(){
+  var top=document.getElementById('twSeatsTop');
+  var bot=document.getElementById('twSeatsBottom');
+  top.innerHTML='<span class="tw-prow-lbl">Participants</span>';
+  bot.innerHTML='<span class="tw-prow-lbl">Owner + IA</span>';
+  SEATS_TOP.forEach(function(p){top.appendChild(makeSeat(p));});
+  SEATS_BOT.forEach(function(p){bot.appendChild(makeSeat(p));});
+  updateStats();
+}
+function seatAct(action,pid){toast('Action "'+action+'" sur '+pid+' — UI uniquement, sans effet réel.',2600);}
 
-function applyBrief() {
-  var g=function(id){ var e=document.getElementById(id); return e?(e.value||'').trim():''; };
-  var brief = { title:g('bfTitle'), domain:g('bfDomain'), objective:g('bfObj'), context:g('bfCtx'), external_research:!!(document.getElementById('bfExtRes')||{}).checked };
-  if (!brief.title&&!brief.domain&&!brief.objective) { twToast('Remplis au moins le titre ou l\'objectif.',2400); return; }
-  TW.brief = brief;
-  closeBriefModal(); renderBriefSummary(); updateIrisState(); updateStats();
+/* ============================================================
+   SPECTATORS
+   ============================================================ */
+function renderSpecs(){
+  var list=document.getElementById('twSpecList');
+  list.innerHTML='';
+  if(!SPECS.length){list.innerHTML='<span style="font-size:9px;color:var(--dim2)">Aucun spectateur</span>';return;}
+  SPECS.forEach(function(s,i){
+    var d=document.createElement('div');
+    d.className='tw-spec'+(s.raised?' raised':'');
+    d.innerHTML='<div class="tw-spec-mini">'+_e(s.ini)+'</div>'+_e(s.name)+(s.raised?' ✋':'')+
+      '<span class="tw-spec-promo" onclick="promoteSpec('+i+')">↑</span>';
+    list.appendChild(d);
+  });
+  console.log('[TW] spectator_joined count='+SPECS.length);
+}
+function promoteSpec(i){
+  var s=SPECS[i];if(!s)return;
+  SPECS.splice(i,1);
+  SEATS_TOP.push({id:s.id,name:s.name,ini:s.ini,role:'participant',cam:false,mic:false,speaking:false});
+  renderSeats();renderSpecs();toast(s.name+' promu participant.',2200);
+}
+
+/* ============================================================
+   OBJECTS (PLAN CENTRAL)
+   ============================================================ */
+function initObjects(){
+  TW.objects=[
+    {id:1,type:'prop',    title:'Analyse marché bancaire 2026',detail:'Cartographier les offres des 5 principales banques françaises sur le segment PME.',by:'Ludovic',ts:Date.now()-3600000},
+    {id:2,type:'source',  title:'Rapport BNP Paribas 2025',   detail:'Rapport annuel mars 2025 — croissance segment digital +18 %.',by:'Alice M.',ts:Date.now()-2400000},
+    {id:3,type:'prop',    title:'Cibler les actifs < 35 ans',  detail:'Segment prioritaire selon les données démographiques disponibles.',by:'Thomas R.',ts:Date.now()-1800000},
+    {id:4,type:'decision',title:'Offre 100 % digitale en priorité',detail:'Décision validée lors de la session stratégique du 3 juin 2026.',by:'Ludovic',ts:Date.now()-900000},
+    {id:5,type:'synthesis',title:'Synthèse Iris (en attente)', detail:'Iris consolidera propositions et sources après le déclenchement de l\'étape Organisation.',by:'Iris',ts:Date.now()},
+  ];
+  TW.sources=[{type:'file',label:'Rapport BNP Paribas 2025',by:'Alice M.'}];
+}
+function renderObjects(){
+  var grid=document.getElementById('twGrid');
+  grid.innerHTML='';
+  TW.objects.forEach(function(obj){
+    var d=document.createElement('div');
+    d.className='tw-obj '+obj.type;
+    d.innerHTML=
+      '<button class="tw-obj-del" onclick="deleteObj('+obj.id+',event)">✕</button>'+
+      '<div class="tw-obj-type">'+typeIcon(obj.type)+'<span class="tw-obj-lbl '+obj.type+'">'+TLBL[obj.type]+'</span></div>'+
+      '<div class="tw-obj-title">'+_e(obj.title)+'</div>'+
+      (obj.detail?'<div class="tw-obj-detail">'+_e(obj.detail)+'</div>':'')+
+      '<div class="tw-obj-meta"><span>'+_e(obj.by)+'</span><span>'+_ago(obj.ts)+'</span></div>';
+    d.addEventListener('click',function(e){if(!e.target.classList.contains('tw-obj-del'))toast(TLBL[obj.type]+' : '+obj.title.substring(0,55),1800);});
+    grid.appendChild(d);
+  });
+}
+function deleteObj(id,e){
+  e.stopPropagation();
+  TW.objects=TW.objects.filter(function(o){return o.id!==id;});
+  renderObjects();updateStats();
+}
+
+/* ============================================================
+   ADD OBJECT
+   ============================================================ */
+function openAdd(type,k){
+  TW.selType=type;TW.selTypeK=k||'p';
+  openModal('addModal');selType(type,TW.selTypeK);
+}
+function selType(type,k){
+  TW.selType=type;TW.selTypeK=k;
+  document.querySelectorAll('.tw-topt').forEach(function(b){
+    b.className='tw-topt '+b.dataset.k+(b.dataset.k===k?' sel':'');
+  });
+}
+function confirmAddObj(){
+  var title=((document.getElementById('objTitle')||{}).value||'').trim();
+  if(!title){toast('Titre requis.',2000);return;}
+  var detail=((document.getElementById('objDetail')||{}).value||'').trim();
+  TW.objects.push({id:_nid++,type:TW.selType,title:title,detail:detail,by:'Ludovic',ts:Date.now()});
+  renderObjects();closeModal('addModal');updateStats();
+  document.getElementById('objTitle').value='';
+  document.getElementById('objDetail').value='';
+  toast('"'+title.substring(0,36)+'" ajouté.',2000);
+  console.log('[TW] object_added type='+TW.selType);
+}
+
+/* ============================================================
+   SOURCE IMPORT (3 modes)
+   ============================================================ */
+function selSrcTab(t){
+  TW.srcTab=t;
+  ['file','url','note'].forEach(function(s){
+    document.getElementById('stab-'+s).className='tw-stab'+(s===t?' active':'');
+    document.getElementById('src-'+s).style.display=s===t?'':'none';
+  });
+}
+function confirmAddSource(){
+  var label='',type=TW.srcTab;
+  if(type==='file') label=((document.getElementById('srcFName')||{}).value||'').trim();
+  if(type==='url')  label=((document.getElementById('srcUrlT')||{}).value||((document.getElementById('srcUrl')||{}).value||'')).trim();
+  if(type==='note') label=((document.getElementById('srcNoteT')||{}).value||'').trim();
+  if(!label){toast('Remplis le titre ou l\'URL.',2200);return;}
+  TW.sources.push({type:type,label:label,by:'Ludovic'});
+  TW.objects.push({id:_nid++,type:'source',title:label,detail:'',by:'Ludovic',ts:Date.now()});
+  renderObjects();updateStats();closeModal('sourceModal');
+  toast('"'+label.substring(0,36)+'" importé.',2000);
+  console.log('[TW] source_added type='+type+' label='+label);
+}
+
+/* ============================================================
+   BRIEF
+   ============================================================ */
+function applyBrief(){
+  var g=function(id){var e=document.getElementById(id);return e?(e.value||'').trim():'';};
+  var b={title:g('bfTitle'),domain:g('bfDomain'),objective:g('bfObj'),context:g('bfCtx'),deliverable:g('bfDel'),ext:!!(document.getElementById('bfExt')||{}).checked};
+  if(!b.title&&!b.objective){toast('Titre ou objectif requis.',2200);return;}
+  TW.brief=b;
+  closeModal('briefModal');
   document.getElementById('twBriefBtn').classList.add('active');
-  var title = brief.title||brief.domain||'Mission';
-  var titleEl = document.getElementById('twSessionTitle'); if(titleEl&&brief.title) titleEl.textContent=brief.title;
-  twToast('Brief "'+title+'" appliqué.',2400);
-  console.log('[TW] brief_ready true');
+  if(b.title)document.getElementById('twSessionTitle').textContent=b.title;
+  if(TW.step===2){TW.step=3;renderStepper();renderActions();}
+  toast('Brief "'+( b.title||b.domain||'Mission')+'" validé.',2400);
+  console.log('[TW] brief_ready true title='+b.title);
 }
 
-function renderBriefSummary() {
-  var sumEl=document.getElementById('twBriefSum');
-  var noneEl=document.getElementById('twBriefNone');
-  if (!TW.brief) { if(sumEl) sumEl.style.display='none'; if(noneEl) noneEl.style.display='block'; return; }
-  var txt=[TW.brief.title, TW.brief.domain?'['+TW.brief.domain+']':'', TW.brief.objective].filter(Boolean).join(' — ');
-  if(sumEl){ sumEl.textContent=txt; sumEl.style.display='block'; } if(noneEl) noneEl.style.display='none';
+/* ============================================================
+   IRIS / IQ / LUNA OVERLAYS
+   ============================================================ */
+function launchOv(mode){
+  var brieftxt=TW.brief?(TW.brief.title||TW.brief.domain||'—'):'Non défini';
+  var srcn=TW.sources.length;
+  var propn=TW.objects.filter(function(o){return o.type==='prop';}).length;
+  var conf={
+    org:{title:'Iris organise la session',sub:'Classement — regroupement thématique',
+      body:'<span class="tw-c-iris">Iris</span> analyse les <strong>'+TW.objects.length+' éléments</strong> du plan central.<br><br>'+
+           '<strong>Brief actif :</strong> '+_e(brieftxt)+'<br>'+
+           '<strong>Sources disponibles :</strong> '+srcn+'<br><br>'+
+           '<span class="tw-c-iris">Résultat attendu :</span> Thèmes structurés, groupes de propositions, plan de travail clarifié. <span class="tw-c-iq">IQ</span> sera sollicité pour l\'analyse des sources.'},
+    iq:{title:'IQ analyse les sources',sub:'Lecture — extraction risques & opportunités',
+      body:'<span class="tw-c-iq">IQ</span> lit les <strong>'+srcn+' source(s)</strong> disponible(s).<br><br>'+
+           '<strong>Risques potentiels :</strong> Identification en cours.<br>'+
+           '<strong>Opportunités :</strong> Extraction après lecture complète.<br><br>'+
+           '<span class="tw-c-iq">Résultat attendu :</span> Rapport structuré risques / opportunités / points clés pour l\'étape Débat.'},
+    refonte:{title:'Iris reformule la proposition',sub:'Intégration des objections — génération V2',
+      body:'<span class="tw-c-iris">Iris</span> intègre les remarques et objections humaines.<br><br>'+
+           '<strong>Propositions à consolider :</strong> '+propn+'<br><br>'+
+           '<span class="tw-c-iris">Résultat attendu :</span> Proposition V2 enrichie, diff visible avec V1, prête pour la comparaison IQ.'},
+    compare:{title:'IQ compare les versions',sub:'Analyse différentielle V1 / V2',
+      body:'<span class="tw-c-iq">IQ</span> compare les versions successives de la proposition.<br><br>'+
+           '<strong>Critères :</strong> pertinence, risques couverts, faisabilité, alignement brief.<br><br>'+
+           '<span class="tw-c-iq">Résultat attendu :</span> Tableau comparatif forces / faiblesses de chaque version.'},
+    luna:{title:'Luna formule une recommandation',sub:'Arbitrage stratégique — conclusion direction',
+      body:'<span class="tw-c-luna">Luna</span> prend de la hauteur et arbitre.<br><br>'+
+           '<strong>Mission :</strong> '+_e(brieftxt)+'<br>'+
+           '<strong>Sources analysées :</strong> '+srcn+'<br>'+
+           '<strong>Propositions examinées :</strong> '+propn+'<br><br>'+
+           '<span class="tw-c-luna">Recommandation :</span> En cours de formulation. Luna conclura avec une recommandation stratégique claire et les conditions de mise en œuvre.'},
+  }[mode]||{title:'Analyse',sub:'En cours…',body:'Traitement en cours.'};
+  document.getElementById('twOvTitle').textContent=conf.title;
+  document.getElementById('twOvSub').textContent=conf.sub;
+  document.getElementById('twOvBody').innerHTML=conf.body;
+  document.getElementById('twIrisOv').classList.add('on');
+  toast(conf.title+'…',3500);
+  console.log('[TW] launch_overlay mode='+mode);
 }
+function closeOv(){document.getElementById('twIrisOv').classList.remove('on');}
 
-// ================================================================
-// IRIS STATE
-// ================================================================
-function updateIrisState() {
-  var briefOk = !!(TW.brief&&(TW.brief.title||TW.brief.objective||TW.brief.domain));
-  var srcOk = TW.sources.length>0 || TW.board.nodes.some(function(n){return n.type==='source';});
-  TW.briefReady=briefOk; TW.sourcesReady=srcOk;
-  var ready = briefOk&&srcOk;
-  var btn=document.getElementById('twIrisBtn');
-  var ico=document.getElementById('twIrisIco');
-  var st=document.getElementById('twIrisSt');
-  var hint=document.getElementById('twIrisHint');
-  if(btn) btn.disabled=!ready;
-  if(ico) ico.className='tw-iris-ico'+(ready?' ready':'');
-  if(st) st.textContent=ready?'PRÊTE':'EN ATTENTE';
-  if(hint){ if(!briefOk&&!srcOk) hint.textContent='Brief + source requis'; else if(!briefOk) hint.textContent='Brief requis'; else if(!srcOk) hint.textContent='Source requise'; else hint.textContent='Iris prête'; }
-  console.log('[TW] iris_opinion_locked', !ready, '| brief_ready', briefOk, '| sources_ready', srcOk);
-}
+/* ============================================================
+   MODAL HELPERS
+   ============================================================ */
+function openModal(id){document.getElementById(id).classList.add('on');}
+function closeModal(id){document.getElementById(id).classList.remove('on');}
+function mOvl(e,id){if(!document.querySelector('#'+id+' .tw-mbox').contains(e.target))closeModal(id);}
 
-// ================================================================
-// IRIS OPINION
-// ================================================================
-function launchIrisOpinion() {
-  if (!TW.briefReady||!TW.sourcesReady) return;
-  TW.irisActive=true; TW.boardLocked=true;
-  var lock=document.getElementById('twBoardLock'); if(lock) lock.classList.add('on');
-  var ov=document.getElementById('twOverlay'); if(ov) ov.classList.add('on');
-  var body=document.getElementById('twOvBody');
-  if (body&&TW.brief) {
-    var srcs=TW.sources.slice(0,3).map(function(s){return '"'+_esc(s.label)+'"';}).join(', ');
-    body.innerHTML='Iris analyse les éléments du workspace.<br>'+
-      '<strong>Mission :</strong> '+_esc(TW.brief.title||TW.brief.objective||'')+'<br>'+
-      (TW.brief.domain?'<strong>Domaine :</strong> '+_esc(TW.brief.domain)+'<br>':'')+
-      (srcs?'<strong>Sources :</strong> '+srcs+'<br>':'')+
-      '<br><strong>Participants en écoute. Tableau verrouillé.</strong>';
-  }
-  document.querySelectorAll('.tw-seat').forEach(function(s){s.style.opacity='0.38';});
-  twToast('Iris analyse le workspace…',3200);
-  console.log('[TW] iris_opinion_requested true');
+/* ============================================================
+   UTILS
+   ============================================================ */
+function updateStats(){
+  var tot=SEATS_TOP.length+SEATS_BOT.filter(function(s){return !s.ai;}).length;
+  var ps=document.getElementById('twPStat');if(ps)ps.innerHTML='<strong>'+tot+'</strong> participants';
+  var ss=document.getElementById('twSStat');if(ss)ss.innerHTML='<strong>'+TW.sources.length+'</strong> sources';
 }
-
-function closeIrisOpinion() {
-  TW.irisActive=false; TW.boardLocked=false;
-  var lock=document.getElementById('twBoardLock'); if(lock) lock.classList.remove('on');
-  var ov=document.getElementById('twOverlay'); if(ov) ov.classList.remove('on');
-  document.querySelectorAll('.tw-seat').forEach(function(s){s.style.opacity='';});
-}
-
-// ================================================================
-// ADMIN SEAT ACTIONS (UI only)
-// ================================================================
-function seatAct(action, pid) {
-  var p=TW.participants.find(function(x){return x.id===pid;}); if(!p) return;
-  var msgs={mute:'Micro coupé (UI)',remove:'Retiré vers spectateurs (UI)',ban:'Banni visuellement (UI)'};
-  if (action==='mute') { p.mic=false; }
-  if (action==='remove') { TW.participants=TW.participants.filter(function(x){return x.id!==pid;}); TW.spectators.push({id:p.id,name:p.name,ini:p.ini,raised:false}); }
-  if (action==='ban') { p.status='absent'; }
-  renderSeats(); renderSpectators(); updateStats();
-  twToast(p.name+' — '+(msgs[action]||action)+'. Aucune action réelle.',2600);
-}
-
-// ================================================================
-// UTILS
-// ================================================================
-function updateStats() {
-  var ps=document.getElementById('twPStat'); if(ps) ps.innerHTML='<strong>'+TW.participants.length+'</strong> participants';
-  var ss=document.getElementById('twSStat'); if(ss) ss.innerHTML='<strong>'+TW.sources.length+'</strong> sources';
-}
-function _esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function _e(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function _ago(ts){var d=Math.floor((Date.now()-ts)/60000);if(d<1)return'à l\'instant';if(d<60)return d+'min';if(d<1440)return Math.floor(d/60)+'h';return Math.floor(d/1440)+'j';}
 var _tt=null;
-function twToast(msg,dur){ var el=document.getElementById('twToast'); if(!el) return; el.textContent=msg; el.classList.add('on'); clearTimeout(_tt); _tt=setTimeout(function(){el.classList.remove('on');},dur||2400); }
+function toast(msg,dur){var el=document.getElementById('twToast');if(!el)return;el.textContent=msg;el.classList.add('on');clearTimeout(_tt);_tt=setTimeout(function(){el.classList.remove('on');},dur||2200);}
 
-// ================================================================
-// INIT
-// ================================================================
+/* ============================================================
+   INIT
+   ============================================================ */
 window.addEventListener('DOMContentLoaded',function(){
-  renderSeats(); renderSpectators(); renderBoard(); renderSources(); renderBriefSummary(); updateIrisState(); updateStats();
-  window.addEventListener('resize',function(){ renderSeats(); drawConnLines(); });
-  document.getElementById('twNodeLbl') && document.getElementById('twNodeLbl').addEventListener('keydown',function(e){ if(e.key==='Enter'){e.preventDefault();confirmAddNode();} });
-  console.log('[TW] team_workspace_loaded');
+  initObjects();
+  renderStepper();
+  renderSeats();
+  renderSpecs();
+  renderObjects();
+  renderActions();
+  updateStats();
+  var ot=document.getElementById('objTitle');
+  if(ot)ot.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();confirmAddObj();}});
+  console.log('[TW] team_workspace_loaded v3');
+  console.log('[TW] step_active',TW.step,STEPS[TW.step-1].lbl);
 });
 </script>
 </body>

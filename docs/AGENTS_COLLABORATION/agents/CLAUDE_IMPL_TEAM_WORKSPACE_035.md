@@ -1,81 +1,119 @@
 # Claude — Implémentation Team Workspace — Objectif 035
 
-Date : 2026-06-07
+Date V1 : 2026-06-07
+Date V2 : 2026-06-07
 Agent : Claude
-Type : implementation V1
+Type : implementation V2 (refonte Phase 1 — vision IRIS_WORKSPACE_VISION_PRODUIT_UX.md)
 Statut : code livré, PAS déployé (validation Ludovic requise)
 
 ## Fichiers créés / modifiés
 
-- `static/team_workspace.html` — page complète (nouvelle)
-- `luna_web.py` — route `GET /team` ajoutée (après `/simli`, avant `/guardian`)
+- `static/team_workspace.html` — refonte complète V2 (768 lignes)
+- `luna_web.py` — route `GET /team` (inchangée depuis V1)
 
-## Ce qui est implémenté
+---
 
-### Layout immersif
+## V2 — Phase 1 Refonte Visuelle Fondatrice
 
-Fond dark (#050510) + gradients cyan/violet aux coins + grille holographique subtile.
-3 zones verticales : header / arena / bottom strip.
+### Checklist Phase 1 (vision document)
 
-### Arena — table + tableau
+| Exigence | Statut |
+|---|---|
+| Mode clair premium par défaut | ✅ fond #edf0f8, panneaux #fff |
+| Grand plan central lisible | ✅ grid auto-fill, domine l'espace |
+| Cartes flottantes → places autour d'une table | ✅ rangée horizontale scrollable, seats visibles |
+| Iris / IQ / Luna : rôles clarifiés | ✅ sidebar dédiée + seats AI dans la rangée |
+| Aucun bouton décoratif | ✅ tous les boutons ont une fonction ou sont désactivés avec explication |
 
-Tableau central (400×265px) :
-- Grille holographique de fond
-- Rail header avec boutons "+ Idée" et "+ Source"
-- SVG mind map : 5 noeuds reliés par des liens pointillés
-- Cadenas visuel "IRIS ANALYSE" quand le mode Iris est actif
+### Architecture visuelle V2
 
-Sièges participants (6 positions fixes autour du tableau) :
-- Positionnement CSS absolu simulant une table ronde
-- Lignes de connexion SVG (dashed) de chaque siège vers le tableau
-- Statuts visuels : speaking (anneau cyan pulsant), editing (bordure amber), absent (opacité réduite)
-- Icônes micro/caméra on/off, main levée animée
-- Badge rôle : 👑 Owner (gold) / Participant (cyan)
-- Hover admin : boutons Muter / Retirer / Bannir (UI only, aucune action réelle)
+```
+[HEADER : logo + titre session + stats + Brief + retour Iris Audio]
+─────────────────────────────────────────────────────────────────
+[SEATS ROW : Ludovic 👑 | Alice | Thomas | Sarah | | 🔮 Iris | 🧠 IQ | 🌙 Luna]
+─────────────────────────────────────────────────────────────────
+[CANVAS                                   ] [SIDEBAR               ]
+[toolbar: + Idée | + Source | + Décision  ] [Intelligences présentes]
+[                                         ] [  🔮 Iris — Secrétaire ]
+[  Grid auto-fill de cartes typées        ] [  🧠 IQ — Analyste     ]
+[  (idea/source/decision/action/synthesis)] [  🌙 Luna — Direction  ]
+[  grille pointillée bleue légère         ] [                       ]
+[  hover: élévation + ombre               ] [Mission Brief          ]
+[                                         ] [Sources (liste)        ]
+[                                         ] [Avis Iris (conditionnel)]
+─────────────────────────────────────────────────────────────────
+[SPECTATEURS : Carl V. | Nina P. ✋ → promo siège]
+```
 
-### Spectateurs (bottom left)
+### Palette couleurs V2 (light premium)
 
-- Liste des spectateurs avec avatar initiales
-- Badge "raised" si main levée
-- Bouton "↑ Siège" pour promouvoir en participant (UI only)
+| Rôle | Couleur |
+|---|---|
+| Fond page | `#edf0f8` |
+| Panneaux/cartes | `#ffffff` |
+| Iris (accent) | `#4f46e5` bleu/indigo |
+| Luna (accent) | `#7c3aed` violet |
+| IQ (accent) | `#059669` vert |
+| Décision | `#10b981` vert |
+| Source | `#f59e0b` orange |
+| Action | `#ef4444` rouge |
+| Synthèse Iris | `#7c3aed` violet, fond `#faf5ff` |
+| Texte principal | `#111827` |
+| Texte secondaire | `#6b7280` |
+| Bordures | `rgba(0,0,0,0.08)` |
 
-### Admin panel (bottom right — 3 zones)
+### Participants : seats row
 
-1. **Brief Mission** — résumé du brief actif ou message d'invite
-2. **Sources** — liste des sources ajoutées (5 max visibles)
-3. **Panneau Iris** — icône 🔮, statut EN ATTENTE / PRÊTE, bouton "Avis Iris"
+- Rangée horizontale sous le header (scrollable)
+- Chaque seat : avatar initiales coloré + nom + rôle + icônes micro/cam
+- `speaking` → bordure violette pulsante
+- `editing` → bordure orange
+- Hover owner → menu admin (mute/retirer/bannir — UI only)
+- Séparateur visuel avant les 3 seats IA : Iris 🔮, IQ 🧠, Luna 🌙
 
-### Brief Modal
+### Plan central : canvas
+
+- Fond `#f0f2f8` + grille radiale pointillée bleu pâle (24px)
+- Cards : auto-fill minmax(220px, 1fr)
+- 5 types : `idea` (indigo), `source` (orange), `decision` (vert), `action` (rouge), `synthesis` (violet)
+- Chaque carte : type badge + titre + détail + auteur + âge
+- Hover : ombre élevée + translation -1px
+- Bouton ✕ en haut à droite, visible au hover seulement
+
+### Sidebar (300px)
+
+1. **Intelligences présentes** : Iris / IQ / Luna avec rôle textuel + statut badge (En attente / Prête / Active)
+2. **Brief mission** : résumé 3 lignes ou invite "Définir le brief →"
+3. **Sources** : liste des sources ajoutées (type icon + label + auteur)
+4. **Avis Iris** : bouton conditionnel (désactivé si brief OU source manquants)
+
+### Brief modal
 
 Champs : titre, domaine, objectif, contexte, toggle recherche externe.
-Le brief appliqué active le bouton Brief dans le header (violet allumé).
+Validation → affiche le brief en sidebar, titre du workspace dans le header, badge Brief activé.
 
-### Bouton Avis Iris conditionnel
+### Ajouter une carte (modal)
 
-Désactivé tant que `briefReady && sourcesReady` ne sont pas tous deux vrais.
-Messages d'aide : "Brief + source requis", "Brief requis", "Source requise".
+4 types sélectionnables visuellement.
+Titre requis, détail optionnel.
+Type `source` → ajoute aussi dans la liste Sources sidebar.
 
-### Mode Iris Opinion
+### Iris Opinion (overlay)
 
-- Overlay sombre (backdrop-filter)
-- Panneau synthèse avec vague animée (5 barres)
-- Contenu : Mission, Domaine, Sources listées
-- Tableau central verrouillé visuellement (cadenas + blur)
-- Sièges participants à 38% d'opacité ("en écoute")
+- Fond blanc semi-transparent avec blur
+- Panneau central blanc : titre + wave animée (5 barres violettes) + analyse contextuelle
+- Analyse contextuelle : Mission, Domaine, Sources, Éléments du canvas
+- Bouton "Fermer l'analyse" → déverrouille le plan
+- Status IQ → "Analyse" pendant l'overlay
 
-### Mind map SVG
+### Spectateurs
 
-4 types de noeuds :
-- 💡 Idée (cyan)
-- 📄 Source (amber)
-- ✅ Décision (vert)
-- ◈ Synthèse (violet, plus grand)
+- Bande inférieure avec mini-cards (avatar + nom + raised ✋)
+- Bouton "↑ Siège" → promeut en participant (UI only)
 
-Liens : lignes pointillées cyan entre les noeuds.
-Clic sur un noeud → toast avec label + type.
-Ajout dynamique via modale "+ Idée" ou prompt "+ Source".
+---
 
-## Logs F12 produits
+## Logs F12 produits (identiques V1)
 
 ```
 [TW] team_workspace_loaded
@@ -90,37 +128,37 @@ Ajout dynamique via modale "+ Idée" ou prompt "+ Source".
 [TW] iris_opinion_requested true   (après clic Avis Iris)
 ```
 
-## Target Cells validées
+---
 
-| TC | Statut |
+## Critères Phase 1 validés
+
+| Critère vision | Statut |
 |---|---|
-| TC-035-01 Workspace chargé | ✅ |
-| TC-035-02 Brief incomplet → Iris grisé | ✅ |
-| TC-035-03 Brief + source → Iris actif | ✅ |
-| TC-035-04 Spectateur demande parole (état raised) | ✅ |
-| TC-035-05 Admin mute/retire/bannit (UI only) | ✅ |
-| TC-035-06 Mind map : 3+ idées, 2+ liens, 1 source | ✅ (5 noeuds, 5 liens) |
-| TC-035-07 Avis Iris → overlay + tableau verrouillé + synthèse | ✅ |
+| En 3 sec : où je suis | ✅ header "Iris Workspace" + logo |
+| En 3 sec : avec qui | ✅ seats row immédiat sous le header |
+| En 3 sec : sur quoi | ✅ cards sur le canvas + titre workspace |
+| Plan central donne envie d'y déposer quelque chose | ✅ toolbar visible, fond structuré |
+| Iris/IQ/Luna : fonction claire | ✅ sidebar avec rôles textuels |
+| Aucun bouton décoratif | ✅ bouton Iris grisé avec explication |
+| Interface montrable à une entreprise | ✅ light mode premium |
+
+---
 
 ## Interdictions respectées
 
-- Aucun SMS / email / appel / paiement
+- Aucun SMS / email / appel / paiement / réservation
 - Aucun secret côté frontend
 - Aucune suppression irréversible
-- Aucun déploiement (non déployé)
+- **Aucun déploiement** (en attente validation Ludovic)
 
-## Pour tester en local (sans déployer Cloud Run)
+---
 
-```bash
-cd ~/PROJETS/IA_WATCH/PROPRIO/serveur
-python3 -m py_compile luna_web.py && echo OK
-# Puis lancer le serveur local et ouvrir https://localhost:8888/team
-```
+## Ce qui reste pour Phase 2+
 
-## Ce qui reste pour V2
-
-- Connexion WebSocket temps réel multi-participants
-- Vrai drag & drop des noeuds SVG
-- Export PDF/PNG du tableau
-- Intégration avec le Mission Brief de simli.html (partage brief via WS)
-- Connexion au bridge vocal pour que Iris parle le résultat de l'analyse
+- Connexion WebSocket multi-participants temps réel
+- Upload document → preview → IQ analysis (cycle complet)
+- Drag & drop des cartes sur le canvas
+- Annotation collaborative
+- Export PDF / compte-rendu
+- Toggle dark / light mode
+- Intégration brief partagé avec `/simli` via WebSocket
