@@ -299,8 +299,20 @@
     <span class="tw-stat" id="twSStat"><strong>0</strong> sources</span>
     <button class="tw-hbtn brief" id="twBriefBtn" onclick="openBriefModal()">📋 Brief</button>
     <button class="tw-hbtn ghost" onclick="twToast('Partage — fonctionnalité à venir.',2400)">🔗 Inviter</button>
-    <button class="tw-hbtn ghost" onclick="window.location.href='/simli'">← Voix Iris</button>
+    <button class="tw-hbtn ghost" onclick="window.location.href='/simli'" title="Retourner vers Iris Audio">🎤 Iris Audio</button>
   </header>
+
+  <!-- Bandeau d'orientation (affiché uniquement au 1er chargement) -->
+  <div id="twOnboarding" style="
+    position:absolute; top:54px; left:0; right:0; z-index:20;
+    background:rgba(139,92,246,0.12); border-bottom:1px solid rgba(139,92,246,0.22);
+    padding:10px 20px; display:flex; align-items:center; gap:14px;
+    font-size:11px; color:rgba(220,210,255,0.85); backdrop-filter:blur(8px);
+  ">
+    <span style="font-size:16px">👥</span>
+    <span><strong>Iris Team Workspace</strong> — Définissez un brief, ajoutez des sources, puis demandez l'avis d'Iris. La table, les sièges et le tableau central sont ci-dessous.</span>
+    <button onclick="document.getElementById('twOnboarding').style.display='none'" style="margin-left:auto;background:none;border:none;color:rgba(196,181,253,0.5);font-size:16px;cursor:pointer;padding:0 4px;">✕</button>
+  </div>
 
   <!-- ARENA -->
   <div id="twArena">
