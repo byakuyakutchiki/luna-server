@@ -8095,6 +8095,19 @@ async def simli_page():
     return JSONResponse(status_code=404, content={"error": "Simli non disponible"})
 
 
+@app.get("/team")
+async def team_workspace_page():
+    """Iris Team Workspace immersif — salle de travail collaborative (objectif 035)."""
+    path = os.path.join(STATIC_DIR, "team_workspace.html")
+    if os.path.isfile(path):
+        return FileResponse(path, headers={
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "Pragma": "no-cache",
+            "Expires": "0",
+        })
+    return JSONResponse(status_code=404, content={"error": "Team Workspace non disponible"})
+
+
 @app.get("/guardian")
 async def guardian_page():
     """Page surveillance géolocalisée Guardian (full-screen, mobile-first)."""
