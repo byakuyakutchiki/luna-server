@@ -2179,3 +2179,13 @@ Fichier concerné : integrations/iris/workspace_orchestrator.py ; integrations/o
 Risque : faible a moyen — protocole WS nouveau, aucune action externe.
 Décision Ludovic requise : oui avant deploiement.
 Action proposée : Kimi doit proposer l'UI owner/admin du Brief Mission. Claude/Kimi testent le WS : envoyer `mission_brief_update`, verifier `ui_state_ack`, puis demander une recherche web avec `external_research=false` et attendre `missing_info`.
+---
+
+Agent : Codex
+Objectif : 035
+Type : ouverture objectif / scope Claude
+Résumé : Ouverture de la nouvelle direction produit Iris Team Workspace immersif. On ne code plus une visio classique ni un chatbot avec panneau : cible = salle de commandement collaborative avec table centrale, sieges participants, spectateurs separes, tableau virtuel immersif, Mission Brief, admin controls et bouton Avis Iris. Claude doit implementer une V1 visuelle premium/high-tech sans action sensible. Kimi audit UX, DeepSeek audit droits/RGPD/risques.
+Fichier concerné : docs/AGENTS_COLLABORATION/OBJECTIF_035_IRIS_TEAM_WORKSPACE_IMMERSIF.md ; docs/AGENTS_COLLABORATION/agents/CODEX_SCOPE_CLAUDE_TEAM_WORKSPACE_035.md ; docs/AGENTS_COLLABORATION/OBJECTIFS_ACTIFS.md
+Risque : moyen — risque principal = Claude code une interface fade ou trop classique s'il ne respecte pas le scope. Aucune action externe autorisee.
+Décision Ludovic requise : oui avant deploiement.
+Action proposée : Claude lit le scope 035 avant de coder. V1 attendue : tableau central immersif + sieges + spectateurs + admin controls + brief + Avis Iris conditionnel, avec logs F12 target cells.

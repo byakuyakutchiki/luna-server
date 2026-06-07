@@ -5,6 +5,61 @@ Mise à jour obligatoire avant toute modification majeure.
 
 ---
 
+## Objectif 035 — Iris Team Workspace immersif
+
+**Statut** : ouvert — cadrage produit Codex, implementation Claude attendue
+**Priorité** : P0 produit / UX
+**Lead coordination** : Codex
+**Date ouverture** : 2026-06-07
+**Document dédié** : `docs/AGENTS_COLLABORATION/OBJECTIF_035_IRIS_TEAM_WORKSPACE_IMMERSIF.md`
+
+### Vision
+
+Iris ne doit plus etre une simple visio ou un chatbot.
+
+Iris Team Workspace doit devenir une salle immersive :
+
+```text
+table centrale
+sieges participants
+spectateurs separes
+tableau virtuel collaboratif
+admin controls
+mission brief
+Avis Iris au bon moment
+```
+
+### Agents concernés
+
+| Agent | Tâche | Statut |
+|---|---|---|
+| **Claude** | Implementer V1 visuelle immersive sans action sensible | À faire |
+| **Kimi** | Auditer UX/premium/team table/roles | À faire |
+| **DeepSeek** | Auditer roles, droits, RGPD, risques, OpenAI bypass | À faire |
+| **Codex** | Cadrage, target cells, garde-fous | En cours |
+| **Ludovic** | Validation produit/graphique | En attente |
+
+### Interdictions
+
+- Pas de design fade.
+- Pas de visio classique.
+- Pas de chatbot central.
+- Pas de SMS/email/appel/paiement/reservation.
+- Pas de suppression ou bannissement reel sans validation.
+- Pas de deploiement sans accord.
+
+### Validation
+
+- [ ] TC-035-01 Salle chargee.
+- [ ] TC-035-02 Brief incomplet -> Avis Iris grise.
+- [ ] TC-035-03 Brief + source -> Avis Iris actif.
+- [ ] TC-035-04 Spectateur demande parole.
+- [ ] TC-035-05 Admin mute/promote/ban visuel.
+- [ ] TC-035-06 Tableau central + mind map visible.
+- [ ] TC-035-07 Mode intervention Iris.
+
+---
+
 ## Objectif 026 — Iris Capability Router V1
 
 **Statut** : ouvert — code V1 non sensible autorisé
