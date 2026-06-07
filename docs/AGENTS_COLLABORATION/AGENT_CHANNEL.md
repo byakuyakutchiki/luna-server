@@ -2200,3 +2200,14 @@ Fichier concerné : docs/AGENTS_COLLABORATION/reference/IRIS_WORKSPACE_VISION_PR
 Risque : eleve si les agents continuent a travailler depuis des resumes courts ; risque faible pour ce commit car il ajoute uniquement de la documentation/reference.
 Décision Ludovic requise : non pour la transmission ; oui avant toute refonte/deploiement V2.
 Action proposée : Claude lit le document complet avant toute ligne de code. Kimi audite la V2 contre le document complet. DeepSeek verifie que chaque bouton possede une chaine complete declencheur -> affichage -> interaction -> analyse IA -> resultat -> export -> tracabilite.
+
+---
+
+Agent : Codex
+Objectif : 037
+Type : transmission source de verite Iris Workspace V3
+Résumé : La V3 du cahier fondateur Iris Workspace a ete ajoutee au repo et remplace la V2 comme source active. Le `.docx` contient les visuels integres (reference Luna CEO Corporate + logo YAWatch Industries) et le `.md` permet lecture terminal/VM. Message central : ne plus corriger `/team` comme une maquette ; reconstruire une salle strategique augmentee, premium, sequencee, vivante et exploitable par une entreprise. DoD V3 : CentralCanvas dominant, SourceImportModal fichier/lien/note, MeetingStepper, presence humaine claire, Iris/IQ/Luna visibles, versioning/historique, aucun emoji metier, resultat montrable a un dirigeant.
+Fichier concerné : docs/AGENTS_COLLABORATION/reference/IRIS_WORKSPACE_V3_CAHIER_FONDATEUR_IMPLEMENTATION_FINAL.docx ; docs/AGENTS_COLLABORATION/reference/IRIS_WORKSPACE_V3_CAHIER_FONDATEUR_IMPLEMENTATION_FINAL.md ; docs/AGENTS_COLLABORATION/agents/CODEX_TRANSMISSION_IRIS_WORKSPACE_V3_037.md
+Risque : eleve si Claude continue depuis la V1/V2 ou depuis des resumes courts ; faible pour ce commit car documentation/reference seulement.
+Décision Ludovic requise : oui avant toute implementation V3 ; non pour la transmission.
+Action proposée : Claude lit la V3 complete avant de coder. Kimi audite visuellement contre la reference Luna CEO Corporate. DeepSeek audite modele de donnees/versioning/workflow. Codex verifie que chaque lot respecte la Definition of Done V3.
