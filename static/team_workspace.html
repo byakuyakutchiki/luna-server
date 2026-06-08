@@ -624,9 +624,7 @@ var TW={
     var url=new URLSearchParams(window.location.search);
     var room=url.get('room');
     if(room)return room.replace(/[^a-zA-Z0-9_-]/g,'').slice(0,64)||'demo';
-    var k='luna_team_sid';var id=localStorage.getItem(k);
-    if(!id){id='tw_'+Math.random().toString(36).slice(2,12);localStorage.setItem(k,id);}
-    return id;
+    return 'iris-session';
   })(),
   userId:(function(){
     /* sessionStorage = isolé par onglet → deux onglets = deux users distincts */
