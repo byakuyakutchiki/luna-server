@@ -8195,17 +8195,23 @@ class _IrisTeamRoom:
         p = self.participants.pop(user_id, None)
         if p:
             await self.broadcast({"type": "participant_left", "user_id": user_id, "name": p.get("name", "?")})
-            # Owner left → elect oldest non-spectator participant as new owner
             if p.get("role") == "owner" and self.participants:
-                new_owner_id = next(
-                    (uid for uid, info in self.participants.items()
-                     if info.get("role") not in ("owner", "spectator")),
-                    None
-                )
-                if new_owner_id:
-                    self.participants[new_owner_id]["role"] = "owner"
-                    await self.send_to(new_owner_id, {"type": "role_changed", "role": "owner"})
-                    await self.broadcast({"type": "participant_update", "user_id": new_owner_id, "role": "owner"})
+                asyncio.create_task(self._elect_owner_after_grace(15))
+
+    async def _elect_owner_after_grace(self, delay: int):
+        await asyncio.sleep(delay)
+        # Only elect if still no owner (owner may have rejoined during grace period)
+        if any(info.get("role") == "owner" for info in self.participants.values()):
+            return
+        new_owner_id = next(
+            (uid for uid, info in self.participants.items()
+             if info.get("role") not in ("owner", "spectator")),
+            None
+        )
+        if new_owner_id:
+            self.participants[new_owner_id]["role"] = "owner"
+            await self.send_to(new_owner_id, {"type": "role_changed", "role": "owner"})
+            await self.broadcast({"type": "participant_update", "user_id": new_owner_id, "role": "owner"})
 
 
 _TEAM_ROOMS: dict = {}  # session_id -> _IrisTeamRoom
@@ -8266,7 +8272,7 @@ async def team_ws(websocket: WebSocket, session_id: str):
         }
         room.connections[user_id] = websocket
         room.participants[user_id] = participant
-        await websocket.send_text(json.dumps({"type": "state_sync", "state": room.get_state(), "your_user_id": user_id}, ensure_ascii=False))
+        await websocket.send_text(json.dumps({"type": "state_sync", "state": room.get_state(), "your_user_id": user_id, "your_role": participant["role"]}, ensure_ascii=False))
         await room.broadcast({"type": "participant_joined", "participant": participant}, exclude=user_id)
         logger.info(f"[TEAM_WS] join session={safe_session} user={user_id} name={participant['name']}")
         while True:

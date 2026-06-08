@@ -1473,6 +1473,7 @@ function handleWsMessage(msg){
     var st=msg.state;
     TW.wsConnected=true;
     _setWsDot(true);
+    if(msg.your_role){TW.userRole=msg.your_role;localStorage.setItem('luna_tw_role',msg.your_role);}
     /* Merge server state — objects/brief/step (don't stomp local demo objects) */
     if(st.objects&&st.objects.length)TW.objects=st.objects;
     if(st.brief)TW.brief=st.brief;
@@ -1575,7 +1576,10 @@ function handleWsMessage(msg){
   }
   if(t==='role_changed'){
     TW.userRole=msg.role;
-    toast(msg.role==='spectator'?'Vous passez en mode spectateur.':'Vous êtes maintenant participant.',2500);
+    localStorage.setItem('luna_tw_role',msg.role);
+    if(msg.role==='owner')toast('Vous êtes maintenant owner.',2500);
+    else if(msg.role==='spectator')toast('Vous passez en mode spectateur.',2500);
+    else toast('Vous êtes maintenant participant.',2500);
     renderLiveSeats();
     return;
   }
