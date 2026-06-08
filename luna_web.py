@@ -61,7 +61,7 @@ except ImportError:
 from openai import OpenAI
 from integrations.llm.provider import build_llm_client, get_llm_model, get_provider_label
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Header, Request, Response, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, Header, Request, Response, WebSocket, WebSocketDisconnect, UploadFile, File, Form
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
@@ -3604,6 +3604,7 @@ _PUBLIC_PATHS = (
     "/guardian-live/",
     "/api/guardian/live-position/",
     "/api/apk/heartbeat",  # Auth via User-Agent LunaApp (pas JWT)
+    "/api/team/",          # Iris Workspace — endpoints publics (upload source, session)
 )
 
 def _is_public_path(path: str) -> bool:
@@ -8106,6 +8107,239 @@ async def team_workspace_page():
             "Expires": "0",
         })
     return JSONResponse(status_code=404, content={"error": "Team Workspace non disponible"})
+
+
+# ── Team Workspace — Source Upload ────────────────────────────────────────────
+_TEAM_SESSIONS: dict = {}   # session_id -> list of source metadata
+_TEAM_UPLOAD_DIR = "/tmp/luna_team_uploads"
+_TEAM_ALLOWED_EXT = {".pdf", ".docx", ".xlsx", ".png", ".jpg", ".jpeg"}
+_TEAM_MAX_SIZE = 20 * 1024 * 1024  # 20 Mo
+
+
+@app.post("/api/team/upload-source")
+async def team_upload_source(
+    file: UploadFile = File(...),
+    session_id: str = Form(default="default"),
+):
+    """Upload réel d'une source documentaire pour Iris Workspace — stockage /tmp session."""
+    ext = os.path.splitext(file.filename or "")[1].lower()
+    if ext not in _TEAM_ALLOWED_EXT:
+        return JSONResponse(
+            status_code=400,
+            content={"error": f"Format '{ext}' non supporté. Acceptés : PDF, DOCX, XLSX, PNG, JPG."}
+        )
+    content = await file.read()
+    if len(content) > _TEAM_MAX_SIZE:
+        return JSONResponse(status_code=413, content={"error": "Fichier trop volumineux (max 20 Mo)."})
+
+    safe_session = re.sub(r"[^a-zA-Z0-9_-]", "", session_id)[:64] or "default"
+    safe_name = re.sub(r"[^a-zA-Z0-9._-]", "_", os.path.basename(file.filename or "file"))[:120]
+    file_id = uuid.uuid4().hex[:8]
+
+    session_dir = os.path.join(_TEAM_UPLOAD_DIR, safe_session)
+    os.makedirs(session_dir, exist_ok=True)
+    dest = os.path.join(session_dir, f"{file_id}_{safe_name}")
+    with open(dest, "wb") as f:
+        f.write(content)
+
+    meta = {"id": file_id, "filename": file.filename, "size": len(content), "ext": ext, "path": dest}
+    _TEAM_SESSIONS.setdefault(safe_session, []).append(meta)
+
+    logger.info(f"[TEAM] source_uploaded session={safe_session} file={file.filename} size={len(content)} ext={ext}")
+    return {"id": file_id, "filename": file.filename, "size": len(content), "ext": ext}
+
+
+# ── Team Workspace — WebSocket Room (sync + signaling WebRTC) ─────────────────
+class _IrisTeamRoom:
+    def __init__(self, session_id: str):
+        self.session_id = session_id
+        self.connections: dict = {}   # user_id -> WebSocket
+        self.participants: dict = {}  # user_id -> info dict
+        self.step: int = 3
+        self.brief = None
+        self.objects: list = []
+        self.sources: list = []
+        self.votes: dict = {}         # str(obj_id) -> count
+
+    def get_state(self) -> dict:
+        return {
+            "step": self.step, "brief": self.brief,
+            "objects": self.objects, "sources": self.sources,
+            "votes": [{"id": k, "count": v} for k, v in self.votes.items()],
+            "participants": list(self.participants.values()),
+        }
+
+    async def broadcast(self, message: dict, exclude: str = None):
+        data = json.dumps(message, ensure_ascii=False)
+        dead = []
+        for uid, ws in list(self.connections.items()):
+            if uid == exclude:
+                continue
+            try:
+                await ws.send_text(data)
+            except Exception:
+                dead.append(uid)
+        for uid in dead:
+            await self._remove(uid)
+
+    async def send_to(self, user_id: str, message: dict):
+        ws = self.connections.get(user_id)
+        if ws:
+            try:
+                await ws.send_text(json.dumps(message, ensure_ascii=False))
+            except Exception:
+                pass
+
+    async def _remove(self, user_id: str):
+        self.connections.pop(user_id, None)
+        p = self.participants.pop(user_id, None)
+        if p:
+            await self.broadcast({"type": "participant_left", "user_id": user_id, "name": p.get("name", "?")})
+
+
+_TEAM_ROOMS: dict = {}  # session_id -> _IrisTeamRoom
+
+
+@app.get("/api/team/ice-config")
+async def team_ice_config():
+    """ICE servers : STUN public + TURN Twilio NTS si disponible."""
+    fallback = [
+        {"urls": "stun:stun.l.google.com:19302"},
+        {"urls": "stun:stun1.l.google.com:19302"},
+    ]
+    try:
+        sid = os.getenv("TWILIO_ACCOUNT_SID", "")
+        tok = os.getenv("TWILIO_AUTH_TOKEN", "")
+        if sid and tok:
+            async with httpx.AsyncClient(timeout=5.0) as cli:
+                r = await cli.post(
+                    f"https://api.twilio.com/2010-04-01/Accounts/{sid}/Tokens.json",
+                    auth=(sid, tok),
+                )
+                if r.status_code == 201:
+                    servers = r.json().get("ice_servers", fallback)
+                    logger.info(f"[ICE] Twilio NTS ok ({len(servers)} servers)")
+                    return {"ice_servers": servers}
+    except Exception as e:
+        logger.debug(f"[ICE] Twilio NTS unavailable: {e}")
+    return {"ice_servers": fallback}
+
+
+@app.websocket("/ws/team/{session_id}")
+async def team_ws(websocket: WebSocket, session_id: str):
+    """WebSocket Iris Workspace — sync temps réel objets, présence, signaling WebRTC."""
+    await websocket.accept()
+    safe_session = re.sub(r"[^a-zA-Z0-9_-]", "", session_id)[:64] or "default"
+    if safe_session not in _TEAM_ROOMS:
+        _TEAM_ROOMS[safe_session] = _IrisTeamRoom(safe_session)
+    room = _TEAM_ROOMS[safe_session]
+    user_id = None
+    try:
+        raw = await asyncio.wait_for(websocket.receive_text(), timeout=15.0)
+        msg = json.loads(raw)
+        if msg.get("type") != "join":
+            await websocket.close(code=4000, reason="Expected join"); return
+        user_id = re.sub(r"[^a-zA-Z0-9_-]", "", str(msg.get("user_id", "")))[:32] or uuid.uuid4().hex[:8]
+        participant = {
+            "user_id": user_id,
+            "name": str(msg.get("name", "Participant"))[:80],
+            "role": str(msg.get("role", "participant")),
+            "ini":  str(msg.get("ini", "P"))[:2].upper(),
+            "speaking": False, "hand": False, "cam": False, "mic": False,
+        }
+        room.connections[user_id] = websocket
+        room.participants[user_id] = participant
+        await websocket.send_text(json.dumps({"type": "state_sync", "state": room.get_state(), "your_user_id": user_id}, ensure_ascii=False))
+        await room.broadcast({"type": "participant_joined", "participant": participant}, exclude=user_id)
+        logger.info(f"[TEAM_WS] join session={safe_session} user={user_id} name={participant['name']}")
+        while True:
+            raw = await websocket.receive_text()
+            try:
+                msg = json.loads(raw)
+            except Exception:
+                continue
+            t = msg.get("type", "")
+            if t == "object_add":
+                obj = msg.get("object")
+                if isinstance(obj, dict):
+                    room.objects.append(obj)
+                    await room.broadcast({"type": "object_added", "object": obj, "by": user_id}, exclude=user_id)
+            elif t == "object_delete":
+                oid = msg.get("id")
+                room.objects = [o for o in room.objects if o.get("id") != oid]
+                await room.broadcast({"type": "object_deleted", "id": oid, "by": user_id}, exclude=user_id)
+            elif t == "step_change":
+                step = msg.get("step")
+                if isinstance(step, int) and 1 <= step <= 13:
+                    room.step = step
+                    await room.broadcast({"type": "step_changed", "step": step, "by": user_id}, exclude=user_id)
+            elif t == "brief_set":
+                room.brief = msg.get("brief")
+                await room.broadcast({"type": "brief_updated", "brief": room.brief, "by": user_id}, exclude=user_id)
+            elif t == "vote":
+                oid = str(msg.get("object_id", ""))
+                if oid:
+                    room.votes[oid] = room.votes.get(oid, 0) + 1
+                    await room.broadcast({"type": "vote_cast", "object_id": msg.get("object_id"), "total": room.votes[oid], "by": user_id})
+            elif t == "speaking":
+                sp = bool(msg.get("is_speaking"))
+                if user_id in room.participants:
+                    room.participants[user_id]["speaking"] = sp
+                await room.broadcast({"type": "speaking_update", "user_id": user_id, "is_speaking": sp}, exclude=user_id)
+            elif t == "hand_raise":
+                raised = bool(msg.get("raised"))
+                if user_id in room.participants:
+                    room.participants[user_id]["hand"] = raised
+                await room.broadcast({"type": "hand_raised", "user_id": user_id, "raised": raised}, exclude=user_id)
+            elif t == "cam_status":
+                cam = bool(msg.get("cam")); mic = bool(msg.get("mic"))
+                if user_id in room.participants:
+                    room.participants[user_id]["cam"] = cam
+                    room.participants[user_id]["mic"] = mic
+                await room.broadcast({"type": "cam_status_update", "user_id": user_id, "cam": cam, "mic": mic}, exclude=user_id)
+            elif t == "owner_action":
+                sender = room.participants.get(user_id, {})
+                if sender.get("role") != "owner":
+                    continue
+                action = msg.get("action", "")
+                tid = re.sub(r"[^a-zA-Z0-9_-]", "", str(msg.get("target_id", "")))
+                if not tid or tid not in room.participants:
+                    continue
+                tgt = room.participants[tid]
+                if action == "force_mute":
+                    tgt["mic"] = False
+                    await room.send_to(tid, {"type": "force_mute"})
+                    await room.broadcast({"type": "cam_status_update", "user_id": tid, "cam": tgt.get("cam", False), "mic": False})
+                elif action == "force_hand_down":
+                    tgt["hand"] = False
+                    await room.send_to(tid, {"type": "force_hand_down"})
+                    await room.broadcast({"type": "hand_raised", "user_id": tid, "raised": False})
+                elif action == "request_unmute":
+                    await room.send_to(tid, {"type": "unmute_request"})
+                elif action == "to_spectator":
+                    tgt["role"] = "spectator"
+                    await room.send_to(tid, {"type": "role_changed", "role": "spectator"})
+                    await room.broadcast({"type": "participant_update", "user_id": tid, "role": "spectator"})
+                elif action == "to_participant":
+                    tgt["role"] = "participant"
+                    await room.send_to(tid, {"type": "role_changed", "role": "participant"})
+                    await room.broadcast({"type": "participant_update", "user_id": tid, "role": "participant"})
+            elif t == "rtc_signal":
+                to = msg.get("to"); payload = msg.get("payload")
+                if to and payload:
+                    await room.send_to(to, {"type": "rtc_signal", "from": user_id, "payload": payload})
+    except WebSocketDisconnect:
+        pass
+    except asyncio.TimeoutError:
+        pass
+    except Exception as e:
+        logger.warning(f"[TEAM_WS] error session={safe_session} user={user_id}: {e}")
+    finally:
+        if user_id:
+            await room._remove(user_id)
+        if safe_session in _TEAM_ROOMS and not _TEAM_ROOMS[safe_session].connections:
+            del _TEAM_ROOMS[safe_session]
+            logger.info(f"[TEAM_WS] room_closed session={safe_session}")
 
 
 @app.get("/guardian")

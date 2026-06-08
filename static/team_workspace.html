@@ -104,7 +104,19 @@
     .tw-seat:hover .tw-smenu{display:flex;}
     .tw-seat-halo{position:absolute;inset:0;pointer-events:none;border-radius:7px;opacity:0;box-shadow:inset 0 0 14px rgba(16,212,142,0.15);transition:opacity 0.3s;}
     .tw-seat.speaking .tw-seat-halo{opacity:1;}
-    .tw-seat-cam{width:100%;height:58px;background:rgba(255,255,255,0.02);display:flex;align-items:center;justify-content:center;}
+    .tw-seat-cam{width:100%;height:58px;background:rgba(255,255,255,0.02);display:flex;align-items:center;justify-content:center;position:relative;}
+    .tw-hand-badge{
+      position:absolute;top:4px;right:4px;width:20px;height:20px;border-radius:50%;
+      background:rgba(245,158,11,0.15);border:1.5px solid rgba(245,158,11,0.45);
+      display:none;align-items:center;justify-content:center;font-size:11px;z-index:5;
+      animation:handPulse 1.4s ease-in-out infinite;
+    }
+    .tw-hand-badge.owner-can-act{cursor:pointer;}
+    @keyframes handPulse{
+      0%,100%{box-shadow:0 0 0 0 rgba(245,158,11,0.45);}
+      50%{box-shadow:0 0 0 5px rgba(245,158,11,0);}
+    }
+    .tw-seat.smenu-open .tw-smenu{display:flex;}
     .tw-seat-av{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;letter-spacing:0.5px;color:#fff;}
     .tw-seat-av.owner{background:linear-gradient(135deg,rgba(245,158,11,0.4),rgba(217,119,6,0.55));border:1.5px solid rgba(245,158,11,0.4);}
     .tw-seat-av.participant{background:linear-gradient(135deg,rgba(99,102,241,0.3),rgba(79,70,229,0.45));border:1.5px solid rgba(99,102,241,0.3);}
@@ -248,6 +260,7 @@
     .tw-topt.sel.s{background:var(--iq-d);border-color:rgba(34,211,238,0.38);color:var(--iq);}
     .tw-topt.sel.d{background:var(--luna-d);border-color:rgba(167,139,250,0.38);color:var(--luna);}
     .tw-topt.sel.a{background:rgba(245,158,11,0.1);border-color:rgba(245,158,11,0.4);color:var(--amber);}
+    .tw-topt.hidden{display:none!important;}
 
     /* Source tabs */
     .tw-stabs{display:flex;border:1px solid var(--border-s);border-radius:7px;overflow:hidden;}
@@ -285,6 +298,90 @@
     /* === TOAST === */
     #twToast{position:fixed;bottom:70px;left:50%;transform:translateX(-50%) translateY(10px);z-index:99;background:rgba(6,12,30,0.96);border:1px solid var(--border-s);border-radius:8px;padding:8px 16px;font-size:11px;color:var(--dim);opacity:0;transition:opacity 0.25s,transform 0.25s;pointer-events:none;white-space:nowrap;box-shadow:0 8px 24px rgba(0,0,0,0.45);}
     #twToast.on{opacity:1;transform:translateX(-50%) translateY(0);}
+
+    /* === CONTEXT BAR === */
+    #twCtxBar{flex-shrink:0;height:34px;background:rgba(2,5,14,0.65);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:12px;padding:0 20px;}
+    #twCtxMsg{font-size:10px;color:var(--dim);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    #twCtxStep{font-size:8px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--iris);flex-shrink:0;white-space:nowrap;}
+
+    /* === OBJECT DISPLAY MODES === */
+    .tw-obj.mode-read{cursor:default;}
+    .tw-obj.mode-read .tw-obj-del,.tw-obj.mode-dim .tw-obj-del,.tw-obj.mode-focus .tw-obj-del{display:none!important;}
+    .tw-obj.mode-dim{opacity:0.26;pointer-events:none;filter:grayscale(0.4);}
+    .tw-obj.mode-focus{border-left-color:var(--luna);box-shadow:0 0 0 1px rgba(167,139,250,0.18),0 8px 32px rgba(167,139,250,0.1);background:rgba(167,139,250,0.05);grid-column:1/-1;}
+    .tw-obj-mode-tag{font-size:7px;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;padding:1px 5px;border-radius:3px;margin-left:6px;background:rgba(255,255,255,0.05);color:var(--dim2);}
+    .tw-obj-vote{display:flex;align-items:center;gap:8px;margin-top:8px;padding-top:8px;border-top:1px solid var(--border);}
+    .tw-vote-btn{font-size:9px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;padding:5px 12px;border-radius:5px;cursor:pointer;background:var(--iris-d);border:1px solid rgba(16,212,142,0.28);color:var(--iris);transition:all 0.18s;font-family:inherit;}
+    .tw-vote-btn:hover{background:rgba(16,212,142,0.22);}
+    .tw-vote-btn.voted{background:rgba(16,212,142,0.3);border-color:var(--iris);cursor:default;}
+    .tw-vote-count{font-size:12px;font-weight:700;color:var(--iris);}
+
+    /* === EMPTY STATE === */
+    #twEmptyState{display:none;flex-direction:column;align-items:center;justify-content:center;min-height:220px;gap:14px;padding:40px;text-align:center;position:relative;z-index:1;}
+    .tw-es-icon{opacity:0.13;}
+    .tw-es-msg{font-size:13px;color:var(--dim);max-width:340px;line-height:1.65;}
+    .tw-es-sub{font-size:10px;color:var(--dim2);}
+
+    /* === SPECIAL CANVAS STATES === */
+    .tw-sstate{display:none;flex-direction:column;align-items:center;justify-content:center;min-height:260px;gap:18px;padding:40px;position:relative;z-index:1;}
+    .tw-sstate.on{display:flex;}
+    .tw-sstate-icon{width:56px;height:56px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+    .tw-sstate-title{font-size:16px;font-weight:700;color:var(--text);}
+    .tw-sstate-body{font-size:12px;color:var(--dim);max-width:420px;text-align:center;line-height:1.7;}
+    .tw-sstate-card{background:rgba(7,14,34,0.85);border:1px solid var(--border-s);border-radius:10px;padding:20px 24px;max-width:480px;width:100%;}
+    .tw-sstate-row{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;}
+    .tw-sstate-btn{padding:10px 20px;border-radius:7px;font-size:10px;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;cursor:pointer;border:1px solid;transition:all 0.2s;font-family:inherit;}
+    .tw-sstate-btn.iris{background:var(--iris-d);border-color:rgba(16,212,142,0.35);color:var(--iris);}
+    .tw-sstate-btn.iris:hover{background:rgba(16,212,142,0.22);}
+    .tw-sstate-btn.luna{background:var(--luna-d);border-color:rgba(167,139,250,0.35);color:var(--luna);}
+    .tw-sstate-btn.luna:hover{background:rgba(167,139,250,0.2);}
+    .tw-sstate-btn.ghost{background:var(--glass);border-color:var(--border-s);color:var(--dim);}
+    .tw-sstate-btn.ghost:hover{background:var(--glass-h);color:var(--text);}
+    .tw-brief-card-field{margin-bottom:10px;}
+    .tw-brief-card-lbl{font-size:8px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--dim2);margin-bottom:3px;}
+    .tw-brief-card-val{font-size:12px;color:var(--text);line-height:1.5;}
+
+    /* === AI SEAT STATUS === */
+    .tw-ai-st{font-size:8px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;margin-top:3px;transition:color 0.3s;}
+    .tw-ai-st.s-waiting{color:var(--dim2);}
+    .tw-ai-st.s-preparing{color:var(--amber);}
+    .tw-ai-st.s-active{animation:ai-pulse 1.5s ease-in-out infinite;}
+    .tw-ai-st.s-active.cr-iris{color:var(--iris);}
+    .tw-ai-st.s-active.cr-iq{color:var(--iq);}
+    .tw-ai-st.s-active.cr-luna{color:var(--luna);}
+    .tw-ai-st.s-done{color:var(--dim);}
+    @keyframes ai-pulse{0%,100%{opacity:1}50%{opacity:0.4}}
+    .tw-seat.seat-active-iris{border-color:rgba(16,212,142,0.5)!important;box-shadow:0 0 0 2px rgba(16,212,142,0.12)!important;}
+    .tw-seat.seat-active-iq  {border-color:rgba(34,211,238,0.5)!important;box-shadow:0 0 0 2px rgba(34,211,238,0.1)!important;}
+    .tw-seat.seat-active-luna{border-color:rgba(167,139,250,0.5)!important;box-shadow:0 0 0 2px rgba(167,139,250,0.12)!important;}
+
+    /* === FILE ZONE === */
+    .tw-file-zone{display:block;border:1.5px dashed rgba(34,211,238,0.28);border-radius:8px;padding:22px 20px;text-align:center;cursor:pointer;transition:all 0.2s;background:rgba(34,211,238,0.02);}
+    .tw-file-zone:hover{border-color:rgba(34,211,238,0.55);background:rgba(34,211,238,0.05);}
+    .tw-file-zone.has-file{border-color:rgba(34,211,238,0.55);border-style:solid;background:rgba(34,211,238,0.06);}
+    .tw-fz-txt{font-size:10px;font-weight:600;color:var(--dim);margin-top:6px;}
+    .tw-fz-sub{font-size:9px;color:var(--dim2);margin-top:3px;}
+    #twFileInfo{display:none;padding:10px 12px;background:rgba(34,211,238,0.06);border:1px solid rgba(34,211,238,0.2);border-radius:6px;margin-top:8px;}
+    #twFileName{font-size:11px;font-weight:600;color:var(--text);word-break:break-all;}
+    #twFileSize{font-size:9px;color:var(--iq);margin-top:2px;}
+    .tw-ov-phase{font-size:8px;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;color:var(--amber);background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.2);border-radius:4px;padding:2px 7px;display:inline-block;margin-top:4px;}
+
+    /* === LIVE VIDEO SEATS === */
+    .tw-seat video{width:100%;height:100%;object-fit:cover;display:none;border-radius:inherit;}
+    .tw-seat.self-seat .tw-seat-footer{background:rgba(16,212,142,0.04);}
+    .tw-hand-icon{font-size:10px;margin-left:3px;}
+
+    /* === PRESENCE CONTROLS (action bar) === */
+    #twPresenceControls{display:none;align-items:center;gap:6px;padding:0 10px 0 0;border-right:1px solid var(--border-s);margin-right:6px;flex-shrink:0;}
+    .tw-pres-btn{padding:5px 11px;border-radius:5px;font-size:8px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;cursor:pointer;font-family:inherit;border:1px solid;transition:all 0.18s;white-space:nowrap;}
+    .tw-pres-btn.cam{background:rgba(16,212,142,0.08);border-color:rgba(16,212,142,0.25);color:var(--iris);}
+    .tw-pres-btn.cam.off{opacity:0.4;}
+    .tw-pres-btn.mic{background:rgba(34,211,238,0.08);border-color:rgba(34,211,238,0.2);color:var(--iq);}
+    .tw-pres-btn.mic.off{opacity:0.4;}
+    .tw-pres-btn.hand{background:var(--glass);border-color:var(--border-s);color:var(--dim);}
+    .tw-pres-btn.hand.raised{background:rgba(245,158,11,0.1);border-color:rgba(245,158,11,0.35);color:var(--amber);}
+    .tw-ws-dot{font-size:9px;color:var(--dim2);flex-shrink:0;transition:color 0.3s;}
+    .tw-ws-dot.conn{color:var(--iris);}
   </style>
 </head>
 <body>
@@ -323,9 +420,25 @@
 
   <!-- PLAN CENTRAL VIVANT -->
   <div id="twCanvas">
+    <div id="twCtxBar">
+      <span id="twCtxMsg">Iris prépare la salle. Activez caméra et micro avant de commencer.</span>
+      <span id="twCtxStep">Étape 1 · Entrée</span>
+    </div>
     <div id="twCanvasInner">
       <div class="tw-canvas-grid"></div>
       <div id="twGrid"></div>
+      <div id="twEmptyState">
+        <svg class="tw-es-icon" width="48" height="48" viewBox="0 0 48 48" fill="none"><circle cx="24" cy="24" r="20" stroke="rgba(180,195,220,0.5)" stroke-width="1.5" stroke-dasharray="4 3"/><circle cx="24" cy="24" r="6" stroke="rgba(16,212,142,0.5)" stroke-width="1.2"/></svg>
+        <div class="tw-es-msg" id="twEmptyMsg">Aucun élément à afficher pour cette étape.</div>
+        <div class="tw-es-sub" id="twEmptySub">Les objets apparaîtront selon la progression de la réunion.</div>
+      </div>
+      <!-- ÉTATS SPÉCIAUX -->
+      <div id="twWelcomeState" class="tw-sstate"></div>
+      <div id="twBriefState" class="tw-sstate"></div>
+      <div id="twLunaState" class="tw-sstate"></div>
+      <div id="twValidationState" class="tw-sstate"></div>
+      <div id="twExportState" class="tw-sstate"></div>
+      <div id="twDistroState" class="tw-sstate"></div>
     </div>
   </div>
 
@@ -334,6 +447,12 @@
 
   <!-- CONTEXTUAL ACTIONS BAR -->
   <div id="twActionsBar">
+    <div id="twPresenceControls">
+      <button class="tw-pres-btn cam off" id="btnCam" onclick="toggleCam()">Caméra</button>
+      <button class="tw-pres-btn mic off" id="btnMic" onclick="toggleMic()">Micro</button>
+      <button class="tw-pres-btn hand" id="btnHand" onclick="raiseHand()">✋</button>
+    </div>
+    <span class="tw-ws-dot" id="twWsDot" title="Déconnecté">●</span>
     <span class="tw-act-lbl" id="twActLbl">Collecte —</span>
     <div id="twActBtns"></div>
   </div>
@@ -344,6 +463,29 @@
     <div id="twSpecList"></div>
   </div>
 
+</div>
+
+<!-- SETUP MODAL — identité participant -->
+<div class="tw-modal" id="setupModal">
+  <div class="tw-mbox">
+    <div class="tw-mhdr">
+      <div class="tw-mtitle"><div class="tw-mdot i"></div>Rejoindre la salle</div>
+    </div>
+    <div class="tw-mbody">
+      <div class="tw-mfield"><label class="tw-mlbl" for="setupName">Votre prénom</label><input id="setupName" class="tw-minput" type="text" placeholder="Alice Martin…" maxlength="60" autocomplete="given-name"></div>
+      <div class="tw-mfield" style="margin-top:10px">
+        <label class="tw-mlbl">Rôle dans la session</label>
+        <div class="tw-type-row" style="margin-top:6px">
+          <button class="tw-topt p sel" id="role-participant" onclick="setRole('participant')">Participant</button>
+          <button class="tw-topt d" id="role-owner" onclick="setRole('owner')">Owner</button>
+          <button class="tw-topt s" id="role-spectator" onclick="setRole('spectator')">Spectateur</button>
+        </div>
+      </div>
+    </div>
+    <div class="tw-mfooter">
+      <button class="tw-mbtn primary iris" onclick="joinRoom()">Rejoindre →</button>
+    </div>
+  </div>
 </div>
 
 <!-- BRIEF MODAL -->
@@ -379,10 +521,10 @@
       <div class="tw-mfield">
         <label class="tw-mlbl">Type d'objet</label>
         <div class="tw-type-row">
-          <button class="tw-topt p sel" data-k="p" onclick="selType('prop','p')">Proposition</button>
-          <button class="tw-topt s"     data-k="s" onclick="selType('source','s')">Source</button>
-          <button class="tw-topt d"     data-k="d" onclick="selType('decision','d')">Décision</button>
-          <button class="tw-topt a"     data-k="a" onclick="selType('action','a')">Action</button>
+          <button class="tw-topt p sel" data-k="p" data-type="prop"     onclick="selType('prop','p')">Proposition</button>
+          <button class="tw-topt s"     data-k="s" data-type="source"   onclick="selType('source','s')">Source</button>
+          <button class="tw-topt d"     data-k="d" data-type="decision" onclick="selType('decision','d')">Décision</button>
+          <button class="tw-topt a"     data-k="a" data-type="action"   onclick="selType('action','a')">Action</button>
         </div>
       </div>
       <div class="tw-mfield"><label class="tw-mlbl" for="objTitle">Titre</label><input id="objTitle" class="tw-minput" type="text" placeholder="Décris l'élément…" maxlength="120" autocomplete="off"></div>
@@ -410,12 +552,16 @@
       </div>
       <!-- FILE -->
       <div id="src-file">
-        <div style="border:1.5px dashed rgba(34,211,238,0.22);border-radius:8px;padding:24px;text-align:center;color:var(--dim);margin-bottom:10px;">
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--iq)" stroke-width="1.4" style="margin:0 auto 8px;display:block"><path d="M7 16a4 4 0 01-.88-7.9A5 5 0 1115.9 6H16a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
-          <div style="font-size:10px;font-weight:600;color:var(--dim);">PDF · DOCX · XLSX · TXT · PNG · JPG</div>
-          <div style="font-size:9px;color:var(--dim2);margin-top:4px;">Upload réel disponible en Phase P0.3</div>
+        <label class="tw-file-zone" for="srcFileInput" id="twFileZone">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--iq)" stroke-width="1.4" style="margin:0 auto 6px;display:block"><path d="M7 16a4 4 0 01-.88-7.9A5 5 0 1115.9 6H16a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+          <div class="tw-fz-txt">Cliquez pour sélectionner un fichier</div>
+          <div class="tw-fz-sub">PDF · DOCX · XLSX · PNG · JPG — max 20 Mo</div>
+          <input type="file" id="srcFileInput" accept=".pdf,.docx,.xlsx,.png,.jpg,.jpeg" style="display:none" onchange="onFileSelect(event)">
+        </label>
+        <div id="twFileInfo">
+          <div id="twFileName"></div>
+          <div id="twFileSize"></div>
         </div>
-        <div class="tw-mfield"><label class="tw-mlbl" for="srcFName">Nom du document</label><input id="srcFName" class="tw-minput" type="text" placeholder="Rapport annuel BNP 2025…" maxlength="120" autocomplete="off"></div>
       </div>
       <!-- URL -->
       <div id="src-url" style="display:none">
@@ -448,6 +594,7 @@
       <div>
         <div class="tw-ov-title" id="twOvTitle">Iris analyse</div>
         <div class="tw-ov-sub"   id="twOvSub">En cours…</div>
+        <div class="tw-ov-phase">Démonstration — Phase P1</div>
       </div>
     </div>
     <div class="tw-wave"><div class="tw-wb"></div><div class="tw-wb"></div><div class="tw-wb"></div><div class="tw-wb"></div><div class="tw-wb"></div></div>
@@ -470,8 +617,44 @@ var STEPS=[
   {id:7,lbl:'Débat'},{id:8,lbl:'Refonte Iris'},{id:9,lbl:'Comparaison IQ'},
   {id:10,lbl:'Recommandation Luna'},{id:11,lbl:'Validation'},{id:12,lbl:'Livrable'},{id:13,lbl:'Distribution'},
 ];
-var TW={step:3,brief:null,objects:[],sources:[],selType:'prop',selTypeK:'p',srcTab:'file'};
+var TW={
+  step:3,brief:null,objects:[],sources:[],selType:'prop',selTypeK:'p',srcTab:'file',
+  sessionId:(function(){
+    /* URL param ?room=xxx prioritaire (partage inter-navigateurs) */
+    var url=new URLSearchParams(window.location.search);
+    var room=url.get('room');
+    if(room)return room.replace(/[^a-zA-Z0-9_-]/g,'').slice(0,64)||'demo';
+    var k='luna_team_sid';var id=localStorage.getItem(k);
+    if(!id){id='tw_'+Math.random().toString(36).slice(2,12);localStorage.setItem(k,id);}
+    return id;
+  })(),
+  userId:(function(){
+    /* sessionStorage = isolé par onglet → deux onglets = deux users distincts */
+    var k='luna_tw_uid';var id=sessionStorage.getItem(k);
+    if(!id){id='u_'+Math.random().toString(36).slice(2,11);sessionStorage.setItem(k,id);}
+    return id;
+  })(),
+  userName:localStorage.getItem('luna_tw_name')||'',
+  userRole:localStorage.getItem('luna_tw_role')||'participant',
+  userIni:'',
+  handRaised:false,
+  wsConnected:false,
+  _selectedRole:'participant',
+};
+TW.userIni=TW.userName?TW.userName.trim().split(' ').map(function(w){return w[0]||'';}).join('').slice(0,2).toUpperCase():'ME';
 var _nid=10;
+var _selectedFile=null;
+
+/* === WebSocket + WebRTC globals === */
+var _ws=null;
+var _remoteParticipants={};  // user_id -> info
+var _peers={};               // user_id -> RTCPeerConnection
+var _localStream=null;
+var _micOn=false;
+var _camOn=false;
+var _lastSpeak=false;
+var _speakCtx=null;
+var _speakAnalyser=null;
 
 var SEATS_TOP=[
   {id:'alice', name:'Alice M.',  ini:'AM',role:'participant',mic:true, cam:false,speaking:false},
@@ -520,17 +703,70 @@ function renderStepper(){
       d.className='tw-step-dot'+(s.id<TW.step?' done':'');
       d.title=s.id+'. '+s.lbl;
     }
-    (function(sid,slbl){d.onclick=function(){if(sid<=TW.step+1){TW.step=sid;renderStepper();renderActions();toast('Étape : '+slbl,1800);}else{toast('Complète d\'abord l\'étape '+(TW.step)+'.',2200);}}})(s.id,s.lbl);
+    (function(sid,slbl){d.onclick=function(){
+      if(TW.wsConnected&&TW.userRole!=='owner'){toast('Seul l\'owner pilote les étapes.',2200);return;}
+      if(sid<=TW.step+1){TW.step=sid;wsSend({type:'step_change',step:sid});renderStepper();applyCanvasState(sid);toast('Étape : '+slbl,1800);}
+      else{toast('Complète d\'abord l\'étape '+(TW.step)+'.',2200);}
+    };})(s.id,s.lbl);
     track.appendChild(d);
   });
   document.getElementById('twStepNum').textContent=TW.step;
 }
 function stepNav(dir){
+  if(TW.wsConnected&&TW.userRole!=='owner'){toast('Seul l\'owner pilote les étapes.',2200);return;}
   var n=TW.step+dir;
   if(n<1||n>13)return;
-  TW.step=n;renderStepper();renderActions();
+  TW.step=n;wsSend({type:'step_change',step:n});renderStepper();applyCanvasState(n);
   toast('Étape '+n+' — '+STEPS[n-1].lbl,1800);
 }
+
+/* ============================================================
+   CANVAS STATE ENGINE — pilote le contenu par étape
+   ============================================================ */
+var CANVAS_STATE={
+  1:{allowed:[],display:{},layout:'welcome',
+     ctxMsg:'Iris prépare la salle stratégique. Activez caméra et micro avant de commencer.',
+     iris:'waiting',iq:'waiting',luna:'waiting',canAdd:[]},
+  2:{allowed:[],display:{},layout:'brief',
+     ctxMsg:'Définissez la mission : titre, objectif et livrable attendu.',
+     iris:'preparing',iq:'waiting',luna:'waiting',canAdd:[]},
+  3:{allowed:['prop','source'],display:{prop:'edit',source:'hidden',action:'hidden',decision:'hidden',synthesis:'hidden'},layout:'grid',
+     ctxMsg:'Collecte des propositions. Chaque participant dépose ses idées librement.',
+     iris:'waiting',iq:'waiting',luna:'waiting',canAdd:['prop']},
+  4:{allowed:['prop','synthesis'],display:{prop:'read',synthesis:'edit',source:'hidden',action:'hidden',decision:'hidden'},layout:'grid',
+     ctxMsg:'Iris organise les propositions en thèmes. Vérifiez les groupes proposés.',
+     iris:'active',iq:'waiting',luna:'waiting',canAdd:[]},
+  5:{allowed:['prop','synthesis'],display:{prop:'vote',synthesis:'read',source:'hidden',action:'hidden',decision:'hidden'},layout:'grid',
+     ctxMsg:'Votez pour le thème prioritaire. Le groupe le plus voté sera approfondi.',
+     iris:'done',iq:'waiting',luna:'waiting',canAdd:[]},
+  6:{allowed:['prop','source','synthesis'],display:{prop:'read',source:'edit',synthesis:'read',action:'hidden',decision:'hidden'},layout:'grid',
+     ctxMsg:'Analyse IQ. Importez vos sources. IQ extraira risques et opportunités.',
+     iris:'done',iq:'active',luna:'waiting',canAdd:['source']},
+  7:{allowed:['prop','source','action'],display:{prop:'read',source:'read',action:'edit',synthesis:'dim',decision:'hidden'},layout:'grid',
+     ctxMsg:'Débat. Ajoutez vos objections et arguments structurés.',
+     iris:'waiting',iq:'done',luna:'waiting',canAdd:['action']},
+  8:{allowed:['prop','synthesis'],display:{prop:'dim',synthesis:'edit',source:'hidden',action:'hidden',decision:'hidden'},layout:'grid',
+     ctxMsg:'Refonte Iris. La proposition V1 est en fond. Iris intègre les objections.',
+     iris:'active',iq:'waiting',luna:'waiting',canAdd:[]},
+  9:{allowed:['prop','synthesis'],display:{prop:'read',synthesis:'read',source:'hidden',action:'hidden',decision:'hidden'},layout:'grid',
+     ctxMsg:'Comparaison IQ. Analysez V1 et V2 avant la recommandation stratégique.',
+     iris:'done',iq:'active',luna:'waiting',canAdd:[]},
+  10:{allowed:['synthesis'],display:{synthesis:'focus',prop:'hidden',source:'hidden',action:'hidden',decision:'hidden'},layout:'luna',
+     ctxMsg:'Recommandation Luna. Luna formule la conclusion stratégique de la session.',
+     iris:'done',iq:'done',luna:'active',canAdd:[]},
+  11:{allowed:['synthesis','decision'],display:{synthesis:'read',decision:'edit',prop:'hidden',source:'hidden',action:'hidden'},layout:'validation',
+     ctxMsg:'Validation finale. Acceptez la décision ou retournez en refonte.',
+     iris:'done',iq:'done',luna:'done',canAdd:[]},
+  12:{allowed:['decision'],display:{decision:'read',prop:'hidden',source:'hidden',action:'hidden',synthesis:'hidden'},layout:'export',
+     ctxMsg:'Livrable. Iris formate le document final. Générez et téléchargez.',
+     iris:'active',iq:'done',luna:'done',canAdd:[]},
+  13:{allowed:['decision'],display:{decision:'read',prop:'hidden',source:'hidden',action:'hidden',synthesis:'hidden'},layout:'distro',
+     ctxMsg:'Distribution. Envoyez le livrable aux participants et archivez la session.',
+     iris:'done',iq:'done',luna:'done',canAdd:[]},
+};
+
+/* Votes per object (step 5) */
+var _votes={};
 
 /* ============================================================
    CONTEXTUAL ACTIONS
@@ -539,21 +775,22 @@ var STEP_ACTS={
   1:{lbl:'Entrée —',acts:[{cls:'i',lbl:'Activer présence',fn:function(){toast('Caméra / micro disponibles en Phase P0.2.',2400);}}]},
   2:{lbl:'Brief —',acts:[{cls:'l',lbl:'Définir le brief',fn:function(){openModal('briefModal');}}]},
   3:{lbl:'Collecte —',acts:[
-    {cls:'i',lbl:'Proposition',fn:function(){openAdd('prop','p');}},
-    {cls:'q',lbl:'Source',    fn:function(){openModal('sourceModal');}},
-    {cls:'n',lbl:'Décision',  fn:function(){openAdd('decision','d');}},
-    {cls:'n',lbl:'Action',    fn:function(){openAdd('action','a');}},
+    {cls:'i',lbl:'Proposition',   fn:function(){openAdd('prop','p');}},
+    {cls:'q',lbl:'Importer source',fn:function(){openModal('sourceModal');}},
   ]},
   4:{lbl:'Organisation Iris —',acts:[{cls:'i',lbl:'Déclencher Iris',fn:function(){launchOv('org');}}]},
   5:{lbl:'Vote priorité —',acts:[{cls:'l',lbl:'Lancer le vote',fn:function(){toast('Vote multi-participants disponible en Phase P0.4.',2400);}}]},
-  6:{lbl:'Analyse IQ —',acts:[{cls:'q',lbl:'Demander analyse IQ',fn:function(){launchOv('iq');}}]},
-  7:{lbl:'Débat —',acts:[{cls:'n',lbl:'Ajouter objection',fn:function(){openAdd('prop','p');}}]},
+  6:{lbl:'Analyse IQ —',acts:[
+    {cls:'q',lbl:'Importer source',  fn:function(){openModal('sourceModal');}},
+    {cls:'q',lbl:'Analyser avec IQ', fn:function(){launchOv('iq');}},
+  ]},
+  7:{lbl:'Débat —',acts:[{cls:'n',lbl:'Ajouter objection',fn:function(){openAdd('action','a');}}]},
   8:{lbl:'Refonte Iris —',acts:[{cls:'i',lbl:'Demander refonte',fn:function(){launchOv('refonte');}}]},
   9:{lbl:'Comparaison IQ —',acts:[{cls:'q',lbl:'Comparer versions',fn:function(){launchOv('compare');}}]},
-  10:{lbl:'Recommandation Luna —',acts:[{cls:'l',lbl:'Recommandation Luna',fn:function(){launchOv('luna');}}]},
+  10:{lbl:'Recommandation Luna —',acts:[{cls:'l',lbl:'Demander recommandation',fn:function(){launchOv('luna');}}]},
   11:{lbl:'Validation —',acts:[
-    {cls:'l',lbl:'Valider la décision',fn:function(){toast('Décision validée. Passage au livrable.',2200);TW.step=12;renderStepper();renderActions();}},
-    {cls:'n',lbl:'Retour en refonte',  fn:function(){TW.step=8;renderStepper();renderActions();toast('Retour à l\'étape Refonte.',1800);}},
+    {cls:'l',lbl:'Valider la décision',fn:function(){validateDecision();}},
+    {cls:'n',lbl:'Retour en refonte',  fn:function(){TW.step=8;renderStepper();applyCanvasState(8);toast('Retour à l\'étape Refonte.',1800);}},
   ]},
   12:{lbl:'Livrable —',acts:[{cls:'l',lbl:'Générer livrable',fn:function(){toast('Export PDF/Word disponible en Phase P2.',2400);}}]},
   13:{lbl:'Distribution —',acts:[{cls:'i',lbl:'Distribuer',fn:function(){toast('Distribution disponible en Phase P2.',2400);}}]},
@@ -595,6 +832,7 @@ function makeSeat(p){
       '<button class="tw-smi danger" onclick="seatAct(\'ban\',\''+p.id+'\')">Exclure (UI)</button>'+
       '</div>';
   }
+  var aiSt=p.ai?'<div class="tw-ai-st s-waiting cr-'+p.role+'" data-ai-seat="'+p.role+'">En attente</div>':'';
   d.innerHTML=adminMenu+
     '<div class="tw-seat-halo"></div>'+
     '<div class="tw-seat-cam"><div class="tw-seat-av '+avCls+'">'+_e(p.ini)+'</div></div>'+
@@ -602,10 +840,12 @@ function makeSeat(p){
       '<div class="tw-seat-name">'+_e(p.name)+'</div>'+
       '<div class="tw-seat-role '+roleCls+'">'+_e(roleLabels[p.role]||p.role)+'</div>'+
       '<div class="tw-seat-icons">'+micHtml+'</div>'+
+      aiSt+
     '</div>';
   return d;
 }
 function renderSeats(){
+  if(TW.wsConnected){renderLiveSeats();return;}
   var top=document.getElementById('twSeatsTop');
   var bot=document.getElementById('twSeatsBottom');
   top.innerHTML='<span class="tw-prow-lbl">Participants</span>';
@@ -614,7 +854,17 @@ function renderSeats(){
   SEATS_BOT.forEach(function(p){bot.appendChild(makeSeat(p));});
   updateStats();
 }
-function seatAct(action,pid){toast('Action "'+action+'" sur '+pid+' — UI uniquement, sans effet réel.',2600);}
+function seatAct(action,uid){
+  var map={
+    'hand_down':     'force_hand_down',
+    'mute':          'force_mute',
+    'request_unmute':'request_unmute',
+    'to_spectator':  'to_spectator',
+    'to_participant':'to_participant'
+  };
+  if(map[action])wsSend({type:'owner_action',action:map[action],target_id:uid});
+  document.querySelectorAll('.tw-seat.smenu-open').forEach(function(s){s.classList.remove('smenu-open');});
+}
 
 /* ============================================================
    SPECTATORS
@@ -653,24 +903,66 @@ function initObjects(){
   TW.sources=[{type:'file',label:'Rapport BNP Paribas 2025',by:'Alice M.'}];
 }
 function renderObjects(){
+  var state=CANVAS_STATE[TW.step];
   var grid=document.getElementById('twGrid');
+  var empty=document.getElementById('twEmptyState');
+  if(!grid)return;
   grid.innerHTML='';
-  TW.objects.forEach(function(obj){
+
+  var visible=TW.objects.filter(function(obj){
+    var mode=(state&&state.display[obj.type])||'hidden';
+    return mode!=='hidden';
+  });
+
+  if(!visible.length){
+    grid.style.display='none';
+    if(empty)empty.style.display='flex';
+    return;
+  }
+  grid.style.display='grid';
+  if(empty)empty.style.display='none';
+
+  visible.forEach(function(obj){
+    var mode=(state&&state.display[obj.type])||'edit';
+    var canDel=(mode==='edit');
     var d=document.createElement('div');
-    d.className='tw-obj '+obj.type;
+    d.className='tw-obj '+obj.type+' mode-'+mode;
+    var modeBadge=mode==='dim'?'<span class="tw-obj-mode-tag">V1</span>':
+                  mode==='read'?'<span class="tw-obj-mode-tag">Lecture</span>':'';
+    var voteHtml=mode==='vote'?
+      '<div class="tw-obj-vote">'+
+        '<button class="tw-vote-btn'+((_votes[obj.id]||0)>0?' voted':'')+'" onclick="voteFor('+obj.id+',event)">'+
+          ((_votes[obj.id]||0)>0?'Voté ✓':'Voter')+
+        '</button>'+
+        '<span class="tw-vote-count" id="vc-'+obj.id+'">'+((_votes[obj.id]||0))+'</span>'+
+      '</div>':'';
     d.innerHTML=
-      '<button class="tw-obj-del" onclick="deleteObj('+obj.id+',event)">✕</button>'+
-      '<div class="tw-obj-type">'+typeIcon(obj.type)+'<span class="tw-obj-lbl '+obj.type+'">'+TLBL[obj.type]+'</span></div>'+
+      (canDel?'<button class="tw-obj-del" onclick="deleteObj('+obj.id+',event)">✕</button>':'')+
+      '<div class="tw-obj-type">'+typeIcon(obj.type)+
+        '<span class="tw-obj-lbl '+obj.type+'">'+TLBL[obj.type]+'</span>'+modeBadge+
+      '</div>'+
       '<div class="tw-obj-title">'+_e(obj.title)+'</div>'+
       (obj.detail?'<div class="tw-obj-detail">'+_e(obj.detail)+'</div>':'')+
-      '<div class="tw-obj-meta"><span>'+_e(obj.by)+'</span><span>'+_ago(obj.ts)+'</span></div>';
-    d.addEventListener('click',function(e){if(!e.target.classList.contains('tw-obj-del'))toast(TLBL[obj.type]+' : '+obj.title.substring(0,55),1800);});
+      '<div class="tw-obj-meta"><span>'+_e(obj.by)+'</span><span>'+_ago(obj.ts)+'</span></div>'+
+      voteHtml;
+    d.addEventListener('click',function(e){
+      if(!e.target.classList.contains('tw-obj-del')&&!e.target.classList.contains('tw-vote-btn'))
+        toast(TLBL[obj.type]+' : '+obj.title.substring(0,55),1800);
+    });
     grid.appendChild(d);
   });
+}
+function voteFor(id,e){
+  e.stopPropagation();
+  _votes[id]=(_votes[id]||0)+1;
+  wsSend({type:'vote',object_id:id});
+  renderObjects();
+  toast('Vote enregistré.',1800);
 }
 function deleteObj(id,e){
   e.stopPropagation();
   TW.objects=TW.objects.filter(function(o){return o.id!==id;});
+  wsSend({type:'object_delete',id:id});
   renderObjects();updateStats();
 }
 
@@ -678,8 +970,25 @@ function deleteObj(id,e){
    ADD OBJECT
    ============================================================ */
 function openAdd(type,k){
-  TW.selType=type;TW.selTypeK=k||'p';
-  openModal('addModal');selType(type,TW.selTypeK);
+  var state=CANVAS_STATE[TW.step];
+  var allowed=state&&state.canAdd.length?state.canAdd:null;
+  /* Filtrer les boutons de type selon canAdd */
+  document.querySelectorAll('.tw-topt[data-type]').forEach(function(btn){
+    var t=btn.dataset.type;
+    if(allowed&&allowed.indexOf(t)<0){btn.classList.add('hidden');}
+    else{btn.classList.remove('hidden');}
+  });
+  /* Si le type demandé est interdit, utiliser le premier autorisé */
+  var finalType=type;var finalK=k||'p';
+  if(allowed&&allowed.indexOf(type)<0){
+    finalType=allowed[0]||type;
+    var kmap={prop:'p',source:'s',decision:'d',action:'a'};
+    finalK=kmap[finalType]||'p';
+  }
+  TW.selType=finalType;TW.selTypeK=finalK;
+  openModal('addModal');selType(finalType,finalK);
+  document.getElementById('objTitle').value='';
+  (document.getElementById('objDetail')||{value:''}).value='';
 }
 function selType(type,k){
   TW.selType=type;TW.selTypeK=k;
@@ -690,8 +999,14 @@ function selType(type,k){
 function confirmAddObj(){
   var title=((document.getElementById('objTitle')||{}).value||'').trim();
   if(!title){toast('Titre requis.',2000);return;}
+  var state=CANVAS_STATE[TW.step];
+  if(state&&state.canAdd.length&&state.canAdd.indexOf(TW.selType)<0){
+    toast('Impossible d\'ajouter "'+TLBL[TW.selType]+'" à cette étape.',2600);return;
+  }
   var detail=((document.getElementById('objDetail')||{}).value||'').trim();
-  TW.objects.push({id:_nid++,type:TW.selType,title:title,detail:detail,by:'Ludovic',ts:Date.now()});
+  var newObj={id:_nid++,type:TW.selType,title:title,detail:detail,by:TW.userName||'Ludovic',ts:Date.now()};
+  TW.objects.push(newObj);
+  wsSend({type:'object_add',object:newObj});
   renderObjects();closeModal('addModal');updateStats();
   document.getElementById('objTitle').value='';
   document.getElementById('objDetail').value='';
@@ -709,17 +1024,79 @@ function selSrcTab(t){
     document.getElementById('src-'+s).style.display=s===t?'':'none';
   });
 }
-function confirmAddSource(){
-  var label='',type=TW.srcTab;
-  if(type==='file') label=((document.getElementById('srcFName')||{}).value||'').trim();
-  if(type==='url')  label=((document.getElementById('srcUrlT')||{}).value||((document.getElementById('srcUrl')||{}).value||'')).trim();
-  if(type==='note') label=((document.getElementById('srcNoteT')||{}).value||'').trim();
-  if(!label){toast('Remplis le titre ou l\'URL.',2200);return;}
-  TW.sources.push({type:type,label:label,by:'Ludovic'});
-  TW.objects.push({id:_nid++,type:'source',title:label,detail:'',by:'Ludovic',ts:Date.now()});
+function _fmtSize(b){if(b<1024)return b+' o';if(b<1048576)return(b/1024).toFixed(1)+' Ko';return(b/1048576).toFixed(1)+' Mo';}
+function onFileSelect(e){
+  var file=e.target.files[0];if(!file)return;
+  if(file.size>20971520){toast('Fichier trop volumineux (max 20 Mo).',2600);e.target.value='';return;}
+  _selectedFile=file;
+  document.getElementById('twFileName').textContent=file.name;
+  document.getElementById('twFileSize').textContent=_fmtSize(file.size)+' · '+file.name.split('.').pop().toUpperCase();
+  document.getElementById('twFileInfo').style.display='block';
+  document.getElementById('twFileZone').classList.add('has-file');
+}
+function _srcToast(label,visible){
+  if(visible)toast('"'+label.substring(0,36)+'" importée.',2200);
+  else toast('"'+label.substring(0,36)+'" stockée — réapparaîtra à l\'étape Analyse IQ.',3000);
+}
+function _srcFinalize(label,type,detail){
+  var by=TW.userName||'Ludovic';
+  TW.sources.push({type:type,label:label,by:by});
+  var srcObj={id:_nid++,type:'source',title:label,detail:detail||'',by:by,ts:Date.now()};
+  TW.objects.push(srcObj);
+  wsSend({type:'object_add',object:srcObj});
+  var visible=(CANVAS_STATE[TW.step]||{}).display&&CANVAS_STATE[TW.step].display['source']!=='hidden';
   renderObjects();updateStats();closeModal('sourceModal');
-  toast('"'+label.substring(0,36)+'" importé.',2000);
-  console.log('[TW] source_added type='+type+' label='+label);
+  _srcToast(label,visible);
+}
+function confirmAddSource(){
+  var type=TW.srcTab;
+  /* FILE — upload réel */
+  if(type==='file'){
+    if(!_selectedFile){toast('Sélectionne un fichier.',2200);return;}
+    var btn=document.querySelector('#sourceModal .tw-mbtn.primary');
+    if(btn){btn.textContent='Envoi…';btn.disabled=true;}
+    var fd=new FormData();
+    fd.append('file',_selectedFile);
+    fd.append('session_id',TW.sessionId);
+    fetch('/api/team/upload-source',{method:'POST',body:fd})
+      .then(function(r){return r.json();})
+      .then(function(data){
+        if(btn){btn.textContent='Importer';btn.disabled=false;}
+        if(data.error){toast('Erreur : '+data.error,3000);return;}
+        _selectedFile=null;
+        var inp=document.getElementById('srcFileInput');if(inp)inp.value='';
+        document.getElementById('twFileInfo').style.display='none';
+        document.getElementById('twFileZone').classList.remove('has-file');
+        _srcFinalize(data.filename,'file',_fmtSize(data.size)+' · '+data.ext.replace('.','').toUpperCase());
+        console.log('[TW] source_uploaded id='+data.id+' file='+data.filename);
+      })
+      .catch(function(){
+        if(btn){btn.textContent='Importer';btn.disabled=false;}
+        toast('Erreur réseau. Réessaie.',2600);
+      });
+    return;
+  }
+  /* URL — stockage direct */
+  if(type==='url'){
+    var url=((document.getElementById('srcUrl')||{}).value||'').trim();
+    var urlTitle=((document.getElementById('srcUrlT')||{}).value||'').trim()||url;
+    if(!urlTitle){toast('URL ou titre requis.',2200);return;}
+    (document.getElementById('srcUrl')||{value:''}).value='';
+    (document.getElementById('srcUrlT')||{value:''}).value='';
+    _srcFinalize(urlTitle,'url',url);
+    console.log('[TW] source_added type=url');
+    return;
+  }
+  /* NOTE — stockage direct */
+  if(type==='note'){
+    var noteTitle=((document.getElementById('srcNoteT')||{}).value||'').trim();
+    var noteBody=((document.getElementById('srcNoteB')||{}).value||'').trim();
+    if(!noteTitle){toast('Titre de la note requis.',2200);return;}
+    (document.getElementById('srcNoteT')||{value:''}).value='';
+    (document.getElementById('srcNoteB')||{value:''}).value='';
+    _srcFinalize(noteTitle,'note',noteBody.substring(0,120));
+    console.log('[TW] source_added type=note');
+  }
 }
 
 /* ============================================================
@@ -730,10 +1107,12 @@ function applyBrief(){
   var b={title:g('bfTitle'),domain:g('bfDomain'),objective:g('bfObj'),context:g('bfCtx'),deliverable:g('bfDel'),ext:!!(document.getElementById('bfExt')||{}).checked};
   if(!b.title&&!b.objective){toast('Titre ou objectif requis.',2200);return;}
   TW.brief=b;
+  wsSend({type:'brief_set',brief:b});
   closeModal('briefModal');
   document.getElementById('twBriefBtn').classList.add('active');
   if(b.title)document.getElementById('twSessionTitle').textContent=b.title;
-  if(TW.step===2){TW.step=3;renderStepper();renderActions();}
+  if(TW.step===2){TW.step=3;renderStepper();applyCanvasState(3);}
+  else{applyCanvasState(TW.step);}
   toast('Brief "'+( b.title||b.domain||'Mission')+'" validé.',2400);
   console.log('[TW] brief_ready true title='+b.title);
 }
@@ -791,7 +1170,12 @@ function mOvl(e,id){if(!document.querySelector('#'+id+' .tw-mbox').contains(e.ta
    UTILS
    ============================================================ */
 function updateStats(){
-  var tot=SEATS_TOP.length+SEATS_BOT.filter(function(s){return !s.ai;}).length;
+  var tot;
+  if(TW.wsConnected){
+    tot=1+Object.values(_remoteParticipants).filter(function(p){return p.role!=='spectator';}).length;
+  }else{
+    tot=SEATS_TOP.length+SEATS_BOT.filter(function(s){return !s.ai;}).length;
+  }
   var ps=document.getElementById('twPStat');if(ps)ps.innerHTML='<strong>'+tot+'</strong> participants';
   var ss=document.getElementById('twSStat');if(ss)ss.innerHTML='<strong>'+TW.sources.length+'</strong> sources';
 }
@@ -801,6 +1185,786 @@ var _tt=null;
 function toast(msg,dur){var el=document.getElementById('twToast');if(!el)return;el.textContent=msg;el.classList.add('on');clearTimeout(_tt);_tt=setTimeout(function(){el.classList.remove('on');},dur||2200);}
 
 /* ============================================================
+   CANVAS STATE ENGINE — apply
+   ============================================================ */
+function applyCanvasState(step){
+  var state=CANVAS_STATE[step];
+  if(!state)return;
+
+  /* context bar */
+  var ctxMsg=document.getElementById('twCtxMsg');
+  var ctxStep=document.getElementById('twCtxStep');
+  if(ctxMsg)ctxMsg.textContent=state.ctxMsg;
+  if(ctxStep)ctxStep.textContent='Étape '+step+' · '+STEPS[step-1].lbl;
+
+  /* reset all special states + grid */
+  var grid=document.getElementById('twGrid');
+  var empty=document.getElementById('twEmptyState');
+  ['twWelcomeState','twBriefState','twLunaState','twValidationState','twExportState','twDistroState'].forEach(function(id){
+    var el=document.getElementById(id);if(el)el.classList.remove('on');
+  });
+  if(grid)grid.style.display='none';
+  if(empty)empty.style.display='none';
+
+  /* render layout */
+  switch(state.layout){
+    case 'welcome':    _ssWelcome(); break;
+    case 'brief':      _ssBrief(); break;
+    case 'luna':       _ssLuna(); break;
+    case 'validation': _ssValidation(); break;
+    case 'export':     _ssExport(); break;
+    case 'distro':     _ssDistro(); break;
+    default:           if(grid)grid.style.display='grid'; renderObjects(); break;
+  }
+
+  /* actions bar */
+  renderActions();
+
+  /* AI seat statuses */
+  updateAiSeats(state);
+
+  console.log('[TW] canvas_state step='+step+' layout='+state.layout+' canAdd='+JSON.stringify(state.canAdd));
+}
+
+function updateAiSeats(state){
+  var map={iris:state.iris,iq:state.iq,luna:state.luna};
+  var lbl={waiting:'En attente',preparing:'Prépare…',active:'Active',done:'Terminé'};
+  Object.keys(map).forEach(function(role){
+    var st=map[role];
+    var chips=document.querySelectorAll('[data-ai-seat="'+role+'"]');
+    chips.forEach(function(chip){
+      chip.textContent=lbl[st]||st;
+      chip.className='tw-ai-st s-'+st+' cr-'+role;
+    });
+    var seats=document.querySelectorAll('.tw-seat.ai-'+role);
+    seats.forEach(function(s){
+      s.classList.remove('seat-active-iris','seat-active-iq','seat-active-luna');
+      if(st==='active')s.classList.add('seat-active-'+role);
+    });
+  });
+}
+
+/* === Special state renderers === */
+function _showSS(id,html){
+  var el=document.getElementById(id);
+  if(!el)return;
+  el.innerHTML=html;
+  el.classList.add('on');
+}
+function _ssWelcome(){
+  _showSS('twWelcomeState',
+    '<div class="tw-sstate-icon" style="background:var(--iris-d);border:1px solid rgba(16,212,142,0.25)">'+
+      '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--iris)" stroke-width="1.4">'+
+        '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/><line x1="12" y1="1" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="23"/><line x1="1" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="23" y2="12"/>'+
+      '</svg>'+
+    '</div>'+
+    '<div class="tw-sstate-title">Iris prépare la salle</div>'+
+    '<div class="tw-sstate-body">Vérifiez votre connexion, activez caméra et micro.<br>Quand tout le monde est prêt, passez au Brief de mission.</div>'+
+    '<div class="tw-sstate-row">'+
+      '<button class="tw-sstate-btn ghost" onclick="toast(\'Caméra disponible en Phase P0.2.\',2400)">Activer caméra</button>'+
+      '<button class="tw-sstate-btn iris" onclick="TW.step=2;renderStepper();applyCanvasState(2);toast(\'Étape 2 — Brief\',1800)">→ Brief de mission</button>'+
+    '</div>'
+  );
+}
+function _ssBrief(){
+  var brief=TW.brief;
+  var inner=brief?
+    '<div class="tw-sstate-card">'+
+      (brief.title?'<div class="tw-brief-card-field"><div class="tw-brief-card-lbl">Mission</div><div class="tw-brief-card-val">'+_e(brief.title)+'</div></div>':'')+
+      (brief.domain?'<div class="tw-brief-card-field"><div class="tw-brief-card-lbl">Domaine</div><div class="tw-brief-card-val">'+_e(brief.domain)+'</div></div>':'')+
+      (brief.objective?'<div class="tw-brief-card-field"><div class="tw-brief-card-lbl">Objectif</div><div class="tw-brief-card-val">'+_e(brief.objective)+'</div></div>':'')+
+      (brief.deliverable?'<div class="tw-brief-card-field"><div class="tw-brief-card-lbl">Livrable</div><div class="tw-brief-card-val">'+_e(brief.deliverable)+'</div></div>':'')+
+    '</div>'+
+    '<div class="tw-sstate-row">'+
+      '<button class="tw-sstate-btn ghost" onclick="openModal(\'briefModal\')">Modifier le brief</button>'+
+      '<button class="tw-sstate-btn iris" onclick="TW.step=3;renderStepper();applyCanvasState(3);toast(\'Étape 3 — Collecte\',1800)">→ Démarrer la collecte</button>'+
+    '</div>'
+  :
+    '<div class="tw-sstate-body">Le brief définit la mission, l\'objectif et le livrable attendu.<br>Il est obligatoire avant de passer à la collecte.</div>'+
+    '<div class="tw-sstate-row">'+
+      '<button class="tw-sstate-btn iris" onclick="openModal(\'briefModal\')">Définir le brief</button>'+
+    '</div>';
+  _showSS('twBriefState',
+    '<div class="tw-sstate-icon" style="background:rgba(167,139,250,0.1);border:1px solid rgba(167,139,250,0.2)">'+
+      '<svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="var(--luna)" stroke-width="1.4">'+
+        '<rect x="3" y="2" width="16" height="18" rx="2"/><line x1="7" y1="7" x2="15" y2="7"/><line x1="7" y1="11" x2="15" y2="11"/><line x1="7" y1="15" x2="11" y2="15"/>'+
+      '</svg>'+
+    '</div>'+
+    '<div class="tw-sstate-title">'+(brief?'Brief validé — '+(brief.title||brief.domain||'Mission'):'Brief de mission')+'</div>'+
+    inner
+  );
+}
+function _ssLuna(){
+  var synths=TW.objects.filter(function(o){return o.type==='synthesis';});
+  var main=synths.length?synths[synths.length-1]:null;
+  _showSS('twLunaState',
+    '<div class="tw-sstate-icon" style="background:var(--luna-d);border:1px solid rgba(167,139,250,0.3)">'+
+      '<svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="var(--luna)" stroke-width="1.4">'+
+        '<path d="M11 2l9 5v6l-9 5-9-5V7z"/>'+
+      '</svg>'+
+    '</div>'+
+    '<div class="tw-sstate-title">Recommandation Luna</div>'+
+    (main?
+      '<div class="tw-sstate-card tw-obj synthesis mode-focus">'+
+        '<div class="tw-obj-type">'+typeIcon('synthesis')+'<span class="tw-obj-lbl synthesis">'+TLBL.synthesis+'</span></div>'+
+        '<div class="tw-obj-title">'+_e(main.title)+'</div>'+
+        (main.detail?'<div class="tw-obj-detail">'+_e(main.detail)+'</div>':'')+
+        '<div class="tw-obj-meta"><span>'+_e(main.by)+'</span><span>'+_ago(main.ts)+'</span></div>'+
+      '</div>'
+    :'<div class="tw-sstate-body">Luna formule une recommandation stratégique basée sur l\'ensemble des travaux.</div>')+
+    '<div class="tw-sstate-row">'+
+      '<button class="tw-sstate-btn luna" onclick="launchOv(\'luna\')">Demander recommandation</button>'+
+    '</div>'
+  );
+}
+function _ssValidation(){
+  var decisions=TW.objects.filter(function(o){return o.type==='decision';});
+  var synths=TW.objects.filter(function(o){return o.type==='synthesis';});
+  var latestSynth=synths.length?synths[synths.length-1]:null;
+  _showSS('twValidationState',
+    '<div class="tw-sstate-title">Validation finale</div>'+
+    '<div class="tw-sstate-body">L\'équipe vote pour accepter la version finale ou retourner en refonte.</div>'+
+    (latestSynth?
+      '<div class="tw-sstate-card" style="max-width:500px">'+
+        '<div class="tw-brief-card-lbl" style="margin-bottom:6px">Version soumise au vote</div>'+
+        '<div class="tw-obj-title" style="font-size:13px">'+_e(latestSynth.title)+'</div>'+
+        (latestSynth.detail?'<div class="tw-obj-detail" style="margin-top:6px">'+_e(latestSynth.detail)+'</div>':'')+
+      '</div>':'')+
+    (decisions.length?
+      '<div class="tw-sstate-card" style="margin-top:0">'+
+        '<div class="tw-brief-card-lbl" style="margin-bottom:6px">Décision en vigueur</div>'+
+        '<div class="tw-obj-title" style="font-size:13px">'+_e(decisions[decisions.length-1].title)+'</div>'+
+      '</div>':'')+
+    '<div class="tw-sstate-row">'+
+      '<button class="tw-sstate-btn ghost" onclick="TW.step=8;renderStepper();applyCanvasState(8);toast(\'Retour en refonte.\',1800)">Retour en refonte</button>'+
+      '<button class="tw-sstate-btn iris" onclick="validateDecision()">Valider la décision</button>'+
+    '</div>'
+  );
+}
+function _ssExport(){
+  var decisions=TW.objects.filter(function(o){return o.type==='decision';});
+  _showSS('twExportState',
+    '<div class="tw-sstate-icon" style="background:var(--iris-d);border:1px solid rgba(16,212,142,0.25)">'+
+      '<svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="var(--iris)" stroke-width="1.4">'+
+        '<path d="M4 16v2a2 2 0 002 2h10a2 2 0 002-2v-2M11 3v12M7 11l4 4 4-4"/>'+
+      '</svg>'+
+    '</div>'+
+    '<div class="tw-sstate-title">Livrable Iris</div>'+
+    (decisions.length?
+      '<div class="tw-sstate-card">'+
+        '<div class="tw-brief-card-lbl" style="margin-bottom:6px">Décision validée</div>'+
+        '<div class="tw-obj-title" style="font-size:13px">'+_e(decisions[decisions.length-1].title)+'</div>'+
+        (TW.brief&&TW.brief.title?'<div class="tw-brief-card-lbl" style="margin-top:10px;margin-bottom:4px">Mission</div><div class="tw-brief-card-val">'+_e(TW.brief.title)+'</div>':'')+
+      '</div>'
+    :'<div class="tw-sstate-body">Aucune décision validée. Retournez à l\'étape Validation.</div>')+
+    '<div class="tw-sstate-row">'+
+      '<button class="tw-sstate-btn ghost" onclick="toast(\'Export PDF disponible en Phase P2.\',2400)">Exporter PDF</button>'+
+      '<button class="tw-sstate-btn ghost" onclick="toast(\'Export Word disponible en Phase P2.\',2400)">Exporter Word</button>'+
+      '<button class="tw-sstate-btn iris" onclick="TW.step=13;renderStepper();applyCanvasState(13);toast(\'Étape 13 — Distribution\',1800)">→ Distribuer</button>'+
+    '</div>'
+  );
+}
+function _ssDistro(){
+  var all=[].concat(SEATS_TOP).concat(SEATS_BOT.filter(function(s){return!s.ai;}));
+  var rows=all.map(function(p){
+    return '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">'+
+      '<div class="tw-seat-av participant" style="width:28px;height:28px;font-size:9px;line-height:28px">'+_e(p.ini)+'</div>'+
+      '<span style="flex:1;font-size:12px;color:var(--text)">'+_e(p.name)+'</span>'+
+      '<button class="tw-sstate-btn ghost" style="padding:5px 12px;font-size:8px" onclick="toast(\'Envoi disponible en Phase P2.\',2400)">Envoyer</button>'+
+    '</div>';
+  }).join('');
+  _showSS('twDistroState',
+    '<div class="tw-sstate-icon" style="background:rgba(34,211,238,0.08);border:1px solid rgba(34,211,238,0.2)">'+
+      '<svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="var(--iq)" stroke-width="1.4">'+
+        '<path d="M22 2L11 13M22 2L15 22 11 13 2 9l20-7z"/>'+
+      '</svg>'+
+    '</div>'+
+    '<div class="tw-sstate-title">Distribution du livrable</div>'+
+    '<div class="tw-sstate-card" style="max-width:420px">'+rows+'</div>'+
+    '<div class="tw-sstate-row">'+
+      '<button class="tw-sstate-btn ghost" onclick="toast(\'Archivage disponible en Phase P2.\',2400)">Archiver la session</button>'+
+    '</div>'
+  );
+}
+function validateDecision(){
+  var synths=TW.objects.filter(function(o){return o.type==='synthesis';});
+  var ref=synths.length?synths[synths.length-1]:null;
+  var title=ref?'Décision — '+ref.title:'Décision validée';
+  var decObj={id:_nid++,type:'decision',title:title,detail:'',by:TW.userName||'Ludovic',ts:Date.now()};
+  TW.objects.push(decObj);
+  wsSend({type:'object_add',object:decObj});
+  TW.step=12;wsSend({type:'step_change',step:12});renderStepper();applyCanvasState(12);
+  toast('Décision validée. Passage au livrable.',2400);
+  console.log('[TW] decision_validated');
+}
+
+/* ============================================================
+   SETUP MODAL — identité
+   ============================================================ */
+function setRole(r){
+  TW._selectedRole=r;
+  ['participant','owner','spectator'].forEach(function(x){
+    var btn=document.getElementById('role-'+x);if(!btn)return;
+    var k=x==='owner'?'d':x==='spectator'?'s':'p';
+    btn.className='tw-topt '+k+(x===r?' sel':'');
+  });
+}
+function joinRoom(){
+  var name=((document.getElementById('setupName')||{}).value||'').trim();
+  if(!name){toast('Ton prénom est requis.',2200);return;}
+  TW.userName=name;
+  TW.userRole=TW._selectedRole||'participant';
+  TW.userIni=name.trim().split(' ').map(function(w){return w[0]||'';}).join('').slice(0,2).toUpperCase();
+  localStorage.setItem('luna_tw_name',name);
+  localStorage.setItem('luna_tw_role',TW.userRole);
+  closeModal('setupModal');
+  initRoom();
+}
+
+/* ============================================================
+   ROOM INIT — WebSocket + Camera
+   ============================================================ */
+function initRoom(){
+  fetchIceCfg();   /* charge TURN avant toute connexion RTC */
+  wsConnect();
+  startCamera();
+  var pc=document.getElementById('twPresenceControls');
+  if(pc)pc.style.display='flex';
+}
+
+/* ============================================================
+   WEBSOCKET CLIENT
+   ============================================================ */
+function wsConnect(){
+  if(_ws&&(_ws.readyState===WebSocket.OPEN||_ws.readyState===WebSocket.CONNECTING))return;
+  var proto=location.protocol==='https:'?'wss:':'ws:';
+  _ws=new WebSocket(proto+'//'+location.host+'/ws/team/'+TW.sessionId);
+  _ws.onopen=function(){
+    wsSend({type:'join',user_id:TW.userId,name:TW.userName,role:TW.userRole,ini:TW.userIni});
+  };
+  _ws.onmessage=function(ev){
+    try{handleWsMessage(JSON.parse(ev.data));}catch(e){console.warn('[WS] parse error',e);}
+  };
+  _ws.onerror=function(){console.warn('[WS] error');};
+  _ws.onclose=function(ev){
+    TW.wsConnected=false;
+    _setWsDot(false);
+    console.log('[WS] closed code='+ev.code);
+    setTimeout(wsConnect,4000);
+  };
+}
+function wsSend(msg){
+  if(_ws&&_ws.readyState===WebSocket.OPEN){_ws.send(JSON.stringify(msg));}
+}
+
+function handleWsMessage(msg){
+  var t=msg.type;
+  if(t==='state_sync'){
+    var st=msg.state;
+    TW.wsConnected=true;
+    _setWsDot(true);
+    /* Merge server state — objects/brief/step (don't stomp local demo objects) */
+    if(st.objects&&st.objects.length)TW.objects=st.objects;
+    if(st.brief)TW.brief=st.brief;
+    if(st.step&&st.step!==TW.step){TW.step=st.step;renderStepper();}
+    if(st.votes)st.votes.forEach(function(v){_votes[v.id]=v.count;});
+    _remoteParticipants={};
+    (st.participants||[]).forEach(function(p){
+      if(p.user_id!==TW.userId)_remoteParticipants[p.user_id]=p;
+    });
+    renderSeats();renderObjects();applyCanvasState(TW.step);updateStats();
+    console.log('[WS] state_sync participants='+(st.participants||[]).length);
+    return;
+  }
+  if(t==='participant_joined'){
+    var p=msg.participant;
+    if(p.user_id!==TW.userId){
+      _remoteParticipants[p.user_id]=p;
+      renderSeats();updateStats();
+      toast(p.name+' a rejoint la salle.',2400);
+    }
+    return;
+  }
+  if(t==='participant_left'){
+    delete _remoteParticipants[msg.user_id];
+    rtcClose(msg.user_id);
+    renderSeats();updateStats();
+    toast((msg.name||'Un participant')+' a quitté la salle.',2400);
+    return;
+  }
+  if(t==='object_added'){
+    if(!TW.objects.find(function(o){return o.id===msg.object.id;}))
+      TW.objects.push(msg.object);
+    renderObjects();updateStats();
+    return;
+  }
+  if(t==='object_deleted'){
+    TW.objects=TW.objects.filter(function(o){return o.id!==msg.id;});
+    renderObjects();updateStats();
+    return;
+  }
+  if(t==='step_changed'){
+    TW.step=msg.step;renderStepper();applyCanvasState(msg.step);
+    toast('Étape '+msg.step+' — '+STEPS[msg.step-1].lbl,1800);
+    return;
+  }
+  if(t==='brief_updated'){
+    TW.brief=msg.brief;
+    var btn=document.getElementById('twBriefBtn');if(btn)btn.classList.add('active');
+    if(msg.brief&&msg.brief.title)document.getElementById('twSessionTitle').textContent=msg.brief.title;
+    if(TW.step===2)applyCanvasState(TW.step);
+    return;
+  }
+  if(t==='vote_cast'){
+    _votes[String(msg.object_id)]=msg.total;
+    renderObjects();
+    return;
+  }
+  if(t==='speaking_update'){
+    var sp=_remoteParticipants[msg.user_id];
+    if(sp){sp.speaking=msg.is_speaking;_updateSeatHalo(msg.user_id,msg.is_speaking);}
+    return;
+  }
+  if(t==='hand_raised'){
+    var hp=_remoteParticipants[msg.user_id];
+    if(hp)hp.hand=msg.raised;
+    _updateHandBadge(msg.user_id,msg.raised);
+    return;
+  }
+  if(t==='cam_status_update'){
+    var cp=_remoteParticipants[msg.user_id];
+    if(cp){cp.cam=msg.cam;cp.mic=msg.mic;}
+    _updateSeatCam(msg.user_id,msg.cam,msg.mic);
+    _updateMicIcon(msg.user_id,msg.mic);   /* icône micro distante mise à jour sans re-render */
+    return;
+  }
+  if(t==='rtc_signal'){
+    handleRtcSignal(msg.from,msg.payload);
+    return;
+  }
+  /* ---- Actions owner reçues par la cible ---- */
+  if(t==='force_mute'){
+    if(_localStream){_localStream.getAudioTracks().forEach(function(tr){tr.enabled=false;});}
+    _micOn=false;
+    _syncPresenceButtons();
+    wsSend({type:'cam_status',cam:_camOn,mic:false});
+    toast('Votre micro a été coupé par l\'organisateur.',2500);
+    return;
+  }
+  if(t==='force_hand_down'){
+    TW.handRaised=false;
+    var hb=document.getElementById('btnHand');
+    if(hb)hb.className='tw-pres-btn hand';
+    _updateHandBadge(TW.userId,false);
+    toast('Votre main a été baissée.',2000);
+    return;
+  }
+  if(t==='unmute_request'){
+    toast('L\'organisateur vous demande d\'activer votre micro.',3500);
+    return;
+  }
+  if(t==='role_changed'){
+    TW.userRole=msg.role;
+    toast(msg.role==='spectator'?'Vous passez en mode spectateur.':'Vous êtes maintenant participant.',2500);
+    renderLiveSeats();
+    return;
+  }
+  if(t==='participant_update'){
+    if(msg.user_id!==TW.userId){
+      var rpu=_remoteParticipants[msg.user_id];
+      if(rpu)rpu.role=msg.role;
+      renderLiveSeats();
+    }
+    return;
+  }
+}
+
+function _setWsDot(on){
+  var d=document.getElementById('twWsDot');
+  if(!d)return;
+  d.className='tw-ws-dot'+(on?' conn':'');
+  d.title=on?'Connecté':'Déconnecté';
+}
+function _updateSeatHalo(uid,speaking){
+  var seat=document.getElementById('seat-'+uid);
+  if(!seat)return;
+  if(speaking)seat.classList.add('speaking');else seat.classList.remove('speaking');
+}
+function _updateSeatCam(uid,cam,mic){
+  var v=document.getElementById('video-'+uid);
+  var av=document.getElementById('av-'+uid);
+  if(v)v.style.display=cam?'block':'none';
+  if(av)av.style.display=cam?'none':'flex';
+}
+
+/* ============================================================
+   CAMÉRA + MICRO
+   ============================================================ */
+function startCamera(){
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia)return;
+  navigator.mediaDevices.getUserMedia({video:true,audio:true})
+    .then(function(stream){
+      _localStream=stream;
+      _camOn=true;_micOn=true;
+      stream.getAudioTracks().forEach(function(t){t.enabled=true;});
+      stream.getVideoTracks().forEach(function(t){t.enabled=true;});
+      /* Ajouter les tracks aux peers déjà existants (camera chargée après connexion WS).
+         Vérifier par kind pour éviter les doublons. */
+      Object.keys(_peers).forEach(function(uid){
+        var pc=_peers[uid];
+        if(!pc||pc.signalingState==='closed')return;
+        var existingKinds=(pc.getSenders?pc.getSenders():[]).map(function(s){return s.track&&s.track.kind;});
+        stream.getTracks().forEach(function(t){
+          if(existingKinds.indexOf(t.kind)<0){
+            try{pc.addTrack(t,stream);console.log('[RTC] addTrack late',t.kind,'→',uid);}catch(e){}
+          }
+        });
+      });
+      _syncPresenceButtons();
+      wsSend({type:'cam_status',cam:_camOn,mic:_micOn});
+      renderSeats();
+      startSpeakingDetection(stream);
+    })
+    .catch(function(err){
+      console.warn('[CAM] getUserMedia refused:',err.name);
+      _camOn=false;_micOn=false;
+      _syncPresenceButtons();
+    });
+}
+function toggleCam(){
+  if(!_localStream){startCamera();return;}
+  /* Lire la vérité depuis la track */
+  var vt=_localStream.getVideoTracks();
+  var newCam=vt.length>0?!vt[0].enabled:false;
+  vt.forEach(function(t){t.enabled=newCam;});
+  _camOn=newCam;
+  _updateSeatCam(TW.userId,_camOn,_micOn);
+  _syncPresenceButtons();
+  wsSend({type:'cam_status',cam:_camOn,mic:_micOn});
+}
+function toggleMic(){
+  if(!_localStream)return;
+  /* Lire la vérité depuis la track */
+  var at=_localStream.getAudioTracks();
+  if(!at.length)return;
+  var newMic=!at[0].enabled;
+  at.forEach(function(t){t.enabled=newMic;});
+  _micOn=newMic;
+  _syncPresenceButtons();   /* met aussi à jour l'icône via _updateMicIcon */
+  wsSend({type:'cam_status',cam:_camOn,mic:_micOn});
+}
+function raiseHand(){
+  TW.handRaised=!TW.handRaised;
+  wsSend({type:'hand_raise',raised:TW.handRaised});
+  var btn=document.getElementById('btnHand');
+  if(btn)btn.className='tw-pres-btn hand'+(TW.handRaised?' raised':'');
+  _updateHandBadge(TW.userId,TW.handRaised);
+  toast(TW.handRaised?'Main levée.':'Main baissée.',1800);
+}
+function _syncPresenceButtons(){
+  /* Toujours dériver l'état depuis la track réelle, pas depuis les booléens */
+  if(_localStream){
+    var at=_localStream.getAudioTracks();
+    var vt=_localStream.getVideoTracks();
+    _micOn = at.length>0 && at[0].enabled;
+    _camOn = vt.length>0 && vt[0].enabled;
+  }
+  var bc=document.getElementById('btnCam');
+  var bm=document.getElementById('btnMic');
+  if(bc)bc.className='tw-pres-btn cam'+(_camOn?'':' off');
+  if(bm)bm.className='tw-pres-btn mic'+(_micOn?'':' off');
+  _updateMicIcon(TW.userId,_micOn);
+}
+
+var _MIC_SVG='<svg width="8" height="8" viewBox="0 0 10 10" fill="none" stroke="var(--iris)" stroke-width="1.5"><rect x="3" y="1" width="4" height="6" rx="2"/><path d="M2 6.5C2 8.4 8 8.4 8 6.5M5 9v1"/></svg>';
+var _MIC_OFF_SVG='<svg width="8" height="8" viewBox="0 0 10 10" fill="none" stroke="var(--red)" stroke-width="1.5"><line x1="1" y1="1" x2="9" y2="9"/></svg>';
+
+function _updateMicIcon(uid,micOn){
+  /* Mise à jour chirurgicale de l'icône micro dans la tile — sans re-render complet */
+  var seat=document.getElementById('seat-'+uid);
+  if(!seat)return;
+  var icons=seat.querySelector('.tw-seat-icons');
+  if(!icons)return;
+  icons.innerHTML=micOn
+    ?'<div class="tw-sico on">'+_MIC_SVG+'</div>'
+    :'<div class="tw-sico off">'+_MIC_OFF_SVG+'</div>';
+}
+
+function _updateHandBadge(uid,raised){
+  var badge=document.getElementById('hand-badge-'+uid);
+  if(badge)badge.style.display=raised?'flex':'none';
+}
+
+function openSeatMenu(uid,ev){
+  ev.stopPropagation();
+  var seat=document.getElementById('seat-'+uid);
+  if(!seat)return;
+  var isOpen=seat.classList.contains('smenu-open');
+  document.querySelectorAll('.tw-seat.smenu-open').forEach(function(s){s.classList.remove('smenu-open');});
+  if(!isOpen)seat.classList.add('smenu-open');
+}
+document.addEventListener('click',function(){
+  document.querySelectorAll('.tw-seat.smenu-open').forEach(function(s){s.classList.remove('smenu-open');});
+});
+
+/* ============================================================
+   SPEAKING DETECTION (AudioContext)
+   ============================================================ */
+function startSpeakingDetection(stream){
+  try{
+    _speakCtx=new (window.AudioContext||window.webkitAudioContext)();
+    _speakAnalyser=_speakCtx.createAnalyser();
+    _speakAnalyser.fftSize=256;
+    var src=_speakCtx.createMediaStreamSource(stream);
+    src.connect(_speakAnalyser);
+    detectSpeaking();
+  }catch(e){console.warn('[SPEAK]',e);}
+}
+function detectSpeaking(){
+  if(!_speakAnalyser)return;
+  var buf=new Uint8Array(_speakAnalyser.frequencyBinCount);
+  _speakAnalyser.getByteFrequencyData(buf);
+  var avg=0;for(var i=0;i<buf.length;i++)avg+=buf[i];avg/=buf.length;
+  /* Pas de speaking si le micro est muted */
+  var speaking=_micOn&&avg>12;
+  if(speaking!==_lastSpeak){
+    _lastSpeak=speaking;
+    _updateSeatHalo(TW.userId,speaking);
+    wsSend({type:'speaking',is_speaking:speaking});
+  }
+  setTimeout(detectSpeaking,200);
+}
+
+/* ============================================================
+   WEBRTC — mesh P2P + TURN + ICE buffering
+   ============================================================ */
+var _ICE_CFG = null;         // chargé depuis /api/team/ice-config
+var _iceBuf = {};            // uid -> [RTCIceCandidateInit] (buffer avant remoteDescription)
+var _remoteStreams = {};      // uid -> MediaStream (persist à travers re-renders)
+
+function _rtcCfg(){
+  return _ICE_CFG || {iceServers:[
+    {urls:'stun:stun.l.google.com:19302'},
+    {urls:'stun:stun1.l.google.com:19302'}
+  ]};
+}
+
+function fetchIceCfg(){
+  fetch('/api/team/ice-config')
+    .then(function(r){return r.json();})
+    .then(function(d){
+      if(d.ice_servers){
+        _ICE_CFG={iceServers:d.ice_servers};
+        console.log('[RTC] ice_cfg loaded:',d.ice_servers.length,'servers');
+      }
+    })
+    .catch(function(e){console.warn('[RTC] ice-config unavailable:',e);});
+}
+
+function _makePeer(uid){
+  var pc=new RTCPeerConnection(_rtcCfg());
+  _peers[uid]=pc;
+  /* Tracks locaux si stream déjà disponible */
+  if(_localStream){
+    _localStream.getTracks().forEach(function(t){
+      pc.addTrack(t,_localStream);
+      console.log('[RTC] addTrack local',t.kind,'→',uid);
+    });
+  }
+  pc.ontrack=function(ev){
+    /* Log chaque track reçue pour diagnostic */
+    var t=ev.track;
+    console.log('[RTC] ontrack from',uid,'kind='+t.kind,'state='+t.readyState,'streams='+ev.streams.length);
+    if(ev.streams&&ev.streams[0])_attachRemote(uid,ev.streams[0]);
+    /* Fallback : parfois streams[] vide sur mobile, attacher via track directement */
+    else if(t){
+      var ms=_remoteStreams[uid]||new MediaStream();
+      ms.addTrack(t);
+      _attachRemote(uid,ms);
+    }
+  };
+  pc.onicecandidate=function(ev){
+    if(ev.candidate)wsSend({type:'rtc_signal',to:uid,payload:{ice:ev.candidate}});
+  };
+  pc.onconnectionstatechange=function(){
+    console.log('[RTC] peer',uid,'→',pc.connectionState);
+    if(pc.connectionState==='failed'){pc.restartIce&&pc.restartIce();}
+  };
+  /* onnegotiationneeded sur les DEUX côtés (initiateur ET répondeur)
+     Indispensable quand les tracks locales arrivent après la négociation initiale */
+  var _negTimer=null;
+  pc.onnegotiationneeded=function(){
+    clearTimeout(_negTimer);
+    _negTimer=setTimeout(function(){
+      if(!_peers[uid]||pc.signalingState!=='stable')return;
+      console.log('[RTC] renegotiate →',uid,'signalingState=stable');
+      pc.createOffer()
+        .then(function(o){return pc.setLocalDescription(o);})
+        .then(function(){
+          wsSend({type:'rtc_signal',to:uid,payload:{sdp:pc.localDescription}});
+          console.log('[RTC] offer sent →',uid);
+        })
+        .catch(function(e){console.warn('[RTC] offer:',e);});
+    },150);
+  };
+  return pc;
+}
+
+function rtcInitiate(uid){
+  if(_peers[uid])return;
+  _makePeer(uid);
+  console.log('[RTC] initiate →',uid);
+}
+
+function handleRtcSignal(from,payload){
+  if(!_peers[from])_makePeer(from);
+  var pc=_peers[from];
+  if(payload.sdp){
+    pc.setRemoteDescription(new RTCSessionDescription(payload.sdp))
+      .then(function(){
+        /* Vider le buffer ICE maintenant que remoteDescription est set */
+        (_iceBuf[from]||[]).forEach(function(c){
+          pc.addIceCandidate(new RTCIceCandidate(c)).catch(function(){});
+        });
+        _iceBuf[from]=[];
+        if(payload.sdp.type!=='offer')return;
+        return pc.createAnswer()
+          .then(function(a){return pc.setLocalDescription(a);})
+          .then(function(){wsSend({type:'rtc_signal',to:from,payload:{sdp:pc.localDescription}});});
+      })
+      .catch(function(e){console.warn('[RTC] sdp:',e);});
+    return;
+  }
+  if(payload.ice){
+    if(pc.remoteDescription&&pc.remoteDescription.type){
+      pc.addIceCandidate(new RTCIceCandidate(payload.ice)).catch(function(){});
+    }else{
+      if(!_iceBuf[from])_iceBuf[from]=[];
+      _iceBuf[from].push(payload.ice);
+    }
+  }
+}
+
+function _attachRemote(uid,stream){
+  _remoteStreams[uid]=stream;           /* persist pour re-render */
+  var v=document.getElementById('video-'+uid);
+  if(v){v.srcObject=stream;v.style.display='block';
+    var av=document.getElementById('av-'+uid);if(av)av.style.display='none';}
+}
+
+function rtcClose(uid){
+  if(_peers[uid]){_peers[uid].close();delete _peers[uid];}
+  delete _remoteStreams[uid];
+  delete _iceBuf[uid];
+}
+
+/* ============================================================
+   LIVE SEATS — remplace renderSeats quand WS connecté
+   ============================================================ */
+function makeLiveSeat(p){
+  var d=document.createElement('div');
+  var speaking=p.speaking||false;
+  d.className='tw-seat'+(speaking?' speaking':'')+(p.isLocal?' self-seat':'');
+  d.id='seat-'+p.user_id;
+  if(TW.userRole==='owner'&&!p.isLocal)d.onclick=function(e){openSeatMenu(p.user_id,e);};
+  var avCls=p.role==='owner'?'owner':'participant';
+  var micHtml=p.mic
+    ?'<div class="tw-sico on">'+_MIC_SVG+'</div>'
+    :'<div class="tw-sico off">'+_MIC_OFF_SVG+'</div>';
+  var roleLbl=p.role==='owner'?'Owner':'Participant';
+  var roleCls=p.role==='owner'?'own-r':'';
+  /* Badge main levée — overlay sur la vidéo */
+  var canMod=TW.userRole==='owner'&&!p.isLocal;
+  var badgeCls='tw-hand-badge'+(canMod?' owner-can-act':'');
+  var badgeClick=canMod?'onclick="openSeatMenu(\''+p.user_id+'\',event)"':'';
+  var badgeHtml='<div class="'+badgeCls+'" id="hand-badge-'+p.user_id+'" style="display:'+(p.hand?'flex':'none')+'" '+badgeClick+' title="Main levée">✋</div>';
+  /* Menu modération owner (hover + clic badge) */
+  var sMenuHtml='';
+  if(canMod){
+    sMenuHtml='<div class="tw-smenu" onclick="event.stopPropagation()">'+
+      '<button class="tw-smi" onclick="seatAct(\'hand_down\',\''+p.user_id+'\')">Baisser la main</button>'+
+      '<button class="tw-smi" onclick="seatAct(\'mute\',\''+p.user_id+'\')">Couper le micro</button>'+
+      '<button class="tw-smi" onclick="seatAct(\'request_unmute\',\''+p.user_id+'\')">Demander activation micro</button>'+
+      '<button class="tw-smi danger" onclick="seatAct(\'to_spectator\',\''+p.user_id+'\')">Passer spectateur</button>'+
+      '</div>';
+  }
+  d.innerHTML=
+    sMenuHtml+
+    '<div class="tw-seat-halo"></div>'+
+    '<div class="tw-seat-cam">'+
+      '<video id="video-'+p.user_id+'" autoplay playsinline'+(p.isLocal?' muted':'')+' style="width:100%;height:100%;object-fit:cover;display:none;border-radius:6px"></video>'+
+      '<div class="tw-seat-av '+avCls+'" id="av-'+p.user_id+'">'+_e(p.ini)+'</div>'+
+      badgeHtml+
+    '</div>'+
+    '<div class="tw-seat-footer">'+
+      '<div class="tw-seat-name">'+_e(p.name||'?')+(p.isLocal?' <span style="color:var(--iris);font-size:7px">(vous)</span>':'')+
+      '</div>'+
+      '<div class="tw-seat-role '+roleCls+'">'+roleLbl+'</div>'+
+      '<div class="tw-seat-icons">'+micHtml+'</div>'+
+    '</div>';
+  setTimeout(function(){
+    var v=document.getElementById('video-'+p.user_id);
+    var av=document.getElementById('av-'+p.user_id);
+    if(p.isLocal&&_localStream&&_camOn){
+      if(v){v.srcObject=_localStream;v.style.display='block';}
+      if(av)av.style.display='none';
+    } else if(!p.isLocal&&_remoteStreams[p.user_id]){
+      /* Re-attacher stream distant après re-render */
+      if(v){v.srcObject=_remoteStreams[p.user_id];v.style.display='block';}
+      if(av)av.style.display='none';
+    }
+  },0);
+  return d;
+}
+
+function renderLiveSeats(){
+  var top=document.getElementById('twSeatsTop');
+  var bot=document.getElementById('twSeatsBottom');
+  if(!top||!bot)return;
+  top.innerHTML='<span class="tw-prow-lbl">Participants</span>';
+  bot.innerHTML='<span class="tw-prow-lbl">Owner + IA</span>';
+  /* Dériver mic/cam depuis les tracks réelles pour le self seat */
+  var _selfMic=_localStream?(_localStream.getAudioTracks().length>0&&_localStream.getAudioTracks()[0].enabled):false;
+  var _selfCam=_localStream?(_localStream.getVideoTracks().length>0&&_localStream.getVideoTracks()[0].enabled):false;
+  var self={user_id:TW.userId,name:TW.userName||'Vous',ini:TW.userIni||'ME',
+    role:TW.userRole,mic:_selfMic,cam:_selfCam,speaking:_lastSpeak,hand:TW.handRaised,isLocal:true};
+  var all=[self].concat(Object.values(_remoteParticipants));
+  all.forEach(function(p){
+    if(p.role==='spectator')return;
+    var target=(p.role==='owner'?bot:top);
+    target.appendChild(makeLiveSeat(p));
+  });
+  /* Initier WebRTC vers chaque remote non-spectateur */
+  Object.values(_remoteParticipants).forEach(function(p){
+    if(p.role!=='spectator'&&p.user_id>TW.userId)rtcInitiate(p.user_id);
+  });
+  /* AI seats statiques */
+  [{id:'iris',name:'Iris',ini:'I',role:'iris',ai:true},
+   {id:'iq',  name:'IQ',  ini:'IQ',role:'iq',ai:true},
+   {id:'luna',name:'Luna',ini:'L', role:'luna',ai:true}].forEach(function(s){bot.appendChild(makeSeat(s));});
+  /* Spectateurs live depuis _remoteParticipants */
+  var specList=document.getElementById('twSpecList');
+  if(specList){
+    var liveSpecs=Object.values(_remoteParticipants).filter(function(p){return p.role==='spectator';});
+    if(liveSpecs.length){
+      specList.innerHTML='';
+      liveSpecs.forEach(function(s){
+        var d=document.createElement('div');
+        d.className='tw-spec'+(s.hand?' raised':'');
+        var promoBtn=TW.userRole==='owner'
+          ?'<span class="tw-spec-promo" onclick="seatAct(\'to_participant\',\''+s.user_id+'\');event.stopPropagation()">↑</span>'
+          :'';
+        d.innerHTML='<div class="tw-spec-mini">'+_e(s.ini)+'</div>'+_e(s.name)+(s.hand?' ✋':'')+promoBtn;
+        specList.appendChild(d);
+      });
+    } else {
+      specList.innerHTML='<span style="font-size:9px;color:var(--dim2)">Aucun spectateur</span>';
+    }
+  }
+  updateStats();
+}
+
+/* ============================================================
    INIT
    ============================================================ */
 window.addEventListener('DOMContentLoaded',function(){
@@ -808,12 +1972,19 @@ window.addEventListener('DOMContentLoaded',function(){
   renderStepper();
   renderSeats();
   renderSpecs();
-  renderObjects();
-  renderActions();
+  applyCanvasState(TW.step);
   updateStats();
   var ot=document.getElementById('objTitle');
   if(ot)ot.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();confirmAddObj();}});
-  console.log('[TW] team_workspace_loaded v3');
+  /* Pré-remplir prénom si déjà connu */
+  var sn=document.getElementById('setupName');if(sn&&TW.userName)sn.value=TW.userName;
+  /* Setup modal si pas de nom, sinon auto-join */
+  if(!TW.userName){
+    openModal('setupModal');
+  }else{
+    initRoom();
+  }
+  console.log('[TW] team_workspace_loaded v3.2-realtime user='+TW.userId+' session='+TW.sessionId);
   console.log('[TW] step_active',TW.step,STEPS[TW.step-1].lbl);
 });
 </script>
