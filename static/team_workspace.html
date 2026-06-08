@@ -1827,19 +1827,26 @@ function _makePeer(uid){
   /* onnegotiationneeded sur les DEUX côtés (initiateur ET répondeur)
      Indispensable quand les tracks locales arrivent après la négociation initiale */
   var _negTimer=null;
+  var _pendingNeg=false;
+  function _doOffer(){
+    if(!_peers[uid]||pc.signalingState!=='stable')return;
+    _pendingNeg=false;
+    console.log('[RTC] offer →',uid);
+    pc.createOffer()
+      .then(function(o){return pc.setLocalDescription(o);})
+      .then(function(){wsSend({type:'rtc_signal',to:uid,payload:{sdp:pc.localDescription}});})
+      .catch(function(e){console.warn('[RTC] offer:',e);});
+  }
   pc.onnegotiationneeded=function(){
     clearTimeout(_negTimer);
     _negTimer=setTimeout(function(){
-      if(!_peers[uid]||pc.signalingState!=='stable')return;
-      console.log('[RTC] renegotiate →',uid,'signalingState=stable');
-      pc.createOffer()
-        .then(function(o){return pc.setLocalDescription(o);})
-        .then(function(){
-          wsSend({type:'rtc_signal',to:uid,payload:{sdp:pc.localDescription}});
-          console.log('[RTC] offer sent →',uid);
-        })
-        .catch(function(e){console.warn('[RTC] offer:',e);});
+      if(!_peers[uid]||pc.signalingState!=='stable'){_pendingNeg=true;return;}
+      _doOffer();
     },150);
+  };
+  pc.onsignalingstatechange=function(){
+    console.log('[RTC] state',uid,'→',pc.signalingState);
+    if(pc.signalingState==='stable'&&_pendingNeg){_doOffer();}
   };
   return pc;
 }
@@ -1880,10 +1887,21 @@ function handleRtcSignal(from,payload){
 }
 
 function _attachRemote(uid,stream){
-  _remoteStreams[uid]=stream;           /* persist pour re-render */
+  _remoteStreams[uid]=stream;
   var v=document.getElementById('video-'+uid);
-  if(v){v.srcObject=stream;v.style.display='block';
-    var av=document.getElementById('av-'+uid);if(av)av.style.display='none';}
+  if(v){
+    v.srcObject=stream;v.style.display='block';
+    var av=document.getElementById('av-'+uid);if(av)av.style.display='none';
+  }else{
+    /* DOM pas encore prêt — retry dans 250ms */
+    setTimeout(function(){
+      var v2=document.getElementById('video-'+uid);
+      if(v2&&_remoteStreams[uid]===stream){
+        v2.srcObject=stream;v2.style.display='block';
+        var av2=document.getElementById('av-'+uid);if(av2)av2.style.display='none';
+      }
+    },250);
+  }
 }
 
 function rtcClose(uid){
@@ -1965,7 +1983,7 @@ function renderLiveSeats(){
   });
   /* Initier WebRTC vers chaque remote non-spectateur */
   Object.values(_remoteParticipants).forEach(function(p){
-    if(p.role!=='spectator'&&p.user_id>TW.userId)rtcInitiate(p.user_id);
+    if(p.role!=='spectator'&&p.user_id>TW.userId&&_localStream)rtcInitiate(p.user_id);
   });
   /* AI seats statiques */
   [{id:'iris',name:'Iris',ini:'I',role:'iris',ai:true},
