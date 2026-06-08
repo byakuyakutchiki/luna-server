@@ -8160,6 +8160,7 @@ class _IrisTeamRoom:
         self.objects: list = []
         self.sources: list = []
         self.votes: dict = {}         # str(obj_id) -> count
+        self.memory: list = []        # décisions/actions — mémoire de séance
 
     def get_state(self) -> dict:
         return {
@@ -8167,6 +8168,7 @@ class _IrisTeamRoom:
             "objects": self.objects, "sources": self.sources,
             "votes": [{"id": k, "count": v} for k, v in self.votes.items()],
             "participants": list(self.participants.values()),
+            "memory": self.memory,
         }
 
     async def broadcast(self, message: dict, exclude: str = None):
@@ -8359,6 +8361,44 @@ async def team_ws(websocket: WebSocket, session_id: str):
                 to = msg.get("to"); payload = msg.get("payload")
                 if to and payload:
                     await room.send_to(to, {"type": "rtc_signal", "from": user_id, "payload": payload})
+            elif t == "memory_propose":
+                item_type = msg.get("item_type", "")
+                if item_type not in ("decision", "action"):
+                    continue
+                text = str(msg.get("text", "")).strip()[:200]
+                if not text:
+                    continue
+                item = {
+                    "id": f"m_{int(time.time()*1000)}_{uuid.uuid4().hex[:6]}",
+                    "item_type": item_type,
+                    "status": "pending",
+                    "text": text,
+                    "author_id": user_id,
+                    "author_name": room.participants.get(user_id, {}).get("name", "?"),
+                    "created_at": time.time(),
+                }
+                room.memory.append(item)
+                await room.broadcast({"type": "memory_item_added", "item": item})
+            elif t == "memory_validate":
+                if room.participants.get(user_id, {}).get("role") != "owner":
+                    continue
+                item_id = str(msg.get("item_id", ""))
+                for item in room.memory:
+                    if item["id"] == item_id and item["status"] == "pending":
+                        item["status"] = "validated"
+                        item["validated_by"] = user_id
+                        await room.broadcast({"type": "memory_item_updated", "item_id": item_id, "status": "validated"})
+                        break
+            elif t == "memory_reject":
+                if room.participants.get(user_id, {}).get("role") != "owner":
+                    continue
+                item_id = str(msg.get("item_id", ""))
+                for item in room.memory:
+                    if item["id"] == item_id and item["status"] == "pending":
+                        item["status"] = "rejected"
+                        item["validated_by"] = user_id
+                        await room.broadcast({"type": "memory_item_updated", "item_id": item_id, "status": "rejected"})
+                        break
     except WebSocketDisconnect:
         pass
     except asyncio.TimeoutError:

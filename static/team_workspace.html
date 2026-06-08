@@ -394,6 +394,36 @@
     .tw-pres-btn.hand.raised{background:rgba(245,158,11,0.1);border-color:rgba(245,158,11,0.35);color:var(--amber);}
     .tw-ws-dot{font-size:9px;color:var(--dim2);flex-shrink:0;transition:color 0.3s;}
     .tw-ws-dot.conn{color:var(--iris);}
+    /* ── Mémoire de séance ── */
+    #twMemory{padding:10px 12px 12px;border-top:1px solid var(--border);margin-top:4px;}
+    .tw-mem-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
+    .tw-mem-title{font-size:10px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--dim);}
+    .tw-mem-count{font-size:9px;color:var(--iris);}
+    .tw-mem-btns{display:flex;gap:6px;margin-bottom:8px;}
+    .tw-mem-btn{flex:1;padding:5px 8px;border-radius:5px;border:1px solid var(--border-s);background:var(--glass);color:var(--dim);font-size:10px;cursor:pointer;text-align:left;transition:border-color 0.15s,color 0.15s;}
+    .tw-mem-btn.dec:hover{border-color:rgba(167,139,250,0.4);color:var(--luna);}
+    .tw-mem-btn.act:hover{border-color:rgba(245,158,11,0.4);color:var(--amber);}
+    .tw-mem-input-row{display:none;align-items:center;gap:6px;margin-bottom:8px;padding:6px 8px;border-radius:5px;border:1px solid var(--border-s);background:var(--glass);}
+    .tw-mem-tag{font-size:9px;font-weight:700;color:var(--dim2);white-space:nowrap;flex-shrink:0;}
+    .tw-mem-text{flex:1;background:none;border:none;outline:none;color:var(--text);font-size:11px;min-width:0;}
+    .tw-mem-sub{background:rgba(16,212,142,0.1);border:1px solid rgba(16,212,142,0.25);color:var(--iris);border-radius:4px;padding:2px 7px;font-size:11px;cursor:pointer;}
+    .tw-mem-cancel{background:none;border:none;color:var(--dim2);font-size:11px;cursor:pointer;padding:2px 5px;}
+    .tw-mem-sep{font-size:8px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--dim2);margin:8px 0 4px;padding-bottom:3px;border-bottom:1px solid var(--border);}
+    .tw-mem-sep-rej{cursor:pointer;color:var(--dim2);}
+    .tw-mem-sep-rej:hover{color:var(--dim);}
+    .tw-mem-item{display:flex;align-items:flex-start;gap:6px;padding:5px 6px;border-radius:4px;margin-bottom:3px;font-size:11px;}
+    .tw-mem-item.pending{background:rgba(255,255,255,0.03);border:1px solid var(--border);}
+    .tw-mem-item.validated.dec{background:rgba(16,212,142,0.04);border:1px solid rgba(16,212,142,0.15);}
+    .tw-mem-item.validated.act{background:rgba(245,158,11,0.04);border:1px solid rgba(245,158,11,0.15);}
+    .tw-mem-item.rejected{opacity:0.4;}
+    .tw-mem-badge{flex-shrink:0;width:16px;text-align:center;font-size:11px;margin-top:1px;}
+    .tw-mem-body{flex:1;color:var(--text);line-height:1.4;}
+    .tw-mem-meta{font-size:9px;color:var(--dim2);flex-shrink:0;white-space:nowrap;margin-top:2px;}
+    .tw-mem-actions{display:flex;gap:4px;flex-shrink:0;align-items:center;}
+    .tw-mem-val{background:rgba(16,212,142,0.1);border:1px solid rgba(16,212,142,0.3);color:var(--iris);border-radius:3px;padding:2px 6px;font-size:9px;cursor:pointer;white-space:nowrap;}
+    .tw-mem-val:hover{background:rgba(16,212,142,0.2);}
+    .tw-mem-rej{background:rgba(244,63,94,0.07);border:1px solid rgba(244,63,94,0.2);color:var(--red,#f43f5e);border-radius:3px;padding:2px 5px;font-size:9px;cursor:pointer;}
+    .tw-mem-rej:hover{background:rgba(244,63,94,0.15);}
   </style>
 </head>
 <body>
@@ -473,6 +503,25 @@
   <div id="twSpecRow">
     <span class="tw-act-lbl">Spectateurs</span>
     <div id="twSpecList"></div>
+  </div>
+
+  <!-- MÉMOIRE DE SÉANCE -->
+  <div id="twMemory" style="display:none">
+    <div class="tw-mem-hdr">
+      <span class="tw-mem-title">Mémoire de séance</span>
+      <span class="tw-mem-count" id="twMemCount"></span>
+    </div>
+    <div class="tw-mem-btns">
+      <button class="tw-mem-btn dec" onclick="memPropose('decision')">💡 Proposer décision</button>
+      <button class="tw-mem-btn act" onclick="memPropose('action')">💡 Proposer action</button>
+    </div>
+    <div class="tw-mem-input-row" id="twMemInput">
+      <span class="tw-mem-tag" id="twMemTag"></span>
+      <input type="text" id="twMemText" class="tw-mem-text" placeholder="Décrivez en quelques mots…" maxlength="200" onkeydown="memInputKey(event)">
+      <button class="tw-mem-sub" onclick="memSubmit()">↵</button>
+      <button class="tw-mem-cancel" onclick="memCancel()">✕</button>
+    </div>
+    <div id="twMemList"></div>
   </div>
 
 </div>
@@ -1483,7 +1532,8 @@ function handleWsMessage(msg){
     (st.participants||[]).forEach(function(p){
       if(p.user_id!==TW.userId)_remoteParticipants[p.user_id]=p;
     });
-    renderSeats();renderObjects();applyCanvasState(TW.step);updateStats();
+    TW.memory=st.memory||[];
+    renderSeats();renderObjects();applyCanvasState(TW.step);updateStats();renderMemory();
     console.log('[WS] state_sync participants='+(st.participants||[]).length);
     return;
   }
@@ -1589,6 +1639,17 @@ function handleWsMessage(msg){
       if(rpu)rpu.role=msg.role;
       renderLiveSeats();
     }
+    return;
+  }
+  if(t==='memory_item_added'){
+    TW.memory.push(msg.item);
+    renderMemory();
+    return;
+  }
+  if(t==='memory_item_updated'){
+    var mi=TW.memory.find(function(m){return m.id===msg.item_id;});
+    if(mi){mi.status=msg.status;}
+    renderMemory();
     return;
   }
 }
@@ -2014,6 +2075,102 @@ function renderLiveSeats(){
 /* ============================================================
    INIT
    ============================================================ */
+/* ============================================================
+   MÉMOIRE DE SÉANCE
+   ============================================================ */
+TW.memory=[];
+var _memProposing=null;
+
+function memPropose(type){
+  _memProposing=type;
+  var row=document.getElementById('twMemInput');
+  var tag=document.getElementById('twMemTag');
+  var txt=document.getElementById('twMemText');
+  if(!row||!tag||!txt)return;
+  tag.textContent=type==='decision'?'💡 Décision :':'💡 Action :';
+  txt.value='';
+  row.style.display='flex';
+  txt.focus();
+}
+function memCancel(){
+  _memProposing=null;
+  var row=document.getElementById('twMemInput');
+  if(row)row.style.display='none';
+}
+function memInputKey(e){
+  if(e.key==='Enter'){e.preventDefault();memSubmit();}
+  if(e.key==='Escape')memCancel();
+}
+function memSubmit(){
+  var txt=((document.getElementById('twMemText')||{}).value||'').trim();
+  if(!txt||!_memProposing)return;
+  wsSend({type:'memory_propose',item_type:_memProposing,text:txt});
+  memCancel();
+}
+function memValidate(id){wsSend({type:'memory_validate',item_id:id});}
+function memReject(id){wsSend({type:'memory_reject',item_id:id});}
+function toggleRejected(){
+  var el=document.getElementById('twMemRejected');
+  if(el)el.style.display=el.style.display==='none'?'block':'none';
+}
+
+function renderMemory(){
+  var mem=document.getElementById('twMemory');
+  if(!mem)return;
+  var list=document.getElementById('twMemList');
+  if(!list)return;
+  /* Afficher la section dès qu'on est en salle */
+  if(TW.wsConnected)mem.style.display='block';
+  var validated=TW.memory.filter(function(m){return m.status==='validated';});
+  var pending=TW.memory.filter(function(m){return m.status==='pending';});
+  var rejected=TW.memory.filter(function(m){return m.status==='rejected';});
+  var isOwner=TW.userRole==='owner';
+  var html='';
+  if(validated.length){
+    html+='<div class="tw-mem-sep">Mémoire officielle</div>';
+    validated.forEach(function(m){
+      var badge=m.item_type==='decision'?'✅':'→';
+      var cls='validated '+(m.item_type==='decision'?'dec':'act');
+      html+='<div class="tw-mem-item '+cls+'">'
+        +'<span class="tw-mem-badge">'+badge+'</span>'
+        +'<span class="tw-mem-body">'+_e(m.text)+'</span>'
+        +'<span class="tw-mem-meta">'+_e(m.author_name)+'</span>'
+        +'</div>';
+    });
+  }
+  if(pending.length){
+    html+='<div class="tw-mem-sep">En attente</div>';
+    pending.forEach(function(m){
+      html+='<div class="tw-mem-item pending" id="mitem-'+m.id+'">'
+        +'<span class="tw-mem-badge">💡</span>'
+        +'<span class="tw-mem-body">'+_e(m.text)+'</span>'
+        +'<span class="tw-mem-meta">'+_e(m.author_name)+'</span>';
+      if(isOwner){
+        html+='<div class="tw-mem-actions">'
+          +'<button class="tw-mem-val" onclick="memValidate(\''+m.id+'\')">✓ Valider</button>'
+          +'<button class="tw-mem-rej" onclick="memReject(\''+m.id+'\')">✗</button>'
+          +'</div>';
+      }
+      html+='</div>';
+    });
+  }
+  if(rejected.length){
+    html+='<div class="tw-mem-sep tw-mem-sep-rej" onclick="toggleRejected()">Propositions non retenues ('+rejected.length+') ▸</div>'
+      +'<div id="twMemRejected" style="display:none">';
+    rejected.forEach(function(m){
+      html+='<div class="tw-mem-item rejected">'
+        +'<span class="tw-mem-badge">✗</span>'
+        +'<span class="tw-mem-body">'+_e(m.text)+'</span>'
+        +'<span class="tw-mem-meta">'+_e(m.author_name)+'</span>'
+        +'</div>';
+    });
+    html+='</div>';
+  }
+  list.innerHTML=html;
+  var cnt=document.getElementById('twMemCount');
+  if(cnt)cnt.textContent=validated.length?validated.length+' officiel'+(validated.length>1?'s':''):'';
+}
+
 window.addEventListener('DOMContentLoaded',function(){
   initObjects();
   renderStepper();
