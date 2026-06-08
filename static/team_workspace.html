@@ -134,15 +134,27 @@
     .tw-sico{width:14px;height:14px;border-radius:3px;display:flex;align-items:center;justify-content:center;background:var(--glass);}
     .tw-sico.on {background:var(--iris-d);}
     .tw-sico.off{background:rgba(244,63,94,0.08);}
-    .tw-smenu{
-      display:none;position:absolute;bottom:calc(100% + 4px);left:0;z-index:30;
+    /* Menu modération — portal fixe (jamais rogné par overflow parent) */
+    #twSeatMenuPortal{
+      display:none;position:fixed;z-index:9999;
       background:rgba(5,10,24,0.98);border:1px solid var(--border-s);border-radius:7px;
-      padding:4px;box-shadow:0 8px 28px rgba(0,0,0,0.6);flex-direction:column;gap:1px;min-width:138px;
+      padding:4px;box-shadow:0 8px 28px rgba(0,0,0,0.7);flex-direction:column;gap:1px;min-width:160px;
     }
-    .tw-smi{padding:7px 11px;font-size:10px;color:var(--dim);border-radius:5px;cursor:pointer;transition:background 0.15s;background:none;border:none;width:100%;text-align:left;font-family:inherit;}
-    .tw-smi:hover{background:var(--glass-h);color:var(--text);}
-    .tw-smi.danger{color:rgba(244,63,94,0.75);}
-    .tw-smi.danger:hover{background:rgba(244,63,94,0.08);}
+    .tw-smi{padding:8px 12px;font-size:11px;color:var(--dim);border-radius:5px;cursor:pointer;transition:background 0.15s;background:none;border:none;width:100%;text-align:left;font-family:inherit;}
+    .tw-smi:hover,.tw-smi:active{background:var(--glass-h);color:var(--text);}
+    .tw-smi.danger{color:rgba(244,63,94,0.8);}
+    .tw-smi.danger:hover,.tw-smi.danger:active{background:rgba(244,63,94,0.1);}
+    /* Ancien .tw-smenu inline — conservé pour compatibilité statique mais non utilisé */
+    .tw-smenu{display:none;}
+    /* Bouton trigger ⋮ sur chaque tuile */
+    .tw-seat-mod{
+      position:absolute;top:4px;left:4px;width:20px;height:20px;border-radius:4px;
+      background:rgba(245,158,11,0.15);border:1px solid rgba(245,158,11,0.35);
+      color:var(--amber);font-size:13px;line-height:1;cursor:pointer;
+      display:flex;align-items:center;justify-content:center;z-index:6;
+      transition:background 0.15s;
+    }
+    .tw-seat-mod:hover,.tw-seat-mod:active{background:rgba(245,158,11,0.3);}
 
     /* === PLAN CENTRAL === */
     #twCanvas{flex:1;overflow:hidden;display:flex;flex-direction:column;position:relative;min-height:0;}
@@ -862,7 +874,6 @@ function seatAct(action,uid){
     'to_owner':      'to_owner'
   };
   if(map[action])wsSend({type:'owner_action',action:map[action],target_id:uid});
-  document.querySelectorAll('.tw-seat.smenu-open').forEach(function(s){s.classList.remove('smenu-open');});
 }
 
 /* ============================================================
@@ -1696,15 +1707,35 @@ function _updateHandBadge(uid,raised){
 
 function openSeatMenu(uid,ev){
   ev.stopPropagation();
-  var seat=document.getElementById('seat-'+uid);
-  if(!seat)return;
-  var isOpen=seat.classList.contains('smenu-open');
-  document.querySelectorAll('.tw-seat.smenu-open').forEach(function(s){s.classList.remove('smenu-open');});
-  if(!isOpen)seat.classList.add('smenu-open');
+  var portal=document.getElementById('twSeatMenuPortal');
+  if(!portal)return;
+  /* Toggle : même uid déjà ouvert → fermer */
+  if(portal.dataset.uid===uid&&portal.style.display==='flex'){
+    portal.style.display='none';portal.dataset.uid='';return;
+  }
+  /* Construire les boutons pour cet uid */
+  portal.innerHTML=
+    '<button class="tw-smi" onclick="seatAct(\'hand_down\',\''+uid+'\');closePortalMenu()">✋ Baisser la main</button>'+
+    '<button class="tw-smi" onclick="seatAct(\'mute\',\''+uid+'\');closePortalMenu()">🔇 Couper le micro</button>'+
+    '<button class="tw-smi" onclick="seatAct(\'request_unmute\',\''+uid+'\');closePortalMenu()">🎙 Demander activation micro</button>'+
+    '<button class="tw-smi danger" onclick="seatAct(\'to_spectator\',\''+uid+'\');closePortalMenu()">👁 Passer spectateur</button>'+
+    '<button class="tw-smi danger" onclick="seatAct(\'to_owner\',\''+uid+'\');closePortalMenu()">👑 Transférer owner</button>';
+  portal.dataset.uid=uid;
+  /* Positionner sous le trigger (getBoundingClientRect — jamais rogné) */
+  var trigger=document.getElementById('mod-'+uid)||ev.currentTarget||ev.target;
+  var rect=trigger.getBoundingClientRect();
+  var menuH=200; /* estimation hauteur menu */
+  var top=(rect.bottom+4+menuH>window.innerHeight)?(rect.top-menuH-4):(rect.bottom+4);
+  var left=Math.min(rect.left,window.innerWidth-172);
+  portal.style.top=top+'px';
+  portal.style.left=left+'px';
+  portal.style.display='flex';
 }
-document.addEventListener('click',function(){
-  document.querySelectorAll('.tw-seat.smenu-open').forEach(function(s){s.classList.remove('smenu-open');});
-});
+function closePortalMenu(){
+  var portal=document.getElementById('twSeatMenuPortal');
+  if(portal){portal.style.display='none';portal.dataset.uid='';}
+}
+document.addEventListener('click',function(){closePortalMenu();});
 
 /* ============================================================
    SPEAKING DETECTION (AudioContext)
@@ -1878,19 +1909,13 @@ function makeLiveSeat(p){
   var badgeClick=canMod?'onclick="openSeatMenu(\''+p.user_id+'\',event)"':'';
   var badgeHtml='<div class="'+badgeCls+'" id="hand-badge-'+p.user_id+'" style="display:'+(p.hand?'flex':'none')+'" '+badgeClick+' title="Main levée">✋</div>';
   /* Menu modération owner (hover + clic badge) */
-  var sMenuHtml='';
-  if(canMod){
-    sMenuHtml='<div class="tw-smenu" onclick="event.stopPropagation()">'+
-      '<button class="tw-smi" onclick="seatAct(\'hand_down\',\''+p.user_id+'\')">Baisser la main</button>'+
-      '<button class="tw-smi" onclick="seatAct(\'mute\',\''+p.user_id+'\')">Couper le micro</button>'+
-      '<button class="tw-smi" onclick="seatAct(\'request_unmute\',\''+p.user_id+'\')">Demander activation micro</button>'+
-      '<button class="tw-smi danger" onclick="seatAct(\'to_spectator\',\''+p.user_id+'\')">Passer spectateur</button>'+
-      '<button class="tw-smi danger" onclick="seatAct(\'to_owner\',\''+p.user_id+'\')">Transférer owner →</button>'+
-      '</div>';
-  }
+  /* Bouton ⋮ visible pour l'owner — déclenche le portal menu */
+  var modBtn=canMod
+    ?'<div class="tw-seat-mod" id="mod-'+p.user_id+'" onclick="openSeatMenu(\''+p.user_id+'\',event)" title="Actions modération">⋮</div>'
+    :'';
   d.innerHTML=
-    sMenuHtml+
     '<div class="tw-seat-halo"></div>'+
+    modBtn+
     '<div class="tw-seat-cam">'+
       '<video id="video-'+p.user_id+'" autoplay playsinline'+(p.isLocal?' muted':'')+' style="width:100%;height:100%;object-fit:cover;display:none;border-radius:6px"></video>'+
       '<div class="tw-seat-av '+avCls+'" id="av-'+p.user_id+'">'+_e(p.ini)+'</div>'+
@@ -1988,5 +2013,7 @@ window.addEventListener('DOMContentLoaded',function(){
   console.log('[TW] step_active',TW.step,STEPS[TW.step-1].lbl);
 });
 </script>
+<!-- Portal menu modération — rendu en position:fixed, jamais rogné -->
+<div id="twSeatMenuPortal"></div>
 </body>
 </html>
