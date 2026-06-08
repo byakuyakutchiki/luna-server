@@ -8160,7 +8160,8 @@ class _IrisTeamRoom:
         self.objects: list = []
         self.sources: list = []
         self.votes: dict = {}         # str(obj_id) -> count
-        self.memory: list = []        # décisions/actions — mémoire de séance
+        self.proposals: list = []     # hypothèses de travail
+        self.active_proposal_id: str | None = None
 
     def get_state(self) -> dict:
         return {
@@ -8168,7 +8169,8 @@ class _IrisTeamRoom:
             "objects": self.objects, "sources": self.sources,
             "votes": [{"id": k, "count": v} for k, v in self.votes.items()],
             "participants": list(self.participants.values()),
-            "memory": self.memory,
+            "proposals": self.proposals,
+            "active_proposal_id": self.active_proposal_id,
         }
 
     async def broadcast(self, message: dict, exclude: str = None):
@@ -8361,43 +8363,45 @@ async def team_ws(websocket: WebSocket, session_id: str):
                 to = msg.get("to"); payload = msg.get("payload")
                 if to and payload:
                     await room.send_to(to, {"type": "rtc_signal", "from": user_id, "payload": payload})
-            elif t == "memory_propose":
-                item_type = msg.get("item_type", "")
-                if item_type not in ("decision", "action"):
-                    continue
+            elif t == "proposal_add":
                 text = str(msg.get("text", "")).strip()[:200]
                 if not text:
                     continue
-                item = {
-                    "id": f"m_{int(time.time()*1000)}_{uuid.uuid4().hex[:6]}",
-                    "item_type": item_type,
+                prop = {
+                    "id": f"p_{int(time.time()*1000)}_{uuid.uuid4().hex[:6]}",
                     "status": "pending",
                     "text": text,
                     "author_id": user_id,
                     "author_name": room.participants.get(user_id, {}).get("name", "?"),
                     "created_at": time.time(),
                 }
-                room.memory.append(item)
-                await room.broadcast({"type": "memory_item_added", "item": item})
-            elif t == "memory_validate":
+                room.proposals.append(prop)
+                await room.broadcast({"type": "proposal_added", "proposal": prop})
+            elif t == "proposal_activate":
                 if room.participants.get(user_id, {}).get("role") != "owner":
                     continue
-                item_id = str(msg.get("item_id", ""))
-                for item in room.memory:
-                    if item["id"] == item_id and item["status"] == "pending":
-                        item["status"] = "validated"
-                        item["validated_by"] = user_id
-                        await room.broadcast({"type": "memory_item_updated", "item_id": item_id, "status": "validated"})
+                prop_id = str(msg.get("proposal_id", ""))
+                for p in room.proposals:
+                    if p["id"] == prop_id and p["status"] == "pending":
+                        # Ancienne active → pending
+                        for other in room.proposals:
+                            if other["status"] == "active":
+                                other["status"] = "pending"
+                                await room.broadcast({"type": "proposal_updated", "proposal_id": other["id"], "status": "pending"})
+                        p["status"] = "active"
+                        room.active_proposal_id = prop_id
+                        await room.broadcast({"type": "proposal_updated", "proposal_id": prop_id, "status": "active"})
                         break
-            elif t == "memory_reject":
+            elif t == "proposal_archive":
                 if room.participants.get(user_id, {}).get("role") != "owner":
                     continue
-                item_id = str(msg.get("item_id", ""))
-                for item in room.memory:
-                    if item["id"] == item_id and item["status"] == "pending":
-                        item["status"] = "rejected"
-                        item["validated_by"] = user_id
-                        await room.broadcast({"type": "memory_item_updated", "item_id": item_id, "status": "rejected"})
+                prop_id = str(msg.get("proposal_id", ""))
+                for p in room.proposals:
+                    if p["id"] == prop_id and p["status"] in ("pending", "active"):
+                        if p["status"] == "active":
+                            room.active_proposal_id = None
+                        p["status"] = "archived"
+                        await room.broadcast({"type": "proposal_updated", "proposal_id": prop_id, "status": "archived"})
                         break
     except WebSocketDisconnect:
         pass
