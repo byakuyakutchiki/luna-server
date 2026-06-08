@@ -858,7 +858,8 @@ function seatAct(action,uid){
     'mute':          'force_mute',
     'request_unmute':'request_unmute',
     'to_spectator':  'to_spectator',
-    'to_participant':'to_participant'
+    'to_participant':'to_participant',
+    'to_owner':      'to_owner'
   };
   if(map[action])wsSend({type:'owner_action',action:map[action],target_id:uid});
   document.querySelectorAll('.tw-seat.smenu-open').forEach(function(s){s.classList.remove('smenu-open');});
@@ -1884,6 +1885,7 @@ function makeLiveSeat(p){
       '<button class="tw-smi" onclick="seatAct(\'mute\',\''+p.user_id+'\')">Couper le micro</button>'+
       '<button class="tw-smi" onclick="seatAct(\'request_unmute\',\''+p.user_id+'\')">Demander activation micro</button>'+
       '<button class="tw-smi danger" onclick="seatAct(\'to_spectator\',\''+p.user_id+'\')">Passer spectateur</button>'+
+      '<button class="tw-smi danger" onclick="seatAct(\'to_owner\',\''+p.user_id+'\')">Transférer owner →</button>'+
       '</div>';
   }
   d.innerHTML=

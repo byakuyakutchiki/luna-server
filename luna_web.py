@@ -8195,6 +8195,17 @@ class _IrisTeamRoom:
         p = self.participants.pop(user_id, None)
         if p:
             await self.broadcast({"type": "participant_left", "user_id": user_id, "name": p.get("name", "?")})
+            # Owner left → elect oldest non-spectator participant as new owner
+            if p.get("role") == "owner" and self.participants:
+                new_owner_id = next(
+                    (uid for uid, info in self.participants.items()
+                     if info.get("role") not in ("owner", "spectator")),
+                    None
+                )
+                if new_owner_id:
+                    self.participants[new_owner_id]["role"] = "owner"
+                    await self.send_to(new_owner_id, {"type": "role_changed", "role": "owner"})
+                    await self.broadcast({"type": "participant_update", "user_id": new_owner_id, "role": "owner"})
 
 
 _TEAM_ROOMS: dict = {}  # session_id -> _IrisTeamRoom
@@ -8240,10 +8251,16 @@ async def team_ws(websocket: WebSocket, session_id: str):
         if msg.get("type") != "join":
             await websocket.close(code=4000, reason="Expected join"); return
         user_id = re.sub(r"[^a-zA-Z0-9_-]", "", str(msg.get("user_id", "")))[:32] or uuid.uuid4().hex[:8]
+        requested_role = str(msg.get("role", "participant"))
+        # Enforce single owner per room
+        if requested_role == "owner" and any(
+            p.get("role") == "owner" for p in room.participants.values()
+        ):
+            requested_role = "participant"
         participant = {
             "user_id": user_id,
             "name": str(msg.get("name", "Participant"))[:80],
-            "role": str(msg.get("role", "participant")),
+            "role": requested_role,
             "ini":  str(msg.get("ini", "P"))[:2].upper(),
             "speaking": False, "hand": False, "cam": False, "mic": False,
         }
@@ -8324,6 +8341,14 @@ async def team_ws(websocket: WebSocket, session_id: str):
                     tgt["role"] = "participant"
                     await room.send_to(tid, {"type": "role_changed", "role": "participant"})
                     await room.broadcast({"type": "participant_update", "user_id": tid, "role": "participant"})
+                elif action == "to_owner":
+                    # Transfer ownership: sender → participant, target → owner
+                    sender["role"] = "participant"
+                    tgt["role"] = "owner"
+                    await room.send_to(user_id, {"type": "role_changed", "role": "participant"})
+                    await room.send_to(tid, {"type": "role_changed", "role": "owner"})
+                    await room.broadcast({"type": "participant_update", "user_id": user_id, "role": "participant"})
+                    await room.broadcast({"type": "participant_update", "user_id": tid, "role": "owner"})
             elif t == "rtc_signal":
                 to = msg.get("to"); payload = msg.get("payload")
                 if to and payload:
