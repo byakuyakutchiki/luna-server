@@ -429,14 +429,6 @@
     .tw-prop-activate:hover{background:rgba(16,212,142,0.2);}
     .tw-prop-archive{background:none;border:1px solid var(--border-s);color:var(--dim2);border-radius:3px;padding:2px 5px;font-size:9px;cursor:pointer;}
     .tw-prop-archive:hover{color:var(--dim);}
-    /* ── Carte proposition active (canvas) ── */
-    #twActiveCard{display:none;margin:10px 16px 0;padding:10px 14px;border-radius:7px;border:1px solid rgba(16,212,142,0.35);background:rgba(16,212,142,0.05);}
-    #twActiveCard.on{display:block;}
-    .tw-ac-label{font-size:8px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--iris);margin-bottom:4px;}
-    .tw-ac-text{font-size:13px;font-weight:600;color:var(--text);line-height:1.45;}
-    .tw-ac-meta{font-size:9px;color:var(--dim2);margin-top:4px;display:flex;justify-content:space-between;align-items:center;}
-    .tw-ac-archive{background:none;border:none;color:var(--dim2);font-size:9px;cursor:pointer;padding:0;}
-    .tw-ac-archive:hover{color:var(--dim);}
   </style>
 </head>
 <body>
@@ -459,7 +451,7 @@
     <span class="tw-hstat" id="twPStat"><strong>4</strong> participants</span>
     <span class="tw-hstat" id="twSStat"><strong>0</strong> sources</span>
     <button class="tw-hbtn brief" id="twBriefBtn" onclick="openModal('briefModal')">Brief mission</button>
-    <button class="tw-hbtn back" onclick="window.location.href='/simli'">← Iris Audio</button>
+    <button class="tw-hbtn back" onclick="window.location.href='/simli'" style="display:none">← Iris Audio</button>
   </header>
 
   <!-- STEPPER 13 étapes -->
@@ -491,15 +483,7 @@
     </div>
     <div id="twCanvasInner">
       <div class="tw-canvas-grid"></div>
-      <!-- CARTE PROPOSITION ACTIVE -->
-      <div id="twActiveCard">
-        <div class="tw-ac-label">Proposition active</div>
-        <div class="tw-ac-text" id="twActiveCardText"></div>
-        <div class="tw-ac-meta">
-          <span id="twActiveCardMeta"></span>
-          <button class="tw-ac-archive" onclick="propArchiveActive()">Archiver ✕</button>
-        </div>
-      </div>
+
       <div id="twGrid"></div>
       <div id="twEmptyState">
         <svg class="tw-es-icon" width="48" height="48" viewBox="0 0 48 48" fill="none"><circle cx="24" cy="24" r="20" stroke="rgba(180,195,220,0.5)" stroke-width="1.5" stroke-dasharray="4 3"/><circle cx="24" cy="24" r="6" stroke="rgba(16,212,142,0.5)" stroke-width="1.2"/></svg>
@@ -778,23 +762,40 @@ var TLBL={prop:'Proposition',source:'Source',decision:'Décision',action:'Action
 /* ============================================================
    STEPPER
    ============================================================ */
+var PHASES=[
+  {id:1,lbl:'Brief',    steps:[1,2]},
+  {id:2,lbl:'Collecte', steps:[3,4,5,6]},
+  {id:3,lbl:'Analyse',  steps:[7,8,9]},
+  {id:4,lbl:'Décision', steps:[10,11]},
+  {id:5,lbl:'Livrable', steps:[12,13]},
+];
+function currentPhase(){
+  for(var i=0;i<PHASES.length;i++){
+    if(PHASES[i].steps.indexOf(TW.step)!==-1)return PHASES[i].id;
+  }
+  return 1;
+}
 function renderStepper(){
   var track=document.getElementById('twStepsTrack');
   track.innerHTML='';
-  STEPS.forEach(function(s){
+  var cp=currentPhase();
+  PHASES.forEach(function(ph){
+    var done=ph.id<cp;
+    var active=ph.id===cp;
     var d=document.createElement('div');
-    if(s.id===TW.step){
+    if(active){
       d.className='tw-step-dot active';
-      d.innerHTML='<span class="tw-sn">'+s.id+'</span><span class="tw-sl">'+s.lbl+'</span>';
-    } else {
-      d.className='tw-step-dot'+(s.id<TW.step?' done':'');
-      d.title=s.id+'. '+s.lbl;
+      d.innerHTML='<span class="tw-sn">'+ph.id+'</span><span class="tw-sl">'+ph.lbl+'</span>';
+    }else{
+      d.className='tw-step-dot'+(done?' done':'');
+      d.title=ph.lbl;
     }
-    (function(sid,slbl){d.onclick=function(){
+    (function(ph2){d.onclick=function(){
       if(TW.wsConnected&&TW.userRole!=='owner'){toast('Seul l\'owner pilote les étapes.',2200);return;}
-      if(sid<=TW.step+1){TW.step=sid;wsSend({type:'step_change',step:sid});renderStepper();applyCanvasState(sid);toast('Étape : '+slbl,1800);}
-      else{toast('Complète d\'abord l\'étape '+(TW.step)+'.',2200);}
-    };})(s.id,s.lbl);
+      var target=ph2.steps[0];
+      if(target<=TW.step+1){TW.step=target;wsSend({type:'step_change',step:target});renderStepper();applyCanvasState(target);toast(ph2.lbl,1800);}
+      else{toast('Complète d\'abord l\'étape en cours.',2200);}
+    };})(ph);
     track.appendChild(d);
   });
   document.getElementById('twStepNum').textContent=TW.step;
@@ -989,36 +990,24 @@ function renderObjects(){
   if(!grid)return;
   grid.innerHTML='';
 
-  /* ── Mode exploration : canvas affiche les propositions ── */
+  /* ── Mode exploration : sidebar = catalogue, canvas = instruction ── */
   if(!TW.activeProposalId){
     var pending=TW.proposals.filter(function(p){return p.status==='pending';});
-    if(!pending.length){
-      grid.style.display='none';
-      if(empty){
-        empty.style.display='flex';
-        var em=document.getElementById('twEmptyMsg');
-        var es=document.getElementById('twEmptySub');
+    grid.style.display='none';
+    if(empty){
+      empty.style.display='flex';
+      var em=document.getElementById('twEmptyMsg');
+      var es=document.getElementById('twEmptySub');
+      if(pending.length){
+        if(em)em.textContent=pending.length+' piste'+(pending.length>1?'s':'')+' en attente d\'activation.';
+        if(es)es.textContent=TW.userRole==='owner'
+          ?'Activez la meilleure piste dans la section PROPOSITIONS ci-dessous pour démarrer le dossier.'
+          :'En attente de l\'owner pour démarrer le dossier.';
+      }else{
         if(em)em.textContent='Aucune piste soumise pour l\'instant.';
-        if(es)es.textContent='Utilisez le bouton "Proposition" pour soumettre une première piste.';
+        if(es)es.textContent='Soumettez une piste dans la section PROPOSITIONS ci-dessous.';
       }
-      return;
     }
-    grid.style.display='grid';
-    if(empty)empty.style.display='none';
-    var isOwner=TW.userRole==='owner';
-    pending.forEach(function(p){
-      var d=document.createElement('div');
-      d.className='tw-obj prop mode-edit';
-      d.innerHTML='<div class="tw-obj-type">'+typeIcon('prop')
-        +'<span class="tw-obj-lbl prop">'+TLBL.prop+'</span></div>'
-        +'<div class="tw-obj-title">'+_e(p.text)+'</div>'
-        +'<div class="tw-obj-meta"><span>'+_e(p.author_name)+'</span><span>'+_ago(p.created_at*1000)+'</span></div>'
-        +(isOwner?'<div class="tw-prop-actions">'
-          +'<button class="tw-prop-activate" onclick="propActivate(\''+p.id+'\')">⚡ Activer</button>'
-          +'<button class="tw-prop-archive" onclick="propArchive(\''+p.id+'\')">✕</button>'
-          +'</div>':'');
-      grid.appendChild(d);
-    });
     return;
   }
 
@@ -1225,7 +1214,8 @@ function applyBrief(){
   TW.brief=b;
   wsSend({type:'brief_set',brief:b});
   closeModal('briefModal');
-  document.getElementById('twBriefBtn').classList.add('active');
+  var bb=document.getElementById('twBriefBtn');
+  if(bb){bb.classList.add('active');bb.style.display='none';}
   if(b.title)document.getElementById('twSessionTitle').textContent=b.title;
   if(TW.step===2){TW.step=3;renderStepper();applyCanvasState(3);}
   else{applyCanvasState(TW.step);}
@@ -1656,7 +1646,7 @@ function handleWsMessage(msg){
   }
   if(t==='brief_updated'){
     TW.brief=msg.brief;
-    var btn=document.getElementById('twBriefBtn');if(btn)btn.classList.add('active');
+    var btn=document.getElementById('twBriefBtn');if(btn){btn.classList.add('active');btn.style.display='none';}
     if(msg.brief&&msg.brief.title)document.getElementById('twSessionTitle').textContent=msg.brief.title;
     renderContextHeader();
     if(TW.step===2)applyCanvasState(TW.step);
@@ -2230,8 +2220,17 @@ function renderProposals(){
   var html='';
 
   if(!TW.activeProposalId){
-    /* Mode exploration — canvas affiche les pistes, sidebar = bouton seul */
-    /* Archivées visibles dans la sidebar comme historique */
+    /* Mode exploration — sidebar = catalogue principal des pistes */
+    if(pending.length){
+      pending.forEach(function(p){
+        html+='<div class="tw-prop-item pending">'
+          +'<span class="tw-prop-badge">💡</span>'
+          +'<span class="tw-prop-body">'+_e(p.text)+'</span>'
+          +'<span class="tw-prop-meta">'+_e(p.author_name)+'</span>';
+        if(isOwner)html+='<div class="tw-prop-actions"><button class="tw-prop-activate" onclick="propActivate(\''+p.id+'\')">⚡ Activer</button><button class="tw-prop-archive" onclick="propArchive(\''+p.id+'\')">✕</button></div>';
+        html+='</div>';
+      });
+    }
     if(archived.length){
       html+='<div class="tw-prop-sep tw-prop-sep-arch" onclick="toggleArchived()">Archivées ('+archived.length+') ▸</div>'
         +'<div id="twPropArchived" style="display:none">';
@@ -2286,21 +2285,6 @@ function renderProposals(){
   var cnt=document.getElementById('twPropCount');
   var tot=TW.proposals.filter(function(p){return p.status!=='archived';}).length;
   if(cnt)cnt.textContent=tot?tot+' piste'+(tot>1?'s':''):'';
-
-  /* Carte centrale proposition active */
-  var ap=TW.proposals.find(function(p){return p.id===TW.activeProposalId;});
-  var card=document.getElementById('twActiveCard');
-  if(card){
-    if(ap){
-      var ct=document.getElementById('twActiveCardText');
-      var cm=document.getElementById('twActiveCardMeta');
-      if(ct)ct.textContent=ap.text;
-      if(cm)cm.textContent='Proposée par '+ap.author_name;
-      card.classList.add('on');
-    }else{
-      card.classList.remove('on');
-    }
-  }
 
   renderContextHeader();
   renderObjects();  /* canvas toujours synchronisé avec l'état des propositions */
