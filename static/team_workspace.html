@@ -70,11 +70,13 @@
     .tw-step-nav{background:none;border:none;color:var(--dim);font-size:15px;cursor:pointer;padding:0 8px;height:100%;transition:color 0.15s;flex-shrink:0;}
     .tw-step-nav:hover{color:var(--text);}
     .tw-steps-track{flex:1;display:flex;align-items:center;gap:5px;overflow:hidden;min-width:0;}
-    .tw-step-dot{flex-shrink:0;width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,0.1);transition:all 0.22s;cursor:pointer;}
-    .tw-step-dot.done{background:rgba(16,212,142,0.38);}
-    .tw-step-dot.active{width:auto;padding:3px 10px;border-radius:11px;height:22px;background:var(--iris-d);border:1px solid rgba(16,212,142,0.32);display:flex;align-items:center;gap:5px;}
+    .tw-step-dot{flex-shrink:0;width:auto;padding:2px 8px;border-radius:10px;height:20px;background:rgba(255,255,255,0.05);transition:all 0.22s;cursor:pointer;display:flex;align-items:center;gap:4px;}
+    .tw-step-dot .tw-sl{font-size:9px;font-weight:600;letter-spacing:0.4px;text-transform:uppercase;color:var(--dim2);white-space:nowrap;}
+    .tw-step-dot.done{background:rgba(16,212,142,0.1);}
+    .tw-step-dot.done .tw-sl{color:rgba(16,212,142,0.6);}
+    .tw-step-dot.active{padding:3px 10px;background:var(--iris-d);border:1px solid rgba(16,212,142,0.32);}
     .tw-step-dot.active .tw-sn{font-size:8px;color:var(--dim2);}
-    .tw-step-dot.active .tw-sl{font-size:9px;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;color:var(--iris);white-space:nowrap;}
+    .tw-step-dot.active .tw-sl{font-size:9px;font-weight:700;letter-spacing:0.8px;color:var(--iris);}
     .tw-step-info{flex-shrink:0;font-size:9px;color:var(--dim);margin-left:10px;white-space:nowrap;}
     .tw-step-info strong{color:var(--iris);font-weight:700;}
 
@@ -783,12 +785,11 @@ function renderStepper(){
     var done=ph.id<cp;
     var active=ph.id===cp;
     var d=document.createElement('div');
+    d.className='tw-step-dot'+(active?' active':done?' done':'');
     if(active){
-      d.className='tw-step-dot active';
       d.innerHTML='<span class="tw-sn">'+ph.id+'</span><span class="tw-sl">'+ph.lbl+'</span>';
     }else{
-      d.className='tw-step-dot'+(done?' done':'');
-      d.title=ph.lbl;
+      d.innerHTML='<span class="tw-sl">'+ph.lbl+'</span>';
     }
     (function(ph2){d.onclick=function(){
       if(TW.wsConnected&&TW.userRole!=='owner'){toast('Seul l\'owner pilote les étapes.',2200);return;}
@@ -990,24 +991,36 @@ function renderObjects(){
   if(!grid)return;
   grid.innerHTML='';
 
-  /* ── Mode exploration : sidebar = catalogue, canvas = instruction ── */
+  /* ── Mode exploration : canvas = grille principale des propositions ── */
   if(!TW.activeProposalId){
     var pending=TW.proposals.filter(function(p){return p.status==='pending';});
-    grid.style.display='none';
-    if(empty){
-      empty.style.display='flex';
-      var em=document.getElementById('twEmptyMsg');
-      var es=document.getElementById('twEmptySub');
-      if(pending.length){
-        if(em)em.textContent=pending.length+' piste'+(pending.length>1?'s':'')+' en attente d\'activation.';
-        if(es)es.textContent=TW.userRole==='owner'
-          ?'Activez la meilleure piste dans la section PROPOSITIONS ci-dessous pour démarrer le dossier.'
-          :'En attente de l\'owner pour démarrer le dossier.';
-      }else{
+    if(!pending.length){
+      grid.style.display='none';
+      if(empty){
+        empty.style.display='flex';
+        var em=document.getElementById('twEmptyMsg');
+        var es=document.getElementById('twEmptySub');
         if(em)em.textContent='Aucune piste soumise pour l\'instant.';
         if(es)es.textContent='Soumettez une piste dans la section PROPOSITIONS ci-dessous.';
       }
+      return;
     }
+    grid.style.display='grid';
+    if(empty)empty.style.display='none';
+    var isOwner=TW.userRole==='owner';
+    pending.forEach(function(p){
+      var d=document.createElement('div');
+      d.className='tw-obj prop mode-edit';
+      d.innerHTML='<div class="tw-obj-type">'+typeIcon('prop')
+        +'<span class="tw-obj-lbl prop">'+TLBL.prop+'</span></div>'
+        +'<div class="tw-obj-title">'+_e(p.text)+'</div>'
+        +'<div class="tw-obj-meta"><span>'+_e(p.author_name)+'</span><span>'+_ago(p.created_at*1000)+'</span></div>'
+        +(isOwner?'<div class="tw-prop-actions">'
+          +'<button class="tw-prop-activate" onclick="propActivate(\''+p.id+'\')">⚡ Activer</button>'
+          +'<button class="tw-prop-archive" onclick="propArchive(\''+p.id+'\')">✕</button>'
+          +'</div>':'');
+      grid.appendChild(d);
+    });
     return;
   }
 
@@ -1018,7 +1031,14 @@ function renderObjects(){
 
   if(!visible.length){
     grid.style.display='none';
-    if(empty)empty.style.display='flex';
+    if(empty){
+      empty.style.display='flex';
+      var em=document.getElementById('twEmptyMsg');
+      var es=document.getElementById('twEmptySub');
+      var ap=TW.activeProposalId?TW.proposals.find(function(p){return p.id===TW.activeProposalId;}):null;
+      if(em)em.textContent=ap?'Dossier actif — "'+ap.text+'"':'Dossier en cours.';
+      if(es)es.textContent='Ajoutez une source pour commencer à enrichir cette piste.';
+    }
     return;
   }
   grid.style.display='grid';
@@ -1609,6 +1629,7 @@ function handleWsMessage(msg){
     TW.activeProposalId=st.active_proposal_id||null;
     TW.sources=st.sources||[];
     renderSeats();renderObjects();applyCanvasState(TW.step);updateStats();renderProposals();
+    if(TW.brief){var bb=document.getElementById('twBriefBtn');if(bb){bb.classList.add('active');bb.style.display='none';}}
     console.log('[WS] state_sync participants='+(st.participants||[]).length);
     return;
   }
@@ -2220,17 +2241,7 @@ function renderProposals(){
   var html='';
 
   if(!TW.activeProposalId){
-    /* Mode exploration — sidebar = catalogue principal des pistes */
-    if(pending.length){
-      pending.forEach(function(p){
-        html+='<div class="tw-prop-item pending">'
-          +'<span class="tw-prop-badge">💡</span>'
-          +'<span class="tw-prop-body">'+_e(p.text)+'</span>'
-          +'<span class="tw-prop-meta">'+_e(p.author_name)+'</span>';
-        if(isOwner)html+='<div class="tw-prop-actions"><button class="tw-prop-activate" onclick="propActivate(\''+p.id+'\')">⚡ Activer</button><button class="tw-prop-archive" onclick="propArchive(\''+p.id+'\')">✕</button></div>';
-        html+='</div>';
-      });
-    }
+    /* Mode exploration — canvas = grille principale, sidebar = bouton seul */
     if(archived.length){
       html+='<div class="tw-prop-sep tw-prop-sep-arch" onclick="toggleArchived()">Archivées ('+archived.length+') ▸</div>'
         +'<div id="twPropArchived" style="display:none">';
