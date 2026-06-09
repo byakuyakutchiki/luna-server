@@ -10,22 +10,22 @@
 
     /* === TOKENS === */
     :root{
-      --bg:#050b1a;
-      --panel:rgba(8,14,30,0.92);
-      --glass:rgba(255,255,255,0.04);
-      --glass-h:rgba(255,255,255,0.07);
-      --border:rgba(255,255,255,0.07);
-      --border-s:rgba(255,255,255,0.12);
+      --bg:#020810;
+      --panel:rgba(4,8,20,0.96);
+      --glass:rgba(255,255,255,0.035);
+      --glass-h:rgba(255,255,255,0.065);
+      --border:rgba(255,255,255,0.05);
+      --border-s:rgba(255,255,255,0.09);
       --text:#e8eeff;
-      --dim:rgba(232,238,255,0.45);
-      --dim2:rgba(232,238,255,0.22);
+      --dim:rgba(232,238,255,0.42);
+      --dim2:rgba(232,238,255,0.2);
       --iris:#10d48e;
-      --iris-d:rgba(16,212,142,0.13);
+      --iris-d:rgba(16,212,142,0.12);
       --iq:#22d3ee;
-      --iq-d:rgba(34,211,238,0.11);
+      --iq-d:rgba(34,211,238,0.10);
       --luna:#a78bfa;
-      --luna-d:rgba(167,139,250,0.13);
-      --metal:rgba(180,195,220,0.6);
+      --luna-d:rgba(167,139,250,0.12);
+      --metal:rgba(180,195,220,0.55);
       --amber:#f59e0b;
       --red:#f43f5e;
     }
@@ -35,9 +35,9 @@
 
     /* === HEADER === */
     #twHeader{
-      flex-shrink:0;height:52px;background:rgba(3,6,16,0.97);
-      border-bottom:1px solid var(--border-s);
-      display:flex;align-items:center;gap:14px;padding:0 20px;
+      flex-shrink:0;height:44px;background:rgba(2,5,14,0.98);
+      border-bottom:1px solid var(--border);
+      display:flex;align-items:center;gap:12px;padding:0 18px;
     }
     .tw-logomark{
       width:30px;height:30px;border-radius:7px;flex-shrink:0;
@@ -79,58 +79,61 @@
 
     /* === PARTICIPANT ORBIT === */
     .tw-prow{
-      flex-shrink:0;display:flex;align-items:center;gap:10px;
-      padding:8px 20px;overflow-x:auto;scrollbar-width:none;
-      background:rgba(3,6,16,0.55);
+      flex-shrink:0;display:flex;align-items:center;gap:6px;
+      padding:5px 16px;overflow-x:auto;scrollbar-width:none;
+      background:rgba(2,5,14,0.7);
     }
     .tw-prow::-webkit-scrollbar{display:none;}
     .tw-prow.top{border-bottom:1px solid var(--border);}
     .tw-prow.bottom{border-top:1px solid var(--border);}
-    .tw-prow-lbl{font-size:8px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--dim2);flex-shrink:0;margin-right:4px;}
+    .tw-prow-lbl{font-size:7px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--dim2);flex-shrink:0;margin-right:6px;}
 
-    /* SEAT TILES */
+    /* SEAT TILES — horizontal compact chips */
     .tw-seat{
-      flex-shrink:0;position:relative;width:106px;
-      background:var(--glass);border:1px solid var(--border-s);border-radius:8px;
+      flex-shrink:0;position:relative;
+      height:34px;width:auto;
+      display:flex;flex-direction:row;align-items:center;gap:7px;
+      padding:3px 10px 3px 5px;
+      background:var(--glass);border:1px solid var(--border);border-radius:17px;
       overflow:hidden;transition:all 0.22s;
     }
-    .tw-seat.speaking{border-color:rgba(16,212,142,0.45);box-shadow:0 0 0 2px rgba(16,212,142,0.1);}
-    .tw-seat.ai-iris{border-color:rgba(16,212,142,0.2);}
-    .tw-seat.ai-iq  {border-color:rgba(34,211,238,0.2);}
-    .tw-seat.ai-luna{border-color:rgba(167,139,250,0.2);}
-    .tw-seat.absent {opacity:0.3;}
+    .tw-seat.speaking{border-color:rgba(16,212,142,0.4);box-shadow:0 0 0 2px rgba(16,212,142,0.08);}
+    .tw-seat.ai-iris{border-color:rgba(16,212,142,0.16);}
+    .tw-seat.ai-iq  {border-color:rgba(34,211,238,0.16);}
+    .tw-seat.ai-luna{border-color:rgba(167,139,250,0.16);}
+    .tw-seat.absent {opacity:0.28;}
     .tw-seat:hover  {background:var(--glass-h);}
     .tw-seat:hover .tw-smenu{display:flex;}
-    .tw-seat-halo{position:absolute;inset:0;pointer-events:none;border-radius:7px;opacity:0;box-shadow:inset 0 0 14px rgba(16,212,142,0.15);transition:opacity 0.3s;}
+    .tw-seat-halo{position:absolute;inset:0;pointer-events:none;border-radius:17px;opacity:0;box-shadow:inset 0 0 10px rgba(16,212,142,0.12);transition:opacity 0.3s;}
     .tw-seat.speaking .tw-seat-halo{opacity:1;}
-    .tw-seat-cam{width:100%;height:58px;background:rgba(255,255,255,0.02);display:flex;align-items:center;justify-content:center;position:relative;}
+    .tw-seat-cam{width:26px;height:26px;flex-shrink:0;background:none;display:flex;align-items:center;justify-content:center;position:relative;}
     .tw-hand-badge{
-      position:absolute;top:4px;right:4px;width:20px;height:20px;border-radius:50%;
-      background:rgba(245,158,11,0.15);border:1.5px solid rgba(245,158,11,0.45);
-      display:none;align-items:center;justify-content:center;font-size:11px;z-index:5;
+      position:absolute;top:-4px;right:-4px;width:14px;height:14px;border-radius:50%;
+      background:rgba(245,158,11,0.15);border:1px solid rgba(245,158,11,0.45);
+      display:none;align-items:center;justify-content:center;font-size:8px;z-index:5;
       animation:handPulse 1.4s ease-in-out infinite;
     }
     .tw-hand-badge.owner-can-act{cursor:pointer;}
     @keyframes handPulse{
       0%,100%{box-shadow:0 0 0 0 rgba(245,158,11,0.45);}
-      50%{box-shadow:0 0 0 5px rgba(245,158,11,0);}
+      50%{box-shadow:0 0 0 4px rgba(245,158,11,0);}
     }
     .tw-seat.smenu-open .tw-smenu{display:flex;}
-    .tw-seat-av{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;letter-spacing:0.5px;color:#fff;}
-    .tw-seat-av.owner{background:linear-gradient(135deg,rgba(245,158,11,0.4),rgba(217,119,6,0.55));border:1.5px solid rgba(245,158,11,0.4);}
-    .tw-seat-av.participant{background:linear-gradient(135deg,rgba(99,102,241,0.3),rgba(79,70,229,0.45));border:1.5px solid rgba(99,102,241,0.3);}
-    .tw-seat-av.iris-av {background:linear-gradient(135deg,rgba(16,212,142,0.2),rgba(16,212,142,0.38));border:1.5px solid rgba(16,212,142,0.38);}
-    .tw-seat-av.iq-av   {background:linear-gradient(135deg,rgba(34,211,238,0.18),rgba(34,211,238,0.35));border:1.5px solid rgba(34,211,238,0.35);}
-    .tw-seat-av.luna-av {background:linear-gradient(135deg,rgba(167,139,250,0.18),rgba(167,139,250,0.36));border:1.5px solid rgba(167,139,250,0.36);}
-    .tw-seat-footer{padding:6px 8px;border-top:1px solid var(--border);}
-    .tw-seat-name{font-size:10px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-    .tw-seat-role{font-size:8px;color:var(--dim);letter-spacing:0.3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:1px;}
+    .tw-seat-av{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;letter-spacing:0.5px;color:#fff;}
+    .tw-seat-av.owner{background:linear-gradient(135deg,rgba(245,158,11,0.4),rgba(217,119,6,0.55));border:1px solid rgba(245,158,11,0.35);}
+    .tw-seat-av.participant{background:linear-gradient(135deg,rgba(99,102,241,0.3),rgba(79,70,229,0.45));border:1px solid rgba(99,102,241,0.28);}
+    .tw-seat-av.iris-av {background:linear-gradient(135deg,rgba(16,212,142,0.18),rgba(16,212,142,0.34));border:1px solid rgba(16,212,142,0.34);}
+    .tw-seat-av.iq-av   {background:linear-gradient(135deg,rgba(34,211,238,0.16),rgba(34,211,238,0.32));border:1px solid rgba(34,211,238,0.32);}
+    .tw-seat-av.luna-av {background:linear-gradient(135deg,rgba(167,139,250,0.16),rgba(167,139,250,0.33));border:1px solid rgba(167,139,250,0.33);}
+    .tw-seat-footer{padding:0;border-top:none;display:flex;flex-direction:column;justify-content:center;min-width:0;}
+    .tw-seat-name{font-size:10px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:1.3;}
+    .tw-seat-role{font-size:7px;color:var(--dim2);letter-spacing:0.3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
     .tw-seat-role.iris-r{color:var(--iris);}
     .tw-seat-role.iq-r  {color:var(--iq);}
     .tw-seat-role.luna-r{color:var(--luna);}
     .tw-seat-role.own-r {color:var(--amber);}
-    .tw-seat-icons{display:flex;gap:3px;margin-top:4px;}
-    .tw-sico{width:14px;height:14px;border-radius:3px;display:flex;align-items:center;justify-content:center;background:var(--glass);}
+    .tw-seat-icons{display:flex;gap:2px;align-items:center;margin-left:4px;}
+    .tw-sico{width:12px;height:12px;border-radius:2px;display:flex;align-items:center;justify-content:center;background:var(--glass);}
     .tw-sico.on {background:var(--iris-d);}
     .tw-sico.off{background:rgba(244,63,94,0.08);}
     /* Menu modération — portal fixe (jamais rogné par overflow parent) */
@@ -160,9 +163,12 @@
     #twCanvasInner{
       flex:1;overflow-y:auto;overflow-x:hidden;padding:20px;
       background:
-        radial-gradient(ellipse 60% 50% at 25% 35%,rgba(16,212,142,0.035) 0%,transparent 60%),
-        radial-gradient(ellipse 55% 40% at 78% 70%,rgba(167,139,250,0.035) 0%,transparent 60%),
-        #050b1a;
+        radial-gradient(ellipse 80% 55% at 50% -5%,   rgba(16,212,142,0.055) 0%,transparent 55%),
+        radial-gradient(ellipse 55% 50% at 8%  65%,   rgba(16,212,142,0.03)  0%,transparent 50%),
+        radial-gradient(ellipse 60% 50% at 92% 30%,   rgba(167,139,250,0.04) 0%,transparent 55%),
+        radial-gradient(ellipse 45% 40% at 60% 105%,  rgba(34,211,238,0.025) 0%,transparent 45%),
+        radial-gradient(ellipse 30% 25% at 35% 55%,   rgba(167,139,250,0.02) 0%,transparent 40%),
+        #020810;
       position:relative;
     }
     .tw-canvas-grid{
@@ -374,19 +380,21 @@
     #twToast.on{opacity:1;transform:translateX(-50%) translateY(0);}
 
     /* === CONTEXT HEADER L1 / L2 / L3 === */
-    #twCtxBar{flex-shrink:0;background:rgba(2,5,14,0.82);border-bottom:1px solid var(--border);}
-    .tw-ctx-band{display:flex;align-items:center;gap:10px;padding:5px 20px;border-bottom:1px solid rgba(255,255,255,0.035);}
+    #twCtxBar{flex-shrink:0;background:rgba(2,4,12,0.88);border-bottom:1px solid var(--border);}
+    .tw-ctx-band{display:flex;align-items:center;gap:8px;padding:4px 18px;border-bottom:1px solid rgba(255,255,255,0.028);}
     .tw-ctx-band:last-child{border-bottom:none;}
-    .tw-ctx-lbl{font-size:8px;font-weight:700;letter-spacing:1.1px;text-transform:uppercase;flex-shrink:0;width:76px;}
+    .tw-ctx-lbl{font-size:7px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;flex-shrink:0;width:70px;}
     .tw-ctx-val{font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;}
     .tw-ctx-val.empty{color:var(--dim2);font-style:italic;}
+    .tw-ctx-l1{padding:3px 18px;}
     .tw-ctx-l1 .tw-ctx-lbl{color:var(--dim2);}
-    .tw-ctx-l1 .tw-ctx-val{color:var(--dim);font-size:10px;}
-    .tw-ctx-l2{background:rgba(16,212,142,0.04);}
-    .tw-ctx-l2 .tw-ctx-lbl{color:var(--iris);}
-    .tw-ctx-l2 .tw-ctx-val{font-weight:600;color:var(--text);font-size:12px;}
-    .tw-ctx-l3 .tw-ctx-lbl{color:var(--luna);}
-    .tw-ctx-l3 .tw-ctx-val{color:var(--dim);font-size:10px;}
+    .tw-ctx-l1 .tw-ctx-val{color:var(--dim2);font-size:9px;}
+    .tw-ctx-l2{background:rgba(16,212,142,0.05);padding:7px 18px;}
+    .tw-ctx-l2 .tw-ctx-lbl{color:var(--iris);font-size:7px;}
+    .tw-ctx-l2 .tw-ctx-val{font-weight:700;color:var(--text);font-size:13px;letter-spacing:-0.2px;}
+    .tw-ctx-l3{padding:3px 18px;}
+    .tw-ctx-l3 .tw-ctx-lbl{color:var(--dim2);}
+    .tw-ctx-l3 .tw-ctx-val{color:var(--dim2);font-size:9px;}
 
     /* === OBJECT DISPLAY MODES === */
     .tw-obj.mode-read{cursor:default;}
@@ -466,11 +474,10 @@
     .tw-pres-btn.hand.raised{background:rgba(245,158,11,0.1);border-color:rgba(245,158,11,0.35);color:var(--amber);}
     .tw-ws-dot{font-size:9px;color:var(--dim2);flex-shrink:0;transition:color 0.3s;}
     .tw-ws-dot.conn{color:var(--iris);}
-    /* ── Propositions de travail ── */
-    #twProposals{padding:10px 12px 12px;border-top:1px solid var(--border);margin-top:4px;}
-    .tw-prop-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
-    .tw-prop-title{font-size:10px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--dim);}
-    .tw-prop-count{font-size:9px;color:var(--iris);}
+    /* ── Propositions de travail — ancien CSS conservé pour compat ── */
+    .tw-prop-hdr{display:none;}
+    .tw-prop-title{display:none;}
+    .tw-prop-count{font-size:9px;color:var(--iris);margin-left:4px;}
     .tw-prop-add{width:100%;padding:5px 8px;border-radius:5px;border:1px solid var(--border-s);background:var(--glass);color:var(--dim);font-size:10px;cursor:pointer;text-align:left;transition:border-color 0.15s,color 0.15s;margin-bottom:8px;}
     .tw-prop-add:hover{border-color:rgba(16,212,142,0.35);color:var(--iris);}
     .tw-prop-input-row{display:none;align-items:center;gap:6px;margin-bottom:8px;padding:6px 8px;border-radius:5px;border:1px solid var(--border-s);background:var(--glass);}
@@ -515,12 +522,34 @@
     .tw-al-add-btn:hover{background:rgba(16,212,142,0.2);}
 
     /* === DÉCISION CARD === */
-    #twDecisionCard{display:none;margin:8px 16px 0;padding:12px 16px;border-radius:8px;border:1.5px solid rgba(16,212,142,0.5);background:rgba(16,212,142,0.06);}
+    #twDecisionCard{display:none;margin:12px 16px 4px;padding:14px 18px;border-radius:10px;border:1.5px solid rgba(16,212,142,0.4);background:rgba(16,212,142,0.07);box-shadow:0 0 28px rgba(16,212,142,0.06),inset 0 1px 0 rgba(16,212,142,0.12);}
     #twDecisionCard.on{display:block;}
-    .tw-dec-lbl{font-size:9px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--iris);margin-bottom:6px;}
-    .tw-dec-text{font-size:13px;font-weight:600;color:var(--text);line-height:1.5;margin-bottom:8px;font-style:italic;}
+    .tw-dec-lbl{font-size:8px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--iris);margin-bottom:8px;opacity:0.85;}
+    .tw-dec-text{font-size:14px;font-weight:700;color:var(--text);line-height:1.55;margin-bottom:10px;letter-spacing:-0.1px;}
     .tw-dec-meta{display:flex;flex-wrap:wrap;gap:5px;}
-    .tw-dec-tag{font-size:9px;color:var(--dim2);background:rgba(255,255,255,0.05);padding:2px 7px;border-radius:4px;}
+    .tw-dec-tag{font-size:9px;color:var(--dim2);background:rgba(255,255,255,0.04);padding:2px 8px;border-radius:4px;border:1px solid var(--border);}
+
+    /* === PROPOSITIONS DRAWER === */
+    #twProposals{
+      border-top:1px solid var(--border);
+      padding:0;
+      margin-top:0;
+      background:rgba(2,5,14,0.82);
+      transition:max-height 0.28s cubic-bezier(0.4,0,0.2,1);
+    }
+    .tw-prop-drawer-hdr{
+      display:flex;align-items:center;justify-content:space-between;
+      padding:6px 16px;cursor:pointer;user-select:none;
+      border-bottom:1px solid transparent;transition:border-color 0.15s;
+    }
+    .tw-prop-drawer-hdr:hover{border-bottom-color:var(--border);}
+    #twProposals.open .tw-prop-drawer-hdr{border-bottom-color:var(--border);}
+    .tw-prop-drawer-handle{font-size:7px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--dim2);display:flex;align-items:center;gap:8px;}
+    .tw-prop-drawer-handle::before{content:'';display:block;width:24px;height:1px;background:var(--border-s);}
+    .tw-prop-drawer-caret{font-size:9px;color:var(--dim2);transition:transform 0.2s;line-height:1;}
+    #twProposals.open .tw-prop-drawer-caret{transform:rotate(180deg);}
+    .tw-prop-drawer-body{display:none;padding:8px 12px 10px;}
+    #twProposals.open .tw-prop-drawer-body{display:block;}
   </style>
 </head>
 <body>
@@ -619,17 +648,19 @@
 
   <!-- PROPOSITIONS DE TRAVAIL -->
   <div id="twProposals" style="display:none">
-    <div class="tw-prop-hdr">
-      <span class="tw-prop-title">Propositions</span>
-      <span class="tw-prop-count" id="twPropCount"></span>
+    <div class="tw-prop-drawer-hdr" onclick="togglePropDrawer()">
+      <span class="tw-prop-drawer-handle">Propositions <span id="twPropCount"></span></span>
+      <span class="tw-prop-drawer-caret">▲</span>
     </div>
-    <button class="tw-prop-add" id="btnPropAdd" onclick="propOpenInput()">💡 Soumettre une piste…</button>
-    <div class="tw-prop-input-row" id="twPropInput">
-      <input type="text" id="twPropText" class="tw-prop-text" placeholder="Décrivez la piste en quelques mots…" maxlength="200" onkeydown="propInputKey(event)">
-      <button class="tw-prop-sub" onclick="propSubmit()">↵</button>
-      <button class="tw-prop-cancel" onclick="propCloseInput()">✕</button>
+    <div class="tw-prop-drawer-body">
+      <button class="tw-prop-add" id="btnPropAdd" onclick="propOpenInput()">💡 Soumettre une piste…</button>
+      <div class="tw-prop-input-row" id="twPropInput">
+        <input type="text" id="twPropText" class="tw-prop-text" placeholder="Décrivez la piste en quelques mots…" maxlength="200" onkeydown="propInputKey(event)">
+        <button class="tw-prop-sub" onclick="propSubmit()">↵</button>
+        <button class="tw-prop-cancel" onclick="propCloseInput()">✕</button>
+      </div>
+      <div id="twPropList"></div>
     </div>
-    <div id="twPropList"></div>
   </div>
 
 </div>
@@ -2956,13 +2987,22 @@ function toggleArchived(){
   var el=document.getElementById('twPropArchived');
   if(el)el.style.display=el.style.display==='none'?'block':'none';
 }
+function togglePropDrawer(){
+  var panel=document.getElementById('twProposals');
+  if(panel)panel.classList.toggle('open');
+}
 
 function renderProposals(){
   var panel=document.getElementById('twProposals');
   if(!panel)return;
   var list=document.getElementById('twPropList');
   if(!list)return;
-  if(TW.wsConnected)panel.style.display='block';
+  if(TW.wsConnected){
+    panel.style.display='block';
+    /* Ouvrir automatiquement si propositions disponibles */
+    var total=TW.proposals.filter(function(p){return p.status!=='archived';}).length;
+    if(total>0&&!panel.classList.contains('open'))panel.classList.add('open');
+  }
 
   var isOwner=TW.userRole==='owner';
   var active=TW.proposals.filter(function(p){return p.status==='active';});
