@@ -562,6 +562,17 @@
     .tw-es-msg{font-size:22px;font-weight:600;color:var(--text);max-width:400px;line-height:1.4;}
     .tw-es-msg .hi{color:var(--iris-violet);}
     .tw-es-sub{font-size:14px;color:#9ca3af;max-width:360px;line-height:1.6;}
+    .tw-es-cta{
+      display:inline-flex;align-items:center;gap:9px;
+      padding:14px 28px;border-radius:12px;
+      font-size:13px;font-weight:700;letter-spacing:0.6px;text-transform:uppercase;
+      background:rgba(255,255,255,0.04);backdrop-filter:blur(14px);
+      border:1px solid rgba(255,255,255,0.14);color:var(--text);
+      cursor:pointer;font-family:inherit;transition:all 0.22s;
+      box-shadow:0 4px 20px rgba(0,0,0,0.3),inset 0 1px 0 rgba(255,255,255,0.07);
+    }
+    .tw-es-cta:hover{background:rgba(16,185,129,0.08);border-color:rgba(16,185,129,0.32);color:var(--iris);box-shadow:0 4px 24px rgba(16,185,129,0.12),inset 0 1px 0 rgba(255,255,255,0.07);}
+    .tw-es-cta-plus{font-size:18px;line-height:1;color:var(--iris);font-weight:300;}
 
     /* === SPECIAL CANVAS STATES === */
     .tw-sstate{display:none;flex-direction:column;align-items:center;justify-content:center;min-height:260px;gap:18px;padding:40px;position:relative;z-index:1;}
@@ -718,6 +729,88 @@
     #twProposals.open .tw-prop-drawer-caret{transform:rotate(180deg);}
     .tw-prop-drawer-body{display:none;padding:8px 12px 10px;}
     #twProposals.open .tw-prop-drawer-body{display:block;}
+    /* ===== LARGE SEATS — bottom orbit (reference style) ===== */
+    .tw-prow.bottom{
+      min-height:155px;
+      padding:10px 16px 12px;
+      gap:12px;
+      align-items:flex-start;
+      background:rgba(3,6,18,0.65);
+      backdrop-filter:blur(10px);
+    }
+    .tw-prow.bottom .tw-seat{
+      flex-direction:column;
+      height:auto;
+      width:125px;
+      padding:10px 8px 10px;
+      gap:6px;
+      border-radius:14px;
+      background:rgba(12,20,40,0.72);
+      border:1px solid rgba(255,255,255,0.08);
+      backdrop-filter:blur(8px);
+      box-shadow:0 4px 16px rgba(0,0,0,0.4),inset 0 1px 0 rgba(255,255,255,0.04);
+    }
+    .tw-prow.bottom .tw-seat:hover{
+      background:rgba(18,28,55,0.8);
+      border-color:rgba(255,255,255,0.12);
+      transform:translateY(-2px);
+    }
+    .tw-prow.bottom .tw-seat.speaking{
+      border-color:rgba(16,212,142,0.5);
+      box-shadow:0 0 20px rgba(16,212,142,0.15),0 4px 16px rgba(0,0,0,0.4);
+    }
+    .tw-prow.bottom .tw-seat-cam{
+      width:100px;height:100px;
+    }
+    .tw-prow.bottom .tw-seat-av{
+      width:100px;height:100px;
+      border-radius:12px;
+      font-size:26px;
+      font-weight:800;
+      letter-spacing:1px;
+      box-shadow:0 4px 12px rgba(0,0,0,0.3);
+      overflow:hidden;
+    }
+    .tw-prow.bottom .tw-seat-av img{
+      width:100%;height:100%;object-fit:cover;display:block;
+    }
+    .tw-prow.bottom .tw-seat-footer{
+      align-items:center;
+      text-align:center;
+      width:100%;
+      gap:2px;
+    }
+    .tw-prow.bottom .tw-seat-name{
+      font-size:12px;
+      font-weight:700;
+    }
+    .tw-prow.bottom .tw-seat-role{
+      font-size:9px;
+      letter-spacing:0.3px;
+    }
+    .tw-prow.bottom .tw-seat-icons{
+      margin-left:0;
+      margin-top:2px;
+    }
+    .tw-prow.bottom .tw-audio-bars{
+      margin-top:4px;
+      height:14px;
+      gap:3px;
+    }
+    .tw-prow.bottom .tw-abar{width:4px;border-radius:2px;}
+    /* Online badge */
+    .tw-online-badge{
+      position:absolute;top:3px;right:3px;width:10px;height:10px;border-radius:50%;
+      background:#10b981;border:2px solid rgba(12,20,40,0.9);
+      box-shadow:0 0 6px rgba(16,185,129,0.6);
+      z-index:4;
+    }
+    /* Slightly larger top seats too */
+    .tw-prow.top .tw-seat{height:56px;padding:5px 12px 5px 6px;}
+    .tw-prow.top .tw-seat-cam{width:40px;height:40px;}
+    .tw-prow.top .tw-seat-av{width:40px;height:40px;font-size:13px;}
+    .tw-prow.top .tw-seat-name{font-size:12px;}
+    .tw-prow.top .tw-seat-role{font-size:10px;}
   </style>
 </head>
 <body>
@@ -852,6 +945,10 @@
         </svg>
         <div class="tw-es-msg" id="twEmptyMsg">Aucun élément à afficher pour cette étape.</div>
         <div class="tw-es-sub" id="twEmptySub">Les objets apparaîtront selon la progression de la réunion.</div>
+        <button class="tw-es-cta" id="twEsCta" onclick="propOpenInput()" style="display:none">
+          <span class="tw-es-cta-plus">+</span>
+          Déposer une proposition
+        </button>
       </div>
       <!-- ÉTATS SPÉCIAUX -->
       <div id="twWelcomeState" class="tw-sstate"></div>
@@ -1141,12 +1238,12 @@ var _speakCtx=null;
 var _speakAnalyser=null;
 
 var SEATS_TOP=[
-  {id:'alice', name:'Alice M.',  ini:'AM',role:'participant',mic:true, cam:false,speaking:false},
-  {id:'thomas',name:'Thomas R.', ini:'TR',role:'participant',mic:false,cam:false,speaking:false},
-  {id:'sarah', name:'Sarah K.',  ini:'SK',role:'participant',mic:true, cam:false,speaking:true},
+  {id:'alice', name:'Alice M.',  ini:'AM',role:'participant',mic:true, cam:false,speaking:false,avatar:'https://i.pravatar.cc/150?img=5'},
+  {id:'thomas',name:'Thomas R.', ini:'TR',role:'participant',mic:false,cam:false,speaking:false,avatar:'https://i.pravatar.cc/150?img=3'},
+  {id:'sarah', name:'Sarah K.',  ini:'SK',role:'participant',mic:true, cam:false,speaking:true,avatar:'https://i.pravatar.cc/150?img=9'},
 ];
 var SEATS_BOT=[
-  {id:'ludo',name:'Ludovic',ini:'LU',role:'owner',mic:true,cam:false,speaking:false},
+  {id:'ludo',name:'Ludovic',ini:'LU',role:'owner',mic:true,cam:false,speaking:false,avatar:'https://i.pravatar.cc/150?img=11'},
   {id:'iris',name:'Iris',  ini:'I', role:'iris', ai:true},
   {id:'iq',  name:'IQ',   ini:'IQ',role:'iq',   ai:true},
   {id:'luna',name:'Luna', ini:'L', role:'luna', ai:true},
@@ -1394,9 +1491,10 @@ function makeSeat(p){
       '</div>';
   }
   var aiSt=p.ai?'<div class="tw-ai-st s-waiting cr-'+p.role+'" data-ai-seat="'+p.role+'">En attente</div>':'';
+  var avHtml=p.avatar?'<img src="'+_e(p.avatar)+'" alt="'+_e(p.ini)+'" loading="lazy">':_e(p.ini);
   d.innerHTML=adminMenu+
     '<div class="tw-seat-halo"></div>'+
-    '<div class="tw-seat-cam"><div class="tw-seat-av '+avCls+'">'+_e(p.ini)+'</div></div>'+
+    '<div class="tw-seat-cam"><div class="tw-seat-av '+avCls+'">'+avHtml+'</div><div class="tw-online-badge"></div></div>'+
     '<div class="tw-seat-footer">'+
       '<div class="tw-seat-name">'+_e(p.name)+'</div>'+
       '<div class="tw-seat-role '+roleCls+'">'+_e(roleLabels[p.role]||p.role)+'</div>'+
@@ -1476,6 +1574,8 @@ function renderObjects(){
         var es=document.getElementById('twEmptySub');
         if(em)em.textContent='Aucune piste soumise pour l\'instant.';
         if(es)es.textContent='Soumettez une piste dans la section PROPOSITIONS ci-dessous.';
+        var cta=document.getElementById('twEsCta');
+        if(cta)cta.style.display='inline-flex';
       }
       return;
     }
@@ -1516,6 +1616,8 @@ function renderObjects(){
       var ap=TW.activeProposalId?TW.proposals.find(function(p){return p.id===TW.activeProposalId;}):null;
       if(em)em.textContent=ap?'Dossier actif — "'+ap.text+'"':'Dossier en cours.';
       if(es)es.textContent='Ajoutez une source pour commencer à enrichir cette piste.';
+      var cta=document.getElementById('twEsCta');
+      if(cta)cta.style.display='none';
     }
     return;
   }
@@ -3178,8 +3280,9 @@ function makeLiveSeat(p){
     modBtn+
     '<div class="tw-seat-cam">'+
       '<video id="video-'+p.user_id+'" autoplay playsinline'+(p.isLocal?' muted':'')+' style="width:100%;height:100%;object-fit:cover;display:none;border-radius:6px"></video>'+
-      '<div class="tw-seat-av '+avCls+'" id="av-'+p.user_id+'">'+_e(p.ini)+'</div>'+
+      '<div class="tw-seat-av '+avCls+'" id="av-'+p.user_id+'">'+(p.avatar?'<img src="'+_e(p.avatar)+'" alt="'+_e(p.ini)+'" loading="lazy">':_e(p.ini))+'</div>'+
       badgeHtml+
+      '<div class="tw-online-badge"></div>'+
     '</div>'+
     '<div class="tw-seat-footer">'+
       '<div class="tw-seat-name">'+_e(p.name||'?')+(p.isLocal?' <span style="color:var(--iris);font-size:7px">(vous)</span>':'')+
