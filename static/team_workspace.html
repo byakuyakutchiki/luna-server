@@ -311,10 +311,20 @@
     #twToast{position:fixed;bottom:70px;left:50%;transform:translateX(-50%) translateY(10px);z-index:99;background:rgba(6,12,30,0.96);border:1px solid var(--border-s);border-radius:8px;padding:8px 16px;font-size:11px;color:var(--dim);opacity:0;transition:opacity 0.25s,transform 0.25s;pointer-events:none;white-space:nowrap;box-shadow:0 8px 24px rgba(0,0,0,0.45);}
     #twToast.on{opacity:1;transform:translateX(-50%) translateY(0);}
 
-    /* === CONTEXT BAR === */
-    #twCtxBar{flex-shrink:0;height:34px;background:rgba(2,5,14,0.65);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:12px;padding:0 20px;}
-    #twCtxMsg{font-size:10px;color:var(--dim);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-    #twCtxStep{font-size:8px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--iris);flex-shrink:0;white-space:nowrap;}
+    /* === CONTEXT HEADER L1 / L2 / L3 === */
+    #twCtxBar{flex-shrink:0;background:rgba(2,5,14,0.82);border-bottom:1px solid var(--border);}
+    .tw-ctx-band{display:flex;align-items:center;gap:10px;padding:5px 20px;border-bottom:1px solid rgba(255,255,255,0.035);}
+    .tw-ctx-band:last-child{border-bottom:none;}
+    .tw-ctx-lbl{font-size:8px;font-weight:700;letter-spacing:1.1px;text-transform:uppercase;flex-shrink:0;width:76px;}
+    .tw-ctx-val{font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;}
+    .tw-ctx-val.empty{color:var(--dim2);font-style:italic;}
+    .tw-ctx-l1 .tw-ctx-lbl{color:var(--dim2);}
+    .tw-ctx-l1 .tw-ctx-val{color:var(--dim);font-size:10px;}
+    .tw-ctx-l2{background:rgba(16,212,142,0.04);}
+    .tw-ctx-l2 .tw-ctx-lbl{color:var(--iris);}
+    .tw-ctx-l2 .tw-ctx-val{font-weight:600;color:var(--text);font-size:12px;}
+    .tw-ctx-l3 .tw-ctx-lbl{color:var(--luna);}
+    .tw-ctx-l3 .tw-ctx-val{color:var(--dim);font-size:10px;}
 
     /* === OBJECT DISPLAY MODES === */
     .tw-obj.mode-read{cursor:default;}
@@ -466,8 +476,18 @@
   <!-- PLAN CENTRAL VIVANT -->
   <div id="twCanvas">
     <div id="twCtxBar">
-      <span id="twCtxMsg">Iris prépare la salle. Activez caméra et micro avant de commencer.</span>
-      <span id="twCtxStep">Étape 1 · Entrée</span>
+      <div class="tw-ctx-band tw-ctx-l1">
+        <span class="tw-ctx-lbl">❓ Question</span>
+        <span class="tw-ctx-val empty" id="twCtxL1">Aucune question définie — owner, définissez le brief.</span>
+      </div>
+      <div class="tw-ctx-band tw-ctx-l2">
+        <span class="tw-ctx-lbl">⚡ En cours</span>
+        <span class="tw-ctx-val empty" id="twCtxL2">Aucune proposition active — choisissez une piste.</span>
+      </div>
+      <div class="tw-ctx-band tw-ctx-l3">
+        <span class="tw-ctx-lbl">🧭 Étape</span>
+        <span class="tw-ctx-val" id="twCtxL3">Étape 1 / 13 — Entrée</span>
+      </div>
     </div>
     <div id="twCanvasInner">
       <div class="tw-canvas-grid"></div>
@@ -1257,18 +1277,41 @@ var _tt=null;
 function toast(msg,dur){var el=document.getElementById('twToast');if(!el)return;el.textContent=msg;el.classList.add('on');clearTimeout(_tt);_tt=setTimeout(function(){el.classList.remove('on');},dur||2200);}
 
 /* ============================================================
+   CONTEXT HEADER L1 / L2 / L3
+   ============================================================ */
+function renderContextHeader(){
+  /* L1 — Question / Brief */
+  var l1=document.getElementById('twCtxL1');
+  if(l1){
+    var q=TW.brief?(TW.brief.title||TW.brief.objective||TW.brief.domain||''):'';
+    if(q){l1.textContent=q;l1.classList.remove('empty');}
+    else{l1.textContent='Aucune question définie — owner, définissez le brief.';l1.classList.add('empty');}
+  }
+  /* L2 — Proposition active */
+  var l2=document.getElementById('twCtxL2');
+  if(l2){
+    var ap=TW.activeProposalId?TW.proposals.find(function(p){return p.id===TW.activeProposalId;}):null;
+    if(ap){l2.textContent=ap.text;l2.classList.remove('empty');}
+    else{l2.textContent='Aucune proposition active — choisissez une piste.';l2.classList.add('empty');}
+  }
+  /* L3 — Étape + instruction */
+  var l3=document.getElementById('twCtxL3');
+  if(l3){
+    var state=CANVAS_STATE[TW.step];
+    var instr=state?state.ctxMsg:'';
+    l3.textContent='Étape '+TW.step+' / 13 — '+STEPS[TW.step-1].lbl+(instr?' · '+instr:'');
+  }
+}
+
+/* ============================================================
    CANVAS STATE ENGINE — apply
    ============================================================ */
 function applyCanvasState(step){
   var state=CANVAS_STATE[step];
   if(!state)return;
 
-  /* context bar */
-  var ctxMsg=document.getElementById('twCtxMsg');
-  var ctxStep=document.getElementById('twCtxStep');
-  var _ap=TW.activeProposalId?TW.proposals.find(function(p){return p.id===TW.activeProposalId;}):null;
-  if(ctxMsg)ctxMsg.textContent=_ap?('⚡ '+_ap.text):state.ctxMsg;
-  if(ctxStep)ctxStep.textContent='Étape '+step+' · '+STEPS[step-1].lbl;
+  /* context header L1/L2/L3 */
+  renderContextHeader();
 
   /* reset all special states + grid */
   var grid=document.getElementById('twGrid');
@@ -1589,6 +1632,7 @@ function handleWsMessage(msg){
     TW.brief=msg.brief;
     var btn=document.getElementById('twBriefBtn');if(btn)btn.classList.add('active');
     if(msg.brief&&msg.brief.title)document.getElementById('twSessionTitle').textContent=msg.brief.title;
+    renderContextHeader();
     if(TW.step===2)applyCanvasState(TW.step);
     return;
   }
@@ -2223,13 +2267,8 @@ function renderProposals(){
     }
   }
 
-  /* Barre de contexte */
-  var ctxEl=document.getElementById('twCtxMsg');
-  if(ctxEl){
-    if(ap)ctxEl.textContent='⚡ '+ap.text;
-    else if(TW.wsConnected)ctxEl.textContent='En attente d\'une proposition active.';
-    else ctxEl.textContent='Iris prépare la salle. Activez caméra et micro avant de commencer.';
-  }
+  /* context header L2 */
+  renderContextHeader();
 }
 
 window.addEventListener('DOMContentLoaded',function(){
