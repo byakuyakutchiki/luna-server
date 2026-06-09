@@ -55,9 +55,6 @@
       padding:6px 14px;border-radius:5px;font-size:10px;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;
       cursor:pointer;transition:all 0.18s;white-space:nowrap;flex-shrink:0;border:1px solid;
     }
-    .tw-hbtn.brief{background:var(--luna-d);border-color:rgba(167,139,250,0.3);color:var(--luna);}
-    .tw-hbtn.brief:hover{background:rgba(167,139,250,0.2);}
-    .tw-hbtn.brief.active{border-color:var(--luna);box-shadow:0 0 0 1px rgba(167,139,250,0.18);}
     .tw-hbtn.back{background:var(--glass);border-color:var(--border-s);color:var(--dim);}
     .tw-hbtn.back:hover{background:var(--glass-h);color:var(--text);}
 
@@ -452,7 +449,7 @@
     <div id="twSessionTitle">Nouvelle session stratégique</div>
     <span class="tw-hstat" id="twPStat"><strong>4</strong> participants</span>
     <span class="tw-hstat" id="twSStat"><strong>0</strong> sources</span>
-    <button class="tw-hbtn brief" id="twBriefBtn" onclick="openModal('briefModal')">Brief mission</button>
+
     <button class="tw-hbtn back" onclick="window.location.href='/simli'" style="display:none">← Iris Audio</button>
   </header>
 
@@ -556,6 +553,10 @@
           <button class="tw-topt s" id="role-spectator" onclick="setRole('spectator')">Spectateur</button>
         </div>
       </div>
+      <div class="tw-mfield" id="setupTitleRow" style="display:none;margin-top:10px">
+        <label class="tw-mlbl" for="setupSessionTitle">Titre de la session</label>
+        <input id="setupSessionTitle" class="tw-minput" type="text" placeholder="Comment rendre Luna rentable ?" maxlength="160" autocomplete="off">
+      </div>
     </div>
     <div class="tw-mfooter">
       <button class="tw-mbtn primary iris" onclick="joinRoom()">Rejoindre →</button>
@@ -563,27 +564,6 @@
   </div>
 </div>
 
-<!-- BRIEF MODAL -->
-<div class="tw-modal" id="briefModal" onclick="mOvl(event,'briefModal')">
-  <div class="tw-mbox">
-    <div class="tw-mhdr">
-      <div class="tw-mtitle"><div class="tw-mdot l"></div>Brief de mission</div>
-      <button class="tw-mclose" onclick="closeModal('briefModal')">✕</button>
-    </div>
-    <div class="tw-mbody">
-      <div class="tw-mfield"><label class="tw-mlbl" for="bfTitle">Titre</label><input id="bfTitle" class="tw-minput" type="text" placeholder="Analyse stratégique offres 2026…" maxlength="160" autocomplete="off"></div>
-      <div class="tw-mfield"><label class="tw-mlbl" for="bfDomain">Domaine</label><input id="bfDomain" class="tw-minput" type="text" placeholder="Finance, RH, Produit, Legal…" maxlength="100" autocomplete="off"></div>
-      <div class="tw-mfield"><label class="tw-mlbl" for="bfObj">Objectif</label><textarea id="bfObj" class="tw-mta" placeholder="Produire une recommandation exploitable pour la direction…" maxlength="600"></textarea></div>
-      <div class="tw-mfield"><label class="tw-mlbl" for="bfCtx">Contexte</label><textarea id="bfCtx" class="tw-mta" placeholder="Deadline, équipe, contraintes budget…" maxlength="600"></textarea></div>
-      <div class="tw-mfield"><label class="tw-mlbl" for="bfDel">Livrable attendu</label><input id="bfDel" class="tw-minput" type="text" placeholder="Synthèse PDF, plan d'action, recommandation Luna…" maxlength="200" autocomplete="off"></div>
-      <div class="tw-tog-row"><span class="tw-tog-lbl">Recherche externe autorisée</span><label class="tw-toggle"><input type="checkbox" id="bfExt"><span class="tw-tslider"></span></label></div>
-    </div>
-    <div class="tw-mfooter">
-      <button class="tw-mbtn ghost" onclick="closeModal('briefModal')">Annuler</button>
-      <button class="tw-mbtn primary" onclick="applyBrief()">Valider le brief</button>
-    </div>
-  </div>
-</div>
 
 <!-- ADD OBJECT MODAL -->
 <div class="tw-modal" id="addModal" onclick="mOvl(event,'addModal')">
@@ -862,7 +842,7 @@ var _votes={};
    ============================================================ */
 var STEP_ACTS={
   1:{lbl:'Entrée —',acts:[{cls:'i',lbl:'Activer présence',fn:function(){toast('Caméra / micro disponibles en Phase P0.2.',2400);}}]},
-  2:{lbl:'Brief —',acts:[{cls:'l',lbl:'Définir le brief',fn:function(){openModal('briefModal');}}]},
+  2:{lbl:'Brief —',acts:[]},
   3:{lbl:'Collecte —',acts:[
     {cls:'q',lbl:'Importer source',fn:function(){openSourceModal();}},
   ]},
@@ -1224,24 +1204,6 @@ function confirmAddSource(){
   }
 }
 
-/* ============================================================
-   BRIEF
-   ============================================================ */
-function applyBrief(){
-  var g=function(id){var e=document.getElementById(id);return e?(e.value||'').trim():'';};
-  var b={title:g('bfTitle'),domain:g('bfDomain'),objective:g('bfObj'),context:g('bfCtx'),deliverable:g('bfDel'),ext:!!(document.getElementById('bfExt')||{}).checked};
-  if(!b.title&&!b.objective){toast('Titre ou objectif requis.',2200);return;}
-  TW.brief=b;
-  wsSend({type:'brief_set',brief:b});
-  closeModal('briefModal');
-  var bb=document.getElementById('twBriefBtn');
-  if(bb){bb.classList.add('active');bb.style.display='none';}
-  if(b.title)document.getElementById('twSessionTitle').textContent=b.title;
-  if(TW.step===2){TW.step=3;renderStepper();applyCanvasState(3);}
-  else{applyCanvasState(TW.step);}
-  toast('Brief "'+( b.title||b.domain||'Mission')+'" validé.',2400);
-  console.log('[TW] brief_ready true title='+b.title);
-}
 
 /* ============================================================
    IRIS / IQ / LUNA OVERLAYS
@@ -1428,14 +1390,10 @@ function _ssBrief(){
       (brief.deliverable?'<div class="tw-brief-card-field"><div class="tw-brief-card-lbl">Livrable</div><div class="tw-brief-card-val">'+_e(brief.deliverable)+'</div></div>':'')+
     '</div>'+
     '<div class="tw-sstate-row">'+
-      '<button class="tw-sstate-btn ghost" onclick="openModal(\'briefModal\')">Modifier le brief</button>'+
       '<button class="tw-sstate-btn iris" onclick="TW.step=3;renderStepper();applyCanvasState(3);toast(\'Étape 3 — Collecte\',1800)">→ Démarrer la collecte</button>'+
     '</div>'
   :
-    '<div class="tw-sstate-body">Le brief définit la mission, l\'objectif et le livrable attendu.<br>Il est obligatoire avant de passer à la collecte.</div>'+
-    '<div class="tw-sstate-row">'+
-      '<button class="tw-sstate-btn iris" onclick="openModal(\'briefModal\')">Définir le brief</button>'+
-    '</div>';
+    '<div class="tw-sstate-body">Saisissez un titre de session au démarrage — Iris génère le brief automatiquement.</div>';
   _showSS('twBriefState',
     '<div class="tw-sstate-icon" style="background:rgba(167,139,250,0.1);border:1px solid rgba(167,139,250,0.2)">'+
       '<svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="var(--luna)" stroke-width="1.4">'+
@@ -1560,6 +1518,8 @@ function setRole(r){
     var k=x==='owner'?'d':x==='spectator'?'s':'p';
     btn.className='tw-topt '+k+(x===r?' sel':'');
   });
+  var tr=document.getElementById('setupTitleRow');
+  if(tr)tr.style.display=r==='owner'?'block':'none';
 }
 function joinRoom(){
   var name=((document.getElementById('setupName')||{}).value||'').trim();
@@ -1569,6 +1529,10 @@ function joinRoom(){
   TW.userIni=name.trim().split(' ').map(function(w){return w[0]||'';}).join('').slice(0,2).toUpperCase();
   localStorage.setItem('luna_tw_name',name);
   localStorage.setItem('luna_tw_role',TW.userRole);
+  if(TW.userRole==='owner'){
+    var t=((document.getElementById('setupSessionTitle')||{}).value||'').trim();
+    if(t)TW._pendingTitle=t;
+  }
   closeModal('setupModal');
   initRoom();
 }
@@ -1629,7 +1593,15 @@ function handleWsMessage(msg){
     TW.activeProposalId=st.active_proposal_id||null;
     TW.sources=st.sources||[];
     renderSeats();renderObjects();applyCanvasState(TW.step);updateStats();renderProposals();
-    if(TW.brief){var bb=document.getElementById('twBriefBtn');if(bb){bb.classList.add('active');bb.style.display='none';}}
+    if(TW._pendingTitle&&TW.userRole==='owner'&&!TW.brief){
+      var pt=TW._pendingTitle;TW._pendingTitle=null;
+      var ab={title:pt,objective:'Cette session a pour but : '+pt,domain:'',context:'',deliverable:'',ext:false};
+      TW.brief=ab;
+      wsSend({type:'brief_set',brief:ab});
+      document.getElementById('twSessionTitle').textContent=pt;
+      if(TW.step<=2){TW.step=3;wsSend({type:'step_change',step:3});renderStepper();applyCanvasState(3);}
+      renderContextHeader();
+    }
     console.log('[WS] state_sync participants='+(st.participants||[]).length);
     return;
   }
@@ -1667,7 +1639,6 @@ function handleWsMessage(msg){
   }
   if(t==='brief_updated'){
     TW.brief=msg.brief;
-    var btn=document.getElementById('twBriefBtn');if(btn){btn.classList.add('active');btn.style.display='none';}
     if(msg.brief&&msg.brief.title)document.getElementById('twSessionTitle').textContent=msg.brief.title;
     renderContextHeader();
     if(TW.step===2)applyCanvasState(TW.step);
