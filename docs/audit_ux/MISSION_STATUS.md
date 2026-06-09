@@ -52,9 +52,11 @@ Nouveau déploiement
 | 23. Spécification Phase 10 (Réserves) | ✅ Faite | ChatGPT + Ludovic |
 | 24. Implémentation Phase 10 (Réserves) | ✅ Fait (rev 00633-4m2) | Claude |
 | 25. Audit terrain Phase 10 | ✅ Fait (2026-06-09 19:01) | Kimi |
-| 26. Validation Phase 10 | ⏳ À faire | ChatGPT + Ludovic |
-| 27. Implémentation Phase 11 (Dossier final) | ⏳ À faire | Claude |
-| 28. Audit terrain Phase 11 | ⏳ À faire | Kimi |
+| 26. Validation Phase 10 | ✅ Faite (feu vert PO) | Ludovic |
+| 27. Spécification Phase 11 (Dossier final) | ✅ Faite | ChatGPT + Ludovic |
+| 28. Implémentation Phase 11 (Dossier final) | ⏳ À faire | Claude |
+| 29. Audit terrain Phase 11 | ⏳ À faire | Kimi |
+| 30. Feature Décision & Traçabilité — COMPLETE | ⏳ À valider | ChatGPT + Ludovic |
 
 ---
 
