@@ -40,7 +40,10 @@ Nouveau déploiement
 | 11. Décision produit BRIEF MISSION | ✅ Tranchée (Option 2 : brief auto-généré) | ChatGPT + Ludovic |
 | 12. Correctifs #3 | ✅ Fait (rev 00630, commit 8379f13) | Claude |
 | 13. Audit terrain #4 | ✅ Fait (2026-06-09 16:39) | Kimi |
-| 14. Validation globale | ⏳ À faire | ChatGPT + Ludovic |
+| 14. Validation globale | ✅ Faite (2026-06-09) | ChatGPT + Ludovic |
+| 15. Feature Décision & Traçabilité | ⏳ En attente | ChatGPT + Ludovic |
+| 16. Implémentation Phase 8 | ⏳ À faire | Claude |
+| 17. Audit terrain Phase 8 | ⏳ À faire | Kimi |
 
 ---
 
@@ -92,10 +95,36 @@ python /tmp/iris_audit/analyze_with_gpt4o.py
 
 ## PROCHAINES ACTIONS
 
-1. **ChatGPT** validation finale architecture (workflow complet : setup → brief auto → collecte → travail)
-2. **Ludovic** feu vert utilisateur
-3. **Kimi** passe en mode "surveillance" (audit automatique après chaque futur déploiement)
-4. **Claude** (optionnel) affiner le template de génération du brief (formatage "Cette session a pour but...")
+### Phase actuelle : Stabilité UX atteinte ✅
+1. **ChatGPT** a validé l'architecture globale post-V3
+2. **Ludovic** a donné le feu vert
+3. **Kimi** passe en mode surveillance
+
+### Prochaine feature : Décision & Traçabilité (Phases 8-11)
+1. **Claude** implémente la Phase 8 (bouton décision + modal + capture contexte + affichage)
+2. **Kimi** audit terrain après déploiement Phase 8
+3. **ChatGPT** valide la cohérence de la Phase 8
+4. **Itérations** : Phase 9 (Actions) → Phase 10 (Réserves) → Phase 11 (Dossier final auto)
+
+---
+
+## FEATURE EN COURS — Décision & Traçabilité
+
+**Document de spécification** : `docs/audit_ux/FEATURE_DECISION_V1.md`
+
+### Vision
+Transformer Iris Workspace en système de traçabilité du raisonnement collectif :
+```
+Question → Propositions → Sources → Décision → Actions → Réserves → Compte-rendu
+```
+
+### Phases
+| Phase | Nom | Statut |
+|---|---|---|
+| 8 | Décision | ⏳ À implémenter |
+| 9 | Actions | ⏳ En attente |
+| 10 | Journal des réserves | ⏳ En attente |
+| 11 | Dossier final auto | ⏳ En attente |
 
 ---
 
