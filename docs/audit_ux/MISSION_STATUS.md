@@ -41,9 +41,12 @@ Nouveau déploiement
 | 12. Correctifs #3 | ✅ Fait (rev 00630, commit 8379f13) | Claude |
 | 13. Audit terrain #4 | ✅ Fait (2026-06-09 16:39) | Kimi |
 | 14. Validation globale | ✅ Faite (2026-06-09) | ChatGPT + Ludovic |
-| 15. Feature Décision & Traçabilité | ⏳ En attente | ChatGPT + Ludovic |
-| 16. Implémentation Phase 8 | ⏳ À faire | Claude |
-| 17. Audit terrain Phase 8 | ⏳ À faire | Kimi |
+| 15. Feature Décision & Traçabilité | ✅ Spécifiée | ChatGPT + Ludovic |
+| 16. Implémentation Phase 8 | ✅ Fait (rev 00631, commit 4e6fb3d) | Claude |
+| 17. Audit terrain Phase 8 | ✅ Fait (2026-06-09 17:59) | Kimi |
+| 18. Validation Phase 8 | ⏳ À faire | ChatGPT + Ludovic |
+| 19. Implémentation Phase 9 (Actions) | ⏳ À faire | Claude |
+| 20. Audit terrain Phase 9 | ⏳ À faire | Kimi |
 
 ---
 
