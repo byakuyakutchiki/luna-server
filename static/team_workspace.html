@@ -12,15 +12,18 @@
     :root{
       --bg:#020810;
       --panel:rgba(4,8,20,0.96);
-      --glass:rgba(255,255,255,0.035);
-      --glass-h:rgba(255,255,255,0.065);
-      --border:rgba(255,255,255,0.05);
-      --border-s:rgba(255,255,255,0.09);
-      --text:#e8eeff;
-      --dim:rgba(232,238,255,0.42);
-      --dim2:rgba(232,238,255,0.2);
-      --iris:#10d48e;
-      --iris-d:rgba(16,212,142,0.12);
+      --glass:rgba(255,255,255,0.03);
+      --glass-h:rgba(255,255,255,0.06);
+      --border:rgba(255,255,255,0.06);
+      --border-s:rgba(255,255,255,0.10);
+      --text:#e5e7eb;
+      --dim:rgba(229,231,235,0.45);
+      --dim2:rgba(229,231,235,0.22);
+      --iris:#10b981;
+      --iris-d:rgba(16,185,129,0.13);
+      --iris-violet:#8b5cf6;
+      --iris-violet-d:rgba(139,92,246,0.15);
+      --iris-violet-glow:rgba(139,92,246,0.4);
       --iq:#22d3ee;
       --iq-d:rgba(34,211,238,0.10);
       --luna:#a78bfa;
@@ -32,21 +35,75 @@
 
     /* === LAYOUT === */
     #twWrap{display:flex;flex-direction:column;height:100dvh;}
+    .tw-workspace{display:flex;flex-direction:row;flex:1;min-height:0;}
+
+    /* === SIDEBAR LEFT === */
+    #twSideLeft{
+      width:240px;flex-shrink:0;display:flex;flex-direction:column;
+      background:rgba(4,8,20,0.97);border-right:1px solid var(--border);
+      backdrop-filter:blur(20px) saturate(180%);
+      box-shadow:inset -1px 0 0 rgba(255,255,255,0.03);
+    }
+
+    /* === MAIN CENTER === */
+    #twMain{flex:1;display:flex;flex-direction:column;min-width:0;min-height:0;}
+
+    /* === SIDEBAR RIGHT === */
+    #twSideRight{
+      width:280px;flex-shrink:0;display:flex;flex-direction:column;
+      background:rgba(4,8,20,0.97);border-left:1px solid var(--border);
+      backdrop-filter:blur(20px) saturate(180%);
+      box-shadow:inset 1px 0 0 rgba(255,255,255,0.03);
+      overflow-y:auto;scrollbar-width:none;
+    }
+    #twSideRight::-webkit-scrollbar{display:none;}
+
+    /* Right sidebar sections */
+    .tw-sr-sect{padding:14px 16px;border-bottom:1px solid var(--border);}
+    .tw-sr-lbl{font-size:7px;font-weight:700;letter-spacing:1.8px;text-transform:uppercase;color:var(--dim2);margin-bottom:10px;}
+
+    /* Mission block */
+    .tw-sr-mission-text{font-size:12px;font-weight:600;color:var(--text);line-height:1.5;word-break:break-word;}
+
+    /* Seats in right sidebar — vertical stack */
+    #twSideRight .tw-prow{
+      flex-direction:column;padding:0;background:none;border:none;overflow-x:visible;gap:6px;
+    }
+    #twSideRight .tw-prow.top{border-bottom:none;}
+    #twSideRight .tw-seat{width:100%;box-sizing:border-box;}
+    #twSideRight .tw-prow-lbl{display:none;}
+
+    /* Activity log */
+    .tw-sr-act-empty{font-size:10px;color:var(--dim2);font-style:italic;}
+    .tw-sr-act-item{
+      display:flex;align-items:baseline;gap:7px;
+      font-size:10px;color:var(--dim);padding:4px 0;
+      border-bottom:1px solid rgba(255,255,255,0.03);
+    }
+    .tw-sr-act-item:last-child{border-bottom:none;}
+    .tw-sr-act-dot{width:5px;height:5px;border-radius:50%;background:var(--iris);flex-shrink:0;margin-top:1px;}
+    .tw-sr-act-time{font-size:9px;color:var(--dim2);margin-left:auto;flex-shrink:0;}
+
+    /* Progress gauge */
+    .tw-sl-gauge{display:flex;align-items:center;justify-content:center;padding:14px 12px 10px;border-top:1px solid var(--border);margin-top:auto;}
+    .tw-sl-gauge svg text{font-family:system-ui,sans-serif;}
 
     /* === HEADER === */
     #twHeader{
-      flex-shrink:0;height:44px;background:rgba(2,5,14,0.98);
-      border-bottom:1px solid var(--border);
-      display:flex;align-items:center;gap:12px;padding:0 18px;
+      flex-shrink:0;height:52px;background:rgba(2,5,14,0.99);
+      border-bottom:1px solid rgba(255,255,255,0.08);
+      display:flex;align-items:center;gap:14px;padding:0 18px;
+      box-shadow:0 1px 0 rgba(16,185,129,0.06);
     }
     .tw-logomark{
-      width:30px;height:30px;border-radius:7px;flex-shrink:0;
-      background:linear-gradient(135deg,rgba(16,212,142,0.15),rgba(167,139,250,0.15));
-      border:1px solid var(--border-s);
+      width:36px;height:36px;border-radius:9px;flex-shrink:0;
+      background:linear-gradient(135deg,rgba(16,185,129,0.2),rgba(139,92,246,0.18));
+      border:1px solid rgba(139,92,246,0.25);
       display:flex;align-items:center;justify-content:center;
+      box-shadow:0 0 14px rgba(139,92,246,0.15);
     }
-    .tw-logotext{font-size:10px;font-weight:800;letter-spacing:1.8px;text-transform:uppercase;color:var(--metal);white-space:nowrap;}
-    .tw-logosub{font-size:8px;color:var(--dim2);letter-spacing:0.5px;margin-top:1px;}
+    .tw-logotext{font-size:10px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:rgba(180,195,220,0.7);white-space:nowrap;}
+    .tw-logosub{font-size:8px;color:var(--iris);letter-spacing:1.5px;text-transform:uppercase;margin-top:1px;font-weight:600;}
     .tw-vsep{width:1px;height:20px;background:var(--border-s);flex-shrink:0;}
     #twSessionTitle{font-size:13px;font-weight:600;color:var(--text);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;}
     .tw-hstat{font-size:10px;color:var(--dim);white-space:nowrap;flex-shrink:0;}
@@ -58,24 +115,58 @@
     .tw-hbtn.back{background:var(--glass);border-color:var(--border-s);color:var(--dim);}
     .tw-hbtn.back:hover{background:var(--glass-h);color:var(--text);}
 
-    /* === STEPPER === */
+    /* === STEPPER — vertical in sidebar === */
     #twStepper{
-      flex-shrink:0;height:42px;background:rgba(3,6,16,0.75);
-      border-bottom:1px solid var(--border);
-      display:flex;align-items:center;gap:0;padding:0 16px;
+      flex:1;background:transparent;border-bottom:none;
+      display:flex;flex-direction:column;align-items:stretch;gap:3px;padding:16px 12px 10px;
     }
-    .tw-step-nav{background:none;border:none;color:var(--dim);font-size:15px;cursor:pointer;padding:0 8px;height:100%;transition:color 0.15s;flex-shrink:0;}
-    .tw-step-nav:hover{color:var(--text);}
-    .tw-steps-track{flex:1;display:flex;align-items:center;gap:5px;overflow:hidden;min-width:0;}
-    .tw-step-dot{flex-shrink:0;width:auto;padding:2px 8px;border-radius:10px;height:20px;background:rgba(255,255,255,0.05);transition:all 0.22s;cursor:pointer;display:flex;align-items:center;gap:4px;}
-    .tw-step-dot .tw-sl{font-size:9px;font-weight:600;letter-spacing:0.4px;text-transform:uppercase;color:var(--dim2);white-space:nowrap;}
-    .tw-step-dot.done{background:rgba(16,212,142,0.1);}
-    .tw-step-dot.done .tw-sl{color:rgba(16,212,142,0.6);}
-    .tw-step-dot.active{padding:3px 10px;background:var(--iris-d);border:1px solid rgba(16,212,142,0.32);}
-    .tw-step-dot.active .tw-sn{font-size:8px;color:var(--dim2);}
-    .tw-step-dot.active .tw-sl{font-size:9px;font-weight:700;letter-spacing:0.8px;color:var(--iris);}
-    .tw-step-info{flex-shrink:0;font-size:9px;color:var(--dim);margin-left:10px;white-space:nowrap;}
-    .tw-step-info strong{color:var(--iris);font-weight:700;}
+    .tw-sl-step-nav-row{
+      display:flex;align-items:center;justify-content:space-between;
+      padding:6px 14px;border-top:1px solid var(--border);
+    }
+    .tw-step-nav{
+      background:var(--glass);border:1px solid var(--border-s);color:var(--dim2);
+      font-size:14px;cursor:pointer;padding:3px 10px;border-radius:5px;
+      transition:all 0.15s;flex-shrink:0;line-height:1;
+    }
+    .tw-step-nav:hover{background:var(--glass-h);color:var(--text);}
+    .tw-step-info{font-size:9px;color:var(--dim2);text-align:center;flex:1;}
+    .tw-step-info strong{color:var(--iris-violet);font-weight:700;}
+    .tw-steps-track{display:flex;flex-direction:column;gap:3px;overflow:visible;}
+    .tw-step-dot{
+      width:100%;height:auto;padding:10px 14px;border-radius:9px;
+      background:rgba(255,255,255,0.04);border:1px solid transparent;
+      transition:all 0.22s;cursor:pointer;
+      display:flex;flex-direction:row;align-items:center;gap:10px;
+    }
+    .tw-step-dot:hover{background:rgba(255,255,255,0.07);}
+    .tw-step-dot .tw-sn{
+      width:22px;height:22px;border-radius:6px;flex-shrink:0;
+      background:rgba(255,255,255,0.07);
+      display:flex;align-items:center;justify-content:center;
+      font-size:10px;font-weight:700;color:var(--dim);
+    }
+    .tw-step-dot .tw-sl{font-size:11px;font-weight:600;letter-spacing:0.2px;color:var(--dim);white-space:nowrap;}
+    .tw-step-dot.done{background:rgba(16,185,129,0.06);}
+    .tw-step-dot.done .tw-sl{color:rgba(16,185,129,0.65);}
+    .tw-step-dot.done .tw-sn{background:rgba(16,185,129,0.15);color:rgba(16,185,129,0.8);}
+    .tw-step-dot.active{
+      background:var(--iris-violet-d);
+      border:1px solid rgba(139,92,246,0.38);
+      box-shadow:0 0 18px rgba(139,92,246,0.2),inset 0 1px 0 rgba(139,92,246,0.12);
+    }
+    .tw-step-dot.active .tw-sn{background:rgba(139,92,246,0.25);color:var(--iris-violet);font-weight:800;}
+    .tw-step-dot.active .tw-sl{font-size:11px;font-weight:700;color:var(--iris-violet);}
+    /* Hidden nav btns kept for audit script compatibility */
+    .tw-step-nav-hidden{
+      display:none!important;
+    }
+    .tw-step-info{display:none;}  /* hidden, gauge replaces it */
+
+    /* Visible ‹ › buttons for audit — invisible but clickable */
+    .tw-step-nav-audit{
+      position:fixed;left:-9999px;pointer-events:auto;
+    }
 
     /* === PARTICIPANT ORBIT === */
     .tw-prow{
@@ -165,12 +256,11 @@
     #twCanvasInner{
       flex:1;overflow-y:auto;overflow-x:hidden;padding:20px;
       background:
-        radial-gradient(ellipse 80% 55% at 50% -5%,   rgba(16,212,142,0.055) 0%,transparent 55%),
-        radial-gradient(ellipse 55% 50% at 8%  65%,   rgba(16,212,142,0.03)  0%,transparent 50%),
-        radial-gradient(ellipse 60% 50% at 92% 30%,   rgba(167,139,250,0.04) 0%,transparent 55%),
-        radial-gradient(ellipse 45% 40% at 60% 105%,  rgba(34,211,238,0.025) 0%,transparent 45%),
-        radial-gradient(ellipse 30% 25% at 35% 55%,   rgba(167,139,250,0.02) 0%,transparent 40%),
-        #020810;
+        radial-gradient(ellipse 70% 50% at 30% 50%,   rgba(16,185,129,0.07)  0%,transparent 50%),
+        radial-gradient(ellipse 60% 50% at 70% 30%,   rgba(139,92,246,0.06)  0%,transparent 45%),
+        radial-gradient(ellipse 80% 55% at 50% -5%,   rgba(16,185,129,0.05)  0%,transparent 55%),
+        radial-gradient(ellipse 45% 40% at 60% 110%,  rgba(34,211,238,0.03)  0%,transparent 45%),
+        linear-gradient(180deg,#0a1218 0%,#020810 100%);
       position:relative;
     }
     .tw-canvas-grid{
@@ -178,13 +268,19 @@
       background-image:linear-gradient(rgba(255,255,255,0.02) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.02) 1px,transparent 1px);
       background-size:32px 32px;
     }
+    .tw-canvas-watermark{
+      position:absolute;right:5%;top:15%;pointer-events:none;
+      font-size:280px;font-weight:900;color:rgba(255,255,255,0.018);
+      line-height:1;user-select:none;letter-spacing:-10px;font-family:system-ui,sans-serif;
+    }
     #twGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px;position:relative;z-index:1;}
 
     /* WORKSPACE OBJECTS — no emoji type icons */
     .tw-obj{
-      background:rgba(7,14,34,0.85);border:1px solid var(--border-s);border-left:3px solid;
+      background:rgba(7,14,34,0.88);border:1px solid rgba(255,255,255,0.09);border-left:3px solid;
       border-radius:8px;padding:14px;cursor:pointer;transition:all 0.2s;position:relative;
-      backdrop-filter:blur(6px);
+      backdrop-filter:blur(16px) saturate(160%);
+      box-shadow:0 4px 16px rgba(0,0,0,0.35),inset 0 1px 0 rgba(255,255,255,0.04);
     }
     .tw-obj:hover{border-color:rgba(255,255,255,0.18);border-left-width:3px;transform:translateY(-1px);box-shadow:0 6px 20px rgba(0,0,0,0.35);}
     .tw-obj.prop    {border-left-color:var(--iris);}
@@ -428,11 +524,15 @@
     .tw-vote-count{font-size:12px;font-weight:700;color:var(--iris);}
 
     /* === EMPTY STATE === */
-    #twEmptyState{display:none;flex-direction:column;align-items:center;justify-content:center;min-height:260px;gap:16px;padding:40px;text-align:center;position:relative;z-index:1;}
-    .tw-es-orb{width:160px;height:160px;animation:orbPulse 3.5s ease-in-out infinite;}
-    @keyframes orbPulse{0%,100%{opacity:0.75;transform:scale(1)}50%{opacity:1;transform:scale(1.03)}}
-    .tw-es-msg{font-size:14px;font-weight:600;color:var(--dim);max-width:340px;line-height:1.65;}
-    .tw-es-sub{font-size:10px;color:var(--dim2);max-width:300px;}
+    #twEmptyState{display:none;flex-direction:column;align-items:center;justify-content:center;min-height:300px;gap:20px;padding:40px;text-align:center;position:relative;z-index:1;}
+    .tw-es-orb{
+      width:300px;height:300px;animation:orbPulse 3.5s ease-in-out infinite;
+      filter:drop-shadow(0 0 60px rgba(16,185,129,0.5)) drop-shadow(0 0 120px rgba(139,92,246,0.25));
+    }
+    @keyframes orbPulse{0%,100%{opacity:0.8;transform:scale(1)}50%{opacity:1;transform:scale(1.025)}}
+    .tw-es-msg{font-size:22px;font-weight:600;color:var(--text);max-width:400px;line-height:1.4;}
+    .tw-es-msg .hi{color:var(--iris-violet);}
+    .tw-es-sub{font-size:14px;color:#9ca3af;max-width:360px;line-height:1.6;}
 
     /* === SPECIAL CANVAS STATES === */
     .tw-sstate{display:none;flex-direction:column;align-items:center;justify-content:center;min-height:260px;gap:18px;padding:40px;position:relative;z-index:1;}
@@ -597,9 +697,10 @@
   <!-- HEADER -->
   <header id="twHeader">
     <div class="tw-logomark">
-      <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-        <circle cx="7" cy="7" r="5.5" stroke="rgba(16,212,142,0.65)" stroke-width="1.2"/>
-        <circle cx="7" cy="7" r="2.5" fill="rgba(167,139,250,0.65)"/>
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+        <path d="M10 2L14 8H16L10 18L4 8H6L10 2Z" fill="none" stroke="rgba(139,92,246,0.7)" stroke-width="1.2" stroke-linejoin="round"/>
+        <path d="M10 2L14 8H6L10 2Z" fill="rgba(16,185,129,0.35)"/>
+        <circle cx="10" cy="10" r="2.5" fill="rgba(139,92,246,0.6)"/>
       </svg>
     </div>
     <div>
@@ -610,20 +711,27 @@
     <div id="twSessionTitle">Nouvelle session stratégique</div>
     <span class="tw-hstat" id="twPStat"><strong>4</strong> participants</span>
     <span class="tw-hstat" id="twSStat"><strong>0</strong> sources</span>
-
     <button class="tw-hbtn back" onclick="window.location.href='/simli'" style="display:none">← Iris Audio</button>
   </header>
 
-  <!-- STEPPER 13 étapes -->
-  <div id="twStepper">
-    <button class="tw-step-nav" onclick="stepNav(-1)">‹</button>
-    <div class="tw-steps-track" id="twStepsTrack"></div>
-    <button class="tw-step-nav" onclick="stepNav(1)">›</button>
-    <div class="tw-step-info">Étape <strong id="twStepNum">3</strong> / 13</div>
-  </div>
+  <!-- 3-COLUMN WORKSPACE -->
+  <div class="tw-workspace">
 
-  <!-- TOP ORBIT — participants humains -->
-  <div class="tw-prow top" id="twSeatsTop"></div>
+    <!-- LEFT SIDEBAR: stepper + gauge -->
+    <aside id="twSideLeft">
+      <div id="twStepper">
+        <div class="tw-steps-track" id="twStepsTrack"></div>
+        <div class="tw-sl-step-nav-row">
+          <button class="tw-step-nav" onclick="stepNav(-1)" title="Étape précédente">‹</button>
+          <div class="tw-step-info">Étape <strong id="twStepNum">3</strong> / 13</div>
+          <button class="tw-step-nav" onclick="stepNav(1)" title="Étape suivante">›</button>
+        </div>
+      </div>
+      <div class="tw-sl-gauge" id="twSlGauge"></div>
+    </aside>
+
+    <!-- CENTER MAIN -->
+    <main id="twMain">
 
   <!-- PLAN CENTRAL VIVANT -->
   <div id="twCanvas">
@@ -643,6 +751,8 @@
     </div>
     <div id="twCanvasInner">
       <div class="tw-canvas-grid"></div>
+      <!-- Y watermark -->
+      <div class="tw-canvas-watermark" aria-hidden="true">Y</div>
       <div id="twDecisionCard"></div>
       <div id="twActionsZone"></div>
       <div id="twReservesZone"></div>
@@ -653,31 +763,39 @@
         <svg class="tw-es-orb" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
           <defs>
             <radialGradient id="orbCore" cx="50%" cy="40%" r="60%">
-              <stop offset="0%" stop-color="rgba(16,212,142,0.45)"/>
-              <stop offset="60%" stop-color="rgba(16,212,142,0.08)"/>
+              <stop offset="0%" stop-color="rgba(16,185,129,0.55)"/>
+              <stop offset="55%" stop-color="rgba(16,185,129,0.12)"/>
               <stop offset="100%" stop-color="transparent"/>
             </radialGradient>
             <radialGradient id="orbAmbient" cx="50%" cy="50%" r="50%">
-              <stop offset="0%" stop-color="rgba(16,212,142,0.06)"/>
+              <stop offset="0%" stop-color="rgba(16,185,129,0.10)"/>
+              <stop offset="60%" stop-color="rgba(139,92,246,0.06)"/>
               <stop offset="100%" stop-color="transparent"/>
             </radialGradient>
-            <filter id="orbBlur"><feGaussianBlur stdDeviation="3"/></filter>
+            <radialGradient id="orbViolet" cx="60%" cy="60%" r="50%">
+              <stop offset="0%" stop-color="rgba(139,92,246,0.18)"/>
+              <stop offset="100%" stop-color="transparent"/>
+            </radialGradient>
+            <filter id="orbBlur"><feGaussianBlur stdDeviation="4"/></filter>
           </defs>
-          <!-- Ambient halo -->
-          <ellipse cx="100" cy="100" rx="90" ry="90" fill="url(#orbAmbient)"/>
+          <!-- Outer ambient halo -->
+          <ellipse cx="100" cy="100" rx="94" ry="94" fill="url(#orbAmbient)"/>
+          <!-- Violet accent halo -->
+          <ellipse cx="110" cy="110" rx="70" ry="70" fill="url(#orbViolet)"/>
           <!-- Outer orbital ring -->
-          <ellipse cx="100" cy="100" rx="82" ry="82" stroke="rgba(16,212,142,0.07)" stroke-width="1" stroke-dasharray="5 4"/>
+          <ellipse cx="100" cy="100" rx="82" ry="82" stroke="rgba(16,185,129,0.12)" stroke-width="1.2" stroke-dasharray="6 4"/>
           <!-- Middle ring -->
-          <ellipse cx="100" cy="100" rx="60" ry="60" stroke="rgba(167,139,250,0.1)" stroke-width="1"/>
+          <ellipse cx="100" cy="100" rx="62" ry="62" stroke="rgba(139,92,246,0.15)" stroke-width="1"/>
           <!-- Inner ring -->
-          <ellipse cx="100" cy="100" rx="40" ry="40" stroke="rgba(34,211,238,0.1)" stroke-width="1" stroke-dasharray="3 5"/>
+          <ellipse cx="100" cy="100" rx="44" ry="44" stroke="rgba(34,211,238,0.12)" stroke-width="1" stroke-dasharray="4 6"/>
           <!-- Glow core -->
-          <circle cx="100" cy="100" r="26" fill="url(#orbCore)"/>
-          <!-- Glare -->
-          <circle cx="100" cy="100" r="26" fill="none" stroke="rgba(16,212,142,0.22)" stroke-width="1.2"/>
-          <circle cx="93" cy="93" r="6" fill="rgba(255,255,255,0.04)" filter="url(#orbBlur)"/>
+          <circle cx="100" cy="100" r="30" fill="url(#orbCore)"/>
+          <!-- Core edge -->
+          <circle cx="100" cy="100" r="30" fill="none" stroke="rgba(16,185,129,0.30)" stroke-width="1.5"/>
+          <!-- Glare spot -->
+          <circle cx="92" cy="92" r="7" fill="rgba(255,255,255,0.05)" filter="url(#orbBlur)"/>
           <!-- Y mark -->
-          <text x="100" y="107" text-anchor="middle" font-size="18" font-weight="800" fill="rgba(16,212,142,0.85)" font-family="system-ui,sans-serif" letter-spacing="0">Y</text>
+          <text x="100" y="108" text-anchor="middle" font-size="22" font-weight="800" fill="rgba(16,185,129,0.9)" font-family="system-ui,sans-serif" letter-spacing="-1">Y</text>
         </svg>
         <div class="tw-es-msg" id="twEmptyMsg">Aucun élément à afficher pour cette étape.</div>
         <div class="tw-es-sub" id="twEmptySub">Les objets apparaîtront selon la progression de la réunion.</div>
@@ -730,7 +848,27 @@
     </div>
   </div>
 
-</div>
+    </main><!-- /twMain -->
+
+    <!-- RIGHT SIDEBAR: mission + participants + activity -->
+    <aside id="twSideRight">
+      <div class="tw-sr-sect">
+        <div class="tw-sr-lbl">Mission</div>
+        <div class="tw-sr-mission-text" id="twSrMissionText">Session en cours</div>
+      </div>
+      <div class="tw-sr-sect">
+        <div class="tw-sr-lbl">Participants</div>
+        <div class="tw-prow top" id="twSeatsTop"></div>
+      </div>
+      <div class="tw-sr-sect">
+        <div class="tw-sr-lbl">Activité récente</div>
+        <div id="twSrActivityList"><div class="tw-sr-act-empty">Aucune activité</div></div>
+      </div>
+    </aside><!-- /twSideRight -->
+
+  </div><!-- /tw-workspace -->
+
+</div><!-- /twWrap -->
 
 <!-- SETUP MODAL — identité participant -->
 <div class="tw-modal" id="setupModal">
@@ -912,7 +1050,7 @@ var STEPS=[
 ];
 var TW={
   step:3,brief:null,decision:null,actions:[],reserves:[],report:null,_showReport:false,
-  _rvLevel:'YELLOW',_rvOpen:false,
+  _rvLevel:'YELLOW',_rvOpen:false,_actLog:[],
   objects:[],sources:[],selType:'prop',selTypeK:'p',srcTab:'file',
   sessionId:(function(){
     /* URL param ?room=xxx prioritaire (partage inter-navigateurs) */
@@ -1020,6 +1158,38 @@ function renderStepper(){
     track.appendChild(d);
   });
   document.getElementById('twStepNum').textContent=TW.step;
+  renderGauge();
+}
+function renderGauge(){
+  var el=document.getElementById('twSlGauge');if(!el)return;
+  var p=currentPhase();var t=PHASES.length;
+  var r=26;var c=2*Math.PI*r;var d=(p/t)*c;
+  el.innerHTML='<svg width="70" height="70" viewBox="0 0 70 70">'
+    +'<circle cx="35" cy="35" r="'+r+'" fill="none" stroke="rgba(255,255,255,0.07)" stroke-width="3.5"/>'
+    +'<circle cx="35" cy="35" r="'+r+'" fill="none" stroke="#8b5cf6" stroke-width="3.5"'
+    +' stroke-dasharray="'+d.toFixed(1)+' '+(c-d).toFixed(1)+'"'
+    +' transform="rotate(-90 35 35)" style="transition:stroke-dasharray 0.5s ease"/>'
+    +'<text x="35" y="40" text-anchor="middle" font-size="13" font-weight="700" fill="#8b5cf6">'+p+'/'+t+'</text>'
+    +'</svg>';
+}
+function _actPush(msg){
+  TW._actLog.unshift({msg:msg,t:Date.now()});
+  if(TW._actLog.length>8)TW._actLog.pop();
+  renderSideRight();
+}
+function renderSideRight(){
+  var mt=document.getElementById('twSrMissionText');
+  if(mt){
+    var b=TW.brief;
+    mt.textContent=b?(b.title||b.domain||b.objective||'Session en cours'):'Session en cours';
+  }
+  var al=document.getElementById('twSrActivityList');
+  if(al){
+    if(!TW._actLog.length){al.innerHTML='<div class="tw-sr-act-empty">Aucune activité</div>';return;}
+    al.innerHTML=TW._actLog.map(function(e){
+      return '<div class="tw-sr-act-item"><span class="tw-sr-act-dot"></span>'+_e(e.msg)+'<span class="tw-sr-act-time">'+_ago(e.t)+'</span></div>';
+    }).join('');
+  }
 }
 function stepNav(dir){
   if(TW.wsConnected&&TW.userRole!=='owner'){toast('Seul l\'owner pilote les étapes.',2200);return;}
@@ -1568,6 +1738,7 @@ function renderContextHeader(){
     var instr=state?state.ctxMsg:'';
     l3.textContent='Étape '+TW.step+' / 13 — '+STEPS[TW.step-1].lbl+(instr?' · '+instr:'');
   }
+  renderSideRight();
 }
 
 /* ============================================================
@@ -2339,6 +2510,7 @@ function joinRoom(){
     if(t)TW._pendingTitle=t;
   }
   closeModal('setupModal');
+  _actPush(name+' a rejoint la session');
   initRoom();
 }
 
@@ -2410,6 +2582,7 @@ function handleWsMessage(msg){
       document.getElementById('twSessionTitle').textContent=pt;
       if(TW.step<=2){TW.step=3;wsSend({type:'step_change',step:3});renderStepper();applyCanvasState(3);}
       renderContextHeader();
+      _actPush('Mission définie : '+pt);
     }
     console.log('[WS] state_sync participants='+(st.participants||[]).length);
     return;
@@ -2526,6 +2699,7 @@ function handleWsMessage(msg){
   }
   if(t==='decision_set'){
     TW.decision=msg.decision;
+    if(msg.decision)_actPush('Décision validée');
     renderDecisionCard();
     renderActionsList();
     return;
@@ -2586,7 +2760,11 @@ function handleWsMessage(msg){
     var pu=TW.proposals.find(function(p){return p.id===msg.proposal_id;});
     if(pu){
       pu.status=msg.status;
-      if(msg.status==='active')TW.activeProposalId=msg.proposal_id;
+      if(msg.status==='active'){
+        TW.activeProposalId=msg.proposal_id;
+        var apu=TW.proposals.find(function(p){return p.id===msg.proposal_id;});
+        if(apu)_actPush('Piste activée : '+apu.text.substring(0,40));
+      }
       else if(msg.status!=='active'&&TW.activeProposalId===msg.proposal_id)TW.activeProposalId=null;
     }
     renderProposals();
