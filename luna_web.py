@@ -8164,6 +8164,7 @@ class _IrisTeamRoom:
         self.active_proposal_id: str | None = None
         self.decision: dict | None = None
         self.actions: list = []
+        self.reserves: list = []
 
     def get_state(self) -> dict:
         return {
@@ -8175,6 +8176,7 @@ class _IrisTeamRoom:
             "active_proposal_id": self.active_proposal_id,
             "decision": self.decision,
             "actions": self.actions,
+            "reserves": self.reserves,
         }
 
     async def broadcast(self, message: dict, exclude: str = None):
@@ -8443,6 +8445,29 @@ async def team_ws(websocket: WebSocket, session_id: str):
                 act_id = str(msg.get("action_id", ""))
                 room.actions = [a for a in room.actions if a["id"] != act_id]
                 await room.broadcast({"type": "action_deleted", "action_id": act_id})
+            elif t == "reserve_add":
+                rv = msg.get("reserve")
+                if rv and isinstance(rv, dict) and rv.get("title") and rv.get("id"):
+                    if not any(r["id"] == rv["id"] for r in room.reserves):
+                        room.reserves.append(rv)
+                    await room.broadcast({"type": "reserve_added", "reserve": rv})
+            elif t == "reserve_update":
+                if room.participants.get(user_id, {}).get("role") != "owner":
+                    continue
+                rv_id = str(msg.get("reserve_id", ""))
+                new_status = str(msg.get("status", ""))
+                if new_status in ("ACKNOWLEDGED", "OVERRIDDEN", "RESOLVED"):
+                    for r in room.reserves:
+                        if r["id"] == rv_id:
+                            r["status"] = new_status
+                            if msg.get("closed_at"):
+                                r["closed_at"] = msg["closed_at"]
+                            if msg.get("override_decision"):
+                                r["override_decision"] = msg["override_decision"]
+                            await room.broadcast({"type": "reserve_updated", "reserve_id": rv_id,
+                                "status": new_status, "closed_at": r.get("closed_at"),
+                                "override_decision": r.get("override_decision")})
+                            break
             elif t == "proposal_archive":
                 if room.participants.get(user_id, {}).get("role") != "owner":
                     continue

@@ -221,6 +221,40 @@
     .tw-act.l:hover{background:rgba(167,139,250,0.2);}
     .tw-act.n{background:var(--glass);border-color:var(--border-s);color:var(--dim);}
     .tw-act.n:hover{background:var(--glass-h);color:var(--text);}
+    .tw-act.w{background:rgba(246,180,0,0.09);border-color:rgba(246,180,0,0.3);color:rgba(246,180,0,0.9);}
+    .tw-act.w:hover{background:rgba(246,180,0,0.18);}
+
+    /* === RÉSERVES === */
+    #twReservesZone{display:none;margin:0 16px 8px;padding:10px 14px;border-radius:8px;background:rgba(246,180,0,0.03);border:1px solid rgba(246,180,0,0.18);}
+    .tw-rv-hdr{display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none;}
+    .tw-rv-title{font-size:9px;font-weight:700;letter-spacing:1.1px;text-transform:uppercase;color:rgba(246,180,0,0.8);}
+    .tw-rv-badges{display:flex;gap:8px;align-items:center;}
+    .tw-rv-badge{font-size:10px;cursor:pointer;}
+    .tw-rv-toggle{font-size:10px;color:var(--dim2);}
+    #twRvDetail{margin-top:8px;}
+    .tw-rv-item{border:1px solid var(--border);border-radius:6px;padding:8px 10px;margin-bottom:6px;background:rgba(255,255,255,0.02);}
+    .tw-rv-item.YELLOW{border-color:rgba(246,210,0,0.3);}
+    .tw-rv-item.ORANGE{border-color:rgba(246,140,0,0.35);}
+    .tw-rv-item.RED{border-color:rgba(246,80,80,0.4);}
+    .tw-rv-item-top{display:flex;align-items:center;gap:6px;margin-bottom:4px;}
+    .tw-rv-icon{font-size:13px;flex-shrink:0;}
+    .tw-rv-ititle{font-size:12px;font-weight:600;color:var(--text);flex:1;}
+    .tw-rv-status-tag{font-size:8px;font-weight:700;letter-spacing:0.6px;text-transform:uppercase;padding:2px 6px;border-radius:3px;flex-shrink:0;}
+    .tw-rv-status-tag.OPEN{background:rgba(246,180,0,0.15);color:rgba(246,180,0,0.9);}
+    .tw-rv-status-tag.ACKNOWLEDGED{background:rgba(34,211,238,0.12);color:var(--iq);}
+    .tw-rv-status-tag.OVERRIDDEN{background:rgba(246,80,80,0.12);color:#f66;}
+    .tw-rv-status-tag.RESOLVED{background:rgba(16,212,142,0.12);color:var(--iris);}
+    .tw-rv-meta{font-size:9px;color:var(--dim2);margin-bottom:6px;}
+    .tw-rv-desc{font-size:10px;color:var(--dim);margin-bottom:6px;font-style:italic;}
+    .tw-rv-actions{display:flex;gap:5px;flex-wrap:wrap;}
+    .tw-rv-btn{background:none;border:1px solid var(--border-s);color:var(--dim2);border-radius:4px;padding:2px 8px;font-size:9px;cursor:pointer;}
+    .tw-rv-btn:hover{color:var(--text);border-color:var(--dim2);}
+    .tw-rv-btn.danger{border-color:rgba(246,80,80,0.3);color:#f88;}
+    .tw-rv-override-log{margin-top:6px;padding:6px 8px;border-radius:4px;background:rgba(246,80,80,0.06);border:1px solid rgba(246,80,80,0.15);font-size:9px;color:var(--dim2);}
+    /* Modal réserve niveau */
+    .tw-rv-lvl-row{display:flex;gap:8px;margin-top:6px;}
+    .tw-rv-lvl-btn{flex:1;padding:6px 0;border-radius:6px;border:1px solid var(--border-s);background:var(--glass);color:var(--dim);font-size:11px;cursor:pointer;text-align:center;transition:all 0.15s;}
+    .tw-rv-lvl-btn:hover,.tw-rv-lvl-btn.sel{background:rgba(246,180,0,0.15);border-color:rgba(246,180,0,0.4);color:rgba(246,180,0,0.9);}
 
     /* === SPECTATORS === */
     #twSpecRow{
@@ -514,6 +548,7 @@
       <div class="tw-canvas-grid"></div>
       <div id="twDecisionCard"></div>
       <div id="twActionsZone"></div>
+      <div id="twReservesZone"></div>
 
       <div id="twGrid"></div>
       <div id="twEmptyState">
@@ -596,6 +631,32 @@
   </div>
 </div>
 
+
+<!-- RESERVE MODAL -->
+<div class="tw-modal" id="reserveModal" onclick="mOvl(event,'reserveModal')">
+  <div class="tw-mbox">
+    <div class="tw-mhdr">
+      <div class="tw-mtitle"><div class="tw-mdot" style="background:rgba(246,180,0,0.9);box-shadow:0 0 5px rgba(246,180,0,0.4);"></div>Ouvrir une réserve</div>
+      <button class="tw-mclose" onclick="closeModal('reserveModal')">✕</button>
+    </div>
+    <div class="tw-mbody">
+      <div class="tw-mfield">
+        <label class="tw-mlbl">Niveau</label>
+        <div class="tw-rv-lvl-row">
+          <button class="tw-rv-lvl-btn sel" id="rvl-YELLOW" onclick="selectRvLevel('YELLOW')">🟨 Attention</button>
+          <button class="tw-rv-lvl-btn"     id="rvl-ORANGE" onclick="selectRvLevel('ORANGE')">🟧 Réserve</button>
+          <button class="tw-rv-lvl-btn"     id="rvl-RED"    onclick="selectRvLevel('RED')">🟥 Critique</button>
+        </div>
+      </div>
+      <div class="tw-mfield" style="margin-top:10px"><label class="tw-mlbl">Intitulé</label><input id="rvTitle" class="tw-minput" type="text" placeholder="Ex : Dépendance fournisseur unique…" maxlength="160" autocomplete="off"></div>
+      <div class="tw-mfield" style="margin-top:8px"><label class="tw-mlbl">Description (optionnel)</label><textarea id="rvDesc" class="tw-mta" placeholder="Détail de la réserve…" maxlength="600"></textarea></div>
+    </div>
+    <div class="tw-mfooter">
+      <button class="tw-mbtn ghost" onclick="closeModal('reserveModal')">Annuler</button>
+      <button class="tw-mbtn primary" style="background:rgba(246,180,0,0.15);border-color:rgba(246,180,0,0.4);color:rgba(246,180,0,0.9);" onclick="applyReserve()">Ouvrir</button>
+    </div>
+  </div>
+</div>
 
 <!-- DECISION MODAL -->
 <div class="tw-modal" id="decisionModal" onclick="mOvl(event,'decisionModal')">
@@ -722,7 +783,8 @@ var STEPS=[
   {id:10,lbl:'Recommandation Luna'},{id:11,lbl:'Validation'},{id:12,lbl:'Livrable'},{id:13,lbl:'Distribution'},
 ];
 var TW={
-  step:3,brief:null,decision:null,actions:[],objects:[],sources:[],selType:'prop',selTypeK:'p',srcTab:'file',
+  step:3,brief:null,decision:null,actions:[],reserves:[],_rvLevel:'YELLOW',_rvOpen:false,
+  objects:[],sources:[],selType:'prop',selTypeK:'p',srcTab:'file',
   sessionId:(function(){
     /* URL param ?room=xxx prioritaire (partage inter-navigateurs) */
     var url=new URLSearchParams(window.location.search);
@@ -935,6 +997,13 @@ function renderActions(){
     btn.onclick=a.fn;
     el.appendChild(btn);
   });
+  if(TW.step>=3&&TW.activeProposalId){
+    var rbtn=document.createElement('button');
+    rbtn.className='tw-act w';
+    rbtn.textContent='⚠️ Ouvrir une réserve';
+    rbtn.onclick=function(){openReserveModal();};
+    el.appendChild(rbtn);
+  }
 }
 
 /* ============================================================
@@ -1066,6 +1135,7 @@ function renderObjects(){
 
   renderDecisionCard();
   renderActionsList();
+  renderReservesList();
 
   var visible=TW.objects.filter(function(obj){
     var mode=(state&&state.display[obj.type])||'hidden';
@@ -1586,6 +1656,117 @@ function applyDecision(){
   if(TW.step<11){TW.step=11;wsSend({type:'step_change',step:11});renderStepper();applyCanvasState(11);}
   toast('Décision enregistrée.',2400);
 }
+/* ============================================================
+   RÉSERVES
+   ============================================================ */
+var _RV_ICON={'YELLOW':'🟨','ORANGE':'🟧','RED':'🟥'};
+var _RV_STATUS_LBL={'OPEN':'Ouverte','ACKNOWLEDGED':'Accusé réception','OVERRIDDEN':'Passé outre','RESOLVED':'Résolue'};
+
+function openReserveModal(){
+  TW._rvLevel='YELLOW';
+  selectRvLevel('YELLOW');
+  var t=document.getElementById('rvTitle');if(t)t.value='';
+  var d=document.getElementById('rvDesc');if(d)d.value='';
+  openModal('reserveModal');
+}
+function selectRvLevel(lvl){
+  TW._rvLevel=lvl;
+  ['YELLOW','ORANGE','RED'].forEach(function(l){
+    var b=document.getElementById('rvl-'+l);
+    if(b)b.className='tw-rv-lvl-btn'+(l===lvl?' sel':'');
+  });
+}
+function applyReserve(){
+  var title=((document.getElementById('rvTitle')||{}).value||'').trim();
+  if(!title){toast('L\'intitulé est requis.',2200);return;}
+  var rv={
+    id:'rv_'+Date.now()+'_'+Math.random().toString(36).slice(2,5),
+    mission_id:TW.sessionId,
+    level:TW._rvLevel,
+    author:TW.userName||'Participant',
+    title:title,
+    description:((document.getElementById('rvDesc')||{}).value||'').trim(),
+    status:'OPEN',
+    created_at:new Date().toISOString(),
+    closed_at:null,
+  };
+  TW.reserves.push(rv);
+  wsSend({type:'reserve_add',reserve:rv});
+  closeModal('reserveModal');
+  TW._rvOpen=true;
+  renderReservesList();
+  renderDecisionCard();
+  toast('Réserve ouverte.',2000);
+}
+function updateReserveStatus(rvId,newStatus){
+  if(TW.userRole!=='owner'){toast('Seul l\'owner traite les réserves.',2200);return;}
+  var rv=TW.reserves.find(function(r){return r.id===rvId;});
+  if(!rv)return;
+  rv.status=newStatus;
+  if(newStatus==='OVERRIDDEN'||newStatus==='RESOLVED')rv.closed_at=new Date().toISOString();
+  var payload={type:'reserve_update',reserve_id:rvId,status:newStatus,closed_at:rv.closed_at||null};
+  if(newStatus==='OVERRIDDEN')payload.override_decision=TW.decision?TW.decision.text:'';
+  wsSend(payload);
+  renderReservesList();
+  renderDecisionCard();
+}
+function toggleRvDetail(){
+  TW._rvOpen=!TW._rvOpen;
+  renderReservesList();
+}
+function renderReservesList(){
+  var rz=document.getElementById('twReservesZone');
+  if(!rz)return;
+  if(!TW.reserves.length){rz.style.display='none';rz.innerHTML='';return;}
+  var isOwner=TW.userRole==='owner';
+  var y=TW.reserves.filter(function(r){return r.level==='YELLOW'&&r.status!=='RESOLVED';}).length;
+  var o=TW.reserves.filter(function(r){return r.level==='ORANGE'&&r.status!=='RESOLVED';}).length;
+  var r=TW.reserves.filter(function(r){return r.level==='RED'&&r.status!=='RESOLVED';}).length;
+  var badges=(y?'<span class="tw-rv-badge">🟨 '+y+'</span>':'')+
+             (o?'<span class="tw-rv-badge">🟧 '+o+'</span>':'')+
+             (r?'<span class="tw-rv-badge">🟥 '+r+'</span>':'');
+  var html='<div class="tw-rv-hdr" onclick="toggleRvDetail()">'
+    +'<span class="tw-rv-title">⚠️ Réserves</span>'
+    +'<div style="display:flex;gap:10px;align-items:center;">'+badges
+    +'<span class="tw-rv-toggle">'+(TW._rvOpen?'▲':'▼')+'</span></div>'
+    +'</div>';
+  if(TW._rvOpen){
+    html+='<div id="twRvDetail">';
+    TW.reserves.forEach(function(rv){
+      var icon=_RV_ICON[rv.level]||'🟨';
+      var slbl=_RV_STATUS_LBL[rv.status]||rv.status;
+      html+='<div class="tw-rv-item '+rv.level+'">'
+        +'<div class="tw-rv-item-top">'
+        +'<span class="tw-rv-icon">'+icon+'</span>'
+        +'<span class="tw-rv-ititle">'+_e(rv.title)+'</span>'
+        +'<span class="tw-rv-status-tag '+rv.status+'">'+slbl+'</span>'
+        +'</div>'
+        +'<div class="tw-rv-meta">'+_e(rv.author)+' · '+rv.created_at.slice(0,10)+'</div>'
+        +(rv.description?'<div class="tw-rv-desc">'+_e(rv.description)+'</div>':'');
+      if(rv.status==='OVERRIDDEN'&&rv.override_decision){
+        html+='<div class="tw-rv-override-log">Passé outre le '+rv.closed_at.slice(0,10)
+          +(rv.override_decision?' — Décision : «'+_e(rv.override_decision)+'»':'')+'</div>';
+      }
+      if(isOwner&&rv.status==='OPEN'){
+        html+='<div class="tw-rv-actions">'
+          +'<button class="tw-rv-btn" onclick="updateReserveStatus(\''+rv.id+'\',\'ACKNOWLEDGED\')">Accuser réception</button>'
+          +(rv.level==='RED'?'<button class="tw-rv-btn danger" onclick="updateReserveStatus(\''+rv.id+'\',\'OVERRIDDEN\')">Continuer malgré</button>':'')
+          +'<button class="tw-rv-btn" onclick="updateReserveStatus(\''+rv.id+'\',\'RESOLVED\')">Résoudre</button>'
+          +'</div>';
+      }else if(isOwner&&rv.status==='ACKNOWLEDGED'){
+        html+='<div class="tw-rv-actions">'
+          +(rv.level==='RED'?'<button class="tw-rv-btn danger" onclick="updateReserveStatus(\''+rv.id+'\',\'OVERRIDDEN\')">Continuer malgré</button>':'')
+          +'<button class="tw-rv-btn" onclick="updateReserveStatus(\''+rv.id+'\',\'RESOLVED\')">Résoudre</button>'
+          +'</div>';
+      }
+      html+='</div>';
+    });
+    html+='</div>';
+  }
+  rz.style.display='block';
+  rz.innerHTML=html;
+}
+
 var _AL_STATUS_ICON={'TODO':'☐','IN_PROGRESS':'◐','DONE':'☑','CANCELLED':'⊘'};
 var _AL_STATUS_COLOR={'TODO':'var(--dim2)','IN_PROGRESS':'var(--amber)','DONE':'var(--iris)','CANCELLED':'rgba(246,102,102,0.7)'};
 var _AL_STATUS_CYCLE={'TODO':'IN_PROGRESS','IN_PROGRESS':'DONE','DONE':'TODO','CANCELLED':'TODO'};
@@ -1671,10 +1852,16 @@ function renderDecisionCard(){
   tags.push('Étape '+d.step);
   tags.push(_e(d.author));
   tags.push(d.date);
+  var openRv=TW.reserves.filter(function(r){return r.status!=='RESOLVED';});
+  var rvBadges='';
+  ['YELLOW','ORANGE','RED'].forEach(function(lvl){
+    var n=openRv.filter(function(r){return r.level===lvl;}).length;
+    if(n)rvBadges+='<span class="tw-dec-tag" style="cursor:pointer" onclick="TW._rvOpen=true;renderReservesList()">'+_RV_ICON[lvl]+' '+n+'</span>';
+  });
   dc.style.display='block';
   dc.innerHTML='<div class="tw-dec-lbl">🎯 Décision retenue</div>'
     +'<div class="tw-dec-text">"'+_e(d.text)+'"</div>'
-    +'<div class="tw-dec-meta">'+tags.map(function(t){return '<span class="tw-dec-tag">'+t+'</span>';}).join('')+'</div>';
+    +'<div class="tw-dec-meta">'+tags.map(function(t){return '<span class="tw-dec-tag">'+t+'</span>';}).join('')+rvBadges+'</div>';
 }
 
 /* ============================================================
@@ -1763,6 +1950,7 @@ function handleWsMessage(msg){
     TW.sources=st.sources||[];
     TW.decision=st.decision||null;
     TW.actions=st.actions||[];
+    TW.reserves=st.reserves||[];
     renderSeats();renderObjects();applyCanvasState(TW.step);updateStats();renderProposals();
     if(TW._pendingTitle&&TW.userRole==='owner'&&!TW.brief){
       var pt=TW._pendingTitle;TW._pendingTitle=null;
@@ -1890,6 +2078,25 @@ function handleWsMessage(msg){
     TW.decision=msg.decision;
     renderDecisionCard();
     renderActionsList();
+    return;
+  }
+  if(t==='reserve_added'){
+    if(!TW.reserves.find(function(r){return r.id===msg.reserve.id;}))
+      TW.reserves.push(msg.reserve);
+    TW._rvOpen=true;
+    renderReservesList();
+    renderDecisionCard();
+    return;
+  }
+  if(t==='reserve_updated'){
+    var ru=TW.reserves.find(function(r){return r.id===msg.reserve_id;});
+    if(ru){
+      ru.status=msg.status;
+      if(msg.closed_at)ru.closed_at=msg.closed_at;
+      if(msg.override_decision)ru.override_decision=msg.override_decision;
+    }
+    renderReservesList();
+    renderDecisionCard();
     return;
   }
   if(t==='action_added'){
