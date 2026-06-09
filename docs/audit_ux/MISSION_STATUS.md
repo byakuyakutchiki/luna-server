@@ -1,5 +1,5 @@
 # MISSION STATUS — Audit UX YAWatch-LUNA
-**Dernière mise à jour** : 2026-06-09 21:50  
+**Dernière mise à jour** : 2026-06-09 22:15  
 **Responsable** : Kimi (Auditeur UX / Terrain)
 
 ---
@@ -54,7 +54,8 @@ Nouveau déploiement
 | 25. Audit UX Premium V1 | ❌ **NON VALIDÉ** | Kimi |
 | 26. Correctif UX Premium V1.1 | ✅ **Fait** (rev 00636-n2r) | Claude |
 | 27. Audit UX Premium V1.1 | ⚠️ **PARTIELLEMENT VALIDÉ** | Kimi |
-| 28. Prochaine étape UX/UI | ⏭️ **À décider** | Ludovic + ChatGPT |
+| 28. Audit Visuel Obligatoire (référence vs réalité) | ❌ **NON CONVERGENT** | Kimi + OpenAI Vision |
+| 29. Correctif UX Premium V1.2 (refonte structurelle) | ⏳ **En attente** | Claude |
 
 ---
 
@@ -223,6 +224,53 @@ Dossier final généré (9 sections, snapshot figé)
 
 ---
 
+## AUDIT VISUEL OBLIGATOIRE — Référence vs Réalité
+
+**Date** : 2026-06-09 22:15  
+**Méthode** : Comparaison pixel à pixel (référence ChatGPT vs capture Playwright) + OpenAI Vision  
+**Référence** : `docs/ChatGPT Image Jun 9, 2026, 09_17_00 PM.png`  
+**Rapport complet** : `docs/audit_ux/2026-06-09-visual-audit/audit_visual_comparaison.md`  
+**Convergence** : **25-30%**  
+**Verdict** : ❌ **NON CONVERGENT**
+
+### Écarts critiques (structurels)
+| Zone | Référence | Réalité | Écart |
+|---|---|---|---|
+| **Layout** | 3 colonnes (sidebar + canvas + sidebar) | Layout vertical simple | **Structure inexistante** |
+| **Sidebar gauche** | Navigation verticale avec icônes, jauge circulaire | Stepper horizontal compact | **Inexistante** |
+| **Sidebar droite** | Mission + Participants IA + Activité + Historique | Absente | **Inexistante** |
+| **Header** | Logo Y géométrique + contrôles + titre centré | Logo rond + texte simple | Majeur |
+| **Canvas** | Orbe Y ×6, anneaux, logo Y transparent, fond texturé | Petite orbe, fond noir | Critique |
+| **Participants bas** | Photos réalistes, indicateurs audio, cartes glassmorphism | Chips avec initiales | Critique |
+
+### Score par zone
+| Zone | Score |
+|---|---|
+| Layout global | 5% |
+| Header | 20% |
+| Sidebar gauche | 0% (n'existe pas) |
+| Canvas central | 25% |
+| Sidebar droite | 0% (n'existe pas) |
+| Participants bas | 15% |
+| Typographie | 30% |
+| Couleurs / Palette | 35% |
+| Effets (glassmorphism, glow) | 30% |
+| Ambiance générale | 20% |
+
+### Ce que Claude doit faire (V1.2)
+1. **Reconstruire le layout en 3 colonnes** — ce n'est pas du CSS, c'est une refonte HTML
+2. **Créer la sidebar gauche** — navigation verticale + jauge circulaire
+3. **Créer la sidebar droite** — Mission + Participants IA + Activité
+4. **Agrandir l'orbe Y ×6** + anneaux + glow massif + logo Y transparent
+5. **Refonte complète du header** — logo Y géométrique, contrôles, titre centré
+6. **Renforcer le glassmorphism** — blur 20px, bordures lumineuses
+7. **Introduire le violet** — étape active, accents, halos
+8. **Refonte participants bas** — cartes plus grandes, indicateurs audio
+
+**Règle absolue inchangée** : ❌ Aucune modification du workflow métier. Le script `yawatch_audit.py` doit continuer de passer.
+
+---
+
 ## COMMANDE D'AUDIT POST-DÉPLOIEMENT
 
 ```bash
@@ -241,39 +289,36 @@ python /tmp/iris_audit/yawatch_audit.py
 
 ## PROCHAINES ACTIONS
 
-### 🎯 État actuel (2026-06-09 21:50)
+### 🎯 État actuel (2026-06-09 22:15)
 
-**Chantier UX/UI Premium V1.1** : ⚠️ **PARTIELLEMENT VALIDÉ**
-- Régressions fonctionnelles : ✅ Toutes corrigées
-- Améliorations visuelles : ✅ Réelles et mesurables
-- Ambiance premium : ⚠️ Bon progrès, pas encore "salle de réflexion stratégique"
+**Audit Visuel Obligatoire** : ❌ **NON CONVERGENT (25-30%)**
+
+**Chantier UX/UI Premium V1.1** : ⚠️ Partiellement validé (fonctionnel ✅, visuellement éloigné de la référence)
 
 **Feature Décision & Traçabilité V1** : **TERMINÉE** (gelée)
 
-### 🚀 Décision à prendre — Options pour la suite
+### 🔴 URGENT — Claude doit reconstruire l'interface (V1.2)
 
-| Option | Description | Risque |
-|---|---|---|
-| **A — Valider V1.1 et continuer** | Accepter V1.1 comme base stable. Passer à Priorité 2 (Hiérarchie visuelle) ou Priorité 3 (Dossier final premium). | Faible — on itère |
-| **B — Affiner encore V1.1** | Demander à Claude d'enrichir le canvas (décoratifs subtils, logo, plus de lumière). | Moyen — risque de perfectionnisme |
-| **C — Test mission réelle V1.1** | Lancer un test mission réelle complet pour valider stabilité en conditions réelles. | Faible — double validation |
+L'écart n'est pas cosmétique — il est **structurel**. La référence graphique demande :
 
-**Recommandation Kimi** : Option A ou C. V1.1 est fonctionnellement stable et visuellement acceptable comme étape intermédiaire. Le risque de chercher la perfection sur V1.1 est de bloquer les priorités 2-5.
+1. **Layout 3 colonnes** (sidebar gauche + canvas + sidebar droite) — n'existe pas
+2. **Sidebar gauche** (navigation verticale + icônes + jauge circulaire) — n'existe pas
+3. **Sidebar droite** (Mission + Participants IA + Activité + Historique) — n'existe pas
+4. **Canvas central** (orbe Y ×6 + anneaux + logo Y transparent + fond texturé) — très éloigné
+5. **Header premium** (logo Y géométrique + contrôles + titre centré) — très éloigné
+6. **Participants bas** (photos/cartes grandes + indicateurs audio) — très éloigné
 
-### 📋 Reste à faire dans le chantier UX/UI
-
-| Priorité | Thème | Statut |
-|---|---|---|
-| 1 | Workspace immersif | ⚠️ V1.1 — Partiellement validé |
-| 2 | Hiérarchie visuelle | ⏳ À faire |
-| 3 | Dossier final premium | ⏳ À faire |
-| 4 | Identité Iris/IQ/Luna | ⚠️ Amélioré en V1.1, peut être affiné |
-| 5 | Animations discrètes | ⏳ À faire |
+**Documents de référence pour Claude** :
+- Rapport d'écart détaillé : `docs/audit_ux/2026-06-09-visual-audit/audit_visual_comparaison.md`
+- Image référence : `docs/ChatGPT Image Jun 9, 2026, 09_17_00 PM.png`
+- Prompt officiel : `docs/audit_ux/PROMPT_UX_UI_PREMIUM.md`
 
 **Règles d'or** :
 - ❌ Aucun nouvel objet métier
 - ❌ Aucune logique métier nouvelle
 - 🔴 Aucune régression fonctionnelle tolérée
+- ✅ Le script `yawatch_audit.py` doit continuer de passer
+- ✅ La référence visuelle est `docs/ChatGPT Image Jun 9, 2026, 09_17_00 PM.png`
 
 ---
 
