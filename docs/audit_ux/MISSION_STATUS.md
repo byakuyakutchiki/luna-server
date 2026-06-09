@@ -46,8 +46,11 @@ Nouveau déploiement
 | 17. Audit terrain Phase 8 | ✅ Fait (2026-06-09 17:59) | Kimi |
 | 18. Validation Phase 8 | ✅ Faite (feu vert PO) | Ludovic |
 | 19. Spécification Phase 9 (Actions) | ✅ Faite | ChatGPT + Ludovic |
-| 20. Implémentation Phase 9 (Actions) | ⏳ À faire | Claude |
-| 21. Audit terrain Phase 9 | ⏳ À faire | Kimi |
+| 20. Implémentation Phase 9 (Actions) | ✅ Fait (rev 00632, commit 74df005) | Claude |
+| 21. Audit terrain Phase 9 | ✅ Fait (2026-06-09 18:27) | Kimi |
+| 22. Validation Phase 9 | ⏳ À faire | ChatGPT + Ludovic |
+| 23. Implémentation Phase 10 (Réserves) | ⏳ À faire | Claude |
+| 24. Audit terrain Phase 10 | ⏳ À faire | Kimi |
 
 ---
 
