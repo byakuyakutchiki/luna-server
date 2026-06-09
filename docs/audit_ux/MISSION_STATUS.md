@@ -44,9 +44,10 @@ Nouveau déploiement
 | 15. Feature Décision & Traçabilité | ✅ Spécifiée | ChatGPT + Ludovic |
 | 16. Implémentation Phase 8 | ✅ Fait (rev 00631, commit 4e6fb3d) | Claude |
 | 17. Audit terrain Phase 8 | ✅ Fait (2026-06-09 17:59) | Kimi |
-| 18. Validation Phase 8 | ⏳ À faire | ChatGPT + Ludovic |
-| 19. Implémentation Phase 9 (Actions) | ⏳ À faire | Claude |
-| 20. Audit terrain Phase 9 | ⏳ À faire | Kimi |
+| 18. Validation Phase 8 | ✅ Faite (feu vert PO) | Ludovic |
+| 19. Spécification Phase 9 (Actions) | ✅ Faite | ChatGPT + Ludovic |
+| 20. Implémentation Phase 9 (Actions) | ⏳ À faire | Claude |
+| 21. Audit terrain Phase 9 | ⏳ À faire | Kimi |
 
 ---
 
