@@ -428,6 +428,14 @@
     .tw-prop-activate:hover{background:rgba(16,212,142,0.2);}
     .tw-prop-archive{background:none;border:1px solid var(--border-s);color:var(--dim2);border-radius:3px;padding:2px 5px;font-size:9px;cursor:pointer;}
     .tw-prop-archive:hover{color:var(--dim);}
+
+    /* === DÉCISION CARD === */
+    #twDecisionCard{display:none;margin:8px 16px 0;padding:12px 16px;border-radius:8px;border:1.5px solid rgba(16,212,142,0.5);background:rgba(16,212,142,0.06);}
+    #twDecisionCard.on{display:block;}
+    .tw-dec-lbl{font-size:9px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--iris);margin-bottom:6px;}
+    .tw-dec-text{font-size:13px;font-weight:600;color:var(--text);line-height:1.5;margin-bottom:8px;font-style:italic;}
+    .tw-dec-meta{display:flex;flex-wrap:wrap;gap:5px;}
+    .tw-dec-tag{font-size:9px;color:var(--dim2);background:rgba(255,255,255,0.05);padding:2px 7px;border-radius:4px;}
   </style>
 </head>
 <body>
@@ -482,6 +490,7 @@
     </div>
     <div id="twCanvasInner">
       <div class="tw-canvas-grid"></div>
+      <div id="twDecisionCard"></div>
 
       <div id="twGrid"></div>
       <div id="twEmptyState">
@@ -564,6 +573,23 @@
   </div>
 </div>
 
+
+<!-- DECISION MODAL -->
+<div class="tw-modal" id="decisionModal" onclick="mOvl(event,'decisionModal')">
+  <div class="tw-mbox">
+    <div class="tw-mhdr">
+      <div class="tw-mtitle"><div class="tw-mdot" style="background:var(--iris);box-shadow:0 0 5px rgba(16,212,142,0.5);"></div>Valider une décision</div>
+      <button class="tw-mclose" onclick="closeModal('decisionModal')">✕</button>
+    </div>
+    <div class="tw-mbody">
+      <div class="tw-mfield"><label class="tw-mlbl">Décision retenue</label><textarea id="decisionText" class="tw-mta" placeholder="Résumer la décision collective en une phrase..." maxlength="600" style="min-height:80px"></textarea></div>
+    </div>
+    <div class="tw-mfooter">
+      <button class="tw-mbtn ghost" onclick="closeModal('decisionModal')">Annuler</button>
+      <button class="tw-mbtn primary iris" onclick="applyDecision()">Valider</button>
+    </div>
+  </div>
+</div>
 
 <!-- ADD OBJECT MODAL -->
 <div class="tw-modal" id="addModal" onclick="mOvl(event,'addModal')">
@@ -673,7 +699,7 @@ var STEPS=[
   {id:10,lbl:'Recommandation Luna'},{id:11,lbl:'Validation'},{id:12,lbl:'Livrable'},{id:13,lbl:'Distribution'},
 ];
 var TW={
-  step:3,brief:null,objects:[],sources:[],selType:'prop',selTypeK:'p',srcTab:'file',
+  step:3,brief:null,decision:null,objects:[],sources:[],selType:'prop',selTypeK:'p',srcTab:'file',
   sessionId:(function(){
     /* URL param ?room=xxx prioritaire (partage inter-navigateurs) */
     var url=new URLSearchParams(window.location.search);
@@ -855,9 +881,12 @@ var STEP_ACTS={
   7:{lbl:'Débat —',acts:[{cls:'n',lbl:'Ajouter objection',fn:function(){toast('Les objections seront attachées au dossier de la proposition active — disponible à l\'étape suivante du MVP.',3200);}}]},
   8:{lbl:'Refonte Iris —',acts:[{cls:'i',lbl:'Demander refonte',fn:function(){launchOv('refonte');}}]},
   9:{lbl:'Comparaison IQ —',acts:[{cls:'q',lbl:'Comparer versions',fn:function(){launchOv('compare');}}]},
-  10:{lbl:'Recommandation Luna —',acts:[{cls:'l',lbl:'Demander recommandation',fn:function(){launchOv('luna');}}]},
+  10:{lbl:'Recommandation Luna —',acts:[
+    {cls:'l',lbl:'Demander recommandation',fn:function(){launchOv('luna');}},
+    {cls:'n',lbl:'Valider une décision',fn:function(){validateDecision();},ownerOnly:true},
+  ]},
   11:{lbl:'Validation —',acts:[
-    {cls:'l',lbl:'Valider la décision',fn:function(){validateDecision();}},
+    {cls:'l',lbl:'Valider une décision',fn:function(){validateDecision();},ownerOnly:true},
     {cls:'n',lbl:'Retour en refonte',  fn:function(){TW.step=8;renderStepper();applyCanvasState(8);toast('Retour à l\'étape Refonte.',1800);}},
   ]},
   12:{lbl:'Livrable —',acts:[{cls:'l',lbl:'Générer livrable',fn:function(){toast('Export PDF/Word disponible en Phase P2.',2400);}}]},
@@ -869,6 +898,7 @@ function renderActions(){
   var el=document.getElementById('twActBtns');
   el.innerHTML='';
   conf.acts.forEach(function(a){
+    if(a.ownerOnly&&TW.userRole!=='owner')return;
     var btn=document.createElement('button');
     btn.className='tw-act '+a.cls;
     btn.textContent=a.lbl;
@@ -1003,6 +1033,8 @@ function renderObjects(){
     });
     return;
   }
+
+  renderDecisionCard();
 
   var visible=TW.objects.filter(function(obj){
     var mode=(state&&state.display[obj.type])||'hidden';
@@ -1497,15 +1529,48 @@ function _ssDistro(){
   );
 }
 function validateDecision(){
-  var synths=TW.objects.filter(function(o){return o.type==='synthesis';});
-  var ref=synths.length?synths[synths.length-1]:null;
-  var title=ref?'Décision — '+ref.title:'Décision validée';
-  var decObj={id:_nid++,type:'decision',title:title,detail:'',by:TW.userName||'Ludovic',ts:Date.now()};
-  TW.objects.push(decObj);
-  wsSend({type:'object_add',object:decObj});
-  TW.step=12;wsSend({type:'step_change',step:12});renderStepper();applyCanvasState(12);
-  toast('Décision validée. Passage au livrable.',2400);
-  console.log('[TW] decision_validated');
+  if(TW.wsConnected&&TW.userRole!=='owner'){toast('Seul l\'owner valide la décision.',2200);return;}
+  var ta=document.getElementById('decisionText');if(ta)ta.value='';
+  openModal('decisionModal');
+}
+function applyDecision(){
+  var text=((document.getElementById('decisionText')||{}).value||'').trim();
+  if(!text){toast('La décision ne peut pas être vide.',2200);return;}
+  var ap=TW.activeProposalId?TW.proposals.find(function(p){return p.id===TW.activeProposalId;}):null;
+  var d={
+    id:'dec_'+Date.now(),
+    text:text,
+    question:TW.brief?(TW.brief.title||TW.brief.objective||''):'',
+    proposal:ap?ap.text:'',
+    sources:TW.sources.length,
+    step:TW.step,
+    date:new Date().toISOString().slice(0,10),
+    author:TW.userName||'Owner',
+    ts:Date.now()/1000,
+  };
+  TW.decision=d;
+  wsSend({type:'decision_set',decision:d});
+  closeModal('decisionModal');
+  renderDecisionCard();
+  if(TW.step<11){TW.step=11;wsSend({type:'step_change',step:11});renderStepper();applyCanvasState(11);}
+  toast('Décision enregistrée.',2400);
+}
+function renderDecisionCard(){
+  var dc=document.getElementById('twDecisionCard');
+  if(!dc)return;
+  var d=TW.decision;
+  if(!d){dc.style.display='none';dc.innerHTML='';return;}
+  var tags=[];
+  if(d.question)tags.push(_e(d.question));
+  if(d.proposal)tags.push('Piste : '+_e(d.proposal));
+  tags.push(d.sources+' source'+(d.sources!==1?'s':''));
+  tags.push('Étape '+d.step);
+  tags.push(_e(d.author));
+  tags.push(d.date);
+  dc.style.display='block';
+  dc.innerHTML='<div class="tw-dec-lbl">🎯 Décision retenue</div>'
+    +'<div class="tw-dec-text">"'+_e(d.text)+'"</div>'
+    +'<div class="tw-dec-meta">'+tags.map(function(t){return '<span class="tw-dec-tag">'+t+'</span>';}).join('')+'</div>';
 }
 
 /* ============================================================
@@ -1592,6 +1657,7 @@ function handleWsMessage(msg){
     TW.proposals=st.proposals||[];
     TW.activeProposalId=st.active_proposal_id||null;
     TW.sources=st.sources||[];
+    TW.decision=st.decision||null;
     renderSeats();renderObjects();applyCanvasState(TW.step);updateStats();renderProposals();
     if(TW._pendingTitle&&TW.userRole==='owner'&&!TW.brief){
       var pt=TW._pendingTitle;TW._pendingTitle=null;
@@ -1713,6 +1779,11 @@ function handleWsMessage(msg){
     if(!TW.sources.find(function(s){return s.id===msg.source.id;}))
       TW.sources.push(msg.source);
     renderObjects();
+    return;
+  }
+  if(t==='decision_set'){
+    TW.decision=msg.decision;
+    renderDecisionCard();
     return;
   }
   if(t==='error'){

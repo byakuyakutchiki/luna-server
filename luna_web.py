@@ -8162,6 +8162,7 @@ class _IrisTeamRoom:
         self.votes: dict = {}         # str(obj_id) -> count
         self.proposals: list = []     # hypothèses de travail
         self.active_proposal_id: str | None = None
+        self.decision: dict | None = None
 
     def get_state(self) -> dict:
         return {
@@ -8171,6 +8172,7 @@ class _IrisTeamRoom:
             "participants": list(self.participants.values()),
             "proposals": self.proposals,
             "active_proposal_id": self.active_proposal_id,
+            "decision": self.decision,
         }
 
     async def broadcast(self, message: dict, exclude: str = None):
@@ -8411,6 +8413,13 @@ async def team_ws(websocket: WebSocket, session_id: str):
                         room.active_proposal_id = prop_id
                         await room.broadcast({"type": "proposal_updated", "proposal_id": prop_id, "status": "active"})
                         break
+            elif t == "decision_set":
+                if room.participants.get(user_id, {}).get("role") != "owner":
+                    continue
+                dec = msg.get("decision")
+                if dec and isinstance(dec, dict) and dec.get("text"):
+                    room.decision = dec
+                    await room.broadcast({"type": "decision_set", "decision": dec})
             elif t == "proposal_archive":
                 if room.participants.get(user_id, {}).get("role") != "owner":
                     continue
