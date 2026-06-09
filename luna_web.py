@@ -8291,6 +8291,25 @@ async def team_ws(websocket: WebSocket, session_id: str):
                 if isinstance(obj, dict):
                     room.objects.append(obj)
                     await room.broadcast({"type": "object_added", "object": obj, "by": user_id}, exclude=user_id)
+            elif t == "source_add":
+                if not room.active_proposal_id:
+                    await room.send_to(user_id, {"type": "error", "msg": "Activez une proposition avant d'ajouter une source."})
+                    continue
+                src_title = str(msg.get("title", "")).strip()[:200]
+                if not src_title:
+                    continue
+                src = {
+                    "id": f"s_{int(time.time()*1000)}_{uuid.uuid4().hex[:6]}",
+                    "type": "source",
+                    "title": src_title,
+                    "detail": str(msg.get("detail", ""))[:500],
+                    "src_type": str(msg.get("src_type", "note")),
+                    "proposal_id": room.active_proposal_id,
+                    "by": room.participants.get(user_id, {}).get("name", "?"),
+                    "ts": time.time(),
+                }
+                room.sources.append(src)
+                await room.broadcast({"type": "source_added", "source": src})
             elif t == "object_delete":
                 oid = msg.get("id")
                 room.objects = [o for o in room.objects if o.get("id") != oid]

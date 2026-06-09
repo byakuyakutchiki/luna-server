@@ -843,12 +843,12 @@ var STEP_ACTS={
   2:{lbl:'Brief —',acts:[{cls:'l',lbl:'Définir le brief',fn:function(){openModal('briefModal');}}]},
   3:{lbl:'Collecte —',acts:[
     {cls:'i',lbl:'Proposition',   fn:function(){openAdd('prop','p');}},
-    {cls:'q',lbl:'Importer source',fn:function(){openModal('sourceModal');}},
+    {cls:'q',lbl:'Importer source',fn:function(){openSourceModal();}},
   ]},
   4:{lbl:'Organisation Iris —',acts:[{cls:'i',lbl:'Déclencher Iris',fn:function(){launchOv('org');}}]},
   5:{lbl:'Vote priorité —',acts:[{cls:'l',lbl:'Lancer le vote',fn:function(){toast('Vote multi-participants disponible en Phase P0.4.',2400);}}]},
   6:{lbl:'Analyse IQ —',acts:[
-    {cls:'q',lbl:'Importer source',  fn:function(){openModal('sourceModal');}},
+    {cls:'q',lbl:'Importer source',  fn:function(){openSourceModal();}},
     {cls:'q',lbl:'Analyser avec IQ', fn:function(){launchOv('iq');}},
   ]},
   7:{lbl:'Débat —',acts:[{cls:'n',lbl:'Ajouter objection',fn:function(){openAdd('action','a');}}]},
@@ -967,7 +967,7 @@ function initObjects(){
     {id:4,type:'decision',title:'Offre 100 % digitale en priorité',detail:'Décision validée lors de la session stratégique du 3 juin 2026.',by:'Ludovic',ts:Date.now()-900000},
     {id:5,type:'synthesis',title:'Synthèse Iris (en attente)', detail:'Iris consolidera propositions et sources après le déclenchement de l\'étape Organisation.',by:'Iris',ts:Date.now()},
   ];
-  TW.sources=[{type:'file',label:'Rapport BNP Paribas 2025',by:'Alice M.'}];
+  TW.sources=[];  /* alimenté uniquement via source_add / state_sync */
 }
 function renderObjects(){
   var state=CANVAS_STATE[TW.step];
@@ -1101,19 +1101,22 @@ function onFileSelect(e){
   document.getElementById('twFileInfo').style.display='block';
   document.getElementById('twFileZone').classList.add('has-file');
 }
-function _srcToast(label,visible){
-  if(visible)toast('"'+label.substring(0,36)+'" importée.',2200);
-  else toast('"'+label.substring(0,36)+'" stockée — réapparaîtra à l\'étape Analyse IQ.',3000);
+function openSourceModal(){
+  if(!TW.activeProposalId){
+    toast('Activez une proposition avant d\'ajouter une source.',2800);
+    return;
+  }
+  openModal('sourceModal');
 }
 function _srcFinalize(label,type,detail){
-  var by=TW.userName||'Ludovic';
-  TW.sources.push({type:type,label:label,by:by});
-  var srcObj={id:_nid++,type:'source',title:label,detail:detail||'',by:by,ts:Date.now()};
-  TW.objects.push(srcObj);
-  wsSend({type:'object_add',object:srcObj});
-  var visible=(CANVAS_STATE[TW.step]||{}).display&&CANVAS_STATE[TW.step].display['source']!=='hidden';
+  if(!TW.activeProposalId){
+    toast('Activez une proposition avant d\'ajouter une source.',2800);
+    closeModal('sourceModal');
+    return;
+  }
+  wsSend({type:'source_add',title:label,detail:detail||'',src_type:type,proposal_id:TW.activeProposalId});
   renderObjects();updateStats();closeModal('sourceModal');
-  _srcToast(label,visible);
+  toast('"'+label.substring(0,36)+'" attachée à la proposition active.',2200);
 }
 function confirmAddSource(){
   var type=TW.srcTab;
@@ -1545,6 +1548,7 @@ function handleWsMessage(msg){
     });
     TW.proposals=st.proposals||[];
     TW.activeProposalId=st.active_proposal_id||null;
+    TW.sources=st.sources||[];
     renderSeats();renderObjects();applyCanvasState(TW.step);updateStats();renderProposals();
     console.log('[WS] state_sync participants='+(st.participants||[]).length);
     return;
@@ -1651,6 +1655,16 @@ function handleWsMessage(msg){
       if(rpu)rpu.role=msg.role;
       renderLiveSeats();
     }
+    return;
+  }
+  if(t==='source_added'){
+    if(!TW.sources.find(function(s){return s.id===msg.source.id;}))
+      TW.sources.push(msg.source);
+    renderObjects();
+    return;
+  }
+  if(t==='error'){
+    toast(msg.msg||'Erreur.',2800);
     return;
   }
   if(t==='proposal_added'){
