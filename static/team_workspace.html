@@ -842,7 +842,7 @@ var STEP_ACTS={
   1:{lbl:'Entrée —',acts:[{cls:'i',lbl:'Activer présence',fn:function(){toast('Caméra / micro disponibles en Phase P0.2.',2400);}}]},
   2:{lbl:'Brief —',acts:[{cls:'l',lbl:'Définir le brief',fn:function(){openModal('briefModal');}}]},
   3:{lbl:'Collecte —',acts:[
-    {cls:'i',lbl:'Proposition',   fn:function(){openAdd('prop','p');}},
+    {cls:'i',lbl:'Proposition',    fn:function(){propOpenInput();}},
     {cls:'q',lbl:'Importer source',fn:function(){openSourceModal();}},
   ]},
   4:{lbl:'Organisation Iris —',acts:[{cls:'i',lbl:'Déclencher Iris',fn:function(){launchOv('org');}}]},
@@ -851,7 +851,7 @@ var STEP_ACTS={
     {cls:'q',lbl:'Importer source',  fn:function(){openSourceModal();}},
     {cls:'q',lbl:'Analyser avec IQ', fn:function(){launchOv('iq');}},
   ]},
-  7:{lbl:'Débat —',acts:[{cls:'n',lbl:'Ajouter objection',fn:function(){openAdd('action','a');}}]},
+  7:{lbl:'Débat —',acts:[{cls:'n',lbl:'Ajouter objection',fn:function(){toast('Les objections seront attachées au dossier de la proposition active — disponible à l\'étape suivante du MVP.',3200);}}]},
   8:{lbl:'Refonte Iris —',acts:[{cls:'i',lbl:'Demander refonte',fn:function(){launchOv('refonte');}}]},
   9:{lbl:'Comparaison IQ —',acts:[{cls:'q',lbl:'Comparer versions',fn:function(){launchOv('compare');}}]},
   10:{lbl:'Recommandation Luna —',acts:[{cls:'l',lbl:'Demander recommandation',fn:function(){launchOv('luna');}}]},
