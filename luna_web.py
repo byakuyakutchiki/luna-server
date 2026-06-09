@@ -8165,6 +8165,7 @@ class _IrisTeamRoom:
         self.decision: dict | None = None
         self.actions: list = []
         self.reserves: list = []
+        self.report: dict | None = None
 
     def get_state(self) -> dict:
         return {
@@ -8177,6 +8178,7 @@ class _IrisTeamRoom:
             "decision": self.decision,
             "actions": self.actions,
             "reserves": self.reserves,
+            "report": self.report,
         }
 
     async def broadcast(self, message: dict, exclude: str = None):
@@ -8445,6 +8447,13 @@ async def team_ws(websocket: WebSocket, session_id: str):
                 act_id = str(msg.get("action_id", ""))
                 room.actions = [a for a in room.actions if a["id"] != act_id]
                 await room.broadcast({"type": "action_deleted", "action_id": act_id})
+            elif t == "report_generate":
+                if room.participants.get(user_id, {}).get("role") != "owner":
+                    continue
+                rpt = msg.get("report")
+                if rpt and isinstance(rpt, dict) and rpt.get("markdown"):
+                    room.report = rpt
+                    await room.broadcast({"type": "report_generated", "report": rpt})
             elif t == "reserve_add":
                 rv = msg.get("reserve")
                 if rv and isinstance(rv, dict) and rv.get("title") and rv.get("id"):

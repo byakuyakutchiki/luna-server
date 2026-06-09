@@ -256,6 +256,35 @@
     .tw-rv-lvl-btn{flex:1;padding:6px 0;border-radius:6px;border:1px solid var(--border-s);background:var(--glass);color:var(--dim);font-size:11px;cursor:pointer;text-align:center;transition:all 0.15s;}
     .tw-rv-lvl-btn:hover,.tw-rv-lvl-btn.sel{background:rgba(246,180,0,0.15);border-color:rgba(246,180,0,0.4);color:rgba(246,180,0,0.9);}
 
+    /* === DOSSIER FINAL === */
+    #twReportZone{display:none;margin:8px 16px 16px;border-radius:10px;background:rgba(5,11,30,0.95);border:1.5px solid rgba(16,212,142,0.28);overflow:hidden;}
+    #twReportZone.on{display:block;}
+    .tw-rpt-bar{display:flex;align-items:center;justify-content:space-between;padding:9px 16px;border-bottom:1px solid rgba(16,212,142,0.14);background:rgba(16,212,142,0.05);}
+    .tw-rpt-bar-title{font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--iris);}
+    .tw-rpt-bar-acts{display:flex;gap:6px;}
+    .tw-rpt-btn{background:none;border:1px solid var(--border-s);color:var(--dim2);border-radius:5px;padding:4px 10px;font-size:9px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;cursor:pointer;transition:all 0.15s;}
+    .tw-rpt-btn:hover{color:var(--text);border-color:var(--dim);}
+    .tw-rpt-btn.iris{border-color:rgba(16,212,142,0.3);color:var(--iris);}
+    .tw-rpt-btn.iris:hover{background:rgba(16,212,142,0.12);}
+    .tw-rpt-body{padding:20px 24px;}
+    .tw-rpt-hdr{font-size:11px;color:var(--iris);font-family:monospace;line-height:1.9;margin-bottom:16px;}
+    .tw-rpt-hdr-sep{border:none;border-top:1px solid rgba(16,212,142,0.2);margin:4px 0;}
+    .tw-rpt-hdr-field{display:flex;gap:8px;font-size:11px;font-family:monospace;}
+    .tw-rpt-hdr-k{color:var(--dim2);min-width:100px;}
+    .tw-rpt-hdr-v{color:var(--text);}
+    .tw-rpt-section{margin-bottom:22px;}
+    .tw-rpt-sec-hdr{font-size:9px;font-weight:700;letter-spacing:1.4px;text-transform:uppercase;color:var(--dim2);margin-bottom:8px;padding-bottom:5px;border-bottom:1px solid var(--border);}
+    .tw-rpt-text{font-size:12px;color:var(--text);line-height:1.75;}
+    .tw-rpt-sub{font-size:10px;color:var(--dim2);margin-top:4px;}
+    .tw-rpt-list{margin:0;padding:0;list-style:none;}
+    .tw-rpt-list li{display:flex;align-items:flex-start;gap:8px;padding:5px 0;border-bottom:1px solid rgba(255,255,255,0.04);font-size:11px;color:var(--text);line-height:1.5;}
+    .tw-rpt-list li:last-child{border-bottom:none;}
+    .tw-rpt-list li .ico{flex-shrink:0;width:18px;text-align:center;font-size:12px;}
+    .tw-rpt-list li .lbl{flex:1;}
+    .tw-rpt-list li .meta{font-size:9px;color:var(--dim2);flex-shrink:0;margin-left:8px;}
+    .tw-rpt-decision{padding:12px 14px;border-radius:7px;background:rgba(16,212,142,0.05);border:1px solid rgba(16,212,142,0.2);font-size:12px;color:var(--text);line-height:1.7;}
+    .tw-rpt-synth{padding:14px 16px;border-radius:8px;background:rgba(16,212,142,0.04);border:1px solid rgba(16,212,142,0.15);font-size:12px;color:var(--dim);line-height:1.85;font-style:italic;}
+
     /* === SPECTATORS === */
     #twSpecRow{
       flex-shrink:0;background:rgba(3,6,16,0.55);border-top:1px solid var(--border);
@@ -549,6 +578,7 @@
       <div id="twDecisionCard"></div>
       <div id="twActionsZone"></div>
       <div id="twReservesZone"></div>
+      <div id="twReportZone"></div>
 
       <div id="twGrid"></div>
       <div id="twEmptyState">
@@ -783,7 +813,8 @@ var STEPS=[
   {id:10,lbl:'Recommandation Luna'},{id:11,lbl:'Validation'},{id:12,lbl:'Livrable'},{id:13,lbl:'Distribution'},
 ];
 var TW={
-  step:3,brief:null,decision:null,actions:[],reserves:[],_rvLevel:'YELLOW',_rvOpen:false,
+  step:3,brief:null,decision:null,actions:[],reserves:[],report:null,_showReport:false,
+  _rvLevel:'YELLOW',_rvOpen:false,
   objects:[],sources:[],selType:'prop',selTypeK:'p',srcTab:'file',
   sessionId:(function(){
     /* URL param ?room=xxx prioritaire (partage inter-navigateurs) */
@@ -1003,6 +1034,13 @@ function renderActions(){
     rbtn.textContent='⚠️ Ouvrir une réserve';
     rbtn.onclick=function(){openReserveModal();};
     el.appendChild(rbtn);
+  }
+  if(TW.step>=11&&TW.userRole==='owner'&&TW.decision){
+    var dbtn=document.createElement('button');
+    dbtn.className='tw-act i';
+    dbtn.textContent='📄 Générer le dossier final';
+    dbtn.onclick=function(){generateReport();};
+    el.appendChild(dbtn);
   }
 }
 
@@ -1438,6 +1476,9 @@ function renderContextHeader(){
    CANVAS STATE ENGINE — apply
    ============================================================ */
 function applyCanvasState(step){
+  /* si le dossier final est affiché, le rafraîchir sans toucher au reste */
+  if(TW._showReport){showReport();renderActions();return;}
+
   var state=CANVAS_STATE[step];
   if(!state)return;
 
@@ -1629,6 +1670,316 @@ function _ssDistro(){
     '</div>'
   );
 }
+/* ============================================================
+   DOSSIER FINAL — Phase 11
+   ============================================================ */
+var _AL_STATUS_REPORT={'TODO':'☐','IN_PROGRESS':'◐','DONE':'☑','CANCELLED':'⊘'};
+
+function generateReport(){
+  if(TW.userRole!=='owner'){toast('Seul l\'owner génère le dossier final.',2200);return;}
+  if(!TW.decision){toast('Une décision doit être validée avant de générer le dossier.',2400);return;}
+  var now=new Date();
+  var dateStr=now.toLocaleDateString('fr-FR',{day:'2-digit',month:'long',year:'numeric'});
+  var ap=TW.activeProposalId?TW.proposals.find(function(p){return p.id===TW.activeProposalId;}):null;
+  var allProps=TW.proposals.filter(function(p){return p.status!=='archived'||p.id===TW.activeProposalId;});
+  var md=buildReportMarkdown(dateStr,ap,allProps);
+  var rpt={markdown:md,generated_at:now.toISOString(),generated_by:TW.userName||'Owner'};
+  TW.report=rpt;
+  wsSend({type:'report_generate',report:rpt});
+  showReport();
+  toast('Dossier final généré.',2400);
+}
+
+function buildReportMarkdown(dateStr,ap,allProps){
+  var b=TW.brief||{};
+  var d=TW.decision||{};
+  var owner=d.author||TW.userName||'Owner';
+  var mission=b.title||d.question||'—';
+  var nbSrc=TW.sources.length;
+  var nbActs=TW.actions.length;
+
+  var lines=[];
+  lines.push('═══════════════════════════════════════');
+  lines.push('  COMPTE-RENDU IRIS');
+  lines.push('═══════════════════════════════════════');
+  lines.push('');
+  lines.push('Mission      : '+mission);
+  lines.push('Owner        : '+owner);
+  lines.push('Date         : '+dateStr);
+  lines.push('Version      : 1.0 (snapshot)');
+  lines.push('Participants : Iris · IQ · Luna');
+  lines.push('');
+  lines.push('❓ QUESTION');
+  lines.push(mission);
+  lines.push('');
+  lines.push('💡 PROPOSITIONS ÉTUDIÉES');
+  lines.push('');
+  if(allProps.length){
+    allProps.forEach(function(p,i){
+      lines.push('Proposition '+(i+1));
+      lines.push(p.text||'—');
+      lines.push('');
+    });
+  }else{
+    lines.push('Aucune proposition soumise.');
+    lines.push('');
+  }
+  lines.push('⚡ PROPOSITION RETENUE');
+  lines.push(ap?ap.text:'—');
+  lines.push('');
+  lines.push('📚 SOURCES ANALYSÉES');
+  lines.push('');
+  lines.push('Résumé : '+nbSrc+' source'+(nbSrc>1?'s':'')+' analysée'+(nbSrc>1?'s':''));
+  lines.push('');
+  TW.sources.forEach(function(s,i){
+    lines.push((i+1)+'. '+(s.title||s.name||'Source '+(i+1)));
+  });
+  if(!TW.sources.length)lines.push('Aucune source ajoutée.');
+  lines.push('');
+  lines.push('🎯 DÉCISION');
+  lines.push(d.text||'—');
+  lines.push('');
+  lines.push('Date   : '+(d.date||'—'));
+  lines.push('Owner  : '+owner);
+  lines.push('');
+  lines.push('📋 ACTIONS');
+  lines.push('');
+  if(TW.actions.length){
+    TW.actions.forEach(function(a){
+      var ico=_AL_STATUS_REPORT[a.status]||'☐';
+      lines.push(ico+' '+(a.text||'—')+'  ['+(a.assigned_to||'—')+']');
+    });
+  }else{
+    lines.push('Aucune action définie.');
+  }
+  lines.push('');
+  lines.push('⚠️ RÉSERVES');
+  lines.push('');
+  var icons={'YELLOW':'🟨','ORANGE':'🟧','RED':'🟥'};
+  var statusLbl={'OPEN':'Ouverte','ACKNOWLEDGED':'Accusé réception','OVERRIDDEN':'Passé outre','RESOLVED':'Résolue'};
+  if(TW.reserves.length){
+    TW.reserves.forEach(function(r){
+      lines.push((icons[r.level]||'🟨')+' '+(r.title||'—'));
+      lines.push('Auteur : '+(r.author||'—'));
+      lines.push('Statut : '+(statusLbl[r.status]||r.status||'—'));
+      if(r.description)lines.push(r.description);
+      if(r.override_decision)lines.push('Décision de passage : '+r.override_decision);
+      lines.push('');
+    });
+  }else{
+    lines.push('Aucune réserve signalée.');
+    lines.push('');
+  }
+  lines.push('🧠 SYNTHÈSE IRIS');
+  lines.push('');
+  var synthLines=_buildSynthesis(ap,allProps,nbSrc);
+  lines=lines.concat(synthLines);
+  return lines.join('\n');
+}
+
+function _buildSynthesis(ap,allProps,nbSrc){
+  var d=TW.decision||{};
+  var nbProps=allProps.length;
+  var nbActs=TW.actions.length;
+  var openRv=TW.reserves.filter(function(r){return r.status!=='RESOLVED';});
+  var redRv=openRv.filter(function(r){return r.level==='RED';});
+  var lines=[];
+  var propTxt=ap?ap.text:'la piste retenue';
+  lines.push('Après analyse de '+nbProps+' proposition'+(nbProps>1?'s':'')+' et '+nbSrc+' source'+(nbSrc>1?'s':'')+',');
+  lines.push('la proposition "'+propTxt+'" a été retenue.');
+  if(openRv.length){
+    var rv1=openRv[0];
+    lines.push('');
+    if(redRv.length){
+      lines.push('⚠️ Une réserve critique ("'+(rv1.title||'—')+'") a été signalée par '+(rv1.author||'—')+'');
+      if(rv1.status==='OVERRIDDEN')lines.push('et l\'équipe a décidé de continuer malgré cette réserve.');
+      else lines.push('et reste ouverte.');
+    }else{
+      lines.push(openRv.length+' réserve'+(openRv.length>1?'s':'')+' active'+(openRv.length>1?'s':'')+' ont été signalées.');
+    }
+  }
+  if(nbActs){
+    lines.push('');
+    lines.push(nbActs+' action'+(nbActs>1?'s opérationnelles ont':'opérationnelle a')+' été définie'+(nbActs>1?'s':'')+' pour l\'exécution.');
+  }
+  return lines;
+}
+
+function showReport(){
+  if(!TW.report){toast('Aucun dossier disponible.',2000);return;}
+  TW._showReport=true;
+  /* masquer les zones de travail */
+  ['twDecisionCard','twActionsZone','twReservesZone','twGrid','twEmptyState'].forEach(function(id){
+    var el=document.getElementById(id);if(el){el.style.display='none';}
+  });
+  ['twWelcomeState','twBriefState','twLunaState','twValidationState','twExportState','twDistroState'].forEach(function(id){
+    var el=document.getElementById(id);if(el)el.classList.remove('on');
+  });
+  var rz=document.getElementById('twReportZone');
+  if(!rz)return;
+  rz.innerHTML='';
+  rz.classList.add('on');
+  var rpt=TW.report;
+  var bar='<div class="tw-rpt-bar">'+
+    '<span class="tw-rpt-bar-title">📄 Dossier final — snapshot</span>'+
+    '<div class="tw-rpt-bar-acts">'+
+      '<button class="tw-rpt-btn iris" onclick="copyReport()">Copier le texte</button>'+
+      '<button class="tw-rpt-btn" onclick="hideReport()">Retour au workspace</button>'+
+    '</div>'+
+  '</div>';
+  var b=TW.brief||{};
+  var d=TW.decision||{};
+  var ap=TW.activeProposalId?TW.proposals.find(function(p){return p.id===TW.activeProposalId;}):null;
+  var allProps=TW.proposals.filter(function(p){return p.status!=='archived'||p.id===TW.activeProposalId;});
+  var owner=d.author||TW.userName||'Owner';
+  var mission=b.title||d.question||'—';
+  var dateStr=rpt.generated_at?new Date(rpt.generated_at).toLocaleDateString('fr-FR',{day:'2-digit',month:'long',year:'numeric'}):new Date().toLocaleDateString('fr-FR',{day:'2-digit',month:'long',year:'numeric'});
+  var icons={'YELLOW':'🟨','ORANGE':'🟧','RED':'🟥'};
+  var statusLbl={'OPEN':'Ouverte','ACKNOWLEDGED':'Accusé réception','OVERRIDDEN':'Passé outre','RESOLVED':'Résolue'};
+  var actIco={'TODO':'☐','IN_PROGRESS':'◐','DONE':'☑','CANCELLED':'⊘'};
+
+  var body='<div class="tw-rpt-body">'+
+    /* En-tête */
+    '<div class="tw-rpt-section">'+
+      '<div class="tw-rpt-hdr">'+
+        '<div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;margin-bottom:4px">COMPTE-RENDU IRIS</div>'+
+        '<hr class="tw-rpt-hdr-sep">'+
+        '<div class="tw-rpt-hdr-field"><span class="tw-rpt-hdr-k">Mission</span><span class="tw-rpt-hdr-v">'+_e(mission)+'</span></div>'+
+        '<div class="tw-rpt-hdr-field"><span class="tw-rpt-hdr-k">Owner</span><span class="tw-rpt-hdr-v">'+_e(owner)+'</span></div>'+
+        '<div class="tw-rpt-hdr-field"><span class="tw-rpt-hdr-k">Date</span><span class="tw-rpt-hdr-v">'+_e(dateStr)+'</span></div>'+
+        '<div class="tw-rpt-hdr-field"><span class="tw-rpt-hdr-k">Version</span><span class="tw-rpt-hdr-v">1.0 (snapshot)</span></div>'+
+        '<div class="tw-rpt-hdr-field"><span class="tw-rpt-hdr-k">Participants</span><span class="tw-rpt-hdr-v">Iris · IQ · Luna</span></div>'+
+        '<hr class="tw-rpt-hdr-sep" style="margin-top:8px">'+
+      '</div>'+
+    '</div>'+
+    /* Question */
+    '<div class="tw-rpt-section">'+
+      '<div class="tw-rpt-sec-hdr">❓ Question</div>'+
+      '<div class="tw-rpt-text">'+_e(mission)+'</div>'+
+    '</div>'+
+    /* Propositions */
+    '<div class="tw-rpt-section">'+
+      '<div class="tw-rpt-sec-hdr">💡 Propositions étudiées</div>'+
+      (allProps.length?
+        '<ul class="tw-rpt-list">'+allProps.map(function(p,i){
+          var isActive=p.id===TW.activeProposalId;
+          return '<li>'+
+            '<span class="ico">'+(isActive?'⚡':'·')+'</span>'+
+            '<span class="lbl">'+_e(p.text||'—')+(isActive?' <span style="font-size:9px;color:var(--iris);font-weight:700;margin-left:4px">RETENUE</span>':'')+'</span>'+
+          '</li>';
+        }).join(''):
+        '<div class="tw-rpt-sub">Aucune proposition soumise.</div>')+
+      '</ul>'+
+    '</div>'+
+    /* Proposition retenue */
+    (ap?
+      '<div class="tw-rpt-section">'+
+        '<div class="tw-rpt-sec-hdr">⚡ Proposition retenue</div>'+
+        '<div class="tw-rpt-text" style="color:var(--iris)">'+_e(ap.text||'—')+'</div>'+
+      '</div>':'')+
+    /* Sources */
+    '<div class="tw-rpt-section">'+
+      '<div class="tw-rpt-sec-hdr">📚 Sources analysées</div>'+
+      '<div class="tw-rpt-sub" style="margin-bottom:8px">Résumé : '+TW.sources.length+' source'+(TW.sources.length>1?'s':'')+' analysée'+(TW.sources.length>1?'s':'')+'</div>'+
+      (TW.sources.length?
+        '<ul class="tw-rpt-list">'+TW.sources.map(function(s,i){
+          return '<li><span class="ico">'+(i+1)+'.</span><span class="lbl">'+_e(s.title||s.name||'Source '+(i+1))+'</span></li>';
+        }).join('')+'</ul>':
+        '<div class="tw-rpt-sub">Aucune source ajoutée.</div>')+
+    '</div>'+
+    /* Décision */
+    '<div class="tw-rpt-section">'+
+      '<div class="tw-rpt-sec-hdr">🎯 Décision</div>'+
+      '<div class="tw-rpt-decision">'+_e(d.text||'—')+'</div>'+
+      '<div class="tw-rpt-sub" style="margin-top:6px">Date : '+(d.date||'—')+' · Owner : '+_e(owner)+'</div>'+
+    '</div>'+
+    /* Actions */
+    '<div class="tw-rpt-section">'+
+      '<div class="tw-rpt-sec-hdr">📋 Actions</div>'+
+      (TW.actions.length?
+        '<ul class="tw-rpt-list">'+TW.actions.map(function(a){
+          return '<li>'+
+            '<span class="ico">'+(actIco[a.status]||'☐')+'</span>'+
+            '<span class="lbl">'+_e(a.text||'—')+'</span>'+
+            '<span class="meta">'+_e(a.assigned_to||'—')+'</span>'+
+          '</li>';
+        }).join('')+'</ul>':
+        '<div class="tw-rpt-sub">Aucune action définie.</div>')+
+    '</div>'+
+    /* Réserves */
+    '<div class="tw-rpt-section">'+
+      '<div class="tw-rpt-sec-hdr">⚠️ Réserves</div>'+
+      (TW.reserves.length?
+        '<ul class="tw-rpt-list">'+TW.reserves.map(function(r){
+          return '<li style="flex-direction:column;align-items:flex-start;gap:2px">'+
+            '<div style="display:flex;align-items:center;gap:6px">'+
+              '<span class="ico">'+(icons[r.level]||'🟨')+'</span>'+
+              '<span style="font-size:12px;font-weight:600;color:var(--text)">'+_e(r.title||'—')+'</span>'+
+              '<span class="tw-rv-status-tag '+(r.status||'OPEN')+'">'+_e(statusLbl[r.status]||r.status||'—')+'</span>'+
+            '</div>'+
+            '<div class="meta" style="margin:0 0 0 24px">Auteur : '+_e(r.author||'—')+(r.description?' · '+_e(r.description):'')+'</div>'+
+            (r.override_decision?'<div style="font-size:9px;color:#f88;margin-left:24px">Décision de passage : '+_e(r.override_decision)+'</div>':'')+
+          '</li>';
+        }).join('')+'</ul>':
+        '<div class="tw-rpt-sub">Aucune réserve signalée.</div>')+
+    '</div>'+
+    /* Synthèse Iris */
+    '<div class="tw-rpt-section">'+
+      '<div class="tw-rpt-sec-hdr">🧠 Synthèse Iris</div>'+
+      '<div class="tw-rpt-synth">'+_buildSynthesisHtml(ap,allProps,TW.sources.length)+'</div>'+
+    '</div>'+
+  '</div>';
+
+  rz.innerHTML=bar+body;
+}
+
+function _buildSynthesisHtml(ap,allProps,nbSrc){
+  var d=TW.decision||{};
+  var nbProps=allProps.length;
+  var nbActs=TW.actions.length;
+  var openRv=TW.reserves.filter(function(r){return r.status!=='RESOLVED';});
+  var redRv=openRv.filter(function(r){return r.level==='RED';});
+  var propTxt=ap?ap.text:'la piste retenue';
+  var txt='Après analyse de '+nbProps+' proposition'+(nbProps>1?'s':'')+' et '+nbSrc+' source'+(nbSrc>1?'s':'')+', la proposition <strong>'+_e(propTxt)+'</strong> a été retenue.';
+  if(openRv.length){
+    var rv1=openRv[0];
+    if(redRv.length){
+      txt+='<br><br>⚠️ Une réserve critique (<em>'+_e(rv1.title||'—')+'</em>) a été signalée par '+_e(rv1.author||'—');
+      if(rv1.status==='OVERRIDDEN')txt+=' — l\'équipe a décidé de continuer malgré cette réserve.';
+      else txt+=' et reste ouverte.';
+    }else{
+      txt+='<br><br>'+openRv.length+' réserve'+(openRv.length>1?'s':'')+' active'+(openRv.length>1?'s':'')+' ont été signalées.';
+    }
+  }
+  if(nbActs){
+    txt+='<br><br>'+nbActs+' action'+(nbActs>1?'s opérationnelles ont':'opérationnelle a')+' été définie'+(nbActs>1?'s':'')+' pour l\'exécution.';
+  }
+  return txt;
+}
+
+function hideReport(){
+  TW._showReport=false;
+  var rz=document.getElementById('twReportZone');
+  if(rz){rz.classList.remove('on');rz.innerHTML='';}
+  applyCanvasState(TW.step);
+}
+
+function copyReport(){
+  if(!TW.report||!TW.report.markdown){toast('Aucun contenu à copier.',2000);return;}
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(TW.report.markdown).then(function(){
+      toast('Texte copié dans le presse-papier.',2200);
+    },function(){_copyFallback(TW.report.markdown);});
+  }else{_copyFallback(TW.report.markdown);}
+}
+function _copyFallback(txt){
+  var ta=document.createElement('textarea');
+  ta.value=txt;ta.style.position='fixed';ta.style.opacity='0';
+  document.body.appendChild(ta);ta.select();
+  try{document.execCommand('copy');toast('Texte copié.',2200);}catch(e){toast('Copie non disponible.',2200);}
+  document.body.removeChild(ta);
+}
+
 function validateDecision(){
   if(TW.wsConnected&&TW.userRole!=='owner'){toast('Seul l\'owner valide la décision.',2200);return;}
   var ta=document.getElementById('decisionText');if(ta)ta.value='';
@@ -1951,6 +2302,7 @@ function handleWsMessage(msg){
     TW.decision=st.decision||null;
     TW.actions=st.actions||[];
     TW.reserves=st.reserves||[];
+    TW.report=st.report||null;
     renderSeats();renderObjects();applyCanvasState(TW.step);updateStats();renderProposals();
     if(TW._pendingTitle&&TW.userRole==='owner'&&!TW.brief){
       var pt=TW._pendingTitle;TW._pendingTitle=null;
@@ -2078,6 +2430,12 @@ function handleWsMessage(msg){
     TW.decision=msg.decision;
     renderDecisionCard();
     renderActionsList();
+    return;
+  }
+  if(t==='report_generated'){
+    TW.report=msg.report||null;
+    /* Les autres participants reçoivent la notification mais n'ouvrent pas automatiquement le dossier */
+    toast('Le dossier final a été généré par l\'owner.',2600);
     return;
   }
   if(t==='reserve_added'){
