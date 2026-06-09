@@ -1,5 +1,5 @@
 # MISSION STATUS — Audit UX YAWatch-LUNA
-**Dernière mise à jour** : 2026-06-09 21:30  
+**Dernière mise à jour** : 2026-06-09 21:50  
 **Responsable** : Kimi (Auditeur UX / Terrain)
 
 ---
@@ -52,7 +52,9 @@ Nouveau déploiement
 | 23. Décision GO chantier UX/UI | ✅ **GO donné** | Ludovic + ChatGPT |
 | 24. Chantier UX/UI Premium V1 | 🚀 **DÉMARRÉ** | Claude |
 | 25. Audit UX Premium V1 | ❌ **NON VALIDÉ** | Kimi |
-| 26. Correctif UX Premium V1.1 | ⏳ **En attente** | Claude |
+| 26. Correctif UX Premium V1.1 | ✅ **Fait** (rev 00636-n2r) | Claude |
+| 27. Audit UX Premium V1.1 | ⚠️ **PARTIELLEMENT VALIDÉ** | Kimi |
+| 28. Prochaine étape UX/UI | ⏭️ **À décider** | Ludovic + ChatGPT |
 
 ---
 
@@ -154,6 +156,43 @@ Dossier final généré (9 sections, snapshot figé)
 
 ---
 
+## AUDIT UX PREMIUM V1.1 — PARTIELLEMENT VALIDÉ
+
+**Date** : 2026-06-09 21:45  
+**Revision** : `luna-beta-00636-n2r`  
+**URL auditée** : `https://luna-beta-674304336025.europe-west1.run.app/team`  
+**Rapport complet** : `docs/audit_ux/2026-06-09-ux-premium-v1.1/audit_report_ux_premium_v1.1.md`  
+**Screenshots** : `docs/audit_ux/2026-06-09-ux-premium-v1.1/screenshots/`
+
+### Verdict
+**Priorité 1 — Workspace immersif : ⚠️ PARTIELLEMENT VALIDÉ**
+
+### Régressions — toutes corrigées
+| Élément | V1 | V1.1 |
+|---|---|---|
+| `#btnPropAdd` | 🔴 Invisible | ✅ Visible et cliquable |
+| `OUVRIR UNE RÉSERVE` | 🔴 Invisible | ✅ Visible et cliquable |
+| Setup modal | 🔴 Inaccessible | ✅ Fonctionnel |
+| Workflow bout en bout | 🔴 Cassé | ✅ Audit 6/6 passé |
+
+### Améliorations visuelles mesurables
+| Zone | Avant (V1) | Après (V1.1) | Verdict |
+|---|---|---|---|
+| Empty state | Texte gris plat | Orbe Y SVG + glow radial | ✅ Net progrès |
+| Participants | Puces sombres 34px | Chips 48px colorés + blur | ✅ Net progrès |
+| Context L2 (question) | 13px medium | 15px 700 + gradient + border-left | ✅ Net progrès |
+| Carte Proposition | Standard | Bordure verte + ombre | ✅ Progrès |
+| Boutons | Vert néon plat | Gradients 135° + glow | ✅ Net progrès |
+| Canvas global | Zone noire | Halo diffus + orbe Y | ⚠️ Progrès modéré |
+| Dossier final | Monospace brut | Identique (P3 non traitée) | ⚠️ Attendu |
+
+### Ce qui reste à affiner
+- Canvas encore très vide quand peu de contenu
+- Logo YAWATCH toujours petit en header
+- Dossier final premium (Priorité 3) non encore abordé
+
+---
+
 ## AUDIT TERRAIN #4 (POST-CORRECTIF V3)
 
 **URL auditée** : `https://luna-beta-gly3g647na-ew.a.run.app/team`  
@@ -202,37 +241,34 @@ python /tmp/iris_audit/yawatch_audit.py
 
 ## PROCHAINES ACTIONS
 
-### 🎯 État actuel (2026-06-09 21:30)
+### 🎯 État actuel (2026-06-09 21:50)
 
-**Chantier UX/UI Premium V1** : ❌ **Audit NON VALIDÉ**
+**Chantier UX/UI Premium V1.1** : ⚠️ **PARTIELLEMENT VALIDÉ**
+- Régressions fonctionnelles : ✅ Toutes corrigées
+- Améliorations visuelles : ✅ Réelles et mesurables
+- Ambiance premium : ⚠️ Bon progrès, pas encore "salle de réflexion stratégique"
 
-**Feature Décision & Traçabilité V1** : **TERMINÉE** (reste gelée)
+**Feature Décision & Traçabilité V1** : **TERMINÉE** (gelée)
 
-### 🔴 URGENT — Claude doit corriger
+### 🚀 Décision à prendre — Options pour la suite
 
-1. **Régressions fonctionnelles** (avant toute nouvelle amélioration visuelle)
-   - Drawer Propositions inaccessible — `#btnPropAdd` doit être visible
-   - Bouton "OUVRIR UNE RÉSERVE" inaccessible
-   - Setup modal — champ titre/session accessible
-   - Le script `yawatch_audit.py` doit repasser de bout en bout
+| Option | Description | Risque |
+|---|---|---|
+| **A — Valider V1.1 et continuer** | Accepter V1.1 comme base stable. Passer à Priorité 2 (Hiérarchie visuelle) ou Priorité 3 (Dossier final premium). | Faible — on itère |
+| **B — Affiner encore V1.1** | Demander à Claude d'enrichir le canvas (décoratifs subtils, logo, plus de lumière). | Moyen — risque de perfectionnisme |
+| **C — Test mission réelle V1.1** | Lancer un test mission réelle complet pour valider stabilité en conditions réelles. | Faible — double validation |
 
-2. **Ambiance visuelle — directives concrètes**
-   - **Lumière** : halos verts diffus, reflets cyan sur bordures supérieures, glow subtil
-   - **Matière** : `backdrop-filter: blur(12px)`, surfaces "verre fumé" (`rgba(255,255,255,0.03)`)
-   - **Profondeur** : ombres portées douces, gradients radiaux subtils, PAS de fond noir pur
-   - **Participants** : avatars 48px+, couleurs saturées mais douces, présence visuelle
-   - **Typo** : hiérarchie claire Question(18-20px) > Décision(16px) > Actions(14px) > Réserves(13px)
-   - **Boutons** : gradients verts soutenus + ombres, moins néon
-   - **Logo** : YAWATCH plus visible, violet d'accent
+**Recommandation Kimi** : Option A ou C. V1.1 est fonctionnellement stable et visuellement acceptable comme étape intermédiaire. Le risque de chercher la perfection sur V1.1 est de bloquer les priorités 2-5.
 
-### 🚀 Chantier UX/UI Premium — Itération V1.1
+### 📋 Reste à faire dans le chantier UX/UI
 
-**Documents de référence** :
-- `docs/audit_ux/PROMPT_UX_UI_PREMIUM.md` — prompt officiel
-- `docs/audit_ux/2026-06-09-ux-premium-v1/audit_report_ux_premium_v1.md` — rapport d'écart détaillé
-- Issue GitHub "IRIS WORKSPACE PREMIUM V1" — direction artistique ChatGPT
-
-**Workflow** : Corriger V1.1 → Déployer → Audit Kimi → Si OK, continuer Priorité 2
+| Priorité | Thème | Statut |
+|---|---|---|
+| 1 | Workspace immersif | ⚠️ V1.1 — Partiellement validé |
+| 2 | Hiérarchie visuelle | ⏳ À faire |
+| 3 | Dossier final premium | ⏳ À faire |
+| 4 | Identité Iris/IQ/Luna | ⚠️ Amélioré en V1.1, peut être affiné |
+| 5 | Animations discrètes | ⏳ À faire |
 
 **Règles d'or** :
 - ❌ Aucun nouvel objet métier
