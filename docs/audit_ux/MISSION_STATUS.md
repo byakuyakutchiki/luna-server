@@ -1,5 +1,5 @@
 # MISSION STATUS — Audit UX YAWatch-LUNA
-**Dernière mise à jour** : 2026-06-09  
+**Dernière mise à jour** : 2026-06-09 13:05  
 **Responsable** : Kimi (Auditeur UX / Terrain)
 
 ---
@@ -32,37 +32,40 @@ Nouveau déploiement
 | 3. Audit UX (avant code) | ⏭️ À faire (prochaine feature) | Kimi |
 | 4. Validation | ✅ Gelée | Ludovic |
 | 5. Implémentation | ✅ Faite | Claude |
-| 6. Audit terrain | ✅ **Fait** (2026-06-09) | Kimi |
-| 7. Correctifs | ⏳ **En attente** | Claude |
-| 8. Validation globale | ⏳ À faire | ChatGPT + Ludovic |
+| 6. Audit terrain #1 | ✅ Fait (2026-06-09 12:00) | Kimi |
+| 7. Correctifs #1 | ✅ Fait (rev 00628) | Claude |
+| 8. Audit terrain #2 | ✅ **Fait (2026-06-09 13:00)** | Kimi |
+| 9. Correctifs #2 | ⏳ **En attente** | Claude |
+| 10. Validation globale | ⏳ À faire | ChatGPT + Ludovic |
 
 ---
 
-## LIVRABLES DE L'AUDIT (2026-06-09)
+## DERNIER AUDIT (POST-CORRECTIF)
 
-Dossier : `docs/audit_ux/2026-06-09/`
+**URL auditée** : `https://luna-beta-gly3g647na-ew.a.run.app/team`  
+**Dossier captures** : `docs/audit_ux/2026-06-09-post-fix/screenshots/`  
+**Rapport** : `docs/audit_ux/2026-06-09-post-fix/audit_report_post_fix.md`
 
-| Fichier | Description |
+### ✅ Ce qui a été corrigé
+| Problème | Statut |
 |---|---|
-| `BRIEF_CORRECTION.md` | Brief de correction pour Claude (CRITIQUE/MAJEUR/MINEUR) |
-| `audit_report.md` | Rapport UX complet généré par GPT-4o + enrichissement Kimi |
-| `screenshots/*.png` | 6 captures du workflow déployé |
+| Empty state menteur (bouton Proposition inexistant) | ✅ Corrigé |
+| Doublon `twActiveCard` dans le canvas | ✅ Corrigé |
+| Bouton "IRIS AUDIO" distraction | ✅ Corrigé |
 
----
+### ⚠️ Nouveau problème introduit
+| Problème | Gravité |
+|---|---|
+| **Contradiction header L2 / canvas en mode travail** | CRITIQUE |
 
-## PROBLÈMES DÉTECTÉS (résumé)
+Détail : Quand une proposition est active, le header L2 l'affiche, mais le canvas dit "1 piste en attente d'activation".
 
-### 🔴 CRITIQUE
-1. **Doublon `twActiveCard`** — Proposition active affichée en 3 endroits (header L2, carte canvas, section PROPOSITIONS)
-2. **Empty state menteur** — Canvas référence un bouton "Proposition" supprimé de la barre d'actions
-
-### 🟠 MAJEUR
-3. **Canvas sous-utilisé** — Propositions éparpillées (canvas + section en bas)
-4. **Stepper illisible** — 13 étapes en points minuscules
-
-### 🟡 MINEUR
-5. **"BRIEF MISSION" persistant** après validation du brief
-6. **"IRIS AUDIO"** = distraction de navigation en session
+### ❌ Ce qui n'a pas été corrigé
+| Problème | Gravité |
+|---|---|
+| Stepper 13 étapes illisible | MAJEUR |
+| Bouton "BRIEF MISSION" persistant après validation | MINEUR |
+| Canvas sous-utilisé en mode exploration | MAJEUR |
 
 ---
 
@@ -70,21 +73,25 @@ Dossier : `docs/audit_ux/2026-06-09/`
 
 ```bash
 source /tmp/browser_use_env/bin/activate && \
-IRIS_AUDIT_URL="https://luna-beta-674304336025.europe-west1.run.app/team?room=audit-$(date +%Y%m%d-%H%M%S)" \
+IRIS_AUDIT_URL="https://luna-beta-gly3g647na-ew.a.run.app/team?room=audit-$(date +%Y%m%d-%H%M%S)" \
 python /tmp/iris_audit/yawatch_audit.py && \
 python /tmp/iris_audit/analyze_with_gpt4o.py
 ```
 
-**Résultat** : Screenshots dans `/tmp/iris_audit/YYYYMMDD_HHMMSS/` + rapport dans `/tmp/iris_audit/audit_report.md`
+**Note** : L'ancienne URL `luna-beta-674304336025.europe-west1.run.app` n'est plus active.  
+Le service Cloud Run a été redéployé sur `luna-beta-gly3g647na-ew.a.run.app`.
+
+**Temps total** : ~1 minute  
+**Coût** : ~$0.05-0.10 (GPT-4o vision uniquement, Playwright = $0)
 
 ---
 
 ## PROCHAINES ACTIONS
 
-1. **Claude** corrige les écarts dans `static/team_workspace.html` (voir `BRIEF_CORRECTION.md`)
-2. **Kimi** relance l'audit terrain après le correctif
-3. **ChatGPT** valide la cohérence globale
-4. **Ludovic** donne le feu vert pour passer à la feature suivante
+1. **Claude** corrige la contradiction header/canvas en mode travail (CRITIQUE)
+2. **Claude** corrige le stepper 13 étapes (MAJEUR)
+3. **Claude** masque "BRIEF MISSION" après validation (MINEUR)
+4. **Kimi** relance l'audit terrain après les correctifs
 
 ---
 
