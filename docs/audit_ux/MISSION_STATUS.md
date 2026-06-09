@@ -1,5 +1,5 @@
 # MISSION STATUS — Audit UX YAWatch-LUNA
-**Dernière mise à jour** : 2026-06-09 16:40  
+**Dernière mise à jour** : 2026-06-09 19:50  
 **Responsable** : Kimi (Auditeur UX / Terrain)
 
 ---
@@ -14,7 +14,7 @@ Déploiement Cloud Run
     ↓
 Playwright → Screenshots
     ↓
-GPT-4o Vision → Rapport UX
+Analyse visuelle Kimi
     ↓
 Claude → Correctifs
     ↓
@@ -23,40 +23,33 @@ Nouveau déploiement
 
 ---
 
-## ÉTAT ACTUEL
+## ÉTAT ACTUEL — RECAPITULATIF COMPLET
 
 | Phase | Statut | Responsable |
 |---|---|---|
 | 1. Vision produit | ✅ Gelée | Ludovic |
 | 2. Architecture | ✅ Gelée | ChatGPT |
-| 3. Audit UX (avant code) | ⏭️ À faire (prochaine feature) | Kimi |
-| 4. Validation | ✅ Gelée | Ludovic |
-| 5. Implémentation | ✅ Faite | Claude |
-| 6. Audit terrain #1 | ✅ Fait (2026-06-09 12:00) | Kimi |
-| 7. Correctifs #1 | ✅ Fait (rev 00628) | Claude |
-| 8. Audit terrain #2 | ✅ Fait (2026-06-09 13:00) | Kimi |
-| 9. Correctifs #2 | ✅ Fait (rev 00629, commit 6bb0f57) | Claude |
-| 10. Audit terrain #3 | ✅ Fait (2026-06-09 14:56) | Kimi |
-| 11. Décision produit BRIEF MISSION | ✅ Tranchée (Option 2 : brief auto-généré) | ChatGPT + Ludovic |
-| 12. Correctifs #3 | ✅ Fait (rev 00630, commit 8379f13) | Claude |
-| 13. Audit terrain #4 | ✅ Fait (2026-06-09 16:39) | Kimi |
-| 14. Validation globale | ✅ Faite (2026-06-09) | ChatGPT + Ludovic |
-| 15. Feature Décision & Traçabilité | ✅ Spécifiée | ChatGPT + Ludovic |
-| 16. Implémentation Phase 8 | ✅ Fait (rev 00631, commit 4e6fb3d) | Claude |
-| 17. Audit terrain Phase 8 | ✅ Fait (2026-06-09 17:59) | Kimi |
-| 18. Validation Phase 8 | ✅ Faite (feu vert PO) | Ludovic |
-| 19. Spécification Phase 9 (Actions) | ✅ Faite | ChatGPT + Ludovic |
-| 20. Implémentation Phase 9 (Actions) | ✅ Fait (rev 00632, commit 74df005) | Claude |
-| 21. Audit terrain Phase 9 | ✅ Fait (2026-06-09 18:27) | Kimi |
-| 22. Validation Phase 9 | ✅ Faite (feu vert PO) | Ludovic |
-| 23. Spécification Phase 10 (Réserves) | ✅ Faite | ChatGPT + Ludovic |
-| 24. Implémentation Phase 10 (Réserves) | ✅ Fait (rev 00633-4m2) | Claude |
-| 25. Audit terrain Phase 10 | ✅ Fait (2026-06-09 19:01) | Kimi |
-| 26. Validation Phase 10 | ✅ Faite (feu vert PO) | Ludovic |
-| 27. Spécification Phase 11 (Dossier final) | ✅ Faite | ChatGPT + Ludovic |
-| 28. Implémentation Phase 11 (Dossier final) | ✅ Fait (rev 00634-4kk) | Claude |
-| 29. Audit terrain Phase 11 | ✅ Fait (2026-06-09 19:27) | Kimi |
-| 30. Feature Décision & Traçabilité — COMPLETE | ✅ VALIDÉE + GELÉE | ChatGPT + Ludovic |
+| 3. Audit UX #1 (corrections fondamentales) | ✅ Fait + 7/7 résolu | Kimi → Claude |
+| 4. Correctifs #2 | ✅ Fait (rev 00629) | Claude |
+| 5. Audit terrain #2 | ✅ Fait | Kimi |
+| 6. Correctifs #3 (brief auto) | ✅ Fait (rev 00630) | Claude |
+| 7. Audit terrain #3 | ✅ Fait | Kimi |
+| 8. Validation globale V1 | ✅ Faite | ChatGPT + Ludovic |
+| 9. Feature Décision & Traçabilité | ✅ Spécifiée | ChatGPT + Ludovic |
+| 10. Implémentation Phase 8 (Décision) | ✅ Fait (rev 00631) | Claude |
+| 11. Audit terrain Phase 8 | ✅ Fait | Kimi |
+| 12. Validation Phase 8 | ✅ Faite | Ludovic |
+| 13. Implémentation Phase 9 (Actions) | ✅ Fait (rev 00632) | Claude |
+| 14. Audit terrain Phase 9 | ✅ Fait | Kimi |
+| 15. Validation Phase 9 | ✅ Faite | Ludovic |
+| 16. Implémentation Phase 10 (Réserves) | ✅ Fait (rev 00633-4m2) | Claude |
+| 17. Audit terrain Phase 10 | ✅ Fait | Kimi |
+| 18. Validation Phase 10 | ✅ Faite | Ludovic |
+| 19. Implémentation Phase 11 (Dossier final) | ✅ Fait (rev 00634-4kk) | Claude |
+| 20. Audit terrain Phase 11 | ✅ Fait | Kimi |
+| 21. Feature V1 — VALIDÉE + GELÉE | ✅ Faite | ChatGPT + Ludovic |
+| 22. Test mission réelle | ✅ **VALIDÉ** | Kimi |
+| 23. Chantier UX/UI premium | ⏭️ **Prêt à démarrer** | Claude + ChatGPT |
 
 ---
 
@@ -72,19 +65,50 @@ Nouveau déploiement
 - Dossier final = snapshot figé, traçabilité complète
 - Workflow bout en bout fonctionnel : Question → Propositions → Sources → Décision → Actions → Réserves → Dossier final
 
-### Prochaine phase
+---
+
+## TEST MISSION RÉELLE — Scénario "Réduction coûts cloud"
+
+**Date** : 2026-06-09 19:43  
+**Screenshots** : 11 captures  
+**Dossier** : `docs/audit_ux/2026-06-09-mission-reelle/`  
+**Rapport** : `docs/audit_ux/2026-06-09-mission_reelle.md`  
+**Verdict** : **✅ VALIDÉ** — Workflow complet sans blocage
+
+### Workflow testé
 ```
-Stabilisation
-    ↓
-Usage réel
-    ↓
-Observations terrain
-    ↓
-Itérations ciblées (guidées par l'usage, pas par les fonctionnalités)
+Setup (owner: Ludovic)
+  ↓
+Brief auto généré : "Comment réduire les coûts cloud de 30% ?"
+  ↓
+3 propositions soumises
+  ↓
+Proposition 2 activée (Négocier contrat multi-cloud)
+  ↓
+2 sources ajoutées
+  ↓
+Avancement étape 11 (Validation)
+  ↓
+Décision validée : "Négocier un contrat entreprise multi-cloud avec fallback spot"
+  ↓
+3 actions créées (TODO)
+  ↓
+2 réserves ouvertes (🟧 ORANGE, 🟥 RED)
+  ↓
+Avancement étape 13 (LIVRABLE)
+  ↓
+Dossier final généré (9 sections, snapshot figé)
 ```
 
-### Noyau différenciant d'Iris
-> *"La traçabilité du raisonnement collectif, depuis la question initiale jusqu'au dossier final figé."*
+### Ce qui fonctionne parfaitement
+- Multi-propositions : 3 cartes dans le canvas + section ACTIVE / AUTRES PISTES
+- Hiérarchie visuelle : Carte Décision > Zone Actions > Zone Réserves
+- Compteurs sur la Décision : 🟨 1 🟥 1 visibles en temps réel
+- Dossier final exploitable : en-tête complet, propositions listées avec RETENUE, structure 9 sections
+
+### Observations mineures (non bloquantes)
+1. Le dossier final nécessite un scroll sur écran 1080p — acceptable pour un document structuré
+2. Typographie monospace du dossier final : fonctionnel, sera affiné dans le chantier UX/UI
 
 ---
 
@@ -118,54 +142,57 @@ Itérations ciblées (guidées par l'usage, pas par les fonctionnalités)
 
 ---
 
-## COMMANDE D'AUDIT (à exécuter après chaque déploiement)
+## COMMANDE D'AUDIT POST-DÉPLOIEMENT
 
 ```bash
 source /tmp/browser_use_env/bin/activate && \
 IRIS_AUDIT_URL="https://luna-beta-gly3g647na-ew.a.run.app/team?room=audit-$(date +%Y%m%d-%H%M%S)" \
-python /tmp/iris_audit/yawatch_audit.py && \
-python /tmp/iris_audit/analyze_with_gpt4o.py
+python /tmp/iris_audit/yawatch_audit.py
 ```
 
-**Note** : Le service Cloud Run est déployé sur `luna-beta-gly3g647na-ew.a.run.app`.
-
+**URL** : `https://luna-beta-gly3g647na-ew.a.run.app/team`  
 **Temps total** : ~1 minute  
-**Coût** : ~$0.05-0.10 (GPT-4o vision uniquement, Playwright = $0)
+**Coût** : $0 (Playwright pur, pas de GPT-4o vision)
+
+**Mode surveillance** : Audit automatique lancé à chaque déploiement. Rapport seulement en cas de régression.
 
 ---
 
 ## PROCHAINES ACTIONS
 
-### Phase actuelle : Stabilité UX atteinte ✅
-1. **ChatGPT** a validé l'architecture globale post-V3
-2. **Ludovic** a donné le feu vert
-3. **Kimi** passe en mode surveillance
+### 🎯 Décision attendue
 
-### Prochaine feature : Décision & Traçabilité (Phases 8-11)
-1. **Claude** implémente la Phase 8 (bouton décision + modal + capture contexte + affichage)
-2. **Kimi** audit terrain après déploiement Phase 8
-3. **ChatGPT** valide la cohérence de la Phase 8
-4. **Itérations** : Phase 9 (Actions) → Phase 10 (Réserves) → Phase 11 (Dossier final auto)
+**Verdict de Ludovic / ChatGPT** sur le test mission réelle :
 
----
+| Option | Description |
+|---|---|
+| **✅ GO chantier UX/UI** | Le cœur fonctionnel V1 est validé. On bascule sur le chantier premium. |
+| **🔄 Un dernier audit** | Kimi relance un audit sur un scénario différent (retour en refonte, multi-participants). |
+| **🔧 Fix mineur avant GO** | Un correctif identifié pendant le test. |
 
-## FEATURE EN COURS — Décision & Traçabilité
+**Recommandation Kimi** : Option 1 (GO). Le produit tient la route en conditions réelles. Rien ne justifie de retarder le chantier UX/UI.
 
-**Document de spécification** : `docs/audit_ux/FEATURE_DECISION_V1.md`
+### 🎨 Chantier UX/UI (si GO)
 
-### Vision
-Transformer Iris Workspace en système de traçabilité du raisonnement collectif :
 ```
-Question → Propositions → Sources → Décision → Actions → Réserves → Compte-rendu
+Workspace immersif
+    ↓
+Table ronde virtuelle (Iris / IQ / Luna en cercle)
+    ↓
+Hiérarchie visuelle premium
+    ↓
+Typographie élégante (pas monospace pour le dossier final)
+    ↓
+Animations discrètes (transitions de phase)
+    ↓
+Timeline du raisonnement (visualisation du parcours)
+    ↓
+Dossier final stylisé (PDF-like ou document premium)
+    ↓
+Identité visuelle forte (couleurs, icônes, branding)
+    ↓
+Responsive / Mobile-friendly
 ```
-
-### Phases
-| Phase | Nom | Statut |
-|---|---|---|
-| 8 | Décision | ⏳ À implémenter |
-| 9 | Actions | ⏳ En attente |
-| 10 | Journal des réserves | ⏳ En attente |
-| 11 | Dossier final auto | ⏳ En attente |
 
 ---
 
@@ -177,3 +204,21 @@ Question → Propositions → Sources → Décision → Actions → Réserves �
 | **Kimi** | Auditeur UX / Terrain — Screenshots, doublons, hiérarchie visuelle |
 | **Claude** | Implémentation — Code, patchs, stabilité |
 | **Ludovic** | Product Owner — Décisions finales, validation |
+
+---
+
+## VISION IRIS
+
+**Système de traçabilité du raisonnement collectif.**
+
+Pas une visioconférence. Pas un Trello.  
+Une **chaine de pensée visible et partagée**.
+
+```
+Question → Propositions → Sources → Décision → Actions → Réserves → Dossier final
+```
+
+**Règles d'or UX** :
+- `UN CONCEPT = UNE REPRÉSENTATION PRINCIPALE`
+- Moins de saisie, plus de réflexion
+- Chaque livrable Kimi → commit dans `docs/audit_ux/`
