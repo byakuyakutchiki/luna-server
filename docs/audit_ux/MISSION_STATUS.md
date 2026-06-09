@@ -1,5 +1,5 @@
 # MISSION STATUS — Audit UX YAWatch-LUNA
-**Dernière mise à jour** : 2026-06-09 22:15  
+**Dernière mise à jour** : 2026-06-09 23:50  
 **Responsable** : Kimi (Auditeur UX / Terrain)
 
 ---
@@ -54,8 +54,10 @@ Nouveau déploiement
 | 25. Audit UX Premium V1 | ❌ **NON VALIDÉ** | Kimi |
 | 26. Correctif UX Premium V1.1 | ✅ **Fait** (rev 00636-n2r) | Claude |
 | 27. Audit UX Premium V1.1 | ⚠️ **PARTIELLEMENT VALIDÉ** | Kimi |
-| 28. Audit Visuel Obligatoire (référence vs réalité) | ❌ **NON CONVERGENT** | Kimi + OpenAI Vision |
-| 29. Correctif UX Premium V1.2 (refonte structurelle) | ⏳ **En attente** | Claude |
+| 28. Audit Visuel Obligatoire (référence vs réalité) | ❌ **NON CONVERGENT (25%)** | Kimi + OpenAI Vision |
+| 29. Correctif UX Premium V1.2 (refonte structurelle) | ✅ **Fait** (rev 00638-z5n) | Claude |
+| 30. Audit UX Premium V1.2 | ✅ **SIGNIFICATIVEMENT AMÉLIORÉ (65-70%)** | Kimi + OpenAI Vision |
+| 31. Prochaine étape UX/UI | ⏭️ **À décider** | Ludovic + ChatGPT |
 
 ---
 
@@ -194,6 +196,58 @@ Dossier final généré (9 sections, snapshot figé)
 
 ---
 
+## AUDIT UX PREMIUM V1.2 — SIGNIFICATIVEMENT AMÉLIORÉ
+
+**Date** : 2026-06-09 23:45  
+**Revision** : `luna-beta-00638-z5n`  
+**URL auditée** : `https://luna-beta-gly3g647na-ew.a.run.app/team`  
+**Rapport complet** : `docs/audit_ux/2026-06-09-ux-premium-v1.2/audit_report_ux_premium_v1.2.md`  
+**Screenshots** : `docs/audit_ux/2026-06-09-ux-premium-v1.2/screenshots/`  
+**Convergence référence** : **65-70%** (vs 25-30% en V1.1)
+
+### Verdict
+**Priorité 1 — Workspace immersif : ✅ SIGNIFICATIVEMENT AMÉLIORÉ**
+
+### Saut qualitatif V1.1 → V1.2
+| Zone | V1.1 | V1.2 | Progrès |
+|---|---|---|---|
+| Layout | Vertical simple | **3 colonnes** | ✅ Structurel |
+| Sidebar gauche | Inexistante | **Étapes + jauge circulaire** | ✅ Créée |
+| Sidebar droite | Inexistante | **Mission + Participants + Activité** | ✅ Créée |
+| Header | Logo rond | **Logo Y géométrique + IRIS WORKSPACE** | ✅ Net |
+| Orbe Y | ~50px | **~150px + anneaux** | ✅ Majeur |
+| Glassmorphism | blur(6px) | **blur(20px) sur sidebars** | ✅ Renforcé |
+| Palette violet | Absent | **Étape active, jauge, accents** | ✅ Ajouté |
+
+### Scores par zone (vs référence)
+| Zone | Score |
+|---|---|
+| Layout global | 70% |
+| Sidebar gauche | 80% |
+| Sidebar droite | 60% |
+| Canvas central | 75% |
+| Header | 85% |
+| Typographie | 70% |
+| Couleurs | 85% |
+| Glassmorphism | 55% |
+| Participants bas | 65% |
+| Ambiance générale | 65% |
+| **MOYENNE** | **70%** |
+
+### Top 5 écarts restants
+| # | Écart | Priorité |
+|---|---|---|
+| 1 | CTA empty state (bouton "DÉPOSER PROPOSITION") | Moyenne |
+| 2 | Glassmorphism (bordures lumineuses, translucidité) | Moyenne |
+| 3 | Orbe Y (encore un peu plus grande + anneaux) | Moyenne |
+| 4 | Icônes étapes dans sidebar gauche | Faible |
+| 5 | Fond canvas (traînées lumineuses + grille) | Faible |
+
+### Fonctionnalité
+✅ Workflow 6/6 passé — aucune régression
+
+---
+
 ## AUDIT TERRAIN #4 (POST-CORRECTIF V3)
 
 **URL auditée** : `https://luna-beta-gly3g647na-ew.a.run.app/team`  
@@ -289,29 +343,37 @@ python /tmp/iris_audit/yawatch_audit.py
 
 ## PROCHAINES ACTIONS
 
-### 🎯 État actuel (2026-06-09 22:15)
+### 🎯 État actuel (2026-06-09 23:50)
 
-**Audit Visuel Obligatoire** : ❌ **NON CONVERGENT (25-30%)**
-
-**Chantier UX/UI Premium V1.1** : ⚠️ Partiellement validé (fonctionnel ✅, visuellement éloigné de la référence)
+**Chantier UX/UI Premium V1.2** : ✅ **SIGNIFICATIVEMENT AMÉLIORÉ (65-70%)**
+- Régressions fonctionnelles : ✅ Aucune
+- Convergence référence : **65-70%** (saut de 25-30% à 65-70%)
+- Structure 3 colonnes : ✅ En place
+- Sidebars : ✅ Créées et fonctionnelles
+- Orbe Y + anneaux : ✅ Agrandie
+- Violet + glassmorphism : ✅ Présents
 
 **Feature Décision & Traçabilité V1** : **TERMINÉE** (gelée)
 
-### 🔴 URGENT — Claude doit reconstruire l'interface (V1.2)
+### 🚀 Décision à prendre — Options pour la suite
 
-L'écart n'est pas cosmétique — il est **structurel**. La référence graphique demande :
+| Option | Description | Risque |
+|---|---|---|
+| **A — Valider V1.2 et passer aux priorités 2-5** | Accepter 65-70% comme base solide. Passer à Priorité 2 (Hiérarchie visuelle) ou 3 (Dossier final premium). | Faible |
+| **B — V1.3 quick-win** | Corriger les 3 écarts prioritaires (CTA empty state, glassmorphism, orbe) → viser 80%+. | Faible |
+| **C — Test mission réelle V1.2** | Lancer un scénario complet pour valider stabilité en conditions réelles. | Faible |
 
-1. **Layout 3 colonnes** (sidebar gauche + canvas + sidebar droite) — n'existe pas
-2. **Sidebar gauche** (navigation verticale + icônes + jauge circulaire) — n'existe pas
-3. **Sidebar droite** (Mission + Participants IA + Activité + Historique) — n'existe pas
-4. **Canvas central** (orbe Y ×6 + anneaux + logo Y transparent + fond texturé) — très éloigné
-5. **Header premium** (logo Y géométrique + contrôles + titre centré) — très éloigné
-6. **Participants bas** (photos/cartes grandes + indicateurs audio) — très éloigné
+**Recommandation Kimi** : Option B. Les écarts restants sont rapides à corriger et pourraient porter la convergence à 80%+. La structure est solide, profitons-en.
 
-**Documents de référence pour Claude** :
-- Rapport d'écart détaillé : `docs/audit_ux/2026-06-09-visual-audit/audit_visual_comparaison.md`
-- Image référence : `docs/ChatGPT Image Jun 9, 2026, 09_17_00 PM.png`
-- Prompt officiel : `docs/audit_ux/PROMPT_UX_UI_PREMIUM.md`
+### 📋 Écarts restants à corriger (V1.3)
+
+| # | Écart | Difficulté |
+|---|---|---|
+| 1 | CTA empty state : bouton "+ DÉPOSER UNE PROPOSITION" centré | Facile |
+| 2 | Glassmorphism : bordures lumineuses + translucidité | Facile |
+| 3 | Orbe Y : agrandir + anneaux supplémentaires | Moyenne |
+| 4 | Icônes étapes dans sidebar gauche | Facile |
+| 5 | Fond canvas : traînées lumineuses + grille | Moyenne |
 
 **Règles d'or** :
 - ❌ Aucun nouvel objet métier
