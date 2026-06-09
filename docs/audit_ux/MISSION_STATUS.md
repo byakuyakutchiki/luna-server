@@ -37,7 +37,9 @@ Nouveau déploiement
 | 8. Audit terrain #2 | ✅ **Fait (2026-06-09 13:00)** | Kimi |
 | 9. Correctifs #2 | ✅ Fait (rev 00629, commit 6bb0f57) | Claude |
 | 10. Audit terrain #3 | ✅ Fait (2026-06-09 14:56) | Kimi |
-| 11. Validation globale | ⏳ À faire | ChatGPT + Ludovic |
+| 11. Décision produit BRIEF MISSION | ✅ Tranchée (Option 2 : brief auto-généré) | ChatGPT + Ludovic |
+| 12. Correctifs #3 | ⏳ En attente | Claude |
+| 13. Audit terrain #4 | ⏳ À faire | Kimi |
 | 10. Validation globale | ⏳ À faire | ChatGPT + Ludovic |
 
 ---
@@ -113,10 +115,10 @@ Le service Cloud Run a été redéployé sur `luna-beta-gly3g647na-ew.a.run.app`
 
 ## PROCHAINES ACTIONS
 
-1. **ChatGPT** valide la cohérence globale de l'architecture visuelle (workflow canvas exploration/travail)
-2. **Ludovic** valide l'expérience utilisateur et donne le feu vert
-3. **Claude** corrige le dernier point mineur (BRIEF MISSION persistant) — optionnel
-4. **Kimi** passe en mode "surveillance" (audit après chaque nouveau déploiement)
+1. **Claude** implémente le brief V3 : suppression du brief manuel, génération auto par Iris, affichage lecture seule
+2. **Kimi** relance l'audit terrain #4 après déploiement
+3. **ChatGPT** valide la cohérence globale post-V3
+4. **Ludovic** donne le feu vert final
 
 ---
 
