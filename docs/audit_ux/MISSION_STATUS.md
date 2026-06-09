@@ -1,5 +1,5 @@
 # MISSION STATUS — Audit UX YAWatch-LUNA
-**Dernière mise à jour** : 2026-06-09 13:05  
+**Dernière mise à jour** : 2026-06-09 16:40  
 **Responsable** : Kimi (Auditeur UX / Terrain)
 
 ---
@@ -34,65 +34,43 @@ Nouveau déploiement
 | 5. Implémentation | ✅ Faite | Claude |
 | 6. Audit terrain #1 | ✅ Fait (2026-06-09 12:00) | Kimi |
 | 7. Correctifs #1 | ✅ Fait (rev 00628) | Claude |
-| 8. Audit terrain #2 | ✅ **Fait (2026-06-09 13:00)** | Kimi |
+| 8. Audit terrain #2 | ✅ Fait (2026-06-09 13:00) | Kimi |
 | 9. Correctifs #2 | ✅ Fait (rev 00629, commit 6bb0f57) | Claude |
 | 10. Audit terrain #3 | ✅ Fait (2026-06-09 14:56) | Kimi |
 | 11. Décision produit BRIEF MISSION | ✅ Tranchée (Option 2 : brief auto-généré) | ChatGPT + Ludovic |
-| 12. Correctifs #3 | ⏳ En attente | Claude |
-| 13. Audit terrain #4 | ⏳ À faire | Kimi |
-| 10. Validation globale | ⏳ À faire | ChatGPT + Ludovic |
+| 12. Correctifs #3 | ✅ Fait (rev 00630, commit 8379f13) | Claude |
+| 13. Audit terrain #4 | ✅ Fait (2026-06-09 16:39) | Kimi |
+| 14. Validation globale | ⏳ À faire | ChatGPT + Ludovic |
 
 ---
 
-## AUDIT TERRAIN #3 (POST-CORRECTIF V2)
+## AUDIT TERRAIN #4 (POST-CORRECTIF V3)
 
 **URL auditée** : `https://luna-beta-gly3g647na-ew.a.run.app/team`  
-**Dossier captures** : `docs/audit_ux/2026-06-09-post-fix-v2/`  
-**Rapport** : `docs/audit_ux/2026-06-09-post-fix-v2/audit_report_v3.md`
+**Dossier captures** : `docs/audit_ux/2026-06-09-post-fix-v3/`  
+**Rapport** : `docs/audit_ux/2026-06-09-post-fix-v3/audit_report_v4.md`
 
-### ✅ Ce qui a été corrigé (V2)
+### ✅ Ce qui a été corrigé (V3)
 | Problème | Statut |
 |---|---|
-| Contradiction header L2 / canvas en mode travail | ✅ Corrigé |
-| Stepper 13 étapes illisible | ✅ Corrigé (5 phases avec labels visibles) |
-| Canvas sous-utilisé en mode exploration | ✅ Corrigé (cartes propositions dans le canvas) |
-| Empty state menteur | ✅ Corrigé |
-| Doublon `twActiveCard` | ✅ Corrigé |
-| Bouton "IRIS AUDIO" distraction | ✅ Corrigé |
+| Bouton "BRIEF MISSION" supprimé | ✅ |
+| Modal saisie brief supprimé | ✅ |
+| Champ titre dans setup modal | ✅ |
+| Brief auto-généré (lecture seule) | ✅ |
+| Passage direct à Collecte | ✅ |
 
-### ❌ Non corrigé
-| Problème | Gravité |
-|---|---|
-| Bouton "BRIEF MISSION" persistant après validation | MINEUR |
-
-**Score** : 6/7 problèmes résolus. 1 mineur restant.
-
----
-
-## AUDIT TERRAIN #2 (POST-CORRECTIF V1)
-
-**URL auditée** : `https://luna-beta-gly3g647na-ew.a.run.app/team`  
-**Dossier captures** : `docs/audit_ux/2026-06-09-post-fix/screenshots/`  
-**Rapport** : `docs/audit_ux/2026-06-09-post-fix/audit_report_post_fix.md`
-
-### ✅ Ce qui a été corrigé (V1)
+### ✅ Conservé (V1/V2)
 | Problème | Statut |
 |---|---|
-| Empty state menteur (bouton Proposition inexistant) | ✅ Corrigé |
-| Doublon `twActiveCard` dans le canvas | ✅ Corrigé |
-| Bouton "IRIS AUDIO" distraction | ✅ Corrigé |
+| Contradiction header/canvas | ✅ |
+| Stepper 5 phases | ✅ |
+| Canvas mode exploration | ✅ |
+| Canvas mode travail | ✅ |
+| Empty state | ✅ |
+| twActiveCard absent | ✅ |
+| IRIS AUDIO masqué | ✅ |
 
-### ⚠️ Nouveau problème introduit
-| Problème | Gravité |
-|---|---|
-| **Contradiction header L2 / canvas en mode travail** | CRITIQUE |
-
-### ❌ Ce qui n'a pas été corrigé
-| Problème | Gravité |
-|---|---|
-| Stepper 13 étapes illisible | MAJEUR |
-| Bouton "BRIEF MISSION" persistant après validation | MINEUR |
-| Canvas sous-utilisé en mode exploration | MAJEUR |
+**Score global** : **7/7 problèmes résolus.**
 
 ---
 
@@ -105,8 +83,7 @@ python /tmp/iris_audit/yawatch_audit.py && \
 python /tmp/iris_audit/analyze_with_gpt4o.py
 ```
 
-**Note** : L'ancienne URL `luna-beta-674304336025.europe-west1.run.app` n'est plus active.  
-Le service Cloud Run a été redéployé sur `luna-beta-gly3g647na-ew.a.run.app`.
+**Note** : Le service Cloud Run est déployé sur `luna-beta-gly3g647na-ew.a.run.app`.
 
 **Temps total** : ~1 minute  
 **Coût** : ~$0.05-0.10 (GPT-4o vision uniquement, Playwright = $0)
@@ -115,72 +92,14 @@ Le service Cloud Run a été redéployé sur `luna-beta-gly3g647na-ew.a.run.app`
 
 ## PROCHAINES ACTIONS
 
-1. **Claude** implémente le brief V3 : suppression du brief manuel, génération auto par Iris, affichage lecture seule
-2. **Kimi** relance l'audit terrain #4 après déploiement
-3. **ChatGPT** valide la cohérence globale post-V3
-4. **Ludovic** donne le feu vert final
+1. **ChatGPT** validation finale architecture (workflow complet : setup → brief auto → collecte → travail)
+2. **Ludovic** feu vert utilisateur
+3. **Kimi** passe en mode "surveillance" (audit automatique après chaque futur déploiement)
+4. **Claude** (optionnel) affiner le template de génération du brief (formatage "Cette session a pour but...")
 
 ---
 
-## RÔLES OFFICIELS (à conserver en mémoire)
-
-| IA | Rôle |
-|---|---|
-| **ChatGPT** | Architecte produit — Vision, workflow, objets métier |
-| **Kimi** | Auditeur UX / Terrain — Screenshots, doublons, hiérarchie visuelle |
-| **Claude** | Implémentation — Code, patchs, stabilité |
-| **Ludovic** | Product Owner — Décisions finales, validation |
-
-### ✅ Ce qui a été corrigé
-| Problème | Statut |
-|---|---|
-| Empty state menteur (bouton Proposition inexistant) | ✅ Corrigé |
-| Doublon `twActiveCard` dans le canvas | ✅ Corrigé |
-| Bouton "IRIS AUDIO" distraction | ✅ Corrigé |
-
-### ⚠️ Nouveau problème introduit
-| Problème | Gravité |
-|---|---|
-| **Contradiction header L2 / canvas en mode travail** | CRITIQUE |
-
-Détail : Quand une proposition est active, le header L2 l'affiche, mais le canvas dit "1 piste en attente d'activation".
-
-### ❌ Ce qui n'a pas été corrigé
-| Problème | Gravité |
-|---|---|
-| Stepper 13 étapes illisible | MAJEUR |
-| Bouton "BRIEF MISSION" persistant après validation | MINEUR |
-| Canvas sous-utilisé en mode exploration | MAJEUR |
-
----
-
-## COMMANDE D'AUDIT (à exécuter après chaque déploiement)
-
-```bash
-source /tmp/browser_use_env/bin/activate && \
-IRIS_AUDIT_URL="https://luna-beta-gly3g647na-ew.a.run.app/team?room=audit-$(date +%Y%m%d-%H%M%S)" \
-python /tmp/iris_audit/yawatch_audit.py && \
-python /tmp/iris_audit/analyze_with_gpt4o.py
-```
-
-**Note** : L'ancienne URL `luna-beta-674304336025.europe-west1.run.app` n'est plus active.  
-Le service Cloud Run a été redéployé sur `luna-beta-gly3g647na-ew.a.run.app`.
-
-**Temps total** : ~1 minute  
-**Coût** : ~$0.05-0.10 (GPT-4o vision uniquement, Playwright = $0)
-
----
-
-## PROCHAINES ACTIONS
-
-1. **Claude** corrige la contradiction header/canvas en mode travail (CRITIQUE)
-2. **Claude** corrige le stepper 13 étapes (MAJEUR)
-3. **Claude** masque "BRIEF MISSION" après validation (MINEUR)
-4. **Kimi** relance l'audit terrain après les correctifs
-
----
-
-## RÔLES OFFICIELS (à conserver en mémoire)
+## RÔLES OFFICIELS
 
 | IA | Rôle |
 |---|---|
