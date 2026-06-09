@@ -56,7 +56,35 @@ Nouveau déploiement
 | 27. Spécification Phase 11 (Dossier final) | ✅ Faite | ChatGPT + Ludovic |
 | 28. Implémentation Phase 11 (Dossier final) | ✅ Fait (rev 00634-4kk) | Claude |
 | 29. Audit terrain Phase 11 | ✅ Fait (2026-06-09 19:27) | Kimi |
-| 30. Feature Décision & Traçabilité — COMPLETE | ✅ VALIDÉE | ChatGPT + Ludovic |
+| 30. Feature Décision & Traçabilité — COMPLETE | ✅ VALIDÉE + GELÉE | ChatGPT + Ludovic |
+
+---
+
+## VERDICT ARCHITECTE PRODUIT (2026-06-09)
+
+**Feature** : Décision & Traçabilité V1  
+**Statut** : ✅ Complète et cohérente avec la vision Iris Workspace  
+**Verdict** : GELÉE — pas de nouvelles fonctionnalités ajoutées immédiatement
+
+### Ce qui a été validé
+- Souveraineté du owner préservée (les IA signalent mais ne décident jamais)
+- Réserves = objet métier autonome (élément différenciant)
+- Dossier final = snapshot figé, traçabilité complète
+- Workflow bout en bout fonctionnel : Question → Propositions → Sources → Décision → Actions → Réserves → Dossier final
+
+### Prochaine phase
+```
+Stabilisation
+    ↓
+Usage réel
+    ↓
+Observations terrain
+    ↓
+Itérations ciblées (guidées par l'usage, pas par les fonctionnalités)
+```
+
+### Noyau différenciant d'Iris
+> *"La traçabilité du raisonnement collectif, depuis la question initiale jusqu'au dossier final figé."*
 
 ---
 
