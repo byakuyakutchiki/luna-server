@@ -8163,6 +8163,7 @@ class _IrisTeamRoom:
         self.proposals: list = []     # hypothèses de travail
         self.active_proposal_id: str | None = None
         self.decision: dict | None = None
+        self.actions: list = []
 
     def get_state(self) -> dict:
         return {
@@ -8173,6 +8174,7 @@ class _IrisTeamRoom:
             "proposals": self.proposals,
             "active_proposal_id": self.active_proposal_id,
             "decision": self.decision,
+            "actions": self.actions,
         }
 
     async def broadcast(self, message: dict, exclude: str = None):
@@ -8420,6 +8422,27 @@ async def team_ws(websocket: WebSocket, session_id: str):
                 if dec and isinstance(dec, dict) and dec.get("text"):
                     room.decision = dec
                     await room.broadcast({"type": "decision_set", "decision": dec})
+            elif t == "action_set":
+                act = msg.get("action")
+                if act and isinstance(act, dict) and act.get("text") and act.get("id"):
+                    if not any(a["id"] == act["id"] for a in room.actions):
+                        room.actions.append(act)
+                    await room.broadcast({"type": "action_added", "action": act})
+            elif t == "action_update":
+                act_id = str(msg.get("action_id", ""))
+                new_status = str(msg.get("status", ""))
+                if new_status in ("TODO", "IN_PROGRESS", "DONE", "CANCELLED"):
+                    for a in room.actions:
+                        if a["id"] == act_id:
+                            a["status"] = new_status
+                            await room.broadcast({"type": "action_updated", "action_id": act_id, "status": new_status})
+                            break
+            elif t == "action_delete":
+                if room.participants.get(user_id, {}).get("role") != "owner":
+                    continue
+                act_id = str(msg.get("action_id", ""))
+                room.actions = [a for a in room.actions if a["id"] != act_id]
+                await room.broadcast({"type": "action_deleted", "action_id": act_id})
             elif t == "proposal_archive":
                 if room.participants.get(user_id, {}).get("role") != "owner":
                     continue
