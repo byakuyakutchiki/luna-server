@@ -980,14 +980,8 @@ function promoteSpec(i){
    OBJECTS (PLAN CENTRAL)
    ============================================================ */
 function initObjects(){
-  TW.objects=[
-    {id:1,type:'prop',    title:'Analyse marché bancaire 2026',detail:'Cartographier les offres des 5 principales banques françaises sur le segment PME.',by:'Ludovic',ts:Date.now()-3600000},
-    {id:2,type:'source',  title:'Rapport BNP Paribas 2025',   detail:'Rapport annuel mars 2025 — croissance segment digital +18 %.',by:'Alice M.',ts:Date.now()-2400000},
-    {id:3,type:'prop',    title:'Cibler les actifs < 35 ans',  detail:'Segment prioritaire selon les données démographiques disponibles.',by:'Thomas R.',ts:Date.now()-1800000},
-    {id:4,type:'decision',title:'Offre 100 % digitale en priorité',detail:'Décision validée lors de la session stratégique du 3 juin 2026.',by:'Ludovic',ts:Date.now()-900000},
-    {id:5,type:'synthesis',title:'Synthèse Iris (en attente)', detail:'Iris consolidera propositions et sources après le déclenchement de l\'étape Organisation.',by:'Iris',ts:Date.now()},
-  ];
-  TW.sources=[];  /* alimenté uniquement via source_add / state_sync */
+  TW.objects=[];  /* peuplé via state_sync uniquement */
+  TW.sources=[];  /* peuplé via source_add / state_sync */
 }
 function renderObjects(){
   var state=CANVAS_STATE[TW.step];
@@ -995,6 +989,39 @@ function renderObjects(){
   var empty=document.getElementById('twEmptyState');
   if(!grid)return;
   grid.innerHTML='';
+
+  /* ── Mode exploration : canvas affiche les propositions ── */
+  if(!TW.activeProposalId){
+    var pending=TW.proposals.filter(function(p){return p.status==='pending';});
+    if(!pending.length){
+      grid.style.display='none';
+      if(empty){
+        empty.style.display='flex';
+        var em=document.getElementById('twEmptyMsg');
+        var es=document.getElementById('twEmptySub');
+        if(em)em.textContent='Aucune piste soumise pour l\'instant.';
+        if(es)es.textContent='Utilisez le bouton "Proposition" pour soumettre une première piste.';
+      }
+      return;
+    }
+    grid.style.display='grid';
+    if(empty)empty.style.display='none';
+    var isOwner=TW.userRole==='owner';
+    pending.forEach(function(p){
+      var d=document.createElement('div');
+      d.className='tw-obj prop mode-edit';
+      d.innerHTML='<div class="tw-obj-type">'+typeIcon('prop')
+        +'<span class="tw-obj-lbl prop">'+TLBL.prop+'</span></div>'
+        +'<div class="tw-obj-title">'+_e(p.text)+'</div>'
+        +'<div class="tw-obj-meta"><span>'+_e(p.author_name)+'</span><span>'+_ago(p.created_at*1000)+'</span></div>'
+        +(isOwner?'<div class="tw-prop-actions">'
+          +'<button class="tw-prop-activate" onclick="propActivate(\''+p.id+'\')">⚡ Activer</button>'
+          +'<button class="tw-prop-archive" onclick="propArchive(\''+p.id+'\')">✕</button>'
+          +'</div>':'');
+      grid.appendChild(d);
+    });
+    return;
+  }
 
   var visible=TW.objects.filter(function(obj){
     var mode=(state&&state.display[obj.type])||'hidden';
@@ -2203,48 +2230,57 @@ function renderProposals(){
   var archived=TW.proposals.filter(function(p){return p.status==='archived';});
   var html='';
 
-  if(active.length){
-    html+='<div class="tw-prop-sep">Proposition active</div>';
-    active.forEach(function(p){
-      html+='<div class="tw-prop-item active">'
-        +'<span class="tw-prop-badge">⚡</span>'
-        +'<span class="tw-prop-body">'+_e(p.text)+'</span>'
-        +'<span class="tw-prop-meta">'+_e(p.author_name)+'</span>';
-      if(isOwner){
-        html+='<div class="tw-prop-actions">'
-          +'<button class="tw-prop-archive" onclick="propArchive(\''+p.id+'\')">Archiver</button>'
+  if(!TW.activeProposalId){
+    /* Mode exploration — canvas affiche les pistes, sidebar = bouton seul */
+    /* Archivées visibles dans la sidebar comme historique */
+    if(archived.length){
+      html+='<div class="tw-prop-sep tw-prop-sep-arch" onclick="toggleArchived()">Archivées ('+archived.length+') ▸</div>'
+        +'<div id="twPropArchived" style="display:none">';
+      archived.forEach(function(p){
+        html+='<div class="tw-prop-item archived">'
+          +'<span class="tw-prop-badge">—</span>'
+          +'<span class="tw-prop-body">'+_e(p.text)+'</span>'
+          +'<span class="tw-prop-meta">'+_e(p.author_name)+'</span>'
           +'</div>';
-      }
+      });
       html+='</div>';
-    });
-  }
-  if(pending.length){
-    html+='<div class="tw-prop-sep">En attente</div>';
-    pending.forEach(function(p){
-      html+='<div class="tw-prop-item pending">'
-        +'<span class="tw-prop-badge">💡</span>'
-        +'<span class="tw-prop-body">'+_e(p.text)+'</span>'
-        +'<span class="tw-prop-meta">'+_e(p.author_name)+'</span>';
-      if(isOwner){
-        html+='<div class="tw-prop-actions">'
-          +'<button class="tw-prop-activate" onclick="propActivate(\''+p.id+'\')">Activer</button>'
-          +'<button class="tw-prop-archive" onclick="propArchive(\''+p.id+'\')">✕</button>'
+    }
+  } else {
+    /* Mode travail — sidebar affiche toutes les propositions comme référence */
+    if(active.length){
+      html+='<div class="tw-prop-sep">Active</div>';
+      active.forEach(function(p){
+        html+='<div class="tw-prop-item active">'
+          +'<span class="tw-prop-badge">⚡</span>'
+          +'<span class="tw-prop-body">'+_e(p.text)+'</span>'
+          +'<span class="tw-prop-meta">'+_e(p.author_name)+'</span>';
+        if(isOwner)html+='<div class="tw-prop-actions"><button class="tw-prop-archive" onclick="propArchive(\''+p.id+'\')">Archiver</button></div>';
+        html+='</div>';
+      });
+    }
+    if(pending.length){
+      html+='<div class="tw-prop-sep">Autres pistes</div>';
+      pending.forEach(function(p){
+        html+='<div class="tw-prop-item pending">'
+          +'<span class="tw-prop-badge">💡</span>'
+          +'<span class="tw-prop-body">'+_e(p.text)+'</span>'
+          +'<span class="tw-prop-meta">'+_e(p.author_name)+'</span>';
+        if(isOwner)html+='<div class="tw-prop-actions"><button class="tw-prop-activate" onclick="propActivate(\''+p.id+'\')">Activer</button><button class="tw-prop-archive" onclick="propArchive(\''+p.id+'\')">✕</button></div>';
+        html+='</div>';
+      });
+    }
+    if(archived.length){
+      html+='<div class="tw-prop-sep tw-prop-sep-arch" onclick="toggleArchived()">Archivées ('+archived.length+') ▸</div>'
+        +'<div id="twPropArchived" style="display:none">';
+      archived.forEach(function(p){
+        html+='<div class="tw-prop-item archived">'
+          +'<span class="tw-prop-badge">—</span>'
+          +'<span class="tw-prop-body">'+_e(p.text)+'</span>'
+          +'<span class="tw-prop-meta">'+_e(p.author_name)+'</span>'
           +'</div>';
-      }
+      });
       html+='</div>';
-    });
-  }
-  if(archived.length){
-    html+='<div class="tw-prop-sep tw-prop-sep-arch" onclick="toggleArchived()">Archivées ('+archived.length+') ▸</div>'
-      +'<div id="twPropArchived" style="display:none">';
-    archived.forEach(function(p){
-      html+='<div class="tw-prop-item archived">'
-        +'<span class="tw-prop-badge">—</span>'
-        +'<span class="tw-prop-body">'+_e(p.text)+'</span>'
-        +'<span class="tw-prop-meta">'+_e(p.author_name)+'</span>'
-        +'</div>';
-    });
-    html+='</div>';
+    }
   }
   list.innerHTML=html;
 
@@ -2252,23 +2288,23 @@ function renderProposals(){
   var tot=TW.proposals.filter(function(p){return p.status!=='archived';}).length;
   if(cnt)cnt.textContent=tot?tot+' piste'+(tot>1?'s':''):'';
 
-  /* Carte centrale */
+  /* Carte centrale proposition active */
   var ap=TW.proposals.find(function(p){return p.id===TW.activeProposalId;});
   var card=document.getElementById('twActiveCard');
-  var cardTxt=document.getElementById('twActiveCardText');
-  var cardMeta=document.getElementById('twActiveCardMeta');
   if(card){
     if(ap){
-      if(cardTxt)cardTxt.textContent=ap.text;
-      if(cardMeta)cardMeta.textContent='Proposée par '+ap.author_name;
+      var ct=document.getElementById('twActiveCardText');
+      var cm=document.getElementById('twActiveCardMeta');
+      if(ct)ct.textContent=ap.text;
+      if(cm)cm.textContent='Proposée par '+ap.author_name;
       card.classList.add('on');
     }else{
       card.classList.remove('on');
     }
   }
 
-  /* context header L2 */
   renderContextHeader();
+  renderObjects();  /* canvas toujours synchronisé avec l'état des propositions */
 }
 
 window.addEventListener('DOMContentLoaded',function(){
