@@ -1,5 +1,5 @@
 # MISSION STATUS — Audit UX YAWatch-LUNA
-**Dernière mise à jour** : 2026-06-09 20:00  
+**Dernière mise à jour** : 2026-06-09 21:30  
 **Responsable** : Kimi (Auditeur UX / Terrain)
 
 ---
@@ -50,7 +50,9 @@ Nouveau déploiement
 | 21. Feature V1 — VALIDÉE + GELÉE | ✅ Faite | ChatGPT + Ludovic |
 | 22. Test mission réelle | ✅ **VALIDÉ** | Kimi |
 | 23. Décision GO chantier UX/UI | ✅ **GO donné** | Ludovic + ChatGPT |
-| 24. Chantier UX/UI Premium | 🚀 **DÉMARRÉ** | Claude |
+| 24. Chantier UX/UI Premium V1 | 🚀 **DÉMARRÉ** | Claude |
+| 25. Audit UX Premium V1 | ❌ **NON VALIDÉ** | Kimi |
+| 26. Correctif UX Premium V1.1 | ⏳ **En attente** | Claude |
 
 ---
 
@@ -113,6 +115,45 @@ Dossier final généré (9 sections, snapshot figé)
 
 ---
 
+## AUDIT UX PREMIUM V1 — NON VALIDÉ
+
+**Date** : 2026-06-09 21:30  
+**Revision** : `luna-beta-00635-xsv`  
+**URL auditée** : `https://luna-beta-674304336025.europe-west1.run.app/team`  
+**Rapport complet** : `docs/audit_ux/2026-06-09-ux-premium-v1/audit_report_ux_premium_v1.md`  
+**Screenshots** : `docs/audit_ux/2026-06-09-ux-premium-v1/screenshots/`
+
+### Verdict
+**Priorité 1 — Workspace immersif : ❌ NON VALIDÉE**
+
+### Problèmes critiques
+| Problème | Sévérité |
+|---|---|
+| Drawer Propositions inaccessible (`#btnPropAdd` non visible) | 🔴 Critique |
+| Bouton "OUVRIR UNE RÉSERVE" inaccessible | 🔴 Critique |
+| Setup modal — champ de saisie inaccessible par l'audit | 🔴 Critique |
+
+### Problèmes visuels majeurs
+| Problème | Détail |
+|---|---|
+| Canvas vide et plat | Vaste zone noire `#020810`, pas de profondeur perçue |
+| Participants = puces sombres | Pas de présence visuelle, manque de contraste |
+| Carte Décision isolée | Flotte dans un océan noir sans contexte lumineux |
+| Matière absente | Pas de verre fumé, pas de métal brossé, pas de reflets |
+| Logo YAWATCH sous-utilisé | Petit texte en header, pas d'identité forte |
+| Boutons verts criards | Ne s'intègrent pas à l'ambiance premium |
+| Hiérarchie typographique faible | Question / Mission / Étape mal différenciées |
+
+### Ce qu'il faut corriger (V1.1)
+1. **Réparer les régressions fonctionnelles** avant toute nouvelle amélioration visuelle
+2. **Ajouter du système de lumière** : halos, glows, reflets subtils
+3. **Ajouter de la matière** : `backdrop-filter: blur()`, ombres portées, surfaces verre
+4. **Refonte des participants** : plus grands, couleurs distinctes, présence visuelle
+5. **Meilleure hiérarchie typo** : tailles contrastées, blanc cassé vs gris
+6. **Boutons plus sophistiqués** : gradients, ombres colorées, moins néon
+
+---
+
 ## AUDIT TERRAIN #4 (POST-CORRECTIF V3)
 
 **URL auditée** : `https://luna-beta-gly3g647na-ew.a.run.app/team`  
@@ -161,32 +202,42 @@ python /tmp/iris_audit/yawatch_audit.py
 
 ## PROCHAINES ACTIONS
 
-### 🎯 Décision — GO donné (2026-06-09 20:00)
+### 🎯 État actuel (2026-06-09 21:30)
 
-**Verdict** : ✅ **GO chantier UX/UI Premium**
+**Chantier UX/UI Premium V1** : ❌ **Audit NON VALIDÉ**
 
-**Feature Décision & Traçabilité V1** : **TERMINÉE**
-- Date de validation : 09/06/2026
-- Validation : Mission réelle complète réussie
-- Statut : Gelée — aucun nouvel objet métier
+**Feature Décision & Traçabilité V1** : **TERMINÉE** (reste gelée)
 
-### 🚀 Chantier UX/UI Premium — DÉMARRÉ
+### 🔴 URGENT — Claude doit corriger
 
-**Document de spécification** : `docs/audit_ux/PROMPT_UX_UI_PREMIUM.md`
+1. **Régressions fonctionnelles** (avant toute nouvelle amélioration visuelle)
+   - Drawer Propositions inaccessible — `#btnPropAdd` doit être visible
+   - Bouton "OUVRIR UNE RÉSERVE" inaccessible
+   - Setup modal — champ titre/session accessible
+   - Le script `yawatch_audit.py` doit repasser de bout en bout
 
-**5 priorités** (ordre d'implémentation) :
+2. **Ambiance visuelle — directives concrètes**
+   - **Lumière** : halos verts diffus, reflets cyan sur bordures supérieures, glow subtil
+   - **Matière** : `backdrop-filter: blur(12px)`, surfaces "verre fumé" (`rgba(255,255,255,0.03)`)
+   - **Profondeur** : ombres portées douces, gradients radiaux subtils, PAS de fond noir pur
+   - **Participants** : avatars 48px+, couleurs saturées mais douces, présence visuelle
+   - **Typo** : hiérarchie claire Question(18-20px) > Décision(16px) > Actions(14px) > Réserves(13px)
+   - **Boutons** : gradients verts soutenus + ombres, moins néon
+   - **Logo** : YAWATCH plus visible, violet d'accent
 
-| Priorité | Thème | Description |
-|---|---|---|
-| 1 | Workspace immersif | Transformer l'app web en espace de réflexion augmentée |
-| 2 | Hiérarchie visuelle | Mission→Question→Décision→Actions→Réserves sans lire |
-| 3 | Dossier final premium | Typo élégante, sections visuelles, export propre |
-| 4 | Identité Iris/IQ/Luna | Présence visuelle distincte pour chaque IA |
-| 5 | Animations discrètes | Courtes, sobres, guides pour l'œil |
+### 🚀 Chantier UX/UI Premium — Itération V1.1
 
-**Workflow** : Une priorité à la fois → Déploiement → Audit Kimi → Validation → Priorité suivante
+**Documents de référence** :
+- `docs/audit_ux/PROMPT_UX_UI_PREMIUM.md` — prompt officiel
+- `docs/audit_ux/2026-06-09-ux-premium-v1/audit_report_ux_premium_v1.md` — rapport d'écart détaillé
+- Issue GitHub "IRIS WORKSPACE PREMIUM V1" — direction artistique ChatGPT
 
-**Règle d'or** : ❌ Aucun nouvel objet métier. ❌ Aucune logique métier nouvelle.
+**Workflow** : Corriger V1.1 → Déployer → Audit Kimi → Si OK, continuer Priorité 2
+
+**Règles d'or** :
+- ❌ Aucun nouvel objet métier
+- ❌ Aucune logique métier nouvelle
+- 🔴 Aucune régression fonctionnelle tolérée
 
 ---
 
