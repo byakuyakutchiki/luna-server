@@ -60,10 +60,12 @@
 
     /* Right sidebar sections */
     .tw-sr-sect{padding:14px 16px;border-bottom:1px solid var(--border);}
-    .tw-sr-lbl{font-size:7px;font-weight:700;letter-spacing:1.8px;text-transform:uppercase;color:var(--dim2);margin-bottom:10px;}
+    .tw-sr-lbl{font-size:7px;font-weight:700;letter-spacing:1.8px;text-transform:uppercase;color:var(--dim2);margin-bottom:10px;display:flex;align-items:center;gap:5px;}
 
-    /* Mission block */
-    .tw-sr-mission-text{font-size:12px;font-weight:600;color:var(--text);line-height:1.5;word-break:break-word;}
+    /* Mission block — accented */
+    .tw-sr-mission-sect{background:rgba(139,92,246,0.04);border-left:2px solid rgba(139,92,246,0.22);}
+    .tw-sr-mission-sect .tw-sr-lbl{color:rgba(139,92,246,0.65);}
+    .tw-sr-mission-text{font-size:14px;font-weight:600;color:var(--text);line-height:1.5;word-break:break-word;}
 
     /* Seats in right sidebar — vertical stack */
     #twSideRight .tw-prow{
@@ -111,7 +113,7 @@
     @keyframes statusPulse{0%,100%{opacity:1;}50%{opacity:0.3;}}
     /* Sidebar left phases label */
     .tw-sl-phases-hdr{font-size:7px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--dim2);padding:14px 14px 4px;flex-shrink:0;}
-    #twSessionTitle{font-size:13px;font-weight:600;color:var(--text);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;}
+    #twSessionTitle{font-size:16px;font-weight:700;color:var(--text);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;letter-spacing:-0.2px;}
     .tw-hstat{font-size:10px;color:var(--dim);white-space:nowrap;flex-shrink:0;}
     .tw-hstat strong{color:var(--text);font-weight:600;}
     .tw-hbtn{
@@ -371,9 +373,9 @@
     .tw-act.w:hover{background:linear-gradient(135deg,rgba(246,180,0,0.24),rgba(246,180,0,0.14));}
 
     /* === RÉSERVES === */
-    #twReservesZone{display:none;margin:0 16px 8px;padding:10px 14px;border-radius:8px;background:rgba(246,180,0,0.03);border:1px solid rgba(246,180,0,0.18);}
+    #twReservesZone{display:none;margin:0 16px 8px;padding:12px 16px;border-radius:8px;background:rgba(246,180,0,0.04);border:1px solid rgba(246,180,0,0.22);border-left:3px solid rgba(246,180,0,0.45);}
     .tw-rv-hdr{display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none;}
-    .tw-rv-title{font-size:9px;font-weight:700;letter-spacing:1.1px;text-transform:uppercase;color:rgba(246,180,0,0.8);}
+    .tw-rv-title{font-size:11px;font-weight:700;letter-spacing:1.1px;text-transform:uppercase;color:rgba(246,180,0,0.9);}
     .tw-rv-badges{display:flex;gap:8px;align-items:center;}
     .tw-rv-badge{font-size:10px;cursor:pointer;}
     .tw-rv-toggle{font-size:10px;color:var(--dim2);}
@@ -520,25 +522,33 @@
     #twToast.on{opacity:1;transform:translateX(-50%) translateY(0);}
 
     /* === CONTEXT HEADER L1 / L2 / L3 === */
-    #twCtxBar{flex-shrink:0;background:rgba(2,4,12,0.88);border-bottom:1px solid var(--border);}
+    #twCtxBar{flex-shrink:0;background:rgba(2,4,12,0.92);border-bottom:1px solid var(--border);}
     .tw-ctx-band{display:flex;align-items:center;gap:8px;padding:4px 18px;border-bottom:1px solid rgba(255,255,255,0.028);}
     .tw-ctx-band:last-child{border-bottom:none;}
-    .tw-ctx-lbl{font-size:7px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;flex-shrink:0;width:70px;}
+    .tw-ctx-lbl{font-size:7px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;flex-shrink:0;width:62px;}
     .tw-ctx-val{font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;}
-    .tw-ctx-val.empty{color:var(--dim2);font-style:italic;}
-    .tw-ctx-l1{padding:3px 18px;}
-    .tw-ctx-l1 .tw-ctx-lbl{color:var(--dim2);}
-    .tw-ctx-l1 .tw-ctx-val{color:var(--dim2);font-size:9px;}
-    .tw-ctx-l2{
-      background:linear-gradient(90deg,rgba(16,212,142,0.06) 0%,rgba(16,212,142,0.02) 60%,transparent 100%);
-      padding:9px 18px;
-      border-left:2px solid rgba(16,212,142,0.4);
+    /* L1 — Question : titre principal du workspace */
+    .tw-ctx-l1{
+      padding:10px 18px;
+      background:linear-gradient(90deg,rgba(139,92,246,0.07) 0%,transparent 65%);
+      border-left:2px solid rgba(139,92,246,0.42);
     }
-    .tw-ctx-l2 .tw-ctx-lbl{color:rgba(16,212,142,0.7);font-size:7px;}
-    .tw-ctx-l2 .tw-ctx-val{font-weight:700;color:var(--text);font-size:15px;letter-spacing:-0.3px;line-height:1.3;}
-    .tw-ctx-l3{padding:3px 18px;}
-    .tw-ctx-l3 .tw-ctx-lbl{color:var(--dim2);}
-    .tw-ctx-l3 .tw-ctx-val{color:var(--dim2);font-size:9px;}
+    .tw-ctx-l1 .tw-ctx-lbl{color:rgba(139,92,246,0.65);}
+    .tw-ctx-l1 .tw-ctx-val{font-size:20px;font-weight:700;color:var(--text);font-style:normal;letter-spacing:-0.3px;line-height:1.25;}
+    .tw-ctx-l1 .tw-ctx-val.empty{font-size:13px;font-weight:400;font-style:italic;color:var(--dim2);}
+    /* L2 — Proposition active : secondaire */
+    .tw-ctx-l2{
+      background:linear-gradient(90deg,rgba(16,212,142,0.05) 0%,transparent 60%);
+      padding:6px 18px;
+      border-left:2px solid rgba(16,212,142,0.32);
+    }
+    .tw-ctx-l2 .tw-ctx-lbl{color:rgba(16,212,142,0.6);font-size:7px;}
+    .tw-ctx-l2 .tw-ctx-val{font-weight:600;color:var(--text);font-size:13px;letter-spacing:-0.1px;line-height:1.3;}
+    .tw-ctx-l2 .tw-ctx-val.empty{color:var(--dim2);font-style:italic;font-weight:400;font-size:11px;}
+    /* L3 — Étape : badge compact violet */
+    .tw-ctx-l3{padding:4px 18px;}
+    .tw-ctx-l3 .tw-ctx-lbl{color:rgba(139,92,246,0.5);}
+    .tw-ctx-l3 .tw-ctx-val{color:rgba(139,92,246,0.72);font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;}
 
     /* === OBJECT DISPLAY MODES === */
     .tw-obj.mode-read{cursor:default;}
@@ -660,8 +670,9 @@
     .tw-prop-archive:hover{color:var(--dim);}
 
     /* === LISTE ACTIONS === */
-    #twActionsZone{display:none;margin:0 16px 8px;padding:10px 14px;border-radius:8px;background:rgba(8,14,30,0.6);border:1px solid var(--border);backdrop-filter:blur(8px);}
-    .tw-al-hdr{font-size:9px;font-weight:700;letter-spacing:1.1px;text-transform:uppercase;color:var(--dim);margin-bottom:3px;}
+    #twActionsZone{display:none;margin:0 16px 8px;padding:12px 16px;border-radius:8px;background:rgba(16,185,129,0.04);border:1px solid rgba(16,185,129,0.18);border-left:3px solid rgba(16,185,129,0.42);backdrop-filter:blur(8px);}
+    .tw-al-hdr{font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--iris);margin-bottom:6px;display:flex;align-items:center;gap:8px;}
+    .tw-al-count-badge{font-size:10px;background:rgba(16,185,129,0.15);border:1px solid rgba(16,185,129,0.28);color:var(--iris);border-radius:10px;padding:1px 7px;font-weight:700;}
     .tw-al-origin{font-size:10px;color:var(--dim2);margin-bottom:10px;font-style:italic;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
     .tw-al-item{display:flex;align-items:center;gap:7px;padding:5px 0;border-bottom:1px solid rgba(255,255,255,0.04);}
     .tw-al-cb{background:none;border:none;cursor:pointer;font-size:15px;flex-shrink:0;line-height:1;padding:0;transition:transform 0.12s;}
@@ -683,26 +694,32 @@
 
     /* === DÉCISION CARD === */
     #twDecisionCard{
-      display:none;margin:12px 16px 4px;padding:16px 20px;
-      border-radius:12px;
-      border:1.5px solid rgba(16,212,142,0.35);
-      background:rgba(16,212,142,0.06);
-      backdrop-filter:blur(10px);
+      display:none;margin:16px 16px 6px;padding:20px 24px;
+      border-radius:14px;
+      border:2px solid rgba(16,212,142,0.50);
+      background:rgba(16,212,142,0.07);
+      backdrop-filter:blur(12px);
       box-shadow:
-        0 0 40px rgba(16,212,142,0.08),
-        0 0 80px rgba(16,212,142,0.04),
-        inset 0 1px 0 rgba(16,212,142,0.15),
-        0 4px 24px rgba(0,0,0,0.35);
+        0 0 60px rgba(16,212,142,0.12),
+        0 0 120px rgba(16,212,142,0.05),
+        inset 0 1px 0 rgba(16,212,142,0.22),
+        0 8px 32px rgba(0,0,0,0.45);
       position:relative;overflow:visible;
     }
     #twDecisionCard::before{
-      content:'';position:absolute;inset:-30px;
-      background:radial-gradient(ellipse 80% 60% at 50% 50%,rgba(16,212,142,0.08),transparent 70%);
+      content:'';position:absolute;inset:-40px;
+      background:radial-gradient(ellipse 80% 60% at 50% 50%,rgba(16,212,142,0.10),transparent 70%);
       pointer-events:none;z-index:-1;border-radius:50%;
     }
     #twDecisionCard.on{display:block;}
-    .tw-dec-lbl{font-size:8px;font-weight:700;letter-spacing:1.6px;text-transform:uppercase;color:var(--iris);margin-bottom:9px;opacity:0.8;}
-    .tw-dec-text{font-size:15px;font-weight:700;color:var(--text);line-height:1.55;margin-bottom:11px;letter-spacing:-0.2px;}
+    .tw-dec-lbl{
+      font-size:8px;font-weight:700;letter-spacing:1.6px;text-transform:uppercase;color:var(--iris);
+      margin-bottom:12px;opacity:1;
+      display:inline-flex;align-items:center;gap:6px;
+      background:rgba(16,212,142,0.10);border:1px solid rgba(16,212,142,0.25);
+      border-radius:20px;padding:3px 12px;
+    }
+    .tw-dec-text{font-size:17px;font-weight:700;color:var(--text);line-height:1.55;margin-bottom:11px;letter-spacing:-0.2px;}
     .tw-dec-meta{display:flex;flex-wrap:wrap;gap:5px;}
     .tw-dec-tag{font-size:9px;color:var(--dim2);background:rgba(255,255,255,0.04);padding:2px 8px;border-radius:4px;border:1px solid var(--border);}
 
@@ -864,15 +881,15 @@
   <div id="twCanvas">
     <div id="twCtxBar">
       <div class="tw-ctx-band tw-ctx-l1">
-        <span class="tw-ctx-lbl">❓ Question</span>
+        <span class="tw-ctx-lbl"><svg width="7" height="7" viewBox="0 0 7 7" fill="none" style="flex-shrink:0"><path d="M3.5 0.5L6.5 3.5L3.5 6.5L0.5 3.5Z" stroke="currentColor" stroke-width="1.2"/></svg>Question</span>
         <span class="tw-ctx-val empty" id="twCtxL1">Aucune question définie — owner, définissez le brief.</span>
       </div>
       <div class="tw-ctx-band tw-ctx-l2">
-        <span class="tw-ctx-lbl">⚡ En cours</span>
+        <span class="tw-ctx-lbl"><svg width="7" height="7" viewBox="0 0 7 7" fill="none" style="flex-shrink:0"><circle cx="3.5" cy="3.5" r="2.5" stroke="currentColor" stroke-width="1.2"/><circle cx="3.5" cy="3.5" r="1" fill="currentColor"/></svg>En cours</span>
         <span class="tw-ctx-val empty" id="twCtxL2">Aucune proposition active — choisissez une piste.</span>
       </div>
       <div class="tw-ctx-band tw-ctx-l3">
-        <span class="tw-ctx-lbl">🧭 Étape</span>
+        <span class="tw-ctx-lbl"><svg width="7" height="7" viewBox="0 0 7 7" fill="none" style="flex-shrink:0"><path d="M3.5 1L6 4.5H1Z" stroke="currentColor" stroke-width="1.1" stroke-linejoin="round"/></svg>Étape</span>
         <span class="tw-ctx-val" id="twCtxL3">Étape 1 / 13 — Entrée</span>
       </div>
     </div>
@@ -1002,8 +1019,8 @@
 
     <!-- RIGHT SIDEBAR: mission + participants + activity -->
     <aside id="twSideRight">
-      <div class="tw-sr-sect">
-        <div class="tw-sr-lbl">Mission</div>
+      <div class="tw-sr-sect tw-sr-mission-sect">
+        <div class="tw-sr-lbl"><svg width="9" height="9" viewBox="0 0 9 9" fill="none"><path d="M1 8L2.5 4.5L5 2L7 1L8 2L7 4L4.5 6.5L1 8Z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/><path d="M6 2.5L6.5 3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>Mission</div>
         <div class="tw-sr-mission-text" id="twSrMissionText">Session en cours</div>
       </div>
       <div class="tw-sr-sect">
@@ -2557,8 +2574,9 @@ function renderActionsList(){
   if(!az)return;
   if(!TW.decision){az.style.display='none';az.innerHTML='';return;}
   var isOwner=TW.userRole==='owner';
-  var html='<div class="tw-al-hdr">📋 Actions consécutives</div>'
-    +'<div class="tw-al-origin">Origine : 🎯 "'+_e(TW.decision.text)+'"</div>';
+  var acnt=TW.actions.filter(function(a){return a.status!=='CANCELLED';}).length;
+  var html='<div class="tw-al-hdr">Actions<span class="tw-al-count-badge">'+acnt+'</span></div>'
+    +'<div class="tw-al-origin">Origine : "'+_e(TW.decision.text)+'"</div>';
   if(TW.actions.length){
     TW.actions.forEach(function(a){
       var icon=_AL_STATUS_ICON[a.status]||'☐';
