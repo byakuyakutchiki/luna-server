@@ -98,12 +98,14 @@
       box-shadow:0 1px 0 rgba(16,185,129,0.09),0 2px 14px rgba(0,0,0,0.35);
     }
     .tw-logomark{
-      width:42px;height:42px;border-radius:10px;flex-shrink:0;
-      background:linear-gradient(135deg,rgba(16,185,129,0.22),rgba(139,92,246,0.20));
-      border:1px solid rgba(139,92,246,0.30);
+      width:44px;height:44px;border-radius:10px;flex-shrink:0;
+      background:transparent;
+      border:none;
       display:flex;align-items:center;justify-content:center;
-      box-shadow:0 0 18px rgba(139,92,246,0.22),inset 0 1px 0 rgba(255,255,255,0.07);
+      box-shadow:none;
+      overflow:hidden;
     }
+    .tw-logomark img{width:44px;height:44px;object-fit:contain;border-radius:10px;display:block;}
     .tw-logotext{font-size:11px;font-weight:800;letter-spacing:3px;text-transform:uppercase;color:rgba(210,220,240,0.88);white-space:nowrap;}
     .tw-logosub{font-size:9px;color:var(--iris);letter-spacing:2.5px;text-transform:uppercase;margin-top:2px;font-weight:700;}
     .tw-vsep{width:1px;height:22px;background:var(--border-s);flex-shrink:0;}
@@ -221,11 +223,11 @@
     }
     .tw-seat.smenu-open .tw-smenu{display:flex;}
     .tw-seat-av{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;letter-spacing:0.5px;color:#fff;}
-    .tw-seat-av.owner{background:linear-gradient(135deg,rgba(245,158,11,0.5),rgba(217,119,6,0.65));border:1.5px solid rgba(245,158,11,0.5);box-shadow:0 0 8px rgba(245,158,11,0.2);}
-    .tw-seat-av.participant{background:linear-gradient(135deg,rgba(99,102,241,0.4),rgba(79,70,229,0.55));border:1.5px solid rgba(99,102,241,0.38);}
-    .tw-seat-av.iris-av {background:linear-gradient(135deg,rgba(16,212,142,0.28),rgba(16,212,142,0.48));border:1.5px solid rgba(16,212,142,0.5);box-shadow:0 0 8px rgba(16,212,142,0.18);}
-    .tw-seat-av.iq-av   {background:linear-gradient(135deg,rgba(34,211,238,0.25),rgba(34,211,238,0.45));border:1.5px solid rgba(34,211,238,0.45);box-shadow:0 0 8px rgba(34,211,238,0.14);}
-    .tw-seat-av.luna-av {background:linear-gradient(135deg,rgba(167,139,250,0.25),rgba(167,139,250,0.46));border:1.5px solid rgba(167,139,250,0.46);box-shadow:0 0 8px rgba(167,139,250,0.18);}
+    .tw-seat-av.owner{background:linear-gradient(135deg,rgba(245,158,11,0.45),rgba(180,90,4,0.70));border:2px solid rgba(245,158,11,0.60);box-shadow:0 0 18px rgba(245,158,11,0.28),inset 0 1px 0 rgba(255,230,100,0.18);}
+    .tw-seat-av.participant{background:linear-gradient(135deg,rgba(99,102,241,0.38),rgba(67,56,202,0.65));border:2px solid rgba(99,102,241,0.55);box-shadow:0 0 14px rgba(99,102,241,0.22),inset 0 1px 0 rgba(180,185,255,0.12);}
+    .tw-seat-av.iris-av {background:linear-gradient(135deg,rgba(16,212,142,0.32),rgba(10,160,110,0.60));border:2px solid rgba(16,212,142,0.70);box-shadow:0 0 22px rgba(16,212,142,0.35),inset 0 1px 0 rgba(100,255,200,0.18);}
+    .tw-seat-av.iq-av   {background:linear-gradient(135deg,rgba(34,211,238,0.30),rgba(8,160,190,0.60));border:2px solid rgba(34,211,238,0.68);box-shadow:0 0 22px rgba(34,211,238,0.32),inset 0 1px 0 rgba(140,240,255,0.18);}
+    .tw-seat-av.luna-av {background:linear-gradient(135deg,rgba(167,139,250,0.32),rgba(109,68,220,0.62));border:2px solid rgba(167,139,250,0.68);box-shadow:0 0 22px rgba(167,139,250,0.35),inset 0 1px 0 rgba(210,190,255,0.18);}
     .tw-seat-footer{padding:0;border-top:none;display:flex;flex-direction:column;justify-content:center;min-width:0;}
     .tw-seat-name{font-size:11px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:1.3;}
     .tw-seat-role{font-size:9px;color:var(--dim);letter-spacing:0.2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:1px;}
@@ -404,34 +406,70 @@
     .tw-rv-lvl-btn{flex:1;padding:6px 0;border-radius:6px;border:1px solid var(--border-s);background:var(--glass);color:var(--dim);font-size:11px;cursor:pointer;text-align:center;transition:all 0.15s;}
     .tw-rv-lvl-btn:hover,.tw-rv-lvl-btn.sel{background:rgba(246,180,0,0.15);border-color:rgba(246,180,0,0.4);color:rgba(246,180,0,0.9);}
 
-    /* === DOSSIER FINAL === */
-    #twReportZone{display:none;margin:8px 16px 16px;border-radius:10px;background:rgba(5,11,30,0.95);border:1.5px solid rgba(16,212,142,0.28);overflow:hidden;}
+    /* === DOSSIER FINAL PREMIUM (P3) === */
+    #twReportZone{display:none;margin:8px 16px 16px;border-radius:12px;background:rgba(8,14,30,0.85);border:1px solid rgba(255,255,255,0.08);overflow:hidden;}
     #twReportZone.on{display:block;}
-    .tw-rpt-bar{display:flex;align-items:center;justify-content:space-between;padding:9px 16px;border-bottom:1px solid rgba(16,212,142,0.14);background:rgba(16,212,142,0.05);}
-    .tw-rpt-bar-title{font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--iris);}
-    .tw-rpt-bar-acts{display:flex;gap:6px;}
-    .tw-rpt-btn{background:none;border:1px solid var(--border-s);color:var(--dim2);border-radius:5px;padding:4px 10px;font-size:9px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;cursor:pointer;transition:all 0.15s;}
-    .tw-rpt-btn:hover{color:var(--text);border-color:var(--dim);}
-    .tw-rpt-btn.iris{border-color:rgba(16,212,142,0.3);color:var(--iris);}
-    .tw-rpt-btn.iris:hover{background:rgba(16,212,142,0.12);}
+    /* SP-1 En-tête premium */
+    .tw-rpt-premium-hdr{padding:20px 24px 16px;background:rgba(2,5,14,0.92);border-bottom:1px solid rgba(255,255,255,0.07);}
+    .tw-rpt-prem-top{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;}
+    .tw-rpt-brand{display:flex;align-items:flex-start;gap:12px;}
+    .tw-rpt-logo-y{width:48px;height:48px;flex-shrink:0;background:transparent;border:none;border-radius:10px;display:flex;align-items:center;justify-content:center;overflow:hidden;margin-top:0;}
+    .tw-rpt-logo-y img{width:48px;height:48px;object-fit:contain;display:block;}
+    .tw-rpt-brand-name{font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:rgba(210,220,240,0.65);line-height:1;margin-bottom:3px;}
+    .tw-rpt-brand-report{font-size:18px;font-weight:700;color:var(--text);letter-spacing:-0.3px;line-height:1.2;}
+    .tw-rpt-brand-line{width:60%;height:1px;background:linear-gradient(90deg,var(--iris),transparent);margin:6px 0 4px;}
+    .tw-rpt-brand-sub{font-size:10px;color:var(--dim2);letter-spacing:0.3px;}
+    .tw-rpt-hdr-btns{display:flex;gap:8px;align-items:center;flex-shrink:0;padding-top:2px;}
+    /* SP-8 Boutons premium */
+    .tw-rpt-btn-primary{background:var(--iris);color:#021808;border:none;border-radius:8px;padding:8px 16px;font-size:11px;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;cursor:pointer;transition:opacity 0.15s;font-family:inherit;}
+    .tw-rpt-btn-primary:hover{opacity:0.85;}
+    .tw-rpt-btn-secondary{background:rgba(255,255,255,0.04);backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,0.12);color:var(--dim);border-radius:8px;padding:8px 16px;font-size:11px;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;cursor:pointer;transition:all 0.15s;font-family:inherit;}
+    .tw-rpt-btn-secondary:hover{background:rgba(255,255,255,0.08);color:var(--text);border-color:rgba(255,255,255,0.20);}
+    /* SP-2 Carte métadonnées glassmorphism */
+    .tw-rpt-meta-card{margin:16px 0 0;padding:14px 18px;background:rgba(12,20,40,0.6);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,0.08);border-radius:12px;}
+    .tw-rpt-meta-row{display:flex;align-items:center;gap:12px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.04);}
+    .tw-rpt-meta-row:last-child{border-bottom:none;padding-bottom:0;}
+    .tw-rpt-meta-row:first-child{padding-top:0;}
+    .tw-rpt-meta-ico{font-size:13px;width:18px;text-align:center;flex-shrink:0;}
+    .tw-rpt-meta-k{font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--dim2);min-width:110px;flex-shrink:0;}
+    .tw-rpt-meta-v{font-size:13px;font-weight:600;color:var(--text);flex:1;}
+    /* SP-3 Titres de section exécutifs */
+    .tw-rpt-sec-hdr{font-size:12px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--iris);margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid rgba(16,212,142,0.15);display:flex;align-items:center;gap:7px;}
+    /* SP-4 Réserves hiérarchisées */
+    .tw-rpt-rsv-card{border-radius:8px;padding:12px 14px;margin-bottom:8px;}
+    .tw-rpt-rsv-card:last-child{margin-bottom:0;}
+    .tw-rpt-rsv-card.rsv-YELLOW{background:rgba(245,158,11,0.05);border-left:3px solid #f59e0b;}
+    .tw-rpt-rsv-card.rsv-ORANGE{background:rgba(249,115,22,0.05);border-left:3px solid #f97316;}
+    .tw-rpt-rsv-card.rsv-RED{background:rgba(239,68,68,0.05);border-left:3px solid #ef4444;}
+    .tw-rpt-rsv-badge{display:inline-block;font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;padding:2px 8px;border-radius:10px;margin-bottom:6px;}
+    .tw-rpt-rsv-badge.rsv-YELLOW{background:rgba(245,158,11,0.15);color:#f59e0b;border:1px solid rgba(245,158,11,0.30);}
+    .tw-rpt-rsv-badge.rsv-ORANGE{background:rgba(249,115,22,0.15);color:#f97316;border:1px solid rgba(249,115,22,0.30);}
+    .tw-rpt-rsv-badge.rsv-RED{background:rgba(239,68,68,0.15);color:#ef4444;border:1px solid rgba(239,68,68,0.30);}
+    .tw-rpt-rsv-title{font-size:13px;font-weight:600;color:var(--text);margin-bottom:4px;}
+    .tw-rpt-rsv-body{font-size:12px;color:var(--dim);line-height:1.7;}
+    .tw-rpt-rsv-override{font-size:10px;color:#f88;margin-top:4px;}
+    /* SP-5 Synthèse Iris prestige */
+    .tw-rpt-synth{padding:18px 20px;border-radius:10px;background:rgba(16,212,142,0.06);border:1px solid rgba(16,212,142,0.25);font-size:13px;color:var(--text);line-height:1.85;box-shadow:0 4px 20px rgba(16,212,142,0.08);}
+    .tw-rpt-synth-hdr{display:flex;align-items:center;gap:8px;margin-bottom:10px;}
+    .tw-rpt-synth-lbl{font-size:12px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--iris);}
+    .tw-rpt-synth-sub{font-size:10px;font-style:italic;color:var(--dim);margin-top:8px;}
+    /* SP-6 Carte Décision imposante */
+    .tw-rpt-decision{padding:16px;border-radius:10px;background:rgba(16,212,142,0.08);border:1px solid rgba(16,212,142,0.35);}
+    .tw-rpt-dec-badge{display:inline-flex;align-items:center;gap:5px;font-size:9px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--iris);background:rgba(16,212,142,0.12);border:1px solid rgba(16,212,142,0.28);border-radius:10px;padding:3px 10px;margin-bottom:10px;}
+    .tw-rpt-dec-text{font-size:14px;font-weight:600;color:var(--text);line-height:1.6;margin-bottom:8px;}
+    .tw-rpt-dec-meta{font-size:10px;color:var(--dim2);}
+    /* SP-7 Listes cartes lignes */
+    .tw-rpt-list{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:4px;}
+    .tw-rpt-list li{display:flex;align-items:flex-start;gap:10px;padding:8px 12px;border-radius:6px;background:rgba(255,255,255,0.02);font-size:12px;color:var(--text);line-height:1.5;transition:background 0.15s;}
+    .tw-rpt-list li:hover{background:rgba(255,255,255,0.04);}
+    .tw-rpt-list li .ico{flex-shrink:0;width:16px;display:flex;align-items:center;justify-content:center;margin-top:1px;}
+    .tw-rpt-list li .lbl{flex:1;}
+    .tw-rpt-list li .meta{font-size:9px;color:var(--dim2);flex-shrink:0;margin-left:8px;align-self:center;}
+    /* Shared */
     .tw-rpt-body{padding:20px 24px;}
-    .tw-rpt-hdr{font-size:11px;color:var(--iris);font-family:monospace;line-height:1.9;margin-bottom:16px;}
-    .tw-rpt-hdr-sep{border:none;border-top:1px solid rgba(16,212,142,0.2);margin:4px 0;}
-    .tw-rpt-hdr-field{display:flex;gap:8px;font-size:11px;font-family:monospace;}
-    .tw-rpt-hdr-k{color:var(--dim2);min-width:100px;}
-    .tw-rpt-hdr-v{color:var(--text);}
-    .tw-rpt-section{margin-bottom:22px;}
-    .tw-rpt-sec-hdr{font-size:9px;font-weight:700;letter-spacing:1.4px;text-transform:uppercase;color:var(--dim2);margin-bottom:8px;padding-bottom:5px;border-bottom:1px solid var(--border);}
+    .tw-rpt-section{margin-bottom:24px;}
     .tw-rpt-text{font-size:12px;color:var(--text);line-height:1.75;}
     .tw-rpt-sub{font-size:10px;color:var(--dim2);margin-top:4px;}
-    .tw-rpt-list{margin:0;padding:0;list-style:none;}
-    .tw-rpt-list li{display:flex;align-items:flex-start;gap:8px;padding:5px 0;border-bottom:1px solid rgba(255,255,255,0.04);font-size:11px;color:var(--text);line-height:1.5;}
-    .tw-rpt-list li:last-child{border-bottom:none;}
-    .tw-rpt-list li .ico{flex-shrink:0;width:18px;text-align:center;font-size:12px;}
-    .tw-rpt-list li .lbl{flex:1;}
-    .tw-rpt-list li .meta{font-size:9px;color:var(--dim2);flex-shrink:0;margin-left:8px;}
-    .tw-rpt-decision{padding:12px 14px;border-radius:7px;background:rgba(16,212,142,0.05);border:1px solid rgba(16,212,142,0.2);font-size:12px;color:var(--text);line-height:1.7;}
-    .tw-rpt-synth{padding:14px 16px;border-radius:8px;background:rgba(16,212,142,0.04);border:1px solid rgba(16,212,142,0.15);font-size:12px;color:var(--dim);line-height:1.85;font-style:italic;}
 
     /* === SPECTATORS === */
     #twSpecRow{
@@ -642,6 +680,17 @@
     .tw-pres-btn.mic.off{opacity:0.4;}
     .tw-pres-btn.hand{background:var(--glass);border-color:var(--border-s);color:var(--dim);}
     .tw-pres-btn.hand.raised{background:rgba(245,158,11,0.1);border-color:rgba(245,158,11,0.35);color:var(--amber);}
+    .tw-pres-btn.screen{background:rgba(255,255,255,0.03);border-color:rgba(255,255,255,0.14);color:var(--dim);}
+    .tw-pres-btn.screen.on{background:rgba(16,185,129,0.12);border-color:rgba(16,185,129,0.40);color:var(--iris);}
+    /* === PARTAGE D'ÉCRAN === */
+    #twScreenZone{display:none;position:absolute;inset:0;z-index:20;background:rgba(2,5,14,0.97);flex-direction:column;}
+    #twScreenZone.on{display:flex;}
+    .tw-scr-hdr{flex-shrink:0;height:44px;display:flex;align-items:center;justify-content:space-between;padding:0 18px;background:rgba(2,5,14,0.98);border-bottom:1px solid rgba(16,212,142,0.18);}
+    .tw-scr-lbl{display:flex;align-items:center;gap:8px;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--iris);}
+    .tw-scr-dot{width:7px;height:7px;border-radius:50%;background:var(--iris);box-shadow:0 0 8px var(--iris);animation:statusPulse 2s ease-in-out infinite;}
+    #twScreenVideo{flex:1;width:100%;object-fit:contain;background:#000;display:block;}
+    .tw-scr-stop{background:rgba(244,63,94,0.14);border:1px solid rgba(244,63,94,0.35);color:#f43f5e;border-radius:7px;padding:6px 14px;font-size:10px;font-weight:700;letter-spacing:0.6px;text-transform:uppercase;cursor:pointer;font-family:inherit;transition:background 0.15s;}
+    .tw-scr-stop:hover{background:rgba(244,63,94,0.30);}
     .tw-ws-dot{font-size:9px;color:var(--dim2);flex-shrink:0;transition:color 0.3s;}
     .tw-ws-dot.conn{color:var(--iris);}
     /* ── Propositions de travail — ancien CSS conservé pour compat ── */
@@ -752,8 +801,9 @@
       padding:10px 16px 12px;
       gap:12px;
       align-items:flex-start;
-      background:rgba(3,6,18,0.65);
-      backdrop-filter:blur(10px);
+      background:rgba(2,5,16,0.82);
+      backdrop-filter:blur(16px);
+      border-top:1px solid rgba(180,195,220,0.07);
     }
     .tw-prow.bottom .tw-seat{
       flex-direction:column;
@@ -762,19 +812,26 @@
       padding:10px 8px 10px;
       gap:6px;
       border-radius:14px;
-      background:rgba(12,20,40,0.72);
-      border:1px solid rgba(255,255,255,0.08);
-      backdrop-filter:blur(8px);
-      box-shadow:0 4px 16px rgba(0,0,0,0.4),inset 0 1px 0 rgba(255,255,255,0.04);
+      background:linear-gradient(155deg,rgba(16,24,52,0.9),rgba(8,14,36,0.95));
+      border:1px solid rgba(180,195,220,0.13);
+      backdrop-filter:blur(12px);
+      box-shadow:0 6px 24px rgba(0,0,0,0.55),inset 0 1px 0 rgba(255,255,255,0.07),inset 0 -1px 0 rgba(0,0,0,0.25);
+      position:relative;
+      transition:all 0.22s;
+    }
+    .tw-prow.bottom .tw-seat::before{
+      content:'';position:absolute;top:0;left:0;right:0;height:1px;border-radius:14px 14px 0 0;
+      background:linear-gradient(90deg,transparent,rgba(200,215,245,0.22),transparent);
     }
     .tw-prow.bottom .tw-seat:hover{
-      background:rgba(18,28,55,0.8);
-      border-color:rgba(255,255,255,0.12);
-      transform:translateY(-2px);
+      background:linear-gradient(155deg,rgba(22,34,68,0.94),rgba(12,20,44,0.98));
+      border-color:rgba(180,195,220,0.22);
+      transform:translateY(-3px);
+      box-shadow:0 10px 32px rgba(0,0,0,0.6),0 0 22px rgba(139,92,246,0.1),inset 0 1px 0 rgba(255,255,255,0.10);
     }
     .tw-prow.bottom .tw-seat.speaking{
-      border-color:rgba(16,212,142,0.5);
-      box-shadow:0 0 20px rgba(16,212,142,0.15),0 4px 16px rgba(0,0,0,0.4);
+      border-color:rgba(16,212,142,0.6);
+      box-shadow:0 0 0 1px rgba(16,212,142,0.18),0 0 30px rgba(16,212,142,0.28),0 6px 24px rgba(0,0,0,0.5);
     }
     .tw-prow.bottom .tw-seat-cam{
       width:100px;height:100px;
@@ -785,7 +842,7 @@
       font-size:26px;
       font-weight:800;
       letter-spacing:1px;
-      box-shadow:0 4px 12px rgba(0,0,0,0.3);
+      box-shadow:0 4px 16px rgba(0,0,0,0.45),inset 0 1px 0 rgba(255,255,255,0.1);
       overflow:hidden;
     }
     .tw-prow.bottom .tw-seat-av img{
@@ -836,11 +893,7 @@
   <!-- HEADER -->
   <header id="twHeader">
     <div class="tw-logomark">
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-        <path d="M12 2L17.5 9.5H20L12 22L4 9.5H6.5L12 2Z" fill="none" stroke="rgba(139,92,246,0.78)" stroke-width="1.3" stroke-linejoin="round"/>
-        <path d="M12 2L17.5 9.5H6.5L12 2Z" fill="rgba(16,185,129,0.44)"/>
-        <circle cx="12" cy="12" r="2.8" fill="rgba(139,92,246,0.72)"/>
-      </svg>
+      <img src="/static/assets/yawatch_logo.png" alt="YAWatch">
     </div>
     <div>
       <div class="tw-logotext">YAWatch Industries</div>
@@ -921,6 +974,15 @@
       <div id="twReservesZone"></div>
       <div id="twReportZone"></div>
 
+      <!-- PARTAGE D'ÉCRAN -->
+      <div id="twScreenZone">
+        <div class="tw-scr-hdr">
+          <span class="tw-scr-lbl"><span class="tw-scr-dot"></span>Partage d'écran actif</span>
+          <button class="tw-scr-stop" onclick="stopScreenShare()">Arrêter le partage</button>
+        </div>
+        <video id="twScreenVideo" autoplay muted playsinline></video>
+      </div>
+
       <div id="twGrid"></div>
       <div id="twEmptyState">
         <svg class="tw-es-orb" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -985,6 +1047,7 @@
     <div id="twPresenceControls">
       <button class="tw-pres-btn cam off" id="btnCam" onclick="toggleCam()">Caméra</button>
       <button class="tw-pres-btn mic off" id="btnMic" onclick="toggleMic()">Micro</button>
+      <button class="tw-pres-btn screen" id="btnScreen" onclick="toggleScreen()">Partager</button>
       <button class="tw-pres-btn hand" id="btnHand" onclick="raiseHand()">✋</button>
     </div>
     <span class="tw-ws-dot" id="twWsDot" title="Déconnecté">●</span>
@@ -2267,13 +2330,6 @@ function showReport(){
   rz.innerHTML='';
   rz.classList.add('on');
   var rpt=TW.report;
-  var bar='<div class="tw-rpt-bar">'+
-    '<span class="tw-rpt-bar-title">📄 Dossier final — snapshot</span>'+
-    '<div class="tw-rpt-bar-acts">'+
-      '<button class="tw-rpt-btn iris" onclick="copyReport()">Copier le texte</button>'+
-      '<button class="tw-rpt-btn" onclick="hideReport()">Retour au workspace</button>'+
-    '</div>'+
-  '</div>';
   var b=TW.brief||{};
   var d=TW.decision||{};
   var ap=TW.activeProposalId?TW.proposals.find(function(p){return p.id===TW.activeProposalId;}):null;
@@ -2281,99 +2337,148 @@ function showReport(){
   var owner=d.author||TW.userName||'Owner';
   var mission=b.title||d.question||'—';
   var dateStr=rpt.generated_at?new Date(rpt.generated_at).toLocaleDateString('fr-FR',{day:'2-digit',month:'long',year:'numeric'}):new Date().toLocaleDateString('fr-FR',{day:'2-digit',month:'long',year:'numeric'});
-  var icons={'YELLOW':'🟨','ORANGE':'🟧','RED':'🟥'};
-  var statusLbl={'OPEN':'Ouverte','ACKNOWLEDGED':'Accusé réception','OVERRIDDEN':'Passé outre','RESOLVED':'Résolue'};
-  var actIco={'TODO':'☐','IN_PROGRESS':'◐','DONE':'☑','CANCELLED':'⊘'};
 
-  var body='<div class="tw-rpt-body">'+
-    /* En-tête */
-    '<div class="tw-rpt-section">'+
-      '<div class="tw-rpt-hdr">'+
-        '<div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;margin-bottom:4px">COMPTE-RENDU IRIS</div>'+
-        '<hr class="tw-rpt-hdr-sep">'+
-        '<div class="tw-rpt-hdr-field"><span class="tw-rpt-hdr-k">Mission</span><span class="tw-rpt-hdr-v">'+_e(mission)+'</span></div>'+
-        '<div class="tw-rpt-hdr-field"><span class="tw-rpt-hdr-k">Owner</span><span class="tw-rpt-hdr-v">'+_e(owner)+'</span></div>'+
-        '<div class="tw-rpt-hdr-field"><span class="tw-rpt-hdr-k">Date</span><span class="tw-rpt-hdr-v">'+_e(dateStr)+'</span></div>'+
-        '<div class="tw-rpt-hdr-field"><span class="tw-rpt-hdr-k">Version</span><span class="tw-rpt-hdr-v">1.0 (snapshot)</span></div>'+
-        '<div class="tw-rpt-hdr-field"><span class="tw-rpt-hdr-k">Participants</span><span class="tw-rpt-hdr-v">Iris · IQ · Luna</span></div>'+
-        '<hr class="tw-rpt-hdr-sep" style="margin-top:8px">'+
+  /* SVG icon library */
+  var ICO={
+    y:'<svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M3 3L9 9L15 3" stroke="rgba(16,185,129,0.9)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><line x1="9" y1="9" x2="9" y2="16" stroke="rgba(139,92,246,0.9)" stroke-width="2.2" stroke-linecap="round"/></svg>',
+    question:'<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="5.5" stroke="currentColor" stroke-width="1.2"/><path d="M5.3 5.4a1.8 1.8 0 013.1 1.2C8.4 7.4 7 7.8 7 8.8" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/><circle cx="7" cy="10.3" r="0.75" fill="currentColor"/></svg>',
+    props:'<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1.5c-2.5 0-4.5 2-4.5 4.5 0 1.6.8 3 2 3.8V11h5v-1.2c1.2-.8 2-2.2 2-3.8 0-2.5-2-4.5-4.5-4.5z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/><path d="M5.5 12.5h3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>',
+    decision:'<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="5.5" stroke="currentColor" stroke-width="1.2"/><path d="M4.5 7l2 2 3-3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    actions:'<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3 4h5.5M3 7h5.5M3 10h5.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/><path d="M10 6l1 1 2-2" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    reserves:'<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1.5L12.8 12H1.2L7 1.5z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/><path d="M7 5.5v3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><circle cx="7" cy="10.1" r="0.75" fill="currentColor"/></svg>',
+    sources:'<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M5 9.5a3 3 0 010-5L6.5 3a3 3 0 014.2 4.2L9 8.8" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/><path d="M9 4.5a3 3 0 010 5L7.5 11a3 3 0 01-4.2-4.2L5 5.2" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>',
+    synth:'<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1.5L8.6 5l3.7.5-2.7 2.6.6 3.7L7 10l-3.2 1.8.6-3.7L1.7 5.5l3.7-.5z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg>',
+    check:'<svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M2 5l2.5 2.5L8 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    dot:'<svg width="12" height="12" viewBox="0 0 12 12" fill="none"><circle cx="6" cy="6" r="2" stroke="currentColor" stroke-width="1.5"/></svg>',
+    active:'<svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor"><circle cx="6" cy="6" r="3"/></svg>',
+    actTodo:'<svg width="12" height="12" viewBox="0 0 12 12" fill="none"><rect x="1.5" y="1.5" width="9" height="9" rx="2" stroke="currentColor" stroke-width="1.3"/></svg>',
+    actProg:'<svg width="12" height="12" viewBox="0 0 12 12" fill="none"><rect x="1.5" y="1.5" width="9" height="9" rx="2" stroke="currentColor" stroke-width="1.3"/><path d="M4 6.5l1.5 1.5L8 4.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" opacity="0.6"/></svg>',
+    actDone:'<svg width="12" height="12" viewBox="0 0 12 12" fill="none"><rect x="1.5" y="1.5" width="9" height="9" rx="2" stroke="currentColor" stroke-width="1.3"/><path d="M3.5 6l2 2L8.5 4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    actCanc:'<svg width="12" height="12" viewBox="0 0 12 12" fill="none"><rect x="1.5" y="1.5" width="9" height="9" rx="2" stroke="currentColor" stroke-width="1.3" opacity="0.45"/><path d="M4.5 4.5l3 3M7.5 4.5l-3 3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" opacity="0.45"/></svg>'
+  };
+  function secHdr(ico,label){
+    return '<div class="tw-rpt-sec-hdr">'+ICO[ico]+'<span>'+label+'</span></div>';
+  }
+
+  /* SP-1 En-tête premium YAWATCH */
+  var bar='<div class="tw-rpt-premium-hdr">'+
+    '<div class="tw-rpt-prem-top">'+
+      '<div class="tw-rpt-brand">'+
+        '<div class="tw-rpt-logo-y"><img src="/static/assets/yawatch_logo.png" alt="YAWatch"></div>'+
+        '<div>'+
+          '<div class="tw-rpt-brand-name">YAWATCH INDUSTRIES</div>'+
+          '<div class="tw-rpt-brand-report">IRIS WORKSPACE REPORT</div>'+
+          '<div class="tw-rpt-brand-line"></div>'+
+          '<div class="tw-rpt-brand-sub">Dossier final — snapshot</div>'+
+        '</div>'+
+      '</div>'+
+      '<div class="tw-rpt-hdr-btns">'+
+        '<button class="tw-rpt-btn-primary" onclick="copyReport()">Copier le texte</button>'+
+        '<button class="tw-rpt-btn-secondary" onclick="hideReport()">Retour au workspace</button>'+
       '</div>'+
     '</div>'+
-    /* Question */
+    /* SP-2 Carte métadonnées glassmorphism */
+    '<div class="tw-rpt-meta-card">'+
+      '<div class="tw-rpt-meta-row"><span class="tw-rpt-meta-ico">📋</span><span class="tw-rpt-meta-k">Mission</span><span class="tw-rpt-meta-v">'+_e(mission)+'</span></div>'+
+      '<div class="tw-rpt-meta-row"><span class="tw-rpt-meta-ico">👤</span><span class="tw-rpt-meta-k">Owner</span><span class="tw-rpt-meta-v">'+_e(owner)+'</span></div>'+
+      '<div class="tw-rpt-meta-row"><span class="tw-rpt-meta-ico">📅</span><span class="tw-rpt-meta-k">Date</span><span class="tw-rpt-meta-v">'+_e(dateStr)+'</span></div>'+
+      '<div class="tw-rpt-meta-row"><span class="tw-rpt-meta-ico">🔖</span><span class="tw-rpt-meta-k">Version</span><span class="tw-rpt-meta-v">1.0 (snapshot)</span></div>'+
+      '<div class="tw-rpt-meta-row"><span class="tw-rpt-meta-ico">🤝</span><span class="tw-rpt-meta-k">Participants</span><span class="tw-rpt-meta-v">Iris \xB7 IQ \xB7 Luna</span></div>'+
+    '</div>'+
+  '</div>';
+
+  var body='<div class="tw-rpt-body">'+
+    /* Question SP-3 */
     '<div class="tw-rpt-section">'+
-      '<div class="tw-rpt-sec-hdr">❓ Question</div>'+
+      secHdr('question','Question')+
       '<div class="tw-rpt-text">'+_e(mission)+'</div>'+
     '</div>'+
-    /* Propositions */
+    /* Propositions SP-3 + SP-7 */
     '<div class="tw-rpt-section">'+
-      '<div class="tw-rpt-sec-hdr">💡 Propositions étudiées</div>'+
+      secHdr('props','Propositions \xe9tudi\xe9es')+
       (allProps.length?
-        '<ul class="tw-rpt-list">'+allProps.map(function(p,i){
-          var isActive=p.id===TW.activeProposalId;
+        '<ul class="tw-rpt-list">'+allProps.map(function(p){
+          var isAct=p.id===TW.activeProposalId;
           return '<li>'+
-            '<span class="ico">'+(isActive?'⚡':'·')+'</span>'+
-            '<span class="lbl">'+_e(p.text||'—')+(isActive?' <span style="font-size:9px;color:var(--iris);font-weight:700;margin-left:4px">RETENUE</span>':'')+'</span>'+
+            '<span class="ico" style="color:'+(isAct?'var(--iris)':'var(--dim2)')+'">'+
+              (isAct?ICO.active:ICO.dot)+
+            '</span>'+
+            '<span class="lbl">'+_e(p.text||'—')+
+              (isAct?' <span style="font-size:9px;font-weight:700;color:var(--iris);letter-spacing:0.5px;margin-left:6px">RETENUE</span>':'')+
+            '</span>'+
           '</li>';
-        }).join(''):
+        }).join('')+'</ul>':
         '<div class="tw-rpt-sub">Aucune proposition soumise.</div>')+
-      '</ul>'+
     '</div>'+
-    /* Proposition retenue */
-    (ap?
-      '<div class="tw-rpt-section">'+
-        '<div class="tw-rpt-sec-hdr">⚡ Proposition retenue</div>'+
-        '<div class="tw-rpt-text" style="color:var(--iris)">'+_e(ap.text||'—')+'</div>'+
-      '</div>':'')+
-    /* Sources */
+    /* Sources SP-3 + SP-7 */
     '<div class="tw-rpt-section">'+
-      '<div class="tw-rpt-sec-hdr">📚 Sources analysées</div>'+
-      '<div class="tw-rpt-sub" style="margin-bottom:8px">Résumé : '+TW.sources.length+' source'+(TW.sources.length>1?'s':'')+' analysée'+(TW.sources.length>1?'s':'')+'</div>'+
+      secHdr('sources','Sources analys\xe9es')+
+      '<div class="tw-rpt-sub" style="margin-bottom:8px">'+TW.sources.length+' source'+(TW.sources.length>1?'s':'')+' analys\xe9e'+(TW.sources.length>1?'s':'')+'</div>'+
       (TW.sources.length?
         '<ul class="tw-rpt-list">'+TW.sources.map(function(s,i){
-          return '<li><span class="ico">'+(i+1)+'.</span><span class="lbl">'+_e(s.title||s.name||'Source '+(i+1))+'</span></li>';
+          return '<li>'+
+            '<span class="ico" style="color:var(--dim2);font-size:10px;font-weight:700;width:16px;text-align:center">'+(i+1)+'</span>'+
+            '<span class="lbl">'+_e(s.title||s.name||'Source '+(i+1))+'</span>'+
+          '</li>';
         }).join('')+'</ul>':
-        '<div class="tw-rpt-sub">Aucune source ajoutée.</div>')+
+        '<div class="tw-rpt-sub">Aucune source ajout\xe9e.</div>')+
     '</div>'+
-    /* Décision */
+    /* Décision SP-3 + SP-6 */
     '<div class="tw-rpt-section">'+
-      '<div class="tw-rpt-sec-hdr">🎯 Décision</div>'+
-      '<div class="tw-rpt-decision">'+_e(d.text||'—')+'</div>'+
-      '<div class="tw-rpt-sub" style="margin-top:6px">Date : '+(d.date||'—')+' · Owner : '+_e(owner)+'</div>'+
+      secHdr('decision','D\xe9cision')+
+      '<div class="tw-rpt-decision">'+
+        '<div class="tw-rpt-dec-badge">'+ICO.check+'<span>D\xc9CISION VALID\xc9E</span></div>'+
+        '<div class="tw-rpt-dec-text">'+_e(d.text||'—')+'</div>'+
+        '<div class="tw-rpt-dec-meta">Date\xa0: '+_e(d.date||'—')+' \xb7 Owner\xa0: '+_e(owner)+'</div>'+
+      '</div>'+
     '</div>'+
-    /* Actions */
+    /* Actions SP-3 + SP-7 */
     '<div class="tw-rpt-section">'+
-      '<div class="tw-rpt-sec-hdr">📋 Actions</div>'+
+      secHdr('actions','Actions')+
       (TW.actions.length?
         '<ul class="tw-rpt-list">'+TW.actions.map(function(a){
+          var icoMap={TODO:ICO.actTodo,IN_PROGRESS:ICO.actProg,DONE:ICO.actDone,CANCELLED:ICO.actCanc};
+          var colMap={TODO:'var(--dim2)',IN_PROGRESS:'var(--iq)',DONE:'var(--iris)',CANCELLED:'var(--dim2)'};
           return '<li>'+
-            '<span class="ico">'+(actIco[a.status]||'☐')+'</span>'+
+            '<span class="ico" style="color:'+(colMap[a.status]||'var(--dim2)')+'">'+
+              (icoMap[a.status]||ICO.actTodo)+
+            '</span>'+
             '<span class="lbl">'+_e(a.text||'—')+'</span>'+
             '<span class="meta">'+_e(a.assigned_to||'—')+'</span>'+
           '</li>';
         }).join('')+'</ul>':
-        '<div class="tw-rpt-sub">Aucune action définie.</div>')+
+        '<div class="tw-rpt-sub">Aucune action d\xe9finie.</div>')+
     '</div>'+
-    /* Réserves */
+    /* Réserves SP-3 + SP-4 */
     '<div class="tw-rpt-section">'+
-      '<div class="tw-rpt-sec-hdr">⚠️ Réserves</div>'+
+      secHdr('reserves','R\xe9serves')+
       (TW.reserves.length?
-        '<ul class="tw-rpt-list">'+TW.reserves.map(function(r){
-          return '<li style="flex-direction:column;align-items:flex-start;gap:2px">'+
-            '<div style="display:flex;align-items:center;gap:6px">'+
-              '<span class="ico">'+(icons[r.level]||'🟨')+'</span>'+
-              '<span style="font-size:12px;font-weight:600;color:var(--text)">'+_e(r.title||'—')+'</span>'+
-              '<span class="tw-rv-status-tag '+(r.status||'OPEN')+'">'+_e(statusLbl[r.status]||r.status||'—')+'</span>'+
+        '<div>'+TW.reserves.map(function(r){
+          var lvl=r.level||'YELLOW';
+          var lbl={YELLOW:'ATTENTION',ORANGE:'R\xc9SERVE',RED:'CRITIQUE'}[lvl]||lvl;
+          return '<div class="tw-rpt-rsv-card rsv-'+lvl+'">'+
+            '<div class="tw-rpt-rsv-badge rsv-'+lvl+'">'+lbl+'</div>'+
+            '<div class="tw-rpt-rsv-title">'+_e(r.title||'—')+'</div>'+
+            '<div class="tw-rpt-rsv-body">'+
+              (r.description?_e(r.description):'')+
+              (r.author?' <span style="font-size:9px;color:var(--dim2)">— '+_e(r.author)+'</span>':'')+
             '</div>'+
-            '<div class="meta" style="margin:0 0 0 24px">Auteur : '+_e(r.author||'—')+(r.description?' · '+_e(r.description):'')+'</div>'+
-            (r.override_decision?'<div style="font-size:9px;color:#f88;margin-left:24px">Décision de passage : '+_e(r.override_decision)+'</div>':'')+
-          '</li>';
-        }).join('')+'</ul>':
-        '<div class="tw-rpt-sub">Aucune réserve signalée.</div>')+
+            (r.override_decision?'<div class="tw-rpt-rsv-override">D\xe9cision de passage\xa0: '+_e(r.override_decision)+'</div>':'')+
+          '</div>';
+        }).join('')+'</div>':
+        '<div class="tw-rpt-sub">Aucune r\xe9serve signal\xe9e.</div>')+
     '</div>'+
-    /* Synthèse Iris */
+    /* Synthèse Iris SP-3 + SP-5 */
     '<div class="tw-rpt-section">'+
-      '<div class="tw-rpt-sec-hdr">🧠 Synthèse Iris</div>'+
-      '<div class="tw-rpt-synth">'+_buildSynthesisHtml(ap,allProps,TW.sources.length)+'</div>'+
+      secHdr('synth','Synth\xe8se Iris')+
+      '<div class="tw-rpt-synth">'+
+        '<div class="tw-rpt-synth-hdr">'+
+          '<span style="color:var(--iris)">'+ICO.synth+'</span>'+
+          '<span class="tw-rpt-synth-lbl">SYNTH\xc8SE IRIS</span>'+
+        '</div>'+
+        '<div>'+_buildSynthesisHtml(ap,allProps,TW.sources.length)+'</div>'+
+        '<div class="tw-rpt-synth-sub">Rapport g\xe9n\xe9r\xe9 par Iris</div>'+
+      '</div>'+
     '</div>'+
   '</div>';
 
@@ -2974,7 +3079,10 @@ function _updateSeatCam(uid,cam,mic){
    ============================================================ */
 function startCamera(){
   if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia)return;
-  navigator.mediaDevices.getUserMedia({video:true,audio:true})
+  navigator.mediaDevices.getUserMedia({
+    video:{facingMode:'user',width:{ideal:1280},height:{ideal:720}},
+    audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true,sampleRate:48000,channelCount:1,latency:0}
+  })
     .then(function(stream){
       _localStream=stream;
       _camOn=true;_micOn=true;
@@ -3025,6 +3133,80 @@ function toggleMic(){
   _syncPresenceButtons();   /* met aussi à jour l'icône via _updateMicIcon */
   wsSend({type:'cam_status',cam:_camOn,mic:_micOn});
 }
+/* ============================================================
+   PARTAGE D'ÉCRAN
+   ============================================================ */
+var _screenStream=null;
+var _screenOn=false;
+
+function toggleScreen(){
+  if(_screenOn)stopScreenShare();
+  else startScreenShare();
+}
+function startScreenShare(){
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getDisplayMedia){
+    toast('Partage d\'écran non supporté par ce navigateur.',2500);return;
+  }
+  navigator.mediaDevices.getDisplayMedia({
+    video:{cursor:'always',displaySurface:'monitor',frameRate:{ideal:30}},
+    audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}
+  }).then(function(stream){
+    _screenStream=stream;
+    _screenOn=true;
+    /* Afficher en local */
+    var sv=document.getElementById('twScreenVideo');
+    var sz=document.getElementById('twScreenZone');
+    if(sv)sv.srcObject=stream;
+    if(sz)sz.classList.add('on');
+    /* Remplacer la track vidéo dans tous les peers */
+    var vt=stream.getVideoTracks()[0];
+    if(vt){
+      Object.keys(_peers).forEach(function(uid){
+        var pc=_peers[uid];
+        if(!pc||pc.signalingState==='closed')return;
+        var sender=(pc.getSenders?pc.getSenders():[]).find(function(s){return s.track&&s.track.kind==='video';});
+        if(sender)sender.replaceTrack(vt).catch(function(e){console.warn('[SCREEN] replaceTrack',e);});
+      });
+      /* Quand l'utilisateur clique "Stop sharing" dans le navigateur */
+      vt.onended=function(){stopScreenShare();};
+    }
+    /* Informer les peers */
+    wsSend({type:'screen_share',sharing:true,user_id:TW.userId});
+    var btn=document.getElementById('btnScreen');
+    if(btn)btn.className='tw-pres-btn screen on';
+    toast('Partage d\'écran activé.',2000);
+  }).catch(function(err){
+    if(err.name!=='NotAllowedError')toast('Partage d\'écran refusé.',2000);
+    console.warn('[SCREEN] getDisplayMedia:',err.name);
+  });
+}
+function stopScreenShare(){
+  if(!_screenOn)return;
+  _screenOn=false;
+  var sz=document.getElementById('twScreenZone');
+  var sv=document.getElementById('twScreenVideo');
+  if(sz)sz.classList.remove('on');
+  if(sv)sv.srcObject=null;
+  /* Arrêter les tracks */
+  if(_screenStream){_screenStream.getTracks().forEach(function(t){t.stop();});_screenStream=null;}
+  /* Restaurer la track caméra dans les peers */
+  if(_localStream&&_camOn){
+    var vt=_localStream.getVideoTracks()[0];
+    if(vt){
+      Object.keys(_peers).forEach(function(uid){
+        var pc=_peers[uid];
+        if(!pc||pc.signalingState==='closed')return;
+        var sender=(pc.getSenders?pc.getSenders():[]).find(function(s){return s.track&&s.track.kind==='video';});
+        if(sender)sender.replaceTrack(vt).catch(function(e){console.warn('[SCREEN] restoreTrack',e);});
+      });
+    }
+  }
+  wsSend({type:'screen_share',sharing:false,user_id:TW.userId});
+  var btn=document.getElementById('btnScreen');
+  if(btn)btn.className='tw-pres-btn screen';
+  toast('Partage d\'écran arrêté.',1800);
+}
+
 function raiseHand(){
   TW.handRaised=!TW.handRaised;
   wsSend({type:'hand_raise',raised:TW.handRaised});
