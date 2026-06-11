@@ -878,7 +878,12 @@
       background:#10b981;border:2px solid rgba(12,20,40,0.9);
       box-shadow:0 0 6px rgba(16,185,129,0.6);
       z-index:4;
+      transition:background 0.25s,box-shadow 0.25s;
     }
+    /* État : micro seul actif (caméra coupée) */
+    .tw-online-badge.mic-only{background:#f97316;box-shadow:0 0 6px rgba(249,115,22,0.65);}
+    /* État : tout coupé (caméra + micro OFF) */
+    .tw-online-badge.off{background:rgba(180,195,220,0.22);box-shadow:none;}
     /* Slightly larger top seats too */
     .tw-prow.top .tw-seat{height:56px;padding:5px 12px 5px 6px;}
     .tw-prow.top .tw-seat-cam{width:40px;height:40px;}
@@ -1574,7 +1579,7 @@ function makeSeat(p){
   var avHtml=p.avatar?'<img src="'+_e(p.avatar)+'" alt="'+_e(p.ini)+'" loading="lazy">':_e(p.ini);
   d.innerHTML=adminMenu+
     '<div class="tw-seat-halo"></div>'+
-    '<div class="tw-seat-cam"><div class="tw-seat-av '+avCls+'">'+avHtml+'</div><div class="tw-online-badge"></div></div>'+
+    '<div class="tw-seat-cam"><div class="tw-seat-av '+avCls+'">'+avHtml+'</div><div class="tw-online-badge'+(!p.cam&&!p.mic?' off':!p.cam&&p.mic?' mic-only':'')+'"></div></div>'+
     '<div class="tw-seat-footer">'+
       '<div class="tw-seat-name">'+_e(p.name)+'</div>'+
       '<div class="tw-seat-role '+roleCls+'">'+_e(roleLabels[p.role]||p.role)+'</div>'+
@@ -3072,6 +3077,17 @@ function _updateSeatCam(uid,cam,mic){
   var av=document.getElementById('av-'+uid);
   if(v)v.style.display=cam?'block':'none';
   if(av)av.style.display=cam?'none':'flex';
+  /* Sync badge : vert = cam on | orange = mic only | gris = tout off */
+  var seat=document.getElementById('seat-'+uid);
+  if(seat){
+    var badge=seat.querySelector('.tw-online-badge');
+    if(badge){
+      badge.classList.remove('mic-only','off');
+      if(!cam&&!mic)badge.classList.add('off');
+      else if(!cam&&mic)badge.classList.add('mic-only');
+      /* cam on (±mic) = default vert, aucune classe supplémentaire */
+    }
+  }
 }
 
 /* ============================================================
@@ -3228,6 +3244,7 @@ function _syncPresenceButtons(){
   if(bc)bc.className='tw-pres-btn cam'+(_camOn?'':' off');
   if(bm)bm.className='tw-pres-btn mic'+(_micOn?'':' off');
   _updateMicIcon(TW.userId,_micOn);
+  _updateSeatCam(TW.userId,_camOn,_micOn);
 }
 
 var _MIC_SVG='<svg width="8" height="8" viewBox="0 0 10 10" fill="none" stroke="var(--iris)" stroke-width="1.5"><rect x="3" y="1" width="4" height="6" rx="2"/><path d="M2 6.5C2 8.4 8 8.4 8 6.5M5 9v1"/></svg>';
@@ -3482,7 +3499,7 @@ function makeLiveSeat(p){
       '<video id="video-'+p.user_id+'" autoplay playsinline'+(p.isLocal?' muted':'')+' style="width:100%;height:100%;object-fit:cover;display:none;border-radius:6px"></video>'+
       '<div class="tw-seat-av '+avCls+'" id="av-'+p.user_id+'">'+(p.avatar?'<img src="'+_e(p.avatar)+'" alt="'+_e(p.ini)+'" loading="lazy">':_e(p.ini))+'</div>'+
       badgeHtml+
-      '<div class="tw-online-badge"></div>'+
+      '<div class="tw-online-badge'+(!p.cam&&!p.mic?' off':!p.cam&&p.mic?' mic-only':'')+'"></div>'+
     '</div>'+
     '<div class="tw-seat-footer">'+
       '<div class="tw-seat-name">'+_e(p.name||'?')+(p.isLocal?' <span style="color:var(--iris);font-size:7px">(vous)</span>':'')+
