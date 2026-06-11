@@ -3129,14 +3129,42 @@ function startCamera(){
 }
 function toggleCam(){
   if(!_localStream){startCamera();return;}
-  /* Lire la vérité depuis la track */
-  var vt=_localStream.getVideoTracks();
-  var newCam=vt.length>0?!vt[0].enabled:false;
-  vt.forEach(function(t){t.enabled=newCam;});
-  _camOn=newCam;
-  _updateSeatCam(TW.userId,_camOn,_micOn);
-  _syncPresenceButtons();
-  wsSend({type:'cam_status',cam:_camOn,mic:_micOn});
+  if(_camOn){
+    /* Éteindre : stop() libère le hardware → voyant LED s'éteint */
+    var vt=_localStream.getVideoTracks();
+    vt.forEach(function(t){t.stop();_localStream.removeTrack(t);});
+    /* Couper la track dans chaque peer WebRTC */
+    Object.keys(_peers).forEach(function(uid){
+      var pc=_peers[uid];if(!pc||pc.signalingState==='closed')return;
+      var s=(pc.getSenders?pc.getSenders():[]).find(function(s){return s.track&&s.track.kind==='video';});
+      if(s)try{s.replaceTrack(null);}catch(e){}
+    });
+    _camOn=false;
+    _updateSeatCam(TW.userId,false,_micOn);
+    _syncPresenceButtons();
+    wsSend({type:'cam_status',cam:false,mic:_micOn});
+  }else{
+    /* Rallumer : nouveau getUserMedia → voyant LED s'allume */
+    navigator.mediaDevices.getUserMedia({video:{facingMode:'user',width:{ideal:1280},height:{ideal:720}}})
+      .then(function(ns){
+        var newTrack=ns.getVideoTracks()[0];
+        _localStream.addTrack(newTrack);
+        /* Réinjecter la track dans chaque peer */
+        Object.keys(_peers).forEach(function(uid){
+          var pc=_peers[uid];if(!pc||pc.signalingState==='closed')return;
+          var s=(pc.getSenders?pc.getSenders():[]).find(function(s){return !s.track||s.track.kind==='video';});
+          if(s)try{s.replaceTrack(newTrack);}catch(e){}
+        });
+        /* Réafficher la vidéo locale */
+        var v=document.getElementById('video-'+TW.userId);
+        if(v){v.srcObject=null;v.srcObject=_localStream;}
+        _camOn=true;
+        _updateSeatCam(TW.userId,true,_micOn);
+        _syncPresenceButtons();
+        wsSend({type:'cam_status',cam:true,mic:_micOn});
+      })
+      .catch(function(err){console.warn('[CAM] restart failed:',err.name);});
+  }
 }
 function toggleMic(){
   if(!_localStream)return;
