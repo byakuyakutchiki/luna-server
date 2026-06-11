@@ -683,12 +683,18 @@
     .tw-pres-btn.screen{background:rgba(255,255,255,0.03);border-color:rgba(255,255,255,0.14);color:var(--dim);}
     .tw-pres-btn.screen.on{background:rgba(16,185,129,0.12);border-color:rgba(16,185,129,0.40);color:var(--iris);}
     /* === PARTAGE D'ÉCRAN === */
-    #twScreenZone{display:none;position:absolute;inset:0;z-index:20;background:rgba(2,5,14,0.97);flex-direction:column;}
+    /* Bandeau partageur : petit, pas de preview locale (évite le miroir infini) */
+    #twScreenZone{display:none;flex-shrink:0;align-items:center;justify-content:space-between;
+      padding:0 16px;height:38px;background:rgba(16,185,129,0.08);
+      border-bottom:1px solid rgba(16,185,129,0.22);gap:10px;}
     #twScreenZone.on{display:flex;}
+    /* Zone viewer : plein canvas pour voir l'écran d'un autre */
+    #twRemoteScreenZone{display:none;position:absolute;inset:0;z-index:20;background:rgba(2,5,14,0.97);flex-direction:column;}
+    #twRemoteScreenZone.on{display:flex;}
+    #twRemoteScreenVideo{flex:1;width:100%;object-fit:contain;background:#000;display:block;}
     .tw-scr-hdr{flex-shrink:0;height:44px;display:flex;align-items:center;justify-content:space-between;padding:0 18px;background:rgba(2,5,14,0.98);border-bottom:1px solid rgba(16,212,142,0.18);}
     .tw-scr-lbl{display:flex;align-items:center;gap:8px;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--iris);}
     .tw-scr-dot{width:7px;height:7px;border-radius:50%;background:var(--iris);box-shadow:0 0 8px var(--iris);animation:statusPulse 2s ease-in-out infinite;}
-    #twScreenVideo{flex:1;width:100%;object-fit:contain;background:#000;display:block;}
     .tw-scr-stop{background:rgba(244,63,94,0.14);border:1px solid rgba(244,63,94,0.35);color:#f43f5e;border-radius:7px;padding:6px 14px;font-size:10px;font-weight:700;letter-spacing:0.6px;text-transform:uppercase;cursor:pointer;font-family:inherit;transition:background 0.15s;}
     .tw-scr-stop:hover{background:rgba(244,63,94,0.30);}
     .tw-ws-dot{font-size:9px;color:var(--dim2);flex-shrink:0;transition:color 0.3s;}
@@ -979,13 +985,18 @@
       <div id="twReservesZone"></div>
       <div id="twReportZone"></div>
 
-      <!-- PARTAGE D'ÉCRAN -->
+      <!-- BANDEAU partageur (pas de preview locale = pas de miroir) -->
       <div id="twScreenZone">
+        <span class="tw-scr-lbl"><span class="tw-scr-dot"></span>Vous partagez votre écran</span>
+        <button class="tw-scr-stop" onclick="stopScreenShare()">Arrêter</button>
+      </div>
+      <!-- ZONE VIEWER : s'ouvre quand un autre participant partage son écran -->
+      <div id="twRemoteScreenZone">
         <div class="tw-scr-hdr">
-          <span class="tw-scr-lbl"><span class="tw-scr-dot"></span>Partage d'écran actif</span>
-          <button class="tw-scr-stop" onclick="stopScreenShare()">Arrêter le partage</button>
+          <span class="tw-scr-lbl"><span class="tw-scr-dot"></span><span id="twRemoteScreenLbl">Partage d'écran</span></span>
+          <button class="tw-scr-stop" onclick="closeRemoteScreen()">Fermer</button>
         </div>
-        <video id="twScreenVideo" autoplay muted playsinline></video>
+        <video id="twRemoteScreenVideo" autoplay playsinline></video>
       </div>
 
       <div id="twGrid"></div>
@@ -3035,6 +3046,14 @@ function handleWsMessage(msg){
     renderActionsList();
     return;
   }
+  if(t==='screen_share'){
+    /* Un autre participant commence ou arrête son partage d'écran */
+    if(msg.user_id!==TW.userId){
+      var sharerP=_remoteParticipants[msg.user_id];
+      _onRemoteScreenShare(msg.user_id,msg.sharing,sharerP?sharerP.name:null);
+    }
+    return;
+  }
   if(t==='error'){
     toast(msg.msg||'Erreur.',2800);
     return;
@@ -3182,6 +3201,7 @@ function toggleMic(){
    ============================================================ */
 var _screenStream=null;
 var _screenOn=false;
+var _screenSharer=null; /* uid du participant qui partage (null = personne) */
 
 function toggleScreen(){
   if(_screenOn)stopScreenShare();
@@ -3192,15 +3212,13 @@ function startScreenShare(){
     toast('Partage d\'écran non supporté par ce navigateur.',2500);return;
   }
   navigator.mediaDevices.getDisplayMedia({
-    video:{cursor:'always',displaySurface:'monitor',frameRate:{ideal:30}},
-    audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}
+    video:{cursor:'always',frameRate:{ideal:30}},
+    audio:false  /* pas d'audio système pour éviter l'écho */
   }).then(function(stream){
     _screenStream=stream;
     _screenOn=true;
-    /* Afficher en local */
-    var sv=document.getElementById('twScreenVideo');
+    /* PAS de preview locale → élimine le miroir infini */
     var sz=document.getElementById('twScreenZone');
-    if(sv)sv.srcObject=stream;
     if(sz)sz.classList.add('on');
     /* Remplacer la track vidéo dans tous les peers */
     var vt=stream.getVideoTracks()[0];
@@ -3211,16 +3229,15 @@ function startScreenShare(){
         var sender=(pc.getSenders?pc.getSenders():[]).find(function(s){return s.track&&s.track.kind==='video';});
         if(sender)sender.replaceTrack(vt).catch(function(e){console.warn('[SCREEN] replaceTrack',e);});
       });
-      /* Quand l'utilisateur clique "Stop sharing" dans le navigateur */
+      /* Arrêt depuis le bouton natif du navigateur */
       vt.onended=function(){stopScreenShare();};
     }
-    /* Informer les peers */
     wsSend({type:'screen_share',sharing:true,user_id:TW.userId});
     var btn=document.getElementById('btnScreen');
     if(btn)btn.className='tw-pres-btn screen on';
-    toast('Partage d\'écran activé.',2000);
+    toast('Partage d\'écran activé. Les autres participants voient votre écran.',2500);
   }).catch(function(err){
-    if(err.name!=='NotAllowedError')toast('Partage d\'écran refusé.',2000);
+    if(err.name!=='NotAllowedError')toast('Partage annulé.',1800);
     console.warn('[SCREEN] getDisplayMedia:',err.name);
   });
 }
@@ -3228,9 +3245,7 @@ function stopScreenShare(){
   if(!_screenOn)return;
   _screenOn=false;
   var sz=document.getElementById('twScreenZone');
-  var sv=document.getElementById('twScreenVideo');
   if(sz)sz.classList.remove('on');
-  if(sv)sv.srcObject=null;
   /* Arrêter les tracks */
   if(_screenStream){_screenStream.getTracks().forEach(function(t){t.stop();});_screenStream=null;}
   /* Restaurer la track caméra dans les peers */
@@ -3249,6 +3264,30 @@ function stopScreenShare(){
   var btn=document.getElementById('btnScreen');
   if(btn)btn.className='tw-pres-btn screen';
   toast('Partage d\'écran arrêté.',1800);
+}
+/* Appelé quand un autre participant partage/arrête — géré dans handleWsMessage */
+function _onRemoteScreenShare(uid,sharing,name){
+  _screenSharer=sharing?uid:null;
+  var rz=document.getElementById('twRemoteScreenZone');
+  var rv=document.getElementById('twRemoteScreenVideo');
+  var lbl=document.getElementById('twRemoteScreenLbl');
+  if(!rz)return;
+  if(sharing){
+    if(lbl)lbl.textContent=(name||'Participant')+' partage son écran';
+    /* Attacher le stream si déjà disponible */
+    if(rv&&_remoteStreams[uid])rv.srcObject=_remoteStreams[uid];
+    rz.classList.add('on');
+    toast((name||'Quelqu\'un')+' partage son écran.',2000);
+  }else{
+    rz.classList.remove('on');
+    if(rv)rv.srcObject=null;
+    toast('Partage d\'écran terminé.',1800);
+  }
+}
+function closeRemoteScreen(){
+  /* Fermer la vue remote sans arrêter le partage (le partageur continue) */
+  var rz=document.getElementById('twRemoteScreenZone');
+  if(rz)rz.classList.remove('on');
 }
 
 function raiseHand(){
@@ -3486,6 +3525,11 @@ function _attachRemote(uid,stream){
         var av2=document.getElementById('av-'+uid);if(av2)av2.style.display='none';
       }
     },250);
+  }
+  /* Si ce participant partage son écran, alimenter aussi la zone viewer */
+  if(uid===_screenSharer){
+    var rv=document.getElementById('twRemoteScreenVideo');
+    if(rv)rv.srcObject=stream;
   }
 }
 
