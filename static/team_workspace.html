@@ -918,7 +918,7 @@
     </div>
     <span class="tw-hstat" id="twPStat"><strong>4</strong> participants</span>
     <span class="tw-hstat" id="twSStat"><strong>0</strong> sources</span>
-    <button class="tw-hbtn back" onclick="window.location.href='/simli'" style="display:none">← Iris Visio</button>
+    <button class="tw-hbtn back" onclick="window.location.href='/'" style="margin-left:auto;">← Accueil</button>
   </header>
 
   <!-- 3-COLUMN WORKSPACE -->
@@ -946,11 +946,11 @@
     <div id="twCtxBar">
       <div class="tw-ctx-band tw-ctx-l1">
         <span class="tw-ctx-lbl"><svg width="7" height="7" viewBox="0 0 7 7" fill="none" style="flex-shrink:0"><path d="M3.5 0.5L6.5 3.5L3.5 6.5L0.5 3.5Z" stroke="currentColor" stroke-width="1.2"/></svg>Question</span>
-        <span class="tw-ctx-val empty" id="twCtxL1">Aucune question définie — owner, définissez le brief.</span>
+        <span class="tw-ctx-val empty" id="twCtxL1">Définissez votre question stratégique pour commencer.</span>
       </div>
       <div class="tw-ctx-band tw-ctx-l2">
         <span class="tw-ctx-lbl"><svg width="7" height="7" viewBox="0 0 7 7" fill="none" style="flex-shrink:0"><circle cx="3.5" cy="3.5" r="2.5" stroke="currentColor" stroke-width="1.2"/><circle cx="3.5" cy="3.5" r="1" fill="currentColor"/></svg>En cours</span>
-        <span class="tw-ctx-val empty" id="twCtxL2">Aucune proposition active — choisissez une piste.</span>
+        <span class="tw-ctx-val empty" id="twCtxL2">Aucune proposition active — déposez une idée pour commencer.</span>
       </div>
       <div class="tw-ctx-band tw-ctx-l3">
         <span class="tw-ctx-lbl"><svg width="7" height="7" viewBox="0 0 7 7" fill="none" style="flex-shrink:0"><path d="M3.5 1L6 4.5H1Z" stroke="currentColor" stroke-width="1.1" stroke-linejoin="round"/></svg>Étape</span>
@@ -1038,9 +1038,9 @@
           <!-- Y mark -->
           <text x="100" y="108" text-anchor="middle" font-size="22" font-weight="800" fill="rgba(16,185,129,0.9)" font-family="system-ui,sans-serif" letter-spacing="-1">Y</text>
         </svg>
-        <div class="tw-es-msg" id="twEmptyMsg">Aucun élément à afficher pour cette étape.</div>
-        <div class="tw-es-sub" id="twEmptySub">Les objets apparaîtront selon la progression de la réunion.</div>
-        <button class="tw-es-cta" id="twEsCta" onclick="propOpenInput()" style="display:none">
+        <div class="tw-es-msg" id="twEmptyMsg">Votre espace est vide.</div>
+        <div class="tw-es-sub" id="twEmptySub">Déposez une proposition, une source ou une décision pour commencer à construire votre dossier.</div>
+        <button class="tw-es-cta" id="twEsCta" onclick="propOpenInput()">
           <span class="tw-es-cta-plus">+</span>
           Déposer une proposition
         </button>
@@ -1120,10 +1120,10 @@
 <div class="tw-modal" id="setupModal">
   <div class="tw-mbox">
     <div class="tw-mhdr">
-      <div class="tw-mtitle"><div class="tw-mdot i"></div>Rejoindre la salle</div>
+      <div class="tw-mtitle"><div class="tw-mdot i"></div>Iris Workspace</div>
     </div>
     <div class="tw-mbody">
-      <div class="tw-mfield"><label class="tw-mlbl" for="setupName">Votre prénom</label><input id="setupName" class="tw-minput" type="text" placeholder="Alice Martin…" maxlength="60" autocomplete="given-name"></div>
+      <div class="tw-mfield"><label class="tw-mlbl" for="setupName">Votre prénom</label><input id="setupName" class="tw-minput" type="text" placeholder="Votre prénom…" maxlength="60" autocomplete="given-name"></div>
       <div class="tw-mfield" style="margin-top:10px">
         <label class="tw-mlbl">Rôle dans la session</label>
         <div class="tw-type-row" style="margin-top:6px">
@@ -1138,7 +1138,7 @@
       </div>
     </div>
     <div class="tw-mfooter">
-      <button class="tw-mbtn primary iris" onclick="joinRoom()">Rejoindre →</button>
+      <button class="tw-mbtn primary iris" onclick="joinRoom()">Entrer →</button>
     </div>
   </div>
 </div>
@@ -1295,7 +1295,7 @@ var STEPS=[
   {id:10,lbl:'Recommandation Luna'},{id:11,lbl:'Validation'},{id:12,lbl:'Livrable'},{id:13,lbl:'Distribution'},
 ];
 var TW={
-  step:3,brief:null,decision:null,actions:[],reserves:[],report:null,_showReport:false,
+  step:1,brief:null,decision:null,actions:[],reserves:[],report:null,_showReport:false,
   _rvLevel:'YELLOW',_rvOpen:false,_actLog:[],
   objects:[],sources:[],selType:'prop',selTypeK:'p',srcTab:'file',
   sessionId:(function(){
@@ -1455,7 +1455,7 @@ function stepNav(dir){
    ============================================================ */
 var CANVAS_STATE={
   1:{allowed:[],display:{},layout:'welcome',
-     ctxMsg:'Iris prépare la salle stratégique. Activez caméra et micro avant de commencer.',
+     ctxMsg:'Votre espace de réflexion Iris. Brief, collecte, analyse, décision, livrable.',
      iris:'waiting',iq:'waiting',luna:'waiting',canAdd:[]},
   2:{allowed:[],display:{},layout:'brief',
      ctxMsg:'Définissez la mission : titre, objectif et livrable attendu.',
@@ -2066,17 +2066,18 @@ function _showSS(id,html){
   el.classList.add('on');
 }
 function _ssWelcome(){
+  var greet=TW.userName?'Bonjour, <span style="color:var(--iris)">'+_e(TW.userName)+'</span>':'Bienvenue dans <span style="color:var(--iris-violet)">Iris Workspace</span>';
   _showSS('twWelcomeState',
-    '<div class="tw-sstate-icon" style="background:var(--iris-d);border:1px solid rgba(16,212,142,0.25)">'+
-      '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--iris)" stroke-width="1.4">'+
-        '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/><line x1="12" y1="1" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="23"/><line x1="1" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="23" y2="12"/>'+
+    '<div class="tw-sstate-icon" style="background:linear-gradient(135deg,rgba(16,212,142,0.18),rgba(139,92,246,0.14));border:1px solid rgba(16,212,142,0.32);box-shadow:0 0 28px rgba(16,212,142,0.12)">'+
+      '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--iris)" stroke-width="1.4">'+
+        '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>'+
       '</svg>'+
     '</div>'+
-    '<div class="tw-sstate-title">Iris prépare la salle</div>'+
-    '<div class="tw-sstate-body">Vérifiez votre connexion, activez caméra et micro.<br>Quand tout le monde est prêt, passez au Brief de mission.</div>'+
+    '<div class="tw-sstate-title">'+greet+'</div>'+
+    '<div class="tw-sstate-body">Réflexion, décisions, analyse, réserves, dossier final.<br>Démarrez seul ou invitez une équipe — Iris vous guide.</div>'+
     '<div class="tw-sstate-row">'+
-      '<button class="tw-sstate-btn ghost" onclick="toast(\'Caméra disponible en Phase P0.2.\',2400)">Activer caméra</button>'+
-      '<button class="tw-sstate-btn iris" onclick="TW.step=2;renderStepper();applyCanvasState(2);toast(\'Étape 2 — Brief\',1800)">→ Brief de mission</button>'+
+      '<button class="tw-sstate-btn ghost" onclick="TW.step=3;renderStepper();applyCanvasState(3);toast(\'Collecte directe\',1800)">Collecte directe</button>'+
+      '<button class="tw-sstate-btn iris" onclick="TW.step=2;renderStepper();applyCanvasState(2);toast(\'Étape 2 — Brief\',1800)">→ Définir le brief</button>'+
     '</div>'
   );
 }
