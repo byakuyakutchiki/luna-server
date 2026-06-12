@@ -8135,6 +8135,19 @@ async def days_legacy_dashboard_page():
     return JSONResponse(status_code=404, content={"error": "Days Legacy Dashboard non disponible"})
 
 
+@app.get("/prospects")
+async def days_legacy_prospects_page():
+    """Days Legacy Prospect Navigator — point d'entrée métier vers Iris Workspace."""
+    path = os.path.join(STATIC_DIR, "prospects.html")
+    if os.path.isfile(path):
+        return FileResponse(path, headers={
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "Pragma": "no-cache",
+            "Expires": "0",
+        })
+    return JSONResponse(status_code=404, content={"error": "Days Legacy Prospect Navigator non disponible"})
+
+
 # ── Team Workspace — Source Upload ────────────────────────────────────────────
 _TEAM_SESSIONS: dict = {}   # session_id -> list of source metadata
 _TEAM_UPLOAD_DIR = "/tmp/luna_team_uploads"

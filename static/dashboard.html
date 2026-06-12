@@ -273,7 +273,8 @@ function renderSessions(sessions){
       if(s.status==='active'&&v===0&&i===s.phases.findIndex(function(x){return x===0;}))cls='active';
       return '<div class="dl-sess-phase '+cls+'"></div>';
     }).join('');
-    return '<div class="dl-sess" onclick="window.location.href=\'/workspace\'">'
+    var href = (_isDemo && s.id==='s1') ? '/prospects?demo=1' : '/workspace';
+    return '<div class="dl-sess" onclick="window.location.href=\''+href+'\'">'
       +'<div class="dl-sess-head">'
       +'<div class="dl-sess-title">'+s.title+'</div>'
       +'<div class="dl-sess-status '+s.status+'">'+(s.status==='active'?'En cours':s.status==='completed'?'Terminée':'Brouillon')+'</div>'

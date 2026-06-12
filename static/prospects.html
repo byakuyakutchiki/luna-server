@@ -1,0 +1,545 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Days Legacy — Prospect Navigator</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0;}
+    html,body{width:100%;min-height:100dvh;background:#080508;color:#e8dcc8;font-family:system-ui,-apple-system,sans-serif;}
+
+    :root{
+      --gold:#c9a84c;
+      --copper:#b87333;
+      --coral:#e8956d;
+      --mauve:#a87cbd;
+      --sophia:#7b9ed9;
+      --green:rgba(100,200,120,0.85);
+      --red:#d04040;
+      --bg:#080508;
+      --border:rgba(255,220,140,0.09);
+      --border-s:rgba(255,220,140,0.14);
+      --text:#e8dcc8;
+      --dim:rgba(232,220,200,0.50);
+      --dim2:rgba(232,220,200,0.26);
+    }
+
+    /* HEADER */
+    .pn-header{
+      display:flex;align-items:center;gap:14px;padding:14px 24px;
+      background:rgba(10,6,3,0.98);border-bottom:1px solid var(--border-s);
+      box-shadow:0 2px 20px rgba(0,0,0,0.4);
+    }
+    .pn-logo-hex{width:40px;height:40px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+    .pn-logo-text{font-size:11px;font-weight:800;letter-spacing:4px;text-transform:uppercase;color:var(--gold);}
+    .pn-logo-sub{font-size:8px;color:var(--copper);letter-spacing:2px;text-transform:uppercase;margin-top:2px;font-weight:600;}
+    .pn-vsep{width:1px;height:22px;background:var(--border-s);flex-shrink:0;}
+    .pn-title{font-size:13px;font-weight:600;color:var(--text);flex:1;}
+    .pn-badge{padding:3px 10px;border-radius:20px;background:rgba(201,168,76,0.07);border:1px solid rgba(201,168,76,0.18);font-size:7px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--gold);}
+    .pn-hbtn{
+      padding:7px 16px;border-radius:6px;font-size:10px;font-weight:700;letter-spacing:0.8px;
+      text-transform:uppercase;cursor:pointer;transition:all 0.18s;border:1px solid;text-decoration:none;display:inline-block;
+    }
+    .pn-hbtn.back{background:none;border-color:rgba(255,220,140,0.15);color:var(--dim);}
+    .pn-hbtn.back:hover{border-color:rgba(255,220,140,0.30);color:var(--text);}
+
+    /* MAIN */
+    .pn-main{max-width:1100px;margin:0 auto;padding:28px 24px;}
+
+    /* DEMO BANNER */
+    .pn-demo-banner{
+      display:none;align-items:center;gap:12px;padding:10px 18px;
+      background:rgba(201,168,76,0.06);border:1px solid rgba(201,168,76,0.20);border-radius:8px;
+      margin-bottom:24px;font-size:11px;color:var(--dim);
+    }
+    .pn-demo-banner.visible{display:flex;}
+    .pn-demo-banner strong{color:var(--gold);}
+
+    /* SECTION LABEL */
+    .pn-sec-lbl{font-size:7px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--dim2);margin-bottom:14px;display:flex;align-items:center;gap:8px;}
+    .pn-sec-lbl::after{content:'';flex:1;height:1px;background:var(--border);}
+
+    /* SOPHIA SIGNAL STRIP */
+    .pn-sophia-strip{
+      display:flex;align-items:center;gap:14px;padding:14px 20px;
+      background:rgba(123,158,217,0.05);border:1px solid rgba(123,158,217,0.18);
+      border-radius:10px;margin-bottom:24px;
+    }
+    .pn-sophia-av{
+      width:40px;height:40px;border-radius:50%;flex-shrink:0;
+      background:linear-gradient(135deg,rgba(123,158,217,0.35),rgba(80,100,200,0.55));
+      border:2px solid rgba(123,158,217,0.55);box-shadow:0 0 14px rgba(123,158,217,0.22);
+      display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#e0eaff;
+    }
+    .pn-sophia-body{flex:1;}
+    .pn-sophia-name{font-size:10px;font-weight:700;color:var(--sophia);letter-spacing:1px;text-transform:uppercase;margin-bottom:3px;}
+    .pn-sophia-msg{font-size:12px;color:var(--text);line-height:1.5;}
+    .pn-sophia-time{font-size:9px;color:var(--dim2);flex-shrink:0;}
+    .pn-dot-live{width:6px;height:6px;border-radius:50%;background:var(--green);box-shadow:0 0 6px rgba(100,200,120,0.6);flex-shrink:0;}
+
+    /* PROSPECT CARDS */
+    .pn-prospect-grid{display:flex;flex-direction:column;gap:12px;margin-bottom:32px;}
+    .pn-prospect{
+      background:rgba(255,248,235,0.02);border:1px solid var(--border);border-radius:12px;
+      padding:20px 22px;transition:all 0.2s;
+    }
+    .pn-prospect.active{
+      background:rgba(201,168,76,0.04);border-color:rgba(201,168,76,0.22);
+      box-shadow:0 0 30px rgba(201,168,76,0.06);
+    }
+    .pn-prospect.greyed{opacity:0.40;}
+    .pn-prospect-head{display:flex;align-items:flex-start;gap:14px;margin-bottom:14px;}
+    .pn-p-av{
+      width:48px;height:48px;border-radius:50%;flex-shrink:0;
+      display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;
+    }
+    .pn-p-av.priority{
+      background:linear-gradient(135deg,rgba(201,168,76,0.32),rgba(184,115,51,0.55));
+      border:2px solid rgba(201,168,76,0.60);box-shadow:0 0 16px rgba(201,168,76,0.28);color:#e8dcc8;
+    }
+    .pn-p-av.waiting{background:rgba(232,220,200,0.06);border:2px solid rgba(232,220,200,0.12);color:var(--dim2);}
+    .pn-p-info{flex:1;}
+    .pn-p-name{font-size:15px;font-weight:700;color:var(--text);margin-bottom:3px;}
+    .pn-p-subtitle{font-size:11px;color:var(--dim);margin-bottom:8px;}
+    .pn-p-badges{display:flex;gap:6px;flex-wrap:wrap;}
+    .pn-pill{padding:2px 9px;border-radius:20px;font-size:7px;font-weight:700;letter-spacing:1px;text-transform:uppercase;}
+    .pn-pill.new{background:rgba(201,168,76,0.12);border:1px solid rgba(201,168,76,0.28);color:var(--gold);}
+    .pn-pill.high{background:rgba(208,64,64,0.10);border:1px solid rgba(208,64,64,0.25);color:#e07878;}
+    .pn-pill.wait{background:rgba(232,220,200,0.05);border:1px solid rgba(232,220,200,0.12);color:var(--dim2);}
+    .pn-prospect-body{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;}
+    @media(max-width:600px){.pn-prospect-body{grid-template-columns:1fr;}}
+    .pn-p-field{background:rgba(255,248,235,0.02);border:1px solid var(--border);border-radius:8px;padding:11px 13px;}
+    .pn-p-field-lbl{font-size:7px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--dim2);margin-bottom:5px;}
+    .pn-p-field-val{font-size:11px;color:var(--text);line-height:1.5;display:flex;align-items:flex-start;gap:6px;}
+    .pn-sig-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;margin-top:3px;}
+    .pn-sig-dot.high{background:#e07878;box-shadow:0 0 6px rgba(220,80,80,0.5);}
+    .pn-prospect-footer{display:flex;justify-content:flex-end;gap:10px;}
+
+    /* BUTTONS */
+    .pn-btn{
+      padding:9px 20px;border-radius:7px;font-size:10px;font-weight:700;letter-spacing:0.6px;
+      text-transform:uppercase;cursor:pointer;transition:all 0.18s;border:1px solid;
+    }
+    .pn-btn.primary{
+      background:linear-gradient(135deg,rgba(201,168,76,0.22),rgba(184,115,51,0.18));
+      border-color:rgba(201,168,76,0.40);color:var(--gold);
+    }
+    .pn-btn.primary:hover{background:linear-gradient(135deg,rgba(201,168,76,0.32),rgba(184,115,51,0.26));border-color:rgba(201,168,76,0.60);}
+    .pn-btn.ghost{background:none;border-color:rgba(232,220,200,0.12);color:var(--dim);cursor:default;}
+    .pn-btn.cta{
+      padding:12px 28px;font-size:11px;
+      background:linear-gradient(135deg,rgba(201,168,76,0.28),rgba(184,115,51,0.22));
+      border-color:rgba(201,168,76,0.50);color:var(--gold);
+      box-shadow:0 0 24px rgba(201,168,76,0.10);
+    }
+    .pn-btn.cta:hover{background:linear-gradient(135deg,rgba(201,168,76,0.40),rgba(184,115,51,0.32));border-color:rgba(201,168,76,0.70);box-shadow:0 0 36px rgba(201,168,76,0.20);}
+
+    /* TREATMENT VIEW */
+    .pn-treat-head{
+      display:flex;align-items:center;gap:12px;margin-bottom:24px;padding-bottom:16px;
+      border-bottom:1px solid var(--border);flex-wrap:wrap;gap:10px;
+    }
+    .pn-treat-head-info{flex:1;min-width:200px;}
+    .pn-treat-head-name{font-size:17px;font-weight:700;color:var(--text);}
+    .pn-treat-head-sub{font-size:10px;color:var(--dim);margin-top:3px;}
+    .pn-treat-layout{display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start;}
+    @media(max-width:768px){.pn-treat-layout{grid-template-columns:1fr;}}
+
+    /* FICHE */
+    .pn-fiche{display:flex;flex-direction:column;gap:12px;}
+    .pn-fiche-block{background:rgba(255,248,235,0.02);border:1px solid var(--border);border-radius:10px;padding:14px 16px;}
+    .pn-fiche-block.signal{border-color:rgba(208,64,64,0.22);background:rgba(208,64,64,0.03);}
+    .pn-fiche-lbl{font-size:7px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--dim2);margin-bottom:8px;}
+    .pn-fiche-block.signal .pn-fiche-lbl{color:rgba(208,64,64,0.55);}
+    .pn-fiche-sig-row{display:flex;align-items:center;gap:8px;margin-bottom:5px;}
+    .pn-fiche-sig-text{font-size:13px;font-weight:600;color:var(--text);}
+    .pn-fiche-sig-sub{font-size:10px;color:var(--dim);}
+    .pn-fiche-val{font-size:11px;color:var(--text);line-height:1.7;}
+    .pn-fiche-bullets{list-style:none;padding:0;}
+    .pn-fiche-bullets li{font-size:11px;color:var(--text);padding:3px 0 3px 14px;position:relative;line-height:1.5;}
+    .pn-fiche-bullets li::before{content:'•';position:absolute;left:0;color:var(--gold);}
+
+    /* COMPTE-RENDU */
+    .pn-cr-zone{display:flex;flex-direction:column;gap:12px;}
+    .pn-cr-header-lbl{font-size:7px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--dim2);}
+    .pn-cr-date{font-size:9px;color:var(--dim2);margin-top:3px;}
+    .pn-cr-textarea{
+      width:100%;min-height:210px;background:rgba(255,248,235,0.03);
+      border:1px solid var(--border-s);border-radius:8px;
+      color:var(--text);font-size:12px;font-family:inherit;
+      padding:14px 16px;resize:vertical;line-height:1.7;outline:none;
+      transition:border-color 0.2s;
+    }
+    .pn-cr-textarea:focus{border-color:rgba(201,168,76,0.35);}
+    .pn-cr-footer{display:flex;justify-content:flex-end;}
+
+    /* SOPHIA ANALYSIS */
+    .pn-sophia-zone{display:flex;flex-direction:column;gap:14px;}
+    .pn-sophia-zone-head{
+      display:flex;align-items:center;gap:12px;padding:13px 16px;
+      background:rgba(123,158,217,0.05);border:1px solid rgba(123,158,217,0.18);border-radius:10px;
+    }
+    .pn-sophia-zone-name{font-size:10px;font-weight:700;color:var(--sophia);letter-spacing:1px;text-transform:uppercase;}
+    .pn-sophia-zone-sub{font-size:9px;color:var(--dim);margin-top:2px;}
+    .pn-sophia-zone-body{
+      background:rgba(255,248,235,0.02);border:1px solid var(--border);border-radius:10px;
+      padding:16px;display:flex;flex-direction:column;gap:14px;
+    }
+    .pn-ana-lbl{font-size:7px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--dim2);margin-bottom:6px;}
+    .pn-ana-val{font-size:12px;color:var(--text);line-height:1.5;}
+    .pn-score-item{display:flex;flex-direction:column;gap:4px;margin-bottom:8px;}
+    .pn-score-item:last-child{margin-bottom:0;}
+    .pn-score-head{display:flex;align-items:center;justify-content:space-between;}
+    .pn-score-name{font-size:11px;color:var(--text);}
+    .pn-score-pct{font-size:10px;font-weight:700;color:var(--gold);}
+    .pn-score-bar{height:3px;background:rgba(255,220,140,0.08);border-radius:2px;overflow:hidden;}
+    .pn-score-fill{height:100%;border-radius:2px;background:linear-gradient(90deg,var(--gold),var(--copper));width:0%;transition:width 0.9s cubic-bezier(0.4,0,0.2,1);}
+    .pn-score-sub{font-size:9px;color:var(--dim2);}
+    .pn-ana-reco{
+      background:rgba(201,168,76,0.05);border:1px solid rgba(201,168,76,0.18);
+      border-radius:8px;padding:12px 14px;font-size:11px;color:var(--dim);line-height:1.7;font-style:italic;
+    }
+    .pn-ana-reco strong{color:var(--text);font-style:normal;}
+    .pn-cta-zone{display:flex;justify-content:flex-end;padding-top:4px;}
+
+    /* LOADING */
+    .pn-loading{
+      display:flex;flex-direction:column;align-items:center;justify-content:center;
+      padding:48px 20px;gap:18px;
+    }
+    .pn-loading-av{
+      width:54px;height:54px;border-radius:50%;
+      background:linear-gradient(135deg,rgba(123,158,217,0.35),rgba(80,100,200,0.55));
+      border:2px solid rgba(123,158,217,0.55);
+      display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:#e0eaff;
+      animation:sophia-pulse 1.2s ease-in-out infinite;
+    }
+    @keyframes sophia-pulse{
+      0%,100%{box-shadow:0 0 10px rgba(123,158,217,0.28);}
+      50%{box-shadow:0 0 26px rgba(123,158,217,0.65);}
+    }
+    .pn-loading-text{font-size:12px;color:var(--dim);animation:fade-pulse 1.4s ease-in-out infinite;}
+    @keyframes fade-pulse{0%,100%{opacity:0.4;}50%{opacity:1;}}
+
+    /* FOOTER */
+    .pn-footer{
+      text-align:center;padding:18px;font-size:8px;
+      color:rgba(201,168,76,0.18);letter-spacing:1.2px;
+      border-top:1px solid var(--border);margin-top:8px;
+    }
+  </style>
+</head>
+<body>
+
+<header class="pn-header">
+  <div class="pn-logo-hex">
+    <svg width="36" height="36" viewBox="0 0 36 36" fill="none" aria-hidden="true">
+      <path d="M18 2L33 10V26L18 34L3 26V10Z" stroke="#c9a84c" stroke-width="1.5" stroke-linejoin="round"/>
+      <path d="M18 9L28 14V22L18 27L8 22V14Z" stroke="#b87333" stroke-width="1" stroke-linejoin="round" opacity="0.6"/>
+      <circle cx="18" cy="18" r="3.5" fill="rgba(201,168,76,0.45)"/>
+    </svg>
+  </div>
+  <div>
+    <div class="pn-logo-text">DAYS LEGACY</div>
+    <div class="pn-logo-sub">Prospect Navigator</div>
+  </div>
+  <div class="pn-vsep"></div>
+  <div class="pn-title" id="pnHeaderTitle">Opportunités détectées</div>
+  <div class="pn-badge" id="pnDemoBadge" style="display:none">Mode Démo</div>
+  <a href="/dashboard" class="pn-hbtn back" id="pnBackBtn">← Dashboard</a>
+</header>
+
+<main class="pn-main">
+
+  <div class="pn-demo-banner" id="pnDemoBanner">
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="5.5" stroke="#c9a84c" stroke-width="1.2"/><path d="M7 4.5V7.5M7 9h.01" stroke="#c9a84c" stroke-width="1.3" stroke-linecap="round"/></svg>
+    <span>Mode démo — <strong>données fictives</strong> — workflow cible Days Legacy. Aucune donnée personnelle réelle.</span>
+  </div>
+
+  <!-- ── STATE 0 : LISTE ─────────────────────────────────── -->
+  <div id="pnListView">
+
+    <div class="pn-sophia-strip">
+      <div class="pn-sophia-av">S</div>
+      <div class="pn-sophia-body">
+        <div class="pn-sophia-name">Sophia — Détection d'opportunités</div>
+        <div class="pn-sophia-msg">
+          1 opportunité <strong style="color:var(--gold)">haute priorité</strong> détectée aujourd'hui —
+          signal : cession d'entreprise · profil M. Renard compatible holding patrimoniale (score 94/100).
+        </div>
+      </div>
+      <div class="pn-dot-live"></div>
+      <div class="pn-sophia-time">Aujourd'hui 09h14</div>
+    </div>
+
+    <div class="pn-sec-lbl">Prospects en attente de traitement</div>
+
+    <div class="pn-prospect-grid">
+
+      <!-- M. Renard — HAUTE PRIORITÉ -->
+      <div class="pn-prospect active" id="pnCardRenard">
+        <div class="pn-prospect-head">
+          <div class="pn-p-av priority">MR</div>
+          <div class="pn-p-info">
+            <div class="pn-p-name">M. Renard</div>
+            <div class="pn-p-subtitle">Dirigeant PME · 58 ans · Bordeaux</div>
+            <div class="pn-p-badges">
+              <span class="pn-pill new">Nouveau</span>
+              <span class="pn-pill high">Haute priorité</span>
+            </div>
+          </div>
+        </div>
+        <div class="pn-prospect-body">
+          <div class="pn-p-field">
+            <div class="pn-p-field-lbl">Signal détecté</div>
+            <div class="pn-p-field-val">
+              <div class="pn-sig-dot high"></div>
+              Préparation retraite — cession d'entreprise envisagée dans 18 mois
+            </div>
+          </div>
+          <div class="pn-p-field">
+            <div class="pn-p-field-lbl">Source</div>
+            <div class="pn-p-field-val">Introduction via M. Fontaine, cabinet partenaire Bordeaux</div>
+          </div>
+          <div class="pn-p-field">
+            <div class="pn-p-field-lbl">Besoin probable</div>
+            <div class="pn-p-field-val">Optimisation fiscale sur plus-value de cession + transmission patrimoniale</div>
+          </div>
+          <div class="pn-p-field">
+            <div class="pn-p-field-lbl">Potentiel estimé</div>
+            <div class="pn-p-field-val">AUM cible : <strong style="color:var(--gold)">1,8 M€</strong> · Valorisation entreprise : ~2,2 M€</div>
+          </div>
+        </div>
+        <div class="pn-prospect-footer">
+          <button class="pn-btn primary" onclick="openTreatment()">Traiter ce prospect →</button>
+        </div>
+      </div>
+
+      <!-- Mme Clément-Bertrand — en attente -->
+      <div class="pn-prospect greyed">
+        <div class="pn-prospect-head">
+          <div class="pn-p-av waiting">CB</div>
+          <div class="pn-p-info">
+            <div class="pn-p-name">Mme Clément-Bertrand</div>
+            <div class="pn-p-subtitle">Cadre dirigeante · 52 ans · Lyon</div>
+            <div class="pn-p-badges"><span class="pn-pill wait">En attente d'affectation</span></div>
+          </div>
+        </div>
+        <div class="pn-prospect-footer">
+          <button class="pn-btn ghost" disabled>Affecter à un conseiller</button>
+        </div>
+      </div>
+
+      <!-- M. Andrieu-Kowalski — en attente -->
+      <div class="pn-prospect greyed">
+        <div class="pn-prospect-head">
+          <div class="pn-p-av waiting">AK</div>
+          <div class="pn-p-info">
+            <div class="pn-p-name">M. Andrieu-Kowalski</div>
+            <div class="pn-p-subtitle">Médecin libéral · 45 ans · Nantes</div>
+            <div class="pn-p-badges"><span class="pn-pill wait">En attente d'affectation</span></div>
+          </div>
+        </div>
+        <div class="pn-prospect-footer">
+          <button class="pn-btn ghost" disabled>Affecter à un conseiller</button>
+        </div>
+      </div>
+
+    </div>
+  </div><!-- /pnListView -->
+
+  <!-- ── STATE 1+2 : TRAITEMENT ─────────────────────────── -->
+  <div id="pnTreatView" style="display:none">
+
+    <div class="pn-treat-head">
+      <button class="pn-hbtn back" onclick="backToList()">← Retour</button>
+      <div class="pn-treat-head-info">
+        <div class="pn-treat-head-name">M. Renard — Traitement en cours</div>
+        <div class="pn-treat-head-sub">Opportunité haute priorité · Prospect Navigator · <span id="pnTreatDate"></span></div>
+      </div>
+      <div class="pn-badge">En traitement</div>
+    </div>
+
+    <div class="pn-treat-layout">
+
+      <!-- LEFT : fiche prospect -->
+      <div class="pn-fiche">
+
+        <div class="pn-fiche-block signal">
+          <div class="pn-fiche-lbl">Signal détecté</div>
+          <div class="pn-fiche-sig-row">
+            <div class="pn-sig-dot high"></div>
+            <div class="pn-fiche-sig-text">Préparation retraite — cession d'entreprise</div>
+          </div>
+          <div class="pn-fiche-sig-sub">Via M. Fontaine, cabinet partenaire · Fiabilité source : 94 %</div>
+        </div>
+
+        <div class="pn-fiche-block">
+          <div class="pn-fiche-lbl">Profil client</div>
+          <div class="pn-fiche-val">
+            Dirigeant PME (secteur BTP), 58 ans, Bordeaux.<br>
+            Marié, 2 enfants majeurs. CA entreprise : ~3,2 M€.<br>
+            Valorisation estimée : 2,2 M€.
+          </div>
+        </div>
+
+        <div class="pn-fiche-block">
+          <div class="pn-fiche-lbl">Contexte patrimonial</div>
+          <div class="pn-fiche-val">
+            Résidence principale + parts sociales (100 %).<br>
+            Pas de structure holding actuellement.<br>
+            Assurance-vie modeste (~180 k€).<br>
+            Cession envisagée horizon 18 mois.
+          </div>
+        </div>
+
+        <div class="pn-fiche-block">
+          <div class="pn-fiche-lbl">Besoins identifiés</div>
+          <ul class="pn-fiche-bullets">
+            <li>Optimisation fiscale sur la plus-value de cession</li>
+            <li>Transmission patrimoniale anticipée aux enfants</li>
+            <li>Structuration des revenus post-cession</li>
+            <li>Protection du conjoint (régime matrimonial)</li>
+          </ul>
+        </div>
+
+      </div><!-- /fiche -->
+
+      <!-- RIGHT : CR puis analyse Sophia -->
+      <div>
+
+        <!-- Zone compte-rendu (state 1) -->
+        <div id="pnCRZone" class="pn-cr-zone">
+          <div>
+            <div class="pn-cr-header-lbl">Compte-rendu premier contact</div>
+            <div class="pn-cr-date" id="pnCRDate"></div>
+          </div>
+          <textarea class="pn-cr-textarea" id="pnCRText">Premier contact téléphonique — 11 juin 2026.
+
+M. Renard confirme la cession de son entreprise prévue pour fin 2027. Valorisation estimée entre 2 et 2,5 M€ selon l'acquéreur.
+
+Souhaite minimiser la fiscalité sur la plus-value. Deux enfants majeurs — transmission anticipée envisagée. Conjoint sans activité professionnelle.
+
+Pas de structure holding à ce jour. Assurance-vie existante mais sous-dimensionnée (~180 k€).
+
+Disponible pour RDV cabinet semaine du 17 juin.</textarea>
+          <div class="pn-cr-footer">
+            <button class="pn-btn primary" onclick="validateCR()">✓ Valider le compte-rendu</button>
+          </div>
+        </div>
+
+        <!-- Sophia analyse (state 2, populated by JS) -->
+        <div id="pnSophiaZone" class="pn-sophia-zone" style="display:none"></div>
+
+      </div><!-- /right -->
+    </div><!-- /treat-layout -->
+  </div><!-- /pnTreatView -->
+
+</main>
+
+<div class="pn-footer">Days Legacy Workspace — powered by YAWatch LUNA</div>
+
+<script>
+/* ============================================================
+   DAYS LEGACY — PROSPECT NAVIGATOR v1.0
+   ============================================================ */
+
+var _isDemo = new URLSearchParams(window.location.search).get('demo') === '1';
+var _state = 0; /* 0=list  1=treatment/CR  2=sophia */
+
+function openTreatment() {
+  _state = 1;
+  document.getElementById('pnListView').style.display = 'none';
+  document.getElementById('pnTreatView').style.display = 'block';
+  document.getElementById('pnHeaderTitle').textContent = 'M. Renard — Traitement';
+  var now = new Date();
+  var ds = now.toLocaleDateString('fr-FR',{day:'2-digit',month:'long',year:'numeric'});
+  document.getElementById('pnTreatDate').textContent = ds;
+  document.getElementById('pnCRDate').textContent = ds;
+}
+
+function backToList() {
+  _state = 0;
+  document.getElementById('pnListView').style.display = 'block';
+  document.getElementById('pnTreatView').style.display = 'none';
+  document.getElementById('pnSophiaZone').style.display = 'none';
+  document.getElementById('pnSophiaZone').innerHTML = '';
+  document.getElementById('pnCRZone').style.display = 'flex';
+  document.getElementById('pnHeaderTitle').textContent = 'Opportunités détectées';
+}
+
+function validateCR() {
+  _state = 2;
+  document.getElementById('pnCRZone').style.display = 'none';
+  var sz = document.getElementById('pnSophiaZone');
+  sz.style.display = 'flex';
+  sz.innerHTML =
+    '<div class="pn-loading">'
+    + '<div class="pn-loading-av">S</div>'
+    + '<div class="pn-loading-text">Sophia analyse le dossier Renard…</div>'
+    + '</div>';
+  setTimeout(function() {
+    sz.innerHTML = _buildAnalysis();
+    /* Animate bars after DOM update */
+    setTimeout(function() {
+      var pcts = [92, 71, 58];
+      var fills = sz.querySelectorAll('.pn-score-fill');
+      fills.forEach(function(el, i){ el.style.width = pcts[i] + '%'; });
+    }, 80);
+  }, 1800);
+}
+
+function _buildAnalysis() {
+  return ''
+    + '<div class="pn-sophia-zone-head">'
+    +   '<div class="pn-sophia-av" style="width:38px;height:38px;font-size:12px">S</div>'
+    +   '<div style="flex:1">'
+    +     '<div class="pn-sophia-zone-name">Sophia — Analyse complète</div>'
+    +     '<div class="pn-sophia-zone-sub">Dossier M. Renard · Compte-rendu intégré</div>'
+    +   '</div>'
+    +   '<div class="pn-dot-live"></div>'
+    + '</div>'
+    + '<div class="pn-sophia-zone-body">'
+    +   '<div>'
+    +     '<div class="pn-ana-lbl">Opportunité</div>'
+    +     '<div class="pn-ana-val">Score <strong style="color:var(--gold)">94 / 100</strong> · Potentiel AUM : <strong style="color:var(--gold)">1,8 M€</strong> · Profil : dirigeant PME · cession imminente · haute valeur</div>'
+    +   '</div>'
+    +   '<div>'
+    +     '<div class="pn-ana-lbl">Produits recommandés</div>'
+    +     _scoreItem('Holding patrimoniale + apport-cession', '92 %', 'art. 150-0 B ter · report d’imposition')
+    +     _scoreItem('Pacte Dutreil — transmission anticipée', '71 %', 'transmission progressive · exonération partielle')
+    +     _scoreItem('PEA + assurance-vie', '58 %', 'capitalisation post-cession · revenus différés')
+    +   '</div>'
+    +   '<div>'
+    +     '<div class="pn-ana-lbl">Prochaine étape recommandée</div>'
+    +     '<div class="pn-ana-reco"><strong>Préparer une stratégie patrimoniale complète avec l’équipe.</strong> Le profil de M. Renard (cession 18 mois, absence de holding, 2 enfants) justifie une analyse multi-expert avant toute proposition formelle.</div>'
+    +   '</div>'
+    + '</div>'
+    + '<div class="pn-cta-zone">'
+    +   '<button class="pn-btn cta" onclick="openWorkspace()">Préparer la proposition — Ouvrir Workspace Iris →</button>'
+    + '</div>';
+}
+
+function _scoreItem(name, pct, sub) {
+  return ''
+    + '<div class="pn-score-item">'
+    +   '<div class="pn-score-head"><span class="pn-score-name">' + name + '</span><span class="pn-score-pct">' + pct + '</span></div>'
+    +   '<div class="pn-score-bar"><div class="pn-score-fill"></div></div>'
+    +   '<div class="pn-score-sub">' + sub + '</div>'
+    + '</div>';
+}
+
+function openWorkspace() {
+  window.location.href = '/workspace?demo=1';
+}
+
+window.addEventListener('DOMContentLoaded', function() {
+  if(_isDemo) {
+    document.getElementById('pnDemoBanner').classList.add('visible');
+    document.getElementById('pnDemoBadge').style.display = 'inline-block';
+    document.getElementById('pnBackBtn').href = '/dashboard?demo=1';
+  }
+});
+</script>
+</body>
+</html>
