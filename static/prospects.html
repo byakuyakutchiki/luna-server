@@ -9,224 +9,262 @@
     html,body{width:100%;min-height:100dvh;background:#080508;color:#e8dcc8;font-family:system-ui,-apple-system,sans-serif;}
 
     :root{
-      --gold:#c9a84c;
-      --copper:#b87333;
-      --coral:#e8956d;
-      --mauve:#a87cbd;
-      --sophia:#7b9ed9;
-      --green:rgba(100,200,120,0.85);
-      --red:#d04040;
-      --bg:#080508;
-      --border:rgba(255,220,140,0.09);
-      --border-s:rgba(255,220,140,0.14);
-      --text:#e8dcc8;
-      --dim:rgba(232,220,200,0.50);
-      --dim2:rgba(232,220,200,0.26);
+      --gold:#c9a84c;--copper:#b87333;--coral:#e8956d;--mauve:#a87cbd;
+      --sophia:#7b9ed9;--green:rgba(100,200,120,0.85);--red:#c94040;
+      --bg:#080508;--border:rgba(255,220,140,0.09);--border-s:rgba(255,220,140,0.14);
+      --text:#e8dcc8;--dim:rgba(232,220,200,0.50);--dim2:rgba(232,220,200,0.26);
     }
 
-    /* HEADER */
-    .pn-header{
-      display:flex;align-items:center;gap:14px;padding:14px 24px;
-      background:rgba(10,6,3,0.98);border-bottom:1px solid var(--border-s);
-      box-shadow:0 2px 20px rgba(0,0,0,0.4);
-    }
+    /* ── HEADER ─────────────────────────────────────────────── */
+    .pn-header{display:flex;align-items:center;gap:14px;padding:14px 24px;background:rgba(10,6,3,0.98);border-bottom:1px solid var(--border-s);box-shadow:0 2px 20px rgba(0,0,0,0.4);}
     .pn-logo-hex{width:40px;height:40px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
     .pn-logo-text{font-size:11px;font-weight:800;letter-spacing:4px;text-transform:uppercase;color:var(--gold);}
     .pn-logo-sub{font-size:8px;color:var(--copper);letter-spacing:2px;text-transform:uppercase;margin-top:2px;font-weight:600;}
     .pn-vsep{width:1px;height:22px;background:var(--border-s);flex-shrink:0;}
     .pn-title{font-size:13px;font-weight:600;color:var(--text);flex:1;}
+    .pn-counter{font-size:10px;color:var(--dim);font-weight:600;white-space:nowrap;}
     .pn-badge{padding:3px 10px;border-radius:20px;background:rgba(201,168,76,0.07);border:1px solid rgba(201,168,76,0.18);font-size:7px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--gold);}
-    .pn-hbtn{
-      padding:7px 16px;border-radius:6px;font-size:10px;font-weight:700;letter-spacing:0.8px;
-      text-transform:uppercase;cursor:pointer;transition:all 0.18s;border:1px solid;text-decoration:none;display:inline-block;
-    }
+    .pn-hbtn{padding:7px 16px;border-radius:6px;font-size:10px;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;cursor:pointer;transition:all 0.18s;border:1px solid;text-decoration:none;display:inline-block;}
     .pn-hbtn.back{background:none;border-color:rgba(255,220,140,0.15);color:var(--dim);}
     .pn-hbtn.back:hover{border-color:rgba(255,220,140,0.30);color:var(--text);}
 
-    /* MAIN */
-    .pn-main{max-width:1100px;margin:0 auto;padding:28px 24px;}
+    /* ── LAYOUT CARTE ────────────────────────────────────────── */
+    .pn-card-view{max-width:860px;margin:0 auto;padding:24px 20px 40px;}
 
-    /* DEMO BANNER */
-    .pn-demo-banner{
-      display:none;align-items:center;gap:12px;padding:10px 18px;
-      background:rgba(201,168,76,0.06);border:1px solid rgba(201,168,76,0.20);border-radius:8px;
-      margin-bottom:24px;font-size:11px;color:var(--dim);
-    }
+    /* Sophia strip */
+    .pn-sophia-strip{display:flex;align-items:center;gap:14px;padding:14px 18px;background:rgba(123,158,217,0.05);border:1px solid rgba(123,158,217,0.18);border-radius:10px;margin-bottom:24px;}
+    .pn-sophia-av{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,rgba(123,158,217,0.4),rgba(80,100,200,0.6));border:1px solid rgba(123,158,217,0.5);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#e0eaff;flex-shrink:0;}
+    .pn-sophia-body{flex:1;}
+    .pn-sophia-name{font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--sophia);margin-bottom:3px;}
+    .pn-sophia-msg{font-size:11px;color:var(--dim);line-height:1.55;}
+    .pn-dot-live{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 8px rgba(100,200,120,0.6);animation:dot-blink 2s ease-in-out infinite;flex-shrink:0;}
+    @keyframes dot-blink{0%,100%{opacity:1;}50%{opacity:0.35;}}
+    .pn-sophia-time{font-size:9px;color:var(--dim2);white-space:nowrap;}
+
+    /* Navigation dots */
+    .pn-dots{display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:20px;}
+    .pn-dot{width:7px;height:7px;border-radius:50%;background:var(--border-s);cursor:pointer;transition:all 0.2s;}
+    .pn-dot.active{background:var(--gold);box-shadow:0 0 8px rgba(201,168,76,0.5);width:22px;border-radius:4px;}
+
+    /* ── GROSSE CARTE ─────────────────────────────────────────── */
+    .pn-big-card{background:rgba(14,9,4,0.92);border:1px solid var(--border-s);border-radius:16px;overflow:hidden;position:relative;box-shadow:0 8px 48px rgba(0,0,0,0.55);}
+
+    /* Bandeau supérieur scores */
+    .pn-card-top{display:flex;align-items:center;gap:10px;padding:14px 22px;background:rgba(201,168,76,0.05);border-bottom:1px solid var(--border);}
+    .pn-score-badge{background:linear-gradient(135deg,rgba(201,168,76,0.22),rgba(184,115,51,0.28));border:1px solid rgba(201,168,76,0.45);border-radius:8px;padding:6px 14px;display:flex;align-items:center;gap:6px;}
+    .pn-score-num{font-size:20px;font-weight:800;color:var(--gold);letter-spacing:-0.5px;line-height:1;}
+    .pn-score-label{font-size:7px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:rgba(201,168,76,0.65);line-height:1.3;}
+    .pn-prio-pill{padding:4px 10px;border-radius:20px;font-size:8px;font-weight:700;letter-spacing:1px;text-transform:uppercase;}
+    .pn-prio-pill.high{background:rgba(201,68,40,0.12);border:1px solid rgba(201,68,40,0.35);color:#e08060;}
+    .pn-prio-pill.med{background:rgba(201,168,76,0.1);border:1px solid rgba(201,168,76,0.3);color:var(--gold);}
+    .pn-signal-tag{margin-left:auto;padding:4px 10px;border-radius:6px;background:rgba(201,168,76,0.07);border:1px solid var(--border-s);font-size:8px;color:var(--dim);font-weight:600;letter-spacing:0.5px;}
+
+    /* Identité prospect */
+    .pn-card-identity{display:flex;align-items:flex-start;gap:18px;padding:22px 22px 16px;}
+    .pn-card-av{width:58px;height:58px;border-radius:14px;background:linear-gradient(135deg,rgba(201,168,76,0.25),rgba(184,115,51,0.4));border:2px solid rgba(201,168,76,0.4);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:800;color:var(--gold);flex-shrink:0;letter-spacing:-0.5px;}
+    .pn-card-av.p2{background:linear-gradient(135deg,rgba(168,124,189,0.2),rgba(100,80,160,0.35));border-color:rgba(168,124,189,0.35);color:var(--mauve);}
+    .pn-card-av.p3{background:linear-gradient(135deg,rgba(232,149,109,0.18),rgba(180,90,60,0.3));border-color:rgba(232,149,109,0.32);color:var(--coral);}
+    .pn-card-name{font-size:22px;font-weight:800;color:var(--text);letter-spacing:-0.5px;line-height:1.15;margin-bottom:5px;}
+    .pn-card-role{font-size:13px;color:var(--dim);font-weight:500;margin-bottom:8px;line-height:1.4;}
+    .pn-card-meta{display:flex;flex-wrap:wrap;gap:6px;}
+    .pn-meta-tag{padding:3px 9px;border-radius:5px;background:rgba(255,220,140,0.05);border:1px solid var(--border);font-size:9px;color:var(--dim);font-weight:600;letter-spacing:0.3px;}
+    .pn-meta-tag.region{color:rgba(201,168,76,0.75);}
+
+    /* Grille infos */
+    .pn-card-grid{display:grid;grid-template-columns:1fr 1fr;gap:0;border-top:1px solid var(--border);border-bottom:1px solid var(--border);}
+    .pn-grid-cell{padding:16px 22px;border-right:1px solid var(--border);}
+    .pn-grid-cell:last-child,.pn-grid-cell:nth-child(2){border-right:none;}
+    .pn-grid-cell:nth-child(1),.pn-grid-cell:nth-child(2){border-bottom:1px solid var(--border);}
+    .pn-cell-lbl{font-size:7px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--dim2);margin-bottom:7px;}
+    .pn-cell-val{font-size:12px;color:var(--text);line-height:1.6;}
+    .pn-cell-val li{list-style:none;padding-left:12px;position:relative;}
+    .pn-cell-val li::before{content:'·';position:absolute;left:0;color:var(--gold);}
+
+    /* Sources */
+    .pn-sources{padding:14px 22px 0;}
+    .pn-source-row{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border);}
+    .pn-source-row:last-child{border-bottom:none;}
+    .pn-source-icon{width:22px;height:22px;border-radius:5px;background:rgba(201,168,76,0.08);border:1px solid var(--border-s);display:flex;align-items:center;justify-content:center;font-size:9px;flex-shrink:0;}
+    .pn-source-text{font-size:11px;color:var(--dim);flex:1;line-height:1.45;}
+    .pn-source-conf{font-size:9px;font-weight:700;color:var(--gold);white-space:nowrap;}
+
+    /* Pourquoi Sophia */
+    .pn-sophia-why{margin:14px 22px;padding:14px 16px;background:rgba(123,158,217,0.05);border:1px solid rgba(123,158,217,0.15);border-radius:8px;}
+    .pn-sophia-why-lbl{font-size:7px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--sophia);margin-bottom:8px;display:flex;align-items:center;gap:6px;}
+    .pn-sophia-why-text{font-size:12px;color:var(--dim);line-height:1.65;font-style:italic;}
+    .pn-sophia-why-text strong{color:var(--text);font-style:normal;}
+
+    /* Approche proposée */
+    .pn-approach{margin:0 22px 16px;padding:14px 16px;background:rgba(184,115,51,0.05);border:1px solid rgba(184,115,51,0.18);border-radius:8px;}
+    .pn-approach-lbl{font-size:7px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--copper);margin-bottom:8px;display:flex;align-items:center;gap:6px;}
+    .pn-approach-text{font-size:12px;color:var(--dim);line-height:1.65;font-style:italic;}
+
+    /* Boutons action */
+    .pn-card-actions{display:flex;align-items:center;gap:10px;padding:16px 22px;background:rgba(8,5,3,0.8);border-top:1px solid var(--border);}
+    .pn-btn-pass{flex:0 0 auto;padding:11px 20px;border-radius:8px;font-size:10px;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;cursor:pointer;background:rgba(255,220,140,0.04);border:1px solid rgba(255,220,140,0.14);color:var(--dim);transition:all 0.18s;font-family:inherit;}
+    .pn-btn-pass:hover{border-color:rgba(255,220,140,0.28);color:var(--text);background:rgba(255,220,140,0.07);}
+    .pn-btn-accept{flex:1;padding:13px 20px;border-radius:8px;font-size:11px;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;cursor:pointer;background:linear-gradient(135deg,rgba(201,168,76,0.22),rgba(184,115,51,0.28));border:1px solid rgba(201,168,76,0.45);color:var(--gold);transition:all 0.18s;font-family:inherit;}
+    .pn-btn-accept:hover{background:linear-gradient(135deg,rgba(201,168,76,0.32),rgba(184,115,51,0.40));border-color:rgba(201,168,76,0.65);box-shadow:0 0 20px rgba(201,168,76,0.15);}
+    .pn-btn-approach{flex:0 0 auto;padding:11px 20px;border-radius:8px;font-size:10px;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;cursor:pointer;background:rgba(184,115,51,0.1);border:1px solid rgba(184,115,51,0.3);color:var(--copper);transition:all 0.18s;font-family:inherit;}
+    .pn-btn-approach:hover{background:rgba(184,115,51,0.18);border-color:rgba(184,115,51,0.5);}
+
+    /* ═══════════════════════════════════════════
+       EFFETS VISUELS DORÉS — Days Legacy Premium
+       ═══════════════════════════════════════════ */
+    body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+      background:radial-gradient(ellipse 40% 60% at 12% 55%,rgba(201,168,76,0.06) 0%,transparent 70%),
+        radial-gradient(ellipse 30% 40% at 88% 18%,rgba(184,115,51,0.04) 0%,transparent 60%),
+        radial-gradient(ellipse 35% 50% at 55% 88%,rgba(201,168,76,0.03) 0%,transparent 55%);}
+    .pn-header{position:relative;}
+    .pn-header::after{content:'';position:absolute;bottom:-1px;left:0;right:0;height:1px;
+      background:linear-gradient(90deg,transparent 0%,rgba(201,168,76,0.55) 25%,rgba(255,248,160,0.75) 50%,rgba(201,168,76,0.55) 75%,transparent 100%);
+      animation:header-shine 4s ease-in-out infinite;}
+    @keyframes header-shine{0%,100%{opacity:0.4;}50%{opacity:1;}}
+    .pn-sophia-strip{animation:sophia-glow 4s ease-in-out infinite;}
+    @keyframes sophia-glow{0%,100%{border-color:rgba(123,158,217,0.18);box-shadow:none;}50%{border-color:rgba(123,158,217,0.42);box-shadow:0 0 22px rgba(123,158,217,0.09);}}
+    .pn-sophia-av{animation:sophia-av-p 3s ease-in-out infinite;}
+    @keyframes sophia-av-p{0%,100%{box-shadow:0 0 8px rgba(123,158,217,0.2);}50%{box-shadow:0 0 20px rgba(123,158,217,0.5);}}
+    @keyframes dot-blink{0%,100%{opacity:1;box-shadow:0 0 6px rgba(100,200,120,0.4);}50%{opacity:0.3;box-shadow:none;}}
+    @keyframes dot-pulse{0%,100%{box-shadow:0 0 8px rgba(201,168,76,0.45);}50%{box-shadow:0 0 18px rgba(201,168,76,0.85);}}
+    .pn-dot.active{animation:dot-pulse 2s ease-in-out infinite;}
+    @keyframes card-enter{from{opacity:0;transform:translateY(22px) scale(0.985);}to{opacity:1;transform:translateY(0) scale(1);}}
+    .pn-big-card-wrap{position:relative;border-radius:18px;padding:1px;overflow:hidden;
+      box-shadow:0 0 60px rgba(201,168,76,0.12),0 18px 70px rgba(0,0,0,0.62);
+      animation:card-enter 0.70s cubic-bezier(0.22,1,0.36,1) both;}
+    .pn-big-card-wrap::before{content:'';position:absolute;inset:-50%;
+      background:conic-gradient(transparent 30deg,rgba(201,168,76,0.9) 72deg,rgba(255,248,180,0.55) 92deg,rgba(184,115,51,0.45) 112deg,transparent 158deg);
+      animation:border-rotate 9s linear infinite;z-index:0;}
+    @keyframes border-rotate{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}
+    .pn-big-card{position:relative;z-index:1;border:none!important;border-radius:17px;}
+    .pn-card-top{position:relative;overflow:hidden;}
+    .pn-card-top::after{content:'';position:absolute;top:0;bottom:0;left:0;width:60%;pointer-events:none;
+      background:linear-gradient(90deg,transparent 0%,rgba(201,168,76,0.09) 35%,rgba(255,248,180,0.16) 50%,rgba(201,168,76,0.07) 65%,transparent 100%);
+      transform:skewX(-15deg);animation:shimmer-sweep 5s ease-in-out infinite 1.2s;}
+    @keyframes shimmer-sweep{0%{left:-80%;}100%{left:165%;}}
+    .pn-score-badge{animation:score-glow 2.5s ease-in-out infinite;}
+    @keyframes score-glow{0%,100%{box-shadow:0 0 12px rgba(201,168,76,0.15),inset 0 0 8px rgba(201,168,76,0.04);}50%{box-shadow:0 0 32px rgba(201,168,76,0.50),inset 0 0 18px rgba(201,168,76,0.14);}}
+    .pn-score-num{font-size:26px!important;text-shadow:0 0 24px rgba(201,168,76,0.65);letter-spacing:-1px!important;}
+    @keyframes prio-high{0%,100%{box-shadow:0 0 5px rgba(200,80,60,0.1);}50%{box-shadow:0 0 18px rgba(200,80,60,0.52);}}
+    .pn-prio-pill.high{animation:prio-high 2.2s ease-in-out infinite;}
+    @keyframes signal-warm{0%,100%{border-color:var(--border-s);color:var(--dim);}50%{border-color:rgba(201,168,76,0.48);color:rgba(201,168,76,0.92);text-shadow:0 0 10px rgba(201,168,76,0.3);}}
+    .pn-signal-tag{animation:signal-warm 3.5s ease-in-out infinite;}
+    @keyframes av-ring{from{box-shadow:0 0 0 2px rgba(201,168,76,0.28),0 0 10px rgba(201,168,76,0.12);}to{box-shadow:0 0 0 3px rgba(201,168,76,0.72),0 0 26px rgba(201,168,76,0.38);}}
+    .pn-card-av:not(.p2):not(.p3){animation:av-ring 2s ease-in-out infinite alternate;}
+    .pn-card-av.p2{box-shadow:0 0 0 2px rgba(168,124,189,0.45),0 0 18px rgba(168,124,189,0.28);}
+    .pn-card-av.p3{box-shadow:0 0 0 2px rgba(232,149,109,0.45),0 0 18px rgba(232,149,109,0.28);}
+    .pn-card-name{text-shadow:0 0 28px rgba(232,220,200,0.14);}
+    .pn-source-row{opacity:0;animation:row-in 0.5s both;}
+    .pn-source-row:nth-child(2){animation-delay:0.85s;}
+    .pn-source-row:nth-child(3){animation-delay:1.05s;}
+    .pn-source-row:nth-child(4){animation-delay:1.25s;}
+    @keyframes row-in{from{opacity:0;transform:translateX(-13px);}to{opacity:1;transform:translateX(0);}}
+    .pn-source-conf{text-shadow:0 0 10px rgba(201,168,76,0.4);}
+    .pn-sophia-why{animation:sophia-glow 4.5s ease-in-out infinite 1s;}
+    .pn-approach{box-shadow:0 0 20px rgba(184,115,51,0.05);border-color:rgba(184,115,51,0.26)!important;}
+    .pn-btn-accept{position:relative;overflow:hidden;transition:all 0.22s cubic-bezier(0.22,1,0.36,1);}
+    .pn-btn-accept::before{content:'';position:absolute;top:-50%;left:-80%;width:55%;height:200%;
+      background:linear-gradient(90deg,transparent,rgba(255,248,180,0.24),transparent);
+      transform:skewX(-20deg);pointer-events:none;}
+    @keyframes accept-shine{0%{left:-80%}100%{left:148%}}
+    .pn-btn-accept:hover::before{animation:accept-shine 0.68s ease forwards;}
+    .pn-btn-accept:hover{box-shadow:0 0 36px rgba(201,168,76,0.36)!important;transform:scale(1.015);}
+    .pn-btn-approach{transition:all 0.18s;}.pn-btn-approach:hover{box-shadow:0 0 16px rgba(184,115,51,0.28);}
+    /* Score Sophia zone — barres animées améliorées */
+    .pn-score-fill{transition:width 1.1s cubic-bezier(0.22,1,0.36,1)!important;}
+    .pn-score-pct{text-shadow:0 0 12px rgba(201,168,76,0.5);}
+    .pn-sophia-zone{animation:sophia-glow 4s ease-in-out infinite;}
+    .pn-ana-reco{box-shadow:0 0 20px rgba(201,168,76,0.06);border-color:rgba(201,168,76,0.22)!important;}
+    .pn-btn.cta{position:relative;overflow:hidden;transition:all 0.22s cubic-bezier(0.22,1,0.36,1);}
+    .pn-btn.cta::before{content:'';position:absolute;top:-50%;left:-80%;width:55%;height:200%;
+      background:linear-gradient(90deg,transparent,rgba(255,255,220,0.25),transparent);
+      transform:skewX(-20deg);pointer-events:none;}
+    @keyframes cta-shine{0%{left:-80%}100%{left:148%}}
+    .pn-btn.cta:hover::before{animation:cta-shine 0.68s ease forwards;}
+    .pn-btn.cta:hover{box-shadow:0 0 32px rgba(8,5,3,0.5),0 4px 24px rgba(201,168,76,0.35)!important;transform:scale(1.01);}
+    /* Fiche signal block */
+    .pn-fiche-block.signal{animation:prio-high 3s ease-in-out infinite;}
+
+    /* Carte "aucun prospect" */
+    .pn-empty-card{text-align:center;padding:60px 30px;background:rgba(14,9,4,0.6);border:1px solid var(--border);border-radius:16px;}
+    .pn-empty-icon{font-size:40px;margin-bottom:16px;opacity:0.35;}
+    .pn-empty-text{font-size:14px;color:var(--dim);margin-bottom:20px;}
+    .pn-empty-sub{font-size:11px;color:var(--dim2);}
+
+    /* Demo banner */
+    .pn-demo-banner{display:none;align-items:center;gap:12px;padding:10px 18px;background:rgba(201,168,76,0.06);border:1px solid rgba(201,168,76,0.20);border-radius:8px;margin-bottom:20px;font-size:11px;color:var(--dim);}
     .pn-demo-banner.visible{display:flex;}
     .pn-demo-banner strong{color:var(--gold);}
 
-    /* SECTION LABEL */
-    .pn-sec-lbl{font-size:7px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--dim2);margin-bottom:14px;display:flex;align-items:center;gap:8px;}
-    .pn-sec-lbl::after{content:'';flex:1;height:1px;background:var(--border);}
+    /* ── TREATMENT VIEW (STATE 1+2) ──────────────────────────── */
+    .pn-main{max-width:1100px;margin:0 auto;padding:28px 24px;}
+    .pn-treat-head{display:flex;align-items:center;gap:16px;margin-bottom:28px;padding-bottom:20px;border-bottom:1px solid var(--border);}
+    .pn-treat-head-info{flex:1;}
+    .pn-treat-head-name{font-size:18px;font-weight:700;color:var(--text);letter-spacing:-0.3px;}
+    .pn-treat-head-sub{font-size:10px;color:var(--dim);margin-top:4px;}
+    .pn-treat-layout{display:grid;grid-template-columns:1fr 1fr;gap:24px;}
+    @media(max-width:768px){.pn-treat-layout{grid-template-columns:1fr;}
+      .pn-card-grid{grid-template-columns:1fr;}
+      .pn-grid-cell:nth-child(2){border-right:none;}
+    }
 
-    /* SOPHIA SIGNAL STRIP */
-    .pn-sophia-strip{
-      display:flex;align-items:center;gap:14px;padding:14px 20px;
-      background:rgba(123,158,217,0.05);border:1px solid rgba(123,158,217,0.18);
-      border-radius:10px;margin-bottom:24px;
-    }
-    .pn-sophia-av{
-      width:40px;height:40px;border-radius:50%;flex-shrink:0;
-      background:linear-gradient(135deg,rgba(123,158,217,0.35),rgba(80,100,200,0.55));
-      border:2px solid rgba(123,158,217,0.55);box-shadow:0 0 14px rgba(123,158,217,0.22);
-      display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#e0eaff;
-    }
-    .pn-sophia-body{flex:1;}
-    .pn-sophia-name{font-size:10px;font-weight:700;color:var(--sophia);letter-spacing:1px;text-transform:uppercase;margin-bottom:3px;}
-    .pn-sophia-msg{font-size:12px;color:var(--text);line-height:1.5;}
-    .pn-sophia-time{font-size:9px;color:var(--dim2);flex-shrink:0;}
-    .pn-dot-live{width:6px;height:6px;border-radius:50%;background:var(--green);box-shadow:0 0 6px rgba(100,200,120,0.6);flex-shrink:0;}
-
-    /* PROSPECT CARDS */
-    .pn-prospect-grid{display:flex;flex-direction:column;gap:12px;margin-bottom:32px;}
-    .pn-prospect{
-      background:rgba(255,248,235,0.02);border:1px solid var(--border);border-radius:12px;
-      padding:20px 22px;transition:all 0.2s;
-    }
-    .pn-prospect.active{
-      background:rgba(201,168,76,0.04);border-color:rgba(201,168,76,0.22);
-      box-shadow:0 0 30px rgba(201,168,76,0.06);
-    }
-    .pn-prospect.greyed{opacity:0.40;}
-    .pn-prospect-head{display:flex;align-items:flex-start;gap:14px;margin-bottom:14px;}
-    .pn-p-av{
-      width:48px;height:48px;border-radius:50%;flex-shrink:0;
-      display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;
-    }
-    .pn-p-av.priority{
-      background:linear-gradient(135deg,rgba(201,168,76,0.32),rgba(184,115,51,0.55));
-      border:2px solid rgba(201,168,76,0.60);box-shadow:0 0 16px rgba(201,168,76,0.28);color:#e8dcc8;
-    }
-    .pn-p-av.waiting{background:rgba(232,220,200,0.06);border:2px solid rgba(232,220,200,0.12);color:var(--dim2);}
-    .pn-p-info{flex:1;}
-    .pn-p-name{font-size:15px;font-weight:700;color:var(--text);margin-bottom:3px;}
-    .pn-p-subtitle{font-size:11px;color:var(--dim);margin-bottom:8px;}
-    .pn-p-badges{display:flex;gap:6px;flex-wrap:wrap;}
-    .pn-pill{padding:2px 9px;border-radius:20px;font-size:7px;font-weight:700;letter-spacing:1px;text-transform:uppercase;}
-    .pn-pill.new{background:rgba(201,168,76,0.12);border:1px solid rgba(201,168,76,0.28);color:var(--gold);}
-    .pn-pill.high{background:rgba(208,64,64,0.10);border:1px solid rgba(208,64,64,0.25);color:#e07878;}
-    .pn-pill.wait{background:rgba(232,220,200,0.05);border:1px solid rgba(232,220,200,0.12);color:var(--dim2);}
-    .pn-prospect-body{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;}
-    @media(max-width:600px){.pn-prospect-body{grid-template-columns:1fr;}}
-    .pn-p-field{background:rgba(255,248,235,0.02);border:1px solid var(--border);border-radius:8px;padding:11px 13px;}
-    .pn-p-field-lbl{font-size:7px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--dim2);margin-bottom:5px;}
-    .pn-p-field-val{font-size:11px;color:var(--text);line-height:1.5;display:flex;align-items:flex-start;gap:6px;}
-    .pn-sig-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;margin-top:3px;}
-    .pn-sig-dot.high{background:#e07878;box-shadow:0 0 6px rgba(220,80,80,0.5);}
-    .pn-prospect-footer{display:flex;justify-content:flex-end;gap:10px;}
-
-    /* BUTTONS */
-    .pn-btn{
-      padding:9px 20px;border-radius:7px;font-size:10px;font-weight:700;letter-spacing:0.6px;
-      text-transform:uppercase;cursor:pointer;transition:all 0.18s;border:1px solid;
-    }
-    .pn-btn.primary{
-      background:linear-gradient(135deg,rgba(201,168,76,0.22),rgba(184,115,51,0.18));
-      border-color:rgba(201,168,76,0.40);color:var(--gold);
-    }
-    .pn-btn.primary:hover{background:linear-gradient(135deg,rgba(201,168,76,0.32),rgba(184,115,51,0.26));border-color:rgba(201,168,76,0.60);}
-    .pn-btn.ghost{background:none;border-color:rgba(232,220,200,0.12);color:var(--dim);cursor:default;}
-    .pn-btn.cta{
-      padding:12px 28px;font-size:11px;
-      background:linear-gradient(135deg,rgba(201,168,76,0.28),rgba(184,115,51,0.22));
-      border-color:rgba(201,168,76,0.50);color:var(--gold);
-      box-shadow:0 0 24px rgba(201,168,76,0.10);
-    }
-    .pn-btn.cta:hover{background:linear-gradient(135deg,rgba(201,168,76,0.40),rgba(184,115,51,0.32));border-color:rgba(201,168,76,0.70);box-shadow:0 0 36px rgba(201,168,76,0.20);}
-
-    /* TREATMENT VIEW */
-    .pn-treat-head{
-      display:flex;align-items:center;gap:12px;margin-bottom:24px;padding-bottom:16px;
-      border-bottom:1px solid var(--border);flex-wrap:wrap;gap:10px;
-    }
-    .pn-treat-head-info{flex:1;min-width:200px;}
-    .pn-treat-head-name{font-size:17px;font-weight:700;color:var(--text);}
-    .pn-treat-head-sub{font-size:10px;color:var(--dim);margin-top:3px;}
-    .pn-treat-layout{display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start;}
-    @media(max-width:768px){.pn-treat-layout{grid-template-columns:1fr;}}
-
-    /* FICHE */
-    .pn-fiche{display:flex;flex-direction:column;gap:12px;}
-    .pn-fiche-block{background:rgba(255,248,235,0.02);border:1px solid var(--border);border-radius:10px;padding:14px 16px;}
-    .pn-fiche-block.signal{border-color:rgba(208,64,64,0.22);background:rgba(208,64,64,0.03);}
-    .pn-fiche-lbl{font-size:7px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--dim2);margin-bottom:8px;}
-    .pn-fiche-block.signal .pn-fiche-lbl{color:rgba(208,64,64,0.55);}
+    /* Fiche */
+    .pn-fiche{display:flex;flex-direction:column;gap:16px;}
+    .pn-fiche-block{background:rgba(255,220,140,0.03);border:1px solid var(--border);border-radius:10px;padding:16px;}
+    .pn-fiche-block.signal{background:rgba(201,68,40,0.05);border-color:rgba(201,68,40,0.2);}
+    .pn-fiche-lbl{font-size:7px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--dim2);margin-bottom:10px;}
+    .pn-fiche-val{font-size:12px;color:var(--dim);line-height:1.7;}
     .pn-fiche-sig-row{display:flex;align-items:center;gap:8px;margin-bottom:5px;}
-    .pn-fiche-sig-text{font-size:13px;font-weight:600;color:var(--text);}
-    .pn-fiche-sig-sub{font-size:10px;color:var(--dim);}
-    .pn-fiche-val{font-size:11px;color:var(--text);line-height:1.7;}
-    .pn-fiche-bullets{list-style:none;padding:0;}
-    .pn-fiche-bullets li{font-size:11px;color:var(--text);padding:3px 0 3px 14px;position:relative;line-height:1.5;}
-    .pn-fiche-bullets li::before{content:'•';position:absolute;left:0;color:var(--gold);}
+    .pn-fiche-sig-text{font-size:12px;font-weight:600;color:var(--text);}
+    .pn-fiche-sig-sub{font-size:10px;color:var(--dim);margin-top:4px;}
+    .pn-sig-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+    .pn-sig-dot.high{background:#e06060;box-shadow:0 0 6px rgba(200,60,60,0.5);}
+    .pn-fiche-bullets{padding-left:0;list-style:none;display:flex;flex-direction:column;gap:5px;}
+    .pn-fiche-bullets li{font-size:12px;color:var(--dim);line-height:1.55;padding-left:14px;position:relative;}
+    .pn-fiche-bullets li::before{content:'·';position:absolute;left:0;color:var(--gold);}
 
-    /* COMPTE-RENDU */
-    .pn-cr-zone{display:flex;flex-direction:column;gap:12px;}
-    .pn-cr-header-lbl{font-size:7px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--dim2);}
-    .pn-cr-date{font-size:9px;color:var(--dim2);margin-top:3px;}
-    .pn-cr-textarea{
-      width:100%;min-height:210px;background:rgba(255,248,235,0.03);
-      border:1px solid var(--border-s);border-radius:8px;
-      color:var(--text);font-size:12px;font-family:inherit;
-      padding:14px 16px;resize:vertical;line-height:1.7;outline:none;
-      transition:border-color 0.2s;
-    }
-    .pn-cr-textarea:focus{border-color:rgba(201,168,76,0.35);}
+    /* CR / Sophia */
+    .pn-cr-zone{display:flex;flex-direction:column;gap:14px;}
+    .pn-cr-header-lbl{font-size:11px;font-weight:700;color:var(--text);}
+    .pn-cr-date{font-size:10px;color:var(--dim);}
+    .pn-cr-textarea{background:rgba(255,220,140,0.03);border:1px solid var(--border-s);border-radius:8px;padding:14px;font-size:11px;color:var(--dim);line-height:1.8;width:100%;min-height:200px;resize:vertical;font-family:inherit;}
+    .pn-cr-textarea:focus{outline:none;border-color:rgba(201,168,76,0.35);}
     .pn-cr-footer{display:flex;justify-content:flex-end;}
 
-    /* SOPHIA ANALYSIS */
-    .pn-sophia-zone{display:flex;flex-direction:column;gap:14px;}
-    .pn-sophia-zone-head{
-      display:flex;align-items:center;gap:12px;padding:13px 16px;
-      background:rgba(123,158,217,0.05);border:1px solid rgba(123,158,217,0.18);border-radius:10px;
-    }
-    .pn-sophia-zone-name{font-size:10px;font-weight:700;color:var(--sophia);letter-spacing:1px;text-transform:uppercase;}
-    .pn-sophia-zone-sub{font-size:9px;color:var(--dim);margin-top:2px;}
-    .pn-sophia-zone-body{
-      background:rgba(255,248,235,0.02);border:1px solid var(--border);border-radius:10px;
-      padding:16px;display:flex;flex-direction:column;gap:14px;
-    }
+    /* Sophia result zone */
+    .pn-sophia-zone{display:flex;flex-direction:column;gap:16px;background:rgba(123,158,217,0.04);border:1px solid rgba(123,158,217,0.18);border-radius:12px;padding:18px;}
+    .pn-sophia-zone-head{display:flex;align-items:center;gap:12px;}
+    .pn-sophia-zone-name{font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--sophia);}
+    .pn-sophia-zone-sub{font-size:10px;color:var(--dim);}
+    .pn-sophia-zone-body{display:flex;flex-direction:column;gap:14px;}
     .pn-ana-lbl{font-size:7px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--dim2);margin-bottom:6px;}
-    .pn-ana-val{font-size:12px;color:var(--text);line-height:1.5;}
-    .pn-score-item{display:flex;flex-direction:column;gap:4px;margin-bottom:8px;}
-    .pn-score-item:last-child{margin-bottom:0;}
-    .pn-score-head{display:flex;align-items:center;justify-content:space-between;}
-    .pn-score-name{font-size:11px;color:var(--text);}
-    .pn-score-pct{font-size:10px;font-weight:700;color:var(--gold);}
-    .pn-score-bar{height:3px;background:rgba(255,220,140,0.08);border-radius:2px;overflow:hidden;}
-    .pn-score-fill{height:100%;border-radius:2px;background:linear-gradient(90deg,var(--gold),var(--copper));width:0%;transition:width 0.9s cubic-bezier(0.4,0,0.2,1);}
-    .pn-score-sub{font-size:9px;color:var(--dim2);}
-    .pn-ana-reco{
-      background:rgba(201,168,76,0.05);border:1px solid rgba(201,168,76,0.18);
-      border-radius:8px;padding:12px 14px;font-size:11px;color:var(--dim);line-height:1.7;font-style:italic;
-    }
+    .pn-ana-val{font-size:12px;color:var(--dim);line-height:1.6;}
+    .pn-score-item{margin-bottom:10px;}
+    .pn-score-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;}
+    .pn-score-name{font-size:12px;font-weight:600;color:var(--text);}
+    .pn-score-pct{font-size:11px;font-weight:700;color:var(--gold);}
+    .pn-score-bar{height:3px;background:rgba(255,220,140,0.1);border-radius:2px;overflow:hidden;}
+    .pn-score-fill{height:100%;width:0;background:linear-gradient(90deg,var(--copper),var(--gold));border-radius:2px;transition:width 0.9s cubic-bezier(0.25,1,0.5,1);}
+    .pn-score-sub{font-size:9px;color:var(--dim2);margin-top:3px;}
+    .pn-ana-reco{background:rgba(201,168,76,0.07);border:1px solid rgba(201,168,76,0.18);border-radius:8px;padding:12px 14px;font-size:11px;color:var(--dim);line-height:1.7;font-style:italic;}
     .pn-ana-reco strong{color:var(--text);font-style:normal;}
     .pn-cta-zone{display:flex;justify-content:flex-end;padding-top:4px;}
 
-    /* LOADING */
-    .pn-loading{
-      display:flex;flex-direction:column;align-items:center;justify-content:center;
-      padding:48px 20px;gap:18px;
-    }
-    .pn-loading-av{
-      width:54px;height:54px;border-radius:50%;
-      background:linear-gradient(135deg,rgba(123,158,217,0.35),rgba(80,100,200,0.55));
-      border:2px solid rgba(123,158,217,0.55);
-      display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:#e0eaff;
-      animation:sophia-pulse 1.2s ease-in-out infinite;
-    }
-    @keyframes sophia-pulse{
-      0%,100%{box-shadow:0 0 10px rgba(123,158,217,0.28);}
-      50%{box-shadow:0 0 26px rgba(123,158,217,0.65);}
-    }
+    /* Loading */
+    .pn-loading{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:48px 20px;gap:18px;}
+    .pn-loading-av{width:54px;height:54px;border-radius:50%;background:linear-gradient(135deg,rgba(123,158,217,0.35),rgba(80,100,200,0.55));border:2px solid rgba(123,158,217,0.55);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:#e0eaff;animation:sophia-pulse 1.2s ease-in-out infinite;}
+    @keyframes sophia-pulse{0%,100%{box-shadow:0 0 10px rgba(123,158,217,0.28);}50%{box-shadow:0 0 26px rgba(123,158,217,0.65);}}
     .pn-loading-text{font-size:12px;color:var(--dim);animation:fade-pulse 1.4s ease-in-out infinite;}
     @keyframes fade-pulse{0%,100%{opacity:0.4;}50%{opacity:1;}}
 
-    /* FOOTER */
-    .pn-footer{
-      text-align:center;padding:18px;font-size:8px;
-      color:rgba(201,168,76,0.18);letter-spacing:1.2px;
-      border-top:1px solid var(--border);margin-top:8px;
-    }
+    /* Buttons shared */
+    .pn-btn{padding:10px 20px;border-radius:8px;font-size:10px;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;cursor:pointer;transition:all 0.18s;border:1px solid;font-family:inherit;}
+    .pn-btn.primary{background:linear-gradient(135deg,rgba(201,168,76,0.22),rgba(184,115,51,0.28));border-color:rgba(201,168,76,0.45);color:var(--gold);}
+    .pn-btn.primary:hover{background:linear-gradient(135deg,rgba(201,168,76,0.32),rgba(184,115,51,0.40));border-color:rgba(201,168,76,0.65);}
+    .pn-btn.cta{background:var(--gold);border-color:var(--gold);color:#080508;padding:12px 24px;font-size:11px;}
+    .pn-btn.cta:hover{background:#d4b055;box-shadow:0 4px 20px rgba(201,168,76,0.3);}
+
+    /* Footer */
+    .pn-footer{text-align:center;padding:18px;font-size:8px;color:rgba(201,168,76,0.18);letter-spacing:1.2px;border-top:1px solid var(--border);margin-top:8px;}
   </style>
 </head>
 <body>
@@ -245,176 +283,103 @@
   </div>
   <div class="pn-vsep"></div>
   <div class="pn-title" id="pnHeaderTitle">Opportunités détectées</div>
+  <div class="pn-counter" id="pnCounter" style="display:none"></div>
   <div class="pn-badge" id="pnDemoBadge" style="display:none">Mode Démo</div>
   <a href="/dashboard" class="pn-hbtn back" id="pnBackBtn">← Dashboard</a>
 </header>
 
-<main class="pn-main">
+<!-- ── STATE 0 : GROSSE CARTE ────────────────────────────────── -->
+<div id="pnCardView" class="pn-card-view">
 
   <div class="pn-demo-banner" id="pnDemoBanner">
     <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="5.5" stroke="#c9a84c" stroke-width="1.2"/><path d="M7 4.5V7.5M7 9h.01" stroke="#c9a84c" stroke-width="1.3" stroke-linecap="round"/></svg>
     <span>Mode démo — <strong>données fictives</strong> — workflow cible Days Legacy. Aucune donnée personnelle réelle.</span>
   </div>
 
-  <!-- ── STATE 0 : LISTE ─────────────────────────────────── -->
-  <div id="pnListView">
-
-    <div class="pn-sophia-strip">
-      <div class="pn-sophia-av">S</div>
-      <div class="pn-sophia-body">
-        <div class="pn-sophia-name">Sophia — Détection d'opportunités</div>
-        <div class="pn-sophia-msg">
-          1 opportunité <strong style="color:var(--gold)">haute priorité</strong> détectée aujourd'hui —
-          signal : cession d'entreprise · profil M. Renard compatible holding patrimoniale (score 94/100).
-        </div>
-      </div>
-      <div class="pn-dot-live"></div>
-      <div class="pn-sophia-time">Aujourd'hui 09h14</div>
+  <div class="pn-sophia-strip">
+    <div class="pn-sophia-av">S</div>
+    <div class="pn-sophia-body">
+      <div class="pn-sophia-name">Sophia — Détection d'opportunités</div>
+      <div class="pn-sophia-msg" id="pnSophiaStrip">1 opportunité <strong style="color:var(--gold)">haute priorité</strong> — signal : cession d'entreprise · M. Renard compatible holding patrimoniale (score 94/100).</div>
     </div>
+    <div class="pn-dot-live"></div>
+    <div class="pn-sophia-time">Aujourd'hui 09h14</div>
+  </div>
 
-    <div class="pn-sec-lbl">Prospects en attente de traitement</div>
+  <!-- Navigation dots -->
+  <div class="pn-dots" id="pnDots"></div>
 
-    <div class="pn-prospect-grid">
+  <!-- Grosse carte prospect (rendue par JS) -->
+  <div id="pnBigCardSlot"></div>
 
-      <!-- M. Renard — HAUTE PRIORITÉ -->
-      <div class="pn-prospect active" id="pnCardRenard">
-        <div class="pn-prospect-head">
-          <div class="pn-p-av priority">MR</div>
-          <div class="pn-p-info">
-            <div class="pn-p-name">M. Renard</div>
-            <div class="pn-p-subtitle">Dirigeant PME · 58 ans · Bordeaux</div>
-            <div class="pn-p-badges">
-              <span class="pn-pill new">Nouveau</span>
-              <span class="pn-pill high">Haute priorité</span>
-            </div>
-          </div>
-        </div>
-        <div class="pn-prospect-body">
-          <div class="pn-p-field">
-            <div class="pn-p-field-lbl">Signal détecté</div>
-            <div class="pn-p-field-val">
-              <div class="pn-sig-dot high"></div>
-              Préparation retraite — cession d'entreprise envisagée dans 18 mois
-            </div>
-          </div>
-          <div class="pn-p-field">
-            <div class="pn-p-field-lbl">Source</div>
-            <div class="pn-p-field-val">Introduction via M. Fontaine, cabinet partenaire Bordeaux</div>
-          </div>
-          <div class="pn-p-field">
-            <div class="pn-p-field-lbl">Besoin probable</div>
-            <div class="pn-p-field-val">Optimisation fiscale sur plus-value de cession + transmission patrimoniale</div>
-          </div>
-          <div class="pn-p-field">
-            <div class="pn-p-field-lbl">Potentiel estimé</div>
-            <div class="pn-p-field-val">AUM cible : <strong style="color:var(--gold)">1,8 M€</strong> · Valorisation entreprise : ~2,2 M€</div>
-          </div>
-        </div>
-        <div class="pn-prospect-footer">
-          <button class="pn-btn primary" onclick="openTreatment()">Traiter ce prospect →</button>
-        </div>
-      </div>
+</div>
 
-      <!-- Mme Clément-Bertrand — en attente -->
-      <div class="pn-prospect greyed">
-        <div class="pn-prospect-head">
-          <div class="pn-p-av waiting">CB</div>
-          <div class="pn-p-info">
-            <div class="pn-p-name">Mme Clément-Bertrand</div>
-            <div class="pn-p-subtitle">Cadre dirigeante · 52 ans · Lyon</div>
-            <div class="pn-p-badges"><span class="pn-pill wait">En attente d'affectation</span></div>
-          </div>
-        </div>
-        <div class="pn-prospect-footer">
-          <button class="pn-btn ghost" disabled>Affecter à un conseiller</button>
-        </div>
-      </div>
+<!-- ── STATE 1+2 : TRAITEMENT ─────────────────────────────────── -->
+<div id="pnTreatView" style="display:none">
+<main class="pn-main">
 
-      <!-- M. Andrieu-Kowalski — en attente -->
-      <div class="pn-prospect greyed">
-        <div class="pn-prospect-head">
-          <div class="pn-p-av waiting">AK</div>
-          <div class="pn-p-info">
-            <div class="pn-p-name">M. Andrieu-Kowalski</div>
-            <div class="pn-p-subtitle">Médecin libéral · 45 ans · Nantes</div>
-            <div class="pn-p-badges"><span class="pn-pill wait">En attente d'affectation</span></div>
-          </div>
-        </div>
-        <div class="pn-prospect-footer">
-          <button class="pn-btn ghost" disabled>Affecter à un conseiller</button>
-        </div>
-      </div>
-
+  <div class="pn-treat-head">
+    <button class="pn-hbtn back" onclick="backToCard()">← Retour</button>
+    <div class="pn-treat-head-info">
+      <div class="pn-treat-head-name" id="pnTreatName">M. Renard — Traitement en cours</div>
+      <div class="pn-treat-head-sub">Opportunité haute priorité · Prospect Navigator · <span id="pnTreatDate"></span></div>
     </div>
-  </div><!-- /pnListView -->
+    <div class="pn-badge">En traitement</div>
+  </div>
 
-  <!-- ── STATE 1+2 : TRAITEMENT ─────────────────────────── -->
-  <div id="pnTreatView" style="display:none">
+  <div class="pn-treat-layout">
 
-    <div class="pn-treat-head">
-      <button class="pn-hbtn back" onclick="backToList()">← Retour</button>
-      <div class="pn-treat-head-info">
-        <div class="pn-treat-head-name">M. Renard — Traitement en cours</div>
-        <div class="pn-treat-head-sub">Opportunité haute priorité · Prospect Navigator · <span id="pnTreatDate"></span></div>
+    <!-- LEFT : fiche prospect -->
+    <div class="pn-fiche" id="pnFiche">
+
+      <div class="pn-fiche-block signal">
+        <div class="pn-fiche-lbl">Signal détecté</div>
+        <div class="pn-fiche-sig-row">
+          <div class="pn-sig-dot high"></div>
+          <div class="pn-fiche-sig-text" id="pnFicheSignal">Préparation retraite — cession d'entreprise</div>
+        </div>
+        <div class="pn-fiche-sig-sub" id="pnFicheSignalSub">Via M. Fontaine, cabinet partenaire · Fiabilité source : 94 %</div>
       </div>
-      <div class="pn-badge">En traitement</div>
-    </div>
 
-    <div class="pn-treat-layout">
-
-      <!-- LEFT : fiche prospect -->
-      <div class="pn-fiche">
-
-        <div class="pn-fiche-block signal">
-          <div class="pn-fiche-lbl">Signal détecté</div>
-          <div class="pn-fiche-sig-row">
-            <div class="pn-sig-dot high"></div>
-            <div class="pn-fiche-sig-text">Préparation retraite — cession d'entreprise</div>
-          </div>
-          <div class="pn-fiche-sig-sub">Via M. Fontaine, cabinet partenaire · Fiabilité source : 94 %</div>
+      <div class="pn-fiche-block">
+        <div class="pn-fiche-lbl">Profil client</div>
+        <div class="pn-fiche-val" id="pnFicheProfil">
+          Dirigeant PME (secteur BTP), 58 ans, Bordeaux.<br>
+          Marié, 2 enfants majeurs. CA entreprise : ~3,2 M€.<br>
+          Valorisation estimée : 2,2 M€.
         </div>
+      </div>
 
-        <div class="pn-fiche-block">
-          <div class="pn-fiche-lbl">Profil client</div>
-          <div class="pn-fiche-val">
-            Dirigeant PME (secteur BTP), 58 ans, Bordeaux.<br>
-            Marié, 2 enfants majeurs. CA entreprise : ~3,2 M€.<br>
-            Valorisation estimée : 2,2 M€.
-          </div>
+      <div class="pn-fiche-block">
+        <div class="pn-fiche-lbl">Contexte patrimonial</div>
+        <div class="pn-fiche-val" id="pnFicheContexte">
+          Résidence principale + parts sociales (100 %).<br>
+          Pas de structure holding actuellement.<br>
+          Assurance-vie modeste (~180 k€).<br>
+          Cession envisagée horizon 18 mois.
         </div>
+      </div>
 
-        <div class="pn-fiche-block">
-          <div class="pn-fiche-lbl">Contexte patrimonial</div>
-          <div class="pn-fiche-val">
-            Résidence principale + parts sociales (100 %).<br>
-            Pas de structure holding actuellement.<br>
-            Assurance-vie modeste (~180 k€).<br>
-            Cession envisagée horizon 18 mois.
-          </div>
+      <div class="pn-fiche-block">
+        <div class="pn-fiche-lbl">Besoins identifiés</div>
+        <ul class="pn-fiche-bullets" id="pnFicheBesoins">
+          <li>Optimisation fiscale sur la plus-value de cession</li>
+          <li>Transmission patrimoniale anticipée aux enfants</li>
+          <li>Structuration des revenus post-cession</li>
+          <li>Protection du conjoint (régime matrimonial)</li>
+        </ul>
+      </div>
+
+    </div><!-- /fiche -->
+
+    <!-- RIGHT : CR puis Sophia -->
+    <div>
+      <div id="pnCRZone" class="pn-cr-zone">
+        <div>
+          <div class="pn-cr-header-lbl">Compte-rendu premier contact</div>
+          <div class="pn-cr-date" id="pnCRDate"></div>
         </div>
-
-        <div class="pn-fiche-block">
-          <div class="pn-fiche-lbl">Besoins identifiés</div>
-          <ul class="pn-fiche-bullets">
-            <li>Optimisation fiscale sur la plus-value de cession</li>
-            <li>Transmission patrimoniale anticipée aux enfants</li>
-            <li>Structuration des revenus post-cession</li>
-            <li>Protection du conjoint (régime matrimonial)</li>
-          </ul>
-        </div>
-
-      </div><!-- /fiche -->
-
-      <!-- RIGHT : CR puis analyse Sophia -->
-      <div>
-
-        <!-- Zone compte-rendu (state 1) -->
-        <div id="pnCRZone" class="pn-cr-zone">
-          <div>
-            <div class="pn-cr-header-lbl">Compte-rendu premier contact</div>
-            <div class="pn-cr-date" id="pnCRDate"></div>
-          </div>
-          <textarea class="pn-cr-textarea" id="pnCRText">Premier contact téléphonique — 11 juin 2026.
+        <textarea class="pn-cr-textarea" id="pnCRText">Premier contact téléphonique — 11 juin 2026.
 
 M. Renard confirme la cession de son entreprise prévue pour fin 2027. Valorisation estimée entre 2 et 2,5 M€ selon l'acquéreur.
 
@@ -423,51 +388,273 @@ Souhaite minimiser la fiscalité sur la plus-value. Deux enfants majeurs — tra
 Pas de structure holding à ce jour. Assurance-vie existante mais sous-dimensionnée (~180 k€).
 
 Disponible pour RDV cabinet semaine du 17 juin.</textarea>
-          <div class="pn-cr-footer">
-            <button class="pn-btn primary" onclick="validateCR()">✓ Valider le compte-rendu</button>
-          </div>
+        <div class="pn-cr-footer">
+          <button class="pn-btn primary" onclick="validateCR()">✓ Valider le compte-rendu</button>
         </div>
+      </div>
 
-        <!-- Sophia analyse (state 2, populated by JS) -->
-        <div id="pnSophiaZone" class="pn-sophia-zone" style="display:none"></div>
+      <div id="pnSophiaZone" class="pn-sophia-zone" style="display:none"></div>
+    </div>
 
-      </div><!-- /right -->
-    </div><!-- /treat-layout -->
-  </div><!-- /pnTreatView -->
+  </div>
 
 </main>
+</div><!-- /pnTreatView -->
 
-<div class="pn-footer">Days Legacy Workspace — powered by YAWatch LUNA</div>
+<div class="pn-footer" id="pnFooter">Days Legacy Workspace — powered by YAWatch LUNA</div>
 
 <script>
 /* ============================================================
-   DAYS LEGACY — PROSPECT NAVIGATOR v1.0
+   DAYS LEGACY — PROSPECT NAVIGATOR v2.0
+   Grosse carte centrale — Accepter / Refuser
    ============================================================ */
 
-var _isDemo = new URLSearchParams(window.location.search).get('demo') === '1';
-var _state = 0; /* 0=list  1=treatment/CR  2=sophia */
+var _qs      = new URLSearchParams(window.location.search);
+var _isDemo  = _qs.get('demo') === '1';
+var _goTreat = _qs.get('go')   === 'treat';
+var _initIdx = parseInt(_qs.get('idx') || '0', 10) || 0;
+var _state   = 0; /* 0=card  1=treatment  2=sophia */
+var _cardIdx = _initIdx;
 
-function openTreatment() {
+/* ── DONNÉES PROSPECTS ─────────────────────────────────────── */
+var PROSPECTS = [
+  {
+    id: 'renard',
+    initials: 'MR',
+    avClass: '',
+    name: 'M. Renard',
+    role: 'Dirigeant PME — Secteur BTP',
+    age: '58 ans',
+    region: 'Bordeaux, Nouvelle-Aquitaine',
+    secteur: 'BTP / Construction',
+    score: 94,
+    priority: 'high',
+    priorityLabel: 'Haute priorité',
+    signal: 'Préparation retraite — cession d\'entreprise',
+    signalSub: 'Via M. Fontaine, cabinet partenaire · Fiabilité source : 94 %',
+    sources: [
+      { icon: '👤', text: 'Introduction via M. Fontaine, cabinet partenaire Bordeaux', conf: '94 %' },
+      { icon: '📡', text: 'Signal réseau : cession BTP détectée · Valorisation ~2,2 M€', conf: '87 %' },
+      { icon: '📄', text: 'Annonce légale : préparation cession parts sociales SCI Renard', conf: '91 %' },
+    ],
+    why: '<strong>Cession d\'entreprise imminente dans 18 mois.</strong> Valorisation ~2,2 M€. Pas de structure holding — optimisation fiscale urgente. 2 enfants majeurs : transmission patrimoniale possible. Profil exceptionnel pour Holding + Pacte Dutreil combiné.',
+    besoinProbable: 'Optimisation fiscale sur la plus-value de cession · Transmission patrimoniale anticipée · Structuration revenus post-cession',
+    canal: 'Appel sortant → RDV cabinet → proposition formelle',
+    approche: '« Bonjour M. Renard, votre associé M. Fontaine m\'a mentionné votre projet de cession. Nous accompagnons des dirigeants dans votre situation — j\'aimerais vous présenter les options qui s\'offrent à vous avant la finalisation. »',
+    aum: '1,8 M€',
+  },
+  {
+    id: 'clement',
+    initials: 'CB',
+    avClass: 'p2',
+    name: 'Mme Clément-Bertrand',
+    role: 'Cadre dirigeante — Industrie pharmaceutique',
+    age: '52 ans',
+    region: 'Lyon, Auvergne-Rhône-Alpes',
+    secteur: 'Pharmacie / Life sciences',
+    score: 78,
+    priority: 'med',
+    priorityLabel: 'Priorité normale',
+    signal: 'Départ volontaire — retraite anticipée dans 3 ans',
+    signalSub: 'Via cabinet de recrutement partenaire · Fiabilité : 78 %',
+    sources: [
+      { icon: '🤝', text: 'Recommandation cabinet de recrutement Meridian Lyon', conf: '78 %' },
+      { icon: '📡', text: 'Signal LinkedIn : "Exploring new opportunities" · Stock options importantes', conf: '71 %' },
+    ],
+    why: '<strong>Retraite anticipée envisagée à 55 ans.</strong> Stock-options conséquentes à liquider. Pas de stratégie patrimoniale structurée identifiée. Profil compatible PEA + assurance-vie capitalisation.',
+    besoinProbable: 'Optimisation stock-options · Préparation retraite · Investissement immobilier',
+    canal: 'Email personnalisé → appel → RDV Lyon',
+    approche: '« Bonjour Mme Clément-Bertrand, suite à notre échange avec Meridian, je souhaite vous proposer un point patrimonial confidentiel avant votre transition. »',
+    aum: '0,9 M€',
+  },
+  {
+    id: 'andrieu',
+    initials: 'AK',
+    avClass: 'p3',
+    name: 'M. Andrieu-Kowalski',
+    role: 'Médecin libéral — Spécialiste cardiologie',
+    age: '45 ans',
+    region: 'Nantes, Pays de la Loire',
+    secteur: 'Santé / Médical libéral',
+    score: 71,
+    priority: 'med',
+    priorityLabel: 'Priorité normale',
+    signal: 'Constitution de patrimoine — fort revenu libéral',
+    signalSub: 'Réseau médecins partenaires · Fiabilité : 71 %',
+    sources: [
+      { icon: '👥', text: 'Réseau médecins libéraux Nantes — recommandation Dr. Moreau', conf: '71 %' },
+      { icon: '📊', text: 'Revenu estimé : 280 k€/an · Capacité épargne significative', conf: '68 %' },
+    ],
+    why: '<strong>Revenu libéral élevé (~280 k€/an) sans stratégie de capitalisation identifiée.</strong> Pas de structure juridique optimisée (SEL possible). Profil typique cabinet patrimonial — horizon 15 ans.',
+    besoinProbable: 'Structuration revenu médical (SEL) · Immobilier locatif · Prévoyance professionnelle',
+    canal: 'Introduction réseau → déjeuner → proposition',
+    approche: '« Bonjour Dr Andrieu-Kowalski, le Dr Moreau nous a transmis vos coordonnées. Nous travaillons avec plusieurs spécialistes libéraux sur la structuration de leur patrimoine — cela pourrait vous intéresser. »',
+    aum: '0,6 M€',
+  },
+];
+
+/* ── RENDU GROSSE CARTE ────────────────────────────────────── */
+function renderCard(idx) {
+  var p = PROSPECTS[idx];
+  if (!p) { renderEmpty(); return; }
+
+  /* Dots */
+  var dotsEl = document.getElementById('pnDots');
+  dotsEl.innerHTML = '';
+  PROSPECTS.forEach(function(_, i) {
+    var d = document.createElement('div');
+    d.className = 'pn-dot' + (i === idx ? ' active' : '');
+    d.onclick = (function(i){ return function(){ _cardIdx = i; renderCard(i); }; })(i);
+    dotsEl.appendChild(d);
+  });
+
+  /* Counter */
+  var ctr = document.getElementById('pnCounter');
+  ctr.textContent = (idx + 1) + ' / ' + PROSPECTS.length;
+  ctr.style.display = 'block';
+
+  /* Sources HTML */
+  var srcHtml = p.sources.map(function(s) {
+    return '<div class="pn-source-row">'
+      + '<div class="pn-source-icon">' + s.icon + '</div>'
+      + '<div class="pn-source-text">' + s.text + '</div>'
+      + '<div class="pn-source-conf">' + s.conf + '</div>'
+      + '</div>';
+  }).join('');
+
+  document.getElementById('pnBigCardSlot').innerHTML =
+    '<div class="pn-big-card-wrap">'
+    + '<div class="pn-big-card">'
+
+      /* Top bar */
+      + '<div class="pn-card-top">'
+        + '<div class="pn-score-badge">'
+          + '<div><div class="pn-score-num" id="pn-snum">0</div><div style="font-size:7px;color:rgba(201,168,76,0.55);font-weight:700;letter-spacing:1px">/ 100</div></div>'
+          + '<div class="pn-score-label">Score<br>Sophia</div>'
+        + '</div>'
+        + '<div class="pn-prio-pill ' + p.priority + '">' + p.priorityLabel + '</div>'
+        + '<div class="pn-meta-tag" style="margin-left:4px">AUM cible : ' + p.aum + '</div>'
+        + '<div class="pn-signal-tag">⚡ ' + p.signal + '</div>'
+      + '</div>'
+
+      /* Identité */
+      + '<div class="pn-card-identity">'
+        + '<div class="pn-card-av ' + p.avClass + '">' + p.initials + '</div>'
+        + '<div style="flex:1">'
+          + '<div class="pn-card-name">' + p.name + '</div>'
+          + '<div class="pn-card-role">' + p.role + '</div>'
+          + '<div class="pn-card-meta">'
+            + '<span class="pn-meta-tag">' + p.age + '</span>'
+            + '<span class="pn-meta-tag region">📍 ' + p.region + '</span>'
+            + '<span class="pn-meta-tag">' + p.secteur + '</span>'
+          + '</div>'
+        + '</div>'
+      + '</div>'
+
+      /* Grille infos */
+      + '<div class="pn-card-grid">'
+        + '<div class="pn-grid-cell">'
+          + '<div class="pn-cell-lbl">Besoin probable</div>'
+          + '<div class="pn-cell-val">' + p.besoinProbable + '</div>'
+        + '</div>'
+        + '<div class="pn-grid-cell">'
+          + '<div class="pn-cell-lbl">Canal recommandé</div>'
+          + '<div class="pn-cell-val">' + p.canal + '</div>'
+        + '</div>'
+      + '</div>'
+
+      /* Sources */
+      + '<div class="pn-sources">'
+        + '<div style="font-size:7px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--dim2);padding:12px 0 6px">Sources détectées par Sophia</div>'
+        + srcHtml
+      + '</div>'
+
+      /* Pourquoi Sophia */
+      + '<div class="pn-sophia-why">'
+        + '<div class="pn-sophia-why-lbl"><span style="font-size:10px">S</span> Pourquoi Sophia recommande ce prospect</div>'
+        + '<div class="pn-sophia-why-text">' + p.why + '</div>'
+      + '</div>'
+
+      /* Approche */
+      + '<div class="pn-approach">'
+        + '<div class="pn-approach-lbl">💬 Approche proposée par Sophia</div>'
+        + '<div class="pn-approach-text">' + p.approche + '</div>'
+      + '</div>'
+
+      /* Boutons */
+      + '<div class="pn-card-actions">'
+        + '<button class="pn-btn-pass" onclick="passProspect()">← Passer</button>'
+        + '<button class="pn-btn-approach" onclick="openTreatment(' + idx + ')">Préparer l\'approche</button>'
+        + '<button class="pn-btn-accept" onclick="openTreatment(' + idx + ')">✓ Accepter ce prospect</button>'
+      + '</div>'
+
+    + '</div>'
+    + '</div>';
+
+  /* Score count-up animation */
+  setTimeout(function() {
+    var el = document.getElementById('pn-snum');
+    if (el) _animCount(el, 0, p.score, 1100);
+  }, 80);
+}
+
+function renderEmpty() {
+  document.getElementById('pnDots').innerHTML = '';
+  document.getElementById('pnCounter').style.display = 'none';
+  document.getElementById('pnBigCardSlot').innerHTML =
+    '<div class="pn-empty-card">'
+      + '<div class="pn-empty-icon">✓</div>'
+      + '<div class="pn-empty-text">Tous les prospects ont été traités</div>'
+      + '<div class="pn-empty-sub">Sophia cherche de nouvelles opportunités — revenez demain</div>'
+    + '</div>';
+}
+
+/* ── NAVIGATION ───────────────────────────────────────────── */
+function passProspect() {
+  _cardIdx = (_cardIdx + 1) % PROSPECTS.length;
+  renderCard(_cardIdx);
+}
+
+/* ── ACCEPTER → TRAITEMENT ────────────────────────────────── */
+function openTreatment(idx) {
+  if (typeof idx === 'undefined') idx = _cardIdx;
   _state = 1;
-  document.getElementById('pnListView').style.display = 'none';
+  var p = PROSPECTS[idx] || PROSPECTS[0];
+
+  document.getElementById('pnCardView').style.display  = 'none';
   document.getElementById('pnTreatView').style.display = 'block';
-  document.getElementById('pnHeaderTitle').textContent = 'M. Renard — Traitement';
+  document.getElementById('pnFooter').style.display     = 'none';
+  document.getElementById('pnHeaderTitle').textContent  = p.name + ' — Traitement';
+  var backBtn = document.querySelector('.pn-treat-head .pn-hbtn.back');
+  if (backBtn) backBtn.textContent = _goTreat ? '← Dashboard' : '← Retour';
+
+  document.getElementById('pnTreatName').textContent    = p.name + ' — Traitement en cours';
   var now = new Date();
-  var ds = now.toLocaleDateString('fr-FR',{day:'2-digit',month:'long',year:'numeric'});
+  var ds  = now.toLocaleDateString('fr-FR', { day:'2-digit', month:'long', year:'numeric' });
   document.getElementById('pnTreatDate').textContent = ds;
-  document.getElementById('pnCRDate').textContent = ds;
+  document.getElementById('pnCRDate').textContent    = ds;
+
+  /* Adapter la fiche si besoin (démo : M. Renard par défaut) */
+  document.getElementById('pnFicheSignal').textContent   = p.signal;
+  document.getElementById('pnFicheSignalSub').textContent = p.signalSub;
 }
 
-function backToList() {
+function backToCard() {
+  if (_goTreat) {
+    window.location.href = _isDemo ? '/dashboard?demo=1' : '/dashboard';
+    return;
+  }
   _state = 0;
-  document.getElementById('pnListView').style.display = 'block';
+  document.getElementById('pnCardView').style.display  = 'block';
   document.getElementById('pnTreatView').style.display = 'none';
+  document.getElementById('pnFooter').style.display     = '';
   document.getElementById('pnSophiaZone').style.display = 'none';
-  document.getElementById('pnSophiaZone').innerHTML = '';
-  document.getElementById('pnCRZone').style.display = 'flex';
-  document.getElementById('pnHeaderTitle').textContent = 'Opportunités détectées';
+  document.getElementById('pnSophiaZone').innerHTML     = '';
+  document.getElementById('pnCRZone').style.display     = 'flex';
+  document.getElementById('pnHeaderTitle').textContent  = 'Opportunités détectées';
 }
 
+/* ── SOPHIA ANALYSE ────────────────────────────────────────── */
 function validateCR() {
   _state = 2;
   document.getElementById('pnCRZone').style.display = 'none';
@@ -476,69 +663,118 @@ function validateCR() {
   sz.innerHTML =
     '<div class="pn-loading">'
     + '<div class="pn-loading-av">S</div>'
-    + '<div class="pn-loading-text">Sophia analyse le dossier Renard…</div>'
+    + '<div class="pn-loading-text">Sophia analyse le dossier…</div>'
     + '</div>';
   setTimeout(function() {
     sz.innerHTML = _buildAnalysis();
-    /* Animate bars after DOM update */
     setTimeout(function() {
-      var pcts = [92, 71, 58];
       var fills = sz.querySelectorAll('.pn-score-fill');
-      fills.forEach(function(el, i){ el.style.width = pcts[i] + '%'; });
+      var pcts  = [92, 71, 58];
+      fills.forEach(function(el, i) { el.style.width = pcts[i] + '%'; });
     }, 80);
   }, 1800);
 }
 
-function _buildAnalysis() {
-  return ''
-    + '<div class="pn-sophia-zone-head">'
-    +   '<div class="pn-sophia-av" style="width:38px;height:38px;font-size:12px">S</div>'
-    +   '<div style="flex:1">'
-    +     '<div class="pn-sophia-zone-name">Sophia — Analyse complète</div>'
-    +     '<div class="pn-sophia-zone-sub">Dossier M. Renard · Compte-rendu intégré</div>'
-    +   '</div>'
-    +   '<div class="pn-dot-live"></div>'
-    + '</div>'
-    + '<div class="pn-sophia-zone-body">'
-    +   '<div>'
-    +     '<div class="pn-ana-lbl">Opportunité</div>'
-    +     '<div class="pn-ana-val">Score <strong style="color:var(--gold)">94 / 100</strong> · Potentiel AUM : <strong style="color:var(--gold)">1,8 M€</strong> · Profil : dirigeant PME · cession imminente · haute valeur</div>'
-    +   '</div>'
-    +   '<div>'
-    +     '<div class="pn-ana-lbl">Produits recommandés</div>'
-    +     _scoreItem('Holding patrimoniale + apport-cession', '92 %', 'art. 150-0 B ter · report d’imposition')
-    +     _scoreItem('Pacte Dutreil — transmission anticipée', '71 %', 'transmission progressive · exonération partielle')
-    +     _scoreItem('PEA + assurance-vie', '58 %', 'capitalisation post-cession · revenus différés')
-    +   '</div>'
-    +   '<div>'
-    +     '<div class="pn-ana-lbl">Prochaine étape recommandée</div>'
-    +     '<div class="pn-ana-reco"><strong>Préparer une stratégie patrimoniale complète avec l’équipe.</strong> Le profil de M. Renard (cession 18 mois, absence de holding, 2 enfants) justifie une analyse multi-expert avant toute proposition formelle.</div>'
-    +   '</div>'
-    + '</div>'
-    + '<div class="pn-cta-zone">'
-    +   '<button class="pn-btn cta" onclick="openWorkspace()">Préparer la proposition — Ouvrir Workspace Iris →</button>'
+function _scoreItem(name, pct, sub) {
+  return '<div class="pn-score-item">'
+    + '<div class="pn-score-head"><span class="pn-score-name">' + name + '</span><span class="pn-score-pct">' + pct + '</span></div>'
+    + '<div class="pn-score-bar"><div class="pn-score-fill"></div></div>'
+    + '<div class="pn-score-sub">' + sub + '</div>'
     + '</div>';
 }
 
-function _scoreItem(name, pct, sub) {
-  return ''
-    + '<div class="pn-score-item">'
-    +   '<div class="pn-score-head"><span class="pn-score-name">' + name + '</span><span class="pn-score-pct">' + pct + '</span></div>'
-    +   '<div class="pn-score-bar"><div class="pn-score-fill"></div></div>'
-    +   '<div class="pn-score-sub">' + sub + '</div>'
-    + '</div>';
+function _buildAnalysis() {
+  return '<div class="pn-sophia-zone-head">'
+    + '<div class="pn-sophia-av" style="width:38px;height:38px;font-size:12px">S</div>'
+    + '<div style="flex:1"><div class="pn-sophia-zone-name">Sophia — Analyse complète</div>'
+    + '<div class="pn-sophia-zone-sub">Dossier M. Renard · Compte-rendu intégré</div></div>'
+    + '<div class="pn-dot-live"></div>'
+    + '</div>'
+    + '<div class="pn-sophia-zone-body">'
+    + '<div><div class="pn-ana-lbl">Opportunité</div>'
+    + '<div class="pn-ana-val">Score <strong style="color:var(--gold)">94 / 100</strong> · Potentiel AUM : <strong style="color:var(--gold)">1,8 M€</strong> · Profil : dirigeant PME · cession imminente · haute valeur</div></div>'
+    + '<div><div class="pn-ana-lbl">Produits recommandés</div>'
+    + _scoreItem('Holding patrimoniale + apport-cession', '92 %', 'art. 150-0 B ter · report d\'imposition')
+    + _scoreItem('Pacte Dutreil — transmission anticipée', '71 %', 'transmission progressive · exonération partielle')
+    + _scoreItem('PEA + assurance-vie', '58 %', 'capitalisation post-cession · revenus différés')
+    + '</div>'
+    + '<div><div class="pn-ana-lbl">Prochaine étape recommandée</div>'
+    + '<div class="pn-ana-reco"><strong>Préparer une stratégie patrimoniale complète avec l\'équipe.</strong> Le profil de M. Renard (cession 18 mois, absence de holding, 2 enfants) justifie une analyse multi-expert avant toute proposition formelle.</div></div>'
+    + '</div>'
+    + '<div class="pn-cta-zone"><button class="pn-btn cta" onclick="openWorkspace()">Préparer la proposition — Ouvrir Workspace Iris →</button></div>';
 }
 
 function openWorkspace() {
   window.location.href = '/workspace?demo=1';
 }
 
+/* ── SCORE COUNT-UP ────────────────────────────────────────── */
+function _animCount(el, from, to, dur) {
+  var t0 = null;
+  (function step(ts) {
+    if (!t0) t0 = ts;
+    var p = Math.min((ts - t0) / dur, 1);
+    el.textContent = Math.round(from + (1 - Math.pow(1 - p, 3)) * (to - from));
+    if (p < 1) requestAnimationFrame(step);
+  })(performance.now());
+}
+
+/* ── PARTICULES OR ─────────────────────────────────────────── */
+function _initParticles() {
+  var cv = document.createElement('canvas');
+  cv.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:0;';
+  document.body.appendChild(cv);
+  var ctx = cv.getContext('2d');
+  var W, H, pts = [];
+  function resize() {
+    W = cv.width  = window.innerWidth;
+    H = cv.height = window.innerHeight;
+  }
+  resize();
+  window.addEventListener('resize', resize);
+  var COLS = ['#c9a84c','#c9a84c','#c9a84c','#e8d490','#b87333'];
+  for (var i = 0; i < 28; i++) {
+    pts.push({
+      x: Math.random() * W, y: Math.random() * H,
+      r: 0.6 + Math.random() * 1.8,
+      vx: (Math.random() - 0.5) * 0.22,
+      vy: -0.06 - Math.random() * 0.16,
+      a: Math.random() * Math.PI * 2,
+      col: COLS[Math.floor(Math.random() * COLS.length)],
+      op: 0.05 + Math.random() * 0.28
+    });
+  }
+  (function draw() {
+    ctx.clearRect(0, 0, W, H);
+    for (var j = 0; j < pts.length; j++) {
+      var p = pts[j];
+      p.x += p.vx; p.y += p.vy; p.a += 0.012;
+      p.op += (Math.sin(p.a) * 0.008);
+      if (p.y < -4) { p.y = H + 4; p.x = Math.random() * W; }
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+      ctx.fillStyle = p.col;
+      ctx.globalAlpha = Math.max(0.02, Math.min(0.38, p.op));
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    requestAnimationFrame(draw);
+  })();
+}
+
+/* ── INIT ──────────────────────────────────────────────────── */
 window.addEventListener('DOMContentLoaded', function() {
-  if(_isDemo) {
+  if (_isDemo) {
     document.getElementById('pnDemoBanner').classList.add('visible');
     document.getElementById('pnDemoBadge').style.display = 'inline-block';
     document.getElementById('pnBackBtn').href = '/dashboard?demo=1';
   }
+  if (_goTreat) {
+    openTreatment(_initIdx);
+  } else {
+    renderCard(_cardIdx);
+  }
+  _initParticles();
 });
 </script>
 </body>

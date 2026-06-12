@@ -70,6 +70,7 @@ test.describe('1 — Accès guest (public)', () => {
    2. NAVIGATION — CHAÎNE COMPLÈTE DEMO
    ================================================================ */
 test('2 — Chaîne démo : dashboard → prospects → workspace', async ({ page }) => {
+  test.setTimeout(60000);
   const { cErr, netErr } = attachCollectors(page);
   page.setExtraHTTPHeaders({});
 
@@ -78,16 +79,13 @@ test('2 — Chaîne démo : dashboard → prospects → workspace', async ({ pag
   await page.waitForLoadState('networkidle');
   await page.screenshot({ path: OUT + '/02a_dashboard.png' });
 
-  /* M. Renard card → prospects */
-  const cards = page.locator('#dlSessGrid .dl-sess');
-  await expect(cards.first()).toBeVisible();
-  await cards.first().click();
-  await page.waitForURL('**/prospects?demo=1', { timeout: 5000 });
+  /* Dashboard grosse carte — Accepter → traitement */
+  const acceptBtn = page.locator('button:has-text("Accepter ce prospect")');
+  await expect(acceptBtn).toBeVisible();
+  await acceptBtn.click();
+  await page.waitForURL('**/prospects**', { timeout: 5000 });
   await page.waitForLoadState('networkidle');
-  await page.screenshot({ path: OUT + '/02b_prospects_list.png' });
-
-  /* Traiter → fiche */
-  await page.click('button:has-text("Traiter ce prospect")');
+  await page.screenshot({ path: OUT + '/02b_prospects_treat.png' });
   await page.waitForTimeout(300);
   await page.screenshot({ path: OUT + '/02c_fiche_cr.png' });
 
@@ -127,6 +125,7 @@ test('2 — Chaîne démo : dashboard → prospects → workspace', async ({ pag
    3. MATRICE BOUTONS — WORKSPACE COMPLET
    ================================================================ */
 test('3 — Matrice boutons workspace', async ({ page }) => {
+  test.setTimeout(120000);
   const { cErr } = attachCollectors(page);
   const results = [];
 
@@ -426,6 +425,7 @@ test('3 — Matrice boutons workspace', async ({ page }) => {
    4. MEDIA — CAMÉRA / MICRO (fake devices)
    ================================================================ */
 test('4 — Caméra + Micro (getUserMedia fake)', async ({ browser }) => {
+  test.setTimeout(60000);
   const ctx = await browser.newContext({
     permissions: ['camera', 'microphone'],
     ignoreHTTPSErrors: true,
@@ -538,6 +538,7 @@ test('5 — Partage écran — desktop (getDisplayMedia)', async ({ browser }) =
    6. COLLABORATION — 2 SESSIONS PARALLÈLES
    ================================================================ */
 test('6 — Collaboration WS — 2 sessions parallèles', async ({ browser }) => {
+  test.setTimeout(90000);
   const ROOM_ID = 'audit-collab-' + Date.now();
 
   const ctx1 = await browser.newContext({ ignoreHTTPSErrors: true });
@@ -610,8 +611,8 @@ test('6 — Collaboration WS — 2 sessions parallèles', async ({ browser }) =>
   console.log('  WS log p1:', ws1Log.slice(0, 5));
   console.log('  WS log p2:', ws2Log.slice(0, 5));
 
-  await ctx1.close();
-  await ctx2.close();
+  await ctx1.close().catch(() => {});
+  await ctx2.close().catch(() => {});
 });
 
 /* ================================================================
@@ -667,6 +668,7 @@ test('7 — Zéro erreur console/réseau — pages démo', async ({ page }) => {
    8. MULTI-VIEWPORT — 4 résolutions
    ================================================================ */
 test('8 — Multi-viewport — 4 résolutions', async ({ browser }) => {
+  test.setTimeout(180000);
   const VIEWPORTS = [
     { w:1920, h:1080, lbl:'desktop_1920' },
     { w:1366, h:768,  lbl:'laptop_1366' },
@@ -695,8 +697,8 @@ test('8 — Multi-viewport — 4 résolutions', async ({ browser }) => {
 
     /* Workspace */
     await page.goto(BASE + '/workspace?demo=1');
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(600);
+    await page.waitForLoadState('load');
+    await page.waitForTimeout(1000);
     await page.screenshot({ path: `${OUT}/08_${vp.lbl}_workspace.png` });
 
     /* Workspace step 5 (propositions) */

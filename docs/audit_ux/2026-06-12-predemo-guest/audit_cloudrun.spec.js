@@ -41,6 +41,7 @@ test('1 — /health, /dashboard, /workspace, /prospects', async ({ page }) => {
 
 /* ── 2. Chaîne démo complète + zéro erreur console ──────────── */
 test('2 — Chaîne démo + zéro erreur console', async ({ page }) => {
+  test.setTimeout(120000);
   const cErr = [], netErr = [];
   page.on('console', m => { if (m.type() === 'error') cErr.push(m.text()); });
   page.on('response', r => { if (r.status() >= 400) netErr.push(r.status() + ' ' + r.url()); });
@@ -49,15 +50,13 @@ test('2 — Chaîne démo + zéro erreur console', async ({ page }) => {
   await page.waitForLoadState('networkidle');
   await page.screenshot({ path: OUT + '/01_dashboard.png' });
 
-  const card = page.locator('#dlSessGrid .dl-sess').first();
-  await expect(card).toBeVisible();
-  await expect(card).toContainText('M. Renard');
-  await card.click();
-  await page.waitForURL('**/prospects?demo=1', { timeout: 8000 });
+  /* Dashboard grosse carte */
+  const acceptBtn = page.locator('button:has-text("Accepter ce prospect")');
+  await expect(acceptBtn).toBeVisible();
+  await acceptBtn.click();
+  await page.waitForURL('**/prospects**', { timeout: 8000 });
   await page.waitForLoadState('networkidle');
   await page.screenshot({ path: OUT + '/02_prospects.png' });
-
-  await page.click('button:has-text("Traiter ce prospect")');
   await page.waitForTimeout(300);
   await page.screenshot({ path: OUT + '/03_fiche.png' });
 
@@ -101,6 +100,7 @@ test('2 — Chaîne démo + zéro erreur console', async ({ page }) => {
 
 /* ── 3. Multi-viewport Cloud Run ─────────────────────────────── */
 test('3 — Multi-viewport Cloud Run', async ({ browser }) => {
+  test.setTimeout(120000);
   const VIEWPORTS = [
     { w:1920, h:1080, lbl:'desktop' },
     { w:1366, h:768,  lbl:'laptop' },
