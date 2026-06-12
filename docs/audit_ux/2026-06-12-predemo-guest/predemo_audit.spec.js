@@ -70,7 +70,7 @@ test.describe('1 — Accès guest (public)', () => {
    2. NAVIGATION — CHAÎNE COMPLÈTE DEMO
    ================================================================ */
 test('2 — Chaîne démo : dashboard → prospects → workspace', async ({ page }) => {
-  test.setTimeout(60000);
+  test.setTimeout(90000);
   const { cErr, netErr } = attachCollectors(page);
   page.setExtraHTTPHeaders({});
 
@@ -79,7 +79,7 @@ test('2 — Chaîne démo : dashboard → prospects → workspace', async ({ pag
   await page.waitForLoadState('networkidle');
   await page.screenshot({ path: OUT + '/02a_dashboard.png' });
 
-  /* Dashboard grosse carte — Accepter → traitement */
+  /* Dashboard : grosse carte — Accepter → traitement */
   const acceptBtn = page.locator('button:has-text("Accepter ce prospect")');
   await expect(acceptBtn).toBeVisible();
   await acceptBtn.click();

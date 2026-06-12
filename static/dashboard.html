@@ -86,13 +86,32 @@
     .pn-cell-val{font-size:12px;color:var(--text);line-height:1.6;}
 
     .pn-sources{padding:14px 22px 0;}
-    .pn-source-row{display:flex;align-items:flex-start;gap:8px;padding:7px 0;border-bottom:1px solid var(--border);}
+    .pn-source-row{display:flex;flex-wrap:wrap;align-items:flex-start;gap:8px;padding:7px 0;border-bottom:1px solid var(--border);cursor:default;}
+    .pn-source-row.has-detail{cursor:pointer;}
     .pn-source-row:last-child{border-bottom:none;}
     .pn-source-icon{width:22px;height:22px;border-radius:5px;background:rgba(201,168,76,0.08);border:1px solid var(--border-s);display:flex;align-items:center;justify-content:center;font-size:9px;flex-shrink:0;margin-top:1px;}
     .pn-source-text{font-size:11px;color:var(--dim);flex:1;line-height:1.45;}
-    .pn-source-proof{display:inline-block;margin-top:3px;font-size:9px;color:rgba(201,168,76,0.55);text-decoration:none;letter-spacing:0.3px;transition:color 0.15s;}
-    .pn-source-proof:hover{color:var(--gold);text-decoration:underline;}
     .pn-source-conf{font-size:9px;font-weight:700;color:var(--gold);white-space:nowrap;margin-top:1px;}
+    .pn-source-chevron{font-size:11px;color:rgba(201,168,76,0.42);margin-top:0;flex-shrink:0;transition:transform 0.22s,color 0.15s;user-select:none;}
+    .pn-source-row.has-detail:hover .pn-source-chevron{color:var(--gold);}
+    .pn-source-row.expanded .pn-source-chevron{transform:rotate(180deg);}
+    .pn-source-detail{display:none;flex:0 0 100%;padding:8px 0 4px 30px;}
+    .pn-source-row.expanded .pn-source-detail{display:block;}
+    .pn-sd-meta{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px;}
+    .pn-sd-tag{padding:2px 8px;border-radius:4px;background:rgba(201,168,76,0.06);border:1px solid rgba(201,168,76,0.14);font-size:8px;color:var(--dim2);font-weight:600;letter-spacing:0.3px;}
+    .pn-sd-extract{background:rgba(14,9,4,0.55);border-left:2px solid rgba(201,168,76,0.38);padding:7px 10px;border-radius:0 6px 6px 0;font-size:10px;color:rgba(232,220,200,0.72);font-style:italic;line-height:1.6;margin-bottom:8px;}
+    .pn-sd-actions{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px;}
+    .pn-sd-btn{padding:4px 10px;border-radius:5px;background:rgba(201,168,76,0.07);border:1px solid rgba(201,168,76,0.22);font-size:8px;color:var(--gold);text-decoration:none;font-weight:600;letter-spacing:0.3px;transition:all 0.15s;white-space:nowrap;}
+    .pn-sd-btn:hover{background:rgba(201,168,76,0.15);border-color:rgba(201,168,76,0.45);}
+    .pn-sd-entree{background:rgba(123,158,217,0.04);border:1px solid rgba(123,158,217,0.13);border-radius:7px;padding:9px 11px;}
+    .pn-sd-etitle{font-size:7px;font-weight:700;letter-spacing:1.3px;text-transform:uppercase;color:rgba(123,158,217,0.65);margin-bottom:7px;}
+    .pn-sd-erow{display:flex;gap:8px;margin-bottom:3px;}
+    .pn-sd-elbl{font-size:7px;color:var(--dim2);font-weight:700;letter-spacing:0.5px;text-transform:uppercase;width:70px;flex-shrink:0;}
+    .pn-sd-eval{font-size:9px;color:var(--dim);line-height:1.4;}
+    .pn-sd-eapproche{background:rgba(14,9,4,0.45);border-radius:5px;padding:6px 9px;font-size:9px;color:rgba(232,220,200,0.65);font-style:italic;margin:7px 0 6px;line-height:1.55;}
+    .pn-sd-proba{display:flex;align-items:center;gap:6px;font-size:9px;color:var(--gold);font-weight:700;}
+    .pn-sd-pbar{flex:0 0 48px;height:3px;background:rgba(201,168,76,0.13);border-radius:2px;overflow:hidden;}
+    .pn-sd-pfill{height:100%;background:linear-gradient(90deg,#b87333,#e8d490);border-radius:2px;}
 
     .pn-sophia-why{margin:14px 22px;padding:14px 16px;background:rgba(123,158,217,0.05);border:1px solid rgba(123,158,217,0.15);border-radius:8px;}
     .pn-sophia-why-lbl{font-size:7px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--sophia);margin-bottom:8px;display:flex;align-items:center;gap:6px;}
@@ -292,9 +311,9 @@ var PROSPECTS = [
     score:94, priority:'high', priorityLabel:'Haute priorité',
     signal:'Préparation retraite — cession d\'entreprise',
     sources:[
-      {icon:'👤',text:'Introduction via M. Fontaine, cabinet partenaire Bordeaux',conf:'94 %',proof:{label:'Voir la fiche partenaire',href:'#'}},
-      {icon:'📡',text:'Signal réseau : cession BTP détectée · Valorisation ~2,2 M€',conf:'87 %',proof:{label:'Voir le signal LinkedIn',href:'#'}},
-      {icon:'📄',text:'Annonce légale : préparation cession parts sociales SCI Renard',conf:'91 %',proof:{label:'Voir l\'annonce',href:'#'}},
+      {icon:'👤',text:'Introduction via M. Fontaine, cabinet partenaire Bordeaux',conf:'94 %',type:'Introduction directe',sujet:'Réseau cabinet partenaire',date:'8 juin 2026',extrait:'« M. Fontaine m\'a cité le nom de son associé M. Renard comme étant en réflexion sérieuse sur une cession dans les 18 mois. »',actions:[{label:'Voir la fiche partenaire',href:'#'},{label:'Voir l\'historique',href:'#'}],entree:{canal:'Appel sortant',interaction:'Recommandation directe',activite:'Il y a 4 jours',approche:'Mentionner M. Fontaine dès la première phrase pour installer la confiance immédiatement.',proba:'89 %'}},
+      {icon:'📡',text:'Signal réseau : cession BTP détectée · Valorisation ~2,2 M€',conf:'87 %',type:'Commentaire LinkedIn',sujet:'Transmission d\'entreprise',date:'12 mai 2026',extrait:'« Je suis justement en réflexion sur la transmission de mon entreprise. La question du bon moment est cruciale. »',actions:[{label:'Voir le commentaire',href:'#'},{label:'Voir la publication',href:'#'},{label:'Voir le profil',href:'#'}],entree:{canal:'LinkedIn',interaction:'Commentaire public',activite:'Il y a 3 jours',approche:'Réagir au commentaire puis envoyer une invitation personnalisée en mentionnant la transmission.',proba:'82 %'}},
+      {icon:'📄',text:'Annonce légale : préparation cession parts sociales SCI Renard',conf:'91 %',type:'Journal officiel — BODACC',sujet:'Cession parts sociales',date:'3 juin 2026',extrait:'« Modification statutaire SCI Renard & Fils — Objet : préparation transmission parts sociales dirigeant. »',actions:[{label:'Voir l\'annonce',href:'#'},{label:'Voir le BODACC',href:'#'}],entree:{canal:'Email professionnel',interaction:'Premier contact froid',activite:'Publication il y a 9 jours',approche:'Envoyer un email personnalisé en citant la modification statutaire comme déclencheur de contact.',proba:'76 %'}},
     ],
     why:'<strong>Cession d\'entreprise imminente dans 18 mois.</strong> Valorisation ~2,2 M€. Pas de structure holding — optimisation fiscale urgente. 2 enfants majeurs : transmission patrimoniale possible. Profil exceptionnel pour Holding + Pacte Dutreil combiné.',
     besoin:'Optimisation fiscale sur la plus-value de cession · Transmission patrimoniale anticipée · Structuration revenus post-cession',
@@ -309,8 +328,8 @@ var PROSPECTS = [
     score:78, priority:'med', priorityLabel:'Priorité normale',
     signal:'Retraite anticipée dans 3 ans',
     sources:[
-      {icon:'🤝',text:'Recommandation cabinet de recrutement Meridian Lyon',conf:'78 %',proof:{label:'Voir la recommandation',href:'#'}},
-      {icon:'📡',text:'Signal LinkedIn : "Exploring new opportunities" · Stock options importantes',conf:'71 %',proof:{label:'Voir le post LinkedIn',href:'#'}},
+      {icon:'🤝',text:'Recommandation cabinet de recrutement Meridian Lyon',conf:'78 %',type:'Recommandation directe',sujet:'Transition professionnelle',date:'5 juin 2026',extrait:'« Mme Clément-Bertrand cherche un conseiller patrimonial avant de finaliser sa décision de retraite anticipée. »',actions:[{label:'Voir la recommandation',href:'#'},{label:'Voir le contact Meridian',href:'#'}],entree:{canal:'Email personnalisé',interaction:'Recommandation Meridian',activite:'Il y a 7 jours',approche:'Mentionner Meridian dans l\'objet de l\'email et proposer un diagnostic patrimonial confidentiel.',proba:'74 %'}},
+      {icon:'📡',text:'Signal LinkedIn : "Exploring new opportunities" · Stock options importantes',conf:'71 %',type:'Post LinkedIn public',sujet:'Transition professionnelle',date:'1er juin 2026',extrait:'« Après 20 ans dans l\'industrie pharmaceutique, j\'explore de nouvelles opportunités. Passionnée par l\'innovation et l\'impact. »',actions:[{label:'Voir le post LinkedIn',href:'#'},{label:'Voir le profil',href:'#'}],entree:{canal:'LinkedIn',interaction:'Message direct',activite:'Il y a 11 jours',approche:'Féliciter pour la transition et proposer un point patrimonial confidentiel avant décision finale.',proba:'68 %'}},
     ],
     why:'<strong>Retraite anticipée envisagée à 55 ans.</strong> Stock-options conséquentes à liquider. Pas de stratégie patrimoniale structurée identifiée. Profil compatible PEA + assurance-vie capitalisation.',
     besoin:'Optimisation stock-options · Préparation retraite · Investissement immobilier',
@@ -325,8 +344,8 @@ var PROSPECTS = [
     score:71, priority:'med', priorityLabel:'Priorité normale',
     signal:'Constitution de patrimoine — fort revenu libéral',
     sources:[
-      {icon:'👥',text:'Réseau médecins libéraux Nantes — recommandation Dr. Moreau',conf:'71 %',proof:{label:'Voir la fiche Dr. Moreau',href:'#'}},
-      {icon:'📊',text:'Revenu estimé : 280 k€/an · Capacité épargne significative',conf:'68 %',proof:{label:'Voir l\'estimation',href:'#'}},
+      {icon:'👥',text:'Réseau médecins libéraux Nantes — recommandation Dr. Moreau',conf:'71 %',type:'Recommandation réseau médical',sujet:'Optimisation patrimoniale libéral',date:'9 juin 2026',extrait:'« Le Dr. Moreau nous a signalé que son confrère cherche une solution pour optimiser sa fiscalité professionnelle. »',actions:[{label:'Voir la fiche Dr. Moreau',href:'#'},{label:'Voir l\'historique réseau',href:'#'}],entree:{canal:'Appel sortant',interaction:'Recommandation confrère',activite:'Il y a 3 jours',approche:'Citer le Dr. Moreau en introduction et proposer un diagnostic patrimonial dédié aux médecins libéraux.',proba:'71 %'}},
+      {icon:'📊',text:'Revenu estimé : 280 k€/an · Capacité épargne significative',conf:'68 %',type:'Données sectorielles — URSSAF',sujet:'Revenu libéral et capacité d\'épargne',date:'Mai 2026',extrait:'« Cardiologue libéral secteur 2, Nantes — Chiffre d\'affaires estimé 280 k€. Aucune structure SEL détectée. »',actions:[{label:'Voir l\'estimation',href:'#'},{label:'Voir le profil RPPS',href:'#'}],entree:{canal:'Email professionnel',interaction:'Contact froid — données sectorielles',activite:'Données de mai 2026',approche:'Envoyer une étude personnalisée sur l\'optimisation SEL pour les cardiologues libéraux en Pays de la Loire.',proba:'62 %'}},
     ],
     why:'<strong>Revenu libéral élevé (~280 k€/an) sans stratégie de capitalisation identifiée.</strong> Pas de structure juridique optimisée (SEL possible). Profil typique cabinet patrimonial — horizon 15 ans.',
     besoin:'Structuration revenu médical (SEL) · Immobilier locatif · Prévoyance professionnelle',
@@ -359,13 +378,35 @@ function renderCard(idx) {
   document.getElementById('dlCounter').textContent = (idx+1) + ' / ' + PROSPECTS.length;
 
   var srcHtml = p.sources.map(function(s){
-    var proofHtml = s.proof
-      ? '<a class="pn-source-proof" href="'+s.proof.href+'" target="_blank">↗ '+s.proof.label+'</a>'
+    var hasDetail = !!(s.extrait || s.entree);
+    var metaHtml = (s.type||s.sujet||s.date)
+      ? '<div class="pn-sd-meta">'+[s.type,s.sujet,s.date].filter(Boolean).map(function(t){return '<span class="pn-sd-tag">'+t+'</span>';}).join('')+'</div>'
       : '';
-    return '<div class="pn-source-row">'
+    var extractHtml = s.extrait ? '<div class="pn-sd-extract">'+s.extrait+'</div>' : '';
+    var actionsHtml = (s.actions&&s.actions.length)
+      ? '<div class="pn-sd-actions">'+s.actions.map(function(a){return '<a class="pn-sd-btn" href="'+a.href+'" target="_blank">'+a.label+' →</a>';}).join('')+'</div>'
+      : '';
+    var entreeHtml = '';
+    if (s.entree) {
+      var e=s.entree, pn=parseInt(e.proba,10);
+      entreeHtml='<div class="pn-sd-entree">'
+        +'<div class="pn-sd-etitle">Point d\'entrée recommandé</div>'
+        +'<div class="pn-sd-erow"><span class="pn-sd-elbl">Canal</span><span class="pn-sd-eval">'+e.canal+'</span></div>'
+        +'<div class="pn-sd-erow"><span class="pn-sd-elbl">Interaction</span><span class="pn-sd-eval">'+e.interaction+'</span></div>'
+        +'<div class="pn-sd-erow"><span class="pn-sd-elbl">Activité</span><span class="pn-sd-eval">'+e.activite+'</span></div>'
+        +'<div class="pn-sd-eapproche">'+e.approche+'</div>'
+        +'<div class="pn-sd-proba"><div class="pn-sd-pbar"><div class="pn-sd-pfill" style="width:'+pn+'%"></div></div>'+e.proba+' probabilité de réponse</div>'
+        +'</div>';
+    }
+    var detailHtml = hasDetail ? '<div class="pn-source-detail" onclick="event.stopPropagation()">'+metaHtml+extractHtml+actionsHtml+entreeHtml+'</div>' : '';
+    var chevron = hasDetail ? '<span class="pn-source-chevron">▾</span>' : '';
+    var rowClass = 'pn-source-row'+(hasDetail?' has-detail':'');
+    var rowClick = hasDetail ? ' onclick="this.classList.toggle(\'expanded\')"' : '';
+    return '<div class="'+rowClass+'"'+rowClick+'>'
       +'<div class="pn-source-icon">'+s.icon+'</div>'
-      +'<div class="pn-source-text">'+s.text+proofHtml+'</div>'
+      +'<div class="pn-source-text">'+s.text+'</div>'
       +'<div class="pn-source-conf">'+s.conf+'</div>'
+      +chevron+detailHtml
       +'</div>';
   }).join('');
 
