@@ -86,11 +86,13 @@
     .pn-cell-val{font-size:12px;color:var(--text);line-height:1.6;}
 
     .pn-sources{padding:14px 22px 0;}
-    .pn-source-row{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border);}
+    .pn-source-row{display:flex;align-items:flex-start;gap:8px;padding:7px 0;border-bottom:1px solid var(--border);}
     .pn-source-row:last-child{border-bottom:none;}
-    .pn-source-icon{width:22px;height:22px;border-radius:5px;background:rgba(201,168,76,0.08);border:1px solid var(--border-s);display:flex;align-items:center;justify-content:center;font-size:9px;flex-shrink:0;}
+    .pn-source-icon{width:22px;height:22px;border-radius:5px;background:rgba(201,168,76,0.08);border:1px solid var(--border-s);display:flex;align-items:center;justify-content:center;font-size:9px;flex-shrink:0;margin-top:1px;}
     .pn-source-text{font-size:11px;color:var(--dim);flex:1;line-height:1.45;}
-    .pn-source-conf{font-size:9px;font-weight:700;color:var(--gold);white-space:nowrap;}
+    .pn-source-proof{display:inline-block;margin-top:3px;font-size:9px;color:rgba(201,168,76,0.55);text-decoration:none;letter-spacing:0.3px;transition:color 0.15s;}
+    .pn-source-proof:hover{color:var(--gold);text-decoration:underline;}
+    .pn-source-conf{font-size:9px;font-weight:700;color:var(--gold);white-space:nowrap;margin-top:1px;}
 
     .pn-sophia-why{margin:14px 22px;padding:14px 16px;background:rgba(123,158,217,0.05);border:1px solid rgba(123,158,217,0.15);border-radius:8px;}
     .pn-sophia-why-lbl{font-size:7px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--sophia);margin-bottom:8px;display:flex;align-items:center;gap:6px;}
@@ -290,9 +292,9 @@ var PROSPECTS = [
     score:94, priority:'high', priorityLabel:'Haute priorité',
     signal:'Préparation retraite — cession d\'entreprise',
     sources:[
-      {icon:'👤',text:'Introduction via M. Fontaine, cabinet partenaire Bordeaux',conf:'94 %'},
-      {icon:'📡',text:'Signal réseau : cession BTP détectée · Valorisation ~2,2 M€',conf:'87 %'},
-      {icon:'📄',text:'Annonce légale : préparation cession parts sociales SCI Renard',conf:'91 %'},
+      {icon:'👤',text:'Introduction via M. Fontaine, cabinet partenaire Bordeaux',conf:'94 %',proof:{label:'Voir la fiche partenaire',href:'#'}},
+      {icon:'📡',text:'Signal réseau : cession BTP détectée · Valorisation ~2,2 M€',conf:'87 %',proof:{label:'Voir le signal LinkedIn',href:'#'}},
+      {icon:'📄',text:'Annonce légale : préparation cession parts sociales SCI Renard',conf:'91 %',proof:{label:'Voir l\'annonce',href:'#'}},
     ],
     why:'<strong>Cession d\'entreprise imminente dans 18 mois.</strong> Valorisation ~2,2 M€. Pas de structure holding — optimisation fiscale urgente. 2 enfants majeurs : transmission patrimoniale possible. Profil exceptionnel pour Holding + Pacte Dutreil combiné.',
     besoin:'Optimisation fiscale sur la plus-value de cession · Transmission patrimoniale anticipée · Structuration revenus post-cession',
@@ -307,8 +309,8 @@ var PROSPECTS = [
     score:78, priority:'med', priorityLabel:'Priorité normale',
     signal:'Retraite anticipée dans 3 ans',
     sources:[
-      {icon:'🤝',text:'Recommandation cabinet de recrutement Meridian Lyon',conf:'78 %'},
-      {icon:'📡',text:'Signal LinkedIn : "Exploring new opportunities" · Stock options importantes',conf:'71 %'},
+      {icon:'🤝',text:'Recommandation cabinet de recrutement Meridian Lyon',conf:'78 %',proof:{label:'Voir la recommandation',href:'#'}},
+      {icon:'📡',text:'Signal LinkedIn : "Exploring new opportunities" · Stock options importantes',conf:'71 %',proof:{label:'Voir le post LinkedIn',href:'#'}},
     ],
     why:'<strong>Retraite anticipée envisagée à 55 ans.</strong> Stock-options conséquentes à liquider. Pas de stratégie patrimoniale structurée identifiée. Profil compatible PEA + assurance-vie capitalisation.',
     besoin:'Optimisation stock-options · Préparation retraite · Investissement immobilier',
@@ -323,8 +325,8 @@ var PROSPECTS = [
     score:71, priority:'med', priorityLabel:'Priorité normale',
     signal:'Constitution de patrimoine — fort revenu libéral',
     sources:[
-      {icon:'👥',text:'Réseau médecins libéraux Nantes — recommandation Dr. Moreau',conf:'71 %'},
-      {icon:'📊',text:'Revenu estimé : 280 k€/an · Capacité épargne significative',conf:'68 %'},
+      {icon:'👥',text:'Réseau médecins libéraux Nantes — recommandation Dr. Moreau',conf:'71 %',proof:{label:'Voir la fiche Dr. Moreau',href:'#'}},
+      {icon:'📊',text:'Revenu estimé : 280 k€/an · Capacité épargne significative',conf:'68 %',proof:{label:'Voir l\'estimation',href:'#'}},
     ],
     why:'<strong>Revenu libéral élevé (~280 k€/an) sans stratégie de capitalisation identifiée.</strong> Pas de structure juridique optimisée (SEL possible). Profil typique cabinet patrimonial — horizon 15 ans.',
     besoin:'Structuration revenu médical (SEL) · Immobilier locatif · Prévoyance professionnelle',
@@ -357,9 +359,12 @@ function renderCard(idx) {
   document.getElementById('dlCounter').textContent = (idx+1) + ' / ' + PROSPECTS.length;
 
   var srcHtml = p.sources.map(function(s){
+    var proofHtml = s.proof
+      ? '<a class="pn-source-proof" href="'+s.proof.href+'" target="_blank">↗ '+s.proof.label+'</a>'
+      : '';
     return '<div class="pn-source-row">'
       +'<div class="pn-source-icon">'+s.icon+'</div>'
-      +'<div class="pn-source-text">'+s.text+'</div>'
+      +'<div class="pn-source-text">'+s.text+proofHtml+'</div>'
       +'<div class="pn-source-conf">'+s.conf+'</div>'
       +'</div>';
   }).join('');
