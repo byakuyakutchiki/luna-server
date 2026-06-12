@@ -1,0 +1,304 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Days Legacy — Dashboard</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0;}
+    html,body{width:100%;min-height:100dvh;background:#080508;color:#e8dcc8;font-family:system-ui,-apple-system,sans-serif;}
+
+    :root{
+      --gold:#c9a84c;
+      --copper:#b87333;
+      --coral:#e8956d;
+      --mauve:#a87cbd;
+      --amber:#e8a040;
+      --bg:#080508;
+      --panel:rgba(18,12,6,0.97);
+      --border:rgba(255,220,140,0.09);
+      --border-s:rgba(255,220,140,0.14);
+      --text:#e8dcc8;
+      --dim:rgba(232,220,200,0.50);
+      --dim2:rgba(232,220,200,0.26);
+      --glass:rgba(255,248,235,0.03);
+      --glass-h:rgba(255,248,235,0.06);
+    }
+
+    /* HEADER */
+    .dl-header{
+      display:flex;align-items:center;gap:14px;padding:14px 24px;
+      background:rgba(10,6,3,0.98);border-bottom:1px solid var(--border-s);
+      box-shadow:0 1px 0 rgba(201,168,76,0.08),0 2px 20px rgba(0,0,0,0.4);
+    }
+    .dl-logo-hex{width:40px;height:40px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+    .dl-logo-text{font-size:11px;font-weight:800;letter-spacing:4px;text-transform:uppercase;color:var(--gold);}
+    .dl-logo-sub{font-size:8px;color:var(--copper);letter-spacing:2px;text-transform:uppercase;margin-top:2px;font-weight:600;}
+    .dl-vsep{width:1px;height:22px;background:var(--border-s);flex-shrink:0;}
+    .dl-header-title{font-size:13px;font-weight:600;color:var(--text);flex:1;}
+    .dl-badge{padding:3px 10px;border-radius:20px;background:rgba(201,168,76,0.07);border:1px solid rgba(201,168,76,0.18);font-size:7px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--gold);}
+    .dl-hbtn{
+      padding:7px 16px;border-radius:6px;font-size:10px;font-weight:700;letter-spacing:0.8px;
+      text-transform:uppercase;cursor:pointer;transition:all 0.18s;border:1px solid;text-decoration:none;display:inline-block;
+      background:linear-gradient(135deg,rgba(201,168,76,0.18),rgba(184,115,51,0.12));
+      border-color:rgba(201,168,76,0.35);color:var(--gold);
+    }
+    .dl-hbtn:hover{background:linear-gradient(135deg,rgba(201,168,76,0.28),rgba(184,115,51,0.20));border-color:rgba(201,168,76,0.55);}
+
+    /* MAIN */
+    .dl-main{max-width:1100px;margin:0 auto;padding:28px 24px;}
+
+    /* SECTION LABEL */
+    .dl-sec-lbl{font-size:7px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--dim2);margin-bottom:14px;display:flex;align-items:center;gap:8px;}
+    .dl-sec-lbl::after{content:'';flex:1;height:1px;background:var(--border);}
+
+    /* KPI CARDS */
+    .dl-kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:32px;}
+    .dl-kpi{
+      background:rgba(255,248,235,0.03);border:1px solid var(--border);border-radius:10px;
+      padding:16px 18px;transition:border-color 0.2s,background 0.2s;cursor:default;
+    }
+    .dl-kpi:hover{background:rgba(255,248,235,0.05);border-color:var(--border-s);}
+    .dl-kpi-val{font-size:26px;font-weight:800;color:var(--gold);line-height:1;letter-spacing:-1px;margin-bottom:4px;}
+    .dl-kpi-lbl{font-size:9px;color:var(--dim);text-transform:uppercase;letter-spacing:1.2px;font-weight:600;}
+    .dl-kpi-trend{font-size:8px;margin-top:6px;color:rgba(201,168,76,0.6);}
+    .dl-kpi-trend.up{color:rgba(100,200,120,0.75);}
+    .dl-kpi-trend.down{color:rgba(200,80,80,0.70);}
+
+    /* WORKSPACE CTA */
+    .dl-ws-cta{
+      background:linear-gradient(135deg,rgba(201,168,76,0.08),rgba(184,115,51,0.06));
+      border:1px solid rgba(201,168,76,0.22);border-radius:12px;
+      padding:24px 28px;display:flex;align-items:center;gap:20px;margin-bottom:32px;
+      transition:border-color 0.2s,background 0.2s;cursor:pointer;
+      box-shadow:0 0 40px rgba(201,168,76,0.06);
+    }
+    .dl-ws-cta:hover{border-color:rgba(201,168,76,0.38);background:linear-gradient(135deg,rgba(201,168,76,0.12),rgba(184,115,51,0.09));}
+    .dl-ws-ico{width:52px;height:52px;border-radius:10px;background:linear-gradient(135deg,rgba(201,168,76,0.22),rgba(184,115,51,0.18));border:1px solid rgba(201,168,76,0.30);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+    .dl-ws-body{flex:1;}
+    .dl-ws-title{font-size:15px;font-weight:700;color:var(--text);margin-bottom:4px;}
+    .dl-ws-sub{font-size:11px;color:var(--dim);line-height:1.5;}
+    .dl-ws-arrow{font-size:20px;color:rgba(201,168,76,0.5);flex-shrink:0;}
+
+    /* SESSION CARDS */
+    .dl-sess-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;margin-bottom:32px;}
+    .dl-sess{
+      background:rgba(255,248,235,0.02);border:1px solid var(--border);border-radius:10px;
+      padding:16px 18px;transition:all 0.2s;cursor:pointer;
+    }
+    .dl-sess:hover{border-color:var(--border-s);background:rgba(255,248,235,0.04);}
+    .dl-sess-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+    .dl-sess-title{font-size:12px;font-weight:600;color:var(--text);}
+    .dl-sess-status{padding:2px 8px;border-radius:20px;font-size:7px;font-weight:700;letter-spacing:1px;text-transform:uppercase;}
+    .dl-sess-status.active{background:rgba(201,168,76,0.1);border:1px solid rgba(201,168,76,0.22);color:var(--gold);}
+    .dl-sess-status.completed{background:rgba(100,180,100,0.08);border:1px solid rgba(100,180,100,0.20);color:rgba(100,200,120,0.8);}
+    .dl-sess-status.draft{background:rgba(232,220,200,0.04);border:1px solid rgba(232,220,200,0.10);color:var(--dim2);}
+    .dl-sess-meta{font-size:9px;color:var(--dim2);margin-bottom:8px;}
+    .dl-sess-phases{display:flex;gap:4px;}
+    .dl-sess-phase{height:3px;flex:1;border-radius:2px;background:rgba(255,220,140,0.08);}
+    .dl-sess-phase.done{background:rgba(201,168,76,0.5);}
+    .dl-sess-phase.active{background:rgba(184,115,51,0.7);}
+
+    /* AI SEATS STRIP */
+    .dl-ai-strip{display:flex;gap:10px;margin-bottom:32px;flex-wrap:wrap;}
+    .dl-ai-seat{
+      display:flex;align-items:center;gap:10px;padding:10px 16px 10px 10px;
+      background:rgba(255,248,235,0.03);border:1px solid var(--border);border-radius:10px;
+      flex:1;min-width:160px;
+    }
+    .dl-ai-seat.iris{border-color:rgba(201,168,76,0.20);background:rgba(201,168,76,0.04);}
+    .dl-ai-seat.iq{border-color:rgba(232,149,109,0.20);background:rgba(232,149,109,0.04);}
+    .dl-ai-seat.luna{border-color:rgba(168,124,189,0.20);background:rgba(168,124,189,0.04);}
+    .dl-ai-av{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;}
+    .dl-ai-av.iris{background:linear-gradient(135deg,rgba(201,168,76,0.32),rgba(184,115,51,0.55));border:2px solid rgba(201,168,76,0.60);box-shadow:0 0 16px rgba(201,168,76,0.28);}
+    .dl-ai-av.iq{background:linear-gradient(135deg,rgba(232,149,109,0.30),rgba(180,90,40,0.55));border:2px solid rgba(232,149,109,0.60);box-shadow:0 0 16px rgba(232,149,109,0.24);}
+    .dl-ai-av.luna{background:linear-gradient(135deg,rgba(168,124,189,0.30),rgba(100,60,160,0.55));border:2px solid rgba(168,124,189,0.60);box-shadow:0 0 16px rgba(168,124,189,0.24);}
+    .dl-ai-name{font-size:11px;font-weight:700;color:var(--text);}
+    .dl-ai-role{font-size:9px;color:var(--dim);margin-top:1px;}
+    .dl-ai-dot{width:5px;height:5px;border-radius:50%;margin-left:auto;flex-shrink:0;}
+    .dl-ai-dot.on{background:rgba(100,200,120,0.8);box-shadow:0 0 6px rgba(100,200,120,0.5);}
+    .dl-ai-dot.standby{background:rgba(201,168,76,0.6);}
+
+    /* DEMO BANNER */
+    .dl-demo-banner{
+      display:none;align-items:center;gap:12px;padding:10px 18px;
+      background:rgba(201,168,76,0.06);border:1px solid rgba(201,168,76,0.20);border-radius:8px;
+      margin-bottom:20px;font-size:11px;color:var(--dim);
+    }
+    .dl-demo-banner.visible{display:flex;}
+    .dl-demo-banner strong{color:var(--gold);}
+
+    /* FOOTER signature */
+    .dl-footer{
+      text-align:center;padding:18px;font-size:8px;
+      color:rgba(201,168,76,0.18);letter-spacing:1.2px;
+      border-top:1px solid var(--border);margin-top:8px;
+    }
+  </style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="dl-header">
+  <div class="dl-logo-hex">
+    <svg width="36" height="36" viewBox="0 0 36 36" fill="none" aria-hidden="true">
+      <path d="M18 2L33 10V26L18 34L3 26V10Z" stroke="#c9a84c" stroke-width="1.5" stroke-linejoin="round"/>
+      <path d="M18 9L28 14V22L18 27L8 22V14Z" stroke="#b87333" stroke-width="1" stroke-linejoin="round" opacity="0.6"/>
+      <circle cx="18" cy="18" r="3.5" fill="rgba(201,168,76,0.45)"/>
+    </svg>
+  </div>
+  <div>
+    <div class="dl-logo-text">DAYS LEGACY</div>
+    <div class="dl-logo-sub">Intelligence Collective</div>
+  </div>
+  <div class="dl-vsep"></div>
+  <div class="dl-header-title" id="dlHeaderTitle">Tableau de bord</div>
+  <div class="dl-badge" id="dlDemoBadge" style="display:none">Mode Démo</div>
+  <a href="/workspace" class="dl-hbtn" id="dlWorkspaceBtn">Ouvrir le Workspace →</a>
+</header>
+
+<!-- MAIN -->
+<main class="dl-main">
+
+  <!-- Demo banner -->
+  <div class="dl-demo-banner" id="dlDemoBanner">
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="5.5" stroke="#c9a84c" stroke-width="1.2"/><path d="M7 4.5V7.5M7 9h.01" stroke="#c9a84c" stroke-width="1.3" stroke-linecap="round"/></svg>
+    <span>Mode démo — <strong>données fictives</strong> pour démonstration. <a href="/workspace?demo=1" style="color:var(--gold);text-decoration:none;font-weight:700;">Ouvrir le Workspace en mode démo →</a></span>
+  </div>
+
+  <!-- KPI -->
+  <div class="dl-sec-lbl">Vue d'ensemble</div>
+  <div class="dl-kpi-grid" id="dlKpiGrid">
+    <div class="dl-kpi"><div class="dl-kpi-val" id="kpiSessions">—</div><div class="dl-kpi-lbl">Sessions actives</div><div class="dl-kpi-trend up" id="kpiSessionsTrend"></div></div>
+    <div class="dl-kpi"><div class="dl-kpi-val" id="kpiDecisions">—</div><div class="dl-kpi-lbl">Décisions validées</div><div class="dl-kpi-trend" id="kpiDecisionsTrend"></div></div>
+    <div class="dl-kpi"><div class="dl-kpi-val" id="kpiPropositions">—</div><div class="dl-kpi-lbl">Propositions actives</div><div class="dl-kpi-trend" id="kpiPropTrend"></div></div>
+    <div class="dl-kpi"><div class="dl-kpi-val" id="kpiSources">—</div><div class="dl-kpi-lbl">Sources analysées</div><div class="dl-kpi-trend" id="kpiSourcesTrend"></div></div>
+  </div>
+
+  <!-- WORKSPACE CTA -->
+  <div class="dl-sec-lbl">Espace de travail IA</div>
+  <div class="dl-ws-cta" onclick="window.location.href=document.getElementById('dlWorkspaceBtn').href" id="dlWsCta">
+    <div class="dl-ws-ico">
+      <svg width="26" height="26" viewBox="0 0 26 26" fill="none"><path d="M13 2L24 8V18L13 24L2 18V8Z" stroke="#c9a84c" stroke-width="1.4" stroke-linejoin="round"/><path d="M13 7L20 11V15L13 19L6 15V11Z" stroke="#b87333" stroke-width="1" stroke-linejoin="round" opacity="0.7"/><circle cx="13" cy="13" r="2.5" fill="rgba(201,168,76,0.5)"/></svg>
+    </div>
+    <div class="dl-ws-body">
+      <div class="dl-ws-title">Iris Workspace Stratégique</div>
+      <div class="dl-ws-sub">Session de travail collaborative — Question → Propositions → Sources → Décision → Actions → Réserves → Dossier final</div>
+    </div>
+    <div class="dl-ws-arrow">›</div>
+  </div>
+
+  <!-- AI SEATS -->
+  <div class="dl-sec-lbl">Agents IA disponibles</div>
+  <div class="dl-ai-strip">
+    <div class="dl-ai-seat iris">
+      <div class="dl-ai-av iris">I</div>
+      <div><div class="dl-ai-name">Iris</div><div class="dl-ai-role">IA Stratégique — Synthèse & Organisation</div></div>
+      <div class="dl-ai-dot on"></div>
+    </div>
+    <div class="dl-ai-seat iq">
+      <div class="dl-ai-av iq">IQ</div>
+      <div><div class="dl-ai-name">IQ</div><div class="dl-ai-role">Intelligence — Analyse & Comparaison</div></div>
+      <div class="dl-ai-dot on"></div>
+    </div>
+    <div class="dl-ai-seat luna">
+      <div class="dl-ai-av luna">L</div>
+      <div><div class="dl-ai-name">Luna</div><div class="dl-ai-role">Mémoire — Recommandation & Validation</div></div>
+      <div class="dl-ai-dot standby"></div>
+    </div>
+  </div>
+
+  <!-- SESSIONS RÉCENTES -->
+  <div class="dl-sec-lbl">Sessions récentes</div>
+  <div class="dl-sess-grid" id="dlSessGrid">
+    <!-- Populated by JS -->
+  </div>
+
+</main>
+
+<div class="dl-footer">Days Legacy Workspace — powered by YAWatch LUNA</div>
+
+<script>
+/* ============================================================
+   DAYS LEGACY DASHBOARD — v1.0
+   ============================================================ */
+
+var _isDemo = new URLSearchParams(window.location.search).get('demo') === '1';
+
+var DEMO_SESSIONS = [
+  {id:'s1',title:'Lancement Q3 — Plan d\'expansion',status:'active',meta:'Session en cours — Phase 3/5 • 4 participants',phases:[1,1,1,0,0]},
+  {id:'s2',title:'Revue stratégique H1 2026',status:'completed',meta:'Terminée le 10 juin 2026 • 6 décisions validées',phases:[1,1,1,1,1]},
+  {id:'s3',title:'Positionnement produit Premium',status:'completed',meta:'Terminée le 5 juin 2026 • 3 décisions validées',phases:[1,1,1,1,1]},
+  {id:'s4',title:'Analyse marché — Segment B',status:'draft',meta:'Brouillon — Démarrage prévu semaine prochaine',phases:[0,0,0,0,0]},
+];
+
+var LIVE_SESSIONS = [
+  {id:'s1',title:'Dernière session',status:'draft',meta:'Aucune session récente',phases:[0,0,0,0,0]},
+];
+
+function renderKpi(demo){
+  if(demo){
+    document.getElementById('kpiSessions').textContent='2';
+    document.getElementById('kpiSessionsTrend').textContent='↑ +1 cette semaine';
+    document.getElementById('kpiDecisions').textContent='9';
+    document.getElementById('kpiDecisionsTrend').textContent='dont 6 en H1 2026';
+    document.getElementById('kpiDecisionsTrend').className='dl-kpi-trend up';
+    document.getElementById('kpiPropositions').textContent='3';
+    document.getElementById('kpiPropTrend').textContent='session Lancement Q3';
+    document.getElementById('kpiSources').textContent='4';
+    document.getElementById('kpiSourcesTrend').textContent='2 analysées par Iris';
+  } else {
+    document.getElementById('kpiSessions').textContent='0';
+    document.getElementById('kpiDecisions').textContent='0';
+    document.getElementById('kpiPropositions').textContent='0';
+    document.getElementById('kpiSources').textContent='0';
+  }
+}
+
+function phaseClass(ph,done,active){
+  if(done)return 'done';
+  if(active)return 'active';
+  return '';
+}
+
+function renderSessions(sessions){
+  var grid = document.getElementById('dlSessGrid');
+  if(!sessions||!sessions.length){
+    grid.innerHTML='<div style="font-size:11px;color:var(--dim2);padding:20px 0;">Aucune session. <a href="/workspace" style="color:var(--gold);text-decoration:none;">Démarrer une session →</a></div>';
+    return;
+  }
+  grid.innerHTML = sessions.map(function(s){
+    var phases = s.phases.map(function(v,i){
+      var cls = v?'done':'';
+      if(s.status==='active'&&v===0&&i===s.phases.findIndex(function(x){return x===0;}))cls='active';
+      return '<div class="dl-sess-phase '+cls+'"></div>';
+    }).join('');
+    return '<div class="dl-sess" onclick="window.location.href=\'/workspace\'">'
+      +'<div class="dl-sess-head">'
+      +'<div class="dl-sess-title">'+s.title+'</div>'
+      +'<div class="dl-sess-status '+s.status+'">'+(s.status==='active'?'En cours':s.status==='completed'?'Terminée':'Brouillon')+'</div>'
+      +'</div>'
+      +'<div class="dl-sess-meta">'+s.meta+'</div>'
+      +'<div class="dl-sess-phases">'+phases+'</div>'
+      +'</div>';
+  }).join('');
+}
+
+window.addEventListener('DOMContentLoaded',function(){
+  if(_isDemo){
+    /* Mode démo */
+    document.getElementById('dlDemoBanner').classList.add('visible');
+    document.getElementById('dlDemoBadge').style.display='inline-block';
+    document.getElementById('dlWorkspaceBtn').href='/workspace?demo=1';
+    document.getElementById('dlWsCta').onclick=function(){window.location.href='/workspace?demo=1';};
+    document.getElementById('dlHeaderTitle').textContent='Tableau de bord — Démo';
+    renderKpi(true);
+    renderSessions(DEMO_SESSIONS);
+  } else {
+    renderKpi(false);
+    renderSessions(LIVE_SESSIONS);
+  }
+});
+</script>
+</body>
+</html>

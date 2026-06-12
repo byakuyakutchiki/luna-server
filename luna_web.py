@@ -8109,6 +8109,32 @@ async def team_workspace_page():
     return JSONResponse(status_code=404, content={"error": "Team Workspace non disponible"})
 
 
+@app.get("/workspace")
+async def days_legacy_workspace_page():
+    """Days Legacy Workspace — packaging client Iris Workspace (palette or/cuivre)."""
+    path = os.path.join(STATIC_DIR, "workspace.html")
+    if os.path.isfile(path):
+        return FileResponse(path, headers={
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "Pragma": "no-cache",
+            "Expires": "0",
+        })
+    return JSONResponse(status_code=404, content={"error": "Days Legacy Workspace non disponible"})
+
+
+@app.get("/dashboard")
+async def days_legacy_dashboard_page():
+    """Days Legacy Dashboard — vue d'ensemble et accès au Workspace."""
+    path = os.path.join(STATIC_DIR, "dashboard.html")
+    if os.path.isfile(path):
+        return FileResponse(path, headers={
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "Pragma": "no-cache",
+            "Expires": "0",
+        })
+    return JSONResponse(status_code=404, content={"error": "Days Legacy Dashboard non disponible"})
+
+
 # ── Team Workspace — Source Upload ────────────────────────────────────────────
 _TEAM_SESSIONS: dict = {}   # session_id -> list of source metadata
 _TEAM_UPLOAD_DIR = "/tmp/luna_team_uploads"
