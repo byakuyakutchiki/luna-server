@@ -169,10 +169,10 @@
   <!-- KPI -->
   <div class="dl-sec-lbl">Vue d'ensemble</div>
   <div class="dl-kpi-grid" id="dlKpiGrid">
-    <div class="dl-kpi"><div class="dl-kpi-val" id="kpiSessions">—</div><div class="dl-kpi-lbl">Sessions actives</div><div class="dl-kpi-trend up" id="kpiSessionsTrend"></div></div>
-    <div class="dl-kpi"><div class="dl-kpi-val" id="kpiDecisions">—</div><div class="dl-kpi-lbl">Décisions validées</div><div class="dl-kpi-trend" id="kpiDecisionsTrend"></div></div>
-    <div class="dl-kpi"><div class="dl-kpi-val" id="kpiPropositions">—</div><div class="dl-kpi-lbl">Propositions actives</div><div class="dl-kpi-trend" id="kpiPropTrend"></div></div>
-    <div class="dl-kpi"><div class="dl-kpi-val" id="kpiSources">—</div><div class="dl-kpi-lbl">Sources analysées</div><div class="dl-kpi-trend" id="kpiSourcesTrend"></div></div>
+    <div class="dl-kpi"><div class="dl-kpi-val" id="kpiSessions">—</div><div class="dl-kpi-lbl">Dossiers clients ouverts</div><div class="dl-kpi-trend up" id="kpiSessionsTrend"></div></div>
+    <div class="dl-kpi"><div class="dl-kpi-val" id="kpiDecisions">—</div><div class="dl-kpi-lbl">Stratégies validées</div><div class="dl-kpi-trend" id="kpiDecisionsTrend"></div></div>
+    <div class="dl-kpi"><div class="dl-kpi-val" id="kpiPropositions">—</div><div class="dl-kpi-lbl">Plans patrimoniaux soumis</div><div class="dl-kpi-trend" id="kpiPropTrend"></div></div>
+    <div class="dl-kpi"><div class="dl-kpi-val" id="kpiSources">—</div><div class="dl-kpi-lbl">Documents clients analysés</div><div class="dl-kpi-trend" id="kpiSourcesTrend"></div></div>
   </div>
 
   <!-- WORKSPACE CTA -->
@@ -226,10 +226,10 @@
 var _isDemo = new URLSearchParams(window.location.search).get('demo') === '1';
 
 var DEMO_SESSIONS = [
-  {id:'s1',title:'Lancement Q3 — Plan d\'expansion',status:'active',meta:'Session en cours — Phase 3/5 • 4 participants',phases:[1,1,1,0,0]},
-  {id:'s2',title:'Revue stratégique H1 2026',status:'completed',meta:'Terminée le 10 juin 2026 • 6 décisions validées',phases:[1,1,1,1,1]},
-  {id:'s3',title:'Positionnement produit Premium',status:'completed',meta:'Terminée le 5 juin 2026 • 3 décisions validées',phases:[1,1,1,1,1]},
-  {id:'s4',title:'Analyse marché — Segment B',status:'draft',meta:'Brouillon — Démarrage prévu semaine prochaine',phases:[0,0,0,0,0]},
+  {id:'s1',title:'M. Renard — Transition patrimoniale cession',status:'active',meta:'En cours — Phase 3/5 • 3 conseillers',phases:[1,1,1,0,0]},
+  {id:'s2',title:'Mme Clément — Optimisation IFI 2026',status:'completed',meta:'Clôturé le 10 juin 2026 • 2 stratégies validées',phases:[1,1,1,1,1]},
+  {id:'s3',title:'M. Dubois — Transmission familiale',status:'completed',meta:'Clôturé le 5 juin 2026 • 3 stratégies validées',phases:[1,1,1,1,1]},
+  {id:'s4',title:'SCI Lafarge — Restructuration holding',status:'draft',meta:'Brouillon — Premiers éléments à compléter',phases:[0,0,0,0,0]},
 ];
 
 var LIVE_SESSIONS = [
@@ -238,13 +238,13 @@ var LIVE_SESSIONS = [
 
 function renderKpi(demo){
   if(demo){
-    document.getElementById('kpiSessions').textContent='2';
-    document.getElementById('kpiSessionsTrend').textContent='↑ +1 cette semaine';
+    document.getElementById('kpiSessions').textContent='3';
+    document.getElementById('kpiSessionsTrend').textContent='↑ +1 ce mois';
     document.getElementById('kpiDecisions').textContent='9';
     document.getElementById('kpiDecisionsTrend').textContent='dont 6 en H1 2026';
     document.getElementById('kpiDecisionsTrend').className='dl-kpi-trend up';
     document.getElementById('kpiPropositions').textContent='3';
-    document.getElementById('kpiPropTrend').textContent='session Lancement Q3';
+    document.getElementById('kpiPropTrend').textContent='dossier M. Renard';
     document.getElementById('kpiSources').textContent='4';
     document.getElementById('kpiSourcesTrend').textContent='2 analysées par Iris';
   } else {

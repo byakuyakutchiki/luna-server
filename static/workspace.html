@@ -3789,13 +3789,13 @@ window.addEventListener('DOMContentLoaded',function(){
     TW.userIni='DM';
     if(sn)sn.value='Démo';
     /* Données démo pré-remplies */
-    TW.brief={title:'Lancement Q3 — Plan d\'expansion commerciale',domain:'Stratégie',objective:'Définir les axes prioritaires pour le trimestre'};
+    TW.brief={title:'M. Renard, dirigeant PME, 58 ans — Cession d\'entreprise prévue dans 18 mois. Optimiser la transition patrimoniale avant la cession.',domain:'Gestion de patrimoine',objective:'Structurer la transmission et l\'optimisation fiscale avant cession d\'entreprise'};
     TW.objects=[
-      {id:1,type:'prop',text:'Ouvrir 3 nouveaux marchés régionaux avant septembre',author_name:'M. Fontaine',created_at:Date.now()-3600000,votes:4},
-      {id:2,type:'prop',text:'Renforcer l\'équipe commerciale : +2 account managers',author_name:'L. Dumont',created_at:Date.now()-3000000,votes:3},
-      {id:3,type:'source',text:'Rapport McKinsey 2025 — Croissance PME secteur premium',author_name:'C. Archambault',created_at:Date.now()-2400000,votes:0},
-      {id:4,type:'source',text:'Analyse concurrentielle Q2 — Parts de marché Days Legacy',author_name:'Iris',created_at:Date.now()-1800000,votes:0},
-      {id:5,type:'prop',text:'Lancer une offre anniversaire 10 ans pour fidéliser',author_name:'Manager',created_at:Date.now()-1200000,votes:2},
+      {id:1,type:'prop',text:'Holding patrimoniale + apport-cession (art. 150-0 B ter)',author_name:'M. Fontaine',created_at:Date.now()-3600000,votes:4},
+      {id:2,type:'prop',text:'Pacte Dutreil — transmission anticipée',author_name:'L. Dumont',created_at:Date.now()-3000000,votes:3},
+      {id:3,type:'source',text:'Simulation fiscale IR/IFI — cabinet expertise comptable',author_name:'C. Archambault',created_at:Date.now()-2400000,votes:0},
+      {id:4,type:'source',text:'Note juridique — Apport-cession art. 150-0 B ter 2025',author_name:'Iris',created_at:Date.now()-1800000,votes:0},
+      {id:5,type:'prop',text:'PEA + assurance-vie — capitalisation progressive',author_name:'Manager',created_at:Date.now()-1200000,votes:2},
     ];
     TW.sources=TW.objects.filter(function(o){return o.type==='source';});
     TW.step=5;
@@ -3803,21 +3803,21 @@ window.addEventListener('DOMContentLoaded',function(){
     TW.actions=[];
     TW.reserves=[];
     TW._actLog=[
-      {msg:'Iris : 4 propositions organisées',t:Date.now()-900000},
-      {msg:'Vote priorité ouvert',t:Date.now()-600000},
-      {msg:'Source ajoutée par C. Archambault',t:Date.now()-300000},
+      {msg:'Iris : 3 stratégies patrimoniales analysées',t:Date.now()-900000},
+      {msg:'Simulation fiscale ajoutée par C. Archambault',t:Date.now()-600000},
+      {msg:'Note juridique apport-cession intégrée',t:Date.now()-300000},
     ];
     /* Propositions panel */
     if(!TW.proposals)TW.proposals=[];
     TW.proposals=[
-      {id:'dp1',text:'Ouvrir 3 nouveaux marchés régionaux avant septembre',author_name:'M. Fontaine',status:'active',votes:4},
-      {id:'dp2',text:'Renforcer l\'équipe commerciale : +2 account managers',author_name:'L. Dumont',status:'pending',votes:3},
-      {id:'dp3',text:'Lancer une offre anniversaire 10 ans pour fidéliser',author_name:'Manager',status:'pending',votes:2},
+      {id:'dp1',text:'Holding patrimoniale + apport-cession (art. 150-0 B ter)',author_name:'M. Fontaine',status:'active',votes:4},
+      {id:'dp2',text:'Pacte Dutreil — transmission anticipée',author_name:'L. Dumont',status:'pending',votes:3},
+      {id:'dp3',text:'PEA + assurance-vie — capitalisation progressive',author_name:'Manager',status:'pending',votes:2},
     ];
     TW.activeProposalId='dp1';
     /* Mettre à jour le titre */
     var st=document.getElementById('twSessionTitle');
-    if(st)st.textContent='Session Démo — Lancement Q3';
+    if(st)st.textContent='Dossier M. Renard — Transition patrimoniale';
     /* Mode démo = solo offline : afficher les contrôles sans WS ni caméra */
     var pc=document.getElementById('twPresenceControls');if(pc)pc.style.display='flex';
     /* Rendu */
