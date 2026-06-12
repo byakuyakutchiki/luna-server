@@ -1059,6 +1059,7 @@
       <button class="tw-pres-btn hand" id="btnHand" onclick="raiseHand()">✋</button>
     </div>
     <span class="tw-ws-dot" id="twWsDot" title="Déconnecté">●</span>
+    <span id="twDemoBadge" style="display:none;font-size:7px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--amber);background:rgba(232,160,64,0.10);border:1px solid rgba(232,160,64,0.25);border-radius:4px;padding:2px 7px;">DÉMO SOLO</span>
     <span class="tw-act-lbl" id="twActLbl">Collecte —</span>
     <div id="twActBtns"></div>
   </div>
@@ -1286,15 +1287,18 @@ var STEPS=[
   {id:7,lbl:'Débat'},{id:8,lbl:'Refonte Iris'},{id:9,lbl:'Comparaison IQ'},
   {id:10,lbl:'Recommandation Luna'},{id:11,lbl:'Validation'},{id:12,lbl:'Livrable'},{id:13,lbl:'Distribution'},
 ];
+var _isDemoMode=(new URLSearchParams(window.location.search).get('demo')==='1');
 var TW={
   step:3,brief:null,decision:null,actions:[],reserves:[],report:null,_showReport:false,
   _rvLevel:'YELLOW',_rvOpen:false,_actLog:[],
   objects:[],sources:[],selType:'prop',selTypeK:'p',srcTab:'file',
+  _demoMode:_isDemoMode,  /* true = solo offline, aucune connexion WS */
   sessionId:(function(){
+    if(_isDemoMode)return 'demo-offline'; /* salle fictive, jamais envoyée au serveur */
     /* URL param ?room=xxx prioritaire (partage inter-navigateurs) */
     var url=new URLSearchParams(window.location.search);
     var room=url.get('room');
-    if(room)return room.replace(/[^a-zA-Z0-9_-]/g,'').slice(0,64)||'demo';
+    if(room)return room.replace(/[^a-zA-Z0-9_-]/g,'').slice(0,64)||'iris-session';
     return 'iris-session';
   })(),
   userId:(function(){
@@ -2821,6 +2825,7 @@ function initRoom(){
    WEBSOCKET CLIENT
    ============================================================ */
 function wsConnect(){
+  if(TW._demoMode){console.log('[WS] demo mode — offline, skip WS');return;}
   if(_ws&&(_ws.readyState===WebSocket.OPEN||_ws.readyState===WebSocket.CONNECTING))return;
   var proto=location.protocol==='https:'?'wss:':'ws:';
   _ws=new WebSocket(proto+'//'+location.host+'/ws/team/'+TW.sessionId);
@@ -2830,12 +2835,12 @@ function wsConnect(){
   _ws.onmessage=function(ev){
     try{handleWsMessage(JSON.parse(ev.data));}catch(e){console.warn('[WS] parse error',e);}
   };
-  _ws.onerror=function(){console.warn('[WS] error');};
+  _ws.onerror=function(){console.warn('[WS] error — fallback solo');_setWsDot(false);};
   _ws.onclose=function(ev){
     TW.wsConnected=false;
     _setWsDot(false);
     console.log('[WS] closed code='+ev.code);
-    setTimeout(wsConnect,4000);
+    if(!TW._demoMode)setTimeout(wsConnect,4000); /* reconnect uniquement hors demo */
   };
 }
 function wsSend(msg){
@@ -2849,22 +2854,26 @@ function handleWsMessage(msg){
     TW.wsConnected=true;
     _setWsDot(true);
     if(msg.your_role){TW.userRole=msg.your_role;localStorage.setItem('luna_tw_role',msg.your_role);}
-    /* Merge server state — objects/brief/step (don't stomp local demo objects) */
-    if(st.objects&&st.objects.length)TW.objects=st.objects;
-    if(st.brief)TW.brief=st.brief;
-    if(st.step&&st.step!==TW.step){TW.step=st.step;renderStepper();}
+    /* Merge server state — n'écrase jamais en mode démo */
+    if(!TW._demoMode){
+      if(st.objects&&st.objects.length)TW.objects=st.objects;
+      if(st.brief)TW.brief=st.brief;
+      if(st.step&&st.step!==TW.step){TW.step=st.step;renderStepper();}
+    }
     if(st.votes)st.votes.forEach(function(v){_votes[v.id]=v.count;});
     _remoteParticipants={};
     (st.participants||[]).forEach(function(p){
       if(p.user_id!==TW.userId)_remoteParticipants[p.user_id]=p;
     });
-    TW.proposals=st.proposals||[];
-    TW.activeProposalId=st.active_proposal_id||null;
-    TW.sources=st.sources||[];
-    TW.decision=st.decision||null;
-    TW.actions=st.actions||[];
-    TW.reserves=st.reserves||[];
-    TW.report=st.report||null;
+    if(!TW._demoMode){
+      TW.proposals=st.proposals||[];
+      TW.activeProposalId=st.active_proposal_id||null;
+      TW.sources=st.sources||[];
+      TW.decision=st.decision||null;
+      TW.actions=st.actions||[];
+      TW.reserves=st.reserves||[];
+      TW.report=st.report||null;
+    }
     renderSeats();renderObjects();applyCanvasState(TW.step);updateStats();renderProposals();
     if(TW._pendingTitle&&TW.userRole==='owner'&&!TW.brief){
       var pt=TW._pendingTitle;TW._pendingTitle=null;
@@ -3809,6 +3818,8 @@ window.addEventListener('DOMContentLoaded',function(){
     /* Mettre à jour le titre */
     var st=document.getElementById('twSessionTitle');
     if(st)st.textContent='Session Démo — Lancement Q3';
+    /* Mode démo = solo offline : afficher les contrôles sans WS ni caméra */
+    var pc=document.getElementById('twPresenceControls');if(pc)pc.style.display='flex';
     /* Rendu */
     renderStepper();
     renderSeats();
@@ -3816,9 +3827,11 @@ window.addEventListener('DOMContentLoaded',function(){
     applyCanvasState(TW.step);
     updateStats();
     renderSideRight();
-    initRoom();
-    toast('Mode démo activé — données pré-remplies',3000);
-    console.log('[DL] demo mode active step='+TW.step);
+    /* Indiquer DÉMO SOLO dans le header */
+    _setWsDot(false);
+    var db=document.getElementById('twDemoBadge');if(db)db.style.display='inline-block';
+    toast('Mode démo activé — solo offline',3000);
+    console.log('[DL] demo mode active step='+TW.step+' offline=true');
   } else {
     /* Mode normal */
     if(!TW.userName){
@@ -3835,6 +3848,6 @@ window.addEventListener('DOMContentLoaded',function(){
 <!-- Portal menu modération — rendu en position:fixed, jamais rogné -->
 <div id="twSeatMenuPortal"></div>
 <!-- Signature Days Legacy -->
-<div style="position:fixed;bottom:5px;right:10px;font-size:8px;color:rgba(201,168,76,0.20);letter-spacing:1px;pointer-events:none;z-index:1;user-select:none;">Days Legacy Workspace — powered by YAWatch LUNA</div>
+<div class="dl-powered-by" style="position:fixed;bottom:5px;right:10px;font-size:8px;color:rgba(201,168,76,0.20);letter-spacing:1px;pointer-events:none;z-index:1;user-select:none;">Days Legacy Workspace — powered by YAWatch LUNA</div>
 </body>
 </html>
