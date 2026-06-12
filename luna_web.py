@@ -62,7 +62,7 @@ from openai import OpenAI
 from integrations.llm.provider import build_llm_client, get_llm_model, get_provider_label
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Header, Request, Response, WebSocket, WebSocketDisconnect, UploadFile, File, Form
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, StreamingResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, StreamingResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.websockets import WebSocketState
@@ -5066,6 +5066,10 @@ _NO_CACHE_HEADERS = {
 
 @app.get("/")
 async def index(request: Request):
+    # DAYS_LEGACY_ROOT : si défini, redirige la racine vers ce chemin (ex: /dashboard?demo=1)
+    dl_root = os.getenv("DAYS_LEGACY_ROOT", "")
+    if dl_root:
+        return RedirectResponse(url=dl_root, status_code=302)
     if _pv_locked:
         setup_path = os.path.join(STATIC_DIR, "setup.html")
         if os.path.exists(setup_path):
