@@ -230,7 +230,41 @@ body.mode-secretaire .conc-modal-box .field input, body.mode-secretaire .conc-mo
 
 /* Chat layout with sidebar */
 .chat-layout { display: flex; flex: 1; overflow: hidden; }
-.chat-main { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+.chat-main { display: flex; flex-direction: column; flex: 1; min-width: 0; position: relative; }
+
+/* ── Luna Presence Halo ── */
+.luna-presence-halo {
+  position: absolute;
+  bottom: 72px; left: 50%; transform: translateX(-50%);
+  width: 360px; height: 160px;
+  pointer-events: none; z-index: 0;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at center,
+    rgba(16,185,129,0.07) 0%,
+    rgba(16,185,129,0.03) 45%,
+    transparent 70%);
+  animation: luna-halo-idle 8s ease-in-out infinite;
+  transition: opacity 700ms ease, width 700ms ease, height 700ms ease;
+}
+.luna-presence-halo.thinking {
+  width: 420px; height: 200px;
+  background: radial-gradient(ellipse at center,
+    rgba(16,185,129,0.12) 0%,
+    rgba(16,185,129,0.05) 45%,
+    transparent 70%);
+  animation: luna-halo-think 3s ease-in-out infinite;
+}
+.luna-presence-halo.responding {
+  width: 480px; height: 240px;
+  background: radial-gradient(ellipse at center,
+    rgba(16,185,129,0.20) 0%,
+    rgba(16,185,129,0.08) 45%,
+    transparent 70%);
+  animation: luna-halo-speak 1.8s ease-in-out infinite;
+}
+@keyframes luna-halo-idle  { 0%,100%{opacity:.7} 50%{opacity:1} }
+@keyframes luna-halo-think { 0%,100%{opacity:.8} 50%{opacity:1} }
+@keyframes luna-halo-speak { 0%,100%{opacity:.9} 50%{opacity:1} }
 
 /* Conversation sidebar */
 .conv-sidebar {
@@ -1696,6 +1730,7 @@ body.mode-secretaire .luna::before {
     <div class="conv-overlay" id="convOverlay"></div>
     <div class="chat-main">
       <div class="chat" id="chat"></div>
+      <div class="luna-presence-halo" id="lunaPresenceHalo"></div>
       <div class="input-area">
         <div class="emoji-picker" id="emojiPicker"></div>
         <div class="input-row">
@@ -4234,6 +4269,7 @@ function addMsg(text, cls, ts, skipSave) {
   var textSpan = document.createElement("span"); textSpan.className = "msg-text"; textSpan.innerHTML = _linkify(text); d.appendChild(textSpan);
   var timeSpan = document.createElement("span"); timeSpan.className = "msg-time"; timeSpan.textContent = formatTime(ts); d.appendChild(timeSpan);
   chat.appendChild(d); scrollToBottom();
+  if (cls === "luna") { _lunaHalo("responding"); setTimeout(function(){ _lunaHalo("idle"); }, 2200); }
   if (!skipSave) saveHistory();
 }
 
@@ -4380,12 +4416,24 @@ function _renderCards(cards) {
   chat.appendChild(container);
   scrollToBottom();
 }
+function _lunaHalo(state) {
+  var h = document.getElementById("lunaPresenceHalo");
+  if (!h) return;
+  h.classList.remove("thinking","responding");
+  if (state === "thinking") h.classList.add("thinking");
+  else if (state === "responding") h.classList.add("responding");
+}
+
 function showTyping() {
   var d = document.createElement("div"); d.className = "typing"; d.id = "typingIndicator";
   d.innerHTML = '<div class="typing-dots"><span></span><span></span><span></span></div>';
   chat.appendChild(d); scrollToBottom();
+  _lunaHalo("thinking");
 }
-function hideTyping() { var el = document.getElementById("typingIndicator"); if (el) el.remove(); }
+function hideTyping() {
+  var el = document.getElementById("typingIndicator"); if (el) el.remove();
+  _lunaHalo("idle");
+}
 
 function updateOnlineStatus() {
   statusDot.className = navigator.onLine ? "status-dot online" : "status-dot offline";

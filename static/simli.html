@@ -1250,33 +1250,100 @@
     }
 
     /* ===== ECRAN DE DEMARRAGE ===== */
+    @keyframes iris-bg-drift {
+      0%   { transform: scale(1.0) translate(0, 0); }
+      50%  { transform: scale(1.06) translate(-0.6%, 0.3%); }
+      100% { transform: scale(1.03) translate(0.3%, -0.4%); }
+    }
+    @keyframes iris-halo-pulse {
+      0%,100% { opacity: 0.55; }
+      50%      { opacity: 0.85; }
+    }
+    @keyframes iris-logo-breathe {
+      0%,100% { transform: scale(1.0); box-shadow: 0 0 30px rgba(16,185,129,0.35); }
+      50%      { transform: scale(1.02); box-shadow: 0 0 50px rgba(16,185,129,0.55); }
+    }
+    /* custom select */
+    @keyframes iris-dd-in {
+      from { opacity:0; transform:translateY(-6px); }
+      to   { opacity:1; transform:translateY(0); }
+    }
     .start-screen {
-      position: fixed; inset: 0; z-index: 40;
-      background: linear-gradient(135deg, #0a0a1a 0%, #1a1a3e 100%);
+      position: fixed; inset: 0; z-index: 40; overflow: hidden;
       display: flex; flex-direction: column; align-items: center; justify-content: center;
       padding: 24px; text-align: center;
       padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom);
     }
+    .start-screen-bg {
+      position: absolute; inset: -5%; z-index: 0;
+      background-image: url('/static/assets/backgrounds/bg_night.svg');
+      background-size: cover; background-position: center;
+      animation: iris-bg-drift 60s ease-in-out infinite alternate;
+      opacity: 0.35;
+    }
+    .start-screen-halo {
+      position: absolute; inset: 0; z-index: 1; pointer-events: none;
+      background: radial-gradient(ellipse 60% 55% at 50% 52%,
+        rgba(16,185,129,0.16) 0%, rgba(124,58,237,0.10) 40%, transparent 70%);
+      animation: iris-halo-pulse 7s ease-in-out infinite;
+    }
+    .start-screen > *:not(.start-screen-bg):not(.start-screen-halo) { position: relative; z-index: 2; }
     .start-screen.hidden { display: none; }
     .start-logo {
       width: 80px; height: 80px; border-radius: 50%;
-      background: linear-gradient(135deg, #7c8cf8, #a78bfa);
+      background: radial-gradient(135deg, rgba(16,185,129,0.25), rgba(124,58,237,0.20));
+      border: 1.5px solid rgba(16,185,129,0.5);
       display: flex; align-items: center; justify-content: center;
-      font-size: 36px; color: #fff; font-weight: 700; margin-bottom: 24px;
-      box-shadow: 0 0 40px rgba(124,140,248,0.3);
+      font-size: 32px; font-weight: 800; letter-spacing: 0.12em; color: #10b981;
+      margin-bottom: 24px;
+      animation: iris-logo-breathe 5s ease-in-out infinite;
     }
-    .start-screen h2 { font-size: 24px; color: #fff; margin-bottom: 8px; }
-    .start-screen p { font-size: 14px; color: #888; margin-bottom: 32px; max-width: 300px; line-height: 1.5; }
+    .start-screen h2 {
+      font-size: 24px; color: #e5e7eb; margin-bottom: 8px;
+      font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;
+    }
+    .start-screen p { font-size: 14px; color: #9ca3af; margin-bottom: 32px; max-width: 300px; line-height: 1.5; }
+    /* Custom duration select */
+    .iris-select-wrap { position: relative; margin-bottom: 20px; user-select: none; }
+    .iris-select-label { color: #6b7280; font-size: 12px; margin-bottom: 6px; display: block; letter-spacing: 0.06em; }
+    .iris-select-btn {
+      background: rgba(13,17,23,0.85); color: #e5e7eb;
+      border: 1px solid rgba(16,185,129,0.3); border-radius: 10px;
+      padding: 10px 36px 10px 16px; font-size: 15px; cursor: pointer;
+      min-width: 180px; text-align: left; position: relative;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .iris-select-btn:hover { border-color: rgba(16,185,129,0.6); box-shadow: 0 0 12px rgba(16,185,129,0.15); }
+    .iris-select-btn::after { content:"▾"; position:absolute; right:12px; top:50%; transform:translateY(-50%); color:#10b981; font-size:13px; }
+    .iris-select-btn.open { border-color: rgba(16,185,129,0.7); box-shadow: 0 0 16px rgba(16,185,129,0.2); }
+    .iris-select-dropdown {
+      display: none; position: absolute; top: calc(100% + 6px); left: 0; right: 0;
+      background: rgba(13,17,23,0.97); border: 1px solid rgba(16,185,129,0.3);
+      border-radius: 10px; overflow: hidden; z-index: 10;
+      animation: iris-dd-in 150ms ease-out;
+    }
+    .iris-select-dropdown.open { display: block; }
+    .iris-select-opt {
+      padding: 10px 16px; font-size: 14px; color: #9ca3af; cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+    }
+    .iris-select-opt:hover { background: rgba(16,185,129,0.1); color: #10b981; }
+    .iris-select-opt.selected { color: #10b981; font-weight: 600; }
+    /* hidden real select — js compatibility */
+    #durationSelect { display: none; }
     .start-screen .btn-start-big {
-      background: #0a6; color: #fff; border: none; border-radius: 50px;
+      background: #059669; color: #fff; border: none; border-radius: 50px;
       padding: 16px 48px; font-size: 18px; font-weight: 700; cursor: pointer;
-      min-height: 56px; transition: all 0.15s;
-      box-shadow: 0 4px 20px rgba(0,170,100,0.3);
+      min-height: 56px; transition: all 0.2s;
+      box-shadow: 0 4px 20px rgba(16,185,129,0.35);
     }
-    .start-screen .btn-start-big:hover { background: #0b7; transform: scale(1.02); }
-    .start-screen .btn-start-big:disabled { opacity: 0.5; cursor: not-allowed; }
-    .start-back-link { margin-top: 24px; color: #888; font-size: 13px; text-decoration: none; }
-    .start-back-link:hover { color: #aaa; }
+    .start-screen .btn-start-big:hover {
+      background: #10b981; transform: scale(1.02);
+      box-shadow: 0 0 32px rgba(16,185,129,0.55), 0 4px 20px rgba(16,185,129,0.35);
+    }
+    .start-screen .btn-start-big:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
+    .start-back-link { margin-top: 24px; color: #6b7280; font-size: 13px; text-decoration: none; }
+    .start-back-link:hover { color: #9ca3af; }
 
     /* Loading spinner in start screen */
     .start-loading { display: none; margin-top: 16px; color: #888; font-size: 13px; }
@@ -1547,12 +1614,24 @@
 
   <!-- ECRAN DE DEMARRAGE -->
   <div class="start-screen" id="startScreen">
-    <div class="start-logo">L</div>
+    <div class="start-screen-bg"></div>
+    <div class="start-screen-halo"></div>
+    <div class="start-logo">I</div>
     <h2>Iris Visio</h2>
     <p>Je te vois et je t'entends. Parle-moi naturellement, je te reponds en direct.</p>
-    <div style="margin-bottom:20px;">
-      <label for="durationSelect" style="color:#888;font-size:13px;display:block;margin-bottom:6px;">Duree de l'appel</label>
-      <select id="durationSelect" style="background:#1a1a2e;color:#fff;border:1px solid #333;border-radius:12px;padding:10px 18px;font-size:15px;cursor:pointer;min-width:180px;text-align:center;">
+    <!-- Custom select durée -->
+    <div class="iris-select-wrap" id="irisSelectWrap">
+      <span class="iris-select-label">Durée de l'appel</span>
+      <button type="button" class="iris-select-btn" id="irisSelectBtn">1 heure</button>
+      <div class="iris-select-dropdown" id="irisSelectDrop">
+        <div class="iris-select-opt" data-val="15">15 minutes</div>
+        <div class="iris-select-opt" data-val="30">30 minutes</div>
+        <div class="iris-select-opt selected" data-val="60">1 heure</div>
+        <div class="iris-select-opt" data-val="120">2 heures</div>
+        <div class="iris-select-opt" data-val="0">Illimité</div>
+      </div>
+      <!-- select caché pour compatibilité JS existant -->
+      <select id="durationSelect">
         <option value="15">15 minutes</option>
         <option value="30">30 minutes</option>
         <option value="60" selected>1 heure</option>
@@ -1560,7 +1639,7 @@
         <option value="0">Illimite</option>
       </select>
     </div>
-    <button class="btn-start-big" id="btnStartBig">Demarrer</button>
+    <button class="btn-start-big" id="btnStartBig">Démarrer</button>
     <div class="start-loading" id="startLoading">Connexion en cours...</div>
     <p id="visioErrMsg" style="display:none;color:#ff6b6b;font-size:13px;margin-top:8px;max-width:280px;text-align:center;"></p>
     <a href="/" class="start-back-link">&larr; Retour au chat</a>
@@ -6291,6 +6370,33 @@
           document.body.style.paddingTop = '36px';
         }
       }).catch(function(){});
+  })();
+  </script>
+  <!-- Custom duration select logic -->
+  <script>
+  (function(){
+    var btn = document.getElementById('irisSelectBtn');
+    var drop = document.getElementById('irisSelectDrop');
+    var real = document.getElementById('durationSelect');
+    if (!btn || !drop || !real) return;
+    function closeDD(){ btn.classList.remove('open'); drop.classList.remove('open'); }
+    btn.addEventListener('click', function(e){
+      e.stopPropagation();
+      var isOpen = drop.classList.contains('open');
+      if (isOpen) closeDD(); else { btn.classList.add('open'); drop.classList.add('open'); }
+    });
+    drop.querySelectorAll('.iris-select-opt').forEach(function(opt){
+      opt.addEventListener('click', function(){
+        var val = opt.dataset.val;
+        var label = opt.textContent;
+        btn.textContent = label;
+        drop.querySelectorAll('.iris-select-opt').forEach(function(o){ o.classList.remove('selected'); });
+        opt.classList.add('selected');
+        real.value = val;
+        closeDD();
+      });
+    });
+    document.addEventListener('click', function(){ closeDD(); });
   })();
   </script>
 </body>
