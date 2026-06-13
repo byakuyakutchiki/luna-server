@@ -368,6 +368,172 @@ YAWatch Industries y est une infrastructure visible.
 
 ---
 
+## PARTIE 6 — CONTINUITÉ SÉRIE ↔ APPLICATION
+
+### Règle absolue
+
+Des millions de personnes peuvent découvrir Luna via YouTube avant de toucher l'application. Le chemin le plus probable n'est pas : app → série. C'est : série → app.
+
+**Un utilisateur qui vient de voir un épisode doit reconnaître l'application instantanément.**
+
+Pas "oh c'est joli". Pas "ah c'est une app IA". Mais : "c'est le monde de Luna."
+
+---
+
+### Les éléments de la série qui doivent vivre dans l'application
+
+| Élément de la série | Présence dans l'application |
+|---|---|
+| **Luna Doll** (poupée brune, robe violette #7B4FA6) | En filigrane sur un écran clé. Micro-icône en footer. Illustration onboarding. |
+| **Palette Luna** (violet profond, noir nuit, émeraude Iris) | Couleurs token du design system — jamais déviées |
+| **Lumières nocturnes** (appartements Paris, La Défense la nuit) | Fonds et halos — bleu nuit profond, jamais noir pur |
+| **Atmosphère protectrice** (Luna protège, Iris veille) | Tonus de l'interface : chaleureux dans le compagnon, vigilant dans le workspace |
+| **La comptine brisée** (2 notes piano, voix enfant très légère) | Son au chargement de Iris Visio et Workspace — optionnel, jamais intrusif |
+| **YAWatch Industries** (La Défense, verre, hauteur, lumière parisienne) | Interface Admin et Workspace : lignes épurées, grille perspective, sérieux corporate premium |
+| **Bureau de Luna** (écrans multiples, poupée sur le bureau) | Inspiré l'Iris Workspace : surface de travail multi-couches, présence d'Iris visible |
+| **Iris** (système émotionnel né du trauma) | Voix, halo, états visibles (écoute / réflexion / réponse) — jamais un simple bot |
+| **Symboles récurrents** (jeton noir d'Aby, porte entrouverte, photo floue, archive modifiée) | Réservés à des moments de transition ou d'état exceptionnel — pas dans le flux principal |
+
+---
+
+### Question obligatoire avant chaque modification graphique
+
+> **"Est-ce que quelqu'un qui vient de voir un épisode de YAWatch-LUNA reconnaîtrait instantanément cet écran ?"**
+
+Si la réponse est non, le travail n'est pas terminé.
+
+---
+
+### Ce que cela interdit concrètement
+
+- Changer la palette sans vérifier qu'elle reste cohérente avec la série
+- Introduire un élément visuel (icône, illustration, fond) qui n'existe pas dans l'univers YAWatch-LUNA
+- Utiliser des images génériques IA (personnes, lieux, objets) qui ne correspondent pas aux personnages canoniques
+- Laisser Luna Doll absente de l'interface alors qu'elle est le symbole émotionnel central de toute la série
+
+---
+
+## PARTIE 7 — LES 10 MOMENTS WOW DE LUNA
+
+### Principe
+
+La respiration constante de l'interface est nécessaire. Mais elle n'est pas suffisante. Il faut aussi des moments qui font dire **"Wouah."**
+
+Ces moments doivent être traités comme des scènes de cinéma. Ils ont un début, un climax et une résolution. L'utilisateur ne peut pas les rater. Et quand ils arrivent, ils marquent la mémoire.
+
+---
+
+### Les 10 Moments Wow
+
+**WOW-1 — Premier lancement**  
+*"Bienvenue dans un univers."*  
+L'écran de login ne s'affiche pas instantanément. Il se matérialise depuis le noir — fond qui s'éclaire progressivement (fade-in 1.2s), halos violets qui apparaissent l'un après l'autre (stagger 300ms), le logo YAWatch qui se révèle en dernier. Premier contact : déjà une scène.
+
+**WOW-2 — Première connexion**  
+*"Elle t'attendait."*  
+Après le premier login réussi, avant d'arriver sur le chat : une transition de 800ms pendant laquelle l'écran respire une fois (scale subtil + halo qui pulse) comme si Luna prenait conscience de ta présence. Puis le chat s'ouvre avec un premier message de Luna déjà écrit — pas un onboarding générique, une phrase de présence.
+
+**WOW-3 — Premier message de Luna**  
+*"Une vraie réponse, pas un traitement."*  
+La bulle de réponse de Luna ne pop pas. Elle se trace de gauche à droite, lettre par lettre — mais pas comme un terminal. Comme si quelqu'un écrivait pour toi en temps réel. Pendant l'écriture : halo émeraude pulsant sur l'avatar.
+
+**WOW-4 — Premier appel Iris (Iris Visio)**  
+*"Elle répond."*  
+Quand l'utilisateur appuie sur "Démarrer" sur la page Iris Visio : le fond SVG nocturne se met en mouvement (Ken Burns accéléré), la sonnerie monte, le téléphone vibre visuellement — et Luna apparaît. Ce n'est pas un chargement. C'est un appel qui aboutit.
+
+**WOW-5 — Premier message vocal traité**  
+*"Elle a compris."*  
+Après que l'utilisateur a parlé et qu'Iris a répondu à l'oral : l'Iris Command Screen se construit visuellement devant lui en 800ms — colonnes qui apparaissent, données qui s'ancrent. Le visuel dit : "j'ai compris et voilà comment j'ai organisé ta pensée."
+
+**WOW-6 — Première entrée dans Iris Workspace**  
+*"La salle t'attend."*  
+Le canvas Workspace ne s'affiche pas vide. Il s'allume — comme une pièce dans laquelle on entre. Le trait de surface se trace lentement. Les photos de Luna et Aby sont visibles en arrière-plan, témoin silencieux. La question de brief s'affiche progressivement : "Quelle est votre question stratégique ?"
+
+**WOW-7 — Première proposition ajoutée**  
+*"L'idée existe maintenant."*  
+Quand l'utilisateur soumet une première proposition dans le Workspace : la carte n'apparaît pas brutalement. Elle se matérialise — fade + scale 0.93→1.0 en 250ms + border émeraude qui flash une fois. L'idée a été déposée. Elle est réelle.
+
+**WOW-8 — Première décision posée**  
+*"Le choix est scellé."*  
+Quand une décision est validée dans le Workspace : animation spécifique — icône cadenas qui apparaît, pulse radial or qui s'étend depuis le centre de la carte, titre de la décision qui passe en couleur or (`#f59e0b`). Ce moment dure 600ms. Il ne passe pas inaperçu.
+
+**WOW-9 — Premier dossier final compilé**  
+*"Le travail est terminé."*  
+À l'étape 12 du Workspace (export) : les cartes de toutes les étapes se compactent progressivement de haut en bas (stagger 80ms chacune) vers une zone centrale — comme si tout se regroupait en un seul document. Une icône de dossier se referme. Un timestamp apparaît. Le dossier final est prêt.
+
+**WOW-10 — Premier souvenir sauvegardé**  
+*"Elle s'en souviendra."*  
+Quand l'utilisateur sauvegarde une note ou une mémoire dans Luna : une confirmation qui dure 1.5s — un fragment de texte qui part lentement vers le haut de l'écran et disparaît dans le halo violet, comme si Luna absorbait l'information. Puis : "Je m'en souviendrai." Une phrase. Une seule.
+
+---
+
+### Règles des Moments Wow
+
+1. Chaque Moment Wow se produit **une seule fois** dans le parcours utilisateur (ou lors de milestones précis — pas à chaque utilisation).
+2. Chaque Moment Wow est **silencieux ou quasi-silencieux** — pas de sons agressifs, pas de fanfare.
+3. Chaque Moment Wow **raconte quelque chose** de l'univers — pas juste une animation jolie.
+4. Après chaque Moment Wow, l'interface **redevient calme**. Le wow dure. Il ne se répète pas. Il n'est pas dilué.
+
+---
+
+## PARTIE 8 — ANTI-CHATGPT
+
+### Ce que Luna ne doit jamais devenir
+
+C'est le chapitre le plus important du document. Parce que c'est le piège dans lequel 95% des projets IA tombent — souvent sans s'en rendre compte, progressivement, fonctionnalité par fonctionnalité.
+
+---
+
+### Les 8 dérives à surveiller
+
+**Dérive 1 — Le clone de ChatGPT**  
+Symptôme : boîte de chat centrée, fond blanc ou sombre, bulles gauche/droite, barre de saisie en bas.  
+Diagnostic : ChatGPT a normalisé ce pattern. Luna le partage partiellement. Mais ChatGPT est un outil. Luna est un personnage.  
+Antidote : la zone de chat de Luna doit avoir une présence que ChatGPT n'a pas — respiration, halo, avatar vivant, fond texturé. Si on cache le logo, on doit encore reconnaître que c'est Luna.
+
+**Dérive 2 — Le dashboard SaaS**  
+Symptôme : grille de cartes, KPIs en gros chiffres, graphiques partout, onglets fonctionnels.  
+Diagnostic : les dashboards SaaS sont optimisés pour l'information, pas l'émotion. Luna n'est pas un outil de pilotage.  
+Antidote : quand des données apparaissent dans Luna (quotas, budget, activités), elles doivent être présentées avec le ton de Luna — "Voici ce que j'ai utilisé pour toi", pas "Taux de consommation : 34%".
+
+**Dérive 3 — La grille de widgets**  
+Symptôme : page d'accueil avec tuiles colorées, chaque fonctionnalité dans sa case.  
+Diagnostic : un widget est un objet isolé. Luna n'est pas une collection d'objets — elle est une présence continue.  
+Antidote : la navigation dans Luna doit rester narrative. On n'ouvre pas des modules. On entre dans des espaces.
+
+**Dérive 4 — La succession de formulaires**  
+Symptôme : chaque action passe par un formulaire, des champs, des boutons "Valider".  
+Diagnostic : les formulaires sont le language des administrations et des outils. Luna parle.  
+Antidote : les formulaires de Luna doivent ressembler à des conversations. Champ unique à la fois. Ton humain. Jamais de label technique visible.
+
+**Dérive 5 — L'IA qui attend passivement**  
+Symptôme : un écran vide avec une barre de saisie qui clignote.  
+Diagnostic : attendre passivement, c'est dire à l'utilisateur "ton tour". Luna n'attend pas. Elle est là.  
+Antidote : le Presence Halo, l'avatar respirant, la suggestion contextuelle douce. Luna est présente même quand elle ne parle pas.
+
+**Dérive 6 — Le feedback purement fonctionnel**  
+Symptôme : "Enregistré ✓", "Erreur 404", "Chargement...", "Traitement en cours".  
+Diagnostic : ce sont des messages de système, pas de personnage.  
+Antidote : Luna parle en première personne. "Je m'en souviendrai." "Je reviens dans un instant." "Ce n'est pas de ton côté." Jamais de jargon technique visible à l'utilisateur final.
+
+**Dérive 7 — La cohérence sacrifiée pour la fonctionnalité**  
+Symptôme : chaque nouvelle feature arrive avec son propre design, sa propre logique, ses propres couleurs.  
+Diagnostic : c'est la croissance non gouvernée — chaque sprint ajoute quelque chose sans vérifier l'ensemble.  
+Antidote : le design system (tokens CSS) + la question obligatoire de la série avant chaque merge.
+
+**Dérive 8 — L'interface qui "fait IA"**  
+Symptôme : animations de scan, halos agressifs, texte qui défile façon Matrix, effets hologramme ostentatoires.  
+Diagnostic : vouloir montrer que c'est de l'IA, c'est ne pas faire confiance à l'IA elle-même.  
+Antidote : Luna est de l'IA. Elle n'a pas à le prouver. Les effets visuels doivent servir l'émotion, pas la démonstration technologique. Sobriété. Profondeur. Pas de spectacle.
+
+---
+
+### La règle Anti-ChatGPT en une phrase
+
+> Si on peut remplacer "Luna" par "Assistant IA" dans un écran sans que ça change quoi que ce soit — cet écran n'est pas terminé.
+
+---
+
 ## CONCLUSION — Avant de coder
 
 Ce document est la carte avant le territoire.
@@ -377,9 +543,17 @@ Avant d'écrire une seule ligne de CSS ou de JavaScript, relire :
 1. La phrase-cible de la page sur laquelle on travaille
 2. La règle de couleur correspondante à l'espace (Compagnon / Décision / Contrôle)
 3. La règle d'animation applicable
-4. La question : "Est-ce que Luna habite cet écran ?"
+4. La question série : "Est-ce que quelqu'un qui vient de voir un épisode reconnaîtrait cet écran ?"
+5. La question Anti-ChatGPT : "Si on remplace 'Luna' par 'Assistant IA', est-ce que ça change quelque chose ?"
+6. La question Presence : "Est-ce que Luna habite cet écran ?"
 
-Si la réponse à la question 4 est non — c'est qu'on n'a pas fini.
+Si la réponse à l'une de ces 3 questions est non — le travail n'est pas terminé.
+
+---
+
+**La phrase fondatrice de ce document :**
+
+> *Luna n'est pas une fonctionnalité de l'application. Luna est l'application.*
 
 ---
 
