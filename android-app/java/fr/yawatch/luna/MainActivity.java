@@ -1,6 +1,9 @@
 package fr.yawatch.luna;
 
 import android.Manifest;
+import android.animation.Animator;
+import android.animation.AnimatorListenerAdapter;
+import android.animation.ObjectAnimator;
 import android.app.Activity;
 import android.app.DownloadManager;
 import android.app.Notification;
@@ -15,6 +18,8 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.provider.MediaStore;
+import android.util.TypedValue;
+import android.view.Gravity;
 import android.webkit.ValueCallback;
 import android.view.View;
 import android.view.Window;
@@ -29,6 +34,9 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.webkit.URLUtil;
+import android.widget.FrameLayout;
+import android.widget.LinearLayout;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import org.json.JSONObject;
@@ -58,6 +66,7 @@ public class MainActivity extends Activity {
     private Uri cameraOutputUri;
     private boolean isInForeground = true;
     private int notificationId = 1000;
+    private View splashView;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -80,9 +89,19 @@ public class MainActivity extends Activity {
             }
         }
 
-        // WebView
+        // WebView + splash overlay
         webView = new WebView(this);
-        setContentView(webView);
+        FrameLayout root = new FrameLayout(this);
+        root.addView(webView, new FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.MATCH_PARENT,
+            FrameLayout.LayoutParams.MATCH_PARENT));
+        splashView = buildSplash();
+        root.addView(splashView, new FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.MATCH_PARENT,
+            FrameLayout.LayoutParams.MATCH_PARENT));
+        setContentView(root);
+        // Sécurité : disparaît après 6s même si la page ne charge pas
+        webView.postDelayed(this::hideSplash, 6000);
 
         // Bridge JavaScript -> Android pour les notifications
         webView.addJavascriptInterface(new LunaBridge(), "LunaBridge");
@@ -317,6 +336,7 @@ public class MainActivity extends Activity {
             @Override
             public void onPageFinished(WebView view, String url) {
                 sendLog("nav", "LOAD OK: " + url, "nav/" + Build.MODEL);
+                runOnUiThread(() -> hideSplash());
             }
         });
 
@@ -329,6 +349,73 @@ public class MainActivity extends Activity {
 
         // Verification auto-update en arriere-plan
         checkForUpdate();
+    }
+
+    /** Construit l'écran de chargement brandé YAWatch / Luna. */
+    private View buildSplash() {
+        float dp = getResources().getDisplayMetrics().density;
+
+        FrameLayout frame = new FrameLayout(this);
+        frame.setBackgroundColor(0xFF020810);
+
+        LinearLayout center = new LinearLayout(this);
+        center.setOrientation(LinearLayout.VERTICAL);
+        center.setGravity(Gravity.CENTER_HORIZONTAL);
+
+        // "YAWatch" — blanc, gros, bold
+        TextView tvTitle = new TextView(this);
+        tvTitle.setText("YAWatch");
+        tvTitle.setTextColor(0xFFE5E7EB);
+        tvTitle.setTextSize(TypedValue.COMPLEX_UNIT_SP, 38f);
+        tvTitle.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+        tvTitle.setLetterSpacing(0.10f);
+        tvTitle.setGravity(Gravity.CENTER);
+
+        // "LUNA" — vert iris, espacé
+        TextView tvSub = new TextView(this);
+        tvSub.setText("L U N A");
+        tvSub.setTextColor(0xFF10B981);
+        tvSub.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f);
+        tvSub.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+        tvSub.setLetterSpacing(0.65f);
+        tvSub.setGravity(Gravity.CENTER);
+
+        LinearLayout.LayoutParams subLp = new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.WRAP_CONTENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT);
+        subLp.topMargin = (int)(10 * dp);
+
+        // Trait séparateur iris
+        android.view.View bar = new android.view.View(this);
+        bar.setBackgroundColor(0xFF10B981);
+        LinearLayout.LayoutParams barLp = new LinearLayout.LayoutParams(
+            (int)(48 * dp), (int)(1.5f * dp));
+        barLp.topMargin = (int)(14 * dp);
+        barLp.gravity = Gravity.CENTER_HORIZONTAL;
+
+        center.addView(tvTitle);
+        center.addView(tvSub, subLp);
+        center.addView(bar, barLp);
+
+        FrameLayout.LayoutParams centerLp = new FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.WRAP_CONTENT,
+            FrameLayout.LayoutParams.WRAP_CONTENT,
+            Gravity.CENTER);
+        frame.addView(center, centerLp);
+        return frame;
+    }
+
+    /** Fait disparaître le splash en fondu. Sécurisé : idempotent. */
+    private void hideSplash() {
+        if (splashView == null || splashView.getVisibility() != View.VISIBLE) return;
+        ObjectAnimator anim = ObjectAnimator.ofFloat(splashView, "alpha", 1f, 0f);
+        anim.setDuration(450);
+        anim.addListener(new AnimatorListenerAdapter() {
+            @Override public void onAnimationEnd(Animator a) {
+                splashView.setVisibility(View.GONE);
+            }
+        });
+        anim.start();
     }
 
     /**

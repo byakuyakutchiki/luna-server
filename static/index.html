@@ -589,7 +589,14 @@ button:active:not(:disabled) { transform: scale(0.97); }
 .theo-letter-form input, .theo-letter-form select { padding: 8px 12px; border-radius: 8px; border: 1px solid #333; background: #1a1a2e; color: #fff; font-size: 0.85em; }
 
 /* Auth screens */
-.auth-screen { display: flex; justify-content: center; align-items: center; flex: 1; }
+.auth-screen {
+  display: flex; justify-content: center; align-items: center; flex: 1;
+  background:
+    radial-gradient(ellipse 70% 60% at 50% 40%, rgba(124,58,237,.18) 0%, transparent 65%),
+    radial-gradient(ellipse 45% 40% at 80% 80%, rgba(16,185,129,.07) 0%, transparent 55%),
+    radial-gradient(ellipse 40% 35% at 20% 15%, rgba(167,139,250,.08) 0%, transparent 50%);
+  position: relative;
+}
 .auth-box { background: #111; border: 1px solid #333; border-radius: 12px; padding: 40px; width: 90%; max-width: 360px; overflow: visible; }
 .auth-box h2 { color: #a78bfa; margin-bottom: 20px; text-align: center; }
 .auth-box input { width: 100%; padding: 14px 12px; border-radius: 8px; border: 1px solid #333; background: #1a1a2e; color: #fff; margin-bottom: 16px; font-size: 16px; outline: none; }
