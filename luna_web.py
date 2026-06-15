@@ -3890,7 +3890,10 @@ def _init_core():
             )
             _quota_guard = QuotaGuard(memory_manager=_memory_manager)
             _scheduler = InstructionScheduler()
-            _confirmation_manager = ConfirmationManager(memory_manager=_memory_manager)
+            _confirmation_manager = ConfirmationManager(
+                memory_manager=_memory_manager,
+                redis_client=_redis_client,
+            )
             _executor = create_instruction_executor(
                 memory_manager=_memory_manager,
                 sms_service=sms_client,
