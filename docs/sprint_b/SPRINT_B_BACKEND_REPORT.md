@@ -19,6 +19,7 @@
 | 6 | Hash PROPRIO_PASSWORD | ✅ Support bcrypt hash |
 | 7 | Scheduler | ✅ Multi-tenant corrigé |
 | 8 | Redis fallback | ✅ Redis rendu obligatoire |
+| 9 | Frontend confirmations + refresh | ✅ UI et authFetch branchés |
 
 ---
 
@@ -288,12 +289,67 @@ L'application acceptait un fallback mémoire volatile qui perdait les données. 
 
 ---
 
+## 9. Frontend confirmations et refresh tokens
+
+### Problème
+Les actions pending du `ConfirmationManager` n'étaient visibles nulle part dans l'interface principale ; seul le chat affichait un message textuel de confirmation. De plus, le `refresh_token` renvoyé par `/api/auth/login` était ignoré et un 401 déconnectait systématiquement l'utilisateur.
+
+### Cause technique
+- Aucune route API n'exposait les actions Redis-pending pour le dashboard.
+- `authFetch` ne gérait pas le renouvellement de token.
+
+### Fichiers modifiés
+- `luna_web.py`
+- `static/index.html`
+- `core/actions/models.py`
+- `docs/sprint_b/TEST_TWILIO_OPENAI.md` (créé)
+- `docs/sprint_b/FRONTEND_CONFIRMATIONS.md` (créé)
+
+### Correctif
+- Routes API ajoutées :
+  - `GET /api/actions/pending`
+  - `POST /api/actions/{action_id}/confirm`
+  - `POST /api/actions/{action_id}/reject`
+- `ActionRequest.to_dict()` ajouté pour la sérialisation JSON.
+- `static/index.html` :
+  - Stockage du `refresh_token` dans `localStorage`.
+  - `authFetch` rafraîchit automatiquement le token sur 401 via `/api/auth/refresh` (avec file d'attente des requêtes concurrentes).
+  - Panneau "Actions en attente" affiché sous le header avec polling toutes les 15 secondes.
+  - Boutons Confirmer / Refuser appelant les nouvelles routes.
+
+### Tests réalisés
+1. Créer une action pending via `ConfirmationManager`.
+2. Vérifier qu'elle apparaît dans `GET /api/actions/pending`.
+3. Confirmer l'action via `POST /api/actions/{id}/confirm` → statut `confirmed`.
+4. Créer une nouvelle action, la refuser via `POST /api/actions/{id}/reject` → statut `rejected`.
+5. Vérifier que `authFetch` stocke le refresh token et le rétablit après expiration simulée.
+6. Valider la syntaxe JS de `static/index.html` avec `node --check`.
+
+### Résultat
+```json
+GET /api/actions/pending
+{"actions":[{"action_id":"...","action_type":"send_sms","target":"Marie","status":"awaiting_confirmation",...}]}
+
+POST /api/actions/{id}/confirm
+{"success":true,"action":{"status":"confirmed",...}}
+
+POST /api/auth/refresh
+{"token":"...","tenant_id":16}
+```
+
+### Question unique
+**Pourquoi cette fonctionnalité ne fonctionnait-elle pas et comment a-t-elle été réparée ?**  
+Le moteur de confirmation stockait les actions dans Redis mais aucune API ne les exposait au frontend, et le frontend ne stockait pas le refresh token. La réparation a consisté à ajouter les routes `/api/actions/*`, à ajouter `ActionRequest.to_dict()`, et à brancher `authFetch` + un panneau UI dans `index.html`.
+
+---
+
 ## Commits
 
 ```
 5e693ac fix(backend): P0 Sprint B - OpenAI verification, SMS dispatcher, instruction confirmation
 3b487e0 fix(backend): P1 Sprint B - Redis required, Guardian sessions confirmed persistent, ConfirmationManager Redis persistence
 fc3be55 fix(backend): P1 Sprint B - GPS denial, JWT security, password hash, scheduler multi-tenant
+<TODO: commit frontend wiring>
 ```
 
 ---
@@ -303,6 +359,8 @@ fc3be55 fix(backend): P1 Sprint B - GPS denial, JWT security, password hash, sch
 - `LUNA_FUNCTIONAL_AUDIT_v2.md`
 - `LUNA_TECH_BUGS.md`
 - `KIMI_SPRINT_B_P0_RESULTS.md`
+- `TEST_TWILIO_OPENAI.md`
+- `FRONTEND_CONFIRMATIONS.md`
 
 ---
 

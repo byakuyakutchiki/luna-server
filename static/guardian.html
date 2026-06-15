@@ -959,7 +959,19 @@ function startGps(){
       _wasInZone=inZone;
       if(d.risk_level&&d.risk_level!=='low') loadEvents();
     }).catch(function(){});
-  },function(e){ setHdrStatus('GPS: '+e.message,'#ef4444',false); showToast('❌ GPS: '+e.message,4000); },
+  },function(e){
+    setHdrStatus('GPS: '+e.message,'#ef4444',false);
+    showToast('❌ GPS: '+e.message,4000);
+    if (e && e.code === 1 && SID) {
+      // Permission denied — notify backend to stop the session
+      authFetch('/api/guardian/location-denied/'+SID, {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({reason:'permission_denied'})
+      }).catch(function(){});
+      SID = null;
+    }
+  },
   {enableHighAccuracy:true,maximumAge:5000,timeout:20000});
 }
 var _wasInZone=false;

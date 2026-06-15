@@ -3888,6 +3888,7 @@ _perception_analyzer: Optional[object] = None
 _test_mode: bool = False  # En mode test, les SMS ne sont PAS envoyes
 _notification_engine: Optional[object] = None
 _iris_session_manager: Optional[object] = None  # IrisSessionManager
+_confirmation_manager: Optional[object] = None  # ConfirmationManager
 
 # Invitations visio en attente de reponse SMS (phone -> {tenant_id, subscriber_name, contact_name, timestamp})
 _pending_visio_invites: Dict[str, Dict] = {}
@@ -3898,7 +3899,7 @@ _visio_scene_cache: Dict[str, str] = {}  # ip -> dernière description (détecti
 
 def _init_core():
     """Initialize core modules. Graceful if Redis is down or imports failed."""
-    global _redis_client, _memory_manager, _safety_guardian, _quota_guard, _scheduler, _executor, _doc_generator, _perception_detector, _perception_analyzer, _notification_engine, _iris_session_manager
+    global _redis_client, _memory_manager, _safety_guardian, _quota_guard, _scheduler, _executor, _doc_generator, _perception_detector, _perception_analyzer, _notification_engine, _iris_session_manager, _confirmation_manager
     if not _CORE_AVAILABLE:
         logger.warning("Core modules non disponibles (import failed) - mode degrade")
         return
@@ -3928,6 +3929,7 @@ def _init_core():
                 memory_manager=_memory_manager,
                 redis_client=_redis_client,
             )
+            logger.info("Confirmation Manager initialisé")
             _executor = create_instruction_executor(
                 memory_manager=_memory_manager,
                 sms_service=sms_client,
@@ -13130,6 +13132,54 @@ async def get_pending_notifications(request: Request):
         return {"notifications": pending}
     except Exception:
         return {"notifications": []}
+
+
+@app.get("/api/actions/pending")
+async def get_pending_actions(request: Request):
+    """Liste les demandes d'action en attente de confirmation pour le tenant."""
+    tid = getattr(request.state, "tenant_id", 1)
+    if not _confirmation_manager:
+        return {"actions": []}
+    try:
+        actions = _confirmation_manager.get_pending_actions(tid)
+        return {"actions": [a.to_dict() for a in actions]}
+    except Exception as e:
+        logger.error(f"Error listing pending actions for tenant {tid}: {e}")
+        return {"actions": []}
+
+
+@app.post("/api/actions/{action_id}/confirm")
+async def confirm_action(request: Request, action_id: str):
+    """Confirme une action proposee par Luna."""
+    tid = getattr(request.state, "tenant_id", 1)
+    if not _confirmation_manager:
+        return JSONResponse(status_code=503, content={"error": "Service de confirmation indisponible"})
+    try:
+        action = _confirmation_manager.confirm(tid, action_id, method="button")
+        if not action:
+            return JSONResponse(status_code=404, content={"error": "Action introuvable ou expiree"})
+        return {"success": True, "action": action.to_dict()}
+    except Exception as e:
+        logger.error(f"Error confirming action {action_id} for tenant {tid}: {e}")
+        return JSONResponse(status_code=500, content={"error": "Erreur lors de la confirmation"})
+
+
+@app.post("/api/actions/{action_id}/reject")
+async def reject_action(request: Request, action_id: str):
+    """Refuse une action proposee par Luna."""
+    tid = getattr(request.state, "tenant_id", 1)
+    body = await request.json() if request.headers.get("content-type", "").startswith("application/json") else {}
+    reason = body.get("reason", "refused_by_user")
+    if not _confirmation_manager:
+        return JSONResponse(status_code=503, content={"error": "Service de confirmation indisponible"})
+    try:
+        action = _confirmation_manager.reject(tid, action_id, reason=reason)
+        if not action:
+            return JSONResponse(status_code=404, content={"error": "Action introuvable ou expiree"})
+        return {"success": True, "action": action.to_dict()}
+    except Exception as e:
+        logger.error(f"Error rejecting action {action_id} for tenant {tid}: {e}")
+        return JSONResponse(status_code=500, content={"error": "Erreur lors du refus"})
 
 
 @app.get("/api/notifications/count")

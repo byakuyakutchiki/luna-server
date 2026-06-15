@@ -1614,6 +1614,15 @@ body.mode-secretaire .luna::before {
 
 <!-- XP Widget supprime (info disponible dans onglet Monde) -->
 
+<!-- Actions en attente de confirmation (ConfirmationManager / Redis) -->
+<div id="pendingActionsPanel" style="display:none;margin:8px 12px 0 12px;background:linear-gradient(90deg,#1a1a3e,#0f0f2e);border:1px solid rgba(124,58,237,0.3);border-radius:12px;padding:10px 12px;box-shadow:0 4px 12px rgba(0,0,0,0.3);">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+    <div style="font-size:0.85em;font-weight:700;color:#a78bfa;">⏳ Actions en attente de confirmation</div>
+    <span id="pendingActionsBadge" class="tab-badge" style="display:none;background:#f59e0b;color:#000;">0</span>
+  </div>
+  <div id="pendingActionsList" style="display:flex;flex-direction:column;gap:8px;"></div>
+</div>
+
 <!-- Mode Switcher -->
 <div class="mode-switcher" id="modeSwitcher">
   <button class="mode-btn active" data-mode="compagnon" id="modeCompagnonBtn">Compagnon</button>
@@ -2888,9 +2897,39 @@ window.addEventListener("unhandledrejection", function(e) {
 // =========================================================================
 function getToken() { return localStorage.getItem("luna_token") || ""; }
 function setToken(t) { localStorage.setItem("luna_token", t); }
-function clearToken() { localStorage.removeItem("luna_token"); localStorage.removeItem(STORAGE_KEY); }
+function getRefreshToken() { return localStorage.getItem("luna_refresh_token") || ""; }
+function setRefreshToken(t) { localStorage.setItem("luna_refresh_token", t); }
+function clearRefreshToken() { localStorage.removeItem("luna_refresh_token"); }
+function clearToken() { localStorage.removeItem("luna_token"); localStorage.removeItem(STORAGE_KEY); clearRefreshToken(); }
 
 var _cortexWarningShown = false;
+var _isRefreshing = false;
+var _refreshQueue = [];
+function _flushRefreshQueue(success) {
+  var q = _refreshQueue; _refreshQueue = [];
+  q.forEach(function(item) {
+    if (success) { item.resolve(authFetch(item.url, item.options)); }
+    else { item.reject(new Error("Session expiree")); }
+  });
+}
+function _doRefresh() {
+  var rt = getRefreshToken();
+  if (!rt) { return Promise.reject(new Error("No refresh token")); }
+  return fetch("/api/auth/refresh", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({refresh_token: rt})
+  }).then(function(r) {
+    if (!r.ok) throw new Error("Refresh failed: " + r.status);
+    return r.json();
+  }).then(function(data) {
+    if (data && data.token) {
+      setToken(data.token);
+      return true;
+    }
+    throw new Error("No token in refresh response");
+  });
+}
 function authFetch(url, options) {
   var opts = options || {};
   opts.headers = opts.headers || {};
@@ -2898,7 +2937,30 @@ function authFetch(url, options) {
   if (t) opts.headers["Authorization"] = "Bearer " + t;
   var silent = opts._silent; delete opts._silent;
   return fetch(url, opts).then(function(r) {
-    if (r.status === 401 && !silent) { doLogout(); throw new Error("Session expiree"); }
+    if (r.status === 401 && !silent) {
+      // Tenter un refresh automatique
+      if (_isRefreshing) {
+        return new Promise(function(resolve, reject) {
+          _refreshQueue.push({url: url, options: options, resolve: resolve, reject: reject});
+        });
+      }
+      _isRefreshing = true;
+      return _doRefresh().then(function(ok) {
+        _isRefreshing = false;
+        _flushRefreshQueue(true);
+        // Relancer la requete originale
+        var retry = options || {};
+        retry.headers = retry.headers || {};
+        var t2 = getToken();
+        if (t2) retry.headers["Authorization"] = "Bearer " + t2;
+        return fetch(url, retry);
+      }).catch(function(e) {
+        _isRefreshing = false;
+        _flushRefreshQueue(false);
+        doLogout();
+        throw new Error("Session expiree");
+      });
+    }
     // Afficher un avertissement Cortex si l'IP a des warnings actifs
     var warnCount = r.headers.get("X-Cortex-Warnings");
     var warnMax = r.headers.get("X-Cortex-Warnings-Max");
@@ -2946,6 +3008,7 @@ function showApp() {
   document.getElementById("registerScreen").style.display = "none";
   document.getElementById("appContainer").style.display = "flex";
   startNotificationPolling();
+  startPendingActionsPolling();
   if (typeof startPaymentPolling === "function") startPaymentPolling();
   // Apply saved mode
   if (typeof applyMode === "function") applyMode(currentMode);
@@ -2960,6 +3023,7 @@ function showLogin() {
 
 function doLogout() {
   stopNotificationPolling();
+  stopPendingActionsPolling();
   if (typeof stopPaymentPolling === "function") stopPaymentPolling();
   if (typeof amisHeartbeatTimer !== "undefined" && amisHeartbeatTimer) { clearInterval(amisHeartbeatTimer); amisHeartbeatTimer = null; }
   if (typeof dmPollTimer !== "undefined" && dmPollTimer) { clearInterval(dmPollTimer); dmPollTimer = null; }
@@ -3004,6 +3068,7 @@ document.getElementById("loginBtn").addEventListener("click", function() {
   .then(function(res) {
     if (res.status === 200 && res.data.token) {
       setToken(res.data.token);
+      if (res.data.refresh_token) setRefreshToken(res.data.refresh_token);
       showApp();
       if (res.data.first_name) document.getElementById("greetingSubtitle").textContent = "Bonjour " + res.data.first_name;
       if (res.data.tenant_id === 1) { var tb = document.getElementById("theoTabBtn"); if (tb) tb.style.display = ""; }
@@ -3032,6 +3097,7 @@ document.getElementById("registerBtn").addEventListener("click", function() {
   .then(function(res) {
     if (res.status === 200 && res.data.token) {
       setToken(res.data.token);
+      if (res.data.refresh_token) setRefreshToken(res.data.refresh_token);
       showApp();
     } else {
       err.textContent = res.data.error || "Erreur d'inscription";
@@ -3929,6 +3995,95 @@ function _pollNotifications() {
     })
     .catch(function() {}); // silent fail
 }
+
+// =========================================================================
+// PENDING ACTION POLLING (ConfirmationManager / Redis)
+// =========================================================================
+var _pendingActionsTimer = null;
+
+function startPendingActionsPolling() {
+  if (_pendingActionsTimer) return;
+  setTimeout(_pollPendingActions, 2000);
+  _pendingActionsTimer = setInterval(_pollPendingActions, 15000);
+}
+
+function stopPendingActionsPolling() {
+  if (_pendingActionsTimer) { clearInterval(_pendingActionsTimer); _pendingActionsTimer = null; }
+}
+
+function _pollPendingActions() {
+  authFetch("/api/actions/pending", {_silent: true})
+    .then(function(r) { return r.json(); })
+    .then(function(data) { _renderPendingActions(data.actions || []); })
+    .catch(function() {});
+}
+
+function _actionTypeLabel(type) {
+  var map = {
+    "send_sms": "📱 SMS",
+    "call": "📞 Appel",
+    "alert_contacts": "🚨 Alerte",
+    "start_visio": "🎥 Visio",
+    "send_email": "✉️ Email",
+    "create_instruction": "📝 Instruction",
+    "request_payment": "💳 Paiement"
+  };
+  return map[type] || "🔔 Action";
+}
+
+function _renderPendingActions(actions) {
+  var panel = document.getElementById("pendingActionsPanel");
+  var list = document.getElementById("pendingActionsList");
+  var badge = document.getElementById("pendingActionsBadge");
+  if (!panel || !list) return;
+  if (!actions || actions.length === 0) {
+    panel.style.display = "none";
+    if (badge) badge.style.display = "none";
+    list.innerHTML = "";
+    return;
+  }
+  panel.style.display = "block";
+  if (badge) { badge.textContent = actions.length; badge.style.display = "inline-block"; }
+  list.innerHTML = actions.map(function(a) {
+    var typeLabel = _actionTypeLabel(a.action_type);
+    var desc = esc(a.description || "Action proposee par Luna");
+    var target = a.target ? '<span style="color:#888;font-size:0.78em;">Cible : ' + esc(a.target) + '</span>' : '';
+    var msg = a.message_body ? '<div style="color:#cbd5e1;font-size:0.8em;margin-top:4px;padding:6px;background:rgba(0,0,0,0.2);border-radius:6px;">"' + esc(a.message_body) + '"</div>' : '';
+    return '<div class="pending-action-item" style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;background:rgba(255,255,255,0.03);border:1px solid rgba(124,58,237,0.2);border-radius:10px;padding:10px;">'
+      + '<div style="flex:1;min-width:0;">'
+      + '<div style="font-weight:700;color:#e2e8f0;font-size:0.85em;">' + typeLabel + ' — ' + desc + '</div>'
+      + target + msg
+      + '</div>'
+      + '<div style="display:flex;gap:6px;flex-shrink:0;">'
+      + '<button class="btn-confirm" data-action-id="' + esc(a.action_id) + '" style="background:#10b981;color:#fff;border:none;border-radius:8px;padding:6px 10px;font-size:0.78em;cursor:pointer;">Confirmer</button>'
+      + '<button class="btn-reject" data-action-id="' + esc(a.action_id) + '" style="background:#ef4444;color:#fff;border:none;border-radius:8px;padding:6px 10px;font-size:0.78em;cursor:pointer;">Refuser</button>'
+      + '</div></div>';
+  }).join("");
+  list.querySelectorAll(".btn-confirm").forEach(function(btn) {
+    btn.addEventListener("click", function() { _resolvePendingAction(btn.dataset.actionId, true); });
+  });
+  list.querySelectorAll(".btn-reject").forEach(function(btn) {
+    btn.addEventListener("click", function() { _resolvePendingAction(btn.dataset.actionId, false); });
+  });
+}
+
+function _resolvePendingAction(actionId, confirm) {
+  var url = "/api/actions/" + encodeURIComponent(actionId) + (confirm ? "/confirm" : "/reject");
+  var opts = {method: "POST", headers: {"Content-Type": "application/json"}};
+  if (!confirm) opts.body = JSON.stringify({reason: "refused_by_user"});
+  authFetch(url, opts)
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.success) {
+        _showToast("Luna", confirm ? "Action confirmee" : "Action refusee", "info");
+        _pollPendingActions();
+      } else {
+        _showToast("Luna", data.error || "Erreur", "error");
+      }
+    })
+    .catch(function(e) { _showToast("Luna", e.message || "Erreur reseau", "error"); });
+}
+
 var _toastOffset = 0;
 function _showToast(title, body, type) {
   var toast = document.createElement("div");
@@ -5267,6 +5422,15 @@ function guardianStartGps() {
     }
   }, function(err) {
     guardianSetStatus("Erreur GPS", err.message, "#ef4444");
+    if (err && err.code === 1 && _guardianSessionId) {
+      // Permission denied — notify backend to stop the session
+      authFetch("/api/guardian/location-denied/" + _guardianSessionId, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({reason: "permission_denied"})
+      }).catch(function() {});
+      _guardianSessionId = null;
+    }
   }, {
     enableHighAccuracy: true,
     maximumAge: 5000,
