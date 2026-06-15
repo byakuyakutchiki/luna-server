@@ -15,6 +15,7 @@ from datetime import datetime
 
 from .parser import ParsedInstruction, ActionType, ConditionType
 from .scheduler import ScheduledTask, TaskStatus
+from core.actions.models import ActionType as ExternalActionType
 
 logger = logging.getLogger(__name__)
 
@@ -209,11 +210,29 @@ class InstructionExecutor:
         instruction = task.instruction
         description = self._build_confirmation_description(instruction)
 
-        action_request = await self.action_service.create_action_request(
+        # Mapper le type d'action interne vers le modèle externe de confirmation
+        action_type_map = {
+            ActionType.SMS_CONTACT: ExternalActionType.SEND_SMS,
+            ActionType.CALL_CONTACT: ExternalActionType.CALL,
+            ActionType.VISIO_CONTACT: ExternalActionType.START_VISIO,
+        }
+        external_action_type = action_type_map.get(instruction.action_type)
+        if not external_action_type:
+            return ExecutionResult(
+                status=ExecutionStatus.FAILED,
+                instruction_id=task.instruction_id,
+                action_type=instruction.action_type,
+                message=f"Type d'action {instruction.action_type.value} non confirme par ce canal.",
+                error="unsupported_action_type",
+            )
+
+        action_request = self.action_service.propose_action(
             tenant_id=task.tenant_id,
-            action_type=instruction.action_type.value,
+            action_type=external_action_type,
             target=instruction.target or "",
             description=description,
+            message_body=instruction.message_template,
+            source="instruction",
             instruction_id=task.instruction_id,
         )
 

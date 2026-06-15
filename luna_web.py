@@ -102,6 +102,7 @@ try:
     from core.safety.guardian import SafetyGuardian, SafetyLevel
     from core.actions.quota_guard import QuotaGuard
     from core.actions.models import ActionType as CoreActionType
+    from core.actions.confirmation import ConfirmationManager
     from core.instructions.parser import InstructionParser, ParsedInstruction
     from core.instructions.scheduler import InstructionScheduler, ScheduledTask
     from core.instructions.executor import InstructionExecutor, create_instruction_executor
@@ -3612,10 +3613,31 @@ def _is_public_path(path: str) -> bool:
     return any(path.startswith(p) for p in _PUBLIC_PATHS)
 
 
+_openai_key_valid = False
+
+
+def _verify_openai_key_sync(client) -> bool:
+    """Verifie que la cle OpenAI est valide au demarrage."""
+    if not client:
+        return False
+    try:
+        client.with_options(timeout=10.0).models.list()
+        return True
+    except openai.AuthenticationError:
+        logger.error("OPENAI AUTH ERROR - cle API invalide au demarrage")
+        return False
+    except Exception as e:
+        logger.warning(f"OPENAI KEY VERIFICATION WARNING - {type(e).__name__}: {e}")
+        # On considere la cle potentiellement valide si ce n'est pas une auth error
+        # (ex: timeout reseau temporaire). Elle sera revalidee au premier chat.
+        return True
+
+
 # --- Clients ---
 if _pv_locked:
     # Mode SETUP: init graceful, ne crashe pas sur cles manquantes
     openai_client = build_llm_client(OPENAI_API_KEY) if OPENAI_API_KEY else None
+    _openai_key_valid = _verify_openai_key_sync(openai_client)
     try:
         sms_client = TwilioSMSClient.from_env()
     except Exception:
@@ -3625,6 +3647,9 @@ if _pv_locked:
     email_client = EmailClient.from_env()
 else:
     openai_client = build_llm_client(OPENAI_API_KEY)
+    _openai_key_valid = _verify_openai_key_sync(openai_client)
+    if not _openai_key_valid:
+        logger.critical("OPENAI NON CONFIGURE - Le chat et l'assistant IA seront indisponibles")
     sms_client = TwilioSMSClient.from_env()
     voice_client = TwilioVoiceClient.from_env()
     tavus_client = TavusClient.from_env() if _TAVUS_AVAILABLE and LUNA_MODE == "full" else None
@@ -3865,10 +3890,12 @@ def _init_core():
             )
             _quota_guard = QuotaGuard(memory_manager=_memory_manager)
             _scheduler = InstructionScheduler()
+            _confirmation_manager = ConfirmationManager(memory_manager=_memory_manager)
             _executor = create_instruction_executor(
                 memory_manager=_memory_manager,
                 sms_service=sms_client,
                 safety_guardian=_safety_guardian,
+                action_service=_confirmation_manager,
                 voice_service=voice_client,
                 visio_service=tavus_client,
             )
@@ -4407,7 +4434,7 @@ async def _vault_reminder_loop():
                                 phone = auth.get("telephone") or auth.get("phone", "")
                                 if phone:
                                     try:
-                                        sms_client.send_sms(phone, f"Luna 📄 {msg}")
+                                        sms_client.send(phone, f"Luna 📄 {msg}")
                                         processed += 1
                                     except Exception as sms_err:
                                         logger.warning(f"Vault SMS tid={tid}: {sms_err}")
@@ -5134,7 +5161,7 @@ if (window.LUNA_CONFIG.sentryDsn && typeof Sentry !== 'undefined') {{
 @app.get("/health")
 async def health():
     """Healthcheck leger pour Docker/load balancers."""
-    return {"status": "ok"}
+    return {"status": "ok", "openai": "ok" if _openai_key_valid else "unconfigured"}
 
 
 @app.get("/ready")
@@ -5150,8 +5177,8 @@ async def ready():
     except Exception as e:
         checks["redis"] = f"error: {e}"
         return JSONResponse(status_code=503, content={"status": "not_ready", "checks": checks})
-    for key in ("JWT_SECRET_KEY", "OPENAI_API_KEY"):
-        checks[key] = "ok" if os.getenv(key) else "missing"
+    checks["JWT_SECRET_KEY"] = "ok" if os.getenv("JWT_SECRET_KEY") else "missing"
+    checks["OPENAI_API_KEY"] = "ok" if _openai_key_valid else "invalid_or_missing"
     all_ok = all(v == "ok" for v in checks.values())
     return JSONResponse(
         status_code=200 if all_ok else 503,
@@ -5751,6 +5778,15 @@ async def chat(req: ChatRequest, request: Request):
         return JSONResponse(status_code=503, content={"error": "Luna est tres sollicitee, reessaie dans quelques secondes"})
     await _chat_semaphore.acquire()
     try:
+        # Graceful degradation if OpenAI is not configured
+        if not openai_client or not _openai_key_valid:
+            logger.warning("Chat requested but OpenAI is not configured")
+            return {
+                "response": "Luna n'est pas encore configuree pour repondre par IA. "
+                            "Demande a l'administrateur de verifier la cle OpenAI. "
+                            "En attendant, je peux quand meme t'aider avec la meteo, tes rappels et tes contacts."
+            }
+
         tid = getattr(request.state, "tenant_id", 1)
         mgr = _get_tenant_manager(tid)
         tenant_convs = conversations.setdefault(str(tid), {})
@@ -6513,7 +6549,7 @@ COMPORTEMENT COMPAGNON :
         _openai_breaker.record_failure()
         logger.error("OPENAI AUTH ERROR - cle API invalide")
         _notify_admin_health("Cle OpenAI invalide - Luna ne peut plus repondre")
-        return {"response": "Luna a un souci technique. L'equipe a ete prevenue."}
+        return {"response": "Luna n'est pas encore configuree correctement. La cle OpenAI est invalide ou absente. Contacte l'administrateur."}
     except openai.RateLimitError as e:
         _openai_breaker.record_failure()
         err_body = getattr(e, 'body', {}) or {}
