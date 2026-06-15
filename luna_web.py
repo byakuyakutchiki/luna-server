@@ -3448,7 +3448,8 @@ if not _jwt_raw:
     raise SystemExit("ERREUR FATALE: JWT_SECRET_KEY manquante dans .env")
 _JWT_SECRET = _jwt_raw
 _JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
-_CLIENT_TOKEN_EXPIRE_DAYS = 90
+_CLIENT_TOKEN_EXPIRE_DAYS = 7
+_REFRESH_TOKEN_EXPIRE_DAYS = 30
 
 def _hash_password(password: str) -> str:
     """Hash un mot de passe avec bcrypt."""
@@ -3501,19 +3502,52 @@ def _bootstrap_proprio_auth():
         logger.warning(f"AUTH BOOTSTRAP Redis indisponible au demarrage ({_e}) — sera retente au premier login")
 
 
-def _create_client_token(tenant_id: int, email: str, plan: str, first_name: str = "") -> str:
-    """Cree un JWT client valide 7 jours."""
+def _create_client_token(tenant_id: int, email: str, plan: str, first_name: str = "", token_type: str = "access") -> str:
+    """Cree un JWT client valide 7 jours (access) ou 30 jours (refresh)."""
     import jwt as pyjwt
+    expire_days = _REFRESH_TOKEN_EXPIRE_DAYS if token_type == "refresh" else _CLIENT_TOKEN_EXPIRE_DAYS
     payload = {
         "tenant_id": tenant_id,
         "email": email,
         "plan": plan,
         "role": "client",
+        "type": token_type,
         "first_name": first_name,
         "iat": int(time.time()),
-        "exp": int(time.time()) + _CLIENT_TOKEN_EXPIRE_DAYS * 86400,
+        "exp": int(time.time()) + expire_days * 86400,
     }
     return pyjwt.encode(payload, _JWT_SECRET, algorithm=_JWT_ALGORITHM)
+
+
+def _create_refresh_token(tenant_id: int, email: str) -> str:
+    """Cree un refresh token et le stocke dans Redis."""
+    token = _create_client_token(tenant_id, email, "essentiel", token_type="refresh")
+    if _redis_client:
+        try:
+            key = f"luna:{tenant_id}:auth:refresh_tokens"
+            _redis_client.client.sadd(key, token)
+            _redis_client.client.expire(key, _REFRESH_TOKEN_EXPIRE_DAYS * 86400)
+        except Exception as e:
+            logger.warning(f"Could not store refresh token in Redis: {e}")
+    return token
+
+
+def _verify_refresh_token(token: str) -> Optional[dict]:
+    """Verifie un refresh token et s'assure qu'il est dans Redis."""
+    payload = _decode_client_token(token)
+    if not payload or payload.get("type") != "refresh":
+        return None
+    tenant_id = payload.get("tenant_id")
+    if _redis_client and tenant_id:
+        try:
+            key = f"luna:{tenant_id}:auth:refresh_tokens"
+            if not _redis_client.client.sismember(key, token):
+                logger.warning("Refresh token not found in Redis (revoked or expired)")
+                return None
+        except Exception as e:
+            logger.warning(f"Could not verify refresh token in Redis: {e}")
+            return None
+    return payload
 
 def _decode_client_token(token: str) -> Optional[dict]:
     """Decode un JWT client. Retourne le payload ou None."""
@@ -11697,6 +11731,7 @@ async def auth_register(req: RegisterRequest):
 
     fname = req.first_name or email.split("@")[0]
     token = _create_client_token(tenant_id, email, "essentiel", first_name=fname)
+    refresh_token = _create_refresh_token(tenant_id, email)
     # Initialize gamification player
     if _GAMIFICATION_AVAILABLE and _redis_client:
         try:
@@ -11706,7 +11741,7 @@ async def auth_register(req: RegisterRequest):
             pass
     _gamify("admin", "new_client", is_admin=True)
     logger.info(f"AUTH_REGISTER tenant_id={tenant_id} email={email}")
-    return {"token": token, "tenant_id": tenant_id, "plan": "essentiel", "first_name": fname}
+    return {"token": token, "refresh_token": refresh_token, "tenant_id": tenant_id, "plan": "essentiel", "first_name": fname}
 
 
 @app.post("/api/auth/login")
@@ -11728,12 +11763,22 @@ async def auth_login(req: LoginRequest):
     # Fallback fondateur : si Redis KO, vérifier les credentials depuis .env
     if not auth:
         proprio_email = os.getenv("PROPRIO_EMAIL", "").strip().lower()
-        proprio_password = os.getenv("PROPRIO_PASSWORD", "").strip()
-        if proprio_email and proprio_password and email == proprio_email:
-            if req.password == proprio_password:
+        proprio_password_hash = os.getenv("PROPRIO_PASSWORD_HASH", "").strip()
+        proprio_password_plain = os.getenv("PROPRIO_PASSWORD", "").strip()
+
+        if proprio_email and email == proprio_email:
+            valid = False
+            if proprio_password_hash:
+                valid = _verify_password(req.password, proprio_password_hash)
+            elif proprio_password_plain:
+                logger.warning("PROPRIO_PASSWORD en clair detecte — utilisez PROPRIO_PASSWORD_HASH")
+                valid = req.password == proprio_password_plain
+
+            if valid:
                 token = _create_client_token(_PROPRIO_TENANT_ID, email, "fondateur")
+                refresh_token = _create_refresh_token(_PROPRIO_TENANT_ID, email)
                 logger.info(f"AUTH_LOGIN fondateur via fallback env-vars (Redis KO): {email}")
-                return {"token": token, "tenant_id": _PROPRIO_TENANT_ID, "plan": "fondateur", "first_name": ""}
+                return {"token": token, "refresh_token": refresh_token, "tenant_id": _PROPRIO_TENANT_ID, "plan": "fondateur", "first_name": ""}
         return JSONResponse(status_code=401, content={"error": "Email ou mot de passe incorrect"})
 
     if not _verify_password(req.password, auth["password_hash"]):
@@ -11753,9 +11798,40 @@ async def auth_login(req: LoginRequest):
             first_name = profile.get("first_name", "")
 
     token = _create_client_token(tenant_id, email, plan, first_name=first_name)
+    refresh_token = _create_refresh_token(tenant_id, email)
     _gamify(tenant_id, "daily_login")
     logger.info(f"AUTH_LOGIN tenant_id={tenant_id} email={email}")
-    return {"token": token, "tenant_id": tenant_id, "plan": plan, "first_name": first_name}
+    return {"token": token, "refresh_token": refresh_token, "tenant_id": tenant_id, "plan": plan, "first_name": first_name}
+
+
+class RefreshRequest(BaseModel):
+    refresh_token: str
+
+
+@app.post("/api/auth/refresh")
+async def auth_refresh(req: RefreshRequest):
+    """Rafraichit un access token grace a un refresh token valide."""
+    payload = _verify_refresh_token(req.refresh_token)
+    if not payload:
+        return JSONResponse(status_code=401, content={"error": "Refresh token invalide ou expire"})
+
+    tenant_id = payload["tenant_id"]
+    email = payload["email"]
+    plan = payload.get("plan", "essentiel")
+
+    # Recuperer le prenom depuis le profil
+    first_name = ""
+    if _redis_client:
+        try:
+            profile = _redis_client.get_profile(tenant_id)
+            if profile:
+                first_name = profile.get("first_name", "")
+        except Exception:
+            pass
+
+    new_token = _create_client_token(tenant_id, email, plan, first_name=first_name)
+    logger.info(f"AUTH_REFRESH tenant_id={tenant_id} email={email}")
+    return {"token": new_token, "tenant_id": tenant_id, "plan": plan, "first_name": first_name}
 
 
 @app.get("/api/auth/me")
@@ -14354,7 +14430,7 @@ async def execute_instruction(instr_id: str, request: Request):
 #
 
 try:
-    from core.guardian.engine import GuardianEngine, get_profile_templates
+    from core.guardian.engine import GuardianEngine, GuardianEvent, get_profile_templates
     from core.guardian.alerts import send_guardian_alerts
     _GUARDIAN_AVAILABLE = True
 except ImportError as _e:
@@ -14516,6 +14592,41 @@ async def guardian_location(session_id: str, request: Request):
         "description": risk.description,
         "events_count": len(events),
     }
+
+
+@app.post("/api/guardian/location-denied/{session_id}")
+async def guardian_location_denied(session_id: str, request: Request):
+    """
+    Signale que l'utilisateur a refuse l'acces a la geolocalisation.
+    Arrete la session Guardian et enregistre un evenement d'audit.
+    """
+    engine = _get_guardian()
+    if not engine:
+        return JSONResponse(status_code=503, content={"error": "Guardian non disponible"})
+    session = engine.get_session(session_id)
+    if not session:
+        return JSONResponse(status_code=404, content={"error": "Session introuvable"})
+
+    engine.stop_session(session_id)
+    engine._log_event(session_id, GuardianEvent(
+        event_type="location_permission_denied",
+        description="L'utilisateur a refuse l'acces a la geolocalisation. Session arretee.",
+    ))
+
+    tid = getattr(request.state, "tenant_id", 1)
+    mgr = _get_tenant_manager(tid)
+    if mgr:
+        try:
+            mgr.log_event(
+                category="guardian",
+                description="Permission de geolocalisation refusee - session Guardian arretee",
+                source="user_action",
+            )
+        except Exception:
+            pass
+
+    logger.info(f"Guardian session {session_id} stopped due to location permission denied")
+    return {"success": True, "session_id": session_id, "status": "stopped", "reason": "location_permission_denied"}
 
 
 @app.post("/api/guardian/sos/{session_id}")
@@ -19350,7 +19461,7 @@ async def _load_instructions_to_scheduler():
                 parsed = InstructionParser.parse(instr.description)
                 _scheduler.schedule(
                     instruction_id=instr.id,
-                    tenant_id=TENANT_ID,
+                    tenant_id=instr.tenant_id,
                     instruction=parsed,
                 )
                 loaded += 1
@@ -19506,15 +19617,16 @@ async def _instruction_loop():
                         except Exception:
                             pass
 
-                    # Enregistre le compte-rendu comme note + event log
-                    if _memory_manager:
+                    # Enregistre le compte-rendu comme note + event log dans le bon tenant
+                    _log_mgr = _exec_mgr if _exec_mgr else _memory_manager
+                    if _log_mgr:
                         try:
-                            _memory_manager.add_note(
+                            _log_mgr.add_note(
                                 content=f"[Auto] {result.message}",
                                 context="instruction_execution",
                                 tags=["auto", result.status.value, task.instruction.action_type.value],
                             )
-                            _memory_manager.log_event(
+                            _log_mgr.log_event(
                                 category="instruction",
                                 description=f"Instruction executee: {result.message}",
                                 reasoning=f"Declenchee par le scheduler ({task.instruction.original_text[:60]})",
