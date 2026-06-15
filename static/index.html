@@ -420,6 +420,9 @@ body.mode-secretaire .conc-modal-box .field input, body.mode-secretaire .conc-mo
 .send-btn { width: 44px; height: 44px; border-radius: 50%; border: none; background: #7c3aed; color: white; font-size: 1.2em; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; padding: 0; }
 .send-btn:hover { background: #6d28d9; }
 .send-btn:disabled { background: #444; cursor: not-allowed; }
+.mic-input-btn { background: none; border: none; cursor: pointer; color: #888; padding: 6px; line-height: 1; opacity: 0.7; transition: opacity 0.2s, color 0.2s; flex-shrink: 0; min-height: 40px; min-width: 36px; display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; }
+.mic-input-btn:hover { opacity: 1; color: #a78bfa; background: rgba(124,58,237,0.1); }
+.mic-input-btn.active { color: #4ade80; opacity: 1; animation: pulse 1.5s infinite; }
 .emoji-picker { display: none; position: absolute; bottom: 100%; left: 8px; background: #1a1a2e; border: 1px solid #333; border-radius: 12px; padding: 8px; max-height: 200px; overflow-y: auto; z-index: 100; width: 280px; box-shadow: 0 -4px 20px rgba(0,0,0,0.5); }
 .emoji-picker.open { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
 .emoji-picker button { background: none; border: none; font-size: 1.4em; cursor: pointer; padding: 4px; border-radius: 6px; transition: background 0.15s; }
@@ -1736,6 +1739,9 @@ body.mode-secretaire .luna::before {
         <div class="input-row">
           <button class="emoji-btn" id="emojiToggle" type="button">&#x1F60A;</button>
           <textarea id="input" placeholder="Message pour Luna..." autocomplete="off" maxlength="2000" rows="1"></textarea>
+          <button class="mic-input-btn" id="micInputBtn" type="button" title="Parler à Luna" onclick="var vb=document.getElementById('lunaVoiceBtn');if(vb)vb.click();">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+          </button>
         </div>
         <span class="char-counter" id="charCounter"></span>
         <button class="send-btn" id="send">&#x27A4;</button>
@@ -4307,7 +4313,7 @@ function _addChips(chips) {
   scrollToBottom();
 }
 
-// Genere des suggestions contextuelles basees sur l'heure et le mode
+// Genere des suggestions contextuelles basees sur la conversation puis sur l'heure
 function _getSmartChips() {
   var h = new Date().getHours();
   var mode = currentMode || "compagnon";
@@ -4319,23 +4325,67 @@ function _getSmartChips() {
     chips.push({icon: "✈️", label: "Chercher un vol", action: "concierge", handler: "_concShowFlightForm"});
     chips.push({icon: "📄", label: "Mes documents", action: "send", text: "Resume de mes documents"});
   } else {
-    // Mode compagnon — adapte a l'heure
-    if (h >= 6 && h < 12) {
-      chips.push({icon: "🌤️", label: "Meteo", action: "send", text: "Quel temps fait-il aujourd'hui ?"});
-      chips.push({icon: "📰", label: "Actus du jour", action: "send", text: "Quelles sont les actualites du jour ?"});
-      chips.push({icon: "🎯", label: "Mes missions", action: "send", text: "Quelles sont mes missions du jour ?"});
-    } else if (h >= 12 && h < 18) {
-      chips.push({icon: "🍽️", label: "Restaurant", action: "concierge", handler: "_concShowRestaurantForm"});
-      chips.push({icon: "🔍", label: "Rechercher", action: "concierge", handler: "_concShowSearchForm"});
-      chips.push({icon: "📞", label: "Appeler un proche", action: "send", text: "Appelle ma famille"});
-    } else if (h >= 18 && h < 22) {
-      chips.push({icon: "🎮", label: "Jouer", action: "send", text: "Propose-moi un jeu ou un quiz"});
-      chips.push({icon: "📖", label: "Histoire", action: "send", text: "Raconte-moi une histoire"});
-      chips.push({icon: "🎵", label: "Musique", action: "send", text: "Propose-moi de la musique relaxante"});
+    // Extraire le contexte de la conversation (derniers messages)
+    var lastUser = "", lastLuna = "";
+    var msgs = chat ? chat.querySelectorAll(".msg") : [];
+    for (var i = msgs.length - 1; i >= 0; i--) {
+      var m = msgs[i];
+      var mt = m.querySelector(".msg-text");
+      var txt = mt ? (mt.textContent || "") : "";
+      if (!lastLuna && m.classList.contains("luna")) lastLuna = txt;
+      else if (!lastUser && m.classList.contains("user")) lastUser = txt;
+      if (lastUser && lastLuna) break;
+    }
+    var ctx = (lastUser + " " + lastLuna).toLowerCase();
+
+    // Chips contextuelles selon le contenu de la conversation
+    if (/vol|avion|flight|aéroport|billet/.test(ctx)) {
+      chips.push({icon: "✈️", label: "Chercher un vol", action: "concierge", handler: "_concShowFlightForm"});
+      chips.push({icon: "🏨", label: "Trouver un hôtel", action: "send", text: "Cherche-moi un hôtel"});
+      chips.push({icon: "📋", label: "Mes voyages", action: "send", text: "Quels sont mes voyages prévus ?"});
+    } else if (/médecin|docteur|rdv|médical|santé|clinique|hopital|hôpital|ordonnance/.test(ctx)) {
+      chips.push({icon: "📅", label: "Prendre RDV", action: "send", text: "Aide-moi à prendre un rendez-vous médical"});
+      chips.push({icon: "💊", label: "Mes médicaments", action: "send", text: "Rappelle-moi mes médicaments"});
+      chips.push({icon: "🏥", label: "Médecin proche", action: "send", text: "Trouve-moi un médecin proche"});
+    } else if (/restaurant|manger|déjeuner|dîner|repas|nourriture|cuisine|brasserie|pizz/.test(ctx)) {
+      chips.push({icon: "🍽️", label: "Restaurant proche", action: "concierge", handler: "_concShowRestaurantForm"});
+      chips.push({icon: "⭐", label: "Mieux noté", action: "send", text: "Quel restaurant est le mieux noté proche ?"});
+      chips.push({icon: "📍", label: "Itinéraire", action: "send", text: "Comment y aller ?"});
+    } else if (/musique|chanson|playlist|écouter|écoute|radio|chanter|concert|artiste/.test(ctx)) {
+      chips.push({icon: "🎵", label: "Autre chanson", action: "send", text: "Propose-moi une autre chanson"});
+      chips.push({icon: "😌", label: "Relaxation", action: "send", text: "Propose-moi de la musique relaxante"});
+      chips.push({icon: "🎸", label: "Par genre", action: "send", text: "Propose-moi de la musique jazz"});
+    } else if (/météo|temps|pluie|soleil|température|chaud|froid|nuageux|vent/.test(ctx)) {
+      chips.push({icon: "📅", label: "Semaine entière", action: "send", text: "Météo de la semaine entière ?"});
+      chips.push({icon: "👔", label: "Que mettre ?", action: "send", text: "Qu'est-ce que je mets aujourd'hui ?"});
+      chips.push({icon: "🌍", label: "Autre ville", action: "send", text: "Météo à Paris ?"});
+    } else if (/actualité|actu|news|nouvelles|info|journal|presse/.test(ctx)) {
+      chips.push({icon: "🌍", label: "International", action: "send", text: "Actualités internationales du jour"});
+      chips.push({icon: "💼", label: "Économie", action: "send", text: "Dernières nouvelles économiques"});
+      chips.push({icon: "🔄", label: "Rafraîchir", action: "send", text: "Quelles sont les dernières actualités ?"});
+    } else if (/appel|appeler|téléphoner|contacter|famille|proche|sms|message/.test(ctx)) {
+      chips.push({icon: "📞", label: "Appeler", action: "send", text: "Appelle un proche"});
+      chips.push({icon: "💬", label: "Envoyer SMS", action: "send", text: "Envoie un message à ma famille"});
+      chips.push({icon: "👥", label: "Mes contacts", action: "send", text: "Montre-moi mes contacts"});
     } else {
-      chips.push({icon: "🌙", label: "Bonne nuit", action: "send", text: "Bonne nuit Luna"});
-      chips.push({icon: "😌", label: "Relaxation", action: "send", text: "Propose-moi un exercice de relaxation"});
-      chips.push({icon: "📝", label: "Gratitude", action: "send", text: "Faisons un exercice de gratitude"});
+      // Repli sur les chips horaires si aucun contexte détecté
+      if (h >= 6 && h < 12) {
+        chips.push({icon: "🌤️", label: "Meteo", action: "send", text: "Quel temps fait-il aujourd'hui ?"});
+        chips.push({icon: "📰", label: "Actus du jour", action: "send", text: "Quelles sont les actualites du jour ?"});
+        chips.push({icon: "🎯", label: "Mes missions", action: "send", text: "Quelles sont mes missions du jour ?"});
+      } else if (h >= 12 && h < 18) {
+        chips.push({icon: "🍽️", label: "Restaurant", action: "concierge", handler: "_concShowRestaurantForm"});
+        chips.push({icon: "🔍", label: "Rechercher", action: "concierge", handler: "_concShowSearchForm"});
+        chips.push({icon: "📞", label: "Appeler un proche", action: "send", text: "Appelle ma famille"});
+      } else if (h >= 18 && h < 22) {
+        chips.push({icon: "🎮", label: "Jouer", action: "send", text: "Propose-moi un jeu ou un quiz"});
+        chips.push({icon: "📖", label: "Histoire", action: "send", text: "Raconte-moi une histoire"});
+        chips.push({icon: "🎵", label: "Musique", action: "send", text: "Propose-moi de la musique relaxante"});
+      } else {
+        chips.push({icon: "🌙", label: "Bonne nuit", action: "send", text: "Bonne nuit Luna"});
+        chips.push({icon: "😌", label: "Relaxation", action: "send", text: "Propose-moi un exercice de relaxation"});
+        chips.push({icon: "📝", label: "Gratitude", action: "send", text: "Faisons un exercice de gratitude"});
+      }
     }
   }
   chips.push({icon: "🎤", label: "Parler", action: "voice"});
@@ -4490,7 +4540,7 @@ function sendMsg(overrideMsg) {
     _remoteLog("error", "chat", "catch", e.message || String(e));
     hideTyping(); lastFailedMsg = msg;
     var errDiv = document.createElement("div"); errDiv.className = "msg luna error-msg";
-    var ts = document.createElement("span"); ts.className = "msg-text"; ts.textContent = "Erreur : " + (e.message || "connexion perdue"); errDiv.appendChild(ts);
+    var ts = document.createElement("span"); ts.className = "msg-text"; ts.textContent = "Je n'ai pas pu répondre. Vérifie ta connexion."; errDiv.appendChild(ts);
     var rb = document.createElement("button"); rb.className = "retry-btn"; rb.textContent = "Reessayer";
     rb.addEventListener("click", function() { errDiv.remove(); sendMsg(lastFailedMsg); }); errDiv.appendChild(rb);
     var tt = document.createElement("span"); tt.className = "msg-time"; tt.textContent = formatTime(); errDiv.appendChild(tt);
@@ -6757,7 +6807,17 @@ function initApp() {
     }
     authFetch("/api/greeting?mode=" + (currentMode || "compagnon")).then(function(r) { return r.json(); })
     .then(function(data) { addMsg(data.response, "luna"); _addOnboardingChips(); _loadProactiveContext(); })
-    .catch(function() { addMsg("Luna est temporairement injoignable. Verifie que le serveur tourne.", "luna"); });
+    .catch(function() {
+      addMsg("Je me réveille… Un instant ☀️", "luna");
+      setTimeout(function() {
+        authFetch("/api/greeting?mode=" + (currentMode || "compagnon")).then(function(r){return r.json();})
+        .then(function(data){
+          var errs=document.querySelectorAll('.msg.luna'); var last=errs[errs.length-1];
+          if(last&&last.querySelector('.msg-text')&&last.querySelector('.msg-text').textContent.indexOf('réveille')>=0)last.remove();
+          addMsg(data.response,"luna"); _addOnboardingChips(); _loadProactiveContext();
+        }).catch(function(){});
+      }, 4000);
+    });
   }
 }
 
