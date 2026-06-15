@@ -267,7 +267,7 @@ placeholder: "Ex : Stratégie de lancement, Analyse concurrentielle…"
 
 ---
 
-## Résumé des correctifs
+## Résumé des correctifs — Sprint A
 
 | Fix | Priorité | Fichier | Validation |
 |---|---|---|---|
@@ -280,36 +280,149 @@ placeholder: "Ex : Stratégie de lancement, Analyse concurrentielle…"
 
 ---
 
-## Bugs non adressés en Sprint A (scope Kimi ou Sprint B)
+## P0 — Navigation, Distinction Modes, Pagination, DOM Simli
+
+**Révision déployée : luna-beta-00657-57s**
+
+---
+
+### P0-01 — Navigation réduite : 16 onglets → 5 onglets + Plus ▾
+
+**Priorité : 🔴 CRITIQUE**
+
+### Problème
+16 onglets visibles en barre de navigation mobile (390px). L'utilisateur ne savait pas par où commencer et la barre débordait.
+
+### Correctif effectué
+**Fichier modifié : `static/index.html`**
+
+- Attribut `data-overflow="1"` → CSS `display:none !important` sur 10 onglets secondaires
+- Nouveau bouton **Plus ▾** (tab `plus`) en fin de barre, toujours visible
+- Panneau `#tab-plus` avec grille 2 colonnes (`_renderPlusPanel()`)
+- Contenu du panneau différent par mode (voir P0-03)
+
+### Validation Playwright
+```
+Compagnon : ['chat', 'conciergerie', 'amis', 'activities', 'plus']  ← 5 onglets
+Secrétaire : ['chat', 'conciergerie', 'contacts', 'documents', 'plus']  ← 5 onglets différents
+```
+
+**Captures :** `P0-mode-compagnon.png`, `P0-mode-secretaire.png`
+
+---
+
+### P0-02 — Simli : nettoyage DOM `aria-hidden`
+
+**Priorité : 🟠 HAUTE**
+
+### Problème
+`<div id="phoneNotification">` — élément "Appel entrant…" sans `aria-hidden`. Les lecteurs d'écran annonçaient cette notification cinématique décorative comme si c'était un vrai appel.
+
+### Correctif effectué
+**Fichier modifié : `static/simli.html`**
+```html
+<div id="phoneNotification" class="phone-notification" aria-hidden="true">
+```
+
+### Validation Playwright
+```
+aria_hidden: "true"  ✅
+```
+
+---
+
+### P0-03 — Distinction Compagnon / Secrétaire
+
+**Priorité : 🟠 HAUTE**
+
+### Problème
+Passer de "Compagnon" à "Secrétaire" ne changeait rien à l'interface — même titre, même placeholder, mêmes onglets.
+
+### Correctif effectué
+**Fichier modifié : `static/index.html`** — `applyMode()` enrichie
+
+| | Compagnon | Secrétaire |
+|---|---|---|
+| Subtitle header | "Ton compagnon bienveillant" | "Ton assistante professionnelle" |
+| Placeholder input | "Message pour Luna..." | "Instruction pour Luna..." |
+| Body class | *(aucune)* | `mode-secretaire` |
+| Onglet 3 | Amis | Contacts |
+| Onglet 4 | Activités | Documents |
+| Plus panel | 6 items (Monde, Rapports, Profil, Quotas, Réglages, Guardian) | 8 items (+ Instructions, Formulaires, Carte) |
+
+### Note d'implémentation
+La commutation passe par un interlude animé (Luna ↔ Aby, ~3300ms) avant d'appeler `applyMode()`. Les tests doivent attendre ≥3700ms après le clic.
+
+### Validation Playwright
+```
+subtitle_secretaire: "Ton assistante professionnelle"  ✅
+placeholder_secretaire: "Instruction pour Luna..."     ✅
+body_class: "mode-secretaire"                         ✅
+tabs_secretaire: ['chat', 'conciergerie', 'contacts', 'documents', 'plus']  ✅
+plus_items_secretaire: ['Instructions', 'Rapports', 'Formulaires', 'Carte', 'Profil', 'Quotas', 'Réglages', 'Guardian']  ✅
+```
+
+**Captures :** `P0-interlude-aby.png`, `P0-mode-secretaire.png`, `P0-plus-secretaire.png`, `P0-plus-compagnon.png`
+
+---
+
+### P0-04 — Pagination des rapports (10 par page + "Voir plus")
+
+**Priorité : 🟡 MOYENNE**
+
+### Problème
+31 entrées chargées d'un coup sans pagination — scroll infini, chargement lent.
+
+### Correctif effectué
+**Fichier modifié : `static/index.html`** — `loadCallReports()` réécrite
+
+- `_PAGE_SIZE = 10` — 10 entrées par page
+- `_loadNotesData()` — charge avec `?limit=10&offset=N`
+- Bouton "Voir plus…" ajouté si `items.length >= PAGE_SIZE`
+- Le clic charge la page suivante et retire le bouton précédent
+
+### Validation
+Code déployé. Validation fonctionnelle dépend du nombre d'entrées côté API.
+
+---
+
+## Résumé P0
+
+| Fix | Priorité | Fichier | Validation |
+|---|---|---|---|
+| P0-01 Nav 5 onglets + Plus panel | 🔴 CRITIQUE | index.html | ✅ Playwright |
+| P0-02 Simli aria-hidden | 🟠 HAUTE | simli.html | ✅ Playwright |
+| P0-03 Distinction Compagnon/Secrétaire | 🟠 HAUTE | index.html | ✅ Playwright |
+| P0-04 Pagination rapports | 🟡 MOYENNE | index.html | ✅ Code review |
+
+---
+
+## Bugs non adressés (scope Sprint B)
 
 | Bug | Scope | Note |
 |---|---|---|
 | BUG-05 Guardian page séparée | Sprint B | Le "← App" fonctionne, sévérité moyenne |
 | BUG-06 Iris Visio desktop fond SVG | Sprint B | CSS positioning sur grand écran |
-| BUG-07 "Appel entrant..." dans DOM /simli | Sprint B | Nettoyage résidu UI, accessibilité |
-| BUG-09 Rapports sans pagination | Sprint B | 31 entrées OK pour maintenant |
 | BUG-10 Desktop sidebar conversations sans titre | Sprint B | Faible impact |
 | BUG-11 "Iris Workspace" dans Services | Sprint B | Architecture menu |
 
 ---
 
-## Navigation : état post-Sprint A
+## Navigation : état post-P0
 
-Tous les onglets SPA restent sur `/` URL après navigation (navigation interne correcte).
-
-| Onglet | URL après clic | État |
-|---|---|---|
-| Chat | / | ✅ SPA |
-| Services | / | ✅ SPA |
-| Amis | / | ✅ SPA |
-| Monde | / | ✅ SPA |
-| Rapports | / | ✅ SPA |
-| Réglages | / | ✅ SPA |
-| Activités | /salon | ⚠️ Page séparée — retour visible maintenant |
-| Guardian | /guardian | ⚠️ Page séparée — "← App" fonctionne |
+| Onglet | Compagnon | Secrétaire | URL |
+|---|---|---|---|
+| Chat | ✅ visible | ✅ visible | / (SPA) |
+| Services | ✅ visible | ✅ visible | / (SPA) |
+| Amis | ✅ visible | ❌ caché | / (SPA) |
+| Contacts | ❌ caché | ✅ visible | / (SPA) |
+| Activités | ✅ visible | ❌ caché | /salon (retour visible) |
+| Documents | ❌ caché | ✅ visible | / (SPA) |
+| Plus ▾ | ✅ visible | ✅ visible | / (SPA, panneau secondaire) |
+| Guardian | Dans Plus ▾ | Dans Plus ▾ | /guardian (page séparée) |
 
 ---
 
-*Méthode : Playwright E2E, mobile 390×844 + desktop 1440×900*
-*Commit : feature/sprint-a-ux*
-*Révision déployée : luna-beta-00655-d46 (5 fixes) → luna-beta-00656-xxx (FIX-05 ajouté)*
+*Méthode : Playwright E2E, mobile 390×844*
+*Branche : feature/sprint-a-ux*
+*Révisions Cloud Run : 00655-d46 (Sprint A BUG-01..08) → 00656-7l7 (FIX-05) → 00657-57s (P0)*

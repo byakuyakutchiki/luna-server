@@ -50,6 +50,20 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; b
   border-color: #34d399; box-shadow: 0 2px 12px rgba(16,185,129,0.3);
 }
 .tab-btn.mode-hidden { display: none !important; }
+.tab-btn[data-overflow="1"] { display: none !important; }
+/* Plus panel — grille de navigation secondaire */
+.plus-panel-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 16px 12px; }
+.plus-item-card { display: flex; align-items: center; gap: 12px; padding: 14px 12px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; cursor: pointer; text-align: left; transition: background 0.2s, border-color 0.2s; width: 100%; color: inherit; }
+.plus-item-card:hover { background: rgba(124,58,237,0.12); border-color: rgba(124,58,237,0.3); }
+.plus-item-icon { font-size: 1.5em; flex-shrink: 0; width: 34px; text-align: center; line-height: 1; }
+.plus-item-label { font-weight: 600; font-size: 0.88em; color: #e0e0e0; }
+.plus-item-desc { font-size: 0.73em; color: #666; margin-top: 2px; line-height: 1.3; }
+.plus-item-card.plus-item-red { border-color: rgba(248,113,113,0.2); }
+.plus-item-card.plus-item-red:hover { background: rgba(220,38,38,0.1); border-color: rgba(248,113,113,0.4); }
+.plus-item-card.plus-item-red .plus-item-label { color: #f87171; }
+/* Mode subtitle */
+#greetingSubtitle { font-size: 0.72em; color: #888; margin: 0; letter-spacing: 0.04em; transition: color 0.3s; }
+body.mode-secretaire #greetingSubtitle { color: #34d399; }
 @keyframes pulseUpdate { 0%,100%{opacity:1;} 50%{opacity:0.5;} }
 
 /* === SECRETAIRE MODE THEME — vert emeraude partout === */
@@ -1677,39 +1691,43 @@ body.mode-secretaire .luna::before {
   <button class="tab-btn" data-tab="activities" data-modes="compagnon">
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" style="margin-right:5px;vertical-align:-2px"><polyline points="2,12 5,12 7,7 10,17 12,5 14,15 16,12 22,12"/></svg>Activités
   </button>
-  <button class="tab-btn" data-tab="world" data-modes="compagnon">
+  <button class="tab-btn" data-tab="world" data-modes="compagnon" data-overflow="1">
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" style="margin-right:5px;vertical-align:-2px"><circle cx="12" cy="12" r="9"/><line x1="3" y1="12" x2="21" y2="12"/><path d="M12 3 Q16 7.5 16 12 Q16 16.5 12 21"/><path d="M12 3 Q8 7.5 8 12 Q8 16.5 12 21"/></svg>Monde
   </button>
   <button class="tab-btn" data-tab="contacts" data-modes="secretaire">
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" style="margin-right:5px;vertical-align:-2px"><rect x="2" y="5" width="20" height="14" rx="2"/><circle cx="8" cy="12" r="3"/><line x1="14" y1="9.5" x2="20" y2="9.5"/><line x1="14" y1="12" x2="20" y2="12"/><line x1="14" y1="14.5" x2="18" y2="14.5"/></svg>Contacts
   </button>
-  <button class="tab-btn" data-tab="instructions" data-modes="secretaire">
+  <button class="tab-btn" data-tab="instructions" data-modes="secretaire" data-overflow="1">
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" style="margin-right:5px;vertical-align:-2px"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><polyline points="12 11 9 15 12 15 9 19"/></svg>Instructions
   </button>
   <button class="tab-btn" data-tab="documents" data-modes="secretaire">
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" style="margin-right:5px;vertical-align:-2px"><rect x="6" y="8" width="14" height="13" rx="1"/><rect x="4" y="5" width="14" height="13" rx="1"/><line x1="7" y1="10" x2="15" y2="10"/><line x1="7" y1="13" x2="12" y2="13"/></svg>Documents
   </button>
-  <button class="tab-btn" data-tab="callreports">
+  <button class="tab-btn" data-tab="callreports" data-overflow="1">
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" style="margin-right:5px;vertical-align:-2px"><rect x="3" y="13" width="4" height="8" rx="0.5"/><rect x="10" y="8" width="4" height="13" rx="0.5"/><rect x="17" y="4" width="4" height="17" rx="0.5"/><polyline points="5,11 12,6 19,3"/></svg>Rapports
   </button>
-  <button class="tab-btn" data-tab="formulaires" data-modes="secretaire">
+  <button class="tab-btn" data-tab="formulaires" data-modes="secretaire" data-overflow="1">
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" style="margin-right:5px;vertical-align:-2px"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><circle cx="6" cy="6" r="1" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/><circle cx="18" cy="18" r="1" fill="currentColor" stroke="none"/></svg>Formulaires
   </button>
-  <button class="tab-btn" data-tab="map" data-modes="secretaire">
+  <button class="tab-btn" data-tab="map" data-modes="secretaire" data-overflow="1">
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" style="margin-right:5px;vertical-align:-2px"><path d="M12 22C12 22 4 15.5 4 10a8 8 0 0 1 16 0c0 5.5-8 12-8 12z"/><circle cx="12" cy="10" r="3"/></svg>Carte
   </button>
-  <button class="tab-btn" data-tab="guardian" style="color:#f87171;" onclick="window.location.href='/guardian'">
+  <button class="tab-btn" data-tab="guardian" data-overflow="1">
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" style="margin-right:5px;vertical-align:-2px"><path d="M12 22s8-5 8-11V4l-8-2-8 2v7c0 6 8 11 8 11z"/><path d="M9 12l3-4 3 4-3 4z"/></svg>Guardian
   </button>
-  <button class="tab-btn" data-tab="profile">
+  <button class="tab-btn" data-tab="profile" data-overflow="1">
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" style="margin-right:5px;vertical-align:-2px"><polygon points="12 2 19 6 19 18 12 22 5 18 5 6"/><circle cx="12" cy="11" r="3.5"/><path d="M6.5 18.5c.5-2.5 2.8-4.5 5.5-4.5s5 2 5.5 4.5"/></svg>Profil
   </button>
-  <button class="tab-btn" data-tab="quotas">
+  <button class="tab-btn" data-tab="quotas" data-overflow="1">
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" style="margin-right:5px;vertical-align:-2px"><path d="M5.5 17a8 8 0 1 1 13 0"/><line x1="12" y1="5" x2="12" y2="7"/><line x1="4.5" y1="10.5" x2="6.5" y2="11.5"/><line x1="19.5" y1="10.5" x2="17.5" y2="11.5"/><line x1="12" y1="17" x2="15.5" y2="11"/><circle cx="12" cy="17" r="1.5" fill="currentColor" stroke="none"/></svg>Quotas
   </button>
-  <button class="tab-btn" data-tab="theo" id="theoTabBtn" style="display:none;color:#f5c542;">Théocratie</button>
-  <button class="tab-btn" data-tab="settings">
+  <button class="tab-btn" data-tab="theo" id="theoTabBtn" data-overflow="1" style="display:none;color:#f5c542;">Théocratie</button>
+  <button class="tab-btn" data-tab="settings" data-overflow="1">
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" style="margin-right:5px;vertical-align:-2px"><polygon points="12 2 19 6 19 18 12 22 5 18 5 6"/><circle cx="12" cy="12" r="3"/><line x1="12" y1="2" x2="12" y2="9"/><line x1="12" y1="15" x2="12" y2="22"/><line x1="19" y1="6" x2="14.3" y2="10.1"/><line x1="9.7" y1="13.9" x2="5" y2="18"/><line x1="19" y1="18" x2="14.3" y2="13.9"/><line x1="9.7" y1="10.1" x2="5" y2="6"/></svg>Réglages
+  </button>
+  <!-- Bouton Plus — accès aux onglets secondaires -->
+  <button class="tab-btn" data-tab="plus" id="tabBtnPlus">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" style="margin-right:5px;vertical-align:-2px"><circle cx="5" cy="12" r="1.2" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1.2" fill="currentColor" stroke="none"/></svg>Plus
   </button>
 </div>
 
@@ -2793,6 +2811,13 @@ body.mode-secretaire .luna::before {
   </div>
 </div>
 
+<!-- Plus Tab — navigation secondaire -->
+<div class="tab-panel" id="tab-plus">
+  <div class="panel-content" style="padding-top:8px;">
+    <div class="plus-panel-grid" id="plusPanelGrid"></div>
+  </div>
+</div>
+
 <!-- Video : geree par /simli (Tavus cinematique) -->
 </div><!-- /app-container -->
 
@@ -3122,7 +3147,7 @@ function applyMode(mode) {
   // Show/hide tabs based on mode
   tabBtns.forEach(function(btn) {
     var modes = btn.dataset.modes || "";
-    if (!modes) { btn.classList.remove("mode-hidden"); return; } // always visible
+    if (!modes) { btn.classList.remove("mode-hidden"); return; }
     btn.classList.toggle("mode-hidden", modes !== mode);
   });
   // If current active tab is hidden, switch to Chat
@@ -3133,11 +3158,67 @@ function applyMode(mode) {
   // Update meta theme-color for mobile browsers
   var metaTheme = document.querySelector('meta[name="theme-color"]');
   if (metaTheme) metaTheme.setAttribute("content", mode === "secretaire" ? "#071510" : "#0a0a1a");
+  // Mode subtitle
+  var sub = document.getElementById("greetingSubtitle");
+  if (sub) sub.textContent = mode === "secretaire" ? "Ton assistante professionnelle" : "Ton compagnon bienveillant";
+  // Input placeholder
+  var inp = document.getElementById("input");
+  if (inp) inp.placeholder = mode === "secretaire" ? "Instruction pour Luna..." : "Message pour Luna...";
+  // Rafraichir le Plus panel si actif
+  if (document.getElementById("tab-plus") && document.getElementById("tab-plus").classList.contains("active")) {
+    _renderPlusPanel();
+  }
 }
 
 modeBtns.forEach(function(btn) {
   btn.addEventListener("click", function() { applyMode(btn.dataset.mode); });
 });
+
+// =========================================================================
+// PLUS PANEL — navigation secondaire
+// =========================================================================
+var _PLUS_ITEMS = {
+  compagnon: [
+    {icon:"🌍", label:"Monde", desc:"Actualités, météo, explorer", tab:"world"},
+    {icon:"📋", label:"Rapports", desc:"Comptes-rendus et notes", tab:"callreports"},
+    {icon:"👤", label:"Profil", desc:"Tes informations", tab:"profile"},
+    {icon:"📊", label:"Quotas", desc:"Usage et abonnement", tab:"quotas"},
+    {icon:"⚙️", label:"Réglages", desc:"Personnaliser Luna", tab:"settings"},
+    {icon:"🛡️", label:"Guardian", desc:"Sécurité et localisation", url:"/guardian", red:true}
+  ],
+  secretaire: [
+    {icon:"📜", label:"Instructions", desc:"Directives et préférences", tab:"instructions"},
+    {icon:"📋", label:"Rapports", desc:"Comptes-rendus et notes", tab:"callreports"},
+    {icon:"📋", label:"Formulaires", desc:"Remplir et signer des documents", tab:"formulaires"},
+    {icon:"🗺️", label:"Carte", desc:"Localisation et adresses", tab:"map"},
+    {icon:"👤", label:"Profil", desc:"Tes informations", tab:"profile"},
+    {icon:"📊", label:"Quotas", desc:"Usage et abonnement", tab:"quotas"},
+    {icon:"⚙️", label:"Réglages", desc:"Personnaliser Luna", tab:"settings"},
+    {icon:"🛡️", label:"Guardian", desc:"Sécurité et localisation", url:"/guardian", red:true}
+  ]
+};
+
+function _renderPlusPanel() {
+  var grid = document.getElementById("plusPanelGrid");
+  if (!grid) return;
+  var items = _PLUS_ITEMS[currentMode] || _PLUS_ITEMS.compagnon;
+  grid.innerHTML = "";
+  items.forEach(function(item) {
+    var card = document.createElement("button");
+    card.className = "plus-item-card" + (item.red ? " plus-item-red" : "");
+    card.innerHTML = '<span class="plus-item-icon">' + item.icon + '</span>' +
+      '<div><div class="plus-item-label">' + item.label + '</div>' +
+      '<div class="plus-item-desc">' + item.desc + '</div></div>';
+    card.addEventListener("click", function() {
+      if (item.url) { window.location.href = item.url; return; }
+      if (item.tab) {
+        var target = document.querySelector('.tab-btn[data-tab="' + item.tab + '"]');
+        if (target) target.click();
+      }
+    });
+    grid.appendChild(card);
+  });
+}
 
 // =========================================================================
 // TAB NAVIGATION
@@ -3151,6 +3232,8 @@ tabBtns.forEach(function(btn) {
     if (btn.dataset.tab === "activities") { loadActivities(); return; }
     // Formulaires = page dediee (5 etapes: upload, analyse, remplir, signer, telecharger)
     if (btn.dataset.tab === "formulaires") { window.location.href = "/formulaires"; return; }
+    // Guardian = page separee
+    if (btn.dataset.tab === "guardian") { window.location.href = "/guardian"; return; }
     tabBtns.forEach(function(b) { b.classList.remove("active"); });
     tabPanels.forEach(function(p) { p.classList.remove("active"); });
     btn.classList.add("active");
@@ -3168,6 +3251,7 @@ tabBtns.forEach(function(btn) {
     if (btn.dataset.tab === "world") loadMonde();
     if (btn.dataset.tab === "theo") _theoLoad();
     if (btn.dataset.tab === "settings") loadSettings();
+    if (btn.dataset.tab === "plus") _renderPlusPanel();
     // Masquer le bouton voix flottant dans Monde (FABs propres au monde suffisent)
     var vb = document.getElementById("lunaVoiceBtn");
     if (vb) vb.style.display = btn.dataset.tab === "world" ? "none" : "";
@@ -5647,8 +5731,8 @@ function switchNotesTab(tab, btn) {
   document.getElementById('notesNotes').style.display = tab === 'notes' ? '' : 'none';
   document.getElementById('notesMeetings').style.display = tab === 'meetings' ? '' : 'none';
   document.getElementById('notesSms').style.display = tab === 'sms' ? '' : 'none';
-  if (tab === 'reports') _loadNotesData('notesReports','/api/call-reports?limit=30','reports');
-  else if (tab === 'notes') _loadNotesData('notesNotes','/api/notes?limit=50','notes');
+  if (tab === 'reports') _loadNotesData('notesReports','/api/call-reports','reports', 0, true);
+  else if (tab === 'notes') _loadNotesData('notesNotes','/api/notes','notes', 0, true);
   else if (tab === 'meetings') loadMeetings();
   else if (tab === 'sms') _loadSmsLog();
 }
@@ -5679,23 +5763,41 @@ function _loadSmsLog() {
     list.innerHTML = html;
   }).catch(function(){ list.innerHTML = '<p class="empty-state">Erreur de chargement.</p>'; });
 }
-function loadCallReports() { _loadNotesData('notesReports','/api/call-reports?limit=30','reports'); }
-function _loadNotesData(containerId, url, dataKey) {
+var _PAGE_SIZE = 10;
+function loadCallReports() { _loadNotesData('notesReports','/api/call-reports','reports', 0, true); }
+function _loadNotesData(containerId, baseUrl, dataKey, offset, replace) {
   var list = document.getElementById(containerId);
-  list.innerHTML = '<p class="empty-state">Chargement...</p>';
+  if (replace || !offset) list.innerHTML = '<p class="empty-state">Chargement...</p>';
+  var url = baseUrl + '?limit=' + _PAGE_SIZE + '&offset=' + (offset || 0);
   authFetch(url).then(function(r){return r.json();}).then(function(data){
     var items = data[dataKey] || data.notes || data.reports || [];
-    if (!items.length) {
+    if (!items.length && !offset) {
       list.innerHTML = '<p class="empty-state">' + (dataKey==='reports'?'Aucun compte-rendu. Lance un appel ou une conférence !':'Aucune note enregistree.') + '</p>';
       return;
     }
+    if (replace || !offset) list.innerHTML = '';
+    // Supprimer l'ancien bouton "Voir plus" s'il existe
+    var oldMore = list.querySelector('.notes-load-more');
+    if (oldMore) oldMore.remove();
     var groups = _groupByDate(items);
-    list.innerHTML = '';
     Object.keys(groups).forEach(function(d){
       var sep = document.createElement('div'); sep.className='notes-date-sep'; sep.textContent=d; list.appendChild(sep);
       groups[d].forEach(function(item){ list.appendChild(_buildNoteCard(item)); });
     });
-  }).catch(function(){list.innerHTML='<p class="empty-state">Erreur de chargement.</p>';});
+    // Bouton "Voir plus" si la page est pleine
+    if (items.length >= _PAGE_SIZE) {
+      var moreBtn = document.createElement('button');
+      moreBtn.className = 'notes-load-more';
+      moreBtn.textContent = 'Voir plus…';
+      moreBtn.style.cssText = 'display:block;width:100%;margin:12px 0;padding:10px;background:rgba(124,58,237,0.1);border:1px solid rgba(124,58,237,0.3);border-radius:10px;color:#a78bfa;cursor:pointer;font-size:.87em;';
+      moreBtn.addEventListener('click', function() {
+        moreBtn.textContent = 'Chargement…';
+        moreBtn.disabled = true;
+        _loadNotesData(containerId, baseUrl, dataKey, (offset || 0) + _PAGE_SIZE, false);
+      });
+      list.appendChild(moreBtn);
+    }
+  }).catch(function(){if(replace||!offset)list.innerHTML='<p class="empty-state">Erreur de chargement.</p>';});
 }
 function _groupByDate(items) {
   var g={}, now=new Date();
