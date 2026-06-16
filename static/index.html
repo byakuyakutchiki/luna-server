@@ -2768,6 +2768,14 @@ body.mode-secretaire .luna::before {
           <option value="xlarge">Tres grand</option>
         </select>
       </div>
+      <!-- Avatar picker -->
+      <div class="settings-row" style="flex-direction:column;align-items:stretch;gap:10px;padding-top:12px;">
+        <label style="font-size:0.88em;color:#c4b5fd;font-weight:600;">Mon avatar (visible par mes amis)</label>
+        <div id="avatarPickerPreview" style="text-align:center;font-size:3.2em;line-height:1;margin:4px 0;">👨</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center;" id="avatarTypeGrid"></div>
+        <div style="display:flex;gap:8px;justify-content:center;margin-top:2px;" id="avatarSkinGrid"></div>
+        <p style="font-size:0.72em;color:#555;text-align:center;margin:0;">Sauvegarde automatique</p>
+      </div>
     </div>
 
     <h3>Son</h3>
@@ -4182,6 +4190,8 @@ function loadSettings() {
       if (p.presentation) document.getElementById("set-presentation").value = p.presentation;
       if (p.sensitive_topics) document.getElementById("set-sensitive-topics").value = p.sensitive_topics;
     }).catch(function() {});
+
+  loadAvatarPicker();
 }
 
 // Toggle notification sub-options when global toggle changes
@@ -6174,6 +6184,77 @@ var dmCurrentRoomId = null;
 var dmCurrentFriendTid = null;
 var dmPollTimer = null;
 
+// =========================================================================
+// AVATARS AVEC COULEUR DE PEAU
+// =========================================================================
+var _SKIN_TONES = ["", "🏻", "🏼", "🏽", "🏾", "🏿"];
+var _SKIN_COLORS = ["#FFCC22", "#FDDBB4", "#E8B88A", "#CB8A4C", "#8B5A2B", "#4A2511"];
+var _SKIN_LABELS = ["Défaut", "Claire", "Moyennement claire", "Moyenne", "Moyennement foncée", "Foncée"];
+var _AVATAR_BASES = { adult_man:"👨", adult_woman:"👩", elder_man:"👴", elder_woman:"👵", boy:"👦", girl:"👧" };
+var _AVATAR_TYPE_LIST = [
+  {key:"adult_man", label:"Homme"}, {key:"adult_woman", label:"Femme"},
+  {key:"elder_man", label:"Senior H"}, {key:"elder_woman", label:"Senior F"},
+  {key:"boy", label:"Garçon"}, {key:"girl", label:"Fille"}
+];
+var _avatarCurrentType = "adult_man";
+var _avatarCurrentSkin = 0;
+
+function _avatarWithSkin(type, skin) {
+  var base = _AVATAR_BASES[type] || "👤";
+  var tone = _SKIN_TONES[parseInt(skin) || 0] || "";
+  return base + tone;
+}
+
+function _renderAvatarPicker() {
+  var typeGrid = document.getElementById("avatarTypeGrid");
+  var skinGrid = document.getElementById("avatarSkinGrid");
+  if (!typeGrid || !skinGrid) return;
+  typeGrid.innerHTML = _AVATAR_TYPE_LIST.map(function(t) {
+    var sel = t.key === _avatarCurrentType;
+    return '<button onclick="_selectAvatarType(\'' + t.key + '\')" style="background:' + (sel ? '#4c1d95' : '#12122a') + ';border:2px solid ' + (sel ? '#a78bfa' : '#333') + ';border-radius:10px;padding:5px 6px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;min-width:48px;transition:border-color .15s;">' +
+      '<span style="font-size:1.5em;line-height:1;">' + _avatarWithSkin(t.key, _avatarCurrentSkin) + '</span>' +
+      '<span style="font-size:0.58em;color:#9ca3af;white-space:nowrap;">' + t.label + '</span>' +
+    '</button>';
+  }).join("");
+  skinGrid.innerHTML = _SKIN_COLORS.map(function(color, i) {
+    var sel = i === _avatarCurrentSkin;
+    return '<button onclick="_selectAvatarSkin(' + i + ')" title="' + _SKIN_LABELS[i] + '" style="width:30px;height:30px;border-radius:50%;background:' + color + ';border:3px solid ' + (sel ? '#a78bfa' : 'transparent') + ';cursor:pointer;flex-shrink:0;transition:border-color .15s;outline:none;"></button>';
+  }).join("");
+  var prev = document.getElementById("avatarPickerPreview");
+  if (prev) prev.textContent = _avatarWithSkin(_avatarCurrentType, _avatarCurrentSkin);
+}
+
+function _selectAvatarType(type) {
+  _avatarCurrentType = type;
+  _renderAvatarPicker();
+  _saveAvatarChoice();
+}
+
+function _selectAvatarSkin(skin) {
+  _avatarCurrentSkin = skin;
+  _renderAvatarPicker();
+  _saveAvatarChoice();
+}
+
+function _saveAvatarChoice() {
+  authFetch("/api/social/profile", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({avatar_type: _avatarCurrentType, avatar_skin: String(_avatarCurrentSkin)})
+  }).catch(function() {});
+}
+
+function loadAvatarPicker() {
+  authFetch("/api/social/profile", {_silent: true})
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    var p = (data && data.profile) ? data.profile : {};
+    _avatarCurrentType = p.avatar_type || "adult_man";
+    _avatarCurrentSkin = parseInt(p.avatar_skin) || 0;
+    _renderAvatarPicker();
+  }).catch(function() { _renderAvatarPicker(); });
+}
+
 function loadAmis() {
   authFetch("/api/social/friend-code").then(function(r) { return r.json(); })
   .then(function(data) {
@@ -6188,9 +6269,8 @@ function loadAmis() {
   _startAmisHeartbeat();
 }
 
-function _avatarEmoji(type) {
-  var m = { adult_man:"👨", adult_woman:"👩", elder_man:"👴", elder_woman:"👵", boy:"👦", girl:"👧" };
-  return m[type] || "👤";
+function _avatarEmoji(type, skin) {
+  return _avatarWithSkin(type, skin);
 }
 
 function _relativeTime(isoStr) {
@@ -6224,7 +6304,7 @@ function loadInbox() {
       var isMine = r.last_msg_sender && String(r.last_msg_sender) === myTid;
       var previewText = preview ? (isMine ? "Toi : " + preview : preview) : "Début de la conversation";
       return '<div class="inbox-item' + (isUnread ? " has-unread" : "") + '" onclick="openDm(' + r.other_tid + ', \'' + esc(r.other_nickname || ("Ami " + r.other_tid)) + '\')">' +
-        '<div class="inbox-avatar">' + _avatarEmoji(r.other_avatar_type) + (r.other_online ? '<span class="inbox-online-dot"></span>' : '') + '</div>' +
+        '<div class="inbox-avatar">' + _avatarEmoji(r.other_avatar_type, r.other_avatar_skin) + (r.other_online ? '<span class="inbox-online-dot"></span>' : '') + '</div>' +
         '<div class="inbox-body">' +
           '<div class="inbox-name">' + esc(r.other_nickname || ("Ami " + r.other_tid)) + '</div>' +
           '<div class="inbox-preview' + (isUnread ? ' unread-preview' : '') + '">' + esc(previewText) + '</div>' +
@@ -6264,9 +6344,8 @@ function _amisHeartbeat() {
   });
 }
 
-function _amisAvatarEmoji(type) {
-  var m = { adult_man:"\uD83D\uDC68", adult_woman:"\uD83D\uDC69", elder_man:"\uD83D\uDC74", elder_woman:"\uD83D\uDC75", boy:"\uD83D\uDC66", girl:"\uD83D\uDC67" };
-  return m[type] || "\uD83D\uDC64";
+function _amisAvatarEmoji(type, skin) {
+  return _avatarWithSkin(type, skin);
 }
 
 function loadAmisList() {
@@ -6293,7 +6372,7 @@ function loadAmisList() {
       var dot = f.is_online ? '<span class="friend-online"></span>' : '<span class="friend-offline"></span>';
       var unread = unreadMap[f.tid] || 0;
       var unreadBadge = unread > 0 ? '<span style="background:#ef4444;color:#fff;border-radius:50%;padding:2px 7px;font-size:0.75em;margin-left:6px;">' + unread + '</span>' : '';
-      card.innerHTML = '<div class="friend-avatar">' + _amisAvatarEmoji(f.avatar_type) + '</div>' +
+      card.innerHTML = '<div class="friend-avatar">' + _amisAvatarEmoji(f.avatar_type, f.avatar_skin) + '</div>' +
         '<div class="friend-info"><div class="friend-name">' + dot + ' ' + esc(f.nickname || "Ami") + unreadBadge + '</div>' +
         '<div class="friend-level">Niveau ' + (f.level || 1) + '</div></div>' +
         '<div class="friend-actions">' +
@@ -6327,7 +6406,7 @@ function loadAmisRequests() {
     reqs.forEach(function(req) {
       var card = document.createElement("div");
       card.className = "friend-card";
-      card.innerHTML = '<div class="friend-avatar">' + _amisAvatarEmoji(req.avatar_type) + '</div>' +
+      card.innerHTML = '<div class="friend-avatar">' + _amisAvatarEmoji(req.avatar_type, req.avatar_skin) + '</div>' +
         '<div class="friend-info"><div class="friend-name">' + esc(req.nickname || "Quelqu\'un") + '</div>' +
         '<div class="friend-level">Niveau ' + (req.level || 1) + '</div></div>' +
         '<div class="friend-actions">' +
