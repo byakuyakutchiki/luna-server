@@ -315,6 +315,19 @@
       backdrop-filter:blur(16px) saturate(160%);
       box-shadow:0 4px 16px rgba(0,0,0,0.35),inset 0 1px 0 rgba(255,255,255,0.04);
     }
+    /* Matérialisation — nouvelle carte */
+    @keyframes tw-materialize {
+      0%   { opacity:0; transform:scale(0.94); }
+      100% { opacity:1; transform:scale(1.0); }
+    }
+    @keyframes tw-border-flash {
+      0%   { box-shadow:0 0 0 2px rgba(16,185,129,0.7), 0 4px 16px rgba(0,0,0,0.35); }
+      100% { box-shadow:0 0 0 0px rgba(16,185,129,0),   0 4px 16px rgba(0,0,0,0.35); }
+    }
+    .tw-obj.tw-new {
+      animation: tw-materialize 220ms cubic-bezier(0.16,1,0.3,1) forwards,
+                 tw-border-flash 450ms ease-out 220ms forwards;
+    }
     .tw-obj:hover{border-color:rgba(255,255,255,0.18);border-left-width:3px;transform:translateY(-1px);box-shadow:0 6px 20px rgba(0,0,0,0.35);}
     .tw-obj.prop    {border-left-color:var(--iris);}
     .tw-obj.source  {border-left-color:var(--iq);}
@@ -914,9 +927,9 @@
     <div id="twSessionTitle">Nouvelle session stratégique</div>
     <div class="tw-hstatus">
       <span class="tw-hstatus-dot"></span>
-      <span class="tw-hstatus-lbl">En session</span>
+      <span class="tw-hstatus-lbl" id="twStatusLbl">En attente</span>
     </div>
-    <span class="tw-hstat" id="twPStat"><strong>4</strong> participants</span>
+    <span class="tw-hstat" id="twPStat"><strong>0</strong> participants</span>
     <span class="tw-hstat" id="twSStat"><strong>0</strong> sources</span>
     <button class="tw-hbtn back" onclick="window.location.href='/'" style="margin-left:auto;">← Accueil</button>
   </header>
@@ -1134,7 +1147,7 @@
       </div>
       <div class="tw-mfield" id="setupTitleRow" style="display:none;margin-top:10px">
         <label class="tw-mlbl" for="setupSessionTitle">Titre de la session</label>
-        <input id="setupSessionTitle" class="tw-minput" type="text" placeholder="Comment rendre Luna rentable ?" maxlength="160" autocomplete="off">
+        <input id="setupSessionTitle" class="tw-minput" type="text" placeholder="Ex : Stratégie de lancement, Analyse concurrentielle…" maxlength="160" autocomplete="off">
       </div>
     </div>
     <div class="tw-mfooter">
@@ -1747,6 +1760,11 @@ function renderObjects(){
       if(!e.target.classList.contains('tw-obj-del')&&!e.target.classList.contains('tw-vote-btn'))
         toast(TLBL[obj.type]+' : '+obj.title.substring(0,55),1800);
     });
+    if (TW._lastNewId && obj.id === TW._lastNewId) {
+      d.classList.add('tw-new');
+      TW._lastNewId = null;
+      setTimeout(function(){ d.classList.remove('tw-new'); }, 700);
+    }
     grid.appendChild(d);
   });
 }
@@ -1805,6 +1823,7 @@ function confirmAddObj(){
   var newObj={id:_nid++,type:TW.selType,title:title,detail:detail,by:TW.userName||'Ludovic',ts:Date.now()};
   TW.objects.push(newObj);
   wsSend({type:'object_add',object:newObj});
+  TW._lastNewId = newObj.id;
   renderObjects();closeModal('addModal');updateStats();
   document.getElementById('objTitle').value='';
   document.getElementById('objDetail').value='';
@@ -1960,10 +1979,12 @@ function updateStats(){
   if(TW.wsConnected){
     tot=1+Object.values(_remoteParticipants).filter(function(p){return p.role!=='spectator';}).length;
   }else{
-    tot=SEATS_TOP.length+SEATS_BOT.filter(function(s){return !s.ai;}).length;
+    tot=0; /* Pas encore connecté — ne pas afficher les données de démo */
   }
   var ps=document.getElementById('twPStat');if(ps)ps.innerHTML='<strong>'+tot+'</strong> participants';
   var ss=document.getElementById('twSStat');if(ss)ss.innerHTML='<strong>'+TW.sources.length+'</strong> sources';
+  var lbl=document.getElementById('twStatusLbl');
+  if(lbl)lbl.textContent=TW.wsConnected?'En session':'En attente';
 }
 function _e(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 function _ago(ts){var d=Math.floor((Date.now()-ts)/60000);if(d<1)return'à l\'instant';if(d<60)return d+'min';if(d<1440)return Math.floor(d/60)+'h';return Math.floor(d/1440)+'j';}
@@ -3781,7 +3802,16 @@ window.addEventListener('DOMContentLoaded',function(){
   var sn=document.getElementById('setupName');if(sn&&TW.userName)sn.value=TW.userName;
   /* Setup modal si pas de nom, sinon auto-join */
   if(!TW.userName){
+    /* Solo : pré-sélectionner Owner, masquer le sélecteur de rôle, focus prénom */
+    var roleRow = document.querySelector('#setupModal .tw-type-row');
+    var roleLabel = document.querySelector('#setupModal .tw-mlbl + .tw-mlbl, #setupModal .tw-mfield:nth-child(2) .tw-mlbl');
+    if (roleRow) roleRow.parentElement.style.display = 'none';
+    setRole('owner');
     openModal('setupModal');
+    setTimeout(function(){ var sn=document.getElementById('setupName'); if(sn) sn.focus(); }, 200);
+    /* Soumission au Enter */
+    var sn2=document.getElementById('setupName');
+    if(sn2) sn2.addEventListener('keydown', function(e){ if(e.key==='Enter'){ e.preventDefault(); joinRoom(); } });
   }else{
     initRoom();
   }

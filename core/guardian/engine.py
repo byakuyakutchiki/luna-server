@@ -119,6 +119,10 @@ class GuardianSession:
     verification_sent_at: Optional[str] = None
     last_alert_at: Optional[str] = None
     alerts_sent: int = 0
+    # P0-07: Grace period — silence 2h après "tout va bien"
+    grace_period_until: Optional[str] = None
+    # P0-05: Fenêtre 24h pour le compteur d'alertes
+    alerts_window_start: Optional[str] = None
 
 
 # ─────────────────────────────────────────────
@@ -134,12 +138,16 @@ class GuardianEngine:
     # Seuils de mouvement : déplacement > MOVE_THRESHOLD considéré comme "en mouvement"
     MOVE_THRESHOLD_M = 10.0
 
-    # Anti-spam alertes : délai minimum entre deux alertes
-    ALERT_COOLDOWN_SEC = 300  # 5 min
+    # P0-06: Backoff progressif entre alertes (30 → 60 → 120 min)
+    ALERT_BACKOFF_SEC = [1800, 3600, 7200]
 
-    def __init__(self, redis_client, openai_client=None):
+    # P0-05: Limite d'alertes SMS par fenêtre de 24h
+    MAX_ALERTS_PER_24H = 3
+
+    def __init__(self, redis_client, openai_client=None, sms_send_fn=None):
         self.rc = redis_client            # RedisClient sync (luna_web._redis_client)
         self.llm = openai_client          # openai.OpenAI sync, optionnel
+        self.sms_send_fn = sms_send_fn    # P0-04: callable(to, body, label) pour SMS annulation
         self._sessions: Dict[str, GuardianSession] = {}  # cache mémoire
         self._ws_connections: Dict[str, List] = {}       # session_id → [websockets]
 
@@ -261,22 +269,47 @@ class GuardianEngine:
     def register_verification_response(self, session_id: str, ok: bool) -> str:
         """
         Enregistre la réponse de l'utilisateur à la vérification vocale.
-        ok=True → tout va bien, annule l'alerte
+        ok=True → tout va bien, annule l'alerte + grace period 2h + SMS annulation
         ok=False → confirme l'alerte
         """
         session = self.get_session(session_id)
         if not session:
             return "Session introuvable"
+        now = datetime.utcnow()
         if ok:
             session.alert_pending = False
             session.alert_level = AlertLevel.LOW
             session.verification_sent_at = None
+            # P0-07: Grace period 2h — Guardian reste silencieux après confirmation
+            session.grace_period_until = (now + timedelta(hours=2)).isoformat()
             self._log_event(session_id, GuardianEvent(
                 event_type="verified_ok",
-                description="Utilisateur a confirmé qu'il va bien",
+                description="Utilisateur a confirmé qu'il va bien — grace period 2h activée",
                 lat=session.last_position.lat if session.last_position else None,
                 lng=session.last_position.lng if session.last_position else None,
             ))
+            # P0-04: SMS d'annulation si une alerte avait été envoyée aux contacts
+            if session.alerts_sent > 0 and self.sms_send_fn:
+                try:
+                    from .alerts import build_sms_cancellation
+                    confirmed_at = now.strftime("%H:%M")
+                    person_name = session.config.get("person_name") or "La personne surveillée"
+                    contacts = session.config.get("emergency_contacts", [])
+                    if contacts:
+                        cancel_msg = build_sms_cancellation(person_name, confirmed_at)
+                        for contact in contacts:
+                            phone = contact.get("phone", "")
+                            if phone:
+                                try:
+                                    self.sms_send_fn(phone, cancel_msg, label="Annulation alerte Guardian")
+                                except Exception as e:
+                                    logger.warning(f"Guardian: SMS annulation échec → {phone}: {e}")
+                        logger.info(
+                            f"Guardian: SMS d'annulation envoyé à {len(contacts)} contact(s) "
+                            f"(session {session_id})"
+                        )
+                except Exception as e:
+                    logger.error(f"Guardian: erreur build SMS annulation: {e}")
             self._persist_session(session)
             return "OK — alerte annulée"
         else:
@@ -425,10 +458,23 @@ class GuardianEngine:
         signals: Dict[str, float] = {}
         profile = session.profile_type
 
-        # Signal 1 : Immobilité
+        # P0-01: Mode Nuit — suspendre immobilité entre 23h et 7h si en safe zone
+        hour = now.hour
+        night_hours = (hour >= 23 or hour < 7)
+        night_mode_active = (
+            session.config.get("night_mode", False)
+            and night_hours
+            and session.in_safe_zone
+        )
+
+        # Pré-calcul immobilité (partagé par Signal 1 et Signal 5)
+        threshold = session.config.get("immobility_threshold_minutes", 30)
+        immobile_min = 0.0
         if session.is_immobile and session.immobile_since:
             immobile_min = (now - datetime.fromisoformat(session.immobile_since)).total_seconds() / 60
-            threshold = session.config.get("immobility_threshold_minutes", 30)
+
+        # Signal 1 : Immobilité (suspendu si mode nuit actif — dormir ne déclenche jamais d'alerte)
+        if not night_mode_active and session.is_immobile and session.immobile_since:
             # Score proportionnel jusqu'à 2x le seuil
             signals["immobility"] = min(0.8, 0.4 + 0.4 * (immobile_min - threshold) / max(threshold, 1))
 
@@ -436,8 +482,7 @@ class GuardianEngine:
         if not session.in_safe_zone and session.config.get("safe_zones"):
             signals["geofence_exit"] = 0.6 if profile != ProfileType.HOME else 0.8
 
-        # Signal 3 : Nuit + hors zone (entre 22h et 6h)
-        hour = now.hour
+        # Signal 3 : Nuit + hors zone (entre 22h et 6h) — maintenu même en mode nuit (sortie = anormal)
         if (hour >= 22 or hour < 6) and not session.in_safe_zone:
             signals["night_anomaly"] = 0.5
 
@@ -446,10 +491,8 @@ class GuardianEngine:
             if pos.speed > 5.0:  # > 18 km/h à pied = chute/impact
                 signals["speed_anomaly"] = 0.7
 
-        # Signal 5 : Inactivité longue (> 2x threshold)
-        if session.is_immobile and session.immobile_since:
-            immobile_min = (now - datetime.fromisoformat(session.immobile_since)).total_seconds() / 60
-            threshold = session.config.get("immobility_threshold_minutes", 30)
+        # Signal 5 : Inactivité longue (> 2x threshold) — suspendu si mode nuit actif
+        if not night_mode_active and session.is_immobile and session.immobile_since:
             if immobile_min > threshold * 2:
                 signals["prolonged_immobility"] = 0.85
 
@@ -468,20 +511,31 @@ class GuardianEngine:
 
     def _handle_risk(self, session: GuardianSession, risk: RiskScore,
                      pos: GeoPoint, now: datetime) -> List[GuardianEvent]:
-        """Déclenche vérification ou alerte selon le niveau de risque."""
+        """Déclenche vérification ou alerte selon le niveau de risque (Policy V2)."""
         events = []
 
         if risk.level == AlertLevel.LOW:
             return events
 
-        # Anti-spam
-        if session.last_alert_at:
-            elapsed = (now - datetime.fromisoformat(session.last_alert_at)).total_seconds()
-            if elapsed < self.ALERT_COOLDOWN_SEC:
-                return events
+        # P0-07: Grace period — 2h de silence après "tout va bien" (sauf SOS)
+        if risk.level != AlertLevel.CRITICAL and session.grace_period_until:
+            try:
+                if now < datetime.fromisoformat(session.grace_period_until):
+                    return events
+            except ValueError:
+                session.grace_period_until = None  # ISO invalide → reset
 
-        if risk.level == AlertLevel.MEDIUM and not session.alert_pending:
-            # Vérification vocale
+        # P0-06: Anti-spam progressif — backoff 30→60→120 min entre alertes
+        # (bloque uniquement les nouvelles alertes, pas les escalades de vérification)
+        in_backoff = False
+        if session.last_alert_at and session.alerts_sent > 0:
+            elapsed_since_alert = (now - datetime.fromisoformat(session.last_alert_at)).total_seconds()
+            backoff = self.ALERT_BACKOFF_SEC[min(session.alerts_sent - 1, len(self.ALERT_BACKOFF_SEC) - 1)]
+            if elapsed_since_alert < backoff:
+                in_backoff = True
+
+        # Chemin 1 : Nouvelle vérification vocale (Niveau 2)
+        if risk.level == AlertLevel.MEDIUM and not session.alert_pending and not in_backoff:
             session.alert_pending = True
             session.verification_sent_at = now.isoformat()
             session.alert_level = AlertLevel.MEDIUM
@@ -498,14 +552,34 @@ class GuardianEngine:
                 "risk": risk.total,
             })
 
-        elif risk.level in (AlertLevel.HIGH, AlertLevel.CRITICAL):
-            # Alerte directe
+        # Chemin 2 : Alerte directe HIGH/CRITICAL (Niveau 4)
+        elif risk.level in (AlertLevel.HIGH, AlertLevel.CRITICAL) and not in_backoff:
+            # P0-05: Limite 3 alertes/24h (SOS bypass)
+            if risk.level != AlertLevel.CRITICAL:
+                if session.alerts_window_start:
+                    w_elapsed = (now - datetime.fromisoformat(session.alerts_window_start)).total_seconds()
+                    if w_elapsed >= 86400:
+                        # Nouveau cycle 24h — réinitialiser le compteur
+                        session.alerts_sent = 0
+                        session.alerts_window_start = None
+                    elif session.alerts_sent >= self.MAX_ALERTS_PER_24H:
+                        logger.info(
+                            f"Guardian: plafond {self.MAX_ALERTS_PER_24H} alertes/24h atteint "
+                            f"— session {session.session_id}"
+                        )
+                        return events
+
             session.alert_pending = False
             session.last_alert_at = now.isoformat()
+            if session.alerts_window_start is None:
+                session.alerts_window_start = now.isoformat()
             session.alerts_sent += 1
             session.alert_level = risk.level
-            location_url = f"https://maps.google.com/?q={pos.lat},{pos.lng}" if pos else None
-
+            # P1-04: Coordonnées arrondies à ±100m dans l'URL Maps
+            location_url = (
+                f"https://maps.google.com/?q={round(pos.lat, 3)},{round(pos.lng, 3)}"
+                if pos else None
+            )
             event = GuardianEvent(
                 event_type="alert_triggered",
                 description=f"🔔 Alerte {risk.level.value} — {risk.description}",
@@ -523,25 +597,43 @@ class GuardianEngine:
                 "data": event.to_dict(),
                 "location_url": location_url,
             })
-            logger.warning(f"Guardian ALERT [{risk.level.value}] session={session.session_id} score={risk.total:.2f}")
+            logger.warning(
+                f"Guardian ALERT [{risk.level.value}] session={session.session_id} "
+                f"score={risk.total:.2f} (alerte #{session.alerts_sent}/24h)"
+            )
 
-        # Vérification en attente depuis > 2 min → escalade
+        # Chemin 3 : Escalade si vérification sans réponse (non bloquée par backoff)
+        # P0-03: Timeout 10 min (Policy V2) au lieu de 2 min
         if (session.alert_pending and session.verification_sent_at and
                 risk.level >= AlertLevel.MEDIUM):
             elapsed = (now - datetime.fromisoformat(session.verification_sent_at)).total_seconds()
-            if elapsed > 120:  # 2 min sans réponse
-                session.alert_pending = False
-                session.last_alert_at = now.isoformat()
-                session.alert_level = AlertLevel.HIGH
-                location_url = f"https://maps.google.com/?q={pos.lat},{pos.lng}" if pos else None
-                esc_event = GuardianEvent(
-                    event_type="alert_escalated",
-                    description="⚠️ Pas de réponse à la vérification — alerte escaladée",
-                    lat=pos.lat, lng=pos.lng,
-                    risk_score=0.8,
-                    metadata={"location_url": location_url, "no_response_seconds": int(elapsed)},
-                )
-                events.append(esc_event)
+            if elapsed > 600:  # 10 min sans réponse — Policy V2 §Niveau 2
+                # Vérifier le plafond avant d'escalader (sauf SOS)
+                can_escalate = True
+                if session.alerts_window_start:
+                    w_elapsed = (now - datetime.fromisoformat(session.alerts_window_start)).total_seconds()
+                    if w_elapsed < 86400 and session.alerts_sent >= self.MAX_ALERTS_PER_24H:
+                        can_escalate = False
+
+                if can_escalate:
+                    session.alert_pending = False
+                    session.last_alert_at = now.isoformat()
+                    if session.alerts_window_start is None:
+                        session.alerts_window_start = now.isoformat()
+                    session.alerts_sent += 1
+                    session.alert_level = AlertLevel.HIGH
+                    location_url = (
+                        f"https://maps.google.com/?q={round(pos.lat, 3)},{round(pos.lng, 3)}"
+                        if pos else None
+                    )
+                    esc_event = GuardianEvent(
+                        event_type="alert_escalated",
+                        description="⚠️ Pas de réponse à la vérification — alerte escaladée",
+                        lat=pos.lat, lng=pos.lng,
+                        risk_score=0.8,
+                        metadata={"location_url": location_url, "no_response_seconds": int(elapsed)},
+                    )
+                    events.append(esc_event)
 
         return events
 
@@ -577,6 +669,10 @@ class GuardianEngine:
             data["verification_sent_at"] = session.verification_sent_at
         if session.last_alert_at:
             data["last_alert_at"] = session.last_alert_at
+        if session.grace_period_until:
+            data["grace_period_until"] = session.grace_period_until
+        if session.alerts_window_start:
+            data["alerts_window_start"] = session.alerts_window_start
 
         try:
             self.rc.client.hset(key, mapping=data)
@@ -626,6 +722,8 @@ class GuardianEngine:
                 verification_sent_at=data.get("verification_sent_at") or None,
                 last_alert_at=data.get("last_alert_at") or None,
                 alerts_sent=int(data.get("alerts_sent", 0)),
+                grace_period_until=data.get("grace_period_until") or None,
+                alerts_window_start=data.get("alerts_window_start") or None,
             )
             self._sessions[session_id] = session
             return session
@@ -687,7 +785,8 @@ def _default_config(profile: ProfileType) -> dict:
             "emergency_contacts": [],
         },
         ProfileType.BABY: {
-            "immobility_threshold_minutes": 5,
+            "immobility_threshold_minutes": 120,  # P0-02: sieste normale — aligné sur profiles.py
+            "night_mode": True,                   # P0-01: silence nocturne
             "safe_zones": [],
             "night_monitoring": True,
             "verification_enabled": False,

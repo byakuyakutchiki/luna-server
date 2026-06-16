@@ -9728,7 +9728,7 @@ async def iris_session_invite(session_id: str, request: Request):
     _iris_session_manager.add_participant(session_id, participant)
     invite_token = _iris_session_manager.create_invite(session_id, pid)
     base_url = os.getenv("VOICE_CALLBACK_URL", "")
-    invite_link = f"{base_url}/join/{invite_token}"
+    invite_link = f"{base_url}/iris/join/{invite_token}"
     return JSONResponse({"ok": True, "invite_link": invite_link, "participant": participant})
 
 
@@ -9809,7 +9809,7 @@ async def iris_session_reject(session_id: str, action_id: str, request: Request)
     return JSONResponse({"ok": True, "action": action})
 
 
-@app.get("/join/{invite_token}")
+@app.get("/iris/join/{invite_token}")
 async def iris_join_page(invite_token: str):
     """Page d'accueil pour les invités — valide le token et retourne la page de connexion."""
     if not _iris_session_manager:
@@ -14332,6 +14332,7 @@ def _get_guardian() -> Optional["GuardianEngine"]:
         _guardian_engine = GuardianEngine(
             redis_client=_redis_client,
             openai_client=openai_client,
+            sms_send_fn=_tracked_sms_send,
         )
     return _guardian_engine
 
@@ -14411,6 +14412,8 @@ async def guardian_status(session_id: str, request: Request):
         "alert_level": session.alert_level.value,
         "alert_pending": session.alert_pending,
         "alerts_sent": session.alerts_sent,
+        "grace_period_until": session.grace_period_until,
+        "alerts_window_start": session.alerts_window_start,
         "last_position": {"lat": pos.lat, "lng": pos.lng, "ts": pos.timestamp} if pos else None,
     }
 
@@ -14435,8 +14438,10 @@ async def guardian_location(session_id: str, request: Request):
 
     risk, events = engine.process_location(session_id, lat, lng, accuracy, speed)
 
-    # Déclencher alertes SMS si niveau HIGH ou CRITICAL
-    if risk.level.value in ("high", "critical"):
+    # Déclencher alertes SMS uniquement si l'engine a généré un event d'alerte
+    # (respecte le backoff P0-06, la grace period P0-07 et le plafond P0-05)
+    alert_events = [e for e in events if e.event_type in ("alert_triggered", "alert_escalated")]
+    if alert_events:
         session = engine.get_session(session_id)
         if session:
             tid = getattr(request.state, "tenant_id", 1)
@@ -14456,7 +14461,7 @@ async def guardian_location(session_id: str, request: Request):
                 try:
                     sub = mgr.get_subscriber_profile() if mgr else None
                     person_name = sub.name if sub and hasattr(sub, "name") else "Utilisateur"
-                    desc = risk.description
+                    desc = alert_events[0].description or risk.description
                     send_guardian_alerts(
                         sms_send_fn=_tracked_sms_send,
                         contacts=all_contacts,
@@ -19957,13 +19962,32 @@ async def create_room(request: Request):
                     "url": f"/salon?room={room_id}&phone={phone}&token={token}",
                 }
 
+    # Friend invite link (cross-tenant) — shared via copy/paste, no SMS needed
+    friend_invite_url = f"/salon?room={room_id}&host_tid={tid}"
+
     return {
         "success": True,
         "room_id": room_id,
         "name": name,
         "type": room_type,
         "invite_links": invite_links,
+        "friend_invite_url": friend_invite_url,
     }
+
+
+@app.get("/api/rooms/member-token")
+async def get_member_token(request: Request):
+    """Génère un token d'accès pour un membre famille (souscripteur only)."""
+    payload = _decode_client_token(request.headers.get("Authorization", "").replace("Bearer ", ""))
+    if not payload:
+        return JSONResponse(status_code=401, content={"error": "Token invalide ou manquant"})
+    tid = payload.get("tenant_id", TENANT_ID)
+    phone = request.query_params.get("phone", "")
+    if not phone:
+        return JSONResponse(status_code=400, content={"error": "phone requis"})
+    secret = _JWT_SECRET
+    token = generate_member_token(phone, tid, secret)
+    return {"phone": phone, "token": token}
 
 
 @app.get("/api/rooms/{room_id}")
@@ -20015,22 +20039,23 @@ async def get_room(room_id: str, request: Request):
 
 @app.post("/api/rooms/{room_id}/join")
 async def join_room(room_id: str, request: Request):
-    """Rejoindre un salon."""
+    """Rejoindre un salon. host_tid permet de rejoindre le salon d'un ami (cross-tenant)."""
     rops = _get_room_ops()
     if not rops:
         return JSONResponse(status_code=503, content={"error": "Service temporairement indisponible"})
     tid = getattr(request.state, "tenant_id", TENANT_ID)
     data = await request.json()
     phone = data.get("phone", "")
+    host_tid = int(data.get("host_tid", 0)) or tid
 
-    room = rops.get_room(tid, room_id)
+    room = rops.get_room(host_tid, room_id)
     if not room:
         return JSONResponse(status_code=404, content={"error": "Salon introuvable"})
 
-    if not rops.join_room(tid, room_id, phone):
+    if not rops.join_room(host_tid, room_id, phone):
         return JSONResponse(status_code=400, content={"error": "Salon plein"})
 
-    return {"success": True, "room_id": room_id}
+    return {"success": True, "room_id": room_id, "host_tid": host_tid}
 
 
 @app.delete("/api/rooms/{room_id}")
@@ -20100,18 +20125,6 @@ async def invite_to_room(room_id: str, request: Request):
         return JSONResponse(status_code=500, content={"error": "Echec de l'envoi du SMS"})
 
 
-@app.get("/api/rooms/member-token")
-async def get_member_token(request: Request):
-    """Génère un token d'accès pour un membre famille (souscripteur only)."""
-    tid = getattr(request.state, "tenant_id", TENANT_ID)
-    phone = request.query_params.get("phone", "")
-    if not phone:
-        return JSONResponse(status_code=400, content={"error": "phone requis"})
-    secret = _JWT_SECRET
-    token = generate_member_token(phone, tid, secret)
-    return {"phone": phone, "token": token}
-
-
 @app.websocket("/api/rooms/{room_id}/ws")
 async def room_websocket(websocket: WebSocket, room_id: str):
     """WebSocket temps réel pour un salon famille."""
@@ -20128,6 +20141,9 @@ async def room_websocket(websocket: WebSocket, room_id: str):
     # Auth: get phone + token from query params
     phone = websocket.query_params.get("phone", "")
     token = websocket.query_params.get("token", "")
+    # host_tid allows cross-tenant friend rooms
+    _host_tid_param = websocket.query_params.get("host_tid", "")
+    host_tid = int(_host_tid_param) if _host_tid_param and _host_tid_param.isdigit() else None
 
     # Detect token type: JWT (contains dots) vs HMAC member token
     jwt_payload = None
@@ -20155,8 +20171,9 @@ async def room_websocket(websocket: WebSocket, room_id: str):
         if not phone:
             phone = "subscriber"
 
-    # Verify room exists
-    room = rops.get_room(tid, room_id)
+    # Verify room exists — use host_tid for cross-tenant friend rooms
+    room_tid = host_tid if host_tid else tid
+    room = rops.get_room(room_tid, room_id)
     if not room:
         await websocket.close(code=4004, reason="Salon introuvable")
         return
@@ -20174,11 +20191,11 @@ async def room_websocket(websocket: WebSocket, room_id: str):
         name = _get_member_name(tid, phone) if phone != "subscriber" else "Hôte"
 
     # Join
-    rops.join_room(tid, room_id, phone)
+    rops.join_room(room_tid, room_id, phone)
     await room_manager.connect(room_id, phone, websocket)
 
     # Announce join
-    count = rops.count_participants(tid, room_id)
+    count = rops.count_participants(room_tid, room_id)
     await room_manager.broadcast(room_id, {
         "type": "join", "name": name, "phone": phone, "count": count,
     }, exclude_phone=phone)
@@ -20195,13 +20212,13 @@ async def room_websocket(websocket: WebSocket, room_id: str):
                 continue
 
             # Refresh room data for each message
-            current_room = rops.get_room(tid, room_id)
+            current_room = rops.get_room(room_tid, room_id)
             if not current_room:
                 await websocket.close(code=4004, reason="Salon fermé")
                 break
 
             events = await room_manager.handle_message(
-                room_id, phone, name, data, rops, tid, current_room
+                room_id, phone, name, data, rops, room_tid, current_room
             )
             for ev in events:
                 _gamify(tid, ev)
@@ -20210,9 +20227,9 @@ async def room_websocket(websocket: WebSocket, room_id: str):
     except Exception as e:
         logger.warning(f"Room WS error: {e}")
     finally:
-        rops.leave_room(tid, room_id, phone)
+        rops.leave_room(room_tid, room_id, phone)
         await room_manager.disconnect(room_id, phone)
-        count = rops.count_participants(tid, room_id)
+        count = rops.count_participants(room_tid, room_id)
         await room_manager.broadcast(room_id, {
             "type": "leave", "name": name, "phone": phone, "count": count,
         })
@@ -23577,3 +23594,4 @@ if __name__ == "__main__":
         port=port,
         **ssl_kwargs,
     )
+

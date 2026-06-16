@@ -182,7 +182,9 @@ class IrisSessionManager:
         return token
 
     def consume_invite(self, token: str) -> Optional[dict]:
-        raw = self._r.get(self._ik(token))
+        key = self._ik(token)
+        raw = self._r.get(key)
         if not raw:
             return None
+        self._r.delete(key)  # usage unique — supprimé après consommation
         return json.loads(raw)

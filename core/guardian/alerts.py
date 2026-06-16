@@ -66,6 +66,16 @@ def build_sms_alert(
     return (f"{level_emoji} Luna Guardian\n{body}{footer}")[:320]
 
 
+def build_sms_cancellation(person_name: str, confirmed_at: str) -> str:
+    """SMS d'annulation — envoyé aux contacts après confirmation 'tout va bien' (Policy V2 §6.2)."""
+    return (
+        f"✅ Luna Guardian\n"
+        f"Fausse alerte confirmée. {person_name or 'La personne surveillée'} a confirmé "
+        f"qu'il/elle allait bien à {confirmed_at}.\n"
+        f"Aucune intervention nécessaire. Merci."
+    )[:320]
+
+
 def send_guardian_alerts(
     sms_send_fn,              # callable(to, body, label) → (bool, details)
     contacts: List[Dict],     # [{"phone": "+33...", "name": "..."}]
