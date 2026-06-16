@@ -14332,6 +14332,7 @@ def _get_guardian() -> Optional["GuardianEngine"]:
         _guardian_engine = GuardianEngine(
             redis_client=_redis_client,
             openai_client=openai_client,
+            sms_send_fn=_tracked_sms_send,
         )
     return _guardian_engine
 
@@ -14411,6 +14412,8 @@ async def guardian_status(session_id: str, request: Request):
         "alert_level": session.alert_level.value,
         "alert_pending": session.alert_pending,
         "alerts_sent": session.alerts_sent,
+        "grace_period_until": session.grace_period_until,
+        "alerts_window_start": session.alerts_window_start,
         "last_position": {"lat": pos.lat, "lng": pos.lng, "ts": pos.timestamp} if pos else None,
     }
 
@@ -14435,8 +14438,10 @@ async def guardian_location(session_id: str, request: Request):
 
     risk, events = engine.process_location(session_id, lat, lng, accuracy, speed)
 
-    # Déclencher alertes SMS si niveau HIGH ou CRITICAL
-    if risk.level.value in ("high", "critical"):
+    # Déclencher alertes SMS uniquement si l'engine a généré un event d'alerte
+    # (respecte le backoff P0-06, la grace period P0-07 et le plafond P0-05)
+    alert_events = [e for e in events if e.event_type in ("alert_triggered", "alert_escalated")]
+    if alert_events:
         session = engine.get_session(session_id)
         if session:
             tid = getattr(request.state, "tenant_id", 1)
@@ -14456,7 +14461,7 @@ async def guardian_location(session_id: str, request: Request):
                 try:
                     sub = mgr.get_subscriber_profile() if mgr else None
                     person_name = sub.name if sub and hasattr(sub, "name") else "Utilisateur"
-                    desc = risk.description
+                    desc = alert_events[0].description or risk.description
                     send_guardian_alerts(
                         sms_send_fn=_tracked_sms_send,
                         contacts=all_contacts,
