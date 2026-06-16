@@ -10818,6 +10818,16 @@ async def social_remove_extern_friend(phone: str, request: Request):
 # =========================================================================
 _dm_subscribers: Dict[str, set] = {}  # room_id -> set of (tid, websocket)
 
+
+async def _guardian_dm_broadcast(room_id: str, msg: dict):
+    """Broadcast un message guardian DM aux WS ouverts sur cette room."""
+    payload = json.dumps({"type": "message", "message": msg})
+    for sub_tid, sub_ws in list(_dm_subscribers.get(room_id, set())):
+        try:
+            await sub_ws.send_text(payload)
+        except Exception:
+            _dm_subscribers.get(room_id, set()).discard((sub_tid, sub_ws))
+
 @app.websocket("/ws/dm/{room_id}")
 async def ws_dm(websocket: WebSocket, room_id: str):
     """WebSocket temps reel pour les DMs. Remplace le polling 5s."""
@@ -13061,8 +13071,14 @@ async def update_settings(request: Request):
         return JSONResponse(status_code=400, content={"error": "JSON invalide"})
     if not isinstance(body, dict):
         return JSONResponse(status_code=400, content={"error": "JSON invalide"})
-    allowed = {"dark_mode", "font_size", "language", "notification_sound"}
-    updates = {k: str(v) for k, v in body.items() if k in allowed}
+    allowed = {"dark_mode", "font_size", "language", "notification_sound", "guardian_alert_channel"}
+    updates = {}
+    for k, v in body.items():
+        if k not in allowed:
+            continue
+        if k == "guardian_alert_channel" and str(v) not in ("sms", "luna", "both"):
+            continue
+        updates[k] = str(v)
     if updates:
         key = _redis_client._key(tid, "settings")
         _redis_client.client.hset(key, mapping=updates)
@@ -14438,7 +14454,7 @@ async def guardian_location(session_id: str, request: Request):
 
     risk, events = engine.process_location(session_id, lat, lng, accuracy, speed)
 
-    # Déclencher alertes SMS uniquement si l'engine a généré un event d'alerte
+    # Déclencher alertes si l'engine a généré un event d'alerte
     # (respecte le backoff P0-06, la grace period P0-07 et le plafond P0-05)
     alert_events = [e for e in events if e.event_type in ("alert_triggered", "alert_escalated")]
     if alert_events:
@@ -14457,11 +14473,19 @@ async def guardian_location(session_id: str, request: Request):
             session_contacts = session.config.get("emergency_contacts", [])
             all_contacts = session_contacts or contacts
 
-            if all_contacts and sms_client:
+            sub = mgr.get_subscriber_profile() if mgr else None
+            person_name = sub.name if sub and hasattr(sub, "name") else "Utilisateur"
+            desc = alert_events[0].description or risk.description
+
+            # Lire le canal d'alerte choisi par l'utilisateur
+            _alert_channel = "sms"
+            if _redis_client:
+                _s = _redis_client.client.hget(_redis_client._key(tid, "settings"), "guardian_alert_channel")
+                if _s and _s in ("luna", "both"):
+                    _alert_channel = _s
+
+            if _alert_channel in ("sms", "both") and all_contacts and sms_client:
                 try:
-                    sub = mgr.get_subscriber_profile() if mgr else None
-                    person_name = sub.name if sub and hasattr(sub, "name") else "Utilisateur"
-                    desc = alert_events[0].description or risk.description
                     send_guardian_alerts(
                         sms_send_fn=_tracked_sms_send,
                         contacts=all_contacts,
@@ -14474,6 +14498,24 @@ async def guardian_location(session_id: str, request: Request):
                     logger.warning(f"Guardian SMS alerts sent for session {session_id}")
                 except Exception as e:
                     logger.error(f"Guardian alert SMS failed: {e}")
+
+            if _alert_channel in ("luna", "both") and _redis_client:
+                try:
+                    from core.guardian.alerts import send_guardian_dm_alerts
+                    from core.social.redis_ops import SocialRedisOps
+                    _sops = SocialRedisOps(_redis_client)
+                    await send_guardian_dm_alerts(
+                        sops=_sops,
+                        sender_tid=tid,
+                        person_name=person_name,
+                        description=desc,
+                        lat=lat, lng=lng,
+                        alert_level=risk.level.value,
+                        ws_push_fn=_guardian_dm_broadcast,
+                    )
+                    logger.warning(f"Guardian DM alerts sent for session {session_id}")
+                except Exception as e:
+                    logger.error(f"Guardian DM alert failed: {e}")
 
     return {
         "risk_score": risk.total,
@@ -14495,7 +14537,7 @@ async def guardian_sos(session_id: str, request: Request):
     except ValueError as e:
         return JSONResponse(status_code=404, content={"error": str(e)})
 
-    # SMS immédiat aux contacts de confiance
+    # Alertes immédiates aux contacts de confiance (SOS toujours sur les deux canaux)
     session = engine.get_session(session_id)
     tid = getattr(request.state, "tenant_id", 1)
     mgr = _get_tenant_manager(tid)
@@ -14509,12 +14551,20 @@ async def guardian_sos(session_id: str, request: Request):
         except Exception:
             pass
 
+    pos = session.last_position if session else None
+    sub = mgr.get_subscriber_profile() if mgr else None
+    person_name = sub.name if sub and hasattr(sub, "name") else "Utilisateur"
+
+    # Lire le canal d'alerte
+    _alert_channel = "sms"
+    if _redis_client:
+        _s = _redis_client.client.hget(_redis_client._key(tid, "settings"), "guardian_alert_channel")
+        if _s and _s in ("luna", "both"):
+            _alert_channel = _s
+
     sms_results = {"sent": [], "failed": []}
-    if contacts and sms_client:
+    if _alert_channel in ("sms", "both") and contacts and sms_client:
         try:
-            pos = session.last_position if session else None
-            sub = mgr.get_subscriber_profile() if mgr else None
-            person_name = sub.name if sub and hasattr(sub, "name") else "Utilisateur"
             sms_results = send_guardian_alerts(
                 sms_send_fn=_tracked_sms_send,
                 contacts=contacts,
@@ -14528,12 +14578,32 @@ async def guardian_sos(session_id: str, request: Request):
         except Exception as e:
             logger.error(f"SOS SMS failed: {e}")
 
+    dm_results = {"sent": []}
+    if _alert_channel in ("luna", "both") and _redis_client:
+        try:
+            from core.guardian.alerts import send_guardian_dm_alerts
+            from core.social.redis_ops import SocialRedisOps
+            _sops = SocialRedisOps(_redis_client)
+            dm_results = await send_guardian_dm_alerts(
+                sops=_sops,
+                sender_tid=tid,
+                person_name=person_name,
+                description="🆘 Bouton SOS activé",
+                lat=pos.lat if pos else None,
+                lng=pos.lng if pos else None,
+                alert_level="critical",
+                ws_push_fn=_guardian_dm_broadcast,
+            )
+        except Exception as e:
+            logger.error(f"SOS DM failed: {e}")
+
+    total_sent = len(sms_results.get("sent", [])) + len(dm_results.get("sent", []))
     _gamify(tid, "guardian_sos")
     return {
         "success": True,
         "event": event.to_dict(),
-        "alerts_sent_to": len(sms_results.get("sent", [])),
-        "message": f"SOS envoyé à {len(sms_results.get('sent', []))} contact(s)",
+        "alerts_sent_to": total_sent,
+        "message": f"SOS envoyé à {total_sent} contact(s)",
     }
 
 

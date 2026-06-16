@@ -76,6 +76,54 @@ def build_sms_cancellation(person_name: str, confirmed_at: str) -> str:
     )[:320]
 
 
+async def send_guardian_dm_alerts(
+    sops,
+    sender_tid: int,
+    person_name: str,
+    description: str,
+    lat: Optional[float],
+    lng: Optional[float],
+    alert_level: str,
+    ws_push_fn=None,
+) -> Dict:
+    """Envoie une alerte Guardian en DM Luna à tous les amis de la plateforme."""
+    friends = sops.get_friends(sender_tid)
+    if not friends:
+        return {"sent": [], "failed": [], "total_friends": 0}
+
+    maps_link = f"https://maps.google.com/?q={lat},{lng}" if lat and lng else None
+    level_emoji = "🆘" if alert_level == "critical" else "⚠️"
+    msg_text = f"{level_emoji} ALERTE GUARDIAN — {person_name or 'Ton contact'} a besoin d'aide !"
+    if description:
+        msg_text += f"\n{description}"
+    if maps_link:
+        msg_text += f"\n📍 {maps_link}"
+    msg_text += "\nContacte-le/la ou appelle le 15/112 si urgence."
+    msg_text = msg_text[:500]
+
+    results: Dict = {"sent": [], "failed": [], "total_friends": len(friends)}
+    for f_tid in friends:
+        try:
+            room_id = sops.create_dm_room(sender_tid, int(f_tid))
+            if not room_id:
+                results["failed"].append({"tid": f_tid, "error": "not friends or blocked"})
+                continue
+            msg = sops.add_dm_message(room_id, sender_tid, msg_text)
+            msg["sender_tid"] = msg.get("sender", "")
+            results["sent"].append({"tid": f_tid, "room_id": room_id})
+            if ws_push_fn:
+                try:
+                    await ws_push_fn(room_id, msg)
+                except Exception:
+                    pass
+        except Exception as e:
+            results["failed"].append({"tid": f_tid, "error": str(e)})
+            logger.warning(f"Guardian DM alert failed for friend {f_tid}: {e}")
+
+    logger.info(f"Guardian DM alerts: {len(results['sent'])} sent, {len(results['failed'])} failed")
+    return results
+
+
 def send_guardian_alerts(
     sms_send_fn,              # callable(to, body, label) → (bool, details)
     contacts: List[Dict],     # [{"phone": "+33...", "name": "..."}]

@@ -1999,6 +1999,17 @@ body.mode-secretaire .luna::before {
       <div id="guardianZoneStatus" style="font-size:0.78em;color:#9ca3af;margin-top:3px;"></div>
     </div>
 
+    <!-- Canal d'alerte -->
+    <div style="margin-bottom:12px;">
+      <label style="font-size:0.82em;color:#9ca3af;display:block;margin-bottom:4px;">Canal d'alerte Guardian</label>
+      <select id="guardianAlertChannel" class="form-control" style="width:100%;" onchange="guardianSaveChannel(this.value)">
+        <option value="sms">📱 SMS uniquement</option>
+        <option value="luna">💬 Message Luna (amis sur la plateforme)</option>
+        <option value="both">📱💬 SMS + Message Luna</option>
+      </select>
+      <div style="font-size:0.75em;color:#6b7280;margin-top:3px;">En mode "Message Luna", tes amis sur la plateforme reçoivent une alerte dans leur chat directement.</div>
+    </div>
+
     <!-- Boutons start/stop + SOS -->
     <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;">
       <button id="guardianStartBtn" class="btn btn-primary" onclick="guardianStart()" style="flex:1;min-width:120px;">▶ Démarrer</button>
@@ -3251,6 +3262,7 @@ tabBtns.forEach(function(btn) {
     if (btn.dataset.tab === "world") loadMonde();
     if (btn.dataset.tab === "theo") _theoLoad();
     if (btn.dataset.tab === "settings") loadSettings();
+    if (btn.dataset.tab === "guardian") guardianLoadChannel();
     if (btn.dataset.tab === "plus") _renderPlusPanel();
     // Masquer le bouton voix flottant dans Monde (FABs propres au monde suffisent)
     var vb = document.getElementById("lunaVoiceBtn");
@@ -5260,6 +5272,20 @@ var _guardianWs = null;
 var _guardianWatchId = null;       // navigator.geolocation.watchPosition ID
 var _guardianSafeZonePending = null; // {name, radius_m, lat, lng}
 var _guardianRiskColors = {low:"#22c55e", medium:"#f59e0b", high:"#ef4444", critical:"#dc2626"};
+
+function guardianLoadChannel() {
+  authFetch("/api/settings", {_silent: true})
+  .then(function(r) { return r.json(); })
+  .then(function(d) {
+    var ch = (d.settings || {}).guardian_alert_channel || "sms";
+    var sel = document.getElementById("guardianAlertChannel");
+    if (sel) sel.value = ch;
+  }).catch(function() {});
+}
+function guardianSaveChannel(val) {
+  authFetch("/api/settings", { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({ guardian_alert_channel: val }) })
+  .catch(function() {});
+}
 
 function guardianSetStatus(label, sub, dotColor, riskLevel) {
   var dot = document.getElementById("guardianStatusDot");
