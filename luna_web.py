@@ -9728,7 +9728,7 @@ async def iris_session_invite(session_id: str, request: Request):
     _iris_session_manager.add_participant(session_id, participant)
     invite_token = _iris_session_manager.create_invite(session_id, pid)
     base_url = os.getenv("VOICE_CALLBACK_URL", "")
-    invite_link = f"{base_url}/join/{invite_token}"
+    invite_link = f"{base_url}/iris/join/{invite_token}"
     return JSONResponse({"ok": True, "invite_link": invite_link, "participant": participant})
 
 
@@ -9809,7 +9809,7 @@ async def iris_session_reject(session_id: str, action_id: str, request: Request)
     return JSONResponse({"ok": True, "action": action})
 
 
-@app.get("/join/{invite_token}")
+@app.get("/iris/join/{invite_token}")
 async def iris_join_page(invite_token: str):
     """Page d'accueil pour les invités — valide le token et retourne la page de connexion."""
     if not _iris_session_manager:
