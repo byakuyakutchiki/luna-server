@@ -4634,7 +4634,10 @@ function init() {
     if(autoRoomId){
       var ph=memberPhone||getMyPhone();
       var joinBody={phone:ph}; if(hostTid) joinBody.host_tid=parseInt(hostTid,10);
-      apiPost("/api/rooms/"+autoRoomId+"/join",joinBody).then(function(){showRoom(autoRoomId);}).catch(function(){showRoom(autoRoomId);});
+      apiPost("/api/rooms/"+autoRoomId+"/join",joinBody).then(function(r){
+        if(!r.ok){ r.json().then(function(d){ showToast(d.error||"Ce salon n'existe plus ou a expiré","error"); showLobby(); }).catch(function(){ showToast("Ce salon n'existe plus ou a expiré","error"); showLobby(); }); return; }
+        showRoom(autoRoomId);
+      }).catch(function(){ showToast("Impossible de rejoindre — vérifie ta connexion","error"); showLobby(); });
     } else {
       showLobby();
     }

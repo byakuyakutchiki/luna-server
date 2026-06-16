@@ -19975,6 +19975,21 @@ async def create_room(request: Request):
     }
 
 
+@app.get("/api/rooms/member-token")
+async def get_member_token(request: Request):
+    """Génère un token d'accès pour un membre famille (souscripteur only)."""
+    payload = _decode_client_token(request.headers.get("Authorization", "").replace("Bearer ", ""))
+    if not payload:
+        return JSONResponse(status_code=401, content={"error": "Token invalide ou manquant"})
+    tid = payload.get("tenant_id", TENANT_ID)
+    phone = request.query_params.get("phone", "")
+    if not phone:
+        return JSONResponse(status_code=400, content={"error": "phone requis"})
+    secret = _JWT_SECRET
+    token = generate_member_token(phone, tid, secret)
+    return {"phone": phone, "token": token}
+
+
 @app.get("/api/rooms/{room_id}")
 async def get_room(room_id: str, request: Request):
     """Détails d'un salon."""
@@ -20108,18 +20123,6 @@ async def invite_to_room(room_id: str, request: Request):
     else:
         logger.error(f"Room invite SMS failed: {details}")
         return JSONResponse(status_code=500, content={"error": "Echec de l'envoi du SMS"})
-
-
-@app.get("/api/rooms/member-token")
-async def get_member_token(request: Request):
-    """Génère un token d'accès pour un membre famille (souscripteur only)."""
-    tid = getattr(request.state, "tenant_id", TENANT_ID)
-    phone = request.query_params.get("phone", "")
-    if not phone:
-        return JSONResponse(status_code=400, content={"error": "phone requis"})
-    secret = _JWT_SECRET
-    token = generate_member_token(phone, tid, secret)
-    return {"phone": phone, "token": token}
 
 
 @app.websocket("/api/rooms/{room_id}/ws")

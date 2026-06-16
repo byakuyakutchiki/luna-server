@@ -4599,6 +4599,7 @@ function sendMsg(overrideMsg) {
   })
   .then(function(r) {
     _remoteLog("info", "chat", "response", "status=" + r.status + " ct=" + (r.headers.get("content-type") || "none"));
+    if (r.status === 401) { doLogout(); throw new Error("Session expirée"); }
     if (r.status === 422) throw new Error("Message invalide");
     if (r.status === 429) throw new Error("Trop de messages. Attends un peu.");
     if (!r.ok) throw new Error("Erreur serveur (" + r.status + ")");
