@@ -19962,12 +19962,16 @@ async def create_room(request: Request):
                     "url": f"/salon?room={room_id}&phone={phone}&token={token}",
                 }
 
+    # Friend invite link (cross-tenant) — shared via copy/paste, no SMS needed
+    friend_invite_url = f"/salon?room={room_id}&host_tid={tid}"
+
     return {
         "success": True,
         "room_id": room_id,
         "name": name,
         "type": room_type,
         "invite_links": invite_links,
+        "friend_invite_url": friend_invite_url,
     }
 
 
@@ -20020,22 +20024,23 @@ async def get_room(room_id: str, request: Request):
 
 @app.post("/api/rooms/{room_id}/join")
 async def join_room(room_id: str, request: Request):
-    """Rejoindre un salon."""
+    """Rejoindre un salon. host_tid permet de rejoindre le salon d'un ami (cross-tenant)."""
     rops = _get_room_ops()
     if not rops:
         return JSONResponse(status_code=503, content={"error": "Service temporairement indisponible"})
     tid = getattr(request.state, "tenant_id", TENANT_ID)
     data = await request.json()
     phone = data.get("phone", "")
+    host_tid = int(data.get("host_tid", 0)) or tid
 
-    room = rops.get_room(tid, room_id)
+    room = rops.get_room(host_tid, room_id)
     if not room:
         return JSONResponse(status_code=404, content={"error": "Salon introuvable"})
 
-    if not rops.join_room(tid, room_id, phone):
+    if not rops.join_room(host_tid, room_id, phone):
         return JSONResponse(status_code=400, content={"error": "Salon plein"})
 
-    return {"success": True, "room_id": room_id}
+    return {"success": True, "room_id": room_id, "host_tid": host_tid}
 
 
 @app.delete("/api/rooms/{room_id}")
@@ -20133,6 +20138,9 @@ async def room_websocket(websocket: WebSocket, room_id: str):
     # Auth: get phone + token from query params
     phone = websocket.query_params.get("phone", "")
     token = websocket.query_params.get("token", "")
+    # host_tid allows cross-tenant friend rooms
+    _host_tid_param = websocket.query_params.get("host_tid", "")
+    host_tid = int(_host_tid_param) if _host_tid_param and _host_tid_param.isdigit() else None
 
     # Detect token type: JWT (contains dots) vs HMAC member token
     jwt_payload = None
@@ -20160,8 +20168,9 @@ async def room_websocket(websocket: WebSocket, room_id: str):
         if not phone:
             phone = "subscriber"
 
-    # Verify room exists
-    room = rops.get_room(tid, room_id)
+    # Verify room exists — use host_tid for cross-tenant friend rooms
+    room_tid = host_tid if host_tid else tid
+    room = rops.get_room(room_tid, room_id)
     if not room:
         await websocket.close(code=4004, reason="Salon introuvable")
         return
@@ -20179,11 +20188,11 @@ async def room_websocket(websocket: WebSocket, room_id: str):
         name = _get_member_name(tid, phone) if phone != "subscriber" else "Hôte"
 
     # Join
-    rops.join_room(tid, room_id, phone)
+    rops.join_room(room_tid, room_id, phone)
     await room_manager.connect(room_id, phone, websocket)
 
     # Announce join
-    count = rops.count_participants(tid, room_id)
+    count = rops.count_participants(room_tid, room_id)
     await room_manager.broadcast(room_id, {
         "type": "join", "name": name, "phone": phone, "count": count,
     }, exclude_phone=phone)
@@ -20200,13 +20209,13 @@ async def room_websocket(websocket: WebSocket, room_id: str):
                 continue
 
             # Refresh room data for each message
-            current_room = rops.get_room(tid, room_id)
+            current_room = rops.get_room(room_tid, room_id)
             if not current_room:
                 await websocket.close(code=4004, reason="Salon fermé")
                 break
 
             events = await room_manager.handle_message(
-                room_id, phone, name, data, rops, tid, current_room
+                room_id, phone, name, data, rops, room_tid, current_room
             )
             for ev in events:
                 _gamify(tid, ev)
@@ -20215,9 +20224,9 @@ async def room_websocket(websocket: WebSocket, room_id: str):
     except Exception as e:
         logger.warning(f"Room WS error: {e}")
     finally:
-        rops.leave_room(tid, room_id, phone)
+        rops.leave_room(room_tid, room_id, phone)
         await room_manager.disconnect(room_id, phone)
-        count = rops.count_participants(tid, room_id)
+        count = rops.count_participants(room_tid, room_id)
         await room_manager.broadcast(room_id, {
             "type": "leave", "name": name, "phone": phone, "count": count,
         })
@@ -23582,3 +23591,4 @@ if __name__ == "__main__":
         port=port,
         **ssl_kwargs,
     )
+

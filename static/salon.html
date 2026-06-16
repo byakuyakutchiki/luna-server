@@ -1436,7 +1436,7 @@ input::placeholder { color: var(--text-dim); }
       <div class="room-type-badge" id="roomTypeBadge"></div>
     </div>
     <button class="participants-toggle" id="participantsToggle" onclick="toggleParticipants()">&#128101; <span id="participantsCount">0</span></button>
-    <button class="invite-header-btn hidden" id="inviteHeaderBtn" onclick="toggleParticipants();loadInvitableMembers();" title="Inviter un proche">&#128233; Inviter</button>
+    <button class="invite-header-btn hidden" id="inviteHeaderBtn" onclick="copyFriendInvite()" title="Copier le lien ami">&#128279; Lien ami</button>
     <button class="close-room-btn hidden" id="closeRoomBtn" onclick="closeRoom()" title="Fermer l'activite">&#10005;</button>
   </header>
   <div class="ws-status-bar" id="wsStatusBar"><span id="wsStatusText">Connexion perdue...</span></div>
@@ -1760,7 +1760,8 @@ var S = {
   selectedType:"", createFormOpen:false, participantsOpen:false,
   wsReconnectAttempts:0, wsMaxReconnect:5, wsReconnectTimer:null, wsPingTimer:null,
   typingTimer:null, lastTypingSent:0, userHasScrolled:false, unreadCount:0,
-  quizAnswered:false, memoryLocked:false, giftPanelOpen:false, lastMsgPhone:""
+  quizAnswered:false, memoryLocked:false, giftPanelOpen:false, lastMsgPhone:"",
+  friendInviteUrl:""
 };
 
 /* REACTIONS (12 emojis) */
@@ -1783,6 +1784,7 @@ var urlParams = new URLSearchParams(window.location.search);
 var autoRoomId = urlParams.get("room");
 var memberPhone = urlParams.get("phone");
 var memberToken = urlParams.get("token");
+var hostTid = urlParams.get("host_tid") || "";
 
 function getToken() { return memberToken || localStorage.getItem("luna_token"); }
 
@@ -1978,6 +1980,9 @@ window.createRoom = function() {
     btn.textContent="Cr\u00e9er"; $("roomNameInput").value=""; S.selectedType="";
     document.querySelectorAll(".type-card").forEach(function(c){c.classList.remove("selected");});
     S.createFormOpen=false; $("createForm").classList.remove("open"); updateCreateBtn();
+    if(data.friend_invite_url){
+      S.friendInviteUrl=location.origin+data.friend_invite_url;
+    }
     showRoom(data.room_id);
   }).catch(function(err){
     btn.textContent="Cr\u00e9er"; btn.disabled=false;
@@ -2114,6 +2119,7 @@ function connectWS(roomId) {
   var url=proto+"//"+location.host+"/api/rooms/"+roomId+"/ws";
   var params=[]; if(S.myPhone) params.push("phone="+encodeURIComponent(S.myPhone));
   var t=getToken(); if(t) params.push("token="+encodeURIComponent(t));
+  if(hostTid) params.push("host_tid="+encodeURIComponent(hostTid));
   if(params.length) url+="?"+params.join("&");
   S.ws=new WebSocket(url);
   S.ws.onopen=function(){ S.wsReconnectAttempts=0; hideWsStatus(); startPing(); };
@@ -2335,6 +2341,13 @@ function refreshParticipants() {
 
 /* LEAVE/CLOSE */
 window.leaveRoom = function() { disconnectWS(); showLobby(); };
+window.copyFriendInvite = function() {
+  var url = S.friendInviteUrl || (location.origin+"/salon?room="+(S.currentRoom||"")+"&host_tid="+(S.currentRoomData&&S.currentRoomData.tenant_id||""));
+  if(!url || !S.currentRoom) { showToast("Lien non disponible","error"); return; }
+  navigator.clipboard.writeText(url).then(function(){
+    showToast("Lien copié ! Partagez-le à vos amis Luna","success");
+  }).catch(function(){ showToast("Lien: "+url,"info"); });
+};
 window.closeRoom = function() {
   if(!S.currentRoom) return;
   if(!confirm("Fermer definitivement cette activite ?")) return;
@@ -4620,7 +4633,8 @@ function init() {
   }).then(function(){
     if(autoRoomId){
       var ph=memberPhone||getMyPhone();
-      apiPost("/api/rooms/"+autoRoomId+"/join",{phone:ph}).then(function(){showRoom(autoRoomId);}).catch(function(){showRoom(autoRoomId);});
+      var joinBody={phone:ph}; if(hostTid) joinBody.host_tid=parseInt(hostTid,10);
+      apiPost("/api/rooms/"+autoRoomId+"/join",joinBody).then(function(){showRoom(autoRoomId);}).catch(function(){showRoom(autoRoomId);});
     } else {
       showLobby();
     }
