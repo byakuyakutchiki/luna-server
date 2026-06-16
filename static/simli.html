@@ -1827,7 +1827,7 @@
     <div class="af-grid-bg"></div>
     <div class="af-header">
       <div class="af-logo">IRIS</div>
-      <button id="irisWorkspaceBtn" onclick="window.location.href='/team?room=iris-session'" title="Ouvrir le Team Workspace">👥 Workspace →</button>
+      <button id="irisWorkspaceBtn" onclick="_irtStartSession()" title="Démarrer une réunion Teams" id="irisWorkspaceBtn">👥 Réunion →</button>
       <div id="afSessionTime" class="af-session-time">00:00</div>
     </div>
     <!-- Teams Overlay (Step 5) -->
@@ -6127,22 +6127,64 @@
       }).then(function(){ _irtPollPending(); }).catch(function(){});
     }
 
-    function _irtInvite() {
-      var headers = {'Content-Type': 'application/json'};
-      if (_irtAuthToken) headers['Authorization'] = 'Bearer ' + _irtAuthToken;
-      fetch('/api/iris/session/' + encodeURIComponent(_irtSessionId) + '/invite', {
+    function _irtActivatePanel() {
+      var panel = document.getElementById('irisTeamsPanel');
+      if (panel) {
+        panel.classList.add('active');
+        var view = document.getElementById('audioView');
+        if (view) view.classList.add('teams-open');
+      }
+      var invBtn = document.getElementById('irtInviteBtn');
+      if (invBtn && _irtIsOwner) invBtn.style.display = 'block';
+      if (!_irtPollTimer) {
+        _irtPoll();
+        _irtPollTimer = setInterval(_irtPoll, 5000);
+      }
+      if (_irtIsOwner && !_irtPendingTimer) {
+        _irtPollPending();
+        _irtPendingTimer = setInterval(_irtPollPending, 3000);
+      }
+      var wb = document.getElementById('irisWorkspaceBtn');
+      if (wb) { wb.textContent = '👥 Inviter →'; wb.onclick = _irtInvite; }
+    }
+
+    function _irtStartSession() {
+      if (_irtSessionId) { _irtInvite(); return; }
+      var headers = {'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _irtAuthToken};
+      var wb = document.getElementById('irisWorkspaceBtn');
+      if (wb) { wb.textContent = '…'; wb.disabled = true; }
+      fetch('/api/iris/session/create', {
         method: 'POST', headers: headers,
-        body: JSON.stringify({role: 'guest'})
+        body: JSON.stringify({name: 'Réunion Iris'})
       })
         .then(function(r){ return r.ok ? r.json() : null; })
         .then(function(data){
-          if (data && data.invite_url) {
-            var msg = 'Lien d\'invitation :\n' + data.invite_url;
+          if (!data || !data.session) { if (wb) { wb.textContent = '👥 Réunion →'; wb.disabled = false; } return; }
+          _irtSessionId = data.session.session_id || data.session.id || null;
+          _irtIsOwner = true;
+          if (_irtSessionId) _irtActivatePanel();
+          else { if (wb) { wb.textContent = '👥 Réunion →'; wb.disabled = false; } }
+        }).catch(function(){ if (wb) { wb.textContent = '👥 Réunion →'; wb.disabled = false; } });
+    }
+
+    function _irtInvite() {
+      if (!_irtSessionId) { _irtStartSession(); return; }
+      var headers = {'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _irtAuthToken};
+      fetch('/api/iris/session/' + encodeURIComponent(_irtSessionId) + '/invite', {
+        method: 'POST', headers: headers,
+        body: JSON.stringify({role: 'guest', name: 'Invité'})
+      })
+        .then(function(r){ return r.ok ? r.json() : null; })
+        .then(function(data){
+          var link = data && (data.invite_link || data.invite_url);
+          if (link) {
             if (navigator.clipboard) {
-              navigator.clipboard.writeText(data.invite_url).then(function(){ alert(msg + '\n\n(Copié dans le presse-papiers)'); }).catch(function(){ alert(msg); });
-            } else { alert(msg); }
-          }
-        }).catch(function(){});
+              navigator.clipboard.writeText(link)
+                .then(function(){ showToast('🔗 Lien copié ! Envoie-le à ton invité.', 5000); })
+                .catch(function(){ prompt('Copie ce lien et envoie-le à ton invité :', link); });
+            } else { prompt('Copie ce lien et envoie-le à ton invité :', link); }
+          } else { showToast('❌ Impossible de générer le lien.', 3000); }
+        }).catch(function(){ showToast('❌ Erreur lors de la création de l\'invitation.', 3000); });
     }
 
     function _irtToggleMobile() {
