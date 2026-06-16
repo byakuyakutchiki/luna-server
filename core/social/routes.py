@@ -808,6 +808,8 @@ async def get_dm_rooms(request: Request):
             "other_frame": other_profile.get("frame", "") if other_profile else "",
             "other_online": sops.is_online(other_tid),
             "last_message_at": room.get("last_message_at", ""),
+            "last_msg_text": room.get("last_msg_text", ""),
+            "last_msg_sender": room.get("last_msg_sender", ""),
             "unread": unread_per_room.get(_rid, 0),
         })
 

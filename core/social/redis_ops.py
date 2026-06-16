@@ -352,9 +352,13 @@ class SocialRedisOps:
         self.client.ltrim(msg_key, 0, MAX_DM_MESSAGES - 1)
         self.client.expire(msg_key, TTL_DM_MESSAGES)
 
-        # Update last_message_at on room
+        # Update last_message_at + preview on room
         room_key = self._key("dm", room_id)
-        self.client.hset(room_key, "last_message_at", msg["ts"])
+        self.client.hset(room_key, mapping={
+            "last_message_at": msg["ts"],
+            "last_msg_text": text[:80],
+            "last_msg_sender": str(sender_tid),
+        })
         self.client.expire(room_key, TTL_DM_ROOM)
 
         # Update index timestamps for both users + unread counter for receiver

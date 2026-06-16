@@ -798,6 +798,19 @@ body.mode-secretaire .luna-chip:hover { background: rgba(16,185,129,0.2); border
 .dm-input-row { display:flex; gap:8px; }
 .dm-input-row input { flex:1; padding:10px 14px; border-radius:12px; border:1px solid #333; background:#0a0a1a; color:#fff; font-size:0.9em; }
 .dm-input-row button { padding:10px 16px; border-radius:12px; border:none; background:#7c3aed; color:white; cursor:pointer; font-weight:600; }
+/* Inbox conversations */
+.inbox-item { display:flex; align-items:center; gap:12px; padding:12px; border-radius:12px; background:#1a1a3e; margin-bottom:8px; cursor:pointer; border:1px solid transparent; transition:border-color .15s; }
+.inbox-item:hover { border-color:#7c3aed55; }
+.inbox-item.has-unread { background:#1e1240; border-color:#7c3aed44; }
+.inbox-avatar { width:38px; height:38px; border-radius:50%; background:#2d1b69; display:flex; align-items:center; justify-content:center; font-size:1.3em; flex-shrink:0; position:relative; }
+.inbox-online-dot { position:absolute; bottom:1px; right:1px; width:9px; height:9px; border-radius:50%; background:#22c55e; border:2px solid #1a1a3e; }
+.inbox-body { flex:1; min-width:0; }
+.inbox-name { font-weight:600; font-size:0.92em; color:#e2e8f0; }
+.inbox-preview { font-size:0.8em; color:#6b7280; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-top:2px; }
+.inbox-preview.unread-preview { color:#a78bfa; font-weight:500; }
+.inbox-meta { display:flex; flex-direction:column; align-items:flex-end; gap:4px; flex-shrink:0; }
+.inbox-time { font-size:0.72em; color:#555; }
+.inbox-unread-count { background:#7c3aed; color:#fff; border-radius:9px; font-size:0.68em; font-weight:700; padding:1px 6px; min-width:18px; text-align:center; }
 /* Settings toggle switch */
 .toggle { position:relative; display:inline-block; width:44px; height:24px; flex-shrink:0; }
 .toggle input { opacity:0; width:0; height:0; }
@@ -2177,6 +2190,12 @@ body.mode-secretaire .luna::before {
     <div class="amis-section" id="amisRequestsSection" style="display:none">
       <h3>Demandes en attente <span class="tab-badge" id="amisRequestCount" style="background:#e67e22">0</span></h3>
       <div id="amisRequestsList"></div>
+    </div>
+
+    <!-- Inbox : conversations actives -->
+    <div class="amis-section" id="inboxSection" style="display:none">
+      <h3>Messages <span class="tab-badge" id="inboxUnreadBadge" style="display:none;background:#7c3aed">0</span></h3>
+      <div id="inboxList"></div>
     </div>
 
     <div class="amis-section">
@@ -6165,7 +6184,58 @@ function loadAmis() {
   loadAmisList();
   loadAmisRequests();
   loadExternFriends();
+  loadInbox();
   _startAmisHeartbeat();
+}
+
+function _avatarEmoji(type) {
+  var m = { adult_man:"👨", adult_woman:"👩", elder_man:"👴", elder_woman:"👵", boy:"👦", girl:"👧" };
+  return m[type] || "👤";
+}
+
+function _relativeTime(isoStr) {
+  if (!isoStr) return "";
+  var d = new Date(isoStr + (isoStr.endsWith("Z") ? "" : "Z"));
+  var diff = (Date.now() - d.getTime()) / 1000;
+  if (diff < 60) return "à l'instant";
+  if (diff < 3600) return Math.floor(diff / 60) + " min";
+  if (diff < 86400) return Math.floor(diff / 3600) + " h";
+  return Math.floor(diff / 86400) + " j";
+}
+
+function loadInbox() {
+  authFetch("/api/social/dm/rooms", {_silent: true})
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    var rooms = data.rooms || [];
+    var section = document.getElementById("inboxSection");
+    var list = document.getElementById("inboxList");
+    var badge = document.getElementById("inboxUnreadBadge");
+    if (!section || !list) return;
+    if (rooms.length === 0) { section.style.display = "none"; return; }
+    section.style.display = "";
+    var totalUnread = rooms.reduce(function(acc, r) { return acc + (r.unread || 0); }, 0);
+    if (totalUnread > 0) { badge.textContent = totalUnread; badge.style.display = "inline-flex"; }
+    else { badge.style.display = "none"; }
+    var myTid = String(_myTid());
+    list.innerHTML = rooms.map(function(r) {
+      var preview = r.last_msg_text || "";
+      var isUnread = (r.unread || 0) > 0;
+      var isMine = r.last_msg_sender && String(r.last_msg_sender) === myTid;
+      var previewText = preview ? (isMine ? "Toi : " + preview : preview) : "Début de la conversation";
+      return '<div class="inbox-item' + (isUnread ? " has-unread" : "") + '" onclick="openDm(' + r.other_tid + ', \'' + esc(r.other_nickname || ("Ami " + r.other_tid)) + '\')">' +
+        '<div class="inbox-avatar">' + _avatarEmoji(r.other_avatar_type) + (r.other_online ? '<span class="inbox-online-dot"></span>' : '') + '</div>' +
+        '<div class="inbox-body">' +
+          '<div class="inbox-name">' + esc(r.other_nickname || ("Ami " + r.other_tid)) + '</div>' +
+          '<div class="inbox-preview' + (isUnread ? ' unread-preview' : '') + '">' + esc(previewText) + '</div>' +
+        '</div>' +
+        '<div class="inbox-meta">' +
+          '<span class="inbox-time">' + _relativeTime(r.last_message_at) + '</span>' +
+          (isUnread ? '<span class="inbox-unread-count">' + r.unread + '</span>' : '') +
+        '</div>' +
+      '</div>';
+    }).join("");
+  }).catch(function() {});
 }
 
 function _startAmisHeartbeat() {
@@ -6185,6 +6255,10 @@ function _amisHeartbeat() {
     var n = (data.pending_requests || 0) + (data.unread_dm_count || 0);
     if (n > 0) { badge.textContent = n; badge.style.display = "inline-flex"; }
     else { badge.style.display = "none"; }
+    // Rafraîchir l'inbox si l'onglet amis est ouvert
+    if (document.getElementById("tab-amis").classList.contains("active")) {
+      loadInbox();
+    }
   }).catch(function(e) {
     _remoteLog("warn", "amis", "heartbeat_failed", String(e && e.message || e || ""));
   });
@@ -6582,6 +6656,8 @@ document.getElementById("dmCloseBtn").addEventListener("click", function() {
   dmCurrentRoomId = null; dmCurrentFriendTid = null;
   if (dmPollTimer) { clearInterval(dmPollTimer); dmPollTimer = null; }
   if (dmWs) { try { dmWs.close(); } catch(e) {} dmWs = null; }
+  // Mettre à jour l'inbox pour refléter les messages lus
+  loadInbox();
 });
 
 document.getElementById("amisCodeBtn").addEventListener("click", function() {
