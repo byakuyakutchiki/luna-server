@@ -1402,9 +1402,9 @@ function _stopCamLoop(){
   if(_camTimer){clearInterval(_camTimer); _camTimer=null;}
 }
 
-// ── CHECK-IN VOCAL (60s) ──────────────────────
-// Toutes les 60s : Luna demande vocalement "Tout va bien ?"
-// Sans réponse dans les 30s → capture scène + alerte contacts
+// ── CHECK-IN VOCAL (10 min) ───────────────────
+// Toutes les 10 min : Luna demande vocalement "Tout va bien ?"
+// Sans réponse dans les 5 min → capture scène + alerte contacts (Policy V2 niveau 3)
 var _checkInTimer=null, _checkInWait=null, _checkInPending=false;
 
 function _startCheckInLoop(){
@@ -1428,7 +1428,7 @@ function _doCheckIn(){
   vibrate([200,100,200]);
   _checkInWait=setTimeout(function(){
     if(_checkInPending) _checkInMissed();
-  }, 60000); // 1 min — Policy V2 : laisser le temps de répondre
+  }, 300000); // 5 min — Policy V2 niveau 3 : délai suffisant (douche, téléphone, sieste)
 }
 function _checkInMissed(){
   _checkInPending=false;

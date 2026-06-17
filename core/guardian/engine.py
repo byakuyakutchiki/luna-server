@@ -866,7 +866,7 @@ def get_profile_templates() -> Dict[str, dict]:
             "description": "Surveillance immobilité, chutes, déplacements nocturnes",
             "icon": "👴",
             "default_config": _default_config(ProfileType.SENIOR),
-            "signals": ["immobility", "geofence_exit", "night_anomaly", "speed_anomaly"],
+            "signals": ["immobility", "geofence_exit", "night_anomaly"],
         },
         "dog": {
             "label": "Animal de compagnie",

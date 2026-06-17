@@ -3837,6 +3837,8 @@ _pending_visio_invites: Dict[str, Dict] = {}
 # Rate limiting vision caméra (ip -> timestamp dernier appel)
 _vision_last_call: Dict[str, float] = {}
 _visio_scene_cache: Dict[str, str] = {}  # ip -> dernière description (détection de changement)
+# Rate limiting anomaly Guardian (session_id -> timestamp dernier appel)
+_anomaly_last_call: Dict[str, float] = {}
 
 def _init_core():
     """Initialize core modules. Graceful if Redis is down or imports failed."""
@@ -14807,6 +14809,8 @@ async def guardian_stop(session_id: str, request: Request):
     ok = engine.stop_session(session_id)
     if not ok:
         return JSONResponse(status_code=404, content={"error": "Session introuvable"})
+    _guardian_scene_analyzers.pop(session_id, None)
+    _anomaly_last_call.pop(session_id, None)
     return {"success": True, "session_id": session_id}
 
 
@@ -15207,6 +15211,14 @@ async def guardian_anomaly(session_id: str, request: Request):
     """Analyse comportementale : reçoit une séquence de frames et retourne un danger_score.
     Appelé uniquement quand le BehaviorEngine client détecte un pattern suspect (score >= 7).
     """
+    now = time.time()
+    last = _anomaly_last_call.get(session_id, 0)
+    if now - last < 50.0:
+        return JSONResponse(status_code=429, content={
+            "error": "Trop rapide", "retry_after": round(50.0 - (now - last), 1)
+        })
+    _anomaly_last_call[session_id] = now
+
     engine = _get_guardian()
     if not engine:
         return JSONResponse(status_code=503, content={"error": "Guardian non disponible"})
