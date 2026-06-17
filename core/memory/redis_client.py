@@ -350,6 +350,22 @@ class RedisClient:
         return bool(removed)
 
     # ========================================================================
+    # GUARDIAN TRUSTED FRIENDS (amis Luna désignés comme contacts protecteurs)
+    # ========================================================================
+
+    def get_guardian_friends_key(self, tenant_id: int) -> str:
+        return self._key(tenant_id, "guardian", "trusted_friends")
+
+    def add_guardian_friend(self, tenant_id: int, friend_tid: int) -> bool:
+        return bool(self.client.sadd(self.get_guardian_friends_key(tenant_id), str(friend_tid)))
+
+    def remove_guardian_friend(self, tenant_id: int, friend_tid: int) -> bool:
+        return bool(self.client.srem(self.get_guardian_friends_key(tenant_id), str(friend_tid)))
+
+    def get_guardian_friends(self, tenant_id: int) -> set:
+        return self.client.smembers(self.get_guardian_friends_key(tenant_id))
+
+    # ========================================================================
     # NOTES
     # ========================================================================
 

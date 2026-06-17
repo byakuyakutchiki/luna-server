@@ -81,6 +81,7 @@ public class MainActivity extends Activity {
     private String guardianSessionId = null;   // défini par JS via LunaBridge
     private double guardianLat = 0.0;
     private double guardianLng = 0.0;
+    private String authToken = "";             // JWT transmis par le JS pour les requêtes natives
 
     private final Handler fallHandler = new Handler(Looper.getMainLooper());
     private Runnable fallEscalationTask = null;
@@ -584,6 +585,12 @@ public class MainActivity extends Activity {
             return isInForeground;
         }
 
+        /** Transmet le JWT client au code natif pour les requêtes authentifiées. */
+        @JavascriptInterface
+        public void setAuthToken(String token) {
+            authToken = (token != null) ? token : "";
+        }
+
         /** Appelé par le JS quand Guardian démarre — active la détection de chute. */
         @JavascriptInterface
         public void setGuardianSession(String sessionId) {
@@ -1067,12 +1074,16 @@ public class MainActivity extends Activity {
         });
         if (userConfirmedOk && guardianSessionId != null) {
             final String sid = guardianSessionId;
+            final String token = authToken;
             new Thread(() -> {
                 try {
                     URL url = new URL(LUNA_URL + "/api/guardian/verify-response/" + sid);
                     HttpURLConnection conn = (HttpURLConnection) url.openConnection();
                     conn.setRequestMethod("POST");
                     conn.setRequestProperty("Content-Type", "application/json");
+                    if (token != null && !token.isEmpty()) {
+                        conn.setRequestProperty("Authorization", "Bearer " + token);
+                    }
                     conn.setDoOutput(true);
                     conn.setConnectTimeout(4000);
                     conn.setReadTimeout(4000);
@@ -1102,12 +1113,18 @@ public class MainActivity extends Activity {
         final float peakG = pendingPeakG;
         final double lat = guardianLat;
         final double lng = guardianLng;
+        final String token = authToken;
+        if (token == null || token.isEmpty()) {
+            sendLog("error", "Fall backend POST skipped: no auth token", "guardian/" + Build.MODEL);
+            return;
+        }
         new Thread(() -> {
             try {
                 URL url = new URL(LUNA_URL + "/api/guardian/fall-detected/" + sid);
                 HttpURLConnection conn = (HttpURLConnection) url.openConnection();
                 conn.setRequestMethod("POST");
                 conn.setRequestProperty("Content-Type", "application/json");
+                conn.setRequestProperty("Authorization", "Bearer " + token);
                 conn.setDoOutput(true);
                 conn.setConnectTimeout(6000);
                 conn.setReadTimeout(6000);
@@ -1116,9 +1133,10 @@ public class MainActivity extends Activity {
                 if (lat != 0.0) json.put("lat", lat);
                 if (lng != 0.0) json.put("lng", lng);
                 conn.getOutputStream().write(json.toString().getBytes("UTF-8"));
+                int responseCode = conn.getResponseCode();
                 conn.getInputStream().close();
                 conn.disconnect();
-                sendLog("warn", "Fall escalated to backend peak_g=" + peakG, "guardian/" + Build.MODEL);
+                sendLog("warn", "Fall escalated to backend peak_g=" + peakG + " code=" + responseCode, "guardian/" + Build.MODEL);
             } catch (Exception e) {
                 sendLog("error", "Fall backend POST failed: " + e.getMessage(), "guardian/" + Build.MODEL);
             }

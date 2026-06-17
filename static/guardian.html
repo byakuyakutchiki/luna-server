@@ -485,8 +485,10 @@ select.cfg-inp option { background:#13131f; }
 
   <!-- Contacts de confiance -->
   <div id="contacts-bar" style="display:none;padding:4px 14px 6px;border-bottom:1px solid var(--border);">
-    <div style="font-size:.75em;color:var(--muted);">🔔 Contacts alertés en cas d'urgence :</div>
+    <div style="font-size:.75em;color:var(--muted);">📱 Contacts SMS d'urgence :</div>
     <div id="contacts-list" style="font-size:.8em;color:var(--text);margin-top:3px;">Chargement…</div>
+    <div style="font-size:.75em;color:var(--muted);margin-top:6px;">👥 Amis Luna protecteurs :</div>
+    <div id="guardian-friends-bar" style="font-size:.8em;color:var(--text);margin-top:3px;">–</div>
   </div>
 
   <!-- Controls -->
@@ -547,6 +549,11 @@ select.cfg-inp option { background:#13131f; }
     <div class="cfg-grid full">
       <button id="zone-btn" onclick="captureZone()">📍 Utiliser ma position comme zone sûre</button>
       <div id="zone-st"></div>
+    </div>
+    <div class="cfg-grid full" style="margin-top:12px;border-top:1px solid var(--border);padding-top:10px;">
+      <div style="font-size:.8em;font-weight:600;color:var(--text);margin-bottom:6px;">👥 Amis Luna — contacts protecteurs</div>
+      <div id="guardian-friends-cfg" style="font-size:.82em;">Chargement…</div>
+      <div style="font-size:.7em;color:var(--muted);margin-top:5px;">Ces amis reçoivent un DM Luna lors d'une alerte. Si aucun n'est sélectionné, tous tes amis sont alertés.</div>
     </div>
   </div>
 </div>
@@ -621,6 +628,10 @@ select.cfg-inp option { background:#13131f; }
 
 // ── AUTH ─────────────────────────────────────
 function getToken(){ return localStorage.getItem('luna_token')||''; }
+function syncAuthToken(){
+  if(window.LunaBridge&&LunaBridge.setAuthToken) LunaBridge.setAuthToken(getToken());
+}
+syncAuthToken();
 function authFetch(url,opts){
   var o=Object.assign({headers:{}},opts||{});
   o.headers=Object.assign({},o.headers);
@@ -844,6 +855,7 @@ function toggleCfg(){
   CFG_OPEN=!CFG_OPEN;
   document.getElementById('cfg').classList.toggle('open',CFG_OPEN);
   document.getElementById('cfg-toggle-btn').textContent=CFG_OPEN?'▲ Masquer':'⚙️ Configuration';
+  if(CFG_OPEN) loadGuardianFriends();
   setTimeout(_layoutUpdate,320);
 }
 function captureZone(){
@@ -871,6 +883,7 @@ function guardianStart(){
   }).then(function(r){return r.json();}).then(function(d){
     if(!d.success) throw new Error(d.error||'Erreur');
     SID=d.session_id;
+    syncAuthToken();
     if(window.LunaBridge&&LunaBridge.setGuardianSession) LunaBridge.setGuardianSession(SID);
     setHdrStatus('Actif',null,true);
     document.getElementById('btn-start').style.display='none';
@@ -885,7 +898,7 @@ function guardianStart(){
     showTrustBar(true);
     if(CFG_OPEN) toggleCfg();
     _layoutUpdate();
-    connectWs(); startGps(); loadEvents(); loadContacts();
+    connectWs(); startGps(); loadEvents(); loadContacts(); loadGuardianFriends();
     incrementSession();
     _setCamState('inactive');
     document.getElementById('cam-ctrl').style.display='block';
@@ -1567,11 +1580,63 @@ function loadContacts(){
   });
 }
 
+// ── AMIS LUNA PROTECTEURS ─────────────────────
+var _gFriendsAll=[];
+function loadGuardianFriends(){
+  authFetch('/api/social/friends').then(function(r){return r.json();}).then(function(d){
+    _gFriendsAll=d.friends||[];
+    _renderGuardianBar();
+    _renderGuardianCfg();
+  }).catch(function(){});
+}
+function _renderGuardianBar(){
+  var el=document.getElementById('guardian-friends-bar');
+  if(!el) return;
+  var trusted=_gFriendsAll.filter(function(f){return f.is_guardian_contact;});
+  if(!trusted.length){
+    el.style.color='var(--muted)';
+    el.textContent='Aucun ami sélectionné — tous tes amis seront alertés';
+    return;
+  }
+  el.style.color='var(--green)';
+  el.textContent=trusted.map(function(f){
+    return (f.nickname||'Ami')+(f.is_online?' 🟢':'');
+  }).join(' · ');
+}
+function _renderGuardianCfg(){
+  var el=document.getElementById('guardian-friends-cfg');
+  if(!el) return;
+  if(!_gFriendsAll.length){
+    el.innerHTML='<span style="color:var(--muted);">Aucun ami Luna pour l\'instant.</span>';
+    return;
+  }
+  el.innerHTML=_gFriendsAll.map(function(f){
+    var chk=f.is_guardian_contact?'checked':'';
+    var online=f.is_online?'<span style="color:var(--green);font-size:.75em;margin-left:4px;">● en ligne</span>':'';
+    return '<label style="display:flex;align-items:center;gap:8px;padding:5px 0;cursor:pointer;">'
+      +'<input type="checkbox" '+chk+' onchange="toggleGuardianFriend('+f.tid+',this.checked)">'
+      +'<span>'+(f.nickname||'Ami')+online+'</span>'
+      +'</label>';
+  }).join('');
+}
+function toggleGuardianFriend(friend_tid,add){
+  var method=add?'POST':'DELETE';
+  authFetch('/api/guardian/trusted-friends/'+friend_tid,{method:method}).then(function(){
+    _gFriendsAll=_gFriendsAll.map(function(f){
+      if(f.tid===friend_tid) f.is_guardian_contact=add; return f;
+    });
+    _renderGuardianBar();
+    _renderGuardianCfg();
+    showToast(add?'✅ Ami ajouté comme protecteur':'✅ Ami retiré des protecteurs');
+  }).catch(function(){ showToast('❌ Erreur — réessaie'); });
+}
+
 // ── INIT : reprise session active ─────────────
 (function checkSession(){
   authFetch('/api/guardian/sessions').then(function(r){return r.json();}).then(function(d){
     if(d.sessions&&d.sessions.length>0){
       var s=d.sessions[0]; SID=s.session_id;
+      syncAuthToken();
       if(window.LunaBridge&&LunaBridge.setGuardianSession) LunaBridge.setGuardianSession(SID);
       setHdrStatus('Reprise — '+(s.profile_type||'?'),null,true);
       document.getElementById('btn-start').style.display='none';

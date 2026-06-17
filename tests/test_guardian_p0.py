@@ -12,7 +12,7 @@ from core.guardian.engine import (
     GuardianEngine, GuardianSession, ProfileType, AlertLevel,
     GeoPoint, RiskScore, _default_config,
 )
-from core.guardian.alerts import build_sms_cancellation
+from core.guardian.alerts import build_sms_cancellation, send_guardian_alerts
 
 PASS = "✅ PASS"
 FAIL = "❌ FAIL"
@@ -262,9 +262,10 @@ check("verification_attempt réinitialisé à 0",
 check("Grace period activée (grace_period_until défini)",
       session.grace_period_until is not None,
       f"grace_period_until={session.grace_period_until}")
-check("Grace period = 2h dans le futur",
+check("Grace period = 30 min dans le futur",
       session.grace_period_until is not None and
-      datetime.fromisoformat(session.grace_period_until) > datetime.utcnow() + timedelta(hours=1, minutes=55),
+      datetime.fromisoformat(session.grace_period_until) > datetime.utcnow() + timedelta(minutes=25) and
+      datetime.fromisoformat(session.grace_period_until) < datetime.utcnow() + timedelta(minutes=35),
       f"grace_period_until={session.grace_period_until}")
 check("SMS d'annulation envoyé",
       len(sms) == 1,
@@ -381,6 +382,89 @@ check("Niveau 4 : SMS envoyé",
 check("verification_attempt réinitialisé à 0",
       session.verification_attempt == 0,
       f"verification_attempt={session.verification_attempt}")
+
+
+# ─────────────────────────────────────────────
+# TEST 8 — Coupe-circuit SMS Guardian (GUARDIAN_SMS_ENABLED=false)
+# ─────────────────────────────────────────────
+
+print("\n=== TEST 8 : Coupe-circuit SMS Guardian ===")
+
+
+def fake_sms_guardian_blocked(to, body, label=""):
+    """Simule _tracked_sms_send quand GUARDIAN_SMS_ENABLED=false."""
+    return True, {"sid": "DISABLED", "guardian_sms_disabled": True, "blocked": True}
+
+
+result = send_guardian_alerts(
+    sms_send_fn=fake_sms_guardian_blocked,
+    contacts=[{"phone": "+33600000001", "name": "Marie"}],
+    person_name="Marie",
+    description="Pas de réponse au contrôle Guardian",
+    lat=48.8566,
+    lng=2.3522,
+    alert_level="high",
+    profile_type="senior",
+)
+
+check("SMS Guardian bloqué compté dans 'blocked'",
+      len(result.get("blocked", [])) == 1 and len(result.get("sent", [])) == 0,
+      f"blocked={result.get('blocked')}, sent={result.get('sent')}")
+check("Aucun SMS Guardian marqué comme envoyé quand il est bloqué",
+      len(result.get("sent", [])) == 0,
+      f"sent={result.get('sent')}")
+
+
+# ─────────────────────────────────────────────
+# TEST 9 — Chute : respect du plafond 3 alertes / 24h
+# ─────────────────────────────────────────────
+
+print("\n=== TEST 9 : Chute respecte le plafond 3 alertes/24h ===")
+engine, sms = make_engine()
+session = make_session(profile="senior", in_safe_zone=True)
+session.alerts_sent = 3
+session.alerts_window_start = (datetime.utcnow() - timedelta(hours=1)).isoformat()
+engine._sessions["test_session"] = session
+
+event = engine.trigger_fall("test_session", peak_g=2.5)
+check("trigger_fall bloque l'alerte quand plafond atteint",
+      event.metadata.get("alert_blocked") is True,
+      f"metadata={event.metadata}")
+check("Compteur reste à 3 après chute bloquée",
+      session.alerts_sent == 3,
+      f"alerts_sent={session.alerts_sent}")
+
+# Fenêtre réinitialisée : alerte autorisée
+session2 = make_session(profile="senior", in_safe_zone=True)
+session2.alerts_sent = 3
+session2.alerts_window_start = (datetime.utcnow() - timedelta(hours=25)).isoformat()
+engine2, sms2 = make_engine()
+engine2._sessions["test_session2"] = session2
+event2 = engine2.trigger_fall("test_session2", peak_g=2.5)
+check("trigger_fall autorise l'alerte apres 24h (fenêtre reset)",
+      event2.metadata.get("alert_blocked") is not True and session2.alerts_sent == 1,
+      f"metadata={event2.metadata}, alerts_sent={session2.alerts_sent}")
+
+
+# ─────────────────────────────────────────────
+# TEST 10 — SOS incrémente le compteur d'alertes
+# ─────────────────────────────────────────────
+
+print("\n=== TEST 10 : SOS incrémente alerts_sent ===")
+engine, sms = make_engine()
+session = make_session(profile="senior", in_safe_zone=True)
+engine._sessions["test_session"] = session
+
+event = engine.trigger_sos("test_session")
+check("trigger_sos incrémente alerts_sent à 1",
+      session.alerts_sent == 1,
+      f"alerts_sent={session.alerts_sent}")
+check("trigger_sos met à jour last_alert_at",
+      session.last_alert_at is not None,
+      f"last_alert_at={session.last_alert_at}")
+check("trigger_sos niveau CRITICAL",
+      session.alert_level == AlertLevel.CRITICAL,
+      f"alert_level={session.alert_level}")
 
 
 # ─────────────────────────────────────────────

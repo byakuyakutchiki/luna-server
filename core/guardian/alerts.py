@@ -85,11 +85,17 @@ async def send_guardian_dm_alerts(
     lng: Optional[float],
     alert_level: str,
     ws_push_fn=None,
+    trusted_tids: Optional[set] = None,
 ) -> Dict:
-    """Envoie une alerte Guardian en DM Luna à tous les amis de la plateforme."""
+    """Envoie une alerte Guardian en DM Luna.
+    Si trusted_tids est non-vide → seulement ces amis.
+    Si vide → tous les amis (comportement legacy).
+    """
     friends = sops.get_friends(sender_tid)
     if not friends:
         return {"sent": [], "failed": [], "total_friends": 0}
+    if trusted_tids:
+        friends = {f for f in friends if f in trusted_tids or str(f) in trusted_tids}
 
     maps_link = f"https://maps.google.com/?q={lat},{lng}" if lat and lng else None
     level_emoji = "🆘" if alert_level == "critical" else "⚠️"

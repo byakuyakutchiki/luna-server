@@ -10754,6 +10754,7 @@ async def social_list_friends(request: Request):
         return {"friends": []}
     friend_tids = sops.get_friends(tid)
     online_set = sops.get_online_tids()
+    guardian_tids = _redis_client.get_guardian_friends(tid) if _redis_client else set()
     friends = []
     for f_tid_str in friend_tids:
         f_tid = int(f_tid_str)
@@ -10767,6 +10768,7 @@ async def social_list_friends(request: Request):
             "level": int(profile.get("level", 1)),
             "avatar_type": profile.get("avatar_type", "adult_man"),
             "is_online": f_tid_str in online_set,
+            "is_guardian_contact": f_tid_str in guardian_tids,
         })
     friends.sort(key=lambda f: (not f["is_online"], f["nickname"].lower()))
     return {"friends": friends, "count": len(friends)}
@@ -14908,6 +14910,12 @@ async def guardian_location(session_id: str, request: Request):
             sub = mgr.get_subscriber_profile() if mgr else None
             person_name = sub.name if sub and hasattr(sub, "name") else "Utilisateur"
             desc = alert_events[0].description or risk.description
+            # Escalade Niveau 4 est toujours HIGH, même si le risk_score GPS est encore MEDIUM
+            alert_level = (
+                "high"
+                if alert_events[0].event_type == "alert_escalated"
+                else risk.level.value
+            )
 
             # Lire le canal d'alerte choisi par l'utilisateur (J7: défaut = "both", APP FIRST)
             _alert_channel = "both"
@@ -14925,7 +14933,7 @@ async def guardian_location(session_id: str, request: Request):
                         person_name=person_name,
                         description=desc,
                         lat=lat, lng=lng,
-                        alert_level=risk.level.value,
+                        alert_level=alert_level,
                         profile_type=session.profile_type.value,
                     )
                     if sms_results.get("blocked"):
@@ -14946,8 +14954,9 @@ async def guardian_location(session_id: str, request: Request):
                         person_name=person_name,
                         description=desc,
                         lat=lat, lng=lng,
-                        alert_level=risk.level.value,
+                        alert_level=alert_level,
                         ws_push_fn=_guardian_dm_broadcast,
+                        trusted_tids=_redis_client.get_guardian_friends(tid),
                     )
                     logger.warning(f"Guardian DM alerts sent for session {session_id}")
                 except Exception as e:
@@ -15033,6 +15042,7 @@ async def guardian_sos(session_id: str, request: Request):
                 lng=pos.lng if pos else None,
                 alert_level="critical",
                 ws_push_fn=_guardian_dm_broadcast,
+                trusted_tids=_redis_client.get_guardian_friends(tid),
             )
         except Exception as e:
             logger.error(f"SOS DM failed: {e}")
@@ -15076,6 +15086,17 @@ async def guardian_fall_detected(session_id: str, request: Request):
     except ValueError as e:
         return JSONResponse(status_code=404, content={"error": str(e)})
 
+    if event.metadata.get("alert_blocked"):
+        logger.warning(f"Guardian fall-detected blocked by quota for session {session_id}")
+        return JSONResponse(
+            status_code=429,
+            content={
+                "success": False,
+                "event": event.to_dict(),
+                "error": "Plafond d'alertes atteint (3/24h)",
+            },
+        )
+
     session = engine.get_session(session_id)
     tid = getattr(request.state, "tenant_id", 1)
     mgr = _get_tenant_manager(tid)
@@ -15104,7 +15125,7 @@ async def guardian_fall_detected(session_id: str, request: Request):
 
     desc = f"Chute détectée (accéléromètre, pic {peak_g:.1f}g)" if peak_g else "Chute détectée par accéléromètre — pas de réponse en 30s"
 
-    sms_results = {"sent": [], "failed": []}
+    sms_results = {"sent": [], "failed": [], "blocked": []}
     if _alert_channel in ("sms", "both") and contacts and sms_client:
         try:
             sms_results = send_guardian_alerts(
@@ -15135,17 +15156,25 @@ async def guardian_fall_detected(session_id: str, request: Request):
                 lng=pos.lng if pos else None,
                 alert_level="high",
                 ws_push_fn=_guardian_dm_broadcast,
+                trusted_tids=_redis_client.get_guardian_friends(tid),
             )
         except Exception as e:
             logger.error(f"Fall DM failed: {e}")
 
     total_sent = len(sms_results.get("sent", [])) + len(dm_results.get("sent", []))
-    return {
+    total_blocked = len(sms_results.get("blocked", []))
+    response = {
         "success": True,
         "event": event.to_dict(),
         "alerts_sent_to": total_sent,
-        "message": f"Chute signalée — {total_sent} contact(s) alerté(s)",
+        "guardian_sms_enabled": GUARDIAN_SMS_ENABLED,
+        "sms_blocked": total_blocked,
     }
+    if total_blocked:
+        response["message"] = f"Chute signalée — {total_blocked} SMS bloqués par configuration"
+    else:
+        response["message"] = f"Chute signalée — {total_sent} contact(s) alerté(s)"
+    return response
 
 
 @app.post("/api/guardian/verify-response/{session_id}")
@@ -15237,6 +15266,54 @@ async def guardian_list_sessions(request: Request):
                 "is_immobile": s.is_immobile,
             })
     return {"sessions": sessions, "count": len(sessions)}
+
+
+@app.get("/api/guardian/trusted-friends")
+async def guardian_list_trusted_friends(request: Request):
+    """Liste les amis Luna désignés comme contacts protecteurs Guardian."""
+    tid = getattr(request.state, "tenant_id", TENANT_ID)
+    if not _redis_client:
+        return {"trusted_friends": []}
+    trusted = _redis_client.get_guardian_friends(tid)
+    sops = _get_sops()
+    friends = []
+    if sops and trusted:
+        online_set = sops.get_online_tids()
+        for f_tid_str in trusted:
+            f_tid = int(f_tid_str)
+            profile = sops.get_social_profile(f_tid) or {}
+            friends.append({
+                "tid": f_tid,
+                "nickname": profile.get("nickname", f"Utilisateur{f_tid}"),
+                "avatar_type": profile.get("avatar_type", "adult_man"),
+                "is_online": f_tid_str in online_set,
+            })
+    return {"trusted_friends": friends, "count": len(friends)}
+
+
+@app.post("/api/guardian/trusted-friends/{friend_tid}")
+async def guardian_add_trusted_friend(friend_tid: int, request: Request):
+    """Désigne un ami Luna comme contact protecteur Guardian."""
+    tid = getattr(request.state, "tenant_id", TENANT_ID)
+    if not _redis_client:
+        return JSONResponse(status_code=503, content={"error": "Redis non disponible"})
+    sops = _get_sops()
+    if sops:
+        friends = sops.get_friends(tid)
+        if str(friend_tid) not in friends:
+            return JSONResponse(status_code=400, content={"error": "Cet utilisateur n'est pas dans ta liste d'amis"})
+    added = _redis_client.add_guardian_friend(tid, friend_tid)
+    return {"success": True, "added": added, "friend_tid": friend_tid}
+
+
+@app.delete("/api/guardian/trusted-friends/{friend_tid}")
+async def guardian_remove_trusted_friend(friend_tid: int, request: Request):
+    """Retire un ami de la liste des contacts protecteurs Guardian."""
+    tid = getattr(request.state, "tenant_id", TENANT_ID)
+    if not _redis_client:
+        return JSONResponse(status_code=503, content={"error": "Redis non disponible"})
+    removed = _redis_client.remove_guardian_friend(tid, friend_tid)
+    return {"success": True, "removed": removed, "friend_tid": friend_tid}
 
 
 from fastapi import WebSocket, WebSocketDisconnect
@@ -15506,6 +15583,7 @@ async def guardian_checkin_miss(session_id: str, request: Request):
                     lat=lat, lng=lng,
                     alert_level="high",
                     ws_push_fn=_guardian_dm_broadcast,
+                    trusted_tids=_redis_client.get_guardian_friends(tid),
                 )
             except Exception as e:
                 logger.error(f"checkin_miss DM error: {e}")

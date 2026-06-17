@@ -151,6 +151,17 @@ class GuardianEngine:
     # P0-05: Limite d'alertes SMS par fenêtre de 24h
     MAX_ALERTS_PER_24H = 3
 
+    def _can_send_alert(self, session: GuardianSession, now: datetime) -> bool:
+        """Vérifie le plafond 3 alertes / 24h et réinitialise la fenêtre si besoin."""
+        if session.alerts_window_start:
+            elapsed = (now - datetime.fromisoformat(session.alerts_window_start)).total_seconds()
+            if elapsed >= 86400:
+                session.alerts_sent = 0
+                session.alerts_window_start = None
+            elif session.alerts_sent >= self.MAX_ALERTS_PER_24H:
+                return False
+        return True
+
     def __init__(self, redis_client, openai_client=None, sms_send_fn=None):
         self.rc = redis_client            # RedisClient sync (luna_web._redis_client)
         self.llm = openai_client          # openai.OpenAI sync, optionnel
@@ -255,6 +266,7 @@ class GuardianEngine:
         if not session:
             raise ValueError("Session introuvable")
 
+        now = datetime.utcnow()
         event = GuardianEvent(
             event_type="sos_triggered",
             description="🆘 Bouton SOS activé par l'utilisateur",
@@ -268,9 +280,16 @@ class GuardianEngine:
         # Alerte directe sans vérification vocale
         session.alert_level = AlertLevel.CRITICAL
         session.alert_pending = False
+        session.last_alert_at = now.isoformat()
+        if session.alerts_window_start is None:
+            session.alerts_window_start = now.isoformat()
+        session.alerts_sent += 1
         self._persist_session(session)
 
-        logger.warning(f"SOS triggered on session {session_id}")
+        logger.warning(
+            f"SOS triggered on session {session_id} "
+            f"(alerte #{session.alerts_sent}/24h)"
+        )
         return event
 
     def trigger_fall(self, session_id: str,
@@ -279,6 +298,7 @@ class GuardianEngine:
         """
         Chute détectée par accéléromètre — appelé après la fenêtre de confirmation de 30s
         sans réponse de l'utilisateur. Escalade HIGH immédiate, bypass le délai d'immobilité.
+        Respecte le plafond 3 alertes / 24h.
         """
         session = self.get_session(session_id)
         if not session:
@@ -288,15 +308,28 @@ class GuardianEngine:
         pos_lat = lat or (session.last_position.lat if session.last_position else None)
         pos_lng = lng or (session.last_position.lng if session.last_position else None)
 
+        can_alert = self._can_send_alert(session, now)
         event = GuardianEvent(
             event_type="fall_detected",
             description=f"⚠️ Chute détectée par accéléromètre (pic {peak_g:.1f}g)" if peak_g else "⚠️ Chute détectée par accéléromètre",
             lat=pos_lat,
             lng=pos_lng,
             risk_score=0.85,
-            metadata={"peak_g": peak_g, "source": "accelerometer", "confirmed": True},
+            metadata={
+                "peak_g": peak_g,
+                "source": "accelerometer",
+                "confirmed": True,
+                "alert_blocked": not can_alert,
+            },
         )
         self._log_event(session_id, event)
+
+        if not can_alert:
+            logger.warning(
+                f"Guardian FALL session={session_id} peak_g={peak_g} "
+                f"BLOQUEE par plafond {self.MAX_ALERTS_PER_24H}/24h"
+            )
+            return event
 
         # Mise à jour session : alerte HIGH, bypass backoff (urgence temps-réel)
         session.alert_pending = False
@@ -792,20 +825,13 @@ class GuardianEngine:
 
         # Chemin 2 : Alerte directe HIGH/CRITICAL (Niveau 4)
         elif risk.level in (AlertLevel.HIGH, AlertLevel.CRITICAL) and not in_backoff:
-            # P0-05: Limite 3 alertes/24h (SOS bypass)
-            if risk.level != AlertLevel.CRITICAL:
-                if session.alerts_window_start:
-                    w_elapsed = (now - datetime.fromisoformat(session.alerts_window_start)).total_seconds()
-                    if w_elapsed >= 86400:
-                        # Nouveau cycle 24h — réinitialiser le compteur
-                        session.alerts_sent = 0
-                        session.alerts_window_start = None
-                    elif session.alerts_sent >= self.MAX_ALERTS_PER_24H:
-                        logger.info(
-                            f"Guardian: plafond {self.MAX_ALERTS_PER_24H} alertes/24h atteint "
-                            f"— session {session.session_id}"
-                        )
-                        return events
+            # P0-05: Limite 3 alertes/24h
+            if not self._can_send_alert(session, now):
+                logger.info(
+                    f"Guardian: plafond {self.MAX_ALERTS_PER_24H} alertes/24h atteint "
+                    f"— session {session.session_id}"
+                )
+                return events
 
             session.alert_pending = False
             session.last_alert_at = now.isoformat()
@@ -867,33 +893,33 @@ class GuardianEngine:
                 })
 
             elif attempt >= 2 and elapsed > 300:  # 5 min sans réponse après 2e vérif → Niveau 4
-                # Vérifier le plafond avant d'escalader (sauf SOS)
-                can_escalate = True
-                if session.alerts_window_start:
-                    w_elapsed = (now - datetime.fromisoformat(session.alerts_window_start)).total_seconds()
-                    if w_elapsed < 86400 and session.alerts_sent >= self.MAX_ALERTS_PER_24H:
-                        can_escalate = False
+                # Vérifier le plafond avant d'escalader
+                if not self._can_send_alert(session, now):
+                    logger.info(
+                        f"Guardian: escalade bloquee par plafond "
+                        f"{self.MAX_ALERTS_PER_24H}/24h — session {session.session_id}"
+                    )
+                    return events
 
-                if can_escalate:
-                    session.alert_pending = False
-                    session.verification_attempt = 0
-                    session.last_alert_at = now.isoformat()
-                    if session.alerts_window_start is None:
-                        session.alerts_window_start = now.isoformat()
-                    session.alerts_sent += 1
-                    session.alert_level = AlertLevel.HIGH
-                    location_url = (
-                        f"https://maps.google.com/?q={round(pos.lat, 3)},{round(pos.lng, 3)}"
-                        if pos else None
-                    )
-                    esc_event = GuardianEvent(
-                        event_type="alert_escalated",
-                        description="⚠️ Pas de réponse à la vérification — alerte escaladée",
-                        lat=pos.lat, lng=pos.lng,
-                        risk_score=0.8,
-                        metadata={"location_url": location_url, "no_response_seconds": int(elapsed)},
-                    )
-                    events.append(esc_event)
+                session.alert_pending = False
+                session.verification_attempt = 0
+                session.last_alert_at = now.isoformat()
+                if session.alerts_window_start is None:
+                    session.alerts_window_start = now.isoformat()
+                session.alerts_sent += 1
+                session.alert_level = AlertLevel.HIGH
+                location_url = (
+                    f"https://maps.google.com/?q={round(pos.lat, 3)},{round(pos.lng, 3)}"
+                    if pos else None
+                )
+                esc_event = GuardianEvent(
+                    event_type="alert_escalated",
+                    description="⚠️ Pas de réponse à la vérification — alerte escaladée",
+                    lat=pos.lat, lng=pos.lng,
+                    risk_score=0.8,
+                    metadata={"location_url": location_url, "no_response_seconds": int(elapsed)},
+                )
+                events.append(esc_event)
 
         return events
 
