@@ -1196,6 +1196,126 @@ function showToast(msg,ms){
 // ── CAMERA ────────────────────────────────────
 var _camStream=null, _camTimer=null, CAM_STATE='inactive';
 
+// ── BEHAVIOR ENGINE ───────────────────────────
+var _frameBuffer=[];          // [{ts, frame, motion}]
+var _prevFramePixels=null;    // Uint8ClampedArray pour motion diff
+var _beh={
+  score:0,                    // 0-10, danger courant
+  motionHistory:[],           // [{ts, motion}]
+  fallCandidateSince:null,    // timestamp quand pattern chute détecté
+  lastAnomalySend:0,          // dernier envoi anomalie
+  lastBaselineSend:0,         // dernier envoi baseline
+  COOLDOWN:60000,             // 1min entre deux alertes anomalie
+  BASELINE_IV:300000,         // 5min baseline check
+  BUFFER_MAX:15,              // ~30s à 2s/tick
+};
+
+function _measureMotion(ctx,W,H){
+  var data=ctx.getImageData(0,0,W,H).data;
+  var motion=0;
+  if(_prevFramePixels){
+    var samples=0;
+    for(var i=0;i<data.length;i+=16){motion+=Math.abs(data[i]-_prevFramePixels[i]);samples++;}
+    motion=motion/(samples*255);
+  }
+  _prevFramePixels=new Uint8ClampedArray(data);
+  return motion;
+}
+
+function _updateBehaviorScore(motion){
+  var now=Date.now();
+  var HIGH=0.10, STILL=0.02;
+  _beh.motionHistory.push({ts:now,m:motion});
+  if(_beh.motionHistory.length>20) _beh.motionHistory.shift();
+  var h=_beh.motionHistory;
+  if(h.length>=6){
+    var hadSpike=h.slice(-6,-2).some(function(f){return f.m>HIGH;});
+    var nowStill=h.slice(-2).every(function(f){return f.m<STILL;});
+    if(hadSpike&&nowStill){
+      if(!_beh.fallCandidateSince) _beh.fallCandidateSince=now;
+      var stillFor=(now-_beh.fallCandidateSince)/1000;
+      _beh.score=Math.min(10,Math.round(stillFor/15*6));
+    } else if(h.slice(-2).some(function(f){return f.m>STILL;})){
+      _beh.fallCandidateSince=null;
+      _beh.score=Math.max(0,_beh.score-2);
+    }
+  }
+  return _beh.score;
+}
+
+function _processCamTick(){
+  if(!SID||(CAM_STATE!=='active'&&CAM_STATE!=='external')) return;
+  var video=document.getElementById('cam-video');
+  var canvas=document.getElementById('cam-canvas');
+  if(!video||!canvas) return;
+  var W=320,H=240;
+  canvas.width=W; canvas.height=H;
+  var ctx=canvas.getContext('2d');
+  try{ctx.drawImage(video,0,0,W,H);}catch(e){return;}
+  var frame=canvas.toDataURL('image/jpeg',0.65).split(',')[1];
+  if(!frame||frame.length<200) return;
+  var motion=_measureMotion(ctx,W,H);
+  var now=Date.now();
+  _frameBuffer.push({ts:now,frame:frame,motion:motion});
+  if(_frameBuffer.length>_beh.BUFFER_MAX) _frameBuffer.shift();
+  var score=_updateBehaviorScore(motion);
+  if(score>=7&&(now-_beh.lastAnomalySend)>_beh.COOLDOWN){
+    _sendAnomalyToServer();
+  } else if((now-_beh.lastBaselineSend)>_beh.BASELINE_IV){
+    _sendBaselineFrame(frame);
+  }
+}
+
+function _sendAnomalyToServer(){
+  var buf=_frameBuffer;
+  var frames=[];
+  if(buf.length<=5){
+    frames=buf.map(function(f){return {frame:f.frame,motion:f.motion,ts:f.ts};});
+  } else {
+    var step=Math.floor(buf.length/5);
+    for(var i=0;i<5;i++){
+      var f=buf[Math.min(i*step,buf.length-1)];
+      frames.push({frame:f.frame,motion:f.motion,ts:f.ts});
+    }
+  }
+  _beh.lastAnomalySend=Date.now();
+  _setCamState('sending');
+  authFetch('/api/guardian/anomaly/'+SID,{
+    method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({
+      frames:frames,behavior_score:_beh.score,
+      lat:LAST_POS?LAST_POS.lat:null,lng:LAST_POS?LAST_POS.lng:null
+    })
+  }).then(function(r){return r.json();}).then(function(d){
+    if(_camStream) _setCamState('active');
+    _beh.score=0; _beh.fallCandidateSince=null;
+    if(d.description){
+      document.getElementById('cam-result-txt').textContent='👁 '+d.description;
+      document.getElementById('cam-result').style.display='block';
+      _layoutCamResult();
+    }
+    if(d.danger_score>=7){
+      _doCheckIn();
+    } else if(d.has_concern){
+      showToast('⚠️ Situation inhabituelle détectée',4000);
+      vibrate([300,100,300]); loadEvents();
+    }
+  }).catch(function(){if(_camStream) _setCamState('active');});
+}
+
+function _sendBaselineFrame(frame){
+  _beh.lastBaselineSend=Date.now();
+  authFetch('/api/guardian/frame/'+SID,{
+    method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({frame:frame,width:320,height:240})
+  }).then(function(r){return r.json();}).then(function(d){
+    if(!d.description||d.description==='Analyse indisponible') return;
+    document.getElementById('cam-result-txt').textContent='👁 '+d.description;
+    document.getElementById('cam-result').style.display='block';
+    _layoutCamResult();
+  }).catch(function(){});
+}
+
 function _setCamState(state,extra){
   CAM_STATE=state;
   var badge=document.getElementById('cam-badge');
@@ -1273,8 +1393,10 @@ function cameraStop(){
 
 function _startCamLoop(){
   _stopCamLoop();
-  _sendFrame();
-  _camTimer=setInterval(_sendFrame,10000);
+  _frameBuffer=[]; _prevFramePixels=null;
+  _beh.score=0; _beh.motionHistory=[]; _beh.fallCandidateSince=null;
+  _beh.lastAnomalySend=0; _beh.lastBaselineSend=0;
+  _camTimer=setInterval(_processCamTick,2000);
 }
 function _stopCamLoop(){
   if(_camTimer){clearInterval(_camTimer); _camTimer=null;}
@@ -1287,7 +1409,7 @@ var _checkInTimer=null, _checkInWait=null, _checkInPending=false;
 
 function _startCheckInLoop(){
   _stopCheckInLoop();
-  _checkInTimer=setInterval(_doCheckIn, 60000);
+  _checkInTimer=setInterval(_doCheckIn, 600000); // 10 min — Policy V2
 }
 function _stopCheckInLoop(){
   if(_checkInTimer){clearInterval(_checkInTimer);_checkInTimer=null;}
@@ -1306,7 +1428,7 @@ function _doCheckIn(){
   vibrate([200,100,200]);
   _checkInWait=setTimeout(function(){
     if(_checkInPending) _checkInMissed();
-  }, 30000);
+  }, 60000); // 1 min — Policy V2 : laisser le temps de répondre
 }
 function _checkInMissed(){
   _checkInPending=false;
@@ -1333,6 +1455,7 @@ function _checkInMissed(){
 }
 
 function _sendFrame(){
+  // Appel manuel (bouton toggleCamDetails) — envoie une baseline immédiate
   if(!SID||(CAM_STATE!=='active'&&CAM_STATE!=='external')) return;
   var video=document.getElementById('cam-video');
   var canvas=document.getElementById('cam-canvas');
@@ -1340,29 +1463,22 @@ function _sendFrame(){
   var W=320,H=240;
   canvas.width=W; canvas.height=H;
   var ctx=canvas.getContext('2d');
-  try{ ctx.drawImage(video,0,0,W,H); }catch(e){return;} // video pas prête
+  try{ctx.drawImage(video,0,0,W,H);}catch(e){return;}
   var frame=canvas.toDataURL('image/jpeg',0.65).split(',')[1];
-  if(!frame||frame.length<200) return; // frame noire/vide
+  if(!frame||frame.length<200) return;
   _setCamState('sending');
   authFetch('/api/guardian/frame/'+SID,{
     method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({frame:frame,width:W,height:H})
   }).then(function(r){return r.json();}).then(function(d){
-    // Restaurer l'état actif après 'sending'
     if(_camStream) _setCamState('active');
     if(d.description&&d.description!=='Analyse indisponible'){
-      var r2=document.getElementById('cam-result');
       document.getElementById('cam-result-txt').textContent='👁 '+d.description;
-      r2.style.display='block';
+      document.getElementById('cam-result').style.display='block';
       _layoutCamResult();
     }
-    if(d.has_concern){
-      showToast('⚠️ Situation inhabituelle détectée',4000);
-      loadEvents(); vibrate([300,100,300]);
-    }
-  }).catch(function(){
-    if(_camStream) _setCamState('active');
-  });
+    if(d.has_concern){showToast('⚠️ Situation inhabituelle détectée',4000);loadEvents();vibrate([300,100,300]);}
+  }).catch(function(){if(_camStream) _setCamState('active');});
 }
 
 function _layoutCamResult(){

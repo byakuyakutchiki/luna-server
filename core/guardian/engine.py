@@ -486,10 +486,10 @@ class GuardianEngine:
         if (hour >= 22 or hour < 6) and not session.in_safe_zone:
             signals["night_anomaly"] = 0.5
 
-        # Signal 4 : Vitesse anormale (chute détectée : vitesse soudaine puis zéro)
-        if profile == ProfileType.SENIOR and pos.speed is not None:
-            if pos.speed > 5.0:  # > 18 km/h à pied = chute/impact
-                signals["speed_anomaly"] = 0.7
+        # Signal 4 : speed_anomaly — désactivé (trop de faux positifs, Policy V2)
+        # if profile == ProfileType.SENIOR and pos.speed is not None:
+        #     if pos.speed > 5.0:
+        #         signals["speed_anomaly"] = 0.7
 
         # Signal 5 : Inactivité longue (> 2x threshold) — suspendu si mode nuit actif
         if not night_mode_active and session.is_immobile and session.immobile_since:

@@ -203,6 +203,72 @@ class PerceptionDetector:
             inference_time_ms=inference_ms,
         )
 
+    def analyze_sequence_b64(self, frames: list) -> dict:
+        """
+        Analyse une séquence de frames (comportement temporel).
+        frames: list de dicts {frame: str (b64), motion: float, ts: int (ms)}
+        Retourne: {danger_score: 0-10, has_concern: bool, description: str, posture: str}
+        """
+        if not self._initialized or not self._openai_client or not frames:
+            return {"danger_score": 0, "has_concern": False, "description": "", "posture": "unknown"}
+
+        seq_prompt = (
+            "Tu analyses une séquence de " + str(len(frames)) + " images de camera prises toutes les ~6 secondes.\n"
+            "Scores de mouvement entre frames (0=immobile, 1=agitation totale): "
+            + ", ".join(f"{f.get('motion', 0):.2f}" for f in frames) + "\n\n"
+            "Réponds UNIQUEMENT en JSON:\n"
+            "{\n"
+            '  "danger_score": <0-10>,\n'
+            '  "posture_sequence": ["standing|sitting|lying_floor|lying_bed|absent", ...],\n'
+            '  "has_concern": <bool>,\n'
+            '  "description": "<description factuelle courte en français>"\n'
+            "}\n\n"
+            "danger_score: 0=normal, 5=inhabituel, 7=préoccupant (personne au sol immobile), 10=urgence.\n"
+            "Ne jamais mentionner: surveillance, diagnostic, chute, urgence médicale.\n"
+            "Si l'image est floue ou vide, danger_score=0."
+        )
+
+        content = [{"type": "text", "text": seq_prompt}]
+        for i, f in enumerate(frames):
+            frame_b64 = f.get("frame", "")
+            if frame_b64 and len(frame_b64) > 100:
+                content.append({
+                    "type": "image_url",
+                    "image_url": {
+                        "url": f"data:image/jpeg;base64,{frame_b64}",
+                        "detail": "low",
+                    },
+                })
+
+        try:
+            response = self._openai_client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[{"role": "user", "content": content}],
+                max_tokens=200,
+                temperature=0.1,
+            )
+        except Exception as e:
+            logger.error(f"OpenAI Vision sequence error: {e}")
+            return {"danger_score": 0, "has_concern": False, "description": "Analyse indisponible", "posture": "unknown"}
+
+        raw = response.choices[0].message.content.strip()
+        if raw.startswith("```"):
+            raw = raw.split("\n", 1)[1] if "\n" in raw else raw[3:]
+            if raw.endswith("```"):
+                raw = raw[:-3]
+            raw = raw.strip()
+
+        try:
+            data = json.loads(raw)
+            return {
+                "danger_score": int(data.get("danger_score", 0)),
+                "has_concern": bool(data.get("has_concern", False)),
+                "description": str(data.get("description", "")),
+                "posture": (data.get("posture_sequence") or ["unknown"])[-1],
+            }
+        except Exception:
+            return {"danger_score": 0, "has_concern": False, "description": raw[:120], "posture": "unknown"}
+
     def set_remote_camera_active(self, active: bool):
         """Indique si un navigateur envoie activement des frames."""
         self._remote_camera_active = active

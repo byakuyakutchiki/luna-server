@@ -3826,6 +3826,7 @@ _instruction_loop_task: Optional[object] = None
 _doc_generator: Optional[object] = None
 _perception_detector: Optional[object] = None
 _perception_analyzer: Optional[object] = None
+_guardian_scene_analyzers: Dict[str, object] = {}  # session_id -> SceneAnalyzer (historique préservé)
 _test_mode: bool = False  # En mode test, les SMS ne sont PAS envoyes
 _notification_engine: Optional[object] = None
 _iris_session_manager: Optional[object] = None  # IrisSessionManager
@@ -15170,7 +15171,9 @@ async def guardian_frame(session_id: str, request: Request):
             return {"description": "Image peu lisible", "has_concern": False, "persons_count": 0}
 
         from core.perception.analyzer import SceneAnalyzer
-        analyzer = SceneAnalyzer()
+        if session_id not in _guardian_scene_analyzers:
+            _guardian_scene_analyzers[session_id] = SceneAnalyzer()
+        analyzer = _guardian_scene_analyzers[session_id]
         state = analyzer.analyze(analysis)
         has_concern = analyzer.has_concern()
 
@@ -15197,6 +15200,71 @@ async def guardian_frame(session_id: str, request: Request):
     except Exception as e:
         logger.error(f"Guardian frame analysis error: {e}")
         return {"description": "Analyse indisponible", "has_concern": False}
+
+
+@app.post("/api/guardian/anomaly/{session_id}")
+async def guardian_anomaly(session_id: str, request: Request):
+    """Analyse comportementale : reçoit une séquence de frames et retourne un danger_score.
+    Appelé uniquement quand le BehaviorEngine client détecte un pattern suspect (score >= 7).
+    """
+    engine = _get_guardian()
+    if not engine:
+        return JSONResponse(status_code=503, content={"error": "Guardian non disponible"})
+    session = engine.get_session(session_id)
+    if not session or not session.is_active:
+        return JSONResponse(status_code=404, content={"error": "Session inactive"})
+
+    if not _perception_detector or not _perception_detector._initialized:
+        return JSONResponse(status_code=503, content={
+            "danger_score": 0, "has_concern": False,
+            "description": "Analyse vision non disponible",
+        })
+
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse(status_code=400, content={"error": "Corps JSON invalide"})
+
+    frames = body.get("frames", [])
+    behavior_score = float(body.get("behavior_score", 0))
+    lat = body.get("lat") or (session.last_position.lat if session.last_position else None)
+    lng = body.get("lng") or (session.last_position.lng if session.last_position else None)
+
+    if not frames or len(frames) < 1:
+        return JSONResponse(status_code=400, content={"error": "Séquence vide"})
+
+    try:
+        result = await asyncio.get_event_loop().run_in_executor(
+            _executor, _perception_detector.analyze_sequence_b64, frames
+        )
+    except Exception as e:
+        logger.error(f"Guardian anomaly analysis error: {e}")
+        result = {"danger_score": 0, "has_concern": False, "description": "Analyse indisponible", "posture": "unknown"}
+
+    danger_score = result.get("danger_score", 0)
+    has_concern = result.get("has_concern", False) or danger_score >= 5
+
+    if has_concern or behavior_score >= 7:
+        from core.guardian.engine import GuardianEvent
+        engine._log_event(session_id, GuardianEvent(
+            event_type="perception_concern",
+            description=f"[Comportement] score={behavior_score}/10 → {result.get('description', '')}",
+            lat=lat, lng=lng,
+        ))
+        engine._broadcast(session_id, {
+            "type": "perception",
+            "description": result.get("description", ""),
+            "danger_score": danger_score,
+            "has_concern": has_concern,
+        })
+
+    logger.info(f"Guardian anomaly [{session_id}] beh={behavior_score} danger={danger_score} concern={has_concern}")
+    return {
+        "danger_score": danger_score,
+        "has_concern": has_concern,
+        "description": result.get("description", ""),
+        "posture": result.get("posture", "unknown"),
+    }
 
 
 @app.post("/api/guardian/checkin-miss/{session_id}")
@@ -15227,9 +15295,12 @@ async def guardian_checkin_miss(session_id: str, request: Request):
             analysis = _perception_detector.analyze_frame_b64(frame_b64)
             if analysis:
                 from core.perception.analyzer import SceneAnalyzer
-                state = SceneAnalyzer().analyze(analysis)
+                if session_id not in _guardian_scene_analyzers:
+                    _guardian_scene_analyzers[session_id] = SceneAnalyzer()
+                _az = _guardian_scene_analyzers[session_id]
+                state = _az.analyze(analysis)
                 description = state.scene_description or description
-                has_concern = SceneAnalyzer().has_concern() if analysis else True
+                has_concern = _az.has_concern() if analysis else True
         except Exception as e:
             logger.warning(f"checkin_miss frame analysis error: {e}")
 
