@@ -429,7 +429,7 @@ select.cfg-inp option { background:#13131f; }
 </div>
 
 <!-- Hidden video/canvas for frame capture (jamais affiché) -->
-<video id="cam-video" muted playsinline style="display:none;position:fixed;width:1px;height:1px;opacity:0;pointer-events:none;"></video>
+<video id="cam-video" muted playsinline autoplay style="position:fixed;width:1px;height:1px;opacity:0.01;pointer-events:none;top:-2px;left:-2px;"></video>
 <canvas id="cam-canvas" style="display:none;"></canvas>
 
 <!-- ADDRESS CARD -->
@@ -755,16 +755,10 @@ function openPerm(){
 function closePerm(){ document.getElementById('perm-modal').classList.remove('open'); }
 async function grantPermissions(){
   closePerm();
-  if(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia){
-    // Demander caméra + micro ensemble pour pré-autoriser les deux
-    try{ var s=await navigator.mediaDevices.getUserMedia({audio:true,video:true});
-      s.getTracks().forEach(function(t){t.stop();}); // relâcher immédiatement
-    }catch(e){
-      // Fallback : micro seul si caméra refusée
-      try{ await navigator.mediaDevices.getUserMedia({audio:true}); }catch(e2){}
-    }
+  // Demander uniquement les notifications ici — la caméra sera demandée quand l'utilisateur clique "Activer caméra"
+  if(window.Notification&&Notification.permission==='default'){
+    try{ await Notification.requestPermission(); }catch(e){}
   }
-  if(window.Notification&&Notification.permission==='default') await Notification.requestPermission();
 }
 
 // ── RGPD MODAL ────────────────────────────────
@@ -1222,25 +1216,35 @@ async function cameraStart(){
     showToast('Caméra non disponible sur cet appareil',3000); return;
   }
   try{
-    // Caméra arrière en priorité (smartphone/tablette), sinon caméra avant (PC)
+    // Caméra arrière en priorité (smartphone/tablette), sinon avant (PC)
     var constraints={video:{facingMode:{ideal:'environment'},width:{ideal:320},height:{ideal:240}},audio:false};
     _camStream=await navigator.mediaDevices.getUserMedia(constraints);
     var video=document.getElementById('cam-video');
     video.srcObject=_camStream;
-    await video.play();
-    _setCamState('active'); _startCamLoop();
-    showToast('🎥 Caméra active — analyse IA toutes les 10s'); vibrate([40]);
+    // Ne PAS await play() — ça peut rejeter (autoplay policy) et masquer le succès
+    // La caméra est active dès que getUserMedia réussit (LED allumée)
+    video.play().catch(function(){});
+    _setCamState('active');
+    _startCamLoop();
+    showToast('🎥 Caméra active — analyse IA toutes les 10s');
+    vibrate([40]);
   }catch(e){
+    var msg='';
     if(e.name==='NotAllowedError'||e.name==='PermissionDeniedError'){
       _setCamState('refused');
-      showToast('❌ Caméra refusée — autorisez l\'accès dans les réglages',4000);
-    } else if(e.name==='NotFoundError'){
+      msg='❌ Caméra refusée — autorisez dans les réglages du navigateur';
+    } else if(e.name==='NotFoundError'||e.name==='DevicesNotFoundError'){
       _setCamState('unavailable');
-      showToast('❌ Aucune caméra détectée sur cet appareil',3000);
+      msg='❌ Aucune caméra détectée sur cet appareil';
+    } else if(e.name==='NotReadableError'||e.name==='TrackStartError'){
+      _setCamState('unavailable');
+      msg='❌ Caméra utilisée par une autre app — fermez-la et réessayez';
     } else {
       _setCamState('unavailable');
-      showToast('❌ Caméra indisponible : '+e.message,3000);
+      msg='❌ Caméra : '+e.name+' — '+e.message;
     }
+    showToast(msg, 5000);
+    console.error('[Guardian camera]', e.name, e.message);
   }
 }
 
