@@ -1220,13 +1220,21 @@ function cameraStart(){
   }
   // IMPORTANT : pas d'async/await — getUserMedia doit être appelé directement
   // dans le handler onclick pour conserver le contexte du geste utilisateur (iOS/Android)
-  var constraints={
-    video:{facingMode:{ideal:'environment'},width:{ideal:320},height:{ideal:240}},
-    audio:false
-  };
+  // Essayer caméra arrière d'abord, fallback sur n'importe quelle caméra
+  var constraints={video:true, audio:false};
   navigator.mediaDevices.getUserMedia(constraints)
     .then(function(stream){
       _camStream=stream;
+      // Si l'OS coupe la caméra (veille, arrière-plan), nettoyer proprement
+      stream.getVideoTracks().forEach(function(track){
+        track.addEventListener('ended', function(){
+          _camStream=null;
+          _setCamState('inactive');
+          _stopCamLoop();
+          _stopCheckInLoop();
+          showToast('⚠️ Caméra interrompue (veille ou arrière-plan)',3000);
+        });
+      });
       var video=document.getElementById('cam-video');
       video.srcObject=stream;
       video.play().catch(function(){}); // non bloquant
@@ -1291,7 +1299,11 @@ function _stopCheckInLoop(){
   _checkInPending=false;
 }
 function _doCheckIn(){
-  if(!SID||!_camStream) return;
+  // Ne déclencher QUE si la caméra est vraiment active (LED allumée, tracks live)
+  if(!SID||CAM_STATE!=='active') return;
+  if(!_camStream||!_camStream.getVideoTracks().some(function(t){return t.readyState==='live';})){
+    _setCamState('inactive'); _stopCheckInLoop(); return;
+  }
   _checkInPending=true;
   maybeSpeak('Contrôle Guardian. Tout va bien ? Appuyez sur Oui si vous allez bien.');
   openVerifyModal('🎥 Contrôle automatique — Tout va bien ?');
