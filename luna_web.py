@@ -15320,19 +15320,7 @@ async def guardian_checkin_miss(session_id: str, request: Request):
         except Exception as e:
             logger.warning(f"checkin_miss frame analysis error: {e}")
 
-    # Logger l'événement
-    from core.guardian.engine import GuardianEvent
-    engine._log_event(session_id, GuardianEvent(
-        event_type="alert_triggered",
-        description=f"⚠️ Contrôle sans réponse — {description}",
-        lat=lat, lng=lng,
-    ))
-    engine._broadcast(session_id, {
-        "type": "alert",
-        "data": {"description": f"Contrôle sans réponse — {description}", "lat": lat, "lng": lng},
-    })
-
-    # Alerter les contacts
+    # Récupérer les contacts de confiance
     mgr = _get_tenant_manager(tid)
     contacts = []
     if mgr:
@@ -15341,56 +15329,54 @@ async def guardian_checkin_miss(session_id: str, request: Request):
             contacts = [{"phone": c.phone, "name": c.name} for c in tc]
         except Exception:
             pass
-
-    sub = mgr.get_subscriber_profile() if mgr else None
-    person_name = sub.name if sub and hasattr(sub, "name") else "Utilisateur"
-    alert_msg = f"⚠️ {person_name} ne répond pas au contrôle Guardian. Scène : {description}"
-
-    sms_sent = 0
-    _alert_channel = "sms"
-    if _redis_client:
-        _s = _redis_client.client.hget(_redis_client._key(tid, "settings"), "guardian_alert_channel")
-        if _s and _s in ("luna", "both"):
-            _alert_channel = _s
-
-    if _alert_channel in ("sms", "both") and contacts and sms_client:
         try:
-            from core.guardian.alerts import send_guardian_alerts
-            res = send_guardian_alerts(
-                sms_send_fn=_tracked_sms_send,
-                contacts=contacts,
-                person_name=person_name,
-                description=alert_msg,
-                lat=lat, lng=lng,
-                alert_level="high",
-                profile_type=session.profile_type.value if session else "senior",
-            )
-            sms_sent = len(res.get("sent", []))
-        except Exception as e:
-            logger.error(f"checkin_miss SMS error: {e}")
+            sub = mgr.get_subscriber_profile()
+            if sub and hasattr(sub, "name") and sub.name:
+                session.config.setdefault("person_name", sub.name)
+        except Exception:
+            pass
 
-    if _alert_channel in ("luna", "both") and _redis_client:
+    # Déléguer le cycle Niveau 2 -> Niveau 3 -> Niveau 4 au moteur Guardian
+    result = engine.handle_checkin_missed(session_id, frame=frame_b64, lat=lat, lng=lng, contacts=contacts)
+
+    # DM Luna en parallèle si niveau 4 et canal activé
+    if result.get("status") == "level4" and _redis_client:
+        _alert_channel = "sms"
         try:
-            from core.guardian.alerts import send_guardian_dm_alerts
-            from core.social.redis_ops import SocialRedisOps
-            await send_guardian_dm_alerts(
-                sops=SocialRedisOps(_redis_client),
-                sender_tid=tid,
-                person_name=person_name,
-                description=alert_msg,
-                lat=lat, lng=lng,
-                alert_level="high",
-                ws_push_fn=_guardian_dm_broadcast,
-            )
-        except Exception as e:
-            logger.error(f"checkin_miss DM error: {e}")
+            _s = _redis_client.client.hget(_redis_client._key(tid, "settings"), "guardian_alert_channel")
+            if _s and _s in ("luna", "both"):
+                _alert_channel = _s
+        except Exception:
+            pass
 
-    logger.warning(f"GUARDIAN_CHECKIN_MISS session={session_id} tid={tid} sms_sent={sms_sent}")
+        if _alert_channel in ("luna", "both"):
+            try:
+                from core.guardian.alerts import send_guardian_dm_alerts
+                from core.social.redis_ops import SocialRedisOps
+                person_name = session.config.get("person_name") or "Utilisateur"
+                alert_msg = f"⚠️ {person_name} ne répond pas au contrôle Guardian. Scène : {description}"
+                await send_guardian_dm_alerts(
+                    sops=SocialRedisOps(_redis_client),
+                    sender_tid=tid,
+                    person_name=person_name,
+                    description=alert_msg,
+                    lat=lat, lng=lng,
+                    alert_level="high",
+                    ws_push_fn=_guardian_dm_broadcast,
+                )
+            except Exception as e:
+                logger.error(f"checkin_miss DM error: {e}")
+
+    logger.warning(
+        f"GUARDIAN_CHECKIN_MISS session={session_id} tid={tid} "
+        f"status={result.get('status')} alerts_sent={result.get('alerts_sent', 0)}"
+    )
     return {
         "success": True,
+        "status": result.get("status"),
         "description": description,
         "has_concern": has_concern,
-        "alerts_sent": sms_sent,
+        "alerts_sent": result.get("alerts_sent", 0),
     }
 
 

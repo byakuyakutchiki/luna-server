@@ -347,6 +347,43 @@ check("Autorisé après 35 min (> 30 min backoff 1ère alerte)",
 
 
 # ─────────────────────────────────────────────
+# TEST 7 — Check-in caméra manqué : cycle Niveau 3 → Niveau 4
+# ─────────────────────────────────────────────
+
+print("\n=== TEST 7 : Check-in caméra manqué ===")
+engine, sms = make_engine()
+session = make_session(profile="senior", in_safe_zone=True)
+session.alert_pending = True
+session.verification_attempt = 1
+session.verification_sent_at = (datetime.utcnow() - timedelta(minutes=5)).isoformat()
+engine._sessions["test_session"] = session
+
+# 1re vérification caméra manquée → Niveau 3 (2e vérification)
+result = engine.handle_checkin_missed("test_session")
+check("1re vérif caméra manquée → Niveau 3",
+      result.get("status") == "level3",
+      f"status={result.get('status')}")
+check("Niveau 3 : pas de SMS",
+      result.get("alerts_sent") == 0,
+      f"alerts_sent={result.get('alerts_sent')}")
+check("verification_attempt = 2 après Niveau 3",
+      session.verification_attempt == 2,
+      f"verification_attempt={session.verification_attempt}")
+
+# 2e vérification caméra manquée → Niveau 4 (SMS)
+result = engine.handle_checkin_missed("test_session")
+check("2e vérif caméra manquée → Niveau 4",
+      result.get("status") == "level4",
+      f"status={result.get('status')}")
+check("Niveau 4 : SMS envoyé",
+      result.get("alerts_sent") == 1,
+      f"alerts_sent={result.get('alerts_sent')}")
+check("verification_attempt réinitialisé à 0",
+      session.verification_attempt == 0,
+      f"verification_attempt={session.verification_attempt}")
+
+
+# ─────────────────────────────────────────────
 # RÉSUMÉ
 # ─────────────────────────────────────────────
 

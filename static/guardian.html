@@ -1060,7 +1060,6 @@ function verifyResponse(ok){
   document.getElementById('verify-modal').classList.remove('open');
   // Annuler le timeout check-in si l'utilisateur répond
   _checkInPending=false;
-  _checkInAttempts=0;
   if(_checkInWait){clearTimeout(_checkInWait);_checkInWait=null;}
   if(!SID) return;
   vibrate([ok?60:[200,100,200]]);
@@ -1422,7 +1421,7 @@ function _stopCamLoop(){
 // ── CHECK-IN VOCAL ────────────────────────────
 // Déclenché uniquement sur signal de risque (danger_score >= 7 ou verification_needed WS)
 // Pas de timer périodique — Policy V2 Scénarios 2/4 : sieste/TV/douche ne doivent pas alerter
-var _checkInTimer=null, _checkInWait=null, _checkInPending=false, _checkInAttempts=0;
+var _checkInTimer=null, _checkInWait=null, _checkInPending=false;
 
 function _startCheckInLoop(){
   _stopCheckInLoop();
@@ -1432,7 +1431,6 @@ function _stopCheckInLoop(){
   if(_checkInTimer){clearInterval(_checkInTimer);_checkInTimer=null;}
   if(_checkInWait){clearTimeout(_checkInWait);_checkInWait=null;}
   _checkInPending=false;
-  _checkInAttempts=0;
 }
 function _doCheckIn(){
   // Ne déclencher QUE si la caméra est vraiment active (LED allumée, tracks live)
@@ -1451,21 +1449,8 @@ function _doCheckIn(){
 function _checkInMissed(){
   _checkInPending=false;
   document.getElementById('verify-modal').classList.remove('open');
-  _checkInAttempts++;
-  // Niveau 3 : deuxième tentative avant d'alerter les contacts (Policy V2)
-  if(_checkInAttempts<2){
-    maybeSpeak('Toujours pas de réponse. Je réessaie dans cinq minutes.');
-    showToast('⚠️ Pas de réponse — deuxième contrôle dans 5 min',4000);
-    vibrate([300,200,300]);
-    _checkInWait=setTimeout(function(){ _doCheckIn(); },300000);
-    return;
-  }
-  // Niveau 4 : alerte contacts
-  _checkInAttempts=0;
-  maybeSpeak('Pas de réponse. Je préviens vos contacts.');
-  showToast('🚨 Pas de réponse — alerte envoyée',5000);
-  vibrate([500,200,500,200,800]);
-  // Capturer la scène et alerter
+  if(!SID) return;
+  // Capturer la scène et laisser le backend décider du cycle Niveau 2→3→4
   var video=document.getElementById('cam-video');
   var canvas=document.getElementById('cam-canvas');
   canvas.width=320; canvas.height=240;
@@ -1477,7 +1462,16 @@ function _checkInMissed(){
     headers:{'Content-Type':'application/json'},
     body:JSON.stringify({frame:frame||null,lat:LAST_POS?LAST_POS.lat:null,lng:LAST_POS?LAST_POS.lng:null})
   }).then(function(r){return r.json();}).then(function(d){
-    updateRisk(0.85,'high','Pas de réponse au contrôle');
+    if(d.status==='level3'){
+      maybeSpeak('Toujours pas de réponse. Je réessaie dans cinq minutes.');
+      showToast('⚠️ Pas de réponse — deuxième contrôle dans 5 min',4000);
+      vibrate([300,200,300]);
+    } else if(d.status==='level4'){
+      maybeSpeak('Pas de réponse. Je préviens vos contacts.');
+      showToast('🚨 Pas de réponse — alerte envoyée',5000);
+      vibrate([500,200,500,200,800]);
+    }
+    updateRisk(d.alerts_sent>0?0.85:0,'high','Pas de réponse au contrôle');
     breakStreak(); loadEvents();
     if(d.description) showToast('👁 '+d.description.substring(0,60),6000);
   }).catch(function(){});

@@ -323,6 +323,122 @@ class GuardianEngine:
             self._persist_session(session)
             return "Alerte confirmée — contacts notifiés"
 
+    def handle_checkin_missed(self, session_id: str, frame: Optional[str] = None,
+                              lat: Optional[float] = None, lng: Optional[float] = None,
+                              contacts: Optional[List[Dict]] = None) -> dict:
+        """
+        Signale qu'une vérification vocale/caméra n'a pas obtenu de réponse.
+        Implémente le cycle Policy V2 : Niveau 2 -> Niveau 3 -> Niveau 4.
+        Retourne {"status": "level3"|"level4", "events": [...], "alerts_sent": int}
+        """
+        session = self.get_session(session_id)
+        if not session:
+            return {"status": "error", "message": "Session introuvable", "events": [], "alerts_sent": 0}
+
+        now = datetime.utcnow()
+        events: List[GuardianEvent] = []
+        pos = session.last_position
+        if lat is not None and lng is not None:
+            pos = GeoPoint(lat=lat, lng=lng, timestamp=now.isoformat())
+
+        # Déterminer si c'est une 1re ou 2e vérification manquée
+        attempt = session.verification_attempt or 1
+
+        if attempt == 1 and session.alert_pending:
+            # Niveau 3 : deuxième vérification
+            session.verification_attempt = 2
+            session.verification_sent_at = now.isoformat()
+            session.alert_level = AlertLevel.MEDIUM
+            msg = _verification_message(session, attempt=2)
+            event = GuardianEvent(
+                event_type="verification_needed",
+                description="Deuxième vérification — contrôle sans réponse",
+                lat=pos.lat if pos else None,
+                lng=pos.lng if pos else None,
+                risk_score=0.6,
+                metadata={"message": msg, "attempt": 2, "source": "checkin"},
+            )
+            events.append(event)
+            self._log_event(session_id, event)
+            self._broadcast(session_id, {
+                "type": "verification_needed",
+                "message": msg,
+                "risk": 0.6,
+                "attempt": 2,
+            })
+            self._persist_session(session)
+            return {"status": "level3", "events": [e.to_dict() for e in events], "alerts_sent": 0}
+
+        # Niveau 4 : alerte contacts
+        # Vérifier le plafond 3 alertes/24h
+        can_alert = True
+        if session.alerts_window_start:
+            w_elapsed = (now - datetime.fromisoformat(session.alerts_window_start)).total_seconds()
+            if w_elapsed >= 86400:
+                session.alerts_sent = 0
+                session.alerts_window_start = None
+            elif session.alerts_sent >= self.MAX_ALERTS_PER_24H:
+                can_alert = False
+
+        alert_event = GuardianEvent(
+            event_type="alert_escalated",
+            description="⚠️ Pas de réponse au contrôle — alerte escaladée",
+            lat=pos.lat if pos else None,
+            lng=pos.lng if pos else None,
+            risk_score=0.8,
+            metadata={"source": "checkin"},
+        )
+        events.append(alert_event)
+        self._log_event(session_id, alert_event)
+
+        sms_sent = 0
+        if can_alert:
+            session.alert_pending = False
+            session.verification_attempt = 0
+            session.verification_sent_at = None
+            session.last_alert_at = now.isoformat()
+            if session.alerts_window_start is None:
+                session.alerts_window_start = now.isoformat()
+            session.alerts_sent += 1
+            session.alert_level = AlertLevel.HIGH
+
+            if self.sms_send_fn:
+                try:
+                    from .alerts import send_guardian_alerts
+                    person_name = session.config.get("person_name") or "La personne surveillée"
+                    alert_contacts = contacts or session.config.get("emergency_contacts", [])
+                    description = "Pas de réponse au contrôle Guardian"
+                    result = send_guardian_alerts(
+                        sms_send_fn=self.sms_send_fn,
+                        contacts=alert_contacts,
+                        person_name=person_name,
+                        description=description,
+                        lat=pos.lat if pos else None,
+                        lng=pos.lng if pos else None,
+                        alert_level="high",
+                        profile_type=session.profile_type.value,
+                    )
+                    sms_sent = len(result.get("sent", []))
+                    logger.warning(
+                        f"Guardian CHECKIN_MISS session={session_id} "
+                        f"sms_sent={sms_sent} (alerte #{session.alerts_sent}/24h)"
+                    )
+                except Exception as e:
+                    logger.error(f"Guardian: erreur envoi SMS checkin-miss: {e}")
+
+            self._broadcast(session_id, {
+                "type": "alert",
+                "data": alert_event.to_dict(),
+            })
+        else:
+            logger.info(
+                f"Guardian CHECKIN_MISS session={session_id} bloqué par plafond "
+                f"{self.MAX_ALERTS_PER_24H}/24h"
+            )
+
+        self._persist_session(session)
+        return {"status": "level4", "events": [e.to_dict() for e in events], "alerts_sent": sms_sent}
+
     def get_events(self, session_id: str, limit: int = 50) -> List[dict]:
         """Retourne les derniers événements de la session."""
         if not self.rc:
