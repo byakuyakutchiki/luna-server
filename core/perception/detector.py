@@ -261,7 +261,7 @@ class PerceptionDetector:
         try:
             data = json.loads(raw)
             return {
-                "danger_score": int(data.get("danger_score", 0)),
+                "danger_score": max(0, min(10, int(data.get("danger_score", 0)))),
                 "has_concern": bool(data.get("has_concern", False)),
                 "description": str(data.get("description", "")),
                 "posture": (data.get("posture_sequence") or ["unknown"])[-1],

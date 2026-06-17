@@ -15194,6 +15194,10 @@ async def guardian_frame(session_id: str, request: Request):
                 "description": state.scene_description,
                 "has_concern": True,
             })
+            engine.set_camera_scene(session_id, False)
+        elif state.persons_present > 0 and state.primary_posture not in ("lying_floor", "unknown"):
+            # Personne visible en posture normale → atténuer les faux positifs d'immobilité GPS
+            engine.set_camera_scene(session_id, True)
 
         return {
             "description": state.scene_description,
@@ -15254,7 +15258,7 @@ async def guardian_anomaly(session_id: str, request: Request):
         result = {"danger_score": 0, "has_concern": False, "description": "Analyse indisponible", "posture": "unknown"}
 
     danger_score = result.get("danger_score", 0)
-    has_concern = result.get("has_concern", False) or danger_score >= 5
+    has_concern = result.get("has_concern", False) or danger_score >= 7
 
     if has_concern or behavior_score >= 7:
         from core.guardian.engine import GuardianEvent

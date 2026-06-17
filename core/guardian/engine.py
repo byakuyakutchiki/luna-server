@@ -123,6 +123,9 @@ class GuardianSession:
     grace_period_until: Optional[str] = None
     # P0-05: Fenêtre 24h pour le compteur d'alertes
     alerts_window_start: Optional[str] = None
+    # Atténuation caméra — personne visible en posture normale dans les 30 dernières min
+    camera_scene_ok: bool = False
+    camera_scene_at: Optional[str] = None
 
 
 # ─────────────────────────────────────────────
@@ -388,6 +391,15 @@ class GuardianEngine:
             except Exception:
                 pass
 
+    def set_camera_scene(self, session_id: str, safe: bool) -> None:
+        """Met à jour l'état de la scène caméra pour atténuer les faux positifs d'immobilité GPS."""
+        session = self.get_session(session_id)
+        if not session:
+            return
+        session.camera_scene_ok = safe
+        session.camera_scene_at = datetime.utcnow().isoformat()
+        self._persist_session(session)
+
     # ── Logique interne ───────────────────────────────
 
     def _update_position(self, session: GuardianSession, new_pos: GeoPoint, now: datetime) -> bool:
@@ -495,6 +507,18 @@ class GuardianEngine:
         if not night_mode_active and session.is_immobile and session.immobile_since:
             if immobile_min > threshold * 2:
                 signals["prolonged_immobility"] = 0.85
+
+        # Atténuation caméra : si scène normale récente, annuler les signaux d'immobilité GPS
+        # Policy V2 Scénarios 2/4 : canapé/lit de jour ne doit pas déclencher de vérification
+        if ("immobility" in signals or "prolonged_immobility" in signals):
+            if session.camera_scene_ok and session.camera_scene_at:
+                try:
+                    scene_age_min = (now - datetime.fromisoformat(session.camera_scene_at)).total_seconds() / 60
+                    if scene_age_min <= 30:
+                        signals.pop("immobility", None)
+                        signals.pop("prolonged_immobility", None)
+                except ValueError:
+                    pass
 
         # Calcul du score total (max pondéré, pas somme pour éviter faux positifs)
         if not signals:
@@ -673,6 +697,9 @@ class GuardianEngine:
             data["grace_period_until"] = session.grace_period_until
         if session.alerts_window_start:
             data["alerts_window_start"] = session.alerts_window_start
+        if session.camera_scene_at:
+            data["camera_scene_ok"] = "1" if session.camera_scene_ok else "0"
+            data["camera_scene_at"] = session.camera_scene_at
 
         try:
             self.rc.client.hset(key, mapping=data)
@@ -724,6 +751,8 @@ class GuardianEngine:
                 alerts_sent=int(data.get("alerts_sent", 0)),
                 grace_period_until=data.get("grace_period_until") or None,
                 alerts_window_start=data.get("alerts_window_start") or None,
+                camera_scene_ok=data.get("camera_scene_ok") == "1",
+                camera_scene_at=data.get("camera_scene_at") or None,
             )
             self._sessions[session_id] = session
             return session
@@ -769,7 +798,7 @@ def _haversine(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
 def _default_config(profile: ProfileType) -> dict:
     defaults = {
         ProfileType.SENIOR: {
-            "immobility_threshold_minutes": 30,
+            "immobility_threshold_minutes": 45,  # Policy V2 §4.2
             "night_mode": True,
             "dignity_mode": True,
             "safe_zones": [],

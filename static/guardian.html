@@ -1054,6 +1054,7 @@ function verifyResponse(ok){
   document.getElementById('verify-modal').classList.remove('open');
   // Annuler le timeout check-in si l'utilisateur répond
   _checkInPending=false;
+  _checkInAttempts=0;
   if(_checkInWait){clearTimeout(_checkInWait);_checkInWait=null;}
   if(!SID) return;
   vibrate([ok?60:[200,100,200]]);
@@ -1286,20 +1287,30 @@ function _sendAnomalyToServer(){
       frames:frames,behavior_score:_beh.score,
       lat:LAST_POS?LAST_POS.lat:null,lng:LAST_POS?LAST_POS.lng:null
     })
-  }).then(function(r){return r.json();}).then(function(d){
-    if(_camStream) _setCamState('active');
-    _beh.score=0; _beh.fallCandidateSince=null;
-    if(d.description){
-      document.getElementById('cam-result-txt').textContent='👁 '+d.description;
-      document.getElementById('cam-result').style.display='block';
-      _layoutCamResult();
+  }).then(function(r){
+    if(r.status===429){
+      // Rate-limit : conserver le score et retenter après le délai serveur
+      return r.json().then(function(e){
+        var retry=(e.retry_after||50)*1000;
+        _beh.lastAnomalySend=Date.now()-(_beh.COOLDOWN-retry);
+        if(_camStream) _setCamState('active');
+      });
     }
-    if(d.danger_score>=7){
-      _doCheckIn();
-    } else if(d.has_concern){
-      showToast('⚠️ Situation inhabituelle détectée',4000);
-      vibrate([300,100,300]); loadEvents();
-    }
+    return r.json().then(function(d){
+      if(_camStream) _setCamState('active');
+      _beh.score=0; _beh.fallCandidateSince=null;
+      if(d.description){
+        document.getElementById('cam-result-txt').textContent='👁 '+d.description;
+        document.getElementById('cam-result').style.display='block';
+        _layoutCamResult();
+      }
+      if(d.danger_score>=7){
+        _doCheckIn();
+      } else if(d.has_concern){
+        showToast('⚠️ Situation inhabituelle détectée',4000);
+        vibrate([300,100,300]); loadEvents();
+      }
+    });
   }).catch(function(){if(_camStream) _setCamState('active');});
 }
 
@@ -1402,19 +1413,20 @@ function _stopCamLoop(){
   if(_camTimer){clearInterval(_camTimer); _camTimer=null;}
 }
 
-// ── CHECK-IN VOCAL (10 min) ───────────────────
-// Toutes les 10 min : Luna demande vocalement "Tout va bien ?"
-// Sans réponse dans les 5 min → capture scène + alerte contacts (Policy V2 niveau 3)
-var _checkInTimer=null, _checkInWait=null, _checkInPending=false;
+// ── CHECK-IN VOCAL ────────────────────────────
+// Déclenché uniquement sur signal de risque (danger_score >= 7 ou verification_needed WS)
+// Pas de timer périodique — Policy V2 Scénarios 2/4 : sieste/TV/douche ne doivent pas alerter
+var _checkInTimer=null, _checkInWait=null, _checkInPending=false, _checkInAttempts=0;
 
 function _startCheckInLoop(){
   _stopCheckInLoop();
-  _checkInTimer=setInterval(_doCheckIn, 600000); // 10 min — Policy V2
+  // Intentionnellement vide : le check-in est déclenché par signal de risque uniquement
 }
 function _stopCheckInLoop(){
   if(_checkInTimer){clearInterval(_checkInTimer);_checkInTimer=null;}
   if(_checkInWait){clearTimeout(_checkInWait);_checkInWait=null;}
   _checkInPending=false;
+  _checkInAttempts=0;
 }
 function _doCheckIn(){
   // Ne déclencher QUE si la caméra est vraiment active (LED allumée, tracks live)
@@ -1433,6 +1445,17 @@ function _doCheckIn(){
 function _checkInMissed(){
   _checkInPending=false;
   document.getElementById('verify-modal').classList.remove('open');
+  _checkInAttempts++;
+  // Niveau 3 : deuxième tentative avant d'alerter les contacts (Policy V2)
+  if(_checkInAttempts<2){
+    maybeSpeak('Toujours pas de réponse. Je réessaie dans cinq minutes.');
+    showToast('⚠️ Pas de réponse — deuxième contrôle dans 5 min',4000);
+    vibrate([300,200,300]);
+    _checkInWait=setTimeout(function(){ _doCheckIn(); },300000);
+    return;
+  }
+  // Niveau 4 : alerte contacts
+  _checkInAttempts=0;
   maybeSpeak('Pas de réponse. Je préviens vos contacts.');
   showToast('🚨 Pas de réponse — alerte envoyée',5000);
   vibrate([500,200,500,200,800]);
