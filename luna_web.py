@@ -207,7 +207,7 @@ LEGAL_MODE = "assistance_only"  # Mode legal: aide contextuelle, pas de surveill
 REQUIRE_AUTH = os.getenv("REQUIRE_AUTH", "true").lower() == "true"
 
 # --- Feature flags (désactive modules coûteux ou instables au boot) ---
-ENABLE_TAVUS_BOOT = os.getenv("ENABLE_TAVUS_BOOT", "true").lower() == "true"
+ENABLE_TAVUS_BOOT = os.getenv("ENABLE_TAVUS_BOOT", "false").lower() == "true"  # désactivé par défaut — add-on futur
 ENABLE_TWILIO_BOOT = os.getenv("ENABLE_TWILIO_BOOT", "true").lower() == "true"
 ENABLE_INSTRUCTIONS = os.getenv("ENABLE_INSTRUCTIONS", "true").lower() == "true"
 ENABLE_VAULT_REMINDERS = os.getenv("ENABLE_VAULT_REMINDERS", "true").lower() == "true"
@@ -4257,11 +4257,17 @@ _twilio_sms_semaphore = asyncio.Semaphore(50)      # max 50 SMS simultanes
 # --- Rate Limiting ---
 def _get_language_instruction(lang: str) -> str:
     """Returns a system instruction to adapt Luna's response language."""
-    if lang == "en":
-        return "=== LANGUAGE ===\nThe subscriber prefers English. Respond EXCLUSIVELY in English. Keep the same warm, empathetic tone. Use informal 'you'. Greet with the subscriber's first name."
-    elif lang == "es":
-        return "=== IDIOMA ===\nEl suscriptor prefiere espanol. Responde EXCLUSIVAMENTE en espanol. Mantiene el mismo tono calido y empatico. Tutea al suscriptor. Saluda con su nombre de pila."
-    return ""  # French is default — no additional instruction needed
+    _LANG_INSTRUCTIONS = {
+        "en": "=== LANGUAGE ===\nThe subscriber prefers English. Respond EXCLUSIVELY in English. Keep the same warm, empathetic tone. Use informal 'you'. Greet with the subscriber's first name.",
+        "es": "=== IDIOMA ===\nEl suscriptor prefiere español. Responde EXCLUSIVAMENTE en español. Mantén el mismo tono cálido y empático. Tutéalo. Salúdalo por su nombre de pila.",
+        "de": "=== SPRACHE ===\nDer Abonnent bevorzugt Deutsch. Antworte AUSSCHLIESSLICH auf Deutsch. Behalte den warmen, einfühlsamen Ton. Nutze die informelle 'du'-Form. Begrüße den Abonnenten mit Vornamen.",
+        "it": "=== LINGUA ===\nL'abbonato preferisce l'italiano. Rispondi ESCLUSIVAMENTE in italiano. Mantieni lo stesso tono caldo ed empatico. Dai del 'tu'. Saluta l'abbonato con il nome.",
+        "pt": "=== IDIOMA ===\nO assinante prefere português. Responda EXCLUSIVAMENTE em português. Mantenha o mesmo tom caloroso e empático. Use 'você'. Cumprimente o assinante pelo primeiro nome.",
+        "ar": "=== اللغة ===\nيفضل المشترك العربية. أجب حصرياً باللغة العربية. حافظ على نفس النبرة الدافئة والمتعاطفة. خاطب المشترك باسمه الأول.",
+        "nl": "=== TAAL ===\nDe abonnee geeft de voorkeur aan Nederlands. Reageer UITSLUITEND in het Nederlands. Behoud dezelfde warme, empathische toon. Gebruik de informele 'jij'-vorm. Groet met de voornaam.",
+        "zh": "=== 语言 ===\n用户偏好中文。请仅用中文回答。保持同样温暖、亲切的语气。称呼用户的名字。",
+    }
+    return _LANG_INSTRUCTIONS.get(lang, "")  # French is default — no additional instruction needed
 
 
 def _cortex_reason_to_human(reason: str) -> str:
@@ -7776,8 +7782,16 @@ async def visio_transcribe(request: Request):
         try:
             with open(tmp_path, "rb") as f:
                 audio_client = OpenAI(api_key=audio_api_key)
+                _whisper_lang = "fr"
+                if _redis_available():
+                    try:
+                        _wl = _redis_client.client.hget(f"luna:{tid}:settings", "language")
+                        if _wl:
+                            _whisper_lang = _wl.decode() if isinstance(_wl, bytes) else _wl
+                    except Exception:
+                        pass
                 transcript = audio_client.audio.transcriptions.create(
-                    model="whisper-1", file=f, language="fr"
+                    model="whisper-1", file=f, language=_whisper_lang
                 )
             text = transcript.text.strip()
         finally:
@@ -9732,6 +9746,132 @@ async def iris_session_invite(session_id: str, request: Request):
     return JSONResponse({"ok": True, "invite_link": invite_link, "participant": participant})
 
 
+@app.post("/api/iris/session/{session_id}/invite-friend")
+async def iris_session_invite_friend(session_id: str, request: Request):
+    """Invite un ami Luna directement dans la session Iris (notification in-app)."""
+    payload = _decode_client_token(request.headers.get("Authorization", "").replace("Bearer ", ""))
+    if not payload:
+        raise HTTPException(status_code=401, detail="Non autorisé")
+    if not _iris_session_manager:
+        raise HTTPException(status_code=503, detail="Session manager non disponible")
+    session = _iris_session_manager.get_session(session_id)
+    tid = str(payload.get("tenant_id", TENANT_ID))
+    if not session or str(session.get("tenant_id")) != tid:
+        raise HTTPException(status_code=403, detail="Session introuvable ou accès refusé")
+
+    body = await request.json()
+    friend_tid = str(body.get("friend_tid", ""))
+    friend_name = str(body.get("friend_name", "Ami"))
+    role = body.get("role", "guest")
+    if role not in ("trusted", "guest", "observer"):
+        role = "guest"
+
+    # Vérifier amitié
+    if not _redis_available():
+        raise HTTPException(status_code=503, detail="Redis non disponible")
+    from core.social.redis_ops import SocialRedisOps
+    sops = SocialRedisOps(_redis_client)
+    friends = sops.get_friends(int(tid))
+    if friend_tid not in friends:
+        raise HTTPException(status_code=403, detail="Vous devez être amis pour inviter via Luna")
+
+    # Créer le participant + invite token
+    import uuid as _uuid
+    pid = str(_uuid.uuid4())[:8]
+    owner_name = payload.get("first_name", "") or f"User{tid}"
+    participant = {
+        "participant_id": pid,
+        "session_id": session_id,
+        "name": friend_name,
+        "role": role,
+        "projects_allowed": [],
+        "can_trigger_actions": False,
+    }
+    _iris_session_manager.add_participant(session_id, participant)
+    invite_token = _iris_session_manager.create_invite(session_id, pid)
+    base_url = os.getenv("VOICE_CALLBACK_URL", "")
+    invite_link = f"{base_url}/iris/join/{invite_token}"
+
+    # Stocker l'invite dans la liste persistante du destinataire
+    import secrets as _sec
+    invite_id = _sec.token_hex(6)
+    invite_record = {
+        "id": invite_id,
+        "session_id": session_id,
+        "invite_token": invite_token,
+        "invite_link": invite_link,
+        "from_tid": tid,
+        "from_name": owner_name,
+        "role": role,
+        "session_name": session.get("name", "Session Iris"),
+        "created_at": datetime.utcnow().isoformat(),
+    }
+    _iris_invite_key = f"luna:{friend_tid}:iris:friend_invites"
+    _redis_client.client.lpush(_iris_invite_key, json.dumps(invite_record))
+    _redis_client.client.ltrim(_iris_invite_key, 0, 9)
+    _redis_client.client.expire(_iris_invite_key, 86400)
+
+    # Envoyer notification in-app au destinataire
+    try:
+        from core.notifications.redis_ops import NotificationRedisOps
+        nops = NotificationRedisOps(_redis_client)
+        nops.add_pending(int(friend_tid), {
+            "type": "iris_invitation",
+            "title": f"🎙️ {owner_name} t'invite dans Iris",
+            "body": f"Session : {session.get('name', 'Session Iris')} — Rôle : {role}",
+            "invite_id": invite_id,
+            "invite_link": invite_link,
+            "from_name": owner_name,
+            "session_name": session.get("name", "Session Iris"),
+        })
+    except Exception:
+        pass
+
+    return JSONResponse({"ok": True, "invite_id": invite_id, "invite_link": invite_link})
+
+
+@app.get("/api/iris/friend-invites")
+async def iris_get_friend_invites(request: Request):
+    """Retourne les invitations Iris en attente pour l'utilisateur courant."""
+    payload = _decode_client_token(request.headers.get("Authorization", "").replace("Bearer ", ""))
+    if not payload:
+        raise HTTPException(status_code=401, detail="Non autorisé")
+    tid = str(payload.get("tenant_id", TENANT_ID))
+    if not _redis_available():
+        return JSONResponse({"invites": []})
+    key = f"luna:{tid}:iris:friend_invites"
+    raw = _redis_client.client.lrange(key, 0, 9)
+    invites = []
+    for item in raw:
+        try:
+            invites.append(json.loads(item))
+        except Exception:
+            pass
+    return JSONResponse({"invites": invites})
+
+
+@app.post("/api/iris/friend-invites/{invite_id}/decline")
+async def iris_decline_friend_invite(invite_id: str, request: Request):
+    """Supprime une invitation Iris en attente."""
+    payload = _decode_client_token(request.headers.get("Authorization", "").replace("Bearer ", ""))
+    if not payload:
+        raise HTTPException(status_code=401, detail="Non autorisé")
+    tid = str(payload.get("tenant_id", TENANT_ID))
+    if not _redis_available():
+        return JSONResponse({"ok": True})
+    key = f"luna:{tid}:iris:friend_invites"
+    raw = _redis_client.client.lrange(key, 0, 9)
+    for item in raw:
+        try:
+            rec = json.loads(item)
+            if rec.get("id") == invite_id:
+                _redis_client.client.lrem(key, 1, item)
+                break
+        except Exception:
+            pass
+    return JSONResponse({"ok": True})
+
+
 @app.post("/api/iris/session/{session_id}/revoke/{participant_id}")
 async def iris_session_revoke(session_id: str, participant_id: str, request: Request):
     """Exclut un participant de la session."""
@@ -11618,6 +11758,10 @@ class RegisterRequest(BaseModel):
     password: str
     first_name: str = ""
     last_name: str = ""
+    phone: str = ""
+    plan: str = "essentiel"
+    lang: str = ""   # langue préférée (fr/en/es/de/it/pt/ar/nl/zh)
+    ref: str = ""    # code parrain
 
 class LoginRequest(BaseModel):
     email: str
@@ -11631,7 +11775,7 @@ class CheckoutRequest(BaseModel):
     plan: str  # "essentiel", "confort", "premium"
 
 @app.post("/api/auth/register")
-async def auth_register(req: RegisterRequest):
+async def auth_register(req: RegisterRequest, request: Request):
     """Inscription d'un nouveau client."""
     if not _redis_client:
         return JSONResponse(status_code=503, content={"error": "Service temporairement indisponible"})
@@ -11646,14 +11790,26 @@ async def auth_register(req: RegisterRequest):
     if _redis_client.get_auth_by_email(email):
         return JSONResponse(status_code=409, content={"error": "Email deja utilise"})
 
+    # Plan validé
+    plan = req.plan if req.plan in ("essentiel", "confort", "premium") else "essentiel"
+
     # Attribuer un tenant_id
     tenant_id = _redis_client.get_next_tenant_id()
     password_hash = _hash_password(req.password)
 
     # Creer l'enregistrement auth
-    created = _redis_client.create_auth_record(email, password_hash, tenant_id, "essentiel")
+    created = _redis_client.create_auth_record(email, password_hash, tenant_id, plan)
     if not created:
         return JSONResponse(status_code=409, content={"error": "Email deja utilise"})
+
+    # Déterminer la langue : priorité req.lang → Accept-Language header → "fr"
+    _VALID_LANGS = {"fr", "en", "es", "de", "it", "pt", "ar", "nl", "zh"}
+    lang = req.lang.lower()[:5] if req.lang else ""
+    if lang not in _VALID_LANGS:
+        accept = request.headers.get("Accept-Language", "")
+        lang = accept.split(",")[0].split("-")[0].strip().lower() if accept else "fr"
+        if lang not in _VALID_LANGS:
+            lang = "fr"
 
     # Creer le profil dans Redis
     if _CORE_AVAILABLE:
@@ -11666,8 +11822,24 @@ async def auth_register(req: RegisterRequest):
         mgr = _get_tenant_manager(tenant_id)
         mgr.set_subscriber_profile(profile)
 
+    # Stocker langue + téléphone dans settings
+    try:
+        _settings_key = f"luna:{tenant_id}:settings"
+        _redis_client.client.hset(_settings_key, mapping={"language": lang})
+        if req.phone:
+            _redis_client.client.hset(_settings_key, "phone", req.phone)
+    except Exception:
+        pass
+
+    # Tracking parrain
+    if req.ref and _redis_available():
+        try:
+            _redis_client.client.hincrby(f"referral:stats:{req.ref}", "conversions", 1)
+        except Exception:
+            pass
+
     fname = req.first_name or email.split("@")[0]
-    token = _create_client_token(tenant_id, email, "essentiel", first_name=fname)
+    token = _create_client_token(tenant_id, email, plan, first_name=fname)
     # Initialize gamification player
     if _GAMIFICATION_AVAILABLE and _redis_client:
         try:
@@ -11676,8 +11848,8 @@ async def auth_register(req: RegisterRequest):
         except Exception:
             pass
     _gamify("admin", "new_client", is_admin=True)
-    logger.info(f"AUTH_REGISTER tenant_id={tenant_id} email={email}")
-    return {"token": token, "tenant_id": tenant_id, "plan": "essentiel", "first_name": fname}
+    logger.info(f"AUTH_REGISTER tenant_id={tenant_id} email={email} plan={plan} lang={lang}")
+    return {"token": token, "tenant_id": tenant_id, "plan": plan, "first_name": fname, "lang": lang}
 
 
 @app.post("/api/auth/login")
@@ -11789,6 +11961,185 @@ async def auth_change_password(req: ChangePasswordRequest, request: Request):
     return {"ok": True}
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# PUBLIC — Subscribe landing + Referral
+# ─────────────────────────────────────────────────────────────────────────────
+
+_PLAN_CATALOG = [
+    {
+        "id": "essentiel",
+        "name": "Essentiel",
+        "price": float(os.getenv("PRICE_ESSENTIEL", "34.90")),
+        "period": "/mois",
+        "features": [
+            "25 SMS / mois",
+            "40 min d'appels vocaux / mois",
+            "Assistant vocal IA disponible 24h/24",
+            "Documents, formulaires & courriers",
+            "Agenda & rappels automatiques",
+            "Recherche web & météo",
+        ],
+    },
+    {
+        "id": "confort",
+        "name": "Confort",
+        "price": float(os.getenv("PRICE_CONFORT", "69.90")),
+        "period": "/mois",
+        "features": [
+            "50 SMS / mois",
+            "100 min d'appels vocaux / mois",
+            "Tout Essentiel inclus",
+            "Lieux, restaurants & vols",
+            "Mode collaboratif Iris Teams",
+            "Monde social & présence",
+            "Messagerie avec vos amis",
+        ],
+    },
+    {
+        "id": "premium",
+        "name": "Premium",
+        "price": float(os.getenv("PRICE_PREMIUM", "124.90")),
+        "period": "/mois",
+        "features": [
+            "100 SMS / mois",
+            "180 min d'appels vocaux / mois",
+            "Tout Confort inclus",
+            "Priorité serveur (réponse plus rapide)",
+            "Badges & avatars exclusifs",
+            "Support prioritaire",
+        ],
+    },
+]
+
+
+@app.get("/subscribe")
+async def subscribe_page():
+    """Page de souscription publique."""
+    return FileResponse(os.path.join(STATIC_DIR, "subscribe.html"))
+
+
+@app.get("/api/public/pricing")
+async def public_pricing():
+    """Retourne le catalogue des plans sans authentification."""
+    return {"plans": _PLAN_CATALOG}
+
+
+@app.get("/api/public/referral/{ref_code}")
+async def public_referral_info(ref_code: str):
+    """Retourne le nom du parrain pour l'affichage sur la page subscribe."""
+    if not _redis_available():
+        return JSONResponse({"from_name": None})
+    try:
+        raw = _redis_client.client.get(f"referral:{ref_code}")
+        if raw:
+            data = json.loads(raw)
+            return {"from_name": data.get("from_name", "")}
+    except Exception:
+        pass
+    return {"from_name": None}
+
+
+@app.post("/api/referral/invite")
+async def referral_invite(request: Request):
+    """Envoie une invitation WhatsApp/SMS à des contacts pour souscrire à YaWatch."""
+    payload = _decode_client_token(request.headers.get("Authorization", "").replace("Bearer ", ""))
+    if not payload:
+        raise HTTPException(status_code=401, detail="Non autorisé")
+
+    body = await request.json()
+    phones = body.get("phones", [])
+    message_override = body.get("message", "")
+    tid = str(payload.get("tenant_id", TENANT_ID))
+
+    if not phones:
+        raise HTTPException(status_code=400, detail="Aucun numéro fourni")
+    if len(phones) > 10:
+        raise HTTPException(status_code=400, detail="Maximum 10 contacts par envoi")
+
+    # Créer ou récupérer le code parrain
+    import secrets as _sec_ref
+    ref_key = f"referral:tid:{tid}"
+    ref_code = None
+    if _redis_available():
+        ref_code = _redis_client.client.get(ref_key)
+        if ref_code and isinstance(ref_code, bytes):
+            ref_code = ref_code.decode()
+    if not ref_code:
+        ref_code = f"{tid}_{_sec_ref.token_hex(5)}"
+        from_name = payload.get("first_name", "") or f"Un ami"
+        if _redis_available():
+            _redis_client.client.set(ref_key, ref_code, ex=86400 * 365)
+            _redis_client.client.set(
+                f"referral:{ref_code}",
+                json.dumps({"tid": tid, "from_name": from_name}),
+                ex=86400 * 365,
+            )
+
+    base_url = os.getenv("VOICE_CALLBACK_URL", "https://luna-beta-674304336025.europe-west1.run.app")
+    invite_url = f"{base_url}/subscribe?ref={ref_code}"
+    from_name = payload.get("first_name", "") or "Votre ami"
+
+    if not message_override:
+        message_override = (
+            f"Salut 👋 {from_name} t'invite à essayer YaWatch, l'assistant IA personnel qui gère "
+            f"tes appels, SMS, documents et agenda.\n"
+            f"Découvre les offres ici :\n{invite_url}"
+        )
+
+    if not sms_client.is_configured:
+        return JSONResponse({"ok": False, "error": "Service SMS non configuré", "invite_url": invite_url})
+
+    sent = []
+    failed = []
+    for raw_phone in phones:
+        normalized = sms_client.normalize_phone(str(raw_phone))
+        if not normalized:
+            failed.append(raw_phone)
+            continue
+        ok, _ = _tracked_sms_send(normalized, message_override, label=f"referral_{tid}")
+        if ok:
+            sent.append(normalized)
+        else:
+            failed.append(raw_phone)
+
+    if _redis_available():
+        _redis_client.client.hincrby(f"referral:stats:{ref_code}", "invites_sent", len(sent))
+
+    return JSONResponse({"ok": True, "sent": len(sent), "failed": len(failed), "invite_url": invite_url, "ref_code": ref_code})
+
+
+@app.get("/api/referral/my-code")
+async def referral_my_code(request: Request):
+    """Retourne le code parrain et l'URL d'invitation de l'utilisateur courant."""
+    payload = _decode_client_token(request.headers.get("Authorization", "").replace("Bearer ", ""))
+    if not payload:
+        raise HTTPException(status_code=401, detail="Non autorisé")
+    tid = str(payload.get("tenant_id", TENANT_ID))
+    ref_code = None
+    if _redis_available():
+        ref_code = _redis_client.client.get(f"referral:tid:{tid}")
+        if ref_code and isinstance(ref_code, bytes):
+            ref_code = ref_code.decode()
+    if not ref_code:
+        import secrets as _sec_rc
+        ref_code = f"{tid}_{_sec_rc.token_hex(5)}"
+        from_name = payload.get("first_name", "") or "Un ami"
+        if _redis_available():
+            _redis_client.client.set(f"referral:tid:{tid}", ref_code, ex=86400 * 365)
+            _redis_client.client.set(
+                f"referral:{ref_code}",
+                json.dumps({"tid": tid, "from_name": from_name}),
+                ex=86400 * 365,
+            )
+    base_url = os.getenv("VOICE_CALLBACK_URL", "https://luna-beta-674304336025.europe-west1.run.app")
+    invite_url = f"{base_url}/subscribe?ref={ref_code}"
+    stats = {}
+    if _redis_available():
+        raw = _redis_client.client.hgetall(f"referral:stats:{ref_code}")
+        stats = {k.decode() if isinstance(k, bytes) else k: int(v) for k, v in (raw or {}).items()}
+    return {"ref_code": ref_code, "invite_url": invite_url, "stats": stats}
+
+
 @app.post("/api/auth/checkout")
 async def auth_checkout(req: CheckoutRequest, request: Request):
     """Cree une session Stripe Checkout pour upgrade/souscription."""
@@ -11798,18 +12149,19 @@ async def auth_checkout(req: CheckoutRequest, request: Request):
         return JSONResponse(status_code=401, content={"error": "Token invalide"})
 
     plan = req.plan.lower()
+    stripe_cfg = _get_exploitant_stripe_config()
     price_map = {
-        "essentiel": os.getenv("STRIPE_PRICE_ESSENTIEL", ""),
-        "confort": os.getenv("STRIPE_PRICE_CONFORT", ""),
-        "premium": os.getenv("STRIPE_PRICE_PREMIUM", ""),
+        "essentiel": stripe_cfg.get("price_essentiel", ""),
+        "confort":   stripe_cfg.get("price_confort", ""),
+        "premium":   stripe_cfg.get("price_premium", ""),
     }
     price_id = price_map.get(plan)
     if not price_id:
-        return JSONResponse(status_code=400, content={"error": f"Plan invalide ou STRIPE_PRICE non configure: {plan}"})
+        return JSONResponse(status_code=400, content={"error": f"Stripe non configure sur cette instance pour le plan {plan}. Contactez l'exploitant."})
 
-    stripe_key = os.getenv("STRIPE_API_KEY", "")
+    stripe_key = stripe_cfg.get("secret_key", "")
     if not stripe_key:
-        return JSONResponse(status_code=500, content={"error": "STRIPE_API_KEY non configure"})
+        return JSONResponse(status_code=503, content={"error": "Paiement non disponible sur cette instance. Contactez l'exploitant."})
 
     try:
         import stripe
@@ -11870,9 +12222,9 @@ async def auth_setup_card(request: Request):
     if not payload:
         return JSONResponse(status_code=401, content={"error": "Token invalide"})
 
-    stripe_key = os.getenv("STRIPE_API_KEY", "") or os.getenv("STRIPE_SECRET_KEY", "")
+    stripe_key = _get_exploitant_stripe_config().get("secret_key", "")
     if not stripe_key:
-        return JSONResponse(status_code=500, content={"error": "STRIPE_API_KEY non configure"})
+        return JSONResponse(status_code=503, content={"error": "Paiement non disponible sur cette instance. Contactez l'exploitant."})
 
     try:
         import stripe
@@ -11932,6 +12284,33 @@ def _price_id_to_plan(price_id: str) -> str:
     return mapping.get(price_id, "")
 
 _stripe_webhook_received: dict = {}  # {timestamp, event_type, verified}
+
+
+def _get_exploitant_stripe_config() -> dict:
+    """
+    Retourne la config Stripe active : Redis (dashboard exploitant) > .env.
+    Ludo (serveur fondateur) n'a pas Stripe — c'est l'exploitant qui configure.
+    """
+    cfg = {}
+    if _redis_available():
+        try:
+            raw = _redis_client.client.get("luna:exploitant:1:stripe")
+            if raw:
+                cfg = json.loads(raw)
+        except Exception:
+            pass
+    # Fallback .env
+    if not cfg.get("secret_key"):
+        cfg["secret_key"] = os.getenv("STRIPE_SECRET_KEY", "") or os.getenv("STRIPE_API_KEY", "")
+    if not cfg.get("price_essentiel"):
+        cfg["price_essentiel"] = os.getenv("STRIPE_PRICE_ESSENTIEL", "")
+    if not cfg.get("price_confort"):
+        cfg["price_confort"] = os.getenv("STRIPE_PRICE_CONFORT", "")
+    if not cfg.get("price_premium"):
+        cfg["price_premium"] = os.getenv("STRIPE_PRICE_PREMIUM", "")
+    if not cfg.get("webhook_secret"):
+        cfg["webhook_secret"] = os.getenv("STRIPE_WEBHOOK_SECRET", "")
+    return cfg
 
 @app.post("/api/stripe/webhook")
 async def stripe_webhook(request: Request):
@@ -12929,17 +13308,41 @@ async def update_geolocation(request: Request):
     # Auto-detect language from country in address
     if address and _redis_client:
         _COUNTRY_LANG = {
+            # Français
             "france": "fr", "belgique": "fr", "suisse": "fr", "canada": "fr",
             "luxembourg": "fr", "monaco": "fr", "sénégal": "fr", "cameroun": "fr",
             "côte d'ivoire": "fr", "mali": "fr", "maroc": "fr", "tunisie": "fr",
-            "guadeloupe": "fr", "martinique": "fr", "guyane": "fr", "réunion": "fr",
+            "algérie": "fr", "algerie": "fr", "guadeloupe": "fr", "martinique": "fr",
+            "guyane": "fr", "réunion": "fr", "madagascar": "fr", "haiti": "fr",
+            # Anglais
             "united states": "en", "united kingdom": "en", "australia": "en",
-            "ireland": "en", "new zealand": "en",
-            "españa": "es", "spain": "es", "méxico": "es", "colombia": "es",
+            "ireland": "en", "new zealand": "en", "south africa": "en",
+            "singapore": "en", "india": "en", "nigeria": "en", "kenya": "en",
+            "ghana": "en", "canada": "en",
+            # Espagnol
+            "españa": "es", "spain": "es", "méxico": "es", "mexico": "es",
+            "colombia": "es", "argentina": "es", "chile": "es", "perú": "es",
+            "peru": "es", "venezuela": "es", "ecuador": "es", "bolivia": "es",
+            "uruguay": "es", "paraguay": "es", "costa rica": "es",
+            # Allemand
             "deutschland": "de", "germany": "de", "österreich": "de",
+            "austria": "de",
+            # Italien
             "italia": "it", "italy": "it",
-            "portugal": "pt", "brasil": "pt", "brazil": "pt",
-            "nederland": "nl", "netherlands": "nl",
+            # Portugais
+            "portugal": "pt", "brasil": "pt", "brazil": "pt", "angola": "pt",
+            "mozambique": "pt",
+            # Néerlandais
+            "nederland": "nl", "netherlands": "nl", "belgique": "nl",
+            "belgium": "nl",
+            # Arabe
+            "saudi arabia": "ar", "arabie saoudite": "ar", "emirates": "ar",
+            "émirats": "ar", "qatar": "ar", "kuwait": "ar", "bahrain": "ar",
+            "oman": "ar", "jordan": "ar", "jordanie": "ar", "liban": "ar",
+            "lebanon": "ar", "egypt": "ar", "égypte": "ar", "irak": "ar",
+            "iraq": "ar", "syrie": "ar", "syria": "ar",
+            # Chinois
+            "china": "zh", "chine": "zh", "taiwan": "zh", "hong kong": "zh",
         }
         _addr_lower = address.lower()
         for _country, _lang in _COUNTRY_LANG.items():
@@ -15556,16 +15959,16 @@ try:
     from core.actions.quota_guard import PLAN_SMS_LIMITS, PLAN_VOICE_LIMITS, PLAN_VISIO_LIMITS, PlanType
     _PLAN_LIMITS = {
         "fondateur": {"sms": 999999, "voice_min": 999999, "visio_min": 999999, "budget_api_max": 50.00},
-        "essentiel": {"sms": PLAN_SMS_LIMITS[PlanType.ESSENTIEL], "voice_min": PLAN_VOICE_LIMITS[PlanType.ESSENTIEL], "visio_min": PLAN_VISIO_LIMITS[PlanType.ESSENTIEL], "budget_api_max": 8.15},
-        "confort":   {"sms": PLAN_SMS_LIMITS[PlanType.CONFORT],   "voice_min": PLAN_VOICE_LIMITS[PlanType.CONFORT],   "visio_min": PLAN_VISIO_LIMITS[PlanType.CONFORT],   "budget_api_max": 17.40},
-        "premium":   {"sms": PLAN_SMS_LIMITS[PlanType.PREMIUM],   "voice_min": PLAN_VOICE_LIMITS[PlanType.PREMIUM],   "visio_min": PLAN_VISIO_LIMITS[PlanType.PREMIUM],   "budget_api_max": 32.10},
+        "essentiel": {"sms": PLAN_SMS_LIMITS[PlanType.ESSENTIEL], "voice_min": PLAN_VOICE_LIMITS[PlanType.ESSENTIEL], "visio_min": 0, "budget_api_max": 4.95},
+        "confort":   {"sms": PLAN_SMS_LIMITS[PlanType.CONFORT],   "voice_min": PLAN_VOICE_LIMITS[PlanType.CONFORT],   "visio_min": 0, "budget_api_max": 11.50},
+        "premium":   {"sms": PLAN_SMS_LIMITS[PlanType.PREMIUM],   "voice_min": PLAN_VOICE_LIMITS[PlanType.PREMIUM],   "visio_min": 0, "budget_api_max": 21.60},
     }
 except ImportError:
     _PLAN_LIMITS = {
         "fondateur": {"sms": 999999, "voice_min": 999999, "visio_min": 999999, "budget_api_max": 50.00},
-        "essentiel": {"sms": 25, "voice_min": 40, "visio_min": 12, "budget_api_max": 8.15},
-        "confort":   {"sms": 50, "voice_min": 100, "visio_min": 28, "budget_api_max": 17.40},
-        "premium":   {"sms": 100, "voice_min": 180, "visio_min": 55, "budget_api_max": 32.10},
+        "essentiel": {"sms": 25, "voice_min": 40, "visio_min": 0, "budget_api_max": 4.95},
+        "confort":   {"sms": 50, "voice_min": 100, "visio_min": 0, "budget_api_max": 11.50},
+        "premium":   {"sms": 100, "voice_min": 180, "visio_min": 0, "budget_api_max": 21.60},
     }
 
 
@@ -17521,7 +17924,8 @@ async def _tool_search_web(args: Dict, tenant_id: int = 0) -> Dict:
         return {"status": "error", "message": "Erreur lors de la recherche. Reessaie."}
 
     # Formatter les resultats pour Luna
-    results = []
+    results = []   # dict objects for the frontend
+    str_results = []  # formatted strings for the LLM message
 
     # Knowledge Graph (answer box)
     kg = data.get("knowledgeGraph", {})
@@ -17533,14 +17937,17 @@ async def _tool_search_web(args: Dict, tenant_id: int = 0) -> Dict:
             for k, v in list(kg["attributes"].items())[:5]:
                 kg_info += f"\n  {k}: {v}"
         if kg_info:
-            results.append(f"[Info directe] {kg_info}")
+            kg_link = kg.get("descriptionLink", "") or kg.get("website", "")
+            results.append({"title": "Info directe", "snippet": kg_info, "link": kg_link, "displayed_link": ""})
+            str_results.append(f"[Info directe] {kg_info}")
 
     # Answer Box
     answer = data.get("answerBox", {})
     if answer:
         ans_text = answer.get("answer") or answer.get("snippet") or answer.get("title", "")
         if ans_text:
-            results.append(f"[Reponse] {ans_text}")
+            results.append({"title": "Réponse", "snippet": ans_text, "link": answer.get("link", ""), "displayed_link": ""})
+            str_results.append(f"[Reponse] {ans_text}")
 
     # Organic results
     organic = data.get("organic", [])
@@ -17548,14 +17955,12 @@ async def _tool_search_web(args: Dict, tenant_id: int = 0) -> Dict:
         title = item.get("title", "")
         snippet = item.get("snippet", "")
         link = item.get("link", "")
-        phone = ""
-        # Extraire un numero de telephone s'il y en a un dans le snippet
+        displayed_link = item.get("displayedLink", "") or item.get("displayed_link", "")
         import re
         phone_match = re.search(r'(\+?\d[\d\s\-.]{8,15})', snippet)
-        if phone_match:
-            phone = f" | Tel: {phone_match.group(1).strip()}"
-        link_info = f" | {link}" if link else ""
-        results.append(f"{title}: {snippet}{phone}{link_info}")
+        phone_str = f" | Tel: {phone_match.group(1).strip()}" if phone_match else ""
+        results.append({"title": title, "snippet": snippet, "link": link, "displayed_link": displayed_link})
+        str_results.append(f"{title}: {snippet}{phone_str}{(' | ' + link) if link else ''}")
 
     # Places (local business results)
     places = data.get("places", [])
@@ -17564,22 +17969,20 @@ async def _tool_search_web(args: Dict, tenant_id: int = 0) -> Dict:
         addr = place.get("address", "")
         rating = place.get("rating", "")
         phone_p = place.get("phoneNumber", "")
-        info = f"[Lieu] {name}"
-        if addr:
-            info += f" — {addr}"
-            import urllib.parse
-            maps_link = "https://www.google.com/maps/dir/?api=1&destination=" + urllib.parse.quote(f"{name} {addr}")
-            info += f" | Itineraire: {maps_link}"
+        import urllib.parse
+        maps_link = ("https://www.google.com/maps/dir/?api=1&destination=" + urllib.parse.quote(f"{name} {addr}")) if addr else ""
+        snippet_parts = [addr] if addr else []
         if rating:
-            info += f" | Note: {rating}/5"
+            snippet_parts.append(f"Note: {rating}/5")
         if phone_p:
-            info += f" | Tel: {phone_p}"
-        results.append(info)
+            snippet_parts.append(f"Tél: {phone_p}")
+        results.append({"title": f"[Lieu] {name}", "snippet": " | ".join(snippet_parts), "link": maps_link, "displayed_link": "Google Maps"})
+        str_results.append(f"[Lieu] {name}{' — ' + addr if addr else ''}{' | Note: ' + str(rating) + '/5' if rating else ''}{' | Tel: ' + phone_p if phone_p else ''}")
 
     if not results:
         return {"status": "success", "message": f"Aucun resultat pour '{query}'.", "results": []}
 
-    formatted = "\n".join(results[:8])
+    formatted = "\n".join(str_results[:8])
 
     # Log la recherche
     if mgr:

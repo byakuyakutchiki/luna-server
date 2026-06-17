@@ -50,12 +50,12 @@ PLAN_VOICE_LIMITS = {
     PlanType.PREMIUM: 180,
 }
 
-# Quotas visio Luna par forfait (minutes/mois)
+# Quotas visio Luna par forfait — Tavus désactivé, visio = add-on futur
 PLAN_VISIO_LIMITS = {
     PlanType.FONDATEUR: 999999,
-    PlanType.ESSENTIEL: 12,
-    PlanType.CONFORT: 28,
-    PlanType.PREMIUM: 55,
+    PlanType.ESSENTIEL: 0,
+    PlanType.CONFORT: 0,
+    PlanType.PREMIUM: 0,
 }
 
 # Quotas messages chat par forfait (illimite en pratique)

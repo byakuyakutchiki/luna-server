@@ -217,6 +217,40 @@
       border-radius: 50px; padding: 13px 18px; font-size: 14px; cursor: pointer; }
     .btn-invite-cancel:hover { color: #aaa; }
     .invite-loading { text-align: center; padding: 8px 0; font-size: 13px; color: #888; display: none; }
+    /* ─── Iris Friends Invite Modal ─── */
+    #irtFriendModal { position: fixed; inset: 0; z-index: 210; background: rgba(0,0,0,0.75);
+      backdrop-filter: blur(8px); display: none; align-items: center; justify-content: center; padding: 16px; }
+    #irtFriendModal.open { display: flex; }
+    .irt-friend-card { background: #080818; border: 1px solid rgba(0,210,255,0.25); border-radius: 20px;
+      width: 100%; max-width: 360px; padding: 24px 20px; }
+    .irt-friend-card h3 { font-size: 17px; color: #00D2FF; margin-bottom: 4px; }
+    .irt-friend-card .sub { font-size: 12px; color: #555; margin-bottom: 16px; }
+    .irt-role-row { display: flex; gap: 8px; margin-bottom: 14px; }
+    .irt-role-btn { flex: 1; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1);
+      color: #888; border-radius: 50px; padding: 7px; font-size: 12px; cursor: pointer; transition: all 0.1s; text-align: center; }
+    .irt-role-btn.active { background: rgba(0,210,255,0.12); border-color: #00D2FF; color: #00D2FF; }
+    .irt-friend-list { max-height: 200px; overflow-y: auto; margin-bottom: 14px; }
+    .irt-friend-item { display: flex; align-items: center; gap: 10px; padding: 9px 12px;
+      border-radius: 12px; cursor: pointer; transition: background 0.12s; }
+    .irt-friend-item:hover { background: rgba(0,210,255,0.08); }
+    .irt-friend-item.selected { background: rgba(0,210,255,0.15); border: 1px solid rgba(0,210,255,0.3); }
+    .irt-friend-avatar { width: 36px; height: 36px; border-radius: 50%;
+      background: linear-gradient(135deg,#00D2FF,#a78bfa); display: flex; align-items: center;
+      justify-content: center; font-size: 15px; font-weight: 700; color: #fff; flex-shrink: 0; }
+    .irt-friend-name { font-size: 14px; color: #ddd; font-weight: 500; }
+    .irt-friend-status { font-size: 12px; color: #555; }
+    .irt-invite-actions { display: flex; gap: 10px; }
+    .irt-btn-send { flex: 1; background: linear-gradient(135deg,#00D2FF,#0ea5e9); color: #000;
+      border: none; border-radius: 50px; padding: 13px; font-size: 15px; font-weight: 700;
+      cursor: pointer; opacity: 0.4; pointer-events: none; transition: all 0.12s; }
+    .irt-btn-send.active { opacity: 1; pointer-events: auto; }
+    .irt-btn-send.active:hover { transform: scale(1.02); }
+    .irt-btn-cancel { background: rgba(255,255,255,0.05); color: #666; border: none;
+      border-radius: 50px; padding: 13px 18px; font-size: 14px; cursor: pointer; }
+    .irt-copy-link { width: 100%; margin-bottom: 10px; background: rgba(255,255,255,0.04);
+      border: 1px dashed rgba(255,255,255,0.12); border-radius: 12px; padding: 10px 14px;
+      color: #555; font-size: 12px; cursor: pointer; text-align: left; transition: all 0.1s; }
+    .irt-copy-link:hover { color: #888; border-color: rgba(255,255,255,0.2); }
 
     /* ===== BARRE D'ACTIONS VISIO (haut de l'écran, aucun chevauchement) ===== */
     #visioActionsBar {
@@ -1814,6 +1848,27 @@
       <div class="invite-actions">
         <button class="btn-invite-cancel" id="btnInviteCancel">Annuler</button>
         <button class="btn-invite-send" id="btnInviteSend">Envoyer l'invitation</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Iris Teams — Invite un ami Luna -->
+  <div id="irtFriendModal">
+    <div class="irt-friend-card">
+      <h3>🎙️ Inviter dans Iris</h3>
+      <p class="sub">L'ami recevra une notification dans l'application.</p>
+      <div class="irt-role-row">
+        <div class="irt-role-btn active" data-role="guest" onclick="_irtSelectRole(this)">Invité</div>
+        <div class="irt-role-btn" data-role="trusted" onclick="_irtSelectRole(this)">Collaborateur</div>
+        <div class="irt-role-btn" data-role="observer" onclick="_irtSelectRole(this)">Observateur</div>
+      </div>
+      <div class="irt-friend-list" id="irtFriendList">
+        <p style="color:#555;font-size:13px;text-align:center;padding:16px;">Chargement…</p>
+      </div>
+      <button class="irt-copy-link" id="irtCopyLinkBtn" onclick="_irtCopyExternalLink()">🔗 Copier le lien d'invitation externe</button>
+      <div class="irt-invite-actions">
+        <button class="irt-btn-cancel" onclick="_irtCloseFriendModal()">Annuler</button>
+        <button class="irt-btn-send" id="irtBtnSend" onclick="_irtSendFriendInvite()">Inviter →</button>
       </div>
     </div>
   </div>
@@ -6167,24 +6222,115 @@
         }).catch(function(){ if (wb) { wb.textContent = '👥 Réunion →'; wb.disabled = false; } });
     }
 
+    // ─── Iris Teams Friend Invite ───────────────────────────────
+    var _irtSelectedFriend = null;
+    var _irtSelectedRole = 'guest';
+    var _irtFriendCache = null;
+    var _irtExternalLink = null;
+
     function _irtInvite() {
       if (!_irtSessionId) { _irtStartSession(); return; }
+      _irtSelectedFriend = null;
+      _irtSelectedRole = 'guest';
+      var btnSend = document.getElementById('irtBtnSend');
+      if (btnSend) btnSend.classList.remove('active');
+      document.getElementById('irtFriendModal').classList.add('open');
+      _irtLoadFriends();
+      _irtGenerateExternalLink();
+    }
+
+    function _irtCloseFriendModal() {
+      document.getElementById('irtFriendModal').classList.remove('open');
+    }
+
+    function _irtSelectRole(el) {
+      document.querySelectorAll('.irt-role-btn').forEach(function(b){ b.classList.remove('active'); });
+      el.classList.add('active');
+      _irtSelectedRole = el.getAttribute('data-role') || 'guest';
+    }
+
+    function _irtLoadFriends() {
+      var list = document.getElementById('irtFriendList');
+      if (_irtFriendCache) { _irtRenderFriends(_irtFriendCache); return; }
+      list.innerHTML = '<p style="color:#555;font-size:13px;text-align:center;padding:16px;">Chargement…</p>';
+      var headers = {'Authorization': 'Bearer ' + _irtAuthToken};
+      fetch('/api/social/friends', {headers: headers})
+        .then(function(r){ return r.ok ? r.json() : null; })
+        .then(function(data){
+          _irtFriendCache = (data && data.friends) ? data.friends : [];
+          _irtRenderFriends(_irtFriendCache);
+        }).catch(function(){
+          list.innerHTML = '<p style="color:#555;font-size:13px;text-align:center;padding:16px;">Impossible de charger les amis.</p>';
+        });
+    }
+
+    function _irtRenderFriends(friends) {
+      var list = document.getElementById('irtFriendList');
+      if (!friends || friends.length === 0) {
+        list.innerHTML = '<p style="color:#555;font-size:13px;text-align:center;padding:16px;">Aucun ami Luna pour l\'instant.</p>';
+        return;
+      }
+      list.innerHTML = '';
+      friends.forEach(function(f) {
+        var div = document.createElement('div');
+        div.className = 'irt-friend-item';
+        var initial = (f.nickname || f.name || '?')[0].toUpperCase();
+        div.innerHTML = '<div class="irt-friend-avatar">' + initial + '</div>' +
+          '<div><div class="irt-friend-name">' + (f.nickname || f.name || 'Ami') + '</div>' +
+          '<div class="irt-friend-status">' + (f.online ? '🟢 En ligne' : '⚫ Hors ligne') + '</div></div>';
+        div.onclick = function() {
+          list.querySelectorAll('.irt-friend-item').forEach(function(el){ el.classList.remove('selected'); });
+          div.classList.add('selected');
+          _irtSelectedFriend = f;
+          var btn = document.getElementById('irtBtnSend');
+          if (btn) btn.classList.add('active');
+        };
+        list.appendChild(div);
+      });
+    }
+
+    function _irtGenerateExternalLink() {
+      if (!_irtSessionId) return;
       var headers = {'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _irtAuthToken};
       fetch('/api/iris/session/' + encodeURIComponent(_irtSessionId) + '/invite', {
         method: 'POST', headers: headers,
-        body: JSON.stringify({role: 'guest', name: 'Invité'})
-      })
-        .then(function(r){ return r.ok ? r.json() : null; })
+        body: JSON.stringify({role: 'guest', name: 'Invité externe'})
+      }).then(function(r){ return r.ok ? r.json() : null; })
+        .then(function(data){ _irtExternalLink = data && (data.invite_link || data.invite_url) || null; })
+        .catch(function(){});
+    }
+
+    function _irtCopyExternalLink() {
+      if (!_irtExternalLink) { showToast('Génération du lien en cours…', 2000); return; }
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(_irtExternalLink)
+          .then(function(){ showToast('🔗 Lien copié — envoie-le à ton invité.', 5000); })
+          .catch(function(){ prompt('Copie ce lien :', _irtExternalLink); });
+      } else { prompt('Copie ce lien :', _irtExternalLink); }
+    }
+
+    function _irtSendFriendInvite() {
+      if (!_irtSelectedFriend || !_irtSessionId) return;
+      var btnSend = document.getElementById('irtBtnSend');
+      if (btnSend) btnSend.classList.remove('active');
+      var headers = {'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _irtAuthToken};
+      var friendTid = _irtSelectedFriend.tenant_id || _irtSelectedFriend.tid || _irtSelectedFriend.id;
+      var friendName = _irtSelectedFriend.nickname || _irtSelectedFriend.name || 'Ami';
+      fetch('/api/iris/session/' + encodeURIComponent(_irtSessionId) + '/invite-friend', {
+        method: 'POST', headers: headers,
+        body: JSON.stringify({friend_tid: friendTid, friend_name: friendName, role: _irtSelectedRole})
+      }).then(function(r){ return r.json(); })
         .then(function(data){
-          var link = data && (data.invite_link || data.invite_url);
-          if (link) {
-            if (navigator.clipboard) {
-              navigator.clipboard.writeText(link)
-                .then(function(){ showToast('🔗 Lien copié ! Envoie-le à ton invité.', 5000); })
-                .catch(function(){ prompt('Copie ce lien et envoie-le à ton invité :', link); });
-            } else { prompt('Copie ce lien et envoie-le à ton invité :', link); }
-          } else { showToast('❌ Impossible de générer le lien.', 3000); }
-        }).catch(function(){ showToast('❌ Erreur lors de la création de l\'invitation.', 3000); });
+          _irtCloseFriendModal();
+          if (data.ok) {
+            showToast('✅ Invitation envoyée à ' + friendName, 4000);
+          } else {
+            showToast('❌ ' + (data.detail || 'Erreur envoi'), 3000);
+          }
+        }).catch(function(){
+          _irtCloseFriendModal();
+          showToast('❌ Erreur envoi invitation', 3000);
+        });
     }
 
     function _irtToggleMobile() {

@@ -2234,6 +2234,47 @@ body.mode-secretaire .luna::before {
       <p style="font-size:0.78em;color:#555;margin:0 0 10px;">Proches qui n'ont pas encore l'application</p>
       <div id="amisExternList"><p class="empty-state">Aucun ami externe.</p></div>
     </div>
+
+    <!-- Inviter à souscrire -->
+    <div class="amis-section">
+      <div style="background:linear-gradient(135deg,rgba(124,140,248,0.08),rgba(167,139,250,0.06));border:1px solid rgba(124,140,248,0.2);border-radius:16px;padding:18px 16px;">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+          <span style="font-size:22px;">🎁</span>
+          <div>
+            <div style="font-size:14px;font-weight:700;color:#c4b5fd;">Inviter des amis sur YaWatch</div>
+            <div style="font-size:12px;color:#555;margin-top:2px;">Par SMS ou WhatsApp · Ils tomberont sur la page d'abonnement</div>
+          </div>
+        </div>
+        <div id="myInviteUrl" style="background:rgba(0,0,0,0.3);border-radius:10px;padding:9px 12px;font-size:12px;color:#7c8cf8;word-break:break-all;margin-bottom:12px;display:none;cursor:pointer;" onclick="_copyInviteUrl()" title="Copier le lien"></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button onclick="_openReferralModal()" style="flex:1;min-width:120px;background:linear-gradient(135deg,#7c8cf8,#a78bfa);color:#fff;border:none;border-radius:50px;padding:11px;font-size:13px;font-weight:700;cursor:pointer;">📱 Envoyer par SMS</button>
+          <button onclick="_shareInviteUrl()" style="flex:1;min-width:120px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#ddd;border-radius:50px;padding:11px;font-size:13px;cursor:pointer;">🔗 Copier le lien</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal invitation à souscrire (referral) -->
+<div id="referralModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.88);z-index:9210;align-items:center;justify-content:center;">
+  <div style="background:#0a0a22;border:1px solid rgba(124,140,248,0.25);border-radius:22px;padding:28px 22px;width:92%;max-width:380px;">
+    <h3 style="color:#c4b5fd;margin:0 0 6px;font-size:1.05em;">📱 Inviter par SMS</h3>
+    <p style="font-size:12px;color:#555;margin:0 0 18px;">Tes contacts recevront un lien vers la page d'abonnement YaWatch.</p>
+    <div style="margin-bottom:14px;">
+      <label style="color:#a78bfa;font-size:0.8em;display:block;margin-bottom:5px;">Numéros (séparés par des virgules)</label>
+      <textarea id="refPhones" placeholder="+33612345678, +33698765432" rows="3"
+        style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:10px 12px;font-size:13px;color:#fff;resize:none;outline:none;"></textarea>
+    </div>
+    <div style="margin-bottom:16px;">
+      <label style="color:#a78bfa;font-size:0.8em;display:block;margin-bottom:5px;">Message personnalisé (optionnel)</label>
+      <textarea id="refMessage" rows="3"
+        style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:10px 12px;font-size:13px;color:#fff;resize:none;outline:none;" placeholder="Laisse vide pour le message par défaut…"></textarea>
+    </div>
+    <div id="refStatus" style="font-size:12px;color:#555;margin-bottom:12px;min-height:16px;"></div>
+    <div style="display:flex;gap:10px;">
+      <button onclick="document.getElementById('referralModal').style.display='none'" style="flex:1;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#888;border-radius:50px;padding:12px;font-size:14px;cursor:pointer;">Annuler</button>
+      <button onclick="_sendReferralSms()" id="refSendBtn" style="flex:1;background:linear-gradient(135deg,#7c8cf8,#a78bfa);color:#fff;border:none;border-radius:50px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;">Envoyer →</button>
+    </div>
   </div>
 </div>
 
@@ -2797,9 +2838,14 @@ body.mode-secretaire .luna::before {
           </div>
           <div style="flex:1;"><label style="font-size:0.8em;color:#888;">Langue</label>
             <select id="set-language" class="settings-select" style="width:100%;margin-top:4px;">
-              <option value="fr">Francais</option>
-              <option value="en">English</option>
-              <option value="es">Espanol</option>
+              <option value="fr">🇫🇷 Français</option>
+              <option value="en">🇬🇧 English</option>
+              <option value="es">🇪🇸 Español</option>
+              <option value="de">🇩🇪 Deutsch</option>
+              <option value="it">🇮🇹 Italiano</option>
+              <option value="pt">🇵🇹 Português</option>
+              <option value="ar">🇸🇦 العربية</option>
+              <option value="zh">🇨🇳 中文</option>
             </select>
           </div>
         </div>
@@ -3716,9 +3762,11 @@ function _renderFlights(data) {
   // Web results
   var results = data.results || data.organic || [];
   results.forEach(function(r) {
+    if (typeof r === 'string') { html += '<div class="conc-result-card"><p>' + esc(r) + '</p></div>'; return; }
+    var url = (typeof r.link === 'string' && r.link) || (typeof r.url === 'string' && r.url) || '#';
     html += '<div class="conc-result-card"><h4>' + esc(r.title || "") + '</h4>' +
       '<p>' + esc(r.snippet || r.description || "") + '</p>' +
-      '<div class="conc-actions"><a href="' + esc(r.link || r.url || "#") + '" target="_blank" class="conc-result-btn secondary">Voir</a></div></div>';
+      '<div class="conc-actions"><a href="' + esc(url) + '" target="_blank" class="conc-result-btn secondary">Voir</a></div></div>';
   });
   if (!html) html = '<p style="text-align:center;color:#888;padding:40px;">Aucun vol trouve.</p>';
   _concResultsBody.innerHTML = html;
@@ -3823,8 +3871,13 @@ function _renderWebResults(data) {
   var html = '';
   var results = data.results || data.organic || [];
   results.forEach(function(r) {
+    if (typeof r === 'string') {
+      html += '<div class="conc-result-card"><p>' + esc(r) + '</p></div>';
+      return;
+    }
+    var url = (typeof r.link === 'string' && r.link) || (typeof r.url === 'string' && r.url) || '#';
     html += '<div class="conc-result-card">' +
-      '<h4><a href="' + esc(r.link || r.url || "#") + '" target="_blank" style="color:#e0e0e0;text-decoration:none;">' + esc(r.title || "") + '</a></h4>' +
+      '<h4><a href="' + esc(url) + '" target="_blank" style="color:#e0e0e0;text-decoration:none;">' + esc(r.title || "") + '</a></h4>' +
       '<p>' + esc(r.snippet || r.description || "") + '</p>' +
       '<div class="conc-meta">' + esc(r.displayed_link || r.domain || "") + '</div></div>';
   });
@@ -4090,6 +4143,10 @@ function _pollNotifications() {
     .then(function(data) {
       if (data.notifications && data.notifications.length > 0) {
         data.notifications.forEach(function(n) {
+          if (n.type === "iris_invitation") {
+            _showIrisInviteToast(n);
+            return;
+          }
           lunaNotify(n.title || "Luna", n.body || "");
           _showToast(n.title || "Luna", n.body || "");
           // Inject reminders and summaries into chat
@@ -4101,6 +4158,24 @@ function _pollNotifications() {
     })
     .catch(function() {}); // silent fail
 }
+function _showIrisInviteToast(n) {
+  var inviteLink = n.invite_link || '';
+  var toast = document.createElement("div");
+  toast.className = "luna-toast toast-iris-invite";
+  toast.style.cssText = "top:calc(env(safe-area-inset-top,0px) + 16px);background:linear-gradient(135deg,#080820,#0a1040);border:1px solid rgba(0,210,255,0.35);border-radius:16px;padding:14px 16px;max-width:300px;box-shadow:0 4px 24px rgba(0,210,255,0.2);";
+  toast.innerHTML = '<div style="font-size:13px;font-weight:700;color:#00D2FF;margin-bottom:4px;">' + esc(n.title || "Invitation Iris") + '</div>' +
+    '<div style="font-size:12px;color:#8899bb;margin-bottom:12px;">' + esc(n.body || "") + '</div>' +
+    '<div style="display:flex;gap:8px;">' +
+    '<button onclick="this.closest(\'.luna-toast\').remove();authFetch(\'/api/iris/friend-invites/' + esc(n.invite_id || '') + '/decline\',{method:\'POST\'});" ' +
+      'style="flex:1;background:rgba(255,255,255,0.06);border:none;color:#666;border-radius:50px;padding:8px;font-size:12px;cursor:pointer;">Refuser</button>' +
+    '<button onclick="this.closest(\'.luna-toast\').remove();window.location.href=\'' + esc(inviteLink) + '\';" ' +
+      'style="flex:1;background:linear-gradient(135deg,#00D2FF,#0ea5e9);border:none;color:#000;border-radius:50px;padding:8px;font-size:12px;font-weight:700;cursor:pointer;">Rejoindre →</button>' +
+    '</div>';
+  document.body.appendChild(toast);
+  setTimeout(function() { toast.classList.add("show"); }, 50);
+  setTimeout(function() { if (toast.isConnected) { toast.classList.remove("show"); setTimeout(function(){ toast.remove(); }, 300); } }, 20000);
+}
+
 var _toastOffset = 0;
 function _showToast(title, body, type) {
   var toast = document.createElement("div");
@@ -6759,6 +6834,104 @@ document.getElementById("amisCodeInput").addEventListener("keydown", function(e)
 document.getElementById("amisSalonBtn").addEventListener("click", function() {
   loadActivities();
 });
+
+// =========================================================================
+// REFERRAL — Invite à souscrire
+// =========================================================================
+var _myInviteUrl = '';
+
+function _loadMyInviteUrl() {
+  if (_myInviteUrl) return;
+  authFetch('/api/referral/my-code')
+    .then(function(r){ return r.json(); })
+    .then(function(data){
+      _myInviteUrl = data.invite_url || '';
+      var el = document.getElementById('myInviteUrl');
+      if (el && _myInviteUrl) {
+        el.textContent = _myInviteUrl;
+        el.style.display = 'block';
+      }
+    }).catch(function(){});
+}
+
+function _openReferralModal() {
+  _loadMyInviteUrl();
+  document.getElementById('referralModal').style.display = 'flex';
+  document.getElementById('refStatus').textContent = '';
+  document.getElementById('refPhones').value = '';
+  document.getElementById('refMessage').value = '';
+}
+
+function _copyInviteUrl() {
+  if (!_myInviteUrl) return;
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(_myInviteUrl)
+      .then(function(){ _showToast('Lien copié !', 'Envoie-le à tes amis.', 'success'); })
+      .catch(function(){ prompt('Copie ce lien :', _myInviteUrl); });
+  } else { prompt('Copie ce lien :', _myInviteUrl); }
+}
+
+function _shareInviteUrl() {
+  _loadMyInviteUrl();
+  setTimeout(function(){
+    if (!_myInviteUrl) { _showToast('', 'Lien en cours de génération…', 'info'); return; }
+    if (navigator.share) {
+      navigator.share({title:'YaWatch — Assistant IA', text:'Découvre YaWatch, ton assistant IA personnel.', url: _myInviteUrl});
+    } else {
+      _copyInviteUrl();
+    }
+  }, 300);
+}
+
+function _sendReferralSms() {
+  var rawPhones = document.getElementById('refPhones').value.trim();
+  var message = document.getElementById('refMessage').value.trim();
+  var status = document.getElementById('refStatus');
+  var btn = document.getElementById('refSendBtn');
+
+  if (!rawPhones) { status.textContent = 'Entre au moins un numéro.'; status.style.color='#fca5a5'; return; }
+  var phones = rawPhones.split(/[,;\n]+/).map(function(p){ return p.trim(); }).filter(Boolean);
+  if (phones.length === 0) { status.textContent = 'Aucun numéro valide.'; status.style.color='#fca5a5'; return; }
+
+  btn.disabled = true;
+  status.textContent = 'Envoi en cours…';
+  status.style.color = '#888';
+
+  authFetch('/api/referral/invite', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({phones: phones, message: message})
+  }).then(function(r){ return r.json(); })
+    .then(function(data){
+      btn.disabled = false;
+      if (data.ok) {
+        status.textContent = '✅ ' + data.sent + ' SMS envoyé(s)' + (data.failed > 0 ? ' · ' + data.failed + ' échec(s)' : '');
+        status.style.color = '#34d399';
+        if (!_myInviteUrl && data.invite_url) {
+          _myInviteUrl = data.invite_url;
+          var el = document.getElementById('myInviteUrl');
+          if (el) { el.textContent = _myInviteUrl; el.style.display='block'; }
+        }
+        setTimeout(function(){ document.getElementById('referralModal').style.display='none'; }, 2500);
+      } else {
+        status.textContent = '❌ ' + (data.error || 'Erreur envoi');
+        status.style.color = '#fca5a5';
+      }
+    }).catch(function(){
+      btn.disabled = false;
+      status.textContent = '❌ Erreur réseau';
+      status.style.color = '#fca5a5';
+    });
+}
+
+// Charger l'URL d'invitation quand l'onglet Amis s'ouvre
+(function(){
+  var _origTab = window._switchTab || null;
+  document.addEventListener('click', function(e){
+    var btn = e.target.closest('[data-tab="amis"]');
+    if (btn) setTimeout(_loadMyInviteUrl, 300);
+  });
+})();
 
 // =========================================================================
 // UTILS

@@ -1,0 +1,45 @@
+<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="bg-archi" cx="50%" cy="35%" r="65%">
+      <stop offset="0%" stop-color="#1c1917"/>
+      <stop offset="100%" stop-color="#0c0a09"/>
+    </radialGradient>
+    <linearGradient id="sym-archi" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fcd34d"/>
+      <stop offset="100%" stop-color="#d97706"/>
+    </linearGradient>
+    <filter id="glow-archi">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="2" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <circle cx="60" cy="60" r="57" fill="#d97706" opacity="0.2"/>
+  <circle cx="60" cy="60" r="55" fill="none" stroke="#fcd34d" stroke-width="2" opacity="0.8"/>
+  <circle cx="60" cy="60" r="53" fill="url(#bg-archi)"/>
+  <circle cx="60" cy="60" r="44" fill="none" stroke="#d97706" stroke-width="0.8" stroke-dasharray="3 2" opacity="0.35"/>
+  <!-- Blueprint grid -->
+  <line x1="36" y1="36" x2="84" y2="36" stroke="#fcd34d" stroke-width="0.6" opacity="0.2"/>
+  <line x1="36" y1="48" x2="84" y2="48" stroke="#fcd34d" stroke-width="0.6" opacity="0.2"/>
+  <line x1="36" y1="60" x2="84" y2="60" stroke="#fcd34d" stroke-width="0.6" opacity="0.2"/>
+  <line x1="36" y1="72" x2="84" y2="72" stroke="#fcd34d" stroke-width="0.6" opacity="0.2"/>
+  <line x1="36" y1="36" x2="36" y2="84" stroke="#fcd34d" stroke-width="0.6" opacity="0.2"/>
+  <line x1="48" y1="36" x2="48" y2="84" stroke="#fcd34d" stroke-width="0.6" opacity="0.2"/>
+  <line x1="60" y1="36" x2="60" y2="84" stroke="#fcd34d" stroke-width="0.6" opacity="0.2"/>
+  <line x1="72" y1="36" x2="72" y2="84" stroke="#fcd34d" stroke-width="0.6" opacity="0.2"/>
+  <line x1="84" y1="36" x2="84" y2="84" stroke="#fcd34d" stroke-width="0.6" opacity="0.2"/>
+  <!-- Building silhouette -->
+  <rect x="42" y="56" width="36" height="28" fill="url(#sym-archi)" opacity="0.8" filter="url(#glow-archi)"/>
+  <polygon points="60,36 42,56 78,56" fill="url(#sym-archi)" opacity="0.9" filter="url(#glow-archi)"/>
+  <!-- Windows -->
+  <rect x="50" y="62" width="6" height="6" fill="#1c1917" opacity="0.7"/>
+  <rect x="64" y="62" width="6" height="6" fill="#1c1917" opacity="0.7"/>
+  <rect x="50" y="72" width="6" height="6" fill="#1c1917" opacity="0.7"/>
+  <rect x="64" y="72" width="6" height="6" fill="#1c1917" opacity="0.7"/>
+  <!-- Door -->
+  <rect x="56" y="74" width="8" height="10" rx="2" fill="#1c1917" opacity="0.7"/>
+  <!-- Compass/drafting tool -->
+  <line x1="80" y1="36" x2="90" y2="52" stroke="#fcd34d" stroke-width="2" opacity="0.7"/>
+  <line x1="80" y1="36" x2="86" y2="30" stroke="#fcd34d" stroke-width="2" opacity="0.7"/>
+  <!-- Bottom bar -->
+  <rect x="32" y="95" width="56" height="2.5" rx="1.25" fill="#fcd34d" opacity="0.55"/>
+</svg>

@@ -1,0 +1,29 @@
+<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="bg-flame" cx="50%" cy="35%" r="65%">
+      <stop offset="0%" stop-color="#1c0f07"/>
+      <stop offset="100%" stop-color="#0a0500"/>
+    </radialGradient>
+    <linearGradient id="sym-flame" x1="0%" y1="100%" x2="0%" y2="0%">
+      <stop offset="0%" stop-color="#ef4444"/>
+      <stop offset="50%" stop-color="#f97316"/>
+      <stop offset="100%" stop-color="#fbbf24"/>
+    </linearGradient>
+    <filter id="glow-flame">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <circle cx="60" cy="60" r="57" fill="#ef4444" opacity="0.2"/>
+  <circle cx="60" cy="60" r="55" fill="none" stroke="#f97316" stroke-width="2" opacity="0.8"/>
+  <circle cx="60" cy="60" r="53" fill="url(#bg-flame)"/>
+  <circle cx="60" cy="60" r="44" fill="none" stroke="#ef4444" stroke-width="0.8" stroke-dasharray="3 2" opacity="0.35"/>
+  <!-- Outer flame -->
+  <path d="M60,30 Q74,42 72,56 Q78,46 76,60 Q80,72 60,84 Q40,72 44,60 Q42,46 48,56 Q46,42 60,30 Z" fill="url(#sym-flame)" opacity="0.8" filter="url(#glow-flame)"/>
+  <!-- Inner flame -->
+  <path d="M60,42 Q68,50 66,60 Q70,54 68,62 Q68,72 60,78 Q52,72 52,62 Q50,54 54,60 Q52,50 60,42 Z" fill="#fbbf24" opacity="0.7" filter="url(#glow-flame)"/>
+  <!-- Core -->
+  <ellipse cx="60" cy="68" rx="6" ry="8" fill="white" opacity="0.5"/>
+  <!-- Bottom bar -->
+  <rect x="32" y="95" width="56" height="2.5" rx="1.25" fill="#f97316" opacity="0.55"/>
+</svg>
