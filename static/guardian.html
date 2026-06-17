@@ -483,10 +483,29 @@ select.cfg-inp option { background:#13131f; }
     <div id="risk-track"><div id="risk-fill"></div></div>
   </div>
 
+  <!-- Contacts de confiance -->
+  <div id="contacts-bar" style="display:none;padding:4px 14px 6px;border-bottom:1px solid var(--border);">
+    <div style="font-size:.75em;color:var(--muted);">🔔 Contacts alertés en cas d'urgence :</div>
+    <div id="contacts-list" style="font-size:.8em;color:var(--text);margin-top:3px;">Chargement…</div>
+  </div>
+
   <!-- Controls -->
   <div id="ctrls">
     <button id="btn-start" class="ctrl" onclick="guardianStart()">▶ Démarrer</button>
     <button id="btn-stop"  class="ctrl" onclick="guardianStop()">⏹ Arrêter</button>
+  </div>
+
+  <!-- Bouton caméra — visible seulement après démarrage -->
+  <div id="cam-ctrl" style="display:none;padding:0 14px 8px;">
+    <button id="btn-cam" onclick="cameraStart()"
+      style="width:100%;padding:10px;background:rgba(16,185,129,0.1);color:var(--green);border:1px solid rgba(16,185,129,.3);border-radius:12px;font-size:.85em;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;">
+      🎥 Activer la caméra — analyse de scène IA
+    </button>
+    <button id="btn-cam-stop" onclick="cameraStop()"
+      style="width:100%;padding:10px;background:rgba(239,68,68,0.1);color:var(--red);border:1px solid rgba(239,68,68,.3);border-radius:12px;font-size:.85em;cursor:pointer;display:none;margin-top:6px;">
+      ⏹ Désactiver caméra
+    </button>
+    <div style="font-size:.7em;color:var(--muted);margin-top:4px;text-align:center;">Caméra de cet appareil · Aucune image stockée · Analyse IA toutes les 10s</div>
   </div>
 
   <!-- Voice toggle -->
@@ -529,14 +548,6 @@ select.cfg-inp option { background:#13131f; }
       <button id="zone-btn" onclick="captureZone()">📍 Utiliser ma position comme zone sûre</button>
       <div id="zone-st"></div>
     </div>
-    <div class="cfg-grid full" style="border-top:1px solid var(--border);padding-top:8px;margin-top:4px;">
-      <label class="cfg-lbl">🎥 Caméra de surveillance (optionnel)</label>
-      <label class="cfg-lbl" style="margin-top:2px;">URL caméra externe MJPEG (laisser vide = caméra interne)</label>
-      <input type="text" id="cfg-cam-url" class="cfg-inp" placeholder="ex: http://192.168.1.x/stream ou vide">
-      <button id="btn-cam" onclick="cameraStart()">🎥 Activer caméra — analyse de scène</button>
-      <button id="btn-cam-stop" onclick="cameraStop()">⏹ Désactiver caméra</button>
-      <div style="font-size:.7em;color:var(--muted);margin-top:4px;">Aucune image stockée · Analyse IA toutes les 10s · Arrêt avec session</div>
-    </div>
   </div>
 </div>
 
@@ -547,7 +558,8 @@ select.cfg-inp option { background:#13131f; }
     <p>Pour vous protéger efficacement, Luna Guardian a besoin des autorisations suivantes.</p>
     <ul id="perm-list">
       <li>📍 <span>Position GPS précise — pour savoir où vous êtes</span></li>
-      <li id="perm-mic" style="display:none;">🎤 <span>Microphone — vérification vocale en cas d'alerte</span></li>
+      <li>🎥 <span>Caméra (optionnel) — analyse de scène IA, aucune image stockée</span></li>
+      <li id="perm-mic">🎤 <span>Microphone — vérification vocale en cas d'alerte</span></li>
       <li>📡 <span>Transmission GPS au serveur toutes les 10s — position jamais stockée au-delà de 7 jours</span></li>
       <li>🔔 <span>Notifications — alertes silencieuses en temps réel</span></li>
     </ul>
@@ -738,15 +750,19 @@ function updateRisk(score,level,desc){
 
 // ── PERMISSIONS ───────────────────────────────
 function openPerm(){
-  var hasMic=!!(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia);
-  if(hasMic) document.getElementById('perm-mic').style.display='flex';
   document.getElementById('perm-modal').classList.add('open');
 }
 function closePerm(){ document.getElementById('perm-modal').classList.remove('open'); }
 async function grantPermissions(){
   closePerm();
   if(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia){
-    try{ await navigator.mediaDevices.getUserMedia({audio:true}); }catch(e){}
+    // Demander caméra + micro ensemble pour pré-autoriser les deux
+    try{ var s=await navigator.mediaDevices.getUserMedia({audio:true,video:true});
+      s.getTracks().forEach(function(t){t.stop();}); // relâcher immédiatement
+    }catch(e){
+      // Fallback : micro seul si caméra refusée
+      try{ await navigator.mediaDevices.getUserMedia({audio:true}); }catch(e2){}
+    }
   }
   if(window.Notification&&Notification.permission==='default') await Notification.requestPermission();
 }
@@ -874,9 +890,11 @@ function guardianStart(){
     showTrustBar(true);
     if(CFG_OPEN) toggleCfg();
     _layoutUpdate();
-    connectWs(); startGps(); loadEvents();
+    connectWs(); startGps(); loadEvents(); loadContacts();
     incrementSession();
-    _setCamState('inactive'); // badge caméra visible mais inactive
+    _setCamState('inactive');
+    document.getElementById('cam-ctrl').style.display='block';
+    document.getElementById('contacts-bar').style.display='block';
     showToast('🛡️ Guardian actif');
     vibrate([60,30,60]);
     maybeSpeak('Luna Guardian démarré. Je veille sur vous.');
@@ -905,10 +923,12 @@ function guardianStop(){
   });
 }
 function _cleanupSession(){
-  cameraStop(); // arrêt garanti caméra + timer
+  cameraStop();
   if(WS){try{WS.close();}catch(e){} WS=null;}
   if(GEO_ID!==null){navigator.geolocation.clearWatch(GEO_ID);GEO_ID=null;}
   document.getElementById('cam-badge').style.display='none';
+  document.getElementById('cam-ctrl').style.display='none';
+  document.getElementById('contacts-bar').style.display='none';
   SID=null; TRAIL_COORDS=[]; PREV_POS=null;
   if(TRAIL){MAP.removeLayer(TRAIL);TRAIL=null;}
   if(MAP._accuracyCircle){MAP.removeLayer(MAP._accuracyCircle);}
@@ -1197,43 +1217,29 @@ function _setCamState(state,extra){
 
 async function cameraStart(){
   if(!SID){showToast('Démarrez Guardian d\'abord');return;}
-  var extUrl=(document.getElementById('cfg-cam-url')||{}).value||'';
-  extUrl=extUrl.trim();
-
-  if(extUrl){
-    // Caméra externe (flux MJPEG ou HTTP)
-    var video=document.getElementById('cam-video');
-    video.src=extUrl;
-    video.crossOrigin='anonymous';
-    video.onloadeddata=function(){
-      _setCamState('external'); _startCamLoop();
-      showToast('🔵 Caméra externe connectée'); vibrate([40]);
-    };
-    video.onerror=function(){
-      _setCamState('unavailable','URL inaccessible');
-      showToast('❌ Caméra externe inaccessible',3500);
-    };
-    video.load();
-    return;
-  }
-
-  // Caméra interne
   if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){
-    _setCamState('unavailable'); showToast('Caméra non disponible',3000); return;
+    _setCamState('unavailable');
+    showToast('Caméra non disponible sur cet appareil',3000); return;
   }
   try{
-    _camStream=await navigator.mediaDevices.getUserMedia({
-      video:{facingMode:'environment',width:{ideal:320},height:{ideal:240}},audio:false});
+    // Caméra arrière en priorité (smartphone/tablette), sinon caméra avant (PC)
+    var constraints={video:{facingMode:{ideal:'environment'},width:{ideal:320},height:{ideal:240}},audio:false};
+    _camStream=await navigator.mediaDevices.getUserMedia(constraints);
     var video=document.getElementById('cam-video');
     video.srcObject=_camStream;
     await video.play();
     _setCamState('active'); _startCamLoop();
-    showToast('🎥 Caméra active — analyse toutes les 10s'); vibrate([40]);
+    showToast('🎥 Caméra active — analyse IA toutes les 10s'); vibrate([40]);
   }catch(e){
     if(e.name==='NotAllowedError'||e.name==='PermissionDeniedError'){
-      _setCamState('refused'); showToast('Caméra refusée',3000);
+      _setCamState('refused');
+      showToast('❌ Caméra refusée — autorisez l\'accès dans les réglages',4000);
+    } else if(e.name==='NotFoundError'){
+      _setCamState('unavailable');
+      showToast('❌ Aucune caméra détectée sur cet appareil',3000);
     } else {
-      _setCamState('unavailable'); showToast('Caméra indisponible: '+e.message,3000);
+      _setCamState('unavailable');
+      showToast('❌ Caméra indisponible : '+e.message,3000);
     }
   }
 }
@@ -1273,10 +1279,8 @@ function _sendFrame(){
     method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({frame:frame,width:W,height:H})
   }).then(function(r){return r.json();}).then(function(d){
-    _setCamState(CAM_STATE==='sending'?(d.error?'inactive':((_camStream||document.getElementById('cam-video').src)?'active':'inactive')):CAM_STATE);
-    // Restaure l'état correct après 'sending'
+    // Restaurer l'état actif après 'sending'
     if(_camStream) _setCamState('active');
-    else if(document.getElementById('cam-video').src) _setCamState('external');
     if(d.description&&d.description!=='Analyse indisponible'){
       var r2=document.getElementById('cam-result');
       document.getElementById('cam-result-txt').textContent='👁 '+d.description;
@@ -1289,7 +1293,6 @@ function _sendFrame(){
     }
   }).catch(function(){
     if(_camStream) _setCamState('active');
-    else if(document.getElementById('cam-video').src) _setCamState('external');
   });
 }
 
@@ -1303,6 +1306,24 @@ function toggleCamDetails(){
   var r=document.getElementById('cam-result');
   if(r.style.display==='none'||!r.style.display) _sendFrame();
   else r.style.display='none';
+}
+
+// ── CONTACTS DE CONFIANCE ─────────────────────
+function loadContacts(){
+  authFetch('/api/contacts').then(function(r){return r.json();}).then(function(d){
+    var contacts=d.contacts||[];
+    var el=document.getElementById('contacts-list');
+    if(!contacts.length){
+      el.textContent='Aucun contact configuré — ajoutez des contacts de confiance dans l\'app';
+      el.style.color='var(--red)'; return;
+    }
+    el.style.color='var(--green)';
+    el.textContent=contacts.map(function(c){
+      return (c.name||c.first_name||'Contact')+' '+(c.phone?'('+c.phone+')':'');
+    }).join(' · ');
+  }).catch(function(){
+    document.getElementById('contacts-list').textContent='Impossible de charger les contacts';
+  });
 }
 
 // ── INIT : reprise session active ─────────────
@@ -1322,6 +1343,9 @@ function toggleCamDetails(){
       document.getElementById('voice-chk').checked=(localStorage.getItem('luna_voice')==='1');
       showTrustBar(true);
       updateRisk(0,s.alert_level||'low','');
+      document.getElementById('cam-ctrl').style.display='block';
+      document.getElementById('contacts-bar').style.display='block';
+      loadContacts();
       _layoutUpdate(); connectWs(); startGps(); loadEvents();
     } else {
       openPerm();
