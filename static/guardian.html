@@ -1215,82 +1215,49 @@ function _setCamState(state,extra){
 function cameraStart(){
   if(!SID){showToast('Démarrez Guardian d\'abord');return;}
   if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){
-    _setCamState('unavailable');
-    showToast('Caméra non disponible sur cet appareil',3000); return;
+    showToast('❌ Caméra non supportée sur cet appareil',3000); return;
   }
-  // Feedback immédiat — l'utilisateur sait que le clic a été pris en compte
-  var btn=document.getElementById('btn-cam');
-  if(btn){btn.textContent='⏳ Ouverture caméra…'; btn.disabled=true;}
-
-  function _doOpen(){
-    // SANS async/await — préserve le contexte geste utilisateur (iOS/Android)
-    navigator.mediaDevices.getUserMedia({video:true,audio:false})
-      .then(function(stream){
-        _camStream=stream;
-        stream.getVideoTracks().forEach(function(track){
-          track.addEventListener('ended',function(){
-            _camStream=null; _setCamState('inactive');
-            _stopCamLoop(); _stopCheckInLoop();
-            showToast('⚠️ Caméra interrompue (veille ou autre app)',3000);
-          });
+  // getUserMedia appelé DIRECTEMENT ici — aucune promesse intermédiaire
+  // Toute chaîne .then() avant cet appel rompt le geste utilisateur sur iOS/Android
+  navigator.mediaDevices.getUserMedia({video:true,audio:false})
+    .then(function(stream){
+      _camStream=stream;
+      stream.getVideoTracks().forEach(function(t){
+        t.addEventListener('ended',function(){
+          _camStream=null; _setCamState('inactive');
+          _stopCamLoop(); _stopCheckInLoop();
+          showToast('⚠️ Caméra interrompue',3000);
         });
-        var video=document.getElementById('cam-video');
-        video.srcObject=stream;
-        video.play().catch(function(){});
-        _setCamState('active');
-        _startCamLoop();
-        _startCheckInLoop();
-        showToast('🎥 Caméra active — contrôle toutes les 60s');
-        vibrate([40]);
-      })
-      .catch(function(e){
-        if(btn){btn.textContent='🎥 Activer la caméra — analyse de scène IA'; btn.disabled=false;}
-        if(e.name==='NotAllowedError'||e.name==='PermissionDeniedError'){
-          _setCamState('refused');
-          // Montrer les instructions de déblocage selon le navigateur
-          _showCamPermInstructions();
-        } else if(e.name==='NotFoundError'||e.name==='DevicesNotFoundError'){
-          _setCamState('unavailable');
-          showToast('❌ Aucune caméra détectée sur cet appareil',4000);
-        } else if(e.name==='NotReadableError'||e.name==='TrackStartError'){
-          _setCamState('unavailable');
-          showToast('❌ Caméra utilisée par une autre app — fermez-la et réessayez',5000);
-        } else {
-          _setCamState('unavailable');
-          showToast('❌ Caméra : '+e.name+' — '+e.message,5000);
-        }
-        console.error('[Guardian camera]',e.name,e.message);
       });
-  }
-
-  // Vérifier l'état de permission AVANT d'appeler getUserMedia
-  // Si 'denied' → expliquer comment débloquer sans appel inutile
-  if(navigator.permissions&&navigator.permissions.query){
-    navigator.permissions.query({name:'camera'}).then(function(ps){
-      if(ps.state==='denied'){
-        if(btn){btn.textContent='🎥 Activer la caméra — analyse de scène IA'; btn.disabled=false;}
+      var video=document.getElementById('cam-video');
+      video.srcObject=stream;
+      video.play().catch(function(){});
+      _setCamState('active');
+      _startCamLoop();
+      _startCheckInLoop();
+      showToast('🎥 Caméra active');
+      vibrate([40]);
+    })
+    .catch(function(e){
+      console.error('[Guardian cam]',e.name,e.message);
+      var ua=navigator.userAgent.toLowerCase();
+      if(e.name==='NotAllowedError'||e.name==='PermissionDeniedError'){
         _setCamState('refused');
-        _showCamPermInstructions();
+        var hint=/ipad|iphone/.test(ua)
+          ? 'Réglages iOS > Safari > Caméra > Autoriser'
+          : 'Appuyez sur 🔒 dans la barre d\'adresse > Caméra > Autoriser';
+        showToast('📷 Caméra bloquée — '+hint,8000);
+      } else if(e.name==='NotFoundError'){
+        _setCamState('unavailable');
+        showToast('❌ Aucune caméra détectée',4000);
+      } else if(e.name==='NotReadableError'){
+        _setCamState('unavailable');
+        showToast('❌ Caméra occupée par une autre app',5000);
       } else {
-        _doOpen(); // 'granted' ou 'prompt' → laisser le navigateur demander
+        _setCamState('unavailable');
+        showToast('❌ '+e.name+' : '+e.message,6000);
       }
-    }).catch(function(){ _doOpen(); }); // API permissions non dispo → tenter directement
-  } else {
-    _doOpen();
-  }
-}
-
-function _showCamPermInstructions(){
-  var ua=navigator.userAgent.toLowerCase();
-  var msg='';
-  if(/iphone|ipad/.test(ua)){
-    msg='📷 Caméra bloquée.\nPour autoriser :\nRéglages > Safari > Caméra > Autoriser';
-  } else if(/android/.test(ua)){
-    msg='📷 Caméra bloquée.\nAppuyez sur 🔒 dans la barre d\'adresse > Autorisations > Caméra > Autoriser';
-  } else {
-    msg='📷 Caméra bloquée.\nCliquez sur 🔒 dans la barre d\'adresse > Autorisations > Caméra';
-  }
-  showToast(msg, 8000);
+    });
 }
 
 function cameraStop(){
