@@ -61,7 +61,17 @@ Reponds UNIQUEMENT en JSON avec cette structure exacte:
   "scene_summary": "<description courte en francais de la scene>"
 }
 
-Regles:
+Regles pour la posture (critique pour la securite):
+- "standing": personne debout
+- "sitting": personne assise (chaise, fauteuil, canape, sol assis)
+- "lying_bed": personne allongee sur un support visible (lit, canape, matelas, fauteuil inclinable)
+  → Utilise "lying_bed" si un meuble support est clairement visible sous la personne
+- "lying_floor": personne allongee directement sur le sol, sans support sous elle
+  → Utilise "lying_floor" UNIQUEMENT si la personne est a meme le carrelage, le parquet ou la moquette
+  → Un canape ou un lit visible = "lying_bed", pas "lying_floor"
+- "unknown": posture impossible a determiner
+
+Autres regles:
 - Compte uniquement les personnes clairement visibles
 - Objets pertinents: meubles, animaux, electromenager, nourriture, medicaments
 - Ne mentionne JAMAIS les mots: surveillance, diagnostic, chute, urgence, alerte

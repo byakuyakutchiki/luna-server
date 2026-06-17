@@ -209,6 +209,8 @@ REQUIRE_AUTH = os.getenv("REQUIRE_AUTH", "true").lower() == "true"
 # --- Feature flags (désactive modules coûteux ou instables au boot) ---
 ENABLE_TAVUS_BOOT = os.getenv("ENABLE_TAVUS_BOOT", "false").lower() == "true"  # désactivé par défaut — add-on futur
 ENABLE_TWILIO_BOOT = os.getenv("ENABLE_TWILIO_BOOT", "true").lower() == "true"
+# J8 — Coupe-circuit SMS Guardian : mettre à "false" en DEV/test pour ne jamais envoyer de vrais SMS Guardian
+GUARDIAN_SMS_ENABLED = os.getenv("GUARDIAN_SMS_ENABLED", "true").lower() == "true"
 ENABLE_INSTRUCTIONS = os.getenv("ENABLE_INSTRUCTIONS", "true").lower() == "true"
 ENABLE_VAULT_REMINDERS = os.getenv("ENABLE_VAULT_REMINDERS", "true").lower() == "true"
 ENABLE_CORTEX = os.getenv("ENABLE_CORTEX", "true").lower() == "true"
@@ -3768,11 +3770,15 @@ if sms_client and sms_client.is_configured and VOICE_CALLBACK_URL and not sms_cl
 # Stockage des accusés de reception SMS {sid: {to, body_preview, status, ts, delivered_at}}
 _sms_tracking: Dict[str, Dict] = {}
 
-def _tracked_sms_send(to: str, body: str, label: str = ""):
+def _tracked_sms_send(to: str, body: str, label: str = "", _tenant_id: int = None):
     """Envoie un SMS et track l'accuse de reception."""
-    if _test_mode:
+    if _test_mode or (_tenant_id and _tenant_id in _test_mode_tenants):
         logger.info(f"[TEST MODE] SMS bloque vers {to}: {body[:60]}...")
         return True, {"sid": f"TEST_{label}", "test_mode": True}
+    # J8 — Coupe-circuit Guardian SMS : GUARDIAN_SMS_ENABLED=false bloque tous les SMS Guardian
+    if not GUARDIAN_SMS_ENABLED and "Guardian" in label:
+        logger.info(f"[GUARDIAN_SMS_DISABLED] SMS bloqué vers {to} ({label}): {body[:60]}")
+        return True, {"sid": "DISABLED", "guardian_sms_disabled": True}
     success, details = sms_client.send(to, body)
     if success and details.get("sid"):
         sid = details["sid"]
@@ -3832,7 +3838,8 @@ _doc_generator: Optional[object] = None
 _perception_detector: Optional[object] = None
 _perception_analyzer: Optional[object] = None
 _guardian_scene_analyzers: Dict[str, object] = {}  # session_id -> SceneAnalyzer (historique préservé)
-_test_mode: bool = False  # En mode test, les SMS ne sont PAS envoyes
+_test_mode: bool = False          # Mode test global (désactivé en prod)
+_test_mode_tenants: set = set()   # J6 — Tenants en mode test individuel (sans bloquer les autres)
 _notification_engine: Optional[object] = None
 _iris_session_manager: Optional[object] = None  # IrisSessionManager
 
@@ -3871,7 +3878,10 @@ def _init_core():
                 sms_service=sms_client,
                 legal_mode=LEGAL_MODE,
             )
-            _quota_guard = QuotaGuard(memory_manager=_memory_manager)
+            _quota_guard = QuotaGuard(
+                memory_manager=_memory_manager,
+                redis_client=_redis_client.client if _redis_client else None,  # J9: persistance Redis
+            )
             _scheduler = InstructionScheduler()
             _executor = create_instruction_executor(
                 memory_manager=_memory_manager,
@@ -14890,11 +14900,11 @@ async def guardian_location(session_id: str, request: Request):
             person_name = sub.name if sub and hasattr(sub, "name") else "Utilisateur"
             desc = alert_events[0].description or risk.description
 
-            # Lire le canal d'alerte choisi par l'utilisateur
-            _alert_channel = "sms"
+            # Lire le canal d'alerte choisi par l'utilisateur (J7: défaut = "both", APP FIRST)
+            _alert_channel = "both"
             if _redis_client:
                 _s = _redis_client.client.hget(_redis_client._key(tid, "settings"), "guardian_alert_channel")
-                if _s and _s in ("luna", "both"):
+                if _s and _s in ("sms", "luna", "both"):
                     _alert_channel = _s
 
             if _alert_channel in ("sms", "both") and all_contacts and sms_client:
@@ -14968,11 +14978,11 @@ async def guardian_sos(session_id: str, request: Request):
     sub = mgr.get_subscriber_profile() if mgr else None
     person_name = sub.name if sub and hasattr(sub, "name") else "Utilisateur"
 
-    # Lire le canal d'alerte
-    _alert_channel = "sms"
+    # Lire le canal d'alerte (J7: défaut = "both", APP FIRST)
+    _alert_channel = "both"
     if _redis_client:
         _s = _redis_client.client.hget(_redis_client._key(tid, "settings"), "guardian_alert_channel")
-        if _s and _s in ("luna", "both"):
+        if _s and _s in ("sms", "luna", "both"):
             _alert_channel = _s
 
     sms_results = {"sent": [], "failed": []}
@@ -15022,10 +15032,20 @@ async def guardian_sos(session_id: str, request: Request):
 
 @app.post("/api/guardian/verify-response/{session_id}")
 async def guardian_verify_response(session_id: str, request: Request):
-    """Réponse de l'utilisateur à la vérification vocale (ok=true/false)."""
+    """Réponse de l'utilisateur à la vérification vocale (ok=true/false).
+    J5 — Authentifié : seul le client propriétaire de la session peut répondre.
+    """
+    auth_token = request.headers.get("Authorization", "").replace("Bearer ", "")
+    token_payload = _decode_client_token(auth_token)
+    if not token_payload:
+        raise HTTPException(status_code=401, detail="Non autorisé")
     engine = _get_guardian()
     if not engine:
         return JSONResponse(status_code=503, content={"error": "Guardian non disponible"})
+    # Vérifier que la session appartient bien à ce tenant
+    session = engine.get_session(session_id)
+    if session and str(session.tenant_id) != str(token_payload.get("tenant_id", TENANT_ID)):
+        raise HTTPException(status_code=403, detail="Accès refusé à cette session")
     try:
         body = await request.json()
         ok = bool(body.get("ok", True))
@@ -15199,10 +15219,10 @@ async def guardian_frame(session_id: str, request: Request):
                 "description": state.scene_description,
                 "has_concern": True,
             })
-            engine.set_camera_scene(session_id, False)
+            engine.set_camera_scene(session_id, False, posture=state.primary_posture)
         elif state.persons_present > 0 and state.primary_posture not in ("lying_floor", "unknown"):
             # Personne visible en posture normale → atténuer les faux positifs d'immobilité GPS
-            engine.set_camera_scene(session_id, True)
+            engine.set_camera_scene(session_id, True, posture=state.primary_posture)
 
         return {
             "description": state.scene_description,
@@ -15346,10 +15366,10 @@ async def guardian_checkin_miss(session_id: str, request: Request):
 
     # DM Luna en parallèle si niveau 4 et canal activé
     if result.get("status") == "level4" and _redis_client:
-        _alert_channel = "sms"
+        _alert_channel = "both"  # J7: défaut APP FIRST
         try:
             _s = _redis_client.client.hget(_redis_client._key(tid, "settings"), "guardian_alert_channel")
-            if _s and _s in ("luna", "both"):
+            if _s and _s in ("sms", "luna", "both"):
                 _alert_channel = _s
         except Exception:
             pass
@@ -20210,8 +20230,20 @@ async def run_scenario(req: Request):
                 content={"error": f"Scenario inconnu: {scenario_name}", "available": list(ALL_SCENARIOS.keys())}
             )
 
-        global _test_mode
-        _test_mode = True
+        # J6 — Activer le mode test par tenant si possible, sinon global
+        global _test_mode, _test_mode_tenants
+        _tid_test = None
+        try:
+            _auth_test = request.headers.get("Authorization", "").replace("Bearer ", "")
+            _p_test = _decode_client_token(_auth_test)
+            if _p_test:
+                _tid_test = int(_p_test.get("tenant_id", 0))
+        except Exception:
+            pass
+        if _tid_test:
+            _test_mode_tenants.add(_tid_test)
+        else:
+            _test_mode = True
 
         async def test_chat_fn(message: str) -> str:
             """Appelle le chat en mode test."""
@@ -20242,6 +20274,8 @@ async def run_scenario(req: Request):
         result = await simulator.run_scenario(scenario)
 
         _test_mode = False
+        if _tid_test:
+            _test_mode_tenants.discard(_tid_test)
 
         return result.to_dict()
 
@@ -20249,6 +20283,11 @@ async def run_scenario(req: Request):
         return JSONResponse(status_code=503, content={"error": "Module testing non disponible"})
     except Exception as e:
         _test_mode = False
+        try:
+            if _tid_test:
+                _test_mode_tenants.discard(_tid_test)
+        except Exception:
+            pass
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 

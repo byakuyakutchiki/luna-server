@@ -121,12 +121,15 @@ class QuotaGuard:
     def __init__(
         self,
         memory_manager=None,
+        redis_client=None,
     ):
         """
         Args:
             memory_manager: MemoryManager pour accéder aux quotas Redis
+            redis_client: Client Redis pour persister les quotas (J9 — évite les pertes au redémarrage)
         """
         self.memory = memory_manager
+        self._rc = redis_client  # J9: client Redis brut (redis_client.client)
         # Cache local: tenant_id -> {action_type -> count}
         self._usage_cache: Dict[int, Dict[str, int]] = {}
         # Cache des plans: tenant_id -> PlanType
@@ -242,12 +245,20 @@ class QuotaGuard:
         if tenant_id not in self._usage_cache:
             self._usage_cache[tenant_id] = {}
 
-        current = self._usage_cache[tenant_id].get("sms", 0)
-        self._usage_cache[tenant_id]["sms"] = current + cost
+        # J9 — Persister en Redis avec TTL mensuel auto-reset
+        new_total = self._usage_cache[tenant_id].get("sms", 0) + cost
+        if self._rc:
+            try:
+                key = self._redis_quota_key(tenant_id)
+                new_total = self._rc.incrby(key, cost)
+                self._rc.expire(key, 35 * 86400)  # TTL 35 jours, reset naturel chaque mois
+            except Exception:
+                pass
+        self._usage_cache[tenant_id]["sms"] = new_total
 
         logger.info(
             f"Quota incremented: tenant={tenant_id}, "
-            f"sms={current + cost}"
+            f"sms={new_total}"
         )
 
     def get_usage_summary(self, tenant_id: int) -> Dict[str, Any]:
@@ -344,8 +355,20 @@ class QuotaGuard:
         """Récupère le forfait du tenant"""
         return self._plan_cache.get(tenant_id, PlanType.ESSENTIEL)
 
+    def _redis_quota_key(self, tenant_id: int) -> str:
+        """Clé Redis mensuelle : expire naturellement après 35 jours (J9)."""
+        month = datetime.utcnow().strftime("%Y-%m")
+        return f"luna:{tenant_id}:quota:sms:{month}"
+
     def _get_usage(self, tenant_id: int, resource: str) -> int:
-        """Récupère l'utilisation courante"""
+        """Récupère l'utilisation courante — Redis en priorité, cache local en fallback (J9)."""
+        if resource == "sms" and self._rc:
+            try:
+                val = self._rc.get(self._redis_quota_key(tenant_id))
+                if val is not None:
+                    return int(val)
+            except Exception:
+                pass
         return self._usage_cache.get(tenant_id, {}).get(resource, 0)
 
     def _check_and_send_alerts(

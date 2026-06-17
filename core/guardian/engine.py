@@ -4,9 +4,11 @@ Luna Guardian - Moteur de surveillance géolocalisée
 Pipeline : Position GPS → Analyse comportementale → RiskScore → Vérification → Alerte avec localisation
 Remplace totalement la détection caméra (perception) par le GPS du smartphone.
 """
+import hashlib
 import json
 import logging
 import math
+import time
 import uuid
 from datetime import datetime, timedelta
 from dataclasses import dataclass, field, asdict
@@ -286,11 +288,12 @@ class GuardianEngine:
             session.alert_level = AlertLevel.LOW
             session.verification_sent_at = None
             session.verification_attempt = 0
-            # P0-07: Grace period 2h — Guardian reste silencieux après confirmation
-            session.grace_period_until = (now + timedelta(hours=2)).isoformat()
+            # P0-07: Grace period 30 min — Guardian reste silencieux après confirmation
+            # (réduit de 2h à 30 min : une vraie 2e crise dans la demi-heure doit pouvoir alerter)
+            session.grace_period_until = (now + timedelta(minutes=30)).isoformat()
             self._log_event(session_id, GuardianEvent(
                 event_type="verified_ok",
-                description="Utilisateur a confirmé qu'il va bien — grace period 2h activée",
+                description="Utilisateur a confirmé qu'il va bien — grace period 30 min activée",
                 lat=session.last_position.lat if session.last_position else None,
                 lng=session.last_position.lng if session.last_position else None,
             ))
@@ -335,6 +338,23 @@ class GuardianEngine:
         if not session:
             return {"status": "error", "message": "Session introuvable", "events": [], "alerts_sent": 0}
 
+        # J1 — Verrou Redis anti race-condition (double requête HTTP parallèle sur le même session_id)
+        _lock_key = f"luna:guardian:{session_id}:checkin_lock"
+        _lock_acquired = True
+        if self.rc:
+            _lock_acquired = bool(self.rc.client.set(_lock_key, "1", nx=True, ex=30))
+            if not _lock_acquired:
+                logger.info(f"Guardian CHECKIN_MISS session={session_id} — verrou actif, requête ignorée")
+                return {"status": "locked", "events": [], "alerts_sent": 0}
+
+        try:
+            return self._handle_checkin_missed_locked(session, session_id, frame, lat, lng, contacts)
+        finally:
+            if self.rc and _lock_acquired:
+                self.rc.client.delete(_lock_key)
+
+    def _handle_checkin_missed_locked(self, session, session_id: str, frame, lat, lng, contacts) -> dict:
+        """Corps de handle_checkin_missed, exécuté sous verrou Redis."""
         now = datetime.utcnow()
         events: List[GuardianEvent] = []
         pos = session.last_position
@@ -402,7 +422,17 @@ class GuardianEngine:
             session.alerts_sent += 1
             session.alert_level = AlertLevel.HIGH
 
-            if self.sms_send_fn:
+            # J2 — Déduplication SMS : bloquer si même incident déjà alerté dans les 5 min
+            _send_sms = True
+            if self.rc:
+                _slot = int(time.time() / 300)
+                _ihash = hashlib.md5(f"{session_id}:{_slot}".encode()).hexdigest()[:8]
+                _dedup_key = f"luna:guardian:{session_id}:sms_dedup:{_ihash}"
+                _send_sms = bool(self.rc.client.set(_dedup_key, "1", nx=True, ex=600))
+                if not _send_sms:
+                    logger.info(f"Guardian: SMS doublon bloqué session={session_id} (incident déjà alerté, fenêtre 5 min)")
+
+            if _send_sms and self.sms_send_fn:
                 try:
                     from .alerts import send_guardian_alerts
                     person_name = session.config.get("person_name") or "La personne surveillée"
@@ -510,11 +540,16 @@ class GuardianEngine:
             except Exception:
                 pass
 
-    def set_camera_scene(self, session_id: str, safe: bool) -> None:
-        """Met à jour l'état de la scène caméra pour atténuer les faux positifs d'immobilité GPS."""
+    def set_camera_scene(self, session_id: str, safe: bool, posture: str = "unknown") -> None:
+        """Met à jour l'état de la scène caméra pour atténuer les faux positifs d'immobilité GPS.
+        J4 — lying_floor n'est jamais considérée comme une scène normale : force safe=False.
+        """
         session = self.get_session(session_id)
         if not session:
             return
+        # lying_floor sur le sol = posture potentiellement dangereuse, ne jamais annuler l'immobilité GPS
+        if posture == "lying_floor":
+            safe = False
         session.camera_scene_ok = safe
         session.camera_scene_at = datetime.utcnow().isoformat()
         self._persist_session(session)
