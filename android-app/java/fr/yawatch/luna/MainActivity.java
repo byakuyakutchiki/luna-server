@@ -13,10 +13,16 @@ import android.app.PendingIntent;
 import android.content.ContentValues;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorEventListener;
+import android.hardware.SensorManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
+import android.os.Handler;
+import android.os.Looper;
 import android.provider.MediaStore;
 import android.util.TypedValue;
 import android.view.Gravity;
@@ -34,6 +40,7 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.webkit.URLUtil;
+import android.widget.Button;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.TextView;
@@ -53,6 +60,32 @@ public class MainActivity extends Activity {
 
     private static final String LUNA_URL = "https://luna-beta-674304336025.europe-west1.run.app";
     private static final int PERMISSION_REQUEST_CODE = 100;
+
+    // ── Détection de chute ──────────────────────────────────────────
+    // Chute libre : accélération totale < 4 m/s² (~0.4g) pendant ≥ 80ms
+    // Impact      : pic > 22 m/s² (~2.2g) dans les 800ms qui suivent
+    private static final float FREE_FALL_THRESHOLD  = 4.0f;   // m/s²
+    private static final float IMPACT_THRESHOLD     = 22.0f;  // m/s²
+    private static final long  FALL_WINDOW_MS       = 800L;
+    private static final long  MIN_FREE_FALL_MS     = 80L;
+    private static final long  CONFIRMATION_MS      = 30_000L; // 30s pour répondre
+    private static final long  FALL_COOLDOWN_MS     = 60_000L; // 60s entre deux détections
+
+    private SensorManager sensorManager;
+    private Sensor accelerometer;
+    private boolean inFreeFall = false;
+    private long freeFallStart = 0L;
+    private boolean fallAlertActive = false;
+    private long lastFallTrigger = 0L;
+    private float pendingPeakG = 0f;
+    private String guardianSessionId = null;   // défini par JS via LunaBridge
+    private double guardianLat = 0.0;
+    private double guardianLng = 0.0;
+
+    private final Handler fallHandler = new Handler(Looper.getMainLooper());
+    private Runnable fallEscalationTask = null;
+    private View fallOverlay = null;
+    private TextView fallCountdownText = null;
     private static final int NOTIFICATION_PERMISSION_CODE = 101;
     private static final int FILE_CHOOSER_REQUEST_CODE = 102;
     private static final String CURRENT_VERSION = "2.9";
@@ -103,8 +136,14 @@ public class MainActivity extends Activity {
         // Sécurité : disparaît après 6s même si la page ne charge pas
         webView.postDelayed(this::hideSplash, 6000);
 
-        // Bridge JavaScript -> Android pour les notifications
+        // Bridge JavaScript -> Android
         webView.addJavascriptInterface(new LunaBridge(), "LunaBridge");
+
+        // Initialiser le capteur accéléromètre pour la détection de chute
+        sensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
+        if (sensorManager != null) {
+            accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
+        }
 
         // Configuration WebView
         WebSettings settings = webView.getSettings();
@@ -544,6 +583,45 @@ public class MainActivity extends Activity {
         public boolean isAppInForeground() {
             return isInForeground;
         }
+
+        /** Appelé par le JS quand Guardian démarre — active la détection de chute. */
+        @JavascriptInterface
+        public void setGuardianSession(String sessionId) {
+            guardianSessionId = (sessionId != null && !sessionId.isEmpty()) ? sessionId : null;
+            if (sensorManager != null && accelerometer != null && guardianSessionId != null) {
+                sensorManager.unregisterListener(fallDetector);
+                sensorManager.registerListener(fallDetector, accelerometer, SensorManager.SENSOR_DELAY_GAME);
+            } else if (sensorManager != null && guardianSessionId == null) {
+                sensorManager.unregisterListener(fallDetector);
+            }
+        }
+
+        /** Appelé par le JS quand Guardian s'arrête — désactive la détection. */
+        @JavascriptInterface
+        public void clearGuardianSession() {
+            guardianSessionId = null;
+            if (sensorManager != null) sensorManager.unregisterListener(fallDetector);
+            if (fallAlertActive) cancelFallAlertInternal(false);
+        }
+
+        /** Appelé par le JS quand l'utilisateur répond "Je vais bien" depuis l'UI in-app. */
+        @JavascriptInterface
+        public void cancelFallAlert() {
+            cancelFallAlertInternal(true);
+        }
+
+        /** Appelé par le JS pour escalader immédiatement (bouton SOS in-app). */
+        @JavascriptInterface
+        public void triggerSosImmediate() {
+            escalateFallImmediately();
+        }
+
+        /** Met à jour la position GPS utilisée lors de l'envoi d'alerte chute. */
+        @JavascriptInterface
+        public void updateGuardianPosition(double lat, double lng) {
+            guardianLat = lat;
+            guardianLng = lng;
+        }
     }
 
     /**
@@ -803,6 +881,278 @@ public class MainActivity extends Activity {
         }
     }
 
+    // ── Détection de chute ────────────────────────────────────────────
+
+    private final SensorEventListener fallDetector = new SensorEventListener() {
+        @Override
+        public void onSensorChanged(SensorEvent event) {
+            if (fallAlertActive) return;
+            float x = event.values[0], y = event.values[1], z = event.values[2];
+            float total = (float) Math.sqrt(x * x + y * y + z * z);
+            long now = System.currentTimeMillis();
+
+            if (total < FREE_FALL_THRESHOLD) {
+                if (!inFreeFall) {
+                    inFreeFall = true;
+                    freeFallStart = now;
+                }
+            } else {
+                if (inFreeFall) {
+                    inFreeFall = false;
+                    long freeFallDuration = now - freeFallStart;
+                    if (freeFallDuration >= MIN_FREE_FALL_MS
+                            && freeFallDuration < FALL_WINDOW_MS
+                            && total > IMPACT_THRESHOLD
+                            && (now - lastFallTrigger) > FALL_COOLDOWN_MS) {
+                        pendingPeakG = total / SensorManager.GRAVITY_EARTH;
+                        onFallDetected();
+                    }
+                }
+            }
+        }
+
+        @Override
+        public void onAccuracyChanged(Sensor sensor, int accuracy) {}
+    };
+
+    private void onFallDetected() {
+        if (guardianSessionId == null || guardianSessionId.isEmpty()) return;
+        fallAlertActive = true;
+        lastFallTrigger = System.currentTimeMillis();
+
+        runOnUiThread(() -> {
+            // Réveiller l'écran
+            getWindow().addFlags(
+                WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON |
+                WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON |
+                WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED
+            );
+            showFallOverlay();
+            // Notifier le JS pour l'UI in-app
+            String sessionSafe = guardianSessionId.replaceAll("[^a-zA-Z0-9_-]", "");
+            webView.evaluateJavascript(
+                "if(window.lunaFallDetected) window.lunaFallDetected('" + sessionSafe + "', 30);",
+                null
+            );
+        });
+
+        postFallNotification();
+        startFallCountdown();
+    }
+
+    private void showFallOverlay() {
+        if (fallOverlay != null) return;
+        float dp = getResources().getDisplayMetrics().density;
+
+        FrameLayout overlay = new FrameLayout(this);
+        overlay.setBackgroundColor(0xEE0A0A0A);
+
+        LinearLayout card = new LinearLayout(this);
+        card.setOrientation(LinearLayout.VERTICAL);
+        card.setGravity(Gravity.CENTER_HORIZONTAL);
+        card.setBackgroundColor(0xFF111827);
+        card.setPadding((int)(24*dp), (int)(32*dp), (int)(24*dp), (int)(32*dp));
+
+        TextView tvIcon = new TextView(this);
+        tvIcon.setText("⚠️");
+        tvIcon.setTextSize(TypedValue.COMPLEX_UNIT_SP, 56f);
+        tvIcon.setGravity(Gravity.CENTER);
+
+        TextView tvTitle = new TextView(this);
+        tvTitle.setText("Chute détectée");
+        tvTitle.setTextColor(0xFFF9FAFB);
+        tvTitle.setTextSize(TypedValue.COMPLEX_UNIT_SP, 22f);
+        tvTitle.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+        tvTitle.setGravity(Gravity.CENTER);
+        LinearLayout.LayoutParams lpTitle = new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        lpTitle.topMargin = (int)(12*dp);
+
+        TextView tvSub = new TextView(this);
+        tvSub.setText("Vos contacts seront alertés si vous ne répondez pas.");
+        tvSub.setTextColor(0xFF9CA3AF);
+        tvSub.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f);
+        tvSub.setGravity(Gravity.CENTER);
+        LinearLayout.LayoutParams lpSub = new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        lpSub.topMargin = (int)(8*dp);
+
+        fallCountdownText = new TextView(this);
+        fallCountdownText.setText("30");
+        fallCountdownText.setTextColor(0xFFEF4444);
+        fallCountdownText.setTextSize(TypedValue.COMPLEX_UNIT_SP, 64f);
+        fallCountdownText.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+        fallCountdownText.setGravity(Gravity.CENTER);
+        LinearLayout.LayoutParams lpCount = new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        lpCount.topMargin = (int)(20*dp);
+
+        Button btnOk = new Button(this);
+        btnOk.setText("Je vais bien ✓");
+        btnOk.setTextColor(0xFF111827);
+        btnOk.setTextSize(TypedValue.COMPLEX_UNIT_SP, 18f);
+        btnOk.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+        btnOk.setBackgroundColor(0xFF10B981);
+        LinearLayout.LayoutParams lpOk = new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, (int)(60*dp));
+        lpOk.topMargin = (int)(24*dp);
+        btnOk.setOnClickListener(v -> cancelFallAlertInternal(true));
+
+        Button btnSos = new Button(this);
+        btnSos.setText("SOS — Alerter maintenant");
+        btnSos.setTextColor(0xFFF9FAFB);
+        btnSos.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f);
+        btnSos.setBackgroundColor(0xFFDC2626);
+        LinearLayout.LayoutParams lpSos = new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, (int)(52*dp));
+        lpSos.topMargin = (int)(10*dp);
+        btnSos.setOnClickListener(v -> escalateFallImmediately());
+
+        card.addView(tvIcon);
+        card.addView(tvTitle, lpTitle);
+        card.addView(tvSub, lpSub);
+        card.addView(fallCountdownText, lpCount);
+        card.addView(btnOk, lpOk);
+        card.addView(btnSos, lpSos);
+
+        int cardW = (int)(320*dp);
+        FrameLayout.LayoutParams cardLp = new FrameLayout.LayoutParams(cardW,
+            FrameLayout.LayoutParams.WRAP_CONTENT, Gravity.CENTER);
+        overlay.addView(card, cardLp);
+
+        FrameLayout root = (FrameLayout) webView.getParent();
+        root.addView(overlay, new FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
+        fallOverlay = overlay;
+    }
+
+    private void hideFallOverlay() {
+        if (fallOverlay != null) {
+            FrameLayout root = (FrameLayout) webView.getParent();
+            root.removeView(fallOverlay);
+            fallOverlay = null;
+            fallCountdownText = null;
+        }
+        getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+    }
+
+    private void startFallCountdown() {
+        final long[] remaining = {CONFIRMATION_MS / 1000};
+        fallEscalationTask = new Runnable() {
+            @Override
+            public void run() {
+                remaining[0]--;
+                if (fallCountdownText != null) {
+                    runOnUiThread(() -> fallCountdownText.setText(String.valueOf(remaining[0])));
+                }
+                if (remaining[0] <= 0) {
+                    escalateFallImmediately();
+                } else {
+                    fallHandler.postDelayed(this, 1000L);
+                }
+            }
+        };
+        fallHandler.postDelayed(fallEscalationTask, 1000L);
+    }
+
+    private void cancelFallAlertInternal(boolean userConfirmedOk) {
+        if (fallEscalationTask != null) {
+            fallHandler.removeCallbacks(fallEscalationTask);
+            fallEscalationTask = null;
+        }
+        fallAlertActive = false;
+        runOnUiThread(() -> {
+            hideFallOverlay();
+            webView.evaluateJavascript("if(window.lunaFallCancelled) window.lunaFallCancelled();", null);
+        });
+        if (userConfirmedOk && guardianSessionId != null) {
+            final String sid = guardianSessionId;
+            new Thread(() -> {
+                try {
+                    URL url = new URL(LUNA_URL + "/api/guardian/verify-response/" + sid);
+                    HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                    conn.setRequestMethod("POST");
+                    conn.setRequestProperty("Content-Type", "application/json");
+                    conn.setDoOutput(true);
+                    conn.setConnectTimeout(4000);
+                    conn.setReadTimeout(4000);
+                    JSONObject json = new JSONObject();
+                    json.put("ok", true);
+                    conn.getOutputStream().write(json.toString().getBytes("UTF-8"));
+                    conn.getInputStream().close();
+                    conn.disconnect();
+                } catch (Exception ignored) {}
+            }).start();
+        }
+    }
+
+    private void escalateFallImmediately() {
+        if (fallEscalationTask != null) {
+            fallHandler.removeCallbacks(fallEscalationTask);
+            fallEscalationTask = null;
+        }
+        runOnUiThread(() -> hideFallOverlay());
+        fallAlertActive = false;
+        sendFallToBackend();
+    }
+
+    private void sendFallToBackend() {
+        if (guardianSessionId == null || guardianSessionId.isEmpty()) return;
+        final String sid = guardianSessionId;
+        final float peakG = pendingPeakG;
+        final double lat = guardianLat;
+        final double lng = guardianLng;
+        new Thread(() -> {
+            try {
+                URL url = new URL(LUNA_URL + "/api/guardian/fall-detected/" + sid);
+                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                conn.setRequestMethod("POST");
+                conn.setRequestProperty("Content-Type", "application/json");
+                conn.setDoOutput(true);
+                conn.setConnectTimeout(6000);
+                conn.setReadTimeout(6000);
+                JSONObject json = new JSONObject();
+                json.put("peak_g", peakG);
+                if (lat != 0.0) json.put("lat", lat);
+                if (lng != 0.0) json.put("lng", lng);
+                conn.getOutputStream().write(json.toString().getBytes("UTF-8"));
+                conn.getInputStream().close();
+                conn.disconnect();
+                sendLog("warn", "Fall escalated to backend peak_g=" + peakG, "guardian/" + Build.MODEL);
+            } catch (Exception e) {
+                sendLog("error", "Fall backend POST failed: " + e.getMessage(), "guardian/" + Build.MODEL);
+            }
+        }).start();
+    }
+
+    private void postFallNotification() {
+        try {
+            Intent intent = new Intent(this, MainActivity.class);
+            intent.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+            PendingIntent pi = PendingIntent.getActivity(
+                this, 0, intent,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+
+            Notification.Builder builder;
+            if (Build.VERSION.SDK_INT >= 26) {
+                builder = new Notification.Builder(this, CHANNEL_ID);
+            } else {
+                builder = new Notification.Builder(this);
+            }
+            builder.setSmallIcon(R.drawable.ic_notif_luna)
+                .setContentTitle("⚠️ Chute détectée — Luna Guardian")
+                .setContentText("Appuyez si vous allez bien — alerte dans 30 secondes")
+                .setAutoCancel(true)
+                .setPriority(Notification.PRIORITY_MAX)
+                .setContentIntent(pi);
+
+            NotificationManager mgr = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+            if (mgr != null) mgr.notify(9001, builder.build());
+        } catch (Exception ignored) {}
+    }
+
+    // ── Fin détection de chute ────────────────────────────────────────
+
     @Override
     public void onBackPressed() {
         if (webView.canGoBack()) {
@@ -823,6 +1173,10 @@ public class MainActivity extends Activity {
             | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
             | View.SYSTEM_UI_FLAG_FULLSCREEN
         );
+        // Activer la détection de chute si une session Guardian est active
+        if (sensorManager != null && accelerometer != null && guardianSessionId != null) {
+            sensorManager.registerListener(fallDetector, accelerometer, SensorManager.SENSOR_DELAY_GAME);
+        }
     }
 
     @Override
@@ -830,5 +1184,9 @@ public class MainActivity extends Activity {
         super.onPause();
         isInForeground = false;
         webView.onPause();
+        // Désactiver le capteur pour économiser la batterie (la détection ne fonctionne qu'au premier plan)
+        if (sensorManager != null) {
+            sensorManager.unregisterListener(fallDetector);
+        }
     }
 }

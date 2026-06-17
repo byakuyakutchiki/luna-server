@@ -871,6 +871,7 @@ function guardianStart(){
   }).then(function(r){return r.json();}).then(function(d){
     if(!d.success) throw new Error(d.error||'Erreur');
     SID=d.session_id;
+    if(window.LunaBridge&&LunaBridge.setGuardianSession) LunaBridge.setGuardianSession(SID);
     setHdrStatus('Actif',null,true);
     document.getElementById('btn-start').style.display='none';
     document.getElementById('btn-stop').style.display='';
@@ -898,6 +899,7 @@ function guardianStart(){
 function guardianStop(){
   if(!SID) return;
   vibrate([40]);
+  if(window.LunaBridge&&LunaBridge.clearGuardianSession) LunaBridge.clearGuardianSession();
   authFetch('/api/guardian/stop/'+SID,{method:'POST'}).then(function(){
     _cleanupSession();
     setHdrStatus('Arrêté',null,false);
@@ -953,6 +955,7 @@ function startGps(){
     }
     LAST_GPS_SENT=now;
     _LAST_CONTEXT_POS={lat:lat,lng:lng};
+    if(window.LunaBridge&&LunaBridge.updateGuardianPosition) LunaBridge.updateGuardianPosition(lat,lng);
     authFetch('/api/guardian/location/'+SID,{method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({lat:lat,lng:lng,accuracy:acc,speed:spd})
@@ -1005,6 +1008,14 @@ function handleWsMsg(m){
     }
   }
   else if(m.type==='sos') showAlertOnMap('🆘 SOS activé',null,null);
+  else if(m.type==='fall_detected'){
+    var fd=m.data||{};
+    showAlertOnMap('⚠️ Chute détectée — '+(fd.description||'accéléromètre'),fd.lat,fd.lng);
+    showToast('⚠️ Chute détectée — contacts alertés',6000);
+    vibrate([500,150,500,150,800]);
+    breakStreak(); loadEvents();
+    maybeSpeak('Attention. Chute détectée. Vos contacts ont été prévenus.');
+  }
   else if(m.type==='perception'&&m.description){
     document.getElementById('cam-result-txt').textContent='👁 '+m.description;
     document.getElementById('cam-result').style.display='block';
@@ -1103,7 +1114,8 @@ var _evIcons={
   location_update:'📍', geofence_exit:'⚠️', geofence_enter:'🏠',
   alert_triggered:'🔔', alert_escalated:'📢', sos_triggered:'🆘',
   verification_needed:'❓', verified_ok:'✅', session_stopped:'⏹️',
-  immobility:'🪑', walk:'🚶', perception_concern:'👁'
+  immobility:'🪑', walk:'🚶', perception_concern:'👁',
+  fall_detected:'🫸'
 };
 function loadEvents(){
   if(!SID) return;
@@ -1111,7 +1123,7 @@ function loadEvents(){
   .then(function(r){return r.json();}).then(function(data){
     var evts=data.events||[];
     var badge=document.getElementById('ev-badge');
-    var alertCount=evts.filter(function(e){return['alert_triggered','sos_triggered','geofence_exit'].indexOf(e.event_type)>=0;}).length;
+    var alertCount=evts.filter(function(e){return['alert_triggered','sos_triggered','geofence_exit','fall_detected'].indexOf(e.event_type)>=0;}).length;
     if(alertCount>0){badge.style.display='inline';badge.textContent=alertCount;}
     else badge.style.display='none';
     var list=document.getElementById('ev-list');
@@ -1516,6 +1528,27 @@ function toggleCamDetails(){
   else r.style.display='none';
 }
 
+// ── BRIDGE ANDROID : détection de chute ──────
+// Appelé par MainActivity.java via evaluateJavascript quand l'accéléromètre détecte une chute.
+// L'overlay natif Android gère le compte à rebours — ici on met juste à jour l'UI WebView.
+window.lunaFallDetected = function(sessionId, seconds) {
+  if(!SID) return;
+  updateRisk(0.85,'high','Chute détectée');
+  showToast('⚠️ Chute détectée — répondez dans '+seconds+'s',seconds*1000);
+  vibrate([500,150,500,150,500]);
+  maybeSpeak('Luna a détecté une chute. Appuyez sur Je vais bien si tout va bien.');
+  // Ouvrir la modal de vérification comme fallback si l'overlay natif n'est pas disponible
+  if(!window.LunaBridge) openVerifyModal('⚠️ Chute détectée par le capteur. Tout va bien ?');
+};
+
+// Appelé par MainActivity.java quand l'utilisateur annule depuis l'overlay natif.
+window.lunaFallCancelled = function() {
+  document.getElementById('verify-modal').classList.remove('open');
+  updateRisk(0,'low','');
+  showToast('✅ Chute annulée — tout va bien',3000);
+  markCheckin();
+};
+
 // ── CONTACTS DE CONFIANCE ─────────────────────
 function loadContacts(){
   authFetch('/api/contacts').then(function(r){return r.json();}).then(function(d){
@@ -1539,6 +1572,7 @@ function loadContacts(){
   authFetch('/api/guardian/sessions').then(function(r){return r.json();}).then(function(d){
     if(d.sessions&&d.sessions.length>0){
       var s=d.sessions[0]; SID=s.session_id;
+      if(window.LunaBridge&&LunaBridge.setGuardianSession) LunaBridge.setGuardianSession(SID);
       setHdrStatus('Reprise — '+(s.profile_type||'?'),null,true);
       document.getElementById('btn-start').style.display='none';
       document.getElementById('btn-stop').style.display='';

@@ -139,7 +139,7 @@ def send_guardian_alerts(
     Envoie les alertes SMS aux contacts de confiance.
     Retourne un résumé des envois.
     """
-    results = {"sent": [], "failed": [], "call_112_attempted": False}
+    results = {"sent": [], "failed": [], "blocked": [], "call_112_attempted": False}
 
     if not contacts:
         logger.warning("Guardian alert: no contacts configured")
@@ -154,7 +154,10 @@ def send_guardian_alerts(
             continue
         try:
             ok, details = sms_send_fn(phone, msg, label=f"Alerte Guardian → {name}")
-            if ok:
+            if isinstance(details, dict) and details.get("blocked"):
+                results["blocked"].append({"phone": phone, "name": name})
+                logger.info(f"[GUARDIAN_SMS_DISABLED] Guardian alert SMS blocked for {name} ({phone})")
+            elif ok:
                 results["sent"].append({"phone": phone, "name": name})
                 logger.info(f"Guardian alert SMS sent to {name} ({phone})")
             else:

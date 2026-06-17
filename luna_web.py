@@ -3772,13 +3772,17 @@ _sms_tracking: Dict[str, Dict] = {}
 
 def _tracked_sms_send(to: str, body: str, label: str = "", _tenant_id: int = None):
     """Envoie un SMS et track l'accuse de reception."""
+    if not sms_client:
+        logger.warning(f"[SMS_NOT_CONFIGURED] SMS impossible vers {to} ({label}): Twilio non configure")
+        return False, {"error": "Twilio SMS client not configured"}
     if _test_mode or (_tenant_id and _tenant_id in _test_mode_tenants):
         logger.info(f"[TEST MODE] SMS bloque vers {to}: {body[:60]}...")
         return True, {"sid": f"TEST_{label}", "test_mode": True}
-    # J8 — Coupe-circuit Guardian SMS : GUARDIAN_SMS_ENABLED=false bloque tous les SMS Guardian
-    if not GUARDIAN_SMS_ENABLED and "Guardian" in label:
-        logger.info(f"[GUARDIAN_SMS_DISABLED] SMS bloqué vers {to} ({label}): {body[:60]}")
-        return True, {"sid": "DISABLED", "guardian_sms_disabled": True}
+    # J8 — Coupe-circuit SMS urgence : GUARDIAN_SMS_ENABLED=false bloque les SMS Guardian + SOS + urgence
+    _emergency_keywords = ("guardian", "sos", "urgence")
+    if not GUARDIAN_SMS_ENABLED and any(k in label.lower() for k in _emergency_keywords):
+        logger.info(f"[EMERGENCY_SMS_DISABLED] SMS bloqué vers {to} ({label}): {body[:60]}")
+        return True, {"sid": "DISABLED", "emergency_sms_disabled": True, "blocked": True}
     success, details = sms_client.send(to, body)
     if success and details.get("sid"):
         sid = details["sid"]
@@ -3789,6 +3793,7 @@ def _tracked_sms_send(to: str, body: str, label: str = "", _tenant_id: int = Non
             "label": label,
             "status": details.get("status", "queued"),
             "sent_at": datetime.utcnow().isoformat(),
+            "_ts": time.time(),
             "delivered_at": None,
             "error_code": None,
         }
@@ -9145,7 +9150,11 @@ async def voice_call_media_stream(websocket: WebSocket):
                     # Limiter a 1600 chars (limite SMS longue)
                     if len(_sms_body) > 1500:
                         _sms_body = _sms_body[:1497] + "..."
-                    _sms_ok, _sms_detail = sms_client.send(_sub_phone, _sms_body)
+                    _sms_ok, _sms_detail = _tracked_sms_send(
+                        _sub_phone,
+                        _sms_body,
+                        label="Compte-rendu appel vocal",
+                    )
                     if _sms_ok:
                         logger.info(f"Call report SMS sent to {_sub_phone}")
                     else:
@@ -14907,9 +14916,10 @@ async def guardian_location(session_id: str, request: Request):
                 if _s and _s in ("sms", "luna", "both"):
                     _alert_channel = _s
 
+            sms_results = {"sent": [], "failed": [], "blocked": []}
             if _alert_channel in ("sms", "both") and all_contacts and sms_client:
                 try:
-                    send_guardian_alerts(
+                    sms_results = send_guardian_alerts(
                         sms_send_fn=_tracked_sms_send,
                         contacts=all_contacts,
                         person_name=person_name,
@@ -14918,7 +14928,10 @@ async def guardian_location(session_id: str, request: Request):
                         alert_level=risk.level.value,
                         profile_type=session.profile_type.value,
                     )
-                    logger.warning(f"Guardian SMS alerts sent for session {session_id}")
+                    if sms_results.get("blocked"):
+                        logger.warning(f"[GUARDIAN_SMS_DISABLED] Guardian SMS alerts blocked for session {session_id}")
+                    else:
+                        logger.warning(f"Guardian SMS alerts sent for session {session_id}")
                 except Exception as e:
                     logger.error(f"Guardian alert SMS failed: {e}")
 
@@ -14940,13 +14953,17 @@ async def guardian_location(session_id: str, request: Request):
                 except Exception as e:
                     logger.error(f"Guardian DM alert failed: {e}")
 
-    return {
+    response = {
         "risk_score": risk.total,
         "risk_level": risk.level.value,
         "signals": risk.signals,
         "description": risk.description,
         "events_count": len(events),
     }
+    if sms_results.get("blocked"):
+        response["guardian_sms_enabled"] = False
+        response["sms_blocked"] = len(sms_results["blocked"])
+    return response
 
 
 @app.post("/api/guardian/sos/{session_id}")
@@ -15021,12 +15038,113 @@ async def guardian_sos(session_id: str, request: Request):
             logger.error(f"SOS DM failed: {e}")
 
     total_sent = len(sms_results.get("sent", [])) + len(dm_results.get("sent", []))
+    total_blocked = len(sms_results.get("blocked", []))
     _gamify(tid, "guardian_sos")
+    response = {
+        "success": True,
+        "event": event.to_dict(),
+        "alerts_sent_to": total_sent,
+        "guardian_sms_enabled": GUARDIAN_SMS_ENABLED,
+        "sms_blocked": total_blocked,
+    }
+    if total_blocked:
+        response["message"] = f"SOS enregistré — {total_blocked} SMS Guardian bloqués par configuration"
+    else:
+        response["message"] = f"SOS envoyé à {total_sent} contact(s)"
+    return response
+
+
+@app.post("/api/guardian/fall-detected/{session_id}")
+async def guardian_fall_detected(session_id: str, request: Request):
+    """Chute confirmée par accéléromètre Android (30s sans réponse utilisateur).
+    Même pipeline d'alerte que SOS mais niveau HIGH (pas CRITICAL).
+    """
+    engine = _get_guardian()
+    if not engine:
+        return JSONResponse(status_code=503, content={"error": "Guardian non disponible"})
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+
+    lat = body.get("lat") or None
+    lng = body.get("lng") or None
+    peak_g = body.get("peak_g") or None
+
+    try:
+        event = engine.trigger_fall(session_id, lat=lat, lng=lng, peak_g=peak_g)
+    except ValueError as e:
+        return JSONResponse(status_code=404, content={"error": str(e)})
+
+    session = engine.get_session(session_id)
+    tid = getattr(request.state, "tenant_id", 1)
+    mgr = _get_tenant_manager(tid)
+    contacts = []
+    if session:
+        contacts = session.config.get("emergency_contacts", [])
+    if not contacts and mgr:
+        try:
+            tc = mgr.list_trusted_contacts()
+            contacts = [{"phone": c.phone, "name": c.name} for c in tc]
+        except Exception:
+            pass
+
+    pos = session.last_position if session else None
+    if lat and lng:
+        from core.guardian.engine import GeoPoint
+        pos = GeoPoint(lat=lat, lng=lng)
+    sub = mgr.get_subscriber_profile() if mgr else None
+    person_name = sub.name if sub and hasattr(sub, "name") else "Utilisateur"
+
+    _alert_channel = "both"
+    if _redis_client:
+        _s = _redis_client.client.hget(_redis_client._key(tid, "settings"), "guardian_alert_channel")
+        if _s and _s in ("sms", "luna", "both"):
+            _alert_channel = _s
+
+    desc = f"Chute détectée (accéléromètre, pic {peak_g:.1f}g)" if peak_g else "Chute détectée par accéléromètre — pas de réponse en 30s"
+
+    sms_results = {"sent": [], "failed": []}
+    if _alert_channel in ("sms", "both") and contacts and sms_client:
+        try:
+            sms_results = send_guardian_alerts(
+                sms_send_fn=_tracked_sms_send,
+                contacts=contacts,
+                person_name=person_name,
+                description=desc,
+                lat=pos.lat if pos else None,
+                lng=pos.lng if pos else None,
+                alert_level="high",
+                profile_type=session.profile_type.value if session else "senior",
+            )
+        except Exception as e:
+            logger.error(f"Fall SMS failed: {e}")
+
+    dm_results = {"sent": []}
+    if _alert_channel in ("luna", "both") and _redis_client:
+        try:
+            from core.guardian.alerts import send_guardian_dm_alerts
+            from core.social.redis_ops import SocialRedisOps
+            _sops = SocialRedisOps(_redis_client)
+            dm_results = await send_guardian_dm_alerts(
+                sops=_sops,
+                sender_tid=tid,
+                person_name=person_name,
+                description=desc,
+                lat=pos.lat if pos else None,
+                lng=pos.lng if pos else None,
+                alert_level="high",
+                ws_push_fn=_guardian_dm_broadcast,
+            )
+        except Exception as e:
+            logger.error(f"Fall DM failed: {e}")
+
+    total_sent = len(sms_results.get("sent", [])) + len(dm_results.get("sent", []))
     return {
         "success": True,
         "event": event.to_dict(),
         "alerts_sent_to": total_sent,
-        "message": f"SOS envoyé à {total_sent} contact(s)",
+        "message": f"Chute signalée — {total_sent} contact(s) alerté(s)",
     }
 
 

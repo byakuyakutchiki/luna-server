@@ -273,6 +273,54 @@ class GuardianEngine:
         logger.warning(f"SOS triggered on session {session_id}")
         return event
 
+    def trigger_fall(self, session_id: str,
+                     lat: Optional[float] = None, lng: Optional[float] = None,
+                     peak_g: Optional[float] = None) -> GuardianEvent:
+        """
+        Chute détectée par accéléromètre — appelé après la fenêtre de confirmation de 30s
+        sans réponse de l'utilisateur. Escalade HIGH immédiate, bypass le délai d'immobilité.
+        """
+        session = self.get_session(session_id)
+        if not session:
+            raise ValueError("Session introuvable")
+
+        now = datetime.utcnow()
+        pos_lat = lat or (session.last_position.lat if session.last_position else None)
+        pos_lng = lng or (session.last_position.lng if session.last_position else None)
+
+        event = GuardianEvent(
+            event_type="fall_detected",
+            description=f"⚠️ Chute détectée par accéléromètre (pic {peak_g:.1f}g)" if peak_g else "⚠️ Chute détectée par accéléromètre",
+            lat=pos_lat,
+            lng=pos_lng,
+            risk_score=0.85,
+            metadata={"peak_g": peak_g, "source": "accelerometer", "confirmed": True},
+        )
+        self._log_event(session_id, event)
+
+        # Mise à jour session : alerte HIGH, bypass backoff (urgence temps-réel)
+        session.alert_pending = False
+        session.alert_level = AlertLevel.HIGH
+        session.last_alert_at = now.isoformat()
+        if session.alerts_window_start is None:
+            session.alerts_window_start = now.isoformat()
+        session.alerts_sent += 1
+        self._persist_session(session)
+
+        self._broadcast(session_id, {
+            "type": "fall_detected",
+            "data": event.to_dict(),
+            "location_url": (
+                f"https://maps.google.com/?q={round(pos_lat, 3)},{round(pos_lng, 3)}"
+                if pos_lat and pos_lng else None
+            ),
+        })
+        logger.warning(
+            f"Guardian FALL session={session_id} peak_g={peak_g} "
+            f"(alerte #{session.alerts_sent}/24h)"
+        )
+        return event
+
     def register_verification_response(self, session_id: str, ok: bool) -> str:
         """
         Enregistre la réponse de l'utilisateur à la vérification vocale.
@@ -306,16 +354,26 @@ class GuardianEngine:
                     contacts = session.config.get("emergency_contacts", [])
                     if contacts:
                         cancel_msg = build_sms_cancellation(person_name, confirmed_at)
+                        cancel_sent = 0
+                        cancel_blocked = 0
+                        cancel_failed = 0
                         for contact in contacts:
                             phone = contact.get("phone", "")
                             if phone:
                                 try:
-                                    self.sms_send_fn(phone, cancel_msg, label="Annulation alerte Guardian")
+                                    ok, details = self.sms_send_fn(phone, cancel_msg, label="Annulation alerte Guardian")
+                                    if isinstance(details, dict) and details.get("blocked"):
+                                        cancel_blocked += 1
+                                    elif ok:
+                                        cancel_sent += 1
+                                    else:
+                                        cancel_failed += 1
                                 except Exception as e:
                                     logger.warning(f"Guardian: SMS annulation échec → {phone}: {e}")
+                                    cancel_failed += 1
                         logger.info(
-                            f"Guardian: SMS d'annulation envoyé à {len(contacts)} contact(s) "
-                            f"(session {session_id})"
+                            f"Guardian: SMS d'annulation session={session_id} "
+                            f"envoyes={cancel_sent}, bloques={cancel_blocked}, echoues={cancel_failed}"
                         )
                 except Exception as e:
                     logger.error(f"Guardian: erreur build SMS annulation: {e}")
