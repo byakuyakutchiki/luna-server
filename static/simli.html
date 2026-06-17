@@ -372,14 +372,15 @@
       color: rgba(255,255,255,0.18); font-variant-numeric: tabular-nums;
     }
     #irisWorkspaceBtn {
-      font-size: 10px; font-family: monospace; letter-spacing: 1.5px; font-weight: 700;
-      padding: 7px 16px; border-radius: 20px; text-transform: uppercase;
-      border: 1px solid rgba(139,92,246,0.35); background: rgba(139,92,246,0.12); color: rgba(196,181,253,0.82);
+      font-size: 12px; font-family: monospace; letter-spacing: 1px; font-weight: 700;
+      padding: 8px 20px; border-radius: 20px; text-transform: uppercase;
+      border: 1.5px solid rgba(139,92,246,0.6); background: rgba(139,92,246,0.2); color: rgba(220,210,255,1);
       cursor: pointer; transition: all 0.22s; white-space: nowrap;
       -webkit-tap-highlight-color: transparent; touch-action: manipulation;
+      box-shadow: 0 0 12px rgba(139,92,246,0.18);
     }
-    #irisWorkspaceBtn:hover { background: rgba(139,92,246,0.24); border-color: rgba(139,92,246,0.55); color: rgba(220,210,255,1); box-shadow: 0 0 10px rgba(139,92,246,0.22); }
-    [data-theme="light"] #irisWorkspaceBtn { background: rgba(109,40,217,0.07); border-color: rgba(109,40,217,0.22); color: rgba(109,40,217,0.75); }
+    #irisWorkspaceBtn:hover { background: rgba(139,92,246,0.35); border-color: rgba(139,92,246,0.8); color: #fff; box-shadow: 0 0 18px rgba(139,92,246,0.35); }
+    [data-theme="light"] #irisWorkspaceBtn { background: rgba(109,40,217,0.12); border-color: rgba(109,40,217,0.45); color: rgba(109,40,217,0.9); }
     .af-center {
       flex: 1; display: flex; flex-direction: column; align-items: center;
       justify-content: center; position: relative; z-index: 1; gap: 26px;
@@ -1882,7 +1883,7 @@
     <div class="af-grid-bg"></div>
     <div class="af-header">
       <div class="af-logo">IRIS</div>
-      <button id="irisWorkspaceBtn" onclick="_irtStartSession()" title="Démarrer une réunion Teams" id="irisWorkspaceBtn">👥 Réunion →</button>
+      <button id="irisWorkspaceBtn" onclick="_irtStartSession()" title="Inviter des participants à rejoindre">👥 Inviter</button>
       <div id="afSessionTime" class="af-session-time">00:00</div>
     </div>
     <!-- Teams Overlay (Step 5) -->
@@ -6041,11 +6042,23 @@
     var _irtAuthToken = localStorage.getItem('luna_token') || '';
 
     function _irtInit() {
-      // Detect session_id from URL param or JWT
+      // Detect session_id and participant token from URL params
       var urlParams = new URLSearchParams(window.location.search);
       _irtSessionId = urlParams.get('session') || null;
-      if (!_irtSessionId) {
-        // Try to decode from token
+      // If arriving as an invited participant, use the participant token from URL
+      var urlToken = urlParams.get('token');
+      if (urlToken) {
+        _irtAuthToken = urlToken;
+        try {
+          var parts = urlToken.split('.');
+          if (parts.length === 3) {
+            var payload = JSON.parse(atob(parts[1].replace(/-/g,'+').replace(/_/g,'/')));
+            if (!_irtSessionId) _irtSessionId = payload.session_id || null;
+            _irtIsOwner = (payload.participant_role === 'owner');
+          }
+        } catch(e) {}
+      } else if (!_irtSessionId) {
+        // Try to decode session from regular luna_token
         try {
           var tok = _irtAuthToken;
           if (tok) {
@@ -6200,7 +6213,7 @@
         _irtPendingTimer = setInterval(_irtPollPending, 3000);
       }
       var wb = document.getElementById('irisWorkspaceBtn');
-      if (wb) { wb.textContent = '👥 Inviter →'; wb.onclick = _irtInvite; }
+      if (wb) { wb.textContent = '👥 Inviter'; wb.onclick = _irtInvite; }
     }
 
     function _irtStartSession() {
@@ -6212,14 +6225,26 @@
         method: 'POST', headers: headers,
         body: JSON.stringify({name: 'Réunion Iris'})
       })
-        .then(function(r){ return r.ok ? r.json() : null; })
+        .then(function(r){ return r.ok ? r.json() : r.json().then(function(e){ throw new Error(e.detail || r.status); }); })
         .then(function(data){
-          if (!data || !data.session) { if (wb) { wb.textContent = '👥 Réunion →'; wb.disabled = false; } return; }
+          if (!data || !data.session) {
+            if (wb) { wb.textContent = '👥 Inviter'; wb.disabled = false; }
+            showToast('Impossible de créer la session Teams.', 3000);
+            return;
+          }
           _irtSessionId = data.session.session_id || data.session.id || null;
           _irtIsOwner = true;
-          if (_irtSessionId) _irtActivatePanel();
-          else { if (wb) { wb.textContent = '👥 Réunion →'; wb.disabled = false; } }
-        }).catch(function(){ if (wb) { wb.textContent = '👥 Réunion →'; wb.disabled = false; } });
+          if (_irtSessionId) {
+            _irtActivatePanel();
+            // Ouvre le modal d'invitation immédiatement, comme Zoom
+            _irtInvite();
+          } else {
+            if (wb) { wb.textContent = '👥 Inviter'; wb.disabled = false; }
+          }
+        }).catch(function(err){
+          if (wb) { wb.textContent = '👥 Inviter'; wb.disabled = false; }
+          showToast('Erreur session Teams : ' + (err.message || 'indisponible'), 4000);
+        });
     }
 
     // ─── Iris Teams Friend Invite ───────────────────────────────

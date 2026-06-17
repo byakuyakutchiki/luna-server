@@ -3542,6 +3542,11 @@ def _decode_participant_token(token: str) -> Optional[dict]:
         return None
 
 
+def _decode_iris_token(token: str) -> Optional[dict]:
+    """Accepte un token client (owner) OU un token participant Iris."""
+    return _decode_client_token(token) or _decode_participant_token(token)
+
+
 def _decode_admin_token(token: str) -> Optional[dict]:
     """Decode un JWT admin ou un JWT fondateur (plan=fondateur). Retourne le payload ou None."""
     if not token:
@@ -9707,7 +9712,7 @@ async def iris_session_create(request: Request):
 @app.get("/api/iris/session/{session_id}/status")
 async def iris_session_status(session_id: str, request: Request):
     """Retourne le statut d'une session et ses participants."""
-    payload = _decode_client_token(request.headers.get("Authorization", "").replace("Bearer ", ""))
+    payload = _decode_iris_token(request.headers.get("Authorization", "").replace("Bearer ", ""))
     if not payload:
         raise HTTPException(status_code=401, detail="Non autorisé")
     if not _iris_session_manager:
@@ -9744,7 +9749,7 @@ async def iris_session_invite(session_id: str, request: Request):
     }
     _iris_session_manager.add_participant(session_id, participant)
     invite_token = _iris_session_manager.create_invite(session_id, pid)
-    base_url = os.getenv("VOICE_CALLBACK_URL", "")
+    base_url = (os.getenv("VOICE_CALLBACK_URL") or os.getenv("BASE_URL") or "https://luna-beta-674304336025.europe-west1.run.app").rstrip("/")
     invite_link = f"{base_url}/iris/join/{invite_token}"
     return JSONResponse({"ok": True, "invite_link": invite_link, "participant": participant})
 
@@ -9792,7 +9797,7 @@ async def iris_session_invite_friend(session_id: str, request: Request):
     }
     _iris_session_manager.add_participant(session_id, participant)
     invite_token = _iris_session_manager.create_invite(session_id, pid)
-    base_url = os.getenv("VOICE_CALLBACK_URL", "")
+    base_url = (os.getenv("VOICE_CALLBACK_URL") or os.getenv("BASE_URL") or "https://luna-beta-674304336025.europe-west1.run.app").rstrip("/")
     invite_link = f"{base_url}/iris/join/{invite_token}"
 
     # Stocker l'invite dans la liste persistante du destinataire
