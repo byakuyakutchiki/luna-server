@@ -108,16 +108,16 @@ print("\n=== TEST 2 : Télévision 45 min (jour) ===")
 engine, sms = make_engine()
 session = make_session(profile="senior", in_safe_zone=True)
 
-# Profil senior, seuil = 30 min, en safe zone, 20h (pas nuit)
+# Profil senior, seuil = 45 min, en safe zone, 20h (pas nuit)
 # night_mode = True mais heure = 20h → pas en night_hours → night_mode_active = False
 # → le signal immobility DOIT se déclencher car pas de mode nuit actif le soir
 now_evening = datetime.now().replace(hour=20, minute=0, second=0)
-simulate_immobility(session, minutes=45, now=now_evening)
+simulate_immobility(session, minutes=60, now=now_evening)
 risk = engine._compute_risk(session, pos, now_evening)
 
-# 45 min > seuil 30 min → immobility signal présent (comportement correct)
-# score = 0.4 + 0.4*(15/30) = 0.60 → MEDIUM → vérification vocale, PAS de SMS direct
-check("Signal immobility présent à 45 min le soir (attendu)",
+# 60 min > seuil 45 min → immobility signal présent
+# score = 0.4 + 0.4*(15/45) ≈ 0.53 → MEDIUM → vérification vocale, PAS de SMS direct
+check("Signal immobility présent à 60 min le soir (attendu)",
       "immobility" in risk.signals,
       f"signals={risk.signals}")
 check("Niveau MEDIUM (vérification, pas SMS)",
@@ -146,6 +146,7 @@ session = make_session(profile="senior", in_safe_zone=True)
 sent_at = datetime.utcnow() - timedelta(minutes=3)
 session.alert_pending = True
 session.verification_sent_at = sent_at.isoformat()
+session.verification_attempt = 1
 session.alert_level = AlertLevel.MEDIUM
 
 risk = RiskScore(total=0.60, signals={"immobility": 0.60})
@@ -154,6 +155,9 @@ events = engine._handle_risk(session, risk, pos, now)
 
 check("Aucune escalade après 3 min (timeout = 10 min)",
       not any(e.event_type == "alert_escalated" for e in events),
+      f"events={[e.event_type for e in events]}")
+check("Aucune 2e vérification après 3 min",
+      not any(e.event_type == "verification_needed" for e in events),
       f"events={[e.event_type for e in events]}")
 check("Aucun SMS envoyé",
       len(sms) == 0,
@@ -164,24 +168,61 @@ check("alert_pending toujours True",
 
 
 # ─────────────────────────────────────────────
-# TEST 4 — Utilisateur ignore 15 min → escalade
+# TEST 4 — Niveau 3 : utilisateur ignore 12 min → 2e vérification
 # ─────────────────────────────────────────────
 
-print("\n=== TEST 4 : Utilisateur ignore 15 min → escalade ===")
+print("\n=== TEST 4 : Utilisateur ignore 12 min → 2e vérification (Niveau 3) ===")
 engine, sms = make_engine()
 session = make_session(profile="senior", in_safe_zone=True)
 
-# Simuler vérification envoyée il y a 15 min
-sent_at = datetime.utcnow() - timedelta(minutes=15)
+# Simuler première vérification envoyée il y a 12 min
+sent_at = datetime.utcnow() - timedelta(minutes=12)
 session.alert_pending = True
 session.verification_sent_at = sent_at.isoformat()
+session.verification_attempt = 1
 session.alert_level = AlertLevel.MEDIUM
 
 risk = RiskScore(total=0.60, signals={"immobility": 0.60})
 now = datetime.utcnow()
 events = engine._handle_risk(session, risk, pos, now)
 
-check("Escalade déclenchée après 15 min sans réponse",
+check("2e vérification déclenchée après 10 min sans réponse",
+      any(e.event_type == "verification_needed" for e in events),
+      f"events={[e.event_type for e in events]}")
+check("attempt=2 sur la 2e vérification",
+      any(e.event_type == "verification_needed" and e.metadata.get("attempt") == 2 for e in events),
+      f"events={[(e.event_type, e.metadata) for e in events]}")
+check("alert_pending toujours True (attente 2e réponse)",
+      session.alert_pending,
+      f"alert_pending={session.alert_pending}")
+check("verification_attempt = 2",
+      session.verification_attempt == 2,
+      f"verification_attempt={session.verification_attempt}")
+check("Aucun SMS envoyé au Niveau 3",
+      len(sms) == 0,
+      f"sms_count={len(sms)}")
+
+
+# ─────────────────────────────────────────────
+# TEST 4b — Utilisateur ignore 16 min → escalade Niveau 4
+# ─────────────────────────────────────────────
+
+print("\n=== TEST 4b : Utilisateur ignore 16 min → escalade Niveau 4 ===")
+engine, sms = make_engine()
+session = make_session(profile="senior", in_safe_zone=True)
+
+# Simuler 2e vérification envoyée il y a 6 min (16 min après la 1re)
+sent_at = datetime.utcnow() - timedelta(minutes=6)
+session.alert_pending = True
+session.verification_sent_at = sent_at.isoformat()
+session.verification_attempt = 2
+session.alert_level = AlertLevel.MEDIUM
+
+risk = RiskScore(total=0.60, signals={"immobility": 0.60})
+now = datetime.utcnow()
+events = engine._handle_risk(session, risk, pos, now)
+
+check("Escalade déclenchée après 5 min sans réponse à la 2e vérification",
       any(e.event_type == "alert_escalated" for e in events),
       f"events={[e.event_type for e in events]}")
 check("alert_pending = False après escalade",
@@ -203,10 +244,11 @@ print("\n=== TEST 5 : Utilisateur répond 'tout va bien' → SMS annulation ==="
 engine, sms = make_engine()
 session = make_session(profile="senior", in_safe_zone=True)
 
-# Simuler une alerte déjà envoyée
+# Simuler une alerte déjà envoyée avec vérification en cours
 session.alerts_sent = 1
 session.last_alert_at = (datetime.utcnow() - timedelta(minutes=5)).isoformat()
 session.alert_pending = True
+session.verification_attempt = 1
 engine._sessions["test_session"] = session
 
 result = engine.register_verification_response("test_session", ok=True)
@@ -214,6 +256,9 @@ result = engine.register_verification_response("test_session", ok=True)
 check("Réponse 'OK — alerte annulée'",
       "OK" in result,
       f"result={result}")
+check("verification_attempt réinitialisé à 0",
+      session.verification_attempt == 0,
+      f"verification_attempt={session.verification_attempt}")
 check("Grace period activée (grace_period_until défini)",
       session.grace_period_until is not None,
       f"grace_period_until={session.grace_period_until}")

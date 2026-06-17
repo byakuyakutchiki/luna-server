@@ -997,7 +997,13 @@ function handleWsMsg(m){
     breakStreak();
     maybeSpeak('Attention. '+((d.description||'Alerte Guardian').replace(/[🔔⚠️🆘]/g,'')));
   }
-  else if(m.type==='verification_needed') openVerifyModal(m.message);
+  else if(m.type==='verification_needed'){
+    openVerifyModal(m.message);
+    if(m.attempt===2){
+      showToast('⚠️ Luna réessaie de vous joindre', 4000);
+      vibrate([300,100,300,100,300]);
+    }
+  }
   else if(m.type==='sos') showAlertOnMap('🆘 SOS activé',null,null);
   else if(m.type==='perception'&&m.description){
     document.getElementById('cam-result-txt').textContent='👁 '+m.description;

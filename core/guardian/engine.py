@@ -123,6 +123,8 @@ class GuardianSession:
     grace_period_until: Optional[str] = None
     # P0-05: Fenêtre 24h pour le compteur d'alertes
     alerts_window_start: Optional[str] = None
+    # P0-03: Niveau 3 — compteur de tentatives de vérification (1 → 2 → alerte)
+    verification_attempt: int = 0
     # Atténuation caméra — personne visible en posture normale dans les 30 dernières min
     camera_scene_ok: bool = False
     camera_scene_at: Optional[str] = None
@@ -283,6 +285,7 @@ class GuardianEngine:
             session.alert_pending = False
             session.alert_level = AlertLevel.LOW
             session.verification_sent_at = None
+            session.verification_attempt = 0
             # P0-07: Grace period 2h — Guardian reste silencieux après confirmation
             session.grace_period_until = (now + timedelta(hours=2)).isoformat()
             self._log_event(session_id, GuardianEvent(
@@ -562,18 +565,20 @@ class GuardianEngine:
         if risk.level == AlertLevel.MEDIUM and not session.alert_pending and not in_backoff:
             session.alert_pending = True
             session.verification_sent_at = now.isoformat()
+            session.verification_attempt = 1
             session.alert_level = AlertLevel.MEDIUM
             events.append(GuardianEvent(
                 event_type="verification_needed",
                 description=f"Vérification vocale déclenchée — {risk.description}",
                 lat=pos.lat, lng=pos.lng,
                 risk_score=risk.total,
-                metadata={"signals": risk.signals, "message": _verification_message(session)},
+                metadata={"signals": risk.signals, "message": _verification_message(session), "attempt": 1},
             ))
             self._broadcast(session.session_id, {
                 "type": "verification_needed",
                 "message": _verification_message(session),
                 "risk": risk.total,
+                "attempt": 1,
             })
 
         # Chemin 2 : Alerte directe HIGH/CRITICAL (Niveau 4)
@@ -627,11 +632,32 @@ class GuardianEngine:
             )
 
         # Chemin 3 : Escalade si vérification sans réponse (non bloquée par backoff)
-        # P0-03: Timeout 10 min (Policy V2) au lieu de 2 min
+        # Policy V2 : Niveau 2 → 10 min → Niveau 3 (2e vérification) → 5 min → Niveau 4
         if (session.alert_pending and session.verification_sent_at and
                 risk.level >= AlertLevel.MEDIUM):
             elapsed = (now - datetime.fromisoformat(session.verification_sent_at)).total_seconds()
-            if elapsed > 600:  # 10 min sans réponse — Policy V2 §Niveau 2
+            attempt = session.verification_attempt or 1
+
+            if attempt == 1 and elapsed > 600:  # 10 min sans réponse → Niveau 3
+                session.verification_attempt = 2
+                session.verification_sent_at = now.isoformat()
+                session.alert_level = AlertLevel.MEDIUM
+                msg = _verification_message(session, attempt=2)
+                events.append(GuardianEvent(
+                    event_type="verification_needed",
+                    description=f"Deuxième vérification — {risk.description}",
+                    lat=pos.lat, lng=pos.lng,
+                    risk_score=risk.total,
+                    metadata={"signals": risk.signals, "message": msg, "attempt": 2},
+                ))
+                self._broadcast(session.session_id, {
+                    "type": "verification_needed",
+                    "message": msg,
+                    "risk": risk.total,
+                    "attempt": 2,
+                })
+
+            elif attempt >= 2 and elapsed > 300:  # 5 min sans réponse après 2e vérif → Niveau 4
                 # Vérifier le plafond avant d'escalader (sauf SOS)
                 can_escalate = True
                 if session.alerts_window_start:
@@ -641,6 +667,7 @@ class GuardianEngine:
 
                 if can_escalate:
                     session.alert_pending = False
+                    session.verification_attempt = 0
                     session.last_alert_at = now.isoformat()
                     if session.alerts_window_start is None:
                         session.alerts_window_start = now.isoformat()
@@ -691,6 +718,8 @@ class GuardianEngine:
             data["immobile_since"] = session.immobile_since
         if session.verification_sent_at:
             data["verification_sent_at"] = session.verification_sent_at
+        if session.verification_attempt:
+            data["verification_attempt"] = str(session.verification_attempt)
         if session.last_alert_at:
             data["last_alert_at"] = session.last_alert_at
         if session.grace_period_until:
@@ -747,6 +776,7 @@ class GuardianEngine:
                 alert_pending=data.get("alert_pending") == "1",
                 alert_level=AlertLevel(data.get("alert_level", "low")),
                 verification_sent_at=data.get("verification_sent_at") or None,
+                verification_attempt=int(data.get("verification_attempt", 0) or 0),
                 last_alert_at=data.get("last_alert_at") or None,
                 alerts_sent=int(data.get("alerts_sent", 0)),
                 grace_period_until=data.get("grace_period_until") or None,
@@ -807,7 +837,7 @@ def _default_config(profile: ProfileType) -> dict:
             # auto_call_112 : non implémenté — Luna ne peut pas appeler le 112
         },
         ProfileType.DOG: {
-            "immobility_threshold_minutes": 60,
+            "immobility_threshold_minutes": 90,  # Policy V2 §4.2
             "safe_zones": [],
             "forbidden_zones": [],
             "verification_enabled": False,
@@ -822,7 +852,7 @@ def _default_config(profile: ProfileType) -> dict:
             "emergency_contacts": [],
         },
         ProfileType.HOME: {
-            "immobility_threshold_minutes": 120,
+            "immobility_threshold_minutes": 240,  # Policy V2 §4.2
             "safe_zones": [],
             "armed_modes": ["away", "night"],
             "verification_enabled": True,
@@ -833,9 +863,14 @@ def _default_config(profile: ProfileType) -> dict:
     return defaults.get(profile, defaults[ProfileType.SENIOR])
 
 
-def _verification_message(session: GuardianSession) -> str:
+def _verification_message(session: GuardianSession, attempt: int = 1) -> str:
     profile = get_profile(session.profile_type.value)
     name = session.config.get("person_name") or "vous"
+    if attempt == 2:
+        return (
+            f"Luna essaie de vous joindre. {name}, appuyez sur le bouton vert "
+            f"si vous allez bien. Si vous avez besoin d'aide, restez où vous êtes."
+        )
     return format_profile_message(profile["verification_message"], name=name)
 
 
