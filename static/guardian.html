@@ -1052,6 +1052,9 @@ function openVerifyModal(msg){
 }
 function verifyResponse(ok){
   document.getElementById('verify-modal').classList.remove('open');
+  // Annuler le timeout check-in si l'utilisateur répond
+  _checkInPending=false;
+  if(_checkInWait){clearTimeout(_checkInWait);_checkInWait=null;}
   if(!SID) return;
   vibrate([ok?60:[200,100,200]]);
   if(ok) markCheckin();
@@ -1209,47 +1212,53 @@ function _setCamState(state,extra){
   if(bs) bs.style.display=on?'':'none';
 }
 
-async function cameraStart(){
+function cameraStart(){
   if(!SID){showToast('Démarrez Guardian d\'abord');return;}
   if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){
     _setCamState('unavailable');
     showToast('Caméra non disponible sur cet appareil',3000); return;
   }
-  try{
-    // Caméra arrière en priorité (smartphone/tablette), sinon avant (PC)
-    var constraints={video:{facingMode:{ideal:'environment'},width:{ideal:320},height:{ideal:240}},audio:false};
-    _camStream=await navigator.mediaDevices.getUserMedia(constraints);
-    var video=document.getElementById('cam-video');
-    video.srcObject=_camStream;
-    // Ne PAS await play() — ça peut rejeter (autoplay policy) et masquer le succès
-    // La caméra est active dès que getUserMedia réussit (LED allumée)
-    video.play().catch(function(){});
-    _setCamState('active');
-    _startCamLoop();
-    showToast('🎥 Caméra active — analyse IA toutes les 10s');
-    vibrate([40]);
-  }catch(e){
-    var msg='';
-    if(e.name==='NotAllowedError'||e.name==='PermissionDeniedError'){
-      _setCamState('refused');
-      msg='❌ Caméra refusée — autorisez dans les réglages du navigateur';
-    } else if(e.name==='NotFoundError'||e.name==='DevicesNotFoundError'){
-      _setCamState('unavailable');
-      msg='❌ Aucune caméra détectée sur cet appareil';
-    } else if(e.name==='NotReadableError'||e.name==='TrackStartError'){
-      _setCamState('unavailable');
-      msg='❌ Caméra utilisée par une autre app — fermez-la et réessayez';
-    } else {
-      _setCamState('unavailable');
-      msg='❌ Caméra : '+e.name+' — '+e.message;
-    }
-    showToast(msg, 5000);
-    console.error('[Guardian camera]', e.name, e.message);
-  }
+  // IMPORTANT : pas d'async/await — getUserMedia doit être appelé directement
+  // dans le handler onclick pour conserver le contexte du geste utilisateur (iOS/Android)
+  var constraints={
+    video:{facingMode:{ideal:'environment'},width:{ideal:320},height:{ideal:240}},
+    audio:false
+  };
+  navigator.mediaDevices.getUserMedia(constraints)
+    .then(function(stream){
+      _camStream=stream;
+      var video=document.getElementById('cam-video');
+      video.srcObject=stream;
+      video.play().catch(function(){}); // non bloquant
+      _setCamState('active');
+      _startCamLoop();
+      _startCheckInLoop(); // check-in vocal toutes les 60s
+      showToast('🎥 Caméra active — contrôle toutes les 60s');
+      vibrate([40]);
+    })
+    .catch(function(e){
+      var msg='';
+      if(e.name==='NotAllowedError'||e.name==='PermissionDeniedError'){
+        _setCamState('refused');
+        msg='❌ Caméra refusée — autorisez dans Réglages > Navigateur > Caméra';
+      } else if(e.name==='NotFoundError'||e.name==='DevicesNotFoundError'){
+        _setCamState('unavailable');
+        msg='❌ Aucune caméra détectée';
+      } else if(e.name==='NotReadableError'||e.name==='TrackStartError'){
+        _setCamState('unavailable');
+        msg='❌ Caméra occupée par une autre app — fermez-la et réessayez';
+      } else {
+        _setCamState('unavailable');
+        msg='❌ Caméra : '+e.name;
+      }
+      showToast(msg, 6000);
+      console.error('[Guardian camera]', e.name, e.message);
+    });
 }
 
 function cameraStop(){
   _stopCamLoop();
+  _stopCheckInLoop();
   var video=document.getElementById('cam-video');
   if(_camStream){_camStream.getTracks().forEach(function(t){t.stop();}); _camStream=null;}
   video.srcObject=null; video.src='';
@@ -1265,6 +1274,54 @@ function _startCamLoop(){
 }
 function _stopCamLoop(){
   if(_camTimer){clearInterval(_camTimer); _camTimer=null;}
+}
+
+// ── CHECK-IN VOCAL (60s) ──────────────────────
+// Toutes les 60s : Luna demande vocalement "Tout va bien ?"
+// Sans réponse dans les 30s → capture scène + alerte contacts
+var _checkInTimer=null, _checkInWait=null, _checkInPending=false;
+
+function _startCheckInLoop(){
+  _stopCheckInLoop();
+  _checkInTimer=setInterval(_doCheckIn, 60000);
+}
+function _stopCheckInLoop(){
+  if(_checkInTimer){clearInterval(_checkInTimer);_checkInTimer=null;}
+  if(_checkInWait){clearTimeout(_checkInWait);_checkInWait=null;}
+  _checkInPending=false;
+}
+function _doCheckIn(){
+  if(!SID||!_camStream) return;
+  _checkInPending=true;
+  maybeSpeak('Contrôle Guardian. Tout va bien ? Appuyez sur Oui si vous allez bien.');
+  openVerifyModal('🎥 Contrôle automatique — Tout va bien ?');
+  vibrate([200,100,200]);
+  _checkInWait=setTimeout(function(){
+    if(_checkInPending) _checkInMissed();
+  }, 30000);
+}
+function _checkInMissed(){
+  _checkInPending=false;
+  document.getElementById('verify-modal').classList.remove('open');
+  maybeSpeak('Pas de réponse. Je préviens vos contacts.');
+  showToast('🚨 Pas de réponse — alerte envoyée',5000);
+  vibrate([500,200,500,200,800]);
+  // Capturer la scène et alerter
+  var video=document.getElementById('cam-video');
+  var canvas=document.getElementById('cam-canvas');
+  canvas.width=320; canvas.height=240;
+  var ctx=canvas.getContext('2d');
+  var frame=null;
+  try{ctx.drawImage(video,0,0,320,240);frame=canvas.toDataURL('image/jpeg',0.7).split(',')[1];}catch(e){}
+  authFetch('/api/guardian/checkin-miss/'+SID,{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({frame:frame||null,lat:LAST_POS?LAST_POS.lat:null,lng:LAST_POS?LAST_POS.lng:null})
+  }).then(function(r){return r.json();}).then(function(d){
+    updateRisk(0.85,'high','Pas de réponse au contrôle');
+    breakStreak(); loadEvents();
+    if(d.description) showToast('👁 '+d.description.substring(0,60),6000);
+  }).catch(function(){});
 }
 
 function _sendFrame(){

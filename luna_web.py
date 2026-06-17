@@ -15199,6 +15199,114 @@ async def guardian_frame(session_id: str, request: Request):
         return {"description": "Analyse indisponible", "has_concern": False}
 
 
+@app.post("/api/guardian/checkin-miss/{session_id}")
+async def guardian_checkin_miss(session_id: str, request: Request):
+    """Check-in manqué : analyse la scène et alerte les contacts de confiance."""
+    engine = _get_guardian()
+    if not engine:
+        return JSONResponse(status_code=503, content={"error": "Guardian non disponible"})
+    session = engine.get_session(session_id)
+    if not session or not session.is_active:
+        return JSONResponse(status_code=404, content={"error": "Session inactive"})
+
+    tid = getattr(request.state, "tenant_id", 1)
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+
+    frame_b64 = body.get("frame") or ""
+    lat = body.get("lat") or (session.last_position.lat if session.last_position else None)
+    lng = body.get("lng") or (session.last_position.lng if session.last_position else None)
+
+    # Analyser la scène si on a une frame et OpenAI Vision disponible
+    description = "Pas de réponse au contrôle Guardian"
+    has_concern = True
+    if frame_b64 and len(frame_b64) > 100 and _perception_detector and _perception_detector._initialized:
+        try:
+            analysis = _perception_detector.analyze_frame_b64(frame_b64)
+            if analysis:
+                from core.perception.analyzer import SceneAnalyzer
+                state = SceneAnalyzer().analyze(analysis)
+                description = state.scene_description or description
+                has_concern = SceneAnalyzer().has_concern() if analysis else True
+        except Exception as e:
+            logger.warning(f"checkin_miss frame analysis error: {e}")
+
+    # Logger l'événement
+    from core.guardian.engine import GuardianEvent
+    engine._log_event(session_id, GuardianEvent(
+        event_type="alert_triggered",
+        description=f"⚠️ Contrôle sans réponse — {description}",
+        lat=lat, lng=lng,
+    ))
+    engine._broadcast(session_id, {
+        "type": "alert",
+        "data": {"description": f"Contrôle sans réponse — {description}", "lat": lat, "lng": lng},
+    })
+
+    # Alerter les contacts
+    mgr = _get_tenant_manager(tid)
+    contacts = []
+    if mgr:
+        try:
+            tc = mgr.list_trusted_contacts()
+            contacts = [{"phone": c.phone, "name": c.name} for c in tc]
+        except Exception:
+            pass
+
+    sub = mgr.get_subscriber_profile() if mgr else None
+    person_name = sub.name if sub and hasattr(sub, "name") else "Utilisateur"
+    alert_msg = f"⚠️ {person_name} ne répond pas au contrôle Guardian. Scène : {description}"
+
+    sms_sent = 0
+    _alert_channel = "sms"
+    if _redis_client:
+        _s = _redis_client.client.hget(_redis_client._key(tid, "settings"), "guardian_alert_channel")
+        if _s and _s in ("luna", "both"):
+            _alert_channel = _s
+
+    if _alert_channel in ("sms", "both") and contacts and sms_client:
+        try:
+            from core.guardian.alerts import send_guardian_alerts
+            res = send_guardian_alerts(
+                sms_send_fn=_tracked_sms_send,
+                contacts=contacts,
+                person_name=person_name,
+                description=alert_msg,
+                lat=lat, lng=lng,
+                alert_level="high",
+                profile_type=session.profile_type.value if session else "senior",
+            )
+            sms_sent = len(res.get("sent", []))
+        except Exception as e:
+            logger.error(f"checkin_miss SMS error: {e}")
+
+    if _alert_channel in ("luna", "both") and _redis_client:
+        try:
+            from core.guardian.alerts import send_guardian_dm_alerts
+            from core.social.redis_ops import SocialRedisOps
+            await send_guardian_dm_alerts(
+                sops=SocialRedisOps(_redis_client),
+                sender_tid=tid,
+                person_name=person_name,
+                description=alert_msg,
+                lat=lat, lng=lng,
+                alert_level="high",
+                ws_push_fn=_guardian_dm_broadcast,
+            )
+        except Exception as e:
+            logger.error(f"checkin_miss DM error: {e}")
+
+    logger.warning(f"GUARDIAN_CHECKIN_MISS session={session_id} tid={tid} sms_sent={sms_sent}")
+    return {
+        "success": True,
+        "description": description,
+        "has_concern": has_concern,
+        "alerts_sent": sms_sent,
+    }
+
+
 @app.get("/api/guardian/share/{session_id}")
 async def guardian_share(session_id: str, request: Request):
     """Génère un lien public temporaire (1h) pour suivre la position en direct."""
