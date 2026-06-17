@@ -3,6 +3,7 @@
 Utilise le client OpenAI de Luna (gpt-4o-mini vision) et PyMuPDF.
 """
 
+import asyncio
 import base64
 import json
 import re
@@ -78,6 +79,8 @@ async def analyze_form(openai_client, image_b64: str, media_type: str = "image/j
     Returns:
         AnalysisResult avec champs détectés
     """
+    _VISION_SUPPORTED = frozenset({"image/jpeg", "image/png", "image/webp", "image/gif"})
+
     # Si PDF, convertir la première page en image
     if media_type == "application/pdf":
         pdf_bytes = base64.b64decode(image_b64)
@@ -88,19 +91,31 @@ async def analyze_form(openai_client, image_b64: str, media_type: str = "image/j
         doc.close()
         image_b64 = base64.b64encode(image_bytes).decode()
         media_type = "image/png"
+    elif media_type.startswith("image/") and media_type not in _VISION_SUPPORTED:
+        # Convertir BMP, TIFF, etc. en JPEG pour OpenAI Vision
+        img_bytes = base64.b64decode(image_b64)
+        img = Image.open(io.BytesIO(img_bytes))
+        if img.mode in ("RGBA", "P", "LA"):
+            img = img.convert("RGB")
+        buf = io.BytesIO()
+        img.save(buf, "JPEG", quality=90)
+        image_b64 = base64.b64encode(buf.getvalue()).decode()
+        media_type = "image/jpeg"
 
     data_uri = f"data:{media_type};base64,{image_b64}"
 
-    response = openai_client.chat.completions.create(
+    messages = [{
+        "role": "user",
+        "content": [
+            {"type": "image_url", "image_url": {"url": data_uri, "detail": "high"}},
+            {"type": "text", "text": ANALYSIS_PROMPT},
+        ],
+    }]
+    response = await asyncio.to_thread(
+        openai_client.chat.completions.create,
         model=model,
         max_tokens=8192,
-        messages=[{
-            "role": "user",
-            "content": [
-                {"type": "image_url", "image_url": {"url": data_uri, "detail": "high"}},
-                {"type": "text", "text": ANALYSIS_PROMPT},
-            ],
-        }],
+        messages=messages,
     )
 
     data = _parse_json(response.choices[0].message.content)
@@ -231,6 +246,14 @@ def fill_pdf(pdf_bytes: bytes, fields: list[dict], signature_b64: str = None) ->
                 try:
                     sig = signature_b64.split(",")[1] if "," in signature_b64 else signature_b64
                     sig_bytes = base64.b64decode(sig)
+                    # Supprime le fond blanc du canvas → PNG transparent
+                    sig_img = Image.open(io.BytesIO(sig_bytes)).convert("RGBA")
+                    gray = sig_img.convert("L")
+                    alpha = gray.point(lambda p: 0 if p > 230 else 255)
+                    sig_img.putalpha(alpha)
+                    buf = io.BytesIO()
+                    sig_img.save(buf, "PNG")
+                    sig_bytes = buf.getvalue()
                     page.insert_image(fitz.Rect(x+2, y+2, x+w-2, y+h-2), stream=sig_bytes)
                 except Exception:
                     page.insert_textbox(rect, "Signé électroniquement",
