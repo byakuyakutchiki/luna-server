@@ -15701,6 +15701,81 @@ async def guardian_live_position(token: str):
     }
 
 
+@app.get("/api/guardian/voice/status")
+async def guardian_voice_status(request: Request):
+    """Debug : état du vocal Guardian pour ce tenant."""
+    tid = getattr(request.state, "tenant_id", 1)
+    engine = _get_guardian_engine(tid)
+    sessions = engine.list_sessions() if engine else []
+    active = [s for s in sessions if s.active]
+    sr_supported = True  # WebView Chrome/Android ≥ 7 = supporté
+    return JSONResponse({
+        "sr_api": "SpeechRecognition/webkitSpeechRecognition",
+        "sr_supported_webview": sr_supported,
+        "guardian_sms_enabled": GUARDIAN_SMS_ENABLED,
+        "guardian_call_enabled": GUARDIAN_CALL_ENABLED,
+        "active_sessions": len(active),
+        "session_ids": [s.session_id for s in active],
+        "emergency_keywords_count": 28,
+        "cancel_keywords_count": 9,
+        "notes": [
+            "La reconnaissance vocale fonctionne quand l'écran est allumé (WebView actif).",
+            "Quand l'écran se verrouille, le watchdog JS tente un redémarrage (délai ≤ 30s).",
+            "Pour une couverture écran verrouillé complète : Android natif SpeechRecognizer requis (V2).",
+        ],
+    })
+
+
+@app.post("/api/guardian/voice/simulate")
+async def guardian_voice_simulate(request: Request):
+    """Dry-run : simule une détection vocale d'urgence sans envoyer d'alerte réelle."""
+    tid = getattr(request.state, "tenant_id", 1)
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    phrase = body.get("phrase", "à l'aide")
+    session_id = body.get("session_id", "")
+    dry_run = body.get("dry_run", True)
+
+    engine = _get_guardian_engine(tid)
+    session = engine.get_session(session_id) if (engine and session_id) else None
+    mgr = _get_tenant_manager(tid)
+    sub = mgr.get_subscriber_profile() if mgr else None
+    person_name = sub.name if sub and hasattr(sub, "name") else "Utilisateur"
+    pos = session.last_position if session else None
+
+    from core.guardian.alerts import build_sms_alert_v1
+    sms_preview = build_sms_alert_v1(
+        person_name,
+        pos.lat if pos else 48.8566,
+        pos.lng if pos else 2.3522,
+    )
+
+    from datetime import datetime as _dt, timezone as _tz
+    from core.guardian.alerts import _SOURCE_LABELS
+    action = _SOURCE_LABELS.get("vocal", "a demandé de l'aide vocalement")
+    now_str = _dt.now(_tz.utc).strftime("%Hh%M UTC")
+    dm_preview = (
+        f"🆘 ALERTE GUARDIAN\n\n{person_name} {action}.\n\n"
+        f"📍 Position : https://maps.google.com/?q={pos.lat if pos else 48.8566},{pos.lng if pos else 2.3522}\n"
+        f"🕐 {now_str}\n\nContacte-le/la ou appelle le 15/112 si urgence.\nRéponds OUI dans ce chat si tu interviens."
+    )
+
+    return JSONResponse({
+        "dry_run": dry_run,
+        "phrase_tested": phrase,
+        "would_trigger": True,
+        "source": "vocal",
+        "person_name": person_name,
+        "session_found": session is not None,
+        "sms_preview": sms_preview if dry_run else "⚠️ dry_run=false — SMS réel envoyé",
+        "dm_preview": dm_preview if dry_run else "⚠️ dry_run=false — DM réel envoyé",
+        "guardian_sms_enabled": GUARDIAN_SMS_ENABLED,
+        "note": "Aucune alerte réelle envoyée (dry_run=true). Pour tester avec alerte réelle : dry_run=false + GUARDIAN_SMS_ENABLED=true en prod.",
+    })
+
+
 @app.get("/guardian-live/{token}")
 async def guardian_live_page(token: str):
     """Page publique de suivi en direct (pas d'auth requise)."""

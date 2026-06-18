@@ -215,6 +215,17 @@ html,body { height:100%; overflow:hidden; background:var(--bg); color:var(--text
 }
 #voice-chk { accent-color:var(--purple); width:15px; height:15px; cursor:pointer; }
 #voice-toggle label { cursor:pointer; }
+/* Indicateur micro actif */
+#mic-dot {
+  width:8px; height:8px; border-radius:50%; background:#6b7280;
+  display:inline-block; flex-shrink:0; transition:background .3s;
+}
+#mic-dot.listening { background:#22c55e; animation:mic-pulse 1.4s infinite; }
+#mic-dot.error     { background:#ef4444; }
+@keyframes mic-pulse {
+  0%,100%{ transform:scale(1); opacity:1; }
+  50%    { transform:scale(1.5); opacity:.6; }
+}
 
 /* Config toggle */
 #cfg-toggle { text-align:center; padding:0 14px 8px; }
@@ -475,7 +486,9 @@ select.cfg-inp option { background:#13131f; }
   <!-- Voice toggle -->
   <div id="voice-toggle">
     <input type="checkbox" id="voice-chk" onchange="toggleVoice(this.checked)">
-    <label for="voice-chk">🎙️ Alertes vocales (optionnel)</label>
+    <label for="voice-chk">🎙️ Alertes vocales</label>
+    <span id="mic-dot" title="État micro Guardian"></span>
+    <span id="mic-label" style="font-size:.7em;color:var(--muted);">inactif</span>
   </div>
 
   <!-- Config toggle -->
@@ -870,7 +883,7 @@ function guardianStart(){
     _layoutUpdate();
     connectWs(); startGps(); loadEvents(); loadContacts(); loadGuardianFriends();
     incrementSession();
-    _vocalStart();
+    _vocalStartWithWatchdog();
     document.getElementById('contacts-bar').style.display='block';
     showToast('🛡️ Guardian actif');
     vibrate([60,30,60]);
@@ -1055,18 +1068,56 @@ function triggerSOS(){
 
 // ── VOCAL EMERGENCY DETECTION ─────────────────
 var EMERGENCY_KW=[
-  "à l'aide","a l aide","au secours","aide moi","aide-moi",
-  "j'ai besoin d'aide","j ai besoin d aide",
-  "je me sens mal","je ne peux pas respirer",
-  "appelle quelqu'un","appelle quelqu un",
-  "aidez moi","aidez-moi","help","appel urgent","urgence"
+  // Core
+  "a l aide","au secours","aide moi","aide-moi","aidez moi","aidez-moi",
+  "j ai besoin d aide","j'ai besoin d'aide","besoin d aide",
+  // Détresse physique
+  "je me sens mal","je ne peux pas respirer","je peux pas respirer",
+  "j arrive pas a respirer","j'arrive pas à respirer",
+  "je suis blesse","je suis tombee","je suis tombé",
+  "je ne peux pas bouger","je peux pas bouger",
+  "je me suis blesse",
+  // Appels action
+  "appelle quelqu un","appelle quelqu'un","appelle les secours","appelle une ambulance",
+  "appel urgent","urgence","emergency","help",
+  // Variantes transcription automatique courantes
+  "aide moi s il te plait","a laide","secours"
 ];
-var CANCEL_KW=["annule","annuler","cancel","tout va bien","fausse alerte","pas d'alerte"];
+var CANCEL_KW=[
+  "annule","annuler","cancel","stop","c est bon","c'est bon",
+  "tout va bien","fausse alerte","pas d alerte","pas d'alerte",
+  "ca va","ça va","je vais bien","tout va bien","je suis bien"
+];
+
 var _vocalRec=null, _vocalTimer=null, _vocalActive=false;
+var _vocalListening=false;    // vrai seulement quand SR est dans l'état "démarré"
+var _vocalWatchdog=null;      // setInterval de surveillance
+var _vocalRestartT=null;      // setTimeout de retry planifié
+var _vocalErrors=0;           // compteur d'erreurs consécutives
 
 function _norm(t){
-  return t.normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase();
+  return t.normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/['']/g,"'");
 }
+
+function _setMicState(state){
+  var dot=document.getElementById('mic-dot');
+  var lbl=document.getElementById('mic-label');
+  if(!dot) return;
+  dot.className='';
+  if(state==='listening'){
+    dot.classList.add('listening');
+    if(lbl) lbl.textContent='écoute';
+    _vocalListening=true;
+  } else if(state==='error'){
+    dot.classList.add('error');
+    if(lbl) lbl.textContent='micro interrompu';
+    _vocalListening=false;
+  } else {
+    if(lbl) lbl.textContent='inactif';
+    _vocalListening=false;
+  }
+}
+
 function _vocalMatch(transcript){
   var n=_norm(transcript);
   if(_vocalActive){
@@ -1075,32 +1126,84 @@ function _vocalMatch(transcript){
   }
   if(EMERGENCY_KW.some(function(k){return n.includes(_norm(k));})) openVocalCountdown();
 }
+
+function _vocalScheduleRestart(delayMs){
+  if(_vocalRestartT) return; // déjà planifié
+  _vocalRestartT=setTimeout(function(){
+    _vocalRestartT=null;
+    if(SID) _vocalStart();
+  }, delayMs||3000);
+}
+
 function _vocalStart(){
   var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-  if(!SR||_vocalRec) return;
-  _vocalRec=new SR();
-  _vocalRec.lang='fr-FR';
-  _vocalRec.continuous=true;
-  _vocalRec.interimResults=true;
-  _vocalRec.maxAlternatives=1;
-  _vocalRec.onresult=function(e){
+  if(!SR){ _setMicState('off'); return; }
+  if(_vocalRec) return; // déjà actif
+
+  var rec=new SR();
+  rec.lang='fr-FR';
+  rec.continuous=true;
+  rec.interimResults=true;
+  rec.maxAlternatives=2;
+
+  rec.onstart=function(){ _setMicState('listening'); _vocalErrors=0; };
+
+  rec.onresult=function(e){
     var t='';
     for(var i=e.resultIndex;i<e.results.length;i++) t+=e.results[i][0].transcript;
     _vocalMatch(t);
   };
-  _vocalRec.onerror=function(e){
-    if(e.error==='no-speech'||e.error==='aborted') return;
+
+  rec.onerror=function(e){
+    // no-speech = silence normal — ne pas interrompre
+    if(e.error==='no-speech') return;
+    // aborted = écran verrouillé / app fond — traiter comme une vraie erreur
+    _vocalErrors++;
     _vocalRec=null;
-    if(SID) setTimeout(_vocalStart,5000);
+    _setMicState('error');
+    // Délai progressif : 3s, 5s, 10s, 30s max
+    var delay=Math.min(3000*Math.pow(1.6,Math.min(_vocalErrors-1,4)),30000);
+    if(SID) _vocalScheduleRestart(delay);
   };
-  _vocalRec.onend=function(){
-    if(SID&&_vocalRec){try{_vocalRec.start();}catch(e){}}
+
+  rec.onend=function(){
+    // Si onerror a déjà nul le rec → ne rien faire (restart déjà planifié)
+    if(_vocalRec!==rec){ return; }
+    _vocalRec=null;
+    _setMicState('off');
+    // Redémarrer immédiatement si la session est encore active
+    if(SID) _vocalScheduleRestart(500);
   };
-  try{_vocalRec.start();}catch(e){_vocalRec=null;}
+
+  _vocalRec=rec;
+  try{
+    rec.start();
+  } catch(e){
+    _vocalRec=null;
+    _setMicState('error');
+    if(SID) _vocalScheduleRestart(5000);
+  }
 }
+
 function _vocalStop(){
-  if(_vocalRec){try{_vocalRec.abort();}catch(e){} _vocalRec=null;}
+  if(_vocalRestartT){ clearTimeout(_vocalRestartT); _vocalRestartT=null; }
+  if(_vocalWatchdog){ clearInterval(_vocalWatchdog); _vocalWatchdog=null; }
+  if(_vocalRec){ try{_vocalRec.abort();}catch(e){} _vocalRec=null; }
+  _setMicState('off');
   cancelVocalCountdown();
+}
+
+function _vocalStartWithWatchdog(){
+  _vocalStart();
+  // Watchdog : toutes les 30s, vérifie que la reconnaissance est réellement active
+  if(_vocalWatchdog) clearInterval(_vocalWatchdog);
+  _vocalWatchdog=setInterval(function(){
+    if(!SID){ _vocalStop(); return; }
+    if(!_vocalListening && !_vocalRec && !_vocalRestartT){
+      _setMicState('error');
+      _vocalScheduleRestart(1000);
+    }
+  },30000);
 }
 function openVocalCountdown(){
   if(_vocalActive||_sosInProgress) return;
@@ -1420,7 +1523,7 @@ function toggleGuardianFriend(friend_tid,add){
       updateRisk(0,s.alert_level||'low','');
       document.getElementById('contacts-bar').style.display='block';
       loadContacts();
-      _vocalStart(); _layoutUpdate(); connectWs(); startGps(); loadEvents();
+      _vocalStartWithWatchdog(); _layoutUpdate(); connectWs(); startGps(); loadEvents();
     } else {
       openPerm();
     }
