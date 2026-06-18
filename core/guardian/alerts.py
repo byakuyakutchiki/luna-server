@@ -11,9 +11,19 @@ Quand le risque est élevé :
 RGPD : Les positions GPS sont stockées 7 jours en Redis (TTL), jamais en base.
 """
 import logging
+from datetime import datetime, timezone
 from typing import Optional, List, Dict
 
 logger = logging.getLogger("luna.guardian.alerts")
+
+_SOURCE_LABELS = {
+    "sos":    "a appuyé sur le bouton SOS",
+    "vocal":  "a demandé de l'aide vocalement",
+    "fall":   "a chuté — pas de réponse en 30s",
+    "immobility": "est immobile depuis trop longtemps",
+    "geofence":   "a quitté sa zone de confiance",
+    "checkin":    "ne répond plus aux contrôles",
+}
 
 
 def build_sms_alert(
@@ -103,6 +113,7 @@ async def send_guardian_dm_alerts(
     alert_level: str,
     ws_push_fn=None,
     trusted_tids: Optional[set] = None,
+    source: Optional[str] = None,
 ) -> Dict:
     """Envoie une alerte Guardian en DM Luna.
     Si trusted_tids est non-vide → seulement ces amis.
@@ -114,15 +125,26 @@ async def send_guardian_dm_alerts(
     if trusted_tids:
         friends = {f for f in friends if f in trusted_tids or str(f) in trusted_tids}
 
-    maps_link = f"https://maps.google.com/?q={lat},{lng}" if lat and lng else None
     level_emoji = "🆘" if alert_level == "critical" else "⚠️"
-    msg_text = f"{level_emoji} ALERTE GUARDIAN — {person_name or 'Ton contact'} a besoin d'aide !"
-    if description:
-        msg_text += f"\n{description}"
+    name = person_name or "Ton contact"
+    action = _SOURCE_LABELS.get(source or "", "a besoin d'aide")
+    now_str = datetime.now(timezone.utc).strftime("%Hh%M UTC")
+    maps_link = f"https://maps.google.com/?q={lat},{lng}" if lat and lng else None
+
+    lines = [
+        f"{level_emoji} ALERTE GUARDIAN",
+        "",
+        f"{name} {action}.",
+    ]
     if maps_link:
-        msg_text += f"\n📍 {maps_link}"
-    msg_text += "\nContacte-le/la ou appelle le 15/112 si urgence."
-    msg_text = msg_text[:500]
+        lines += ["", f"📍 Position : {maps_link}"]
+    lines += [
+        f"🕐 {now_str}",
+        "",
+        "Contacte-le/la ou appelle le 15/112 si urgence.",
+        "Réponds OUI dans ce chat si tu interviens.",
+    ]
+    msg_text = "\n".join(lines)[:500]
 
     results: Dict = {"sent": [], "failed": [], "total_friends": len(friends)}
     for f_tid in friends:

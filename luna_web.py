@@ -14971,6 +14971,7 @@ async def guardian_location(session_id: str, request: Request):
                         alert_level=alert_level,
                         ws_push_fn=_guardian_dm_broadcast,
                         trusted_tids=_redis_client.get_guardian_friends(tid),
+                        source="geofence" if "hors" in (desc or "").lower() else "immobility",
                     )
                     logger.warning(f"Guardian DM alerts sent for session {session_id}")
                 except Exception as e:
@@ -15002,6 +15003,7 @@ async def guardian_sos(session_id: str, request: Request):
     except Exception:
         body = {}
     incident_id = body.get("incident_id", "")
+    sos_source = body.get("source", "sos")
     if not _guardian_dedup(tid, incident_id):
         return JSONResponse(status_code=409, content={"error": "Alerte déjà en cours", "incident_id": incident_id})
 
@@ -15050,6 +15052,7 @@ async def guardian_sos(session_id: str, request: Request):
                 alert_level="critical",
                 ws_push_fn=_guardian_dm_broadcast,
                 trusted_tids=_redis_client.get_guardian_friends(tid),
+                source=sos_source,
             )
         except Exception as e:
             logger.error(f"SOS DM failed: {e}")
@@ -15177,6 +15180,7 @@ async def guardian_fall_detected(session_id: str, request: Request):
                 alert_level="high",
                 ws_push_fn=_guardian_dm_broadcast,
                 trusted_tids=_redis_client.get_guardian_friends(tid),
+                source="fall",
             )
         except Exception as e:
             logger.error(f"Fall DM failed: {e}")
@@ -15626,6 +15630,7 @@ async def guardian_checkin_miss(session_id: str, request: Request):
                     alert_level="high",
                     ws_push_fn=_guardian_dm_broadcast,
                     trusted_tids=_redis_client.get_guardian_friends(tid),
+                    source="checkin",
                 )
             except Exception as e:
                 logger.error(f"checkin_miss DM error: {e}")
