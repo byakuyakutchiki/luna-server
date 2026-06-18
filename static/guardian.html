@@ -337,40 +337,6 @@ select.cfg-inp option { background:#13131f; }
 #rgpd-close { width:100%; padding:12px; background:var(--border); color:var(--text);
   border:none; border-radius:12px; cursor:pointer; }
 
-/* ─── CAMERA ─────────────────────────────── */
-#cam-badge {
-  position:fixed; top:62px; right:12px; z-index:101;
-  display:none; align-items:center; gap:5px;
-  background:rgba(8,8,16,0.88); backdrop-filter:blur(16px);
-  border:1px solid var(--border); border-radius:20px;
-  padding:6px 12px; font-size:.74em; cursor:pointer;
-  transition:border-color .3s, color .3s;
-}
-#cam-badge.inactive { color:var(--muted); }
-#cam-badge.active   { border-color:rgba(16,185,129,.5); color:var(--green); }
-#cam-badge.refused  { border-color:rgba(239,68,68,.35); color:var(--red); }
-#cam-badge.external { border-color:rgba(124,58,237,.5); color:var(--purple-light); }
-#cam-badge.unavailable { color:var(--muted); }
-
-#cam-result {
-  position:fixed; left:12px; right:12px; z-index:102;
-  background:rgba(8,8,16,0.88); backdrop-filter:blur(16px);
-  border:1px solid rgba(16,185,129,.25); border-radius:14px;
-  padding:9px 14px; font-size:.76em; display:none; line-height:1.5;
-}
-#cam-result-txt { color:var(--muted); }
-#cam-result-close { float:right; background:none; border:none; color:var(--muted);
-  cursor:pointer; font-size:1em; padding:0 0 0 8px; }
-
-#btn-cam { width:100%; padding:9px; background:rgba(16,185,129,0.1); color:var(--green);
-  border:1px solid rgba(16,185,129,.3); border-radius:10px; font-size:.83em;
-  cursor:pointer; transition:background .2s; margin-top:6px; }
-#btn-cam:active { background:rgba(16,185,129,.2); }
-#btn-cam-stop { width:100%; padding:9px; background:rgba(239,68,68,0.1); color:var(--red);
-  border:1px solid rgba(239,68,68,.3); border-radius:10px; font-size:.83em;
-  cursor:pointer; display:none; transition:background .2s; margin-top:6px; }
-#btn-cam-stop:active { background:rgba(239,68,68,.2); }
-
 /* ─── TOAST ───────────────────────────────── */
 #toast {
   position:fixed; bottom:185px; left:50%; transform:translateX(-50%);
@@ -416,21 +382,6 @@ select.cfg-inp option { background:#13131f; }
     📊 Résumé du jour <span>›</span>
   </div>
 </div>
-
-<!-- CAMERA STATE BADGE -->
-<div id="cam-badge" class="inactive" onclick="toggleCamDetails()">
-  🎥 <span id="cam-state-txt">Caméra inactive</span>
-</div>
-
-<!-- CAMERA PERCEPTION RESULT -->
-<div id="cam-result">
-  <button id="cam-result-close" onclick="document.getElementById('cam-result').style.display='none'">✕</button>
-  <div id="cam-result-txt"></div>
-</div>
-
-<!-- Hidden video/canvas for frame capture (jamais affiché) -->
-<video id="cam-video" muted playsinline autoplay style="position:fixed;width:1px;height:1px;opacity:0.01;pointer-events:none;top:-2px;left:-2px;"></video>
-<canvas id="cam-canvas" style="display:none;"></canvas>
 
 <!-- ADDRESS CARD -->
 <div id="addr-card">
@@ -495,19 +446,6 @@ select.cfg-inp option { background:#13131f; }
   <div id="ctrls">
     <button id="btn-start" class="ctrl" onclick="guardianStart()">▶ Démarrer</button>
     <button id="btn-stop"  class="ctrl" onclick="guardianStop()">⏹ Arrêter</button>
-  </div>
-
-  <!-- Bouton caméra — visible seulement après démarrage -->
-  <div id="cam-ctrl" style="display:none;padding:0 14px 8px;">
-    <button id="btn-cam" onclick="cameraStart()"
-      style="width:100%;padding:10px;background:rgba(16,185,129,0.1);color:var(--green);border:1px solid rgba(16,185,129,.3);border-radius:12px;font-size:.85em;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;">
-      🎥 Activer la caméra — analyse de scène IA
-    </button>
-    <button id="btn-cam-stop" onclick="cameraStop()"
-      style="width:100%;padding:10px;background:rgba(239,68,68,0.1);color:var(--red);border:1px solid rgba(239,68,68,.3);border-radius:12px;font-size:.85em;cursor:pointer;display:none;margin-top:6px;">
-      ⏹ Désactiver caméra
-    </button>
-    <div style="font-size:.7em;color:var(--muted);margin-top:4px;text-align:center;">Caméra de cet appareil · Aucune image stockée · Analyse IA toutes les 10s</div>
   </div>
 
   <!-- Voice toggle -->
@@ -609,8 +547,6 @@ select.cfg-inp option { background:#13131f; }
     <ul>
       <li>Votre position GPS est transmise au serveur toutes les 10s et conservée 7 jours maximum</li>
       <li>Les alertes ne partent qu'à vos contacts de confiance, personne d'autre</li>
-      <li>La caméra est optionnelle — aucune image jamais stockée, seule la description textuelle est gardée</li>
-      <li>La caméra peut être interne (téléphone) ou externe (URL MJPEG compatible)</li>
       <li>Aucune donnée n'est revendue ni partagée avec des tiers</li>
       <li>Luna est conforme au RGPD — vous restez maître de vos données</li>
       <li>Luna ne peut pas appeler les services d'urgence — elle informe vos contacts pour qu'ils appellent le 112</li>
@@ -900,8 +836,6 @@ function guardianStart(){
     _layoutUpdate();
     connectWs(); startGps(); loadEvents(); loadContacts(); loadGuardianFriends();
     incrementSession();
-    _setCamState('inactive');
-    document.getElementById('cam-ctrl').style.display='block';
     document.getElementById('contacts-bar').style.display='block';
     showToast('🛡️ Guardian actif');
     vibrate([60,30,60]);
@@ -932,11 +866,8 @@ function guardianStop(){
   });
 }
 function _cleanupSession(){
-  cameraStop();
   if(WS){try{WS.close();}catch(e){} WS=null;}
   if(GEO_ID!==null){navigator.geolocation.clearWatch(GEO_ID);GEO_ID=null;}
-  document.getElementById('cam-badge').style.display='none';
-  document.getElementById('cam-ctrl').style.display='none';
   document.getElementById('contacts-bar').style.display='none';
   SID=null; TRAIL_COORDS=[]; PREV_POS=null;
   if(TRAIL){MAP.removeLayer(TRAIL);TRAIL=null;}
@@ -1028,12 +959,6 @@ function handleWsMsg(m){
     vibrate([500,150,500,150,800]);
     breakStreak(); loadEvents();
     maybeSpeak('Attention. Chute détectée. Vos contacts ont été prévenus.');
-  }
-  else if(m.type==='perception'&&m.description){
-    document.getElementById('cam-result-txt').textContent='👁 '+m.description;
-    document.getElementById('cam-result').style.display='block';
-    _layoutCamResult();
-    if(m.has_concern) vibrate([300,100,300]);
   }
 }
 
@@ -1224,323 +1149,6 @@ function showToast(msg,ms){
   clearTimeout(t._tid); t._tid=setTimeout(function(){t.classList.remove('show');},ms||2500);
 }
 
-// ── CAMERA ────────────────────────────────────
-var _camStream=null, _camTimer=null, CAM_STATE='inactive';
-
-// ── BEHAVIOR ENGINE ───────────────────────────
-var _frameBuffer=[];          // [{ts, frame, motion}]
-var _prevFramePixels=null;    // Uint8ClampedArray pour motion diff
-var _beh={
-  score:0,                    // 0-10, danger courant
-  motionHistory:[],           // [{ts, motion}]
-  fallCandidateSince:null,    // timestamp quand pattern chute détecté
-  lastAnomalySend:0,          // dernier envoi anomalie
-  lastBaselineSend:0,         // dernier envoi baseline
-  COOLDOWN:60000,             // 1min entre deux alertes anomalie
-  BASELINE_IV:300000,         // 5min baseline check
-  BUFFER_MAX:15,              // ~30s à 2s/tick
-};
-
-function _measureMotion(ctx,W,H){
-  var data=ctx.getImageData(0,0,W,H).data;
-  var motion=0;
-  if(_prevFramePixels){
-    var samples=0;
-    for(var i=0;i<data.length;i+=16){motion+=Math.abs(data[i]-_prevFramePixels[i]);samples++;}
-    motion=motion/(samples*255);
-  }
-  _prevFramePixels=new Uint8ClampedArray(data);
-  return motion;
-}
-
-function _updateBehaviorScore(motion){
-  var now=Date.now();
-  var HIGH=0.10, STILL=0.02;
-  _beh.motionHistory.push({ts:now,m:motion});
-  if(_beh.motionHistory.length>20) _beh.motionHistory.shift();
-  var h=_beh.motionHistory;
-  if(h.length>=6){
-    var hadSpike=h.slice(-6,-2).some(function(f){return f.m>HIGH;});
-    var nowStill=h.slice(-2).every(function(f){return f.m<STILL;});
-    if(hadSpike&&nowStill){
-      if(!_beh.fallCandidateSince) _beh.fallCandidateSince=now;
-      var stillFor=(now-_beh.fallCandidateSince)/1000;
-      _beh.score=Math.min(10,Math.round(stillFor/15*6));
-    } else if(h.slice(-2).some(function(f){return f.m>STILL;})){
-      _beh.fallCandidateSince=null;
-      _beh.score=Math.max(0,_beh.score-2);
-    }
-  }
-  return _beh.score;
-}
-
-function _processCamTick(){
-  if(!SID||(CAM_STATE!=='active'&&CAM_STATE!=='external')) return;
-  var video=document.getElementById('cam-video');
-  var canvas=document.getElementById('cam-canvas');
-  if(!video||!canvas) return;
-  var W=320,H=240;
-  canvas.width=W; canvas.height=H;
-  var ctx=canvas.getContext('2d');
-  try{ctx.drawImage(video,0,0,W,H);}catch(e){return;}
-  var frame=canvas.toDataURL('image/jpeg',0.65).split(',')[1];
-  if(!frame||frame.length<200) return;
-  var motion=_measureMotion(ctx,W,H);
-  var now=Date.now();
-  _frameBuffer.push({ts:now,frame:frame,motion:motion});
-  if(_frameBuffer.length>_beh.BUFFER_MAX) _frameBuffer.shift();
-  var score=_updateBehaviorScore(motion);
-  if(score>=7&&(now-_beh.lastAnomalySend)>_beh.COOLDOWN){
-    _sendAnomalyToServer();
-  } else if((now-_beh.lastBaselineSend)>_beh.BASELINE_IV){
-    _sendBaselineFrame(frame);
-  }
-}
-
-function _sendAnomalyToServer(){
-  var buf=_frameBuffer;
-  var frames=[];
-  if(buf.length<=5){
-    frames=buf.map(function(f){return {frame:f.frame,motion:f.motion,ts:f.ts};});
-  } else {
-    var step=Math.floor(buf.length/5);
-    for(var i=0;i<5;i++){
-      var f=buf[Math.min(i*step,buf.length-1)];
-      frames.push({frame:f.frame,motion:f.motion,ts:f.ts});
-    }
-  }
-  _beh.lastAnomalySend=Date.now();
-  _setCamState('sending');
-  authFetch('/api/guardian/anomaly/'+SID,{
-    method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({
-      frames:frames,behavior_score:_beh.score,
-      lat:LAST_POS?LAST_POS.lat:null,lng:LAST_POS?LAST_POS.lng:null
-    })
-  }).then(function(r){
-    if(r.status===429){
-      // Rate-limit : conserver le score et retenter après le délai serveur
-      return r.json().then(function(e){
-        var retry=(e.retry_after||50)*1000;
-        _beh.lastAnomalySend=Date.now()-(_beh.COOLDOWN-retry);
-        if(_camStream) _setCamState('active');
-      });
-    }
-    return r.json().then(function(d){
-      if(_camStream) _setCamState('active');
-      _beh.score=0; _beh.fallCandidateSince=null;
-      if(d.description){
-        document.getElementById('cam-result-txt').textContent='👁 '+d.description;
-        document.getElementById('cam-result').style.display='block';
-        _layoutCamResult();
-      }
-      if(d.danger_score>=7){
-        _doCheckIn();
-      } else if(d.has_concern){
-        showToast('⚠️ Situation inhabituelle détectée',4000);
-        vibrate([300,100,300]); loadEvents();
-      }
-    });
-  }).catch(function(){if(_camStream) _setCamState('active');});
-}
-
-function _sendBaselineFrame(frame){
-  _beh.lastBaselineSend=Date.now();
-  authFetch('/api/guardian/frame/'+SID,{
-    method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({frame:frame,width:320,height:240})
-  }).then(function(r){return r.json();}).then(function(d){
-    if(!d.description||d.description==='Analyse indisponible') return;
-    document.getElementById('cam-result-txt').textContent='👁 '+d.description;
-    document.getElementById('cam-result').style.display='block';
-    _layoutCamResult();
-  }).catch(function(){});
-}
-
-function _setCamState(state,extra){
-  CAM_STATE=state;
-  var badge=document.getElementById('cam-badge');
-  var txt=document.getElementById('cam-state-txt');
-  var labels={inactive:'Caméra inactive',active:'Caméra active',
-    refused:'Caméra refusée',external:'Caméra externe',
-    unavailable:'Caméra indisponible',sending:'Analyse…'};
-  txt.textContent=(labels[state]||state)+(extra?' — '+extra:'');
-  badge.className=state;
-  badge.style.display=SID?'flex':'none';
-  var on=(state==='active'||state==='external'||state==='sending');
-  var bc=document.getElementById('btn-cam'), bs=document.getElementById('btn-cam-stop');
-  if(bc) bc.style.display=on?'none':'';
-  if(bs) bs.style.display=on?'':'none';
-}
-
-function cameraStart(){
-  if(!SID){showToast('Démarrez Guardian d\'abord');return;}
-  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){
-    showToast('❌ Caméra non supportée sur cet appareil',3000); return;
-  }
-  // getUserMedia appelé DIRECTEMENT ici — aucune promesse intermédiaire
-  // Toute chaîne .then() avant cet appel rompt le geste utilisateur sur iOS/Android
-  navigator.mediaDevices.getUserMedia({video:true,audio:false})
-    .then(function(stream){
-      _camStream=stream;
-      stream.getVideoTracks().forEach(function(t){
-        t.addEventListener('ended',function(){
-          _camStream=null; _setCamState('inactive');
-          _stopCamLoop(); _stopCheckInLoop();
-          showToast('⚠️ Caméra interrompue',3000);
-        });
-      });
-      var video=document.getElementById('cam-video');
-      video.srcObject=stream;
-      video.play().catch(function(){});
-      _setCamState('active');
-      _startCamLoop();
-      _startCheckInLoop();
-      showToast('🎥 Caméra active');
-      vibrate([40]);
-    })
-    .catch(function(e){
-      console.error('[Guardian cam]',e.name,e.message);
-      var ua=navigator.userAgent.toLowerCase();
-      if(e.name==='NotAllowedError'||e.name==='PermissionDeniedError'){
-        _setCamState('refused');
-        var hint=/ipad|iphone/.test(ua)
-          ? 'Réglages iOS > Safari > Caméra > Autoriser'
-          : 'Appuyez sur 🔒 dans la barre d\'adresse > Caméra > Autoriser';
-        showToast('📷 Caméra bloquée — '+hint,8000);
-      } else if(e.name==='NotFoundError'){
-        _setCamState('unavailable');
-        showToast('❌ Aucune caméra détectée',4000);
-      } else if(e.name==='NotReadableError'){
-        _setCamState('unavailable');
-        showToast('❌ Caméra occupée par une autre app',5000);
-      } else {
-        _setCamState('unavailable');
-        showToast('❌ '+e.name+' : '+e.message,6000);
-      }
-    });
-}
-
-function cameraStop(){
-  _stopCamLoop();
-  _stopCheckInLoop();
-  var video=document.getElementById('cam-video');
-  if(_camStream){_camStream.getTracks().forEach(function(t){t.stop();}); _camStream=null;}
-  video.srcObject=null; video.src='';
-  _setCamState('inactive');
-  document.getElementById('cam-result').style.display='none';
-  showToast('🎥 Caméra désactivée');
-}
-
-function _startCamLoop(){
-  _stopCamLoop();
-  _frameBuffer=[]; _prevFramePixels=null;
-  _beh.score=0; _beh.motionHistory=[]; _beh.fallCandidateSince=null;
-  _beh.lastAnomalySend=0; _beh.lastBaselineSend=0;
-  _camTimer=setInterval(_processCamTick,2000);
-}
-function _stopCamLoop(){
-  if(_camTimer){clearInterval(_camTimer); _camTimer=null;}
-}
-
-// ── CHECK-IN VOCAL ────────────────────────────
-// Déclenché uniquement sur signal de risque (danger_score >= 7 ou verification_needed WS)
-// Pas de timer périodique — Policy V2 Scénarios 2/4 : sieste/TV/douche ne doivent pas alerter
-var _checkInTimer=null, _checkInWait=null, _checkInPending=false;
-
-function _startCheckInLoop(){
-  _stopCheckInLoop();
-  // Intentionnellement vide : le check-in est déclenché par signal de risque uniquement
-}
-function _stopCheckInLoop(){
-  if(_checkInTimer){clearInterval(_checkInTimer);_checkInTimer=null;}
-  if(_checkInWait){clearTimeout(_checkInWait);_checkInWait=null;}
-  _checkInPending=false;
-}
-function _doCheckIn(){
-  // Ne déclencher QUE si la caméra est vraiment active (LED allumée, tracks live)
-  if(!SID||CAM_STATE!=='active') return;
-  if(!_camStream||!_camStream.getVideoTracks().some(function(t){return t.readyState==='live';})){
-    _setCamState('inactive'); _stopCheckInLoop(); return;
-  }
-  _checkInPending=true;
-  maybeSpeak('Contrôle Guardian. Tout va bien ? Appuyez sur Oui si vous allez bien.');
-  openVerifyModal('🎥 Contrôle automatique — Tout va bien ?');
-  vibrate([200,100,200]);
-  _checkInWait=setTimeout(function(){
-    if(_checkInPending) _checkInMissed();
-  }, 300000); // 5 min — Policy V2 niveau 3 : délai suffisant (douche, téléphone, sieste)
-}
-function _checkInMissed(){
-  _checkInPending=false;
-  document.getElementById('verify-modal').classList.remove('open');
-  if(!SID) return;
-  // Capturer la scène et laisser le backend décider du cycle Niveau 2→3→4
-  var video=document.getElementById('cam-video');
-  var canvas=document.getElementById('cam-canvas');
-  canvas.width=320; canvas.height=240;
-  var ctx=canvas.getContext('2d');
-  var frame=null;
-  try{ctx.drawImage(video,0,0,320,240);frame=canvas.toDataURL('image/jpeg',0.7).split(',')[1];}catch(e){}
-  authFetch('/api/guardian/checkin-miss/'+SID,{
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({frame:frame||null,lat:LAST_POS?LAST_POS.lat:null,lng:LAST_POS?LAST_POS.lng:null})
-  }).then(function(r){return r.json();}).then(function(d){
-    if(d.status==='level3'){
-      maybeSpeak('Toujours pas de réponse. Je réessaie dans cinq minutes.');
-      showToast('⚠️ Pas de réponse — deuxième contrôle dans 5 min',4000);
-      vibrate([300,200,300]);
-    } else if(d.status==='level4'){
-      maybeSpeak('Pas de réponse. Je préviens vos contacts.');
-      showToast('🚨 Pas de réponse — alerte envoyée',5000);
-      vibrate([500,200,500,200,800]);
-    }
-    updateRisk(d.alerts_sent>0?0.85:0,'high','Pas de réponse au contrôle');
-    breakStreak(); loadEvents();
-    if(d.description) showToast('👁 '+d.description.substring(0,60),6000);
-  }).catch(function(){});
-}
-
-function _sendFrame(){
-  // Appel manuel (bouton toggleCamDetails) — envoie une baseline immédiate
-  if(!SID||(CAM_STATE!=='active'&&CAM_STATE!=='external')) return;
-  var video=document.getElementById('cam-video');
-  var canvas=document.getElementById('cam-canvas');
-  if(!video||!canvas) return;
-  var W=320,H=240;
-  canvas.width=W; canvas.height=H;
-  var ctx=canvas.getContext('2d');
-  try{ctx.drawImage(video,0,0,W,H);}catch(e){return;}
-  var frame=canvas.toDataURL('image/jpeg',0.65).split(',')[1];
-  if(!frame||frame.length<200) return;
-  _setCamState('sending');
-  authFetch('/api/guardian/frame/'+SID,{
-    method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({frame:frame,width:W,height:H})
-  }).then(function(r){return r.json();}).then(function(d){
-    if(_camStream) _setCamState('active');
-    if(d.description&&d.description!=='Analyse indisponible'){
-      document.getElementById('cam-result-txt').textContent='👁 '+d.description;
-      document.getElementById('cam-result').style.display='block';
-      _layoutCamResult();
-    }
-    if(d.has_concern){showToast('⚠️ Situation inhabituelle détectée',4000);loadEvents();vibrate([300,100,300]);}
-  }).catch(function(){if(_camStream) _setCamState('active');});
-}
-
-function _layoutCamResult(){
-  var addrCard=document.getElementById('addr-card');
-  var top=addrCard&&addrCard.style.display!=='none'?(62+addrCard.offsetHeight+8):70;
-  document.getElementById('cam-result').style.top=top+'px';
-}
-
-function toggleCamDetails(){
-  var r=document.getElementById('cam-result');
-  if(r.style.display==='none'||!r.style.display) _sendFrame();
-  else r.style.display='none';
-}
-
 // ── BRIDGE ANDROID : détection de chute ──────
 // Appelé par MainActivity.java via evaluateJavascript quand l'accéléromètre détecte une chute.
 // L'overlay natif Android gère le compte à rebours — ici on met juste à jour l'UI WebView.
@@ -1650,7 +1258,6 @@ function toggleGuardianFriend(friend_tid,add){
       document.getElementById('voice-chk').checked=(localStorage.getItem('luna_voice')==='1');
       showTrustBar(true);
       updateRisk(0,s.alert_level||'low','');
-      document.getElementById('cam-ctrl').style.display='block';
       document.getElementById('contacts-bar').style.display='block';
       loadContacts();
       _layoutUpdate(); connectWs(); startGps(); loadEvents();
