@@ -36,6 +36,8 @@ add_var "LUNA_MODE"
 add_var "SENTRY_DSN"
 add_var "OPENAI_VOICE_NAME"
 add_var "OPENAI_REALTIME_MODEL"
+add_var "GUARDIAN_SMS_ENABLED"
+add_var "GUARDIAN_CALL_ENABLED"
 
 # Joindre avec des virgules
 vars_string=$(IFS=,; echo "${update_vars[*]}")
