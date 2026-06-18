@@ -15010,7 +15010,7 @@ async def guardian_sos(session_id: str, request: Request):
     except ValueError as e:
         return JSONResponse(status_code=404, content={"error": str(e)})
 
-    # Alertes immédiates aux contacts de confiance (SOS toujours sur les deux canaux)
+    # App First — SOS : DM Luna en premier, SMS minimaliste en fallback
     session = engine.get_session(session_id)
     mgr = _get_tenant_manager(tid)
     contacts = []
@@ -15027,29 +15027,13 @@ async def guardian_sos(session_id: str, request: Request):
     sub = mgr.get_subscriber_profile() if mgr else None
     person_name = sub.name if sub and hasattr(sub, "name") else "Utilisateur"
 
-    # Lire le canal d'alerte (J7: défaut = "both", APP FIRST)
     _alert_channel = "both"
     if _redis_client:
         _s = _redis_client.client.hget(_redis_client._key(tid, "settings"), "guardian_alert_channel")
         if _s and _s in ("sms", "luna", "both"):
             _alert_channel = _s
 
-    sms_results = {"sent": [], "failed": []}
-    if _alert_channel in ("sms", "both") and contacts and sms_client:
-        try:
-            sms_results = send_guardian_alerts(
-                sms_send_fn=_tracked_sms_send,
-                contacts=contacts,
-                person_name=person_name,
-                description="🆘 Bouton SOS activé",
-                lat=pos.lat if pos else None,
-                lng=pos.lng if pos else None,
-                alert_level="critical",
-                profile_type=session.profile_type.value if session else "senior",
-            )
-        except Exception as e:
-            logger.error(f"SOS SMS failed: {e}")
-
+    # 1. DM Luna — canal principal
     dm_results = {"sent": []}
     if _alert_channel in ("luna", "both") and _redis_client:
         try:
@@ -15069,6 +15053,29 @@ async def guardian_sos(session_id: str, request: Request):
             )
         except Exception as e:
             logger.error(f"SOS DM failed: {e}")
+
+    # 2. SMS — canal de secours, contenu minimal App First
+    sms_results = {"sent": [], "failed": []}
+    if _alert_channel in ("sms", "both") and contacts and sms_client:
+        try:
+            from core.guardian.alerts import build_sms_alert_v1
+            sms_results = send_guardian_alerts(
+                sms_send_fn=_tracked_sms_send,
+                contacts=contacts,
+                person_name=person_name,
+                description="🆘 Bouton SOS activé",
+                lat=pos.lat if pos else None,
+                lng=pos.lng if pos else None,
+                alert_level="critical",
+                profile_type=session.profile_type.value if session else "senior",
+                sms_body=build_sms_alert_v1(
+                    person_name,
+                    pos.lat if pos else None,
+                    pos.lng if pos else None,
+                ),
+            )
+        except Exception as e:
+            logger.error(f"SOS SMS failed: {e}")
 
     total_sent = len(sms_results.get("sent", [])) + len(dm_results.get("sent", []))
     total_blocked = len(sms_results.get("blocked", []))
@@ -15153,22 +15160,7 @@ async def guardian_fall_detected(session_id: str, request: Request):
 
     desc = f"Chute détectée (accéléromètre, pic {peak_g:.1f}g)" if peak_g else "Chute détectée par accéléromètre — pas de réponse en 30s"
 
-    sms_results = {"sent": [], "failed": [], "blocked": []}
-    if _alert_channel in ("sms", "both") and contacts and sms_client:
-        try:
-            sms_results = send_guardian_alerts(
-                sms_send_fn=_tracked_sms_send,
-                contacts=contacts,
-                person_name=person_name,
-                description=desc,
-                lat=pos.lat if pos else None,
-                lng=pos.lng if pos else None,
-                alert_level="high",
-                profile_type=session.profile_type.value if session else "senior",
-            )
-        except Exception as e:
-            logger.error(f"Fall SMS failed: {e}")
-
+    # App First — chute : DM Luna en premier, SMS minimaliste en fallback
     dm_results = {"sent": []}
     if _alert_channel in ("luna", "both") and _redis_client:
         try:
@@ -15188,6 +15180,28 @@ async def guardian_fall_detected(session_id: str, request: Request):
             )
         except Exception as e:
             logger.error(f"Fall DM failed: {e}")
+
+    sms_results = {"sent": [], "failed": [], "blocked": []}
+    if _alert_channel in ("sms", "both") and contacts and sms_client:
+        try:
+            from core.guardian.alerts import build_sms_alert_v1
+            sms_results = send_guardian_alerts(
+                sms_send_fn=_tracked_sms_send,
+                contacts=contacts,
+                person_name=person_name,
+                description=desc,
+                lat=pos.lat if pos else None,
+                lng=pos.lng if pos else None,
+                alert_level="high",
+                profile_type=session.profile_type.value if session else "senior",
+                sms_body=build_sms_alert_v1(
+                    person_name,
+                    pos.lat if pos else None,
+                    pos.lng if pos else None,
+                ),
+            )
+        except Exception as e:
+            logger.error(f"Fall SMS failed: {e}")
 
     total_sent = len(sms_results.get("sent", [])) + len(dm_results.get("sent", []))
     total_blocked = len(sms_results.get("blocked", []))

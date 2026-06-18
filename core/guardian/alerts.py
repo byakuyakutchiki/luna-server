@@ -66,6 +66,23 @@ def build_sms_alert(
     return (f"{level_emoji} Luna Guardian\n{body}{footer}")[:320]
 
 
+def build_sms_alert_v1(
+    person_name: str,
+    lat: Optional[float],
+    lng: Optional[float],
+) -> str:
+    """SMS minimaliste App First — SOS et chute V1.
+    Message court, lien Maps, invitation à ouvrir Luna.
+    """
+    name = person_name or "Quelqu'un"
+    maps_link = f"https://maps.google.com/?q={lat},{lng}" if lat and lng else None
+    body = f"⚠️ Luna Guardian\n{name} a demandé de l'aide."
+    if maps_link:
+        body += f"\n\nPosition :\n{maps_link}"
+    body += "\n\nOuvrez Luna pour plus d'informations."
+    return body[:320]
+
+
 def build_sms_cancellation(person_name: str, confirmed_at: str) -> str:
     """SMS d'annulation — envoyé aux contacts après confirmation 'tout va bien' (Policy V2 §6.2)."""
     return (
@@ -139,11 +156,12 @@ def send_guardian_alerts(
     lng: Optional[float],
     alert_level: str,
     profile_type: str,
-
+    sms_body: Optional[str] = None,
 ) -> Dict:
     """
     Envoie les alertes SMS aux contacts de confiance.
-    Retourne un résumé des envois.
+    Si sms_body est fourni, l'utilise directement (App First V1).
+    Sinon, construit le SMS complet via build_sms_alert (GPS immobility, etc.).
     """
     results = {"sent": [], "failed": [], "blocked": [], "call_112_attempted": False}
 
@@ -151,7 +169,7 @@ def send_guardian_alerts(
         logger.warning("Guardian alert: no contacts configured")
         return results
 
-    msg = build_sms_alert(person_name, description, lat, lng, alert_level, profile_type)
+    msg = sms_body if sms_body else build_sms_alert(person_name, description, lat, lng, alert_level, profile_type)
 
     for contact in contacts:
         phone = contact.get("phone", "")
