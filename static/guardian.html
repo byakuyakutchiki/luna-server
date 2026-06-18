@@ -192,8 +192,8 @@ html,body { height:100%; overflow:hidden; background:var(--bg); color:var(--text
 
 /* ─── SOS BUTTON ─────────────────────────── */
 #btn-sos {
-  position:fixed; bottom:100px; right:18px; z-index:350;
-  width:70px; height:70px; border-radius:50%; border:none;
+  position:fixed; bottom:100px; right:18px; z-index:1000;
+  width:72px; height:72px; border-radius:50%; border:none;
   background:radial-gradient(circle at 32% 32%, #ff4444, #8b0000);
   color:#fff; font-size:1.1em; font-weight:900;
   box-shadow:0 0 0 0 rgba(220,38,38,.75);
@@ -366,11 +366,12 @@ select.cfg-inp option { background:#13131f; }
 }
 #vocal-msg { font-size:.86em; color:var(--text); margin-bottom:20px; line-height:1.65; }
 #vocal-cancel {
-  width:100%; padding:13px; background:none; color:var(--muted);
-  border:1px solid var(--border); border-radius:12px; font-size:.88em;
-  cursor:pointer; transition:background .15s;
+  width:100%; padding:17px; background:rgba(239,68,68,0.15); color:#fca5a5;
+  border:2px solid rgba(239,68,68,.5); border-radius:14px; font-size:1em; font-weight:700;
+  cursor:pointer; transition:background .15s, transform .1s;
+  letter-spacing:.01em;
 }
-#vocal-cancel:active { background:var(--border); }
+#vocal-cancel:active { background:rgba(239,68,68,.3); transform:scale(.97); }
 
 /* ─── TOAST ───────────────────────────────── */
 #toast {
@@ -430,12 +431,14 @@ select.cfg-inp option { background:#13131f; }
 
 <!-- RGPD BANNER -->
 <div id="rgpd-banner">
-  <span>🔒 GPS transmis toutes les 10s · Caméra optionnelle · Aucune image stockée</span>
+  <span>🔒 GPS transmis toutes les 10s · Alertes uniquement à vos contacts · Aucune donnée revendue</span>
   <button id="rgpd-why" onclick="openRgpdModal()">Pourquoi ?</button>
 </div>
 
 <!-- SOS BUTTON -->
-<button id="btn-sos" onclick="openSosModal()">🆘</button>
+<button id="btn-sos" onclick="openSosModal()" aria-label="Déclencher une alerte SOS">
+  <div>🆘</div><div style="font-size:.45em;font-weight:800;letter-spacing:.04em;margin-top:2px;">SOS</div>
+</button>
 
 <!-- SHARE BUTTON -->
 <button id="btn-share" onclick="sharePosition()">🔗 Partager</button>
@@ -486,8 +489,8 @@ select.cfg-inp option { background:#13131f; }
   <!-- Voice toggle -->
   <div id="voice-toggle">
     <input type="checkbox" id="voice-chk" onchange="toggleVoice(this.checked)">
-    <label for="voice-chk">🎙️ Alertes vocales</label>
-    <span id="mic-dot" title="État micro Guardian"></span>
+    <label for="voice-chk">🔊 Luna parle lors des alertes</label>
+    <span id="mic-dot" title="Détection vocale Guardian"></span>
     <span id="mic-label" style="font-size:.7em;color:var(--muted);">inactif</span>
   </div>
 
@@ -539,11 +542,10 @@ select.cfg-inp option { background:#13131f; }
     <h2>🔐 Accès nécessaires</h2>
     <p>Pour vous protéger efficacement, Luna Guardian a besoin des autorisations suivantes.</p>
     <ul id="perm-list">
-      <li>📍 <span>Position GPS précise — pour savoir où vous êtes</span></li>
-      <li>🎥 <span>Caméra (optionnel) — analyse de scène IA, aucune image stockée</span></li>
-      <li id="perm-mic">🎤 <span>Microphone — vérification vocale en cas d'alerte</span></li>
-      <li>📡 <span>Transmission GPS au serveur toutes les 10s — position jamais stockée au-delà de 7 jours</span></li>
-      <li>🔔 <span>Notifications — alertes silencieuses en temps réel</span></li>
+      <li>📍 <span>Position GPS précise — pour savoir où vous êtes en cas d'urgence</span></li>
+      <li id="perm-mic">🎤 <span>Microphone — détection vocale des mots d'urgence ("au secours", "à l'aide"…)</span></li>
+      <li>📡 <span>Transmission GPS toutes les 10s — position conservée 7 jours maximum</span></li>
+      <li>🔔 <span>Notifications — alertes en temps réel pour vos contacts</span></li>
     </ul>
     <button id="perm-allow" onclick="grantPermissions()">Autoriser et démarrer</button>
     <button id="perm-skip"  onclick="closePerm()">Plus tard</button>
@@ -573,6 +575,11 @@ select.cfg-inp option { background:#13131f; }
     Urgence : <strong style="color:#fca5a5;">112</strong> &nbsp;
     Police : <strong style="color:#fca5a5;">17</strong></p>
     <button id="sos-go" onclick="triggerSOS()">🆘 Confirmer l'alerte</button>
+    <div style="display:flex;gap:8px;margin-bottom:8px;">
+      <a href="tel:15" style="flex:1;display:block;padding:11px;background:rgba(16,185,129,.12);color:#6ee7b7;border:1px solid rgba(16,185,129,.3);border-radius:12px;text-align:center;font-size:.88em;font-weight:700;text-decoration:none;">📞 15 SAMU</a>
+      <a href="tel:112" style="flex:1;display:block;padding:11px;background:rgba(239,68,68,.1);color:#fca5a5;border:1px solid rgba(239,68,68,.25);border-radius:12px;text-align:center;font-size:.88em;font-weight:700;text-decoration:none;">📞 112</a>
+      <a href="tel:17" style="flex:1;display:block;padding:11px;background:rgba(59,130,246,.1);color:#93c5fd;border:1px solid rgba(59,130,246,.25);border-radius:12px;text-align:center;font-size:.88em;font-weight:700;text-decoration:none;">📞 17 Police</a>
+    </div>
     <button id="sos-no" onclick="closeSosModal()">Annuler</button>
   </div>
 </div>
@@ -583,7 +590,7 @@ select.cfg-inp option { background:#13131f; }
     <div style="font-size:3.2em;margin-bottom:8px;">🎤</div>
     <div id="vocal-count">5</div>
     <p id="vocal-msg">J'ai entendu une demande d'aide.<br>J'alerte vos contacts dans <strong id="vocal-n">5</strong> secondes.<br><span style="color:var(--muted);font-size:.85em;">Dites <em>annule</em> ou appuyez sur le bouton si c'est une erreur.</span></p>
-    <button id="vocal-cancel" onclick="cancelVocalCountdown()">Annuler — tout va bien</button>
+    <button id="vocal-cancel" onclick="cancelVocalCountdown()">✋ ANNULER — Fausse alerte</button>
   </div>
 </div>
 
@@ -658,6 +665,9 @@ function _layoutUpdate(){
   }
   rb.style.bottom=bh+'px';
   document.getElementById('toast').style.bottom=(totalBottom+10)+'px';
+  // SOS button flotte toujours 16px au-dessus du panel
+  var sos=document.getElementById('btn-sos');
+  if(sos&&sos.style.display!=='none') sos.style.bottom=(bh+16)+'px';
   if(MAP) setTimeout(function(){MAP.invalidateSize();},320);
 }
 window.addEventListener('resize',_layoutUpdate);
