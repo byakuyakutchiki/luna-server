@@ -7,7 +7,7 @@ Dernière mise à jour : 2026-06-17 (DeepSeek, validation Ludovic)
 | Couche | État | Détail |
 |---|---|---|
 | GitHub `main` | ✅ À jour | luna_web.py + Guardian Policy V2 (Niveau 3 + seuils) |
-| Google Cloud Run | ✅ Déployé | `luna-beta`, revision `luna-beta-00680-fhz`, region `europe-west1`, projet `crypto-parser-475411-k4` |
+| Google Cloud Run | ✅ Déployé | `luna-beta`, revision `luna-beta-00684-zfr`, region `europe-west1`, projet `crypto-parser-475411-k4` |
 | URL production | ✅ | `https://luna-beta-674304336025.europe-west1.run.app` |
 | Redis (Upstash) | ✅ Connecté | `genuine-mammal-135122.upstash.io:6379` |
 | APK Android | ✅ v2.8 | WebView → Cloud Run URL, User-Agent `LunaApp/2.8` |

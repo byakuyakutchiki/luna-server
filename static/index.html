@@ -3363,7 +3363,7 @@ var _concGrids, _concResultsPanel, _concResultsBody, _concResultsTitle;
     "Cherche-moi un hotel": function() { _concShowHotelForm(); },
     "Trouve-moi un restaurant": function() { _concShowRestaurantForm(); },
     "Cherche-moi sur internet": function() { _concShowSearchForm(); },
-    "Trouve-moi un service ou commerce pres de chez moi": function() { _concDirect("search_places", {query: "services commerces", category: "commerce"}, "Autour de moi", _renderPlaces); },
+    "Trouve-moi un service ou commerce pres de chez moi": function() { _concShowPlacesForm(); },
     "Quel temps fait-il aujourd'hui ?": function() { _concDirect("weather", {}, "Meteo", _renderWeather); },
     "Quelles sont les actualites du jour ?": function() { _concDirect("news", {category: "general", count: 8}, "Actualites", _renderNews); },
     "Envoie un SMS a": function() { _concShowSmsForm(); },
@@ -3533,6 +3533,17 @@ function _concShowSearchForm() {
     {name: "query", label: "Que cherches-tu ?", placeholder: "ex: meilleur dentiste Paris 15e"},
   ], "Rechercher", function(v) {
     if (v.query) _concDirect("search_web", {query: v.query}, "Resultats : " + v.query, _renderWebResults);
+  });
+}
+function _concShowPlacesForm() {
+  _concModalShow("Autour de moi", [
+    {name: "query", label: "Que cherches-tu ?", placeholder: "ex: pharmacie, boulangerie, plombier..."},
+    {name: "location", label: "Ville (optionnel)", placeholder: "ex: Paris, Lyon... — laisse vide pour ta ville"},
+  ], "Rechercher", function(v) {
+    if (!v.query) return;
+    var params = {query: v.query};
+    if (v.location) params.location = v.location;
+    _concDirect("search_places", params, "Autour de moi : " + v.query, _renderPlaces);
   });
 }
 function _concShowSmsForm() {

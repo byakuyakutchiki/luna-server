@@ -38,6 +38,14 @@ add_var "OPENAI_VOICE_NAME"
 add_var "OPENAI_REALTIME_MODEL"
 add_var "GUARDIAN_SMS_ENABLED"
 add_var "GUARDIAN_CALL_ENABLED"
+# Twilio — SMS et appels vocaux (conciergerie + Guardian)
+add_var "TWILIO_ACCOUNT_SID"
+add_var "TWILIO_AUTH_TOKEN"
+add_var "TWILIO_API_KEY"
+add_var "TWILIO_API_SECRET"
+add_var "TWILIO_PHONE_NUMBER"
+add_var "TWILIO_SMS_FROM"
+add_var "TWILIO_WHATSAPP_NUMBER"
 
 # Joindre avec des virgules
 vars_string=$(IFS=,; echo "${update_vars[*]}")

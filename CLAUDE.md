@@ -4,6 +4,55 @@ Ce fichier sert de point de passage entre Ludo, Codex, Claude, Kimi et DeepSeek 
 
 ---
 
+## ⚠️ RÈGLE ABSOLUE AVANT TOUTE MODIFICATION
+
+Claude, **AVANT DE MODIFIER QUOI QUE CE SOIT** :
+
+Tu dois considérer cette demande comme un **refactoring ciblé** et **NON comme une refonte générale** de l'application.
+
+### Tu ne dois PAS :
+- supprimer des fonctionnalités existantes
+- supprimer des écrans existants
+- supprimer des routes existantes
+- supprimer des workflows existants
+- supprimer des services existants
+- supprimer des composants existants
+- réécrire des modules qui ne sont pas concernés
+- simplifier l'application en retirant des fonctionnalités
+- casser la compatibilité des fonctionnalités actuelles
+
+### PÉRIMÈTRE AUTORISÉ (interventions ciblées)
+
+**Luna** : expérience conversationnelle, mémoire utilisateur, vocal, widget Hey Luna, chargement du contexte.
+
+**Guardian** : déclenchement vocal, widget sécurité, messages d'urgence, confirmations vocales, robustesse des alertes.
+
+**Coordination Luna ↔ Iris ↔ Guardian** : circulation du contexte, orchestration, expérience utilisateur.
+
+### PÉRIMÈTRE INTERDIT (sauf nécessité technique critique)
+- Iris Workspace (moteur de décisions, réserves, dossier final, dashboard, workflow, analyse, propositions, sources, actions)
+- Architecture SaaS, licences, sécurité serveur, authentification, facturation, monitoring
+- Infrastructure Cloud Run, architecture Redis
+- Architecture Guardian existante
+- APIs existantes qui fonctionnent déjà
+
+### PRINCIPE DE PRÉCAUTION
+
+Si un changement risque de :
+- supprimer une fonctionnalité
+- casser un workflow
+- modifier un comportement existant
+
+→ **arrêter** — expliquer à Ludo — **demander validation avant de continuer**.
+
+### OBJECTIF
+
+Nous ne faisons **PAS** une réécriture de Luna, de YAWatch ou du Workspace.
+Nous faisons uniquement une **amélioration ciblée** de l'expérience vocale, du contexte utilisateur et du mode Guardian.
+**Tout le reste doit continuer à fonctionner exactement comme aujourd'hui.**
+
+---
+
 ## Gouvernance IA — Méthode de travail
 
 ### Rôles
