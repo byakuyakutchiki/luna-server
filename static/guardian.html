@@ -146,7 +146,8 @@ html,body { height:100%; overflow:hidden; background:var(--bg); color:var(--text
 #bottom {
   position:fixed; bottom:0; left:0; right:0; z-index:300;
   background:rgba(8,8,16,0.97); backdrop-filter:blur(20px) saturate(180%);
-  border-top:1px solid var(--border);
+  border-top:1px solid rgba(16,185,129,.18);
+  box-shadow:0 -6px 36px rgba(16,185,129,.05);
   padding-bottom:env(safe-area-inset-bottom);
   transition:height .32s cubic-bezier(.4,0,.2,1);
 }
@@ -155,20 +156,23 @@ html,body { height:100%; overflow:hidden; background:var(--bg); color:var(--text
 
 /* Trust stats bar */
 #trust-bar {
-  display:none; padding:4px 14px 8px;
+  display:none; padding:6px 14px 8px;
   border-bottom:1px solid var(--border);
 }
 .trust-stats { display:flex; gap:0; }
 .trust-stat {
-  flex:1; text-align:center; padding:6px 4px;
+  flex:1; text-align:center; padding:8px 4px;
   border-right:1px solid var(--border);
 }
 .trust-stat:last-child { border-right:none; }
-.trust-val { font-size:1.2em; font-weight:800; color:var(--trust); display:block;
+.trust-stat-inner { display:flex; align-items:baseline; justify-content:center; gap:4px; }
+.trust-ico { font-size:.85em; }
+.trust-val { font-size:1.4em; font-weight:800; color:var(--trust); display:inline;
   transition:color .4s; }
 .trust-val.gold { color:var(--gold); }
 .trust-val.platinum { color:var(--platinum); }
-.trust-lbl { font-size:.65em; color:var(--muted); margin-top:1px; display:block; }
+.trust-lbl { font-size:.62em; color:var(--muted); margin-top:3px; display:block;
+  letter-spacing:.02em; }
 #trust-level-badge {
   display:inline-flex; align-items:center; gap:4px;
   margin:0 14px 6px; padding:4px 12px; border-radius:20px;
@@ -179,8 +183,10 @@ html,body { height:100%; overflow:hidden; background:var(--bg); color:var(--text
 
 /* Risk bar */
 #risk-wrap { padding:4px 14px 8px; }
-#risk-row { display:flex; justify-content:space-between; font-size:.76em; color:var(--muted); margin-bottom:5px; }
-#risk-track { height:5px; background:var(--border); border-radius:3px; overflow:hidden; }
+#risk-row { display:flex; justify-content:space-between; align-items:center;
+  font-size:.76em; color:var(--muted); margin-bottom:5px; }
+#risk-track { height:4px; background:var(--border); border-radius:3px; overflow:hidden;
+  transition:opacity .5s; }
 #risk-fill { height:100%; width:0; border-radius:3px; background:var(--green);
   transition:width .7s cubic-bezier(.4,0,.2,1), background .5s; }
 
@@ -507,15 +513,24 @@ select.cfg-inp option { background:#13131f; }
   <div id="trust-bar">
     <div class="trust-stats">
       <div class="trust-stat">
-        <span class="trust-val" id="ts-streak">0</span>
-        <span class="trust-lbl">jours sans alerte</span>
+        <div class="trust-stat-inner">
+          <span class="trust-ico">🛡️</span>
+          <span class="trust-val" id="ts-streak">0</span>
+        </div>
+        <span class="trust-lbl">jours protégé</span>
       </div>
       <div class="trust-stat">
-        <span class="trust-val" id="ts-checkins">0</span>
+        <div class="trust-stat-inner">
+          <span class="trust-ico">✅</span>
+          <span class="trust-val" id="ts-checkins">0</span>
+        </div>
         <span class="trust-lbl">check-ins</span>
       </div>
       <div class="trust-stat">
-        <span class="trust-val" id="ts-sessions">0</span>
+        <div class="trust-stat-inner">
+          <span class="trust-ico">🔄</span>
+          <span class="trust-val" id="ts-sessions">0</span>
+        </div>
         <span class="trust-lbl">sessions</span>
       </div>
     </div>
@@ -524,7 +539,7 @@ select.cfg-inp option { background:#13131f; }
 
   <!-- Risk -->
   <div id="risk-wrap">
-    <div id="risk-row"><span>Surveillance</span><span id="risk-txt">–</span></div>
+    <div id="risk-row"><span id="risk-label">État de sécurité</span><span id="risk-txt">–</span></div>
     <div id="risk-track"><div id="risk-fill"></div></div>
   </div>
 
@@ -806,16 +821,21 @@ function updateRisk(score,level,desc){
   RISK_LEVEL=level||'low';
   var pct=Math.round((score||0)*100);
   var c=RISK_COLORS[RISK_LEVEL]||'#10b981';
-  document.getElementById('risk-fill').style.width=pct+'%';
+  // Barre — au repos la barre est quasi transparente, visible seulement en alerte
+  var track=document.getElementById('risk-track');
+  track.style.opacity=RISK_LEVEL==='low'?'0.3':'1';
+  document.getElementById('risk-fill').style.width=RISK_LEVEL==='low'?'100%':pct+'%';
   document.getElementById('risk-fill').style.background=c;
-  document.getElementById('risk-txt').textContent=({low:'Normal',medium:'Attention',high:'Alerte',critical:'CRITIQUE'}[RISK_LEVEL]||RISK_LEVEL)+' '+pct+'%';
+  // Texte statut
+  var txtMap={low:'🛡️ Protégé',medium:'⚠️ Attention '+pct+'%',high:'⚠️ Alerte '+pct+'%',critical:'🚨 Critique '+pct+'%'};
+  var lblMap={low:'État de sécurité',medium:'Surveillance',high:'Vigilance',critical:'⚠️ Alerte'};
+  document.getElementById('risk-txt').textContent=txtMap[RISK_LEVEL]||RISK_LEVEL;
   document.getElementById('risk-txt').style.color=c;
-  var badge=document.getElementById('hdr-risk');
-  if(RISK_LEVEL!=='low'){
-    badge.style.display='inline-block'; badge.style.background=c;
-    badge.style.color=RISK_LEVEL==='medium'?'#000':'#fff'; badge.textContent=RISK_LEVEL.toUpperCase();
-  } else badge.style.display='none';
+  var rl=document.getElementById('risk-label');
+  if(rl) rl.textContent=lblMap[RISK_LEVEL]||'Surveillance';
+  // Dot header — CSS class uniquement (plus d'inline background)
   var dot=document.getElementById('hdr-dot');
+  dot.style.background='';
   dot.className=SID?(RISK_LEVEL==='high'||RISK_LEVEL==='critical'?'alert':'live'):'';
   if(MARKER) MARKER.setIcon(personIcon(c));
   if(TRAIL) TRAIL.setStyle({color:c});
