@@ -23,32 +23,38 @@ html,body { height:100%; overflow:hidden; background:var(--bg); color:var(--text
 
 /* ─── HEADER ─────────────────────────────── */
 #hdr {
-  position:fixed; top:0; left:0; right:0; height:52px; z-index:500;
-  background:rgba(8,8,16,0.92); backdrop-filter:blur(16px) saturate(180%);
+  position:fixed; top:0; left:0; right:0; height:60px; z-index:500;
+  background:rgba(8,8,16,0.96); backdrop-filter:blur(20px) saturate(200%);
   border-bottom:1px solid var(--border);
-  display:flex; align-items:center; padding:0 14px; gap:10px;
+  display:flex; align-items:center; padding:0 14px; gap:0;
   padding-top:env(safe-area-inset-top);
 }
 #hdr-back { color:var(--muted); font-size:0.8em; text-decoration:none; padding:5px 8px;
-  border:1px solid var(--border); border-radius:8px; transition:border-color .2s; }
+  border:1px solid var(--border); border-radius:8px; transition:border-color .2s;
+  flex-shrink:0; margin-right:10px; }
 #hdr-back:active { border-color:var(--purple-light); }
-#hdr-title { font-weight:700; font-size:0.95em; flex:1; }
-#hdr-title span { color:#f87171; }
+#hdr-center { flex:1; display:flex; align-items:center; gap:7px; min-width:0; }
+#hdr-icon { font-size:1.2em; flex-shrink:0; filter:drop-shadow(0 0 6px rgba(16,185,129,.4)); }
+#hdr-title { font-weight:800; font-size:1.02em; letter-spacing:.03em; color:var(--text); white-space:nowrap; }
+#hdr-title span { color:inherit; }
 #hdr-dot { width:9px; height:9px; border-radius:50%; background:var(--muted); flex-shrink:0; transition:background .4s; }
 #hdr-dot.live { background:var(--green); box-shadow:0 0 8px var(--green); animation:dotpulse 2s infinite; }
 #hdr-dot.alert { background:var(--red); box-shadow:0 0 12px var(--red); animation:dotpulse 0.5s infinite; }
 @keyframes dotpulse { 0%,100%{opacity:1}50%{opacity:.3} }
-#hdr-risk { font-size:0.72em; font-weight:700; padding:3px 9px; border-radius:14px; display:none;
-  transition:background .3s; }
-#hdr-badge { font-size:.78em; padding:2px 7px; border-radius:10px; display:none;
-  background:rgba(245,158,11,0.15); color:var(--gold); border:1px solid rgba(245,158,11,.25); }
+#hdr-right { display:flex; align-items:center; gap:7px; flex-shrink:0; }
+#hdr-status { font-size:.7em; font-weight:700; padding:3px 9px; border-radius:12px; display:none;
+  color:var(--green); background:rgba(16,185,129,.12); border:1px solid rgba(16,185,129,.2);
+  white-space:nowrap; transition:color .3s,background .3s,border-color .3s; }
+#hdr-badge { font-size:.78em; padding:3px 8px; border-radius:10px; display:none;
+  background:rgba(245,158,11,0.12); color:var(--gold); border:1px solid rgba(245,158,11,.2); }
+#hdr-risk { display:none !important; }
 
 /* ─── MAP ────────────────────────────────── */
-#map { position:fixed; top:52px; left:0; right:0; bottom:0; z-index:1; transition:bottom .35s cubic-bezier(.4,0,.2,1); }
+#map { position:fixed; top:60px; left:0; right:0; bottom:0; z-index:1; transition:bottom .35s cubic-bezier(.4,0,.2,1); }
 
 /* ─── ADDRESS CARD ───────────────────────── */
 #addr-card {
-  position:fixed; top:62px; left:12px; right:12px; z-index:100;
+  position:fixed; top:68px; left:12px; right:12px; z-index:100;
   background:rgba(8,8,16,0.86); backdrop-filter:blur(20px) saturate(160%);
   border:1px solid var(--border); border-radius:20px;
   padding:11px 16px;
@@ -65,7 +71,7 @@ html,body { height:100%; overflow:hidden; background:var(--bg); color:var(--text
 
 /* ─── EVENTS PANEL ───────────────────────── */
 #ev-toggle {
-  position:fixed; right:12px; top:62px; z-index:200;
+  position:fixed; right:12px; top:68px; z-index:200;
   background:var(--card); border:1px solid var(--border); border-radius:10px;
   padding:6px 10px; cursor:pointer; font-size:0.74em; color:var(--muted);
   backdrop-filter:blur(8px); display:flex; align-items:center; gap:5px;
@@ -208,24 +214,70 @@ html,body { height:100%; overflow:hidden; background:var(--bg); color:var(--text
 }
 #btn-sos:active { transform:scale(.9); animation:none; box-shadow:0 0 0 4px rgba(220,38,38,.5); }
 
-/* Voice toggle */
+/* ─── VOICE CARD HERO ──────────────────────── */
 #voice-toggle {
-  display:none; align-items:center; gap:8px;
-  padding:0 14px 6px; font-size:.75em; color:var(--muted);
+  display:none; flex-direction:column; gap:6px;
+  padding:0 14px 10px;
 }
-#voice-chk { accent-color:var(--purple); width:15px; height:15px; cursor:pointer; }
-#voice-toggle label { cursor:pointer; }
-/* Indicateur micro actif */
+/* Card principale */
+#voice-card {
+  display:flex; align-items:center; gap:12px;
+  padding:13px 15px; border-radius:18px;
+  background:rgba(16,185,129,.04); border:1px solid rgba(16,185,129,.15);
+  transition:border-color .5s,background .5s,box-shadow .5s;
+}
+#voice-card.state-listening {
+  background:rgba(16,185,129,.07); border-color:rgba(16,185,129,.38);
+  box-shadow:0 0 22px rgba(16,185,129,.08),inset 0 0 28px rgba(16,185,129,.04);
+}
+#voice-card.state-error {
+  background:rgba(239,68,68,.04); border-color:rgba(239,68,68,.22);
+}
+/* Barres audio */
+#voice-waves { display:flex; align-items:center; gap:3px; flex-shrink:0; height:28px; }
+.wb { display:block; width:3px; border-radius:3px; background:var(--green);
+  opacity:.28; transition:background .4s,opacity .4s;
+  animation:wave-idle 2.2s ease-in-out infinite; }
+.wb:nth-child(1){animation-delay:0s}
+.wb:nth-child(2){animation-delay:.18s}
+.wb:nth-child(3){animation-delay:.36s}
+.wb:nth-child(4){animation-delay:.54s}
+.wb:nth-child(5){animation-delay:.72s}
+@keyframes wave-idle{0%,100%{height:4px}50%{height:10px}}
+#voice-card.state-listening .wb {
+  opacity:1; animation:wave-active .85s ease-in-out infinite;
+}
+#voice-card.state-listening .wb:nth-child(1){animation-delay:0s}
+#voice-card.state-listening .wb:nth-child(2){animation-delay:.1s}
+#voice-card.state-listening .wb:nth-child(3){animation-delay:.2s}
+#voice-card.state-listening .wb:nth-child(4){animation-delay:.3s}
+#voice-card.state-listening .wb:nth-child(5){animation-delay:.4s}
+@keyframes wave-active{0%,100%{height:5px}50%{height:22px}}
+#voice-card.state-error .wb { background:#ef4444; opacity:.35; animation:none; height:4px; }
+/* Info */
+#voice-info { flex:1; min-width:0; }
+#voice-title { font-size:.85em; font-weight:700; letter-spacing:.07em;
+  color:var(--text); margin-bottom:3px; }
+#voice-hint { font-size:.71em; color:var(--muted); line-height:1.35; }
+#voice-hint em { font-style:normal; color:var(--green); font-weight:600; }
+/* Badge statut */
+#voice-badge { display:flex; flex-direction:column; align-items:center; gap:3px; flex-shrink:0; }
 #mic-dot {
-  width:8px; height:8px; border-radius:50%; background:#6b7280;
-  display:inline-block; flex-shrink:0; transition:background .3s;
+  width:8px; height:8px; border-radius:50%; background:var(--muted);
+  display:block; transition:background .3s,box-shadow .3s;
 }
-#mic-dot.listening { background:#22c55e; animation:mic-pulse 1.4s infinite; }
-#mic-dot.error     { background:#ef4444; }
-@keyframes mic-pulse {
-  0%,100%{ transform:scale(1); opacity:1; }
-  50%    { transform:scale(1.5); opacity:.6; }
-}
+#mic-dot.listening { background:#22c55e; box-shadow:0 0 8px #22c55e; animation:mic-pulse 1.4s infinite; }
+#mic-dot.error { background:#ef4444; box-shadow:0 0 6px #ef4444; }
+@keyframes mic-pulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.5);opacity:.6}}
+#mic-label { font-size:.58em; color:var(--muted); text-transform:uppercase; letter-spacing:.05em;
+  text-align:center; transition:color .3s; }
+#voice-card.state-listening #mic-label { color:var(--green); }
+#voice-card.state-error #mic-label { color:#ef4444; }
+/* Rangée vocal-parole */
+#voice-speech { display:flex; align-items:center; gap:8px;
+  padding:0 4px; font-size:.75em; color:var(--muted); }
+#voice-chk { accent-color:var(--purple); width:14px; height:14px; cursor:pointer; }
+#voice-speech label { cursor:pointer; }
 
 /* Config toggle */
 #cfg-toggle { text-align:center; padding:0 14px 8px; }
@@ -393,12 +445,16 @@ select.cfg-inp option { background:#13131f; }
 <!-- HEADER -->
 <div id="hdr">
   <a href="/" id="hdr-back">← App</a>
-  <span>🛡️</span>
-  <span id="hdr-title">Luna <span>Guardian</span></span>
-  <div id="hdr-dot"></div>
-  <span id="hdr-status" style="font-size:.78em;color:var(--muted);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;">Inactif</span>
-  <span id="hdr-badge"></span>
-  <span id="hdr-risk"></span>
+  <div id="hdr-center">
+    <span id="hdr-icon">🛡️</span>
+    <span id="hdr-title">Guardian</span>
+    <div id="hdr-dot"></div>
+  </div>
+  <div id="hdr-right">
+    <span id="hdr-status"></span>
+    <span id="hdr-badge"></span>
+  </div>
+  <span id="hdr-risk" style="display:none"></span>
 </div>
 
 <!-- MAP -->
@@ -486,12 +542,26 @@ select.cfg-inp option { background:#13131f; }
     <button id="btn-stop"  class="ctrl" onclick="guardianStop()">⏹ Arrêter</button>
   </div>
 
-  <!-- Voice toggle -->
+  <!-- Voice Card Hero -->
   <div id="voice-toggle">
-    <input type="checkbox" id="voice-chk" onchange="toggleVoice(this.checked)">
-    <label for="voice-chk">🔊 Luna parle lors des alertes</label>
-    <span id="mic-dot" title="Détection vocale Guardian"></span>
-    <span id="mic-label" style="font-size:.7em;color:var(--muted);">inactif</span>
+    <div id="voice-card">
+      <div id="voice-waves">
+        <span class="wb"></span><span class="wb"></span><span class="wb"></span>
+        <span class="wb"></span><span class="wb"></span>
+      </div>
+      <div id="voice-info">
+        <div id="voice-title">🎤 LUNA ÉCOUTE</div>
+        <div id="voice-hint">Dites <em>"à l'aide"</em> pour alerter vos contacts</div>
+      </div>
+      <div id="voice-badge">
+        <span id="mic-dot"></span>
+        <span id="mic-label">inactif</span>
+      </div>
+    </div>
+    <div id="voice-speech">
+      <input type="checkbox" id="voice-chk" onchange="toggleVoice(this.checked)">
+      <label for="voice-chk">🔊 Luna parle lors des alertes</label>
+    </div>
   </div>
 
   <!-- Config toggle -->
@@ -981,7 +1051,7 @@ function startGps(){
       _wasInZone=inZone;
       if(d.risk_level&&d.risk_level!=='low') loadEvents();
     }).catch(function(){});
-  },function(e){ setHdrStatus('GPS: '+e.message,'#ef4444',false); showToast('❌ GPS: '+e.message,4000); },
+  },function(e){ showToast('⚠️ GPS: '+e.message,4000); },
   {enableHighAccuracy:true,maximumAge:5000,timeout:20000});
 }
 var _wasInZone=false;
@@ -1114,18 +1184,23 @@ function _norm(t){
 function _setMicState(state){
   var dot=document.getElementById('mic-dot');
   var lbl=document.getElementById('mic-label');
+  var card=document.getElementById('voice-card');
   if(!dot) return;
   dot.className='';
+  if(card) card.className='';
   if(state==='listening'){
     dot.classList.add('listening');
     if(lbl) lbl.textContent='écoute';
+    if(card) card.classList.add('state-listening');
     _vocalListening=true;
   } else if(state==='error'){
     dot.classList.add('error');
-    if(lbl) lbl.textContent='micro interrompu';
+    if(lbl) lbl.textContent='inactif';
+    if(card) card.classList.add('state-error');
     _vocalListening=false;
   } else {
-    if(lbl) lbl.textContent='inactif';
+    if(lbl) lbl.textContent='veille';
+    if(card) card.classList.add('state-off');
     _vocalListening=false;
   }
 }
@@ -1419,9 +1494,17 @@ function showDailySummary(){
 
 // ── STATUS UI ─────────────────────────────────
 function setHdrStatus(label,color,live){
-  document.getElementById('hdr-status').textContent=label||'';
-  document.getElementById('hdr-dot').style.background=color||'var(--muted)';
-  document.getElementById('hdr-dot').className=live?(RISK_LEVEL==='high'||RISK_LEVEL==='critical'?'alert':'live'):'';
+  var el=document.getElementById('hdr-status');
+  var show=label&&label!=='Inactif'&&label!=='Arrêté';
+  el.textContent=show?label:'';
+  el.style.display=show?'inline-block':'none';
+  if(show&&color){
+    el.style.color=color; el.style.background=color+'22';
+    el.style.borderColor=color+'44';
+  } else { el.style.color=''; el.style.background=''; el.style.borderColor=''; }
+  var dot=document.getElementById('hdr-dot');
+  dot.style.background=''; // laisser les classes CSS gérer la couleur
+  dot.className=live?(RISK_LEVEL==='high'||RISK_LEVEL==='critical'?'alert':'live'):'';
 }
 
 // ── UTILS ─────────────────────────────────────
@@ -1528,7 +1611,7 @@ function toggleGuardianFriend(friend_tid,add){
       var s=d.sessions[0]; SID=s.session_id;
       syncAuthToken();
       if(window.LunaBridge&&LunaBridge.setGuardianSession) LunaBridge.setGuardianSession(SID);
-      setHdrStatus('Reprise — '+(s.profile_type||'?'),null,true);
+      setHdrStatus('ACTIF',null,true);
       document.getElementById('btn-start').style.display='none';
       document.getElementById('btn-stop').style.display='flex';
       document.getElementById('btn-sos').style.display='flex';
