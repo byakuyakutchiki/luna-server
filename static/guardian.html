@@ -312,6 +312,31 @@ select.cfg-inp option { background:#13131f; }
 #zone-btn:active { background:rgba(124,58,237,.25); }
 #zone-st { font-size:.73em; color:var(--muted); margin-top:4px; text-align:center; }
 
+/* ─── CONTACTS CHIPS ─────────────────────── */
+#contacts-bar { display:none; padding:6px 14px 8px; border-bottom:1px solid var(--border); }
+#contacts-chips { display:flex; flex-wrap:wrap; gap:6px; margin-top:2px; }
+.contact-chip {
+  display:inline-flex; align-items:center; gap:6px;
+  padding:5px 10px 5px 5px; border-radius:20px;
+  background:rgba(255,255,255,.04); border:1px solid var(--border);
+  transition:border-color .2s;
+}
+.contact-chip:hover { border-color:rgba(255,255,255,.18); }
+.contact-avatar {
+  width:26px; height:26px; border-radius:50%; flex-shrink:0;
+  font-size:.68em; font-weight:800; color:#fff;
+  display:flex; align-items:center; justify-content:center;
+  letter-spacing:.02em;
+}
+.contact-name { font-size:.74em; color:var(--text); font-weight:600; max-width:80px;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.contact-badge { font-size:.58em; font-weight:700; padding:1px 6px; border-radius:8px;
+  text-transform:uppercase; letter-spacing:.04em; }
+.contact-badge.sms { background:rgba(255,255,255,.07); color:var(--muted); }
+.contact-badge.luna { background:rgba(16,185,129,.15); color:var(--green); }
+.contact-badge.online { background:rgba(16,185,129,.22); color:#4ade80;
+  box-shadow:0 0 6px rgba(16,185,129,.2); }
+
 /* ─── SHARE BUTTON ────────────────────────── */
 #btn-share {
   background:rgba(124,58,237,0.1); border:1px solid rgba(124,58,237,.28);
@@ -538,11 +563,9 @@ select.cfg-inp option { background:#13131f; }
   </div>
 
   <!-- Contacts de confiance -->
-  <div id="contacts-bar" style="display:none;padding:4px 14px 6px;border-bottom:1px solid var(--border);">
-    <div style="font-size:.75em;color:var(--muted);">📱 Contacts SMS d'urgence :</div>
-    <div id="contacts-list" style="font-size:.8em;color:var(--text);margin-top:3px;">Chargement…</div>
-    <div style="font-size:.75em;color:var(--muted);margin-top:6px;">👥 Amis Luna protecteurs :</div>
-    <div id="guardian-friends-bar" style="font-size:.8em;color:var(--text);margin-top:3px;">–</div>
+  <div id="contacts-bar">
+    <div style="font-size:.68em;color:var(--muted);margin-bottom:4px;letter-spacing:.04em;text-transform:uppercase;">Contacts protecteurs</div>
+    <div id="contacts-chips"></div>
   </div>
 
   <!-- Controls -->
@@ -1549,45 +1572,66 @@ window.lunaFallCancelled = function() {
 };
 
 // ── CONTACTS DE CONFIANCE ─────────────────────
+// ── CONTACTS — avatars chips ──────────────────
+var _smsContacts=[], _gFriendsAll=[];
+var _avatarPalette=['#6366f1','#8b5cf6','#ec4899','#f59e0b','#10b981','#3b82f6','#ef4444','#14b8a6'];
+function _avatarColor(name){
+  var h=0; for(var i=0;i<name.length;i++) h=(h*31+name.charCodeAt(i))&0xffff;
+  return _avatarPalette[h%_avatarPalette.length];
+}
+function _initials(name){
+  var p=(name||'?').trim().split(/\s+/);
+  return (p[0][0]+(p[1]?p[1][0]:'')).toUpperCase();
+}
+function _contactChip(name,badge,badgeClass){
+  var color=_avatarColor(name);
+  var inits=_initials(name);
+  var short=name.length>10?name.split(/\s+/)[0]:name;
+  return '<div class="contact-chip">'
+    +'<span class="contact-avatar" style="background:'+color+'">'+inits+'</span>'
+    +'<span class="contact-name">'+escH(short)+'</span>'
+    +'<span class="contact-badge '+badgeClass+'">'+badge+'</span>'
+    +'</div>';
+}
+function _renderContactChips(){
+  var el=document.getElementById('contacts-chips');
+  if(!el) return;
+  var html='';
+  _smsContacts.forEach(function(c){
+    var name=c.name||c.first_name||'Contact';
+    html+=_contactChip(name,'SMS','sms');
+  });
+  var trusted=_gFriendsAll.filter(function(f){return f.is_guardian_contact;});
+  trusted.forEach(function(f){
+    var name=f.nickname||'Ami';
+    var badge=f.is_online?'Luna 🟢':'Luna';
+    var cls=f.is_online?'online':'luna';
+    html+=_contactChip(name,badge,cls);
+  });
+  if(!html){
+    el.innerHTML='<span style="font-size:.75em;color:var(--red);">Aucun contact configuré</span>';
+  } else {
+    el.innerHTML=html;
+  }
+}
 function loadContacts(){
   authFetch('/api/contacts').then(function(r){return r.json();}).then(function(d){
-    var contacts=d.contacts||[];
-    var el=document.getElementById('contacts-list');
-    if(!contacts.length){
-      el.textContent='Aucun contact configuré — ajoutez des contacts de confiance dans l\'app';
-      el.style.color='var(--red)'; return;
-    }
-    el.style.color='var(--green)';
-    el.textContent=contacts.map(function(c){
-      return (c.name||c.first_name||'Contact')+' '+(c.phone?'('+c.phone+')':'');
-    }).join(' · ');
-  }).catch(function(){
-    document.getElementById('contacts-list').textContent='Impossible de charger les contacts';
-  });
+    _smsContacts=d.contacts||[];
+    _renderContactChips();
+  }).catch(function(){});
 }
 
 // ── AMIS LUNA PROTECTEURS ─────────────────────
-var _gFriendsAll=[];
 function loadGuardianFriends(){
   authFetch('/api/social/friends').then(function(r){return r.json();}).then(function(d){
     _gFriendsAll=d.friends||[];
-    _renderGuardianBar();
+    _renderContactChips();
     _renderGuardianCfg();
   }).catch(function(){});
 }
 function _renderGuardianBar(){
-  var el=document.getElementById('guardian-friends-bar');
-  if(!el) return;
-  var trusted=_gFriendsAll.filter(function(f){return f.is_guardian_contact;});
-  if(!trusted.length){
-    el.style.color='var(--muted)';
-    el.textContent='Aucun ami sélectionné — tous tes amis seront alertés';
-    return;
-  }
-  el.style.color='var(--green)';
-  el.textContent=trusted.map(function(f){
-    return (f.nickname||'Ami')+(f.is_online?' 🟢':'');
-  }).join(' · ');
+  // Kept for compatibility — chips now rendered by _renderContactChips
+  _renderContactChips();
 }
 function _renderGuardianCfg(){
   var el=document.getElementById('guardian-friends-cfg');
