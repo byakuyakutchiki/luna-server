@@ -41,7 +41,7 @@ html,body { height:100%; overflow:hidden; background:var(--bg); color:var(--text
 #hdr-dot.live { background:var(--green); box-shadow:0 0 8px var(--green); animation:dotpulse 2s infinite; }
 #hdr-dot.alert { background:var(--red); box-shadow:0 0 12px var(--red); animation:dotpulse 0.5s infinite; }
 @keyframes dotpulse { 0%,100%{opacity:1}50%{opacity:.3} }
-#hdr-right { display:flex; align-items:center; gap:7px; flex-shrink:0; }
+#hdr-right { display:flex; align-items:center; gap:7px; flex-shrink:0; margin-left:10px; }
 #hdr-status { font-size:.7em; font-weight:700; padding:3px 9px; border-radius:12px; display:none;
   color:var(--green); background:rgba(16,185,129,.12); border:1px solid rgba(16,185,129,.2);
   white-space:nowrap; transition:color .3s,background .3s,border-color .3s; }
@@ -169,8 +169,9 @@ html,body { height:100%; overflow:hidden; background:var(--bg); color:var(--text
   background:rgba(8,8,16,0.97); backdrop-filter:blur(20px) saturate(180%);
   border-top:1px solid rgba(16,185,129,.18);
   box-shadow:0 -6px 36px rgba(16,185,129,.05);
+  padding-top:4px;
   padding-bottom:env(safe-area-inset-bottom);
-  transition:height .32s cubic-bezier(.4,0,.2,1);
+  transition:height .32s cubic-bezier(.4,0,.2,1), border-top-color .5s, box-shadow .5s;
 }
 #panel-drag { width:36px; height:4px; background:var(--border); border-radius:2px;
   margin:8px auto 4px; cursor:pointer; }
@@ -216,7 +217,7 @@ html,body { height:100%; overflow:hidden; background:var(--bg); color:var(--text
 #ctrls-row2 { display:none; gap:8px; }
 #ctrls-row2 #btn-share { flex:0 0 auto; }
 #ctrls-row2 #btn-stop { flex:1; }
-.ctrl { flex:1; padding:16px 10px; border:none; border-radius:60px;
+.ctrl { flex:1; height:52px; padding:0 10px; border:none; border-radius:14px;
   font-size:1rem; font-weight:700; cursor:pointer; min-height:54px;
   transition:transform .1s cubic-bezier(.4,0,.2,1), opacity .15s, box-shadow .2s; }
 .ctrl:active { transform:scale(.96); opacity:.88; }
@@ -228,9 +229,10 @@ html,body { height:100%; overflow:hidden; background:var(--bg); color:var(--text
 
 /* ─── SOS BUTTON ─────────────────────────── */
 #btn-sos {
-  width:100%; height:58px; border-radius:16px; border:none;
+  width:100%; height:64px; border-radius:16px; border:none;
   background:linear-gradient(135deg, #dc2626 0%, #8b0000 100%);
-  color:#fff; font-size:1em; font-weight:900; letter-spacing:.07em;
+  color:#fff; font-size:1em; font-weight:900; letter-spacing:.05em;
+  align-items:center; justify-content:center; gap:8px; padding:0 16px;
   box-shadow:0 0 0 0 rgba(220,38,38,.65);
   cursor:pointer; display:none;
   animation:sos-pulse 2.4s infinite;
@@ -363,7 +365,7 @@ select.cfg-inp option { background:#13131f; }
   background:rgba(124,58,237,0.1); border:1px solid rgba(124,58,237,.28);
   color:var(--purple-light); border-radius:14px; padding:0 16px;
   font-size:.78em; font-weight:600; cursor:pointer; display:none;
-  height:48px; white-space:nowrap;
+  height:52px; white-space:nowrap; flex-shrink:0;
   transition:background .2s, transform .1s;
 }
 #btn-share:active { background:rgba(124,58,237,.22); transform:scale(.96); }
@@ -1229,7 +1231,9 @@ var EMERGENCY_KW=[
   "appelle quelqu un","appelle quelqu'un","appelle les secours","appelle une ambulance",
   "appel urgent","urgence","emergency","help",
   // Variantes transcription automatique courantes
-  "aide moi s il te plait","a laide","secours"
+  "aide moi s il te plait","a laide","secours","sos",
+  "appelle le 15","appelle le 18","appelle le 112","appelle les pompiers",
+  "je tombe","j ai tombe","je suis par terre"
 ];
 var CANCEL_KW=[
   "annule","annuler","cancel","stop","c est bon","c'est bon",
@@ -1244,7 +1248,8 @@ var _vocalRestartT=null;      // setTimeout de retry planifié
 var _vocalErrors=0;           // compteur d'erreurs consécutives
 
 function _norm(t){
-  return t.normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/['']/g,"'");
+  return t.normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase()
+    .replace(/['''’\-]/g,' ').replace(/\s+/g,' ').trim();
 }
 
 function _setMicState(state){
