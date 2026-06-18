@@ -211,6 +211,8 @@ ENABLE_TAVUS_BOOT = os.getenv("ENABLE_TAVUS_BOOT", "false").lower() == "true"  #
 ENABLE_TWILIO_BOOT = os.getenv("ENABLE_TWILIO_BOOT", "true").lower() == "true"
 # J8 — Coupe-circuit SMS Guardian : mettre à "false" en DEV/test pour ne jamais envoyer de vrais SMS Guardian
 GUARDIAN_SMS_ENABLED = os.getenv("GUARDIAN_SMS_ENABLED", "true").lower() == "true"
+# Appel vocal Guardian (désactivé par défaut — activation explicite en PROD uniquement)
+GUARDIAN_CALL_ENABLED = os.getenv("GUARDIAN_CALL_ENABLED", "false").lower() == "true"
 ENABLE_INSTRUCTIONS = os.getenv("ENABLE_INSTRUCTIONS", "true").lower() == "true"
 ENABLE_VAULT_REMINDERS = os.getenv("ENABLE_VAULT_REMINDERS", "true").lower() == "true"
 ENABLE_CORTEX = os.getenv("ENABLE_CORTEX", "true").lower() == "true"
@@ -14754,6 +14756,18 @@ async def execute_instruction(instr_id: str, request: Request):
 
 
 # =========================================================================
+def _guardian_dedup(tid: int, incident_id: str, ttl: int = 30) -> bool:
+    """Verrou Redis anti-doublon par incident_id (SET NX EX 30s).
+    Retourne True si l'incident est nouveau (autoriser), False si doublon (bloquer).
+    Sans Redis ou sans incident_id → autorisé (comportement legacy).
+    """
+    if not _redis_client or not incident_id:
+        return True
+    safe_id = incident_id[:64].replace(":", "_")
+    key = f"luna:{tid}:guardian:incident:{safe_id}"
+    return bool(_redis_client.client.set(key, "1", nx=True, ex=ttl))
+
+
 # GUARDIAN ENDPOINTS — Surveillance géolocalisée (sans caméra)
 # =========================================================================
 #
@@ -14981,6 +14995,16 @@ async def guardian_sos(session_id: str, request: Request):
     engine = _get_guardian()
     if not engine:
         return JSONResponse(status_code=503, content={"error": "Guardian non disponible"})
+
+    tid = getattr(request.state, "tenant_id", 1)
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    incident_id = body.get("incident_id", "")
+    if not _guardian_dedup(tid, incident_id):
+        return JSONResponse(status_code=409, content={"error": "Alerte déjà en cours", "incident_id": incident_id})
+
     try:
         event = engine.trigger_sos(session_id)
     except ValueError as e:
@@ -14988,7 +15012,6 @@ async def guardian_sos(session_id: str, request: Request):
 
     # Alertes immédiates aux contacts de confiance (SOS toujours sur les deux canaux)
     session = engine.get_session(session_id)
-    tid = getattr(request.state, "tenant_id", 1)
     mgr = _get_tenant_manager(tid)
     contacts = []
     if session:
@@ -15072,10 +15095,16 @@ async def guardian_fall_detected(session_id: str, request: Request):
     engine = _get_guardian()
     if not engine:
         return JSONResponse(status_code=503, content={"error": "Guardian non disponible"})
+
+    tid = getattr(request.state, "tenant_id", 1)
     try:
         body = await request.json()
     except Exception:
         body = {}
+
+    incident_id = body.get("incident_id", "")
+    if not _guardian_dedup(tid, incident_id):
+        return JSONResponse(status_code=409, content={"error": "Alerte déjà en cours", "incident_id": incident_id})
 
     lat = body.get("lat") or None
     lng = body.get("lng") or None
@@ -15098,7 +15127,6 @@ async def guardian_fall_detected(session_id: str, request: Request):
         )
 
     session = engine.get_session(session_id)
-    tid = getattr(request.state, "tenant_id", 1)
     mgr = _get_tenant_manager(tid)
     contacts = []
     if session:

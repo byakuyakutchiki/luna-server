@@ -982,17 +982,38 @@ function openSosModal(){
   vibrate([100,50,100]);
 }
 function closeSosModal(){ document.getElementById('sos-modal').classList.remove('open'); }
+var _sosInProgress=false;
+function _genIncidentId(){
+  if(window.crypto&&crypto.randomUUID) return crypto.randomUUID();
+  return Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,10);
+}
 function triggerSOS(){
-  closeSosModal(); if(!SID){showToast('Guardian non actif');return;}
+  closeSosModal();
+  if(!SID){showToast('Guardian non actif');return;}
+  if(_sosInProgress){showToast('⏳ Alerte déjà en cours…');return;}
+  _sosInProgress=true;
+  var btn=document.getElementById('sos-go');
+  if(btn) btn.disabled=true;
+  var iid=_genIncidentId();
   vibrate([200,100,200,100,200]);
-  authFetch('/api/guardian/sos/'+SID,{method:'POST'})
-  .then(function(r){return r.json();}).then(function(d){
+  authFetch('/api/guardian/sos/'+SID,{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({incident_id:iid})
+  }).then(function(r){
+    return r.json().then(function(d){return {status:r.status,data:d};});
+  }).then(function(res){
+    if(res.status===409){showToast('⏳ Alerte déjà envoyée',3000);return;}
+    var d=res.data;
     showToast('🆘 '+(d.message||'SOS envoyé'),5000);
     updateRisk(1,'critical','SOS');
-    showAlertOnMap('🆘 SOS activé — '+d.alerts_sent_to+' contact(s) alerté(s)',
+    showAlertOnMap('🆘 SOS activé — '+(d.alerts_sent_to||0)+' contact(s) alerté(s)',
       LAST_POS?LAST_POS.lat:null,LAST_POS?LAST_POS.lng:null);
-    breakStreak();
-    loadEvents();
+    breakStreak(); loadEvents();
+  }).catch(function(e){showToast('❌ SOS: '+(e.message||'erreur'));})
+  .finally(function(){
+    _sosInProgress=false;
+    if(btn) btn.disabled=false;
   });
 }
 
