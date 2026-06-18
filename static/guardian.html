@@ -192,7 +192,7 @@ html,body { height:100%; overflow:hidden; background:var(--bg); color:var(--text
 
 /* ─── SOS BUTTON ─────────────────────────── */
 #btn-sos {
-  position:fixed; bottom:100px; right:18px; z-index:1000;
+  position:fixed; bottom:100px; right:18px; z-index:490;
   width:72px; height:72px; border-radius:50%; border:none;
   background:radial-gradient(circle at 32% 32%, #ff4444, #8b0000);
   color:#fff; font-size:1.1em; font-weight:900;
@@ -396,7 +396,7 @@ select.cfg-inp option { background:#13131f; }
   <span>🛡️</span>
   <span id="hdr-title">Luna <span>Guardian</span></span>
   <div id="hdr-dot"></div>
-  <span id="hdr-status" style="font-size:.78em;color:var(--muted);flex:1;">Inactif</span>
+  <span id="hdr-status" style="font-size:.78em;color:var(--muted);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;">Inactif</span>
   <span id="hdr-badge"></span>
   <span id="hdr-risk"></span>
 </div>
@@ -570,10 +570,7 @@ select.cfg-inp option { background:#13131f; }
   <div id="sos-box">
     <div class="si">🆘</div>
     <h2>Envoyer une alerte SOS ?</h2>
-    <p>Vos contacts de confiance recevront un SMS avec votre adresse et un lien Google Maps.<br><br>
-    Urgence médicale : <strong style="color:#fca5a5;">15 (SAMU)</strong> &nbsp;
-    Urgence : <strong style="color:#fca5a5;">112</strong> &nbsp;
-    Police : <strong style="color:#fca5a5;">17</strong></p>
+    <p>Vos contacts de confiance recevront un SMS avec votre adresse et un lien Google Maps.</p>
     <button id="sos-go" onclick="triggerSOS()">🆘 Confirmer l'alerte</button>
     <div style="display:flex;gap:8px;margin-bottom:8px;">
       <a href="tel:15" style="flex:1;display:block;padding:11px;background:rgba(16,185,129,.12);color:#6ee7b7;border:1px solid rgba(16,185,129,.3);border-radius:12px;text-align:center;font-size:.88em;font-weight:700;text-decoration:none;">📞 15 SAMU</a>
@@ -665,9 +662,11 @@ function _layoutUpdate(){
   }
   rb.style.bottom=bh+'px';
   document.getElementById('toast').style.bottom=(totalBottom+10)+'px';
-  // SOS button flotte toujours 16px au-dessus du panel
+  // SOS + Partager flottent 16px au-dessus du panel
   var sos=document.getElementById('btn-sos');
   if(sos&&sos.style.display!=='none') sos.style.bottom=(bh+16)+'px';
+  var share=document.getElementById('btn-share');
+  if(share&&share.style.display!=='none') share.style.bottom=(bh+16)+'px';
   if(MAP) setTimeout(function(){MAP.invalidateSize();},320);
 }
 window.addEventListener('resize',_layoutUpdate);
@@ -880,9 +879,9 @@ function guardianStart(){
     if(window.LunaBridge&&LunaBridge.setGuardianSession) LunaBridge.setGuardianSession(SID);
     setHdrStatus('Actif',null,true);
     document.getElementById('btn-start').style.display='none';
-    document.getElementById('btn-stop').style.display='';
-    document.getElementById('btn-sos').style.display='';
-    document.getElementById('btn-share').style.display='';
+    document.getElementById('btn-stop').style.display='flex';
+    document.getElementById('btn-sos').style.display='flex';
+    document.getElementById('btn-share').style.display='flex';
     document.getElementById('addr-card').style.display='block';
     document.getElementById('timeline-wrap').style.display='';
     document.getElementById('rgpd-banner').style.display='flex';
@@ -1531,9 +1530,9 @@ function toggleGuardianFriend(friend_tid,add){
       if(window.LunaBridge&&LunaBridge.setGuardianSession) LunaBridge.setGuardianSession(SID);
       setHdrStatus('Reprise — '+(s.profile_type||'?'),null,true);
       document.getElementById('btn-start').style.display='none';
-      document.getElementById('btn-stop').style.display='';
-      document.getElementById('btn-sos').style.display='';
-      document.getElementById('btn-share').style.display='';
+      document.getElementById('btn-stop').style.display='flex';
+      document.getElementById('btn-sos').style.display='flex';
+      document.getElementById('btn-share').style.display='flex';
       document.getElementById('addr-card').style.display='block';
       document.getElementById('timeline-wrap').style.display='';
       document.getElementById('rgpd-banner').style.display='flex';
