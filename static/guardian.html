@@ -884,6 +884,8 @@ function guardianStart(){
     connectWs(); startGps(); loadEvents(); loadContacts(); loadGuardianFriends();
     incrementSession();
     _vocalStartWithWatchdog();
+    // Niveau 2 — reconnaissance vocale native Android (couvre arrière-plan + écran verrouillé)
+    if(window.LunaBridge&&LunaBridge.startNativeVoiceGuardian) LunaBridge.startNativeVoiceGuardian();
     document.getElementById('contacts-bar').style.display='block';
     showToast('🛡️ Guardian actif');
     vibrate([60,30,60]);
@@ -915,6 +917,7 @@ function guardianStop(){
 }
 function _cleanupSession(){
   _vocalStop();
+  if(window.LunaBridge&&LunaBridge.stopNativeVoiceGuardian) LunaBridge.stopNativeVoiceGuardian();
   if(WS){try{WS.close();}catch(e){} WS=null;}
   if(GEO_ID!==null){navigator.geolocation.clearWatch(GEO_ID);GEO_ID=null;}
   document.getElementById('contacts-bar').style.display='none';
@@ -1226,6 +1229,13 @@ function openVocalCountdown(){
     }
   },1000);
 }
+// Point d'entrée pour le SR natif Android (Niveau 2)
+// Appelé par Java : window.lunaEmergencyVoiceDetected(text, confidence)
+window.lunaEmergencyVoiceDetected=function(text, confidence){
+  if(!SID||_sosInProgress) return;
+  openVocalCountdown();
+};
+
 function cancelVocalCountdown(){
   if(!_vocalActive) return;
   clearInterval(_vocalTimer); _vocalTimer=null;

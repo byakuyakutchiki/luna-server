@@ -48,6 +48,10 @@ import android.widget.Toast;
 
 import org.json.JSONObject;
 
+import android.speech.RecognitionListener;
+import android.speech.RecognizerIntent;
+import android.speech.SpeechRecognizer;
+import java.util.ArrayList;
 import java.io.BufferedReader;
 import java.io.FileOutputStream;
 import java.io.InputStream;
@@ -82,6 +86,28 @@ public class MainActivity extends Activity {
     private double guardianLat = 0.0;
     private double guardianLng = 0.0;
     private String authToken = "";             // JWT transmis par le JS pour les requêtes natives
+
+    // ── Reconnaissance vocale native Guardian ──────────────────────
+    private static final String[] NATIVE_EMERGENCY_KW = {
+        "a l aide", "au secours", "aide moi", "aidez moi",
+        "besoin d aide", "j ai besoin d aide",
+        "je me sens mal",
+        "je peux pas respirer", "je ne peux pas respirer",
+        "j arrive pas a respirer", "je suis blesse",
+        "je ne peux pas bouger", "je peux pas bouger",
+        "appelle les secours", "appelle quelqu un",
+        "appel urgent", "urgence", "emergency", "help",
+        "a laide", "secours", "je suis tombe", "je suis tombee"
+    };
+    private static final long NATIVE_SR_COOLDOWN_MS = 15_000L; // pause pendant countdown JS
+    private static final int  NATIVE_SR_MAX_ERRORS   = 6;      // max erreurs consécutives avant pause longue
+
+    private SpeechRecognizer nativeSR = null;
+    private boolean nativeSREnabled  = false;   // vrai quand Guardian est actif
+    private boolean nativeSRListening= false;   // vrai quand le SR est démarré
+    private final Handler nativeSRHandler = new Handler(Looper.getMainLooper());
+    private Runnable nativeSRRestartTask = null;
+    private int nativeSRErrorCount = 0;
 
     private final Handler fallHandler = new Handler(Looper.getMainLooper());
     private Runnable fallEscalationTask = null;
@@ -611,6 +637,28 @@ public class MainActivity extends Activity {
             if (fallAlertActive) cancelFallAlertInternal(false);
         }
 
+        /**
+         * Démarre la reconnaissance vocale native Guardian.
+         * Appelé par le JS après guardianStart() pour couvrir l'arrière-plan.
+         */
+        @JavascriptInterface
+        public void startNativeVoiceGuardian() {
+            runOnUiThread(() -> {
+                nativeSREnabled = true;
+                nativeSRErrorCount = 0;
+                startNativeSR();
+            });
+        }
+
+        /**
+         * Arrête la reconnaissance vocale native Guardian.
+         * Appelé par le JS lors de guardianStop() / _cleanupSession().
+         */
+        @JavascriptInterface
+        public void stopNativeVoiceGuardian() {
+            runOnUiThread(MainActivity.this::stopNativeSR);
+        }
+
         /** Appelé par le JS quand l'utilisateur répond "Je vais bien" depuis l'UI in-app. */
         @JavascriptInterface
         public void cancelFallAlert() {
@@ -629,6 +677,181 @@ public class MainActivity extends Activity {
             guardianLat = lat;
             guardianLng = lng;
         }
+    }
+
+    // ── Native SpeechRecognizer — Guardian Voice Core ──────────────
+
+    /** Normalise le texte pour la comparaison (accents, casse, ponctuation). */
+    private String normalizeSpeech(String text) {
+        if (text == null) return "";
+        String nfd = java.text.Normalizer.normalize(text, java.text.Normalizer.Form.NFD);
+        return nfd
+            .replaceAll("\\p{InCombiningDiacriticalMarks}+", "")
+            .toLowerCase()
+            .replaceAll("[''']", "'")
+            .replaceAll("[^a-z' ]", " ")
+            .replaceAll("\\s+", " ")
+            .trim();
+    }
+
+    /** Vérifie si le texte contient un mot-clé d'urgence. */
+    private boolean matchesEmergencyKw(String text) {
+        String n = normalizeSpeech(text);
+        for (String kw : NATIVE_EMERGENCY_KW) {
+            if (n.contains(kw)) return true;
+        }
+        return false;
+    }
+
+    /** Lance la reconnaissance vocale native (doit être appelé depuis le UI thread). */
+    private void startNativeSR() {
+        if (!nativeSREnabled) return;
+        if (nativeSR != null) return; // déjà actif
+        if (!SpeechRecognizer.isRecognitionAvailable(this)) return;
+
+        nativeSR = SpeechRecognizer.createSpeechRecognizer(this);
+        nativeSR.setRecognitionListener(new RecognitionListener() {
+            @Override public void onReadyForSpeech(Bundle params) {
+                nativeSRListening = true;
+                nativeSRErrorCount = 0;
+            }
+            @Override public void onBeginningOfSpeech() {}
+            @Override public void onRmsChanged(float rmsdB) {}
+            @Override public void onBufferReceived(byte[] buffer) {}
+            @Override public void onEndOfSpeech() { nativeSRListening = false; }
+
+            @Override
+            public void onError(int error) {
+                nativeSRListening = false;
+                nativeSR.destroy();
+                nativeSR = null;
+                if (!nativeSREnabled) return;
+                nativeSRErrorCount++;
+                // no-match / timeout → normal, redémarrer rapidement
+                boolean fast = (error == SpeechRecognizer.ERROR_NO_MATCH
+                             || error == SpeechRecognizer.ERROR_SPEECH_TIMEOUT);
+                // busy → attendre un peu
+                boolean busy = (error == SpeechRecognizer.ERROR_RECOGNIZER_BUSY);
+                long delay;
+                if (nativeSRErrorCount >= NATIVE_SR_MAX_ERRORS) {
+                    delay = 30_000L; // pause longue après trop d'erreurs consécutives
+                } else if (fast)  { delay = 200L;  }
+                else if (busy)    { delay = 1_500L; }
+                else              { delay = Math.min(2000L * nativeSRErrorCount, 20_000L); }
+                scheduleNativeSRRestart(delay);
+            }
+
+            @Override
+            public void onResults(Bundle results) {
+                nativeSRListening = false;
+                ArrayList<String> matches =
+                    results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
+                float[] scores = results.getFloatArray(SpeechRecognizer.CONFIDENCE_SCORES);
+                if (matches != null) {
+                    for (int i = 0; i < matches.size(); i++) {
+                        if (matchesEmergencyKw(matches.get(i))) {
+                            float conf = (scores != null && i < scores.length) ? scores[i] : 0.6f;
+                            onNativeEmergencyDetected(matches.get(i), conf);
+                            // Pause SR pendant le countdown JS (NATIVE_SR_COOLDOWN_MS)
+                            if (nativeSR != null) { nativeSR.destroy(); nativeSR = null; }
+                            scheduleNativeSRRestart(NATIVE_SR_COOLDOWN_MS);
+                            return;
+                        }
+                    }
+                }
+                // Aucun mot-clé → redémarrer immédiatement
+                if (nativeSR != null) { nativeSR.destroy(); nativeSR = null; }
+                scheduleNativeSRRestart(200L);
+            }
+
+            @Override
+            public void onPartialResults(Bundle partialResults) {
+                // Résultats partiels : détecter sans attendre la fin de l'énoncé
+                ArrayList<String> partial =
+                    partialResults.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
+                if (partial != null) {
+                    for (String text : partial) {
+                        if (matchesEmergencyKw(text)) {
+                            onNativeEmergencyDetected(text, 0.7f);
+                            if (nativeSR != null) { nativeSR.destroy(); nativeSR = null; }
+                            scheduleNativeSRRestart(NATIVE_SR_COOLDOWN_MS);
+                            return;
+                        }
+                    }
+                }
+            }
+
+            @Override public void onEvent(int eventType, Bundle params) {}
+        });
+
+        Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
+        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL,
+                        RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
+        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, "fr-FR");
+        intent.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3);
+        intent.putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true);
+        // Silence courts : sensibilité maximale pour détecter même les mots isolés
+        intent.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 1500L);
+        intent.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 800L);
+        intent.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS, 300L);
+
+        try {
+            nativeSR.startListening(intent);
+        } catch (Exception e) {
+            nativeSR.destroy();
+            nativeSR = null;
+            scheduleNativeSRRestart(3000L);
+        }
+    }
+
+    /** Arrête la reconnaissance vocale native et annule tout restart planifié. */
+    private void stopNativeSR() {
+        nativeSREnabled = false;
+        nativeSRListening = false;
+        if (nativeSRRestartTask != null) {
+            nativeSRHandler.removeCallbacks(nativeSRRestartTask);
+            nativeSRRestartTask = null;
+        }
+        if (nativeSR != null) {
+            try { nativeSR.stopListening(); } catch (Exception ignored) {}
+            nativeSR.destroy();
+            nativeSR = null;
+        }
+    }
+
+    /** Planifie un redémarrage du SR après un délai (dé-dupliqué). */
+    private void scheduleNativeSRRestart(long delayMs) {
+        if (nativeSRRestartTask != null) return; // déjà planifié
+        nativeSRRestartTask = () -> {
+            nativeSRRestartTask = null;
+            if (nativeSREnabled) startNativeSR();
+        };
+        nativeSRHandler.postDelayed(nativeSRRestartTask, delayMs);
+    }
+
+    /**
+     * Déclenché quand un mot-clé d'urgence est détecté nativement.
+     * Réveille l'écran si nécessaire et notifie le JS pour lancer le countdown.
+     */
+    private void onNativeEmergencyDetected(String text, float confidence) {
+        runOnUiThread(() -> {
+            // Réveiller l'écran si l'app est en arrière-plan
+            if (!isInForeground) {
+                getWindow().addFlags(
+                    WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON  |
+                    WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON  |
+                    WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED
+                );
+                webView.onResume(); // débloque l'exécution JS
+            }
+            // Échapper le texte pour injection JS safe
+            String safe = text.replace("\\", "\\\\").replace("'", "\\'").replace("\n", "");
+            webView.evaluateJavascript(
+                "if(window.lunaEmergencyVoiceDetected)" +
+                " window.lunaEmergencyVoiceDetected('" + safe + "'," + confidence + ");",
+                null
+            );
+        });
     }
 
     /**
@@ -1194,6 +1417,10 @@ public class MainActivity extends Activity {
         // Activer la détection de chute si une session Guardian est active
         if (sensorManager != null && accelerometer != null && guardianSessionId != null) {
             sensorManager.registerListener(fallDetector, accelerometer, SensorManager.SENSOR_DELAY_GAME);
+        }
+        // Relancer le SR natif si Guardian vocal était actif et est mort (ex: après screen lock)
+        if (nativeSREnabled && nativeSR == null && nativeSRRestartTask == null) {
+            scheduleNativeSRRestart(500L);
         }
     }
 
