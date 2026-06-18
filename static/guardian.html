@@ -191,7 +191,10 @@ html,body { height:100%; overflow:hidden; background:var(--bg); color:var(--text
   transition:width .7s cubic-bezier(.4,0,.2,1), background .5s; }
 
 /* Controls */
-#ctrls { display:flex; gap:10px; padding:0 14px 10px; }
+#ctrls { display:flex; flex-direction:column; gap:8px; padding:0 14px 10px; }
+#ctrls-row2 { display:none; gap:8px; }
+#ctrls-row2 #btn-share { flex:0 0 auto; }
+#ctrls-row2 #btn-stop { flex:1; }
 .ctrl { flex:1; padding:16px 10px; border:none; border-radius:60px;
   font-size:1rem; font-weight:700; cursor:pointer; min-height:54px;
   transition:transform .1s cubic-bezier(.4,0,.2,1), opacity .15s, box-shadow .2s; }
@@ -204,21 +207,20 @@ html,body { height:100%; overflow:hidden; background:var(--bg); color:var(--text
 
 /* ─── SOS BUTTON ─────────────────────────── */
 #btn-sos {
-  position:fixed; bottom:100px; right:18px; z-index:490;
-  width:72px; height:72px; border-radius:50%; border:none;
-  background:radial-gradient(circle at 32% 32%, #ff4444, #8b0000);
-  color:#fff; font-size:1.1em; font-weight:900;
-  box-shadow:0 0 0 0 rgba(220,38,38,.75);
+  width:100%; height:58px; border-radius:16px; border:none;
+  background:linear-gradient(135deg, #dc2626 0%, #8b0000 100%);
+  color:#fff; font-size:1em; font-weight:900; letter-spacing:.07em;
+  box-shadow:0 0 0 0 rgba(220,38,38,.65);
   cursor:pointer; display:none;
-  animation:sos-pulse 2.2s infinite;
-  transition:transform .1s;
+  animation:sos-pulse 2.4s infinite;
+  transition:transform .12s,box-shadow .12s;
 }
 @keyframes sos-pulse {
-  0%   { box-shadow:0 0 0 0 rgba(220,38,38,.75); }
-  60%  { box-shadow:0 0 0 20px rgba(220,38,38,0); }
-  100% { box-shadow:0 0 0 0 rgba(220,38,38,0); }
+  0%   { box-shadow:0 4px 22px rgba(220,38,38,.3),0 0 0 0 rgba(220,38,38,.5); }
+  60%  { box-shadow:0 4px 22px rgba(220,38,38,.3),0 0 0 16px rgba(220,38,38,0); }
+  100% { box-shadow:0 4px 22px rgba(220,38,38,.3),0 0 0 0 rgba(220,38,38,0); }
 }
-#btn-sos:active { transform:scale(.9); animation:none; box-shadow:0 0 0 4px rgba(220,38,38,.5); }
+#btn-sos:active { transform:scale(.97); animation:none; box-shadow:0 0 0 4px rgba(220,38,38,.4); }
 
 /* ─── VOICE CARD HERO ──────────────────────── */
 #voice-toggle {
@@ -312,10 +314,10 @@ select.cfg-inp option { background:#13131f; }
 
 /* ─── SHARE BUTTON ────────────────────────── */
 #btn-share {
-  position:fixed; bottom:100px; left:18px; z-index:350;
-  background:rgba(124,58,237,0.12); border:1px solid rgba(124,58,237,.3);
-  color:var(--purple-light); border-radius:30px; padding:10px 16px;
-  font-size:.8em; cursor:pointer; display:none; backdrop-filter:blur(8px);
+  background:rgba(124,58,237,0.1); border:1px solid rgba(124,58,237,.28);
+  color:var(--purple-light); border-radius:14px; padding:0 16px;
+  font-size:.78em; font-weight:600; cursor:pointer; display:none;
+  height:48px; white-space:nowrap;
   transition:background .2s, transform .1s;
 }
 #btn-share:active { background:rgba(124,58,237,.22); transform:scale(.96); }
@@ -497,14 +499,6 @@ select.cfg-inp option { background:#13131f; }
   <button id="rgpd-why" onclick="openRgpdModal()">Pourquoi ?</button>
 </div>
 
-<!-- SOS BUTTON -->
-<button id="btn-sos" onclick="openSosModal()" aria-label="Déclencher une alerte SOS">
-  <div>🆘</div><div style="font-size:.45em;font-weight:800;letter-spacing:.04em;margin-top:2px;">SOS</div>
-</button>
-
-<!-- SHARE BUTTON -->
-<button id="btn-share" onclick="sharePosition()">🔗 Partager</button>
-
 <!-- BOTTOM PANEL -->
 <div id="bottom">
   <div id="panel-drag" onclick="toggleCfg()"></div>
@@ -553,8 +547,12 @@ select.cfg-inp option { background:#13131f; }
 
   <!-- Controls -->
   <div id="ctrls">
+    <button id="btn-sos" onclick="openSosModal()" aria-label="Déclencher une alerte SOS">🆘 &nbsp;ENVOYER UNE ALERTE SOS</button>
+    <div id="ctrls-row2">
+      <button id="btn-share" onclick="sharePosition()">🔗 Partager</button>
+      <button id="btn-stop" class="ctrl" onclick="guardianStop()">⏹ Arrêter</button>
+    </div>
     <button id="btn-start" class="ctrl" onclick="guardianStart()">▶ Démarrer</button>
-    <button id="btn-stop"  class="ctrl" onclick="guardianStop()">⏹ Arrêter</button>
   </div>
 
   <!-- Voice Card Hero -->
@@ -747,11 +745,6 @@ function _layoutUpdate(){
   }
   rb.style.bottom=bh+'px';
   document.getElementById('toast').style.bottom=(totalBottom+10)+'px';
-  // SOS + Partager flottent 16px au-dessus du panel
-  var sos=document.getElementById('btn-sos');
-  if(sos&&sos.style.display!=='none') sos.style.bottom=(bh+16)+'px';
-  var share=document.getElementById('btn-share');
-  if(share&&share.style.display!=='none') share.style.bottom=(bh+16)+'px';
   if(MAP) setTimeout(function(){MAP.invalidateSize();},320);
 }
 window.addEventListener('resize',_layoutUpdate);
@@ -969,8 +962,8 @@ function guardianStart(){
     if(window.LunaBridge&&LunaBridge.setGuardianSession) LunaBridge.setGuardianSession(SID);
     setHdrStatus('Actif',null,true);
     document.getElementById('btn-start').style.display='none';
-    document.getElementById('btn-stop').style.display='flex';
     document.getElementById('btn-sos').style.display='flex';
+    document.getElementById('ctrls-row2').style.display='flex';
     document.getElementById('btn-share').style.display='flex';
     document.getElementById('addr-card').style.display='block';
     document.getElementById('timeline-wrap').style.display='';
@@ -1000,8 +993,8 @@ function guardianStop(){
     _cleanupSession();
     setHdrStatus('Arrêté',null,false);
     document.getElementById('btn-start').style.display='';
-    document.getElementById('btn-stop').style.display='none';
     document.getElementById('btn-sos').style.display='none';
+    document.getElementById('ctrls-row2').style.display='none';
     document.getElementById('btn-share').style.display='none';
     document.getElementById('addr-card').style.display='none';
     document.getElementById('timeline-wrap').style.display='none';
@@ -1633,8 +1626,8 @@ function toggleGuardianFriend(friend_tid,add){
       if(window.LunaBridge&&LunaBridge.setGuardianSession) LunaBridge.setGuardianSession(SID);
       setHdrStatus('ACTIF',null,true);
       document.getElementById('btn-start').style.display='none';
-      document.getElementById('btn-stop').style.display='flex';
       document.getElementById('btn-sos').style.display='flex';
+      document.getElementById('ctrls-row2').style.display='flex';
       document.getElementById('btn-share').style.display='flex';
       document.getElementById('addr-card').style.display='block';
       document.getElementById('timeline-wrap').style.display='';
