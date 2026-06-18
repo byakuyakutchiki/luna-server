@@ -51,6 +51,9 @@ html,body { height:100%; overflow:hidden; background:var(--bg); color:var(--text
 
 /* ─── MAP ────────────────────────────────── */
 #map { position:fixed; top:60px; left:0; right:0; bottom:0; z-index:1; transition:bottom .35s cubic-bezier(.4,0,.2,1); }
+#map::after { content:''; position:absolute; inset:0; pointer-events:none; z-index:2;
+  box-shadow:inset 0 0 0 rgba(220,38,38,0); transition:box-shadow .6s ease; }
+#map.alert-map::after { box-shadow:inset 0 0 90px rgba(220,38,38,.16); }
 
 /* ─── ADDRESS CARD ───────────────────────── */
 #addr-card {
@@ -59,8 +62,26 @@ html,body { height:100%; overflow:hidden; background:var(--bg); color:var(--text
   border:1px solid var(--border); border-radius:20px;
   padding:11px 16px;
   display:none;
-  transition:opacity .3s;
+  transition:opacity .3s, border-color .5s, background .5s, box-shadow .5s;
 }
+#addr-card.alert {
+  border-color:rgba(239,68,68,.4);
+  background:rgba(28,6,6,.9);
+  box-shadow:0 4px 28px rgba(220,38,38,.12);
+}
+#addr-card.alert #addr-line { color:#fca5a5; }
+
+/* ─── ALERT MODE — panel compact, carte maxi ─ */
+#bottom { transition:height .32s cubic-bezier(.4,0,.2,1), border-top-color .5s, box-shadow .5s; }
+#bottom.alert-mode {
+  border-top-color:rgba(220,38,38,.35);
+  box-shadow:0 -6px 36px rgba(220,38,38,.09);
+}
+#bottom.alert-mode #trust-bar,
+#bottom.alert-mode #trust-level-badge,
+#bottom.alert-mode #contacts-bar,
+#bottom.alert-mode #risk-wrap,
+#bottom.alert-mode #voice-toggle { display:none !important; }
 #addr-line { font-size:1.02em; font-weight:500; }
 #addr-sub  { font-size:0.74em; color:var(--muted); margin-top:3px; }
 .safe-badge {
@@ -855,6 +876,15 @@ function updateRisk(score,level,desc){
   dot.className=SID?(RISK_LEVEL==='high'||RISK_LEVEL==='critical'?'alert':'live'):'';
   if(MARKER) MARKER.setIcon(personIcon(c));
   if(TRAIL) TRAIL.setStyle({color:c});
+  // Mode alerte — carte maxi, panel compact
+  var isAlert=RISK_LEVEL==='high'||RISK_LEVEL==='critical';
+  var bottomEl=document.getElementById('bottom');
+  var mapEl=document.getElementById('map');
+  var addrEl=document.getElementById('addr-card');
+  if(bottomEl) bottomEl.classList.toggle('alert-mode', isAlert&&!!SID);
+  if(mapEl) mapEl.classList.toggle('alert-map', isAlert);
+  if(addrEl) addrEl.classList.toggle('alert', isAlert);
+  setTimeout(_layoutUpdate,50);
 }
 
 // ── PERMISSIONS ───────────────────────────────
