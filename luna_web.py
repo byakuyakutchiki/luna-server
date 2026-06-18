@@ -9195,6 +9195,52 @@ async def voice_call_media_stream(websocket: WebSocket):
             pass
 
 
+def _build_iris_greeting_context(sub_name: str, tid: int, redis_client, memory_mgr) -> str:
+    """Construit un résumé contextuel court pour personnaliser le greeting d'Iris."""
+    hints = []
+    try:
+        # Dernière conversation en mémoire
+        if memory_mgr:
+            try:
+                convs = memory_mgr.list_conversations()
+                if convs:
+                    last = convs[0]
+                    topic = getattr(last, "summary", "") or getattr(last, "topic", "")
+                    if topic and len(topic) > 5:
+                        hints.append(f"dernière conversation : {topic[:80]}")
+            except Exception:
+                pass
+
+        # Événements Guardian récents
+        if redis_client:
+            try:
+                import json as _j
+                gev = redis_client.client.lrange(f"luna:{tid}:guardian:events", 0, 0)
+                if gev:
+                    ev = _j.loads(gev[0])
+                    ev_type = ev.get("type", "")
+                    if ev_type:
+                        hints.append(f"événement Guardian récent : {ev_type}")
+            except Exception:
+                pass
+
+        # Profil utilisateur (prénom de confiance)
+        if memory_mgr and not hints:
+            try:
+                profile = memory_mgr.get_subscriber_profile()
+                if profile:
+                    city = getattr(profile, "city", "")
+                    if city:
+                        hints.append(f"tu es à {city}")
+            except Exception:
+                pass
+
+    except Exception:
+        pass
+
+    return ", ".join(hints) if hints else ""
+
+
 # =========================================================================
 # LUNA VOICE — Mode Jarvis (voix directe navigateur <-> OpenAI Realtime)
 # =========================================================================
@@ -9440,10 +9486,34 @@ Quand il parle de ses heures, propose de les enregistrer. Quand il parle d'une r
             return {"status": "error", "message": f"Fonction inconnue: {name}"}
 
     _is_reconnect = len(_voice_history) > 0 and _history_param
+
+    # Charger le contexte utilisateur pour personnaliser le greeting
+    _iris_ctx_summary = _build_iris_greeting_context(sub_name, tid, _redis_client, memory_mgr)
+
     if _is_reconnect:
-        _greeting = f"{sub_name} revient apres une coupure. Dis-lui brievement que tu es de retour et continue la conversation la ou elle en etait."
+        _greeting = (
+            f'Tu reprends la conversation avec {sub_name} après une courte coupure. '
+            f'Dis-lui simplement que tu es de retour — en une phrase naturelle, sans explication technique. '
+            f'Exemple : "Je suis là {sub_name}. On continue." ou "De retour — tu disais ?"'
+        )
     else:
-        _greeting = f"{sub_name} vient d'activer le mode vocal. Salue-le brievement et demande ce que tu peux faire pour lui."
+        if _iris_ctx_summary:
+            _greeting = (
+                f'Salue {sub_name} chaleureusement en une phrase naturelle et humaine. '
+                f'Tu peux mentionner un élément de son contexte récent pour montrer que tu le connais : {_iris_ctx_summary}. '
+                f'Exemples de ton : "Bonjour {sub_name}. Je suis Iris. Comment puis-je t\'aider ?" '
+                f'ou "Bonjour {sub_name}, je suis contente de te retrouver. De quoi as-tu besoin ?" '
+                f'Ne mentionne jamais de panneau visuel, d\'interface, d\'architecture ou de limitations techniques. '
+                f'Tu es Iris — une assistante personnelle, pas un logiciel.'
+            )
+        else:
+            _greeting = (
+                f'Salue {sub_name} en une phrase courte, naturelle et humaine. '
+                f'Exemples : "Bonjour {sub_name}. Je suis Iris. Comment puis-je t\'aider ?" '
+                f'ou "Bonjour {sub_name}, je suis contente de te retrouver. Que puis-je faire pour toi ?" '
+                f'Ne mentionne jamais de panneau visuel, d\'interface ou de limitations techniques. '
+                f'Tu es Iris — une assistante personnelle.'
+            )
 
     bridge = WebVoiceBridge(
         openai_api_key=OPENAI_API_KEY,

@@ -133,7 +133,6 @@ body.mode-secretaire .btn-primary:hover { background: #059669; }
 body.mode-secretaire .card { background: #0d2818; }
 /* Auth links */
 body.mode-secretaire .auth-link a { color: #34d399; }
-body.mode-secretaire .wakeword-btn:hover { border-color: #34d399; color: #34d399; }
 /* Invite modal */
 body.mode-secretaire .invite-box { background: #0d2818; }
 body.mode-secretaire .invite-box h3 { color: #34d399; }
@@ -662,10 +661,6 @@ button:active:not(:disabled) { transform: scale(0.97); }
 .logout-btn { padding: 6px 14px; border-radius: 6px; border: 1px solid #555; background: transparent; color: #aaa; cursor: pointer; font-size: 0.8em; white-space: nowrap; display: inline-flex; align-items: center; gap: 6px; }
 .logout-btn:hover { border-color: #f87171; color: #f87171; }
 .logout-icon { display: none; }
-.wakeword-btn { width: 40px; height: 40px; border-radius: 50%; border: 1px solid #555; background: transparent; color: #aaa; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.3s; }
-.wakeword-btn:hover { border-color: #a78bfa; color: #a78bfa; }
-.wakeword-btn.active { border-color: #4ade80; color: #4ade80; background: rgba(74,222,128,0.1); box-shadow: 0 0 8px rgba(74,222,128,0.3); }
-.wakeword-btn.listening { animation: pulse 2s infinite; }
 @keyframes pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(74,222,128,0.4); } 50% { box-shadow: 0 0 0 8px rgba(74,222,128,0); } }
 
 /* Quick reply chips (Jarvis-style suggestions) */
@@ -1665,9 +1660,6 @@ body.mode-secretaire .luna::before {
     <button class="sidebar-toggle" id="newChatBtn" title="Nouvelle conversation" style="font-size:1.4em;font-weight:300;line-height:1;">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
     </button>
-    <button class="wakeword-btn" id="wakewordBtn" title="Hey Luna (mains libres)">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
-    </button>
     <button id="updateAppBtn" title="Mettre a jour" style="background:none;border:1px solid #f59e0b;border-radius:8px;color:#f59e0b;padding:4px 8px;font-size:0.7em;cursor:pointer;display:none;animation:pulseUpdate 2s infinite;">MAJ</button>
     <img src="/static/assets/yawatch_logo.png" alt="YAWatch" style="height:30px;width:30px;object-fit:cover;border-radius:8px;border:1px solid rgba(167,139,250,.2);filter:brightness(1.1) drop-shadow(0 0 8px rgba(124,58,237,.7));opacity:.9;">
     <button class="logout-btn" id="logoutBtn" title="Déconnexion">
@@ -1675,12 +1667,6 @@ body.mode-secretaire .luna::before {
       <span class="logout-text">Déconnexion</span>
     </button>
   </div>
-</div>
-
-<!-- Indicateur wake word -->
-<div id="wakewordIndicator" style="display:none;position:fixed;top:60px;right:16px;z-index:1001;background:#1a1a3e;border:1px solid #7c3aed;border-radius:12px;padding:8px 14px;font-size:0.8em;color:#a78bfa;box-shadow:0 4px 12px rgba(0,0,0,0.4);">
-  <span id="wakewordDot" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#4ade80;margin-right:6px;animation:pulse 2s infinite;"></span>
-  <span id="wakewordLabel">Ecoute...</span>
 </div>
 
 <!-- XP Widget supprime (info disponible dans onglet Monde) -->
@@ -4939,8 +4925,7 @@ function startCall() {
   _showDurationPicker("visio", function(minutes) {
     _remoteLog("info", "visio", "navigating", "duration=" + minutes);
     try { if (typeof _showToast === "function") _showToast("📹 Visio", minutes + " min prévues", ""); } catch(e) {}
-    // Couper Hey Luna + Jarvis avant de naviguer (libère micro + audio, évite bruit de fond)
-    try { if (typeof stopWakeWord === "function") stopWakeWord(); } catch(e) {}
+    // Couper Jarvis avant de naviguer (libère micro + audio, évite bruit de fond)
     try { var vb = document.getElementById("lunaVoiceBtn"); if (vb && vb.classList.contains("active")) vb.click(); } catch(e) {}
     // window.location.replace est plus fiable dans certains WebViews Android
     window.location.replace("/simli?duration=" + minutes + "&_v=32");
@@ -7664,163 +7649,8 @@ if (_urlParams.get("card_saved") === "success") {
 // =========================================================================
 // LUNA TTS — Desactive (remplace par OpenAI Realtime dans le mode Jarvis)
 // Les fonctions sont gardees en stub pour eviter les erreurs de reference
-var _wakeWordResponseMode = false;
 function _lunaSpeak() {}
 function _lunaStopSpeaking() {}
-
-// =========================================================================
-// Wake Word — "Hey Luna" → Active le mode Jarvis (OpenAI Realtime)
-// Comme Siri/Jarvis : dit "Hey Luna" → Luna ecoute et repond en voix
-// =========================================================================
-var wakewordBtn = document.getElementById("wakewordBtn");
-var wakewordIndicator = document.getElementById("wakewordIndicator");
-var wakewordLabel = document.getElementById("wakewordLabel");
-var wakewordActive = false;
-var wakeRecognition = null;
-var wakewordCooldown = false;
-
-var SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-
-function _matchLuna(text) {
-  var patterns = [
-    "hey luna", "hé luna", "eh luna", "et luna", "ai luna",
-    "hey louna", "hé louna", "hey lune", "hé lune",
-    "hello luna", "dis luna", "ok luna", "bonjour luna",
-    "hey lina", "hé lina", "hey louna", "hey lu na",
-    "elle luna", "aluna", "héluna", "éluna", "ailuna",
-    "luna"
-  ];
-  var lower = text.toLowerCase().trim();
-  for (var p = 0; p < patterns.length; p++) {
-    if (lower.indexOf(patterns[p]) >= 0) return true;
-  }
-  return false;
-}
-
-function _playWakeBeep() {
-  try {
-    var ctx = new (window.AudioContext || window.webkitAudioContext)();
-    var osc = ctx.createOscillator();
-    var gain = ctx.createGain();
-    osc.connect(gain); gain.connect(ctx.destination);
-    osc.frequency.value = 880; gain.gain.value = 0.3;
-    osc.start(); osc.stop(ctx.currentTime + 0.12);
-    var osc2 = ctx.createOscillator();
-    var gain2 = ctx.createGain();
-    osc2.connect(gain2); gain2.connect(ctx.destination);
-    osc2.frequency.value = 1100; gain2.gain.value = 0.2;
-    osc2.start(ctx.currentTime + 0.15); osc2.stop(ctx.currentTime + 0.25);
-  } catch(e) {}
-}
-
-function startWakeWord() {
-  if (!SpeechRecognition) {
-    if (wakewordBtn) {
-      wakewordBtn.style.display = 'none';
-      // Afficher hint discret sous l'input chat
-      var hint = document.createElement('p');
-      hint.style.cssText = 'color:#888;font-size:0.75rem;text-align:center;padding:4px 0;margin:0;';
-      hint.textContent = 'Mode mains libres indisponible sur cet appareil — utilisez le micro manuel.';
-      var chatInput = document.getElementById('chat-input') || document.querySelector('.input-area');
-      if (chatInput && chatInput.parentNode) chatInput.parentNode.insertBefore(hint, chatInput);
-    }
-    return;
-  }
-  if (wakewordActive) return;
-
-  wakeRecognition = new SpeechRecognition();
-  wakeRecognition.lang = "fr-FR";
-  wakeRecognition.continuous = true;
-  wakeRecognition.interimResults = true;
-  wakeRecognition.maxAlternatives = 5;
-
-  wakeRecognition.onstart = function() {
-    wakewordActive = true;
-    wakewordBtn.classList.add("active", "listening");
-    wakewordIndicator.style.display = "block";
-    wakewordLabel.textContent = "Dis \"Hey Luna\"...";
-  };
-
-  wakeRecognition.onresult = function(event) {
-    if (wakewordCooldown) return;
-    for (var i = event.resultIndex; i < event.results.length; i++) {
-      for (var j = 0; j < event.results[i].length; j++) {
-        var text = event.results[i][j].transcript;
-        if (_matchLuna(text)) {
-          // Hey Luna detecte ! → Bip + lancer le mode Jarvis (voix OpenAI Realtime)
-          wakewordCooldown = true;
-          _playWakeBeep();
-          wakewordLabel.textContent = "Luna s'active...";
-          wakewordBtn.style.boxShadow = "0 0 16px rgba(74,222,128,0.6)";
-
-          // Stop le wake word listener (le micro sera pris par Jarvis)
-          stopWakeWord();
-
-          // Lancer le mode Jarvis (Luna Voice) apres un court delai
-          setTimeout(function() {
-            var jarvisBtn = document.getElementById("lunaVoiceBtn");
-            if (jarvisBtn) jarvisBtn.click();
-          }, 400);
-
-          // Relancer le wake word quand Jarvis se termine
-          var _checkJarvisEnded = setInterval(function() {
-            var jarvisBtn = document.getElementById("lunaVoiceBtn");
-            if (jarvisBtn && !jarvisBtn.classList.contains("active")) {
-              clearInterval(_checkJarvisEnded);
-              // Re-activer Hey Luna apres 2s (laisser le micro se liberer)
-              setTimeout(function() {
-                if (localStorage.getItem("luna_wakeword") === "on") {
-                  startWakeWord();
-                }
-              }, 2000);
-            }
-          }, 1000);
-
-          return;
-        }
-      }
-    }
-  };
-
-  wakeRecognition.onerror = function(event) {
-    if (event.error === "not-allowed") {
-      addMsg("Autorise le micro pour utiliser Hey Luna.", "luna");
-      stopWakeWord();
-      return;
-    }
-    if (wakewordActive) {
-      setTimeout(function() { if (wakewordActive) { try { wakeRecognition.start(); } catch(e) {} } }, 800);
-    }
-  };
-
-  wakeRecognition.onend = function() {
-    wakewordBtn.style.boxShadow = "";
-    if (wakewordActive) {
-      setTimeout(function() { if (wakewordActive) { try { wakeRecognition.start(); } catch(e) {} } }, 300);
-    }
-  };
-
-  try { wakeRecognition.start(); } catch(e) { console.error("[WakeWord] Start error:", e); }
-}
-
-function stopWakeWord() {
-  wakewordActive = false;
-  wakewordCooldown = false;
-  if (wakeRecognition) { try { wakeRecognition.stop(); } catch(e) {} }
-  wakewordBtn.classList.remove("active", "listening");
-  wakewordBtn.style.boxShadow = "";
-  wakewordIndicator.style.display = "none";
-}
-
-wakewordBtn.addEventListener("click", function() {
-  if (wakewordActive) { stopWakeWord(); } else { startWakeWord(); }
-  setTimeout(function() { localStorage.setItem("luna_wakeword", wakewordActive ? "on" : "off"); }, 200);
-});
-
-// Restaurer la preference Hey Luna au chargement
-if (localStorage.getItem("luna_wakeword") === "on") {
-  setTimeout(function() { if (getToken()) startWakeWord(); }, 1500);
-}
 
 // =========================================================================
 // AUTO-UPDATE APK — verifie si une nouvelle version est dispo
