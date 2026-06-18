@@ -306,9 +306,14 @@ html,body { height:100%; overflow:hidden; background:var(--bg); color:var(--text
 #voice-card.state-error #mic-label { color:#ef4444; }
 /* Rangée vocal-parole */
 #voice-speech { display:flex; align-items:center; gap:8px;
-  padding:0 4px; font-size:.75em; color:var(--muted); }
+  padding:0 4px; font-size:.75em; color:var(--muted); flex-wrap:wrap; }
 #voice-chk { accent-color:var(--purple); width:14px; height:14px; cursor:pointer; }
-#voice-speech label { cursor:pointer; }
+#voice-speech label { cursor:pointer; flex:1; }
+/* Badge diagnostic TTS */
+.tts-badge { font-size:.65em; font-weight:700; padding:2px 7px; border-radius:8px;
+  letter-spacing:.04em; white-space:nowrap; display:none; }
+.tts-badge.tts-ok  { display:inline-block; color:var(--green); background:rgba(16,185,129,.12); border:1px solid rgba(16,185,129,.25); }
+.tts-badge.tts-err { display:inline-block; color:#ef4444; background:rgba(239,68,68,.1); border:1px solid rgba(239,68,68,.25); }
 
 /* Config toggle */
 #cfg-toggle { text-align:center; padding:0 14px 8px; }
@@ -491,6 +496,23 @@ select.cfg-inp option { background:#13131f; }
 }
 #toast.show { opacity:1; }
 
+/* ─── EMERGENCY EVIDENCE MODE BADGE ── */
+#eem-badge {
+  position:fixed; top:calc(62px + env(safe-area-inset-top)); left:50%; transform:translateX(-50%);
+  z-index:1200; display:flex; align-items:center; gap:7px;
+  background:rgba(220,38,38,.92); border:1px solid rgba(255,100,100,.35);
+  border-radius:20px; padding:6px 14px; backdrop-filter:blur(8px);
+  font-size:.72em; font-weight:700; color:#fff; letter-spacing:.04em;
+  box-shadow:0 4px 20px rgba(220,38,38,.5);
+  animation:eemPulse 1.8s ease-in-out infinite;
+}
+@keyframes eemPulse{0%,100%{box-shadow:0 4px 20px rgba(220,38,38,.5);}50%{box-shadow:0 4px 28px rgba(220,38,38,.85);}}
+.eem-dot { width:7px; height:7px; border-radius:50%; background:#fff; animation:eemDot 1s infinite; }
+@keyframes eemDot{0%,100%{opacity:1;}50%{opacity:.3;}}
+.eem-label { opacity:.85; }
+.eem-count { background:rgba(255,255,255,.15); border-radius:8px; padding:1px 6px; font-size:.9em; }
+.eem-audio, .eem-cam { font-size:1.1em; }
+
 /* Leaflet overrides */
 .leaflet-control-attribution { font-size:9px !important; }
 .leaflet-popup-content-wrapper,.leaflet-popup-tip { background:#0e0e1c !important; color:var(--text) !important; border:1px solid var(--border) !important; }
@@ -620,6 +642,7 @@ select.cfg-inp option { background:#13131f; }
     <div id="voice-speech">
       <input type="checkbox" id="voice-chk" onchange="toggleVoice(this.checked)">
       <label for="voice-chk">🔊 Luna parle lors des alertes</label>
+      <span id="tts-status" class="tts-badge"></span>
     </div>
   </div>
 
@@ -738,6 +761,15 @@ select.cfg-inp option { background:#13131f; }
 <!-- TOAST -->
 <div id="toast"></div>
 
+<!-- EMERGENCY EVIDENCE MODE BADGE -->
+<div id="eem-badge" style="display:none">
+  <span class="eem-dot"></span>
+  <span class="eem-label">URGENCE</span>
+  <span class="eem-count">0 pts</span>
+  <span class="eem-audio" style="display:none">🎙</span>
+  <span class="eem-cam" style="display:none">📸</span>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 'use strict';
@@ -766,6 +798,11 @@ var RISK_LEVEL='low', RISK_COLORS={low:'#10b981',medium:'#f59e0b',high:'#ef4444'
 var LAST_GPS_SENT=0, CFG_OPEN=false, EV_OPEN=false;
 var LAST_POS=null, PREV_POS=null;
 var GEO_CACHE={};
+
+// ── EMERGENCY EVIDENCE MODE ────────────────────
+var _EEM_ACTIVE=false, _EEM_IID=null, _EEM_GEO_ID=null;
+var _EEM_TRAIL=[], _EEM_LAST_PUSH=0;
+var _EEM_REC=null, _EEM_CHUNKS=[];
 
 // ── MAP INIT ─────────────────────────────────
 function initMap(){
@@ -886,6 +923,11 @@ function updateRisk(score,level,desc){
   if(bottomEl) bottomEl.classList.toggle('alert-mode', isAlert&&!!SID);
   if(mapEl) mapEl.classList.toggle('alert-map', isAlert);
   if(addrEl) addrEl.classList.toggle('alert', isAlert);
+  // Mise à jour notification Guardian permanente
+  if(SID&&window.LunaBridge&&LunaBridge.updateGuardianNotification){
+    var notifStatus=isAlert?'🆘 ALERTE — SOS actif':(RISK_LEVEL==='medium'?'⚠ Surveillance active':'Protégé · GPS actif');
+    LunaBridge.updateGuardianNotification(notifStatus,'',isAlert);
+  }
   setTimeout(_layoutUpdate,50);
 }
 
@@ -906,21 +948,77 @@ async function grantPermissions(){
 function openRgpdModal(){ document.getElementById('rgpd-modal').classList.add('open'); }
 function closeRgpdModal(){ document.getElementById('rgpd-modal').classList.remove('open'); }
 
-// ── VOICE ALERTS (Web Speech API) ────────────
-function toggleVoice(on){
-  localStorage.setItem('luna_voice',on?'1':'0');
-  showToast(on?'🎙️ Alertes vocales activées':'Alertes vocales désactivées');
+// ── VOICE ALERTS — TTS robuste avec fallback Android ─────
+var _TTS_OK=null, _TTS_BUSY=false, _voiceEvents=[];
+
+function _voiceLog(ev,detail){
+  var ts=new Date().toISOString().substr(11,8);
+  _voiceEvents.push({t:ts,ev:ev,d:detail||''});
+  if(_voiceEvents.length>60)_voiceEvents.shift();
+  console.log('[GUARDIAN_TTS] '+ev+(detail?' '+detail:''));
 }
-function maybeSpeak(msg){
-  if(localStorage.getItem('luna_voice')!=='1') return;
-  if(!window.speechSynthesis) return;
+function _ttsDiag(ok){
+  _TTS_OK=ok;
+  var el=document.getElementById('tts-status');
+  if(!el)return;
+  el.textContent=ok?'🔊 TTS OK':'🔇 TTS ERR';
+  el.className='tts-badge '+(ok?'tts-ok':'tts-err');
+}
+function _ttsTest(){
+  if(!window.speechSynthesis){_ttsDiag(false);return;}
+  var u=new SpeechSynthesisUtterance('');
+  u.volume=0; u.lang='fr-FR';
+  u.onstart=function(){_ttsDiag(true);};
+  u.onerror=function(){_ttsDiag(false);};
+  try{window.speechSynthesis.speak(u);}catch(e){_ttsDiag(false);}
+}
+
+// Parler — force:true = toujours parler (urgence), même si setting désactivé
+function guardianSpeak(msg,opts){
+  opts=opts||{};
+  if(!opts.force && localStorage.getItem('luna_voice')!=='1'){if(opts.onend)opts.onend();return;}
+  if(!window.speechSynthesis){_voiceLog('voice_error','no_api');if(opts.onend)opts.onend();return;}
+
+  // Pause SpeechRecognition : libère l'audio focus Android
+  var wasListening=!!_vocalRec;
+  if(wasListening){
+    try{_vocalRec.abort();}catch(e){}
+    _vocalRec=null; _setMicState('off');
+    if(_vocalRestartT){clearTimeout(_vocalRestartT);_vocalRestartT=null;}
+  }
+
   try{
     window.speechSynthesis.cancel();
     var u=new SpeechSynthesisUtterance(msg);
-    u.lang='fr-FR'; u.rate=0.92; u.pitch=1.0;
+    u.lang='fr-FR'; u.rate=0.95; u.pitch=1.0; u.volume=1.0;
+    u.onstart=function(){_TTS_BUSY=true;_ttsDiag(true);_voiceLog('voice_started',msg.substr(0,40));};
+    u.onend=function(){
+      _TTS_BUSY=false;
+      _voiceLog('voice_finished',msg.substr(0,30));
+      if(opts.onend)opts.onend();
+      if(wasListening&&SID&&!_vocalRec)_vocalScheduleRestart(400);
+    };
+    u.onerror=function(e){
+      _TTS_BUSY=false;_ttsDiag(false);
+      _voiceLog('voice_error',e.error||'unknown');
+      if(opts.onend)opts.onend();
+      if(wasListening&&SID&&!_vocalRec)_vocalScheduleRestart(400);
+    };
     window.speechSynthesis.speak(u);
-  }catch(e){}
+  }catch(e){
+    _TTS_BUSY=false;_ttsDiag(false);
+    _voiceLog('voice_error',e.message||'throw');
+    if(opts.onend)opts.onend();
+    if(wasListening&&SID&&!_vocalRec)_vocalScheduleRestart(400);
+  }
 }
+function toggleVoice(on){
+  localStorage.setItem('luna_voice',on?'1':'0');
+  showToast(on?'🎙️ Alertes vocales activées':'Alertes vocales désactivées');
+  if(on)_ttsTest();
+}
+// Compat — appels non-urgents (respectent le setting)
+function maybeSpeak(msg){guardianSpeak(msg,{});}
 
 // ── HAPTIC ────────────────────────────────────
 function vibrate(pattern){ if(navigator.vibrate) navigator.vibrate(pattern); }
@@ -1025,6 +1123,7 @@ function guardianStart(){
     document.getElementById('rgpd-banner').style.display='flex';
     document.getElementById('voice-toggle').style.display='flex';
     document.getElementById('voice-chk').checked=(localStorage.getItem('luna_voice')==='1');
+    setTimeout(_ttsTest,800); // diagnostic TTS au démarrage
     showTrustBar(true);
     if(CFG_OPEN) toggleCfg();
     _layoutUpdate();
@@ -1034,6 +1133,15 @@ function guardianStart(){
     // Niveau 2 — reconnaissance vocale native Android (couvre arrière-plan + écran verrouillé)
     if(window.LunaBridge&&LunaBridge.startNativeVoiceGuardian) LunaBridge.startNativeVoiceGuardian();
     document.getElementById('contacts-bar').style.display='block';
+    // Notification permanente Guardian
+    if(window.LunaBridge&&LunaBridge.startGuardianService){
+      setTimeout(function(){
+        var names=_smsContacts.slice(0,2).map(function(c){return c.name||c.first_name||'Contact';});
+        var trusted=(_gFriendsAll||[]).filter(function(f){return f.is_guardian_contact;}).slice(0,2).map(function(f){return f.nickname||'Ami';});
+        var contacts=[].concat(names,trusted).slice(0,3).join(', ');
+        LunaBridge.startGuardianService('Protégé · GPS actif', contacts||'');
+      },1500); // laisser loadContacts() se terminer d'abord
+    }
     showToast('🛡️ Guardian actif');
     vibrate([60,30,60]);
     maybeSpeak('Luna Guardian démarré. Je veille sur vous.');
@@ -1065,8 +1173,16 @@ function guardianStop(){
 function _cleanupSession(){
   _vocalStop();
   if(window.LunaBridge&&LunaBridge.stopNativeVoiceGuardian) LunaBridge.stopNativeVoiceGuardian();
+  if(window.LunaBridge&&LunaBridge.stopGuardianService) LunaBridge.stopGuardianService();
   if(WS){try{WS.close();}catch(e){} WS=null;}
   if(GEO_ID!==null){navigator.geolocation.clearWatch(GEO_ID);GEO_ID=null;}
+  // Arrêter Emergency Evidence Mode si actif
+  if(_EEM_ACTIVE){
+    if(_EEM_GEO_ID!==null){navigator.geolocation.clearWatch(_EEM_GEO_ID);_EEM_GEO_ID=null;}
+    if(_EEM_REC&&_EEM_REC.state!=='inactive'){try{_EEM_REC.stop();}catch(e){}}
+    _EEM_ACTIVE=false; _EEM_IID=null; _EEM_REC=null;
+    _eemHideBadge();
+  }
   document.getElementById('contacts-bar').style.display='none';
   SID=null; TRAIL_COORDS=[]; PREV_POS=null;
   if(TRAIL){MAP.removeLayer(TRAIL);TRAIL=null;}
@@ -1085,6 +1201,164 @@ function _contextIcon(lat,lng){
   }
   if(dist>200) return '🚶';
   return '📍';
+}
+
+// ─────────────────────────────────────────────
+// EMERGENCY EVIDENCE MODE — P1 GPS + P2 Audio
+// ─────────────────────────────────────────────
+
+function _eemStart(iid, source){
+  if(_EEM_ACTIVE) return;
+  _EEM_ACTIVE=true; _EEM_IID=iid; _EEM_TRAIL=[]; _EEM_LAST_PUSH=0;
+  // Stop normal GPS
+  if(GEO_ID!==null){navigator.geolocation.clearWatch(GEO_ID);GEO_ID=null;}
+  // Notify backend — ouvre le dossier d'incident
+  var initPos=LAST_POS||{};
+  authFetch('/api/guardian/incident/'+SID+'/start',{
+    method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({incident_id:iid,source:source,lat:initPos.lat||null,lng:initPos.lng||null})
+  }).catch(function(){});
+  // Démarrer GPS haute fréquence (maximumAge:0 = toujours fresh)
+  _EEM_GEO_ID=navigator.geolocation.watchPosition(
+    function(p){ _eemOnPos(p); },
+    function(e){ showToast('⚠️ GPS urgence: '+e.message,3000); },
+    {enableHighAccuracy:true, maximumAge:0, timeout:8000}
+  );
+}
+
+function _eemOnPos(p){
+  var lat=p.coords.latitude, lng=p.coords.longitude;
+  var acc=p.coords.accuracy, spd=p.coords.speed;
+  var ts=Date.now();
+  var pt={lat:lat,lng:lng,acc:acc,spd:spd,ts:ts};
+  _EEM_TRAIL.push(pt);
+  if(_EEM_TRAIL.length>500) _EEM_TRAIL.shift();
+  updateMapPos(lat,lng,acc);
+  LAST_POS={lat:lat,lng:lng};
+  _LAST_CONTEXT_POS={lat:lat,lng:lng};
+  if(window.LunaBridge&&LunaBridge.updateGuardianPosition) LunaBridge.updateGuardianPosition(lat,lng);
+  // Push toutes les 3s max
+  if(ts-_EEM_LAST_PUSH<3000) return;
+  _EEM_LAST_PUSH=ts;
+  authFetch('/api/guardian/incident/'+SID+'/trail',{
+    method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({incident_id:_EEM_IID,position:pt})
+  }).catch(function(){});
+  // Mise à jour adresse
+  updateAddressCard(lat,lng,acc,false,null);
+  _eemUpdateBadge();
+}
+
+function _eemStop(){
+  if(!_EEM_ACTIVE) return;
+  _EEM_ACTIVE=false;
+  if(_EEM_GEO_ID!==null){navigator.geolocation.clearWatch(_EEM_GEO_ID);_EEM_GEO_ID=null;}
+  // Arrêter audio si en cours
+  if(_EEM_REC&&_EEM_REC.state!=='inactive'){try{_EEM_REC.stop();}catch(e){}}
+  _EEM_REC=null; _EEM_IID=null;
+  // Relancer GPS normal
+  if(SID) startGps();
+  _eemHideBadge();
+}
+
+function _eemUpdateBadge(){
+  var b=document.getElementById('eem-badge');
+  if(!b||!_EEM_ACTIVE) return;
+  b.style.display='flex';
+  b.querySelector('.eem-count').textContent=_EEM_TRAIL.length+' pts';
+  if(_EEM_REC&&_EEM_REC.state==='recording') b.querySelector('.eem-audio').style.display='';
+  else b.querySelector('.eem-audio').style.display='none';
+}
+function _eemHideBadge(){
+  var b=document.getElementById('eem-badge');
+  if(b) b.style.display='none';
+}
+
+// P2 — Audio 60s
+function _eemStartAudio(iid){
+  if(!navigator.mediaDevices||!window.MediaRecorder) return;
+  var mimeType='audio/webm;codecs=opus';
+  if(!MediaRecorder.isTypeSupported(mimeType)) mimeType='audio/webm';
+  navigator.mediaDevices.getUserMedia({audio:true,video:false})
+    .then(function(stream){
+      _EEM_CHUNKS=[];
+      var rec=new MediaRecorder(stream,{mimeType:mimeType});
+      _EEM_REC=rec;
+      rec.ondataavailable=function(e){if(e.data.size>0)_EEM_CHUNKS.push(e.data);};
+      rec.onstop=function(){
+        stream.getTracks().forEach(function(t){t.stop();});
+        if(_EEM_CHUNKS.length===0) return;
+        var blob=new Blob(_EEM_CHUNKS,{type:mimeType});
+        _eemUploadAudio(blob,iid);
+      };
+      rec.start(1000);  // chunks d'1s
+      showToast('🎙️ Enregistrement audio d\'urgence (60s)',4000);
+      setTimeout(function(){
+        if(rec.state!=='inactive') rec.stop();
+      },60000);
+    })
+    .catch(function(e){
+      // Non-bloquant — micro déjà utilisé par SpeechRecognition
+    });
+}
+
+function _eemUploadAudio(blob,iid){
+  var form=new FormData();
+  form.append('audio',blob,'emergency_'+iid+'.webm');
+  form.append('incident_id',iid);
+  authFetch('/api/guardian/incident/'+SID+'/audio',{method:'POST',body:form})
+    .catch(function(){});
+}
+
+// P3 — Camera snapshots (3 photos × 5s, back camera, non-bloquant)
+function _eemStartCamera(iid){
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia) return;
+  navigator.mediaDevices.getUserMedia({
+    video:{facingMode:'environment',width:{ideal:640},height:{ideal:480}},
+    audio:false
+  }).then(function(stream){
+    var video=document.createElement('video');
+    video.srcObject=stream;
+    video.setAttribute('playsinline','');
+    video.muted=true;
+    video.play();
+    var photosDone=0;
+    var camBadge=document.querySelector('.eem-cam');
+    if(camBadge) camBadge.style.display='';
+    function snap(){
+      if(!_EEM_ACTIVE||photosDone>=3){
+        stream.getTracks().forEach(function(t){t.stop();});
+        if(camBadge) camBadge.style.display='none';
+        return;
+      }
+      var w=video.videoWidth||640, h=video.videoHeight||480;
+      if(w===0||h===0){ setTimeout(snap,500); return; }
+      var canvas=document.createElement('canvas');
+      canvas.width=w; canvas.height=h;
+      canvas.getContext('2d').drawImage(video,0,0);
+      canvas.toBlob(function(blob){
+        photosDone++;
+        if(blob&&blob.size>0) _eemUploadPhoto(blob,iid,photosDone);
+        if(photosDone<3) setTimeout(snap,5000);
+        else{ stream.getTracks().forEach(function(t){t.stop();}); if(camBadge) camBadge.style.display='none'; }
+      },'image/jpeg',0.75);
+    }
+    // Laisser la caméra s'initialiser (800ms)
+    video.onloadedmetadata=function(){ setTimeout(snap,800); };
+    video.onerror=function(){ stream.getTracks().forEach(function(t){t.stop();}); };
+    // Sécurité : fermer après 20s max
+    setTimeout(function(){ stream.getTracks().forEach(function(t){t.stop();}); },20000);
+  }).catch(function(){
+    // NotAllowedError ou pas de caméra → silencieux, ne pas perturber l'alerte
+  });
+}
+function _eemUploadPhoto(blob,iid,n){
+  var form=new FormData();
+  form.append('photo',blob,'emergency_'+iid+'_'+n+'.jpg');
+  form.append('incident_id',iid);
+  form.append('photo_num',String(n));
+  authFetch('/api/guardian/incident/'+SID+'/photo',{method:'POST',body:form})
+    .catch(function(){});
 }
 
 function startGps(){
@@ -1195,6 +1469,8 @@ function triggerSOS(){
   if(btn) btn.disabled=true;
   var iid=_genIncidentId();
   vibrate([200,100,200,100,200]);
+  // P1 — Activer tracking GPS renforcé immédiatement
+  _eemStart(iid,'sos');
   authFetch('/api/guardian/sos/'+SID,{
     method:'POST',
     headers:{'Content-Type':'application/json'},
@@ -1205,10 +1481,16 @@ function triggerSOS(){
     if(res.status===409){showToast('⏳ Alerte déjà envoyée',3000);return;}
     var d=res.data;
     showToast('🆘 '+(d.message||'SOS envoyé'),5000);
+    _voiceLog('voice_alert_sent',d.alerts_sent_to||0);
+    guardianSpeak('Alerte déclenchée. Vos contacts ont été prévenus.',{force:true});
     updateRisk(1,'critical','SOS');
     showAlertOnMap('🆘 SOS activé — '+(d.alerts_sent_to||0)+' contact(s) alerté(s)',
       LAST_POS?LAST_POS.lat:null,LAST_POS?LAST_POS.lng:null);
     breakStreak(); loadEvents();
+    // P2 — Audio après confirmation SOS (non-bloquant)
+    _eemStartAudio(iid);
+    // P3 — Camera 3 snapshots (non-bloquant)
+    _eemStartCamera(iid);
   }).catch(function(e){showToast('❌ SOS: '+(e.message||'erreur'));})
   .finally(function(){
     _sosInProgress=false;
@@ -1371,11 +1653,18 @@ function openVocalCountdown(){
   document.getElementById('vocal-n').textContent=n;
   document.getElementById('vocal-modal').classList.add('open');
   vibrate([300,100,300]);
-  maybeSpeak("J'ai entendu une demande d'aide. J'alerte vos contacts dans 5 secondes. Dites annule si c'est une erreur.");
+  _voiceLog('voice_countdown_started','n='+n);
+
+  // Message officiel — force=true : toujours audible en urgence
+  guardianSpeak('Alerte déclenchée. J\'alerte vos contacts dans 5 secondes. Dites annule pour interrompre.',{force:true});
+
+  // Compte à rebours visuel + vocal (indépendant du TTS initial)
   _vocalTimer=setInterval(function(){
     n--;
     document.getElementById('vocal-count').textContent=n;
     document.getElementById('vocal-n').textContent=n;
+    // Chiffres vocaux sur les 3 dernières secondes (quand TTS libéré)
+    if(n>0&&n<=3&&!_TTS_BUSY) guardianSpeak(String(n),{force:true});
     if(n<=0){
       clearInterval(_vocalTimer); _vocalTimer=null;
       document.getElementById('vocal-modal').classList.remove('open');
@@ -1398,14 +1687,17 @@ function cancelVocalCountdown(){
   document.getElementById('vocal-modal').classList.remove('open');
   showToast('✅ Annulé — aucune alerte envoyée',3000);
   vibrate([50]);
-  maybeSpeak('Annulé. Aucune alerte envoyée.');
+  _voiceLog('voice_cancelled','user_cancel');
+  guardianSpeak('Alerte annulée.',{force:true});
 }
 function _triggerSOSVocal(){
   if(!SID||_sosInProgress) return;
   _sosInProgress=true;
   var iid=_genIncidentId();
   vibrate([500,150,500,150,800]);
-  maybeSpeak("J'alerte vos contacts maintenant.");
+  guardianSpeak('Alerte déclenchée.',{force:true});
+  // P1 — Activer tracking GPS renforcé immédiatement
+  _eemStart(iid,'vocal');
   authFetch('/api/guardian/sos/'+SID,{
     method:'POST',
     headers:{'Content-Type':'application/json'},
@@ -1416,10 +1708,17 @@ function _triggerSOSVocal(){
     if(res.status===409){showToast('⏳ Alerte déjà envoyée',3000);return;}
     var d=res.data;
     showToast('🆘 '+(d.message||'SOS envoyé'),6000);
+    _voiceLog('voice_alert_sent',d.alerts_sent_to||0);
+    // Confirmation vocale officielle — toujours audible
+    guardianSpeak('Alerte déclenchée. Vos contacts ont été prévenus.',{force:true});
     updateRisk(1,'critical','SOS vocal');
     showAlertOnMap('🆘 SOS vocal — '+(d.alerts_sent_to||0)+' contact(s) alerté(s)',
       LAST_POS?LAST_POS.lat:null,LAST_POS?LAST_POS.lng:null);
     breakStreak(); loadEvents();
+    // P2 — Audio après confirmation (non-bloquant)
+    _eemStartAudio(iid);
+    // P3 — Camera 3 snapshots (non-bloquant)
+    _eemStartCamera(iid);
   }).catch(function(e){showToast('❌ SOS: '+(e.message||'erreur'));})
   .finally(function(){_sosInProgress=false;});
 }

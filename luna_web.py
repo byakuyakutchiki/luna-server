@@ -14904,6 +14904,7 @@ async def guardian_location(session_id: str, request: Request):
 
     # Déclencher alertes si l'engine a généré un event d'alerte
     # (respecte le backoff P0-06, la grace period P0-07 et le plafond P0-05)
+    sms_results = {"sent": [], "failed": [], "blocked": []}
     alert_events = [e for e in events if e.event_type in ("alert_triggered", "alert_escalated")]
     if alert_events:
         session = engine.get_session(session_id)
@@ -15095,6 +15096,113 @@ async def guardian_sos(session_id: str, request: Request):
     else:
         response["message"] = f"SOS envoyé à {total_sent} contact(s)"
     return response
+
+
+@app.post("/api/guardian/incident/{session_id}/start")
+async def guardian_incident_start(session_id: str, request: Request):
+    """Ouvre un dossier d'incident d'urgence (GPS renforcé, journal)."""
+    tid = getattr(request.state, "tenant_id", 1)
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    incident_id = body.get("incident_id", "")
+    if not incident_id or not _redis_client:
+        return {"ok": True}
+    safe_id = incident_id[:64].replace(":", "_")
+    key = f"luna:{tid}:guardian:incident:{safe_id}"
+    data = {
+        "incident_id": safe_id,
+        "session_id": session_id,
+        "source": str(body.get("source", "sos"))[:32],
+        "started_at": datetime.utcnow().isoformat(),
+        "status": "active",
+        "initial_lat": str(body.get("lat", "")),
+        "initial_lng": str(body.get("lng", "")),
+    }
+    _redis_client.client.hset(key, mapping=data)
+    _redis_client.client.expire(key, 86400 * 7)
+    logger.info(f"Guardian incident started: tid={tid} id={safe_id} source={data['source']}")
+    return {"ok": True, "incident_id": safe_id}
+
+
+@app.post("/api/guardian/incident/{session_id}/trail")
+async def guardian_incident_trail(session_id: str, request: Request):
+    """Enregistre une position GPS d'urgence dans le journal d'incident."""
+    tid = getattr(request.state, "tenant_id", 1)
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    incident_id = body.get("incident_id", "")
+    position  = body.get("position", {})
+    if not incident_id or not position or not _redis_client:
+        return {"ok": True}
+    safe_id = incident_id[:64].replace(":", "_")
+    trail_key = f"luna:{tid}:guardian:incident_trail:{safe_id}"
+    _redis_client.client.rpush(trail_key, json.dumps({
+        "lat": position.get("lat"), "lng": position.get("lng"),
+        "acc": position.get("acc"), "spd": position.get("spd"),
+        "ts": position.get("ts", int(datetime.utcnow().timestamp() * 1000)),
+    }))
+    _redis_client.client.ltrim(trail_key, -500, -1)   # max 500 positions
+    _redis_client.client.expire(trail_key, 86400 * 7)
+    return {"ok": True}
+
+
+@app.post("/api/guardian/incident/{session_id}/audio")
+async def guardian_incident_audio(session_id: str, request: Request):
+    """Stocke l'enregistrement audio d'urgence."""
+    tid = getattr(request.state, "tenant_id", 1)
+    try:
+        form = await request.form()
+    except Exception:
+        return JSONResponse(status_code=400, content={"error": "multipart requis"})
+    incident_id = str(form.get("incident_id", ""))[:64].replace(":", "_")
+    audio_file  = form.get("audio")
+    if not incident_id or not audio_file:
+        return JSONResponse(status_code=400, content={"error": "incident_id et audio requis"})
+    safe_dir = os.path.join("/tmp", "luna_incidents")
+    os.makedirs(safe_dir, exist_ok=True)
+    fname = f"{tid}_{incident_id}.webm"
+    fpath = os.path.join(safe_dir, fname)
+    try:
+        content = await audio_file.read()
+        with open(fpath, "wb") as f:
+            f.write(content)
+        logger.info(f"Guardian audio saved: {fpath} ({len(content)} bytes)")
+    except Exception as e:
+        logger.warning(f"Guardian audio save failed: {e}")
+        return JSONResponse(status_code=500, content={"error": str(e)})
+    return {"ok": True, "size": len(content)}
+
+
+@app.post("/api/guardian/incident/{session_id}/photo")
+async def guardian_incident_photo(session_id: str, request: Request):
+    """Stocke une capture photo d'urgence (JPEG)."""
+    tid = getattr(request.state, "tenant_id", 1)
+    try:
+        form = await request.form()
+    except Exception:
+        return JSONResponse(status_code=400, content={"error": "multipart requis"})
+    incident_id = str(form.get("incident_id", ""))[:64].replace(":", "_")
+    photo_file  = form.get("photo")
+    photo_num   = str(form.get("photo_num", "1"))[:3]
+    if not incident_id or not photo_file:
+        return JSONResponse(status_code=400, content={"error": "incident_id et photo requis"})
+    safe_dir = os.path.join("/tmp", "luna_incidents")
+    os.makedirs(safe_dir, exist_ok=True)
+    fname = f"{tid}_{incident_id}_photo_{photo_num}.jpg"
+    fpath = os.path.join(safe_dir, fname)
+    try:
+        content = await photo_file.read()
+        with open(fpath, "wb") as f:
+            f.write(content)
+        logger.info(f"Guardian photo saved: {fpath} ({len(content)} bytes)")
+    except Exception as e:
+        logger.warning(f"Guardian photo save failed: {e}")
+        return JSONResponse(status_code=500, content={"error": str(e)})
+    return {"ok": True, "size": len(content), "photo_num": photo_num}
 
 
 @app.post("/api/guardian/fall-detected/{session_id}")
@@ -19768,6 +19876,29 @@ async def serve_document(filename: str, request: Request):
         media_type=media_type,
         filename=filename,
     )
+
+
+@app.delete("/api/documents/{filename}")
+async def delete_document(filename: str, request: Request):
+    """Supprime un document généré (PDF/DOCX) du répertoire du tenant."""
+    tid = getattr(request.state, "tenant_id", 1)
+    _ALLOWED = (".pdf", ".docx")
+    if not filename.endswith(_ALLOWED):
+        return JSONResponse(status_code=400, content={"error": "Type de fichier non autorisé"})
+    if ".." in filename or "/" in filename or "\\" in filename or "\x00" in filename:
+        return JSONResponse(status_code=400, content={"error": "Nom de fichier invalide"})
+    base_dir = os.path.normpath(os.path.join(os.path.dirname(__file__), "static", "documents", str(tid)))
+    filepath  = os.path.normpath(os.path.join(base_dir, filename))
+    if not filepath.startswith(base_dir + os.sep):
+        return JSONResponse(status_code=403, content={"error": "Accès refusé"})
+    if not os.path.exists(filepath):
+        return JSONResponse(status_code=404, content={"error": "Document non trouvé"})
+    try:
+        os.remove(filepath)
+        logger.info(f"Document supprimé: tenant={tid} file={filename}")
+        return {"success": True}
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
 
 
 # =========================================================================

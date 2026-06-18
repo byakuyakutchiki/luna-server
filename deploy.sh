@@ -42,10 +42,18 @@ add_var "GUARDIAN_CALL_ENABLED"
 # Joindre avec des virgules
 vars_string=$(IFS=,; echo "${update_vars[*]}")
 
+IMAGE="europe-west1-docker.pkg.dev/${PROJECT}/cloud-run-source-deploy/${SERVICE}:$(date +%Y%m%d-%H%M%S)"
+
 echo "Deploiement $SERVICE -> $REGION..."
+echo "Image : $IMAGE"
 echo "Variables mises a jour : ${vars_string}"
+
+# Build local via Dockerfile (evite le builder Buildpacks de Cloud Run qui echoue)
+docker build -t "$IMAGE" "$(dirname "$0")"
+docker push "$IMAGE"
+
 gcloud run deploy "$SERVICE" \
-  --source=. \
+  --image="$IMAGE" \
   --region="$REGION" \
   --project="$PROJECT" \
   --update-env-vars="$vars_string" \

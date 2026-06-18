@@ -677,6 +677,52 @@ public class MainActivity extends Activity {
             guardianLat = lat;
             guardianLng = lng;
         }
+
+        /**
+         * Démarre le Foreground Service Guardian avec notification permanente.
+         * Appelé par guardianStart() côté JS.
+         * @param status   Texte d'état : "Protégé · GPS actif"
+         * @param contacts Noms des contacts de confiance : "Madeleine, Julien"
+         */
+        @JavascriptInterface
+        public void startGuardianService(String status, String contacts) {
+            runOnUiThread(() -> {
+                Intent intent = new Intent(MainActivity.this, GuardianService.class);
+                intent.setAction(GuardianService.ACTION_START);
+                if (status   != null) intent.putExtra("status",   status);
+                if (contacts != null) intent.putExtra("contacts", contacts);
+                if (Build.VERSION.SDK_INT >= 26) {
+                    startForegroundService(intent);
+                } else {
+                    startService(intent);
+                }
+            });
+        }
+
+        /**
+         * Arrête le Foreground Service Guardian et retire la notification permanente.
+         * Appelé par guardianStop() / _cleanupSession() côté JS.
+         */
+        @JavascriptInterface
+        public void stopGuardianService() {
+            runOnUiThread(() -> {
+                Intent intent = new Intent(MainActivity.this, GuardianService.class);
+                intent.setAction(GuardianService.ACTION_STOP);
+                startService(intent);
+            });
+        }
+
+        /**
+         * Met à jour le contenu de la notification Guardian sans redémarrer le service.
+         * Appelé par updateRisk() côté JS à chaque changement d'état.
+         * @param status    Texte d'état
+         * @param contacts  Noms des contacts (peut être vide)
+         * @param emergency true = mode urgence (notification rouge haute priorité)
+         */
+        @JavascriptInterface
+        public void updateGuardianNotification(String status, String contacts, boolean emergency) {
+            runOnUiThread(() -> GuardianService.updateStatus(status, contacts, emergency));
+        }
     }
 
     // ── Native SpeechRecognizer — Guardian Voice Core ──────────────
@@ -1400,6 +1446,30 @@ public class MainActivity extends Activity {
             webView.goBack();
         } else {
             super.onBackPressed();
+        }
+    }
+
+    /**
+     * Appelé quand MainActivity reçoit un Intent entrant (singleTask).
+     * Permet au bouton SOS de la notification de déclencher l'alerte depuis l'arrière-plan.
+     */
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        if (intent != null && intent.getBooleanExtra("guardian_sos", false)) {
+            // Réveiller l'écran
+            getWindow().addFlags(
+                WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON  |
+                WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON  |
+                WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED
+            );
+            // Déclencher le SOS côté JS (modal d'abord, triggerSOS si Guardian actif)
+            webView.post(() -> webView.evaluateJavascript(
+                "if(typeof triggerSOS==='function'&&window.SID){triggerSOS();}" +
+                "else if(typeof openSosModal==='function'){openSosModal();}",
+                null
+            ));
         }
     }
 

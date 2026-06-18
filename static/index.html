@@ -3328,7 +3328,7 @@ tabBtns.forEach(function(btn) {
     if (btn.dataset.tab === "contacts") loadContacts();
     if (btn.dataset.tab === "amis") loadAmis();
     if (btn.dataset.tab === "instructions") loadInstructions();
-    if (btn.dataset.tab === "documents") loadDocuments();
+    if (btn.dataset.tab === "documents") { window.location.href = '/documents'; return; }
     if (btn.dataset.tab === "callreports") loadCallReports();
     if (btn.dataset.tab === "quotas") loadQuotas();
     if (btn.dataset.tab === "map") loadMap();
