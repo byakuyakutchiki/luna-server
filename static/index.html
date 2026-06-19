@@ -1440,9 +1440,9 @@ body.mode-secretaire .header-luna-avatar { border-color: rgba(52,211,153,.55) !i
   background-color: transparent !important;
 }
 body.mode-secretaire .luna::before {
-  background-image: url("/static/assets/luna_avatar.jpg") !important;
-  background-size: cover !important;
-  background-position: 50% 28% !important;
+  background-image: none !important;
+  background: radial-gradient(circle at 38% 36%, #34d399 0%, #059669 45%, #047857 100%) !important;
+  box-shadow: 0 0 12px rgba(16,185,129,0.5), inset 0 0 8px rgba(255,255,255,0.08) !important;
 }
 
 /* ── HEADER LUNA AVATAR ──────────────────────────────────────────────── */
@@ -1651,7 +1651,7 @@ body.mode-secretaire .luna::before {
         <img src="/static/assets/luna_avatar.jpg" alt="Luna">
       </div>
       <div>
-        <h1><span class="status-dot online" id="statusDot"></span> Luna <span id="headerWeather" style="font-size:0.55em;color:#888;font-weight:400;margin-left:4px;"></span></h1>
+        <h1><span class="status-dot online" id="statusDot"></span> <span id="headerAssistantName">Luna</span><span id="headerWeather" style="font-size:0.55em;color:#888;font-weight:400;margin-left:4px;"></span></h1>
         <p id="greetingSubtitle">Ton compagnon bienveillant</p>
       </div>
     </div>
@@ -3228,12 +3228,17 @@ function applyMode(mode) {
   // Update meta theme-color for mobile browsers
   var metaTheme = document.querySelector('meta[name="theme-color"]');
   if (metaTheme) metaTheme.setAttribute("content", mode === "secretaire" ? "#071510" : "#0a0a1a");
+  // Source unique de vérité : nom de l'assistant actif
+  window._currentAssistantName = mode === "secretaire" ? "Iris" : "Luna";
+  // Header name
+  var hdr = document.getElementById("headerAssistantName");
+  if (hdr) hdr.textContent = window._currentAssistantName;
   // Mode subtitle
   var sub = document.getElementById("greetingSubtitle");
   if (sub) sub.textContent = mode === "secretaire" ? "Ton assistante professionnelle" : "Ton compagnon bienveillant";
   // Input placeholder
   var inp = document.getElementById("input");
-  if (inp) inp.placeholder = mode === "secretaire" ? "Instruction pour Luna..." : "Message pour Luna...";
+  if (inp) inp.placeholder = mode === "secretaire" ? "Instruction pour Iris…" : "Message pour Luna…";
   // Rafraichir le Plus panel si actif
   if (document.getElementById("tab-plus") && document.getElementById("tab-plus").classList.contains("active")) {
     _renderPlusPanel();
@@ -3301,6 +3306,8 @@ tabBtns.forEach(function(btn) {
     if (btn.dataset.tab === "activities") { loadActivities(); return; }
     // Formulaires = page dediee (5 etapes: upload, analyse, remplir, signer, telecharger)
     if (btn.dataset.tab === "formulaires") { window.location.href = "/formulaires"; return; }
+    // Documents = page dediee — redirect AVANT activation panel pour eviter le flash
+    if (btn.dataset.tab === "documents") { window.location.href = '/documents'; return; }
     // Guardian = page separee
     if (btn.dataset.tab === "guardian") { window.location.href = "/guardian"; return; }
     tabBtns.forEach(function(b) { b.classList.remove("active"); });
@@ -3313,7 +3320,6 @@ tabBtns.forEach(function(btn) {
     if (btn.dataset.tab === "contacts") loadContacts();
     if (btn.dataset.tab === "amis") loadAmis();
     if (btn.dataset.tab === "instructions") loadInstructions();
-    if (btn.dataset.tab === "documents") { window.location.href = '/documents'; return; }
     if (btn.dataset.tab === "callreports") loadCallReports();
     if (btn.dataset.tab === "quotas") loadQuotas();
     if (btn.dataset.tab === "map") loadMap();
@@ -4467,7 +4473,7 @@ function _linkify(text) {
 
 function addMsg(text, cls, ts, skipSave) {
   var d = document.createElement("div"); d.className = "msg " + cls;
-  if (cls === "luna") { var nameSpan = document.createElement("span"); nameSpan.className = "luna-name"; nameSpan.textContent = "Luna"; d.appendChild(nameSpan); }
+  if (cls === "luna") { var nameSpan = document.createElement("span"); nameSpan.className = "luna-name"; nameSpan.textContent = window._currentAssistantName || "Luna"; d.appendChild(nameSpan); }
   var textSpan = document.createElement("span"); textSpan.className = "msg-text"; textSpan.innerHTML = _linkify(text); d.appendChild(textSpan);
   var timeSpan = document.createElement("span"); timeSpan.className = "msg-time"; timeSpan.textContent = formatTime(ts); d.appendChild(timeSpan);
   chat.appendChild(d); scrollToBottom();
@@ -4754,7 +4760,7 @@ function _handleStreamResponse(response, originalMsg) {
   var msgEl = document.createElement("div"); msgEl.className = "msg luna stream-msg";
   var avatarEl = document.createElement("div"); avatarEl.className = "luna-avatar";
   msgEl.appendChild(avatarEl);
-  var nameEl = document.createElement("span"); nameEl.className = "luna-name"; nameEl.textContent = "Luna";
+  var nameEl = document.createElement("span"); nameEl.className = "luna-name"; nameEl.textContent = window._currentAssistantName || "Luna";
   msgEl.appendChild(nameEl);
   var textEl = document.createElement("span"); textEl.className = "msg-text"; textEl.innerHTML = "";
   msgEl.appendChild(textEl);
@@ -7991,8 +7997,8 @@ function stopPaymentPolling() {
     // Update both mini status and overlay status
     if (txt) {
       var prefix = "";
-      if (icon === "listen") { prefix = '<span style="color:#4ade80;margin-right:4px;">&#9679;</span>'; _setVoiceState("listening"); _setOvStatus("Luna ecoute..."); }
-      else if (icon === "speak") { prefix = '<span style="color:#a78bfa;margin-right:4px;">&#9836;</span>'; _setVoiceState("speaking"); _setOvStatus("Luna parle..."); }
+      if (icon === "listen") { prefix = '<span style="color:#4ade80;margin-right:4px;">&#9679;</span>'; _setVoiceState("listening"); _setOvStatus((window._currentAssistantName||"Luna")+" ecoute..."); }
+      else if (icon === "speak") { prefix = '<span style="color:#a78bfa;margin-right:4px;">&#9836;</span>'; _setVoiceState("speaking"); _setOvStatus((window._currentAssistantName||"Luna")+" parle..."); }
       else if (icon === "action") { prefix = '<span style="color:#fbbf24;margin-right:4px;">&#9881;</span>'; _setVoiceState("action"); }
       else { _setOvStatus(txt); }
       voiceStatus.innerHTML = prefix + txt;
@@ -8006,7 +8012,7 @@ function stopPaymentPolling() {
   function _addTranscript(role, text) {
     voiceTranscript.style.display = "block";
     var cls = role === "user" ? "vt-user" : "vt-luna";
-    var label = role === "user" ? "Vous" : "Luna";
+    var label = role === "user" ? "Vous" : (window._currentAssistantName || "Luna");
     var html = '<div class="' + cls + '"><b>' + label + ' :</b> ' + text + '</div>';
     voiceTranscript.innerHTML += html;
     voiceTranscript.scrollTop = voiceTranscript.scrollHeight;
@@ -8020,7 +8026,7 @@ function stopPaymentPolling() {
     var parts = [];
     for (var i = 0; i < _voiceTranscriptEntries.length; i++) {
       var e = _voiceTranscriptEntries[i];
-      var speaker = e.role === "user" ? "Vous" : "Luna";
+      var speaker = e.role === "user" ? "Vous" : (window._currentAssistantName || "Luna");
       parts.push(speaker + " : " + e.text);
     }
     var summary = "[Conversation vocale — " + _voiceTranscriptEntries.length + " echanges]\n\n" + parts.join("\n");
@@ -8335,12 +8341,12 @@ function stopPaymentPolling() {
               sendApkEvent("voice_playback_started");
             }
             _queueAudio(data.audio);
-            _setStatus("Luna parle...", "speak");
+            _setStatus((window._currentAssistantName||"Luna")+" parle...", "speak");
           } else if (data.type === "audio_done") {
-            _setStatus("Luna ecoute...", "listen");
+            _setStatus((window._currentAssistantName||"Luna")+" ecoute...", "listen");
           } else if (data.type === "interrupt") {
             _clearPlayback();
-            _setStatus("Luna ecoute...", "listen");
+            _setStatus((window._currentAssistantName||"Luna")+" ecoute...", "listen");
           } else if (data.type === "transcript") {
             _addTranscript(data.role, data.text);
           } else if (data.type === "elapsed") {
