@@ -1525,11 +1525,14 @@ class WebVoiceBridge:
                             "role": "luna",
                             "text": text,
                         })
-                        # Garde-fou : détecter le déni du panneau ICS et corriger en temps réel
+                        # Garde-fou : détecter le déni ou la confusion d'Iris et corriger en temps réel
                         _DENIAL_PHRASES = [
                             "ne peux pas afficher", "n'ai pas de panneau", "pas de panneau visuel",
                             "je ne dispose pas d'un panneau", "pas d'écran", "aucun panneau",
                             "cannot display", "don't have a visual panel",
+                            "ne peux pas répondre à cette partie", "je ne suis pas en mesure",
+                            "en tant qu'ia", "en tant qu'intelligence artificielle",
+                            "je suis un programme", "je suis un logiciel",
                         ]
                         _tlow = text.lower()
                         if (not getattr(self, "_denial_correcting", False)
@@ -1589,6 +1592,8 @@ class WebVoiceBridge:
                         _EARLY_DENIAL = [
                             "ne peux pas afficher", "n'ai pas de panneau",
                             "pas de panneau visuel", "je ne dispose pas d'un panneau",
+                            "ne peux pas répondre à cette partie", "je ne suis pas en mesure",
+                            "en tant qu'ia", "je suis un programme", "je suis un logiciel",
                         ]
                         _has_doc = hasattr(self, "_session_documents") and bool(self._session_documents)
                         _in_work_mode = self._active_mode != DEFAULT_MODE

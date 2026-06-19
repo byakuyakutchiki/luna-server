@@ -9267,7 +9267,7 @@ async def ws_luna_voice(websocket: WebSocket):
 
     tid = jwt_payload.get("tenant_id", TENANT_ID)
     plan_name = jwt_payload.get("plan", "essentiel")
-    sub_name = jwt_payload.get("first_name", "") or _SUBSCRIBER_NAME
+    sub_name = _resolve_sub_name(jwt_payload, tid)
 
     # Budget guard — bloquer si cout API mensuel depasse
     budget_err = await _check_budget_guard(tid, plan_name)
@@ -9486,34 +9486,15 @@ Quand il parle de ses heures, propose de les enregistrer. Quand il parle d'une r
             return {"status": "error", "message": f"Fonction inconnue: {name}"}
 
     _is_reconnect = len(_voice_history) > 0 and _history_param
-
-    # Charger le contexte utilisateur pour personnaliser le greeting
-    _iris_ctx_summary = _build_iris_greeting_context(sub_name, tid, _redis_client, memory_mgr)
+    _salut = _salutation_heure()
 
     if _is_reconnect:
-        _greeting = (
-            f'Tu reprends la conversation avec {sub_name} après une courte coupure. '
-            f'Dis-lui simplement que tu es de retour — en une phrase naturelle, sans explication technique. '
-            f'Exemple : "Je suis là {sub_name}. On continue." ou "De retour — tu disais ?"'
-        )
+        _greeting = f"{_salut} {sub_name}. Je suis de retour." if sub_name else f"{_salut}. Je suis de retour."
     else:
-        if _iris_ctx_summary:
-            _greeting = (
-                f'Salue {sub_name} chaleureusement en une phrase naturelle et humaine. '
-                f'Tu peux mentionner un élément de son contexte récent pour montrer que tu le connais : {_iris_ctx_summary}. '
-                f'Exemples de ton : "Bonjour {sub_name}. Je suis Iris. Comment puis-je t\'aider ?" '
-                f'ou "Bonjour {sub_name}, je suis contente de te retrouver. De quoi as-tu besoin ?" '
-                f'Ne mentionne jamais de panneau visuel, d\'interface, d\'architecture ou de limitations techniques. '
-                f'Tu es Iris — une assistante personnelle, pas un logiciel.'
-            )
+        if sub_name:
+            _greeting = f"{_salut} {sub_name}. Comment puis-je t'aider ?"
         else:
-            _greeting = (
-                f'Salue {sub_name} en une phrase courte, naturelle et humaine. '
-                f'Exemples : "Bonjour {sub_name}. Je suis Iris. Comment puis-je t\'aider ?" '
-                f'ou "Bonjour {sub_name}, je suis contente de te retrouver. Que puis-je faire pour toi ?" '
-                f'Ne mentionne jamais de panneau visuel, d\'interface ou de limitations techniques. '
-                f'Tu es Iris — une assistante personnelle.'
-            )
+            _greeting = f"{_salut}. Comment puis-je t'aider ?"
 
     bridge = WebVoiceBridge(
         openai_api_key=OPENAI_API_KEY,
@@ -9617,22 +9598,39 @@ Quand il parle de ses heures, propose de les enregistrer. Quand il parle d'une r
 
 import random as _random
 
+
+def _salutation_heure() -> str:
+    """Retourne 'Bonjour' ou 'Bonsoir' selon l'heure locale Paris."""
+    try:
+        from zoneinfo import ZoneInfo
+        _h = datetime.now(ZoneInfo("Europe/Paris")).hour
+    except Exception:
+        _h = datetime.now().hour
+    return "Bonjour" if 5 <= _h < 18 else "Bonsoir"
+
+
+def _resolve_sub_name(jwt_payload: dict, tid: int) -> str:
+    """Retourne le prénom de l'utilisateur — jamais 'le souscripteur'."""
+    name = (jwt_payload.get("first_name") or "").strip()
+    if not name or name.lower() in ("le souscripteur", "souscripteur", "client", "utilisateur"):
+        # Tentative depuis le profil Redis (plus fiable que le JWT au démarrage)
+        try:
+            _mgr = _get_tenant_manager(tid) if tid else _memory_manager
+            if _mgr:
+                _p = _mgr.get_subscriber_profile()
+                if _p and getattr(_p, "first_name", None):
+                    name = _p.first_name.strip()
+        except Exception:
+            pass
+    return name  # Peut être vide — les greetings gèrent le cas sans prénom
+
+
 _IRIS_GREETINGS = [
-    "Bonjour {name}. Je suis Iris. Comment vas-tu ? Je peux faire quelque chose pour toi ?",
-    "Bonjour {name}. Iris à l'écoute. Quelle mission me confies-tu ?",
-    "Salut {name}. Je suis prête. Qu'est-ce qu'on règle maintenant ?",
-    "{name}, je suis là. Dis-moi ce que tu veux préparer.",
-    "Bonjour {name}. On travaille sur quoi aujourd'hui ?",
-    "Salut {name}. Je t'écoute, et je peux passer à l'action si tu valides.",
-    "{name}, Iris est disponible. Tu veux discuter, rédiger ou organiser quelque chose ?",
-    "Bonjour {name}. Je peux t'aider à chercher, structurer ou préparer un document.",
-    "Iris à l'écoute, {name}. Quelle est la priorité ?",
-    "Salut {name}. Tu peux me parler naturellement, je m'occupe du reste avec prudence.",
-    "{name}, je suis prête. On réfléchit, on cherche, ou on produit ?",
-    "Bonjour {name}. Je peux conseiller, chercher, rédiger ou préparer une action.",
-    "Salut {name}. Je suis ton assistante IA. Qu'est-ce que je peux faire pour toi ?",
-    "{name}, je suis connectée à ton espace Luna. Quelle tâche veux-tu lancer ?",
-    "Bonjour {name}. Je suis Iris, ton assistante opérationnelle. Je t'écoute.",
+    "{salut} {name}. Je suis Iris. Comment puis-je t'aider ?",
+    "{salut} {name}. Je suis contente de te retrouver. Que puis-je faire pour toi ?",
+    "{salut} {name}. Je suis Iris. Je t'écoute.",
+    "{salut} {name}. Iris à ton écoute. De quoi as-tu besoin ?",
+    "{salut} {name}. Je suis là. Dis-moi ce que tu veux faire.",
 ]
 
 _IRIS_SYSTEM = """Tu es Iris, opératrice IA du centre de commande YAWatch Luna.
@@ -10194,9 +10192,7 @@ async def ws_iris_voice(websocket: WebSocket):
 
     tid = jwt_payload.get("tenant_id", TENANT_ID)
     plan_name = jwt_payload.get("plan", "essentiel") if not _is_participant else "essentiel"
-    sub_name = jwt_payload.get("first_name", "") or _SUBSCRIBER_NAME
-    if _is_participant:
-        sub_name = _participant_name or "Invité"
+    sub_name = _resolve_sub_name(jwt_payload, tid) if not _is_participant else (_participant_name or "Invité").strip()
 
     budget_err = await _check_budget_guard(tid, plan_name)
     if budget_err:
@@ -10660,17 +10656,18 @@ Règles de collaboration :
         except Exception:
             pass
 
-    # Salutation aléatoire
+    _salut = _salutation_heure()
     _is_reconnect = len(_voice_history) > 0 and _history_param
     if _is_reconnect:
-        context += "\n\nREPRISE DE SESSION : dis simplement à Ludovic que tu es de retour et reprends la conversation."
-        _greeting = "Reprends la conversation."
+        _reconnect_salut = f"{_salut} {sub_name}." if sub_name else f"{_salut}."
+        _greeting = f"{_reconnect_salut} Je suis de retour."
     else:
         _tpl = _random.choice(_IRIS_GREETINGS)
-        _greeting_text = _tpl.format(name=sub_name or "Ludovic")
-        # Passer la phrase directement comme instructions de response.create
-        # (gpt-realtime-2 lisait littéralement le label "PHRASE D'OUVERTURE OBLIGATOIRE")
-        _greeting = _greeting_text
+        if sub_name:
+            _greeting = _tpl.format(salut=_salut, name=sub_name)
+        else:
+            # Sans prénom : greeting sans nom propre
+            _greeting = f"{_salut}. Je suis Iris. Comment puis-je t'aider ?"
 
     bridge = WebVoiceBridge(
         openai_api_key=OPENAI_API_KEY,
