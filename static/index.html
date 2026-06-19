@@ -83,11 +83,12 @@ body.mode-secretaire .conv-item:hover { background: #0d2818; }
 body.mode-secretaire .sidebar-toggle { border-color: #10b981; background: rgba(16,185,129,0.15); color: #34d399; }
 /* Chat messages */
 body.mode-secretaire .luna { background: #0d2818; }
-body.mode-secretaire .luna::before { background: linear-gradient(135deg, #10b981, #047857); border-color: #34d399; box-shadow: 0 0 10px rgba(16,185,129,0.4); background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Ccircle cx='20' cy='16' r='9' fill='%23f0d0b0'/%3E%3Cpath d='M10 14 Q10 6 20 5 Q30 6 30 14 Q31 18 30 22 Q28 16 20 15 Q12 16 10 22 Q9 18 10 14Z' fill='%23065f46'/%3E%3Ccircle cx='16' cy='15' r='1.2' fill='%23064e3b'/%3E%3Ccircle cx='24' cy='15' r='1.2' fill='%23064e3b'/%3E%3Cpath d='M17 19 Q20 21 23 19' fill='none' stroke='%23c4788a' stroke-width='0.8' stroke-linecap='round'/%3E%3C/svg%3E"); background-size: 26px 26px; background-position: center; background-repeat: no-repeat; }
+body.mode-secretaire .luna::before { display: none; }
 body.mode-secretaire .luna-name { color: #34d399; }
+body.mode-secretaire .luna-name::before { background: #34d399; box-shadow: 0 0 6px rgba(52,211,153,0.7); }
 body.mode-secretaire .user { background: #065f46; }
 body.mode-secretaire .typing { background: #0d2818; }
-body.mode-secretaire .typing::before { background: linear-gradient(135deg, #10b981, #047857); border-color: #34d399; box-shadow: 0 0 10px rgba(16,185,129,0.4); background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Ccircle cx='20' cy='16' r='9' fill='%23f0d0b0'/%3E%3Cpath d='M10 14 Q10 6 20 5 Q30 6 30 14 Q31 18 30 22 Q28 16 20 15 Q12 16 10 22 Q9 18 10 14Z' fill='%23065f46'/%3E%3Ccircle cx='16' cy='15' r='1.2' fill='%23064e3b'/%3E%3Ccircle cx='24' cy='15' r='1.2' fill='%23064e3b'/%3E%3Cpath d='M17 19 Q20 21 23 19' fill='none' stroke='%23c4788a' stroke-width='0.8' stroke-linecap='round'/%3E%3C/svg%3E"); background-size: 26px 26px; background-position: center; background-repeat: no-repeat; }
+body.mode-secretaire .typing::before { display: none; }
 body.mode-secretaire .typing-dots span { background: #34d399; }
 body.mode-secretaire .msg a { color: #34d399; }
 body.mode-secretaire .msg a:hover { color: #6ee7b7; }
@@ -388,15 +389,16 @@ body.mode-secretaire .conc-modal-box .field input, body.mode-secretaire .conc-mo
   .rich-cards { padding: 4px 12px 8px; gap: 8px; }
   .rich-card { min-width: 160px; padding: 10px; }
 }
-.luna { background: #1e1e3f; align-self: flex-start; border-bottom-left-radius: 4px; padding-top: 28px; position: relative; margin-top: 32px; }
-.luna::before { content: ""; position: absolute; left: 12px; top: -28px; width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(135deg, #8b4cf0, #6b3aaa); border: 2px solid #a78bfa; box-shadow: 0 0 10px rgba(139,76,240,0.4); background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Ccircle cx='20' cy='16' r='9' fill='%23f0d0b0'/%3E%3Cpath d='M10 14 Q10 6 20 5 Q30 6 30 14 Q31 18 30 22 Q28 16 20 15 Q12 16 10 22 Q9 18 10 14Z' fill='%233a2578'/%3E%3Ccircle cx='16' cy='15' r='1.2' fill='%232a1858'/%3E%3Ccircle cx='24' cy='15' r='1.2' fill='%232a1858'/%3E%3Cpath d='M17 19 Q20 21 23 19' fill='none' stroke='%23c4788a' stroke-width='0.8' stroke-linecap='round'/%3E%3C/svg%3E"); background-size: 26px 26px; background-position: center; background-repeat: no-repeat; }
-.luna-name { display: block; font-size: 0.7em; color: #a78bfa; margin-bottom: 4px; font-weight: 600; position: absolute; left: 48px; top: -22px; }
+.luna { background: #1e1e3f; align-self: flex-start; border-bottom-left-radius: 4px; padding-top: 10px; position: relative; margin-top: 8px; }
+.luna::before { display: none; }
+.luna-name { display: flex; align-items: center; gap: 6px; font-size: 0.68em; color: #a78bfa; margin-bottom: 5px; font-weight: 700; letter-spacing: 0.09em; position: static; }
+.luna-name::before { content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #a78bfa; box-shadow: 0 0 6px rgba(167,139,250,0.7); flex-shrink: 0; }
 .user { background: #4c1d95; align-self: flex-end; border-bottom-right-radius: 4px; }
 .msg-time { display: block; font-size: 0.7em; color: #666; margin-top: 4px; }
 .user .msg-time { text-align: right; }
 .luna .msg-time { text-align: left; }
-.typing { background: #1e1e3f; align-self: flex-start; padding: 12px 20px; border-radius: 16px; border-bottom-left-radius: 4px; padding-top: 42px; position: relative; margin-top: 32px; }
-.typing::before { content: ""; position: absolute; left: 12px; top: -28px; width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(135deg, #8b4cf0, #6b3aaa); border: 2px solid #a78bfa; box-shadow: 0 0 10px rgba(139,76,240,0.4); background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Ccircle cx='20' cy='16' r='9' fill='%23f0d0b0'/%3E%3Cpath d='M10 14 Q10 6 20 5 Q30 6 30 14 Q31 18 30 22 Q28 16 20 15 Q12 16 10 22 Q9 18 10 14Z' fill='%233a2578'/%3E%3Ccircle cx='16' cy='15' r='1.2' fill='%232a1858'/%3E%3Ccircle cx='24' cy='15' r='1.2' fill='%232a1858'/%3E%3Cpath d='M17 19 Q20 21 23 19' fill='none' stroke='%23c4788a' stroke-width='0.8' stroke-linecap='round'/%3E%3C/svg%3E"); background-size: 26px 26px; background-position: center; background-repeat: no-repeat; }
+.typing { background: #1e1e3f; align-self: flex-start; padding: 12px 20px; border-radius: 16px; border-bottom-left-radius: 4px; padding-top: 12px; position: relative; margin-top: 8px; }
+.typing::before { display: none; }
 .typing-dots span { display: inline-block; width: 8px; height: 8px; background: #a78bfa; border-radius: 50%; margin: 0 2px; animation: bounce 1.4s infinite ease-in-out; }
 .typing-dots span:nth-child(2) { animation-delay: 0.2s; }
 .typing-dots span:nth-child(3) { animation-delay: 0.4s; }
@@ -1432,17 +1434,11 @@ body.mode-secretaire .btn-primary  { background: linear-gradient(135deg, rgba(6,
 body.mode-secretaire .mode-btn.active[data-mode="secretaire"] { background: linear-gradient(135deg, rgba(16,185,129,.42), rgba(52,211,153,.18)) !important; border-color: #34d399 !important; color: #6ee7b7 !important; box-shadow: 0 0 28px rgba(16,185,129,.35) !important; }
 body.mode-secretaire .header-luna-avatar { border-color: rgba(52,211,153,.55) !important; box-shadow: 0 0 18px rgba(16,185,129,.65), 0 0 36px rgba(16,185,129,.25) !important; }
 
-/* ── LUNA AVATAR PHOTO — chat bubbles ────────────────────────────────── */
-.luna::before {
-  background-image: url("/static/assets/luna_avatar.jpg") !important;
-  background-size: cover !important;
-  background-position: 50% 28% !important;
-  background-color: transparent !important;
-}
-body.mode-secretaire .luna::before {
-  background-image: none !important;
-  background: radial-gradient(circle at 38% 36%, #34d399 0%, #059669 45%, #047857 100%) !important;
-  box-shadow: 0 0 12px rgba(16,185,129,0.5), inset 0 0 8px rgba(255,255,255,0.08) !important;
+/* ── IRIS DOT — mode compagnon override (violet renforcé) ── */
+body.mode-compagnon .luna-name::before,
+.luna-name::before {
+  background: #a78bfa !important;
+  box-shadow: 0 0 7px rgba(167,139,250,0.8) !important;
 }
 
 /* ── HEADER LUNA AVATAR ──────────────────────────────────────────────── */
@@ -4473,7 +4469,7 @@ function _linkify(text) {
 
 function addMsg(text, cls, ts, skipSave) {
   var d = document.createElement("div"); d.className = "msg " + cls;
-  if (cls === "luna") { var nameSpan = document.createElement("span"); nameSpan.className = "luna-name"; nameSpan.textContent = window._currentAssistantName || "Luna"; d.appendChild(nameSpan); }
+  if (cls === "luna") { var nameSpan = document.createElement("span"); nameSpan.className = "luna-name"; nameSpan.textContent = "IRIS"; d.appendChild(nameSpan); }
   var textSpan = document.createElement("span"); textSpan.className = "msg-text"; textSpan.innerHTML = _linkify(text); d.appendChild(textSpan);
   var timeSpan = document.createElement("span"); timeSpan.className = "msg-time"; timeSpan.textContent = formatTime(ts); d.appendChild(timeSpan);
   chat.appendChild(d); scrollToBottom();
@@ -4760,7 +4756,7 @@ function _handleStreamResponse(response, originalMsg) {
   var msgEl = document.createElement("div"); msgEl.className = "msg luna stream-msg";
   var avatarEl = document.createElement("div"); avatarEl.className = "luna-avatar";
   msgEl.appendChild(avatarEl);
-  var nameEl = document.createElement("span"); nameEl.className = "luna-name"; nameEl.textContent = window._currentAssistantName || "Luna";
+  var nameEl = document.createElement("span"); nameEl.className = "luna-name"; nameEl.textContent = "IRIS";
   msgEl.appendChild(nameEl);
   var textEl = document.createElement("span"); textEl.className = "msg-text"; textEl.innerHTML = "";
   msgEl.appendChild(textEl);
