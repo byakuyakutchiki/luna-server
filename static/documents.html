@@ -371,6 +371,66 @@ body::after{content:'';position:fixed;bottom:-10%;right:-10%;width:400px;height:
 .sr-btn-secondary{width:100%;padding:14px;background:rgba(255,255,255,0.03);border:1px solid var(--b2);border-radius:16px;font-size:.84em;font-weight:600;color:var(--mu);cursor:pointer;font-family:inherit;transition:border-color .15s,color .15s;}
 .sr-btn-secondary:active{border-color:var(--b3);color:var(--tx2);}
 
+/* ── CREATE DOC MODAL ── */
+#create-modal{position:fixed;inset:0;z-index:600;display:none;align-items:flex-end;}
+#create-modal.open{display:flex;background:rgba(0,0,0,.82);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);}
+#create-box{width:100%;max-height:90dvh;background:rgba(9,9,22,0.99);border-radius:28px 28px 0 0;border-top:1px solid rgba(99,102,241,0.25);display:flex;flex-direction:column;overflow:hidden;animation:su .32s cubic-bezier(.34,1.28,.64,1);}
+#create-pill{width:44px;height:5px;background:rgba(99,102,241,.3);border-radius:3px;margin:14px auto 0;flex-shrink:0;}
+#create-hdr{display:flex;align-items:center;justify-content:space-between;padding:14px 20px 10px;flex-shrink:0;border-bottom:1px solid var(--b1);}
+#create-title{font-size:1em;font-weight:800;letter-spacing:-.02em;}
+#create-close{background:none;border:none;color:var(--mu);font-size:1.3em;cursor:pointer;padding:4px 8px;border-radius:8px;line-height:1;}
+#create-close:hover{color:var(--tx2);}
+/* steps indicator */
+#create-steps{display:flex;align-items:center;justify-content:center;gap:0;padding:12px 20px 0;flex-shrink:0;}
+.cst{display:flex;align-items:center;gap:5px;}
+.cst-dot{width:24px;height:24px;border-radius:50%;background:var(--s3);border:2px solid var(--b2);display:flex;align-items:center;justify-content:center;font-size:.68em;font-weight:800;color:var(--mu);transition:.2s;}
+.cst.active .cst-dot{background:var(--ac);border-color:var(--ac2);color:#fff;box-shadow:0 0 12px rgba(99,102,241,.4);}
+.cst.done .cst-dot{background:#10b981;border-color:#10b981;color:#fff;}
+.cst-lbl{font-size:.68em;color:var(--mu);white-space:nowrap;}
+.cst.active .cst-lbl{color:var(--ac2);}
+.cst.done .cst-lbl{color:#10b981;}
+.cst-line{width:18px;height:2px;background:var(--b2);margin:0 3px;flex-shrink:0;}
+@media(max-width:400px){.cst-lbl{display:none;}}
+/* panels */
+#create-body{flex:1;overflow-y:auto;padding:16px 20px 20px;}
+.cp{display:none;flex-direction:column;gap:14px;}
+.cp.active{display:flex;}
+.cp-title{font-size:.95em;font-weight:700;color:var(--tx);}
+.cp-sub{font-size:.82em;color:var(--mu);margin-top:-8px;}
+/* type grid */
+#type-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.type-card{background:var(--s2);border:2px solid var(--b1);border-radius:14px;padding:14px 12px;cursor:pointer;transition:.15s;display:flex;flex-direction:column;gap:6px;text-align:center;}
+.type-card:hover,.type-card.sel{border-color:var(--ac);background:var(--ac-d);}
+.type-card.sel{box-shadow:0 0 0 1px var(--ac-b);}
+.tc-icon{font-size:1.6em;}
+.tc-name{font-size:.82em;font-weight:700;color:var(--tx);}
+.tc-desc{font-size:.72em;color:var(--mu);}
+/* fields */
+.cf-label{font-size:.8em;font-weight:600;color:var(--tx2);margin-bottom:4px;}
+.cf-input{width:100%;background:var(--s2);border:1.5px solid var(--b2);border-radius:10px;padding:11px 14px;color:var(--tx);font-size:.9em;font-family:inherit;outline:none;resize:vertical;min-height:44px;transition:.15s;}
+.cf-input:focus{border-color:var(--ac);box-shadow:0 0 0 2px var(--ac-d);}
+.cf-input::placeholder{color:var(--mu);}
+/* summary */
+#gen-summary{background:var(--s2);border:1px solid var(--b2);border-radius:14px;padding:16px;}
+.gs-row{display:flex;gap:8px;padding:7px 0;border-bottom:1px solid var(--b1);font-size:.85em;}
+.gs-row:last-child{border-bottom:none;}
+.gs-k{color:var(--mu);font-weight:600;flex-shrink:0;width:90px;}
+.gs-v{color:var(--tx2);}
+/* result */
+#gen-result{background:rgba(16,185,129,0.06);border:1px solid rgba(16,185,129,0.2);border-radius:14px;padding:20px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:10px;}
+.gr-icon{font-size:2.5em;}
+.gr-title{font-size:1em;font-weight:800;color:#10b981;}
+.gr-sub{font-size:.82em;color:var(--mu);}
+.gr-dl{display:inline-flex;align-items:center;gap:7px;padding:12px 24px;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;border-radius:12px;font-size:.88em;font-weight:700;text-decoration:none;margin-top:4px;}
+.gr-dl:active{opacity:.85;}
+/* footer nav */
+#create-footer{padding:14px 20px;border-top:1px solid var(--b1);display:flex;gap:10px;flex-shrink:0;}
+.cf-btn{flex:1;padding:14px;border:none;border-radius:14px;font-size:.88em;font-weight:700;cursor:pointer;font-family:inherit;transition:.15s;}
+.cf-btn-back{background:var(--s3);color:var(--tx2);border:1px solid var(--b2);}
+.cf-btn-back:hover{border-color:var(--b3);color:var(--tx);}
+.cf-btn-next{background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;box-shadow:0 4px 14px rgba(99,102,241,.35);}
+.cf-btn-next:disabled{opacity:.45;cursor:not-allowed;}
+
 /* ── TOAST ── */
 #toast{position:fixed;bottom:38px;left:50%;transform:translateX(-50%) translateY(8px);z-index:900;background:rgba(12,12,24,0.95);border:1px solid var(--b3);border-radius:32px;padding:12px 24px;font-size:.82em;font-weight:500;white-space:nowrap;max-width:90vw;text-align:center;opacity:0;transition:opacity .28s,transform .28s;pointer-events:none;backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);box-shadow:0 8px 32px rgba(0,0,0,.4);}
 #toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
@@ -381,7 +441,10 @@ body::after{content:'';position:fixed;bottom:-10%;right:-10%;width:400px;height:
 <div id="hdr">
   <a href="/" id="hdr-back">← App</a>
   <span id="hdr-title">Ma <span>Bibliothèque</span></span>
-  <button id="hdr-scan" onclick="goScan()">+ Scanner</button>
+  <div style="display:flex;gap:7px;">
+    <button id="hdr-create" onclick="openCreateDoc()" style="background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;border:none;border-radius:10px;padding:7px 13px;font-size:.8em;font-weight:700;cursor:pointer;white-space:nowrap;">✏️ Créer</button>
+    <button id="hdr-scan" onclick="goScan()">+ Scanner</button>
+  </div>
 </div>
 
 <div id="main">
@@ -465,6 +528,100 @@ body::after{content:'';position:fixed;bottom:-10%;right:-10%;width:400px;height:
       <button id="cat-close" onclick="closeCat()">✕</button>
     </div>
     <div id="cat-docs"></div>
+  </div>
+</div>
+
+<!-- CREATE DOC MODAL -->
+<div id="create-modal" onclick="if(event.target===this)closeCreateDoc()">
+  <div id="create-box">
+    <div id="create-pill"></div>
+    <div id="create-hdr">
+      <div id="create-title">Créer un document</div>
+      <button id="create-close" onclick="closeCreateDoc()">✕</button>
+    </div>
+    <div id="create-steps">
+      <div class="cst active" data-cs="1"><div class="cst-dot">1</div><span class="cst-lbl">Type</span></div>
+      <div class="cst-line"></div>
+      <div class="cst" data-cs="2"><div class="cst-dot">2</div><span class="cst-lbl">Contexte</span></div>
+      <div class="cst-line"></div>
+      <div class="cst" data-cs="3"><div class="cst-dot">3</div><span class="cst-lbl">Récap</span></div>
+      <div class="cst-line"></div>
+      <div class="cst" data-cs="4"><div class="cst-dot">4</div><span class="cst-lbl">Résultat</span></div>
+    </div>
+    <div id="create-body">
+
+      <!-- STEP 1 : TYPE -->
+      <div class="cp active" id="cstep-1">
+        <div class="cp-title">Quel type de document veux-tu créer ?</div>
+        <div id="type-grid">
+          <div class="type-card" data-type="courrier_resiliation" onclick="selectType(this)">
+            <div class="tc-icon">📧</div><div class="tc-name">Résiliation</div><div class="tc-desc">Contrat, abonnement, service</div>
+          </div>
+          <div class="type-card" data-type="courrier_administratif" onclick="selectType(this)">
+            <div class="tc-icon">🏛️</div><div class="tc-name">Courrier admin</div><div class="tc-desc">Mairie, préfecture, CAF…</div>
+          </div>
+          <div class="type-card" data-type="reclamation" onclick="selectType(this)">
+            <div class="tc-icon">⚡</div><div class="tc-name">Réclamation</div><div class="tc-desc">Litige, plainte, contestation</div>
+          </div>
+          <div class="type-card" data-type="mise_en_demeure" onclick="selectType(this)">
+            <div class="tc-icon">⚖️</div><div class="tc-name">Mise en demeure</div><div class="tc-desc">Demande formelle, impayé</div>
+          </div>
+          <div class="type-card" data-type="attestation" onclick="selectType(this)">
+            <div class="tc-icon">📋</div><div class="tc-name">Attestation</div><div class="tc-desc">Sur l'honneur, présence…</div>
+          </div>
+          <div class="type-card" data-type="demande_remboursement" onclick="selectType(this)">
+            <div class="tc-icon">💰</div><div class="tc-name">Remboursement</div><div class="tc-desc">Frais, garantie, avoir</div>
+          </div>
+          <div class="type-card" data-type="lettre_libre" onclick="selectType(this)">
+            <div class="tc-icon">✍️</div><div class="tc-name">Lettre libre</div><div class="tc-desc">Rédaction personnalisée</div>
+          </div>
+          <div class="type-card" data-type="demande_caf" onclick="selectType(this)">
+            <div class="tc-icon">👶</div><div class="tc-name">Demande CAF / CPAM</div><div class="tc-desc">Aides sociales, santé</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- STEP 2 : CONTEXTE -->
+      <div class="cp" id="cstep-2">
+        <div class="cp-title" id="ctx-title">À qui s'adresse ce document ?</div>
+        <div class="cp-sub" id="ctx-sub">Renseigne les informations nécessaires.</div>
+        <div>
+          <div class="cf-label">Destinataire</div>
+          <input class="cf-input" id="cf-recipient" placeholder="ex: Orange France, Service Client" type="text">
+        </div>
+        <div>
+          <div class="cf-label">Objet / sujet</div>
+          <input class="cf-input" id="cf-subject" placeholder="ex: Résiliation contrat n° 123456" type="text">
+        </div>
+        <div id="ctx-extra"></div>
+        <div>
+          <div class="cf-label">Détails complémentaires <span style="color:var(--mu);font-weight:400">(optionnel)</span></div>
+          <textarea class="cf-input" id="cf-details" placeholder="Numéro de contrat, dates, motifs, informations spécifiques…" rows="3"></textarea>
+        </div>
+      </div>
+
+      <!-- STEP 3 : RÉCAP -->
+      <div class="cp" id="cstep-3">
+        <div class="cp-title">Tout est correct ?</div>
+        <div class="cp-sub">Luna va rédiger ce courrier en ton nom.</div>
+        <div id="gen-summary"></div>
+        <div id="gen-warn" style="display:none;background:rgba(245,158,11,.07);border:1px solid rgba(245,158,11,.25);border-radius:10px;padding:12px 14px;font-size:.8em;color:#f59e0b;"></div>
+      </div>
+
+      <!-- STEP 4 : RÉSULTAT -->
+      <div class="cp" id="cstep-4">
+        <div id="gen-loading" style="text-align:center;padding:30px 0;">
+          <div style="width:40px;height:40px;border:3px solid var(--b2);border-top-color:var(--ac);border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 16px;"></div>
+          <div style="font-size:.88em;color:var(--mu);">Luna rédige ton document…</div>
+        </div>
+        <div id="gen-result" style="display:none;"></div>
+      </div>
+
+    </div>
+    <div id="create-footer">
+      <button class="cf-btn cf-btn-back" id="cf-back" onclick="createPrev()" style="display:none">← Retour</button>
+      <button class="cf-btn cf-btn-next" id="cf-next" onclick="createNext()" disabled>Choisir un type →</button>
+    </div>
   </div>
 </div>
 
@@ -1064,6 +1221,157 @@ function closeScanResultAndView(){
 function goScan(){openScanModal();}
 function goAskLuna(){sessionStorage.setItem('luna_prefill','documents: ');window.location.href='/';}
 function scrollToUrg(){var e=document.getElementById('urg-sec');if(e)e.scrollIntoView({behavior:'smooth'});}
+
+// ── CREATE DOC WIZARD ─────────────────────
+var _cStep=1;
+var _cType='';
+var _cResult=null;
+var _TYPE_LABELS={
+  courrier_resiliation:'Résiliation',
+  courrier_administratif:'Courrier administratif',
+  reclamation:'Réclamation',
+  mise_en_demeure:'Mise en demeure',
+  attestation:'Attestation',
+  demande_remboursement:'Demande de remboursement',
+  lettre_libre:'Lettre libre',
+  demande_caf:'Demande CAF / CPAM'
+};
+var _TYPE_HELP={
+  courrier_resiliation:{title:'Résiliation de contrat',sub:'Qui résilie quoi ?',extra:'<div><div class="cf-label">Numéro de contrat / client (si connu)</div><input class="cf-input" id="cf-extra" placeholder="ex: N° 789456" type="text"></div>'},
+  courrier_administratif:{title:'Courrier administratif',sub:'À qui s'adresse ce courrier ?',extra:''},
+  reclamation:{title:'Réclamation',sub:'Décris le problème à résoudre.',extra:'<div><div class="cf-label">Nature du problème</div><input class="cf-input" id="cf-extra" placeholder="ex: Colis non reçu, facture erronée…" type="text"></div>'},
+  mise_en_demeure:{title:'Mise en demeure',sub:'Quelle est la demande formelle ?',extra:'<div><div class="cf-label">Montant dû ou objet de la demande</div><input class="cf-input" id="cf-extra" placeholder="ex: 450€ impayés depuis le 01/06" type="text"></div>'},
+  attestation:{title:'Attestation',sub:'De quoi attestes-tu ?',extra:'<div><div class="cf-label">Objet de l\'attestation</div><input class="cf-input" id="cf-extra" placeholder="ex: Attestation de résidence, de revenus…" type="text"></div>'},
+  demande_remboursement:{title:'Demande de remboursement',sub:'Précise le montant et la référence.',extra:'<div><div class="cf-label">Montant et référence</div><input class="cf-input" id="cf-extra" placeholder="ex: 89€ — facture REF-2026-0014" type="text"></div>'},
+  lettre_libre:{title:'Lettre libre',sub:'Décris ce que tu veux écrire.',extra:''},
+  demande_caf:{title:'Demande CAF / CPAM',sub:'Quelle aide ou démarche ?',extra:'<div><div class="cf-label">Type d\'aide demandée</div><input class="cf-input" id="cf-extra" placeholder="ex: RSA, AAH, remboursement soin…" type="text"></div>'}
+};
+
+function openCreateDoc(){
+  _cStep=1; _cType=''; _cResult=null;
+  document.getElementById('cf-recipient').value='';
+  document.getElementById('cf-subject').value='';
+  document.getElementById('cf-details').value='';
+  document.getElementById('ctx-extra').innerHTML='';
+  document.getElementById('gen-result').style.display='none';
+  document.getElementById('gen-loading').style.display='';
+  document.querySelectorAll('.type-card').forEach(function(c){c.classList.remove('sel');});
+  setCreateStep(1);
+  document.getElementById('create-modal').classList.add('open');
+}
+function closeCreateDoc(){document.getElementById('create-modal').classList.remove('open');}
+
+function selectType(el){
+  document.querySelectorAll('.type-card').forEach(function(c){c.classList.remove('sel');});
+  el.classList.add('sel');
+  _cType=el.dataset.type;
+  document.getElementById('cf-next').disabled=false;
+  document.getElementById('cf-next').textContent='Continuer →';
+}
+
+function setCreateStep(n){
+  _cStep=n;
+  document.querySelectorAll('.cp').forEach(function(p){p.classList.remove('active');});
+  var panel=document.getElementById('cstep-'+n);
+  if(panel) panel.classList.add('active');
+  document.querySelectorAll('.cst').forEach(function(s){
+    var sn=parseInt(s.dataset.cs||0);
+    s.classList.remove('active','done');
+    if(sn<n) s.classList.add('done');
+    if(sn===n) s.classList.add('active');
+  });
+  var back=document.getElementById('cf-back');
+  var next=document.getElementById('cf-next');
+  back.style.display=n>1&&n<4?'':'none';
+  if(n===1){next.disabled=!_cType;next.textContent=_cType?'Continuer →':'Choisir un type →';}
+  if(n===2){next.disabled=false;next.textContent='Vérifier →';}
+  if(n===3){next.disabled=false;next.textContent='Générer le document ✦';}
+  if(n===4){next.style.display='none';back.style.display='none';}
+}
+
+function createNext(){
+  if(_cStep===1){
+    if(!_cType) return;
+    var h=_TYPE_HELP[_cType]||{title:'Document',sub:'',extra:''};
+    document.getElementById('ctx-title').textContent=h.title;
+    document.getElementById('ctx-sub').textContent=h.sub;
+    document.getElementById('ctx-extra').innerHTML=h.extra||'';
+    setCreateStep(2);
+  } else if(_cStep===2){
+    var recipient=document.getElementById('cf-recipient').value.trim();
+    var subject=document.getElementById('cf-subject').value.trim();
+    if(!recipient&&!subject){toast('Renseigne au moins le destinataire ou l\'objet');return;}
+    buildSummary();
+    setCreateStep(3);
+  } else if(_cStep===3){
+    generateDoc();
+    setCreateStep(4);
+  }
+}
+function createPrev(){
+  if(_cStep===2) setCreateStep(1);
+  else if(_cStep===3) setCreateStep(2);
+}
+
+function buildSummary(){
+  var extra=document.getElementById('cf-extra');
+  var rows=[
+    {k:'Type',v:_TYPE_LABELS[_cType]||_cType},
+    {k:'Destinataire',v:document.getElementById('cf-recipient').value.trim()||'—'},
+    {k:'Objet',v:document.getElementById('cf-subject').value.trim()||'—'},
+  ];
+  if(extra&&extra.value.trim()) rows.push({k:'Précision',v:extra.value.trim()});
+  var det=document.getElementById('cf-details').value.trim();
+  if(det) rows.push({k:'Détails',v:det.length>80?det.substring(0,80)+'…':det});
+  document.getElementById('gen-summary').innerHTML=rows.map(function(r){
+    return '<div class="gs-row"><span class="gs-k">'+escH(r.k)+'</span><span class="gs-v">'+escH(r.v)+'</span></div>';
+  }).join('');
+}
+
+function generateDoc(){
+  document.getElementById('gen-loading').style.display='';
+  document.getElementById('gen-result').style.display='none';
+  var extra=document.getElementById('cf-extra');
+  var details=document.getElementById('cf-details').value.trim();
+  if(extra&&extra.value.trim()) details=(extra.value.trim()+'\n'+details).trim();
+  var body={
+    doc_type:_cType,
+    subject:document.getElementById('cf-subject').value.trim(),
+    details:details,
+    recipient:document.getElementById('cf-recipient').value.trim()
+  };
+  af('/api/documents/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})
+    .then(function(r){return r.json();})
+    .then(function(d){
+      document.getElementById('gen-loading').style.display='none';
+      var res=document.getElementById('gen-result');
+      if(d.success&&d.download_url){
+        _cResult=d;
+        res.innerHTML='<div class="gr-icon">✅</div>'
+          +'<div class="gr-title">Document généré !</div>'
+          +'<div class="gr-sub">'+escH(d.filename||'document.docx')+'</div>'
+          +'<a class="gr-dl" href="'+escH(d.download_url)+'" download="'+escH(d.filename||'document.docx')+'">⬇ Télécharger</a>'
+          +'<button class="cf-btn cf-btn-back" style="margin-top:4px;width:100%;" onclick="closeCreateDoc();loadGenDocs();">← Retour à la bibliothèque</button>';
+        res.style.display='flex';
+        loadGenDocs();
+      } else {
+        res.innerHTML='<div class="gr-icon">⚠️</div>'
+          +'<div class="gr-title" style="color:var(--rd)">Erreur</div>'
+          +'<div class="gr-sub">'+escH(d.error||'Génération échouée')+'</div>'
+          +'<button class="cf-btn cf-btn-back" style="margin-top:8px;width:100%;" onclick="setCreateStep(3)">← Réessayer</button>';
+        res.style.display='flex';
+      }
+    })
+    .catch(function(e){
+      document.getElementById('gen-loading').style.display='none';
+      var res=document.getElementById('gen-result');
+      res.innerHTML='<div class="gr-icon">⚠️</div>'
+        +'<div class="gr-title" style="color:var(--rd)">Erreur réseau</div>'
+        +'<div class="gr-sub">'+escH(e.message)+'</div>'
+        +'<button class="cf-btn cf-btn-back" style="margin-top:8px;width:100%;" onclick="setCreateStep(3)">← Réessayer</button>';
+      res.style.display='flex';
+    });
+}
 
 // ── UTILS ─────────────────────────────────
 function escH(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
