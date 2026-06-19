@@ -444,6 +444,7 @@ class WebVoiceBridge:
         participant_name: str = "",
         session_manager=None,  # IrisSessionManager | None
         initial_mode: str = DEFAULT_MODE,  # Mode initial transmis via ?mode= (Objectif 026)
+        iris_mode: bool = True,  # False = luna-voice (pas de panneau ICS, iris_render exclu)
     ):
         self.openai_api_key = openai_api_key
         self.ws_client = ws_client
@@ -451,6 +452,7 @@ class WebVoiceBridge:
         self.tool_handler = tool_handler
         self.voice = voice
         self.max_duration_seconds = max_duration_seconds
+        self._iris_mode = iris_mode
         self.greeting = greeting
         self.conversation_history = conversation_history or []
         self.vad_eagerness = vad_eagerness
@@ -840,11 +842,15 @@ class WebVoiceBridge:
         """Filtre VOICE_TOOLS selon le mode actif.
         chat n'est inclus qu'en mode discussion — en modes productifs,
         iris_render et les outils métier sont disponibles (tool_choice=auto).
+        En mode Luna (iris_mode=False), iris_render est exclu — pas de panneau ICS.
         """
         allowed = set(get_mode_tools(mode_id))
         filtered = [t for t in VOICE_TOOLS if t.get("name", "") in allowed]
-        # Dernier recours : fournir iris_render si la liste est vide
-        if not filtered:
+        # En mode Luna, supprimer iris_render — aucun panneau visuel disponible
+        if not self._iris_mode:
+            filtered = [t for t in filtered if t.get("name") != "iris_render"]
+        # Dernier recours : fournir iris_render uniquement en mode Iris si la liste est vide
+        if not filtered and self._iris_mode:
             fallback = next((t for t in VOICE_TOOLS if t.get("name") == "iris_render"), None)
             if fallback:
                 filtered = [fallback]
