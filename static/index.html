@@ -1647,8 +1647,8 @@ body.mode-compagnon .luna-name::before,
         <img src="/static/assets/luna_avatar.jpg" alt="Luna">
       </div>
       <div>
-        <h1><span class="status-dot online" id="statusDot"></span> <span id="headerAssistantName">Luna</span><span id="headerWeather" style="font-size:0.55em;color:#888;font-weight:400;margin-left:4px;"></span></h1>
-        <p id="greetingSubtitle">Ton compagnon bienveillant</p>
+        <h1><span class="status-dot online" id="statusDot"></span> YAWATCH<span id="headerWeather" style="font-size:0.55em;color:#888;font-weight:400;margin-left:4px;"></span></h1>
+        <p id="greetingSubtitle">Présence bienveillante</p>
       </div>
     </div>
   </div>
@@ -3227,11 +3227,9 @@ function applyMode(mode) {
   // Source unique de vérité : nom de l'assistant actif
   window._currentAssistantName = mode === "secretaire" ? "Iris" : "Luna";
   // Header name
-  var hdr = document.getElementById("headerAssistantName");
-  if (hdr) hdr.textContent = window._currentAssistantName;
   // Mode subtitle
   var sub = document.getElementById("greetingSubtitle");
-  if (sub) sub.textContent = mode === "secretaire" ? "Ton assistante professionnelle" : "Ton compagnon bienveillant";
+  if (sub) sub.textContent = mode === "secretaire" ? "Assistante personnelle" : "Présence bienveillante";
   // Input placeholder
   var inp = document.getElementById("input");
   if (inp) inp.placeholder = mode === "secretaire" ? "Instruction pour Iris…" : "Message pour Luna…";
