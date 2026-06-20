@@ -519,6 +519,40 @@
       --ics-text: rgba(230,245,255,0.92); --ics-text2: rgba(180,220,255,0.58); --ics-text3: rgba(140,190,230,0.30);
       --ics-r: 4px; --ics-rbtn: 3px;
       --ics-glow: 0 0 18px rgba(0,210,255,0.18);
+      /* mobile layout tokens — réservation d'espace pour la nav basse */
+      --yaw-nav-h: 62px;
+      --yaw-nav-total: calc(62px + env(safe-area-inset-bottom));
+      --yaw-glass: rgba(10,12,26,0.82);
+      --yaw-glass-border: rgba(255,255,255,0.08);
+    }
+    [data-theme="light"] { --yaw-glass: rgba(248,247,252,0.9); --yaw-glass-border: rgba(0,0,0,0.08); }
+
+    /* ===== NAVIGATION GLOBALE MOBILE — bottom nav 5 onglets ===== */
+    #yawNav { display: none; }
+    @media (max-width: 820px) {
+      #yawNav {
+        position: fixed; left: 0; right: 0; bottom: 0; z-index: 130;
+        display: flex; align-items: stretch; justify-content: space-around;
+        height: var(--yaw-nav-total);
+        padding-bottom: env(safe-area-inset-bottom);
+        background: var(--yaw-glass);
+        -webkit-backdrop-filter: blur(22px); backdrop-filter: blur(22px);
+        border-top: 1px solid var(--yaw-glass-border);
+        box-shadow: 0 -8px 32px rgba(0,0,0,0.45);
+      }
+      .yaw-nav-item {
+        flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+        gap: 3px; min-height: 44px; border: none; background: none; cursor: pointer;
+        color: rgba(255,255,255,0.4); text-decoration: none; font-family: inherit;
+        -webkit-tap-highlight-color: transparent; transition: color 0.18s, transform 0.1s;
+      }
+      [data-theme="light"] .yaw-nav-item { color: rgba(15,10,30,0.4); }
+      .yaw-nav-item:active { transform: scale(0.92); }
+      .yaw-nav-ic { font-size: 20px; line-height: 1; filter: grayscale(0.4) opacity(0.7); transition: filter 0.18s; }
+      .yaw-nav-lbl { font-size: 9.5px; font-weight: 600; letter-spacing: 0.02em; }
+      .yaw-nav-item.active { color: var(--ics-violet); }
+      .yaw-nav-item.active .yaw-nav-ic { filter: none; transform: translateY(-1px); }
+      .yaw-nav-item.active .yaw-nav-lbl { color: var(--ics-violet); }
     }
     /* ===== LIGHT THEME ===== */
     [data-theme="light"] {
@@ -720,7 +754,7 @@
     /* Mobile compact bar */
     @media (max-width: 700px) {
       #irisTeamsPanel { top: auto; left: 8px; right: 8px; bottom: auto; width: auto; height: 52px; flex-direction: row; align-items: center; padding: 0 10px; gap: 8px; border-radius: 3px; }
-      #irisTeamsPanel.expanded { height: auto; flex-direction: column; top: 0; bottom: calc(148px + env(safe-area-inset-bottom)); left: 0; right: 0; border-radius: 0; z-index: 50; padding: 0; }
+      #irisTeamsPanel.expanded { height: auto; flex-direction: column; top: 0; bottom: calc(var(--yaw-nav-total) + 128px); left: 0; right: 0; border-radius: 0; z-index: 50; padding: 0; }
       .irt-compact-bar { display: flex; align-items: center; gap: 6px; width: 100%; }
       .irt-header, .irt-participants, .irt-pending-banner, .irt-invite-btn { display: none; }
       #irisTeamsPanel.expanded .irt-header, #irisTeamsPanel.expanded .irt-participants, #irisTeamsPanel.expanded .irt-invite-btn { display: flex; }
@@ -960,12 +994,32 @@
     @media (max-width: 820px) {
       #audioView.ics-open .af-center { transform: none; }
       .af-center { justify-content: flex-start; padding-top: 82px; gap: 18px; }
-      .ics-panel { left: 8px; right: 8px; top: auto; bottom: calc(156px + env(safe-area-inset-bottom)); width: auto; max-height: 42vh; border-radius: 3px; }
+      /* Zone basse : pile au-dessus de la nav — nav(62) → input → contrôles → panneaux */
+      .af-inputbar {
+        bottom: calc(var(--yaw-nav-total) + 8px);
+        width: calc(100% - 16px);
+      }
+      .ics-panel {
+        left: 8px; right: 8px; top: auto;
+        bottom: calc(var(--yaw-nav-total) + 128px);
+        width: auto; max-height: 38vh; border-radius: 14px;
+      }
+      /* Contrôles secondaires : rangée au-dessus de l'input, jamais centrés */
+      #irisThemeToggle { left: 12px; right: auto; bottom: calc(var(--yaw-nav-total) + 70px); }
+      #irisBriefBtn   { left: 56px; right: auto; bottom: calc(var(--yaw-nav-total) + 70px); }
+      #afHangup {
+        left: auto; right: 12px; transform: none;
+        bottom: calc(var(--yaw-nav-total) + 68px);
+        min-width: 0; min-height: 42px; padding: 11px 20px; font-size: 13px; letter-spacing: 0.5px;
+      }
+      #afHangup:hover, #afHangup:active { transform: scale(0.97); }
       #afTranscript { display: none; }
       .ics-actions { flex-wrap: wrap; }
       .ics-btn { flex: 1 1 calc(50% - 3px); }
       .ics-table { font-size: 11px; }
       .ics-table th, .ics-table td { padding: 6px 8px; }
+      /* hangup alternatif éventuel */
+      .btn-hangup { bottom: calc(var(--yaw-nav-total) + 12px) !important; }
     }
 
     /* === Phase 1 — Nouvelles projections === */
@@ -1988,6 +2042,15 @@
     <button id="irisThemeToggle" title="Changer de thème" onclick="_toggleTheme()">🌙</button>
     <button id="irisBriefBtn" title="Brief Mission" onclick="_toggleBriefPanel()">📋</button>
   </div>
+
+  <!-- Navigation globale mobile (bottom nav) -->
+  <nav id="yawNav" aria-label="Navigation principale">
+    <a class="yaw-nav-item" href="/" aria-label="Accueil"><span class="yaw-nav-ic">🏠</span><span class="yaw-nav-lbl">Accueil</span></a>
+    <a class="yaw-nav-item active" href="/simli" aria-label="Workspace"><span class="yaw-nav-ic">🧠</span><span class="yaw-nav-lbl">Workspace</span></a>
+    <a class="yaw-nav-item" href="/documents" aria-label="Documents"><span class="yaw-nav-ic">📄</span><span class="yaw-nav-lbl">Documents</span></a>
+    <a class="yaw-nav-item" href="/guardian" aria-label="Guardian"><span class="yaw-nav-ic">🛡️</span><span class="yaw-nav-lbl">Guardian</span></a>
+    <a class="yaw-nav-item" href="/?tab=settings" aria-label="Réglages"><span class="yaw-nav-ic">⚙️</span><span class="yaw-nav-lbl">Réglages</span></a>
+  </nav>
 
   <!-- Brief Mission Panel -->
   <div id="irisBriefPanel" role="dialog" aria-modal="true" aria-label="Brief Mission" onclick="_briefOverlayClick(event)">
