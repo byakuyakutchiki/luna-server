@@ -751,14 +751,25 @@ body.mode-secretaire .luna-chip:hover { background: rgba(16,185,129,0.2); border
   .input-area { padding: 6px; gap: 4px; }
 }
 /* Amis tab */
-.friend-card { display:flex; align-items:center; gap:12px; padding:14px; margin-bottom:8px; background:#1a1a3e; border-radius:12px; border:1px solid #333; }
-.friend-avatar { width:44px; height:44px; border-radius:50%; background:#2d1b69; display:flex; align-items:center; justify-content:center; font-size:1.3em; flex-shrink:0; }
+/* ── FRIEND CARDS ── */
+.friend-card { display:flex; flex-direction:column; margin-bottom:10px; background:linear-gradient(145deg,#0f0f22 0%,#1a1a38 100%); border-radius:18px; border:1px solid rgba(255,255,255,0.07); box-shadow:0 4px 24px rgba(0,0,0,0.45),0 1px 0 rgba(255,255,255,0.04) inset; overflow:hidden; transition:transform .18s,box-shadow .18s; }
+.friend-card:hover { transform:translateY(-2px); box-shadow:0 8px 32px rgba(0,0,0,0.55),0 0 0 1px rgba(124,58,237,0.18); }
+.friend-card-top { display:flex; align-items:center; gap:13px; padding:15px 16px 12px; }
+.friend-avatar { width:46px; height:46px; border-radius:50%; background:linear-gradient(135deg,#2d1b69,#4c1d95); display:flex; align-items:center; justify-content:center; font-size:1.35em; flex-shrink:0; box-shadow:0 2px 10px rgba(0,0,0,0.5); }
 .friend-info { flex:1; min-width:0; }
-.friend-name { font-weight:600; font-size:0.95em; display:flex; align-items:center; gap:6px; }
-.friend-level { font-size:0.75em; color:#888; }
-.friend-online { display:inline-block; width:8px; height:8px; border-radius:50%; background:#4ade80; box-shadow:0 0 6px #4ade80; }
-.friend-offline { display:inline-block; width:8px; height:8px; border-radius:50%; background:#555; }
-.friend-actions { display:flex; gap:6px; flex-shrink:0; }
+.friend-name { font-weight:700; font-size:0.95em; color:#f1f0fb; display:flex; align-items:center; gap:7px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.friend-level { font-size:0.7em; color:rgba(255,255,255,0.3); margin-top:3px; letter-spacing:0.05em; text-transform:uppercase; }
+.friend-online { display:inline-block; width:8px; height:8px; border-radius:50%; background:#4ade80; box-shadow:0 0 7px #4ade80; flex-shrink:0; }
+.friend-offline { display:inline-block; width:8px; height:8px; border-radius:50%; background:#444; flex-shrink:0; }
+.friend-msg-btn { display:block; margin:0 16px 10px; padding:11px; background:linear-gradient(135deg,#5b21b6,#7c3aed); color:#fff; border:none; border-radius:12px; font-size:0.88em; font-weight:700; cursor:pointer; text-align:center; letter-spacing:0.03em; box-shadow:0 3px 14px rgba(124,58,237,0.3); transition:opacity .15s,transform .1s; }
+.friend-msg-btn:active { opacity:.85; transform:scale(.98); }
+.friend-danger-row { display:flex; border-top:1px solid rgba(255,255,255,0.05); }
+.friend-danger-btn { flex:1; padding:10px 4px; background:none; border:none; border-right:1px solid rgba(255,255,255,0.05); color:rgba(255,255,255,0.28); font-size:0.76em; cursor:pointer; transition:background .15s,color .15s; font-family:inherit; }
+.friend-danger-btn:last-child { border-right:none; }
+.friend-danger-btn:hover { background:rgba(255,255,255,0.04); color:rgba(255,255,255,0.55); }
+.friend-danger-btn.report:hover { color:#fbbf24; background:rgba(251,191,36,0.07); }
+.friend-danger-btn.block:hover { color:#f87171; background:rgba(248,113,113,0.07); }
+.friend-danger-btn.remove:hover { color:#f87171; background:rgba(220,38,38,0.08); }
 .btn-remove-friend { padding:7px 11px; border-radius:8px; border:none; background:rgba(220,38,38,0.15); color:#fca5a5; cursor:pointer; font-size:0.82em; transition:background .2s; }
 .btn-remove-friend:hover { background:rgba(220,38,38,0.35); }
 /* Modal suppression ami */
@@ -784,17 +795,27 @@ body.mode-secretaire .luna-chip:hover { background: rgba(16,185,129,0.2); border
 .tab-badge { display:inline-flex; align-items:center; justify-content:center; min-width:18px; height:18px; border-radius:9px; background:#dc2626; color:white; font-size:0.65em; font-weight:700; margin-left:4px; padding:0 4px; }
 .add-code-row { display:flex; gap:8px; align-items:center; }
 .add-code-row input { flex:1; text-transform:uppercase; letter-spacing:3px; font-family:monospace; font-size:1.1em; text-align:center; padding:10px; border-radius:10px; border:1px solid #333; background:#0a0a1a; color:#fff; }
-.dm-modal { position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:500; display:none; align-items:center; justify-content:center; padding:16px; }
+/* ── DM CHAT ── */
+.dm-modal { position:fixed; inset:0; background:rgba(0,0,0,0.88); z-index:500; display:none; align-items:flex-end; justify-content:center; }
 .dm-modal.active { display:flex; }
-.dm-box { background:#1a1a3e; padding:20px; border-radius:16px; width:100%; max-width:400px; }
-.dm-box h3 { color:#a78bfa; margin:0; }
-.dm-messages { max-height:300px; overflow-y:auto; margin:12px 0; display:flex; flex-direction:column; gap:8px; }
-.dm-msg { padding:8px 12px; border-radius:12px; font-size:0.9em; max-width:85%; word-break:break-word; }
-.dm-msg.mine { background:#4c1d95; align-self:flex-end; }
-.dm-msg.theirs { background:#1e1e3f; align-self:flex-start; }
-.dm-input-row { display:flex; gap:8px; }
-.dm-input-row input { flex:1; padding:10px 14px; border-radius:12px; border:1px solid #333; background:#0a0a1a; color:#fff; font-size:0.9em; }
-.dm-input-row button { padding:10px 16px; border-radius:12px; border:none; background:#7c3aed; color:white; cursor:pointer; font-weight:600; }
+.dm-box { background:linear-gradient(180deg,#0c0c1e 0%,#111128 100%); border:1px solid rgba(255,255,255,0.08); border-bottom:none; border-radius:24px 24px 0 0; width:100%; max-width:480px; max-height:86vh; display:flex; flex-direction:column; box-shadow:0 -10px 50px rgba(0,0,0,0.7); }
+.dm-header { display:flex; justify-content:space-between; align-items:center; padding:18px 20px 14px; border-bottom:1px solid rgba(255,255,255,0.06); flex-shrink:0; }
+.dm-header h3 { color:#f1f0fb; margin:0; font-size:1em; font-weight:700; }
+.dm-header-sub { font-size:0.72em; color:rgba(255,255,255,0.3); margin-top:2px; }
+.dm-messages { flex:1; overflow-y:auto; padding:16px 14px; display:flex; flex-direction:column; gap:2px; scroll-behavior:smooth; }
+.dm-bubble-wrap { display:flex; flex-direction:column; margin-bottom:10px; }
+.dm-bubble-wrap.mine { align-items:flex-end; }
+.dm-bubble-wrap.theirs { align-items:flex-start; }
+.dm-bubble-label { font-size:0.65em; color:rgba(255,255,255,0.28); margin-bottom:4px; padding:0 6px; letter-spacing:0.04em; }
+.dm-msg { padding:10px 14px; font-size:0.9em; max-width:78%; word-break:break-word; line-height:1.5; }
+.dm-msg.mine { background:linear-gradient(135deg,#5b21b6,#7c3aed); color:#fff; border-radius:18px 18px 4px 18px; box-shadow:0 2px 14px rgba(124,58,237,0.3); }
+.dm-msg.theirs { background:#1c2035; color:#dde4f0; border-radius:18px 18px 18px 4px; border:1px solid rgba(255,255,255,0.07); }
+.dm-msg.guardian-msg { background:rgba(220,38,38,0.09); border:1px solid rgba(220,38,38,0.22); color:#fca5a5; border-radius:12px; font-size:0.82em; align-self:center; max-width:88%; text-align:center; padding:8px 14px; }
+.dm-input-row { display:flex; gap:10px; padding:12px 16px 22px; border-top:1px solid rgba(255,255,255,0.06); flex-shrink:0; }
+.dm-input-row input { flex:1; padding:12px 16px; border-radius:50px; border:1px solid rgba(255,255,255,0.1); background:rgba(255,255,255,0.05); color:#fff; font-size:0.9em; outline:none; transition:border-color .2s; font-family:inherit; }
+.dm-input-row input::placeholder { color:rgba(255,255,255,0.3); }
+.dm-input-row input:focus { border-color:rgba(124,58,237,0.5); }
+.dm-input-row button { padding:12px 20px; border-radius:50px; border:none; background:linear-gradient(135deg,#5b21b6,#7c3aed); color:#fff; cursor:pointer; font-weight:700; font-size:0.88em; box-shadow:0 2px 10px rgba(124,58,237,0.3); white-space:nowrap; }
 /* Inbox conversations */
 .inbox-item { display:flex; align-items:center; gap:12px; padding:12px; border-radius:12px; background:#1a1a3e; margin-bottom:8px; cursor:pointer; border:1px solid transparent; transition:border-color .15s; }
 .inbox-item:hover { border-color:#7c3aed55; }
@@ -2305,16 +2326,18 @@ body.mode-compagnon .luna-name::before,
 <!-- DM Modal -->
 <div class="dm-modal" id="dmModal">
   <div class="dm-box">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
-      <h3 id="dmFriendName">Message</h3>
-      <button class="btn" id="dmCloseBtn" style="color:#888;font-size:1.2em;background:none;border:none;cursor:pointer;">✕</button>
+    <div class="dm-header">
+      <div>
+        <h3 id="dmFriendName">Message</h3>
+        <div class="dm-header-sub" id="dmStatus"></div>
+      </div>
+      <button id="dmCloseBtn" style="background:rgba(255,255,255,0.07);border:none;color:rgba(255,255,255,0.5);width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:1em;display:flex;align-items:center;justify-content:center;">✕</button>
     </div>
     <div class="dm-messages" id="dmMessages"></div>
     <div class="dm-input-row">
-      <input type="text" id="dmInput" placeholder="Ton message..." maxlength="500" autocomplete="off">
+      <input type="text" id="dmInput" placeholder="Ton message…" maxlength="500" autocomplete="off">
       <button id="dmSendBtn">Envoyer</button>
     </div>
-    <p class="form-status" id="dmStatus" style="margin-top:6px;"></p>
   </div>
 </div>
 
@@ -6442,14 +6465,19 @@ function loadAmisList() {
       var dot = f.is_online ? '<span class="friend-online"></span>' : '<span class="friend-offline"></span>';
       var unread = unreadMap[f.tid] || 0;
       var unreadBadge = unread > 0 ? '<span style="background:#ef4444;color:#fff;border-radius:50%;padding:2px 7px;font-size:0.75em;margin-left:6px;">' + unread + '</span>' : '';
-      card.innerHTML = '<div class="friend-avatar">' + _amisAvatarEmoji(f.avatar_type, f.avatar_skin) + '</div>' +
-        '<div class="friend-info"><div class="friend-name">' + dot + ' ' + esc(f.nickname || "Ami") + unreadBadge + '</div>' +
-        '<div class="friend-level">Niveau ' + (f.level || 1) + '</div></div>' +
-        '<div class="friend-actions">' +
-        '<button class="btn btn-primary" style="padding:8px 14px;font-size:0.85em;" data-dm-tid="' + f.tid + '" data-dm-name="' + esc(f.nickname || "Ami") + '">Message</button>' +
-        '<button class="btn" style="padding:8px 10px;font-size:0.8em;background:#3f2a16;color:#fbbf24;border:none;border-radius:8px;cursor:pointer;" data-report-tid="' + f.tid + '" data-report-name="' + esc(f.nickname || "Ami") + '">Signaler</button>' +
-        '<button class="btn" style="padding:8px 10px;font-size:0.8em;background:#451a1a;color:#fca5a5;border:none;border-radius:8px;cursor:pointer;" data-block-tid="' + f.tid + '" data-block-name="' + esc(f.nickname || "Ami") + '">Bloquer</button>' +
-        '<button class="btn-remove-friend" title="Supprimer cet ami" data-del-tid="' + f.tid + '" data-del-name="' + esc(f.nickname || "Ami") + '">🗑</button>' +
+      card.innerHTML =
+        '<div class="friend-card-top">' +
+          '<div class="friend-avatar">' + _amisAvatarEmoji(f.avatar_type, f.avatar_skin) + '</div>' +
+          '<div class="friend-info">' +
+            '<div class="friend-name">' + dot + ' ' + esc(f.nickname || "Ami") + unreadBadge + '</div>' +
+            '<div class="friend-level">Niveau ' + (f.level || 1) + '</div>' +
+          '</div>' +
+        '</div>' +
+        '<button class="friend-msg-btn" data-dm-tid="' + f.tid + '" data-dm-name="' + esc(f.nickname || "Ami") + '">💬 Message</button>' +
+        '<div class="friend-danger-row">' +
+          '<button class="friend-danger-btn report" data-report-tid="' + f.tid + '" data-report-name="' + esc(f.nickname || "Ami") + '">Signaler</button>' +
+          '<button class="friend-danger-btn block" data-block-tid="' + f.tid + '" data-block-name="' + esc(f.nickname || "Ami") + '">Bloquer</button>' +
+          '<button class="friend-danger-btn remove" data-del-tid="' + f.tid + '" data-del-name="' + esc(f.nickname || "Ami") + '">Supprimer</button>' +
         '</div>';
       card.querySelector('[data-dm-tid]').addEventListener("click", function(e) { e.stopPropagation(); openDm(f.tid, f.nickname || "Ami"); });
       card.querySelector('[data-report-tid]').addEventListener("click", function(e) { e.stopPropagation(); _amisReportFriend(f.tid, f.nickname || "Ami", this); });
@@ -6476,12 +6504,17 @@ function loadAmisRequests() {
     reqs.forEach(function(req) {
       var card = document.createElement("div");
       card.className = "friend-card";
-      card.innerHTML = '<div class="friend-avatar">' + _amisAvatarEmoji(req.avatar_type, req.avatar_skin) + '</div>' +
-        '<div class="friend-info"><div class="friend-name">' + esc(req.nickname || "Quelqu\'un") + '</div>' +
-        '<div class="friend-level">Niveau ' + (req.level || 1) + '</div></div>' +
-        '<div class="friend-actions">' +
-        '<button class="btn btn-primary" style="padding:6px 12px;font-size:0.85em;" onclick="_amisAccept(' + req.tid + ',this)">Accepter</button>' +
-        '<button class="btn" style="padding:6px 12px;font-size:0.85em;background:#dc2626;color:#fff;border:none;border-radius:8px;cursor:pointer;" onclick="_amisDecline(' + req.tid + ',this)">Refuser</button>' +
+      card.innerHTML =
+        '<div class="friend-card-top">' +
+          '<div class="friend-avatar">' + _amisAvatarEmoji(req.avatar_type, req.avatar_skin) + '</div>' +
+          '<div class="friend-info">' +
+            '<div class="friend-name">' + esc(req.nickname || "Quelqu\'un") + '</div>' +
+            '<div class="friend-level">Niveau ' + (req.level || 1) + '</div>' +
+          '</div>' +
+        '</div>' +
+        '<div style="display:flex;gap:8px;padding:0 16px 14px;">' +
+          '<button class="friend-msg-btn" style="flex:1;margin:0;background:linear-gradient(135deg,#065f46,#059669);" onclick="_amisAccept(' + req.tid + ',this)">Accepter</button>' +
+          '<button class="friend-msg-btn" style="flex:1;margin:0;background:linear-gradient(135deg,#7f1d1d,#dc2626);" onclick="_amisDecline(' + req.tid + ',this)">Refuser</button>' +
         '</div>';
       listEl.appendChild(card);
     });
@@ -6740,15 +6773,37 @@ function _connectDmWs(roomId) {
     dmPollTimer = setInterval(_loadDmMessages, 5000);
   }
 }
+function _dmBuildBubble(m, myTid, friendName) {
+  var isMe = String(m.sender_tid || m.sender) === myTid;
+  var isGuardian = m.sender_type === "guardian" || (m.sender_name || "").toLowerCase().indexOf("guardian") !== -1;
+  var wrap = document.createElement("div");
+  if (isGuardian) {
+    wrap.className = "dm-bubble-wrap";
+    var bub = document.createElement("div");
+    bub.className = "dm-msg guardian-msg";
+    bub.textContent = "🛡 Guardian — " + (m.text || m.content || "");
+    wrap.appendChild(bub);
+  } else {
+    wrap.className = "dm-bubble-wrap " + (isMe ? "mine" : "theirs");
+    var lbl = document.createElement("div");
+    lbl.className = "dm-bubble-label";
+    var t = m.created_at ? new Date(m.created_at).toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"}) : "";
+    lbl.textContent = (isMe ? "Vous" : (friendName || "Ami")) + (t ? "  " + t : "");
+    var bub = document.createElement("div");
+    bub.className = "dm-msg " + (isMe ? "mine" : "theirs");
+    bub.textContent = m.text || m.content || "";
+    wrap.appendChild(lbl);
+    wrap.appendChild(bub);
+  }
+  return wrap;
+}
 function _appendDmMessage(m) {
   var c = document.getElementById("dmMessages");
   var empty = c.querySelector(".empty-state");
   if (empty) empty.remove();
   var myTid = String(_myTid());
-  var div = document.createElement("div");
-  div.className = "dm-msg " + (String(m.sender_tid || m.sender) === myTid ? "mine" : "theirs");
-  div.textContent = m.text || m.content || "";
-  c.appendChild(div);
+  var fname = document.getElementById("dmFriendName").textContent;
+  c.appendChild(_dmBuildBubble(m, myTid, fname));
   c.scrollTop = c.scrollHeight;
 }
 
@@ -6762,12 +6817,8 @@ function _loadDmMessages() {
     if (msgs.length === 0) { c.innerHTML = '<p class="empty-state" style="font-size:0.85em;">Aucun message. Dis bonjour !</p>'; return; }
     c.innerHTML = "";
     var myTid = String(_myTid());
-    msgs.slice().reverse().forEach(function(m) {
-      var div = document.createElement("div");
-      div.className = "dm-msg " + (String(m.sender_tid || m.sender) === myTid ? "mine" : "theirs");
-      div.textContent = m.text || m.content || "";
-      c.appendChild(div);
-    });
+    var fname = document.getElementById("dmFriendName").textContent;
+    msgs.slice().reverse().forEach(function(m) { c.appendChild(_dmBuildBubble(m, myTid, fname)); });
     c.scrollTop = c.scrollHeight;
   }).catch(function() {});
 }
