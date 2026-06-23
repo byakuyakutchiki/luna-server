@@ -46,6 +46,12 @@ add_var "TWILIO_API_SECRET"
 add_var "TWILIO_PHONE_NUMBER"
 add_var "TWILIO_SMS_FROM"
 add_var "TWILIO_WHATSAPP_NUMBER"
+# Email — SendGrid (distribution dossier Iris, conciergerie email)
+add_var "SENDGRID_API_KEY"
+add_var "LUNA_EMAIL_FROM"
+add_var "LUNA_EMAIL_SENDER_NAME"
+# Mode test fondateur : si "true", les emails/SMS sont simulés (aucun envoi réel)
+add_var "FOUNDATION_TEST_MODE"
 
 # Joindre avec des virgules
 vars_string=$(IFS=,; echo "${update_vars[*]}")
