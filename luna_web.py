@@ -10234,6 +10234,8 @@ async def iris_report_send(request: Request):
                 )
             except Exception as e:
                 ok, info = False, {"error": str(e)}
+            if not ok:
+                logger.warning(f"iris_report_send: échec envoi vers {to[:60]} ({fmt}): {info.get('error')}")
             results.append({
                 "to": to, "ok": bool(ok),
                 "simulated": bool(info.get("simulated")),
@@ -10246,11 +10248,14 @@ async def iris_report_send(request: Request):
             pass
 
     sent = sum(1 for r in results if r["ok"])
+    simulated = any(r["simulated"] for r in results)
+    logger.info(f"iris_report_send: {sent}/{len(results)} envoyé(s)"
+                + (" [SIMULÉ - mode test]" if simulated else ""))
     return JSONResponse({
         "ok": sent > 0,
         "sent": sent,
         "total": len(results),
-        "simulated": any(r["simulated"] for r in results),
+        "simulated": simulated,
         "results": results,
     })
 
