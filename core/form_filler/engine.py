@@ -212,17 +212,27 @@ def fill_pdf(pdf_bytes: bytes, fields: list[dict], signature_b64: str = None) ->
         PDF rempli en bytes
     """
     doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+    skipped: list[str] = []
 
     for f in fields:
-        value = f.get("value")
+        fid = f.get("id") or f.get("label") or "?"
+        raw_value = f.get("value")
         ftype = f.get("field_type", "text")
         pos = f.get("position", {})
 
-        if not value and ftype != "signature":
+        # Normaliser en str : l'API/auto-fill peut envoyer bool/int (checkbox, nombres)
+        value = "" if raw_value is None else str(raw_value)
+
+        if not value.strip() and ftype != "signature":
             continue
 
         page_num = int(pos.get("page", 0))
-        if page_num >= len(doc):
+        if page_num >= len(doc) or page_num < 0:
+            logger.warning(
+                f"fill_pdf: champ '{fid}' ignoré — page {page_num} hors limites "
+                f"({len(doc)} page(s) dans le document)"
+            )
+            skipped.append(str(fid))
             continue
 
         page = doc[page_num]
@@ -235,7 +245,7 @@ def fill_pdf(pdf_bytes: bytes, fields: list[dict], signature_b64: str = None) ->
         rect = fitz.Rect(x, y, x + w, y + h)
 
         if ftype == "checkbox":
-            if value and value.lower() in ("true", "oui", "yes", "x", "1"):
+            if value.strip().lower() in ("true", "oui", "yes", "x", "1"):
                 fs = min(h * 0.8, 14)
                 page.insert_text(
                     fitz.Point(x + w/2 - fs/4, y + h/2 + fs/3),
@@ -264,6 +274,11 @@ def fill_pdf(pdf_bytes: bytes, fields: list[dict], signature_b64: str = None) ->
             text_rect = fitz.Rect(x+2, y+1, x+w-2, y+h-1)
             page.insert_textbox(text_rect, value or "", fontsize=fs,
                                 fontname="helv", color=(0, 0, 0.15))
+
+    if skipped:
+        logger.warning(
+            f"fill_pdf: {len(skipped)} champ(s) non rempli(s) (position page invalide): {skipped}"
+        )
 
     out = io.BytesIO()
     doc.save(out)
