@@ -102,6 +102,7 @@ try:
     from core.safety.guardian import SafetyGuardian, SafetyLevel
     from core.actions.quota_guard import QuotaGuard
     from core.actions.models import ActionType as CoreActionType
+    from core.actions.confirmation import ConfirmationManager
     from core.instructions.parser import InstructionParser, ParsedInstruction
     from core.instructions.scheduler import InstructionScheduler, ScheduledTask
     from core.instructions.executor import InstructionExecutor, create_instruction_executor
@@ -3451,7 +3452,8 @@ if not _jwt_raw:
     raise SystemExit("ERREUR FATALE: JWT_SECRET_KEY manquante dans .env")
 _JWT_SECRET = _jwt_raw
 _JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
-_CLIENT_TOKEN_EXPIRE_DAYS = 90
+_CLIENT_TOKEN_EXPIRE_DAYS = 7
+_REFRESH_TOKEN_EXPIRE_DAYS = 30
 
 def _hash_password(password: str) -> str:
     """Hash un mot de passe avec bcrypt."""
@@ -3504,19 +3506,52 @@ def _bootstrap_proprio_auth():
         logger.warning(f"AUTH BOOTSTRAP Redis indisponible au demarrage ({_e}) — sera retente au premier login")
 
 
-def _create_client_token(tenant_id: int, email: str, plan: str, first_name: str = "") -> str:
-    """Cree un JWT client valide 7 jours."""
+def _create_client_token(tenant_id: int, email: str, plan: str, first_name: str = "", token_type: str = "access") -> str:
+    """Cree un JWT client valide 7 jours (access) ou 30 jours (refresh)."""
     import jwt as pyjwt
+    expire_days = _REFRESH_TOKEN_EXPIRE_DAYS if token_type == "refresh" else _CLIENT_TOKEN_EXPIRE_DAYS
     payload = {
         "tenant_id": tenant_id,
         "email": email,
         "plan": plan,
         "role": "client",
+        "type": token_type,
         "first_name": first_name,
         "iat": int(time.time()),
-        "exp": int(time.time()) + _CLIENT_TOKEN_EXPIRE_DAYS * 86400,
+        "exp": int(time.time()) + expire_days * 86400,
     }
     return pyjwt.encode(payload, _JWT_SECRET, algorithm=_JWT_ALGORITHM)
+
+
+def _create_refresh_token(tenant_id: int, email: str, plan: str = "essentiel") -> str:
+    """Cree un refresh token (porte le vrai plan) et le stocke dans Redis."""
+    token = _create_client_token(tenant_id, email, plan, token_type="refresh")
+    if _redis_client:
+        try:
+            key = f"luna:{tenant_id}:auth:refresh_tokens"
+            _redis_client.client.sadd(key, token)
+            _redis_client.client.expire(key, _REFRESH_TOKEN_EXPIRE_DAYS * 86400)
+        except Exception as e:
+            logger.warning(f"Could not store refresh token in Redis: {e}")
+    return token
+
+
+def _verify_refresh_token(token: str) -> Optional[dict]:
+    """Verifie un refresh token et s'assure qu'il est dans Redis."""
+    payload = _decode_client_token(token)
+    if not payload or payload.get("type") != "refresh":
+        return None
+    tenant_id = payload.get("tenant_id")
+    if _redis_client and tenant_id:
+        try:
+            key = f"luna:{tenant_id}:auth:refresh_tokens"
+            if not _redis_client.client.sismember(key, token):
+                logger.warning("Refresh token not found in Redis (revoked or expired)")
+                return None
+        except Exception as e:
+            logger.warning(f"Could not verify refresh token in Redis: {e}")
+            return None
+    return payload
 
 def _decode_client_token(token: str) -> Optional[dict]:
     """Decode un JWT client. Retourne le payload ou None."""
@@ -3621,10 +3656,31 @@ def _is_public_path(path: str) -> bool:
     return any(path.startswith(p) for p in _PUBLIC_PATHS)
 
 
+_openai_key_valid = False
+
+
+def _verify_openai_key_sync(client) -> bool:
+    """Verifie que la cle OpenAI est valide au demarrage."""
+    if not client:
+        return False
+    try:
+        client.with_options(timeout=10.0).models.list()
+        return True
+    except openai.AuthenticationError:
+        logger.error("OPENAI AUTH ERROR - cle API invalide au demarrage")
+        return False
+    except Exception as e:
+        logger.warning(f"OPENAI KEY VERIFICATION WARNING - {type(e).__name__}: {e}")
+        # On considere la cle potentiellement valide si ce n'est pas une auth error
+        # (ex: timeout reseau temporaire). Elle sera revalidee au premier chat.
+        return True
+
+
 # --- Clients ---
 if _pv_locked:
     # Mode SETUP: init graceful, ne crashe pas sur cles manquantes
     openai_client = build_llm_client(OPENAI_API_KEY) if OPENAI_API_KEY else None
+    _openai_key_valid = _verify_openai_key_sync(openai_client)
     try:
         sms_client = TwilioSMSClient.from_env()
     except Exception:
@@ -3634,6 +3690,9 @@ if _pv_locked:
     email_client = EmailClient.from_env()
 else:
     openai_client = build_llm_client(OPENAI_API_KEY)
+    _openai_key_valid = _verify_openai_key_sync(openai_client)
+    if not _openai_key_valid:
+        logger.critical("OPENAI NON CONFIGURE - Le chat et l'assistant IA seront indisponibles")
     sms_client = TwilioSMSClient.from_env()
     voice_client = TwilioVoiceClient.from_env()
     tavus_client = TavusClient.from_env() if _TAVUS_AVAILABLE and LUNA_MODE == "full" else None
@@ -3849,6 +3908,7 @@ _test_mode: bool = False          # Mode test global (désactivé en prod)
 _test_mode_tenants: set = set()   # J6 — Tenants en mode test individuel (sans bloquer les autres)
 _notification_engine: Optional[object] = None
 _iris_session_manager: Optional[object] = None  # IrisSessionManager
+_confirmation_manager: Optional[object] = None  # ConfirmationManager
 
 # Invitations visio en attente de reponse SMS (phone -> {tenant_id, subscriber_name, contact_name, timestamp})
 _pending_visio_invites: Dict[str, Dict] = {}
@@ -3861,7 +3921,7 @@ _anomaly_last_call: Dict[str, float] = {}
 
 def _init_core():
     """Initialize core modules. Graceful if Redis is down or imports failed."""
-    global _redis_client, _memory_manager, _safety_guardian, _quota_guard, _scheduler, _executor, _doc_generator, _perception_detector, _perception_analyzer, _notification_engine, _iris_session_manager
+    global _redis_client, _memory_manager, _safety_guardian, _quota_guard, _scheduler, _executor, _doc_generator, _perception_detector, _perception_analyzer, _notification_engine, _iris_session_manager, _confirmation_manager
     if not _CORE_AVAILABLE:
         logger.warning("Core modules non disponibles (import failed) - mode degrade")
         return
@@ -3890,10 +3950,16 @@ def _init_core():
                 redis_client=_redis_client.client if _redis_client else None,  # J9: persistance Redis
             )
             _scheduler = InstructionScheduler()
+            _confirmation_manager = ConfirmationManager(
+                memory_manager=_memory_manager,
+                redis_client=_redis_client,
+            )
+            logger.info("Confirmation Manager initialisé")
             _executor = create_instruction_executor(
                 memory_manager=_memory_manager,
                 sms_service=sms_client,
                 safety_guardian=_safety_guardian,
+                action_service=_confirmation_manager,
                 voice_service=voice_client,
                 visio_service=tavus_client,
             )
@@ -4438,7 +4504,7 @@ async def _vault_reminder_loop():
                                 phone = auth.get("telephone") or auth.get("phone", "")
                                 if phone:
                                     try:
-                                        sms_client.send_sms(phone, f"Luna 📄 {msg}")
+                                        sms_client.send(phone, f"Luna 📄 {msg}")
                                         processed += 1
                                     except Exception as sms_err:
                                         logger.warning(f"Vault SMS tid={tid}: {sms_err}")
@@ -5165,7 +5231,7 @@ if (window.LUNA_CONFIG.sentryDsn && typeof Sentry !== 'undefined') {{
 @app.get("/health")
 async def health():
     """Healthcheck leger pour Docker/load balancers."""
-    return {"status": "ok"}
+    return {"status": "ok", "openai": "ok" if _openai_key_valid else "unconfigured"}
 
 
 @app.get("/ready")
@@ -5181,8 +5247,8 @@ async def ready():
     except Exception as e:
         checks["redis"] = f"error: {e}"
         return JSONResponse(status_code=503, content={"status": "not_ready", "checks": checks})
-    for key in ("JWT_SECRET_KEY", "OPENAI_API_KEY"):
-        checks[key] = "ok" if os.getenv(key) else "missing"
+    checks["JWT_SECRET_KEY"] = "ok" if os.getenv("JWT_SECRET_KEY") else "missing"
+    checks["OPENAI_API_KEY"] = "ok" if _openai_key_valid else "invalid_or_missing"
     all_ok = all(v == "ok" for v in checks.values())
     return JSONResponse(
         status_code=200 if all_ok else 503,
@@ -5782,6 +5848,15 @@ async def chat(req: ChatRequest, request: Request):
         return JSONResponse(status_code=503, content={"error": "Luna est tres sollicitee, reessaie dans quelques secondes"})
     await _chat_semaphore.acquire()
     try:
+        # Graceful degradation if OpenAI is not configured
+        if not openai_client or not _openai_key_valid:
+            logger.warning("Chat requested but OpenAI is not configured")
+            return {
+                "response": "Luna n'est pas encore configuree pour repondre par IA. "
+                            "Demande a l'administrateur de verifier la cle OpenAI. "
+                            "En attendant, je peux quand meme t'aider avec la meteo, tes rappels et tes contacts."
+            }
+
         tid = getattr(request.state, "tenant_id", 1)
         mgr = _get_tenant_manager(tid)
         tenant_convs = conversations.setdefault(str(tid), {})
@@ -6544,7 +6619,7 @@ COMPORTEMENT COMPAGNON :
         _openai_breaker.record_failure()
         logger.error("OPENAI AUTH ERROR - cle API invalide")
         _notify_admin_health("Cle OpenAI invalide - Luna ne peut plus repondre")
-        return {"response": "Luna a un souci technique. L'equipe a ete prevenue."}
+        return {"response": "Luna n'est pas encore configuree correctement. La cle OpenAI est invalide ou absente. Contacte l'administrateur."}
     except openai.RateLimitError as e:
         _openai_breaker.record_failure()
         err_body = getattr(e, 'body', {}) or {}
@@ -11943,6 +12018,7 @@ async def auth_register(req: RegisterRequest, request: Request):
 
     fname = req.first_name or email.split("@")[0]
     token = _create_client_token(tenant_id, email, plan, first_name=fname)
+    refresh_token = _create_refresh_token(tenant_id, email, plan)
     # Initialize gamification player
     if _GAMIFICATION_AVAILABLE and _redis_client:
         try:
@@ -11952,7 +12028,7 @@ async def auth_register(req: RegisterRequest, request: Request):
             pass
     _gamify("admin", "new_client", is_admin=True)
     logger.info(f"AUTH_REGISTER tenant_id={tenant_id} email={email} plan={plan} lang={lang}")
-    return {"token": token, "tenant_id": tenant_id, "plan": plan, "first_name": fname, "lang": lang}
+    return {"token": token, "refresh_token": refresh_token, "tenant_id": tenant_id, "plan": plan, "first_name": fname, "lang": lang}
 
 
 @app.post("/api/auth/login")
@@ -11974,12 +12050,22 @@ async def auth_login(req: LoginRequest):
     # Fallback fondateur : si Redis KO, vérifier les credentials depuis .env
     if not auth:
         proprio_email = os.getenv("PROPRIO_EMAIL", "").strip().lower()
-        proprio_password = os.getenv("PROPRIO_PASSWORD", "").strip()
-        if proprio_email and proprio_password and email == proprio_email:
-            if req.password == proprio_password:
+        proprio_password_hash = os.getenv("PROPRIO_PASSWORD_HASH", "").strip()
+        proprio_password_plain = os.getenv("PROPRIO_PASSWORD", "").strip()
+
+        if proprio_email and email == proprio_email:
+            valid = False
+            if proprio_password_hash:
+                valid = _verify_password(req.password, proprio_password_hash)
+            elif proprio_password_plain:
+                logger.warning("PROPRIO_PASSWORD en clair detecte — utilisez PROPRIO_PASSWORD_HASH")
+                valid = req.password == proprio_password_plain
+
+            if valid:
                 token = _create_client_token(_PROPRIO_TENANT_ID, email, "fondateur")
+                refresh_token = _create_refresh_token(_PROPRIO_TENANT_ID, email, "fondateur")
                 logger.info(f"AUTH_LOGIN fondateur via fallback env-vars (Redis KO): {email}")
-                return {"token": token, "tenant_id": _PROPRIO_TENANT_ID, "plan": "fondateur", "first_name": ""}
+                return {"token": token, "refresh_token": refresh_token, "tenant_id": _PROPRIO_TENANT_ID, "plan": "fondateur", "first_name": ""}
         return JSONResponse(status_code=401, content={"error": "Email ou mot de passe incorrect"})
 
     if not _verify_password(req.password, auth["password_hash"]):
@@ -11999,9 +12085,47 @@ async def auth_login(req: LoginRequest):
             first_name = profile.get("first_name", "")
 
     token = _create_client_token(tenant_id, email, plan, first_name=first_name)
+    refresh_token = _create_refresh_token(tenant_id, email, plan)
     _gamify(tenant_id, "daily_login")
     logger.info(f"AUTH_LOGIN tenant_id={tenant_id} email={email}")
-    return {"token": token, "tenant_id": tenant_id, "plan": plan, "first_name": first_name}
+    return {"token": token, "refresh_token": refresh_token, "tenant_id": tenant_id, "plan": plan, "first_name": first_name}
+
+
+class RefreshRequest(BaseModel):
+    refresh_token: str
+
+
+@app.post("/api/auth/refresh")
+async def auth_refresh(req: RefreshRequest):
+    """Rafraichit un access token grace a un refresh token valide."""
+    payload = _verify_refresh_token(req.refresh_token)
+    if not payload:
+        return JSONResponse(status_code=401, content={"error": "Refresh token invalide ou expire"})
+
+    tenant_id = payload["tenant_id"]
+    email = payload["email"]
+    plan = payload.get("plan", "essentiel")
+
+    # Recuperer le prenom depuis le profil
+    first_name = ""
+    if _redis_client:
+        try:
+            profile = _redis_client.get_profile(tenant_id)
+            if profile:
+                first_name = profile.get("first_name", "")
+        except Exception:
+            pass
+        # Source de verite : relire le plan reel (il peut avoir change depuis l'emission du refresh token)
+        try:
+            auth = _redis_client.get_auth_by_email(email)
+            if auth and auth.get("plan"):
+                plan = auth["plan"]
+        except Exception:
+            pass
+
+    new_token = _create_client_token(tenant_id, email, plan, first_name=first_name)
+    logger.info(f"AUTH_REFRESH tenant_id={tenant_id} email={email} plan={plan}")
+    return {"token": new_token, "tenant_id": tenant_id, "plan": plan, "first_name": first_name}
 
 
 @app.get("/api/auth/me")
@@ -13533,6 +13657,54 @@ async def get_pending_notifications(request: Request):
         return {"notifications": []}
 
 
+@app.get("/api/actions/pending")
+async def get_pending_actions(request: Request):
+    """Liste les demandes d'action en attente de confirmation pour le tenant."""
+    tid = getattr(request.state, "tenant_id", 1)
+    if not _confirmation_manager:
+        return {"actions": []}
+    try:
+        actions = _confirmation_manager.get_pending_actions(tid)
+        return {"actions": [a.to_dict() for a in actions]}
+    except Exception as e:
+        logger.error(f"Error listing pending actions for tenant {tid}: {e}")
+        return {"actions": []}
+
+
+@app.post("/api/actions/{action_id}/confirm")
+async def confirm_action(request: Request, action_id: str):
+    """Confirme une action proposee par Luna."""
+    tid = getattr(request.state, "tenant_id", 1)
+    if not _confirmation_manager:
+        return JSONResponse(status_code=503, content={"error": "Service de confirmation indisponible"})
+    try:
+        action = _confirmation_manager.confirm(tid, action_id, method="button")
+        if not action:
+            return JSONResponse(status_code=404, content={"error": "Action introuvable ou expiree"})
+        return {"success": True, "action": action.to_dict()}
+    except Exception as e:
+        logger.error(f"Error confirming action {action_id} for tenant {tid}: {e}")
+        return JSONResponse(status_code=500, content={"error": "Erreur lors de la confirmation"})
+
+
+@app.post("/api/actions/{action_id}/reject")
+async def reject_action(request: Request, action_id: str):
+    """Refuse une action proposee par Luna."""
+    tid = getattr(request.state, "tenant_id", 1)
+    body = await request.json() if request.headers.get("content-type", "").startswith("application/json") else {}
+    reason = body.get("reason", "refused_by_user")
+    if not _confirmation_manager:
+        return JSONResponse(status_code=503, content={"error": "Service de confirmation indisponible"})
+    try:
+        action = _confirmation_manager.reject(tid, action_id, reason=reason)
+        if not action:
+            return JSONResponse(status_code=404, content={"error": "Action introuvable ou expiree"})
+        return {"success": True, "action": action.to_dict()}
+    except Exception as e:
+        logger.error(f"Error rejecting action {action_id} for tenant {tid}: {e}")
+        return JSONResponse(status_code=500, content={"error": "Erreur lors du refus"})
+
+
 @app.get("/api/notifications/count")
 async def get_notification_count(request: Request):
     """Returns count of pending notifications (for badge display)."""
@@ -14849,7 +15021,7 @@ def _guardian_dedup(tid: int, incident_id: str, ttl: int = 30) -> bool:
 #
 
 try:
-    from core.guardian.engine import GuardianEngine, get_profile_templates
+    from core.guardian.engine import GuardianEngine, GuardianEvent, get_profile_templates
     from core.guardian.alerts import send_guardian_alerts
     _GUARDIAN_AVAILABLE = True
 except ImportError as _e:
@@ -15061,6 +15233,41 @@ async def guardian_location(session_id: str, request: Request):
         response["guardian_sms_enabled"] = False
         response["sms_blocked"] = len(sms_results["blocked"])
     return response
+
+
+@app.post("/api/guardian/location-denied/{session_id}")
+async def guardian_location_denied(session_id: str, request: Request):
+    """
+    Signale que l'utilisateur a refuse l'acces a la geolocalisation.
+    Arrete la session Guardian et enregistre un evenement d'audit.
+    """
+    engine = _get_guardian()
+    if not engine:
+        return JSONResponse(status_code=503, content={"error": "Guardian non disponible"})
+    session = engine.get_session(session_id)
+    if not session:
+        return JSONResponse(status_code=404, content={"error": "Session introuvable"})
+
+    engine.stop_session(session_id)
+    engine._log_event(session_id, GuardianEvent(
+        event_type="location_permission_denied",
+        description="L'utilisateur a refuse l'acces a la geolocalisation. Session arretee.",
+    ))
+
+    tid = getattr(request.state, "tenant_id", 1)
+    mgr = _get_tenant_manager(tid)
+    if mgr:
+        try:
+            mgr.log_event(
+                category="guardian",
+                description="Permission de geolocalisation refusee - session Guardian arretee",
+                source="user_action",
+            )
+        except Exception:
+            pass
+
+    logger.info(f"Guardian session {session_id} stopped due to location permission denied")
+    return {"success": True, "session_id": session_id, "status": "stopped", "reason": "location_permission_denied"}
 
 
 @app.post("/api/guardian/sos/{session_id}")
@@ -20516,7 +20723,7 @@ async def _load_instructions_to_scheduler():
                 parsed = InstructionParser.parse(instr.description)
                 _scheduler.schedule(
                     instruction_id=instr.id,
-                    tenant_id=TENANT_ID,
+                    tenant_id=instr.tenant_id,
                     instruction=parsed,
                 )
                 loaded += 1
@@ -20672,15 +20879,16 @@ async def _instruction_loop():
                         except Exception:
                             pass
 
-                    # Enregistre le compte-rendu comme note + event log
-                    if _memory_manager:
+                    # Enregistre le compte-rendu comme note + event log dans le bon tenant
+                    _log_mgr = _exec_mgr if _exec_mgr else _memory_manager
+                    if _log_mgr:
                         try:
-                            _memory_manager.add_note(
+                            _log_mgr.add_note(
                                 content=f"[Auto] {result.message}",
                                 context="instruction_execution",
                                 tags=["auto", result.status.value, task.instruction.action_type.value],
                             )
-                            _memory_manager.log_event(
+                            _log_mgr.log_event(
                                 category="instruction",
                                 description=f"Instruction executee: {result.message}",
                                 reasoning=f"Declenchee par le scheduler ({task.instruction.original_text[:60]})",

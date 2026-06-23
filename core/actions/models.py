@@ -84,6 +84,31 @@ class ActionRequest:
             ActionStatus.AWAITING_CONFIRMATION,
         )
 
+    def to_dict(self) -> Dict[str, Any]:
+        """Sérialise pour l'API ou le stockage Redis."""
+        return {
+            "action_id": self.action_id,
+            "tenant_id": self.tenant_id,
+            "action_type": self.action_type.value,
+            "target": self.target,
+            "target_phone": self.target_phone,
+            "description": self.description,
+            "message_body": self.message_body,
+            "status": self.status.value,
+            "estimated_cost": self.estimated_cost,
+            "confirmed": self.confirmed,
+            "confirmed_at": self.confirmed_at.isoformat() if self.confirmed_at else None,
+            "confirmation_method": self.confirmation_method,
+            "rejection_reason": self.rejection_reason,
+            "reasoning_explanation": self.reasoning_explanation,
+            "instruction_id": self.instruction_id,
+            "conversation_id": self.conversation_id,
+            "source": self.source,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "expires_at": self.expires_at.isoformat() if self.expires_at else None,
+            "executed_at": self.executed_at.isoformat() if self.executed_at else None,
+        }
+
 
 @dataclass
 class ActionResult:

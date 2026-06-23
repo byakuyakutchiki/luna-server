@@ -12,6 +12,7 @@ IMPORTANT:
 - Toujours vérifier le quota avant envoi
 - Logger chaque action pour traçabilité
 """
+import asyncio
 import logging
 from typing import Optional, Dict, Any, Tuple
 
@@ -233,9 +234,7 @@ class ActionDispatcher:
 
         # Envoi via le service SMS
         try:
-            success, result = await self.sms.send_sms(
-                request.tenant_id, phone, body
-            )
+            success, result = await asyncio.to_thread(self.sms.send, phone, body)
 
             if success:
                 return ActionResult(
