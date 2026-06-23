@@ -10106,14 +10106,56 @@ async def iris_session_approve(session_id: str, action_id: str, request: Request
     return JSONResponse({"ok": True, "action": action})
 
 
+def _iris_build_report(markdown: str, fmt: str):
+    """Construit le dossier final Iris en PDF (fpdf2) ou DOCX (python-docx).
+
+    Retourne (data: bytes, ext: str, media: str). Lève une exception sur échec.
+    Partagé par les endpoints export et send (DRY).
+    """
+    import io as _io
+    if fmt == "docx":
+        from docx import Document
+        from docx.shared import Pt
+        doc = Document()
+        doc.styles["Normal"].font.name = "Calibri"
+        doc.styles["Normal"].font.size = Pt(11)
+        for raw in markdown.splitlines():
+            doc.add_paragraph(raw.rstrip())
+        buf = _io.BytesIO()
+        doc.save(buf)
+        return (buf.getvalue(), "docx",
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+
+    from fpdf import FPDF
+    _repl = {"═": "=", "─": "-", "•": "-", "❓": "?", "💡": "*", "✅": "[x]",
+             "→": "->", "…": "...", "’": "'", "«": '"', "»": '"', "—": "-", "–": "-"}
+
+    def _latin1(s: str) -> str:
+        for k, v in _repl.items():
+            s = s.replace(k, v)
+        # Helvetica (core font) = latin-1 ; remplace tout caractère hors plage
+        return s.encode("latin-1", "replace").decode("latin-1")
+
+    pdf = FPDF(format="A4")
+    pdf.set_auto_page_break(auto=True, margin=15)
+    pdf.add_page()
+    pdf.set_font("Helvetica", size=11)
+    epw = pdf.w - pdf.l_margin - pdf.r_margin  # largeur explicite (w=0 plante en fpdf2 2.8)
+    for raw in markdown.splitlines():
+        line = _latin1(raw.rstrip())
+        if not line:
+            pdf.ln(3)
+            continue
+        pdf.multi_cell(epw, 6, line)
+    return (bytes(pdf.output()), "pdf", "application/pdf")
+
+
 @app.post("/api/team/report/export")
 async def iris_report_export(request: Request):
-    """Exporte le dossier final Iris (compte-rendu) en PDF (fpdf2) ou DOCX (python-docx).
+    """Exporte le dossier final Iris (compte-rendu) en PDF ou DOCX (téléchargement).
 
-    Endpoint public (cf. /api/team/* dans _PUBLIC_PATHS, comme le reste de l'Iris
-    Workspace). Génération en mémoire (pas de disque) → ne rend que le texte fourni
-    par le client (generateReport), aucune donnée serveur exposée. Plafond de taille
-    pour éviter l'abus.
+    Endpoint public (cf. /api/team/* dans _PUBLIC_PATHS). Ne rend que le texte fourni
+    par le client (generateReport), aucune donnée serveur exposée. Plafond anti-abus.
     """
     try:
         body = await request.json()
@@ -10126,58 +10168,130 @@ async def iris_report_export(request: Request):
         return JSONResponse(status_code=400, content={"error": "Rapport vide"})
     if len(markdown) > 200_000:
         return JSONResponse(status_code=413, content={"error": "Rapport trop volumineux"})
-
-    import io as _io
     safe_name = re.sub(r"[^a-zA-Z0-9_-]+", "-", title).strip("-")[:60] or "dossier-iris"
-
     try:
-        if fmt == "docx":
-            from docx import Document
-            from docx.shared import Pt, RGBColor
-            doc = Document()
-            doc.styles["Normal"].font.name = "Calibri"
-            doc.styles["Normal"].font.size = Pt(11)
-            for raw in markdown.splitlines():
-                doc.add_paragraph(raw.rstrip())
-            buf = _io.BytesIO()
-            doc.save(buf)
-            data = buf.getvalue()
-            media = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-            ext = "docx"
-        else:
-            from fpdf import FPDF
-            _repl = {"═": "=", "─": "-", "•": "-", "❓": "?", "💡": "*", "✅": "[x]",
-                     "→": "->", "…": "...", "’": "'", "«": '"', "»": '"', "—": "-", "–": "-"}
-
-            def _latin1(s: str) -> str:
-                for k, v in _repl.items():
-                    s = s.replace(k, v)
-                # Helvetica (core font) = latin-1 ; remplace tout caractère hors plage
-                return s.encode("latin-1", "replace").decode("latin-1")
-
-            pdf = FPDF(format="A4")
-            pdf.set_auto_page_break(auto=True, margin=15)
-            pdf.add_page()
-            pdf.set_font("Helvetica", size=11)
-            epw = pdf.w - pdf.l_margin - pdf.r_margin  # largeur explicite (w=0 plante en fpdf2 2.8)
-            for raw in markdown.splitlines():
-                line = _latin1(raw.rstrip())
-                if not line:
-                    pdf.ln(3)
-                    continue
-                pdf.multi_cell(epw, 6, line)
-            data = bytes(pdf.output())
-            media = "application/pdf"
-            ext = "pdf"
+        data, ext, media = _iris_build_report(markdown, fmt)
     except Exception as e:
         logger.error(f"iris_report_export error ({fmt}): {e}")
         return JSONResponse(status_code=500, content={"error": "Génération du document impossible"})
-
     return Response(
         content=data,
         media_type=media,
         headers={"Content-Disposition": f'attachment; filename="{safe_name}.{ext}"'},
     )
+
+
+@app.post("/api/team/report/send")
+async def iris_report_send(request: Request):
+    """Distribue/envoie le dossier final Iris par email (pièce jointe PDF/DOCX).
+
+    Action externe initiée par l'utilisateur (destinataires saisis explicitement).
+    Respecte le mode test fondateur : EmailClient simule alors l'envoi (simulated=True),
+    aucun email réel n'est expédié.
+    """
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    markdown = (body.get("markdown") or "").strip()
+    fmt = (body.get("format") or "pdf").strip().lower()
+    title = (body.get("title") or "Compte-rendu Iris").strip()[:120]
+    recipients = body.get("to") or body.get("recipients") or []
+    if isinstance(recipients, str):
+        recipients = [recipients]
+    recipients = [r.strip() for r in recipients if isinstance(r, str) and "@" in r][:10]
+    if not markdown:
+        return JSONResponse(status_code=400, content={"error": "Rapport vide"})
+    if len(markdown) > 200_000:
+        return JSONResponse(status_code=413, content={"error": "Rapport trop volumineux"})
+    if not recipients:
+        return JSONResponse(status_code=400, content={"error": "Aucun destinataire valide"})
+    if email_client is None:
+        return JSONResponse(status_code=503, content={"error": "Email non disponible sur ce serveur"})
+
+    try:
+        data, ext, media = _iris_build_report(markdown, fmt)
+    except Exception as e:
+        logger.error(f"iris_report_send build error ({fmt}): {e}")
+        return JSONResponse(status_code=500, content={"error": "Génération du document impossible"})
+
+    import tempfile
+    tmp = tempfile.NamedTemporaryFile(prefix="iris-", suffix=f".{ext}", delete=False)
+    results = []
+    try:
+        tmp.write(data)
+        tmp.close()
+        att = [{"filename": f"dossier-iris.{ext}", "filepath": tmp.name, "type": media}]
+        for to in recipients:
+            try:
+                ok, info = await email_client.send(
+                    to=to,
+                    subject=f"Dossier Iris — {title}",
+                    body_text=(f"Bonjour,\n\nVeuillez trouver ci-joint le dossier final Iris "
+                               f"« {title} ».\n\n— Iris"),
+                    subscriber_name="Iris",
+                    attachments=att,
+                )
+            except Exception as e:
+                ok, info = False, {"error": str(e)}
+            results.append({
+                "to": to, "ok": bool(ok),
+                "simulated": bool(info.get("simulated")),
+                "error": info.get("error"),
+            })
+    finally:
+        try:
+            os.unlink(tmp.name)
+        except Exception:
+            pass
+
+    sent = sum(1 for r in results if r["ok"])
+    return JSONResponse({
+        "ok": sent > 0,
+        "sent": sent,
+        "total": len(results),
+        "simulated": any(r["simulated"] for r in results),
+        "results": results,
+    })
+
+
+@app.post("/api/team/session/{session_id}/archive")
+async def iris_session_archive(session_id: str, request: Request):
+    """Archive le dossier final Iris (persistance Redis) et marque la session archivée."""
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    sid = re.sub(r"[^a-zA-Z0-9_-]", "", session_id)[:64] or "default"
+    report = body.get("report")
+    archive = {
+        "session_id": sid,
+        "title": (body.get("title") or "Compte-rendu Iris")[:120],
+        "report": report if isinstance(report, dict) else {},
+        "brief": body.get("brief"),
+        "decision": body.get("decision"),
+        "archived_at": datetime.utcnow().isoformat(),
+    }
+    persisted = False
+    if _redis_client:
+        try:
+            _redis_client.client.set(
+                f"luna:iris:archive:{sid}",
+                json.dumps(archive, ensure_ascii=False),
+                ex=86400 * 365,
+            )
+            _redis_client.client.sadd("luna:iris:archives", sid)
+            persisted = True
+        except Exception as e:
+            logger.warning(f"iris archive persist error: {e}")
+    room = _TEAM_ROOMS.get(sid)
+    if room is not None:
+        try:
+            room.archived = True
+            await room.broadcast({"type": "session_archived", "session_id": sid})
+        except Exception:
+            pass
+    return JSONResponse({"ok": True, "persisted": persisted, "archived_at": archive["archived_at"]})
 
 
 @app.post("/api/iris/session/{session_id}/reject/{action_id}")

@@ -1530,7 +1530,7 @@ var STEP_ACTS={
     {cls:'q',lbl:'+ Action',fn:function(){focusActInput();},ownerOnly:true},
   ]},
   13:{lbl:'Distribution —',acts:[
-    {cls:'i',lbl:'Distribuer',fn:function(){toast('Distribution disponible en Phase P2.',2400);}},
+    {cls:'i',lbl:'Distribuer',fn:function(){sendIrisReport('pdf');}},
     {cls:'q',lbl:'+ Action',fn:function(){focusActInput();},ownerOnly:true},
   ]},
 };
@@ -2180,7 +2180,7 @@ function _ssDistro(){
     return '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">'+
       '<div class="tw-seat-av participant" style="width:28px;height:28px;font-size:9px;line-height:28px">'+_e(p.ini)+'</div>'+
       '<span style="flex:1;font-size:12px;color:var(--text)">'+_e(p.name)+'</span>'+
-      '<button class="tw-sstate-btn ghost" style="padding:5px 12px;font-size:8px" onclick="toast(\'Envoi disponible en Phase P2.\',2400)">Envoyer</button>'+
+      '<button class="tw-sstate-btn ghost" style="padding:5px 12px;font-size:8px" onclick="sendIrisReport(\'pdf\')">Envoyer</button>'+
     '</div>';
   }).join('');
   _showSS('twDistroState',
@@ -2192,7 +2192,7 @@ function _ssDistro(){
     '<div class="tw-sstate-title">Distribution du livrable</div>'+
     '<div class="tw-sstate-card" style="max-width:420px">'+rows+'</div>'+
     '<div class="tw-sstate-row">'+
-      '<button class="tw-sstate-btn ghost" onclick="toast(\'Archivage disponible en Phase P2.\',2400)">Archiver la session</button>'+
+      '<button class="tw-sstate-btn ghost" onclick="archiveIrisSession()">Archiver la session</button>'+
     '</div>'
   );
 }
@@ -2572,6 +2572,40 @@ function downloadIrisReport(fmt){
   }).catch(function(e){
     toast('Export impossible : '+(e.message||'erreur'),3000);
   });
+}
+
+function sendIrisReport(fmt){
+  if(!TW.report||!TW.report.markdown){toast('Générez d\'abord le dossier final.',2600);return;}
+  var email=prompt('Adresse email du destinataire :','');
+  if(!email)return;
+  email=email.trim();
+  if(email.indexOf('@')<1){toast('Email invalide.',2200);return;}
+  fmt=(fmt==='docx')?'docx':'pdf';
+  var title=(TW.brief&&(TW.brief.title||TW.brief.objective))||'Compte-rendu Iris';
+  toast('Envoi en cours…',1800);
+  fetch('/api/team/report/send',{
+    method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({markdown:TW.report.markdown,format:fmt,title:title,to:[email]})
+  }).then(function(r){return r.json().then(function(j){return {ok:r.ok,j:j};});})
+  .then(function(res){
+    if(!res.ok){toast('Envoi impossible : '+(res.j.error||'erreur'),3000);return;}
+    if(res.j.simulated){toast('Mode test : envoi simulé à '+email+' (aucun email réel).',3800);}
+    else if(res.j.sent>0){toast('Dossier envoyé à '+email+'.',2600);}
+    else{toast('Échec de l\'envoi.',2600);}
+  }).catch(function(e){toast('Envoi impossible : '+(e.message||'erreur'),3000);});
+}
+
+function archiveIrisSession(){
+  var sid=TW.sessionId||'default';
+  toast('Archivage…',1500);
+  fetch('/api/team/session/'+encodeURIComponent(sid)+'/archive',{
+    method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({report:TW.report||null,brief:TW.brief||null,decision:TW.decision||null,title:(TW.brief&&TW.brief.title)||'Compte-rendu Iris'})
+  }).then(function(r){return r.json();})
+  .then(function(j){
+    if(j.ok){toast(j.persisted?'Session archivée.':'Session archivée (mémoire).',2600);}
+    else{toast('Archivage impossible.',2600);}
+  }).catch(function(e){toast('Archivage impossible : '+(e.message||'erreur'),3000);});
 }
 
 function validateDecision(){
