@@ -177,8 +177,16 @@ class EmailClient:
             else:
                 error_body = resp.text[:500]
                 logger.error(f"SendGrid erreur {resp.status_code}: {error_body}")
+                # Extraire le vrai message SendGrid (ex: "Maximum credits exceeded")
+                sg_msg = ""
+                try:
+                    errs = resp.json().get("errors") or []
+                    sg_msg = "; ".join(e.get("message", "") for e in errs if e.get("message"))
+                except Exception:
+                    pass
                 return False, {
-                    "error": f"SendGrid HTTP {resp.status_code}",
+                    "error": sg_msg or f"SendGrid HTTP {resp.status_code}",
+                    "status_code": resp.status_code,
                     "details": error_body,
                 }
 

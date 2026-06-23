@@ -2591,7 +2591,7 @@ function sendIrisReport(fmt){
     if(!res.ok){toast('Envoi impossible : '+(res.j.error||'erreur'),3000);return;}
     if(res.j.simulated){toast('Mode test : envoi simulé à '+email+' (aucun email réel).',3800);}
     else if(res.j.sent>0){toast('Dossier envoyé à '+email+'.',2600);}
-    else{toast('Échec de l\'envoi.',2600);}
+    else{var err=(res.j.results&&res.j.results[0]&&res.j.results[0].error)||res.j.error||'raison inconnue';toast('Envoi échoué : '+err,4200);}
   }).catch(function(e){toast('Envoi impossible : '+(e.message||'erreur'),3000);});
 }
 
