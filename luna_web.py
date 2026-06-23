@@ -10106,6 +10106,80 @@ async def iris_session_approve(session_id: str, action_id: str, request: Request
     return JSONResponse({"ok": True, "action": action})
 
 
+@app.post("/api/team/report/export")
+async def iris_report_export(request: Request):
+    """Exporte le dossier final Iris (compte-rendu) en PDF (fpdf2) ou DOCX (python-docx).
+
+    Endpoint public (cf. /api/team/* dans _PUBLIC_PATHS, comme le reste de l'Iris
+    Workspace). Génération en mémoire (pas de disque) → ne rend que le texte fourni
+    par le client (generateReport), aucune donnée serveur exposée. Plafond de taille
+    pour éviter l'abus.
+    """
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    markdown = (body.get("markdown") or "").strip()
+    fmt = (body.get("format") or "pdf").strip().lower()
+    title = (body.get("title") or "Compte-rendu Iris").strip()[:120]
+    if not markdown:
+        return JSONResponse(status_code=400, content={"error": "Rapport vide"})
+    if len(markdown) > 200_000:
+        return JSONResponse(status_code=413, content={"error": "Rapport trop volumineux"})
+
+    import io as _io
+    safe_name = re.sub(r"[^a-zA-Z0-9_-]+", "-", title).strip("-")[:60] or "dossier-iris"
+
+    try:
+        if fmt == "docx":
+            from docx import Document
+            from docx.shared import Pt, RGBColor
+            doc = Document()
+            doc.styles["Normal"].font.name = "Calibri"
+            doc.styles["Normal"].font.size = Pt(11)
+            for raw in markdown.splitlines():
+                doc.add_paragraph(raw.rstrip())
+            buf = _io.BytesIO()
+            doc.save(buf)
+            data = buf.getvalue()
+            media = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            ext = "docx"
+        else:
+            from fpdf import FPDF
+            _repl = {"═": "=", "─": "-", "•": "-", "❓": "?", "💡": "*", "✅": "[x]",
+                     "→": "->", "…": "...", "’": "'", "«": '"', "»": '"', "—": "-", "–": "-"}
+
+            def _latin1(s: str) -> str:
+                for k, v in _repl.items():
+                    s = s.replace(k, v)
+                # Helvetica (core font) = latin-1 ; remplace tout caractère hors plage
+                return s.encode("latin-1", "replace").decode("latin-1")
+
+            pdf = FPDF(format="A4")
+            pdf.set_auto_page_break(auto=True, margin=15)
+            pdf.add_page()
+            pdf.set_font("Helvetica", size=11)
+            epw = pdf.w - pdf.l_margin - pdf.r_margin  # largeur explicite (w=0 plante en fpdf2 2.8)
+            for raw in markdown.splitlines():
+                line = _latin1(raw.rstrip())
+                if not line:
+                    pdf.ln(3)
+                    continue
+                pdf.multi_cell(epw, 6, line)
+            data = bytes(pdf.output())
+            media = "application/pdf"
+            ext = "pdf"
+    except Exception as e:
+        logger.error(f"iris_report_export error ({fmt}): {e}")
+        return JSONResponse(status_code=500, content={"error": "Génération du document impossible"})
+
+    return Response(
+        content=data,
+        media_type=media,
+        headers={"Content-Disposition": f'attachment; filename="{safe_name}.{ext}"'},
+    )
+
+
 @app.post("/api/iris/session/{session_id}/reject/{action_id}")
 async def iris_session_reject(session_id: str, action_id: str, request: Request):
     """Rejette une action en attente."""
