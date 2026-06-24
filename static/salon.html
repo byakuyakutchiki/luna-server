@@ -2474,6 +2474,15 @@ function handleWsMsg(msg) {
     case "karaoke_perf_done": handlePerfDone(msg); break;
     case "karaoke_rating": handleIncomingRating(msg); break;
     case "game_update": updateGame(msg); break;
+    case "timer_update": {
+      // Chrono synchronisé par le serveur (autoritaire) — stoppe le décompte client
+      clearInterval(quizTimerInt);
+      var te=$("quizTimer");
+      if(te){ te.textContent="⏱ "+msg.remaining+"s"; if(msg.remaining<=5) te.classList.add("urgent"); else te.classList.remove("urgent"); }
+      break;
+    }
+    case "quiz_timeout": showToast("⏱️ Temps écoulé, question suivante","info"); break;
+    case "turn_timeout": showToast(msg.message||"⏱️ Temps écoulé, tour passé","info"); break;
     case "system":
       addSystemMsg(msg.content);
       if(msg.action==="show_invite"){ toggleParticipants(); loadInvitableMembers(); }
@@ -5053,7 +5062,7 @@ function renderQuizFinished(gs) {
   // Find winner
   var scores=gs.scores||{}, best="",bestPts=-1;
   for(var k in scores){ if(scores.hasOwnProperty(k)&&scores[k]>bestPts){bestPts=scores[k];best=k;}}
-  $("quizQuestion").innerHTML='<div class="quiz-finished"><div class="trophy">\uD83C\uDFC6</div><div>Vainqueur :</div><div class="winner-name">'+escapeHtml(best||"Personne")+'</div></div>';
+  $("quizQuestion").innerHTML='<div class="quiz-finished"><div class="trophy">\uD83C\uDFC6</div><div>Vainqueur :</div><div class="winner-name">'+escapeHtml(best?nameOf(best):"Personne")+'</div></div>';
   renderScoreRows($("quizScoreRows"),scores,"pts");
   if(S.isHost) show("gameSelector");
 }
@@ -5068,7 +5077,7 @@ function renderMorpion(gs) {
   var statusEl=$("morpionStatus");
 
   if(status==="won"&&winner){
-    var wName=(winner===S.myPhone)?"Vous":winner;
+    var wName=(winner===S.myPhone)?"Vous":nameOf(winner);
     statusEl.textContent=wName+" a gagn\u00e9 !"; statusEl.classList.add("winner");
     if(S.isHost) show("morpionRestart");
   } else if(status==="draw"){
@@ -5078,7 +5087,7 @@ function renderMorpion(gs) {
     statusEl.classList.remove("winner"); hide("morpionRestart");
     var isMy=(turn===S.myPhone);
     var sym=(turn===playerX)?"\u274C":"\u2B55";
-    statusEl.textContent=(isMy?"Votre tour":"Tour de "+turn)+" ("+sym+")";
+    statusEl.textContent=(isMy?"Votre tour":"Tour de "+nameOf(turn))+" ("+sym+")";
   }
 
   grid.innerHTML="";
@@ -5118,7 +5127,7 @@ function renderMemory(gs) {
     if(S.isHost) show("gameSelector");
   } else {
     var isMy=(currentTurn===S.myPhone);
-    statusEl.textContent=isMy?"Votre tour \u2014 retournez 2 cartes":"Tour de "+(currentTurn||"???");
+    statusEl.textContent=isMy?"Votre tour \u2014 retournez 2 cartes":"Tour de "+(currentTurn?nameOf(currentTurn):"???");
   }
 
   grid.innerHTML="";
@@ -5155,11 +5164,22 @@ function renderMemory(gs) {
   renderScoreRows($("memoryScoreRows"),scores,"paires");
 }
 
+/* Résout un phone/email en pseudo lisible (jamais un numéro brut) */
+function nameOf(phone){
+  if(!phone) return "";
+  if(phone===S.myPhone) return S.myName||"Vous";
+  for(var i=0;i<S.participants.length;i++){
+    if(S.participants[i].phone===phone) return S.participants[i].name||S.participants[i].phone;
+  }
+  // Fallback : masque un numéro de téléphone pour ne pas l'exposer
+  return (/^\+?[\d\s().-]{6,}$/.test(phone)) ? ("Joueur ••"+phone.replace(/\D/g,"").slice(-2)) : phone;
+}
+
 /* SHARED SCORE RENDERER */
 function renderScoreRows(container,scores,unit) {
   if(!scores||typeof scores!=="object"){ container.innerHTML=""; return; }
   var entries=[];
-  for(var k in scores){ if(scores.hasOwnProperty(k)) entries.push({name:k,pts:scores[k]}); }
+  for(var k in scores){ if(scores.hasOwnProperty(k)) entries.push({name:nameOf(k),pts:scores[k]}); }
   entries.sort(function(a,b){return b.pts-a.pts;});
   var h="";
   entries.forEach(function(e){
