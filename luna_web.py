@@ -23210,10 +23210,11 @@ async def admin_clients(request: Request):
                 fn = profile.get("first_name", "")
                 ln = profile.get("last_name", "")
                 name = f"{fn} {ln}".strip() or f"Tenant {tid}"
-                plan = profile.get("plan", "essentiel")
-                # Lecture auth pour l'email
+                # Lecture auth pour l'email + le plan (source de verite: auth record,
+                # le profil n'a pas de champ 'plan')
                 auth = _redis_client.get_auth_by_tenant_id(tid)
                 email = auth.get("email", "") if auth else ""
+                plan = (auth.get("plan") if auth else None) or profile.get("plan", "essentiel")
                 clients.append({
                     "tenant_id": tid,
                     "name": name,
@@ -23405,7 +23406,9 @@ async def admin_quotas(request: Request):
             for tid in _redis_client.get_all_tenant_ids():
                 profile = _redis_client.get_profile(tid) or {}
                 name = profile.get("first_name", f"Tenant {tid}")
-                plan = profile.get("plan", "essentiel")
+                # Plan: source de verite = auth record (le profil n'a pas de champ 'plan')
+                _auth = _redis_client.get_auth_by_tenant_id(tid)
+                plan = (_auth.get("plan") if _auth else None) or profile.get("plan", "essentiel")
                 limits = _PLAN_LIMITS.get(plan, _PLAN_LIMITS["essentiel"])
                 usage = all_usage.get(str(tid), {"sms_count": 0, "sms_cost": 0, "voice_minutes": 0, "voice_cost": 0, "tavus_minutes": 0, "tavus_cost": 0})
                 sms_cost = round(float(usage.get("sms_cost", 0)), 2)
@@ -23466,7 +23469,10 @@ async def admin_costs(request: Request, month: str = None):
                     profile = _redis_client.get_profile(int(tid_str)) if tid_str.isdigit() else {}
                     if profile:
                         name = profile.get("first_name", name)
-                        plan = profile.get("plan", plan)
+                    # Plan: source de verite = auth record (le profil n'a pas de champ 'plan')
+                    _auth = _redis_client.get_auth_by_tenant_id(int(tid_str)) if tid_str.isdigit() else None
+                    if _auth and _auth.get("plan"):
+                        plan = _auth.get("plan")
 
                 sc = round(float(costs.get("sms_cost", 0)), 2)
                 vc = round(float(costs.get("voice_cost", 0)), 2)
@@ -23765,7 +23771,9 @@ async def admin_revenue(request: Request):
         try:
             for tid in _redis_client.get_all_tenant_ids():
                 profile = _redis_client.get_profile(tid) or {}
-                plan = profile.get("plan", "essentiel")
+                # Plan: source de verite = auth record (le profil n'a pas de champ 'plan')
+                _auth = _redis_client.get_auth_by_tenant_id(tid)
+                plan = (_auth.get("plan") if _auth else None) or profile.get("plan", "essentiel")
                 if plan in by_plan:
                     by_plan[plan]["count"] += 1
                     by_plan[plan]["revenue"] += plan_prices.get(plan, 0)
