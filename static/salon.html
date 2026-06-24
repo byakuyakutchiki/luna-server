@@ -1752,12 +1752,9 @@ input::placeholder { color: var(--text-dim); }
 
         <!-- Audience Row -->
         <div class="audience-row" id="audienceRow"></div>
-
-        <!-- File d'attente toujours visible -->
-        <div class="karaoke-queue-strip" id="karaokeQueueStrip">
-          <div class="kqs-header">&#127908; Prochains chanteurs <span class="kqs-count" id="kqsCount"></span></div>
-          <div class="kqs-list" id="kqsList"></div>
-        </div>
+        <!-- Architecture #17 « une action = une interface » : la file d'attente
+             n'est plus affichée en permanence dans la salle ; elle vit dans le
+             panneau Chanter (État 2). Salle = scène + chanteur + spectateurs + chat. -->
       </div>
 
       <!-- Chat Overlay (left side, absolute positioned) -->
@@ -3151,31 +3148,7 @@ function addToQueue(song) {
 }
 
 function renderQueue() {
-  /* Bande file d'attente toujours visible dans la salle (hors panneau) */
-  var stripList = $("kqsList"), stripCount = $("kqsCount");
-  if(stripList){
-    if(!songQueue.length){
-      if(stripCount) stripCount.textContent = "";
-      stripList.innerHTML = '<div class="kqs-empty">&#127925; Personne en attente — ajoute une chanson</div>';
-    } else {
-      if(stripCount) stripCount.textContent = songQueue.length;
-      var smax = Math.min(songQueue.length, 4), sh = "";
-      for(var s=0;s<smax;s++){
-        var it = songQueue[s];
-        sh += '<div class="kqs-item" style="animation-delay:'+(s*0.05)+'s">';
-        sh += '<span class="kqs-num">'+(s+1)+'</span>';
-        sh += '<span class="kqs-singer">'+escapeHtml(it.singerName)+'</span>';
-        sh += '<span class="kqs-song">'+escapeHtml(it.song.title)+'</span>';
-        sh += '</div>';
-      }
-      if(songQueue.length > smax){
-        var rest = songQueue.length - smax;
-        sh += '<div class="kqs-more">+'+rest+' autre'+(rest>1?'s':'')+'</div>';
-      }
-      stripList.innerHTML = sh;
-    }
-  }
-
+  /* Architecture #17 : la file d'attente n'est rendue que dans le panneau Chanter. */
   var container = $("queueList");
   var queueEl = $("spQueueSection");
   var countEl = $("queueCount");
