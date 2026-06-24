@@ -22,6 +22,9 @@ html, body {
   --text: #e0e0e0; --text-dim: #888; --text-bright: #fff;
   --green: #4caf50; --red: #f44336; --blue: #2196f3;
   --safe-bottom: env(safe-area-inset-bottom, 0px);
+  /* Hauteur visible réelle (pilotée en JS) — fiabilise le plein écran sur WebView Android
+     où 100vh dépasse la zone visible et coupe la barre d'action / la file en bas. */
+  --app-height: 100dvh;
 }
 a { color: var(--purple-light); text-decoration: none; }
 a:hover { text-decoration: underline; }
@@ -116,7 +119,7 @@ input::placeholder { color: var(--text-dim); }
 .toast.toast-success { border-color:var(--green); }
 
 /* ROOM VIEW */
-.room-view { display:none; flex-direction:column; height:100vh; height:100dvh; overflow:hidden; }
+.room-view { display:none; flex-direction:column; height:100vh; height:var(--app-height, 100dvh); overflow:hidden; }
 .room-view.active { display:flex; }
 .room-header { display:flex; align-items:center; gap:10px; padding:12px 16px; background:rgba(10,10,26,0.95); border-bottom:1px solid var(--border); flex-shrink:0; z-index:10; backdrop-filter:blur(8px); }
 .room-header .back-btn { width:36px; height:36px; display:flex; align-items:center; justify-content:center; border-radius:8px; background:var(--bg-card); border:1px solid var(--border); font-size:1.1em; flex-shrink:0; transition:background 0.2s; }
@@ -564,6 +567,96 @@ input::placeholder { color: var(--text-dim); }
   color:var(--gold); margin:16px 0 8px; font-size:0.9em; font-weight:600;
 }
 
+/* Persistent always-visible queue strip (in karaoke room) */
+.karaoke-queue-strip {
+  display:flex; flex-direction:column; gap:7px;
+  width:calc(100% - 32px); max-width:420px; margin:10px auto 0;
+  padding:11px 14px; z-index:3; position:relative;
+  background:rgba(255,255,255,0.04); border:1px solid rgba(255,215,0,0.18);
+  border-radius:14px; backdrop-filter:blur(8px);
+  animation:fadeIn 0.3s ease;
+}
+.kqs-header {
+  display:flex; align-items:center; gap:6px;
+  font-size:0.8em; font-weight:700; color:var(--gold); letter-spacing:0.3px;
+}
+.kqs-count {
+  margin-left:auto; font-size:0.85em; font-weight:600; color:var(--text-dim);
+  padding:1px 9px; border-radius:10px; background:rgba(255,215,0,0.12);
+}
+.kqs-count:empty { display:none; }
+.kqs-list { display:flex; flex-direction:column; gap:5px; }
+.kqs-item {
+  display:flex; align-items:center; gap:9px;
+  padding:5px 9px; border-radius:10px; background:rgba(255,255,255,0.03);
+  animation:queueSlide 0.3s ease both;
+}
+.kqs-num {
+  width:19px; height:19px; flex-shrink:0; border-radius:50%;
+  background:rgba(255,215,0,0.15); color:var(--gold);
+  display:flex; align-items:center; justify-content:center;
+  font-size:0.7em; font-weight:700;
+}
+.kqs-singer { font-size:0.82em; font-weight:600; color:var(--text-bright); flex-shrink:0; }
+.kqs-song {
+  font-size:0.76em; color:var(--text-dim); min-width:0;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.kqs-more { font-size:0.74em; color:var(--text-dim); text-align:center; padding-top:1px; }
+.kqs-empty {
+  display:flex; align-items:center; justify-content:center; gap:6px;
+  font-size:0.78em; color:var(--text-dim); padding:3px 0; text-align:center;
+}
+
+/* GIF dans le chat karaoké */
+.karaoke-chat-gif {
+  display:block; margin-top:3px; max-width:150px; max-height:130px;
+  border-radius:10px; box-shadow:0 4px 14px rgba(0,0,0,0.5);
+}
+
+/* Barre d'action : scroll horizontal -> aucun bouton coupé sur petit écran (ergonomie) */
+.karaoke-action-bar { overflow-x:auto; scrollbar-width:none; -ms-overflow-style:none; }
+.karaoke-action-bar::-webkit-scrollbar { display:none; }
+.action-input { min-width:90px; }
+.action-btn.gif-btn { background:linear-gradient(135deg,#00c6ff,#0072ff); color:#fff; }
+
+/* Panneau GIF (slide-up) */
+.gif-panel {
+  position:fixed; left:0; right:0; bottom:0; height:62vh; max-height:62vh;
+  background:rgba(12,12,28,0.98); backdrop-filter:blur(20px);
+  border-radius:20px 20px 0 0; transform:translateY(100%);
+  transition:transform 0.35s cubic-bezier(0.4,0,0.2,1);
+  z-index:52; display:flex; flex-direction:column; padding:0 16px 16px;
+  border-top:1px solid rgba(0,150,255,0.3);
+}
+.gif-panel.open { transform:translateY(0); }
+.gif-panel-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:51; }
+.gif-panel-overlay.open { display:block; }
+.gif-panel .catalog-search-input { margin-bottom:10px; }
+.gif-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:8px; overflow-y:auto; flex:1; min-height:0; }
+@media (min-width:768px){ .gif-grid { grid-template-columns:repeat(3,1fr); } }
+.gif-cell {
+  width:100%; height:100px; object-fit:cover; border-radius:10px; cursor:pointer;
+  background:rgba(255,255,255,0.04); transition:transform 0.15s, box-shadow 0.15s;
+}
+.gif-cell:hover { transform:scale(1.04); box-shadow:0 4px 16px rgba(0,150,255,0.4); }
+.gif-cell:active { transform:scale(0.97); }
+.gif-loading { grid-column:1/-1; text-align:center; color:var(--text-dim); font-size:0.85em; padding:24px; }
+
+/* Profondeur / relief : plancher de scène + dégradé de sol + ombres plus marquées */
+.singer-stage { position:relative; }
+.singer-stage::after {
+  content:""; position:absolute; left:50%; bottom:-4px; transform:translateX(-50%);
+  width:190px; height:48px; border-radius:50%; z-index:-1; pointer-events:none;
+  background:radial-gradient(ellipse, rgba(139,76,240,0.35), rgba(139,76,240,0) 70%);
+  filter:blur(7px);
+}
+.karaoke-room-bg::after {
+  content:""; position:absolute; left:0; right:0; bottom:0; height:42%;
+  background:linear-gradient(to top, rgba(0,0,0,0.55), transparent); pointer-events:none;
+}
+.song-card, .vfx-card, .gift-item { box-shadow:0 6px 18px rgba(0,0,0,0.35); }
+
 /* Manual URL toggle in song panel */
 .manual-url-toggle-sm {
   color:var(--text-dim); font-size:0.8em; cursor:pointer; padding:4px 0;
@@ -777,6 +870,25 @@ input::placeholder { color: var(--text-dim); }
 .vfx-icon { font-size:1.8em; line-height:1; }
 .vfx-name { font-size:0.75em; font-weight:600; color:var(--text-bright); text-align:center; }
 .vfx-desc { font-size:0.6em; color:var(--text-dim); text-align:center; line-height:1.3; }
+
+/* Monitoring (retour micro) + réglages dans le panneau d'effets vocaux */
+.vfx-monitor {
+  padding:8px 16px 4px; display:flex; flex-direction:column; gap:9px;
+  border-bottom:1px solid rgba(255,255,255,0.06); margin-bottom:4px;
+}
+.vfx-monitor-row { display:flex; align-items:center; gap:10px; }
+.vfx-monitor-label { font-size:0.84em; font-weight:600; color:var(--text-bright); }
+.vfx-monitor-hint { font-size:0.82em; color:var(--text-dim); font-weight:400; }
+.vfx-monitor-toggle {
+  margin-left:auto; padding:6px 16px; border-radius:16px; font-size:0.8em; font-weight:700;
+  background:rgba(255,255,255,0.08); color:var(--text-dim);
+  border:1px solid transparent; transition:all 0.2s; cursor:pointer;
+}
+.vfx-monitor-toggle.on {
+  background:linear-gradient(135deg,#e91e63,#ff5252); color:#fff;
+  box-shadow:0 0 14px rgba(233,30,99,0.4);
+}
+.vfx-monitor-slider { width:100%; accent-color:#e91e63; height:22px; cursor:pointer; }
 
 /* Mic button in action bar */
 .action-btn.mic-btn { background:rgba(255,255,255,0.08); position:relative; }
@@ -1594,6 +1706,12 @@ input::placeholder { color: var(--text-dim); }
 
         <!-- Audience Row -->
         <div class="audience-row" id="audienceRow"></div>
+
+        <!-- File d'attente toujours visible -->
+        <div class="karaoke-queue-strip" id="karaokeQueueStrip">
+          <div class="kqs-header">&#127908; Prochains chanteurs <span class="kqs-count" id="kqsCount"></span></div>
+          <div class="kqs-list" id="kqsList"></div>
+        </div>
       </div>
 
       <!-- Chat Overlay (left side, absolute positioned) -->
@@ -1603,6 +1721,7 @@ input::placeholder { color: var(--text-dim); }
       <div class="karaoke-action-bar" id="karaokeActionBar">
         <button class="action-btn song-btn" onclick="toggleSongPanel()" title="Chansons">&#127925;</button>
         <button class="action-btn" onclick="focusKaraokeChat()" title="Chat">&#128172;</button>
+        <button class="action-btn gif-btn" onclick="toggleGifPanel()" title="GIFs">&#127916;</button>
         <input type="text" class="action-input" id="karaokeChatInput" placeholder="Envoyer un message..." autocomplete="off">
         <button class="action-btn" onclick="sendKaraokeChat()" title="Envoyer">&#10148;</button>
         <button class="action-btn mic-btn" id="micToggleBtn" onclick="toggleMic()" title="Micro">&#127908;</button>
@@ -1621,6 +1740,18 @@ input::placeholder { color: var(--text-dim); }
         <div class="gift-grid" id="karaokeGiftGrid"></div>
       </div>
 
+      <!-- GIF panel (slide-up) -->
+      <div class="gif-panel-overlay" id="gifPanelOverlay" onclick="toggleGifPanel()"></div>
+      <div class="gif-panel" id="gifPanel">
+        <div class="song-panel-handle"></div>
+        <div class="song-panel-header">
+          <h3>&#127916; GIFs</h3>
+          <button class="song-panel-close" onclick="toggleGifPanel()">&#10005;</button>
+        </div>
+        <input type="text" class="catalog-search-input" id="gifSearch" placeholder="&#128269; Rechercher un GIF..." autocomplete="off" oninput="onGifSearch()">
+        <div class="gif-grid" id="gifGrid"></div>
+      </div>
+
       <!-- Voice Effects Panel (slide-up) -->
       <div class="voice-effects-overlay" id="vfxOverlay" onclick="toggleVoiceEffectsPanel()"></div>
       <div class="voice-effects-panel" id="vfxPanel">
@@ -1631,6 +1762,14 @@ input::placeholder { color: var(--text-dim); }
         </div>
         <div class="vfx-mic-status" id="vfxMicStatus">
           <button class="vfx-mic-btn off" id="vfxMicBtn" onclick="toggleMic()">&#127908; Activer le micro</button>
+        </div>
+        <!-- Retour micro (monitoring StarMaker) -->
+        <div class="vfx-monitor" id="vfxMonitor">
+          <div class="vfx-monitor-row">
+            <span class="vfx-monitor-label">&#127911; Retour micro <span class="vfx-monitor-hint">(casque conseill&eacute;)</span></span>
+            <button class="vfx-monitor-toggle on" id="monitorToggleBtn" onclick="toggleMonitor()">Activ&eacute;</button>
+          </div>
+          <input type="range" min="0" max="100" value="85" class="vfx-monitor-slider" id="monitorSlider" oninput="setMonitorLevel(this.value/100)" aria-label="Volume du retour micro">
         </div>
         <div class="vfx-grid" id="vfxGrid"></div>
       </div>
@@ -1901,6 +2040,18 @@ function fetchProfile() {
 
 /* API */
 var isEmbed = new URLSearchParams(window.location.search).get("embed") === "1";
+
+/* Hauteur visible réelle : sur Android WebView, 100vh dépasse l'écran et coupe le bas
+   (barre d'action, file). On fixe --app-height sur la vraie hauteur visible. */
+function setAppHeight() {
+  var h = (window.visualViewport && window.visualViewport.height) ? window.visualViewport.height : window.innerHeight;
+  if(h && h > 0) document.documentElement.style.setProperty("--app-height", h + "px");
+}
+setAppHeight();
+window.addEventListener("resize", setAppHeight);
+window.addEventListener("orientationchange", function(){ setTimeout(setAppHeight, 250); });
+if(window.visualViewport) window.visualViewport.addEventListener("resize", setAppHeight);
+
 function apiFetch(url, opts) {
   opts=opts||{}; opts.headers=opts.headers||{};
   var t=getToken(); if(t) opts.headers["Authorization"]="Bearer "+t;
@@ -1975,6 +2126,12 @@ function buildGiftGrid() {
 /* VIEW MANAGEMENT */
 function showLobby() {
   if(typeof stopMicrophone==="function") stopMicrophone();
+  /* Couper la musique au retour : sinon le lecteur YouTube karaok\u00e9 (ou cin\u00e9ma)
+     continue de jouer en fond apr\u00e8s avoir quitt\u00e9 l'activit\u00e9. */
+  try { if(karaokeYTPlayer && karaokeYTPlayer.stopVideo) karaokeYTPlayer.stopVideo(); } catch(e){}
+  karaokeCurrentVid = "";
+  var _ytCine = $("ytPlayer");
+  if(_ytCine){ try { _ytCine.src=""; } catch(e){} _ytCine.style.display="none"; }
   S.view="lobby"; document.title="Luna Activites \u2014 YAWatch";
   $("lobbyView").style.display=""; $("roomView").classList.remove("active");
   /* Reafficher la barre "Retour au Chat" embed une fois revenu au lobby */
@@ -1990,6 +2147,9 @@ function showLobby() {
   var spo=$("songPanelOverlay"); if(spo) spo.classList.remove("open");
   karaokeGiftPanelOpen = false;
   var kgp=$("karaokeGiftPanel"); if(kgp) kgp.classList.remove("open");
+  gifPanelOpen = false;
+  var gp=$("gifPanel"); if(gp) gp.classList.remove("open");
+  var gpo=$("gifPanelOverlay"); if(gpo) gpo.classList.remove("open");
   closeParticipants(); disconnectWS();
   S.currentRoom=null; S.currentRoomData=null; S.isHost=false; S.participants=[]; S.lastMsgPhone="";
   if(window.history.replaceState) window.history.replaceState({},"",window.location.pathname);
@@ -2841,6 +3001,31 @@ function addToQueue(song) {
 }
 
 function renderQueue() {
+  /* Bande file d'attente toujours visible dans la salle (hors panneau) */
+  var stripList = $("kqsList"), stripCount = $("kqsCount");
+  if(stripList){
+    if(!songQueue.length){
+      if(stripCount) stripCount.textContent = "";
+      stripList.innerHTML = '<div class="kqs-empty">&#127925; Personne en attente — ajoute une chanson</div>';
+    } else {
+      if(stripCount) stripCount.textContent = songQueue.length;
+      var smax = Math.min(songQueue.length, 4), sh = "";
+      for(var s=0;s<smax;s++){
+        var it = songQueue[s];
+        sh += '<div class="kqs-item" style="animation-delay:'+(s*0.05)+'s">';
+        sh += '<span class="kqs-num">'+(s+1)+'</span>';
+        sh += '<span class="kqs-singer">'+escapeHtml(it.singerName)+'</span>';
+        sh += '<span class="kqs-song">'+escapeHtml(it.song.title)+'</span>';
+        sh += '</div>';
+      }
+      if(songQueue.length > smax){
+        var rest = songQueue.length - smax;
+        sh += '<div class="kqs-more">+'+rest+' autre'+(rest>1?'s':'')+'</div>';
+      }
+      stripList.innerHTML = sh;
+    }
+  }
+
   var container = $("queueList");
   var queueEl = $("spQueueSection");
   var countEl = $("queueCount");
@@ -2993,11 +3178,27 @@ function updateSingerDisplay(name) {
 }
 
 /* Karaoke chat overlay (semi-transparent left side messages) */
+/* N'autorise que les GIFs Giphy/Tenor (https) — empêche toute injection via l'URL. */
+function isGifUrl(u) {
+  return typeof u === "string" &&
+    /^https:\/\/(media[0-9]*\.giphy\.com|i\.giphy\.com|media[0-9]*\.tenor\.com|c\.tenor\.com)\/[^\s"'<>]+\.(gif|webp)(\?[^\s"'<>]*)?$/i.test(u);
+}
+
 function addKaraokeChatMsg(msg) {
   var overlay = $("karaokeChatOverlay"); if(!overlay) return;
   var div = document.createElement("div");
   div.className = "karaoke-chat-msg";
-  div.innerHTML = '<span class="karaoke-chat-name">' + escapeHtml(msg.from || "") + '</span><span class="karaoke-chat-text">' + escapeHtml(msg.content || "") + '</span>';
+  var content = msg.content || "";
+  var nameHtml = '<span class="karaoke-chat-name">' + escapeHtml(msg.from || "") + '</span>';
+  if(isGifUrl(content)){
+    /* GIF : on construit l'<img> via le DOM avec une src déjà validée (pas d'innerHTML) */
+    div.innerHTML = nameHtml;
+    var gimg = document.createElement("img");
+    gimg.className = "karaoke-chat-gif"; gimg.src = content; gimg.alt = "GIF"; gimg.loading = "lazy";
+    div.appendChild(gimg);
+  } else {
+    div.innerHTML = nameHtml + '<span class="karaoke-chat-text">' + escapeHtml(content) + '</span>';
+  }
   overlay.appendChild(div);
   /* Keep max 30 messages */
   while(overlay.children.length > 30) overlay.removeChild(overlay.firstChild);
@@ -3030,6 +3231,53 @@ window.sendKaraokeChat = function() {
   wsSend({type:"chat", content:text});
   inp.value = "";
 };
+
+/* ── GIFs (Giphy) ── */
+var gifPanelOpen = false, gifSearchTimer = null;
+/* Clé démo publique Giphy — fonctionnelle mais limitée ; remplacer par une clé perso en prod. */
+var GIPHY_KEY = "dc6zaTOxFJmzC";
+window.toggleGifPanel = function() {
+  gifPanelOpen = !gifPanelOpen;
+  var p = $("gifPanel"), o = $("gifPanelOverlay");
+  if(gifPanelOpen){
+    if(p) p.classList.add("open"); if(o) o.classList.add("open");
+    var grid = $("gifGrid");
+    if(grid && !grid.querySelector(".gif-cell")) loadGifs("");
+  } else {
+    if(p) p.classList.remove("open"); if(o) o.classList.remove("open");
+  }
+};
+window.onGifSearch = function() {
+  clearTimeout(gifSearchTimer);
+  gifSearchTimer = setTimeout(function(){ var q = $("gifSearch"); loadGifs(q ? q.value.trim() : ""); }, 350);
+};
+function loadGifs(q) {
+  var grid = $("gifGrid"); if(!grid) return;
+  grid.innerHTML = '<div class="gif-loading">Chargement…</div>';
+  var url = (q ? ("https://api.giphy.com/v1/gifs/search?q=" + encodeURIComponent(q) + "&")
+              : "https://api.giphy.com/v1/gifs/trending?") + "api_key=" + GIPHY_KEY + "&limit=24&rating=g";
+  fetch(url).then(function(r){ return r.json(); }).then(function(d){
+    if(!d || !d.data || !d.data.length){ grid.innerHTML = '<div class="gif-loading">Aucun GIF trouvé</div>'; return; }
+    grid.innerHTML = "";
+    d.data.forEach(function(g){
+      try {
+        var im = g.images || {};
+        var thumb = (im.fixed_width_small || im.fixed_height_small || im.downsized || {}).url;
+        var full  = (im.downsized_medium || im.fixed_height || im.downsized || {}).url;
+        if(!thumb || !full) return;
+        var c = document.createElement("img");
+        c.className = "gif-cell"; c.src = thumb; c.loading = "lazy"; c.alt = "GIF";
+        c.onclick = function(){ sendGif(full); };
+        grid.appendChild(c);
+      } catch(e){}
+    });
+  }).catch(function(){ grid.innerHTML = '<div class="gif-loading">GIFs indisponibles (réessaie plus tard)</div>'; });
+}
+function sendGif(url) {
+  if(!isGifUrl(url)){ showToast("GIF invalide", "error"); return; }
+  wsSend({type:"chat", content:url});
+  toggleGifPanel();
+}
 
 /* Karaoke gift panel */
 window.toggleKaraokeGiftPanel = function() {
@@ -3074,6 +3322,10 @@ var audioCtx = null;
 var micStream = null;
 var micSource = null;
 var effectChain = [];
+/* Monitoring (retour micro façon StarMaker) : tous les effets sortent via ce gain. */
+var monitorGain = null;
+var monitorEnabled = true;   /* on s'entend chanter — casque conseillé (sinon larsen) */
+var monitorLevel = 0.85;
 
 var VOICE_EFFECTS = [
   {id:"normal", name:"Normal", icon:"\uD83C\uDFA4", desc:"Voix naturelle"},
@@ -3098,10 +3350,17 @@ function initMicrophone() {
   var AC = window.AudioContext || window.webkitAudioContext;
   if(!AC){ showToast("Audio non support\u00e9", "error"); return; }
 
-  navigator.mediaDevices.getUserMedia({audio:true, video:false}).then(function(stream){
+  /* Contraintes basse latence : on coupe les traitements navigateur (echo/bruit/gain auto)
+     qui ajoutent de la latence et dégradent la voix chantée. */
+  var micConstraints = { echoCancellation:false, noiseSuppression:false, autoGainControl:false };
+  navigator.mediaDevices.getUserMedia({audio: micConstraints, video:false}).then(function(stream){
     micStream = stream;
-    audioCtx = new AC();
+    try { audioCtx = new AC({ latencyHint: "interactive" }); } catch(e){ audioCtx = new AC(); }
     micSource = audioCtx.createMediaStreamSource(stream);
+    /* Bus de monitoring : point de sortie unique contrôlable (volume / mute du retour) */
+    monitorGain = audioCtx.createGain();
+    monitorGain.gain.value = monitorEnabled ? monitorLevel : 0;
+    monitorGain.connect(audioCtx.destination);
     micActive = true;
     applyVoiceEffect(activeVoiceEffect);
     startPitchDetection();
@@ -3125,6 +3384,7 @@ function stopMicrophone() {
     audioCtx = null;
   }
   micSource = null;
+  monitorGain = null;
   micActive = false;
   stopPitchDetection();
   updateMicUI();
@@ -3147,7 +3407,8 @@ function applyVoiceEffect(effectId) {
   if(!audioCtx || !micSource) return;
   disconnectEffectChain();
   activeVoiceEffect = effectId;
-  var dest = audioCtx.destination;
+  /* Sortie via le bus de monitoring (retour micro contrôlable), pas directement les HP */
+  var dest = monitorGain || audioCtx.destination;
 
   switch(effectId) {
     case "echo": {
@@ -3305,6 +3566,34 @@ function updateMicUI() {
   }
 }
 
+/* ── Monitoring micro (retour StarMaker) ── */
+function applyMonitorGain() {
+  if(monitorGain && audioCtx){
+    var target = monitorEnabled ? monitorLevel : 0;
+    try { monitorGain.gain.setTargetAtTime(target, audioCtx.currentTime, 0.02); }
+    catch(e){ monitorGain.gain.value = target; }
+  }
+}
+function updateMonitorUI() {
+  var btn = $("monitorToggleBtn");
+  if(btn){
+    btn.textContent = monitorEnabled ? "Activé" : "Coupé";
+    btn.className = "vfx-monitor-toggle" + (monitorEnabled ? " on" : "");
+  }
+  var sl = $("monitorSlider"); if(sl) sl.value = Math.round(monitorLevel * 100);
+}
+window.toggleMonitor = function() {
+  monitorEnabled = !monitorEnabled;
+  applyMonitorGain();
+  updateMonitorUI();
+  showToast(monitorEnabled ? "Retour micro activé 🎧" : "Retour micro coupé", monitorEnabled ? "success" : "");
+};
+window.setMonitorLevel = function(v) {
+  monitorLevel = Math.max(0, Math.min(1, parseFloat(v) || 0));
+  if(monitorEnabled) applyMonitorGain();
+  updateMonitorUI();
+};
+
 window.toggleVoiceEffectsPanel = function() {
   voiceEffectsOpen = !voiceEffectsOpen;
   var panel = $("vfxPanel");
@@ -3313,6 +3602,7 @@ window.toggleVoiceEffectsPanel = function() {
     if(panel) panel.classList.add("open");
     if(overlay) overlay.classList.add("open");
     updateVfxGrid();
+    updateMonitorUI();
   } else {
     if(panel) panel.classList.remove("open");
     if(overlay) overlay.classList.remove("open");
