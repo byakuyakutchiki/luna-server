@@ -3844,7 +3844,11 @@ def _tracked_sms_send(to: str, body: str, label: str = "", _tenant_id: int = Non
     if not GUARDIAN_SMS_ENABLED and any(k in label.lower() for k in _emergency_keywords):
         logger.info(f"[EMERGENCY_SMS_DISABLED] SMS bloqué vers {to} ({label}): {body[:60]}")
         return True, {"sid": "DISABLED", "emergency_sms_disabled": True, "blocked": True}
-    success, details = sms_client.send(to, body)
+    # #3 Sender brande pour les alertes uniquement (defaut = numero Twilio).
+    # GUARDIAN_SMS_SENDER peut etre un numero FR dedie OU un Sender ID alphanumerique
+    # "YAWatch-Luna" -- mais l'alphanumerique est A SENS UNIQUE (pas de reponse OUI).
+    _alert_sender = os.getenv("GUARDIAN_SMS_SENDER", "") if any(k in label.lower() for k in _emergency_keywords) else ""
+    success, details = sms_client.send(to, body, sender=_alert_sender)
     if success and details.get("sid"):
         sid = details["sid"]
         _sms_tracking[sid] = {
@@ -15360,7 +15364,7 @@ async def guardian_location(session_id: str, request: Request):
             all_contacts = session_contacts or contacts
 
             sub = mgr.get_subscriber_profile() if mgr else None
-            person_name = sub.name if sub and hasattr(sub, "name") else "Utilisateur"
+            person_name = sub.first_name if sub and getattr(sub, "first_name", "") else "Utilisateur"
             desc = alert_events[0].description or risk.description
             # Escalade Niveau 4 est toujours HIGH, même si le risk_score GPS est encore MEDIUM
             alert_level = (
@@ -15500,7 +15504,7 @@ async def guardian_sos(session_id: str, request: Request):
 
     pos = session.last_position if session else None
     sub = mgr.get_subscriber_profile() if mgr else None
-    person_name = sub.name if sub and hasattr(sub, "name") else "Utilisateur"
+    person_name = sub.first_name if sub and getattr(sub, "first_name", "") else "Utilisateur"
 
     _alert_channel = "both"
     if _redis_client:
@@ -15552,6 +15556,19 @@ async def guardian_sos(session_id: str, request: Request):
             )
         except Exception as e:
             logger.error(f"SOS SMS failed: {e}")
+
+    # 3. Appel vocal court — signale juste l'urgence au contact (gate GUARDIAN_CALL_ENABLED)
+    if GUARDIAN_CALL_ENABLED and voice_client and _alert_channel in ("sms", "both"):
+        _vmsg = (f"Alerte Luna Guardian. {person_name} a besoin d'aide. "
+                 f"Consultez le SMS de Luna Guardian pour les details.")
+        for _c in contacts:
+            _ph = _c.get("phone") if isinstance(_c, dict) else getattr(_c, "phone", None)
+            if not _ph:
+                continue
+            try:
+                voice_client.send_alert_call(_ph, _vmsg)
+            except Exception as e:
+                logger.error(f"SOS voice alert failed for {_ph}: {e}")
 
     total_sent = len(sms_results.get("sent", [])) + len(dm_results.get("sent", []))
     total_blocked = len(sms_results.get("blocked", []))
@@ -15733,7 +15750,7 @@ async def guardian_fall_detected(session_id: str, request: Request):
         from core.guardian.engine import GeoPoint
         pos = GeoPoint(lat=lat, lng=lng)
     sub = mgr.get_subscriber_profile() if mgr else None
-    person_name = sub.name if sub and hasattr(sub, "name") else "Utilisateur"
+    person_name = sub.first_name if sub and getattr(sub, "first_name", "") else "Utilisateur"
 
     _alert_channel = "both"
     if _redis_client:
@@ -16177,8 +16194,8 @@ async def guardian_checkin_miss(session_id: str, request: Request):
             pass
         try:
             sub = mgr.get_subscriber_profile()
-            if sub and hasattr(sub, "name") and sub.name:
-                session.config.setdefault("person_name", sub.name)
+            if sub and getattr(sub, "first_name", ""):
+                session.config.setdefault("person_name", sub.first_name)
         except Exception:
             pass
 
@@ -16322,7 +16339,7 @@ async def guardian_voice_simulate(request: Request):
     session = engine.get_session(session_id) if (engine and session_id) else None
     mgr = _get_tenant_manager(tid)
     sub = mgr.get_subscriber_profile() if mgr else None
-    person_name = sub.name if sub and hasattr(sub, "name") else "Utilisateur"
+    person_name = sub.first_name if sub and getattr(sub, "first_name", "") else "Utilisateur"
     pos = session.last_position if session else None
 
     from core.guardian.alerts import build_sms_alert_v1

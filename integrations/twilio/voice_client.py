@@ -96,6 +96,47 @@ class TwilioVoiceClient:
         """URL du endpoint TwiML que Twilio va fetcher quand l'appel est decroche."""
         return f"{self.voice_callback_url}/api/voice-call/twiml"
 
+    def send_alert_call(self, to: str, message: str) -> Tuple[bool, Dict[str, Any]]:
+        """Appel vocal COURT d'alerte : lit un message puis raccroche.
+
+        Contrairement a initiate_call (qui ouvre un Media Stream vers l'agent voix),
+        ceci utilise un TwiML <Say> inline -> sert juste a signaler l'urgence a un
+        contact de confiance. Le message est dit deux fois pour etre bien capte.
+        """
+        from integrations.twilio.sms_client import TwilioSMSClient
+        to_normalized = TwilioSMSClient.normalize_phone(to)
+
+        settings = get_settings()
+        if settings.foundation_test_mode:
+            logger.info(f"[SIMULATE] Appel d'alerte vers {to_normalized}: {message[:60]}")
+            return True, {"simulated": True, "call_sid": "SIMULATED_ALERT_" + str(os.urandom(4).hex()), "to": to_normalized}
+
+        if not self.is_configured:
+            return False, {"error": "Twilio Voice non configure"}
+
+        from xml.sax.saxutils import escape as _xml_escape
+        said = _xml_escape(message)
+        twiml = (
+            '<?xml version="1.0" encoding="UTF-8"?>'
+            '<Response>'
+            f'<Say language="fr-FR" voice="Polly.Lea">{said}</Say>'
+            '<Pause length="1"/>'
+            f'<Say language="fr-FR" voice="Polly.Lea">{said}</Say>'
+            '</Response>'
+        )
+        try:
+            call = self.client.calls.create(
+                to=to_normalized,
+                from_=self.from_number,
+                twiml=twiml,
+            )
+            logger.info(f"Appel d'alerte lance: {call.sid} -> {to_normalized}")
+            return True, {"call_sid": call.sid, "status": call.status}
+        except Exception as e:
+            error_code = getattr(e, "code", 0)
+            logger.error(f"Erreur appel d'alerte: [{error_code}] {e}")
+            return False, {"error": str(e), "code": error_code}
+
     def initiate_call(self, to: str) -> Tuple[bool, Dict[str, Any]]:
         """
         Lance un appel vocal sortant.

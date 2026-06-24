@@ -111,6 +111,7 @@ class TwilioSMSClient:
         self,
         to: str,
         body: str,
+        sender: str = "",
     ) -> Tuple[bool, Dict[str, Any]]:
         """
         Envoie un SMS.
@@ -133,7 +134,10 @@ class TwilioSMSClient:
         try:
             kwargs = {
                 "body": body,
-                "from_": self.from_number,
+                # sender optionnel (ex. numero FR dedie ou Sender ID alphanumerique
+                # "YAWatch-Luna"). ATTENTION: un Sender ID alphanumerique est A SENS
+                # UNIQUE -> le destinataire ne peut pas repondre. Defaut = numero Twilio.
+                "from_": sender or self.from_number,
                 "to": to_normalized,
             }
 
