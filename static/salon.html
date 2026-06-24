@@ -657,6 +657,16 @@ input::placeholder { color: var(--text-dim); }
 }
 .song-card, .vfx-card, .gift-item { box-shadow:0 6px 18px rgba(0,0,0,0.35); }
 
+/* Bouton fermer la vidéo / arrêter la chanson */
+.karaoke-video-close {
+  position:absolute; top:6px; right:6px; z-index:4;
+  width:30px; height:30px; border-radius:50%; border:none; cursor:pointer;
+  background:rgba(0,0,0,0.55); color:#fff; font-size:0.9em; line-height:1;
+  display:flex; align-items:center; justify-content:center;
+  backdrop-filter:blur(4px); transition:background 0.2s;
+}
+.karaoke-video-close:hover { background:rgba(244,67,54,0.85); }
+
 /* Manual URL toggle in song panel */
 .manual-url-toggle-sm {
   color:var(--text-dim); font-size:0.8em; cursor:pointer; padding:4px 0;
@@ -1009,7 +1019,10 @@ input::placeholder { color: var(--text-dim); }
 
 /* Tonality controls */
 .tonality-row {
-  display:flex; align-items:center; justify-content:center; gap:14px; padding:4px 0;
+  /* Masquée pour l'instant : la tonalité n'est pas modifiable sur une vidéo YouTube.
+     À réactiver avec une vraie bibliothèque audio (issue #16 point 6). */
+  display:none !important;
+  align-items:center; justify-content:center; gap:14px; padding:4px 0;
 }
 .tone-btn {
   width:30px; height:30px; border-radius:50%; font-size:1.1em; font-weight:700;
@@ -1690,6 +1703,8 @@ input::placeholder { color: var(--text-dim); }
 
         <!-- Video -->
         <div class="karaoke-video-wrap" id="karaokeVideoWrap" style="display:none;">
+          <!-- Fermer la vidéo / arrêter la chanson sans quitter la salle (issue #16 pts 3 & 7) -->
+          <button class="karaoke-video-close" id="karaokeVideoClose" onclick="stopCurrentSong()" title="Arr&ecirc;ter la chanson">&#10005;</button>
           <div class="karaoke-video-placeholder" id="karaokePlaceholder">
             <span class="placeholder-icon">&#127908;</span>
             <span>Choisissez une chanson</span>
@@ -1721,6 +1736,7 @@ input::placeholder { color: var(--text-dim); }
       <div class="karaoke-action-bar" id="karaokeActionBar">
         <button class="action-btn song-btn" onclick="toggleSongPanel()" title="Chansons">&#127925;</button>
         <button class="action-btn" onclick="focusKaraokeChat()" title="Chat">&#128172;</button>
+        <button class="action-btn" id="chatHideBtn" onclick="toggleKaraokeChatVisible()" title="Masquer/afficher le chat">&#128065;&#65039;</button>
         <button class="action-btn gif-btn" onclick="toggleGifPanel()" title="GIFs">&#127916;</button>
         <input type="text" class="action-input" id="karaokeChatInput" placeholder="Envoyer un message..." autocomplete="off">
         <button class="action-btn" onclick="sendKaraokeChat()" title="Envoyer">&#10148;</button>
@@ -2966,6 +2982,27 @@ function playSong(song) {
   listenYouTubeEnd();
 }
 
+/* Arrêter la chanson en cours / fermer la vidéo SANS quitter la salle (issue #16 pts 3 & 7) */
+window.stopCurrentSong = function() {
+  try { if(karaokeYTPlayer && karaokeYTPlayer.stopVideo) karaokeYTPlayer.stopVideo(); } catch(e){}
+  karaokeCurrentVid = "";
+  var vw = $("karaokeVideoWrap"); if(vw) vw.style.display = "none";
+  var ve = $("karaokeVideoError"); if(ve) ve.classList.remove("visible");
+  setVideoGlow(false);
+  /* renderNowPlaying(null) affiche le score si on chantait, puis remet la scène à zéro */
+  currentKaraokeSong = null;
+  renderNowPlaying(null);
+  showToast("Chanson arrêtée", "");
+};
+
+/* Masquer/afficher le chat pendant le chant (issue #16 point 5) */
+var karaokeChatHidden = false;
+window.toggleKaraokeChatVisible = function() {
+  karaokeChatHidden = !karaokeChatHidden;
+  var o = $("karaokeChatOverlay"); if(o) o.style.display = karaokeChatHidden ? "none" : "";
+  var btn = $("chatHideBtn"); if(btn) btn.textContent = karaokeChatHidden ? "🙈" : "👁️";
+};
+
 function renderNowPlaying(song) {
   /* If we had a previous song and mic was active, show results */
   if(!song && micActive && karScore.totalFrames > 100){
@@ -3756,15 +3793,14 @@ function detectPitch(analyser, sr) {
   rms=Math.sqrt(rms/N);
   if(rms<0.015) return {freq:-1,rms:rms};
 
-  /* Autocorrelation */
-  var best=-1, bestR=-1;
-  var running=0;
-  for(var tau=0;tau<N;tau++){
+  /* Autocorrelation — tau limité à la plage vocale (75–1200 Hz) :
+     ~3-4x plus rapide (temps réel sur mobile) et évite les erreurs d'octave. */
+  var minTau=Math.max(2, Math.floor(sr/1200));
+  var maxTau=Math.min(N-1, Math.ceil(sr/75));
+  var best=-1, bestR=0;
+  for(var tau=minTau;tau<=maxTau;tau++){
     var s=0;
     for(var i=0;i<N-tau;i++) s+=buf[i]*buf[i+tau];
-    if(tau===0){ running=s; continue; }
-    if(s<0&&running>=0){ running=s; continue; }
-    running=s;
     if(s>bestR){ bestR=s; best=tau; }
   }
   if(best<2) return {freq:-1,rms:rms};
