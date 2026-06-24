@@ -625,16 +625,81 @@ input::placeholder { color: var(--text-dim); }
 }
 .sp-spotlight-controls.visible { display:flex; }
 .sp-spotlight-controls select {
-  flex:1; min-width:0; padding:10px 14px; border-radius:10px;
+  flex:1; min-width:0; padding:10px 38px 10px 14px; border-radius:10px;
   background:rgba(255,255,255,0.06); border:1px solid var(--border);
   color:#fff; font-size:0.85em;
+  /* Tue le rendu natif "Windows 98" + fleche custom */
+  -webkit-appearance:none; -moz-appearance:none; appearance:none; cursor:pointer;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'><path d='M1 1l5 5 5-5' stroke='%23ffd24a' stroke-width='2' fill='none' stroke-linecap='round'/></svg>");
+  background-repeat:no-repeat; background-position:right 14px center;
 }
+.sp-spotlight-controls select:focus { outline:none; border-color:var(--gold-dim); }
+.sp-spotlight-controls select option { background:#16162c; color:#fff; }
 .sp-spotlight-controls button {
   padding:10px 16px; border-radius:10px;
-  background:var(--gold); color:#1a1a2e; font-weight:600;
-  font-size:0.85em; white-space:nowrap; transition:background 0.2s; cursor:pointer;
+  background:linear-gradient(135deg,#ffd24a,#e6a800); color:#1a1a2e; font-weight:700;
+  font-size:0.85em; white-space:nowrap; border:none; cursor:pointer;
+  transition:transform 0.15s, box-shadow 0.15s;
+  box-shadow:0 4px 14px rgba(230,168,0,0.35);
 }
-.sp-spotlight-controls button:hover { background:#e6c200; }
+.sp-spotlight-controls button:hover { transform:translateY(-1px); box-shadow:0 6px 20px rgba(230,168,0,0.5); }
+.sp-spotlight-controls button:active { transform:translateY(0); }
+
+/* ===== HERO "chante sur ta propre video" (StarMaker BYO) ===== */
+.byo-card {
+  position:relative; margin-bottom:16px; padding:16px;
+  border-radius:18px; overflow:hidden;
+  background:linear-gradient(135deg, rgba(139,76,240,0.22), rgba(255,76,166,0.14));
+  border:1px solid rgba(139,76,240,0.4);
+  box-shadow:0 8px 30px rgba(139,76,240,0.22), inset 0 1px 0 rgba(255,255,255,0.08);
+}
+.byo-card::before {
+  content:""; position:absolute; top:-40%; right:-20%; width:220px; height:220px;
+  background:radial-gradient(circle, rgba(255,76,166,0.35), transparent 70%);
+  pointer-events:none;
+}
+.byo-head { display:flex; align-items:center; gap:12px; margin-bottom:14px; position:relative; }
+.byo-emoji {
+  font-size:1.6em; width:46px; height:46px; flex-shrink:0;
+  display:flex; align-items:center; justify-content:center; border-radius:14px;
+  background:rgba(0,0,0,0.25); box-shadow:inset 0 0 0 1px rgba(255,255,255,0.1);
+}
+.byo-title { font-weight:700; font-size:1.02em; color:#fff; letter-spacing:0.2px; }
+.byo-sub { font-size:0.8em; color:rgba(255,255,255,0.6); margin-top:2px; }
+.byo-form { display:flex; gap:8px; position:relative; }
+.byo-form input {
+  flex:1; min-width:0; padding:12px 14px; border-radius:12px;
+  background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.14);
+  color:#fff; font-size:0.9em; transition:border-color 0.2s, box-shadow 0.2s;
+}
+.byo-form input::placeholder { color:rgba(255,255,255,0.35); }
+.byo-form input:focus { outline:none; border-color:rgba(255,76,166,0.6); box-shadow:0 0 0 3px rgba(255,76,166,0.18); }
+.byo-go {
+  padding:12px 18px; border-radius:12px; border:none; cursor:pointer;
+  background:linear-gradient(135deg,#ff4ca6,#8b4cf0); color:#fff; font-weight:700;
+  font-size:0.9em; white-space:nowrap;
+  transition:transform 0.15s, box-shadow 0.15s; box-shadow:0 4px 16px rgba(139,76,240,0.45);
+}
+.byo-go:hover { transform:translateY(-1px); box-shadow:0 7px 22px rgba(139,76,240,0.6); }
+.byo-go:active { transform:translateY(0); }
+
+/* Overlay propre quand une video refuse la lecture integree */
+.karaoke-video-error {
+  display:none; position:absolute; inset:0; z-index:3;
+  flex-direction:column; align-items:center; justify-content:center; gap:12px;
+  padding:20px; text-align:center;
+  background:linear-gradient(160deg, rgba(20,12,30,0.96), rgba(10,8,20,0.98));
+  backdrop-filter:blur(4px);
+}
+.karaoke-video-error.visible { display:flex; }
+.karaoke-video-error .kve-icon { font-size:2.4em; opacity:0.85; }
+.karaoke-video-error .kve-text { color:#e7defc; font-size:0.92em; max-width:340px; line-height:1.4; }
+.karaoke-video-error .kve-btn {
+  margin-top:4px; padding:10px 18px; border-radius:12px; border:none; cursor:pointer;
+  background:linear-gradient(135deg,#8b4cf0,#6a30c8); color:#fff; font-weight:600; font-size:0.9em;
+  box-shadow:0 4px 14px rgba(139,76,240,0.4); transition:transform 0.15s;
+}
+.karaoke-video-error .kve-btn:hover { transform:translateY(-1px); }
 
 /* Gift panel inside action bar (karaoke overlay) */
 .karaoke-gift-panel {
@@ -1517,7 +1582,14 @@ input::placeholder { color: var(--text-dim); }
             <span class="placeholder-icon">&#127908;</span>
             <span>Choisissez une chanson</span>
           </div>
-          <iframe id="karaokePlayer" src="" allow="autoplay; encrypted-media" allowfullscreen style="display:none"></iframe>
+          <!-- Lecteur pilote par l'API YouTube IFrame (remplace par un iframe au runtime) -->
+          <div id="karaokePlayer"></div>
+          <!-- Overlay propre quand une video refuse la lecture integree -->
+          <div class="karaoke-video-error" id="karaokeVideoError">
+            <span class="kve-icon">&#127925;</span>
+            <span class="kve-text">Cette vid&eacute;o n'autorise pas la lecture ici.</span>
+            <button class="kve-btn" onclick="toggleSongPanel()">Choisir une autre chanson</button>
+          </div>
         </div>
 
         <!-- Audience Row -->
@@ -1572,6 +1644,20 @@ input::placeholder { color: var(--text-dim); }
           <button class="song-panel-close" onclick="toggleSongPanel()">&#10005;</button>
         </div>
         <div class="song-panel-body">
+          <!-- HERO : chante sur TA propre video YouTube -->
+          <div class="byo-card">
+            <div class="byo-head">
+              <span class="byo-emoji">&#127908;</span>
+              <div>
+                <div class="byo-title">Chante sur ta propre vid&eacute;o</div>
+                <div class="byo-sub">Colle n'importe quel lien YouTube karaok&eacute;</div>
+              </div>
+            </div>
+            <div class="byo-form">
+              <input type="text" id="karaokeUrlInput" placeholder="https://youtube.com/watch?v=..." autocomplete="off" onkeydown="if(event.key==='Enter')setKaraokeUrl()">
+              <button class="byo-go" onclick="setKaraokeUrl()">&#9654; Lancer</button>
+            </div>
+          </div>
           <!-- Search -->
           <input type="text" class="catalog-search-input" id="catalogSearch" placeholder="&#128269; Rechercher une chanson ou un artiste..." autocomplete="off">
           <!-- Category tabs -->
@@ -1596,14 +1682,6 @@ input::placeholder { color: var(--text-dim); }
           <div class="sp-spotlight-controls" id="spotlightControls">
             <select id="spotlightSelect"><option value="">Choisir le chanteur...</option></select>
             <button onclick="setSpotlight()">&#127908; Passer le micro</button>
-          </div>
-          <!-- Manual URL (collapsed) -->
-          <div style="margin-top:16px;text-align:center;">
-            <button class="manual-url-toggle-sm" onclick="toggleManualUrl()">&#128206; Coller un lien YouTube personnalis&#233;</button>
-            <div class="manual-url-form-sm" id="manualUrlForm">
-              <input type="text" id="karaokeUrlInput" placeholder="https://youtube.com/watch?v=..." autocomplete="off">
-              <button onclick="setKaraokeUrl()">Lancer</button>
-            </div>
           </div>
         </div>
       </div>
@@ -1899,6 +1977,8 @@ function showLobby() {
   if(typeof stopMicrophone==="function") stopMicrophone();
   S.view="lobby"; document.title="Luna Activites \u2014 YAWatch";
   $("lobbyView").style.display=""; $("roomView").classList.remove("active");
+  /* Reafficher la barre "Retour au Chat" embed une fois revenu au lobby */
+  if(typeof isEmbed!=="undefined" && isEmbed){ var ebbLobby=$("embedBackBar"); if(ebbLobby) ebbLobby.style.display="block"; }
   $("roomView").classList.remove("karaoke-immersive");
   $("chatPanel").style.display="";
   /* Close all panels */
@@ -1919,6 +1999,10 @@ function showLobby() {
 function showRoom(roomId) {
   S.view="room"; S.currentRoom=roomId; S.lastMsgPhone=""; S.unreadCount=0;
   $("lobbyView").style.display="none"; $("roomView").classList.add("active");
+  /* En mode embed : masquer la barre "Retour au Chat" pour ne pas recouvrir
+     la barre d'action du salon (karaoke/cinema). La navigation se fait via le
+     bouton retour du header (leaveRoom -> lobby ou elle reapparait). */
+  var ebbRoom=$("embedBackBar"); if(ebbRoom) ebbRoom.style.display="none";
   resetGameViews(); $("messagesContainer").innerHTML="";
   hideScrollBtn();
   loadRoomData(roomId);
@@ -2023,7 +2107,7 @@ function loadRoomData(roomId) {
       if(vid){
         var ap=(data.playback_state==="playing")?1:0, st=Math.floor(data.playback_time||0);
         if(tk==="cinema") showYtEmbed("ytPlayer","videoPlaceholder",vid,ap,st);
-        else if(tk==="karaoke"){ var vw=$("karaokeVideoWrap"); if(vw) vw.style.display=""; showYtEmbed("karaokePlayer","karaokePlaceholder",vid,ap,st); }
+        else if(tk==="karaoke"){ karaokeLoadVideo(vid,ap,st); }
       }
     }
     if(data.game_type&&data.game_state) updateGame({game_type:data.game_type,state:data.game_state});
@@ -2057,6 +2141,8 @@ function setupRoomLayout(type) {
     $("karaokeSection").classList.add("active");
     $("karaokeSection").classList.add("immersive");
     $("roomView").classList.add("karaoke-immersive");
+    /* Prechauffe le lecteur YouTube des l'entree : 1er play instantane + evite la course a froid */
+    if(typeof loadKaraokeYTApi==="function") loadKaraokeYTApi();
     /* Hide normal chat panel - karaoke has its own chat overlay + action bar */
     $("chatPanel").style.display="none";
     /* Spotlight controls */
@@ -2365,8 +2451,90 @@ function extractYtId(url) {
 
 function showYtEmbed(iframeId, placId, vid, autoplay, start) {
   var iframe=$(iframeId), plac=$(placId); if(!iframe) return;
-  iframe.src="https://www.youtube.com/embed/"+vid+"?enablejsapi=1&autoplay="+(autoplay||0)+(start>0?"&start="+Math.floor(start):"");
+  iframe.src="https://www.youtube.com/embed/"+vid+"?enablejsapi=1&playsinline=1&rel=0&modestbranding=1&autoplay="+(autoplay||0)+(start>0?"&start="+Math.floor(start):"");
   iframe.style.display=""; if(plac) plac.style.display="none";
+}
+
+/* ===== LECTEUR KARAOKE — YouTube IFrame API (robuste, anti ecran-mort) ===== */
+var karaokeYTPlayer=null, karaokeYTReady=false, karaokeCurrentVid="", karaokePendingLoad=null, karaokeAPILoading=false;
+
+function loadKaraokeYTApi() {
+  if(karaokeAPILoading) return;
+  karaokeAPILoading=true;
+  window.onYouTubeIframeAPIReady=function(){
+    try {
+      karaokeYTPlayer=new YT.Player("karaokePlayer", {
+        width:"100%", height:"100%",
+        playerVars:{ playsinline:1, rel:0, modestbranding:1, fs:1, enablejsapi:1, iv_load_policy:3, origin:location.origin },
+        events:{
+          onReady:function(){
+            karaokeYTReady=true;
+            if(karaokePendingLoad){ var p=karaokePendingLoad; karaokePendingLoad=null; karaokeLoadVideo(p.vid,p.autoplay,p.start); }
+          },
+          onStateChange:function(e){ if(e.data===0) onYouTubeEnd(); },
+          onError:function(e){ karaokeOnPlayerError(e.data); }
+        }
+      });
+    } catch(ex){}
+  };
+  if(window.YT && window.YT.Player){ window.onYouTubeIframeAPIReady(); return; }
+  var tag=document.createElement("script");
+  tag.src="https://www.youtube.com/iframe_api";
+  document.head.appendChild(tag);
+}
+
+/* Charge/lance une video dans le lecteur karaoke. Source unique de verite. */
+function karaokeLoadVideo(vid, autoplay, start) {
+  if(!vid) return;
+  var vw=$("karaokeVideoWrap"); if(vw) vw.style.display="";
+  karaokeHideError();
+  if(vid===karaokeCurrentVid && karaokeYTPlayer && karaokeYTReady){
+    if(autoplay){ try{ karaokeYTPlayer.playVideo(); }catch(e){} }
+    return;
+  }
+  karaokeCurrentVid=vid;
+  if(karaokeYTPlayer && karaokeYTReady && karaokeYTPlayer.loadVideoById){
+    var plac=$("karaokePlaceholder"); if(plac) plac.style.display="none";
+    try {
+      if(autoplay) karaokeYTPlayer.loadVideoById({videoId:vid, startSeconds:start||0});
+      else karaokeYTPlayer.cueVideoById({videoId:vid, startSeconds:start||0});
+    } catch(e){}
+  } else {
+    karaokePendingLoad={vid:vid, autoplay:autoplay, start:start};
+    loadKaraokeYTApi();
+  }
+}
+
+function karaokeShowError(msg) {
+  var el=$("karaokeVideoError"); if(!el) return;
+  var t=el.querySelector(".kve-text"); if(t && msg) t.textContent=msg;
+  el.classList.add("visible");
+  var plac=$("karaokePlaceholder"); if(plac) plac.style.display="none";
+}
+function karaokeHideError() {
+  var el=$("karaokeVideoError"); if(el) el.classList.remove("visible");
+}
+/* Codes YT : 2=id invalide/handshake, 5=erreur lecteur, 100=supprimee/privee, 101/150=integration interdite */
+var karaokeRetried={};
+function karaokeOnPlayerError(code) {
+  /* Codes transitoires (handshake lecteur au demarrage a froid) : on retente une fois */
+  if((code===2||code===5) && karaokeCurrentVid && !karaokeRetried[karaokeCurrentVid]){
+    karaokeRetried[karaokeCurrentVid]=true;
+    var v=karaokeCurrentVid; karaokeCurrentVid="";
+    setTimeout(function(){ karaokeLoadVideo(v,1,0); }, 700);
+    return;
+  }
+  var msg=(code===101||code===150)
+    ? "Le proprietaire interdit la lecture ici. Essaie une version « karaoke » ou « lyrics »."
+    : (code===100)
+    ? "Cette video a ete supprimee ou rendue privee."
+    : "Lien YouTube illisible. Verifie l'adresse.";
+  karaokeShowError(msg);
+  karaokeCurrentVid="";
+  if(typeof showToast==="function") showToast("Vidéo non lisible — on passe à la suite","error");
+  if(typeof songQueue!=="undefined" && songQueue.length>0){
+    setTimeout(function(){ if(typeof playNextFromQueue==="function") playNextFromQueue(); }, 1400);
+  }
 }
 
 window.setYoutubeUrl = function() {
@@ -2378,7 +2546,17 @@ window.setYoutubeUrl = function() {
 window.setKaraokeUrl = function() {
   var inp=$("karaokeUrlInput"), url=inp.value.trim(); if(!url) return;
   var vid=extractYtId(url); if(!vid){ showToast("Lien YouTube invalide","error"); return; }
-  wsSend({type:"youtube_set",url:url,title:"Karaok\u00e9"}); inp.value="";
+  /* Lecture LOCALE immediate : marche pour tout le monde, sans dependre de l'echo serveur */
+  currentKaraokeSong={title:"Ma chanson karaok\u00e9", artist:"YouTube", ytId:vid};
+  karaokeLoadVideo(vid, 1, 0);
+  if(typeof setVideoGlow==="function") setVideoGlow(true);
+  renderNowPlaying(currentKaraokeSong);
+  listenYouTubeEnd();
+  /* Sync best-effort vers la salle (le serveur diffuse si l'utilisateur est hote) */
+  wsSend({type:"youtube_set", url:url, title:"Karaok\u00e9"});
+  inp.value="";
+  if(songPanelOpen) toggleSongPanel();
+  showToast("\ud83c\udfa4 C'est parti !","success");
 };
 
 function syncYoutube(msg) {
@@ -2388,7 +2566,7 @@ function syncYoutube(msg) {
   if(rtype==="karaoke"){
     /* Show video wrap */
     var vw=$("karaokeVideoWrap"); if(vw) vw.style.display="";
-    showYtEmbed("karaokePlayer","karaokePlaceholder",vid,ap,t);
+    karaokeLoadVideo(vid,ap,t);
     /* Try to match the video to a catalog song and update now-playing */
     var matched = null;
     for(var i=0;i<KARAOKE_SONGS.length;i++){
@@ -2435,56 +2613,56 @@ function updateSpotlightDisp(msg) {
 /* KARAOKE STARMAKER CATALOG */
 var KARAOKE_SONGS = [
   /* French — versions karaoké (instrumental + paroles) */
-  {id:"fr01",title:"La Vie en Rose",artist:"\u00c9dith Piaf",cat:"french",ytId:"uvur6j7SxcM",diff:3},
+  {id:"fr01",title:"La Vie en Rose",artist:"\u00c9dith Piaf",cat:"french",ytId:"0xZ_d9BTjS0",diff:3},
   {id:"fr02",title:"Les Champs-\u00c9lys\u00e9es",artist:"Joe Dassin",cat:"french",ytId:"jbDwPSBcySo",diff:2},
   {id:"fr03",title:"Ne me quitte pas",artist:"Jacques Brel",cat:"french",ytId:"WKgUVjf7uCo",diff:5},
-  {id:"fr04",title:"La Boh\u00e8me",artist:"Charles Aznavour",cat:"french",ytId:"CCUvdAmMOuE",diff:3},
-  {id:"fr05",title:"Derni\u00e8re Danse",artist:"Indila",cat:"french",ytId:"g83DvrPBFP8",diff:5},
+  {id:"fr04",title:"La Boh\u00e8me",artist:"Charles Aznavour",cat:"french",ytId:"FkYEVwhsWkA",diff:3},
+  {id:"fr05",title:"Derni\u00e8re Danse",artist:"Indila",cat:"french",ytId:"t4ddvMtBiOk",diff:5},
   {id:"fr06",title:"Papaoutai",artist:"Stromae",cat:"french",ytId:"dnOFwPjwNiI",diff:3},
   {id:"fr07",title:"Formidable",artist:"Stromae",cat:"french",ytId:"8jMd1lhK0xc",diff:3},
   {id:"fr08",title:"Je t'aime",artist:"Lara Fabian",cat:"french",ytId:"GpmjaP46Lpg",diff:4},
   {id:"fr09",title:"Comme d'habitude",artist:"Claude Fran\u00e7ois",cat:"french",ytId:"oyayix3irno",diff:3},
-  {id:"fr10",title:"L'Hymne \u00e0 l'amour",artist:"\u00c9dith Piaf",cat:"french",ytId:"qouv0D6NPow",diff:4},
+  {id:"fr10",title:"L'Hymne \u00e0 l'amour",artist:"\u00c9dith Piaf",cat:"french",ytId:"ISW8XVjE8dk",diff:4},
   {id:"fr11",title:"Pour que tu m'aimes encore",artist:"C\u00e9line Dion",cat:"french",ytId:"CGcrmzifxBg",diff:3},
   {id:"fr12",title:"Alors on danse",artist:"Stromae",cat:"french",ytId:"7yxuZIAeOJM",diff:3},
-  {id:"fr13",title:"Je veux",artist:"Zaz",cat:"french",ytId:"2NyFNoR3Z-o",diff:3},
+  {id:"fr13",title:"Je veux",artist:"Zaz",cat:"french",ytId:"wWoSYAv14KA",diff:3},
   {id:"fr14",title:"La vie est belle",artist:"Nass",cat:"french",ytId:"Hgamm8Z6NwE",diff:2},
-  {id:"fr15",title:"Mistral gagnant",artist:"Renaud",cat:"french",ytId:"H9lwV8Dp9DI",diff:3},
+  {id:"fr15",title:"Mistral gagnant",artist:"Renaud",cat:"french",ytId:"w9fpqhOsL5w",diff:3},
   {id:"fr16",title:"Tout oublier",artist:"Ang\u00e8le ft. Ro\u00e9la",cat:"french",ytId:"I_oIOkQCNAw",diff:3},
 
   /* International — versions karaoké (instrumental + paroles) */
-  {id:"in01",title:"Bohemian Rhapsody",artist:"Queen",cat:"international",ytId:"9Lxm0iSnKNc",diff:5},
-  {id:"in02",title:"Don't Stop Believin'",artist:"Journey",cat:"international",ytId:"c8wn2fMYvns",diff:3},
-  {id:"in03",title:"Sweet Caroline",artist:"Neil Diamond",cat:"international",ytId:"srLoAl1mhFw",diff:1},
-  {id:"in04",title:"Shallow",artist:"Lady Gaga & Bradley Cooper",cat:"international",ytId:"_nHT_k9Rswc",diff:4},
+  {id:"in01",title:"Bohemian Rhapsody",artist:"Queen",cat:"international",ytId:"yvEcMrstp80",diff:5},
+  {id:"in02",title:"Don't Stop Believin'",artist:"Journey",cat:"international",ytId:"H9jyacXmVTQ",diff:3},
+  {id:"in03",title:"Sweet Caroline",artist:"Neil Diamond",cat:"international",ytId:"IM8pV2wedpc",diff:1},
+  {id:"in04",title:"Shallow",artist:"Lady Gaga & Bradley Cooper",cat:"international",ytId:"SQ8zQXwgyxk",diff:4},
   {id:"in05",title:"Someone Like You",artist:"Adele",cat:"international",ytId:"rMSQwIp4Jg8",diff:3},
   {id:"in06",title:"Rolling in the Deep",artist:"Adele",cat:"international",ytId:"B3O1OlTWXSA",diff:3},
   {id:"in07",title:"Shape of You",artist:"Ed Sheeran",cat:"international",ytId:"0beEnnHRfpU",diff:3},
   {id:"in08",title:"Despacito",artist:"Luis Fonsi ft. Daddy Yankee",cat:"international",ytId:"VNVP4L81az4",diff:3},
   {id:"in09",title:"Hotel California",artist:"Eagles",cat:"international",ytId:"k7aQR_2UHL0",diff:3},
-  {id:"in10",title:"Billie Jean",artist:"Michael Jackson",cat:"international",ytId:"eXqBhDAlVCc",diff:3},
-  {id:"in11",title:"I Will Always Love You",artist:"Whitney Houston",cat:"international",ytId:"8kotNQ07ZEw",diff:4},
-  {id:"in12",title:"My Heart Will Go On",artist:"C\u00e9line Dion",cat:"international",ytId:"cdgU8YmD3Kc",diff:3},
-  {id:"in13",title:"Yesterday",artist:"The Beatles",cat:"international",ytId:"uw3zzQ-5g4o",diff:2},
-  {id:"in14",title:"Imagine",artist:"John Lennon",cat:"international",ytId:"MR70Dg0_o1A",diff:1},
-  {id:"in15",title:"Hallelujah",artist:"Leonard Cohen",cat:"international",ytId:"xscaqUk7Eck",diff:4},
-  {id:"in16",title:"All of Me",artist:"John Legend",cat:"international",ytId:"6VoT-KrseHA",diff:3},
+  {id:"in10",title:"Billie Jean",artist:"Michael Jackson",cat:"international",ytId:"fV2NqPSkWxg",diff:3},
+  {id:"in11",title:"I Will Always Love You",artist:"Whitney Houston",cat:"international",ytId:"CiJoUo-2_X4",diff:4},
+  {id:"in12",title:"My Heart Will Go On",artist:"C\u00e9line Dion",cat:"international",ytId:"JZM4JVYX-zE",diff:3},
+  {id:"in13",title:"Yesterday",artist:"The Beatles",cat:"international",ytId:"jjdfaMXenSY",diff:2},
+  {id:"in14",title:"Imagine",artist:"John Lennon",cat:"international",ytId:"HFb6VHlJP7s",diff:1},
+  {id:"in15",title:"Hallelujah",artist:"Leonard Cohen",cat:"international",ytId:"u_Ze1Pg9Zi4",diff:4},
+  {id:"in16",title:"All of Me",artist:"John Legend",cat:"international",ytId:"0p1OTRRmLtg",diff:3},
 
   /* Disney — versions karaoké (instrumental + paroles) */
-  {id:"di01",title:"Let It Go",artist:"Idina Menzel (Frozen)",cat:"disney",ytId:"ifCAfAzOBJM",diff:3},
-  {id:"di02",title:"Lib\u00e9r\u00e9e D\u00e9livr\u00e9e",artist:"Ana\u00efs Delva (La Reine des Neiges)",cat:"disney",ytId:"eI-2XcF-3KU",diff:3},
-  {id:"di03",title:"Ce r\u00eave bleu",artist:"Aladdin",cat:"disney",ytId:"uhWwYgJCF0s",diff:3},
-  {id:"di04",title:"Sous l'oc\u00e9an",artist:"La Petite Sir\u00e8ne",cat:"disney",ytId:"pyHsvmJABCo",diff:2},
-  {id:"di05",title:"Hakuna Matata",artist:"Le Roi Lion",cat:"disney",ytId:"m8kpGV1fN0o",diff:1},
-  {id:"di06",title:"Un monde nouveau",artist:"Aladdin (A Whole New World)",cat:"disney",ytId:"4hwpLK7CWVM",diff:3},
+  {id:"di01",title:"Let It Go",artist:"Idina Menzel (Frozen)",cat:"disney",ytId:"CSmaRJ5O9nQ",diff:3},
+  {id:"di02",title:"Lib\u00e9r\u00e9e D\u00e9livr\u00e9e",artist:"Ana\u00efs Delva (La Reine des Neiges)",cat:"disney",ytId:"tEP9_nRwqb0",diff:3},
+  {id:"di03",title:"Ce r\u00eave bleu",artist:"Aladdin",cat:"disney",ytId:"iLA6rFpfKZo",diff:3},
+  {id:"di04",title:"Sous l'oc\u00e9an",artist:"La Petite Sir\u00e8ne",cat:"disney",ytId:"32DohrxO9WM",diff:2},
+  {id:"di05",title:"Hakuna Matata",artist:"Le Roi Lion",cat:"disney",ytId:"2LhsQMl5vZQ",diff:1},
+  {id:"di06",title:"Un monde nouveau",artist:"Aladdin (A Whole New World)",cat:"disney",ytId:"bYsFR4fCrEM",diff:3},
 
   /* Rock/Pop — versions karaoké (instrumental + paroles) */
-  {id:"ro01",title:"Livin' on a Prayer",artist:"Bon Jovi",cat:"rock",ytId:"Ep6G3P2v5ZA",diff:3},
-  {id:"ro02",title:"We Will Rock You",artist:"Queen",cat:"rock",ytId:"j8Mkv84V9mY",diff:1},
+  {id:"ro01",title:"Livin' on a Prayer",artist:"Bon Jovi",cat:"rock",ytId:"FDN5GYvEzvc",diff:3},
+  {id:"ro02",title:"We Will Rock You",artist:"Queen",cat:"rock",ytId:"blikQus8IQ4",diff:1},
   {id:"ro03",title:"Sweet Child O' Mine",artist:"Guns N' Roses",cat:"rock",ytId:"TBxAAOOJzL8",diff:3},
   {id:"ro04",title:"Nothing Else Matters",artist:"Metallica",cat:"rock",ytId:"LcK5u0usw6Y",diff:3},
   {id:"ro05",title:"Highway to Hell",artist:"AC/DC",cat:"rock",ytId:"oEuBzpKF3X8",diff:3},
-  {id:"ro06",title:"Wonderwall",artist:"Oasis",cat:"rock",ytId:"R_EXyGWI9rU",diff:2}
+  {id:"ro06",title:"Wonderwall",artist:"Oasis",cat:"rock",ytId:"0BFeMQkYteo",diff:2}
 ];
 
 var KARAOKE_CATEGORIES = [
@@ -2619,7 +2797,7 @@ function playSong(song) {
   wsSend({type:"youtube_set", url:url, title:song.title});
   /* Show video wrap with glow */
   var vw=$("karaokeVideoWrap"); if(vw) vw.style.display="";
-  showYtEmbed("karaokePlayer","karaokePlaceholder", song.ytId, 1, 0);
+  karaokeLoadVideo(song.ytId, 1, 0);
   setVideoGlow(true);
   renderNowPlaying(song);
   /* Close song panel after picking */
@@ -4198,6 +4376,8 @@ var autoQueueCountdown = 5;
 var ytMessageListenerBound = false;
 
 function listenYouTubeEnd() {
+  /* L'API IFrame gere la fin via onStateChange : ce hack n'est qu'un secours */
+  if(karaokeYTPlayer) return;
   if(ytMessageListenerBound) return;
   ytMessageListenerBound = true;
   window.addEventListener("message", function(e) {
