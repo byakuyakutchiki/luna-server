@@ -564,6 +564,47 @@ input::placeholder { color: var(--text-dim); }
   color:var(--gold); margin:16px 0 8px; font-size:0.9em; font-weight:600;
 }
 
+/* Persistent always-visible queue strip (in karaoke room) */
+.karaoke-queue-strip {
+  display:flex; flex-direction:column; gap:7px;
+  width:calc(100% - 32px); max-width:420px; margin:10px auto 0;
+  padding:11px 14px; z-index:3; position:relative;
+  background:rgba(255,255,255,0.04); border:1px solid rgba(255,215,0,0.18);
+  border-radius:14px; backdrop-filter:blur(8px);
+  animation:fadeIn 0.3s ease;
+}
+.kqs-header {
+  display:flex; align-items:center; gap:6px;
+  font-size:0.8em; font-weight:700; color:var(--gold); letter-spacing:0.3px;
+}
+.kqs-count {
+  margin-left:auto; font-size:0.85em; font-weight:600; color:var(--text-dim);
+  padding:1px 9px; border-radius:10px; background:rgba(255,215,0,0.12);
+}
+.kqs-count:empty { display:none; }
+.kqs-list { display:flex; flex-direction:column; gap:5px; }
+.kqs-item {
+  display:flex; align-items:center; gap:9px;
+  padding:5px 9px; border-radius:10px; background:rgba(255,255,255,0.03);
+  animation:queueSlide 0.3s ease both;
+}
+.kqs-num {
+  width:19px; height:19px; flex-shrink:0; border-radius:50%;
+  background:rgba(255,215,0,0.15); color:var(--gold);
+  display:flex; align-items:center; justify-content:center;
+  font-size:0.7em; font-weight:700;
+}
+.kqs-singer { font-size:0.82em; font-weight:600; color:var(--text-bright); flex-shrink:0; }
+.kqs-song {
+  font-size:0.76em; color:var(--text-dim); min-width:0;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.kqs-more { font-size:0.74em; color:var(--text-dim); text-align:center; padding-top:1px; }
+.kqs-empty {
+  display:flex; align-items:center; justify-content:center; gap:6px;
+  font-size:0.78em; color:var(--text-dim); padding:3px 0; text-align:center;
+}
+
 /* Manual URL toggle in song panel */
 .manual-url-toggle-sm {
   color:var(--text-dim); font-size:0.8em; cursor:pointer; padding:4px 0;
@@ -1594,6 +1635,12 @@ input::placeholder { color: var(--text-dim); }
 
         <!-- Audience Row -->
         <div class="audience-row" id="audienceRow"></div>
+
+        <!-- File d'attente toujours visible -->
+        <div class="karaoke-queue-strip" id="karaokeQueueStrip">
+          <div class="kqs-header">&#127908; Prochains chanteurs <span class="kqs-count" id="kqsCount"></span></div>
+          <div class="kqs-list" id="kqsList"></div>
+        </div>
       </div>
 
       <!-- Chat Overlay (left side, absolute positioned) -->
@@ -2841,6 +2888,31 @@ function addToQueue(song) {
 }
 
 function renderQueue() {
+  /* Bande file d'attente toujours visible dans la salle (hors panneau) */
+  var stripList = $("kqsList"), stripCount = $("kqsCount");
+  if(stripList){
+    if(!songQueue.length){
+      if(stripCount) stripCount.textContent = "";
+      stripList.innerHTML = '<div class="kqs-empty">&#127925; Personne en attente — ajoute une chanson</div>';
+    } else {
+      if(stripCount) stripCount.textContent = songQueue.length;
+      var smax = Math.min(songQueue.length, 4), sh = "";
+      for(var s=0;s<smax;s++){
+        var it = songQueue[s];
+        sh += '<div class="kqs-item" style="animation-delay:'+(s*0.05)+'s">';
+        sh += '<span class="kqs-num">'+(s+1)+'</span>';
+        sh += '<span class="kqs-singer">'+escapeHtml(it.singerName)+'</span>';
+        sh += '<span class="kqs-song">'+escapeHtml(it.song.title)+'</span>';
+        sh += '</div>';
+      }
+      if(songQueue.length > smax){
+        var rest = songQueue.length - smax;
+        sh += '<div class="kqs-more">+'+rest+' autre'+(rest>1?'s':'')+'</div>';
+      }
+      stripList.innerHTML = sh;
+    }
+  }
+
   var container = $("queueList");
   var queueEl = $("spQueueSection");
   var countEl = $("queueCount");
