@@ -15,6 +15,7 @@ source "$(dirname "$0")/.env" 2>/dev/null || true
 update_vars=()
 update_vars+=("ENVIRONMENT=cloudrun")
 update_vars+=("CORTEX_ENABLED=false")   # SMS auto désactivé — évite vidage crédit Twilio
+update_vars+=("KARAOKE_DRAFTS_BUCKET=luna-karaoke-drafts-674304336025")  # brouillons karaoké (GCS)
 
 # Fonction helper : ajoute une variable seulement si elle est definie et non vide
 add_var() {

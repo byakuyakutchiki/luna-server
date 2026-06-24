@@ -21595,6 +21595,139 @@ async def create_room(request: Request):
     }
 
 
+# ===== KARAOKÉ — Brouillons d'enregistrement (stockage GCS persistant) =====
+_KARAOKE_BUCKET = os.getenv("KARAOKE_DRAFTS_BUCKET", "luna-karaoke-drafts-674304336025")
+_gcs_client = None
+_gcs_init_err = None
+
+def _kdraft_bucket():
+    """Retourne le bucket GCS (lazy init). None si indisponible."""
+    global _gcs_client, _gcs_init_err
+    if _gcs_client is None:
+        try:
+            from google.cloud import storage as _gcs_storage
+            _gcs_client = _gcs_storage.Client()
+        except Exception as e:
+            _gcs_init_err = str(e)
+            return None
+    try:
+        return _gcs_client.bucket(_KARAOKE_BUCKET)
+    except Exception as e:
+        _gcs_init_err = str(e)
+        return None
+
+def _kdraft_ukey(request: Request, phone: str = "") -> str:
+    """Clé utilisateur des brouillons : email du token (stable), sinon phone."""
+    email = getattr(request.state, "email", "") or ""
+    return (email or phone or "owner").replace("/", "_")[:120]
+
+def _kdraft_rkey(tid, ukey) -> str:
+    return f"karaoke:drafts:{tid}:{ukey}"
+
+def _kdraft_blob(tid, ukey, draft_id) -> str:
+    return f"drafts/{tid}/{ukey}/{draft_id}.webm"
+
+def _kdraft_decode(x):
+    return x.decode() if isinstance(x, (bytes, bytearray)) else x
+
+@app.post("/api/karaoke/drafts")
+async def karaoke_draft_upload(request: Request, file: UploadFile = File(...), title: str = Form(""), phone: str = Form("")):
+    """Sauvegarde un enregistrement en brouillon (privé) sur GCS."""
+    import uuid as _uuid, json as _json, time as _time
+    tid = getattr(request.state, "tenant_id", TENANT_ID)
+    ukey = _kdraft_ukey(request, phone)
+    bucket = _kdraft_bucket()
+    if not bucket:
+        return JSONResponse(status_code=503, content={"error": "Stockage brouillons indisponible", "detail": _gcs_init_err})
+    data = await file.read()
+    if not data:
+        return JSONResponse(status_code=400, content={"error": "Fichier vide"})
+    if len(data) > 25 * 1024 * 1024:
+        return JSONResponse(status_code=413, content={"error": "Enregistrement trop volumineux (max 25 Mo)"})
+    draft_id = _uuid.uuid4().hex[:16]
+    ct = file.content_type or "audio/webm"
+    try:
+        bucket.blob(_kdraft_blob(tid, ukey, draft_id)).upload_from_string(data, content_type=ct)
+    except Exception as e:
+        return JSONResponse(status_code=502, content={"error": "Upload GCS échoué", "detail": str(e)})
+    meta = {"id": draft_id, "title": (title or "Brouillon").strip()[:80] or "Brouillon",
+            "created": int(_time.time()), "size": len(data), "published": False, "content_type": ct}
+    if _redis_client:
+        try: _redis_client.client.hset(_kdraft_rkey(tid, ukey), draft_id, _json.dumps(meta))
+        except Exception: pass
+    return {"success": True, "draft": meta}
+
+@app.get("/api/karaoke/drafts")
+async def karaoke_draft_list(request: Request):
+    """Liste les brouillons de l'utilisateur."""
+    import json as _json
+    tid = getattr(request.state, "tenant_id", TENANT_ID)
+    ukey = _kdraft_ukey(request, request.query_params.get("phone", ""))
+    drafts = []
+    if _redis_client:
+        try:
+            raw = _redis_client.client.hgetall(_kdraft_rkey(tid, ukey)) or {}
+            for v in raw.values():
+                try: drafts.append(_json.loads(_kdraft_decode(v)))
+                except Exception: pass
+        except Exception: pass
+    drafts.sort(key=lambda d: d.get("created", 0), reverse=True)
+    return {"drafts": drafts}
+
+@app.get("/api/karaoke/drafts/{draft_id}/audio")
+async def karaoke_draft_audio(draft_id: str, request: Request):
+    """Écoute privée d'un brouillon (stream depuis GCS)."""
+    tid = getattr(request.state, "tenant_id", TENANT_ID)
+    ukey = _kdraft_ukey(request, request.query_params.get("phone", ""))
+    bucket = _kdraft_bucket()
+    if not bucket:
+        return JSONResponse(status_code=503, content={"error": "Stockage indisponible"})
+    blob = bucket.blob(_kdraft_blob(tid, ukey, draft_id))
+    try:
+        if not blob.exists():
+            return JSONResponse(status_code=404, content={"error": "Brouillon introuvable"})
+        data = blob.download_as_bytes()
+    except Exception as e:
+        return JSONResponse(status_code=502, content={"error": "Lecture échouée", "detail": str(e)})
+    return Response(content=data, media_type="audio/webm")
+
+@app.delete("/api/karaoke/drafts/{draft_id}")
+async def karaoke_draft_delete(draft_id: str, request: Request):
+    """Supprime un brouillon (GCS + métadonnées)."""
+    tid = getattr(request.state, "tenant_id", TENANT_ID)
+    ukey = _kdraft_ukey(request, request.query_params.get("phone", ""))
+    bucket = _kdraft_bucket()
+    if bucket:
+        try: bucket.blob(_kdraft_blob(tid, ukey, draft_id)).delete()
+        except Exception: pass
+    if _redis_client:
+        try: _redis_client.client.hdel(_kdraft_rkey(tid, ukey), draft_id)
+        except Exception: pass
+    return {"success": True}
+
+@app.post("/api/karaoke/drafts/{draft_id}/publish")
+async def karaoke_draft_publish(draft_id: str, request: Request):
+    """Publie un brouillon (marque published=true pour le partager plus tard)."""
+    import json as _json
+    tid = getattr(request.state, "tenant_id", TENANT_ID)
+    body = {}
+    try: body = await request.json()
+    except Exception: pass
+    ukey = _kdraft_ukey(request, (body or {}).get("phone", "") if isinstance(body, dict) else "")
+    if not _redis_client:
+        return JSONResponse(status_code=503, content={"error": "Métadonnées indisponibles"})
+    try:
+        raw = _redis_client.client.hget(_kdraft_rkey(tid, ukey), draft_id)
+        if not raw:
+            return JSONResponse(status_code=404, content={"error": "Brouillon introuvable"})
+        meta = _json.loads(_kdraft_decode(raw))
+        meta["published"] = True
+        _redis_client.client.hset(_kdraft_rkey(tid, ukey), draft_id, _json.dumps(meta))
+        return {"success": True, "draft": meta}
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+
 @app.get("/api/rooms/member-token")
 async def get_member_token(request: Request):
     """Génère un token d'accès pour un membre famille (souscripteur only)."""

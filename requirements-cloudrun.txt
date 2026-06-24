@@ -57,3 +57,6 @@ Pillow>=11.0.0
 
 # Monitoring & Error tracking
 sentry-sdk[fastapi]>=2.0.0,<3.0.0
+
+# Karaoké — brouillons d'enregistrement (stockage GCS persistant)
+google-cloud-storage>=2.16.0,<4.0.0

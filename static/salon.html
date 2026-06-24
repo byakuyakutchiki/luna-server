@@ -657,6 +657,37 @@ input::placeholder { color: var(--text-dim); }
 }
 .song-card, .vfx-card, .gift-item { box-shadow:0 6px 18px rgba(0,0,0,0.35); }
 
+/* Panneau brouillons d'enregistrement (slide-up) */
+.drafts-panel {
+  position:fixed; left:0; right:0; bottom:0; height:60vh; max-height:60vh;
+  background:rgba(12,12,28,0.98); backdrop-filter:blur(20px);
+  border-radius:20px 20px 0 0; transform:translateY(100%);
+  transition:transform 0.35s cubic-bezier(0.4,0,0.2,1);
+  z-index:54; display:flex; flex-direction:column; padding:0 16px 16px;
+  border-top:1px solid rgba(255,215,0,0.3);
+}
+.drafts-panel.open { transform:translateY(0); }
+.drafts-panel-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:53; }
+.drafts-panel-overlay.open { display:block; }
+.drafts-list { overflow-y:auto; flex:1; min-height:0; display:flex; flex-direction:column; gap:8px; padding-top:6px; }
+.drafts-empty { text-align:center; color:var(--text-dim); font-size:0.85em; padding:24px 10px; line-height:1.5; }
+.draft-item {
+  display:flex; align-items:center; gap:10px; padding:10px 12px;
+  background:rgba(255,255,255,0.04); border:1px solid var(--border); border-radius:12px;
+}
+.draft-info { flex:1; min-width:0; }
+.draft-title { font-size:0.9em; font-weight:600; color:var(--text-bright); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.draft-pub { font-size:0.7em; color:var(--green); font-weight:700; }
+.draft-meta { font-size:0.72em; color:var(--text-dim); margin-top:2px; }
+.draft-actions { display:flex; gap:6px; flex-shrink:0; }
+.draft-btn {
+  width:34px; height:34px; border-radius:50%; border:none; cursor:pointer;
+  background:rgba(255,255,255,0.08); color:#fff; font-size:0.9em;
+  display:flex; align-items:center; justify-content:center; transition:background 0.2s;
+}
+.draft-btn:hover { background:rgba(255,255,255,0.16); }
+.draft-btn.draft-del:hover { background:rgba(244,67,54,0.6); }
+
 /* Bouton fermer la vidéo / arrêter la chanson */
 .karaoke-video-close {
   position:absolute; top:6px; right:6px; z-index:4;
@@ -1743,6 +1774,7 @@ input::placeholder { color: var(--text-dim); }
         <button class="action-btn mic-btn" id="micToggleBtn" onclick="toggleMic()" title="Micro">&#127908;</button>
         <button class="action-btn rec-btn" id="recToggleBtn" onclick="toggleRecording()" title="Enregistrer">&#9899;<span class="rec-dot"></span></button>
         <button class="action-btn" id="showResultsBtn" onclick="showKaraokeResults()" title="R&eacute;sultats" style="font-size:0.85em">&#127942;</button>
+        <button class="action-btn" id="draftsBtn" onclick="toggleDraftsPanel()" title="Mes brouillons" style="font-size:0.9em">&#127897;&#65039;</button>
         <button class="action-btn vfx-btn" id="vfxToggleBtn" onclick="toggleVoiceEffectsPanel()" title="Effets vocaux">&#9878;</button>
         <button class="action-btn gift-btn" onclick="toggleKaraokeGiftPanel()" title="Cadeaux">&#127873;</button>
         <button class="action-btn heart-btn" id="heartCascadeBtn" onclick="sendKaraokeHeart()" title="J'aime">&#10084;&#65039;</button>
@@ -1766,6 +1798,17 @@ input::placeholder { color: var(--text-dim); }
         </div>
         <input type="text" class="catalog-search-input" id="gifSearch" placeholder="&#128269; Rechercher un GIF..." autocomplete="off" oninput="onGifSearch()">
         <div class="gif-grid" id="gifGrid"></div>
+      </div>
+
+      <!-- Brouillons d'enregistrement (slide-up) -->
+      <div class="drafts-panel-overlay" id="draftsPanelOverlay" onclick="toggleDraftsPanel()"></div>
+      <div class="drafts-panel" id="draftsPanel">
+        <div class="song-panel-handle"></div>
+        <div class="song-panel-header">
+          <h3>&#127897;&#65039; Mes brouillons</h3>
+          <button class="song-panel-close" onclick="toggleDraftsPanel()">&#10005;</button>
+        </div>
+        <div class="drafts-list" id="draftsList"></div>
       </div>
 
       <!-- Voice Effects Panel (slide-up) -->
@@ -1864,6 +1907,7 @@ input::placeholder { color: var(--text-dim); }
           </div>
           <div class="results-actions">
             <button class="results-btn secondary" onclick="closeKaraokeResults()">Fermer</button>
+            <button class="results-btn secondary" onclick="saveRecordingDraft()">&#128190; Brouillon</button>
             <button class="results-btn share-btn" onclick="shareKaraokeScore()">&#128228; Partager</button>
             <button class="results-btn primary" onclick="closeKaraokeResults();toggleSongPanel()">&#127925; Rejouer</button>
           </div>
@@ -2166,6 +2210,9 @@ function showLobby() {
   gifPanelOpen = false;
   var gp=$("gifPanel"); if(gp) gp.classList.remove("open");
   var gpo=$("gifPanelOverlay"); if(gpo) gpo.classList.remove("open");
+  draftsPanelOpen = false;
+  var dp=$("draftsPanel"); if(dp) dp.classList.remove("open");
+  var dpo=$("draftsPanelOverlay"); if(dpo) dpo.classList.remove("open");
   closeParticipants(); disconnectWS();
   S.currentRoom=null; S.currentRoomData=null; S.isHost=false; S.participants=[]; S.lastMsgPhone="";
   if(window.history.replaceState) window.history.replaceState({},"",window.location.pathname);
@@ -3002,6 +3049,72 @@ window.toggleKaraokeChatVisible = function() {
   var o = $("karaokeChatOverlay"); if(o) o.style.display = karaokeChatHidden ? "none" : "";
   var btn = $("chatHideBtn"); if(btn) btn.textContent = karaokeChatHidden ? "🙈" : "👁️";
 };
+
+/* ── Brouillons d'enregistrement (GCS persistant, issue #16 point 4) ── */
+var draftsPanelOpen = false;
+var _draftAudio = null;
+window.saveRecordingDraft = function() {
+  if(!lastRecordingBlob){ showToast("Aucun enregistrement à sauvegarder", "error"); return; }
+  var title = (currentKaraokeSong && currentKaraokeSong.title) ? currentKaraokeSong.title : "Brouillon";
+  var fd = new FormData();
+  fd.append("file", lastRecordingBlob, "draft.webm");
+  fd.append("title", title);
+  fd.append("phone", getMyPhone() || "");
+  showToast("Sauvegarde du brouillon…", "");
+  apiFetch("/api/karaoke/drafts", {method:"POST", body:fd}).then(function(r){
+    if(!r.ok) throw new Error("Err "+r.status); return r.json();
+  }).then(function(){ showToast("Brouillon sauvegardé 🎙️", "success"); })
+   .catch(function(){ showToast("Échec de la sauvegarde du brouillon", "error"); });
+};
+window.toggleDraftsPanel = function() {
+  draftsPanelOpen = !draftsPanelOpen;
+  var p=$("draftsPanel"), o=$("draftsPanelOverlay");
+  if(draftsPanelOpen){ if(p)p.classList.add("open"); if(o)o.classList.add("open"); loadDrafts(); }
+  else { if(p)p.classList.remove("open"); if(o)o.classList.remove("open"); }
+};
+function loadDrafts() {
+  var list=$("draftsList"); if(!list) return;
+  list.innerHTML='<div class="drafts-empty">Chargement…</div>';
+  apiFetch("/api/karaoke/drafts?phone="+encodeURIComponent(getMyPhone()||"")).then(function(r){return r.json();}).then(function(d){
+    var arr=(d&&d.drafts)||[];
+    if(!arr.length){ list.innerHTML='<div class="drafts-empty">🎙️ Aucun brouillon.<br>Active le micro, enregistre, puis « 💾 Brouillon ».</div>'; return; }
+    list.innerHTML="";
+    arr.forEach(function(dr){
+      var row=document.createElement("div"); row.className="draft-item";
+      var dt=new Date((dr.created||0)*1000);
+      var when=dt.toLocaleDateString()+" "+(dt.toTimeString().slice(0,5));
+      var pub=dr.published?' <span class="draft-pub">publié</span>':'';
+      var info=document.createElement("div"); info.className="draft-info";
+      info.innerHTML='<div class="draft-title">'+escapeHtml(dr.title||"Brouillon")+pub+'</div><div class="draft-meta">'+when+'</div>';
+      var actions=document.createElement("div"); actions.className="draft-actions";
+      var pB=document.createElement("button"); pB.className="draft-btn"; pB.textContent="▶"; pB.title="Écouter en privé"; pB.onclick=function(){ playDraft(dr.id); };
+      var puB=document.createElement("button"); puB.className="draft-btn"; puB.textContent="📢"; puB.title="Publier"; puB.onclick=function(){ publishDraft(dr.id); };
+      var dB=document.createElement("button"); dB.className="draft-btn draft-del"; dB.textContent="🗑"; dB.title="Supprimer"; dB.onclick=function(){ deleteDraft(dr.id); };
+      actions.appendChild(pB); actions.appendChild(puB); actions.appendChild(dB);
+      row.appendChild(info); row.appendChild(actions);
+      list.appendChild(row);
+    });
+  }).catch(function(){ list.innerHTML='<div class="drafts-empty">Brouillons indisponibles</div>'; });
+}
+function playDraft(id){
+  apiFetch("/api/karaoke/drafts/"+encodeURIComponent(id)+"/audio?phone="+encodeURIComponent(getMyPhone()||"")).then(function(r){
+    if(!r.ok) throw new Error("Err"); return r.blob();
+  }).then(function(blob){
+    if(_draftAudio){ try{_draftAudio.pause();}catch(e){} }
+    _draftAudio=new Audio(URL.createObjectURL(blob)); _draftAudio.play();
+    showToast("Lecture privée 🔊", "");
+  }).catch(function(){ showToast("Lecture impossible", "error"); });
+}
+function publishDraft(id){
+  apiPost("/api/karaoke/drafts/"+encodeURIComponent(id)+"/publish", {phone:getMyPhone()||""}).then(function(r){return r.json();}).then(function(){
+    showToast("Brouillon publié 📢", "success"); loadDrafts();
+  }).catch(function(){ showToast("Échec de la publication", "error"); });
+}
+function deleteDraft(id){
+  apiFetch("/api/karaoke/drafts/"+encodeURIComponent(id)+"?phone="+encodeURIComponent(getMyPhone()||""), {method:"DELETE"}).then(function(){
+    showToast("Brouillon supprimé", ""); loadDrafts();
+  }).catch(function(){ showToast("Suppression impossible", "error"); });
+}
 
 function renderNowPlaying(song) {
   /* If we had a previous song and mic was active, show results */
@@ -4434,6 +4547,7 @@ var isRecording = false;
 var mediaRecorder = null;
 var recordedChunks = [];
 var lastRecordingUrl = null;
+var lastRecordingBlob = null;
 
 window.toggleRecording = function() {
   if(isRecording) stopRecording();
@@ -4466,6 +4580,7 @@ function startRecording() {
       if(recordedChunks.length > 0){
         var blob = new Blob(recordedChunks, {type:recordedChunks[0].type || "audio/webm"});
         lastRecordingUrl = URL.createObjectURL(blob);
+        lastRecordingBlob = blob;
       }
       recordedChunks = [];
     };
