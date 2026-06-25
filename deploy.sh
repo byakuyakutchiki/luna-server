@@ -51,6 +51,11 @@ add_var "TWILIO_WHATSAPP_NUMBER"
 add_var "SENDGRID_API_KEY"
 add_var "LUNA_EMAIL_FROM"
 add_var "LUNA_EMAIL_SENDER_NAME"
+# Email — Gmail OAuth (voie GRATUITE prioritaire : envoi depuis le Gmail du fondateur, inbox)
+# Le redirect DOIT pointer vers la prod (pas le localhost du .env) et etre enregistre dans la Console Google.
+add_var "GOOGLE_OAUTH_CLIENT_ID"
+add_var "GOOGLE_OAUTH_CLIENT_SECRET"
+update_vars+=("GOOGLE_OAUTH_REDIRECT_URI=https://luna-beta-674304336025.europe-west1.run.app/api/email/oauth/callback")
 # Mode test fondateur : si "true", les emails/SMS sont simulés (aucun envoi réel)
 add_var "FOUNDATION_TEST_MODE"
 
