@@ -2943,6 +2943,7 @@ body.mode-compagnon .luna-name::before,
     <div class="voice-ov-bar"></div>
   </div>
   <div class="voice-ov-status" id="voiceOvStatus">Connexion...</div>
+  <button id="voiceOvSubtitles" type="button" title="Afficher / masquer la transcription" aria-pressed="false" style="margin:6px auto 0;display:block;padding:5px 14px;border-radius:18px;border:1px solid rgba(255,255,255,.22);background:rgba(255,255,255,.07);color:#cbd5e1;font-size:12px;font-weight:700;letter-spacing:.5px;cursor:pointer;-webkit-tap-highlight-color:transparent;">CC</button>
   <div class="voice-ov-transcript" id="voiceOvTranscript"></div>
   <div class="voice-ov-tool" id="voiceOvTool"></div>
   <button class="voice-ov-hangup" id="voiceOvHangup" title="Raccrocher">
@@ -8078,6 +8079,7 @@ function stopPaymentPolling() {
   var voiceOvStatus = document.getElementById("voiceOvStatus");
   var voiceOvTranscript = document.getElementById("voiceOvTranscript");
   var voiceOvTool = document.getElementById("voiceOvTool");
+  var voiceOvSubtitles = document.getElementById("voiceOvSubtitles");
   var voiceOvHangup = document.getElementById("voiceOvHangup");
 
   var voiceWs = null;
@@ -8122,6 +8124,34 @@ function stopPaymentPolling() {
   var _playbackStarted = false;
   var _JITTER_BUFFER = 2;    // Attendre N chunks avant de commencer (absorbe le reseau)
   var _voiceTranscriptEntries = [];
+  // #21 — Conversations vocales : transcription NON affichée automatiquement (off par défaut).
+  // Les échanges restent gardés en mémoire et sont révélables à la demande via le bouton CC.
+  var _voiceSubtitlesOn = localStorage.getItem("luna_voice_subtitles") === "1";
+  function _renderAllTranscript() {
+    var html = "";
+    for (var i = 0; i < _voiceTranscriptEntries.length; i++) {
+      var e = _voiceTranscriptEntries[i];
+      var cls = e.role === "user" ? "vt-user" : "vt-luna";
+      var label = e.role === "user" ? "Vous" : (window._currentAssistantName || "Luna");
+      html += '<div class="' + cls + '"><b>' + label + ' :</b> ' + e.text + '</div>';
+    }
+    if (voiceTranscript) { voiceTranscript.innerHTML = html; voiceTranscript.style.display = _voiceSubtitlesOn ? "block" : "none"; voiceTranscript.scrollTop = voiceTranscript.scrollHeight; }
+    if (voiceOvTranscript) { voiceOvTranscript.innerHTML = html; voiceOvTranscript.scrollTop = voiceOvTranscript.scrollHeight; }
+  }
+  function _updateSubtitlesBtn() {
+    if (!voiceOvSubtitles) return;
+    voiceOvSubtitles.setAttribute("aria-pressed", _voiceSubtitlesOn ? "true" : "false");
+    voiceOvSubtitles.style.opacity = _voiceSubtitlesOn ? "1" : "0.55";
+    voiceOvSubtitles.textContent = _voiceSubtitlesOn ? "CC activé" : "CC";
+  }
+  function _toggleVoiceSubtitles() {
+    _voiceSubtitlesOn = !_voiceSubtitlesOn;
+    localStorage.setItem("luna_voice_subtitles", _voiceSubtitlesOn ? "1" : "0");
+    _updateSubtitlesBtn();
+    if (_voiceSubtitlesOn) { _renderAllTranscript(); }
+    else { if (voiceTranscript) voiceTranscript.style.display = "none"; if (voiceOvTranscript) voiceOvTranscript.innerHTML = ""; }
+  }
+  if (voiceOvSubtitles) { voiceOvSubtitles.addEventListener("click", _toggleVoiceSubtitles); _updateSubtitlesBtn(); }
   var _voiceState = "idle"; // idle, connecting, listening, speaking, action
 
   // --- Voice Pre-warm ---
@@ -8218,6 +8248,10 @@ function stopPaymentPolling() {
   }
 
   function _addTranscript(role, text) {
+    // Toujours garder l'échange en mémoire (révélable via CC)…
+    _voiceTranscriptEntries.push({ role: role, text: text });
+    // …mais n'afficher la transcription que si l'utilisateur l'a demandée (#21).
+    if (!_voiceSubtitlesOn) return;
     voiceTranscript.style.display = "block";
     var cls = role === "user" ? "vt-user" : "vt-luna";
     var label = role === "user" ? "Vous" : (window._currentAssistantName || "Luna");
@@ -8226,10 +8260,11 @@ function stopPaymentPolling() {
     voiceTranscript.scrollTop = voiceTranscript.scrollHeight;
     voiceOvTranscript.innerHTML += html;
     voiceOvTranscript.scrollTop = voiceOvTranscript.scrollHeight;
-    _voiceTranscriptEntries.push({ role: role, text: text });
   }
 
   function _injectTranscriptInChat() {
+    // #21 : si l'utilisateur n'a pas demandé les sous-titres, on n'injecte pas le résumé.
+    if (!_voiceSubtitlesOn) { _voiceTranscriptEntries = []; return; }
     if (_voiceTranscriptEntries.length === 0) return;
     var parts = [];
     for (var i = 0; i < _voiceTranscriptEntries.length; i++) {
