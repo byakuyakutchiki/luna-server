@@ -168,7 +168,7 @@ class QuotaGuard:
             )
 
         plan = self._get_plan(tenant_id)
-        limit = PLAN_SMS_LIMITS.get(plan, 50)
+        limit = PLAN_SMS_LIMITS.get(plan, 50) + self.get_bonus(tenant_id, "sms")
         used = self._get_usage(tenant_id, "sms")
         remaining = max(0, limit - used)
         percentage = (used / limit * 100) if limit > 0 else 0
@@ -272,7 +272,9 @@ class QuotaGuard:
             Dict avec les stats d'utilisation
         """
         plan = self._get_plan(tenant_id)
-        limit = PLAN_SMS_LIMITS.get(plan, 50)
+        base_limit = PLAN_SMS_LIMITS.get(plan, 50)
+        bonus = self.get_bonus(tenant_id, "sms")
+        limit = base_limit + bonus
         used = self._get_usage(tenant_id, "sms")
         remaining = max(0, limit - used)
         percentage = (used / limit * 100) if limit > 0 else 0
@@ -282,6 +284,8 @@ class QuotaGuard:
             "sms": {
                 "used": used,
                 "limit": limit,
+                "base_limit": base_limit,
+                "bonus": bonus,
                 "remaining": remaining,
                 "percentage": round(percentage, 1),
             },
@@ -327,7 +331,7 @@ class QuotaGuard:
             Message d'avertissement ou None
         """
         plan = self._get_plan(tenant_id)
-        limit = PLAN_SMS_LIMITS.get(plan, 50)
+        limit = PLAN_SMS_LIMITS.get(plan, 50) + self.get_bonus(tenant_id, "sms")
         used = self._get_usage(tenant_id, "sms")
         percentage = (used / limit * 100) if limit > 0 else 0
         remaining = max(0, limit - used)
@@ -359,6 +363,59 @@ class QuotaGuard:
         """Clé Redis mensuelle : expire naturellement après 35 jours (J9)."""
         month = datetime.utcnow().strftime("%Y-%m")
         return f"luna:{tenant_id}:quota:sms:{month}"
+
+    def _redis_bonus_key(self, tenant_id: int, resource: str = "sms") -> str:
+        """Clé Redis du bonus mensuel (geste commercial admin).
+
+        Même cycle mensuel que le quota : le bonus se réinitialise naturellement
+        chaque mois, comme le compteur d'usage.
+        """
+        month = datetime.utcnow().strftime("%Y-%m")
+        return f"luna:{tenant_id}:quota:{resource}:bonus:{month}"
+
+    def get_bonus(self, tenant_id: int, resource: str = "sms") -> int:
+        """Bonus courant accordé par l'admin pour la ressource (0 si aucun)."""
+        if not self._rc:
+            return 0
+        try:
+            val = self._rc.get(self._redis_bonus_key(tenant_id, resource))
+            return int(val) if val is not None else 0
+        except Exception:
+            return 0
+
+    def grant_bonus(self, tenant_id: int, amount: int, resource: str = "sms") -> int:
+        """Accorde (ou retire si négatif) un bonus de quota — geste commercial.
+
+        Le bonus s'ajoute à la limite du forfait pour le mois en cours et
+        expire avec lui. Retourne le nouveau total de bonus.
+
+        Args:
+            tenant_id: ID du tenant bénéficiaire
+            amount: nombre d'unités à ajouter (peut être négatif pour corriger)
+            resource: ressource concernée (sms uniquement aujourd'hui)
+
+        Returns:
+            Nouveau total de bonus pour le mois en cours.
+        """
+        if not self._rc:
+            logger.warning(f"grant_bonus sans Redis: tenant={tenant_id} ignoré")
+            return 0
+        try:
+            key = self._redis_bonus_key(tenant_id, resource)
+            new_total = self._rc.incrby(key, int(amount))
+            # Plancher à 0 : un bonus ne descend jamais sous zéro
+            if new_total < 0:
+                self._rc.set(key, 0)
+                new_total = 0
+            self._rc.expire(key, 35 * 86400)
+            logger.info(
+                f"Quota bonus granted: tenant={tenant_id}, {resource} "
+                f"+{amount} → bonus_total={new_total}"
+            )
+            return new_total
+        except Exception as e:
+            logger.error(f"grant_bonus error tenant={tenant_id}: {e}")
+            return self.get_bonus(tenant_id, resource)
 
     def _get_usage(self, tenant_id: int, resource: str) -> int:
         """Récupère l'utilisation courante — Redis en priorité, cache local en fallback (J9)."""

@@ -1208,6 +1208,147 @@ class RedisClient:
         records.sort(key=lambda r: r.get("tenant_id", 0))
         return records
 
+    # ========================================================================
+    # ADMIN — Index utilisateurs, journal d'audit, anti-bruteforce
+    # (Additif : ne remplace aucun stockage existant. L'index est une copie
+    #  dénormalisée, reconstructible à tout moment via backfill_users_index.)
+    # ========================================================================
+
+    def _users_index_key(self) -> str:
+        return self._key("admin", "users_index")
+
+    def _audit_key(self) -> str:
+        return self._key("admin", "audit_log")
+
+    def _login_fail_key(self, ip: str) -> str:
+        return self._key("admin", "login_fails", ip)
+
+    def upsert_user_index(self, tenant_id: int, data: Dict[str, Any]) -> None:
+        """Met à jour la fiche dénormalisée d'un user dans l'index (HASH).
+
+        data: {email, name, plan, active, suspended, created_at, ...}
+        """
+        try:
+            self.client.hset(self._users_index_key(), str(tenant_id), json.dumps(data))
+        except redis.RedisError as e:
+            logger.error(f"upsert_user_index({tenant_id}) error: {e}")
+
+    def remove_user_index(self, tenant_id: int) -> None:
+        try:
+            self.client.hdel(self._users_index_key(), str(tenant_id))
+        except redis.RedisError as e:
+            logger.error(f"remove_user_index({tenant_id}) error: {e}")
+
+    def get_users_index(self) -> List[Dict[str, Any]]:
+        """Retourne toutes les fiches de l'index en un seul HGETALL (pas de scan)."""
+        out: List[Dict[str, Any]] = []
+        try:
+            raw = self.client.hgetall(self._users_index_key())
+            for tid, val in raw.items():
+                try:
+                    rec = json.loads(val)
+                    rec["tenant_id"] = int(tid)
+                    out.append(rec)
+                except (json.JSONDecodeError, ValueError):
+                    pass
+        except redis.RedisError as e:
+            logger.error(f"get_users_index error: {e}")
+        return out
+
+    def users_index_size(self) -> int:
+        try:
+            return int(self.client.hlen(self._users_index_key()))
+        except redis.RedisError:
+            return 0
+
+    def backfill_users_index(self, profile_getter=None) -> int:
+        """(Re)construit l'index à partir des auth records + profils.
+
+        Idempotent. profile_getter(tenant_id) -> dict optionnel pour le nom.
+        Retourne le nombre de fiches indexées.
+        """
+        count = 0
+        for rec in self.get_all_auth_records():
+            tid = rec.get("tenant_id")
+            if tid is None:
+                continue
+            name = ""
+            if profile_getter:
+                try:
+                    prof = profile_getter(tid) or {}
+                    name = f"{prof.get('first_name','')} {prof.get('last_name','')}".strip()
+                except Exception:
+                    name = ""
+            self.upsert_user_index(tid, {
+                "email": rec.get("email", ""),
+                "name": name,
+                "plan": rec.get("plan", "essentiel"),
+                "active": bool(rec.get("active", True)),
+                "suspended": bool(rec.get("suspended", False)),
+                "suspend_reason": rec.get("suspend_reason", ""),
+                "created_at": rec.get("created_at", 0),
+            })
+            count += 1
+        logger.info(f"backfill_users_index: {count} users indexés")
+        return count
+
+    def append_admin_audit(self, entry: Dict[str, Any], max_entries: int = 5000) -> None:
+        """Ajoute une entrée au journal d'audit admin (LPUSH + LTRIM)."""
+        try:
+            self.client.lpush(self._audit_key(), json.dumps(entry))
+            self.client.ltrim(self._audit_key(), 0, max_entries - 1)
+        except redis.RedisError as e:
+            logger.error(f"append_admin_audit error: {e}")
+
+    def get_admin_audit(self, limit: int = 100, action: str = None,
+                        tenant_id: int = None) -> List[Dict[str, Any]]:
+        """Retourne le journal d'audit (le plus récent d'abord), filtrable."""
+        out: List[Dict[str, Any]] = []
+        try:
+            # On lit plus large si on filtre, pour ne pas rater des entrées
+            read = limit if not (action or tenant_id is not None) else max(limit * 5, 500)
+            raw = self.client.lrange(self._audit_key(), 0, read - 1)
+            for item in raw:
+                try:
+                    e = json.loads(item)
+                except json.JSONDecodeError:
+                    continue
+                if action and e.get("action") != action:
+                    continue
+                if tenant_id is not None and e.get("target_tenant") != tenant_id:
+                    continue
+                out.append(e)
+                if len(out) >= limit:
+                    break
+        except redis.RedisError as e:
+            logger.error(f"get_admin_audit error: {e}")
+        return out
+
+    def record_login_fail(self, ip: str, window_seconds: int = 900) -> int:
+        """Incrémente le compteur d'échecs de login pour une IP. Retourne le total."""
+        try:
+            key = self._login_fail_key(ip)
+            n = self.client.incr(key)
+            if n == 1:
+                self.client.expire(key, window_seconds)
+            return int(n)
+        except redis.RedisError as e:
+            logger.error(f"record_login_fail error: {e}")
+            return 0
+
+    def get_login_fails(self, ip: str) -> int:
+        try:
+            v = self.client.get(self._login_fail_key(ip))
+            return int(v) if v else 0
+        except redis.RedisError:
+            return 0
+
+    def clear_login_fails(self, ip: str) -> None:
+        try:
+            self.client.delete(self._login_fail_key(ip))
+        except redis.RedisError:
+            pass
+
 
 @lru_cache()
 def get_redis_client() -> RedisClient:
