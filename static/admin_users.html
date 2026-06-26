@@ -279,18 +279,29 @@ async function reload(){
     const r=await api("/api/admin/users?"+buildQuery({page:state.page,per_page:perPage}));
     data=await r.json();
   }catch(e){ return; }
-  renderStats(data);
+  _lastFiltered=data.total;
+  loadStats();
   renderTable(data);
   renderPager(data);
   document.getElementById("hdrInfo").textContent=data.total+" utilisateur"+(data.total>1?"s":"");
 }
 
-function renderStats(d){
-  // Compute light stats from current page is misleading; show total + status counts via separate quick calls.
+let _stats=null, _lastFiltered=0;
+async function loadStats(){
+  try{ const r=await api("/api/admin/users/stats"); _stats=await r.json(); }
+  catch(e){ _stats=null; }
+  renderStats();
+}
+function renderStats(){
+  const s=_stats||{}; const bp=s.by_plan||{};
+  const v=(x)=>x!=null?x:'—';
   document.getElementById("statCards").innerHTML=`
-    <div class="card"><div class="label">Total (filtré)</div><div class="value">${d.total}</div></div>
-    <div class="card"><div class="label">Page</div><div class="value">${d.page}/${d.pages||1}</div></div>
-    <div class="card"><div class="label">Par page</div><div class="value">${d.per_page}</div></div>`;
+    <div class="card"><div class="label">Total comptes</div><div class="value">${v(s.total)}</div></div>
+    <div class="card"><div class="label">Actifs</div><div class="value" style="color:#4ade80">${v(s.active)}</div></div>
+    <div class="card"><div class="label">Suspendus</div><div class="value" style="color:#f87171">${v(s.suspended)}</div></div>
+    <div class="card"><div class="label">Nouveaux ce mois</div><div class="value">${v(s.new_this_month)}</div></div>
+    <div class="card"><div class="label">Par plan (Ess·Conf·Prem)</div><div class="value" style="font-size:1.1em">${bp.essentiel||0} · ${bp.confort||0} · ${bp.premium||0}</div></div>
+    <div class="card"><div class="label">Résultat filtré</div><div class="value">${_lastFiltered}</div></div>`;
 }
 
 function sortHeader(label,key){
@@ -326,6 +337,8 @@ function renderTable(d){
         <button class="btn sm" onclick="openDrawer(${u.tenant_id},'${esc(u.email)}')">Fiche 360°</button>
         ${lifecycle}
         <button class="btn sm" onclick="openChangePlan(${u.tenant_id},'${u.plan||'essentiel'}')">Plan</button>
+        <button class="btn sm" onclick="openBonus(${u.tenant_id},'${esc(u.email)}')">Bonus</button>
+        <button class="btn sm" onclick="openNotify(${u.tenant_id},'${esc(u.email)}')">Message</button>
         <button class="btn sm" onclick="openResetPw(${u.tenant_id},'${esc(u.email)}')">Mot de passe</button>
         <button class="btn sm danger" onclick="openDelete(${u.tenant_id},'${esc(u.email)}')">Suppr.</button>
       </div></td>
@@ -393,14 +406,60 @@ function openSuspend(tid,email){
   openModal(`<h3>Suspendre ${esc(email)}</h3>
     <p class="muted2" style="font-size:0.85em">La connexion sera bloquée. Action réversible.</p>
     <label>Motif (visible dans l'audit)</label><textarea id="m_reason" placeholder="Ex: paiement échoué, abus signalé…"></textarea>
+    <label style="display:flex;align-items:center;gap:8px;margin-top:12px"><input id="m_notify_susp" type="checkbox" checked style="width:auto">Prévenir le client en in-app (best-effort)</label>
     <div class="err" id="m_err"></div>
     <div class="row"><button class="btn ghost" onclick="closeModal()">Annuler</button><button class="btn warn" onclick="submitSuspend(${tid})">Suspendre</button></div>`);
 }
 async function submitSuspend(tid){
+  const reason=document.getElementById("m_reason").value;
+  const notify=document.getElementById("m_notify_susp").checked;
   try{
-    const r=await api(`/api/admin/users/${tid}/suspend`,{method:"POST",body:JSON.stringify({reason:m_reason.value})});
+    const r=await api(`/api/admin/users/${tid}/suspend`,{method:"POST",body:JSON.stringify({reason:reason})});
     const d=await r.json(); if(!r.ok){ showErr("m_err",d.error); return; }
-    closeModal(); toast("Utilisateur suspendu"); reload();
+    if(notify){
+      try{ await api(`/api/admin/users/${tid}/notify`,{method:"POST",body:JSON.stringify({title:"Compte suspendu",body:"Votre accès a été suspendu"+(reason?" : "+reason:"")+". Contactez votre conseiller pour rétablir l'accès."})}); }catch(e){}
+    }
+    closeModal(); toast("Utilisateur suspendu"+(notify?" · client prévenu":"")); reload();
+  }catch(e){ showErr("m_err","Erreur réseau"); }
+}
+
+function openBonus(tid,email){
+  openModal(`<h3>Offrir un bonus — ${esc(email)}</h3>
+    <p class="muted2" style="font-size:0.85em">Ajoute des SMS au forfait pour le mois en cours (geste commercial). Réinitialisé au prochain cycle.</p>
+    <label>Ressource</label><select id="m_res"><option value="sms">SMS</option></select>
+    <label>Nombre à ajouter (négatif = retirer)</label><input id="m_amount" type="number" value="20" min="-1000" max="1000">
+    <label>Motif (audit)</label><input id="m_reason" type="text" placeholder="Ex: geste commercial, incident…">
+    <label style="display:flex;align-items:center;gap:8px;margin-top:12px"><input id="m_notify" type="checkbox" checked style="width:auto">Prévenir le client en in-app</label>
+    <div class="err" id="m_err"></div>
+    <div class="row"><button class="btn ghost" onclick="closeModal()">Annuler</button><button class="btn primary" onclick="submitBonus(${tid})">Offrir</button></div>`);
+}
+async function submitBonus(tid){
+  const amount=parseInt(document.getElementById("m_amount").value,10);
+  if(!amount){ showErr("m_err","Montant requis (non nul)"); return; }
+  const body={resource:document.getElementById("m_res").value,amount:amount,reason:document.getElementById("m_reason").value,notify:document.getElementById("m_notify").checked};
+  try{
+    const r=await api(`/api/admin/users/${tid}/grant-bonus`,{method:"POST",body:JSON.stringify(body)});
+    const d=await r.json(); if(!r.ok){ showErr("m_err",d.error); return; }
+    closeModal(); toast("Bonus : "+(d.amount>0?"+":"")+d.amount+" SMS (total bonus "+d.bonus_total+")"+(d.notified?" · client prévenu":"")); reload();
+  }catch(e){ showErr("m_err","Erreur réseau"); }
+}
+
+function openNotify(tid,email){
+  openModal(`<h3>Message in-app — ${esc(email)}</h3>
+    <p class="muted2" style="font-size:0.85em">Le client le verra dans l'app (notification + chat). Aucun SMS ni email envoyé.</p>
+    <label>Titre</label><input id="m_title" type="text" value="Message de votre conseiller">
+    <label>Message</label><textarea id="m_body" placeholder="Votre message…"></textarea>
+    <div class="err" id="m_err"></div>
+    <div class="row"><button class="btn ghost" onclick="closeModal()">Annuler</button><button class="btn primary" onclick="submitNotify(${tid})">Envoyer</button></div>`);
+}
+async function submitNotify(tid){
+  const message=document.getElementById("m_body").value.trim();
+  if(!message){ showErr("m_err","Message vide"); return; }
+  const body={title:document.getElementById("m_title").value,body:message};
+  try{
+    const r=await api(`/api/admin/users/${tid}/notify`,{method:"POST",body:JSON.stringify(body)});
+    const d=await r.json(); if(!r.ok){ showErr("m_err",d.error); return; }
+    closeModal(); toast("Message in-app envoyé");
   }catch(e){ showErr("m_err","Erreur réseau"); }
 }
 async function reactivate(tid){
@@ -495,7 +554,10 @@ function renderDrawer(tid,det,aud){
   // Quotas
   if(q && Object.keys(q).length){
     html+=`<div class="sec"><h4>Quotas & usage</h4>`;
-    if(q.sms)html+=quotaRow("SMS",q.sms.used,q.sms.limit,q.sms.cost_eur);
+    if(q.sms){
+      html+=quotaRow("SMS",q.sms.used,q.sms.limit,q.sms.cost_eur);
+      if(q.sms.bonus>0)html+=`<div class="muted2" style="font-size:0.8em;margin:-6px 0 10px">dont +${q.sms.bonus} bonus offert (mois en cours)</div>`;
+    }
     if(q.voice)html+=quotaRow("Voix (min)",q.voice.used,q.voice.limit,q.voice.cost_eur);
     if(q.visio)html+=quotaRow("Visio (min)",q.visio.used,q.visio.limit,q.visio.cost_eur);
     html+=`</div>`;
