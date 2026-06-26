@@ -1,2 +1,0 @@
-/home/ludo/PROJETS/IA_WATCH/PROPRIO/serveur/android-app/java/fr/yawatch/luna/MainActivity.java
-/home/ludo/PROJETS/IA_WATCH/PROPRIO/serveur/android-app/build/gen/fr/yawatch/luna/R.java
