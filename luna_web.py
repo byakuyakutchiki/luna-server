@@ -20467,6 +20467,76 @@ async def documents_v2_execute(request: Request):
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 
+@app.post("/api/documents/v2/chat")
+async def documents_v2_chat(request: Request):
+    """Chat contextuel sur un document : questions libres avec le contenu du doc en contexte.
+
+    Additif — ne remplace pas /actions/execute (actions structurees). Sert l'amelioration
+    UX "poser des questions en voyant le document".
+    """
+    tid = getattr(request.state, "tenant_id", 1)
+    vops = _get_vault_ops_for_tid(tid)
+    if not vops:
+        return JSONResponse(status_code=503, content={"error": "Vault non disponible"})
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse(status_code=400, content={"error": "Corps JSON invalide"})
+
+    doc_id = body.get("doc_id", "")
+    question = (body.get("question", "") or "").strip()
+    history = body.get("history", []) or []
+    if not doc_id or not question:
+        return JSONResponse(status_code=400, content={"error": "doc_id et question requis"})
+
+    doc = vops.get_doc(doc_id)
+    if not doc:
+        return JSONResponse(status_code=404, content={"error": "Document non trouvé"})
+
+    try:
+        import json as _json
+        ef = doc.get("extracted_fields") or {}
+        if isinstance(ef, str):
+            try:
+                ef = _json.loads(ef)
+            except Exception:
+                ef = {}
+        contexte = (
+            f"Type: {doc.get('doc_type')}\n"
+            f"Titre: {doc.get('titre')}\n"
+            f"Émetteur: {doc.get('emetteur')}\n"
+            f"Date: {doc.get('date_document') or ''}\n"
+            f"Échéance/expiration: {doc.get('date_expiration') or ''}\n"
+            f"Montant: {doc.get('montant') or ''}\n"
+            f"Champs extraits: {_json.dumps({k: v for k, v in ef.items() if v}, ensure_ascii=False)[:800]}\n"
+            f"Texte du document:\n{(doc.get('raw_text') or '')[:3000]}\n"
+        )
+        sys_prompt = (
+            "Tu es Iris, l'assistante documents de Luna. Tu réponds aux questions de "
+            "l'utilisateur en t'appuyant sur le document ci-dessous. Si l'information n'y "
+            "figure pas, dis-le clairement sans inventer. Réponds en français, de façon "
+            "courte, bienveillante et concrète.\n\n=== DOCUMENT ===\n" + contexte
+        )
+        msgs = [{"role": "system", "content": sys_prompt}]
+        for h in history[-6:]:
+            role = "assistant" if h.get("role") == "assistant" else "user"
+            content = (h.get("content") or "")[:1000]
+            if content:
+                msgs.append({"role": role, "content": content})
+        msgs.append({"role": "user", "content": question[:1000]})
+
+        if not openai_client:
+            return JSONResponse(content={"success": True, "answer": "Le service IA n'est pas disponible pour le moment."})
+        resp = openai_client.chat.completions.create(
+            model="gpt-4o-mini", messages=msgs, max_tokens=350, temperature=0.4,
+        )
+        answer = resp.choices[0].message.content.strip()
+        return JSONResponse(content={"success": True, "answer": answer, "doc_id": doc_id})
+    except Exception as e:
+        logger.error(f"Documents v2 chat error: {e}")
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+
 @app.get("/api/documents/v2/timeline")
 async def documents_v2_timeline(request: Request, limit: int = 50):
     """Timeline IA chronologique des documents scannés."""
@@ -23210,10 +23280,11 @@ async def admin_clients(request: Request):
                 fn = profile.get("first_name", "")
                 ln = profile.get("last_name", "")
                 name = f"{fn} {ln}".strip() or f"Tenant {tid}"
-                plan = profile.get("plan", "essentiel")
-                # Lecture auth pour l'email
+                # Lecture auth pour l'email + le plan (source de verite: auth record,
+                # le profil n'a pas de champ 'plan')
                 auth = _redis_client.get_auth_by_tenant_id(tid)
                 email = auth.get("email", "") if auth else ""
+                plan = (auth.get("plan") if auth else None) or profile.get("plan", "essentiel")
                 clients.append({
                     "tenant_id": tid,
                     "name": name,
@@ -23405,7 +23476,9 @@ async def admin_quotas(request: Request):
             for tid in _redis_client.get_all_tenant_ids():
                 profile = _redis_client.get_profile(tid) or {}
                 name = profile.get("first_name", f"Tenant {tid}")
-                plan = profile.get("plan", "essentiel")
+                # Plan: source de verite = auth record (le profil n'a pas de champ 'plan')
+                _auth = _redis_client.get_auth_by_tenant_id(tid)
+                plan = (_auth.get("plan") if _auth else None) or profile.get("plan", "essentiel")
                 limits = _PLAN_LIMITS.get(plan, _PLAN_LIMITS["essentiel"])
                 usage = all_usage.get(str(tid), {"sms_count": 0, "sms_cost": 0, "voice_minutes": 0, "voice_cost": 0, "tavus_minutes": 0, "tavus_cost": 0})
                 sms_cost = round(float(usage.get("sms_cost", 0)), 2)
@@ -23466,7 +23539,10 @@ async def admin_costs(request: Request, month: str = None):
                     profile = _redis_client.get_profile(int(tid_str)) if tid_str.isdigit() else {}
                     if profile:
                         name = profile.get("first_name", name)
-                        plan = profile.get("plan", plan)
+                    # Plan: source de verite = auth record (le profil n'a pas de champ 'plan')
+                    _auth = _redis_client.get_auth_by_tenant_id(int(tid_str)) if tid_str.isdigit() else None
+                    if _auth and _auth.get("plan"):
+                        plan = _auth.get("plan")
 
                 sc = round(float(costs.get("sms_cost", 0)), 2)
                 vc = round(float(costs.get("voice_cost", 0)), 2)
@@ -23765,7 +23841,9 @@ async def admin_revenue(request: Request):
         try:
             for tid in _redis_client.get_all_tenant_ids():
                 profile = _redis_client.get_profile(tid) or {}
-                plan = profile.get("plan", "essentiel")
+                # Plan: source de verite = auth record (le profil n'a pas de champ 'plan')
+                _auth = _redis_client.get_auth_by_tenant_id(tid)
+                plan = (_auth.get("plan") if _auth else None) or profile.get("plan", "essentiel")
                 if plan in by_plan:
                     by_plan[plan]["count"] += 1
                     by_plan[plan]["revenue"] += plan_prices.get(plan, 0)
