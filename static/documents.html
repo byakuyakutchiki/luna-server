@@ -483,6 +483,58 @@ body::after{content:'';position:fixed;bottom:-10%;right:-10%;width:400px;height:
 #docws-send{background:linear-gradient(135deg,#4f46e5,#7c3aed);border:none;color:#fff;border-radius:12px;width:46px;font-size:1.1em;cursor:pointer;flex-shrink:0;}
 #docws-send:disabled{opacity:.5;}
 @media(min-width:820px){#docws-body{flex-direction:row;}#docws-view{border-bottom:none;border-right:1px solid var(--b2,rgba(255,255,255,.07));}#docws-chat{height:auto;width:42%;max-width:520px;}#docws-view iframe,#docws-view embed{height:78vh;}}
+
+/* ── Vue Dossiers (issue #22) ────────────────────────────── */
+.lib-views{display:flex;gap:4px;background:rgba(255,255,255,.04);border:1px solid var(--b1);border-radius:11px;padding:3px;}
+.vw-pill{background:transparent;border:none;color:var(--mu);font-size:.7em;font-weight:700;padding:5px 11px;border-radius:8px;cursor:pointer;transition:background .15s,color .15s;}
+.vw-pill.active{background:linear-gradient(135deg,var(--ac),var(--ac2));color:#fff;}
+#tree-view{display:none;}
+#tree-list{display:flex;flex-direction:column;gap:9px;}
+.tfld{background:rgba(255,255,255,.025);border:1px solid var(--b1);border-radius:16px;overflow:hidden;}
+.tfld-row{display:flex;align-items:center;gap:13px;padding:13px 14px;cursor:pointer;transition:background .15s;}
+.tfld-row:active{background:rgba(255,255,255,.05);}
+.tfld-ic{font-size:1.35em;flex-shrink:0;}
+.tfld-inf{flex:1;min-width:0;}
+.tfld-nm{font-size:.92em;font-weight:700;letter-spacing:-.02em;}
+.tfld-me{font-size:.68em;color:var(--mu);margin-top:3px;}
+.tfld-badge{background:var(--rd);color:#fff;font-size:.62em;font-weight:800;border-radius:9px;padding:2px 7px;flex-shrink:0;}
+.tfld-cnt{font-size:.74em;color:var(--mu);font-weight:600;flex-shrink:0;}
+.tfld-ar{color:var(--mu);font-size:1.1em;flex-shrink:0;}
+.tfld-subs{border-top:1px solid var(--b1);}
+.tsub{display:flex;align-items:center;gap:11px;padding:10px 14px 10px 30px;cursor:pointer;border-top:1px solid rgba(255,255,255,.03);transition:background .15s;}
+.tsub:active{background:rgba(255,255,255,.05);}
+.tsub-nm{flex:1;font-size:.82em;color:var(--tx,#e5e7f0);}
+.tsub-cnt{font-size:.72em;color:var(--mu);}
+#tree-newfld{margin-top:14px;width:100%;background:rgba(255,255,255,.04);border:1px dashed var(--b2);color:var(--mu);border-radius:14px;padding:12px;font-size:.82em;font-weight:600;cursor:pointer;}
+#tree-newfld:active{background:rgba(255,255,255,.07);}
+
+/* Folder panel — réutilise le look de #cat-panel */
+#fld-panel{position:fixed;inset:0;z-index:400;display:none;align-items:flex-end;}
+#fld-panel.open{display:flex;background:rgba(0,0,0,.82);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);}
+#fld-box{width:100%;max-height:84vh;background:rgba(9,9,22,0.98);border-radius:28px 28px 0 0;border:1px solid var(--b2);border-bottom:none;display:flex;flex-direction:column;animation:su .3s cubic-bezier(.34,1.28,.64,1);}
+#fld-hdr{padding:20px 18px 15px;border-bottom:1px solid var(--b1);display:flex;align-items:center;gap:14px;}
+#fld-hdr-em{font-size:2em;flex-shrink:0;}
+#fld-hdr-info{flex:1;}
+#fld-hdr-nm{font-size:1em;font-weight:800;letter-spacing:-.025em;}
+#fld-hdr-ct{font-size:.72em;color:var(--mu);margin-top:4px;}
+#fld-close{background:rgba(255,255,255,0.06);border:1px solid var(--b2);border-radius:50%;width:34px;height:34px;color:var(--mu);font-size:.88em;cursor:pointer;flex-shrink:0;}
+#fld-tools{display:flex;gap:8px;padding:12px 14px;border-bottom:1px solid var(--b1);flex-wrap:wrap;}
+#fld-tools button{background:rgba(255,255,255,.05);border:1px solid var(--b2);color:var(--mu);border-radius:10px;padding:7px 12px;font-size:.72em;font-weight:600;cursor:pointer;}
+#fld-tools button:active{background:rgba(255,255,255,.09);}
+#fld-docs{overflow-y:auto;padding:14px 14px 40px;flex:1;}
+.fdr-mv{background:rgba(255,255,255,.05);border:1px solid var(--b2);color:var(--mu);border-radius:9px;padding:5px 9px;font-size:.68em;font-weight:600;cursor:pointer;flex-shrink:0;}
+
+/* Move modal */
+#mv-modal{position:fixed;inset:0;z-index:500;display:none;align-items:center;justify-content:center;padding:24px;}
+#mv-modal.open{display:flex;background:rgba(0,0,0,.8);backdrop-filter:blur(5px);-webkit-backdrop-filter:blur(5px);}
+#mv-box{width:100%;max-width:380px;background:rgba(14,14,30,0.99);border:1px solid var(--b2);border-radius:22px;padding:22px;}
+#mv-title{font-size:.96em;font-weight:800;margin-bottom:6px;}
+#mv-sub{font-size:.76em;color:var(--mu);margin-bottom:16px;}
+#mv-sel{width:100%;background:rgba(255,255,255,.05);border:1px solid var(--b2);color:#fff;border-radius:12px;padding:12px;font-size:.86em;margin-bottom:18px;}
+#mv-actions{display:flex;gap:10px;}
+#mv-actions button{flex:1;border-radius:12px;padding:12px;font-size:.84em;font-weight:700;cursor:pointer;border:1px solid var(--b2);}
+.mv-cancel{background:rgba(255,255,255,.05);color:var(--mu);}
+.mv-ok{background:linear-gradient(135deg,var(--ac),var(--ac2));color:#fff;border:none!important;}
 </style>
 </head>
 <body>
@@ -531,6 +583,10 @@ body::after{content:'';position:fixed;bottom:-10%;right:-10%;width:400px;height:
 
   <div class="sh">
     <span class="sh-t">Bibliothèque</span>
+    <div class="lib-views">
+      <button id="vw-cat" class="vw-pill active" onclick="setLibView('cat')">Catégories</button>
+      <button id="vw-tree" class="vw-pill" onclick="setLibView('tree')">Dossiers</button>
+    </div>
     <button class="sh-a" onclick="openTimeline()">Historique →</button>
   </div>
   <div id="score-bar" style="display:none">
@@ -545,6 +601,12 @@ body::after{content:'';position:fixed;bottom:-10%;right:-10%;width:400px;height:
   <div id="lib-grid">
     <div class="skel"></div><div class="skel"></div>
     <div class="skel"></div><div class="skel"></div>
+  </div>
+
+  <!-- VUE DOSSIERS (issue #22) -->
+  <div id="tree-view" style="display:none">
+    <div id="tree-list"></div>
+    <button id="tree-newfld" onclick="newFolderPrompt('')">+ Nouveau dossier</button>
   </div>
 
   <div id="urg-sec" style="display:none">
@@ -577,6 +639,39 @@ body::after{content:'';position:fixed;bottom:-10%;right:-10%;width:400px;height:
       <button id="cat-close" onclick="closeCat()">✕</button>
     </div>
     <div id="cat-docs"></div>
+  </div>
+</div>
+
+<!-- FOLDER PANEL (issue #22) -->
+<div id="fld-panel" onclick="if(event.target===this)closeFld()">
+  <div id="fld-box">
+    <div id="fld-hdr">
+      <span id="fld-hdr-em">📁</span>
+      <div id="fld-hdr-info">
+        <div id="fld-hdr-nm"></div>
+        <div id="fld-hdr-ct"></div>
+      </div>
+      <button id="fld-close" onclick="closeFld()">✕</button>
+    </div>
+    <div id="fld-tools">
+      <button onclick="newFolderPrompt(_fldCur)">+ Sous-dossier</button>
+      <button id="fld-rn" onclick="renameFolderPrompt(_fldCur)">Renommer</button>
+      <button id="fld-del" onclick="deleteFolder(_fldCur)">Supprimer</button>
+    </div>
+    <div id="fld-docs"></div>
+  </div>
+</div>
+
+<!-- MOVE DOC MODAL (issue #22) -->
+<div id="mv-modal" onclick="if(event.target===this)closeMv()">
+  <div id="mv-box">
+    <div id="mv-title">Déplacer le document</div>
+    <div id="mv-sub"></div>
+    <select id="mv-sel"></select>
+    <div id="mv-actions">
+      <button class="mv-cancel" onclick="closeMv()">Annuler</button>
+      <button class="mv-ok" onclick="confirmMove()">Déplacer</button>
+    </div>
   </div>
 </div>
 
@@ -897,6 +992,137 @@ function renderGrid(cats){
       +add
       +'</div>';
   }).join('');
+}
+
+// ── VUE DOSSIERS (issue #22) ─────────────────
+var _tree=null, _treeLoaded=false, _fldCur='', _mvDoc='';
+
+function setLibView(v){
+  var isTree=(v==='tree');
+  document.getElementById('lib-grid').style.display=isTree?'none':'';
+  document.getElementById('tree-view').style.display=isTree?'block':'none';
+  document.getElementById('vw-cat').classList.toggle('active',!isTree);
+  document.getElementById('vw-tree').classList.toggle('active',isTree);
+  if(isTree && !_treeLoaded) loadTree();
+}
+function loadTree(){
+  af('/api/vault/tree').then(function(r){return r.json();}).then(function(r){
+    _tree=r.tree||[]; _treeLoaded=true; renderTree();
+  }).catch(function(e){toast('Erreur arbre: '+e.message);});
+}
+function fmtFolderMeta(n){
+  var bits=[];
+  bits.push(n.count+' doc'+(n.count!==1?'s':''));
+  if(n.last_modified) bits.push('maj '+fmt(n.last_modified));
+  return bits.join(' · ');
+}
+function renderTree(){
+  var el=document.getElementById('tree-list');
+  if(!_tree||!_tree.length){el.innerHTML='<p style="color:var(--mu);font-size:.8em;padding:8px;">Aucun dossier.</p>';return;}
+  el.innerHTML=_tree.map(function(n){
+    var badge=n.urgent>0?'<span class="tfld-badge">'+n.urgent+'</span>':'';
+    var subs=(n.children||[]).map(function(c){
+      return '<div class="tsub" onclick="event.stopPropagation();openFld(\''+escAttr(c.path)+'\')">'
+        +'<span style="color:var(--mu);">↳</span>'
+        +'<span class="tsub-nm">'+escH(c.name)+'</span>'
+        +'<span class="tsub-cnt">'+c.count+(c.urgent>0?' ⚠':'')+'</span></div>';
+    }).join('');
+    return '<div class="tfld">'
+      +'<div class="tfld-row" onclick="openFld(\''+escAttr(n.path)+'\')">'
+        +'<span class="tfld-ic">'+(n.icon||'📁')+'</span>'
+        +'<div class="tfld-inf"><div class="tfld-nm">'+escH(n.name)+'</div>'
+        +'<div class="tfld-me">'+fmtFolderMeta(n)+'</div></div>'
+        +badge+'<span class="tfld-cnt">'+n.count+'</span><span class="tfld-ar">›</span>'
+      +'</div>'
+      +(subs?'<div class="tfld-subs">'+subs+'</div>':'')
+    +'</div>';
+  }).join('');
+}
+function escAttr(s){return String(s||'').replace(/'/g,"\\'").replace(/"/g,'&quot;');}
+
+function folderIconFor(path){
+  var root=path.split('/')[0];
+  for(var i=0;i<(_tree||[]).length;i++){if(_tree[i].name===root)return _tree[i].icon;}
+  return '📁';
+}
+function openFld(path){
+  _fldCur=path;
+  var docs=_docs.filter(function(d){return d.folder===path || (d.folder||'').indexOf(path+'/')===0;});
+  document.getElementById('fld-hdr-em').textContent=folderIconFor(path);
+  document.getElementById('fld-hdr-nm').textContent=path;
+  document.getElementById('fld-hdr-ct').textContent=docs.length+' document'+(docs.length!==1?'s':'');
+  // racine = pas supprimable/renommable directement (on agit sur sous-dossiers)
+  var isRoot=path.indexOf('/')===-1;
+  document.getElementById('fld-del').style.display=isRoot?'none':'';
+  document.getElementById('fld-rn').style.display=isRoot?'none':'';
+  var el=document.getElementById('fld-docs');
+  if(!docs.length){el.innerHTML='<p style="padding:24px;color:var(--mu);text-align:center;font-size:.84em;">Dossier vide.</p>';}
+  else{
+    el.innerHTML=docs.map(function(d){
+      var ini=(_INIT[d.doc_type]||(d.doc_type||'?').substring(0,2).toUpperCase());
+      return '<div class="cdr '+(d.priority||'')+'">'
+        +'<div class="cdr-ic" onclick="openDet(\''+d.doc_id+'\')">'+ini+'</div>'
+        +'<div class="cdr-inf" onclick="openDet(\''+d.doc_id+'\')"><div class="cdr-ti">'+escH(d.titre||'Document')+'</div>'
+        +'<div class="cdr-me">'+escH(d.emetteur||'')+(d.created_at?' · '+fmt(d.created_at):'')+'</div></div>'
+        +'<button class="fdr-mv" onclick="openMv(\''+d.doc_id+'\')">Déplacer</button></div>';
+    }).join('');
+  }
+  document.getElementById('fld-panel').classList.add('open');
+}
+function closeFld(){document.getElementById('fld-panel').classList.remove('open');}
+
+function allFolderPaths(){
+  var out=[];
+  (_tree||[]).forEach(function(n){out.push(n.path);(n.children||[]).forEach(function(c){out.push(c.path);});});
+  return out;
+}
+function openMv(docId){
+  _mvDoc=docId;
+  var doc=_docs.filter(function(d){return d.doc_id===docId;})[0]||{};
+  document.getElementById('mv-sub').textContent=doc.titre||'Document';
+  var sel=document.getElementById('mv-sel');
+  var paths=allFolderPaths();
+  sel.innerHTML=paths.map(function(p){return '<option value="'+escAttr(p)+'"'+(p===(doc.folder||'')?' selected':'')+'>'+escH(p)+'</option>';}).join('');
+  document.getElementById('mv-modal').classList.add('open');
+}
+function closeMv(){document.getElementById('mv-modal').classList.remove('open');}
+function confirmMove(){
+  var path=document.getElementById('mv-sel').value;
+  af('/api/vault/doc/'+_mvDoc+'/move',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({folder_path:path})})
+    .then(function(r){return r.json();}).then(function(r){
+      if(r.error){toast(r.error);return;}
+      toast('Déplacé');closeMv();refreshTreeAndDocs();
+    }).catch(function(e){toast('Erreur: '+e.message);});
+}
+function newFolderPrompt(parent){
+  var name=prompt(parent?('Nouveau sous-dossier dans '+parent+' :'):'Nom du nouveau dossier :');
+  if(!name)return;
+  var path=parent?(parent.split('/')[0]+'/'+name):name;
+  af('/api/vault/folder',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'create',path:path})})
+    .then(function(r){return r.json();}).then(function(r){
+      if(r.error){toast(r.error);return;}toast('Dossier créé');refreshTreeAndDocs();
+    }).catch(function(e){toast('Erreur: '+e.message);});
+}
+function renameFolderPrompt(path){
+  var cur=path.split('/').pop();
+  var name=prompt('Renommer le dossier :',cur);
+  if(!name||name===cur)return;
+  var parts=path.split('/');parts[parts.length-1]=name;
+  af('/api/vault/folder',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'rename',path:path,new:parts.join('/')})})
+    .then(function(r){return r.json();}).then(function(r){
+      if(r.error){toast(r.error);return;}toast('Renommé');closeFld();refreshTreeAndDocs();
+    }).catch(function(e){toast('Erreur: '+e.message);});
+}
+function deleteFolder(path){
+  af('/api/vault/folder',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'delete',path:path})})
+    .then(function(r){return r.json();}).then(function(r){
+      if(r.error){toast(r.error);return;}toast('Dossier supprimé');closeFld();refreshTreeAndDocs();
+    }).catch(function(e){toast('Erreur: '+e.message);});
+}
+function refreshTreeAndDocs(){
+  af('/api/documents/v2/timeline?limit=200').then(function(r){return r.json();}).then(function(r){_docs=r.timeline||[];});
+  loadTree();
+  if(document.getElementById('fld-panel').classList.contains('open') && _fldCur) setTimeout(function(){openFld(_fldCur);},250);
 }
 
 // ── URGENCES ──────────────────────────────

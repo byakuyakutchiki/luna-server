@@ -20549,6 +20549,11 @@ async def documents_v2_timeline(request: Request, limit: int = 50):
         from core.documents.actions_engine import _compute_priority, _urgency_label
         from core.vault.classifier import DOC_TYPES
         docs = vops.list_docs(limit=limit)
+        # Dossier résolu pour chaque doc (issue #22 Lot A) — additif, règles chargées 1x
+        try:
+            vops.resolve_folders(docs)
+        except Exception:
+            pass
         timeline = []
         for doc in docs:
             doc_type = doc.get("doc_type", "autre")
@@ -20561,6 +20566,7 @@ async def documents_v2_timeline(request: Request, limit: int = 50):
                 "created_at": doc.get("created_at"),
                 "priority":  _compute_priority(doc),
                 "urgency":   _urgency_label(doc),
+                "folder":    doc.get("folder", ""),
             })
         return JSONResponse(content={"timeline": timeline, "total": len(timeline)})
     except Exception as e:
