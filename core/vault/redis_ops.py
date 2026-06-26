@@ -13,7 +13,8 @@ class VaultRedisOps:
     _DOC_KEY      = "vault:doc:{doc_id}"            # hash: métadonnées
     _TYPE_KEY     = "vault:docs_by_type:{doc_type}" # sorted set: doc_id → timestamp (par type)
     _REM_KEY      = "vault:reminders"               # sorted set: json → timestamp rappel
-    _CONSENT_KEY  = "vault:consent"                 # string: timestamp consentement
+    _CONSENT_KEY  = "vault:consent"                 # string: timestamp consentement (métadonnées)
+    _ORIG_CONSENT_KEY = "vault:originals_consent"   # string: consentement stockage originaux (opt-in)
     _FOLDERS_KEY  = "vault:folders"                 # set: dossiers custom créés par l'utilisateur
     _RULES_KEY    = "vault:folder_rules"            # hash: emetteur normalisé → folder_path appris
     TTL_DOC = 86400 * 365             # 1 an max
@@ -62,6 +63,24 @@ class VaultRedisOps:
         """Révocation → supprime tout (RGPD droit à l'effacement)."""
         self.delete_all()
         self.rc.client.delete(self._k(self._CONSENT_KEY))
+        self.rc.client.delete(self._k(self._ORIG_CONSENT_KEY))
+
+    # ── Consentement stockage des originaux (opt-in, option B) ────────
+
+    def has_originals_consent(self) -> bool:
+        return bool(self.rc.client.get(self._k(self._ORIG_CONSENT_KEY)))
+
+    def record_originals_consent(self) -> None:
+        self.rc.client.set(self._k(self._ORIG_CONSENT_KEY), datetime.utcnow().isoformat())
+
+    def revoke_originals_consent(self) -> int:
+        """Retire le consentement et supprime tous les originaux stockés (les métadonnées restent)."""
+        self.rc.client.delete(self._k(self._ORIG_CONSENT_KEY))
+        try:
+            from . import originals
+            return originals.delete_all(self.tid)
+        except Exception:
+            return 0
 
     # ── Documents ─────────────────────────────────────────────────────
 
@@ -102,6 +121,12 @@ class VaultRedisOps:
         self.rc.client.zrem(self._k(self._DOCS_KEY), doc_id)
         # Supprimer ses rappels
         self._remove_reminders_for_doc(doc_id)
+        # Supprimer l'original chiffré éventuel (cascade)
+        try:
+            from . import originals
+            originals.delete(self.tid, doc_id)
+        except Exception:
+            pass
         return bool(deleted)
 
     def delete_all(self) -> int:
@@ -114,6 +139,12 @@ class VaultRedisOps:
         self.rc.client.delete(self._k(self._REM_KEY))
         self.rc.client.delete(self._k(self._FOLDERS_KEY))
         self.rc.client.delete(self._k(self._RULES_KEY))
+        # Supprimer tous les originaux chiffrés (cascade RGPD)
+        try:
+            from . import originals
+            originals.delete_all(self.tid)
+        except Exception:
+            pass
         return count
 
     def _load_doc(self, doc_id: str) -> Optional[dict]:

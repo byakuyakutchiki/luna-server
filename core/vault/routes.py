@@ -84,6 +84,46 @@ async def revoke_consent(request: Request):
 
 
 # ═══════════════════════════════════════════════════════════════════════
+# CONSENTEMENT STOCKAGE DES ORIGINAUX (opt-in, option B — issue #22 phase 2)
+# ═══════════════════════════════════════════════════════════════════════
+
+@vault_router.get("/api/vault/originals-consent")
+async def get_originals_consent(request: Request):
+    """État du consentement au stockage chiffré des originaux + disponibilité technique."""
+    vops = _get_vops(request)
+    if not vops:
+        return _err("Non disponible", 503)
+    try:
+        from . import originals
+        avail = originals.available()
+    except Exception:
+        avail = False
+    return {"consent": vops.has_originals_consent(), "available": avail}
+
+
+@vault_router.post("/api/vault/originals-consent")
+async def record_originals_consent(request: Request):
+    """Active le stockage chiffré des originaux (consentement explicite)."""
+    vops = _get_vops(request)
+    if not vops:
+        return _err("Non disponible", 503)
+    vops.record_originals_consent()
+    logger.info(f"Vault originals consent recorded for tenant {vops.tid}")
+    return {"success": True}
+
+
+@vault_router.delete("/api/vault/originals-consent")
+async def revoke_originals_consent(request: Request):
+    """Désactive le stockage des originaux et supprime ceux déjà stockés (les métadonnées restent)."""
+    vops = _get_vops(request)
+    if not vops:
+        return _err("Non disponible", 503)
+    n = vops.revoke_originals_consent()
+    logger.info(f"Vault originals consent revoked for tenant {vops.tid} — {n} originaux supprimés")
+    return {"success": True, "deleted_originals": n}
+
+
+# ═══════════════════════════════════════════════════════════════════════
 # SCAN ET CLASSIFICATION
 # ═══════════════════════════════════════════════════════════════════════
 
@@ -132,10 +172,26 @@ async def scan_document(request: Request):
         metadata["titre"] = metadata.get("doc_label", "Document")
 
     doc_id = vops.save_doc(metadata)
+
+    # Stockage chiffré de l'original — uniquement si l'utilisateur a opté pour (option B)
+    stored_original = False
+    if vops.has_originals_consent():
+        try:
+            from . import originals
+            import base64 as _b64
+            raw = _b64.b64decode(image_b64)
+            if originals.store(vops.tid, doc_id, raw, media_type):
+                vops.rc.client.hset(
+                    vops._k(vops._DOC_KEY, doc_id=doc_id),
+                    mapping={"has_original": "true", "original_ct": media_type})
+                stored_original = True
+        except Exception as e:
+            logger.warning(f"Vault scan: stockage original échoué doc={doc_id}: {e}")
+
     logger.info(
         f"Vault scan: tenant={vops.tid} doc_id={doc_id} "
         f"type={metadata['doc_type']} expiry={metadata.get('date_expiration')} "
-        f"reminders={len(metadata.get('reminders', []))}"
+        f"reminders={len(metadata.get('reminders', []))} original={stored_original}"
     )
 
     return {
@@ -161,6 +217,7 @@ async def scan_document(request: Request):
         "extracted_fields": metadata.get("extracted_fields", {}),
         "profile_update_available": metadata.get("profile_update_available", False),
         "profile_fields": metadata.get("profile_fields", {}),
+        "has_original": stored_original,
     }
 
 
@@ -207,6 +264,31 @@ async def get_doc(request: Request, doc_id: str):
         return _err("Document non trouvé", 404)
 
     return doc
+
+
+@vault_router.get("/api/vault/doc/{doc_id}/original")
+async def get_doc_original(request: Request, doc_id: str):
+    """Renvoie l'original déchiffré (image/PDF) — réservé au propriétaire du document."""
+    vops = _get_vops(request)
+    if not vops:
+        return _err("Authentification requise", 401)
+    # Vérifie l'appartenance avant tout accès au stockage
+    doc = vops.get_doc(doc_id)
+    if not doc:
+        return _err("Document non trouvé", 404)
+    try:
+        from . import originals
+        res = originals.fetch(vops.tid, doc_id)
+    except Exception as e:  # noqa: BLE001
+        logger.error(f"get original error tid={vops.tid} doc={doc_id}: {e}")
+        return _err("Erreur de récupération", 500)
+    if not res:
+        return _err("Original non disponible", 404)
+    data, ct = res
+    from fastapi.responses import Response
+    return Response(content=data, media_type=ct,
+                    headers={"Cache-Control": "private, no-store",
+                             "Content-Disposition": "inline"})
 
 
 # ═══════════════════════════════════════════════════════════════════════

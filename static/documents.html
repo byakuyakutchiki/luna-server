@@ -535,6 +535,28 @@ body::after{content:'';position:fixed;bottom:-10%;right:-10%;width:400px;height:
 #mv-actions button{flex:1;border-radius:12px;padding:12px;font-size:.84em;font-weight:700;cursor:pointer;border:1px solid var(--b2);}
 .mv-cancel{background:rgba(255,255,255,.05);color:var(--mu);}
 .mv-ok{background:linear-gradient(135deg,var(--ac),var(--ac2));color:#fff;border:none!important;}
+
+/* ── Viewer original chiffré (issue #22 phase 2) ────────── */
+.ov-wrap{display:flex;flex-direction:column;height:100%;min-height:60vh;}
+.ov-bar{display:flex;align-items:center;gap:6px;padding:8px;background:rgba(0,0,0,.35);border-radius:12px 12px 0 0;flex-wrap:wrap;}
+.ov-bar button{background:rgba(255,255,255,.08);border:1px solid var(--b2);color:#e5e7f0;border-radius:9px;width:34px;height:34px;font-size:1em;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+.ov-bar button:active{background:rgba(255,255,255,.16);}
+.ov-zoom{font-size:.72em;color:var(--mu);min-width:44px;text-align:center;}
+.ov-sec{font-size:.62em;color:#34d399;display:flex;align-items:center;gap:4px;margin-left:auto;font-weight:700;}
+.ov-stage{flex:1;overflow:hidden;background:#0b0b16;border-radius:0 0 12px 12px;position:relative;display:flex;align-items:center;justify-content:center;touch-action:none;cursor:grab;min-height:50vh;}
+.ov-stage.grabbing{cursor:grabbing;}
+.ov-stage img{max-width:100%;max-height:100%;transform-origin:center center;transition:transform .05s linear;user-select:none;-webkit-user-drag:none;border-radius:6px;background:#fff;}
+.ov-stage iframe{width:100%;height:100%;border:none;background:#fff;transform-origin:center center;}
+.ov-stage:fullscreen,.ov-wrap:fullscreen{background:#000;}
+.ov-stage:fullscreen img{max-height:100vh;}
+.ov-loading{color:var(--mu);font-size:.82em;}
+/* Carte opt-in originaux */
+.oo-card{background:rgba(99,102,241,.07);border:1px solid rgba(99,102,241,.25);border-radius:14px;padding:14px;margin-bottom:14px;}
+.oo-h{display:flex;align-items:center;gap:8px;font-size:.84em;font-weight:700;margin-bottom:6px;}
+.oo-d{font-size:.72em;color:var(--mu);line-height:1.5;margin-bottom:10px;}
+.oo-btn{background:linear-gradient(135deg,var(--ac),var(--ac2));border:none;color:#fff;border-radius:10px;padding:9px 14px;font-size:.78em;font-weight:700;cursor:pointer;}
+.oo-btn.off{background:rgba(255,255,255,.06);border:1px solid var(--b2);color:var(--mu);}
+.oo-on{font-size:.7em;color:#34d399;font-weight:700;}
 </style>
 </head>
 <body>
@@ -932,6 +954,7 @@ var _dash=null;
     renderScore(cats);
     if((_dash.urgent_count||0)>0) renderUrg(_dash.urgent_actions||_dash.actions||[]);
     loadGenDocs();
+    loadOrigConsent();
   }).catch(function(e){
     toast('Erreur: '+e.message);
     document.getElementById('lib-grid').innerHTML='<div class="skel" style="grid-column:1/-1;opacity:.4;"></div>';
@@ -1756,6 +1779,9 @@ function openWorkspace(id){
 function closeWorkspace(){document.getElementById('docws').classList.remove('open');document.body.style.overflow='';_wsDoc=null;}
 function renderWsView(d,meta){
   var el=document.getElementById('docws-view');
+  // Priorité #22 : afficher l'ORIGINAL si conservé (chiffré). Sinon mix progressif / fiche.
+  var hasOrig=(String(d.has_original).toLowerCase()==='true')||d.has_original===true;
+  if(hasOrig){ renderOriginalViewer(el,d.id||meta.doc_id,d.original_ct||''); return; }
   // Mix progressif : viewer fichier reel si PDF telechargeable, sinon fiche lisible
   var url=d.download_url||d.file_url||meta.download_url||'';
   if(url&&/\.pdf(\?|$)/i.test(url)){
@@ -1765,7 +1791,7 @@ function renderWsView(d,meta){
   var ef=d.extracted_fields;
   if(typeof ef==='string'){try{ef=JSON.parse(ef);}catch(e){ef={};}}
   ef=ef||{};
-  var h='<div class="dw-fiche"><h4>'+escH(d.titre||meta.titre||'Document')+'</h4>';
+  var h=optInCardHtml()+'<div class="dw-fiche"><h4>'+escH(d.titre||meta.titre||'Document')+'</h4>';
   var rows=[['Type',d.doc_label||d.label||meta.label||d.doc_type],['Émetteur',d.emetteur],['Date',fmt(d.date_document||'')],['Échéance',fmt(d.date_expiration||'')],['Montant',d.montant?(d.montant+' €'):'']];
   rows.forEach(function(f){if(f[1])h+='<div class="dw-frow"><span class="dw-fk">'+escH(f[0])+'</span><span class="dw-fv">'+escH(f[1])+'</span></div>';});
   Object.keys(ef).forEach(function(k){if(ef[k])h+='<div class="dw-frow"><span class="dw-fk">'+escH(k)+'</span><span class="dw-fv">'+escH(ef[k])+'</span></div>';});
@@ -1774,6 +1800,93 @@ function renderWsView(d,meta){
   h+='</div>';
   el.innerHTML=h;
 }
+
+// ── Stockage des originaux : consentement opt-in (issue #22 phase 2) ──
+var _origConsent=false,_origAvail=false;
+function loadOrigConsent(){
+  af('/api/vault/originals-consent').then(function(r){return r.json();}).then(function(r){
+    _origConsent=!!r.consent; _origAvail=!!r.available;
+  }).catch(function(){});
+}
+function optInCardHtml(){
+  if(!_origAvail) return '';
+  if(_origConsent){
+    return '<div class="oo-card"><div class="oo-h">🔒 Documents originaux conservés</div>'
+      +'<div class="oo-d">Tes prochains scans sont conservés <b>chiffrés</b> et consultables ici (zoom, rotation, plein écran). Tu peux tout supprimer à tout moment.</div>'
+      +'<button class="oo-btn off" onclick="toggleOrigConsent(false)">Désactiver & supprimer les originaux</button></div>';
+  }
+  return '<div class="oo-card"><div class="oo-h">📷 Conserver le document original ?</div>'
+    +'<div class="oo-d">Par défaut, seules les informations sont gardées (pas l\'image). Active la conservation pour revoir tes documents tels quels — stockage <b>chiffré</b>, supprimable à tout moment.</div>'
+    +'<button class="oo-btn" onclick="toggleOrigConsent(true)">Activer la conservation chiffrée</button></div>';
+}
+function toggleOrigConsent(on){
+  if(on){
+    af('/api/vault/originals-consent',{method:'POST'}).then(function(r){return r.json();}).then(function(){
+      _origConsent=true;toast('Conservation chiffrée activée');refreshWsFiche();
+    }).catch(function(e){toast('Erreur: '+e.message);});
+  }else{
+    if(!confirm('Désactiver et supprimer tous les originaux déjà conservés ? Les informations extraites sont conservées.'))return;
+    af('/api/vault/originals-consent',{method:'DELETE'}).then(function(r){return r.json();}).then(function(r){
+      _origConsent=false;toast('Originaux supprimés ('+(r.deleted_originals||0)+')');refreshWsFiche();
+    }).catch(function(e){toast('Erreur: '+e.message);});
+  }
+}
+function refreshWsFiche(){ if(_wsDoc&&_wsDoc.doc_id){af('/api/vault/doc/'+_wsDoc.doc_id).then(function(r){return r.json();}).then(function(d){renderWsView(d,_wsDoc);});} }
+
+// ── Viewer de l'original (zoom / rotation / pages / plein écran) ──
+function renderOriginalViewer(el,docId,ct){
+  el.innerHTML='<div class="ov-loading">Déchiffrement du document…</div>';
+  af('/api/vault/doc/'+docId+'/original').then(function(r){
+    if(!r.ok) throw new Error('indisponible'); return r.blob();
+  }).then(function(blob){
+    var type=ct||blob.type||'';
+    var objUrl=URL.createObjectURL(blob);
+    var isPdf=/pdf/i.test(type)||/pdf/i.test(blob.type);
+    var media=isPdf
+      ? '<iframe id="ov-media" src="'+objUrl+'#toolbar=1&navpanes=0" title="Original"></iframe>'
+      : '<img id="ov-media" src="'+objUrl+'" alt="Original" draggable="false">';
+    el.innerHTML=''
+      +'<div class="ov-wrap" id="ov-wrap">'
+      +'<div class="ov-bar">'
+        +'<button title="Zoom -" onclick="ovZoom(-1)">−</button>'
+        +'<span class="ov-zoom" id="ov-zoom">100%</span>'
+        +'<button title="Zoom +" onclick="ovZoom(1)">+</button>'
+        +'<button title="Pivoter" onclick="ovRotate()">⟳</button>'
+        +'<button title="Réinitialiser" onclick="ovReset()">⤢</button>'
+        +'<button title="Plein écran" onclick="ovFull()">⛶</button>'
+        +'<span class="ov-sec">🔒 chiffré</span>'
+      +'</div>'
+      +'<div class="ov-stage" id="ov-stage">'+media+'</div>'
+      +'</div>';
+    _ov={scale:1,rot:0,tx:0,ty:0,isPdf:isPdf,url:objUrl};
+    if(!isPdf) ovBindPan();
+  }).catch(function(){
+    el.innerHTML='<div class="dw-fiche" style="color:var(--mu)">Original indisponible (peut-être supprimé).</div>';
+  });
+}
+var _ov=null;
+function ovApply(){
+  var m=document.getElementById('ov-media');if(!m||!_ov)return;
+  m.style.transform='translate('+_ov.tx+'px,'+_ov.ty+'px) scale('+_ov.scale+') rotate('+_ov.rot+'deg)';
+  var z=document.getElementById('ov-zoom');if(z)z.textContent=Math.round(_ov.scale*100)+'%';
+}
+function ovZoom(dir){ if(!_ov)return; _ov.scale=Math.min(6,Math.max(.3,_ov.scale+dir*0.25)); ovApply(); }
+function ovRotate(){ if(!_ov)return; _ov.rot=(_ov.rot+90)%360; ovApply(); }
+function ovReset(){ if(!_ov)return; _ov.scale=1;_ov.rot=0;_ov.tx=0;_ov.ty=0; ovApply(); }
+function ovFull(){
+  var w=document.getElementById('ov-stage');if(!w)return;
+  if(document.fullscreenElement){document.exitFullscreen();}
+  else if(w.requestFullscreen){w.requestFullscreen();}
+}
+function ovBindPan(){
+  var stage=document.getElementById('ov-stage');if(!stage)return;
+  var dragging=false,sx=0,sy=0;
+  stage.addEventListener('pointerdown',function(e){if(!_ov)return;dragging=true;sx=e.clientX-_ov.tx;sy=e.clientY-_ov.ty;stage.classList.add('grabbing');stage.setPointerCapture(e.pointerId);});
+  stage.addEventListener('pointermove',function(e){if(!dragging||!_ov)return;_ov.tx=e.clientX-sx;_ov.ty=e.clientY-sy;ovApply();});
+  stage.addEventListener('pointerup',function(){dragging=false;stage.classList.remove('grabbing');});
+  stage.addEventListener('wheel',function(e){if(!_ov)return;e.preventDefault();ovZoom(e.deltaY<0?1:-1);},{passive:false});
+}
+
 function _wsAppend(role,text){
   var msgs=document.getElementById('docws-msgs');
   var intro=document.getElementById('docws-intro');if(intro)intro.parentNode.removeChild(intro);
