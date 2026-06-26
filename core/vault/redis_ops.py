@@ -14,7 +14,34 @@ class VaultRedisOps:
     _TYPE_KEY     = "vault:docs_by_type:{doc_type}" # sorted set: doc_id → timestamp (par type)
     _REM_KEY      = "vault:reminders"               # sorted set: json → timestamp rappel
     _CONSENT_KEY  = "vault:consent"                 # string: timestamp consentement
+    _FOLDERS_KEY  = "vault:folders"                 # set: dossiers custom créés par l'utilisateur
+    _RULES_KEY    = "vault:folder_rules"            # hash: emetteur normalisé → folder_path appris
     TTL_DOC = 86400 * 365             # 1 an max
+
+    # Arborescence par défaut : doc_type → "Dossier" ou "Dossier/Sous-dossier".
+    # Best-effort modifiable par l'utilisateur (l'IA suggère, elle ne décide pas).
+    DEFAULT_FOLDER_MAP = {
+        "cni":             "Identité",
+        "passeport":       "Identité",
+        "titre_sejour":    "Identité",
+        "permis_conduire": "Identité",
+        "carte_vitale":    "Santé",
+        "ordonnance":      "Santé/Ordonnances",
+        "facture":         "Factures",
+        "facture_energie": "Logement/Énergie",
+        "releve_bancaire": "Banque/Relevés",
+        "avis_imposition": "Impôts",
+        "contrat":         "Logement/Contrats",
+        "assurance":       "Assurance",
+        "courrier_admin":  "Administratif",
+        "diplome":         "Travail/Diplômes",
+        "autre":           "Personnel",
+    }
+    # Dossiers racine toujours présents dans l'arbre (même vides), ordre d'affichage.
+    ROOT_FOLDERS = [
+        "Identité", "Banque", "Assurance", "Logement", "Santé",
+        "Travail", "Impôts", "Administratif", "Factures", "Personnel",
+    ]
 
     def __init__(self, redis_client, tenant_id: int):
         self.rc = redis_client
@@ -85,6 +112,8 @@ class VaultRedisOps:
             count += 1
         self.rc.client.delete(self._k(self._DOCS_KEY))
         self.rc.client.delete(self._k(self._REM_KEY))
+        self.rc.client.delete(self._k(self._FOLDERS_KEY))
+        self.rc.client.delete(self._k(self._RULES_KEY))
         return count
 
     def _load_doc(self, doc_id: str) -> Optional[dict]:
@@ -98,6 +127,221 @@ class VaultRedisOps:
             except (json.JSONDecodeError, TypeError):
                 d[k] = v
         return d
+
+    # ── Arborescence / classement (issue #22, Lot A) ──────────────────
+    #
+    # 100 % additif : le dossier d'un document est résolu sans rien stocker
+    # de plus tant que l'utilisateur ne déplace rien. Priorité de résolution :
+    #   1. champ explicite `folder_path` sur le doc (déplacement utilisateur) ;
+    #   2. règle apprise pour cet émetteur (l'IA apprend des choix passés) ;
+    #   3. mapping par défaut selon le type de document.
+
+    FOLDER_ICONS = {
+        "Identité": "🪪", "Banque": "🏦", "Assurance": "🛡", "Logement": "🏠",
+        "Santé": "❤️", "Travail": "💼", "Impôts": "🧾", "Administratif": "📬",
+        "Factures": "🧾", "Personnel": "📂",
+    }
+
+    @staticmethod
+    def _norm_key(s: str) -> str:
+        """Normalise un émetteur pour servir de clé de règle (minuscule, sans accents/espaces multiples)."""
+        if not s:
+            return ""
+        import unicodedata
+        nfd = unicodedata.normalize("NFD", str(s))
+        out = "".join(c for c in nfd if unicodedata.category(c) != "Mn").lower()
+        return " ".join(out.split())
+
+    @staticmethod
+    def _clean_folder_path(path: str) -> str:
+        """Nettoie un folder_path : trim, max 2 niveaux, pas de slash en trop."""
+        if not path:
+            return ""
+        parts = [p.strip() for p in str(path).split("/") if p.strip()]
+        return "/".join(parts[:2])
+
+    def _rules(self) -> dict:
+        return self.rc.client.hgetall(self._k(self._RULES_KEY)) or {}
+
+    def learn_rule(self, emetteur: str, folder_path: str) -> None:
+        """Mémorise qu'un émetteur va dans tel dossier (apprentissage des choix utilisateur)."""
+        key = self._norm_key(emetteur)
+        fp = self._clean_folder_path(folder_path)
+        if key and fp:
+            self.rc.client.hset(self._k(self._RULES_KEY), key, fp)
+            self.rc.client.expire(self._k(self._RULES_KEY), self.TTL_DOC)
+
+    def folder_for(self, doc: dict, rules: dict | None = None) -> str:
+        """Résout le dossier d'un document (explicite > règle apprise > défaut par type).
+
+        `rules` peut être pré-chargé pour éviter un appel Redis par document.
+        """
+        explicit = self._clean_folder_path(doc.get("folder_path") or "")
+        if explicit:
+            return explicit
+        if rules is None:
+            rules = self._rules()
+        rule = rules.get(self._norm_key(doc.get("emetteur") or ""))
+        if rule:
+            return self._clean_folder_path(rule)
+        return self.DEFAULT_FOLDER_MAP.get(doc.get("doc_type", "autre"), "Personnel")
+
+    def resolve_folders(self, docs: list[dict]) -> list[dict]:
+        """Attache à chaque document son dossier résolu (champ `folder`). Charge les règles une fois."""
+        rules = self._rules()
+        for d in docs:
+            d["folder"] = self.folder_for(d, rules)
+        return docs
+
+    def _custom_folders(self) -> set:
+        return set(self.rc.client.smembers(self._k(self._FOLDERS_KEY)) or [])
+
+    def add_folder(self, path: str) -> str:
+        fp = self._clean_folder_path(path)
+        if not fp:
+            return ""
+        self.rc.client.sadd(self._k(self._FOLDERS_KEY), fp)
+        self.rc.client.expire(self._k(self._FOLDERS_KEY), self.TTL_DOC)
+        return fp
+
+    def delete_folder(self, path: str) -> dict:
+        """Supprime un dossier vide. Refuse si des documents y sont rangés."""
+        fp = self._clean_folder_path(path)
+        if not fp:
+            return {"ok": False, "error": "Chemin invalide"}
+        if fp in self.ROOT_FOLDERS:
+            return {"ok": False, "error": "Dossier racine non supprimable"}
+        n = self._count_docs_under(fp)
+        if n > 0:
+            return {"ok": False, "error": f"Dossier non vide ({n} document(s))"}
+        self.rc.client.srem(self._k(self._FOLDERS_KEY), fp)
+        return {"ok": True}
+
+    def rename_folder(self, old: str, new: str) -> dict:
+        """Renomme un dossier : déplace tous ses documents et met à jour le set custom."""
+        old_fp = self._clean_folder_path(old)
+        new_fp = self._clean_folder_path(new)
+        if not old_fp or not new_fp:
+            return {"ok": False, "error": "Chemin invalide"}
+        moved = self._move_docs_prefix(old_fp, new_fp)
+        cf = self._custom_folders()
+        if old_fp in cf:
+            self.rc.client.srem(self._k(self._FOLDERS_KEY), old_fp)
+        self.add_folder(new_fp)
+        return {"ok": True, "moved": moved}
+
+    def merge_folders(self, src: str, dst: str) -> dict:
+        """Fusionne src dans dst : tous les documents de src passent dans dst."""
+        src_fp = self._clean_folder_path(src)
+        dst_fp = self._clean_folder_path(dst)
+        if not src_fp or not dst_fp or src_fp == dst_fp:
+            return {"ok": False, "error": "Chemins invalides"}
+        moved = self._move_docs_prefix(src_fp, dst_fp)
+        if src_fp not in self.ROOT_FOLDERS:
+            self.rc.client.srem(self._k(self._FOLDERS_KEY), src_fp)
+        self.add_folder(dst_fp)
+        return {"ok": True, "moved": moved}
+
+    def move_doc(self, doc_id: str, folder_path: str, learn: bool = True) -> dict:
+        """Déplace un document dans un dossier (champ explicite folder_path)."""
+        doc = self._load_doc(doc_id)
+        if not doc:
+            return {"ok": False, "error": "Document non trouvé"}
+        fp = self._clean_folder_path(folder_path)
+        if not fp:
+            return {"ok": False, "error": "Dossier invalide"}
+        self.rc.client.hset(self._k(self._DOC_KEY, doc_id=doc_id), "folder_path", fp)
+        if learn and doc.get("emetteur"):
+            self.learn_rule(doc["emetteur"], fp)
+        return {"ok": True, "folder_path": fp}
+
+    def rename_doc(self, doc_id: str, titre: str) -> dict:
+        """Renomme un document (titre lisible, éditable par l'utilisateur)."""
+        doc = self._load_doc(doc_id)
+        if not doc:
+            return {"ok": False, "error": "Document non trouvé"}
+        t = (titre or "").strip()
+        if not t:
+            return {"ok": False, "error": "Titre vide"}
+        self.rc.client.hset(self._k(self._DOC_KEY, doc_id=doc_id), "titre", t[:200])
+        return {"ok": True, "titre": t[:200]}
+
+    def _move_docs_prefix(self, old_fp: str, new_fp: str) -> int:
+        """Déplace tous les docs dont le dossier résolu == old_fp vers new_fp."""
+        moved = 0
+        for doc in self.list_docs(limit=1000):
+            if self.folder_for(doc) == old_fp:
+                self.rc.client.hset(
+                    self._k(self._DOC_KEY, doc_id=doc["id"]), "folder_path", new_fp)
+                moved += 1
+        return moved
+
+    def _count_docs_under(self, fp: str) -> int:
+        return sum(1 for doc in self.list_docs(limit=1000)
+                   if self.folder_for(doc).startswith(fp))
+
+    @staticmethod
+    def _is_urgent(doc: dict) -> bool:
+        if doc.get("expiry_status") in ("expired", "urgent"):
+            return True
+        return doc.get("priority") == "high"
+
+    def build_tree(self, limit: int = 1000) -> dict:
+        """Construit l'arborescence : dossiers (avec sous-dossiers), compteurs,
+        urgences, dernière modif. Inclut les dossiers racine et custom même vides."""
+        docs = self.list_docs(limit=limit)
+        rules = self._rules()
+        # node = {count, urgent, last, children:{}}
+        roots: dict = {}
+
+        def ensure(path: str):
+            parts = path.split("/")
+            root = parts[0]
+            node = roots.setdefault(root, {"count": 0, "urgent": 0, "last": "", "children": {}})
+            if len(parts) > 1:
+                node["children"].setdefault(parts[1], {"count": 0, "urgent": 0, "last": ""})
+            return node
+
+        # Dossiers toujours visibles
+        for r in self.ROOT_FOLDERS:
+            ensure(r)
+        for cf in self._custom_folders():
+            ensure(cf)
+
+        for doc in docs:
+            fp = self.folder_for(doc, rules)
+            parts = fp.split("/")
+            node = ensure(fp)
+            created = doc.get("created_at", "") or ""
+            urgent = 1 if self._is_urgent(doc) else 0
+            node["count"] += 1
+            node["urgent"] += urgent
+            if created > node["last"]:
+                node["last"] = created
+            if len(parts) > 1:
+                sub = node["children"][parts[1]]
+                sub["count"] += 1
+                sub["urgent"] += urgent
+                if created > sub["last"]:
+                    sub["last"] = created
+
+        # Sérialisation ordonnée : racines connues d'abord, puis le reste alpha
+        ordered = [r for r in self.ROOT_FOLDERS if r in roots]
+        ordered += sorted(k for k in roots if k not in self.ROOT_FOLDERS)
+        tree = []
+        for name in ordered:
+            n = roots[name]
+            children = [
+                {"name": cn, "path": f"{name}/{cn}", "count": c["count"],
+                 "urgent": c["urgent"], "last_modified": c["last"]}
+                for cn, c in sorted(n["children"].items())
+            ]
+            tree.append({
+                "name": name, "path": name, "icon": self.FOLDER_ICONS.get(name, "📁"),
+                "count": n["count"], "urgent": n["urgent"],
+                "last_modified": n["last"], "children": children,
+            })
+        return {"tree": tree, "total": len(docs)}
 
     # ── Rappels ───────────────────────────────────────────────────────
 

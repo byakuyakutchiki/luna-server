@@ -178,7 +178,7 @@ async def list_docs(request: Request):
     if not vops.has_consent():
         return {"docs": [], "consent_required": True}
 
-    docs = vops.list_docs(limit=200)
+    docs = vops.resolve_folders(vops.list_docs(limit=200))
     reminders = vops.get_upcoming_reminders(days=30)
 
     # Compte par statut d'expiration
@@ -226,6 +226,84 @@ async def delete_doc(request: Request, doc_id: str):
 
     logger.info(f"Vault delete: tenant={vops.tid} doc_id={doc_id}")
     return {"success": True}
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# ARBORESCENCE / CLASSEMENT (issue #22, Lot A)
+# ═══════════════════════════════════════════════════════════════════════
+
+@vault_router.get("/api/vault/tree")
+async def get_tree(request: Request):
+    """Arborescence des documents : dossiers, sous-dossiers, compteurs, urgences."""
+    vops = _get_vops(request)
+    if not vops:
+        return _err("Authentification requise", 401)
+    if not vops.has_consent():
+        return {"tree": [], "total": 0, "consent_required": True}
+    return vops.build_tree()
+
+
+@vault_router.post("/api/vault/doc/{doc_id}/move")
+async def move_doc(request: Request, doc_id: str):
+    """Déplace un document dans un dossier. Corps: {folder_path: "Logement/Énergie"}."""
+    vops = _get_vops(request)
+    if not vops:
+        return _err("Authentification requise", 401)
+    try:
+        body = await request.json()
+    except Exception:
+        return _err("Corps JSON invalide")
+    res = vops.move_doc(doc_id, body.get("folder_path", ""))
+    if not res.get("ok"):
+        return _err(res.get("error", "Échec"), 400)
+    logger.info(f"Vault move: tenant={vops.tid} doc={doc_id} → {res['folder_path']}")
+    return {"success": True, **res}
+
+
+@vault_router.post("/api/vault/doc/{doc_id}/rename")
+async def rename_doc(request: Request, doc_id: str):
+    """Renomme un document. Corps: {titre: "Facture EDF – Juin 2026"}."""
+    vops = _get_vops(request)
+    if not vops:
+        return _err("Authentification requise", 401)
+    try:
+        body = await request.json()
+    except Exception:
+        return _err("Corps JSON invalide")
+    res = vops.rename_doc(doc_id, body.get("titre", ""))
+    if not res.get("ok"):
+        return _err(res.get("error", "Échec"), 400)
+    return {"success": True, **res}
+
+
+@vault_router.post("/api/vault/folder")
+async def manage_folder(request: Request):
+    """CRUD dossier. Corps: {action: create|rename|merge|delete, path?, new?, src?, dst?}."""
+    vops = _get_vops(request)
+    if not vops:
+        return _err("Authentification requise", 401)
+    try:
+        body = await request.json()
+    except Exception:
+        return _err("Corps JSON invalide")
+    action = (body.get("action") or "").strip()
+    if action == "create":
+        fp = vops.add_folder(body.get("path", ""))
+        if not fp:
+            return _err("Chemin invalide")
+        return {"success": True, "path": fp}
+    if action == "rename":
+        res = vops.rename_folder(body.get("path", ""), body.get("new", ""))
+    elif action == "merge":
+        res = vops.merge_folders(body.get("src", ""), body.get("dst", ""))
+    elif action == "delete":
+        res = vops.delete_folder(body.get("path", ""))
+    else:
+        return _err(f"Action inconnue: {action}")
+    if not res.get("ok"):
+        return _err(res.get("error", "Échec"), 400)
+    logger.info(f"Vault folder {action}: tenant={vops.tid} {body}")
+    return {"success": True, **res}
 
 
 # ═══════════════════════════════════════════════════════════════════════
