@@ -24,6 +24,7 @@ python-multipart>=0.0.6
 
 # Auth (multi-tenant)
 PyJWT>=2.8.0
+cryptography>=42,<46
 bcrypt>=4.0.0
 
 # Anthropic Claude (chat écrit + luna-brain)
