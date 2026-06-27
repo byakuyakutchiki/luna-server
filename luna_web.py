@@ -23077,6 +23077,96 @@ def _verify_admin(request: Request) -> bool:
         return False
 
 
+# --- Helpers gestion utilisateurs (additif, non destructif) ---
+
+def _admin_ip(request: Request) -> str:
+    """IP réelle du client (Cloud Run: X-Forwarded-For)."""
+    return (
+        request.headers.get("X-Forwarded-For", "").split(",")[0].strip()
+        or (request.client.host if request.client else "unknown")
+    )
+
+
+def _admin_identity(request: Request) -> str:
+    """Identité de l'admin pour l'audit (fondateur ou admin)."""
+    auth = request.headers.get("Authorization", "")
+    if auth.startswith("Bearer "):
+        try:
+            import jwt as pyjwt
+            payload = pyjwt.decode(auth[7:], _JWT_SECRET, algorithms=[_JWT_ALGORITHM])
+            if payload.get("plan") == "fondateur":
+                return "fondateur"
+            return payload.get("role", "admin")
+        except Exception:
+            pass
+    return "admin"
+
+
+def _admin_audit(request: Request, action: str, target_tenant: int = None,
+                 details: dict = None) -> None:
+    """Journalise une action admin dans Redis (qui, quoi, quand, depuis où)."""
+    if not _redis_client:
+        return
+    try:
+        _redis_client.append_admin_audit({
+            "ts": time.time(),
+            "iso": datetime.now().isoformat(timespec="seconds"),
+            "actor": _admin_identity(request),
+            "ip": _admin_ip(request),
+            "action": action,
+            "target_tenant": target_tenant,
+            "details": details or {},
+        })
+    except Exception as e:
+        logger.error(f"_admin_audit error: {e}")
+
+
+def _index_user(tenant_id: int, *, email: str = None, plan: str = None,
+                active: bool = None, suspended: bool = None,
+                suspend_reason: str = None, name: str = None,
+                created_at=None) -> None:
+    """Met à jour la fiche dénormalisée d'un user dans l'index Redis (merge)."""
+    if not _redis_client:
+        return
+    try:
+        existing = {}
+        raw = _redis_client.client.hget(_redis_client._users_index_key(), str(tenant_id))
+        if raw:
+            try:
+                existing = json.loads(raw)
+            except Exception:
+                existing = {}
+        merged = dict(existing)
+        if email is not None:
+            merged["email"] = email
+        if plan is not None:
+            merged["plan"] = plan
+        if active is not None:
+            merged["active"] = bool(active)
+        if suspended is not None:
+            merged["suspended"] = bool(suspended)
+        if suspend_reason is not None:
+            merged["suspend_reason"] = suspend_reason
+        if name is not None:
+            merged["name"] = name
+        if created_at is not None:
+            merged["created_at"] = created_at
+        _redis_client.upsert_user_index(tenant_id, merged)
+    except Exception as e:
+        logger.error(f"_index_user({tenant_id}) error: {e}")
+
+
+def _ensure_users_index() -> None:
+    """Reconstruit l'index si vide (lazy backfill, idempotent)."""
+    if not _redis_client:
+        return
+    try:
+        if _redis_client.users_index_size() == 0:
+            _redis_client.backfill_users_index(profile_getter=_redis_client.get_profile)
+    except Exception as e:
+        logger.error(f"_ensure_users_index error: {e}")
+
+
 # --- Certificat d'autonomie ---
 _certificate_timestamp: float = 0  # timestamp de generation du certificat
 
@@ -23210,22 +23300,72 @@ async def admin_certificate(request: Request):
     )
 
 
+_ADMIN_LOGIN_MAX_FAILS = int(os.getenv("ADMIN_LOGIN_MAX_FAILS", "8"))
+_ADMIN_2FA_ENABLED = os.getenv("ADMIN_2FA_ENABLED", "").lower() in ("1", "true", "yes")
+
+
+def _admin_totp_secret() -> str:
+    """Secret TOTP pour le 2FA admin (réutilise CORTEX_TOTP_SECRET ou fichier)."""
+    secret = os.getenv("ADMIN_TOTP_SECRET") or os.getenv("CORTEX_TOTP_SECRET")
+    if not secret:
+        try:
+            p = os.path.join(os.path.dirname(__file__), "data", "cortex_totp.secret")
+            with open(p) as f:
+                secret = f.read().strip()
+        except Exception:
+            secret = None
+    return secret or ""
+
+
 @app.post("/api/admin/login")
 async def admin_login(request: Request):
-    """Login admin avec mot de passe."""
+    """Login admin avec mot de passe (+ rate limit + 2FA TOTP optionnel)."""
     data = await request.json()
     password = data.get("password", "")
+    totp_code = (data.get("totp") or "").strip()
+    ip = _admin_ip(request)
 
     if not _ADMIN_PASSWORD:
         return JSONResponse(status_code=503, content={
             "error": "ADMIN_PASSWORD non configure dans .env",
         })
 
+    # Anti-bruteforce : blocage après trop d'échecs depuis la même IP
+    if _redis_client and _redis_client.get_login_fails(ip) >= _ADMIN_LOGIN_MAX_FAILS:
+        logger.warning(f"ADMIN_LOGIN_BLOCKED ip={ip} (trop d'échecs)")
+        return JSONResponse(status_code=429, content={
+            "error": "Trop de tentatives. Réessayez dans 15 minutes.",
+        })
+
     import hmac
     if not hmac.compare_digest(password, _ADMIN_PASSWORD):
+        if _redis_client:
+            _redis_client.record_login_fail(ip)
         return JSONResponse(status_code=401, content={"error": "Mot de passe incorrect"})
 
+    # 2FA optionnel : actif seulement si ADMIN_2FA_ENABLED + secret dispo
+    secret = _admin_totp_secret()
+    if _ADMIN_2FA_ENABLED and secret:
+        if not totp_code:
+            return JSONResponse(status_code=401, content={
+                "error": "Code 2FA requis", "totp_required": True,
+            })
+        try:
+            import pyotp
+            if not pyotp.TOTP(secret).verify(totp_code, valid_window=1):
+                if _redis_client:
+                    _redis_client.record_login_fail(ip)
+                return JSONResponse(status_code=401, content={
+                    "error": "Code 2FA invalide", "totp_required": True,
+                })
+        except Exception as e:
+            logger.error(f"ADMIN_2FA verify error: {e}")
+            return JSONResponse(status_code=500, content={"error": "Erreur 2FA"})
+
+    if _redis_client:
+        _redis_client.clear_login_fails(ip)
     token = _create_admin_token()
+    _admin_audit(request, "admin.login", None, {"2fa": bool(_ADMIN_2FA_ENABLED and secret)})
     return {"token": token, "expires_in": 86400}
 
 
@@ -23316,6 +23456,20 @@ async def admin_client_detail(tenant_id: int, request: Request):
         mm = MemoryManager(tenant_id=tenant_id, redis_client=_redis_client)
         profile = mm.get_subscriber_profile()
         quota = mm.get_quota_status()
+        # Enrichit avec le quota SMS réel (usage mensuel + bonus geste commercial)
+        if _quota_guard:
+            try:
+                from core.actions.quota_guard import PlanType as _QPlan
+                plan_str = (quota.get("plan") or "essentiel")
+                try:
+                    _quota_guard.set_plan(tenant_id, _QPlan(plan_str))
+                except ValueError:
+                    pass
+                sms_q = _quota_guard.get_usage_summary(tenant_id).get("sms", {})
+                if sms_q:
+                    quota["sms"] = sms_q
+            except Exception as _e:
+                logger.warning(f"sms quota enrich failed tenant={tenant_id}: {_e}")
         contacts = mm.list_trusted_contacts()
         stats = mm.get_daily_stats_range(7)
         return {
@@ -23375,6 +23529,10 @@ async def admin_create_client(request: Request):
     logger.info(f"ADMIN_CREATE_CLIENT tenant_id={tenant_id} email={email} plan={plan}")
     _gamify("admin", "new_client", is_admin=True)
 
+    _index_user(tenant_id, email=email, plan=plan, active=True, suspended=False,
+                name=f"{first_name} {last_name}".strip(), created_at=time.time())
+    _admin_audit(request, "user.create", tenant_id, {"email": email, "plan": plan})
+
     return {"success": True, "tenant_id": tenant_id, "email": email, "plan": plan}
 
 
@@ -23412,6 +23570,10 @@ async def admin_update_client(tenant_id: int, request: Request):
     email = auth.get("email", "")
     _redis_client.update_auth_record(email, updates)
     logger.info(f"ADMIN_UPDATE_CLIENT tenant_id={tenant_id} updates={updates}")
+    _index_user(tenant_id, email=email,
+                plan=updates.get("plan"),
+                active=updates.get("active"))
+    _admin_audit(request, "user.update", tenant_id, updates)
     return {"success": True, "tenant_id": tenant_id, "updates": updates}
 
 
@@ -23436,7 +23598,9 @@ async def admin_delete_client(tenant_id: int, request: Request):
 
     # Purger toutes les cles du tenant
     keys_deleted = _redis_client.purge_tenant(tenant_id)
+    _redis_client.remove_user_index(tenant_id)
     logger.info(f"ADMIN_DELETE_CLIENT tenant_id={tenant_id} keys_deleted={keys_deleted}")
+    _admin_audit(request, "user.delete", tenant_id, {"keys_deleted": keys_deleted})
     return {"success": True, "tenant_id": tenant_id, "keys_deleted": keys_deleted}
 
 
@@ -23461,6 +23625,7 @@ async def admin_reset_password(tenant_id: int, request: Request):
     new_hash = _hash_password(new_password)
     _redis_client.update_auth_record(email, {"password_hash": new_hash})
     logger.info(f"ADMIN_RESET_PASSWORD tenant_id={tenant_id} email={email}")
+    _admin_audit(request, "user.reset_password", tenant_id, {"email": email})
     return {"success": True, "tenant_id": tenant_id, "email": email}
 
 
@@ -24748,6 +24913,353 @@ async def admin_totp_setup(request: Request):
         content={"secret": secret, "configured": bool(secret)},
         headers={"Cache-Control": "no-store, no-cache, must-revalidate"},
     )
+
+
+# =========================================================================
+# GESTION UTILISATEURS — Dashboard complet (additif)
+# Liste avancée, fiche 360°, cycle de vie, audit. Index Redis = pas de scan.
+# =========================================================================
+
+_PLAN_ORDER = {"essentiel": 0, "confort": 1, "premium": 2, "fondateur": 3}
+
+
+def _filter_sort_users(users, q="", plan="", status="", sort="created_at", order="desc"):
+    """Applique recherche/filtre/tri en mémoire sur les fiches de l'index."""
+    q = (q or "").strip().lower()
+    if q:
+        users = [u for u in users
+                 if q in (u.get("email", "").lower())
+                 or q in (u.get("name", "").lower())
+                 or q == str(u.get("tenant_id", ""))]
+    if plan:
+        users = [u for u in users if u.get("plan") == plan]
+    if status == "active":
+        users = [u for u in users if u.get("active", True) and not u.get("suspended")]
+    elif status == "suspended":
+        users = [u for u in users if u.get("suspended") or not u.get("active", True)]
+
+    reverse = (order or "desc").lower() != "asc"
+    if sort == "email":
+        users.sort(key=lambda u: u.get("email", "").lower(), reverse=reverse)
+    elif sort == "plan":
+        users.sort(key=lambda u: _PLAN_ORDER.get(u.get("plan", "essentiel"), 0), reverse=reverse)
+    elif sort == "name":
+        users.sort(key=lambda u: u.get("name", "").lower(), reverse=reverse)
+    else:  # created_at
+        users.sort(key=lambda u: float(u.get("created_at", 0) or 0), reverse=reverse)
+    return users
+
+
+@app.get("/api/admin/users")
+async def admin_users_list(request: Request, q: str = "", plan: str = "",
+                           status: str = "", sort: str = "created_at",
+                           order: str = "desc", page: int = 1, per_page: int = 25):
+    """Liste avancée des utilisateurs : recherche, filtres, tri, pagination."""
+    if not _verify_admin(request):
+        return JSONResponse(status_code=401, content={"error": "Non autorise"})
+    if not _redis_client:
+        return JSONResponse(status_code=503, content={"error": "Service temporairement indisponible"})
+
+    _ensure_users_index()
+    users = _filter_sort_users(_redis_client.get_users_index(), q, plan, status, sort, order)
+    total = len(users)
+    per_page = max(1, min(int(per_page), 200))
+    page = max(1, int(page))
+    start = (page - 1) * per_page
+    pageu = users[start:start + per_page]
+
+    return {
+        "users": pageu,
+        "total": total,
+        "page": page,
+        "per_page": per_page,
+        "pages": (total + per_page - 1) // per_page,
+        "counts": {
+            "all": total,
+        },
+    }
+
+
+@app.get("/api/admin/users/export")
+async def admin_users_export(request: Request, q: str = "", plan: str = "",
+                             status: str = "", sort: str = "created_at",
+                             order: str = "desc"):
+    """Export CSV des utilisateurs filtrés."""
+    if not _verify_admin(request):
+        return JSONResponse(status_code=401, content={"error": "Non autorise"})
+    if not _redis_client:
+        return JSONResponse(status_code=503, content={"error": "Service temporairement indisponible"})
+
+    _ensure_users_index()
+    users = _filter_sort_users(_redis_client.get_users_index(), q, plan, status, sort, order)
+    _admin_audit(request, "user.export", None, {"count": len(users)})
+
+    import csv as _csv
+    import io as _io
+    buf = _io.StringIO()
+    w = _csv.writer(buf)
+    w.writerow(["tenant_id", "email", "name", "plan", "active", "suspended", "suspend_reason", "created_at"])
+    for u in users:
+        ca = u.get("created_at", 0)
+        try:
+            ca_iso = datetime.fromtimestamp(float(ca)).isoformat(timespec="seconds") if ca else ""
+        except Exception:
+            ca_iso = ""
+        w.writerow([
+            u.get("tenant_id", ""), u.get("email", ""), u.get("name", ""),
+            u.get("plan", ""), u.get("active", True), bool(u.get("suspended")),
+            u.get("suspend_reason", ""), ca_iso,
+        ])
+    return Response(
+        content=buf.getvalue(),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=luna_users.csv"},
+    )
+
+
+@app.post("/api/admin/users/reindex")
+async def admin_users_reindex(request: Request):
+    """Reconstruit l'index utilisateurs depuis les auth records (admin)."""
+    if not _verify_admin(request):
+        return JSONResponse(status_code=401, content={"error": "Non autorise"})
+    if not _redis_client:
+        return JSONResponse(status_code=503, content={"error": "Service temporairement indisponible"})
+    n = _redis_client.backfill_users_index(profile_getter=_redis_client.get_profile)
+    _admin_audit(request, "user.reindex", None, {"count": n})
+    return {"success": True, "indexed": n}
+
+
+@app.post("/api/admin/users/{tenant_id}/suspend")
+async def admin_user_suspend(tenant_id: int, request: Request):
+    """Suspend un utilisateur (réversible, avec motif). Bloque la connexion."""
+    if not _verify_admin(request):
+        return JSONResponse(status_code=401, content={"error": "Non autorise"})
+    if not _redis_client:
+        return JSONResponse(status_code=503, content={"error": "Service temporairement indisponible"})
+    if tenant_id == _PROPRIO_TENANT_ID:
+        return JSONResponse(status_code=403, content={"error": "Impossible de suspendre le compte fondateur"})
+
+    auth = _redis_client.get_auth_by_tenant_id(tenant_id)
+    if not auth:
+        return JSONResponse(status_code=404, content={"error": "Client introuvable"})
+
+    body = await request.json()
+    reason = (body.get("reason") or "").strip()[:300]
+    email = auth.get("email", "")
+    _redis_client.update_auth_record(email, {
+        "active": False,
+        "suspended": True,
+        "suspend_reason": reason,
+        "suspended_at": time.time(),
+    })
+    if tenant_id in _tenant_managers:
+        del _tenant_managers[tenant_id]
+    _index_user(tenant_id, active=False, suspended=True, suspend_reason=reason)
+    logger.info(f"ADMIN_SUSPEND_USER tenant_id={tenant_id} reason={reason!r}")
+    _admin_audit(request, "user.suspend", tenant_id, {"reason": reason})
+    return {"success": True, "tenant_id": tenant_id, "suspended": True, "reason": reason}
+
+
+@app.post("/api/admin/users/{tenant_id}/reactivate")
+async def admin_user_reactivate(tenant_id: int, request: Request):
+    """Réactive un utilisateur suspendu."""
+    if not _verify_admin(request):
+        return JSONResponse(status_code=401, content={"error": "Non autorise"})
+    if not _redis_client:
+        return JSONResponse(status_code=503, content={"error": "Service temporairement indisponible"})
+
+    auth = _redis_client.get_auth_by_tenant_id(tenant_id)
+    if not auth:
+        return JSONResponse(status_code=404, content={"error": "Client introuvable"})
+
+    email = auth.get("email", "")
+    _redis_client.update_auth_record(email, {
+        "active": True,
+        "suspended": False,
+        "suspend_reason": "",
+    })
+    if tenant_id in _tenant_managers:
+        del _tenant_managers[tenant_id]
+    _index_user(tenant_id, active=True, suspended=False, suspend_reason="")
+    logger.info(f"ADMIN_REACTIVATE_USER tenant_id={tenant_id}")
+    _admin_audit(request, "user.reactivate", tenant_id, {})
+    return {"success": True, "tenant_id": tenant_id, "suspended": False}
+
+
+@app.get("/api/admin/users/{tenant_id}/audit")
+async def admin_user_audit(tenant_id: int, request: Request, limit: int = 50):
+    """Journal d'audit d'un utilisateur (actions admin le concernant)."""
+    if not _verify_admin(request):
+        return JSONResponse(status_code=401, content={"error": "Non autorise"})
+    if not _redis_client:
+        return JSONResponse(status_code=503, content={"error": "Service temporairement indisponible"})
+    entries = _redis_client.get_admin_audit(limit=min(int(limit), 200), tenant_id=tenant_id)
+    return {"entries": entries, "total": len(entries)}
+
+
+def _admin_push_inapp(tenant_id: int, title: str, body: str,
+                      ntype: str = "admin_message", extra: dict = None) -> bool:
+    """Pousse une notification in-app au client (canal existant, polling client).
+
+    Réutilise NotificationRedisOps.add_pending → le client la voit via
+    /api/notifications/pending (toast + injection chat). Aucun envoi externe.
+    """
+    if not _redis_client:
+        return False
+    try:
+        from core.notifications.redis_ops import NotificationRedisOps
+        nops = NotificationRedisOps(_redis_client)
+        notif = {"type": ntype, "title": title[:120], "body": body[:600],
+                 "ts": time.time()}
+        if extra:
+            notif.update(extra)
+        nops.add_pending(tenant_id, notif)
+        try:
+            nops.log_delivery(tenant_id, ntype, "in_app")
+        except Exception:
+            pass
+        return True
+    except Exception as e:
+        logger.error(f"_admin_push_inapp({tenant_id}) error: {e}")
+        return False
+
+
+@app.post("/api/admin/users/{tenant_id}/grant-bonus")
+async def admin_user_grant_bonus(tenant_id: int, request: Request):
+    """Geste commercial : accorde un bonus de quota SMS (mois en cours).
+
+    Le bonus s'ajoute à la limite du forfait et expire avec le cycle mensuel.
+    Optionnellement, prévient le client en in-app (notify=true par défaut).
+    """
+    if not _verify_admin(request):
+        return JSONResponse(status_code=401, content={"error": "Non autorise"})
+    if not _redis_client:
+        return JSONResponse(status_code=503, content={"error": "Service temporairement indisponible"})
+    if not _quota_guard:
+        return JSONResponse(status_code=503, content={"error": "QuotaGuard indisponible"})
+
+    auth = _redis_client.get_auth_by_tenant_id(tenant_id)
+    if not auth:
+        return JSONResponse(status_code=404, content={"error": "Client introuvable"})
+
+    body = await request.json()
+    resource = (body.get("resource") or "sms").lower()
+    if resource != "sms":
+        return JSONResponse(status_code=400, content={"error": "Ressource non supportée (sms uniquement)"})
+    try:
+        amount = int(body.get("amount", 0))
+    except (TypeError, ValueError):
+        return JSONResponse(status_code=400, content={"error": "Montant invalide"})
+    if amount == 0 or abs(amount) > 1000:
+        return JSONResponse(status_code=400, content={"error": "Montant hors limites (-1000 à 1000, non nul)"})
+
+    reason = (body.get("reason") or "").strip()[:200]
+    do_notify = bool(body.get("notify", True))
+
+    new_bonus = _quota_guard.grant_bonus(tenant_id, amount, resource)
+
+    notified = False
+    if do_notify and amount > 0:
+        notified = _admin_push_inapp(
+            tenant_id,
+            title="🎁 Geste commercial",
+            body=f"Bonne nouvelle : {amount} SMS supplémentaires viennent d'être ajoutés à votre forfait ce mois-ci.",
+            ntype="admin_message",
+        )
+
+    logger.info(f"ADMIN_GRANT_BONUS tenant_id={tenant_id} {resource}+{amount} reason={reason!r}")
+    _admin_audit(request, "user.grant_bonus", tenant_id,
+                 {"resource": resource, "amount": amount, "reason": reason,
+                  "new_bonus": new_bonus, "notified": notified})
+    return {"success": True, "tenant_id": tenant_id, "resource": resource,
+            "amount": amount, "bonus_total": new_bonus, "notified": notified}
+
+
+@app.post("/api/admin/users/{tenant_id}/notify")
+async def admin_user_notify(tenant_id: int, request: Request):
+    """Envoie un message in-app au client (canal alerte in-app, sans envoi externe)."""
+    if not _verify_admin(request):
+        return JSONResponse(status_code=401, content={"error": "Non autorise"})
+    if not _redis_client:
+        return JSONResponse(status_code=503, content={"error": "Service temporairement indisponible"})
+
+    auth = _redis_client.get_auth_by_tenant_id(tenant_id)
+    if not auth:
+        return JSONResponse(status_code=404, content={"error": "Client introuvable"})
+
+    body = await request.json()
+    title = (body.get("title") or "Message de votre conseiller").strip()[:120]
+    message = (body.get("body") or body.get("message") or "").strip()[:600]
+    if not message:
+        return JSONResponse(status_code=400, content={"error": "Message vide"})
+
+    ok = _admin_push_inapp(tenant_id, title, message, ntype="admin_message")
+    if not ok:
+        return JSONResponse(status_code=500, content={"error": "Échec de l'envoi in-app"})
+
+    logger.info(f"ADMIN_NOTIFY_USER tenant_id={tenant_id} title={title!r}")
+    _admin_audit(request, "user.notify", tenant_id, {"title": title, "channel": "in_app"})
+    return {"success": True, "tenant_id": tenant_id, "channel": "in_app"}
+
+
+@app.get("/api/admin/users/stats")
+async def admin_users_stats(request: Request):
+    """KPI réels du parc : total, actifs, suspendus, nouveaux ce mois, par plan."""
+    if not _verify_admin(request):
+        return JSONResponse(status_code=401, content={"error": "Non autorise"})
+    if not _redis_client:
+        return JSONResponse(status_code=503, content={"error": "Service temporairement indisponible"})
+
+    _ensure_users_index()
+    users = _redis_client.get_users_index()
+
+    now = datetime.now(ZoneInfo("Europe/Paris"))
+    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0).timestamp()
+
+    total = len(users)
+    active = suspended = new_this_month = 0
+    by_plan = {"essentiel": 0, "confort": 0, "premium": 0, "fondateur": 0}
+    for u in users:
+        is_susp = bool(u.get("suspended")) or u.get("active", True) is False
+        if is_susp:
+            suspended += 1
+        else:
+            active += 1
+        pl = u.get("plan", "essentiel")
+        by_plan[pl] = by_plan.get(pl, 0) + 1
+        try:
+            if float(u.get("created_at", 0) or 0) >= month_start:
+                new_this_month += 1
+        except (TypeError, ValueError):
+            pass
+
+    return {
+        "total": total,
+        "active": active,
+        "suspended": suspended,
+        "new_this_month": new_this_month,
+        "by_plan": by_plan,
+    }
+
+
+@app.get("/api/admin/audit")
+async def admin_audit_global(request: Request, limit: int = 100, action: str = None):
+    """Journal d'audit global de toutes les actions admin."""
+    if not _verify_admin(request):
+        return JSONResponse(status_code=401, content={"error": "Non autorise"})
+    if not _redis_client:
+        return JSONResponse(status_code=503, content={"error": "Service temporairement indisponible"})
+    entries = _redis_client.get_admin_audit(limit=min(int(limit), 500), action=action)
+    return {"entries": entries, "total": len(entries)}
+
+
+@app.get("/admin/users")
+async def admin_users_page():
+    """Page de gestion des utilisateurs (servie séparément de admin.html)."""
+    page = Path(os.path.dirname(__file__)) / "static" / "admin_users.html"
+    if page.exists():
+        return FileResponse(str(page), media_type="text/html")
+    return JSONResponse(status_code=404, content={"error": "Page introuvable"})
 
 
 # =========================================================================

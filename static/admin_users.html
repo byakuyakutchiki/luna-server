@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Luna — Gestion Utilisateurs</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; background:#0a0a1a; color:#e0e0e0; height:100vh; display:flex; flex-direction:column; }
+a { color:#a78bfa; }
+.header { background:linear-gradient(135deg,#1a1a3e,#2d1b69); padding:14px 20px; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #333; }
+.header h1 { font-size:1.15em; color:#a78bfa; }
+.header .right { display:flex; align-items:center; gap:12px; }
+.header .muted { font-size:0.82em; color:#888; }
+.btn { padding:8px 14px; border-radius:8px; border:1px solid #444; background:#1a1a2e; color:#ddd; cursor:pointer; font-size:0.85em; transition:all .15s; }
+.btn:hover { border-color:#7c3aed; color:#fff; }
+.btn.primary { background:#7c3aed; border-color:#7c3aed; color:#fff; }
+.btn.primary:hover { background:#6d28d9; }
+.btn.danger:hover { border-color:#f87171; color:#f87171; }
+.btn.warn:hover { border-color:#fbbf24; color:#fbbf24; }
+.btn.ghost { background:transparent; }
+.btn.sm { padding:5px 10px; font-size:0.78em; }
+
+/* Login */
+.login-screen { display:flex; justify-content:center; align-items:center; flex:1; }
+.login-box { background:#111; border:1px solid #333; border-radius:12px; padding:40px; width:360px; }
+.login-box h2 { color:#a78bfa; margin-bottom:6px; text-align:center; }
+.login-box p.sub { color:#666; font-size:0.8em; text-align:center; margin-bottom:20px; }
+.login-box input { width:100%; padding:12px; border-radius:8px; border:1px solid #333; background:#1a1a2e; color:#fff; margin-bottom:14px; font-size:1em; outline:none; }
+.login-box input:focus { border-color:#7c3aed; }
+.login-box button { width:100%; padding:12px; border-radius:8px; border:none; background:#7c3aed; color:#fff; font-size:1em; cursor:pointer; }
+.login-error { color:#f87171; font-size:0.85em; margin-bottom:12px; display:none; }
+
+.app { display:none; flex:1; flex-direction:column; overflow:hidden; }
+.tabs { display:flex; background:#111; border-bottom:1px solid #333; }
+.tab-btn { padding:10px 18px; background:transparent; border:none; color:#888; font-size:0.85em; cursor:pointer; border-bottom:2px solid transparent; }
+.tab-btn:hover { color:#a78bfa; }
+.tab-btn.active { color:#a78bfa; border-bottom-color:#7c3aed; }
+.tab-panel { display:none; flex:1; overflow-y:auto; padding:20px 24px; }
+.tab-panel.active { display:block; }
+
+/* Stat cards */
+.cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:14px; margin-bottom:18px; }
+.card { background:#111; border:1px solid #333; border-radius:12px; padding:16px; }
+.card .label { font-size:0.75em; color:#888; margin-bottom:4px; }
+.card .value { font-size:1.6em; font-weight:bold; color:#a78bfa; }
+
+/* Toolbar */
+.toolbar { display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin-bottom:16px; }
+.toolbar input[type=text], .toolbar select { padding:9px 12px; border-radius:8px; border:1px solid #333; background:#1a1a2e; color:#fff; font-size:0.85em; outline:none; }
+.toolbar input[type=text] { min-width:240px; }
+.toolbar input:focus, .toolbar select:focus { border-color:#7c3aed; }
+.spacer { flex:1; }
+
+/* Table */
+table { width:100%; border-collapse:collapse; }
+th { text-align:left; font-size:0.78em; color:#888; padding:10px 12px; border-bottom:1px solid #333; white-space:nowrap; }
+th.sortable { cursor:pointer; user-select:none; }
+th.sortable:hover { color:#a78bfa; }
+td { padding:11px 12px; border-bottom:1px solid #1a1a2e; font-size:0.88em; }
+tr:hover { background:rgba(167,139,250,0.05); }
+.email { color:#ddd; }
+.badge { padding:2px 9px; border-radius:20px; font-size:0.72em; font-weight:600; }
+.plan-essentiel { background:rgba(96,165,250,0.18); color:#60a5fa; }
+.plan-confort { background:rgba(74,222,128,0.18); color:#4ade80; }
+.plan-premium { background:rgba(251,191,36,0.18); color:#fbbf24; }
+.plan-fondateur { background:rgba(167,139,250,0.22); color:#a78bfa; }
+.st-active { color:#4ade80; }
+.st-suspended { color:#f87171; }
+.actions { display:flex; gap:6px; flex-wrap:wrap; }
+
+/* Pagination */
+.pager { display:flex; align-items:center; justify-content:space-between; margin-top:16px; font-size:0.85em; color:#888; }
+.pager .nav { display:flex; gap:8px; align-items:center; }
+
+/* Drawer */
+.drawer-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.55); display:none; z-index:50; }
+.drawer-overlay.open { display:block; }
+.drawer { position:fixed; top:0; right:0; height:100vh; width:520px; max-width:92vw; background:#0d0d1f; border-left:1px solid #333; box-shadow:-8px 0 30px rgba(0,0,0,0.5); transform:translateX(100%); transition:transform .25s; z-index:51; overflow-y:auto; }
+.drawer.open { transform:translateX(0); }
+.drawer .dh { position:sticky; top:0; background:#13132b; padding:18px 20px; border-bottom:1px solid #333; display:flex; justify-content:space-between; align-items:center; }
+.drawer .dh h3 { color:#a78bfa; font-size:1.05em; }
+.drawer .body { padding:20px; }
+.sec { margin-bottom:22px; }
+.sec h4 { font-size:0.8em; text-transform:uppercase; letter-spacing:.5px; color:#7c3aed; margin-bottom:10px; border-bottom:1px solid #222; padding-bottom:6px; }
+.kv { display:flex; justify-content:space-between; padding:5px 0; font-size:0.88em; border-bottom:1px solid #161630; }
+.kv .k { color:#888; }
+.quota-bar { height:7px; background:#1a1a2e; border-radius:4px; overflow:hidden; margin-top:4px; }
+.quota-fill { height:100%; border-radius:4px; }
+.qf-green { background:#4ade80; } .qf-yellow { background:#fbbf24; } .qf-red { background:#f87171; }
+.lifecycle { display:flex; flex-wrap:wrap; gap:8px; }
+
+/* Modal */
+.modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.6); display:none; align-items:center; justify-content:center; z-index:60; }
+.modal-overlay.open { display:flex; }
+.modal { background:#111; border:1px solid #333; border-radius:12px; padding:26px; width:420px; max-width:92vw; }
+.modal h3 { color:#a78bfa; margin-bottom:16px; }
+.modal label { display:block; font-size:0.8em; color:#888; margin:10px 0 4px; }
+.modal input, .modal select, .modal textarea { width:100%; padding:10px; border-radius:8px; border:1px solid #333; background:#1a1a2e; color:#fff; font-size:0.9em; outline:none; }
+.modal textarea { min-height:70px; resize:vertical; }
+.modal .row { display:flex; gap:10px; margin-top:20px; justify-content:flex-end; }
+.modal .err { color:#f87171; font-size:0.82em; margin-top:10px; display:none; }
+
+/* Audit */
+.audit-row { display:grid; grid-template-columns:150px 110px 1fr; gap:12px; padding:9px 12px; border-bottom:1px solid #1a1a2e; font-size:0.82em; align-items:center; }
+.audit-row .t { color:#666; }
+.audit-row .a { color:#a78bfa; font-weight:600; }
+.audit-row .d { color:#aaa; }
+.muted2 { color:#666; }
+.empty { text-align:center; padding:40px; color:#555; }
+.toast { position:fixed; bottom:24px; left:50%; transform:translateX(-50%); background:#1a1a2e; border:1px solid #7c3aed; color:#fff; padding:12px 22px; border-radius:10px; font-size:0.88em; opacity:0; pointer-events:none; transition:opacity .25s; z-index:80; }
+.toast.show { opacity:1; }
+.toast.err { border-color:#f87171; }
+@media(max-width:768px){ .toolbar input[type=text]{min-width:160px;} .audit-row{grid-template-columns:1fr;gap:2px;} td .hide-sm{display:none;} }
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div class="login-screen" id="loginScreen">
+  <div class="login-box">
+    <h2>Gestion Utilisateurs</h2>
+    <p class="sub">Console fondateur — YAWatch Luna</p>
+    <div class="login-error" id="loginError"></div>
+    <input type="password" id="loginPassword" placeholder="Mot de passe admin" onkeydown="if(event.key==='Enter')doLogin()">
+    <input type="text" id="loginTotp" placeholder="Code 2FA (si activé)" style="display:none" onkeydown="if(event.key==='Enter')doLogin()">
+    <button onclick="doLogin()">Se connecter</button>
+  </div>
+</div>
+
+<!-- APP -->
+<div class="app" id="app">
+  <div class="header">
+    <h1>👥 Gestion Utilisateurs — Luna</h1>
+    <div class="right">
+      <span class="muted" id="hdrInfo"></span>
+      <a class="btn ghost sm" href="/admin">← Dashboard admin</a>
+      <button class="btn ghost sm" onclick="doLogout()">Déconnexion</button>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="users" onclick="switchTab('users')">Utilisateurs</button>
+    <button class="tab-btn" data-tab="audit" onclick="switchTab('audit');loadAudit()">Journal d'audit</button>
+  </div>
+
+  <!-- USERS TAB -->
+  <div class="tab-panel active" id="tab-users">
+    <div class="cards" id="statCards"></div>
+
+    <div class="toolbar">
+      <input type="text" id="search" placeholder="Rechercher email, nom ou ID…" oninput="debouncedReload()">
+      <select id="fPlan" onchange="reload()">
+        <option value="">Tous les plans</option>
+        <option value="essentiel">Essentiel</option>
+        <option value="confort">Confort</option>
+        <option value="premium">Premium</option>
+        <option value="fondateur">Fondateur</option>
+      </select>
+      <select id="fStatus" onchange="reload()">
+        <option value="">Tous statuts</option>
+        <option value="active">Actifs</option>
+        <option value="suspended">Suspendus</option>
+      </select>
+      <select id="perPage" onchange="state.page=1;reload()">
+        <option value="25">25 / page</option>
+        <option value="50">50 / page</option>
+        <option value="100">100 / page</option>
+      </select>
+      <div class="spacer"></div>
+      <button class="btn sm" onclick="openCreate()">+ Nouvel utilisateur</button>
+      <button class="btn sm" onclick="exportCsv()">⬇ Export CSV</button>
+      <button class="btn sm ghost" onclick="reindex()" title="Reconstruire l'index">⟳ Réindexer</button>
+    </div>
+
+    <div id="tableWrap"></div>
+    <div class="pager" id="pager"></div>
+  </div>
+
+  <!-- AUDIT TAB -->
+  <div class="tab-panel" id="tab-audit">
+    <div class="toolbar">
+      <select id="auditAction" onchange="loadAudit()">
+        <option value="">Toutes les actions</option>
+        <option value="admin.login">Connexions admin</option>
+        <option value="user.create">Créations</option>
+        <option value="user.update">Modifications</option>
+        <option value="user.suspend">Suspensions</option>
+        <option value="user.reactivate">Réactivations</option>
+        <option value="user.delete">Suppressions</option>
+        <option value="user.reset_password">Reset mot de passe</option>
+        <option value="user.export">Exports</option>
+      </select>
+      <button class="btn sm ghost" onclick="loadAudit()">⟳ Rafraîchir</button>
+    </div>
+    <div id="auditWrap"></div>
+  </div>
+</div>
+
+<!-- DRAWER 360 -->
+<div class="drawer-overlay" id="drawerOverlay" onclick="closeDrawer()"></div>
+<div class="drawer" id="drawer">
+  <div class="dh">
+    <h3 id="drawerTitle">Fiche utilisateur</h3>
+    <button class="btn ghost sm" onclick="closeDrawer()">✕</button>
+  </div>
+  <div class="body" id="drawerBody"></div>
+</div>
+
+<!-- MODAL -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal" id="modalBox"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const API = "";
+let TOKEN = sessionStorage.getItem("admin_token") || "";
+const state = { page:1, sort:"created_at", order:"desc" };
+let _debTimer = null;
+
+function debouncedReload(){ clearTimeout(_debTimer); _debTimer=setTimeout(()=>{state.page=1;reload();},300); }
+
+function toast(msg, isErr){
+  const t=document.getElementById("toast");
+  t.textContent=msg; t.className="toast show"+(isErr?" err":"");
+  setTimeout(()=>t.className="toast",2200);
+}
+
+async function api(path, opts={}){
+  opts.headers = Object.assign({"Content-Type":"application/json"}, opts.headers||{}, {"Authorization":"Bearer "+TOKEN});
+  const r = await fetch(API+path, opts);
+  if(r.status===401){ showLogin(); throw new Error("auth"); }
+  return r;
+}
+
+/* ---------- LOGIN ---------- */
+function showLogin(){ document.getElementById("app").style.display="none"; document.getElementById("loginScreen").style.display="flex"; }
+function showApp(){ document.getElementById("loginScreen").style.display="none"; document.getElementById("app").style.display="flex"; reload(); }
+
+async function doLogin(){
+  const pw=document.getElementById("loginPassword").value;
+  const totp=document.getElementById("loginTotp").value;
+  const err=document.getElementById("loginError");
+  err.style.display="none";
+  try{
+    const r=await fetch(API+"/api/admin/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({password:pw,totp:totp})});
+    const d=await r.json();
+    if(!r.ok){
+      if(d.totp_required){ document.getElementById("loginTotp").style.display="block"; }
+      err.textContent=d.error||"Erreur"; err.style.display="block"; return;
+    }
+    TOKEN=d.token; sessionStorage.setItem("admin_token",TOKEN); showApp();
+  }catch(e){ err.textContent="Erreur réseau"; err.style.display="block"; }
+}
+function doLogout(){ sessionStorage.removeItem("admin_token"); TOKEN=""; showLogin(); }
+
+/* ---------- USERS LIST ---------- */
+function planBadge(p){ return `<span class="badge plan-${p||'essentiel'}">${p||'essentiel'}</span>`; }
+function esc(s){ return (s==null?"":String(s)).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+function fmtDate(ts){ if(!ts)return "—"; try{return new Date(ts*1000).toLocaleDateString("fr-FR",{day:"2-digit",month:"2-digit",year:"numeric"});}catch(e){return "—";} }
+
+function buildQuery(extra){
+  const p=new URLSearchParams();
+  const q=document.getElementById("search").value.trim();
+  if(q)p.set("q",q);
+  const pl=document.getElementById("fPlan").value; if(pl)p.set("plan",pl);
+  const st=document.getElementById("fStatus").value; if(st)p.set("status",st);
+  p.set("sort",state.sort); p.set("order",state.order);
+  if(extra) for(const k in extra) p.set(k,extra[k]);
+  return p.toString();
+}
+
+async function reload(){
+  let data;
+  try{
+    const perPage=document.getElementById("perPage").value;
+    const r=await api("/api/admin/users?"+buildQuery({page:state.page,per_page:perPage}));
+    data=await r.json();
+  }catch(e){ return; }
+  _lastFiltered=data.total;
+  loadStats();
+  renderTable(data);
+  renderPager(data);
+  document.getElementById("hdrInfo").textContent=data.total+" utilisateur"+(data.total>1?"s":"");
+}
+
+let _stats=null, _lastFiltered=0;
+async function loadStats(){
+  try{ const r=await api("/api/admin/users/stats"); _stats=await r.json(); }
+  catch(e){ _stats=null; }
+  renderStats();
+}
+function renderStats(){
+  const s=_stats||{}; const bp=s.by_plan||{};
+  const v=(x)=>x!=null?x:'—';
+  document.getElementById("statCards").innerHTML=`
+    <div class="card"><div class="label">Total comptes</div><div class="value">${v(s.total)}</div></div>
+    <div class="card"><div class="label">Actifs</div><div class="value" style="color:#4ade80">${v(s.active)}</div></div>
+    <div class="card"><div class="label">Suspendus</div><div class="value" style="color:#f87171">${v(s.suspended)}</div></div>
+    <div class="card"><div class="label">Nouveaux ce mois</div><div class="value">${v(s.new_this_month)}</div></div>
+    <div class="card"><div class="label">Par plan (Ess·Conf·Prem)</div><div class="value" style="font-size:1.1em">${bp.essentiel||0} · ${bp.confort||0} · ${bp.premium||0}</div></div>
+    <div class="card"><div class="label">Résultat filtré</div><div class="value">${_lastFiltered}</div></div>`;
+}
+
+function sortHeader(label,key){
+  const arrow = state.sort===key ? (state.order==="asc"?" ▲":" ▼") : "";
+  return `<th class="sortable" onclick="toggleSort('${key}')">${label}${arrow}</th>`;
+}
+function toggleSort(key){
+  if(state.sort===key){ state.order = state.order==="asc"?"desc":"asc"; }
+  else { state.sort=key; state.order="asc"; }
+  reload();
+}
+
+function renderTable(d){
+  if(!d.users || !d.users.length){
+    document.getElementById("tableWrap").innerHTML='<div class="empty">Aucun utilisateur ne correspond.</div>';
+    return;
+  }
+  let rows=d.users.map(u=>{
+    const suspended = u.suspended || u.active===false;
+    const statusHtml = suspended
+      ? `<span class="st-suspended">● Suspendu</span>`
+      : `<span class="st-active">● Actif</span>`;
+    const lifecycle = suspended
+      ? `<button class="btn sm" onclick="reactivate(${u.tenant_id})">Réactiver</button>`
+      : `<button class="btn sm warn" onclick="openSuspend(${u.tenant_id},'${esc(u.email)}')">Suspendre</button>`;
+    return `<tr>
+      <td class="muted2">#${u.tenant_id}</td>
+      <td class="email">${esc(u.email)||'<span class="muted2">—</span>'}<div class="muted2 hide-sm" style="font-size:0.85em">${esc(u.name)||""}</div></td>
+      <td>${planBadge(u.plan)}</td>
+      <td>${statusHtml}${suspended&&u.suspend_reason?`<div class="muted2" style="font-size:0.8em">${esc(u.suspend_reason)}</div>`:""}</td>
+      <td class="muted2 hide-sm">${fmtDate(u.created_at)}</td>
+      <td><div class="actions">
+        <button class="btn sm" onclick="openDrawer(${u.tenant_id},'${esc(u.email)}')">Fiche 360°</button>
+        ${lifecycle}
+        <button class="btn sm" onclick="openChangePlan(${u.tenant_id},'${u.plan||'essentiel'}')">Plan</button>
+        <button class="btn sm" onclick="openBonus(${u.tenant_id},'${esc(u.email)}')">Bonus</button>
+        <button class="btn sm" onclick="openNotify(${u.tenant_id},'${esc(u.email)}')">Message</button>
+        <button class="btn sm" onclick="openResetPw(${u.tenant_id},'${esc(u.email)}')">Mot de passe</button>
+        <button class="btn sm danger" onclick="openDelete(${u.tenant_id},'${esc(u.email)}')">Suppr.</button>
+      </div></td>
+    </tr>`;
+  }).join("");
+  document.getElementById("tableWrap").innerHTML=`<table>
+    <thead><tr>
+      ${sortHeader("ID","created_at")}
+      ${sortHeader("Email / Nom","email")}
+      ${sortHeader("Plan","plan")}
+      <th>Statut</th>
+      <th class="hide-sm">Créé</th>
+      <th>Actions</th>
+    </tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+function renderPager(d){
+  const pages=d.pages||1;
+  document.getElementById("pager").innerHTML=`
+    <div>Page ${d.page} sur ${pages} — ${d.total} résultats</div>
+    <div class="nav">
+      <button class="btn sm" ${d.page<=1?"disabled":""} onclick="goPage(${d.page-1})">← Précédent</button>
+      <button class="btn sm" ${d.page>=pages?"disabled":""} onclick="goPage(${d.page+1})">Suivant →</button>
+    </div>`;
+}
+function goPage(p){ state.page=Math.max(1,p); reload(); }
+
+/* ---------- ACTIONS ---------- */
+async function reindex(){
+  try{ const r=await api("/api/admin/users/reindex",{method:"POST"}); const d=await r.json(); toast("Index reconstruit : "+d.indexed+" users"); reload(); }
+  catch(e){ toast("Erreur réindexation",true); }
+}
+function exportCsv(){
+  const url=API+"/api/admin/users/export?"+buildQuery();
+  fetch(url,{headers:{"Authorization":"Bearer "+TOKEN}}).then(r=>r.blob()).then(b=>{
+    const a=document.createElement("a"); a.href=URL.createObjectURL(b); a.download="luna_users.csv"; a.click();
+  }).catch(()=>toast("Erreur export",true));
+}
+
+/* ---------- MODALS ---------- */
+function openModal(html){ document.getElementById("modalBox").innerHTML=html; document.getElementById("modalOverlay").classList.add("open"); }
+function closeModal(){ document.getElementById("modalOverlay").classList.remove("open"); }
+
+function openCreate(){
+  openModal(`<h3>Nouvel utilisateur</h3>
+    <label>Email</label><input id="m_email" type="email">
+    <label>Mot de passe (min 6)</label><input id="m_pw" type="text">
+    <label>Prénom</label><input id="m_fn" type="text">
+    <label>Nom</label><input id="m_ln" type="text">
+    <label>Plan</label><select id="m_plan"><option>essentiel</option><option>confort</option><option>premium</option></select>
+    <div class="err" id="m_err"></div>
+    <div class="row"><button class="btn ghost" onclick="closeModal()">Annuler</button><button class="btn primary" onclick="submitCreate()">Créer</button></div>`);
+}
+async function submitCreate(){
+  const body={email:m_email.value.trim(),password:m_pw.value,first_name:m_fn.value,last_name:m_ln.value,plan:m_plan.value};
+  try{
+    const r=await api("/api/admin/clients",{method:"POST",body:JSON.stringify(body)});
+    const d=await r.json();
+    if(!r.ok){ showErr("m_err",d.error); return; }
+    closeModal(); toast("Utilisateur créé (#"+d.tenant_id+")"); reload();
+  }catch(e){ showErr("m_err","Erreur réseau"); }
+}
+
+function openSuspend(tid,email){
+  openModal(`<h3>Suspendre ${esc(email)}</h3>
+    <p class="muted2" style="font-size:0.85em">La connexion sera bloquée. Action réversible.</p>
+    <label>Motif (visible dans l'audit)</label><textarea id="m_reason" placeholder="Ex: paiement échoué, abus signalé…"></textarea>
+    <label style="display:flex;align-items:center;gap:8px;margin-top:12px"><input id="m_notify_susp" type="checkbox" checked style="width:auto">Prévenir le client en in-app (best-effort)</label>
+    <div class="err" id="m_err"></div>
+    <div class="row"><button class="btn ghost" onclick="closeModal()">Annuler</button><button class="btn warn" onclick="submitSuspend(${tid})">Suspendre</button></div>`);
+}
+async function submitSuspend(tid){
+  const reason=document.getElementById("m_reason").value;
+  const notify=document.getElementById("m_notify_susp").checked;
+  try{
+    const r=await api(`/api/admin/users/${tid}/suspend`,{method:"POST",body:JSON.stringify({reason:reason})});
+    const d=await r.json(); if(!r.ok){ showErr("m_err",d.error); return; }
+    if(notify){
+      try{ await api(`/api/admin/users/${tid}/notify`,{method:"POST",body:JSON.stringify({title:"Compte suspendu",body:"Votre accès a été suspendu"+(reason?" : "+reason:"")+". Contactez votre conseiller pour rétablir l'accès."})}); }catch(e){}
+    }
+    closeModal(); toast("Utilisateur suspendu"+(notify?" · client prévenu":"")); reload();
+  }catch(e){ showErr("m_err","Erreur réseau"); }
+}
+
+function openBonus(tid,email){
+  openModal(`<h3>Offrir un bonus — ${esc(email)}</h3>
+    <p class="muted2" style="font-size:0.85em">Ajoute des SMS au forfait pour le mois en cours (geste commercial). Réinitialisé au prochain cycle.</p>
+    <label>Ressource</label><select id="m_res"><option value="sms">SMS</option></select>
+    <label>Nombre à ajouter (négatif = retirer)</label><input id="m_amount" type="number" value="20" min="-1000" max="1000">
+    <label>Motif (audit)</label><input id="m_reason" type="text" placeholder="Ex: geste commercial, incident…">
+    <label style="display:flex;align-items:center;gap:8px;margin-top:12px"><input id="m_notify" type="checkbox" checked style="width:auto">Prévenir le client en in-app</label>
+    <div class="err" id="m_err"></div>
+    <div class="row"><button class="btn ghost" onclick="closeModal()">Annuler</button><button class="btn primary" onclick="submitBonus(${tid})">Offrir</button></div>`);
+}
+async function submitBonus(tid){
+  const amount=parseInt(document.getElementById("m_amount").value,10);
+  if(!amount){ showErr("m_err","Montant requis (non nul)"); return; }
+  const body={resource:document.getElementById("m_res").value,amount:amount,reason:document.getElementById("m_reason").value,notify:document.getElementById("m_notify").checked};
+  try{
+    const r=await api(`/api/admin/users/${tid}/grant-bonus`,{method:"POST",body:JSON.stringify(body)});
+    const d=await r.json(); if(!r.ok){ showErr("m_err",d.error); return; }
+    closeModal(); toast("Bonus : "+(d.amount>0?"+":"")+d.amount+" SMS (total bonus "+d.bonus_total+")"+(d.notified?" · client prévenu":"")); reload();
+  }catch(e){ showErr("m_err","Erreur réseau"); }
+}
+
+function openNotify(tid,email){
+  openModal(`<h3>Message in-app — ${esc(email)}</h3>
+    <p class="muted2" style="font-size:0.85em">Le client le verra dans l'app (notification + chat). Aucun SMS ni email envoyé.</p>
+    <label>Titre</label><input id="m_title" type="text" value="Message de votre conseiller">
+    <label>Message</label><textarea id="m_body" placeholder="Votre message…"></textarea>
+    <div class="err" id="m_err"></div>
+    <div class="row"><button class="btn ghost" onclick="closeModal()">Annuler</button><button class="btn primary" onclick="submitNotify(${tid})">Envoyer</button></div>`);
+}
+async function submitNotify(tid){
+  const message=document.getElementById("m_body").value.trim();
+  if(!message){ showErr("m_err","Message vide"); return; }
+  const body={title:document.getElementById("m_title").value,body:message};
+  try{
+    const r=await api(`/api/admin/users/${tid}/notify`,{method:"POST",body:JSON.stringify(body)});
+    const d=await r.json(); if(!r.ok){ showErr("m_err",d.error); return; }
+    closeModal(); toast("Message in-app envoyé");
+  }catch(e){ showErr("m_err","Erreur réseau"); }
+}
+async function reactivate(tid){
+  try{ const r=await api(`/api/admin/users/${tid}/reactivate`,{method:"POST"}); if(!r.ok)throw 0; toast("Utilisateur réactivé"); reload(); }
+  catch(e){ toast("Erreur réactivation",true); }
+}
+
+function openChangePlan(tid,cur){
+  openModal(`<h3>Changer de plan</h3>
+    <label>Nouveau plan</label>
+    <select id="m_plan">${["essentiel","confort","premium"].map(p=>`<option ${p===cur?"selected":""}>${p}</option>`).join("")}</select>
+    <div class="err" id="m_err"></div>
+    <div class="row"><button class="btn ghost" onclick="closeModal()">Annuler</button><button class="btn primary" onclick="submitPlan(${tid})">Appliquer</button></div>`);
+}
+async function submitPlan(tid){
+  try{
+    const r=await api(`/api/admin/clients/${tid}`,{method:"PATCH",body:JSON.stringify({plan:m_plan.value})});
+    const d=await r.json(); if(!r.ok){ showErr("m_err",d.error); return; }
+    closeModal(); toast("Plan mis à jour"); reload();
+  }catch(e){ showErr("m_err","Erreur réseau"); }
+}
+
+function openResetPw(tid,email){
+  openModal(`<h3>Réinitialiser le mot de passe</h3>
+    <p class="muted2" style="font-size:0.85em">${esc(email)}</p>
+    <label>Nouveau mot de passe (min 6)</label><input id="m_pw" type="text">
+    <div class="err" id="m_err"></div>
+    <div class="row"><button class="btn ghost" onclick="closeModal()">Annuler</button><button class="btn primary" onclick="submitResetPw(${tid})">Réinitialiser</button></div>`);
+}
+async function submitResetPw(tid){
+  try{
+    const r=await api(`/api/admin/reset-password/${tid}`,{method:"POST",body:JSON.stringify({password:m_pw.value})});
+    const d=await r.json(); if(!r.ok){ showErr("m_err",d.error); return; }
+    closeModal(); toast("Mot de passe réinitialisé");
+  }catch(e){ showErr("m_err","Erreur réseau"); }
+}
+
+function openDelete(tid,email){
+  openModal(`<h3 style="color:#f87171">Supprimer définitivement</h3>
+    <p style="font-size:0.88em">Toutes les données de <b>${esc(email)}</b> (#${tid}) seront purgées. <b>Irréversible.</b></p>
+    <label>Tapez SUPPRIMER pour confirmer</label><input id="m_confirm" type="text">
+    <div class="err" id="m_err"></div>
+    <div class="row"><button class="btn ghost" onclick="closeModal()">Annuler</button><button class="btn danger" onclick="submitDelete(${tid})">Supprimer</button></div>`);
+}
+async function submitDelete(tid){
+  if(document.getElementById("m_confirm").value.trim().toUpperCase()!=="SUPPRIMER"){ showErr("m_err","Confirmation incorrecte"); return; }
+  try{
+    const r=await api(`/api/admin/clients/${tid}`,{method:"DELETE"});
+    const d=await r.json(); if(!r.ok){ showErr("m_err",d.error); return; }
+    closeModal(); toast("Utilisateur supprimé ("+d.keys_deleted+" clés)"); reload();
+  }catch(e){ showErr("m_err","Erreur réseau"); }
+}
+function showErr(id,msg){ const e=document.getElementById(id); e.textContent=msg||"Erreur"; e.style.display="block"; }
+
+/* ---------- DRAWER 360 ---------- */
+async function openDrawer(tid,email){
+  document.getElementById("drawerTitle").textContent=`#${tid} · ${email||"—"}`;
+  document.getElementById("drawerBody").innerHTML='<div class="empty">Chargement…</div>';
+  document.getElementById("drawerOverlay").classList.add("open");
+  document.getElementById("drawer").classList.add("open");
+  try{
+    const [detR,audR]=await Promise.all([
+      api(`/api/admin/clients/${tid}`),
+      api(`/api/admin/users/${tid}/audit?limit=30`)
+    ]);
+    const det=await detR.json(); const aud=await audR.json();
+    renderDrawer(tid,det,aud);
+  }catch(e){
+    document.getElementById("drawerBody").innerHTML='<div class="empty">Erreur de chargement</div>';
+  }
+}
+function closeDrawer(){ document.getElementById("drawerOverlay").classList.remove("open"); document.getElementById("drawer").classList.remove("open"); }
+
+function quotaRow(label,used,limit,cost){
+  const pct = limit>0 ? Math.min(100,Math.round(used/limit*100)) : 0;
+  const cls = pct>=90?"qf-red":pct>=70?"qf-yellow":"qf-green";
+  return `<div style="margin-bottom:10px">
+    <div class="kv"><span class="k">${label}</span><span>${used} / ${limit} ${cost!=null?`· ${cost}€`:""}</span></div>
+    <div class="quota-bar"><div class="quota-fill ${cls}" style="width:${pct}%"></div></div></div>`;
+}
+
+function renderDrawer(tid,det,aud){
+  const p=det.profile||{};
+  const q=det.quota||{};
+  let html="";
+  // Profil
+  html+=`<div class="sec"><h4>Profil</h4>
+    <div class="kv"><span class="k">Nom</span><span>${esc((p.first_name||"")+" "+(p.last_name||""))||"—"}</span></div>
+    <div class="kv"><span class="k">Email</span><span>${esc(p.email)||"—"}</span></div>
+    <div class="kv"><span class="k">Téléphone</span><span>${esc(p.phone||p.phone_number||"—")}</span></div>
+    <div class="kv"><span class="k">Tenant</span><span>#${tid}</span></div></div>`;
+  // Quotas
+  if(q && Object.keys(q).length){
+    html+=`<div class="sec"><h4>Quotas & usage</h4>`;
+    if(q.sms){
+      html+=quotaRow("SMS",q.sms.used,q.sms.limit,q.sms.cost_eur);
+      if(q.sms.bonus>0)html+=`<div class="muted2" style="font-size:0.8em;margin:-6px 0 10px">dont +${q.sms.bonus} bonus offert (mois en cours)</div>`;
+    }
+    if(q.voice)html+=quotaRow("Voix (min)",q.voice.used,q.voice.limit,q.voice.cost_eur);
+    if(q.visio)html+=quotaRow("Visio (min)",q.visio.used,q.visio.limit,q.visio.cost_eur);
+    html+=`</div>`;
+  }
+  // Contacts
+  const contacts=det.contacts||[];
+  html+=`<div class="sec"><h4>Contacts de confiance (${contacts.length})</h4>`;
+  html+= contacts.length ? contacts.map(c=>`<div class="kv"><span class="k">${esc(c.name||c.first_name||"Contact")}</span><span>${esc(c.phone||c.phone_number||"")}</span></div>`).join("") : '<div class="muted2" style="font-size:0.85em">Aucun</div>';
+  html+=`</div>`;
+  // Audit
+  html+=`<div class="sec"><h4>Historique (audit)</h4>`;
+  const entries=(aud&&aud.entries)||[];
+  html+= entries.length ? entries.map(e=>`<div class="kv"><span class="k">${esc(e.iso||"")}</span><span class="a">${esc(e.action)}</span></div>`).join("") : '<div class="muted2" style="font-size:0.85em">Aucune action enregistrée</div>';
+  html+=`</div>`;
+  document.getElementById("drawerBody").innerHTML=html;
+}
+
+/* ---------- AUDIT TAB ---------- */
+async function loadAudit(){
+  const action=document.getElementById("auditAction").value;
+  try{
+    const r=await api("/api/admin/audit?limit=200"+(action?"&action="+action:""));
+    const d=await r.json();
+    const w=document.getElementById("auditWrap");
+    if(!d.entries||!d.entries.length){ w.innerHTML='<div class="empty">Aucune entrée d\'audit.</div>'; return; }
+    w.innerHTML=d.entries.map(e=>`<div class="audit-row">
+      <span class="t">${esc(e.iso||"")}</span>
+      <span class="a">${esc(e.action)}</span>
+      <span class="d">${esc(e.actor||"")} · ${esc(e.ip||"")}${e.target_tenant!=null?` · #${e.target_tenant}`:""} ${e.details&&Object.keys(e.details).length?"· "+esc(JSON.stringify(e.details)):""}</span>
+    </div>`).join("");
+  }catch(e){}
+}
+
+/* ---------- TABS ---------- */
+function switchTab(name){
+  document.querySelectorAll(".tab-btn").forEach(b=>b.classList.toggle("active",b.dataset.tab===name));
+  document.querySelectorAll(".tab-panel").forEach(p=>p.classList.toggle("active",p.id==="tab-"+name));
+}
+
+/* ---------- INIT ---------- */
+document.getElementById("modalOverlay").addEventListener("click",e=>{ if(e.target.id==="modalOverlay")closeModal(); });
+if(TOKEN){
+  // Validate token by loading; if invalid, api() will showLogin
+  document.getElementById("loginScreen").style.display="none";
+  document.getElementById("app").style.display="flex";
+  reload();
+} else { showLogin(); }
+</script>
+</body>
+</html>

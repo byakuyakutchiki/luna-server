@@ -4438,8 +4438,8 @@ function _pollNotifications() {
           }
           lunaNotify(n.title || "Luna", n.body || "");
           _showToast(n.title || "Luna", n.body || "");
-          // Inject reminders and summaries into chat
-          if (n.type === "secretary_reminder" || n.type === "voice_summary") {
+          // Inject reminders, summaries and admin messages into chat
+          if (n.type === "secretary_reminder" || n.type === "voice_summary" || n.type === "admin_message") {
             addMsg((n.title ? n.title + " : " : "") + (n.body || ""), "luna");
           }
         });
