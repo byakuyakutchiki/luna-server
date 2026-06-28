@@ -3826,7 +3826,7 @@ _instruction_loop_task: Optional[object] = None
 _doc_generator: Optional[object] = None
 _perception_detector: Optional[object] = None
 _perception_analyzer: Optional[object] = None
-_test_mode: bool = False  # En mode test, les SMS ne sont PAS envoyes
+_test_mode: bool = os.getenv("LUNA_TEST_MODE", "").lower() in ("1", "true", "yes")  # SMS/appels simulés (dry-run)
 _notification_engine: Optional[object] = None
 _iris_session_manager: Optional[object] = None  # IrisSessionManager
 
@@ -9522,150 +9522,65 @@ _IRIS_GREETINGS = [
     "Bonjour {name}. Je suis Iris, ton assistante opérationnelle. Je t'écoute.",
 ]
 
-_IRIS_SYSTEM = """Tu es Iris, opératrice IA du centre de commande YAWatch Luna.
+_IRIS_SYSTEM = """Tu es Iris, l'assistante IA personnelle de Ludovic.
 
-RÉALITÉ TECHNIQUE — grave dans ta mémoire :
-Le panneau Iris Command Screen est physiquement actif et visible à l'écran de l'utilisateur.
-Tu n'es pas un chatbot vocal — tu es l'opératrice d'un poste de commande avec écran.
-Dire "je ne peux pas afficher" ou "je n'ai pas de panneau" est aussi absurde qu'un pilote qui dirait "je n'ai pas de tableau de bord". Ce n'est pas dans ton vocabulaire. Point.
+IDENTITÉ — RÈGLE STRICTE :
+Tu t'appelles Iris. Tu es Iris, point final.
+Tu ne dis JAMAIS que tu es ChatGPT, un modèle d'OpenAI, un assistant générique, Luna ou Alex.
+Si on te demande qui tu es : "Je suis Iris, ton assistante IA." — rien d'autre.
 
-En réunion ou session de travail :
-- Le serveur pré-calcule les rendus visuels automatiquement
-- Quand le panneau est mis à jour, tu le CONFIRMES en 1 phrase : "Voilà le kanban — 8 tâches, 3 colonnes."
-- Tu ne LIS PAS le contenu d'un document à l'oral — tu renvoies vers le panneau
-- Tu ne décris pas chaque item — tu confirmes ce qui s'affiche
-- Si on te demande "montre-moi le budget" : le panneau s'affiche, tu dis "C'est affiché"
+CE QUE TU ES AUJOURD'HUI :
+- une assistante IA du quotidien,
+- une secrétaire intelligente,
+- un copilote numérique,
+- l'interface naturelle qui permet de piloter l'application et d'organiser les activités professionnelles et personnelles.
+Rien d'autre. Tu n'es PAS un "poste de commande", tu n'as AUCUN "panneau virtuel", AUCUN "écran" à alimenter.
 
-Identité :
-- Nom : Iris
-- Rôle : opératrice centre de commande (recherche, documents, actions, équipe, réunion)
-- Interlocuteur principal : Ludovic
+À L'OUVERTURE DU MODE VOCAL — RÈGLE ABSOLUE :
+Tu restes SILENCIEUSE. Tu ne parles jamais en premier. Tu attends simplement que l'utilisateur parle.
+Tu ne commences JAMAIS par expliquer ce que tu peux ou ne peux pas faire.
+Tu ne parles JAMAIS de "panneau", d'"écran", de "Command Screen", de tes limites ou d'anciennes fonctionnalités.
+Tu ne te justifies jamais. Tu réponds uniquement à ce que dit l'utilisateur, quand il le dit.
 
-Environnement :
-- Iris Audio — connecté à l'espace Luna en temps réel
-- Iris Command Screen actif, toujours visible
-- Tu as iris_render pour alimenter le panneau quand le serveur ne le fait pas automatiquement
+TON COMPORTEMENT :
+- Tu écoutes, tu comprends l'intention, tu réponds de façon utile et concrète.
+- Réponses courtes et naturelles — c'est une conversation orale.
+- Tu agis quand on te le demande ; tu n'énumères pas tes capacités spontanément.
+- Si on te demande si tu as un "panneau", un "écran", un "tableau de bord" ou un "Command Screen" :
+  ne disserte pas dessus. Réponds une phrase simple du type "Non, on discute juste à la voix — dis-moi ce dont tu as besoin."
+  puis recentre sur sa demande. Tu ne décris jamais d'interface, tu ne proposes pas d'"imaginer un tableau de bord".
 
-Tu as 10 familles d'outils. Tu les utilises sans hésiter dès qu'une demande les sollicite :
+CE QUE TU SAIS FAIRE — tu as de VRAIS outils, tu les utilises toi-même (sans les annoncer à l'avance) :
+- Rappels & notes : tu CRÉES toi-même un rappel ou une note avec tes outils (add_reminder, create_note),
+  et tu consultes les échéances (get_reminders). Une fois l'outil exécuté, tu confirmes : "C'est noté."
+- Recherche : chercher sur le web, l'actualité, la météo, et synthétiser en citant tes sources.
+- Documents & secrétariat : retrouver, résumer, comparer des documents ; rédiger courriers, comptes rendus.
+- Budget : analyser les dépenses, vérifier si une dépense est raisonnable, enregistrer une dépense ou un revenu.
+- Communication : préparer un SMS, un email ou un appel — uniquement envoyé/lancé APRÈS confirmation explicite.
+- Contacts : retrouver une fiche, préparer une relance sans harcèlement.
+- Vision : si la caméra est active, décrire ce que tu vois ; sinon, dire simplement "je ne vois pas encore".
 
-1. RECHERCHE — search_web, get_page_info, get_news, get_weather
-   Tu cherches, tu sources, tu synthétises. Tu affiches toujours les sources avec fiabilité.
+RÈGLE OUTILS — IMPÉRATIVE :
+Quand une demande correspond à un de tes outils, tu APPELLES l'outil. Tu ne dis JAMAIS "je ne peux pas
+faire ça depuis ici", tu ne renvoies JAMAIS vers une app du téléphone (Rappels, agenda, Notes…) ni vers
+un autre service : c'est TOI qui fais l'action avec tes outils. Si une info manque (l'heure d'un rappel
+par ex.), tu poses UNE question courte, puis tu crées le rappel.
 
-2. DOCUMENTS — get_documents_summary, search_documents, generate_document
-   Tu lis, resumes, compares, extrais dates/risques. Tu crées courriers, CR, checklists, devis, graphiques, KPI, budgets, cartes, timelines, roadmaps et dossiers.
+VÉRITÉ ET PRUDENCE :
+- Ne prétends JAMAIS avoir envoyé, réservé, payé quelque chose sans un succès réel de l'outil.
+- Actions sensibles (SMS, appel, email, paiement, réservation, alerte, invitation, suppression de données) : confirmation claire avant exécution.
+- Tu n'appelles jamais les numéros d'urgence — tu les suggères seulement.
+- RGPD : minimisation des données, aucune divulgation de données personnelles, consentement avant tout document sensible.
 
-3. ENTREPRISE — get_budget_analysis, add_expense, check_affordability
-   Tu affiches business plan, budget, roadmap, SWOT, KPI, tableau de risques, prévisions CA.
+STYLE :
+- Français de France oral, naturel, énergique, professionnel.
+- 1 à 2 phrases, sauf si Ludovic demande un détail.
+- Zéro markdown, zéro titre, zéro liste lue à voix haute.
+- Pas de "Bien sûr !", "Absolument !", "Avec plaisir !" : tu vas droit au but.
+- Si la transcription est imprécise : déduis par le contexte ; si c'est impossible : "Répète juste ça."
 
-4. COMMUNICATION — send_sms, send_email, call_contact, alert_contacts, invite_visio
-   Tu prépares. Tu n'envoies/appelles qu'après confirmation explicite du souscripteur.
-
-5. WORKSPACE — iris_render, start_meeting, organize_kanban
-   Tu projetes : tableau, graphique, carte, timeline, kanban, contact, budget, réunion, décision, fichiers.
-   start_meeting : démarre la prise de notes d'une réunion avec meeting_board.
-   organize_kanban : organise les tâches demandées en tableau Kanban.
-   L'écran est ton principal canal d'expression. Tu appelles iris_render AVANT de parler, SANS EXCEPTION.
-
-6. VISION — look_around
-   Tu décris ce que tu vois. Tu lis un document montré à la caméra. Tu dis "je ne vois pas encore" si la vision est inactive.
-
-7. CONTACTS — get_contacts
-   Tu affiches fiche, historique, niveau de confiance, dernière interaction. Tu prépares les relances sans harcèlement.
-
-8. DÉCISION — compare, analyse
-   Tu compares options A/B. Tu affiches risques/coûts/bénéfices. Tu demandes les infos manquantes avant de conclure.
-
-9. CONFORMITÉ — vérification action sensible
-   Tu bloques SMS/appel/email sans validation. Tu alertes RGPD. Tu journalises.
-
-10. JARVIS — create_note, create_instruction, add_reminder, get_reminders
-    "Prépare-moi un dossier sur X". "Surveille ce sujet". "Rappelle-moi demain". "Transforme notre discussion en plan exécutable".
-
-RÈGLE ABSOLUE — IRIS COMMAND SCREEN :
-L'outil `chat` n'existe PAS. Tu n'as QUE iris_render pour répondre.
-Pour CHAQUE réponse, QUELLE QU'ELLE SOIT — bonjour, question simple, analyse complexe — tu appelles d'abord iris_render, puis tu parles.
-
-Tu appelles iris_render IMMÉDIATEMENT et SANS EXCEPTION pour :
-- les questions simples (bonjour, ça va, qui es-tu) → iris_render(render_type="context_panel", payload={...})
-- l'utilisateur demande un tableau, graphique, courbe, KPI, liste, courrier, brouillon, checklist, plan, analyse, état, carte, budget, réunion, contact, document ou formulaire ;
-- l'utilisateur dit "affiche", "montre", "ouvre", "prépare", "rédige", "génère", "fais-moi", "écran", "workspace", "cherche", "compare", "analyse" ;
-- ta réponse contient plus de 2 informations → data_board ;
-- les données sont incomplètes → iris_render(render_type="missing_info") et pose UNE seule question.
-
-EXEMPLE CONCRET — Si l'utilisateur dit "Bonjour Iris" :
-1. Tu appelles IMMÉDIATEMENT iris_render(render_type="context_panel", payload={"sections":[{"title":"Bonjour","body":"Je suis prête. Que souhaitez-vous faire ?"}]})
-2. Ensuite tu parles : "Bonjour, je suis prête."
-
-EXEMPLE CONCRET — Si l'utilisateur dit "Prépare-moi un tableau avec les chiffres de vente" :
-1. Tu appelles IMMÉDIATEMENT iris_render(render_type="data_board", payload={...})
-2. Ensuite seulement tu parles : "Voici le tableau."
-
-Format invariable — SANS EXCEPTION :
-1. Appelle iris_render avec le bon render_type et le payload complet.
-2. Parle en 1 phrase courte pour annoncer ce que tu viens d'afficher.
-
-INTERDIT sans exception :
-- dire "je ne peux pas afficher", "je ne peux pas montrer", "je ne peux pas faire", ou toute variante ;
-- dire que tu ne peux pas utiliser ton tableau ou ton écran pour faire un graphique ;
-- lire un tableau, une liste ou un document à voix haute ;
-- mettre du contenu structuré dans ta réponse orale ;
-- dire "je peux t'aider à faire" — tu FAIS, tu ne proposes pas.
-L'écran est là. Utilise-le. C'est ton principal mode d'expression pour tout contenu structuré.
-
-Ne prétends jamais avoir envoyé, sauvegardé ou exécuté sans confirmation réelle.
-
-Règle actes/paroles :
-Ne dis jamais "je l'ai fait" si l'outil n'a pas renvoyé un succès réel.
-Si une action n'est pas encore branchée, dis : "Je prépare le brouillon, tu valides avant envoi."
-Si une action est sensible, demande confirmation claire avant exécution.
-
-Actions sensibles :
-SMS, appel, email, paiement, réservation, alerte, invitation à un tiers et suppression de données exigent confirmation explicite.
-Tu n'appelles jamais les numéros d'urgence. Tu les suggères seulement.
-Tu respectes le RGPD : minimisation des données, pas de divulgation de données personnelles, consentement avant documents sensibles.
-
-Style :
-Français oral naturel, énergique, jeune adulte, professionnelle.
-Réponds en 1 à 2 phrases, sauf si Ludovic demande un détail.
-Zéro markdown, zéro titre, zéro liste lue à voix haute.
-Pas de "Bien sûr !", "Absolument !", "Avec plaisir !" : va directement au résultat.
-Si STT imprécis : déduis par le contexte. Si impossible : "Répète juste ça."
-
-Phrase interdite :
-Ne dis jamais que tu t'appelles Alex ou Luna. Tu es Iris.
-
-IRIS COMMAND SCREEN — Connaissance complète de ton espace de travail
-
-Ton panneau a 4 boutons fixes que l'utilisateur peut utiliser :
-- Modifier : passe ton contenu en édition inline (l'utilisateur peut corriger directement)
-- Copier : copie le texte brut de ton panneau dans le presse-papier
-- Télécharger : exporte ton contenu en fichier .txt
-- Fermer : réduit ton panneau
-Tu peux mentionner ces boutons à l'utilisateur si pertinent ("tu peux modifier directement dans le panneau").
-
-Tu travailles en 10 modes. L'utilisateur les sélectionne avec les boutons en haut de l'interface.
-Chaque mode a un render attendu par défaut — tu l'utilises SYSTÉMATIQUEMENT quand le mode est actif :
-- Discussion 💬 : context_panel — appelle iris_render MÊME pour les réponses courtes, MÊME pour "bonjour"
-- Analyse 📄 : document_insight — TOUJOURS visuel, JAMAIS de texte seul
-- Réunion 👥 : meeting_board (agenda, participants, décisions)
-- Tableau 📊 : data_board (colonnes, lignes, badges)
-- Rédaction ✏️ : document_draft (corps complet du document rédigé)
-- Recherche 🔍 : data_board ou context_panel
-- Actions ⚡ : action_board (checklist, cases, priorités)
-- Équipe 🧑‍🤝‍🧑 : data_board ou context_panel (liste des membres, rôles)
-- Carte 🗺️ : context_panel avec infos de localisation
-- Conformité 🛡️ : document_insight ou missing_info
-
-Quand un fichier est uploadé (PDF, DOCX, CSV, XLSX, image, ZIP) :
-1. Tu appelles iris_render(render_type="document_insight") IMMÉDIATEMENT, sans attendre de question
-2. Tu confirms en UNE phrase : "J'ai reçu [nom du fichier], voici mon analyse."
-3. Le contenu du document t'est transmis automatiquement dans le contexte — tu l'utilises
-
-Liste complète des 18 render_types disponibles dans iris_render :
-document_insight, data_board, document_draft, action_board, context_panel, status_rail,
-kpi_cards, chart, timeline, comparison, missing_info, kanban_board, meeting_board,
-budget_board, decision_board, contact_board, media_board, form_board.
-Si tu hésites entre deux types, choisis le plus structuré (ex : data_board > context_panel)."""
+IDENTITÉ :
+Tu es Iris. Tu ne dis jamais que tu t'appelles Alex ou Luna."""
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -10421,17 +10336,29 @@ Règles de collaboration :
         except Exception:
             pass
 
-    # Salutation aléatoire
+    # Voix pure : Iris reste SILENCIEUSE à l'ouverture (greeting vide => _send_greeting
+    # ne se déclenche pas). Elle attend que l'utilisateur parle. Voir _IRIS_SYSTEM.
     _is_reconnect = len(_voice_history) > 0 and _history_param
     if _is_reconnect:
-        context += "\n\nREPRISE DE SESSION : dis simplement à Ludovic que tu es de retour et reprends la conversation."
-        _greeting = "Reprends la conversation."
-    else:
-        _tpl = _random.choice(_IRIS_GREETINGS)
-        _greeting_text = _tpl.format(name=sub_name or "Ludovic")
-        # Passer la phrase directement comme instructions de response.create
-        # (gpt-realtime-2 lisait littéralement le label "PHRASE D'OUVERTURE OBLIGATOIRE")
-        _greeting = _greeting_text
+        # On informe Iris du contexte de reprise, mais elle ne parle toujours pas la première.
+        context += "\n\nREPRISE DE SESSION : la conversation reprend après une coupure. Reste silencieuse et attends que l'utilisateur reprenne la parole."
+    _greeting = ""  # jamais de salutation auto — Iris ne parle jamais en premier
+
+    # --- Sécurité : détection d'urgence pendant la conversation vocale ---
+    from core.safety.voice_emergency import classify_emergency as _classify_emergency
+
+    async def _iris_emergency_detect(text: str, recent):
+        """Analyse d'intention d'urgence (LLM) sur ce que dit l'utilisateur."""
+        return await _classify_emergency(text, recent, openai_client)
+
+    async def _iris_emergency_fire(summary: str, level: str):
+        """Déclenche le protocole d'alerte (SMS + appels + position) côté serveur."""
+        return await _trigger_voice_emergency(tid, summary=summary, level=level)
+
+    # Garde-fou opérationnel : on peut désactiver toute la détection d'urgence sans redéployer.
+    _emergency_on = os.getenv("VOICE_EMERGENCY_ENABLED", "true").lower() in ("1", "true", "yes")
+    _emg_detect = _iris_emergency_detect if _emergency_on else None
+    _emg_fire = _iris_emergency_fire if _emergency_on else None
 
     bridge = WebVoiceBridge(
         openai_api_key=OPENAI_API_KEY,
@@ -10449,6 +10376,9 @@ Règles de collaboration :
         participant_name=_participant_name,
         session_manager=_iris_session_manager,
         initial_mode=_iris_mode,
+        command_screen=False,  # voix pure : pas de panneau ICS, pas de forçage iris_render
+        emergency_detect=_emg_detect,
+        emergency_fire=_emg_fire,
     )
 
     # Enregistrer le WS dans la session collaborative si active
@@ -16971,6 +16901,128 @@ async def _tool_alert_contacts(args: Dict, tenant_id: int = 0) -> Dict:
     except Exception:
         pass
     return {"status": "success", "message": f"Alerte envoyee a {sent} contact(s) de confiance", "reasoning": reasoning}
+
+
+async def _trigger_voice_emergency(
+    tenant_id: int,
+    summary: str = "",
+    level: str = "immediate",
+    place_calls: bool = True,
+) -> Dict:
+    """
+    Déclenche le protocole d'urgence depuis une conversation vocale Iris.
+
+    Chaîne (cf. modus operandi validé) :
+      1. SMS à TOUS les contacts de confiance (résumé + dernière position connue).
+      2. Appels Twilio à TOUS les contacts de confiance (best-effort).
+    Déterministe et serveur — ne dépend pas d'un tool-call du modèle vocal.
+
+    Respecte _test_mode (dry-run) : aucun SMS ni appel réel n'est émis, mais le
+    rapport indique exactement ce qui AURAIT été fait. Robuste : ne lève jamais,
+    renvoie toujours un rapport exploitable.
+    """
+    tid = tenant_id or TENANT_ID
+    # Dry-run = mode test global OU shadow d'urgence (rollout prudent en prod sans envoi réel)
+    _shadow = os.getenv("VOICE_EMERGENCY_DRY_RUN", "").lower() in ("1", "true", "yes")
+    dry = bool(_test_mode) or _shadow
+    report: Dict[str, Any] = {
+        "triggered": False, "level": level, "summary": summary,
+        "sms": {"sent": 0, "total": 0}, "calls": {"placed": 0, "total": 0},
+        "location_included": False, "dry_run": dry, "errors": [],
+    }
+
+    mgr = _get_tenant_manager(tid) if tid else _memory_manager
+    if not mgr:
+        report["errors"].append("memoire_indisponible")
+        return report
+
+    try:
+        contacts = mgr.list_trusted_contacts()
+    except Exception as e:
+        report["errors"].append(f"contacts_error:{e}")
+        contacts = []
+    report["sms"]["total"] = len(contacts)
+    report["calls"]["total"] = len(contacts)
+    if not contacts:
+        report["errors"].append("aucun_contact_de_confiance")
+        return report
+
+    reason = summary or "situation préoccupante détectée en conversation vocale"
+
+    # Position connue ?
+    try:
+        report["location_included"] = bool(
+            _redis_client and _redis_client.client.get(f"luna:{tid}:geolocation")
+        )
+    except Exception:
+        pass
+
+    # --- 1. SMS à tous (résumé + position + heure + n° urgence) ---
+    if dry:
+        report["sms"]["sent"] = len(contacts)
+        report["triggered"] = True
+        logger.warning(f"[EMERGENCY DRY-RUN] SMS simulé vers {len(contacts)} contact(s)")
+    else:
+        try:
+            sms_res = await _tool_alert_contacts({"reason": reason}, tid)
+            if sms_res.get("status") == "success":
+                # _tool_alert_contacts renvoie un message "Alerte envoyee a N contact(s)"
+                import re as _re
+                m = _re.search(r"(\d+)", sms_res.get("message", ""))
+                report["sms"]["sent"] = int(m.group(1)) if m else len(contacts)
+                report["triggered"] = True
+            else:
+                report["errors"].append("sms:" + str(sms_res.get("message", "echec")))
+        except Exception as e:
+            report["errors"].append(f"sms_exception:{e}")
+
+    # --- 2. Appels Twilio à tous les contacts (best-effort) ---
+    if place_calls:
+        _call_msg = (
+            f"Ceci est une alerte automatique. {reason}. "
+            f"Merci de vérifier que tout va bien et de rappeler dès que possible."
+        )
+        for c in contacts:
+            try:
+                if dry:
+                    logger.warning(f"[EMERGENCY DRY-RUN] Appel simulé vers {getattr(c,'name','?')}")
+                    report["calls"]["placed"] += 1
+                    continue
+                if not (voice_client and getattr(voice_client, "is_configured", False)) or not VOICE_CALLBACK_URL:
+                    report["errors"].append("appels_indisponibles")
+                    break
+                call_res = await _tool_call_contact(
+                    {"contact_name": getattr(c, "name", ""), "message": _call_msg}, tid
+                )
+                if call_res.get("status") == "success":
+                    report["calls"]["placed"] += 1
+                    report["triggered"] = True
+            except Exception as e:
+                report["errors"].append(f"call_exception:{e}")
+
+    # --- Journalisation sécurité ---
+    try:
+        mgr.log_event(
+            category="safety",
+            description=(
+                f"URGENCE VOCALE déclenchée (niveau={level}) — "
+                f"SMS {report['sms']['sent']}/{report['sms']['total']}, "
+                f"appels {report['calls']['placed']}/{report['calls']['total']}"
+                + (" [DRY-RUN]" if _test_mode else "")
+            ),
+            reasoning=f"Détection urgence en conversation vocale Iris: {reason}",
+            source="voice_emergency",
+        )
+    except Exception:
+        pass
+
+    logger.warning(
+        f"VOICE EMERGENCY tid={tid} level={level} triggered={report['triggered']} "
+        f"sms={report['sms']['sent']}/{report['sms']['total']} "
+        f"calls={report['calls']['placed']}/{report['calls']['total']} "
+        f"dry_run={_test_mode} loc={report['location_included']}"
+    )
+    return report
 
 
 async def _tool_report_observation(args: Dict, tenant_id: int = 0, conversation_id: str = "") -> Dict:
