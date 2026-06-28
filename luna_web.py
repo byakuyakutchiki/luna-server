@@ -24017,6 +24017,247 @@ async def admin_objectives(request: Request):
     }
 
 
+@app.api_route("/api/admin/services-selftest", methods=["GET", "POST"])
+async def admin_services_selftest(request: Request):
+    """
+    BANC D'ESSAI SERVICES — teste chaque service de l'onglet Conciergerie
+    via le VRAI code backend, dans les conditions reelles d'un exploitant.
+
+    - Par defaut (dry-run) : verifie config + execute les services en LECTURE SEULE
+      (meteo, actualites, recherche web, lieux, RECHERCHE vols/hotels Duffel).
+      Aucune action engageante : jamais de reservation, paiement, SMS/appel/email reel.
+    - ?live=1 : autorise UN envoi REEL (SMS + appel + email) uniquement vers
+      ADMIN_NUMBER / PROPRIO_EMAIL (le fondateur), jamais un tiers. Opt-in explicite.
+
+    Distinct du monitoring passif /api/admin/objectives (qui reste sans action reelle).
+    """
+    if not _verify_admin(request):
+        return JSONResponse(status_code=401, content={"error": "Non autorise"})
+
+    from datetime import datetime as _dt, timedelta as _td
+    live = request.query_params.get("live") == "1"
+    services = []
+
+    def _svc(key, label, icon, category, status, detail, tested="config", missing=None, action=False):
+        services.append({
+            "key": key, "label": label, "icon": icon, "category": category,
+            "status": status, "detail": detail, "tested": tested,
+            "missing": missing or [], "engageant": action,
+        })
+
+    # ---- 1) METEO (gratuit, lecture seule) ----
+    try:
+        r = await _tool_get_weather({"city": "Paris"})
+        ok = r.get("status") == "success"
+        _svc("weather", "Meteo", "⛅", "Infos temps reel",
+             "green" if ok else "red",
+             "API meteo OK (donnees recues)" if ok else f"Echec: {r.get('message', 'erreur')}",
+             tested="live")
+    except Exception as e:
+        _svc("weather", "Meteo", "⛅", "Infos temps reel", "red", f"Exception: {type(e).__name__}", tested="live")
+
+    # ---- 2) ACTUALITES (gratuit, lecture seule) ----
+    try:
+        r = await _tool_get_news({"count": 3})
+        ok = r.get("status") == "success"
+        _svc("news", "Actualites", "\U0001F4F0", "Infos temps reel",
+             "green" if ok else "red",
+             "Flux RSS OK" if ok else f"Echec: {r.get('message', 'erreur')}", tested="live")
+    except Exception as e:
+        _svc("news", "Actualites", "\U0001F4F0", "Infos temps reel", "red", f"Exception: {type(e).__name__}", tested="live")
+
+    # ---- 3) RECHERCHE WEB (Serper, lecture seule) ----
+    serper_ok = bool(os.getenv("SERPER_API_KEY", ""))
+    try:
+        r = await _tool_search_web({"query": "pharmacie de garde Paris"})
+        ok = r.get("status") == "success"
+        _svc("web", "Recherche web", "\U0001F50D", "Recherche & Voyage",
+             "green" if ok else ("red" if not serper_ok else "amber"),
+             "Serper OK (resultats recus)" if ok else f"Echec: {r.get('message', 'erreur')}",
+             tested="live", missing=[] if serper_ok else ["SERPER_API_KEY"])
+    except Exception as e:
+        _svc("web", "Recherche web", "\U0001F50D", "Recherche & Voyage", "red", f"Exception: {type(e).__name__}",
+             tested="live", missing=[] if serper_ok else ["SERPER_API_KEY"])
+
+    # ---- 4) LIEUX / AUTOUR DE MOI (Serper, lecture seule) ----
+    try:
+        r = await _tool_search_places({"query": "pharmacie", "location": "Paris"})
+        ok = r.get("status") == "success"
+        _svc("places", "Autour de moi", "\U0001F4CD", "Recherche & Voyage",
+             "green" if ok else ("red" if not serper_ok else "amber"),
+             "Serper Places OK" if ok else f"Echec: {r.get('message', 'erreur')}",
+             tested="live", missing=[] if serper_ok else ["SERPER_API_KEY"])
+    except Exception as e:
+        _svc("places", "Autour de moi", "\U0001F4CD", "Recherche & Voyage", "red", f"Exception: {type(e).__name__}",
+             tested="live", missing=[] if serper_ok else ["SERPER_API_KEY"])
+
+    # ---- 5) VOLS (RECHERCHE seule via Duffel test, jamais de reservation) ----
+    _dep = (_dt.utcnow() + _td(days=30)).strftime("%Y-%m-%d")
+    duffel_on = bool(duffel_client and duffel_client.is_configured)
+    try:
+        r = await _tool_search_flights({"origin": "Paris", "destination": "Nice", "departure_date": _dep})
+        ok = r.get("status") == "success"
+        src = "Duffel" if duffel_on else "recherche web (fallback)"
+        _svc("flights", "Vols", "✈️", "Recherche & Voyage",
+             "green" if ok else "red",
+             f"Recherche vols OK via {src}" if ok else f"Echec: {r.get('message', 'erreur')}",
+             tested="live", missing=[] if (duffel_on or serper_ok) else ["DUFFEL_ACCESS_TOKEN", "SERPER_API_KEY"])
+    except Exception as e:
+        _svc("flights", "Vols", "✈️", "Recherche & Voyage", "red", f"Exception: {type(e).__name__}", tested="live")
+
+    # ---- 6) HOTELS (RECHERCHE seule, jamais de reservation) ----
+    _ci = (_dt.utcnow() + _td(days=30)).strftime("%Y-%m-%d")
+    _co = (_dt.utcnow() + _td(days=32)).strftime("%Y-%m-%d")
+    try:
+        r = await _tool_search_hotels({"city": "Nice", "check_in": _ci, "check_out": _co})
+        ok = r.get("status") == "success"
+        src = "Duffel" if duffel_on else "recherche web (fallback)"
+        _svc("hotels", "Hotels", "\U0001F3E8", "Recherche & Voyage",
+             "green" if ok else "red",
+             f"Recherche hotels OK via {src}" if ok else f"Echec: {r.get('message', 'erreur')}",
+             tested="live", missing=[] if (duffel_on or serper_ok) else ["DUFFEL_ACCESS_TOKEN", "SERPER_API_KEY"])
+    except Exception as e:
+        _svc("hotels", "Hotels", "\U0001F3E8", "Recherche & Voyage", "red", f"Exception: {type(e).__name__}", tested="live")
+
+    # ---- 7) RESTAURANTS (config seule — jamais de reservation) ----
+    thefork_on = bool(thefork_client and thefork_client.is_configured)
+    if thefork_on:
+        _svc("restaurant", "Restaurants", "\U0001F37D️", "Recherche & Voyage", "green",
+             "TheFork configure (reservation directe). Non declenchee pendant le test.")
+    elif serper_ok:
+        _svc("restaurant", "Restaurants", "\U0001F37D️", "Recherche & Voyage", "amber",
+             "TheFork absent → repli: recherche lieux (Serper) + appel resto. Fonctionnel en mode degrade.",
+             missing=["THEFORK_API_KEY"])
+    else:
+        _svc("restaurant", "Restaurants", "\U0001F37D️", "Recherche & Voyage", "red",
+             "Ni TheFork ni Serper → restaurants indisponibles.", missing=["THEFORK_API_KEY", "SERPER_API_KEY"])
+
+    # ---- 8) SMS (config ; envoi reel uniquement si live + vers ADMIN_NUMBER) ----
+    sms_on = bool(sms_client and getattr(sms_client, "is_configured", False))
+    if not sms_on:
+        _svc("sms", "SMS", "\U0001F4AC", "Communication", "red", "Twilio non configure.",
+             missing=["TWILIO_ACCOUNT_SID", "TWILIO_AUTH_TOKEN", "TWILIO_PHONE_NUMBER"], action=True)
+    elif live and ADMIN_NUMBER:
+        try:
+            ok, det = _tracked_sms_send(ADMIN_NUMBER, "[Luna] Banc d'essai Services : test SMS reel. Tout fonctionne.", label="Banc d'essai Services")
+            _svc("sms", "SMS", "\U0001F4AC", "Communication", "green" if ok else "red",
+                 f"SMS REEL envoye vers {ADMIN_NUMBER}" if ok else f"Echec envoi: {det.get('error', 'inconnu')}",
+                 tested="live-reel", action=True)
+        except Exception as e:
+            _svc("sms", "SMS", "\U0001F4AC", "Communication", "red", f"Exception: {type(e).__name__}", tested="live-reel", action=True)
+    else:
+        _svc("sms", "SMS", "\U0001F4AC", "Communication", "green",
+             "Twilio configure. Envoi reel non declenche (mode a blanc).", action=True)
+
+    # ---- 9) APPEL (config ; appel reel uniquement si live + vers ADMIN_NUMBER) ----
+    call_on = bool(voice_client and getattr(voice_client, "is_configured", False))
+    if not call_on:
+        _svc("call", "Appel", "\U0001F4DE", "Communication", "red", "Twilio Voice non configure.",
+             missing=["TWILIO_ACCOUNT_SID", "TWILIO_AUTH_TOKEN", "TWILIO_PHONE_NUMBER"], action=True)
+    elif live and ADMIN_NUMBER:
+        try:
+            ok, det = await voice_client.initiate_call_async(ADMIN_NUMBER)
+            _svc("call", "Appel", "\U0001F4DE", "Communication", "green" if ok else "red",
+                 f"Appel REEL declenche vers {ADMIN_NUMBER}" if ok else f"Echec appel: {det.get('error', 'inconnu')}",
+                 tested="live-reel", action=True)
+        except Exception as e:
+            _svc("call", "Appel", "\U0001F4DE", "Communication", "red", f"Exception: {type(e).__name__}", tested="live-reel", action=True)
+    else:
+        _svc("call", "Appel", "\U0001F4DE", "Communication", "green",
+             "Twilio Voice configure. Appel reel non declenche (mode a blanc).", action=True)
+
+    # ---- 10) EMAIL (config ; envoi reel uniquement si live + vers PROPRIO_EMAIL) ----
+    _proprio_email = os.getenv("PROPRIO_EMAIL", "")
+    gmail_env = bool(gmail_client and getattr(gmail_client, "is_configured", False))
+    sendgrid_on = bool(email_client and getattr(email_client, "is_configured", False))
+    # Un souscripteur a-t-il reellement connecte Gmail (token en Redis) ?
+    gmail_connected = False
+    if _redis_client:
+        try:
+            gmail_connected = any(True for _ in _redis_client.client.scan_iter("*email_integration*", count=200))
+        except Exception:
+            pass
+    email_on = gmail_env or sendgrid_on
+    if not email_on:
+        _svc("email", "Email", "\U0001F4E7", "Communication", "red", "Aucun service email (Gmail OAuth / SendGrid) configure.",
+             missing=["SENDGRID_API_KEY ou Gmail OAuth"], action=True)
+    elif live and _proprio_email:
+        try:
+            ok, det = await email_client.send_for_tenant(
+                tenant_id=1, redis_client=_redis_client, gmail_client=gmail_client,
+                to=_proprio_email, subject="Banc d'essai Luna — test email reel",
+                body_text="Ceci est un test reel du service Email de l'onglet Services. Tout fonctionne.",
+                subscriber_name="Luna",
+            )
+            if ok:
+                _svc("email", "Email", "\U0001F4E7", "Communication", "green",
+                     f"Email REEL envoye vers {_proprio_email}", tested="live-reel", action=True)
+            else:
+                err = str(det.get("error", "inconnu"))
+                if "credit" in err.lower():
+                    hint = "SendGrid: credits epuises. Connecte Gmail OAuth (gratuit, par souscripteur) ou recharge SendGrid."
+                else:
+                    hint = f"Echec envoi: {err}"
+                _svc("email", "Email", "\U0001F4E7", "Communication", "red", hint,
+                     tested="live-reel", missing=[] if gmail_connected else ["Gmail OAuth (aucun souscripteur connecte)"], action=True)
+        except Exception as e:
+            _svc("email", "Email", "\U0001F4E7", "Communication", "red", f"Exception: {type(e).__name__}", tested="live-reel", action=True)
+    else:
+        # Mode a blanc : config presente, mais SendGrid peut etre a court de credits — le confirmer en envoi reel.
+        if gmail_connected:
+            detail = "Gmail OAuth connecte (voie gratuite). Lance un envoi reel pour confirmer."
+            status = "green"
+        elif sendgrid_on:
+            detail = "SendGrid configure (Gmail OAuth non connecte). Verifie les credits via un envoi reel."
+            status = "amber"
+        else:
+            detail = "Gmail OAuth (env) present mais aucun souscripteur connecte."
+            status = "amber"
+        _svc("email", "Email", "\U0001F4E7", "Communication", status, detail,
+             missing=[] if gmail_connected else ["Gmail OAuth a connecter"], action=True)
+
+    # ---- 11) VISIO (config : depend de Tavus + Twilio) ----
+    tavus_on = bool(tavus_client and getattr(tavus_client, "is_configured", False))
+    if tavus_on and sms_on:
+        _svc("visio", "Inviter en visio", "\U0001F3A5", "Communication", "green",
+             "Tavus + Twilio configures. Invitation non declenchee pendant le test.")
+    else:
+        miss = []
+        if not tavus_on:
+            miss.append("TAVUS_API_KEY")
+        if not sms_on:
+            miss.append("TWILIO_*")
+        _svc("visio", "Inviter en visio", "\U0001F3A5", "Communication", "amber",
+             "Visio degradee : " + (" + ".join(miss) + " manquant(s)."), missing=miss)
+
+    # ---- 12) Internes (toujours OK, sans dependance externe) ----
+    for k, lbl, ic in [("reminders", "Rappels", "⏰"), ("notes", "Notes", "\U0001F4DD"),
+                       ("contacts", "Mes contacts", "\U0001F465")]:
+        _svc(k, lbl, ic, "Organisation", "green", "Interne (Redis) — fonctionne sans cle externe.")
+    doc_on = bool(OPENAI_API_KEY or os.getenv("ANTHROPIC_API_KEY", ""))
+    _svc("document", "Document / courrier", "\U0001F4C4", "Organisation",
+         "green" if doc_on else "red",
+         "Generation par LLM disponible." if doc_on else "Aucune cle LLM (OpenAI/Anthropic).",
+         missing=[] if doc_on else ["OPENAI_API_KEY"])
+
+    summary = {
+        "green": sum(1 for s in services if s["status"] == "green"),
+        "amber": sum(1 for s in services if s["status"] == "amber"),
+        "red": sum(1 for s in services if s["status"] == "red"),
+        "total": len(services),
+    }
+    _admin_audit(request, "admin.services_selftest", None, {"live": live, "summary": summary})
+    return {
+        "checked_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "live": live,
+        "foundation_test_mode": os.getenv("FOUNDATION_TEST_MODE", "false").lower() == "true",
+        "admin_number": (ADMIN_NUMBER[:6] + "…") if ADMIN_NUMBER else "",
+        "proprio_email": _proprio_email if live else "",
+        "summary": summary,
+        "services": services,
+    }
+
+
 @app.get("/api/admin/revenue")
 async def admin_revenue(request: Request):
     """Estimation CA — lecture directe Redis."""
@@ -25276,6 +25517,15 @@ async def admin_audit_global(request: Request, limit: int = 100, action: str = N
 async def admin_users_page():
     """Page de gestion des utilisateurs (servie séparément de admin.html)."""
     page = Path(os.path.dirname(__file__)) / "static" / "admin_users.html"
+    if page.exists():
+        return FileResponse(str(page), media_type="text/html")
+    return JSONResponse(status_code=404, content={"error": "Page introuvable"})
+
+
+@app.get("/admin/services-test")
+async def admin_services_test_page():
+    """Banc d'essai des Services / Conciergerie (page fondateur, servie séparément)."""
+    page = Path(os.path.dirname(__file__)) / "static" / "services_test.html"
     if page.exists():
         return FileResponse(str(page), media_type="text/html")
     return JSONResponse(status_code=404, content={"error": "Page introuvable"})
