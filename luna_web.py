@@ -10863,6 +10863,10 @@ Règles de collaboration :
     _emg_detect = _iris_emergency_detect if _emergency_on else None
     _emg_fire = _iris_emergency_fire if _emergency_on else None
 
+    async def _iris_reminder_handle(text: str):
+        """Crée un rappel côté serveur si l'utilisateur en demande un (déterministe)."""
+        return await _handle_voice_reminder(text, tid)
+
     bridge = WebVoiceBridge(
         openai_api_key=OPENAI_API_KEY,
         ws_client=websocket,
@@ -10882,6 +10886,7 @@ Règles de collaboration :
         command_screen=False,  # voix pure : pas de panneau ICS, pas de forçage iris_render
         emergency_detect=_emg_detect,
         emergency_fire=_emg_fire,
+        reminder_handle=_iris_reminder_handle,
     )
 
     # Enregistrer le WS dans la session collaborative si active
@@ -18615,6 +18620,49 @@ async def _trigger_voice_emergency(
     return report
 
 
+
+
+async def _handle_voice_reminder(text: str, tenant_id: int) -> Dict:
+    """
+    Si l'utilisateur demande un rappel en vocal, le SERVEUR le crée lui-même
+    (déterministe — le modèle vocal n'appelle pas add_reminder de façon fiable) et
+    renvoie une consigne de confirmation pour Iris. Sinon {"handled": False}.
+    """
+    try:
+        from integrations.iris.voice_reminders import has_reminder_intent, extract_reminder
+    except Exception:
+        return {"handled": False}
+    if not has_reminder_intent(text):
+        return {"handled": False}
+    try:
+        _today = datetime.now(ZoneInfo("Europe/Paris")).date().isoformat()
+    except Exception:
+        _today = ""
+    extracted = await extract_reminder(text, _today, openai_client)
+    if not extracted.get("is_reminder") or not extracted.get("title"):
+        return {"handled": False}
+
+    title = extracted["title"]
+    due_date = extracted.get("due_date", "")
+    due_time = extracted.get("due_time", "")
+    res = _tool_secretary_add_reminder(tenant_id, {
+        "title": title, "due_date": due_date, "due_time": due_time,
+    })
+    if res.get("status") != "success":
+        return {"handled": False}
+
+    # Quand (pour la phrase de confirmation orale)
+    _when = ""
+    if due_date:
+        _when = f" pour le {due_date}" + (f" à {due_time}" if due_time else "")
+    elif due_time:
+        _when = f" à {due_time}"
+    speak = (
+        f"Confirme en UNE phrase courte et naturelle que le rappel « {title} »{_when} est bien créé. "
+        f"Ne mentionne JAMAIS une app du téléphone ni un service externe — c'est toi qui l'as noté."
+    )
+    logger.info(f"VoiceReminder: créé tid={tenant_id} title={title[:60]!r} date={due_date} time={due_time}")
+    return {"handled": True, "title": title, "speak": speak}
 
 
 async def _tool_report_observation(args: Dict, tenant_id: int = 0, conversation_id: str = "") -> Dict:

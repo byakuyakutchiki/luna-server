@@ -453,6 +453,7 @@ class WebVoiceBridge:
         iris_mode: bool = True,  # False = luna-voice (pas de panneau ICS, iris_render exclu)
         emergency_detect=None,  # async (text, recent) -> {level, summary} — classif LLM d'urgence
         emergency_fire=None,    # async (summary, level) -> report — déclenche l'alerte (SMS+appels)
+        reminder_handle=None,   # async (text) -> {handled: bool, speak: str} — crée le rappel côté serveur
     ):
         self.openai_api_key = openai_api_key
         self.ws_client = ws_client
@@ -491,6 +492,8 @@ class WebVoiceBridge:
         self._emergency_fire = emergency_fire
         self._pending_emergency = None   # résumé en attente de confirmation (niveau ambigu)
         self._emergency_active = False   # une alerte a déjà été déclenchée dans cette session
+        # Rappels : création déterministe côté serveur (le modèle vocal n'appelle pas add_reminder de façon fiable).
+        self._reminder_handle = reminder_handle
         # Mode de mission Iris — initialisé depuis le query param ?mode= (Objectif 026)
         self._active_mode = initial_mode if initial_mode in IRIS_MODES else DEFAULT_MODE
         self._base_context = context  # Contexte système de base (sans mode)
@@ -1304,6 +1307,25 @@ class WebVoiceBridge:
             asyncio.create_task(self._emergency_llm_followup(text))
         return False
 
+    async def _handle_reminder(self, text: str) -> bool:
+        """
+        Si l'utilisateur demande un rappel, le serveur le crée lui-même (déterministe)
+        et fait confirmer Iris. Retourne True si le tour a été pris en main (on saute
+        la réponse conversationnelle normale). Iris ne renvoie JAMAIS vers une app du téléphone.
+        """
+        if not self._reminder_handle:
+            return False
+        try:
+            res = await self._reminder_handle(text)
+        except Exception as e:
+            logger.warning(f"WebVoice: reminder_handle error: {e}")
+            return False
+        if res and res.get("handled"):
+            await self._ws_send_client({"type": "reminder", "state": "created", "title": res.get("title", "")})
+            await self._speak(res.get("speak") or "Confirme en une phrase, naturellement, que le rappel est créé.")
+            return True
+        return False
+
     async def _relay_client_to_openai(self):
         """Recoit l'audio PCM16 du navigateur et l'envoie a OpenAI."""
         try:
@@ -1364,9 +1386,9 @@ class WebVoiceBridge:
                             else:
                                 await self._ws_send_openai({"type": "response.create"})
                         else:
-                            # Voix pure : sécurité d'abord (urgence), sinon réponse normale.
+                            # Voix pure : sécurité d'abord (urgence), puis rappels, sinon réponse normale.
                             emergency_handled = await self._handle_emergency(text)
-                            if not emergency_handled:
+                            if not emergency_handled and not await self._handle_reminder(text):
                                 await self._ws_send_openai({"type": "response.create"})
 
                 elif msg_type == "ui_event":
@@ -1705,7 +1727,9 @@ class WebVoiceBridge:
                             # l'utilisateur. Si une urgence prend le tour en main, on ne fait pas
                             # de réponse conversationnelle normale (l'alerte + le message rassurant priment).
                             emergency_handled = await self._handle_emergency(text)
-                            if not emergency_handled:
+                            # Puis rappels : si l'utilisateur demande un rappel, le serveur le crée
+                            # lui-même et Iris confirme (pas de « mets-le sur ton téléphone »).
+                            if not emergency_handled and not await self._handle_reminder(text):
                                 await self._ws_send_openai({"type": "response.create"})
                                 logger.info("WebVoice: response_created (voix pure)")
 
