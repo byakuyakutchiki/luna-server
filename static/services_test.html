@@ -235,6 +235,14 @@ function render(data){
       card.innerHTML=`<div class="top"><div class="ico">${s.icon||"•"}</div><div class="name">${esc(s.label)}</div><div class="dot ${s.status}" title="${statusWord(s.status)}"></div></div>
         <div class="detail">${esc(s.detail)}</div>
         <div class="meta">${tags.join("")}</div>`;
+      // Remediation : bouton "Connecter Gmail" sur la carte Email quand la voie email n'est pas verte
+      if (s.key === "email" && s.status !== "green") {
+        const fix=document.createElement("button");
+        fix.className="btn sm fix-gmail"; fix.textContent="🔗 Connecter Gmail (gratuit)";
+        fix.style.cssText="margin-top:11px;width:100%;background:linear-gradient(135deg,#7c3aed,#9333ea);border:none;color:#fff;";
+        fix.onclick=connectGmail;
+        card.appendChild(fix);
+      }
       g.appendChild(card);
     });
     wrap.appendChild(g);
@@ -248,6 +256,19 @@ function render(data){
   const when=new Date(data.checked_at).toLocaleString("fr-FR");
   document.getElementById("lastRun").innerHTML="Dernier test : <b>"+when+"</b> · "+(data.live?'<span style="color:#f0abfc;">mode envoi réel</span>':'mode à blanc');
   document.getElementById("hdrInfo").textContent = data.foundation_test_mode ? "FOUNDATION_TEST_MODE actif" : "";
+}
+
+async function connectGmail(){
+  try{
+    const r=await api("/api/admin/email/gmail?tenant_id=1");
+    const d=await r.json();
+    if(!r.ok){ toast(d.error||"Erreur",true); return; }
+    if(d.connected){ toast("Gmail déjà connecté : "+(d.account||""),false); return; }
+    if(!d.configured){ toast("Gmail OAuth non configuré (GOOGLE_OAUTH_CLIENT_ID).",true); return; }
+    if(!d.auth_url){ toast("URL de consentement indisponible.",true); return; }
+    toast("Ouverture du consentement Google…");
+    window.open(d.auth_url, "_blank", "noopener");
+  }catch(e){ if(e.message!=="auth") toast("Erreur réseau",true); }
 }
 
 let _busy=false;

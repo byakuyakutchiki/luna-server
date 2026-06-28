@@ -24017,6 +24017,49 @@ async def admin_objectives(request: Request):
     }
 
 
+@app.get("/api/admin/email/gmail")
+async def admin_email_gmail_status(request: Request):
+    """
+    Statut de l'integration Gmail OAuth d'un tenant + URL de consentement.
+    Sert le bouton 'Connecter Gmail' du banc d'essai (remediation de la voie email).
+    """
+    if not _verify_admin(request):
+        return JSONResponse(status_code=401, content={"error": "Non autorise"})
+    try:
+        tenant_id = int(request.query_params.get("tenant_id", "1"))
+    except ValueError:
+        tenant_id = 1
+
+    configured = bool(gmail_client and getattr(gmail_client, "is_configured", False))
+    connected = False
+    account = ""
+    if _redis_client:
+        try:
+            integ = _redis_client.get_email_integration(tenant_id)
+            if integ and integ.get("service") == "gmail":
+                connected = True
+                account = integ.get("email", "")
+        except Exception:
+            pass
+
+    auth_url = ""
+    if configured:
+        try:
+            auth_url = gmail_client.get_auth_url(tenant_id)
+        except Exception as e:
+            logger.warning(f"gmail get_auth_url error: {e}")
+
+    return {
+        "tenant_id": tenant_id,
+        "configured": configured,
+        "connected": connected,
+        "account": account,
+        "auth_url": auth_url,
+        "redirect_uri": getattr(gmail_client, "redirect_uri", "") if gmail_client else "",
+        "sendgrid_configured": bool(email_client and getattr(email_client, "is_configured", False)),
+    }
+
+
 @app.api_route("/api/admin/services-selftest", methods=["GET", "POST"])
 async def admin_services_selftest(request: Request):
     """
@@ -24170,11 +24213,15 @@ async def admin_services_selftest(request: Request):
     _proprio_email = os.getenv("PROPRIO_EMAIL", "")
     gmail_env = bool(gmail_client and getattr(gmail_client, "is_configured", False))
     sendgrid_on = bool(email_client and getattr(email_client, "is_configured", False))
-    # Un souscripteur a-t-il reellement connecte Gmail (token en Redis) ?
+    # Le fondateur (tenant 1) a-t-il reellement connecte Gmail (token en Redis) ?
     gmail_connected = False
+    gmail_account = ""
     if _redis_client:
         try:
-            gmail_connected = any(True for _ in _redis_client.client.scan_iter("*email_integration*", count=200))
+            _integ = _redis_client.get_email_integration(1)
+            if _integ and _integ.get("service") == "gmail":
+                gmail_connected = True
+                gmail_account = _integ.get("email", "")
         except Exception:
             pass
     email_on = gmail_env or sendgrid_on
@@ -24205,7 +24252,7 @@ async def admin_services_selftest(request: Request):
     else:
         # Mode a blanc : config presente, mais SendGrid peut etre a court de credits — le confirmer en envoi reel.
         if gmail_connected:
-            detail = "Gmail OAuth connecte (voie gratuite). Lance un envoi reel pour confirmer."
+            detail = f"Gmail OAuth connecte ({gmail_account or 'compte'}) — voie gratuite. Lance un envoi reel pour confirmer."
             status = "green"
         elif sendgrid_on:
             detail = "SendGrid configure (Gmail OAuth non connecte). Verifie les credits via un envoi reel."
