@@ -2557,29 +2557,91 @@ body.mode-compagnon .luna-name::before,
   <div class="panel-content">
     <h2>Instructions</h2>
 
-    <!-- Avertissement médicaments — RGPD + responsabilité -->
-    <div id="medDisclaimer" style="background:#fff3cd;border:1px solid #ffc107;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:0.85em;color:#7d5800;display:flex;gap:8px;align-items:flex-start;">
-      <span style="font-size:1.3em;flex-shrink:0;">⚕️</span>
-      <span>Luna peut vous <strong>rappeler de prendre vos médicaments</strong>. Ce service est un rappel uniquement — <strong>jamais un conseil médical</strong>. Pour tout avis médical, consultez votre médecin ou pharmacien. Luna décline toute responsabilité médicale.</span>
+    <!-- Styles premium scopés à l'onglet Instructions (n'affecte pas le .btn global) -->
+    <style>
+      #tab-instructions .instr-chip {
+        background: rgba(124,58,237,.12);
+        border: 1px solid rgba(167,139,250,.28);
+        color: #cdbbf5;
+        font-size: .8em;
+        padding: 6px 13px;
+        border-radius: 20px;
+        cursor: pointer;
+        transition: background .18s ease, border-color .18s ease, color .18s ease, transform .18s ease;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        line-height: 1.2;
+      }
+      #tab-instructions .instr-chip:hover {
+        background: rgba(124,58,237,.26);
+        border-color: rgba(167,139,250,.6);
+        color: #fff;
+        transform: translateY(-1px);
+      }
+      #tab-instructions .instr-chip.instr-chip-med {
+        background: rgba(240,180,41,.10);
+        border-color: rgba(240,180,41,.35);
+        color: #f0c97a;
+      }
+      #tab-instructions .instr-chip.instr-chip-med:hover {
+        background: rgba(240,180,41,.20);
+        border-color: rgba(240,180,41,.62);
+        color: #ffe9b0;
+      }
+      /* Boutons icônes premium (rafraîchir, exécuter) — surcharge le .btn neutre sans fond */
+      #tab-instructions .instr-icon-btn {
+        background: rgba(255,255,255,.06) !important;
+        border: 1px solid rgba(255,255,255,.12) !important;
+        color: #cbd5e1 !important;
+      }
+      #tab-instructions .instr-icon-btn:hover {
+        background: rgba(255,255,255,.13) !important;
+        color: #fff !important;
+      }
+      #tab-instructions .instr-run {
+        background: rgba(16,185,129,.16) !important;
+        border: 1px solid rgba(16,185,129,.4) !important;
+        color: #6ee7b7 !important;
+      }
+      #tab-instructions .instr-run:hover {
+        background: rgba(16,185,129,.3) !important;
+        color: #a7f3d0 !important;
+      }
+    </style>
+
+    <!-- Avertissement médicaments — RGPD + responsabilité (thème sombre premium) -->
+    <div id="medDisclaimer" style="background:linear-gradient(135deg,#181410,#0d0d1a);border:1px solid #4a3a1a;border-left:3px solid #f0b429;border-radius:10px;padding:11px 14px;margin-bottom:16px;font-size:0.82em;color:#d8c9a8;display:flex;gap:10px;align-items:flex-start;transition:box-shadow .25s ease;">
+      <span style="font-size:1.25em;flex-shrink:0;line-height:1.2;">⚕️</span>
+      <span>Luna peut vous <strong style="color:#f0b429;">rappeler de prendre vos médicaments</strong>. Ce service est un rappel uniquement — <strong style="color:#f0b429;">jamais un conseil médical</strong>. Pour tout avis médical, consultez votre médecin ou pharmacien. Luna décline toute responsabilité médicale.</span>
     </div>
 
     <!-- Instructions actives -->
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
       <h3 style="margin:0;">Instructions actives</h3>
-      <button class="btn btn-sm" onclick="loadInstructions()" style="padding:4px 10px;font-size:0.8em;">↻</button>
+      <button class="btn btn-sm instr-icon-btn" onclick="loadInstructions()" style="padding:4px 10px;font-size:0.8em;" title="Rafraîchir">↻</button>
     </div>
     <div id="instructionsList"></div>
+
+    <!-- Historique des exécutions -->
+    <details id="instrHistoryWrap" style="margin-top:12px;border:1px solid #2a2a3e;border-radius:10px;background:#13131f;padding:8px 12px;" ontoggle="if(this.open)loadInstrHistory()">
+      <summary style="cursor:pointer;color:#a78bfa;font-weight:600;font-size:0.86em;list-style:none;display:flex;align-items:center;gap:7px;user-select:none;">
+        <span style="font-size:1.05em;">🕓</span> Historique des exécutions
+        <span style="margin-left:auto;font-size:.8em;color:#666;">ce que Luna a réellement fait</span>
+      </summary>
+      <div id="instrHistoryList" style="margin-top:10px;"></div>
+    </details>
 
     <!-- Modèles rapides -->
     <h3 style="margin-top:16px;margin-bottom:8px;">Modèles rapides</h3>
     <div id="instrTemplates" style="display:flex;flex-wrap:wrap;gap:7px;margin-bottom:14px;">
-      <button class="btn" style="font-size:0.8em;padding:5px 11px;border-radius:20px;" onclick="useInstrTemplate('Réveille-moi tous les jours à 7h30')">⏰ Réveil</button>
-      <button class="btn" style="font-size:0.8em;padding:5px 11px;border-radius:20px;border:1px solid #ffc107;color:#7d5800;" onclick="useInstrTemplate('Rappelle-moi de prendre mes médicaments tous les jours à 8h')" title="Rappel uniquement — pas un conseil médical">💊 Médicaments ⚕️</button>
-      <button class="btn" style="font-size:0.8em;padding:5px 11px;border-radius:20px;" onclick="useInstrTemplate('Demande-moi comment je vais tous les matins à 9h')">💬 Check-in matin</button>
-      <button class="btn" style="font-size:0.8em;padding:5px 11px;border-radius:20px;" onclick="useInstrTemplate('Propose-moi un quiz de culture générale tous les soirs à 18h')">🧠 Quiz</button>
-      <button class="btn" style="font-size:0.8em;padding:5px 11px;border-radius:20px;" onclick="useInstrTemplate('Lis-moi une histoire ou un poème tous les soirs à 21h')">📖 Lecture</button>
-      <button class="btn" style="font-size:0.8em;padding:5px 11px;border-radius:20px;" onclick="useInstrTemplate('Propose un exercice de gratitude tous les soirs à 20h')">🙏 Gratitude</button>
-      <button class="btn" style="font-size:0.8em;padding:5px 11px;border-radius:20px;" onclick="useInstrTemplate('Si je ne réponds pas pendant 24h, alerte mes contacts de confiance')">🔔 Surveillance</button>
+      <button class="instr-chip" onclick="useInstrTemplate('Réveille-moi tous les jours à 7h30')">⏰ Réveil</button>
+      <button class="instr-chip instr-chip-med" onclick="useInstrTemplate('Rappelle-moi de prendre mes médicaments tous les jours à 8h')" title="Rappel uniquement — pas un conseil médical">💊 Médicaments ⚕️</button>
+      <button class="instr-chip" onclick="useInstrTemplate('Demande-moi comment je vais tous les matins à 9h')">💬 Check-in matin</button>
+      <button class="instr-chip" onclick="useInstrTemplate('Propose-moi un quiz de culture générale tous les soirs à 18h')">🧠 Quiz</button>
+      <button class="instr-chip" onclick="useInstrTemplate('Lis-moi une histoire ou un poème tous les soirs à 21h')">📖 Lecture</button>
+      <button class="instr-chip" onclick="useInstrTemplate('Propose un exercice de gratitude tous les soirs à 20h')">🙏 Gratitude</button>
+      <button class="instr-chip" onclick="useInstrTemplate('Si je ne réponds pas pendant 24h, alerte mes contacts de confiance')">🔔 Surveillance</button>
     </div>
 
     <!-- Formulaire nouvelle instruction -->
@@ -5582,10 +5644,24 @@ var _INSTR_LABELS = {
   daily: "Quotidien", recurring: "Récurrent", one_time: "Unique", conditional: "Conditionnel",
 };
 
+// Formate une date ISO en français lisible (ex: "lun. 30 juin 08:00")
+function _fmtInstrWhen(iso) {
+  if (!iso) return "";
+  try {
+    return new Date(iso).toLocaleString("fr-FR", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+  } catch (e) { return String(iso).substring(0, 16).replace("T", " "); }
+}
+
 function loadInstructions() {
   var list = document.getElementById("instructionsList");
   list.innerHTML = '<p class="empty-state">Chargement...</p>';
-  authFetch("/api/instructions").then(function(r) { return r.json(); }).then(function(data) {
+  Promise.all([
+    authFetch("/api/instructions").then(function(r) { return r.json(); }),
+    authFetch("/api/instructions/upcoming").then(function(r) { return r.json(); }).catch(function() { return { upcoming: [] }; })
+  ]).then(function(res) {
+    var data = res[0] || {};
+    var nextMap = {};
+    ((res[1] && res[1].upcoming) || []).forEach(function(u) { nextMap[u.instruction_id] = u.next_execution; });
     if (!data.instructions || data.instructions.length === 0) {
       list.innerHTML = '<p class="empty-state">Aucune instruction active. Utilise un modèle ou saisis une instruction ci-dessous.</p>';
       return;
@@ -5601,24 +5677,53 @@ function loadInstructions() {
       var desc = esc(instr.description.substring(0, 100));
       // Avertissement discret pour médicaments
       var medWarn = /médic|medic|cachet|comprim|pilule|traitement/i.test(instr.description)
-        ? '<span style="font-size:0.75em;color:#7d5800;margin-left:6px;" title="Rappel uniquement — pas un conseil médical">⚕️ rappel uniquement</span>'
+        ? '<span style="font-size:0.75em;color:#f0b429;margin-left:6px;" title="Rappel uniquement — pas un conseil médical">⚕️ rappel uniquement</span>'
+        : '';
+      var nextExec = nextMap[instr.id];
+      var nextBadge = nextExec
+        ? '<span class="badge" style="background:rgba(167,139,250,.16);color:#c4b5fd;border:1px solid rgba(167,139,250,.35);">⏭ Prochaine : ' + esc(_fmtInstrWhen(nextExec)) + '</span> '
         : '';
       card.innerHTML =
         '<div class="card-header" style="display:flex;align-items:center;gap:8px;">' +
           '<span style="font-size:1.2em;">' + icon + '</span>' +
           '<span class="card-title" style="flex:1;">' + desc + medWarn + '</span>' +
-          '<button class="btn btn-sm" style="font-size:0.75em;padding:3px 8px;" onclick="execInstruction(\'' + esc(instr.id) + '\')" title="Exécuter maintenant">▶</button>' +
+          '<button class="btn btn-sm instr-run" style="font-size:0.75em;padding:3px 8px;" onclick="execInstruction(\'' + esc(instr.id) + '\')" title="Exécuter maintenant">▶</button>' +
           '<button class="btn btn-danger btn-sm" style="font-size:0.75em;padding:3px 8px;margin-left:4px;" onclick="deleteInstruction(\'' + esc(instr.id) + '\')" title="Désactiver">✕</button>' +
         '</div>' +
-        '<div class="card-body" style="padding-top:4px;font-size:0.82em;">' +
+        '<div class="card-body" style="padding-top:4px;font-size:0.82em;display:flex;flex-wrap:wrap;gap:5px;align-items:center;">' +
           '<span class="badge ' + typeBadgeClass + '">' + typeLabel + '</span> ' +
           (instr.schedule ? '<span class="badge badge-yellow">🕐 ' + esc(instr.schedule) + '</span> ' : '') +
+          nextBadge +
           (instr.target && instr.target !== "self" ? '<span class="badge badge-blue">→ ' + esc(instr.target) + '</span> ' : '') +
-          (instr.last_executed ? '<span style="color:#888;margin-left:4px;">Dernière exec: ' + esc(instr.last_executed.substring(0,16).replace("T"," ")) + '</span>' : '') +
+          (instr.last_executed
+            ? '<span style="color:#7c9; font-size:.95em;">✓ Dernière : ' + esc(_fmtInstrWhen(instr.last_executed)) + '</span>'
+            : '<span style="color:#666;font-size:.95em;">Jamais exécutée</span>') +
         '</div>';
       list.appendChild(card);
     });
   }).catch(function() { list.innerHTML = '<p class="empty-state">Erreur de chargement.</p>'; });
+}
+
+// Historique réel des exécutions (planifiées + manuelles)
+function loadInstrHistory() {
+  var box = document.getElementById("instrHistoryList");
+  if (!box) return;
+  box.innerHTML = '<p class="empty-state" style="font-size:.82em;">Chargement...</p>';
+  authFetch("/api/instructions/history?limit=15").then(function(r) { return r.json(); }).then(function(data) {
+    var items = data.history || [];
+    if (!items.length) {
+      box.innerHTML = '<p class="empty-state" style="font-size:.82em;">Aucune exécution pour le moment. Les instructions déclenchées (automatiquement à l\'heure prévue, ou via ▶) apparaîtront ici.</p>';
+      return;
+    }
+    box.innerHTML = items.map(function(e) {
+      var src = e.source === "manual" ? "▶ manuelle" : "⏰ planifiée";
+      return '<div style="border-left:2px solid #a78bfa;padding:5px 0 5px 10px;margin-bottom:8px;">' +
+          '<div style="font-size:.84em;color:#e0e0e0;line-height:1.4;">' + esc(e.description || "Exécution") + '</div>' +
+          '<div style="font-size:.72em;color:#888;margin-top:2px;">' + esc(_fmtInstrWhen(e.timestamp)) + ' · ' + src +
+            (e.reasoning ? ' · ' + esc(e.reasoning) : '') + '</div>' +
+        '</div>';
+    }).join("");
+  }).catch(function() { box.innerHTML = '<p class="empty-state" style="font-size:.82em;">Erreur de chargement.</p>'; });
 }
 
 function deleteInstruction(id) {
@@ -5637,14 +5742,34 @@ function deleteInstruction(id) {
 }
 
 function execInstruction(id) {
+  _showConfirm(
+    "Exécuter maintenant ?",
+    "L'action réelle sera déclenchée immédiatement (par ex. envoi d'un SMS ou d'un rappel), sans attendre l'horaire prévu.",
+    function() { _doExecInstruction(id); }
+  );
+}
+
+function _doExecInstruction(id) {
+  var st = document.getElementById("instrStatus");
+  if (st) { st.textContent = "Exécution en cours…"; st.className = "form-status"; }
   authFetch("/api/instructions/" + encodeURIComponent(id) + "/execute", { method: "POST" })
   .then(function(r) { return r.json(); })
   .then(function(data) {
-    var st = document.getElementById("instrStatus");
-    if (st) { st.textContent = data.success ? "Instruction exécutée." : "Erreur: " + (data.error || "inconnue"); st.className = "form-status " + (data.success ? "success" : "error"); }
+    if (st) {
+      if (data.success) {
+        st.textContent = "✅ " + (data.message || "Instruction exécutée.");
+        st.className = "form-status success";
+      } else {
+        st.textContent = "⚠️ " + (data.error || data.message || "Échec de l'exécution.");
+        st.className = "form-status error";
+      }
+    }
+    // Rafraîchit la liste (dernière exec + prochaine) et l'historique si déployé
+    loadInstructions();
+    var hw = document.getElementById("instrHistoryWrap");
+    if (hw && hw.open) loadInstrHistory();
   })
   .catch(function(e) {
-    var st = document.getElementById("instrStatus");
     if (st) { st.textContent = "Erreur: " + e.message; st.className = "form-status error"; }
   });
 }
@@ -5655,7 +5780,7 @@ function useInstrTemplate(text) {
   // Afficher avertissement médical si modèle médicaments
   if (/médic|medic/i.test(text)) {
     var d = document.getElementById("medDisclaimer");
-    if (d) { d.style.border = "2px solid #ffc107"; setTimeout(function() { if(d) d.style.border = "1px solid #ffc107"; }, 1500); }
+    if (d) { d.style.boxShadow = "0 0 0 2px #f0b429"; setTimeout(function() { if(d) d.style.boxShadow = "none"; }, 1500); }
   }
 }
 

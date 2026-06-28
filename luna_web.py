@@ -15178,9 +15178,19 @@ async def execute_instruction(instr_id: str, request: Request):
             )
             result = await _executor.execute(task)
             mgr.mark_instruction_executed(instr_id)
+            _exec_msg = getattr(result, "message", None) or f"Instruction '{instr.description[:50]}' executee"
+            try:
+                mgr.log_event(
+                    category="instruction",
+                    description=f"Instruction executee: {_exec_msg}",
+                    reasoning="Execution manuelle (bouton lecture)",
+                    source="manual",
+                )
+            except Exception:
+                pass
             return {
                 "success": result.success if hasattr(result, "success") else True,
-                "message": f"Instruction '{instr.description[:50]}' executee",
+                "message": _exec_msg,
                 "result": str(result) if result else None,
             }
         except Exception as e:
@@ -15189,6 +15199,15 @@ async def execute_instruction(instr_id: str, request: Request):
     else:
         # Fallback: marquer comme executee sans executor
         mgr.mark_instruction_executed(instr_id)
+        try:
+            mgr.log_event(
+                category="instruction",
+                description=f"Instruction '{instr.description[:50]}' marquee executee",
+                reasoning="Execution manuelle (executor indisponible)",
+                source="manual",
+            )
+        except Exception:
+            pass
         return {"success": True, "message": f"Instruction '{instr.description[:50]}' marquee executee (executor non disponible)"}
 
 
