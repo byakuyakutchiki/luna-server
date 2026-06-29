@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Luna — Banc d'essai Services</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; background:radial-gradient(1200px 700px at 80% -10%, #1c1640 0%, #0a0a18 55%) fixed, #0a0a18; color:#e7e7f0; min-height:100vh; }
+a { color:#a78bfa; text-decoration:none; }
+.btn { padding:9px 15px; border-radius:10px; border:1px solid #3a3a55; background:#16162b; color:#ddd; cursor:pointer; font-size:0.86em; transition:all .15s; }
+.btn:hover { border-color:#7c3aed; color:#fff; }
+.btn.primary { background:linear-gradient(135deg,#7c3aed,#9333ea); border-color:transparent; color:#fff; box-shadow:0 6px 18px rgba(124,58,237,.35); }
+.btn.primary:hover { filter:brightness(1.08); }
+.btn.danger { background:linear-gradient(135deg,#dc2626,#b91c1c); border-color:transparent; color:#fff; }
+.btn.ghost { background:transparent; }
+.btn.sm { padding:6px 11px; font-size:0.8em; }
+.btn:disabled { opacity:.5; cursor:not-allowed; }
+
+/* Login */
+.login-screen { display:flex; justify-content:center; align-items:center; min-height:100vh; }
+.login-box { background:rgba(20,20,38,.7); backdrop-filter:blur(14px); border:1px solid #2a2a45; border-radius:18px; padding:40px; width:370px; box-shadow:0 20px 60px rgba(0,0,0,.5); }
+.login-box h2 { color:#c4b5fd; margin-bottom:6px; text-align:center; }
+.login-box p.sub { color:#7a7a92; font-size:0.8em; text-align:center; margin-bottom:22px; }
+.login-box input { width:100%; padding:13px; border-radius:10px; border:1px solid #333; background:#15152a; color:#fff; margin-bottom:14px; font-size:1em; outline:none; }
+.login-box input:focus { border-color:#7c3aed; }
+.login-box button { width:100%; padding:13px; border-radius:10px; border:none; background:linear-gradient(135deg,#7c3aed,#9333ea); color:#fff; font-size:1em; cursor:pointer; }
+.login-error { color:#f87171; font-size:0.85em; margin-bottom:12px; display:none; }
+
+.app { display:none; max-width:1100px; margin:0 auto; padding:0 20px 60px; }
+.header { display:flex; justify-content:space-between; align-items:center; padding:22px 4px 10px; flex-wrap:wrap; gap:12px; }
+.header h1 { font-size:1.35em; background:linear-gradient(90deg,#c4b5fd,#f0abfc); -webkit-background-clip:text; background-clip:text; color:transparent; }
+.header .right { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+.sub-note { color:#8a8aa3; font-size:0.82em; line-height:1.5; margin:2px 4px 18px; max-width:760px; }
+.sub-note b { color:#c4b5fd; }
+
+/* Control bar */
+.controls { display:flex; align-items:center; gap:12px; flex-wrap:wrap; background:rgba(20,20,38,.55); border:1px solid #26263f; border-radius:14px; padding:14px 16px; margin-bottom:18px; }
+.controls .grow { flex:1; }
+.switch { display:flex; align-items:center; gap:9px; font-size:0.86em; color:#c9c9dd; cursor:pointer; user-select:none; }
+.switch input { display:none; }
+.track { width:42px; height:24px; border-radius:14px; background:#2c2c46; position:relative; transition:.2s; }
+.track::after { content:""; position:absolute; top:3px; left:3px; width:18px; height:18px; border-radius:50%; background:#888; transition:.2s; }
+.switch input:checked + .track { background:#dc2626; }
+.switch input:checked + .track::after { left:21px; background:#fff; }
+
+/* Summary */
+.summary { display:flex; gap:14px; flex-wrap:wrap; margin-bottom:20px; }
+.sum-card { flex:1; min-width:140px; background:rgba(20,20,38,.6); border:1px solid #26263f; border-radius:14px; padding:16px 18px; }
+.sum-card .v { font-size:2em; font-weight:800; }
+.sum-card .l { font-size:0.76em; color:#8a8aa3; text-transform:uppercase; letter-spacing:.5px; }
+.v-green { color:#4ade80; } .v-amber { color:#fbbf24; } .v-red { color:#f87171; } .v-tot { color:#c4b5fd; }
+
+/* Service grid */
+.cat-title { font-size:0.78em; text-transform:uppercase; letter-spacing:1px; color:#7c3aed; margin:22px 4px 12px; font-weight:700; }
+.grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:14px; }
+.scard { position:relative; background:linear-gradient(160deg,rgba(30,30,54,.75),rgba(18,18,34,.75)); border:1px solid #2a2a45; border-radius:16px; padding:16px 16px 14px; overflow:hidden; transition:transform .15s, border-color .15s; }
+.scard:hover { transform:translateY(-2px); border-color:#7c3aed; }
+.scard::before { content:""; position:absolute; left:0; top:0; bottom:0; width:4px; }
+.scard.green::before { background:#4ade80; } .scard.amber::before { background:#fbbf24; } .scard.red::before { background:#f87171; } .scard.idle::before { background:#3a3a55; }
+.scard .top { display:flex; align-items:center; gap:11px; margin-bottom:9px; }
+.scard .ico { font-size:1.5em; width:42px; height:42px; display:flex; align-items:center; justify-content:center; background:rgba(124,58,237,.12); border-radius:12px; }
+.scard .name { font-weight:700; font-size:1.02em; }
+.scard .dot { margin-left:auto; width:11px; height:11px; border-radius:50%; box-shadow:0 0 0 4px rgba(255,255,255,.04); }
+.dot.green { background:#4ade80; box-shadow:0 0 10px #4ade80,0 0 0 4px rgba(74,222,128,.12); }
+.dot.amber { background:#fbbf24; box-shadow:0 0 10px #fbbf24,0 0 0 4px rgba(251,191,36,.12); }
+.dot.red { background:#f87171; box-shadow:0 0 10px #f87171,0 0 0 4px rgba(248,113,113,.12); }
+.dot.idle { background:#555; }
+.scard .detail { font-size:0.82em; color:#b9b9cf; line-height:1.45; min-height:34px; }
+.scard .meta { display:flex; gap:6px; flex-wrap:wrap; margin-top:10px; }
+.tag { font-size:0.68em; padding:2px 8px; border-radius:20px; background:#1f1f38; color:#9a9ab2; border:1px solid #2c2c46; }
+.tag.live { color:#4ade80; border-color:rgba(74,222,128,.3); }
+.tag.reel { color:#f0abfc; border-color:rgba(240,171,252,.35); }
+.tag.act { color:#fbbf24; border-color:rgba(251,191,36,.3); }
+.tag.miss { color:#f87171; border-color:rgba(248,113,113,.3); }
+
+.scard.loading { opacity:.6; }
+.spinner { display:inline-block; width:14px; height:14px; border:2px solid #4a4a66; border-top-color:#a78bfa; border-radius:50%; animation:spin .7s linear infinite; vertical-align:-2px; }
+@keyframes spin { to { transform:rotate(360deg); } }
+
+.empty { text-align:center; padding:60px 20px; color:#6a6a82; }
+.toast { position:fixed; bottom:24px; left:50%; transform:translateX(-50%); background:#16162b; border:1px solid #7c3aed; color:#fff; padding:12px 22px; border-radius:10px; font-size:0.88em; opacity:0; pointer-events:none; transition:opacity .25s; z-index:80; }
+.toast.show { opacity:1; }
+.toast.err { border-color:#f87171; }
+
+/* Confirm modal */
+.modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.65); display:none; align-items:center; justify-content:center; z-index:60; }
+.modal-overlay.open { display:flex; }
+.modal { background:#13132a; border:1px solid #2a2a45; border-radius:16px; padding:26px; width:460px; max-width:92vw; }
+.modal h3 { color:#f0abfc; margin-bottom:12px; }
+.modal p { font-size:0.9em; color:#c9c9dd; line-height:1.55; margin-bottom:10px; }
+.modal .who { background:#1a1a30; border:1px solid #2c2c46; border-radius:10px; padding:11px 13px; font-size:0.86em; color:#e7e7f0; margin:12px 0; }
+.modal .row { display:flex; gap:10px; margin-top:18px; justify-content:flex-end; }
+@media(max-width:600px){ .summary{gap:10px;} .sum-card{min-width:calc(50% - 5px);} }
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div class="login-screen" id="loginScreen">
+  <div class="login-box">
+    <h2>Banc d'essai Services</h2>
+    <p class="sub">Console fondateur — YAWatch Luna</p>
+    <div class="login-error" id="loginError"></div>
+    <input type="password" id="loginPassword" placeholder="Mot de passe admin" onkeydown="if(event.key==='Enter')doLogin()">
+    <input type="text" id="loginTotp" placeholder="Code 2FA (si activé)" style="display:none" onkeydown="if(event.key==='Enter')doLogin()">
+    <button onclick="doLogin()">Se connecter</button>
+  </div>
+</div>
+
+<!-- APP -->
+<div class="app" id="app">
+  <div class="header">
+    <h1>🧪 Banc d'essai Services</h1>
+    <div class="right">
+      <span class="sub-note" id="hdrInfo" style="margin:0;"></span>
+      <a class="btn ghost sm" href="/admin">← Dashboard</a>
+      <button class="btn ghost sm" onclick="doLogout()">Déconnexion</button>
+    </div>
+  </div>
+
+  <p class="sub-note">
+    Teste chaque service de l'onglet <b>Services / Conciergerie</b> dans les conditions réelles de l'exploitant,
+    via le vrai code backend. En <b>mode à blanc</b> : config + recherches réelles en lecture seule (météo, actus, web, lieux,
+    <b>recherche</b> vols/hôtels) — <b>jamais</b> de réservation, paiement, SMS/appel/email. Le mode <b>Envoi réel</b> envoie
+    un SMS + appel + email uniquement vers <b>ton</b> numéro et email de fondateur.
+  </p>
+
+  <div class="controls">
+    <button class="btn primary" id="runBtn" onclick="runTest(false)">▶ Lancer le test (à blanc)</button>
+    <label class="switch">
+      <input type="checkbox" id="liveToggle">
+      <span class="track"></span>
+      <span>Autoriser <b style="color:#f0abfc;">envoi réel</b> (SMS + appel + email vers moi)</span>
+    </label>
+    <div class="grow"></div>
+    <span class="sub-note" id="lastRun" style="margin:0;"></span>
+  </div>
+
+  <div class="summary" id="summary" style="display:none;">
+    <div class="sum-card"><div class="v v-green" id="cGreen">—</div><div class="l">Opérationnels</div></div>
+    <div class="sum-card"><div class="v v-amber" id="cAmber">—</div><div class="l">Mode dégradé</div></div>
+    <div class="sum-card"><div class="v v-red" id="cRed">—</div><div class="l">Indisponibles</div></div>
+    <div class="sum-card"><div class="v v-tot" id="cTot">—</div><div class="l">Services testés</div></div>
+  </div>
+
+  <div id="results">
+    <div class="empty">Clique sur <b>« Lancer le test »</b> pour vérifier tous les services.</div>
+  </div>
+</div>
+
+<!-- CONFIRM MODAL -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <h3>⚠️ Confirmer l'envoi réel</h3>
+    <p>Le test va déclencher de <b>vraies</b> actions facturées (quelques centimes Twilio) :</p>
+    <div class="who" id="modalWho"></div>
+    <p style="color:#8a8aa3;font-size:0.82em;">Uniquement vers tes coordonnées de fondateur. Aucun tiers contacté, aucune réservation ni paiement.</p>
+    <div class="row">
+      <button class="btn ghost" onclick="closeModal()">Annuler</button>
+      <button class="btn danger" onclick="confirmLive()">Oui, envoyer pour de vrai</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const API = "";
+let TOKEN = sessionStorage.getItem("admin_token") || "";
+
+function toast(msg, isErr){
+  const t=document.getElementById("toast");
+  t.textContent=msg; t.className="toast show"+(isErr?" err":"");
+  setTimeout(()=>t.className="toast",2600);
+}
+function esc(s){ return (s==null?"":String(s)).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+
+async function api(path, opts={}){
+  opts.headers = Object.assign({"Content-Type":"application/json"}, opts.headers||{}, {"Authorization":"Bearer "+TOKEN});
+  const r = await fetch(API+path, opts);
+  if(r.status===401){ showLogin(); throw new Error("auth"); }
+  return r;
+}
+
+/* ---------- LOGIN ---------- */
+function showLogin(){ document.getElementById("app").style.display="none"; document.getElementById("loginScreen").style.display="flex"; }
+function showApp(){ document.getElementById("loginScreen").style.display="none"; document.getElementById("app").style.display="block"; }
+async function doLogin(){
+  const pw=document.getElementById("loginPassword").value;
+  const totp=document.getElementById("loginTotp").value;
+  const err=document.getElementById("loginError");
+  err.style.display="none";
+  try{
+    const r=await fetch(API+"/api/admin/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({password:pw,totp:totp})});
+    const d=await r.json();
+    if(!r.ok){
+      if(d.totp_required){ document.getElementById("loginTotp").style.display="block"; }
+      err.textContent=d.error||"Erreur"; err.style.display="block"; return;
+    }
+    TOKEN=d.token; sessionStorage.setItem("admin_token",TOKEN); showApp();
+  }catch(e){ err.textContent="Erreur réseau"; err.style.display="block"; }
+}
+function doLogout(){ sessionStorage.removeItem("admin_token"); TOKEN=""; showLogin(); }
+
+/* ---------- TEST ---------- */
+const CAT_ORDER = ["Recherche & Voyage","Infos temps reel","Communication","Organisation"];
+const CAT_LABEL = {"Recherche & Voyage":"🧭 Recherche & Voyage","Infos temps reel":"📡 Infos en temps réel","Communication":"📨 Communication","Organisation":"🗂️ Organisation"};
+
+function statusWord(s){ return s==="green"?"Opérationnel":s==="amber"?"Mode dégradé":"Indisponible"; }
+
+function renderSkeleton(){
+  const wrap=document.getElementById("results");
+  wrap.innerHTML='<div style="text-align:center;padding:50px;color:#a78bfa;"><span class="spinner"></span> &nbsp;Test des services en cours…</div>';
+  document.getElementById("summary").style.display="none";
+}
+
+function render(data){
+  const wrap=document.getElementById("results");
+  wrap.innerHTML="";
+  const byCat={};
+  data.services.forEach(s=>{ (byCat[s.category]=byCat[s.category]||[]).push(s); });
+  const cats = CAT_ORDER.filter(c=>byCat[c]).concat(Object.keys(byCat).filter(c=>!CAT_ORDER.includes(c)));
+  cats.forEach(cat=>{
+    const t=document.createElement("div"); t.className="cat-title"; t.textContent=CAT_LABEL[cat]||cat; wrap.appendChild(t);
+    const g=document.createElement("div"); g.className="grid";
+    byCat[cat].forEach(s=>{
+      const tags=[];
+      if(s.tested==="live") tags.push('<span class="tag live">testé en direct</span>');
+      else if(s.tested==="live-reel") tags.push('<span class="tag reel">envoi réel ✓</span>');
+      else tags.push('<span class="tag">config vérifiée</span>');
+      if(s.engageant) tags.push('<span class="tag act">action sortante</span>');
+      (s.missing||[]).forEach(m=>tags.push('<span class="tag miss">manque '+esc(m)+'</span>'));
+      const card=document.createElement("div"); card.className="scard "+s.status;
+      card.innerHTML=`<div class="top"><div class="ico">${s.icon||"•"}</div><div class="name">${esc(s.label)}</div><div class="dot ${s.status}" title="${statusWord(s.status)}"></div></div>
+        <div class="detail">${esc(s.detail)}</div>
+        <div class="meta">${tags.join("")}</div>`;
+      // Remediation : bouton "Connecter Gmail" sur la carte Email quand la voie email n'est pas verte
+      if (s.key === "email" && s.status !== "green") {
+        const fix=document.createElement("button");
+        fix.className="btn sm fix-gmail"; fix.textContent="🔗 Connecter Gmail (gratuit)";
+        fix.style.cssText="margin-top:11px;width:100%;background:linear-gradient(135deg,#7c3aed,#9333ea);border:none;color:#fff;";
+        fix.onclick=connectGmail;
+        card.appendChild(fix);
+      }
+      g.appendChild(card);
+    });
+    wrap.appendChild(g);
+  });
+  const sm=data.summary;
+  document.getElementById("cGreen").textContent=sm.green;
+  document.getElementById("cAmber").textContent=sm.amber;
+  document.getElementById("cRed").textContent=sm.red;
+  document.getElementById("cTot").textContent=sm.total;
+  document.getElementById("summary").style.display="flex";
+  const when=new Date(data.checked_at).toLocaleString("fr-FR");
+  document.getElementById("lastRun").innerHTML="Dernier test : <b>"+when+"</b> · "+(data.live?'<span style="color:#f0abfc;">mode envoi réel</span>':'mode à blanc');
+  document.getElementById("hdrInfo").textContent = data.foundation_test_mode ? "FOUNDATION_TEST_MODE actif" : "";
+}
+
+async function connectGmail(){
+  try{
+    const r=await api("/api/admin/email/gmail?tenant_id=1");
+    const d=await r.json();
+    if(!r.ok){ toast(d.error||"Erreur",true); return; }
+    if(d.connected){ toast("Gmail déjà connecté : "+(d.account||""),false); return; }
+    if(!d.configured){ toast("Gmail OAuth non configuré (GOOGLE_OAUTH_CLIENT_ID).",true); return; }
+    if(!d.auth_url){ toast("URL de consentement indisponible.",true); return; }
+    toast("Ouverture du consentement Google…");
+    window.open(d.auth_url, "_blank", "noopener");
+  }catch(e){ if(e.message!=="auth") toast("Erreur réseau",true); }
+}
+
+let _busy=false;
+async function runTest(live){
+  if(_busy) return;
+  _busy=true;
+  const btn=document.getElementById("runBtn"); btn.disabled=true; const old=btn.textContent; btn.textContent="…";
+  renderSkeleton();
+  try{
+    const r=await api("/api/admin/services-selftest"+(live?"?live=1":""),{method:"POST"});
+    const d=await r.json();
+    if(!r.ok){ toast(d.error||"Erreur",true); document.getElementById("results").innerHTML='<div class="empty">Erreur de test.</div>'; }
+    else { render(d); toast(live?"Test réel terminé":"Test à blanc terminé"); }
+  }catch(e){ if(e.message!=="auth") toast("Erreur réseau",true); }
+  finally{ _busy=false; btn.disabled=false; btn.textContent=old; }
+}
+
+/* live confirm flow */
+function openModal(){
+  const num = "ton numéro fondateur (ADMIN_NUMBER)";
+  document.getElementById("modalWho").innerHTML="📱 1 SMS → "+num+"<br>📞 1 appel → "+num+"<br>📧 1 email → ton email (PROPRIO_EMAIL)";
+  document.getElementById("modalOverlay").classList.add("open");
+}
+function closeModal(){ document.getElementById("modalOverlay").classList.remove("open"); }
+function confirmLive(){ closeModal(); runTest(true); }
+
+document.getElementById("liveToggle").addEventListener("change", function(){
+  document.getElementById("runBtn").textContent = this.checked ? "▶ Lancer le test (ENVOI RÉEL)" : "▶ Lancer le test (à blanc)";
+  document.getElementById("runBtn").onclick = this.checked ? openModal : (function(){runTest(false);});
+});
+
+/* init */
+if(TOKEN){ showApp(); } else { showLogin(); }
+</script>
+</body>
+</html>

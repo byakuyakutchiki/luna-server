@@ -15,6 +15,11 @@ source "$(dirname "$0")/.env" 2>/dev/null || true
 update_vars=()
 update_vars+=("ENVIRONMENT=cloudrun")
 update_vars+=("CORTEX_ENABLED=false")   # SMS auto désactivé — évite vidage crédit Twilio
+# Détection d'urgence vocale Iris : ACTIVE, mais en mode OBSERVATION (dry-run) pour le rollout.
+# Détecte + journalise + Iris rassure, SANS envoyer de SMS/appel réel.
+# Pour passer en RÉEL : VOICE_EMERGENCY_DRY_RUN=false (gcloud run services update ... --update-env-vars).
+update_vars+=("VOICE_EMERGENCY_ENABLED=true")
+update_vars+=("VOICE_EMERGENCY_DRY_RUN=true")
 update_vars+=("KARAOKE_DRAFTS_BUCKET=luna-karaoke-drafts-674304336025")  # brouillons karaoké (GCS)
 
 # Fonction helper : ajoute une variable seulement si elle est definie et non vide
