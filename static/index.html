@@ -1996,7 +1996,7 @@ body.mode-compagnon .luna-name::before,
         <div class="input-row">
           <button class="emoji-btn" id="emojiToggle" type="button">&#x1F60A;</button>
           <textarea id="input" placeholder="Message pour Luna..." autocomplete="off" maxlength="2000" rows="1"></textarea>
-          <button class="mic-input-btn" id="micInputBtn" type="button" title="Parler à Luna" onclick="var vb=document.getElementById('lunaVoiceBtn');if(vb)vb.click();">
+          <button class="mic-input-btn" id="micInputBtn" type="button" title="Parler à Iris" onclick="window.location.href='/simli?duration=60&amp;_v=32';">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
           </button>
         </div>
@@ -3756,6 +3756,22 @@ tabBtns.forEach(function(btn) {
 // Apply mode on page load (after tabs are set up)
 applyMode(currentMode);
 
+// ── VOIX = Iris premium ──────────────────────────────────────────────────
+// Le bouton voix flottant ouvrait l'ancienne voix Luna inline. On le redirige
+// vers l'écran vocal Iris (/simli) : silence à l'ouverture, urgence, rappels, UI premium.
+// Interception en phase capture → prioritaire sur l'ancien handler.
+(function () {
+  var vb = document.getElementById("lunaVoiceBtn");
+  if (vb) {
+    vb.title = "Parler à Iris";
+    vb.addEventListener("click", function (e) {
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      window.location.href = "/simli?duration=60&_v=32";
+    }, true);
+  }
+})();
+
 // =========================================================================
 // CONCIERGERIE — Direct action system (inline results, no chat redirect)
 // =========================================================================
@@ -5012,8 +5028,8 @@ function _addChips(chips) {
           setTimeout(function() { window[chip.handler](); }, 300);
         }
       } else if (chip.action === "voice") {
-        var jarvisBtn = document.getElementById("lunaVoiceBtn");
-        if (jarvisBtn) jarvisBtn.click();
+        // Voix = écran Iris premium (orbe), pas l'ancienne voix Luna inline.
+        window.location.href = "/simli?duration=60&_v=32";
       }
     });
     container.appendChild(btn);
