@@ -5782,6 +5782,24 @@
           if (_irisWsMicStream) { try { _irisWsMicStream.getTracks().forEach(function(t){t.stop();}); } catch(_e) {} _irisWsMicStream = null; }
           if (_afSessionTimer) { clearInterval(_afSessionTimer); _afSessionTimer = null; }
           try { _stopSpeechCapture(); } catch(_e) {}
+          // [issue #27] Sauvegarde des notes en arrière-plan (keepalive), comme le chemin REST.
+          // Le bouton premium ne sauvegardait pas auparavant → notes perdues. Pas de doublon
+          // (chemins mutuellement exclusifs ; aucune auto-save serveur au close du WS).
+          try {
+            var _afNotes = _visioTranscript.slice();
+            if (_afNotes.length > 0 || currentConvId) {
+              authFetch('/api/visio/notes', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                keepalive: true,
+                body: JSON.stringify({
+                  events: _afNotes, vision_context: _lastVisionDesc,
+                  duration_min: Math.max(Math.round((Date.now() - _visioStartTs) / 60000), 1),
+                  conversation_id: currentConvId, auto_save: true,
+                })
+              }).catch(function(){});
+            }
+          } catch(_e) {}
           // Navigation immédiate — pas d'attente
           window.location.href = '/';
         }
