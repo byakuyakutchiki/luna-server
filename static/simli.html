@@ -1493,10 +1493,45 @@
       animation: iris-logo-breathe 5s ease-in-out infinite;
     }
     .start-screen h2 {
-      font-size: 24px; color: #e5e7eb; margin-bottom: 8px;
-      font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;
+      font-size: 26px; margin-bottom: 6px;
+      font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase;
+      background: linear-gradient(90deg, #34d399 0%, #a78bfa 100%);
+      -webkit-background-clip: text; background-clip: text;
+      -webkit-text-fill-color: transparent; color: #34d399;
+    }
+    .start-eyebrow {
+      font-size: 11px; color: rgba(167,139,250,0.75); margin-bottom: 22px;
+      letter-spacing: 0.34em; text-transform: uppercase; font-weight: 600;
+    }
+    /* Onde audio — effet d'initialisation léger, signe l'expérience vocale */
+    .start-wave {
+      display: flex; align-items: center; justify-content: center; gap: 5px;
+      height: 36px; margin-bottom: 26px;
+    }
+    .start-wave span {
+      width: 4px; height: 8px; border-radius: 4px;
+      background: linear-gradient(180deg, #34d399, #10b981);
+      box-shadow: 0 0 8px rgba(16,185,129,0.5);
+      animation: iris-wave 1.3s ease-in-out infinite;
+    }
+    .start-wave span:nth-child(1){ animation-delay: 0s; }
+    .start-wave span:nth-child(2){ animation-delay: .12s; }
+    .start-wave span:nth-child(3){ animation-delay: .24s; }
+    .start-wave span:nth-child(4){ animation-delay: .36s; }
+    .start-wave span:nth-child(5){ animation-delay: .48s; }
+    .start-wave span:nth-child(6){ animation-delay: .36s; }
+    .start-wave span:nth-child(7){ animation-delay: .24s; }
+    .start-wave span:nth-child(8){ animation-delay: .12s; }
+    .start-wave span:nth-child(9){ animation-delay: 0s; }
+    @keyframes iris-wave {
+      0%, 100% { height: 8px; opacity: 0.55; }
+      50%      { height: 30px; opacity: 1; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .start-wave span { animation: none; height: 16px; }
     }
     .start-screen p { font-size: 14px; color: #9ca3af; margin-bottom: 32px; max-width: 300px; line-height: 1.5; }
+    .btn-start-mic { margin-right: 10px; font-size: 17px; }
     /* Custom duration select */
     .iris-select-wrap { position: relative; margin-bottom: 20px; user-select: none; }
     .iris-select-label { color: #6b7280; font-size: 12px; margin-bottom: 6px; display: block; letter-spacing: 0.06em; }
@@ -1752,7 +1787,7 @@
   <!-- IRIS BOOT SEQUENCE OVERLAY -->
   <div id="iris-boot" class="hidden">
     <div class="boot-scan"></div>
-    <div class="boot-header-line">YAWatch Luna — Iris Visio</div>
+    <div class="boot-header-line">YAWatch Luna — IRIS Audio</div>
 
     <!-- ÉTAT ROUGE -->
     <div id="boot-rouge" style="display:none;width:100%;flex-direction:column;align-items:center;">
@@ -1761,8 +1796,8 @@
         <div class="boot-box-title">Chargement de l'identité système…</div>
         <div class="boot-item" id="bi-r1">Nom : Iris</div>
         <div class="boot-item" id="bi-r2">Rôle : Assistante virtuelle de l'écosystème Luna</div>
-        <div class="boot-item" id="bi-r3">Mode : Visio interactive</div>
-        <div class="boot-item" id="bi-r4">Interface : Panneau de contrôle intelligent</div>
+        <div class="boot-item" id="bi-r3">Mode : Conversation vocale</div>
+        <div class="boot-item" id="bi-r4">Moteur : Voix temps réel</div>
         <div class="boot-item" id="bi-r5">Utilisateur identifié</div>
       </div>
       <div class="boot-box">
@@ -1811,29 +1846,20 @@
     <div class="start-screen-bg"></div>
     <div class="start-screen-halo"></div>
     <div class="start-logo">I</div>
-    <h2>Iris Visio</h2>
-    <p>Je te vois et je t'entends. Parle-moi naturellement, je te reponds en direct.</p>
-    <!-- Custom select durée -->
-    <div class="iris-select-wrap" id="irisSelectWrap">
-      <span class="iris-select-label">Durée de l'appel</span>
-      <button type="button" class="iris-select-btn" id="irisSelectBtn">1 heure</button>
-      <div class="iris-select-dropdown" id="irisSelectDrop">
-        <div class="iris-select-opt" data-val="15">15 minutes</div>
-        <div class="iris-select-opt" data-val="30">30 minutes</div>
-        <div class="iris-select-opt selected" data-val="60">1 heure</div>
-        <div class="iris-select-opt" data-val="120">2 heures</div>
-        <div class="iris-select-opt" data-val="0">Illimité</div>
-      </div>
-      <!-- select caché pour compatibilité JS existant -->
-      <select id="durationSelect">
-        <option value="15">15 minutes</option>
-        <option value="30">30 minutes</option>
-        <option value="60" selected>1 heure</option>
-        <option value="120">2 heures</option>
-        <option value="0">Illimite</option>
-      </select>
+    <h2>IRIS Audio</h2>
+    <div class="start-eyebrow">Assistant vocal intelligent</div>
+    <!-- Onde audio premium : effet d'initialisation léger (remplace l'ancien panneau) -->
+    <div class="start-wave" aria-hidden="true">
+      <span></span><span></span><span></span><span></span><span></span>
+      <span></span><span></span><span></span><span></span>
     </div>
-    <button class="btn-start-big" id="btnStartBig">Démarrer</button>
+    <p>Parlez naturellement. IRIS vous écoute et vous répond en temps réel.</p>
+    <!-- Durée supprimée : une conversation vocale n'est pas limitée à l'avance.
+         Le select reste masqué (valeur « illimité ») pour la compatibilité du JS existant. -->
+    <select id="durationSelect" style="display:none">
+      <option value="0" selected>Illimité</option>
+    </select>
+    <button class="btn-start-big" id="btnStartBig"><span class="btn-start-mic" aria-hidden="true">🎙</span>Démarrer</button>
     <div class="start-loading" id="startLoading">Connexion en cours...</div>
     <p id="visioErrMsg" style="display:none;color:#ff6b6b;font-size:13px;margin-top:8px;max-width:280px;text-align:center;"></p>
     <a href="/" class="start-back-link">&larr; Retour au chat</a>
@@ -1841,9 +1867,9 @@
 
   <!-- PRE-TEST MICRO / CAMERA -->
   <div id="pretestScreen">
-    <div class="pretest-logo">L</div>
+    <div class="pretest-logo">I</div>
     <h2 class="pretest-title">Vérification audio</h2>
-    <p class="pretest-sub">Je vérifie que ton micro et ta caméra fonctionnent bien. Pas d'inquiétude, on est presque là.</p>
+    <p class="pretest-sub">Je vérifie juste que ton micro fonctionne bien. On y est presque.</p>
 
     <!-- Micro -->
     <div class="pretest-item">
@@ -1865,15 +1891,8 @@
       <div class="pretest-item-status" id="pretestMicStatus">⏳</div>
     </div>
 
-    <!-- Caméra -->
-    <div class="pretest-item">
-      <div class="pretest-item-icon">📷</div>
-      <div class="pretest-item-body">
-        <div class="pretest-item-title">Caméra</div>
-        <div class="pretest-item-label" id="pretestCamLabel">En attente du micro…</div>
-      </div>
-      <div class="pretest-item-status" id="pretestCamStatus">⏳</div>
-    </div>
+    <!-- Caméra retirée : IRIS fonctionne uniquement en audio (issue #27).
+         Les éléments #pretestCam* sont supprimés ; _startCamTest() reste no-op et guardé. -->
 
     <div id="pretestReadyMsg"></div>
     <button class="btn-pretest-start" id="btnPretestStart" disabled>Démarrer</button>
@@ -2440,7 +2459,7 @@
       startLoading.classList.remove('visible');
       btnStartBig.disabled = false;
       var el = document.getElementById('visioErrMsg');
-      if (el) { el.textContent = msg || 'Visio indisponible. Reessaie.'; el.style.display = 'block'; }
+      if (el) { el.textContent = msg || 'IRIS est momentanément indisponible. Réessaie.'; el.style.display = 'block'; }
     };
 
     // =====================================================================
@@ -2629,8 +2648,8 @@
         if (readyEl) {
           readyEl.style.color = '#7cf8c8';
           readyEl.textContent = _pretestCamOk
-            ? '✨ Tout est prêt ! Cliquez pour rejoindre Iris.'
-            : '✓ Micro prêt. La visio démarrera en audio.';
+            ? '✨ Tout est prêt ! Cliquez pour parler à IRIS.'
+            : '✓ Micro prêt. La conversation démarre en audio.';
         }
         if (btnEl) { btnEl.disabled = false; btnEl.textContent = 'Démarrer'; }
       } else {
@@ -3030,14 +3049,14 @@
             if (!_isHumanParticipant(e.participant)) return;
             _guestCount++;
             rLog('info', 'simli', 'guest_joined', 'count=' + _guestCount);
-            showToast('👥 ' + (e.participant.user_name || 'Invité') + ' a rejoint la visio', 4000);
+            showToast('👥 ' + (e.participant.user_name || 'Invité') + ' a rejoint la conversation', 4000);
             _visioTranscript.push({ ts: Date.now(), type: 'participant.joined', text: (e.participant.user_name || 'Invité') + ' a rejoint' });
             if (_guestCount === 1) {
               try {
                 dailyCall.sendAppMessage({
                   message_type: 'conversation', event_type: 'conversation.echo',
                   conversation_id: currentConvId,
-                  properties: { modality: 'text', text: '[Contexte] Un invité vient de rejoindre la visio. Tu es maintenant en présence de plusieurs personnes. Reste disponible mais ne prends la parole que si on te le demande directement. Tu peux prendre des notes de la réunion en silence.' }
+                  properties: { modality: 'text', text: '[Contexte] Un invité vient de rejoindre la conversation. Tu es maintenant en présence de plusieurs personnes. Reste disponible mais ne prends la parole que si on te le demande directement. Tu peux prendre des notes de la réunion en silence.' }
                 }, '*');
               } catch(e2) {}
             }
@@ -3672,8 +3691,8 @@
     if (btnWebShare) btnWebShare.onclick = function() {
       if (!_shareUrl || !navigator.share) return;
       navigator.share({
-        title: 'Rejoindre la visio Iris',
-        text: 'Rejoins-moi en visio avec Iris (Luna YAWatch)',
+        title: 'Rejoindre la conversation IRIS',
+        text: 'Rejoins-moi pour parler avec IRIS (Luna YAWatch)',
         url: _shareUrl
       }).catch(function() {});
     };
@@ -4173,7 +4192,7 @@
         rLog('info', 'simli', 'llm_http', String(r.status));
         if (r.status === 401) {
           rLog('warn', 'simli', 'llm_jwt_expired', '401');
-          showToast('⚠️ Session expirée — reconnecte-toi avant de relancer la visio.', 6000);
+          showToast('⚠️ Session expirée — reconnecte-toi avant de relancer la conversation.', 6000);
           _irisReplying = false; _vadBusy = false; _setIrisState('idle'); return null;
         }
         if (!r.ok) { rLog('warn', 'simli', 'llm_http_err', String(r.status)); _irisReplying = false; _vadBusy = false; _setIrisState('idle'); return null; }
@@ -4207,7 +4226,7 @@
           rLog('info', 'simli', 'tts_http', String(r.status));
           if (r.status === 401) {
             rLog('warn', 'simli', 'tts_jwt_expired', '401');
-            showToast('⚠️ Session expirée — reconnecte-toi avant de relancer la visio.', 6000);
+            showToast('⚠️ Session expirée — reconnecte-toi avant de relancer la conversation.', 6000);
             _irisReplying = false; _vadBusy = false; _setIrisState('idle'); return null;
           }
           if (!r.ok) { rLog('warn', 'simli', 'tts_error', String(r.status)); _irisReplying = false; _vadBusy = false; _setIrisState('idle'); return null; }
@@ -4327,7 +4346,7 @@
         rLog('info', 'simli', 'vad_stt_http', String(r.status));
         if (r.status === 401) {
           rLog('warn', 'simli', 'vad_jwt_expired', '401 — token invalide ou expiré');
-          showToast('⚠️ Session expirée — reconnecte-toi avant de relancer la visio.', 6000);
+          showToast('⚠️ Session expirée — reconnecte-toi avant de relancer la conversation.', 6000);
           _vadBusy = false;
           _setIrisState('idle');
           return null;
