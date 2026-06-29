@@ -56,6 +56,8 @@ from integrations.iris.modes import (
     IRIS_MODES, DEFAULT_MODE, build_mode_context, get_mode_tools, detect_mode_from_text
 )
 from integrations.iris.workspace_orchestrator import MissionBrief, WorkspacePlan, orchestrate_workspace_request
+# Détection d'urgence vocale (déterministe, côté serveur)
+from core.safety.voice_emergency import match_immediate_sos, is_affirmative, is_negative
 
 # Nombre d'erreurs client consecutives avant arret
 _MAX_CLIENT_ERRORS = 3
@@ -136,6 +138,9 @@ class _IrisActionRouter:
 
     def on_iris_transcript(self, text: str):
         """Detecte une promesse Iris et demarre le timer de fallback."""
+        # Voix pure : aucun fallback panneau — l'Action Router est désactivé.
+        if not getattr(self._bridge, "_command_screen", True):
+            return
         lower = text.lower()
         is_promise = any(p.lower() in lower for p in _PROMISE_PATTERNS)
         if is_promise:
@@ -444,7 +449,11 @@ class WebVoiceBridge:
         participant_name: str = "",
         session_manager=None,  # IrisSessionManager | None
         initial_mode: str = DEFAULT_MODE,  # Mode initial transmis via ?mode= (Objectif 026)
+        command_screen: bool = True,  # False = voix pure (pas de panneau ICS, pas de forçage iris_render)
         iris_mode: bool = True,  # False = luna-voice (pas de panneau ICS, iris_render exclu)
+        emergency_detect=None,  # async (text, recent) -> {level, summary} — classif LLM d'urgence
+        emergency_fire=None,    # async (summary, level) -> report — déclenche l'alerte (SMS+appels)
+        reminder_handle=None,   # async (text) -> {handled: bool, speak: str} — crée le rappel côté serveur
     ):
         self.openai_api_key = openai_api_key
         self.ws_client = ws_client
@@ -452,7 +461,6 @@ class WebVoiceBridge:
         self.tool_handler = tool_handler
         self.voice = voice
         self.max_duration_seconds = max_duration_seconds
-        self._iris_mode = iris_mode
         self.greeting = greeting
         self.conversation_history = conversation_history or []
         self.vad_eagerness = vad_eagerness
@@ -475,6 +483,17 @@ class WebVoiceBridge:
         self._session_manager = session_manager
         # Iris Action Router — fallback deterministe si le LLM n'appelle pas d'outil
         self._action_router = _IrisActionRouter(self)
+        self._iris_mode = iris_mode  # False = luna-voice (iris_render exclu)
+        # Voix pure : aucun panneau Iris Command Screen, aucun forçage iris_render.
+        # Quand False, le bridge se comporte comme un assistant vocal conversationnel pur.
+        self._command_screen = command_screen
+        # Détection d'urgence (sécurité) — actif uniquement si les callbacks sont fournis.
+        self._emergency_detect = emergency_detect
+        self._emergency_fire = emergency_fire
+        self._pending_emergency = None   # résumé en attente de confirmation (niveau ambigu)
+        self._emergency_active = False   # une alerte a déjà été déclenchée dans cette session
+        # Rappels : création déterministe côté serveur (le modèle vocal n'appelle pas add_reminder de façon fiable).
+        self._reminder_handle = reminder_handle
         # Mode de mission Iris — initialisé depuis le query param ?mode= (Objectif 026)
         self._active_mode = initial_mode if initial_mode in IRIS_MODES else DEFAULT_MODE
         self._base_context = context  # Contexte système de base (sans mode)
@@ -842,14 +861,19 @@ class WebVoiceBridge:
         """Filtre VOICE_TOOLS selon le mode actif.
         chat n'est inclus qu'en mode discussion — en modes productifs,
         iris_render et les outils métier sont disponibles (tool_choice=auto).
-        En mode Luna (iris_mode=False), iris_render est exclu — pas de panneau ICS.
         """
         allowed = set(get_mode_tools(mode_id))
         filtered = [t for t in VOICE_TOOLS if t.get("name", "") in allowed]
-        # En mode Luna, supprimer iris_render — aucun panneau visuel disponible
+        # Luna voice (iris_mode=False) : pas de panneau ICS → iris_render exclu.
         if not self._iris_mode:
             filtered = [t for t in filtered if t.get("name") != "iris_render"]
-        # Dernier recours : fournir iris_render uniquement en mode Iris si la liste est vide
+        # Voix pure Iris (command_screen=False) : on retire tous les outils liés au
+        # panneau Command Screen. Iris ne peut donc physiquement pas projeter de panneau.
+        if not self._command_screen:
+            _ICS_TOOLS = {"iris_render", "start_meeting", "organize_kanban"}
+            filtered = [t for t in filtered if t.get("name", "") not in _ICS_TOOLS]
+            return filtered
+        # Dernier recours : fournir iris_render si la liste est vide (uniquement mode Iris panneau)
         if not filtered and self._iris_mode:
             fallback = next((t for t in VOICE_TOOLS if t.get("name") == "iris_render"), None)
             if fallback:
@@ -883,23 +907,27 @@ class WebVoiceBridge:
         except Exception as e:
             logger.warning(f"WebVoice: lecture event initial OpenAI: {e}")
 
-        mode_ctx = build_mode_context(self._active_mode)
         filtered_tools = self._build_filtered_tools(self._active_mode)
         tool_names = [t.get("name", "?") for t in filtered_tools]
-        state_block = (
-            f"\n\n[IRIS_STATE]\n"
-            f"mode_actif={self._active_mode}\n"
-            f"command_screen=true\n"
-            f"boutons=Modifier,Copier,Télécharger,Fermer\n"
-            f"tools_autorisés={','.join(tool_names)}\n"
-            f"iris_render_disponible={'iris_render' in tool_names}\n"
-            f"document_chargé={'oui' if getattr(self, '_session_documents', []) else 'non'}\n"
-            f"[/IRIS_STATE]"
-        )
-        full_context = self._base_context
-        if mode_ctx:
-            full_context += f"\n\n{mode_ctx}"
-        full_context += state_block
+        if self._command_screen:
+            mode_ctx = build_mode_context(self._active_mode)
+            state_block = (
+                f"\n\n[IRIS_STATE]\n"
+                f"mode_actif={self._active_mode}\n"
+                f"command_screen=true\n"
+                f"boutons=Modifier,Copier,Télécharger,Fermer\n"
+                f"tools_autorisés={','.join(tool_names)}\n"
+                f"iris_render_disponible={'iris_render' in tool_names}\n"
+                f"document_chargé={'oui' if getattr(self, '_session_documents', []) else 'non'}\n"
+                f"[/IRIS_STATE]"
+            )
+            full_context = self._base_context
+            if mode_ctx:
+                full_context += f"\n\n{mode_ctx}"
+            full_context += state_block
+        else:
+            # Voix pure : pas de contexte de mode (qui force iris_render), pas de state block panneau.
+            full_context = self._base_context
 
         session_config = {
             "type": "session.update",
@@ -923,9 +951,9 @@ class WebVoiceBridge:
                     "create_response": False,
                 },
                 "tools": filtered_tools,
-                # required fonctionne pour les réponses VAD (voix).
-                # Pour les messages texte, iris_render est déclenché côté serveur.
-                "tool_choice": "required",
+                # Command Screen : tool_choice=required force iris_render à chaque tour.
+                # Voix pure : "auto" — Iris parle librement et n'appelle un outil que si utile.
+                "tool_choice": "required" if self._command_screen else "auto",
             },
         }
         ok = await self._ws_send_openai(session_config)
@@ -942,31 +970,61 @@ class WebVoiceBridge:
             # Ancrage identité via Q&A planté dans l'historique de conversation.
             # Plus fiable que role="system" (non garanti sur gpt-realtime-mini).
             # Le modèle voit sa propre "réponse passée" et reste cohérent.
-            await self._ws_send_openai({
-                "type": "conversation.item.create",
-                "item": {
-                    "type": "message",
-                    "role": "user",
-                    "content": [{"type": "input_text", "text": "Iris, qui es-tu et as-tu un panneau visuel ?"}],
-                },
-            })
-            await self._ws_send_openai({
-                "type": "conversation.item.create",
-                "item": {
-                    "type": "message",
-                    "role": "assistant",
-                    # Realtime API : le type de contenu assistant est "output_text" (pas "text")
-                    "content": [{
-                        "type": "output_text",
-                        "text": (
-                            "Je suis Iris, l'opératrice IA du centre de commande YAWatch Luna. "
-                            "Oui, j'ai l'Iris Command Screen — mon panneau visuel actif à l'écran en ce moment. "
-                            "Je l'alimente via iris_render à chaque réponse."
-                        ),
-                    }],
-                },
-            })
-            logger.info("[BOOT] Q&A d'ancrage injecté dans l'historique — Iris contextualisée")
+            # UNIQUEMENT en mode Command Screen — en voix pure on n'injecte rien
+            # (sinon Iris se met à parler de son "panneau visuel" dès l'ouverture).
+            if self._command_screen:
+                await self._ws_send_openai({
+                    "type": "conversation.item.create",
+                    "item": {
+                        "type": "message",
+                        "role": "user",
+                        "content": [{"type": "input_text", "text": "Iris, qui es-tu et as-tu un panneau visuel ?"}],
+                    },
+                })
+                await self._ws_send_openai({
+                    "type": "conversation.item.create",
+                    "item": {
+                        "type": "message",
+                        "role": "assistant",
+                        # Realtime API : le type de contenu assistant est "output_text" (pas "text")
+                        "content": [{
+                            "type": "output_text",
+                            "text": (
+                                "Je suis Iris, l'opératrice IA du centre de commande YAWatch Luna. "
+                                "Oui, j'ai l'Iris Command Screen — mon panneau visuel actif à l'écran en ce moment. "
+                                "Je l'alimente via iris_render à chaque réponse."
+                            ),
+                        }],
+                    },
+                })
+                logger.info("[BOOT] Q&A d'ancrage injecté dans l'historique — Iris contextualisée")
+            else:
+                # Voix pure : ancrage d'IDENTITÉ uniquement (aucune mention de panneau).
+                # Sans cet ancrage, gpt-realtime-mini se présente parfois comme "ChatGPT".
+                await self._ws_send_openai({
+                    "type": "conversation.item.create",
+                    "item": {
+                        "type": "message",
+                        "role": "user",
+                        "content": [{"type": "input_text", "text": "Rappelle-moi, comment t'appelles-tu et quel est ton rôle ?"}],
+                    },
+                })
+                await self._ws_send_openai({
+                    "type": "conversation.item.create",
+                    "item": {
+                        "type": "message",
+                        "role": "assistant",
+                        "content": [{
+                            "type": "output_text",
+                            "text": (
+                                "Je suis Iris, ton assistante IA personnelle. "
+                                "Je t'aide au quotidien : organisation, recherches, documents, rappels et démarches. "
+                                "Je t'écoute."
+                            ),
+                        }],
+                    },
+                })
+                logger.info("[BOOT] Ancrage identité (voix pure) injecté — Iris")
 
             # BOOT ORANGE — vérifications terminées
             await self._ws_send_client({"type": "boot_state", "state": "orange"})
@@ -984,30 +1042,33 @@ class WebVoiceBridge:
         self._active_mode = mode_id
         logger.info(f"WebVoice: mode change -> {mode_id} ({mode['label']})")
 
-        mode_ctx = build_mode_context(mode_id)
         filtered_tools = self._build_filtered_tools(mode_id)
         tool_names_set = [t.get("name", "?") for t in filtered_tools]
-        state_block = (
-            f"\n\n[IRIS_STATE]\n"
-            f"mode_actif={mode_id}\n"
-            f"command_screen=true\n"
-            f"boutons=Modifier,Copier,Télécharger,Fermer\n"
-            f"tools_autorisés={','.join(tool_names_set)}\n"
-            f"iris_render_disponible={'iris_render' in tool_names_set}\n"
-            f"document_chargé={'oui' if getattr(self, '_session_documents', []) else 'non'}\n"
-            f"[/IRIS_STATE]"
-        )
-        full_context = self._base_context
-        if mode_ctx:
-            full_context += f"\n\n{mode_ctx}"
-        full_context += state_block
+        if self._command_screen:
+            mode_ctx = build_mode_context(mode_id)
+            state_block = (
+                f"\n\n[IRIS_STATE]\n"
+                f"mode_actif={mode_id}\n"
+                f"command_screen=true\n"
+                f"boutons=Modifier,Copier,Télécharger,Fermer\n"
+                f"tools_autorisés={','.join(tool_names_set)}\n"
+                f"iris_render_disponible={'iris_render' in tool_names_set}\n"
+                f"document_chargé={'oui' if getattr(self, '_session_documents', []) else 'non'}\n"
+                f"[/IRIS_STATE]"
+            )
+            full_context = self._base_context
+            if mode_ctx:
+                full_context += f"\n\n{mode_ctx}"
+            full_context += state_block
+        else:
+            full_context = self._base_context
 
         session_update = {
             "type": "session.update",
             "session": {
                 "instructions": full_context,
                 "tools": filtered_tools,
-                "tool_choice": "required",
+                "tool_choice": "required" if self._command_screen else "auto",
             },
         }
         ok = await self._ws_send_openai(session_update)
@@ -1042,15 +1103,16 @@ class WebVoiceBridge:
         # On utilise response.create avec instructions pour respecter la phrase exacte du system prompt.
         # Greeting : iris_render côté serveur (panneau de bienvenue) + parole sans outils.
         # tool_choice dans response.create cause session.type error sur gpt-realtime-mini.
-        await self._ws_send_client({
-            "type": "render",
-            "render_type": "context_panel",
-            "payload": {
-                "title": "Iris — Système actif",
-                "sections": [{"heading": "Prête", "body": "Tous les systèmes sont opérationnels. Parlez-moi naturellement."}],
-                "context": "Session démarrée",
-            },
-        })
+        if self._command_screen:
+            await self._ws_send_client({
+                "type": "render",
+                "render_type": "context_panel",
+                "payload": {
+                    "title": "Iris — Système actif",
+                    "sections": [{"heading": "Prête", "body": "Tous les systèmes sont opérationnels. Parlez-moi naturellement."}],
+                    "context": "Session démarrée",
+                },
+            })
         ok = await self._ws_send_openai({
             "type": "response.create",
             "response": {
@@ -1148,6 +1210,122 @@ class WebVoiceBridge:
             await asyncio.sleep(15)
             self._denial_correcting = False
 
+    # ===================================================================
+    # SÉCURITÉ — détection d'urgence pendant la conversation vocale
+    # ===================================================================
+    async def _speak(self, instructions: str):
+        """Fait parler Iris avec une consigne précise (sans outil)."""
+        await self._ws_send_openai({
+            "type": "response.create",
+            "response": {"instructions": instructions, "tools": []},
+        })
+
+    async def _fire_and_reassure(self, summary: str, level: str):
+        """Déclenche l'alerte (en tâche de fond, pour la vitesse) et rassure l'utilisateur."""
+        if self._emergency_active and level != "confirmed":
+            return  # déjà déclenché dans cette session
+        self._emergency_active = True
+        self._pending_emergency = None
+        logger.warning(f"WebVoice: EMERGENCY fire level={level} summary={summary[:80]!r}")
+        # 2) Prévenir le client tout de suite (UI peut afficher un état d'urgence)
+        await self._ws_send_client({"type": "emergency", "state": "triggered", "summary": summary})
+        # 1) Déclencher l'alerte SANS bloquer (chaque seconde compte) ; rapport au client une fois fait
+        if self._emergency_fire:
+            async def _do_fire():
+                try:
+                    report = await self._emergency_fire(summary, level)
+                    await self._ws_send_client({"type": "emergency", "state": "sent", "report": report})
+                except Exception as _e:
+                    logger.error(f"WebVoice: emergency fire error: {_e}")
+                    await self._ws_send_client({"type": "emergency", "state": "error", "message": str(_e)})
+            asyncio.create_task(_do_fire())
+        # 3) Rassurer immédiatement à l'oral
+        await self._speak(
+            "Une urgence vient d'être détectée. Préviens l'utilisateur, calmement et brièvement, "
+            "que tu alertes ses proches tout de suite et que tu restes en ligne avec lui. "
+            "Une seule phrase rassurante. Exemple : « Je préviens tes proches maintenant, je reste avec toi. »"
+        )
+
+    async def _ask_emergency_confirmation(self, summary: str):
+        """Niveau ambigu : Iris demande UNE fois avant d'alerter."""
+        self._pending_emergency = summary or "détresse possible"
+        await self._ws_send_client({"type": "emergency", "state": "asking", "summary": summary})
+        await self._speak(
+            "Tu perçois que la personne ne va peut-être pas bien. Demande-lui, avec douceur et en UNE phrase, "
+            "si elle veut que tu préviennes ses proches maintenant. "
+            "Exemple : « Tu veux que je prévienne tes proches tout de suite ? »"
+        )
+
+    async def _emergency_llm_followup(self, text: str):
+        """Analyse d'intention (LLM) en tâche de fond — capte la détresse nuancée."""
+        try:
+            recent = [t["text"] for t in self.transcript if t.get("role") == "user"][-4:]
+            verdict = await self._emergency_detect(text, recent)
+            level = (verdict or {}).get("level", "none")
+            summary = (verdict or {}).get("summary", "") or text
+            if self._emergency_active or self._pending_emergency is not None:
+                return
+            if level == "immediate":
+                await self._fire_and_reassure(summary, "immediate")
+            elif level == "ambiguous":
+                await self._ask_emergency_confirmation(summary)
+        except Exception as e:
+            logger.warning(f"WebVoice: emergency_llm_followup error: {e}")
+
+    async def _handle_emergency(self, text: str) -> bool:
+        """
+        Évalue le transcript utilisateur pour une urgence.
+        Retourne True si l'urgence a pris le tour en main (on saute la réponse normale).
+        """
+        if not self._emergency_fire:   # feature désactivée (ex: voix Luna)
+            return False
+
+        # a) Confirmation en attente (niveau ambigu déjà proposé)
+        if self._pending_emergency is not None:
+            if is_affirmative(text):
+                await self._fire_and_reassure(self._pending_emergency, "confirmed")
+                return True
+            if is_negative(text):
+                self._pending_emergency = None
+                await self._ws_send_client({"type": "emergency", "state": "declined"})
+                await self._speak(
+                    "L'utilisateur ne veut pas alerter ses proches pour l'instant. Réponds en UNE phrase "
+                    "rassurante : tu ne préviens personne, tu restes là, il peut changer d'avis quand il veut."
+                )
+                return True
+            # ni oui ni non : on abandonne la confirmation et on laisse la conversation suivre
+            self._pending_emergency = None
+            return False
+
+        # b) SOS EXPLICITE → déclenchement immédiat (instantané, déterministe)
+        if match_immediate_sos(text):
+            await self._fire_and_reassure(text, "immediate")
+            return True
+
+        # c) Analyse d'intention nuancée (LLM) en tâche de fond — ne bloque pas la réponse normale
+        if self._emergency_detect:
+            asyncio.create_task(self._emergency_llm_followup(text))
+        return False
+
+    async def _handle_reminder(self, text: str) -> bool:
+        """
+        Si l'utilisateur demande un rappel, le serveur le crée lui-même (déterministe)
+        et fait confirmer Iris. Retourne True si le tour a été pris en main (on saute
+        la réponse conversationnelle normale). Iris ne renvoie JAMAIS vers une app du téléphone.
+        """
+        if not self._reminder_handle:
+            return False
+        try:
+            res = await self._reminder_handle(text)
+        except Exception as e:
+            logger.warning(f"WebVoice: reminder_handle error: {e}")
+            return False
+        if res and res.get("handled"):
+            await self._ws_send_client({"type": "reminder", "state": "created", "title": res.get("title", "")})
+            await self._speak(res.get("speak") or "Confirme en une phrase, naturellement, que le rappel est créé.")
+            return True
+        return False
+
     async def _relay_client_to_openai(self):
         """Recoit l'audio PCM16 du navigateur et l'envoie a OpenAI."""
         try:
@@ -1185,27 +1363,33 @@ class WebVoiceBridge:
                                 "content": [{"type": "input_text", "text": text}],
                             },
                         })
-                        plan = orchestrate_workspace_request(
-                            text,
-                            active_mode=self._active_mode,
-                            session_documents=getattr(self, "_session_documents", []),
-                            mission_brief=self._mission_brief,
-                        )
-                        await self._emit_workspace_plan(plan)
-                        if plan.should_render:
-                            await self._ws_send_openai({
-                                "type": "response.create",
-                                "response": {
-                                    "instructions": (
-                                        plan.speech_instruction
-                                        + " Ne dis jamais que tu ne peux pas afficher : "
-                                          "le serveur vient d'afficher le panneau."
-                                    ),
-                                    "tools": [],
-                                },
-                            })
+                        if self._command_screen:
+                            plan = orchestrate_workspace_request(
+                                text,
+                                active_mode=self._active_mode,
+                                session_documents=getattr(self, "_session_documents", []),
+                                mission_brief=self._mission_brief,
+                            )
+                            await self._emit_workspace_plan(plan)
+                            if plan.should_render:
+                                await self._ws_send_openai({
+                                    "type": "response.create",
+                                    "response": {
+                                        "instructions": (
+                                            plan.speech_instruction
+                                            + " Ne dis jamais que tu ne peux pas afficher : "
+                                              "le serveur vient d'afficher le panneau."
+                                        ),
+                                        "tools": [],
+                                    },
+                                })
+                            else:
+                                await self._ws_send_openai({"type": "response.create"})
                         else:
-                            await self._ws_send_openai({"type": "response.create"})
+                            # Voix pure : sécurité d'abord (urgence), puis rappels, sinon réponse normale.
+                            emergency_handled = await self._handle_emergency(text)
+                            if not emergency_handled and not await self._handle_reminder(text):
+                                await self._ws_send_openai({"type": "response.create"})
 
                 elif msg_type == "ui_event":
                     event_name = data.get("name", "")
@@ -1217,7 +1401,8 @@ class WebVoiceBridge:
                         logger.info(f"WebVoice: ui_event document_uploaded fname={fname[:60]}")
 
                         # Bascule automatique en mode analyse si on est en discussion
-                        if self._active_mode == DEFAULT_MODE:
+                        # (uniquement en mode Command Screen — les modes pilotent le panneau)
+                        if self._command_screen and self._active_mode == DEFAULT_MODE:
                             logger.info(f"WebVoice: auto_switch_mode discussion -> analyse (document uploaded)")
                             await self.set_mode("analyse")
 
@@ -1235,13 +1420,33 @@ class WebVoiceBridge:
                         asyncio.create_task(self._precompute_doc_renders(fname, analysis))
 
                         # Injecter un message court — Iris confirme la réception, ne lit pas le contenu
-                        inject_text = (
-                            f'[DOCUMENT REÇU : {fname}]\n'
-                            f'Résumé court : {analysis[:300]}...\n\n'
-                            f'Confirme la réception en 1 phrase. '
-                            f'Dis que le panneau est mis à jour et que les transformations sont disponibles. '
-                            f'Ne lis PAS le contenu à l\'oral.'
-                        )
+                        if self._command_screen:
+                            inject_text = (
+                                f'[DOCUMENT REÇU : {fname}]\n'
+                                f'Résumé court : {analysis[:300]}...\n\n'
+                                f'Confirme la réception en 1 phrase. '
+                                f'Dis que le panneau est mis à jour et que les transformations sont disponibles. '
+                                f'Ne lis PAS le contenu à l\'oral.'
+                            )
+                            _doc_speech = (
+                                "Confirme la réception du document en 1 phrase. "
+                                "Ex: 'Reçu — le panneau est à jour, clique sur les boutons pour transformer.' "
+                                "Ne lis PAS le contenu. Ne liste pas les fonctionnalités."
+                            )
+                        else:
+                            # Voix pure : confirmation naturelle, aucune mention de panneau.
+                            _who = self._participant_name or "l'utilisateur"
+                            inject_text = (
+                                f'[DOCUMENT REÇU : {fname}]\n'
+                                f'Résumé court : {analysis[:300]}...\n\n'
+                                f'Confirme la réception en 1 phrase courte et naturelle, '
+                                f'et demande ce que {_who} veut en faire. '
+                                f"Ne lis PAS le contenu à l'oral."
+                            )
+                            _doc_speech = (
+                                "Confirme la réception du document en 1 phrase naturelle "
+                                "et demande ce qu'on veut en faire. Ne lis pas le contenu."
+                            )
                         await self._ws_send_openai({
                             "type": "conversation.item.create",
                             "item": {
@@ -1253,40 +1458,37 @@ class WebVoiceBridge:
                         await self._ws_send_openai({
                             "type": "response.create",
                             "response": {
-                                "instructions": (
-                                    "Confirme la réception du document en 1 phrase. "
-                                    "Ex: 'Reçu — le panneau est à jour, clique sur les boutons pour transformer.' "
-                                    "Ne lis PAS le contenu. Ne liste pas les fonctionnalités."
-                                ),
+                                "instructions": _doc_speech,
                                 "tools": self._build_filtered_tools(self._active_mode),
                             },
                         })
 
                         # Rendu immédiat document_insight dans le Command Screen
                         # Privé : _ws_send_client envoie uniquement à ce WS (pas de broadcast session)
-                        await self._ws_send_client({
-                            "type": "render",
-                            "render_type": "document_insight",
-                            "title": fname,
-                            "boxes": [
-                                {"title": "Analyse", "body": analysis if analysis else "—"},
-                            ],
-                            "tags": [
-                                {"label": "Reçu", "type": "ok"},
-                            ],
-                            "actions": [
-                                {"label": "Synthèse"},
-                                {"label": "Points clés"},
-                                {"label": "Tableau"},
-                                {"label": "Kanban"},
-                                {"label": "Timeline"},
-                                {"label": "Contacts"},
-                                {"label": "Budget"},
-                                {"label": "Rédiger une réponse"},
-                            ],
-                            "private": True,
-                        })
-                        logger.info(f"WebVoice: render_type=document_insight fn=upload render_done=true")
+                        if self._command_screen:
+                            await self._ws_send_client({
+                                "type": "render",
+                                "render_type": "document_insight",
+                                "title": fname,
+                                "boxes": [
+                                    {"title": "Analyse", "body": analysis if analysis else "—"},
+                                ],
+                                "tags": [
+                                    {"label": "Reçu", "type": "ok"},
+                                ],
+                                "actions": [
+                                    {"label": "Synthèse"},
+                                    {"label": "Points clés"},
+                                    {"label": "Tableau"},
+                                    {"label": "Kanban"},
+                                    {"label": "Timeline"},
+                                    {"label": "Contacts"},
+                                    {"label": "Budget"},
+                                    {"label": "Rédiger une réponse"},
+                                ],
+                                "private": True,
+                            })
+                            logger.info(f"WebVoice: render_type=document_insight fn=upload render_done=true")
 
                         await self._ws_send_client({
                             "type": "ui_state_ack",
@@ -1475,8 +1677,9 @@ class WebVoiceBridge:
                         logger.info(f"WebVoice USER: {text[:120]}")
                         self._action_router.on_user_transcript(text)
                         # Fallback mode auto — si le client a envoyé mode=discussion (défaut)
-                        # et que le texte suggère un mode productif, basculer automatiquement
-                        if self._active_mode == DEFAULT_MODE:
+                        # et que le texte suggère un mode productif, basculer automatiquement.
+                        # Désactivé en voix pure : les modes sont liés au Command Screen.
+                        if self._command_screen and self._active_mode == DEFAULT_MODE:
                             detected = detect_mode_from_text(text)
                             if detected != DEFAULT_MODE:
                                 logger.info(f"WebVoice: mode_auto_detected={detected} from user text")
@@ -1491,33 +1694,44 @@ class WebVoiceBridge:
                             "role": "user",
                             "text": text,
                         })
-                        plan = orchestrate_workspace_request(
-                            text,
-                            active_mode=self._active_mode,
-                            session_documents=getattr(self, "_session_documents", []),
-                            mission_brief=self._mission_brief,
-                        )
-                        await self._emit_workspace_plan(plan)
-                        if plan.should_render:
-                            await self._ws_send_openai({
-                                "type": "response.create",
-                                "response": {
-                                    "instructions": (
-                                        plan.speech_instruction
-                                        + " Reponds en une phrase courte, sans relire le contenu du panneau."
-                                    ),
-                                    "tools": [],
-                                },
-                            })
-                            logger.info(
-                                f"WebVoice: response_created_after_orchestrator "
-                                f"mode={self._active_mode} render_type={plan.render_type}"
+                        if self._command_screen:
+                            plan = orchestrate_workspace_request(
+                                text,
+                                active_mode=self._active_mode,
+                                session_documents=getattr(self, "_session_documents", []),
+                                mission_brief=self._mission_brief,
                             )
+                            await self._emit_workspace_plan(plan)
+                            if plan.should_render:
+                                await self._ws_send_openai({
+                                    "type": "response.create",
+                                    "response": {
+                                        "instructions": (
+                                            plan.speech_instruction
+                                            + " Reponds en une phrase courte, sans relire le contenu du panneau."
+                                        ),
+                                        "tools": [],
+                                    },
+                                })
+                                logger.info(
+                                    f"WebVoice: response_created_after_orchestrator "
+                                    f"mode={self._active_mode} render_type={plan.render_type}"
+                                )
+                            else:
+                                await self._ws_send_openai({"type": "response.create"})
+                                logger.info(
+                                    f"WebVoice: response_created_after_mode mode={self._active_mode}"
+                                )
                         else:
-                            await self._ws_send_openai({"type": "response.create"})
-                            logger.info(
-                                f"WebVoice: response_created_after_mode mode={self._active_mode}"
-                            )
+                            # Voix pure : SÉCURITÉ D'ABORD — détection d'urgence sur ce que dit
+                            # l'utilisateur. Si une urgence prend le tour en main, on ne fait pas
+                            # de réponse conversationnelle normale (l'alerte + le message rassurant priment).
+                            emergency_handled = await self._handle_emergency(text)
+                            # Puis rappels : si l'utilisateur demande un rappel, le serveur le crée
+                            # lui-même et Iris confirme (pas de « mets-le sur ton téléphone »).
+                            if not emergency_handled and not await self._handle_reminder(text):
+                                await self._ws_send_openai({"type": "response.create"})
+                                logger.info("WebVoice: response_created (voix pure)")
 
                 elif event_type in ("response.audio_transcript.done", "response.output_audio_transcript.done"):
                     text = data.get("transcript", "").strip()
@@ -1535,13 +1749,14 @@ class WebVoiceBridge:
                         _DENIAL_PHRASES = [
                             "ne peux pas afficher", "n'ai pas de panneau", "pas de panneau visuel",
                             "je ne dispose pas d'un panneau", "pas d'écran", "aucun panneau",
-                            "cannot display", "don't have a visual panel",
                             "ne peux pas répondre à cette partie", "je ne suis pas en mesure",
                             "en tant qu'ia", "en tant qu'intelligence artificielle",
                             "je suis un programme", "je suis un logiciel",
+                            "cannot display", "don't have a visual panel",
                         ]
                         _tlow = text.lower()
-                        if (not getattr(self, "_denial_correcting", False)
+                        if (self._command_screen
+                                and not getattr(self, "_denial_correcting", False)
                                 and any(p in _tlow for p in _DENIAL_PHRASES)
                                 and (
                                     (hasattr(self, "_session_documents") and self._session_documents)
@@ -1603,7 +1818,8 @@ class WebVoiceBridge:
                         ]
                         _has_doc = hasattr(self, "_session_documents") and bool(self._session_documents)
                         _in_work_mode = self._active_mode != DEFAULT_MODE
-                        if ((_has_doc or _in_work_mode)
+                        if (self._command_screen
+                                and (_has_doc or _in_work_mode)
                                 and not getattr(self, "_delta_cancelled", False)
                                 and not getattr(self, "_denial_correcting", False)
                                 and any(p in self._delta_buf for p in _EARLY_DENIAL)):

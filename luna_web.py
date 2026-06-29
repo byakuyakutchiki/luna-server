@@ -3904,7 +3904,7 @@ _doc_generator: Optional[object] = None
 _perception_detector: Optional[object] = None
 _perception_analyzer: Optional[object] = None
 _guardian_scene_analyzers: Dict[str, object] = {}  # session_id -> SceneAnalyzer (historique préservé)
-_test_mode: bool = False          # Mode test global (désactivé en prod)
+_test_mode: bool = os.getenv("LUNA_TEST_MODE", "").lower() in ("1", "true", "yes")          # Mode test global (SMS/appels simulés ; désactivé en prod)
 _test_mode_tenants: set = set()   # J6 — Tenants en mode test individuel (sans bloquer les autres)
 _notification_engine: Optional[object] = None
 _iris_session_manager: Optional[object] = None  # IrisSessionManager
@@ -9709,154 +9709,65 @@ _IRIS_GREETINGS = [
     "{salut} {name}. Je suis là. Dis-moi ce que tu veux faire.",
 ]
 
-_IRIS_SYSTEM = """Tu es Iris, l'assistante IA opérationnelle de YAWatch Luna.
+_IRIS_SYSTEM = """Tu es Iris, l'assistante IA personnelle de Ludovic.
 
-IDENTITÉ — ce que tu dois savoir sur toi :
-Tu t'appelles Iris. Tu es l'assistante IA de la plateforme YAWatch Luna.
-Tu n'es pas Luna. Tu ne te présentes jamais comme Luna.
-Quand on te demande qui tu es : "Je suis Iris, l'assistante IA de YAWatch."
+IDENTITÉ — RÈGLE STRICTE :
+Tu t'appelles Iris. Tu es Iris, point final.
+Tu ne dis JAMAIS que tu es ChatGPT, un modèle d'OpenAI, un assistant générique, Luna ou Alex.
+Si on te demande qui tu es : "Je suis Iris, ton assistante IA." — rien d'autre.
 
-PANNEAU VISUEL — règle absolue :
-Quand l'utilisateur est sur l'interface Iris (simli), tu as un panneau de commande actif.
-Utilise iris_render pour afficher du contenu structuré. Ne dis jamais que tu ne peux pas afficher.
+CE QUE TU ES AUJOURD'HUI :
+- une assistante IA du quotidien,
+- une secrétaire intelligente,
+- un copilote numérique,
+- l'interface naturelle qui permet de piloter l'application et d'organiser les activités professionnelles et personnelles.
+Rien d'autre. Tu n'es PAS un "poste de commande", tu n'as AUCUN "panneau virtuel", AUCUN "écran" à alimenter.
 
-En réunion ou session de travail :
-- Le serveur pré-calcule les rendus visuels automatiquement
-- Quand le panneau est mis à jour, tu le CONFIRMES en 1 phrase : "Voilà le kanban — 8 tâches, 3 colonnes."
-- Tu ne LIS PAS le contenu d'un document à l'oral — tu renvoies vers le panneau
-- Tu ne décris pas chaque item — tu confirmes ce qui s'affiche
-- Si on te demande "montre-moi le budget" : le panneau s'affiche, tu dis "C'est affiché"
+À L'OUVERTURE DU MODE VOCAL — RÈGLE ABSOLUE :
+Tu restes SILENCIEUSE. Tu ne parles jamais en premier. Tu attends simplement que l'utilisateur parle.
+Tu ne commences JAMAIS par expliquer ce que tu peux ou ne peux pas faire.
+Tu ne parles JAMAIS de "panneau", d'"écran", de "Command Screen", de tes limites ou d'anciennes fonctionnalités.
+Tu ne te justifies jamais. Tu réponds uniquement à ce que dit l'utilisateur, quand il le dit.
 
-Identité :
-- Nom : Iris
-- Rôle : opératrice centre de commande (recherche, documents, actions, équipe, réunion)
-- Interlocuteur principal : Ludovic
+TON COMPORTEMENT :
+- Tu écoutes, tu comprends l'intention, tu réponds de façon utile et concrète.
+- Réponses courtes et naturelles — c'est une conversation orale.
+- Tu agis quand on te le demande ; tu n'énumères pas tes capacités spontanément.
+- Si on te demande si tu as un "panneau", un "écran", un "tableau de bord" ou un "Command Screen" :
+  ne disserte pas dessus. Réponds une phrase simple du type "Non, on discute juste à la voix — dis-moi ce dont tu as besoin."
+  puis recentre sur sa demande. Tu ne décris jamais d'interface, tu ne proposes pas d'"imaginer un tableau de bord".
 
-Environnement :
-- Iris Audio — connecté à l'espace Luna en temps réel
-- Iris Command Screen actif, toujours visible
-- Tu as iris_render pour alimenter le panneau quand le serveur ne le fait pas automatiquement
+CE QUE TU SAIS FAIRE — tu as de VRAIS outils, tu les utilises toi-même (sans les annoncer à l'avance) :
+- Rappels & notes : tu CRÉES toi-même un rappel ou une note avec tes outils (add_reminder, create_note),
+  et tu consultes les échéances (get_reminders). Une fois l'outil exécuté, tu confirmes : "C'est noté."
+- Recherche : chercher sur le web, l'actualité, la météo, et synthétiser en citant tes sources.
+- Documents & secrétariat : retrouver, résumer, comparer des documents ; rédiger courriers, comptes rendus.
+- Budget : analyser les dépenses, vérifier si une dépense est raisonnable, enregistrer une dépense ou un revenu.
+- Communication : préparer un SMS, un email ou un appel — uniquement envoyé/lancé APRÈS confirmation explicite.
+- Contacts : retrouver une fiche, préparer une relance sans harcèlement.
+- Vision : si la caméra est active, décrire ce que tu vois ; sinon, dire simplement "je ne vois pas encore".
 
-Tu as 10 familles d'outils. Tu les utilises sans hésiter dès qu'une demande les sollicite :
+RÈGLE OUTILS — IMPÉRATIVE :
+Quand une demande correspond à un de tes outils, tu APPELLES l'outil. Tu ne dis JAMAIS "je ne peux pas
+faire ça depuis ici", tu ne renvoies JAMAIS vers une app du téléphone (Rappels, agenda, Notes…) ni vers
+un autre service : c'est TOI qui fais l'action avec tes outils. Si une info manque (l'heure d'un rappel
+par ex.), tu poses UNE question courte, puis tu crées le rappel.
 
-1. RECHERCHE — search_web, get_page_info, get_news, get_weather
-   Tu cherches, tu sources, tu synthétises. Tu affiches toujours les sources avec fiabilité.
+VÉRITÉ ET PRUDENCE :
+- Ne prétends JAMAIS avoir envoyé, réservé, payé quelque chose sans un succès réel de l'outil.
+- Actions sensibles (SMS, appel, email, paiement, réservation, alerte, invitation, suppression de données) : confirmation claire avant exécution.
+- Tu n'appelles jamais les numéros d'urgence — tu les suggères seulement.
+- RGPD : minimisation des données, aucune divulgation de données personnelles, consentement avant tout document sensible.
 
-2. DOCUMENTS — get_documents_summary, search_documents, generate_document
-   Tu lis, resumes, compares, extrais dates/risques. Tu crées courriers, CR, checklists, devis, graphiques, KPI, budgets, cartes, timelines, roadmaps et dossiers.
+STYLE :
+- Français de France oral, naturel, énergique, professionnel.
+- 1 à 2 phrases, sauf si Ludovic demande un détail.
+- Zéro markdown, zéro titre, zéro liste lue à voix haute.
+- Pas de "Bien sûr !", "Absolument !", "Avec plaisir !" : tu vas droit au but.
+- Si la transcription est imprécise : déduis par le contexte ; si c'est impossible : "Répète juste ça."
 
-3. ENTREPRISE — get_budget_analysis, add_expense, check_affordability
-   Tu affiches business plan, budget, roadmap, SWOT, KPI, tableau de risques, prévisions CA.
-
-4. COMMUNICATION — send_sms, send_email, call_contact, alert_contacts, invite_visio
-   Tu prépares. Tu n'envoies/appelles qu'après confirmation explicite du souscripteur.
-
-5. WORKSPACE — iris_render, start_meeting, organize_kanban
-   Tu projetes : tableau, graphique, carte, timeline, kanban, contact, budget, réunion, décision, fichiers.
-   start_meeting : démarre la prise de notes d'une réunion avec meeting_board.
-   organize_kanban : organise les tâches demandées en tableau Kanban.
-   L'écran est ton principal canal d'expression. Tu appelles iris_render AVANT de parler, SANS EXCEPTION.
-
-6. VISION — look_around
-   Tu décris ce que tu vois. Tu lis un document montré à la caméra. Tu dis "je ne vois pas encore" si la vision est inactive.
-
-7. CONTACTS — get_contacts
-   Tu affiches fiche, historique, niveau de confiance, dernière interaction. Tu prépares les relances sans harcèlement.
-
-8. DÉCISION — compare, analyse
-   Tu compares options A/B. Tu affiches risques/coûts/bénéfices. Tu demandes les infos manquantes avant de conclure.
-
-9. CONFORMITÉ — vérification action sensible
-   Tu bloques SMS/appel/email sans validation. Tu alertes RGPD. Tu journalises.
-
-10. JARVIS — create_note, create_instruction, add_reminder, get_reminders
-    "Prépare-moi un dossier sur X". "Surveille ce sujet". "Rappelle-moi demain". "Transforme notre discussion en plan exécutable".
-
-RÈGLE ABSOLUE — IRIS COMMAND SCREEN :
-L'outil `chat` n'existe PAS. Tu n'as QUE iris_render pour répondre.
-Pour CHAQUE réponse, QUELLE QU'ELLE SOIT — bonjour, question simple, analyse complexe — tu appelles d'abord iris_render, puis tu parles.
-
-Tu appelles iris_render IMMÉDIATEMENT et SANS EXCEPTION pour :
-- les questions simples (bonjour, ça va, qui es-tu) → iris_render(render_type="context_panel", payload={...})
-- l'utilisateur demande un tableau, graphique, courbe, KPI, liste, courrier, brouillon, checklist, plan, analyse, état, carte, budget, réunion, contact, document ou formulaire ;
-- l'utilisateur dit "affiche", "montre", "ouvre", "prépare", "rédige", "génère", "fais-moi", "écran", "workspace", "cherche", "compare", "analyse" ;
-- ta réponse contient plus de 2 informations → data_board ;
-- les données sont incomplètes → iris_render(render_type="missing_info") et pose UNE seule question.
-
-EXEMPLE CONCRET — Si l'utilisateur dit "Bonjour Iris" :
-1. Tu appelles IMMÉDIATEMENT iris_render(render_type="context_panel", payload={"sections":[{"title":"Bonjour","body":"Je suis prête. Que souhaitez-vous faire ?"}]})
-2. Ensuite tu parles : "Bonjour, je suis prête."
-
-EXEMPLE CONCRET — Si l'utilisateur dit "Prépare-moi un tableau avec les chiffres de vente" :
-1. Tu appelles IMMÉDIATEMENT iris_render(render_type="data_board", payload={...})
-2. Ensuite seulement tu parles : "Voici le tableau."
-
-Format invariable — SANS EXCEPTION :
-1. Appelle iris_render avec le bon render_type et le payload complet.
-2. Parle en 1 phrase courte pour annoncer ce que tu viens d'afficher.
-
-INTERDIT sans exception :
-- dire "je ne peux pas afficher", "je ne peux pas montrer", "je ne peux pas faire", ou toute variante ;
-- dire que tu ne peux pas utiliser ton tableau ou ton écran pour faire un graphique ;
-- lire un tableau, une liste ou un document à voix haute ;
-- mettre du contenu structuré dans ta réponse orale ;
-- dire "je peux t'aider à faire" — tu FAIS, tu ne proposes pas.
-L'écran est là. Utilise-le. C'est ton principal mode d'expression pour tout contenu structuré.
-
-Ne prétends jamais avoir envoyé, sauvegardé ou exécuté sans confirmation réelle.
-
-Règle actes/paroles :
-Ne dis jamais "je l'ai fait" si l'outil n'a pas renvoyé un succès réel.
-Si une action n'est pas encore branchée, dis : "Je prépare le brouillon, tu valides avant envoi."
-Si une action est sensible, demande confirmation claire avant exécution.
-
-Actions sensibles :
-SMS, appel, email, paiement, réservation, alerte, invitation à un tiers et suppression de données exigent confirmation explicite.
-Tu n'appelles jamais les numéros d'urgence. Tu les suggères seulement.
-Tu respectes le RGPD : minimisation des données, pas de divulgation de données personnelles, consentement avant documents sensibles.
-
-Style :
-Français oral naturel, énergique, jeune adulte, professionnelle.
-Réponds en 1 à 2 phrases, sauf si Ludovic demande un détail.
-Zéro markdown, zéro titre, zéro liste lue à voix haute.
-Pas de "Bien sûr !", "Absolument !", "Avec plaisir !" : va directement au résultat.
-Si STT imprécis : déduis par le contexte. Si impossible : "Répète juste ça."
-
-Phrase interdite :
-Ne dis jamais que tu t'appelles Alex ou Luna. Tu es Iris.
-
-IRIS COMMAND SCREEN — Connaissance complète de ton espace de travail
-
-Ton panneau a 4 boutons fixes que l'utilisateur peut utiliser :
-- Modifier : passe ton contenu en édition inline (l'utilisateur peut corriger directement)
-- Copier : copie le texte brut de ton panneau dans le presse-papier
-- Télécharger : exporte ton contenu en fichier .txt
-- Fermer : réduit ton panneau
-Tu peux mentionner ces boutons à l'utilisateur si pertinent ("tu peux modifier directement dans le panneau").
-
-Tu travailles en 10 modes. L'utilisateur les sélectionne avec les boutons en haut de l'interface.
-Chaque mode a un render attendu par défaut — tu l'utilises SYSTÉMATIQUEMENT quand le mode est actif :
-- Discussion 💬 : context_panel — appelle iris_render MÊME pour les réponses courtes, MÊME pour "bonjour"
-- Analyse 📄 : document_insight — TOUJOURS visuel, JAMAIS de texte seul
-- Réunion 👥 : meeting_board (agenda, participants, décisions)
-- Tableau 📊 : data_board (colonnes, lignes, badges)
-- Rédaction ✏️ : document_draft (corps complet du document rédigé)
-- Recherche 🔍 : data_board ou context_panel
-- Actions ⚡ : action_board (checklist, cases, priorités)
-- Équipe 🧑‍🤝‍🧑 : data_board ou context_panel (liste des membres, rôles)
-- Carte 🗺️ : context_panel avec infos de localisation
-- Conformité 🛡️ : document_insight ou missing_info
-
-Quand un fichier est uploadé (PDF, DOCX, CSV, XLSX, image, ZIP) :
-1. Tu appelles iris_render(render_type="document_insight") IMMÉDIATEMENT, sans attendre de question
-2. Tu confirms en UNE phrase : "J'ai reçu [nom du fichier], voici mon analyse."
-3. Le contenu du document t'est transmis automatiquement dans le contexte — tu l'utilises
-
-Liste complète des 18 render_types disponibles dans iris_render :
-document_insight, data_board, document_draft, action_board, context_panel, status_rail,
-kpi_cards, chart, timeline, comparison, missing_info, kanban_board, meeting_board,
-budget_board, decision_board, contact_board, media_board, form_board.
-Si tu hésites entre deux types, choisis le plus structuré (ex : data_board > context_panel)."""
+IDENTITÉ :
+Tu es Iris. Tu ne dis jamais que tu t'appelles Alex ou Luna."""
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -10929,18 +10840,32 @@ Règles de collaboration :
         except Exception:
             pass
 
-    _salut = _salutation_heure()
+    # Voix pure : Iris reste SILENCIEUSE à l'ouverture (greeting vide => _send_greeting
+    # ne se déclenche pas). Elle attend que l'utilisateur parle. Voir _IRIS_SYSTEM.
     _is_reconnect = len(_voice_history) > 0 and _history_param
     if _is_reconnect:
-        _reconnect_salut = f"{_salut} {sub_name}." if sub_name else f"{_salut}."
-        _greeting = f"{_reconnect_salut} Je suis de retour."
-    else:
-        _tpl = _random.choice(_IRIS_GREETINGS)
-        if sub_name:
-            _greeting = _tpl.format(salut=_salut, name=sub_name)
-        else:
-            # Sans prénom : greeting sans nom propre
-            _greeting = f"{_salut}. Je suis Iris. Comment puis-je t'aider ?"
+        context += "\n\nREPRISE DE SESSION : la conversation reprend après une coupure. Reste silencieuse et attends que l'utilisateur reprenne la parole."
+    _greeting = ""  # jamais de salutation auto — Iris ne parle jamais en premier
+
+    # --- Sécurité : détection d'urgence pendant la conversation vocale ---
+    from core.safety.voice_emergency import classify_emergency as _classify_emergency
+
+    async def _iris_emergency_detect(text: str, recent):
+        """Analyse d'intention d'urgence (LLM) sur ce que dit l'utilisateur."""
+        return await _classify_emergency(text, recent, openai_client)
+
+    async def _iris_emergency_fire(summary: str, level: str):
+        """Déclenche le protocole d'alerte (SMS + appels + position) côté serveur."""
+        return await _trigger_voice_emergency(tid, summary=summary, level=level)
+
+    # Garde-fou opérationnel : on peut désactiver toute la détection d'urgence sans redéployer.
+    _emergency_on = os.getenv("VOICE_EMERGENCY_ENABLED", "true").lower() in ("1", "true", "yes")
+    _emg_detect = _iris_emergency_detect if _emergency_on else None
+    _emg_fire = _iris_emergency_fire if _emergency_on else None
+
+    async def _iris_reminder_handle(text: str):
+        """Crée un rappel côté serveur si l'utilisateur en demande un (déterministe)."""
+        return await _handle_voice_reminder(text, tid)
 
     bridge = WebVoiceBridge(
         openai_api_key=OPENAI_API_KEY,
@@ -10958,6 +10883,10 @@ Règles de collaboration :
         participant_name=_participant_name,
         session_manager=_iris_session_manager,
         initial_mode=_iris_mode,
+        command_screen=False,  # voix pure : pas de panneau ICS, pas de forçage iris_render
+        emergency_detect=_emg_detect,
+        emergency_fire=_emg_fire,
+        reminder_handle=_iris_reminder_handle,
     )
 
     # Enregistrer le WS dans la session collaborative si active
@@ -18569,6 +18498,173 @@ async def _tool_alert_contacts(args: Dict, tenant_id: int = 0) -> Dict:
     return {"status": "success", "message": f"Alerte envoyee a {sent} contact(s) de confiance", "reasoning": reasoning}
 
 
+async def _trigger_voice_emergency(
+    tenant_id: int,
+    summary: str = "",
+    level: str = "immediate",
+    place_calls: bool = True,
+) -> Dict:
+    """
+    Déclenche le protocole d'urgence depuis une conversation vocale Iris.
+
+    Chaîne (cf. modus operandi validé) :
+      1. SMS à TOUS les contacts de confiance (résumé + dernière position connue).
+      2. Appels Twilio à TOUS les contacts de confiance (best-effort).
+    Déterministe et serveur — ne dépend pas d'un tool-call du modèle vocal.
+
+    Respecte _test_mode (dry-run) : aucun SMS ni appel réel n'est émis, mais le
+    rapport indique exactement ce qui AURAIT été fait. Robuste : ne lève jamais,
+    renvoie toujours un rapport exploitable.
+    """
+    tid = tenant_id or TENANT_ID
+    # Dry-run = mode test global OU shadow d'urgence (rollout prudent en prod sans envoi réel)
+    _shadow = os.getenv("VOICE_EMERGENCY_DRY_RUN", "").lower() in ("1", "true", "yes")
+    dry = bool(_test_mode) or _shadow
+    report: Dict[str, Any] = {
+        "triggered": False, "level": level, "summary": summary,
+        "sms": {"sent": 0, "total": 0}, "calls": {"placed": 0, "total": 0},
+        "location_included": False, "dry_run": dry, "errors": [],
+    }
+
+    mgr = _get_tenant_manager(tid) if tid else _memory_manager
+    if not mgr:
+        report["errors"].append("memoire_indisponible")
+        return report
+
+    try:
+        contacts = mgr.list_trusted_contacts()
+    except Exception as e:
+        report["errors"].append(f"contacts_error:{e}")
+        contacts = []
+    report["sms"]["total"] = len(contacts)
+    report["calls"]["total"] = len(contacts)
+    if not contacts:
+        report["errors"].append("aucun_contact_de_confiance")
+        return report
+
+    reason = summary or "situation préoccupante détectée en conversation vocale"
+
+    # Position connue ?
+    try:
+        report["location_included"] = bool(
+            _redis_client and _redis_client.client.get(f"luna:{tid}:geolocation")
+        )
+    except Exception:
+        pass
+
+    # --- 1. SMS à tous (résumé + position + heure + n° urgence) ---
+    if dry:
+        report["sms"]["sent"] = len(contacts)
+        report["triggered"] = True
+        logger.warning(f"[EMERGENCY DRY-RUN] SMS simulé vers {len(contacts)} contact(s)")
+    else:
+        try:
+            sms_res = await _tool_alert_contacts({"reason": reason}, tid)
+            if sms_res.get("status") == "success":
+                # _tool_alert_contacts renvoie un message "Alerte envoyee a N contact(s)"
+                import re as _re
+                m = _re.search(r"(\d+)", sms_res.get("message", ""))
+                report["sms"]["sent"] = int(m.group(1)) if m else len(contacts)
+                report["triggered"] = True
+            else:
+                report["errors"].append("sms:" + str(sms_res.get("message", "echec")))
+        except Exception as e:
+            report["errors"].append(f"sms_exception:{e}")
+
+    # --- 2. Appels Twilio à tous les contacts (best-effort) ---
+    if place_calls:
+        _call_msg = (
+            f"Ceci est une alerte automatique. {reason}. "
+            f"Merci de vérifier que tout va bien et de rappeler dès que possible."
+        )
+        for c in contacts:
+            try:
+                if dry:
+                    logger.warning(f"[EMERGENCY DRY-RUN] Appel simulé vers {getattr(c,'name','?')}")
+                    report["calls"]["placed"] += 1
+                    continue
+                if not (voice_client and getattr(voice_client, "is_configured", False)) or not VOICE_CALLBACK_URL:
+                    report["errors"].append("appels_indisponibles")
+                    break
+                call_res = await _tool_call_contact(
+                    {"contact_name": getattr(c, "name", ""), "message": _call_msg}, tid
+                )
+                if call_res.get("status") == "success":
+                    report["calls"]["placed"] += 1
+                    report["triggered"] = True
+            except Exception as e:
+                report["errors"].append(f"call_exception:{e}")
+
+    # --- Journalisation sécurité ---
+    try:
+        mgr.log_event(
+            category="safety",
+            description=(
+                f"URGENCE VOCALE déclenchée (niveau={level}) — "
+                f"SMS {report['sms']['sent']}/{report['sms']['total']}, "
+                f"appels {report['calls']['placed']}/{report['calls']['total']}"
+                + (" [DRY-RUN]" if _test_mode else "")
+            ),
+            reasoning=f"Détection urgence en conversation vocale Iris: {reason}",
+            source="voice_emergency",
+        )
+    except Exception:
+        pass
+
+    logger.warning(
+        f"VOICE EMERGENCY tid={tid} level={level} triggered={report['triggered']} "
+        f"sms={report['sms']['sent']}/{report['sms']['total']} "
+        f"calls={report['calls']['placed']}/{report['calls']['total']} "
+        f"dry_run={_test_mode} loc={report['location_included']}"
+    )
+    return report
+
+
+
+
+async def _handle_voice_reminder(text: str, tenant_id: int) -> Dict:
+    """
+    Si l'utilisateur demande un rappel en vocal, le SERVEUR le crée lui-même
+    (déterministe — le modèle vocal n'appelle pas add_reminder de façon fiable) et
+    renvoie une consigne de confirmation pour Iris. Sinon {"handled": False}.
+    """
+    try:
+        from integrations.iris.voice_reminders import has_reminder_intent, extract_reminder
+    except Exception:
+        return {"handled": False}
+    if not has_reminder_intent(text):
+        return {"handled": False}
+    try:
+        _today = datetime.now(ZoneInfo("Europe/Paris")).date().isoformat()
+    except Exception:
+        _today = ""
+    extracted = await extract_reminder(text, _today, openai_client)
+    if not extracted.get("is_reminder") or not extracted.get("title"):
+        return {"handled": False}
+
+    title = extracted["title"]
+    due_date = extracted.get("due_date", "")
+    due_time = extracted.get("due_time", "")
+    res = _tool_secretary_add_reminder(tenant_id, {
+        "title": title, "due_date": due_date, "due_time": due_time,
+    })
+    if res.get("status") != "success":
+        return {"handled": False}
+
+    # Quand (pour la phrase de confirmation orale)
+    _when = ""
+    if due_date:
+        _when = f" pour le {due_date}" + (f" à {due_time}" if due_time else "")
+    elif due_time:
+        _when = f" à {due_time}"
+    speak = (
+        f"Confirme en UNE phrase courte et naturelle que le rappel « {title} »{_when} est bien créé. "
+        f"Ne mentionne JAMAIS une app du téléphone ni un service externe — c'est toi qui l'as noté."
+    )
+    logger.info(f"VoiceReminder: créé tid={tenant_id} title={title[:60]!r} date={due_date} time={due_time}")
+    return {"handled": True, "title": title, "speak": speak}
+
+
 async def _tool_report_observation(args: Dict, tenant_id: int = 0, conversation_id: str = "") -> Dict:
     """Log une observation visuelle Raven. Si severity==concern, déclenche la chaîne de vérification."""
     tid = tenant_id or TENANT_ID
@@ -24017,6 +24113,294 @@ async def admin_objectives(request: Request):
     }
 
 
+@app.get("/api/admin/email/gmail")
+async def admin_email_gmail_status(request: Request):
+    """
+    Statut de l'integration Gmail OAuth d'un tenant + URL de consentement.
+    Sert le bouton 'Connecter Gmail' du banc d'essai (remediation de la voie email).
+    """
+    if not _verify_admin(request):
+        return JSONResponse(status_code=401, content={"error": "Non autorise"})
+    try:
+        tenant_id = int(request.query_params.get("tenant_id", "1"))
+    except ValueError:
+        tenant_id = 1
+
+    configured = bool(gmail_client and getattr(gmail_client, "is_configured", False))
+    connected = False
+    account = ""
+    if _redis_client:
+        try:
+            integ = _redis_client.get_email_integration(tenant_id)
+            if integ and integ.get("service") == "gmail":
+                connected = True
+                account = integ.get("email", "")
+        except Exception:
+            pass
+
+    auth_url = ""
+    if configured:
+        try:
+            auth_url = gmail_client.get_auth_url(tenant_id)
+        except Exception as e:
+            logger.warning(f"gmail get_auth_url error: {e}")
+
+    return {
+        "tenant_id": tenant_id,
+        "configured": configured,
+        "connected": connected,
+        "account": account,
+        "auth_url": auth_url,
+        "redirect_uri": getattr(gmail_client, "redirect_uri", "") if gmail_client else "",
+        "sendgrid_configured": bool(email_client and getattr(email_client, "is_configured", False)),
+    }
+
+
+@app.api_route("/api/admin/services-selftest", methods=["GET", "POST"])
+async def admin_services_selftest(request: Request):
+    """
+    BANC D'ESSAI SERVICES — teste chaque service de l'onglet Conciergerie
+    via le VRAI code backend, dans les conditions reelles d'un exploitant.
+
+    - Par defaut (dry-run) : verifie config + execute les services en LECTURE SEULE
+      (meteo, actualites, recherche web, lieux, RECHERCHE vols/hotels Duffel).
+      Aucune action engageante : jamais de reservation, paiement, SMS/appel/email reel.
+    - ?live=1 : autorise UN envoi REEL (SMS + appel + email) uniquement vers
+      ADMIN_NUMBER / PROPRIO_EMAIL (le fondateur), jamais un tiers. Opt-in explicite.
+
+    Distinct du monitoring passif /api/admin/objectives (qui reste sans action reelle).
+    """
+    if not _verify_admin(request):
+        return JSONResponse(status_code=401, content={"error": "Non autorise"})
+
+    from datetime import datetime as _dt, timedelta as _td
+    live = request.query_params.get("live") == "1"
+    services = []
+
+    def _svc(key, label, icon, category, status, detail, tested="config", missing=None, action=False):
+        services.append({
+            "key": key, "label": label, "icon": icon, "category": category,
+            "status": status, "detail": detail, "tested": tested,
+            "missing": missing or [], "engageant": action,
+        })
+
+    # ---- 1) METEO (gratuit, lecture seule) ----
+    try:
+        r = await _tool_get_weather({"city": "Paris"})
+        ok = r.get("status") == "success"
+        _svc("weather", "Meteo", "⛅", "Infos temps reel",
+             "green" if ok else "red",
+             "API meteo OK (donnees recues)" if ok else f"Echec: {r.get('message', 'erreur')}",
+             tested="live")
+    except Exception as e:
+        _svc("weather", "Meteo", "⛅", "Infos temps reel", "red", f"Exception: {type(e).__name__}", tested="live")
+
+    # ---- 2) ACTUALITES (gratuit, lecture seule) ----
+    try:
+        r = await _tool_get_news({"count": 3})
+        ok = r.get("status") == "success"
+        _svc("news", "Actualites", "\U0001F4F0", "Infos temps reel",
+             "green" if ok else "red",
+             "Flux RSS OK" if ok else f"Echec: {r.get('message', 'erreur')}", tested="live")
+    except Exception as e:
+        _svc("news", "Actualites", "\U0001F4F0", "Infos temps reel", "red", f"Exception: {type(e).__name__}", tested="live")
+
+    # ---- 3) RECHERCHE WEB (Serper, lecture seule) ----
+    serper_ok = bool(os.getenv("SERPER_API_KEY", ""))
+    try:
+        r = await _tool_search_web({"query": "pharmacie de garde Paris"})
+        ok = r.get("status") == "success"
+        _svc("web", "Recherche web", "\U0001F50D", "Recherche & Voyage",
+             "green" if ok else ("red" if not serper_ok else "amber"),
+             "Serper OK (resultats recus)" if ok else f"Echec: {r.get('message', 'erreur')}",
+             tested="live", missing=[] if serper_ok else ["SERPER_API_KEY"])
+    except Exception as e:
+        _svc("web", "Recherche web", "\U0001F50D", "Recherche & Voyage", "red", f"Exception: {type(e).__name__}",
+             tested="live", missing=[] if serper_ok else ["SERPER_API_KEY"])
+
+    # ---- 4) LIEUX / AUTOUR DE MOI (Serper, lecture seule) ----
+    try:
+        r = await _tool_search_places({"query": "pharmacie", "location": "Paris"})
+        ok = r.get("status") == "success"
+        _svc("places", "Autour de moi", "\U0001F4CD", "Recherche & Voyage",
+             "green" if ok else ("red" if not serper_ok else "amber"),
+             "Serper Places OK" if ok else f"Echec: {r.get('message', 'erreur')}",
+             tested="live", missing=[] if serper_ok else ["SERPER_API_KEY"])
+    except Exception as e:
+        _svc("places", "Autour de moi", "\U0001F4CD", "Recherche & Voyage", "red", f"Exception: {type(e).__name__}",
+             tested="live", missing=[] if serper_ok else ["SERPER_API_KEY"])
+
+    # ---- 5) VOLS (RECHERCHE seule via Duffel test, jamais de reservation) ----
+    _dep = (_dt.utcnow() + _td(days=30)).strftime("%Y-%m-%d")
+    duffel_on = bool(duffel_client and duffel_client.is_configured)
+    try:
+        r = await _tool_search_flights({"origin": "Paris", "destination": "Nice", "departure_date": _dep})
+        ok = r.get("status") == "success"
+        src = "Duffel" if duffel_on else "recherche web (fallback)"
+        _svc("flights", "Vols", "✈️", "Recherche & Voyage",
+             "green" if ok else "red",
+             f"Recherche vols OK via {src}" if ok else f"Echec: {r.get('message', 'erreur')}",
+             tested="live", missing=[] if (duffel_on or serper_ok) else ["DUFFEL_ACCESS_TOKEN", "SERPER_API_KEY"])
+    except Exception as e:
+        _svc("flights", "Vols", "✈️", "Recherche & Voyage", "red", f"Exception: {type(e).__name__}", tested="live")
+
+    # ---- 6) HOTELS (RECHERCHE seule, jamais de reservation) ----
+    _ci = (_dt.utcnow() + _td(days=30)).strftime("%Y-%m-%d")
+    _co = (_dt.utcnow() + _td(days=32)).strftime("%Y-%m-%d")
+    try:
+        r = await _tool_search_hotels({"city": "Nice", "check_in": _ci, "check_out": _co})
+        ok = r.get("status") == "success"
+        src = "Duffel" if duffel_on else "recherche web (fallback)"
+        _svc("hotels", "Hotels", "\U0001F3E8", "Recherche & Voyage",
+             "green" if ok else "red",
+             f"Recherche hotels OK via {src}" if ok else f"Echec: {r.get('message', 'erreur')}",
+             tested="live", missing=[] if (duffel_on or serper_ok) else ["DUFFEL_ACCESS_TOKEN", "SERPER_API_KEY"])
+    except Exception as e:
+        _svc("hotels", "Hotels", "\U0001F3E8", "Recherche & Voyage", "red", f"Exception: {type(e).__name__}", tested="live")
+
+    # ---- 7) RESTAURANTS (config seule — jamais de reservation) ----
+    thefork_on = bool(thefork_client and thefork_client.is_configured)
+    if thefork_on:
+        _svc("restaurant", "Restaurants", "\U0001F37D️", "Recherche & Voyage", "green",
+             "TheFork configure (reservation directe). Non declenchee pendant le test.")
+    elif serper_ok:
+        _svc("restaurant", "Restaurants", "\U0001F37D️", "Recherche & Voyage", "amber",
+             "TheFork absent → repli: recherche lieux (Serper) + appel resto. Fonctionnel en mode degrade.",
+             missing=["THEFORK_API_KEY"])
+    else:
+        _svc("restaurant", "Restaurants", "\U0001F37D️", "Recherche & Voyage", "red",
+             "Ni TheFork ni Serper → restaurants indisponibles.", missing=["THEFORK_API_KEY", "SERPER_API_KEY"])
+
+    # ---- 8) SMS (config ; envoi reel uniquement si live + vers ADMIN_NUMBER) ----
+    sms_on = bool(sms_client and getattr(sms_client, "is_configured", False))
+    if not sms_on:
+        _svc("sms", "SMS", "\U0001F4AC", "Communication", "red", "Twilio non configure.",
+             missing=["TWILIO_ACCOUNT_SID", "TWILIO_AUTH_TOKEN", "TWILIO_PHONE_NUMBER"], action=True)
+    elif live and ADMIN_NUMBER:
+        try:
+            ok, det = _tracked_sms_send(ADMIN_NUMBER, "[Luna] Banc d'essai Services : test SMS reel. Tout fonctionne.", label="Banc d'essai Services")
+            _svc("sms", "SMS", "\U0001F4AC", "Communication", "green" if ok else "red",
+                 f"SMS REEL envoye vers {ADMIN_NUMBER}" if ok else f"Echec envoi: {det.get('error', 'inconnu')}",
+                 tested="live-reel", action=True)
+        except Exception as e:
+            _svc("sms", "SMS", "\U0001F4AC", "Communication", "red", f"Exception: {type(e).__name__}", tested="live-reel", action=True)
+    else:
+        _svc("sms", "SMS", "\U0001F4AC", "Communication", "green",
+             "Twilio configure. Envoi reel non declenche (mode a blanc).", action=True)
+
+    # ---- 9) APPEL (config ; appel reel uniquement si live + vers ADMIN_NUMBER) ----
+    call_on = bool(voice_client and getattr(voice_client, "is_configured", False))
+    if not call_on:
+        _svc("call", "Appel", "\U0001F4DE", "Communication", "red", "Twilio Voice non configure.",
+             missing=["TWILIO_ACCOUNT_SID", "TWILIO_AUTH_TOKEN", "TWILIO_PHONE_NUMBER"], action=True)
+    elif live and ADMIN_NUMBER:
+        try:
+            ok, det = await voice_client.initiate_call_async(ADMIN_NUMBER)
+            _svc("call", "Appel", "\U0001F4DE", "Communication", "green" if ok else "red",
+                 f"Appel REEL declenche vers {ADMIN_NUMBER}" if ok else f"Echec appel: {det.get('error', 'inconnu')}",
+                 tested="live-reel", action=True)
+        except Exception as e:
+            _svc("call", "Appel", "\U0001F4DE", "Communication", "red", f"Exception: {type(e).__name__}", tested="live-reel", action=True)
+    else:
+        _svc("call", "Appel", "\U0001F4DE", "Communication", "green",
+             "Twilio Voice configure. Appel reel non declenche (mode a blanc).", action=True)
+
+    # ---- 10) EMAIL (config ; envoi reel uniquement si live + vers PROPRIO_EMAIL) ----
+    _proprio_email = os.getenv("PROPRIO_EMAIL", "")
+    gmail_env = bool(gmail_client and getattr(gmail_client, "is_configured", False))
+    sendgrid_on = bool(email_client and getattr(email_client, "is_configured", False))
+    # Le fondateur (tenant 1) a-t-il reellement connecte Gmail (token en Redis) ?
+    gmail_connected = False
+    gmail_account = ""
+    if _redis_client:
+        try:
+            _integ = _redis_client.get_email_integration(1)
+            if _integ and _integ.get("service") == "gmail":
+                gmail_connected = True
+                gmail_account = _integ.get("email", "")
+        except Exception:
+            pass
+    email_on = gmail_env or sendgrid_on
+    if not email_on:
+        _svc("email", "Email", "\U0001F4E7", "Communication", "red", "Aucun service email (Gmail OAuth / SendGrid) configure.",
+             missing=["SENDGRID_API_KEY ou Gmail OAuth"], action=True)
+    elif live and _proprio_email:
+        try:
+            ok, det = await email_client.send_for_tenant(
+                tenant_id=1, redis_client=_redis_client, gmail_client=gmail_client,
+                to=_proprio_email, subject="Banc d'essai Luna — test email reel",
+                body_text="Ceci est un test reel du service Email de l'onglet Services. Tout fonctionne.",
+                subscriber_name="Luna",
+            )
+            if ok:
+                _svc("email", "Email", "\U0001F4E7", "Communication", "green",
+                     f"Email REEL envoye vers {_proprio_email}", tested="live-reel", action=True)
+            else:
+                err = str(det.get("error", "inconnu"))
+                if "credit" in err.lower():
+                    hint = "SendGrid: credits epuises. Connecte Gmail OAuth (gratuit, par souscripteur) ou recharge SendGrid."
+                else:
+                    hint = f"Echec envoi: {err}"
+                _svc("email", "Email", "\U0001F4E7", "Communication", "red", hint,
+                     tested="live-reel", missing=[] if gmail_connected else ["Gmail OAuth (aucun souscripteur connecte)"], action=True)
+        except Exception as e:
+            _svc("email", "Email", "\U0001F4E7", "Communication", "red", f"Exception: {type(e).__name__}", tested="live-reel", action=True)
+    else:
+        # Mode a blanc : config presente, mais SendGrid peut etre a court de credits — le confirmer en envoi reel.
+        if gmail_connected:
+            detail = f"Gmail OAuth connecte ({gmail_account or 'compte'}) — voie gratuite. Lance un envoi reel pour confirmer."
+            status = "green"
+        elif sendgrid_on:
+            detail = "SendGrid configure (Gmail OAuth non connecte). Verifie les credits via un envoi reel."
+            status = "amber"
+        else:
+            detail = "Gmail OAuth (env) present mais aucun souscripteur connecte."
+            status = "amber"
+        _svc("email", "Email", "\U0001F4E7", "Communication", status, detail,
+             missing=[] if gmail_connected else ["Gmail OAuth a connecter"], action=True)
+
+    # ---- 11) VISIO (config : depend de Tavus + Twilio) ----
+    tavus_on = bool(tavus_client and getattr(tavus_client, "is_configured", False))
+    if tavus_on and sms_on:
+        _svc("visio", "Inviter en visio", "\U0001F3A5", "Communication", "green",
+             "Tavus + Twilio configures. Invitation non declenchee pendant le test.")
+    else:
+        miss = []
+        if not tavus_on:
+            miss.append("TAVUS_API_KEY")
+        if not sms_on:
+            miss.append("TWILIO_*")
+        _svc("visio", "Inviter en visio", "\U0001F3A5", "Communication", "amber",
+             "Visio degradee : " + (" + ".join(miss) + " manquant(s)."), missing=miss)
+
+    # ---- 12) Internes (toujours OK, sans dependance externe) ----
+    for k, lbl, ic in [("reminders", "Rappels", "⏰"), ("notes", "Notes", "\U0001F4DD"),
+                       ("contacts", "Mes contacts", "\U0001F465")]:
+        _svc(k, lbl, ic, "Organisation", "green", "Interne (Redis) — fonctionne sans cle externe.")
+    doc_on = bool(OPENAI_API_KEY or os.getenv("ANTHROPIC_API_KEY", ""))
+    _svc("document", "Document / courrier", "\U0001F4C4", "Organisation",
+         "green" if doc_on else "red",
+         "Generation par LLM disponible." if doc_on else "Aucune cle LLM (OpenAI/Anthropic).",
+         missing=[] if doc_on else ["OPENAI_API_KEY"])
+
+    summary = {
+        "green": sum(1 for s in services if s["status"] == "green"),
+        "amber": sum(1 for s in services if s["status"] == "amber"),
+        "red": sum(1 for s in services if s["status"] == "red"),
+        "total": len(services),
+    }
+    _admin_audit(request, "admin.services_selftest", None, {"live": live, "summary": summary})
+    return {
+        "checked_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "live": live,
+        "foundation_test_mode": os.getenv("FOUNDATION_TEST_MODE", "false").lower() == "true",
+        "admin_number": (ADMIN_NUMBER[:6] + "…") if ADMIN_NUMBER else "",
+        "proprio_email": _proprio_email if live else "",
+        "summary": summary,
+        "services": services,
+    }
+
+
 @app.get("/api/admin/revenue")
 async def admin_revenue(request: Request):
     """Estimation CA — lecture directe Redis."""
@@ -25276,6 +25660,15 @@ async def admin_audit_global(request: Request, limit: int = 100, action: str = N
 async def admin_users_page():
     """Page de gestion des utilisateurs (servie séparément de admin.html)."""
     page = Path(os.path.dirname(__file__)) / "static" / "admin_users.html"
+    if page.exists():
+        return FileResponse(str(page), media_type="text/html")
+    return JSONResponse(status_code=404, content={"error": "Page introuvable"})
+
+
+@app.get("/admin/services-test")
+async def admin_services_test_page():
+    """Banc d'essai des Services / Conciergerie (page fondateur, servie séparément)."""
+    page = Path(os.path.dirname(__file__)) / "static" / "services_test.html"
     if page.exists():
         return FileResponse(str(page), media_type="text/html")
     return JSONResponse(status_code=404, content={"error": "Page introuvable"})

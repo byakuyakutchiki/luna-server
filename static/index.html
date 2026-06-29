@@ -1291,6 +1291,76 @@ body.mode-secretaire .header h1 {
   box-shadow: 0 8px 32px rgba(124,58,237,.28) !important; transform: translateY(-3px);
 }
 
+/* ============================================================
+   SERVICES / CONCIERGERIE — Refonte premium (additif, non destructif)
+   ============================================================ */
+#tab-conciergerie .conc-hero {
+  margin: 14px 16px 6px; padding: 18px 20px;
+  display: flex; align-items: center; gap: 15px;
+  border-radius: 20px; position: relative; overflow: hidden;
+  background: linear-gradient(135deg, rgba(124,58,237,.22), rgba(16,185,129,.10) 60%, rgba(20,12,46,.3));
+  border: 1px solid rgba(167,139,250,.22);
+  box-shadow: 0 10px 36px rgba(124,58,237,.18), inset 0 1px 0 rgba(255,255,255,.05);
+}
+#tab-conciergerie .conc-hero::after {
+  content: ""; position: absolute; right: -40px; top: -60px; width: 180px; height: 180px;
+  background: radial-gradient(circle, rgba(16,185,129,.20), transparent 70%); pointer-events: none;
+}
+#tab-conciergerie .conc-hero .hero-badge {
+  width: 54px; height: 54px; flex: 0 0 54px; border-radius: 16px; display: flex; align-items: center; justify-content: center;
+  font-size: 1.7em; background: linear-gradient(145deg, #7c3aed, #10b981); box-shadow: 0 8px 22px rgba(124,58,237,.4);
+}
+#tab-conciergerie .conc-hero h2 {
+  margin: 0; font-size: 1.28em; font-weight: 800; letter-spacing: -.2px;
+  background: linear-gradient(90deg, #fff, #c4b5fd); -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+#tab-conciergerie .conc-hero p { margin: 3px 0 0; font-size: 0.82em; color: #b9b4d6; }
+
+#tab-conciergerie .conc-section-title {
+  color: #c4b5fd !important; display: flex; align-items: center; gap: 9px;
+  font-size: 0.74em !important; letter-spacing: 1.2px !important; margin-top: 6px;
+}
+#tab-conciergerie .conc-section-title::before {
+  content: ""; width: 16px; height: 2px; border-radius: 2px;
+  background: linear-gradient(90deg, #7c3aed, #10b981);
+}
+
+#tab-conciergerie .conciergerie-grid { gap: 13px; }
+#tab-conciergerie .conc-card {
+  border-radius: 18px !important; padding: 17px 13px 15px !important;
+  min-height: 128px; justify-content: flex-start; gap: 11px !important;
+  animation: concPop .42s cubic-bezier(.2,.8,.25,1) both;
+}
+#tab-conciergerie .conc-card::before {
+  content: ""; position: absolute; inset: 0 0 auto 0; height: 2px; border-radius: 18px 18px 0 0;
+  background: linear-gradient(90deg, transparent, rgba(167,139,250,.5), transparent);
+  opacity: 0; transition: opacity .2s;
+}
+#tab-conciergerie .conc-card { position: relative; }
+#tab-conciergerie .conc-card:hover::before { opacity: 1; }
+#tab-conciergerie .conc-icon {
+  font-size: 1.55em !important; width: 50px; height: 50px; display: flex; align-items: center; justify-content: center;
+  border-radius: 15px; background: radial-gradient(120% 120% at 30% 20%, rgba(167,139,250,.22), rgba(16,185,129,.10));
+  border: 1px solid rgba(167,139,250,.18); box-shadow: inset 0 1px 0 rgba(255,255,255,.07);
+  transition: transform .2s, box-shadow .2s;
+}
+#tab-conciergerie .conc-card:hover .conc-icon { transform: translateY(-2px) scale(1.06); box-shadow: 0 8px 20px rgba(124,58,237,.3); }
+#tab-conciergerie .conc-label { font-size: 0.9em !important; color: #f2f0fb !important; letter-spacing: -.1px; }
+#tab-conciergerie .conc-desc { font-size: 0.7em !important; color: #9a93bd !important; }
+
+@keyframes concPop { from { opacity: 0; transform: translateY(10px) scale(.97); } to { opacity: 1; transform: none; } }
+#tab-conciergerie .conciergerie-grid .conc-card:nth-child(2) { animation-delay: .04s; }
+#tab-conciergerie .conciergerie-grid .conc-card:nth-child(3) { animation-delay: .08s; }
+#tab-conciergerie .conciergerie-grid .conc-card:nth-child(4) { animation-delay: .12s; }
+#tab-conciergerie .conciergerie-grid .conc-card:nth-child(5) { animation-delay: .16s; }
+@media (prefers-reduced-motion: reduce) { #tab-conciergerie .conc-card { animation: none; } }
+@media (max-width: 600px) {
+  #tab-conciergerie .conc-card { min-height: 108px; padding: 13px 8px !important; }
+  #tab-conciergerie .conc-icon { width: 44px; height: 44px; font-size: 1.35em !important; }
+  #tab-conciergerie .conc-hero { margin: 12px 12px 4px; padding: 15px 16px; }
+  #tab-conciergerie .conc-hero h2 { font-size: 1.12em; }
+}
+
 /* Rich cards */
 .rich-card {
   background: rgba(22,14,52,.82) !important;
@@ -1926,7 +1996,7 @@ body.mode-compagnon .luna-name::before,
         <div class="input-row">
           <button class="emoji-btn" id="emojiToggle" type="button">&#x1F60A;</button>
           <textarea id="input" placeholder="Message pour Luna..." autocomplete="off" maxlength="2000" rows="1"></textarea>
-          <button class="mic-input-btn" id="micInputBtn" type="button" title="Parler à Luna" onclick="var vb=document.getElementById('lunaVoiceBtn');if(vb)vb.click();">
+          <button class="mic-input-btn" id="micInputBtn" type="button" title="Parler à Iris" onclick="window.location.href='/simli?duration=60&amp;_v=32';">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
           </button>
         </div>
@@ -1962,11 +2032,11 @@ body.mode-compagnon .luna-name::before,
 <!-- Conciergerie Tab -->
 <div class="tab-panel" id="tab-conciergerie">
   <div class="panel-content" style="padding:0 0 90px;">
-    <div style="padding:16px 16px 8px;display:flex;align-items:center;gap:10px;">
-      <div style="font-size:1.4em;">&#x1F4BC;</div>
+    <div class="conc-hero">
+      <div class="hero-badge">&#x1F4BC;</div>
       <div>
-        <h2 style="margin:0;font-size:1.1em;color:#10b981;">Conciergerie Luna</h2>
-        <p style="margin:0;font-size:0.78em;color:#888;">Dis-moi ce que tu veux, je m'en occupe.</p>
+        <h2>Conciergerie Luna</h2>
+        <p>Dis-moi ce que tu veux, je m'en occupe.</p>
       </div>
     </div>
 
@@ -3686,6 +3756,22 @@ tabBtns.forEach(function(btn) {
 // Apply mode on page load (after tabs are set up)
 applyMode(currentMode);
 
+// ── VOIX = Iris premium ──────────────────────────────────────────────────
+// Le bouton voix flottant ouvrait l'ancienne voix Luna inline. On le redirige
+// vers l'écran vocal Iris (/simli) : silence à l'ouverture, urgence, rappels, UI premium.
+// Interception en phase capture → prioritaire sur l'ancien handler.
+(function () {
+  var vb = document.getElementById("lunaVoiceBtn");
+  if (vb) {
+    vb.title = "Parler à Iris";
+    vb.addEventListener("click", function (e) {
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      window.location.href = "/simli?duration=60&_v=32";
+    }, true);
+  }
+})();
+
 // =========================================================================
 // CONCIERGERIE — Direct action system (inline results, no chat redirect)
 // =========================================================================
@@ -4942,8 +5028,8 @@ function _addChips(chips) {
           setTimeout(function() { window[chip.handler](); }, 300);
         }
       } else if (chip.action === "voice") {
-        var jarvisBtn = document.getElementById("lunaVoiceBtn");
-        if (jarvisBtn) jarvisBtn.click();
+        // Voix = écran Iris premium (orbe), pas l'ancienne voix Luna inline.
+        window.location.href = "/simli?duration=60&_v=32";
       }
     });
     container.appendChild(btn);
