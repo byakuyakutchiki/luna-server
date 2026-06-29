@@ -6048,6 +6048,7 @@
           authFetch('/api/call/end', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
+            keepalive: true,
             body: JSON.stringify({conversation_id: currentConvId})
           }).catch(function(){});
         } catch(e) {}
@@ -6072,24 +6073,25 @@
       _stopSpeechCapture();
       ambientAudioEl.pause();
       phoneSfxEl.pause();
-      // Auto-save notes — attendre la réponse avant de naviguer (sinon Android tue la requête)
+      // [issue #27] Retour INSTANTANÉ : la sauvegarde des notes part en arrière-plan via
+      // keepalive (la requête survit à la navigation, plus d'attente de 1.2–2.5s).
       var doNavigate = function() { clearTimeout(_hangupNavTimer); window.location.href = '/'; };
       var hasContent = transcriptAtHangup.length > 0 || convIdAtHangup;
       if (hasContent) {
-        var saveTimeout = new Promise(function(r){ setTimeout(r, 1200); });
-        var saveReq = authFetch('/api/visio/notes', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            events: transcriptAtHangup, vision_context: visionAtHangup,
-            duration_min: Math.max(durationAtHangup, 1), conversation_id: convIdAtHangup,
-            auto_save: true,
-          })
-        }).catch(function(){});
-        Promise.race([saveReq, saveTimeout]).then(doNavigate).catch(doNavigate);
-      } else {
-        doNavigate();
+        try {
+          authFetch('/api/visio/notes', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            keepalive: true,
+            body: JSON.stringify({
+              events: transcriptAtHangup, vision_context: visionAtHangup,
+              duration_min: Math.max(durationAtHangup, 1), conversation_id: convIdAtHangup,
+              auto_save: true,
+            })
+          }).catch(function(){});
+        } catch(e) {}
       }
+      doNavigate();
     }
 
     btnHangup.onclick = function() {
