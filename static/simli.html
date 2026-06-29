@@ -6221,6 +6221,10 @@
     function doHangup() {
       if (_hangupInProgress) return;
       _hangupInProgress = true;
+      // [issue #27] Retour propre : masquer immédiatement la transcription pour qu'aucun
+      // texte ne reste affiché pendant la sauvegarde/navigation (anti "texte qui reste").
+      var _afT = document.getElementById('afTranscript');
+      if (_afT) { _afT.innerHTML = ''; _afT.style.display = 'none'; }
       // Fallback dur : navigation garantie dans 2.5s quelle que soit l'erreur
       var _hangupNavTimer = setTimeout(function() { window.location.href = '/'; }, 2500);
       // Arrêt immédiat de l'audio Iris
@@ -6847,7 +6851,7 @@
 
     // Android back button
     window.addEventListener('popstate', function() {
-      if (confirm('Raccrocher la visio ?\n\nLa session va se terminer.')) {
+      if (confirm('Raccrocher la conversation ?\n\nLa session va se terminer.')) {
         doHangup();
       }
     });
