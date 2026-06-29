@@ -2326,7 +2326,7 @@ body.mode-compagnon .luna-name::before,
     <div class="form-row-3">
       <div class="form-group">
         <label>Canal préféré</label>
-        <select id="ct-channel"><option value="sms">SMS</option><option value="email">Email</option><option value="call">Appel</option><option value="visio">Visio</option></select>
+        <select id="ct-channel"><option value="sms">SMS</option><option value="email">Email</option><option value="call">Appel</option><option value="visio">Appel vidéo</option></select>
       </div>
       <div class="form-group">
         <label>Urgence seulement</label>
@@ -3996,7 +3996,7 @@ function _concStartVoice() {
   if (typeof _showCallContactModal === "function") _showCallContactModal();
 }
 function _concStartVisio() {
-  _showConfirm("Lancer Iris Visio ?", "La caméra et le micro seront activés.", function() {
+  _showConfirm("Démarrer IRIS Audio ?", "Le micro sera activé pour parler avec IRIS.", function() {
     if (typeof startCall === "function") startCall();
   });
 }
@@ -5364,14 +5364,14 @@ function _confirmDuration() {
 
 // --- Video call (Tavus/Simli) ---
 function startCall() {
-  _showDurationPicker("visio", function(minutes) {
-    _remoteLog("info", "visio", "navigating", "duration=" + minutes);
-    try { if (typeof _showToast === "function") _showToast("📹 Visio", minutes + " min prévues", ""); } catch(e) {}
-    // Couper Jarvis avant de naviguer (libère micro + audio, évite bruit de fond)
-    try { var vb = document.getElementById("lunaVoiceBtn"); if (vb && vb.classList.contains("active")) vb.click(); } catch(e) {}
-    // window.location.replace est plus fiable dans certains WebViews Android
-    window.location.replace("/simli?duration=" + minutes + "&_v=32");
-  });
+  // [AUDIO-FIRST issue #27] Lancement direct de la conversation vocale IRIS.
+  // Plus de sélecteur de durée : une conversation n'est pas limitée à l'avance.
+  _remoteLog("info", "iris_audio", "navigating", "direct");
+  try { if (typeof _showToast === "function") _showToast("🎙 IRIS", "Connexion à la conversation…", ""); } catch(e) {}
+  // Couper Jarvis avant de naviguer (libère micro + audio, évite bruit de fond)
+  try { var vb = document.getElementById("lunaVoiceBtn"); if (vb && vb.classList.contains("active")) vb.click(); } catch(e) {}
+  // window.location.replace est plus fiable dans certains WebViews Android
+  window.location.replace("/simli?_v=33");
 }
 // --- Appel Vocal (Twilio + OpenAI Realtime) ---
 var voiceBtn = document.getElementById("voiceBtn");
@@ -8196,7 +8196,7 @@ function _showOnboarding() {
       '<div class="onboard-features">' +
         '<div><span>💬</span><span>Discutez par chat — Luna repond instantanement</span></div>' +
         '<div><span>🎙️</span><span>Parlez-lui a voix haute avec le micro</span></div>' +
-        '<div><span>📹</span><span>Lancez une visio face a face</span></div>' +
+        '<div><span>🤖</span><span>Parlez avec IRIS, votre assistant vocal en temps reel</span></div>' +
         '<div><span>🔔</span><span>Rappels, meteo, actualites, conciergerie</span></div>' +
         '<div><span>👨‍👩‍👧</span><span>Ajoutez vos proches dans l\'onglet Famille</span></div>' +
       '</div>' +
@@ -9123,7 +9123,7 @@ function stopPaymentPolling() {
     book_restaurant: "Recherche restaurants", get_page_info: "Consultation web",
     send_sms: "Envoi SMS", send_email: "Envoi email",
     call_contact: "Appel en cours", alert_contacts: "Alerte contacts",
-    invite_visio: "Invitation visio", create_instruction: "Creation rappel",
+    invite_visio: "Invitation à la conversation", create_instruction: "Creation rappel",
     create_note: "Note enregistree", generate_document: "Generation document",
     get_contacts: "Contacts", get_player_stats: "Statistiques",
     get_active_missions: "Missions", get_badges: "Badges",
