@@ -1939,7 +1939,10 @@ body.mode-compagnon .luna-name::before,
   <button class="tab-btn" data-tab="instructions" data-modes="secretaire" data-overflow="1">
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" style="margin-right:5px;vertical-align:-2px"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><polyline points="12 11 9 15 12 15 9 19"/></svg>Instructions
   </button>
-  <button class="tab-btn" data-tab="documents" data-modes="secretaire">
+  <!-- [V1→V2] Onglet Documents retiré de la V1 (décision Ludo 30/06) — repart en V2.
+       Backend (/documents, vault, generator) et page documents.html CONSERVÉS.
+       Pour réafficher en V2 : retirer le style display:none ci-dessous. -->
+  <button class="tab-btn" data-tab="documents" data-modes="secretaire" style="display:none !important;">
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" style="margin-right:5px;vertical-align:-2px"><rect x="6" y="8" width="14" height="13" rx="1"/><rect x="4" y="5" width="14" height="13" rx="1"/><line x1="7" y1="10" x2="15" y2="10"/><line x1="7" y1="13" x2="12" y2="13"/></svg>Documents
   </button>
   <button class="tab-btn" data-tab="callreports" data-overflow="1">
