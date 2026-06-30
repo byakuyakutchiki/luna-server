@@ -931,24 +931,37 @@ class WebVoiceBridge:
 
         session_config = {
             "type": "session.update",
+            # MIGRATION GA (30/06) : OpenAI a coupé l'API Realtime *Beta*
+            # (erreur "beta_api_shape_disabled" / "Missing required parameter: 'session.type'").
+            # → nouvelle forme GA : session.type="realtime", audio.{input,output} imbriqués,
+            #   voice dans audio.output, formats en objets {type:"audio/pcm",rate}.
+            # Sans ça, session.update est rejetée → la voix ne s'initialise jamais.
             "session": {
+                "type": "realtime",
                 "instructions": full_context,
-                "voice": self.voice,
-                "input_audio_format": "pcm16",
-                "output_audio_format": "pcm16",
-                "input_audio_transcription": {
-                    "model": "whisper-1",
-                    "language": "fr",
-                },
-                "turn_detection": {
-                    "type": "server_vad",
-                    "threshold": 0.5,
-                    "prefix_padding_ms": 400,
-                    "silence_duration_ms": 700,
-                    # Iris must not answer before the server has the transcript.
-                    # We first infer the active mode from the user's words, update
-                    # the tool set, then explicitly trigger response.create.
-                    "create_response": False,
+                "output_modalities": ["audio"],
+                "audio": {
+                    "input": {
+                        "format": {"type": "audio/pcm", "rate": 24000},
+                        "transcription": {
+                            "model": "whisper-1",
+                            "language": "fr",
+                        },
+                        "turn_detection": {
+                            "type": "server_vad",
+                            "threshold": 0.5,
+                            "prefix_padding_ms": 400,
+                            "silence_duration_ms": 700,
+                            # Iris must not answer before the server has the transcript.
+                            # We first infer the active mode from the user's words, update
+                            # the tool set, then explicitly trigger response.create.
+                            "create_response": False,
+                        },
+                    },
+                    "output": {
+                        "format": {"type": "audio/pcm", "rate": 24000},
+                        "voice": self.voice,
+                    },
                 },
                 "tools": filtered_tools,
                 # Command Screen : tool_choice=required force iris_render à chaque tour.
@@ -1271,9 +1284,14 @@ class WebVoiceBridge:
             summary = (verdict or {}).get("summary", "") or text
             if self._emergency_active or self._pending_emergency is not None:
                 return
-            if level == "immediate":
-                await self._fire_and_reassure(summary, "immediate")
-            elif level == "ambiguous":
+            # SÉCURITÉ : un verdict LLM ne déclenche JAMAIS d'alerte réelle directement.
+            # gpt-4o-mini peut sur-classer une phrase anodine ou du bruit transcrit en
+            # "immediate" → ce qui envoyait des SMS+appels aux proches sans que l'utilisateur
+            # n'ait rien demandé (faux positifs, 30/06). On DEMANDE toujours une confirmation
+            # vocale avant d'alerter. Seuls les mots-clés explicites et sans équivoque
+            # (match_immediate_sos : "au secours", "je suis en danger"…) gardent le droit de
+            # déclencher sans confirmation, car leur taux de faux positif est quasi nul.
+            if level in ("immediate", "ambiguous"):
                 await self._ask_emergency_confirmation(summary)
         except Exception as e:
             logger.warning(f"WebVoice: emergency_llm_followup error: {e}")

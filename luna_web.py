@@ -21606,6 +21606,11 @@ async def run_scenario(req: Request):
 
         # J6 — Activer le mode test par tenant si possible, sinon global
         global _test_mode, _test_mode_tenants
+        # FIX 30/06 : mémoriser la valeur d'origine pour la RESTAURER ensuite.
+        # Avant, on remettait _test_mode = False en dur → si le serveur tournait en
+        # LUNA_TEST_MODE=1, un seul appel à ce endpoint désarmait la simulation GLOBALE
+        # de façon permanente → SMS/appels d'urgence réels intempestifs.
+        _prev_test_mode = _test_mode
         _tid_test = None
         try:
             _auth_test = request.headers.get("Authorization", "").replace("Bearer ", "")
@@ -21647,7 +21652,7 @@ async def run_scenario(req: Request):
         scenario = ALL_SCENARIOS[scenario_name]
         result = await simulator.run_scenario(scenario)
 
-        _test_mode = False
+        _test_mode = _prev_test_mode  # restaure la valeur d'origine (ne force plus False)
         if _tid_test:
             _test_mode_tenants.discard(_tid_test)
 
@@ -21656,7 +21661,7 @@ async def run_scenario(req: Request):
     except ImportError:
         return JSONResponse(status_code=503, content={"error": "Module testing non disponible"})
     except Exception as e:
-        _test_mode = False
+        _test_mode = _prev_test_mode  # restaure la valeur d'origine (ne force plus False)
         try:
             if _tid_test:
                 _test_mode_tenants.discard(_tid_test)

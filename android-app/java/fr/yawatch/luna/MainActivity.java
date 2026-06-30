@@ -790,6 +790,67 @@ public class MainActivity extends Activity {
             return getSharedPreferences("guardian", Context.MODE_PRIVATE)
                     .getBoolean("protection_enabled", false);
         }
+
+        // ── Écran de guidage : statut des permissions + ouverture des réglages Android ──
+
+        @JavascriptInterface
+        public boolean hasMicPermission() {
+            return checkSelfPermission(Manifest.permission.RECORD_AUDIO)
+                    == PackageManager.PERMISSION_GRANTED;
+        }
+
+        @JavascriptInterface
+        public boolean hasOverlayPermission() {
+            return Build.VERSION.SDK_INT < 23 || Settings.canDrawOverlays(MainActivity.this);
+        }
+
+        /** true si Luna est ENCORE soumise à l'optimisation batterie (= à corriger). */
+        @JavascriptInterface
+        public boolean isBatteryOptimized() {
+            try {
+                android.os.PowerManager pm =
+                    (android.os.PowerManager) getSystemService(POWER_SERVICE);
+                return pm != null && !pm.isIgnoringBatteryOptimizations(getPackageName());
+            } catch (Exception e) { return false; }
+        }
+
+        @JavascriptInterface
+        public void requestMicPermission() {
+            runOnUiThread(() -> {
+                if (checkSelfPermission(Manifest.permission.RECORD_AUDIO)
+                        != PackageManager.PERMISSION_GRANTED) {
+                    try { requestPermissions(new String[]{ Manifest.permission.RECORD_AUDIO }, 77); }
+                    catch (Exception ignored) {}
+                }
+            });
+        }
+
+        @JavascriptInterface
+        public void requestOverlayPermission() {
+            runOnUiThread(() -> {
+                if (Build.VERSION.SDK_INT >= 23 && !Settings.canDrawOverlays(MainActivity.this)) {
+                    try {
+                        startActivity(new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                            Uri.parse("package:" + getPackageName())));
+                    } catch (Exception ignored) {}
+                }
+            });
+        }
+
+        /** Ouvre l'écran Android pour exempter Luna de l'optimisation batterie. */
+        @JavascriptInterface
+        public void openBatterySettings() {
+            runOnUiThread(() -> {
+                try {
+                    Intent i = new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS);
+                    i.setData(Uri.parse("package:" + getPackageName()));
+                    startActivity(i);
+                } catch (Exception e) {
+                    try { startActivity(new Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)); }
+                    catch (Exception ignored) {}
+                }
+            });
+        }
     }
 
     // ── Native SpeechRecognizer — Guardian Voice Core ──────────────

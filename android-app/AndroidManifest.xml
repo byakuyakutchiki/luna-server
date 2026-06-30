@@ -24,6 +24,8 @@
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <!-- Relance de la présence (notif/bulle) au redémarrage du téléphone -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- Exempter Luna de l'optimisation batterie (sinon le service est tué en arrière-plan) -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 
     <application
         android:label="Luna"

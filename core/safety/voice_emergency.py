@@ -36,11 +36,13 @@ def _strip_accents(text: str) -> str:
 # ---------------------------------------------------------------------------
 # Formulations qui, à elles seules, justifient un déclenchement immédiat.
 # Comparées sur une version SANS accents et en minuscules.
+# NOTE (30/06) : "aide-moi", "aidez-moi" et "a l'aide" ont été RETIRÉS de cette liste —
+# ce sont des formulations banales adressées à un assistant ("aide-moi à écrire un mail",
+# "à l'aide de…") qui provoquaient des alertes intempestives (SMS+appels aux proches sans
+# confirmation). La détresse réelle exprimée ainsi reste captée par le classifieur LLM, qui
+# passe désormais TOUJOURS par une confirmation vocale avant d'alerter.
 _IMMEDIATE_PATTERNS = [
     r"\bau secours\b",
-    r"\ba l'?aide\b",
-    r"\baidez[ -]?moi\b",
-    r"\baide[ -]?moi\b",
     r"\bje suis en danger\b",
     r"\bje suis en train de mourir\b",
     r"\bje vais mourir\b",
