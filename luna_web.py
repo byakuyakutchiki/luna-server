@@ -15776,6 +15776,70 @@ async def guardian_verify_response(session_id: str, request: Request):
     return {"success": True, "message": msg}
 
 
+@app.post("/api/guardian/incident/{session_id}/resolve")
+async def guardian_incident_resolve(session_id: str, request: Request):
+    """Clôture d'incident → RETOUR PROTECTION NORMALE (vert).
+
+    Réutilise les primitives existantes (anti-régression) :
+      - register_verification_response(ok=True) : alert_level→LOW + grace period + SMS d'annulation,
+      - marque le(s) incident(s) actif(s) du tenant en status='resolved' (+ closed_at),
+    Le suivi (session) reste actif mais l'état repasse au vert. Sert au panneau « incident terminé ? ».
+    """
+    auth_token = request.headers.get("Authorization", "").replace("Bearer ", "")
+    token_payload = _decode_client_token(auth_token)
+    if not token_payload:
+        raise HTTPException(status_code=401, detail="Non autorisé")
+    tid = token_payload.get("tenant_id", TENANT_ID)
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    reason = str(body.get("reason", "user_confirmed"))[:32]
+
+    # 1. Réinitialiser l'état d'alerte de la session (réutilise l'existant) → vert + SMS d'annulation
+    reset_msg = ""
+    engine = _get_guardian()
+    if engine and session_id:
+        try:
+            session = engine.get_session(session_id)
+            if session and str(session.tenant_id) != str(tid):
+                raise HTTPException(status_code=403, detail="Accès refusé à cette session")
+            reset_msg = engine.register_verification_response(session_id, True)
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.warning(f"Guardian resolve: reset alert err: {e}")
+
+    # 2. Clôturer les incidents ACTIFS du tenant (status='resolved')
+    closed = 0
+    if _redis_client:
+        now = datetime.utcnow().isoformat()
+        try:
+            for key in _redis_client.client.scan_iter(match=f"luna:{tid}:guardian:incident:*", count=200):
+                try:
+                    if _redis_client.client.hget(key, "status") == "active":
+                        _redis_client.client.hset(key, mapping={
+                            "status": "resolved", "closed_at": now, "resolved_by": reason,
+                        })
+                        closed += 1
+                except Exception:
+                    pass
+        except Exception as e:
+            logger.warning(f"Guardian resolve: scan incidents err: {e}")
+
+    logger.warning(
+        f"Guardian INCIDENT RESOLVED tid={tid} session={session_id} reason={reason} "
+        f"incidents_closed={closed} alert_reset={reset_msg!r}"
+    )
+    # 3. Broadcast best-effort pour que l'UI repasse au vert immédiatement
+    try:
+        if engine and hasattr(engine, "broadcast"):
+            await engine.broadcast(session_id, {"type": "incident_closed", "alert_level": "low"})
+    except Exception:
+        pass
+    return {"success": True, "incidents_closed": closed, "alert_reset": reset_msg}
+
+
 @app.get("/api/guardian/events/{session_id}")
 async def guardian_events(session_id: str, request: Request, limit: int = 50):
     """Événements récents de la session."""

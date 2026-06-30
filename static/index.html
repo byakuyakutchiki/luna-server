@@ -10127,6 +10127,34 @@ function _theoMeditation(type) {
   <span><span id="gfLabel">Protégé</span><span class="gf-sub" id="gfSub">Guardian veille sur vous</span></span>
   <span class="gf-dot"></span>
 </div>
+<!-- Panneau « incident terminé ? » — phase de vérification de fin d'incident (retour protection normale) -->
+<style>
+#incidentEndPanel{position:fixed;left:50%;top:calc(14px + env(safe-area-inset-top));transform:translateX(-50%);z-index:100000;
+  width:min(420px,calc(100% - 24px));display:none;border-radius:18px;padding:16px 18px;
+  background:linear-gradient(180deg,rgba(40,12,12,.96),rgba(28,8,8,.97));border:1px solid rgba(239,68,68,.4);
+  box-shadow:0 14px 44px rgba(0,0,0,.5),0 0 0 1px rgba(220,38,38,.18);backdrop-filter:blur(12px);}
+#incidentEndPanel.show{display:block;animation:iep-in .35s cubic-bezier(.2,.7,.3,1);}
+@keyframes iep-in{from{opacity:0;transform:translateX(-50%) translateY(-10px);}to{opacity:1;transform:translateX(-50%);}}
+#incidentEndPanel .iep-h{display:flex;align-items:center;gap:9px;font-size:15px;font-weight:700;color:#fff;margin-bottom:4px;}
+#incidentEndPanel .iep-sub{font-size:12.5px;color:rgba(255,210,210,.85);line-height:1.45;margin-bottom:13px;}
+#incidentEndPanel .iep-row{display:flex;gap:9px;}
+#incidentEndPanel button{flex:1;border:none;border-radius:12px;padding:12px;font-size:13.5px;font-weight:700;cursor:pointer;
+  -webkit-tap-highlight-color:transparent;transition:transform .12s,filter .15s;min-height:46px;}
+#incidentEndPanel button:active{transform:scale(.97);}
+#iepOk{background:linear-gradient(135deg,#16a34a,#22c55e);color:#fff;}
+#iepStill{background:rgba(255,255,255,.08);color:#ffd5d5;border:1px solid rgba(239,68,68,.35);}
+[data-theme="light"] #incidentEndPanel{background:linear-gradient(180deg,rgba(255,245,245,.98),rgba(255,238,238,.99));border-color:rgba(220,38,38,.3);}
+[data-theme="light"] #incidentEndPanel .iep-h{color:#7f1d1d;} [data-theme="light"] #incidentEndPanel .iep-sub{color:rgba(120,30,30,.85);}
+[data-theme="light"] #iepStill{color:#b91c1c;background:rgba(220,38,38,.06);}
+</style>
+<div id="incidentEndPanel" role="alertdialog" aria-live="assertive">
+  <div class="iep-h">🚨 <span>L'incident est-il terminé ?</span></div>
+  <div class="iep-sub">Une alerte de protection est toujours active. Confirme si la situation est revenue à la normale.</div>
+  <div class="iep-row">
+    <button id="iepOk" type="button">✅ Oui, tout va bien</button>
+    <button id="iepStill" type="button">🔄 Toujours en difficulté</button>
+  </div>
+</div>
 <script>
 (function(){
   var COLORS={low:"#22c55e",medium:"#f59e0b",high:"#ef4444",critical:"#dc2626"};
@@ -10135,14 +10163,26 @@ function _theoMeditation(type) {
   var ORDER={low:0,medium:1,high:2,critical:3};
   var el=document.getElementById("guardianFloat");
   if(!el)return;
-  function apply(active,level){
-    if(!active){el.classList.remove("gf-show");return;}
+  var _alertSessionId=null;       // session en alerte (pour la clôture)
+  var _iepDismissedFor=null;      // si l'utilisateur a cliqué "toujours en difficulté", ne pas re-spammer
+  var panel=document.getElementById("incidentEndPanel");
+  function showPanel(sid){
+    if(!panel||!sid)return;
+    if(_iepDismissedFor===sid)return;          // déjà répondu "toujours en difficulté"
+    _alertSessionId=sid; panel.classList.add("show");
+  }
+  function hidePanel(){ if(panel)panel.classList.remove("show"); }
+  function apply(active,level,sid){
+    if(!active){el.classList.remove("gf-show");hidePanel();return;}
     var lv=level||"low";
     el.style.setProperty("--gf-col",COLORS[lv]||COLORS.low);
     el.style.setProperty("--gf-glow",GLOW[lv]||GLOW.low);
     document.getElementById("gfLabel").textContent=LABELS[lv]||"Protégé";
     document.getElementById("gfSub").textContent=(lv==="low")?"Guardian veille sur vous":("Guardian — "+(LABELS[lv]||lv));
     el.classList.add("gf-show");
+    // Phase de vérification de fin d'incident : proposer la clôture quand l'alerte est élevée.
+    if(lv==="high"||lv==="critical"){ showPanel(sid); }
+    else { hidePanel(); if(lv==="low")_iepDismissedFor=null; }
   }
   function check(){
     if(typeof authFetch!=="function")return;
@@ -10150,13 +10190,32 @@ function _theoMeditation(type) {
       authFetch("/api/guardian/sessions").then(function(r){return r.json();}).then(function(d){
         var s=(d&&d.sessions)||[];
         if(s.length){
-          var lv="low";
-          s.forEach(function(x){if((ORDER[x.alert_level]||0)>(ORDER[lv]||0))lv=x.alert_level;});
-          apply(true,lv);
+          var lv="low", sid=null;
+          s.forEach(function(x){if((ORDER[x.alert_level]||0)>(ORDER[lv]||0)){lv=x.alert_level;sid=x.session_id;}});
+          if(!sid&&s[0])sid=s[0].session_id;
+          apply(true,lv,sid);
         } else { apply(false); }
       }).catch(function(){});
     }catch(e){}
   }
+  // Clôture : « Oui, tout va bien » → resolve → retour vert
+  var okBtn=document.getElementById("iepOk"), stillBtn=document.getElementById("iepStill");
+  if(okBtn)okBtn.onclick=function(){
+    if(!_alertSessionId||typeof authFetch!=="function"){hidePanel();return;}
+    okBtn.disabled=true;okBtn.textContent="…";
+    authFetch("/api/guardian/incident/"+encodeURIComponent(_alertSessionId)+"/resolve",
+      {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({reason:"user_confirmed"})})
+      .then(function(r){return r.json();}).then(function(){
+        hidePanel();_iepDismissedFor=null;
+        if(typeof showToast==="function")showToast("🛡️ Retour en protection normale","Incident clôturé, tout est revenu au vert.","");
+        setTimeout(check,600);
+      }).catch(function(){}).finally(function(){okBtn.disabled=false;okBtn.textContent="✅ Oui, tout va bien";});
+  };
+  if(stillBtn)stillBtn.onclick=function(){
+    // L'utilisateur est toujours en difficulté → on garde l'alerte active, on masque le panneau sans clore.
+    _iepDismissedFor=_alertSessionId;hidePanel();
+    if(typeof showToast==="function")showToast("Alerte maintenue","Tes proches restent prévenus. Reste en sécurité.","");
+  };
   check();
   setInterval(check,45000);
   document.addEventListener("visibilitychange",function(){if(!document.hidden)check();});
