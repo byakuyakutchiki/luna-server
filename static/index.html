@@ -10270,14 +10270,13 @@ function _theoMeditation(type) {
   }
   function hidePanel(){ if(panel)panel.classList.remove("show"); }
   function apply(active,level,sid){
-    if(!active){el.classList.remove("gf-show");hidePanel();return;}
+    // [Décision Ludo] La bulle flottante in-app est RETIRÉE : elle empiétait sur les boutons partout.
+    // L'indicateur permanent « Guardian actif » est désormais la NOTIFICATION ANDROID (GuardianService,
+    // barre d'état). On ne montre plus aucune bulle web ; on garde seulement le panneau d'URGENCE
+    // (phase critique) qui, lui, doit être visible pour clôturer un incident.
+    if(el)el.classList.remove("gf-show");   // jamais affichée
+    if(!active){hidePanel();return;}
     var lv=level||"low";
-    el.style.setProperty("--gf-col",COLORS[lv]||COLORS.low);
-    el.style.setProperty("--gf-glow",GLOW[lv]||GLOW.low);
-    document.getElementById("gfLabel").textContent=LABELS[lv]||"Protégé";
-    document.getElementById("gfSub").textContent=(lv==="low")?"Guardian veille sur vous":("Guardian — "+(LABELS[lv]||lv));
-    el.classList.add("gf-show");
-    // Phase de vérification de fin d'incident : proposer la clôture quand l'alerte est élevée.
     if(lv==="high"||lv==="critical"){ showPanel(sid); }
     else { hidePanel(); if(lv==="low")_iepDismissedFor=null; }
   }
