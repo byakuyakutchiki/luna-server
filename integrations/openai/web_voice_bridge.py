@@ -1227,13 +1227,19 @@ class WebVoiceBridge:
         self._emergency_active = True
         self._pending_emergency = None
         logger.warning(f"WebVoice: EMERGENCY fire level={level} summary={summary[:80]!r}")
+        # Dernières paroles entendues (pour le brief transmis aux proches) : derniers tours user.
+        try:
+            _last = [t.get("text", "") for t in self.transcript if t.get("role") == "user"][-3:]
+            last_words = " … ".join(w for w in _last if w)[:240]
+        except Exception:
+            last_words = ""
         # 2) Prévenir le client tout de suite (UI peut afficher un état d'urgence)
         await self._ws_send_client({"type": "emergency", "state": "triggered", "summary": summary})
         # 1) Déclencher l'alerte SANS bloquer (chaque seconde compte) ; rapport au client une fois fait
         if self._emergency_fire:
             async def _do_fire():
                 try:
-                    report = await self._emergency_fire(summary, level)
+                    report = await self._emergency_fire(summary, level, last_words)
                     await self._ws_send_client({"type": "emergency", "state": "sent", "report": report})
                 except Exception as _e:
                     logger.error(f"WebVoice: emergency fire error: {_e}")

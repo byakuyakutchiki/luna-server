@@ -10854,9 +10854,9 @@ Règles de collaboration :
         """Analyse d'intention d'urgence (LLM) sur ce que dit l'utilisateur."""
         return await _classify_emergency(text, recent, openai_client)
 
-    async def _iris_emergency_fire(summary: str, level: str):
+    async def _iris_emergency_fire(summary: str, level: str, last_words: str = ""):
         """Déclenche le protocole d'alerte (SMS + appels + position) côté serveur."""
-        return await _trigger_voice_emergency(tid, summary=summary, level=level)
+        return await _trigger_voice_emergency(tid, summary=summary, level=level, last_words=last_words)
 
     # Garde-fou opérationnel : on peut désactiver toute la détection d'urgence sans redéployer.
     _emergency_on = os.getenv("VOICE_EMERGENCY_ENABLED", "true").lower() in ("1", "true", "yes")
@@ -18498,11 +18498,86 @@ async def _tool_alert_contacts(args: Dict, tenant_id: int = 0) -> Dict:
     return {"status": "success", "message": f"Alerte envoyee a {sent} contact(s) de confiance", "reasoning": reasoning}
 
 
+def _build_emergency_brief(tenant_id: int, summary: str, last_words: str) -> Dict[str, str]:
+    """Construit UN brief factuel d'urgence (nom + situation + dernières paroles + position),
+    utilisé À L'IDENTIQUE dans le SMS et l'appel d'annonce."""
+    mgr = _get_tenant_manager(tenant_id) if tenant_id else _memory_manager
+    name = "l'utilisateur"
+    try:
+        p = mgr.get_subscriber_profile() if mgr else None
+        if p:
+            fn = (getattr(p, "first_name", "") or "").strip()
+            ln = (getattr(p, "last_name", "") or "").strip()
+            full = (fn + " " + ln).strip()
+            name = full or fn or "l'utilisateur"
+    except Exception:
+        pass
+    situation = ((summary or "").strip() or "situation préoccupante détectée pendant une conversation vocale").rstrip(" .")
+    lw = (last_words or "").strip()[:240]
+    pos_phrase = ""
+    try:
+        geo_raw = _redis_client.client.get(f"luna:{tenant_id}:geolocation") if _redis_client else None
+        if geo_raw:
+            geo = json.loads(geo_raw)
+            addr = geo.get("address") or geo.get("city") or ""
+            if addr:
+                pos_phrase = f"Dernière position connue : {addr}"
+            elif geo.get("latitude"):
+                pos_phrase = "La dernière position GPS est indiquée dans le SMS"
+    except Exception:
+        pass
+    sms_reason = situation
+    if lw:
+        sms_reason += f". Dernières paroles entendues : « {lw} »"
+    call_message = f"Alerte. {name} est peut-être en situation d'urgence. {situation}."
+    if lw:
+        call_message += f" Dernières paroles entendues : {lw}."
+    if pos_phrase:
+        call_message += f" {pos_phrase}."
+    call_message += " Merci de vérifier que cette personne va bien et de la rappeler immédiatement."
+    return {"name": name, "situation": situation, "last_words": lw, "sms_reason": sms_reason, "call_message": call_message}
+
+
+async def _poll_emergency_call_statuses(tenant_id: int, placed) -> None:
+    """Poll le statut RÉEL des appels d'urgence (queued→ringing→in-progress→completed/no-answer/busy/failed)
+    et journalise clairement s'ils ont sonné, été décrochés ou échoué."""
+    _FINAL = {"completed", "busy", "no-answer", "failed", "canceled"}
+    placed = list(placed)
+    for delay in (8, 12, 20, 30):
+        await asyncio.sleep(delay)
+        remaining = []
+        for name, sid in placed:
+            try:
+                st = await asyncio.to_thread(voice_client.get_call_status, sid)
+            except Exception as e:
+                st = f"error:{e}"
+            if st in _FINAL:
+                _human = {"completed": "DÉCROCHÉ/terminé", "no-answer": "a SONNÉ mais pas décroché",
+                          "busy": "OCCUPÉ", "failed": "ÉCHEC", "canceled": "annulé"}.get(st, st)
+                logger.warning(f"[EMERGENCY CALL FINAL] {name} ({sid}) → {st} ({_human})")
+                try:
+                    mgr = _get_tenant_manager(tenant_id) if tenant_id else _memory_manager
+                    if mgr:
+                        mgr.log_event(category="safety", description=f"Appel urgence {name} : {st}",
+                                      reasoning="suivi statut appel d'urgence", source="voice_emergency_call")
+                except Exception:
+                    pass
+            else:
+                logger.info(f"[EMERGENCY CALL] {name} ({sid}) : {st} (en cours)")
+                remaining.append((name, sid))
+        placed = remaining
+        if not placed:
+            return
+    for name, sid in placed:
+        logger.warning(f"[EMERGENCY CALL] {name} ({sid}) : statut final NON confirmé après poll")
+
+
 async def _trigger_voice_emergency(
     tenant_id: int,
     summary: str = "",
     level: str = "immediate",
     place_calls: bool = True,
+    last_words: str = "",
 ) -> Dict:
     """
     Déclenche le protocole d'urgence depuis une conversation vocale Iris.
@@ -18522,7 +18597,7 @@ async def _trigger_voice_emergency(
     dry = bool(_test_mode) or _shadow
     report: Dict[str, Any] = {
         "triggered": False, "level": level, "summary": summary,
-        "sms": {"sent": 0, "total": 0}, "calls": {"placed": 0, "total": 0},
+        "sms": {"sent": 0, "total": 0}, "calls": {"queued": 0, "total": 0},
         "location_included": False, "dry_run": dry, "errors": [],
     }
 
@@ -18542,7 +18617,10 @@ async def _trigger_voice_emergency(
         report["errors"].append("aucun_contact_de_confiance")
         return report
 
-    reason = summary or "situation préoccupante détectée en conversation vocale"
+    # Brief factuel UNIFIÉ (nom + situation + dernières paroles + position) — même info SMS ET appel.
+    brief = _build_emergency_brief(tid, summary, last_words)
+    reason = brief["sms_reason"]
+    report["summary"] = brief["situation"]
 
     # Position connue ?
     try:
@@ -18552,11 +18630,11 @@ async def _trigger_voice_emergency(
     except Exception:
         pass
 
-    # --- 1. SMS à tous (résumé + position + heure + n° urgence) ---
+    # --- 1. SMS à tous (nom + situation + dernières paroles + position + heure + n° urgence) ---
     if dry:
         report["sms"]["sent"] = len(contacts)
         report["triggered"] = True
-        logger.warning(f"[EMERGENCY DRY-RUN] SMS simulé vers {len(contacts)} contact(s)")
+        logger.warning(f"[EMERGENCY DRY-RUN] SMS simulé vers {len(contacts)} contact(s) — raison: {reason}")
     else:
         try:
             sms_res = await _tool_alert_contacts({"reason": reason}, tid)
@@ -18571,29 +18649,44 @@ async def _trigger_voice_emergency(
         except Exception as e:
             report["errors"].append(f"sms_exception:{e}")
 
-    # --- 2. Appels Twilio à tous les contacts (best-effort) ---
+    # --- 2. Appels d'ANNONCE robustes (TwiML <Say>, sans media-stream) + statut Twilio réel ---
+    # On ne compte PLUS "success" à la mise en file : on enregistre le statut initial,
+    # et un poll en arrière-plan journalise le statut RÉEL (sonné/décroché/échoué).
+    report["calls"] = {"queued": 0, "total": len(contacts), "by_contact": [], "dry_run": dry}
     if place_calls:
-        _call_msg = (
-            f"Ceci est une alerte automatique. {reason}. "
-            f"Merci de vérifier que tout va bien et de rappeler dès que possible."
-        )
+        call_message = brief["call_message"]
+        _placed = []  # (name, sid) pour le poll de statut réel
         for c in contacts:
+            cname = getattr(c, "name", "") or "?"
+            phone = getattr(c, "phone", "")
             try:
                 if dry:
-                    logger.warning(f"[EMERGENCY DRY-RUN] Appel simulé vers {getattr(c,'name','?')}")
-                    report["calls"]["placed"] += 1
-                    continue
-                if not (voice_client and getattr(voice_client, "is_configured", False)) or not VOICE_CALLBACK_URL:
-                    report["errors"].append("appels_indisponibles")
-                    break
-                call_res = await _tool_call_contact(
-                    {"contact_name": getattr(c, "name", ""), "message": _call_msg}, tid
-                )
-                if call_res.get("status") == "success":
-                    report["calls"]["placed"] += 1
+                    logger.warning(f"[EMERGENCY DRY-RUN] Appel d'annonce simulé → {cname} : {call_message}")
+                    report["calls"]["queued"] += 1
+                    report["calls"]["by_contact"].append({"name": cname, "status": "simulated"})
                     report["triggered"] = True
+                    continue
+                if not (voice_client and all([getattr(voice_client, "account_sid", ""), getattr(voice_client, "auth_token", ""), getattr(voice_client, "from_number", "")])):
+                    report["errors"].append("appels_indisponibles_twilio")
+                    break
+                ok, data = await asyncio.to_thread(voice_client.initiate_announcement_call, phone, call_message)
+                if ok:
+                    sid = data.get("call_sid", "")
+                    st = data.get("status", "queued")
+                    report["calls"]["queued"] += 1
+                    report["calls"]["by_contact"].append({"name": cname, "status": st, "sid": sid})
+                    report["triggered"] = True
+                    logger.warning(f"[EMERGENCY CALL] {cname} : appel d'annonce lancé (statut initial={st})")
+                    if sid and not str(sid).startswith("SIM"):
+                        _placed.append((cname, sid))
+                else:
+                    report["errors"].append(f"call_fail:{cname}:{data.get('error','?')}")
+                    report["calls"]["by_contact"].append({"name": cname, "status": "echec_mise_en_file"})
             except Exception as e:
-                report["errors"].append(f"call_exception:{e}")
+                report["errors"].append(f"call_exception:{cname}:{e}")
+        # Suivi du statut RÉEL des appels en arrière-plan (logs : a sonné / décroché / échoué)
+        if _placed:
+            asyncio.create_task(_poll_emergency_call_statuses(tid, _placed))
 
     # --- Journalisation sécurité ---
     try:
@@ -18602,7 +18695,7 @@ async def _trigger_voice_emergency(
             description=(
                 f"URGENCE VOCALE déclenchée (niveau={level}) — "
                 f"SMS {report['sms']['sent']}/{report['sms']['total']}, "
-                f"appels {report['calls']['placed']}/{report['calls']['total']}"
+                f"appels {report['calls'].get('queued',0)}/{report['calls']['total']}"
                 + (" [DRY-RUN]" if _test_mode else "")
             ),
             reasoning=f"Détection urgence en conversation vocale Iris: {reason}",
@@ -18614,7 +18707,7 @@ async def _trigger_voice_emergency(
     logger.warning(
         f"VOICE EMERGENCY tid={tid} level={level} triggered={report['triggered']} "
         f"sms={report['sms']['sent']}/{report['sms']['total']} "
-        f"calls={report['calls']['placed']}/{report['calls']['total']} "
+        f"calls={report['calls'].get('queued',0)}/{report['calls']['total']} "
         f"dry_run={_test_mode} loc={report['location_included']}"
     )
     return report
