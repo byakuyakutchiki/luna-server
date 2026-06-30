@@ -36,11 +36,13 @@ def _strip_accents(text: str) -> str:
 # ---------------------------------------------------------------------------
 # Formulations qui, à elles seules, justifient un déclenchement immédiat.
 # Comparées sur une version SANS accents et en minuscules.
+# NOTE (30/06) : "aide-moi", "aidez-moi" et "a l'aide" ont été RETIRÉS de cette liste —
+# ce sont des formulations banales adressées à un assistant ("aide-moi à écrire un mail",
+# "à l'aide de…") qui provoquaient des alertes intempestives (SMS+appels aux proches sans
+# confirmation). La détresse réelle exprimée ainsi reste captée par le classifieur LLM, qui
+# passe désormais TOUJOURS par une confirmation vocale avant d'alerter.
 _IMMEDIATE_PATTERNS = [
     r"\bau secours\b",
-    r"\ba l'?aide\b",
-    r"\baidez[ -]?moi\b",
-    r"\baide[ -]?moi\b",
     r"\bje suis en danger\b",
     r"\bje suis en train de mourir\b",
     r"\bje vais mourir\b",
@@ -107,6 +109,28 @@ def is_negative(text: str) -> bool:
         return False
     norm = _strip_accents(text)
     return any(rx.search(norm) for rx in _NEGATIVE_RE)
+
+
+# ---------------------------------------------------------------------------
+# ANNULATION pendant le compte à rebours d'alerte (« dis annule / je vais bien »)
+# Mêmes mots-clés que la modale guardian.html (cohérence) + les négatifs.
+# ---------------------------------------------------------------------------
+_CANCEL_KW = [
+    r"\bannule[rz]?\b", r"\bcancel\b", r"\bstop\b", r"\barrete\b", r"\barretez\b",
+    r"\bje vais bien\b", r"\btout va bien\b", r"\bje suis bien\b", r"\btout est bon\b",
+    r"\bc'?est bon\b", r"\bca va\b", r"\bca ira\b", r"\bfausse alerte\b", r"\berreur\b",
+    r"\bpas (la peine|besoin|d'?urgence)\b", r"\bn'?appelle pas\b", r"\bsurtout pas\b",
+    r"\bnon\b", r"\bnan\b",
+]
+_CANCEL_RE = [re.compile(p) for p in _CANCEL_KW]
+
+
+def is_cancel(text: str) -> bool:
+    """True si l'utilisateur veut ANNULER l'alerte en cours (« annule », « je vais bien »…)."""
+    if not text:
+        return False
+    norm = _strip_accents(text)
+    return any(rx.search(norm) for rx in _CANCEL_RE)
 
 
 # ---------------------------------------------------------------------------

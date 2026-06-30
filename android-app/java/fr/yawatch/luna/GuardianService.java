@@ -9,6 +9,7 @@ import android.content.Intent;
 import android.graphics.Color;
 import android.graphics.PixelFormat;
 import android.graphics.drawable.GradientDrawable;
+import android.media.AudioManager;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
@@ -48,17 +49,30 @@ public class GuardianService extends Service {
     private static final String CHANNEL_NORMAL   = "luna_guardian";
     private static final String CHANNEL_ALERT    = "luna_guardian_alert";
 
-    // ── Écoute mot-clé (mêmes mots-clés que MainActivity « Guardian Voice Core ») ──
+    // ── Écoute mot-clé — RESSERRÉE (01/07) : uniquement formulations de détresse
+    // EXPLICITES et sans équivoque, alignées sur la politique serveur
+    // (core/safety/voice_emergency.py). Les fragments ambigus qui déclenchaient des
+    // fausses alertes ont été RETIRÉS : "aide", "aide moi", "aidez moi", "a l aide",
+    // "secours" (seul), "besoin d aide", "urgence", "emergency", "help", "appelle
+    // quelqu un", "appel urgent", "je me sens mal", "je suis tombe" (couvert par la
+    // détection de chute accéléromètre — sinon "tombé amoureux/malade" = faux positif).
     private static final String[] EMERGENCY_KW = {
-        "a l aide", "au secours", "aide moi", "aidez moi",
-        "besoin d aide", "j ai besoin d aide",
-        "je me sens mal",
-        "je peux pas respirer", "je ne peux pas respirer",
-        "j arrive pas a respirer", "je suis blesse",
-        "je ne peux pas bouger", "je peux pas bouger",
-        "appelle les secours", "appelle quelqu un",
-        "appel urgent", "urgence", "emergency", "help",
-        "a laide", "secours", "je suis tombe", "je suis tombee"
+        "au secours", "je suis en danger",
+        "appelle les secours", "appelle une ambulance", "appelle la police", "appelle les pompiers",
+        "appelle le 15", "appelle le 18", "appelle le 112",
+        // Respiration (+ formulations non littérales : « j'ai du mal à respirer »…)
+        "je peux pas respirer", "je ne peux pas respirer", "je peux plus respirer",
+        "j arrive pas a respirer", "j ai du mal a respirer", "du mal a respirer", "je respire mal", "j etouffe",
+        // Mouvement
+        "je peux pas bouger", "je ne peux pas bouger", "je peux plus bouger",
+        "j arrive pas a bouger", "j ai du mal a bouger", "je peux plus me lever", "j arrive pas a me lever",
+        // Blessure / douleur
+        "je suis blesse", "je suis blessee", "je saigne", "j ai tres mal", "j ai trop mal",
+        // Malaise / perte de connaissance
+        "je fais un malaise", "je vais m evanouir", "je me sens partir",
+        // Vital / agression
+        "je vais mourir", "je me sens mourir", "il m agresse", "on m agresse", "il veut me tuer",
+        "help me"
     };
     private static final long SR_COOLDOWN_MS = 15_000L;
     private static final int  SR_MAX_ERRORS  = 6;
@@ -76,6 +90,25 @@ public class GuardianService extends Service {
     private int              mSRErrorCount   = 0;
     private final Handler    mHandler        = new Handler(Looper.getMainLooper());
     private Runnable         mRestartTask    = null;
+    private boolean          mBeepMuted      = false;
+    private Runnable         mUnmuteTask     = null;
+
+    // ── Coupe le « bip » système du SpeechRecognizer (marche/arrêt) ─────────────
+    // Rustine (01/07) : le SpeechRecognizer joue une tonalité au démarrage/arrêt de
+    // chaque cycle d'écoute → bruit gênant en écoute permanente. On coupe brièvement les
+    // flux NON critiques le temps du bip. On NE touche JAMAIS aux alarmes ni à la sonnerie.
+    // (La vraie solution sans aucun bip = moteur hors-ligne VOSK, prévue ensuite.)
+    private void setBeepMuted(boolean mute) {
+        if (mute == mBeepMuted) return;
+        try {
+            AudioManager am = (AudioManager) getSystemService(AUDIO_SERVICE);
+            if (am == null) return;
+            int dir = mute ? AudioManager.ADJUST_MUTE : AudioManager.ADJUST_UNMUTE;
+            int[] streams = { AudioManager.STREAM_MUSIC, AudioManager.STREAM_SYSTEM, AudioManager.STREAM_NOTIFICATION };
+            for (int s : streams) { try { am.adjustStreamVolume(s, dir, 0); } catch (Exception ignore) {} }
+            mBeepMuted = mute;
+        } catch (Exception ignore) {}
+    }
 
     // Bulle overlay
     private boolean        mOverlayEnabled = false;
@@ -230,9 +263,11 @@ public class GuardianService extends Service {
     }
 
     private boolean matchesKw(String text) {
-        String n = normalize(text);
+        // Match par SÉQUENCE DE MOTS ENTIÈRE (bornée par des espaces) — évite qu'un
+        // mot-clé matche au milieu d'un autre mot (ex. "secours" dans "secourisme").
+        String n = " " + normalize(text) + " ";
         for (String kw : EMERGENCY_KW) {
-            if (n.contains(kw)) return true;
+            if (n.contains(" " + kw + " ")) return true;
         }
         return false;
     }
@@ -256,10 +291,19 @@ public class GuardianService extends Service {
 
         mSR.setRecognitionListener(new RecognitionListener() {
             @Override public void onReadyForSpeech(Bundle params) { mSRListening = true; mSRErrorCount = 0; }
-            @Override public void onBeginningOfSpeech() {}
+            // L'utilisateur parle vraiment → on rétablit le son tout de suite (plus de bip à craindre).
+            @Override public void onBeginningOfSpeech() {
+                if (mUnmuteTask != null) { mHandler.removeCallbacks(mUnmuteTask); mUnmuteTask = null; }
+                setBeepMuted(false);
+            }
             @Override public void onRmsChanged(float rmsdB) {}
             @Override public void onBufferReceived(byte[] buffer) {}
-            @Override public void onEndOfSpeech() { mSRListening = false; }
+            // Fin d'écoute → on recoupe le son pour masquer le bip d'arrêt (jusqu'au prochain cycle).
+            @Override public void onEndOfSpeech() {
+                mSRListening = false;
+                if (mUnmuteTask != null) { mHandler.removeCallbacks(mUnmuteTask); mUnmuteTask = null; }
+                setBeepMuted(true);
+            }
 
             @Override public void onError(int error) {
                 mSRListening = false;
@@ -297,17 +341,11 @@ public class GuardianService extends Service {
             }
 
             @Override public void onPartialResults(Bundle partialResults) {
-                ArrayList<String> partial = partialResults.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
-                if (partial != null) {
-                    for (String text : partial) {
-                        if (matchesKw(text)) {
-                            onEmergencyDetected(text, 0.7f);
-                            if (mSR != null) { mSR.destroy(); mSR = null; }
-                            scheduleRestart(SR_COOLDOWN_MS);
-                            return;
-                        }
-                    }
-                }
+                // RESSERRÉ (01/07) : on NE déclenche PLUS sur résultats partiels — les
+                // transcriptions partielles sont incomplètes/instables et produisaient des
+                // fausses alertes. On attend le résultat FINAL (onResults). La détection
+                // reste rapide (le final arrive juste après la fin de phrase) et le bouton
+                // SOS manuel couvre le cas où il faut alerter instantanément.
             }
 
             @Override public void onEvent(int eventType, Bundle params) {}
@@ -319,13 +357,22 @@ public class GuardianService extends Service {
         intent.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3);
         intent.putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true);
         intent.putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true);
-        intent.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 1500L);
-        intent.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 800L);
-        intent.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS, 300L);
+        // Sessions d'écoute PLUS LONGUES (01/07) : réduit fortement le nombre de
+        // cycles écoute→veille→écoute → beaucoup moins de tonalités système.
+        intent.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 6000L);
+        intent.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 4000L);
+        intent.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS, 1000L);
 
         try {
+            // Coupe le bip de démarrage ; rétabli quand l'utilisateur parle (onBeginningOfSpeech)
+            // ou automatiquement au bout de 1,2 s (fenêtre du bip), pour ne pas couper le son trop longtemps.
+            setBeepMuted(true);
+            if (mUnmuteTask != null) mHandler.removeCallbacks(mUnmuteTask);
+            mUnmuteTask = () -> { mUnmuteTask = null; setBeepMuted(false); };
+            mHandler.postDelayed(mUnmuteTask, 1200L);
             mSR.startListening(intent);
         } catch (Exception e) {
+            setBeepMuted(false);
             if (mSR != null) { mSR.destroy(); mSR = null; }
             scheduleRestart(3000L);
         }
@@ -334,6 +381,8 @@ public class GuardianService extends Service {
     private void stopListening() {
         mSRListening = false;
         if (mRestartTask != null) { mHandler.removeCallbacks(mRestartTask); mRestartTask = null; }
+        if (mUnmuteTask != null) { mHandler.removeCallbacks(mUnmuteTask); mUnmuteTask = null; }
+        setBeepMuted(false);  // toujours rétablir le son quand on arrête d'écouter
         if (mSR != null) {
             try { mSR.stopListening(); } catch (Exception ignored) {}
             try { mSR.destroy(); } catch (Exception ignored) {}
@@ -343,7 +392,11 @@ public class GuardianService extends Service {
 
     private void scheduleRestart(long delayMs) {
         if (mRestartTask != null) return;
-        mRestartTask = () -> { mRestartTask = null; if (mListenEnabled) startListening(); };
+        mRestartTask = () -> {
+            mRestartTask = null;
+            if (mListenEnabled) startListening();
+            else setBeepMuted(false);  // on ne relance pas → ne pas laisser le son coupé
+        };
         mHandler.postDelayed(mRestartTask, delayMs);
     }
 

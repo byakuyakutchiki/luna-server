@@ -973,10 +973,16 @@ function _ttsTest(){
   try{window.speechSynthesis.speak(u);}catch(e){_ttsDiag(false);}
 }
 
-// Parler — force:true = toujours parler (urgence), même si setting désactivé
+// Parler — ÉCOUTE SILENCIEUSE PAR DÉFAUT (P0, 30/06).
+// Règle produit : « écouter ≠ faire du bruit ». Une personne en danger doit pouvoir
+// rester discrète. Les annonces vocales (y compris d'urgence) sont désormais OPT-IN :
+// elles ne sortent QUE si l'utilisateur a explicitement activé la voix (luna_voice==='1').
+// `force` ne contourne PLUS le silence — c'était la source du bruit permanent (annonces
+// de countdown/SOS/démarrage rejouées en boucle + larsen avec le micro). Le retour visuel,
+// la vibration et la notification système restent, eux, toujours actifs.
 function guardianSpeak(msg,opts){
   opts=opts||{};
-  if(!opts.force && localStorage.getItem('luna_voice')!=='1'){if(opts.onend)opts.onend();return;}
+  if(localStorage.getItem('luna_voice')!=='1'){if(opts.onend)opts.onend();return;}
   if(!window.speechSynthesis){_voiceLog('voice_error','no_api');if(opts.onend)opts.onend();return;}
 
   // Pause SpeechRecognition : libère l'audio focus Android
@@ -1123,7 +1129,8 @@ function guardianStart(){
     document.getElementById('rgpd-banner').style.display='flex';
     document.getElementById('voice-toggle').style.display='flex';
     document.getElementById('voice-chk').checked=(localStorage.getItem('luna_voice')==='1');
-    setTimeout(_ttsTest,800); // diagnostic TTS au démarrage
+    // P0 (30/06) : plus de diagnostic TTS auto au démarrage — l'écoute est muette par
+    // défaut. Le test TTS ne tourne que si l'utilisateur active la voix (voir le toggle).
     showTrustBar(true);
     if(CFG_OPEN) toggleCfg();
     _layoutUpdate();
@@ -1494,7 +1501,7 @@ function triggerSOS(){
     var d=res.data;
     showToast('🆘 '+(d.message||'SOS envoyé'),5000);
     _voiceLog('voice_alert_sent',d.alerts_sent_to||0);
-    guardianSpeak('Alerte déclenchée. Vos contacts ont été prévenus.',{force:true});
+    guardianSpeak('Contact d\'urgence activé. Vos contacts ont été prévenus.');
     updateRisk(1,'critical','SOS');
     showAlertOnMap('🆘 SOS activé — '+(d.alerts_sent_to||0)+' contact(s) alerté(s)',
       LAST_POS?LAST_POS.lat:null,LAST_POS?LAST_POS.lng:null);
@@ -1511,23 +1518,27 @@ function triggerSOS(){
 }
 
 // ── VOCAL EMERGENCY DETECTION ─────────────────
+// RESSERRÉE (01/07) — alignée sur GuardianService/NATIVE_EMERGENCY_KW et la politique
+// serveur : uniquement des formulations EXPLICITES. Fragments ambigus retirés
+// ("aide", "aide moi", "a l aide", "secours" seul, "urgence", "help", "sos",
+// "je me sens mal", "je tombe"...) qui déclenchaient des fausses alertes.
 var EMERGENCY_KW=[
-  // Core
-  "a l aide","au secours","aide moi","aide-moi","aidez moi","aidez-moi",
-  "j ai besoin d aide","j'ai besoin d'aide","besoin d aide",
-  // Détresse physique
-  "je me sens mal","je ne peux pas respirer","je peux pas respirer",
-  "j arrive pas a respirer","j'arrive pas à respirer",
-  "je suis blesse","je suis tombee","je suis tombé",
-  "je ne peux pas bouger","je peux pas bouger",
-  "je me suis blesse",
-  // Appels action
-  "appelle quelqu un","appelle quelqu'un","appelle les secours","appelle une ambulance",
-  "appel urgent","urgence","emergency","help",
-  // Variantes transcription automatique courantes
-  "aide moi s il te plait","a laide","secours","sos",
-  "appelle le 15","appelle le 18","appelle le 112","appelle les pompiers",
-  "je tombe","j ai tombe","je suis par terre"
+  "au secours","je suis en danger",
+  "appelle les secours","appelle une ambulance","appelle la police","appelle les pompiers",
+  "appelle le 15","appelle le 18","appelle le 112",
+  // Respiration (+ formulations non littérales : « j'ai du mal à respirer »…)
+  "je peux pas respirer","je ne peux pas respirer","je peux plus respirer",
+  "j arrive pas a respirer","j ai du mal a respirer","du mal a respirer","je respire mal","j etouffe",
+  // Mouvement
+  "je peux pas bouger","je ne peux pas bouger","je peux plus bouger",
+  "j arrive pas a bouger","j ai du mal a bouger","je peux plus me lever","j arrive pas a me lever",
+  // Blessure / douleur
+  "je suis blesse","je suis blessee","je saigne","j ai tres mal","j ai trop mal",
+  // Malaise / perte de connaissance
+  "je fais un malaise","je vais m evanouir","je me sens partir",
+  // Vital / agression
+  "je vais mourir","je me sens mourir","il m agresse","on m agresse","il veut me tuer",
+  "help me"
 ];
 var CANCEL_KW=[
   "annule","annuler","cancel","stop","c est bon","c'est bon",
@@ -1576,7 +1587,10 @@ function _vocalMatch(transcript){
     if(CANCEL_KW.some(function(k){return n.includes(_norm(k));})) cancelVocalCountdown();
     return;
   }
-  if(EMERGENCY_KW.some(function(k){return n.includes(_norm(k));})) openVocalCountdown();
+  // Match par séquence de mots ENTIÈRE (bornée par des espaces) — évite "secours"
+  // au milieu d'un mot. (L'annulation, elle, reste large : mieux vaut sur-annuler.)
+  var _padded=' '+n+' ';
+  if(EMERGENCY_KW.some(function(k){return _padded.indexOf(' '+_norm(k)+' ')>=0;})) openVocalCountdown();
 }
 
 function _vocalScheduleRestart(delayMs){
@@ -1660,15 +1674,18 @@ function _vocalStartWithWatchdog(){
 function openVocalCountdown(){
   if(_vocalActive||_sosInProgress) return;
   _vocalActive=true;
-  var n=5;
+  // Fenêtre d'annulation ÉLARGIE (30/06) : 5 s était trop court — l'alerte partait avant
+  // que l'utilisateur ait le temps de lire le panneau et d'appuyer sur ANNULER.
+  // Laisse le temps de réagir. Ajustable via localStorage 'guardian_countdown_s'.
+  var n=parseInt(localStorage.getItem('guardian_countdown_s')||'15',10); if(!(n>=5&&n<=60)) n=15;
   document.getElementById('vocal-count').textContent=n;
   document.getElementById('vocal-n').textContent=n;
   document.getElementById('vocal-modal').classList.add('open');
   vibrate([300,100,300]);
   _voiceLog('voice_countdown_started','n='+n);
 
-  // Message officiel — force=true : toujours audible en urgence
-  guardianSpeak('Alerte déclenchée. J\'alerte vos contacts dans 5 secondes. Dites annule pour interrompre.',{force:true});
+  // Annonce vocale (uniquement si l'utilisateur a activé la voix — muet par défaut)
+  guardianSpeak('J\'alerte vos contacts dans '+n+' secondes. Dites annule, ou appuyez sur annuler, si tout va bien.');
 
   // Compte à rebours visuel + vocal (indépendant du TTS initial)
   _vocalTimer=setInterval(function(){
@@ -1700,14 +1717,14 @@ function cancelVocalCountdown(){
   showToast('✅ Annulé — aucune alerte envoyée',3000);
   vibrate([50]);
   _voiceLog('voice_cancelled','user_cancel');
-  guardianSpeak('Alerte annulée.',{force:true});
+  guardianSpeak('État d\'urgence désactivé.');
 }
 function _triggerSOSVocal(){
   if(!SID||_sosInProgress) return;
   _sosInProgress=true;
   var iid=_genIncidentId();
   vibrate([500,150,500,150,800]);
-  guardianSpeak('Alerte déclenchée.',{force:true});
+  guardianSpeak('Contact d\'urgence activé.');
   // P1 — Activer tracking GPS renforcé immédiatement
   _eemStart(iid,'vocal');
   authFetch('/api/guardian/sos/'+SID,{
@@ -1722,7 +1739,7 @@ function _triggerSOSVocal(){
     showToast('🆘 '+(d.message||'SOS envoyé'),6000);
     _voiceLog('voice_alert_sent',d.alerts_sent_to||0);
     // Confirmation vocale officielle — toujours audible
-    guardianSpeak('Alerte déclenchée. Vos contacts ont été prévenus.',{force:true});
+    guardianSpeak('Contact d\'urgence activé. Vos contacts ont été prévenus.');
     updateRisk(1,'critical','SOS vocal');
     showAlertOnMap('🆘 SOS vocal — '+(d.alerts_sent_to||0)+' contact(s) alerté(s)',
       LAST_POS?LAST_POS.lat:null,LAST_POS?LAST_POS.lng:null);

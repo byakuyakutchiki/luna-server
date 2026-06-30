@@ -1784,6 +1784,18 @@
 </head>
 <body>
 
+  <!-- COMPTE À REBOURS D'URGENCE — garde-fou : aucune alerte n'est envoyée sans cette fenêtre d'annulation -->
+  <div id="emgCountdown" style="display:none;position:fixed;inset:0;z-index:2147483000;background:rgba(8,10,20,0.92);backdrop-filter:blur(4px);align-items:center;justify-content:center;flex-direction:column;text-align:center;padding:24px;font-family:inherit;">
+    <div style="font-size:1.05em;color:#ffd17a;font-weight:800;margin-bottom:8px;">⚠️ Détresse détectée</div>
+    <div style="color:#e8ecf4;font-size:0.98em;max-width:420px;line-height:1.45;margin-bottom:18px;">
+      J'alerte tes proches dans<br>
+      <span id="emgCountNum" style="display:inline-block;font-size:4.2em;font-weight:900;color:#ff5a5a;line-height:1.1;margin:6px 0;">5</span><br>
+      secondes.<br>
+      <span style="color:#9ca3af;font-size:0.86em;">Dis « annule » ou « je vais bien », ou appuie ci-dessous si c'est une erreur.</span>
+    </div>
+    <button id="emgCancelBtn" style="background:linear-gradient(135deg,#16a34a,#22c55e);color:#fff;border:none;border-radius:16px;padding:18px 28px;font-size:1.15em;font-weight:800;cursor:pointer;box-shadow:0 6px 28px rgba(34,197,94,0.45);min-width:260px;">✋ ANNULER — Je vais bien</button>
+  </div>
+
   <!-- IRIS BOOT SEQUENCE OVERLAY -->
   <div id="iris-boot" class="hidden">
     <div class="boot-scan"></div>
@@ -5426,6 +5438,44 @@
       }
     }
 
+    // ── Compte à rebours d'urgence (garde-fou d'annulation) ──────────────────
+    // L'envoi réel est géré côté SERVEUR ; ce décompte est uniquement VISUEL.
+    // Le bouton (ou la voix « annule ») envoie emergency_cancel → le serveur annule.
+    var _emgCountTimer = null;
+    function _showEmergencyCountdown(seconds) {
+      var box = document.getElementById('emgCountdown');
+      var num = document.getElementById('emgCountNum');
+      if (!box || !num) return;
+      var n = seconds || 5;
+      num.textContent = n;
+      box.style.display = 'flex';
+      try { if (navigator.vibrate) navigator.vibrate([300,100,300]); } catch(e) {}
+      if (_emgCountTimer) { clearInterval(_emgCountTimer); }
+      _emgCountTimer = setInterval(function() {
+        n--;
+        if (num) num.textContent = (n > 0 ? n : 0);
+        if (n <= 0) { clearInterval(_emgCountTimer); _emgCountTimer = null; }
+      }, 1000);
+    }
+    function _hideEmergencyCountdown() {
+      var box = document.getElementById('emgCountdown');
+      if (box) box.style.display = 'none';
+      if (_emgCountTimer) { clearInterval(_emgCountTimer); _emgCountTimer = null; }
+    }
+    function _cancelEmergencyFromClient() {
+      // Demande au serveur d'annuler (source de vérité = serveur)
+      try {
+        if (_irisWs && _irisWs.readyState === 1) {
+          _irisWs.send(JSON.stringify({ type: 'emergency_cancel' }));
+        }
+      } catch(e) {}
+      _hideEmergencyCountdown();
+    }
+    (function _wireEmgCancel() {
+      var btn = document.getElementById('emgCancelBtn');
+      if (btn) btn.addEventListener('click', _cancelEmergencyFromClient);
+    })();
+
     function _icsRenderDecisionBoard(p) {
       var cols = (p.options||[]).map(function(opt) {
         var pros = (opt.pros||[]).map(function(x){return '<div class="ics-decision-crit pro"><span class="ics-dc-icon">✓</span><span>'+_esc(x)+'</span></div>';}).join('');
@@ -6051,7 +6101,15 @@
               setTimeout(function(){ if (_irisWsActive) _setIrisState('idle'); }, 2600);
             } else if (data.type === 'emergency') {
               // Détection d'urgence côté serveur (Guardian vocal)
-              if (data.state === 'triggered') {
+              if (data.state === 'countdown') {
+                // GARDE-FOU : compte à rebours d'annulation AVANT tout envoi.
+                _showEmergencyCountdown(data.seconds || 5);
+              } else if (data.state === 'cancelled') {
+                _hideEmergencyCountdown();
+                _afAppendTranscript('system', '✅ Annulé — aucune alerte envoyée');
+                if (typeof showToast === 'function') showToast('✅ Annulé — aucune alerte envoyée', 3000);
+              } else if (data.state === 'triggered') {
+                _hideEmergencyCountdown();
                 _setIrisState('error');
                 _afAppendTranscript('system', '🚨 Alerte : je préviens tes proches');
               } else if (data.state === 'asking') {
@@ -6066,6 +6124,7 @@
                   _afAppendTranscript('system', '📍 Suivi en direct activé pour tes proches');
                 }
               } else if (data.state === 'declined') {
+                _hideEmergencyCountdown();
                 _afAppendTranscript('system', 'Alerte annulée');
               }
             } else if (data.type === 'reminder') {

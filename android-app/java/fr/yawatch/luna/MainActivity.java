@@ -91,16 +91,20 @@ public class MainActivity extends Activity {
     private String authToken = "";             // JWT transmis par le JS pour les requêtes natives
 
     // ── Reconnaissance vocale native Guardian ──────────────────────
+    // RESSERRÉE (01/07) — voir GuardianService.EMERGENCY_KW (même politique : phrases
+    // explicites uniquement, fragments ambigus retirés pour éviter les fausses alertes).
     private static final String[] NATIVE_EMERGENCY_KW = {
-        "a l aide", "au secours", "aide moi", "aidez moi",
-        "besoin d aide", "j ai besoin d aide",
-        "je me sens mal",
-        "je peux pas respirer", "je ne peux pas respirer",
-        "j arrive pas a respirer", "je suis blesse",
-        "je ne peux pas bouger", "je peux pas bouger",
-        "appelle les secours", "appelle quelqu un",
-        "appel urgent", "urgence", "emergency", "help",
-        "a laide", "secours", "je suis tombe", "je suis tombee"
+        "au secours", "je suis en danger",
+        "appelle les secours", "appelle une ambulance", "appelle la police", "appelle les pompiers",
+        "appelle le 15", "appelle le 18", "appelle le 112",
+        "je peux pas respirer", "je ne peux pas respirer", "je peux plus respirer",
+        "j arrive pas a respirer", "j ai du mal a respirer", "du mal a respirer", "je respire mal", "j etouffe",
+        "je peux pas bouger", "je ne peux pas bouger", "je peux plus bouger",
+        "j arrive pas a bouger", "j ai du mal a bouger", "je peux plus me lever", "j arrive pas a me lever",
+        "je suis blesse", "je suis blessee", "je saigne", "j ai tres mal", "j ai trop mal",
+        "je fais un malaise", "je vais m evanouir", "je me sens partir",
+        "je vais mourir", "je me sens mourir", "il m agresse", "on m agresse", "il veut me tuer",
+        "help me"
     };
     private static final long NATIVE_SR_COOLDOWN_MS = 15_000L; // pause pendant countdown JS
     private static final int  NATIVE_SR_MAX_ERRORS   = 6;      // max erreurs consécutives avant pause longue
@@ -118,8 +122,8 @@ public class MainActivity extends Activity {
     private TextView fallCountdownText = null;
     private static final int NOTIFICATION_PERMISSION_CODE = 101;
     private static final int FILE_CHOOSER_REQUEST_CODE = 102;
-    private static final String CURRENT_VERSION = "3.1";
-    private static final int CURRENT_VERSION_CODE = 22;
+    private static final String CURRENT_VERSION = "3.2";
+    private static final int CURRENT_VERSION_CODE = 23;
     private static final int CAMERA_PERMISSION_FOR_FILE = 103;
     private static final int CAMERA_CAPTURE_REQUEST_CODE = 104;
     private static final String CHANNEL_ID = "luna_messages";
@@ -790,6 +794,67 @@ public class MainActivity extends Activity {
             return getSharedPreferences("guardian", Context.MODE_PRIVATE)
                     .getBoolean("protection_enabled", false);
         }
+
+        // ── Écran de guidage : statut des permissions + ouverture des réglages Android ──
+
+        @JavascriptInterface
+        public boolean hasMicPermission() {
+            return checkSelfPermission(Manifest.permission.RECORD_AUDIO)
+                    == PackageManager.PERMISSION_GRANTED;
+        }
+
+        @JavascriptInterface
+        public boolean hasOverlayPermission() {
+            return Build.VERSION.SDK_INT < 23 || Settings.canDrawOverlays(MainActivity.this);
+        }
+
+        /** true si Luna est ENCORE soumise à l'optimisation batterie (= à corriger). */
+        @JavascriptInterface
+        public boolean isBatteryOptimized() {
+            try {
+                android.os.PowerManager pm =
+                    (android.os.PowerManager) getSystemService(POWER_SERVICE);
+                return pm != null && !pm.isIgnoringBatteryOptimizations(getPackageName());
+            } catch (Exception e) { return false; }
+        }
+
+        @JavascriptInterface
+        public void requestMicPermission() {
+            runOnUiThread(() -> {
+                if (checkSelfPermission(Manifest.permission.RECORD_AUDIO)
+                        != PackageManager.PERMISSION_GRANTED) {
+                    try { requestPermissions(new String[]{ Manifest.permission.RECORD_AUDIO }, 77); }
+                    catch (Exception ignored) {}
+                }
+            });
+        }
+
+        @JavascriptInterface
+        public void requestOverlayPermission() {
+            runOnUiThread(() -> {
+                if (Build.VERSION.SDK_INT >= 23 && !Settings.canDrawOverlays(MainActivity.this)) {
+                    try {
+                        startActivity(new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                            Uri.parse("package:" + getPackageName())));
+                    } catch (Exception ignored) {}
+                }
+            });
+        }
+
+        /** Ouvre l'écran Android pour exempter Luna de l'optimisation batterie. */
+        @JavascriptInterface
+        public void openBatterySettings() {
+            runOnUiThread(() -> {
+                try {
+                    Intent i = new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS);
+                    i.setData(Uri.parse("package:" + getPackageName()));
+                    startActivity(i);
+                } catch (Exception e) {
+                    try { startActivity(new Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)); }
+                    catch (Exception ignored) {}
+                }
+            });
+        }
     }
 
     // ── Native SpeechRecognizer — Guardian Voice Core ──────────────
@@ -809,9 +874,11 @@ public class MainActivity extends Activity {
 
     /** Vérifie si le texte contient un mot-clé d'urgence. */
     private boolean matchesEmergencyKw(String text) {
-        String n = normalizeSpeech(text);
+        // Match par séquence de mots entière (bornée par des espaces) — évite les
+        // correspondances au milieu d'un mot (ex. "secours" dans "secourisme").
+        String n = " " + normalizeSpeech(text) + " ";
         for (String kw : NATIVE_EMERGENCY_KW) {
-            if (n.contains(kw)) return true;
+            if (n.contains(" " + kw + " ")) return true;
         }
         return false;
     }
@@ -879,19 +946,8 @@ public class MainActivity extends Activity {
 
             @Override
             public void onPartialResults(Bundle partialResults) {
-                // Résultats partiels : détecter sans attendre la fin de l'énoncé
-                ArrayList<String> partial =
-                    partialResults.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
-                if (partial != null) {
-                    for (String text : partial) {
-                        if (matchesEmergencyKw(text)) {
-                            onNativeEmergencyDetected(text, 0.7f);
-                            if (nativeSR != null) { nativeSR.destroy(); nativeSR = null; }
-                            scheduleNativeSRRestart(NATIVE_SR_COOLDOWN_MS);
-                            return;
-                        }
-                    }
-                }
+                // RESSERRÉ (01/07) : plus de déclenchement sur résultats partiels
+                // (transcriptions incomplètes = fausses alertes). On attend le final (onResults).
             }
 
             @Override public void onEvent(int eventType, Bundle params) {}
