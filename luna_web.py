@@ -16262,6 +16262,34 @@ async def guardian_share(session_id: str, request: Request):
     return {"public_url": public_url, "expires_in": 3600}
 
 
+@app.post("/api/guardian/live/{session_id}")
+async def guardian_live_update(session_id: str, request: Request):
+    """Met à jour la position de SUIVI EN DIRECT (urgence) — léger, SANS moteur de risque.
+
+    Sert au streaming temps réel vers les proches pendant un incident, sans toucher
+    l'alert_level (≠ /location qui lance process_location et pourrait dé-escalader).
+    """
+    auth_token = request.headers.get("Authorization", "").replace("Bearer ", "")
+    token_payload = _decode_client_token(auth_token)
+    if not token_payload:
+        raise HTTPException(status_code=401, detail="Non autorisé")
+    tid = token_payload.get("tenant_id", TENANT_ID)
+    try:
+        body = await request.json()
+        lat = float(body["lat"]); lng = float(body["lng"])
+        acc = float(body.get("accuracy", 0) or 0)
+    except Exception as e:
+        return JSONResponse(status_code=400, content={"error": f"Paramètres invalides: {e}"})
+    if not _redis_client:
+        return {"ok": True}
+    key = f"luna:{tid}:guardian:livepos:{session_id}"
+    _redis_client.client.setex(key, 7200, json.dumps({
+        "lat": lat, "lng": lng, "accuracy": acc,
+        "updated_at": datetime.utcnow().isoformat(),
+    }))
+    return {"ok": True}
+
+
 @app.get("/api/guardian/live-position/{token}")
 async def guardian_live_position(token: str):
     """Retourne la dernière position connue pour un token de partage (public)."""
@@ -16272,6 +16300,20 @@ async def guardian_live_position(token: str):
 
     info = json.loads(raw)
     session_id = info["session_id"]
+    tid = info.get("tenant_id", TENANT_ID)
+
+    # Priorité au flux de suivi direct (livepos) — temps réel, sans moteur de risque.
+    try:
+        lp_raw = _redis_client.client.get(f"luna:{tid}:guardian:livepos:{session_id}")
+        if lp_raw:
+            lp = json.loads(lp_raw)
+            return {
+                "lat": lp.get("lat"), "lng": lp.get("lng"), "accuracy": lp.get("accuracy"),
+                "address": None, "risk_level": "critical", "profile_type": "senior",
+                "updated_at": lp.get("updated_at"), "source": "live",
+            }
+    except Exception:
+        pass
 
     engine = _get_guardian()
     if not engine:
@@ -18694,6 +18736,68 @@ async def _trigger_voice_emergency(
     except Exception:
         pass
 
+    # --- ÉTAT UNIFIÉ + SUIVI EN DIRECT : relier au Guardian + générer le lien de suivi ---
+    # Avant le SMS pour pouvoir inclure le lien de suivi en direct dans l'alerte.
+    #  - crée/relie un incident + session Guardian au niveau CRITICAL (widget rouge, clôturable),
+    #  - génère un lien public /guardian-live/{token} et amorce la position (livepos) depuis la géoloc connue.
+    # trigger_sos ne pose QUE l'état (aucun SMS moteur) → pas de double-envoi. Best-effort.
+    live_link = ""
+    try:
+        engine = _get_guardian()
+        if engine:
+            sids = engine.get_active_sessions(tid) or []
+            sid_g = sids[0] if sids else None
+            if not sid_g:
+                try:
+                    contacts_cfg = [{"phone": getattr(c, "phone", ""), "name": getattr(c, "name", "")} for c in contacts]
+                except Exception:
+                    contacts_cfg = []
+                _sess = engine.create_session(
+                    tenant_id=tid, profile_type="senior",
+                    config={"person_name": brief["name"], "emergency_contacts": contacts_cfg, "source": "voice_emergency"},
+                )
+                sid_g = _sess.session_id
+            engine.trigger_sos(sid_g)  # → alert_level CRITICAL (état seul, aucun SMS moteur)
+            inc_id = "voice_" + uuid.uuid4().hex[:12]
+            if _redis_client:
+                ikey = f"luna:{tid}:guardian:incident:{inc_id}"
+                _redis_client.client.hset(ikey, mapping={
+                    "incident_id": inc_id, "session_id": sid_g, "source": "vocal",
+                    "started_at": datetime.utcnow().isoformat(), "status": "active",
+                    "summary": (brief["situation"] or "")[:200],
+                })
+                _redis_client.client.expire(ikey, 86400 * 7)
+                # Lien de suivi public (1h) + amorçage position depuis la géoloc connue
+                _share_token = secrets.token_urlsafe(24)
+                _redis_client.client.setex(f"luna:guardian:share:{_share_token}", 3600, json.dumps({
+                    "session_id": sid_g, "tenant_id": str(tid), "created_at": datetime.utcnow().isoformat(),
+                }))
+                try:
+                    _geo_raw = _redis_client.client.get(f"luna:{tid}:geolocation")
+                    if _geo_raw:
+                        _geo = json.loads(_geo_raw)
+                        _lat = _geo.get("latitude") or _geo.get("lat")
+                        _lng = _geo.get("longitude") or _geo.get("lng")
+                        if _lat is not None and _lng is not None:
+                            _redis_client.client.setex(f"luna:{tid}:guardian:livepos:{sid_g}", 7200, json.dumps({
+                                "lat": _lat, "lng": _lng, "accuracy": _geo.get("accuracy", 0),
+                                "updated_at": datetime.utcnow().isoformat(),
+                            }))
+                except Exception:
+                    pass
+                live_link = f"{VOICE_CALLBACK_URL.rstrip('/')}/guardian-live/{_share_token}" if VOICE_CALLBACK_URL else f"/guardian-live/{_share_token}"
+            report["guardian_session"] = sid_g
+            report["guardian_incident"] = inc_id
+            report["live_link"] = live_link
+            report["live_session"] = sid_g
+            logger.warning(f"[EMERGENCY→GUARDIAN] état unifié tid={tid} session={sid_g} incident={inc_id} (CRITICAL) live={bool(live_link)}")
+    except Exception as e:
+        report["errors"].append(f"guardian_link:{e}")
+
+    # Inclure le lien de suivi en direct dans le SMS (même info utile pour les proches)
+    if live_link and live_link.startswith("http"):
+        reason = reason + f". Suivi en direct : {live_link}"
+
     # --- 1. SMS à tous (nom + situation + dernières paroles + position + heure + n° urgence) ---
     if dry:
         report["sms"]["sent"] = len(contacts)
@@ -18751,43 +18855,6 @@ async def _trigger_voice_emergency(
         # Suivi du statut RÉEL des appels en arrière-plan (logs : a sonné / décroché / échoué)
         if _placed:
             asyncio.create_task(_poll_emergency_call_statuses(tid, _placed))
-
-    # --- 3. ÉTAT UNIFIÉ : relier l'urgence vocale au Guardian (incrément 3) ---
-    # Crée/relie un incident + session Guardian au niveau CRITICAL pour que :
-    #   - le widget Guardian reflète l'urgence vocale (rouge « Urgence »),
-    #   - le panneau « incident terminé ? » puisse la clôturer (retour vert).
-    # trigger_sos ne pose QUE l'état (n'envoie pas de SMS) → pas de double-envoi.
-    # Best-effort : n'altère jamais le déroulé de l'alerte si Guardian échoue.
-    try:
-        engine = _get_guardian()
-        if engine:
-            sids = engine.get_active_sessions(tid) or []
-            sid_g = sids[0] if sids else None
-            if not sid_g:
-                try:
-                    contacts_cfg = [{"phone": getattr(c, "phone", ""), "name": getattr(c, "name", "")} for c in contacts]
-                except Exception:
-                    contacts_cfg = []
-                _sess = engine.create_session(
-                    tenant_id=tid, profile_type="senior",
-                    config={"person_name": brief["name"], "emergency_contacts": contacts_cfg, "source": "voice_emergency"},
-                )
-                sid_g = _sess.session_id
-            engine.trigger_sos(sid_g)  # → alert_level CRITICAL (état seul, aucun SMS moteur)
-            inc_id = "voice_" + uuid.uuid4().hex[:12]
-            if _redis_client:
-                ikey = f"luna:{tid}:guardian:incident:{inc_id}"
-                _redis_client.client.hset(ikey, mapping={
-                    "incident_id": inc_id, "session_id": sid_g, "source": "vocal",
-                    "started_at": datetime.utcnow().isoformat(), "status": "active",
-                    "summary": (brief["situation"] or "")[:200],
-                })
-                _redis_client.client.expire(ikey, 86400 * 7)
-            report["guardian_session"] = sid_g
-            report["guardian_incident"] = inc_id
-            logger.warning(f"[EMERGENCY→GUARDIAN] état unifié tid={tid} session={sid_g} incident={inc_id} (CRITICAL)")
-    except Exception as e:
-        report["errors"].append(f"guardian_link:{e}")
 
     # --- Journalisation sécurité ---
     try:

@@ -5402,6 +5402,30 @@
       });
     }
 
+    // Suivi de localisation EN DIRECT pendant une urgence : stream vers le lien partagé aux proches.
+    // Voie dédiée /api/guardian/live (ne touche PAS le moteur de risque → n'altère pas l'alerte).
+    var _emergencyGeoWatch = null;
+    function _startEmergencyGeoStream(sessionId) {
+      if (!sessionId || !navigator.geolocation || _emergencyGeoWatch !== null) return;
+      var tok = localStorage.getItem('luna_token') || '';
+      if (!tok) return;
+      try {
+        _emergencyGeoWatch = navigator.geolocation.watchPosition(function(pos) {
+          fetch('/api/guardian/live/' + encodeURIComponent(sessionId), {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer ' + tok},
+            body: JSON.stringify({lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy || 0})
+          }).catch(function(){});
+        }, function(){}, {enableHighAccuracy: true, maximumAge: 5000, timeout: 20000});
+      } catch(e) {}
+    }
+    function _stopEmergencyGeoStream() {
+      if (_emergencyGeoWatch !== null && navigator.geolocation) {
+        try { navigator.geolocation.clearWatch(_emergencyGeoWatch); } catch(e) {}
+        _emergencyGeoWatch = null;
+      }
+    }
+
     function _icsRenderDecisionBoard(p) {
       var cols = (p.options||[]).map(function(opt) {
         var pros = (opt.pros||[]).map(function(x){return '<div class="ics-decision-crit pro"><span class="ics-dc-icon">✓</span><span>'+_esc(x)+'</span></div>';}).join('');
@@ -6036,6 +6060,11 @@
                 var _r = data.report || {};
                 var _sms = (_r.sms && _r.sms.sent) || 0;
                 _afAppendTranscript('system', '✅ Proches prévenus (' + _sms + ' contact' + (_sms>1?'s':'') + ')' + (_r.dry_run ? ' — mode test' : ''));
+                // Démarre le suivi de localisation EN DIRECT vers les proches (lien envoyé par SMS)
+                if (_r.live_session) {
+                  _startEmergencyGeoStream(_r.live_session);
+                  _afAppendTranscript('system', '📍 Suivi en direct activé pour tes proches');
+                }
               } else if (data.state === 'declined') {
                 _afAppendTranscript('system', 'Alerte annulée');
               }
