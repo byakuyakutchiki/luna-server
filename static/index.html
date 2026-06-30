@@ -51,16 +51,120 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; b
 }
 .tab-btn.mode-hidden { display: none !important; }
 .tab-btn[data-overflow="1"] { display: none !important; }
-/* Plus panel — grille de navigation secondaire */
-.plus-panel-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 16px 12px; }
-.plus-item-card { display: flex; align-items: center; gap: 12px; padding: 14px 12px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; cursor: pointer; text-align: left; transition: background 0.2s, border-color 0.2s; width: 100%; color: inherit; }
-.plus-item-card:hover { background: rgba(124,58,237,0.12); border-color: rgba(124,58,237,0.3); }
-.plus-item-icon { font-size: 1.5em; flex-shrink: 0; width: 34px; text-align: center; line-height: 1; }
-.plus-item-label { font-weight: 600; font-size: 0.88em; color: #e0e0e0; }
-.plus-item-desc { font-size: 0.73em; color: #666; margin-top: 2px; line-height: 1.3; }
-.plus-item-card.plus-item-red { border-color: rgba(248,113,113,0.2); }
-.plus-item-card.plus-item-red:hover { background: rgba(220,38,38,0.1); border-color: rgba(248,113,113,0.4); }
-.plus-item-card.plus-item-red .plus-item-label { color: #f87171; }
+/* ============================================================
+   ÉCRAN « PLUS » — Tableau de bord premium (refonte profondeur)
+   Tout est scopé #tab-plus / .plus-* : n'affecte aucun autre écran.
+   ============================================================ */
+#tab-plus .panel-content { padding: 0; }
+.plus-screen { position: relative; padding: 18px 14px 30px; min-height: 100%; }
+/* Profondeur de fond : halos radiaux superposés */
+.plus-screen::before {
+  content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 0;
+  background:
+    radial-gradient(120% 80% at 12% -6%, rgba(124,58,237,.28), transparent 60%),
+    radial-gradient(90% 70% at 100% 4%, rgba(56,189,248,.12), transparent 55%),
+    radial-gradient(120% 90% at 50% 120%, rgba(167,139,250,.12), transparent 60%);
+}
+.plus-screen > * { position: relative; z-index: 1; }
+
+/* ---- Hero ---- */
+.plus-hero {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
+  padding: 16px 16px 18px; margin-bottom: 14px; border-radius: 20px;
+  background: linear-gradient(150deg, rgba(124,58,237,.20), rgba(20,16,48,.55) 55%, rgba(8,8,28,.35));
+  border: 1px solid var(--b2);
+  box-shadow: 0 18px 40px -18px rgba(0,0,0,.75), inset 0 1px 0 rgba(255,255,255,.06);
+  -webkit-backdrop-filter: var(--blur); backdrop-filter: var(--blur);
+  overflow: hidden;
+}
+.plus-hero::after { /* liseré lumineux supérieur */
+  content: ""; position: absolute; top: 0; left: 8%; right: 8%; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(167,139,250,.8), transparent);
+}
+.plus-hero-eyebrow { font-size: .64rem; letter-spacing: .28em; text-transform: uppercase; color: var(--v2); font-weight: 800; display: flex; align-items: center; gap: 7px; }
+.plus-hero-eyebrow .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--c); box-shadow: 0 0 8px var(--c); animation: plusPulse 2.4s infinite; }
+@keyframes plusPulse { 0%,100%{ opacity:1 } 50%{ opacity:.35 } }
+.plus-hero-title { font-size: 1.5rem; font-weight: 800; color: #fff; margin: 8px 0 3px; line-height: 1.1; letter-spacing: -.01em; }
+.plus-hero-sub { font-size: .8rem; color: var(--yw-text); opacity: .72; }
+.plus-plan-badge {
+  flex-shrink: 0; align-self: center; text-align: center; padding: 9px 13px; border-radius: 14px;
+  background: linear-gradient(150deg, rgba(251,191,36,.22), rgba(124,58,237,.20));
+  border: 1px solid rgba(251,191,36,.42);
+  box-shadow: 0 6px 18px -8px rgba(251,191,36,.5), inset 0 1px 0 rgba(255,255,255,.12);
+}
+.plus-plan-badge .lbl { font-size: .56rem; letter-spacing: .16em; text-transform: uppercase; color: var(--yw-gold); font-weight: 800; opacity: .9; }
+.plus-plan-badge .val { font-size: .98rem; font-weight: 800; color: #fff; margin-top: 1px; }
+
+/* ---- Bandeau de données vivantes (quotas réels) ---- */
+.plus-vitals {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;
+  padding: 15px 12px; margin-bottom: 18px; border-radius: 18px;
+  background: linear-gradient(160deg, rgba(167,139,250,.10), rgba(12,10,32,.5));
+  border: 1px solid var(--b);
+  box-shadow: 0 16px 36px -20px rgba(0,0,0,.8), inset 0 1px 0 rgba(255,255,255,.05);
+  -webkit-backdrop-filter: var(--blur); backdrop-filter: var(--blur);
+}
+.plus-vital { display: flex; flex-direction: column; align-items: center; gap: 7px; }
+.plus-gauge { position: relative; width: 54px; height: 54px; border-radius: 50%; display: grid; place-items: center;
+  background: conic-gradient(var(--gc, var(--v2)) calc(var(--p,0) * 1%), rgba(255,255,255,.07) 0);
+  transition: --p 1s ease; }
+.plus-gauge::before { content: ""; position: absolute; inset: 5px; border-radius: 50%; background: #0c0a22; box-shadow: inset 0 1px 3px rgba(0,0,0,.6); }
+.plus-gauge span { position: relative; z-index: 1; font-size: .72rem; font-weight: 800; color: #fff; }
+.plus-vital-lbl { font-size: .6rem; letter-spacing: .04em; color: var(--yw-text); opacity: .72; text-align: center; font-weight: 600; }
+.plus-vital-val { font-size: .62rem; color: var(--yw-muted); }
+
+/* ---- Libellé de section ---- */
+.plus-section-label { font-size: .68rem; letter-spacing: .2em; text-transform: uppercase; color: var(--v2); font-weight: 800; margin: 2px 4px 11px; opacity: .85; }
+
+/* ---- Grille de cartes ---- */
+.plus-panel-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 11px; padding: 0; }
+.plus-item-card {
+  position: relative; display: flex; align-items: center; gap: 12px; padding: 16px 14px;
+  min-height: 84px; border-radius: 16px; cursor: pointer; text-align: left; width: 100%; color: inherit;
+  background: linear-gradient(158deg, rgba(255,255,255,.055), rgba(255,255,255,.018));
+  border: 1px solid rgba(167,139,250,.16);
+  box-shadow: 0 12px 26px -16px rgba(0,0,0,.85), inset 0 1px 0 rgba(255,255,255,.05);
+  -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
+  transition: var(--tr); overflow: hidden;
+}
+.plus-item-card::after { /* halo de survol */
+  content: ""; position: absolute; inset: 0; border-radius: inherit; opacity: 0; transition: var(--tr);
+  background: radial-gradient(120% 100% at 0% 0%, rgba(124,58,237,.32), transparent 60%);
+}
+.plus-item-card:hover { transform: translateY(-3px); border-color: var(--b2);
+  box-shadow: 0 22px 40px -16px rgba(124,58,237,.5), inset 0 1px 0 rgba(255,255,255,.09); }
+.plus-item-card:hover::after { opacity: 1; }
+.plus-item-card:active { transform: translateY(-1px); }
+/* Pastille icône en relief */
+.plus-item-icon { position: relative; z-index: 1; font-size: 1.4rem; flex-shrink: 0; width: 46px; height: 46px;
+  display: grid; place-items: center; border-radius: 13px;
+  background: linear-gradient(150deg, rgba(124,58,237,.30), rgba(167,139,250,.10));
+  border: 1px solid rgba(167,139,250,.28);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.14), 0 6px 14px -8px rgba(124,58,237,.7); }
+.plus-item-body { position: relative; z-index: 1; flex: 1; min-width: 0; }
+.plus-item-label { font-weight: 700; font-size: .92rem; color: #f4f1ff; display: flex; align-items: center; gap: 6px; }
+.plus-item-desc { font-size: .72rem; color: var(--yw-muted); margin-top: 3px; line-height: 1.35; }
+.plus-item-chevron { position: relative; z-index: 1; flex-shrink: 0; color: var(--v2); opacity: .5; transition: var(--tr); }
+.plus-item-card:hover .plus-item-chevron { opacity: 1; transform: translateX(3px); }
+/* Micro-stat live (ex. % quota, statut) */
+.plus-item-stat { display: inline-flex; align-items: center; gap: 4px; margin-top: 7px; padding: 2px 8px; border-radius: 999px;
+  font-size: .62rem; font-weight: 700; background: rgba(167,139,250,.14); border: 1px solid rgba(167,139,250,.24); color: var(--v3); }
+.plus-item-stat .sdot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+
+/* Carte vedette (Guardian) — pleine largeur, accent sécurité */
+.plus-item-card.plus-featured { grid-column: 1 / -1; min-height: 92px; }
+/* Dernière carte « orpheline » (compte impair) → pleine largeur, pas de trou */
+.plus-item-card.plus-span2 { grid-column: 1 / -1; }
+.plus-item-card.plus-item-red { border-color: rgba(248,113,113,.28);
+  background: linear-gradient(158deg, rgba(248,113,113,.12), rgba(40,12,16,.35)); }
+.plus-item-card.plus-item-red::after { background: radial-gradient(120% 100% at 0% 0%, rgba(248,113,113,.30), transparent 60%); }
+.plus-item-card.plus-item-red:hover { border-color: rgba(248,113,113,.55);
+  box-shadow: 0 22px 42px -16px rgba(248,113,113,.45), inset 0 1px 0 rgba(255,255,255,.08); }
+.plus-item-card.plus-item-red .plus-item-icon { background: linear-gradient(150deg, rgba(248,113,113,.30), rgba(248,113,113,.08));
+  border-color: rgba(248,113,113,.4); box-shadow: inset 0 1px 0 rgba(255,255,255,.14), 0 6px 14px -8px rgba(248,113,113,.7); }
+.plus-item-card.plus-item-red .plus-item-label { color: #fca5a5; }
+.plus-item-card.plus-item-red .plus-item-chevron { color: #fca5a5; }
+.plus-item-card.plus-item-red .plus-item-stat { background: rgba(248,113,113,.14); border-color: rgba(248,113,113,.3); color: #fca5a5; }
 /* Mode subtitle */
 #greetingSubtitle { font-size: 0.72em; color: #888; margin: 0; letter-spacing: 0.04em; transition: color 0.3s; }
 body.mode-secretaire #greetingSubtitle { color: #34d399; }
@@ -3245,8 +3349,28 @@ body.mode-compagnon .luna-name::before,
 
 <!-- Plus Tab — navigation secondaire -->
 <div class="tab-panel" id="tab-plus">
-  <div class="panel-content" style="padding-top:8px;">
-    <div class="plus-panel-grid" id="plusPanelGrid"></div>
+  <div class="panel-content">
+    <div class="plus-screen">
+      <!-- Hero : identité + accueil + plan -->
+      <div class="plus-hero" id="plusHero">
+        <div style="min-width:0;">
+          <div class="plus-hero-eyebrow"><span class="dot"></span> IA WATCH · Tableau de bord</div>
+          <div class="plus-hero-title" id="plusHeroTitle">Bonjour</div>
+          <div class="plus-hero-sub" id="plusHeroSub">Ton espace personnel Luna</div>
+        </div>
+        <div class="plus-plan-badge" id="plusPlanBadge" style="display:none;">
+          <div class="lbl">Plan</div>
+          <div class="val" id="plusPlanVal">—</div>
+        </div>
+      </div>
+
+      <!-- Bandeau de données vivantes (quotas réels) -->
+      <div class="plus-vitals" id="plusVitals" style="display:none;"></div>
+
+      <!-- Raccourcis -->
+      <div class="plus-section-label">Raccourcis</div>
+      <div class="plus-panel-grid" id="plusPanelGrid"></div>
+    </div>
   </div>
 </div>
 
@@ -3697,10 +3821,17 @@ function _renderPlusPanel() {
   grid.innerHTML = "";
   items.forEach(function(item) {
     var card = document.createElement("button");
-    card.className = "plus-item-card" + (item.red ? " plus-item-red" : "");
-    card.innerHTML = '<span class="plus-item-icon">' + item.icon + '</span>' +
-      '<div><div class="plus-item-label">' + item.label + '</div>' +
-      '<div class="plus-item-desc">' + item.desc + '</div></div>';
+    // Guardian (red) = carte vedette pleine largeur
+    card.className = "plus-item-card" + (item.red ? " plus-item-red plus-featured" : "");
+    var statTab = item.tab || "";
+    card.innerHTML =
+      '<span class="plus-item-icon">' + item.icon + '</span>' +
+      '<div class="plus-item-body">' +
+        '<div class="plus-item-label">' + item.label + '</div>' +
+        '<div class="plus-item-desc">' + item.desc + '</div>' +
+        '<span class="plus-item-stat" data-stat="' + statTab + '" style="display:none;"></span>' +
+      '</div>' +
+      '<svg class="plus-item-chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"/></svg>';
     card.addEventListener("click", function() {
       if (item.url) { window.location.href = item.url; return; }
       if (item.tab) {
@@ -3710,6 +3841,78 @@ function _renderPlusPanel() {
     });
     grid.appendChild(card);
   });
+  // Évite le trou : si le nombre de cartes standard (non vedette) est impair,
+  // la dernière passe en pleine largeur.
+  var normals = grid.querySelectorAll(".plus-item-card:not(.plus-item-red)");
+  if (normals.length % 2 === 1) normals[normals.length - 1].classList.add("plus-span2");
+  _plusLoadDashboard();
+}
+
+// Remplit le hero (accueil + plan), les jauges vivantes et les micro-stats.
+// 100% additif et tolérant : si une donnée manque (non connecté, API absente),
+// les éléments restent masqués — jamais d'état cassé.
+function _plusLoadDashboard() {
+  // Accueil personnalisé
+  authFetch("/api/profile").then(function(r) { return r.json(); }).then(function(p) {
+    var name = (p && (p.first_name || p.firstname || p.name || (p.profile && p.profile.first_name))) || "";
+    if (name) { name = String(name).trim().split(" ")[0]; }
+    var t = document.getElementById("plusHeroTitle");
+    if (t) t.textContent = name ? ("Bonjour, " + name) : "Bonjour";
+  }).catch(function() {});
+
+  // Plan + jauges + micro-stats (quotas réels)
+  authFetch("/api/quota").then(function(r) { return r.json(); }).then(function(data) {
+    var q = data && data.quota;
+    if (!q) return;
+    if (q.plan) {
+      var val = document.getElementById("plusPlanVal");
+      var badge = document.getElementById("plusPlanBadge");
+      if (val && badge) { val.textContent = q.plan.charAt(0).toUpperCase() + q.plan.slice(1); badge.style.display = ""; }
+    }
+    _plusRenderVitals(q);
+    // Micro-stat carte Quotas = métrique la plus chargée
+    var metrics = [{k:"voice",lbl:"Voix"},{k:"visio",lbl:"Visio"},{k:"sms",lbl:"SMS"},{k:"instructions",lbl:"Instr."}];
+    var top = null;
+    metrics.forEach(function(m) {
+      var o = q[m.k];
+      if (o && typeof o.percentage === "number" && (!top || o.percentage > top.pct)) top = { lbl: m.lbl, pct: Math.round(o.percentage) };
+    });
+    if (top) _plusSetStat("quotas", top.lbl + " " + top.pct + "%", top.pct);
+    if (q.instructions && typeof q.instructions.used !== "undefined") {
+      _plusSetStat("instructions", q.instructions.used + "/" + q.instructions.limit + " actives", q.instructions.percentage);
+    }
+  }).catch(function() {});
+}
+
+function _plusRenderVitals(q) {
+  var box = document.getElementById("plusVitals");
+  if (!box) return;
+  var defs = [
+    { o: q.voice, lbl: "Voix", unit: "min" },
+    { o: q.visio, lbl: "Visio", unit: "min" },
+    { o: q.sms, lbl: "SMS", unit: "" },
+    { o: q.instructions, lbl: "Instr.", unit: "" }
+  ].filter(function(d) { return d.o && typeof d.o.percentage === "number"; });
+  if (!defs.length) return;
+  box.innerHTML = defs.map(function(d) {
+    var pct = Math.max(0, Math.min(100, Math.round(d.o.percentage)));
+    var gc = pct >= 90 ? "var(--r)" : pct >= 70 ? "var(--yw-gold)" : "var(--g)";
+    return '<div class="plus-vital">' +
+        '<div class="plus-gauge" style="--p:' + pct + ';--gc:' + gc + ';"><span>' + pct + '%</span></div>' +
+        '<div class="plus-vital-lbl">' + d.lbl + '</div>' +
+        '<div class="plus-vital-val">' + esc(String(d.o.used)) + (d.unit ? (" " + d.unit) : "") + ' / ' + esc(String(d.o.limit)) + '</div>' +
+      '</div>';
+  }).join("");
+  box.style.display = "";
+}
+
+function _plusSetStat(tab, text, pct) {
+  var el = document.querySelector('.plus-item-stat[data-stat="' + tab + '"]');
+  if (!el) return;
+  var col = (typeof pct === "number" && pct >= 90) ? "#fca5a5" : (typeof pct === "number" && pct >= 70) ? "var(--yw-gold)" : "var(--v3)";
+  el.innerHTML = '<span class="sdot"></span>' + esc(text);
+  el.style.color = col;
+  el.style.display = "";
 }
 
 // =========================================================================
