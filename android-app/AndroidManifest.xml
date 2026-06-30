@@ -18,6 +18,12 @@
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <!-- Guardian protection permanente : écoute mot-clé en arrière-plan (FGS micro Android 14+) -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+    <!-- Mini-bulle système discrète par-dessus les autres apps (permission spéciale) -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <!-- Relance de la présence (notif/bulle) au redémarrage du téléphone -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <application
         android:label="Luna"
@@ -39,10 +45,10 @@
             </intent-filter>
         </activity>
 
-        <!-- Guardian Foreground Service — présence protectrice permanente -->
+        <!-- Guardian Foreground Service — présence protectrice permanente + écoute mot-clé -->
         <service
             android:name=".GuardianService"
-            android:foregroundServiceType="dataSync"
+            android:foregroundServiceType="microphone|dataSync"
             android:exported="false" />
 
         <!-- Bouton SOS dans la notification Guardian -->
@@ -51,6 +57,18 @@
             android:exported="false">
             <intent-filter>
                 <action android:name="fr.yawatch.luna.SOS_ACTION" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Relance la présence Guardian (notif + bulle) au redémarrage du téléphone.
+             NB : l'écoute micro ne peut PAS redémarrer seule au boot (contrainte Android) —
+             elle est réactivée à la prochaine ouverture de l'app. -->
+        <receiver
+            android:name=".BootReceiver"
+            android:exported="true"
+            android:enabled="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
             </intent-filter>
         </receiver>
 

@@ -11,8 +11,11 @@ import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.content.ContentValues;
+import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
+import android.provider.Settings;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
@@ -413,6 +416,9 @@ public class MainActivity extends Activity {
         sendLog("info", "APP START v" + CURRENT_VERSION + " (" + CURRENT_VERSION_CODE + ") — " + Build.MODEL + " Android " + Build.VERSION.RELEASE, "apk/" + Build.MODEL);
         webView.loadUrl(LUNA_URL);
 
+        // Démarrage à froid déclenché par Guardian (bouton SOS notif ou mot-clé vocal du service)
+        handleGuardianIntent(getIntent());
+
         // Verification auto-update en arriere-plan
         checkForUpdate();
     }
@@ -722,6 +728,67 @@ public class MainActivity extends Activity {
         @JavascriptInterface
         public void updateGuardianNotification(String status, String contacts, boolean emergency) {
             runOnUiThread(() -> GuardianService.updateStatus(status, contacts, emergency));
+        }
+
+        /**
+         * PROTECTION PERMANENTE (toggle Paramètres → Guardian).
+         * Démarre le Foreground Service avec écoute mot-clé en arrière-plan et/ou mini-bulle overlay.
+         * L'écoute survit à la fermeture de l'app (mais ne peut être DÉMARRÉE qu'app ouverte).
+         * @param listen  écoute mot-clé « au secours »/« à l'aide » par-dessus les autres apps
+         * @param overlay mini-bulle système discrète et déplaçable
+         */
+        @JavascriptInterface
+        public void setGuardianProtection(boolean listen, boolean overlay) {
+            runOnUiThread(() -> {
+                SharedPreferences sp = getSharedPreferences("guardian", Context.MODE_PRIVATE);
+                boolean on = listen || overlay;
+                sp.edit()
+                  .putBoolean("protection_enabled", on)
+                  .putBoolean("listen_enabled", listen)
+                  .putBoolean("overlay_enabled", overlay)
+                  .apply();
+
+                if (!on) {
+                    Intent stop = new Intent(MainActivity.this, GuardianService.class);
+                    stop.setAction(GuardianService.ACTION_STOP);
+                    startService(stop);
+                    return;
+                }
+
+                // Permission overlay (spéciale) : ouvre l'écran Réglages si absente
+                if (overlay && Build.VERSION.SDK_INT >= 23 && !Settings.canDrawOverlays(MainActivity.this)) {
+                    try {
+                        startActivity(new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                            Uri.parse("package:" + getPackageName())));
+                    } catch (Exception ignored) {}
+                }
+
+                // Micro requis pour écouter : ne lancer l'écoute QUE si la permission est accordée
+                boolean micGranted = checkSelfPermission(Manifest.permission.RECORD_AUDIO)
+                        == PackageManager.PERMISSION_GRANTED;
+                boolean canListen = listen && micGranted;
+                if (listen && !micGranted) {
+                    try { requestPermissions(new String[]{ Manifest.permission.RECORD_AUDIO }, 77); }
+                    catch (Exception ignored) {}
+                }
+                // Éviter le double micro : si le service écoute, couper l'écoute in-app
+                if (canListen) stopNativeSR();
+
+                Intent svc = new Intent(MainActivity.this, GuardianService.class);
+                svc.setAction(GuardianService.ACTION_START);
+                svc.putExtra("status", "Protégé");
+                svc.putExtra("listen", canListen);
+                svc.putExtra("overlay", overlay);
+                if (Build.VERSION.SDK_INT >= 26) startForegroundService(svc);
+                else startService(svc);
+            });
+        }
+
+        /** État persistant du toggle (pour refléter l'interrupteur dans l'UI). */
+        @JavascriptInterface
+        public boolean isGuardianProtectionOn() {
+            return getSharedPreferences("guardian", Context.MODE_PRIVATE)
+                    .getBoolean("protection_enabled", false);
         }
     }
 
@@ -1457,20 +1524,53 @@ public class MainActivity extends Activity {
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
         setIntent(intent);
-        if (intent != null && intent.getBooleanExtra("guardian_sos", false)) {
-            // Réveiller l'écran
+        handleGuardianIntent(intent);
+    }
+
+    /** Traite les intents Guardian : bouton SOS notif, et mot-clé vocal détecté par le service. */
+    private void handleGuardianIntent(Intent intent) {
+        if (intent == null) return;
+        // Bouton « SOS » de la notification
+        if (intent.getBooleanExtra("guardian_sos", false)) {
             getWindow().addFlags(
                 WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON  |
                 WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON  |
                 WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED
             );
-            // Déclencher le SOS côté JS (modal d'abord, triggerSOS si Guardian actif)
             webView.post(() -> webView.evaluateJavascript(
                 "if(typeof triggerSOS==='function'&&window.SID){triggerSOS();}" +
                 "else if(typeof openSosModal==='function'){openSosModal();}",
                 null
             ));
         }
+        // Mot-clé d'urgence détecté par GuardianService (app éventuellement fermée)
+        if (intent.hasExtra("guardian_voice_sos")) {
+            String text = intent.getStringExtra("guardian_voice_sos");
+            float conf  = intent.getFloatExtra("guardian_voice_conf", 0.7f);
+            intent.removeExtra("guardian_voice_sos"); // éviter le re-déclenchement
+            getWindow().addFlags(
+                WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON  |
+                WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON  |
+                WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED
+            );
+            fireVoiceSosJs((text != null) ? text : "", conf, 4);
+        }
+    }
+
+    /** Appelle window.lunaEmergencyVoiceDetected côté JS, avec quelques tentatives le temps
+     *  que la page soit chargée (cas démarrage à froid depuis le service). */
+    private void fireVoiceSosJs(String text, float conf, int attemptsLeft) {
+        if (webView == null || attemptsLeft <= 0) return;
+        String safe = text.replace("\\", "\\\\").replace("'", "\\'").replace("\n", "");
+        webView.evaluateJavascript(
+            "(function(){if(window.lunaEmergencyVoiceDetected){window.lunaEmergencyVoiceDetected('"
+                + safe + "'," + conf + ");return true;}return false;})();",
+            value -> {
+                if (!"true".equals(value)) {
+                    nativeSRHandler.postDelayed(() -> fireVoiceSosJs(text, conf, attemptsLeft - 1), 1500L);
+                }
+            }
+        );
     }
 
     @Override
