@@ -2094,6 +2094,103 @@ body.mode-compagnon .luna-name::before,
 
 <!-- Chat Tab -->
 <div class="tab-panel active" id="tab-chat">
+  <!-- ============================================================
+       CHAT — Premium (CSS uniquement, additif, non destructif).
+       Aucune modif du JS d'envoi/streaming/rendu. Classes existantes
+       (.msg-bubble, .input-area...) ré-habillées avec profondeur.
+       ============================================================ -->
+  <style>
+    /* --- Bulles Luna (theirs) : surface glass profonde + avatar --- */
+    .msg-bubble-wrap.theirs { position: relative; padding-left: 40px; }
+    .msg-bubble-wrap.theirs::before {
+      content: ""; position: absolute; left: 0; top: 1px; width: 30px; height: 30px; border-radius: 50%;
+      background: radial-gradient(circle at 32% 28%, #c4b5fd, #7c3aed 72%);
+      box-shadow: 0 3px 12px rgba(124,58,237,.5), inset 0 1px 0 rgba(255,255,255,.35);
+    }
+    .msg-bubble.theirs {
+      background: linear-gradient(145deg, rgba(30,34,58,.95), rgba(18,20,40,.92)) !important;
+      border: 1px solid rgba(167,139,250,.18) !important;
+      border-radius: 18px 18px 18px 5px !important;
+      box-shadow: 0 8px 24px -12px rgba(0,0,0,.75), inset 0 1px 0 rgba(255,255,255,.05) !important;
+      -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
+    }
+    .msg-bubble-label { letter-spacing: .04em; font-weight: 600; color: rgba(196,181,253,.55) !important; }
+    /* --- Mes bulles : dégradé affiné + relief --- */
+    .msg-bubble.mine {
+      background: linear-gradient(145deg, #7c3aed, #5b21b6) !important;
+      border-radius: 18px 18px 5px 18px !important;
+      box-shadow: 0 8px 24px -10px rgba(124,58,237,.55), inset 0 1px 0 rgba(255,255,255,.18) !important;
+    }
+    .msg-bubble { padding: 11px 15px !important; }
+
+    /* --- Écran d'accueil quand le chat est vide (pur CSS) --- */
+    #chat:empty { justify-content: center; align-items: center; gap: 0; }
+    #chat:empty::before {
+      content: "🌙"; font-size: 3em; width: 92px; height: 92px; display: grid; place-items: center; border-radius: 50%;
+      background: radial-gradient(circle at 35% 28%, rgba(167,139,250,.38), rgba(124,58,237,.10));
+      border: 1px solid rgba(167,139,250,.32);
+      box-shadow: 0 14px 44px -8px rgba(124,58,237,.55), inset 0 1px 0 rgba(255,255,255,.18);
+      margin-bottom: 22px; animation: lunaFloat 4.5s ease-in-out infinite;
+    }
+    #chat:empty::after {
+      content: "Bonjour, je suis Luna 💜\A\APose ta question, demande un rappel,\Aou confie-moi ce dont tu as besoin.";
+      white-space: pre-line; text-align: center; max-width: 300px;
+      color: var(--yw-text, #d4c8f8); opacity: .8; font-size: .98em; line-height: 1.65; font-weight: 500;
+    }
+    @keyframes lunaFloat { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-9px); } }
+
+    /* --- Composer premium : barre glass + halo au focus --- */
+    .input-area {
+      background: linear-gradient(0deg, rgba(8,8,22,.97), rgba(10,9,26,.80)) !important;
+      border-top: 1px solid rgba(167,139,250,.16) !important;
+      -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px);
+    }
+    .input-row {
+      background: rgba(22,20,46,.88) !important;
+      border: 1px solid rgba(167,139,250,.20) !important; border-radius: 24px !important;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.05), 0 6px 18px -10px rgba(0,0,0,.7) !important;
+      transition: border-color .2s, box-shadow .2s !important;
+    }
+    .input-row:focus-within {
+      border-color: rgba(167,139,250,.5) !important;
+      box-shadow: 0 0 0 3px rgba(124,58,237,.20), inset 0 1px 0 rgba(255,255,255,.06) !important;
+    }
+    .send-btn {
+      background: linear-gradient(145deg, #8b5cf6, #6d28d9) !important;
+      box-shadow: 0 5px 16px -3px rgba(124,58,237,.6), inset 0 1px 0 rgba(255,255,255,.25) !important;
+      transition: transform .15s, box-shadow .2s, background .2s !important;
+    }
+    .send-btn:hover { background: linear-gradient(145deg, #7c3aed, #5b21b6) !important; transform: translateY(-1px); }
+    .send-btn:active { transform: translateY(0); }
+    .action-toggle {
+      background: rgba(167,139,250,.12) !important; border: 1px solid rgba(167,139,250,.22) !important;
+    }
+    .action-toggle:hover { background: rgba(167,139,250,.22) !important; }
+    .mic-input-btn:hover { background: rgba(124,58,237,.14) !important; }
+    .action-menu {
+      background: linear-gradient(155deg, rgba(26,22,52,.97), rgba(16,14,34,.96)) !important;
+      border: 1px solid rgba(167,139,250,.2) !important;
+      box-shadow: 0 -8px 32px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.05) !important;
+    }
+    .action-menu-item:hover { background: rgba(167,139,250,.14) !important; }
+
+    /* --- Sidebar conversations : item actif premium --- */
+    .conv-item.active { background: linear-gradient(145deg, rgba(124,58,237,.22), rgba(124,58,237,.06)) !important; border-left-color: #a78bfa !important; }
+    .conv-new-btn { transition: background .2s, box-shadow .2s; }
+    .conv-new-btn:hover { box-shadow: 0 4px 14px -6px rgba(124,58,237,.6); }
+
+    /* --- Mode SECRÉTAIRE : conserver l'identité verte (composer premium vert) --- */
+    body.mode-secretaire .input-area { background: linear-gradient(0deg, rgba(4,16,11,.97), rgba(7,20,14,.80)) !important; border-top-color: rgba(16,185,129,.18) !important; }
+    body.mode-secretaire .input-row { background: rgba(9,28,19,.88) !important; border-color: rgba(16,185,129,.22) !important; }
+    body.mode-secretaire .input-row:focus-within { border-color: rgba(16,185,129,.55) !important; box-shadow: 0 0 0 3px rgba(16,185,129,.18), inset 0 1px 0 rgba(255,255,255,.06) !important; }
+    body.mode-secretaire .send-btn { background: linear-gradient(145deg, #10b981, #059669) !important; box-shadow: 0 5px 16px -3px rgba(16,185,129,.6), inset 0 1px 0 rgba(255,255,255,.25) !important; }
+    body.mode-secretaire .send-btn:hover { background: linear-gradient(145deg, #059669, #047857) !important; }
+    body.mode-secretaire .action-toggle { background: rgba(16,185,129,.14) !important; border-color: rgba(16,185,129,.24) !important; }
+    body.mode-secretaire .action-toggle.open { background: #10b981 !important; }
+    body.mode-secretaire .conv-item.active { background: linear-gradient(145deg, rgba(16,185,129,.22), rgba(16,185,129,.06)) !important; border-left-color: #34d399 !important; }
+    body.mode-secretaire .msg-bubble-wrap.theirs::before { background: radial-gradient(circle at 32% 28%, #6ee7b7, #10b981 72%); box-shadow: 0 3px 12px rgba(16,185,129,.5), inset 0 1px 0 rgba(255,255,255,.35); }
+    body.mode-secretaire #chat:empty::before { background: radial-gradient(circle at 35% 28%, rgba(16,185,129,.36), rgba(5,150,105,.10)); border-color: rgba(16,185,129,.30); box-shadow: 0 14px 44px -8px rgba(16,185,129,.5), inset 0 1px 0 rgba(255,255,255,.18); }
+  </style>
   <div class="chat-layout">
     <aside class="conv-sidebar" id="convSidebar">
       <div class="conv-sidebar-header">
