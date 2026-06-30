@@ -71,7 +71,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; b
 .plus-hero {
   display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
   padding: 16px 16px 18px; margin-bottom: 14px; border-radius: 20px;
-  background: linear-gradient(150deg, rgba(124,58,237,.20), rgba(20,16,48,.55) 55%, rgba(8,8,28,.35));
+  /* même dégradé violet→vert que le hero de l'onglet Services */
+  background: linear-gradient(135deg, rgba(124,58,237,.22), rgba(16,185,129,.10) 60%, rgba(20,12,46,.38));
   border: 1px solid var(--b2);
   box-shadow: 0 18px 40px -18px rgba(0,0,0,.75), inset 0 1px 0 rgba(255,255,255,.06);
   -webkit-backdrop-filter: var(--blur); backdrop-filter: var(--blur);
@@ -113,37 +114,51 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; b
 .plus-vital-lbl { font-size: .6rem; letter-spacing: .04em; color: var(--yw-text); opacity: .72; text-align: center; font-weight: 600; }
 .plus-vital-val { font-size: .62rem; color: var(--yw-muted); }
 
-/* ---- Libellé de section ---- */
-.plus-section-label { font-size: .68rem; letter-spacing: .2em; text-transform: uppercase; color: var(--v2); font-weight: 800; margin: 2px 4px 11px; opacity: .85; }
+/* ---- Libellé de section (barre dégradée violet→vert comme .conc-section-title) ---- */
+.plus-section-label { display: flex; align-items: center; gap: 9px; font-size: .68rem; letter-spacing: .2em; text-transform: uppercase; color: #c4b5fd; font-weight: 800; margin: 2px 4px 11px; opacity: .9; }
+.plus-section-label::before { content: ""; width: 16px; height: 2px; border-radius: 2px; background: linear-gradient(90deg, #7c3aed, #10b981); }
 
 /* ---- Grille de cartes ---- */
 .plus-panel-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 11px; padding: 0; }
 .plus-item-card {
   position: relative; display: flex; align-items: center; gap: 12px; padding: 16px 14px;
-  min-height: 84px; border-radius: 16px; cursor: pointer; text-align: left; width: 100%; color: inherit;
-  background: linear-gradient(158deg, rgba(255,255,255,.055), rgba(255,255,255,.018));
-  border: 1px solid rgba(167,139,250,.16);
-  box-shadow: 0 12px 26px -16px rgba(0,0,0,.85), inset 0 1px 0 rgba(255,255,255,.05);
-  -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
+  min-height: 84px; border-radius: 18px; cursor: pointer; text-align: left; width: 100%; color: inherit;
+  /* même recette que les cartes de l'onglet Services (.conc-card) */
+  background: linear-gradient(145deg, rgba(25,15,58,.92), rgba(15,10,40,.82));
+  border: 1px solid rgba(167,139,250,.14);
+  box-shadow: 0 10px 30px -16px rgba(0,0,0,.85), inset 0 1px 0 rgba(255,255,255,.05);
+  -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px);
   transition: var(--tr); overflow: hidden;
+  animation: concPop .42s cubic-bezier(.2,.8,.25,1) both;
 }
-.plus-item-card::after { /* halo de survol */
-  content: ""; position: absolute; inset: 0; border-radius: inherit; opacity: 0; transition: var(--tr);
-  background: radial-gradient(120% 100% at 0% 0%, rgba(124,58,237,.32), transparent 60%);
+.plus-item-card::after { /* liseré lumineux supérieur au survol (comme l'onglet Services) */
+  content: ""; position: absolute; inset: 0 0 auto 0; height: 2px; border-radius: 18px 18px 0 0;
+  background: linear-gradient(90deg, transparent, rgba(167,139,250,.6), transparent);
+  opacity: 0; transition: opacity .2s;
 }
-.plus-item-card:hover { transform: translateY(-3px); border-color: var(--b2);
-  box-shadow: 0 22px 40px -16px rgba(124,58,237,.5), inset 0 1px 0 rgba(255,255,255,.09); }
+.plus-item-card:hover { transform: translateY(-3px); border-color: rgba(167,139,250,.36);
+  box-shadow: 0 8px 32px rgba(124,58,237,.28), inset 0 1px 0 rgba(255,255,255,.07); }
 .plus-item-card:hover::after { opacity: 1; }
 .plus-item-card:active { transform: translateY(-1px); }
-/* Pastille icône en relief */
-.plus-item-icon { position: relative; z-index: 1; font-size: 1.4rem; flex-shrink: 0; width: 46px; height: 46px;
-  display: grid; place-items: center; border-radius: 13px;
-  background: linear-gradient(150deg, rgba(124,58,237,.30), rgba(167,139,250,.10));
-  border: 1px solid rgba(167,139,250,.28);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.14), 0 6px 14px -8px rgba(124,58,237,.7); }
+/* Apparition staggered (comme les cartes Services) */
+.plus-panel-grid .plus-item-card:nth-child(2) { animation-delay: .04s; }
+.plus-panel-grid .plus-item-card:nth-child(3) { animation-delay: .08s; }
+.plus-panel-grid .plus-item-card:nth-child(4) { animation-delay: .12s; }
+.plus-panel-grid .plus-item-card:nth-child(5) { animation-delay: .16s; }
+.plus-panel-grid .plus-item-card:nth-child(6) { animation-delay: .20s; }
+.plus-panel-grid .plus-item-card:nth-child(7) { animation-delay: .24s; }
+@media (prefers-reduced-motion: reduce) { .plus-item-card { animation: none; } }
+/* Pastille icône en relief — recette .conc-icon (radial violet→vert) */
+.plus-item-icon { position: relative; z-index: 1; font-size: 1.45rem; flex-shrink: 0; width: 50px; height: 50px;
+  display: grid; place-items: center; border-radius: 15px;
+  background: radial-gradient(120% 120% at 30% 20%, rgba(167,139,250,.22), rgba(16,185,129,.10));
+  border: 1px solid rgba(167,139,250,.18);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.07);
+  transition: transform .2s, box-shadow .2s; }
+.plus-item-card:hover .plus-item-icon { transform: translateY(-2px) scale(1.06); box-shadow: 0 8px 20px rgba(124,58,237,.3); }
 .plus-item-body { position: relative; z-index: 1; flex: 1; min-width: 0; }
-.plus-item-label { font-weight: 700; font-size: .92rem; color: #f4f1ff; display: flex; align-items: center; gap: 6px; }
-.plus-item-desc { font-size: .72rem; color: var(--yw-muted); margin-top: 3px; line-height: 1.35; }
+.plus-item-label { font-weight: 700; font-size: .92rem; color: #f2f0fb; letter-spacing: -.1px; display: flex; align-items: center; gap: 6px; }
+.plus-item-desc { font-size: .72rem; color: #9a93bd; margin-top: 3px; line-height: 1.35; }
 .plus-item-chevron { position: relative; z-index: 1; flex-shrink: 0; color: var(--v2); opacity: .5; transition: var(--tr); }
 .plus-item-card:hover .plus-item-chevron { opacity: 1; transform: translateX(3px); }
 /* Micro-stat live (ex. % quota, statut) */
@@ -156,10 +171,10 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; b
 /* Dernière carte « orpheline » (compte impair) → pleine largeur, pas de trou */
 .plus-item-card.plus-span2 { grid-column: 1 / -1; }
 .plus-item-card.plus-item-red { border-color: rgba(248,113,113,.28);
-  background: linear-gradient(158deg, rgba(248,113,113,.12), rgba(40,12,16,.35)); }
-.plus-item-card.plus-item-red::after { background: radial-gradient(120% 100% at 0% 0%, rgba(248,113,113,.30), transparent 60%); }
+  background: linear-gradient(145deg, rgba(60,20,30,.86), rgba(30,12,22,.82)); }
+.plus-item-card.plus-item-red::after { background: linear-gradient(90deg, transparent, rgba(248,113,113,.6), transparent); }
 .plus-item-card.plus-item-red:hover { border-color: rgba(248,113,113,.55);
-  box-shadow: 0 22px 42px -16px rgba(248,113,113,.45), inset 0 1px 0 rgba(255,255,255,.08); }
+  box-shadow: 0 8px 32px rgba(248,113,113,.3), inset 0 1px 0 rgba(255,255,255,.07); }
 .plus-item-card.plus-item-red .plus-item-icon { background: linear-gradient(150deg, rgba(248,113,113,.30), rgba(248,113,113,.08));
   border-color: rgba(248,113,113,.4); box-shadow: inset 0 1px 0 rgba(255,255,255,.14), 0 6px 14px -8px rgba(248,113,113,.7); }
 .plus-item-card.plus-item-red .plus-item-label { color: #fca5a5; }
