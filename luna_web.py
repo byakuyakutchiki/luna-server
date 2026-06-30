@@ -18752,6 +18752,43 @@ async def _trigger_voice_emergency(
         if _placed:
             asyncio.create_task(_poll_emergency_call_statuses(tid, _placed))
 
+    # --- 3. ÉTAT UNIFIÉ : relier l'urgence vocale au Guardian (incrément 3) ---
+    # Crée/relie un incident + session Guardian au niveau CRITICAL pour que :
+    #   - le widget Guardian reflète l'urgence vocale (rouge « Urgence »),
+    #   - le panneau « incident terminé ? » puisse la clôturer (retour vert).
+    # trigger_sos ne pose QUE l'état (n'envoie pas de SMS) → pas de double-envoi.
+    # Best-effort : n'altère jamais le déroulé de l'alerte si Guardian échoue.
+    try:
+        engine = _get_guardian()
+        if engine:
+            sids = engine.get_active_sessions(tid) or []
+            sid_g = sids[0] if sids else None
+            if not sid_g:
+                try:
+                    contacts_cfg = [{"phone": getattr(c, "phone", ""), "name": getattr(c, "name", "")} for c in contacts]
+                except Exception:
+                    contacts_cfg = []
+                _sess = engine.create_session(
+                    tenant_id=tid, profile_type="senior",
+                    config={"person_name": brief["name"], "emergency_contacts": contacts_cfg, "source": "voice_emergency"},
+                )
+                sid_g = _sess.session_id
+            engine.trigger_sos(sid_g)  # → alert_level CRITICAL (état seul, aucun SMS moteur)
+            inc_id = "voice_" + uuid.uuid4().hex[:12]
+            if _redis_client:
+                ikey = f"luna:{tid}:guardian:incident:{inc_id}"
+                _redis_client.client.hset(ikey, mapping={
+                    "incident_id": inc_id, "session_id": sid_g, "source": "vocal",
+                    "started_at": datetime.utcnow().isoformat(), "status": "active",
+                    "summary": (brief["situation"] or "")[:200],
+                })
+                _redis_client.client.expire(ikey, 86400 * 7)
+            report["guardian_session"] = sid_g
+            report["guardian_incident"] = inc_id
+            logger.warning(f"[EMERGENCY→GUARDIAN] état unifié tid={tid} session={sid_g} incident={inc_id} (CRITICAL)")
+    except Exception as e:
+        report["errors"].append(f"guardian_link:{e}")
+
     # --- Journalisation sécurité ---
     try:
         mgr.log_event(
