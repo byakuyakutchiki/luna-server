@@ -17,9 +17,11 @@ update_vars+=("ENVIRONMENT=cloudrun")
 update_vars+=("CORTEX_ENABLED=false")   # SMS auto désactivé — évite vidage crédit Twilio
 # Détection d'urgence vocale Iris : ACTIVE, mais en mode OBSERVATION (dry-run) pour le rollout.
 # Détecte + journalise + Iris rassure, SANS envoyer de SMS/appel réel.
-# Pour passer en RÉEL : VOICE_EMERGENCY_DRY_RUN=false (gcloud run services update ... --update-env-vars).
+# Pour forcer une simulation : VOICE_EMERGENCY_DRY_RUN=true dans .env ou --update-env-vars.
 update_vars+=("VOICE_EMERGENCY_ENABLED=true")
-update_vars+=("VOICE_EMERGENCY_DRY_RUN=true")
+update_vars+=("VOICE_EMERGENCY_DRY_RUN=${VOICE_EMERGENCY_DRY_RUN:-false}")
+update_vars+=("GUARDIAN_SMS_ENABLED=${GUARDIAN_SMS_ENABLED:-true}")
+update_vars+=("GUARDIAN_CALL_ENABLED=${GUARDIAN_CALL_ENABLED:-true}")
 update_vars+=("KARAOKE_DRAFTS_BUCKET=luna-karaoke-drafts-674304336025")  # brouillons karaoké (GCS)
 
 # Fonction helper : ajoute une variable seulement si elle est definie et non vide
@@ -42,8 +44,6 @@ add_var "LUNA_MODE"
 add_var "SENTRY_DSN"
 add_var "OPENAI_VOICE_NAME"
 add_var "OPENAI_REALTIME_MODEL"
-add_var "GUARDIAN_SMS_ENABLED"
-add_var "GUARDIAN_CALL_ENABLED"
 # Twilio — SMS et appels vocaux (conciergerie + Guardian)
 add_var "TWILIO_ACCOUNT_SID"
 add_var "TWILIO_AUTH_TOKEN"
