@@ -15,6 +15,8 @@ source "$(dirname "$0")/.env" 2>/dev/null || true
 update_vars=()
 update_vars+=("ENVIRONMENT=cloudrun")
 update_vars+=("CORTEX_ENABLED=false")   # SMS auto désactivé — évite vidage crédit Twilio
+update_vars+=("FOUNDATION_TEST_MODE=${FOUNDATION_TEST_MODE:-false}")
+update_vars+=("LUNA_TEST_MODE=${LUNA_TEST_MODE:-false}")
 # Détection d'urgence vocale Iris : ACTIVE, mais en mode OBSERVATION (dry-run) pour le rollout.
 # Détecte + journalise + Iris rassure, SANS envoyer de SMS/appel réel.
 # Pour forcer une simulation : VOICE_EMERGENCY_DRY_RUN=true dans .env ou --update-env-vars.
@@ -62,7 +64,6 @@ add_var "GOOGLE_OAUTH_CLIENT_ID"
 add_var "GOOGLE_OAUTH_CLIENT_SECRET"
 update_vars+=("GOOGLE_OAUTH_REDIRECT_URI=https://luna-beta-674304336025.europe-west1.run.app/api/email/oauth/callback")
 # Mode test fondateur : si "true", les emails/SMS sont simulés (aucun envoi réel)
-add_var "FOUNDATION_TEST_MODE"
 
 # Joindre avec des virgules
 vars_string=$(IFS=,; echo "${update_vars[*]}")
