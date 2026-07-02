@@ -122,6 +122,7 @@ public class MainActivity extends Activity {
     private static final int CURRENT_VERSION_CODE = 22;
     private static final int CAMERA_PERMISSION_FOR_FILE = 103;
     private static final int CAMERA_CAPTURE_REQUEST_CODE = 104;
+    private static final int GUARDIAN_MIC_PERMISSION_REQUEST = 77;
     private static final String CHANNEL_ID = "luna_messages";
     private WebView webView;
     private PermissionRequest pendingPermissionRequest;
@@ -768,7 +769,7 @@ public class MainActivity extends Activity {
                         == PackageManager.PERMISSION_GRANTED;
                 boolean canListen = listen && micGranted;
                 if (listen && !micGranted) {
-                    try { requestPermissions(new String[]{ Manifest.permission.RECORD_AUDIO }, 77); }
+                    try { requestPermissions(new String[]{ Manifest.permission.RECORD_AUDIO }, GUARDIAN_MIC_PERMISSION_REQUEST); }
                     catch (Exception ignored) {}
                 }
                 // Éviter le double micro : si le service écoute, couper l'écoute in-app
@@ -1220,6 +1221,27 @@ public class MainActivity extends Activity {
             } else {
                 Toast.makeText(this, "Autorisez la camera dans Parametres > Luna > Autorisations.", Toast.LENGTH_LONG).show();
                 finishFileUpload(null);
+            }
+        }
+
+        if (requestCode == GUARDIAN_MIC_PERMISSION_REQUEST) {
+            boolean granted = grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED;
+            SharedPreferences sp = getSharedPreferences("guardian", Context.MODE_PRIVATE);
+            boolean listen = sp.getBoolean("listen_enabled", false);
+            boolean overlay = sp.getBoolean("overlay_enabled", false);
+
+            if (granted && listen) {
+                stopNativeSR();
+                Intent svc = new Intent(MainActivity.this, GuardianService.class);
+                svc.setAction(GuardianService.ACTION_START);
+                svc.putExtra("status", "Protégé");
+                svc.putExtra("listen", true);
+                svc.putExtra("overlay", overlay);
+                if (Build.VERSION.SDK_INT >= 26) startForegroundService(svc);
+                else startService(svc);
+                Toast.makeText(this, "Guardian écoute active.", Toast.LENGTH_SHORT).show();
+            } else if (listen) {
+                Toast.makeText(this, "Autorisez le micro dans Parametres > Luna > Autorisations pour activer Guardian.", Toast.LENGTH_LONG).show();
             }
         }
     }
