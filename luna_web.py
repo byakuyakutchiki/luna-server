@@ -23388,6 +23388,7 @@ async def theo_generate_letter(request: Request):
 _log_buffer: list = []          # ring buffer 500 entrées
 _log_subscribers: list = []     # queues SSE actives
 _LOG_MAX = 500
+_guardian_sr_recent_triggers: dict = {}
 
 async def _broadcast_log(entry: dict):
     dead = []
@@ -23401,6 +23402,93 @@ async def _broadcast_log(entry: dict):
             _log_subscribers.remove(q)
         except ValueError:
             pass
+
+def _guardian_sr_norm(text: str) -> str:
+    import unicodedata as _unicodedata
+    nfd = _unicodedata.normalize("NFD", (text or "").lower())
+    return (
+        "".join(c for c in nfd if _unicodedata.category(c) != "Mn")
+        .replace("’", "'")
+        .replace("`", "'")
+        .replace("-", " ")
+    )
+
+def _guardian_sr_has_emergency(text: str) -> bool:
+    n = _guardian_sr_norm(text)
+    if not n:
+        return False
+    return any(k in n for k in (
+        "au secours",
+        "a l'aide",
+        "a laide",
+        "aidez moi",
+        "aide moi",
+        "je suis en danger",
+        "urgence",
+    ))
+
+def _extract_guardian_sr_emergency_text(msg: str) -> str:
+    """Extrait la phrase brute depuis les logs APK GUARDIAN_SR sr_emergency."""
+    raw = (msg or "").strip()
+    if not raw:
+        return ""
+    parts = [p.strip() for p in raw.split("|") if p.strip()]
+    for part in parts:
+        low = part.lower()
+        if (
+            "guardian_sr" in low
+            or "sr_emergency" in low
+            or low.startswith("conf=")
+            or "sid=" in low
+            or "sos=" in low
+            or "active=" in low
+        ):
+            continue
+        if _guardian_sr_has_emergency(part):
+            return part
+    if _guardian_sr_has_emergency(raw):
+        cleaned = re.sub(r"^\s*\[?GUARDIAN_SR\]?\s*sr_emergency\s*\|?", "", raw, flags=re.I).strip()
+        return cleaned or raw
+    return ""
+
+async def _trigger_from_guardian_sr_log(text: str, request: Request) -> None:
+    text = (text or "").strip()
+    if not text:
+        return
+    tid = int(getattr(request.state, "tenant_id", TENANT_ID) or TENANT_ID)
+    now = time.time()
+    dedupe_key = f"{tid}:{_guardian_sr_norm(text)[:120]}"
+    last_ts = _guardian_sr_recent_triggers.get(dedupe_key, 0)
+    if now - last_ts < 20:
+        logger.warning("[GUARDIAN_SR] duplicate sr_emergency ignored text=%r", text[:180])
+        return
+    _guardian_sr_recent_triggers[dedupe_key] = now
+    for key, ts in list(_guardian_sr_recent_triggers.items()):
+        if now - ts > 120:
+            _guardian_sr_recent_triggers.pop(key, None)
+
+    logger.warning("[GUARDIAN_SR] calling /trigger from sr_emergency text=%r", text[:220])
+    logger.warning(
+        "GUARDIAN /trigger received source=%s tid=%s user_id=%s session_id=%s keyword=%r",
+        "guardian_sr", tid, "-", "-", text[:180],
+    )
+    report = await _trigger_voice_emergency(
+        tid,
+        summary=text,
+        level="immediate",
+        place_calls=True,
+    )
+    logger.warning(
+        "GUARDIAN /trigger completed tid=%s triggered=%s sms=%s/%s calls=%s/%s dry_run=%s errors=%s",
+        tid,
+        report.get("triggered"),
+        (report.get("sms") or {}).get("sent"),
+        (report.get("sms") or {}).get("total"),
+        (report.get("calls") or {}).get("placed"),
+        (report.get("calls") or {}).get("total"),
+        report.get("dry_run"),
+        report.get("errors"),
+    )
 
 @app.post("/api/logs/client")
 async def receive_client_log(request: Request):
@@ -23419,6 +23507,11 @@ async def receive_client_log(request: Request):
     if len(_log_buffer) > _LOG_MAX:
         _log_buffer.pop(0)
     await _broadcast_log(entry)
+    msg_l = entry["msg"].lower()
+    if "guardian_sr" in msg_l and "sr_emergency" in msg_l:
+        emergency_text = _extract_guardian_sr_emergency_text(entry["msg"])
+        if emergency_text:
+            await _trigger_from_guardian_sr_log(emergency_text, request)
     return {"ok": True}
 
 @app.get("/api/logs/stream")
