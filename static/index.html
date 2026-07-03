@@ -5298,6 +5298,64 @@ function guardianCaptureZone() {
 
 var _guardianVoiceRecognition = null;
 
+function guardianNormalizeVoiceText(text) {
+  return (text || "")
+    .toString()
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[’`]/g, "'")
+    .replace(/[-]/g, " ");
+}
+
+function guardianVoiceHasEmergencyKeyword(text) {
+  var n = guardianNormalizeVoiceText(text);
+  if (!n) return false;
+  return (
+    n.indexOf("au secours") >= 0 ||
+    n.indexOf("a l'aide") >= 0 ||
+    n.indexOf("a laide") >= 0 ||
+    n.indexOf("aidez moi") >= 0 ||
+    n.indexOf("aide moi") >= 0 ||
+    n.indexOf("je suis en danger") >= 0 ||
+    n.indexOf("urgence") >= 0
+  );
+}
+
+function guardianHandleFinalVoiceText(text, source) {
+  text = (text || "").toString().trim();
+  source = source || "guardian_voice";
+  if (!text) return false;
+
+  if (!guardianVoiceHasEmergencyKeyword(text)) return false;
+
+  if (source === "guardian_sr" || source === "vosk" || source === "apk_vosk") {
+    console.warn("[GUARDIAN_SR] keyword detected", text);
+    console.warn("[GUARDIAN_SR] forwarding to sendGuardianTextToLunaVoice");
+    if (typeof _remoteLog === "function") {
+      _remoteLog("warn", "GUARDIAN_SR", "keyword detected", text.substring(0, 180));
+      _remoteLog("warn", "GUARDIAN_SR", "forwarding to sendGuardianTextToLunaVoice", source);
+    }
+  } else {
+    console.warn("[GuardianVoice] keyword detected", text);
+    if (typeof _remoteLog === "function") {
+      _remoteLog("warn", "guardian_voice", "keyword_detected", text.substring(0, 180));
+    }
+  }
+
+  sendGuardianTextToLunaVoice(text);
+  return true;
+}
+
+window.guardianHandleFinalVoiceText = guardianHandleFinalVoiceText;
+window.guardianVoiceHasEmergencyKeyword = guardianVoiceHasEmergencyKeyword;
+window.onGuardianSrFinal = function(text) { return guardianHandleFinalVoiceText(text, "guardian_sr"); };
+window.onGuardianVoskFinal = function(text) { return guardianHandleFinalVoiceText(text, "vosk"); };
+window.GUARDIAN_SR = window.GUARDIAN_SR || {};
+window.GUARDIAN_SR.onFinal = window.GUARDIAN_SR.onFinal || window.onGuardianSrFinal;
+window.GUARDIAN_SR.voskFinal = window.GUARDIAN_SR.voskFinal || window.onGuardianVoskFinal;
+
 function guardianStartVoiceListener() {
   if (!SpeechRecognition || _guardianVoiceRecognition) return;
 
@@ -5310,15 +5368,7 @@ function guardianStartVoiceListener() {
   _guardianVoiceRecognition.onresult = function(event) {
     for (var i = event.resultIndex; i < event.results.length; i++) {
       var text = event.results[i][0].transcript || "";
-      var lower = text.toLowerCase();
-
-      if (
-        lower.indexOf("au secours") >= 0 ||
-        lower.indexOf("à l'aide") >= 0 ||
-        lower.indexOf("a l'aide") >= 0
-      ) {
-        sendGuardianTextToLunaVoice(text);
-      }
+      guardianHandleFinalVoiceText(text, "speech_recognition");
     }
   };
 
