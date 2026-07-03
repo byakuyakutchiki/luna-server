@@ -286,7 +286,7 @@ def _reload_env():
     global LUNA_MODE, TAVUS_CALLBACK_URL, VOICE_CALLBACK_URL, REQUIRE_AUTH
     global OPENAI_API_KEY, OPENAI_MODEL, ADMIN_NUMBER, SETUP_OPENAI_API_KEY
     global _JWT_SECRET, _JWT_ALGORITHM
-    load_dotenv(os.path.join(os.path.dirname(__file__), ".env"), override=True)
+    load_dotenv(os.path.join(os.path.dirname(__file__), ".env"), override=False)
     LUNA_MODE = os.getenv("LUNA_MODE", "full").lower()
     TAVUS_CALLBACK_URL = os.getenv("TAVUS_CALLBACK_URL", "")
     VOICE_CALLBACK_URL = os.getenv("VOICE_CALLBACK_URL", "")
