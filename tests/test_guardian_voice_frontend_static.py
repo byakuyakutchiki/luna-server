@@ -10,11 +10,11 @@ def test_guardian_voice_paths_share_trigger_function():
 
     assert "function guardianHandleFinalVoiceText(text, source)" in html
     assert 'guardianHandleFinalVoiceText(text, "speech_recognition")' in html
-    assert "window.onGuardianSrFinal" in html
-    assert "window.onGuardianVoskFinal" in html
     assert "sendGuardianTextToLunaVoice(text);" in html
     assert "guardianVoiceHasEmergencyKeyword" in html
     assert ".replace(/[’`]/g, \"'\")" in html
+    assert "window.onGuardianSrFinal" not in html
+    assert "window.onGuardianVoskFinal" not in html
 
 
 def test_guardian_sr_logs_are_present():

@@ -5348,13 +5348,7 @@ function guardianHandleFinalVoiceText(text, source) {
   return true;
 }
 
-window.guardianHandleFinalVoiceText = guardianHandleFinalVoiceText;
 window.guardianVoiceHasEmergencyKeyword = guardianVoiceHasEmergencyKeyword;
-window.onGuardianSrFinal = function(text) { return guardianHandleFinalVoiceText(text, "guardian_sr"); };
-window.onGuardianVoskFinal = function(text) { return guardianHandleFinalVoiceText(text, "vosk"); };
-window.GUARDIAN_SR = window.GUARDIAN_SR || {};
-window.GUARDIAN_SR.onFinal = window.GUARDIAN_SR.onFinal || window.onGuardianSrFinal;
-window.GUARDIAN_SR.voskFinal = window.GUARDIAN_SR.voskFinal || window.onGuardianVoskFinal;
 
 function guardianStartVoiceListener() {
   if (!SpeechRecognition || _guardianVoiceRecognition) return;
