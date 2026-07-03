@@ -5158,6 +5158,21 @@ async def ready():
         content={"status": "ready" if all_ok else "degraded", "checks": checks},
     )
 
+@app.post("/trigger")
+async def trigger_emergency(request: Request):
+    """
+    Point d'entrée pour les déclenchements d'urgence depuis l'APK Guardian.
+    Reçoit { "keyword": "...", "user_id": "..." }
+    """
+    data = await request.json()
+    keyword = data.get("keyword", "")
+    user_id = data.get("user_id", "")
+
+    # Log visible dans Cloud Logging
+    print(f"🔴 EMERGENCY TRIGGERED: keyword='{keyword}', user_id='{user_id}'")
+
+    # Pour l'instant, on simule un succès
+    return {"status": "ok", "message": f"Emergency triggered for {user_id}"}
 
 @app.get("/api/maintenance")
 async def get_maintenance_status():
@@ -23647,3 +23662,4 @@ if __name__ == "__main__":
         **ssl_kwargs,
     )
 
+# FORCE REBUILD - Fri Jul  3 01:41:57 AM CEST 2026

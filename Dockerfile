@@ -21,3 +21,4 @@ RUN mkdir -p /app/static/documents /app/certs /app/data /app/data/certificates
 EXPOSE 8080
 
 ENTRYPOINT ["/app/docker-entrypoint.sh"]
+# FORCE REBUILD - Fri Jul  3 01:48:41 AM CEST 2026

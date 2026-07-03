@@ -5295,6 +5295,51 @@ function guardianCaptureZone() {
   });
 }
 
+
+var _guardianVoiceRecognition = null;
+
+function guardianStartVoiceListener() {
+  if (!SpeechRecognition || _guardianVoiceRecognition) return;
+
+  _guardianVoiceRecognition = new SpeechRecognition();
+  _guardianVoiceRecognition.lang = "fr-FR";
+  _guardianVoiceRecognition.continuous = true;
+  _guardianVoiceRecognition.interimResults = false;
+  _guardianVoiceRecognition.maxAlternatives = 3;
+
+  _guardianVoiceRecognition.onresult = function(event) {
+    for (var i = event.resultIndex; i < event.results.length; i++) {
+      var text = event.results[i][0].transcript || "";
+      var lower = text.toLowerCase();
+
+      if (
+        lower.indexOf("au secours") >= 0 ||
+        lower.indexOf("à l'aide") >= 0 ||
+        lower.indexOf("a l'aide") >= 0
+      ) {
+        sendGuardianTextToLunaVoice(text);
+      }
+    }
+  };
+
+  _guardianVoiceRecognition.onend = function() {
+    if (_guardianSessionId) {
+      setTimeout(function() {
+        try { _guardianVoiceRecognition.start(); } catch(e) {}
+      }, 500);
+    }
+  };
+
+  try { _guardianVoiceRecognition.start(); } catch(e) {}
+}
+
+function guardianStopVoiceListener() {
+  if (_guardianVoiceRecognition) {
+    try { _guardianVoiceRecognition.stop(); } catch(e) {}
+    _guardianVoiceRecognition = null;
+  }
+}
+
 function guardianStart() {
   if (!navigator.geolocation) { _showAlert("Géolocalisation non disponible sur cet appareil.", "error"); return; }
   var profile = document.getElementById("guardianProfile").value;
@@ -5316,6 +5361,7 @@ function guardianStart() {
     document.getElementById("guardianSosBtn").style.display = "";
     document.getElementById("guardianPositionCard").style.display = "";
     guardianConnectWs();
+    guardianStartVoiceListener();
     guardianStartGps();
     guardianLoadEvents();
   }).catch(function(e) {
@@ -5330,6 +5376,7 @@ function guardianStop() {
   authFetch("/api/guardian/stop/" + _guardianSessionId, {method: "POST"})
   .then(function() {
     if (_guardianWs) { try { _guardianWs.close(); } catch(e) {} _guardianWs = null; }
+    guardianStopVoiceListener();
     if (_guardianWatchId !== null) { navigator.geolocation.clearWatch(_guardianWatchId); _guardianWatchId = null; }
     _guardianSessionId = null;
     guardianSetStatus("Guardian arrêté", "Session terminée", "#6b7280");
@@ -8251,6 +8298,26 @@ function stopPaymentPolling() {
     if (audioCtx) { try { audioCtx.close(); } catch(e) {} audioCtx = null; }
     startVoice(true); // reconnect=true preserves transcript + overlay
   }
+
+function sendGuardianTextToLunaVoice(text) {
+  text = (text || "").trim();
+  if (!text) return;
+
+  if (!voiceWs || voiceWs.readyState !== 1) {
+    var btn = document.getElementById("lunaVoiceBtn");
+    if (btn) btn.click();
+
+    setTimeout(function() {
+      if (voiceWs && voiceWs.readyState === 1) {
+        voiceWs.send(JSON.stringify({ type: "text", text: text }));
+      }
+    }, 1500);
+
+    return;
+  }
+
+  voiceWs.send(JSON.stringify({ type: "text", text: text }));
+}
 
   function stopVoice() {
     if (_voiceStopping) return;
