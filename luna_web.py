@@ -9571,6 +9571,26 @@ Quand il parle de ses heures, propose de les enregistrer. Quand il parle d'une r
         else:
             _greeting = f"{_salut}. Comment puis-je t'aider ?"
 
+    # Sécurité vocale déterministe : la voix APK utilise /ws/luna-voice.
+    # Sans ces callbacks, les transcriptions sont visibles mais "au secours" ne déclenche rien.
+    from core.safety.voice_emergency import classify_emergency as _classify_emergency
+
+    async def _luna_emergency_detect(text: str, recent):
+        """Analyse d'intention d'urgence sur ce que dit l'utilisateur."""
+        return await _classify_emergency(text, recent, openai_client)
+
+    async def _luna_emergency_fire(summary: str, level: str, last_words: str = ""):
+        """Déclenche le protocole d'alerte (SMS + appels + position) côté serveur."""
+        return await _trigger_voice_emergency(tid, summary=summary, level=level, last_words=last_words)
+
+    _emergency_on = os.getenv("VOICE_EMERGENCY_ENABLED", "true").lower() in ("1", "true", "yes")
+    _emg_detect = _luna_emergency_detect if _emergency_on else None
+    _emg_fire = _luna_emergency_fire if _emergency_on else None
+
+    async def _luna_reminder_handle(text: str):
+        """Crée un rappel côté serveur si l'utilisateur en demande un."""
+        return await _handle_voice_reminder(text, tid)
+
     bridge = WebVoiceBridge(
         openai_api_key=OPENAI_API_KEY,
         ws_client=websocket,
@@ -9581,6 +9601,9 @@ Quand il parle de ses heures, propose de les enregistrer. Quand il parle d'une r
         greeting=_greeting,
         conversation_history=_voice_history,
         iris_mode=False,
+        emergency_detect=_emg_detect,
+        emergency_fire=_emg_fire,
+        reminder_handle=_luna_reminder_handle,
     )
 
     _voice_start = time.time()
@@ -26616,4 +26639,3 @@ if __name__ == "__main__":
         port=port,
         **ssl_kwargs,
     )
-
