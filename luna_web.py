@@ -4691,7 +4691,7 @@ async def security_middleware(request: Request, call_next):
 
     # PV de recette lock: en mode setup, seuls certains endpoints sont accessibles
     if _pv_locked:
-        pv_allowed = ("/api/status", "/api/setup/", "/api/admin/", "/api/stripe/webhook")
+        pv_allowed = ("/api/status", "/api/setup/", "/api/admin/", "/api/stripe/webhook", "/api/app/version")
         if path.startswith("/api/") and not any(path.startswith(a) for a in pv_allowed):
             logger.warning(f"PV_LOCKED {client_ip} {request.method} {path}")
             return JSONResponse(
@@ -5359,9 +5359,13 @@ async def download_apk():
 
 
 
-# Version APK pour auto-update
-LUNA_APP_VERSION = "2.8"
-LUNA_APP_VERSION_CODE = 19
+# Version APK pour auto-update et compatibilité backend
+LUNA_APP_VERSION = "3.1"
+LUNA_APP_VERSION_CODE = 22
+LUNA_BACKEND_VERSION = "guardian-2026-07-04"
+LUNA_BACKEND_ENVIRONMENT = os.getenv("LUNA_BACKEND_ENVIRONMENT", "test-guardian")
+LUNA_MIN_APK_VERSION_CODE = int(os.getenv("LUNA_MIN_APK_VERSION_CODE", "22"))
+LUNA_RECOMMENDED_APK_VERSION_CODE = int(os.getenv("LUNA_RECOMMENDED_APK_VERSION_CODE", "22"))
 
 
 def _compute_apk_sha256() -> str:
@@ -5381,14 +5385,41 @@ _APK_SHA256: str = _compute_apk_sha256()
 
 
 @app.get("/api/app/version")
-async def app_version():
-    """Retourne la version courante de l'APK pour auto-update."""
+async def app_version(request: Request):
+    """
+    Retourne la version courante du backend et les exigences APK.
+    Permet a l'APK de verifier qu'elle est compatible avec le backend atteint.
+    """
+    proto = request.headers.get("X-Forwarded-Proto", "https")
+    host = request.headers.get("X-Forwarded-Host", request.headers.get("Host", "localhost"))
+    base_url = f"{proto}://{host}".rstrip("/")
+    cloud_run_revision = os.getenv("K_REVISION", "unknown")
+    force_update = LUNA_APP_VERSION_CODE < LUNA_MIN_APK_VERSION_CODE
+
+    logger.info(
+        "[APK_VERSION_CHECK] backend_version=%s cloud_run_revision=%s environment=%s "
+        "apk_version_code=%s min_apk_version_code=%s recommended_apk_version_code=%s force_update=%s",
+        LUNA_BACKEND_VERSION,
+        cloud_run_revision,
+        LUNA_BACKEND_ENVIRONMENT,
+        LUNA_APP_VERSION_CODE,
+        LUNA_MIN_APK_VERSION_CODE,
+        LUNA_RECOMMENDED_APK_VERSION_CODE,
+        force_update,
+    )
+
     return {
-        "version": LUNA_APP_VERSION,
-        "version_code": LUNA_APP_VERSION_CODE,
-        "apk_url": "/download/luna.apk",
+        "backend_version": LUNA_BACKEND_VERSION,
+        "cloud_run_revision": cloud_run_revision,
+        "environment": LUNA_BACKEND_ENVIRONMENT,
+        "minimum_apk_version_code": LUNA_MIN_APK_VERSION_CODE,
+        "recommended_apk_version_code": LUNA_RECOMMENDED_APK_VERSION_CODE,
+        "force_update": force_update,
+        "apk_download_url": base_url + "/download/luna.apk",
         "apk_sha256": _APK_SHA256,
-        "changelog": "Sécurité APK renforcée, vérification intégrité mise à jour",
+        "current_apk_version_code": LUNA_APP_VERSION_CODE,
+        "current_apk_version_name": LUNA_APP_VERSION,
+        "changelog": "Anti-decalage APK/Cloud Run pour Guardian",
     }
 
 

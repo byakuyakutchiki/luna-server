@@ -51,7 +51,9 @@ import java.security.MessageDigest;
 
 public class MainActivity extends Activity {
 
-    private static final String LUNA_URL = "https://luna-beta-674304336025.europe-west1.run.app";
+    // URL backend : mode test pointe explicitement vers le tag test-guardian
+    // pour eviter de tomber sur l'ancienne revision stable en production.
+    private static final String LUNA_URL = "https://test-guardian---luna-beta-gly3g647na-ew.a.run.app";
     private static final int PERMISSION_REQUEST_CODE = 100;
     private static final int NOTIFICATION_PERMISSION_CODE = 101;
     private static final int FILE_CHOOSER_REQUEST_CODE = 102;
@@ -67,6 +69,18 @@ public class MainActivity extends Activity {
     private boolean isInForeground = true;
     private int notificationId = 1000;
     private View splashView;
+
+    // Version / compatibilite backend
+    private String backendVersion = "unknown";
+    private String backendRevision = "unknown";
+    private String backendEnvironment = "unknown";
+    private int backendMinVersionCode = 0;
+    private int backendRecommendedVersionCode = 0;
+    private boolean backendForceUpdate = false;
+    private String lastTriggerStatus = "-";
+    private String lastGuardianSessionId = "-";
+    private boolean backendVersionChecked = false;
+    private boolean backendVersionOk = true;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -347,8 +361,14 @@ public class MainActivity extends Activity {
         sendLog("info", "APP START v" + CURRENT_VERSION + " (" + CURRENT_VERSION_CODE + ") — " + Build.MODEL + " Android " + Build.VERSION.RELEASE, "apk/" + Build.MODEL);
         webView.loadUrl(LUNA_URL);
 
-        // Verification auto-update en arriere-plan
-        checkForUpdate();
+        // Verification compatibilite APK/backend + auto-update en arriere-plan
+        checkBackendVersion();
+
+        // Ecran debug : long-press sur le WebView affiche les infos version/backend
+        webView.setOnLongClickListener(v -> {
+            showDebugPanel();
+            return true;
+        });
     }
 
     /** Construit l'écran de chargement brandé YAWatch / Luna. */
@@ -544,13 +564,48 @@ public class MainActivity extends Activity {
         public boolean isAppInForeground() {
             return isInForeground;
         }
+
+        @JavascriptInterface
+        public String getApkVersionInfo() {
+            try {
+                JSONObject info = new JSONObject();
+                info.put("apk_version_code", CURRENT_VERSION_CODE);
+                info.put("apk_version_name", CURRENT_VERSION);
+                info.put("backend_url", LUNA_URL);
+                info.put("backend_version", backendVersion);
+                info.put("cloud_run_revision", backendRevision);
+                info.put("environment", backendEnvironment);
+                info.put("compatible", backendVersionOk);
+                info.put("min_apk_version_code", backendMinVersionCode);
+                info.put("last_trigger_status", lastTriggerStatus);
+                info.put("last_guardian_session_id", lastGuardianSessionId);
+                return info.toString();
+            } catch (Exception e) {
+                return "{}";
+            }
+        }
+
+        @JavascriptInterface
+        public void setLastTriggerStatus(String status) {
+            lastTriggerStatus = status;
+        }
+
+        @JavascriptInterface
+        public void setLastGuardianSessionId(String sessionId) {
+            lastGuardianSessionId = sessionId;
+        }
+
+        @JavascriptInterface
+        public void showDebugPanel() {
+            runOnUiThread(MainActivity.this::showDebugPanel);
+        }
     }
 
     /**
      * Verifie si une nouvelle version est disponible sur le serveur.
      * Exige un champ apk_sha256 valide (64 hex) pour démarrer la mise à jour.
      */
-    private void checkForUpdate() {
+    private void checkBackendVersion() {
         new Thread(() -> {
             try {
                 URL url = new URL(LUNA_URL + "/api/app/version");
@@ -569,22 +624,104 @@ public class MainActivity extends Activity {
                     reader.close();
 
                     JSONObject json = new JSONObject(sb.toString());
-                    int serverVersionCode = json.optInt("version_code", 0);
-                    String apkUrl = json.optString("apk_url", "");
-                    String apkSha256 = json.optString("apk_sha256", "");
+                    backendVersion = json.optString("backend_version", "unknown");
+                    backendRevision = json.optString("cloud_run_revision", "unknown");
+                    backendEnvironment = json.optString("environment", "unknown");
+                    backendMinVersionCode = json.optInt("minimum_apk_version_code", 0);
+                    backendRecommendedVersionCode = json.optInt("recommended_apk_version_code", 0);
+                    backendForceUpdate = json.optBoolean("force_update", false);
+                    int currentServerApkCode = json.optInt("current_apk_version_code", 0);
+                    String apkDownloadUrl = json.optString("apk_download_url", "");
 
-                    // Refuser toute mise à jour sans SHA-256 valide (64 hex)
-                    if (serverVersionCode > CURRENT_VERSION_CODE
-                            && !apkUrl.isEmpty()
+                    backendVersionChecked = true;
+                    backendVersionOk = CURRENT_VERSION_CODE >= backendMinVersionCode;
+
+                    android.util.Log.i("LUNA_VERSION",
+                        "[APK_VERSION_CHECK] apk_version_code=" + CURRENT_VERSION_CODE +
+                        " apk_version_name=" + CURRENT_VERSION +
+                        " backend_url=" + LUNA_URL +
+                        " backend_version=" + backendVersion +
+                        " backend_revision=" + backendRevision +
+                        " environment=" + backendEnvironment +
+                        " min_apk_version_code=" + backendMinVersionCode +
+                        " recommended_apk_version_code=" + backendRecommendedVersionCode +
+                        " compatible=" + backendVersionOk);
+
+                    if (backendForceUpdate || !backendVersionOk) {
+                        runOnUiThread(() -> showUpdateRequiredDialog(apkDownloadUrl));
+                        return;
+                    }
+
+                    String apkSha256 = json.optString("apk_sha256", "");
+                    if (currentServerApkCode > CURRENT_VERSION_CODE
+                            && !apkDownloadUrl.isEmpty()
                             && apkSha256.matches("[0-9a-fA-F]{64}")) {
-                        downloadAndVerifyUpdate(LUNA_URL + apkUrl, apkSha256);
+                        runOnUiThread(() -> showUpdateAvailableDialog(apkDownloadUrl, apkSha256));
                     }
                 }
                 conn.disconnect();
             } catch (Exception e) {
-                // Silencieux
+                android.util.Log.w("LUNA_VERSION", "[APK_VERSION_CHECK] failed: " + e.getMessage());
             }
         }).start();
+    }
+
+    private void showUpdateRequiredDialog(final String apkUrl) {
+        if (isFinishing()) return;
+        new android.app.AlertDialog.Builder(this)
+            .setTitle("Mise a jour obligatoire")
+            .setMessage("Votre version de Guardian n'est pas compatible avec le serveur actuel.\n\n" +
+                        "APK : " + CURRENT_VERSION + " (" + CURRENT_VERSION_CODE + ")\n" +
+                        "Serveur : " + backendVersion + " [" + backendEnvironment + "]\n" +
+                        "Revision : " + backendRevision + "\n\n" +
+                        "Mise a jour obligatoire.")
+            .setCancelable(false)
+            .setPositiveButton("Telecharger la derniere APK", (dialog, which) -> {
+                try {
+                    Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(apkUrl));
+                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                    startActivity(intent);
+                } catch (Exception e) {
+                    Toast.makeText(MainActivity.this, "Impossible d'ouvrir le lien", Toast.LENGTH_LONG).show();
+                }
+            })
+            .show();
+    }
+
+    private void showUpdateAvailableDialog(final String apkUrl, final String expectedSha256) {
+        if (isFinishing()) return;
+        new android.app.AlertDialog.Builder(this)
+            .setTitle("Mise a jour disponible")
+            .setMessage("Une nouvelle version de Luna est disponible.\n\n" +
+                        "Revision serveur : " + backendRevision)
+            .setPositiveButton("Telecharger", (dialog, which) -> downloadAndVerifyUpdate(apkUrl, expectedSha256))
+            .setNegativeButton("Plus tard", null)
+            .show();
+    }
+
+    /**
+     * Panneau debug accessible par long-press sur le WebView.
+     * Affiche les infos APK/backend utiles pour les tests Guardian.
+     */
+    private void showDebugPanel() {
+        if (isFinishing()) return;
+        StringBuilder sb = new StringBuilder();
+        sb.append("APK version: ").append(CURRENT_VERSION).append(" (").append(CURRENT_VERSION_CODE).append(")\n");
+        sb.append("Backend URL: ").append(LUNA_URL).append("\n");
+        sb.append("Backend version: ").append(backendVersion).append("\n");
+        sb.append("Cloud Run revision: ").append(backendRevision).append("\n");
+        sb.append("Environment: ").append(backendEnvironment).append("\n");
+        sb.append("Compatible: ").append(backendVersionOk).append("\n");
+        sb.append("Min APK version: ").append(backendMinVersionCode).append("\n");
+        sb.append("Dry-run (Cloud Run): ").append(backendEnvironment.contains("test") ? "true" : "unknown").append("\n");
+        sb.append("Last /trigger status: ").append(lastTriggerStatus).append("\n");
+        sb.append("Last guardian_session_id: ").append(lastGuardianSessionId).append("\n");
+
+        new android.app.AlertDialog.Builder(this)
+            .setTitle("Debug Guardian")
+            .setMessage(sb.toString())
+            .setPositiveButton("OK", null)
+            .show();
     }
 
     /**
