@@ -5162,17 +5162,100 @@ async def ready():
 async def trigger_emergency(request: Request):
     """
     Point d'entrée pour les déclenchements d'urgence depuis l'APK Guardian.
-    Reçoit { "keyword": "...", "user_id": "..." }
+    Reçoit au minimum { "keyword": "...", "source": "guardian_voice", "user_id": "..." }.
+    Déclenche la vraie chaîne Guardian/urgence, pas seulement un accusé de réception.
     """
-    data = await request.json()
-    keyword = data.get("keyword", "")
-    user_id = data.get("user_id", "")
+    try:
+        data = await request.json()
+    except Exception:
+        return JSONResponse(status_code=400, content={"ok": False, "error": "JSON invalide"})
+    if not isinstance(data, dict):
+        return JSONResponse(status_code=400, content={"ok": False, "error": "Payload invalide"})
 
-    # Log visible dans Cloud Logging
-    print(f"🔴 EMERGENCY TRIGGERED: keyword='{keyword}', user_id='{user_id}'")
+    keyword = str(data.get("keyword", "") or "").strip()
+    source = str(data.get("source", "") or "guardian_voice").strip()
+    user_id = str(data.get("user_id", "") or "").strip()
+    session_id = str(data.get("session_id", "") or "").strip()
+    last_words = str(data.get("last_words", "") or keyword).strip()
+    summary = str(data.get("summary", "") or last_words or keyword).strip()
+    tid = int(getattr(request.state, "tenant_id", TENANT_ID) or TENANT_ID)
+    token = _extract_bearer(request)
+    payload = _decode_client_token(token) if token else None
+    if payload:
+        tid = int(payload.get("tenant_id", tid) or tid)
+        if not user_id:
+            user_id = str(payload.get("tenant_id", "") or payload.get("email", "") or "")
+    elif token:
+        admin_payload = _decode_admin_token(token)
+        if admin_payload:
+            tid = int(admin_payload.get("tenant_id", tid) or tid)
+            if not user_id:
+                user_id = str(admin_payload.get("tenant_id", "") or admin_payload.get("email", "") or "")
 
-    # Pour l'instant, on simule un succès
-    return {"status": "ok", "message": f"Emergency triggered for {user_id}"}
+    logger.warning(
+        "GUARDIAN /trigger received source=%s tid=%s user_id=%s session_id=%s keyword=%r",
+        source, tid, user_id or "-", session_id or "-", keyword[:180],
+    )
+
+    if not keyword:
+        return JSONResponse(status_code=400, content={"ok": False, "error": "keyword manquant"})
+
+    guardian_event = None
+    guardian_session_id = session_id
+
+    # Marque l'événement dans Guardian si une session active existe.
+    try:
+        engine = _get_guardian()
+        if engine:
+            if not guardian_session_id:
+                active = engine.get_active_sessions(tid)
+                guardian_session_id = active[0] if active else ""
+            if guardian_session_id:
+                ev = engine.trigger_sos(guardian_session_id)
+                guardian_event = ev.to_dict() if hasattr(ev, "to_dict") else ev
+                logger.warning(
+                    "GUARDIAN /trigger backend event recorded tid=%s session_id=%s",
+                    tid, guardian_session_id,
+                )
+    except Exception as e:
+        logger.exception("GUARDIAN /trigger backend event failed: %s", e)
+
+    try:
+        report = await _trigger_voice_emergency(
+            tid,
+            summary=summary,
+            level="immediate",
+            place_calls=True,
+        )
+    except Exception as e:
+        logger.exception("GUARDIAN /trigger emergency chain failed: %s", e)
+        return JSONResponse(
+            status_code=500,
+            content={"ok": False, "error": "emergency_chain_failed", "detail": str(e)},
+        )
+
+    logger.warning(
+        "GUARDIAN /trigger completed tid=%s triggered=%s sms=%s/%s calls=%s/%s dry_run=%s errors=%s",
+        tid,
+        report.get("triggered"),
+        (report.get("sms") or {}).get("sent"),
+        (report.get("sms") or {}).get("total"),
+        (report.get("calls") or {}).get("placed"),
+        (report.get("calls") or {}).get("total"),
+        report.get("dry_run"),
+        report.get("errors"),
+    )
+
+    return {
+        "ok": True,
+        "status": "triggered" if report.get("triggered") else "not_triggered",
+        "source": source,
+        "user_id": user_id,
+        "tenant_id": tid,
+        "guardian_session_id": guardian_session_id,
+        "guardian_event": guardian_event,
+        "emergency_report": report,
+    }
 
 @app.get("/api/maintenance")
 async def get_maintenance_status():

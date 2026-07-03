@@ -8303,12 +8303,57 @@ function sendGuardianTextToLunaVoice(text) {
   text = (text || "").trim();
   if (!text) return;
 
+  var userId = 0;
+  try {
+    userId = (typeof _myTid === "function") ? _myTid() : 0;
+  } catch(e) {}
+
+  var triggerPayload = {
+    keyword: text,
+    source: "guardian_voice",
+    user_id: userId || undefined,
+    session_id: _guardianSessionId || "",
+    last_words: text,
+    summary: text
+  };
+
+  console.info("[GuardianVoice] keyword detected; POST /trigger + Luna Voice", triggerPayload);
+  if (typeof _remoteLog === "function") {
+    _remoteLog("warn", "guardian_voice", "keyword_detected", text.substring(0, 180));
+  }
+
+  authFetch("/trigger", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify(triggerPayload)
+  })
+  .then(function(r) {
+    console.info("[GuardianVoice] /trigger response status", r.status);
+    if (typeof _remoteLog === "function") {
+      _remoteLog("warn", "guardian_voice", "trigger_response", "status=" + r.status);
+    }
+    return r.json().catch(function(){ return {}; });
+  })
+  .then(function(d) {
+    console.info("[GuardianVoice] /trigger result", d);
+    if (typeof _remoteLog === "function") {
+      _remoteLog("warn", "guardian_voice", "trigger_result", JSON.stringify(d).substring(0, 500));
+    }
+  })
+  .catch(function(e) {
+    console.error("[GuardianVoice] /trigger failed", e);
+    if (typeof _remoteLog === "function") {
+      _remoteLog("error", "guardian_voice", "trigger_failed", String(e && e.message || e || ""));
+    }
+  });
+
   if (!voiceWs || voiceWs.readyState !== 1) {
     var btn = document.getElementById("lunaVoiceBtn");
     if (btn) btn.click();
 
     setTimeout(function() {
       if (voiceWs && voiceWs.readyState === 1) {
+        console.info("[GuardianVoice] forwarding text to Luna Voice after WS start");
         voiceWs.send(JSON.stringify({ type: "text", text: text }));
       }
     }, 1500);
@@ -8316,6 +8361,7 @@ function sendGuardianTextToLunaVoice(text) {
     return;
   }
 
+  console.info("[GuardianVoice] forwarding text to Luna Voice");
   voiceWs.send(JSON.stringify({ type: "text", text: text }));
 }
 
