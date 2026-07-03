@@ -1248,6 +1248,17 @@ class WebVoiceBridge:
             "Exemple : « Tu veux que je prévienne tes proches tout de suite ? »"
         )
 
+    @staticmethod
+    def _enrich_emergency_summary(summary: str, text: str) -> str:
+        """Conserve la catégorie LLM sans perdre la phrase brute entendue."""
+        summary = (summary or "").strip()
+        text = (text or "").strip()
+        if not summary:
+            return text
+        if not text or text.lower() in summary.lower():
+            return summary
+        return f"{summary}. Phrase entendue : {text}"
+
     async def _emergency_llm_followup(self, text: str):
         """Analyse d'intention (LLM) en tâche de fond — capte la détresse nuancée."""
         try:
@@ -1255,12 +1266,14 @@ class WebVoiceBridge:
             verdict = await self._emergency_detect(text, recent)
             level = (verdict or {}).get("level", "none")
             summary = (verdict or {}).get("summary", "") or text
+            enriched_summary = self._enrich_emergency_summary(summary, text)
             if self._emergency_active or self._pending_emergency is not None:
                 return
+            logger.warning(f"WebVoice: emergency enriched summary={enriched_summary[:200]!r}")
             if level == "immediate":
-                await self._fire_and_reassure(summary, "immediate")
+                await self._fire_and_reassure(enriched_summary, "immediate")
             elif level == "ambiguous":
-                await self._ask_emergency_confirmation(summary)
+                await self._ask_emergency_confirmation(enriched_summary)
         except Exception as e:
             logger.warning(f"WebVoice: emergency_llm_followup error: {e}")
 
