@@ -628,6 +628,51 @@ var LAST_GPS_SENT=0, CFG_OPEN=false, EV_OPEN=false;
 var LAST_POS=null, PREV_POS=null;
 var GEO_CACHE={};
 
+function _guardianTenantId(){
+  try{
+    var t=getToken();
+    if(!t||t.indexOf('.')<0) return '';
+    return JSON.parse(atob(t.split('.')[1])).tenant_id||'';
+  }catch(e){return '';}
+}
+
+function _guardianSrPostTrigger(text, confidence){
+  text=(text||'').toString().trim();
+  if(!text) return Promise.resolve(false);
+  console.warn('[GUARDIAN_SR] calling /trigger from sr_emergency | '+text+' | conf='+(confidence||''));
+  return authFetch('/trigger',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({
+      keyword:text,
+      source:'guardian_apk_vosk',
+      user_id:_guardianTenantId(),
+      session_id:SID||'',
+      last_words:text,
+      summary:text
+    })
+  }).then(function(r){
+    console.warn('[GUARDIAN_SR] /trigger response status='+r.status);
+    return r.json().catch(function(){return {};});
+  }).then(function(d){
+    console.warn('[GUARDIAN_SR] /trigger result '+JSON.stringify(d).slice(0,500));
+    return d;
+  }).catch(function(e){
+    console.error('[GUARDIAN_SR] /trigger failed '+(e&&e.message?e.message:e));
+    return false;
+  });
+}
+
+// Point d'entrée réel du Guardian APK/VOSK.
+// Appelé par le natif quand VOSK détecte une urgence vocale.
+window.lunaEmergencyVoiceDetected=function(text, confidence){
+  text=(text||'').toString().trim();
+  console.warn('[GUARDIAN_SR] web_emergency_received | SID='+(!!SID)+' sos=false active=false | '+text+' | conf='+(confidence||''));
+  if(!text) return false;
+  _guardianSrPostTrigger(text, confidence);
+  return true;
+};
+
 // ── MAP INIT ─────────────────────────────────
 function initMap(){
   MAP=L.map('map',{zoomControl:false,attributionControl:true}).setView([46.6,1.88],13);
