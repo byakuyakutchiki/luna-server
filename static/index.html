@@ -5405,7 +5405,7 @@ function guardianStart() {
     document.getElementById("guardianSosBtn").style.display = "";
     document.getElementById("guardianPositionCard").style.display = "";
     guardianConnectWs();
-    guardianStartVoiceListener();
+    // guardianStartVoiceListener(); // désactivé: évite SOS au simple affichage Guardian
     guardianStartGps();
     guardianLoadEvents();
   }).catch(function(e) {
@@ -8366,7 +8366,7 @@ function sendGuardianTextToLunaVoice(text) {
     _remoteLog("warn", "guardian_voice", "keyword_detected", text.substring(0, 180));
   }
 
-  authFetch("/trigger", {
+  fetch("/trigger", {
     method: "POST",
     headers: {"Content-Type": "application/json"},
     body: JSON.stringify(triggerPayload)

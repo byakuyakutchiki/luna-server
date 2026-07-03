@@ -23507,11 +23507,6 @@ async def receive_client_log(request: Request):
     if len(_log_buffer) > _LOG_MAX:
         _log_buffer.pop(0)
     await _broadcast_log(entry)
-    msg_l = entry["msg"].lower()
-    if "guardian_sr" in msg_l and "sr_emergency" in msg_l:
-        emergency_text = _extract_guardian_sr_emergency_text(entry["msg"])
-        if emergency_text:
-            await _trigger_from_guardian_sr_log(emergency_text, request)
     return {"ok": True}
 
 @app.get("/api/logs/stream")
