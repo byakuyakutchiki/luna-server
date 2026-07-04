@@ -1647,10 +1647,10 @@ function _vocalMatch(transcript){
     return true;
   });
   if(hit){
-    // Issue #32 : conserver la phrase entière (mot-clé + contexte) pour l'alerte.
-    _voiceTranscript=(transcript||'').toString();
-    _voiceContext=_voiceTranscript;
+    _traceGuardian('web_sr_hit',{path:'_vocalMatch', transcript:transcript||'', keywordMatched:true, voiceTranscript:_voiceTranscript, voiceContext:_voiceContext});
     openVocalCountdown();
+  } else {
+    _traceGuardian('web_sr_no_hit',{path:'_vocalMatch', transcript:transcript||'', keywordMatched:false});
   }
 }
 
@@ -1775,16 +1775,34 @@ function _dbgSR(msg){
   try{ fetch('/api/debug/log',{method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({level:'info',tag:'GUARDIAN_SR',msg:'web_'+msg,data:'SID='+(!!SID)+' sos='+_sosInProgress+' active='+_vocalActive})}); }catch(e){}
 }
+// Traçage terrain Guardian — utilisé temporairement pour prouver la chaîne vocale.
+// Ne change pas la logique métier, envoie juste des logs vers Cloud Run (tag GUARDIAN_SR).
+function _traceGuardian(step, payload){
+  try{
+    fetch('/api/debug/log',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        level:'info',
+        tag:'GUARDIAN_SR',
+        msg:'TRACE_'+step,
+        data:JSON.stringify(Object.assign({sid:SID||null, sosInProgress:!!_sosInProgress, vocalActive:!!_vocalActive}, payload||{}))
+      })
+    });
+  }catch(e){}
+}
 // Issue #32 — phrase complète capturée + contexte on-device (circonstances probables).
 var _voiceTranscript='';
 var _voiceContext='';
 window.lunaEmergencyVoiceDetected=function(text, confidence, context){
   _dbgSR('emergency_received');
-  if(!SID){ _dbgSR('bail_no_session'); return; }
-  if(_sosInProgress){ _dbgSR('bail_sos_in_progress'); return; }
+  _traceGuardian('vosk_received',{path:'lunaEmergencyVoiceDetected', text:text||'', confidence:confidence, context:context||''});
+  if(!SID){ _dbgSR('bail_no_session'); _traceGuardian('vosk_bail',{reason:'no_session'}); return; }
+  if(_sosInProgress){ _dbgSR('bail_sos_in_progress'); _traceGuardian('vosk_bail',{reason:'sos_in_progress'}); return; }
   _voiceTranscript=(text||'').toString();
   _voiceContext=(context||'').toString();
   _dbgSR('opening_countdown');
+  _traceGuardian('vosk_open_countdown',{transcript:_voiceTranscript, context:_voiceContext});
   openVocalCountdown();
   // Enrichissement SERVEUR best-effort : upgrade le résumé affiché pendant le countdown.
   _enrichVoiceContext(_voiceTranscript);
@@ -1834,13 +1852,16 @@ function _triggerSOSVocal(){
   guardianSpeak('Contact d\'urgence activé.');
   // P1 — Activer tracking GPS renforcé immédiatement
   _eemStart(iid,'vocal');
+  var sosPayload={incident_id:iid,source:'vocal',context:_voiceContext||'',transcript:_voiceTranscript||''};
+  _traceGuardian('sos_request',{path:'_triggerSOSVocal', payload:sosPayload});
   authFetch('/api/guardian/sos/'+SID,{
     method:'POST',
     headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({incident_id:iid,source:'vocal',context:_voiceContext||'',transcript:_voiceTranscript||''})
+    body:JSON.stringify(sosPayload)
   }).then(function(r){
     return r.json().then(function(d){return {status:r.status,data:d};});
   }).then(function(res){
+    _traceGuardian('sos_response',{status:res.status, data:res.data});
     if(res.status===409){showToast('⏳ Alerte déjà envoyée',3000);return;}
     var d=res.data;
     var summary=_formatAlertSummary(d);
@@ -1856,7 +1877,10 @@ function _triggerSOSVocal(){
     _eemStartAudio(iid);
     // P3 — Camera 3 snapshots (non-bloquant)
     _eemStartCamera(iid);
-  }).catch(function(e){showToast('❌ SOS: '+(e.message||'erreur'));})
+  }).catch(function(e){
+    _traceGuardian('sos_error',{error:e.message||String(e)});
+    showToast('❌ SOS: '+(e.message||'erreur'));
+  })
   .finally(function(){
     _sosInProgress=false;
     _voiceTranscript='';
