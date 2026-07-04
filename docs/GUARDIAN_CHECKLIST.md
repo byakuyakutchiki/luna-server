@@ -26,8 +26,8 @@
 - [x] Extraire `static/simli.html` de la production
 - [x] Restaurer les fichiers `static/` dans le repo local
 - [x] Préserver la nouvelle APK (`static/luna-proprio.apk`) et les QR codes
-- [~] Comparer et synchroniser les fichiers Python (`luna_web.py`, `core/guardian/engine.py`, `integrations/twilio/voice_client.py`)
-- [ ] Valider que le repo local est identique à la production stable avant modification
+- [x] Comparer et synchroniser les fichiers Python (`luna_web.py`, `core/guardian/engine.py`, `integrations/twilio/voice_client.py`, `core/guardian/alerts.py`, etc.)
+- [x] Valider que le repo local est identique à la production stable avant modification
 
 ---
 
@@ -62,40 +62,73 @@
 
 ---
 
-## 4. Écoute vocale Guardian
+## 4. Architecture Guardian découverte dans production `00820-ltr`
+
+Le flux vocal ne passe PAS directement par `/trigger`.
+
+Chaîne réelle :
+
+```
+APK Vosk
+↓
+window.lunaEmergencyVoiceDetected(text, confidence, context)
+↓
+openVocalCountdown()
+↓
+_triggerSOSVocal()
+↓
+POST /api/guardian/sos/{session_id}
+↓
+backend guardian_sos()
+↓
+DM Luna + SMS + appels
+```
+
+Points clés :
+- Le contexte vocal (circonstances) est transmis au backend.
+- Le SMS inclut les circonstances.
+- L'appel vocal inclut le nom + circonstances + adresse.
+- `GUARDIAN_CALL_ENABLED=true` est nécessaire pour les appels.
+- `GUARDIAN_SMS_ENABLED=true` est nécessaire pour les SMS.
+
+## 5. Écoute vocale Guardian
 
 - [ ] Micro démarre réellement
 - [ ] Vosk fonctionne dans l'APK
 - [ ] Browser SpeechRecognition fonctionne en navigateur
 - [ ] Logs affichent la détection
-- [ ] `window.lunaEmergencyVoiceDetected(text, confidence)` est appelée
+- [ ] `window.lunaEmergencyVoiceDetected(text, confidence, context)` est appelée
 - [ ] Texte reconnu transmis
 - [ ] Système ne coupe pas trop tôt
 - [ ] Contexte après le mot-clé conservé
 
 **Marqueurs à vérifier dans `static/guardian.html` :**
-- [ ] `window.lunaEmergencyVoiceDetected`
-- [ ] `guardian_apk_vosk`
-- [ ] `authFetch('/trigger'`
-- [ ] logs `[GUARDIAN_SR]`
-- [ ] logs `calling /trigger from sr_emergency`
+- [x] `window.lunaEmergencyVoiceDetected` — présent
+- [x] `_triggerSOSVocal` — présent
+- [x] `authFetch('/api/guardian/sos/...')` — présent
+- [x] logs `GUARDIAN_SR` — présent
+- [x] source `'vocal'` dans l'appel SOS — présent
 
 ---
 
-## 5. /trigger manuel
+## 5. /api/guardian/sos manuel
+
+Dans la production `00820-ltr`, le SOS passe par `/api/guardian/sos/{session_id}`.
 
 ```bash
-curl -i -X POST https://luna-beta-gly3g647na-ew.a.run.app/trigger \
+curl -i -X POST https://luna-beta-gly3g647na-ew.a.run.app/api/guardian/sos/SESSION_ID \
   -H "Content-Type: application/json" \
-  -d '{"keyword":"au secours test","source":"manual_test","last_words":"au secours test","summary":"au secours test"}'
+  -H "Authorization: Bearer TOKEN" \
+  -d '{"incident_id":"test-123","source":"vocal","context":"Au secours test","transcript":"Au secours test"}'
 ```
 
-- [ ] `ok: true`
-- [ ] `status: triggered`
-- [ ] `emergency_report.triggered: true`
-- [ ] SMS comptabilisés correctement
-- [ ] Appels comptabilisés correctement
+- [ ] `success: true`
+- [ ] `alerts_sent_to` cohérent avec nombre de contacts
+- [ ] `calls_placed` cohérent
+- [ ] Message `SOS envoyé à X contact(s)`
 - [ ] Mode dry-run ou réel cohérent
+
+**Note :** l'ancien endpoint `/trigger` existe encore pour compatibilité mais le flux Guardian nominal passe par `/api/guardian/sos`.
 
 ---
 
