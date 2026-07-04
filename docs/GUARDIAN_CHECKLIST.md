@@ -88,6 +88,7 @@ Points clés :
 - Le contexte vocal (circonstances) est transmis au backend.
 - Le SMS inclut les circonstances.
 - L'appel vocal inclut le nom + circonstances + adresse.
+- L'événement `sos_triggered` conserve maintenant le contexte vocal dans `description` et `metadata.context`.
 - `GUARDIAN_CALL_ENABLED=true` est nécessaire pour les appels.
 - `GUARDIAN_SMS_ENABLED=true` est nécessaire pour les SMS.
 

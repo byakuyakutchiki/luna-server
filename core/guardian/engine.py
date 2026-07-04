@@ -4,9 +4,11 @@ Luna Guardian - Moteur de surveillance géolocalisée
 Pipeline : Position GPS → Analyse comportementale → RiskScore → Vérification → Alerte avec localisation
 Remplace totalement la détection caméra (perception) par le GPS du smartphone.
 """
+import hashlib
 import json
 import logging
 import math
+import time
 import uuid
 from datetime import datetime, timedelta
 from dataclasses import dataclass, field, asdict
@@ -16,6 +18,13 @@ from enum import Enum
 from .profiles import get_profile, format_profile_message
 
 logger = logging.getLogger("luna.guardian")
+
+import os as _os
+# VOICE-ONLY (01/07, demande Ludo) : Guardian ne réagit qu'aux APPELS VOCAUX (« à l'aide »,
+# « au secours »… via VOSK). Les déclencheurs AUTOMATIQUES (immobilité prolongée, sortie de
+# zone/géofence, check-in manqué, chute) sont DÉSACTIVÉS — trop de fausses alertes. Le GPS
+# reste enregistré (position pour le SOS), mais ne déclenche plus d'alerte tout seul.
+_GUARDIAN_VOICE_ONLY = _os.getenv("GUARDIAN_VOICE_ONLY", "true").lower() in ("1", "true", "yes")
 
 # ─────────────────────────────────────────────
 # ENUMS & VALUE OBJECTS
@@ -123,6 +132,11 @@ class GuardianSession:
     grace_period_until: Optional[str] = None
     # P0-05: Fenêtre 24h pour le compteur d'alertes
     alerts_window_start: Optional[str] = None
+    # P0-03: Niveau 3 — compteur de tentatives de vérification (1 → 2 → alerte)
+    verification_attempt: int = 0
+    # Atténuation caméra — personne visible en posture normale dans les 30 dernières min
+    camera_scene_ok: bool = False
+    camera_scene_at: Optional[str] = None
 
 
 # ─────────────────────────────────────────────
@@ -143,6 +157,17 @@ class GuardianEngine:
 
     # P0-05: Limite d'alertes SMS par fenêtre de 24h
     MAX_ALERTS_PER_24H = 3
+
+    def _can_send_alert(self, session: GuardianSession, now: datetime) -> bool:
+        """Vérifie le plafond 3 alertes / 24h et réinitialise la fenêtre si besoin."""
+        if session.alerts_window_start:
+            elapsed = (now - datetime.fromisoformat(session.alerts_window_start)).total_seconds()
+            if elapsed >= 86400:
+                session.alerts_sent = 0
+                session.alerts_window_start = None
+            elif session.alerts_sent >= self.MAX_ALERTS_PER_24H:
+                return False
+        return True
 
     def __init__(self, redis_client, openai_client=None, sms_send_fn=None):
         self.rc = redis_client            # RedisClient sync (luna_web._redis_client)
@@ -205,10 +230,11 @@ class GuardianEngine:
         # 1. Enregistrer la position
         moved = self._update_position(session, new_pos, now)
 
-        # 2. Vérifier les zones sûres
-        zone_event = self._check_geofences(session, new_pos)
-        if zone_event:
-            events.append(zone_event)
+        # 2. Vérifier les zones sûres (DÉSACTIVÉ en voice-only)
+        if not _GUARDIAN_VOICE_ONLY:
+            zone_event = self._check_geofences(session, new_pos)
+            if zone_event:
+                events.append(zone_event)
 
         # 3. Calculer le score de risque
         risk = self._compute_risk(session, new_pos, now)
@@ -222,9 +248,11 @@ class GuardianEngine:
                 risk_score=risk.total,
             ))
 
-        # 5. Déclencher vérification / alerte si nécessaire
-        alert_events = self._handle_risk(session, risk, new_pos, now)
-        events.extend(alert_events)
+        # 5. Déclencher vérification / alerte si nécessaire (DÉSACTIVÉ en voice-only :
+        #    plus d'alerte auto sur immobilité/risque — uniquement les appels vocaux).
+        if not _GUARDIAN_VOICE_ONLY:
+            alert_events = self._handle_risk(session, risk, new_pos, now)
+            events.extend(alert_events)
 
         # 6. Persister
         self._persist_session(session)
@@ -242,18 +270,27 @@ class GuardianEngine:
 
         return risk, events
 
-    def trigger_sos(self, session_id: str) -> GuardianEvent:
-        """SOS manuel — alerte immédiate, position envoyée aux contacts."""
+    def trigger_sos(self, session_id: str, context: Optional[str] = None) -> GuardianEvent:
+        """SOS manuel — alerte immédiate, position envoyée aux contacts.
+
+        Args:
+            session_id: identifiant de session Guardian.
+            context: contexte vocal / circonstances à conserver dans l'événement.
+        """
         session = self.get_session(session_id)
         if not session:
             raise ValueError("Session introuvable")
 
+        now = datetime.utcnow()
+        base_desc = "🆘 Bouton SOS activé par l'utilisateur"
+        desc = f"{base_desc} — {context}" if context else base_desc
         event = GuardianEvent(
             event_type="sos_triggered",
-            description="🆘 Bouton SOS activé par l'utilisateur",
+            description=desc,
             lat=session.last_position.lat if session.last_position else None,
             lng=session.last_position.lng if session.last_position else None,
             risk_score=1.0,
+            metadata={"context": context} if context else {},
         )
         self._log_event(session_id, event)
         self._broadcast(session_id, {"type": "sos", "data": event.to_dict()})
@@ -261,9 +298,78 @@ class GuardianEngine:
         # Alerte directe sans vérification vocale
         session.alert_level = AlertLevel.CRITICAL
         session.alert_pending = False
+        session.last_alert_at = now.isoformat()
+        if session.alerts_window_start is None:
+            session.alerts_window_start = now.isoformat()
+        session.alerts_sent += 1
         self._persist_session(session)
 
-        logger.warning(f"SOS triggered on session {session_id}")
+        logger.warning(
+            f"SOS triggered on session {session_id} "
+            f"(alerte #{session.alerts_sent}/24h)"
+        )
+        return event
+
+    def trigger_fall(self, session_id: str,
+                     lat: Optional[float] = None, lng: Optional[float] = None,
+                     peak_g: Optional[float] = None) -> GuardianEvent:
+        """
+        Chute détectée par accéléromètre — appelé après la fenêtre de confirmation de 30s
+        sans réponse de l'utilisateur. Escalade HIGH immédiate, bypass le délai d'immobilité.
+        Respecte le plafond 3 alertes / 24h.
+        """
+        session = self.get_session(session_id)
+        if not session:
+            raise ValueError("Session introuvable")
+
+        now = datetime.utcnow()
+        pos_lat = lat or (session.last_position.lat if session.last_position else None)
+        pos_lng = lng or (session.last_position.lng if session.last_position else None)
+
+        can_alert = self._can_send_alert(session, now)
+        event = GuardianEvent(
+            event_type="fall_detected",
+            description=f"⚠️ Chute détectée par accéléromètre (pic {peak_g:.1f}g)" if peak_g else "⚠️ Chute détectée par accéléromètre",
+            lat=pos_lat,
+            lng=pos_lng,
+            risk_score=0.85,
+            metadata={
+                "peak_g": peak_g,
+                "source": "accelerometer",
+                "confirmed": True,
+                "alert_blocked": not can_alert,
+            },
+        )
+        self._log_event(session_id, event)
+
+        if not can_alert:
+            logger.warning(
+                f"Guardian FALL session={session_id} peak_g={peak_g} "
+                f"BLOQUEE par plafond {self.MAX_ALERTS_PER_24H}/24h"
+            )
+            return event
+
+        # Mise à jour session : alerte HIGH, bypass backoff (urgence temps-réel)
+        session.alert_pending = False
+        session.alert_level = AlertLevel.HIGH
+        session.last_alert_at = now.isoformat()
+        if session.alerts_window_start is None:
+            session.alerts_window_start = now.isoformat()
+        session.alerts_sent += 1
+        self._persist_session(session)
+
+        self._broadcast(session_id, {
+            "type": "fall_detected",
+            "data": event.to_dict(),
+            "location_url": (
+                f"https://maps.google.com/?q={round(pos_lat, 3)},{round(pos_lng, 3)}"
+                if pos_lat and pos_lng else None
+            ),
+        })
+        logger.warning(
+            f"Guardian FALL session={session_id} peak_g={peak_g} "
+            f"(alerte #{session.alerts_sent}/24h)"
+        )
         return event
 
     def register_verification_response(self, session_id: str, ok: bool) -> str:
@@ -280,11 +386,13 @@ class GuardianEngine:
             session.alert_pending = False
             session.alert_level = AlertLevel.LOW
             session.verification_sent_at = None
-            # P0-07: Grace period 2h — Guardian reste silencieux après confirmation
-            session.grace_period_until = (now + timedelta(hours=2)).isoformat()
+            session.verification_attempt = 0
+            # P0-07: Grace period 30 min — Guardian reste silencieux après confirmation
+            # (réduit de 2h à 30 min : une vraie 2e crise dans la demi-heure doit pouvoir alerter)
+            session.grace_period_until = (now + timedelta(minutes=30)).isoformat()
             self._log_event(session_id, GuardianEvent(
                 event_type="verified_ok",
-                description="Utilisateur a confirmé qu'il va bien — grace period 2h activée",
+                description="Utilisateur a confirmé qu'il va bien — grace period 30 min activée",
                 lat=session.last_position.lat if session.last_position else None,
                 lng=session.last_position.lng if session.last_position else None,
             ))
@@ -297,16 +405,26 @@ class GuardianEngine:
                     contacts = session.config.get("emergency_contacts", [])
                     if contacts:
                         cancel_msg = build_sms_cancellation(person_name, confirmed_at)
+                        cancel_sent = 0
+                        cancel_blocked = 0
+                        cancel_failed = 0
                         for contact in contacts:
                             phone = contact.get("phone", "")
                             if phone:
                                 try:
-                                    self.sms_send_fn(phone, cancel_msg, label="Annulation alerte Guardian")
+                                    ok, details = self.sms_send_fn(phone, cancel_msg, label="Annulation alerte Guardian")
+                                    if isinstance(details, dict) and details.get("blocked"):
+                                        cancel_blocked += 1
+                                    elif ok:
+                                        cancel_sent += 1
+                                    else:
+                                        cancel_failed += 1
                                 except Exception as e:
                                     logger.warning(f"Guardian: SMS annulation échec → {phone}: {e}")
+                                    cancel_failed += 1
                         logger.info(
-                            f"Guardian: SMS d'annulation envoyé à {len(contacts)} contact(s) "
-                            f"(session {session_id})"
+                            f"Guardian: SMS d'annulation session={session_id} "
+                            f"envoyes={cancel_sent}, bloques={cancel_blocked}, echoues={cancel_failed}"
                         )
                 except Exception as e:
                     logger.error(f"Guardian: erreur build SMS annulation: {e}")
@@ -316,6 +434,153 @@ class GuardianEngine:
             session.alert_pending = True
             self._persist_session(session)
             return "Alerte confirmée — contacts notifiés"
+
+    def handle_checkin_missed(self, session_id: str, frame: Optional[str] = None,
+                              lat: Optional[float] = None, lng: Optional[float] = None,
+                              contacts: Optional[List[Dict]] = None) -> dict:
+        """
+        Signale qu'une vérification vocale/caméra n'a pas obtenu de réponse.
+        Implémente le cycle Policy V2 : Niveau 2 -> Niveau 3 -> Niveau 4.
+        Retourne {"status": "level3"|"level4", "events": [...], "alerts_sent": int}
+        """
+        session = self.get_session(session_id)
+        if not session:
+            return {"status": "error", "message": "Session introuvable", "events": [], "alerts_sent": 0}
+
+        # VOICE-ONLY : pas d'alerte auto sur check-in manqué (seuls les appels vocaux déclenchent).
+        if _GUARDIAN_VOICE_ONLY:
+            return {"status": "disabled_voice_only", "events": [], "alerts_sent": 0}
+
+        # J1 — Verrou Redis anti race-condition (double requête HTTP parallèle sur le même session_id)
+        _lock_key = f"luna:guardian:{session_id}:checkin_lock"
+        _lock_acquired = True
+        if self.rc:
+            _lock_acquired = bool(self.rc.client.set(_lock_key, "1", nx=True, ex=30))
+            if not _lock_acquired:
+                logger.info(f"Guardian CHECKIN_MISS session={session_id} — verrou actif, requête ignorée")
+                return {"status": "locked", "events": [], "alerts_sent": 0}
+
+        try:
+            return self._handle_checkin_missed_locked(session, session_id, frame, lat, lng, contacts)
+        finally:
+            if self.rc and _lock_acquired:
+                self.rc.client.delete(_lock_key)
+
+    def _handle_checkin_missed_locked(self, session, session_id: str, frame, lat, lng, contacts) -> dict:
+        """Corps de handle_checkin_missed, exécuté sous verrou Redis."""
+        now = datetime.utcnow()
+        events: List[GuardianEvent] = []
+        pos = session.last_position
+        if lat is not None and lng is not None:
+            pos = GeoPoint(lat=lat, lng=lng, timestamp=now.isoformat())
+
+        # Déterminer si c'est une 1re ou 2e vérification manquée
+        attempt = session.verification_attempt or 1
+
+        if attempt == 1 and session.alert_pending:
+            # Niveau 3 : deuxième vérification
+            session.verification_attempt = 2
+            session.verification_sent_at = now.isoformat()
+            session.alert_level = AlertLevel.MEDIUM
+            msg = _verification_message(session, attempt=2)
+            event = GuardianEvent(
+                event_type="verification_needed",
+                description="Deuxième vérification — contrôle sans réponse",
+                lat=pos.lat if pos else None,
+                lng=pos.lng if pos else None,
+                risk_score=0.6,
+                metadata={"message": msg, "attempt": 2, "source": "checkin"},
+            )
+            events.append(event)
+            self._log_event(session_id, event)
+            self._broadcast(session_id, {
+                "type": "verification_needed",
+                "message": msg,
+                "risk": 0.6,
+                "attempt": 2,
+            })
+            self._persist_session(session)
+            return {"status": "level3", "events": [e.to_dict() for e in events], "alerts_sent": 0}
+
+        # Niveau 4 : alerte contacts
+        # Vérifier le plafond 3 alertes/24h
+        can_alert = True
+        if session.alerts_window_start:
+            w_elapsed = (now - datetime.fromisoformat(session.alerts_window_start)).total_seconds()
+            if w_elapsed >= 86400:
+                session.alerts_sent = 0
+                session.alerts_window_start = None
+            elif session.alerts_sent >= self.MAX_ALERTS_PER_24H:
+                can_alert = False
+
+        alert_event = GuardianEvent(
+            event_type="alert_escalated",
+            description="⚠️ Pas de réponse au contrôle — alerte escaladée",
+            lat=pos.lat if pos else None,
+            lng=pos.lng if pos else None,
+            risk_score=0.8,
+            metadata={"source": "checkin"},
+        )
+        events.append(alert_event)
+        self._log_event(session_id, alert_event)
+
+        sms_sent = 0
+        if can_alert:
+            session.alert_pending = False
+            session.verification_attempt = 0
+            session.verification_sent_at = None
+            session.last_alert_at = now.isoformat()
+            if session.alerts_window_start is None:
+                session.alerts_window_start = now.isoformat()
+            session.alerts_sent += 1
+            session.alert_level = AlertLevel.HIGH
+
+            # J2 — Déduplication SMS : bloquer si même incident déjà alerté dans les 5 min
+            _send_sms = True
+            if self.rc:
+                _slot = int(time.time() / 300)
+                _ihash = hashlib.md5(f"{session_id}:{_slot}".encode()).hexdigest()[:8]
+                _dedup_key = f"luna:guardian:{session_id}:sms_dedup:{_ihash}"
+                _send_sms = bool(self.rc.client.set(_dedup_key, "1", nx=True, ex=600))
+                if not _send_sms:
+                    logger.info(f"Guardian: SMS doublon bloqué session={session_id} (incident déjà alerté, fenêtre 5 min)")
+
+            if _send_sms and self.sms_send_fn:
+                try:
+                    from .alerts import send_guardian_alerts
+                    person_name = session.config.get("person_name") or "La personne surveillée"
+                    alert_contacts = contacts or session.config.get("emergency_contacts", [])
+                    description = "Pas de réponse au contrôle Guardian"
+                    result = send_guardian_alerts(
+                        sms_send_fn=self.sms_send_fn,
+                        contacts=alert_contacts,
+                        person_name=person_name,
+                        description=description,
+                        lat=pos.lat if pos else None,
+                        lng=pos.lng if pos else None,
+                        alert_level="high",
+                        profile_type=session.profile_type.value,
+                    )
+                    sms_sent = len(result.get("sent", []))
+                    logger.warning(
+                        f"Guardian CHECKIN_MISS session={session_id} "
+                        f"sms_sent={sms_sent} (alerte #{session.alerts_sent}/24h)"
+                    )
+                except Exception as e:
+                    logger.error(f"Guardian: erreur envoi SMS checkin-miss: {e}")
+
+            self._broadcast(session_id, {
+                "type": "alert",
+                "data": alert_event.to_dict(),
+            })
+        else:
+            logger.info(
+                f"Guardian CHECKIN_MISS session={session_id} bloqué par plafond "
+                f"{self.MAX_ALERTS_PER_24H}/24h"
+            )
+
+        self._persist_session(session)
+        return {"status": "level4", "events": [e.to_dict() for e in events], "alerts_sent": sms_sent}
 
     def get_events(self, session_id: str, limit: int = 50) -> List[dict]:
         """Retourne les derniers événements de la session."""
@@ -387,6 +652,20 @@ class GuardianEngine:
                     asyncio.ensure_future(ws.send_json(data))
             except Exception:
                 pass
+
+    def set_camera_scene(self, session_id: str, safe: bool, posture: str = "unknown") -> None:
+        """Met à jour l'état de la scène caméra pour atténuer les faux positifs d'immobilité GPS.
+        J4 — lying_floor n'est jamais considérée comme une scène normale : force safe=False.
+        """
+        session = self.get_session(session_id)
+        if not session:
+            return
+        # lying_floor sur le sol = posture potentiellement dangereuse, ne jamais annuler l'immobilité GPS
+        if posture == "lying_floor":
+            safe = False
+        session.camera_scene_ok = safe
+        session.camera_scene_at = datetime.utcnow().isoformat()
+        self._persist_session(session)
 
     # ── Logique interne ───────────────────────────────
 
@@ -486,15 +765,27 @@ class GuardianEngine:
         if (hour >= 22 or hour < 6) and not session.in_safe_zone:
             signals["night_anomaly"] = 0.5
 
-        # Signal 4 : Vitesse anormale (chute détectée : vitesse soudaine puis zéro)
-        if profile == ProfileType.SENIOR and pos.speed is not None:
-            if pos.speed > 5.0:  # > 18 km/h à pied = chute/impact
-                signals["speed_anomaly"] = 0.7
+        # Signal 4 : speed_anomaly — désactivé (trop de faux positifs, Policy V2)
+        # if profile == ProfileType.SENIOR and pos.speed is not None:
+        #     if pos.speed > 5.0:
+        #         signals["speed_anomaly"] = 0.7
 
         # Signal 5 : Inactivité longue (> 2x threshold) — suspendu si mode nuit actif
         if not night_mode_active and session.is_immobile and session.immobile_since:
             if immobile_min > threshold * 2:
                 signals["prolonged_immobility"] = 0.85
+
+        # Atténuation caméra : si scène normale récente, annuler les signaux d'immobilité GPS
+        # Policy V2 Scénarios 2/4 : canapé/lit de jour ne doit pas déclencher de vérification
+        if ("immobility" in signals or "prolonged_immobility" in signals):
+            if session.camera_scene_ok and session.camera_scene_at:
+                try:
+                    scene_age_min = (now - datetime.fromisoformat(session.camera_scene_at)).total_seconds() / 60
+                    if scene_age_min <= 30:
+                        signals.pop("immobility", None)
+                        signals.pop("prolonged_immobility", None)
+                except ValueError:
+                    pass
 
         # Calcul du score total (max pondéré, pas somme pour éviter faux positifs)
         if not signals:
@@ -538,36 +829,31 @@ class GuardianEngine:
         if risk.level == AlertLevel.MEDIUM and not session.alert_pending and not in_backoff:
             session.alert_pending = True
             session.verification_sent_at = now.isoformat()
+            session.verification_attempt = 1
             session.alert_level = AlertLevel.MEDIUM
             events.append(GuardianEvent(
                 event_type="verification_needed",
                 description=f"Vérification vocale déclenchée — {risk.description}",
                 lat=pos.lat, lng=pos.lng,
                 risk_score=risk.total,
-                metadata={"signals": risk.signals, "message": _verification_message(session)},
+                metadata={"signals": risk.signals, "message": _verification_message(session), "attempt": 1},
             ))
             self._broadcast(session.session_id, {
                 "type": "verification_needed",
                 "message": _verification_message(session),
                 "risk": risk.total,
+                "attempt": 1,
             })
 
         # Chemin 2 : Alerte directe HIGH/CRITICAL (Niveau 4)
         elif risk.level in (AlertLevel.HIGH, AlertLevel.CRITICAL) and not in_backoff:
-            # P0-05: Limite 3 alertes/24h (SOS bypass)
-            if risk.level != AlertLevel.CRITICAL:
-                if session.alerts_window_start:
-                    w_elapsed = (now - datetime.fromisoformat(session.alerts_window_start)).total_seconds()
-                    if w_elapsed >= 86400:
-                        # Nouveau cycle 24h — réinitialiser le compteur
-                        session.alerts_sent = 0
-                        session.alerts_window_start = None
-                    elif session.alerts_sent >= self.MAX_ALERTS_PER_24H:
-                        logger.info(
-                            f"Guardian: plafond {self.MAX_ALERTS_PER_24H} alertes/24h atteint "
-                            f"— session {session.session_id}"
-                        )
-                        return events
+            # P0-05: Limite 3 alertes/24h
+            if not self._can_send_alert(session, now):
+                logger.info(
+                    f"Guardian: plafond {self.MAX_ALERTS_PER_24H} alertes/24h atteint "
+                    f"— session {session.session_id}"
+                )
+                return events
 
             session.alert_pending = False
             session.last_alert_at = now.isoformat()
@@ -603,37 +889,59 @@ class GuardianEngine:
             )
 
         # Chemin 3 : Escalade si vérification sans réponse (non bloquée par backoff)
-        # P0-03: Timeout 10 min (Policy V2) au lieu de 2 min
+        # Policy V2 : Niveau 2 → 10 min → Niveau 3 (2e vérification) → 5 min → Niveau 4
         if (session.alert_pending and session.verification_sent_at and
                 risk.level >= AlertLevel.MEDIUM):
             elapsed = (now - datetime.fromisoformat(session.verification_sent_at)).total_seconds()
-            if elapsed > 600:  # 10 min sans réponse — Policy V2 §Niveau 2
-                # Vérifier le plafond avant d'escalader (sauf SOS)
-                can_escalate = True
-                if session.alerts_window_start:
-                    w_elapsed = (now - datetime.fromisoformat(session.alerts_window_start)).total_seconds()
-                    if w_elapsed < 86400 and session.alerts_sent >= self.MAX_ALERTS_PER_24H:
-                        can_escalate = False
+            attempt = session.verification_attempt or 1
 
-                if can_escalate:
-                    session.alert_pending = False
-                    session.last_alert_at = now.isoformat()
-                    if session.alerts_window_start is None:
-                        session.alerts_window_start = now.isoformat()
-                    session.alerts_sent += 1
-                    session.alert_level = AlertLevel.HIGH
-                    location_url = (
-                        f"https://maps.google.com/?q={round(pos.lat, 3)},{round(pos.lng, 3)}"
-                        if pos else None
+            if attempt == 1 and elapsed > 600:  # 10 min sans réponse → Niveau 3
+                session.verification_attempt = 2
+                session.verification_sent_at = now.isoformat()
+                session.alert_level = AlertLevel.MEDIUM
+                msg = _verification_message(session, attempt=2)
+                events.append(GuardianEvent(
+                    event_type="verification_needed",
+                    description=f"Deuxième vérification — {risk.description}",
+                    lat=pos.lat, lng=pos.lng,
+                    risk_score=risk.total,
+                    metadata={"signals": risk.signals, "message": msg, "attempt": 2},
+                ))
+                self._broadcast(session.session_id, {
+                    "type": "verification_needed",
+                    "message": msg,
+                    "risk": risk.total,
+                    "attempt": 2,
+                })
+
+            elif attempt >= 2 and elapsed > 300:  # 5 min sans réponse après 2e vérif → Niveau 4
+                # Vérifier le plafond avant d'escalader
+                if not self._can_send_alert(session, now):
+                    logger.info(
+                        f"Guardian: escalade bloquee par plafond "
+                        f"{self.MAX_ALERTS_PER_24H}/24h — session {session.session_id}"
                     )
-                    esc_event = GuardianEvent(
-                        event_type="alert_escalated",
-                        description="⚠️ Pas de réponse à la vérification — alerte escaladée",
-                        lat=pos.lat, lng=pos.lng,
-                        risk_score=0.8,
-                        metadata={"location_url": location_url, "no_response_seconds": int(elapsed)},
-                    )
-                    events.append(esc_event)
+                    return events
+
+                session.alert_pending = False
+                session.verification_attempt = 0
+                session.last_alert_at = now.isoformat()
+                if session.alerts_window_start is None:
+                    session.alerts_window_start = now.isoformat()
+                session.alerts_sent += 1
+                session.alert_level = AlertLevel.HIGH
+                location_url = (
+                    f"https://maps.google.com/?q={round(pos.lat, 3)},{round(pos.lng, 3)}"
+                    if pos else None
+                )
+                esc_event = GuardianEvent(
+                    event_type="alert_escalated",
+                    description="⚠️ Pas de réponse à la vérification — alerte escaladée",
+                    lat=pos.lat, lng=pos.lng,
+                    risk_score=0.8,
+                    metadata={"location_url": location_url, "no_response_seconds": int(elapsed)},
+                )
+                events.append(esc_event)
 
         return events
 
@@ -667,12 +975,17 @@ class GuardianEngine:
             data["immobile_since"] = session.immobile_since
         if session.verification_sent_at:
             data["verification_sent_at"] = session.verification_sent_at
+        if session.verification_attempt:
+            data["verification_attempt"] = str(session.verification_attempt)
         if session.last_alert_at:
             data["last_alert_at"] = session.last_alert_at
         if session.grace_period_until:
             data["grace_period_until"] = session.grace_period_until
         if session.alerts_window_start:
             data["alerts_window_start"] = session.alerts_window_start
+        if session.camera_scene_at:
+            data["camera_scene_ok"] = "1" if session.camera_scene_ok else "0"
+            data["camera_scene_at"] = session.camera_scene_at
 
         try:
             self.rc.client.hset(key, mapping=data)
@@ -720,10 +1033,13 @@ class GuardianEngine:
                 alert_pending=data.get("alert_pending") == "1",
                 alert_level=AlertLevel(data.get("alert_level", "low")),
                 verification_sent_at=data.get("verification_sent_at") or None,
+                verification_attempt=int(data.get("verification_attempt", 0) or 0),
                 last_alert_at=data.get("last_alert_at") or None,
                 alerts_sent=int(data.get("alerts_sent", 0)),
                 grace_period_until=data.get("grace_period_until") or None,
                 alerts_window_start=data.get("alerts_window_start") or None,
+                camera_scene_ok=data.get("camera_scene_ok") == "1",
+                camera_scene_at=data.get("camera_scene_at") or None,
             )
             self._sessions[session_id] = session
             return session
@@ -769,7 +1085,7 @@ def _haversine(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
 def _default_config(profile: ProfileType) -> dict:
     defaults = {
         ProfileType.SENIOR: {
-            "immobility_threshold_minutes": 30,
+            "immobility_threshold_minutes": 45,  # Policy V2 §4.2
             "night_mode": True,
             "dignity_mode": True,
             "safe_zones": [],
@@ -778,7 +1094,7 @@ def _default_config(profile: ProfileType) -> dict:
             # auto_call_112 : non implémenté — Luna ne peut pas appeler le 112
         },
         ProfileType.DOG: {
-            "immobility_threshold_minutes": 60,
+            "immobility_threshold_minutes": 90,  # Policy V2 §4.2
             "safe_zones": [],
             "forbidden_zones": [],
             "verification_enabled": False,
@@ -793,7 +1109,7 @@ def _default_config(profile: ProfileType) -> dict:
             "emergency_contacts": [],
         },
         ProfileType.HOME: {
-            "immobility_threshold_minutes": 120,
+            "immobility_threshold_minutes": 240,  # Policy V2 §4.2
             "safe_zones": [],
             "armed_modes": ["away", "night"],
             "verification_enabled": True,
@@ -804,9 +1120,14 @@ def _default_config(profile: ProfileType) -> dict:
     return defaults.get(profile, defaults[ProfileType.SENIOR])
 
 
-def _verification_message(session: GuardianSession) -> str:
+def _verification_message(session: GuardianSession, attempt: int = 1) -> str:
     profile = get_profile(session.profile_type.value)
     name = session.config.get("person_name") or "vous"
+    if attempt == 2:
+        return (
+            f"Luna essaie de vous joindre. {name}, appuyez sur le bouton vert "
+            f"si vous allez bien. Si vous avez besoin d'aide, restez où vous êtes."
+        )
     return format_profile_message(profile["verification_message"], name=name)
 
 
@@ -866,7 +1187,7 @@ def get_profile_templates() -> Dict[str, dict]:
             "description": "Surveillance immobilité, chutes, déplacements nocturnes",
             "icon": "👴",
             "default_config": _default_config(ProfileType.SENIOR),
-            "signals": ["immobility", "geofence_exit", "night_anomaly", "speed_anomaly"],
+            "signals": ["immobility", "geofence_exit", "night_anomaly"],
         },
         "dog": {
             "label": "Animal de compagnie",
