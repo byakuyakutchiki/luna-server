@@ -51,14 +51,27 @@ import java.security.MessageDigest;
 
 public class MainActivity extends Activity {
 
-    // URL backend : mode test pointe explicitement vers le tag test-guardian
-    // pour eviter de tomber sur l'ancienne revision stable en production.
-    private static final String LUNA_URL = "https://test-guardian---luna-beta-gly3g647na-ew.a.run.app";
+    // URL backend : production Luna Beta / Guardian
+    private static final String LUNA_URL = "https://luna-beta-gly3g647na-ew.a.run.app/guardian";
     private static final int PERMISSION_REQUEST_CODE = 100;
     private static final int NOTIFICATION_PERMISSION_CODE = 101;
     private static final int FILE_CHOOSER_REQUEST_CODE = 102;
-    private static final String CURRENT_VERSION = "2.9";
-    private static final int CURRENT_VERSION_CODE = 19;
+    // Version lue depuis le manifeste Android (source de verite)
+    private int getCurrentVersionCode() {
+        try {
+            return getPackageManager().getPackageInfo(getPackageName(), 0).versionCode;
+        } catch (Exception e) {
+            return 0;
+        }
+    }
+
+    private String getCurrentVersionName() {
+        try {
+            return getPackageManager().getPackageInfo(getPackageName(), 0).versionName;
+        } catch (Exception e) {
+            return "unknown";
+        }
+    }
     private static final int CAMERA_PERMISSION_FOR_FILE = 103;
     private static final int CAMERA_CAPTURE_REQUEST_CODE = 104;
     private static final String CHANNEL_ID = "luna_messages";
@@ -140,7 +153,7 @@ public class MainActivity extends Activity {
         settings.setGeolocationEnabled(true);
 
         // Version dans le User-Agent pour auto-update
-        settings.setUserAgentString(settings.getUserAgentString() + " LunaApp/" + CURRENT_VERSION);
+        settings.setUserAgentString(settings.getUserAgentString() + " LunaApp/" + getCurrentVersionName());
 
         // Cookies (pour la session JWT)
         CookieManager.getInstance().setAcceptCookie(true);
@@ -358,7 +371,7 @@ public class MainActivity extends Activity {
         webView.clearCache(true);
 
         // Charge Luna
-        sendLog("info", "APP START v" + CURRENT_VERSION + " (" + CURRENT_VERSION_CODE + ") — " + Build.MODEL + " Android " + Build.VERSION.RELEASE, "apk/" + Build.MODEL);
+        sendLog("info", "APP START v" + getCurrentVersionName() + " (" + getCurrentVersionCode() + ") — " + Build.MODEL + " Android " + Build.VERSION.RELEASE, "apk/" + Build.MODEL);
         webView.loadUrl(LUNA_URL);
 
         // Verification compatibilite APK/backend + auto-update en arriere-plan
@@ -450,12 +463,12 @@ public class MainActivity extends Activity {
                 HttpURLConnection conn = (HttpURLConnection) url.openConnection();
                 conn.setRequestMethod("POST");
                 conn.setRequestProperty("Content-Type", "application/json");
-                conn.setRequestProperty("User-Agent", "LunaApp/" + CURRENT_VERSION + " Android/" + Build.VERSION.RELEASE);
+                conn.setRequestProperty("User-Agent", "LunaApp/" + getCurrentVersionName() + " Android/" + Build.VERSION.RELEASE);
                 conn.setDoOutput(true);
                 conn.setConnectTimeout(4000);
                 conn.setReadTimeout(4000);
                 JSONObject json = new JSONObject();
-                json.put("apk_version", CURRENT_VERSION);
+                json.put("apk_version", getCurrentVersionName());
                 json.put("device_role", "fondateur");
                 json.put("cloud_url", LUNA_URL);
                 json.put("android_version", Build.VERSION.RELEASE);
@@ -569,8 +582,8 @@ public class MainActivity extends Activity {
         public String getApkVersionInfo() {
             try {
                 JSONObject info = new JSONObject();
-                info.put("apk_version_code", CURRENT_VERSION_CODE);
-                info.put("apk_version_name", CURRENT_VERSION);
+                info.put("apk_version_code", getCurrentVersionCode());
+                info.put("apk_version_name", getCurrentVersionName());
                 info.put("backend_url", LUNA_URL);
                 info.put("backend_version", backendVersion);
                 info.put("cloud_run_revision", backendRevision);
@@ -634,11 +647,11 @@ public class MainActivity extends Activity {
                     String apkDownloadUrl = json.optString("apk_download_url", "");
 
                     backendVersionChecked = true;
-                    backendVersionOk = CURRENT_VERSION_CODE >= backendMinVersionCode;
+                    backendVersionOk = getCurrentVersionCode() >= backendMinVersionCode;
 
                     android.util.Log.i("LUNA_VERSION",
-                        "[APK_VERSION_CHECK] apk_version_code=" + CURRENT_VERSION_CODE +
-                        " apk_version_name=" + CURRENT_VERSION +
+                        "[APK_VERSION_CHECK] apk_version_code=" + getCurrentVersionCode() +
+                        " apk_version_name=" + getCurrentVersionName() +
                         " backend_url=" + LUNA_URL +
                         " backend_version=" + backendVersion +
                         " backend_revision=" + backendRevision +
@@ -653,7 +666,7 @@ public class MainActivity extends Activity {
                     }
 
                     String apkSha256 = json.optString("apk_sha256", "");
-                    if (currentServerApkCode > CURRENT_VERSION_CODE
+                    if (currentServerApkCode > getCurrentVersionCode()
                             && !apkDownloadUrl.isEmpty()
                             && apkSha256.matches("[0-9a-fA-F]{64}")) {
                         runOnUiThread(() -> showUpdateAvailableDialog(apkDownloadUrl, apkSha256));
@@ -671,7 +684,7 @@ public class MainActivity extends Activity {
         new android.app.AlertDialog.Builder(this)
             .setTitle("Mise a jour obligatoire")
             .setMessage("Votre version de Guardian n'est pas compatible avec le serveur actuel.\n\n" +
-                        "APK : " + CURRENT_VERSION + " (" + CURRENT_VERSION_CODE + ")\n" +
+                        "APK : " + getCurrentVersionName() + " (" + getCurrentVersionCode() + ")\n" +
                         "Serveur : " + backendVersion + " [" + backendEnvironment + "]\n" +
                         "Revision : " + backendRevision + "\n\n" +
                         "Mise a jour obligatoire.")
@@ -706,7 +719,7 @@ public class MainActivity extends Activity {
     private void showDebugPanel() {
         if (isFinishing()) return;
         StringBuilder sb = new StringBuilder();
-        sb.append("APK version: ").append(CURRENT_VERSION).append(" (").append(CURRENT_VERSION_CODE).append(")\n");
+        sb.append("APK version: ").append(getCurrentVersionName()).append(" (").append(getCurrentVersionCode()).append(")\n");
         sb.append("Backend URL: ").append(LUNA_URL).append("\n");
         sb.append("Backend version: ").append(backendVersion).append("\n");
         sb.append("Cloud Run revision: ").append(backendRevision).append("\n");

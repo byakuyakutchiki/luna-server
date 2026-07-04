@@ -13991,7 +13991,7 @@ async def invite_contact_to_luna(phone: str, request: Request):
     except Exception:
         pass
 
-    apk_url = f"https://luna-beta-674304336025.europe-west1.run.app/static/luna-proprio.apk"
+    apk_url = f"https://luna-beta-gly3g647na-ew.a.run.app/static/luna-proprio.apk"
     body = (
         f"Bonjour {contact.name} 👋\n"
         f"{sub_name} vous invite à rejoindre Luna, son assistant IA personnel.\n"
