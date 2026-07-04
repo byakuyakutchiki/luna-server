@@ -102,6 +102,7 @@ try:
     from core.safety.guardian import SafetyGuardian, SafetyLevel
     from core.actions.quota_guard import QuotaGuard
     from core.actions.models import ActionType as CoreActionType
+    from core.actions.confirmation import ConfirmationManager
     from core.instructions.parser import InstructionParser, ParsedInstruction
     from core.instructions.scheduler import InstructionScheduler, ScheduledTask
     from core.instructions.executor import InstructionExecutor, create_instruction_executor
@@ -207,8 +208,12 @@ LEGAL_MODE = "assistance_only"  # Mode legal: aide contextuelle, pas de surveill
 REQUIRE_AUTH = os.getenv("REQUIRE_AUTH", "true").lower() == "true"
 
 # --- Feature flags (désactive modules coûteux ou instables au boot) ---
-ENABLE_TAVUS_BOOT = os.getenv("ENABLE_TAVUS_BOOT", "true").lower() == "true"
+ENABLE_TAVUS_BOOT = os.getenv("ENABLE_TAVUS_BOOT", "false").lower() == "true"  # désactivé par défaut — add-on futur
 ENABLE_TWILIO_BOOT = os.getenv("ENABLE_TWILIO_BOOT", "true").lower() == "true"
+# J8 — Coupe-circuit SMS Guardian : mettre à "false" en DEV/test pour ne jamais envoyer de vrais SMS Guardian
+GUARDIAN_SMS_ENABLED = os.getenv("GUARDIAN_SMS_ENABLED", "true").lower() == "true"
+# Appel vocal Guardian (désactivé par défaut — activation explicite en PROD uniquement)
+GUARDIAN_CALL_ENABLED = os.getenv("GUARDIAN_CALL_ENABLED", "false").lower() == "true"
 ENABLE_INSTRUCTIONS = os.getenv("ENABLE_INSTRUCTIONS", "true").lower() == "true"
 ENABLE_VAULT_REMINDERS = os.getenv("ENABLE_VAULT_REMINDERS", "true").lower() == "true"
 ENABLE_CORTEX = os.getenv("ENABLE_CORTEX", "true").lower() == "true"
@@ -286,7 +291,7 @@ def _reload_env():
     global LUNA_MODE, TAVUS_CALLBACK_URL, VOICE_CALLBACK_URL, REQUIRE_AUTH
     global OPENAI_API_KEY, OPENAI_MODEL, ADMIN_NUMBER, SETUP_OPENAI_API_KEY
     global _JWT_SECRET, _JWT_ALGORITHM
-    load_dotenv(os.path.join(os.path.dirname(__file__), ".env"), override=False)
+    load_dotenv(os.path.join(os.path.dirname(__file__), ".env"), override=True)
     LUNA_MODE = os.getenv("LUNA_MODE", "full").lower()
     TAVUS_CALLBACK_URL = os.getenv("TAVUS_CALLBACK_URL", "")
     VOICE_CALLBACK_URL = os.getenv("VOICE_CALLBACK_URL", "")
@@ -3447,7 +3452,8 @@ if not _jwt_raw:
     raise SystemExit("ERREUR FATALE: JWT_SECRET_KEY manquante dans .env")
 _JWT_SECRET = _jwt_raw
 _JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
-_CLIENT_TOKEN_EXPIRE_DAYS = 90
+_CLIENT_TOKEN_EXPIRE_DAYS = 7
+_REFRESH_TOKEN_EXPIRE_DAYS = 30
 
 def _hash_password(password: str) -> str:
     """Hash un mot de passe avec bcrypt."""
@@ -3500,19 +3506,52 @@ def _bootstrap_proprio_auth():
         logger.warning(f"AUTH BOOTSTRAP Redis indisponible au demarrage ({_e}) — sera retente au premier login")
 
 
-def _create_client_token(tenant_id: int, email: str, plan: str, first_name: str = "") -> str:
-    """Cree un JWT client valide 7 jours."""
+def _create_client_token(tenant_id: int, email: str, plan: str, first_name: str = "", token_type: str = "access") -> str:
+    """Cree un JWT client valide 7 jours (access) ou 30 jours (refresh)."""
     import jwt as pyjwt
+    expire_days = _REFRESH_TOKEN_EXPIRE_DAYS if token_type == "refresh" else _CLIENT_TOKEN_EXPIRE_DAYS
     payload = {
         "tenant_id": tenant_id,
         "email": email,
         "plan": plan,
         "role": "client",
+        "type": token_type,
         "first_name": first_name,
         "iat": int(time.time()),
-        "exp": int(time.time()) + _CLIENT_TOKEN_EXPIRE_DAYS * 86400,
+        "exp": int(time.time()) + expire_days * 86400,
     }
     return pyjwt.encode(payload, _JWT_SECRET, algorithm=_JWT_ALGORITHM)
+
+
+def _create_refresh_token(tenant_id: int, email: str, plan: str = "essentiel") -> str:
+    """Cree un refresh token (porte le vrai plan) et le stocke dans Redis."""
+    token = _create_client_token(tenant_id, email, plan, token_type="refresh")
+    if _redis_client:
+        try:
+            key = f"luna:{tenant_id}:auth:refresh_tokens"
+            _redis_client.client.sadd(key, token)
+            _redis_client.client.expire(key, _REFRESH_TOKEN_EXPIRE_DAYS * 86400)
+        except Exception as e:
+            logger.warning(f"Could not store refresh token in Redis: {e}")
+    return token
+
+
+def _verify_refresh_token(token: str) -> Optional[dict]:
+    """Verifie un refresh token et s'assure qu'il est dans Redis."""
+    payload = _decode_client_token(token)
+    if not payload or payload.get("type") != "refresh":
+        return None
+    tenant_id = payload.get("tenant_id")
+    if _redis_client and tenant_id:
+        try:
+            key = f"luna:{tenant_id}:auth:refresh_tokens"
+            if not _redis_client.client.sismember(key, token):
+                logger.warning("Refresh token not found in Redis (revoked or expired)")
+                return None
+        except Exception as e:
+            logger.warning(f"Could not verify refresh token in Redis: {e}")
+            return None
+    return payload
 
 def _decode_client_token(token: str) -> Optional[dict]:
     """Decode un JWT client. Retourne le payload ou None."""
@@ -3540,6 +3579,11 @@ def _decode_participant_token(token: str) -> Optional[dict]:
         return payload
     except Exception:
         return None
+
+
+def _decode_iris_token(token: str) -> Optional[dict]:
+    """Accepte un token client (owner) OU un token participant Iris."""
+    return _decode_client_token(token) or _decode_participant_token(token)
 
 
 def _decode_admin_token(token: str) -> Optional[dict]:
@@ -3612,10 +3656,31 @@ def _is_public_path(path: str) -> bool:
     return any(path.startswith(p) for p in _PUBLIC_PATHS)
 
 
+_openai_key_valid = False
+
+
+def _verify_openai_key_sync(client) -> bool:
+    """Verifie que la cle OpenAI est valide au demarrage."""
+    if not client:
+        return False
+    try:
+        client.with_options(timeout=10.0).models.list()
+        return True
+    except openai.AuthenticationError:
+        logger.error("OPENAI AUTH ERROR - cle API invalide au demarrage")
+        return False
+    except Exception as e:
+        logger.warning(f"OPENAI KEY VERIFICATION WARNING - {type(e).__name__}: {e}")
+        # On considere la cle potentiellement valide si ce n'est pas une auth error
+        # (ex: timeout reseau temporaire). Elle sera revalidee au premier chat.
+        return True
+
+
 # --- Clients ---
 if _pv_locked:
     # Mode SETUP: init graceful, ne crashe pas sur cles manquantes
     openai_client = build_llm_client(OPENAI_API_KEY) if OPENAI_API_KEY else None
+    _openai_key_valid = _verify_openai_key_sync(openai_client)
     try:
         sms_client = TwilioSMSClient.from_env()
     except Exception:
@@ -3625,6 +3690,9 @@ if _pv_locked:
     email_client = EmailClient.from_env()
 else:
     openai_client = build_llm_client(OPENAI_API_KEY)
+    _openai_key_valid = _verify_openai_key_sync(openai_client)
+    if not _openai_key_valid:
+        logger.critical("OPENAI NON CONFIGURE - Le chat et l'assistant IA seront indisponibles")
     sms_client = TwilioSMSClient.from_env()
     voice_client = TwilioVoiceClient.from_env()
     tavus_client = TavusClient.from_env() if _TAVUS_AVAILABLE and LUNA_MODE == "full" else None
@@ -3763,11 +3831,19 @@ if sms_client and sms_client.is_configured and VOICE_CALLBACK_URL and not sms_cl
 # Stockage des accusés de reception SMS {sid: {to, body_preview, status, ts, delivered_at}}
 _sms_tracking: Dict[str, Dict] = {}
 
-def _tracked_sms_send(to: str, body: str, label: str = ""):
+def _tracked_sms_send(to: str, body: str, label: str = "", _tenant_id: int = None):
     """Envoie un SMS et track l'accuse de reception."""
-    if _test_mode:
+    if not sms_client:
+        logger.warning(f"[SMS_NOT_CONFIGURED] SMS impossible vers {to} ({label}): Twilio non configure")
+        return False, {"error": "Twilio SMS client not configured"}
+    if _test_mode or (_tenant_id and _tenant_id in _test_mode_tenants):
         logger.info(f"[TEST MODE] SMS bloque vers {to}: {body[:60]}...")
         return True, {"sid": f"TEST_{label}", "test_mode": True}
+    # J8 — Coupe-circuit SMS urgence : GUARDIAN_SMS_ENABLED=false bloque les SMS Guardian + SOS + urgence
+    _emergency_keywords = ("guardian", "sos", "urgence")
+    if not GUARDIAN_SMS_ENABLED and any(k in label.lower() for k in _emergency_keywords):
+        logger.info(f"[EMERGENCY_SMS_DISABLED] SMS bloqué vers {to} ({label}): {body[:60]}")
+        return True, {"sid": "DISABLED", "emergency_sms_disabled": True, "blocked": True}
     success, details = sms_client.send(to, body)
     if success and details.get("sid"):
         sid = details["sid"]
@@ -3778,6 +3854,7 @@ def _tracked_sms_send(to: str, body: str, label: str = ""):
             "label": label,
             "status": details.get("status", "queued"),
             "sent_at": datetime.utcnow().isoformat(),
+            "_ts": time.time(),
             "delivered_at": None,
             "error_code": None,
         }
@@ -3826,9 +3903,12 @@ _instruction_loop_task: Optional[object] = None
 _doc_generator: Optional[object] = None
 _perception_detector: Optional[object] = None
 _perception_analyzer: Optional[object] = None
-_test_mode: bool = os.getenv("LUNA_TEST_MODE", "").lower() in ("1", "true", "yes")  # SMS/appels simulés (dry-run)
+_guardian_scene_analyzers: Dict[str, object] = {}  # session_id -> SceneAnalyzer (historique préservé)
+_test_mode: bool = os.getenv("LUNA_TEST_MODE", "").lower() in ("1", "true", "yes")          # Mode test global (SMS/appels simulés ; désactivé en prod)
+_test_mode_tenants: set = set()   # J6 — Tenants en mode test individuel (sans bloquer les autres)
 _notification_engine: Optional[object] = None
 _iris_session_manager: Optional[object] = None  # IrisSessionManager
+_confirmation_manager: Optional[object] = None  # ConfirmationManager
 
 # Invitations visio en attente de reponse SMS (phone -> {tenant_id, subscriber_name, contact_name, timestamp})
 _pending_visio_invites: Dict[str, Dict] = {}
@@ -3836,10 +3916,12 @@ _pending_visio_invites: Dict[str, Dict] = {}
 # Rate limiting vision caméra (ip -> timestamp dernier appel)
 _vision_last_call: Dict[str, float] = {}
 _visio_scene_cache: Dict[str, str] = {}  # ip -> dernière description (détection de changement)
+# Rate limiting anomaly Guardian (session_id -> timestamp dernier appel)
+_anomaly_last_call: Dict[str, float] = {}
 
 def _init_core():
     """Initialize core modules. Graceful if Redis is down or imports failed."""
-    global _redis_client, _memory_manager, _safety_guardian, _quota_guard, _scheduler, _executor, _doc_generator, _perception_detector, _perception_analyzer, _notification_engine, _iris_session_manager
+    global _redis_client, _memory_manager, _safety_guardian, _quota_guard, _scheduler, _executor, _doc_generator, _perception_detector, _perception_analyzer, _notification_engine, _iris_session_manager, _confirmation_manager
     if not _CORE_AVAILABLE:
         logger.warning("Core modules non disponibles (import failed) - mode degrade")
         return
@@ -3863,12 +3945,21 @@ def _init_core():
                 sms_service=sms_client,
                 legal_mode=LEGAL_MODE,
             )
-            _quota_guard = QuotaGuard(memory_manager=_memory_manager)
+            _quota_guard = QuotaGuard(
+                memory_manager=_memory_manager,
+                redis_client=_redis_client.client if _redis_client else None,  # J9: persistance Redis
+            )
             _scheduler = InstructionScheduler()
+            _confirmation_manager = ConfirmationManager(
+                memory_manager=_memory_manager,
+                redis_client=_redis_client,
+            )
+            logger.info("Confirmation Manager initialisé")
             _executor = create_instruction_executor(
                 memory_manager=_memory_manager,
                 sms_service=sms_client,
                 safety_guardian=_safety_guardian,
+                action_service=_confirmation_manager,
                 voice_service=voice_client,
                 visio_service=tavus_client,
             )
@@ -4257,11 +4348,17 @@ _twilio_sms_semaphore = asyncio.Semaphore(50)      # max 50 SMS simultanes
 # --- Rate Limiting ---
 def _get_language_instruction(lang: str) -> str:
     """Returns a system instruction to adapt Luna's response language."""
-    if lang == "en":
-        return "=== LANGUAGE ===\nThe subscriber prefers English. Respond EXCLUSIVELY in English. Keep the same warm, empathetic tone. Use informal 'you'. Greet with the subscriber's first name."
-    elif lang == "es":
-        return "=== IDIOMA ===\nEl suscriptor prefiere espanol. Responde EXCLUSIVAMENTE en espanol. Mantiene el mismo tono calido y empatico. Tutea al suscriptor. Saluda con su nombre de pila."
-    return ""  # French is default — no additional instruction needed
+    _LANG_INSTRUCTIONS = {
+        "en": "=== LANGUAGE ===\nThe subscriber prefers English. Respond EXCLUSIVELY in English. Keep the same warm, empathetic tone. Use informal 'you'. Greet with the subscriber's first name.",
+        "es": "=== IDIOMA ===\nEl suscriptor prefiere español. Responde EXCLUSIVAMENTE en español. Mantén el mismo tono cálido y empático. Tutéalo. Salúdalo por su nombre de pila.",
+        "de": "=== SPRACHE ===\nDer Abonnent bevorzugt Deutsch. Antworte AUSSCHLIESSLICH auf Deutsch. Behalte den warmen, einfühlsamen Ton. Nutze die informelle 'du'-Form. Begrüße den Abonnenten mit Vornamen.",
+        "it": "=== LINGUA ===\nL'abbonato preferisce l'italiano. Rispondi ESCLUSIVAMENTE in italiano. Mantieni lo stesso tono caldo ed empatico. Dai del 'tu'. Saluta l'abbonato con il nome.",
+        "pt": "=== IDIOMA ===\nO assinante prefere português. Responda EXCLUSIVAMENTE em português. Mantenha o mesmo tom caloroso e empático. Use 'você'. Cumprimente o assinante pelo primeiro nome.",
+        "ar": "=== اللغة ===\nيفضل المشترك العربية. أجب حصرياً باللغة العربية. حافظ على نفس النبرة الدافئة والمتعاطفة. خاطب المشترك باسمه الأول.",
+        "nl": "=== TAAL ===\nDe abonnee geeft de voorkeur aan Nederlands. Reageer UITSLUITEND in het Nederlands. Behoud dezelfde warme, empathische toon. Gebruik de informele 'jij'-vorm. Groet met de voornaam.",
+        "zh": "=== 语言 ===\n用户偏好中文。请仅用中文回答。保持同样温暖、亲切的语气。称呼用户的名字。",
+    }
+    return _LANG_INSTRUCTIONS.get(lang, "")  # French is default — no additional instruction needed
 
 
 def _cortex_reason_to_human(reason: str) -> str:
@@ -4407,7 +4504,7 @@ async def _vault_reminder_loop():
                                 phone = auth.get("telephone") or auth.get("phone", "")
                                 if phone:
                                     try:
-                                        sms_client.send_sms(phone, f"Luna 📄 {msg}")
+                                        sms_client.send(phone, f"Luna 📄 {msg}")
                                         processed += 1
                                     except Exception as sms_err:
                                         logger.warning(f"Vault SMS tid={tid}: {sms_err}")
@@ -4691,7 +4788,7 @@ async def security_middleware(request: Request, call_next):
 
     # PV de recette lock: en mode setup, seuls certains endpoints sont accessibles
     if _pv_locked:
-        pv_allowed = ("/api/status", "/api/setup/", "/api/admin/", "/api/stripe/webhook", "/api/app/version")
+        pv_allowed = ("/api/status", "/api/setup/", "/api/admin/", "/api/stripe/webhook")
         if path.startswith("/api/") and not any(path.startswith(a) for a in pv_allowed):
             logger.warning(f"PV_LOCKED {client_ip} {request.method} {path}")
             return JSONResponse(
@@ -5134,7 +5231,7 @@ if (window.LUNA_CONFIG.sentryDsn && typeof Sentry !== 'undefined') {{
 @app.get("/health")
 async def health():
     """Healthcheck leger pour Docker/load balancers."""
-    return {"status": "ok"}
+    return {"status": "ok", "openai": "ok" if _openai_key_valid else "unconfigured"}
 
 
 @app.get("/ready")
@@ -5150,112 +5247,14 @@ async def ready():
     except Exception as e:
         checks["redis"] = f"error: {e}"
         return JSONResponse(status_code=503, content={"status": "not_ready", "checks": checks})
-    for key in ("JWT_SECRET_KEY", "OPENAI_API_KEY"):
-        checks[key] = "ok" if os.getenv(key) else "missing"
+    checks["JWT_SECRET_KEY"] = "ok" if os.getenv("JWT_SECRET_KEY") else "missing"
+    checks["OPENAI_API_KEY"] = "ok" if _openai_key_valid else "invalid_or_missing"
     all_ok = all(v == "ok" for v in checks.values())
     return JSONResponse(
         status_code=200 if all_ok else 503,
         content={"status": "ready" if all_ok else "degraded", "checks": checks},
     )
 
-@app.post("/trigger")
-async def trigger_emergency(request: Request):
-    """
-    Point d'entrée pour les déclenchements d'urgence depuis l'APK Guardian.
-    Reçoit au minimum { "keyword": "...", "source": "guardian_voice", "user_id": "..." }.
-    Déclenche la vraie chaîne Guardian/urgence, pas seulement un accusé de réception.
-    """
-    try:
-        data = await request.json()
-    except Exception:
-        return JSONResponse(status_code=400, content={"ok": False, "error": "JSON invalide"})
-    if not isinstance(data, dict):
-        return JSONResponse(status_code=400, content={"ok": False, "error": "Payload invalide"})
-
-    keyword = str(data.get("keyword", "") or "").strip()
-    source = str(data.get("source", "") or "guardian_voice").strip()
-    user_id = str(data.get("user_id", "") or "").strip()
-    session_id = str(data.get("session_id", "") or "").strip()
-    last_words = str(data.get("last_words", "") or keyword).strip()
-    summary = str(data.get("summary", "") or last_words or keyword).strip()
-    tid = int(getattr(request.state, "tenant_id", TENANT_ID) or TENANT_ID)
-    token = _extract_bearer(request)
-    payload = _decode_client_token(token) if token else None
-    if payload:
-        tid = int(payload.get("tenant_id", tid) or tid)
-        if not user_id:
-            user_id = str(payload.get("tenant_id", "") or payload.get("email", "") or "")
-    elif token:
-        admin_payload = _decode_admin_token(token)
-        if admin_payload:
-            tid = int(admin_payload.get("tenant_id", tid) or tid)
-            if not user_id:
-                user_id = str(admin_payload.get("tenant_id", "") or admin_payload.get("email", "") or "")
-
-    logger.warning(
-        "GUARDIAN /trigger received source=%s tid=%s user_id=%s session_id=%s keyword=%r",
-        source, tid, user_id or "-", session_id or "-", keyword[:180],
-    )
-
-    if not keyword:
-        return JSONResponse(status_code=400, content={"ok": False, "error": "keyword manquant"})
-
-    guardian_event = None
-    guardian_session_id = session_id
-
-    # Marque l'événement dans Guardian si une session active existe.
-    try:
-        engine = _get_guardian()
-        if engine:
-            if not guardian_session_id:
-                active = engine.get_active_sessions(tid)
-                guardian_session_id = active[0] if active else ""
-            if guardian_session_id:
-                ev = engine.trigger_sos(guardian_session_id)
-                guardian_event = ev.to_dict() if hasattr(ev, "to_dict") else ev
-                logger.warning(
-                    "GUARDIAN /trigger backend event recorded tid=%s session_id=%s",
-                    tid, guardian_session_id,
-                )
-    except Exception as e:
-        logger.exception("GUARDIAN /trigger backend event failed: %s", e)
-
-    try:
-        report = await _trigger_voice_emergency(
-            tid,
-            summary=summary,
-            level="immediate",
-            place_calls=True,
-        )
-    except Exception as e:
-        logger.exception("GUARDIAN /trigger emergency chain failed: %s", e)
-        return JSONResponse(
-            status_code=500,
-            content={"ok": False, "error": "emergency_chain_failed", "detail": str(e)},
-        )
-
-    logger.warning(
-        "GUARDIAN /trigger completed tid=%s triggered=%s sms=%s/%s calls=%s/%s dry_run=%s errors=%s",
-        tid,
-        report.get("triggered"),
-        (report.get("sms") or {}).get("sent"),
-        (report.get("sms") or {}).get("total"),
-        (report.get("calls") or {}).get("placed"),
-        (report.get("calls") or {}).get("total"),
-        report.get("dry_run"),
-        report.get("errors"),
-    )
-
-    return {
-        "ok": True,
-        "status": "triggered" if report.get("triggered") else "not_triggered",
-        "source": source,
-        "user_id": user_id,
-        "tenant_id": tid,
-        "guardian_session_id": guardian_session_id,
-        "guardian_event": guardian_event,
-        "emergency_report": report,
-    }
 
 @app.get("/api/maintenance")
 async def get_maintenance_status():
@@ -5359,13 +5358,9 @@ async def download_apk():
 
 
 
-# Version APK pour auto-update et compatibilité backend
-LUNA_APP_VERSION = "3.1"
-LUNA_APP_VERSION_CODE = 22
-LUNA_BACKEND_VERSION = "guardian-2026-07-04"
-LUNA_BACKEND_ENVIRONMENT = os.getenv("LUNA_BACKEND_ENVIRONMENT", "test-guardian")
-LUNA_MIN_APK_VERSION_CODE = int(os.getenv("LUNA_MIN_APK_VERSION_CODE", "22"))
-LUNA_RECOMMENDED_APK_VERSION_CODE = int(os.getenv("LUNA_RECOMMENDED_APK_VERSION_CODE", "22"))
+# Version APK pour auto-update
+LUNA_APP_VERSION = "3.8"
+LUNA_APP_VERSION_CODE = 29
 
 
 def _compute_apk_sha256() -> str:
@@ -5385,41 +5380,14 @@ _APK_SHA256: str = _compute_apk_sha256()
 
 
 @app.get("/api/app/version")
-async def app_version(request: Request):
-    """
-    Retourne la version courante du backend et les exigences APK.
-    Permet a l'APK de verifier qu'elle est compatible avec le backend atteint.
-    """
-    proto = request.headers.get("X-Forwarded-Proto", "https")
-    host = request.headers.get("X-Forwarded-Host", request.headers.get("Host", "localhost"))
-    base_url = f"{proto}://{host}".rstrip("/")
-    cloud_run_revision = os.getenv("K_REVISION", "unknown")
-    force_update = LUNA_APP_VERSION_CODE < LUNA_MIN_APK_VERSION_CODE
-
-    logger.info(
-        "[APK_VERSION_CHECK] backend_version=%s cloud_run_revision=%s environment=%s "
-        "apk_version_code=%s min_apk_version_code=%s recommended_apk_version_code=%s force_update=%s",
-        LUNA_BACKEND_VERSION,
-        cloud_run_revision,
-        LUNA_BACKEND_ENVIRONMENT,
-        LUNA_APP_VERSION_CODE,
-        LUNA_MIN_APK_VERSION_CODE,
-        LUNA_RECOMMENDED_APK_VERSION_CODE,
-        force_update,
-    )
-
+async def app_version():
+    """Retourne la version courante de l'APK pour auto-update."""
     return {
-        "backend_version": LUNA_BACKEND_VERSION,
-        "cloud_run_revision": cloud_run_revision,
-        "environment": LUNA_BACKEND_ENVIRONMENT,
-        "minimum_apk_version_code": LUNA_MIN_APK_VERSION_CODE,
-        "recommended_apk_version_code": LUNA_RECOMMENDED_APK_VERSION_CODE,
-        "force_update": force_update,
-        "apk_download_url": base_url + "/download/luna.apk",
+        "version": LUNA_APP_VERSION,
+        "version_code": LUNA_APP_VERSION_CODE,
+        "apk_url": "/download/luna.apk",
         "apk_sha256": _APK_SHA256,
-        "current_apk_version_code": LUNA_APP_VERSION_CODE,
-        "current_apk_version_name": LUNA_APP_VERSION,
-        "changelog": "Anti-decalage APK/Cloud Run pour Guardian",
+        "changelog": "Sécurité APK renforcée, vérification intégrité mise à jour",
     }
 
 
@@ -5880,6 +5848,15 @@ async def chat(req: ChatRequest, request: Request):
         return JSONResponse(status_code=503, content={"error": "Luna est tres sollicitee, reessaie dans quelques secondes"})
     await _chat_semaphore.acquire()
     try:
+        # Graceful degradation if OpenAI is not configured
+        if not openai_client or not _openai_key_valid:
+            logger.warning("Chat requested but OpenAI is not configured")
+            return {
+                "response": "Luna n'est pas encore configuree pour repondre par IA. "
+                            "Demande a l'administrateur de verifier la cle OpenAI. "
+                            "En attendant, je peux quand meme t'aider avec la meteo, tes rappels et tes contacts."
+            }
+
         tid = getattr(request.state, "tenant_id", 1)
         mgr = _get_tenant_manager(tid)
         tenant_convs = conversations.setdefault(str(tid), {})
@@ -6642,7 +6619,7 @@ COMPORTEMENT COMPAGNON :
         _openai_breaker.record_failure()
         logger.error("OPENAI AUTH ERROR - cle API invalide")
         _notify_admin_health("Cle OpenAI invalide - Luna ne peut plus repondre")
-        return {"response": "Luna a un souci technique. L'equipe a ete prevenue."}
+        return {"response": "Luna n'est pas encore configuree correctement. La cle OpenAI est invalide ou absente. Contacte l'administrateur."}
     except openai.RateLimitError as e:
         _openai_breaker.record_failure()
         err_body = getattr(e, 'body', {}) or {}
@@ -7905,8 +7882,16 @@ async def visio_transcribe(request: Request):
         try:
             with open(tmp_path, "rb") as f:
                 audio_client = OpenAI(api_key=audio_api_key)
+                _whisper_lang = "fr"
+                if _redis_available():
+                    try:
+                        _wl = _redis_client.client.hget(f"luna:{tid}:settings", "language")
+                        if _wl:
+                            _whisper_lang = _wl.decode() if isinstance(_wl, bytes) else _wl
+                    except Exception:
+                        pass
                 transcript = audio_client.audio.transcriptions.create(
-                    model="whisper-1", file=f, language="fr"
+                    model="whisper-1", file=f, language=_whisper_lang
                 )
             text = transcript.text.strip()
         finally:
@@ -9242,7 +9227,11 @@ async def voice_call_media_stream(websocket: WebSocket):
                     # Limiter a 1600 chars (limite SMS longue)
                     if len(_sms_body) > 1500:
                         _sms_body = _sms_body[:1497] + "..."
-                    _sms_ok, _sms_detail = sms_client.send(_sub_phone, _sms_body)
+                    _sms_ok, _sms_detail = _tracked_sms_send(
+                        _sub_phone,
+                        _sms_body,
+                        label="Compte-rendu appel vocal",
+                    )
                     if _sms_ok:
                         logger.info(f"Call report SMS sent to {_sub_phone}")
                     else:
@@ -9281,6 +9270,52 @@ async def voice_call_media_stream(websocket: WebSocket):
             pass
 
 
+def _build_iris_greeting_context(sub_name: str, tid: int, redis_client, memory_mgr) -> str:
+    """Construit un résumé contextuel court pour personnaliser le greeting d'Iris."""
+    hints = []
+    try:
+        # Dernière conversation en mémoire
+        if memory_mgr:
+            try:
+                convs = memory_mgr.list_conversations()
+                if convs:
+                    last = convs[0]
+                    topic = getattr(last, "summary", "") or getattr(last, "topic", "")
+                    if topic and len(topic) > 5:
+                        hints.append(f"dernière conversation : {topic[:80]}")
+            except Exception:
+                pass
+
+        # Événements Guardian récents
+        if redis_client:
+            try:
+                import json as _j
+                gev = redis_client.client.lrange(f"luna:{tid}:guardian:events", 0, 0)
+                if gev:
+                    ev = _j.loads(gev[0])
+                    ev_type = ev.get("type", "")
+                    if ev_type:
+                        hints.append(f"événement Guardian récent : {ev_type}")
+            except Exception:
+                pass
+
+        # Profil utilisateur (prénom de confiance)
+        if memory_mgr and not hints:
+            try:
+                profile = memory_mgr.get_subscriber_profile()
+                if profile:
+                    city = getattr(profile, "city", "")
+                    if city:
+                        hints.append(f"tu es à {city}")
+            except Exception:
+                pass
+
+    except Exception:
+        pass
+
+    return ", ".join(hints) if hints else ""
+
+
 # =========================================================================
 # LUNA VOICE — Mode Jarvis (voix directe navigateur <-> OpenAI Realtime)
 # =========================================================================
@@ -9307,7 +9342,7 @@ async def ws_luna_voice(websocket: WebSocket):
 
     tid = jwt_payload.get("tenant_id", TENANT_ID)
     plan_name = jwt_payload.get("plan", "essentiel")
-    sub_name = jwt_payload.get("first_name", "") or _SUBSCRIBER_NAME
+    sub_name = _resolve_sub_name(jwt_payload, tid)
 
     # Budget guard — bloquer si cout API mensuel depasse
     budget_err = await _check_budget_guard(tid, plan_name)
@@ -9526,10 +9561,15 @@ Quand il parle de ses heures, propose de les enregistrer. Quand il parle d'une r
             return {"status": "error", "message": f"Fonction inconnue: {name}"}
 
     _is_reconnect = len(_voice_history) > 0 and _history_param
+    _salut = _salutation_heure()
+
     if _is_reconnect:
-        _greeting = f"{sub_name} revient apres une coupure. Dis-lui brievement que tu es de retour et continue la conversation la ou elle en etait."
+        _greeting = f"{_salut} {sub_name}. Je suis de retour." if sub_name else f"{_salut}. Je suis de retour."
     else:
-        _greeting = f"{sub_name} vient d'activer le mode vocal. Salue-le brievement et demande ce que tu peux faire pour lui."
+        if sub_name:
+            _greeting = f"{_salut} {sub_name}. Comment puis-je t'aider ?"
+        else:
+            _greeting = f"{_salut}. Comment puis-je t'aider ?"
 
     bridge = WebVoiceBridge(
         openai_api_key=OPENAI_API_KEY,
@@ -9540,6 +9580,7 @@ Quand il parle de ses heures, propose de les enregistrer. Quand il parle d'une r
         max_duration_seconds=int(os.getenv("VOICE_MAX_DURATION", "900")),
         greeting=_greeting,
         conversation_history=_voice_history,
+        iris_mode=False,
     )
 
     _voice_start = time.time()
@@ -9633,22 +9674,39 @@ Quand il parle de ses heures, propose de les enregistrer. Quand il parle d'une r
 
 import random as _random
 
+
+def _salutation_heure() -> str:
+    """Retourne 'Bonjour' ou 'Bonsoir' selon l'heure locale Paris."""
+    try:
+        from zoneinfo import ZoneInfo
+        _h = datetime.now(ZoneInfo("Europe/Paris")).hour
+    except Exception:
+        _h = datetime.now().hour
+    return "Bonjour" if 5 <= _h < 18 else "Bonsoir"
+
+
+def _resolve_sub_name(jwt_payload: dict, tid: int) -> str:
+    """Retourne le prénom de l'utilisateur — jamais 'le souscripteur'."""
+    name = (jwt_payload.get("first_name") or "").strip()
+    if not name or name.lower() in ("le souscripteur", "souscripteur", "client", "utilisateur"):
+        # Tentative depuis le profil Redis (plus fiable que le JWT au démarrage)
+        try:
+            _mgr = _get_tenant_manager(tid) if tid else _memory_manager
+            if _mgr:
+                _p = _mgr.get_subscriber_profile()
+                if _p and getattr(_p, "first_name", None):
+                    name = _p.first_name.strip()
+        except Exception:
+            pass
+    return name  # Peut être vide — les greetings gèrent le cas sans prénom
+
+
 _IRIS_GREETINGS = [
-    "Bonjour {name}. Je suis Iris. Comment vas-tu ? Je peux faire quelque chose pour toi ?",
-    "Bonjour {name}. Iris à l'écoute. Quelle mission me confies-tu ?",
-    "Salut {name}. Je suis prête. Qu'est-ce qu'on règle maintenant ?",
-    "{name}, je suis là. Dis-moi ce que tu veux préparer.",
-    "Bonjour {name}. On travaille sur quoi aujourd'hui ?",
-    "Salut {name}. Je t'écoute, et je peux passer à l'action si tu valides.",
-    "{name}, Iris est disponible. Tu veux discuter, rédiger ou organiser quelque chose ?",
-    "Bonjour {name}. Je peux t'aider à chercher, structurer ou préparer un document.",
-    "Iris à l'écoute, {name}. Quelle est la priorité ?",
-    "Salut {name}. Tu peux me parler naturellement, je m'occupe du reste avec prudence.",
-    "{name}, je suis prête. On réfléchit, on cherche, ou on produit ?",
-    "Bonjour {name}. Je peux conseiller, chercher, rédiger ou préparer une action.",
-    "Salut {name}. Je suis ton assistante IA. Qu'est-ce que je peux faire pour toi ?",
-    "{name}, je suis connectée à ton espace Luna. Quelle tâche veux-tu lancer ?",
-    "Bonjour {name}. Je suis Iris, ton assistante opérationnelle. Je t'écoute.",
+    "{salut} {name}. Je suis Iris. Comment puis-je t'aider ?",
+    "{salut} {name}. Je suis contente de te retrouver. Que puis-je faire pour toi ?",
+    "{salut} {name}. Je suis Iris. Je t'écoute.",
+    "{salut} {name}. Iris à ton écoute. De quoi as-tu besoin ?",
+    "{salut} {name}. Je suis là. Dis-moi ce que tu veux faire.",
 ]
 
 _IRIS_SYSTEM = """Tu es Iris, l'assistante IA personnelle de Ludovic.
@@ -9734,7 +9792,7 @@ async def iris_session_create(request: Request):
 @app.get("/api/iris/session/{session_id}/status")
 async def iris_session_status(session_id: str, request: Request):
     """Retourne le statut d'une session et ses participants."""
-    payload = _decode_client_token(request.headers.get("Authorization", "").replace("Bearer ", ""))
+    payload = _decode_iris_token(request.headers.get("Authorization", "").replace("Bearer ", ""))
     if not payload:
         raise HTTPException(status_code=401, detail="Non autorisé")
     if not _iris_session_manager:
@@ -9771,9 +9829,135 @@ async def iris_session_invite(session_id: str, request: Request):
     }
     _iris_session_manager.add_participant(session_id, participant)
     invite_token = _iris_session_manager.create_invite(session_id, pid)
-    base_url = os.getenv("VOICE_CALLBACK_URL", "")
+    base_url = (os.getenv("VOICE_CALLBACK_URL") or os.getenv("BASE_URL") or "https://luna-beta-674304336025.europe-west1.run.app").rstrip("/")
     invite_link = f"{base_url}/iris/join/{invite_token}"
     return JSONResponse({"ok": True, "invite_link": invite_link, "participant": participant})
+
+
+@app.post("/api/iris/session/{session_id}/invite-friend")
+async def iris_session_invite_friend(session_id: str, request: Request):
+    """Invite un ami Luna directement dans la session Iris (notification in-app)."""
+    payload = _decode_client_token(request.headers.get("Authorization", "").replace("Bearer ", ""))
+    if not payload:
+        raise HTTPException(status_code=401, detail="Non autorisé")
+    if not _iris_session_manager:
+        raise HTTPException(status_code=503, detail="Session manager non disponible")
+    session = _iris_session_manager.get_session(session_id)
+    tid = str(payload.get("tenant_id", TENANT_ID))
+    if not session or str(session.get("tenant_id")) != tid:
+        raise HTTPException(status_code=403, detail="Session introuvable ou accès refusé")
+
+    body = await request.json()
+    friend_tid = str(body.get("friend_tid", ""))
+    friend_name = str(body.get("friend_name", "Ami"))
+    role = body.get("role", "guest")
+    if role not in ("trusted", "guest", "observer"):
+        role = "guest"
+
+    # Vérifier amitié
+    if not _redis_available():
+        raise HTTPException(status_code=503, detail="Redis non disponible")
+    from core.social.redis_ops import SocialRedisOps
+    sops = SocialRedisOps(_redis_client)
+    friends = sops.get_friends(int(tid))
+    if friend_tid not in friends:
+        raise HTTPException(status_code=403, detail="Vous devez être amis pour inviter via Luna")
+
+    # Créer le participant + invite token
+    import uuid as _uuid
+    pid = str(_uuid.uuid4())[:8]
+    owner_name = payload.get("first_name", "") or f"User{tid}"
+    participant = {
+        "participant_id": pid,
+        "session_id": session_id,
+        "name": friend_name,
+        "role": role,
+        "projects_allowed": [],
+        "can_trigger_actions": False,
+    }
+    _iris_session_manager.add_participant(session_id, participant)
+    invite_token = _iris_session_manager.create_invite(session_id, pid)
+    base_url = (os.getenv("VOICE_CALLBACK_URL") or os.getenv("BASE_URL") or "https://luna-beta-674304336025.europe-west1.run.app").rstrip("/")
+    invite_link = f"{base_url}/iris/join/{invite_token}"
+
+    # Stocker l'invite dans la liste persistante du destinataire
+    import secrets as _sec
+    invite_id = _sec.token_hex(6)
+    invite_record = {
+        "id": invite_id,
+        "session_id": session_id,
+        "invite_token": invite_token,
+        "invite_link": invite_link,
+        "from_tid": tid,
+        "from_name": owner_name,
+        "role": role,
+        "session_name": session.get("name", "Session Iris"),
+        "created_at": datetime.utcnow().isoformat(),
+    }
+    _iris_invite_key = f"luna:{friend_tid}:iris:friend_invites"
+    _redis_client.client.lpush(_iris_invite_key, json.dumps(invite_record))
+    _redis_client.client.ltrim(_iris_invite_key, 0, 9)
+    _redis_client.client.expire(_iris_invite_key, 86400)
+
+    # Envoyer notification in-app au destinataire
+    try:
+        from core.notifications.redis_ops import NotificationRedisOps
+        nops = NotificationRedisOps(_redis_client)
+        nops.add_pending(int(friend_tid), {
+            "type": "iris_invitation",
+            "title": f"🎙️ {owner_name} t'invite dans Iris",
+            "body": f"Session : {session.get('name', 'Session Iris')} — Rôle : {role}",
+            "invite_id": invite_id,
+            "invite_link": invite_link,
+            "from_name": owner_name,
+            "session_name": session.get("name", "Session Iris"),
+        })
+    except Exception:
+        pass
+
+    return JSONResponse({"ok": True, "invite_id": invite_id, "invite_link": invite_link})
+
+
+@app.get("/api/iris/friend-invites")
+async def iris_get_friend_invites(request: Request):
+    """Retourne les invitations Iris en attente pour l'utilisateur courant."""
+    payload = _decode_client_token(request.headers.get("Authorization", "").replace("Bearer ", ""))
+    if not payload:
+        raise HTTPException(status_code=401, detail="Non autorisé")
+    tid = str(payload.get("tenant_id", TENANT_ID))
+    if not _redis_available():
+        return JSONResponse({"invites": []})
+    key = f"luna:{tid}:iris:friend_invites"
+    raw = _redis_client.client.lrange(key, 0, 9)
+    invites = []
+    for item in raw:
+        try:
+            invites.append(json.loads(item))
+        except Exception:
+            pass
+    return JSONResponse({"invites": invites})
+
+
+@app.post("/api/iris/friend-invites/{invite_id}/decline")
+async def iris_decline_friend_invite(invite_id: str, request: Request):
+    """Supprime une invitation Iris en attente."""
+    payload = _decode_client_token(request.headers.get("Authorization", "").replace("Bearer ", ""))
+    if not payload:
+        raise HTTPException(status_code=401, detail="Non autorisé")
+    tid = str(payload.get("tenant_id", TENANT_ID))
+    if not _redis_available():
+        return JSONResponse({"ok": True})
+    key = f"luna:{tid}:iris:friend_invites"
+    raw = _redis_client.client.lrange(key, 0, 9)
+    for item in raw:
+        try:
+            rec = json.loads(item)
+            if rec.get("id") == invite_id:
+                _redis_client.client.lrem(key, 1, item)
+                break
+        except Exception:
+            pass
+    return JSONResponse({"ok": True})
 
 
 @app.post("/api/iris/session/{session_id}/revoke/{participant_id}")
@@ -9831,6 +10015,199 @@ async def iris_session_approve(session_id: str, action_id: str, request: Request
         "action_type": action.get("action_type"),
     })
     return JSONResponse({"ok": True, "action": action})
+
+
+def _iris_build_report(markdown: str, fmt: str):
+    """Construit le dossier final Iris en PDF (fpdf2) ou DOCX (python-docx).
+
+    Retourne (data: bytes, ext: str, media: str). Lève une exception sur échec.
+    Partagé par les endpoints export et send (DRY).
+    """
+    import io as _io
+    if fmt == "docx":
+        from docx import Document
+        from docx.shared import Pt
+        doc = Document()
+        doc.styles["Normal"].font.name = "Calibri"
+        doc.styles["Normal"].font.size = Pt(11)
+        for raw in markdown.splitlines():
+            doc.add_paragraph(raw.rstrip())
+        buf = _io.BytesIO()
+        doc.save(buf)
+        return (buf.getvalue(), "docx",
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+
+    from fpdf import FPDF
+    _repl = {"═": "=", "─": "-", "•": "-", "❓": "?", "💡": "*", "✅": "[x]",
+             "→": "->", "…": "...", "’": "'", "«": '"', "»": '"', "—": "-", "–": "-"}
+
+    def _latin1(s: str) -> str:
+        for k, v in _repl.items():
+            s = s.replace(k, v)
+        # Helvetica (core font) = latin-1 ; remplace tout caractère hors plage
+        return s.encode("latin-1", "replace").decode("latin-1")
+
+    pdf = FPDF(format="A4")
+    pdf.set_auto_page_break(auto=True, margin=15)
+    pdf.add_page()
+    pdf.set_font("Helvetica", size=11)
+    epw = pdf.w - pdf.l_margin - pdf.r_margin  # largeur explicite (w=0 plante en fpdf2 2.8)
+    for raw in markdown.splitlines():
+        line = _latin1(raw.rstrip())
+        if not line:
+            pdf.ln(3)
+            continue
+        pdf.multi_cell(epw, 6, line)
+    return (bytes(pdf.output()), "pdf", "application/pdf")
+
+
+@app.post("/api/team/report/export")
+async def iris_report_export(request: Request):
+    """Exporte le dossier final Iris (compte-rendu) en PDF ou DOCX (téléchargement).
+
+    Endpoint public (cf. /api/team/* dans _PUBLIC_PATHS). Ne rend que le texte fourni
+    par le client (generateReport), aucune donnée serveur exposée. Plafond anti-abus.
+    """
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    markdown = (body.get("markdown") or "").strip()
+    fmt = (body.get("format") or "pdf").strip().lower()
+    title = (body.get("title") or "Compte-rendu Iris").strip()[:120]
+    if not markdown:
+        return JSONResponse(status_code=400, content={"error": "Rapport vide"})
+    if len(markdown) > 200_000:
+        return JSONResponse(status_code=413, content={"error": "Rapport trop volumineux"})
+    safe_name = re.sub(r"[^a-zA-Z0-9_-]+", "-", title).strip("-")[:60] or "dossier-iris"
+    try:
+        data, ext, media = _iris_build_report(markdown, fmt)
+    except Exception as e:
+        logger.error(f"iris_report_export error ({fmt}): {e}")
+        return JSONResponse(status_code=500, content={"error": "Génération du document impossible"})
+    return Response(
+        content=data,
+        media_type=media,
+        headers={"Content-Disposition": f'attachment; filename="{safe_name}.{ext}"'},
+    )
+
+
+@app.post("/api/team/report/send")
+async def iris_report_send(request: Request):
+    """Distribue/envoie le dossier final Iris par email (pièce jointe PDF/DOCX).
+
+    Action externe initiée par l'utilisateur (destinataires saisis explicitement).
+    Respecte le mode test fondateur : EmailClient simule alors l'envoi (simulated=True),
+    aucun email réel n'est expédié.
+    """
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    markdown = (body.get("markdown") or "").strip()
+    fmt = (body.get("format") or "pdf").strip().lower()
+    title = (body.get("title") or "Compte-rendu Iris").strip()[:120]
+    recipients = body.get("to") or body.get("recipients") or []
+    if isinstance(recipients, str):
+        recipients = [recipients]
+    recipients = [r.strip() for r in recipients if isinstance(r, str) and "@" in r][:10]
+    if not markdown:
+        return JSONResponse(status_code=400, content={"error": "Rapport vide"})
+    if len(markdown) > 200_000:
+        return JSONResponse(status_code=413, content={"error": "Rapport trop volumineux"})
+    if not recipients:
+        return JSONResponse(status_code=400, content={"error": "Aucun destinataire valide"})
+    if email_client is None:
+        return JSONResponse(status_code=503, content={"error": "Email non disponible sur ce serveur"})
+
+    try:
+        data, ext, media = _iris_build_report(markdown, fmt)
+    except Exception as e:
+        logger.error(f"iris_report_send build error ({fmt}): {e}")
+        return JSONResponse(status_code=500, content={"error": "Génération du document impossible"})
+
+    import tempfile
+    tmp = tempfile.NamedTemporaryFile(prefix="iris-", suffix=f".{ext}", delete=False)
+    results = []
+    try:
+        tmp.write(data)
+        tmp.close()
+        att = [{"filename": f"dossier-iris.{ext}", "filepath": tmp.name, "type": media}]
+        for to in recipients:
+            try:
+                ok, info = await email_client.send(
+                    to=to,
+                    subject=f"Dossier Iris — {title}",
+                    body_text=(f"Bonjour,\n\nVeuillez trouver ci-joint le dossier final Iris "
+                               f"« {title} ».\n\n— Iris"),
+                    subscriber_name="Iris",
+                    attachments=att,
+                )
+            except Exception as e:
+                ok, info = False, {"error": str(e)}
+            if not ok:
+                logger.warning(f"iris_report_send: échec envoi vers {to[:60]} ({fmt}): {info.get('error')}")
+            results.append({
+                "to": to, "ok": bool(ok),
+                "simulated": bool(info.get("simulated")),
+                "error": info.get("error"),
+            })
+    finally:
+        try:
+            os.unlink(tmp.name)
+        except Exception:
+            pass
+
+    sent = sum(1 for r in results if r["ok"])
+    simulated = any(r["simulated"] for r in results)
+    logger.info(f"iris_report_send: {sent}/{len(results)} envoyé(s)"
+                + (" [SIMULÉ - mode test]" if simulated else ""))
+    return JSONResponse({
+        "ok": sent > 0,
+        "sent": sent,
+        "total": len(results),
+        "simulated": simulated,
+        "results": results,
+    })
+
+
+@app.post("/api/team/session/{session_id}/archive")
+async def iris_session_archive(session_id: str, request: Request):
+    """Archive le dossier final Iris (persistance Redis) et marque la session archivée."""
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    sid = re.sub(r"[^a-zA-Z0-9_-]", "", session_id)[:64] or "default"
+    report = body.get("report")
+    archive = {
+        "session_id": sid,
+        "title": (body.get("title") or "Compte-rendu Iris")[:120],
+        "report": report if isinstance(report, dict) else {},
+        "brief": body.get("brief"),
+        "decision": body.get("decision"),
+        "archived_at": datetime.utcnow().isoformat(),
+    }
+    persisted = False
+    if _redis_client:
+        try:
+            _redis_client.client.set(
+                f"luna:iris:archive:{sid}",
+                json.dumps(archive, ensure_ascii=False),
+                ex=86400 * 365,
+            )
+            _redis_client.client.sadd("luna:iris:archives", sid)
+            persisted = True
+        except Exception as e:
+            logger.warning(f"iris archive persist error: {e}")
+    room = _TEAM_ROOMS.get(sid)
+    if room is not None:
+        try:
+            room.archived = True
+            await room.broadcast({"type": "session_archived", "session_id": sid})
+        except Exception:
+            pass
+    return JSONResponse({"ok": True, "persisted": persisted, "archived_at": archive["archived_at"]})
 
 
 @app.post("/api/iris/session/{session_id}/reject/{action_id}")
@@ -9999,9 +10376,7 @@ async def ws_iris_voice(websocket: WebSocket):
 
     tid = jwt_payload.get("tenant_id", TENANT_ID)
     plan_name = jwt_payload.get("plan", "essentiel") if not _is_participant else "essentiel"
-    sub_name = jwt_payload.get("first_name", "") or _SUBSCRIBER_NAME
-    if _is_participant:
-        sub_name = _participant_name or "Invité"
+    sub_name = _resolve_sub_name(jwt_payload, tid) if not _is_participant else (_participant_name or "Invité").strip()
 
     budget_err = await _check_budget_guard(tid, plan_name)
     if budget_err:
@@ -10469,7 +10844,6 @@ Règles de collaboration :
     # ne se déclenche pas). Elle attend que l'utilisateur parle. Voir _IRIS_SYSTEM.
     _is_reconnect = len(_voice_history) > 0 and _history_param
     if _is_reconnect:
-        # On informe Iris du contexte de reprise, mais elle ne parle toujours pas la première.
         context += "\n\nREPRISE DE SESSION : la conversation reprend après une coupure. Reste silencieuse et attends que l'utilisateur reprenne la parole."
     _greeting = ""  # jamais de salutation auto — Iris ne parle jamais en premier
 
@@ -10480,14 +10854,18 @@ Règles de collaboration :
         """Analyse d'intention d'urgence (LLM) sur ce que dit l'utilisateur."""
         return await _classify_emergency(text, recent, openai_client)
 
-    async def _iris_emergency_fire(summary: str, level: str):
+    async def _iris_emergency_fire(summary: str, level: str, last_words: str = ""):
         """Déclenche le protocole d'alerte (SMS + appels + position) côté serveur."""
-        return await _trigger_voice_emergency(tid, summary=summary, level=level)
+        return await _trigger_voice_emergency(tid, summary=summary, level=level, last_words=last_words)
 
     # Garde-fou opérationnel : on peut désactiver toute la détection d'urgence sans redéployer.
     _emergency_on = os.getenv("VOICE_EMERGENCY_ENABLED", "true").lower() in ("1", "true", "yes")
     _emg_detect = _iris_emergency_detect if _emergency_on else None
     _emg_fire = _iris_emergency_fire if _emergency_on else None
+
+    async def _iris_reminder_handle(text: str):
+        """Crée un rappel côté serveur si l'utilisateur en demande un (déterministe)."""
+        return await _handle_voice_reminder(text, tid)
 
     bridge = WebVoiceBridge(
         openai_api_key=OPENAI_API_KEY,
@@ -10508,6 +10886,7 @@ Règles de collaboration :
         command_screen=False,  # voix pure : pas de panneau ICS, pas de forçage iris_render
         emergency_detect=_emg_detect,
         emergency_fire=_emg_fire,
+        reminder_handle=_iris_reminder_handle,
     )
 
     # Enregistrer le WS dans la session collaborative si active
@@ -10646,6 +11025,7 @@ async def social_list_friends(request: Request):
         return {"friends": []}
     friend_tids = sops.get_friends(tid)
     online_set = sops.get_online_tids()
+    guardian_tids = _redis_client.get_guardian_friends(tid) if _redis_client else set()
     friends = []
     for f_tid_str in friend_tids:
         f_tid = int(f_tid_str)
@@ -10659,6 +11039,7 @@ async def social_list_friends(request: Request):
             "level": int(profile.get("level", 1)),
             "avatar_type": profile.get("avatar_type", "adult_man"),
             "is_online": f_tid_str in online_set,
+            "is_guardian_contact": f_tid_str in guardian_tids,
         })
     friends.sort(key=lambda f: (not f["is_online"], f["nickname"].lower()))
     return {"friends": friends, "count": len(friends)}
@@ -10876,6 +11257,16 @@ async def social_remove_extern_friend(phone: str, request: Request):
 # DM WEBSOCKET — Temps reel pour les messages prives
 # =========================================================================
 _dm_subscribers: Dict[str, set] = {}  # room_id -> set of (tid, websocket)
+
+
+async def _guardian_dm_broadcast(room_id: str, msg: dict):
+    """Broadcast un message guardian DM aux WS ouverts sur cette room."""
+    payload = json.dumps({"type": "message", "message": msg})
+    for sub_tid, sub_ws in list(_dm_subscribers.get(room_id, set())):
+        try:
+            await sub_ws.send_text(payload)
+        except Exception:
+            _dm_subscribers.get(room_id, set()).discard((sub_tid, sub_ws))
 
 @app.websocket("/ws/dm/{room_id}")
 async def ws_dm(websocket: WebSocket, room_id: str):
@@ -11667,6 +12058,10 @@ class RegisterRequest(BaseModel):
     password: str
     first_name: str = ""
     last_name: str = ""
+    phone: str = ""
+    plan: str = "essentiel"
+    lang: str = ""   # langue préférée (fr/en/es/de/it/pt/ar/nl/zh)
+    ref: str = ""    # code parrain
 
 class LoginRequest(BaseModel):
     email: str
@@ -11680,7 +12075,7 @@ class CheckoutRequest(BaseModel):
     plan: str  # "essentiel", "confort", "premium"
 
 @app.post("/api/auth/register")
-async def auth_register(req: RegisterRequest):
+async def auth_register(req: RegisterRequest, request: Request):
     """Inscription d'un nouveau client."""
     if not _redis_client:
         return JSONResponse(status_code=503, content={"error": "Service temporairement indisponible"})
@@ -11695,14 +12090,26 @@ async def auth_register(req: RegisterRequest):
     if _redis_client.get_auth_by_email(email):
         return JSONResponse(status_code=409, content={"error": "Email deja utilise"})
 
+    # Plan validé
+    plan = req.plan if req.plan in ("essentiel", "confort", "premium") else "essentiel"
+
     # Attribuer un tenant_id
     tenant_id = _redis_client.get_next_tenant_id()
     password_hash = _hash_password(req.password)
 
     # Creer l'enregistrement auth
-    created = _redis_client.create_auth_record(email, password_hash, tenant_id, "essentiel")
+    created = _redis_client.create_auth_record(email, password_hash, tenant_id, plan)
     if not created:
         return JSONResponse(status_code=409, content={"error": "Email deja utilise"})
+
+    # Déterminer la langue : priorité req.lang → Accept-Language header → "fr"
+    _VALID_LANGS = {"fr", "en", "es", "de", "it", "pt", "ar", "nl", "zh"}
+    lang = req.lang.lower()[:5] if req.lang else ""
+    if lang not in _VALID_LANGS:
+        accept = request.headers.get("Accept-Language", "")
+        lang = accept.split(",")[0].split("-")[0].strip().lower() if accept else "fr"
+        if lang not in _VALID_LANGS:
+            lang = "fr"
 
     # Creer le profil dans Redis
     if _CORE_AVAILABLE:
@@ -11715,8 +12122,25 @@ async def auth_register(req: RegisterRequest):
         mgr = _get_tenant_manager(tenant_id)
         mgr.set_subscriber_profile(profile)
 
+    # Stocker langue + téléphone dans settings
+    try:
+        _settings_key = f"luna:{tenant_id}:settings"
+        _redis_client.client.hset(_settings_key, mapping={"language": lang})
+        if req.phone:
+            _redis_client.client.hset(_settings_key, "phone", req.phone)
+    except Exception:
+        pass
+
+    # Tracking parrain
+    if req.ref and _redis_available():
+        try:
+            _redis_client.client.hincrby(f"referral:stats:{req.ref}", "conversions", 1)
+        except Exception:
+            pass
+
     fname = req.first_name or email.split("@")[0]
-    token = _create_client_token(tenant_id, email, "essentiel", first_name=fname)
+    token = _create_client_token(tenant_id, email, plan, first_name=fname)
+    refresh_token = _create_refresh_token(tenant_id, email, plan)
     # Initialize gamification player
     if _GAMIFICATION_AVAILABLE and _redis_client:
         try:
@@ -11725,8 +12149,8 @@ async def auth_register(req: RegisterRequest):
         except Exception:
             pass
     _gamify("admin", "new_client", is_admin=True)
-    logger.info(f"AUTH_REGISTER tenant_id={tenant_id} email={email}")
-    return {"token": token, "tenant_id": tenant_id, "plan": "essentiel", "first_name": fname}
+    logger.info(f"AUTH_REGISTER tenant_id={tenant_id} email={email} plan={plan} lang={lang}")
+    return {"token": token, "refresh_token": refresh_token, "tenant_id": tenant_id, "plan": plan, "first_name": fname, "lang": lang}
 
 
 @app.post("/api/auth/login")
@@ -11748,12 +12172,22 @@ async def auth_login(req: LoginRequest):
     # Fallback fondateur : si Redis KO, vérifier les credentials depuis .env
     if not auth:
         proprio_email = os.getenv("PROPRIO_EMAIL", "").strip().lower()
-        proprio_password = os.getenv("PROPRIO_PASSWORD", "").strip()
-        if proprio_email and proprio_password and email == proprio_email:
-            if req.password == proprio_password:
+        proprio_password_hash = os.getenv("PROPRIO_PASSWORD_HASH", "").strip()
+        proprio_password_plain = os.getenv("PROPRIO_PASSWORD", "").strip()
+
+        if proprio_email and email == proprio_email:
+            valid = False
+            if proprio_password_hash:
+                valid = _verify_password(req.password, proprio_password_hash)
+            elif proprio_password_plain:
+                logger.warning("PROPRIO_PASSWORD en clair detecte — utilisez PROPRIO_PASSWORD_HASH")
+                valid = req.password == proprio_password_plain
+
+            if valid:
                 token = _create_client_token(_PROPRIO_TENANT_ID, email, "fondateur")
+                refresh_token = _create_refresh_token(_PROPRIO_TENANT_ID, email, "fondateur")
                 logger.info(f"AUTH_LOGIN fondateur via fallback env-vars (Redis KO): {email}")
-                return {"token": token, "tenant_id": _PROPRIO_TENANT_ID, "plan": "fondateur", "first_name": ""}
+                return {"token": token, "refresh_token": refresh_token, "tenant_id": _PROPRIO_TENANT_ID, "plan": "fondateur", "first_name": ""}
         return JSONResponse(status_code=401, content={"error": "Email ou mot de passe incorrect"})
 
     if not _verify_password(req.password, auth["password_hash"]):
@@ -11773,9 +12207,47 @@ async def auth_login(req: LoginRequest):
             first_name = profile.get("first_name", "")
 
     token = _create_client_token(tenant_id, email, plan, first_name=first_name)
+    refresh_token = _create_refresh_token(tenant_id, email, plan)
     _gamify(tenant_id, "daily_login")
     logger.info(f"AUTH_LOGIN tenant_id={tenant_id} email={email}")
-    return {"token": token, "tenant_id": tenant_id, "plan": plan, "first_name": first_name}
+    return {"token": token, "refresh_token": refresh_token, "tenant_id": tenant_id, "plan": plan, "first_name": first_name}
+
+
+class RefreshRequest(BaseModel):
+    refresh_token: str
+
+
+@app.post("/api/auth/refresh")
+async def auth_refresh(req: RefreshRequest):
+    """Rafraichit un access token grace a un refresh token valide."""
+    payload = _verify_refresh_token(req.refresh_token)
+    if not payload:
+        return JSONResponse(status_code=401, content={"error": "Refresh token invalide ou expire"})
+
+    tenant_id = payload["tenant_id"]
+    email = payload["email"]
+    plan = payload.get("plan", "essentiel")
+
+    # Recuperer le prenom depuis le profil
+    first_name = ""
+    if _redis_client:
+        try:
+            profile = _redis_client.get_profile(tenant_id)
+            if profile:
+                first_name = profile.get("first_name", "")
+        except Exception:
+            pass
+        # Source de verite : relire le plan reel (il peut avoir change depuis l'emission du refresh token)
+        try:
+            auth = _redis_client.get_auth_by_email(email)
+            if auth and auth.get("plan"):
+                plan = auth["plan"]
+        except Exception:
+            pass
+
+    new_token = _create_client_token(tenant_id, email, plan, first_name=first_name)
+    logger.info(f"AUTH_REFRESH tenant_id={tenant_id} email={email} plan={plan}")
+    return {"token": new_token, "tenant_id": tenant_id, "plan": plan, "first_name": first_name}
 
 
 @app.get("/api/auth/me")
@@ -11838,6 +12310,185 @@ async def auth_change_password(req: ChangePasswordRequest, request: Request):
     return {"ok": True}
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# PUBLIC — Subscribe landing + Referral
+# ─────────────────────────────────────────────────────────────────────────────
+
+_PLAN_CATALOG = [
+    {
+        "id": "essentiel",
+        "name": "Essentiel",
+        "price": float(os.getenv("PRICE_ESSENTIEL", "34.90")),
+        "period": "/mois",
+        "features": [
+            "25 SMS / mois",
+            "40 min d'appels vocaux / mois",
+            "Assistant vocal IA disponible 24h/24",
+            "Documents, formulaires & courriers",
+            "Agenda & rappels automatiques",
+            "Recherche web & météo",
+        ],
+    },
+    {
+        "id": "confort",
+        "name": "Confort",
+        "price": float(os.getenv("PRICE_CONFORT", "69.90")),
+        "period": "/mois",
+        "features": [
+            "50 SMS / mois",
+            "100 min d'appels vocaux / mois",
+            "Tout Essentiel inclus",
+            "Lieux, restaurants & vols",
+            "Mode collaboratif Iris Teams",
+            "Monde social & présence",
+            "Messagerie avec vos amis",
+        ],
+    },
+    {
+        "id": "premium",
+        "name": "Premium",
+        "price": float(os.getenv("PRICE_PREMIUM", "124.90")),
+        "period": "/mois",
+        "features": [
+            "100 SMS / mois",
+            "180 min d'appels vocaux / mois",
+            "Tout Confort inclus",
+            "Priorité serveur (réponse plus rapide)",
+            "Badges & avatars exclusifs",
+            "Support prioritaire",
+        ],
+    },
+]
+
+
+@app.get("/subscribe")
+async def subscribe_page():
+    """Page de souscription publique."""
+    return FileResponse(os.path.join(STATIC_DIR, "subscribe.html"))
+
+
+@app.get("/api/public/pricing")
+async def public_pricing():
+    """Retourne le catalogue des plans sans authentification."""
+    return {"plans": _PLAN_CATALOG}
+
+
+@app.get("/api/public/referral/{ref_code}")
+async def public_referral_info(ref_code: str):
+    """Retourne le nom du parrain pour l'affichage sur la page subscribe."""
+    if not _redis_available():
+        return JSONResponse({"from_name": None})
+    try:
+        raw = _redis_client.client.get(f"referral:{ref_code}")
+        if raw:
+            data = json.loads(raw)
+            return {"from_name": data.get("from_name", "")}
+    except Exception:
+        pass
+    return {"from_name": None}
+
+
+@app.post("/api/referral/invite")
+async def referral_invite(request: Request):
+    """Envoie une invitation WhatsApp/SMS à des contacts pour souscrire à YaWatch."""
+    payload = _decode_client_token(request.headers.get("Authorization", "").replace("Bearer ", ""))
+    if not payload:
+        raise HTTPException(status_code=401, detail="Non autorisé")
+
+    body = await request.json()
+    phones = body.get("phones", [])
+    message_override = body.get("message", "")
+    tid = str(payload.get("tenant_id", TENANT_ID))
+
+    if not phones:
+        raise HTTPException(status_code=400, detail="Aucun numéro fourni")
+    if len(phones) > 10:
+        raise HTTPException(status_code=400, detail="Maximum 10 contacts par envoi")
+
+    # Créer ou récupérer le code parrain
+    import secrets as _sec_ref
+    ref_key = f"referral:tid:{tid}"
+    ref_code = None
+    if _redis_available():
+        ref_code = _redis_client.client.get(ref_key)
+        if ref_code and isinstance(ref_code, bytes):
+            ref_code = ref_code.decode()
+    if not ref_code:
+        ref_code = f"{tid}_{_sec_ref.token_hex(5)}"
+        from_name = payload.get("first_name", "") or f"Un ami"
+        if _redis_available():
+            _redis_client.client.set(ref_key, ref_code, ex=86400 * 365)
+            _redis_client.client.set(
+                f"referral:{ref_code}",
+                json.dumps({"tid": tid, "from_name": from_name}),
+                ex=86400 * 365,
+            )
+
+    base_url = os.getenv("VOICE_CALLBACK_URL", "https://luna-beta-674304336025.europe-west1.run.app")
+    invite_url = f"{base_url}/subscribe?ref={ref_code}"
+    from_name = payload.get("first_name", "") or "Votre ami"
+
+    if not message_override:
+        message_override = (
+            f"Salut 👋 {from_name} t'invite à essayer YaWatch, l'assistant IA personnel qui gère "
+            f"tes appels, SMS, documents et agenda.\n"
+            f"Découvre les offres ici :\n{invite_url}"
+        )
+
+    if not sms_client.is_configured:
+        return JSONResponse({"ok": False, "error": "Service SMS non configuré", "invite_url": invite_url})
+
+    sent = []
+    failed = []
+    for raw_phone in phones:
+        normalized = sms_client.normalize_phone(str(raw_phone))
+        if not normalized:
+            failed.append(raw_phone)
+            continue
+        ok, _ = _tracked_sms_send(normalized, message_override, label=f"referral_{tid}")
+        if ok:
+            sent.append(normalized)
+        else:
+            failed.append(raw_phone)
+
+    if _redis_available():
+        _redis_client.client.hincrby(f"referral:stats:{ref_code}", "invites_sent", len(sent))
+
+    return JSONResponse({"ok": True, "sent": len(sent), "failed": len(failed), "invite_url": invite_url, "ref_code": ref_code})
+
+
+@app.get("/api/referral/my-code")
+async def referral_my_code(request: Request):
+    """Retourne le code parrain et l'URL d'invitation de l'utilisateur courant."""
+    payload = _decode_client_token(request.headers.get("Authorization", "").replace("Bearer ", ""))
+    if not payload:
+        raise HTTPException(status_code=401, detail="Non autorisé")
+    tid = str(payload.get("tenant_id", TENANT_ID))
+    ref_code = None
+    if _redis_available():
+        ref_code = _redis_client.client.get(f"referral:tid:{tid}")
+        if ref_code and isinstance(ref_code, bytes):
+            ref_code = ref_code.decode()
+    if not ref_code:
+        import secrets as _sec_rc
+        ref_code = f"{tid}_{_sec_rc.token_hex(5)}"
+        from_name = payload.get("first_name", "") or "Un ami"
+        if _redis_available():
+            _redis_client.client.set(f"referral:tid:{tid}", ref_code, ex=86400 * 365)
+            _redis_client.client.set(
+                f"referral:{ref_code}",
+                json.dumps({"tid": tid, "from_name": from_name}),
+                ex=86400 * 365,
+            )
+    base_url = os.getenv("VOICE_CALLBACK_URL", "https://luna-beta-674304336025.europe-west1.run.app")
+    invite_url = f"{base_url}/subscribe?ref={ref_code}"
+    stats = {}
+    if _redis_available():
+        raw = _redis_client.client.hgetall(f"referral:stats:{ref_code}")
+        stats = {k.decode() if isinstance(k, bytes) else k: int(v) for k, v in (raw or {}).items()}
+    return {"ref_code": ref_code, "invite_url": invite_url, "stats": stats}
+
+
 @app.post("/api/auth/checkout")
 async def auth_checkout(req: CheckoutRequest, request: Request):
     """Cree une session Stripe Checkout pour upgrade/souscription."""
@@ -11847,18 +12498,19 @@ async def auth_checkout(req: CheckoutRequest, request: Request):
         return JSONResponse(status_code=401, content={"error": "Token invalide"})
 
     plan = req.plan.lower()
+    stripe_cfg = _get_exploitant_stripe_config()
     price_map = {
-        "essentiel": os.getenv("STRIPE_PRICE_ESSENTIEL", ""),
-        "confort": os.getenv("STRIPE_PRICE_CONFORT", ""),
-        "premium": os.getenv("STRIPE_PRICE_PREMIUM", ""),
+        "essentiel": stripe_cfg.get("price_essentiel", ""),
+        "confort":   stripe_cfg.get("price_confort", ""),
+        "premium":   stripe_cfg.get("price_premium", ""),
     }
     price_id = price_map.get(plan)
     if not price_id:
-        return JSONResponse(status_code=400, content={"error": f"Plan invalide ou STRIPE_PRICE non configure: {plan}"})
+        return JSONResponse(status_code=400, content={"error": f"Stripe non configure sur cette instance pour le plan {plan}. Contactez l'exploitant."})
 
-    stripe_key = os.getenv("STRIPE_API_KEY", "")
+    stripe_key = stripe_cfg.get("secret_key", "")
     if not stripe_key:
-        return JSONResponse(status_code=500, content={"error": "STRIPE_API_KEY non configure"})
+        return JSONResponse(status_code=503, content={"error": "Paiement non disponible sur cette instance. Contactez l'exploitant."})
 
     try:
         import stripe
@@ -11919,9 +12571,9 @@ async def auth_setup_card(request: Request):
     if not payload:
         return JSONResponse(status_code=401, content={"error": "Token invalide"})
 
-    stripe_key = os.getenv("STRIPE_API_KEY", "") or os.getenv("STRIPE_SECRET_KEY", "")
+    stripe_key = _get_exploitant_stripe_config().get("secret_key", "")
     if not stripe_key:
-        return JSONResponse(status_code=500, content={"error": "STRIPE_API_KEY non configure"})
+        return JSONResponse(status_code=503, content={"error": "Paiement non disponible sur cette instance. Contactez l'exploitant."})
 
     try:
         import stripe
@@ -11981,6 +12633,33 @@ def _price_id_to_plan(price_id: str) -> str:
     return mapping.get(price_id, "")
 
 _stripe_webhook_received: dict = {}  # {timestamp, event_type, verified}
+
+
+def _get_exploitant_stripe_config() -> dict:
+    """
+    Retourne la config Stripe active : Redis (dashboard exploitant) > .env.
+    Ludo (serveur fondateur) n'a pas Stripe — c'est l'exploitant qui configure.
+    """
+    cfg = {}
+    if _redis_available():
+        try:
+            raw = _redis_client.client.get("luna:exploitant:1:stripe")
+            if raw:
+                cfg = json.loads(raw)
+        except Exception:
+            pass
+    # Fallback .env
+    if not cfg.get("secret_key"):
+        cfg["secret_key"] = os.getenv("STRIPE_SECRET_KEY", "") or os.getenv("STRIPE_API_KEY", "")
+    if not cfg.get("price_essentiel"):
+        cfg["price_essentiel"] = os.getenv("STRIPE_PRICE_ESSENTIEL", "")
+    if not cfg.get("price_confort"):
+        cfg["price_confort"] = os.getenv("STRIPE_PRICE_CONFORT", "")
+    if not cfg.get("price_premium"):
+        cfg["price_premium"] = os.getenv("STRIPE_PRICE_PREMIUM", "")
+    if not cfg.get("webhook_secret"):
+        cfg["webhook_secret"] = os.getenv("STRIPE_WEBHOOK_SECRET", "")
+    return cfg
 
 @app.post("/api/stripe/webhook")
 async def stripe_webhook(request: Request):
@@ -12978,17 +13657,41 @@ async def update_geolocation(request: Request):
     # Auto-detect language from country in address
     if address and _redis_client:
         _COUNTRY_LANG = {
+            # Français
             "france": "fr", "belgique": "fr", "suisse": "fr", "canada": "fr",
             "luxembourg": "fr", "monaco": "fr", "sénégal": "fr", "cameroun": "fr",
             "côte d'ivoire": "fr", "mali": "fr", "maroc": "fr", "tunisie": "fr",
-            "guadeloupe": "fr", "martinique": "fr", "guyane": "fr", "réunion": "fr",
+            "algérie": "fr", "algerie": "fr", "guadeloupe": "fr", "martinique": "fr",
+            "guyane": "fr", "réunion": "fr", "madagascar": "fr", "haiti": "fr",
+            # Anglais
             "united states": "en", "united kingdom": "en", "australia": "en",
-            "ireland": "en", "new zealand": "en",
-            "españa": "es", "spain": "es", "méxico": "es", "colombia": "es",
+            "ireland": "en", "new zealand": "en", "south africa": "en",
+            "singapore": "en", "india": "en", "nigeria": "en", "kenya": "en",
+            "ghana": "en", "canada": "en",
+            # Espagnol
+            "españa": "es", "spain": "es", "méxico": "es", "mexico": "es",
+            "colombia": "es", "argentina": "es", "chile": "es", "perú": "es",
+            "peru": "es", "venezuela": "es", "ecuador": "es", "bolivia": "es",
+            "uruguay": "es", "paraguay": "es", "costa rica": "es",
+            # Allemand
             "deutschland": "de", "germany": "de", "österreich": "de",
+            "austria": "de",
+            # Italien
             "italia": "it", "italy": "it",
-            "portugal": "pt", "brasil": "pt", "brazil": "pt",
-            "nederland": "nl", "netherlands": "nl",
+            # Portugais
+            "portugal": "pt", "brasil": "pt", "brazil": "pt", "angola": "pt",
+            "mozambique": "pt",
+            # Néerlandais
+            "nederland": "nl", "netherlands": "nl", "belgique": "nl",
+            "belgium": "nl",
+            # Arabe
+            "saudi arabia": "ar", "arabie saoudite": "ar", "emirates": "ar",
+            "émirats": "ar", "qatar": "ar", "kuwait": "ar", "bahrain": "ar",
+            "oman": "ar", "jordan": "ar", "jordanie": "ar", "liban": "ar",
+            "lebanon": "ar", "egypt": "ar", "égypte": "ar", "irak": "ar",
+            "iraq": "ar", "syrie": "ar", "syria": "ar",
+            # Chinois
+            "china": "zh", "chine": "zh", "taiwan": "zh", "hong kong": "zh",
         }
         _addr_lower = address.lower()
         for _country, _lang in _COUNTRY_LANG.items():
@@ -13076,6 +13779,54 @@ async def get_pending_notifications(request: Request):
         return {"notifications": []}
 
 
+@app.get("/api/actions/pending")
+async def get_pending_actions(request: Request):
+    """Liste les demandes d'action en attente de confirmation pour le tenant."""
+    tid = getattr(request.state, "tenant_id", 1)
+    if not _confirmation_manager:
+        return {"actions": []}
+    try:
+        actions = _confirmation_manager.get_pending_actions(tid)
+        return {"actions": [a.to_dict() for a in actions]}
+    except Exception as e:
+        logger.error(f"Error listing pending actions for tenant {tid}: {e}")
+        return {"actions": []}
+
+
+@app.post("/api/actions/{action_id}/confirm")
+async def confirm_action(request: Request, action_id: str):
+    """Confirme une action proposee par Luna."""
+    tid = getattr(request.state, "tenant_id", 1)
+    if not _confirmation_manager:
+        return JSONResponse(status_code=503, content={"error": "Service de confirmation indisponible"})
+    try:
+        action = _confirmation_manager.confirm(tid, action_id, method="button")
+        if not action:
+            return JSONResponse(status_code=404, content={"error": "Action introuvable ou expiree"})
+        return {"success": True, "action": action.to_dict()}
+    except Exception as e:
+        logger.error(f"Error confirming action {action_id} for tenant {tid}: {e}")
+        return JSONResponse(status_code=500, content={"error": "Erreur lors de la confirmation"})
+
+
+@app.post("/api/actions/{action_id}/reject")
+async def reject_action(request: Request, action_id: str):
+    """Refuse une action proposee par Luna."""
+    tid = getattr(request.state, "tenant_id", 1)
+    body = await request.json() if request.headers.get("content-type", "").startswith("application/json") else {}
+    reason = body.get("reason", "refused_by_user")
+    if not _confirmation_manager:
+        return JSONResponse(status_code=503, content={"error": "Service de confirmation indisponible"})
+    try:
+        action = _confirmation_manager.reject(tid, action_id, reason=reason)
+        if not action:
+            return JSONResponse(status_code=404, content={"error": "Action introuvable ou expiree"})
+        return {"success": True, "action": action.to_dict()}
+    except Exception as e:
+        logger.error(f"Error rejecting action {action_id} for tenant {tid}: {e}")
+        return JSONResponse(status_code=500, content={"error": "Erreur lors du refus"})
+
+
 @app.get("/api/notifications/count")
 async def get_notification_count(request: Request):
     """Returns count of pending notifications (for badge display)."""
@@ -13120,8 +13871,14 @@ async def update_settings(request: Request):
         return JSONResponse(status_code=400, content={"error": "JSON invalide"})
     if not isinstance(body, dict):
         return JSONResponse(status_code=400, content={"error": "JSON invalide"})
-    allowed = {"dark_mode", "font_size", "language", "notification_sound"}
-    updates = {k: str(v) for k, v in body.items() if k in allowed}
+    allowed = {"dark_mode", "font_size", "language", "notification_sound", "guardian_alert_channel"}
+    updates = {}
+    for k, v in body.items():
+        if k not in allowed:
+            continue
+        if k == "guardian_alert_channel" and str(v) not in ("sms", "luna", "both"):
+            continue
+        updates[k] = str(v)
     if updates:
         key = _redis_client._key(tid, "settings")
         _redis_client.client.hset(key, mapping=updates)
@@ -14350,9 +15107,19 @@ async def execute_instruction(instr_id: str, request: Request):
             )
             result = await _executor.execute(task)
             mgr.mark_instruction_executed(instr_id)
+            _exec_msg = getattr(result, "message", None) or f"Instruction '{instr.description[:50]}' executee"
+            try:
+                mgr.log_event(
+                    category="instruction",
+                    description=f"Instruction executee: {_exec_msg}",
+                    reasoning="Execution manuelle (bouton lecture)",
+                    source="manual",
+                )
+            except Exception:
+                pass
             return {
                 "success": result.success if hasattr(result, "success") else True,
-                "message": f"Instruction '{instr.description[:50]}' executee",
+                "message": _exec_msg,
                 "result": str(result) if result else None,
             }
         except Exception as e:
@@ -14361,10 +15128,31 @@ async def execute_instruction(instr_id: str, request: Request):
     else:
         # Fallback: marquer comme executee sans executor
         mgr.mark_instruction_executed(instr_id)
+        try:
+            mgr.log_event(
+                category="instruction",
+                description=f"Instruction '{instr.description[:50]}' marquee executee",
+                reasoning="Execution manuelle (executor indisponible)",
+                source="manual",
+            )
+        except Exception:
+            pass
         return {"success": True, "message": f"Instruction '{instr.description[:50]}' marquee executee (executor non disponible)"}
 
 
 # =========================================================================
+def _guardian_dedup(tid: int, incident_id: str, ttl: int = 30) -> bool:
+    """Verrou Redis anti-doublon par incident_id (SET NX EX 30s).
+    Retourne True si l'incident est nouveau (autoriser), False si doublon (bloquer).
+    Sans Redis ou sans incident_id → autorisé (comportement legacy).
+    """
+    if not _redis_client or not incident_id:
+        return True
+    safe_id = incident_id[:64].replace(":", "_")
+    key = f"luna:{tid}:guardian:incident:{safe_id}"
+    return bool(_redis_client.client.set(key, "1", nx=True, ex=ttl))
+
+
 # GUARDIAN ENDPOINTS — Surveillance géolocalisée (sans caméra)
 # =========================================================================
 #
@@ -14374,7 +15162,7 @@ async def execute_instruction(instr_id: str, request: Request):
 #
 
 try:
-    from core.guardian.engine import GuardianEngine, get_profile_templates
+    from core.guardian.engine import GuardianEngine, GuardianEvent, get_profile_templates
     from core.guardian.alerts import send_guardian_alerts
     _GUARDIAN_AVAILABLE = True
 except ImportError as _e:
@@ -14446,6 +15234,8 @@ async def guardian_stop(session_id: str, request: Request):
     ok = engine.stop_session(session_id)
     if not ok:
         return JSONResponse(status_code=404, content={"error": "Session introuvable"})
+    _guardian_scene_analyzers.pop(session_id, None)
+    _anomaly_last_call.pop(session_id, None)
     return {"success": True, "session_id": session_id}
 
 
@@ -14497,8 +15287,9 @@ async def guardian_location(session_id: str, request: Request):
 
     risk, events = engine.process_location(session_id, lat, lng, accuracy, speed)
 
-    # Déclencher alertes SMS uniquement si l'engine a généré un event d'alerte
+    # Déclencher alertes si l'engine a généré un event d'alerte
     # (respecte le backoff P0-06, la grace period P0-07 et le plafond P0-05)
+    sms_results = {"sent": [], "failed": [], "blocked": []}
     alert_events = [e for e in events if e.event_type in ("alert_triggered", "alert_escalated")]
     if alert_events:
         session = engine.get_session(session_id)
@@ -14516,31 +15307,182 @@ async def guardian_location(session_id: str, request: Request):
             session_contacts = session.config.get("emergency_contacts", [])
             all_contacts = session_contacts or contacts
 
-            if all_contacts and sms_client:
+            sub = mgr.get_subscriber_profile() if mgr else None
+            person_name = sub.name if sub and hasattr(sub, "name") else "Utilisateur"
+            desc = alert_events[0].description or risk.description
+            # Escalade Niveau 4 est toujours HIGH, même si le risk_score GPS est encore MEDIUM
+            alert_level = (
+                "high"
+                if alert_events[0].event_type == "alert_escalated"
+                else risk.level.value
+            )
+
+            # Lire le canal d'alerte choisi par l'utilisateur (J7: défaut = "both", APP FIRST)
+            _alert_channel = "both"
+            if _redis_client:
+                _s = _redis_client.client.hget(_redis_client._key(tid, "settings"), "guardian_alert_channel")
+                if _s and _s in ("sms", "luna", "both"):
+                    _alert_channel = _s
+
+            sms_results = {"sent": [], "failed": [], "blocked": []}
+            if _alert_channel in ("sms", "both") and all_contacts and sms_client:
                 try:
-                    sub = mgr.get_subscriber_profile() if mgr else None
-                    person_name = sub.name if sub and hasattr(sub, "name") else "Utilisateur"
-                    desc = alert_events[0].description or risk.description
-                    send_guardian_alerts(
+                    sms_results = send_guardian_alerts(
                         sms_send_fn=_tracked_sms_send,
                         contacts=all_contacts,
                         person_name=person_name,
                         description=desc,
                         lat=lat, lng=lng,
-                        alert_level=risk.level.value,
+                        alert_level=alert_level,
                         profile_type=session.profile_type.value,
                     )
-                    logger.warning(f"Guardian SMS alerts sent for session {session_id}")
+                    if sms_results.get("blocked"):
+                        logger.warning(f"[GUARDIAN_SMS_DISABLED] Guardian SMS alerts blocked for session {session_id}")
+                    else:
+                        logger.warning(f"Guardian SMS alerts sent for session {session_id}")
                 except Exception as e:
                     logger.error(f"Guardian alert SMS failed: {e}")
 
-    return {
+            if _alert_channel in ("luna", "both") and _redis_client:
+                try:
+                    from core.guardian.alerts import send_guardian_dm_alerts
+                    from core.social.redis_ops import SocialRedisOps
+                    _sops = SocialRedisOps(_redis_client)
+                    await send_guardian_dm_alerts(
+                        sops=_sops,
+                        sender_tid=tid,
+                        person_name=person_name,
+                        description=desc,
+                        lat=lat, lng=lng,
+                        alert_level=alert_level,
+                        ws_push_fn=_guardian_dm_broadcast,
+                        trusted_tids=_redis_client.get_guardian_friends(tid),
+                        source="geofence" if "hors" in (desc or "").lower() else "immobility",
+                    )
+                    logger.warning(f"Guardian DM alerts sent for session {session_id}")
+                except Exception as e:
+                    logger.error(f"Guardian DM alert failed: {e}")
+
+    response = {
         "risk_score": risk.total,
         "risk_level": risk.level.value,
         "signals": risk.signals,
         "description": risk.description,
         "events_count": len(events),
     }
+    if sms_results.get("blocked"):
+        response["guardian_sms_enabled"] = False
+        response["sms_blocked"] = len(sms_results["blocked"])
+    return response
+
+
+@app.post("/api/guardian/location-denied/{session_id}")
+async def guardian_location_denied(session_id: str, request: Request):
+    """
+    Signale que l'utilisateur a refuse l'acces a la geolocalisation.
+    Arrete la session Guardian et enregistre un evenement d'audit.
+    """
+    engine = _get_guardian()
+    if not engine:
+        return JSONResponse(status_code=503, content={"error": "Guardian non disponible"})
+    session = engine.get_session(session_id)
+    if not session:
+        return JSONResponse(status_code=404, content={"error": "Session introuvable"})
+
+    engine.stop_session(session_id)
+    engine._log_event(session_id, GuardianEvent(
+        event_type="location_permission_denied",
+        description="L'utilisateur a refuse l'acces a la geolocalisation. Session arretee.",
+    ))
+
+    tid = getattr(request.state, "tenant_id", 1)
+    mgr = _get_tenant_manager(tid)
+    if mgr:
+        try:
+            mgr.log_event(
+                category="guardian",
+                description="Permission de geolocalisation refusee - session Guardian arretee",
+                source="user_action",
+            )
+        except Exception:
+            pass
+
+    logger.info(f"Guardian session {session_id} stopped due to location permission denied")
+    return {"success": True, "session_id": session_id, "status": "stopped", "reason": "location_permission_denied"}
+
+
+# ── Issue #32 — contexte d'un SOS vocal ──────────────────────────────────────
+_GUARDIAN_CTX_BUCKETS = [
+    ("intrusion", ["entrer", "rentrer chez", "entre chez", "quelqu un", "cambriol",
+                   "voleur", "s introdu", "forcer la porte", "intrus", "effraction",
+                   "il y a quelqu un"], "intrusion — quelqu'un tenterait d'entrer"),
+    ("agression", ["agress", "frappe", "menace", "attaque", "me fait mal",
+                   "lache moi", "coups", "me tape", "viol", "me tient"], "agression physique probable"),
+    ("chute",     ["tombe", "chute", "relever", "par terre", "au sol",
+                   "me lever", "me relever"], "chute — personne possiblement au sol"),
+    ("malaise",   ["malaise", "respir", "etouff", "vertige", "me sens mal",
+                   "evanoui", "souffle", "poitrine", "le coeur"], "malaise / difficulté à respirer"),
+    ("accident",  ["accident", "brul", "saigne", "du sang", "blesse", "fracture",
+                   "voiture", "coupure"], "accident / blessure possible"),
+]
+
+
+def _guardian_classify_context(text: str):
+    """Classifieur déterministe de secours (miroir de GuardianContext.java côté APK)."""
+    import unicodedata
+    n = unicodedata.normalize("NFD", (text or "").lower())
+    n = "".join(c for c in n if unicodedata.category(c) != "Mn")
+    n = "".join(c if c.isalpha() else " " for c in n)
+    n = " ".join(n.split())
+    for cat, needles, label in _GUARDIAN_CTX_BUCKETS:
+        if any(k in n for k in needles):
+            return cat, label
+    return "", ""
+
+
+@app.post("/api/guardian/voice-context")
+async def guardian_voice_context(request: Request):
+    """Résumé enrichi (best-effort) des circonstances d'un SOS vocal (issue #32).
+
+    Entrée : la phrase captée on-device. Sortie : court « Contexte détecté : … ».
+    AUCUN effet de bord (ni SMS, ni alerte) — sert uniquement à enrichir l'affichage
+    du countdown et le libellé de l'alerte. Retombe sur un classifieur déterministe
+    si le LLM est absent, lent ou en échec.
+    """
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    transcript = (body.get("transcript") or "").strip()
+    if not transcript:
+        return {"summary": "", "category": ""}
+
+    cat, label = _guardian_classify_context(transcript)
+    fallback = ("Contexte détecté : " + label) if label else \
+        "Contexte détecté : demande d'aide (circonstances à préciser)"
+
+    if not openai_client:
+        return {"summary": fallback, "category": cat}
+    try:
+        sys_p = (
+            "Tu analyses une phrase captée lors d'une alerte de détresse. "
+            "Réponds en UNE phrase française très courte et factuelle, au format exact : "
+            "« Contexte détecté : <circonstances probables> ». "
+            "Catégories utiles : intrusion, agression, chute, malaise, accident, inconnu. "
+            "N'invente rien au-delà de la phrase. Aucun conseil."
+        )
+        resp = await asyncio.wait_for(asyncio.to_thread(
+            openai_client.chat.completions.create,
+            model="gpt-4o-mini",
+            messages=[{"role": "system", "content": sys_p},
+                      {"role": "user", "content": transcript}],
+            max_tokens=60, temperature=0.2,
+        ), timeout=6.0)
+        summary = (resp.choices[0].message.content or "").strip() or fallback
+        return {"summary": summary, "category": cat}
+    except Exception as e:
+        logger.warning(f"voice-context enrich failed: {e}")
+        return {"summary": fallback, "category": cat}
 
 
 @app.post("/api/guardian/sos/{session_id}")
@@ -14549,14 +15491,28 @@ async def guardian_sos(session_id: str, request: Request):
     engine = _get_guardian()
     if not engine:
         return JSONResponse(status_code=503, content={"error": "Guardian non disponible"})
+
+    tid = getattr(request.state, "tenant_id", 1)
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    incident_id = body.get("incident_id", "")
+    sos_source = body.get("source", "sos")
+    # Issue #32 — contexte des circonstances (SOS vocal) pour enrichir le libellé de l'alerte.
+    ctx_summary = (body.get("context") or "").strip()
+    base_desc = "🆘 SOS vocal activé" if sos_source == "vocal" else "🆘 Bouton SOS activé"
+    alert_desc = (base_desc + " — " + ctx_summary) if ctx_summary else base_desc
+    if not _guardian_dedup(tid, incident_id):
+        return JSONResponse(status_code=409, content={"error": "Alerte déjà en cours", "incident_id": incident_id})
+
     try:
         event = engine.trigger_sos(session_id)
     except ValueError as e:
         return JSONResponse(status_code=404, content={"error": str(e)})
 
-    # SMS immédiat aux contacts de confiance
+    # App First — SOS : DM Luna en premier, SMS minimaliste en fallback
     session = engine.get_session(session_id)
-    tid = getattr(request.state, "tenant_id", 1)
     mgr = _get_tenant_manager(tid)
     contacts = []
     if session:
@@ -14568,40 +15524,370 @@ async def guardian_sos(session_id: str, request: Request):
         except Exception:
             pass
 
-    sms_results = {"sent": [], "failed": []}
-    if contacts and sms_client:
+    pos = session.last_position if session else None
+    sub = mgr.get_subscriber_profile() if mgr else None
+    # PRÉNOM de la victime — obligatoire dans appel + SMS + DM (le profil expose first_name,
+    # PAS 'name' qui vaut None → sinon on retombait sur un générique « Utilisateur »/« Quelqu'un »).
+    person_name = "Utilisateur"
+    if sub:
+        _fn = (getattr(sub, "first_name", "") or "").strip()
+        _ln = (getattr(sub, "last_name", "") or "").strip()
+        person_name = _fn or (getattr(sub, "name", "") or "").strip() or (f"{_fn} {_ln}".strip()) or "Utilisateur"
+
+    _alert_channel = "both"
+    if _redis_client:
+        _s = _redis_client.client.hget(_redis_client._key(tid, "settings"), "guardian_alert_channel")
+        if _s and _s in ("sms", "luna", "both"):
+            _alert_channel = _s
+
+    # 1. DM Luna — canal principal
+    dm_results = {"sent": []}
+    if _alert_channel in ("luna", "both") and _redis_client:
         try:
-            pos = session.last_position if session else None
-            sub = mgr.get_subscriber_profile() if mgr else None
-            person_name = sub.name if sub and hasattr(sub, "name") else "Utilisateur"
+            from core.guardian.alerts import send_guardian_dm_alerts
+            from core.social.redis_ops import SocialRedisOps
+            _sops = SocialRedisOps(_redis_client)
+            dm_results = await send_guardian_dm_alerts(
+                sops=_sops,
+                sender_tid=tid,
+                person_name=person_name,
+                description=alert_desc,
+                lat=pos.lat if pos else None,
+                lng=pos.lng if pos else None,
+                alert_level="critical",
+                ws_push_fn=_guardian_dm_broadcast,
+                trusted_tids=_redis_client.get_guardian_friends(tid),
+                source=sos_source,
+            )
+        except Exception as e:
+            logger.error(f"SOS DM failed: {e}")
+
+    # 2. SMS — canal de secours, contenu minimal App First
+    sms_results = {"sent": [], "failed": []}
+    if _alert_channel in ("sms", "both") and contacts and sms_client:
+        try:
+            from core.guardian.alerts import build_sms_alert_v1
             sms_results = send_guardian_alerts(
                 sms_send_fn=_tracked_sms_send,
                 contacts=contacts,
                 person_name=person_name,
-                description="🆘 Bouton SOS activé",
+                description=alert_desc,
                 lat=pos.lat if pos else None,
                 lng=pos.lng if pos else None,
                 alert_level="critical",
                 profile_type=session.profile_type.value if session else "senior",
+                sms_body=build_sms_alert_v1(
+                    person_name,
+                    pos.lat if pos else None,
+                    pos.lng if pos else None,
+                    circumstances=ctx_summary,   # circonstances captées (VOSK) → dans le SMS
+                    redis_client=_redis_client,
+                ),
             )
         except Exception as e:
             logger.error(f"SOS SMS failed: {e}")
 
+    # 3. APPEL téléphonique aux contacts — plus urgent qu'un SMS (best-effort).
+    #    Message vocal : nom + circonstances (contexte VOSK) + position. Respecte _test_mode.
+    call_results = {"placed": 0, "failed": 0}
+    _call_on = os.getenv("GUARDIAN_CALL_ENABLED", "true").lower() in ("1", "true", "yes")
+    if _call_on and contacts and voice_client and getattr(voice_client, "is_configured", False):
+        # Appel = ADRESSE (parlée), pas des coordonnées. La position PRÉCISE (lien Maps) part par SMS.
+        _addr = ""
+        if pos:
+            try:
+                from core.guardian.engine import reverse_geocode
+                _addr = (reverse_geocode(pos.lat, pos.lng, _redis_client) or "").strip()
+            except Exception:
+                _addr = ""
+        _pos_txt = (f" Adresse approximative : {_addr}." if _addr else "") + " La position précise vous est envoyée par SMS."
+        _call_msg = (
+            f"Alerte Guardian pour {person_name}. {alert_desc}.{_pos_txt} "
+            f"Merci de vérifier que tout va bien et de rappeler dès que possible."
+        )
+        for _c in contacts:
+            _phone = (_c.get("phone") if isinstance(_c, dict) else getattr(_c, "phone", "")) or ""
+            _phone = _phone.strip()
+            if not _phone:
+                continue
+            if _test_mode:
+                logger.info(f"[GUARDIAN_CALL test] appel simulé → {_phone}")
+                call_results["placed"] += 1
+                continue
+            try:
+                _ok, _cd = await asyncio.to_thread(voice_client.initiate_announcement_call, _phone, _call_msg)
+                call_results["placed" if _ok else "failed"] += 1
+            except Exception as _e:
+                call_results["failed"] += 1
+                logger.error(f"SOS call failed for {_phone}: {_e}")
+
+    total_sent = len(sms_results.get("sent", [])) + len(dm_results.get("sent", []))
+    total_blocked = len(sms_results.get("blocked", []))
     _gamify(tid, "guardian_sos")
-    return {
+    response = {
         "success": True,
         "event": event.to_dict(),
-        "alerts_sent_to": len(sms_results.get("sent", [])),
-        "message": f"SOS envoyé à {len(sms_results.get('sent', []))} contact(s)",
+        "alerts_sent_to": total_sent,
+        "calls_placed": call_results.get("placed", 0),
+        "guardian_sms_enabled": GUARDIAN_SMS_ENABLED,
+        "sms_blocked": total_blocked,
     }
+    if total_blocked:
+        response["message"] = f"SOS enregistré — {total_blocked} SMS Guardian bloqués par configuration"
+    else:
+        response["message"] = f"SOS envoyé à {total_sent} contact(s)"
+    return response
+
+
+@app.post("/api/guardian/incident/{session_id}/start")
+async def guardian_incident_start(session_id: str, request: Request):
+    """Ouvre un dossier d'incident d'urgence (GPS renforcé, journal)."""
+    tid = getattr(request.state, "tenant_id", 1)
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    incident_id = body.get("incident_id", "")
+    if not incident_id or not _redis_client:
+        return {"ok": True}
+    safe_id = incident_id[:64].replace(":", "_")
+    key = f"luna:{tid}:guardian:incident:{safe_id}"
+    data = {
+        "incident_id": safe_id,
+        "session_id": session_id,
+        "source": str(body.get("source", "sos"))[:32],
+        "started_at": datetime.utcnow().isoformat(),
+        "status": "active",
+        "initial_lat": str(body.get("lat", "")),
+        "initial_lng": str(body.get("lng", "")),
+    }
+    _redis_client.client.hset(key, mapping=data)
+    _redis_client.client.expire(key, 86400 * 7)
+    logger.info(f"Guardian incident started: tid={tid} id={safe_id} source={data['source']}")
+    return {"ok": True, "incident_id": safe_id}
+
+
+@app.post("/api/guardian/incident/{session_id}/trail")
+async def guardian_incident_trail(session_id: str, request: Request):
+    """Enregistre une position GPS d'urgence dans le journal d'incident."""
+    tid = getattr(request.state, "tenant_id", 1)
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    incident_id = body.get("incident_id", "")
+    position  = body.get("position", {})
+    if not incident_id or not position or not _redis_client:
+        return {"ok": True}
+    safe_id = incident_id[:64].replace(":", "_")
+    trail_key = f"luna:{tid}:guardian:incident_trail:{safe_id}"
+    _redis_client.client.rpush(trail_key, json.dumps({
+        "lat": position.get("lat"), "lng": position.get("lng"),
+        "acc": position.get("acc"), "spd": position.get("spd"),
+        "ts": position.get("ts", int(datetime.utcnow().timestamp() * 1000)),
+    }))
+    _redis_client.client.ltrim(trail_key, -500, -1)   # max 500 positions
+    _redis_client.client.expire(trail_key, 86400 * 7)
+    return {"ok": True}
+
+
+@app.post("/api/guardian/incident/{session_id}/audio")
+async def guardian_incident_audio(session_id: str, request: Request):
+    """Stocke l'enregistrement audio d'urgence."""
+    tid = getattr(request.state, "tenant_id", 1)
+    try:
+        form = await request.form()
+    except Exception:
+        return JSONResponse(status_code=400, content={"error": "multipart requis"})
+    incident_id = str(form.get("incident_id", ""))[:64].replace(":", "_")
+    audio_file  = form.get("audio")
+    if not incident_id or not audio_file:
+        return JSONResponse(status_code=400, content={"error": "incident_id et audio requis"})
+    safe_dir = os.path.join("/tmp", "luna_incidents")
+    os.makedirs(safe_dir, exist_ok=True)
+    fname = f"{tid}_{incident_id}.webm"
+    fpath = os.path.join(safe_dir, fname)
+    try:
+        content = await audio_file.read()
+        with open(fpath, "wb") as f:
+            f.write(content)
+        logger.info(f"Guardian audio saved: {fpath} ({len(content)} bytes)")
+    except Exception as e:
+        logger.warning(f"Guardian audio save failed: {e}")
+        return JSONResponse(status_code=500, content={"error": str(e)})
+    return {"ok": True, "size": len(content)}
+
+
+@app.post("/api/guardian/incident/{session_id}/photo")
+async def guardian_incident_photo(session_id: str, request: Request):
+    """Stocke une capture photo d'urgence (JPEG)."""
+    tid = getattr(request.state, "tenant_id", 1)
+    try:
+        form = await request.form()
+    except Exception:
+        return JSONResponse(status_code=400, content={"error": "multipart requis"})
+    incident_id = str(form.get("incident_id", ""))[:64].replace(":", "_")
+    photo_file  = form.get("photo")
+    photo_num   = str(form.get("photo_num", "1"))[:3]
+    if not incident_id or not photo_file:
+        return JSONResponse(status_code=400, content={"error": "incident_id et photo requis"})
+    safe_dir = os.path.join("/tmp", "luna_incidents")
+    os.makedirs(safe_dir, exist_ok=True)
+    fname = f"{tid}_{incident_id}_photo_{photo_num}.jpg"
+    fpath = os.path.join(safe_dir, fname)
+    try:
+        content = await photo_file.read()
+        with open(fpath, "wb") as f:
+            f.write(content)
+        logger.info(f"Guardian photo saved: {fpath} ({len(content)} bytes)")
+    except Exception as e:
+        logger.warning(f"Guardian photo save failed: {e}")
+        return JSONResponse(status_code=500, content={"error": str(e)})
+    return {"ok": True, "size": len(content), "photo_num": photo_num}
+
+
+@app.post("/api/guardian/fall-detected/{session_id}")
+async def guardian_fall_detected(session_id: str, request: Request):
+    """Chute confirmée par accéléromètre Android (30s sans réponse utilisateur).
+    Même pipeline d'alerte que SOS mais niveau HIGH (pas CRITICAL).
+    """
+    engine = _get_guardian()
+    if not engine:
+        return JSONResponse(status_code=503, content={"error": "Guardian non disponible"})
+
+    tid = getattr(request.state, "tenant_id", 1)
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+
+    incident_id = body.get("incident_id", "")
+    if not _guardian_dedup(tid, incident_id):
+        return JSONResponse(status_code=409, content={"error": "Alerte déjà en cours", "incident_id": incident_id})
+
+    lat = body.get("lat") or None
+    lng = body.get("lng") or None
+    peak_g = body.get("peak_g") or None
+
+    try:
+        event = engine.trigger_fall(session_id, lat=lat, lng=lng, peak_g=peak_g)
+    except ValueError as e:
+        return JSONResponse(status_code=404, content={"error": str(e)})
+
+    if event.metadata.get("alert_blocked"):
+        logger.warning(f"Guardian fall-detected blocked by quota for session {session_id}")
+        return JSONResponse(
+            status_code=429,
+            content={
+                "success": False,
+                "event": event.to_dict(),
+                "error": "Plafond d'alertes atteint (3/24h)",
+            },
+        )
+
+    session = engine.get_session(session_id)
+    mgr = _get_tenant_manager(tid)
+    contacts = []
+    if session:
+        contacts = session.config.get("emergency_contacts", [])
+    if not contacts and mgr:
+        try:
+            tc = mgr.list_trusted_contacts()
+            contacts = [{"phone": c.phone, "name": c.name} for c in tc]
+        except Exception:
+            pass
+
+    pos = session.last_position if session else None
+    if lat and lng:
+        from core.guardian.engine import GeoPoint
+        pos = GeoPoint(lat=lat, lng=lng)
+    sub = mgr.get_subscriber_profile() if mgr else None
+    person_name = sub.name if sub and hasattr(sub, "name") else "Utilisateur"
+
+    _alert_channel = "both"
+    if _redis_client:
+        _s = _redis_client.client.hget(_redis_client._key(tid, "settings"), "guardian_alert_channel")
+        if _s and _s in ("sms", "luna", "both"):
+            _alert_channel = _s
+
+    desc = f"Chute détectée (accéléromètre, pic {peak_g:.1f}g)" if peak_g else "Chute détectée par accéléromètre — pas de réponse en 30s"
+
+    # App First — chute : DM Luna en premier, SMS minimaliste en fallback
+    dm_results = {"sent": []}
+    if _alert_channel in ("luna", "both") and _redis_client:
+        try:
+            from core.guardian.alerts import send_guardian_dm_alerts
+            from core.social.redis_ops import SocialRedisOps
+            _sops = SocialRedisOps(_redis_client)
+            dm_results = await send_guardian_dm_alerts(
+                sops=_sops,
+                sender_tid=tid,
+                person_name=person_name,
+                description=desc,
+                lat=pos.lat if pos else None,
+                lng=pos.lng if pos else None,
+                alert_level="high",
+                ws_push_fn=_guardian_dm_broadcast,
+                trusted_tids=_redis_client.get_guardian_friends(tid),
+                source="fall",
+            )
+        except Exception as e:
+            logger.error(f"Fall DM failed: {e}")
+
+    sms_results = {"sent": [], "failed": [], "blocked": []}
+    if _alert_channel in ("sms", "both") and contacts and sms_client:
+        try:
+            from core.guardian.alerts import build_sms_alert_v1
+            sms_results = send_guardian_alerts(
+                sms_send_fn=_tracked_sms_send,
+                contacts=contacts,
+                person_name=person_name,
+                description=desc,
+                lat=pos.lat if pos else None,
+                lng=pos.lng if pos else None,
+                alert_level="high",
+                profile_type=session.profile_type.value if session else "senior",
+                sms_body=build_sms_alert_v1(
+                    person_name,
+                    pos.lat if pos else None,
+                    pos.lng if pos else None,
+                ),
+            )
+        except Exception as e:
+            logger.error(f"Fall SMS failed: {e}")
+
+    total_sent = len(sms_results.get("sent", [])) + len(dm_results.get("sent", []))
+    total_blocked = len(sms_results.get("blocked", []))
+    response = {
+        "success": True,
+        "event": event.to_dict(),
+        "alerts_sent_to": total_sent,
+        "guardian_sms_enabled": GUARDIAN_SMS_ENABLED,
+        "sms_blocked": total_blocked,
+    }
+    if total_blocked:
+        response["message"] = f"Chute signalée — {total_blocked} SMS bloqués par configuration"
+    else:
+        response["message"] = f"Chute signalée — {total_sent} contact(s) alerté(s)"
+    return response
 
 
 @app.post("/api/guardian/verify-response/{session_id}")
 async def guardian_verify_response(session_id: str, request: Request):
-    """Réponse de l'utilisateur à la vérification vocale (ok=true/false)."""
+    """Réponse de l'utilisateur à la vérification vocale (ok=true/false).
+    J5 — Authentifié : seul le client propriétaire de la session peut répondre.
+    """
+    auth_token = request.headers.get("Authorization", "").replace("Bearer ", "")
+    token_payload = _decode_client_token(auth_token)
+    if not token_payload:
+        raise HTTPException(status_code=401, detail="Non autorisé")
     engine = _get_guardian()
     if not engine:
         return JSONResponse(status_code=503, content={"error": "Guardian non disponible"})
+    # Vérifier que la session appartient bien à ce tenant
+    session = engine.get_session(session_id)
+    if session and str(session.tenant_id) != str(token_payload.get("tenant_id", TENANT_ID)):
+        raise HTTPException(status_code=403, detail="Accès refusé à cette session")
     try:
         body = await request.json()
         ok = bool(body.get("ok", True))
@@ -14609,6 +15895,70 @@ async def guardian_verify_response(session_id: str, request: Request):
         ok = True
     msg = engine.register_verification_response(session_id, ok)
     return {"success": True, "message": msg}
+
+
+@app.post("/api/guardian/incident/{session_id}/resolve")
+async def guardian_incident_resolve(session_id: str, request: Request):
+    """Clôture d'incident → RETOUR PROTECTION NORMALE (vert).
+
+    Réutilise les primitives existantes (anti-régression) :
+      - register_verification_response(ok=True) : alert_level→LOW + grace period + SMS d'annulation,
+      - marque le(s) incident(s) actif(s) du tenant en status='resolved' (+ closed_at),
+    Le suivi (session) reste actif mais l'état repasse au vert. Sert au panneau « incident terminé ? ».
+    """
+    auth_token = request.headers.get("Authorization", "").replace("Bearer ", "")
+    token_payload = _decode_client_token(auth_token)
+    if not token_payload:
+        raise HTTPException(status_code=401, detail="Non autorisé")
+    tid = token_payload.get("tenant_id", TENANT_ID)
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    reason = str(body.get("reason", "user_confirmed"))[:32]
+
+    # 1. Réinitialiser l'état d'alerte de la session (réutilise l'existant) → vert + SMS d'annulation
+    reset_msg = ""
+    engine = _get_guardian()
+    if engine and session_id:
+        try:
+            session = engine.get_session(session_id)
+            if session and str(session.tenant_id) != str(tid):
+                raise HTTPException(status_code=403, detail="Accès refusé à cette session")
+            reset_msg = engine.register_verification_response(session_id, True)
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.warning(f"Guardian resolve: reset alert err: {e}")
+
+    # 2. Clôturer les incidents ACTIFS du tenant (status='resolved')
+    closed = 0
+    if _redis_client:
+        now = datetime.utcnow().isoformat()
+        try:
+            for key in _redis_client.client.scan_iter(match=f"luna:{tid}:guardian:incident:*", count=200):
+                try:
+                    if _redis_client.client.hget(key, "status") == "active":
+                        _redis_client.client.hset(key, mapping={
+                            "status": "resolved", "closed_at": now, "resolved_by": reason,
+                        })
+                        closed += 1
+                except Exception:
+                    pass
+        except Exception as e:
+            logger.warning(f"Guardian resolve: scan incidents err: {e}")
+
+    logger.warning(
+        f"Guardian INCIDENT RESOLVED tid={tid} session={session_id} reason={reason} "
+        f"incidents_closed={closed} alert_reset={reset_msg!r}"
+    )
+    # 3. Broadcast best-effort pour que l'UI repasse au vert immédiatement
+    try:
+        if engine and hasattr(engine, "broadcast"):
+            await engine.broadcast(session_id, {"type": "incident_closed", "alert_level": "low"})
+    except Exception:
+        pass
+    return {"success": True, "incidents_closed": closed, "alert_reset": reset_msg}
 
 
 @app.get("/api/guardian/events/{session_id}")
@@ -14675,6 +16025,54 @@ async def guardian_list_sessions(request: Request):
                 "is_immobile": s.is_immobile,
             })
     return {"sessions": sessions, "count": len(sessions)}
+
+
+@app.get("/api/guardian/trusted-friends")
+async def guardian_list_trusted_friends(request: Request):
+    """Liste les amis Luna désignés comme contacts protecteurs Guardian."""
+    tid = getattr(request.state, "tenant_id", TENANT_ID)
+    if not _redis_client:
+        return {"trusted_friends": []}
+    trusted = _redis_client.get_guardian_friends(tid)
+    sops = _get_sops()
+    friends = []
+    if sops and trusted:
+        online_set = sops.get_online_tids()
+        for f_tid_str in trusted:
+            f_tid = int(f_tid_str)
+            profile = sops.get_social_profile(f_tid) or {}
+            friends.append({
+                "tid": f_tid,
+                "nickname": profile.get("nickname", f"Utilisateur{f_tid}"),
+                "avatar_type": profile.get("avatar_type", "adult_man"),
+                "is_online": f_tid_str in online_set,
+            })
+    return {"trusted_friends": friends, "count": len(friends)}
+
+
+@app.post("/api/guardian/trusted-friends/{friend_tid}")
+async def guardian_add_trusted_friend(friend_tid: int, request: Request):
+    """Désigne un ami Luna comme contact protecteur Guardian."""
+    tid = getattr(request.state, "tenant_id", TENANT_ID)
+    if not _redis_client:
+        return JSONResponse(status_code=503, content={"error": "Redis non disponible"})
+    sops = _get_sops()
+    if sops:
+        friends = sops.get_friends(tid)
+        if str(friend_tid) not in friends:
+            return JSONResponse(status_code=400, content={"error": "Cet utilisateur n'est pas dans ta liste d'amis"})
+    added = _redis_client.add_guardian_friend(tid, friend_tid)
+    return {"success": True, "added": added, "friend_tid": friend_tid}
+
+
+@app.delete("/api/guardian/trusted-friends/{friend_tid}")
+async def guardian_remove_trusted_friend(friend_tid: int, request: Request):
+    """Retire un ami de la liste des contacts protecteurs Guardian."""
+    tid = getattr(request.state, "tenant_id", TENANT_ID)
+    if not _redis_client:
+        return JSONResponse(status_code=503, content={"error": "Redis non disponible"})
+    removed = _redis_client.remove_guardian_friend(tid, friend_tid)
+    return {"success": True, "removed": removed, "friend_tid": friend_tid}
 
 
 from fastapi import WebSocket, WebSocketDisconnect
@@ -14756,7 +16154,9 @@ async def guardian_frame(session_id: str, request: Request):
             return {"description": "Image peu lisible", "has_concern": False, "persons_count": 0}
 
         from core.perception.analyzer import SceneAnalyzer
-        analyzer = SceneAnalyzer()
+        if session_id not in _guardian_scene_analyzers:
+            _guardian_scene_analyzers[session_id] = SceneAnalyzer()
+        analyzer = _guardian_scene_analyzers[session_id]
         state = analyzer.analyze(analysis)
         has_concern = analyzer.has_concern()
 
@@ -14773,6 +16173,10 @@ async def guardian_frame(session_id: str, request: Request):
                 "description": state.scene_description,
                 "has_concern": True,
             })
+            engine.set_camera_scene(session_id, False, posture=state.primary_posture)
+        elif state.persons_present > 0 and state.primary_posture not in ("lying_floor", "unknown"):
+            # Personne visible en posture normale → atténuer les faux positifs d'immobilité GPS
+            engine.set_camera_scene(session_id, True, posture=state.primary_posture)
 
         return {
             "description": state.scene_description,
@@ -14783,6 +16187,178 @@ async def guardian_frame(session_id: str, request: Request):
     except Exception as e:
         logger.error(f"Guardian frame analysis error: {e}")
         return {"description": "Analyse indisponible", "has_concern": False}
+
+
+@app.post("/api/guardian/anomaly/{session_id}")
+async def guardian_anomaly(session_id: str, request: Request):
+    """Analyse comportementale : reçoit une séquence de frames et retourne un danger_score.
+    Appelé uniquement quand le BehaviorEngine client détecte un pattern suspect (score >= 7).
+    """
+    now = time.time()
+    last = _anomaly_last_call.get(session_id, 0)
+    if now - last < 50.0:
+        return JSONResponse(status_code=429, content={
+            "error": "Trop rapide", "retry_after": round(50.0 - (now - last), 1)
+        })
+    _anomaly_last_call[session_id] = now
+
+    engine = _get_guardian()
+    if not engine:
+        return JSONResponse(status_code=503, content={"error": "Guardian non disponible"})
+    session = engine.get_session(session_id)
+    if not session or not session.is_active:
+        return JSONResponse(status_code=404, content={"error": "Session inactive"})
+
+    if not _perception_detector or not _perception_detector._initialized:
+        return JSONResponse(status_code=503, content={
+            "danger_score": 0, "has_concern": False,
+            "description": "Analyse vision non disponible",
+        })
+
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse(status_code=400, content={"error": "Corps JSON invalide"})
+
+    frames = body.get("frames", [])
+    behavior_score = float(body.get("behavior_score", 0))
+    lat = body.get("lat") or (session.last_position.lat if session.last_position else None)
+    lng = body.get("lng") or (session.last_position.lng if session.last_position else None)
+
+    if not frames or len(frames) < 1:
+        return JSONResponse(status_code=400, content={"error": "Séquence vide"})
+
+    try:
+        result = await asyncio.get_event_loop().run_in_executor(
+            _executor, _perception_detector.analyze_sequence_b64, frames
+        )
+    except Exception as e:
+        logger.error(f"Guardian anomaly analysis error: {e}")
+        result = {"danger_score": 0, "has_concern": False, "description": "Analyse indisponible", "posture": "unknown"}
+
+    danger_score = result.get("danger_score", 0)
+    has_concern = result.get("has_concern", False) or danger_score >= 7
+
+    if has_concern or behavior_score >= 7:
+        from core.guardian.engine import GuardianEvent
+        engine._log_event(session_id, GuardianEvent(
+            event_type="perception_concern",
+            description=f"[Comportement] score={behavior_score}/10 → {result.get('description', '')}",
+            lat=lat, lng=lng,
+        ))
+        engine._broadcast(session_id, {
+            "type": "perception",
+            "description": result.get("description", ""),
+            "danger_score": danger_score,
+            "has_concern": has_concern,
+        })
+
+    logger.info(f"Guardian anomaly [{session_id}] beh={behavior_score} danger={danger_score} concern={has_concern}")
+    return {
+        "danger_score": danger_score,
+        "has_concern": has_concern,
+        "description": result.get("description", ""),
+        "posture": result.get("posture", "unknown"),
+    }
+
+
+@app.post("/api/guardian/checkin-miss/{session_id}")
+async def guardian_checkin_miss(session_id: str, request: Request):
+    """Check-in manqué : analyse la scène et alerte les contacts de confiance."""
+    engine = _get_guardian()
+    if not engine:
+        return JSONResponse(status_code=503, content={"error": "Guardian non disponible"})
+    session = engine.get_session(session_id)
+    if not session or not session.is_active:
+        return JSONResponse(status_code=404, content={"error": "Session inactive"})
+
+    tid = getattr(request.state, "tenant_id", 1)
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+
+    frame_b64 = body.get("frame") or ""
+    lat = body.get("lat") or (session.last_position.lat if session.last_position else None)
+    lng = body.get("lng") or (session.last_position.lng if session.last_position else None)
+
+    # Analyser la scène si on a une frame et OpenAI Vision disponible
+    description = "Pas de réponse au contrôle Guardian"
+    has_concern = True
+    if frame_b64 and len(frame_b64) > 100 and _perception_detector and _perception_detector._initialized:
+        try:
+            analysis = _perception_detector.analyze_frame_b64(frame_b64)
+            if analysis:
+                from core.perception.analyzer import SceneAnalyzer
+                if session_id not in _guardian_scene_analyzers:
+                    _guardian_scene_analyzers[session_id] = SceneAnalyzer()
+                _az = _guardian_scene_analyzers[session_id]
+                state = _az.analyze(analysis)
+                description = state.scene_description or description
+                has_concern = _az.has_concern() if analysis else True
+        except Exception as e:
+            logger.warning(f"checkin_miss frame analysis error: {e}")
+
+    # Récupérer les contacts de confiance
+    mgr = _get_tenant_manager(tid)
+    contacts = []
+    if mgr:
+        try:
+            tc = mgr.list_trusted_contacts()
+            contacts = [{"phone": c.phone, "name": c.name} for c in tc]
+        except Exception:
+            pass
+        try:
+            sub = mgr.get_subscriber_profile()
+            if sub and hasattr(sub, "name") and sub.name:
+                session.config.setdefault("person_name", sub.name)
+        except Exception:
+            pass
+
+    # Déléguer le cycle Niveau 2 -> Niveau 3 -> Niveau 4 au moteur Guardian
+    result = engine.handle_checkin_missed(session_id, frame=frame_b64, lat=lat, lng=lng, contacts=contacts)
+
+    # DM Luna en parallèle si niveau 4 et canal activé
+    if result.get("status") == "level4" and _redis_client:
+        _alert_channel = "both"  # J7: défaut APP FIRST
+        try:
+            _s = _redis_client.client.hget(_redis_client._key(tid, "settings"), "guardian_alert_channel")
+            if _s and _s in ("sms", "luna", "both"):
+                _alert_channel = _s
+        except Exception:
+            pass
+
+        if _alert_channel in ("luna", "both"):
+            try:
+                from core.guardian.alerts import send_guardian_dm_alerts
+                from core.social.redis_ops import SocialRedisOps
+                person_name = session.config.get("person_name") or "Utilisateur"
+                alert_msg = f"⚠️ {person_name} ne répond pas au contrôle Guardian. Scène : {description}"
+                await send_guardian_dm_alerts(
+                    sops=SocialRedisOps(_redis_client),
+                    sender_tid=tid,
+                    person_name=person_name,
+                    description=alert_msg,
+                    lat=lat, lng=lng,
+                    alert_level="high",
+                    ws_push_fn=_guardian_dm_broadcast,
+                    trusted_tids=_redis_client.get_guardian_friends(tid),
+                    source="checkin",
+                )
+            except Exception as e:
+                logger.error(f"checkin_miss DM error: {e}")
+
+    logger.warning(
+        f"GUARDIAN_CHECKIN_MISS session={session_id} tid={tid} "
+        f"status={result.get('status')} alerts_sent={result.get('alerts_sent', 0)}"
+    )
+    return {
+        "success": True,
+        "status": result.get("status"),
+        "description": description,
+        "has_concern": has_concern,
+        "alerts_sent": result.get("alerts_sent", 0),
+    }
 
 
 @app.get("/api/guardian/share/{session_id}")
@@ -14807,6 +16383,34 @@ async def guardian_share(session_id: str, request: Request):
     return {"public_url": public_url, "expires_in": 3600}
 
 
+@app.post("/api/guardian/live/{session_id}")
+async def guardian_live_update(session_id: str, request: Request):
+    """Met à jour la position de SUIVI EN DIRECT (urgence) — léger, SANS moteur de risque.
+
+    Sert au streaming temps réel vers les proches pendant un incident, sans toucher
+    l'alert_level (≠ /location qui lance process_location et pourrait dé-escalader).
+    """
+    auth_token = request.headers.get("Authorization", "").replace("Bearer ", "")
+    token_payload = _decode_client_token(auth_token)
+    if not token_payload:
+        raise HTTPException(status_code=401, detail="Non autorisé")
+    tid = token_payload.get("tenant_id", TENANT_ID)
+    try:
+        body = await request.json()
+        lat = float(body["lat"]); lng = float(body["lng"])
+        acc = float(body.get("accuracy", 0) or 0)
+    except Exception as e:
+        return JSONResponse(status_code=400, content={"error": f"Paramètres invalides: {e}"})
+    if not _redis_client:
+        return {"ok": True}
+    key = f"luna:{tid}:guardian:livepos:{session_id}"
+    _redis_client.client.setex(key, 7200, json.dumps({
+        "lat": lat, "lng": lng, "accuracy": acc,
+        "updated_at": datetime.utcnow().isoformat(),
+    }))
+    return {"ok": True}
+
+
 @app.get("/api/guardian/live-position/{token}")
 async def guardian_live_position(token: str):
     """Retourne la dernière position connue pour un token de partage (public)."""
@@ -14817,6 +16421,20 @@ async def guardian_live_position(token: str):
 
     info = json.loads(raw)
     session_id = info["session_id"]
+    tid = info.get("tenant_id", TENANT_ID)
+
+    # Priorité au flux de suivi direct (livepos) — temps réel, sans moteur de risque.
+    try:
+        lp_raw = _redis_client.client.get(f"luna:{tid}:guardian:livepos:{session_id}")
+        if lp_raw:
+            lp = json.loads(lp_raw)
+            return {
+                "lat": lp.get("lat"), "lng": lp.get("lng"), "accuracy": lp.get("accuracy"),
+                "address": None, "risk_level": "critical", "profile_type": "senior",
+                "updated_at": lp.get("updated_at"), "source": "live",
+            }
+    except Exception:
+        pass
 
     engine = _get_guardian()
     if not engine:
@@ -14836,6 +16454,81 @@ async def guardian_live_position(token: str):
         "profile_type": session.profile_type.value if session.profile_type else "senior",
         "updated_at": pos.timestamp if pos else None,
     }
+
+
+@app.get("/api/guardian/voice/status")
+async def guardian_voice_status(request: Request):
+    """Debug : état du vocal Guardian pour ce tenant."""
+    tid = getattr(request.state, "tenant_id", 1)
+    engine = _get_guardian_engine(tid)
+    sessions = engine.list_sessions() if engine else []
+    active = [s for s in sessions if s.active]
+    sr_supported = True  # WebView Chrome/Android ≥ 7 = supporté
+    return JSONResponse({
+        "sr_api": "SpeechRecognition/webkitSpeechRecognition",
+        "sr_supported_webview": sr_supported,
+        "guardian_sms_enabled": GUARDIAN_SMS_ENABLED,
+        "guardian_call_enabled": GUARDIAN_CALL_ENABLED,
+        "active_sessions": len(active),
+        "session_ids": [s.session_id for s in active],
+        "emergency_keywords_count": 28,
+        "cancel_keywords_count": 9,
+        "notes": [
+            "La reconnaissance vocale fonctionne quand l'écran est allumé (WebView actif).",
+            "Quand l'écran se verrouille, le watchdog JS tente un redémarrage (délai ≤ 30s).",
+            "Pour une couverture écran verrouillé complète : Android natif SpeechRecognizer requis (V2).",
+        ],
+    })
+
+
+@app.post("/api/guardian/voice/simulate")
+async def guardian_voice_simulate(request: Request):
+    """Dry-run : simule une détection vocale d'urgence sans envoyer d'alerte réelle."""
+    tid = getattr(request.state, "tenant_id", 1)
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    phrase = body.get("phrase", "à l'aide")
+    session_id = body.get("session_id", "")
+    dry_run = body.get("dry_run", True)
+
+    engine = _get_guardian_engine(tid)
+    session = engine.get_session(session_id) if (engine and session_id) else None
+    mgr = _get_tenant_manager(tid)
+    sub = mgr.get_subscriber_profile() if mgr else None
+    person_name = sub.name if sub and hasattr(sub, "name") else "Utilisateur"
+    pos = session.last_position if session else None
+
+    from core.guardian.alerts import build_sms_alert_v1
+    sms_preview = build_sms_alert_v1(
+        person_name,
+        pos.lat if pos else 48.8566,
+        pos.lng if pos else 2.3522,
+    )
+
+    from datetime import datetime as _dt, timezone as _tz
+    from core.guardian.alerts import _SOURCE_LABELS
+    action = _SOURCE_LABELS.get("vocal", "a demandé de l'aide vocalement")
+    now_str = _dt.now(_tz.utc).strftime("%Hh%M UTC")
+    dm_preview = (
+        f"🆘 ALERTE GUARDIAN\n\n{person_name} {action}.\n\n"
+        f"📍 Position : https://maps.google.com/?q={pos.lat if pos else 48.8566},{pos.lng if pos else 2.3522}\n"
+        f"🕐 {now_str}\n\nContacte-le/la ou appelle le 15/112 si urgence.\nRéponds OUI dans ce chat si tu interviens."
+    )
+
+    return JSONResponse({
+        "dry_run": dry_run,
+        "phrase_tested": phrase,
+        "would_trigger": True,
+        "source": "vocal",
+        "person_name": person_name,
+        "session_found": session is not None,
+        "sms_preview": sms_preview if dry_run else "⚠️ dry_run=false — SMS réel envoyé",
+        "dm_preview": dm_preview if dry_run else "⚠️ dry_run=false — DM réel envoyé",
+        "guardian_sms_enabled": GUARDIAN_SMS_ENABLED,
+        "note": "Aucune alerte réelle envoyée (dry_run=true). Pour tester avec alerte réelle : dry_run=false + GUARDIAN_SMS_ENABLED=true en prod.",
+    })
 
 
 @app.get("/guardian-live/{token}")
@@ -15545,16 +17238,16 @@ try:
     from core.actions.quota_guard import PLAN_SMS_LIMITS, PLAN_VOICE_LIMITS, PLAN_VISIO_LIMITS, PlanType
     _PLAN_LIMITS = {
         "fondateur": {"sms": 999999, "voice_min": 999999, "visio_min": 999999, "budget_api_max": 50.00},
-        "essentiel": {"sms": PLAN_SMS_LIMITS[PlanType.ESSENTIEL], "voice_min": PLAN_VOICE_LIMITS[PlanType.ESSENTIEL], "visio_min": PLAN_VISIO_LIMITS[PlanType.ESSENTIEL], "budget_api_max": 8.15},
-        "confort":   {"sms": PLAN_SMS_LIMITS[PlanType.CONFORT],   "voice_min": PLAN_VOICE_LIMITS[PlanType.CONFORT],   "visio_min": PLAN_VISIO_LIMITS[PlanType.CONFORT],   "budget_api_max": 17.40},
-        "premium":   {"sms": PLAN_SMS_LIMITS[PlanType.PREMIUM],   "voice_min": PLAN_VOICE_LIMITS[PlanType.PREMIUM],   "visio_min": PLAN_VISIO_LIMITS[PlanType.PREMIUM],   "budget_api_max": 32.10},
+        "essentiel": {"sms": PLAN_SMS_LIMITS[PlanType.ESSENTIEL], "voice_min": PLAN_VOICE_LIMITS[PlanType.ESSENTIEL], "visio_min": 0, "budget_api_max": 4.95},
+        "confort":   {"sms": PLAN_SMS_LIMITS[PlanType.CONFORT],   "voice_min": PLAN_VOICE_LIMITS[PlanType.CONFORT],   "visio_min": 0, "budget_api_max": 11.50},
+        "premium":   {"sms": PLAN_SMS_LIMITS[PlanType.PREMIUM],   "voice_min": PLAN_VOICE_LIMITS[PlanType.PREMIUM],   "visio_min": 0, "budget_api_max": 21.60},
     }
 except ImportError:
     _PLAN_LIMITS = {
         "fondateur": {"sms": 999999, "voice_min": 999999, "visio_min": 999999, "budget_api_max": 50.00},
-        "essentiel": {"sms": 25, "voice_min": 40, "visio_min": 12, "budget_api_max": 8.15},
-        "confort":   {"sms": 50, "voice_min": 100, "visio_min": 28, "budget_api_max": 17.40},
-        "premium":   {"sms": 100, "voice_min": 180, "visio_min": 55, "budget_api_max": 32.10},
+        "essentiel": {"sms": 25, "voice_min": 40, "visio_min": 0, "budget_api_max": 4.95},
+        "confort":   {"sms": 50, "voice_min": 100, "visio_min": 0, "budget_api_max": 11.50},
+        "premium":   {"sms": 100, "voice_min": 180, "visio_min": 0, "budget_api_max": 21.60},
     }
 
 
@@ -17032,11 +18725,86 @@ async def _tool_alert_contacts(args: Dict, tenant_id: int = 0) -> Dict:
     return {"status": "success", "message": f"Alerte envoyee a {sent} contact(s) de confiance", "reasoning": reasoning}
 
 
+def _build_emergency_brief(tenant_id: int, summary: str, last_words: str) -> Dict[str, str]:
+    """Construit UN brief factuel d'urgence (nom + situation + dernières paroles + position),
+    utilisé À L'IDENTIQUE dans le SMS et l'appel d'annonce."""
+    mgr = _get_tenant_manager(tenant_id) if tenant_id else _memory_manager
+    name = "l'utilisateur"
+    try:
+        p = mgr.get_subscriber_profile() if mgr else None
+        if p:
+            fn = (getattr(p, "first_name", "") or "").strip()
+            ln = (getattr(p, "last_name", "") or "").strip()
+            full = (fn + " " + ln).strip()
+            name = full or fn or "l'utilisateur"
+    except Exception:
+        pass
+    situation = ((summary or "").strip() or "situation préoccupante détectée pendant une conversation vocale").rstrip(" .")
+    lw = (last_words or "").strip()[:240]
+    pos_phrase = ""
+    try:
+        geo_raw = _redis_client.client.get(f"luna:{tenant_id}:geolocation") if _redis_client else None
+        if geo_raw:
+            geo = json.loads(geo_raw)
+            addr = geo.get("address") or geo.get("city") or ""
+            if addr:
+                pos_phrase = f"Dernière position connue : {addr}"
+            elif geo.get("latitude"):
+                pos_phrase = "La dernière position GPS est indiquée dans le SMS"
+    except Exception:
+        pass
+    sms_reason = situation
+    if lw:
+        sms_reason += f". Dernières paroles entendues : « {lw} »"
+    call_message = f"Alerte. {name} est peut-être en situation d'urgence. {situation}."
+    if lw:
+        call_message += f" Dernières paroles entendues : {lw}."
+    if pos_phrase:
+        call_message += f" {pos_phrase}."
+    call_message += " Merci de vérifier que cette personne va bien et de la rappeler immédiatement."
+    return {"name": name, "situation": situation, "last_words": lw, "sms_reason": sms_reason, "call_message": call_message}
+
+
+async def _poll_emergency_call_statuses(tenant_id: int, placed) -> None:
+    """Poll le statut RÉEL des appels d'urgence (queued→ringing→in-progress→completed/no-answer/busy/failed)
+    et journalise clairement s'ils ont sonné, été décrochés ou échoué."""
+    _FINAL = {"completed", "busy", "no-answer", "failed", "canceled"}
+    placed = list(placed)
+    for delay in (8, 12, 20, 30):
+        await asyncio.sleep(delay)
+        remaining = []
+        for name, sid in placed:
+            try:
+                st = await asyncio.to_thread(voice_client.get_call_status, sid)
+            except Exception as e:
+                st = f"error:{e}"
+            if st in _FINAL:
+                _human = {"completed": "DÉCROCHÉ/terminé", "no-answer": "a SONNÉ mais pas décroché",
+                          "busy": "OCCUPÉ", "failed": "ÉCHEC", "canceled": "annulé"}.get(st, st)
+                logger.warning(f"[EMERGENCY CALL FINAL] {name} ({sid}) → {st} ({_human})")
+                try:
+                    mgr = _get_tenant_manager(tenant_id) if tenant_id else _memory_manager
+                    if mgr:
+                        mgr.log_event(category="safety", description=f"Appel urgence {name} : {st}",
+                                      reasoning="suivi statut appel d'urgence", source="voice_emergency_call")
+                except Exception:
+                    pass
+            else:
+                logger.info(f"[EMERGENCY CALL] {name} ({sid}) : {st} (en cours)")
+                remaining.append((name, sid))
+        placed = remaining
+        if not placed:
+            return
+    for name, sid in placed:
+        logger.warning(f"[EMERGENCY CALL] {name} ({sid}) : statut final NON confirmé après poll")
+
+
 async def _trigger_voice_emergency(
     tenant_id: int,
     summary: str = "",
     level: str = "immediate",
     place_calls: bool = True,
+    last_words: str = "",
 ) -> Dict:
     """
     Déclenche le protocole d'urgence depuis une conversation vocale Iris.
@@ -17056,7 +18824,7 @@ async def _trigger_voice_emergency(
     dry = bool(_test_mode) or _shadow
     report: Dict[str, Any] = {
         "triggered": False, "level": level, "summary": summary,
-        "sms": {"sent": 0, "total": 0}, "calls": {"placed": 0, "total": 0},
+        "sms": {"sent": 0, "total": 0}, "calls": {"queued": 0, "total": 0},
         "location_included": False, "dry_run": dry, "errors": [],
     }
 
@@ -17076,7 +18844,10 @@ async def _trigger_voice_emergency(
         report["errors"].append("aucun_contact_de_confiance")
         return report
 
-    reason = summary or "situation préoccupante détectée en conversation vocale"
+    # Brief factuel UNIFIÉ (nom + situation + dernières paroles + position) — même info SMS ET appel.
+    brief = _build_emergency_brief(tid, summary, last_words)
+    reason = brief["sms_reason"]
+    report["summary"] = brief["situation"]
 
     # Position connue ?
     try:
@@ -17086,11 +18857,73 @@ async def _trigger_voice_emergency(
     except Exception:
         pass
 
-    # --- 1. SMS à tous (résumé + position + heure + n° urgence) ---
+    # --- ÉTAT UNIFIÉ + SUIVI EN DIRECT : relier au Guardian + générer le lien de suivi ---
+    # Avant le SMS pour pouvoir inclure le lien de suivi en direct dans l'alerte.
+    #  - crée/relie un incident + session Guardian au niveau CRITICAL (widget rouge, clôturable),
+    #  - génère un lien public /guardian-live/{token} et amorce la position (livepos) depuis la géoloc connue.
+    # trigger_sos ne pose QUE l'état (aucun SMS moteur) → pas de double-envoi. Best-effort.
+    live_link = ""
+    try:
+        engine = _get_guardian()
+        if engine:
+            sids = engine.get_active_sessions(tid) or []
+            sid_g = sids[0] if sids else None
+            if not sid_g:
+                try:
+                    contacts_cfg = [{"phone": getattr(c, "phone", ""), "name": getattr(c, "name", "")} for c in contacts]
+                except Exception:
+                    contacts_cfg = []
+                _sess = engine.create_session(
+                    tenant_id=tid, profile_type="senior",
+                    config={"person_name": brief["name"], "emergency_contacts": contacts_cfg, "source": "voice_emergency"},
+                )
+                sid_g = _sess.session_id
+            engine.trigger_sos(sid_g)  # → alert_level CRITICAL (état seul, aucun SMS moteur)
+            inc_id = "voice_" + uuid.uuid4().hex[:12]
+            if _redis_client:
+                ikey = f"luna:{tid}:guardian:incident:{inc_id}"
+                _redis_client.client.hset(ikey, mapping={
+                    "incident_id": inc_id, "session_id": sid_g, "source": "vocal",
+                    "started_at": datetime.utcnow().isoformat(), "status": "active",
+                    "summary": (brief["situation"] or "")[:200],
+                })
+                _redis_client.client.expire(ikey, 86400 * 7)
+                # Lien de suivi public (1h) + amorçage position depuis la géoloc connue
+                _share_token = secrets.token_urlsafe(24)
+                _redis_client.client.setex(f"luna:guardian:share:{_share_token}", 3600, json.dumps({
+                    "session_id": sid_g, "tenant_id": str(tid), "created_at": datetime.utcnow().isoformat(),
+                }))
+                try:
+                    _geo_raw = _redis_client.client.get(f"luna:{tid}:geolocation")
+                    if _geo_raw:
+                        _geo = json.loads(_geo_raw)
+                        _lat = _geo.get("latitude") or _geo.get("lat")
+                        _lng = _geo.get("longitude") or _geo.get("lng")
+                        if _lat is not None and _lng is not None:
+                            _redis_client.client.setex(f"luna:{tid}:guardian:livepos:{sid_g}", 7200, json.dumps({
+                                "lat": _lat, "lng": _lng, "accuracy": _geo.get("accuracy", 0),
+                                "updated_at": datetime.utcnow().isoformat(),
+                            }))
+                except Exception:
+                    pass
+                live_link = f"{VOICE_CALLBACK_URL.rstrip('/')}/guardian-live/{_share_token}" if VOICE_CALLBACK_URL else f"/guardian-live/{_share_token}"
+            report["guardian_session"] = sid_g
+            report["guardian_incident"] = inc_id
+            report["live_link"] = live_link
+            report["live_session"] = sid_g
+            logger.warning(f"[EMERGENCY→GUARDIAN] état unifié tid={tid} session={sid_g} incident={inc_id} (CRITICAL) live={bool(live_link)}")
+    except Exception as e:
+        report["errors"].append(f"guardian_link:{e}")
+
+    # Inclure le lien de suivi en direct dans le SMS (même info utile pour les proches)
+    if live_link and live_link.startswith("http"):
+        reason = reason + f". Suivi en direct : {live_link}"
+
+    # --- 1. SMS à tous (nom + situation + dernières paroles + position + heure + n° urgence) ---
     if dry:
         report["sms"]["sent"] = len(contacts)
         report["triggered"] = True
-        logger.warning(f"[EMERGENCY DRY-RUN] SMS simulé vers {len(contacts)} contact(s)")
+        logger.warning(f"[EMERGENCY DRY-RUN] SMS simulé vers {len(contacts)} contact(s) — raison: {reason}")
     else:
         try:
             sms_res = await _tool_alert_contacts({"reason": reason}, tid)
@@ -17105,29 +18938,44 @@ async def _trigger_voice_emergency(
         except Exception as e:
             report["errors"].append(f"sms_exception:{e}")
 
-    # --- 2. Appels Twilio à tous les contacts (best-effort) ---
+    # --- 2. Appels d'ANNONCE robustes (TwiML <Say>, sans media-stream) + statut Twilio réel ---
+    # On ne compte PLUS "success" à la mise en file : on enregistre le statut initial,
+    # et un poll en arrière-plan journalise le statut RÉEL (sonné/décroché/échoué).
+    report["calls"] = {"queued": 0, "total": len(contacts), "by_contact": [], "dry_run": dry}
     if place_calls:
-        _call_msg = (
-            f"Ceci est une alerte automatique. {reason}. "
-            f"Merci de vérifier que tout va bien et de rappeler dès que possible."
-        )
+        call_message = brief["call_message"]
+        _placed = []  # (name, sid) pour le poll de statut réel
         for c in contacts:
+            cname = getattr(c, "name", "") or "?"
+            phone = getattr(c, "phone", "")
             try:
                 if dry:
-                    logger.warning(f"[EMERGENCY DRY-RUN] Appel simulé vers {getattr(c,'name','?')}")
-                    report["calls"]["placed"] += 1
-                    continue
-                if not (voice_client and getattr(voice_client, "is_configured", False)) or not VOICE_CALLBACK_URL:
-                    report["errors"].append("appels_indisponibles")
-                    break
-                call_res = await _tool_call_contact(
-                    {"contact_name": getattr(c, "name", ""), "message": _call_msg}, tid
-                )
-                if call_res.get("status") == "success":
-                    report["calls"]["placed"] += 1
+                    logger.warning(f"[EMERGENCY DRY-RUN] Appel d'annonce simulé → {cname} : {call_message}")
+                    report["calls"]["queued"] += 1
+                    report["calls"]["by_contact"].append({"name": cname, "status": "simulated"})
                     report["triggered"] = True
+                    continue
+                if not (voice_client and all([getattr(voice_client, "account_sid", ""), getattr(voice_client, "auth_token", ""), getattr(voice_client, "from_number", "")])):
+                    report["errors"].append("appels_indisponibles_twilio")
+                    break
+                ok, data = await asyncio.to_thread(voice_client.initiate_announcement_call, phone, call_message)
+                if ok:
+                    sid = data.get("call_sid", "")
+                    st = data.get("status", "queued")
+                    report["calls"]["queued"] += 1
+                    report["calls"]["by_contact"].append({"name": cname, "status": st, "sid": sid})
+                    report["triggered"] = True
+                    logger.warning(f"[EMERGENCY CALL] {cname} : appel d'annonce lancé (statut initial={st})")
+                    if sid and not str(sid).startswith("SIM"):
+                        _placed.append((cname, sid))
+                else:
+                    report["errors"].append(f"call_fail:{cname}:{data.get('error','?')}")
+                    report["calls"]["by_contact"].append({"name": cname, "status": "echec_mise_en_file"})
             except Exception as e:
-                report["errors"].append(f"call_exception:{e}")
+                report["errors"].append(f"call_exception:{cname}:{e}")
+        # Suivi du statut RÉEL des appels en arrière-plan (logs : a sonné / décroché / échoué)
+        if _placed:
+            asyncio.create_task(_poll_emergency_call_statuses(tid, _placed))
 
     # --- Journalisation sécurité ---
     try:
@@ -17136,7 +18984,7 @@ async def _trigger_voice_emergency(
             description=(
                 f"URGENCE VOCALE déclenchée (niveau={level}) — "
                 f"SMS {report['sms']['sent']}/{report['sms']['total']}, "
-                f"appels {report['calls']['placed']}/{report['calls']['total']}"
+                f"appels {report['calls'].get('queued',0)}/{report['calls']['total']}"
                 + (" [DRY-RUN]" if _test_mode else "")
             ),
             reasoning=f"Détection urgence en conversation vocale Iris: {reason}",
@@ -17148,10 +18996,55 @@ async def _trigger_voice_emergency(
     logger.warning(
         f"VOICE EMERGENCY tid={tid} level={level} triggered={report['triggered']} "
         f"sms={report['sms']['sent']}/{report['sms']['total']} "
-        f"calls={report['calls']['placed']}/{report['calls']['total']} "
+        f"calls={report['calls'].get('queued',0)}/{report['calls']['total']} "
         f"dry_run={_test_mode} loc={report['location_included']}"
     )
     return report
+
+
+
+
+async def _handle_voice_reminder(text: str, tenant_id: int) -> Dict:
+    """
+    Si l'utilisateur demande un rappel en vocal, le SERVEUR le crée lui-même
+    (déterministe — le modèle vocal n'appelle pas add_reminder de façon fiable) et
+    renvoie une consigne de confirmation pour Iris. Sinon {"handled": False}.
+    """
+    try:
+        from integrations.iris.voice_reminders import has_reminder_intent, extract_reminder
+    except Exception:
+        return {"handled": False}
+    if not has_reminder_intent(text):
+        return {"handled": False}
+    try:
+        _today = datetime.now(ZoneInfo("Europe/Paris")).date().isoformat()
+    except Exception:
+        _today = ""
+    extracted = await extract_reminder(text, _today, openai_client)
+    if not extracted.get("is_reminder") or not extracted.get("title"):
+        return {"handled": False}
+
+    title = extracted["title"]
+    due_date = extracted.get("due_date", "")
+    due_time = extracted.get("due_time", "")
+    res = _tool_secretary_add_reminder(tenant_id, {
+        "title": title, "due_date": due_date, "due_time": due_time,
+    })
+    if res.get("status") != "success":
+        return {"handled": False}
+
+    # Quand (pour la phrase de confirmation orale)
+    _when = ""
+    if due_date:
+        _when = f" pour le {due_date}" + (f" à {due_time}" if due_time else "")
+    elif due_time:
+        _when = f" à {due_time}"
+    speak = (
+        f"Confirme en UNE phrase courte et naturelle que le rappel « {title} »{_when} est bien créé. "
+        f"Ne mentionne JAMAIS une app du téléphone ni un service externe — c'est toi qui l'as noté."
+    )
+    logger.info(f"VoiceReminder: créé tid={tenant_id} title={title[:60]!r} date={due_date} time={due_time}")
+    return {"handled": True, "title": title, "speak": speak}
 
 
 async def _tool_report_observation(args: Dict, tenant_id: int = 0, conversation_id: str = "") -> Dict:
@@ -17632,7 +19525,8 @@ async def _tool_search_web(args: Dict, tenant_id: int = 0) -> Dict:
         return {"status": "error", "message": "Erreur lors de la recherche. Reessaie."}
 
     # Formatter les resultats pour Luna
-    results = []
+    results = []   # dict objects for the frontend
+    str_results = []  # formatted strings for the LLM message
 
     # Knowledge Graph (answer box)
     kg = data.get("knowledgeGraph", {})
@@ -17644,14 +19538,17 @@ async def _tool_search_web(args: Dict, tenant_id: int = 0) -> Dict:
             for k, v in list(kg["attributes"].items())[:5]:
                 kg_info += f"\n  {k}: {v}"
         if kg_info:
-            results.append(f"[Info directe] {kg_info}")
+            kg_link = kg.get("descriptionLink", "") or kg.get("website", "")
+            results.append({"title": "Info directe", "snippet": kg_info, "link": kg_link, "displayed_link": ""})
+            str_results.append(f"[Info directe] {kg_info}")
 
     # Answer Box
     answer = data.get("answerBox", {})
     if answer:
         ans_text = answer.get("answer") or answer.get("snippet") or answer.get("title", "")
         if ans_text:
-            results.append(f"[Reponse] {ans_text}")
+            results.append({"title": "Réponse", "snippet": ans_text, "link": answer.get("link", ""), "displayed_link": ""})
+            str_results.append(f"[Reponse] {ans_text}")
 
     # Organic results
     organic = data.get("organic", [])
@@ -17659,14 +19556,12 @@ async def _tool_search_web(args: Dict, tenant_id: int = 0) -> Dict:
         title = item.get("title", "")
         snippet = item.get("snippet", "")
         link = item.get("link", "")
-        phone = ""
-        # Extraire un numero de telephone s'il y en a un dans le snippet
+        displayed_link = item.get("displayedLink", "") or item.get("displayed_link", "")
         import re
         phone_match = re.search(r'(\+?\d[\d\s\-.]{8,15})', snippet)
-        if phone_match:
-            phone = f" | Tel: {phone_match.group(1).strip()}"
-        link_info = f" | {link}" if link else ""
-        results.append(f"{title}: {snippet}{phone}{link_info}")
+        phone_str = f" | Tel: {phone_match.group(1).strip()}" if phone_match else ""
+        results.append({"title": title, "snippet": snippet, "link": link, "displayed_link": displayed_link})
+        str_results.append(f"{title}: {snippet}{phone_str}{(' | ' + link) if link else ''}")
 
     # Places (local business results)
     places = data.get("places", [])
@@ -17675,22 +19570,20 @@ async def _tool_search_web(args: Dict, tenant_id: int = 0) -> Dict:
         addr = place.get("address", "")
         rating = place.get("rating", "")
         phone_p = place.get("phoneNumber", "")
-        info = f"[Lieu] {name}"
-        if addr:
-            info += f" — {addr}"
-            import urllib.parse
-            maps_link = "https://www.google.com/maps/dir/?api=1&destination=" + urllib.parse.quote(f"{name} {addr}")
-            info += f" | Itineraire: {maps_link}"
+        import urllib.parse
+        maps_link = ("https://www.google.com/maps/dir/?api=1&destination=" + urllib.parse.quote(f"{name} {addr}")) if addr else ""
+        snippet_parts = [addr] if addr else []
         if rating:
-            info += f" | Note: {rating}/5"
+            snippet_parts.append(f"Note: {rating}/5")
         if phone_p:
-            info += f" | Tel: {phone_p}"
-        results.append(info)
+            snippet_parts.append(f"Tél: {phone_p}")
+        results.append({"title": f"[Lieu] {name}", "snippet": " | ".join(snippet_parts), "link": maps_link, "displayed_link": "Google Maps"})
+        str_results.append(f"[Lieu] {name}{' — ' + addr if addr else ''}{' | Note: ' + str(rating) + '/5' if rating else ''}{' | Tel: ' + phone_p if phone_p else ''}")
 
     if not results:
         return {"status": "success", "message": f"Aucun resultat pour '{query}'.", "results": []}
 
-    formatted = "\n".join(results[:8])
+    formatted = "\n".join(str_results[:8])
 
     # Log la recherche
     if mgr:
@@ -18954,6 +20847,29 @@ async def serve_document(filename: str, request: Request):
     )
 
 
+@app.delete("/api/documents/{filename}")
+async def delete_document(filename: str, request: Request):
+    """Supprime un document généré (PDF/DOCX) du répertoire du tenant."""
+    tid = getattr(request.state, "tenant_id", 1)
+    _ALLOWED = (".pdf", ".docx")
+    if not filename.endswith(_ALLOWED):
+        return JSONResponse(status_code=400, content={"error": "Type de fichier non autorisé"})
+    if ".." in filename or "/" in filename or "\\" in filename or "\x00" in filename:
+        return JSONResponse(status_code=400, content={"error": "Nom de fichier invalide"})
+    base_dir = os.path.normpath(os.path.join(os.path.dirname(__file__), "static", "documents", str(tid)))
+    filepath  = os.path.normpath(os.path.join(base_dir, filename))
+    if not filepath.startswith(base_dir + os.sep):
+        return JSONResponse(status_code=403, content={"error": "Accès refusé"})
+    if not os.path.exists(filepath):
+        return JSONResponse(status_code=404, content={"error": "Document non trouvé"})
+    try:
+        os.remove(filepath)
+        logger.info(f"Document supprimé: tenant={tid} file={filename}")
+        return {"success": True}
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+
 # =========================================================================
 # DOCUMENTS V2 — Centre de contrôle IA
 # =========================================================================
@@ -19048,6 +20964,76 @@ async def documents_v2_execute(request: Request):
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 
+@app.post("/api/documents/v2/chat")
+async def documents_v2_chat(request: Request):
+    """Chat contextuel sur un document : questions libres avec le contenu du doc en contexte.
+
+    Additif — ne remplace pas /actions/execute (actions structurees). Sert l'amelioration
+    UX "poser des questions en voyant le document".
+    """
+    tid = getattr(request.state, "tenant_id", 1)
+    vops = _get_vault_ops_for_tid(tid)
+    if not vops:
+        return JSONResponse(status_code=503, content={"error": "Vault non disponible"})
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse(status_code=400, content={"error": "Corps JSON invalide"})
+
+    doc_id = body.get("doc_id", "")
+    question = (body.get("question", "") or "").strip()
+    history = body.get("history", []) or []
+    if not doc_id or not question:
+        return JSONResponse(status_code=400, content={"error": "doc_id et question requis"})
+
+    doc = vops.get_doc(doc_id)
+    if not doc:
+        return JSONResponse(status_code=404, content={"error": "Document non trouvé"})
+
+    try:
+        import json as _json
+        ef = doc.get("extracted_fields") or {}
+        if isinstance(ef, str):
+            try:
+                ef = _json.loads(ef)
+            except Exception:
+                ef = {}
+        contexte = (
+            f"Type: {doc.get('doc_type')}\n"
+            f"Titre: {doc.get('titre')}\n"
+            f"Émetteur: {doc.get('emetteur')}\n"
+            f"Date: {doc.get('date_document') or ''}\n"
+            f"Échéance/expiration: {doc.get('date_expiration') or ''}\n"
+            f"Montant: {doc.get('montant') or ''}\n"
+            f"Champs extraits: {_json.dumps({k: v for k, v in ef.items() if v}, ensure_ascii=False)[:800]}\n"
+            f"Texte du document:\n{(doc.get('raw_text') or '')[:3000]}\n"
+        )
+        sys_prompt = (
+            "Tu es Iris, l'assistante documents de Luna. Tu réponds aux questions de "
+            "l'utilisateur en t'appuyant sur le document ci-dessous. Si l'information n'y "
+            "figure pas, dis-le clairement sans inventer. Réponds en français, de façon "
+            "courte, bienveillante et concrète.\n\n=== DOCUMENT ===\n" + contexte
+        )
+        msgs = [{"role": "system", "content": sys_prompt}]
+        for h in history[-6:]:
+            role = "assistant" if h.get("role") == "assistant" else "user"
+            content = (h.get("content") or "")[:1000]
+            if content:
+                msgs.append({"role": role, "content": content})
+        msgs.append({"role": "user", "content": question[:1000]})
+
+        if not openai_client:
+            return JSONResponse(content={"success": True, "answer": "Le service IA n'est pas disponible pour le moment."})
+        resp = openai_client.chat.completions.create(
+            model="gpt-4o-mini", messages=msgs, max_tokens=350, temperature=0.4,
+        )
+        answer = resp.choices[0].message.content.strip()
+        return JSONResponse(content={"success": True, "answer": answer, "doc_id": doc_id})
+    except Exception as e:
+        logger.error(f"Documents v2 chat error: {e}")
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+
 @app.get("/api/documents/v2/timeline")
 async def documents_v2_timeline(request: Request, limit: int = 50):
     """Timeline IA chronologique des documents scannés."""
@@ -19060,6 +21046,11 @@ async def documents_v2_timeline(request: Request, limit: int = 50):
         from core.documents.actions_engine import _compute_priority, _urgency_label
         from core.vault.classifier import DOC_TYPES
         docs = vops.list_docs(limit=limit)
+        # Dossier résolu pour chaque doc (issue #22 Lot A) — additif, règles chargées 1x
+        try:
+            vops.resolve_folders(docs)
+        except Exception:
+            pass
         timeline = []
         for doc in docs:
             doc_type = doc.get("doc_type", "autre")
@@ -19072,6 +21063,7 @@ async def documents_v2_timeline(request: Request, limit: int = 50):
                 "created_at": doc.get("created_at"),
                 "priority":  _compute_priority(doc),
                 "urgency":   _urgency_label(doc),
+                "folder":    doc.get("folder", ""),
             })
         return JSONResponse(content={"timeline": timeline, "total": len(timeline)})
     except Exception as e:
@@ -19497,7 +21489,7 @@ async def _load_instructions_to_scheduler():
                 parsed = InstructionParser.parse(instr.description)
                 _scheduler.schedule(
                     instruction_id=instr.id,
-                    tenant_id=TENANT_ID,
+                    tenant_id=instr.tenant_id,
                     instruction=parsed,
                 )
                 loaded += 1
@@ -19653,15 +21645,16 @@ async def _instruction_loop():
                         except Exception:
                             pass
 
-                    # Enregistre le compte-rendu comme note + event log
-                    if _memory_manager:
+                    # Enregistre le compte-rendu comme note + event log dans le bon tenant
+                    _log_mgr = _exec_mgr if _exec_mgr else _memory_manager
+                    if _log_mgr:
                         try:
-                            _memory_manager.add_note(
+                            _log_mgr.add_note(
                                 content=f"[Auto] {result.message}",
                                 context="instruction_execution",
                                 tags=["auto", result.status.value, task.instruction.action_type.value],
                             )
-                            _memory_manager.log_event(
+                            _log_mgr.log_event(
                                 category="instruction",
                                 description=f"Instruction executee: {result.message}",
                                 reasoning=f"Declenchee par le scheduler ({task.instruction.original_text[:60]})",
@@ -19732,8 +21725,25 @@ async def run_scenario(req: Request):
                 content={"error": f"Scenario inconnu: {scenario_name}", "available": list(ALL_SCENARIOS.keys())}
             )
 
-        global _test_mode
-        _test_mode = True
+        # J6 — Activer le mode test par tenant si possible, sinon global
+        global _test_mode, _test_mode_tenants
+        # FIX 30/06 : mémoriser la valeur d'origine pour la RESTAURER ensuite.
+        # Avant, on remettait _test_mode = False en dur → si le serveur tournait en
+        # LUNA_TEST_MODE=1, un seul appel à ce endpoint désarmait la simulation GLOBALE
+        # de façon permanente → SMS/appels d'urgence réels intempestifs.
+        _prev_test_mode = _test_mode
+        _tid_test = None
+        try:
+            _auth_test = request.headers.get("Authorization", "").replace("Bearer ", "")
+            _p_test = _decode_client_token(_auth_test)
+            if _p_test:
+                _tid_test = int(_p_test.get("tenant_id", 0))
+        except Exception:
+            pass
+        if _tid_test:
+            _test_mode_tenants.add(_tid_test)
+        else:
+            _test_mode = True
 
         async def test_chat_fn(message: str) -> str:
             """Appelle le chat en mode test."""
@@ -19763,14 +21773,21 @@ async def run_scenario(req: Request):
         scenario = ALL_SCENARIOS[scenario_name]
         result = await simulator.run_scenario(scenario)
 
-        _test_mode = False
+        _test_mode = _prev_test_mode  # restaure la valeur d'origine (ne force plus False)
+        if _tid_test:
+            _test_mode_tenants.discard(_tid_test)
 
         return result.to_dict()
 
     except ImportError:
         return JSONResponse(status_code=503, content={"error": "Module testing non disponible"})
     except Exception as e:
-        _test_mode = False
+        _test_mode = _prev_test_mode  # restaure la valeur d'origine (ne force plus False)
+        try:
+            if _tid_test:
+                _test_mode_tenants.discard(_tid_test)
+        except Exception:
+            pass
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 
@@ -20154,6 +22171,139 @@ async def create_room(request: Request):
         "invite_links": invite_links,
         "friend_invite_url": friend_invite_url,
     }
+
+
+# ===== KARAOKÉ — Brouillons d'enregistrement (stockage GCS persistant) =====
+_KARAOKE_BUCKET = os.getenv("KARAOKE_DRAFTS_BUCKET", "luna-karaoke-drafts-674304336025")
+_gcs_client = None
+_gcs_init_err = None
+
+def _kdraft_bucket():
+    """Retourne le bucket GCS (lazy init). None si indisponible."""
+    global _gcs_client, _gcs_init_err
+    if _gcs_client is None:
+        try:
+            from google.cloud import storage as _gcs_storage
+            _gcs_client = _gcs_storage.Client()
+        except Exception as e:
+            _gcs_init_err = str(e)
+            return None
+    try:
+        return _gcs_client.bucket(_KARAOKE_BUCKET)
+    except Exception as e:
+        _gcs_init_err = str(e)
+        return None
+
+def _kdraft_ukey(request: Request, phone: str = "") -> str:
+    """Clé utilisateur des brouillons : email du token (stable), sinon phone."""
+    email = getattr(request.state, "email", "") or ""
+    return (email or phone or "owner").replace("/", "_")[:120]
+
+def _kdraft_rkey(tid, ukey) -> str:
+    return f"karaoke:drafts:{tid}:{ukey}"
+
+def _kdraft_blob(tid, ukey, draft_id) -> str:
+    return f"drafts/{tid}/{ukey}/{draft_id}.webm"
+
+def _kdraft_decode(x):
+    return x.decode() if isinstance(x, (bytes, bytearray)) else x
+
+@app.post("/api/karaoke/drafts")
+async def karaoke_draft_upload(request: Request, file: UploadFile = File(...), title: str = Form(""), phone: str = Form("")):
+    """Sauvegarde un enregistrement en brouillon (privé) sur GCS."""
+    import uuid as _uuid, json as _json, time as _time
+    tid = getattr(request.state, "tenant_id", TENANT_ID)
+    ukey = _kdraft_ukey(request, phone)
+    bucket = _kdraft_bucket()
+    if not bucket:
+        return JSONResponse(status_code=503, content={"error": "Stockage brouillons indisponible", "detail": _gcs_init_err})
+    data = await file.read()
+    if not data:
+        return JSONResponse(status_code=400, content={"error": "Fichier vide"})
+    if len(data) > 25 * 1024 * 1024:
+        return JSONResponse(status_code=413, content={"error": "Enregistrement trop volumineux (max 25 Mo)"})
+    draft_id = _uuid.uuid4().hex[:16]
+    ct = file.content_type or "audio/webm"
+    try:
+        bucket.blob(_kdraft_blob(tid, ukey, draft_id)).upload_from_string(data, content_type=ct)
+    except Exception as e:
+        return JSONResponse(status_code=502, content={"error": "Upload GCS échoué", "detail": str(e)})
+    meta = {"id": draft_id, "title": (title or "Brouillon").strip()[:80] or "Brouillon",
+            "created": int(_time.time()), "size": len(data), "published": False, "content_type": ct}
+    if _redis_client:
+        try: _redis_client.client.hset(_kdraft_rkey(tid, ukey), draft_id, _json.dumps(meta))
+        except Exception: pass
+    return {"success": True, "draft": meta}
+
+@app.get("/api/karaoke/drafts")
+async def karaoke_draft_list(request: Request):
+    """Liste les brouillons de l'utilisateur."""
+    import json as _json
+    tid = getattr(request.state, "tenant_id", TENANT_ID)
+    ukey = _kdraft_ukey(request, request.query_params.get("phone", ""))
+    drafts = []
+    if _redis_client:
+        try:
+            raw = _redis_client.client.hgetall(_kdraft_rkey(tid, ukey)) or {}
+            for v in raw.values():
+                try: drafts.append(_json.loads(_kdraft_decode(v)))
+                except Exception: pass
+        except Exception: pass
+    drafts.sort(key=lambda d: d.get("created", 0), reverse=True)
+    return {"drafts": drafts}
+
+@app.get("/api/karaoke/drafts/{draft_id}/audio")
+async def karaoke_draft_audio(draft_id: str, request: Request):
+    """Écoute privée d'un brouillon (stream depuis GCS)."""
+    tid = getattr(request.state, "tenant_id", TENANT_ID)
+    ukey = _kdraft_ukey(request, request.query_params.get("phone", ""))
+    bucket = _kdraft_bucket()
+    if not bucket:
+        return JSONResponse(status_code=503, content={"error": "Stockage indisponible"})
+    blob = bucket.blob(_kdraft_blob(tid, ukey, draft_id))
+    try:
+        if not blob.exists():
+            return JSONResponse(status_code=404, content={"error": "Brouillon introuvable"})
+        data = blob.download_as_bytes()
+    except Exception as e:
+        return JSONResponse(status_code=502, content={"error": "Lecture échouée", "detail": str(e)})
+    return Response(content=data, media_type="audio/webm")
+
+@app.delete("/api/karaoke/drafts/{draft_id}")
+async def karaoke_draft_delete(draft_id: str, request: Request):
+    """Supprime un brouillon (GCS + métadonnées)."""
+    tid = getattr(request.state, "tenant_id", TENANT_ID)
+    ukey = _kdraft_ukey(request, request.query_params.get("phone", ""))
+    bucket = _kdraft_bucket()
+    if bucket:
+        try: bucket.blob(_kdraft_blob(tid, ukey, draft_id)).delete()
+        except Exception: pass
+    if _redis_client:
+        try: _redis_client.client.hdel(_kdraft_rkey(tid, ukey), draft_id)
+        except Exception: pass
+    return {"success": True}
+
+@app.post("/api/karaoke/drafts/{draft_id}/publish")
+async def karaoke_draft_publish(draft_id: str, request: Request):
+    """Publie un brouillon (marque published=true pour le partager plus tard)."""
+    import json as _json
+    tid = getattr(request.state, "tenant_id", TENANT_ID)
+    body = {}
+    try: body = await request.json()
+    except Exception: pass
+    ukey = _kdraft_ukey(request, (body or {}).get("phone", "") if isinstance(body, dict) else "")
+    if not _redis_client:
+        return JSONResponse(status_code=503, content={"error": "Métadonnées indisponibles"})
+    try:
+        raw = _redis_client.client.hget(_kdraft_rkey(tid, ukey), draft_id)
+        if not raw:
+            return JSONResponse(status_code=404, content={"error": "Brouillon introuvable"})
+        meta = _json.loads(_kdraft_decode(raw))
+        meta["published"] = True
+        _redis_client.client.hset(_kdraft_rkey(tid, ukey), draft_id, _json.dumps(meta))
+        return {"success": True, "draft": meta}
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
 
 
 @app.get("/api/rooms/member-token")
@@ -21429,6 +23579,96 @@ def _verify_admin(request: Request) -> bool:
         return False
 
 
+# --- Helpers gestion utilisateurs (additif, non destructif) ---
+
+def _admin_ip(request: Request) -> str:
+    """IP réelle du client (Cloud Run: X-Forwarded-For)."""
+    return (
+        request.headers.get("X-Forwarded-For", "").split(",")[0].strip()
+        or (request.client.host if request.client else "unknown")
+    )
+
+
+def _admin_identity(request: Request) -> str:
+    """Identité de l'admin pour l'audit (fondateur ou admin)."""
+    auth = request.headers.get("Authorization", "")
+    if auth.startswith("Bearer "):
+        try:
+            import jwt as pyjwt
+            payload = pyjwt.decode(auth[7:], _JWT_SECRET, algorithms=[_JWT_ALGORITHM])
+            if payload.get("plan") == "fondateur":
+                return "fondateur"
+            return payload.get("role", "admin")
+        except Exception:
+            pass
+    return "admin"
+
+
+def _admin_audit(request: Request, action: str, target_tenant: int = None,
+                 details: dict = None) -> None:
+    """Journalise une action admin dans Redis (qui, quoi, quand, depuis où)."""
+    if not _redis_client:
+        return
+    try:
+        _redis_client.append_admin_audit({
+            "ts": time.time(),
+            "iso": datetime.now().isoformat(timespec="seconds"),
+            "actor": _admin_identity(request),
+            "ip": _admin_ip(request),
+            "action": action,
+            "target_tenant": target_tenant,
+            "details": details or {},
+        })
+    except Exception as e:
+        logger.error(f"_admin_audit error: {e}")
+
+
+def _index_user(tenant_id: int, *, email: str = None, plan: str = None,
+                active: bool = None, suspended: bool = None,
+                suspend_reason: str = None, name: str = None,
+                created_at=None) -> None:
+    """Met à jour la fiche dénormalisée d'un user dans l'index Redis (merge)."""
+    if not _redis_client:
+        return
+    try:
+        existing = {}
+        raw = _redis_client.client.hget(_redis_client._users_index_key(), str(tenant_id))
+        if raw:
+            try:
+                existing = json.loads(raw)
+            except Exception:
+                existing = {}
+        merged = dict(existing)
+        if email is not None:
+            merged["email"] = email
+        if plan is not None:
+            merged["plan"] = plan
+        if active is not None:
+            merged["active"] = bool(active)
+        if suspended is not None:
+            merged["suspended"] = bool(suspended)
+        if suspend_reason is not None:
+            merged["suspend_reason"] = suspend_reason
+        if name is not None:
+            merged["name"] = name
+        if created_at is not None:
+            merged["created_at"] = created_at
+        _redis_client.upsert_user_index(tenant_id, merged)
+    except Exception as e:
+        logger.error(f"_index_user({tenant_id}) error: {e}")
+
+
+def _ensure_users_index() -> None:
+    """Reconstruit l'index si vide (lazy backfill, idempotent)."""
+    if not _redis_client:
+        return
+    try:
+        if _redis_client.users_index_size() == 0:
+            _redis_client.backfill_users_index(profile_getter=_redis_client.get_profile)
+    except Exception as e:
+        logger.error(f"_ensure_users_index error: {e}")
+
+
 # --- Certificat d'autonomie ---
 _certificate_timestamp: float = 0  # timestamp de generation du certificat
 
@@ -21562,22 +23802,72 @@ async def admin_certificate(request: Request):
     )
 
 
+_ADMIN_LOGIN_MAX_FAILS = int(os.getenv("ADMIN_LOGIN_MAX_FAILS", "8"))
+_ADMIN_2FA_ENABLED = os.getenv("ADMIN_2FA_ENABLED", "").lower() in ("1", "true", "yes")
+
+
+def _admin_totp_secret() -> str:
+    """Secret TOTP pour le 2FA admin (réutilise CORTEX_TOTP_SECRET ou fichier)."""
+    secret = os.getenv("ADMIN_TOTP_SECRET") or os.getenv("CORTEX_TOTP_SECRET")
+    if not secret:
+        try:
+            p = os.path.join(os.path.dirname(__file__), "data", "cortex_totp.secret")
+            with open(p) as f:
+                secret = f.read().strip()
+        except Exception:
+            secret = None
+    return secret or ""
+
+
 @app.post("/api/admin/login")
 async def admin_login(request: Request):
-    """Login admin avec mot de passe."""
+    """Login admin avec mot de passe (+ rate limit + 2FA TOTP optionnel)."""
     data = await request.json()
     password = data.get("password", "")
+    totp_code = (data.get("totp") or "").strip()
+    ip = _admin_ip(request)
 
     if not _ADMIN_PASSWORD:
         return JSONResponse(status_code=503, content={
             "error": "ADMIN_PASSWORD non configure dans .env",
         })
 
+    # Anti-bruteforce : blocage après trop d'échecs depuis la même IP
+    if _redis_client and _redis_client.get_login_fails(ip) >= _ADMIN_LOGIN_MAX_FAILS:
+        logger.warning(f"ADMIN_LOGIN_BLOCKED ip={ip} (trop d'échecs)")
+        return JSONResponse(status_code=429, content={
+            "error": "Trop de tentatives. Réessayez dans 15 minutes.",
+        })
+
     import hmac
     if not hmac.compare_digest(password, _ADMIN_PASSWORD):
+        if _redis_client:
+            _redis_client.record_login_fail(ip)
         return JSONResponse(status_code=401, content={"error": "Mot de passe incorrect"})
 
+    # 2FA optionnel : actif seulement si ADMIN_2FA_ENABLED + secret dispo
+    secret = _admin_totp_secret()
+    if _ADMIN_2FA_ENABLED and secret:
+        if not totp_code:
+            return JSONResponse(status_code=401, content={
+                "error": "Code 2FA requis", "totp_required": True,
+            })
+        try:
+            import pyotp
+            if not pyotp.TOTP(secret).verify(totp_code, valid_window=1):
+                if _redis_client:
+                    _redis_client.record_login_fail(ip)
+                return JSONResponse(status_code=401, content={
+                    "error": "Code 2FA invalide", "totp_required": True,
+                })
+        except Exception as e:
+            logger.error(f"ADMIN_2FA verify error: {e}")
+            return JSONResponse(status_code=500, content={"error": "Erreur 2FA"})
+
+    if _redis_client:
+        _redis_client.clear_login_fails(ip)
     token = _create_admin_token()
+    _admin_audit(request, "admin.login", None, {"2fa": bool(_ADMIN_2FA_ENABLED and secret)})
     return {"token": token, "expires_in": 86400}
 
 
@@ -21638,10 +23928,11 @@ async def admin_clients(request: Request):
                 fn = profile.get("first_name", "")
                 ln = profile.get("last_name", "")
                 name = f"{fn} {ln}".strip() or f"Tenant {tid}"
-                plan = profile.get("plan", "essentiel")
-                # Lecture auth pour l'email
+                # Lecture auth pour l'email + le plan (source de verite: auth record,
+                # le profil n'a pas de champ 'plan')
                 auth = _redis_client.get_auth_by_tenant_id(tid)
                 email = auth.get("email", "") if auth else ""
+                plan = (auth.get("plan") if auth else None) or profile.get("plan", "essentiel")
                 clients.append({
                     "tenant_id": tid,
                     "name": name,
@@ -21667,6 +23958,20 @@ async def admin_client_detail(tenant_id: int, request: Request):
         mm = MemoryManager(tenant_id=tenant_id, redis_client=_redis_client)
         profile = mm.get_subscriber_profile()
         quota = mm.get_quota_status()
+        # Enrichit avec le quota SMS réel (usage mensuel + bonus geste commercial)
+        if _quota_guard:
+            try:
+                from core.actions.quota_guard import PlanType as _QPlan
+                plan_str = (quota.get("plan") or "essentiel")
+                try:
+                    _quota_guard.set_plan(tenant_id, _QPlan(plan_str))
+                except ValueError:
+                    pass
+                sms_q = _quota_guard.get_usage_summary(tenant_id).get("sms", {})
+                if sms_q:
+                    quota["sms"] = sms_q
+            except Exception as _e:
+                logger.warning(f"sms quota enrich failed tenant={tenant_id}: {_e}")
         contacts = mm.list_trusted_contacts()
         stats = mm.get_daily_stats_range(7)
         return {
@@ -21726,6 +24031,10 @@ async def admin_create_client(request: Request):
     logger.info(f"ADMIN_CREATE_CLIENT tenant_id={tenant_id} email={email} plan={plan}")
     _gamify("admin", "new_client", is_admin=True)
 
+    _index_user(tenant_id, email=email, plan=plan, active=True, suspended=False,
+                name=f"{first_name} {last_name}".strip(), created_at=time.time())
+    _admin_audit(request, "user.create", tenant_id, {"email": email, "plan": plan})
+
     return {"success": True, "tenant_id": tenant_id, "email": email, "plan": plan}
 
 
@@ -21763,6 +24072,10 @@ async def admin_update_client(tenant_id: int, request: Request):
     email = auth.get("email", "")
     _redis_client.update_auth_record(email, updates)
     logger.info(f"ADMIN_UPDATE_CLIENT tenant_id={tenant_id} updates={updates}")
+    _index_user(tenant_id, email=email,
+                plan=updates.get("plan"),
+                active=updates.get("active"))
+    _admin_audit(request, "user.update", tenant_id, updates)
     return {"success": True, "tenant_id": tenant_id, "updates": updates}
 
 
@@ -21787,7 +24100,9 @@ async def admin_delete_client(tenant_id: int, request: Request):
 
     # Purger toutes les cles du tenant
     keys_deleted = _redis_client.purge_tenant(tenant_id)
+    _redis_client.remove_user_index(tenant_id)
     logger.info(f"ADMIN_DELETE_CLIENT tenant_id={tenant_id} keys_deleted={keys_deleted}")
+    _admin_audit(request, "user.delete", tenant_id, {"keys_deleted": keys_deleted})
     return {"success": True, "tenant_id": tenant_id, "keys_deleted": keys_deleted}
 
 
@@ -21812,6 +24127,7 @@ async def admin_reset_password(tenant_id: int, request: Request):
     new_hash = _hash_password(new_password)
     _redis_client.update_auth_record(email, {"password_hash": new_hash})
     logger.info(f"ADMIN_RESET_PASSWORD tenant_id={tenant_id} email={email}")
+    _admin_audit(request, "user.reset_password", tenant_id, {"email": email})
     return {"success": True, "tenant_id": tenant_id, "email": email}
 
 
@@ -21833,7 +24149,9 @@ async def admin_quotas(request: Request):
             for tid in _redis_client.get_all_tenant_ids():
                 profile = _redis_client.get_profile(tid) or {}
                 name = profile.get("first_name", f"Tenant {tid}")
-                plan = profile.get("plan", "essentiel")
+                # Plan: source de verite = auth record (le profil n'a pas de champ 'plan')
+                _auth = _redis_client.get_auth_by_tenant_id(tid)
+                plan = (_auth.get("plan") if _auth else None) or profile.get("plan", "essentiel")
                 limits = _PLAN_LIMITS.get(plan, _PLAN_LIMITS["essentiel"])
                 usage = all_usage.get(str(tid), {"sms_count": 0, "sms_cost": 0, "voice_minutes": 0, "voice_cost": 0, "tavus_minutes": 0, "tavus_cost": 0})
                 sms_cost = round(float(usage.get("sms_cost", 0)), 2)
@@ -21894,7 +24212,10 @@ async def admin_costs(request: Request, month: str = None):
                     profile = _redis_client.get_profile(int(tid_str)) if tid_str.isdigit() else {}
                     if profile:
                         name = profile.get("first_name", name)
-                        plan = profile.get("plan", plan)
+                    # Plan: source de verite = auth record (le profil n'a pas de champ 'plan')
+                    _auth = _redis_client.get_auth_by_tenant_id(int(tid_str)) if tid_str.isdigit() else None
+                    if _auth and _auth.get("plan"):
+                        plan = _auth.get("plan")
 
                 sc = round(float(costs.get("sms_cost", 0)), 2)
                 vc = round(float(costs.get("voice_cost", 0)), 2)
@@ -22179,6 +24500,294 @@ async def admin_objectives(request: Request):
     }
 
 
+@app.get("/api/admin/email/gmail")
+async def admin_email_gmail_status(request: Request):
+    """
+    Statut de l'integration Gmail OAuth d'un tenant + URL de consentement.
+    Sert le bouton 'Connecter Gmail' du banc d'essai (remediation de la voie email).
+    """
+    if not _verify_admin(request):
+        return JSONResponse(status_code=401, content={"error": "Non autorise"})
+    try:
+        tenant_id = int(request.query_params.get("tenant_id", "1"))
+    except ValueError:
+        tenant_id = 1
+
+    configured = bool(gmail_client and getattr(gmail_client, "is_configured", False))
+    connected = False
+    account = ""
+    if _redis_client:
+        try:
+            integ = _redis_client.get_email_integration(tenant_id)
+            if integ and integ.get("service") == "gmail":
+                connected = True
+                account = integ.get("email", "")
+        except Exception:
+            pass
+
+    auth_url = ""
+    if configured:
+        try:
+            auth_url = gmail_client.get_auth_url(tenant_id)
+        except Exception as e:
+            logger.warning(f"gmail get_auth_url error: {e}")
+
+    return {
+        "tenant_id": tenant_id,
+        "configured": configured,
+        "connected": connected,
+        "account": account,
+        "auth_url": auth_url,
+        "redirect_uri": getattr(gmail_client, "redirect_uri", "") if gmail_client else "",
+        "sendgrid_configured": bool(email_client and getattr(email_client, "is_configured", False)),
+    }
+
+
+@app.api_route("/api/admin/services-selftest", methods=["GET", "POST"])
+async def admin_services_selftest(request: Request):
+    """
+    BANC D'ESSAI SERVICES — teste chaque service de l'onglet Conciergerie
+    via le VRAI code backend, dans les conditions reelles d'un exploitant.
+
+    - Par defaut (dry-run) : verifie config + execute les services en LECTURE SEULE
+      (meteo, actualites, recherche web, lieux, RECHERCHE vols/hotels Duffel).
+      Aucune action engageante : jamais de reservation, paiement, SMS/appel/email reel.
+    - ?live=1 : autorise UN envoi REEL (SMS + appel + email) uniquement vers
+      ADMIN_NUMBER / PROPRIO_EMAIL (le fondateur), jamais un tiers. Opt-in explicite.
+
+    Distinct du monitoring passif /api/admin/objectives (qui reste sans action reelle).
+    """
+    if not _verify_admin(request):
+        return JSONResponse(status_code=401, content={"error": "Non autorise"})
+
+    from datetime import datetime as _dt, timedelta as _td
+    live = request.query_params.get("live") == "1"
+    services = []
+
+    def _svc(key, label, icon, category, status, detail, tested="config", missing=None, action=False):
+        services.append({
+            "key": key, "label": label, "icon": icon, "category": category,
+            "status": status, "detail": detail, "tested": tested,
+            "missing": missing or [], "engageant": action,
+        })
+
+    # ---- 1) METEO (gratuit, lecture seule) ----
+    try:
+        r = await _tool_get_weather({"city": "Paris"})
+        ok = r.get("status") == "success"
+        _svc("weather", "Meteo", "⛅", "Infos temps reel",
+             "green" if ok else "red",
+             "API meteo OK (donnees recues)" if ok else f"Echec: {r.get('message', 'erreur')}",
+             tested="live")
+    except Exception as e:
+        _svc("weather", "Meteo", "⛅", "Infos temps reel", "red", f"Exception: {type(e).__name__}", tested="live")
+
+    # ---- 2) ACTUALITES (gratuit, lecture seule) ----
+    try:
+        r = await _tool_get_news({"count": 3})
+        ok = r.get("status") == "success"
+        _svc("news", "Actualites", "\U0001F4F0", "Infos temps reel",
+             "green" if ok else "red",
+             "Flux RSS OK" if ok else f"Echec: {r.get('message', 'erreur')}", tested="live")
+    except Exception as e:
+        _svc("news", "Actualites", "\U0001F4F0", "Infos temps reel", "red", f"Exception: {type(e).__name__}", tested="live")
+
+    # ---- 3) RECHERCHE WEB (Serper, lecture seule) ----
+    serper_ok = bool(os.getenv("SERPER_API_KEY", ""))
+    try:
+        r = await _tool_search_web({"query": "pharmacie de garde Paris"})
+        ok = r.get("status") == "success"
+        _svc("web", "Recherche web", "\U0001F50D", "Recherche & Voyage",
+             "green" if ok else ("red" if not serper_ok else "amber"),
+             "Serper OK (resultats recus)" if ok else f"Echec: {r.get('message', 'erreur')}",
+             tested="live", missing=[] if serper_ok else ["SERPER_API_KEY"])
+    except Exception as e:
+        _svc("web", "Recherche web", "\U0001F50D", "Recherche & Voyage", "red", f"Exception: {type(e).__name__}",
+             tested="live", missing=[] if serper_ok else ["SERPER_API_KEY"])
+
+    # ---- 4) LIEUX / AUTOUR DE MOI (Serper, lecture seule) ----
+    try:
+        r = await _tool_search_places({"query": "pharmacie", "location": "Paris"})
+        ok = r.get("status") == "success"
+        _svc("places", "Autour de moi", "\U0001F4CD", "Recherche & Voyage",
+             "green" if ok else ("red" if not serper_ok else "amber"),
+             "Serper Places OK" if ok else f"Echec: {r.get('message', 'erreur')}",
+             tested="live", missing=[] if serper_ok else ["SERPER_API_KEY"])
+    except Exception as e:
+        _svc("places", "Autour de moi", "\U0001F4CD", "Recherche & Voyage", "red", f"Exception: {type(e).__name__}",
+             tested="live", missing=[] if serper_ok else ["SERPER_API_KEY"])
+
+    # ---- 5) VOLS (RECHERCHE seule via Duffel test, jamais de reservation) ----
+    _dep = (_dt.utcnow() + _td(days=30)).strftime("%Y-%m-%d")
+    duffel_on = bool(duffel_client and duffel_client.is_configured)
+    try:
+        r = await _tool_search_flights({"origin": "Paris", "destination": "Nice", "departure_date": _dep})
+        ok = r.get("status") == "success"
+        src = "Duffel" if duffel_on else "recherche web (fallback)"
+        _svc("flights", "Vols", "✈️", "Recherche & Voyage",
+             "green" if ok else "red",
+             f"Recherche vols OK via {src}" if ok else f"Echec: {r.get('message', 'erreur')}",
+             tested="live", missing=[] if (duffel_on or serper_ok) else ["DUFFEL_ACCESS_TOKEN", "SERPER_API_KEY"])
+    except Exception as e:
+        _svc("flights", "Vols", "✈️", "Recherche & Voyage", "red", f"Exception: {type(e).__name__}", tested="live")
+
+    # ---- 6) HOTELS (RECHERCHE seule, jamais de reservation) ----
+    _ci = (_dt.utcnow() + _td(days=30)).strftime("%Y-%m-%d")
+    _co = (_dt.utcnow() + _td(days=32)).strftime("%Y-%m-%d")
+    try:
+        r = await _tool_search_hotels({"city": "Nice", "check_in": _ci, "check_out": _co})
+        ok = r.get("status") == "success"
+        src = "Duffel" if duffel_on else "recherche web (fallback)"
+        _svc("hotels", "Hotels", "\U0001F3E8", "Recherche & Voyage",
+             "green" if ok else "red",
+             f"Recherche hotels OK via {src}" if ok else f"Echec: {r.get('message', 'erreur')}",
+             tested="live", missing=[] if (duffel_on or serper_ok) else ["DUFFEL_ACCESS_TOKEN", "SERPER_API_KEY"])
+    except Exception as e:
+        _svc("hotels", "Hotels", "\U0001F3E8", "Recherche & Voyage", "red", f"Exception: {type(e).__name__}", tested="live")
+
+    # ---- 7) RESTAURANTS (config seule — jamais de reservation) ----
+    thefork_on = bool(thefork_client and thefork_client.is_configured)
+    if thefork_on:
+        _svc("restaurant", "Restaurants", "\U0001F37D️", "Recherche & Voyage", "green",
+             "TheFork configure (reservation directe). Non declenchee pendant le test.")
+    elif serper_ok:
+        _svc("restaurant", "Restaurants", "\U0001F37D️", "Recherche & Voyage", "amber",
+             "TheFork absent → repli: recherche lieux (Serper) + appel resto. Fonctionnel en mode degrade.",
+             missing=["THEFORK_API_KEY"])
+    else:
+        _svc("restaurant", "Restaurants", "\U0001F37D️", "Recherche & Voyage", "red",
+             "Ni TheFork ni Serper → restaurants indisponibles.", missing=["THEFORK_API_KEY", "SERPER_API_KEY"])
+
+    # ---- 8) SMS (config ; envoi reel uniquement si live + vers ADMIN_NUMBER) ----
+    sms_on = bool(sms_client and getattr(sms_client, "is_configured", False))
+    if not sms_on:
+        _svc("sms", "SMS", "\U0001F4AC", "Communication", "red", "Twilio non configure.",
+             missing=["TWILIO_ACCOUNT_SID", "TWILIO_AUTH_TOKEN", "TWILIO_PHONE_NUMBER"], action=True)
+    elif live and ADMIN_NUMBER:
+        try:
+            ok, det = _tracked_sms_send(ADMIN_NUMBER, "[Luna] Banc d'essai Services : test SMS reel. Tout fonctionne.", label="Banc d'essai Services")
+            _svc("sms", "SMS", "\U0001F4AC", "Communication", "green" if ok else "red",
+                 f"SMS REEL envoye vers {ADMIN_NUMBER}" if ok else f"Echec envoi: {det.get('error', 'inconnu')}",
+                 tested="live-reel", action=True)
+        except Exception as e:
+            _svc("sms", "SMS", "\U0001F4AC", "Communication", "red", f"Exception: {type(e).__name__}", tested="live-reel", action=True)
+    else:
+        _svc("sms", "SMS", "\U0001F4AC", "Communication", "green",
+             "Twilio configure. Envoi reel non declenche (mode a blanc).", action=True)
+
+    # ---- 9) APPEL (config ; appel reel uniquement si live + vers ADMIN_NUMBER) ----
+    call_on = bool(voice_client and getattr(voice_client, "is_configured", False))
+    if not call_on:
+        _svc("call", "Appel", "\U0001F4DE", "Communication", "red", "Twilio Voice non configure.",
+             missing=["TWILIO_ACCOUNT_SID", "TWILIO_AUTH_TOKEN", "TWILIO_PHONE_NUMBER"], action=True)
+    elif live and ADMIN_NUMBER:
+        try:
+            ok, det = await voice_client.initiate_call_async(ADMIN_NUMBER)
+            _svc("call", "Appel", "\U0001F4DE", "Communication", "green" if ok else "red",
+                 f"Appel REEL declenche vers {ADMIN_NUMBER}" if ok else f"Echec appel: {det.get('error', 'inconnu')}",
+                 tested="live-reel", action=True)
+        except Exception as e:
+            _svc("call", "Appel", "\U0001F4DE", "Communication", "red", f"Exception: {type(e).__name__}", tested="live-reel", action=True)
+    else:
+        _svc("call", "Appel", "\U0001F4DE", "Communication", "green",
+             "Twilio Voice configure. Appel reel non declenche (mode a blanc).", action=True)
+
+    # ---- 10) EMAIL (config ; envoi reel uniquement si live + vers PROPRIO_EMAIL) ----
+    _proprio_email = os.getenv("PROPRIO_EMAIL", "")
+    gmail_env = bool(gmail_client and getattr(gmail_client, "is_configured", False))
+    sendgrid_on = bool(email_client and getattr(email_client, "is_configured", False))
+    # Le fondateur (tenant 1) a-t-il reellement connecte Gmail (token en Redis) ?
+    gmail_connected = False
+    gmail_account = ""
+    if _redis_client:
+        try:
+            _integ = _redis_client.get_email_integration(1)
+            if _integ and _integ.get("service") == "gmail":
+                gmail_connected = True
+                gmail_account = _integ.get("email", "")
+        except Exception:
+            pass
+    email_on = gmail_env or sendgrid_on
+    if not email_on:
+        _svc("email", "Email", "\U0001F4E7", "Communication", "red", "Aucun service email (Gmail OAuth / SendGrid) configure.",
+             missing=["SENDGRID_API_KEY ou Gmail OAuth"], action=True)
+    elif live and _proprio_email:
+        try:
+            ok, det = await email_client.send_for_tenant(
+                tenant_id=1, redis_client=_redis_client, gmail_client=gmail_client,
+                to=_proprio_email, subject="Banc d'essai Luna — test email reel",
+                body_text="Ceci est un test reel du service Email de l'onglet Services. Tout fonctionne.",
+                subscriber_name="Luna",
+            )
+            if ok:
+                _svc("email", "Email", "\U0001F4E7", "Communication", "green",
+                     f"Email REEL envoye vers {_proprio_email}", tested="live-reel", action=True)
+            else:
+                err = str(det.get("error", "inconnu"))
+                if "credit" in err.lower():
+                    hint = "SendGrid: credits epuises. Connecte Gmail OAuth (gratuit, par souscripteur) ou recharge SendGrid."
+                else:
+                    hint = f"Echec envoi: {err}"
+                _svc("email", "Email", "\U0001F4E7", "Communication", "red", hint,
+                     tested="live-reel", missing=[] if gmail_connected else ["Gmail OAuth (aucun souscripteur connecte)"], action=True)
+        except Exception as e:
+            _svc("email", "Email", "\U0001F4E7", "Communication", "red", f"Exception: {type(e).__name__}", tested="live-reel", action=True)
+    else:
+        # Mode a blanc : config presente, mais SendGrid peut etre a court de credits — le confirmer en envoi reel.
+        if gmail_connected:
+            detail = f"Gmail OAuth connecte ({gmail_account or 'compte'}) — voie gratuite. Lance un envoi reel pour confirmer."
+            status = "green"
+        elif sendgrid_on:
+            detail = "SendGrid configure (Gmail OAuth non connecte). Verifie les credits via un envoi reel."
+            status = "amber"
+        else:
+            detail = "Gmail OAuth (env) present mais aucun souscripteur connecte."
+            status = "amber"
+        _svc("email", "Email", "\U0001F4E7", "Communication", status, detail,
+             missing=[] if gmail_connected else ["Gmail OAuth a connecter"], action=True)
+
+    # ---- 11) VISIO (config : depend de Tavus + Twilio) ----
+    tavus_on = bool(tavus_client and getattr(tavus_client, "is_configured", False))
+    if tavus_on and sms_on:
+        _svc("visio", "Inviter en visio", "\U0001F3A5", "Communication", "green",
+             "Tavus + Twilio configures. Invitation non declenchee pendant le test.")
+    else:
+        miss = []
+        if not tavus_on:
+            miss.append("TAVUS_API_KEY")
+        if not sms_on:
+            miss.append("TWILIO_*")
+        _svc("visio", "Inviter en visio", "\U0001F3A5", "Communication", "amber",
+             "Visio degradee : " + (" + ".join(miss) + " manquant(s)."), missing=miss)
+
+    # ---- 12) Internes (toujours OK, sans dependance externe) ----
+    for k, lbl, ic in [("reminders", "Rappels", "⏰"), ("notes", "Notes", "\U0001F4DD"),
+                       ("contacts", "Mes contacts", "\U0001F465")]:
+        _svc(k, lbl, ic, "Organisation", "green", "Interne (Redis) — fonctionne sans cle externe.")
+    doc_on = bool(OPENAI_API_KEY or os.getenv("ANTHROPIC_API_KEY", ""))
+    _svc("document", "Document / courrier", "\U0001F4C4", "Organisation",
+         "green" if doc_on else "red",
+         "Generation par LLM disponible." if doc_on else "Aucune cle LLM (OpenAI/Anthropic).",
+         missing=[] if doc_on else ["OPENAI_API_KEY"])
+
+    summary = {
+        "green": sum(1 for s in services if s["status"] == "green"),
+        "amber": sum(1 for s in services if s["status"] == "amber"),
+        "red": sum(1 for s in services if s["status"] == "red"),
+        "total": len(services),
+    }
+    _admin_audit(request, "admin.services_selftest", None, {"live": live, "summary": summary})
+    return {
+        "checked_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "live": live,
+        "foundation_test_mode": os.getenv("FOUNDATION_TEST_MODE", "false").lower() == "true",
+        "admin_number": (ADMIN_NUMBER[:6] + "…") if ADMIN_NUMBER else "",
+        "proprio_email": _proprio_email if live else "",
+        "summary": summary,
+        "services": services,
+    }
+
+
 @app.get("/api/admin/revenue")
 async def admin_revenue(request: Request):
     """Estimation CA — lecture directe Redis."""
@@ -22193,7 +24802,9 @@ async def admin_revenue(request: Request):
         try:
             for tid in _redis_client.get_all_tenant_ids():
                 profile = _redis_client.get_profile(tid) or {}
-                plan = profile.get("plan", "essentiel")
+                # Plan: source de verite = auth record (le profil n'a pas de champ 'plan')
+                _auth = _redis_client.get_auth_by_tenant_id(tid)
+                plan = (_auth.get("plan") if _auth else None) or profile.get("plan", "essentiel")
                 if plan in by_plan:
                     by_plan[plan]["count"] += 1
                     by_plan[plan]["revenue"] += plan_prices.get(plan, 0)
@@ -22309,6 +24920,9 @@ async def client_debug_log(request: Request):
         logger.error(cloud_line)
     elif entry["level"] == "warn":
         logger.warning(cloud_line)
+    elif entry["tag"] == "GUARDIAN_SR":
+        # Télémétrie écoute Guardian (VOSK/SR) — visible dans les logs Cloud Run pour diagnostic terrain.
+        logger.info(cloud_line)
     elif entry["tag"] in {"ics", "simli"} and entry["msg"] in {
         "build_marker",
         "iris_ws_url",
@@ -23095,6 +25709,362 @@ async def admin_totp_setup(request: Request):
 
 
 # =========================================================================
+# GESTION UTILISATEURS — Dashboard complet (additif)
+# Liste avancée, fiche 360°, cycle de vie, audit. Index Redis = pas de scan.
+# =========================================================================
+
+_PLAN_ORDER = {"essentiel": 0, "confort": 1, "premium": 2, "fondateur": 3}
+
+
+def _filter_sort_users(users, q="", plan="", status="", sort="created_at", order="desc"):
+    """Applique recherche/filtre/tri en mémoire sur les fiches de l'index."""
+    q = (q or "").strip().lower()
+    if q:
+        users = [u for u in users
+                 if q in (u.get("email", "").lower())
+                 or q in (u.get("name", "").lower())
+                 or q == str(u.get("tenant_id", ""))]
+    if plan:
+        users = [u for u in users if u.get("plan") == plan]
+    if status == "active":
+        users = [u for u in users if u.get("active", True) and not u.get("suspended")]
+    elif status == "suspended":
+        users = [u for u in users if u.get("suspended") or not u.get("active", True)]
+
+    reverse = (order or "desc").lower() != "asc"
+    if sort == "email":
+        users.sort(key=lambda u: u.get("email", "").lower(), reverse=reverse)
+    elif sort == "plan":
+        users.sort(key=lambda u: _PLAN_ORDER.get(u.get("plan", "essentiel"), 0), reverse=reverse)
+    elif sort == "name":
+        users.sort(key=lambda u: u.get("name", "").lower(), reverse=reverse)
+    else:  # created_at
+        users.sort(key=lambda u: float(u.get("created_at", 0) or 0), reverse=reverse)
+    return users
+
+
+@app.get("/api/admin/users")
+async def admin_users_list(request: Request, q: str = "", plan: str = "",
+                           status: str = "", sort: str = "created_at",
+                           order: str = "desc", page: int = 1, per_page: int = 25):
+    """Liste avancée des utilisateurs : recherche, filtres, tri, pagination."""
+    if not _verify_admin(request):
+        return JSONResponse(status_code=401, content={"error": "Non autorise"})
+    if not _redis_client:
+        return JSONResponse(status_code=503, content={"error": "Service temporairement indisponible"})
+
+    _ensure_users_index()
+    users = _filter_sort_users(_redis_client.get_users_index(), q, plan, status, sort, order)
+    total = len(users)
+    per_page = max(1, min(int(per_page), 200))
+    page = max(1, int(page))
+    start = (page - 1) * per_page
+    pageu = users[start:start + per_page]
+
+    return {
+        "users": pageu,
+        "total": total,
+        "page": page,
+        "per_page": per_page,
+        "pages": (total + per_page - 1) // per_page,
+        "counts": {
+            "all": total,
+        },
+    }
+
+
+@app.get("/api/admin/users/export")
+async def admin_users_export(request: Request, q: str = "", plan: str = "",
+                             status: str = "", sort: str = "created_at",
+                             order: str = "desc"):
+    """Export CSV des utilisateurs filtrés."""
+    if not _verify_admin(request):
+        return JSONResponse(status_code=401, content={"error": "Non autorise"})
+    if not _redis_client:
+        return JSONResponse(status_code=503, content={"error": "Service temporairement indisponible"})
+
+    _ensure_users_index()
+    users = _filter_sort_users(_redis_client.get_users_index(), q, plan, status, sort, order)
+    _admin_audit(request, "user.export", None, {"count": len(users)})
+
+    import csv as _csv
+    import io as _io
+    buf = _io.StringIO()
+    w = _csv.writer(buf)
+    w.writerow(["tenant_id", "email", "name", "plan", "active", "suspended", "suspend_reason", "created_at"])
+    for u in users:
+        ca = u.get("created_at", 0)
+        try:
+            ca_iso = datetime.fromtimestamp(float(ca)).isoformat(timespec="seconds") if ca else ""
+        except Exception:
+            ca_iso = ""
+        w.writerow([
+            u.get("tenant_id", ""), u.get("email", ""), u.get("name", ""),
+            u.get("plan", ""), u.get("active", True), bool(u.get("suspended")),
+            u.get("suspend_reason", ""), ca_iso,
+        ])
+    return Response(
+        content=buf.getvalue(),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=luna_users.csv"},
+    )
+
+
+@app.post("/api/admin/users/reindex")
+async def admin_users_reindex(request: Request):
+    """Reconstruit l'index utilisateurs depuis les auth records (admin)."""
+    if not _verify_admin(request):
+        return JSONResponse(status_code=401, content={"error": "Non autorise"})
+    if not _redis_client:
+        return JSONResponse(status_code=503, content={"error": "Service temporairement indisponible"})
+    n = _redis_client.backfill_users_index(profile_getter=_redis_client.get_profile)
+    _admin_audit(request, "user.reindex", None, {"count": n})
+    return {"success": True, "indexed": n}
+
+
+@app.post("/api/admin/users/{tenant_id}/suspend")
+async def admin_user_suspend(tenant_id: int, request: Request):
+    """Suspend un utilisateur (réversible, avec motif). Bloque la connexion."""
+    if not _verify_admin(request):
+        return JSONResponse(status_code=401, content={"error": "Non autorise"})
+    if not _redis_client:
+        return JSONResponse(status_code=503, content={"error": "Service temporairement indisponible"})
+    if tenant_id == _PROPRIO_TENANT_ID:
+        return JSONResponse(status_code=403, content={"error": "Impossible de suspendre le compte fondateur"})
+
+    auth = _redis_client.get_auth_by_tenant_id(tenant_id)
+    if not auth:
+        return JSONResponse(status_code=404, content={"error": "Client introuvable"})
+
+    body = await request.json()
+    reason = (body.get("reason") or "").strip()[:300]
+    email = auth.get("email", "")
+    _redis_client.update_auth_record(email, {
+        "active": False,
+        "suspended": True,
+        "suspend_reason": reason,
+        "suspended_at": time.time(),
+    })
+    if tenant_id in _tenant_managers:
+        del _tenant_managers[tenant_id]
+    _index_user(tenant_id, active=False, suspended=True, suspend_reason=reason)
+    logger.info(f"ADMIN_SUSPEND_USER tenant_id={tenant_id} reason={reason!r}")
+    _admin_audit(request, "user.suspend", tenant_id, {"reason": reason})
+    return {"success": True, "tenant_id": tenant_id, "suspended": True, "reason": reason}
+
+
+@app.post("/api/admin/users/{tenant_id}/reactivate")
+async def admin_user_reactivate(tenant_id: int, request: Request):
+    """Réactive un utilisateur suspendu."""
+    if not _verify_admin(request):
+        return JSONResponse(status_code=401, content={"error": "Non autorise"})
+    if not _redis_client:
+        return JSONResponse(status_code=503, content={"error": "Service temporairement indisponible"})
+
+    auth = _redis_client.get_auth_by_tenant_id(tenant_id)
+    if not auth:
+        return JSONResponse(status_code=404, content={"error": "Client introuvable"})
+
+    email = auth.get("email", "")
+    _redis_client.update_auth_record(email, {
+        "active": True,
+        "suspended": False,
+        "suspend_reason": "",
+    })
+    if tenant_id in _tenant_managers:
+        del _tenant_managers[tenant_id]
+    _index_user(tenant_id, active=True, suspended=False, suspend_reason="")
+    logger.info(f"ADMIN_REACTIVATE_USER tenant_id={tenant_id}")
+    _admin_audit(request, "user.reactivate", tenant_id, {})
+    return {"success": True, "tenant_id": tenant_id, "suspended": False}
+
+
+@app.get("/api/admin/users/{tenant_id}/audit")
+async def admin_user_audit(tenant_id: int, request: Request, limit: int = 50):
+    """Journal d'audit d'un utilisateur (actions admin le concernant)."""
+    if not _verify_admin(request):
+        return JSONResponse(status_code=401, content={"error": "Non autorise"})
+    if not _redis_client:
+        return JSONResponse(status_code=503, content={"error": "Service temporairement indisponible"})
+    entries = _redis_client.get_admin_audit(limit=min(int(limit), 200), tenant_id=tenant_id)
+    return {"entries": entries, "total": len(entries)}
+
+
+def _admin_push_inapp(tenant_id: int, title: str, body: str,
+                      ntype: str = "admin_message", extra: dict = None) -> bool:
+    """Pousse une notification in-app au client (canal existant, polling client).
+
+    Réutilise NotificationRedisOps.add_pending → le client la voit via
+    /api/notifications/pending (toast + injection chat). Aucun envoi externe.
+    """
+    if not _redis_client:
+        return False
+    try:
+        from core.notifications.redis_ops import NotificationRedisOps
+        nops = NotificationRedisOps(_redis_client)
+        notif = {"type": ntype, "title": title[:120], "body": body[:600],
+                 "ts": time.time()}
+        if extra:
+            notif.update(extra)
+        nops.add_pending(tenant_id, notif)
+        try:
+            nops.log_delivery(tenant_id, ntype, "in_app")
+        except Exception:
+            pass
+        return True
+    except Exception as e:
+        logger.error(f"_admin_push_inapp({tenant_id}) error: {e}")
+        return False
+
+
+@app.post("/api/admin/users/{tenant_id}/grant-bonus")
+async def admin_user_grant_bonus(tenant_id: int, request: Request):
+    """Geste commercial : accorde un bonus de quota SMS (mois en cours).
+
+    Le bonus s'ajoute à la limite du forfait et expire avec le cycle mensuel.
+    Optionnellement, prévient le client en in-app (notify=true par défaut).
+    """
+    if not _verify_admin(request):
+        return JSONResponse(status_code=401, content={"error": "Non autorise"})
+    if not _redis_client:
+        return JSONResponse(status_code=503, content={"error": "Service temporairement indisponible"})
+    if not _quota_guard:
+        return JSONResponse(status_code=503, content={"error": "QuotaGuard indisponible"})
+
+    auth = _redis_client.get_auth_by_tenant_id(tenant_id)
+    if not auth:
+        return JSONResponse(status_code=404, content={"error": "Client introuvable"})
+
+    body = await request.json()
+    resource = (body.get("resource") or "sms").lower()
+    if resource != "sms":
+        return JSONResponse(status_code=400, content={"error": "Ressource non supportée (sms uniquement)"})
+    try:
+        amount = int(body.get("amount", 0))
+    except (TypeError, ValueError):
+        return JSONResponse(status_code=400, content={"error": "Montant invalide"})
+    if amount == 0 or abs(amount) > 1000:
+        return JSONResponse(status_code=400, content={"error": "Montant hors limites (-1000 à 1000, non nul)"})
+
+    reason = (body.get("reason") or "").strip()[:200]
+    do_notify = bool(body.get("notify", True))
+
+    new_bonus = _quota_guard.grant_bonus(tenant_id, amount, resource)
+
+    notified = False
+    if do_notify and amount > 0:
+        notified = _admin_push_inapp(
+            tenant_id,
+            title="🎁 Geste commercial",
+            body=f"Bonne nouvelle : {amount} SMS supplémentaires viennent d'être ajoutés à votre forfait ce mois-ci.",
+            ntype="admin_message",
+        )
+
+    logger.info(f"ADMIN_GRANT_BONUS tenant_id={tenant_id} {resource}+{amount} reason={reason!r}")
+    _admin_audit(request, "user.grant_bonus", tenant_id,
+                 {"resource": resource, "amount": amount, "reason": reason,
+                  "new_bonus": new_bonus, "notified": notified})
+    return {"success": True, "tenant_id": tenant_id, "resource": resource,
+            "amount": amount, "bonus_total": new_bonus, "notified": notified}
+
+
+@app.post("/api/admin/users/{tenant_id}/notify")
+async def admin_user_notify(tenant_id: int, request: Request):
+    """Envoie un message in-app au client (canal alerte in-app, sans envoi externe)."""
+    if not _verify_admin(request):
+        return JSONResponse(status_code=401, content={"error": "Non autorise"})
+    if not _redis_client:
+        return JSONResponse(status_code=503, content={"error": "Service temporairement indisponible"})
+
+    auth = _redis_client.get_auth_by_tenant_id(tenant_id)
+    if not auth:
+        return JSONResponse(status_code=404, content={"error": "Client introuvable"})
+
+    body = await request.json()
+    title = (body.get("title") or "Message de votre conseiller").strip()[:120]
+    message = (body.get("body") or body.get("message") or "").strip()[:600]
+    if not message:
+        return JSONResponse(status_code=400, content={"error": "Message vide"})
+
+    ok = _admin_push_inapp(tenant_id, title, message, ntype="admin_message")
+    if not ok:
+        return JSONResponse(status_code=500, content={"error": "Échec de l'envoi in-app"})
+
+    logger.info(f"ADMIN_NOTIFY_USER tenant_id={tenant_id} title={title!r}")
+    _admin_audit(request, "user.notify", tenant_id, {"title": title, "channel": "in_app"})
+    return {"success": True, "tenant_id": tenant_id, "channel": "in_app"}
+
+
+@app.get("/api/admin/users/stats")
+async def admin_users_stats(request: Request):
+    """KPI réels du parc : total, actifs, suspendus, nouveaux ce mois, par plan."""
+    if not _verify_admin(request):
+        return JSONResponse(status_code=401, content={"error": "Non autorise"})
+    if not _redis_client:
+        return JSONResponse(status_code=503, content={"error": "Service temporairement indisponible"})
+
+    _ensure_users_index()
+    users = _redis_client.get_users_index()
+
+    now = datetime.now(ZoneInfo("Europe/Paris"))
+    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0).timestamp()
+
+    total = len(users)
+    active = suspended = new_this_month = 0
+    by_plan = {"essentiel": 0, "confort": 0, "premium": 0, "fondateur": 0}
+    for u in users:
+        is_susp = bool(u.get("suspended")) or u.get("active", True) is False
+        if is_susp:
+            suspended += 1
+        else:
+            active += 1
+        pl = u.get("plan", "essentiel")
+        by_plan[pl] = by_plan.get(pl, 0) + 1
+        try:
+            if float(u.get("created_at", 0) or 0) >= month_start:
+                new_this_month += 1
+        except (TypeError, ValueError):
+            pass
+
+    return {
+        "total": total,
+        "active": active,
+        "suspended": suspended,
+        "new_this_month": new_this_month,
+        "by_plan": by_plan,
+    }
+
+
+@app.get("/api/admin/audit")
+async def admin_audit_global(request: Request, limit: int = 100, action: str = None):
+    """Journal d'audit global de toutes les actions admin."""
+    if not _verify_admin(request):
+        return JSONResponse(status_code=401, content={"error": "Non autorise"})
+    if not _redis_client:
+        return JSONResponse(status_code=503, content={"error": "Service temporairement indisponible"})
+    entries = _redis_client.get_admin_audit(limit=min(int(limit), 500), action=action)
+    return {"entries": entries, "total": len(entries)}
+
+
+@app.get("/admin/users")
+async def admin_users_page():
+    """Page de gestion des utilisateurs (servie séparément de admin.html)."""
+    page = Path(os.path.dirname(__file__)) / "static" / "admin_users.html"
+    if page.exists():
+        return FileResponse(str(page), media_type="text/html")
+    return JSONResponse(status_code=404, content={"error": "Page introuvable"})
+
+
+@app.get("/admin/services-test")
+async def admin_services_test_page():
+    """Banc d'essai des Services / Conciergerie (page fondateur, servie séparément)."""
+    page = Path(os.path.dirname(__file__)) / "static" / "services_test.html"
+    if page.exists():
+        return FileResponse(str(page), media_type="text/html")
+    return JSONResponse(status_code=404, content={"error": "Page introuvable"})
+
+
+# =========================================================================
 # THEOCRATIE — Espace spirituel (pionnier permanent, tenant 1 uniquement)
 # =========================================================================
 
@@ -23419,7 +26389,6 @@ async def theo_generate_letter(request: Request):
 _log_buffer: list = []          # ring buffer 500 entrées
 _log_subscribers: list = []     # queues SSE actives
 _LOG_MAX = 500
-_guardian_sr_recent_triggers: dict = {}
 
 async def _broadcast_log(entry: dict):
     dead = []
@@ -23433,93 +26402,6 @@ async def _broadcast_log(entry: dict):
             _log_subscribers.remove(q)
         except ValueError:
             pass
-
-def _guardian_sr_norm(text: str) -> str:
-    import unicodedata as _unicodedata
-    nfd = _unicodedata.normalize("NFD", (text or "").lower())
-    return (
-        "".join(c for c in nfd if _unicodedata.category(c) != "Mn")
-        .replace("’", "'")
-        .replace("`", "'")
-        .replace("-", " ")
-    )
-
-def _guardian_sr_has_emergency(text: str) -> bool:
-    n = _guardian_sr_norm(text)
-    if not n:
-        return False
-    return any(k in n for k in (
-        "au secours",
-        "a l'aide",
-        "a laide",
-        "aidez moi",
-        "aide moi",
-        "je suis en danger",
-        "urgence",
-    ))
-
-def _extract_guardian_sr_emergency_text(msg: str) -> str:
-    """Extrait la phrase brute depuis les logs APK GUARDIAN_SR sr_emergency."""
-    raw = (msg or "").strip()
-    if not raw:
-        return ""
-    parts = [p.strip() for p in raw.split("|") if p.strip()]
-    for part in parts:
-        low = part.lower()
-        if (
-            "guardian_sr" in low
-            or "sr_emergency" in low
-            or low.startswith("conf=")
-            or "sid=" in low
-            or "sos=" in low
-            or "active=" in low
-        ):
-            continue
-        if _guardian_sr_has_emergency(part):
-            return part
-    if _guardian_sr_has_emergency(raw):
-        cleaned = re.sub(r"^\s*\[?GUARDIAN_SR\]?\s*sr_emergency\s*\|?", "", raw, flags=re.I).strip()
-        return cleaned or raw
-    return ""
-
-async def _trigger_from_guardian_sr_log(text: str, request: Request) -> None:
-    text = (text or "").strip()
-    if not text:
-        return
-    tid = int(getattr(request.state, "tenant_id", TENANT_ID) or TENANT_ID)
-    now = time.time()
-    dedupe_key = f"{tid}:{_guardian_sr_norm(text)[:120]}"
-    last_ts = _guardian_sr_recent_triggers.get(dedupe_key, 0)
-    if now - last_ts < 20:
-        logger.warning("[GUARDIAN_SR] duplicate sr_emergency ignored text=%r", text[:180])
-        return
-    _guardian_sr_recent_triggers[dedupe_key] = now
-    for key, ts in list(_guardian_sr_recent_triggers.items()):
-        if now - ts > 120:
-            _guardian_sr_recent_triggers.pop(key, None)
-
-    logger.warning("[GUARDIAN_SR] calling /trigger from sr_emergency text=%r", text[:220])
-    logger.warning(
-        "GUARDIAN /trigger received source=%s tid=%s user_id=%s session_id=%s keyword=%r",
-        "guardian_sr", tid, "-", "-", text[:180],
-    )
-    report = await _trigger_voice_emergency(
-        tid,
-        summary=text,
-        level="immediate",
-        place_calls=True,
-    )
-    logger.warning(
-        "GUARDIAN /trigger completed tid=%s triggered=%s sms=%s/%s calls=%s/%s dry_run=%s errors=%s",
-        tid,
-        report.get("triggered"),
-        (report.get("sms") or {}).get("sent"),
-        (report.get("sms") or {}).get("total"),
-        (report.get("calls") or {}).get("placed"),
-        (report.get("calls") or {}).get("total"),
-        report.get("dry_run"),
-        report.get("errors"),
-    )
 
 @app.post("/api/logs/client")
 async def receive_client_log(request: Request):
@@ -23864,4 +26746,3 @@ if __name__ == "__main__":
         **ssl_kwargs,
     )
 
-# FORCE REBUILD - Fri Jul  3 01:41:57 AM CEST 2026

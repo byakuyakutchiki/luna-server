@@ -14,6 +14,7 @@
 - ⚠️ APK actuelle (v3.1) n'a pas de service natif Vosk : elle utilisera Web Speech API du WebView.
 - ✅ `/api/guardian/sos` fonctionne avec session active : SMS + appel réels passés.
 - ❌ `event.description` dans `guardian_sos` ne conserve pas le contexte vocal dans l'événement (seul le SMS/appel l'utilise).
+- ✅ Adresse textuelle ajoutée dans le SMS via reverse geocoding (patch local non déployé).
 
 ---
 
@@ -297,14 +298,40 @@ Dans ce cas, il faudra ajouter un service natif Vosk dans l'APK (travail non tri
 
 ---
 
-## 8. Prochaines étapes proposées
+## 8. Patch local appliqué (non déployé)
+
+### 8.1 Adresse précise dans le SMS
+
+**Fichiers modifiés :**
+- `core/guardian/alerts.py` : `build_sms_alert_v1` fait maintenant du reverse geocoding et ajoute l'adresse textuelle.
+- `luna_web.py` : passage de `_redis_client` à `build_sms_alert_v1`.
+
+**Résultat du SMS généré :**
+
+```
+⚠️ Luna Guardian
+Ludovic a demandé de l'aide.
+Circonstances : Au secours, il est devant la porte et essaie d'entrer
+
+📍 Localisation :
+Rue de l'Oasis, 1, Puteaux
+https://maps.google.com/?q=48.8853123,2.2428719
+
+Ouvrez Luna pour plus d'infos.
+```
+
+**Impact :** les contacts de confiance ont maintenant l'adresse humaine + le lien Maps précis pour alerter les secours.
+
+---
+
+## 9. Prochaines étapes proposées
 
 1. **Ne pas déployer** avant correction de l'anomalie contacts.
 2. Corriger `guardian_sos` pour séparer `sms_sent_to` / `dm_sent_to` ou changer le wording.
 3. Tester le wording corrigé.
 4. Tester l'APK sur téléphone réel.
 5. Selon résultat : ajouter Vosk natif ou non.
-6. Déployer une nouvelle réversion uniquement après validation complète.
+6. Déployer une nouvelle révision uniquement après validation complète.
 
 ---
 

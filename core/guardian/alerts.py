@@ -11,9 +11,19 @@ Quand le risque est élevé :
 RGPD : Les positions GPS sont stockées 7 jours en Redis (TTL), jamais en base.
 """
 import logging
+from datetime import datetime, timezone
 from typing import Optional, List, Dict
 
 logger = logging.getLogger("luna.guardian.alerts")
+
+_SOURCE_LABELS = {
+    "sos":    "a appuyé sur le bouton SOS",
+    "vocal":  "a demandé de l'aide vocalement",
+    "fall":   "a chuté — pas de réponse en 30s",
+    "immobility": "est immobile depuis trop longtemps",
+    "geofence":   "a quitté sa zone de confiance",
+    "checkin":    "ne répond plus aux contrôles",
+}
 
 
 def build_sms_alert(
@@ -66,6 +76,43 @@ def build_sms_alert(
     return (f"{level_emoji} Luna Guardian\n{body}{footer}")[:320]
 
 
+def build_sms_alert_v1(
+    person_name: str,
+    lat: Optional[float],
+    lng: Optional[float],
+    circumstances: Optional[str] = None,
+    redis_client=None,
+) -> str:
+    """SMS App First — SOS et chute V1.
+    Nom de la victime + CIRCONSTANCES (contexte capté) + ADRESSE PRÉCISE + lien Maps
+    → l'aidant peut transmettre un maximum d'infos aux services d'urgence.
+    """
+    name = person_name or "Quelqu'un"
+    maps_link = f"https://maps.google.com/?q={lat},{lng}" if lat and lng else None
+
+    # Adresse humaine la plus précise disponible (reverse geocoding)
+    address = None
+    if lat and lng:
+        try:
+            from .engine import reverse_geocode
+            address = (reverse_geocode(lat, lng, redis_client) or "").strip()
+        except Exception:
+            address = None
+
+    body = f"⚠️ Luna Guardian\n{name} a demandé de l'aide."
+    circ = (circumstances or "").strip()
+    if circ:
+        body += f"\nCirconstances : {circ[:180]}"
+    if address or maps_link:
+        body += "\n\n📍 Localisation :"
+        if address:
+            body += f"\n{address}"
+        if maps_link:
+            body += f"\n{maps_link}"
+    body += "\n\nOuvrez Luna pour plus d'infos."
+    return body[:480]
+
+
 def build_sms_cancellation(person_name: str, confirmed_at: str) -> str:
     """SMS d'annulation — envoyé aux contacts après confirmation 'tout va bien' (Policy V2 §6.2)."""
     return (
@@ -74,6 +121,76 @@ def build_sms_cancellation(person_name: str, confirmed_at: str) -> str:
         f"qu'il/elle allait bien à {confirmed_at}.\n"
         f"Aucune intervention nécessaire. Merci."
     )[:320]
+
+
+async def send_guardian_dm_alerts(
+    sops,
+    sender_tid: int,
+    person_name: str,
+    description: str,
+    lat: Optional[float],
+    lng: Optional[float],
+    alert_level: str,
+    ws_push_fn=None,
+    trusted_tids: Optional[set] = None,
+    source: Optional[str] = None,
+) -> Dict:
+    """Envoie une alerte Guardian en DM Luna.
+    Si trusted_tids est non-vide → seulement ces amis.
+    Si vide → tous les amis (comportement legacy).
+    """
+    friends = sops.get_friends(sender_tid)
+    if not friends:
+        return {"sent": [], "failed": [], "total_friends": 0}
+    if trusted_tids:
+        friends = {f for f in friends if f in trusted_tids or str(f) in trusted_tids}
+
+    level_emoji = "🆘" if alert_level == "critical" else "⚠️"
+    name = person_name or "Ton contact"
+    action = _SOURCE_LABELS.get(source or "", "a besoin d'aide")
+    now_str = datetime.now(timezone.utc).strftime("%Hh%M UTC")
+    maps_link = f"https://maps.google.com/?q={lat},{lng}" if lat and lng else None
+
+    lines = [
+        f"{level_emoji} ALERTE GUARDIAN",
+        "",
+        f"{name} {action}.",
+    ]
+    # Circonstances captées (contexte VOSK) — pour que l'aidant informe les secours.
+    _desc = (description or "").strip()
+    if _desc:
+        lines += ["", f"ℹ️ {_desc[:220]}"]
+    if maps_link:
+        lines += ["", f"📍 Position : {maps_link}"]
+    lines += [
+        f"🕐 {now_str}",
+        "",
+        "Contacte-le/la ou appelle le 15/112 si urgence.",
+        "Réponds OUI dans ce chat si tu interviens.",
+    ]
+    msg_text = "\n".join(lines)[:500]
+
+    results: Dict = {"sent": [], "failed": [], "total_friends": len(friends)}
+    for f_tid in friends:
+        try:
+            room_id = sops.create_dm_room(sender_tid, int(f_tid))
+            if not room_id:
+                results["failed"].append({"tid": f_tid, "error": "not friends or blocked"})
+                continue
+            msg = sops.add_dm_message(room_id, sender_tid, msg_text)
+            msg["sender_tid"] = msg.get("sender", "")
+            results["sent"].append({"tid": f_tid, "room_id": room_id})
+            if ws_push_fn:
+                try:
+                    await ws_push_fn(room_id, msg)
+                except Exception:
+                    pass
+        except Exception as e:
+            results["failed"].append({"tid": f_tid, "error": str(e)})
+            logger.warning(f"Guardian DM alert failed for friend {f_tid}: {e}")
+
+    logger.info(f"Guardian DM alerts: {len(results['sent'])} sent, {len(results['failed'])} failed")
+    return results
 
 
 def send_guardian_alerts(
@@ -85,19 +202,20 @@ def send_guardian_alerts(
     lng: Optional[float],
     alert_level: str,
     profile_type: str,
-
+    sms_body: Optional[str] = None,
 ) -> Dict:
     """
     Envoie les alertes SMS aux contacts de confiance.
-    Retourne un résumé des envois.
+    Si sms_body est fourni, l'utilise directement (App First V1).
+    Sinon, construit le SMS complet via build_sms_alert (GPS immobility, etc.).
     """
-    results = {"sent": [], "failed": [], "call_112_attempted": False}
+    results = {"sent": [], "failed": [], "blocked": [], "call_112_attempted": False}
 
     if not contacts:
         logger.warning("Guardian alert: no contacts configured")
         return results
 
-    msg = build_sms_alert(person_name, description, lat, lng, alert_level, profile_type)
+    msg = sms_body if sms_body else build_sms_alert(person_name, description, lat, lng, alert_level, profile_type)
 
     for contact in contacts:
         phone = contact.get("phone", "")
@@ -106,7 +224,10 @@ def send_guardian_alerts(
             continue
         try:
             ok, details = sms_send_fn(phone, msg, label=f"Alerte Guardian → {name}")
-            if ok:
+            if isinstance(details, dict) and details.get("blocked"):
+                results["blocked"].append({"phone": phone, "name": name})
+                logger.info(f"[GUARDIAN_SMS_DISABLED] Guardian alert SMS blocked for {name} ({phone})")
+            elif ok:
                 results["sent"].append({"phone": phone, "name": name})
                 logger.info(f"Guardian alert SMS sent to {name} ({phone})")
             else:

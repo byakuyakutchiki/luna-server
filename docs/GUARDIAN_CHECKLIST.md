@@ -136,14 +136,22 @@ curl -i -X POST https://luna-beta-gly3g647na-ew.a.run.app/api/guardian/sos/SESSI
 
 Anomalie : interface affichait "3 contacts alertés" alors qu'un seul était enregistré.
 
-- [ ] Afficher le nombre réel de contacts
-- [ ] "1 contact alerté" si 1 contact
-- [ ] "X contacts alertés" si plusieurs
-- [ ] Backend et frontend cohérents
-- [ ] SMS envoyés = nombre réel
-- [ ] Appels passés = nombre réel
-- [ ] Ne pas confondre limite max (3) et nombre réel
-- [ ] Vérifier `contacts[:3]`, `sms_count`, `calls_count` dans `luna_web.py`
+### Diagnostic
+
+- [x] Reproduit avec session active
+- [x] Explication trouvée : `total_sent = SMS + DM Luna`
+- [ ] Décider du wording correct
+- [ ] Corriger backend ou frontend
+
+Détail : avec 1 contact SMS + 2 amis Luna en DM, le backend renvoie `alerts_sent_to: 3`.
+
+---
+
+## 6b. Précision de l'adresse dans le SMS
+
+- [x] Lien Google Maps présent quand position envoyée
+- [x] Adresse textuelle ajoutée dans `build_sms_alert_v1` via reverse geocoding
+- [ ] Tester en production
 
 ---
 
