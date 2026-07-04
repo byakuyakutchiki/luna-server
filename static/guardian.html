@@ -23,38 +23,65 @@ html,body { height:100%; overflow:hidden; background:var(--bg); color:var(--text
 
 /* ─── HEADER ─────────────────────────────── */
 #hdr {
-  position:fixed; top:0; left:0; right:0; height:52px; z-index:500;
-  background:rgba(8,8,16,0.92); backdrop-filter:blur(16px) saturate(180%);
+  position:fixed; top:0; left:0; right:0; height:60px; z-index:500;
+  background:rgba(8,8,16,0.96); backdrop-filter:blur(20px) saturate(200%);
   border-bottom:1px solid var(--border);
-  display:flex; align-items:center; padding:0 14px; gap:10px;
+  display:flex; align-items:center; padding:0 14px; gap:0;
   padding-top:env(safe-area-inset-top);
 }
 #hdr-back { color:var(--muted); font-size:0.8em; text-decoration:none; padding:5px 8px;
-  border:1px solid var(--border); border-radius:8px; transition:border-color .2s; }
+  border:1px solid var(--border); border-radius:8px; transition:border-color .2s;
+  flex-shrink:0; margin-right:10px; }
 #hdr-back:active { border-color:var(--purple-light); }
-#hdr-title { font-weight:700; font-size:0.95em; flex:1; }
-#hdr-title span { color:#f87171; }
+#hdr-center { flex:1; display:flex; align-items:center; gap:7px; min-width:0; }
+#hdr-icon { font-size:1.2em; flex-shrink:0; filter:drop-shadow(0 0 6px rgba(16,185,129,.4)); }
+#hdr-title { font-weight:800; font-size:1.02em; letter-spacing:.03em; color:var(--text); white-space:nowrap; }
+#hdr-title span { color:inherit; }
 #hdr-dot { width:9px; height:9px; border-radius:50%; background:var(--muted); flex-shrink:0; transition:background .4s; }
 #hdr-dot.live { background:var(--green); box-shadow:0 0 8px var(--green); animation:dotpulse 2s infinite; }
 #hdr-dot.alert { background:var(--red); box-shadow:0 0 12px var(--red); animation:dotpulse 0.5s infinite; }
 @keyframes dotpulse { 0%,100%{opacity:1}50%{opacity:.3} }
-#hdr-risk { font-size:0.72em; font-weight:700; padding:3px 9px; border-radius:14px; display:none;
-  transition:background .3s; }
-#hdr-badge { font-size:.78em; padding:2px 7px; border-radius:10px; display:none;
-  background:rgba(245,158,11,0.15); color:var(--gold); border:1px solid rgba(245,158,11,.25); }
+#hdr-right { display:flex; align-items:center; gap:7px; flex-shrink:0; margin-left:10px; }
+#hdr-status { font-size:.7em; font-weight:700; padding:3px 9px; border-radius:12px; display:none;
+  color:var(--green); background:rgba(16,185,129,.12); border:1px solid rgba(16,185,129,.2);
+  white-space:nowrap; transition:color .3s,background .3s,border-color .3s; }
+#hdr-badge { font-size:.78em; padding:3px 8px; border-radius:10px; display:none;
+  background:rgba(245,158,11,0.12); color:var(--gold); border:1px solid rgba(245,158,11,.2); }
+#hdr-risk { display:none !important; }
 
 /* ─── MAP ────────────────────────────────── */
-#map { position:fixed; top:52px; left:0; right:0; bottom:0; z-index:1; transition:bottom .35s cubic-bezier(.4,0,.2,1); }
+#map { position:fixed; top:60px; left:0; right:0; bottom:0; z-index:1; transition:bottom .35s cubic-bezier(.4,0,.2,1); }
+#map::after { content:''; position:absolute; inset:0; pointer-events:none; z-index:2;
+  box-shadow:inset 0 0 0 rgba(220,38,38,0); transition:box-shadow .6s ease; }
+#map.alert-map::after { box-shadow:inset 0 0 90px rgba(220,38,38,.16); }
 
 /* ─── ADDRESS CARD ───────────────────────── */
 #addr-card {
-  position:fixed; top:62px; left:12px; right:12px; z-index:100;
+  position:fixed; top:68px; left:12px; right:12px; z-index:100;
   background:rgba(8,8,16,0.86); backdrop-filter:blur(20px) saturate(160%);
   border:1px solid var(--border); border-radius:20px;
   padding:11px 16px;
   display:none;
-  transition:opacity .3s;
+  transition:opacity .3s, border-color .5s, background .5s, box-shadow .5s;
 }
+#addr-card.alert {
+  border-color:rgba(239,68,68,.4);
+  background:rgba(28,6,6,.9);
+  box-shadow:0 4px 28px rgba(220,38,38,.12);
+}
+#addr-card.alert #addr-line { color:#fca5a5; }
+
+/* ─── ALERT MODE — panel compact, carte maxi ─ */
+#bottom { transition:height .32s cubic-bezier(.4,0,.2,1), border-top-color .5s, box-shadow .5s; }
+#bottom.alert-mode {
+  border-top-color:rgba(220,38,38,.35);
+  box-shadow:0 -6px 36px rgba(220,38,38,.09);
+}
+#bottom.alert-mode #trust-bar,
+#bottom.alert-mode #trust-level-badge,
+#bottom.alert-mode #contacts-bar,
+#bottom.alert-mode #risk-wrap,
+#bottom.alert-mode #voice-toggle { display:none !important; }
 #addr-line { font-size:1.02em; font-weight:500; }
 #addr-sub  { font-size:0.74em; color:var(--muted); margin-top:3px; }
 .safe-badge {
@@ -65,7 +92,7 @@ html,body { height:100%; overflow:hidden; background:var(--bg); color:var(--text
 
 /* ─── EVENTS PANEL ───────────────────────── */
 #ev-toggle {
-  position:fixed; right:12px; top:62px; z-index:200;
+  position:fixed; right:12px; top:68px; z-index:200;
   background:var(--card); border:1px solid var(--border); border-radius:10px;
   padding:6px 10px; cursor:pointer; font-size:0.74em; color:var(--muted);
   backdrop-filter:blur(8px); display:flex; align-items:center; gap:5px;
@@ -140,29 +167,34 @@ html,body { height:100%; overflow:hidden; background:var(--bg); color:var(--text
 #bottom {
   position:fixed; bottom:0; left:0; right:0; z-index:300;
   background:rgba(8,8,16,0.97); backdrop-filter:blur(20px) saturate(180%);
-  border-top:1px solid var(--border);
+  border-top:1px solid rgba(16,185,129,.18);
+  box-shadow:0 -6px 36px rgba(16,185,129,.05);
+  padding-top:4px;
   padding-bottom:env(safe-area-inset-bottom);
-  transition:height .32s cubic-bezier(.4,0,.2,1);
+  transition:height .32s cubic-bezier(.4,0,.2,1), border-top-color .5s, box-shadow .5s;
 }
 #panel-drag { width:36px; height:4px; background:var(--border); border-radius:2px;
   margin:8px auto 4px; cursor:pointer; }
 
 /* Trust stats bar */
 #trust-bar {
-  display:none; padding:4px 14px 8px;
+  display:none; padding:6px 14px 8px;
   border-bottom:1px solid var(--border);
 }
 .trust-stats { display:flex; gap:0; }
 .trust-stat {
-  flex:1; text-align:center; padding:6px 4px;
+  flex:1; text-align:center; padding:8px 4px;
   border-right:1px solid var(--border);
 }
 .trust-stat:last-child { border-right:none; }
-.trust-val { font-size:1.2em; font-weight:800; color:var(--trust); display:block;
+.trust-stat-inner { display:flex; align-items:baseline; justify-content:center; gap:4px; }
+.trust-ico { font-size:.85em; }
+.trust-val { font-size:1.4em; font-weight:800; color:var(--trust); display:inline;
   transition:color .4s; }
 .trust-val.gold { color:var(--gold); }
 .trust-val.platinum { color:var(--platinum); }
-.trust-lbl { font-size:.65em; color:var(--muted); margin-top:1px; display:block; }
+.trust-lbl { font-size:.62em; color:var(--muted); margin-top:3px; display:block;
+  letter-spacing:.02em; }
 #trust-level-badge {
   display:inline-flex; align-items:center; gap:4px;
   margin:0 14px 6px; padding:4px 12px; border-radius:20px;
@@ -173,48 +205,115 @@ html,body { height:100%; overflow:hidden; background:var(--bg); color:var(--text
 
 /* Risk bar */
 #risk-wrap { padding:4px 14px 8px; }
-#risk-row { display:flex; justify-content:space-between; font-size:.76em; color:var(--muted); margin-bottom:5px; }
-#risk-track { height:5px; background:var(--border); border-radius:3px; overflow:hidden; }
+#risk-row { display:flex; justify-content:space-between; align-items:center;
+  font-size:.76em; color:var(--muted); margin-bottom:5px; }
+#risk-track { height:4px; background:var(--border); border-radius:3px; overflow:hidden;
+  transition:opacity .5s; }
 #risk-fill { height:100%; width:0; border-radius:3px; background:var(--green);
   transition:width .7s cubic-bezier(.4,0,.2,1), background .5s; }
 
 /* Controls */
-#ctrls { display:flex; gap:10px; padding:0 14px 10px; }
-.ctrl { flex:1; padding:16px 10px; border:none; border-radius:60px;
+#ctrls { display:flex; flex-direction:column; gap:8px; padding:0 14px 10px; }
+#ctrls-row2 { display:none; gap:8px; }
+#ctrls-row2 #btn-share { flex:0 0 auto; }
+#ctrls-row2 #btn-stop { flex:1; }
+.ctrl { flex:1; height:52px; padding:0 10px; border:none; border-radius:14px;
   font-size:1rem; font-weight:700; cursor:pointer; min-height:54px;
   transition:transform .1s cubic-bezier(.4,0,.2,1), opacity .15s, box-shadow .2s; }
 .ctrl:active { transform:scale(.96); opacity:.88; }
 #btn-start { background:linear-gradient(135deg, #10b981, #059669); color:#fff;
   box-shadow:0 4px 18px rgba(16,185,129,.35); letter-spacing:.02em; }
 #btn-start:active { box-shadow:0 2px 8px rgba(16,185,129,.2); }
-#btn-stop  { background:linear-gradient(135deg, #dc2626, #9b1c1c); color:#fff; display:none;
+#btn-stop  { background:linear-gradient(135deg, #dc2626, #9b1c1c); color:#fff;
   box-shadow:0 4px 18px rgba(220,38,38,.3); letter-spacing:.02em; }
 
 /* ─── SOS BUTTON ─────────────────────────── */
 #btn-sos {
-  position:fixed; bottom:100px; right:18px; z-index:350;
-  width:70px; height:70px; border-radius:50%; border:none;
-  background:radial-gradient(circle at 32% 32%, #ff4444, #8b0000);
-  color:#fff; font-size:1.1em; font-weight:900;
-  box-shadow:0 0 0 0 rgba(220,38,38,.75);
+  width:100%; height:64px; border-radius:16px; border:none;
+  background:linear-gradient(135deg, #dc2626 0%, #8b0000 100%);
+  color:#fff; font-size:1em; font-weight:900; letter-spacing:.05em;
+  align-items:center; justify-content:center; gap:8px; padding:0 16px;
+  box-shadow:0 0 0 0 rgba(220,38,38,.65);
   cursor:pointer; display:none;
-  animation:sos-pulse 2.2s infinite;
-  transition:transform .1s;
+  animation:sos-pulse 2.4s infinite;
+  transition:transform .12s,box-shadow .12s;
 }
 @keyframes sos-pulse {
-  0%   { box-shadow:0 0 0 0 rgba(220,38,38,.75); }
-  60%  { box-shadow:0 0 0 20px rgba(220,38,38,0); }
-  100% { box-shadow:0 0 0 0 rgba(220,38,38,0); }
+  0%   { box-shadow:0 4px 22px rgba(220,38,38,.3),0 0 0 0 rgba(220,38,38,.5); }
+  60%  { box-shadow:0 4px 22px rgba(220,38,38,.3),0 0 0 16px rgba(220,38,38,0); }
+  100% { box-shadow:0 4px 22px rgba(220,38,38,.3),0 0 0 0 rgba(220,38,38,0); }
 }
-#btn-sos:active { transform:scale(.9); animation:none; box-shadow:0 0 0 4px rgba(220,38,38,.5); }
+#btn-sos:active { transform:scale(.97); animation:none; box-shadow:0 0 0 4px rgba(220,38,38,.4); }
 
-/* Voice toggle */
+/* ─── VOICE CARD HERO ──────────────────────── */
 #voice-toggle {
-  display:none; align-items:center; gap:8px;
-  padding:0 14px 6px; font-size:.75em; color:var(--muted);
+  display:none; flex-direction:column; gap:6px;
+  padding:0 14px 10px;
 }
-#voice-chk { accent-color:var(--purple); width:15px; height:15px; cursor:pointer; }
-#voice-toggle label { cursor:pointer; }
+/* Card principale */
+#voice-card {
+  display:flex; align-items:center; gap:12px;
+  padding:13px 15px; border-radius:18px;
+  background:rgba(16,185,129,.04); border:1px solid rgba(16,185,129,.15);
+  transition:border-color .5s,background .5s,box-shadow .5s;
+}
+#voice-card.state-listening {
+  background:rgba(16,185,129,.07); border-color:rgba(16,185,129,.38);
+  box-shadow:0 0 22px rgba(16,185,129,.08),inset 0 0 28px rgba(16,185,129,.04);
+}
+#voice-card.state-error {
+  background:rgba(239,68,68,.04); border-color:rgba(239,68,68,.22);
+}
+/* Barres audio */
+#voice-waves { display:flex; align-items:center; gap:3px; flex-shrink:0; height:28px; }
+.wb { display:block; width:3px; border-radius:3px; background:var(--green);
+  opacity:.28; transition:background .4s,opacity .4s;
+  animation:wave-idle 2.2s ease-in-out infinite; }
+.wb:nth-child(1){animation-delay:0s}
+.wb:nth-child(2){animation-delay:.18s}
+.wb:nth-child(3){animation-delay:.36s}
+.wb:nth-child(4){animation-delay:.54s}
+.wb:nth-child(5){animation-delay:.72s}
+@keyframes wave-idle{0%,100%{height:4px}50%{height:10px}}
+#voice-card.state-listening .wb {
+  opacity:1; animation:wave-active .85s ease-in-out infinite;
+}
+#voice-card.state-listening .wb:nth-child(1){animation-delay:0s}
+#voice-card.state-listening .wb:nth-child(2){animation-delay:.1s}
+#voice-card.state-listening .wb:nth-child(3){animation-delay:.2s}
+#voice-card.state-listening .wb:nth-child(4){animation-delay:.3s}
+#voice-card.state-listening .wb:nth-child(5){animation-delay:.4s}
+@keyframes wave-active{0%,100%{height:5px}50%{height:22px}}
+#voice-card.state-error .wb { background:#ef4444; opacity:.35; animation:none; height:4px; }
+/* Info */
+#voice-info { flex:1; min-width:0; }
+#voice-title { font-size:.85em; font-weight:700; letter-spacing:.07em;
+  color:var(--text); margin-bottom:3px; }
+#voice-hint { font-size:.71em; color:var(--muted); line-height:1.35; }
+#voice-hint em { font-style:normal; color:var(--green); font-weight:600; }
+/* Badge statut */
+#voice-badge { display:flex; flex-direction:column; align-items:center; gap:3px; flex-shrink:0; }
+#mic-dot {
+  width:8px; height:8px; border-radius:50%; background:var(--muted);
+  display:block; transition:background .3s,box-shadow .3s;
+}
+#mic-dot.listening { background:#22c55e; box-shadow:0 0 8px #22c55e; animation:mic-pulse 1.4s infinite; }
+#mic-dot.error { background:#ef4444; box-shadow:0 0 6px #ef4444; }
+@keyframes mic-pulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.5);opacity:.6}}
+#mic-label { font-size:.58em; color:var(--muted); text-transform:uppercase; letter-spacing:.05em;
+  text-align:center; transition:color .3s; }
+#voice-card.state-listening #mic-label { color:var(--green); }
+#voice-card.state-error #mic-label { color:#ef4444; }
+/* Rangée vocal-parole */
+#voice-speech { display:flex; align-items:center; gap:8px;
+  padding:0 4px; font-size:.75em; color:var(--muted); flex-wrap:wrap; }
+#voice-chk { accent-color:var(--purple); width:14px; height:14px; cursor:pointer; }
+#voice-speech label { cursor:pointer; flex:1; }
+/* Badge diagnostic TTS */
+.tts-badge { font-size:.65em; font-weight:700; padding:2px 7px; border-radius:8px;
+  letter-spacing:.04em; white-space:nowrap; display:none; }
+.tts-badge.tts-ok  { display:inline-block; color:var(--green); background:rgba(16,185,129,.12); border:1px solid rgba(16,185,129,.25); }
+.tts-badge.tts-err { display:inline-block; color:#ef4444; background:rgba(239,68,68,.1); border:1px solid rgba(239,68,68,.25); }
 
 /* Config toggle */
 #cfg-toggle { text-align:center; padding:0 14px 8px; }
@@ -241,12 +340,37 @@ select.cfg-inp option { background:#13131f; }
 #zone-btn:active { background:rgba(124,58,237,.25); }
 #zone-st { font-size:.73em; color:var(--muted); margin-top:4px; text-align:center; }
 
+/* ─── CONTACTS CHIPS ─────────────────────── */
+#contacts-bar { display:none; padding:6px 14px 8px; border-bottom:1px solid var(--border); }
+#contacts-chips { display:flex; flex-wrap:wrap; gap:6px; margin-top:2px; }
+.contact-chip {
+  display:inline-flex; align-items:center; gap:6px;
+  padding:5px 10px 5px 5px; border-radius:20px;
+  background:rgba(255,255,255,.04); border:1px solid var(--border);
+  transition:border-color .2s;
+}
+.contact-chip:hover { border-color:rgba(255,255,255,.18); }
+.contact-avatar {
+  width:26px; height:26px; border-radius:50%; flex-shrink:0;
+  font-size:.68em; font-weight:800; color:#fff;
+  display:flex; align-items:center; justify-content:center;
+  letter-spacing:.02em;
+}
+.contact-name { font-size:.74em; color:var(--text); font-weight:600; max-width:80px;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.contact-badge { font-size:.58em; font-weight:700; padding:1px 6px; border-radius:8px;
+  text-transform:uppercase; letter-spacing:.04em; }
+.contact-badge.sms { background:rgba(255,255,255,.07); color:var(--muted); }
+.contact-badge.luna { background:rgba(16,185,129,.15); color:var(--green); }
+.contact-badge.online { background:rgba(16,185,129,.22); color:#4ade80;
+  box-shadow:0 0 6px rgba(16,185,129,.2); }
+
 /* ─── SHARE BUTTON ────────────────────────── */
 #btn-share {
-  position:fixed; bottom:100px; left:18px; z-index:350;
-  background:rgba(124,58,237,0.12); border:1px solid rgba(124,58,237,.3);
-  color:var(--purple-light); border-radius:30px; padding:10px 16px;
-  font-size:.8em; cursor:pointer; display:none; backdrop-filter:blur(8px);
+  background:rgba(124,58,237,0.1); border:1px solid rgba(124,58,237,.28);
+  color:var(--purple-light); border-radius:14px; padding:0 16px;
+  font-size:.78em; font-weight:600; cursor:pointer; display:none;
+  height:52px; white-space:nowrap; flex-shrink:0;
   transition:background .2s, transform .1s;
 }
 #btn-share:active { background:rgba(124,58,237,.22); transform:scale(.96); }
@@ -337,39 +461,30 @@ select.cfg-inp option { background:#13131f; }
 #rgpd-close { width:100%; padding:12px; background:var(--border); color:var(--text);
   border:none; border-radius:12px; cursor:pointer; }
 
-/* ─── CAMERA ─────────────────────────────── */
-#cam-badge {
-  position:fixed; top:62px; right:12px; z-index:101;
-  display:none; align-items:center; gap:5px;
-  background:rgba(8,8,16,0.88); backdrop-filter:blur(16px);
-  border:1px solid var(--border); border-radius:20px;
-  padding:6px 12px; font-size:.74em; cursor:pointer;
-  transition:border-color .3s, color .3s;
+/* ─── VOCAL COUNTDOWN MODAL ──────────────── */
+#vocal-modal {
+  position:fixed; inset:0; z-index:900; background:rgba(0,0,0,.96);
+  display:none; align-items:center; justify-content:center; padding:20px;
 }
-#cam-badge.inactive { color:var(--muted); }
-#cam-badge.active   { border-color:rgba(16,185,129,.5); color:var(--green); }
-#cam-badge.refused  { border-color:rgba(239,68,68,.35); color:var(--red); }
-#cam-badge.external { border-color:rgba(124,58,237,.5); color:var(--purple-light); }
-#cam-badge.unavailable { color:var(--muted); }
-
-#cam-result {
-  position:fixed; left:12px; right:12px; z-index:102;
-  background:rgba(8,8,16,0.88); backdrop-filter:blur(16px);
-  border:1px solid rgba(16,185,129,.25); border-radius:14px;
-  padding:9px 14px; font-size:.76em; display:none; line-height:1.5;
+#vocal-modal.open { display:flex; }
+#vocal-box {
+  background:#0e0a1c; border:2px solid var(--yellow); border-radius:22px;
+  padding:32px 24px; max-width:340px; width:100%; text-align:center;
+  animation:modalIn .2s cubic-bezier(.34,1.56,.64,1);
 }
-#cam-result-txt { color:var(--muted); }
-#cam-result-close { float:right; background:none; border:none; color:var(--muted);
-  cursor:pointer; font-size:1em; padding:0 0 0 8px; }
-
-#btn-cam { width:100%; padding:9px; background:rgba(16,185,129,0.1); color:var(--green);
-  border:1px solid rgba(16,185,129,.3); border-radius:10px; font-size:.83em;
-  cursor:pointer; transition:background .2s; margin-top:6px; }
-#btn-cam:active { background:rgba(16,185,129,.2); }
-#btn-cam-stop { width:100%; padding:9px; background:rgba(239,68,68,0.1); color:var(--red);
-  border:1px solid rgba(239,68,68,.3); border-radius:10px; font-size:.83em;
-  cursor:pointer; display:none; transition:background .2s; margin-top:6px; }
-#btn-cam-stop:active { background:rgba(239,68,68,.2); }
+#vocal-count {
+  font-size:5em; font-weight:900; color:var(--yellow);
+  margin:10px 0; line-height:1;
+  animation:viPulse .7s ease-in-out infinite alternate;
+}
+#vocal-msg { font-size:.86em; color:var(--text); margin-bottom:20px; line-height:1.65; }
+#vocal-cancel {
+  width:100%; padding:17px; background:rgba(239,68,68,0.15); color:#fca5a5;
+  border:2px solid rgba(239,68,68,.5); border-radius:14px; font-size:1em; font-weight:700;
+  cursor:pointer; transition:background .15s, transform .1s;
+  letter-spacing:.01em;
+}
+#vocal-cancel:active { background:rgba(239,68,68,.3); transform:scale(.97); }
 
 /* ─── TOAST ───────────────────────────────── */
 #toast {
@@ -381,6 +496,23 @@ select.cfg-inp option { background:#13131f; }
 }
 #toast.show { opacity:1; }
 
+/* ─── EMERGENCY EVIDENCE MODE BADGE ── */
+#eem-badge {
+  position:fixed; top:calc(62px + env(safe-area-inset-top)); left:50%; transform:translateX(-50%);
+  z-index:1200; display:flex; align-items:center; gap:7px;
+  background:rgba(220,38,38,.92); border:1px solid rgba(255,100,100,.35);
+  border-radius:20px; padding:6px 14px; backdrop-filter:blur(8px);
+  font-size:.72em; font-weight:700; color:#fff; letter-spacing:.04em;
+  box-shadow:0 4px 20px rgba(220,38,38,.5);
+  animation:eemPulse 1.8s ease-in-out infinite;
+}
+@keyframes eemPulse{0%,100%{box-shadow:0 4px 20px rgba(220,38,38,.5);}50%{box-shadow:0 4px 28px rgba(220,38,38,.85);}}
+.eem-dot { width:7px; height:7px; border-radius:50%; background:#fff; animation:eemDot 1s infinite; }
+@keyframes eemDot{0%,100%{opacity:1;}50%{opacity:.3;}}
+.eem-label { opacity:.85; }
+.eem-count { background:rgba(255,255,255,.15); border-radius:8px; padding:1px 6px; font-size:.9em; }
+.eem-audio, .eem-cam { font-size:1.1em; }
+
 /* Leaflet overrides */
 .leaflet-control-attribution { font-size:9px !important; }
 .leaflet-popup-content-wrapper,.leaflet-popup-tip { background:#0e0e1c !important; color:var(--text) !important; border:1px solid var(--border) !important; }
@@ -391,12 +523,16 @@ select.cfg-inp option { background:#13131f; }
 <!-- HEADER -->
 <div id="hdr">
   <a href="/" id="hdr-back">← App</a>
-  <span>🛡️</span>
-  <span id="hdr-title">Luna <span>Guardian</span></span>
-  <div id="hdr-dot"></div>
-  <span id="hdr-status" style="font-size:.78em;color:var(--muted);flex:1;">Inactif</span>
-  <span id="hdr-badge"></span>
-  <span id="hdr-risk"></span>
+  <div id="hdr-center">
+    <span id="hdr-icon">🛡️</span>
+    <span id="hdr-title">Guardian</span>
+    <div id="hdr-dot"></div>
+  </div>
+  <div id="hdr-right">
+    <span id="hdr-status"></span>
+    <span id="hdr-badge"></span>
+  </div>
+  <span id="hdr-risk" style="display:none"></span>
 </div>
 
 <!-- MAP -->
@@ -417,21 +553,6 @@ select.cfg-inp option { background:#13131f; }
   </div>
 </div>
 
-<!-- CAMERA STATE BADGE -->
-<div id="cam-badge" class="inactive" onclick="toggleCamDetails()">
-  🎥 <span id="cam-state-txt">Caméra inactive</span>
-</div>
-
-<!-- CAMERA PERCEPTION RESULT -->
-<div id="cam-result">
-  <button id="cam-result-close" onclick="document.getElementById('cam-result').style.display='none'">✕</button>
-  <div id="cam-result-txt"></div>
-</div>
-
-<!-- Hidden video/canvas for frame capture (jamais affiché) -->
-<video id="cam-video" muted playsinline style="display:none;position:fixed;width:1px;height:1px;opacity:0;pointer-events:none;"></video>
-<canvas id="cam-canvas" style="display:none;"></canvas>
-
 <!-- ADDRESS CARD -->
 <div id="addr-card">
   <div id="addr-line">📍 Localisation en cours…</div>
@@ -444,15 +565,9 @@ select.cfg-inp option { background:#13131f; }
 
 <!-- RGPD BANNER -->
 <div id="rgpd-banner">
-  <span>🔒 GPS transmis toutes les 10s · Caméra optionnelle · Aucune image stockée</span>
+  <span>🔒 GPS transmis toutes les 10s · Alertes uniquement à vos contacts · Aucune donnée revendue</span>
   <button id="rgpd-why" onclick="openRgpdModal()">Pourquoi ?</button>
 </div>
-
-<!-- SOS BUTTON -->
-<button id="btn-sos" onclick="openSosModal()">🆘</button>
-
-<!-- SHARE BUTTON -->
-<button id="btn-share" onclick="sharePosition()">🔗 Partager</button>
 
 <!-- BOTTOM PANEL -->
 <div id="bottom">
@@ -462,15 +577,24 @@ select.cfg-inp option { background:#13131f; }
   <div id="trust-bar">
     <div class="trust-stats">
       <div class="trust-stat">
-        <span class="trust-val" id="ts-streak">0</span>
-        <span class="trust-lbl">jours sans alerte</span>
+        <div class="trust-stat-inner">
+          <span class="trust-ico">🛡️</span>
+          <span class="trust-val" id="ts-streak">0</span>
+        </div>
+        <span class="trust-lbl">jours protégé</span>
       </div>
       <div class="trust-stat">
-        <span class="trust-val" id="ts-checkins">0</span>
+        <div class="trust-stat-inner">
+          <span class="trust-ico">✅</span>
+          <span class="trust-val" id="ts-checkins">0</span>
+        </div>
         <span class="trust-lbl">check-ins</span>
       </div>
       <div class="trust-stat">
-        <span class="trust-val" id="ts-sessions">0</span>
+        <div class="trust-stat-inner">
+          <span class="trust-ico">🔄</span>
+          <span class="trust-val" id="ts-sessions">0</span>
+        </div>
         <span class="trust-lbl">sessions</span>
       </div>
     </div>
@@ -479,20 +603,47 @@ select.cfg-inp option { background:#13131f; }
 
   <!-- Risk -->
   <div id="risk-wrap">
-    <div id="risk-row"><span>Surveillance</span><span id="risk-txt">–</span></div>
+    <div id="risk-row"><span id="risk-label">État de sécurité</span><span id="risk-txt">–</span></div>
     <div id="risk-track"><div id="risk-fill"></div></div>
+  </div>
+
+  <!-- Contacts de confiance -->
+  <div id="contacts-bar">
+    <div style="font-size:.68em;color:var(--muted);margin-bottom:4px;letter-spacing:.04em;text-transform:uppercase;">Contacts protecteurs</div>
+    <div id="contacts-chips"></div>
   </div>
 
   <!-- Controls -->
   <div id="ctrls">
+    <button id="btn-sos" onclick="openSosModal()" aria-label="Déclencher une alerte SOS">🆘 &nbsp;ENVOYER UNE ALERTE SOS</button>
+    <div id="ctrls-row2">
+      <button id="btn-share" onclick="sharePosition()">🔗 Partager</button>
+      <button id="btn-stop" class="ctrl" onclick="guardianStop()">⏹ Arrêter</button>
+    </div>
     <button id="btn-start" class="ctrl" onclick="guardianStart()">▶ Démarrer</button>
-    <button id="btn-stop"  class="ctrl" onclick="guardianStop()">⏹ Arrêter</button>
   </div>
 
-  <!-- Voice toggle -->
+  <!-- Voice Card Hero -->
   <div id="voice-toggle">
-    <input type="checkbox" id="voice-chk" onchange="toggleVoice(this.checked)">
-    <label for="voice-chk">🎙️ Alertes vocales (optionnel)</label>
+    <div id="voice-card">
+      <div id="voice-waves">
+        <span class="wb"></span><span class="wb"></span><span class="wb"></span>
+        <span class="wb"></span><span class="wb"></span>
+      </div>
+      <div id="voice-info">
+        <div id="voice-title">🎤 LUNA ÉCOUTE</div>
+        <div id="voice-hint">Dites <em>"à l'aide"</em> pour alerter vos contacts</div>
+      </div>
+      <div id="voice-badge">
+        <span id="mic-dot"></span>
+        <span id="mic-label">inactif</span>
+      </div>
+    </div>
+    <div id="voice-speech">
+      <input type="checkbox" id="voice-chk" onchange="toggleVoice(this.checked)">
+      <label for="voice-chk">🔊 Luna parle lors des alertes</label>
+      <span id="tts-status" class="tts-badge" style="display:none !important"></span>
+    </div>
   </div>
 
   <!-- Config toggle -->
@@ -529,13 +680,10 @@ select.cfg-inp option { background:#13131f; }
       <button id="zone-btn" onclick="captureZone()">📍 Utiliser ma position comme zone sûre</button>
       <div id="zone-st"></div>
     </div>
-    <div class="cfg-grid full" style="border-top:1px solid var(--border);padding-top:8px;margin-top:4px;">
-      <label class="cfg-lbl">🎥 Caméra de surveillance (optionnel)</label>
-      <label class="cfg-lbl" style="margin-top:2px;">URL caméra externe MJPEG (laisser vide = caméra interne)</label>
-      <input type="text" id="cfg-cam-url" class="cfg-inp" placeholder="ex: http://192.168.1.x/stream ou vide">
-      <button id="btn-cam" onclick="cameraStart()">🎥 Activer caméra — analyse de scène</button>
-      <button id="btn-cam-stop" onclick="cameraStop()">⏹ Désactiver caméra</button>
-      <div style="font-size:.7em;color:var(--muted);margin-top:4px;">Aucune image stockée · Analyse IA toutes les 10s · Arrêt avec session</div>
+    <div class="cfg-grid full" style="margin-top:12px;border-top:1px solid var(--border);padding-top:10px;">
+      <div style="font-size:.8em;font-weight:600;color:var(--text);margin-bottom:6px;">👥 Amis Luna — contacts protecteurs</div>
+      <div id="guardian-friends-cfg" style="font-size:.82em;">Chargement…</div>
+      <div style="font-size:.7em;color:var(--muted);margin-top:5px;">Ces amis reçoivent un DM Luna lors d'une alerte. Si aucun n'est sélectionné, tous tes amis sont alertés.</div>
     </div>
   </div>
 </div>
@@ -546,10 +694,10 @@ select.cfg-inp option { background:#13131f; }
     <h2>🔐 Accès nécessaires</h2>
     <p>Pour vous protéger efficacement, Luna Guardian a besoin des autorisations suivantes.</p>
     <ul id="perm-list">
-      <li>📍 <span>Position GPS précise — pour savoir où vous êtes</span></li>
-      <li id="perm-mic" style="display:none;">🎤 <span>Microphone — vérification vocale en cas d'alerte</span></li>
-      <li>📡 <span>Transmission GPS au serveur toutes les 10s — position jamais stockée au-delà de 7 jours</span></li>
-      <li>🔔 <span>Notifications — alertes silencieuses en temps réel</span></li>
+      <li>📍 <span>Position GPS précise — pour savoir où vous êtes en cas d'urgence</span></li>
+      <li id="perm-mic">🎤 <span>Microphone — détection vocale des mots d'urgence ("au secours", "à l'aide"…)</span></li>
+      <li>📡 <span>Transmission GPS toutes les 10s — position conservée 7 jours maximum</span></li>
+      <li>🔔 <span>Notifications — alertes en temps réel pour vos contacts</span></li>
     </ul>
     <button id="perm-allow" onclick="grantPermissions()">Autoriser et démarrer</button>
     <button id="perm-skip"  onclick="closePerm()">Plus tard</button>
@@ -574,12 +722,25 @@ select.cfg-inp option { background:#13131f; }
   <div id="sos-box">
     <div class="si">🆘</div>
     <h2>Envoyer une alerte SOS ?</h2>
-    <p>Vos contacts de confiance recevront un SMS avec votre adresse et un lien Google Maps.<br><br>
-    Urgence médicale : <strong style="color:#fca5a5;">15 (SAMU)</strong> &nbsp;
-    Urgence : <strong style="color:#fca5a5;">112</strong> &nbsp;
-    Police : <strong style="color:#fca5a5;">17</strong></p>
+    <p>Vos contacts de confiance recevront un SMS avec votre adresse et un lien Google Maps.</p>
     <button id="sos-go" onclick="triggerSOS()">🆘 Confirmer l'alerte</button>
+    <div style="display:flex;gap:8px;margin-bottom:8px;">
+      <a href="tel:15" style="flex:1;display:block;padding:11px;background:rgba(16,185,129,.12);color:#6ee7b7;border:1px solid rgba(16,185,129,.3);border-radius:12px;text-align:center;font-size:.88em;font-weight:700;text-decoration:none;">📞 15 SAMU</a>
+      <a href="tel:112" style="flex:1;display:block;padding:11px;background:rgba(239,68,68,.1);color:#fca5a5;border:1px solid rgba(239,68,68,.25);border-radius:12px;text-align:center;font-size:.88em;font-weight:700;text-decoration:none;">📞 112</a>
+      <a href="tel:17" style="flex:1;display:block;padding:11px;background:rgba(59,130,246,.1);color:#93c5fd;border:1px solid rgba(59,130,246,.25);border-radius:12px;text-align:center;font-size:.88em;font-weight:700;text-decoration:none;">📞 17 Police</a>
+    </div>
     <button id="sos-no" onclick="closeSosModal()">Annuler</button>
+  </div>
+</div>
+
+<!-- VOCAL COUNTDOWN MODAL -->
+<div id="vocal-modal">
+  <div id="vocal-box">
+    <div style="font-size:3.2em;margin-bottom:8px;">🎤</div>
+    <div id="vocal-count">5</div>
+    <p id="vocal-msg">J'ai entendu une demande d'aide.<br>J'alerte vos contacts dans <strong id="vocal-n">5</strong> secondes.<br><span style="color:var(--muted);font-size:.85em;">Dites <em>annule</em> ou appuyez sur le bouton si c'est une erreur.</span></p>
+    <div id="vocal-context" style="display:none;margin:0 0 12px;padding:8px 12px;border-radius:10px;background:rgba(255,90,90,.12);border:1px solid rgba(255,90,90,.35);font-size:.9em;text-align:left;line-height:1.4;"></div>
+    <button id="vocal-cancel" onclick="cancelVocalCountdown()">✋ ANNULER — Fausse alerte</button>
   </div>
 </div>
 
@@ -590,8 +751,6 @@ select.cfg-inp option { background:#13131f; }
     <ul>
       <li>Votre position GPS est transmise au serveur toutes les 10s et conservée 7 jours maximum</li>
       <li>Les alertes ne partent qu'à vos contacts de confiance, personne d'autre</li>
-      <li>La caméra est optionnelle — aucune image jamais stockée, seule la description textuelle est gardée</li>
-      <li>La caméra peut être interne (téléphone) ou externe (URL MJPEG compatible)</li>
       <li>Aucune donnée n'est revendue ni partagée avec des tiers</li>
       <li>Luna est conforme au RGPD — vous restez maître de vos données</li>
       <li>Luna ne peut pas appeler les services d'urgence — elle informe vos contacts pour qu'ils appellent le 112</li>
@@ -603,12 +762,25 @@ select.cfg-inp option { background:#13131f; }
 <!-- TOAST -->
 <div id="toast"></div>
 
+<!-- EMERGENCY EVIDENCE MODE BADGE -->
+<div id="eem-badge" style="display:none">
+  <span class="eem-dot"></span>
+  <span class="eem-label">URGENCE</span>
+  <span class="eem-count">0 pts</span>
+  <span class="eem-audio" style="display:none">🎙</span>
+  <span class="eem-cam" style="display:none">📸</span>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 'use strict';
 
 // ── AUTH ─────────────────────────────────────
 function getToken(){ return localStorage.getItem('luna_token')||''; }
+function syncAuthToken(){
+  if(window.LunaBridge&&LunaBridge.setAuthToken) LunaBridge.setAuthToken(getToken());
+}
+syncAuthToken();
 function authFetch(url,opts){
   var o=Object.assign({headers:{}},opts||{});
   o.headers=Object.assign({},o.headers);
@@ -628,50 +800,10 @@ var LAST_GPS_SENT=0, CFG_OPEN=false, EV_OPEN=false;
 var LAST_POS=null, PREV_POS=null;
 var GEO_CACHE={};
 
-function _guardianTenantId(){
-  try{
-    var t=getToken();
-    if(!t||t.indexOf('.')<0) return '';
-    return JSON.parse(atob(t.split('.')[1])).tenant_id||'';
-  }catch(e){return '';}
-}
-
-function _guardianSrPostTrigger(text, confidence){
-  text=(text||'').toString().trim();
-  if(!text) return Promise.resolve(false);
-  console.warn('[GUARDIAN_SR] calling /trigger from sr_emergency | '+text+' | conf='+(confidence||''));
-  return authFetch('/trigger',{
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({
-      keyword:text,
-      source:'guardian_apk_vosk',
-      user_id:_guardianTenantId(),
-      session_id:SID||'',
-      last_words:text,
-      summary:text
-    })
-  }).then(function(r){
-    console.warn('[GUARDIAN_SR] /trigger response status='+r.status);
-    return r.json().catch(function(){return {};});
-  }).then(function(d){
-    console.warn('[GUARDIAN_SR] /trigger result '+JSON.stringify(d).slice(0,500));
-    return d;
-  }).catch(function(e){
-    console.error('[GUARDIAN_SR] /trigger failed '+(e&&e.message?e.message:e));
-    return false;
-  });
-}
-
-// Point d'entrée réel du Guardian APK/VOSK.
-// Appelé par le natif quand VOSK détecte une urgence vocale.
-window.lunaEmergencyVoiceDetected=function(text, confidence){
-  text=(text||'').toString().trim();
-  console.warn('[GUARDIAN_SR] web_emergency_received | SID='+(!!SID)+' sos=false active=false | '+text+' | conf='+(confidence||''));
-  if(!text) return false;
-  _guardianSrPostTrigger(text, confidence);
-  return true;
-};
+// ── EMERGENCY EVIDENCE MODE ────────────────────
+var _EEM_ACTIVE=false, _EEM_IID=null, _EEM_GEO_ID=null;
+var _EEM_TRAIL=[], _EEM_LAST_PUSH=0;
+var _EEM_REC=null, _EEM_CHUNKS=[];
 
 // ── MAP INIT ─────────────────────────────────
 function initMap(){
@@ -766,55 +898,134 @@ function updateRisk(score,level,desc){
   RISK_LEVEL=level||'low';
   var pct=Math.round((score||0)*100);
   var c=RISK_COLORS[RISK_LEVEL]||'#10b981';
-  document.getElementById('risk-fill').style.width=pct+'%';
+  // Barre — au repos la barre est quasi transparente, visible seulement en alerte
+  var track=document.getElementById('risk-track');
+  track.style.opacity=RISK_LEVEL==='low'?'0.3':'1';
+  document.getElementById('risk-fill').style.width=RISK_LEVEL==='low'?'100%':pct+'%';
   document.getElementById('risk-fill').style.background=c;
-  document.getElementById('risk-txt').textContent=({low:'Normal',medium:'Attention',high:'Alerte',critical:'CRITIQUE'}[RISK_LEVEL]||RISK_LEVEL)+' '+pct+'%';
+  // Texte statut
+  var txtMap={low:'🛡️ Protégé',medium:'⚠️ Attention '+pct+'%',high:'⚠️ Alerte '+pct+'%',critical:'🚨 Critique '+pct+'%'};
+  var lblMap={low:'État de sécurité',medium:'Surveillance',high:'Vigilance',critical:'⚠️ Alerte'};
+  document.getElementById('risk-txt').textContent=txtMap[RISK_LEVEL]||RISK_LEVEL;
   document.getElementById('risk-txt').style.color=c;
-  var badge=document.getElementById('hdr-risk');
-  if(RISK_LEVEL!=='low'){
-    badge.style.display='inline-block'; badge.style.background=c;
-    badge.style.color=RISK_LEVEL==='medium'?'#000':'#fff'; badge.textContent=RISK_LEVEL.toUpperCase();
-  } else badge.style.display='none';
+  var rl=document.getElementById('risk-label');
+  if(rl) rl.textContent=lblMap[RISK_LEVEL]||'Surveillance';
+  // Dot header — CSS class uniquement (plus d'inline background)
   var dot=document.getElementById('hdr-dot');
+  dot.style.background='';
   dot.className=SID?(RISK_LEVEL==='high'||RISK_LEVEL==='critical'?'alert':'live'):'';
   if(MARKER) MARKER.setIcon(personIcon(c));
   if(TRAIL) TRAIL.setStyle({color:c});
+  // Mode alerte — carte maxi, panel compact
+  var isAlert=RISK_LEVEL==='high'||RISK_LEVEL==='critical';
+  var bottomEl=document.getElementById('bottom');
+  var mapEl=document.getElementById('map');
+  var addrEl=document.getElementById('addr-card');
+  if(bottomEl) bottomEl.classList.toggle('alert-mode', isAlert&&!!SID);
+  if(mapEl) mapEl.classList.toggle('alert-map', isAlert);
+  if(addrEl) addrEl.classList.toggle('alert', isAlert);
+  // Mise à jour notification Guardian permanente
+  if(SID&&window.LunaBridge&&LunaBridge.updateGuardianNotification){
+    var notifStatus=isAlert?'🆘 ALERTE — SOS actif':(RISK_LEVEL==='medium'?'⚠ Surveillance active':'Protégé · GPS actif');
+    LunaBridge.updateGuardianNotification(notifStatus,'',isAlert);
+  }
+  setTimeout(_layoutUpdate,50);
 }
 
 // ── PERMISSIONS ───────────────────────────────
 function openPerm(){
-  var hasMic=!!(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia);
-  if(hasMic) document.getElementById('perm-mic').style.display='flex';
   document.getElementById('perm-modal').classList.add('open');
 }
 function closePerm(){ document.getElementById('perm-modal').classList.remove('open'); }
 async function grantPermissions(){
   closePerm();
-  if(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia){
-    try{ await navigator.mediaDevices.getUserMedia({audio:true}); }catch(e){}
+  // Demander uniquement les notifications ici — la caméra sera demandée quand l'utilisateur clique "Activer caméra"
+  if(window.Notification&&Notification.permission==='default'){
+    try{ await Notification.requestPermission(); }catch(e){}
   }
-  if(window.Notification&&Notification.permission==='default') await Notification.requestPermission();
 }
 
 // ── RGPD MODAL ────────────────────────────────
 function openRgpdModal(){ document.getElementById('rgpd-modal').classList.add('open'); }
 function closeRgpdModal(){ document.getElementById('rgpd-modal').classList.remove('open'); }
 
-// ── VOICE ALERTS (Web Speech API) ────────────
-function toggleVoice(on){
-  localStorage.setItem('luna_voice',on?'1':'0');
-  showToast(on?'🎙️ Alertes vocales activées':'Alertes vocales désactivées');
+// ── VOICE ALERTS — TTS robuste avec fallback Android ─────
+var _TTS_OK=null, _TTS_BUSY=false, _voiceEvents=[];
+
+function _voiceLog(ev,detail){
+  var ts=new Date().toISOString().substr(11,8);
+  _voiceEvents.push({t:ts,ev:ev,d:detail||''});
+  if(_voiceEvents.length>60)_voiceEvents.shift();
+  console.log('[GUARDIAN_TTS] '+ev+(detail?' '+detail:''));
 }
-function maybeSpeak(msg){
-  if(localStorage.getItem('luna_voice')!=='1') return;
-  if(!window.speechSynthesis) return;
+function _ttsDiag(ok){
+  _TTS_OK=ok;
+  var el=document.getElementById('tts-status');
+  if(!el)return;
+  el.textContent=ok?'🔊 TTS OK':'🔇 TTS ERR';
+  el.className='tts-badge '+(ok?'tts-ok':'tts-err');
+}
+function _ttsTest(){
+  if(!window.speechSynthesis){_ttsDiag(false);return;}
+  var u=new SpeechSynthesisUtterance('');
+  u.volume=0; u.lang='fr-FR';
+  u.onstart=function(){_ttsDiag(true);};
+  u.onerror=function(){_ttsDiag(false);};
+  try{window.speechSynthesis.speak(u);}catch(e){_ttsDiag(false);}
+}
+
+// Parler — ÉCOUTE SILENCIEUSE PAR DÉFAUT (P0, 30/06).
+// Règle produit : « écouter ≠ faire du bruit ». Une personne en danger doit pouvoir
+// rester discrète. Les annonces vocales (y compris d'urgence) sont désormais OPT-IN :
+// elles ne sortent QUE si l'utilisateur a explicitement activé la voix (luna_voice==='1').
+// `force` ne contourne PLUS le silence — c'était la source du bruit permanent (annonces
+// de countdown/SOS/démarrage rejouées en boucle + larsen avec le micro). Le retour visuel,
+// la vibration et la notification système restent, eux, toujours actifs.
+function guardianSpeak(msg,opts){
+  opts=opts||{};
+  if(localStorage.getItem('luna_voice')!=='1'){if(opts.onend)opts.onend();return;}
+  if(!window.speechSynthesis){_voiceLog('voice_error','no_api');if(opts.onend)opts.onend();return;}
+
+  // Pause SpeechRecognition : libère l'audio focus Android
+  var wasListening=!!_vocalRec;
+  if(wasListening){
+    try{_vocalRec.abort();}catch(e){}
+    _vocalRec=null; _setMicState('off');
+    if(_vocalRestartT){clearTimeout(_vocalRestartT);_vocalRestartT=null;}
+  }
+
   try{
     window.speechSynthesis.cancel();
     var u=new SpeechSynthesisUtterance(msg);
-    u.lang='fr-FR'; u.rate=0.92; u.pitch=1.0;
+    u.lang='fr-FR'; u.rate=0.95; u.pitch=1.0; u.volume=1.0;
+    u.onstart=function(){_TTS_BUSY=true;_ttsDiag(true);_voiceLog('voice_started',msg.substr(0,40));};
+    u.onend=function(){
+      _TTS_BUSY=false;
+      _voiceLog('voice_finished',msg.substr(0,30));
+      if(opts.onend)opts.onend();
+      if(wasListening&&SID&&!_vocalRec)_vocalScheduleRestart(400);
+    };
+    u.onerror=function(e){
+      _TTS_BUSY=false;_ttsDiag(false);
+      _voiceLog('voice_error',e.error||'unknown');
+      if(opts.onend)opts.onend();
+      if(wasListening&&SID&&!_vocalRec)_vocalScheduleRestart(400);
+    };
     window.speechSynthesis.speak(u);
-  }catch(e){}
+  }catch(e){
+    _TTS_BUSY=false;_ttsDiag(false);
+    _voiceLog('voice_error',e.message||'throw');
+    if(opts.onend)opts.onend();
+    if(wasListening&&SID&&!_vocalRec)_vocalScheduleRestart(400);
+  }
 }
+function toggleVoice(on){
+  localStorage.setItem('luna_voice',on?'1':'0');
+  showToast(on?'🎙️ Alertes vocales activées':'Alertes vocales désactivées');
+  if(on)_ttsTest();
+}
+// Compat — appels non-urgents (respectent le setting)
+function maybeSpeak(msg){guardianSpeak(msg,{});}
 
 // ── HAPTIC ────────────────────────────────────
 function vibrate(pattern){ if(navigator.vibrate) navigator.vibrate(pattern); }
@@ -879,6 +1090,7 @@ function toggleCfg(){
   CFG_OPEN=!CFG_OPEN;
   document.getElementById('cfg').classList.toggle('open',CFG_OPEN);
   document.getElementById('cfg-toggle-btn').textContent=CFG_OPEN?'▲ Masquer':'⚙️ Configuration';
+  if(CFG_OPEN) loadGuardianFriends();
   setTimeout(_layoutUpdate,320);
 }
 function captureZone(){
@@ -906,22 +1118,45 @@ function guardianStart(){
   }).then(function(r){return r.json();}).then(function(d){
     if(!d.success) throw new Error(d.error||'Erreur');
     SID=d.session_id;
+    syncAuthToken();
+    if(window.LunaBridge&&LunaBridge.setGuardianSession) LunaBridge.setGuardianSession(SID);
     setHdrStatus('Actif',null,true);
     document.getElementById('btn-start').style.display='none';
-    document.getElementById('btn-stop').style.display='';
-    document.getElementById('btn-sos').style.display='';
-    document.getElementById('btn-share').style.display='';
+    document.getElementById('btn-sos').style.display='flex';
+    document.getElementById('ctrls-row2').style.display='flex';
+    document.getElementById('btn-share').style.display='flex';
     document.getElementById('addr-card').style.display='block';
     document.getElementById('timeline-wrap').style.display='';
     document.getElementById('rgpd-banner').style.display='flex';
     document.getElementById('voice-toggle').style.display='flex';
     document.getElementById('voice-chk').checked=(localStorage.getItem('luna_voice')==='1');
+    // P0 (30/06) : plus de diagnostic TTS auto au démarrage — l'écoute est muette par
+    // défaut. Le test TTS ne tourne que si l'utilisateur active la voix (voir le toggle).
     showTrustBar(true);
     if(CFG_OPEN) toggleCfg();
     _layoutUpdate();
-    connectWs(); startGps(); loadEvents();
+    connectWs(); startGps(); loadEvents(); loadContacts(); loadGuardianFriends();
     incrementSession();
-    _setCamState('inactive'); // badge caméra visible mais inactive
+    // ÉCOUTE (01/07) : dans l'APK → moteur VOSK offline SILENCIEUX via le service natif
+    // (setGuardianProtection démarre GuardianService avec listen=true → VOSK, zéro bip).
+    // On NE lance PAS le Web Speech du navigateur dans l'APK : il passe par le service Google
+    // qui joue les tonalités « écoute/veille ». Web Speech réservé au vrai navigateur (fallback).
+    if(window.LunaBridge&&LunaBridge.setGuardianProtection){
+      try{ LunaBridge.setGuardianProtection(true, false); }catch(e){}
+      _setVoskActiveUI();
+    } else {
+      _vocalStartWithWatchdog();
+    }
+    document.getElementById('contacts-bar').style.display='block';
+    // Notification permanente Guardian
+    if(window.LunaBridge&&LunaBridge.startGuardianService){
+      setTimeout(function(){
+        var names=_smsContacts.slice(0,2).map(function(c){return c.name||c.first_name||'Contact';});
+        var trusted=(_gFriendsAll||[]).filter(function(f){return f.is_guardian_contact;}).slice(0,2).map(function(f){return f.nickname||'Ami';});
+        var contacts=[].concat(names,trusted).slice(0,3).join(', ');
+        LunaBridge.startGuardianService('Protégé · GPS actif', contacts||'');
+      },1500); // laisser loadContacts() se terminer d'abord
+    }
     showToast('🛡️ Guardian actif');
     vibrate([60,30,60]);
     maybeSpeak('Luna Guardian démarré. Je veille sur vous.');
@@ -931,12 +1166,13 @@ function guardianStart(){
 function guardianStop(){
   if(!SID) return;
   vibrate([40]);
+  if(window.LunaBridge&&LunaBridge.clearGuardianSession) LunaBridge.clearGuardianSession();
   authFetch('/api/guardian/stop/'+SID,{method:'POST'}).then(function(){
     _cleanupSession();
     setHdrStatus('Arrêté',null,false);
     document.getElementById('btn-start').style.display='';
-    document.getElementById('btn-stop').style.display='none';
     document.getElementById('btn-sos').style.display='none';
+    document.getElementById('ctrls-row2').style.display='none';
     document.getElementById('btn-share').style.display='none';
     document.getElementById('addr-card').style.display='none';
     document.getElementById('timeline-wrap').style.display='none';
@@ -950,10 +1186,19 @@ function guardianStop(){
   });
 }
 function _cleanupSession(){
-  cameraStop(); // arrêt garanti caméra + timer
+  _vocalStop();
+  if(window.LunaBridge&&LunaBridge.stopNativeVoiceGuardian) LunaBridge.stopNativeVoiceGuardian();
+  if(window.LunaBridge&&LunaBridge.stopGuardianService) LunaBridge.stopGuardianService();
   if(WS){try{WS.close();}catch(e){} WS=null;}
   if(GEO_ID!==null){navigator.geolocation.clearWatch(GEO_ID);GEO_ID=null;}
-  document.getElementById('cam-badge').style.display='none';
+  // Arrêter Emergency Evidence Mode si actif
+  if(_EEM_ACTIVE){
+    if(_EEM_GEO_ID!==null){navigator.geolocation.clearWatch(_EEM_GEO_ID);_EEM_GEO_ID=null;}
+    if(_EEM_REC&&_EEM_REC.state!=='inactive'){try{_EEM_REC.stop();}catch(e){}}
+    _EEM_ACTIVE=false; _EEM_IID=null; _EEM_REC=null;
+    _eemHideBadge();
+  }
+  document.getElementById('contacts-bar').style.display='none';
   SID=null; TRAIL_COORDS=[]; PREV_POS=null;
   if(TRAIL){MAP.removeLayer(TRAIL);TRAIL=null;}
   if(MAP._accuracyCircle){MAP.removeLayer(MAP._accuracyCircle);}
@@ -973,6 +1218,164 @@ function _contextIcon(lat,lng){
   return '📍';
 }
 
+// ─────────────────────────────────────────────
+// EMERGENCY EVIDENCE MODE — P1 GPS + P2 Audio
+// ─────────────────────────────────────────────
+
+function _eemStart(iid, source){
+  if(_EEM_ACTIVE) return;
+  _EEM_ACTIVE=true; _EEM_IID=iid; _EEM_TRAIL=[]; _EEM_LAST_PUSH=0;
+  // Stop normal GPS
+  if(GEO_ID!==null){navigator.geolocation.clearWatch(GEO_ID);GEO_ID=null;}
+  // Notify backend — ouvre le dossier d'incident
+  var initPos=LAST_POS||{};
+  authFetch('/api/guardian/incident/'+SID+'/start',{
+    method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({incident_id:iid,source:source,lat:initPos.lat||null,lng:initPos.lng||null})
+  }).catch(function(){});
+  // Démarrer GPS haute fréquence (maximumAge:0 = toujours fresh)
+  _EEM_GEO_ID=navigator.geolocation.watchPosition(
+    function(p){ _eemOnPos(p); },
+    function(e){ showToast('⚠️ GPS urgence: '+e.message,3000); },
+    {enableHighAccuracy:true, maximumAge:0, timeout:8000}
+  );
+}
+
+function _eemOnPos(p){
+  var lat=p.coords.latitude, lng=p.coords.longitude;
+  var acc=p.coords.accuracy, spd=p.coords.speed;
+  var ts=Date.now();
+  var pt={lat:lat,lng:lng,acc:acc,spd:spd,ts:ts};
+  _EEM_TRAIL.push(pt);
+  if(_EEM_TRAIL.length>500) _EEM_TRAIL.shift();
+  updateMapPos(lat,lng,acc);
+  LAST_POS={lat:lat,lng:lng};
+  _LAST_CONTEXT_POS={lat:lat,lng:lng};
+  if(window.LunaBridge&&LunaBridge.updateGuardianPosition) LunaBridge.updateGuardianPosition(lat,lng);
+  // Push toutes les 3s max
+  if(ts-_EEM_LAST_PUSH<3000) return;
+  _EEM_LAST_PUSH=ts;
+  authFetch('/api/guardian/incident/'+SID+'/trail',{
+    method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({incident_id:_EEM_IID,position:pt})
+  }).catch(function(){});
+  // Mise à jour adresse
+  updateAddressCard(lat,lng,acc,false,null);
+  _eemUpdateBadge();
+}
+
+function _eemStop(){
+  if(!_EEM_ACTIVE) return;
+  _EEM_ACTIVE=false;
+  if(_EEM_GEO_ID!==null){navigator.geolocation.clearWatch(_EEM_GEO_ID);_EEM_GEO_ID=null;}
+  // Arrêter audio si en cours
+  if(_EEM_REC&&_EEM_REC.state!=='inactive'){try{_EEM_REC.stop();}catch(e){}}
+  _EEM_REC=null; _EEM_IID=null;
+  // Relancer GPS normal
+  if(SID) startGps();
+  _eemHideBadge();
+}
+
+function _eemUpdateBadge(){
+  var b=document.getElementById('eem-badge');
+  if(!b||!_EEM_ACTIVE) return;
+  b.style.display='flex';
+  b.querySelector('.eem-count').textContent=_EEM_TRAIL.length+' pts';
+  if(_EEM_REC&&_EEM_REC.state==='recording') b.querySelector('.eem-audio').style.display='';
+  else b.querySelector('.eem-audio').style.display='none';
+}
+function _eemHideBadge(){
+  var b=document.getElementById('eem-badge');
+  if(b) b.style.display='none';
+}
+
+// P2 — Audio 60s
+function _eemStartAudio(iid){
+  if(!navigator.mediaDevices||!window.MediaRecorder) return;
+  var mimeType='audio/webm;codecs=opus';
+  if(!MediaRecorder.isTypeSupported(mimeType)) mimeType='audio/webm';
+  navigator.mediaDevices.getUserMedia({audio:true,video:false})
+    .then(function(stream){
+      _EEM_CHUNKS=[];
+      var rec=new MediaRecorder(stream,{mimeType:mimeType});
+      _EEM_REC=rec;
+      rec.ondataavailable=function(e){if(e.data.size>0)_EEM_CHUNKS.push(e.data);};
+      rec.onstop=function(){
+        stream.getTracks().forEach(function(t){t.stop();});
+        if(_EEM_CHUNKS.length===0) return;
+        var blob=new Blob(_EEM_CHUNKS,{type:mimeType});
+        _eemUploadAudio(blob,iid);
+      };
+      rec.start(1000);  // chunks d'1s
+      showToast('🎙️ Enregistrement audio d\'urgence (60s)',4000);
+      setTimeout(function(){
+        if(rec.state!=='inactive') rec.stop();
+      },60000);
+    })
+    .catch(function(e){
+      // Non-bloquant — micro déjà utilisé par SpeechRecognition
+    });
+}
+
+function _eemUploadAudio(blob,iid){
+  var form=new FormData();
+  form.append('audio',blob,'emergency_'+iid+'.webm');
+  form.append('incident_id',iid);
+  authFetch('/api/guardian/incident/'+SID+'/audio',{method:'POST',body:form})
+    .catch(function(){});
+}
+
+// P3 — Camera snapshots (3 photos × 5s, back camera, non-bloquant)
+function _eemStartCamera(iid){
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia) return;
+  navigator.mediaDevices.getUserMedia({
+    video:{facingMode:'environment',width:{ideal:640},height:{ideal:480}},
+    audio:false
+  }).then(function(stream){
+    var video=document.createElement('video');
+    video.srcObject=stream;
+    video.setAttribute('playsinline','');
+    video.muted=true;
+    video.play();
+    var photosDone=0;
+    var camBadge=document.querySelector('.eem-cam');
+    if(camBadge) camBadge.style.display='';
+    function snap(){
+      if(!_EEM_ACTIVE||photosDone>=3){
+        stream.getTracks().forEach(function(t){t.stop();});
+        if(camBadge) camBadge.style.display='none';
+        return;
+      }
+      var w=video.videoWidth||640, h=video.videoHeight||480;
+      if(w===0||h===0){ setTimeout(snap,500); return; }
+      var canvas=document.createElement('canvas');
+      canvas.width=w; canvas.height=h;
+      canvas.getContext('2d').drawImage(video,0,0);
+      canvas.toBlob(function(blob){
+        photosDone++;
+        if(blob&&blob.size>0) _eemUploadPhoto(blob,iid,photosDone);
+        if(photosDone<3) setTimeout(snap,5000);
+        else{ stream.getTracks().forEach(function(t){t.stop();}); if(camBadge) camBadge.style.display='none'; }
+      },'image/jpeg',0.75);
+    }
+    // Laisser la caméra s'initialiser (800ms)
+    video.onloadedmetadata=function(){ setTimeout(snap,800); };
+    video.onerror=function(){ stream.getTracks().forEach(function(t){t.stop();}); };
+    // Sécurité : fermer après 20s max
+    setTimeout(function(){ stream.getTracks().forEach(function(t){t.stop();}); },20000);
+  }).catch(function(){
+    // NotAllowedError ou pas de caméra → silencieux, ne pas perturber l'alerte
+  });
+}
+function _eemUploadPhoto(blob,iid,n){
+  var form=new FormData();
+  form.append('photo',blob,'emergency_'+iid+'_'+n+'.jpg');
+  form.append('incident_id',iid);
+  form.append('photo_num',String(n));
+  authFetch('/api/guardian/incident/'+SID+'/photo',{method:'POST',body:form})
+    .catch(function(){});
+}
+
 function startGps(){
   GEO_ID=navigator.geolocation.watchPosition(function(p){
     var lat=p.coords.latitude,lng=p.coords.longitude,acc=p.coords.accuracy,spd=p.coords.speed;
@@ -984,6 +1387,7 @@ function startGps(){
     }
     LAST_GPS_SENT=now;
     _LAST_CONTEXT_POS={lat:lat,lng:lng};
+    if(window.LunaBridge&&LunaBridge.updateGuardianPosition) LunaBridge.updateGuardianPosition(lat,lng);
     authFetch('/api/guardian/location/'+SID,{method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({lat:lat,lng:lng,accuracy:acc,speed:spd})
@@ -1004,7 +1408,19 @@ function startGps(){
       _wasInZone=inZone;
       if(d.risk_level&&d.risk_level!=='low') loadEvents();
     }).catch(function(){});
-  },function(e){ setHdrStatus('GPS: '+e.message,'#ef4444',false); showToast('❌ GPS: '+e.message,4000); },
+  },function(e){
+    setHdrStatus('GPS: '+e.message,'#ef4444',false);
+    showToast('❌ GPS: '+e.message,4000);
+    if (e && e.code === 1 && SID) {
+      // Permission denied — notify backend to stop the session
+      authFetch('/api/guardian/location-denied/'+SID, {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({reason:'permission_denied'})
+      }).catch(function(){});
+      SID = null;
+    }
+  },
   {enableHighAccuracy:true,maximumAge:5000,timeout:20000});
 }
 var _wasInZone=false;
@@ -1028,17 +1444,38 @@ function handleWsMsg(m){
     breakStreak();
     maybeSpeak('Attention. '+((d.description||'Alerte Guardian').replace(/[🔔⚠️🆘]/g,'')));
   }
-  else if(m.type==='verification_needed') openVerifyModal(m.message);
+  else if(m.type==='verification_needed'){
+    openVerifyModal(m.message);
+    if(m.attempt===2){
+      showToast('⚠️ Luna réessaie de vous joindre', 4000);
+      vibrate([300,100,300,100,300]);
+    }
+  }
   else if(m.type==='sos') showAlertOnMap('🆘 SOS activé',null,null);
-  else if(m.type==='perception'&&m.description){
-    document.getElementById('cam-result-txt').textContent='👁 '+m.description;
-    document.getElementById('cam-result').style.display='block';
-    _layoutCamResult();
-    if(m.has_concern) vibrate([300,100,300]);
+  else if(m.type==='fall_detected'){
+    var fd=m.data||{};
+    showAlertOnMap('⚠️ Chute détectée — '+(fd.description||'accéléromètre'),fd.lat,fd.lng);
+    showToast('⚠️ Chute détectée — contacts alertés',6000);
+    vibrate([500,150,500,150,800]);
+    breakStreak(); loadEvents();
+    maybeSpeak('Attention. Chute détectée. Vos contacts ont été prévenus.');
   }
 }
 
 // ── ALERT ─────────────────────────────────────
+// Issue contacts : message détaillé séparant SMS, DM Luna et appels.
+function _formatAlertSummary(d){
+  var sms = d.sms_sent_to || 0;
+  var dm = d.dm_sent_to || 0;
+  var calls = d.calls_placed || 0;
+  var parts = [];
+  if(sms) parts.push(sms + ' contact' + (sms > 1 ? 's' : '') + ' par SMS');
+  if(dm) parts.push(dm + ' ami' + (dm > 1 ? 's' : '') + ' par Luna');
+  if(calls) parts.push(calls + ' appel' + (calls > 1 ? 's' : '') + ' passé');
+  if(!parts.length) parts.push('alerte enregistrée');
+  return parts.join(', ');
+}
+
 function showAlertOnMap(desc,lat,lng){
   document.getElementById('hdr-dot').className='alert';
   setHdrStatus('⚠️ ALERTE','#ef4444',true);
@@ -1058,18 +1495,362 @@ function openSosModal(){
   vibrate([100,50,100]);
 }
 function closeSosModal(){ document.getElementById('sos-modal').classList.remove('open'); }
+var _sosInProgress=false;
+function _genIncidentId(){
+  if(window.crypto&&crypto.randomUUID) return crypto.randomUUID();
+  return Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,10);
+}
 function triggerSOS(){
-  closeSosModal(); if(!SID){showToast('Guardian non actif');return;}
+  closeSosModal();
+  if(!SID){showToast('Guardian non actif');return;}
+  if(_sosInProgress){showToast('⏳ Alerte déjà en cours…');return;}
+  _sosInProgress=true;
+  var btn=document.getElementById('sos-go');
+  if(btn) btn.disabled=true;
+  var iid=_genIncidentId();
   vibrate([200,100,200,100,200]);
-  authFetch('/api/guardian/sos/'+SID,{method:'POST'})
-  .then(function(r){return r.json();}).then(function(d){
+  // P1 — Activer tracking GPS renforcé immédiatement
+  _eemStart(iid,'sos');
+  authFetch('/api/guardian/sos/'+SID,{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({incident_id:iid})
+  }).then(function(r){
+    return r.json().then(function(d){return {status:r.status,data:d};});
+  }).then(function(res){
+    if(res.status===409){showToast('⏳ Alerte déjà envoyée',3000);return;}
+    var d=res.data;
+    var summary=_formatAlertSummary(d);
     showToast('🆘 '+(d.message||'SOS envoyé'),5000);
+    _voiceLog('voice_alert_sent',(d.sms_sent_to||0)+'sms/'+(d.dm_sent_to||0)+'dm/'+(d.calls_placed||0)+'calls');
+    guardianSpeak('Contact d\'urgence activé. Vos contacts ont été prévenus.');
     updateRisk(1,'critical','SOS');
-    showAlertOnMap('🆘 SOS activé — '+d.alerts_sent_to+' contact(s) alerté(s)',
+    showAlertOnMap('🆘 SOS activé — ' + summary,
       LAST_POS?LAST_POS.lat:null,LAST_POS?LAST_POS.lng:null);
-    breakStreak();
-    loadEvents();
+    breakStreak(); loadEvents();
+    // P2 — Audio après confirmation SOS (non-bloquant)
+    _eemStartAudio(iid);
+    // P3 — Camera 3 snapshots (non-bloquant)
+    _eemStartCamera(iid);
+  }).catch(function(e){showToast('❌ SOS: '+(e.message||'erreur'));})
+  .finally(function(){
+    _sosInProgress=false;
+    if(btn) btn.disabled=false;
   });
+}
+
+// ── VOCAL EMERGENCY DETECTION ─────────────────
+// RESSERRÉE (01/07) — alignée sur GuardianService/NATIVE_EMERGENCY_KW et la politique
+// serveur : uniquement des formulations EXPLICITES. Fragments ambigus retirés
+// ("aide", "aide moi", "a l aide", "secours" seul, "urgence", "help", "sos",
+// "je me sens mal", "je tombe"...) qui déclenchaient des fausses alertes.
+var EMERGENCY_KW=[
+  "au secours","je suis en danger",
+  "appelle les secours","appelle une ambulance","appelle la police","appelle les pompiers",
+  "appelle le 15","appelle le 18","appelle le 112",
+  // Respiration (+ formulations non littérales : « j'ai du mal à respirer »…)
+  "je peux pas respirer","je ne peux pas respirer","je peux plus respirer",
+  "j arrive pas a respirer","j ai du mal a respirer","du mal a respirer","je respire mal","j etouffe",
+  // Mouvement
+  "je peux pas bouger","je ne peux pas bouger","je peux plus bouger",
+  "j arrive pas a bouger","j ai du mal a bouger","je peux plus me lever","j arrive pas a me lever",
+  // Blessure / douleur
+  "je suis blesse","je suis blessee","je saigne","j ai tres mal","j ai trop mal",
+  // Malaise / perte de connaissance
+  "je fais un malaise","je vais m evanouir","je me sens partir",
+  // « à l'aide » — confirmation (countdown annulable), filtré contre « à l'aide de… »
+  "a l aide","a laide",
+  // Vital / agression
+  "je vais mourir","je me sens mourir","il m agresse","on m agresse","il veut me tuer",
+  "help me"
+];
+// Mots qui, juste APRÈS « à l'aide », trahissent un usage instrumental (« à l'aide DE… »,
+// « aide-moi À… ») → pas une détresse. (Appliqué seulement aux mots-clés ambigus.)
+var KW_INSTRUMENTAL_SUFFIX=["de","d","a","pour"];
+var KW_AMBIGU=["a l aide","a laide"];
+var CANCEL_KW=[
+  "annule","annuler","cancel","stop","c est bon","c'est bon",
+  "tout va bien","fausse alerte","pas d alerte","pas d'alerte",
+  "ca va","ça va","je vais bien","tout va bien","je suis bien"
+];
+
+var _vocalRec=null, _vocalTimer=null, _vocalActive=false;
+var _vocalListening=false;    // vrai seulement quand SR est dans l'état "démarré"
+var _vocalWatchdog=null;      // setInterval de surveillance
+var _vocalRestartT=null;      // setTimeout de retry planifié
+var _vocalErrors=0;           // compteur d'erreurs consécutives
+
+function _norm(t){
+  return t.normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase()
+    .replace(/['''’\-]/g,' ').replace(/\s+/g,' ').trim();
+}
+
+function _setMicState(state){
+  var dot=document.getElementById('mic-dot');
+  var lbl=document.getElementById('mic-label');
+  var card=document.getElementById('voice-card');
+  if(!dot) return;
+  dot.className='';
+  if(card) card.className='';
+  if(state==='listening'){
+    dot.classList.add('listening');
+    if(lbl) lbl.textContent='écoute';
+    if(card) card.classList.add('state-listening');
+    _vocalListening=true;
+  } else if(state==='error'){
+    dot.classList.add('error');
+    if(lbl) lbl.textContent='inactif';
+    if(card) card.classList.add('state-error');
+    _vocalListening=false;
+  } else {
+    if(lbl) lbl.textContent='veille';
+    if(card) card.classList.add('state-off');
+    _vocalListening=false;
+  }
+}
+
+// Dans l'APK, l'écoute est assurée par VOSK (service natif, silencieux) → l'UI web ne reçoit
+// pas d'événements « listening ». On force l'affichage « actif » (point vert) pour refléter
+// que Guardian écoute vraiment.
+function _setVoskActiveUI(){
+  var dot=document.getElementById('mic-dot');
+  var lbl=document.getElementById('mic-label');
+  var card=document.getElementById('voice-card');
+  if(dot){ dot.className=''; dot.classList.add('listening'); }
+  if(lbl) lbl.textContent='actif';
+  if(card){ card.className=''; card.classList.add('state-listening'); }
+  _vocalListening=true;
+}
+
+function _vocalMatch(transcript){
+  var n=_norm(transcript);
+  if(_vocalActive){
+    if(CANCEL_KW.some(function(k){return n.includes(_norm(k));})) cancelVocalCountdown();
+    return;
+  }
+  // Match par séquence de mots ENTIÈRE (bornée par des espaces) — évite "secours"
+  // au milieu d'un mot. (L'annulation, elle, reste large : mieux vaut sur-annuler.)
+  var _padded=' '+n+' ';
+  var hit=EMERGENCY_KW.some(function(k){
+    var nk=_norm(k);
+    var needle=' '+nk+' ';
+    var idx=_padded.indexOf(needle);
+    if(idx<0) return false;
+    // Garde anti-usage instrumental — uniquement pour « à l'aide »
+    if(KW_AMBIGU.indexOf(nk)>=0){
+      var after=_padded.substring(idx+needle.length);
+      for(var s=0;s<KW_INSTRUMENTAL_SUFFIX.length;s++){
+        var suf=KW_INSTRUMENTAL_SUFFIX[s];
+        if(after===suf||after.indexOf(suf+' ')===0) return false;
+      }
+    }
+    return true;
+  });
+  if(hit) openVocalCountdown();
+}
+
+function _vocalScheduleRestart(delayMs){
+  if(_vocalRestartT) return; // déjà planifié
+  _vocalRestartT=setTimeout(function(){
+    _vocalRestartT=null;
+    if(SID) _vocalStart();
+  }, delayMs||3000);
+}
+
+function _vocalStart(){
+  // BULLETPROOF (01/07) : dans l'APK, l'écoute est assurée par VOSK (service natif, silencieux).
+  // On NE démarre JAMAIS le Web Speech du navigateur ici — c'est lui qui joue les tonalités
+  // « écoute/veille » (il passe par le SpeechRecognizer Google). Quel que soit l'appelant.
+  if(window.LunaBridge && window.LunaBridge.setGuardianProtection){ _setMicState('off'); return; }
+  var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR){ _setMicState('off'); return; }
+  if(_vocalRec) return; // déjà actif
+
+  var rec=new SR();
+  rec.lang='fr-FR';
+  rec.continuous=true;
+  rec.interimResults=true;
+  rec.maxAlternatives=2;
+
+  rec.onstart=function(){ _setMicState('listening'); _vocalErrors=0; };
+
+  rec.onresult=function(e){
+    var t='';
+    for(var i=e.resultIndex;i<e.results.length;i++) t+=e.results[i][0].transcript;
+    _vocalMatch(t);
+  };
+
+  rec.onerror=function(e){
+    // no-speech = silence normal — ne pas interrompre
+    if(e.error==='no-speech') return;
+    // aborted = écran verrouillé / app fond — traiter comme une vraie erreur
+    _vocalErrors++;
+    _vocalRec=null;
+    _setMicState('error');
+    // Délai progressif : 3s, 5s, 10s, 30s max
+    var delay=Math.min(3000*Math.pow(1.6,Math.min(_vocalErrors-1,4)),30000);
+    if(SID) _vocalScheduleRestart(delay);
+  };
+
+  rec.onend=function(){
+    // Si onerror a déjà nul le rec → ne rien faire (restart déjà planifié)
+    if(_vocalRec!==rec){ return; }
+    _vocalRec=null;
+    _setMicState('off');
+    // Redémarrer immédiatement si la session est encore active
+    if(SID) _vocalScheduleRestart(500);
+  };
+
+  _vocalRec=rec;
+  try{
+    rec.start();
+  } catch(e){
+    _vocalRec=null;
+    _setMicState('error');
+    if(SID) _vocalScheduleRestart(5000);
+  }
+}
+
+function _vocalStop(){
+  if(_vocalRestartT){ clearTimeout(_vocalRestartT); _vocalRestartT=null; }
+  if(_vocalWatchdog){ clearInterval(_vocalWatchdog); _vocalWatchdog=null; }
+  if(_vocalRec){ try{_vocalRec.abort();}catch(e){} _vocalRec=null; }
+  _setMicState('off');
+  cancelVocalCountdown();
+}
+
+function _vocalStartWithWatchdog(){
+  _vocalStart();
+  // Watchdog : toutes les 30s, vérifie que la reconnaissance est réellement active
+  if(_vocalWatchdog) clearInterval(_vocalWatchdog);
+  _vocalWatchdog=setInterval(function(){
+    if(!SID){ _vocalStop(); return; }
+    if(!_vocalListening && !_vocalRec && !_vocalRestartT){
+      _setMicState('error');
+      _vocalScheduleRestart(1000);
+    }
+  },30000);
+}
+function openVocalCountdown(){
+  if(_vocalActive||_sosInProgress) return;
+  _vocalActive=true;
+  // Fenêtre d'annulation ÉLARGIE (30/06) : 5 s était trop court — l'alerte partait avant
+  // que l'utilisateur ait le temps de lire le panneau et d'appuyer sur ANNULER.
+  // Laisse le temps de réagir. Ajustable via localStorage 'guardian_countdown_s'.
+  var n=parseInt(localStorage.getItem('guardian_countdown_s')||'15',10); if(!(n>=5&&n<=60)) n=15;
+  document.getElementById('vocal-count').textContent=n;
+  document.getElementById('vocal-n').textContent=n;
+  document.getElementById('vocal-modal').classList.add('open');
+  _renderVoiceContext();  // issue #32 : affiche « Contexte détecté : … » + la phrase entendue
+  vibrate([300,100,300]);
+  _voiceLog('voice_countdown_started','n='+n);
+
+  // Annonce vocale (uniquement si l'utilisateur a activé la voix — muet par défaut)
+  guardianSpeak('J\'alerte vos contacts dans '+n+' secondes. Dites annule, ou appuyez sur annuler, si tout va bien.');
+
+  // Compte à rebours visuel + vocal (indépendant du TTS initial)
+  _vocalTimer=setInterval(function(){
+    n--;
+    document.getElementById('vocal-count').textContent=n;
+    document.getElementById('vocal-n').textContent=n;
+    // Chiffres vocaux sur les 3 dernières secondes (quand TTS libéré)
+    if(n>0&&n<=3&&!_TTS_BUSY) guardianSpeak(String(n),{force:true});
+    if(n<=0){
+      clearInterval(_vocalTimer); _vocalTimer=null;
+      document.getElementById('vocal-modal').classList.remove('open');
+      _vocalActive=false;
+      _triggerSOSVocal();
+    }
+  },1000);
+}
+// Point d'entrée pour le SR natif Android (Niveau 2)
+// Appelé par Java : window.lunaEmergencyVoiceDetected(text, confidence)
+// Diagnostic terrain → même flux télémétrie que le natif (grep GUARDIAN_SR).
+function _dbgSR(msg){
+  try{ fetch('/api/debug/log',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({level:'info',tag:'GUARDIAN_SR',msg:'web_'+msg,data:'SID='+(!!SID)+' sos='+_sosInProgress+' active='+_vocalActive})}); }catch(e){}
+}
+// Issue #32 — phrase complète capturée + contexte on-device (circonstances probables).
+var _voiceTranscript='';
+var _voiceContext='';
+window.lunaEmergencyVoiceDetected=function(text, confidence, context){
+  _dbgSR('emergency_received');
+  if(!SID){ _dbgSR('bail_no_session'); return; }
+  if(_sosInProgress){ _dbgSR('bail_sos_in_progress'); return; }
+  _voiceTranscript=(text||'').toString();
+  _voiceContext=(context||'').toString();
+  _dbgSR('opening_countdown');
+  openVocalCountdown();
+  // Enrichissement SERVEUR best-effort : upgrade le résumé affiché pendant le countdown.
+  _enrichVoiceContext(_voiceTranscript);
+};
+
+// Affiche « Contexte détecté : … » (+ la phrase entendue) dans le panneau countdown.
+function _renderVoiceContext(){
+  var el=document.getElementById('vocal-context'); if(!el) return;
+  if(!_voiceContext && !_voiceTranscript){ el.style.display='none'; return; }
+  var parts=[];
+  if(_voiceContext) parts.push('<strong>'+escH(_voiceContext)+'</strong>');
+  if(_voiceTranscript) parts.push('<span style="color:var(--muted);">« '+escH(_voiceTranscript)+' »</span>');
+  el.innerHTML=parts.join('<br>');
+  el.style.display='block';
+}
+
+// Demande au serveur un résumé enrichi (LLM) de la phrase captée, sans bloquer le countdown.
+function _enrichVoiceContext(transcript){
+  if(!transcript) return;
+  try{
+    authFetch('/api/guardian/voice-context',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({transcript:transcript})
+    }).then(function(r){return r.json();}).then(function(d){
+      if(d&&d.summary){ _voiceContext=d.summary; if(_vocalActive) _renderVoiceContext(); }
+    }).catch(function(){});
+  }catch(e){}
+}
+
+function cancelVocalCountdown(){
+  if(!_vocalActive) return;
+  clearInterval(_vocalTimer); _vocalTimer=null;
+  _vocalActive=false;
+  document.getElementById('vocal-modal').classList.remove('open');
+  showToast('✅ Annulé — aucune alerte envoyée',3000);
+  vibrate([50]);
+  _voiceLog('voice_cancelled','user_cancel');
+  guardianSpeak('État d\'urgence désactivé.');
+}
+function _triggerSOSVocal(){
+  if(!SID||_sosInProgress) return;
+  _sosInProgress=true;
+  var iid=_genIncidentId();
+  vibrate([500,150,500,150,800]);
+  guardianSpeak('Contact d\'urgence activé.');
+  // P1 — Activer tracking GPS renforcé immédiatement
+  _eemStart(iid,'vocal');
+  authFetch('/api/guardian/sos/'+SID,{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({incident_id:iid,source:'vocal',context:_voiceContext||'',transcript:_voiceTranscript||''})
+  }).then(function(r){
+    return r.json().then(function(d){return {status:r.status,data:d};});
+  }).then(function(res){
+    if(res.status===409){showToast('⏳ Alerte déjà envoyée',3000);return;}
+    var d=res.data;
+    var summary=_formatAlertSummary(d);
+    showToast('🆘 '+(d.message||'SOS envoyé'),6000);
+    _voiceLog('voice_alert_sent',(d.sms_sent_to||0)+'sms/'+(d.dm_sent_to||0)+'dm/'+(d.calls_placed||0)+'calls');
+    // Confirmation vocale officielle — toujours audible
+    guardianSpeak('Contact d\'urgence activé. Vos contacts ont été prévenus.');
+    updateRisk(1,'critical','SOS vocal');
+    showAlertOnMap('🆘 SOS vocal — ' + summary,
+      LAST_POS?LAST_POS.lat:null,LAST_POS?LAST_POS.lng:null);
+    breakStreak(); loadEvents();
+    // P2 — Audio après confirmation (non-bloquant)
+    _eemStartAudio(iid);
+    // P3 — Camera 3 snapshots (non-bloquant)
+    _eemStartCamera(iid);
+  }).catch(function(e){showToast('❌ SOS: '+(e.message||'erreur'));})
+  .finally(function(){_sosInProgress=false;});
 }
 
 // ── VERIFY ────────────────────────────────────
@@ -1083,6 +1864,9 @@ function openVerifyModal(msg){
 }
 function verifyResponse(ok){
   document.getElementById('verify-modal').classList.remove('open');
+  // Annuler le timeout check-in si l'utilisateur répond
+  _checkInPending=false;
+  if(_checkInWait){clearTimeout(_checkInWait);_checkInWait=null;}
   if(!SID) return;
   vibrate([ok?60:[200,100,200]]);
   if(ok) markCheckin();
@@ -1125,7 +1909,8 @@ var _evIcons={
   location_update:'📍', geofence_exit:'⚠️', geofence_enter:'🏠',
   alert_triggered:'🔔', alert_escalated:'📢', sos_triggered:'🆘',
   verification_needed:'❓', verified_ok:'✅', session_stopped:'⏹️',
-  immobility:'🪑', walk:'🚶', perception_concern:'👁'
+  immobility:'🪑', walk:'🚶', perception_concern:'👁',
+  fall_detected:'🫸'
 };
 function loadEvents(){
   if(!SID) return;
@@ -1133,7 +1918,7 @@ function loadEvents(){
   .then(function(r){return r.json();}).then(function(data){
     var evts=data.events||[];
     var badge=document.getElementById('ev-badge');
-    var alertCount=evts.filter(function(e){return['alert_triggered','sos_triggered','geofence_exit'].indexOf(e.event_type)>=0;}).length;
+    var alertCount=evts.filter(function(e){return['alert_triggered','sos_triggered','geofence_exit','fall_detected'].indexOf(e.event_type)>=0;}).length;
     if(alertCount>0){badge.style.display='inline';badge.textContent=alertCount;}
     else badge.style.display='none';
     var list=document.getElementById('ev-list');
@@ -1209,9 +1994,17 @@ function showDailySummary(){
 
 // ── STATUS UI ─────────────────────────────────
 function setHdrStatus(label,color,live){
-  document.getElementById('hdr-status').textContent=label||'';
-  document.getElementById('hdr-dot').style.background=color||'var(--muted)';
-  document.getElementById('hdr-dot').className=live?(RISK_LEVEL==='high'||RISK_LEVEL==='critical'?'alert':'live'):'';
+  var el=document.getElementById('hdr-status');
+  var show=label&&label!=='Inactif'&&label!=='Arrêté';
+  el.textContent=show?label:'';
+  el.style.display=show?'inline-block':'none';
+  if(show&&color){
+    el.style.color=color; el.style.background=color+'22';
+    el.style.borderColor=color+'44';
+  } else { el.style.color=''; el.style.background=''; el.style.borderColor=''; }
+  var dot=document.getElementById('hdr-dot');
+  dot.style.background=''; // laisser les classes CSS gérer la couleur
+  dot.className=live?(RISK_LEVEL==='high'||RISK_LEVEL==='critical'?'alert':'live'):'';
 }
 
 // ── UTILS ─────────────────────────────────────
@@ -1221,133 +2014,115 @@ function showToast(msg,ms){
   clearTimeout(t._tid); t._tid=setTimeout(function(){t.classList.remove('show');},ms||2500);
 }
 
-// ── CAMERA ────────────────────────────────────
-var _camStream=null, _camTimer=null, CAM_STATE='inactive';
+// ── BRIDGE ANDROID : détection de chute ──────
+// Appelé par MainActivity.java via evaluateJavascript quand l'accéléromètre détecte une chute.
+// L'overlay natif Android gère le compte à rebours — ici on met juste à jour l'UI WebView.
+window.lunaFallDetected = function(sessionId, seconds) {
+  if(!SID) return;
+  updateRisk(0.85,'high','Chute détectée');
+  showToast('⚠️ Chute détectée — répondez dans '+seconds+'s',seconds*1000);
+  vibrate([500,150,500,150,500]);
+  maybeSpeak('Luna a détecté une chute. Appuyez sur Je vais bien si tout va bien.');
+  // Ouvrir la modal de vérification comme fallback si l'overlay natif n'est pas disponible
+  if(!window.LunaBridge) openVerifyModal('⚠️ Chute détectée par le capteur. Tout va bien ?');
+};
 
-function _setCamState(state,extra){
-  CAM_STATE=state;
-  var badge=document.getElementById('cam-badge');
-  var txt=document.getElementById('cam-state-txt');
-  var labels={inactive:'Caméra inactive',active:'Caméra active',
-    refused:'Caméra refusée',external:'Caméra externe',
-    unavailable:'Caméra indisponible',sending:'Analyse…'};
-  txt.textContent=(labels[state]||state)+(extra?' — '+extra:'');
-  badge.className=state;
-  badge.style.display=SID?'flex':'none';
-  var on=(state==='active'||state==='external'||state==='sending');
-  var bc=document.getElementById('btn-cam'), bs=document.getElementById('btn-cam-stop');
-  if(bc) bc.style.display=on?'none':'';
-  if(bs) bs.style.display=on?'':'none';
+// Appelé par MainActivity.java quand l'utilisateur annule depuis l'overlay natif.
+window.lunaFallCancelled = function() {
+  document.getElementById('verify-modal').classList.remove('open');
+  updateRisk(0,'low','');
+  showToast('✅ Chute annulée — tout va bien',3000);
+  markCheckin();
+};
+
+// ── CONTACTS DE CONFIANCE ─────────────────────
+// ── CONTACTS — avatars chips ──────────────────
+var _smsContacts=[], _gFriendsAll=[];
+var _avatarPalette=['#6366f1','#8b5cf6','#ec4899','#f59e0b','#10b981','#3b82f6','#ef4444','#14b8a6'];
+function _avatarColor(name){
+  var h=0; for(var i=0;i<name.length;i++) h=(h*31+name.charCodeAt(i))&0xffff;
+  return _avatarPalette[h%_avatarPalette.length];
+}
+function _initials(name){
+  var p=(name||'?').trim().split(/\s+/);
+  return (p[0][0]+(p[1]?p[1][0]:'')).toUpperCase();
+}
+function _contactChip(name,badge,badgeClass){
+  var color=_avatarColor(name);
+  var inits=_initials(name);
+  var short=name.length>10?name.split(/\s+/)[0]:name;
+  return '<div class="contact-chip">'
+    +'<span class="contact-avatar" style="background:'+color+'">'+inits+'</span>'
+    +'<span class="contact-name">'+escH(short)+'</span>'
+    +'<span class="contact-badge '+badgeClass+'">'+badge+'</span>'
+    +'</div>';
+}
+function _renderContactChips(){
+  var el=document.getElementById('contacts-chips');
+  if(!el) return;
+  var html='';
+  _smsContacts.forEach(function(c){
+    var name=c.name||c.first_name||'Contact';
+    html+=_contactChip(name,'SMS','sms');
+  });
+  var trusted=_gFriendsAll.filter(function(f){return f.is_guardian_contact;});
+  trusted.forEach(function(f){
+    var name=f.nickname||'Ami';
+    var badge=f.is_online?'Luna 🟢':'Luna';
+    var cls=f.is_online?'online':'luna';
+    html+=_contactChip(name,badge,cls);
+  });
+  if(!html){
+    el.innerHTML='<span style="font-size:.75em;color:var(--red);">Aucun contact configuré</span>';
+  } else {
+    el.innerHTML=html;
+  }
+}
+function loadContacts(){
+  authFetch('/api/contacts').then(function(r){return r.json();}).then(function(d){
+    _smsContacts=d.contacts||[];
+    _renderContactChips();
+  }).catch(function(){});
 }
 
-async function cameraStart(){
-  if(!SID){showToast('Démarrez Guardian d\'abord');return;}
-  var extUrl=(document.getElementById('cfg-cam-url')||{}).value||'';
-  extUrl=extUrl.trim();
-
-  if(extUrl){
-    // Caméra externe (flux MJPEG ou HTTP)
-    var video=document.getElementById('cam-video');
-    video.src=extUrl;
-    video.crossOrigin='anonymous';
-    video.onloadeddata=function(){
-      _setCamState('external'); _startCamLoop();
-      showToast('🔵 Caméra externe connectée'); vibrate([40]);
-    };
-    video.onerror=function(){
-      _setCamState('unavailable','URL inaccessible');
-      showToast('❌ Caméra externe inaccessible',3500);
-    };
-    video.load();
+// ── AMIS LUNA PROTECTEURS ─────────────────────
+function loadGuardianFriends(){
+  authFetch('/api/social/friends').then(function(r){return r.json();}).then(function(d){
+    _gFriendsAll=d.friends||[];
+    _renderContactChips();
+    _renderGuardianCfg();
+  }).catch(function(){});
+}
+function _renderGuardianBar(){
+  // Kept for compatibility — chips now rendered by _renderContactChips
+  _renderContactChips();
+}
+function _renderGuardianCfg(){
+  var el=document.getElementById('guardian-friends-cfg');
+  if(!el) return;
+  if(!_gFriendsAll.length){
+    el.innerHTML='<span style="color:var(--muted);">Aucun ami Luna pour l\'instant.</span>';
     return;
   }
-
-  // Caméra interne
-  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){
-    _setCamState('unavailable'); showToast('Caméra non disponible',3000); return;
-  }
-  try{
-    _camStream=await navigator.mediaDevices.getUserMedia({
-      video:{facingMode:'environment',width:{ideal:320},height:{ideal:240}},audio:false});
-    var video=document.getElementById('cam-video');
-    video.srcObject=_camStream;
-    await video.play();
-    _setCamState('active'); _startCamLoop();
-    showToast('🎥 Caméra active — analyse toutes les 10s'); vibrate([40]);
-  }catch(e){
-    if(e.name==='NotAllowedError'||e.name==='PermissionDeniedError'){
-      _setCamState('refused'); showToast('Caméra refusée',3000);
-    } else {
-      _setCamState('unavailable'); showToast('Caméra indisponible: '+e.message,3000);
-    }
-  }
+  el.innerHTML=_gFriendsAll.map(function(f){
+    var chk=f.is_guardian_contact?'checked':'';
+    var online=f.is_online?'<span style="color:var(--green);font-size:.75em;margin-left:4px;">● en ligne</span>':'';
+    return '<label style="display:flex;align-items:center;gap:8px;padding:5px 0;cursor:pointer;">'
+      +'<input type="checkbox" '+chk+' onchange="toggleGuardianFriend('+f.tid+',this.checked)">'
+      +'<span>'+(f.nickname||'Ami')+online+'</span>'
+      +'</label>';
+  }).join('');
 }
-
-function cameraStop(){
-  _stopCamLoop();
-  var video=document.getElementById('cam-video');
-  if(_camStream){_camStream.getTracks().forEach(function(t){t.stop();}); _camStream=null;}
-  video.srcObject=null; video.src='';
-  _setCamState('inactive');
-  document.getElementById('cam-result').style.display='none';
-  showToast('🎥 Caméra désactivée');
-}
-
-function _startCamLoop(){
-  _stopCamLoop();
-  _sendFrame();
-  _camTimer=setInterval(_sendFrame,10000);
-}
-function _stopCamLoop(){
-  if(_camTimer){clearInterval(_camTimer); _camTimer=null;}
-}
-
-function _sendFrame(){
-  if(!SID||(CAM_STATE!=='active'&&CAM_STATE!=='external')) return;
-  var video=document.getElementById('cam-video');
-  var canvas=document.getElementById('cam-canvas');
-  if(!video||!canvas) return;
-  var W=320,H=240;
-  canvas.width=W; canvas.height=H;
-  var ctx=canvas.getContext('2d');
-  try{ ctx.drawImage(video,0,0,W,H); }catch(e){return;} // video pas prête
-  var frame=canvas.toDataURL('image/jpeg',0.65).split(',')[1];
-  if(!frame||frame.length<200) return; // frame noire/vide
-  _setCamState('sending');
-  authFetch('/api/guardian/frame/'+SID,{
-    method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({frame:frame,width:W,height:H})
-  }).then(function(r){return r.json();}).then(function(d){
-    _setCamState(CAM_STATE==='sending'?(d.error?'inactive':((_camStream||document.getElementById('cam-video').src)?'active':'inactive')):CAM_STATE);
-    // Restaure l'état correct après 'sending'
-    if(_camStream) _setCamState('active');
-    else if(document.getElementById('cam-video').src) _setCamState('external');
-    if(d.description&&d.description!=='Analyse indisponible'){
-      var r2=document.getElementById('cam-result');
-      document.getElementById('cam-result-txt').textContent='👁 '+d.description;
-      r2.style.display='block';
-      _layoutCamResult();
-    }
-    if(d.has_concern){
-      showToast('⚠️ Situation inhabituelle détectée',4000);
-      loadEvents(); vibrate([300,100,300]);
-    }
-  }).catch(function(){
-    if(_camStream) _setCamState('active');
-    else if(document.getElementById('cam-video').src) _setCamState('external');
-  });
-}
-
-function _layoutCamResult(){
-  var addrCard=document.getElementById('addr-card');
-  var top=addrCard&&addrCard.style.display!=='none'?(62+addrCard.offsetHeight+8):70;
-  document.getElementById('cam-result').style.top=top+'px';
-}
-
-function toggleCamDetails(){
-  var r=document.getElementById('cam-result');
-  if(r.style.display==='none'||!r.style.display) _sendFrame();
-  else r.style.display='none';
+function toggleGuardianFriend(friend_tid,add){
+  var method=add?'POST':'DELETE';
+  authFetch('/api/guardian/trusted-friends/'+friend_tid,{method:method}).then(function(){
+    _gFriendsAll=_gFriendsAll.map(function(f){
+      if(f.tid===friend_tid) f.is_guardian_contact=add; return f;
+    });
+    _renderGuardianBar();
+    _renderGuardianCfg();
+    showToast(add?'✅ Ami ajouté comme protecteur':'✅ Ami retiré des protecteurs');
+  }).catch(function(){ showToast('❌ Erreur — réessaie'); });
 }
 
 // ── INIT : reprise session active ─────────────
@@ -1355,11 +2130,13 @@ function toggleCamDetails(){
   authFetch('/api/guardian/sessions').then(function(r){return r.json();}).then(function(d){
     if(d.sessions&&d.sessions.length>0){
       var s=d.sessions[0]; SID=s.session_id;
-      setHdrStatus('Reprise — '+(s.profile_type||'?'),null,true);
+      syncAuthToken();
+      if(window.LunaBridge&&LunaBridge.setGuardianSession) LunaBridge.setGuardianSession(SID);
+      setHdrStatus('ACTIF',null,true);
       document.getElementById('btn-start').style.display='none';
-      document.getElementById('btn-stop').style.display='';
-      document.getElementById('btn-sos').style.display='';
-      document.getElementById('btn-share').style.display='';
+      document.getElementById('btn-sos').style.display='flex';
+      document.getElementById('ctrls-row2').style.display='flex';
+      document.getElementById('btn-share').style.display='flex';
       document.getElementById('addr-card').style.display='block';
       document.getElementById('timeline-wrap').style.display='';
       document.getElementById('rgpd-banner').style.display='flex';
@@ -1367,6 +2144,16 @@ function toggleCamDetails(){
       document.getElementById('voice-chk').checked=(localStorage.getItem('luna_voice')==='1');
       showTrustBar(true);
       updateRisk(0,s.alert_level||'low','');
+      document.getElementById('contacts-bar').style.display='block';
+      loadContacts();
+      // REPRISE de session : même logique que le démarrage — dans l'APK, écoute VOSK
+      // silencieuse via le service (pas de Web Speech qui bipe). Navigateur → Web Speech.
+      if(window.LunaBridge&&LunaBridge.setGuardianProtection){
+        try{ LunaBridge.setGuardianProtection(true, false); }catch(e){}
+        _setVoskActiveUI();
+      } else {
+        _vocalStartWithWatchdog();
+      }
       _layoutUpdate(); connectWs(); startGps(); loadEvents();
     } else {
       openPerm();

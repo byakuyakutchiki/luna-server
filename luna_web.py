@@ -15621,21 +15621,36 @@ async def guardian_sos(session_id: str, request: Request):
                 call_results["failed"] += 1
                 logger.error(f"SOS call failed for {_phone}: {_e}")
 
-    total_sent = len(sms_results.get("sent", [])) + len(dm_results.get("sent", []))
+    sms_sent = len(sms_results.get("sent", []))
+    dm_sent = len(dm_results.get("sent", []))
+    total_sent = sms_sent + dm_sent
     total_blocked = len(sms_results.get("blocked", []))
+    calls_placed = call_results.get("placed", 0)
     _gamify(tid, "guardian_sos")
     response = {
         "success": True,
         "event": event.to_dict(),
         "alerts_sent_to": total_sent,
-        "calls_placed": call_results.get("placed", 0),
+        "sms_sent_to": sms_sent,
+        "dm_sent_to": dm_sent,
+        "calls_placed": calls_placed,
         "guardian_sms_enabled": GUARDIAN_SMS_ENABLED,
         "sms_blocked": total_blocked,
     }
+    # Message utilisateur détaillé : sépare contacts SMS et amis Luna (Issue contacts).
+    parts = []
+    if sms_sent:
+        parts.append(f"{sms_sent} contact{'s' if sms_sent > 1 else ''} par SMS")
+    if dm_sent:
+        parts.append(f"{dm_sent} ami{'s' if dm_sent > 1 else ''} par Luna")
+    if calls_placed:
+        parts.append(f"{calls_placed} appel{'s' if calls_placed > 1 else ''} passé")
     if total_blocked:
         response["message"] = f"SOS enregistré — {total_blocked} SMS Guardian bloqués par configuration"
+    elif parts:
+        response["message"] = "SOS envoyé : " + ", ".join(parts)
     else:
-        response["message"] = f"SOS envoyé à {total_sent} contact(s)"
+        response["message"] = "SOS enregistré — aucune alerte envoyée"
     return response
 
 
