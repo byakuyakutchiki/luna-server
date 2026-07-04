@@ -1647,6 +1647,8 @@ function _vocalMatch(transcript){
     return true;
   });
   if(hit){
+    _voiceTranscript=transcript||'';
+    _voiceContext=transcript||'';
     _traceGuardian('web_sr_hit',{path:'_vocalMatch', transcript:transcript||'', keywordMatched:true, voiceTranscript:_voiceTranscript, voiceContext:_voiceContext});
     openVocalCountdown();
   } else {
