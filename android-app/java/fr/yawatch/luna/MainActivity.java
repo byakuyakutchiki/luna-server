@@ -51,8 +51,8 @@ import java.security.MessageDigest;
 
 public class MainActivity extends Activity {
 
-    // URL backend : production Luna Beta / Guardian
-    private static final String LUNA_URL = "https://luna-beta-gly3g647na-ew.a.run.app/guardian";
+    // URL backend : TRACE revision Luna Beta / Guardian (test APK)
+    private static final String LUNA_URL = "https://trace---luna-beta-gly3g647na-ew.a.run.app/guardian";
     private static final int PERMISSION_REQUEST_CODE = 100;
     private static final int NOTIFICATION_PERMISSION_CODE = 101;
     private static final int FILE_CHOOSER_REQUEST_CODE = 102;
