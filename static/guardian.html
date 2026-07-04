@@ -1646,7 +1646,12 @@ function _vocalMatch(transcript){
     }
     return true;
   });
-  if(hit) openVocalCountdown();
+  if(hit){
+    // Issue #32 : conserver la phrase entière (mot-clé + contexte) pour l'alerte.
+    _voiceTranscript=(transcript||'').toString();
+    _voiceContext=_voiceTranscript;
+    openVocalCountdown();
+  }
 }
 
 function _vocalScheduleRestart(delayMs){
@@ -1813,6 +1818,8 @@ function cancelVocalCountdown(){
   if(!_vocalActive) return;
   clearInterval(_vocalTimer); _vocalTimer=null;
   _vocalActive=false;
+  _voiceTranscript='';
+  _voiceContext='';
   document.getElementById('vocal-modal').classList.remove('open');
   showToast('✅ Annulé — aucune alerte envoyée',3000);
   vibrate([50]);
@@ -1850,7 +1857,11 @@ function _triggerSOSVocal(){
     // P3 — Camera 3 snapshots (non-bloquant)
     _eemStartCamera(iid);
   }).catch(function(e){showToast('❌ SOS: '+(e.message||'erreur'));})
-  .finally(function(){_sosInProgress=false;});
+  .finally(function(){
+    _sosInProgress=false;
+    _voiceTranscript='';
+    _voiceContext='';
+  });
 }
 
 // ── VERIFY ────────────────────────────────────
