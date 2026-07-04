@@ -1622,12 +1622,29 @@ function _setVoskActiveUI(){
   _vocalListening=true;
 }
 
-function _vocalMatch(transcript){
-  var n=_norm(transcript);
+function _vocalMatch(transcript,isFinal){
+  var t=(transcript||'').trim();
+  var n=_norm(t);
   if(_vocalActive){
     if(CANCEL_KW.some(function(k){return n.includes(_norm(k));})) cancelVocalCountdown();
     return;
   }
+
+  // Capture du contexte après un hit : accumulation jusqu'au silence (isFinal) ou timeout
+  if(_voiceCaptureActive){
+    if(t){
+      _voiceTranscript=t;
+      _voiceContext=t;
+      _traceGuardian('web_sr_context',{isFinal:!!isFinal, transcript:t, voiceContext:_voiceContext});
+    }
+    if(isFinal){
+      _traceGuardian('web_sr_capture_final',{voiceTranscript:_voiceTranscript, voiceContext:_voiceContext});
+      _stopVoiceCapture();
+      openVocalCountdown();
+    }
+    return;
+  }
+
   // Match par séquence de mots ENTIÈRE (bornée par des espaces) — évite "secours"
   // au milieu d'un mot. (L'annulation, elle, reste large : mieux vaut sur-annuler.)
   var _padded=' '+n+' ';
@@ -1647,12 +1664,17 @@ function _vocalMatch(transcript){
     return true;
   });
   if(hit){
-    _voiceTranscript=transcript||'';
-    _voiceContext=transcript||'';
-    _traceGuardian('web_sr_hit',{path:'_vocalMatch', transcript:transcript||'', keywordMatched:true, voiceTranscript:_voiceTranscript, voiceContext:_voiceContext});
-    openVocalCountdown();
+    _voiceTranscript=t;
+    _voiceContext=t;
+    _traceGuardian('web_sr_hit',{path:'_vocalMatch', transcript:t, keywordMatched:true, voiceTranscript:_voiceTranscript, voiceContext:_voiceContext});
+    _voiceCaptureActive=true;
+    _voiceCaptureTimer=setTimeout(function(){
+      _traceGuardian('web_sr_capture_timeout',{voiceTranscript:_voiceTranscript, voiceContext:_voiceContext});
+      _stopVoiceCapture();
+      openVocalCountdown();
+    },4000);
   } else {
-    _traceGuardian('web_sr_no_hit',{path:'_vocalMatch', transcript:transcript||'', keywordMatched:false});
+    _traceGuardian('web_sr_no_hit',{path:'_vocalMatch', transcript:t, keywordMatched:false});
   }
 }
 
@@ -1683,8 +1705,12 @@ function _vocalStart(){
 
   rec.onresult=function(e){
     var t='';
-    for(var i=e.resultIndex;i<e.results.length;i++) t+=e.results[i][0].transcript;
-    _vocalMatch(t);
+    var isFinal=false;
+    for(var i=0;i<e.results.length;i++){
+      t+=e.results[i][0].transcript;
+      if(e.results[i].isFinal) isFinal=true;
+    }
+    _vocalMatch(t,isFinal);
   };
 
   rec.onerror=function(e){
@@ -1796,6 +1822,8 @@ function _traceGuardian(step, payload){
 // Issue #32 — phrase complète capturée + contexte on-device (circonstances probables).
 var _voiceTranscript='';
 var _voiceContext='';
+var _voiceCaptureActive=false;
+var _voiceCaptureTimer=null;
 window.lunaEmergencyVoiceDetected=function(text, confidence, context){
   _dbgSR('emergency_received');
   _traceGuardian('vosk_received',{path:'lunaEmergencyVoiceDetected', text:text||'', confidence:confidence, context:context||''});
@@ -1834,7 +1862,13 @@ function _enrichVoiceContext(transcript){
   }catch(e){}
 }
 
+function _stopVoiceCapture(){
+  _voiceCaptureActive=false;
+  if(_voiceCaptureTimer){ clearTimeout(_voiceCaptureTimer); _voiceCaptureTimer=null; }
+}
+
 function cancelVocalCountdown(){
+  _stopVoiceCapture();
   if(!_vocalActive) return;
   clearInterval(_vocalTimer); _vocalTimer=null;
   _vocalActive=false;
