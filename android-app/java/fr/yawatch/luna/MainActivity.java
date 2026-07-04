@@ -83,6 +83,11 @@ public class MainActivity extends Activity {
     private int notificationId = 1000;
     private View splashView;
 
+    // Anti-double-clic sur telechargement APK
+    private String lastDownloadUrl = "";
+    private long lastDownloadTime = 0;
+    private static final long DOWNLOAD_DEBOUNCE_MS = 4000;
+
     // Version / compatibilite backend
     private String backendVersion = "unknown";
     private String backendRevision = "unknown";
@@ -303,6 +308,14 @@ public class MainActivity extends Activity {
             @Override
             public void onDownloadStart(String url, String userAgent, String contentDisposition, String mimetype, long contentLength) {
                 try {
+                    // Garde-fou anti-double-clic / anti-superposition
+                    long now = System.currentTimeMillis();
+                    if (url != null && url.equals(lastDownloadUrl) && (now - lastDownloadTime) < DOWNLOAD_DEBOUNCE_MS) {
+                        return;
+                    }
+                    lastDownloadUrl = url != null ? url : "";
+                    lastDownloadTime = now;
+
                     DownloadManager.Request request = new DownloadManager.Request(Uri.parse(url));
                     request.setTitle("Luna - Mise a jour");
                     request.setDescription("Telechargement de la mise a jour Luna...");
