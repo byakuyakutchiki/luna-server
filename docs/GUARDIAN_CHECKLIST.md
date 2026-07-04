@@ -140,10 +140,14 @@ Anomalie : interface affichait "3 contacts alertés" alors qu'un seul était enr
 
 - [x] Reproduit avec session active
 - [x] Explication trouvée : `total_sent = SMS + DM Luna`
-- [ ] Décider du wording correct
-- [ ] Corriger backend ou frontend
+- [x] Décider du wording correct (Option A : séparer les compteurs)
+- [x] Corriger backend et frontend
 
-Détail : avec 1 contact SMS + 2 amis Luna en DM, le backend renvoie `alerts_sent_to: 3`.
+Détail : avec 1 contact SMS + 2 amis Luna en DM, le backend renvoie maintenant :
+- `sms_sent_to: 1`
+- `dm_sent_to: 2`
+- `calls_placed: 1`
+- message : "SOS envoyé : 1 contact par SMS, 2 amis par Luna, 1 appel passé"
 
 ---
 
