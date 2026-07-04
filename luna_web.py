@@ -15149,7 +15149,7 @@ def _guardian_dedup(tid: int, incident_id: str, ttl: int = 30) -> bool:
     if not _redis_client or not incident_id:
         return True
     safe_id = incident_id[:64].replace(":", "_")
-    key = f"luna:{tid}:guardian:incident:{safe_id}"
+    key = f"luna:{tid}:guardian:incident_lock:{safe_id}"
     return bool(_redis_client.client.set(key, "1", nx=True, ex=ttl))
 
 
