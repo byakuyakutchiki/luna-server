@@ -517,7 +517,134 @@ Les tests historiques `test_guardian_apk_vosk_trigger_static.py`, `test_guardian
 
 ---
 
-## 14. Décision demandée
+## 14. Déploiement trace 0 % — première tentative
 
-Les preuves fonctionnelles sont fournies. Aucun déploiement n'est effectué.  
-**Prochaine étape sur validation** : déploiement trace 0 % uniquement, puis test réel par Ludovic avant promotion.
+### Commande utilisée
+
+```bash
+rm -rf /tmp/luna-deploy-6638062
+mkdir -p /tmp/luna-deploy-6638062
+git archive --format=tar 6638062 | (cd /tmp/luna-deploy-6638062 && tar xf -)
+cd /tmp/luna-deploy-6638062
+./deploy.sh --no-traffic --tag trace
+```
+
+### Résultat
+
+```
+Service [luna-beta] revision [luna-beta-00984-zew] has been deployed and is serving 0 percent of traffic.
+The revision can be reached directly at https://trace---luna-beta-gly3g647na-ew.a.run.app
+```
+
+### Vérification trafic
+
+```
+NAME       REVISION_NAME        PERCENT  TAG
+luna-beta  luna-beta-00970-bad  100
+```
+
+---
+
+## 15. Retour terrain — appel manquant
+
+Test de Ludovic sur `luna-beta-00984-zew` :
+
+- ✅ Contexte vocal capturé.
+- ✅ Compte à rebours OK.
+- ✅ SMS reçu après countdown.
+- ✅ Pas de doublon.
+- ❌ **Aucun appel reçu.**
+
+Erreur Sentry :
+
+```
+SOS call failed for +33658477952:
+'TwilioVoiceClient' object has no attribute 'initiate_announcement_call'
+```
+
+**Cause** : `initiate_announcement_call` et `get_call_status` étaient présents dans le working tree mais n'avaient jamais été commitées. Le `git archive` n'a donc pas embarqué ces méthodes.
+
+Audit détaillé dans `docs/AGENTS_COLLABORATION/agents/KIMI_AUDIT_GUARDIAN_SOS_CALL_BACKEND.md`.
+
+---
+
+## 16. Patch backend uniquement
+
+### Fichier modifié
+
+| Fichier | Modification |
+|---|---|
+| `integrations/twilio/voice_client.py` | Ajout de `initiate_announcement_call()` et `get_call_status()` |
+
+Aucune modification de `static/guardian.html`, `static/index.html`, `static/salon.html`, `static/simli.html`, `luna_web.py`, `core/guardian/engine.py`.
+
+### Commit
+
+```
+ad25eb8 fix(twilio): ajoute initiate_announcement_call et get_call_status manquants
+```
+
+---
+
+## 17. Déploiement trace 0 % — correction
+
+### Commande utilisée
+
+```bash
+rm -rf /tmp/luna-deploy-ad25eb8
+mkdir -p /tmp/luna-deploy-ad25eb8
+git archive --format=tar ad25eb8 | (cd /tmp/luna-deploy-ad25eb8 && tar xf -)
+cd /tmp/luna-deploy-ad25eb8
+./deploy.sh --no-traffic --tag trace
+```
+
+### Résultat
+
+```
+Service [luna-beta] revision [luna-beta-00985-jup] has been deployed and is serving 0 percent of traffic.
+The revision can be reached directly at https://trace---luna-beta-gly3g647na-ew.a.run.app
+```
+
+### Vérification trafic
+
+```
+NAME       REVISION_NAME        PERCENT  TAG
+luna-beta  luna-beta-00970-bad  100
+```
+
+**Confirmation** : la production reste sur `luna-beta-00970-bad` à 100 %.
+
+---
+
+## 18. Informations de test terrain (après correction)
+
+| Élément | Valeur |
+|---|---|
+| URL de test (trace) | `https://trace---luna-beta-gly3g647na-ew.a.run.app` |
+| URL Guardian | `https://trace---luna-beta-gly3g647na-ew.a.run.app/guardian` |
+| SHA Git déployé | `ad25eb866cde4e6e2a5efa6ca27c722f1ab70eec` |
+| Révision Cloud Run | `luna-beta-00985-jup` |
+| Tag | `trace` |
+| Trafic | **0 %** |
+| Production inchangée | `luna-beta-00970-bad` à 100 % |
+
+### Procédure de test recommandée
+
+1. **Sur ordinateur** : ouvrir `https://trace---luna-beta-gly3g647na-ew.a.run.app/guardian`.
+2. **Sur téléphone** : même URL dans Chrome/Safari.
+3. Prononcer exactement :
+   > « Au secours, il est devant la porte, il essaie d'entrer. »
+4. Observer :
+   - un seul panneau de countdown ;
+   - la phrase complète affichée ;
+   - un seul SMS, **un seul appel**.
+5. Vérifier les logs Cloud Run :
+   - `TRACE_web_sr_hit` une fois ;
+   - `WARNING:integrations.twilio.voice_client:[EMERGENCY CALL] lancé sid=...` une fois.
+
+---
+
+## 19. Décision demandée
+
+Les preuves fonctionnelles, le patch backend et le déploiement trace 0 % sont fournis.  
+**Prochaine étape sur validation terrain par Ludovic** : promotion de `luna-beta-00985-jup` vers 100 % de trafic.
