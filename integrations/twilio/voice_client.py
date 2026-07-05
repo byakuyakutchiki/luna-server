@@ -165,6 +165,65 @@ class TwilioVoiceClient:
             logger.error(f"Timeout appel vocal vers {to}")
             return False, {"error": "Timeout connexion Twilio"}
 
+    # ===================================================================
+    # APPEL D'URGENCE — annonce directe (TwiML <Say>), robuste
+    # ===================================================================
+    def initiate_announcement_call(self, to: str, message: str) -> Tuple[bool, Dict[str, Any]]:
+        """
+        Appel d'URGENCE robuste : Twilio appelle le destinataire et ANNONCE directement
+        un message vocal (TwiML <Say> inline, répété), SANS media-stream conversationnel.
+
+        Bien plus fiable que le flux Luna pour transmettre une alerte :
+        - aucune dépendance à VOICE_CALLBACK_URL ni au WebSocket media-stream,
+        - le message est délivré dès le décroché.
+        Retourne (True, {"call_sid","status","to"}) ou (False, {"error",...}).
+        """
+        from integrations.twilio.sms_client import TwilioSMSClient
+        to_normalized = TwilioSMSClient.normalize_phone(to)
+
+        # Mode test : ne JAMAIS appeler réellement
+        try:
+            if get_settings().foundation_test_mode:
+                logger.info(f"[SIMULATE][EMERGENCY CALL] -> {to_normalized} : {message[:90]}")
+                return True, {"simulated": True, "call_sid": "SIM_ANN_" + os.urandom(3).hex(), "to": to_normalized, "status": "simulated"}
+        except Exception:
+            pass
+
+        # Annonce = pas besoin de voice_callback_url, seulement les creds Twilio
+        if not all([self.account_sid, self.auth_token, self.from_number]):
+            return False, {"error": "Twilio non configuré (SID/token/numéro)"}
+
+        from twilio.twiml.voice_response import VoiceResponse
+        vr = VoiceResponse()
+        vr.pause(length=1)
+        # Répété 2x pour s'assurer que le proche entend bien (répondeur ou inattention)
+        for _ in range(2):
+            vr.say(message, voice="alice", language="fr-FR")
+            vr.pause(length=1)
+        twiml_str = str(vr)
+
+        try:
+            call = self.client.calls.create(
+                to=to_normalized,
+                from_=self.from_number,
+                twiml=twiml_str,
+                timeout=30,  # laisse sonner 30s
+            )
+            logger.warning(f"[EMERGENCY CALL] lancé sid={call.sid} -> {to_normalized} status={call.status}")
+            return True, {"call_sid": call.sid, "status": call.status, "to": to_normalized}
+        except Exception as e:
+            logger.error(f"[EMERGENCY CALL] échec vers {to_normalized}: [{getattr(e,'code',0)}] {e}")
+            return False, {"error": str(e), "code": getattr(e, "code", 0)}
+
+    def get_call_status(self, call_sid: str) -> str:
+        """Statut réel d'un appel Twilio : queued / ringing / in-progress / completed / no-answer / busy / failed / canceled."""
+        if not call_sid or str(call_sid).startswith("SIM"):
+            return "simulated"
+        try:
+            return self.client.calls(call_sid).fetch().status
+        except Exception as e:
+            return f"error:{e}"
+
     def generate_twiml(self, call_sid: str = "") -> str:
         """
         Genere le TwiML qui dit a Twilio d'ouvrir un Media Stream.
