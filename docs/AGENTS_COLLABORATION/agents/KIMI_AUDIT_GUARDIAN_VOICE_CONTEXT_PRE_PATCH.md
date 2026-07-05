@@ -1,10 +1,31 @@
-# Audit pré-patch — Guardian voice context sur UI stable
+# Audit — Guardian voice context sur UI stable
 
 **Agent** : Kimi Code CLI  
 **Branche auditée** : `fix/guardian-voice-context-on-stable-ui`  
+**Branche fusionnée** : `feature/pwa`  
 **Branche de base obligatoire** : `feature/pwa` (elle-même basée sur `stable/frontend-reference-2026-07-05`)  
 **Date** : 2026-07-03  
-**Statut** : audit terminé, correction NON appliquée — livrable écrit avant tout patch.
+**Date validation terrain** : 2026-07-05  
+**Statut** : ✅ **VALIDÉ EN TERRAIN** — déploiement trace testé avec succès par Ludovic.
+
+---
+
+## Validation terrain (2026-07-05)
+
+Test effectué sur `https://trace---luna-beta-gly3g647na-ew.a.run.app/guardian` (révision `luna-beta-00985-jup`).
+
+| Élément | Statut |
+|---|---|
+| Détection du mot-clé | ✅ |
+| Capture complète du contexte vocal | ✅ |
+| Compte à rebours conforme | ✅ |
+| Envoi du contexte au backend | ✅ |
+| SMS reçu | ✅ |
+| Appel reçu | ✅ |
+| Aucun doublon constaté | ✅ |
+| Fonctionnement sur URL de test | ✅ |
+
+Tag Git correspondant : `guardian-stable-2026-07-05` (commit `ad25eb8`).
 
 ---
 

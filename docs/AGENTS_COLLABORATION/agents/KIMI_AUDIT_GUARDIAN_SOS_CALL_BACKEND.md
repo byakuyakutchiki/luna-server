@@ -2,13 +2,33 @@
 
 **Agent** : Kimi Code CLI  
 **Date** : 2026-07-05  
-**Révision déployée en trace** : `luna-beta-00984-zew`  
-**Branche** : `fix/guardian-voice-context-on-stable-ui`  
-**Statut** : audit terminé, patch backend identifié, redéploiement trace 0 % requis.
+**Révision déployée en trace initiale** : `luna-beta-00984-zew`  
+**Révision déployée en trace corrigée** : `luna-beta-00985-jup`  
+**Branche** : `fix/guardian-voice-context-on-stable-ui` (mergée dans `feature/pwa`)  
+**Statut** : ✅ **CORRIGÉ ET VALIDÉ EN TERRAIN**
 
 ---
 
-## 1. Symptôme terrain (Ludovic)
+## Validation terrain (2026-07-05)
+
+Après application du patch backend et redéploiement trace (`luna-beta-00985-jup`) :
+
+| Élément | Statut |
+|---|---|
+| Détection du mot-clé | ✅ |
+| Capture complète du contexte vocal | ✅ |
+| Compte à rebours conforme | ✅ |
+| Envoi du contexte au backend | ✅ |
+| SMS reçu | ✅ |
+| **Appel reçu** | ✅ |
+| Aucun doublon constaté | ✅ |
+| Fonctionnement sur URL de test | ✅ |
+
+Tag Git correspondant : `guardian-stable-2026-07-05`.
+
+---
+
+## 1. Symptôme terrain initial (Ludovic)
 
 Test sur `https://trace---luna-beta-gly3g647na-ew.a.run.app/guardian` :
 
