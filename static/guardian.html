@@ -1625,12 +1625,29 @@ function _setVoskActiveUI(){
   _vocalListening=true;
 }
 
-function _vocalMatch(transcript){
-  var n=_norm(transcript);
-  if(_vocalActive){
-    if(CANCEL_KW.some(function(k){return n.includes(_norm(k));})) cancelVocalCountdown();
+function _vocalMatch(transcript,isFinal){
+  var t=(transcript||'').trim();
+  var n=_norm(t);
+  if(_vocalActive||_sosInProgress){
+    if(_vocalActive && CANCEL_KW.some(function(k){return n.includes(_norm(k));})) cancelVocalCountdown();
     return;
   }
+
+  // Capture du contexte après un hit : accumulation jusqu'au silence (isFinal) ou timeout
+  if(_voiceCaptureActive){
+    if(t){
+      _voiceTranscript=t;
+      _voiceContext=t;
+      _traceGuardian('web_sr_context',{isFinal:!!isFinal, transcript:t, voiceContext:_voiceContext});
+    }
+    if(isFinal){
+      _traceGuardian('web_sr_capture_final',{voiceTranscript:_voiceTranscript, voiceContext:_voiceContext});
+      _stopVoiceCapture();
+      openVocalCountdown();
+    }
+    return;
+  }
+
   // Match par séquence de mots ENTIÈRE (bornée par des espaces) — évite "secours"
   // au milieu d'un mot. (L'annulation, elle, reste large : mieux vaut sur-annuler.)
   var _padded=' '+n+' ';
@@ -1649,7 +1666,19 @@ function _vocalMatch(transcript){
     }
     return true;
   });
-  if(hit) openVocalCountdown();
+  if(hit){
+    _voiceTranscript=t;
+    _voiceContext=t;
+    _traceGuardian('web_sr_hit',{path:'_vocalMatch', transcript:t, keywordMatched:true, voiceTranscript:_voiceTranscript, voiceContext:_voiceContext});
+    _voiceCaptureActive=true;
+    _voiceCaptureTimer=setTimeout(function(){
+      _traceGuardian('web_sr_capture_timeout',{voiceTranscript:_voiceTranscript, voiceContext:_voiceContext});
+      _stopVoiceCapture();
+      openVocalCountdown();
+    },4000);
+  } else {
+    _traceGuardian('web_sr_no_hit',{path:'_vocalMatch', transcript:t, keywordMatched:false});
+  }
 }
 
 function _vocalScheduleRestart(delayMs){
@@ -1679,8 +1708,12 @@ function _vocalStart(){
 
   rec.onresult=function(e){
     var t='';
-    for(var i=e.resultIndex;i<e.results.length;i++) t+=e.results[i][0].transcript;
-    _vocalMatch(t);
+    var isFinal=false;
+    for(var i=0;i<e.results.length;i++){
+      t+=e.results[i][0].transcript;
+      if(e.results[i].isFinal) isFinal=true;
+    }
+    _vocalMatch(t,isFinal);
   };
 
   rec.onerror=function(e){
@@ -1761,6 +1794,11 @@ function openVocalCountdown(){
     if(n<=0){
       clearInterval(_vocalTimer); _vocalTimer=null;
       document.getElementById('vocal-modal').classList.remove('open');
+      // Anti-doublon : couper le micro AVANT de lever la garde _vocalActive
+      // pour éviter qu'un résultat Web Speech en vol ne déclenche un second countdown.
+      if(_vocalRec){ try{_vocalRec.abort();}catch(e){} _vocalRec=null; }
+      if(_vocalRestartT){ clearTimeout(_vocalRestartT); _vocalRestartT=null; }
+      _setMicState('off');
       _vocalActive=false;
       _triggerSOSVocal();
     }
@@ -1773,16 +1811,37 @@ function _dbgSR(msg){
   try{ fetch('/api/debug/log',{method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({level:'info',tag:'GUARDIAN_SR',msg:'web_'+msg,data:'SID='+(!!SID)+' sos='+_sosInProgress+' active='+_vocalActive})}); }catch(e){}
 }
+// Traçage terrain Guardian — utilisé temporairement pour prouver la chaîne vocale.
+// Ne change pas la logique métier, envoie juste des logs vers Cloud Run (tag GUARDIAN_SR).
+function _traceGuardian(step, payload){
+  try{
+    fetch('/api/debug/log',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        level:'info',
+        tag:'GUARDIAN_SR',
+        msg:'TRACE_'+step,
+        data:JSON.stringify(Object.assign({sid:SID||null, sosInProgress:!!_sosInProgress, vocalActive:!!_vocalActive}, payload||{}))
+      })
+    });
+  }catch(e){}
+}
 // Issue #32 — phrase complète capturée + contexte on-device (circonstances probables).
 var _voiceTranscript='';
 var _voiceContext='';
+var _voiceCaptureActive=false;
+var _voiceCaptureTimer=null;
 window.lunaEmergencyVoiceDetected=function(text, confidence, context){
   _dbgSR('emergency_received');
-  if(!SID){ _dbgSR('bail_no_session'); return; }
-  if(_sosInProgress){ _dbgSR('bail_sos_in_progress'); return; }
+  _traceGuardian('vosk_received',{path:'lunaEmergencyVoiceDetected', text:text||'', confidence:confidence, context:context||''});
+  if(!SID){ _dbgSR('bail_no_session'); _traceGuardian('vosk_bail',{reason:'no_session'}); return; }
+  if(_sosInProgress){ _dbgSR('bail_sos_in_progress'); _traceGuardian('vosk_bail',{reason:'sos_in_progress'}); return; }
+  if(_vocalActive){ _dbgSR('bail_vocal_active'); _traceGuardian('vosk_bail',{reason:'vocal_active'}); return; }
   _voiceTranscript=(text||'').toString();
   _voiceContext=(context||'').toString();
   _dbgSR('opening_countdown');
+  _traceGuardian('vosk_open_countdown',{transcript:_voiceTranscript, context:_voiceContext});
   openVocalCountdown();
   // Enrichissement SERVEUR best-effort : upgrade le résumé affiché pendant le countdown.
   _enrichVoiceContext(_voiceTranscript);
@@ -1812,10 +1871,18 @@ function _enrichVoiceContext(transcript){
   }catch(e){}
 }
 
+function _stopVoiceCapture(){
+  _voiceCaptureActive=false;
+  if(_voiceCaptureTimer){ clearTimeout(_voiceCaptureTimer); _voiceCaptureTimer=null; }
+}
+
 function cancelVocalCountdown(){
+  _stopVoiceCapture();
   if(!_vocalActive) return;
   clearInterval(_vocalTimer); _vocalTimer=null;
   _vocalActive=false;
+  _voiceTranscript='';
+  _voiceContext='';
   document.getElementById('vocal-modal').classList.remove('open');
   showToast('✅ Annulé — aucune alerte envoyée',3000);
   vibrate([50]);
@@ -1830,13 +1897,16 @@ function _triggerSOSVocal(){
   guardianSpeak('Contact d\'urgence activé.');
   // P1 — Activer tracking GPS renforcé immédiatement
   _eemStart(iid,'vocal');
+  var sosPayload={incident_id:iid,source:'vocal',context:_voiceContext||'',transcript:_voiceTranscript||''};
+  _traceGuardian('sos_request',{path:'_triggerSOSVocal', payload:sosPayload});
   authFetch('/api/guardian/sos/'+SID,{
     method:'POST',
     headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({incident_id:iid,source:'vocal',context:_voiceContext||'',transcript:_voiceTranscript||''})
+    body:JSON.stringify(sosPayload)
   }).then(function(r){
     return r.json().then(function(d){return {status:r.status,data:d};});
   }).then(function(res){
+    _traceGuardian('sos_response',{status:res.status, data:res.data});
     if(res.status===409){showToast('⏳ Alerte déjà envoyée',3000);return;}
     var d=res.data;
     var summary=_formatAlertSummary(d);
@@ -1852,8 +1922,15 @@ function _triggerSOSVocal(){
     _eemStartAudio(iid);
     // P3 — Camera 3 snapshots (non-bloquant)
     _eemStartCamera(iid);
-  }).catch(function(e){showToast('❌ SOS: '+(e.message||'erreur'));})
-  .finally(function(){_sosInProgress=false;});
+  }).catch(function(e){
+    _traceGuardian('sos_error',{error:e.message||String(e)});
+    showToast('❌ SOS: '+(e.message||'erreur'));
+  })
+  .finally(function(){
+    _sosInProgress=false;
+    _voiceTranscript='';
+    _voiceContext='';
+  });
 }
 
 // ── VERIFY ────────────────────────────────────
