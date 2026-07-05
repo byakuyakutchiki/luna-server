@@ -2,6 +2,7 @@
 var CACHE_NAME = "luna-v50";
 var PRECACHE_URLS = [
   "/",
+  "/guardian",
   "/static/index.html",
   "/static/manifest.json"
 ];

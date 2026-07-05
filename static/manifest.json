@@ -2,11 +2,13 @@
   "name": "Luna - YAWatch",
   "short_name": "Luna",
   "description": "Ton compagnon bienveillant, disponible 24h/24",
-  "start_url": "/",
+  "id": "/guardian",
+  "start_url": "/guardian",
+  "scope": "/",
   "display": "standalone",
   "orientation": "any",
   "background_color": "#0a0a1a",
-  "theme_color": "#1a1a3e",
+  "theme_color": "#080810",
   "icons": [
     {
       "src": "/static/icon-192.png",
