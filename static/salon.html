@@ -22,6 +22,9 @@ html, body {
   --text: #e0e0e0; --text-dim: #888; --text-bright: #fff;
   --green: #4caf50; --red: #f44336; --blue: #2196f3;
   --safe-bottom: env(safe-area-inset-bottom, 0px);
+  /* Hauteur visible réelle (pilotée en JS) — fiabilise le plein écran sur WebView Android
+     où 100vh dépasse la zone visible et coupe la barre d'action / la file en bas. */
+  --app-height: 100dvh;
 }
 a { color: var(--purple-light); text-decoration: none; }
 a:hover { text-decoration: underline; }
@@ -116,7 +119,7 @@ input::placeholder { color: var(--text-dim); }
 .toast.toast-success { border-color:var(--green); }
 
 /* ROOM VIEW */
-.room-view { display:none; flex-direction:column; height:100vh; height:100dvh; overflow:hidden; }
+.room-view { display:none; flex-direction:column; height:100vh; height:var(--app-height, 100dvh); overflow:hidden; }
 .room-view.active { display:flex; }
 .room-header { display:flex; align-items:center; gap:10px; padding:12px 16px; background:rgba(10,10,26,0.95); border-bottom:1px solid var(--border); flex-shrink:0; z-index:10; backdrop-filter:blur(8px); }
 .room-header .back-btn { width:36px; height:36px; display:flex; align-items:center; justify-content:center; border-radius:8px; background:var(--bg-card); border:1px solid var(--border); font-size:1.1em; flex-shrink:0; transition:background 0.2s; }
@@ -564,6 +567,137 @@ input::placeholder { color: var(--text-dim); }
   color:var(--gold); margin:16px 0 8px; font-size:0.9em; font-weight:600;
 }
 
+/* Persistent always-visible queue strip (in karaoke room) */
+.karaoke-queue-strip {
+  display:flex; flex-direction:column; gap:7px;
+  width:calc(100% - 32px); max-width:420px; margin:10px auto 0;
+  padding:11px 14px; z-index:3; position:relative;
+  background:rgba(255,255,255,0.04); border:1px solid rgba(255,215,0,0.18);
+  border-radius:14px; backdrop-filter:blur(8px);
+  animation:fadeIn 0.3s ease;
+}
+.kqs-header {
+  display:flex; align-items:center; gap:6px;
+  font-size:0.8em; font-weight:700; color:var(--gold); letter-spacing:0.3px;
+}
+.kqs-count {
+  margin-left:auto; font-size:0.85em; font-weight:600; color:var(--text-dim);
+  padding:1px 9px; border-radius:10px; background:rgba(255,215,0,0.12);
+}
+.kqs-count:empty { display:none; }
+.kqs-list { display:flex; flex-direction:column; gap:5px; }
+.kqs-item {
+  display:flex; align-items:center; gap:9px;
+  padding:5px 9px; border-radius:10px; background:rgba(255,255,255,0.03);
+  animation:queueSlide 0.3s ease both;
+}
+.kqs-num {
+  width:19px; height:19px; flex-shrink:0; border-radius:50%;
+  background:rgba(255,215,0,0.15); color:var(--gold);
+  display:flex; align-items:center; justify-content:center;
+  font-size:0.7em; font-weight:700;
+}
+.kqs-singer { font-size:0.82em; font-weight:600; color:var(--text-bright); flex-shrink:0; }
+.kqs-song {
+  font-size:0.76em; color:var(--text-dim); min-width:0;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.kqs-more { font-size:0.74em; color:var(--text-dim); text-align:center; padding-top:1px; }
+.kqs-empty {
+  display:flex; align-items:center; justify-content:center; gap:6px;
+  font-size:0.78em; color:var(--text-dim); padding:3px 0; text-align:center;
+}
+
+/* GIF dans le chat karaoké */
+.karaoke-chat-gif {
+  display:block; margin-top:3px; max-width:150px; max-height:130px;
+  border-radius:10px; box-shadow:0 4px 14px rgba(0,0,0,0.5);
+}
+
+/* Barre d'action : scroll horizontal -> aucun bouton coupé sur petit écran (ergonomie) */
+.karaoke-action-bar { overflow-x:auto; scrollbar-width:none; -ms-overflow-style:none; }
+.karaoke-action-bar::-webkit-scrollbar { display:none; }
+.action-input { min-width:90px; }
+.action-btn.gif-btn { background:linear-gradient(135deg,#00c6ff,#0072ff); color:#fff; }
+
+/* Panneau GIF (slide-up) */
+.gif-panel {
+  position:fixed; left:0; right:0; bottom:0; height:62vh; max-height:62vh;
+  background:rgba(12,12,28,0.98); backdrop-filter:blur(20px);
+  border-radius:20px 20px 0 0; transform:translateY(100%);
+  transition:transform 0.35s cubic-bezier(0.4,0,0.2,1);
+  z-index:52; display:flex; flex-direction:column; padding:0 16px 16px;
+  border-top:1px solid rgba(0,150,255,0.3);
+}
+.gif-panel.open { transform:translateY(0); }
+.gif-panel-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:51; }
+.gif-panel-overlay.open { display:block; }
+.gif-panel .catalog-search-input { margin-bottom:10px; }
+.gif-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:8px; overflow-y:auto; flex:1; min-height:0; }
+@media (min-width:768px){ .gif-grid { grid-template-columns:repeat(3,1fr); } }
+.gif-cell {
+  width:100%; height:100px; object-fit:cover; border-radius:10px; cursor:pointer;
+  background:rgba(255,255,255,0.04); transition:transform 0.15s, box-shadow 0.15s;
+}
+.gif-cell:hover { transform:scale(1.04); box-shadow:0 4px 16px rgba(0,150,255,0.4); }
+.gif-cell:active { transform:scale(0.97); }
+.gif-loading { grid-column:1/-1; text-align:center; color:var(--text-dim); font-size:0.85em; padding:24px; }
+
+/* Profondeur / relief : plancher de scène + dégradé de sol + ombres plus marquées */
+.singer-stage { position:relative; }
+.singer-stage::after {
+  content:""; position:absolute; left:50%; bottom:-4px; transform:translateX(-50%);
+  width:190px; height:48px; border-radius:50%; z-index:-1; pointer-events:none;
+  background:radial-gradient(ellipse, rgba(139,76,240,0.35), rgba(139,76,240,0) 70%);
+  filter:blur(7px);
+}
+.karaoke-room-bg::after {
+  content:""; position:absolute; left:0; right:0; bottom:0; height:42%;
+  background:linear-gradient(to top, rgba(0,0,0,0.55), transparent); pointer-events:none;
+}
+.song-card, .vfx-card, .gift-item { box-shadow:0 6px 18px rgba(0,0,0,0.35); }
+
+/* Panneau brouillons d'enregistrement (slide-up) */
+.drafts-panel {
+  position:fixed; left:0; right:0; bottom:0; height:60vh; max-height:60vh;
+  background:rgba(12,12,28,0.98); backdrop-filter:blur(20px);
+  border-radius:20px 20px 0 0; transform:translateY(100%);
+  transition:transform 0.35s cubic-bezier(0.4,0,0.2,1);
+  z-index:54; display:flex; flex-direction:column; padding:0 16px 16px;
+  border-top:1px solid rgba(255,215,0,0.3);
+}
+.drafts-panel.open { transform:translateY(0); }
+.drafts-panel-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:53; }
+.drafts-panel-overlay.open { display:block; }
+.drafts-list { overflow-y:auto; flex:1; min-height:0; display:flex; flex-direction:column; gap:8px; padding-top:6px; }
+.drafts-empty { text-align:center; color:var(--text-dim); font-size:0.85em; padding:24px 10px; line-height:1.5; }
+.draft-item {
+  display:flex; align-items:center; gap:10px; padding:10px 12px;
+  background:rgba(255,255,255,0.04); border:1px solid var(--border); border-radius:12px;
+}
+.draft-info { flex:1; min-width:0; }
+.draft-title { font-size:0.9em; font-weight:600; color:var(--text-bright); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.draft-pub { font-size:0.7em; color:var(--green); font-weight:700; }
+.draft-meta { font-size:0.72em; color:var(--text-dim); margin-top:2px; }
+.draft-actions { display:flex; gap:6px; flex-shrink:0; }
+.draft-btn {
+  width:34px; height:34px; border-radius:50%; border:none; cursor:pointer;
+  background:rgba(255,255,255,0.08); color:#fff; font-size:0.9em;
+  display:flex; align-items:center; justify-content:center; transition:background 0.2s;
+}
+.draft-btn:hover { background:rgba(255,255,255,0.16); }
+.draft-btn.draft-del:hover { background:rgba(244,67,54,0.6); }
+
+/* Bouton fermer la vidéo / arrêter la chanson */
+.karaoke-video-close {
+  position:absolute; top:6px; right:6px; z-index:4;
+  width:30px; height:30px; border-radius:50%; border:none; cursor:pointer;
+  background:rgba(0,0,0,0.55); color:#fff; font-size:0.9em; line-height:1;
+  display:flex; align-items:center; justify-content:center;
+  backdrop-filter:blur(4px); transition:background 0.2s;
+}
+.karaoke-video-close:hover { background:rgba(244,67,54,0.85); }
+
 /* Manual URL toggle in song panel */
 .manual-url-toggle-sm {
   color:var(--text-dim); font-size:0.8em; cursor:pointer; padding:4px 0;
@@ -625,16 +759,81 @@ input::placeholder { color: var(--text-dim); }
 }
 .sp-spotlight-controls.visible { display:flex; }
 .sp-spotlight-controls select {
-  flex:1; min-width:0; padding:10px 14px; border-radius:10px;
+  flex:1; min-width:0; padding:10px 38px 10px 14px; border-radius:10px;
   background:rgba(255,255,255,0.06); border:1px solid var(--border);
   color:#fff; font-size:0.85em;
+  /* Tue le rendu natif "Windows 98" + fleche custom */
+  -webkit-appearance:none; -moz-appearance:none; appearance:none; cursor:pointer;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'><path d='M1 1l5 5 5-5' stroke='%23ffd24a' stroke-width='2' fill='none' stroke-linecap='round'/></svg>");
+  background-repeat:no-repeat; background-position:right 14px center;
 }
+.sp-spotlight-controls select:focus { outline:none; border-color:var(--gold-dim); }
+.sp-spotlight-controls select option { background:#16162c; color:#fff; }
 .sp-spotlight-controls button {
   padding:10px 16px; border-radius:10px;
-  background:var(--gold); color:#1a1a2e; font-weight:600;
-  font-size:0.85em; white-space:nowrap; transition:background 0.2s; cursor:pointer;
+  background:linear-gradient(135deg,#ffd24a,#e6a800); color:#1a1a2e; font-weight:700;
+  font-size:0.85em; white-space:nowrap; border:none; cursor:pointer;
+  transition:transform 0.15s, box-shadow 0.15s;
+  box-shadow:0 4px 14px rgba(230,168,0,0.35);
 }
-.sp-spotlight-controls button:hover { background:#e6c200; }
+.sp-spotlight-controls button:hover { transform:translateY(-1px); box-shadow:0 6px 20px rgba(230,168,0,0.5); }
+.sp-spotlight-controls button:active { transform:translateY(0); }
+
+/* ===== HERO "chante sur ta propre video" (StarMaker BYO) ===== */
+.byo-card {
+  position:relative; margin-bottom:16px; padding:16px;
+  border-radius:18px; overflow:hidden;
+  background:linear-gradient(135deg, rgba(139,76,240,0.22), rgba(255,76,166,0.14));
+  border:1px solid rgba(139,76,240,0.4);
+  box-shadow:0 8px 30px rgba(139,76,240,0.22), inset 0 1px 0 rgba(255,255,255,0.08);
+}
+.byo-card::before {
+  content:""; position:absolute; top:-40%; right:-20%; width:220px; height:220px;
+  background:radial-gradient(circle, rgba(255,76,166,0.35), transparent 70%);
+  pointer-events:none;
+}
+.byo-head { display:flex; align-items:center; gap:12px; margin-bottom:14px; position:relative; }
+.byo-emoji {
+  font-size:1.6em; width:46px; height:46px; flex-shrink:0;
+  display:flex; align-items:center; justify-content:center; border-radius:14px;
+  background:rgba(0,0,0,0.25); box-shadow:inset 0 0 0 1px rgba(255,255,255,0.1);
+}
+.byo-title { font-weight:700; font-size:1.02em; color:#fff; letter-spacing:0.2px; }
+.byo-sub { font-size:0.8em; color:rgba(255,255,255,0.6); margin-top:2px; }
+.byo-form { display:flex; gap:8px; position:relative; }
+.byo-form input {
+  flex:1; min-width:0; padding:12px 14px; border-radius:12px;
+  background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.14);
+  color:#fff; font-size:0.9em; transition:border-color 0.2s, box-shadow 0.2s;
+}
+.byo-form input::placeholder { color:rgba(255,255,255,0.35); }
+.byo-form input:focus { outline:none; border-color:rgba(255,76,166,0.6); box-shadow:0 0 0 3px rgba(255,76,166,0.18); }
+.byo-go {
+  padding:12px 18px; border-radius:12px; border:none; cursor:pointer;
+  background:linear-gradient(135deg,#ff4ca6,#8b4cf0); color:#fff; font-weight:700;
+  font-size:0.9em; white-space:nowrap;
+  transition:transform 0.15s, box-shadow 0.15s; box-shadow:0 4px 16px rgba(139,76,240,0.45);
+}
+.byo-go:hover { transform:translateY(-1px); box-shadow:0 7px 22px rgba(139,76,240,0.6); }
+.byo-go:active { transform:translateY(0); }
+
+/* Overlay propre quand une video refuse la lecture integree */
+.karaoke-video-error {
+  display:none; position:absolute; inset:0; z-index:3;
+  flex-direction:column; align-items:center; justify-content:center; gap:12px;
+  padding:20px; text-align:center;
+  background:linear-gradient(160deg, rgba(20,12,30,0.96), rgba(10,8,20,0.98));
+  backdrop-filter:blur(4px);
+}
+.karaoke-video-error.visible { display:flex; }
+.karaoke-video-error .kve-icon { font-size:2.4em; opacity:0.85; }
+.karaoke-video-error .kve-text { color:#e7defc; font-size:0.92em; max-width:340px; line-height:1.4; }
+.karaoke-video-error .kve-btn {
+  margin-top:4px; padding:10px 18px; border-radius:12px; border:none; cursor:pointer;
+  background:linear-gradient(135deg,#8b4cf0,#6a30c8); color:#fff; font-weight:600; font-size:0.9em;
+  box-shadow:0 4px 14px rgba(139,76,240,0.4); transition:transform 0.15s;
+}
+.karaoke-video-error .kve-btn:hover { transform:translateY(-1px); }
 
 /* Gift panel inside action bar (karaoke overlay) */
 .karaoke-gift-panel {
@@ -712,6 +911,25 @@ input::placeholder { color: var(--text-dim); }
 .vfx-icon { font-size:1.8em; line-height:1; }
 .vfx-name { font-size:0.75em; font-weight:600; color:var(--text-bright); text-align:center; }
 .vfx-desc { font-size:0.6em; color:var(--text-dim); text-align:center; line-height:1.3; }
+
+/* Monitoring (retour micro) + réglages dans le panneau d'effets vocaux */
+.vfx-monitor {
+  padding:8px 16px 4px; display:flex; flex-direction:column; gap:9px;
+  border-bottom:1px solid rgba(255,255,255,0.06); margin-bottom:4px;
+}
+.vfx-monitor-row { display:flex; align-items:center; gap:10px; }
+.vfx-monitor-label { font-size:0.84em; font-weight:600; color:var(--text-bright); }
+.vfx-monitor-hint { font-size:0.82em; color:var(--text-dim); font-weight:400; }
+.vfx-monitor-toggle {
+  margin-left:auto; padding:6px 16px; border-radius:16px; font-size:0.8em; font-weight:700;
+  background:rgba(255,255,255,0.08); color:var(--text-dim);
+  border:1px solid transparent; transition:all 0.2s; cursor:pointer;
+}
+.vfx-monitor-toggle.on {
+  background:linear-gradient(135deg,#e91e63,#ff5252); color:#fff;
+  box-shadow:0 0 14px rgba(233,30,99,0.4);
+}
+.vfx-monitor-slider { width:100%; accent-color:#e91e63; height:22px; cursor:pointer; }
 
 /* Mic button in action bar */
 .action-btn.mic-btn { background:rgba(255,255,255,0.08); position:relative; }
@@ -832,7 +1050,10 @@ input::placeholder { color: var(--text-dim); }
 
 /* Tonality controls */
 .tonality-row {
-  display:flex; align-items:center; justify-content:center; gap:14px; padding:4px 0;
+  /* Masquée pour l'instant : la tonalité n'est pas modifiable sur une vidéo YouTube.
+     À réactiver avec une vraie bibliothèque audio (issue #16 point 6). */
+  display:none !important;
+  align-items:center; justify-content:center; gap:14px; padding:4px 0;
 }
 .tone-btn {
   width:30px; height:30px; border-radius:50%; font-size:1.1em; font-weight:700;
@@ -1513,15 +1734,27 @@ input::placeholder { color: var(--text-dim); }
 
         <!-- Video -->
         <div class="karaoke-video-wrap" id="karaokeVideoWrap" style="display:none;">
+          <!-- Fermer la vidéo / arrêter la chanson sans quitter la salle (issue #16 pts 3 & 7) -->
+          <button class="karaoke-video-close" id="karaokeVideoClose" onclick="stopCurrentSong()" title="Arr&ecirc;ter la chanson">&#10005;</button>
           <div class="karaoke-video-placeholder" id="karaokePlaceholder">
             <span class="placeholder-icon">&#127908;</span>
             <span>Choisissez une chanson</span>
           </div>
-          <iframe id="karaokePlayer" src="" allow="autoplay; encrypted-media" allowfullscreen style="display:none"></iframe>
+          <!-- Lecteur pilote par l'API YouTube IFrame (remplace par un iframe au runtime) -->
+          <div id="karaokePlayer"></div>
+          <!-- Overlay propre quand une video refuse la lecture integree -->
+          <div class="karaoke-video-error" id="karaokeVideoError">
+            <span class="kve-icon">&#127925;</span>
+            <span class="kve-text">Cette vid&eacute;o n'autorise pas la lecture ici.</span>
+            <button class="kve-btn" onclick="toggleSongPanel()">Choisir une autre chanson</button>
+          </div>
         </div>
 
         <!-- Audience Row -->
         <div class="audience-row" id="audienceRow"></div>
+        <!-- Architecture #17 « une action = une interface » : la file d'attente
+             n'est plus affichée en permanence dans la salle ; elle vit dans le
+             panneau Chanter (État 2). Salle = scène + chanteur + spectateurs + chat. -->
       </div>
 
       <!-- Chat Overlay (left side, absolute positioned) -->
@@ -1531,11 +1764,14 @@ input::placeholder { color: var(--text-dim); }
       <div class="karaoke-action-bar" id="karaokeActionBar">
         <button class="action-btn song-btn" onclick="toggleSongPanel()" title="Chansons">&#127925;</button>
         <button class="action-btn" onclick="focusKaraokeChat()" title="Chat">&#128172;</button>
+        <button class="action-btn" id="chatHideBtn" onclick="toggleKaraokeChatVisible()" title="Masquer/afficher le chat">&#128065;&#65039;</button>
+        <button class="action-btn gif-btn" onclick="toggleGifPanel()" title="GIFs">&#127916;</button>
         <input type="text" class="action-input" id="karaokeChatInput" placeholder="Envoyer un message..." autocomplete="off">
         <button class="action-btn" onclick="sendKaraokeChat()" title="Envoyer">&#10148;</button>
         <button class="action-btn mic-btn" id="micToggleBtn" onclick="toggleMic()" title="Micro">&#127908;</button>
         <button class="action-btn rec-btn" id="recToggleBtn" onclick="toggleRecording()" title="Enregistrer">&#9899;<span class="rec-dot"></span></button>
         <button class="action-btn" id="showResultsBtn" onclick="showKaraokeResults()" title="R&eacute;sultats" style="font-size:0.85em">&#127942;</button>
+        <button class="action-btn" id="draftsBtn" onclick="toggleDraftsPanel()" title="Mes brouillons" style="font-size:0.9em">&#127897;&#65039;</button>
         <button class="action-btn vfx-btn" id="vfxToggleBtn" onclick="toggleVoiceEffectsPanel()" title="Effets vocaux">&#9878;</button>
         <button class="action-btn gift-btn" onclick="toggleKaraokeGiftPanel()" title="Cadeaux">&#127873;</button>
         <button class="action-btn heart-btn" id="heartCascadeBtn" onclick="sendKaraokeHeart()" title="J'aime">&#10084;&#65039;</button>
@@ -1549,6 +1785,29 @@ input::placeholder { color: var(--text-dim); }
         <div class="gift-grid" id="karaokeGiftGrid"></div>
       </div>
 
+      <!-- GIF panel (slide-up) -->
+      <div class="gif-panel-overlay" id="gifPanelOverlay" onclick="toggleGifPanel()"></div>
+      <div class="gif-panel" id="gifPanel">
+        <div class="song-panel-handle"></div>
+        <div class="song-panel-header">
+          <h3>&#127916; GIFs</h3>
+          <button class="song-panel-close" onclick="toggleGifPanel()">&#10005;</button>
+        </div>
+        <input type="text" class="catalog-search-input" id="gifSearch" placeholder="&#128269; Rechercher un GIF..." autocomplete="off" oninput="onGifSearch()">
+        <div class="gif-grid" id="gifGrid"></div>
+      </div>
+
+      <!-- Brouillons d'enregistrement (slide-up) -->
+      <div class="drafts-panel-overlay" id="draftsPanelOverlay" onclick="toggleDraftsPanel()"></div>
+      <div class="drafts-panel" id="draftsPanel">
+        <div class="song-panel-handle"></div>
+        <div class="song-panel-header">
+          <h3>&#127897;&#65039; Mes brouillons</h3>
+          <button class="song-panel-close" onclick="toggleDraftsPanel()">&#10005;</button>
+        </div>
+        <div class="drafts-list" id="draftsList"></div>
+      </div>
+
       <!-- Voice Effects Panel (slide-up) -->
       <div class="voice-effects-overlay" id="vfxOverlay" onclick="toggleVoiceEffectsPanel()"></div>
       <div class="voice-effects-panel" id="vfxPanel">
@@ -1559,6 +1818,14 @@ input::placeholder { color: var(--text-dim); }
         </div>
         <div class="vfx-mic-status" id="vfxMicStatus">
           <button class="vfx-mic-btn off" id="vfxMicBtn" onclick="toggleMic()">&#127908; Activer le micro</button>
+        </div>
+        <!-- Retour micro (monitoring StarMaker) -->
+        <div class="vfx-monitor" id="vfxMonitor">
+          <div class="vfx-monitor-row">
+            <span class="vfx-monitor-label">&#127911; Retour micro <span class="vfx-monitor-hint">(casque conseill&eacute;)</span></span>
+            <button class="vfx-monitor-toggle on" id="monitorToggleBtn" onclick="toggleMonitor()">Activ&eacute;</button>
+          </div>
+          <input type="range" min="0" max="100" value="85" class="vfx-monitor-slider" id="monitorSlider" oninput="setMonitorLevel(this.value/100)" aria-label="Volume du retour micro">
         </div>
         <div class="vfx-grid" id="vfxGrid"></div>
       </div>
@@ -1572,6 +1839,20 @@ input::placeholder { color: var(--text-dim); }
           <button class="song-panel-close" onclick="toggleSongPanel()">&#10005;</button>
         </div>
         <div class="song-panel-body">
+          <!-- HERO : chante sur TA propre video YouTube -->
+          <div class="byo-card">
+            <div class="byo-head">
+              <span class="byo-emoji">&#127908;</span>
+              <div>
+                <div class="byo-title">Chante sur ta propre vid&eacute;o</div>
+                <div class="byo-sub">Colle n'importe quel lien YouTube karaok&eacute;</div>
+              </div>
+            </div>
+            <div class="byo-form">
+              <input type="text" id="karaokeUrlInput" placeholder="https://youtube.com/watch?v=..." autocomplete="off" onkeydown="if(event.key==='Enter')setKaraokeUrl()">
+              <button class="byo-go" onclick="setKaraokeUrl()">&#9654; Lancer</button>
+            </div>
+          </div>
           <!-- Search -->
           <input type="text" class="catalog-search-input" id="catalogSearch" placeholder="&#128269; Rechercher une chanson ou un artiste..." autocomplete="off">
           <!-- Category tabs -->
@@ -1596,14 +1877,6 @@ input::placeholder { color: var(--text-dim); }
           <div class="sp-spotlight-controls" id="spotlightControls">
             <select id="spotlightSelect"><option value="">Choisir le chanteur...</option></select>
             <button onclick="setSpotlight()">&#127908; Passer le micro</button>
-          </div>
-          <!-- Manual URL (collapsed) -->
-          <div style="margin-top:16px;text-align:center;">
-            <button class="manual-url-toggle-sm" onclick="toggleManualUrl()">&#128206; Coller un lien YouTube personnalis&#233;</button>
-            <div class="manual-url-form-sm" id="manualUrlForm">
-              <input type="text" id="karaokeUrlInput" placeholder="https://youtube.com/watch?v=..." autocomplete="off">
-              <button onclick="setKaraokeUrl()">Lancer</button>
-            </div>
           </div>
         </div>
       </div>
@@ -1631,6 +1904,7 @@ input::placeholder { color: var(--text-dim); }
           </div>
           <div class="results-actions">
             <button class="results-btn secondary" onclick="closeKaraokeResults()">Fermer</button>
+            <button class="results-btn secondary" onclick="saveRecordingDraft()">&#128190; Brouillon</button>
             <button class="results-btn share-btn" onclick="shareKaraokeScore()">&#128228; Partager</button>
             <button class="results-btn primary" onclick="closeKaraokeResults();toggleSongPanel()">&#127925; Rejouer</button>
           </div>
@@ -1823,6 +2097,18 @@ function fetchProfile() {
 
 /* API */
 var isEmbed = new URLSearchParams(window.location.search).get("embed") === "1";
+
+/* Hauteur visible réelle : sur Android WebView, 100vh dépasse l'écran et coupe le bas
+   (barre d'action, file). On fixe --app-height sur la vraie hauteur visible. */
+function setAppHeight() {
+  var h = (window.visualViewport && window.visualViewport.height) ? window.visualViewport.height : window.innerHeight;
+  if(h && h > 0) document.documentElement.style.setProperty("--app-height", h + "px");
+}
+setAppHeight();
+window.addEventListener("resize", setAppHeight);
+window.addEventListener("orientationchange", function(){ setTimeout(setAppHeight, 250); });
+if(window.visualViewport) window.visualViewport.addEventListener("resize", setAppHeight);
+
 function apiFetch(url, opts) {
   opts=opts||{}; opts.headers=opts.headers||{};
   var t=getToken(); if(t) opts.headers["Authorization"]="Bearer "+t;
@@ -1897,8 +2183,16 @@ function buildGiftGrid() {
 /* VIEW MANAGEMENT */
 function showLobby() {
   if(typeof stopMicrophone==="function") stopMicrophone();
+  /* Couper la musique au retour : sinon le lecteur YouTube karaok\u00e9 (ou cin\u00e9ma)
+     continue de jouer en fond apr\u00e8s avoir quitt\u00e9 l'activit\u00e9. */
+  try { if(karaokeYTPlayer && karaokeYTPlayer.stopVideo) karaokeYTPlayer.stopVideo(); } catch(e){}
+  karaokeCurrentVid = "";
+  var _ytCine = $("ytPlayer");
+  if(_ytCine){ try { _ytCine.src=""; } catch(e){} _ytCine.style.display="none"; }
   S.view="lobby"; document.title="Luna Activites \u2014 YAWatch";
   $("lobbyView").style.display=""; $("roomView").classList.remove("active");
+  /* Reafficher la barre "Retour au Chat" embed une fois revenu au lobby */
+  if(typeof isEmbed!=="undefined" && isEmbed){ var ebbLobby=$("embedBackBar"); if(ebbLobby) ebbLobby.style.display="block"; }
   $("roomView").classList.remove("karaoke-immersive");
   $("chatPanel").style.display="";
   /* Close all panels */
@@ -1910,6 +2204,12 @@ function showLobby() {
   var spo=$("songPanelOverlay"); if(spo) spo.classList.remove("open");
   karaokeGiftPanelOpen = false;
   var kgp=$("karaokeGiftPanel"); if(kgp) kgp.classList.remove("open");
+  gifPanelOpen = false;
+  var gp=$("gifPanel"); if(gp) gp.classList.remove("open");
+  var gpo=$("gifPanelOverlay"); if(gpo) gpo.classList.remove("open");
+  draftsPanelOpen = false;
+  var dp=$("draftsPanel"); if(dp) dp.classList.remove("open");
+  var dpo=$("draftsPanelOverlay"); if(dpo) dpo.classList.remove("open");
   closeParticipants(); disconnectWS();
   S.currentRoom=null; S.currentRoomData=null; S.isHost=false; S.participants=[]; S.lastMsgPhone="";
   if(window.history.replaceState) window.history.replaceState({},"",window.location.pathname);
@@ -1919,6 +2219,10 @@ function showLobby() {
 function showRoom(roomId) {
   S.view="room"; S.currentRoom=roomId; S.lastMsgPhone=""; S.unreadCount=0;
   $("lobbyView").style.display="none"; $("roomView").classList.add("active");
+  /* En mode embed : masquer la barre "Retour au Chat" pour ne pas recouvrir
+     la barre d'action du salon (karaoke/cinema). La navigation se fait via le
+     bouton retour du header (leaveRoom -> lobby ou elle reapparait). */
+  var ebbRoom=$("embedBackBar"); if(ebbRoom) ebbRoom.style.display="none";
   resetGameViews(); $("messagesContainer").innerHTML="";
   hideScrollBtn();
   loadRoomData(roomId);
@@ -2023,7 +2327,7 @@ function loadRoomData(roomId) {
       if(vid){
         var ap=(data.playback_state==="playing")?1:0, st=Math.floor(data.playback_time||0);
         if(tk==="cinema") showYtEmbed("ytPlayer","videoPlaceholder",vid,ap,st);
-        else if(tk==="karaoke"){ var vw=$("karaokeVideoWrap"); if(vw) vw.style.display=""; showYtEmbed("karaokePlayer","karaokePlaceholder",vid,ap,st); }
+        else if(tk==="karaoke"){ karaokeLoadVideo(vid,ap,st); }
       }
     }
     if(data.game_type&&data.game_state) updateGame({game_type:data.game_type,state:data.game_state});
@@ -2057,6 +2361,8 @@ function setupRoomLayout(type) {
     $("karaokeSection").classList.add("active");
     $("karaokeSection").classList.add("immersive");
     $("roomView").classList.add("karaoke-immersive");
+    /* Prechauffe le lecteur YouTube des l'entree : 1er play instantane + evite la course a froid */
+    if(typeof loadKaraokeYTApi==="function") loadKaraokeYTApi();
     /* Hide normal chat panel - karaoke has its own chat overlay + action bar */
     $("chatPanel").style.display="none";
     /* Spotlight controls */
@@ -2168,6 +2474,15 @@ function handleWsMsg(msg) {
     case "karaoke_perf_done": handlePerfDone(msg); break;
     case "karaoke_rating": handleIncomingRating(msg); break;
     case "game_update": updateGame(msg); break;
+    case "timer_update": {
+      // Chrono synchronisé par le serveur (autoritaire) — stoppe le décompte client
+      clearInterval(quizTimerInt);
+      var te=$("quizTimer");
+      if(te){ te.textContent="⏱ "+msg.remaining+"s"; if(msg.remaining<=5) te.classList.add("urgent"); else te.classList.remove("urgent"); }
+      break;
+    }
+    case "quiz_timeout": showToast("⏱️ Temps écoulé, question suivante","info"); break;
+    case "turn_timeout": showToast(msg.message||"⏱️ Temps écoulé, tour passé","info"); break;
     case "system":
       addSystemMsg(msg.content);
       if(msg.action==="show_invite"){ toggleParticipants(); loadInvitableMembers(); }
@@ -2365,8 +2680,90 @@ function extractYtId(url) {
 
 function showYtEmbed(iframeId, placId, vid, autoplay, start) {
   var iframe=$(iframeId), plac=$(placId); if(!iframe) return;
-  iframe.src="https://www.youtube.com/embed/"+vid+"?enablejsapi=1&autoplay="+(autoplay||0)+(start>0?"&start="+Math.floor(start):"");
+  iframe.src="https://www.youtube.com/embed/"+vid+"?enablejsapi=1&playsinline=1&rel=0&modestbranding=1&autoplay="+(autoplay||0)+(start>0?"&start="+Math.floor(start):"");
   iframe.style.display=""; if(plac) plac.style.display="none";
+}
+
+/* ===== LECTEUR KARAOKE — YouTube IFrame API (robuste, anti ecran-mort) ===== */
+var karaokeYTPlayer=null, karaokeYTReady=false, karaokeCurrentVid="", karaokePendingLoad=null, karaokeAPILoading=false;
+
+function loadKaraokeYTApi() {
+  if(karaokeAPILoading) return;
+  karaokeAPILoading=true;
+  window.onYouTubeIframeAPIReady=function(){
+    try {
+      karaokeYTPlayer=new YT.Player("karaokePlayer", {
+        width:"100%", height:"100%",
+        playerVars:{ playsinline:1, rel:0, modestbranding:1, fs:1, enablejsapi:1, iv_load_policy:3, origin:location.origin },
+        events:{
+          onReady:function(){
+            karaokeYTReady=true;
+            if(karaokePendingLoad){ var p=karaokePendingLoad; karaokePendingLoad=null; karaokeLoadVideo(p.vid,p.autoplay,p.start); }
+          },
+          onStateChange:function(e){ if(e.data===0) onYouTubeEnd(); },
+          onError:function(e){ karaokeOnPlayerError(e.data); }
+        }
+      });
+    } catch(ex){}
+  };
+  if(window.YT && window.YT.Player){ window.onYouTubeIframeAPIReady(); return; }
+  var tag=document.createElement("script");
+  tag.src="https://www.youtube.com/iframe_api";
+  document.head.appendChild(tag);
+}
+
+/* Charge/lance une video dans le lecteur karaoke. Source unique de verite. */
+function karaokeLoadVideo(vid, autoplay, start) {
+  if(!vid) return;
+  var vw=$("karaokeVideoWrap"); if(vw) vw.style.display="";
+  karaokeHideError();
+  if(vid===karaokeCurrentVid && karaokeYTPlayer && karaokeYTReady){
+    if(autoplay){ try{ karaokeYTPlayer.playVideo(); }catch(e){} }
+    return;
+  }
+  karaokeCurrentVid=vid;
+  if(karaokeYTPlayer && karaokeYTReady && karaokeYTPlayer.loadVideoById){
+    var plac=$("karaokePlaceholder"); if(plac) plac.style.display="none";
+    try {
+      if(autoplay) karaokeYTPlayer.loadVideoById({videoId:vid, startSeconds:start||0});
+      else karaokeYTPlayer.cueVideoById({videoId:vid, startSeconds:start||0});
+    } catch(e){}
+  } else {
+    karaokePendingLoad={vid:vid, autoplay:autoplay, start:start};
+    loadKaraokeYTApi();
+  }
+}
+
+function karaokeShowError(msg) {
+  var el=$("karaokeVideoError"); if(!el) return;
+  var t=el.querySelector(".kve-text"); if(t && msg) t.textContent=msg;
+  el.classList.add("visible");
+  var plac=$("karaokePlaceholder"); if(plac) plac.style.display="none";
+}
+function karaokeHideError() {
+  var el=$("karaokeVideoError"); if(el) el.classList.remove("visible");
+}
+/* Codes YT : 2=id invalide/handshake, 5=erreur lecteur, 100=supprimee/privee, 101/150=integration interdite */
+var karaokeRetried={};
+function karaokeOnPlayerError(code) {
+  /* Codes transitoires (handshake lecteur au demarrage a froid) : on retente une fois */
+  if((code===2||code===5) && karaokeCurrentVid && !karaokeRetried[karaokeCurrentVid]){
+    karaokeRetried[karaokeCurrentVid]=true;
+    var v=karaokeCurrentVid; karaokeCurrentVid="";
+    setTimeout(function(){ karaokeLoadVideo(v,1,0); }, 700);
+    return;
+  }
+  var msg=(code===101||code===150)
+    ? "Le proprietaire interdit la lecture ici. Essaie une version « karaoke » ou « lyrics »."
+    : (code===100)
+    ? "Cette video a ete supprimee ou rendue privee."
+    : "Lien YouTube illisible. Verifie l'adresse.";
+  karaokeShowError(msg);
+  karaokeCurrentVid="";
+  if(typeof showToast==="function") showToast("Vidéo non lisible — on passe à la suite","error");
+  if(typeof songQueue!=="undefined" && songQueue.length>0){
+    setTimeout(function(){ if(typeof playNextFromQueue==="function") playNextFromQueue(); }, 1400);
+  }
 }
 
 window.setYoutubeUrl = function() {
@@ -2378,7 +2775,17 @@ window.setYoutubeUrl = function() {
 window.setKaraokeUrl = function() {
   var inp=$("karaokeUrlInput"), url=inp.value.trim(); if(!url) return;
   var vid=extractYtId(url); if(!vid){ showToast("Lien YouTube invalide","error"); return; }
-  wsSend({type:"youtube_set",url:url,title:"Karaok\u00e9"}); inp.value="";
+  /* Lecture LOCALE immediate : marche pour tout le monde, sans dependre de l'echo serveur */
+  currentKaraokeSong={title:"Ma chanson karaok\u00e9", artist:"YouTube", ytId:vid};
+  karaokeLoadVideo(vid, 1, 0);
+  if(typeof setVideoGlow==="function") setVideoGlow(true);
+  renderNowPlaying(currentKaraokeSong);
+  listenYouTubeEnd();
+  /* Sync best-effort vers la salle (le serveur diffuse si l'utilisateur est hote) */
+  wsSend({type:"youtube_set", url:url, title:"Karaok\u00e9"});
+  inp.value="";
+  if(songPanelOpen) toggleSongPanel();
+  showToast("\ud83c\udfa4 C'est parti !","success");
 };
 
 function syncYoutube(msg) {
@@ -2388,7 +2795,7 @@ function syncYoutube(msg) {
   if(rtype==="karaoke"){
     /* Show video wrap */
     var vw=$("karaokeVideoWrap"); if(vw) vw.style.display="";
-    showYtEmbed("karaokePlayer","karaokePlaceholder",vid,ap,t);
+    karaokeLoadVideo(vid,ap,t);
     /* Try to match the video to a catalog song and update now-playing */
     var matched = null;
     for(var i=0;i<KARAOKE_SONGS.length;i++){
@@ -2435,56 +2842,56 @@ function updateSpotlightDisp(msg) {
 /* KARAOKE STARMAKER CATALOG */
 var KARAOKE_SONGS = [
   /* French — versions karaoké (instrumental + paroles) */
-  {id:"fr01",title:"La Vie en Rose",artist:"\u00c9dith Piaf",cat:"french",ytId:"uvur6j7SxcM",diff:3},
+  {id:"fr01",title:"La Vie en Rose",artist:"\u00c9dith Piaf",cat:"french",ytId:"0xZ_d9BTjS0",diff:3},
   {id:"fr02",title:"Les Champs-\u00c9lys\u00e9es",artist:"Joe Dassin",cat:"french",ytId:"jbDwPSBcySo",diff:2},
   {id:"fr03",title:"Ne me quitte pas",artist:"Jacques Brel",cat:"french",ytId:"WKgUVjf7uCo",diff:5},
-  {id:"fr04",title:"La Boh\u00e8me",artist:"Charles Aznavour",cat:"french",ytId:"CCUvdAmMOuE",diff:3},
-  {id:"fr05",title:"Derni\u00e8re Danse",artist:"Indila",cat:"french",ytId:"g83DvrPBFP8",diff:5},
+  {id:"fr04",title:"La Boh\u00e8me",artist:"Charles Aznavour",cat:"french",ytId:"FkYEVwhsWkA",diff:3},
+  {id:"fr05",title:"Derni\u00e8re Danse",artist:"Indila",cat:"french",ytId:"t4ddvMtBiOk",diff:5},
   {id:"fr06",title:"Papaoutai",artist:"Stromae",cat:"french",ytId:"dnOFwPjwNiI",diff:3},
   {id:"fr07",title:"Formidable",artist:"Stromae",cat:"french",ytId:"8jMd1lhK0xc",diff:3},
   {id:"fr08",title:"Je t'aime",artist:"Lara Fabian",cat:"french",ytId:"GpmjaP46Lpg",diff:4},
   {id:"fr09",title:"Comme d'habitude",artist:"Claude Fran\u00e7ois",cat:"french",ytId:"oyayix3irno",diff:3},
-  {id:"fr10",title:"L'Hymne \u00e0 l'amour",artist:"\u00c9dith Piaf",cat:"french",ytId:"qouv0D6NPow",diff:4},
+  {id:"fr10",title:"L'Hymne \u00e0 l'amour",artist:"\u00c9dith Piaf",cat:"french",ytId:"ISW8XVjE8dk",diff:4},
   {id:"fr11",title:"Pour que tu m'aimes encore",artist:"C\u00e9line Dion",cat:"french",ytId:"CGcrmzifxBg",diff:3},
   {id:"fr12",title:"Alors on danse",artist:"Stromae",cat:"french",ytId:"7yxuZIAeOJM",diff:3},
-  {id:"fr13",title:"Je veux",artist:"Zaz",cat:"french",ytId:"2NyFNoR3Z-o",diff:3},
+  {id:"fr13",title:"Je veux",artist:"Zaz",cat:"french",ytId:"wWoSYAv14KA",diff:3},
   {id:"fr14",title:"La vie est belle",artist:"Nass",cat:"french",ytId:"Hgamm8Z6NwE",diff:2},
-  {id:"fr15",title:"Mistral gagnant",artist:"Renaud",cat:"french",ytId:"H9lwV8Dp9DI",diff:3},
+  {id:"fr15",title:"Mistral gagnant",artist:"Renaud",cat:"french",ytId:"w9fpqhOsL5w",diff:3},
   {id:"fr16",title:"Tout oublier",artist:"Ang\u00e8le ft. Ro\u00e9la",cat:"french",ytId:"I_oIOkQCNAw",diff:3},
 
   /* International — versions karaoké (instrumental + paroles) */
-  {id:"in01",title:"Bohemian Rhapsody",artist:"Queen",cat:"international",ytId:"9Lxm0iSnKNc",diff:5},
-  {id:"in02",title:"Don't Stop Believin'",artist:"Journey",cat:"international",ytId:"c8wn2fMYvns",diff:3},
-  {id:"in03",title:"Sweet Caroline",artist:"Neil Diamond",cat:"international",ytId:"srLoAl1mhFw",diff:1},
-  {id:"in04",title:"Shallow",artist:"Lady Gaga & Bradley Cooper",cat:"international",ytId:"_nHT_k9Rswc",diff:4},
+  {id:"in01",title:"Bohemian Rhapsody",artist:"Queen",cat:"international",ytId:"yvEcMrstp80",diff:5},
+  {id:"in02",title:"Don't Stop Believin'",artist:"Journey",cat:"international",ytId:"H9jyacXmVTQ",diff:3},
+  {id:"in03",title:"Sweet Caroline",artist:"Neil Diamond",cat:"international",ytId:"IM8pV2wedpc",diff:1},
+  {id:"in04",title:"Shallow",artist:"Lady Gaga & Bradley Cooper",cat:"international",ytId:"SQ8zQXwgyxk",diff:4},
   {id:"in05",title:"Someone Like You",artist:"Adele",cat:"international",ytId:"rMSQwIp4Jg8",diff:3},
   {id:"in06",title:"Rolling in the Deep",artist:"Adele",cat:"international",ytId:"B3O1OlTWXSA",diff:3},
   {id:"in07",title:"Shape of You",artist:"Ed Sheeran",cat:"international",ytId:"0beEnnHRfpU",diff:3},
   {id:"in08",title:"Despacito",artist:"Luis Fonsi ft. Daddy Yankee",cat:"international",ytId:"VNVP4L81az4",diff:3},
   {id:"in09",title:"Hotel California",artist:"Eagles",cat:"international",ytId:"k7aQR_2UHL0",diff:3},
-  {id:"in10",title:"Billie Jean",artist:"Michael Jackson",cat:"international",ytId:"eXqBhDAlVCc",diff:3},
-  {id:"in11",title:"I Will Always Love You",artist:"Whitney Houston",cat:"international",ytId:"8kotNQ07ZEw",diff:4},
-  {id:"in12",title:"My Heart Will Go On",artist:"C\u00e9line Dion",cat:"international",ytId:"cdgU8YmD3Kc",diff:3},
-  {id:"in13",title:"Yesterday",artist:"The Beatles",cat:"international",ytId:"uw3zzQ-5g4o",diff:2},
-  {id:"in14",title:"Imagine",artist:"John Lennon",cat:"international",ytId:"MR70Dg0_o1A",diff:1},
-  {id:"in15",title:"Hallelujah",artist:"Leonard Cohen",cat:"international",ytId:"xscaqUk7Eck",diff:4},
-  {id:"in16",title:"All of Me",artist:"John Legend",cat:"international",ytId:"6VoT-KrseHA",diff:3},
+  {id:"in10",title:"Billie Jean",artist:"Michael Jackson",cat:"international",ytId:"fV2NqPSkWxg",diff:3},
+  {id:"in11",title:"I Will Always Love You",artist:"Whitney Houston",cat:"international",ytId:"CiJoUo-2_X4",diff:4},
+  {id:"in12",title:"My Heart Will Go On",artist:"C\u00e9line Dion",cat:"international",ytId:"JZM4JVYX-zE",diff:3},
+  {id:"in13",title:"Yesterday",artist:"The Beatles",cat:"international",ytId:"jjdfaMXenSY",diff:2},
+  {id:"in14",title:"Imagine",artist:"John Lennon",cat:"international",ytId:"HFb6VHlJP7s",diff:1},
+  {id:"in15",title:"Hallelujah",artist:"Leonard Cohen",cat:"international",ytId:"u_Ze1Pg9Zi4",diff:4},
+  {id:"in16",title:"All of Me",artist:"John Legend",cat:"international",ytId:"0p1OTRRmLtg",diff:3},
 
   /* Disney — versions karaoké (instrumental + paroles) */
-  {id:"di01",title:"Let It Go",artist:"Idina Menzel (Frozen)",cat:"disney",ytId:"ifCAfAzOBJM",diff:3},
-  {id:"di02",title:"Lib\u00e9r\u00e9e D\u00e9livr\u00e9e",artist:"Ana\u00efs Delva (La Reine des Neiges)",cat:"disney",ytId:"eI-2XcF-3KU",diff:3},
-  {id:"di03",title:"Ce r\u00eave bleu",artist:"Aladdin",cat:"disney",ytId:"uhWwYgJCF0s",diff:3},
-  {id:"di04",title:"Sous l'oc\u00e9an",artist:"La Petite Sir\u00e8ne",cat:"disney",ytId:"pyHsvmJABCo",diff:2},
-  {id:"di05",title:"Hakuna Matata",artist:"Le Roi Lion",cat:"disney",ytId:"m8kpGV1fN0o",diff:1},
-  {id:"di06",title:"Un monde nouveau",artist:"Aladdin (A Whole New World)",cat:"disney",ytId:"4hwpLK7CWVM",diff:3},
+  {id:"di01",title:"Let It Go",artist:"Idina Menzel (Frozen)",cat:"disney",ytId:"CSmaRJ5O9nQ",diff:3},
+  {id:"di02",title:"Lib\u00e9r\u00e9e D\u00e9livr\u00e9e",artist:"Ana\u00efs Delva (La Reine des Neiges)",cat:"disney",ytId:"tEP9_nRwqb0",diff:3},
+  {id:"di03",title:"Ce r\u00eave bleu",artist:"Aladdin",cat:"disney",ytId:"iLA6rFpfKZo",diff:3},
+  {id:"di04",title:"Sous l'oc\u00e9an",artist:"La Petite Sir\u00e8ne",cat:"disney",ytId:"32DohrxO9WM",diff:2},
+  {id:"di05",title:"Hakuna Matata",artist:"Le Roi Lion",cat:"disney",ytId:"2LhsQMl5vZQ",diff:1},
+  {id:"di06",title:"Un monde nouveau",artist:"Aladdin (A Whole New World)",cat:"disney",ytId:"bYsFR4fCrEM",diff:3},
 
   /* Rock/Pop — versions karaoké (instrumental + paroles) */
-  {id:"ro01",title:"Livin' on a Prayer",artist:"Bon Jovi",cat:"rock",ytId:"Ep6G3P2v5ZA",diff:3},
-  {id:"ro02",title:"We Will Rock You",artist:"Queen",cat:"rock",ytId:"j8Mkv84V9mY",diff:1},
+  {id:"ro01",title:"Livin' on a Prayer",artist:"Bon Jovi",cat:"rock",ytId:"FDN5GYvEzvc",diff:3},
+  {id:"ro02",title:"We Will Rock You",artist:"Queen",cat:"rock",ytId:"blikQus8IQ4",diff:1},
   {id:"ro03",title:"Sweet Child O' Mine",artist:"Guns N' Roses",cat:"rock",ytId:"TBxAAOOJzL8",diff:3},
   {id:"ro04",title:"Nothing Else Matters",artist:"Metallica",cat:"rock",ytId:"LcK5u0usw6Y",diff:3},
   {id:"ro05",title:"Highway to Hell",artist:"AC/DC",cat:"rock",ytId:"oEuBzpKF3X8",diff:3},
-  {id:"ro06",title:"Wonderwall",artist:"Oasis",cat:"rock",ytId:"R_EXyGWI9rU",diff:2}
+  {id:"ro06",title:"Wonderwall",artist:"Oasis",cat:"rock",ytId:"0BFeMQkYteo",diff:2}
 ];
 
 var KARAOKE_CATEGORIES = [
@@ -2619,13 +3026,100 @@ function playSong(song) {
   wsSend({type:"youtube_set", url:url, title:song.title});
   /* Show video wrap with glow */
   var vw=$("karaokeVideoWrap"); if(vw) vw.style.display="";
-  showYtEmbed("karaokePlayer","karaokePlaceholder", song.ytId, 1, 0);
+  karaokeLoadVideo(song.ytId, 1, 0);
   setVideoGlow(true);
   renderNowPlaying(song);
   /* Close song panel after picking */
   if(songPanelOpen) toggleSongPanel();
   /* Listen for YT player state changes (Feature 8) */
   listenYouTubeEnd();
+}
+
+/* Arrêter la chanson en cours / fermer la vidéo SANS quitter la salle (issue #16 pts 3 & 7) */
+window.stopCurrentSong = function() {
+  try { if(karaokeYTPlayer && karaokeYTPlayer.stopVideo) karaokeYTPlayer.stopVideo(); } catch(e){}
+  karaokeCurrentVid = "";
+  var vw = $("karaokeVideoWrap"); if(vw) vw.style.display = "none";
+  var ve = $("karaokeVideoError"); if(ve) ve.classList.remove("visible");
+  setVideoGlow(false);
+  /* renderNowPlaying(null) affiche le score si on chantait, puis remet la scène à zéro */
+  currentKaraokeSong = null;
+  renderNowPlaying(null);
+  showToast("Chanson arrêtée", "");
+};
+
+/* Masquer/afficher le chat pendant le chant (issue #16 point 5) */
+var karaokeChatHidden = false;
+window.toggleKaraokeChatVisible = function() {
+  karaokeChatHidden = !karaokeChatHidden;
+  var o = $("karaokeChatOverlay"); if(o) o.style.display = karaokeChatHidden ? "none" : "";
+  var btn = $("chatHideBtn"); if(btn) btn.textContent = karaokeChatHidden ? "🙈" : "👁️";
+};
+
+/* ── Brouillons d'enregistrement (GCS persistant, issue #16 point 4) ── */
+var draftsPanelOpen = false;
+var _draftAudio = null;
+window.saveRecordingDraft = function() {
+  if(!lastRecordingBlob){ showToast("Aucun enregistrement à sauvegarder", "error"); return; }
+  var title = (currentKaraokeSong && currentKaraokeSong.title) ? currentKaraokeSong.title : "Brouillon";
+  var fd = new FormData();
+  fd.append("file", lastRecordingBlob, "draft.webm");
+  fd.append("title", title);
+  fd.append("phone", getMyPhone() || "");
+  showToast("Sauvegarde du brouillon…", "");
+  apiFetch("/api/karaoke/drafts", {method:"POST", body:fd}).then(function(r){
+    if(!r.ok) throw new Error("Err "+r.status); return r.json();
+  }).then(function(){ showToast("Brouillon sauvegardé 🎙️", "success"); })
+   .catch(function(){ showToast("Échec de la sauvegarde du brouillon", "error"); });
+};
+window.toggleDraftsPanel = function() {
+  draftsPanelOpen = !draftsPanelOpen;
+  var p=$("draftsPanel"), o=$("draftsPanelOverlay");
+  if(draftsPanelOpen){ if(p)p.classList.add("open"); if(o)o.classList.add("open"); loadDrafts(); }
+  else { if(p)p.classList.remove("open"); if(o)o.classList.remove("open"); }
+};
+function loadDrafts() {
+  var list=$("draftsList"); if(!list) return;
+  list.innerHTML='<div class="drafts-empty">Chargement…</div>';
+  apiFetch("/api/karaoke/drafts?phone="+encodeURIComponent(getMyPhone()||"")).then(function(r){return r.json();}).then(function(d){
+    var arr=(d&&d.drafts)||[];
+    if(!arr.length){ list.innerHTML='<div class="drafts-empty">🎙️ Aucun brouillon.<br>Active le micro, enregistre, puis « 💾 Brouillon ».</div>'; return; }
+    list.innerHTML="";
+    arr.forEach(function(dr){
+      var row=document.createElement("div"); row.className="draft-item";
+      var dt=new Date((dr.created||0)*1000);
+      var when=dt.toLocaleDateString()+" "+(dt.toTimeString().slice(0,5));
+      var pub=dr.published?' <span class="draft-pub">publié</span>':'';
+      var info=document.createElement("div"); info.className="draft-info";
+      info.innerHTML='<div class="draft-title">'+escapeHtml(dr.title||"Brouillon")+pub+'</div><div class="draft-meta">'+when+'</div>';
+      var actions=document.createElement("div"); actions.className="draft-actions";
+      var pB=document.createElement("button"); pB.className="draft-btn"; pB.textContent="▶"; pB.title="Écouter en privé"; pB.onclick=function(){ playDraft(dr.id); };
+      var puB=document.createElement("button"); puB.className="draft-btn"; puB.textContent="📢"; puB.title="Publier"; puB.onclick=function(){ publishDraft(dr.id); };
+      var dB=document.createElement("button"); dB.className="draft-btn draft-del"; dB.textContent="🗑"; dB.title="Supprimer"; dB.onclick=function(){ deleteDraft(dr.id); };
+      actions.appendChild(pB); actions.appendChild(puB); actions.appendChild(dB);
+      row.appendChild(info); row.appendChild(actions);
+      list.appendChild(row);
+    });
+  }).catch(function(){ list.innerHTML='<div class="drafts-empty">Brouillons indisponibles</div>'; });
+}
+function playDraft(id){
+  apiFetch("/api/karaoke/drafts/"+encodeURIComponent(id)+"/audio?phone="+encodeURIComponent(getMyPhone()||"")).then(function(r){
+    if(!r.ok) throw new Error("Err"); return r.blob();
+  }).then(function(blob){
+    if(_draftAudio){ try{_draftAudio.pause();}catch(e){} }
+    _draftAudio=new Audio(URL.createObjectURL(blob)); _draftAudio.play();
+    showToast("Lecture privée 🔊", "");
+  }).catch(function(){ showToast("Lecture impossible", "error"); });
+}
+function publishDraft(id){
+  apiPost("/api/karaoke/drafts/"+encodeURIComponent(id)+"/publish", {phone:getMyPhone()||""}).then(function(r){return r.json();}).then(function(){
+    showToast("Brouillon publié 📢", "success"); loadDrafts();
+  }).catch(function(){ showToast("Échec de la publication", "error"); });
+}
+function deleteDraft(id){
+  apiFetch("/api/karaoke/drafts/"+encodeURIComponent(id)+"?phone="+encodeURIComponent(getMyPhone()||""), {method:"DELETE"}).then(function(){
+    showToast("Brouillon supprimé", ""); loadDrafts();
+  }).catch(function(){ showToast("Suppression impossible", "error"); });
 }
 
 function renderNowPlaying(song) {
@@ -2663,6 +3157,7 @@ function addToQueue(song) {
 }
 
 function renderQueue() {
+  /* Architecture #17 : la file d'attente n'est rendue que dans le panneau Chanter. */
   var container = $("queueList");
   var queueEl = $("spQueueSection");
   var countEl = $("queueCount");
@@ -2815,11 +3310,27 @@ function updateSingerDisplay(name) {
 }
 
 /* Karaoke chat overlay (semi-transparent left side messages) */
+/* N'autorise que les GIFs Giphy/Tenor (https) — empêche toute injection via l'URL. */
+function isGifUrl(u) {
+  return typeof u === "string" &&
+    /^https:\/\/(media[0-9]*\.giphy\.com|i\.giphy\.com|media[0-9]*\.tenor\.com|c\.tenor\.com)\/[^\s"'<>]+\.(gif|webp)(\?[^\s"'<>]*)?$/i.test(u);
+}
+
 function addKaraokeChatMsg(msg) {
   var overlay = $("karaokeChatOverlay"); if(!overlay) return;
   var div = document.createElement("div");
   div.className = "karaoke-chat-msg";
-  div.innerHTML = '<span class="karaoke-chat-name">' + escapeHtml(msg.from || "") + '</span><span class="karaoke-chat-text">' + escapeHtml(msg.content || "") + '</span>';
+  var content = msg.content || "";
+  var nameHtml = '<span class="karaoke-chat-name">' + escapeHtml(msg.from || "") + '</span>';
+  if(isGifUrl(content)){
+    /* GIF : on construit l'<img> via le DOM avec une src déjà validée (pas d'innerHTML) */
+    div.innerHTML = nameHtml;
+    var gimg = document.createElement("img");
+    gimg.className = "karaoke-chat-gif"; gimg.src = content; gimg.alt = "GIF"; gimg.loading = "lazy";
+    div.appendChild(gimg);
+  } else {
+    div.innerHTML = nameHtml + '<span class="karaoke-chat-text">' + escapeHtml(content) + '</span>';
+  }
   overlay.appendChild(div);
   /* Keep max 30 messages */
   while(overlay.children.length > 30) overlay.removeChild(overlay.firstChild);
@@ -2852,6 +3363,53 @@ window.sendKaraokeChat = function() {
   wsSend({type:"chat", content:text});
   inp.value = "";
 };
+
+/* ── GIFs (Giphy) ── */
+var gifPanelOpen = false, gifSearchTimer = null;
+/* Clé démo publique Giphy — fonctionnelle mais limitée ; remplacer par une clé perso en prod. */
+var GIPHY_KEY = "dc6zaTOxFJmzC";
+window.toggleGifPanel = function() {
+  gifPanelOpen = !gifPanelOpen;
+  var p = $("gifPanel"), o = $("gifPanelOverlay");
+  if(gifPanelOpen){
+    if(p) p.classList.add("open"); if(o) o.classList.add("open");
+    var grid = $("gifGrid");
+    if(grid && !grid.querySelector(".gif-cell")) loadGifs("");
+  } else {
+    if(p) p.classList.remove("open"); if(o) o.classList.remove("open");
+  }
+};
+window.onGifSearch = function() {
+  clearTimeout(gifSearchTimer);
+  gifSearchTimer = setTimeout(function(){ var q = $("gifSearch"); loadGifs(q ? q.value.trim() : ""); }, 350);
+};
+function loadGifs(q) {
+  var grid = $("gifGrid"); if(!grid) return;
+  grid.innerHTML = '<div class="gif-loading">Chargement…</div>';
+  var url = (q ? ("https://api.giphy.com/v1/gifs/search?q=" + encodeURIComponent(q) + "&")
+              : "https://api.giphy.com/v1/gifs/trending?") + "api_key=" + GIPHY_KEY + "&limit=24&rating=g";
+  fetch(url).then(function(r){ return r.json(); }).then(function(d){
+    if(!d || !d.data || !d.data.length){ grid.innerHTML = '<div class="gif-loading">Aucun GIF trouvé</div>'; return; }
+    grid.innerHTML = "";
+    d.data.forEach(function(g){
+      try {
+        var im = g.images || {};
+        var thumb = (im.fixed_width_small || im.fixed_height_small || im.downsized || {}).url;
+        var full  = (im.downsized_medium || im.fixed_height || im.downsized || {}).url;
+        if(!thumb || !full) return;
+        var c = document.createElement("img");
+        c.className = "gif-cell"; c.src = thumb; c.loading = "lazy"; c.alt = "GIF";
+        c.onclick = function(){ sendGif(full); };
+        grid.appendChild(c);
+      } catch(e){}
+    });
+  }).catch(function(){ grid.innerHTML = '<div class="gif-loading">GIFs indisponibles (réessaie plus tard)</div>'; });
+}
+function sendGif(url) {
+  if(!isGifUrl(url)){ showToast("GIF invalide", "error"); return; }
+  wsSend({type:"chat", content:url});
+  toggleGifPanel();
+}
 
 /* Karaoke gift panel */
 window.toggleKaraokeGiftPanel = function() {
@@ -2896,6 +3454,10 @@ var audioCtx = null;
 var micStream = null;
 var micSource = null;
 var effectChain = [];
+/* Monitoring (retour micro façon StarMaker) : tous les effets sortent via ce gain. */
+var monitorGain = null;
+var monitorEnabled = true;   /* on s'entend chanter — casque conseillé (sinon larsen) */
+var monitorLevel = 0.85;
 
 var VOICE_EFFECTS = [
   {id:"normal", name:"Normal", icon:"\uD83C\uDFA4", desc:"Voix naturelle"},
@@ -2920,10 +3482,17 @@ function initMicrophone() {
   var AC = window.AudioContext || window.webkitAudioContext;
   if(!AC){ showToast("Audio non support\u00e9", "error"); return; }
 
-  navigator.mediaDevices.getUserMedia({audio:true, video:false}).then(function(stream){
+  /* Contraintes basse latence : on coupe les traitements navigateur (echo/bruit/gain auto)
+     qui ajoutent de la latence et dégradent la voix chantée. */
+  var micConstraints = { echoCancellation:false, noiseSuppression:false, autoGainControl:false };
+  navigator.mediaDevices.getUserMedia({audio: micConstraints, video:false}).then(function(stream){
     micStream = stream;
-    audioCtx = new AC();
+    try { audioCtx = new AC({ latencyHint: "interactive" }); } catch(e){ audioCtx = new AC(); }
     micSource = audioCtx.createMediaStreamSource(stream);
+    /* Bus de monitoring : point de sortie unique contrôlable (volume / mute du retour) */
+    monitorGain = audioCtx.createGain();
+    monitorGain.gain.value = monitorEnabled ? monitorLevel : 0;
+    monitorGain.connect(audioCtx.destination);
     micActive = true;
     applyVoiceEffect(activeVoiceEffect);
     startPitchDetection();
@@ -2947,6 +3516,7 @@ function stopMicrophone() {
     audioCtx = null;
   }
   micSource = null;
+  monitorGain = null;
   micActive = false;
   stopPitchDetection();
   updateMicUI();
@@ -2969,7 +3539,8 @@ function applyVoiceEffect(effectId) {
   if(!audioCtx || !micSource) return;
   disconnectEffectChain();
   activeVoiceEffect = effectId;
-  var dest = audioCtx.destination;
+  /* Sortie via le bus de monitoring (retour micro contrôlable), pas directement les HP */
+  var dest = monitorGain || audioCtx.destination;
 
   switch(effectId) {
     case "echo": {
@@ -3127,6 +3698,34 @@ function updateMicUI() {
   }
 }
 
+/* ── Monitoring micro (retour StarMaker) ── */
+function applyMonitorGain() {
+  if(monitorGain && audioCtx){
+    var target = monitorEnabled ? monitorLevel : 0;
+    try { monitorGain.gain.setTargetAtTime(target, audioCtx.currentTime, 0.02); }
+    catch(e){ monitorGain.gain.value = target; }
+  }
+}
+function updateMonitorUI() {
+  var btn = $("monitorToggleBtn");
+  if(btn){
+    btn.textContent = monitorEnabled ? "Activé" : "Coupé";
+    btn.className = "vfx-monitor-toggle" + (monitorEnabled ? " on" : "");
+  }
+  var sl = $("monitorSlider"); if(sl) sl.value = Math.round(monitorLevel * 100);
+}
+window.toggleMonitor = function() {
+  monitorEnabled = !monitorEnabled;
+  applyMonitorGain();
+  updateMonitorUI();
+  showToast(monitorEnabled ? "Retour micro activé 🎧" : "Retour micro coupé", monitorEnabled ? "success" : "");
+};
+window.setMonitorLevel = function(v) {
+  monitorLevel = Math.max(0, Math.min(1, parseFloat(v) || 0));
+  if(monitorEnabled) applyMonitorGain();
+  updateMonitorUI();
+};
+
 window.toggleVoiceEffectsPanel = function() {
   voiceEffectsOpen = !voiceEffectsOpen;
   var panel = $("vfxPanel");
@@ -3135,6 +3734,7 @@ window.toggleVoiceEffectsPanel = function() {
     if(panel) panel.classList.add("open");
     if(overlay) overlay.classList.add("open");
     updateVfxGrid();
+    updateMonitorUI();
   } else {
     if(panel) panel.classList.remove("open");
     if(overlay) overlay.classList.remove("open");
@@ -3288,15 +3888,14 @@ function detectPitch(analyser, sr) {
   rms=Math.sqrt(rms/N);
   if(rms<0.015) return {freq:-1,rms:rms};
 
-  /* Autocorrelation */
-  var best=-1, bestR=-1;
-  var running=0;
-  for(var tau=0;tau<N;tau++){
+  /* Autocorrelation — tau limité à la plage vocale (75–1200 Hz) :
+     ~3-4x plus rapide (temps réel sur mobile) et évite les erreurs d'octave. */
+  var minTau=Math.max(2, Math.floor(sr/1200));
+  var maxTau=Math.min(N-1, Math.ceil(sr/75));
+  var best=-1, bestR=0;
+  for(var tau=minTau;tau<=maxTau;tau++){
     var s=0;
     for(var i=0;i<N-tau;i++) s+=buf[i]*buf[i+tau];
-    if(tau===0){ running=s; continue; }
-    if(s<0&&running>=0){ running=s; continue; }
-    running=s;
     if(s>bestR){ bestR=s; best=tau; }
   }
   if(best<2) return {freq:-1,rms:rms};
@@ -3930,6 +4529,7 @@ var isRecording = false;
 var mediaRecorder = null;
 var recordedChunks = [];
 var lastRecordingUrl = null;
+var lastRecordingBlob = null;
 
 window.toggleRecording = function() {
   if(isRecording) stopRecording();
@@ -3962,6 +4562,7 @@ function startRecording() {
       if(recordedChunks.length > 0){
         var blob = new Blob(recordedChunks, {type:recordedChunks[0].type || "audio/webm"});
         lastRecordingUrl = URL.createObjectURL(blob);
+        lastRecordingBlob = blob;
       }
       recordedChunks = [];
     };
@@ -4198,6 +4799,8 @@ var autoQueueCountdown = 5;
 var ytMessageListenerBound = false;
 
 function listenYouTubeEnd() {
+  /* L'API IFrame gere la fin via onStateChange : ce hack n'est qu'un secours */
+  if(karaokeYTPlayer) return;
   if(ytMessageListenerBound) return;
   ytMessageListenerBound = true;
   window.addEventListener("message", function(e) {
@@ -4459,7 +5062,7 @@ function renderQuizFinished(gs) {
   // Find winner
   var scores=gs.scores||{}, best="",bestPts=-1;
   for(var k in scores){ if(scores.hasOwnProperty(k)&&scores[k]>bestPts){bestPts=scores[k];best=k;}}
-  $("quizQuestion").innerHTML='<div class="quiz-finished"><div class="trophy">\uD83C\uDFC6</div><div>Vainqueur :</div><div class="winner-name">'+escapeHtml(best||"Personne")+'</div></div>';
+  $("quizQuestion").innerHTML='<div class="quiz-finished"><div class="trophy">\uD83C\uDFC6</div><div>Vainqueur :</div><div class="winner-name">'+escapeHtml(best?nameOf(best):"Personne")+'</div></div>';
   renderScoreRows($("quizScoreRows"),scores,"pts");
   if(S.isHost) show("gameSelector");
 }
@@ -4474,7 +5077,7 @@ function renderMorpion(gs) {
   var statusEl=$("morpionStatus");
 
   if(status==="won"&&winner){
-    var wName=(winner===S.myPhone)?"Vous":winner;
+    var wName=(winner===S.myPhone)?"Vous":nameOf(winner);
     statusEl.textContent=wName+" a gagn\u00e9 !"; statusEl.classList.add("winner");
     if(S.isHost) show("morpionRestart");
   } else if(status==="draw"){
@@ -4484,7 +5087,7 @@ function renderMorpion(gs) {
     statusEl.classList.remove("winner"); hide("morpionRestart");
     var isMy=(turn===S.myPhone);
     var sym=(turn===playerX)?"\u274C":"\u2B55";
-    statusEl.textContent=(isMy?"Votre tour":"Tour de "+turn)+" ("+sym+")";
+    statusEl.textContent=(isMy?"Votre tour":"Tour de "+nameOf(turn))+" ("+sym+")";
   }
 
   grid.innerHTML="";
@@ -4524,7 +5127,7 @@ function renderMemory(gs) {
     if(S.isHost) show("gameSelector");
   } else {
     var isMy=(currentTurn===S.myPhone);
-    statusEl.textContent=isMy?"Votre tour \u2014 retournez 2 cartes":"Tour de "+(currentTurn||"???");
+    statusEl.textContent=isMy?"Votre tour \u2014 retournez 2 cartes":"Tour de "+(currentTurn?nameOf(currentTurn):"???");
   }
 
   grid.innerHTML="";
@@ -4561,11 +5164,22 @@ function renderMemory(gs) {
   renderScoreRows($("memoryScoreRows"),scores,"paires");
 }
 
+/* Résout un phone/email en pseudo lisible (jamais un numéro brut) */
+function nameOf(phone){
+  if(!phone) return "";
+  if(phone===S.myPhone) return S.myName||"Vous";
+  for(var i=0;i<S.participants.length;i++){
+    if(S.participants[i].phone===phone) return S.participants[i].name||S.participants[i].phone;
+  }
+  // Fallback : masque un numéro de téléphone pour ne pas l'exposer
+  return (/^\+?[\d\s().-]{6,}$/.test(phone)) ? ("Joueur ••"+phone.replace(/\D/g,"").slice(-2)) : phone;
+}
+
 /* SHARED SCORE RENDERER */
 function renderScoreRows(container,scores,unit) {
   if(!scores||typeof scores!=="object"){ container.innerHTML=""; return; }
   var entries=[];
-  for(var k in scores){ if(scores.hasOwnProperty(k)) entries.push({name:k,pts:scores[k]}); }
+  for(var k in scores){ if(scores.hasOwnProperty(k)) entries.push({name:nameOf(k),pts:scores[k]}); }
   entries.sort(function(a,b){return b.pts-a.pts;});
   var h="";
   entries.forEach(function(e){
