@@ -11,6 +11,7 @@
 <link rel="apple-touch-icon" href="/static/icon-192.png">
 <title>Luna Guardian</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="/static/auth.js"></script>
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; user-select: none; }
 :root {
@@ -778,21 +779,49 @@ select.cfg-inp option { background:#13131f; }
 <script>
 'use strict';
 
+// ── DIAGNOSTIC NATIVE (evenementiel) ─────────
+// Envoie des evenements vers l'APK pour le panneau diagnostic natif.
+// Aucun appel si LunaBridge n'est pas present (Chrome desktop reste inchange).
+function diagLog(category, message){
+  if(window.LunaBridge && LunaBridge.logEvent){
+    try{ LunaBridge.logEvent(category, message); }catch(e){}
+  }
+}
+function diagApi(name, status){
+  if(window.LunaBridge && LunaBridge.setLastApiStatus){
+    try{ LunaBridge.setLastApiStatus(name, String(status)); }catch(e){}
+  }
+}
+function reportJsState(){
+  if(!window.LunaBridge || !LunaBridge.reportJsState) return;
+  var state = {
+    listenState: window._lunaListenActive ? 'active' : 'inactive',
+    speechAvailable: !!(window.SpeechRecognition || window.webkitSpeechRecognition),
+    tokenPresent: !!LunaAuth.getToken(),
+    lastError: window._lunaLastJsError || '-'
+  };
+  try{ LunaBridge.reportJsState(JSON.stringify(state)); }catch(e){}
+}
+window.addEventListener('error', function(e){
+  window._lunaLastJsError = e.message + ' @ ' + (e.filename||'') + ':' + e.lineno;
+  diagLog('JS_ERROR', window._lunaLastJsError);
+  reportJsState();
+});
+window.addEventListener('unhandledrejection', function(e){
+  window._lunaLastJsError = 'UnhandledPromise: ' + (e.reason && e.reason.message ? e.reason.message : String(e.reason));
+  diagLog('JS_ERROR', window._lunaLastJsError);
+  reportJsState();
+});
+
 // ── AUTH ─────────────────────────────────────
-function getToken(){ return localStorage.getItem('luna_token')||''; }
-function syncAuthToken(){
-  if(window.LunaBridge&&LunaBridge.setAuthToken) LunaBridge.setAuthToken(getToken());
-}
-syncAuthToken();
-function authFetch(url,opts){
-  var o=Object.assign({headers:{}},opts||{});
-  o.headers=Object.assign({},o.headers);
-  var t=getToken(); if(t) o.headers['Authorization']='Bearer '+t;
-  return fetch(url,o).then(function(r){
-    if(r.status===401){localStorage.removeItem('luna_token');window.location.href='/';} return r;
-  });
-}
-if(!getToken()){ window.location.href='/'; }
+// Utilisation de LunaAuth (static/auth.js) : module générique de gestion
+// des tokens, du refresh automatique et de la synchronisation native APK.
+LunaAuth.init().then(function(hasToken){
+  diagLog('GUARDIAN','guardian.html charge URL=' + window.location.href);
+  diagLog('GUARDIAN','token=' + (hasToken?'oui':'non') + ' SpeechRecognition=' + (!!(window.SpeechRecognition||window.webkitSpeechRecognition)?'oui':'non'));
+  reportJsState();
+  if(!hasToken){ LunaAuth.requiresLogin(); }
+});
 
 // ── STATE ────────────────────────────────────
 var SID=null, WS=null, GEO_ID=null;
@@ -1114,14 +1143,18 @@ function guardianStart(){
   if(!navigator.geolocation){showToast('GPS non disponible');return;}
   setHdrStatus('Connexion…','#f59e0b',false);
   vibrate([30]);
+  diagLog('GUARDIAN','Demarrage session Guardian');
   var cfg={immobility_threshold_minutes:parseInt(document.getElementById('cfg-immo').value)||30,safe_zones:[]};
   if(SAFE_ZONE) cfg.safe_zones=[SAFE_ZONE];
-  authFetch('/api/guardian/start',{method:'POST',headers:{'Content-Type':'application/json'},
+  LunaAuth.authFetch('/api/guardian/start',{method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({profile_type:document.getElementById('cfg-profile').value,config:cfg})
-  }).then(function(r){return r.json();}).then(function(d){
+  }).then(function(r){
+    diagApi('guardian/start', r.status);
+    return r.json();
+  }).then(function(d){
     if(!d.success) throw new Error(d.error||'Erreur');
     SID=d.session_id;
-    syncAuthToken();
+    diagLog('GUARDIAN','Session demarree SID=' + SID);
     if(window.LunaBridge&&LunaBridge.setGuardianSession) LunaBridge.setGuardianSession(SID);
     setHdrStatus('Actif',null,true);
     document.getElementById('btn-start').style.display='none';
@@ -1170,7 +1203,7 @@ function guardianStop(){
   if(!SID) return;
   vibrate([40]);
   if(window.LunaBridge&&LunaBridge.clearGuardianSession) LunaBridge.clearGuardianSession();
-  authFetch('/api/guardian/stop/'+SID,{method:'POST'}).then(function(){
+  LunaAuth.authFetch('/api/guardian/stop/'+SID,{method:'POST'}).then(function(){
     _cleanupSession();
     setHdrStatus('Arrêté',null,false);
     document.getElementById('btn-start').style.display='';
@@ -1232,7 +1265,7 @@ function _eemStart(iid, source){
   if(GEO_ID!==null){navigator.geolocation.clearWatch(GEO_ID);GEO_ID=null;}
   // Notify backend — ouvre le dossier d'incident
   var initPos=LAST_POS||{};
-  authFetch('/api/guardian/incident/'+SID+'/start',{
+  LunaAuth.authFetch('/api/guardian/incident/'+SID+'/start',{
     method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({incident_id:iid,source:source,lat:initPos.lat||null,lng:initPos.lng||null})
   }).catch(function(){});
@@ -1258,7 +1291,7 @@ function _eemOnPos(p){
   // Push toutes les 3s max
   if(ts-_EEM_LAST_PUSH<3000) return;
   _EEM_LAST_PUSH=ts;
-  authFetch('/api/guardian/incident/'+SID+'/trail',{
+  LunaAuth.authFetch('/api/guardian/incident/'+SID+'/trail',{
     method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({incident_id:_EEM_IID,position:pt})
   }).catch(function(){});
@@ -1324,7 +1357,7 @@ function _eemUploadAudio(blob,iid){
   var form=new FormData();
   form.append('audio',blob,'emergency_'+iid+'.webm');
   form.append('incident_id',iid);
-  authFetch('/api/guardian/incident/'+SID+'/audio',{method:'POST',body:form})
+  LunaAuth.authFetch('/api/guardian/incident/'+SID+'/audio',{method:'POST',body:form})
     .catch(function(){});
 }
 
@@ -1375,13 +1408,15 @@ function _eemUploadPhoto(blob,iid,n){
   form.append('photo',blob,'emergency_'+iid+'_'+n+'.jpg');
   form.append('incident_id',iid);
   form.append('photo_num',String(n));
-  authFetch('/api/guardian/incident/'+SID+'/photo',{method:'POST',body:form})
+  LunaAuth.authFetch('/api/guardian/incident/'+SID+'/photo',{method:'POST',body:form})
     .catch(function(){});
 }
 
 function startGps(){
+  diagLog('GPS','watchPosition demarre');
   GEO_ID=navigator.geolocation.watchPosition(function(p){
     var lat=p.coords.latitude,lng=p.coords.longitude,acc=p.coords.accuracy,spd=p.coords.speed;
+    diagLog('GPS','Position: ' + lat.toFixed(5) + ',' + lng.toFixed(5) + ' +/-' + Math.round(acc) + 'm');
     updateMapPos(lat,lng,acc);
     var now=Date.now();
     if(!SID||(now-LAST_GPS_SENT<10000&&LAST_GPS_SENT>0)){
@@ -1391,10 +1426,13 @@ function startGps(){
     LAST_GPS_SENT=now;
     _LAST_CONTEXT_POS={lat:lat,lng:lng};
     if(window.LunaBridge&&LunaBridge.updateGuardianPosition) LunaBridge.updateGuardianPosition(lat,lng);
-    authFetch('/api/guardian/location/'+SID,{method:'POST',
+    LunaAuth.authFetch('/api/guardian/location/'+SID,{method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({lat:lat,lng:lng,accuracy:acc,speed:spd})
-    }).then(function(r){return r.json();}).then(function(d){
+    }).then(function(r){
+      diagApi('guardian/location', r.status);
+      return r.json();
+    }).then(function(d){
       updateRisk(d.risk_score,d.risk_level,d.description);
       var inZone=false,zoneName=null;
       if(SAFE_ZONE){
@@ -1416,7 +1454,7 @@ function startGps(){
     showToast('❌ GPS: '+e.message,4000);
     if (e && e.code === 1 && SID) {
       // Permission denied — notify backend to stop the session
-      authFetch('/api/guardian/location-denied/'+SID, {
+      LunaAuth.authFetch('/api/guardian/location-denied/'+SID, {
         method:'POST',
         headers:{'Content-Type':'application/json'},
         body:JSON.stringify({reason:'permission_denied'})
@@ -1508,19 +1546,21 @@ function triggerSOS(){
   if(!SID){showToast('Guardian non actif');return;}
   if(_sosInProgress){showToast('⏳ Alerte déjà en cours…');return;}
   _sosInProgress=true;
+  diagLog('SOS','SOS manuel declenche SID=' + SID);
   var btn=document.getElementById('sos-go');
   if(btn) btn.disabled=true;
   var iid=_genIncidentId();
   vibrate([200,100,200,100,200]);
   // P1 — Activer tracking GPS renforcé immédiatement
   _eemStart(iid,'sos');
-  authFetch('/api/guardian/sos/'+SID,{
+  LunaAuth.authFetch('/api/guardian/sos/'+SID,{
     method:'POST',
     headers:{'Content-Type':'application/json'},
     body:JSON.stringify({incident_id:iid})
   }).then(function(r){
     return r.json().then(function(d){return {status:r.status,data:d};});
   }).then(function(res){
+    diagApi('guardian/sos', res.status);
     if(res.status===409){showToast('⏳ Alerte déjà envoyée',3000);return;}
     var d=res.data;
     var summary=_formatAlertSummary(d);
@@ -1600,16 +1640,23 @@ function _setMicState(state){
     if(lbl) lbl.textContent='écoute';
     if(card) card.classList.add('state-listening');
     _vocalListening=true;
+    window._lunaListenActive=true;
+    diagLog('AUDIO','Micro ecoute active');
   } else if(state==='error'){
     dot.classList.add('error');
     if(lbl) lbl.textContent='inactif';
     if(card) card.classList.add('state-error');
     _vocalListening=false;
+    window._lunaListenActive=false;
+    diagLog('AUDIO','Micro erreur');
   } else {
     if(lbl) lbl.textContent='veille';
     if(card) card.classList.add('state-off');
     _vocalListening=false;
+    window._lunaListenActive=false;
+    diagLog('AUDIO','Micro veille');
   }
+  reportJsState();
 }
 
 // Dans l'APK, l'écoute est assurée par VOSK (service natif, silencieux) → l'UI web ne reçoit
@@ -1623,24 +1670,37 @@ function _setVoskActiveUI(){
   if(lbl) lbl.textContent='actif';
   if(card){ card.className=''; card.classList.add('state-listening'); }
   _vocalListening=true;
+  window._lunaListenActive=true;
+  diagLog('AUDIO','VOSK natif actif');
+  reportJsState();
 }
 
 function _vocalMatch(transcript,isFinal){
   var t=(transcript||'').trim();
   var n=_norm(t);
+  diagLog('MATCH','ENTER transcript="' + t + '" normalised="' + n + '" isFinal=' + isFinal);
+  diagLog('MATCH','state vocalActive=' + _vocalActive + ' sosInProgress=' + _sosInProgress + ' voiceCaptureActive=' + _voiceCaptureActive);
+
   if(_vocalActive||_sosInProgress){
-    if(_vocalActive && CANCEL_KW.some(function(k){return n.includes(_norm(k));})) cancelVocalCountdown();
+    diagLog('MATCH','BAIL vocalActive or sosInProgress');
+    if(_vocalActive && CANCEL_KW.some(function(k){return n.includes(_norm(k));})){
+      diagLog('MATCH','CANCEL keyword detected');
+      cancelVocalCountdown();
+    }
     return;
   }
 
   // Capture du contexte après un hit : accumulation jusqu'au silence (isFinal) ou timeout
   if(_voiceCaptureActive){
+    diagLog('MATCH','voiceCaptureActive=true');
     if(t){
       _voiceTranscript=t;
       _voiceContext=t;
+      diagLog('MATCH','context updated="' + t + '"');
       _traceGuardian('web_sr_context',{isFinal:!!isFinal, transcript:t, voiceContext:_voiceContext});
     }
     if(isFinal){
+      diagLog('MATCH','isFinal=true -> stop capture + openVocalCountdown');
       _traceGuardian('web_sr_capture_final',{voiceTranscript:_voiceTranscript, voiceContext:_voiceContext});
       _stopVoiceCapture();
       openVocalCountdown();
@@ -1651,27 +1711,38 @@ function _vocalMatch(transcript,isFinal){
   // Match par séquence de mots ENTIÈRE (bornée par des espaces) — évite "secours"
   // au milieu d'un mot. (L'annulation, elle, reste large : mieux vaut sur-annuler.)
   var _padded=' '+n+' ';
-  var hit=EMERGENCY_KW.some(function(k){
+  var hit=false;
+  var matchedKw='';
+  EMERGENCY_KW.forEach(function(k){
+    if(hit) return;
     var nk=_norm(k);
     var needle=' '+nk+' ';
     var idx=_padded.indexOf(needle);
-    if(idx<0) return false;
+    if(idx<0) return;
     // Garde anti-usage instrumental — uniquement pour « à l'aide »
     if(KW_AMBIGU.indexOf(nk)>=0){
       var after=_padded.substring(idx+needle.length);
       for(var s=0;s<KW_INSTRUMENTAL_SUFFIX.length;s++){
         var suf=KW_INSTRUMENTAL_SUFFIX[s];
-        if(after===suf||after.indexOf(suf+' ')===0) return false;
+        if(after===suf||after.indexOf(suf+' ')===0){
+          diagLog('MATCH','filtered instrumental suffix for "' + k + '" after="' + after + '"');
+          return;
+        }
       }
     }
-    return true;
+    hit=true;
+    matchedKw=k;
   });
+  diagLog('MATCH','RESULT hit=' + hit + (hit ? ' keyword="' + matchedKw + '"' : ' (no keyword matched)'));
   if(hit){
     _voiceTranscript=t;
     _voiceContext=t;
     _traceGuardian('web_sr_hit',{path:'_vocalMatch', transcript:t, keywordMatched:true, voiceTranscript:_voiceTranscript, voiceContext:_voiceContext});
+    diagLog('AUDIO','Mot-cle urgence detecte: ' + t);
+    diagLog('MATCH','CALL openVocalCountdown via capture timer');
     _voiceCaptureActive=true;
     _voiceCaptureTimer=setTimeout(function(){
+      diagLog('MATCH','capture timeout -> openVocalCountdown');
       _traceGuardian('web_sr_capture_timeout',{voiceTranscript:_voiceTranscript, voiceContext:_voiceContext});
       _stopVoiceCapture();
       openVocalCountdown();
@@ -1690,33 +1761,46 @@ function _vocalScheduleRestart(delayMs){
 }
 
 function _vocalStart(){
+  diagLog('AUDIO','ENTER _vocalStart');
   // BULLETPROOF (01/07) : dans l'APK, l'écoute est assurée par VOSK (service natif, silencieux).
   // On NE démarre JAMAIS le Web Speech du navigateur ici — c'est lui qui joue les tonalités
   // « écoute/veille » (il passe par le SpeechRecognizer Google). Quel que soit l'appelant.
-  if(window.LunaBridge && window.LunaBridge.setGuardianProtection){ _setMicState('off'); return; }
+  var hasSetGuardianProtection = !!(window.LunaBridge && window.LunaBridge.setGuardianProtection);
+  diagLog('AUDIO','setGuardianProtection=' + hasSetGuardianProtection);
+  if(hasSetGuardianProtection){ _setMicState('off'); diagLog('AUDIO','BAIL setGuardianProtection present'); return; }
   var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-  if(!SR){ _setMicState('off'); return; }
-  if(_vocalRec) return; // déjà actif
+  diagLog('AUDIO','SpeechRecognition object=' + (SR?'present':'ABSENT'));
+  if(!SR){ _setMicState('off'); diagLog('AUDIO','BAIL SpeechRecognition absent'); return; }
+  if(_vocalRec){ diagLog('AUDIO','BAIL deja actif'); return; } // déjà actif
 
   var rec=new SR();
   rec.lang='fr-FR';
   rec.continuous=true;
   rec.interimResults=true;
   rec.maxAlternatives=2;
+  diagLog('AUDIO','rec.start() appel');
 
-  rec.onstart=function(){ _setMicState('listening'); _vocalErrors=0; };
+  rec.onstart=function(){ _setMicState('listening'); _vocalErrors=0; diagLog('AUDIO','SpeechRecognition demarre'); };
 
   rec.onresult=function(e){
+    // DIAG : instrumentation complete de la reconstruction du transcript
+    var start = (typeof e.resultIndex === 'number') ? e.resultIndex : 0;
+    var len = e.results ? e.results.length : 0;
+    diagLog('AUDIO','onresult start=' + start + ' len=' + len);
     var t='';
     var isFinal=false;
-    for(var i=0;i<e.results.length;i++){
-      t+=e.results[i][0].transcript;
+    for(var i=start;i<len;i++){
+      var seg = e.results[i][0].transcript || '';
+      diagLog('AUDIO','  result['+i+'] isFinal=' + e.results[i].isFinal + ' : "' + seg + '"');
+      t+=seg;
       if(e.results[i].isFinal) isFinal=true;
     }
-    _vocalMatch(t,isFinal);
+    diagLog('AUDIO','reconstructed="' + t + '" isFinal=' + isFinal);
+    _vocalMatch(t.trim(),isFinal);
   };
 
   rec.onerror=function(e){
+    diagLog('AUDIO','onerror error=' + e.error + ' message=' + (e.message||'-'));
     // no-speech = silence normal — ne pas interrompre
     if(e.error==='no-speech') return;
     // aborted = écran verrouillé / app fond — traiter comme une vraie erreur
@@ -1725,10 +1809,12 @@ function _vocalStart(){
     _setMicState('error');
     // Délai progressif : 3s, 5s, 10s, 30s max
     var delay=Math.min(3000*Math.pow(1.6,Math.min(_vocalErrors-1,4)),30000);
+    diagLog('AUDIO','restart apres erreur dans ' + delay + 'ms');
     if(SID) _vocalScheduleRestart(delay);
   };
 
   rec.onend=function(){
+    diagLog('AUDIO','onend');
     // Si onerror a déjà nul le rec → ne rien faire (restart déjà planifié)
     if(_vocalRec!==rec){ return; }
     _vocalRec=null;
@@ -1753,6 +1839,7 @@ function _vocalStop(){
   if(_vocalRec){ try{_vocalRec.abort();}catch(e){} _vocalRec=null; }
   _setMicState('off');
   cancelVocalCountdown();
+  diagLog('AUDIO','Micro arrete');
 }
 
 function _vocalStartWithWatchdog(){
@@ -1768,12 +1855,17 @@ function _vocalStartWithWatchdog(){
   },30000);
 }
 function openVocalCountdown(){
-  if(_vocalActive||_sosInProgress) return;
+  diagLog('COUNTDOWN','ENTER openVocalCountdown vocalActive=' + _vocalActive + ' sosInProgress=' + _sosInProgress);
+  if(_vocalActive||_sosInProgress){
+    diagLog('COUNTDOWN','BAIL vocalActive=' + _vocalActive + ' sosInProgress=' + _sosInProgress);
+    return;
+  }
   _vocalActive=true;
   // Fenêtre d'annulation ÉLARGIE (30/06) : 5 s était trop court — l'alerte partait avant
   // que l'utilisateur ait le temps de lire le panneau et d'appuyer sur ANNULER.
   // Laisse le temps de réagir. Ajustable via localStorage 'guardian_countdown_s'.
   var n=parseInt(localStorage.getItem('guardian_countdown_s')||'15',10); if(!(n>=5&&n<=60)) n=15;
+  diagLog('COUNTDOWN','started n=' + n + 's');
   document.getElementById('vocal-count').textContent=n;
   document.getElementById('vocal-n').textContent=n;
   document.getElementById('vocal-modal').classList.add('open');
@@ -1800,6 +1892,7 @@ function openVocalCountdown(){
       if(_vocalRestartT){ clearTimeout(_vocalRestartT); _vocalRestartT=null; }
       _setMicState('off');
       _vocalActive=false;
+      diagLog('COUNTDOWN','reached 0 -> CALL _triggerSOSVocal');
       _triggerSOSVocal();
     }
   },1000);
@@ -1833,13 +1926,16 @@ var _voiceContext='';
 var _voiceCaptureActive=false;
 var _voiceCaptureTimer=null;
 window.lunaEmergencyVoiceDetected=function(text, confidence, context){
+  diagLog('VOSK','ENTER lunaEmergencyVoiceDetected text="' + (text||'') + '" confidence=' + confidence + ' context="' + (context||'') + '"');
+  diagLog('VOSK','state SID=' + SID + ' sosInProgress=' + _sosInProgress + ' vocalActive=' + _vocalActive);
   _dbgSR('emergency_received');
   _traceGuardian('vosk_received',{path:'lunaEmergencyVoiceDetected', text:text||'', confidence:confidence, context:context||''});
-  if(!SID){ _dbgSR('bail_no_session'); _traceGuardian('vosk_bail',{reason:'no_session'}); return; }
-  if(_sosInProgress){ _dbgSR('bail_sos_in_progress'); _traceGuardian('vosk_bail',{reason:'sos_in_progress'}); return; }
-  if(_vocalActive){ _dbgSR('bail_vocal_active'); _traceGuardian('vosk_bail',{reason:'vocal_active'}); return; }
+  if(!SID){ diagLog('VOSK','BAIL no SID'); _dbgSR('bail_no_session'); _traceGuardian('vosk_bail',{reason:'no_session'}); return; }
+  if(_sosInProgress){ diagLog('VOSK','BAIL sos in progress'); _dbgSR('bail_sos_in_progress'); _traceGuardian('vosk_bail',{reason:'sos_in_progress'}); return; }
+  if(_vocalActive){ diagLog('VOSK','BAIL vocal active'); _dbgSR('bail_vocal_active'); _traceGuardian('vosk_bail',{reason:'vocal_active'}); return; }
   _voiceTranscript=(text||'').toString();
   _voiceContext=(context||'').toString();
+  diagLog('VOSK','CALL openVocalCountdown transcript="' + _voiceTranscript + '"');
   _dbgSR('opening_countdown');
   _traceGuardian('vosk_open_countdown',{transcript:_voiceTranscript, context:_voiceContext});
   openVocalCountdown();
@@ -1862,7 +1958,7 @@ function _renderVoiceContext(){
 function _enrichVoiceContext(transcript){
   if(!transcript) return;
   try{
-    authFetch('/api/guardian/voice-context',{
+    LunaAuth.authFetch('/api/guardian/voice-context',{
       method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({transcript:transcript})
     }).then(function(r){return r.json();}).then(function(d){
@@ -1890,25 +1986,39 @@ function cancelVocalCountdown(){
   guardianSpeak('État d\'urgence désactivé.');
 }
 function _triggerSOSVocal(){
-  if(!SID||_sosInProgress) return;
+  diagLog('SOS','ENTER _triggerSOSVocal SID=' + SID + ' sosInProgress=' + _sosInProgress);
+  if(!SID||_sosInProgress){
+    diagLog('SOS','BAIL SID=' + SID + ' sosInProgress=' + _sosInProgress);
+    return;
+  }
   _sosInProgress=true;
+  diagLog('SOS','SOS vocal declenche SID=' + SID);
   var iid=_genIncidentId();
   vibrate([500,150,500,150,800]);
   guardianSpeak('Contact d\'urgence activé.');
   // P1 — Activer tracking GPS renforcé immédiatement
   _eemStart(iid,'vocal');
   var sosPayload={incident_id:iid,source:'vocal',context:_voiceContext||'',transcript:_voiceTranscript||''};
+  diagLog('SOS','CALL /api/guardian/sos/' + SID + ' payload=' + JSON.stringify(sosPayload));
   _traceGuardian('sos_request',{path:'_triggerSOSVocal', payload:sosPayload});
-  authFetch('/api/guardian/sos/'+SID,{
+  LunaAuth.authFetch('/api/guardian/sos/'+SID,{
     method:'POST',
     headers:{'Content-Type':'application/json'},
     body:JSON.stringify(sosPayload)
   }).then(function(r){
     return r.json().then(function(d){return {status:r.status,data:d};});
   }).then(function(res){
+    diagApi('guardian/sos', res.status);
+    diagLog('SOS','RESPONSE status=' + res.status + ' body=' + JSON.stringify(res.data).substring(0,500));
     _traceGuardian('sos_response',{status:res.status, data:res.data});
     if(res.status===409){showToast('⏳ Alerte déjà envoyée',3000);return;}
     var d=res.data;
+    if(d&&d.guardian_session_id){
+      diagLog('SOS','guardian_session_id=' + d.guardian_session_id);
+      if(window.LunaBridge && LunaBridge.setLastGuardianSessionId){
+        LunaBridge.setLastGuardianSessionId(d.guardian_session_id);
+      }
+    }
     var summary=_formatAlertSummary(d);
     showToast('🆘 '+(d.message||'SOS envoyé'),6000);
     _voiceLog('voice_alert_sent',(d.sms_sent_to||0)+'sms/'+(d.dm_sent_to||0)+'dm/'+(d.calls_placed||0)+'calls');
@@ -1923,6 +2033,7 @@ function _triggerSOSVocal(){
     // P3 — Camera 3 snapshots (non-bloquant)
     _eemStartCamera(iid);
   }).catch(function(e){
+    diagLog('SOS','ERROR ' + (e.message||String(e)));
     _traceGuardian('sos_error',{error:e.message||String(e)});
     showToast('❌ SOS: '+(e.message||'erreur'));
   })
@@ -1950,7 +2061,7 @@ function verifyResponse(ok){
   if(!SID) return;
   vibrate([ok?60:[200,100,200]]);
   if(ok) markCheckin();
-  authFetch('/api/guardian/verify-response/'+SID,{method:'POST',
+  LunaAuth.authFetch('/api/guardian/verify-response/'+SID,{method:'POST',
     headers:{'Content-Type':'application/json'},body:JSON.stringify({ok:ok})
   }).then(function(r){return r.json();}).then(function(d){
     showToast(d.message||(ok?'✅ Réponse enregistrée':'Alerte confirmée'));
@@ -1962,7 +2073,7 @@ function verifyResponse(ok){
 // ── SHARE ─────────────────────────────────────
 function sharePosition(){
   if(!SID){showToast('Guardian non actif');return;}
-  authFetch('/api/guardian/share/'+SID).then(function(r){return r.json();}).then(function(d){
+  LunaAuth.authFetch('/api/guardian/share/'+SID).then(function(r){return r.json();}).then(function(d){
     if(!d.public_url){showToast('Erreur partage');return;}
     if(navigator.share){
       navigator.share({title:'Ma position Luna Guardian',text:'Suivi en direct (1h)',url:d.public_url})
@@ -1994,7 +2105,7 @@ var _evIcons={
 };
 function loadEvents(){
   if(!SID) return;
-  authFetch('/api/guardian/events/'+SID+'?limit=40')
+  LunaAuth.authFetch('/api/guardian/events/'+SID+'?limit=40')
   .then(function(r){return r.json();}).then(function(data){
     var evts=data.events||[];
     var badge=document.getElementById('ev-badge');
@@ -2053,7 +2164,7 @@ function buildTimeline(evts){
 // ── RÉSUMÉ QUOTIDIEN ──────────────────────────
 function showDailySummary(){
   if(!SID){showToast('Pas de session active');return;}
-  authFetch('/api/guardian/events/'+SID+'?limit=100')
+  LunaAuth.authFetch('/api/guardian/events/'+SID+'?limit=100')
   .then(function(r){return r.json();}).then(function(data){
     var evts=data.events||[];
     if(!evts.length){showToast('Aucun événement à résumer');return;}
@@ -2159,7 +2270,7 @@ function _renderContactChips(){
   }
 }
 function loadContacts(){
-  authFetch('/api/contacts').then(function(r){return r.json();}).then(function(d){
+  LunaAuth.authFetch('/api/contacts').then(function(r){return r.json();}).then(function(d){
     _smsContacts=d.contacts||[];
     _renderContactChips();
   }).catch(function(){});
@@ -2167,7 +2278,7 @@ function loadContacts(){
 
 // ── AMIS LUNA PROTECTEURS ─────────────────────
 function loadGuardianFriends(){
-  authFetch('/api/social/friends').then(function(r){return r.json();}).then(function(d){
+  LunaAuth.authFetch('/api/social/friends').then(function(r){return r.json();}).then(function(d){
     _gFriendsAll=d.friends||[];
     _renderContactChips();
     _renderGuardianCfg();
@@ -2195,7 +2306,7 @@ function _renderGuardianCfg(){
 }
 function toggleGuardianFriend(friend_tid,add){
   var method=add?'POST':'DELETE';
-  authFetch('/api/guardian/trusted-friends/'+friend_tid,{method:method}).then(function(){
+  LunaAuth.authFetch('/api/guardian/trusted-friends/'+friend_tid,{method:method}).then(function(){
     _gFriendsAll=_gFriendsAll.map(function(f){
       if(f.tid===friend_tid) f.is_guardian_contact=add; return f;
     });
@@ -2207,10 +2318,15 @@ function toggleGuardianFriend(friend_tid,add){
 
 // ── INIT : reprise session active ─────────────
 (function checkSession(){
-  authFetch('/api/guardian/sessions').then(function(r){return r.json();}).then(function(d){
+  diagLog('GUARDIAN','Recherche session active');
+  LunaAuth.authFetch('/api/guardian/sessions').then(function(r){
+    diagApi('guardian/sessions', r.status);
+    return r.json();
+  }).then(function(d){
     if(d.sessions&&d.sessions.length>0){
       var s=d.sessions[0]; SID=s.session_id;
-      syncAuthToken();
+      diagLog('GUARDIAN','Session reprise SID=' + SID);
+      
       if(window.LunaBridge&&LunaBridge.setGuardianSession) LunaBridge.setGuardianSession(SID);
       setHdrStatus('ACTIF',null,true);
       document.getElementById('btn-start').style.display='none';
