@@ -1,6 +1,6 @@
 # État actuel — Luna production
 
-Dernière mise à jour : 2026-05-25 (Claude)
+Dernière mise à jour : 2026-07-12 (Kimi)
 
 ## Architecture déployée
 
@@ -42,6 +42,19 @@ Dernière mise à jour : 2026-05-25 (Claude)
 - Stripe absent : volontaire sur serveur fondateur, ne pas marquer critical
 - Duffel : mode test (`duffel_test_*`), pas de vraies réservations
 - `ENVIRONMENT=cloudrun` dans `.env` local → override obligatoire au lancement : `ENVIRONMENT= PORT=8888 python3 luna_web.py`
+
+## Ressources documentaires
+
+- **Référentiel technique Android Luna/Guardian** : `docs/ANDROID_REFERENTIEL/` — 17 chapitres fondés sur la documentation officielle Android Developers et AOSP, destinés à servir de source de vérité aux agents travaillant sur l'APK et Guardian.
+- **Architecture de collaboration Codex ↔ Kimi ↔ DeepSeek ↔ n8n** : `docs/AGENT_EXCHANGE/` — spécifications, règles de sécurité, scripts d'audit en lecture seule, consignes agents et intégration DeepSeek API. En attente de validation par Ludovic avant déploiement.
+
+## Points d'attention actifs — collaboration agents
+
+- **ADB détecté** : `c7750037 device`, `fr.yawatch.luna` actif (PID 29649).
+- **SSH Codex → VM** : service actif, mais l'authentification depuis Windows n'a pas encore été testée.
+- **Worktrees Kimi2/Codex** : non créés. Nécessitent validation avant exécution.
+- **Workflow n8n** : spécifié mais non activé. Nécessite validation et tests.
+- **DeepSeek API** : intégration spécifiée. Nécessite une `DEEPSEEK_API_KEY` dans les credentials n8n.
 
 ## Prochains chantiers
 

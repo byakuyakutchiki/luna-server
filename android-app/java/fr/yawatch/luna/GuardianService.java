@@ -50,8 +50,10 @@ public class GuardianService extends Service {
     static final String ACTION_STOP   = "fr.yawatch.luna.GUARDIAN_STOP";
     static final String ACTION_UPDATE = "fr.yawatch.luna.GUARDIAN_UPDATE";
 
-    // URL backend : VM Debian locale (même valeur que MainActivity)
+    // URL de la page Guardian (même valeur que MainActivity)
     private static final String LUNA_URL = "http://192.168.1.45:8000/guardian";
+    // URL racine du backend pour les appels API natifs (sans /guardian)
+    private static final String BACKEND_BASE_URL = "http://192.168.1.45:8000";
 
     private static final int    NOTIF_ID         = 2001;
     private static final String CHANNEL_NORMAL   = "luna_guardian";
@@ -85,6 +87,14 @@ public class GuardianService extends Service {
     private int              mSRErrorCount   = 0;
     private final Handler    mHandler        = new Handler(Looper.getMainLooper());
     private Runnable         mRestartTask    = null;
+
+    // Capture du contexte après un mot-clé (issue #32)
+    private boolean          mCaptureActive   = false;
+    private StringBuilder    mCaptureBuffer   = new StringBuilder();
+    private float            mCaptureConfidence = 0.7f;
+    private final Handler    mCaptureHandler  = new Handler(Looper.getMainLooper());
+    private Runnable         mCaptureEndTask  = null;
+    private static final long CAPTURE_WINDOW_MS = 6_000L;
 
     // Bulle overlay
     private boolean        mOverlayEnabled = false;
@@ -257,16 +267,9 @@ public class GuardianService extends Service {
         }
         sendEvent("VOICE_LISTENER_STARTED", "Démarrage SpeechRecognizer GuardianService");
 
-        try {
-            if (Build.VERSION.SDK_INT >= 31
-                    && SpeechRecognizer.isOnDeviceRecognitionAvailable(this)) {
-                mSR = SpeechRecognizer.createOnDeviceSpeechRecognizer(this);
-            } else {
-                mSR = SpeechRecognizer.createSpeechRecognizer(this);
-            }
-        } catch (Exception e) {
-            mSR = SpeechRecognizer.createSpeechRecognizer(this);
-        }
+        // Test local : utiliser le recognizer cloud Google pour fiabiliser la reconnaissance.
+        // Le mode on-device (Soda) retournait des résultats vides sur ce téléphone.
+        mSR = SpeechRecognizer.createSpeechRecognizer(this);
 
         mSR.setRecognitionListener(new RecognitionListener() {
             @Override public void onReadyForSpeech(Bundle params) { mSRListening = true; mSRErrorCount = 0; }
@@ -286,15 +289,24 @@ public class GuardianService extends Service {
                 else if (error == SpeechRecognizer.ERROR_RECOGNIZER_BUSY) errorName = "RECOGNIZER_BUSY";
                 else if (error == SpeechRecognizer.ERROR_NETWORK) errorName = "NETWORK";
                 else if (error == SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS) errorName = "PERMISSIONS";
-                sendEvent("VOICE_LISTENER_FAILED", "SpeechRecognizer error=" + errorName);
+                sendEvent("VOICE_LISTENER_FAILED", "SpeechRecognizer error=" + errorName + " capture=" + mCaptureActive);
                 boolean fast = (error == SpeechRecognizer.ERROR_NO_MATCH
                              || error == SpeechRecognizer.ERROR_SPEECH_TIMEOUT);
                 boolean busy = (error == SpeechRecognizer.ERROR_RECOGNIZER_BUSY);
                 long delay;
-                if (mSRErrorCount >= SR_MAX_ERRORS) delay = 30_000L;
-                else if (fast)  delay = 200L;
-                else if (busy)  delay = 1_500L;
-                else            delay = Math.min(2000L * mSRErrorCount, 20_000L);
+                if (mCaptureActive) {
+                    // Pendant la fenêtre de capture on redémarre vite pour ne pas perdre le contexte.
+                    delay = fast ? 300L : (busy ? 800L : 1500L);
+                } else if (mSRErrorCount >= SR_MAX_ERRORS) {
+                    delay = 30_000L;
+                } else if (fast) {
+                    // 3 s entre deux écoutes vides = moins de bips système (issue #32)
+                    delay = 3_000L;
+                } else if (busy) {
+                    delay = 1_500L;
+                } else {
+                    delay = Math.min(2000L * mSRErrorCount, 20_000L);
+                }
                 scheduleRestart(delay);
             }
 
@@ -302,31 +314,50 @@ public class GuardianService extends Service {
                 mSRListening = false;
                 ArrayList<String> matches = results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
                 float[] scores = results.getFloatArray(SpeechRecognizer.CONFIDENCE_SCORES);
+                String all = (matches != null) ? String.join(" | ", matches) : "(empty)";
+                sendEvent("VOICE_RESULTS", all + " capture=" + mCaptureActive);
+
+                if (mCaptureActive) {
+                    if (matches != null && !matches.isEmpty()) {
+                        appendCapture(matches.get(0));
+                    }
+                    if (mSR != null) { mSR.destroy(); mSR = null; }
+                    // Redémarrage rapide pour capter la suite du contexte pendant les 6 s.
+                    scheduleRestart(150L);
+                    return;
+                }
+
                 if (matches != null) {
                     for (int i = 0; i < matches.size(); i++) {
                         if (matchesKw(matches.get(i))) {
                             float conf = (scores != null && i < scores.length) ? scores[i] : 0.6f;
-                            onEmergencyDetected(matches.get(i), conf);
+                            startCaptureWindow(matches.get(i), conf);
                             if (mSR != null) { mSR.destroy(); mSR = null; }
-                            scheduleRestart(SR_COOLDOWN_MS);
+                            scheduleRestart(150L);
                             return;
                         }
                     }
                 }
                 if (mSR != null) { mSR.destroy(); mSR = null; }
-                scheduleRestart(200L);
+                scheduleRestart(3_000L);
             }
 
             @Override public void onPartialResults(Bundle partialResults) {
                 ArrayList<String> partial = partialResults.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
-                if (partial != null) {
-                    for (String text : partial) {
-                        if (matchesKw(text)) {
-                            onEmergencyDetected(text, 0.7f);
-                            if (mSR != null) { mSR.destroy(); mSR = null; }
-                            scheduleRestart(SR_COOLDOWN_MS);
-                            return;
-                        }
+                if (partial == null || partial.isEmpty()) return;
+                String joined = String.join(" ", partial);
+                sendEvent("VOICE_PARTIAL", joined + " capture=" + mCaptureActive);
+
+                if (mCaptureActive) {
+                    appendCapture(joined);
+                    return;
+                }
+
+                for (String text : partial) {
+                    if (matchesKw(text)) {
+                        startCaptureWindow(text, 0.7f);
+                        // On continue à écouter : les résultats partiels suivants enrichiront le contexte.
+                        return;
                     }
                 }
             }
@@ -335,14 +366,13 @@ public class GuardianService extends Service {
         });
 
         Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
-        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
+        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_WEB_SEARCH);
         intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, "fr-FR");
-        intent.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3);
+        intent.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 5);
         intent.putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true);
-        intent.putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true);
-        intent.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 1500L);
-        intent.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 800L);
-        intent.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS, 300L);
+        // Sessions longues = moins de redémarrages = moins de bips système.
+        intent.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 30_000L);
+        intent.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 15_000L);
 
         try {
             mSR.startListening(intent);
@@ -354,6 +384,7 @@ public class GuardianService extends Service {
 
     private void stopListening() {
         mSRListening = false;
+        stopCapture();
         if (mRestartTask != null) { mHandler.removeCallbacks(mRestartTask); mRestartTask = null; }
         if (mSR != null) {
             try { mSR.stopListening(); } catch (Exception ignored) {}
@@ -366,6 +397,44 @@ public class GuardianService extends Service {
         if (mRestartTask != null) return;
         mRestartTask = () -> { mRestartTask = null; if (mListenEnabled) startListening(); };
         mHandler.postDelayed(mRestartTask, delayMs);
+    }
+
+    /** Démarre la fenêtre de capture du contexte après un mot-clé. */
+    private void startCaptureWindow(String initialText, float confidence) {
+        if (mCaptureActive) return;
+        mCaptureActive = true;
+        mCaptureBuffer.setLength(0);
+        if (initialText != null && !initialText.isEmpty()) {
+            mCaptureBuffer.append(initialText);
+        }
+        mCaptureConfidence = confidence;
+        sendEvent("VOICE_CAPTURE_START", "text=" + initialText);
+        if (mCaptureEndTask != null) mCaptureHandler.removeCallbacks(mCaptureEndTask);
+        mCaptureEndTask = () -> {
+            mCaptureActive = false;
+            mCaptureEndTask = null;
+            String full = mCaptureBuffer.toString().trim();
+            sendEvent("VOICE_CAPTURE_END", "full=" + full);
+            onEmergencyDetected(full.isEmpty() ? initialText : full, mCaptureConfidence);
+            if (mSR != null) { try { mSR.stopListening(); } catch (Exception ignored) {} }
+            scheduleRestart(SR_COOLDOWN_MS);
+        };
+        mCaptureHandler.postDelayed(mCaptureEndTask, CAPTURE_WINDOW_MS);
+    }
+
+    private void appendCapture(String text) {
+        if (!mCaptureActive || text == null || text.isEmpty()) return;
+        if (mCaptureBuffer.length() > 0) mCaptureBuffer.append(" ");
+        mCaptureBuffer.append(text);
+    }
+
+    private void stopCapture() {
+        mCaptureActive = false;
+        if (mCaptureEndTask != null) {
+            mCaptureHandler.removeCallbacks(mCaptureEndTask);
+            mCaptureEndTask = null;
+        }
+        mCaptureBuffer.setLength(0);
     }
 
     /** Mot-clé détecté : ouvre l'app avec le flag SOS vocal → le JS déclenche le SOS YAWATCH. */
@@ -471,7 +540,7 @@ public class GuardianService extends Service {
                 json.put("event_type", eventType);
                 json.put("message", message);
 
-                URL url = new URL(LUNA_URL + "/api/apk/event");
+                URL url = new URL(BACKEND_BASE_URL + "/api/apk/event");
                 HttpURLConnection conn = (HttpURLConnection) url.openConnection();
                 conn.setRequestMethod("POST");
                 conn.setRequestProperty("Content-Type", "application/json");

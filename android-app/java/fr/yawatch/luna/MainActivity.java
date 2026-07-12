@@ -23,6 +23,10 @@ import android.os.Handler;
 import android.os.Looper;
 import android.provider.MediaStore;
 import android.provider.Settings;
+import android.location.Location;
+import android.location.LocationListener;
+import android.location.LocationManager;
+import android.location.Criteria;
 import android.util.TypedValue;
 import android.view.Gravity;
 import android.webkit.ValueCallback;
@@ -61,9 +65,11 @@ import java.security.MessageDigest;
 
 public class MainActivity extends Activity {
 
-    // URL backend : VM Debian locale (migration post-Google Cloud)
+    // URL de la page Guardian chargee dans la WebView
     // Si l'IP de la VM change, recompiler l'APK avec la nouvelle IP.
     private static final String LUNA_URL = "http://192.168.1.45:8000/guardian";
+    // URL racine du backend pour les appels API natifs (sans /guardian)
+    private static final String BACKEND_BASE_URL = "http://192.168.1.45:8000";
     private static final int PERMISSION_REQUEST_CODE = 100;
     private static final int NOTIFICATION_PERMISSION_CODE = 101;
     private static final int FILE_CHOOSER_REQUEST_CODE = 102;
@@ -430,9 +436,9 @@ public class MainActivity extends Activity {
         // Vider le cache avant de charger (force la mise a jour)
         webView.clearCache(true);
 
-        // Charge Luna
+        // Charge Luna (auto-login local APK si mode dry-run)
         sendLog("info", "APP START v" + getCurrentVersionName() + " (" + getCurrentVersionCode() + ") — " + Build.MODEL + " Android " + Build.VERSION.RELEASE, "apk/" + Build.MODEL);
-        webView.loadUrl(LUNA_URL);
+        autoLoginAndLoad();
 
         // Démarrage à froid déclenché par Guardian (bouton SOS notif ou mot-clé vocal du service)
         handleGuardianIntent(getIntent());
@@ -571,33 +577,52 @@ public class MainActivity extends Activity {
     }
 
     /**
-     * Heartbeat APK — signale au serveur que l'APK est vivante sur ce téléphone.
-     * Appelé à chaque onResume() : au démarrage et retour au premier plan.
-     * Même pattern que sendLog() : thread séparé, timeout 4s, silencieux en cas d'erreur.
+     * Auto-login APK en mode local/dry-run : récupère un JWT auprès du backend
+     * puis charge Guardian avec le token dans le hash (parsé par guardian.html).
+     * En cas d'échec, charge Guardian normalement (l'utilisateur devra se connecter).
      */
-    private void sendHeartbeat() {
+    private void autoLoginAndLoad() {
         new Thread(() -> {
             try {
-                URL url = new URL(LUNA_URL + "/api/apk/heartbeat");
+                URL url = new URL(BACKEND_BASE_URL + "/api/auth/auto-login-apk");
                 HttpURLConnection conn = (HttpURLConnection) url.openConnection();
                 conn.setRequestMethod("POST");
                 conn.setRequestProperty("Content-Type", "application/json");
-                conn.setRequestProperty("User-Agent", "LunaApp/" + getCurrentVersionName() + " Android/" + Build.VERSION.RELEASE);
+                conn.setRequestProperty("User-Agent", "LunaApp/" + getCurrentVersionName());
                 conn.setDoOutput(true);
-                conn.setConnectTimeout(4000);
-                conn.setReadTimeout(4000);
-                JSONObject json = new JSONObject();
-                json.put("apk_version", getCurrentVersionName());
-                json.put("device_role", "fondateur");
-                json.put("cloud_url", LUNA_URL);
-                json.put("android_version", Build.VERSION.RELEASE);
-                json.put("device_model", Build.MODEL);
-                json.put("last_screen", "app_resume");
-                byte[] bytes = json.toString().getBytes("UTF-8");
-                conn.getOutputStream().write(bytes);
-                conn.getInputStream().close();
+                conn.setConnectTimeout(8000);
+                conn.setReadTimeout(8000);
+                conn.getOutputStream().write("{}".getBytes("UTF-8"));
+
+                int code = conn.getResponseCode();
+                if (code == 200) {
+                    BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()));
+                    StringBuilder sb = new StringBuilder();
+                    String line;
+                    while ((line = reader.readLine()) != null) sb.append(line);
+                    reader.close();
+                    JSONObject json = new JSONObject(sb.toString());
+                    String token = json.optString("token", "");
+                    String refresh = json.optString("refresh_token", "");
+                    if (!token.isEmpty()) {
+                        getSharedPreferences("luna_auth", Context.MODE_PRIVATE).edit()
+                            .putString("token", token)
+                            .putString("refresh_token", refresh)
+                            .apply();
+                        final String loadUrl = LUNA_URL + "#token=" + Uri.encode(token) + "&refresh=" + Uri.encode(refresh);
+                        runOnUiThread(() -> webView.loadUrl(loadUrl));
+                        conn.disconnect();
+                        return;
+                    }
+                } else {
+                    sendLog("warn", "auto-login APK failed: HTTP " + code, "auth/" + Build.MODEL);
+                }
                 conn.disconnect();
-            } catch (Exception ignored) {}
+            } catch (Exception e) {
+                sendLog("warn", "auto-login APK error: " + e.getMessage(), "auth/" + Build.MODEL);
+            }
+            // Fallback : charger Guardian sans token
+            runOnUiThread(() -> webView.loadUrl(LUNA_URL));
         }).start();
     }
 
@@ -607,7 +632,7 @@ public class MainActivity extends Activity {
     private void sendLog(final String level, final String msg, final String src) {
         new Thread(() -> {
             try {
-                URL url = new URL(LUNA_URL + "/api/logs/client");
+                URL url = new URL(BACKEND_BASE_URL + "/api/logs/client");
                 HttpURLConnection conn = (HttpURLConnection) url.openConnection();
                 conn.setRequestMethod("POST");
                 conn.setRequestProperty("Content-Type", "application/json");
@@ -760,6 +785,16 @@ public class MainActivity extends Activity {
         }
 
         /**
+         * Demande une position native Android (fallback quand navigator.geolocation
+         * échoue en HTTP local dans la WebView).
+         * Le résultat est renvoyé au JS via window.lunaNativePosition(lat, lng, accuracy).
+         */
+        @JavascriptInterface
+        public void requestNativeLocation() {
+            runOnUiThread(() -> fetchNativeLocation());
+        }
+
+        /**
          * Démarre le Foreground Service Guardian avec notification permanente.
          * Appelé par guardianStart() côté JS.
          */
@@ -810,6 +845,7 @@ public class MainActivity extends Activity {
         @JavascriptInterface
         public void setGuardianProtection(boolean listen, boolean overlay) {
             runOnUiThread(() -> {
+                sendDiagnosticEvent("GUARDIAN_SET_PROTECTION", "listen=" + listen + " overlay=" + overlay);
                 SharedPreferences sp = getSharedPreferences("guardian", Context.MODE_PRIVATE);
                 boolean on = listen;
                 sp.edit()
@@ -818,6 +854,7 @@ public class MainActivity extends Activity {
                   .apply();
 
                 if (!on) {
+                    sendDiagnosticEvent("GUARDIAN_SET_PROTECTION", "stopping service");
                     Intent stop = new Intent(MainActivity.this, GuardianService.class);
                     stop.setAction(GuardianService.ACTION_STOP);
                     startService(stop);
@@ -828,18 +865,25 @@ public class MainActivity extends Activity {
                 boolean micGranted = checkSelfPermission(Manifest.permission.RECORD_AUDIO)
                         == PackageManager.PERMISSION_GRANTED;
                 boolean canListen = listen && micGranted;
+                sendDiagnosticEvent("GUARDIAN_SET_PROTECTION", "micGranted=" + micGranted + " canListen=" + canListen);
                 if (listen && !micGranted) {
                     try { requestPermissions(new String[]{ Manifest.permission.RECORD_AUDIO }, 77); }
-                    catch (Exception ignored) {}
+                    catch (Exception e) { sendDiagnosticEvent("GUARDIAN_SET_PROTECTION", "permission_request_error=" + e.getMessage()); }
                 }
 
-                Intent svc = new Intent(MainActivity.this, GuardianService.class);
-                svc.setAction(GuardianService.ACTION_START);
-                svc.putExtra("status", "Protégé");
-                svc.putExtra("listen", canListen);
-                svc.putExtra("overlay", false);
-                if (Build.VERSION.SDK_INT >= 26) startForegroundService(svc);
-                else startService(svc);
+                try {
+                    Intent svc = new Intent(MainActivity.this, GuardianService.class);
+                    svc.setAction(GuardianService.ACTION_START);
+                    svc.putExtra("status", "Protégé");
+                    svc.putExtra("listen", canListen);
+                    svc.putExtra("overlay", false);
+                    if (Build.VERSION.SDK_INT >= 26) startForegroundService(svc);
+                    else startService(svc);
+                    sendDiagnosticEvent("GUARDIAN_SET_PROTECTION", "service_started canListen=" + canListen);
+                } catch (Exception e) {
+                    sendDiagnosticEvent("GUARDIAN_SET_PROTECTION", "service_start_error=" + e.getMessage());
+                    lastApkError = "guardian_service:" + e.getMessage();
+                }
             });
         }
 
@@ -874,7 +918,7 @@ public class MainActivity extends Activity {
     private void checkBackendVersion() {
         new Thread(() -> {
             try {
-                URL url = new URL(LUNA_URL + "/api/app/version");
+                URL url = new URL(BACKEND_BASE_URL + "/api/app/version");
                 HttpURLConnection conn = (HttpURLConnection) url.openConnection();
                 conn.setRequestMethod("GET");
                 conn.setConnectTimeout(10000);
@@ -1220,7 +1264,7 @@ public class MainActivity extends Activity {
         super.onResume();
         isInForeground = true;
         webView.onResume();
-        sendHeartbeat();
+        sendEnrichedHeartbeat();
         getWindow().getDecorView().setSystemUiVisibility(
             View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
             | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
@@ -1372,6 +1416,88 @@ public class MainActivity extends Activity {
         }
     }
 
+    /** Demande une position GPS/GNSS/native unique et la renvoie au JS. */
+    private void fetchNativeLocation() {
+        try {
+            LocationManager lm = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
+            if (lm == null) {
+                sendNativePositionError("LocationManager indisponible");
+                return;
+            }
+            if (Build.VERSION.SDK_INT >= 23) {
+                if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED
+                 && checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                    sendNativePositionError("permission_location_denied");
+                    requestPermissions(new String[]{
+                        Manifest.permission.ACCESS_FINE_LOCATION,
+                        Manifest.permission.ACCESS_COARSE_LOCATION
+                    }, PERMISSION_REQUEST_CODE + 20);
+                    return;
+                }
+            }
+            Criteria criteria = new Criteria();
+            criteria.setAccuracy(Criteria.ACCURACY_FINE);
+            String provider = lm.getBestProvider(criteria, true);
+            if (provider == null) {
+                // Fallback sur le premier provider disponible
+                if (lm.isProviderEnabled(LocationManager.GPS_PROVIDER)) provider = LocationManager.GPS_PROVIDER;
+                else if (lm.isProviderEnabled(LocationManager.NETWORK_PROVIDER)) provider = LocationManager.NETWORK_PROVIDER;
+            }
+            if (provider == null) {
+                sendNativePositionError("aucun_provider_disponible");
+                return;
+            }
+
+            LocationListener listener = new LocationListener() {
+                @Override public void onLocationChanged(Location location) {
+                    if (location == null) return;
+                    lm.removeUpdates(this);
+                    double lat = location.getLatitude();
+                    double lng = location.getLongitude();
+                    float acc = location.getAccuracy();
+                    guardianLat = lat;
+                    guardianLng = lng;
+                    runOnUiThread(() -> {
+                        String js = "if(window.lunaNativePosition){window.lunaNativePosition(" +
+                                    lat + "," + lng + "," + acc + ");}";
+                        webView.evaluateJavascript(js, null);
+                    });
+                }
+                @Override public void onProviderEnabled(String provider) {}
+                @Override public void onProviderDisabled(String provider) {}
+                @Override public void onStatusChanged(String provider, int status, Bundle extras) {}
+            };
+
+            // Dernière position connue (rapide), puis mise à jour si possible
+            Location last = lm.getLastKnownLocation(provider);
+            if (last != null) {
+                double lat = last.getLatitude();
+                double lng = last.getLongitude();
+                float acc = last.getAccuracy();
+                guardianLat = lat;
+                guardianLng = lng;
+                String js = "if(window.lunaNativePosition){window.lunaNativePosition(" +
+                            lat + "," + lng + "," + acc + ");}";
+                webView.evaluateJavascript(js, null);
+            }
+            lm.requestSingleUpdate(provider, listener, Looper.getMainLooper());
+            // Timeout de sécurité : si aucune position dans les 12 s, on retire le listener
+            nativeSRHandler.postDelayed(() -> {
+                try { lm.removeUpdates(listener); } catch (Exception ignored) {}
+            }, 12_000L);
+        } catch (Exception e) {
+            sendNativePositionError("exception: " + e.getMessage());
+        }
+    }
+
+    private void sendNativePositionError(String reason) {
+        runOnUiThread(() -> {
+            String safe = reason.replace("\\", "\\\\").replace("'", "\\'").replace("\n", "");
+            String js = "if(window.lunaNativePositionError){window.lunaNativePositionError('" + safe + "');}";
+            webView.evaluateJavascript(js, null);
+        });
+    }
+
     /** Planifie un redémarrage du SR après un délai (dé-dupliqué). */
     private void scheduleNativeSRRestart(long delayMs) {
         if (nativeSRRestartTask != null) return;
@@ -1477,7 +1603,7 @@ public class MainActivity extends Activity {
                 json.put("last_voice_keyword", lastVoiceKeyword);
                 json.put("last_error", lastApkError);
 
-                URL url = new URL(LUNA_URL + "/api/apk/heartbeat");
+                URL url = new URL(BACKEND_BASE_URL + "/api/apk/heartbeat");
                 HttpURLConnection conn = (HttpURLConnection) url.openConnection();
                 conn.setRequestMethod("POST");
                 conn.setRequestProperty("Content-Type", "application/json");
@@ -1507,7 +1633,7 @@ public class MainActivity extends Activity {
                 json.put("event_type", eventType);
                 json.put("message", message);
 
-                URL url = new URL(LUNA_URL + "/api/apk/event");
+                URL url = new URL(BACKEND_BASE_URL + "/api/apk/event");
                 HttpURLConnection conn = (HttpURLConnection) url.openConnection();
                 conn.setRequestMethod("POST");
                 conn.setRequestProperty("Content-Type", "application/json");

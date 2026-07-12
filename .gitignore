@@ -21,6 +21,15 @@ tools/agents/poller.log
 # Données utilisateur générées
 static/documents/
 
+# Backups locaux
+*.bak
+*.bak-*
+
+# Données de migration sensibles ou lourdes
+migration_backup/secrets.env
+migration_backup/luna-beta-env.txt
+migration_backup/storage_assets/
+
 # Captures & artefacts de tests (Playwright / audits visuels)
 /*.png
 test-results/

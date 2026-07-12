@@ -780,16 +780,70 @@ select.cfg-inp option { background:#13131f; }
 
 // ── AUTH ─────────────────────────────────────
 function getToken(){ return localStorage.getItem('luna_token')||''; }
+function setToken(t){ localStorage.setItem('luna_token', t); }
+function getRefreshToken(){ return localStorage.getItem('luna_refresh_token')||''; }
+function setRefreshToken(t){ localStorage.setItem('luna_refresh_token', t); }
+function clearTokens(){ localStorage.removeItem('luna_token'); localStorage.removeItem('luna_refresh_token'); }
 function syncAuthToken(){
   if(window.LunaBridge&&LunaBridge.setAuthToken) LunaBridge.setAuthToken(getToken());
 }
 syncAuthToken();
-function authFetch(url,opts){
+
+// Auto-login APK local : récupère token/refresh depuis le hash injecté par MainActivity
+(function checkHashToken(){
+  var h = window.location.hash;
+  if(h && h.length > 1){
+    var params = {};
+    h.substring(1).split('&').forEach(function(pair){
+      var p = pair.indexOf('=');
+      if(p > 0) params[decodeURIComponent(pair.substring(0,p))] = decodeURIComponent(pair.substring(p+1));
+    });
+    if(params.token){
+      setToken(params.token);
+      if(params.refresh) setRefreshToken(params.refresh);
+      syncAuthToken();
+      history.replaceState(null, '', window.location.pathname + window.location.search);
+    }
+  }
+})();
+
+function _fetchWithToken(url, opts){
   var o=Object.assign({headers:{}},opts||{});
   o.headers=Object.assign({},o.headers);
   var t=getToken(); if(t) o.headers['Authorization']='Bearer '+t;
-  return fetch(url,o).then(function(r){
-    if(r.status===401){localStorage.removeItem('luna_token');window.location.href='/';} return r;
+  return fetch(url,o);
+}
+
+function _refreshToken(){
+  var rt=getRefreshToken();
+  if(!rt) return Promise.reject('no_refresh_token');
+  return fetch('/api/auth/refresh',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({refresh_token:rt})
+  }).then(function(r){
+    if(!r.ok) throw new Error('refresh_failed');
+    return r.json();
+  }).then(function(d){
+    if(d.token) setToken(d.token);
+    syncAuthToken();
+    return d.token;
+  });
+}
+
+function authFetch(url,opts){
+  return _fetchWithToken(url,opts).then(function(r){
+    if(r.status===401){
+      // Tentative de refresh une fois avant redirection
+      return _refreshToken().then(function(){
+        return _fetchWithToken(url,opts);
+      }).catch(function(){
+        clearTokens();
+        window.location.href='/';
+        throw new Error('session_expired');
+      });
+    }
+    return r;
   });
 }
 if(!getToken()){ window.location.href='/'; }
@@ -817,6 +871,36 @@ var RISK_LEVEL='low', RISK_COLORS={low:'#10b981',medium:'#f59e0b',high:'#ef4444'
 var LAST_GPS_SENT=0, CFG_OPEN=false, EV_OPEN=false;
 var LAST_POS=null, PREV_POS=null;
 var GEO_CACHE={};
+var _NATIVE_GEO_ACTIVE=false;
+
+// ── NATIVE GPS FALLBACK (Android APK) ─────────────
+window.lunaNativePosition=function(lat,lng,accuracy){
+  diagLog('GPS','native position lat=' + lat + ' lng=' + lng + ' acc=' + accuracy);
+  _NATIVE_GEO_ACTIVE=true;
+  var p={coords:{latitude:lat,longitude:lng,accuracy:accuracy||20,speed:null},timestamp:Date.now()};
+  if(_EEM_ACTIVE) _eemOnPos(p);
+  else _handleGpsPosition(p);
+  if(window.LunaBridge&&LunaBridge.updateGuardianPosition) LunaBridge.updateGuardianPosition(lat,lng);
+  _startNativeGpsPolling();
+};
+window.lunaNativePositionError=function(reason){
+  diagLog('GPS','native position error: ' + reason);
+  showToast('⚠️ GPS natif: ' + reason, 4000);
+};
+
+var _NATIVE_GEO_POLL=null;
+function _startNativeGpsPolling(){
+  if(_NATIVE_GEO_POLL) return;
+  _NATIVE_GEO_POLL=setInterval(function(){
+    if(window.LunaBridge && LunaBridge.requestNativeLocation){
+      try{ LunaBridge.requestNativeLocation(); }catch(e){}
+    }
+  },12000);
+}
+function _stopNativeGpsPolling(){
+  if(_NATIVE_GEO_POLL){clearInterval(_NATIVE_GEO_POLL); _NATIVE_GEO_POLL=null;}
+  _NATIVE_GEO_ACTIVE=false;
+}
 
 // ── EMERGENCY EVIDENCE MODE ────────────────────
 var _EEM_ACTIVE=false, _EEM_IID=null, _EEM_GEO_ID=null;
@@ -1112,22 +1196,32 @@ function toggleCfg(){
   setTimeout(_layoutUpdate,320);
 }
 function captureZone(){
-  if(!navigator.geolocation){showToast('GPS non disponible');return;}
   document.getElementById('zone-st').textContent='Obtention…';
-  navigator.geolocation.getCurrentPosition(function(p){
+  var onPos=function(p){
     var name=document.getElementById('cfg-zname').value.trim()||'Domicile';
     var r=parseFloat(document.getElementById('cfg-zradius').value)||150;
     SAFE_ZONE={name:name,lat:p.coords.latitude,lng:p.coords.longitude,radius_m:r};
     document.getElementById('zone-st').textContent='✅ '+name+' ('+r+'m)';
     drawSafeZone(p.coords.latitude,p.coords.longitude,r,name);
     vibrate([50]);
-  },function(e){document.getElementById('zone-st').textContent='❌ '+e.message;});
+  };
+  if(navigator.geolocation){
+    navigator.geolocation.getCurrentPosition(onPos,function(e){
+      document.getElementById('zone-st').textContent='❌ '+e.message+' — natif';
+      _tryNativeGpsFallback('captureZone: '+e.message);
+    });
+  } else {
+    _tryNativeGpsFallback('captureZone: navigator absent');
+  }
 }
 
 // ── START / STOP ──────────────────────────────
 function guardianStart(){
   diagLog('SESSION','ENTER guardianStart');
-  if(!navigator.geolocation){diagLog('SESSION','BAIL navigator.geolocation absent'); showToast('GPS non disponible');return;}
+  if(!navigator.geolocation){
+    diagLog('SESSION','navigator.geolocation absent -> fallback natif');
+    _tryNativeGpsFallback('navigator.geolocation absent au démarrage');
+  }
   setHdrStatus('Connexion…','#f59e0b',false);
   vibrate([30]);
   var cfg={immobility_threshold_minutes:parseInt(document.getElementById('cfg-immo').value)||30,safe_zones:[]};
@@ -1219,6 +1313,7 @@ function guardianStop(){
 }
 function _cleanupSession(){
   _vocalStop();
+  _stopNativeGpsPolling();
   if(window.LunaBridge&&LunaBridge.stopNativeVoiceGuardian) LunaBridge.stopNativeVoiceGuardian();
   if(window.LunaBridge&&LunaBridge.stopGuardianService) LunaBridge.stopGuardianService();
   if(WS){try{WS.close();}catch(e){} WS=null;}
@@ -1408,52 +1503,64 @@ function _eemUploadPhoto(blob,iid,n){
     .catch(function(){});
 }
 
-function startGps(){
-  GEO_ID=navigator.geolocation.watchPosition(function(p){
-    var lat=p.coords.latitude,lng=p.coords.longitude,acc=p.coords.accuracy,spd=p.coords.speed;
-    updateMapPos(lat,lng,acc);
-    var now=Date.now();
-    if(!SID||(now-LAST_GPS_SENT<10000&&LAST_GPS_SENT>0)){
-      updateAddressCard(lat,lng,acc,false,null);
-      return;
+function _handleGpsPosition(p){
+  var lat=p.coords.latitude,lng=p.coords.longitude,acc=p.coords.accuracy,spd=p.coords.speed;
+  updateMapPos(lat,lng,acc);
+  var now=Date.now();
+  if(!SID||(now-LAST_GPS_SENT<10000&&LAST_GPS_SENT>0)){
+    updateAddressCard(lat,lng,acc,false,null);
+    return;
+  }
+  LAST_GPS_SENT=now;
+  _LAST_CONTEXT_POS={lat:lat,lng:lng};
+  if(window.LunaBridge&&LunaBridge.updateGuardianPosition) LunaBridge.updateGuardianPosition(lat,lng);
+  authFetch('/api/guardian/location/'+SID,{method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({lat:lat,lng:lng,accuracy:acc,speed:spd})
+  }).then(function(r){return r.json();}).then(function(d){
+    updateRisk(d.risk_score,d.risk_level,d.description);
+    var inZone=false,zoneName=null;
+    if(SAFE_ZONE){
+      var dx=lat-SAFE_ZONE.lat,dy=lng-SAFE_ZONE.lng;
+      inZone=Math.sqrt(dx*dx+dy*dy)*111000<SAFE_ZONE.radius_m;
+      zoneName=inZone?SAFE_ZONE.name:null;
     }
-    LAST_GPS_SENT=now;
-    _LAST_CONTEXT_POS={lat:lat,lng:lng};
-    if(window.LunaBridge&&LunaBridge.updateGuardianPosition) LunaBridge.updateGuardianPosition(lat,lng);
-    authFetch('/api/guardian/location/'+SID,{method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({lat:lat,lng:lng,accuracy:acc,speed:spd})
-    }).then(function(r){return r.json();}).then(function(d){
-      updateRisk(d.risk_score,d.risk_level,d.description);
-      var inZone=false,zoneName=null;
-      if(SAFE_ZONE){
-        var dx=lat-SAFE_ZONE.lat,dy=lng-SAFE_ZONE.lng;
-        inZone=Math.sqrt(dx*dx+dy*dy)*111000<SAFE_ZONE.radius_m;
-        zoneName=inZone?SAFE_ZONE.name:null;
-      }
-      updateAddressCard(lat,lng,acc,inZone,zoneName);
-      // Retour zone sûre
-      if(inZone&&LAST_POS&&!_wasInZone){
-        maybeSpeak('Retour à la maison noté. Bonne soirée.');
-        markCheckin();
-      }
-      _wasInZone=inZone;
-      if(d.risk_level&&d.risk_level!=='low') loadEvents();
-    }).catch(function(){});
-  },function(e){
-    setHdrStatus('GPS: '+e.message,'#ef4444',false);
-    showToast('❌ GPS: '+e.message,4000);
-    if (e && e.code === 1 && SID) {
-      // Permission denied — notify backend to stop the session
+    updateAddressCard(lat,lng,acc,inZone,zoneName);
+    if(inZone&&LAST_POS&&!_wasInZone){
+      maybeSpeak('Retour à la maison noté. Bonne soirée.');
+      markCheckin();
+    }
+    _wasInZone=inZone;
+    if(d.risk_level&&d.risk_level!=='low') loadEvents();
+  }).catch(function(){});
+}
+
+function startGps(){
+  if(GEO_ID!==null){navigator.geolocation.clearWatch(GEO_ID);GEO_ID=null;}
+  if(!navigator.geolocation){
+    _tryNativeGpsFallback('navigator.geolocation absent');
+    return;
+  }
+  GEO_ID=navigator.geolocation.watchPosition(_handleGpsPosition,function(e){
+    // En HTTP local la WebView bloque navigator.geolocation ; on bascule silencieusement sur le GPS natif.
+    diagLog('GPS','watchPosition error: ' + e.message + ' code=' + (e.code||'?'));
+    if(e && e.code===1 && SID){
       authFetch('/api/guardian/location-denied/'+SID, {
         method:'POST',
         headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({reason:'permission_denied'})
+        body:JSON.stringify({reason:'permission_denied_or_insecure_origin'})
       }).catch(function(){});
-      SID = null;
     }
-  },
-  {enableHighAccuracy:true,maximumAge:5000,timeout:20000});
+    _tryNativeGpsFallback(e.message);
+  },{enableHighAccuracy:true,maximumAge:5000,timeout:20000});
+}
+
+function _tryNativeGpsFallback(reason){
+  diagLog('GPS','fallback natif: ' + reason);
+  if(_NATIVE_GEO_ACTIVE) return;
+  if(window.LunaBridge && LunaBridge.requestNativeLocation){
+    try{ LunaBridge.requestNativeLocation(); }catch(e){}
+  }
 }
 var _wasInZone=false;
 

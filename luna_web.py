@@ -12329,6 +12329,76 @@ async def auth_refresh(req: RefreshRequest):
     return {"token": new_token, "tenant_id": tenant_id, "plan": plan, "first_name": first_name}
 
 
+@app.post("/api/auth/auto-login-apk")
+async def auth_auto_login_apk(request: Request):
+    """Auto-login réservé aux tests locaux sur APK Luna (VM locale, dry-run).
+
+    Ne fonctionne que si :
+    - ENVIRONMENT == "local"
+    - VOICE_EMERGENCY_DRY_RUN == "true"
+    - L'appel provient d'une IP locale (192.168.x.x, 10.x.x.x, 127.0.0.1, 172.16-31.x.x)
+    """
+    # Sécurité : mode local + dry-run uniquement
+    if os.getenv("ENVIRONMENT", "").lower() != "local":
+        return JSONResponse(status_code=403, content={"error": "auto-login APK désactivé hors mode local"})
+
+    if os.getenv("VOICE_EMERGENCY_DRY_RUN", "").lower() != "true":
+        return JSONResponse(status_code=403, content={"error": "auto-login APK désactivé hors dry-run"})
+
+    # Sécurité : IP locale uniquement
+    client_host = request.client.host if request.client else ""
+    is_local = (
+        client_host.startswith("192.168.") or
+        client_host.startswith("10.") or
+        client_host == "127.0.0.1" or
+        client_host == "localhost"
+    )
+    if client_host.startswith("172."):
+        parts = client_host.split(".")
+        if len(parts) >= 2:
+            try:
+                second = int(parts[1])
+                is_local = 16 <= second <= 31
+            except ValueError:
+                is_local = False
+
+    if not is_local:
+        logger.warning(f"AUTO_LOGIN_APK refusé pour IP non locale: {client_host}")
+        return JSONResponse(status_code=403, content={"error": "auto-login APK réservé au réseau local"})
+
+    email = os.getenv("PROPRIO_EMAIL", "").strip().lower()
+    if not email:
+        return JSONResponse(status_code=500, content={"error": "PROPRIO_EMAIL non configuré"})
+
+    # Vérifier que le compte existe (bootstrap si nécessaire)
+    auth = None
+    if _redis_client:
+        auth = _redis_client.get_auth_by_email(email)
+    if not auth:
+        _bootstrap_proprio_auth()
+        if _redis_client:
+            auth = _redis_client.get_auth_by_email(email)
+    if not auth:
+        return JSONResponse(status_code=500, content={"error": "compte proprio introuvable"})
+
+    tenant_id = auth.get("tenant_id", _PROPRIO_TENANT_ID)
+    plan = auth.get("plan", "fondateur")
+
+    first_name = ""
+    if _redis_client:
+        try:
+            profile = _redis_client.get_profile(tenant_id)
+            if profile:
+                first_name = profile.get("first_name", "")
+        except Exception:
+            pass
+
+    token = _create_client_token(tenant_id, email, plan, first_name=first_name)
+    refresh_token = _create_refresh_token(tenant_id, email, plan)
+    logger.info(f"AUTO_LOGIN_APK tenant_id={tenant_id} email={email} ip={client_host}")
+    return {"token": token, "refresh_token": refresh_token, "tenant_id": tenant_id, "plan": plan, "first_name": first_name}
+
+
 @app.get("/api/auth/me")
 async def auth_me(request: Request):
     """Profil du client connecte."""
@@ -15458,8 +15528,10 @@ async def guardian_location(session_id: str, request: Request):
 @app.post("/api/guardian/location-denied/{session_id}")
 async def guardian_location_denied(session_id: str, request: Request):
     """
-    Signale que l'utilisateur a refuse l'acces a la geolocalisation.
-    Arrete la session Guardian et enregistre un evenement d'audit.
+    Signale que la geolocalisation n'est pas disponible (permission refusee,
+    origine non securisee en HTTP local, ou GPS indisponible).
+    La session Guardian CONTINUE : la protection vocale reste active.
+    Seule la localisation est marquee comme indisponible.
     """
     engine = _get_guardian()
     if not engine:
@@ -15468,10 +15540,11 @@ async def guardian_location_denied(session_id: str, request: Request):
     if not session:
         return JSONResponse(status_code=404, content={"error": "Session introuvable"})
 
-    engine.stop_session(session_id)
+    # NE PLUS arreter la session : en local HTTP, navigator.geolocation echoue
+    # meme si la permission est accordee. Guardian doit rester actif.
     engine._log_event(session_id, GuardianEvent(
-        event_type="location_permission_denied",
-        description="L'utilisateur a refuse l'acces a la geolocalisation. Session arretee.",
+        event_type="location_unavailable",
+        description="Geolocalisation non disponible (HTTP local ou permission refusee). Session continue.",
     ))
 
     tid = getattr(request.state, "tenant_id", 1)
@@ -15480,14 +15553,14 @@ async def guardian_location_denied(session_id: str, request: Request):
         try:
             mgr.log_event(
                 category="guardian",
-                description="Permission de geolocalisation refusee - session Guardian arretee",
+                description="Geolocalisation indisponible - session Guardian reste active",
                 source="user_action",
             )
         except Exception:
             pass
 
-    logger.info(f"Guardian session {session_id} stopped due to location permission denied")
-    return {"success": True, "session_id": session_id, "status": "stopped", "reason": "location_permission_denied"}
+    logger.info(f"Guardian session {session_id} location unavailable - session continues")
+    return {"success": True, "session_id": session_id, "status": "active", "reason": "location_unavailable"}
 
 
 # ── Issue #32 — contexte d'un SOS vocal ──────────────────────────────────────
