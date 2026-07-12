@@ -28,6 +28,7 @@ python-multipart>=0.0.6
 
 # Auth (multi-tenant)
 PyJWT>=2.8.0
+cryptography>=42,<46
 bcrypt>=4.0.0
 
 # Stripe
@@ -57,3 +58,6 @@ Pillow>=11.0.0
 
 # Monitoring & Error tracking
 sentry-sdk[fastapi]>=2.0.0,<3.0.0
+
+# Karaoké — brouillons d'enregistrement (stockage GCS persistant)
+google-cloud-storage>=2.16.0,<4.0.0

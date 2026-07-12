@@ -177,6 +177,7 @@ async def get_my_profile(request: Request):
             "nickname": nickname,
             "bio": "",
             "avatar_type": _default_avatar,
+            "avatar_skin": "0",
             "frame": "",
             "level": "1",
             "age_verified": age_verified,
@@ -233,6 +234,8 @@ async def update_my_profile(request: Request):
     nickname = _sanitize(body.get("nickname", "").strip())
     bio = _sanitize(body.get("bio", "").strip())
     date_of_birth = body.get("date_of_birth", "").strip()
+    avatar_type = body.get("avatar_type", "").strip()
+    avatar_skin = str(body.get("avatar_skin", "")).strip()
 
     if nickname:
         if len(nickname) < 2 or len(nickname) > 20:
@@ -243,6 +246,13 @@ async def update_my_profile(request: Request):
         if len(bio) > 100:
             return _error("Bio max 100 caracteres")
         sops.update_social_profile(tid, "bio", bio)
+
+    _VALID_AVATAR_TYPES = {"adult_man", "adult_woman", "elder_man", "elder_woman", "boy", "girl"}
+    if avatar_type and avatar_type in _VALID_AVATAR_TYPES:
+        sops.update_social_profile(tid, "avatar_type", avatar_type)
+
+    if avatar_skin in {"0", "1", "2", "3", "4", "5"}:
+        sops.update_social_profile(tid, "avatar_skin", avatar_skin)
 
     if date_of_birth:
         age = _compute_age(date_of_birth)
@@ -436,6 +446,7 @@ async def get_friends(request: Request):
             "tid": f_tid,
             "nickname": profile.get("nickname", ""),
             "avatar_type": profile.get("avatar_type", "adult_man"),
+            "avatar_skin": profile.get("avatar_skin", "0"),
             "frame": profile.get("frame", ""),
             "level": profile.get("level", "1"),
             "is_online": f_tid in online_set,
@@ -494,6 +505,7 @@ async def get_friend_requests(request: Request):
             "tid": r_tid,
             "nickname": profile.get("nickname", "") if profile else f"User{r_tid}",
             "avatar_type": profile.get("avatar_type", "adult_man") if profile else "adult_man",
+            "avatar_skin": profile.get("avatar_skin", "0") if profile else "0",
             "level": profile.get("level", "1") if profile else "1",
         })
 
@@ -805,9 +817,12 @@ async def get_dm_rooms(request: Request):
             "other_tid": other_tid,
             "other_nickname": other_profile.get("nickname", "") if other_profile else f"User{other_tid}",
             "other_avatar_type": other_profile.get("avatar_type", "adult_man") if other_profile else "adult_man",
+            "other_avatar_skin": other_profile.get("avatar_skin", "0") if other_profile else "0",
             "other_frame": other_profile.get("frame", "") if other_profile else "",
             "other_online": sops.is_online(other_tid),
             "last_message_at": room.get("last_message_at", ""),
+            "last_msg_text": room.get("last_msg_text", ""),
+            "last_msg_sender": room.get("last_msg_sender", ""),
             "unread": unread_per_room.get(_rid, 0),
         })
 

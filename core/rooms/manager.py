@@ -1,5 +1,6 @@
 """WebSocket manager + logique jeux pour les salons famille."""
 
+import asyncio
 import json
 import logging
 import random
@@ -37,6 +38,139 @@ class RoomManager:
     def __init__(self):
         # {room_id: {phone: WebSocket}}
         self.connections: Dict[str, Dict[str, WebSocket]] = {}
+        # {room_id: [indices de quiz sets récemment joués]} — anti-répétition
+        self.recent_quiz_sets: Dict[str, List[int]] = {}
+        # {room_id: asyncio.Task} — timer serveur de la partie en cours
+        self.game_timers: Dict[str, asyncio.Task] = {}
+
+    # ── Timers serveur (anti-freeze + chrono synchronisé) ──────────────────
+
+    QUIZ_TIMEOUT = 15   # secondes pour répondre à une question
+    TURN_TIMEOUT = 30   # secondes pour jouer son tour (morpion/memory)
+
+    def _cancel_timer(self, room_id: str) -> None:
+        t = self.game_timers.pop(room_id, None)
+        if t and not t.done():
+            t.cancel()
+
+    def _start_quiz_timer(self, room_id, room_ops, tid, q_idx, seconds=None) -> None:
+        self._cancel_timer(room_id)
+        self.game_timers[room_id] = asyncio.create_task(
+            self._quiz_countdown(room_id, room_ops, tid, q_idx, seconds or self.QUIZ_TIMEOUT))
+
+    def _start_turn_timer(self, room_id, room_ops, tid, game_type, marker, seconds=None) -> None:
+        self._cancel_timer(room_id)
+        self.game_timers[room_id] = asyncio.create_task(
+            self._turn_countdown(room_id, room_ops, tid, game_type, marker, seconds or self.TURN_TIMEOUT))
+
+    def _manage_game_timer(self, room_id, room_ops, tid, game_type, state, prev_q, prev_turn) -> None:
+        """(Re)démarre ou annule le timer après une action joueur."""
+        status = state.get("status", "")
+        if game_type == "quiz":
+            if status == "question":
+                if state.get("current_question") != prev_q:      # nouvelle question → timer neuf
+                    self._start_quiz_timer(room_id, room_ops, tid, state.get("current_question", 0))
+                # même question : on laisse courir le timer existant
+            else:
+                self._cancel_timer(room_id)
+        elif game_type in ("morpion", "memory"):
+            if status == "playing":
+                cur = state.get("turn") if game_type == "morpion" else state.get("current_turn")
+                if cur != prev_turn:                              # tour changé → timer neuf
+                    self._start_turn_timer(room_id, room_ops, tid, game_type, cur)
+            else:
+                self._cancel_timer(room_id)
+
+    async def _quiz_countdown(self, room_id, room_ops, tid, q_idx, seconds) -> None:
+        """Décompte 1s/1s (chrono synchro) puis avance la question si timeout."""
+        try:
+            remaining = seconds
+            while remaining > 0:
+                if not self.get_connected_phones(room_id):
+                    return
+                await self.broadcast(room_id, {"type": "timer_update", "remaining": remaining})
+                await asyncio.sleep(1)
+                remaining -= 1
+            room = room_ops.get_room(tid, room_id)
+            if not room:
+                return
+            try:
+                state = json.loads(room.get("game_state", "{}"))
+            except (json.JSONDecodeError, TypeError):
+                return
+            # Garde anti-double-avance : n'agit que si on est TOUJOURS sur cette question
+            if state.get("game_type") != "quiz" or state.get("status") != "question":
+                return
+            if state.get("current_question") != q_idx:
+                return
+            state["current_question"] = q_idx + 1
+            state["answers"] = {}
+            if state["current_question"] >= state.get("total_questions", 5):
+                state["status"] = "finished"
+            else:
+                state["status"] = "question"
+            room_ops.update_room(tid, room_id, {"game_state": json.dumps(state)})
+            await self.broadcast(room_id, {"type": "quiz_timeout", "message": "⏱️ Temps écoulé !"})
+            await self.broadcast(room_id, {"type": "game_update", "game_type": "quiz", "state": state})
+            if state["status"] == "question" and self.get_connected_phones(room_id):
+                self._start_quiz_timer(room_id, room_ops, tid, state["current_question"])
+        except asyncio.CancelledError:
+            return
+        except Exception as e:
+            logger.warning(f"quiz timer error room {room_id}: {e}")
+
+    async def _turn_countdown(self, room_id, room_ops, tid, game_type, marker, seconds) -> None:
+        """Passe le tour au joueur suivant si le joueur courant n'a pas joué à temps."""
+        try:
+            await asyncio.sleep(seconds)
+            if not self.get_connected_phones(room_id):
+                return
+            room = room_ops.get_room(tid, room_id)
+            if not room:
+                return
+            try:
+                state = json.loads(room.get("game_state", "{}"))
+            except (json.JSONDecodeError, TypeError):
+                return
+            if state.get("game_type") != game_type or state.get("status") != "playing":
+                return
+            cur = state.get("turn") if game_type == "morpion" else state.get("current_turn")
+            if cur != marker:                                   # le tour a déjà changé entre-temps
+                return
+            if game_type == "morpion":
+                state["turn"] = state["player_o"] if cur == state.get("player_x") else state["player_x"]
+                new_marker = state["turn"]
+            else:  # memory
+                order = state.get("turn_order", [])
+                if order:
+                    idx = order.index(cur) if cur in order else 0
+                    state["current_turn"] = order[(idx + 1) % len(order)]
+                state["selected"] = []
+                new_marker = state.get("current_turn")
+            room_ops.update_room(tid, room_id, {"game_state": json.dumps(state)})
+            await self.broadcast(room_id, {"type": "turn_timeout", "message": "⏱️ Temps écoulé, tour passé."})
+            await self.broadcast(room_id, {"type": "game_update", "game_type": game_type, "state": state})
+            if self.get_connected_phones(room_id):
+                self._start_turn_timer(room_id, room_ops, tid, game_type, new_marker)
+        except asyncio.CancelledError:
+            return
+        except Exception as e:
+            logger.warning(f"turn timer error room {room_id}: {e}")
+
+    def _pick_quiz_set(self, room_id: str) -> int:
+        """Choisit un set de quiz en évitant ceux récemment joués dans ce salon.
+
+        Garantit qu'aucun set ne se répète tant que tous n'ont pas été joués
+        (mémoire glissante de len(QUIZ_SETS)-1 derniers).
+        """
+        n = len(QUIZ_SETS)
+        recent = self.recent_quiz_sets.setdefault(room_id, [])
+        candidates = [i for i in range(n) if i not in recent] or list(range(n))
+        choice = random.choice(candidates)
+        recent.append(choice)
+        while len(recent) > max(1, n - 1):
+            recent.pop(0)
+        return choice
 
     async def connect(self, room_id: str, phone: str, ws: WebSocket) -> None:
         if room_id not in self.connections:
@@ -48,6 +182,9 @@ class RoomManager:
             self.connections[room_id].pop(phone, None)
             if not self.connections[room_id]:
                 del self.connections[room_id]
+                # Salon vide : on arrête le timer et on libère la mémoire
+                self._cancel_timer(room_id)
+                self.recent_quiz_sets.pop(room_id, None)
 
     async def broadcast(self, room_id: str, message: dict,
                         exclude_phone: str = None) -> None:
@@ -245,8 +382,12 @@ class RoomManager:
         players = self.get_connected_phones(room_id)
 
         if game_type == "quiz":
-            quiz_idx = data.get("quiz_index", random.randint(0, len(QUIZ_SETS) - 1))
+            quiz_idx = data.get("quiz_index")
+            if quiz_idx is None:
+                quiz_idx = self._pick_quiz_set(room_id)   # évite la répétition du set
             state = new_quiz_state(quiz_idx, players)
+            # Ordre des questions varié à chaque partie (copie : ne mute pas QUIZ_SETS global)
+            state["questions"] = random.sample(state["questions"], len(state["questions"]))
             state["status"] = "question"
         elif game_type == "morpion":
             if len(players) < 2:
@@ -271,6 +412,12 @@ class RoomManager:
         await self.broadcast(room_id, {
             "type": "game_update", "game_type": game_type, "state": state,
         })
+        # Démarre le timer serveur de la partie
+        if game_type == "quiz":
+            self._start_quiz_timer(room_id, room_ops, tid, state.get("current_question", 0))
+        elif game_type in ("morpion", "memory"):
+            marker = state.get("turn") if game_type == "morpion" else state.get("current_turn")
+            self._start_turn_timer(room_id, room_ops, tid, game_type, marker)
 
     async def _handle_game_action(self, room_id, phone, name, data,
                                    room_ops, tid, room_data, is_host) -> List[str]:
@@ -282,9 +429,12 @@ class RoomManager:
             return events
         game_type = state.get("game_type", "")
         changed = False
+        # Marqueurs avant traitement (pour décider de (re)lancer le timer)
+        prev_q = state.get("current_question")
+        prev_turn = state.get("turn") if game_type == "morpion" else state.get("current_turn")
 
         if game_type == "quiz":
-            changed = self._process_quiz(state, phone, data)
+            changed = self._process_quiz(state, phone, data, self.get_connected_phones(room_id))
         elif game_type == "morpion":
             changed = self._process_morpion(state, phone, data)
         elif game_type == "memory":
@@ -297,6 +447,7 @@ class RoomManager:
             await self.broadcast(room_id, {
                 "type": "game_update", "game_type": game_type, "state": state,
             })
+            self._manage_game_timer(room_id, room_ops, tid, game_type, state, prev_q, prev_turn)
             # Detecter victoire
             status = state.get("status", "")
             if status in ("won", "finished"):
@@ -314,7 +465,8 @@ class RoomManager:
 
     # ── Quiz ──
 
-    def _process_quiz(self, state: dict, phone: str, data: dict) -> bool:
+    def _process_quiz(self, state: dict, phone: str, data: dict,
+                      connected_phones: Optional[List[str]] = None) -> bool:
         if state.get("status") != "question":
             return False
         action = data.get("action", {})
@@ -338,10 +490,16 @@ class RoomManager:
         if answer_idx == correct:
             state.setdefault("scores", {})[phone] = state["scores"].get(phone, 0) + 1
 
-        # All answered? → next question or finish
-        connected = set(state.get("scores", {}).keys())
+        # Avance quand tous les joueurs ENCORE CONNECTÉS ont répondu.
+        # Un joueur déconnecté ne doit plus bloquer la partie (anti-freeze partiel).
+        # NB : si plus PERSONNE n'agit (tous inactifs), seul un timer serveur peut
+        # débloquer — c'est l'étape suivante (timer 15s). Ici on couvre déconnexion
+        # + joueur surnuméraire.
+        game_players = set(state.get("scores", {}).keys())
+        live = set(connected_phones) if connected_phones else game_players
+        waiting_on = game_players & live
         answered = set(state.get("answers", {}).keys())
-        if connected <= answered:
+        if waiting_on <= answered:
             state["current_question"] = q_idx + 1
             state["answers"] = {}
             if state["current_question"] >= state.get("total_questions", 5):

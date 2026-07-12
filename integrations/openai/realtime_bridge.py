@@ -42,7 +42,7 @@ VOICE_TOOLS = [
     {
         "type": "function",
         "name": "chat",
-        "description": "Repondre a l'utilisateur par conversation normale. Utilise UNIQUEMENT quand l'utilisateur fait une simple conversation, une question d'information, ou une discussion sans demande de rendu visuel. Si l'utilisateur demande un tableau, un graphique, un document, une reunion, un kanban, ou tout rendu visuel — NE PAS utiliser chat, utiliser iris_render ou un autre outil approprie.",
+        "description": "Repondre a l'utilisateur par conversation normale. Utilise UNIQUEMENT quand l'utilisateur fait une simple conversation, une question d'information, ou une discussion sans demande de rendu visuel. Si l'utilisateur demande un tableau, un graphique, un document, une reunion, un kanban, ou tout contenu structure — NE PAS utiliser chat, utiliser l'outil de rendu appropriate.",
         "parameters": {
             "type": "object",
             "properties": {
@@ -650,7 +650,7 @@ VOICE_TOOLS = [
         "type": "function",
         "name": "iris_render",
         "description": (
-            "OBLIGATOIRE — Afficher du contenu visuel dans l'Iris Command Screen. "
+            "OBLIGATOIRE — Afficher du contenu visuel dans le panneau de commande. "
             "TU DOIS appeler iris_render AVANT de parler a chaque fois que tu prepares un rendu visuel. "
             "C'est ton ecran de travail : tableau, graphique, KPI, timeline, roadmap, comparaison, "
             "document, carte, budget, reunion, decision, fiche contact, formulaire, kanban. "
@@ -658,7 +658,7 @@ VOICE_TOOLS = [
             "un document, un brouillon, une carte, un budget, une reunion, un kanban, ou tout contenu structure — "
             "TU DOIS appeler iris_render avec le bon render_type. "
             "Si l'utilisateur demande de transformer des donnees en graphique, utilise render_type=chart. "
-            "Ne dis jamais que tu ne peux pas utiliser ton tableau. "
+            "Ne dis jamais que tu ne peux pas utiliser le panneau. "
             "Le souscripteur voit le rendu visuel en temps reel pendant que tu parles. "
             "N'envoie pas le contenu en texte oral : mets-le dans le payload et parle brievement. "
             "NE JAMAIS utiliser l'outil chat pour les rendus visuels. Chat est UNIQUEMENT pour les conversations sans ecran."

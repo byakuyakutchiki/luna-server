@@ -120,6 +120,7 @@ async def get_privacy(request: Request):
         "accept_world_invites": data.get("accept_world_invites", "true") == "true",
         "approximate_location_only": data.get("approximate_location_only", "true") == "true",
         "total_invisible": data.get("total_invisible", "false") == "true",
+        "world_public": data.get("world_public", "false") == "true",
     }
 
 @world_router.post("/api/world/privacy")
@@ -144,6 +145,7 @@ async def set_privacy(request: Request):
         "accept_world_invites": "true" if body.get("accept_world_invites", True) else "false",
         "approximate_location_only": "true" if body.get("approximate_location_only", True) else "false",
         "total_invisible": "true" if body.get("total_invisible", False) else "false",
+        "world_public": "true" if body.get("world_public", False) else "false",
     }
     wops.set_privacy(tid, settings)
 
@@ -438,6 +440,97 @@ async def get_visitors(request: Request):
 
     return {"visitors": result, "count": len(result)}
 
+@world_router.get("/api/world/friends-worlds")
+async def get_friends_worlds(request: Request):
+    """Retourne les amis dont le monde est public (accessible sans invitation)."""
+    wops = _get_wops(request)
+    sops = _get_sops(request)
+    gops = _get_gops(request)
+    if not wops or not sops:
+        return _unavailable()
+    tid = _get_tenant_id(request)
+    if tid is None:
+        return _error("Non authentifie", 401)
+
+    friends = sops.get_friends(tid)
+    result = []
+    for f_tid in friends:
+        if not wops.is_world_public(f_tid):
+            continue
+        profile = sops.get_social_profile(f_tid)
+        avatar = wops.get_avatar(f_tid)
+        presence = wops.get_presence(f_tid)
+        visitors = wops.get_visitors(f_tid)
+
+        entry = {
+            "tid": f_tid,
+            "nickname": profile.get("nickname", f"User{f_tid}") if profile else f"User{f_tid}",
+            "avatar_type": profile.get("avatar_type", "adult_man") if profile else "adult_man",
+            "primary_color": avatar.get("primary_color", "#a78bfa"),
+            "aura": avatar.get("aura", "none"),
+            "visitor_count": len(visitors),
+            "online": bool(presence),
+        }
+        if gops:
+            player = gops.get_player(f_tid)
+            if player:
+                entry["level"] = player.get("level", "1")
+                entry["prestige_tier"] = player.get("prestige_tier", "decouverte")
+                entry["prestige_color"] = player.get("prestige_color", "#9ca3af")
+        result.append(entry)
+
+    return {"worlds": result, "count": len(result)}
+
+@world_router.post("/api/world/join/{host_tid}")
+async def join_public_world(request: Request, host_tid: str):
+    """Rejoindre directement le monde public d'un ami (sans invitation)."""
+    wops = _get_wops(request)
+    sops = _get_sops(request)
+    if not wops or not sops:
+        return _unavailable()
+    tid = _get_tenant_id(request)
+    if tid is None:
+        return _error("Non authentifie", 401)
+
+    if str(host_tid) == str(tid):
+        return _error("Vous ne pouvez pas rejoindre votre propre monde")
+
+    # Vérifier amitié
+    friends = sops.get_friends(tid)
+    if str(host_tid) not in friends:
+        return _error("Vous devez être amis pour rejoindre ce monde", 403)
+
+    # Vérifier que le monde est public
+    if not wops.is_world_public(host_tid):
+        return _error("Ce monde n'est pas ouvert au public", 403)
+
+    # Quitter l'éventuel monde précédent
+    current_host = wops.get_host(tid)
+    if current_host:
+        wops.remove_visitor(current_host, tid)
+        wops.add_notification(current_host, {
+            "type": "visitor_left",
+            "message": "Un visiteur a quitté votre monde.",
+            "from_tid": str(tid),
+            "ts": datetime.utcnow().isoformat(),
+        })
+
+    # Rejoindre le monde public
+    wops.add_visitor(host_tid, tid)
+    wops.set_presence(tid, "world1", status="online")
+
+    # Notifier l'hôte
+    host_profile = sops.get_social_profile(tid)
+    visitor_name = host_profile.get("nickname", f"User{tid}") if host_profile else f"User{tid}"
+    wops.add_notification(host_tid, {
+        "type": "visitor_joined",
+        "message": f"{visitor_name} a rejoint votre Monde !",
+        "from_tid": str(tid),
+        "ts": datetime.utcnow().isoformat(),
+    })
+
+    return {"success": True, "host_tid": str(host_tid)}
+
 @world_router.post("/api/world/presence")
 async def update_presence(request: Request):
     """Met à jour la présence dans le monde."""
@@ -505,7 +598,7 @@ async def get_chat(request: Request):
     # Déterminer dans quel monde on est
     presence = wops.get_presence(tid)
     if not presence:
-        return _error("Vous n'êtes dans aucun monde", 404)
+        return {"messages": [], "count": 0}
 
     # Si on est visiteur, le chat est celui de l'hôte
     host_tid = wops.get_host(tid)

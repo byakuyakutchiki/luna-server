@@ -122,10 +122,51 @@ Problème code identifié (fichier + ligne) :
 
 ---
 
+## MISSION ACTIVE — Audit Guardian Caméra & Reconnaissance
+
+**Assigné le** : 2026-06-17
+**Objet** : Répondre à la demande de Ludovic : la caméra Guardian ne fonctionne pas et la reconnaissance délire (faux positifs).
+**Fichier d'audit complet** : `docs/AUDIT_GUARDIAN_CAMERA_RECONNAISSANCE.md`
+
+### Résumé des constats
+
+| Thème | Verdict | Gravité |
+|---|---|---|
+| Caméra active (flux + envoi frames) | Partiellement fonctionnel | Moyenne |
+| Reconnaissance visuelle (OpenAI Vision) | Fonctionnelle mais bruyante | Élevée |
+| Faux positifs caméra | Fréquents par conception | Élevée |
+| Check-in automatique caméra | Trop agressif | Critique |
+| Intégration caméra ↔ moteur Guardian | Pas d'atténuation GPS | Élevée |
+| Tests caméra / perception | Aucun test automatisé | Élevée |
+
+### Problèmes critiques identifiés
+
+1. **Check-in automatique toutes les 60 secondes** avec alerte SMS après **30 secondes** de non-réponse (`static/guardian.html:1288-1333`). Cela viole la Policy V2 (10 minutes avant escalade) et garantit des faux positifs.
+2. **Reconnaissance reposant uniquement sur `gpt-4o-mini`** sans filtre de confiance, sans validation multi-frame, sans contexte GPS.
+3. **Pas de fusion caméra ↔ GPS** : la caméra ne corrige pas les alertes GPS et vice-versa.
+4. **Aucun test automatisé** pour la perception.
+5. **Signal `speed_anomaly` GPS** toujours présent comme proxy de chute, alors que la Policy V2 dit de le désactiver.
+
+### Recommandations prioritaires
+
+1. Désactiver le check-in automatique par défaut (ou le mettre derrière un flag).
+2. Supprimer/neutraliser `speed_anomaly` dans `core/guardian/engine.py:490-492`.
+3. Vérifier `video.readyState` avant d'envoyer une frame.
+4. Ajouter un test `/api/perception/status` avant activation caméra.
+5. Renforcer `SceneAnalyzer` avec confiance minimale et 2 frames consécutives.
+6. Fusionner les signaux caméra et GPS (atténuation si personne vivante visible).
+7. Écrire des tests mockés pour la perception.
+
+### Verdict Kimi
+
+La fonction caméra Guardian n'est **pas prête pour la production** en l'état. Le risque de faux positifs SMS est très élevé, notamment à cause du check-in automatique. La reconnaissance visuelle a besoin d'un calibrage et d'une fusion avec le GPS avant d'être fiable.
+
+---
+
 ### Interdictions
 
 - Ne pas pusher sur `main` directement
 - Ne pas lancer `bash deploy.sh` ou commandes Cloud Run
 - Ne pas lire ni modifier `.env` ou clés API
-- Modifications code → branche `kimi/objectif-001-voix` + PR
+- Modifications code → branche `kimi/*` + PR
 - Modifications doc → peut commiter sur `main` directement

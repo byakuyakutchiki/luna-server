@@ -11,6 +11,9 @@ import uuid
 import json
 import asyncio
 import logging
+import subprocess
+import socket
+import hashlib
 from pathlib import Path
 
 # Path d'import pour pv_recette.py (Docker: /app/utils/, local: ../luna-exploitants/scripts/)
@@ -3648,6 +3651,9 @@ _PUBLIC_PATHS = (
     "/guardian-live/",
     "/api/guardian/live-position/",
     "/api/apk/heartbeat",  # Auth via User-Agent LunaApp (pas JWT)
+    "/api/apk/event",      # Événements de diagnostic APK
+    "/api/system/runtime", # Identité publique du backend
+    "/api/admin/devices",  # Tableau de contrôle des appareils (réseau local)
     "/api/team/",          # Iris Workspace — endpoints publics (upload source, session)
 )
 
@@ -4648,6 +4654,51 @@ async def lifespan(app):
 app = FastAPI(title="Luna - YAWatch", lifespan=lifespan)
 STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
 
+# Runtime backend identity
+_BACKEND_STARTED_AT = datetime.now(ZoneInfo("Europe/Paris")).isoformat()
+_BACKEND_PID = os.getpid()
+_BACKEND_HOSTNAME = socket.gethostname()
+
+
+def _git_info() -> dict:
+    """Renvoie commit et branche Git courants, sans dépendre de git dans le PATH."""
+    base = os.path.dirname(os.path.abspath(__file__))
+    git_dir = os.path.join(base, ".git")
+    info = {"branch": "unknown", "commit": "unknown", "commit_short": "unknown"}
+    try:
+        # branch
+        head_file = os.path.join(git_dir, "HEAD")
+        if os.path.exists(head_file):
+            with open(head_file, "r") as f:
+                head = f.read().strip()
+            if head.startswith("ref:"):
+                ref_path = os.path.join(git_dir, *head.split()[1].split("/"))
+                info["branch"] = head.split("/")[-1]
+                if os.path.exists(ref_path):
+                    info["commit"] = open(ref_path).read().strip()
+                    info["commit_short"] = info["commit"][:7]
+            else:
+                info["commit"] = head
+                info["commit_short"] = head[:7]
+    except Exception:
+        pass
+    return info
+
+
+def _apk_sha256_expected() -> str:
+    """Calcule le SHA-256 de l'APK attendue (static/luna-proprio.apk)."""
+    try:
+        apk_path = os.path.join(STATIC_DIR, "luna-proprio.apk")
+        if not os.path.exists(apk_path):
+            return ""
+        h = hashlib.sha256()
+        with open(apk_path, "rb") as f:
+            for chunk in iter(lambda: f.read(65536), b""):
+                h.update(chunk)
+        return h.hexdigest()
+    except Exception:
+        return ""
+
 # Mount gamification routes (optional)
 if _GAMIFICATION_AVAILABLE:
     app.include_router(gamification_router)
@@ -5358,9 +5409,9 @@ async def download_apk():
 
 
 
-# Version APK pour auto-update
-LUNA_APP_VERSION = "3.8"
-LUNA_APP_VERSION_CODE = 29
+# Version APK pour auto-update (doit correspondre à android-app/AndroidManifest.xml)
+LUNA_APP_VERSION = "3.3.0-guardian-restore"
+LUNA_APP_VERSION_CODE = 25
 
 
 def _compute_apk_sha256() -> str:
@@ -5386,8 +5437,36 @@ async def app_version():
         "version": LUNA_APP_VERSION,
         "version_code": LUNA_APP_VERSION_CODE,
         "apk_url": "/download/luna.apk",
+        "apk_download_url": "/download/luna.apk",
+        "current_apk_version_code": LUNA_APP_VERSION_CODE,
+        "minimum_apk_version_code": LUNA_APP_VERSION_CODE,
+        "recommended_apk_version_code": LUNA_APP_VERSION_CODE,
         "apk_sha256": _APK_SHA256,
-        "changelog": "Sécurité APK renforcée, vérification intégrité mise à jour",
+        "changelog": "Restauration Guardian vocal natif (écoute mot-clé en arrière-plan)",
+    }
+
+
+@app.get("/api/system/runtime")
+async def system_runtime():
+    """Identité du backend : commit, branche, PID, port, mode dry-run, etc."""
+    git = _git_info()
+    logger.info(f"BACKEND_RUNTIME commit={git['commit_short']} branch={git['branch']} pid={_BACKEND_PID} apk_sha={_APK_SHA256}")
+    return {
+        "backend_version": LUNA_APP_VERSION,
+        "git_branch": git["branch"],
+        "git_commit": git["commit"],
+        "git_commit_short": git["commit_short"],
+        "started_at": _BACKEND_STARTED_AT,
+        "pid": _BACKEND_PID,
+        "hostname": _BACKEND_HOSTNAME,
+        "port": 8000,
+        "environment": "local",
+        "dry_run": os.getenv("VOICE_EMERGENCY_DRY_RUN", "").lower() in ("1", "true", "yes"),
+        "guardian_sms_enabled": GUARDIAN_SMS_ENABLED,
+        "guardian_call_enabled": GUARDIAN_CALL_ENABLED,
+        "voice_emergency_dry_run": os.getenv("VOICE_EMERGENCY_DRY_RUN", "").lower() in ("1", "true", "yes"),
+        "apk_expected_sha256": _APK_SHA256,
+        "apk_version_code": LUNA_APP_VERSION_CODE,
     }
 
 
@@ -13991,7 +14070,7 @@ async def invite_contact_to_luna(phone: str, request: Request):
     except Exception:
         pass
 
-    apk_url = f"https://luna-beta-gly3g647na-ew.a.run.app/static/luna-proprio.apk"
+    apk_url = os.getenv("APK_DOWNLOAD_URL", "http://192.168.1.45:8000/static/luna-proprio.apk")
     body = (
         f"Bonjour {contact.name} 👋\n"
         f"{sub_name} vous invite à rejoindre Luna, son assistant IA personnel.\n"
@@ -16508,7 +16587,7 @@ async def guardian_voice_simulate(request: Request):
     session_id = body.get("session_id", "")
     dry_run = body.get("dry_run", True)
 
-    engine = _get_guardian_engine(tid)
+    engine = _get_guardian()
     session = engine.get_session(session_id) if (engine and session_id) else None
     mgr = _get_tenant_manager(tid)
     sub = mgr.get_subscriber_profile() if mgr else None
@@ -24454,6 +24533,170 @@ async def admin_health(request: Request):
     return result
 
 
+@app.get("/api/admin/devices")
+async def admin_devices(request: Request):
+    """Tableau de contrôle des appareils connectés (preuve APK ↔ serveur). Public sur réseau local."""
+    devices = []
+    now_ts = int(time.time())
+
+    if _redis_client:
+        try:
+            device_ids = _redis_client.client.smembers(_APK_DEVICE_IDS_KEY)
+            for did in device_ids:
+                did = did.decode() if isinstance(did, bytes) else did
+                raw = _redis_client.client.get(_device_heartbeat_key(did))
+                if not raw:
+                    continue
+                try:
+                    hb = json.loads(raw)
+                except Exception:
+                    continue
+
+                age_seconds = now_ts - hb.get("ts", 0)
+                online = age_seconds < _APK_HEARTBEAT_TIMEOUT_SECONDS
+                sha_match = hb.get("apk_sha256_match")
+                sha_status = "ok" if sha_match is True else ("mismatch" if sha_match is False else "unknown")
+
+                devices.append({
+                    "device_id": did,
+                    "online": online,
+                    "last_heartbeat_seconds_ago": age_seconds,
+                    "last_heartbeat": hb.get("ts_str", ""),
+                    "version_code": hb.get("version_code", 0),
+                    "version_name": hb.get("version_name", ""),
+                    "apk_sha256": hb.get("apk_sha256", ""),
+                    "apk_sha256_status": sha_status,
+                    "backend_url": hb.get("backend_url", ""),
+                    "device_model": hb.get("device_model", ""),
+                    "android_version": hb.get("android_version", ""),
+                    "guardian_service_running": hb.get("guardian_service_running", False),
+                    "guardian_protection_enabled": hb.get("guardian_protection_enabled", False),
+                    "micro_permission": hb.get("micro_permission", ""),
+                    "location_permission": hb.get("location_permission", ""),
+                    "notification_permission": hb.get("notification_permission", ""),
+                    "last_voice_keyword": hb.get("last_voice_keyword", ""),
+                    "last_error": hb.get("last_error", ""),
+                })
+        except Exception as e:
+            logger.error(f"admin_devices error: {e}")
+
+    return {
+        "count": len(devices),
+        "timeout_seconds": _APK_HEARTBEAT_TIMEOUT_SECONDS,
+        "expected_apk_sha256": _apk_sha256_expected(),
+        "expected_apk_version_code": LUNA_APP_VERSION_CODE,
+        "devices": devices,
+    }
+
+
+@app.get("/admin/devices", response_class=HTMLResponse)
+async def admin_devices_page(request: Request):
+    """Page HTML locale de contrôle des appareils connectés."""
+    devices = []
+    now_ts = int(time.time())
+    expected_sha = _apk_sha256_expected()
+
+    if _redis_client:
+        try:
+            device_ids = _redis_client.client.smembers(_APK_DEVICE_IDS_KEY)
+            for did in device_ids:
+                did = did.decode() if isinstance(did, bytes) else did
+                raw = _redis_client.client.get(_device_heartbeat_key(did))
+                if not raw:
+                    continue
+                try:
+                    hb = json.loads(raw)
+                except Exception:
+                    continue
+                age_seconds = now_ts - hb.get("ts", 0)
+                online = age_seconds < _APK_HEARTBEAT_TIMEOUT_SECONDS
+                sha_match = hb.get("apk_sha256_match")
+                sha_status = "✅" if sha_match is True else ("❌" if sha_match is False else "❓")
+                devices.append({
+                    "device_id": did,
+                    "online": online,
+                    "online_emoji": "🟢" if online else "🔴",
+                    "age_seconds": age_seconds,
+                    "last_heartbeat": hb.get("ts_str", ""),
+                    "version_code": hb.get("version_code", 0),
+                    "version_name": hb.get("version_name", ""),
+                    "apk_sha256": hb.get("apk_sha256", "")[:16] + "...",
+                    "sha_status": sha_status,
+                    "backend_url": hb.get("backend_url", ""),
+                    "device_model": hb.get("device_model", ""),
+                    "android_version": hb.get("android_version", ""),
+                    "guardian_service": "🟢" if hb.get("guardian_service_running", False) else "⚪",
+                    "guardian_protection": "🟢" if hb.get("guardian_protection_enabled", False) else "⚪",
+                    "micro": hb.get("micro_permission", ""),
+                    "location": hb.get("location_permission", ""),
+                    "notification": hb.get("notification_permission", ""),
+                    "last_voice": hb.get("last_voice_keyword", ""),
+                    "last_error": hb.get("last_error", ""),
+                })
+        except Exception as e:
+            logger.error(f"admin_devices_page error: {e}")
+
+    rows = ""
+    for d in devices:
+        rows += f"""
+        <tr>
+          <td>{d['online_emoji']} {d['device_model']}</td>
+          <td>{d['version_name']} ({d['version_code']})</td>
+          <td>{d['sha_status']} {d['apk_sha256']}</td>
+          <td>{d['backend_url']}</td>
+          <td>{d['guardian_service']} service / {d['guardian_protection']} protection</td>
+          <td>🎤 {d['micro']}<br>📍 {d['location']}<br>🔔 {d['notification']}</td>
+          <td>{d['last_voice']}</td>
+          <td>{d['last_error']}</td>
+          <td>{d['last_heartbeat']}<br>(il y a {d['age_seconds']}s)</td>
+        </tr>
+        """
+
+    if not rows:
+        rows = '<tr><td colspan="9" style="text-align:center">Aucun appareil connecté</td></tr>'
+
+    html = f"""<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Luna — Contrôle appareils</title>
+<style>
+  body {{ font-family: system-ui, -apple-system, sans-serif; background:#0a0a1a; color:#e0e0e0; padding:20px; }}
+  h1 {{ color:#a78bfa; }}
+  table {{ width:100%; border-collapse:collapse; font-size:0.85em; margin-top:16px; }}
+  th, td {{ border:1px solid #2a2a4e; padding:10px; text-align:left; vertical-align:top; }}
+  th {{ background:#1a1a3e; color:#a78bfa; }}
+  tr:nth-child(even) {{ background:#121225; }}
+  .info {{ color:#888; font-size:0.9em; margin-bottom:8px; }}
+  .ok {{ color:#22c55e; }} .ko {{ color:#ef4444; }}
+</style>
+</head>
+<body>
+  <h1>🛡 Luna — Tableau de contrôle appareils</h1>
+  <div class="info">
+    Backend : <strong>{_BACKEND_HOSTNAME}</strong> · PID {_BACKEND_PID} · commit {_git_info()['commit_short']} · SHA attendu <code>{expected_sha[:24]}...</code>
+  </div>
+  <div class="info">Rafraîchir la page pour mettre à jour. Un appareil est hors ligne si aucun heartbeat depuis {_APK_HEARTBEAT_TIMEOUT_SECONDS}s.</div>
+  <table>
+    <tr>
+      <th>Appareil</th>
+      <th>APK</th>
+      <th>SHA APK</th>
+      <th>Backend utilisé</th>
+      <th>Guardian</th>
+      <th>Permissions</th>
+      <th>Dernier mot-clé</th>
+      <th>Erreur</th>
+      <th>Dernier heartbeat</th>
+    </tr>
+    {rows}
+  </table>
+</body>
+</html>"""
+    return HTMLResponse(content=html)
+
+
 @app.get("/api/admin/objectives")
 async def admin_objectives(request: Request):
     """
@@ -24999,20 +25242,32 @@ async def admin_clear_debug_logs(request: Request):
 
 
 # =========================================================================
-# APK HEARTBEAT — Objectif 003 Phase 1
-# Sonde vivante : l'APK du téléphone fondateur signale son état au serveur.
+# APK HEARTBEAT — Chaîne de preuve APK ↔ serveur
+# Stocke l'état réel de chaque appareil connecté.
 # =========================================================================
 _APK_HEARTBEAT_KEY = "luna:apk:heartbeat:fondateur"
+_APK_DEVICES_PREFIX = "luna:devices:{device_id}:heartbeat"
+_APK_DEVICE_IDS_KEY = "luna:devices:ids"
+_APK_HEARTBEAT_TIMEOUT_SECONDS = 60
+
+
+def _device_heartbeat_key(device_id: str) -> str:
+    return _APK_DEVICES_PREFIX.format(device_id=device_id)
+
+
+def _sanitize_str(value, max_len: int = 100) -> str:
+    if value is None:
+        return ""
+    return str(value)[:max_len]
 
 
 @app.post("/api/apk/heartbeat")
 async def apk_heartbeat(request: Request):
     """
-    Heartbeat APK fondateur.
+    Heartbeat APK enrichi — chaîne de preuve APK ↔ serveur.
     Pas d'auth JWT (APK Java ne dispose pas du localStorage).
     Identificateur : User-Agent contient 'LunaApp/'.
-    Rate limit naturel : appelé à chaque onResume() — pas en boucle continue.
-    Pas de collecte : audio, transcript, position, secrets.
+    Stockage par device_id dans Redis.
     """
     ua = request.headers.get("user-agent", "")
     if "LunaApp/" not in ua:
@@ -25024,25 +25279,120 @@ async def apk_heartbeat(request: Request):
         body = {}
 
     now_paris = datetime.now(ZoneInfo("Europe/Paris"))
+    now_ts = int(now_paris.timestamp())
+
+    device_id = _sanitize_str(body.get("device_id"), 64) or "unknown"
+    package_name = _sanitize_str(body.get("package_name"), 64)
+    version_code = body.get("version_code", 0)
+    version_name = _sanitize_str(body.get("version_name"), 32)
+    apk_sha256 = _sanitize_str(body.get("apk_sha256"), 64).lower()
+    backend_url = _sanitize_str(body.get("backend_url"), 120)
+    device_model = _sanitize_str(body.get("device_model"), 50)
+    android_version = _sanitize_str(body.get("android_version"), 20)
+
+    guardian_service_running = bool(body.get("guardian_service_running", False))
+    guardian_protection_enabled = bool(body.get("guardian_protection_enabled", False))
+    micro_permission = _sanitize_str(body.get("micro_permission"), 16)
+    location_permission = _sanitize_str(body.get("location_permission"), 16)
+    notification_permission = _sanitize_str(body.get("notification_permission"), 16)
+    last_voice_keyword = _sanitize_str(body.get("last_voice_keyword"), 100)
+    last_error = _sanitize_str(body.get("last_error"), 200)
+
+    expected_sha = _apk_sha256_expected()
+    sha_match = (apk_sha256 == expected_sha) if (apk_sha256 and expected_sha) else None
+
     entry = {
-        "ts": int(now_paris.timestamp()),
+        "ts": now_ts,
         "ts_str": now_paris.strftime("%Y-%m-%d %H:%M:%S"),
-        "apk_version": str(body.get("apk_version", ""))[:10],
-        "device_role": str(body.get("device_role", ""))[:20],
-        "cloud_url": str(body.get("cloud_url", ""))[:120],
+        "device_id": device_id,
+        "package_name": package_name,
+        "version_code": version_code,
+        "version_name": version_name,
+        "apk_sha256": apk_sha256,
+        "apk_sha256_expected": expected_sha,
+        "apk_sha256_match": sha_match,
+        "backend_url": backend_url,
+        "device_model": device_model,
+        "android_version": android_version,
+        "guardian_service_running": guardian_service_running,
+        "guardian_protection_enabled": guardian_protection_enabled,
+        "micro_permission": micro_permission,
+        "location_permission": location_permission,
+        "notification_permission": notification_permission,
+        "last_voice_keyword": last_voice_keyword,
+        "last_error": last_error,
         "webview_user_agent": ua[:200],
-        "android_version": str(body.get("android_version", ""))[:20],
-        "device_model": str(body.get("device_model", ""))[:50],
-        "last_screen": str(body.get("last_screen", ""))[:100],
     }
 
     if _redis_client:
         try:
-            _redis_client.client.set(_APK_HEARTBEAT_KEY, json.dumps(entry), ex=7 * 86400)
+            pipe = _redis_client.client.pipeline()
+            # Enregistrer l'état de l'appareil avec TTL
+            pipe.set(_device_heartbeat_key(device_id), json.dumps(entry), ex=7 * 86400)
+            # Maintenir la liste des appareils connus
+            pipe.sadd(_APK_DEVICE_IDS_KEY, device_id)
+            # Maintenir le heartbeat global legacy pour compatibilité
+            pipe.set(_APK_HEARTBEAT_KEY, json.dumps(entry), ex=7 * 86400)
+            pipe.execute()
+
+            if sha_match is False:
+                logger.warning(f"APK_VERSION_MISMATCH device={device_id} sha_received={apk_sha256} sha_expected={expected_sha}")
+            else:
+                logger.info(f"APK_HEARTBEAT device={device_id} version={version_name}({version_code}) guardian={guardian_service_running} micro={micro_permission}")
         except Exception as e:
             logger.error(f"APK heartbeat Redis write error: {e}")
     else:
         logger.info(f"[APK-HEARTBEAT] {entry}")
+
+    return {
+        "ok": True,
+        "server_time": now_ts,
+        "apk_sha256_expected": expected_sha,
+        "apk_sha256_match": sha_match,
+    }
+
+
+@app.post("/api/apk/event")
+async def apk_event(request: Request):
+    """
+    Réception d'événements de diagnostic structurés depuis l'APK.
+    Types attendus : GUARDIAN_SERVICE_STARTED, GUARDIAN_SERVICE_STOPPED,
+    VOICE_LISTENER_STARTED, VOICE_LISTENER_FAILED,
+    LOCATION_PERMISSION_DENIED, MIC_PERMISSION_DENIED, etc.
+    """
+    ua = request.headers.get("user-agent", "")
+    if "LunaApp/" not in ua:
+        return JSONResponse(status_code=403, content={"ok": False, "reason": "not_luna_app"})
+
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+
+    event_type = _sanitize_str(body.get("event_type"), 32)
+    device_id = _sanitize_str(body.get("device_id"), 64) or "unknown"
+    message = _sanitize_str(body.get("message"), 200)
+
+    log_line = f"APK_EVENT device={device_id} event={event_type} msg={message}"
+    if event_type in ("VOICE_LISTENER_FAILED", "LOCATION_PERMISSION_DENIED", "MIC_PERMISSION_DENIED"):
+        logger.warning(log_line)
+    else:
+        logger.info(log_line)
+
+    # Stocker l'événement dans Redis (dernier événement par appareil)
+    if _redis_client:
+        try:
+            _redis_client.client.set(
+                f"luna:devices:{device_id}:last_event",
+                json.dumps({
+                    "ts": int(time.time()),
+                    "event_type": event_type,
+                    "message": message,
+                }),
+                ex=7 * 86400,
+            )
+        except Exception as e:
+            logger.error(f"APK event Redis write error: {e}")
 
     return {"ok": True}
 

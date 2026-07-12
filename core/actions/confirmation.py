@@ -12,6 +12,7 @@ Aucune action consommatrice de quota n'est exécutée
 sans confirmation explicite du souscripteur.
 Exception unique: alerte de sécurité vitale aux contacts de confiance.
 """
+import json
 import logging
 from typing import Optional, Dict, Any, List
 from datetime import datetime, timedelta
@@ -40,12 +41,14 @@ class ConfirmationManager:
     5. Logger chaque étape pour audit
     """
 
-    def __init__(self, memory_manager=None):
+    def __init__(self, memory_manager=None, redis_client=None):
         """
         Args:
             memory_manager: MemoryManager pour persister les demandes
+            redis_client: RedisClient pour persistance des actions en attente
         """
         self.memory = memory_manager
+        self.rc = redis_client
         # Cache en mémoire des demandes actives (tenant_id -> {action_id -> request})
         self._pending: Dict[int, Dict[str, ActionRequest]] = {}
 
@@ -104,7 +107,8 @@ class ConfirmationManager:
                 f"Action {request.action_id} auto-confirmed: emergency source"
             )
 
-        # Stocke dans le cache
+        # Stocke dans Redis si disponible, puis dans le cache local
+        self._persist_request(request)
         if tenant_id not in self._pending:
             self._pending[tenant_id] = {}
         self._pending[tenant_id][request.action_id] = request
@@ -153,6 +157,9 @@ class ConfirmationManager:
         request.confirmed_at = datetime.utcnow()
         request.confirmation_method = method
 
+        self._persist_request(request)
+        self._remove_from_index(request.tenant_id, request.action_id)
+
         self._log_event(
             request, "confirmed",
             f"Action confirmée par {method}",
@@ -185,6 +192,9 @@ class ConfirmationManager:
         request.status = ActionStatus.REJECTED
         request.rejection_reason = reason
 
+        self._persist_request(request)
+        self._remove_from_index(request.tenant_id, request.action_id)
+
         self._log_event(
             request, "rejected",
             f"Action refusée: {reason or 'pas de raison donnée'}",
@@ -213,6 +223,9 @@ class ConfirmationManager:
             return None
 
         request.status = ActionStatus.CANCELLED
+
+        self._persist_request(request)
+        self._remove_from_index(request.tenant_id, request.action_id)
 
         self._log_event(request, "cancelled", "Action annulée")
 
@@ -246,6 +259,19 @@ class ConfirmationManager:
     def get_pending_actions(self, tenant_id: int) -> List[ActionRequest]:
         """Récupère les actions en attente de confirmation"""
         self._cleanup_expired(tenant_id)
+        # Synchronise avec Redis : charge les IDs de l'index
+        if self.rc:
+            try:
+                action_ids = self.rc.client.smembers(self._redis_index_key(tenant_id))
+                for action_id in action_ids:
+                    if action_id and action_id not in self._pending.get(tenant_id, {}):
+                        loaded = self._load_from_redis(tenant_id, action_id)
+                        if loaded:
+                            if tenant_id not in self._pending:
+                                self._pending[tenant_id] = {}
+                            self._pending[tenant_id][action_id] = loaded
+            except Exception as e:
+                logger.error(f"ConfirmationManager get_pending_actions error: {e}")
         tenant_actions = self._pending.get(tenant_id, {})
         return [
             r for r in tenant_actions.values()
@@ -352,17 +378,41 @@ class ConfirmationManager:
     def _get_pending(
         self, tenant_id: int, action_id: str
     ) -> Optional[ActionRequest]:
-        """Récupère une action depuis le cache"""
-        return self._pending.get(tenant_id, {}).get(action_id)
+        """Récupère une action depuis le cache local ou Redis."""
+        cached = self._pending.get(tenant_id, {}).get(action_id)
+        if cached:
+            return cached
+        loaded = self._load_from_redis(tenant_id, action_id)
+        if loaded:
+            if tenant_id not in self._pending:
+                self._pending[tenant_id] = {}
+            self._pending[tenant_id][action_id] = loaded
+        return loaded
 
     def _cleanup_expired(self, tenant_id: int) -> int:
         """Nettoie les actions expirées d'un tenant"""
         expired_count = 0
+        # Synchronise avec Redis
+        if self.rc:
+            try:
+                action_ids = self.rc.client.smembers(self._redis_index_key(tenant_id))
+                for action_id in action_ids:
+                    if action_id and action_id not in self._pending.get(tenant_id, {}):
+                        loaded = self._load_from_redis(tenant_id, action_id)
+                        if loaded:
+                            if tenant_id not in self._pending:
+                                self._pending[tenant_id] = {}
+                            self._pending[tenant_id][action_id] = loaded
+            except Exception as e:
+                logger.error(f"ConfirmationManager cleanup sync error: {e}")
+
         tenant_actions = self._pending.get(tenant_id, {})
 
         for action_id, request in list(tenant_actions.items()):
             if request.is_pending() and request.is_expired():
                 request.status = ActionStatus.EXPIRED
+                self._persist_request(request)
+                self._remove_from_index(request.tenant_id, request.action_id)
                 self._log_event(request, "expired", "Action expirée")
                 expired_count += 1
 
@@ -402,3 +452,116 @@ class ConfirmationManager:
                 logger.warning(f"Could not log action to memory: {e}")
 
         logger.debug(f"Action log: {log.to_dict()}")
+
+    # =========================================================================
+    # PERSISTANCE REDIS
+    # =========================================================================
+
+    def _redis_key(self, tenant_id: int, action_id: str) -> str:
+        """Cle Redis pour une action en attente."""
+        return f"luna:{tenant_id}:actions:pending:{action_id}"
+
+    def _redis_index_key(self, tenant_id: int) -> str:
+        """Index Redis des actions en attente d'un tenant."""
+        return f"luna:{tenant_id}:actions:pending"
+
+    def _request_to_dict(self, request: ActionRequest) -> Dict[str, Any]:
+        """Serialize un ActionRequest pour Redis."""
+        return {
+            "action_id": request.action_id,
+            "tenant_id": str(request.tenant_id),
+            "action_type": request.action_type.value,
+            "target": request.target,
+            "target_phone": request.target_phone or "",
+            "description": request.description,
+            "message_body": request.message_body or "",
+            "status": request.status.value,
+            "estimated_cost": str(request.estimated_cost),
+            "confirmed": "1" if request.confirmed else "0",
+            "confirmed_at": request.confirmed_at.isoformat() if request.confirmed_at else "",
+            "confirmation_method": request.confirmation_method or "",
+            "rejection_reason": request.rejection_reason or "",
+            "reasoning_explanation": request.reasoning_explanation or "",
+            "instruction_id": request.instruction_id or "",
+            "conversation_id": request.conversation_id or "",
+            "source": request.source,
+            "created_at": request.created_at.isoformat(),
+            "expires_at": request.expires_at.isoformat() if request.expires_at else "",
+            "executed_at": request.executed_at.isoformat() if request.executed_at else "",
+        }
+
+    def _request_from_dict(self, data: Dict[str, str]) -> Optional[ActionRequest]:
+        """Deserialise un ActionRequest depuis Redis."""
+        try:
+            return ActionRequest(
+                action_id=data["action_id"],
+                tenant_id=int(data.get("tenant_id", 0)),
+                action_type=ActionType(data.get("action_type", "send_sms")),
+                target=data.get("target", ""),
+                target_phone=data.get("target_phone") or None,
+                description=data.get("description", ""),
+                message_body=data.get("message_body") or None,
+                status=ActionStatus(data.get("status", "awaiting_confirmation")),
+                estimated_cost=int(data.get("estimated_cost", 1)),
+                confirmed=data.get("confirmed", "0") == "1",
+                confirmed_at=datetime.fromisoformat(data["confirmed_at"]) if data.get("confirmed_at") else None,
+                confirmation_method=data.get("confirmation_method") or None,
+                rejection_reason=data.get("rejection_reason") or None,
+                reasoning_explanation=data.get("reasoning_explanation", ""),
+                instruction_id=data.get("instruction_id") or None,
+                conversation_id=data.get("conversation_id") or None,
+                source=data.get("source", "luna"),
+                created_at=datetime.fromisoformat(data["created_at"]) if data.get("created_at") else datetime.utcnow(),
+                expires_at=datetime.fromisoformat(data["expires_at"]) if data.get("expires_at") else None,
+                executed_at=datetime.fromisoformat(data["executed_at"]) if data.get("executed_at") else None,
+            )
+        except Exception as e:
+            logger.error(f"Failed to deserialize ActionRequest from Redis: {e}")
+            return None
+
+    def _persist_request(self, request: ActionRequest) -> None:
+        """Sauvegarde une action dans Redis avec TTL."""
+        if not self.rc:
+            return
+        try:
+            key = self._redis_key(request.tenant_id, request.action_id)
+            self.rc.client.hset(key, mapping=self._request_to_dict(request))
+            ttl = 86400 * 7  # 7 jours
+            if request.expires_at:
+                ttl = max(int((request.expires_at - datetime.utcnow()).total_seconds()) + 3600, 300)
+            self.rc.client.expire(key, ttl)
+            self.rc.client.sadd(self._redis_index_key(request.tenant_id), request.action_id)
+        except Exception as e:
+            logger.error(f"ConfirmationManager persist error: {e}")
+
+    def _delete_request(self, tenant_id: int, action_id: str) -> None:
+        """Supprime une action de Redis."""
+        if not self.rc:
+            return
+        try:
+            self.rc.client.delete(self._redis_key(tenant_id, action_id))
+            self.rc.client.srem(self._redis_index_key(tenant_id), action_id)
+        except Exception as e:
+            logger.error(f"ConfirmationManager delete error: {e}")
+
+    def _remove_from_index(self, tenant_id: int, action_id: str) -> None:
+        """Retire une action de l'index des pending sans supprimer la cle."""
+        if not self.rc:
+            return
+        try:
+            self.rc.client.srem(self._redis_index_key(tenant_id), action_id)
+        except Exception as e:
+            logger.error(f"ConfirmationManager index remove error: {e}")
+
+    def _load_from_redis(self, tenant_id: int, action_id: str) -> Optional[ActionRequest]:
+        """Charge une action depuis Redis."""
+        if not self.rc:
+            return None
+        try:
+            data = self.rc.client.hgetall(self._redis_key(tenant_id, action_id))
+            if not data:
+                return None
+            return self._request_from_dict(data)
+        except Exception as e:
+            logger.error(f"ConfirmationManager load error: {e}")
+            return None

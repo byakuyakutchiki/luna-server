@@ -794,6 +794,21 @@ function authFetch(url,opts){
 }
 if(!getToken()){ window.location.href='/'; }
 
+// ── DIAGNOSTIC NATIVE (evenementiel) ─────────
+function diagLog(category, message){
+  if(window.LunaBridge && LunaBridge.logEvent){
+    try{ LunaBridge.logEvent(category, message); }catch(e){}
+  }
+}
+function diagApi(name, status){
+  if(window.LunaBridge && LunaBridge.setLastApiStatus){
+    try{ LunaBridge.setLastApiStatus(name, String(status)); }catch(e){}
+  }
+}
+window.addEventListener('error', function(e){
+  diagLog('JS_ERROR', e.message + ' @ ' + (e.filename||'') + ':' + e.lineno);
+});
+
 // ── STATE ────────────────────────────────────
 var SID=null, WS=null, GEO_ID=null;
 var SAFE_ZONE=null;
@@ -1111,16 +1126,26 @@ function captureZone(){
 
 // ── START / STOP ──────────────────────────────
 function guardianStart(){
-  if(!navigator.geolocation){showToast('GPS non disponible');return;}
+  diagLog('SESSION','ENTER guardianStart');
+  if(!navigator.geolocation){diagLog('SESSION','BAIL navigator.geolocation absent'); showToast('GPS non disponible');return;}
   setHdrStatus('Connexion…','#f59e0b',false);
   vibrate([30]);
   var cfg={immobility_threshold_minutes:parseInt(document.getElementById('cfg-immo').value)||30,safe_zones:[]};
   if(SAFE_ZONE) cfg.safe_zones=[SAFE_ZONE];
+  diagLog('SESSION','CALL /api/guardian/start');
   authFetch('/api/guardian/start',{method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({profile_type:document.getElementById('cfg-profile').value,config:cfg})
-  }).then(function(r){return r.json();}).then(function(d){
-    if(!d.success) throw new Error(d.error||'Erreur');
-    SID=d.session_id;
+  }).then(function(r){
+    diagLog('SESSION','RESPONSE status=' + r.status);
+    return r.json().then(function(d){return {status:r.status,data:d};});
+  }).then(function(res){
+    diagLog('SESSION','BODY ' + JSON.stringify(res.data).substring(0,500));
+    if(!res.data.success){
+      diagLog('SESSION','ERROR backend: ' + (res.data.error||'success=false'));
+      throw new Error(res.data.error||'Erreur');
+    }
+    SID=res.data.session_id;
+    diagLog('SESSION','SID=' + SID);
     syncAuthToken();
     if(window.LunaBridge&&LunaBridge.setGuardianSession) LunaBridge.setGuardianSession(SID);
     setHdrStatus('Actif',null,true);
@@ -1144,10 +1169,14 @@ function guardianStart(){
     // (setGuardianProtection démarre GuardianService avec listen=true → VOSK, zéro bip).
     // On NE lance PAS le Web Speech du navigateur dans l'APK : il passe par le service Google
     // qui joue les tonalités « écoute/veille ». Web Speech réservé au vrai navigateur (fallback).
-    if(window.LunaBridge&&LunaBridge.setGuardianProtection){
+    var hasSetGuardianProtection = !!(window.LunaBridge && window.LunaBridge.setGuardianProtection);
+    diagLog('SESSION','setGuardianProtection=' + hasSetGuardianProtection);
+    if(hasSetGuardianProtection){
+      diagLog('SESSION','BRANCH VOSK natif');
       try{ LunaBridge.setGuardianProtection(true, false); }catch(e){}
       _setVoskActiveUI();
     } else {
+      diagLog('SESSION','BRANCH Web Speech -> _vocalStartWithWatchdog');
       _vocalStartWithWatchdog();
     }
     document.getElementById('contacts-bar').style.display='block';
@@ -1163,7 +1192,7 @@ function guardianStart(){
     showToast('🛡️ Guardian actif');
     vibrate([60,30,60]);
     maybeSpeak('Luna Guardian démarré. Je veille sur vous.');
-  }).catch(function(e){ setHdrStatus('Erreur: '+e.message,'#ef4444',false); showToast('❌ '+e.message,3500); });
+  }).catch(function(e){ diagLog('SESSION','CATCH ' + (e.message||String(e))); setHdrStatus('Erreur: '+e.message,'#ef4444',false); showToast('❌ '+e.message,3500); });
 }
 
 function guardianStop(){
@@ -1628,19 +1657,28 @@ function _setVoskActiveUI(){
 function _vocalMatch(transcript,isFinal){
   var t=(transcript||'').trim();
   var n=_norm(t);
+  diagLog('MATCH','ENTER transcript="' + t + '" normalised="' + n + '" isFinal=' + isFinal);
+  diagLog('MATCH','state _vocalActive=' + _vocalActive + ' _sosInProgress=' + _sosInProgress + ' _voiceCaptureActive=' + _voiceCaptureActive);
   if(_vocalActive||_sosInProgress){
-    if(_vocalActive && CANCEL_KW.some(function(k){return n.includes(_norm(k));})) cancelVocalCountdown();
+    diagLog('MATCH','BAIL _vocalActive=' + _vocalActive + ' _sosInProgress=' + _sosInProgress);
+    if(_vocalActive && CANCEL_KW.some(function(k){return n.includes(_norm(k));})){
+      diagLog('MATCH','CANCEL keyword detected');
+      cancelVocalCountdown();
+    }
     return;
   }
 
   // Capture du contexte après un hit : accumulation jusqu'au silence (isFinal) ou timeout
   if(_voiceCaptureActive){
+    diagLog('MATCH','voiceCaptureActive=true');
     if(t){
       _voiceTranscript=t;
       _voiceContext=t;
+      diagLog('MATCH','context updated="' + t + '"');
       _traceGuardian('web_sr_context',{isFinal:!!isFinal, transcript:t, voiceContext:_voiceContext});
     }
     if(isFinal){
+      diagLog('MATCH','isFinal=true -> stop capture + openVocalCountdown');
       _traceGuardian('web_sr_capture_final',{voiceTranscript:_voiceTranscript, voiceContext:_voiceContext});
       _stopVoiceCapture();
       openVocalCountdown();
@@ -1651,27 +1689,37 @@ function _vocalMatch(transcript,isFinal){
   // Match par séquence de mots ENTIÈRE (bornée par des espaces) — évite "secours"
   // au milieu d'un mot. (L'annulation, elle, reste large : mieux vaut sur-annuler.)
   var _padded=' '+n+' ';
-  var hit=EMERGENCY_KW.some(function(k){
+  var hit=false;
+  var matchedKw='';
+  EMERGENCY_KW.forEach(function(k){
+    if(hit) return;
     var nk=_norm(k);
     var needle=' '+nk+' ';
     var idx=_padded.indexOf(needle);
-    if(idx<0) return false;
+    if(idx<0) return;
     // Garde anti-usage instrumental — uniquement pour « à l'aide »
     if(KW_AMBIGU.indexOf(nk)>=0){
       var after=_padded.substring(idx+needle.length);
       for(var s=0;s<KW_INSTRUMENTAL_SUFFIX.length;s++){
         var suf=KW_INSTRUMENTAL_SUFFIX[s];
-        if(after===suf||after.indexOf(suf+' ')===0) return false;
+        if(after===suf||after.indexOf(suf+' ')===0){
+          diagLog('MATCH','filtered instrumental suffix for "' + k + '" after="' + after + '"');
+          return;
+        }
       }
     }
-    return true;
+    hit=true;
+    matchedKw=k;
   });
+  diagLog('MATCH','RESULT hit=' + hit + (hit?' keyword="' + matchedKw + '"':' no keyword'));
   if(hit){
     _voiceTranscript=t;
     _voiceContext=t;
     _traceGuardian('web_sr_hit',{path:'_vocalMatch', transcript:t, keywordMatched:true, voiceTranscript:_voiceTranscript, voiceContext:_voiceContext});
+    diagLog('MATCH','CALL openVocalCountdown via capture timer');
     _voiceCaptureActive=true;
     _voiceCaptureTimer=setTimeout(function(){
+      diagLog('MATCH','capture timeout -> openVocalCountdown');
       _traceGuardian('web_sr_capture_timeout',{voiceTranscript:_voiceTranscript, voiceContext:_voiceContext});
       _stopVoiceCapture();
       openVocalCountdown();
@@ -1690,21 +1738,26 @@ function _vocalScheduleRestart(delayMs){
 }
 
 function _vocalStart(){
+  diagLog('LISTEN','ENTER _vocalStart');
   // BULLETPROOF (01/07) : dans l'APK, l'écoute est assurée par VOSK (service natif, silencieux).
   // On NE démarre JAMAIS le Web Speech du navigateur ici — c'est lui qui joue les tonalités
   // « écoute/veille » (il passe par le SpeechRecognizer Google). Quel que soit l'appelant.
-  if(window.LunaBridge && window.LunaBridge.setGuardianProtection){ _setMicState('off'); return; }
+  var hasSetGuardianProtection = !!(window.LunaBridge && window.LunaBridge.setGuardianProtection);
+  diagLog('LISTEN','setGuardianProtection=' + hasSetGuardianProtection);
+  if(hasSetGuardianProtection){ diagLog('LISTEN','BAIL setGuardianProtection present'); _setMicState('off'); return; }
   var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-  if(!SR){ _setMicState('off'); return; }
-  if(_vocalRec) return; // déjà actif
+  diagLog('LISTEN','SpeechRecognition object=' + (SR?'present':'ABSENT'));
+  if(!SR){ diagLog('LISTEN','BAIL SpeechRecognition absent'); _setMicState('off'); return; }
+  if(_vocalRec){ diagLog('LISTEN','BAIL _vocalRec deja actif'); return; } // déjà actif
 
   var rec=new SR();
   rec.lang='fr-FR';
   rec.continuous=true;
   rec.interimResults=true;
   rec.maxAlternatives=2;
+  diagLog('LISTEN','rec.start() appel');
 
-  rec.onstart=function(){ _setMicState('listening'); _vocalErrors=0; };
+  rec.onstart=function(){ diagLog('LISTEN','onstart'); _setMicState('listening'); _vocalErrors=0; };
 
   rec.onresult=function(e){
     var t='';
@@ -1713,10 +1766,12 @@ function _vocalStart(){
       t+=e.results[i][0].transcript;
       if(e.results[i].isFinal) isFinal=true;
     }
+    diagLog('LISTEN','onresult transcript="' + t + '" isFinal=' + isFinal);
     _vocalMatch(t,isFinal);
   };
 
   rec.onerror=function(e){
+    diagLog('LISTEN','onerror error=' + e.error);
     // no-speech = silence normal — ne pas interrompre
     if(e.error==='no-speech') return;
     // aborted = écran verrouillé / app fond — traiter comme une vraie erreur
@@ -1729,6 +1784,7 @@ function _vocalStart(){
   };
 
   rec.onend=function(){
+    diagLog('LISTEN','onend');
     // Si onerror a déjà nul le rec → ne rien faire (restart déjà planifié)
     if(_vocalRec!==rec){ return; }
     _vocalRec=null;
@@ -1741,6 +1797,7 @@ function _vocalStart(){
   try{
     rec.start();
   } catch(e){
+    diagLog('LISTEN','rec.start() CATCH ' + e.message);
     _vocalRec=null;
     _setMicState('error');
     if(SID) _vocalScheduleRestart(5000);
@@ -1768,12 +1825,17 @@ function _vocalStartWithWatchdog(){
   },30000);
 }
 function openVocalCountdown(){
-  if(_vocalActive||_sosInProgress) return;
+  diagLog('COUNTDOWN','ENTER openVocalCountdown _vocalActive=' + _vocalActive + ' _sosInProgress=' + _sosInProgress);
+  if(_vocalActive||_sosInProgress){
+    diagLog('COUNTDOWN','BAIL _vocalActive=' + _vocalActive + ' _sosInProgress=' + _sosInProgress);
+    return;
+  }
   _vocalActive=true;
   // Fenêtre d'annulation ÉLARGIE (30/06) : 5 s était trop court — l'alerte partait avant
   // que l'utilisateur ait le temps de lire le panneau et d'appuyer sur ANNULER.
   // Laisse le temps de réagir. Ajustable via localStorage 'guardian_countdown_s'.
   var n=parseInt(localStorage.getItem('guardian_countdown_s')||'15',10); if(!(n>=5&&n<=60)) n=15;
+  diagLog('COUNTDOWN','started n=' + n + 's');
   document.getElementById('vocal-count').textContent=n;
   document.getElementById('vocal-n').textContent=n;
   document.getElementById('vocal-modal').classList.add('open');
@@ -1800,6 +1862,7 @@ function openVocalCountdown(){
       if(_vocalRestartT){ clearTimeout(_vocalRestartT); _vocalRestartT=null; }
       _setMicState('off');
       _vocalActive=false;
+      diagLog('COUNTDOWN','reached 0 -> CALL _triggerSOSVocal');
       _triggerSOSVocal();
     }
   },1000);
@@ -1833,13 +1896,16 @@ var _voiceContext='';
 var _voiceCaptureActive=false;
 var _voiceCaptureTimer=null;
 window.lunaEmergencyVoiceDetected=function(text, confidence, context){
+  diagLog('VOSK','ENTER window.lunaEmergencyVoiceDetected text="' + (text||'') + '" confidence=' + confidence + ' context="' + (context||'') + '"');
+  diagLog('VOSK','state SID=' + SID + ' _sosInProgress=' + _sosInProgress + ' _vocalActive=' + _vocalActive);
   _dbgSR('emergency_received');
   _traceGuardian('vosk_received',{path:'lunaEmergencyVoiceDetected', text:text||'', confidence:confidence, context:context||''});
-  if(!SID){ _dbgSR('bail_no_session'); _traceGuardian('vosk_bail',{reason:'no_session'}); return; }
-  if(_sosInProgress){ _dbgSR('bail_sos_in_progress'); _traceGuardian('vosk_bail',{reason:'sos_in_progress'}); return; }
-  if(_vocalActive){ _dbgSR('bail_vocal_active'); _traceGuardian('vosk_bail',{reason:'vocal_active'}); return; }
+  if(!SID){ diagLog('VOSK','BAIL no SID'); _dbgSR('bail_no_session'); _traceGuardian('vosk_bail',{reason:'no_session'}); return; }
+  if(_sosInProgress){ diagLog('VOSK','BAIL sos in progress'); _dbgSR('bail_sos_in_progress'); _traceGuardian('vosk_bail',{reason:'sos_in_progress'}); return; }
+  if(_vocalActive){ diagLog('VOSK','BAIL vocal active'); _dbgSR('bail_vocal_active'); _traceGuardian('vosk_bail',{reason:'vocal_active'}); return; }
   _voiceTranscript=(text||'').toString();
   _voiceContext=(context||'').toString();
+  diagLog('VOSK','CALL openVocalCountdown transcript="' + _voiceTranscript + '"');
   _dbgSR('opening_countdown');
   _traceGuardian('vosk_open_countdown',{transcript:_voiceTranscript, context:_voiceContext});
   openVocalCountdown();
@@ -1890,7 +1956,11 @@ function cancelVocalCountdown(){
   guardianSpeak('État d\'urgence désactivé.');
 }
 function _triggerSOSVocal(){
-  if(!SID||_sosInProgress) return;
+  diagLog('SOS','ENTER _triggerSOSVocal SID=' + SID + ' _sosInProgress=' + _sosInProgress);
+  if(!SID||_sosInProgress){
+    diagLog('SOS','BAIL SID=' + SID + ' _sosInProgress=' + _sosInProgress);
+    return;
+  }
   _sosInProgress=true;
   var iid=_genIncidentId();
   vibrate([500,150,500,150,800]);
@@ -1898,6 +1968,7 @@ function _triggerSOSVocal(){
   // P1 — Activer tracking GPS renforcé immédiatement
   _eemStart(iid,'vocal');
   var sosPayload={incident_id:iid,source:'vocal',context:_voiceContext||'',transcript:_voiceTranscript||''};
+  diagLog('SOS','CALL /api/guardian/sos/' + SID + ' payload=' + JSON.stringify(sosPayload));
   _traceGuardian('sos_request',{path:'_triggerSOSVocal', payload:sosPayload});
   authFetch('/api/guardian/sos/'+SID,{
     method:'POST',
@@ -1906,9 +1977,13 @@ function _triggerSOSVocal(){
   }).then(function(r){
     return r.json().then(function(d){return {status:r.status,data:d};});
   }).then(function(res){
+    diagLog('SOS','RESPONSE status=' + res.status + ' body=' + JSON.stringify(res.data).substring(0,500));
     _traceGuardian('sos_response',{status:res.status, data:res.data});
     if(res.status===409){showToast('⏳ Alerte déjà envoyée',3000);return;}
     var d=res.data;
+    if(d&&d.event&&d.event.session_id){
+      diagLog('SOS','guardian_session_id=' + d.event.session_id);
+    }
     var summary=_formatAlertSummary(d);
     showToast('🆘 '+(d.message||'SOS envoyé'),6000);
     _voiceLog('voice_alert_sent',(d.sms_sent_to||0)+'sms/'+(d.dm_sent_to||0)+'dm/'+(d.calls_placed||0)+'calls');
@@ -1923,6 +1998,7 @@ function _triggerSOSVocal(){
     // P3 — Camera 3 snapshots (non-bloquant)
     _eemStartCamera(iid);
   }).catch(function(e){
+    diagLog('SOS','ERROR ' + (e.message||String(e)));
     _traceGuardian('sos_error',{error:e.message||String(e)});
     showToast('❌ SOS: '+(e.message||'erreur'));
   })
@@ -2207,9 +2283,15 @@ function toggleGuardianFriend(friend_tid,add){
 
 // ── INIT : reprise session active ─────────────
 (function checkSession(){
-  authFetch('/api/guardian/sessions').then(function(r){return r.json();}).then(function(d){
+  diagLog('SESSION','ENTER checkSession');
+  authFetch('/api/guardian/sessions').then(function(r){
+    diagLog('SESSION','checkSession status=' + r.status);
+    return r.json();
+  }).then(function(d){
+    diagLog('SESSION','checkSession body=' + JSON.stringify(d).substring(0,300));
     if(d.sessions&&d.sessions.length>0){
       var s=d.sessions[0]; SID=s.session_id;
+      diagLog('SESSION','checkSession SID=' + SID);
       syncAuthToken();
       if(window.LunaBridge&&LunaBridge.setGuardianSession) LunaBridge.setGuardianSession(SID);
       setHdrStatus('ACTIF',null,true);
@@ -2228,17 +2310,22 @@ function toggleGuardianFriend(friend_tid,add){
       loadContacts();
       // REPRISE de session : même logique que le démarrage — dans l'APK, écoute VOSK
       // silencieuse via le service (pas de Web Speech qui bipe). Navigateur → Web Speech.
-      if(window.LunaBridge&&LunaBridge.setGuardianProtection){
+      var hasSetGuardianProtection = !!(window.LunaBridge && window.LunaBridge.setGuardianProtection);
+      diagLog('SESSION','checkSession setGuardianProtection=' + hasSetGuardianProtection);
+      if(hasSetGuardianProtection){
+        diagLog('SESSION','checkSession BRANCH VOSK natif');
         try{ LunaBridge.setGuardianProtection(true, false); }catch(e){}
         _setVoskActiveUI();
       } else {
+        diagLog('SESSION','checkSession BRANCH Web Speech -> _vocalStartWithWatchdog');
         _vocalStartWithWatchdog();
       }
       _layoutUpdate(); connectWs(); startGps(); loadEvents();
     } else {
+      diagLog('SESSION','checkSession aucune session active -> openPerm');
       openPerm();
     }
-  }).catch(function(){openPerm();});
+  }).catch(function(e){ diagLog('SESSION','checkSession CATCH ' + (e.message||String(e))); openPerm(); });
   _layoutUpdate();
 })();
 

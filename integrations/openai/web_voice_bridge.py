@@ -57,7 +57,7 @@ from integrations.iris.modes import (
 )
 from integrations.iris.workspace_orchestrator import MissionBrief, WorkspacePlan, orchestrate_workspace_request
 # Détection d'urgence vocale (déterministe, côté serveur)
-from core.safety.voice_emergency import match_immediate_sos, is_affirmative, is_negative
+from core.safety.voice_emergency import match_immediate_sos, is_affirmative, is_negative, is_cancel
 
 # Nombre d'erreurs client consecutives avant arret
 _MAX_CLIENT_ERRORS = 3
@@ -450,8 +450,10 @@ class WebVoiceBridge:
         session_manager=None,  # IrisSessionManager | None
         initial_mode: str = DEFAULT_MODE,  # Mode initial transmis via ?mode= (Objectif 026)
         command_screen: bool = True,  # False = voix pure (pas de panneau ICS, pas de forçage iris_render)
+        iris_mode: bool = True,  # False = luna-voice (pas de panneau ICS, iris_render exclu)
         emergency_detect=None,  # async (text, recent) -> {level, summary} — classif LLM d'urgence
         emergency_fire=None,    # async (summary, level) -> report — déclenche l'alerte (SMS+appels)
+        reminder_handle=None,   # async (text) -> {handled: bool, speak: str} — crée le rappel côté serveur
     ):
         self.openai_api_key = openai_api_key
         self.ws_client = ws_client
@@ -481,6 +483,7 @@ class WebVoiceBridge:
         self._session_manager = session_manager
         # Iris Action Router — fallback deterministe si le LLM n'appelle pas d'outil
         self._action_router = _IrisActionRouter(self)
+        self._iris_mode = iris_mode  # False = luna-voice (iris_render exclu)
         # Voix pure : aucun panneau Iris Command Screen, aucun forçage iris_render.
         # Quand False, le bridge se comporte comme un assistant vocal conversationnel pur.
         self._command_screen = command_screen
@@ -489,6 +492,10 @@ class WebVoiceBridge:
         self._emergency_fire = emergency_fire
         self._pending_emergency = None   # résumé en attente de confirmation (niveau ambigu)
         self._emergency_active = False   # une alerte a déjà été déclenchée dans cette session
+        self._emergency_countdown_task = None  # tâche du compte à rebours d'annulation (5s) avant tout envoi
+        self._emergency_countdown_payload = None  # (summary, level) en attente d'envoi pendant le décompte
+        # Rappels : création déterministe côté serveur (le modèle vocal n'appelle pas add_reminder de façon fiable).
+        self._reminder_handle = reminder_handle
         # Mode de mission Iris — initialisé depuis le query param ?mode= (Objectif 026)
         self._active_mode = initial_mode if initial_mode in IRIS_MODES else DEFAULT_MODE
         self._base_context = context  # Contexte système de base (sans mode)
@@ -859,14 +866,17 @@ class WebVoiceBridge:
         """
         allowed = set(get_mode_tools(mode_id))
         filtered = [t for t in VOICE_TOOLS if t.get("name", "") in allowed]
-        # Voix pure : on retire tous les outils liés au panneau Command Screen.
-        # Iris ne peut donc physiquement pas projeter de panneau — héritage supprimé.
+        # Luna voice (iris_mode=False) : pas de panneau ICS → iris_render exclu.
+        if not self._iris_mode:
+            filtered = [t for t in filtered if t.get("name") != "iris_render"]
+        # Voix pure Iris (command_screen=False) : on retire tous les outils liés au
+        # panneau Command Screen. Iris ne peut donc physiquement pas projeter de panneau.
         if not self._command_screen:
             _ICS_TOOLS = {"iris_render", "start_meeting", "organize_kanban"}
             filtered = [t for t in filtered if t.get("name", "") not in _ICS_TOOLS]
             return filtered
-        # Dernier recours : fournir iris_render si la liste est vide
-        if not filtered:
+        # Dernier recours : fournir iris_render si la liste est vide (uniquement mode Iris panneau)
+        if not filtered and self._iris_mode:
             fallback = next((t for t in VOICE_TOOLS if t.get("name") == "iris_render"), None)
             if fallback:
                 filtered = [fallback]
@@ -923,24 +933,37 @@ class WebVoiceBridge:
 
         session_config = {
             "type": "session.update",
+            # MIGRATION GA (30/06) : OpenAI a coupé l'API Realtime *Beta*
+            # (erreur "beta_api_shape_disabled" / "Missing required parameter: 'session.type'").
+            # → nouvelle forme GA : session.type="realtime", audio.{input,output} imbriqués,
+            #   voice dans audio.output, formats en objets {type:"audio/pcm",rate}.
+            # Sans ça, session.update est rejetée → la voix ne s'initialise jamais.
             "session": {
+                "type": "realtime",
                 "instructions": full_context,
-                "voice": self.voice,
-                "input_audio_format": "pcm16",
-                "output_audio_format": "pcm16",
-                "input_audio_transcription": {
-                    "model": "whisper-1",
-                    "language": "fr",
-                },
-                "turn_detection": {
-                    "type": "server_vad",
-                    "threshold": 0.5,
-                    "prefix_padding_ms": 400,
-                    "silence_duration_ms": 700,
-                    # Iris must not answer before the server has the transcript.
-                    # We first infer the active mode from the user's words, update
-                    # the tool set, then explicitly trigger response.create.
-                    "create_response": False,
+                "output_modalities": ["audio"],
+                "audio": {
+                    "input": {
+                        "format": {"type": "audio/pcm", "rate": 24000},
+                        "transcription": {
+                            "model": "whisper-1",
+                            "language": "fr",
+                        },
+                        "turn_detection": {
+                            "type": "server_vad",
+                            "threshold": 0.5,
+                            "prefix_padding_ms": 400,
+                            "silence_duration_ms": 700,
+                            # Iris must not answer before the server has the transcript.
+                            # We first infer the active mode from the user's words, update
+                            # the tool set, then explicitly trigger response.create.
+                            "create_response": False,
+                        },
+                    },
+                    "output": {
+                        "format": {"type": "audio/pcm", "rate": 24000},
+                        "voice": self.voice,
+                    },
                 },
                 "tools": filtered_tools,
                 # Command Screen : tool_choice=required force iris_render à chaque tour.
@@ -1219,23 +1242,29 @@ class WebVoiceBridge:
         self._emergency_active = True
         self._pending_emergency = None
         logger.warning(f"WebVoice: EMERGENCY fire level={level} summary={summary[:80]!r}")
+        # Dernières paroles entendues (pour le brief transmis aux proches) : derniers tours user.
+        try:
+            _last = [t.get("text", "") for t in self.transcript if t.get("role") == "user"][-3:]
+            last_words = " … ".join(w for w in _last if w)[:240]
+        except Exception:
+            last_words = ""
         # 2) Prévenir le client tout de suite (UI peut afficher un état d'urgence)
         await self._ws_send_client({"type": "emergency", "state": "triggered", "summary": summary})
         # 1) Déclencher l'alerte SANS bloquer (chaque seconde compte) ; rapport au client une fois fait
         if self._emergency_fire:
             async def _do_fire():
                 try:
-                    report = await self._emergency_fire(summary, level)
+                    report = await self._emergency_fire(summary, level, last_words)
                     await self._ws_send_client({"type": "emergency", "state": "sent", "report": report})
                 except Exception as _e:
                     logger.error(f"WebVoice: emergency fire error: {_e}")
                     await self._ws_send_client({"type": "emergency", "state": "error", "message": str(_e)})
             asyncio.create_task(_do_fire())
-        # 3) Rassurer immédiatement à l'oral
+        # 3) Annoncer le statut (mot pour mot) + rassurer immédiatement à l'oral
         await self._speak(
-            "Une urgence vient d'être détectée. Préviens l'utilisateur, calmement et brièvement, "
-            "que tu alertes ses proches tout de suite et que tu restes en ligne avec lui. "
-            "Une seule phrase rassurante. Exemple : « Je préviens tes proches maintenant, je reste avec toi. »"
+            "L'alerte part maintenant. Dis d'abord, mot pour mot et clairement : « Contact d'urgence activé. » "
+            "Puis ajoute UNE phrase rassurante : tu préviens ses proches tout de suite et tu restes en ligne avec lui. "
+            "Exemple : « Contact d'urgence activé. Je préviens tes proches, je reste avec toi. »"
         )
 
     async def _ask_emergency_confirmation(self, summary: str):
@@ -1248,16 +1277,65 @@ class WebVoiceBridge:
             "Exemple : « Tu veux que je prévienne tes proches tout de suite ? »"
         )
 
-    @staticmethod
-    def _enrich_emergency_summary(summary: str, text: str) -> str:
-        """Conserve la catégorie LLM sans perdre la phrase brute entendue."""
-        summary = (summary or "").strip()
-        text = (text or "").strip()
-        if not summary:
-            return text
-        if not text or text.lower() in summary.lower():
-            return summary
-        return f"{summary}. Phrase entendue : {text}"
+    async def _start_emergency_countdown(self, summary: str, level: str, seconds: int = None):
+        # Fenêtre d'annulation ÉLARGIE (30/06) : 5 s était trop court (l'alerte partait
+        # avant que l'utilisateur ait le temps d'annuler). Défaut 15 s, ajustable par env.
+        if seconds is None:
+            try:
+                seconds = int(os.getenv("VOICE_EMERGENCY_COUNTDOWN_S", "15"))
+            except Exception:
+                seconds = 15
+        """
+        GARDE-FOU CENTRAL (rétabli 30/06) : AUCUNE alerte ne part sans un compte à
+        rebours d'annulation. On affiche/annonce un décompte de `seconds` ; l'utilisateur
+        peut annuler à la voix (« annule », « je vais bien »…) ou via le bouton du client.
+        L'envoi réel (_fire_and_reassure) n'a lieu QUE si le décompte va au bout.
+        Réplique le comportement de la modale `guardian.html` (openVocalCountdown).
+        """
+        if self._emergency_active or self._emergency_countdown_task is not None:
+            return
+        self._emergency_countdown_payload = (summary, level)
+        # Le client /simli affiche la modale countdown + bouton ANNULER
+        await self._ws_send_client({
+            "type": "emergency", "state": "countdown", "seconds": seconds, "summary": summary,
+        })
+        await self._speak(
+            f"Tu sembles en difficulté. Dis à l'utilisateur, en UNE phrase calme, que tu alerteras "
+            f"ses proches dans {seconds} secondes et qu'il peut dire « annule » ou « je vais bien » "
+            f"si c'est une erreur. Exemple : « J'alerte tes proches dans {seconds} secondes, dis annule si tout va bien. »"
+        )
+
+        async def _countdown():
+            try:
+                await asyncio.sleep(seconds)
+                self._emergency_countdown_task = None
+                payload = self._emergency_countdown_payload
+                self._emergency_countdown_payload = None
+                if payload:
+                    await self._fire_and_reassure(payload[0], payload[1])
+            except asyncio.CancelledError:
+                pass  # annulé par l'utilisateur → aucun envoi
+            except Exception as _e:
+                logger.error(f"WebVoice: emergency countdown error: {_e}")
+
+        self._emergency_countdown_task = asyncio.create_task(_countdown())
+
+    async def _cancel_emergency_countdown(self) -> bool:
+        """Annule le compte à rebours en cours → aucun SMS/appel n'est envoyé."""
+        task = self._emergency_countdown_task
+        if task is None:
+            return False
+        self._emergency_countdown_task = None
+        self._emergency_countdown_payload = None
+        task.cancel()
+        await self._ws_send_client({"type": "emergency", "state": "cancelled"})
+        await self._speak(
+            "L'utilisateur annule l'alerte : tout va bien. Dis d'abord, mot pour mot et clairement : "
+            "« État d'urgence désactivé. » Puis ajoute UNE phrase rassurante : tu ne préviens personne, "
+            "tu restes là, il peut changer d'avis quand il veut."
+        )
+        logger.info("WebVoice: EMERGENCY countdown cancelled by user")
+        return True
 
     async def _emergency_llm_followup(self, text: str):
         """Analyse d'intention (LLM) en tâche de fond — capte la détresse nuancée."""
@@ -1266,14 +1344,17 @@ class WebVoiceBridge:
             verdict = await self._emergency_detect(text, recent)
             level = (verdict or {}).get("level", "none")
             summary = (verdict or {}).get("summary", "") or text
-            enriched_summary = self._enrich_emergency_summary(summary, text)
             if self._emergency_active or self._pending_emergency is not None:
                 return
-            logger.warning(f"WebVoice: emergency enriched summary={enriched_summary[:200]!r}")
-            if level == "immediate":
-                await self._fire_and_reassure(enriched_summary, "immediate")
-            elif level == "ambiguous":
-                await self._ask_emergency_confirmation(enriched_summary)
+            # SÉCURITÉ : un verdict LLM ne déclenche JAMAIS d'alerte réelle directement.
+            # gpt-4o-mini peut sur-classer une phrase anodine ou du bruit transcrit en
+            # "immediate" → ce qui envoyait des SMS+appels aux proches sans que l'utilisateur
+            # n'ait rien demandé (faux positifs, 30/06). On DEMANDE toujours une confirmation
+            # vocale avant d'alerter. Seuls les mots-clés explicites et sans équivoque
+            # (match_immediate_sos : "au secours", "je suis en danger"…) gardent le droit de
+            # déclencher sans confirmation, car leur taux de faux positif est quasi nul.
+            if level in ("immediate", "ambiguous"):
+                await self._ask_emergency_confirmation(summary)
         except Exception as e:
             logger.warning(f"WebVoice: emergency_llm_followup error: {e}")
 
@@ -1285,10 +1366,22 @@ class WebVoiceBridge:
         if not self._emergency_fire:   # feature désactivée (ex: voix Luna)
             return False
 
+        # a0) Compte à rebours en cours → l'utilisateur peut ANNULER (« annule », « je vais bien »…)
+        #     Tant que le décompte tourne, on garde la main sur le tour (Iris ne fait pas de
+        #     réponse conversationnelle normale) mais on n'envoie RIEN avant la fin du décompte.
+        if self._emergency_countdown_task is not None:
+            if is_cancel(text):
+                await self._cancel_emergency_countdown()
+            return True
+
         # a) Confirmation en attente (niveau ambigu déjà proposé)
         if self._pending_emergency is not None:
             if is_affirmative(text):
-                await self._fire_and_reassure(self._pending_emergency, "confirmed")
+                # L'utilisateur confirme → on ne fonce pas : on lance le compte à rebours
+                # d'annulation (5s) avant l'envoi réel, comme la modale guardian.html.
+                _summary = self._pending_emergency
+                self._pending_emergency = None
+                await self._start_emergency_countdown(_summary, "confirmed")
                 return True
             if is_negative(text):
                 self._pending_emergency = None
@@ -1302,14 +1395,34 @@ class WebVoiceBridge:
             self._pending_emergency = None
             return False
 
-        # b) SOS EXPLICITE → déclenchement immédiat (instantané, déterministe)
+        # b) SOS EXPLICITE → compte à rebours d'annulation de 5s (PLUS d'envoi immédiat).
+        #    AUCUNE alerte ne part sans cette fenêtre d'annulation (régression corrigée 30/06).
         if match_immediate_sos(text):
-            await self._fire_and_reassure(text, "immediate")
+            await self._start_emergency_countdown(text, "immediate")
             return True
 
         # c) Analyse d'intention nuancée (LLM) en tâche de fond — ne bloque pas la réponse normale
         if self._emergency_detect:
             asyncio.create_task(self._emergency_llm_followup(text))
+        return False
+
+    async def _handle_reminder(self, text: str) -> bool:
+        """
+        Si l'utilisateur demande un rappel, le serveur le crée lui-même (déterministe)
+        et fait confirmer Iris. Retourne True si le tour a été pris en main (on saute
+        la réponse conversationnelle normale). Iris ne renvoie JAMAIS vers une app du téléphone.
+        """
+        if not self._reminder_handle:
+            return False
+        try:
+            res = await self._reminder_handle(text)
+        except Exception as e:
+            logger.warning(f"WebVoice: reminder_handle error: {e}")
+            return False
+        if res and res.get("handled"):
+            await self._ws_send_client({"type": "reminder", "state": "created", "title": res.get("title", "")})
+            await self._speak(res.get("speak") or "Confirme en une phrase, naturellement, que le rappel est créé.")
+            return True
         return False
 
     async def _relay_client_to_openai(self):
@@ -1335,6 +1448,10 @@ class WebVoiceBridge:
                             "type": "input_audio_buffer.append",
                             "audio": audio_b64,
                         }, retries=0, critical=False)
+
+                elif msg_type == "emergency_cancel":
+                    # Bouton « ✋ ANNULER » du client pendant le compte à rebours d'alerte
+                    await self._cancel_emergency_countdown()
 
                 elif msg_type == "text":
                     text = str(data.get("text", "")).strip()
@@ -1372,9 +1489,9 @@ class WebVoiceBridge:
                             else:
                                 await self._ws_send_openai({"type": "response.create"})
                         else:
-                            # Voix pure : sécurité d'abord (urgence), sinon réponse normale.
+                            # Voix pure : sécurité d'abord (urgence), puis rappels, sinon réponse normale.
                             emergency_handled = await self._handle_emergency(text)
-                            if not emergency_handled:
+                            if not emergency_handled and not await self._handle_reminder(text):
                                 await self._ws_send_openai({"type": "response.create"})
 
                 elif msg_type == "ui_event":
@@ -1713,7 +1830,9 @@ class WebVoiceBridge:
                             # l'utilisateur. Si une urgence prend le tour en main, on ne fait pas
                             # de réponse conversationnelle normale (l'alerte + le message rassurant priment).
                             emergency_handled = await self._handle_emergency(text)
-                            if not emergency_handled:
+                            # Puis rappels : si l'utilisateur demande un rappel, le serveur le crée
+                            # lui-même et Iris confirme (pas de « mets-le sur ton téléphone »).
+                            if not emergency_handled and not await self._handle_reminder(text):
                                 await self._ws_send_openai({"type": "response.create"})
                                 logger.info("WebVoice: response_created (voix pure)")
 
@@ -1729,10 +1848,13 @@ class WebVoiceBridge:
                             "role": "luna",
                             "text": text,
                         })
-                        # Garde-fou : détecter le déni du panneau ICS et corriger en temps réel
+                        # Garde-fou : détecter le déni ou la confusion d'Iris et corriger en temps réel
                         _DENIAL_PHRASES = [
                             "ne peux pas afficher", "n'ai pas de panneau", "pas de panneau visuel",
                             "je ne dispose pas d'un panneau", "pas d'écran", "aucun panneau",
+                            "ne peux pas répondre à cette partie", "je ne suis pas en mesure",
+                            "en tant qu'ia", "en tant qu'intelligence artificielle",
+                            "je suis un programme", "je suis un logiciel",
                             "cannot display", "don't have a visual panel",
                         ]
                         _tlow = text.lower()
@@ -1794,6 +1916,8 @@ class WebVoiceBridge:
                         _EARLY_DENIAL = [
                             "ne peux pas afficher", "n'ai pas de panneau",
                             "pas de panneau visuel", "je ne dispose pas d'un panneau",
+                            "ne peux pas répondre à cette partie", "je ne suis pas en mesure",
+                            "en tant qu'ia", "je suis un programme", "je suis un logiciel",
                         ]
                         _has_doc = hasattr(self, "_session_documents") and bool(self._session_documents)
                         _in_work_mode = self._active_mode != DEFAULT_MODE

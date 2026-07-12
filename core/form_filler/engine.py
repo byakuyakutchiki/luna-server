@@ -3,6 +3,7 @@
 Utilise le client OpenAI de Luna (gpt-4o-mini vision) et PyMuPDF.
 """
 
+import asyncio
 import base64
 import json
 import re
@@ -78,6 +79,8 @@ async def analyze_form(openai_client, image_b64: str, media_type: str = "image/j
     Returns:
         AnalysisResult avec champs détectés
     """
+    _VISION_SUPPORTED = frozenset({"image/jpeg", "image/png", "image/webp", "image/gif"})
+
     # Si PDF, convertir la première page en image
     if media_type == "application/pdf":
         pdf_bytes = base64.b64decode(image_b64)
@@ -88,19 +91,31 @@ async def analyze_form(openai_client, image_b64: str, media_type: str = "image/j
         doc.close()
         image_b64 = base64.b64encode(image_bytes).decode()
         media_type = "image/png"
+    elif media_type.startswith("image/") and media_type not in _VISION_SUPPORTED:
+        # Convertir BMP, TIFF, etc. en JPEG pour OpenAI Vision
+        img_bytes = base64.b64decode(image_b64)
+        img = Image.open(io.BytesIO(img_bytes))
+        if img.mode in ("RGBA", "P", "LA"):
+            img = img.convert("RGB")
+        buf = io.BytesIO()
+        img.save(buf, "JPEG", quality=90)
+        image_b64 = base64.b64encode(buf.getvalue()).decode()
+        media_type = "image/jpeg"
 
     data_uri = f"data:{media_type};base64,{image_b64}"
 
-    response = openai_client.chat.completions.create(
+    messages = [{
+        "role": "user",
+        "content": [
+            {"type": "image_url", "image_url": {"url": data_uri, "detail": "high"}},
+            {"type": "text", "text": ANALYSIS_PROMPT},
+        ],
+    }]
+    response = await asyncio.to_thread(
+        openai_client.chat.completions.create,
         model=model,
         max_tokens=8192,
-        messages=[{
-            "role": "user",
-            "content": [
-                {"type": "image_url", "image_url": {"url": data_uri, "detail": "high"}},
-                {"type": "text", "text": ANALYSIS_PROMPT},
-            ],
-        }],
+        messages=messages,
     )
 
     data = _parse_json(response.choices[0].message.content)
@@ -197,17 +212,27 @@ def fill_pdf(pdf_bytes: bytes, fields: list[dict], signature_b64: str = None) ->
         PDF rempli en bytes
     """
     doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+    skipped: list[str] = []
 
     for f in fields:
-        value = f.get("value")
+        fid = f.get("id") or f.get("label") or "?"
+        raw_value = f.get("value")
         ftype = f.get("field_type", "text")
         pos = f.get("position", {})
 
-        if not value and ftype != "signature":
+        # Normaliser en str : l'API/auto-fill peut envoyer bool/int (checkbox, nombres)
+        value = "" if raw_value is None else str(raw_value)
+
+        if not value.strip() and ftype != "signature":
             continue
 
         page_num = int(pos.get("page", 0))
-        if page_num >= len(doc):
+        if page_num >= len(doc) or page_num < 0:
+            logger.warning(
+                f"fill_pdf: champ '{fid}' ignoré — page {page_num} hors limites "
+                f"({len(doc)} page(s) dans le document)"
+            )
+            skipped.append(str(fid))
             continue
 
         page = doc[page_num]
@@ -220,7 +245,7 @@ def fill_pdf(pdf_bytes: bytes, fields: list[dict], signature_b64: str = None) ->
         rect = fitz.Rect(x, y, x + w, y + h)
 
         if ftype == "checkbox":
-            if value and value.lower() in ("true", "oui", "yes", "x", "1"):
+            if value.strip().lower() in ("true", "oui", "yes", "x", "1"):
                 fs = min(h * 0.8, 14)
                 page.insert_text(
                     fitz.Point(x + w/2 - fs/4, y + h/2 + fs/3),
@@ -231,6 +256,14 @@ def fill_pdf(pdf_bytes: bytes, fields: list[dict], signature_b64: str = None) ->
                 try:
                     sig = signature_b64.split(",")[1] if "," in signature_b64 else signature_b64
                     sig_bytes = base64.b64decode(sig)
+                    # Supprime le fond blanc du canvas → PNG transparent
+                    sig_img = Image.open(io.BytesIO(sig_bytes)).convert("RGBA")
+                    gray = sig_img.convert("L")
+                    alpha = gray.point(lambda p: 0 if p > 230 else 255)
+                    sig_img.putalpha(alpha)
+                    buf = io.BytesIO()
+                    sig_img.save(buf, "PNG")
+                    sig_bytes = buf.getvalue()
                     page.insert_image(fitz.Rect(x+2, y+2, x+w-2, y+h-2), stream=sig_bytes)
                 except Exception:
                     page.insert_textbox(rect, "Signé électroniquement",
@@ -241,6 +274,11 @@ def fill_pdf(pdf_bytes: bytes, fields: list[dict], signature_b64: str = None) ->
             text_rect = fitz.Rect(x+2, y+1, x+w-2, y+h-1)
             page.insert_textbox(text_rect, value or "", fontsize=fs,
                                 fontname="helv", color=(0, 0, 0.15))
+
+    if skipped:
+        logger.warning(
+            f"fill_pdf: {len(skipped)} champ(s) non rempli(s) (position page invalide): {skipped}"
+        )
 
     out = io.BytesIO()
     doc.save(out)

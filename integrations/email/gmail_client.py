@@ -43,7 +43,8 @@ GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"
 GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
 GOOGLE_USERINFO_URL = "https://www.googleapis.com/oauth2/v2/userinfo"
 GMAIL_SEND_URL = "https://gmail.googleapis.com/gmail/v1/users/me/messages/send"
-GMAIL_SCOPE = "https://www.googleapis.com/auth/gmail.send"
+# gmail.send (envoi) + userinfo.email (lire l'adresse du compte, requise pour le FROM)
+GMAIL_SCOPE = "https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/userinfo.email"
 
 
 class GmailClient:

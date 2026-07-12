@@ -15,11 +15,11 @@ source "$(dirname "$0")/.env" 2>/dev/null || true
 update_vars=()
 update_vars+=("ENVIRONMENT=cloudrun")
 update_vars+=("CORTEX_ENABLED=false")   # SMS auto désactivé — évite vidage crédit Twilio
-# Détection d'urgence vocale Iris : ACTIVE, mais en mode OBSERVATION (dry-run) pour le rollout.
-# Détecte + journalise + Iris rassure, SANS envoyer de SMS/appel réel.
-# Pour passer en RÉEL : VOICE_EMERGENCY_DRY_RUN=false (gcloud run services update ... --update-env-vars).
-update_vars+=("VOICE_EMERGENCY_ENABLED=true")
-update_vars+=("VOICE_EMERGENCY_DRY_RUN=true")
+
+# Détection d'urgence vocale Iris : ACTIVE par défaut, en mode OBSERVATION (dry-run).
+# Pour passer en RÉEL : definir VOICE_EMERGENCY_DRY_RUN=false dans .env.
+: "${VOICE_EMERGENCY_ENABLED:=true}"
+: "${VOICE_EMERGENCY_DRY_RUN:=true}"
 
 # Fonction helper : ajoute une variable seulement si elle est definie et non vide
 add_var() {
@@ -30,6 +30,18 @@ add_var() {
   fi
 }
 
+add_var "JWT_SECRET_KEY"
+add_var "PV_SIGNED"
+add_var "PV_SIGNATURE_HASH"
+add_var "OPENAI_API_KEY"
+add_var "ADMIN_NUMBER"
+add_var "VOICE_EMERGENCY_ENABLED"
+add_var "VOICE_EMERGENCY_DRY_RUN"
+add_var "TWILIO_ACCOUNT_SID"
+add_var "TWILIO_AUTH_TOKEN"
+add_var "TWILIO_SMS_FROM"
+add_var "TWILIO_PHONE_NUMBER"
+add_var "VOICE_CALLBACK_URL"
 add_var "PROPRIO_PASSWORD"
 add_var "PROPRIO_EMAIL"
 add_var "REDIS_URL"

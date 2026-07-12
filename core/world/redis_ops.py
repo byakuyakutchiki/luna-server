@@ -60,7 +60,6 @@ class WorldRedisOps:
         key = self._key(tid, "privacy")
         data = self.client.hgetall(key)
         if not data:
-            # Valeurs par défaut
             defaults = {
                 "visible_on_map": "true",
                 "visible_in_world": "true",
@@ -68,15 +67,24 @@ class WorldRedisOps:
                 "accept_world_invites": "true",
                 "approximate_location_only": "true",
                 "total_invisible": "false",
+                "world_public": "false",
             }
             self.client.hset(key, mapping=defaults)
             return defaults
+        if "world_public" not in data:
+            data["world_public"] = "false"
         return data
 
     def set_privacy(self, tid, settings: Dict[str, str]) -> None:
         """Met à jour les paramètres de confidentialité."""
+        tid = str(tid)
         key = self._key(tid, "privacy")
         self.client.hset(key, mapping=settings)
+        # Maintain global public-worlds index
+        if settings.get("world_public") == "true" and settings.get("total_invisible") != "true":
+            self.client.sadd("world:public_worlds", tid)
+        else:
+            self.client.srem("world:public_worlds", tid)
 
     def is_visible_on_map(self, tid) -> bool:
         """L'utilisateur est-il visible sur la carte ?"""
@@ -103,6 +111,13 @@ class WorldRedisOps:
         if data.get("total_invisible") == "true":
             return False
         return data.get("accept_world_invites", "true") == "true"
+
+    def is_world_public(self, tid) -> bool:
+        """Le monde de cet utilisateur est-il public (accessible à tous ses amis) ?"""
+        data = self.get_privacy(tid)
+        if data.get("total_invisible") == "true":
+            return False
+        return data.get("world_public", "false") == "true"
 
     # =================================================================
     # AVATAR CONFIG

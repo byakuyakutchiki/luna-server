@@ -1,8 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Configuration DEV LOCAL uniquement : autorise le HTTP vers la VM Debian (192.168.x.x).
+     NE PAS utiliser en production. -->
 <network-security-config>
-    <base-config cleartextTrafficPermitted="false">
-        <trust-anchors>
-            <certificates src="system" />
-        </trust-anchors>
-    </base-config>
+    <base-config cleartextTrafficPermitted="true" />
 </network-security-config>

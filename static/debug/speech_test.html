@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SpeechRecognition Test — Luna Debug</title>
+<style>
+  body { font-family: system-ui, sans-serif; background:#080810; color:#f0f0f6; padding:20px; }
+  h1 { font-size:1.1em; margin-bottom:8px; color:#c4b5fd; }
+  .warn { color:#f59e0b; font-size:0.8em; margin-bottom:14px; }
+  .line { padding:8px 12px; margin:6px 0; border-radius:8px; background:rgba(255,255,255,0.06); font-family: monospace; font-size:0.78em; word-break:break-all; }
+  .ok { background:rgba(16,185,129,0.15); color:#34d399; }
+  .err { background:rgba(239,68,68,0.15); color:#fca5a5; }
+  .info { background:rgba(124,58,237,0.15); color:#c4b5fd; }
+  button { background:#7c3aed; color:#fff; border:none; padding:12px 20px; border-radius:10px; font-size:1em; margin-top:10px; width:100%; }
+  button:disabled { opacity:0.5; }
+  #ctx { font-size:0.72em; color:#9ca3af; margin-bottom:16px; padding:10px; background:rgba(255,255,255,0.04); border-radius:8px; }
+</style>
+</head>
+<body>
+<h1>🎤 SpeechRecognition Test</h1>
+<div class="warn">Outil de diagnostic interne — ne pas distribuer.</div>
+<div id="ctx"></div>
+<div id="log"></div>
+<button id="btn" onclick="runTest()">Démarrer le test</button>
+
+<script>
+function log(msg, cls){
+  var line=new Date().toLocaleTimeString()+' '+msg;
+  console.log('[SPEECH_TEST] '+line);
+  var d=document.createElement('div'); d.className='line '+(cls||'info'); d.textContent=line;
+  document.getElementById('log').appendChild(d);
+}
+function esc(s){ return (s||'').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+var ctx={
+  userAgent:navigator.userAgent,
+  platform:navigator.platform,
+  vendor:navigator.vendor,
+  isSecureContext:!!window.isSecureContext,
+  href:location.href
+};
+document.getElementById('ctx').innerHTML=
+  '<b>UA:</b> '+esc(ctx.userAgent)+'<br>'+
+  '<b>Platform:</b> '+esc(ctx.platform)+'<br>'+
+  '<b>Vendor:</b> '+esc(ctx.vendor)+'<br>'+
+  '<b>isSecureContext:</b> '+ctx.isSecureContext+'<br>'+
+  '<b>href:</b> '+esc(ctx.href);
+console.log('[SPEECH_TEST] context', ctx);
+
+function runTest(){
+  document.getElementById('btn').disabled=true;
+  log('Test démarré','info');
+
+  var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  log('window.SpeechRecognition existe : '+(!!SR),(!!SR?'ok':'err'));
+  console.log('[SPEECH_TEST] SR exists', !!SR, SR?SR.name:null);
+
+  if(!SR){
+    log('ABANDON — SpeechRecognition non disponible','err');
+    document.getElementById('btn').disabled=false;
+    return;
+  }
+
+  var rec;
+  try{
+    rec=new SR();
+    log('new SpeechRecognition() : OK','ok');
+    console.log('[SPEECH_TEST] new SR ok');
+  }catch(e){
+    log('new SpeechRecognition() : ERREUR — '+e.message,'err');
+    console.log('[SPEECH_TEST] new SR error', e);
+    document.getElementById('btn').disabled=false;
+    return;
+  }
+
+  rec.lang='fr-FR'; rec.continuous=true; rec.interimResults=true; rec.maxAlternatives=1;
+
+  rec.onstart=function(){
+    log('onstart déclenché','ok');
+    console.log('[SPEECH_TEST] onstart');
+  };
+  rec.onresult=function(e){
+    var t=''; for(var i=0;i<e.results.length;i++){ t+=e.results[i][0].transcript; }
+    log('onresult : "'+t+'"','ok');
+    console.log('[SPEECH_TEST] onresult', t);
+  };
+  rec.onerror=function(e){
+    log('onerror : '+e.error+(e.message?' — '+e.message:''),'err');
+    console.log('[SPEECH_TEST] onerror', e.error, e.message);
+  };
+  rec.onend=function(){
+    log('onend déclenché','info');
+    console.log('[SPEECH_TEST] onend');
+    document.getElementById('btn').disabled=false;
+  };
+
+  try{
+    rec.start();
+    log('rec.start() appelé','ok');
+    console.log('[SPEECH_TEST] start called');
+  }catch(e){
+    log('rec.start() ERREUR — '+e.message,'err');
+    console.log('[SPEECH_TEST] start error', e);
+    document.getElementById('btn').disabled=false;
+    return;
+  }
+
+  setTimeout(function(){
+    try{ rec.stop(); log('rec.stop() automatique après 10s','info'); console.log('[SPEECH_TEST] auto stop'); }
+    catch(e){ console.log('[SPEECH_TEST] auto stop error', e); }
+  },10000);
+}
+</script>
+</body>
+</html>

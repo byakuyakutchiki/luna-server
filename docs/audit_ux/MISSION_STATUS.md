@@ -1,5 +1,5 @@
 # MISSION STATUS — Audit UX YAWatch-LUNA
-**Dernière mise à jour** : 2026-06-09 23:50  
+**Dernière mise à jour** : 2026-06-10 01:15  
 **Responsable** : Kimi (Auditeur UX / Terrain)
 
 ---
@@ -57,7 +57,20 @@ Nouveau déploiement
 | 28. Audit Visuel Obligatoire (référence vs réalité) | ❌ **NON CONVERGENT (25%)** | Kimi + OpenAI Vision |
 | 29. Correctif UX Premium V1.2 (refonte structurelle) | ✅ **Fait** (rev 00638-z5n) | Claude |
 | 30. Audit UX Premium V1.2 | ✅ **SIGNIFICATIVEMENT AMÉLIORÉ (65-70%)** | Kimi + OpenAI Vision |
-| 31. Prochaine étape UX/UI | ⏭️ **À décider** | Ludovic + ChatGPT |
+| 31. Correctif UX Premium V1.3 (quick-wins) | ✅ **Fait** (rev 00640-fkx) | Claude |
+| 32. Audit UX Premium V1.3 | ✅ **AMÉLIORÉ (72-75%)** | Kimi |
+| 33. Correctif V1.3b — Caméras agrandies | ✅ **Fait** (rev 00641-qqr) | Kimi |
+| 34. Correctif V1.3c — Photos participants | ✅ **Fait** (rev 00642-9pn) | Kimi |
+| 35. Correctif V1.3d — CTA empty state + couleurs IA | ✅ **Fait** (rev 00643-zr5) | Claude |
+| 36. Audit UX Premium V1.3b | ✅ **VALIDÉ (80-85%)** | Kimi |
+| 37. Décision gel UX/UI | ✅ **GELÉ — Option A choisie** | Ludovic |
+| 38. Arbitrage P2 vs P3 | ✅ **P2 Hiérarchie visuelle choisie** | Ludovic (PO) |
+| 39. Implémentation P2 | ✅ **TERMINÉE** (rev 00644-z5c) | Claude |
+| 40. Audit P2 | ✅ **VALIDÉ PAR KIMI** | Kimi |
+| 41. Validation P2 | ✅ **VALIDÉ PAR PO** | Ludovic |
+| 42. Brief P3 rédigé | ✅ **Sauvegardé** | Kimi |
+| 43. Implémentation P3 | 🚀 **EN COURS** | Claude |
+| 44. Audit P3 | ⏳ **À venir** | Kimi |
 
 ---
 
@@ -325,6 +338,118 @@ Dossier final généré (9 sections, snapshot figé)
 
 ---
 
+## AUDIT UX PREMIUM V1.3 — AMÉLIORÉ
+
+**Date** : 2026-06-10 01:09  
+**Revision** : `luna-beta-00640-fkx`  
+**URL auditée** : `https://luna-beta-674304336025.europe-west1.run.app/team`  
+**Rapport complet** : `docs/audit_ux/2026-06-10-ux-premium-v1.3/audit_report_ux_premium_v1.3.md`  
+**Screenshots** : `docs/audit_ux/2026-06-10-ux-premium-v1.3/`  
+**Convergence référence** : **72-75%** (vs 65-70% en V1.2)
+
+### Verdict
+**Priorité 1 — Workspace immersif : ✅ AMÉLIORÉ**
+
+### Saut qualitatif V1.2 → V1.3
+| Zone | V1.2 | V1.3 | Progrès |
+|---|---|---|---|
+| Header | Logo Y 52px | **Logo Y 42px + badge "EN SESSION" pulsant** | ✅ Net |
+| Sidebar gauche — Icônes | Texte seul | **SVG par phase (diamant/hexagone/barres/check/document)** | ✅ Net |
+| Orbe permanence | Disparaît avec contenu | **Toujours visible en fond** | ✅ Bon |
+| Participants — Barres audio | Absentes | **Présentes sous chaque siège** | ✅ Ajouté |
+| Label "PHASES" | Absent | **Présent** | ✅ Ajouté |
+
+---
+
+## AUDIT UX PREMIUM V1.3c — CAMÉRAS & PHOTOS REFAITES
+
+**Date** : 2026-06-10 01:35  
+**Revision** : `luna-beta-00642-9pn`  
+**URL auditée** : `https://luna-beta-674304336025.europe-west1.run.app/team`  
+**Screenshots** : `docs/audit_ux/2026-06-10-ux-premium-v1.3c/`  
+**Convergence référence** : **~78%**
+
+### 🔥 Changement majeur — Participants
+| Aspect | Avant (V1.3) | Après (V1.3c) | Multiplicateur |
+|---|---|---|---|
+| **Taille carte** | 48px × ligne horizontale | **140px × carte verticale** | **2.9×** |
+| **Taille avatar** | 36×36px cercle | **100×100px carré arrondi** | **2.8×** |
+| **Contenu avatar** | Initiales texte | **Photos réelles (pravatar.cc)** | Photo |
+| **Format** | Horizontal compact | **Vertical (photo / nom / rôle)** | Refonte |
+| **Badge en ligne** | ❌ Absent | **✅ Point vert + glow** | Ajouté |
+| **Barres audio** | Microscopique | **Visibles (4 barres animées)** | Agrandies |
+| **Glassmorphism** | Aucun | **Blur + ombre + bordure subtile** | Ajouté |
+
+### Screenshots comparatifs
+- V1.3 (avant) : `docs/audit_ux/2026-06-10-ux-premium-v1.3/02_workspace_empty.png`
+- V1.3c (après) : `docs/audit_ux/2026-06-10-ux-premium-v1.3c/02_workspace_empty.png`
+
+### Fonctionnalité
+✅ Workflow 6/6 passé — aucune régression
+
+---
+
+## AUDIT UX PREMIUM V1.3b — VALIDÉ (80-85%)
+
+**Date** : 2026-06-10 02:05  
+**Revision** : `luna-beta-00643-zr5`  
+**URL auditée** : `https://luna-beta-674304336025.europe-west1.run.app/team`  
+**Rapport complet** : `docs/audit_ux/2026-06-10-ux-premium-v1.3b/audit_report_ux_premium_v1.3b.md`  
+**Screenshots** : `docs/audit_ux/2026-06-10-ux-premium-v1.3b/`  
+**Convergence référence** : **80-85%**
+
+### 🎯 Saut qualitatif V1.3 → V1.3b
+| Zone | V1.3 | V1.3b | Progrès |
+|---|---|---|---|
+| **Empty state / CTA** | 3/10 | **9/10** | **+6** |
+| **Participants** | 5/10 | **8/10** | **+3** |
+| **Convergence globale** | 72-75% | **80-85%** | **+8-10%** |
+
+### ✅ Ce qui a été corrigé
+| Élément | Statut |
+|---|---|
+| CTA "+ DÉPOSER UNE PROPOSITION" dans empty state | ✅ Ajouté, fonctionnel, glassmorphism |
+| Iris / IQ / Luna — couleurs distinctives | ✅ Vert / Cyan / Violet (pas de photos humaines partagées) |
+| Participants — taille, format, badge en ligne | ✅ Conservé de V1.3c |
+
+### Écarts restants (mineurs)
+| # | Écart | Effort |
+|---|---|---|
+| 1 | Orbe sphérique 3D (vs logo Y plat) | Moyen |
+| 2 | Fond canvas texturé (traînées + grille) | Faible |
+| 3 | Photos réelles participants (optionnel) | Moyen |
+
+### Fonctionnalité
+✅ Workflow 6/6 passé — aucune régression
+
+### Verdict
+**Chantier UX/UI Premium : ✅ VALIDÉ à 80-85% — GELÉ**
+
+Le CTA empty state était le dernier écart structurel majeur vis-à-vis de la référence. Il est résolu. Les participants sont au bon format. L'interface est premium et fonctionnelle.
+
+**Décision PO (Ludovic) : Option A — Geler l'UX Premium, basculer sur priorités 2-5.**
+
+---
+
+## ROADMAP — PROCHAINES PRIORITÉS
+
+**Chantier UX/UI Premium V1.3b : ✅ GELÉ (80-85%)**
+
+### Priorités disponibles
+
+| Priorité | Thème | Description | Effort estimé |
+|---|---|---|---|
+| **P2 — Hiérarchie visuelle** | UX | Titres plus grands, distinction Mission→Question→Décision→Actions→Réserves | 1-2h |
+| **P3 — Dossier final premium** | UI | Remplacement police monospace, mise en page améliorée, sections mieux délimitées | 2-3h |
+| **P4 — Identité IA raffinée** | UI/UX | Avatars personnalisés Iris/IQ/Luna, animations discrètes, présence renforcée | 3-4h |
+| **P5 — Animations & micro-interactions** | UI | Transitions entre étapes, feedback visuel, hover states | 2-3h |
+| **P6 — Multimodal** | Produit | Intégration audio/vidéo, voix Iris, visioconférence enrichie | Élevé |
+| **P7 — Embedding & mémoire** | Produit | Mémoire de session, contexte persistant, embeddings | Élevé |
+
+**Recommandation** : P2 ou P3 sont des quick-wins avec impact utilisateur immédiat. P4-P5 sont du polish. P6-P7 sont des évolutions produit majeures.
+
+---
+
 ## COMMANDE D'AUDIT POST-DÉPLOIEMENT
 
 ```bash
@@ -343,15 +468,16 @@ python /tmp/iris_audit/yawatch_audit.py
 
 ## PROCHAINES ACTIONS
 
-### 🎯 État actuel (2026-06-09 23:50)
+### 🎯 État actuel (2026-06-10 01:15)
 
-**Chantier UX/UI Premium V1.2** : ✅ **SIGNIFICATIVEMENT AMÉLIORÉ (65-70%)**
+**Chantier UX/UI Premium V1.3** : ✅ **AMÉLIORÉ (72-75%)**
 - Régressions fonctionnelles : ✅ Aucune
-- Convergence référence : **65-70%** (saut de 25-30% à 65-70%)
+- Convergence référence : **72-75%** (progression de 65-70% à 72-75%)
 - Structure 3 colonnes : ✅ En place
 - Sidebars : ✅ Créées et fonctionnelles
-- Orbe Y + anneaux : ✅ Agrandie
-- Violet + glassmorphism : ✅ Présents
+- Orbe Y permanente : ✅ Toujours visible
+- Header premium : ✅ Badge pulsant, icônes phases
+- Barres audio : ✅ Présentes
 
 **Feature Décision & Traçabilité V1** : **TERMINÉE** (gelée)
 
@@ -359,21 +485,23 @@ python /tmp/iris_audit/yawatch_audit.py
 
 | Option | Description | Risque |
 |---|---|---|
-| **A — Valider V1.2 et passer aux priorités 2-5** | Accepter 65-70% comme base solide. Passer à Priorité 2 (Hiérarchie visuelle) ou 3 (Dossier final premium). | Faible |
-| **B — V1.3 quick-win** | Corriger les 3 écarts prioritaires (CTA empty state, glassmorphism, orbe) → viser 80%+. | Faible |
-| **C — Test mission réelle V1.2** | Lancer un scénario complet pour valider stabilité en conditions réelles. | Faible |
+| **A — V1.4 quick-win (P0)** | CTA empty state + bordures lumineuses → viser 78-80%. ~30 lignes CSS. | Faible |
+| **B — Geler UX/UI, passer prio 2-5** | Accepter 72-75%. Basculer sur multimodal, embedding, etc. | Faible |
+| **C — V1.4 complet (P0+P1)** | CTA + bordures + fond texturé + orbe sphérique → viser 85%+. | Moyen |
 
-**Recommandation Kimi** : Option B. Les écarts restants sont rapides à corriger et pourraient porter la convergence à 80%+. La structure est solide, profitons-en.
+**Recommandation Kimi** : Option A. Les 2 quick-wins P0 ont un ratio impact/effort excellent. Un dernier coup de polish pour clore à 80%, puis on bascule.
 
-### 📋 Écarts restants à corriger (V1.3)
+### 📋 Écarts restants à corriger (V1.4)
 
-| # | Écart | Difficulté |
-|---|---|---|
-| 1 | CTA empty state : bouton "+ DÉPOSER UNE PROPOSITION" centré | Facile |
-| 2 | Glassmorphism : bordures lumineuses + translucidité | Facile |
-| 3 | Orbe Y : agrandir + anneaux supplémentaires | Moyenne |
-| 4 | Icônes étapes dans sidebar gauche | Facile |
-| 5 | Fond canvas : traînées lumineuses + grille | Moyenne |
+| # | Écart | Difficulté | Priorité |
+|---|---|---|---|
+| 1 | CTA empty state : bouton "+ DÉPOSER UNE PROPOSITION" centré | Facile | 🔴 P0 |
+| 2 | Glassmorphism : bordures lumineuses + translucidité | Facile | 🔴 P0 |
+| 3 | Fond canvas : traînées lumineuses + grille | Moyenne | 🟡 P1 |
+| 4 | Orbe Y : sphère 3D réaliste (vs logo Y plat) | Moyenne | 🟡 P1 |
+| 5 | Icônes étapes : carrés arrondis style référence | Facile | 🟡 P1 |
+| 6 | Photos participants | Élevé (besoin assets) | 🟢 P2 |
+| 7 | Mode Focus / Cloche / Avatar header | Faible | 🟢 P2 |
 
 **Règles d'or** :
 - ❌ Aucun nouvel objet métier

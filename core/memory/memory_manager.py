@@ -5,6 +5,7 @@ import json
 import logging
 from typing import Optional, List, Dict, Any
 from datetime import datetime
+from zoneinfo import ZoneInfo
 
 from .redis_client import RedisClient, get_redis_client
 from .schemas import (
@@ -14,6 +15,16 @@ from .schemas import (
 )
 
 logger = logging.getLogger(__name__)
+
+# Fuseau de référence — identique au scheduler (core/instructions/scheduler.py).
+# Les instructions sont saisies en heure locale française ; on calcule et on
+# horodate dans ce fuseau pour rester cohérent avec le déclenchement réel.
+_PARIS_TZ = ZoneInfo("Europe/Paris")
+
+
+def _paris_now() -> datetime:
+    """Heure courante à Paris (naïve, pour comparaisons internes)."""
+    return datetime.now(_PARIS_TZ).replace(tzinfo=None)
 
 
 class QuotaExceededError(Exception):
@@ -310,7 +321,7 @@ class MemoryManager:
         """Marque une instruction comme exécutée"""
         data = self.redis.get_instruction(self.tenant_id, instr_id)
         if data:
-            data["last_executed"] = datetime.utcnow().isoformat()
+            data["last_executed"] = _paris_now().replace(tzinfo=_PARIS_TZ).isoformat()
             data["execution_count"] = str(int(data.get("execution_count", 0)) + 1)
             self.redis.client.hset(
                 self.redis.get_instruction_key(self.tenant_id, instr_id),
@@ -346,7 +357,7 @@ class MemoryManager:
         from datetime import timedelta
         instructions = self.list_active_instructions()
         result = []
-        now = datetime.utcnow()
+        now = _paris_now()  # cohérent avec le scheduler (heure locale Paris)
         for instr in instructions:
             if not instr.schedule:
                 continue
@@ -356,7 +367,9 @@ class MemoryManager:
                     "instruction_id": instr.id,
                     "description": instr.description,
                     "schedule": instr.schedule,
-                    "next_execution": next_exec.isoformat(),
+                    # horodatage avec offset Paris (ex. +02:00) pour un affichage
+                    # sans ambiguïté côté client
+                    "next_execution": next_exec.replace(tzinfo=_PARIS_TZ).isoformat(),
                     "action": instr.action.value,
                     "priority": instr.priority,
                 })

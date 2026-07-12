@@ -3,6 +3,7 @@
 /api/form-filler/*  (auth JWT via middleware request.state.tenant_id)
 """
 
+import asyncio
 import base64
 import html
 import json
@@ -214,8 +215,10 @@ async def api_analyze(request: Request):
     else:
         return _error(f"Type non supporté: {media_type}")
 
-    # Analyse Vision IA
-    model = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+    # Analyse Vision IA — forcer un modèle avec capacité vision
+    _VISION_CAPABLE = {"gpt-4o", "gpt-4o-mini", "gpt-4-turbo", "gpt-4-vision-preview"}
+    requested_model = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+    model = requested_model if requested_model in _VISION_CAPABLE else "gpt-4o-mini"
     try:
         analysis = await analyze_form(openai, file_b64, media_type, model)
     except Exception as e:
@@ -463,11 +466,18 @@ async def api_save_profile(request: Request):
     except Exception:
         return _error("Corps invalide")
 
-    # Sanitize
+    # Sanitize — pas de html.escape qui corrompt les noms avec & dans les PDFs
+    _ALLOWED_KEYS = {
+        "nom", "prenom", "nom_naissance", "sexe", "date_naissance", "lieu_naissance",
+        "departement_naissance", "nationalite", "numero_secu", "email", "telephone",
+        "adresse", "complement_adresse", "code_postal", "ville", "pays", "profession",
+        "employeur", "iban", "bic", "banque", "situation_familiale", "nombre_enfants",
+        "numero_fiscal", "numero_ci", "numero_passeport",
+    }
     clean = {}
     for k, v in profile.items():
-        if isinstance(v, str):
-            clean[html.escape(k)] = html.escape(v.strip())
+        if k in _ALLOWED_KEYS and isinstance(v, str):
+            clean[k] = v.strip()[:200]
     fops.save_profile(clean)
     return {"success": True}
 
@@ -514,19 +524,22 @@ async def api_scan_identity_document(request: Request):
         if provider == "openai":
             fmt_kwargs["response_format"] = {"type": "json_object"}
 
-        resp = llm.chat.completions.create(
+        ocr_messages = [
+            {"role": "system", "content": (
+                "Tu es un extracteur OCR de pièces d'identité françaises. "
+                "Tu réponds UNIQUEMENT avec un objet JSON valide, sans texte avant ou après, "
+                "sans bloc markdown, sans commentaire."
+            )},
+            {"role": "user", "content": [
+                {"type": "text", "text": _OCR_PROMPT},
+                {"type": "image_url", "image_url": {"url": data_uri, "detail": "high"}},
+            ]},
+        ]
+        # Appel synchrone déplacé dans un thread pour ne pas bloquer l'event loop
+        resp = await asyncio.to_thread(
+            llm.chat.completions.create,
             model=vision_model,
-            messages=[
-                {"role": "system", "content": (
-                    "Tu es un extracteur OCR de pièces d'identité françaises. "
-                    "Tu réponds UNIQUEMENT avec un objet JSON valide, sans texte avant ou après, "
-                    "sans bloc markdown, sans commentaire."
-                )},
-                {"role": "user", "content": [
-                    {"type": "text", "text": _OCR_PROMPT},
-                    {"type": "image_url", "image_url": {"url": data_uri, "detail": "high"}},
-                ]},
-            ],
+            messages=ocr_messages,
             max_tokens=800,
             temperature=0.0,
             **fmt_kwargs,

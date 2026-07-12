@@ -2,9 +2,11 @@
 
 ## Référence production stable actuelle
 
-- **Révision Cloud Run** : `luna-beta-00820-ltr`
+- **Révision Cloud Run** : `luna-beta-00968-luw`
 - **URL principale** : `https://luna-beta-gly3g647na-ew.a.run.app/`
-- **Date de création de cette checklist** : 2026-07-04
+- **Date de mise à jour de cette checklist** : 2026-07-04
+
+> Garde-fou : toute modification doit rester sur cette architecture. Pas de rollback sur `00820-ltr`, pas de restauration de fichiers `static/` depuis l'ancienne production sans validation explicite.
 
 ---
 
@@ -14,6 +16,23 @@
 - `[~]` : en cours
 - `[x]` : fait / validé
 - `[!]` : anomalie détectée, à corriger
+
+---
+
+## État actuel des vérifications (00968-luw)
+
+| # | Item | État | Notes |
+|---|------|------|-------|
+| 5 | Marqueurs `guardian.html` | ✅ | `lunaEmergencyVoiceDetected`, `_triggerSOSVocal`, `openVocalCountdown`, `authFetch('/api/guardian/sos/...')`, `source:'vocal'` présents |
+| 5 | Endpoint `/api/guardian/sos` | ✅ | Accessible, retourne 401 sans token (comportement attendu) |
+| 6 | Compteurs SMS/DM/appels | ✅ | Corrigé en prod |
+| 6b | Adresse précise SMS | ✅ | Reverse geocoding en prod |
+| 10 | URL APK backend | ✅ | APK pointe sur `luna-beta-gly3g647na-ew.a.run.app/guardian` |
+| 10 | Superposition téléchargements | ❌ | Anomalie UX : clics multiples lancent plusieurs téléchargements |
+| 5 | Vosk natif dans APK | ❓ | APK actuelle utilise Web Speech API ; Vosk natif non implémenté |
+| 3 | Tests mobile réels | ❓ | À faire par toi sur téléphone |
+| 7 | Cycle de vie app | ❓ | À tester sur téléphone |
+| 8 | Logs Guardian | ❓ | Aucun log récent (pas de test vocal récent) |
 
 ---
 

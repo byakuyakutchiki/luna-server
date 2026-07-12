@@ -16,6 +16,14 @@ android-app/build/
 # Logs & rapports générés
 firebase-debug.log
 reports/
+tools/agents/poller.log
 
 # Données utilisateur générées
 static/documents/
+
+# Captures & artefacts de tests (Playwright / audits visuels)
+/*.png
+test-results/
+.playwright-mcp/
+docs/audit_visual/
+docs/game_audit_pack.zip

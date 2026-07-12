@@ -47,4 +47,10 @@ if [ -f /app/utils/validate_keys.py ]; then
 fi
 
 echo "[Luna] Demarrage du serveur Luna..."
-exec python /app/luna_web.py
+# Boîte noire exploitant : le source luna_web.py est supprimé, on lance le bytecode.
+# Fallback sur le .py si présent (build dev / cloudrun non durci).
+if [ -f /app/luna_web.pyc ]; then
+    exec python /app/luna_web.pyc
+else
+    exec python /app/luna_web.py
+fi
