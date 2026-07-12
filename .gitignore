@@ -1,4 +1,5 @@
 .env
+.env.runner
 __pycache__/
 *.pyc
 venv/
@@ -12,6 +13,9 @@ data/cortex_telegram.json
 android-app/luna.keystore
 android-app/luna.keystore.old
 android-app/build/
+
+# Runs du runner local (preuves generees)
+runs/
 
 # Logs & rapports générés
 firebase-debug.log

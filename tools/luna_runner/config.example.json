@@ -1,0 +1,12 @@
+{
+  "N8N_HEADER_NAME": "X-Luna-Runner-Auth",
+  "N8N_HEADER_VALUE": "remplir-avec-le-secret-n8n",
+  "N8N_NEXT_JOB_URL": "https://ludo971.app.n8n.cloud/webhook/luna-runner-next-job",
+  "N8N_REPORT_URL": "https://ludo971.app.n8n.cloud/webhook/luna-runner-report",
+  "RUNNER_ID": "luna-vm-01",
+  "PROJECT_PATH": "/home/ludo/luna-server",
+  "ANDROID_PACKAGE": "fr.yawatch.luna",
+  "ANDROID_MAIN_ACTIVITY": "fr.yawatch.luna.MainActivity",
+  "ANDROID_DEVICE_ID": "192.168.1.62:43805",
+  "POLL_INTERVAL_SECONDS": 30
+}
