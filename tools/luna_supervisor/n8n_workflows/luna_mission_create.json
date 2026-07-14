@@ -1,0 +1,157 @@
+[
+  {
+    "name": "Luna Mission Create",
+    "active": false,
+    "nodes": [
+      {
+        "parameters": {
+          "httpMethod": "POST",
+          "path": "luna-mission-create",
+          "authentication": "headerAuth",
+          "responseMode": "responseNode",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2,
+        "position": [0, 0],
+        "id": "webhook-create",
+        "name": "Webhook",
+        "webhookId": "luna-mission-create",
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "luna-header-auth",
+            "name": "Luna Header Auth"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "jsCode": "const allowedRoles = ['operator', 'auditor', 'coordinator', 'reviewer'];\nconst forbidden = ['git_push','merge_main','production_deploy','real_sms','real_calls','secret_changes'];\nconst body = $json.body;\n\nconst missionId = String(body.mission_id ?? '').trim();\nconst objective = String(body.objective ?? '').trim();\nconst role = String(body.role ?? 'operator').trim();\nconst maxIterations = Number(body.max_iterations ?? 0);\n\nfunction errorResponse(error) {\n  return [{ json: { valid: false, status: 'error', error } }];\n}\n\nif (!missionId) return errorResponse('missing_mission_id');\nif (!objective) return errorResponse('missing_objective');\nif (!allowedRoles.includes(role)) return errorResponse('invalid_role');\nif (!Number.isInteger(maxIterations) || maxIterations < 1 || maxIterations > 3) {\n  return errorResponse('invalid_max_iterations');\n}\n\nconst objectiveLower = objective.toLowerCase();\nfor (const f of forbidden) {\n  if (objectiveLower.includes(f.replace(/_/g, ' '))) {\n    return errorResponse('forbidden_objective');\n  }\n}\n\nconst now = new Date().toISOString();\nlet missionContext = {};\nif (typeof body.mission_context_json === 'string') {\n  try { missionContext = JSON.parse(body.mission_context_json); } catch(e) {}\n} else if (body.mission_context_json) {\n  missionContext = body.mission_context_json;\n}\n\nreturn [{\n  json: {\n    valid: true,\n    mission_id: missionId,\n    task_id: String(body.task_id ?? missionId),\n    status: 'queued',\n    current_role: role,\n    next_role: String(body.next_role ?? role),\n    iteration: 0,\n    max_iterations: maxIterations,\n    approval_required: false,\n    budget_allowed: true,\n    updated_at: now,\n    created_at: now,\n    mission_context_json: JSON.stringify({\n      ...missionContext,\n      objective,\n      priority: String(body.priority ?? 'normal'),\n      role,\n      source: 'luna-mission-create',\n      created_by: 'Ludovic',\n      anti_regression: true,\n      guardian_target: true,\n      budget_guardrails_enabled: true,\n      forbidden_actions: ['git_push','merge_main','production_deploy','real_sms','real_calls','secret_changes']\n    })\n  }\n}];"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [220, 0],
+        "id": "validate-mission",
+        "name": "Validate Mission"
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict"
+            },
+            "conditions": [
+              {
+                "id": "cond-valid",
+                "leftValue": "={{ $json.valid }}",
+                "rightValue": true,
+                "operator": {
+                  "type": "boolean",
+                  "operation": "equals"
+                }
+              }
+            ],
+            "combinator": "and"
+          }
+        },
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2,
+        "position": [440, 0],
+        "id": "if-valid",
+        "name": "Mission Valid?"
+      },
+      {
+        "parameters": {
+          "jsCode": "const response = await this.helpers.httpRequest({\n  method: 'POST',\n  url: 'http://127.0.0.1:9876/create',\n  headers: { 'Content-Type': 'application/json' },\n  body: $json,\n  json: true,\n});\nreturn [{ json: response && Object.keys(response).length ? response : { status: 'error', error: 'empty_store_response' } }];"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [660, 0],
+        "id": "create-mission",
+        "name": "Create Mission"
+      },
+      {
+        "parameters": {
+          "respondWith": "allIncomingItems",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.respondToWebhook",
+        "typeVersion": 1.4,
+        "position": [880, 0],
+        "id": "respond-ok",
+        "name": "Respond OK"
+      },
+      {
+        "parameters": {
+          "respondWith": "allIncomingItems",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.respondToWebhook",
+        "typeVersion": 1.4,
+        "position": [660, 220],
+        "id": "respond-error",
+        "name": "Respond Error"
+      }
+    ],
+    "connections": {
+      "Webhook": {
+        "main": [
+          [
+            {
+              "node": "Validate Mission",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Validate Mission": {
+        "main": [
+          [
+            {
+              "node": "Mission Valid?",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Mission Valid?": {
+        "main": [
+          [
+            {
+              "node": "Create Mission",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Respond Error",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Create Mission": {
+        "main": [
+          [
+            {
+              "node": "Respond OK",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "settings": {
+      "executionOrder": "v1"
+    },
+    "staticData": null,
+    "tags": []
+  }
+]

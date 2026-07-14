@@ -1,0 +1,79 @@
+[
+  {
+    "name": "Luna Runner Next Job",
+    "active": false,
+    "nodes": [
+      {
+        "parameters": {
+          "httpMethod": "POST",
+          "path": "luna-runner-next-job",
+          "authentication": "headerAuth",
+          "responseMode": "responseNode",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2,
+        "position": [0, 0],
+        "id": "webhook-next-job",
+        "name": "Webhook",
+        "webhookId": "luna-runner-next-job",
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "luna-header-auth",
+            "name": "Luna Header Auth"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "jsCode": "const response = await this.helpers.httpRequest({\n  method: 'POST',\n  url: 'http://127.0.0.1:9876/next-job',\n  headers: { 'Content-Type': 'application/json' },\n  body: $json.body,\n  json: true,\n});\nreturn [{ json: response && Object.keys(response).length ? response : { status: 'idle' } }];"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [220, 0],
+        "id": "next-job",
+        "name": "Next Job"
+      },
+      {
+        "parameters": {
+          "respondWith": "allIncomingItems",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.respondToWebhook",
+        "typeVersion": 1.4,
+        "position": [440, 0],
+        "id": "respond",
+        "name": "Respond"
+      }
+    ],
+    "connections": {
+      "Webhook": {
+        "main": [
+          [
+            {
+              "node": "Next Job",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Next Job": {
+        "main": [
+          [
+            {
+              "node": "Respond",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "settings": {
+      "executionOrder": "v1"
+    },
+    "staticData": null,
+    "tags": []
+  }
+]

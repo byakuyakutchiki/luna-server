@@ -1,0 +1,89 @@
+---
+# Charte produit persistente pour Luna / Guardian / APK Android.
+# Ce fichier est versionne. Il definit la cible, les criteres d'acceptation
+# et les seuils d'approbation humaine pour toute mission autonome.
+
+PROJECT:
+  name: Luna
+  subsystems:
+    - Guardian
+    - APK Android
+  repository: /home/ludo/luna-server
+  branch: automation/guardian-runner
+
+IMMEDIATE_TARGET:
+  title: Stabiliser Guardian sur le telephone Android de developpement
+  description: |
+    Guardian doit rester operationnel en arriere-plan sur le telephone de
+    developpement. Il doit detecter les mots-cles d'alerte, capturer le
+    contexte vocal, eviter les doubles declenchements et preparer une
+    alerte de test sans jamais contacter de vrai utilisateur.
+
+  expected_behavior:
+    - Guardian reste operationnel en arriere-plan.
+    - Guardian detecte « a l'aide » ou « au secours ».
+    - Apres le mot-cle, une fenetre suffisante est conservee pour enregistrer le contexte vocal.
+    - Un seul declenchement est produit par evenement.
+    - L'alerte preparee contient :
+        - identite de l'utilisateur ;
+        - danger presume ;
+        - dernieres paroles ;
+        - position disponible ;
+        - horodatage.
+    - Les appels, SMS et messages internes restent en mode test.
+    - Aucun vrai contact client n'est utilise.
+    - Chaque comportement est prouve par :
+        - logcat ;
+        - screenshot ;
+        - UI dump ;
+        - dumpsys ;
+        - resultat de test ;
+        - diff Git.
+
+ACCEPTANCE_CRITERIA:
+  - id: AC-01
+    text: APK debug compilee.
+  - id: AC-02
+    text: APK installee sur le telephone autorise.
+  - id: AC-03
+    text: Guardian encore actif apres passage en arriere-plan.
+  - id: AC-04
+    text: Mot-cle detecte.
+  - id: AC-05
+    text: Contexte suivant le mot-cle capture.
+  - id: AC-06
+    text: Une seule alerte de test creee.
+  - id: AC-07
+    text: Aucun vrai SMS ou appel envoye.
+  - id: AC-08
+    text: Aucun crash critique.
+  - id: AC-09
+    text: Aucun retour a une ancienne UI.
+  - id: AC-10
+    text: Rapport de preuves produit.
+
+FINAL_DELIVERY_TARGET:
+  title: Version exploitable par un exploitant sous forme de boite noire protegee
+  requirements:
+    - code proprietaire non livre en clair ;
+    - image ou paquet deployable ;
+    - configuration externe ;
+    - licence et controle d'usage ;
+    - logs et diagnostics ;
+    - documentation d'exploitation ;
+    - tests de reception ;
+    - separation auteur / exploitant ;
+    - aucune dependance obligatoire a la VM personnelle de Ludovic pour la production finale.
+
+HUMAN_APPROVAL_REQUIRED:
+  - push Git
+  - merge dans main
+  - deploiement production
+  - vrais SMS
+  - vrais appels
+  - messages a de vrais utilisateurs
+  - modification des secrets
+  - modification Cloud
+  - suppression de donnees
+  - modification de licence
+  - depense ou augmentation de budget
