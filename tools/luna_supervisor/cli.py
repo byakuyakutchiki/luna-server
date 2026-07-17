@@ -12,6 +12,7 @@ from typing import Any, Dict, Optional
 from .config import load_config
 from . import mission_queue
 from . import safety
+from .agent_connectivity import run_audit, write_report
 from .next_mission_planner import NextMissionPlanner
 from .supervisor import LunaAgentSupervisor
 
@@ -167,6 +168,15 @@ def cmd_plan_next(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_agent_connectivity(args: argparse.Namespace) -> int:
+    """Audit de connectivité des agents sans appel IA ni exposition de secrets."""
+    result = run_audit(args.config)
+    path = write_report(result)
+    print(json.dumps(result, indent=2, ensure_ascii=False))
+    print(f"\nRapport d'audit: {path}")
+    return 0 if result.get("overall_status") in ("ok", "limited") else 1
+
+
 def cmd_create(args: argparse.Namespace) -> int:
     """Crée et soumet une mission Luna depuis un prompt texte ou un fichier."""
     project_path = Path(args.project_path).resolve()
@@ -260,6 +270,9 @@ def main(argv: list = None) -> int:
 
     plan_next = sub.add_parser("plan-next", help="Propose ou crée la prochaine mission sûre depuis la roadmap")
     plan_next.add_argument("--auto-next", action="store_true", help="Crée automatiquement la mission dans mission_store")
+
+    sub.add_parser("agent-connectivity", help="Audit la connectivité des agents sans appel IA")
+
     create_parser.add_argument("--project-path", default=".", help="Chemin racine du projet Luna")
     create_parser.add_argument("--role", default="operator", choices=("operator", "auditor", "coordinator", "reviewer"))
     create_parser.add_argument("--max-iterations", type=int, default=1)
@@ -281,6 +294,7 @@ def main(argv: list = None) -> int:
         "stop": cmd_stop,
         "morning-report": cmd_morning_report,
         "plan-next": cmd_plan_next,
+        "agent-connectivity": cmd_agent_connectivity,
         "create": cmd_create,
     }
     return commands[args.command](args)
