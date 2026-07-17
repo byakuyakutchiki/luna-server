@@ -649,9 +649,18 @@ class LunaAgentSupervisor:
                     text=True,
                     timeout=10,
                 )
-                report["services"][service] = proc.stdout.strip() or "unknown"
+                active_state = proc.stdout.strip() or "unknown"
+                report["services"][service] = {
+                    "active_state": active_state,
+                    "exit_code": proc.returncode,
+                    "checked_at": datetime.now(timezone.utc).isoformat(),
+                }
             except Exception as e:
-                report["services"][service] = f"erreur: {e}"
+                report["services"][service] = {
+                    "active_state": "error",
+                    "error": str(e),
+                    "checked_at": datetime.now(timezone.utc).isoformat(),
+                }
 
         # Dernieres missions dans la DB SQLite
         db_path = self.project_path / "data" / "luna_missions.db"
@@ -766,7 +775,17 @@ class LunaAgentSupervisor:
         status_report = self._collect_status_report()
         lines.extend(["", "## État des services systemd"])
         for svc, svc_status in status_report.get("services", {}).items():
-            lines.append(f"- {svc}: {svc_status}")
+            if isinstance(svc_status, dict):
+                state = svc_status.get("active_state", "unknown")
+                checked = svc_status.get("checked_at", "")
+                exit_code = svc_status.get("exit_code", "")
+                error = svc_status.get("error", "")
+                detail = f"{state} (exit_code={exit_code}, checked_at={checked})"
+                if error:
+                    detail += f" error={error}"
+                lines.append(f"- {svc}: {detail}")
+            else:
+                lines.append(f"- {svc}: {svc_status}")
 
         lines.extend(["", "## Dernières missions"])
         recent_missions = status_report.get("recent_missions", [])

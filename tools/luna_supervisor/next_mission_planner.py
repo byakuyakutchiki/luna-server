@@ -21,6 +21,7 @@ from typing import Any, Dict, List, Optional
 import requests
 
 from . import safety
+from .budget import BudgetGovernor
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +46,19 @@ NON_DESTRUCTIVE_MARKERS = [
     "cleanup plan",
     "identifier",
     "verifier",
+]
+
+# Marqueurs qui indiquent qu'une mission ne peut pas être exécutée automatiquement
+# par le superviseur (nécessite Codex, un humain, ou aucun appel IA).
+NO_AUTO_AI_MARKERS = [
+    "sans appel kimi",
+    "sans appel ia",
+    "sans ia",
+    "no ai",
+    "no kimi",
+    "codex",
+    "review par codex",
+    "humain",
 ]
 
 # Missions de la roadmap explicitement marquées comme non destructives
@@ -75,6 +89,25 @@ class NextMissionPlanner:
         host = self.config.get("LUNA_MISSION_STORE_HOST", "127.0.0.1")
         port = int(self.config.get("LUNA_MISSION_STORE_PORT", "9876"))
         return f"http://{host}:{port}/create"
+
+    def _has_budget_for_next_mission(self) -> tuple[bool, str]:
+        """Vérifie qu'il reste au moins un appel IA disponible pour la suite."""
+        try:
+            budget = BudgetGovernor(self.config)
+            status = budget.status()
+            if status.get("governor_state") == "exhausted":
+                return False, "budget epuise"
+            usage = float(status.get("usage_ratio", 0.0))
+            if usage >= 1.0:
+                return False, "ratio d usage a 100%"
+            total_today = int(status.get("total_today", 0))
+            max_total = int(status.get("max_total_per_day", 0))
+            if max_total > 0 and total_today >= max_total:
+                return False, f"limite journaliere atteinte ({total_today}/{max_total})"
+            return True, ""
+        except Exception as e:
+            logger.warning("Impossible de verifier le budget: %s", e)
+            return False, f"erreur budget: {e}"
 
     def plan(self, auto_next: bool = False) -> Dict[str, Any]:
         """Choisit et éventuellement crée la prochaine mission sûre.
@@ -134,6 +167,13 @@ class NextMissionPlanner:
             result["reason"] = "auto_next=false ; mission proposee mais non creee"
             return result
 
+        # Vérifie le budget avant toute création automatique
+        budget_ok, budget_reason = self._has_budget_for_next_mission()
+        if not budget_ok:
+            result["planner_status"] = "paused_budget"
+            result["reason"] = f"budget insuffisant pour créer la mission suivante : {budget_reason}"
+            return result
+
         created = self._create_mission(selected)
         if created:
             result["planner_status"] = "created"
@@ -190,6 +230,12 @@ class NextMissionPlanner:
             return "forbidden"
 
         normalized = safety._normalize(objective)
+
+        # Mission nécessitant un agent externe (Codex) ou explicitement sans appel IA
+        if any(marker in normalized for marker in NO_AUTO_AI_MARKERS):
+            logger.info("Mission %s requiert validation externe ou sans IA: %s", mission_id, objective)
+            return "guarded"
+
         has_sensitive = any(zone in normalized for zone in SENSITIVE_ZONES)
         has_non_destructive = any(marker in normalized for marker in NON_DESTRUCTIVE_MARKERS)
 

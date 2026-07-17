@@ -87,6 +87,19 @@ def test_assess_risk_forbidden():
         print("TEST OK: missions push/APK -> forbidden")
 
 
+def test_assess_risk_no_ai_marker():
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp_path = Path(tmp)
+        planner = _make_planner(tmp_path)
+
+        risk = planner._assess_risk({"mission_id": "CODEX-REVIEW-X", "objective": "audit sans appel Kimi du code"})
+        assert risk == "guarded", f"attendu guarded, recu {risk}"
+
+        risk = planner._assess_risk({"mission_id": "Y", "objective": "review par Codex du superviseur"})
+        assert risk == "guarded", f"attendu guarded, recu {risk}"
+        print("TEST OK: missions sans IA/Codex -> guarded")
+
+
 def test_plan_proposes_first_safe():
     with tempfile.TemporaryDirectory() as tmp:
         tmp_path = Path(tmp)
@@ -118,6 +131,34 @@ def test_plan_creates_when_auto_next():
         assert plan["auto_created"] is True
         assert plan["next_mission_id"] == "SAFE-AUDIT-001"
         print("TEST OK: plan crée SAFE-AUDIT-001 avec auto_next=true")
+
+
+def test_plan_paused_budget():
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp_path = Path(tmp)
+        planner = _make_planner(tmp_path)
+        _write_roadmap(tmp_path / "AGENT_SHARED")
+
+        mock_budget = MagicMock()
+        mock_budget.status.return_value = {
+            "governor_state": "exhausted",
+            "usage_ratio": 1.0,
+            "total_today": 10,
+            "max_total_per_day": 10,
+        }
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"status": "queued", "mission_id": "SAFE-AUDIT-001"}
+
+        with patch("luna_supervisor.next_mission_planner.BudgetGovernor", return_value=mock_budget):
+            with patch("luna_supervisor.next_mission_planner.requests.post", return_value=mock_response):
+                plan = planner.plan(auto_next=True)
+
+        assert plan["planner_status"] == "paused_budget"
+        assert plan["auto_created"] is False
+        assert "budget" in plan["reason"].lower()
+        print("TEST OK: plan s'arrete quand le budget est epuise")
 
 
 def test_plan_skips_forbidden_to_safe():
@@ -188,8 +229,10 @@ if __name__ == "__main__":
         test_assess_risk_safe,
         test_assess_risk_guarded,
         test_assess_risk_forbidden,
+        test_assess_risk_no_ai_marker,
         test_plan_proposes_first_safe,
         test_plan_creates_when_auto_next,
+        test_plan_paused_budget,
         test_plan_skips_forbidden_to_safe,
         test_plan_stops_on_guarded_without_auto_next,
         test_write_report,
