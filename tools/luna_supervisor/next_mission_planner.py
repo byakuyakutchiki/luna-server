@@ -90,6 +90,29 @@ class NextMissionPlanner:
         port = int(self.config.get("LUNA_MISSION_STORE_PORT", "9876"))
         return f"http://{host}:{port}/create"
 
+    def _mission_store_get_url(self, mission_id: str) -> str:
+        host = self.config.get("LUNA_MISSION_STORE_HOST", "127.0.0.1")
+        port = int(self.config.get("LUNA_MISSION_STORE_PORT", "9876"))
+        return f"http://{host}:{port}/mission/{mission_id}"
+
+    def _mission_exists(self, mission_id: str) -> bool:
+        """Vérifie si une mission existe déjà dans mission_store."""
+        try:
+            response = requests.get(self._mission_store_get_url(mission_id), timeout=10)
+            if response.status_code == 200:
+                body = response.json()
+                return body.get("status") == "ok" and body.get("mission") is not None
+            return False
+        except Exception as e:
+            logger.warning("Impossible de verifier l'existence de %s: %s", mission_id, e)
+            # Par prudence, on considère qu'elle n'existe pas ; l'upsert ne détruira pas de données critiques.
+            return False
+
+    def _unique_mission_id(self, base_id: str) -> str:
+        """Génère un mission_id unique en suffixant avec un timestamp."""
+        timestamp = int(datetime.now(timezone.utc).timestamp())
+        return f"{base_id}-AUTO-{timestamp}"
+
     def _has_budget_for_next_mission(self) -> tuple[bool, str]:
         """Vérifie qu'il reste au moins un appel IA disponible pour la suite."""
         try:
@@ -151,6 +174,7 @@ class NextMissionPlanner:
             return result
 
         result["next_mission_id"] = selected["mission_id"]
+        result["original_mission_id"] = selected["mission_id"]
         result["objective"] = selected["objective"]
         result["risk_level"] = selected["risk_level"]
 
@@ -174,11 +198,12 @@ class NextMissionPlanner:
             result["reason"] = f"budget insuffisant pour créer la mission suivante : {budget_reason}"
             return result
 
-        created = self._create_mission(selected)
-        if created:
+        created_id = self._create_mission(selected)
+        if created_id:
             result["planner_status"] = "created"
             result["auto_created"] = True
-            result["reason"] = f"mission {selected['mission_id']} creee automatiquement"
+            result["next_mission_id"] = created_id
+            result["reason"] = f"mission {created_id} creee automatiquement"
         else:
             result["planner_status"] = "error"
             result["reason"] = "echec creation mission dans mission_store"
@@ -250,11 +275,26 @@ class NextMissionPlanner:
 
         return "safe"
 
-    def _create_mission(self, candidate: Dict[str, Any]) -> bool:
-        """Crée la mission dans mission_store via son endpoint HTTP local."""
+    def _create_mission(self, candidate: Dict[str, Any]) -> Optional[str]:
+        """Crée la mission dans mission_store via son endpoint HTTP local.
+
+        Si le mission_id existe déjà, génère un ID unique suffixé avec un
+        timestamp pour éviter d'écraser ou de rejouer une mission historique.
+
+        Retourne le mission_id effectivement créé, ou None en cas d'échec.
+        """
         mission_id = candidate["mission_id"]
         objective = candidate["objective"]
         expected_final_status = candidate.get("expected_final_status", "needs_audit")
+
+        if self._mission_exists(mission_id):
+            original_id = mission_id
+            mission_id = self._unique_mission_id(original_id)
+            logger.info(
+                "Mission %s existe deja, utilisation de l'ID unique %s",
+                original_id,
+                mission_id,
+            )
 
         mission_context = {
             "objective": objective,
@@ -264,6 +304,7 @@ class NextMissionPlanner:
             "expected_final_status": expected_final_status,
             "auto_next": False,  # évite la boucle infinie
             "created_by": "LunaAgentSupervisor",
+            "original_mission_id": candidate["mission_id"],
             "forbidden_actions": [
                 "push",
                 "merge",
@@ -296,16 +337,16 @@ class NextMissionPlanner:
             response = requests.post(self.mission_store_url, json=payload, timeout=10)
             if response.status_code != 200:
                 logger.warning("Creation mission %s HTTP %s: %s", mission_id, response.status_code, response.text)
-                return False
+                return None
             body = response.json()
             if body.get("status") != "queued":
                 logger.warning("Creation mission %s reponse inattendue: %s", mission_id, body)
-                return False
+                return None
             logger.info("Mission suivante creee: %s", mission_id)
-            return True
+            return mission_id
         except Exception as e:
             logger.warning("Echec creation mission %s: %s", mission_id, e)
-            return False
+            return None
 
     def write_report(self, result: Dict[str, Any]) -> Path:
         """Écrit le rapport du planificateur dans AGENT_SHARED."""
@@ -317,7 +358,15 @@ class NextMissionPlanner:
             f"# Plan de prochaine mission : {mission_id}",
             "",
             f"- **Date** : {datetime.now(timezone.utc).isoformat()}",
-            f"- **Mission proposee** : {mission_id}",
+            f"- **Mission creee** : {mission_id}",
+        ]
+        original = result.get("original_mission_id")
+        if original and original != mission_id:
+            lines.append(f"- **Mission d'origine (roadmap)** : {original}")
+            lines.append(f"- **ID renomme** : oui (eviter l'upsert d'une mission existante)")
+        else:
+            lines.append(f"- **Mission proposee** : {mission_id}")
+        lines.extend([
             f"- **Objectif** : {result.get('objective') or 'N/A'}",
             f"- **Niveau de risque** : {result.get('risk_level') or 'N/A'}",
             f"- **Auto-creee** : {result.get('auto_created', False)}",
@@ -329,9 +378,11 @@ class NextMissionPlanner:
             "- Aucune mission contenant un mot interdit n'est proposee.\n"
             "- Les missions touchant Guardian/APK/Cloud sans marqueur 'audit/lecture/non destructif' sont refusees.\n"
             "- Les missions sensibles mais non destructives sont proposees avec validation humaine requise.\n"
-            "- La creation automatique n'a lieu que si auto_next=true.\n",
+            "- Les missions necessitant Codex/sans IA/humain ne sont pas auto-creees.\n"
+            "- Si le mission_id existe deja, un ID unique avec suffixe timestamp est genere.\n"
+            "- La creation automatique n'a lieu que si auto_next=true et le budget est suffisant.\n",
             "",
-        ]
+        ])
 
         report_path.write_text("\n".join(lines), encoding="utf-8")
         logger.info("Rapport planificateur cree: %s", report_path)

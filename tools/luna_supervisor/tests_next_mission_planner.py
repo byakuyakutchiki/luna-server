@@ -161,6 +161,38 @@ def test_plan_paused_budget():
         print("TEST OK: plan s'arrete quand le budget est epuise")
 
 
+def test_plan_renames_existing_mission_id():
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp_path = Path(tmp)
+        planner = _make_planner(tmp_path)
+        _write_roadmap(tmp_path / "AGENT_SHARED")
+
+        # Simule que SAFE-AUDIT-001 existe déjà
+        def _fake_get(url, **kwargs):
+            response = MagicMock()
+            if "SAFE-AUDIT-001" in url:
+                response.status_code = 200
+                response.json.return_value = {"status": "ok", "mission": {"mission_id": "SAFE-AUDIT-001"}}
+            else:
+                response.status_code = 404
+                response.json.return_value = {"status": "error", "error": "mission_not_found"}
+            return response
+
+        mock_post_response = MagicMock()
+        mock_post_response.status_code = 200
+        mock_post_response.json.return_value = {"status": "queued", "mission_id": "SAFE-AUDIT-001-AUTO-1234567890"}
+
+        with patch("luna_supervisor.next_mission_planner.requests.get", side_effect=_fake_get):
+            with patch("luna_supervisor.next_mission_planner.requests.post", return_value=mock_post_response):
+                plan = planner.plan(auto_next=True)
+
+        assert plan["planner_status"] == "created"
+        assert plan["auto_created"] is True
+        assert plan["original_mission_id"] == "SAFE-AUDIT-001"
+        assert plan["next_mission_id"].startswith("SAFE-AUDIT-001-AUTO-")
+        print("TEST OK: mission existante renommee avec suffixe timestamp")
+
+
 def test_plan_skips_forbidden_to_safe():
     with tempfile.TemporaryDirectory() as tmp:
         tmp_path = Path(tmp)
@@ -233,6 +265,7 @@ if __name__ == "__main__":
         test_plan_proposes_first_safe,
         test_plan_creates_when_auto_next,
         test_plan_paused_budget,
+        test_plan_renames_existing_mission_id,
         test_plan_skips_forbidden_to_safe,
         test_plan_stops_on_guarded_without_auto_next,
         test_write_report,
