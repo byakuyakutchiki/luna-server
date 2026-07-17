@@ -12,6 +12,7 @@ from typing import Any, Dict, Optional
 from .config import load_config
 from . import mission_queue
 from . import safety
+from .agent_call_smoke import run_smoke, write_report as write_smoke_report
 from .agent_connectivity import run_audit, write_report
 from .next_mission_planner import NextMissionPlanner
 from .supervisor import LunaAgentSupervisor
@@ -177,6 +178,15 @@ def cmd_agent_connectivity(args: argparse.Namespace) -> int:
     return 0 if result.get("overall_status") in ("ok", "limited") else 1
 
 
+def cmd_agent_call_smoke(args: argparse.Namespace) -> int:
+    """Smoke test avec appels réels aux agents Kimi, DeepSeek et OpenAI/Codex."""
+    result = run_smoke(args.config)
+    path = write_smoke_report(result)
+    print(json.dumps(result, indent=2, ensure_ascii=False))
+    print(f"\nRapport smoke test: {path}")
+    return 0 if result.get("overall_status") == "ok" else 1
+
+
 def cmd_create(args: argparse.Namespace) -> int:
     """Crée et soumet une mission Luna depuis un prompt texte ou un fichier."""
     project_path = Path(args.project_path).resolve()
@@ -272,6 +282,7 @@ def main(argv: list = None) -> int:
     plan_next.add_argument("--auto-next", action="store_true", help="Crée automatiquement la mission dans mission_store")
 
     sub.add_parser("agent-connectivity", help="Audit la connectivité des agents sans appel IA")
+    sub.add_parser("agent-call-smoke", help="Smoke test avec appels réels aux agents IA")
 
     create_parser.add_argument("--project-path", default=".", help="Chemin racine du projet Luna")
     create_parser.add_argument("--role", default="operator", choices=("operator", "auditor", "coordinator", "reviewer"))
@@ -295,6 +306,7 @@ def main(argv: list = None) -> int:
         "morning-report": cmd_morning_report,
         "plan-next": cmd_plan_next,
         "agent-connectivity": cmd_agent_connectivity,
+        "agent-call-smoke": cmd_agent_call_smoke,
         "create": cmd_create,
     }
     return commands[args.command](args)
