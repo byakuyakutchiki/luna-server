@@ -12,6 +12,7 @@ from typing import Any, Dict, Optional
 from .config import load_config
 from . import mission_queue
 from . import safety
+from .next_mission_planner import NextMissionPlanner
 from .supervisor import LunaAgentSupervisor
 
 logger = logging.getLogger(__name__)
@@ -155,6 +156,17 @@ def cmd_morning_report(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_plan_next(args: argparse.Namespace) -> int:
+    """Propose ou crée automatiquement la prochaine mission sûre."""
+    config = load_config(args.config)
+    planner = NextMissionPlanner(config)
+    plan = planner.plan(auto_next=args.auto_next)
+    path = planner.write_report(plan)
+    print(json.dumps(plan, indent=2, ensure_ascii=False))
+    print(f"Rapport planificateur: {path}")
+    return 0
+
+
 def cmd_create(args: argparse.Namespace) -> int:
     """Crée et soumet une mission Luna depuis un prompt texte ou un fichier."""
     project_path = Path(args.project_path).resolve()
@@ -185,6 +197,7 @@ def cmd_create(args: argparse.Namespace) -> int:
         "role": args.role,
         "max_iterations": args.max_iterations,
         "priority": args.priority,
+        "auto_next": args.auto_next,
     }
     if args.expected_final_status:
         raw["expected_final_status"] = args.expected_final_status
@@ -244,6 +257,9 @@ def main(argv: list = None) -> int:
     prompt_group = create_parser.add_mutually_exclusive_group(required=True)
     prompt_group.add_argument("prompt", nargs="?", default=None, help="Objectif de la mission")
     prompt_group.add_argument("--prompt-file", default=None, help="Chemin vers un fichier Markdown ou TXT contenant l'objectif")
+
+    plan_next = sub.add_parser("plan-next", help="Propose ou crée la prochaine mission sûre depuis la roadmap")
+    plan_next.add_argument("--auto-next", action="store_true", help="Crée automatiquement la mission dans mission_store")
     create_parser.add_argument("--project-path", default=".", help="Chemin racine du projet Luna")
     create_parser.add_argument("--role", default="operator", choices=("operator", "auditor", "coordinator", "reviewer"))
     create_parser.add_argument("--max-iterations", type=int, default=1)
@@ -251,6 +267,7 @@ def main(argv: list = None) -> int:
     create_parser.add_argument("--priority", default="normal", choices=("low", "normal", "high", "critical"))
     create_parser.add_argument("--prefix", default=None, help="Préfixe de l'ID de mission généré")
     create_parser.add_argument("--mission-id", default=None, help="ID de mission explicite (écrase le préfixe)")
+    create_parser.add_argument("--auto-next", action="store_true", help="Autorise le superviseur à planifier la mission suivante après celle-ci")
 
     args = parser.parse_args(argv)
 
@@ -263,6 +280,7 @@ def main(argv: list = None) -> int:
         "status": cmd_status,
         "stop": cmd_stop,
         "morning-report": cmd_morning_report,
+        "plan-next": cmd_plan_next,
         "create": cmd_create,
     }
     return commands[args.command](args)

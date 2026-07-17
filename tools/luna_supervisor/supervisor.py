@@ -21,6 +21,7 @@ from .agent_caller import AgentCallError, get_caller
 from .budget import BudgetGovernor
 from .context_builder import ContextBuilder
 from .morning_report import MorningReport
+from .next_mission_planner import NextMissionPlanner
 from .routing import decide_agent
 
 logger = logging.getLogger(__name__)
@@ -174,6 +175,15 @@ class LunaAgentSupervisor:
         except Exception as e:
             logger.error("Échec envoi rapport n8n: %s", e)
             result["n8n_report_error"] = str(e)
+
+        # Planification éventuelle de la mission suivante
+        try:
+            plan_result = self._maybe_plan_next_mission(mission, result)
+            if plan_result:
+                result["next_mission_plan"] = plan_result
+        except Exception as e:
+            logger.warning("Échec planification mission suivante: %s", e)
+            result["next_mission_plan_error"] = str(e)
 
         return result
 
@@ -523,6 +533,31 @@ class LunaAgentSupervisor:
             "paused_budget",
             "paused_routing",
         )
+
+    def _maybe_plan_next_mission(
+        self,
+        mission: Dict[str, Any],
+        result: Dict[str, Any],
+    ) -> Optional[Dict[str, Any]]:
+        """Planifie la mission suivante si la mission courante le demande.
+
+        La création automatique n'est déclenchée que pour les missions sûres
+        (risk_level='safe') et uniquement si auto_next=true dans le contexte.
+        """
+        status = result.get("status", "")
+        if not self._is_terminal_status(status):
+            return None
+
+        auto_next = bool(self._get_mission_field(mission, "auto_next", False))
+        if not auto_next:
+            logger.info("Planification suivante ignoree: auto_next=false")
+            return None
+
+        logger.info("Planification automatique de la mission suivante")
+        planner = NextMissionPlanner(self.config)
+        plan = planner.plan(auto_next=True)
+        planner.write_report(plan)
+        return plan
 
     def _has_action_error(self, action_result: Dict[str, Any]) -> bool:
         """Vérifie si le résultat d'une action signale une erreur."""

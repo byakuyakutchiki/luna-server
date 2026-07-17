@@ -70,6 +70,7 @@ def build_mission_payload(raw: Dict[str, Any]) -> Dict[str, Any]:
         "created_by": "Ludovic",
         "guardian_anti_regression": True,
         "charte_produit": "config/luna_mission_charter.yaml",
+        "auto_next": bool(raw.get("auto_next", False)),
         "budget_limits": {
             "kimi_per_day": 4,
             "deepseek_per_day": 1,
