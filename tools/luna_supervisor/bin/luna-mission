@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# Wrapper luna-mission : injecte une mission Luna dans n8n.
+set -euo pipefail
+PROJECT_PATH="/home/ludo/luna-server"
+export PYTHONPATH="${PROJECT_PATH}/tools"
+exec python3 -m luna_supervisor create "$@"

@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 from .config import load_config
+from . import mission_queue
 from .supervisor import LunaAgentSupervisor
 
 logger = logging.getLogger(__name__)
@@ -153,6 +154,47 @@ def cmd_morning_report(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_create(args: argparse.Namespace) -> int:
+    """Crée et soumet une mission Luna depuis un prompt texte."""
+    project_path = Path(args.project_path).resolve()
+
+    raw: Dict[str, Any] = {
+        "mission_id": args.mission_id or f"PROMPT-{int(time.time())}",
+        "objective": args.prompt,
+        "role": args.role,
+        "max_iterations": args.max_iterations,
+        "priority": args.priority,
+    }
+    if args.expected_final_status:
+        raw["expected_final_status"] = args.expected_final_status
+    if args.prefix:
+        raw["mission_id"] = f"{args.prefix}-{int(time.time())}"
+
+    try:
+        payload = mission_queue.build_mission_payload(raw)
+    except ValueError as e:
+        print(f"Validation mission échouée: {e}", file=sys.stderr)
+        return 1
+
+    env = mission_queue.load_env_supervisor(project_path)
+    try:
+        result = mission_queue.submit_mission(
+            payload,
+            env["base_url"],
+            env["header_name"],
+            env["header_value"],
+        )
+    except Exception as e:
+        print(f"Erreur envoi mission: {e}", file=sys.stderr)
+        return 1
+
+    status = result.get("status", result.get("_http_status"))
+    mission_id = result.get("mission_id", payload["mission_id"])
+    print(f"mission_id={mission_id}")
+    print(f"status={status}")
+    return 0 if str(status).lower() == "queued" else 1
+
+
 def main(argv: list = None) -> int:
     parser = argparse.ArgumentParser(
         prog="luna_supervisor",
@@ -177,6 +219,16 @@ def main(argv: list = None) -> int:
     sub.add_parser("stop", help="Supprime le verrou du superviseur")
     sub.add_parser("morning-report", help="Génère le rapport du matin sans appel IA")
 
+    create_parser = sub.add_parser("create", help="Crée et soumet une mission autonome")
+    create_parser.add_argument("prompt", help="Objectif de la mission")
+    create_parser.add_argument("--project-path", default=".", help="Chemin racine du projet Luna")
+    create_parser.add_argument("--role", default="operator", choices=("operator", "auditor", "coordinator", "reviewer"))
+    create_parser.add_argument("--max-iterations", type=int, default=1)
+    create_parser.add_argument("--expected-final-status", default=None)
+    create_parser.add_argument("--priority", default="normal", choices=("low", "normal", "high", "critical"))
+    create_parser.add_argument("--prefix", default=None, help="Préfixe de l'ID de mission généré")
+    create_parser.add_argument("--mission-id", default=None, help="ID de mission explicite (écrase le préfixe)")
+
     args = parser.parse_args(argv)
 
     commands = {
@@ -188,6 +240,7 @@ def main(argv: list = None) -> int:
         "status": cmd_status,
         "stop": cmd_stop,
         "morning-report": cmd_morning_report,
+        "create": cmd_create,
     }
     return commands[args.command](args)
 
