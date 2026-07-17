@@ -28,6 +28,15 @@ static/documents/
 # Backups locaux
 *.bak
 *.bak-*
+.env.bak*
+
+# Fichiers swap Vim/Neovim
+*.swp
+*.swo
+*.swp*
+
+# Base de données locale SQLite
+data/*.db
 
 # Données de migration sensibles ou lourdes
 migration_backup/secrets.env

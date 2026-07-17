@@ -1,0 +1,19 @@
+[Unit]
+Description=Luna Agent Supervisor - cellule autonome multi-agents
+After=network.target adb-wifi-reconnect.service
+Wants=adb-wifi-reconnect.service
+
+[Service]
+Type=simple
+WorkingDirectory=/home/ludo/luna-server
+Environment=PYTHONPATH=/home/ludo/luna-server/tools
+Environment=PATH=/home/ludo/.kimi-code/bin:/home/ludo/.local/bin:/usr/bin:/bin
+ExecStart=/usr/bin/python3 -m luna_supervisor daemon
+Restart=on-failure
+RestartSec=60
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=luna-supervisor
+
+[Install]
+WantedBy=default.target

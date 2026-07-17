@@ -1,0 +1,17 @@
+[Unit]
+Description=Luna Mission Store - service local de stockage des missions
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/ludo/luna-server
+Environment=PYTHONPATH=/home/ludo/luna-server/tools
+ExecStart=/usr/bin/python3 -m luna_supervisor.mission_store
+Restart=on-failure
+RestartSec=30
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=luna-mission-store
+
+[Install]
+WantedBy=default.target

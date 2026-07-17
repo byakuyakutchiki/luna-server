@@ -1,0 +1,70 @@
+---
+# Politique de budget et de controle des appels IA pour Luna Agent Supervisor.
+# Ce fichier est versionne. Les secrets ne doivent pas y figurer.
+
+poll_interval_seconds: 1800
+max_parallel_missions: 1
+max_iterations_per_mission: 3
+max_same_error_attempts: 2
+# TEMPORAIRE — session dev 2026-07-14 : rate limit Kimi reset, quota hebdo OK.
+# Codex autorise une elevation a 8 appels Kimi/jour pour cette session uniquement.
+# A remettre a 4 apres validation de l'autonomie.
+max_total_ai_calls_per_day: 10
+max_total_ai_calls_per_mission: 8
+
+providers:
+  kimi:
+    enabled: true
+    max_calls_per_day: 8
+    max_calls_per_mission: 5
+    role: operator
+    notes: Operateur principal. Session dev temporaire avec limite elevee a 8. A revenir a 4 apres validation.
+
+  deepseek:
+    enabled: true
+    max_calls_per_day: 1
+    max_calls_per_mission: 1
+    role: auditor
+    notes: Uniquement apres deux echecs similaires ou contradiction architecture/code.
+
+  codex:
+    enabled_if_configured: true
+    max_calls_per_day: 1
+    max_calls_per_mission: 1
+    role: coordinator
+    notes: Coordination Git ou synthese finale. Jamais pour remplacer Kimi.
+
+  review:
+    max_calls_per_day: 1
+    max_calls_per_mission: 1
+    role: reviewer
+    notes: Uniquement apres modification reelle du code ou nouveau test complet.
+
+  n8n_ai:
+    enabled: false
+    max_calls_per_day: 0
+    max_calls_per_mission: 0
+    role: none
+    notes: Indisponible par decision budgetaire. Ne doit jamais etre appele.
+
+thresholds:
+  log_only: 0.50
+  block_non_essential: 0.75
+  kimi_only: 0.90
+  exhausted: 1.00
+
+context:
+  max_characters: 6000
+  max_log_lines: 200
+  max_diff_characters: 8000
+  send_full_repository: false
+  send_full_logcat: false
+  screenshots_only_when_changed: true
+
+ledger:
+  file: runs/ai-budget-ledger.json
+  max_entries: 10000
+
+reporting:
+  daily_report_dir: runs/daily-reports
+  morning_report_enabled: true
