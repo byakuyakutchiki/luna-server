@@ -11,6 +11,7 @@ from typing import Any, Dict, Optional
 
 from .config import load_config
 from . import mission_queue
+from . import safety
 from .supervisor import LunaAgentSupervisor
 
 logger = logging.getLogger(__name__)
@@ -155,12 +156,32 @@ def cmd_morning_report(args: argparse.Namespace) -> int:
 
 
 def cmd_create(args: argparse.Namespace) -> int:
-    """Crée et soumet une mission Luna depuis un prompt texte."""
+    """Crée et soumet une mission Luna depuis un prompt texte ou un fichier."""
     project_path = Path(args.project_path).resolve()
+
+    # Détermine le prompt source
+    if args.prompt_file:
+        ok, payload_or_reason = safety.validate_prompt_file(Path(args.prompt_file))
+        if not ok:
+            print(f"ERREUR: fichier prompt interdit - {payload_or_reason}", file=sys.stderr)
+            return 1
+        prompt_text = payload_or_reason
+    else:
+        prompt_text = args.prompt
+
+    if not prompt_text:
+        print("ERREUR: prompt vide", file=sys.stderr)
+        return 1
+
+    # Validation de sécurité côté client
+    ok, reason = safety.validate_prompt(prompt_text)
+    if not ok:
+        print(f"ERREUR: prompt interdit - {reason}", file=sys.stderr)
+        return 1
 
     raw: Dict[str, Any] = {
         "mission_id": args.mission_id or f"PROMPT-{int(time.time())}",
-        "objective": args.prompt,
+        "objective": prompt_text,
         "role": args.role,
         "max_iterations": args.max_iterations,
         "priority": args.priority,
@@ -220,7 +241,9 @@ def main(argv: list = None) -> int:
     sub.add_parser("morning-report", help="Génère le rapport du matin sans appel IA")
 
     create_parser = sub.add_parser("create", help="Crée et soumet une mission autonome")
-    create_parser.add_argument("prompt", help="Objectif de la mission")
+    prompt_group = create_parser.add_mutually_exclusive_group(required=True)
+    prompt_group.add_argument("prompt", nargs="?", default=None, help="Objectif de la mission")
+    prompt_group.add_argument("--prompt-file", default=None, help="Chemin vers un fichier Markdown ou TXT contenant l'objectif")
     create_parser.add_argument("--project-path", default=".", help="Chemin racine du projet Luna")
     create_parser.add_argument("--role", default="operator", choices=("operator", "auditor", "coordinator", "reviewer"))
     create_parser.add_argument("--max-iterations", type=int, default=1)
