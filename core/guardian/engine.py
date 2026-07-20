@@ -137,6 +137,8 @@ class GuardianSession:
     # Atténuation caméra — personne visible en posture normale dans les 30 dernières min
     camera_scene_ok: bool = False
     camera_scene_at: Optional[str] = None
+    # RUNTIME-FIX-001 : identifiant du dernier incident SOS traité pour éviter le re-déclenchement
+    last_incident_id: Optional[str] = None
 
 
 # ─────────────────────────────────────────────
@@ -157,6 +159,9 @@ class GuardianEngine:
 
     # P0-05: Limite d'alertes SMS par fenêtre de 24h
     MAX_ALERTS_PER_24H = 3
+
+    # RUNTIME-FIX-001 : une alerte ancienne (> 2h) sans alerte pending est considérée résolue
+    STALE_ALERT_SECONDS = 7200
 
     def _can_send_alert(self, session: GuardianSession, now: datetime) -> bool:
         """Vérifie le plafond 3 alertes / 24h et réinitialise la fenêtre si besoin."""
@@ -270,16 +275,34 @@ class GuardianEngine:
 
         return risk, events
 
-    def trigger_sos(self, session_id: str, context: Optional[str] = None) -> GuardianEvent:
+    def trigger_sos(self, session_id: str, context: Optional[str] = None,
+                    incident_id: Optional[str] = None) -> GuardianEvent:
         """SOS manuel — alerte immédiate, position envoyée aux contacts.
 
         Args:
             session_id: identifiant de session Guardian.
             context: contexte vocal / circonstances à conserver dans l'événement.
+            incident_id: identifiant d'incident pour la déduplication (RUNTIME-FIX-001).
         """
         session = self.get_session(session_id)
         if not session:
             raise ValueError("Session introuvable")
+
+        # RUNTIME-FIX-001 : garde anti-refire par incident_id
+        if incident_id and session.last_incident_id == incident_id:
+            logger.warning(
+                f"[GUARDIAN_SOS] duplicate_alert_suppressed session={session_id} "
+                f"incident_id={incident_id}"
+            )
+            # Retourne un événement marqué comme doublon pour ne pas casser l'API
+            return GuardianEvent(
+                event_type="sos_triggered",
+                description="🆘 SOS déjà traité (doublon)",
+                lat=session.last_position.lat if session.last_position else None,
+                lng=session.last_position.lng if session.last_position else None,
+                risk_score=1.0,
+                metadata={"duplicate": True, "incident_id": incident_id},
+            )
 
         now = datetime.utcnow()
         base_desc = "🆘 Bouton SOS activé par l'utilisateur"
@@ -290,7 +313,7 @@ class GuardianEngine:
             lat=session.last_position.lat if session.last_position else None,
             lng=session.last_position.lng if session.last_position else None,
             risk_score=1.0,
-            metadata={"context": context} if context else {},
+            metadata={"context": context, "incident_id": incident_id} if (context or incident_id) else {},
         )
         self._log_event(session_id, event)
         self._broadcast(session_id, {"type": "sos", "data": event.to_dict()})
@@ -299,6 +322,7 @@ class GuardianEngine:
         session.alert_level = AlertLevel.CRITICAL
         session.alert_pending = False
         session.last_alert_at = now.isoformat()
+        session.last_incident_id = incident_id
         if session.alerts_window_start is None:
             session.alerts_window_start = now.isoformat()
         session.alerts_sent += 1
@@ -986,6 +1010,8 @@ class GuardianEngine:
         if session.camera_scene_at:
             data["camera_scene_ok"] = "1" if session.camera_scene_ok else "0"
             data["camera_scene_at"] = session.camera_scene_at
+        if session.last_incident_id:
+            data["last_incident_id"] = session.last_incident_id
 
         try:
             self.rc.client.hset(key, mapping=data)
@@ -998,6 +1024,29 @@ class GuardianEngine:
                 self.rc.client.srem(idx_key, session.session_id)
         except Exception as e:
             logger.error(f"Guardian persist error: {e}")
+
+    def _maybe_clear_stale_alert(self, session: GuardianSession) -> None:
+        """RUNTIME-FIX-001 : une alerte ancienne sans alerte pending ne doit pas
+        rester affichée comme active au redémarrage de l'app.
+        """
+        if session.alert_pending:
+            return
+        if session.alert_level not in (AlertLevel.HIGH, AlertLevel.CRITICAL):
+            return
+        if not session.last_alert_at:
+            return
+        try:
+            last = datetime.fromisoformat(session.last_alert_at)
+            if (datetime.utcnow() - last).total_seconds() >= self.STALE_ALERT_SECONDS:
+                logger.warning(
+                    f"[GUARDIAN_SOS] existing_critical_session_restored_no_refire "
+                    f"session={session.session_id} last_alert_at={session.last_alert_at}"
+                )
+                session.alert_level = AlertLevel.LOW
+                session.last_alert_at = None
+        except ValueError:
+            # ISO invalide → on réinitialise par sécurité
+            session.last_alert_at = None
 
     def _load_session(self, session_id: str) -> Optional[GuardianSession]:
         if not self.rc:
@@ -1040,7 +1089,9 @@ class GuardianEngine:
                 alerts_window_start=data.get("alerts_window_start") or None,
                 camera_scene_ok=data.get("camera_scene_ok") == "1",
                 camera_scene_at=data.get("camera_scene_at") or None,
+                last_incident_id=data.get("last_incident_id") or None,
             )
+            self._maybe_clear_stale_alert(session)
             self._sessions[session_id] = session
             return session
         except Exception as e:

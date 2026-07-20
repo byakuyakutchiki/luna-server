@@ -302,6 +302,60 @@ check("Autorisé après 35 min (> 30 min backoff 1ère alerte)",
 
 
 # ─────────────────────────────────────────────
+# TEST 7 — Session CRITICAL ancienne réinitialisée au démarrage
+# ─────────────────────────────────────────────
+
+print("\n=== TEST 7 : Session CRITICAL ancienne réinitialisée au démarrage ===")
+engine, sms = make_engine()
+session = make_session(profile="senior", in_safe_zone=True)
+# Simuler une alerte SOS vieille de 3h sans alerte pending
+session.alert_level = AlertLevel.CRITICAL
+session.alert_pending = False
+session.last_alert_at = (datetime.utcnow() - timedelta(hours=3)).isoformat()
+session.alerts_sent = 2
+engine._sessions["test_session"] = session
+# _load_session n'est pas appelée car la session est déjà en mémoire ;
+# on appelle explicitement le garde-fou pour prouver le comportement.
+engine._maybe_clear_stale_alert(session)
+
+check("Alerte ancienne réinitialisée à LOW",
+      session.alert_level == AlertLevel.LOW,
+      f"alert_level={session.alert_level}")
+check("last_alert_at effacé après réinitialisation",
+      session.last_alert_at is None,
+      f"last_alert_at={session.last_alert_at}")
+
+
+# ─────────────────────────────────────────────
+# TEST 8 — SOS avec même incident_id ne re-déclenche pas
+# ─────────────────────────────────────────────
+
+print("\n=== TEST 8 : SOS idempotent par incident_id ===")
+engine, sms = make_engine()
+session = make_session(profile="senior", in_safe_zone=True)
+session.last_position = GeoPoint(lat=48.8566, lng=2.3522)
+engine._sessions["test_session"] = session
+
+incident_id = "incident_test_42"
+event1 = engine.trigger_sos("test_session", context="test", incident_id=incident_id)
+sent1 = session.alerts_sent
+event2 = engine.trigger_sos("test_session", context="test", incident_id=incident_id)
+
+check("Premier SOS incrémente alerts_sent",
+      sent1 == 1,
+      f"alerts_sent={sent1}")
+check("Deuxième SOS avec même incident_id ne réincrémente pas",
+      session.alerts_sent == 1,
+      f"alerts_sent={session.alerts_sent}")
+check("Événement doublon marqué comme duplicate",
+      event2.metadata.get("duplicate") is True,
+      f"metadata={event2.metadata}")
+check("Niveau reste CRITICAL",
+      session.alert_level == AlertLevel.CRITICAL,
+      f"alert_level={session.alert_level}")
+
+
+# ─────────────────────────────────────────────
 # RÉSUMÉ
 # ─────────────────────────────────────────────
 

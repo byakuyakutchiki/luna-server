@@ -14,6 +14,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
+import android.media.AudioManager;
 import android.provider.Settings;
 import android.speech.RecognitionListener;
 import android.speech.RecognizerIntent;
@@ -87,6 +88,11 @@ public class GuardianService extends Service {
     private int              mSRErrorCount   = 0;
     private final Handler    mHandler        = new Handler(Looper.getMainLooper());
     private Runnable         mRestartTask    = null;
+
+    // RUNTIME-FIX-001 : suppression des bips système du SpeechRecognizer
+    private AudioManager     mAudioManager   = null;
+    private int              mSavedSystemVolume = -1;
+    private static final boolean SILENT_RECOGNIZER = true;
 
     // Capture du contexte après un mot-clé (issue #32)
     private boolean          mCaptureActive   = false;
@@ -257,6 +263,37 @@ public class GuardianService extends Service {
         return false;
     }
 
+    // RUNTIME-FIX-001 : coupe/restaure les sons système pour éviter les bips
+    // de début/fin d'écoute du SpeechRecognizer.
+    private void suppressSystemSounds() {
+        if (!SILENT_RECOGNIZER) return;
+        if (mAudioManager == null) {
+            mAudioManager = (AudioManager) getSystemService(AudioManager.class);
+        }
+        if (mAudioManager == null) return;
+        try {
+            if (mSavedSystemVolume < 0) {
+                mSavedSystemVolume = mAudioManager.getStreamVolume(AudioManager.STREAM_SYSTEM);
+            }
+            mAudioManager.setStreamVolume(AudioManager.STREAM_SYSTEM, 0, 0);
+            android.util.Log.i("GUARDIAN_AUDIO", "silent_mode_enabled; suppressing_tts_during_listen");
+        } catch (Exception e) {
+            android.util.Log.w("GUARDIAN_AUDIO", "suppressSystemSounds failed: " + e.getMessage());
+        }
+    }
+
+    private void restoreSystemSounds() {
+        if (!SILENT_RECOGNIZER) return;
+        if (mAudioManager == null || mSavedSystemVolume < 0) return;
+        try {
+            mAudioManager.setStreamVolume(AudioManager.STREAM_SYSTEM, mSavedSystemVolume, 0);
+            android.util.Log.i("GUARDIAN_AUDIO", "recognizer_restart_no_sound; restored system volume");
+        } catch (Exception e) {
+            android.util.Log.w("GUARDIAN_AUDIO", "restoreSystemSounds failed: " + e.getMessage());
+        }
+        mSavedSystemVolume = -1;
+    }
+
     /** Démarre l'écoute (doit tourner sur le main thread — c'est le cas dans un Service). */
     private void startListening() {
         if (!mListenEnabled) return;
@@ -266,6 +303,7 @@ public class GuardianService extends Service {
             return;
         }
         sendEvent("VOICE_LISTENER_STARTED", "Démarrage SpeechRecognizer GuardianService");
+        suppressSystemSounds();
 
         // Test local : utiliser le recognizer cloud Google pour fiabiliser la reconnaissance.
         // Le mode on-device (Soda) retournait des résultats vides sur ce téléphone.
@@ -390,6 +428,10 @@ public class GuardianService extends Service {
             try { mSR.stopListening(); } catch (Exception ignored) {}
             try { mSR.destroy(); } catch (Exception ignored) {}
             mSR = null;
+        }
+        // RUNTIME-FIX-001 : restaurer le volume système uniquement à l'arrêt définitif
+        if (!mListenEnabled) {
+            restoreSystemSounds();
         }
     }
 
@@ -527,6 +569,7 @@ public class GuardianService extends Service {
         super.onDestroy();
         sendEvent("GUARDIAN_SERVICE_STOPPED", "GuardianService détruit");
         stopListening();
+        restoreSystemSounds();
         hideOverlay();
         sInstance = null;
     }

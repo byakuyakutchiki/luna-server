@@ -15659,7 +15659,7 @@ async def guardian_sos(session_id: str, request: Request):
         return JSONResponse(status_code=409, content={"error": "Alerte déjà en cours", "incident_id": incident_id})
 
     try:
-        event = engine.trigger_sos(session_id, context=ctx_summary or None)
+        event = engine.trigger_sos(session_id, context=ctx_summary or None, incident_id=incident_id or None)
     except ValueError as e:
         return JSONResponse(status_code=404, content={"error": str(e)})
 
