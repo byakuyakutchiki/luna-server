@@ -93,7 +93,11 @@ class AgentDecision:
 
 
 def _extract_json_from_text(text: str) -> Optional[Dict[str, Any]]:
-    """Extrait le premier bloc JSON ou objet JSON d'un texte."""
+    """Extrait le premier objet JSON valide d'un texte.
+
+    Robuste au texte autour du JSON (explications, balises markdown,
+    guillemets de formatting, etc.).
+    """
     text = text.strip()
     if not text:
         return None
@@ -112,13 +116,18 @@ def _extract_json_from_text(text: str) -> Optional[Dict[str, Any]]:
         except json.JSONDecodeError:
             pass
 
-    # Cherche le premier objet JSON { ... }
-    match = re.search(r"\{.*\}", text, re.DOTALL)
-    if match:
-        try:
-            return json.loads(match.group(0))
-        except json.JSONDecodeError:
-            pass
+    # Cherche le premier objet JSON valide en scannant les accolades
+    # Cela évite de matcher un { dans du texte libre suivi d'un } lointain
+    for start in (m.start() for m in re.finditer(r"\{", text)):
+        # Essaye d'abord l'objet le plus court valide (premier } après start)
+        for end_match in re.finditer(r"\}", text[start:]):
+            candidate = text[start:start + end_match.end()]
+            try:
+                parsed = json.loads(candidate)
+                if isinstance(parsed, dict):
+                    return parsed
+            except json.JSONDecodeError:
+                continue
 
     return None
 

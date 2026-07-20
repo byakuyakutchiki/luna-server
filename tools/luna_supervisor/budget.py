@@ -164,10 +164,10 @@ class BudgetGovernor:
         if pol.get("enabled") is False:
             return False
         if pol.get("enabled_if_configured"):
-            # Pour codex/openai, on verifie que la CLI/api est reellement configuree
+            # Pour codex/openai, on verifie que la CLI ou l'API est reellement configuree
             if name == "codex":
-                return bool(shutil.which("codex"))
-            if name in ("openai", "codex"):
+                return bool(shutil.which("codex") or self.config.get("OPENAI_API_KEY"))
+            if name == "openai":
                 return bool(self.config.get("OPENAI_API_KEY"))
         return True
 
