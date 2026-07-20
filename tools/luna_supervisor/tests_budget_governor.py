@@ -42,18 +42,21 @@ def test_1_no_mission_no_call():
 
 def test_2_budget_100_percent_blocks():
     """Budget a 100% : aucun appel IA."""
+    from datetime import datetime, timezone
     config = _load_config()
     with tempfile.TemporaryDirectory() as tmp:
         budget_file = Path(tmp) / "budget.json"
         config["BUDGET_FILE"] = str(budget_file)
-        today = "2026-07-12"
+        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        budget = BudgetGovernor(config, policy_path="config/agent_budget_policy.yaml")
+        limit = int(budget.policy.get("max_total_ai_calls_per_day", 10))
         # Cree un budget deja sature a la limite totale
         budget_file.write_text(
             json.dumps(
                 {
                     "date": today,
                     "month": "2026-07",
-                    "daily": {"kimi": 6},
+                    "daily": {"kimi": limit},
                     "monthly": {},
                     "missions": {},
                 }
@@ -100,23 +103,27 @@ def test_3_adb_unavailable_blocks():
 def test_4_repeated_error_routes_to_deepseek():
     """Meme erreur repetee deux fois : DeepSeek si budget."""
     config = _load_config()
-    budget = BudgetGovernor(config)
-    mission_id = "TEST-ERROR"
-    budget.record_error(mission_id, "executor:build_debug")
-    budget.record_error(mission_id, "executor:build_debug")
-    mission = {
-        "mission_id": mission_id,
-        "objective": "test erreur",
-        "iteration": 1,
-        "errors_new": [{"signature": "executor:build_debug"}],
-    }
-    context = ContextBuilder(config).build(mission)
-    # Simule des fichiers modifies pour forcer le routage
-    context["changed"]["files"] = ["android-app/src/main.java"]
-    routing = decide_agent(mission, context, budget, config)
-    # DeepSeek doit etre choisi car erreur repetee
-    assert routing.role == "auditor", f"attendu auditor, recu {routing.role}"
-    print("TEST 4 OK: erreur repetee route vers DeepSeek")
+    with tempfile.TemporaryDirectory() as tmp:
+        budget_file = Path(tmp) / "budget.json"
+        config["BUDGET_FILE"] = str(budget_file)
+        budget = BudgetGovernor(config)
+        mission_id = "TEST-ERROR"
+        budget.record_error(mission_id, "executor:build_debug")
+        budget.record_error(mission_id, "executor:build_debug")
+        mission = {
+            "mission_id": mission_id,
+            "objective": "test erreur",
+            "iteration": 1,
+            "errors_new": [{"signature": "executor:build_debug"}],
+        }
+        context = ContextBuilder(config).build(mission)
+        # Simule des fichiers modifies et l'erreur repetee pour forcer le routage
+        context["changed"]["files"] = ["android-app/src/main.java"]
+        context["changed"]["new_errors_since_last"] = [{"signature": "executor:build_debug"}]
+        routing = decide_agent(mission, context, budget, config)
+        # DeepSeek doit etre choisi car erreur repetee
+        assert routing.role == "auditor", f"attendu auditor, recu {routing.role}"
+        print("TEST 4 OK: erreur repetee route vers DeepSeek")
 
 
 def test_5_invalid_kimi_response_rejected():

@@ -104,7 +104,7 @@ def _select_role(
 
     mission_id = mission.get("mission_id", "UNKNOWN")
     iteration = int(mission.get("iteration", 0))
-    history = mission.get("history", [])
+    max_iter = int(mission.get("max_iterations", 3))
     new_errors = context.get("changed", {}).get("new_errors_since_last", [])
     changed_files = context.get("changed", {}).get("files", [])
 
@@ -126,19 +126,11 @@ def _select_role(
         if can_review:
             return "reviewer"
 
-    # Premiere iteration ou diagnostic -> operator (kimi)
-    if iteration == 0 or not changed_files:
-        return "operator"
-
-    # Modification presente mais pas encore executee -> operator
-    if changed_files:
-        return "operator"
-
-    # Derniere iteration -> coordinator si configure
-    max_iter = int(mission.get("max_iterations", 3))
+    # Derniere iteration -> coordinator pour synthese finale si budget
     if iteration >= max_iter - 1:
         can_codex, _ = budget.can_call("codex", mission_id, reason="synthese_finale")
         if can_codex:
             return "coordinator"
 
+    # Premiere iteration ou diagnostic -> operator (kimi)
     return "operator"
