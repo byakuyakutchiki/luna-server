@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from luna_runner.actions import ADBActions, GitActions
+from .adb_utils import list_adb_devices, resolve_android_device
 
 logger = logging.getLogger(__name__)
 
@@ -103,20 +104,31 @@ class ContextBuilder:
             return f"diff indisponible: {e}"
 
     def _adb_context(self) -> Dict[str, Any]:
-        device_id = self.config.get("ANDROID_DEVICE_ID", "")
-        if not device_id:
-            return {"available": False, "reason": "ANDROID_DEVICE_ID non configure"}
+        # Résolution avec fallback USB si le device configuré est indisponible.
+        resolved_id, devices_output = resolve_android_device(self.config)
+        if not resolved_id:
+            return {
+                "available": False,
+                "reason": "ANDROID_DEVICE_ID non configure et aucun device ADB detecte",
+                "devices": devices_output,
+            }
         try:
-            adb = ADBActions(device_id)
+            adb = ADBActions(resolved_id)
             return {
                 "available": True,
-                "device_id": device_id,
+                "device_id": resolved_id,
                 "model": adb.getprop("ro.product.model"),
                 "android_version": adb.getprop("ro.build.version.release"),
                 "state": adb.get_state(),
+                "devices": devices_output,
             }
         except Exception as e:
-            return {"available": False, "reason": str(e)}
+            return {
+                "available": False,
+                "reason": str(e),
+                "device_id": resolved_id,
+                "devices": devices_output,
+            }
 
     def _test_context(self) -> Dict[str, Any]:
         """Cherche des resultats de tests existants."""

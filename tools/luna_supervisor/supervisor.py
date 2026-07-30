@@ -12,17 +12,21 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+import requests
+
 from luna_runner.actions import ADBActions, GitActions
 from luna_runner.n8n_client import N8NClient
 from luna_runner.runner import Runner
 
 from .action_executor import ActionExecutor, ExecutorError
+from .adb_utils import resolve_android_device
 from .agent_caller import AgentCallError, get_caller
 from .budget import BudgetGovernor
 from .context_builder import ContextBuilder
 from .morning_report import MorningReport
 from .next_mission_planner import NextMissionPlanner
 from .routing import decide_agent
+from . import mission_queue
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +42,13 @@ class LunaAgentSupervisor:
         self.config = config
         self.project_path = Path(config["PROJECT_PATH"])
         self.runner_id = config["RUNNER_ID"]
+        # Résout l'ID device ADB (fallback USB si le configuré est indisponible)
+        # dès l'initialisation pour que Runner et ContextBuilder utilisent
+        # le même device.
+        try:
+            resolve_android_device(config)
+        except Exception:
+            logger.exception("Échec résolution ADB à l'initialisation")
         self.budget = BudgetGovernor(config)
         self.executor = ActionExecutor(config)
         self.context_builder = ContextBuilder(config)
@@ -72,6 +83,10 @@ class LunaAgentSupervisor:
 
     def health(self) -> Dict[str, Any]:
         """Retourne l'état de santé du superviseur."""
+        try:
+            resolve_android_device(self.config)
+        except Exception:
+            logger.exception("Échec résolution ADB dans health")
         runner = Runner(self.config)
         runner_health = runner.health()
         return {
@@ -132,6 +147,12 @@ class LunaAgentSupervisor:
 
     def run_once(self, mission_override: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """Exécute un cycle complet : récupération, traitement, rapport."""
+        # Ré-évalue le device ADB au début de chaque cycle (branchement/débranchement)
+        try:
+            resolve_android_device(self.config)
+        except Exception:
+            logger.exception("Échec résolution ADB au début du cycle")
+
         if mission_override:
             mission = mission_override
         else:
@@ -176,7 +197,17 @@ class LunaAgentSupervisor:
             logger.error("Échec envoi rapport n8n: %s", e)
             result["n8n_report_error"] = str(e)
 
-        # Planification éventuelle de la mission suivante
+        # Si la mission est en cours (in_progress), soumettre automatiquement
+        # l'itération suivante pour ne pas dépendre de n8n pour la ré-itération.
+        try:
+            next_iter = self._maybe_submit_next_iteration(mission, result)
+            if next_iter:
+                result["next_iteration_submitted"] = next_iter
+        except Exception as e:
+            logger.warning("Échec soumission itération suivante: %s", e)
+            result["next_iteration_error"] = str(e)
+
+        # Planification éventuelle de la mission suivante (mission différente)
         try:
             plan_result = self._maybe_plan_next_mission(mission, result)
             if plan_result:
@@ -186,6 +217,87 @@ class LunaAgentSupervisor:
             result["next_mission_plan_error"] = str(e)
 
         return result
+
+    def _call_agent_with_fallback(
+        self,
+        mission: Dict[str, Any],
+        context: Dict[str, Any],
+        routing: Any,
+    ) -> tuple:
+        """Appelle l'agent routé. En cas d'échec du coordinator, tente Kimi/operator.
+
+        Retourne (decision, agent_name).
+        Lève AgentCallError si l'agent principal et le fallback échouent.
+        """
+        mission_id = mission.get("mission_id", "UNKNOWN")
+        primary_role = routing.role
+        primary_caller = get_caller(primary_role, self.config)
+
+        if not primary_caller.is_available():
+            raise AgentCallError(f"Agent {primary_role} indisponible")
+
+        can_call, budget_reason = self.budget.can_call(
+            primary_caller.name, mission_id, reason=routing.reason
+        )
+        if not can_call:
+            raise AgentCallError(f"Budget atteint: {budget_reason}")
+
+        try:
+            start = time.time()
+            decision = primary_caller.call(mission, context)
+            duration_ms = int((time.time() - start) * 1000)
+            context_size = len(json.dumps(context, ensure_ascii=False))
+            self.budget.record_call(
+                primary_caller.name,
+                mission_id,
+                reason=routing.reason,
+                context_size=context_size,
+                duration_ms=duration_ms,
+                success=True,
+                result_summary=decision.summary[:200],
+            )
+            return decision, primary_caller.name
+        except AgentCallError as e:
+            self.budget.record_call(
+                primary_caller.name,
+                mission_id,
+                reason=routing.reason,
+                success=False,
+                result_summary=str(e)[:200],
+            )
+            if primary_role != "coordinator":
+                raise
+
+            logger.warning("Échec coordinator, tentative fallback Kimi/operator: %s", e)
+            fallback_caller = get_caller("operator", self.config)
+            if not fallback_caller.is_available():
+                raise AgentCallError(
+                    f"Coordinator échoué et fallback operator indisponible: {e}"
+                )
+
+            can_fallback, fallback_reason = self.budget.can_call(
+                fallback_caller.name, mission_id, reason="coordinator_fallback"
+            )
+            if not can_fallback:
+                raise AgentCallError(
+                    f"Coordinator échoué et budget fallback épuisé: {fallback_reason}"
+                )
+
+            start = time.time()
+            decision = fallback_caller.call(mission, context)
+            duration_ms = int((time.time() - start) * 1000)
+            context_size = len(json.dumps(context, ensure_ascii=False))
+            self.budget.record_call(
+                fallback_caller.name,
+                mission_id,
+                reason="coordinator_fallback",
+                context_size=context_size,
+                duration_ms=duration_ms,
+                success=True,
+                result_summary=decision.summary[:200],
+            )
+            logger.info("Fallback coordinator vers Kimi/operator réussi")
+            return decision, fallback_caller.name
 
     def _process_mission(self, mission: Dict[str, Any]) -> Dict[str, Any]:
         mission_id = mission.get("mission_id", "UNKNOWN")
@@ -215,59 +327,11 @@ class LunaAgentSupervisor:
             self._write_agent_shared_report(mission, result, run_dir, routing.agent_name or "routing")
             return result
 
-        # Appelle l'agent
+        # Appelle l'agent (avec fallback Kimi/operator si coordinator échoue)
         try:
-            caller = get_caller(routing.role, self.config)
-            if not caller.is_available():
-                result = {
-                    "mission_id": mission_id,
-                    "task_id": task_id,
-                    "runner_id": self.runner_id,
-                    "status": "error",
-                    "error_summary": [f"Agent {routing.role} indisponible"],
-                    "requires_human_validation": False,
-                }
-                self._write_agent_shared_report(mission, result, run_dir, routing.agent_name or routing.role)
-                return result
-
-            agent_name = caller.name
-            can_call, budget_reason = self.budget.can_call(
-                agent_name, mission_id, reason=routing.reason
-            )
-            if not can_call:
-                result = {
-                    "mission_id": mission_id,
-                    "task_id": task_id,
-                    "runner_id": self.runner_id,
-                    "status": "paused_budget",
-                    "error_summary": [f"Budget atteint: {budget_reason}"],
-                    "requires_human_validation": False,
-                }
-                self._write_agent_shared_report(mission, result, run_dir, agent_name)
-                return result
-
-            start = time.time()
-            decision = caller.call(mission, context)
-            duration_ms = int((time.time() - start) * 1000)
-            context_size = len(json.dumps(context, ensure_ascii=False))
-            self.budget.record_call(
-                agent_name,
-                mission_id,
-                reason=routing.reason,
-                context_size=context_size,
-                duration_ms=duration_ms,
-                success=True,
-                result_summary=decision.summary[:200],
-            )
+            decision, agent_name = self._call_agent_with_fallback(mission, context, routing)
         except AgentCallError as e:
-            agent_for_ledger = agent_name if "agent_name" in locals() else routing.agent_name
-            self.budget.record_call(
-                agent_for_ledger,
-                mission_id,
-                reason=routing.reason,
-                success=False,
-                result_summary=str(e)[:200],
-            )
+            logger.error("Appel agent %s échoué (même après fallback): %s", routing.role, e)
             result = {
                 "mission_id": mission_id,
                 "task_id": task_id,
@@ -276,7 +340,7 @@ class LunaAgentSupervisor:
                 "error_summary": [f"Appel agent {routing.role} échoué: {e}"],
                 "requires_human_validation": False,
             }
-            self._write_agent_shared_report(mission, result, run_dir, agent_for_ledger or routing.role)
+            self._write_agent_shared_report(mission, result, run_dir, routing.agent_name or routing.role)
             return result
 
         # Loggue la décision
@@ -533,6 +597,96 @@ class LunaAgentSupervisor:
             "paused_budget",
             "paused_routing",
         )
+
+    def _mission_store_url(self) -> str:
+        """URL du endpoint /create du mission_store local."""
+        host = self.config.get("LUNA_MISSION_STORE_HOST", "127.0.0.1")
+        port = int(self.config.get("LUNA_MISSION_STORE_PORT", "9876"))
+        return f"http://{host}:{port}/create"
+
+    def _maybe_submit_next_iteration(
+        self,
+        mission: Dict[str, Any],
+        result: Dict[str, Any],
+    ) -> Optional[Dict[str, Any]]:
+        """Soumet automatiquement l'itération suivante d'une mission en cours.
+
+        Quand le superviseur retourne un statut `in_progress`, cette méthode
+        crée directement la mission dans le mission_store local avec la même
+        mission_id/task_id, l'itération incrémentée et le rôle suivant.
+        Elle contourne le workflow n8n "Luna Mission Create" qui force
+        l'itération à 0, ce qui bloquait les missions multi-itérations.
+        """
+        status = result.get("status", "")
+        if status != "in_progress":
+            return None
+
+        iteration = int(result.get("iteration", 0))
+        max_iterations = int(result.get("max_iterations", 3))
+        if iteration >= max_iterations:
+            logger.info("Itération suivante ignorée: max_iterations atteint")
+            return None
+
+        next_role = result.get("next_role") or mission.get("role", "operator")
+        mission_id = mission.get("mission_id", "UNKNOWN")
+        task_id = mission.get("task_id", mission_id)
+        objective = mission.get("objective", "") or mission.get("description", "")
+
+        # Conserve le contexte original et y injecte l'itération/le rôle suivants
+        ctx_obj: Dict[str, Any] = {}
+        ctx = mission.get("mission_context_json")
+        if isinstance(ctx, str):
+            try:
+                ctx_obj = json.loads(ctx) or {}
+            except Exception:
+                ctx_obj = {}
+        elif isinstance(ctx, dict):
+            ctx_obj = dict(ctx)
+
+        ctx_obj["objective"] = objective
+        ctx_obj["role"] = next_role
+        ctx_obj["iteration"] = iteration
+        ctx_obj["source"] = "luna-supervisor-next-iteration"
+        ctx_obj["auto_next"] = bool(self._get_mission_field(mission, "auto_next", False))
+
+        # Préserve les contraintes de la mission originale
+        expected_final_status = self._get_mission_field(mission, "expected_final_status")
+        if expected_final_status:
+            ctx_obj["expected_final_status"] = expected_final_status
+        forbidden_actions = self._get_mission_field(mission, "forbidden_actions")
+        if forbidden_actions:
+            ctx_obj["forbidden_actions"] = forbidden_actions
+
+        payload: Dict[str, Any] = {
+            "mission_id": mission_id,
+            "task_id": task_id,
+            "status": "queued",
+            "current_role": next_role,
+            "next_role": next_role,
+            "iteration": iteration,
+            "max_iterations": max_iterations,
+            "approval_required": False,
+            "budget_allowed": True,
+            "objective": objective,
+            "mission_context_json": json.dumps(ctx_obj, ensure_ascii=False),
+        }
+
+        response = requests.post(
+            self._mission_store_url(),
+            json=payload,
+            timeout=30,
+        )
+        response.raise_for_status()
+        submit_result = response.json()
+        logger.info(
+            "Itération suivante soumise directement au mission_store: "
+            "mission=%s iteration=%d role=%s status=%s",
+            mission_id,
+            iteration,
+            next_role,
+            submit_result.get("status", submit_result.get("_http_status", "unknown")),
+        )
+        return submit_result
 
     def _maybe_plan_next_mission(
         self,

@@ -127,10 +127,13 @@ def _select_role(
             return "reviewer"
 
     # Derniere iteration -> coordinator pour synthese finale si budget
-    if iteration >= max_iter - 1:
+    # SAUF pour les missions workday, qui restent sur Kimi/operator pour
+    # éviter les appels Codex coûteux et le fallback JSON invalide.
+    is_workday = mission_id.startswith("WORKDAY-")
+    if iteration >= max_iter - 1 and not is_workday:
         can_codex, _ = budget.can_call("codex", mission_id, reason="synthese_finale")
         if can_codex:
             return "coordinator"
 
-    # Premiere iteration ou diagnostic -> operator (kimi)
+    # Premiere iteration, diagnostic, ou synthese workday -> operator (kimi)
     return "operator"

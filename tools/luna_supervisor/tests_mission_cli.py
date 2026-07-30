@@ -37,6 +37,24 @@ def _delete_mission(mission_id: str):
         conn.close()
 
 
+def _get_mission_context(mission_id: str) -> dict:
+    if not DB_PATH.exists():
+        return {}
+    conn = sqlite3.connect(DB_PATH, check_same_thread=False)
+    try:
+        row = conn.execute(
+            "SELECT mission_context_json FROM luna_missions WHERE mission_id = ?",
+            (mission_id,),
+        ).fetchone()
+        if not row or not row[0]:
+            return {}
+        import json
+
+        return json.loads(row[0])
+    finally:
+        conn.close()
+
+
 def _run_luna_mission(*args: str) -> subprocess.CompletedProcess:
     return subprocess.run(
         ["luna-mission", *args],
@@ -108,7 +126,7 @@ def test_free_text_creates_mission():
             _delete_mission(mission_id)
 
 
-def test_luna_workday_creates_mission():
+def test_luna_workday_creates_mission_without_auto_next():
     before = _count_missions()
     result = _run_luna_workday(
         "Rends l’APK YAWatch/Luna plus livrable production aujourd’hui. "
@@ -123,7 +141,9 @@ def test_luna_workday_creates_mission():
         assert after == before + 1, f"luna-workday devait créer 1 mission, créé {after - before}"
         mission_id = _extract_mission_id(result.stdout)
         assert mission_id.startswith("WORKDAY-"), f"ID inattendu: {mission_id}"
-        print(f"TEST OK: luna-workday crée une mission ({mission_id})")
+        ctx = _get_mission_context(mission_id)
+        assert ctx.get("auto_next") is False, "luna-workday ne doit pas activer auto_next par défaut"
+        print(f"TEST OK: luna-workday crée une mission sans auto_next ({mission_id})")
     finally:
         if result.returncode == 0:
             mission_id = _extract_mission_id(result.stdout)
@@ -135,5 +155,5 @@ if __name__ == "__main__":
     test_status_does_not_create_mission()
     test_list_does_not_create_mission()
     test_free_text_creates_mission()
-    test_luna_workday_creates_mission()
+    test_luna_workday_creates_mission_without_auto_next()
     print("\nTous les tests CLI mission sont OK")
