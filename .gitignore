@@ -7,6 +7,8 @@ venv/
 .claude/
 *.pt
 # Secrets & credentials
+.env.supervisor
+.env.*
 data/cortex_api.key
 data/cortex_totp.secret
 data/cortex_telegram.json
@@ -24,6 +26,8 @@ tools/agents/poller.log
 
 # Données utilisateur générées
 static/documents/
+static/*.apk
+static/luna-proprio.apk
 
 # Backups locaux
 *.bak
