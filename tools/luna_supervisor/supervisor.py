@@ -759,8 +759,17 @@ class LunaAgentSupervisor:
         """Détermine le statut final après la dernière itération exécutée."""
         expected = self._get_mission_field(mission, "expected_final_status")
         action_error = self._has_action_error(action_result)
+        iteration = int(mission.get("iteration", 0))
+        max_iterations = int(
+            mission.get("max_iterations", self.config.get("MAX_ITERATIONS", 3))
+        )
+        is_last_iteration = iteration >= max_iterations - 1
 
-        if expected:
+        # Le statut attendu n'est appliqué que lors de la dernière itération.
+        # Avant la dernière itération, on laisse le superviseur continuer
+        # (statut in_progress/success) pour que les missions multi-itérations
+        # puissent s'exécuter jusqu'au bout.
+        if expected and is_last_iteration:
             if action_error and str(expected) != "needs_audit":
                 return "error"
             return str(expected)
