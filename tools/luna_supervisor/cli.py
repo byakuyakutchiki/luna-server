@@ -4,10 +4,11 @@ import argparse
 import json
 import logging
 import signal
+import sqlite3
 import sys
 import time
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from .config import load_config
 from . import mission_queue
@@ -144,6 +145,50 @@ def cmd_status(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_list(args: argparse.Namespace) -> int:
+    """Liste les missions du mission_store local (lecture seule)."""
+    config = load_config(args.config)
+    project_path = Path(config["PROJECT_PATH"]).resolve()
+    db_path = project_path / "data" / "luna_missions.db"
+
+    if not db_path.exists():
+        print("Aucune mission (base de données introuvable).")
+        return 0
+
+    rows: List[Dict[str, Any]] = []
+    try:
+        conn = sqlite3.connect(db_path, check_same_thread=False)
+        conn.row_factory = sqlite3.Row
+        cur = conn.execute(
+            "SELECT mission_id, status, current_role, next_role, iteration, "
+            "max_iterations, created_at, updated_at "
+            "FROM luna_missions "
+            "ORDER BY created_at DESC "
+            "LIMIT ?",
+            (args.limit,),
+        )
+        rows = [dict(row) for row in cur.fetchall()]
+        conn.close()
+    except Exception as e:
+        print(f"Erreur lecture mission_store: {e}", file=sys.stderr)
+        return 1
+
+    if not rows:
+        print("Aucune mission.")
+        return 0
+
+    for row in rows:
+        print(
+            f"{row['mission_id']}\t"
+            f"{row['status']}\t"
+            f"{row['current_role'] or '-'}"
+            f"/{row['next_role'] or '-'}\t"
+            f"iter={row['iteration']}/{row['max_iterations']}\t"
+            f"created={row['created_at']}"
+        )
+    return 0
+
+
 def cmd_stop(args: argparse.Namespace) -> int:
     sup = _load_supervisor(args.config)
     sup.release_lock()
@@ -270,6 +315,10 @@ def main(argv: list = None) -> int:
     sub.add_parser("dry-run", help="Exécute un cycle de test en lecture seule")
     sub.add_parser("daemon", help="Démarre la boucle permanente")
     sub.add_parser("status", help="Affiche l'état et le verrou")
+
+    list_parser = sub.add_parser("list", help="Liste les missions du mission_store local")
+    list_parser.add_argument("--limit", type=int, default=50, help="Nombre maximum de missions à afficher")
+
     sub.add_parser("stop", help="Supprime le verrou du superviseur")
     sub.add_parser("morning-report", help="Génère le rapport du matin sans appel IA")
 
@@ -302,6 +351,7 @@ def main(argv: list = None) -> int:
         "dry-run": cmd_dry_run,
         "daemon": cmd_daemon,
         "status": cmd_status,
+        "list": cmd_list,
         "stop": cmd_stop,
         "morning-report": cmd_morning_report,
         "plan-next": cmd_plan_next,

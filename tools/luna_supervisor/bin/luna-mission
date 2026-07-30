@@ -1,6 +1,57 @@
 #!/usr/bin/env bash
-# Wrapper luna-mission : injecte une mission Luna dans n8n.
+# Wrapper luna-mission : passe-plat vers la CLI Python luna_supervisor.
+#
+# Usage:
+#   luna-mission health                      # état du superviseur
+#   luna-mission status                      # verrou + dernière mission
+#   luna-mission list                        # liste les missions
+#   luna-mission create --prompt-file ...    # soumission explicite
+#   luna-mission "texte libre de mission"    # raccourci create (compatibilité)
+#
+# Les commandes de lecture/status/health/list sont dispatchées vers la CLI
+# Python sans jamais passer par la sous-commande create.
 set -euo pipefail
+
 PROJECT_PATH="/home/ludo/luna-server"
 export PYTHONPATH="${PROJECT_PATH}/tools"
-exec python3 -m luna_supervisor create "$@"
+
+# Sous-commandes reconnues par python3 -m luna_supervisor.
+# Tout autre argument est traité comme une création de mission (rétrocompatibilité).
+KNOWN_COMMANDS=(
+    health
+    poll-once
+    run-once
+    dry-run
+    daemon
+    status
+    stop
+    morning-report
+    plan-next
+    agent-connectivity
+    agent-call-smoke
+    create
+    list
+)
+
+is_known_command() {
+    local cmd="$1"
+    for known in "${KNOWN_COMMANDS[@]}"; do
+        if [[ "$known" == "$cmd" ]]; then
+            return 0
+        fi
+    done
+    return 1
+}
+
+if [[ $# -eq 0 ]]; then
+    # Aucun argument : mode create sans prompt (la CLI gèrera l'erreur)
+    exec python3 -m luna_supervisor create
+fi
+
+first_arg="$1"
+
+if is_known_command "$first_arg"; then
+    exec python3 -m luna_supervisor "$@"
+else
+    exec python3 -m luna_supervisor create "$@"
+fi
