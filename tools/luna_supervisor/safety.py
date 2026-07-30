@@ -5,6 +5,8 @@ avant envoi tout prompt ou fichier contenant des demandes explicitement
 dangereuses ou destructrices.
 """
 
+import re
+import unicodedata
 from pathlib import Path
 from typing import Tuple
 
@@ -19,6 +21,7 @@ FORBIDDEN_PATTERNS = [
     "reset --hard",
     # Deploy / production
     "deploy",
+    "deploie",
     "production_deploy",
     "mise en production",
     # APK / build install
@@ -40,8 +43,12 @@ FORBIDDEN_PATTERNS = [
     "sms reel",
     "appel reel",
     "appeler",
+    "appelle",
     "envoyer sms",
     "envoyer un sms",
+    "envoie sms",
+    "envoie un sms",
+    "sos reel",
     # Secrets / credentials
     ".env",
     "secret",
@@ -58,7 +65,47 @@ FORBIDDEN_PATTERNS = [
     "user_data_deletion",
     "cloud_modification",
     "modifier cloud",
+    # Actions destructrices explicites
+    "stash",
+    "supprime",
+    "supprimer",
+    "suppression",
 ]
+
+# Marqueurs de négation / interdiction / inhibition. Si un de ces mots
+# apparaît à proximité d'un motif interdit, le motif est considéré comme
+# utilisé dans un contexte de blocage (et non de demande dangereuse).
+NEGATION_MARKERS = {
+    "ne",
+    "pas",
+    "non",
+    "sans",
+    "aucun",
+    "aucune",
+    "jamais",
+    "interdit",
+    "interdite",
+    "interdits",
+    "interdites",
+    "bloque",
+    "bloquer",
+    "bloqué",
+    "bloquée",
+    "bloqués",
+    "bloquées",
+    "refuse",
+    "refuser",
+    "refusé",
+    "refusée",
+    "désactive",
+    "désactiver",
+    "désactivé",
+    "désactivée",
+    "empeche",
+    "empêche",
+    "interdiction",
+    "prohibition",
+}
 
 # Extensions autorisées pour --prompt-file
 ALLOWED_PROMPT_EXTENSIONS = {".md", ".txt"}
@@ -69,26 +116,62 @@ MAX_PROMPT_FILE_SIZE = 100 * 1024
 
 def _normalize(text: str) -> str:
     """Normalise le texte pour la détection d'expressions interdites."""
-    return (
+    text = (
         text.lower()
         .replace("_", " ")
         .replace("-", " ")
         .replace("\n", " ")
         .replace("\t", " ")
     )
+    # Supprime les accents pour uniformiser "déploie"/"deploie",
+    # "réel"/"reel", "clé"/"cle", etc.
+    return "".join(
+        c
+        for c in unicodedata.normalize("NFKD", text)
+        if unicodedata.category(c) != "Mn"
+    )
+
+
+def _pattern_allowed(normalized_text: str, pattern: str) -> bool:
+    """Dit si toutes les occurrences d'un motif interdit sont autorisées.
+
+    Le texte est découpé en clauses (phrase, segment). Une occurrence est
+    autorisée si la clause contient un marqueur de négation/interdiction.
+    """
+    pattern_norm = _normalize(pattern)
+    if pattern_norm not in normalized_text:
+        return True
+
+    # Découpe en clauses pour ne pas mélanger les contextes.
+    # La ponctuation doit être suivie d'un espace ou de la fin du texte
+    # pour éviter de couper des tokens comme ".env".
+    clauses = re.split(r"[.!?;\n]+(?:\s+|$)", normalized_text)
+    for clause in clauses:
+        if pattern_norm not in clause:
+            continue
+        clause_words = set(clause.split())
+        if clause_words & NEGATION_MARKERS:
+            # La clause contient une négation/interdiction : on considère
+            # l'occurrence comme une formulation de blocage.
+            continue
+        return False
+
+    return True
 
 
 def validate_prompt(prompt: str) -> Tuple[bool, str]:
     """Vérifie qu'un prompt texte ne contient pas de demande dangereuse.
 
     Retourne (True, "") si le prompt est acceptable, (False, reason) sinon.
+    Les formulations d'interdiction ("ne pas push", "aucun deploy", etc.)
+    sont autorisées.
     """
     if not prompt or not prompt.strip():
         return False, "prompt vide"
 
     normalized = _normalize(prompt)
     for pattern in FORBIDDEN_PATTERNS:
-        if pattern.lower() in normalized:
+        if not _pattern_allowed(normalized, pattern):
             return False, f"mot/expression interdit detecte: '{pattern}'"
 
     return True, ""
