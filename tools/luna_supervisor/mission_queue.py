@@ -106,7 +106,7 @@ def build_mission_payload(raw: Dict[str, Any]) -> Dict[str, Any]:
         "approval_required": False,
         "current_role": role,
         "next_role": raw.get("next_role", role),
-        "iteration": 0,
+        "iteration": int(raw.get("iteration", 0)),
         "mission_context_json": json.dumps(mission_context, ensure_ascii=False),
     }
 

@@ -23,7 +23,7 @@ class AgentCallError(Exception):
     pass
 
 
-class InvalidDecisionError(Exception):
+class InvalidDecisionError(AgentCallError):
     pass
 
 
