@@ -15,6 +15,7 @@ from typing import Any, Dict
 import yaml
 
 from approval_detector import ApprovalDetector, ApprovalRequest
+from approval_vision import ApprovalVision
 from exchange import ExchangeManager
 from policy import Policy
 from state_machine import StateMachine, Transition
@@ -194,6 +195,136 @@ def run_approval_test(config: Dict[str, Any], args: argparse.Namespace) -> int:
     return 0
 
 
+def run_approval_vision_test(config: Dict[str, Any], args: argparse.Namespace) -> int:
+    """Exécute une batterie de détection visuelle/simulée d'approbations."""
+    logger = logging.getLogger("ui_orchestrator")
+    if not args.simulate:
+        logger.error("Mode --simulate requis en V0. Aucune action réelle n'est autorisée.")
+        return 1
+
+    orchestrator_cfg = config.get("orchestrator", {})
+    shared_dir = orchestrator_cfg.get("shared_dir", "/tmp/ui_orchestrator")
+    mission_id = args.mission_id
+
+    exchange = ExchangeManager(shared_dir)
+    exchange.ensure_directories()
+
+    policy = Policy.from_config(config)
+    detector = ApprovalDetector(policy)
+
+    scenarios = [
+        (
+            "kimi",
+            "terminal",
+            "Run this command?\ngit status --short\nApprove once   Approve for session   Reject",
+            "approve_once_detected",
+        ),
+        (
+            "kimi",
+            "terminal",
+            "Run this command?\ngit status --short\nApprove for session   Reject",
+            "session_button_human_review",
+        ),
+        (
+            "codex",
+            "codex",
+            "Write file?\ntools/ui_orchestrator/approval_vision.py\nApprove once   Reject",
+            "reject_detected",
+        ),
+        (
+            "kimi",
+            "terminal",
+            "Summary of changes\ngit diff --stat\nNo action required.",
+            "no_button_no_approval",
+        ),
+        (
+            "kimi",
+            "terminal",
+            "Run this command?\nApprove once   Reject",
+            "unreadable_action_human_review",
+        ),
+    ]
+
+    results: list = []
+    for source, window_role, text, scenario_name in scenarios:
+        vision = ApprovalVision.from_text(text)
+        vision_result = vision.detect(source=source, window_role=window_role)
+
+        decision = None
+        if vision_result.approval_detected and vision_result.action_text:
+            decision = detector.detect(vision_result.to_approval_request())
+        elif vision_result.approval_detected and not vision_result.action_text:
+            decision = detector.detect(vision_result.to_approval_request())
+
+        entry = {
+            "event": "approval_vision_decision",
+            "scenario": scenario_name,
+            "source": source,
+            "window_role": window_role,
+            "approval_detected": vision_result.approval_detected,
+            "prompt_text": vision_result.prompt_text,
+            "action_text": vision_result.action_text,
+            "buttons": [b.button_type for b in vision_result.detected_buttons],
+            "decision": (
+                {
+                    "would_approve": decision.would_approve,
+                    "requires_human": decision.requires_human,
+                    "risk_level": decision.risk_level,
+                    "reason": decision.reason,
+                    "target_button": decision.target_button,
+                }
+                if decision
+                else None
+            ),
+            "simulate": True,
+            "real_click": False,
+            "real_capture": False,
+        }
+        exchange.write_log(mission_id, entry)
+        results.append(entry)
+
+        logger.info(
+            "[%s] %s | detected=%s | action=%r | buttons=%s | approve=%s | human=%s",
+            source,
+            scenario_name,
+            vision_result.approval_detected,
+            vision_result.action_text,
+            entry["buttons"],
+            decision.would_approve if decision else "n/a",
+            decision.requires_human if decision else "n/a",
+        )
+
+    report_path = exchange.write_simulation_report(
+        mission_id,
+        {
+            "mission_id": mission_id,
+            "test_type": "approval_vision",
+            "simulate": True,
+            "real_click": False,
+            "real_capture": False,
+            "scenario_count": len(scenarios),
+            "results": results,
+            "note": "Ceci est une simulation Linux. La capture réelle Windows se fait via windows_capture_probe.ps1.",
+        },
+    )
+
+    approved = sum(
+        1 for r in results if r["decision"] and r["decision"]["would_approve"]
+    )
+    human = sum(
+        1 for r in results if r["decision"] and r["decision"]["requires_human"]
+    )
+    no_approval = sum(1 for r in results if not r["approval_detected"])
+
+    print(f"\n👁️  Test de vision approbation terminé : {mission_id}")
+    print(f"   Scénarios        : {len(scenarios)}")
+    print(f"   Would approve    : {approved}")
+    print(f"   Requires human   : {human}")
+    print(f"   No approval UI   : {no_approval}")
+    print(f"   Rapport          : {report_path}")
+    return 0
+
+
 def main(argv: list = None) -> int:
     parser = argparse.ArgumentParser(
         description="luna-ui-orchestrator — V0 simulation sans clic réel.",
@@ -203,6 +334,7 @@ def main(argv: list = None) -> int:
     parser.add_argument("--mission-id", default="SIMULATION-001", help="ID de mission simulée")
     parser.add_argument("--probe-windows", action="store_true", help="Détecter/classer les fenêtres Windows (simulation sur Linux)")
     parser.add_argument("--approval-test", action="store_true", help="Batterie de tests de détection d'approbation simulée")
+    parser.add_argument("--approval-vision-test", action="store_true", help="Batterie de détection visuelle/simulée des boutons d'approbation")
     args = parser.parse_args(argv)
 
     config = load_config(args.config)
@@ -213,6 +345,9 @@ def main(argv: list = None) -> int:
 
     if args.approval_test:
         return run_approval_test(config, args)
+
+    if args.approval_vision_test:
+        return run_approval_vision_test(config, args)
 
     config = load_config(args.config)
     setup_logging(config.get("orchestrator", {}).get("log_level", "INFO"))
