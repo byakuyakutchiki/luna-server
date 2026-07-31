@@ -95,10 +95,10 @@ function Get-WindowBounds($hWnd) {
 }
 
 function Get-WindowProcessInfo($hWnd) {
-    $pid = 0
-    [void][WinApi]::GetWindowThreadProcessId($hWnd, [ref]$pid)
+    $processId = 0
+    [void][WinApi]::GetWindowThreadProcessId($hWnd, [ref]$processId)
     try {
-        $proc = Get-Process -Id $pid -ErrorAction Stop
+        $proc = Get-Process -Id $processId -ErrorAction Stop
         return @{
             processId   = $proc.Id
             processName = $proc.ProcessName
@@ -106,7 +106,7 @@ function Get-WindowProcessInfo($hWnd) {
     }
     catch {
         return @{
-            processId   = $pid
+            processId   = $processId
             processName = "unknown"
         }
     }
