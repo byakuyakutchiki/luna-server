@@ -175,6 +175,7 @@ class KimiCaller(AgentCaller):
             raise AgentCallError(f"Kimi CLI introuvable: {kimi_bin}")
 
         system_prompt = self._load_prompt(mission.get("role", "operator"))
+        context = self._fit_context_for_cli(context)
         user_prompt = self._build_prompt(system_prompt, mission, context)
 
         cmd = [kimi_bin, "-p", user_prompt, "--output-format", "stream-json"]
@@ -197,6 +198,34 @@ class KimiCaller(AgentCaller):
             raise AgentCallError(f"Kimi CLI a échoué: {proc.stderr}")
 
         return self._parse_output(proc.stdout, proc.stderr)
+
+    def _fit_context_for_cli(self, context: Any) -> str:
+        """Limite le contexte passe a `kimi -p` pour eviter E2BIG.
+
+        Kimi CLI ne propose pas d'option --prompt-file ; le prompt passe donc
+        par argv. Les missions lourdes (read_files sur APK/static/luna_web)
+        peuvent depasser la limite OS et bloquer l'autonomie.
+        """
+        if not isinstance(context, str):
+            context = json.dumps(context, ensure_ascii=False, default=str)
+
+        max_chars = int(self.config.get("KIMI_CLI_CONTEXT_CHARS", 80000))
+        if len(context) <= max_chars:
+            return context
+
+        keep_head = max_chars // 2
+        keep_tail = max_chars - keep_head
+        omitted = len(context) - max_chars
+        logger.warning(
+            "Contexte Kimi tronque pour compatibilite CLI: %d -> %d caracteres",
+            len(context),
+            max_chars,
+        )
+        return (
+            context[:keep_head]
+            + f"\n\n...[CONTEXTE TRONQUE: {omitted} caracteres omis pour eviter Argument list too long]...\n\n"
+            + context[-keep_tail:]
+        )
 
     def _build_prompt(self, system_prompt: str, mission: Dict[str, Any], context: str) -> str:
         return (
