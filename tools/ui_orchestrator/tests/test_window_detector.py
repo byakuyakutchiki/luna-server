@@ -88,6 +88,36 @@ def test_no_click_or_send():
     print("TEST OK: aucun contrôle UI chargé")
 
 
+def test_real_windows_examples():
+    """Vérifie que les vrais titres/processus observés par Codex sont classés correctement."""
+    import yaml
+
+    config_path = os.path.join(os.path.dirname(__file__), "..", "config", "orchestrator_config.yaml")
+    with open(config_path, "r", encoding="utf-8") as f:
+        config = yaml.safe_load(f)
+
+    detector = WindowDetector(config, "/tmp/ui_orchestrator_test")
+    windows = [
+        WindowInfo(title="Codex", process_name="ChatGPT"),
+        WindowInfo(title="ChatGPT", process_name="ChatGPT"),
+        WindowInfo(title="debrt (PRE_REPRISE_LOCAL_2026-07-08) [En fonction] - Oracle VirtualBox : 1", process_name="VirtualBoxVM"),
+        WindowInfo(title="Oracle VirtualBox - Gestionnaire de machines", process_name="VirtualBox"),
+        WindowInfo(title="powershell", process_name="WindowsTerminal"),
+        WindowInfo(title="C:\\WINDOWS\\system32\\cmd.exe", process_name="WindowsTerminal"),
+        WindowInfo(title="Automatisation des clics - Google Chrome", process_name="chrome"),
+        WindowInfo(title="WhatsApp", process_name="WhatsApp.Root"),
+    ]
+    matched = detector.classify(windows)
+
+    assert len(matched["codex"]) == 1, f"codex attendu 1, obtenu {len(matched['codex'])}"
+    assert len(matched["chatgpt"]) == 1, f"chatgpt attendu 1, obtenu {len(matched['chatgpt'])}"
+    assert len(matched["virtualbox"]) == 2, f"virtualbox attendu 2, obtenu {len(matched['virtualbox'])}"
+    assert len(matched["terminal"]) == 2, f"terminal attendu 2, obtenu {len(matched['terminal'])}"
+    assert len(matched["browser_reference"]) == 1, f"browser_reference attendu 1, obtenu {len(matched['browser_reference'])}"
+    assert len(matched["unknown"]) == 1, f"unknown attendu 1, obtenu {len(matched['unknown'])}"
+    print("TEST OK: vrais exemples Windows classés correctement")
+
+
 if __name__ == "__main__":
     test_classify_codex()
     test_classify_virtualbox()
@@ -95,4 +125,6 @@ if __name__ == "__main__":
     test_classify_unknown()
     test_simulated_probe()
     test_no_click_or_send()
+    test_real_windows_examples()
     print("\nTous les tests window_detector sont OK.")
+

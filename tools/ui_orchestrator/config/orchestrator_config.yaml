@@ -18,18 +18,30 @@ state_machine:
     - HUMAN_REVIEW_REQUIRED
 
 window_patterns:
+  # Codex : fenêtre de l'agent Codex (app ChatGPT avec titre Codex, ou VS Code)
   codex:
-    title_regex: "(?i)(codex|vs code|visual studio code)"
-    process_regex: "(?i)(code|Code)"
+    title_regex: "(?i)(^codex$|codex[\\s\\-]|vs code|visual studio code)"
+    process_regex: "(?i)(^Code\\.exe$)"
+
+  # ChatGPT secondaire : autre fenêtre de l'app ChatGPT, pas l'onglet Codex actif
   chatgpt:
-    title_regex: "(?i)(chatgpt|openai)"
-    process_regex: "(?i)(chrome|firefox|msedge|brave)"
+    title_regex: "(?i)(^chatgpt$|chatgpt[\\s\\-]|openai)"
+    process_regex: "(?i)(ChatGPT)"
+
+  # VirtualBox : VM Kimi ou gestionnaire de machines
   virtualbox:
-    title_regex: "(?i)(virtualbox|oracle vm)"
-    process_regex: "(?i)(virtualbox)"
+    title_regex: "(?i)(virtualbox|oracle vm|debrt)"
+    process_regex: "(?i)(VirtualBox|VirtualBoxVM)"
+
+  # Terminal Windows : Windows Terminal, cmd, PowerShell, ou terminal Linux
   terminal:
-    title_regex: "(?i)(kimi|terminal|bash|debian|luna-vm)"
-    process_regex: "(?i)(cmd|powershell|bash|gnome-terminal|gnome-terminal-server)"
+    title_regex: "(?i)(kimi|terminal|bash|debian|luna-vm|powershell|cmd\\.exe|system32\\\\cmd)"
+    process_regex: "(?i)(WindowsTerminal|cmd|powershell|bash|gnome-terminal|gnome-terminal-server)"
+
+  # Référence documentation Chrome sans risque de confusion avec Codex
+  browser_reference:
+    title_regex: "(?i)(Automatisation des clics)"
+    process_regex: "(?i)(chrome)"
 
 policy:
   allowed_actions:

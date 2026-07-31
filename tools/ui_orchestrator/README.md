@@ -46,7 +46,11 @@ L’orchestrateur passe alors en état `PAUSED` sans rien simuler.
 ```bash
 python3 tools/ui_orchestrator/tests/test_state_machine.py
 python3 tools/ui_orchestrator/tests/test_policy.py
+python3 tools/ui_orchestrator/tests/test_window_detector.py
 ```
+
+Les patterns de fenêtres (`codex`, `chatgpt`, `virtualbox`, `terminal`, `browser_reference`) ont été ajustés avec les vrais titres/processus observés par Codex côté Windows.
+
 
 ## Dossier partagé
 
