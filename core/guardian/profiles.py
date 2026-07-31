@@ -12,7 +12,7 @@ PROFILES: Dict[str, Dict[str, Any]] = {
     "senior": {
         "label": "👤 Proche",
         "icon": "👴",
-        "immobility_threshold_minutes": 45,  # Policy V2 §4.2
+        "immobility_threshold_minutes": 30,  # Policy V2 §4.2 — senior P0 verification threshold
         "safe_zone_radius_m": 100,
         "check_in_message": "Bonjour {name} ! Comment vous sentez-vous aujourd'hui ?",
         "verification_message": "Luna vous demande : tout va bien ? Appuyez sur le bouton vert si vous allez bien.",

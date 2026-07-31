@@ -411,12 +411,11 @@ class GuardianEngine:
             session.alert_level = AlertLevel.LOW
             session.verification_sent_at = None
             session.verification_attempt = 0
-            # P0-07: Grace period 30 min — Guardian reste silencieux après confirmation
-            # (réduit de 2h à 30 min : une vraie 2e crise dans la demi-heure doit pouvoir alerter)
-            session.grace_period_until = (now + timedelta(minutes=30)).isoformat()
+            # P0-07: Grace period 2h — Guardian reste silencieux après confirmation.
+            session.grace_period_until = (now + timedelta(hours=2)).isoformat()
             self._log_event(session_id, GuardianEvent(
                 event_type="verified_ok",
-                description="Utilisateur a confirmé qu'il va bien — grace period 30 min activée",
+                description="Utilisateur a confirmé qu'il va bien — grace period 2h activée",
                 lat=session.last_position.lat if session.last_position else None,
                 lng=session.last_position.lng if session.last_position else None,
             ))
@@ -919,26 +918,8 @@ class GuardianEngine:
             elapsed = (now - datetime.fromisoformat(session.verification_sent_at)).total_seconds()
             attempt = session.verification_attempt or 1
 
-            if attempt == 1 and elapsed > 600:  # 10 min sans réponse → Niveau 3
-                session.verification_attempt = 2
-                session.verification_sent_at = now.isoformat()
-                session.alert_level = AlertLevel.MEDIUM
-                msg = _verification_message(session, attempt=2)
-                events.append(GuardianEvent(
-                    event_type="verification_needed",
-                    description=f"Deuxième vérification — {risk.description}",
-                    lat=pos.lat, lng=pos.lng,
-                    risk_score=risk.total,
-                    metadata={"signals": risk.signals, "message": msg, "attempt": 2},
-                ))
-                self._broadcast(session.session_id, {
-                    "type": "verification_needed",
-                    "message": msg,
-                    "risk": risk.total,
-                    "attempt": 2,
-                })
-
-            elif attempt >= 2 and elapsed > 300:  # 5 min sans réponse après 2e vérif → Niveau 4
+            should_escalate = (attempt == 1 and elapsed > 900) or (attempt >= 2 and elapsed > 300)
+            if should_escalate:
                 # Vérifier le plafond avant d'escalader
                 if not self._can_send_alert(session, now):
                     logger.info(
@@ -949,6 +930,7 @@ class GuardianEngine:
 
                 session.alert_pending = False
                 session.verification_attempt = 0
+                session.verification_sent_at = None
                 session.last_alert_at = now.isoformat()
                 if session.alerts_window_start is None:
                     session.alerts_window_start = now.isoformat()
@@ -966,6 +948,25 @@ class GuardianEngine:
                     metadata={"location_url": location_url, "no_response_seconds": int(elapsed)},
                 )
                 events.append(esc_event)
+
+            elif attempt == 1 and elapsed > 600:  # 10 min sans réponse → Niveau 3
+                session.verification_attempt = 2
+                session.verification_sent_at = now.isoformat()
+                session.alert_level = AlertLevel.MEDIUM
+                msg = _verification_message(session, attempt=2)
+                events.append(GuardianEvent(
+                    event_type="verification_needed",
+                    description=f"Deuxième vérification — {risk.description}",
+                    lat=pos.lat, lng=pos.lng,
+                    risk_score=risk.total,
+                    metadata={"signals": risk.signals, "message": msg, "attempt": 2},
+                ))
+                self._broadcast(session.session_id, {
+                    "type": "verification_needed",
+                    "message": msg,
+                    "risk": risk.total,
+                    "attempt": 2,
+                })
 
         return events
 
@@ -1136,7 +1137,7 @@ def _haversine(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
 def _default_config(profile: ProfileType) -> dict:
     defaults = {
         ProfileType.SENIOR: {
-            "immobility_threshold_minutes": 45,  # Policy V2 §4.2
+            "immobility_threshold_minutes": 30,  # Policy V2 §4.2 — senior P0 verification threshold
             "night_mode": True,
             "dignity_mode": True,
             "safe_zones": [],
