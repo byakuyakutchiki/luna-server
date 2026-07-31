@@ -14,6 +14,7 @@ from typing import Any, Dict
 
 import yaml
 
+from approval_detector import ApprovalDetector, ApprovalRequest
 from exchange import ExchangeManager
 from policy import Policy
 from state_machine import StateMachine, Transition
@@ -60,6 +61,139 @@ def run_probe_windows(config: Dict[str, Any], args: argparse.Namespace) -> int:
     return 0
 
 
+def run_approval_test(config: Dict[str, Any], args: argparse.Namespace) -> int:
+    """Exécute une batterie de cas d'approbation simulés."""
+    logger = logging.getLogger("ui_orchestrator")
+    if not args.simulate:
+        logger.error("Mode --simulate requis en V0. Aucune action réelle n'est autorisée.")
+        return 1
+
+    orchestrator_cfg = config.get("orchestrator", {})
+    shared_dir = orchestrator_cfg.get("shared_dir", "/tmp/ui_orchestrator")
+    mission_id = args.mission_id
+
+    exchange = ExchangeManager(shared_dir)
+    exchange.ensure_directories()
+
+    policy = Policy.from_config(config)
+    detector = ApprovalDetector(policy)
+
+    test_cases = [
+        ("kimi", "terminal", "cd /home/ludo/luna-server && git status --short"),
+        ("kimi", "terminal", "pytest"),
+        ("kimi", "terminal", 'rg "Guardian" static/guardian.html'),
+        ("kimi", "terminal", "git diff --stat"),
+        ("codex", "codex", "git push origin main"),
+        ("codex", "codex", "gcloud run deploy luna-beta"),
+        ("kimi", "terminal", "rm -rf /home/ludo/luna-server"),
+        ("kimi", "terminal", "git reset --hard"),
+        ("kimi", "terminal", "git clean -fd"),
+        ("kimi", "terminal", "adb shell input tap 100 200"),
+        ("kimi", "unknown", "git status --short"),
+        ("kimi", "terminal", ""),
+        ("kimi", "terminal", "export OPENAI_API_KEY=sk-12345678901234567890abcdef"),
+    ]
+
+    decisions = []
+    for source, window_role, action in test_cases:
+        request = ApprovalRequest(
+            source=source,
+            window_role=window_role,
+            prompt_text="Run this command?",
+            action_text=action,
+            buttons=["Approve once", "Approve for session", "Reject"],
+        )
+        decision = detector.detect(request)
+        decisions.append(decision)
+
+        log_entry = {
+            "event": "approval_decision",
+            "source": source,
+            "window_role": window_role,
+            "action_text": action,
+            "action_type": decision.action_type,
+            "risk_level": decision.risk_level,
+            "would_approve": decision.would_approve,
+            "requires_human": decision.requires_human,
+            "target_button": decision.target_button,
+            "reason": decision.reason,
+            "simulate": True,
+            "real_click": False,
+        }
+        exchange.write_log(mission_id, log_entry)
+        logger.info(
+            "[%s] %s | risk=%s | approve=%s | human=%s | reason=%s",
+            source,
+            action or "<empty>",
+            decision.risk_level,
+            decision.would_approve,
+            decision.requires_human,
+            decision.reason,
+        )
+
+    # Cas spécifique : bouton "Approve for session" seul
+    session_only_request = ApprovalRequest(
+        source="kimi",
+        window_role="terminal",
+        prompt_text="Run this command?",
+        action_text="git status --short",
+        buttons=["Approve for session", "Reject"],
+    )
+    session_decision = detector.detect(session_only_request)
+    decisions.append(session_decision)
+    exchange.write_log(
+        mission_id,
+        {
+            "event": "approval_decision",
+            "source": "kimi",
+            "window_role": "terminal",
+            "action_text": "git status --short",
+            "action_type": session_decision.action_type,
+            "risk_level": session_decision.risk_level,
+            "would_approve": session_decision.would_approve,
+            "requires_human": session_decision.requires_human,
+            "target_button": session_decision.target_button,
+            "reason": session_decision.reason,
+            "simulate": True,
+            "real_click": False,
+        },
+    )
+
+    report_path = exchange.write_simulation_report(
+        mission_id,
+        {
+            "mission_id": mission_id,
+            "test_type": "approval_detection",
+            "simulate": True,
+            "real_click": False,
+            "real_approve": False,
+            "decision_count": len(decisions),
+            "would_approve_count": sum(1 for d in decisions if d.would_approve),
+            "requires_human_count": sum(1 for d in decisions if d.requires_human),
+            "decisions": [
+                {
+                    "approval_detected": d.approval_detected,
+                    "action_text": d.action_text,
+                    "action_type": d.action_type,
+                    "risk_level": d.risk_level,
+                    "would_approve": d.would_approve,
+                    "requires_human": d.requires_human,
+                    "target_button": d.target_button,
+                    "reason": d.reason,
+                }
+                for d in decisions
+            ],
+        },
+    )
+
+    print(f"\n🛡️  Test d'approbation terminé : {mission_id}")
+    print(f"   Décisions simulées : {len(decisions)}")
+    print(f"   Would approve      : {sum(1 for d in decisions if d.would_approve)}")
+    print(f"   Requires human     : {sum(1 for d in decisions if d.requires_human)}")
+    print(f"   Rapport            : {report_path}")
+    return 0
+
+
 def main(argv: list = None) -> int:
     parser = argparse.ArgumentParser(
         description="luna-ui-orchestrator — V0 simulation sans clic réel.",
@@ -68,6 +202,7 @@ def main(argv: list = None) -> int:
     parser.add_argument("--simulate", action="store_true", help="Mode simulation obligatoire en V0")
     parser.add_argument("--mission-id", default="SIMULATION-001", help="ID de mission simulée")
     parser.add_argument("--probe-windows", action="store_true", help="Détecter/classer les fenêtres Windows (simulation sur Linux)")
+    parser.add_argument("--approval-test", action="store_true", help="Batterie de tests de détection d'approbation simulée")
     args = parser.parse_args(argv)
 
     config = load_config(args.config)
@@ -75,6 +210,9 @@ def main(argv: list = None) -> int:
 
     if args.probe_windows:
         return run_probe_windows(config, args)
+
+    if args.approval_test:
+        return run_approval_test(config, args)
 
     config = load_config(args.config)
     setup_logging(config.get("orchestrator", {}).get("log_level", "INFO"))

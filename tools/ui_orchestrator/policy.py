@@ -74,7 +74,24 @@ class Policy:
                 requires_human=False,
             )
 
-        # 5. Par défaut : inconnu → demander un humain
+        # 5. Commandes composées ou simples en lecture seule
+        readonly_prefixes = (
+            "cd", "ls ", "find ", "head ", "tail ", "cat ", "rg ", "grep ", "echo ",
+            "git status", "git diff", "git log",
+            "pytest", "python3 -m pytest",
+        )
+        parts = [p.strip() for p in re.split(r"\s*&&\s*|\s*;\s*", normalized) if p.strip()]
+        if all(
+            part in self.allowed_actions or any(part.startswith(prefix) for prefix in readonly_prefixes)
+            for part in parts
+        ):
+            return ApprovalDecision(
+                allowed=True,
+                reason="Commande(s) en lecture seule détectée(s)",
+                requires_human=False,
+            )
+
+        # 6. Par défaut : inconnu → demander un humain
         return ApprovalDecision(
             allowed=False,
             reason="Action non reconnue, validation humaine requise",
