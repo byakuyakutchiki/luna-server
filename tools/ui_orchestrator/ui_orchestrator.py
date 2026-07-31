@@ -17,6 +17,7 @@ import yaml
 from exchange import ExchangeManager
 from policy import Policy
 from state_machine import StateMachine, Transition
+from window_detector import WindowDetector
 
 
 DEFAULT_CONFIG = Path(__file__).with_suffix("").parent / "config" / "orchestrator_config.yaml"
@@ -34,6 +35,31 @@ def load_config(path: Path) -> Dict[str, Any]:
         return yaml.safe_load(f) or {}
 
 
+def run_probe_windows(config: Dict[str, Any], args: argparse.Namespace) -> int:
+    """Exécute une détection de fenêtres (simulation si non-Windows)."""
+    logger = logging.getLogger("ui_orchestrator")
+    if not args.simulate:
+        logger.error("Mode --simulate requis en V0. Aucune action réelle n'est autorisée.")
+        return 1
+
+    orchestrator_cfg = config.get("orchestrator", {})
+    shared_dir = orchestrator_cfg.get("shared_dir", "/tmp/ui_orchestrator")
+
+    detector = WindowDetector(config, shared_dir)
+    windows = detector.probe_windows(simulate=True)
+    matched = detector.classify(windows)
+
+    report_path = detector.write_probe_report(args.mission_id, windows, matched)
+
+    print(f"\n🔍 Probe Windows terminé : {args.mission_id}")
+    print(f"   Fenêtres détectées : {len(windows)}")
+    for role, wins in matched.items():
+        if wins:
+            print(f"   - {role}: {len(wins)}")
+    print(f"   Rapport : {report_path}")
+    return 0
+
+
 def main(argv: list = None) -> int:
     parser = argparse.ArgumentParser(
         description="luna-ui-orchestrator — V0 simulation sans clic réel.",
@@ -41,7 +67,14 @@ def main(argv: list = None) -> int:
     parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG, help="Chemin vers la config YAML")
     parser.add_argument("--simulate", action="store_true", help="Mode simulation obligatoire en V0")
     parser.add_argument("--mission-id", default="SIMULATION-001", help="ID de mission simulée")
+    parser.add_argument("--probe-windows", action="store_true", help="Détecter/classer les fenêtres Windows (simulation sur Linux)")
     args = parser.parse_args(argv)
+
+    config = load_config(args.config)
+    setup_logging(config.get("orchestrator", {}).get("log_level", "INFO"))
+
+    if args.probe_windows:
+        return run_probe_windows(config, args)
 
     config = load_config(args.config)
     setup_logging(config.get("orchestrator", {}).get("log_level", "INFO"))

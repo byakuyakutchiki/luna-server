@@ -16,15 +16,19 @@ Fournir l’ossature technique pour coordonner les fenêtres Codex/VM et le pres
 | `state_machine.py` | Machine à états obligatoire |
 | `policy.py` | Politique d’approbation simple |
 | `exchange.py` | Gestion du dossier partagé `AGENT_SHARED/ui_orchestrator/` |
-| `config/orchestrator_config.yaml` | Configuration (chemins, listes blanches/noires) |
+| `window_detector.py` | Détection/classification des fenêtres Windows (simulation sur Linux) |
+| `windows_probe.ps1` | Script PowerShell de liste des fenêtres visibles côté Windows |
+| `config/orchestrator_config.yaml` | Configuration (chemins, listes blanches/noires, patterns fenêtres) |
 | `tests/test_state_machine.py` | Tests unitaires machine à états |
 | `tests/test_policy.py` | Tests unitaires politique |
+| `tests/test_window_detector.py` | Tests unitaires détection de fenêtres |
 
 ## Utilisation
 
 ```bash
 cd /home/ludo/luna-server
 python3 tools/ui_orchestrator/ui_orchestrator.py --simulate --mission-id TEST-UI-001
+python3 tools/ui_orchestrator/ui_orchestrator.py --simulate --probe-windows --mission-id TEST-PROBE-001
 ```
 
 ## Arrêt d’urgence

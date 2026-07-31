@@ -17,6 +17,20 @@ state_machine:
     - ERROR
     - HUMAN_REVIEW_REQUIRED
 
+window_patterns:
+  codex:
+    title_regex: "(?i)(codex|vs code|visual studio code)"
+    process_regex: "(?i)(code|Code)"
+  chatgpt:
+    title_regex: "(?i)(chatgpt|openai)"
+    process_regex: "(?i)(chrome|firefox|msedge|brave)"
+  virtualbox:
+    title_regex: "(?i)(virtualbox|oracle vm)"
+    process_regex: "(?i)(virtualbox)"
+  terminal:
+    title_regex: "(?i)(kimi|terminal|bash|debian|luna-vm)"
+    process_regex: "(?i)(cmd|powershell|bash|gnome-terminal|gnome-terminal-server)"
+
 policy:
   allowed_actions:
     - git status
