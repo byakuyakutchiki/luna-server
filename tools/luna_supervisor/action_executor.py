@@ -178,6 +178,12 @@ class ActionExecutor:
         suite = params.get("suite", "python")
         if suite == "gradle":
             return self._run_gradle(["test"])
+        if suite == "guardian_p0":
+            return self._run_command(
+                ["python3", "tests/test_guardian_p0.py"],
+                cwd=self.project_path,
+                timeout=120,
+            )
         if suite == "python":
             return self._run_command(
                 ["python3", "-m", "pytest", "-q"],
