@@ -157,6 +157,15 @@ class ApprovalVision:
             return match.group(1)
         return ""
 
+    @staticmethod
+    def _is_meaningful_action(candidate: str) -> bool:
+        """Filtre les faux positifs OCR (chiffres isolés, fragments trop courts)."""
+        if len(candidate) < 3:
+            return False
+        if not any(c.isalpha() for c in candidate):
+            return False
+        return True
+
     def _extract_action_text(self, full_text: str) -> str:
         """Extrait l’action demandée du texte OCR.
 
@@ -171,7 +180,7 @@ class ApprovalVision:
         for i, line in enumerate(lines):
             if self.ACTION_PROMPTS_RE.search(line) and i + 1 < len(lines):
                 candidate = lines[i + 1]
-                if not self._detect_button_type(candidate):
+                if not self._detect_button_type(candidate) and self._is_meaningful_action(candidate):
                     return candidate
 
         # 2. Ligne de terminal $ / >
@@ -179,16 +188,17 @@ class ApprovalVision:
             m = re.match(r"^[^\w]*[\$\>\#]\s*(.+)$", line)
             if m:
                 candidate = m.group(1).strip()
-                if candidate:
+                if self._is_meaningful_action(candidate):
                     return candidate
 
-        # 3. Première ligne qui n’est ni bouton ni prompt
+        # 3. Première ligne qui n’est ni bouton ni prompt et qui a du sens
         for line in lines:
             if self._detect_button_type(line):
                 continue
             if self.ACTION_PROMPTS_RE.search(line):
                 continue
-            return line
+            if self._is_meaningful_action(line):
+                return line
 
         return ""
 
@@ -202,14 +212,29 @@ class ApprovalVision:
         detected_buttons = self.detect_buttons()
         action_text = self._extract_action_text(full_text)
 
-        approval_detected = bool(detected_buttons)
+        # Une UI d’approbation crédible nécessite au moins un bouton ET un
+        # contexte (prompt, action explicite, ou bouton explicite comme
+        # "Approve once" / "Reject"). Sinon c’est probablement un faux positif
+        # (mot isolé "approve" dans une conversation).
+        explicit_button_types = {"approve_once", "approve_session", "reject"}
+        has_explicit_button = any(
+            b.button_type in explicit_button_types for b in detected_buttons
+        )
+        # On exige un prompt d’approbation ou un bouton explicite. L’action
+        # seule ne suffit pas, car l’OCR peut extraire du code/texte voisin.
+        has_clear_context = bool(prompt_text) or has_explicit_button
+        approval_detected = bool(detected_buttons) and has_clear_context
 
         reason_parts: List[str] = []
-        if not approval_detected:
+        if not detected_buttons:
             reason_parts.append("Aucun bouton d’approbation détecté")
-        if approval_detected and not action_text:
+        elif detected_buttons and not has_clear_context:
+            reason_parts.append(
+                "Boutons trouvés mais sans contexte d’approbation clair"
+            )
+        elif approval_detected and not action_text:
             reason_parts.append("Texte d’action illisible")
-        if approval_detected and action_text:
+        elif approval_detected and action_text:
             button_types = {b.button_type for b in detected_buttons}
             reason_parts.append(
                 f"Boutons détectés : {', '.join(sorted(button_types))}"

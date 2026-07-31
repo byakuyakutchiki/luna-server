@@ -14,6 +14,7 @@ from typing import Any, Dict
 
 import yaml
 
+from analyze_capture import CaptureAnalyzer
 from approval_detector import ApprovalDetector, ApprovalRequest
 from approval_vision import ApprovalVision
 from exchange import ExchangeManager
@@ -325,6 +326,77 @@ def run_approval_vision_test(config: Dict[str, Any], args: argparse.Namespace) -
     return 0
 
 
+def run_analyze_capture(config: Dict[str, Any], args: argparse.Namespace) -> int:
+    """Analyse une capture réelle (ou simulée) et produit une décision d'approbation."""
+    logger = logging.getLogger("ui_orchestrator")
+    if not args.simulate:
+        logger.error("Mode --simulate requis en V0. Aucune action réelle n'est autorisée.")
+        return 1
+
+    image_path = args.analyze_capture
+    mission_id = args.mission_id
+
+    orchestrator_cfg = config.get("orchestrator", {})
+    shared_dir = orchestrator_cfg.get("shared_dir", "/tmp/ui_orchestrator")
+
+    exchange = ExchangeManager(shared_dir)
+    exchange.ensure_directories()
+
+    policy = Policy.from_config(config)
+    analyzer = CaptureAnalyzer(policy)
+
+    analysis = analyzer.analyze(
+        image_path=image_path,
+        mission_id=mission_id,
+        source="codex",
+        window_role="codex",
+    )
+
+    log_entry = {
+        "event": "capture_analysis",
+        "mission_id": mission_id,
+        "image_path": str(image_path),
+        "ocr_available": analysis.ocr_available,
+        "word_count": analysis.word_count,
+        "approval_detected": analysis.approval_detected,
+        "action_text": analysis.action_text,
+        "buttons": analysis.buttons,
+        "final_status": analysis.final_status,
+        "would_approve": analysis.would_approve,
+        "requires_human": analysis.requires_human,
+        "reason": analysis.reason,
+        "simulate": True,
+        "real_click": False,
+    }
+    exchange.write_log(mission_id, log_entry)
+
+    report_path = exchange.state_dir / f"capture_analysis_{mission_id}.json"
+    report_path.write_text(
+        json.dumps(analysis.to_dict(), indent=2, ensure_ascii=False),
+        encoding="utf-8",
+    )
+
+    logger.info(
+        "Capture analysis %s | ocr=%s | words=%s | approval=%s | status=%s | human=%s",
+        mission_id,
+        analysis.ocr_available,
+        analysis.word_count,
+        analysis.approval_detected,
+        analysis.final_status,
+        analysis.requires_human,
+    )
+
+    print(f"\n📸 Analyse de capture terminée : {mission_id}")
+    print(f"   Image           : {image_path}")
+    print(f"   OCR disponible  : {analysis.ocr_available}")
+    print(f"   Mots OCR        : {analysis.word_count}")
+    print(f"   Approval UI     : {analysis.approval_detected}")
+    print(f"   Statut final    : {analysis.final_status}")
+    print(f"   Raison          : {analysis.reason}")
+    print(f"   Rapport         : {report_path}")
+    return 0
+
+
 def main(argv: list = None) -> int:
     parser = argparse.ArgumentParser(
         description="luna-ui-orchestrator — V0 simulation sans clic réel.",
@@ -335,6 +407,7 @@ def main(argv: list = None) -> int:
     parser.add_argument("--probe-windows", action="store_true", help="Détecter/classer les fenêtres Windows (simulation sur Linux)")
     parser.add_argument("--approval-test", action="store_true", help="Batterie de tests de détection d'approbation simulée")
     parser.add_argument("--approval-vision-test", action="store_true", help="Batterie de détection visuelle/simulée des boutons d'approbation")
+    parser.add_argument("--analyze-capture", type=Path, help="Analyser une capture d'écran PNG/JPG (OCR optionnel)")
     args = parser.parse_args(argv)
 
     config = load_config(args.config)
@@ -348,6 +421,9 @@ def main(argv: list = None) -> int:
 
     if args.approval_vision_test:
         return run_approval_vision_test(config, args)
+
+    if args.analyze_capture:
+        return run_analyze_capture(config, args)
 
     config = load_config(args.config)
     setup_logging(config.get("orchestrator", {}).get("log_level", "INFO"))
