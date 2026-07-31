@@ -143,6 +143,11 @@ class ActionExecutor:
         edits = params.get("edits", [])
         if not isinstance(edits, list):
             raise ExecutorError("edit_files: 'edits' doit être une liste")
+        if not edits:
+            raise ExecutorError(
+                "edit_files: 'edits' est vide. Fournis une liste de remplacements exacts "
+                "avec path, old_string et new_string."
+            )
 
         results = []
         for edit in edits:

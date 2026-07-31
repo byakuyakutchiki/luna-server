@@ -21,7 +21,7 @@ Décisions possibles :
 
 Actions autorisées (requested_action.type) :
 - read_files : lire des fichiers pour analyse.
-- edit_files : modifier des fichiers sur une branche automation/*.
+- edit_files : modifier des fichiers sur une branche automation/*. Paramètres obligatoires : {"edits":[{"path":"...","old_string":"texte exact existant","new_string":"texte remplacant"}]}. Ne jamais envoyer seulement target_files/objective : cela ne modifie rien.
 - run_tests : lancer les tests unitaires.
 - build_debug : compiler l'APK debug.
 - install_debug : installer l'APK debug sur le téléphone autorisé.
