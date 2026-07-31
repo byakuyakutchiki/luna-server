@@ -87,9 +87,11 @@ class ActionExecutor:
         return {"status": "success", "message": "Aucune action demandée"}
 
     def _action_read_files(self, params: Dict[str, Any], mission_id: str, task_id: str) -> Dict[str, Any]:
-        paths = params.get("paths", [])
+        paths = params.get("paths")
+        if paths is None:
+            paths = params.get("files", [])
         if not isinstance(paths, list):
-            raise ExecutorError("read_files: 'paths' doit être une liste")
+            raise ExecutorError("read_files: paths ou files doit etre une liste")
 
         results = {}
         for p in paths:
