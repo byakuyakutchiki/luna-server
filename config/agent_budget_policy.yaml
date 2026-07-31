@@ -4,7 +4,7 @@
 
 poll_interval_seconds: 1800
 max_parallel_missions: 1
-max_iterations_per_mission: 3
+max_iterations_per_mission: 8
 max_same_error_attempts: 2
 # TEMPORAIRE — session dev 2026-07-14 : rate limit Kimi reset, quota hebdo OK.
 # Codex autorise une elevation a 24 appels Kimi/jour pour cette session uniquement.

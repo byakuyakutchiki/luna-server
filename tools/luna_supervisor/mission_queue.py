@@ -59,7 +59,7 @@ def build_mission_payload(raw: Dict[str, Any]) -> Dict[str, Any]:
         raise ValueError("objective obligatoire")
     if role not in ("operator", "auditor", "coordinator", "reviewer"):
         raise ValueError(f"role invalide: {role}")
-    if not 1 <= max_iterations <= 3:
+    if not 1 <= max_iterations <= 8:
         raise ValueError(f"max_iterations hors limites: {max_iterations}")
 
     mission_context = {
