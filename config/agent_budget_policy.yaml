@@ -7,18 +7,18 @@ max_parallel_missions: 1
 max_iterations_per_mission: 8
 max_same_error_attempts: 2
 # TEMPORAIRE — session dev 2026-07-14 : rate limit Kimi reset, quota hebdo OK.
-# Codex autorise une elevation a 24 appels Kimi/jour pour cette session uniquement.
+# Codex autorise une elevation a 30 appels Kimi/jour pour cette session uniquement.
 # A remettre a 4 apres validation de l'autonomie.
-max_total_ai_calls_per_day: 30
+max_total_ai_calls_per_day: 40
 max_total_ai_calls_per_mission: 8
 
 providers:
   kimi:
     enabled: true
-    max_calls_per_day: 24
+    max_calls_per_day: 30
     max_calls_per_mission: 8
     role: operator
-    notes: Operateur principal. Session dev temporaire avec limite elevee a 24. A revenir a 4 apres validation.
+    notes: Operateur principal. Session dev temporaire avec limite elevee a 30. A revenir a 4 apres validation.
 
   deepseek:
     enabled: true

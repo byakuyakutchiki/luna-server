@@ -91,9 +91,11 @@ class ActionExecutor:
         if paths is None:
             paths = params.get("files")
         if paths is None:
-            paths = params.get("file_paths", [])
+            paths = params.get("file_paths")
+        if paths is None:
+            paths = params.get("target_files", [])
         if not isinstance(paths, list):
-            raise ExecutorError("read_files: paths, files ou file_paths doit etre une liste")
+            raise ExecutorError("read_files: paths, files, file_paths ou target_files doit etre une liste")
 
         results = {}
         for p in paths:
