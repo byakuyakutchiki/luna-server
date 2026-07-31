@@ -1,0 +1,448 @@
+#!/usr/bin/env bash
+# luna — Interface humaine pour Luna Supervisor.
+#
+# Usage:
+#   luna "Mission en français"                 # lance une mission (1 itération par défaut)
+#   luna "Mission en français" --iterations 3  # lance une mission sur 3 itérations max
+#   luna --dry-run "Mission test"              # simule une mission en lecture seule
+#   luna --status                              # affiche l'état du superviseur
+#   luna --last-report                         # affiche le dernier rapport AGENT_SHARED
+#   luna --help                                # affiche cette aide
+#
+# Cette CLI ne remplace pas Luna Supervisor : elle orchestre luna-mission
+# (création) et python3 -m luna_supervisor run-once (exécution) pour offrir
+# une expérience en langage naturel à Ludovic. Le superviseur reste le pilote.
+
+set -euo pipefail
+
+PROJECT_PATH="/home/ludo/luna-server"
+AGENT_SHARED="/media/windows/Users/saint/Documents/Codex/AGENT_SHARED"
+DB_PATH="${PROJECT_PATH}/data/luna_missions.db"
+export PYTHONPATH="${PROJECT_PATH}/tools"
+
+# Valeurs par défaut
+ITERATIONS=1
+DRY_RUN=false
+SHOW_STATUS=false
+SHOW_LAST_REPORT=false
+MISSION_TEXT=""
+
+usage() {
+    cat <<EOF
+Usage:
+  luna "Mission en français" [--iterations N]
+  luna --dry-run "Mission test" [--iterations N]
+  luna --status
+  luna --last-report
+  luna --help
+
+Options:
+  --iterations N   Nombre maximum d'itérations (défaut : 1)
+  --dry-run        Simule une mission en lecture seule sans modifier le workspace
+  --status         Affiche l'état du superviseur, d'ADB et du budget
+  --last-report    Affiche le chemin du dernier rapport généré dans AGENT_SHARED
+  --help           Affiche cette aide
+
+Exemple :
+  luna "Vérifie l'état de Guardian et produis un rapport" --iterations 2
+EOF
+}
+
+# Affiche les garde-fous actifs en français.
+show_safeguards() {
+    echo ""
+    echo "🛡️  Garde-fous actifs"
+    echo "   • Aucun push vers le dépôt distant"
+    echo "   • Aucun déploiement sur l'infrastructure cible"
+    echo "   • Aucun SMS ou appel réel"
+    echo "   • Aucune installation APK"
+    echo "   • Aucune modification Guardian/APK/PWA sauf autorisation explicite"
+    echo "   • Aucune action destructive Git (reset, stash global, clean)"
+    echo "   • Corrections locales uniquement sur outils superviseur/CLI"
+    echo "   • Budget agent gouverné par le superviseur"
+    echo ""
+}
+
+# Génère un fichier prompt sécurisé dans AGENT_SHARED.
+generate_prompt_file() {
+    local natural_text="$1"
+    local timestamp
+    timestamp=$(date +%Y%m%d-%H%M%S)
+    local mission_file="${AGENT_SHARED}/LUNA-NATURAL-${timestamp}_PROMPT.md"
+
+    mkdir -p "${AGENT_SHARED}"
+
+    cat > "${mission_file}" <<EOF
+# Mission Luna — LUNA-NATURAL-${timestamp}
+
+## Objectif utilisateur
+
+${natural_text}
+
+## Contraintes absolues
+
+- Aucune publication vers le dépôt distant.
+- Aucune mise en ligne sur l'infrastructure cible.
+- Aucun message texte ou communication vocale réelle.
+- Aucune annulation git, aucun nettoyage forcé de l'historique, aucune destruction de fichiers.
+- Ne jamais exposer de variables sensibles, d'identifiants, de jetons d'accès ou de fichiers de configuration privés.
+- Aucune modification Guardian/APK/PWA sauf autorisation explicite.
+
+## Actions autorisées
+
+- Lecture et audit du code.
+- Lancer les tests unitaires.
+- Corrections locales ciblées sur les outils superviseur/CLI.
+- Commits locaux si les tests passent.
+- Rapport final dans AGENT_SHARED.
+
+## Livrable
+
+- AGENT_SHARED/<mission_id>_REPORT.md
+
+## Statut final attendu
+
+- needs_audit
+EOF
+
+    echo "${mission_file}"
+}
+
+# Crée une mission via le superviseur et retourne le mission_id.
+create_mission() {
+    local prompt_file="$1"
+    local max_iterations="$2"
+    local output
+    local mission_id=""
+
+    output=$(LOG_LEVEL=ERROR python3 -m luna_supervisor create \
+        --project-path "${PROJECT_PATH}" \
+        --role operator \
+        --max-iterations "${max_iterations}" \
+        --priority normal \
+        --prefix LUNA \
+        --expected-final-status needs_audit \
+        --prompt-file "${prompt_file}" 2>&1)
+
+    mission_id=$(echo "${output}" | grep '^mission_id=' | cut -d= -f2 | tr -d '[:space:]')
+
+    if [[ -z "${mission_id}" ]]; then
+        echo "❌ Échec de création de la mission." >&2
+        echo "${output}" >&2
+        return 1
+    fi
+
+    echo "${mission_id}"
+}
+
+# Extrait le dernier objet JSON d'un flux texte (gère le pretty-print).
+_extract_json() {
+    python3 -c '
+import sys, json
+text = sys.stdin.read()
+best = ""
+for i, ch in enumerate(text):
+    if ch == "{":
+        for j in range(len(text), i, -1):
+            try:
+                candidate = text[i:j]
+                json.loads(candidate)
+                if len(candidate) > len(best):
+                    best = candidate
+                break
+            except json.JSONDecodeError:
+                continue
+print(best)
+'
+}
+
+# Retourne le statut d'une mission depuis le mission_store local.
+# Format : status|iteration|max_iterations
+_get_mission_status() {
+    local mission_id="$1"
+    python3 - "${DB_PATH}" "${mission_id}" <<'PY'
+import sqlite3, sys
+db_path, mission_id = sys.argv[1], sys.argv[2]
+try:
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    row = conn.execute(
+        "SELECT status, iteration, max_iterations FROM luna_missions WHERE mission_id = ?",
+        (mission_id,),
+    ).fetchone()
+    if row:
+        print(f"{row['status']}|{row['iteration']}|{row['max_iterations']}")
+    else:
+        print("not_found")
+except Exception:
+    print("error|0|0")
+PY
+}
+
+# Exécute une itération et retourne le statut JSON.
+# Le superviseur peut retourner un exit code non nul (ex. needs_audit) :
+# on capture la sortie quand même pour analyser le JSON.
+run_once() {
+    LOG_LEVEL=ERROR python3 -m luna_supervisor run-once 2>&1 | _extract_json || true
+}
+
+# Affiche le chemin du rapport généré pour une mission.
+show_mission_report() {
+    local mission_id="$1"
+    local report_path
+
+    report_path=$(find "${AGENT_SHARED}" -maxdepth 1 -type f -name "${mission_id}_REPORT.md" 2>/dev/null | head -n 1)
+    if [[ -n "${report_path}" ]]; then
+        echo "   📄 Rapport : ${report_path}"
+        return 0
+    fi
+
+    # Fallback : dernier rapport généré.
+    report_path=$(find "${AGENT_SHARED}" -maxdepth 1 -type f -name '*_REPORT.md' -printf '%T@ %p\n' 2>/dev/null | sort -n | tail -n 1 | cut -d' ' -f2-)
+    if [[ -n "${report_path}" ]]; then
+        echo "   📄 Dernier rapport disponible : ${report_path}"
+    fi
+}
+
+# Boucle d'exécution des itérations via le superviseur.
+run_mission_iterations() {
+    local mission_id="$1"
+    local max_iterations="$2"
+    local current_iteration=0
+    local final_status=""
+    local result
+    local status_line
+
+    echo "▶️  Exécution de la mission ${mission_id}"
+    echo ""
+
+    while [[ ${current_iteration} -lt ${max_iterations} ]]; do
+        current_iteration=$((current_iteration + 1))
+        echo "   Itération ${current_iteration}/${max_iterations}..."
+
+        result=$(run_once)
+
+        if [[ -z "${result}" ]]; then
+            # Si run-once n'a rien retourné, le daemon ou un autre processus
+            # a peut-être déjà traité la mission. On vérifie dans le store local.
+            status_line=$(_get_mission_status "${mission_id}")
+            final_status=$(echo "${status_line}" | cut -d'|' -f1)
+            if is_terminal_status "${final_status}"; then
+                echo "   ✅ Mission déjà traitée par le superviseur : ${final_status}"
+                break
+            fi
+            echo "❌ Aucun résultat reçu du superviseur." >&2
+            return 1
+        fi
+
+        final_status=$(echo "${result}" | python3 -c "import sys,json; print(json.load(sys.stdin).get('status','unknown'))")
+
+        if is_terminal_status "${final_status}"; then
+            echo "   ✅ Itération ${current_iteration} terminée : ${final_status}"
+            break
+        fi
+
+        case "${final_status}" in
+            in_progress)
+                echo "   ⏳ Itération ${current_iteration} terminée : ${final_status} (poursuite automatique)"
+                ;;
+            idle)
+                # Le superviseur n'a pas trouvé de mission : peut-être déjà
+                # traitée par le daemon. Vérification du store local.
+                status_line=$(_get_mission_status "${mission_id}")
+                local db_status
+                db_status=$(echo "${status_line}" | cut -d'|' -f1)
+                if is_terminal_status "${db_status}"; then
+                    echo "   ✅ Mission déjà traitée par le daemon : ${db_status}"
+                    final_status="${db_status}"
+                    break
+                fi
+                echo "   ⚠️  Itération ${current_iteration} : aucune mission disponible (${final_status})"
+                break
+                ;;
+            locked)
+                echo "   ⚠️  Itération ${current_iteration} : superviseur verrouillé (${final_status})"
+                break
+                ;;
+            *)
+                echo "   ⚠️  Itération ${current_iteration} : statut inattendu (${final_status})"
+                break
+                ;;
+        esac
+
+        sleep 2
+    done
+
+    echo ""
+    echo "✅ Mission terminée"
+    echo "   Mission ID : ${mission_id}"
+    echo "   Statut final : ${final_status}"
+    show_mission_report "${mission_id}"
+}
+
+# Vrai si le statut est terminal.
+is_terminal_status() {
+    case "$1" in
+        needs_audit|complete|success|error|blocked|waiting_human_approval|paused_routing)
+            return 0
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+}
+
+# Lance une mission : création puis exécution itérative via le superviseur.
+run_mission() {
+    local mission_text="$1"
+    local max_iterations="$2"
+    local prompt_file
+    local mission_id
+
+    echo "🚀 Mission lancée"
+    echo "   Objectif : ${mission_text}"
+    echo "   Itérations max : ${max_iterations}"
+    show_safeguards
+
+    prompt_file=$(generate_prompt_file "${mission_text}")
+    echo "📝 Prompt préparé : ${prompt_file}"
+
+    mission_id=$(create_mission "${prompt_file}" "${max_iterations}")
+    echo "🆔 Mission créée : ${mission_id}"
+
+    run_mission_iterations "${mission_id}" "${max_iterations}"
+}
+
+# Exécute un dry-run en lecture seule.
+run_dry_run() {
+    local mission_text="$1"
+    echo "🔍 Dry-run : simulation en lecture seule"
+    echo "   Objectif : ${mission_text}"
+    show_safeguards
+
+    local result
+    result=$(LOG_LEVEL=ERROR python3 -m luna_supervisor dry-run 2>&1)
+    echo ""
+    echo "${result}"
+}
+
+# Affiche l'état du superviseur en français.
+show_status() {
+    local result
+    result=$(LOG_LEVEL=ERROR python3 -m luna_supervisor status 2>&1 | _extract_json)
+
+    if [[ -z "${result}" ]]; then
+        echo "❌ Impossible de récupérer l'état du superviseur." >&2
+        return 1
+    fi
+
+    local adb_available locked device_connected device_model
+    adb_available=$(echo "${result}" | python3 -c "import sys,json; print(json.load(sys.stdin).get('health',{}).get('adb_available',False))")
+    device_connected=$(echo "${result}" | python3 -c "import sys,json; print(json.load(sys.stdin).get('health',{}).get('device_connected',False))")
+    device_model=$(echo "${result}" | python3 -c "import sys,json; print(json.load(sys.stdin).get('health',{}).get('device_model','inconnu'))")
+    locked=$(echo "${result}" | python3 -c "import sys,json; print(json.load(sys.stdin).get('locked',False))")
+
+    echo "📊 État de Luna Supervisor"
+    echo "   ADB disponible : $([[ ${adb_available} == 'True' ]] && echo 'oui' || echo 'non')"
+    echo "   Téléphone connecté : $([[ ${device_connected} == 'True' ]] && echo 'oui' || echo 'non')"
+    echo "   Modèle : ${device_model}"
+    echo "   Verrou actif : $([[ ${locked} == 'True' ]] && echo 'oui' || echo 'non')"
+}
+
+# Affiche le chemin du dernier rapport généré.
+show_last_report() {
+    local report_path
+    report_path=$(find "${AGENT_SHARED}" -maxdepth 1 -type f -name '*_REPORT.md' -printf '%T@ %p\n' 2>/dev/null | sort -n | tail -n 1 | cut -d' ' -f2-)
+
+    if [[ -n "${report_path}" ]]; then
+        echo "📄 Dernier rapport généré : ${report_path}"
+    else
+        echo "📄 Aucun rapport trouvé dans ${AGENT_SHARED}"
+    fi
+}
+
+# Parse les arguments.
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --help|-h)
+            usage
+            exit 0
+            ;;
+        --status)
+            SHOW_STATUS=true
+            shift
+            ;;
+        --last-report)
+            SHOW_LAST_REPORT=true
+            shift
+            ;;
+        --dry-run)
+            DRY_RUN=true
+            shift
+            ;;
+        --iterations)
+            if [[ -z "${2:-}" || "${2:-}" == -* ]]; then
+                echo "❌ --iterations nécessite une valeur numérique." >&2
+                exit 1
+            fi
+            if ! [[ "${2}" =~ ^[0-9]+$ ]]; then
+                echo "❌ --iterations doit être un entier positif." >&2
+                exit 1
+            fi
+            ITERATIONS="$2"
+            shift 2
+            ;;
+        --iterations=*)
+            val="${1#*=}"
+            if ! [[ "${val}" =~ ^[0-9]+$ ]]; then
+                echo "❌ --iterations doit être un entier positif." >&2
+                exit 1
+            fi
+            ITERATIONS="${val}"
+            shift
+            ;;
+        -*)
+            echo "❌ Option inconnue : $1" >&2
+            usage >&2
+            exit 1
+            ;;
+        *)
+            if [[ -n "${MISSION_TEXT}" ]]; then
+                MISSION_TEXT="${MISSION_TEXT} $1"
+            else
+                MISSION_TEXT="$1"
+            fi
+            shift
+            ;;
+    esac
+done
+
+# Dispatch selon le mode demandé.
+if [[ "${SHOW_STATUS}" == true ]]; then
+    show_status
+    exit 0
+fi
+
+if [[ "${SHOW_LAST_REPORT}" == true ]]; then
+    show_last_report
+    exit 0
+fi
+
+if [[ "${DRY_RUN}" == true ]]; then
+    if [[ -z "${MISSION_TEXT}" ]]; then
+        echo "❌ --dry-run nécessite un texte de mission." >&2
+        usage >&2
+        exit 1
+    fi
+    run_dry_run "${MISSION_TEXT}"
+    exit 0
+fi
+
+if [[ -z "${MISSION_TEXT}" ]]; then
+    echo "❌ Aucune mission fournie." >&2
+    usage >&2
+    exit 1
+fi
+
+# Mode mission réelle.
+run_mission "${MISSION_TEXT}" "${ITERATIONS}"
