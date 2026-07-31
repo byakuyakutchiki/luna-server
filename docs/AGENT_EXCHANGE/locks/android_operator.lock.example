@@ -1,0 +1,12 @@
+{
+  "operator": "kimi1",
+  "since": "2026-07-12T10:00:00+02:00",
+  "allowed_actions": [
+    "adb install",
+    "adb shell input",
+    "adb shell am force-stop",
+    "build apk"
+  ],
+  "forbidden_to": ["codex", "kimi2"],
+  "reason": "Test Guardian vocal sur APK v3.2"
+}

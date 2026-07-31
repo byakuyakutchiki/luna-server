@@ -1,0 +1,165 @@
+{
+  "report_id": "kimi-20260712-001-guardian-speech-p1",
+  "author": "kimi",
+  "mode": "read_only_audit",
+  "timestamp": "2026-07-12T12:00:00+02:00",
+  "vm_hostname": "vbox",
+  "vm_ip": "192.168.1.45",
+  "vm_user": "ludo",
+  "git_branch": "feature/phase-a-auth-apk",
+  "git_commit": "ac432e0",
+  "device": "fr.yawatch.luna",
+  "android_device_id": "c7750037",
+  "severity": "P1",
+  "finding": "Guardian SpeechRecognizer boucle immédiatement sur NO_SPEECH_DETECTED sans backoff. Le recognizer est offline (Soda/AiAi), le micro est bien ouvert par com.google.android.as, et aucune erreur réseau n'est observée.",
+  "evidence": [
+    "SodaSpeechRecognizer: 'Offline recognizer - start listening' + locale fr-FR + applicationDomain AMBIENT_ONESHOT + aicore streaming false",
+    "Service de reco : com.google.android.as/com.google.android.apps.miphone.aiai.app.AiAiSpeechRecognitionService",
+    "Erreur récurrente : RecognitionClient #onError space agsa_transcription_NO_SPEECH_DETECTED code -1",
+    "Cycle mesuré : ~10s (start → onStartOfSpeech ~1-2s → onEndOfSpeech ~8s → NO_SPEECH_DETECTED → redémarrage immédiat)",
+    "Luna journal : VOICE_LISTENER_FAILED error=NO_MATCH suivi immédiatement de VOICE_LISTENER_STARTED, sans délai",
+    "dumpsys audio : input_device_type mobile mic, recorder_app_name com.google.android.as (pas de concurrent au moment du dump)",
+    "Ping 8.8.8.8 OK (0% perte) ; recognizer offline donc indépendant du réseau"
+  ],
+  "answers_to_questions": {
+    "speech_recognizer_mode": "OFFLINE. Le moteur est SodaSpeechRecognizer avec le locale fr-FR, domaine AMBIENT_ONESHOT, aicore streaming false. Le service est AiAiSpeechRecognitionService (com.google.android.as). Aucune requête cloud n'apparaît dans les logs.",
+    "network_errors_related_to_speech": "Aucune erreur réseau liée à la reconnaissance vocale. Le ping vers 8.8.8.8 réussit (0% perte, ~25ms moyenne). dumpsys netstats ne montre pas de session ouverte par fr.yawatch.luna ni par com.google.android.as au moment du diagnostic.",
+    "other_app_using_microphone": "Non. Au moment du diagnostic, c'est com.google.android.as qui détient l'entrée micro (input_device_type: mobile mic, recorder_app_name: com.google.android.as). Historiquement, com.instagram.android et com.whatsapp ont eu des activités audio plus tôt, mais aucune d'elles ne bloque le micro au moment de l'incident.",
+    "no_match_backoff": "Non. Il n'y a aucun backoff. Chaque échec NO_SPEECH_DETECTED détruit immédiatement le service AiAiSpeechRecognitionService (onDestroy) puis relance un nouveau listening dans la même seconde. Le cycle complet dure environ 10 secondes."
+  },
+  "sections": {
+    "audio_state": {
+      "summary": "AudioService actif, pas d'appel en cours. Aucun focus audio détenu par fr.yawatch.luna visible dans le focus stack. Le micro physique est ouvert par com.google.android.as (Soda/AiAi recognizer).",
+      "focus_stack_last_entries": [
+        "07-12 11:10:23 requestAudioFocus() com.whatsapp USAGE_VOICE_COMMUNICATION/CONTENT_TYPE_SPEECH",
+        "07-12 11:11:51 abandonAudioFocus() com.whatsapp",
+        "Depuis, seuls des focus MEDIA de com.instagram.android apparaissent (tous antérieurs au diagnostic)"
+      ],
+      "active_recorder": "input_device_type: mobile mic, recorder_app_name: com.google.android.as",
+      "stream_volumes": "STREAM_MUSIC à 140/150, haut-parleur actif. STREAM_VOICE_CALL à 4/11, oreillette."
+    },
+    "netstats_summary": {
+      "summary": "Réseau actif (WiFi SFR_52AF + mobile). Aucune session ouverte identifiable pour fr.yawatch.luna ou com.google.android.as dans les top callers récents.",
+      "active_interfaces": [
+        "wlan0 (WiFi SFR_52AF, metered=false, defaultNetwork=true)",
+        "vt_data01 (mobile, defaultNetwork=true)",
+        "rmnet_data2 / rmnet_data6 (mobile)"
+      ],
+      "top_openSession_callers": [
+        "{uid=1000,package=android}=22971",
+        "{uid=10408,package=com.facebook.stella}=7140",
+        "{uid=1000,package=com.miui.securitycenter}=438"
+      ]
+    },
+    "speech_log_tail": [
+      "07-12 11:58:11.117 32758   427 I SodaSpeechRecognizer: #handleStart",
+      "07-12 11:58:12.650 32758 27523 I RecognitionClient: #onStartOfSpeech",
+      "07-12 11:58:20.328 32758 27523 I RecognitionClient: #onEndOfSpeech",
+      "07-12 11:58:20.628 32758   427 W RecognitionClient: #onRecognitionFinished no speech - erroring",
+      "07-12 11:58:20.628 32758   427 W RecognitionClient: #onError space agsa_transcription_NO_SPEECH_DETECTED code -1!",
+      "07-12 11:58:20.628 32758   427 W RecognitionServiceImpl: Speech recognition error type NO_SPEECH_DETECTED with error code -1",
+      "07-12 11:58:20.671 32758 32758 I AiAi    : AiAiSpeechRecognitionService#onDestroy",
+      "07-12 11:58:20.873 32758 32758 I AiAi    : AiAiSpeechRecognitionService#onStartListening",
+      "07-12 11:58:20.911 32758   507 I SodaSpeechRecognizer: Offline recognizer - start listening",
+      "07-12 11:58:20.911 32758   507 I SodaSpeechRecognizer: Initialize Soda [locale: fr-FR], [applicationDomain: AMBIENT_ONESHOT], [aicore streaming: false]",
+      "07-12 11:58:22.547 32758 27523 I RecognitionClient: #onStartOfSpeech",
+      "07-12 11:58:30.536 32758   427 W RecognitionClient: #onError space agsa_transcription_NO_SPEECH_DETECTED code -1!",
+      "=> motif répété chaque ~10s sans délai entre deux cycles"
+    ],
+    "audio_log_tail": [
+      "07-12 11:58:40.857  2352  5265 D APM_AudioPolicyManager: startInput input 790 source = 6 status = 0 exit",
+      "07-12 11:58:40.861  2132 31153 D AHAL: AudioStreamCustom: Open: 1400: Setting custom key as va-mic-enroll",
+      "07-12 11:58:40.913 32758   335 D AudioTrack: stop(1204): prior state:STATE_ACTIVE",
+      "07-12 11:58:40.913 32758   418 I SodaAudioPusher: Starting to push audio to Soda",
+      "07-12 11:58:40.929  2132 31153 D android.hardware.audio.service_64: get_inputdevice_type the input device(0x80000004) type is mobile mic",
+      "07-12 11:58:40.929  2132 31153 D android.hardware.audio.service_64: send_sound_recorder_data_to_xlog: msg input_device__type: mobile mic, recorder_app_name: com.google.android.as",
+      "07-12 11:58:40.930  3299  3299 D vendor.xiaomi.hardware.mediaeventgatherservice-service: TransferEvent event = {\"name\":\"sound_recorder\",\"audio_event\":{\"input_device_type\":\"mobile mic\",\"recorder_app_name\":\"com.google.android.as\"}}",
+      "07-12 11:58:41.035  2352  3776 D AudioFlinger: noteStopAudioInNeed"
+    ],
+    "media_router_state": {
+      "summary": "MediaRouterService actif. Aucune route sélectionnée autre que default_audio_route. Aucun cast ou périphérique externe audio actif.",
+      "selected_routes": "default_audio_route pour tous les clients listés",
+      "providers": "com.google.android.gms/.cast.media.CastRemoteDisplayProviderService_Persistent (inactif)"
+    },
+    "audio_properties": {
+      "summary": "Propriétés audio du système. Services audioserver et vendor-qti-media-c2audio-hal-1-0 en cours. Logs audio debug activés.",
+      "notable_props": [
+        "[init.svc.audioserver]: [running]",
+        "[init.svc.vendor-qti-media-c2audio-hal-1-0]: [running]",
+        "[media.stagefright.audio.deep]: [true]",
+        "[aaudio.hw_burst_min_usec]: [2000]",
+        "Nombreux log.tag.*=D activés (AudioPolicy, AudioFlinger, AudioRecord, etc.)"
+      ]
+    },
+    "device_internet_test": {
+      "command": "adb shell ping -c 3 8.8.8.8",
+      "result": "3 packets transmitted, 3 received, 0% packet loss, time 2002ms",
+      "rtt": "min/avg/max/mdev = 7.029/24.776/39.054/13.302 ms"
+    },
+    "ssh_listeners": {
+      "command": "ss -tulpn | grep ':22'",
+      "result": [
+        "tcp LISTEN 0 128 0.0.0.0:22 0.0.0.0:*",
+        "tcp LISTEN 0 128 [::]:22 [::]:*"
+      ],
+      "status": "SSH actif sur IPv4 et IPv6"
+    },
+    "git_changed_files": {
+      "command": "git status --short",
+      "result": [
+        " M .gitignore",
+        " M android-app/build/apk/base.apk",
+        " M android-app/build/classes.dex",
+        " M android-app/build/compiled_res.zip",
+        " M android-app/build/gen/fr/yawatch/luna/R.java",
+        " M android-app/build/obj/fr/yawatch/luna/MainActivity$1$1.class",
+        " M android-app/build/obj/fr/yawatch/luna/MainActivity$1.class",
+        " M android-app/build/obj/fr/yawatch/luna/MainActivity$2.class",
+        " M android-app/build/obj/fr/yawatch/luna/MainActivity$3.class",
+        " M android-app/build/obj/fr/yawatch/luna/MainActivity$LunaBridge.class",
+        " M android-app/build/obj/fr/yawatch/luna/MainActivity.class",
+        " M android-app/build/obj/fr/yawatch/luna/R$drawable.class",
+        " M android-app/build/obj/fr/yawatch/luna/R$mipmap.class",
+        " M android-app/build/obj/fr/yawatch/luna/R$style.class",
+        " M android-app/build/obj/fr/yawatch/luna/R$xml.class",
+        " M android-app/build/sources.txt",
+        " M android-app/java/fr/yawatch/luna/GuardianService.java",
+        " M android-app/java/fr/yawatch/luna/MainActivity.java",
+        " M docs/AGENTS_COLLABORATION/ETAT_ACTUEL.md",
+        " M luna_web.py"
+      ],
+      "note": "Beaucoup de build artifacts modifiés (non versionnés idéalement). Les fichiers métier modifiés sont GuardianService.java, MainActivity.java, luna_web.py, ETAT_ACTUEL.md, .gitignore."
+    },
+    "luna_journal_tail": {
+      "command": "journalctl -u luna --no-pager --lines=200",
+      "summary": "Le service luna_web reçoit des heartbeats et des événements VOICE_LISTENER_FAILED/STARTED en boucle toutes les ~10s.",
+      "sample": [
+        "Jul 12 11:58:21 vbox luna-service.sh[...]: WARNING:luna_web:APK_EVENT ... event=VOICE_LISTENER_FAILED msg=SpeechRecognizer error=NO_MATCH",
+        "Jul 12 11:58:22 vbox luna-service.sh[...]: INFO:luna_web:APK_EVENT ... event=VOICE_LISTENER_STARTED msg=Démarrage SpeechRecognizer GuardianService",
+        "Jul 12 11:58:31 vbox luna-service.sh[...]: WARNING:luna_web:APK_EVENT ... event=VOICE_LISTENER_FAILED msg=SpeechRecognizer error=NO_MATCH",
+        "Jul 12 11:58:31 vbox luna-service.sh[...]: INFO:luna_web:APK_EVENT ... event=VOICE_LISTENER_STARTED msg=Démarrage SpeechRecognizer GuardianService",
+        "Jul 12 11:58:41 vbox luna-service.sh[...]: WARNING:luna_web:APK_EVENT ... event=VOICE_LISTENER_FAILED msg=SpeechRecognizer error=NO_MATCH",
+        "Jul 12 11:58:41 vbox luna-service.sh[...]: INFO:luna_web:APK_EVENT ... event=VOICE_LISTENER_STARTED msg=Démarrage SpeechRecognizer GuardianService"
+      ]
+    }
+  },
+  "errors_or_refused_commands": [],
+  "permission_errors": [],
+  "recommended_action": "Ajouter un mécanisme de backoff exponentiel côté GuardianService avant de relancer SpeechRecognizer après un NO_MATCH/NO_SPEECH_DETECTED (par exemple 1s, 2s, 4s, 8s, puis 30s). Vérifier également que le modèle de langue fr-FR offline est bien téléchargé et valide, et s'assurer que le niveau du signal micro est suffisant (test avec un volume de consigne élevé).",
+  "action_applied": false,
+  "requires_ludovic_approval": true,
+  "forbidden_actions": [
+    "adb install",
+    "adb uninstall",
+    "adb shell pm clear",
+    "adb shell am force-stop",
+    "adb reboot",
+    "adb logcat -c",
+    "git reset",
+    "git checkout -- .",
+    "git pull",
+    "git push",
+    "systemctl restart",
+    "sudo rm"
+  ]
+}

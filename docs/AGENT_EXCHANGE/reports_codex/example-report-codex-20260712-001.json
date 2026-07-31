@@ -1,0 +1,18 @@
+{
+  "report_id": "codex-20260712-001",
+  "author": "codex",
+  "mode": "read_only_audit",
+  "timestamp": "2026-07-12T10:00:00+02:00",
+  "git_commit": "ac432e0",
+  "device": "fr.yawatch.luna",
+  "severity": "P2",
+  "finding": "GuardianService.java présente des modifications non commitées sur la branche feature/phase-a-auth-apk.",
+  "evidence": [
+    "git status --short : M android-app/java/fr/yawatch/luna/GuardianService.java",
+    "git diff --stat : GuardianService.java | 12 +++++++++---"
+  ],
+  "recommended_action": "Vérifier les modifications avec Kimi 1 avant de committer. S'assurer qu'elles sont liées à l'objectif de la branche.",
+  "action_applied": false,
+  "requires_ludovic_approval": false,
+  "forbidden_actions": []
+}
