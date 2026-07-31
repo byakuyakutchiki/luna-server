@@ -1,0 +1,53 @@
+# Configuration V0 de luna-ui-orchestrator
+# Mode simulation uniquement : aucun clic, aucun envoi réel.
+
+orchestrator:
+  name: luna-ui-orchestrator
+  version: "0.1.0-simulation"
+  shared_dir: /media/windows/Users/saint/Documents/Codex/AGENT_SHARED/ui_orchestrator
+  stop_file: STOP
+  simulate: true
+  log_level: INFO
+
+state_machine:
+  initial_state: WAITING_FOR_KIMI
+  terminal_states:
+    - MISSION_VALIDATED
+    - PAUSED
+    - ERROR
+    - HUMAN_REVIEW_REQUIRED
+
+policy:
+  allowed_actions:
+    - git status
+    - git diff
+    - git log
+    - git log --oneline
+    - pytest
+    - python3 -m pytest
+    - luna --status
+    - luna --last-report
+    - luna --help
+
+  forbidden_patterns:
+    - git reset --hard
+    - git clean -fd
+    - git push origin main
+    - git push main
+    - git merge main
+    - deploy production
+    - real_sms
+    - real_call
+    - adb install
+    - adb uninstall
+    - adb reboot
+    - rm -rf /
+
+  require_human_for:
+    - sudo
+    - rm -rf
+    - git push
+    - git merge
+    - adb install
+    - deploy
+    - production
