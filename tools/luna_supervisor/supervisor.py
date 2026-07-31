@@ -648,6 +648,14 @@ class LunaAgentSupervisor:
         ctx_obj["iteration"] = iteration
         ctx_obj["source"] = "luna-supervisor-next-iteration"
         ctx_obj["auto_next"] = bool(self._get_mission_field(mission, "auto_next", False))
+        ctx_obj["last_result"] = {
+            "iteration": result.get("iteration"),
+            "status": result.get("status"),
+            "summary": result.get("summary", ""),
+            "agent_decision": result.get("agent_decision", {}),
+            "action_result": result.get("action_result", {}),
+            "git_diff": result.get("git_diff", ""),
+        }
 
         # Préserve les contraintes de la mission originale
         expected_final_status = self._get_mission_field(mission, "expected_final_status")

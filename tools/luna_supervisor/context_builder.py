@@ -153,15 +153,25 @@ class ContextBuilder:
 
     def _last_result(self, mission: Dict[str, Any]) -> Dict[str, Any]:
         history = mission.get("history", [])
-        if not history:
-            return {}
-        last = history[-1]
-        return {
-            "iteration": last.get("iteration"),
-            "status": last.get("status"),
-            "summary": last.get("summary", "")[:300],
-            "decision": last.get("decision"),
-        }
+        if history:
+            last = history[-1]
+            return {
+                "iteration": last.get("iteration"),
+                "status": last.get("status"),
+                "summary": last.get("summary", "")[:300],
+                "decision": last.get("decision"),
+            }
+
+        ctx = mission.get("mission_context_json") or "{}"
+        if isinstance(ctx, str):
+            try:
+                ctx_obj = json.loads(ctx) or {}
+            except Exception:
+                ctx_obj = {}
+        else:
+            ctx_obj = ctx or {}
+        last_result = ctx_obj.get("last_result")
+        return last_result if isinstance(last_result, dict) else {}
 
     def _what_changed(self, mission: Dict[str, Any]) -> Dict[str, Any]:
         """Compare l'etat actuel avec le dernier resultat."""
