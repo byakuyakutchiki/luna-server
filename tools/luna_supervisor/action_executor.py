@@ -193,6 +193,12 @@ class ActionExecutor:
                 cwd=self.project_path,
                 timeout=120,
             )
+        if suite == "guardian_exit_check":
+            return self._run_command(
+                ["python3", "tools/luna_supervisor/guardian_exit_check.py"],
+                cwd=self.project_path,
+                timeout=45,
+            )
         if suite == "python":
             return self._run_command(
                 ["python3", "-m", "pytest", "-q"],
