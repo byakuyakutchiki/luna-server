@@ -149,7 +149,7 @@ def _pattern_allowed(normalized_text: str, pattern: str) -> bool:
     for clause in clauses:
         if pattern_norm not in clause:
             continue
-        clause_words = set(clause.split())
+        clause_words = set(re.findall(r"[a-z0-9]+", clause))
         if clause_words & NEGATION_MARKERS:
             # La clause contient une négation/interdiction : on considère
             # l'occurrence comme une formulation de blocage.

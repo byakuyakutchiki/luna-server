@@ -121,6 +121,13 @@ def test_user_allowed_negation_phrases():
     print("TEST OK: formulations de blocage utilisateur autorisées")
 
 
+
+def test_punctuated_forbidden_constraints_are_allowed():
+    _check("Interdit: push, deploy, SMS reel, appel reel.", True)
+    _check("Contraintes absolues: aucun push/deploy/SMS/appels.", True)
+    _check("Interdit : push, deploy, reset.", True)
+    print("TEST OK: contraintes interdites ponctuees autorisées")
+
 def test_user_forbidden_positive_phrases():
     # Demandes dangereuses positives explicitement listées par l'utilisateur
     # comme devant rester bloquées.
@@ -163,6 +170,7 @@ if __name__ == "__main__":
     test_negation_other_patterns_allowed()
     test_context_separation()
     test_user_allowed_negation_phrases()
+    test_punctuated_forbidden_constraints_are_allowed()
     test_user_forbidden_positive_phrases()
     test_real_ludovic_phrase_is_allowed()
     print("\nTous les tests safety sont OK")
