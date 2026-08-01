@@ -13,7 +13,29 @@ echo "=== Build Luna Proprio APK ==="
 
 # Clean
 rm -rf "$APP_DIR/build"
-mkdir -p "$APP_DIR/build/gen" "$APP_DIR/build/obj" "$APP_DIR/build/apk"
+mkdir -p "$APP_DIR/build/gen" "$APP_DIR/build/obj" "$APP_DIR/build/apk" "$APP_DIR/build/libs"
+
+# Optional Android AAR dependencies for isolated POCs. If android-app/libs/*.aar is absent, build stays legacy.
+OPTIONAL_CLASSES=""
+OPTIONAL_CLASS_JARS=""
+OPTIONAL_JNI_DIRS=""
+if compgen -G "$APP_DIR/libs/*.aar" > /dev/null; then
+    for aar in "$APP_DIR"/libs/*.aar; do
+        [ -f "$aar" ] || continue
+        name="$(basename "$aar" .aar)"
+        out="$APP_DIR/build/aar-$name"
+        echo "[opt] AAR detected: $aar"
+        mkdir -p "$out"
+        (cd "$out" && jar xf "$aar")
+        if [ -f "$out/classes.jar" ]; then
+            OPTIONAL_CLASSES="$OPTIONAL_CLASSES:$out/classes.jar"
+            OPTIONAL_CLASS_JARS="$OPTIONAL_CLASS_JARS $out/classes.jar"
+        fi
+        if [ -d "$out/jni" ]; then
+            OPTIONAL_JNI_DIRS="$OPTIONAL_JNI_DIRS $out/jni"
+        fi
+    done
+fi
 
 # 1. Compile resources
 echo "[1/6] Compile resources..."
@@ -32,18 +54,21 @@ echo "[2/6] Link resources..."
 # 3. Compile Java
 echo "[3/6] Compile Java..."
 find "$APP_DIR/java" "$APP_DIR/build/gen" -name "*.java" > "$APP_DIR/build/sources.txt"
+JAVAC_CP="$PLATFORM$OPTIONAL_CLASSES"
 javac \
     -source 11 -target 11 \
-    -classpath "$PLATFORM" \
+    -classpath "$JAVAC_CP" \
     -d "$APP_DIR/build/obj" \
     @"$APP_DIR/build/sources.txt" 2>&1
 
 # 4. Create DEX
 echo "[4/6] Create DEX..."
+D8_INPUTS=$(find "$APP_DIR/build/obj" -name "*.class")
+if [ -n "$OPTIONAL_CLASS_JARS" ]; then D8_INPUTS="$D8_INPUTS $OPTIONAL_CLASS_JARS"; fi
 "$BUILD_TOOLS/d8" \
     --lib "$PLATFORM" \
     --output "$APP_DIR/build" \
-    $(find "$APP_DIR/build/obj" -name "*.class")
+    $D8_INPUTS
 
 # 5. Add DEX to APK
 echo "[5/6] Package APK..."
@@ -51,6 +76,17 @@ cd "$APP_DIR/build"
 cp apk/base.apk luna-unsigned.apk
 # Add classes.dex into the APK
 zip -j luna-unsigned.apk classes.dex
+if [ -n "$OPTIONAL_JNI_DIRS" ]; then
+    echo "[opt] Packaging optional native libraries..."
+    for jni_dir in $OPTIONAL_JNI_DIRS; do
+        (cd "$jni_dir" && find . -type f -name "*.so" -print | while read so; do
+            abi="$(dirname "$so" | sed 's#^./##')"
+            mkdir -p "$APP_DIR/build/apk_libs/lib/$abi"
+            cp "$so" "$APP_DIR/build/apk_libs/lib/$abi/"
+        done)
+    done
+    (cd "$APP_DIR/build/apk_libs" && zip -r "$APP_DIR/build/luna-unsigned.apk" lib >/dev/null)
+fi
 
 # Align
 zipalign -f 4 luna-unsigned.apk luna-aligned.apk

@@ -94,6 +94,8 @@ public class GuardianService extends Service {
     private int              mSRErrorCount   = 0;
     private final Handler    mHandler        = new Handler(Looper.getMainLooper());
     private Runnable         mRestartTask    = null;
+    private VoskKeywordSpotter mVoskSpotter  = null;
+    private boolean          mUsingVosk      = false;
 
     // RUNTIME-FIX-001 : suppression des bips système du SpeechRecognizer
     private AudioManager     mAudioManager   = null;
@@ -303,7 +305,8 @@ public class GuardianService extends Service {
     /** Démarre l'écoute (doit tourner sur le main thread — c'est le cas dans un Service). */
     private void startListening() {
         if (!mListenEnabled) return;
-        if (mSR != null) return;
+        if (mSR != null || mUsingVosk) return;
+        if (tryStartVoskListening()) return;
         if (!SpeechRecognizer.isRecognitionAvailable(this)) {
             sendEvent("VOICE_LISTENER_FAILED", "SpeechRecognizer non disponible");
             return;
@@ -435,10 +438,57 @@ public class GuardianService extends Service {
         }
     }
 
+    private boolean tryStartVoskListening() {
+        String availability = VoskKeywordSpotter.availabilityReason(this);
+        if (!availability.startsWith("available:")) {
+            android.util.Log.i(TAG, "VOSK_POC_UNAVAILABLE " + availability + "; fallback=SpeechRecognizer");
+            sendEvent("VOSK_POC_UNAVAILABLE", availability + "; fallback=SpeechRecognizer");
+            return false;
+        }
+        mUsingVosk = true;
+        mVoskSpotter = new VoskKeywordSpotter(this, new VoskKeywordSpotter.Listener() {
+            @Override public void onReady(String modelPath) {
+                android.util.Log.w(TAG, "VOSK_POC_READY model=" + modelPath);
+                sendEvent("VOSK_POC_READY", modelPath);
+            }
+            @Override public void onPartial(String text) {
+                android.util.Log.i(TAG, "VOSK_POC_PARTIAL " + text);
+            }
+            @Override public void onFinal(String text) {
+                android.util.Log.i(TAG, "VOSK_POC_FINAL " + text);
+                sendEvent("VOSK_POC_FINAL", text);
+            }
+            @Override public void onKeyword(String text, float confidence) {
+                android.util.Log.w(TAG, "VOSK_POC_KEYWORD " + text);
+                sendEvent("VOSK_POC_KEYWORD", text);
+                onEmergencyDetected(text, confidence);
+            }
+            @Override public void onError(String message) {
+                android.util.Log.e(TAG, "VOSK_POC_ERROR " + message);
+                sendEvent("VOSK_POC_ERROR", message);
+                mUsingVosk = false;
+                mVoskSpotter = null;
+                scheduleRestart(1000L);
+            }
+            @Override public void onStopped() {
+                android.util.Log.i(TAG, "VOSK_POC_STOPPED");
+                mUsingVosk = false;
+                mVoskSpotter = null;
+            }
+        });
+        mVoskSpotter.start();
+        return true;
+    }
+
     private void stopListening() {
         mSRListening = false;
         stopCapture();
         if (mRestartTask != null) { mHandler.removeCallbacks(mRestartTask); mRestartTask = null; }
+        if (mVoskSpotter != null) {
+            try { mVoskSpotter.stop(); } catch (Exception ignored) {}
+            mVoskSpotter = null;
+            mUsingVosk = false;
+        }
         if (mSR != null) {
             try { mSR.stopListening(); } catch (Exception ignored) {}
             try { mSR.destroy(); } catch (Exception ignored) {}

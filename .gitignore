@@ -53,3 +53,8 @@ test-results/
 .playwright-mcp/
 docs/audit_visual/
 docs/game_audit_pack.zip
+
+# Optional local Android POC binaries/models (not committed)
+android-app/libs/*.aar
+android-app/assets/vosk-model*/
+android-app/models/vosk-model*/
