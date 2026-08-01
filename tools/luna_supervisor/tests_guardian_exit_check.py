@@ -34,3 +34,22 @@ def test_action_executor_exposes_guardian_exit_check_suite():
 
     assert 'suite == "guardian_exit_check"' in source
     assert 'tools/luna_supervisor/guardian_exit_check.py' in source
+
+
+
+def test_supervisor_auto_detects_guardian_apk_missions():
+    source = (ROOT / "tools" / "luna_supervisor" / "supervisor.py").read_text(encoding="utf-8")
+
+    assert "def _mission_requires_guardian_exit_check" in source
+    assert '"guardian", "apk", "vosk", "sos"' in source
+    assert "_run_guardian_exit_check" in source
+    assert 'result["guardian_exit_check"] = guardian_exit' in source
+
+
+def test_supervisor_downgrades_final_status_when_guardian_exit_check_fails():
+    source = (ROOT / "tools" / "luna_supervisor" / "supervisor.py").read_text(encoding="utf-8")
+
+    assert 'guardian_exit.get("status") != "pass"' in source
+    assert 'result["status"] = "needs_audit"' in source
+    assert 'result["requires_human_validation"] = True' in source
+    assert "Guardian exit check failed" in source

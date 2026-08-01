@@ -883,6 +883,17 @@ class LunaAgentSupervisor:
     ) -> Optional[Path]:
         """Crée un rapport court dans AGENT_SHARED pour les statuts terminaux."""
         status = result.get("status", "")
+        if self._mission_requires_guardian_exit_check(mission) and status in ("success", "complete", "needs_audit"):
+            guardian_exit = self._run_guardian_exit_check()
+            result["guardian_exit_check"] = guardian_exit
+            if guardian_exit.get("status") != "pass":
+                result["status"] = "needs_audit"
+                result["requires_human_validation"] = True
+                errors = result.setdefault("error_summary", [])
+                if isinstance(errors, list):
+                    errors.append("Guardian exit check failed: " + ", ".join(guardian_exit.get("failures", [])))
+                status = result.get("status", "")
+
         if not self._is_terminal_status(status):
             return None
 
@@ -942,6 +953,16 @@ class LunaAgentSupervisor:
         lines.append(f"- Appels mission : {dict(mission_budget)}")
         lines.append(f"- Total journalier : {budget_status.get('total_today', 0)}")
 
+        guardian_exit = result.get("guardian_exit_check")
+        if guardian_exit:
+            lines.extend(["", "## Guardian exit check obligatoire"])
+            lines.append(f"- Statut: {guardian_exit.get('status')}")
+            lines.append(f"- Failures: {guardian_exit.get('failures', [])}")
+            lines.append(f"- Warnings: {guardian_exit.get('warnings', [])}")
+            lines.append("```json")
+            lines.append(json.dumps(guardian_exit, indent=2, ensure_ascii=False)[:4000])
+            lines.append("```")
+
         # Enrichissement automatique : etat des services, missions, budget restant
         status_report = self._collect_status_report()
         lines.extend(["", "## État des services systemd"])
@@ -988,6 +1009,45 @@ class LunaAgentSupervisor:
         except Exception as e:
             logger.warning("Impossible d'écrire le rapport AGENT_SHARED: %s", e)
             return None
+
+    def _mission_requires_guardian_exit_check(self, mission: Dict[str, Any]) -> bool:
+        """Toute mission Guardian/APK doit prouver l'état runtime final du téléphone."""
+        haystack_parts = [
+            str(mission.get("mission_id", "")),
+            str(mission.get("task_id", "")),
+            str(mission.get("objective", "")),
+            str(mission.get("description", "")),
+            str(mission.get("mission_context_json", "")),
+        ]
+        haystack = " ".join(haystack_parts).lower()
+        keywords = (
+            "guardian", "apk", "vosk", "sos", "urgence", "alerte",
+            "sms", "appel", "call", "dm", "message interne", "android",
+        )
+        return any(k in haystack for k in keywords)
+
+    def _run_guardian_exit_check(self) -> Dict[str, Any]:
+        try:
+            completed = subprocess.run(
+                ["python3", "tools/luna_supervisor/guardian_exit_check.py"],
+                cwd=str(self.project_path),
+                text=True,
+                capture_output=True,
+                timeout=45,
+            )
+            try:
+                data = json.loads(completed.stdout or "{}")
+            except Exception:
+                data = {"status": "fail", "failures": ["invalid_guardian_exit_check_json"]}
+            data["exit_code"] = completed.returncode
+            if completed.stderr:
+                data["stderr"] = completed.stderr[-1000:]
+            if completed.returncode != 0 and data.get("status") == "pass":
+                data["status"] = "fail"
+                data.setdefault("failures", []).append("non_zero_exit")
+            return data
+        except Exception as e:
+            return {"status": "fail", "failures": ["guardian_exit_check_exception"], "error": str(e)}
 
     def _extract_modified_files(self, result: Dict[str, Any]) -> Dict[str, List[str]]:
         """Extrait la liste des fichiers modifies par la mission et ceux deja sales dans le workspace."""
