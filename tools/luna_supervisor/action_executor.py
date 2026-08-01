@@ -104,6 +104,23 @@ class ActionExecutor:
         if not isinstance(paths, list):
             raise ExecutorError("read_files: paths, files, file_paths ou target_files doit etre une liste")
 
+        read_options = params.get("read_options") or {}
+        if not isinstance(read_options, dict):
+            raise ExecutorError("read_files: read_options doit etre un objet")
+
+        default_max_chars = int(self.config.get("MAX_CONTEXT_CHARACTERS", 6000))
+        requested_max_chars = read_options.get("max_chars", default_max_chars)
+        try:
+            max_chars = max(1, min(int(requested_max_chars), default_max_chars))
+        except (TypeError, ValueError):
+            raise ExecutorError("read_files: read_options.max_chars doit etre un entier")
+
+        requested_offset = read_options.get("offset", 0)
+        try:
+            offset = max(0, int(requested_offset))
+        except (TypeError, ValueError):
+            raise ExecutorError("read_files: read_options.offset doit etre un entier")
+
         results = {}
         for p in paths:
             safe_path = self._safe_path(p)
@@ -130,12 +147,29 @@ class ActionExecutor:
                         "content": "[fichier binaire non lu; utiliser le chemin comme preuve]",
                     }
                     continue
-                content = safe_path.read_text(encoding="utf-8", errors="replace")
-                # Limite la taille pour éviter de saturer le contexte
-                max_chars = int(self.config.get("MAX_CONTEXT_CHARACTERS", 6000))
-                if len(content) > max_chars:
-                    content = content[:max_chars] + f"\n\n[... tronqué, {len(content)} caractères au total]"
-                results[str(p)] = {"type": "text", "content": content, "size": size}
+                full_content = safe_path.read_text(encoding="utf-8", errors="replace")
+                content = full_content[offset:offset + max_chars]
+                end_offset = offset + len(content)
+                truncated_before = offset > 0
+                truncated_after = end_offset < len(full_content)
+                if truncated_before or truncated_after:
+                    content = (
+                        f"[extrait offset={offset}, max_chars={max_chars}, total={len(full_content)}]\n"
+                        + content
+                        + (
+                            f"\n\n[... tronqué après {end_offset} caractères lus sur {len(full_content)}]"
+                            if truncated_after else ""
+                        )
+                    )
+                results[str(p)] = {
+                    "type": "text",
+                    "content": content,
+                    "size": size,
+                    "offset": offset,
+                    "max_chars": max_chars,
+                    "truncated_before": truncated_before,
+                    "truncated_after": truncated_after,
+                }
             except Exception as e:
                 results[str(p)] = {"error": str(e)}
 
