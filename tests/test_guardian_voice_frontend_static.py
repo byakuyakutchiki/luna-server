@@ -2,23 +2,29 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-INDEX_HTML = ROOT / "static" / "index.html"
+GUARDIAN_HTML = ROOT / "static" / "guardian.html"
 
 
-def test_guardian_voice_paths_share_trigger_function():
-    html = INDEX_HTML.read_text(encoding="utf-8")
+def test_guardian_voice_paths_share_guardian_sos_endpoint():
+    html = GUARDIAN_HTML.read_text(encoding="utf-8")
 
-    assert "function guardianHandleFinalVoiceText(text, source)" in html
-    assert 'guardianHandleFinalVoiceText(text, "speech_recognition")' in html
-    assert "sendGuardianTextToLunaVoice(text);" in html
-    assert "guardianVoiceHasEmergencyKeyword" in html
-    assert ".replace(/[’`]/g, \"'\")" in html
-    assert "window.onGuardianSrFinal" not in html
-    assert "window.onGuardianVoskFinal" not in html
+    assert "window.lunaEmergencyVoiceDetected=function(text, confidence, context)" in html
+    assert "_queueVoiceEmergency(text, confidence, context" in html
+    assert "_flushPendingVoiceEmergency" in html
+    assert "openVocalCountdown()" in html
+    assert "_triggerSOSVocal" in html
+    assert "authFetch('/api/guardian/sos/'+SID" in html
+    assert "source:'vocal'" in html
+    assert "context:_voiceContext||''" in html
+    assert "transcript:_voiceTranscript||''" in html
 
 
-def test_guardian_sr_logs_are_present():
-    html = INDEX_HTML.read_text(encoding="utf-8")
+def test_guardian_sr_diagnostic_logs_are_present():
+    html = GUARDIAN_HTML.read_text(encoding="utf-8")
 
-    assert "[GUARDIAN_SR] keyword detected" in html
-    assert "[GUARDIAN_SR] forwarding to sendGuardianTextToLunaVoice" in html
+    assert "tag:'GUARDIAN_SR'" in html
+    assert "_dbgSR('emergency_received')" in html
+    assert "msg:'TRACE_'+step" in html
+    assert "_traceGuardian('vosk_received'" in html
+    assert "_traceGuardian('sos_request'" in html
+    assert "_traceGuardian('sos_response'" in html
