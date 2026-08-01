@@ -121,8 +121,9 @@ html,body { height:100%; overflow:hidden; background:var(--bg); color:var(--text
 .ev-item.ev-alert  { border-color:rgba(239,68,68,.4); }
 .ev-item.ev-ok     { border-color:rgba(16,185,129,.3); }
 .ev-time { color:var(--muted); font-size:.9em; }
-.ev-desc { margin-top:2px; line-height:1.4; }
-.ev-maps { color:var(--purple-light); font-size:.9em; margin-left:4px; }
+.ev-desc { margin-top:4px; line-height:1.35; display:flex; align-items:flex-start; gap:6px; }
+.ev-text { flex:1; min-width:0; overflow-wrap:anywhere; }
+.ev-maps { flex:0 0 auto; color:var(--purple-light); font-size:.86em; padding:3px 7px; border:1px solid rgba(167,139,250,.45); border-radius:7px; text-decoration:none; line-height:1.2; min-width:44px; text-align:center; }
 
 /* Alert history in events panel */
 .alert-log-summary { padding:10px 14px; border-top:1px solid var(--border);
@@ -2201,6 +2202,14 @@ var _evIcons={
   immobility:'🪑', walk:'🚶', perception_concern:'👁',
   fall_detected:'🫸'
 };
+function cleanGuardianEventText(text, eventType){
+  var out=String(text||eventType||'').replace(/\s+/g,' ').trim();
+  out=out.replace(/\[unk\]/gi,'').replace(/\s+/g,' ').trim();
+  out=out.replace(/^(🆘\s*)+/,'').trim();
+  out=out.replace(/^SOS\s+SOS\s+/i,'SOS ');
+  if(eventType==='location_unavailable') return 'Position temporairement indisponible. Guardian reste actif.';
+  return out || String(eventType||'Événement Guardian');
+}
 function loadEvents(){
   if(!SID) return;
   authFetch('/api/guardian/events/'+SID+'?limit=40')
@@ -2218,10 +2227,11 @@ function loadEvents(){
     list.innerHTML=evts.map(function(e){
       var icon=_evIcons[e.event_type]||'•';
       var ts=e.timestamp?e.timestamp.substring(11,16):'';
-      var maps=(e.lat&&e.lng)?'<a class="ev-maps" href="https://maps.google.com/?q='+e.lat+','+e.lng+'" target="_blank">Maps</a>':'';
+      var maps=(e.lat&&e.lng)?'<a class="ev-maps" href="https://maps.google.com/?q='+e.lat+','+e.lng+'" target="_blank" rel="noopener">Maps</a>':'';
+      var desc=cleanGuardianEventText(e.description,e.event_type);
       return '<div class="ev-item'+(isA(e.event_type)?' ev-alert':isO(e.event_type)?' ev-ok':'')+'">'
         +'<span class="ev-time">'+ts+'</span>'
-        +'<div class="ev-desc">'+icon+' '+escH(e.description||e.event_type)+maps+'</div>'
+        +'<div class="ev-desc"><span aria-hidden="true">'+icon+'</span><span class="ev-text">'+escH(desc)+'</span>'+maps+'</div>'
         +'</div>';
     }).join('');
     document.getElementById('summary-row').style.display='flex';

@@ -15565,8 +15565,7 @@ async def guardian_location(session_id: str, request: Request):
 @app.post("/api/guardian/location-denied/{session_id}")
 async def guardian_location_denied(session_id: str, request: Request):
     """
-    Signale que la geolocalisation n'est pas disponible (permission refusee,
-    origine non securisee en HTTP local, ou GPS indisponible).
+    Signale que la geolocalisation n'est temporairement pas disponible.
     La session Guardian CONTINUE : la protection vocale reste active.
     Seule la localisation est marquee comme indisponible.
     """
@@ -15577,11 +15576,11 @@ async def guardian_location_denied(session_id: str, request: Request):
     if not session:
         return JSONResponse(status_code=404, content={"error": "Session introuvable"})
 
-    # NE PLUS arreter la session : en local HTTP, navigator.geolocation echoue
-    # meme si la permission est accordee. Guardian doit rester actif.
+    # Ne pas arreter la session : l'absence temporaire de position ne doit pas
+    # desactiver Guardian.
     engine._log_event(session_id, GuardianEvent(
         event_type="location_unavailable",
-        description="Geolocalisation non disponible (HTTP local ou permission refusee). Session continue.",
+        description="Position temporairement indisponible. Guardian reste actif.",
     ))
 
     tid = getattr(request.state, "tenant_id", 1)
