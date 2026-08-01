@@ -64,7 +64,7 @@ public class GuardianService extends Service {
 
     private static final int    NOTIF_ID         = 2001;
     private static final String CHANNEL_NORMAL   = "luna_guardian";
-    private static final String CHANNEL_ALERT    = "luna_guardian_alert";
+    private static final String CHANNEL_ALERT    = "luna_guardian_alert_silent";
 
     // ── Écoute mot-clé (mêmes mots-clés que MainActivity « Guardian Voice Core ») ──
     private static final String[] EMERGENCY_KW = {
@@ -245,10 +245,11 @@ public class GuardianService extends Service {
         mgr.createNotificationChannel(normal);
 
         NotificationChannel alert = new NotificationChannel(
-            CHANNEL_ALERT, "Guardian — Alerte urgence", NotificationManager.IMPORTANCE_HIGH);
+            CHANNEL_ALERT, "Guardian — Alerte urgence", NotificationManager.IMPORTANCE_LOW);
         alert.setDescription("Alerte SOS Guardian — urgence active");
         alert.setShowBadge(true);
-        alert.enableVibration(true);
+        alert.setSound(null, null);
+        alert.enableVibration(false);
         mgr.createNotificationChannel(alert);
     }
 
