@@ -1248,6 +1248,7 @@ function guardianStart(){
     diagLog('SESSION','SID=' + SID);
     syncAuthToken();
     if(window.LunaBridge&&LunaBridge.setGuardianSession) LunaBridge.setGuardianSession(SID);
+    _flushPendingVoiceEmergency('guardianStart');
     setHdrStatus('Actif',null,true);
     document.getElementById('btn-start').style.display='none';
     document.getElementById('btn-sos').style.display='flex';
@@ -2008,12 +2009,31 @@ var _voiceTranscript='';
 var _voiceContext='';
 var _voiceCaptureActive=false;
 var _voiceCaptureTimer=null;
+var _pendingVoiceEmergency=null;
+function _queueVoiceEmergency(text, confidence, context, reason){
+  _pendingVoiceEmergency={text:(text||'').toString(), confidence:confidence||0.7, context:(context||'').toString(), reason:reason||'sid_not_ready', ts:Date.now()};
+  diagLog('VOSK','queued pending voice emergency reason=' + _pendingVoiceEmergency.reason + ' text="' + _pendingVoiceEmergency.text + '"');
+  _traceGuardian('vosk_queued',{reason:_pendingVoiceEmergency.reason, text:_pendingVoiceEmergency.text, confidence:_pendingVoiceEmergency.confidence, context:_pendingVoiceEmergency.context});
+}
+function _flushPendingVoiceEmergency(reason){
+  if(!_pendingVoiceEmergency || !SID || _sosInProgress || _vocalActive) return;
+  var p=_pendingVoiceEmergency;
+  _pendingVoiceEmergency=null;
+  diagLog('VOSK','flushing pending voice emergency reason=' + (reason||'') + ' text="' + p.text + '"');
+  _traceGuardian('vosk_flush_pending',{reason:reason||'', text:p.text, confidence:p.confidence, context:p.context});
+  setTimeout(function(){ window.lunaEmergencyVoiceDetected(p.text, p.confidence, p.context); }, 0);
+}
 window.lunaEmergencyVoiceDetected=function(text, confidence, context){
   diagLog('VOSK','ENTER window.lunaEmergencyVoiceDetected text="' + (text||'') + '" confidence=' + confidence + ' context="' + (context||'') + '"');
   diagLog('VOSK','state SID=' + SID + ' _sosInProgress=' + _sosInProgress + ' _vocalActive=' + _vocalActive);
   _dbgSR('emergency_received');
   _traceGuardian('vosk_received',{path:'lunaEmergencyVoiceDetected', text:text||'', confidence:confidence, context:context||''});
-  if(!SID){ diagLog('VOSK','BAIL no SID'); _dbgSR('bail_no_session'); _traceGuardian('vosk_bail',{reason:'no_session'}); return; }
+  if(!SID){
+    diagLog('VOSK','QUEUE no SID');
+    _dbgSR('queue_no_session');
+    _queueVoiceEmergency(text, confidence, context, 'no_session');
+    return;
+  }
   if(_sosInProgress){ diagLog('VOSK','BAIL sos in progress'); _dbgSR('bail_sos_in_progress'); _traceGuardian('vosk_bail',{reason:'sos_in_progress'}); return; }
   if(_vocalActive){ diagLog('VOSK','BAIL vocal active'); _dbgSR('bail_vocal_active'); _traceGuardian('vosk_bail',{reason:'vocal_active'}); return; }
   _voiceTranscript=(text||'').toString();
@@ -2407,6 +2427,7 @@ function toggleGuardianFriend(friend_tid,add){
       diagLog('SESSION','checkSession SID=' + SID);
       syncAuthToken();
       if(window.LunaBridge&&LunaBridge.setGuardianSession) LunaBridge.setGuardianSession(SID);
+      _flushPendingVoiceEmergency('checkSession');
       setHdrStatus('ACTIF',null,true);
       document.getElementById('btn-start').style.display='none';
       document.getElementById('btn-sos').style.display='flex';

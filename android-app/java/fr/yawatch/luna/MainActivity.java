@@ -489,7 +489,7 @@ public class MainActivity extends Activity {
                 WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON  |
                 WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED
             );
-            fireVoiceSosJs((text != null) ? text : "", conf, 4);
+            fireVoiceSosJs((text != null) ? text : "", conf, 20);
         }
     }
 
