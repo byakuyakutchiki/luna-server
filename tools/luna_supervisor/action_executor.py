@@ -17,6 +17,7 @@ from luna_runner.actions import ADBActions, ActionError, GitActions
 from luna_runner.config import load_config as load_runner_config
 from luna_runner.evidence import EvidenceCollector
 from luna_runner.runner import Runner
+from .adb_utils import resolve_android_device
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +34,7 @@ class ActionExecutor:
     def __init__(self, config: Dict[str, Any]):
         self.config = config
         self.project_path = Path(config["PROJECT_PATH"])
-        self.device_id = config.get("ANDROID_DEVICE_ID", "")
+        self.device_id, _ = resolve_android_device(config)
         self.package = config.get("ANDROID_PACKAGE", "fr.yawatch.luna")
         self.activity = config.get("ANDROID_MAIN_ACTIVITY", "fr.yawatch.luna.MainActivity")
         self.runs_dir = Path(config.get("RUNS_DIR", str(self.project_path / "runs")))
