@@ -1041,10 +1041,16 @@ function openPerm(){
 function closePerm(){ document.getElementById('perm-modal').classList.remove('open'); }
 async function grantPermissions(){
   closePerm();
+  diagLog('SESSION','grantPermissions -> guardianStart');
   // Demander uniquement les notifications ici — la caméra sera demandée quand l'utilisateur clique "Activer caméra"
   if(window.Notification&&Notification.permission==='default'){
-    try{ await Notification.requestPermission(); }catch(e){}
+    try{ await Notification.requestPermission(); }catch(e){ diagLog('SESSION','notification permission error: '+(e.message||String(e))); }
   }
+  if(SID){
+    diagLog('SESSION','grantPermissions ignored: Guardian already active SID='+SID);
+    return;
+  }
+  setTimeout(function(){ guardianStart(); }, 0);
 }
 
 // ── RGPD MODAL ────────────────────────────────
