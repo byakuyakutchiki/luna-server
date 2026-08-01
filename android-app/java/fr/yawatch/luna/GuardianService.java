@@ -80,6 +80,7 @@ public class GuardianService extends Service {
     };
     private static final long SR_COOLDOWN_MS = 15_000L;
     private static final int  SR_MAX_ERRORS  = 6;
+    private static final long VOICE_EMERGENCY_DEBOUNCE_MS = 30_000L;
 
     private static GuardianService sInstance;
 
@@ -96,6 +97,8 @@ public class GuardianService extends Service {
     private Runnable         mRestartTask    = null;
     private VoskKeywordSpotter mVoskSpotter  = null;
     private boolean          mUsingVosk      = false;
+    private long             mLastVoiceEmergencyAt = 0L;
+    private String           mLastVoiceEmergencyText = "";
 
     // RUNTIME-FIX-001 : suppression des bips système du SpeechRecognizer
     private AudioManager     mAudioManager   = null;
@@ -548,9 +551,23 @@ public class GuardianService extends Service {
 
     /** Mot-clé détecté : déclenche le SOS natif puis ouvre l'app pour l'UI/contexte. */
     private void onEmergencyDetected(String text, float confidence) {
+        String safe = (text != null) ? text.trim() : "";
+        String normalized = normalize(safe);
+        if (normalized.isEmpty()) {
+            android.util.Log.w(TAG, "VOICE_EMERGENCY_SKIPPED empty_text");
+            sendEvent("VOICE_EMERGENCY_SKIPPED", "empty_text");
+            return;
+        }
+        long now = System.currentTimeMillis();
+        if (mLastVoiceEmergencyAt > 0L && (now - mLastVoiceEmergencyAt) < VOICE_EMERGENCY_DEBOUNCE_MS) {
+            android.util.Log.w(TAG, "VOICE_EMERGENCY_DEBOUNCED previous=" + mLastVoiceEmergencyText + " text=" + safe);
+            sendEvent("VOICE_EMERGENCY_DEBOUNCED", "previous=" + mLastVoiceEmergencyText + " text=" + safe);
+            return;
+        }
+        mLastVoiceEmergencyText = normalized;
+        mLastVoiceEmergencyAt = now;
         mEmergency = true;
         pushNotification();
-        String safe = (text != null) ? text : "";
         boolean nativeWillPost = hasSavedGuardianSession();
         android.util.Log.w(TAG, "VOICE_EMERGENCY_DETECTED nativeWillPost=" + nativeWillPost + " text=" + safe);
         if (nativeWillPost) {

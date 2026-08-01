@@ -117,6 +117,19 @@ final class VoskKeywordSpotter {
         }
     }
 
+    private Object newRecognizer(Class<?> recCls, Class<?> modelCls, Object model) throws Exception {
+        String grammar = "[\"au secours\",\"à l'aide\",\"a l'aide\",\"aide moi\",\"aidez moi\",\"j'ai du mal à respirer\",\"je peux pas respirer\",\"je ne peux pas respirer\",\"appelle les secours\",\"urgence\",\"[unk]\"]";
+        try {
+            Constructor<?> grammarCtor = recCls.getConstructor(modelCls, float.class, String.class);
+            listener.onPartial("grammar_enabled");
+            return grammarCtor.newInstance(model, (float) SAMPLE_RATE, grammar);
+        } catch (NoSuchMethodException ignored) {
+            Constructor<?> recCtor = recCls.getConstructor(modelCls, float.class);
+            listener.onPartial("grammar_unavailable");
+            return recCtor.newInstance(model, (float) SAMPLE_RATE);
+        }
+    }
+
     private void runLoop(File modelDir) {
         Object model = null;
         Object recognizer = null;
@@ -124,9 +137,8 @@ final class VoskKeywordSpotter {
             Class<?> modelCls = Class.forName("org.vosk.Model");
             Class<?> recCls = Class.forName("org.vosk.Recognizer");
             Constructor<?> modelCtor = modelCls.getConstructor(String.class);
-            Constructor<?> recCtor = recCls.getConstructor(modelCls, float.class);
             model = modelCtor.newInstance(modelDir.getAbsolutePath());
-            recognizer = recCtor.newInstance(model, (float) SAMPLE_RATE);
+            recognizer = newRecognizer(recCls, modelCls, model);
             Method acceptWaveForm = recCls.getMethod("acceptWaveForm", byte[].class, int.class);
             Method getResult = recCls.getMethod("getResult");
             Method getPartialResult = recCls.getMethod("getPartialResult");
