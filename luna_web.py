@@ -16677,9 +16677,10 @@ async def guardian_live_position(token: str):
 async def guardian_voice_status(request: Request):
     """Debug : état du vocal Guardian pour ce tenant."""
     tid = getattr(request.state, "tenant_id", 1)
-    engine = _get_guardian_engine(tid)
-    sessions = engine.list_sessions() if engine else []
-    active = [s for s in sessions if s.active]
+    engine = _get_guardian()
+    session_ids = engine.get_active_sessions(tid) if engine else []
+    sessions = [engine.get_session(sid) for sid in session_ids] if engine else []
+    active = [s for s in sessions if s and getattr(s, "is_active", getattr(s, "active", False))]
     sr_supported = True  # WebView Chrome/Android ≥ 7 = supporté
     return JSONResponse({
         "sr_api": "SpeechRecognition/webkitSpeechRecognition",
