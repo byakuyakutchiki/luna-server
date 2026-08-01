@@ -140,19 +140,37 @@ _extract_json() {
     python3 -c '
 import sys, json
 text = sys.stdin.read()
-best = ""
-for i, ch in enumerate(text):
-    if ch == "{":
-        for j in range(len(text), i, -1):
+stack = []
+start = None
+last = ""
+in_string = False
+escape = False
+for idx, ch in enumerate(text):
+    if in_string:
+        if escape:
+            escape = False
+        elif ch == "\\":
+            escape = True
+        elif ch == "\"":
+            in_string = False
+        continue
+    if ch == "\"":
+        in_string = True
+    elif ch == "{":
+        if not stack:
+            start = idx
+        stack.append(ch)
+    elif ch == "}" and stack:
+        stack.pop()
+        if not stack and start is not None:
+            candidate = text[start:idx + 1]
             try:
-                candidate = text[i:j]
                 json.loads(candidate)
-                if len(candidate) > len(best):
-                    best = candidate
-                break
+                last = candidate
             except json.JSONDecodeError:
-                continue
-print(best)
+                pass
+            start = None
+print(last)
 '
 }
 
