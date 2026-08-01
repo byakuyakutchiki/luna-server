@@ -15302,6 +15302,18 @@ def _guardian_dedup(tid: int, incident_id: str, ttl: int = 30) -> bool:
     return bool(_redis_client.client.set(key, "1", nx=True, ex=ttl))
 
 
+def _guardian_source_rate_limit(tid: int, session_id: str, source: str, ttl: int = 30) -> bool:
+    """Verrou anti-boucle par session/source, avant tout SMS/DM/appel.
+    Retourne True si autorise, False si un SOS equivalent vient deja de partir.
+    """
+    if not _redis_client or not session_id:
+        return True
+    safe_session = session_id[:96].replace(":", "_")
+    safe_source = (source or "sos")[:32].replace(":", "_")
+    key = f"luna:{tid}:guardian:sos_source_lock:{safe_session}:{safe_source}"
+    return bool(_redis_client.client.set(key, "1", nx=True, ex=ttl))
+
+
 # GUARDIAN ENDPOINTS — Surveillance géolocalisée (sans caméra)
 # =========================================================================
 #
@@ -15657,6 +15669,16 @@ async def guardian_sos(session_id: str, request: Request):
     alert_desc = (base_desc + " — " + ctx_summary) if ctx_summary else base_desc
     if not _guardian_dedup(tid, incident_id):
         return JSONResponse(status_code=409, content={"error": "Alerte déjà en cours", "incident_id": incident_id})
+    if sos_source == "vocal" and not _guardian_source_rate_limit(tid, session_id, sos_source):
+        logger.warning("[GUARDIAN_SOS_RATE_LIMIT] blocked duplicate vocal SOS session=%s incident_id=%s", session_id, incident_id)
+        return JSONResponse(status_code=409, content={
+            "error": "Alerte vocale déjà envoyée récemment",
+            "incident_id": incident_id,
+            "rate_limited": True,
+            "sms_sent_to": 0,
+            "dm_sent_to": 0,
+            "calls_placed": 0,
+        })
 
     try:
         event = engine.trigger_sos(session_id, context=ctx_summary or None, incident_id=incident_id or None)

@@ -28,3 +28,21 @@ def test_guardian_service_native_vosk_route_does_not_depend_on_trigger_endpoint(
     assert "VOICE_SOS_NATIVE_POST" in service
     assert "/api/guardian/sos/" in service
     assert "VOICE_EMERGENCY_DEBOUNCED" in service
+
+
+
+def test_backend_blocks_duplicate_vocal_sos_before_triggering_alert_actions():
+    source = LUNA_WEB.read_text(encoding="utf-8")
+
+    assert "def _guardian_source_rate_limit" in source
+    assert "guardian:sos_source_lock" in source
+    assert "[GUARDIAN_SOS_RATE_LIMIT]" in source
+    assert "rate_limited" in source
+
+    rate_limit_pos = source.index('if sos_source == "vocal" and not _guardian_source_rate_limit')
+    trigger_pos = source.index("event = engine.trigger_sos", rate_limit_pos)
+    sms_pos = source.index("send_guardian_alerts", trigger_pos)
+    call_pos = source.index("_call_on = os.getenv", trigger_pos)
+
+    assert rate_limit_pos < trigger_pos < sms_pos
+    assert rate_limit_pos < trigger_pos < call_pos
