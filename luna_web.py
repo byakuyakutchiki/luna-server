@@ -15314,6 +15314,31 @@ def _guardian_source_rate_limit(tid: int, session_id: str, source: str, ttl: int
     return bool(_redis_client.client.set(key, "1", nx=True, ex=ttl))
 
 
+def _guardian_get_last_known_position(tid: int):
+    """Retourne la derniere position globale connue pour enrichir un SOS sans GPS de session."""
+    if not _redis_client:
+        return None
+    try:
+        import json as _json
+        raw = _redis_client.client.get(f"luna:{tid}:geolocation")
+        if not raw:
+            return None
+        geo = _json.loads(raw.decode() if isinstance(raw, bytes) else raw)
+        lat = geo.get("latitude") or geo.get("lat")
+        lng = geo.get("longitude") or geo.get("lng")
+        if lat is None or lng is None:
+            return None
+        from core.guardian.engine import GeoPoint
+        return GeoPoint(
+            lat=float(lat),
+            lng=float(lng),
+            accuracy=float(geo.get("accuracy") or 15.0),
+        )
+    except Exception as e:
+        logger.warning("Guardian last known position unavailable: %s", e)
+        return None
+
+
 # GUARDIAN ENDPOINTS — Surveillance géolocalisée (sans caméra)
 # =========================================================================
 #
@@ -15699,6 +15724,10 @@ async def guardian_sos(session_id: str, request: Request):
             pass
 
     pos = session.last_position if session else None
+    if not pos:
+        pos = _guardian_get_last_known_position(tid)
+        if pos:
+            logger.info("Guardian SOS using last known geolocation for session %s", session_id)
     sub = mgr.get_subscriber_profile() if mgr else None
     # PRÉNOM de la victime — obligatoire dans appel + SMS + DM (le profil expose first_name,
     # PAS 'name' qui vaut None → sinon on retombait sur un générique « Utilisateur »/« Quelqu'un »).

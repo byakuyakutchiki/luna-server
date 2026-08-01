@@ -46,3 +46,22 @@ def test_backend_blocks_duplicate_vocal_sos_before_triggering_alert_actions():
 
     assert rate_limit_pos < trigger_pos < sms_pos
     assert rate_limit_pos < trigger_pos < call_pos
+
+
+def test_backend_guardian_sos_uses_last_known_geolocation_when_session_has_no_position():
+    source = LUNA_WEB.read_text(encoding="utf-8")
+
+    assert "def _guardian_get_last_known_position" in source
+    assert "luna:{tid}:geolocation" in source
+    assert "GeoPoint(" in source
+    assert "pos = _guardian_get_last_known_position(tid)" in source
+    assert "Guardian SOS using last known geolocation" in source
+
+    fallback_pos = source.index("pos = _guardian_get_last_known_position(tid)")
+    dm_pos = source.index("send_guardian_dm_alerts", fallback_pos)
+    sms_pos = source.index("build_sms_alert_v1", fallback_pos)
+    call_pos = source.index("_call_on = os.getenv", fallback_pos)
+
+    assert fallback_pos < dm_pos
+    assert fallback_pos < sms_pos
+    assert fallback_pos < call_pos

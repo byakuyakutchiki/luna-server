@@ -16,6 +16,11 @@ from typing import Optional, List, Dict
 
 logger = logging.getLogger("luna.guardian.alerts")
 
+def _mask_phone_for_log(phone: str) -> str:
+    s = str(phone or "")
+    return s[:3] + "***" + s[-2:] if len(s) >= 6 else "***"
+
+
 _SOURCE_LABELS = {
     "sos":    "a appuyé sur le bouton SOS",
     "vocal":  "a demandé de l'aide vocalement",
@@ -226,10 +231,10 @@ def send_guardian_alerts(
             ok, details = sms_send_fn(phone, msg, label=f"Alerte Guardian → {name}")
             if isinstance(details, dict) and details.get("blocked"):
                 results["blocked"].append({"phone": phone, "name": name})
-                logger.info(f"[GUARDIAN_SMS_DISABLED] Guardian alert SMS blocked for {name} ({phone})")
+                logger.info(f"[GUARDIAN_SMS_DISABLED] Guardian alert SMS blocked for {name} ({_mask_phone_for_log(phone)})")
             elif ok:
                 results["sent"].append({"phone": phone, "name": name})
-                logger.info(f"Guardian alert SMS sent to {name} ({phone})")
+                logger.info(f"Guardian alert SMS sent to {name} ({_mask_phone_for_log(phone)})")
             else:
                 results["failed"].append({"phone": phone, "name": name, "error": str(details)})
                 logger.warning(f"Guardian alert SMS failed to {name}: {details}")
