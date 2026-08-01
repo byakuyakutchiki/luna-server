@@ -201,7 +201,9 @@ class ActionExecutor:
             except Exception as e:
                 results[path_label] = {"error": str(e)}
 
-        return {"status": "success", "files": results}
+        missing_or_error = [path for path, info in results.items() if isinstance(info, dict) and info.get("error")]
+        status = "partial_success" if missing_or_error else "success"
+        return {"status": status, "files": results, "errors": missing_or_error}
 
     def _guard_edit_files(self, params: Dict[str, Any], mission: Dict[str, Any]) -> None:
         """Vérifie que edit_files ne touche pas à des zones protégées."""

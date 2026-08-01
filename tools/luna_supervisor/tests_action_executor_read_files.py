@@ -94,3 +94,21 @@ if __name__ == "__main__":
     test_read_files_honors_offset_and_max_chars()
     test_read_files_accepts_per_file_objects()
     print("Tous les tests read_files hygiene sont OK")
+
+
+def test_read_files_reports_partial_success_when_requested_file_is_missing(tmp_path):
+    from luna_supervisor.action_executor import ActionExecutor
+
+    project = tmp_path / "project"
+    project.mkdir()
+    (project / "README.md").write_text("ok", encoding="utf-8")
+    executor = ActionExecutor({"PROJECT_PATH": str(project), "MAX_CONTEXT_CHARACTERS": 1000})
+
+    result = executor.execute({
+        "type": "read_files",
+        "parameters": {"files": ["README.md", "missing.py"]},
+    }, "TEST-MISSION", "TEST-TASK")
+
+    assert result["status"] == "partial_success"
+    assert result["errors"] == ["missing.py"]
+    assert "No such file" in result["files"]["missing.py"]["error"]
