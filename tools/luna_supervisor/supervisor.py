@@ -927,8 +927,37 @@ class LunaAgentSupervisor:
             f"- **Action exécutée** : {action_type}",
             f"- **Statut final** : {status}",
             "",
-            "## Fichiers modifiés par cette mission",
         ]
+
+        agent_decision = result.get("agent_decision") or {}
+        if agent_decision:
+            lines.extend([
+                "## Décision agent",
+                f"- Décision : {agent_decision.get('decision', 'unknown')}",
+                f"- Validation humaine demandée : {agent_decision.get('requires_human_validation', False)}",
+            ])
+            summary = str(agent_decision.get("summary") or "").strip()
+            if summary:
+                lines.append(f"- Résumé : {summary[:1200]}")
+            expected = str(agent_decision.get("expected_result") or "").strip()
+            if expected:
+                lines.append(f"- Résultat attendu : {expected[:1200]}")
+            requested = agent_decision.get("requested_action") or {}
+            if requested:
+                lines.append(f"- Action demandée : {requested.get('type', 'none')}")
+            relevant = agent_decision.get("files_relevant") or []
+            if relevant:
+                lines.append("- Fichiers pertinents :")
+                for f in relevant[:20]:
+                    lines.append(f"  - {f}")
+            lines.append("")
+
+        self._append_action_result_summary(lines, action)
+
+        lines.extend([
+            "",
+            "## Fichiers modifiés par cette mission",
+        ])
         if mission_files:
             for f in mission_files:
                 lines.append(f"- {f}")
@@ -1009,6 +1038,40 @@ class LunaAgentSupervisor:
         except Exception as e:
             logger.warning("Impossible d'écrire le rapport AGENT_SHARED: %s", e)
             return None
+
+    def _append_action_result_summary(self, lines: List[str], action: Dict[str, Any]) -> None:
+        """Ajoute une synthèse lisible du résultat d'action au rapport final."""
+        if not isinstance(action, dict) or not action:
+            return
+        lines.append("## Synthèse action exécutée")
+        lines.append(f"- Statut action : {action.get('status', 'unknown')}")
+        files = action.get("files")
+        if isinstance(files, dict):
+            lines.append("- Fichiers lus / inspectés :")
+            for path, info in list(files.items())[:30]:
+                if not isinstance(info, dict):
+                    lines.append(f"  - {path}: {str(info)[:160]}")
+                    continue
+                if info.get("error"):
+                    lines.append(f"  - {path}: erreur {info.get('error')}")
+                else:
+                    details = []
+                    if info.get("type"):
+                        details.append(f"type={info.get('type')}")
+                    if info.get("size") is not None:
+                        details.append(f"size={info.get('size')}")
+                    if info.get("entries") is not None:
+                        details.append(f"entries={len(info.get('entries') or [])}")
+                    lines.append(f"  - {path}: " + ", ".join(details))
+        action_result = action.get("result")
+        if isinstance(action_result, dict):
+            evidence_dir = action_result.get("evidence_directory")
+            if evidence_dir:
+                lines.append(f"- Evidence directory : {evidence_dir}")
+            artifacts = action_result.get("artifacts") or []
+            if artifacts:
+                lines.append("- Artifacts : " + ", ".join(map(str, artifacts[:20])))
+        lines.append("")
 
     def _mission_requires_guardian_exit_check(self, mission: Dict[str, Any]) -> bool:
         """Toute mission Guardian/APK doit prouver l'état runtime final du téléphone."""
