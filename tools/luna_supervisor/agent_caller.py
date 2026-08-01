@@ -34,7 +34,7 @@ class AgentDecision:
     VALID_DECISIONS = {"execute", "review", "audit", "complete", "blocked"}
     VALID_ACTION_TYPES = {
         "read_files", "edit_files", "run_tests", "build_debug", "install_debug",
-        "collect_adb", "commit_local", "none",
+        "collect_adb", "collect_guardian_evidence", "commit_local", "none",
     }
 
     def __init__(self, raw: Dict[str, Any], agent_name: str):

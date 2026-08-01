@@ -72,6 +72,7 @@ class ActionExecutor:
             "build_debug": self._action_build_debug,
             "install_debug": self._action_install_debug,
             "collect_adb": self._action_collect_adb,
+            "collect_guardian_evidence": self._action_collect_guardian_evidence,
             "commit_local": self._action_commit_local,
             "write_report": self._action_write_report,
         }
@@ -318,6 +319,88 @@ class ActionExecutor:
         result["android_package"] = self.package
         result["android_activity"] = self.activity
         return {"status": result.get("status", "unknown"), "result": result}
+
+    def _action_collect_guardian_evidence(self, params: Dict[str, Any], mission_id: str, task_id: str) -> Dict[str, Any]:
+        """Collecte des preuves Guardian ciblées avec commandes ADB prédéfinies."""
+        self._validate_collect_adb_params(params)
+        collector = EvidenceCollector(self.runs_dir, mission_id)
+        adb = ADBActions(self.device_id)
+        artifacts: List[str] = []
+        errors: List[str] = []
+
+        def write_artifact(name: str, content: str) -> None:
+            collector.write(name, collector.sanitize(content))
+            artifacts.append(name)
+
+        def adb_shell_artifact(name: str, command: str) -> None:
+            try:
+                write_artifact(name, adb.shell(command))
+            except ActionError as exc:
+                errors.append(f"{name}: {exc}")
+                write_artifact(name, f"ERROR: {exc}\n")
+
+        try:
+            write_artifact("adb-devices.txt", adb.devices())
+            write_artifact("adb-state.txt", adb.get_state())
+            model = adb.getprop("ro.product.model")
+            version = adb.getprop("ro.build.version.release")
+            write_artifact("device-info.txt", f"model={model}\nandroid_version={version}\n")
+        except ActionError as exc:
+            raise ExecutorError(f"collect_guardian_evidence: ADB indisponible: {exc}")
+
+        if params.get("start_app", True):
+            try:
+                adb.start_app(self.package, self.activity)
+                time.sleep(float(params.get("start_wait_seconds", 2)))
+            except ActionError as exc:
+                errors.append(f"start_app: {exc}")
+
+        adb_shell_artifact("top-activity-before.txt", "dumpsys activity top | head -120")
+        adb_shell_artifact("luna-processes-before.txt", f"ps -A | grep {self.package} || true")
+        adb_shell_artifact("luna-services-before.txt", f"dumpsys activity services {self.package}")
+        adb_shell_artifact("guardian-notifications-before.txt", "dumpsys notification --noshade | grep -A 60 -iE 'guardian|luna|sos' || true")
+        adb_shell_artifact(
+            "guardian-logcat-filtered-before.txt",
+            "logcat -d -b all -v threadtime | grep -iE 'fr\.yawatch\.luna|guardian|LunaVoice|LunaGuardian|SOS|VOICE EMERGENCY|dry.run|sms_success|call_success|internal_dm_success|native_posts|location' || true",
+        )
+
+        try:
+            screenshot_path = collector.path("screenshot-before.png")
+            adb.screencap(screenshot_path)
+            artifacts.append("screenshot-before.png")
+        except ActionError as exc:
+            errors.append(f"screenshot-before.png: {exc}")
+        try:
+            ui_path = collector.path("ui-hierarchy-before.xml")
+            adb.uiautomator_dump(ui_path)
+            artifacts.append("ui-hierarchy-before.xml")
+        except ActionError as exc:
+            errors.append(f"ui-hierarchy-before.xml: {exc}")
+
+        if params.get("close_app_check", False):
+            try:
+                adb.force_stop(self.package)
+                time.sleep(float(params.get("after_stop_wait_seconds", 2)))
+            except ActionError as exc:
+                errors.append(f"force_stop: {exc}")
+            adb_shell_artifact("luna-processes-after-stop.txt", f"ps -A | grep {self.package} || true")
+            adb_shell_artifact("luna-services-after-stop.txt", f"dumpsys activity services {self.package}")
+            adb_shell_artifact("guardian-notifications-after-stop.txt", "dumpsys notification --noshade | grep -A 60 -iE 'guardian|luna|sos' || true")
+            adb_shell_artifact(
+                "guardian-logcat-filtered-after-stop.txt",
+                "logcat -d -b all -v threadtime | grep -iE 'fr\.yawatch\.luna|guardian|LunaVoice|LunaGuardian|SOS|VOICE EMERGENCY|dry.run|foreground|mic|audio|sms_success|call_success|internal_dm_success|native_posts' || true",
+            )
+
+        result = {
+            "status": "success_with_errors" if errors else "success",
+            "evidence_directory": str(collector.base),
+            "artifacts": artifacts,
+            "errors": errors,
+            "android_package": self.package,
+            "android_activity": self.activity,
+        }
+        collector.write_json("guardian-evidence-result.json", result)
+        return {"status": result["status"], "result": result}
 
     def _validate_collect_adb_params(self, params: Dict[str, Any]) -> None:
         """Refuse les actions ADB qui ciblent un package different du package configure."""

@@ -25,11 +25,12 @@ Actions autorisées (requested_action.type) :
 - run_tests : lancer les tests unitaires.
 - build_debug : compiler l'APK debug.
 - install_debug : installer l'APK debug sur le téléphone autorisé.
-- collect_adb : collecter des preuves ADB (screenshot, logcat, UI dump, dumpsys).
+- collect_adb : collecter des preuves ADB génériques (screenshot, logcat, UI dump, dumpsys).
+- collect_guardian_evidence : collecter des preuves Guardian ciblées et filtrées (activité, service, notification, logs Guardian/SOS, état après fermeture si demandé).
 - commit_local : committer localement les modifications.
 - none : aucune action.
 
 Règle d'efficacité obligatoire :
 - Si une mission demande de tester le téléphone, Guardian, l'APK, le GPS, les contacts ou l'UI mobile, ne reste pas en lecture de fichiers au-delà de 2 itérations.
-- Après une première lecture suffisante, demande collect_adb pour produire des preuves réelles.
+- Après une première lecture suffisante, demande collect_guardian_evidence pour produire des preuves Guardian réelles et filtrées; utilise collect_adb seulement pour un diagnostic générique.
 - Si tu dois relire un gros fichier, utilise read_files avec read_options {"offset": nombre, "max_chars": nombre} au lieu de relire tout le fichier.
