@@ -16707,33 +16707,75 @@ async def guardian_voice_simulate(request: Request):
         body = await request.json()
     except Exception:
         body = {}
-    phrase = body.get("phrase", "à l'aide")
-    session_id = body.get("session_id", "")
+    phrase = (
+        body.get("phrase")
+        or body.get("transcript")
+        or body.get("keyword")
+        or body.get("last_words")
+        or "à l'aide"
+    )
+    phrase = str(phrase).strip() or "à l'aide"
+    session_id = body.get("session_id") or body.get("guardian_session_id") or ""
     dry_run = body.get("dry_run", True)
 
     engine = _get_guardian()
     session = engine.get_session(session_id) if (engine and session_id) else None
     mgr = _get_tenant_manager(tid)
     sub = mgr.get_subscriber_profile() if mgr else None
-    person_name = sub.name if sub and hasattr(sub, "name") else "Utilisateur"
+    person_name = "Utilisateur"
+    if sub:
+        _fn = (getattr(sub, "first_name", "") or "").strip()
+        _ln = (getattr(sub, "last_name", "") or "").strip()
+        person_name = _fn or (getattr(sub, "name", "") or "").strip() or (f"{_fn} {_ln}".strip()) or "Utilisateur"
     pos = session.last_position if session else None
+
+    def _float_or_none(value):
+        try:
+            if value in (None, ""):
+                return None
+            return float(value)
+        except Exception:
+            return None
+
+    lat = _float_or_none(body.get("lat"))
+    lng = _float_or_none(body.get("lng"))
+    if lat is None and pos:
+        lat = pos.lat
+    if lng is None and pos:
+        lng = pos.lng
+    if lat is None:
+        lat = 48.8566
+    if lng is None:
+        lng = 2.3522
 
     from core.guardian.alerts import build_sms_alert_v1
     sms_preview = build_sms_alert_v1(
         person_name,
-        pos.lat if pos else 48.8566,
-        pos.lng if pos else 2.3522,
+        lat,
+        lng,
+        circumstances=phrase,
+        redis_client=_redis_client,
     )
 
     from datetime import datetime as _dt, timezone as _tz
     from core.guardian.alerts import _SOURCE_LABELS
     action = _SOURCE_LABELS.get("vocal", "a demandé de l'aide vocalement")
     now_str = _dt.now(_tz.utc).strftime("%Hh%M UTC")
-    dm_preview = (
-        f"🆘 ALERTE GUARDIAN\n\n{person_name} {action}.\n\n"
-        f"📍 Position : https://maps.google.com/?q={pos.lat if pos else 48.8566},{pos.lng if pos else 2.3522}\n"
-        f"🕐 {now_str}\n\nContacte-le/la ou appelle le 15/112 si urgence.\nRéponds OUI dans ce chat si tu interviens."
-    )
+    dm_lines = [
+        "🆘 ALERTE GUARDIAN",
+        "",
+        f"{person_name} {action}.",
+        "",
+        f"Circonstances : {phrase[:220]}",
+        "",
+        f"📍 Position : https://maps.google.com/?q={lat},{lng}",
+        f"🕐 {now_str}",
+        "",
+        "Contacte-le/la ou appelle le 15/112 si urgence.",
+        "Réponds OUI dans ce chat si tu interviens.",
+    ]
+    dm_preview = "\n".join(dm_lines)
+
 
     return JSONResponse({
         "dry_run": dry_run,
