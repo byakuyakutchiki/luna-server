@@ -37,6 +37,12 @@ class ActionExecutor:
         self.package = config.get("ANDROID_PACKAGE", "fr.yawatch.luna")
         self.activity = config.get("ANDROID_MAIN_ACTIVITY", "fr.yawatch.luna.MainActivity")
         self.runs_dir = Path(config.get("RUNS_DIR", str(self.project_path / "runs")))
+        self.agent_shared_path = Path(config.get("AGENT_SHARED_PATH", "/media/windows/Users/saint/Documents/Codex/AGENT_SHARED"))
+
+    BINARY_EXTENSIONS = {
+        ".png", ".jpg", ".jpeg", ".gif", ".webp", ".apk", ".dex",
+        ".keystore", ".jks", ".so", ".zip", ".tar", ".gz", ".pdf",
+    }
 
     PROTECTED_PATH_PATTERNS = (
         "android-app/src/",
@@ -105,12 +111,31 @@ class ActionExecutor:
                 results[p] = {"error": "chemin non autorisé"}
                 continue
             try:
+                if safe_path.is_dir():
+                    entries = sorted(child.name for child in safe_path.iterdir())[:50]
+                    results[str(p)] = {
+                        "type": "directory",
+                        "entries": entries,
+                        "truncated": len(entries) >= 50,
+                    }
+                    continue
+                size = safe_path.stat().st_size
+                suffix = safe_path.suffix.lower()
+                if suffix in self.BINARY_EXTENSIONS:
+                    results[str(p)] = {
+                        "type": "binary",
+                        "path": str(safe_path),
+                        "extension": suffix,
+                        "size": size,
+                        "content": "[fichier binaire non lu; utiliser le chemin comme preuve]",
+                    }
+                    continue
                 content = safe_path.read_text(encoding="utf-8", errors="replace")
                 # Limite la taille pour éviter de saturer le contexte
                 max_chars = int(self.config.get("MAX_CONTEXT_CHARACTERS", 6000))
                 if len(content) > max_chars:
                     content = content[:max_chars] + f"\n\n[... tronqué, {len(content)} caractères au total]"
-                results[str(p)] = {"content": content, "size": safe_path.stat().st_size}
+                results[str(p)] = {"type": "text", "content": content, "size": size}
             except Exception as e:
                 results[str(p)] = {"error": str(e)}
 
@@ -334,9 +359,14 @@ class ActionExecutor:
         }
 
     def _safe_path(self, path: Any) -> Optional[Path]:
-        """Vérifie qu'un chemin reste dans le projet."""
+        """Vérifie qu'un chemin reste dans le projet ou AGENT_SHARED."""
         if path is None:
             return None
+        raw_path = str(path)
+        if raw_path == "AGENT_SHARED" or raw_path.startswith("AGENT_SHARED/"):
+            suffix = raw_path.removeprefix("AGENT_SHARED").lstrip("/")
+            return (self.agent_shared_path / suffix).resolve()
+
         p = Path(path)
         if p.is_absolute():
             resolved = p.resolve()
@@ -346,7 +376,10 @@ class ActionExecutor:
         try:
             resolved.relative_to(self.project_path)
         except ValueError:
-            return None
+            try:
+                resolved.relative_to(self.agent_shared_path.resolve())
+            except ValueError:
+                return None
         return resolved
 
     def _is_safe_branch(self) -> bool:
