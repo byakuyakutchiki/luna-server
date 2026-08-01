@@ -29,10 +29,14 @@ import android.widget.TextView;
 
 import org.json.JSONObject;
 
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.net.URLEncoder;
 import java.util.ArrayList;
+import java.util.UUID;
 
 /**
  * Guardian Foreground Service — protection système permanente.
@@ -46,6 +50,8 @@ import java.util.ArrayList;
  * être DÉMARRÉE que pendant que l'app est au premier plan.
  */
 public class GuardianService extends Service {
+
+    private static final String TAG = "LunaGuardianService";
 
     static final String ACTION_START  = "fr.yawatch.luna.GUARDIAN_START";
     static final String ACTION_STOP   = "fr.yawatch.luna.GUARDIAN_STOP";
@@ -302,6 +308,7 @@ public class GuardianService extends Service {
             sendEvent("VOICE_LISTENER_FAILED", "SpeechRecognizer non disponible");
             return;
         }
+        android.util.Log.i(TAG, "VOICE_LISTENER_STARTED");
         sendEvent("VOICE_LISTENER_STARTED", "Démarrage SpeechRecognizer GuardianService");
         suppressSystemSounds();
 
@@ -327,6 +334,7 @@ public class GuardianService extends Service {
                 else if (error == SpeechRecognizer.ERROR_RECOGNIZER_BUSY) errorName = "RECOGNIZER_BUSY";
                 else if (error == SpeechRecognizer.ERROR_NETWORK) errorName = "NETWORK";
                 else if (error == SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS) errorName = "PERMISSIONS";
+                android.util.Log.w(TAG, "VOICE_LISTENER_FAILED error=" + errorName + " capture=" + mCaptureActive);
                 sendEvent("VOICE_LISTENER_FAILED", "SpeechRecognizer error=" + errorName + " capture=" + mCaptureActive);
                 boolean fast = (error == SpeechRecognizer.ERROR_NO_MATCH
                              || error == SpeechRecognizer.ERROR_SPEECH_TIMEOUT);
@@ -338,8 +346,9 @@ public class GuardianService extends Service {
                 } else if (mSRErrorCount >= SR_MAX_ERRORS) {
                     delay = 30_000L;
                 } else if (fast) {
-                    // 3 s entre deux écoutes vides = moins de bips système (issue #32)
-                    delay = 3_000L;
+                    // Background safety: restart quickly so a distress phrase is not missed
+                    // between two one-shot SpeechRecognizer sessions. System sounds stay muted.
+                    delay = 500L;
                 } else if (busy) {
                     delay = 1_500L;
                 } else {
@@ -353,6 +362,7 @@ public class GuardianService extends Service {
                 ArrayList<String> matches = results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
                 float[] scores = results.getFloatArray(SpeechRecognizer.CONFIDENCE_SCORES);
                 String all = (matches != null) ? String.join(" | ", matches) : "(empty)";
+                android.util.Log.i(TAG, "VOICE_RESULTS " + all + " capture=" + mCaptureActive);
                 sendEvent("VOICE_RESULTS", all + " capture=" + mCaptureActive);
 
                 if (mCaptureActive) {
@@ -369,6 +379,7 @@ public class GuardianService extends Service {
                     for (int i = 0; i < matches.size(); i++) {
                         if (matchesKw(matches.get(i))) {
                             float conf = (scores != null && i < scores.length) ? scores[i] : 0.6f;
+                            android.util.Log.w(TAG, "VOICE_KEYWORD_MATCH final=" + matches.get(i));
                             startCaptureWindow(matches.get(i), conf);
                             if (mSR != null) { mSR.destroy(); mSR = null; }
                             scheduleRestart(150L);
@@ -384,6 +395,7 @@ public class GuardianService extends Service {
                 ArrayList<String> partial = partialResults.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
                 if (partial == null || partial.isEmpty()) return;
                 String joined = String.join(" ", partial);
+                android.util.Log.i(TAG, "VOICE_PARTIAL " + joined + " capture=" + mCaptureActive);
                 sendEvent("VOICE_PARTIAL", joined + " capture=" + mCaptureActive);
 
                 if (mCaptureActive) {
@@ -393,6 +405,7 @@ public class GuardianService extends Service {
 
                 for (String text : partial) {
                     if (matchesKw(text)) {
+                        android.util.Log.w(TAG, "VOICE_KEYWORD_MATCH partial=" + text);
                         startCaptureWindow(text, 0.7f);
                         // On continue à écouter : les résultats partiels suivants enrichiront le contexte.
                         return;
@@ -404,13 +417,15 @@ public class GuardianService extends Service {
         });
 
         Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
-        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_WEB_SEARCH);
+        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
         intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, "fr-FR");
         intent.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 5);
         intent.putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true);
-        // Sessions longues = moins de redémarrages = moins de bips système.
-        intent.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 30_000L);
-        intent.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 15_000L);
+        // Sessions plus tolérantes : laisser le temps à la phrase de détresse d'arriver
+        // même si l'utilisateur parle juste après le redémarrage du recognizer.
+        intent.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS, 8_000L);
+        intent.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 10_000L);
+        intent.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 5_000L);
 
         try {
             mSR.startListening(intent);
@@ -450,12 +465,14 @@ public class GuardianService extends Service {
             mCaptureBuffer.append(initialText);
         }
         mCaptureConfidence = confidence;
+        android.util.Log.w(TAG, "VOICE_CAPTURE_START text=" + initialText);
         sendEvent("VOICE_CAPTURE_START", "text=" + initialText);
         if (mCaptureEndTask != null) mCaptureHandler.removeCallbacks(mCaptureEndTask);
         mCaptureEndTask = () -> {
             mCaptureActive = false;
             mCaptureEndTask = null;
             String full = mCaptureBuffer.toString().trim();
+            android.util.Log.w(TAG, "VOICE_CAPTURE_END full=" + full);
             sendEvent("VOICE_CAPTURE_END", "full=" + full);
             onEmergencyDetected(full.isEmpty() ? initialText : full, mCaptureConfidence);
             if (mSR != null) { try { mSR.stopListening(); } catch (Exception ignored) {} }
@@ -479,16 +496,97 @@ public class GuardianService extends Service {
         mCaptureBuffer.setLength(0);
     }
 
-    /** Mot-clé détecté : ouvre l'app avec le flag SOS vocal → le JS déclenche le SOS YAWATCH. */
+    /** Mot-clé détecté : déclenche le SOS natif puis ouvre l'app pour l'UI/contexte. */
     private void onEmergencyDetected(String text, float confidence) {
         mEmergency = true;
         pushNotification();
         String safe = (text != null) ? text : "";
+        boolean nativeWillPost = hasSavedGuardianSession();
+        android.util.Log.w(TAG, "VOICE_EMERGENCY_DETECTED nativeWillPost=" + nativeWillPost + " text=" + safe);
+        if (nativeWillPost) {
+            triggerNativeVoiceSos(safe, confidence);
+        }
         Intent launch = new Intent(this, MainActivity.class);
         launch.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP);
-        launch.putExtra("guardian_voice_sos", safe);
-        launch.putExtra("guardian_voice_conf", confidence);
+        if (!nativeWillPost) {
+            // Fallback legacy: no persisted SID, let the WebView try once it opens.
+            launch.putExtra("guardian_voice_sos", safe);
+            launch.putExtra("guardian_voice_conf", confidence);
+        }
         try { startActivity(launch); } catch (Exception ignored) {}
+    }
+
+    private boolean hasSavedGuardianSession() {
+        try {
+            String sid = getSharedPreferences("guardian", MODE_PRIVATE).getString("guardian_session_id", "");
+            return sid != null && !sid.trim().isEmpty();
+        } catch (Exception ignored) {
+            return false;
+        }
+    }
+
+    /**
+     * P0 safety: when Guardian runs in background, do not depend on WebView startup
+     * to fire the emergency. The JS path still runs after the app opens, but the
+     * native service posts the SOS immediately using the last session saved by JS.
+     */
+    private void triggerNativeVoiceSos(String text, float confidence) {
+        new Thread(() -> {
+            try {
+                android.content.SharedPreferences sp = getSharedPreferences("guardian", MODE_PRIVATE);
+                String sid = sp.getString("guardian_session_id", "");
+                if (sid == null || sid.trim().isEmpty()) {
+                    android.util.Log.e(TAG, "VOICE_SOS_NATIVE_SKIPPED missing_guardian_session_id text=" + text);
+                    sendEvent("VOICE_SOS_NATIVE_SKIPPED", "missing_guardian_session_id text=" + text);
+                    return;
+                }
+
+                String incidentId = "apk_voice_" + System.currentTimeMillis() + "_" + UUID.randomUUID().toString().substring(0, 8);
+                JSONObject json = new JSONObject();
+                json.put("incident_id", incidentId);
+                json.put("source", "vocal");
+                json.put("context", text != null ? text : "");
+                json.put("transcript", text != null ? text : "");
+                json.put("confidence", confidence);
+                json.put("client", "GuardianService");
+
+                String safeSid = URLEncoder.encode(sid, "UTF-8");
+                URL url = new URL(BACKEND_BASE_URL + "/api/guardian/sos/" + safeSid);
+                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                conn.setRequestMethod("POST");
+                conn.setRequestProperty("Content-Type", "application/json");
+                conn.setRequestProperty("User-Agent", "LunaApp/GuardianService Android/" + Build.VERSION.RELEASE);
+                String token = sp.getString("auth_token", "");
+                if (token != null && !token.isEmpty()) {
+                    conn.setRequestProperty("Authorization", "Bearer " + token);
+                }
+                conn.setDoOutput(true);
+                conn.setConnectTimeout(6000);
+                conn.setReadTimeout(8000);
+                OutputStream out = conn.getOutputStream();
+                out.write(json.toString().getBytes("UTF-8"));
+                out.close();
+
+                int code = conn.getResponseCode();
+                BufferedReader reader = null;
+                try {
+                    reader = new BufferedReader(new InputStreamReader(
+                        code >= 200 && code < 400 ? conn.getInputStream() : conn.getErrorStream()
+                    ));
+                    StringBuilder body = new StringBuilder();
+                    String line;
+                    while ((line = reader.readLine()) != null && body.length() < 500) body.append(line);
+                    android.util.Log.w(TAG, "VOICE_SOS_NATIVE_POST status=" + code + " sid=" + sid + " body=" + body.toString());
+                    sendEvent("VOICE_SOS_NATIVE_POST", "status=" + code + " sid=" + sid + " body=" + body.toString());
+                } finally {
+                    if (reader != null) try { reader.close(); } catch (Exception ignored) {}
+                    conn.disconnect();
+                }
+            } catch (Exception e) {
+                android.util.Log.e(TAG, "VOICE_SOS_NATIVE_FAILED " + e.getClass().getSimpleName() + ": " + e.getMessage());
+                sendEvent("VOICE_SOS_NATIVE_FAILED", e.getClass().getSimpleName() + ": " + e.getMessage());
+            }
+        }).start();
     }
 
     // ───────────────────────── BULLE OVERLAY ─────────────────────────
@@ -594,9 +692,11 @@ public class GuardianService extends Service {
                 OutputStream out = conn.getOutputStream();
                 out.write(json.toString().getBytes("UTF-8"));
                 out.close();
+                int code = conn.getResponseCode();
+                android.util.Log.i(TAG, "sendEvent " + eventType + " status=" + code);
                 conn.getInputStream().close();
                 conn.disconnect();
-            } catch (Exception ignored) {}
+            } catch (Exception e) { android.util.Log.w(TAG, "sendEvent failed " + eventType + ": " + e.getClass().getSimpleName() + ": " + e.getMessage()); }
         }).start();
     }
 }

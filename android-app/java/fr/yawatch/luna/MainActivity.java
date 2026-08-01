@@ -763,18 +763,29 @@ public class MainActivity extends Activity {
         @JavascriptInterface
         public void setAuthToken(String token) {
             authToken = (token != null) ? token : "";
+            getSharedPreferences("guardian", Context.MODE_PRIVATE).edit()
+                .putString("auth_token", authToken)
+                .apply();
         }
 
         /** Appelé par le JS quand Guardian démarre — mémorise la session. */
         @JavascriptInterface
         public void setGuardianSession(String sessionId) {
             guardianSessionId = (sessionId != null && !sessionId.isEmpty()) ? sessionId : null;
+            lastGuardianSessionId = (guardianSessionId != null) ? guardianSessionId : lastGuardianSessionId;
+            SharedPreferences.Editor editor = getSharedPreferences("guardian", Context.MODE_PRIVATE).edit();
+            if (guardianSessionId != null) editor.putString("guardian_session_id", guardianSessionId);
+            else editor.remove("guardian_session_id");
+            editor.apply();
         }
 
         /** Appelé par le JS quand Guardian s'arrête — désactive la détection. */
         @JavascriptInterface
         public void clearGuardianSession() {
             guardianSessionId = null;
+            getSharedPreferences("guardian", Context.MODE_PRIVATE).edit()
+                .remove("guardian_session_id")
+                .apply();
         }
 
         /** Met à jour la position GPS utilisée lors de l'envoi d'alerte. */
