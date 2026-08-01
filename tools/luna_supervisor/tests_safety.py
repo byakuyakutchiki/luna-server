@@ -128,6 +128,13 @@ def test_punctuated_forbidden_constraints_are_allowed():
     _check("Interdit : push, deploy, reset.", True)
     print("TEST OK: contraintes interdites ponctuees autorisées")
 
+
+def test_forbidden_words_do_not_match_inside_safe_words():
+    _check("Verifier les logs VOICE EMERGENCY et le backend Guardian.", True)
+    _check("Analyse emergency fire en dry-run sans SMS reel.", True)
+    _check("Le service manager ne doit pas etre confondu avec merge.", True)
+    print("TEST OK: mots interdits non detectes dans mots sûrs")
+
 def test_user_forbidden_positive_phrases():
     # Demandes dangereuses positives explicitement listées par l'utilisateur
     # comme devant rester bloquées.
@@ -171,6 +178,7 @@ if __name__ == "__main__":
     test_context_separation()
     test_user_allowed_negation_phrases()
     test_punctuated_forbidden_constraints_are_allowed()
+    test_forbidden_words_do_not_match_inside_safe_words()
     test_user_forbidden_positive_phrases()
     test_real_ludovic_phrase_is_allowed()
     print("\nTous les tests safety sont OK")

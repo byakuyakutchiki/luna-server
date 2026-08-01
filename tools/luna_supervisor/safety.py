@@ -139,7 +139,8 @@ def _pattern_allowed(normalized_text: str, pattern: str) -> bool:
     autorisée si la clause contient un marqueur de négation/interdiction.
     """
     pattern_norm = _normalize(pattern)
-    if pattern_norm not in normalized_text:
+    pattern_re = re.compile(r"(?<![a-z0-9])" + re.escape(pattern_norm) + r"(?![a-z0-9])")
+    if not pattern_re.search(normalized_text):
         return True
 
     # Découpe en clauses pour ne pas mélanger les contextes.
@@ -147,7 +148,7 @@ def _pattern_allowed(normalized_text: str, pattern: str) -> bool:
     # pour éviter de couper des tokens comme ".env".
     clauses = re.split(r"[.!?;\n]+(?:\s+|$)", normalized_text)
     for clause in clauses:
-        if pattern_norm not in clause:
+        if not pattern_re.search(clause):
             continue
         clause_words = set(re.findall(r"[a-z0-9]+", clause))
         if clause_words & NEGATION_MARKERS:
