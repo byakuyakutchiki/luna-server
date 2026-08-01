@@ -238,6 +238,8 @@ class KimiCaller(AgentCaller):
             f"=== CONTEXTE ===\n{context}\n\n"
             f"=== INSTRUCTIONS ===\n"
             "Tu ne dois PAS modifier directement de fichiers ni exécuter de commandes. "
+            "Pour Android/ADB, utilise uniquement adb.android_package et adb.android_main_activity du contexte; "
+            "si ces champs manquent, demande collect_adb sans inventer de package. "
             "Tu dois analyser le contexte et retourner UNIQUEMENT un JSON valide au format suivant:\n\n"
             "{\"summary\": \"résumé de l'analyse\", "
             "\"decision\": \"execute|review|audit|complete|blocked\", "

@@ -291,6 +291,9 @@ def cmd_create(args: argparse.Namespace) -> int:
     mission_id = result.get("mission_id", payload["mission_id"])
     print(f"mission_id={mission_id}")
     print(f"status={status}")
+    if str(status).lower() != "queued":
+        detail = result.get("error") or result.get("message") or result.get("reason") or result.get("_raw") or result
+        print(f"detail={json.dumps(detail, ensure_ascii=False)[:1000]}", file=sys.stderr)
     return 0 if str(status).lower() == "queued" else 1
 
 

@@ -121,6 +121,9 @@ class ContextBuilder:
                 "android_version": adb.getprop("ro.build.version.release"),
                 "state": adb.get_state(),
                 "devices": devices_output,
+                "android_package": self.config.get("ANDROID_PACKAGE", "fr.yawatch.luna"),
+                "android_main_activity": self.config.get("ANDROID_MAIN_ACTIVITY", "fr.yawatch.luna.MainActivity"),
+                "package_guardrail": "Toute action ADB doit utiliser android_package. Ne jamais inventer un package.",
             }
         except Exception as e:
             return {

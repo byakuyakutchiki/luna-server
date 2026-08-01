@@ -14,6 +14,11 @@ from typing import Any, Dict, Optional
 
 import requests
 
+try:
+    import yaml
+except Exception:  # pragma: no cover
+    yaml = None
+
 DEFAULT_MISSION_DIR = "runs/missions"
 DEFAULT_WEBHOOK_PATH = "/webhook/luna-mission-create"
 
@@ -46,6 +51,36 @@ def _base_url_from_next_job() -> str:
     return ""
 
 
+def _budget_limits_from_policy() -> Dict[str, int]:
+    """Expose les limites IA reelles dans le contexte de mission envoye a n8n."""
+    fallback = {
+        "kimi_per_day": 4,
+        "deepseek_per_day": 1,
+        "review_per_day": 1,
+        "codex_per_day": 0,
+        "total_per_day": 6,
+    }
+    policy_path = Path(__file__).resolve().parents[2] / "config" / "agent_budget_policy.yaml"
+    if yaml is None or not policy_path.exists():
+        return fallback
+    try:
+        policy = yaml.safe_load(policy_path.read_text(encoding="utf-8")) or {}
+        providers = policy.get("providers", {})
+
+        def daily(provider: str, default: int) -> int:
+            return int(providers.get(provider, {}).get("max_calls_per_day", default))
+
+        return {
+            "kimi_per_day": daily("kimi", fallback["kimi_per_day"]),
+            "deepseek_per_day": daily("deepseek", fallback["deepseek_per_day"]),
+            "review_per_day": daily("review", fallback["review_per_day"]),
+            "codex_per_day": daily("codex", fallback["codex_per_day"]),
+            "total_per_day": int(policy.get("max_total_ai_calls_per_day", fallback["total_per_day"])),
+        }
+    except Exception:
+        return fallback
+
+
 def build_mission_payload(raw: Dict[str, Any]) -> Dict[str, Any]:
     """Construit le payload attendu par le workflow Luna Mission Create."""
     mission_id = raw.get("mission_id", "")
@@ -71,13 +106,7 @@ def build_mission_payload(raw: Dict[str, Any]) -> Dict[str, Any]:
         "guardian_anti_regression": True,
         "charte_produit": "config/luna_mission_charter.yaml",
         "auto_next": bool(raw.get("auto_next", False)),
-        "budget_limits": {
-            "kimi_per_day": 4,
-            "deepseek_per_day": 1,
-            "review_per_day": 1,
-            "codex_per_day": 0,
-            "total_per_day": 6,
-        },
+        "budget_limits": _budget_limits_from_policy(),
         "forbidden_actions": raw.get(
             "forbidden_actions",
             [

@@ -5,6 +5,7 @@ fonction Python prédéfinie avec validation stricte des paramètres.
 """
 
 import json
+import re
 import logging
 import shutil
 import subprocess
@@ -225,9 +226,34 @@ class ActionExecutor:
         return {"status": "success", "apk": str(safe_apk), "output": out}
 
     def _action_collect_adb(self, params: Dict[str, Any], mission_id: str, task_id: str) -> Dict[str, Any]:
+        self._validate_collect_adb_params(params)
         runner = Runner(self.config)
         result = runner.execute_diagnostic(mission_id, task_id)
+        result["requested_phase"] = params.get("phase") or params.get("objective") or "diagnostic"
+        result["android_package"] = self.package
+        result["android_activity"] = self.activity
         return {"status": result.get("status", "unknown"), "result": result}
+
+    def _validate_collect_adb_params(self, params: Dict[str, Any]) -> None:
+        """Refuse les actions ADB qui ciblent un package different du package configure."""
+        text = json.dumps(params, ensure_ascii=False)
+        known_wrong = ("fr.luna.guardian", "com.luna.guardian")
+        for wrong in known_wrong:
+            if wrong in text:
+                raise ExecutorError(
+                    f"collect_adb refusé: package Android invalide '{wrong}'. "
+                    f"Package réel configuré: '{self.package}'."
+                )
+        package_like = re.findall(r"(?:[a-zA-Z_][\w-]*\.){2,}[a-zA-Z_][\w-]*", text)
+        for candidate in package_like:
+            if candidate.startswith(("android.", "java.", "kotlin.", "com.android.")):
+                continue
+            if candidate not in (self.package, self.activity):
+                if candidate.endswith(".MainActivity") and candidate != self.activity:
+                    raise ExecutorError(
+                        f"collect_adb refusé: activité Android invalide '{candidate}'. "
+                        f"Activité réelle configurée: '{self.activity}'."
+                    )
 
     def _action_commit_local(self, params: Dict[str, Any], mission_id: str, task_id: str) -> Dict[str, Any]:
         if not self._is_safe_branch():

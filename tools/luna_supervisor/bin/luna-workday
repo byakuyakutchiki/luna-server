@@ -1,0 +1,94 @@
+#!/usr/bin/env bash
+# luna-workday — Lance une mission autonome Luna depuis un fichier prompt ou un texte naturel.
+#
+# Usage:
+#   luna-workday <fichier_prompt.md>         # fichier prompt existant
+#   luna-workday --prompt-file fichier.md    # idem, explicite
+#   luna-workday "texte libre de mission"    # génère un fichier prompt sécurisé puis soumet
+#
+# Le prompt est validé côté client (safety) puis soumis au superviseur Luna/n8n.
+# Le superviseur applique : routing multi-agent, budget, auto-approve safe,
+# auto-block dangerous, rapport AGENT_SHARED, traçabilité.
+# Par défaut, une mission workday produit un rapport puis s'arrête en needs_audit
+# (pas de planification automatique de mission suivante).
+
+set -euo pipefail
+
+PROJECT_PATH="/home/ludo/luna-server"
+AGENT_SHARED="/media/windows/Users/saint/Documents/Codex/AGENT_SHARED"
+
+usage() {
+    echo "Usage: luna-workday <fichier_prompt.md | --prompt-file fichier.md | \"texte libre\"> [options luna-mission]" >&2
+    exit 1
+}
+
+if [ $# -lt 1 ]; then
+    usage
+fi
+
+# Détermine la source du prompt
+if [ "$1" == "--prompt-file" ]; then
+    if [ $# -lt 2 ]; then
+        usage
+    fi
+    PROMPT_FILE="$2"
+    shift 2
+elif [ -f "$1" ]; then
+    PROMPT_FILE="$1"
+    shift
+else
+    # Texte libre : génère un fichier prompt sécurisé dans AGENT_SHARED
+    NATURAL_TEXT="$1"
+    shift
+
+    TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+    MISSION_FILE="${AGENT_SHARED}/WORKDAY-NATURAL-${TIMESTAMP}_PROMPT.md"
+
+    mkdir -p "${AGENT_SHARED}"
+
+    cat > "${MISSION_FILE}" <<EOF
+# Mission Luna autonome — WORKDAY-NATURAL-${TIMESTAMP}
+
+## Objectif utilisateur
+
+${NATURAL_TEXT}
+
+## Contraintes absolues
+
+- Aucune publication vers le dépôt distant.
+- Aucune mise en ligne sur l'infrastructure cible.
+- Aucun message texte ou communication vocale réelle.
+- Aucune annulation git, aucun nettoyage forcé de l'historique, aucune destruction de fichiers.
+- Ne jamais exposer de variables sensibles, d'identifiants, de jetons d'accès ou de fichiers de configuration privés.
+- Aucune modification Guardian/APK/PWA sauf autorisation explicite.
+
+## Actions autorisées
+
+- Lecture et audit du code.
+- Lancer les tests unitaires.
+- Corrections locales ciblées sur la branche automation/*.
+- Commits locaux si les tests passent.
+- Rapport final dans AGENT_SHARED.
+
+## Livrable
+
+- AGENT_SHARED/<mission_id>_REPORT.md
+
+## Statut final attendu
+
+- needs_audit
+EOF
+
+    PROMPT_FILE="${MISSION_FILE}"
+    echo "Prompt généré : ${PROMPT_FILE}" >&2
+fi
+
+exec luna-mission \
+    --project-path "${PROJECT_PATH}" \
+    --role operator \
+    --max-iterations 3 \
+    --priority normal \
+    --prefix WORKDAY \
+    --expected-final-status needs_audit \
+    --prompt-file "${PROMPT_FILE}" \
+    "$@"
