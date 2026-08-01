@@ -104,33 +104,59 @@ class ActionExecutor:
         if not isinstance(paths, list):
             raise ExecutorError("read_files: paths, files, file_paths ou target_files doit etre une liste")
 
-        read_options = params.get("read_options") or {}
-        if not isinstance(read_options, dict):
+        global_read_options = params.get("read_options") or {}
+        if not isinstance(global_read_options, dict):
             raise ExecutorError("read_files: read_options doit etre un objet")
 
         default_max_chars = int(self.config.get("MAX_CONTEXT_CHARACTERS", 6000))
-        requested_max_chars = read_options.get("max_chars", default_max_chars)
-        try:
-            max_chars = max(1, min(int(requested_max_chars), default_max_chars))
-        except (TypeError, ValueError):
-            raise ExecutorError("read_files: read_options.max_chars doit etre un entier")
 
-        requested_offset = read_options.get("offset", 0)
-        try:
-            offset = max(0, int(requested_offset))
-        except (TypeError, ValueError):
-            raise ExecutorError("read_files: read_options.offset doit etre un entier")
+        def _normalize_entry(entry: Any) -> Tuple[str, Dict[str, Any]]:
+            if isinstance(entry, dict):
+                entry_path = (
+                    entry.get("path")
+                    or entry.get("file")
+                    or entry.get("file_path")
+                    or entry.get("target_file")
+                )
+                if not entry_path:
+                    raise ExecutorError("read_files: chaque objet doit contenir path, file, file_path ou target_file")
+                entry_options = dict(global_read_options)
+                nested_options = entry.get("read_options") or {}
+                if not isinstance(nested_options, dict):
+                    raise ExecutorError("read_files: read_options d'un fichier doit etre un objet")
+                entry_options.update(nested_options)
+                for key in ("offset", "max_chars"):
+                    if key in entry:
+                        entry_options[key] = entry[key]
+                return str(entry_path), entry_options
+            return str(entry), dict(global_read_options)
+
+        def _read_window(options: Dict[str, Any]) -> Tuple[int, int]:
+            requested_max_chars = options.get("max_chars", default_max_chars)
+            try:
+                max_chars = max(1, min(int(requested_max_chars), default_max_chars))
+            except (TypeError, ValueError):
+                raise ExecutorError("read_files: read_options.max_chars doit etre un entier")
+
+            requested_offset = options.get("offset", 0)
+            try:
+                offset = max(0, int(requested_offset))
+            except (TypeError, ValueError):
+                raise ExecutorError("read_files: read_options.offset doit etre un entier")
+            return offset, max_chars
 
         results = {}
-        for p in paths:
-            safe_path = self._safe_path(p)
+        for entry in paths:
+            path_label, entry_options = _normalize_entry(entry)
+            offset, max_chars = _read_window(entry_options)
+            safe_path = self._safe_path(path_label)
             if safe_path is None:
-                results[p] = {"error": "chemin non autorisé"}
+                results[path_label] = {"error": "chemin non autorisé"}
                 continue
             try:
                 if safe_path.is_dir():
                     entries = sorted(child.name for child in safe_path.iterdir())[:50]
-                    results[str(p)] = {
+                    results[path_label] = {
                         "type": "directory",
                         "entries": entries,
                         "truncated": len(entries) >= 50,
@@ -139,7 +165,7 @@ class ActionExecutor:
                 size = safe_path.stat().st_size
                 suffix = safe_path.suffix.lower()
                 if suffix in self.BINARY_EXTENSIONS:
-                    results[str(p)] = {
+                    results[path_label] = {
                         "type": "binary",
                         "path": str(safe_path),
                         "extension": suffix,
@@ -161,7 +187,7 @@ class ActionExecutor:
                             if truncated_after else ""
                         )
                     )
-                results[str(p)] = {
+                results[path_label] = {
                     "type": "text",
                     "content": content,
                     "size": size,
@@ -171,7 +197,7 @@ class ActionExecutor:
                     "truncated_after": truncated_after,
                 }
             except Exception as e:
-                results[str(p)] = {"error": str(e)}
+                results[path_label] = {"error": str(e)}
 
         return {"status": "success", "files": results}
 

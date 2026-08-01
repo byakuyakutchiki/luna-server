@@ -73,9 +73,24 @@ def test_read_files_honors_offset_and_max_chars():
         print("TEST OK: read_files respecte offset/max_chars")
 
 
+def test_read_files_accepts_per_file_objects():
+    with tempfile.TemporaryDirectory() as tmp, tempfile.TemporaryDirectory() as shared_tmp:
+        project = Path(tmp)
+        (project / "large.txt").write_text("abcdefghij" * 20, encoding="utf-8")
+        result = _executor(project, Path(shared_tmp))._action_read_files({
+            "files": [{"path": "large.txt", "read_options": {"offset": 5, "max_chars": 10}}],
+        }, "M", "T")
+        info = result["files"]["large.txt"]
+        assert info["offset"] == 5
+        assert info["max_chars"] == 10
+        assert "fghijabcde" in info["content"]
+        print("TEST OK: read_files accepte les objets par fichier")
+
+
 if __name__ == "__main__":
     test_read_files_skips_binary_content()
     test_read_files_resolves_agent_shared_alias()
     test_read_files_reports_directory_entries()
     test_read_files_honors_offset_and_max_chars()
+    test_read_files_accepts_per_file_objects()
     print("Tous les tests read_files hygiene sont OK")
