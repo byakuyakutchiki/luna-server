@@ -15693,7 +15693,9 @@ async def guardian_sos(session_id: str, request: Request):
     alert_desc = (base_desc + " — " + ctx_summary) if ctx_summary else base_desc
     if not _guardian_dedup(tid, incident_id):
         return JSONResponse(status_code=409, content={"error": "Alerte déjà en cours", "incident_id": incident_id})
-    if sos_source == "vocal" and not _guardian_source_rate_limit(tid, session_id, sos_source):
+    # FIX-GUARDIAN-VOICE-LOOP-001 : 30 minutes au lieu de 30 secondes — un bruit ambiant
+    # repete sur plusieurs minutes ne doit pas redeclencher SMS/appel reel a chaque fois.
+    if sos_source == "vocal" and not _guardian_source_rate_limit(tid, session_id, sos_source, ttl=1800):
         logger.warning("[GUARDIAN_SOS_RATE_LIMIT] blocked duplicate vocal SOS session=%s incident_id=%s", session_id, incident_id)
         return JSONResponse(status_code=409, content={
             "error": "Alerte vocale déjà envoyée récemment",

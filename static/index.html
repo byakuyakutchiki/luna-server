@@ -4155,13 +4155,29 @@ var tabPanels = document.querySelectorAll(".tab-panel");
 tabBtns.forEach(function(btn) {
   btn.addEventListener("click", function() {
     // Activities = navigation directe vers /salon (pas un onglet)
-    if (btn.dataset.tab === "activities") { loadActivities(); return; }
+    if (btn.dataset.tab === "activities") {
+      var _curActiveA = document.querySelector(".tab-btn.active");
+      if (_curActiveA) sessionStorage.setItem("luna_last_tab", _curActiveA.dataset.tab);
+      loadActivities(); return;
+    }
     // Formulaires = page dediee (5 etapes: upload, analyse, remplir, signer, telecharger)
-    if (btn.dataset.tab === "formulaires") { window.location.href = "/formulaires"; return; }
+    if (btn.dataset.tab === "formulaires") {
+      var _curActiveF = document.querySelector(".tab-btn.active");
+      if (_curActiveF) sessionStorage.setItem("luna_last_tab", _curActiveF.dataset.tab);
+      window.location.href = "/formulaires"; return;
+    }
     // Documents = page dediee — redirect AVANT activation panel pour eviter le flash
-    if (btn.dataset.tab === "documents") { window.location.href = '/documents'; return; }
+    if (btn.dataset.tab === "documents") {
+      var _curActiveD = document.querySelector(".tab-btn.active");
+      if (_curActiveD) sessionStorage.setItem("luna_last_tab", _curActiveD.dataset.tab);
+      window.location.href = '/documents'; return;
+    }
     // Guardian = page separee
-    if (btn.dataset.tab === "guardian") { window.location.href = "/guardian"; return; }
+    if (btn.dataset.tab === "guardian") {
+      var _curActiveG = document.querySelector(".tab-btn.active");
+      if (_curActiveG) sessionStorage.setItem("luna_last_tab", _curActiveG.dataset.tab);
+      window.location.href = "/guardian"; return;
+    }
     tabBtns.forEach(function(b) { b.classList.remove("active"); });
     tabPanels.forEach(function(p) { p.classList.remove("active"); });
     btn.classList.add("active");
@@ -4189,6 +4205,18 @@ tabBtns.forEach(function(btn) {
 
 // Apply mode on page load (after tabs are set up)
 applyMode(currentMode);
+
+// Restaure l'onglet actif avant une navigation reelle (Documents/Formulaires/Guardian/
+// Activites), pour que le bouton retour ne ramene pas systematiquement sur "Chat".
+(function () {
+  var _lastTab = sessionStorage.getItem("luna_last_tab");
+  if (!_lastTab) return;
+  sessionStorage.removeItem("luna_last_tab");
+  var _specialTabs = ["activities", "formulaires", "documents", "guardian"];
+  if (_specialTabs.indexOf(_lastTab) !== -1) return;
+  var _btn = document.querySelector('.tab-btn[data-tab="' + _lastTab + '"]');
+  if (_btn) _btn.click();
+})();
 
 // ── VOIX = Iris premium ──────────────────────────────────────────────────
 // Le bouton voix flottant ouvrait l'ancienne voix Luna inline. On le redirige
