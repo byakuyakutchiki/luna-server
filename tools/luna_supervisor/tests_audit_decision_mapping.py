@@ -57,8 +57,14 @@ def _run_mission_with_decision(supervisor, mission, decision):
         return supervisor._process_mission(mission)
 
 
-def test_audit_none_without_expected_to_success():
-    """audit + action none + pas d'expected_final_status -> success."""
+def test_audit_none_without_expected_to_needs_audit():
+    """audit + action none + pas d'expected_final_status -> needs_audit.
+
+    Corrige apres SUPERVISOR-STATUS-AUDIT-004 : une decision "audit" ne doit
+    jamais se resoudre silencieusement en "success", meme quand aucune action
+    concrete n'est demandee (ex: un reviewer qui juge un travail incomplet
+    sans redemander de lecture/edition).
+    """
     with tempfile.TemporaryDirectory() as tmp:
         tmp_path = Path(tmp)
         supervisor = _make_supervisor(tmp_path)
@@ -73,9 +79,9 @@ def test_audit_none_without_expected_to_success():
         }
         decision = _make_decision("audit", "none", False)
         result = _run_mission_with_decision(supervisor, mission, decision)
-        assert result["status"] == "success", f"attendu success, recu {result['status']}"
+        assert result["status"] == "needs_audit", f"attendu needs_audit, recu {result['status']}"
         assert result.get("requires_human_validation") is False
-        print("TEST OK: audit + none sans expected_final_status -> success")
+        print("TEST OK: audit + none sans expected_final_status -> needs_audit")
 
 
 def test_audit_none_with_expected_to_needs_audit():
@@ -228,7 +234,7 @@ def test_audit_complete_decision_not_overridden():
 
 if __name__ == "__main__":
     tests = [
-        test_audit_none_without_expected_to_success,
+        test_audit_none_without_expected_to_needs_audit,
         test_audit_none_with_expected_to_needs_audit,
         test_audit_read_files_non_destructive_to_needs_audit,
         test_audit_destructive_with_validation_to_waiting,

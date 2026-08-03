@@ -9,7 +9,10 @@ import re
 import logging
 import shutil
 import subprocess
+import sys
 import time
+
+import requests
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -76,6 +79,7 @@ class ActionExecutor:
             "collect_guardian_evidence": self._action_collect_guardian_evidence,
             "commit_local": self._action_commit_local,
             "write_report": self._action_write_report,
+            "query_internal_api": self._action_query_internal_api,
         }
 
         handler = handlers.get(action_type)
@@ -95,6 +99,55 @@ class ActionExecutor:
     def _action_none(self, params: Dict[str, Any], mission_id: str, task_id: str) -> Dict[str, Any]:
         return {"status": "success", "message": "Aucune action demandée"}
 
+    _QUERY_INTERNAL_API_ALLOWED_ROUTES = (
+        ("GET", re.compile(r"^/api/guardian/status/[A-Za-z0-9_\-]+$")),
+        ("GET", re.compile(r"^/api/guardian/sessions$")),
+        ("POST", re.compile(r"^/api/guardian/stop/[A-Za-z0-9_\-]+$")),
+    )
+
+    def _action_query_internal_api(self, params: Dict[str, Any], mission_id: str, task_id: str) -> Dict[str, Any]:
+        """Interroge une route interne du backend Luna, limitee a une liste blanche stricte."""
+        route = str(params.get("route", "")).strip()
+        if not route or " " not in route:
+            return {"error": "route non autorisee"}
+        method, _, path_part = route.partition(" ")
+        method = method.upper().strip()
+        path_part = path_part.strip()
+
+        allowed = any(
+            method == allowed_method and pattern.match(path_part)
+            for allowed_method, pattern in self._QUERY_INTERNAL_API_ALLOWED_ROUTES
+        )
+        if not allowed:
+            return {"error": "route non autorisee"}
+
+        sys.path.insert(0, str(self.project_path))
+        try:
+            from luna_web import _create_admin_token
+            token = _create_admin_token()
+        except Exception as exc:
+            return {"error": f"generation jeton echouee: {exc}"}
+        finally:
+            if str(self.project_path) in sys.path:
+                sys.path.remove(str(self.project_path))
+
+        url = f"http://127.0.0.1:8000{path_part}"
+        headers = {"Authorization": f"Bearer {token}"}
+        try:
+            if method == "GET":
+                resp = requests.get(url, headers=headers, timeout=10)
+            else:
+                resp = requests.post(url, headers=headers, timeout=10)
+        except Exception as exc:
+            return {"error": f"appel api echoue: {exc}"}
+
+        try:
+            body = resp.json()
+        except Exception:
+            body = {"raw": resp.text[:500]}
+
+        return {"status_code": resp.status_code, "body": body}
+
     def _action_read_files(self, params: Dict[str, Any], mission_id: str, task_id: str) -> Dict[str, Any]:
         paths = params.get("paths")
         if paths is None:
@@ -110,7 +163,7 @@ class ActionExecutor:
         if not isinstance(global_read_options, dict):
             raise ExecutorError("read_files: read_options doit etre un objet")
 
-        default_max_chars = int(self.config.get("MAX_CONTEXT_CHARACTERS", 6000))
+        default_max_chars = int(self.config.get("MAX_CONTEXT_CHARACTERS", 40000))
 
         def _normalize_entry(entry: Any) -> Tuple[str, Dict[str, Any]]:
             if isinstance(entry, dict):
@@ -154,6 +207,9 @@ class ActionExecutor:
             safe_path = self._safe_path(path_label)
             if safe_path is None:
                 results[path_label] = {"error": "chemin non autorisé"}
+                continue
+            if not safe_path.exists():
+                results[path_label] = {"error": "fichier introuvable"}
                 continue
             try:
                 if safe_path.is_dir():

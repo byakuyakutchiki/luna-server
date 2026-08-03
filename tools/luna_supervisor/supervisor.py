@@ -799,6 +799,13 @@ class LunaAgentSupervisor:
         if action_error:
             return "error"
 
+        # BUG SUPERVISOR-STATUS-AUDIT-004 : une decision "audit" sans action concrete
+        # (ex: un reviewer qui juge le travail incomplet mais ne redemande pas d'action)
+        # tombait auparavant dans le cas generique action_type == "none" -> "success",
+        # ce qui masquait un travail explicitement juge incomplet par l'agent.
+        if decision.decision == "audit":
+            return "needs_audit"
+
         if self._is_non_destructive_action(action_type):
             return "needs_audit"
 

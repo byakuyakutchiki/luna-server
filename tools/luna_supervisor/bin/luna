@@ -96,8 +96,19 @@ ${natural_text}
 - Commits locaux si les tests passent.
 - Rapport final dans AGENT_SHARED.
 
+## Format de reponse obligatoire
+
+Le champ "summary" de ta decision finale (JSON) doit contenir une explication
+humaine, claire et en francais courant de ce qui se passe reellement dans
+l'application par rapport a la question de Ludovic ci-dessus — pas un resume
+technique de ce que tu as fait, mais une vraie reponse a sa question, comme
+dans une conversation. Base cette reponse sur une inspection reelle (lecture
+de code, collecte ADB/Guardian, ou interrogation de l'API interne), pas sur
+des suppositions.
+
 ## Livrable
 
+- Reponse humaine en francais dans le champ "summary".
 - AGENT_SHARED/<mission_id>_REPORT.md
 
 ## Statut final attendu
@@ -296,6 +307,43 @@ run_mission_iterations() {
     echo "   Mission ID : ${mission_id}"
     echo "   Statut final : ${final_status}"
     show_mission_report "${mission_id}"
+    show_human_answer "${mission_id}" "${result}"
+}
+
+# Affiche la reponse humaine en francais (summary de la decision finale),
+# en repli sur le champ "Resume" du rapport AGENT_SHARED si le JSON n'est
+# plus disponible (cas ou une iteration precedente a deja conclu).
+show_human_answer() {
+    local mission_id="$1"
+    local last_result="$2"
+    local answer=""
+
+    if [[ -n "${last_result}" ]]; then
+        answer=$(echo "${last_result}" | python3 -c "
+import sys, json
+try:
+    d = json.load(sys.stdin)
+    print((d.get('summary') or '').strip())
+except Exception:
+    print('')
+")
+    fi
+
+    if [[ -z "${answer}" ]]; then
+        local report_path
+        report_path=$(find "${AGENT_SHARED}" -maxdepth 1 -type f -name "${mission_id}_REPORT.md" 2>/dev/null | head -n 1)
+        if [[ -n "${report_path}" ]]; then
+            answer=$(grep -A2 "Résumé" "${report_path}" 2>/dev/null | head -3 | tr "\n" " ")
+        fi
+    fi
+
+    echo ""
+    echo "💬 Luna répond :"
+    if [[ -n "${answer}" ]]; then
+        echo "   ${answer}"
+    else
+        echo "   (pas de réponse synthétisée disponible — consulte le rapport ci-dessus)"
+    fi
 }
 
 # Vrai si le statut est terminal.

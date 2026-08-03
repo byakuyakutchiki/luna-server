@@ -21,7 +21,7 @@ class ContextBuilder:
     def __init__(self, config: Dict[str, Any]):
         self.config = config
         self.project_path = Path(config.get("PROJECT_PATH", ".")).resolve()
-        self.max_chars = int(config.get("MAX_CONTEXT_CHARACTERS", 6000))
+        self.max_chars = int(config.get("MAX_CONTEXT_CHARACTERS", 40000))
         self.max_log_lines = int(config.get("MAX_LOG_LINES_FOR_AI", 200))
         self.max_diff_chars = int(config.get("MAX_DIFF_CHARACTERS", 8000))
 
