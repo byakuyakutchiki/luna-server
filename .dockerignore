@@ -10,3 +10,31 @@ __pycache__/
 data/certificates/
 *.pyc
 android-app/
+# FIX-BLACKBOX-SOURCE-LEAK-P0-001 : des fichiers de sauvegarde d'editeur (ex:
+# luna_web.py.bak-voice-emergency) contiennent le code source complet et ne
+# correspondaient a aucun pattern de nettoyage -- ils finissaient dans l'image
+# exploitant en clair. Exclus du contexte de build directement.
+*.bak
+*.bak-*
+*.bak_*
+*.orig
+*.old
+*~
+# FIX-BLACKBOX-SOURCE-LEAK-P0-002 : migration_backup/ contient des cles API et le
+# JWT_SECRET_KEY en clair (deja protege dans .gitignore mais jamais reporte ici) ;
+# tests/ et les scripts .py isoles a la racine sont du code source propriétaire
+# non nettoye par le Dockerfile ; runs/ est l'historique operationnel de la
+# supervision (non sensible pour la licence mais inutile et volumineux).
+migration_backup/
+tests/
+runs/
+test_luna_sms.py
+kimi_watcher.py
+luna-load-env.py
+luna_chat.py
+# FIX-BLACKBOX-SOURCE-LEAK-P0-003 : .env.supervisor / .env.runner (config interne
+# des outils de dev locaux, pas destinee a l'exploitant) sont deja dans .gitignore
+# mais pas ici. .env.example reste inclus expres : c'est le modele que
+# l'exploitant est cense copier en .env (voir docker-compose.exploitant.yml).
+.env.*
+!.env.example
