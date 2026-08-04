@@ -137,6 +137,34 @@ public class GuardianService extends Service {
         sendEvent("GUARDIAN_SERVICE_STARTED", "GuardianService créé");
     }
 
+    /**
+     * L'utilisateur ferme l'app depuis les applications recentes (geste normal de
+     * fermeture). Sans ce callback, le service s'arrete et plus rien ne surveille
+     * (voix, chute) jusqu'a reouverture manuelle. On relance immediatement le service
+     * en foreground avec l'etat courant, pour que la protection continue.
+     */
+    @Override
+    public void onTaskRemoved(Intent rootIntent) {
+        super.onTaskRemoved(rootIntent);
+        sendEvent("GUARDIAN_TASK_REMOVED", "App fermee depuis recents — relance du service");
+        Intent restart = new Intent(getApplicationContext(), GuardianService.class);
+        restart.setAction(ACTION_START);
+        restart.putExtra("status", mStatus);
+        restart.putExtra("contacts", mContacts);
+        restart.putExtra("emergency", mEmergency);
+        restart.putExtra("listen", mListenEnabled);
+        restart.putExtra("overlay", mOverlayEnabled);
+        try {
+            if (Build.VERSION.SDK_INT >= 26) {
+                getApplicationContext().startForegroundService(restart);
+            } else {
+                getApplicationContext().startService(restart);
+            }
+        } catch (Exception e) {
+            sendEvent("GUARDIAN_TASK_REMOVED_RESTART_FAILED", e.getClass().getSimpleName() + ": " + e.getMessage());
+        }
+    }
+
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         if (intent != null) {
@@ -205,7 +233,7 @@ public class GuardianService extends Service {
         String title     = mEmergency ? "🆘 ALERTE GUARDIAN"  : "🛡 Luna Guardian";
         String listenTag = mListenEnabled ? " · écoute active" : "";
         String body      = mEmergency
-            ? "SOS activé · Contacts alertés"
+            ? (!mLastSosMessage.isEmpty() ? mLastSosMessage : "SOS déclenché — en attente de confirmation")
             : (mStatus + listenTag + (mContacts.isEmpty() ? "" : " · " + mContacts));
 
         Notification.Builder builder;
@@ -550,6 +578,10 @@ public class GuardianService extends Service {
         mCaptureBuffer.setLength(0);
     }
 
+    /** Dernier message de confirmation reel renvoye par le serveur apres un SOS (vide = pas
+     * encore de reponse serveur). Remplace le texte optimiste fige "Contacts alertes". */
+    private volatile String mLastSosMessage = "";
+
     /** Mot-clé détecté : déclenche le SOS natif puis ouvre l'app pour l'UI/contexte. */
     private void onEmergencyDetected(String text, float confidence) {
         String safe = (text != null) ? text.trim() : "";
@@ -646,6 +678,13 @@ public class GuardianService extends Service {
                     while ((line = reader.readLine()) != null && body.length() < 500) body.append(line);
                     android.util.Log.w(TAG, "VOICE_SOS_NATIVE_POST status=" + code + " sid=" + sid + " body=" + body.toString());
                     sendEvent("VOICE_SOS_NATIVE_POST", "status=" + code + " sid=" + sid + " body=" + body.toString());
+                    try {
+                        JSONObject respJson = new JSONObject(body.toString());
+                        mLastSosMessage = respJson.optString("message", "");
+                    } catch (Exception ignored) {
+                        mLastSosMessage = "SOS déclenché — confirmation serveur illisible";
+                    }
+                    pushNotification();
                 } finally {
                     if (reader != null) try { reader.close(); } catch (Exception ignored) {}
                     conn.disconnect();

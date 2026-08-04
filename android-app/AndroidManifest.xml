@@ -47,7 +47,8 @@
         <service
             android:name=".GuardianService"
             android:foregroundServiceType="microphone|dataSync"
-            android:exported="false" />
+            android:exported="false"
+            android:stopWithTask="false" />
 
         <!-- Bouton SOS dans la notification Guardian -->
         <receiver
