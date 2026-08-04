@@ -597,7 +597,9 @@ function buildForm(){
     for(const gk of GROUP_ORDER){
         if(!groups[gk])continue;
         const hdr=document.createElement('div'); hdr.className='form-group-hdr';
-        hdr.innerHTML='<h3>'+(GROUP_LABELS[gk]||gk)+'</h3>'; c.appendChild(hdr);
+        // FIX-FORMULAIRES-GROUPLABEL-P3-001 : dernier residu innerHTML avec une
+        // valeur potentiellement issue de l'IA (nom de groupe hors liste connue).
+        var hdrH3=document.createElement('h3');hdrH3.textContent=(GROUP_LABELS[gk]||gk);hdr.appendChild(hdrH3); c.appendChild(hdr);
 
         for(const f of groups[gk]){
             const div=document.createElement('div');

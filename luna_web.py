@@ -5678,7 +5678,7 @@ def _tools_to_claude_format(chat_tools):
     return result
 
 
-async def _stream_chat_sse_claude(messages, chat_tools, tid, session_id, req_message, mgr, semaphore=None):
+async def _stream_chat_sse_claude(messages, chat_tools, tid, session_id, req_message, mgr, semaphore=None, persist_ok=True):
     """Streaming SSE avec Claude — routing par domaine (chat vs cortex pour tool calls)."""
     try:
         system_str, claude_msgs = _messages_to_claude_format(messages)
@@ -5755,6 +5755,8 @@ async def _stream_chat_sse_claude(messages, chat_tools, tid, session_id, req_mes
         _gamify(tid, "chat_message")
 
         done_data = {"type": "done", "response": full_text, "provider": "claude"}
+        if not persist_ok:
+            done_data["persist_warning"] = True
         if tool_calls_made:
             done_data["actions"] = [{"tool": t["tool"], "status": t["result"].get("status", "unknown")} for t in tool_calls_made]
             for t in tool_calls_made:
@@ -5774,7 +5776,7 @@ async def _stream_chat_sse_claude(messages, chat_tools, tid, session_id, req_mes
             semaphore.release()
 
 
-async def _stream_chat_sse(messages, chat_tools, tid, session_id, req_message, mgr, semaphore=None):
+async def _stream_chat_sse(messages, chat_tools, tid, session_id, req_message, mgr, semaphore=None, persist_ok=True):
     """Async generator yielding SSE events for streaming chat."""
     import queue as _queue
 
@@ -5922,6 +5924,8 @@ async def _stream_chat_sse(messages, chat_tools, tid, session_id, req_message, m
         # Build final event
         cards = _build_rich_cards(tool_calls_made)
         done_data = {"type": "done", "response": full_text}
+        if not persist_ok:
+            done_data["persist_warning"] = True
         if auto_title:
             done_data["auto_title"] = auto_title
         if tool_calls_made:
@@ -6316,7 +6320,10 @@ COMPORTEMENT COMPAGNON :
 
         messages.append({"role": "user", "content": req.message})
 
-        # Persist to Redis (if available)
+        # FIX-CHAT-PERSIST-WARNING-P1-001 : avant, un echec Redis ici etait avale en
+        # silence -- le message de l'utilisateur pouvait disparaitre de l'historique
+        # sans que personne ne le sache. On garde une trace pour avertir le client.
+        _persist_ok = True
         if mgr:
             try:
                 mgr.add_message(
@@ -6327,6 +6334,7 @@ COMPORTEMENT COMPAGNON :
                 )
             except Exception as e:
                 logger.warning(f"Redis store failed: {e}")
+                _persist_ok = False
 
         # Inject perception context if available (filtered by caution_mode)
         if _perception_analyzer and mgr:
@@ -6355,9 +6363,9 @@ COMPORTEMENT COMPAGNON :
             _stream_sem = _chat_semaphore
             # Claude Sonnet si disponible, sinon OpenAI
             if _anthropic_client and ENABLE_CLAUDE_CHAT:
-                gen = _stream_chat_sse_claude(messages, chat_tools, tid, req.session_id, req.message, mgr, semaphore=_stream_sem)
+                gen = _stream_chat_sse_claude(messages, chat_tools, tid, req.session_id, req.message, mgr, semaphore=_stream_sem, persist_ok=_persist_ok)
             else:
-                gen = _stream_chat_sse(messages, chat_tools, tid, req.session_id, req.message, mgr, semaphore=_stream_sem)
+                gen = _stream_chat_sse(messages, chat_tools, tid, req.session_id, req.message, mgr, semaphore=_stream_sem, persist_ok=_persist_ok)
             return StreamingResponse(
                 gen,
                 media_type="text/event-stream",
@@ -22705,6 +22713,16 @@ async def join_room(room_id: str, request: Request):
     data = await request.json()
     phone = data.get("phone", "")
     host_tid = int(data.get("host_tid", 0)) or tid
+    member_token = data.get("token", "")
+
+    # FIX-SALON-JOIN-PHONE-SPOOF-P2-001 : si un jeton d'invitation membre famille est
+    # fourni, il doit correspondre au numero declare -- sinon n'importe quel numero
+    # pouvait etre ajoute a la liste des participants sans preuve. Le flux "ami"
+    # cross-tenant (pas de jeton, juste room_id+host_tid) n'est pas concerne par
+    # construction -- il n'a jamais utilise ce mecanisme.
+    if member_token and phone:
+        if not verify_member_token(phone, host_tid, member_token, _JWT_SECRET):
+            return JSONResponse(status_code=403, content={"error": "Jeton d'invitation invalide"})
 
     room = rops.get_room(host_tid, room_id)
     if not room:

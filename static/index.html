@@ -4594,8 +4594,11 @@ function _renderWeather(data) {
 function _renderNews(data) {
   var html = '';
   (data.articles || []).forEach(function(a) {
+    // FIX-CONCIERGERIE-NEWS-HREF-P3-001 : esc() echappe le HTML mais pas un schema
+    // javascript: -- on force http(s) uniquement, sinon lien neutralise.
+    var _newsHref = /^https?:\/\//i.test(a.lien || "") ? a.lien : "#";
     html += '<div class="conc-news-item">' +
-      '<h4><a href="' + esc(a.lien || "#") + '" target="_blank">' + esc(a.titre || "") + '</a></h4>' +
+      '<h4><a href="' + esc(_newsHref) + '" target="_blank">' + esc(a.titre || "") + '</a></h4>' +
       '<p style="font-size:0.8em;color:#999;margin:4px 0;">' + esc(a.resume || "") + '</p>' +
       '<span class="src">' + esc(a.source || "") + '</span></div>';
   });
@@ -5404,7 +5407,7 @@ function saveHistory() {
     if (textEl) msgs.push({ text: textEl.textContent, cls: el.classList.contains("user") ? "user" : "luna", ts: timeEl ? timeEl.textContent : "" });
   });
   if (msgs.length > MAX_STORED) msgs = msgs.slice(-MAX_STORED);
-  try { localStorage.setItem(convStorageKey(currentConvId), JSON.stringify(msgs)); } catch(e) {}
+  try { localStorage.setItem(convStorageKey(currentConvId), JSON.stringify(msgs)); } catch(e) { console.warn("saveHistory failed", e); }
   // Update preview in sidebar
   var last = msgs.length > 0 ? msgs[msgs.length - 1] : null;
   if (last) {
@@ -5480,7 +5483,15 @@ function _addChips(chips) {
     btn.innerHTML = (chip.icon || "") + " " + chip.label;
     btn.addEventListener("click", function() {
       container.remove();
-      if (chip.action === "send") {
+      if (chip.action === "send" && chip.confirm) {
+        // FIX-CHAT-CHIP-CONFIRM-P1-001 : les chips qui declenchent un appel/SMS reel
+        // demandent confirmation avant d'envoyer, comme le bouton equivalent en
+        // Conciergerie -- avant, un seul tap suffisait a lancer une vraie action.
+        _showConfirm("Confirmer ?", chip.confirm, function() {
+          addMsg(chip.text, "user");
+          sendMsg(chip.text);
+        });
+      } else if (chip.action === "send") {
         addMsg(chip.text, "user");
         sendMsg(chip.text);
       } else if (chip.action === "concierge") {
@@ -5551,8 +5562,8 @@ function _getSmartChips() {
       chips.push({icon: "💼", label: "Économie", action: "send", text: "Dernières nouvelles économiques"});
       chips.push({icon: "🔄", label: "Rafraîchir", action: "send", text: "Quelles sont les dernières actualités ?"});
     } else if (/appel|appeler|téléphoner|contacter|famille|proche|sms|message/.test(ctx)) {
-      chips.push({icon: "📞", label: "Appeler", action: "send", text: "Appelle un proche"});
-      chips.push({icon: "💬", label: "Envoyer SMS", action: "send", text: "Envoie un message à ma famille"});
+      chips.push({icon: "📞", label: "Appeler", action: "send", text: "Appelle un proche", confirm: "Luna va appeler un de tes proches. Continuer ?"});
+      chips.push({icon: "💬", label: "Envoyer SMS", action: "send", text: "Envoie un message à ma famille", confirm: "Luna va envoyer un SMS a un membre de ta famille. Continuer ?"});
       chips.push({icon: "👥", label: "Mes contacts", action: "send", text: "Montre-moi mes contacts"});
     } else {
       // Repli sur les chips horaires si aucun contexte détecté
@@ -5563,7 +5574,7 @@ function _getSmartChips() {
       } else if (h >= 12 && h < 18) {
         chips.push({icon: "🍽️", label: "Restaurant", action: "concierge", handler: "_concShowRestaurantForm"});
         chips.push({icon: "🔍", label: "Rechercher", action: "concierge", handler: "_concShowSearchForm"});
-        chips.push({icon: "📞", label: "Appeler un proche", action: "send", text: "Appelle ma famille"});
+        chips.push({icon: "📞", label: "Appeler un proche", action: "send", text: "Appelle ma famille", confirm: "Luna va appeler un membre de ta famille. Continuer ?"});
       } else if (h >= 18 && h < 22) {
         chips.push({icon: "🎮", label: "Jouer", action: "send", text: "Propose-moi un jeu ou un quiz"});
         chips.push({icon: "📖", label: "Histoire", action: "send", text: "Raconte-moi une histoire"});
@@ -5693,7 +5704,7 @@ function sendMsg(overrideMsg) {
   if (!overrideMsg) { addMsg(msg, "user"); inputEl.value = ""; charCounter.textContent = ""; }
   sendBtn.disabled = true;
   showTyping();
-  _remoteLog("info", "chat", "send", msg.substring(0, 100));
+  _remoteLog("info", "chat", "send", "len=" + msg.length);
   var token = getToken();
   fetch("/api/chat", {
     method: "POST",
@@ -5786,10 +5797,15 @@ function _handleStreamResponse(response, originalMsg) {
             var _toolLabels = {search_web:"Recherche web",search_places:"Recherche lieux",get_weather:"Meteo",get_news:"Actualites",search_flights:"Recherche vols",search_hotels:"Recherche hotels",book_restaurant:"Restaurants",send_sms:"Envoi SMS",send_email:"Envoi email",call_contact:"Appel",create_instruction:"Rappel",get_contacts:"Contacts",generate_document:"Document"};
             var tLabel = _toolLabels[data.name] || data.name;
             if (data.status === "running") {
-              textEl.innerHTML = _linkify(fullText) + '<div class="stream-tool-indicator">' + tLabel + '...</div>';
+              textEl.innerHTML = _linkify(fullText) + '<div class="stream-tool-indicator">' + esc(tLabel) + '...</div>';
               scrollToBottom();
             }
           } else if (data.type === "done") {
+            // FIX-CHAT-PERSIST-WARNING-P1-001 : avertir si le message n'a pas pu etre
+            // sauvegarde cote serveur (ne bloque pas la reponse, juste un avertissement).
+            if (data.persist_warning && typeof _showAlert === "function") {
+              _showAlert("Ce message n'a peut-etre pas ete sauvegarde (probleme temporaire).", "error");
+            }
             // Final event — render rich cards, update title
             if (data.response) { fullText = data.response; textEl.innerHTML = _linkify(fullText); }
             if (data.cards && data.cards.length) _renderCards(data.cards);
@@ -6104,9 +6120,13 @@ function loadContacts() {
         ? '<br>&#128205; <a href="https://www.google.com/maps/search/' + encodeURIComponent(c.address) + '" target="_blank" rel="noopener" style="color:#60a5fa;">' + esc(c.address) + '</a>'
         : '';
       var ph = c.phone.replace(/'/g, "\\'");
+      // FIX-CONTACTS-ESC-APOSTROPHE-P1-001 : esc() n'echappe pas les apostrophes, donc un
+      // nom du type "O'Brien" cassait la chaine JS de l'attribut onclick (injection
+      // possible). Meme traitement que pour le telephone (ph) ci-dessus.
+      var nameForJs = (c.name || "").replace(/\\/g, "\\\\").replace(/'/g, "\\'");
       card.innerHTML = '<div class="card-header"><span class="card-title">' + esc(c.name) + ' <span class="badge badge-blue">' + esc(c.relation) + '</span></span>' +
         '<div style="display:flex;gap:6px;">' +
-        '<button class="btn btn-sm" style="background:#7c3aed;color:#fff;" onclick="inviteContact(\'' + ph + '\',\'' + esc(c.name) + '\')">&#128231; Inviter</button>' +
+        '<button class="btn btn-sm" style="background:#7c3aed;color:#fff;" onclick="inviteContact(\'' + ph + '\',\'' + nameForJs + '\')">&#128231; Inviter</button>' +
         '<button class="btn btn-danger btn-sm" onclick="deleteContact(\'' + ph + '\')">Supprimer</button>' +
         '</div></div>' +
         '<div class="card-body">&#128222; ' + esc(c.phone) + ' &mdash; ' + esc(c.preferred_channel) + emailLine +

@@ -86,7 +86,10 @@ QUIZ_SETS = [
 
 
 def generate_room_id() -> str:
-    return uuid.uuid4().hex[:12]
+    # FIX-SALON-ROOMID-ENTROPY-P3-001 : room_id sert de secret de facto pour le lien
+    # "ami" cross-tenant (partage sans SMS) -- 24 caracteres hex (96 bits) au lieu de 12
+    # (48 bits).
+    return uuid.uuid4().hex + uuid.uuid4().hex[:8]
 
 
 def generate_member_token(phone: str, tenant_id: int, secret: str) -> str:

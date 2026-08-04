@@ -649,6 +649,12 @@ async def delete_friend_full(request: Request, friend_tid: int):
         except Exception:
             pass
 
+    # FIX-AMIS-FRIENDSHIP-CHECK-P3-001 : verifie que c'etait bien un ami avant de
+    # repondre success=true (avant, un retrait sur un non-ami etait un no-op silencieux
+    # renvoye comme un succes).
+    if str(friend_tid) not in sops.get_friends(tid):
+        return _error("Ami introuvable", 404)
+
     result = sops.delete_friend_and_data(tid, friend_tid)
 
     try:

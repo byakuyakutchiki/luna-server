@@ -11111,6 +11111,12 @@ function loadWorld() {
       setTimeout(function() { loader.style.display = "none"; }, 500);
     }
 
+    // FIX-WORLD-SILENT-ERRORS-P1-001 : avant, un echec de /api/world/player etait
+    // avale en silence (le HUD restait juste vide/perime sans aucune explication).
+    if (!state.player) {
+      showToast("Impossible de charger tes donnees. Verifie ta connexion et reessaie.", "error");
+    }
+
     // Render HUD
     var player = state.player ? (state.player.player || state.player) : null;
     if (player) {
