@@ -2544,7 +2544,12 @@ html, body {
 
 /* ── PRESTIGE HUD ── */
 :root { --prestige-color:#9ca3af; --prestige-glow:rgba(156,163,175,0.3); }
-.hud-prestige-badge{display:inline-block;padding:2px 9px;border-radius:10px;font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;border:1px solid var(--prestige-color);color:var(--prestige-color);margin-top:2px;transition:all .5s ease;}
+/* FIX-HUD-PRESTIGE-BADGE-TRUNCATE-P2-001 : ce badge (ex: le titre de palier
+   "Decouverte") n'avait aucune regle de troncature -- il se faisait couper net
+   sans ellipse par le overflow:hidden d'un parent sur petit ecran, au lieu de
+   se tronquer proprement lui-meme. C'etait le vrai element derriere le bug
+   "DECOUVE..." coupe (pas .hud-title, qui avait deja ses propres regles). */
+.hud-prestige-badge{display:inline-block;padding:2px 9px;border-radius:10px;font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;border:1px solid var(--prestige-color);color:var(--prestige-color);margin-top:2px;transition:all .5s ease;max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:middle;}
 .hud-xp-fill-prestige{background:linear-gradient(90deg,var(--prestige-color),#fff4) !important;}
 
 /* ── BADGES ANIMÉS ── */
