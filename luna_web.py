@@ -21999,7 +21999,13 @@ async def _instruction_loop():
                             pass
 
                     # Replanifie si recurrent (le scheduler gere ca)
-                    if result.status.value in ("success", "partial"):
+                    # FIX-REMINDER-DUPLICATE-RETRY-P1-001 : une instruction en attente
+                    # de confirmation n'est pas un echec -- elle a fait exactement ce
+                    # qu'elle devait faire (poser la question). La traiter comme un echec
+                    # la faisait retenter automatiquement (jusqu'a 3 fois, 10/20/40 min),
+                    # renvoyant une nouvelle notification "Rappel Luna" en double a chaque
+                    # tentative.
+                    if result.status.value in ("success", "partial", "pending_confirmation"):
                         _scheduler.complete_task(task, result=result.message)
                     else:
                         _scheduler.fail_task(task, error=result.error or "unknown")

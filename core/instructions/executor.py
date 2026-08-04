@@ -248,7 +248,10 @@ class InstructionExecutor:
 
     def _build_confirmation_description(self, instruction: ParsedInstruction) -> str:
         """Construit la description pour la demande de confirmation"""
-        target = instruction.target or "votre contact"
+        # FIX-REMINDER-CONTACT-UNKNOWN-P1-001 : "contact_unknown" est un marqueur
+        # interne (extraction de cible echouee), jamais un vrai nom -- ne doit jamais
+        # fuiter tel quel dans un message affiche a l'utilisateur.
+        target = instruction.target if instruction.target not in (None, "", "self", "contact_unknown") else "votre contact"
 
         if instruction.action_type == ActionType.SMS_CONTACT:
             return f"envoyer un SMS à {target}"
