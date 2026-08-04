@@ -611,13 +611,43 @@ async def remove_friend(request: Request):
 
 @social_router.delete("/api/social/friends/{friend_tid}")
 async def delete_friend_full(request: Request, friend_tid: int):
-    """Supprime un ami et TOUTES ses données (amitié + messages DM + unread)."""
+    """Retire un ami et TOUTES ses données (amitié + messages DM + unread)."""
     sops = _get_sops(request)
     if not sops:
         return _unavailable()
     tid = _get_tenant_id(request)
     if tid is None:
         return _error("Non authentifie", 401)
+
+    # FIX-AMIS-GUARDIAN-P0-001 : bloque le retrait si cet ami est le dernier contact
+    # Guardian (canal alerte par message interne) et que Guardian est actuellement actif ;
+    # sinon nettoie l'entree Guardian orpheline correspondante.
+    try:
+        guardian_friends = sops.rc.get_guardian_friends(tid) or set()
+    except Exception:
+        guardian_friends = set()
+    if str(friend_tid) in guardian_friends:
+        remaining_guardian_friends = {t for t in guardian_friends if t != str(friend_tid)}
+        try:
+            from luna_web import _get_guardian
+            engine = _get_guardian()
+            active_sessions = engine.get_active_sessions(tid) if engine else []
+        except Exception:
+            active_sessions = []
+        if not remaining_guardian_friends and active_sessions:
+            return JSONResponse(status_code=409, content={
+                "error": (
+                    "Impossible de retirer cet ami : il est actuellement ton dernier "
+                    "contact Guardian (alerte par message) et Guardian est actif. "
+                    "Arrete Guardian ou designe un autre ami comme contact avant de "
+                    "continuer."
+                ),
+                "code": "guardian_would_have_no_dm_contact",
+            })
+        try:
+            sops.rc.remove_guardian_friend(tid, friend_tid)
+        except Exception:
+            pass
 
     result = sops.delete_friend_and_data(tid, friend_tid)
 

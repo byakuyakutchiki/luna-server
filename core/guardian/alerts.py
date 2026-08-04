@@ -182,7 +182,7 @@ async def send_guardian_dm_alerts(
             if not room_id:
                 results["failed"].append({"tid": f_tid, "error": "not friends or blocked"})
                 continue
-            msg = sops.add_dm_message(room_id, sender_tid, msg_text)
+            msg = sops.add_dm_message(room_id, sender_tid, msg_text, sender_type="guardian")
             msg["sender_tid"] = msg.get("sender", "")
             results["sent"].append({"tid": f_tid, "room_id": room_id})
             if ws_push_fn:

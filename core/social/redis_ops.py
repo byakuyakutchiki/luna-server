@@ -339,11 +339,16 @@ class SocialRedisOps:
         data = self.client.hgetall(room_key)
         return data if data else None
 
-    def add_dm_message(self, room_id: str, sender_tid, text: str) -> Dict:
-        """Ajoute un message au DM. Retourne le message cree."""
+    def add_dm_message(self, room_id: str, sender_tid, text: str, sender_type: str = "user") -> Dict:
+        """Ajoute un message au DM. Retourne le message cree.
+
+        sender_type="guardian" uniquement pour les alertes Guardian generees par le
+        serveur (jamais pilotable par le client) -- cf FIX-MESSAGERIE-ALERT-SPOOF-P1-001.
+        """
         msg = {
             "id": secrets.token_hex(6),
             "sender": str(sender_tid),
+            "sender_type": sender_type,
             "text": text,
             "ts": datetime.utcnow().isoformat(),
         }

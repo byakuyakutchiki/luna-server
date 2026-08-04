@@ -5233,6 +5233,12 @@ function init() {
   if(isEmbed && tk && !localStorage.getItem("luna_token")){
     try { localStorage.setItem("luna_token", tk); } catch(e){}
   }
+  /* FIX-SALON-TOKEN-URL-P1-001 : retirer le token de l'URL une fois consomme, pour
+     eviter qu'il reste visible dans l'URL / les logs d'acces au-dela de la requete
+     initiale (le token reste disponible via localStorage pour la suite). */
+  if(memberToken && window.history.replaceState){
+    window.history.replaceState({},"",window.location.pathname);
+  }
 
   buildReactionsBar();
   buildGiftGrid();

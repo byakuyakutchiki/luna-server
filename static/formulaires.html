@@ -579,7 +579,10 @@ function showFillStep(){
     const w=$('#formWarnings');
     if(analysis.warnings&&analysis.warnings.length){
         w.classList.remove('hidden');
-        w.innerHTML='<ul>'+analysis.warnings.map(x=>'<li>'+x+'</li>').join('')+'</ul>';
+        w.innerHTML='';
+        const ul=document.createElement('ul');
+        for(const x of analysis.warnings){const li=document.createElement('li');li.textContent=x;ul.appendChild(li);}
+        w.appendChild(ul);
     } else w.classList.add('hidden');
 
     buildForm(); loadPreview(0); goStep(3);
@@ -603,10 +606,28 @@ function buildForm(){
             if(f.value)div.classList.add('filled');
 
             if(f.field_type==='checkbox'){
-                div.innerHTML='<label><input type="checkbox" '+(f.value==='true'?'checked':'')+' data-id="'+f.id+'"><span>'+f.label+(f.required?'<span class="req">*</span>':'')+'</span></label>';
+                const cbLbl=document.createElement('label');
+                const cbInp=document.createElement('input');
+                cbInp.type='checkbox';
+                cbInp.checked=f.value==='true';
+                cbInp.setAttribute('data-id',f.id);
+                cbLbl.appendChild(cbInp);
+                const cbSpan=document.createElement('span');
+                cbSpan.textContent=f.label;
+                if(f.required){const cbReq=document.createElement('span');cbReq.className='req';cbReq.textContent='*';cbSpan.appendChild(cbReq);}
+                cbLbl.appendChild(cbSpan);
+                div.appendChild(cbLbl);
                 div.querySelector('input').onchange=function(){f.value=this.checked?'true':'';div.classList.toggle('filled',this.checked);updateCounts();};
             } else if(f.field_type==='signature'){
-                div.innerHTML='<label>'+f.label+'</label><div class="desc" style="color:var(--purple)">Signature a l\'etape suivante</div>';
+                div.innerHTML='';
+                const sigLbl=document.createElement('label');
+                sigLbl.textContent=f.label;
+                div.appendChild(sigLbl);
+                const sigDesc=document.createElement('div');
+                sigDesc.className='desc';
+                sigDesc.style.color='var(--purple)';
+                sigDesc.textContent="Signature a l'etape suivante";
+                div.appendChild(sigDesc);
             } else {
                 const itype=f.field_type==='email'?'email':f.field_type==='phone'?'tel':'text';
                 // Construire le DOM sans innerHTML pour éviter les injections HTML dans les valeurs

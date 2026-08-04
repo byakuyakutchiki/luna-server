@@ -4016,6 +4016,27 @@ _init_core()
 # --- Pool MemoryManager per-tenant ---
 _tenant_managers: Dict[int, object] = {}
 
+# --- Pool DocumentGenerator per-tenant (FIX-DOCUMENTS-TENANT-ISOLATION-P0-001) ---
+_doc_generators: Dict[int, object] = {}
+
+def _get_doc_generator(tenant_id: int):
+    """Retourne le DocumentGenerator scope pour un tenant (lazy init).
+
+    Avant ce correctif, un seul generateur global etait utilise pour tous les tenants, ce
+    qui melangeait leurs documents generes (y compris fiches de sante) dans le meme
+    repertoire.
+    """
+    if tenant_id in _doc_generators:
+        return _doc_generators[tenant_id]
+    if not _CORE_AVAILABLE:
+        return _doc_generator  # comportement de repli identique a avant ce correctif
+    gen = DocumentGenerator(
+        output_dir=os.path.join(os.path.dirname(__file__), "static", "documents"),
+        tenant_id=tenant_id,
+    )
+    existing = _doc_generators.setdefault(tenant_id, gen)
+    return existing
+
 def _get_tenant_manager(tenant_id: int):
     """Retourne le MemoryManager pour un tenant (lazy init, thread-safe)."""
     # Fast path: already exists (dict read is safe in CPython GIL)
@@ -9205,7 +9226,7 @@ async def voice_call_media_stream(websocket: WebSocket):
         _voice_contact = call_params.get("contact_name", "")
         if _voice_contact and bridge.transcript and _doc_generator:
             try:
-                _report_filename = _doc_generator.generate_call_report(
+                _report_filename = _get_doc_generator(_voice_tid).generate_call_report(
                     call_type="vocal",
                     subscriber_name=call_params.get("subscriber_name", _SUBSCRIBER_NAME),
                     contact_name=_voice_contact,
@@ -9248,7 +9269,7 @@ async def voice_call_media_stream(websocket: WebSocket):
 
                 if _sub_email and email_client:
                     _sub_name = call_params.get("subscriber_name", _SUBSCRIBER_NAME)
-                    _pdf_path = os.path.join(_doc_generator.output_dir, _report_filename)
+                    _pdf_path = os.path.join(_get_doc_generator(_voice_tid).output_dir, _report_filename)
                     _summary_text = _call_summary_text
                     try:
                         _email_ok, _email_detail = await email_client.send_for_tenant(
@@ -11387,6 +11408,16 @@ async def ws_dm(websocket: WebSocket, room_id: str):
             if data.get("type") == "message":
                 text = (data.get("text", "") or "").strip()
                 if not text or len(text) > 500:
+                    continue
+                # FIX-DM-WS-BYPASS-P0-001 : la route REST applique ces 3 protections, le
+                # WebSocket doit faire de meme pour ne pas devenir un contournement.
+                from core.social.routes import _check_minor, _rate_check, _sanitize
+                if _check_minor(sops, tid):
+                    continue
+                if not _rate_check("dm_send", tid):
+                    continue
+                text = _sanitize(text)
+                if not text:
                     continue
                 # Check block
                 other_tid = room.get("tid2") if str(room.get("tid1")) == str(tid) else room.get("tid1")
@@ -14103,11 +14134,30 @@ async def add_contact(req: ContactRequest, request: Request):
 
 @app.delete("/api/contacts/{phone}")
 async def delete_contact(phone: str, request: Request):
-    """Supprime un contact de confiance"""
+    """Retire un contact de confiance"""
     tid = getattr(request.state, "tenant_id", 1)
     mgr = _get_tenant_manager(tid)
     if not mgr:
         return JSONResponse(status_code=503, content={"error": "Memoire non disponible"})
+    # FIX-CONTACT-EMERGENCY-P0-001 : bloque le retrait si Guardian est actif et que ce
+    # contact est le dernier restant -- eviter de laisser Guardian sans aucun contact
+    # d'urgence sans avertissement.
+    try:
+        existing = mgr.list_trusted_contacts() or []
+    except Exception:
+        existing = []
+    remaining = [c for c in existing if getattr(c, "phone", None) != phone]
+    engine = _get_guardian()
+    active_sessions = engine.get_active_sessions(tid) if engine else []
+    if not remaining and active_sessions:
+        return JSONResponse(status_code=409, content={
+            "error": (
+                "Impossible de retirer ce contact : Guardian est actuellement actif et "
+                "n'aurait plus aucun contact d'urgence. Arretez Guardian ou ajoutez un "
+                "autre contact avant de continuer."
+            ),
+            "code": "guardian_would_have_no_contacts",
+        })
     removed = mgr.remove_trusted_contact(phone)
     if not removed:
         return JSONResponse(status_code=404, content={"error": "Contact introuvable"})
@@ -18437,7 +18487,7 @@ async def _tool_send_conclusions(args: Dict, tenant_id: int = 0, conversation_id
     download_url = ""
     if _doc_generator:
         try:
-            fname = _doc_generator.generate_letter(
+            fname = _get_doc_generator(tid).generate_letter(
                 doc_type="compte_rendu",
                 subject=subject,
                 body_text=conclusions,
@@ -18851,9 +18901,9 @@ async def _tool_generate_document(args: Dict, tenant_id: int = 0) -> Dict:
         return {"status": "error", "message": "Erreur lors de la generation du document. Reessaie."}
 
     if doc_type == "fiche_sante" and profile_dict:
-        filename = _doc_generator.generate_health_sheet(profile_dict)
+        filename = _get_doc_generator(tid).generate_health_sheet(profile_dict)
     else:
-        filename = _doc_generator.generate_letter(
+        filename = _get_doc_generator(tid).generate_letter(
             doc_type=doc_type,
             subject=subject,
             body_text=body_text,
@@ -18907,6 +18957,21 @@ async def _tool_alert_contacts(args: Dict, tenant_id: int = 0) -> Dict:
     mgr = _get_tenant_manager(tenant_id) if tenant_id else _memory_manager
     if not mgr or not sms_client.is_configured:
         return {"status": "error", "message": "Service SMS non disponible"}
+
+    # FIX-ALERT-CONTACTS-RATELIMIT-P1-001 : anti-repetition -- meme fenetre (30 min) que
+    # le correctif de boucle vocale deja applique sur le pipeline Guardian, pour eviter
+    # de bombarder les contacts de confiance de SMS repetes en cas d'appel multiple
+    # (clic repete, boucle IA, session compromise).
+    try:
+        _tid_for_rl = tenant_id or 0
+        _rl_key = f"luna:{_tid_for_rl}:alert_contacts:cooldown"
+        if _redis_client and not _redis_client.client.set(_rl_key, "1", nx=True, ex=1800):
+            return {
+                "status": "error",
+                "message": "Une alerte a deja ete envoyee recemment. Merci de patienter avant d'en renvoyer une.",
+            }
+    except Exception:
+        pass
 
     reason = args.get("reason", "situation preoccupante")
     contacts = mgr.list_trusted_contacts()
@@ -21015,7 +21080,7 @@ async def generate_document(req: DocumentRequest, request: Request):
 
     # Special case: fiche sante (from profile directly)
     if req.doc_type == "fiche_sante" and profile_dict:
-        filename = _doc_generator.generate_health_sheet(profile_dict)
+        filename = _get_doc_generator(tid).generate_health_sheet(profile_dict)
         return {
             "success": True,
             "filename": filename,
@@ -21027,7 +21092,7 @@ async def generate_document(req: DocumentRequest, request: Request):
     if req.doc_type == "export_notes" and mgr:
         notes = mgr.list_notes(limit=200)
         note_dicts = [{"content": n.content, "context": n.context, "created_at": n.created_at.isoformat() if n.created_at else "", "tags": n.tags} for n in notes]
-        filename = _doc_generator.generate_notes_export(note_dicts)
+        filename = _get_doc_generator(tid).generate_notes_export(note_dicts)
         return {
             "success": True,
             "filename": filename,
@@ -21055,7 +21120,7 @@ async def generate_document(req: DocumentRequest, request: Request):
         logger.error(f"Document generation error: {e}")
         return JSONResponse(status_code=500, content={"error": "Erreur lors de la generation du document."})
 
-    filename = _doc_generator.generate_letter(
+    filename = _get_doc_generator(tid).generate_letter(
         doc_type=req.doc_type,
         subject=req.subject,
         body_text=body_text,
@@ -21078,7 +21143,7 @@ async def list_documents(request: Request):
     if not _doc_generator:
         return JSONResponse(status_code=503, content={"error": "Generateur non disponible"})
     tid = getattr(request.state, "tenant_id", 1)
-    docs = _doc_generator.list_documents()
+    docs = _get_doc_generator(tid).list_documents()
     for d in docs:
         d["download_url"] = f"/api/documents/download/{d['filename']}"
     return {"documents": docs, "count": len(docs)}
@@ -22760,9 +22825,12 @@ async def room_websocket(websocket: WebSocket, room_id: str):
             await websocket.close(code=4001, reason="Token membre invalide")
             return
     else:
-        # No token at all
-        if not phone:
-            phone = "subscriber"
+        # FIX-SALON-WS-ANON-BYPASS-P0-001 : sans JWT ni jeton membre HMAC valide, la
+        # connexion n'est pas authentifiee -- refuser au lieu de continuer avec une
+        # identite "subscriber" par defaut (contournement total de l'authentification
+        # sinon, y compris pour les salons du tenant fondateur via host_tid).
+        await websocket.close(code=4001, reason="Authentification requise")
+        return
 
     # Verify room exists — use host_tid for cross-tenant friend rooms
     room_tid = host_tid if host_tid else tid
@@ -22899,7 +22967,7 @@ async def sync_from_tavus(request: Request):
                     for entry in transcript:
                         role = "luna" if entry.get("speaker") == "replica" else "user"
                         _pdf_transcript.append({"role": role, "text": entry.get("text", "")})
-                    _report_fn = _doc_generator.generate_call_report(
+                    _report_fn = _get_doc_generator(tid).generate_call_report(
                         call_type="visio",
                         subscriber_name=_SUBSCRIBER_NAME,
                         contact_name="Luna (visio)",

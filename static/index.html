@@ -5804,7 +5804,7 @@ function _handleStreamResponse(response, originalMsg) {
             saveHistory();
           } else if (data.type === "error") {
             _remoteLog("error", "sse", "stream_error_event", data.message || "unknown");
-            textEl.innerHTML = '<span style="color:#f87171;">' + (data.message || "Erreur") + '</span>';
+            textEl.innerHTML = '<span style="color:#f87171;">' + esc(data.message || "Erreur") + '</span>';
           }
         } catch(e) { _remoteLog("error", "sse", "parse_error", String(e)); }
       }
@@ -8032,7 +8032,7 @@ function _msgBuildBubble(m, myTid) {
   var text = m.text || m.content || "";
   var sender = String(m.sender_tid || m.sender || "");
   var isMe = sender === myTid;
-  if (_msgIsAlert(text)) {
+  if (m.sender_type === "guardian") {
     var card = document.createElement("div");
     card.className = "msg-alert";
     var head = document.createElement("div");
