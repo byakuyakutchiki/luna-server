@@ -63,7 +63,7 @@ public class GuardianService extends Service {
     private static final String BACKEND_BASE_URL = "http://192.168.1.45:8000";
 
     private static final int    NOTIF_ID         = 2001;
-    private static final String CHANNEL_NORMAL   = "luna_guardian";
+    private static final String CHANNEL_NORMAL   = "luna_guardian_v2";
     private static final String CHANNEL_ALERT    = "luna_guardian_alert_silent";
 
     // ── Écoute mot-clé (mêmes mots-clés que MainActivity « Guardian Voice Core ») ──
@@ -268,7 +268,7 @@ public class GuardianService extends Service {
         NotificationChannel normal = new NotificationChannel(
             CHANNEL_NORMAL, "Guardian — Présence protectrice", NotificationManager.IMPORTANCE_LOW);
         normal.setDescription("Indique que Guardian surveille activement");
-        normal.setShowBadge(false);
+        normal.setShowBadge(true);
         normal.setSound(null, null);
         mgr.createNotificationChannel(normal);
 
