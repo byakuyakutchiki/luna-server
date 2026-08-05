@@ -8,6 +8,15 @@
 
 ## TODO
 
+### TASK-036-DEEPSEEK-AUDIT-BOITE-NOIRE-EXPLOITANT
+- Agent : DeepSeek
+- Objectif : boite-noire-exploitant (audit relance, brief initial 2026-06-23)
+- Niveau : 0
+- Statut : open
+- Tache : lire `docs/AGENTS_COLLABORATION/agents/DEEPSEEK_AUDIT_SAAS_EXPLOITANT_BOITE_NOIRE.md` en entier y compris la section 6 (mise a jour 2026-08-06). Auditer les 5 axes A a E sur le HEAD actuel de la branche `automation/supervisor-hardening-003` (commit `d7f93cd` ou plus recent) : etancheite anti-fork de l'image exploitant, robustesse kill-switch/licence, calcul et verifiabilite des royalties 70/30, garde-fous mode test fondateur, surface de securite de l'image Docker.
+- Interdits : pas de modification de code, pas de build/deploiement d'image, pas d'action externe reelle (SMS/email/appel/paiement/reservation), pas de manipulation de secrets (.env, pv_lock.json, JWT_SECRET_KEY).
+- Resultat attendu : `docs/AGENTS_COLLABORATION/agents/DEEPSEEK_AUDIT_SAAS_EXPLOITANT_LIVRABLE.md` (synthese Go/No-Go + tableau de risques P0/P1/P2 + checklist Go-Live exploitant, format detaille en section 5 du brief) + message AGENT_CHANNEL.
+
 ### TASK-026-CLAUDE-BACKEND-CAPABILITY-ROUTER
 - Agent : Claude
 - Objectif : 026
